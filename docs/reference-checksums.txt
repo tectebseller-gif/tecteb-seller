@@ -1,0 +1,3 @@
+5e8acb5d4ed405e9a06feedc896d6db8845a2d6aded95f24577d3cf5087541e6  docs/Tecteb-Marketplace-Core-Master-Spec-v0.3.docx
+3e8180369c4377235a3679dcef5e2f790037f79b33bde03dcb4c3da513ec1657  docs/Tecteb-Marketplace-Core-UX-Wireframe-Spec-v0.2.docx
+a104aca7770aef14aaa88e4e3cce6de65a3305c7e3f4b608bd41174a0d557aa7  docs/Tecteb-Marketplace-Core-Claude-Code-Prompt-Phase-1-v0.2.md

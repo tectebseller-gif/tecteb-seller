@@ -1,0 +1,9 @@
+/vendor/
+/node_modules/
+/dist/
+/build/
+/.phpunit.cache/
+/tests/_output/
+*.log
+.env
+.DS_Store
