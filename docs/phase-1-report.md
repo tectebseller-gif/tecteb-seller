@@ -13,13 +13,13 @@
 
 | گیت | دستور | نسخه | exit | نتیجه | log |
 |---|---|---|---|---|---|
-| Unit خالص (بدون هیچ نماد WordPress) | `vendor/bin/phpunit --testsuite unit` | PHPUnit 10.5.64 / PHP 8.4.19 | 0 | **۱۲۴ تست، ۲۰٬۵۰۳ assertion** | `docs/evidence/unit.log` |
+| Unit خالص (بدون هیچ نماد WordPress) | `vendor/bin/phpunit --testsuite unit` | PHPUnit 10.5.64 / PHP 8.4.19 | 0 | **۱۳۴ تست، ۲۰٬۵۵۲ assertion** | `docs/evidence/unit.log` |
 | معماری و قواعد ایستای امنیتی | `vendor/bin/phpunit --testsuite architecture` | همان | 0 | **۱۲ تست، ۶۰ assertion** | `docs/evidence/architecture.log` |
-| قرارداد با stub وردپرس | `vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php` | همان | 0 | **۴۲ تست، ۴۵۲ assertion** | `docs/evidence/contract.log` |
-| دیتابیس واقعی | `vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php` | MariaDB 10.11.14 | 0 | **۱۸ تست، ۱۸۱ assertion** | `docs/evidence/database.log` |
-| lint نحوی | `bash tools/lint.sh` | PHP 8.4.19 | 0 | ۱۱۱ فایل، ۰ خطا | `docs/evidence/lint.log` |
-| سازگاری ایستا با PHP 8.1 | `composer compat` | PHPCompatibility 10.0.0-alpha2 | 0 | ۱۱۱ فایل، ۰ خطا | `docs/evidence/phpcompat-8.1.log` |
-| بسته‌بندی روی artefact واقعی | `vendor/bin/phpunit --testsuite packaging` | همان | 0 | **۱۲ تست، ۲٬۶۳۶ assertion** | `docs/evidence/packaging.log` |
+| قرارداد با stub وردپرس | `vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php` | همان | 0 | **۴۵ تست، ۴۶۶ assertion** | `docs/evidence/contract.log` |
+| دیتابیس واقعی | `vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php` | MariaDB 10.11.14 | 0 | **۲۲ تست، ۲۰۸ assertion** | `docs/evidence/database.log` |
+| lint نحوی | `bash tools/lint.sh` | PHP 8.4.19 | 0 | ۱۱۳ فایل، ۰ خطا | `docs/evidence/lint.log` |
+| سازگاری ایستا با PHP 8.1 | `composer compat` | PHPCompatibility 10.0.0-alpha2 | 0 | ۱۱۳ فایل، ۰ خطا | `docs/evidence/phpcompat-8.1.log` |
+| بسته‌بندی روی artefact واقعی | `vendor/bin/phpunit --testsuite packaging` | همان | 0 | **۱۲ تست، ۲٬۶۸۰ assertion** | `docs/evidence/packaging.log` |
 | کنتراست WCAG | `php tools/contrast.php` | — | 0 | ۱۳ ترکیب، ۰ خطا | `docs/evidence/contrast.log` |
 | مرورگر روی harness | `node tools/browser/check.mjs` | Playwright 1.63.0 / Chromium 141 / axe-core 4.13.0 | 0 | **۲۳۳ بررسی، ۰ خطا** | `docs/evidence/browser-checks.json` |
 | **نصب/فعال‌سازی واقعی WordPress** | — | — | — | **Not Run** | — |
@@ -57,6 +57,9 @@
 | **نوشتن نسخه/ثبت خطا/حذف خطا اتمیک مشروط به مالکیت قفل** | `Contracts/GuardedOptionStoreInterface.php`، `WpLockStore::setGuarded/deleteGuarded` | `MigrationTakeoverTest::testTakeoverBetweenTheOwnershipCheckAndTheVersionWrite`، `MigrationMariaDbTest::testGuardedWriteOnlyHappensWhileTheGuardValueMatches` و `…GuardedDeleteOnlyHappens…` | **Passed** (MariaDB) |
 | اجرای منسوخ‌شده پس از تصاحب هیچ چیز نمی‌نویسد و خطای اجرای جدید را پاک نمی‌کند | `MigrationRunner.php` | `MigrationTakeoverTest` (۱۰ تست)، `MigrationMariaDbTest::testRunRefusesToWriteTheVersionAfterAnotherOwnerTookTheLock` | **Passed** |
 | شکست ثبت خطا استثنای کنترل‌نشده نمی‌سازد | همان | `MigrationTakeoverTest::testFailureToRecordTheErrorDoesNotThrow` | **Passed** |
+| **نتیجه پاک‌سازی رکورد خطا چهار حالت متمایز دارد** | `Core/Migration/CleanupOutcome.php` | `MigrationCleanupTest` (۱۰ تست)، `MigrationMariaDbTest::testCleanupOutcomesAreDistinguishedOnRealDatabase` | **Passed** (MariaDB) |
+| نبود رکورد خطا شکست نیست؛ شکست پاک‌سازی موفقیت کامل نیست | `MigrationResult::isFullySuccessful()` | `testNothingRecordedIsNotAFailure`، `testCleanupFailureIsReportedAndNeverReadsAsACleanSuccess` | **Passed** |
+| رکورد خطای کهنه مسیر بازیابی دارد و صفحه سلامت را قفل نمی‌کند | `MigrationRunner::clearStaleRecord()`، `HealthReportBuilder` | `HealthSchemaStateTest` (۳ تست)، `MigrationMariaDbTest::testReactivationClearsAStaleErrorRecordOnRealDatabase` | **Passed** (MariaDB) |
 | غیرفعال‌سازی داده را نگه می‌دارد | `Lifecycle/Deactivator.php` | `ActivationFlowTest::testDeactivationLeavesTableOptionsAndCapabilitiesInPlace` | **Passed** |
 | `uninstall.php` هیچ داده‌ای حذف نمی‌کند | `uninstall.php` | `PackagingTest::testUninstallFileDeletesNothing` | **Passed** |
 | Multisite با پیام فارسی رد می‌شود، بدون تغییر سراسری | `Lifecycle/MultisiteGuard.php` | `LifecycleTest` (۳ تست) | **Passed** |
@@ -201,11 +204,11 @@
 
 | فایل | SHA-256 |
 |---|---|
-| `dist/tecteb-marketplace-core.zip` | `e32333ae9cf6c493ddda8f3bb3051c2d17261068f321968e3441cb008f5a670c` |
+| `dist/tecteb-marketplace-core.zip` | `617fcfc451e3d2e1a6451a41ed616330b7e265d2ac6b3549bdf7b94f7a94f30a` |
 
-> این هش پس از اصلاح‌های دور دوم بازبینی (بندهای ۸ تا ۱۱ در
-> `docs/review-fixes-phase-1.md`) تولید شده و جایگزین هش قبلی
-> `c16961df…01eaa` است.
+> این هش پس از اصلاح‌های دور سوم بازبینی (بندهای ۱۲ و ۱۳ در
+> `docs/review-fixes-phase-1.md`) تولید شده و جایگزین هش‌های قبلی
+> `c16961df…01eaa` و `e32333ae…5a670c` است.
 
 **تکرارپذیری.** timestamp بسته دیگر از تاریخ آخرین commit گرفته نمی‌شود، بلکه
 یک epoch ثابت (`1757203200`، قابل override با `SOURCE_DATE_EPOCH`) است.

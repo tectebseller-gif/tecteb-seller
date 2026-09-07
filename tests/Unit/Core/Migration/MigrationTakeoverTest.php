@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Tests\Unit\Core\Migration;
 use PHPUnit\Framework\TestCase;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Contracts\MigrationInterface;
+use Tecteb\Marketplace\Contracts\GuardedWriteOutcome;
 use Tecteb\Marketplace\Core\Migration\MigrationLock;
 use Tecteb\Marketplace\Core\Migration\MigrationRunner;
 use Tecteb\Marketplace\Core\Migration\MigrationStatus;
@@ -300,17 +301,18 @@ final class MigrationTakeoverTest extends TestCase
         $lockB = new MigrationLock($this->locks, $clockB, 'owner-run-b-clr0', 300);
         self::assertTrue($lockB->acquire());
         $bError = ['step' => '0002_step', 'message' => 'B failed here', 'at' => '2026-09-07T10:00:00+00:00'];
-        self::assertTrue($this->locks->setGuarded(SchemaVersion::LAST_ERROR_OPTION, $bError, $lockB->guardKey(), (string) $lockB->guardValue()));
+        self::assertSame(GuardedWriteOutcome::Written, $this->locks->setGuarded(SchemaVersion::LAST_ERROR_OPTION, $bError, $lockB->guardKey(), (string) $lockB->guardValue()));
 
         // A now tries to clear the error as part of "finishing successfully".
-        self::assertFalse(
+        self::assertSame(
+            GuardedWriteOutcome::NotOwner,
             $this->locks->deleteGuarded(SchemaVersion::LAST_ERROR_OPTION, $lockA->guardKey(), (string) $lockA->guardValue()),
             'the guard must refuse a delete from a run that no longer owns the lock'
         );
         self::assertSame($bError, $this->options->get(SchemaVersion::LAST_ERROR_OPTION), "run B's failure survives");
 
         // The owner may clear it.
-        self::assertTrue($this->locks->deleteGuarded(SchemaVersion::LAST_ERROR_OPTION, $lockB->guardKey(), (string) $lockB->guardValue()));
+        self::assertSame(GuardedWriteOutcome::Written, $this->locks->deleteGuarded(SchemaVersion::LAST_ERROR_OPTION, $lockB->guardKey(), (string) $lockB->guardValue()));
         self::assertNull($this->options->get(SchemaVersion::LAST_ERROR_OPTION));
     }
 
@@ -331,7 +333,7 @@ final class MigrationTakeoverTest extends TestCase
         };
         $this->options = $options;
         $locks = new class extends InMemoryLockStore {
-            public function setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): bool
+            public function setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): GuardedWriteOutcome
             {
                 if ($key === SchemaVersion::LAST_ERROR_OPTION) {
                     throw new \RuntimeException('the option store is down too');

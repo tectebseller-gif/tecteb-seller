@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Core\Migration;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Contracts\GuardedOptionStoreInterface;
+use Tecteb\Marketplace\Contracts\GuardedWriteOutcome;
 use Tecteb\Marketplace\Contracts\MigrationInterface;
 use Tecteb\Marketplace\Contracts\OptionStoreInterface;
 use Tecteb\Marketplace\Core\Support\TextSanitizer;
@@ -118,7 +119,10 @@ final class MigrationRunner
             return MigrationResult::ahead($from, $this->targetVersion);
         }
         if ($from === $this->targetVersion) {
-            return MigrationResult::upToDate($from);
+            // Nothing to migrate — but a failure record may still be lying
+            // around from a run whose clear did not go through. This is the
+            // recovery path for it: reactivating the plugin calls run().
+            return MigrationResult::upToDate($from, $this->clearStaleRecord());
         }
         if (!$this->lock->acquire()) {
             return MigrationResult::locked($from);
@@ -132,7 +136,8 @@ final class MigrationRunner
                 return MigrationResult::ahead($current, $this->targetVersion);
             }
             if ($current >= $this->targetVersion) {
-                return MigrationResult::upToDate($current);
+                // Already inside the lock, so clear directly.
+                return MigrationResult::upToDate($current, $this->clearRecordedErrorIfOwned());
             }
             $from = $current;
 
@@ -176,8 +181,9 @@ final class MigrationRunner
                 $applied[] = $migration->id();
             }
             // Clearing a previous failure is also state: only the owner may.
-            $this->clearRecordedErrorIfOwned();
-            return MigrationResult::applied($from, $current, $applied);
+            // The outcome is carried in the result — a clear that failed left
+            // a stale record behind and must not read as a clean success.
+            return MigrationResult::applied($from, $current, $applied, $this->clearRecordedErrorIfOwned());
         } finally {
             // Conditional on this run's own value: a lock taken over by a
             // newer run is left untouched.
@@ -214,14 +220,19 @@ final class MigrationRunner
         );
     }
 
-    /** Writes the schema version only while this run owns the lock. */
+    /**
+     * Writes the schema version only while this run owns the lock.
+     * NoChangeNeeded (the stored value is already this version) counts as
+     * persisted: the desired state is what matters, not the row count.
+     */
     private function writeVersionIfOwned(int $version): bool
     {
         $guard = $this->lock->guardValue();
         if ($guard === null) {
             return false;
         }
-        return $this->guarded->setGuarded(SchemaVersion::OPTION, $version, $this->lock->guardKey(), $guard);
+        $outcome = $this->guarded->setGuarded(SchemaVersion::OPTION, $version, $this->lock->guardKey(), $guard);
+        return $outcome === GuardedWriteOutcome::Written || $outcome === GuardedWriteOutcome::NoChangeNeeded;
     }
 
     /**
@@ -237,7 +248,7 @@ final class MigrationRunner
             if ($guard === null) {
                 return false;
             }
-            return $this->guarded->setGuarded(
+            $outcome = $this->guarded->setGuarded(
                 SchemaVersion::LAST_ERROR_OPTION,
                 [
                     'step' => $step,
@@ -247,22 +258,67 @@ final class MigrationRunner
                 $this->lock->guardKey(),
                 $guard
             );
+            return $outcome === GuardedWriteOutcome::Written || $outcome === GuardedWriteOutcome::NoChangeNeeded;
         } catch (\Throwable) {
             return false;
         }
     }
 
-    /** Clears a recorded failure, guarded by ownership. Never throws. */
-    private function clearRecordedErrorIfOwned(): bool
+    /**
+     * Clears a recorded failure, guarded by ownership. Never throws, and never
+     * collapses the four possible endings into one boolean:
+     *
+     *   NotNeeded        there was no record — an ordinary run, not a failure
+     *   Cleared          the record was removed
+     *   SkippedNotOwner  another run owns the lock and is authoritative here
+     *   Failed           the database refused; a stale record is still there
+     */
+    private function clearRecordedErrorIfOwned(): CleanupOutcome
     {
         try {
             $guard = $this->lock->guardValue();
             if ($guard === null) {
-                return false;
+                return CleanupOutcome::SkippedNotOwner;
             }
-            return $this->guarded->deleteGuarded(SchemaVersion::LAST_ERROR_OPTION, $this->lock->guardKey(), $guard);
+            return match ($this->guarded->deleteGuarded(SchemaVersion::LAST_ERROR_OPTION, $this->lock->guardKey(), $guard)) {
+                GuardedWriteOutcome::Written => CleanupOutcome::Cleared,
+                GuardedWriteOutcome::NoChangeNeeded => CleanupOutcome::NotNeeded,
+                GuardedWriteOutcome::NotOwner => CleanupOutcome::SkippedNotOwner,
+                GuardedWriteOutcome::Failed => CleanupOutcome::Failed,
+            };
         } catch (\Throwable) {
-            return false;
+            // Recording or clearing a failure must never become a second,
+            // uncontrolled failure on top of the first.
+            return CleanupOutcome::Failed;
+        }
+    }
+
+    /**
+     * Removes a failure record left behind by an earlier run when the schema
+     * has since reached the target — the record describes a failure that no
+     * longer exists.
+     *
+     * Costs nothing on an ordinary request: run() is reached only on
+     * activation or when a migration is actually pending, and the lock is
+     * taken only when there really is a record to remove.
+     */
+    private function clearStaleRecord(): CleanupOutcome
+    {
+        if ($this->lastError() === null) {
+            return CleanupOutcome::NotNeeded;
+        }
+        if (!$this->lock->acquire()) {
+            return CleanupOutcome::SkippedNotOwner; // another run is working; it owns this record
+        }
+        try {
+            if ($this->currentVersion() < $this->targetVersion) {
+                // The other run moved the schema in the meantime: the record
+                // is not stale after all, and is not ours to remove.
+                return CleanupOutcome::SkippedNotOwner;
+            }
+            return $this->clearRecordedErrorIfOwned();
+        } finally {
+            $this->lock->release();
         }
     }
 }

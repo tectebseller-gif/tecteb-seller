@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Tests\Unit\Core\Migration;
 use PHPUnit\Framework\TestCase;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Contracts\MigrationInterface;
+use Tecteb\Marketplace\Contracts\GuardedWriteOutcome;
 use Tecteb\Marketplace\Core\Migration\MigrationLock;
 use Tecteb\Marketplace\Core\Migration\MigrationRunner;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0001CreateAuditTable;
@@ -176,7 +177,7 @@ final class MigrationRunnerTest extends TestCase
         // The version now travels through the GUARDED path, so that is where
         // an exploding store has to be simulated.
         $this->locks = new class extends InMemoryLockStore {
-            public function setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): bool
+            public function setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): GuardedWriteOutcome
             {
                 if ($key === SchemaVersion::OPTION) {
                     throw new \RuntimeException('option store exploded');

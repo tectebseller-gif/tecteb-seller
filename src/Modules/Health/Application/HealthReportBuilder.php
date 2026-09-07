@@ -45,6 +45,12 @@ final class HealthReportBuilder
         $stored = $this->migrations->currentVersion();
         $target = $this->migrations->targetVersion();
         $lastError = $this->migrations->lastError();
+        // A failure record whose schema has since reached the target describes
+        // a failure that no longer exists: the run that recorded it was
+        // superseded by one that completed, and only the removal of the record
+        // failed. Reporting that as a broken schema would be wrong, and — since
+        // no migration is pending any more — it would also never clear itself.
+        $staleError = $lastError !== null && $stored >= $target;
         $settings = $this->settings->load();
 
         $checks = [];
@@ -67,12 +73,13 @@ final class HealthReportBuilder
         ]);
         // Separate field on purpose (UX-01): "enabled" is not "tested".
         $checks[] = new HealthCheck('hpos_tested', HealthStatus::Unknown, ['tested' => false]);
-        $checks[] = new HealthCheck('schema', $this->schemaStatus($stored, $target, $lastError), [
+        $checks[] = new HealthCheck('schema', $this->schemaStatus($stored, $target, $lastError, $staleError), [
             'stored' => $stored,
             'target' => $target,
             'last_error_step' => $lastError['step'] ?? null,
             'last_error_message' => $lastError['message'] ?? null,
             'last_error_at' => $lastError['at'] ?? null,
+            'last_error_stale' => $staleError,
             'ahead' => $stored > $target,
         ]);
         $checks[] = new HealthCheck('environment', $env->type === EnvironmentType::Unknown ? HealthStatus::Unknown : HealthStatus::Healthy, [
@@ -112,9 +119,9 @@ final class HealthReportBuilder
         );
     }
 
-    private function schemaStatus(int $stored, int $target, ?array $lastError): HealthStatus
+    private function schemaStatus(int $stored, int $target, ?array $lastError, bool $staleError): HealthStatus
     {
-        if ($lastError !== null) {
+        if ($lastError !== null && !$staleError) {
             return HealthStatus::ActionRequired;
         }
         if ($stored > $target) {

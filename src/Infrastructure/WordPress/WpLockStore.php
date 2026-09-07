@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Infrastructure\WordPress;
 
 use Tecteb\Marketplace\Contracts\GuardedOptionStoreInterface;
+use Tecteb\Marketplace\Contracts\GuardedWriteOutcome;
 use Tecteb\Marketplace\Contracts\LockStoreInterface;
 
 /**
@@ -77,7 +78,7 @@ final class WpLockStore implements LockStoreInterface, GuardedOptionStoreInterfa
      * comparison and the write because MySQL evaluates both inside one
      * statement.
      */
-    public function setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): bool
+    public function setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): GuardedWriteOutcome
     {
         $stored = maybe_serialize($value);
         $sql = $this->wpdb->prepare(
@@ -92,14 +93,14 @@ final class WpLockStore implements LockStoreInterface, GuardedOptionStoreInterfa
         );
         $result = $this->wpdb->query($sql);
         $this->forgetCache($key);
-        return is_int($result) && $result > 0;
+        return $this->classify($result, $guardKey, $guardValue);
     }
 
     /**
      * Single-statement delete guarded by the lock row: the join yields no
      * rows when the guard does not match, so nothing is removed.
      */
-    public function deleteGuarded(string $key, string $guardKey, string $guardValue): bool
+    public function deleteGuarded(string $key, string $guardKey, string $guardValue): GuardedWriteOutcome
     {
         $sql = $this->wpdb->prepare(
             "DELETE target FROM {$this->wpdb->options} AS target
@@ -112,7 +113,37 @@ final class WpLockStore implements LockStoreInterface, GuardedOptionStoreInterfa
         );
         $result = $this->wpdb->query($sql);
         $this->forgetCache($key);
-        return is_int($result) && $result > 0;
+        return $this->classify($result, $guardKey, $guardValue);
+    }
+
+    /**
+     * Turns "affected rows" into the outcome the caller can act on.
+     *
+     * Zero rows is ambiguous by nature: MySQL reports it both when the guard
+     * did not match (nothing was selected to write) and when the statement
+     * was a no-op (the value was already identical, or there was no row to
+     * delete). Only re-reading the guard separates them.
+     *
+     * That extra read is safe precisely because the WRITE already happened —
+     * or already did not. It classifies a decision the database has made;
+     * it is not part of making it, so it cannot reopen the window the guarded
+     * statement closes. Ownership is also one-way within a run: once this
+     * run's value is gone from the lock row it can never come back, so a
+     * guard that still matches here matched during the statement too.
+     *
+     * @param mixed $affectedRows whatever wpdb::query() returned
+     */
+    private function classify(mixed $affectedRows, string $guardKey, string $guardValue): GuardedWriteOutcome
+    {
+        if (!is_int($affectedRows)) {
+            return GuardedWriteOutcome::Failed; // wpdb reports a failed query as false
+        }
+        if ($affectedRows > 0) {
+            return GuardedWriteOutcome::Written;
+        }
+        return $this->read($guardKey) === $guardValue
+            ? GuardedWriteOutcome::NoChangeNeeded
+            : GuardedWriteOutcome::NotOwner;
     }
 
     private function forgetCache(string $key): void

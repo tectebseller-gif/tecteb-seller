@@ -22,13 +22,13 @@
 
 | مؤلفه | نسخه | منبع نسخه | وضعیت | دلیل / شاهد |
 |---|---|---|---|---|
-| PHP | 8.4.19 | اندازه‌گیری در کانتینر | **`Passed`** — ۱۱۱ فایل lint، ۲۰۸ تست در پنج suite | تنها PHP موجود · `docs/evidence/lint.log`، `unit.log` |
+| PHP | 8.4.19 | اندازه‌گیری در کانتینر | **`Passed`** — ۱۱۳ فایل lint، ۲۲۵ تست در پنج suite | تنها PHP موجود · `docs/evidence/lint.log`، `unit.log` |
 | PHP | 8.1.34 | **User-Reported** | `Not Run` (اجرا) · **`Passed`** (ایستا) | PPA مسدود است. PHPCompatibility با `testVersion 8.1-` روی ۱۰۹ فایل بدون خطا؛ و گیت روی نحو ۸٫۲ واقعاً خطا می‌دهد (`phpcompat-selfcheck.log`). این شاهد **ایستا** است، نه اجرا |
 | PHP | 8.2 / 8.3 | — | `Not Tested` | خارج از دامنه اعلامی |
 | WordPress | 7.1 | **User-Reported** | `Not Run` | WP core قابل دانلود نیست |
 | WordPress | 6.3 (هدر `Requires at least`) | **حداقل پیشنهادی** | `Not Run` | آزموده‌نشده و بدون مبنای فنی مستند. تا محاسبه پایین‌ترین نسخه از روی APIهای مصرفی **و** اجرای پروتکل بند ۴ نصب، «حداقل پشتیبانی‌شده» خوانده نمی‌شود (`docs/installation.md` §۲٫۱) |
 | WooCommerce | 11.0.1 | **User-Reported** | `Not Run` | WC قابل دانلود نیست |
-| MySQL / MariaDB | MariaDB 10.11.14 | نصب و اجرا در کانتینر | **`Passed`** — ۱۸ تست، DDL/ایندکس/قفل/هم‌زمانی/نوشتن guarded | فقط جدول audit؛ **معادل نصب WP نیست** · `docs/evidence/database.log` |
+| MySQL / MariaDB | MariaDB 10.11.14 | نصب و اجرا در کانتینر | **`Passed`** — ۲۲ تست، DDL/ایندکس/قفل/هم‌زمانی/نوشتن guarded/پاک‌سازی | فقط جدول audit؛ **معادل نصب WP نیست** · `docs/evidence/database.log` |
 | MySQL سایت | ? | نامعلوم | `Not Tested` | نسخه DB سایت گزارش نشده |
 
 ## ۲. حالت‌های سفارش WooCommerce (COMP-01)

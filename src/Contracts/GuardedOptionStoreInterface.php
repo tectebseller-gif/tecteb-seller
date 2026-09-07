@@ -15,6 +15,12 @@ namespace Tecteb\Marketplace\Contracts;
  * These methods close that window by pushing the condition into the database:
  * the guard comparison and the write are one statement, so either both happen
  * or neither does. No amount of extra checking in PHP can provide this.
+ *
+ * Both methods report WHAT HAPPENED (GuardedWriteOutcome), not merely whether
+ * something happened. "The guard did not match", "there was nothing to do" and
+ * "the database refused" are three different facts and the caller needs all
+ * three: the first means another run is in charge, the second is a success,
+ * and only the third is this run's problem.
  */
 interface GuardedOptionStoreInterface
 {
@@ -22,17 +28,17 @@ interface GuardedOptionStoreInterface
      * Writes $key = $value ONLY IF $guardKey currently holds exactly
      * $guardValue. Creates $key when it is absent.
      *
-     * @return bool true when the write took effect. False means either the
-     *         guard did not match or the stored value was already identical;
-     *         callers that need to tell those apart must ask the lock.
+     * NoChangeNeeded means the guard matched and the stored value was already
+     * identical — the desired state was reached, so callers must treat it as
+     * success, not as a refused write.
      */
-    public function setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): bool;
+    public function setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): GuardedWriteOutcome;
 
     /**
      * Deletes $key ONLY IF $guardKey currently holds exactly $guardValue.
      *
-     * @return bool true when a row was removed. False also covers "there was
-     *         nothing to delete", which is not an error.
+     * NoChangeNeeded means the guard matched and there was no row to remove.
+     * Absence is the desired state, so it is success, not failure.
      */
-    public function deleteGuarded(string $key, string $guardKey, string $guardValue): bool;
+    public function deleteGuarded(string $key, string $guardKey, string $guardValue): GuardedWriteOutcome;
 }

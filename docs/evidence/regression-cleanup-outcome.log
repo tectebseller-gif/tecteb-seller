@@ -1,0 +1,119 @@
+======================================================================
+Regression evidence for review round 3.
+The cleanup result is put back the way it was — run() calls
+clearRecordedErrorIfOwned() and DISCARDS what it returns, always
+reporting Applied/UpToDate — and the health page is put back to
+treating ANY recorded failure as a broken schema.
+Generated 2026-09-07T16:48:44Z. PHP 8.4.19
+======================================================================
+
+--- unit: MigrationCleanupTest ---
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+FFFFFFFF..                                                        10 / 10 (100%)
+
+Time: 00:00.010, Memory: 10.00 MB
+
+There were 8 failures:
+
+1) Tecteb\Marketplace\Tests\Unit\Core\Migration\MigrationCleanupTest::testNothingRecordedIsNotAFailure
+an absent record is not a failed cleanup
+Failed asserting that null is identical to an object of class "Tecteb\Marketplace\Core\Migration\CleanupOutcome".
+
+/home/user/tecteb-seller/tests/Unit/Core/Migration/MigrationCleanupTest.php:90
+
+2) Tecteb\Marketplace\Tests\Unit\Core\Migration\MigrationCleanupTest::testRecordedFailureIsClearedAndReported
+Failed asserting that null is identical to an object of class "Tecteb\Marketplace\Core\Migration\CleanupOutcome".
+
+/home/user/tecteb-seller/tests/Unit/Core/Migration/MigrationCleanupTest.php:105
+
+3) Tecteb\Marketplace\Tests\Unit\Core\Migration\MigrationCleanupTest::testCleanupIsSkippedWhenTheLockWasTakenOverAfterTheVersionWrite
+Failed asserting that null is identical to an object of class "Tecteb\Marketplace\Core\Migration\CleanupOutcome".
+
+/home/user/tecteb-seller/tests/Unit/Core/Migration/MigrationCleanupTest.php:136
+
+4) Tecteb\Marketplace\Tests\Unit\Core\Migration\MigrationCleanupTest::testCleanupFailureIsReportedAndNeverReadsAsACleanSuccess
+Failed asserting that null is identical to an object of class "Tecteb\Marketplace\Core\Migration\CleanupOutcome".
+
+/home/user/tecteb-seller/tests/Unit/Core/Migration/MigrationCleanupTest.php:152
+
+5) Tecteb\Marketplace\Tests\Unit\Core\Migration\MigrationCleanupTest::testCleanupThrowingIsReportedAsAFailedCleanupNotAnException
+Failed asserting that null is identical to an object of class "Tecteb\Marketplace\Core\Migration\CleanupOutcome".
+
+/home/user/tecteb-seller/tests/Unit/Core/Migration/MigrationCleanupTest.php:176
+
+6) Tecteb\Marketplace\Tests\Unit\Core\Migration\MigrationCleanupTest::testAnUpToDateRunClearsAStaleRecordLeftByAnEarlierRun
+Failed asserting that null is identical to an object of class "Tecteb\Marketplace\Core\Migration\CleanupOutcome".
+
+/home/user/tecteb-seller/tests/Unit/Core/Migration/MigrationCleanupTest.php:193
+
+7) Tecteb\Marketplace\Tests\Unit\Core\Migration\MigrationCleanupTest::testAnUpToDateRunWithNothingToCleanTakesNoLockAtAll
+Failed asserting that null is identical to an object of class "Tecteb\Marketplace\Core\Migration\CleanupOutcome".
+
+/home/user/tecteb-seller/tests/Unit/Core/Migration/MigrationCleanupTest.php:205
+
+8) Tecteb\Marketplace\Tests\Unit\Core\Migration\MigrationCleanupTest::testStaleCleanupDefersToARunThatHoldsTheLock
+Failed asserting that null is identical to an object of class "Tecteb\Marketplace\Core\Migration\CleanupOutcome".
+
+/home/user/tecteb-seller/tests/Unit/Core/Migration/MigrationCleanupTest.php:219
+
+FAILURES!
+Tests: 10, Assertions: 26, Failures: 8.
+
+--- contract: HealthSchemaStateTest ---
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+.F.                                                                 3 / 3 (100%)
+
+Time: 00:00.013, Memory: 10.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\WordPressContract\HealthSchemaStateTest::testARecordedFailureWithTheSchemaAtTargetIsStaleNotBroken
+the schema is complete; the record is history
+Failed asserting that two variables reference the same object.
+--- Expected
++++ Actual
+@@ @@
+-Tecteb\Marketplace\Modules\Health\Application\HealthStatus Enum #437 (Healthy, 'healthy')
++Tecteb\Marketplace\Modules\Health\Application\HealthStatus Enum #635 (ActionRequired, 'action_required')
+
+/home/user/tecteb-seller/tests/WordPressContract/HealthSchemaStateTest.php:61
+
+FAILURES!
+Tests: 3, Assertions: 9, Failures: 1.
+
+--- database: MigrationMariaDbTest (cleanup + recovery) ---
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+.FF                                                                 3 / 3 (100%)
+
+Time: 00:00.046, Memory: 10.00 MB
+
+There were 2 failures:
+
+1) Tecteb\Marketplace\Tests\Database\MigrationMariaDbTest::testCleanupOutcomesAreDistinguishedOnRealDatabase
+Failed asserting that null is identical to an object of class "Tecteb\Marketplace\Core\Migration\CleanupOutcome".
+
+/home/user/tecteb-seller/tests/Database/MigrationMariaDbTest.php:315
+
+2) Tecteb\Marketplace\Tests\Database\MigrationMariaDbTest::testReactivationClearsAStaleErrorRecordOnRealDatabase
+Failed asserting that null is identical to an object of class "Tecteb\Marketplace\Core\Migration\CleanupOutcome".
+
+/home/user/tecteb-seller/tests/Database/MigrationMariaDbTest.php:351
+
+FAILURES!
+Tests: 3, Assertions: 24, Failures: 2.
+
+restore check:
+  MigrationRunner.php byte-identical to the delivered source
+  HealthReportBuilder.php byte-identical to the delivered source

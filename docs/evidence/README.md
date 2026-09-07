@@ -23,6 +23,7 @@ bash tools/build.sh                  # ساخت بسته
 | `browser-checks.json` / `browser-checks.log` | نتیجه هر بررسی مرورگر به تفکیک صفحه و عرض |
 | `regression-migration-takeover.txt` | شاهد قبل/بعد بازبینی دور اول: تصاحب قفل وسط مهاجرت |
 | `regression-guarded-writes-vs-previous.log` | شاهد دور دوم: با برگرداندن موقت نوشتن‌های guarded به «بررسی، سپس نوشتن» و برگرداندن ممیزی به `resolveOutcome()`، سه تست تازه می‌شکنند. سورس بلافاصله بازگردانده و byte-identical بودنش در همان فایل ثبت شده است |
+| `regression-cleanup-outcome.log` | شاهد دور سوم: با برگرداندن `run()` به حالتی که نتیجه پاک‌سازی را دور می‌ریخت و صفحه سلامت را به «هر رکورد خطا یعنی خرابی»، ۸ از ۱۰ تست `MigrationCleanupTest`، یک تست سلامت و دو تست MariaDB می‌شکنند |
 | `harness/*.html` | خروجی رندر هشت سناریو خارج از WordPress |
 | `screenshots/*.png` | **نمونه رابط (خارج WordPress)** — اثبات کارکرد افزونه نیستند |
 

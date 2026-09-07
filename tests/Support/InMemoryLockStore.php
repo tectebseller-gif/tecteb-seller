@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Tests\Support;
 
 use Tecteb\Marketplace\Contracts\GuardedOptionStoreInterface;
+use Tecteb\Marketplace\Contracts\GuardedWriteOutcome;
 use Tecteb\Marketplace\Contracts\LockStoreInterface;
 
 /**
@@ -47,9 +48,10 @@ class InMemoryLockStore implements LockStoreInterface, GuardedOptionStoreInterfa
      * Same semantics as the SQL version: the guard is evaluated and the write
      * applied as one indivisible step. A test may set $onGuardedWrite to run
      * immediately BEFORE that step, to model a take-over landing in the gap
-     * that the guard is supposed to close.
+     * that the guard is supposed to close. It receives the option key, so a
+     * test can target one specific write.
      *
-     * @var null|callable():void
+     * @var null|callable(string):void
      */
     public $onGuardedWrite = null;
 
@@ -63,44 +65,58 @@ class InMemoryLockStore implements LockStoreInterface, GuardedOptionStoreInterfa
     /** Fallback storage when no option store is attached. */
     public array $guarded = [];
 
-    public function setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): bool
+    /**
+     * Option keys whose guarded writes report a storage failure, so a test can
+     * tell "the database refused" apart from "the guard said no".
+     *
+     * @var list<string>
+     */
+    public array $failGuardedKeys = [];
+
+    public function setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): GuardedWriteOutcome
     {
         if ($this->onGuardedWrite !== null) {
-            ($this->onGuardedWrite)();
+            ($this->onGuardedWrite)($key);
         }
         if (($this->rows[$guardKey] ?? null) !== $guardValue) {
-            return false;
+            return GuardedWriteOutcome::NotOwner;
         }
+        if (in_array($key, $this->failGuardedKeys, true)) {
+            return GuardedWriteOutcome::Failed;
+        }
+        $store = $this->optionStore !== null ? $this->optionStore->data : $this->guarded;
+        $existing = array_key_exists($key, $store) ? $store[$key] : null;
         if ($this->optionStore !== null) {
-            $existing = array_key_exists($key, $this->optionStore->data) ? $this->optionStore->data[$key] : null;
             $this->optionStore->data[$key] = $value;
-            return $existing !== $value;
+        } else {
+            $this->guarded[$key] = $value;
         }
-        $existing = array_key_exists($key, $this->guarded) ? $this->guarded[$key] : null;
-        $this->guarded[$key] = $value;
-        return $existing !== $value;
+        return $existing === $value ? GuardedWriteOutcome::NoChangeNeeded : GuardedWriteOutcome::Written;
     }
 
-    public function deleteGuarded(string $key, string $guardKey, string $guardValue): bool
+    public function deleteGuarded(string $key, string $guardKey, string $guardValue): GuardedWriteOutcome
     {
         if ($this->onGuardedWrite !== null) {
-            ($this->onGuardedWrite)();
+            ($this->onGuardedWrite)($key);
         }
         if (($this->rows[$guardKey] ?? null) !== $guardValue) {
-            return false;
+            return GuardedWriteOutcome::NotOwner;
+        }
+        if (in_array($key, $this->failGuardedKeys, true)) {
+            return GuardedWriteOutcome::Failed;
         }
         if ($this->optionStore !== null) {
             if (!array_key_exists($key, $this->optionStore->data)) {
-                return false;
+                return GuardedWriteOutcome::NoChangeNeeded;
             }
             unset($this->optionStore->data[$key]);
-            return true;
+            return GuardedWriteOutcome::Written;
         }
         if (!array_key_exists($key, $this->guarded)) {
-            return false;
+            return GuardedWriteOutcome::NoChangeNeeded;
         }
         unset($this->guarded[$key]);
-        return true;
+        return GuardedWriteOutcome::Written;
     }
 
     public function compareAndDelete(string $key, string $expected): bool
