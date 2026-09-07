@@ -52,12 +52,39 @@ SRC_ARCHIVE="${DIST}/${SLUG}-source-${VERSION}.tar.gz"
 # only what happens to be committed at build time.
 # dist/ is excluded: this is the SOURCE archive, and including it would ship
 # the built ZIP plus a stale copy of this archive inside itself.
-git ls-files -z --cached --others --exclude-standard 2>/dev/null \
-  | grep -zv '^dist/' | LC_ALL=C sort -zu \
-  | tar --null --files-from=- --owner=0 --group=0 --numeric-owner \
-        --mtime="@${SOURCE_DATE}" --format=gnu -czf "${SRC_ARCHIVE}" 2>/dev/null \
-  || tar --exclude-vcs --exclude='./dist' --exclude='./vendor' --exclude='./node_modules' \
-        --owner=0 --group=0 --numeric-owner --mtime="@${SOURCE_DATE}" -czf "${SRC_ARCHIVE}" .
+#
+# The list is built explicitly and the build FAILS LOUDLY if it cannot be
+# used. An earlier version fell back to a bare `tar .` when the git listing
+# was unusable (for instance while a deleted file was still in the index),
+# and that fallback silently swept tools/browser/node_modules into the
+# archive — 8 MB of Playwright instead of 3.6 MB of source. A packaging
+# assertion now checks for that, but the build must not paper over it either.
+LIST="$(mktemp)"
+LIST_OK="$(mktemp)"
+trap 'rm -f "${LIST}" "${LIST_OK}"' EXIT
+
+if git rev-parse --git-dir >/dev/null 2>&1; then
+  # tracked files plus anything new that is not gitignored
+  git ls-files -z --cached --others --exclude-standard | grep -zv '^dist/' > "${LIST}"
+else
+  find . -type f \
+    -not -path './.git/*' -not -path './dist/*' -not -path './vendor/*' \
+    -not -path '*/node_modules/*' -print0 | sed -z 's|^\./||' > "${LIST}"
+fi
+
+# Keep only paths that still exist: a file deleted but still listed would
+# abort tar and, previously, trigger the silent fallback.
+: > "${LIST_OK}"
+while IFS= read -r -d '' f; do
+  [ -f "${f}" ] && printf '%s\0' "${f}" >> "${LIST_OK}"
+done < "${LIST}"
+
+COUNT=$(tr -cd '\0' < "${LIST_OK}" | wc -c)
+[ "${COUNT}" -gt 50 ] || { echo "source archive: file list looks wrong (${COUNT} entries)" >&2; exit 1; }
+
+LC_ALL=C sort -zu "${LIST_OK}" -o "${LIST_OK}"
+tar --null --files-from="${LIST_OK}" --owner=0 --group=0 --numeric-owner \
+    --mtime="@${SOURCE_DATE}" --format=gnu -czf "${SRC_ARCHIVE}"
 
 rm -rf "${STAGE}"
 

@@ -152,6 +152,36 @@ final class PackagingTest extends TestCase
         }
     }
 
+    /**
+     * The source archive must carry source, not a vendored toolchain. An
+     * earlier build fell back to a bare `tar .` whenever its file list was
+     * unusable, which silently swept tools/browser/node_modules in and more
+     * than doubled the archive. The build no longer has that fallback; this
+     * asserts the result.
+     */
+    public function testSourceArchiveCarriesNoVendoredDependencies(): void
+    {
+        $archives = glob(self::root() . '/dist/' . self::SLUG . '-source-*.tar.gz');
+        self::assertNotEmpty($archives);
+        exec('tar -tzf ' . escapeshellarg($archives[0]), $out, $code);
+        self::assertSame(0, $code);
+
+        $forbidden = [
+            '#(^|/)node_modules/#' => 'npm packages',
+            '#^\./?vendor/#' => 'composer packages',
+            '#^\./?dist/#' => 'built artefacts, including a copy of this archive',
+            '#(^|/)\.git/#' => 'repository internals',
+        ];
+        foreach ($out as $entry) {
+            foreach ($forbidden as $pattern => $why) {
+                self::assertDoesNotMatchRegularExpression($pattern, $entry, "source archive must not carry {$why}: {$entry}");
+            }
+        }
+        // A toolchain slipping in shows up as size long before anyone reads
+        // the listing, so bound it too.
+        self::assertLessThan(6 * 1024 * 1024, filesize($archives[0]), 'source archive is unexpectedly large');
+    }
+
     public function testUninstallFileDeletesNothing(): void
     {
         $src = (string) file_get_contents(self::root() . '/uninstall.php');

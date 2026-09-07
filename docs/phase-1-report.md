@@ -19,7 +19,7 @@
 | دیتابیس واقعی | `vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php` | MariaDB 10.11.14 | 0 | **۱۴ تست، ۱۲۳ assertion** | `docs/evidence/database.log` |
 | lint نحوی | `bash tools/lint.sh` | PHP 8.4.19 | 0 | ۱۱۰ فایل، ۰ خطا | `docs/evidence/lint.log` |
 | سازگاری ایستا با PHP 8.1 | `composer compat` | PHPCompatibility 10.0.0-alpha2 | 0 | ۱۱۰ فایل، ۰ خطا | `docs/evidence/phpcompat-8.1.log` |
-| بسته‌بندی روی artefact واقعی | `vendor/bin/phpunit --testsuite packaging` | همان | 0 | **۱۱ تست، ۱٬۶۲۹ assertion** | `docs/evidence/packaging.log` |
+| بسته‌بندی روی artefact واقعی | `vendor/bin/phpunit --testsuite packaging` | همان | 0 | **۱۲ تست، ۲٬۶۱۰ assertion** | `docs/evidence/packaging.log` |
 | کنتراست WCAG | `php tools/contrast.php` | — | 0 | ۱۳ ترکیب، ۰ خطا | `docs/evidence/contrast.log` |
 | مرورگر روی harness | `node tools/browser/check.mjs` | Playwright 1.63.0 / Chromium 141 / axe-core 4.13.0 | 0 | **۲۳۳ بررسی، ۰ خطا** | `docs/evidence/browser-checks.json` |
 | **نصب/فعال‌سازی واقعی WordPress** | — | — | — | **Not Run** | — |
@@ -196,7 +196,7 @@
 
 | فایل | SHA-256 |
 |---|---|
-| `dist/tecteb-marketplace-core.zip` | `ae9992e6bd18df6fce18430a90b6a67458dd775b5bc6e93f0902f36650b5544a` |
+| `dist/tecteb-marketplace-core.zip` | `c16961dfd354fb8b3eeef965c706fbaddee566f0a9fcad7081290f26ba601eaa` |
 
 `dist/SHA256SUMS` هر دو بسته را پوشش می‌دهد.
 `dist/READ-ME-BEFORE-INSTALL.txt` وضعیت «تأییدنشده» را کنار خود بسته تکرار می‌کند.
