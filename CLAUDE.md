@@ -18,8 +18,8 @@ sender/gateway واقعی وجود ندارد؛ خروجی‌های افزونه
 
 ## هویت
 slug `tecteb-marketplace-core` · namespace `Tecteb\Marketplace` · prefix `tmc_` ·
-text domain `tecteb-marketplace-core`. نسخه: به F-01 در `docs/decision-log.md`
-وابسته است (سورس قبلی تعیین‌نشده).
+text domain `tecteb-marketplace-core`. نسخه انتشار: به F-01 در `docs/decision-log.md`
+وابسته است (تبار تعیین‌نشده)؛ نسخه schema دیتابیس مستقل از آن و از ۱ شروع می‌شود.
 
 ## فرمان‌های آزمون واقعی (فقط آنچه امروز اجرا می‌شود)
 ```bash
