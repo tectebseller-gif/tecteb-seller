@@ -43,6 +43,21 @@ final class MigrationLock
         return bin2hex(random_bytes(16));
     }
 
+    /** Option name the guard condition is evaluated against. */
+    public function guardKey(): string
+    {
+        return self::KEY;
+    }
+
+    /**
+     * The exact value this run wrote into the lock row, for use as the guard
+     * of a conditional write. Null when this run holds nothing.
+     */
+    public function guardValue(): ?string
+    {
+        return $this->heldValue;
+    }
+
     public function ownerToken(): string
     {
         return $this->ownerToken;

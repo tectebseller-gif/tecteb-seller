@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Contracts\GuardedOptionStoreInterface;
 use Tecteb\Marketplace\Contracts\DependencyProbeInterface;
 use Tecteb\Marketplace\Contracts\EnvironmentProbeInterface;
 use Tecteb\Marketplace\Contracts\LockStoreInterface;
@@ -153,6 +154,9 @@ final class Bootstrap
         $c->bind(ClockInterface::class, static fn () => new SystemClock());
         $c->bind(OptionStoreInterface::class, static fn () => new WpOptionStore());
         $c->bind(LockStoreInterface::class, static fn () => new WpLockStore($GLOBALS['wpdb']));
+        // Same adapter: the guarded writes act on the same options table and
+        // must see the same lock row as the lock itself.
+        $c->bind(GuardedOptionStoreInterface::class, static fn (ContainerInterface $c) => $c->get(LockStoreInterface::class));
         $c->bind(DatabaseInterface::class, static fn () => new WpDatabase($GLOBALS['wpdb']));
         $c->bind(AuditRepositoryInterface::class, static fn () => new WpAuditRepository($GLOBALS['wpdb']));
         $c->bind(CapabilityCheckerInterface::class, static fn () => new WpCapabilities());
@@ -168,6 +172,7 @@ final class Bootstrap
         $c->bind(MigrationRunner::class, static fn (ContainerInterface $c) => new MigrationRunner(
             $c->get(DatabaseInterface::class),
             $c->get(OptionStoreInterface::class),
+            $c->get(GuardedOptionStoreInterface::class),
             new MigrationLock($c->get(LockStoreInterface::class), $c->get(ClockInterface::class), MigrationLock::generateOwnerToken()),
             [new M0001CreateAuditTable()],
             $c->get(ClockInterface::class)

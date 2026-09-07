@@ -236,6 +236,55 @@ final class SettingsApiTest extends ContractTestCase
         self::assertCount(1, $this->audit->records, 'exactly one audit row despite two sanitize passes');
     }
 
+    /**
+     * Regression: auditing used to happen inside resolveOutcome(), which only
+     * runs on the options.php path (pre_set_transient_settings_errors). A
+     * settings change written any other way — plugin code calling
+     * update_option(), WP-CLI `wp option update` — reached the database with
+     * no trail at all.
+     *
+     * register_setting() makes our sanitize callback the gate for EVERY write
+     * to this option, so such a caller submits the same input field names the
+     * form does; what it never does is run options.php, so finalizeOutcome()
+     * is never called here.
+     */
+    public function testAuditHappensOnPersistenceEvenWhenFinalizeOutcomeNeverRuns(): void
+    {
+        $this->bootPlugin(false);
+        do_action('admin_init');
+        $this->loginAdmin();
+        $this->submit(['max_staff' => '17']);
+        $this->audit->records = [];
+        State::$settingsErrors = [];
+        State::$transients = [];
+
+        // No options.php, no nonce, no settings-errors transient: a plain write.
+        self::assertTrue(update_option(SettingsRegistrar::OPTION, ['max_staff' => '23']));
+
+        self::assertSame(23, $this->stored()['max_staff'], 'the write reached storage');
+        self::assertCount(1, $this->audit->records, 'the change is audited without finalizeOutcome()');
+        $payload = $this->audit->records[0]->payload;
+        self::assertSame(['max_staff'], $payload['changed']);
+        self::assertSame(['max_staff' => 17], $payload['old']);
+        self::assertSame(['max_staff' => 23], $payload['new']);
+        self::assertArrayNotHasKey('settings_errors', State::$transients, 'options.php never ran');
+        self::assertSame([], get_settings_errors(SettingsRegistrar::ERROR_SETTING), 'no outcome message on this path');
+    }
+
+    /** One persisted write produces exactly one audit row, not one per hook. */
+    public function testASingleSaveProducesExactlyOneAuditRow(): void
+    {
+        $this->bootPlugin(false);
+        do_action('admin_init');
+        $this->loginAdmin();
+        self::assertArrayNotHasKey(SettingsRegistrar::OPTION, State::$options);
+
+        $this->submit(['max_staff' => '19']);   // new option: add + double sanitize
+
+        self::assertCount(1, $this->audit->records);
+        self::assertSame(19, $this->stored()['max_staff']);
+    }
+
     /** A replayed wrapper is honoured at most once, and only right after we produced it. */
     public function testReplayTokenIsSingleUse(): void
     {

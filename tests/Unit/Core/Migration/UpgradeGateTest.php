@@ -32,6 +32,8 @@ final class UpgradeGateTest extends TestCase
     {
         $this->options = new InMemoryOptionStore();
         $this->locks = new InMemoryLockStore();
+        // guarded writes must land where the runner reads
+        $this->locks->optionStore = $this->options;
         $this->db = new FakeDatabase();
         $this->clock = new FixedClock();
     }
@@ -41,6 +43,7 @@ final class UpgradeGateTest extends TestCase
         $runner = new MigrationRunner(
             $this->db,
             $this->options,
+            $this->locks,
             new MigrationLock($this->locks, $this->clock, 'owner-upgrade-x'),
             [new M0001CreateAuditTable()],
             $this->clock,

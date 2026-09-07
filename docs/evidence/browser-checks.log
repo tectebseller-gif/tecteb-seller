@@ -1,0 +1,14 @@
+playwright 1.63.0  axe-core 4.13.0  chromium 141.0.7390.37
+  no-horizontal-page-scroll    pass=40 fail=0
+  no-element-overflow          pass=40 fail=0
+  touch-target-44px            pass=40 fail=0
+  no-js-errors                 pass=40 fail=0
+  axe-wcag-aa                  pass=40 fail=0
+  reaches-controls             pass=8 fail=0
+  skip-link-first              pass=7 fail=0
+  focus-visible                pass=8 fail=0
+  no-horizontal-scroll         pass=8 fail=0
+  error-summary-focused-on-load pass=1 fail=0
+  error-summary-links-reachable pass=1 fail=0
+
+total 233, failures 0

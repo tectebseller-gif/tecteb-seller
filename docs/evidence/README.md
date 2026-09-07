@@ -20,7 +20,9 @@ bash tools/build.sh                  # ساخت بسته
 | `phpcompat-8.1.log` | سازگاری ایستا با PHP 8.1 |
 | `phpcompat-selfcheck.log` | اثبات اینکه گیت ۸٫۱ واقعاً روی نحو ۸٫۲ خطا می‌دهد، و parse شدن main file روی ۷٫۲ |
 | `contrast.log` / `contrast.json` | نسبت کنتراست ۱۳ ترکیب رنگ برند |
-| `browser-checks.json` | نتیجه هر بررسی مرورگر به تفکیک صفحه و عرض |
+| `browser-checks.json` / `browser-checks.log` | نتیجه هر بررسی مرورگر به تفکیک صفحه و عرض |
+| `regression-migration-takeover.txt` | شاهد قبل/بعد بازبینی دور اول: تصاحب قفل وسط مهاجرت |
+| `regression-guarded-writes-vs-previous.log` | شاهد دور دوم: با برگرداندن موقت نوشتن‌های guarded به «بررسی، سپس نوشتن» و برگرداندن ممیزی به `resolveOutcome()`، سه تست تازه می‌شکنند. سورس بلافاصله بازگردانده و byte-identical بودنش در همان فایل ثبت شده است |
 | `harness/*.html` | خروجی رندر هشت سناریو خارج از WordPress |
 | `screenshots/*.png` | **نمونه رابط (خارج WordPress)** — اثبات کارکرد افزونه نیستند |
 

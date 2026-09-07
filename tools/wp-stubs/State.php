@@ -23,6 +23,13 @@ final class State
     public static bool $multisite = false;
     /** When true, option writes fail the way a storage error would. */
     public static bool $failOptionWrites = false;
+    /**
+     * When true, the option functions read and write the REAL options table
+     * through $wpdb instead of the in-process array. The database suite turns
+     * this on so that options and the guarded single-statement writes share
+     * one storage layer, as they do in WordPress.
+     */
+    public static bool $optionsBackedByWpdb = false;
     public static string $environmentType = 'production';
     public static string $homeUrl = 'https://example.test';
     public static string $wpVersion = 'stub';
@@ -55,6 +62,7 @@ final class State
         self::$currentUserId = 0;
         self::$multisite = false;
         self::$failOptionWrites = false;
+        self::$optionsBackedByWpdb = false;
         self::$environmentType = 'production';
         self::$homeUrl = 'https://example.test';
         self::$menus = [];

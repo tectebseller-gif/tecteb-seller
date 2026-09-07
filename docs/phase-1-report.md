@@ -13,13 +13,13 @@
 
 | گیت | دستور | نسخه | exit | نتیجه | log |
 |---|---|---|---|---|---|
-| Unit خالص (بدون هیچ نماد WordPress) | `vendor/bin/phpunit --testsuite unit` | PHPUnit 10.5.64 / PHP 8.4.19 | 0 | **۱۱۸ تست، ۲۰٬۴۸۲ assertion** | `docs/evidence/unit.log` |
-| معماری و قواعد ایستای امنیتی | `vendor/bin/phpunit --testsuite architecture` | همان | 0 | **۱۲ تست، ۵۶ assertion** | `docs/evidence/architecture.log` |
-| قرارداد با stub وردپرس | `vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php` | همان | 0 | **۴۰ تست، ۴۳۹ assertion** | `docs/evidence/contract.log` |
-| دیتابیس واقعی | `vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php` | MariaDB 10.11.14 | 0 | **۱۴ تست، ۱۲۳ assertion** | `docs/evidence/database.log` |
-| lint نحوی | `bash tools/lint.sh` | PHP 8.4.19 | 0 | ۱۱۰ فایل، ۰ خطا | `docs/evidence/lint.log` |
-| سازگاری ایستا با PHP 8.1 | `composer compat` | PHPCompatibility 10.0.0-alpha2 | 0 | ۱۱۰ فایل، ۰ خطا | `docs/evidence/phpcompat-8.1.log` |
-| بسته‌بندی روی artefact واقعی | `vendor/bin/phpunit --testsuite packaging` | همان | 0 | **۱۲ تست، ۲٬۶۱۰ assertion** | `docs/evidence/packaging.log` |
+| Unit خالص (بدون هیچ نماد WordPress) | `vendor/bin/phpunit --testsuite unit` | PHPUnit 10.5.64 / PHP 8.4.19 | 0 | **۱۲۴ تست، ۲۰٬۵۰۳ assertion** | `docs/evidence/unit.log` |
+| معماری و قواعد ایستای امنیتی | `vendor/bin/phpunit --testsuite architecture` | همان | 0 | **۱۲ تست، ۶۰ assertion** | `docs/evidence/architecture.log` |
+| قرارداد با stub وردپرس | `vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php` | همان | 0 | **۴۲ تست، ۴۵۲ assertion** | `docs/evidence/contract.log` |
+| دیتابیس واقعی | `vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php` | MariaDB 10.11.14 | 0 | **۱۸ تست، ۱۸۱ assertion** | `docs/evidence/database.log` |
+| lint نحوی | `bash tools/lint.sh` | PHP 8.4.19 | 0 | ۱۱۱ فایل، ۰ خطا | `docs/evidence/lint.log` |
+| سازگاری ایستا با PHP 8.1 | `composer compat` | PHPCompatibility 10.0.0-alpha2 | 0 | ۱۱۱ فایل، ۰ خطا | `docs/evidence/phpcompat-8.1.log` |
+| بسته‌بندی روی artefact واقعی | `vendor/bin/phpunit --testsuite packaging` | همان | 0 | **۱۲ تست، ۲٬۶۳۶ assertion** | `docs/evidence/packaging.log` |
 | کنتراست WCAG | `php tools/contrast.php` | — | 0 | ۱۳ ترکیب، ۰ خطا | `docs/evidence/contrast.log` |
 | مرورگر روی harness | `node tools/browser/check.mjs` | Playwright 1.63.0 / Chromium 141 / axe-core 4.13.0 | 0 | **۲۳۳ بررسی، ۰ خطا** | `docs/evidence/browser-checks.json` |
 | **نصب/فعال‌سازی واقعی WordPress** | — | — | — | **Not Run** | — |
@@ -54,6 +54,9 @@
 | قفل اتمی با بازیابی قفل منقضی | `Migration/MigrationLock.php` | `MigrationLockTest` (۱۰ تست)، `WpLockStoreTest` | **Passed** |
 | **اجرای هم‌زمان دوباره‌نویسی نمی‌کند** | `WpLockStore.php` | `WpLockStoreTest::testExactlyOneOfManyConcurrentProcessesAcquiresTheLock` — ۸ فرایند forkشده، دقیقاً یکی موفق | **Passed** |
 | migration مرحله‌ای و قابل resume | `MigrationRunner.php` | `MigrationMariaDbTest::testResumeAfterCrashBetweenDdlAndVersionWrite` | **Passed** |
+| **نوشتن نسخه/ثبت خطا/حذف خطا اتمیک مشروط به مالکیت قفل** | `Contracts/GuardedOptionStoreInterface.php`، `WpLockStore::setGuarded/deleteGuarded` | `MigrationTakeoverTest::testTakeoverBetweenTheOwnershipCheckAndTheVersionWrite`، `MigrationMariaDbTest::testGuardedWriteOnlyHappensWhileTheGuardValueMatches` و `…GuardedDeleteOnlyHappens…` | **Passed** (MariaDB) |
+| اجرای منسوخ‌شده پس از تصاحب هیچ چیز نمی‌نویسد و خطای اجرای جدید را پاک نمی‌کند | `MigrationRunner.php` | `MigrationTakeoverTest` (۱۰ تست)، `MigrationMariaDbTest::testRunRefusesToWriteTheVersionAfterAnotherOwnerTookTheLock` | **Passed** |
+| شکست ثبت خطا استثنای کنترل‌نشده نمی‌سازد | همان | `MigrationTakeoverTest::testFailureToRecordTheErrorDoesNotThrow` | **Passed** |
 | غیرفعال‌سازی داده را نگه می‌دارد | `Lifecycle/Deactivator.php` | `ActivationFlowTest::testDeactivationLeavesTableOptionsAndCapabilitiesInPlace` | **Passed** |
 | `uninstall.php` هیچ داده‌ای حذف نمی‌کند | `uninstall.php` | `PackagingTest::testUninstallFileDeletesNothing` | **Passed** |
 | Multisite با پیام فارسی رد می‌شود، بدون تغییر سراسری | `Lifecycle/MultisiteGuard.php` | `LifecycleTest` (۳ تست) | **Passed** |
@@ -130,6 +133,8 @@
 | نرخ unset فقط پیام دارد، مانع نیست | `HealthReportBuilder.php` | `blocking => false` در check `commission_rate` | **Passed** |
 | فعال‌سازی دوباره مقدار کاربر را برنمی‌گرداند | `SettingsService::ensureStored` | `testReactivationDoesNotResetUserValues` | **Passed** |
 | audit فقط allowlist، بدون raw POST | `AuditEventSanitizer.php` | `AuditTest` | **Passed** |
+| **ممیزی در لحظه تأیید ذخیره نوشته می‌شود، نه در `finalizeOutcome()`** | `SettingsRegistrar::recordPersisted()` | `SettingsApiTest::testAuditHappensOnPersistenceEvenWhenFinalizeOutcomeNeverRuns` — نوشتن مستقیم option، بدون nonce و بدون `options.php` | **Passed** |
+| یک نوشتن موفق = دقیقاً یک ردیف ممیزی (حتی با دو بار sanitize وردپرس) | همان | `SettingsApiTest::testASingleSaveProducesExactlyOneAuditRow` | **Passed** |
 | خطای ثبت audit گزارش می‌شود، نه موفقیت بی‌صدا | `SettingsRegistrar.php` | `testAuditFailureIsReportedNotSilent` | **Passed** |
 
 ### CORE-08 — Audit
@@ -196,7 +201,20 @@
 
 | فایل | SHA-256 |
 |---|---|
-| `dist/tecteb-marketplace-core.zip` | `c16961dfd354fb8b3eeef965c706fbaddee566f0a9fcad7081290f26ba601eaa` |
+| `dist/tecteb-marketplace-core.zip` | `e32333ae9cf6c493ddda8f3bb3051c2d17261068f321968e3441cb008f5a670c` |
 
-`dist/SHA256SUMS` هر دو بسته را پوشش می‌دهد.
+> این هش پس از اصلاح‌های دور دوم بازبینی (بندهای ۸ تا ۱۱ در
+> `docs/review-fixes-phase-1.md`) تولید شده و جایگزین هش قبلی
+> `c16961df…01eaa` است.
+
+**تکرارپذیری.** timestamp بسته دیگر از تاریخ آخرین commit گرفته نمی‌شود، بلکه
+یک epoch ثابت (`1757203200`، قابل override با `SOURCE_DATE_EPOCH`) است.
+پیش از این هش ZIP با هر commit عوض می‌شد، پس هشِ ثبت‌شده در همین گزارش از
+commitی که آن را ثبت می‌کرد جان سالم به در نمی‌برد: بازبین با build دوباره
+هش دیگری می‌گرفت و راهی برای تفکیک «اختلاف timestamp» از «اختلاف محتوا»
+نداشت. اکنون هش فقط به محتوا، نام و mode فایل‌ها وابسته است.
+
+`dist/SHA256SUMS` هر دو بسته را پوشش می‌دهد. هش بسته سورس با هر تغییر
+مستندات عوض می‌شود (چون مستندات داخل همان بسته‌اند)؛ مرجع، همان فایل
+`SHA256SUMS` است، نه رونوشتی در متن.
 `dist/READ-ME-BEFORE-INSTALL.txt` وضعیت «تأییدنشده» را کنار خود بسته تکرار می‌کند.

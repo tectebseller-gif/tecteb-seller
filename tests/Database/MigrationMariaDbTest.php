@@ -25,6 +25,7 @@ final class MigrationMariaDbTest extends DatabaseTestCase
         return new MigrationRunner(
             new WpDatabase($this->wpdb),
             new WpOptionStore(),
+            new WpLockStore($this->wpdb),
             new MigrationLock(new WpLockStore($this->wpdb), new FixedClock(), $owner),
             $migrations ?? [new M0001CreateAuditTable()],
             new FixedClock(),
@@ -43,17 +44,23 @@ final class MigrationMariaDbTest extends DatabaseTestCase
         self::assertSame(M0001CreateAuditTable::COLUMNS, array_column($cols, 'COLUMN_NAME'));
         self::assertSame('YES', $cols[2]['IS_NULLABLE'], 'actor_id nullable');
         self::assertSame('datetime', $cols[7]['DATA_TYPE']);
-        self::assertSame(1, get_option(SchemaVersion::OPTION));
+        self::assertSame(1, $this->storedSchemaVersion());
         self::assertNull($this->lockRow(), 'lock released');
     }
 
-    public function testSecondRunIsUpToDateAndIssuesNoSql(): void
+    public function testSecondRunIsUpToDateAndIssuesNoDdlLockOrWrite(): void
     {
         $this->runner()->run();
-        $queries = $this->wpdb->num_queries;
+        $before = count($this->wpdb->queries);
         $result = $this->runner(null, 1, 'owner-mig-test2')->run();
         self::assertSame(MigrationStatus::UpToDate, $result->status);
-        self::assertSame($queries, $this->wpdb->num_queries);
+
+        // An up-to-date run reads the stored version and stops there: no lock
+        // is taken, no DDL is issued, nothing is written.
+        $during = array_slice($this->wpdb->queries, $before);
+        self::assertCount(1, $during, implode(' | ', $during));
+        self::assertMatchesRegularExpression('/^\s*SELECT\b/i', $during[0]);
+        self::assertStringNotContainsString('tmc_migration_lock', $during[0], 'no lock row is touched');
     }
 
     public function testResumeAfterCrashBetweenDdlAndVersionWrite(): void
@@ -62,7 +69,7 @@ final class MigrationMariaDbTest extends DatabaseTestCase
         delete_option(SchemaVersion::OPTION); // simulate: table exists, version never written
         $result = $this->runner()->run();
         self::assertSame(MigrationStatus::Applied, $result->status);
-        self::assertSame(1, get_option(SchemaVersion::OPTION));
+        self::assertSame(1, $this->storedSchemaVersion());
         self::assertTrue($this->tableExists($this->auditTable()));
     }
 
@@ -83,7 +90,7 @@ final class MigrationMariaDbTest extends DatabaseTestCase
         self::assertSame(MigrationStatus::Failed, $result->status);
         self::assertSame('0002_bad_step', $result->failedStep);
         self::assertSame(['0001_create_audit_table'], $result->appliedSteps, 'first step applied and kept');
-        self::assertSame(1, get_option(SchemaVersion::OPTION), 'version reflects the last verified step only');
+        self::assertSame(1, $this->storedSchemaVersion(), 'version reflects the last verified step only');
         $err = get_option(SchemaVersion::LAST_ERROR_OPTION);
         self::assertSame('0002_bad_step', $err['step']);
         self::assertStringContainsString('MigrationException', $err['message']);
@@ -147,6 +154,7 @@ final class MigrationMariaDbTest extends DatabaseTestCase
         $runner = new MigrationRunner(
             new WpDatabase($this->wpdb),
             $options,
+            new WpLockStore($this->wpdb),
             new MigrationLock(new WpLockStore($this->wpdb), $clockA, 'owner-real-run-a', 300),
             [$plain(1), $stalling, $plain(3)],
             $clockA,
@@ -155,9 +163,106 @@ final class MigrationMariaDbTest extends DatabaseTestCase
         $result = $runner->run();
 
         self::assertSame(MigrationStatus::LockLost, $result->status);
-        self::assertSame(3, (int) get_option(SchemaVersion::OPTION), "run B's version survives on the real database");
-        self::assertFalse(get_option(SchemaVersion::LAST_ERROR_OPTION), 'the superseded run recorded nothing');
+        self::assertSame(3, $this->storedSchemaVersion(), "run B's version survives on the real database");
+        self::assertNull($this->rawOption(SchemaVersion::LAST_ERROR_OPTION), 'the superseded run recorded nothing');
         self::assertNull($this->lockRow(), 'no stale lock row left behind');
+    }
+
+    /**
+     * The guarded writes themselves, on the real engine. Ownership is part of
+     * the SAME statement as the write: there is no window between "am I still
+     * the owner?" and "write", because there is no second statement.
+     */
+    public function testGuardedWriteOnlyHappensWhileTheGuardValueMatches(): void
+    {
+        $store = new WpLockStore($this->wpdb);
+        $store->insert('tmc_migration_lock', 'owner-a:100');
+
+        // Creates the row: the option does not exist yet.
+        self::assertTrue($store->setGuarded('tmc_db_version', 1, 'tmc_migration_lock', 'owner-a:100'));
+        self::assertSame('1', $this->rawOption('tmc_db_version'));
+
+        // Updates it: same guard, existing row.
+        self::assertTrue($store->setGuarded('tmc_db_version', 2, 'tmc_migration_lock', 'owner-a:100'));
+        self::assertSame('2', $this->rawOption('tmc_db_version'));
+
+        // Another owner now holds the lock: the write must not happen at all.
+        self::assertTrue($store->compareAndSwap('tmc_migration_lock', 'owner-a:100', 'owner-b:700'));
+        self::assertFalse($store->setGuarded('tmc_db_version', 99, 'tmc_migration_lock', 'owner-a:100'));
+        self::assertSame('2', $this->rawOption('tmc_db_version'), 'the superseded owner changed nothing');
+
+        // No lock row at all is not ownership either.
+        self::assertTrue($store->compareAndDelete('tmc_migration_lock', 'owner-b:700'));
+        self::assertFalse($store->setGuarded('tmc_db_version', 99, 'tmc_migration_lock', 'owner-a:100'));
+        self::assertSame('2', $this->rawOption('tmc_db_version'));
+    }
+
+    public function testGuardedDeleteOnlyHappensWhileTheGuardValueMatches(): void
+    {
+        $store = new WpLockStore($this->wpdb);
+        $store->insert('tmc_migration_lock', 'owner-a:100');
+        self::assertTrue($store->setGuarded('tmc_db_last_error', ['step' => 's', 'message' => 'm'], 'tmc_migration_lock', 'owner-a:100'));
+        self::assertNotNull($this->rawOption('tmc_db_last_error'));
+
+        // A stale owner cannot delete the record the current owner wrote.
+        self::assertTrue($store->compareAndSwap('tmc_migration_lock', 'owner-a:100', 'owner-b:700'));
+        self::assertFalse($store->deleteGuarded('tmc_db_last_error', 'tmc_migration_lock', 'owner-a:100'));
+        self::assertNotNull($this->rawOption('tmc_db_last_error'), "the new owner's record survives");
+
+        // The current owner can.
+        self::assertTrue($store->deleteGuarded('tmc_db_last_error', 'tmc_migration_lock', 'owner-b:700'));
+        self::assertNull($this->rawOption('tmc_db_last_error'));
+
+        // Deleting what is not there reports "nothing removed", not success.
+        self::assertFalse($store->deleteGuarded('tmc_db_last_error', 'tmc_migration_lock', 'owner-b:700'));
+    }
+
+    /** Values a guarded write stores are read back identically by get_option(). */
+    public function testGuardedWriteRoundTripsThroughTheOptionApi(): void
+    {
+        $store = new WpLockStore($this->wpdb);
+        $store->insert('tmc_migration_lock', 'owner-a:100');
+        $payload = ['step' => '0002_bad', 'message' => 'خطای آزمایشی', 'at' => '2026-01-01T00:00:00+00:00'];
+        self::assertTrue($store->setGuarded(SchemaVersion::LAST_ERROR_OPTION, $payload, 'tmc_migration_lock', 'owner-a:100'));
+        self::assertSame($payload, (new WpOptionStore())->get(SchemaVersion::LAST_ERROR_OPTION));
+        self::assertSame($payload, get_option(SchemaVersion::LAST_ERROR_OPTION));
+    }
+
+    public function testRunRefusesToWriteTheVersionAfterAnotherOwnerTookTheLock(): void
+    {
+        $clock = new FixedClock();
+        $wpdb = $this->wpdb;
+        $thief = new class($wpdb) implements MigrationInterface {
+            public function __construct(private \wpdb $wpdb)
+            {
+            }
+            public function version(): int { return 1; }
+            public function id(): string { return '0001_thief'; }
+            public function up(DatabaseInterface $db): void
+            {
+                // Someone else now owns the lock; our version write must fail.
+                $store = new WpLockStore($this->wpdb);
+                $current = (string) $store->read('tmc_migration_lock');
+                $store->compareAndSwap('tmc_migration_lock', $current, 'owner-thief:1');
+            }
+            public function verify(DatabaseInterface $db): bool { return true; }
+        };
+
+        $result = new MigrationRunner(
+            new WpDatabase($wpdb),
+            new WpOptionStore(),
+            new WpLockStore($wpdb),
+            new MigrationLock(new WpLockStore($wpdb), $clock, 'owner-victim', 300),
+            [$thief],
+            $clock,
+            1
+        );
+        $result = $result->run();
+
+        self::assertSame(MigrationStatus::LockLost, $result->status);
+        self::assertNull($this->rawOption(SchemaVersion::OPTION), 'no version written without ownership');
+        self::assertNull($this->rawOption(SchemaVersion::LAST_ERROR_OPTION), 'no error written without ownership');
+        self::assertSame('owner-thief:1', $this->lockRow(), "the thief's lock is untouched");
     }
 
     public function testRunIsRefusedWhileAnotherOwnerHoldsTheLock(): void
@@ -167,7 +272,7 @@ final class MigrationMariaDbTest extends DatabaseTestCase
         $result = $this->runner()->run();
         self::assertSame(MigrationStatus::Locked, $result->status);
         self::assertFalse($this->tableExists($this->auditTable()), 'no DDL while locked');
-        self::assertFalse(get_option(SchemaVersion::OPTION));
+        self::assertNull($this->storedSchemaVersion());
         self::assertTrue($other->release());
         self::assertSame(MigrationStatus::Applied, $this->runner()->run()->status);
     }

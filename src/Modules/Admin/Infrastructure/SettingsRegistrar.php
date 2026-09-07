@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Admin\Infrastructure;
 
+use Tecteb\Marketplace\Core\Audit\AuditResult;
 use Tecteb\Marketplace\Core\Config\Settings;
 use Tecteb\Marketplace\Core\Config\SettingsSchema;
 use Tecteb\Marketplace\Core\Config\SettingsService;
@@ -17,11 +18,15 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\Messages;
  *  sanitize()            validation only. Runs BEFORE the write and therefore
  *                        never claims success and never audits.
  *  onOptionUpdated/Added WordPress confirms the value reached the database.
- *                        This is where the audit row is written, from the
- *                        REAL old and new option values.
+ *                        The audit row is written HERE, from the REAL old and
+ *                        new option values — not later. A settings change
+ *                        that reaches storage is audited even when nothing
+ *                        else in the request runs: options.php is only one of
+ *                        the ways the option can be written.
  *  finalizeOutcome()     runs after options.php has finished all writes and
  *                        turns the observed facts into exactly one message:
  *                        saved / nothing changed / SAVE FAILED / audit failed.
+ *                        It REPORTS; it does not decide whether to audit.
  *
  * The four outcomes are distinguishable by design: a failed write must not
  * look like a save, and an unchanged submission must not look like one either.
@@ -44,6 +49,10 @@ final class SettingsRegistrar
     private ?Settings $persistedBefore = null;
     private ?Settings $persistedAfter = null;
     private bool $outcomeReported = false;
+
+    /** Result of the audit performed at persistence time, if any. */
+    private ?AuditResult $auditResult = null;
+    private bool $audited = false;
 
     public function __construct(private SettingsSubmission $submission, private SettingsService $settings)
     {
@@ -97,6 +106,8 @@ final class SettingsRegistrar
         $this->persistedBefore = null;
         $this->persistedAfter = null;
         $this->outcomeReported = false;
+        $this->auditResult = null;
+        $this->audited = false;
 
         $pending = $this->submission->validate($raw);
         $this->pending = $pending;
@@ -160,7 +171,8 @@ final class SettingsRegistrar
         $persisted = $this->persistedAfter !== null;
 
         if ($persisted) {
-            $audit = $this->submission->auditPersisted($this->persistedBefore, $this->persistedAfter);
+            // Already attempted at persistence time; here we only report it.
+            $audit = $this->auditResult;
             if ($audit !== null && !$audit->ok) {
                 // The values ARE saved; the trail is not. Say both.
                 return self::entry('tmc_audit_failed', Messages::auditFailed(), 'warning');
@@ -185,10 +197,21 @@ final class SettingsRegistrar
         return self::entry('tmc_save_failed', Messages::saveFailed(), 'error');
     }
 
+    /**
+     * Called the moment WordPress confirms the option was stored. Auditing
+     * happens right here, not in finalizeOutcome(): the outcome filter only
+     * runs on the options.php path, and a change that reached the database
+     * by any other route must still leave a trail.
+     */
     private function recordPersisted(Settings $before, Settings $after): void
     {
         $this->persistedBefore = $before;
         $this->persistedAfter = $after;
+        if ($this->audited) {
+            return; // one write, one audit row
+        }
+        $this->audited = true;
+        $this->auditResult = $this->submission->auditPersisted($before, $after);
     }
 
     /** @return array<string,mixed> */

@@ -29,13 +29,19 @@ final class MigrationRunnerTest extends TestCase
         $this->db = new FakeDatabase();
         $this->options = new InMemoryOptionStore();
         $this->locks = new InMemoryLockStore();
+        // guarded writes must land where the runner reads
+        $this->locks->optionStore = $this->options;
         $this->clock = new FixedClock();
     }
 
     private function runner(string $owner = 'owner-runner-1'): MigrationRunner
     {
         $lock = new MigrationLock($this->locks, $this->clock, $owner);
-        return new MigrationRunner($this->db, $this->options, $lock, [new M0001CreateAuditTable()], $this->clock, 1);
+        return new MigrationRunner(
+            $this->db,
+            $this->options,
+            $this->locks,
+            $lock, [new M0001CreateAuditTable()], $this->clock, 1);
     }
 
     public function testFreshInstallAppliesStepAndReleasesLock(): void
@@ -129,7 +135,11 @@ final class MigrationRunnerTest extends TestCase
             public function verify(DatabaseInterface $db): bool { return true; }
         };
         $this->expectException(\InvalidArgumentException::class);
-        new MigrationRunner($this->db, $this->options, new MigrationLock($this->locks, $this->clock, 'owner-runner-1'), [new M0001CreateAuditTable(), $step3], $this->clock, 3);
+        new MigrationRunner(
+            $this->db,
+            $this->options,
+            $this->locks,
+            new MigrationLock($this->locks, $this->clock, 'owner-runner-1'), [new M0001CreateAuditTable(), $step3], $this->clock, 3);
     }
 
     public function testVerifyThrowingBecomesAControlledFailureNotALeakedException(): void
@@ -144,7 +154,11 @@ final class MigrationRunnerTest extends TestCase
             }
         };
         $lock = new MigrationLock($this->locks, $this->clock, 'owner-verify-x');
-        $runner = new MigrationRunner($this->db, $this->options, $lock, [$throwing], $this->clock, 1);
+        $runner = new MigrationRunner(
+            $this->db,
+            $this->options,
+            $this->locks,
+            $lock, [$throwing], $this->clock, 1);
 
         $result = $runner->run(); // must NOT throw
         self::assertSame(MigrationStatus::Failed, $result->status);
@@ -158,17 +172,25 @@ final class MigrationRunnerTest extends TestCase
 
     public function testVersionPersistenceThrowingBecomesAControlledFailure(): void
     {
-        $options = new class extends InMemoryOptionStore {
-            public function set(string $key, mixed $value): bool
+        $options = new InMemoryOptionStore();
+        // The version now travels through the GUARDED path, so that is where
+        // an exploding store has to be simulated.
+        $this->locks = new class extends InMemoryLockStore {
+            public function setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): bool
             {
                 if ($key === SchemaVersion::OPTION) {
                     throw new \RuntimeException('option store exploded');
                 }
-                return parent::set($key, $value);
+                return parent::setGuarded($key, $value, $guardKey, $guardValue);
             }
         };
+        $this->locks->optionStore = $options;
         $lock = new MigrationLock($this->locks, $this->clock, 'owner-persist-x');
-        $runner = new MigrationRunner($this->db, $options, $lock, [new M0001CreateAuditTable()], $this->clock, 1);
+        $runner = new MigrationRunner(
+            $this->db,
+            $options,
+            $this->locks,
+            $lock, [new M0001CreateAuditTable()], $this->clock, 1);
 
         $result = $runner->run(); // must NOT throw
         self::assertSame(MigrationStatus::Failed, $result->status);

@@ -127,7 +127,7 @@ final class SecurityRulesTest extends TestCase
         // the only thing any SQL literal interpolates is the wpdb-owned table
         // name (never a value).
         $lock = (string) file_get_contents(self::root() . '/src/Infrastructure/WordPress/WpLockStore.php');
-        self::assertSame(4, preg_match_all('/\$this->wpdb->prepare\(/', $lock), 'insert, read, CAS and CAD each prepare');
+        self::assertSame(6, preg_match_all('/\$this->wpdb->prepare\(/', $lock), 'insert, read, CAS, CAD and the two guarded writes each prepare');
         preg_match_all('/"([^"]*)"/', $lock, $literals);
         $sqlLiterals = 0;
         foreach ($literals[1] as $literal) {
@@ -139,7 +139,7 @@ final class SecurityRulesTest extends TestCase
             self::assertStringNotContainsString('$', $withoutTable, 'SQL interpolates a value: ' . $literal);
             self::assertMatchesRegularExpression('/%s|option_name|option_value/', $literal);
         }
-        self::assertSame(4, $sqlLiterals, 'four SQL statements in the lock store');
+        self::assertSame(6, $sqlLiterals, 'six SQL statements in the lock store: four lock primitives + two guarded writes');
     }
 
     public function testEveryAdminPageAndRestRouteIsCapabilityGated(): void

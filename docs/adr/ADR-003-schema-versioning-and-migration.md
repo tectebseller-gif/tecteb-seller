@@ -67,13 +67,46 @@ UPDATE بدون تغییر صفر ردیف گزارش می‌دهد؛ این ح�
 دیگری می‌تواند مهاجرت را تمام کند. Runner پس از موفقیت `acquire()` دوباره
 می‌خواند و اگر کار تمام شده باشد هیچ مرحله‌ای اجرا نمی‌کند.
 
-**۲) مالکیت پیش از هر مرحله و دوباره پیش از هر نوشتن نسخه اثبات می‌شود.**
-`MigrationLock::refresh()` همیشه به store مراجعه می‌کند؛ حتی وقتی مقدار
-رمزگذاری‌شده در همان ثانیه تغییری نکرده، ownership با یک خواندن واقعی بررسی
-می‌شود (`stillOwned()`). اگر قفل تصاحب شده باشد، اجرای قدیمی متوقف می‌شود و
-**هیچ چیز نمی‌نویسد**: نه نسخه، نه option خطا. وضعیت `LockLost` دقیقاً همین
-حالت است و از `Failed` جداست، چون اجرای قدیمی صلاحیت اعلام شکست برای
-دیتابیسی که اجرای جدید موفق مهاجرت داده را ندارد.
+**۲) هر نوشتن وضعیت، در خودِ دیتابیس به مالکیت مشروط است.** بررسی مالکیت و
+سپس نوشتن، **دو عمل** است؛ بین آن دو فاصله‌ای هست که process می‌تواند
+طولانی‌تر از TTL قفل در آن معلق شود و تصاحبی که دقیقاً در همان فاصله رخ دهد،
+با نوشتن اجرای منسوخ‌شده بازنویسی گردد. هیچ ترتیبی از `if`های سمت PHP این
+فاصله را نمی‌بندد؛ فقط دیتابیس می‌تواند.
+
+بنابراین هر سه نوشتن وضعیت — نوشتن نسخه، ثبت خطا و **حذف** خطا — از
+`GuardedOptionStoreInterface` عبور می‌کنند که شرط «هنوز مالک هستم؟» و خود
+نوشتن را در **یک دستور** ارزیابی می‌کند:
+
+```sql
+-- نوشتن (WpLockStore::setGuarded)
+INSERT INTO wp_options (option_name, option_value, autoload)
+SELECT %s, %s, 'no' FROM wp_options AS guard
+ WHERE guard.option_name = %s AND guard.option_value = %s
+ON DUPLICATE KEY UPDATE option_value = VALUES(option_value)
+
+-- حذف (WpLockStore::deleteGuarded)
+DELETE target FROM wp_options AS target
+ INNER JOIN wp_options AS guard
+    ON guard.option_name = %s AND guard.option_value = %s
+ WHERE target.option_name = %s
+```
+
+اگر سطر قفل دیگر مقدارِ این اجرا را نداشته باشد، `SELECT`/`JOIN` هیچ سطری
+برنمی‌گرداند و **هیچ نوشتنی انجام نمی‌شود** — نه با شرط دوم، بلکه چون اصلاً
+سطری برای نوشتن وجود ندارد.
+
+`refresh()` و `stillOwned()` باقی می‌مانند اما فقط **بهینه‌سازی** هستند: TTL
+را تمدید و شکست را زودتر آشکار می‌کنند. تضمین ایمنی، شرط داخل خود دستور است.
+اگر قفل تصاحب شده باشد، اجرای قدیمی متوقف می‌شود و **هیچ چیز نمی‌نویسد**: نه
+نسخه، نه option خطا، و خطای ثبت‌شده اجرای جدید را هم **حذف نمی‌کند**. وضعیت
+`LockLost` دقیقاً همین حالت است و از `Failed` جداست، چون اجرای قدیمی صلاحیت
+اعلام شکست برای دیتابیسی که اجرای جدید موفق مهاجرت داده را ندارد.
+
+**شکست ثبت خطا هرگز استثنای کنترل‌نشده نمی‌سازد.** `recordErrorIfOwned()` و
+`clearRecordedErrorIfOwned()` هر `Throwable` را می‌گیرند و `false`
+برمی‌گردانند؛ اجرای در حال شکست نباید با شکست دوم روی مسیر خطا از کنترل خارج
+شود. اگر ثبت ممکن نشد و قفل هنوز در اختیار ماست، نتیجه `Failed` است و متن
+خطا صریحاً `(not recorded)` را حمل می‌کند تا «ثبت شد» با «نشد» اشتباه نشود.
 
 ### آنچه این تضمین **نمی‌کند**: DDL در حال اجرا
 
@@ -131,10 +164,26 @@ cooldown فقط جلوی کوبیدن دیتابیس در هر درخواست م
   `testExactlyOneOfManyConcurrentProcessesAcquiresTheLock` با هشت فرایند
   forkشده و اتصال جداگانه.
 - `MigrationMariaDbTest` — DDL واقعی، ایندکس‌ها، resume، شکست، قفل.
-- `MigrationTakeoverTest` — **در سطح Runner، نه فقط MigrationLock**: تصاحب قفل
-  وسط مهاجرت، عدم نوشتن نسخه قدیمی روی نسخه جدید، خواندن دوباره نسخه پس از
-  گرفتن قفل، و رد کردن schema جلوتر.
-  شاهد قبل/بعد: `docs/evidence/regression-migration-takeover.txt`.
+- `MigrationTakeoverTest` — **در سطح Runner، نه فقط MigrationLock**: ۱۰ تست؛
+  تصاحب قفل وسط مهاجرت، عدم نوشتن نسخه قدیمی روی نسخه جدید، خواندن دوباره
+  نسخه پس از گرفتن قفل، رد کردن schema جلوتر، و چهار سناریوی این بازبینی:
+  استثنای `up()` پس از تصاحب، `verify()` نادرست و `verify()` پرتاب‌کننده پس از
+  تصاحب، **تصاحب در فاصله بین بررسی مالکیت و نوشتن نسخه**، و تلاش اجرای قدیمی
+  برای حذف خطای ثبت‌شده اجرای جدید. به‌علاوه
+  `testFailureToRecordTheErrorDoesNotThrow` که store خطاپرتاب‌کن را روی هر دو
+  مسیر (guarded و ساده) مدل می‌کند.
+  شاهد قبل/بعد: `docs/evidence/regression-migration-takeover.txt` و
+  `docs/evidence/regression-guarded-writes-vs-previous.log` — با جایگزینی
+  موقت نوشتن‌های guarded با پیاده‌سازی قبلی «بررسی، سپس نوشتن»، دو تست
+  می‌شکنند: نسخه ۱ روی ۳ می‌نشیند، و شکست ثبت خطا به‌صورت استثنای
+  کنترل‌نشده بیرون می‌زند.
+- `MigrationMariaDbTest::testGuardedWriteOnlyHappensWhileTheGuardValueMatches`
+  و `…GuardedDeleteOnlyHappensWhileTheGuardValueMatches` — معنای همان دو دستور
+  SQL روی موتور واقعی؛ به‌علاوه
+  `testRunRefusesToWriteTheVersionAfterAnotherOwnerTookTheLock` که کل Runner را
+  پس از تصاحب واقعی قفل می‌سنجد. suite دیتابیس option‌ها را به همان جدول واقعی
+  `wp_options` وصل می‌کند (`State::$optionsBackedByWpdb`) تا قفل، نسخه و
+  نوشتن guarded یک لایه ذخیره‌سازی داشته باشند، همان‌طور که در WordPress هست.
 - `UpgradeGateTest` — اجرای مهاجرت بدون activation، cooldown و بازیابی خودکار.
 - استثنای `verify()` و استثنای نوشتن نسخه، هر دو به شکست کنترل‌شده تبدیل
   می‌شوند و هیچ استثنایی به بیرون نشت نمی‌کند

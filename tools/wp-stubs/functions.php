@@ -138,6 +138,21 @@ function sanitize_key(string $key): string
 {
     return preg_replace('/[^a-z0-9_\-]/', '', strtolower($key)) ?? '';
 }
+function maybe_serialize(mixed $data): mixed
+{
+    if (is_array($data) || is_object($data)) {
+        return serialize($data);
+    }
+    return $data;
+}
+function maybe_unserialize(mixed $data): mixed
+{
+    if (is_string($data) && preg_match('/^[aOsbdiN]:/', $data) === 1) {
+        $out = @unserialize($data);
+        return $out === false && $data !== 'b:0;' ? $data : $out;
+    }
+    return $data;
+}
 function wp_json_encode(mixed $data, int $flags = 0, int $depth = 512): string|false
 {
     return json_encode($data, $flags, $depth);
@@ -168,21 +183,51 @@ function selected(mixed $selected, mixed $current = true, bool $echo = true): st
 }
 
 // ---- options / transients / cache -------------------------------------------
+/** @return mixed the stored value, or $default when the option is absent */
 function get_option(string $option, mixed $default = false): mixed
 {
+    if (State::$optionsBackedByWpdb) {
+        $wpdb = $GLOBALS['wpdb'];
+        $value = $wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name = %s LIMIT 1", $option));
+        return $value === null ? $default : maybe_unserialize($value);
+    }
     return array_key_exists($option, State::$options) ? State::$options[$option] : $default;
+}
+function tmc_stub_option_exists(string $option): bool
+{
+    if (State::$optionsBackedByWpdb) {
+        $wpdb = $GLOBALS['wpdb'];
+        return $wpdb->get_var($wpdb->prepare("SELECT 1 FROM {$wpdb->options} WHERE option_name = %s LIMIT 1", $option)) !== null;
+    }
+    return array_key_exists($option, State::$options);
+}
+function tmc_stub_option_put(string $option, mixed $value): bool
+{
+    if (!State::$optionsBackedByWpdb) {
+        State::$options[$option] = $value;
+        return true;
+    }
+    $wpdb = $GLOBALS['wpdb'];
+    $stored = maybe_serialize($value);
+    $sql = $wpdb->prepare(
+        "INSERT INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')
+         ON DUPLICATE KEY UPDATE option_value = VALUES(option_value)",
+        $option,
+        $stored
+    );
+    return $wpdb->query($sql) !== false;
 }
 function add_option(string $option, mixed $value = '', string $deprecated = '', bool|string $autoload = 'yes'): bool
 {
     // Real add_option() sanitises too — this is the second pass for a new option.
     $value = apply_filters('sanitize_option_' . $option, $value, $option);
-    if (array_key_exists($option, State::$options)) {
+    if (tmc_stub_option_exists($option)) {
         return false;
     }
     if (State::$failOptionWrites) {
         return false; // models a storage-layer failure, as WordPress reports it
     }
-    State::$options[$option] = $value;
+    tmc_stub_option_put($option, $value);
     do_action('add_option_' . $option, $option, $value);
     do_action('added_option', $option, $value);
     return true;
@@ -192,25 +237,30 @@ function update_option(string $option, mixed $value, bool|string|null $autoload 
     // Mirrors wp-includes/option.php: sanitize first, then add_option() when
     // the option does not exist yet — which sanitises a SECOND time.
     $value = apply_filters('sanitize_option_' . $option, $value, $option);
-    if (!array_key_exists($option, State::$options)) {
+    if (!tmc_stub_option_exists($option)) {
         return add_option($option, $value, '', false);
     }
-    $old = State::$options[$option];
+    $old = get_option($option);
     if ($old === $value) {
         return false; // WordPress quirk: unchanged value → false, no action fires
     }
     if (State::$failOptionWrites) {
         return false; // the DB write failed; no update_option_ action fires
     }
-    State::$options[$option] = $value;
+    tmc_stub_option_put($option, $value);
     do_action('update_option_' . $option, $old, $value, $option);
     do_action('updated_option', $option, $old, $value);
     return true;
 }
 function delete_option(string $option): bool
 {
-    if (!array_key_exists($option, State::$options)) {
+    if (!tmc_stub_option_exists($option)) {
         return false;
+    }
+    if (State::$optionsBackedByWpdb) {
+        $wpdb = $GLOBALS['wpdb'];
+        $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s", $option));
+        return true;
     }
     unset(State::$options[$option]);
     return true;

@@ -16,7 +16,14 @@ final class WpOptionStore implements OptionStoreInterface
     {
         $sentinel = new \stdClass();
         $value = get_option($key, $sentinel);
-        return $value === $sentinel ? $default : $value;
+        if ($value === $sentinel) {
+            return $default;
+        }
+        // A value written by the guarded single-statement path bypasses
+        // WordPress's own write helpers, so it can still be in its serialised
+        // form here. get_option() unserialises what IT wrote; normalise the
+        // rest so both paths read back identically.
+        return is_string($value) ? maybe_unserialize($value) : $value;
     }
 
     public function set(string $key, mixed $value): bool

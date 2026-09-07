@@ -13,6 +13,16 @@ class InMemoryOptionStore implements OptionStoreInterface
     public bool $failWrites = false;
     public int $writes = 0;
 
+    /**
+     * Fired immediately BEFORE a write lands. Lets a test model a take-over
+     * that happens in the gap between an ownership check and the write — the
+     * gap an unguarded "check, then write" implementation leaves open.
+     *
+     * @var null|callable(string,mixed):void
+     */
+    public $onWrite = null;
+    private bool $inHook = false;
+
     public function get(string $key, mixed $default = null): mixed
     {
         return array_key_exists($key, $this->data) ? $this->data[$key] : $default;
@@ -20,6 +30,14 @@ class InMemoryOptionStore implements OptionStoreInterface
 
     public function set(string $key, mixed $value): bool
     {
+        if ($this->onWrite !== null && !$this->inHook) {
+            $this->inHook = true;
+            try {
+                ($this->onWrite)($key, $value);
+            } finally {
+                $this->inHook = false;
+            }
+        }
         if ($this->failWrites) {
             return false;
         }

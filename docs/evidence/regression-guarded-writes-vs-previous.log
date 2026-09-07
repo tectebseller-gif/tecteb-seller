@@ -1,0 +1,79 @@
+======================================================================
+Regression evidence for review round 2 (items 8, 10, 11).
+Each experiment temporarily reverts ONE piece of production code to the
+previous design, runs the new tests, then restores the file and proves
+the restore was byte-identical. Generated 2026-09-07T15:33:50Z.
+PHP 8.4.19  |  MariaDB 10.11.14-MariaDB-0ubuntu0.24.04.1
+======================================================================
+
+### EXPERIMENT 1 — MigrationRunner: guarded writes replaced by
+### stillOwned() + plain option write (items 8 and 10).
+
+    /** PREVIOUS IMPLEMENTATION (temporary): check ownership, then write. */
+    private function writeVersionIfOwned(int $version): bool
+    {
+        if (!$this->lock->stillOwned()) {
+            return false;
+        }
+        return $this->options->set(SchemaVersion::OPTION, $version);
+    }
+
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+.....F.E..                                                        10 / 10 (100%)
+
+Time: 00:00.010, Memory: 10.00 MB
+
+There was 1 error:
+
+1) Tecteb\Marketplace\Tests\Unit\Core\Migration\MigrationTakeoverTest::testFailureToRecordTheErrorDoesNotThrow
+RuntimeException: the option store is down too
+
+/home/user/tecteb-seller/tests/Unit/Core/Migration/MigrationTakeoverTest.php:327
+/home/user/tecteb-seller/src/Core/Migration/MigrationRunner.php:231
+/home/user/tecteb-seller/src/Core/Migration/MigrationRunner.php:204
+/home/user/tecteb-seller/src/Core/Migration/MigrationRunner.php:151
+/home/user/tecteb-seller/tests/Unit/Core/Migration/MigrationTakeoverTest.php:363
+
+--
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Unit\Core\Migration\MigrationTakeoverTest::testTakeoverBetweenTheOwnershipCheckAndTheVersionWrite
+version 1 must not land on top of 3
+Failed asserting that 1 is identical to 3.
+
+/home/user/tecteb-seller/tests/Unit/Core/Migration/MigrationTakeoverTest.php:279
+
+ERRORS!
+Tests: 10, Assertions: 34, Errors: 1, Failures: 1.
+
+restore check: MigrationRunner.php byte-identical to the delivered source
+
+### EXPERIMENT 2 — SettingsRegistrar: audit moved back into
+### resolveOutcome(), i.e. dependent on finalizeOutcome() (item 11).
+
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+F.                                                                  2 / 2 (100%)
+
+Time: 00:00.011, Memory: 10.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\WordPressContract\SettingsApiTest::testAuditHappensOnPersistenceEvenWhenFinalizeOutcomeNeverRuns
+the change is audited without finalizeOutcome()
+Failed asserting that actual size 0 matches expected size 1.
+
+/home/user/tecteb-seller/tests/WordPressContract/SettingsApiTest.php:265
+
+FAILURES!
+Tests: 2, Assertions: 8, Failures: 1.
+
+restore check: SettingsRegistrar.php byte-identical to the delivered source

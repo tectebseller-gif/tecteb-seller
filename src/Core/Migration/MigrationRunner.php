@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Core\Migration;
 
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Contracts\GuardedOptionStoreInterface;
 use Tecteb\Marketplace\Contracts\MigrationInterface;
 use Tecteb\Marketplace\Contracts\OptionStoreInterface;
 use Tecteb\Marketplace\Core\Support\TextSanitizer;
@@ -35,10 +36,17 @@ use Tecteb\Marketplace\Core\Support\TextSanitizer;
  *     lock can take arbitrarily long, and the run that held it may have
  *     advanced the schema meanwhile; the version read before acquiring is
  *     therefore stale by construction and must never drive the loop.
- *  2. Re-confirms ownership immediately before each step and again before
- *     each version write. A run whose lock expired and was taken over stops
- *     at the next checkpoint and writes NOTHING — not the version, not the
- *     last-error option — so it cannot overwrite the newer run's state.
+ *  2. Performs EVERY state write — the schema version, recording a failure,
+ *     and clearing a previous failure — through GuardedOptionStoreInterface,
+ *     which evaluates "do I still own the lock?" and the write in a SINGLE
+ *     database statement. Checking ownership and then writing would leave a
+ *     window: the process can be suspended between the two for longer than
+ *     the lock TTL, and a take-over landing in that window would be
+ *     overwritten by the superseded run. No arrangement of PHP-side checks
+ *     closes that window; only the database can.
+ *  3. Also refreshes the lock before each step, which extends the TTL and
+ *     fails fast. That is an optimisation, not the safety property: the
+ *     guard on each write is what makes a superseded run harmless.
  *
  * What this does NOT prevent: DDL already in flight. MySQL has no
  * transactional rollback for DDL and PHP cannot abort a statement the server
@@ -57,6 +65,7 @@ final class MigrationRunner
     public function __construct(
         private DatabaseInterface $db,
         private OptionStoreInterface $options,
+        private GuardedOptionStoreInterface $guarded,
         private MigrationLock $lock,
         array $migrations,
         private ClockInterface $clock,
@@ -150,23 +159,24 @@ final class MigrationRunner
                 if (!$verified) {
                     return $this->fail($from, $current, $applied, $migration->id(), 'verify_failed');
                 }
-                // Ownership again immediately before recording state: this is
-                // the write that must never land on top of a newer run.
-                if (!$this->lock->refresh()) {
-                    return MigrationResult::lockLost($from, $current, $applied, $migration->id());
-                }
+                // The version write itself carries the ownership condition,
+                // so a take-over that happens right now cannot be overwritten.
                 try {
-                    $persisted = $this->options->set(SchemaVersion::OPTION, $migration->version());
+                    $persisted = $this->writeVersionIfOwned($migration->version());
                 } catch (\Throwable $e) {
                     return $this->fail($from, $current, $applied, $migration->id(), 'version_persist_threw: ' . TextSanitizer::exceptionSummary($e));
                 }
                 if (!$persisted) {
+                    if (!$this->lock->stillOwned()) {
+                        return MigrationResult::lockLost($from, $current, $applied, $migration->id());
+                    }
                     return $this->fail($from, $current, $applied, $migration->id(), 'version_persist_failed');
                 }
                 $current = $migration->version();
                 $applied[] = $migration->id();
             }
-            $this->options->delete(SchemaVersion::LAST_ERROR_OPTION);
+            // Clearing a previous failure is also state: only the owner may.
+            $this->clearRecordedErrorIfOwned();
             return MigrationResult::applied($from, $current, $applied);
         } finally {
             // Conditional on this run's own value: a lock taken over by a
@@ -181,14 +191,78 @@ final class MigrationRunner
         return $this->currentVersion() > $this->targetVersion;
     }
 
-    /** @param list<string> $applied */
+    /**
+     * Records a controlled failure. If the guarded write is refused because
+     * this run no longer owns the lock, the outcome is LockLost instead: a
+     * superseded run has no standing to mark a database failed that the
+     * newer run may have migrated successfully.
+     *
+     * @param list<string> $applied
+     */
     private function fail(int $from, int $reached, array $applied, string $step, string $message): MigrationResult
     {
-        $this->options->set(SchemaVersion::LAST_ERROR_OPTION, [
-            'step' => $step,
-            'message' => TextSanitizer::singleLine($message, 200),
-            'at' => $this->clock->now()->format(\DateTimeInterface::ATOM),
-        ]);
-        return MigrationResult::failed($from, $reached, $applied, $step, $message);
+        $recorded = $this->recordErrorIfOwned($step, $message);
+        if (!$recorded && !$this->lock->stillOwned()) {
+            return MigrationResult::lockLost($from, $reached, $applied, $step);
+        }
+        return MigrationResult::failed(
+            $from,
+            $reached,
+            $applied,
+            $step,
+            $recorded ? $message : $message . ' (not recorded)'
+        );
+    }
+
+    /** Writes the schema version only while this run owns the lock. */
+    private function writeVersionIfOwned(int $version): bool
+    {
+        $guard = $this->lock->guardValue();
+        if ($guard === null) {
+            return false;
+        }
+        return $this->guarded->setGuarded(SchemaVersion::OPTION, $version, $this->lock->guardKey(), $guard);
+    }
+
+    /**
+     * Records the failure, guarded by ownership. Never throws: failing to
+     * write a failure must not become a second, uncontrolled failure on top
+     * of the first — the caller is already on the error path and the health
+     * page reports the migration as incomplete either way.
+     */
+    private function recordErrorIfOwned(string $step, string $message): bool
+    {
+        try {
+            $guard = $this->lock->guardValue();
+            if ($guard === null) {
+                return false;
+            }
+            return $this->guarded->setGuarded(
+                SchemaVersion::LAST_ERROR_OPTION,
+                [
+                    'step' => $step,
+                    'message' => TextSanitizer::singleLine($message, 200),
+                    'at' => $this->clock->now()->format(\DateTimeInterface::ATOM),
+                ],
+                $this->lock->guardKey(),
+                $guard
+            );
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /** Clears a recorded failure, guarded by ownership. Never throws. */
+    private function clearRecordedErrorIfOwned(): bool
+    {
+        try {
+            $guard = $this->lock->guardValue();
+            if ($guard === null) {
+                return false;
+            }
+            return $this->guarded->deleteGuarded(SchemaVersion::LAST_ERROR_OPTION, $this->lock->guardKey(), $guard);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }

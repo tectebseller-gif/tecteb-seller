@@ -16,6 +16,131 @@
 | ۴ | استثنای `verify()` و استثنای نوشتن نسخه به بیرون نشت می‌کرد | تبدیل به شکست کنترل‌شده، بدون ثبت نسخه نامعتبر | `MigrationRunnerTest` ×۲ | ✅ استثنا از `run()` بیرون می‌زد |
 | ۵ | مهاجرت فقط به activation وابسته بود؛ schema جلوتر Healthy اعلام می‌شد | `UpgradeGate` روی `admin_init` + cooldown + وضعیت `Ahead` | `UpgradeGateTest` ×۵ | ✅ رفتار وجود نداشت |
 
+## خلاصه — دور دوم بازبینی
+
+بازخورد دوم گفت اصلاح دور اول کافی نیست: «`refresh` قبل از نوشتن کافی نیست».
+درست است. بررسی مالکیت و سپس نوشتن **دو عمل** است و فاصله بین آن دو با هیچ
+`if` دیگری بسته نمی‌شود.
+
+| # | ایراد | اصلاح | تست رگرسیون | اثبات روی کد قبلی |
+|---|---|---|---|---|
+| ۸ | نوشتن نسخه، ثبت خطا و حذف خطا فقط با بررسی جداگانه مالکیت محافظت می‌شدند | هر سه از `GuardedOptionStoreInterface` عبور می‌کنند؛ شرط مالکیت **داخل همان دستور SQL** | `MigrationTakeoverTest::testTakeoverBetweenTheOwnershipCheckAndTheVersionWrite` | ✅ نسخه ۱ روی ۳ نشست |
+| ۹ | مسیرهای استثنای `up()`، شکست `verify()`، فاصله بررسی‌تا‌نوشتن، و حذف خطای اجرای جدید توسط اجرای قدیمی پوشش نداشتند | چهار تست takeover تازه + سه تست guarded روی MariaDB واقعی | `MigrationTakeoverTest` ×۵، `MigrationMariaDbTest` ×۴ | ✅ (بند ۸ و ۱۰) |
+| ۱۰ | شکست ثبت خطا می‌توانست استثنای کنترل‌نشده بسازد | `recordErrorIfOwned`/`clearRecordedErrorIfOwned` هر `Throwable` را می‌گیرند؛ متن نتیجه `(not recorded)` می‌گیرد | `testFailureToRecordTheErrorDoesNotThrow` | ✅ `RuntimeException` از `run()` بیرون زد |
+| ۱۱ | ثبت audit تنظیمات عملاً به اجرای `finalizeOutcome()` وابسته بود | ممیزی به لحظه تأیید ذخیره منتقل شد؛ `resolveOutcome()` فقط گزارش می‌دهد | `testAuditHappensOnPersistenceEvenWhenFinalizeOutcomeNeverRuns`، `testASingleSaveProducesExactlyOneAuditRow` | ✅ صفر ردیف ممیزی |
+
+---
+
+## ۸. نوشتن وضعیت، به‌صورت اتمیک مشروط به مالکیت
+
+**ایراد.** اصلاح دور اول مالکیت را با `stillOwned()` بررسی می‌کرد و بعد
+می‌نوشت. بین آن بررسی و رسیدن مقدار به دیتابیس، process می‌تواند بیش از TTL
+قفل معلق شود؛ تصاحبی که دقیقاً در همان فاصله رخ دهد با نوشتن اجرای
+منسوخ‌شده بازنویسی می‌شود. این پنجره با هیچ بررسی دیگری در PHP بسته نمی‌شود.
+
+**اصلاح.** `Contracts/GuardedOptionStoreInterface` با دو عمل:
+
+```php
+setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): bool
+deleteGuarded(string $key, string $guardKey, string $guardValue): bool
+```
+
+پیاده‌سازی وردپرسی (`WpLockStore`) هرکدام را با **یک دستور** انجام می‌دهد:
+
+```sql
+INSERT INTO wp_options (option_name, option_value, autoload)
+SELECT %s, %s, 'no' FROM wp_options AS guard
+ WHERE guard.option_name = %s AND guard.option_value = %s
+ON DUPLICATE KEY UPDATE option_value = VALUES(option_value)
+
+DELETE target FROM wp_options AS target
+ INNER JOIN wp_options AS guard
+    ON guard.option_name = %s AND guard.option_value = %s
+ WHERE target.option_name = %s
+```
+
+اگر سطر قفل دیگر مقدار این اجرا را نداشته باشد، هیچ سطری برای نوشتن تولید
+نمی‌شود. `MigrationRunner` هر سه نوشتن وضعیت را از این مسیر عبور می‌دهد:
+`writeVersionIfOwned()`، `recordErrorIfOwned()`، `clearRecordedErrorIfOwned()`.
+`refresh()`/`stillOwned()` می‌مانند اما فقط بهینه‌سازی‌اند، نه تضمین ایمنی.
+
+**اثبات.** با جایگزینی موقت این سه متد با پیاده‌سازی قبلی «بررسی، سپس
+نوشتن» و اجرای همان تست‌ها:
+
+```
+1) …MigrationTakeoverTest::testTakeoverBetweenTheOwnershipCheckAndTheVersionWrite
+version 1 must not land on top of 3
+Failed asserting that 1 is identical to 3.
+```
+
+خروجی کامل: `docs/evidence/regression-guarded-writes-vs-previous.log`
+(سورس بلافاصله بازگردانده شد؛ `diff` بازگردانی در همان گزارش).
+
+تست فاصله، تصاحب را روی **هر دو** store ثبت می‌کند (guarded و ساده) تا نقطه
+تزریق در پیاده‌سازی قدیم و جدید یکی باشد؛ وگرنه مقایسه منصفانه نبود.
+
+## ۹. پوشش سناریوهای takeover
+
+`MigrationTakeoverTest` اکنون ۱۰ تست دارد. پنج مورد این دور:
+
+| تست | چه چیزی را می‌سنجد |
+|---|---|
+| `testTakeoverThenUpThrowsRecordsNothing` | پس از تصاحب، استثنای `up()` نباید خطای اجرای جدید را بازنویسی کند |
+| `testTakeoverThenVerifyReturnsFalseRecordsNothing` | `verify()` نادرست پس از تصاحب → `LockLost`، بدون ثبت |
+| `testTakeoverThenVerifyThrowsRecordsNothing` | استثنای `verify()` پس از تصاحب → همان |
+| `testTakeoverBetweenTheOwnershipCheckAndTheVersionWrite` | تصاحب دقیقاً در فاصله بررسی تا نوشتن |
+| `testSupersededRunCannotDeleteTheNewRunsRecordedError` | اجرای قدیمی نمی‌تواند خطای ثبت‌شده اجرای جدید را پاک کند |
+
+روی MariaDB واقعی چهار تست تازه اضافه شد: معنای `setGuarded`/`deleteGuarded`،
+گردش مقدار از نوشتن guarded تا `get_option()`، و رد شدن نوشتن نسخه پس از
+تصاحب واقعی قفل. suite دیتابیس اکنون optionها را به همان جدول واقعی
+`wp_options` وصل می‌کند (`State::$optionsBackedByWpdb`)؛ پیش از این قفل در
+جدول واقعی بود ولی optionها در آرایه‌ای درون‌پردازه‌ای، و آن دو می‌توانستند
+با هم اختلاف داشته باشند بی‌آنکه تستی متوجه شود.
+
+این تغییر یک ناهم‌خوانی واقعی را هم آشکار کرد: وردپرس مقدار option را در ستون
+متنی نگه می‌دارد، پس عدد صحیح به‌صورت **رشته** برمی‌گردد. stub قبلی عدد
+برمی‌گرداند و بنابراین با وردپرس واقعی همسان نبود. کد قبلاً درست بود
+(`currentVersion()` عددی‌بودن را بررسی و cast می‌کند)، اما assertionهای تست
+اصلاح شدند تا واقعیت را بسنجند نه ساده‌سازی stub را.
+
+## ۱۰. شکست ثبت خطا، بدون استثنای کنترل‌نشده
+
+`recordErrorIfOwned()` و `clearRecordedErrorIfOwned()` هر `Throwable` را
+می‌گیرند و `false` برمی‌گردانند. اگر ثبت ممکن نشد ولی قفل هنوز در اختیار
+ماست، نتیجه `Failed` است و متن خطا `(not recorded)` را حمل می‌کند؛ «ثبت شد»
+و «نشد» از هم قابل تشخیص می‌مانند. اگر قفل را از دست داده باشیم، نتیجه
+`LockLost` است.
+
+روی کد قبلی، `testFailureToRecordTheErrorDoesNotThrow` با
+`RuntimeException: the option store is down too` از `run()` بیرون می‌زند —
+یعنی شکست دوم روی مسیر خطا.
+
+## ۱۱. ممیزی تنظیمات، مستقل از `finalizeOutcome()`
+
+**ایراد.** ممیزی داخل `resolveOutcome()` نوشته می‌شد و آن متد فقط از فیلتر
+`pre_set_transient_settings_errors` صدا زده می‌شود؛ یعنی فقط روی مسیر
+`options.php`. هر نوشتن دیگری روی `tmc_settings` — کد افزونه‌ای دیگر، WP-CLI،
+`update_option()` برنامه‌ای — بدون هیچ ردپایی به دیتابیس می‌رسید.
+
+**اصلاح.** ممیزی به `recordPersisted()` منتقل شد: همان لحظه‌ای که وردپرس با
+`update_option_tmc_settings` / `add_option_tmc_settings` تأیید می‌کند مقدار
+ذخیره شده است. یک latch (`$audited`) تضمین می‌کند یک نوشتن موفق دقیقاً یک
+ردیف بسازد، حتی وقتی وردپرس برای option تازه دو بار sanitize را صدا می‌زند.
+`resolveOutcome()` فقط نتیجه ثبت‌شده را **گزارش** می‌کند.
+
+**اثبات.** با برگرداندن ممیزی به `resolveOutcome()`:
+
+```
+1) …SettingsApiTest::testAuditHappensOnPersistenceEvenWhenFinalizeOutcomeNeverRuns
+the change is audited without finalizeOutcome()
+Failed asserting that actual size 0 matches expected size 1.
+```
+
+تست، مقدار را با یک `update_option()` ساده می‌نویسد: بدون nonce، بدون
+`options.php`، و بررسی می‌کند که transient `settings_errors` اصلاً ساخته
+نشده باشد.
+
 ---
 
 ## ۱. تفکیک اعتبارسنجی، ذخیره و ممیزی
@@ -174,12 +299,12 @@ cooldown فقط retry را محدود می‌کند؛ خطا در تمام مد�
 
 | گیت | نتیجه |
 |---|---|
-| Unit | ۱۱۸ تست، ۲۰٬۴۸۲ assertion |
-| معماری و قواعد امنیتی | ۱۲ تست، ۵۶ assertion |
-| قرارداد با stub | ۴۰ تست، ۴۳۹ assertion |
-| دیتابیس واقعی MariaDB | ۱۴ تست، ۱۲۳ assertion |
-| بسته‌بندی | ۱۲ تست، ۲٬۶۱۰ assertion |
-| `php -l` | ۱۱۰ فایل، ۰ خطا |
+| Unit | ۱۲۴ تست، ۲۰٬۵۰۳ assertion |
+| معماری و قواعد امنیتی | ۱۲ تست، ۶۰ assertion |
+| قرارداد با stub | ۴۲ تست، ۴۵۲ assertion |
+| دیتابیس واقعی MariaDB | ۱۸ تست، ۱۸۱ assertion |
+| بسته‌بندی | ۱۲ تست، ۲٬۶۳۶ assertion |
+| `php -l` | ۱۱۱ فایل، ۰ خطا |
 | PHPCompatibility 8.1 | ۰ خطا |
 | کنتراست | ۱۳ ترکیب، ۰ خطا |
 | مرورگر روی harness | ۲۳۳ بررسی، ۰ خطا |

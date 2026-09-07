@@ -47,8 +47,8 @@ final class ActivationFlowTest extends DatabaseTestCase
         self::assertArrayNotHasKey('subscriber', State::$roles);
         self::assertSame(['schema_version' => 1, 'values' => [
             'default_commission_rate_bp' => null, 'settlement_delay_days' => 4, 'max_staff' => 10, 'environment_override' => 'auto',
-        ]], State::$options['tmc_settings']);
-        self::assertSame(1, State::$options[SchemaVersion::OPTION]);
+        ]], get_option('tmc_settings'));
+        self::assertSame(1, $this->storedSchemaVersion());
         self::assertTrue($this->tableExists($this->auditTable()));
         self::assertSame('applied', State::$transients[Activator::NOTICE_TRANSIENT]['migration']);
         $rows = $this->wpdb->get_results("SELECT event_type, actor_id, payload FROM `{$this->auditTable()}`", ARRAY_A);
@@ -69,19 +69,34 @@ final class ActivationFlowTest extends DatabaseTestCase
     {
         $this->loginAdmin();
         $this->activate();
-        State::$options['tmc_settings']['values']['default_commission_rate_bp'] = 250;
-        State::$options['tmc_settings']['values']['max_staff'] = 33;
-        $queries = $this->wpdb->num_queries;
+        // The values a site owner had already saved, as they sit in wp_options.
+        $saved = get_option('tmc_settings');
+        $saved['values']['default_commission_rate_bp'] = 250;
+        $saved['values']['max_staff'] = 33;
+        tmc_stub_option_put('tmc_settings', $saved);
+        $before = count($this->wpdb->queries);
 
         $this->activate();
+        $during = array_slice($this->wpdb->queries, $before);
 
-        self::assertSame(250, State::$options['tmc_settings']['values']['default_commission_rate_bp'], 'user value not reset');
-        self::assertSame(33, State::$options['tmc_settings']['values']['max_staff']);
-        self::assertSame(1, State::$options[SchemaVersion::OPTION]);
+        $after = get_option('tmc_settings');
+        self::assertSame(250, $after['values']['default_commission_rate_bp'], 'user value not reset');
+        self::assertSame(33, $after['values']['max_staff']);
+        self::assertSame(1, $this->storedSchemaVersion());
         self::assertSame('up_to_date', State::$transients[Activator::NOTICE_TRANSIENT]['migration']);
         self::assertSame(2, (int) $this->wpdb->get_var("SELECT COUNT(*) FROM `{$this->auditTable()}`"), 'second activation is audited too');
         self::assertSame(['PRIMARY', 'tmc_actor_created', 'tmc_evt_created', 'tmc_object'], $this->indexNames($this->auditTable()));
-        self::assertLessThanOrEqual($queries + 3, $this->wpdb->num_queries, 'no DDL on reactivation: only the audit insert (and no lock)');
+        // Reactivation must do no structural work: the schema is already at
+        // the target, so the runner reads the version and stops — no DDL, and
+        // no migration lock is taken. Counting queries would only measure how
+        // many options are read, so assert on the statements themselves.
+        foreach ($during as $q) {
+            self::assertDoesNotMatchRegularExpression('/^\s*(CREATE|ALTER|DROP|TRUNCATE)\b/i', $q, 'no DDL on reactivation: ' . $q);
+            self::assertStringNotContainsString('tmc_migration_lock', $q, 'an up-to-date run takes no lock: ' . $q);
+        }
+        $writes = array_values(array_filter($during, static fn (string $q): bool => preg_match('/^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i', $q) === 1));
+        self::assertCount(1, $writes, 'the only write is the activation audit row: ' . implode(' | ', $writes));
+        self::assertStringContainsString($this->auditTable(), $writes[0]);
     }
 
     public function testDeactivationLeavesTableOptionsAndCapabilitiesInPlace(): void
@@ -94,8 +109,8 @@ final class ActivationFlowTest extends DatabaseTestCase
 
         self::assertTrue($this->tableExists($this->auditTable()));
         self::assertSame(2, (int) $this->wpdb->get_var("SELECT COUNT(*) FROM `{$this->auditTable()}`"), 'activation + deactivation rows preserved');
-        self::assertArrayHasKey('tmc_settings', State::$options);
-        self::assertSame(1, State::$options[SchemaVersion::OPTION]);
+        self::assertIsArray(get_option('tmc_settings'), 'settings survive deactivation');
+        self::assertSame(1, $this->storedSchemaVersion());
         self::assertTrue(State::$roles['administrator']['tmc_manage_settings']);
         self::assertSame([], State::$clearedScheduledHooks, 'phase 1 owns no cron hooks');
 

@@ -39,7 +39,14 @@ find "${PAYLOAD}" -depth \( -name '.*' -o -name '*.docx' -o -name '*.zip' -o -na
 find "${PAYLOAD}" -depth -type d \( -name vendor -o -name node_modules -o -name tests -o -name tools \) -print -exec rm -rf {} +
 
 # Deterministic timestamps so two builds of the same source match byte for byte.
-SOURCE_DATE="${SOURCE_DATE_EPOCH:-$(git log -1 --format=%ct 2>/dev/null || echo 1757203200)}"
+#
+# A FIXED epoch, not the last commit's date. Deriving it from git made the
+# artefact hash change on every commit, so the SHA-256 recorded in
+# docs/phase-1-report.md could never survive the commit that recorded it: a
+# reviewer rebuilding from the delivered source got a different hash and had
+# no way to tell a timestamp difference from a content difference. Override
+# with SOURCE_DATE_EPOCH when a release needs its own stamp.
+SOURCE_DATE="${SOURCE_DATE_EPOCH:-1757203200}"
 find "${STAGE}" -exec touch -h -d "@${SOURCE_DATE}" {} +
 
 ZIP="${DIST}/${SLUG}.zip"

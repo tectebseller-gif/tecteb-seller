@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Infrastructure\WordPress;
 
+use Tecteb\Marketplace\Contracts\GuardedOptionStoreInterface;
 use Tecteb\Marketplace\Contracts\LockStoreInterface;
 
 /**
@@ -14,7 +15,7 @@ use Tecteb\Marketplace\Contracts\LockStoreInterface;
  * and invalidates it after each write. Same pattern WordPress core uses for
  * WP_Upgrader::create_lock().
  */
-final class WpLockStore implements LockStoreInterface
+final class WpLockStore implements LockStoreInterface, GuardedOptionStoreInterface
 {
     public function __construct(private \wpdb $wpdb)
     {
@@ -65,6 +66,53 @@ final class WpLockStore implements LockStoreInterface
         );
         $this->forgetCache($key);
         return $result === 1;
+    }
+
+    /**
+     * Single-statement upsert guarded by the lock row.
+     *
+     * INSERT ... SELECT produces a row only when the guard matches, so a
+     * mismatched guard writes nothing at all; ON DUPLICATE KEY UPDATE covers
+     * the case where $key already exists. There is no window between the
+     * comparison and the write because MySQL evaluates both inside one
+     * statement.
+     */
+    public function setGuarded(string $key, mixed $value, string $guardKey, string $guardValue): bool
+    {
+        $stored = maybe_serialize($value);
+        $sql = $this->wpdb->prepare(
+            "INSERT INTO {$this->wpdb->options} (option_name, option_value, autoload)
+             SELECT %s, %s, 'no' FROM {$this->wpdb->options} AS guard
+             WHERE guard.option_name = %s AND guard.option_value = %s
+             ON DUPLICATE KEY UPDATE option_value = VALUES(option_value)",
+            $key,
+            $stored,
+            $guardKey,
+            $guardValue
+        );
+        $result = $this->wpdb->query($sql);
+        $this->forgetCache($key);
+        return is_int($result) && $result > 0;
+    }
+
+    /**
+     * Single-statement delete guarded by the lock row: the join yields no
+     * rows when the guard does not match, so nothing is removed.
+     */
+    public function deleteGuarded(string $key, string $guardKey, string $guardValue): bool
+    {
+        $sql = $this->wpdb->prepare(
+            "DELETE target FROM {$this->wpdb->options} AS target
+             INNER JOIN {$this->wpdb->options} AS guard
+                     ON guard.option_name = %s AND guard.option_value = %s
+             WHERE target.option_name = %s",
+            $guardKey,
+            $guardValue,
+            $key
+        );
+        $result = $this->wpdb->query($sql);
+        $this->forgetCache($key);
+        return is_int($result) && $result > 0;
     }
 
     private function forgetCache(string $key): void
