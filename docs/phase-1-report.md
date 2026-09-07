@@ -161,7 +161,7 @@
 | build تکرارپذیر | همان | `PackagingTest::testBuildIsReproducible` | **Passed** |
 | source archive جدا با tests/docs/lockfile | همان | `PackagingTest::testSourceArchiveCarriesTestsDocsAndLockfile` | **Passed** |
 | lint با PHP 8.1 | — | runtime موجود نیست | **Not Run** (جایگزین ایستا: PHPCompatibility `Passed`) |
-| **نصب در WordPress یکبارمصرف، بدون fatal/warning با WP_DEBUG** | — | — | **Not Run** |
+| **نصب در WordPress یکبارمصرف، بدون fatal/warning با WP_DEBUG** | — | پروتکل G-01/G-02 در `docs/installation.md` | **Not Run** |
 
 ## ۲٫۱ قواعد ایستای امنیتی (روی کد ارسالی)
 
@@ -181,10 +181,10 @@
 
 | گیت | دلیل دقیق | راه اجرا |
 |---|---|---|
-| نصب/فعال‌سازی واقعی | `downloads.wordpress.org` و mirror گیت‌هاب WordPress هر دو با HTTP 403 از proxy مسدودند | `docs/installation.md` بند ۴ |
-| یکپارچگی WP/WC، HPOS on/sync-on/sync-off/legacy | WooCommerce قابل دانلود نیست | همان |
-| اجرای واقعی روی PHP 8.1.34 | `ppa.launchpadcontent.net` مسدود است؛ فقط PHP 8.4.19 نصب‌شدنی بود | همان |
-| رابط روی wp-admin واقعی | نیازمند WordPress | همان |
+| نصب/فعال‌سازی واقعی (G-01، G-02) | `downloads.wordpress.org` و mirror گیت‌هاب WordPress هر دو با HTTP 403 از proxy مسدودند | `docs/installation.md` بند ۴ |
+| یکپارچگی WP/WC، HPOS on/sync-on/sync-off/legacy (G-07) | WooCommerce قابل دانلود نیست | همان |
+| اجرای واقعی روی PHP 8.1.34 (G-09 و تکرار کل پروتکل) | `ppa.launchpadcontent.net` مسدود است؛ فقط PHP 8.4.19 نصب‌شدنی بود | همان |
+| رابط روی wp-admin واقعی، و asset روی Posts با نشست معتبر (G-03، G-08) | نیازمند WordPress | همان |
 | screen reader دستی | نیازمند اپراتور انسانی | همان |
 | تداخل با LiteSpeed / Hello Elementor / Persian Woo / Rank Math / WP Rocket | هیچ‌کدام در محیط ساخت در دسترس نیستند | همان |
 
@@ -192,7 +192,7 @@
 
 | فایل | SHA-256 |
 |---|---|
-| `dist/tecteb-marketplace-core.zip` | `61526abf7a126bbcb1338a1f684da7ae58f5d75f91175017d1ae00b3776728e7` |
+| `dist/tecteb-marketplace-core.zip` | `7e9b282c9e0717bb4becb690a85cfbaf0e33c0c03bcbdcaff29345bdfa9c493f` |
 
 `dist/SHA256SUMS` هر دو بسته را پوشش می‌دهد.
 `dist/READ-ME-BEFORE-INSTALL.txt` وضعیت «تأییدنشده» را کنار خود بسته تکرار می‌کند.

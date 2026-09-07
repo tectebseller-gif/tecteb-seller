@@ -26,6 +26,7 @@
 | PHP | 8.1.34 | **User-Reported** | `Not Run` (اجرا) · **`Passed`** (ایستا) | PPA مسدود است. PHPCompatibility با `testVersion 8.1-` روی ۱۰۹ فایل بدون خطا؛ و گیت روی نحو ۸٫۲ واقعاً خطا می‌دهد (`phpcompat-selfcheck.log`). این شاهد **ایستا** است، نه اجرا |
 | PHP | 8.2 / 8.3 | — | `Not Tested` | خارج از دامنه اعلامی |
 | WordPress | 7.1 | **User-Reported** | `Not Run` | WP core قابل دانلود نیست |
+| WordPress | 6.3 (هدر `Requires at least`) | **حداقل پیشنهادی** | `Not Run` | آزموده‌نشده و بدون مبنای فنی مستند. تا محاسبه پایین‌ترین نسخه از روی APIهای مصرفی **و** اجرای پروتکل بند ۴ نصب، «حداقل پشتیبانی‌شده» خوانده نمی‌شود (`docs/installation.md` §۲٫۱) |
 | WooCommerce | 11.0.1 | **User-Reported** | `Not Run` | WC قابل دانلود نیست |
 | MySQL / MariaDB | MariaDB 10.11.14 | نصب و اجرا در کانتینر | **`Passed`** — ۱۳ تست، DDL/ایندکس/قفل/هم‌زمانی | فقط جدول audit؛ **معادل نصب WP نیست** · `docs/evidence/database.log` |
 | MySQL سایت | ? | نامعلوم | `Not Tested` | نسخه DB سایت گزارش نشده |
@@ -71,7 +72,9 @@
 
 ## ۶. نحوه رساندن سطرهای `Not Run` به `Passed`
 
-یکی از دو راه:
+یکی از دو راه. در هر دو حالت، «اجرا» یعنی پروتکل پذیرش
+`docs/installation.md` بند ۴ (گیت‌های G-01..G-09) با مدرک خروجی هر گیت — نه
+اجرای چند دستور و ندیدن خطا:
 
 1. **در محیط ساخت:** باز شدن دسترسی خروجی به `downloads.wordpress.org` (و
    PPA برای PHP 8.1)؛ سپس `tools/` اسکریپت نصب disposable را اجرا می‌کند.
@@ -80,4 +83,6 @@
    برگرداندن خروجی (log، نسخه‌ها، exit code، screenshot). نصب روی Staging
    یا production سایت **خارج از این درخواست** است.
 
-هیچ سطری بدون log قابل بازتولید به `Passed` تغییر نمی‌کند.
+هیچ سطری بدون log قابل بازتولید به `Passed` تغییر نمی‌کند. برای گیت‌های نصب،
+«log قابل بازتولید» یعنی فایل مدرک همان گیت (`G-0x-*`) به‌همراه نسخه‌های ثبت‌شده
+محیط (WordPress، WooCommerce، PHP وب و CLI، MySQL/MariaDB).

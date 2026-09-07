@@ -19,7 +19,9 @@ class wpdb
     public function __construct()
     {
         $this->options = $this->prefix . 'options';
-        $this->reconnect();
+        // Connect lazily: the contract suite loads these stubs but never
+        // touches the database, and an unreachable server must not stop it.
+        // The database suite gets its connection on the first pdo() call.
     }
 
     /**
@@ -39,6 +41,7 @@ class wpdb
             $this->pdo = null;
             return;
         }
+        // Any failure here belongs to the database suite and must surface.
         $this->pdo = new \PDO($dsn, (string) getenv('TMC_TEST_DB_USER'), (string) getenv('TMC_TEST_DB_PASS'), [
             \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
             \PDO::ATTR_EMULATE_PREPARES => false,
@@ -47,14 +50,18 @@ class wpdb
 
     public function hasDatabase(): bool
     {
-        return $this->pdo !== null;
+        return getenv('TMC_TEST_DB_DSN') !== false && getenv('TMC_TEST_DB_DSN') !== '';
     }
 
     public function pdo(): \PDO
     {
-        if ($this->pdo === null) {
+        if ($this->pdo !== null) {
+            return $this->pdo;
+        }
+        if (!$this->hasDatabase()) {
             throw new \RuntimeException('wpdb stub: no database configured (TMC_TEST_DB_DSN). This test belongs in the database suite.');
         }
+        $this->reconnect();
         return $this->pdo;
     }
 
