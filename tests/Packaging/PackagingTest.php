@@ -178,8 +178,31 @@ final class PackagingTest extends TestCase
             }
         }
         // A toolchain slipping in shows up as size long before anyone reads
-        // the listing, so bound it too.
-        self::assertLessThan(6 * 1024 * 1024, filesize($archives[0]), 'source archive is unexpectedly large');
+        // the listing, so bound it too. The bound is a canary, not the rule —
+        // the path assertions above are — and it has to leave room for what
+        // the archive is SUPPOSED to carry: the acceptance evidence, including
+        // full-page screenshots of real wp-admin. Raised from 6 MB when that
+        // evidence was added; a vendored node_modules is an order of magnitude
+        // larger than the gap.
+        $bytes = filesize($archives[0]);
+        self::assertLessThan(24 * 1024 * 1024, $bytes, 'source archive is unexpectedly large: ' . $bytes . ' bytes');
+
+        // What actually makes it big must be evidence, not a toolchain: no
+        // single file may dominate the archive.
+        exec('tar -tzvf ' . escapeshellarg($archives[0]), $verbose, $vcode);
+        self::assertSame(0, $vcode);
+        $biggest = 0;
+        $biggestName = '';
+        foreach ($verbose as $line) {
+            if (preg_match('/^\S+\s+\S+\s+(\d+)\s+\S+\s+\S+\s+(.+)$/', $line, $m) !== 1) {
+                continue;
+            }
+            if ((int) $m[1] > $biggest) {
+                $biggest = (int) $m[1];
+                $biggestName = $m[2];
+            }
+        }
+        self::assertLessThan(4 * 1024 * 1024, $biggest, "one file dominates the source archive: {$biggestName} ({$biggest} bytes)");
     }
 
     public function testUninstallFileDeletesNothing(): void

@@ -108,6 +108,10 @@ cat > "${DIST}/READ-ME-BEFORE-INSTALL.txt" <<TXT
   WordPress 7.1 · WooCommerce 11.0.1 · MariaDB 10.11.14
   دو اجرای کامل: PHP 8.1.32 و PHP 8.4.19
 
+به‌علاوه، دسترس‌پذیری و چیدمان روی همان wp-admin واقعی: پنج viewport
+(320/375/768/1024/1440)، زوم 200%، کیبورد و axe-core روی هر چهار صفحه —
+دو اجرا (با و بدون WooCommerce)، هرکدام 188 بررسی، صفر شکست.
+
 خروجی خام هر گیت در docs/evidence/acceptance/ است.
 
 نصب روی سایت تک‌طب هنوز انجام نشده و در مجوز فعلی نیست.
@@ -116,7 +120,7 @@ cat > "${DIST}/READ-ME-BEFORE-INSTALL.txt" <<TXT
   - سرور وب واقعی (Apache/LiteSpeed + PHP-FPM)؛ اجرا با SAPI cli-server بود
   - تداخل با LiteSpeed / Hello Elementor / Persian Woo / Rank Math / WP Rocket
   - بررسی دستی screen reader
-  - اندازه‌گیری viewport/axe روی wp-admin واقعی
+  - مرورگرهای غیر Chromium (Firefox، Safari)
 
 آنچه واقعاً آزموده شده و آنچه نشده، سطربه‌سطر در این فایل‌هاست:
   docs/phase-1-report.md  بند ۳

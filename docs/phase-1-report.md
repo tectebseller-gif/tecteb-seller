@@ -22,13 +22,16 @@
 | دیتابیس واقعی | `vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php` | MariaDB 10.11.14 | 0 | **۲۲ تست، ۲۰۸ assertion** | `docs/evidence/database.log` |
 | lint نحوی | `bash tools/lint.sh` | PHP 8.4.19 | 0 | ۱۱۳ فایل، ۰ خطا | `docs/evidence/lint.log` |
 | سازگاری ایستا با PHP 8.1 | `composer compat` | PHPCompatibility 10.0.0-alpha2 | 0 | ۱۱۳ فایل، ۰ خطا | `docs/evidence/phpcompat-8.1.log` |
-| بسته‌بندی روی artefact واقعی | `vendor/bin/phpunit --testsuite packaging` | همان | 0 | **۱۲ تست، ۳٬۳۱۴ assertion** | `docs/evidence/packaging.log` |
+| بسته‌بندی روی artefact واقعی | `vendor/bin/phpunit --testsuite packaging` | همان | 0 | **۱۲ تست، ۳٬۴۰۰ assertion** | `docs/evidence/packaging.log` |
 | کنتراست WCAG | `php tools/contrast.php` | — | 0 | ۱۳ ترکیب، ۰ خطا | `docs/evidence/contrast.log` |
 | مرورگر روی harness | `node tools/browser/check.mjs` | Playwright 1.63.0 / Chromium 141 / axe-core 4.13.0 | 0 | **۲۳۳ بررسی، ۰ خطا** | `docs/evidence/browser-checks.json` |
-| **نصب/فعال‌سازی واقعی WordPress** | — | — | — | **Not Run** | — |
-| **یکپارچگی WP/WC و HPOS on/off/sync** | — | — | — | **Not Run** | — |
-| **اجرای واقعی روی PHP 8.1** | — | — | — | **Not Run** | — |
-| **Screen reader دستی** | — | — | — | **Not Run** | — |
+| نصب/فعال‌سازی واقعی WordPress | `tools/acceptance-gates.sh` | WP 7.1 · MariaDB 10.11.14 | 0 | **گیت‌های G-01..G-09 قبول** | `docs/evidence/acceptance/` (بند ۳) |
+| یکپارچگی WP/WC و HPOS on/sync-on/sync-off/legacy | همان | WooCommerce 11.0.1 | 0 | **هر سه حالت قبول** | `acceptance/*/G-07-*` |
+| اجرای واقعی روی PHP 8.1 | همان | **PHP 8.1.32** (ساخته‌شده از سورس) | 0 | **کل پروتکل قبول** | `acceptance/php81/` |
+| مرورگر روی **wp-admin واقعی** | `node tools/browser/check-wpadmin.mjs` | Chromium 141 / axe-core 4.13.0 | 0 | **۲×۱۸۸ بررسی، ۰ خطا** | `acceptance/wpadmin-a11y*/` |
+| **اجرا روی PHP 8.1.34 دقیقِ سایت مالک** | — | — | — | **Not Run** | بند ۳٫۵ |
+| **سرور وب واقعی، افزونه‌های سایت** | — | — | — | **Not Run** | بند ۳٫۵ |
+| **Screen reader دستی** | — | — | — | **Not Run** | بند ۳٫۵ |
 
 بازتولید همه موارد اجراشدنی: `bash tools/run-all-tests.sh`
 
@@ -66,7 +69,7 @@
 | غیرفعال‌سازی داده را نگه می‌دارد | `Lifecycle/Deactivator.php` | `ActivationFlowTest::testDeactivationLeavesTableOptionsAndCapabilitiesInPlace` | **Passed** |
 | `uninstall.php` هیچ داده‌ای حذف نمی‌کند | `uninstall.php` | `PackagingTest::testUninstallFileDeletesNothing` | **Passed** |
 | Multisite با پیام فارسی رد می‌شود، بدون تغییر سراسری | `Lifecycle/MultisiteGuard.php` | `LifecycleTest` (۳ تست) | **Passed** |
-| **نصب و فعال‌سازی روی WordPress واقعی** | — | — | **Not Run** |
+| **نصب و فعال‌سازی روی WordPress واقعی** | — | گیت‌های G-01/G-02 روی WordPress 7.1 یکبارمصرف | **Passed** — بند ۳٫۲ |
 
 ### CORE-02 — Module Loader
 
@@ -110,9 +113,10 @@
 | asset فقط روی صفحه‌های افزونه، بدون CDN | `Presentation/AssetLoader.php` | `testAssetsLoadOnlyOnPluginScreensAndNeverFromCdn`، `testAssetFilesExistAndContainNoRemoteUrls` | **Passed** |
 | کنتراست رنگ‌های برند | `assets/admin/tmc-admin.css` | `tools/contrast.php` — ۱۳ ترکیب | **Passed** |
 | RTL، bdi، label، error summary، focus، reduced motion | views + CSS | axe + بررسی‌های سفارشی روی harness | **نمونه رابط** |
-| ۳۲۰/۳۷۵/۷۶۸/۱۰۲۴/۱۴۴۰ و zoom 200% | همان | `tools/browser/check.mjs` — ۲۳۳ بررسی | **نمونه رابط** |
-| **همان موارد روی wp-admin واقعی** | — | — | **Not Run** |
+| ۳۲۰/۳۷۵/۷۶۸/۱۰۲۴/۱۴۴۰ و zoom 200% روی harness | همان | `tools/browser/check.mjs` — ۲۳۳ بررسی | **نمونه رابط** |
+| **همان موارد روی wp-admin واقعی** | همان + هسته وردپرس | `tools/browser/check-wpadmin.mjs` — ۱۸۸ بررسی، با و بدون WooCommerce | **Passed** — بند ۳٫۴ |
 | **screen reader دستی** | — | — | **Not Run** |
+| **Firefox / Safari** | — | — | **Not Run** — هر دو اجرا روی Chromium 141 |
 
 ### CORE-06 — Health REST
 
@@ -175,8 +179,8 @@
 | unzip integrity | همان | `PackagingTest::testZipIsIntactAndEveryShippedClassLoadsFromItAlone` | **Passed** |
 | build تکرارپذیر | همان | `PackagingTest::testBuildIsReproducible` | **Passed** |
 | source archive جدا با tests/docs/lockfile | همان | `PackagingTest::testSourceArchiveCarriesTestsDocsAndLockfile` | **Passed** |
-| lint با PHP 8.1 | — | runtime موجود نیست | **Not Run** (جایگزین ایستا: PHPCompatibility `Passed`) |
-| **نصب در WordPress یکبارمصرف، بدون fatal/warning با WP_DEBUG** | — | پروتکل G-01/G-02 در `docs/installation.md` | **Not Run** |
+| lint با PHP 8.1 | — | PHP 8.1.32 ساخته‌شده از سورس؛ `php -l` و کل پروتکل روی همان | **Passed** (به‌علاوه شاهد ایستای PHPCompatibility) |
+| **نصب در WordPress یکبارمصرف، بدون fatal/warning با WP_DEBUG** | — | پروتکل G-01/G-02، دو اجرا | **Passed** — `*-plugin-errors.txt` همه صفر خط |
 
 ## ۲٫۱ قواعد ایستای امنیتی (روی کد ارسالی)
 
@@ -197,6 +201,10 @@
 پروتکل بند ۴ `docs/installation.md` روی یک **WordPress یکبارمصرف با داده
 مصنوعی** اجرا شد. `tecteb.com` و `staging.tecteb.com` لمس نشدند.
 
+> **قاعده هش در این سند:** هرجا هش کوتاه می‌آید، **۸ نویسه اول … ۶ نویسه آخر**
+> است. فهرست کامل بسته‌ها در بند ۴٫۱ آمده تا هیچ هش کوتاهی مبهم یا قابل
+> اشتباه‌گرفتن با دیگری نباشد.
+
 ### ۳٫۱ محیط اجرا
 
 | مؤلفه | نسخه | چطور به دست آمد |
@@ -213,7 +221,7 @@
 (`G-09-php.txt`: `cli_php=8.1.32`، `cli_wp_php=8.1.32`، `web_php=8.1.32`،
 و Site Health هم `8.1.32`).
 
-### ۳٫۲ نتیجه گیت‌ها — بسته `c37f8902…f46c1`
+### ۳٫۲ نتیجه گیت‌ها — بسته فعلی `c37f8902…7f46f1`
 
 | گیت | PHP 8.4.19 | PHP 8.1.32 | شاهد |
 |---|---|---|---|
@@ -238,9 +246,12 @@ WooCommerce خودش افزونه را در فهرست سازگارها می‌�
 `Deprecated` مربوط به `tecteb-marketplace-core` در `debug.log` نبود
 (`*-plugin-errors.txt` همه صفر خط).
 
-### ۳٫۳ شکستی که این اجرا پیدا کرد
+### ۳٫۳ شکست بسته قبلی — تاریخچه، نه وضعیت فعلی
 
-بسته‌ای که برای پذیرش ارائه شده بود (`617fcfc4…5eaed`) گیت **G-04 را رد کرد**:
+> این بند درباره بسته‌ای است که **دیگر تحویل نمی‌شود**. وضعیت بسته فعلی در
+> بند ۳٫۲ است و آنجا همین گیت **Passed** است.
+
+بسته‌ای که برای پذیرش ارائه شده بود (`617fcfc4…94f30a`) گیت **G-04 را رد کرد**:
 ذخیره‌ای که فقط `max_staff` را عوض می‌کرد، ردیف ممیزی‌اش هر چهار فیلد را
 «تغییرکرده» و مقادیر پیش‌فرض schema را «قبلی» ثبت می‌کرد. علت:
 `register_setting()` مقادیر **جاری** را به‌عنوان default ثبت می‌کرد و وردپرس با
@@ -249,18 +260,57 @@ WooCommerce خودش افزونه را در فهرست سازگارها می‌�
 `docs/evidence/acceptance/failure-617fcfc/README.txt`. اصلاح در بند ۱۴
 `docs/review-fixes-phase-1.md`؛ بسته اصلاح‌شده همان گیت را پاس می‌کند.
 
-اجرای گیت‌ها روی هش نهایی تکرار شد: هر دو اجرای ۸٫۱ و ۸٫۴ در جدول بالا با
-بسته `c37f8902ef3152bfc897114f7044f546d521783528e2c9f38c1d3442227f46f1`
-انجام شده‌اند و `00-environment.txt` هر پوشه همان هش را ثبت کرده است.
+اجرای گیت‌ها روی هش نهایی تکرار شد: هر دو اجرای ۸٫۱ و ۸٫۴ در جدول بند ۳٫۲ با
+بسته `c37f8902…7f46f1` انجام شده‌اند و `00-environment.txt` هر پوشه همان هش را
+ثبت کرده است. شواهد شکست قدیمی **حذف نشده‌اند**: در
+`docs/evidence/acceptance/failure-617fcfc/` می‌مانند تا تاریخچه قابل بازبینی
+بماند.
 
-### ۳٫۴ آنچه هنوز اجرا نشده
+### ۳٫۴ دسترس‌پذیری و چیدمان روی wp-admin واقعی
+
+`tools/browser/check-wpadmin.mjs` با نشست واقعی مدیرکل روی همان سایت اجرا شد.
+این با `browser-checks.json` فرق دارد: آن یکی harness را **بیرون** از وردپرس
+می‌سنجد و «نمونه رابط» است؛ این یکی صفحه‌ها را همان‌طور می‌سنجد که وردپرس
+سرو می‌کند — با نوار مدیریت، منوی مدیریت و CSS هسته دور تا دور markup افزونه.
+
+| بررسی | WooCommerce غیرفعال | WooCommerce فعال |
+|---|---|---|
+| ۳۲۰ / ۳۷۵ / ۷۶۸ / ۱۰۲۴ / ۱۴۴۰ — اسکرول افقی سند | ۲۰/۲۰ | ۲۰/۲۰ |
+| زوم ۲۰۰٪ (۱۲۸۰×۱۰۲۴ در مقیاس ۲) | ۴/۴ | ۴/۴ |
+| بیرون‌نزدن عنصر افزونه از viewport | ۲۴/۲۴ | ۲۴/۲۴ |
+| هدف لمسی ≥ ۴۴×۴۴ | ۲۴/۲۴ | ۲۴/۲۴ |
+| خطای JavaScript | ۲۴/۲۴ | ۲۴/۲۴ |
+| بارگذاری asset‌های خود افزونه | ۲۴/۲۴ | ۲۴/۲۴ |
+| axe-core WCAG 2.2 AA روی `.tmc-admin` | ۲۵/۲۵ | ۲۵/۲۵ |
+| axe روی **کل سند** (ثبت‌شده) | ۰ یافته، حتی بیرون از افزونه | ۰ یافته |
+| کیبورد (لینک پرش، حلقه focus، رسیدن به `#tmc-main`) | ۱۶/۱۶ | ۱۶/۱۶ |
+| خلاصه خطا: وجود، focus هنگام بارگذاری، لینک‌های قابل دسترسی | ۳/۳ | ۳/۳ |
+| **جمع** | **۱۸۸ بررسی، ۰ شکست** | **۱۸۸ بررسی، ۰ شکست** |
+
+`foreign_findings: []` یعنی axe حتی در markup خود وردپرس هم چیزی پیدا نکرد؛
+اگر پیدا می‌کرد، جدا ثبت می‌شد و به افزونه نسبت داده نمی‌شد.
+
+تنها میزبان خارجی که sandbox رد کرد `secure.gravatar.com` بود — آواتار نوار
+مدیریت وردپرس، نه درخواست افزونه.
+
+**تصاویر:** `docs/evidence/acceptance/wpadmin-a11y/screenshots/` — هر چهار
+صفحه در ۳۷۵ و ۱۴۴۰، هر چهار صفحه در زوم ۲۰۰٪، و صفحه تنظیمات در حالت خطای
+اعتبارسنجی. این‌ها **نمونه رابط نیستند**؛ از خود wp-admin گرفته شده‌اند و نوار
+مدیریت وردپرس در آن‌ها دیده می‌شود.
+
+> در نخستین اجرای این اسکریپت، بررسی «focus روی خلاصه خطا» با WooCommerce فعال
+> شکست خورد. علت **خود اسکریپت** بود، نه افزونه: پس از ارسال فرم، سنجش در
+> میانه redirect انجام می‌شد و سند نهایی هنوز نرسیده بود. اسکریپت اصلاح شد تا
+> منتظر صفحه تنظیمات بماند و هر دو اجرا دوباره از صفر گرفته شدند.
+
+### ۳٫۵ آنچه هنوز اجرا نشده
 
 | گیت | دلیل دقیق |
 |---|---|
 | اجرا روی PHP **8.1.34** (نسخه دقیق سایت مالک) | فقط ۸٫۱٫۳۲ از سورس ساخته شد؛ PPA و `php.net` از proxy مسدودند |
 | نصب روی Staging/production تک‌طب | خارج از مجوز؛ عمداً انجام نشد |
-| screen reader دستی | نیازمند اپراتور انسانی |
-| اندازه‌گیری viewport/axe روی **wp-admin واقعی** | صفحه‌ها روی wp-admin واقعی رندر شدند، اما ۲۳۳ بررسی مرورگر همچنان روی harness است |
+| screen reader دستی | نیازمند اپراتور انسانی؛ ابزار خودکار جایش را نمی‌گیرد |
+| مرورگرهای غیر Chromium (Firefox، Safari) | هر دو اجرای دسترس‌پذیری روی Chromium 141 بودند |
 | تداخل با LiteSpeed / Hello Elementor / Persian Woo / Rank Math / WP Rocket | هیچ‌کدام در محیط در دسترس نیستند |
 | سرور وب واقعی (Apache/LiteSpeed + PHP-FPM) | اجرا با SAPI `cli-server` بود؛ رفتار rewrite و هدرهای سرور واقعی آزموده نشده |
 
@@ -270,10 +320,20 @@ WooCommerce خودش افزونه را در فهرست سازگارها می‌�
 |---|---|
 | `dist/tecteb-marketplace-core.zip` | `c37f8902ef3152bfc897114f7044f546d521783528e2c9f38c1d3442227f46f1` |
 
-> این هش پس از اصلاح دور چهارم (بند ۱۴ — ایرادی که اجرای پذیرش روی WordPress
-> واقعی پیدا کرد) و به‌روزرسانی متن وضعیت در سربرگ افزونه تولید شده است و
-> جایگزین هش‌های قبلی `c16961df…01eaa`، `e32333ae…5a670c` و
-> `617fcfc4…25eaed` است. گیت‌های پذیرش روی همین هش اجرا شده‌اند.
+### ۴٫۱ تبار بسته‌ها — کدام هش، کِی، و چرا
+
+هر سطر یک بسته واقعی است که ساخته و تحویل شده. تنها سطر آخر بسته فعلی است.
+
+| # | SHA-256 بسته | چه زمانی | وضعیت |
+|---|---|---|---|
+| ۱ | `c16961df…601eaa` | پس از بازبینی دور اول | جایگزین شد |
+| ۲ | `e32333ae…5a670c` | پس از بازبینی دور دوم (نوشتن‌های guarded) | جایگزین شد |
+| ۳ | `617fcfc4…94f30a` | پس از بازبینی دور سوم (نتیجه پاک‌سازی) | **گیت G-04 را رد کرد** — بند ۳٫۳ |
+| ۴ | `6116950d…25eaed` | اصلاح بند ۱۴ | میان‌مرحله‌ای؛ تحویل نشد |
+| ۵ | **`c37f8902…7f46f1`** | + متن وضعیت در سربرگ افزونه | **بسته فعلی**؛ همه گیت‌ها روی همین اجرا شدند |
+
+هش کامل بسته فعلی:
+`c37f8902ef3152bfc897114f7044f546d521783528e2c9f38c1d3442227f46f1`
 
 **تکرارپذیری.** timestamp بسته دیگر از تاریخ آخرین commit گرفته نمی‌شود، بلکه
 یک epoch ثابت (`1757203200`، قابل override با `SOURCE_DATE_EPOCH`) است.

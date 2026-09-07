@@ -1,0 +1,1340 @@
+{
+  "generated_at": "2026-09-07T21:02:31.266Z",
+  "scope": "The plugin's four pages inside a REAL wp-admin, signed in as an administrator. Scoped checks measure .tmc-admin only; axe also runs unscoped and attributes findings.",
+  "site": "http://127.0.0.1:8080",
+  "chromium": "141.0.7390.37",
+  "playwright": "1.63.0",
+  "axe_core": "4.13.0",
+  "viewports": [
+    "320",
+    "375",
+    "768",
+    "1024",
+    "1440",
+    "zoom200"
+  ],
+  "total": 188,
+  "failed": 0,
+  "foreign_findings": [],
+  "blocked_external_hosts": [
+    "secure.gravatar.com"
+  ],
+  "results": [
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "keyboard",
+      "check": "skip-link-is-the-first-plugin-stop",
+      "ok": true,
+      "detail": "first plugin stop = .tmc-skip"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "keyboard",
+      "check": "reaches-controls",
+      "ok": true,
+      "detail": "9 stops inside .tmc-admin"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "every plugin stop shows a ring"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "keyboard",
+      "check": "skip-link-reaches-main",
+      "ok": true,
+      "detail": "hash=#tmc-main focusedMain=true"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (1280x1024 at 200%)"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "keyboard",
+      "check": "skip-link-is-the-first-plugin-stop",
+      "ok": true,
+      "detail": "first plugin stop = .tmc-skip"
+    },
+    {
+      "page": "health",
+      "viewport": "keyboard",
+      "check": "reaches-controls",
+      "ok": true,
+      "detail": "5 stops inside .tmc-admin"
+    },
+    {
+      "page": "health",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "every plugin stop shows a ring"
+    },
+    {
+      "page": "health",
+      "viewport": "keyboard",
+      "check": "skip-link-reaches-main",
+      "ok": true,
+      "detail": "hash=#tmc-main focusedMain=true"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (1280x1024 at 200%)"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "keyboard",
+      "check": "skip-link-is-the-first-plugin-stop",
+      "ok": true,
+      "detail": "first plugin stop = .tmc-skip"
+    },
+    {
+      "page": "settings",
+      "viewport": "keyboard",
+      "check": "reaches-controls",
+      "ok": true,
+      "detail": "9 stops inside .tmc-admin"
+    },
+    {
+      "page": "settings",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "every plugin stop shows a ring"
+    },
+    {
+      "page": "settings",
+      "viewport": "keyboard",
+      "check": "skip-link-reaches-main",
+      "ok": true,
+      "detail": "hash=#tmc-main focusedMain=true"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (1280x1024 at 200%)"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "keyboard",
+      "check": "skip-link-is-the-first-plugin-stop",
+      "ok": true,
+      "detail": "first plugin stop = .tmc-skip"
+    },
+    {
+      "page": "modules",
+      "viewport": "keyboard",
+      "check": "reaches-controls",
+      "ok": true,
+      "detail": "5 stops inside .tmc-admin"
+    },
+    {
+      "page": "modules",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "every plugin stop shows a ring"
+    },
+    {
+      "page": "modules",
+      "viewport": "keyboard",
+      "check": "skip-link-reaches-main",
+      "ok": true,
+      "detail": "hash=#tmc-main focusedMain=true"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (1280x1024 at 200%)"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings-error",
+      "viewport": "keyboard",
+      "check": "error-summary-present",
+      "ok": true,
+      "detail": "activeElement id=\"tmc-error-summary\""
+    },
+    {
+      "page": "settings-error",
+      "viewport": "keyboard",
+      "check": "error-summary-focused-on-load",
+      "ok": true,
+      "detail": "activeElement id=\"tmc-error-summary\""
+    },
+    {
+      "page": "settings-error",
+      "viewport": "keyboard",
+      "check": "error-summary-links-reachable",
+      "ok": true,
+      "detail": "1 links"
+    },
+    {
+      "page": "settings-error",
+      "viewport": "1024",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    }
+  ]
+}

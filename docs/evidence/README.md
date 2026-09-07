@@ -7,6 +7,10 @@ bash tools/run-all-tests.sh          # پنج suite + lint + سازگاری + ک
 php  tools/render-harness/render.php # ساخت harness رابط
 node tools/browser/check.mjs         # ۲۳۳ بررسی مرورگر روی harness
 bash tools/build.sh                  # ساخت بسته
+
+# روی یک WordPress یکبارمصرف (نه سایت واقعی):
+bash tools/acceptance-gates.sh /usr/bin/php /tmp/ev dist/tecteb-marketplace-core.zip
+node tools/browser/check-wpadmin.mjs # ۱۸۸ بررسی روی wp-admin واقعی
 ```
 
 | فایل | چیست |
@@ -26,11 +30,15 @@ bash tools/build.sh                  # ساخت بسته
 | `regression-cleanup-outcome.log` | شاهد دور سوم: با برگرداندن `run()` به حالتی که نتیجه پاک‌سازی را دور می‌ریخت و صفحه سلامت را به «هر رکورد خطا یعنی خرابی»، ۸ از ۱۰ تست `MigrationCleanupTest`، یک تست سلامت و دو تست MariaDB می‌شکنند |
 | `harness/*.html` | خروجی رندر هشت سناریو خارج از WordPress |
 | `screenshots/*.png` | **نمونه رابط (خارج WordPress)** — اثبات کارکرد افزونه نیستند |
+| `acceptance/` | خروجی خام پروتکل پذیرش روی **WordPress واقعی یکبارمصرف**، به‌علاوه تصاویر گرفته‌شده از **خود wp-admin** (که نمونه رابط نیستند) — `acceptance/README.md` |
 
 ## درباره تصاویر
 
-تصاویر در عرض‌های ۳۷۵ و ۱۴۴۰ از harness گرفته شده‌اند، نه از wp-admin. آن‌ها
-نشان می‌دهند markup و CSS خود افزونه چه چیزی تولید می‌کند. هیچ‌کدام جایگزین
-«نصب و فعال‌سازی واقعی» نیستند و در `docs/phase-1-report.md` در ستون جدا آمده‌اند.
+دو مجموعه تصویر وجود دارد و **با هم اشتباه نشوند**:
+
+| مسیر | چه چیزی است |
+|---|---|
+| `screenshots/*.png` | از **harness** بیرون از WordPress. «نمونه رابط». نشان می‌دهند markup و CSS خود افزونه چه تولید می‌کند و جایگزین نصب واقعی نیستند |
+| `acceptance/wpadmin-a11y*/screenshots/*.png` | از **خود wp-admin** با نشست معتبر مدیرکل؛ نوار مدیریت وردپرس در آن‌ها پیداست. این‌ها شاهد سطرهای `Passed` بند ۵ ماتریس‌اند |
 
 هیچ ایمیل، شماره یا داده شخصی واقعی در این شواهد نیست؛ همه داده‌ها مصنوعی‌اند.

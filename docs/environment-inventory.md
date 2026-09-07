@@ -41,11 +41,11 @@
 | Git | ✅ ۲٫۴۳٫۰ | — |
 | zip / unzip | ✅ Info-ZIP 3.0 | — |
 | Chromium + Playwright | ✅ از پیش نصب (`/opt/pw-browsers`) | — |
-| MySQL / MariaDB | ⚠️ نصب نیست؛ **قابل نصب** از apt (mariadb-server 10.11.14) | — |
-| WordPress core | ❌ **قابل دانلود نیست** — `downloads.wordpress.org` → 403، mirror گیت‌هاب `WordPress/WordPress` → 403 | WP 7.1 |
-| WooCommerce | ❌ **قابل دانلود نیست** — 403 | WC 11.0.1 |
-| WP-CLI | ❌ نصب نیست | — |
-| PHPUnit | ❌ نصب نیست؛ **قابل نصب** از packagist | — |
+| MySQL / MariaDB | ✅ نصب و اجرا شد — MariaDB 10.11.14 از apt | — |
+| WordPress core | ✅ **تهیه شد** — `downloads.wordpress.org` همچنان 403، اما git ناشناس روی `github.com/WordPress/WordPress` باز است؛ تگ `7.1` کلون شد | WP 7.1 |
+| WooCommerce | ✅ **تهیه شد** — بسته release رسمی از گیت‌هاب (`88837ea0…ae494c`) | WC 11.0.1 |
+| WP-CLI | ✅ نصب شد — phar 2.12.0 از `github.com/wp-cli/builds` | — |
+| PHPUnit | ✅ نصب شد — 10.5.64 از packagist | — |
 | LiteSpeed / Hello Elementor / Persian Woo | ❌ خارج از دسترس این کانتینر | گزارش کاربر |
 
 ### افزونه‌های PHP موجود
@@ -54,30 +54,36 @@ sqlite3 sodium tokenizer xml xmlreader xmlwriter xsl zip zlib` و بقیه پی�
 
 ## ۳. اثر مستقیم بر ماتریس آزمون
 
-این محدودیت‌ها **قابل دور زدن نیستند** و باید در گزارش فاز ۱ به‌صورت
-`Not Run` ثبت شوند، نه `Passed`:
+این جدول از ۷ سپتامبر ۲۰۲۶ به‌روزرسانی شده است. آنچه در نخستین ثبت
+«قابل دور زدن نیست» بود، بعداً از راه دیگری تهیه شد (git ناشناس گیت‌هاب برای
+WordPress و WooCommerce، و کامپایل PHP 8.1 از سورس). آنچه هنوز ممکن نشده،
+همچنان `Not Run` است — نه `Passed`:
 
 | گیت | امکان اجرا در این کانتینر | نتیجه |
 |---|---|---|
-| PHP lint با **PHP 8.1** | ❌ runtime موجود نیست | `Not Run` + جایگزین ایستا (زیر) |
+| PHP lint با **PHP 8.1** | ✅ PHP 8.1.32 از سورس ساخته شد (`php/php-src`, تگ `php-8.1.32`) | **`Passed`** — کل پروتکل گیت‌ها روی ۸٫۱٫۳۲ اجرا شد |
 | PHP lint با PHP 8.4 | ✅ | قابل اجرا |
 | سازگاری نحوی/API با PHP 8.1 | ✅ به‌صورت **ایستا** با `PHPCompatibility` و `--runtime-set testVersion 8.1` | شاهد ایستا، نه اجرای واقعی |
 | Unit test خالص (Domain بدون WP) | ✅ PHPUnit از packagist | قابل اجرا |
 | DDL/migration روی MySQL واقعی | ✅ با نصب mariadb از apt | قابل اجرا |
-| **نصب و فعال‌سازی واقعی WordPress** | ❌ WP core در دسترس نیست | `Not Run` |
-| **WordPress integration test** | ❌ WP core در دسترس نیست | `Not Run` |
-| HPOS on/off/sync در محیط واقعی | ❌ WooCommerce در دسترس نیست | `Not Run` |
-| مرورگر/دسترس‌پذیری روی wp-admin واقعی | ❌ WP در دسترس نیست | `Not Run` |
+| **نصب و فعال‌سازی واقعی WordPress** | ✅ WordPress یکبارمصرف با داده مصنوعی | **`Passed`** — `docs/evidence/acceptance/` |
+| **WordPress integration test** | ✅ گیت‌های G-01..G-09 روی همان سایت | **`Passed`** |
+| HPOS on/off/sync در محیط واقعی | ✅ WooCommerce 11.0.1 فعال | **`Passed`** — هر سه حالت، `G-07-*` |
+| مرورگر/دسترس‌پذیری روی wp-admin واقعی | ✅ Chromium با نشست واقعی مدیرکل | **`Passed`** — ۲×۱۸۸ بررسی، `acceptance/wpadmin-a11y*/` |
 | مرورگر/دسترس‌پذیری روی harness رندر view | ✅ Chromium + axe | شاهد جزئی، **نه** wp-admin واقعی |
 
 **پیامد قراردادی:** طبق بند «تست و تحویل» پرامپت، گیت نصب Staging نیاز به
-«نصب/فعال‌سازی واقعی» دارد. چون این مورد در این محیط `Not Run` است، ZIP
-خروجی فاز ۱ باید با برچسب **«unverified — نصب نشود»** تحویل شود. source و
-گزارش برای بررسی قابل تحویل‌اند.
+«نصب/فعال‌سازی واقعی» دارد. این مورد از ۷ سپتامبر ۲۰۲۶ **اجرا و قبول شده**
+است (`docs/evidence/acceptance/`)؛ برچسب ZIP به همان وضعیت به‌روزرسانی شد و
+همچنان می‌گوید روی سایت مالک نصب نشده است.
 
 **قاعده تصاویر:** هر screenshot یا نتیجه مرورگر که خارج از WordPress (روی
 harness رندر view) گرفته شود فقط **«نمونه رابط»** است، نه اثبات کارکرد
-افزونه؛ در گزارش ستون جدا دارد و به هیچ CORE-ID `Passed` نمی‌دهد.
+افزونه؛ در گزارش ستون جدا دارد و به هیچ CORE-ID `Passed` نمی‌دهد. این قاعده
+سر جایش است و به `docs/evidence/screenshots/` مربوط می‌شود. تصاویر
+`docs/evidence/acceptance/wpadmin-a11y*/screenshots/` از **خود wp-admin** با
+نشست معتبر گرفته شده‌اند و نوار مدیریت وردپرس در آن‌ها پیداست؛ آن‌ها نمونه
+رابط نیستند و شاهد همان سطرهای `Passed` در ماتریس‌اند.
 
 **جایگاه این گزارش در DEC-06:** این فایل فقط جزء **DEC-06-a (شناسایی محیط
 توسعه)** را می‌بندد. DEC-06-b (تطبیق محیط سایت) و DEC-06-c (آزمون سازگاری)

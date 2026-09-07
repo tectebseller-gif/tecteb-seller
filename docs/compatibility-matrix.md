@@ -29,7 +29,7 @@
 | PHP | 8.2 / 8.3 | — | `Not Tested` | خارج از دامنه اعلامی |
 | WordPress | 7.1 | نصب واقعی در کانتینر | **`Passed`** | هسته از `github.com/WordPress/WordPress` تگ `7.1`؛ سایت یکبارمصرف با داده مصنوعی، `WP_DEBUG` روشن · `docs/evidence/acceptance/*/00-environment.txt` |
 | WordPress | 6.3 (هدر `Requires at least`) | **حداقل پیشنهادی** | `Not Run` | آزموده‌نشده و بدون مبنای فنی مستند. تا محاسبه پایین‌ترین نسخه از روی APIهای مصرفی **و** اجرای پروتکل بند ۴ نصب، «حداقل پشتیبانی‌شده» خوانده نمی‌شود (`docs/installation.md` §۲٫۱) |
-| WooCommerce | 11.0.1 | نصب واقعی در کانتینر | **`Passed`** | بسته رسمی release (sha256 `88837ea0…e494c`)؛ خود WooCommerce افزونه را در فهرست «سازگار با HPOS» می‌آورد · `docs/evidence/acceptance/php81/G-07-compatibility-info.txt` |
+| WooCommerce | 11.0.1 | نصب واقعی در کانتینر | **`Passed`** | بسته رسمی release (sha256 `88837ea0…ae494c`)؛ خود WooCommerce افزونه را در فهرست «سازگار با HPOS» می‌آورد · `docs/evidence/acceptance/php81/G-07-compatibility-info.txt` |
 | MySQL / MariaDB | MariaDB 10.11.14 | نصب و اجرا در کانتینر | **`Passed`** — ۲۲ تست، DDL/ایندکس/قفل/هم‌زمانی/نوشتن guarded/پاک‌سازی | فقط جدول audit؛ **معادل نصب WP نیست** · `docs/evidence/database.log` |
 | MySQL سایت | ? | نامعلوم | `Not Tested` | نسخه DB سایت گزارش نشده |
 
@@ -44,7 +44,8 @@
 
 **تذکر CORE-10:** اعلام سازگاری HPOS با `FeaturesUtil` در کد، «تست‌شدن»
 نیست. صفحه سلامت «HPOS فعال» و «HPOS آزموده‌شده» را دو فیلد جدا نشان
-می‌دهد؛ دومی تا اجرای این جدول `unknown/Not Run` است.
+می‌دهد؛ دومی همچنان `unknown/Not Run` است و در هر سه حالت HPOS همین را نشان
+داد. آنچه اجرا شد، **رفتار افزونه** در سه حالت است، نه آزمون سازگاری سفارش‌ها.
 
 ## ۳. WooCommerce غایب
 
@@ -66,24 +67,31 @@
 
 | آزمون | وضعیت | یادداشت |
 |---|---|---|
-| ۳۲۰ / ۳۷۵ / ۷۶۸ / ۱۰۲۴ / ۱۴۴۰ روی **wp-admin واقعی** | `Not Run` | صفحه‌ها روی wp-admin واقعی رندر و بررسی شدند (G-01/G-03)، اما اندازه‌گیری viewport و axe روی آن‌ها اجرا نشده است |
+| ۳۲۰ / ۳۷۵ / ۷۶۸ / ۱۰۲۴ / ۱۴۴۰ روی **wp-admin واقعی** | **`Passed`** | چهار صفحه با نشست معتبر مدیرکل؛ در هیچ عرضی اسکرول افقی نبود · `acceptance/wpadmin-a11y/` |
+| Zoom 200% روی **wp-admin واقعی** | **`Passed`** | ۱۲۸۰×۱۰۲۴ در مقیاس ۲ (≈۶۴۰×۵۱۲ CSS)؛ `scrollWidth=clientWidth=640` روی هر چهار صفحه |
+| axe-core (WCAG 2.2 AA) روی **wp-admin واقعی** | **`Passed`** | ۰ یافته داخل `.tmc-admin` و ۰ یافته در کل سند (`foreign_findings: []`) |
+| کیبورد روی **wp-admin واقعی** | **`Passed`** | لینک پرش اولین توقف افزونه است و واقعاً به `#tmc-main` می‌رسد؛ همه توقف‌ها حلقه focus دارند؛ خلاصه خطا هنگام بارگذاری focus می‌گیرد |
+| همان مجموعه با **WooCommerce فعال** | **`Passed`** | اجرای دوم، ۱۸۸ بررسی، ۰ شکست · `acceptance/wpadmin-a11y-with-wc/` |
 | همان روی harness رندر view (Chromium 141) | **۲۳۳ بررسی، ۰ خطا** | **فقط «نمونه رابط»** — اثبات کارکرد افزونه نیست · `browser-checks.json` |
-| Zoom 200% روی harness | **۸ سناریو، بدون اسکرول افقی** | روی wp-admin واقعی: `Not Run` |
 | Screen reader دستی | `Not Run` | ابزار خودکار جای بررسی دستی نیست |
+| مرورگرهای غیر Chromium (Firefox، Safari) | `Not Run` | هر دو اجرا روی Chromium 141 بودند |
 | عدم بارگذاری asset در Posts و homepage | **`Passed`** | گیت G-08 با نشست معتبر مدیرکل: `edit.php`، `index.php`، `plugins.php`، `options-general.php`، `users.php` و صفحه اصلی → صفر ارجاع؛ صفحه افزونه → css و js هر دو · `G-08-assets.txt` |
 
 ## ۶. نحوه رساندن سطرهای `Not Run` به `Passed`
 
-یکی از دو راه. در هر دو حالت، «اجرا» یعنی پروتکل پذیرش
-`docs/installation.md` بند ۴ (گیت‌های G-01..G-09) با مدرک خروجی هر گیت — نه
-اجرای چند دستور و ندیدن خطا:
+سطرهای نصب/HPOS/دسترس‌پذیری با اجرای واقعی پروتکل به `Passed` رسیده‌اند
+(`docs/evidence/acceptance/`). برای سطرهایی که **هنوز** `Not Run` هستند،
+«اجرا» یعنی همان پروتکل با مدرک خروجی هر گیت — نه اجرای چند دستور و ندیدن خطا:
 
-1. **در محیط ساخت:** باز شدن دسترسی خروجی به `downloads.wordpress.org` (و
-   PPA برای PHP 8.1)؛ سپس `tools/` اسکریپت نصب disposable را اجرا می‌کند.
-2. **در محیط مالک:** اجرای دستورهای مستندشده در `docs/installation.md`
-   (وقتی نوشته شد) روی یک WordPress **disposable با داده مصنوعی** و
-   برگرداندن خروجی (log، نسخه‌ها، exit code، screenshot). نصب روی Staging
-   یا production سایت **خارج از این درخواست** است.
+1. **در همین محیط، برای آنچه قابل تهیه بود:** WordPress از تگ گیت‌هاب،
+   WooCommerce از بسته release رسمی، و PHP 8.1.32 از سورس ساخته شد؛
+   `tools/acceptance-gates.sh` کل پروتکل را بازتولید می‌کند و
+   `tools/browser/check-wpadmin.mjs` بررسی‌های دسترس‌پذیری wp-admin را.
+   آنچه در همین محیط ممکن نشد: PHP **8.1.34** (نه ۸٫۱٫۳۲)، سرور وب واقعی،
+   و افزونه‌های تجاری سایت.
+2. **در محیط مالک:** اجرای همان دستورها روی یک WordPress **disposable با
+   داده مصنوعی** و برگرداندن خروجی (log، نسخه‌ها، exit code، screenshot).
+   نصب روی Staging یا production سایت **خارج از این درخواست** است.
 
 هیچ سطری بدون log قابل بازتولید به `Passed` تغییر نمی‌کند. برای گیت‌های نصب،
 «log قابل بازتولید» یعنی فایل مدرک همان گیت (`G-0x-*`) به‌همراه نسخه‌های ثبت‌شده
