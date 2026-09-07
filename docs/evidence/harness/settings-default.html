@@ -1,0 +1,80 @@
+<!DOCTYPE html><html dir="rtl" lang="fa"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>تنظیمات — پیش‌فرض — نمونه رابط (خارج WordPress)</title><link rel="stylesheet" href="file:///home/user/tecteb-seller/assets/admin/tmc-admin.css"><style>body{margin:0;padding:20px;background:#f0f0f1;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Naskh Arabic","Tahoma",sans-serif;}.harness-banner{background:#143C4D;color:#fff;padding:8px 12px;border-radius:8px;margin-bottom:16px;font-size:14px}</style></head><body><p class="harness-banner">نمونه رابط (خارج WordPress) — این تصویر اثبات کارکرد افزونه نیست.</p><div class="wrap tmc-admin" dir="rtl" lang="fa"><a class="tmc-skip" href="#tmc-main">پرش به محتوای اصلی</a><header class="tmc-header"><div class="tmc-header__brand"><span class="tmc-header__product">بازارگاه تک‌طب</span> <span class="tmc-badge tmc-badge--alpha">نسخه آزمایشی</span></div><nav class="tmc-nav" aria-label="بخش‌های بازارگاه"><ul><li><a class="tmc-nav__link" href="https://example.test/wp-admin/admin.php?page=tmc-dashboard">پیشخوان</a></li><li><a class="tmc-nav__link" href="https://example.test/wp-admin/admin.php?page=tmc-health">سلامت</a></li><li><a class="tmc-nav__link is-current" href="https://example.test/wp-admin/admin.php?page=tmc-settings" aria-current="page">تنظیمات</a></li><li><a class="tmc-nav__link" href="https://example.test/wp-admin/admin.php?page=tmc-modules">ماژول‌ها</a></li></ul></nav></header><main id="tmc-main" class="tmc-main" tabindex="-1"><h1 class="tmc-title">تنظیمات بازارگاه</h1><div class="tmc-live" aria-live="polite" role="status"></div><form method="post" action="https://example.test/wp-admin/options.php" class="tmc-form" novalidate>
+    <input type="hidden" name="option_page" value="tmc_settings_group" /><input type="hidden" name="action" value="update" /><input type="hidden" id="_wpnonce" name="_wpnonce" value="6921efd438" />
+    <fieldset class="tmc-card">
+        <legend class="tmc-card__title">کمیسیون</legend>
+        <div class="tmc-field">
+            <label class="tmc-field__label" for="tmc-field-default_commission_rate">درصد کمیسیون عمومی</label>
+            <div class="tmc-field__control">
+                <input type="text" inputmode="decimal" dir="ltr"
+                       id="tmc-field-default_commission_rate"
+                       name="tmc_settings[default_commission_rate]"
+                       value=""
+                       aria-describedby="tmc-desc-commission"
+                                              class="tmc-input tmc-input--short" autocomplete="off">
+                <span class="tmc-field__unit" aria-hidden="true">٪</span>
+            </div>
+            <p id="tmc-desc-commission" class="tmc-field__desc">
+                                    <strong>هنوز تعیین نشده.</strong>
+                                درصد با حداکثر دو رقم اعشار، بین ۰ و ۱۰۰. خالی گذاشتن یعنی «تعیین‌نشده» و با صفر متفاوت است. مقدار به‌صورت basis point صحیح ذخیره می‌شود و در این نسخه در هیچ محاسبه‌ای مصرف نمی‌شود.            </p>
+        </div>
+    </fieldset>
+
+    <fieldset class="tmc-card">
+        <legend class="tmc-card__title">تنظیمات ماژول‌های آینده</legend>
+        <p class="tmc-card__note">این مقادیر ذخیره می‌شوند اما در فاز اول هنوز مصرف عملیاتی ندارند.</p>
+
+        <div class="tmc-field">
+            <label class="tmc-field__label" for="tmc-field-settlement_delay_days">فاصله زمانی تسویه (روز)</label>
+            <div class="tmc-field__control">
+                <input type="text" inputmode="numeric" dir="ltr"
+                       id="tmc-field-settlement_delay_days"
+                       name="tmc_settings[settlement_delay_days]"
+                       value="4"
+                       aria-describedby="tmc-desc-delay"
+                                              class="tmc-input tmc-input--short" autocomplete="off">
+                <span class="tmc-field__unit">روز</span>
+            </div>
+            <p id="tmc-desc-delay" class="tmc-field__desc">
+                عدد صحیح بین ۰ و ۳۶۵؛ پیش‌فرض ۴. صفر یعنی بدون تأخیر زمانی اضافی — هیچ شرط پرداخت معتبر، تکمیل معتبر یا نگه‌داشت مالی را حذف نمی‌کند. حد بالا یک حد فنی پیشنهادی است، نه قاعده تجاری.            </p>
+        </div>
+
+        <div class="tmc-field">
+            <label class="tmc-field__label" for="tmc-field-max_staff">حداکثر پرسنل هر فروشگاه</label>
+            <div class="tmc-field__control">
+                <input type="text" inputmode="numeric" dir="ltr"
+                       id="tmc-field-max_staff"
+                       name="tmc_settings[max_staff]"
+                       value="10"
+                       aria-describedby="tmc-desc-staff"
+                                              class="tmc-input tmc-input--short" autocomplete="off">
+                <span class="tmc-field__unit">نفر</span>
+            </div>
+            <p id="tmc-desc-staff" class="tmc-field__desc">
+                عدد صحیح بین ۱ و ۱۰۰؛ پیش‌فرض ۱۰. حد بالا یک حد فنی پیشنهادی برای رد ورودی نامعقول است، نه حداکثر مجاز کسب‌وکار و نه ظرفیت آزموده‌شده.            </p>
+        </div>
+    </fieldset>
+
+    <fieldset class="tmc-card">
+        <legend class="tmc-card__title">محیط</legend>
+        <div class="tmc-field">
+            <label class="tmc-field__label" for="tmc-field-environment_override">محیط اجرا</label>
+            <div class="tmc-field__control">
+                <select id="tmc-field-environment_override"
+                        name="tmc_settings[environment_override]"
+                        aria-describedby="tmc-desc-environment" class="tmc-select"
+                        >
+                                            <option value="auto" selected='selected'>خودکار (تشخیص WordPress)</option>
+                                            <option value="staging">آزمایشی (staging)</option>
+                                            <option value="production">اصلی (production)</option>
+                                    </select>
+            </div>
+            <p id="tmc-desc-environment" class="tmc-field__desc">
+                ثابت TMC_ENVIRONMENT در صورت تعریف بر این گزینه مقدم است. ارسال‌های خود افزونه در نسخه آزمایشی همیشه بسته است؛ انتخاب «اصلی» این محدودیت را دور نمی‌زند.            </p>
+        </div>
+    </fieldset>
+
+    <div class="tmc-actions">
+        <button type="submit" class="tmc-button tmc-button--primary">ذخیره تنظیمات</button>
+    </div>
+</form>
+</main><footer class="tmc-footer"><p>تمام ارسال‌های خود افزونه در نسخه آزمایشی مسدود است. وضعیت سایر افزونه‌ها بررسی‌نشده است.</p></footer></div><script src="file:///home/user/tecteb-seller/assets/admin/tmc-admin.js"></script></body></html>

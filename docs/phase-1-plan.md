@@ -1,7 +1,22 @@
 # طرح اجرای فاز ۱ — برای بررسی مالک
 
-بازبینی ۳ · ۶ سپتامبر ۲۰۲۶ · وضعیت: **طرح، قبل از کدنویسی.** هیچ فایل PHP
-افزونه ساخته نشده و پیاده‌سازی شروع نشده است.
+بازبینی ۴ · ۷ سپتامبر ۲۰۲۶ · وضعیت: **اجرا شد.**
+
+فاز ۱ طبق همین طرح و با شش اصلاح مجوز اجرا پیاده‌سازی شد. آنچه واقعاً اجرا شد
+و آنچه اجرا نشد در `docs/phase-1-report.md` سطربه‌سطر آمده است. بسته با برچسب
+**«تأییدنشده — نصب نشود»** تحویل شده چون گیت نصب واقعی WordPress اجرا نشدنی
+بود. این فایل به‌عنوان **طرح مصوب** نگه داشته می‌شود؛ برای وضعیت جاری به گزارش
+مراجعه کنید.
+
+### شش اصلاح مجوز اجرا و محل تحقق هرکدام
+| # | اصلاح | کجا |
+|---|---|---|
+| ۱ | قفل migration با شناسه مالک؛ تصاحب/آزادسازی اتمی و وابسته به مالک | `Core/Migration/MigrationLock.php` · ADR-003 · `MigrationLockTest`، `WpLockStoreTest` (شامل ۸ فرایند forkشده) |
+| ۲ | خرابی ماژول وابسته‌ها را متوقف می‌کند؛ مستقل‌ها ادامه؛ علت در سلامت ثبت | `Core/Modules/ModuleLoader.php` · ADR-002 · `ModuleLoaderTest` (۱۱ تست) |
+| ۳ | مرز یکدست Core/Contracts/Application؛ AST شاهد قاعده محدود است، نه تضمین کامل | `tests/Architecture/` · `docs/architecture.md` §۲ |
+| ۴ | ورودی درصد جدا از مقدار ذخیره‌شده؛ ۱۲٫۳۴ → ۱۲۳۴ بدون تبدیل دوباره؛ null ≠ صفر | `Core/Config/` · ADR-004 · `PercentToBasisPointsTest`، `SettingsApiTest` |
+| ۵ | صفر یعنی بدون تأخیر زمانی اضافی؛ هیچ شرط پرداخت/تکمیل/hold حذف نمی‌شود؛ بدون مصرف عملیاتی | `SettingsSchema.php`، `Views/settings.php` · F-03 |
+| ۶ | نبود WooCommerce: بدون fatal، بدون عملیات وابسته، پیام فارسی، تشخیص محدود در دسترس | `Bootstrap.php`، `WpDependencyProbe.php`، `Notices.php` · `BootstrapTest` |
 
 مرجع: پرامپت فاز ۱ v0.2 · Master Spec v0.3 · UX Spec v0.2 (checksumها در
 `docs/reference-checksums.txt`؛ فیدلیتی نسخه Markdown در

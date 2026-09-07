@@ -49,9 +49,19 @@
   outline-offset: 2px;
 }
 
-/* skip link */
-.tmc-skip { position: absolute; inset-inline-start: -9999px; }
-.tmc-skip:focus { position: static; display: inline-block; padding: var(--tmc-space-2) var(--tmc-space-3); background: var(--tmc-primary); color: #fff; }
+/* skip link: clipped rather than pushed off-screen, so it never adds
+   geometry outside the viewport (an inset-inline-start of -9999px does). */
+.tmc-skip {
+  position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+.tmc-skip:focus {
+  position: static; inline-size: auto; block-size: auto; margin: 0;
+  display: inline-flex; align-items: center; min-block-size: var(--tmc-touch);
+  padding: var(--tmc-space-2) var(--tmc-space-4); overflow: visible;
+  clip: auto; clip-path: none; background: var(--tmc-primary); color: #fff;
+  border-radius: 8px; text-decoration: none; font-weight: 700;
+}
 
 /* header + navigation */
 .tmc-header {
@@ -182,7 +192,10 @@
 }
 @media (max-width: 400px) {
   .tmc-nav ul, .tmc-cards, .tmc-linkgrid { grid-template-columns: 1fr; }
-  .tmc-admin .tmc-input--short { inline-size: 100%; }
+  /* Grow the field but keep its unit («٪», «روز», «نفر») on the same line:
+     a full-width input pushes the unit onto its own row, away from the label
+     it belongs to. */
+  .tmc-admin .tmc-input--short { inline-size: auto; flex: 1 1 7rem; min-inline-size: 0; }
   .tmc-button { inline-size: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {

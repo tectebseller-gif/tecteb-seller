@@ -14,6 +14,7 @@
     <!--
       Four suites, four bootstraps, four levels of evidence:
         unit         pure PHP, NO WordPress function exists (proves Core/Contracts independence)
+        packaging    the artefacts tools/build.sh actually produced
         architecture token-level rules + PSR-4 conformance + autoload-all
         contract     WordPress *stubs* (tools/wp-stubs) — NOT real WordPress integration
         database     real MariaDB (disposable, synthetic data) through PDO and a PDO-backed wpdb stub
@@ -30,6 +31,9 @@
         </testsuite>
         <testsuite name="database">
             <directory>tests/Database</directory>
+        </testsuite>
+        <testsuite name="packaging">
+            <directory>tests/Packaging</directory>
         </testsuite>
     </testsuites>
     <source>

@@ -1,11 +1,15 @@
 /vendor/
 node_modules/
-/dist/
 /build/
 /.phpunit.cache/
 /.phpunit.result.cache
 /tests/_output/
 *.log
+# ...but the evidence logs docs/phase-1-report.md cites are deliverables.
+!/docs/evidence/*.log
 .env
 .DS_Store
 /docs/evidence/screenshots/*.tmp
+
+# dist/ is a DELIVERABLE (ZIP + SHA256SUMS + source archive) and is committed
+# on purpose; see docs/phase-1-report.md §4.

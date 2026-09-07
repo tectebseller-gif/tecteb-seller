@@ -1,0 +1,50 @@
+[
+    {
+        "name": "dashboard-no-wc",
+        "title": "پیشخوان — بدون WooCommerce",
+        "file": "/home/user/tecteb-seller/docs/evidence/harness/dashboard-no-wc.html",
+        "bytes": 4439
+    },
+    {
+        "name": "dashboard-with-wc",
+        "title": "پیشخوان — با WooCommerce",
+        "file": "/home/user/tecteb-seller/docs/evidence/harness/dashboard-with-wc.html",
+        "bytes": 3578
+    },
+    {
+        "name": "health-no-wc",
+        "title": "سلامت — بدون WooCommerce",
+        "file": "/home/user/tecteb-seller/docs/evidence/harness/health-no-wc.html",
+        "bytes": 12896
+    },
+    {
+        "name": "health-with-error",
+        "title": "سلامت — با خطای ثبت‌شده",
+        "file": "/home/user/tecteb-seller/docs/evidence/harness/health-with-error.html",
+        "bytes": 12775
+    },
+    {
+        "name": "settings-default",
+        "title": "تنظیمات — پیش‌فرض",
+        "file": "/home/user/tecteb-seller/docs/evidence/harness/settings-default.html",
+        "bytes": 6790
+    },
+    {
+        "name": "settings-errors",
+        "title": "تنظیمات — با خطای اعتبارسنجی",
+        "file": "/home/user/tecteb-seller/docs/evidence/harness/settings-errors.html",
+        "bytes": 7677
+    },
+    {
+        "name": "modules",
+        "title": "ماژول‌ها",
+        "file": "/home/user/tecteb-seller/docs/evidence/harness/modules.html",
+        "bytes": 10839
+    },
+    {
+        "name": "modules-degraded",
+        "title": "ماژول‌ها — با ماژول خراب و وابسته متوقف",
+        "file": "/home/user/tecteb-seller/docs/evidence/harness/modules-degraded.html",
+        "bytes": 12845
+    }
+]

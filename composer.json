@@ -31,6 +31,7 @@
         "test:contract": "phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php",
         "test:db": "phpunit --testsuite database --bootstrap tests/bootstrap-database.php",
         "compat": "phpcs --standard=PHPCompatibility --runtime-set testVersion 8.1- --extensions=php -p src tecteb-marketplace-core.php uninstall.php",
-        "compat:mainfile": "phpcs --standard=PHPCompatibility --runtime-set testVersion 7.2- tecteb-marketplace-core.php"
+        "compat:mainfile": "phpcs --standard=PHPCompatibility --runtime-set testVersion 7.2- tecteb-marketplace-core.php",
+        "test:packaging": "phpunit --testsuite packaging"
     }
 }

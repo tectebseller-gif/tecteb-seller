@@ -1,9 +1,11 @@
 # ماتریس سازگاری — فاز ۱
 
-بازبینی ۱ · ۶ سپتامبر ۲۰۲۶ · **هیچ سطری هنوز `Passed` نیست** چون هنوز هیچ
-کدی ساخته نشده و محیط WordPress در دسترس نیست. این فایل با اجرای واقعی
-هر آزمون به‌روز می‌شود و هر به‌روزرسانی باید به log قابل بازتولید در
-`docs/phase-1-report.md` ارجاع دهد.
+بازبینی ۲ · ۷ سپتامبر ۲۰۲۶ · پس از پیاده‌سازی فاز ۱.
+
+سطرهایی که **در این محیط اجراشدنی بودند** اکنون نتیجه واقعی دارند و به log
+ارجاع می‌دهند. سطرهای وابسته به WordPress/WooCommerce همچنان `Not Run` هستند،
+چون هیچ‌کدام قابل دانلود نبودند. هیچ سطری بدون log قابل بازتولید تغییر نکرده
+است. شواهد: `docs/evidence/`، جمع‌بندی: `docs/phase-1-report.md`.
 
 ## واژگان وضعیت (COMP-01: «unsupported و not-tested از passed جدا باشند»)
 
@@ -20,12 +22,12 @@
 
 | مؤلفه | نسخه | منبع نسخه | وضعیت | دلیل / شاهد |
 |---|---|---|---|---|
-| PHP | 8.4.19 | اندازه‌گیری در کانتینر | `Not Run` (lint و unit در فاز ۱ اجرا می‌شود) | تنها PHP موجود |
-| PHP | 8.1.34 | **User-Reported** | `Not Run` | PHP 8.1 در کانتینر قابل نصب نیست (PPA مسدود). فقط بررسی ایستای PHPCompatibility با `testVersion 8.1` ممکن است — که «شاهد ایستا» است، نه اجرا |
+| PHP | 8.4.19 | اندازه‌گیری در کانتینر | **`Passed`** — ۱۰۹ فایل lint، ۱۷۰ تست در پنج suite | تنها PHP موجود · `docs/evidence/lint.log`، `unit.log` |
+| PHP | 8.1.34 | **User-Reported** | `Not Run` (اجرا) · **`Passed`** (ایستا) | PPA مسدود است. PHPCompatibility با `testVersion 8.1-` روی ۱۰۹ فایل بدون خطا؛ و گیت روی نحو ۸٫۲ واقعاً خطا می‌دهد (`phpcompat-selfcheck.log`). این شاهد **ایستا** است، نه اجرا |
 | PHP | 8.2 / 8.3 | — | `Not Tested` | خارج از دامنه اعلامی |
 | WordPress | 7.1 | **User-Reported** | `Not Run` | WP core قابل دانلود نیست |
 | WooCommerce | 11.0.1 | **User-Reported** | `Not Run` | WC قابل دانلود نیست |
-| MySQL / MariaDB | MariaDB 10.11.14 | قابل نصب از apt در کانتینر | `Not Run` (آزمون DDL/migration در فاز ۱ برنامه‌ریزی شده) | فقط برای جدول audit؛ **معادل نصب WP نیست** |
+| MySQL / MariaDB | MariaDB 10.11.14 | نصب و اجرا در کانتینر | **`Passed`** — ۱۳ تست، DDL/ایندکس/قفل/هم‌زمانی | فقط جدول audit؛ **معادل نصب WP نیست** · `docs/evidence/database.log` |
 | MySQL سایت | ? | نامعلوم | `Not Tested` | نسخه DB سایت گزارش نشده |
 
 ## ۲. حالت‌های سفارش WooCommerce (COMP-01)
@@ -45,7 +47,7 @@
 
 | سناریو | وضعیت | یادداشت |
 |---|---|---|
-| فعال‌سازی بدون WooCommerce → notice فارسی، بدون fatal، feature بالا نمی‌آید | `Not Run` (نصب واقعی) / برنامه‌ریزی‌شده در تست stub | تست stub **معادل نصب واقعی نیست** و جدا گزارش می‌شود |
+| فعال‌سازی بدون WooCommerce → notice فارسی، بدون fatal، feature بالا نمی‌آید | `Not Run` (نصب واقعی) · **`Passed`** در سطح stub | `BootstrapTest::testWithoutWooCommerceLimitedModeBootsWithoutFatalAndReportsIt`. تست stub **معادل نصب واقعی نیست** |
 
 ## ۴. سرور، قالب و افزونه‌های سایت (DEC-06-b)
 
@@ -62,8 +64,8 @@
 | آزمون | وضعیت | یادداشت |
 |---|---|---|
 | ۳۲۰ / ۳۷۵ / ۷۶۸ / ۱۰۲۴ / ۱۴۴۰ روی **wp-admin واقعی** | `Not Run` | WP در دسترس نیست |
-| همان روی harness رندر view (Chromium) | برنامه‌ریزی‌شده | **فقط «نمونه رابط»** — اثبات کارکرد افزونه نیست |
-| Zoom 200% | `Not Run` | |
+| همان روی harness رندر view (Chromium 141) | **۲۳۳ بررسی، ۰ خطا** | **فقط «نمونه رابط»** — اثبات کارکرد افزونه نیست · `browser-checks.json` |
+| Zoom 200% روی harness | **۸ سناریو، بدون اسکرول افقی** | روی wp-admin واقعی: `Not Run` |
 | Screen reader دستی | `Not Run` | ابزار خودکار جای بررسی دستی نیست |
 | عدم بارگذاری asset در Posts و homepage | `Not Run` | نیازمند WP واقعی |
 

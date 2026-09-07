@@ -6,8 +6,9 @@
 Refund/Coupon/B2B/Ticket/SEO/Migration یا auth واقعی ساخته نمی‌شود. هیچ
 sender/gateway واقعی وجود ندارد؛ خروجی‌های افزونه در Alpha همیشه بسته‌اند.
 
-**وضعیت جاری:** طرح تأیید نشده؛ پیاده‌سازی شروع نشده. `docs/phase-1-plan.md`
-منتظر مجوز مالک است.
+**وضعیت جاری:** فاز ۱ پیاده‌سازی و آزموده شد. بسته با برچسب **«تأییدنشده —
+نصب نشود»** تحویل شده چون گیت نصب واقعی WordPress اجرا نشده است.
+گزارش: `docs/phase-1-report.md` · تحویل بعدی: `docs/next-phase-handoff.md`.
 
 ## مرجع‌ها (ترتیب اعتبار: دستور جاری مالک ← تصمیم مصوب ← Master ← UX ← پرامپت)
 - `docs/Tecteb-Marketplace-Core-Master-Spec-v0.3.docx` (مرجع) → `docs/generated/…Master-Spec-v0.3.md`
@@ -23,12 +24,26 @@ text domain `tecteb-marketplace-core`. نسخه انتشار: به F-01 در `do
 
 ## فرمان‌های آزمون واقعی (فقط آنچه امروز اجرا می‌شود)
 ```bash
-sha256sum -c docs/reference-checksums.txt      # سلامت فایل‌های مرجع
-python3 tools/verify-extraction.py             # تطبیق ترتیبی DOCX ↔ Markdown (exit 0 = یکسان)
+sha256sum -c docs/reference-checksums.txt   # سلامت فایل‌های مرجع
+python3 tools/verify-extraction.py          # تطبیق ترتیبی DOCX ↔ Markdown
+
+bash tools/run-all-tests.sh                 # پنج suite + lint + سازگاری ۸٫۱ + کنتراست
+vendor/bin/phpunit --testsuite unit         # خالص: هیچ نماد WordPress تعریف نمی‌شود
+vendor/bin/phpunit --testsuite architecture # مرز Core/Contracts/Application
+vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php
+vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php  # نیازمند .env.testing
+vendor/bin/phpunit --testsuite packaging    # پس از tools/build.sh
+
+php  tools/render-harness/render.php        # رندر ۸ سناریو خارج از WordPress
+node tools/browser/check.mjs                # ۲۳۳ بررسی viewport/axe/keyboard
+php  tools/contrast.php                     # کنتراست WCAG رنگ‌های برند
+bash tools/build.sh                         # dist/ZIP + SHA256SUMS + source archive
 ```
-فرمان‌های آزمون افزونه (PHPUnit، lint، PHPCompatibility، DB، مرورگر) **هنوز
-وجود ندارند** و پس از پیاده‌سازی فاز ۱ اینجا اضافه می‌شوند. تا آن زمان هیچ
-ادعای `Passed` برای CORE-01..10 معتبر نیست.
+دیتابیس آزمون **یکبارمصرف** است و پیکربندی‌اش در `.env.testing` می‌آید؛ هرگز
+به دیتابیس واقعی اشاره نکنید (suite در نبود نام `tmc_test` اجرا نمی‌شود).
+
+آزمون‌های وابسته به WordPress/WooCommerce واقعی همچنان **Not Run** هستند؛
+`docs/compatibility-matrix.md` سطربه‌سطر می‌گوید کدام و چرا.
 
 ## قاعده عدم deploy
 - هیچ نصب روی Staging/production، هیچ SSH/cPanel، هیچ credential واقعی.

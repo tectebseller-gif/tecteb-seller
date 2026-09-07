@@ -1,0 +1,22 @@
+### C. Self-check: does the 8.1 gate actually fire on 8.2+ syntax?
+
+FILE: ...-seller/1cb7ed0b-b0bd-5a71-a82a-da26b51ca5f9/scratchpad/compat/probe82.php
+--------------------------------------------------------------------------------
+FOUND 5 ERRORS AFFECTING 4 LINES
+--------------------------------------------------------------------------------
+ 2 | ERROR | Readonly classes are not supported in PHP 8.1 or earlier.
+ 3 | ERROR | Disjunctive Normal Form types are not present in PHP version 8.1
+   |       | or earlier. Found: (A&B)|null
+ 3 | ERROR | The 'null' type can only be used as part of a union type in PHP
+   |       | 8.1 or earlier
+ 4 | ERROR | 'true' return type is not present in PHP version 8.1 or earlier
+ 5 | ERROR | Typed constants are not supported in PHP 8.2 or earlier. Found:
+   |       | string
+--------------------------------------------------------------------------------
+
+Time: 106ms; Memory: 12MB
+
+(expected: several ERRORs — proves the gate is not vacuous)
+
+### D. Main file must parse on the oldest PHP WordPress still boots (7.2)
+main-file 7.2 exit=0

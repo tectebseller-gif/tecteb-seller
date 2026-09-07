@@ -1,0 +1,1642 @@
+{
+  "generated_at": "2026-09-07T11:35:27.202Z",
+  "chromium": "141.0.7390.37",
+  "scope": "Render harness OUTSIDE WordPress — interface sample, not proof the plugin works in wp-admin.",
+  "playwright": "1.63.0",
+  "axe_core": "4.13.0",
+  "total": 233,
+  "failed": 0,
+  "results": [
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "keyboard",
+      "check": "reaches-controls",
+      "ok": true,
+      "detail": "10 stops"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "keyboard",
+      "check": "skip-link-first",
+      "ok": true,
+      "detail": "tmc-skip"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "all focusable stops show a ring"
+    },
+    {
+      "scenario": "dashboard-no-wc",
+      "viewport": "zoom200",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "keyboard",
+      "check": "reaches-controls",
+      "ok": true,
+      "detail": "9 stops"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "keyboard",
+      "check": "skip-link-first",
+      "ok": true,
+      "detail": "tmc-skip"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "all focusable stops show a ring"
+    },
+    {
+      "scenario": "dashboard-with-wc",
+      "viewport": "zoom200",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "keyboard",
+      "check": "reaches-controls",
+      "ok": true,
+      "detail": "6 stops"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "keyboard",
+      "check": "skip-link-first",
+      "ok": true,
+      "detail": "tmc-skip"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "all focusable stops show a ring"
+    },
+    {
+      "scenario": "health-no-wc",
+      "viewport": "zoom200",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "keyboard",
+      "check": "reaches-controls",
+      "ok": true,
+      "detail": "6 stops"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "keyboard",
+      "check": "skip-link-first",
+      "ok": true,
+      "detail": "tmc-skip"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "all focusable stops show a ring"
+    },
+    {
+      "scenario": "health-with-error",
+      "viewport": "zoom200",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "keyboard",
+      "check": "reaches-controls",
+      "ok": true,
+      "detail": "10 stops"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "keyboard",
+      "check": "skip-link-first",
+      "ok": true,
+      "detail": "tmc-skip"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "all focusable stops show a ring"
+    },
+    {
+      "scenario": "settings-default",
+      "viewport": "zoom200",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "keyboard",
+      "check": "reaches-controls",
+      "ok": true,
+      "detail": "7 stops"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "keyboard",
+      "check": "error-summary-focused-on-load",
+      "ok": true,
+      "detail": "activeElement id=\"tmc-error-summary\""
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "keyboard",
+      "check": "error-summary-links-reachable",
+      "ok": true,
+      "detail": "2 links reachable"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "all focusable stops show a ring"
+    },
+    {
+      "scenario": "settings-errors",
+      "viewport": "zoom200",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "keyboard",
+      "check": "reaches-controls",
+      "ok": true,
+      "detail": "6 stops"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "keyboard",
+      "check": "skip-link-first",
+      "ok": true,
+      "detail": "tmc-skip"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "all focusable stops show a ring"
+    },
+    {
+      "scenario": "modules",
+      "viewport": "zoom200",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "keyboard",
+      "check": "reaches-controls",
+      "ok": true,
+      "detail": "6 stops"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "keyboard",
+      "check": "skip-link-first",
+      "ok": true,
+      "detail": "tmc-skip"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "all focusable stops show a ring"
+    },
+    {
+      "scenario": "modules-degraded",
+      "viewport": "zoom200",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640"
+    }
+  ]
+}

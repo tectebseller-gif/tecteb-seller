@@ -1,0 +1,111 @@
+{
+    "standard": "WCAG 2.2 — 1.4.3 (text 4.5:1) and 1.4.11 (non-text 3:1)",
+    "note": "Brand colours are fixed by the Master Spec; the text colour on each is the choice being verified.",
+    "results": [
+        {
+            "pair": "متن سفید روی سرمه‌ای اصلی (دکمه اصلی، ناوبری فعال)",
+            "fg": "#FFFFFF",
+            "bg": "#143C4D",
+            "ratio": 11.78,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "متن سرمه‌ای روی آبی هدر",
+            "fg": "#143C4D",
+            "bg": "#6ABFE7",
+            "ratio": 5.73,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "متن سرمه‌ای روی سبز موفقیت",
+            "fg": "#143C4D",
+            "bg": "#21D483",
+            "ratio": 6.06,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "متن سرمه‌ای روی زرد هشدار",
+            "fg": "#143C4D",
+            "bg": "#FFC658",
+            "ratio": 7.55,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "متن سفید روی قرمز خطا",
+            "fg": "#FFFFFF",
+            "bg": "#B3261E",
+            "ratio": 6.54,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "متن اصلی روی پس‌زمینه صفحه",
+            "fg": "#1F2A30",
+            "bg": "#F7F9FA",
+            "ratio": 13.89,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "متن اصلی روی سطح کارت",
+            "fg": "#1F2A30",
+            "bg": "#FFFFFF",
+            "ratio": 14.66,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "متن کم‌رنگ روی سطح کارت",
+            "fg": "#4F6570",
+            "bg": "#FFFFFF",
+            "ratio": 6.13,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "متن کم‌رنگ روی پس‌زمینه صفحه",
+            "fg": "#4F6570",
+            "bg": "#F7F9FA",
+            "ratio": 5.8,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "متن سرمه‌ای روی خاکستری خنثی",
+            "fg": "#143C4D",
+            "bg": "#E4EAEE",
+            "ratio": 9.7,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "متن سرمه‌ای روی کارت muted",
+            "fg": "#143C4D",
+            "bg": "#F1F5F7",
+            "ratio": 10.74,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "حلقه focus سرمه‌ای روی پس‌زمینه صفحه (غیرمتنی ۳:۱)",
+            "fg": "#143C4D",
+            "bg": "#F7F9FA",
+            "ratio": 11.15,
+            "required": 3,
+            "pass": true
+        },
+        {
+            "pair": "حاشیه ورودی روی سطح کارت (غیرمتنی ۳:۱)",
+            "fg": "#4F6570",
+            "bg": "#FFFFFF",
+            "ratio": 6.13,
+            "required": 3,
+            "pass": true
+        }
+    ],
+    "failures": 0
+}
