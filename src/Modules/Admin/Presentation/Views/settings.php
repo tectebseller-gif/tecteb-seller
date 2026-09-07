@@ -7,7 +7,11 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\Messages;
 
 /** @var array<string,mixed> $vm */
 $f = $vm['fields'];
-$invalid = static fn (string $field): bool => in_array($field, $vm['invalid'], true);
+$isInvalid = static fn (string $field): bool => in_array($field, $vm['invalid'], true);
+// Both helpers return a literal that is still escaped at the point of output,
+// so tests/Architecture/SecurityRulesTest needs no exception for this view.
+$invalidClass = static fn (string $field): string => $isInvalid($field) ? ' is-invalid' : '';
+$ariaInvalid = static fn (string $field): string => $isInvalid($field) ? 'true' : 'false';
 $fa = static fn (int|string $n): string => PersianDigits::toPersian((string) $n);
 
 echo Components::shellOpen(__('تنظیمات بازارگاه', 'tecteb-marketplace-core'), 'tmc-settings', __('نسخه آزمایشی', 'tecteb-marketplace-core'));
@@ -26,7 +30,7 @@ echo '</div>';
 
     <fieldset class="tmc-card">
         <legend class="tmc-card__title"><?php esc_html_e('کمیسیون', 'tecteb-marketplace-core'); ?></legend>
-        <div class="tmc-field<?php echo $invalid($f['commission']) ? ' is-invalid' : ''; ?>">
+        <div class="tmc-field<?php echo esc_attr($invalidClass($f['commission'])); ?>">
             <label class="tmc-field__label" for="tmc-field-<?php echo esc_attr($f['commission']); ?>"><?php echo esc_html(Messages::fieldLabel($f['commission'])); ?></label>
             <div class="tmc-field__control">
                 <input type="text" inputmode="decimal" dir="ltr"
@@ -34,7 +38,7 @@ echo '</div>';
                        name="<?php echo esc_attr($vm['option']); ?>[<?php echo esc_attr($f['commission']); ?>]"
                        value="<?php echo esc_attr($vm['commission_input']); ?>"
                        aria-describedby="tmc-desc-commission"
-                       <?php echo $invalid($f['commission']) ? 'aria-invalid="true"' : ''; ?>
+                       aria-invalid="<?php echo esc_attr($ariaInvalid($f['commission'])); ?>"
                        class="tmc-input tmc-input--short" autocomplete="off">
                 <span class="tmc-field__unit" aria-hidden="true">٪</span>
             </div>
@@ -53,7 +57,7 @@ echo '</div>';
         <legend class="tmc-card__title"><?php esc_html_e('تنظیمات ماژول‌های آینده', 'tecteb-marketplace-core'); ?></legend>
         <p class="tmc-card__note"><?php esc_html_e('این مقادیر ذخیره می‌شوند اما در فاز اول هنوز مصرف عملیاتی ندارند.', 'tecteb-marketplace-core'); ?></p>
 
-        <div class="tmc-field<?php echo $invalid($f['delay']) ? ' is-invalid' : ''; ?>">
+        <div class="tmc-field<?php echo esc_attr($invalidClass($f['delay'])); ?>">
             <label class="tmc-field__label" for="tmc-field-<?php echo esc_attr($f['delay']); ?>"><?php echo esc_html(Messages::fieldLabel($f['delay'])); ?></label>
             <div class="tmc-field__control">
                 <input type="text" inputmode="numeric" dir="ltr"
@@ -61,7 +65,7 @@ echo '</div>';
                        name="<?php echo esc_attr($vm['option']); ?>[<?php echo esc_attr($f['delay']); ?>]"
                        value="<?php echo esc_attr((string) $vm['settlement_delay_days']); ?>"
                        aria-describedby="tmc-desc-delay"
-                       <?php echo $invalid($f['delay']) ? 'aria-invalid="true"' : ''; ?>
+                       aria-invalid="<?php echo esc_attr($ariaInvalid($f['delay'])); ?>"
                        class="tmc-input tmc-input--short" autocomplete="off">
                 <span class="tmc-field__unit"><?php esc_html_e('روز', 'tecteb-marketplace-core'); ?></span>
             </div>
@@ -70,7 +74,7 @@ echo '</div>';
             </p>
         </div>
 
-        <div class="tmc-field<?php echo $invalid($f['staff']) ? ' is-invalid' : ''; ?>">
+        <div class="tmc-field<?php echo esc_attr($invalidClass($f['staff'])); ?>">
             <label class="tmc-field__label" for="tmc-field-<?php echo esc_attr($f['staff']); ?>"><?php echo esc_html(Messages::fieldLabel($f['staff'])); ?></label>
             <div class="tmc-field__control">
                 <input type="text" inputmode="numeric" dir="ltr"
@@ -78,7 +82,7 @@ echo '</div>';
                        name="<?php echo esc_attr($vm['option']); ?>[<?php echo esc_attr($f['staff']); ?>]"
                        value="<?php echo esc_attr((string) $vm['max_staff']); ?>"
                        aria-describedby="tmc-desc-staff"
-                       <?php echo $invalid($f['staff']) ? 'aria-invalid="true"' : ''; ?>
+                       aria-invalid="<?php echo esc_attr($ariaInvalid($f['staff'])); ?>"
                        class="tmc-input tmc-input--short" autocomplete="off">
                 <span class="tmc-field__unit"><?php esc_html_e('نفر', 'tecteb-marketplace-core'); ?></span>
             </div>
@@ -90,13 +94,13 @@ echo '</div>';
 
     <fieldset class="tmc-card">
         <legend class="tmc-card__title"><?php esc_html_e('محیط', 'tecteb-marketplace-core'); ?></legend>
-        <div class="tmc-field<?php echo $invalid($f['environment']) ? ' is-invalid' : ''; ?>">
+        <div class="tmc-field<?php echo esc_attr($invalidClass($f['environment'])); ?>">
             <label class="tmc-field__label" for="tmc-field-<?php echo esc_attr($f['environment']); ?>"><?php echo esc_html(Messages::fieldLabel($f['environment'])); ?></label>
             <div class="tmc-field__control">
                 <select id="tmc-field-<?php echo esc_attr($f['environment']); ?>"
                         name="<?php echo esc_attr($vm['option']); ?>[<?php echo esc_attr($f['environment']); ?>]"
                         aria-describedby="tmc-desc-environment" class="tmc-select"
-                        <?php echo $invalid($f['environment']) ? 'aria-invalid="true"' : ''; ?>>
+                        aria-invalid="<?php echo esc_attr($ariaInvalid($f['environment'])); ?>">
                     <?php foreach ($vm['environment_values'] as $value) :
                         $label = match ($value) {
                             'auto' => __('خودکار (تشخیص WordPress)', 'tecteb-marketplace-core'),

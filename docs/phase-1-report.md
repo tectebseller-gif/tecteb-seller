@@ -11,7 +11,7 @@
 | گیت | دستور | نسخه | exit | نتیجه | log |
 |---|---|---|---|---|---|
 | Unit خالص (بدون هیچ نماد WordPress) | `vendor/bin/phpunit --testsuite unit` | PHPUnit 10.5.64 / PHP 8.4.19 | 0 | **۱۰۶ تست، ۲۰٬۴۲۵ assertion** | `docs/evidence/unit.log` |
-| معماری | `vendor/bin/phpunit --testsuite architecture` | همان | 0 | **۶ تست، ۲۱ assertion** | `docs/evidence/architecture.log` |
+| معماری و قواعد ایستای امنیتی | `vendor/bin/phpunit --testsuite architecture` | همان | 0 | **۱۲ تست، ۵۶ assertion** | `docs/evidence/architecture.log` |
 | قرارداد با stub وردپرس | `vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php` | همان | 0 | **۳۴ تست، ۴۰۳ assertion** | `docs/evidence/contract.log` |
 | دیتابیس واقعی | `vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php` | MariaDB 10.11.14 | 0 | **۱۳ تست، ۱۱۵ assertion** | `docs/evidence/database.log` |
 | lint نحوی | `bash tools/lint.sh` | PHP 8.4.19 | 0 | ۱۰۹ فایل، ۰ خطا | `docs/evidence/lint.log` |
@@ -163,6 +163,20 @@
 | lint با PHP 8.1 | — | runtime موجود نیست | **Not Run** (جایگزین ایستا: PHPCompatibility `Passed`) |
 | **نصب در WordPress یکبارمصرف، بدون fatal/warning با WP_DEBUG** | — | — | **Not Run** |
 
+## ۲٫۱ قواعد ایستای امنیتی (روی کد ارسالی)
+
+`tests/Architecture/SecurityRulesTest.php` — شش قاعده که هر رگرسیون را در همان
+لحظه نوشتن می‌گیرند، به‌جای اتکا به بازبینی دستی:
+
+| قاعده | چه چیزی را می‌بندد |
+|---|---|
+| بدون superglobal در کد ارسالی | ورودی فقط از مسیر sanitize کالبک Settings API می‌آید که وردپرس **پس از** بررسی nonce و capability صفحه صدا می‌زند |
+| هر `echo` در view یا escape شده یا خروجی کامپوننتِ escape‌کننده است | تحلیل با حذف پرانتزهای متوازنِ توابع escape؛ باقی‌ماندن هر متغیر = خطا |
+| هر فراخوانی دیتابیس prepared است | هیچ literal SQL چیزی جز نام جدولِ متعلق به `$wpdb` را درون‌ریزی نمی‌کند |
+| هر صفحه و route با capability محافظت شده | چهار صفحه + گیت مشترک با ۴۰۳ خنثی + `permission_callback` |
+| audit فقط از مسیر sanitizer | payload خام هرگز به رکورد نمی‌رسد |
+| قفل خروجی با پیکربندی باز نمی‌شود | هیچ شاخه‌ای `true` برنمی‌گرداند |
+
 ## ۳. آنچه اجرا نشد و چرا
 
 | گیت | دلیل دقیق | راه اجرا |
@@ -178,7 +192,7 @@
 
 | فایل | SHA-256 |
 |---|---|
-| `dist/tecteb-marketplace-core.zip` | `d9c751f0d922ef32408fc1f41de41f5e1a6a241a8cc828f915d7e05a4bf59f46` |
+| `dist/tecteb-marketplace-core.zip` | `c6993256d720552169ea414bfe9a68cc5e936ef079ea069925b3030ed2406615` |
 
 `dist/SHA256SUMS` هر دو بسته را پوشش می‌دهد.
 `dist/READ-ME-BEFORE-INSTALL.txt` وضعیت «تأییدنشده» را کنار خود بسته تکرار می‌کند.

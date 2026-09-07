@@ -10,7 +10,8 @@
                        name="tmc_settings[default_commission_rate]"
                        value="12.34"
                        aria-describedby="tmc-desc-commission"
-                       aria-invalid="true"                       class="tmc-input tmc-input--short" autocomplete="off">
+                       aria-invalid="true"
+                       class="tmc-input tmc-input--short" autocomplete="off">
                 <span class="tmc-field__unit" aria-hidden="true">٪</span>
             </div>
             <p id="tmc-desc-commission" class="tmc-field__desc">
@@ -30,7 +31,8 @@
                        name="tmc_settings[settlement_delay_days]"
                        value="0"
                        aria-describedby="tmc-desc-delay"
-                                              class="tmc-input tmc-input--short" autocomplete="off">
+                       aria-invalid="false"
+                       class="tmc-input tmc-input--short" autocomplete="off">
                 <span class="tmc-field__unit">روز</span>
             </div>
             <p id="tmc-desc-delay" class="tmc-field__desc">
@@ -45,7 +47,8 @@
                        name="tmc_settings[max_staff]"
                        value="10"
                        aria-describedby="tmc-desc-staff"
-                       aria-invalid="true"                       class="tmc-input tmc-input--short" autocomplete="off">
+                       aria-invalid="true"
+                       class="tmc-input tmc-input--short" autocomplete="off">
                 <span class="tmc-field__unit">نفر</span>
             </div>
             <p id="tmc-desc-staff" class="tmc-field__desc">
@@ -61,7 +64,7 @@
                 <select id="tmc-field-environment_override"
                         name="tmc_settings[environment_override]"
                         aria-describedby="tmc-desc-environment" class="tmc-select"
-                        >
+                        aria-invalid="false">
                                             <option value="auto">خودکار (تشخیص WordPress)</option>
                                             <option value="staging" selected='selected'>آزمایشی (staging)</option>
                                             <option value="production">اصلی (production)</option>
