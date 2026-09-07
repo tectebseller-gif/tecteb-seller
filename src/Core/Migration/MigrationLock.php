@@ -82,7 +82,11 @@ final class MigrationLock
         return false;
     }
 
-    /** Extends the expiry; fails (and drops ownership) if the lock changed hands. */
+    /**
+     * Extends the expiry AND proves this run still owns the lock. Returns
+     * false — and drops local ownership — the moment the lock has changed
+     * hands, so callers can use it as a checkpoint before writing state.
+     */
     public function refresh(): bool
     {
         if ($this->heldValue === null) {
@@ -90,12 +94,31 @@ final class MigrationLock
         }
         $new = $this->encode();
         if ($new === $this->heldValue) {
-            // Same second, same payload: MySQL reports 0 affected rows for a
-            // no-change UPDATE, which would look like a lost lock. Nothing to do.
-            return true;
+            // Same second, identical payload: MySQL reports 0 affected rows
+            // for a no-change UPDATE, so a compare-and-swap would look like a
+            // lost lock. There is nothing to extend, but ownership must still
+            // be PROVEN — returning true unchecked would let a superseded run
+            // pass its checkpoint inside the take-over second.
+            return $this->stillOwned();
         }
         if ($this->store->compareAndSwap(self::KEY, $this->heldValue, $new)) {
             $this->heldValue = $new;
+            return true;
+        }
+        $this->heldValue = null;
+        return false;
+    }
+
+    /**
+     * Reads the store and reports whether it still carries this run's exact
+     * value. Always a real read: never answers from local state alone.
+     */
+    public function stillOwned(): bool
+    {
+        if ($this->heldValue === null) {
+            return false;
+        }
+        if ($this->store->read(self::KEY) === $this->heldValue) {
             return true;
         }
         $this->heldValue = null;

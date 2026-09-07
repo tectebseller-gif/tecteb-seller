@@ -5,7 +5,8 @@ namespace Tecteb\Marketplace\Tests\Support;
 
 use Tecteb\Marketplace\Contracts\OptionStoreInterface;
 
-final class InMemoryOptionStore implements OptionStoreInterface
+/** Not final: tests subclass it to model a store that throws. */
+class InMemoryOptionStore implements OptionStoreInterface
 {
     /** @var array<string,mixed> */
     public array $data = [];

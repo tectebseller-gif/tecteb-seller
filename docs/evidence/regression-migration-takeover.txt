@@ -1,0 +1,31 @@
+Probe: superseded migration run whose lock is taken over mid-step.
+
+Scenario: run A applies step 1, then stalls inside step 2 until its lock
+expires. Run B takes the lock over and completes the migration to schema
+version 3. What does run A do when it comes back?
+
+=== BEFORE the fix (commit 4f4faa6) ===
+status                = failed
+stored schema version = 2   (run B had completed to 3)
+last_error recorded   = YES
+
+=== AFTER the fix ===
+status                = lock_lost
+stored schema version = 3   (run B had completed to 3)
+last_error recorded   = no
+
+Reading: before the fix the superseded run changed BOTH pieces of the newer
+run's state, which is exactly what it must never do:
+
+  * it wrote schema version 2 on top of run B's 3, moving the recorded schema
+    BACKWARDS while B believed the migration was complete; and
+  * it recorded a migration failure for a database that B had in fact
+    migrated successfully, so the health page would have reported a broken
+    upgrade on a healthy schema.
+
+After the fix the run proves ownership before each step and again before each
+version write, detects that its lock was taken over, stops, and records
+nothing: the version stays 3 and no failure is stored.
+
+Covered by tests/Unit/Core/Migration/MigrationTakeoverTest.php
+(testSupersededRunMustNotWriteAnOlderVersionOverTheNewRunsSchema).

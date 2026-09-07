@@ -179,7 +179,12 @@ function add_option(string $option, mixed $value = '', string $deprecated = '', 
     if (array_key_exists($option, State::$options)) {
         return false;
     }
+    if (State::$failOptionWrites) {
+        return false; // models a storage-layer failure, as WordPress reports it
+    }
     State::$options[$option] = $value;
+    do_action('add_option_' . $option, $option, $value);
+    do_action('added_option', $option, $value);
     return true;
 }
 function update_option(string $option, mixed $value, bool|string|null $autoload = null): bool
@@ -190,10 +195,16 @@ function update_option(string $option, mixed $value, bool|string|null $autoload 
     if (!array_key_exists($option, State::$options)) {
         return add_option($option, $value, '', false);
     }
-    if (State::$options[$option] === $value) {
-        return false; // WordPress quirk: unchanged value → false
+    $old = State::$options[$option];
+    if ($old === $value) {
+        return false; // WordPress quirk: unchanged value → false, no action fires
+    }
+    if (State::$failOptionWrites) {
+        return false; // the DB write failed; no update_option_ action fires
     }
     State::$options[$option] = $value;
+    do_action('update_option_' . $option, $old, $value, $option);
+    do_action('updated_option', $option, $old, $value);
     return true;
 }
 function delete_option(string $option): bool
@@ -358,7 +369,14 @@ function settings_fields(string $group): void
     wp_nonce_field($group . '-options');
 }
 
-/** Simulates wp-admin/options.php for one submitted option (nonce, capability filter, sanitize, save). */
+/**
+ * Simulates wp-admin/options.php for one submitted option, in WordPress's
+ * real order: verify the nonce, check the page capability, update the option
+ * (which applies the sanitize filter and fires the persistence actions), then
+ * hand the collected settings errors to the pre_set_transient filter before
+ * redirecting. That last step is where a plugin learns whether the write
+ * actually happened.
+ */
 function tmc_stub_submit_options(string $group, string $option, array $value): void
 {
     check_admin_referer($group . '-options');
@@ -366,7 +384,10 @@ function tmc_stub_submit_options(string $group, string $option, array $value): v
     if (!current_user_can($capability)) {
         wp_die('Sorry, you are not allowed to manage options for this site.', '', ['response' => 403]);
     }
-    update_option($option, $value); // update_option() applies the sanitize filter itself
+    update_option($option, $value); // applies the sanitize filter itself
+    $errors = apply_filters('pre_set_transient_settings_errors', get_settings_errors());
+    set_transient('settings_errors', $errors, 30);
+    State::$settingsErrors = is_array($errors) ? $errors : State::$settingsErrors;
 }
 
 // ---- assets -------------------------------------------------------------------

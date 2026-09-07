@@ -132,6 +132,64 @@ final class MigrationRunnerTest extends TestCase
         new MigrationRunner($this->db, $this->options, new MigrationLock($this->locks, $this->clock, 'owner-runner-1'), [new M0001CreateAuditTable(), $step3], $this->clock, 3);
     }
 
+    public function testVerifyThrowingBecomesAControlledFailureNotALeakedException(): void
+    {
+        $throwing = new class implements MigrationInterface {
+            public function version(): int { return 1; }
+            public function id(): string { return '0001_create_audit_table'; }
+            public function up(DatabaseInterface $db): void {}
+            public function verify(DatabaseInterface $db): bool
+            {
+                throw new \RuntimeException('information_schema unavailable at /srv/secret.php:9');
+            }
+        };
+        $lock = new MigrationLock($this->locks, $this->clock, 'owner-verify-x');
+        $runner = new MigrationRunner($this->db, $this->options, $lock, [$throwing], $this->clock, 1);
+
+        $result = $runner->run(); // must NOT throw
+        self::assertSame(MigrationStatus::Failed, $result->status);
+        self::assertStringStartsWith('verify_threw:', (string) $result->error);
+        self::assertNull($this->options->get(SchemaVersion::OPTION), 'no version recorded for an unverified step');
+        $err = $this->options->get(SchemaVersion::LAST_ERROR_OPTION);
+        self::assertStringContainsString('RuntimeException', $err['message']);
+        self::assertStringNotContainsString("\n", $err['message']);
+        self::assertSame([], $this->locks->rows, 'lock released');
+    }
+
+    public function testVersionPersistenceThrowingBecomesAControlledFailure(): void
+    {
+        $options = new class extends InMemoryOptionStore {
+            public function set(string $key, mixed $value): bool
+            {
+                if ($key === SchemaVersion::OPTION) {
+                    throw new \RuntimeException('option store exploded');
+                }
+                return parent::set($key, $value);
+            }
+        };
+        $lock = new MigrationLock($this->locks, $this->clock, 'owner-persist-x');
+        $runner = new MigrationRunner($this->db, $options, $lock, [new M0001CreateAuditTable()], $this->clock, 1);
+
+        $result = $runner->run(); // must NOT throw
+        self::assertSame(MigrationStatus::Failed, $result->status);
+        self::assertStringStartsWith('version_persist_threw:', (string) $result->error);
+        self::assertNull($options->get(SchemaVersion::OPTION), 'no version recorded');
+        self::assertNotNull($options->get(SchemaVersion::LAST_ERROR_OPTION), 'the failure is visible');
+        self::assertSame([], $this->locks->rows, 'lock released even when the store throws');
+    }
+
+    public function testStoredVersionAboveTargetIsReportedAheadAndNeverTouched(): void
+    {
+        $this->options->set(SchemaVersion::OPTION, 7);
+        $runner = $this->runner();
+        $result = $runner->run();
+        self::assertSame(MigrationStatus::Ahead, $result->status);
+        self::assertTrue($runner->isAhead());
+        self::assertSame(7, $this->options->get(SchemaVersion::OPTION));
+        self::assertSame([], $this->db->executed);
+        self::assertSame(0, $this->locks->inserts);
+    }
+
     public function testAuditTableDdlIsPrefixSafeAndUtc(): void
     {
         $this->runner()->run();

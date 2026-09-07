@@ -73,6 +73,7 @@ final class HealthReportBuilder
             'last_error_step' => $lastError['step'] ?? null,
             'last_error_message' => $lastError['message'] ?? null,
             'last_error_at' => $lastError['at'] ?? null,
+            'ahead' => $stored > $target,
         ]);
         $checks[] = new HealthCheck('environment', $env->type === EnvironmentType::Unknown ? HealthStatus::Unknown : HealthStatus::Healthy, [
             'resolved' => $env->type->value,
@@ -116,7 +117,13 @@ final class HealthReportBuilder
         if ($lastError !== null) {
             return HealthStatus::ActionRequired;
         }
-        return $stored >= $target ? HealthStatus::Healthy : HealthStatus::ActionRequired;
+        if ($stored > $target) {
+            // Written by a NEWER build than this one. Never "healthy": this
+            // build does not know the newer structure and must not be trusted
+            // to read or migrate it.
+            return HealthStatus::ActionRequired;
+        }
+        return $stored === $target ? HealthStatus::Healthy : HealthStatus::ActionRequired;
     }
 
     private function modulesStatus(?LoadReport $report): HealthStatus

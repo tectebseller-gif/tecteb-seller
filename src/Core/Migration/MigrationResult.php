@@ -26,6 +26,17 @@ final class MigrationResult
         return new self(MigrationStatus::Locked, $version, $version, [], null, null);
     }
 
+    /** @param list<string> $applied steps this run completed before losing the lock */
+    public static function lockLost(int $from, int $reached, array $applied, string $step): self
+    {
+        return new self(MigrationStatus::LockLost, $from, $reached, $applied, $step, 'lock_lost');
+    }
+
+    public static function ahead(int $stored, int $target): self
+    {
+        return new self(MigrationStatus::Ahead, $stored, $target, [], null, 'schema_ahead');
+    }
+
     /** @param list<string> $applied */
     public static function applied(int $from, int $to, array $applied): self
     {

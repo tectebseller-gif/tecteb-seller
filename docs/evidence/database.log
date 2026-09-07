@@ -3,8 +3,8 @@ PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
 Runtime:       PHP 8.4.19
 Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
-.............                                                     13 / 13 (100%)
+..............                                                    14 / 14 (100%)
 
-Time: 00:00.240, Memory: 8.00 MB
+Time: 00:00.202, Memory: 8.00 MB
 
-OK (13 tests, 115 assertions)
+OK (14 tests, 123 assertions)

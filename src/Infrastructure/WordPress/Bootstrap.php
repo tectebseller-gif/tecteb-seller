@@ -23,6 +23,7 @@ use Tecteb\Marketplace\Core\Kernel;
 use Tecteb\Marketplace\Core\Migration\MigrationLock;
 use Tecteb\Marketplace\Core\Migration\MigrationRunner;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0001CreateAuditTable;
+use Tecteb\Marketplace\Core\Migration\UpgradeGate;
 use Tecteb\Marketplace\Core\Modules\LoadReport;
 use Tecteb\Marketplace\Core\Support\SystemClock;
 use Tecteb\Marketplace\Infrastructure\Otp\NullOtpProvider;
@@ -71,6 +72,30 @@ final class Bootstrap
         }
         Notices::registerActivationResult();
         self::kernel()->load($wooCommerceAvailable);
+
+        // Updating a plugin's files does NOT re-fire its activation hook, so
+        // migrations cannot depend on activation alone. Check on admin
+        // requests, where a failure is visible and a long-running step is not
+        // in a visitor's way. Front-end requests never migrate.
+        add_action('admin_init', [self::class, 'runPendingMigrations'], 5);
+    }
+
+    /**
+     * Applies a pending schema upgrade outside activation. Guarded by
+     * UpgradeGate (cooldown after failure, never migrates a schema that is
+     * ahead of this build) and by the owner-scoped migration lock, so
+     * concurrent admin requests cannot run it twice.
+     */
+    public static function runPendingMigrations(): void
+    {
+        try {
+            /** @var UpgradeGate $gate */
+            $gate = self::container()->get(UpgradeGate::class);
+            $gate->runIfNeeded();
+        } catch (\Throwable) {
+            // Never break wp-admin because of a migration attempt; the
+            // outcome (including a recorded failure) is on the health page.
+        }
     }
 
     public static function mainFile(): string
@@ -145,6 +170,11 @@ final class Bootstrap
             $c->get(OptionStoreInterface::class),
             new MigrationLock($c->get(LockStoreInterface::class), $c->get(ClockInterface::class), MigrationLock::generateOwnerToken()),
             [new M0001CreateAuditTable()],
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(UpgradeGate::class, static fn (ContainerInterface $c) => new UpgradeGate(
+            $c->get(MigrationRunner::class),
+            $c->get(OptionStoreInterface::class),
             $c->get(ClockInterface::class)
         ));
         $c->bind(OtpProviderInterface::class, static fn () => new NullOtpProvider());

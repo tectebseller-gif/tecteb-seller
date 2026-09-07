@@ -112,9 +112,148 @@ final class SettingsApiTest extends ContractTestCase
         self::assertSame(15, $this->stored()['max_staff'], 'the setting itself is saved');
         self::assertContains('tmc_audit_failed', $this->errorCodes());
         self::assertNotContains('tmc_saved', $this->errorCodes());
+        self::assertNotContains('tmc_save_failed', $this->errorCodes(), 'a failed trail is not a failed save');
         $warning = array_values(array_filter(get_settings_errors(SettingsRegistrar::ERROR_SETTING), static fn ($e) => $e['code'] === 'tmc_audit_failed'))[0];
         self::assertSame('warning', $warning['type']);
         self::assertStringContainsString('ثبت رویداد ممیزی ناموفق', $warning['message']);
+    }
+
+    /**
+     * Regression: the sanitize callback runs BEFORE the database write, so it
+     * cannot know whether the save succeeded. The previous implementation
+     * announced "saved" and wrote the audit row from inside sanitize, which
+     * claimed success for a write that never happened.
+     */
+    public function testFailedWriteIsReportedAsFailureAndIsNeitherAuditedNorCalledSaved(): void
+    {
+        $this->bootPlugin(false);
+        do_action('admin_init');
+        $this->loginAdmin();
+        $this->submit(['max_staff' => '15']);          // establishes a stored value
+        State::$settingsErrors = [];
+        $auditRows = count($this->audit->records);
+
+        State::$failOptionWrites = true;               // the storage layer now refuses
+        $this->submit(['max_staff' => '44']);
+
+        self::assertSame(15, $this->stored()['max_staff'], 'the previous value is untouched');
+        self::assertContains('tmc_save_failed', $this->errorCodes());
+        self::assertNotContains('tmc_saved', $this->errorCodes());
+        self::assertCount($auditRows, $this->audit->records, 'a change that never persisted is never audited');
+        $failure = array_values(array_filter(get_settings_errors(SettingsRegistrar::ERROR_SETTING), static fn ($e) => $e['code'] === 'tmc_save_failed'))[0];
+        self::assertSame('error', $failure['type']);
+        self::assertStringContainsString('ناموفق', $failure['message']);
+    }
+
+    /** Regression: "nothing changed" must be its own visible outcome, not a save. */
+    public function testUnchangedSubmissionIsReportedAsNoChangeAndIsNotAudited(): void
+    {
+        $this->bootPlugin(false);
+        do_action('admin_init');
+        $this->loginAdmin();
+        $this->submit(['max_staff' => '15']);
+        State::$settingsErrors = [];
+        $auditRows = count($this->audit->records);
+
+        $this->submit(['max_staff' => '15']);          // identical value
+
+        self::assertContains('tmc_no_change', $this->errorCodes());
+        self::assertNotContains('tmc_saved', $this->errorCodes());
+        self::assertNotContains('tmc_save_failed', $this->errorCodes());
+        self::assertCount($auditRows, $this->audit->records, 'no storage change, no audit row');
+    }
+
+    /** The audit row must describe the REAL persisted before/after, not the intent. */
+    public function testAuditRecordsTheValuesThatWereActuallyStored(): void
+    {
+        $this->bootPlugin(false);
+        do_action('admin_init');
+        $this->loginAdmin();
+        $this->submit(['default_commission_rate' => '5', 'max_staff' => '20']);
+        $this->audit->records = [];
+        State::$settingsErrors = [];
+
+        // One valid field, one rejected: only the valid one reaches storage,
+        // and only it may appear in the audit row.
+        $this->submit(['default_commission_rate' => '999', 'max_staff' => '21']);
+
+        self::assertSame(500, $this->stored()['default_commission_rate_bp'], 'rejected field keeps its previous value');
+        self::assertSame(21, $this->stored()['max_staff']);
+        self::assertCount(1, $this->audit->records);
+        $payload = $this->audit->records[0]->payload;
+        self::assertSame(['max_staff'], $payload['changed'], 'only the field that actually changed in storage');
+        self::assertSame(['max_staff' => 20], $payload['old'], 'the real stored old value');
+        self::assertSame(['max_staff' => 21], $payload['new']);
+    }
+
+    /**
+     * Regression: recognising the WordPress double-sanitize pass by SHAPE
+     * (schema_version + values) let a request POST that wrapper directly and
+     * bypass validation and auditing. Recognition is now a one-shot token
+     * bound to the exact value this callback just produced.
+     */
+    public function testForgedCanonicalPayloadCannotBypassValidationOrAudit(): void
+    {
+        $this->bootPlugin(false);
+        do_action('admin_init');
+        $this->loginAdmin();
+        $this->submit(['max_staff' => '12']);
+        $this->audit->records = [];
+        State::$settingsErrors = [];
+
+        // Exactly the internal wrapper, with values no validator would accept.
+        $this->submit([
+            'schema_version' => 1,
+            'values' => [
+                'default_commission_rate_bp' => 999999,
+                'settlement_delay_days' => -5,
+                'max_staff' => 100000,
+                'environment_override' => 'production',
+            ],
+        ]);
+
+        $stored = $this->stored();
+        self::assertSame(12, $stored['max_staff'], 'forged wrapper must not reach storage');
+        self::assertNotSame(999999, $stored['default_commission_rate_bp']);
+        self::assertNotSame(-5, $stored['settlement_delay_days']);
+        self::assertSame('auto', $stored['environment_override']);
+        self::assertSame([], $this->audit->records, 'nothing changed, so nothing is audited');
+    }
+
+    /** The genuine WordPress double-sanitize on a NEW option still works. */
+    public function testBrandNewOptionSurvivesWordPressDoubleSanitize(): void
+    {
+        $this->bootPlugin(false);
+        do_action('admin_init');
+        $this->loginAdmin();
+        self::assertArrayNotHasKey(SettingsRegistrar::OPTION, State::$options, 'option does not exist yet');
+
+        $this->submit(['default_commission_rate' => '12.34', 'max_staff' => '25']);
+
+        self::assertSame(1234, $this->stored()['default_commission_rate_bp'], 'the second pass must not discard the first');
+        self::assertSame(25, $this->stored()['max_staff']);
+        self::assertContains('tmc_saved', $this->errorCodes());
+        self::assertCount(1, $this->audit->records, 'exactly one audit row despite two sanitize passes');
+    }
+
+    /** A replayed wrapper is honoured at most once, and only right after we produced it. */
+    public function testReplayTokenIsSingleUse(): void
+    {
+        $this->bootPlugin(false);
+        do_action('admin_init');
+        $this->loginAdmin();
+        $this->submit(['max_staff' => '31']);
+        $canonical = State::$options[SettingsRegistrar::OPTION];
+        State::$settingsErrors = [];
+
+        // Feeding our own previous output back later goes through validation:
+        // it carries no form fields, so it is a no-op that keeps the values.
+        $registrar = \Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap::container()
+            ->get(SettingsRegistrar::class);
+        $this->audit->records = [];
+        $out = $registrar->sanitize($canonical);
+        self::assertSame(31, $out['values']['max_staff'], 'previous values preserved');
+        self::assertSame([], $this->audit->records, 'validation no-op writes no audit row');
     }
 
     public function testReadingAndResavingNeverReconverts(): void
@@ -127,7 +266,8 @@ final class SettingsApiTest extends ContractTestCase
         State::$settingsErrors = [];
         $this->submit(['default_commission_rate' => '12.34']); // exactly what the page displays
         self::assertSame(1234, $this->stored()['default_commission_rate_bp'], 'would be 123400 if the stored value were re-parsed as percent');
-        self::assertContains('tmc_saved', $this->errorCodes());
+        self::assertContains('tmc_no_change', $this->errorCodes(), 'resubmitting the same value is not a save');
+        self::assertNotContains('tmc_saved', $this->errorCodes());
         self::assertCount(1, $this->audit->records, 'no change → no second audit row');
     }
 

@@ -34,6 +34,11 @@ final class Messages
         return __('تنظیمات ذخیره شد.', 'tecteb-marketplace-core');
     }
 
+    public static function saveFailed(): string
+    {
+        return __('ذخیره تنظیمات ناموفق بود: مقادیر در پایگاه داده نوشته نشدند. مقادیر قبلی دست‌نخورده‌اند. لطفاً دوباره تلاش کنید و در صورت تکرار، وضعیت پایگاه داده را در صفحه سلامت بررسی کنید.', 'tecteb-marketplace-core');
+    }
+
     public static function savedNoChange(): string
     {
         return __('مقادیر تغییری نکرده بود؛ چیزی برای ذخیره نبود.', 'tecteb-marketplace-core');
@@ -184,6 +189,13 @@ final class Messages
             case 'hpos_tested':
                 return __('هیچ آزمون سازگاری HPOS اجرا نشده است. «فعال بودن» با «آزموده بودن» یکی نیست.', 'tecteb-marketplace-core');
             case 'schema':
+                if (!empty($facts['ahead'])) {
+                    return sprintf(
+                        __('نسخه ساختار داده %1$s است، اما این نسخه افزونه فقط تا %2$s را می‌شناسد. یعنی دیتابیس با نسخه جدیدتری از افزونه نوشته شده است. افزونه ساختار را پایین نمی‌آورد؛ نسخه افزونه را به‌روز کنید یا از بک‌آپ متناسب بازگردانید.', 'tecteb-marketplace-core'),
+                        $fa($facts['stored'] ?? 0),
+                        $fa($facts['target'] ?? 0)
+                    );
+                }
                 if (($facts['last_error_step'] ?? null) !== null) {
                     return sprintf(__('آخرین migration ناموفق بود (مرحله %1$s، زمان %2$s): %3$s. فعال‌سازی دوباره افزونه تلاش را از سر می‌گیرد.', 'tecteb-marketplace-core'), (string) $facts['last_error_step'], $fa($facts['last_error_at'] ?? ''), (string) $facts['last_error_message']);
                 }

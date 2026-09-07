@@ -38,7 +38,7 @@ final class SettingsPage extends AbstractPage
             $field = str_starts_with($e['code'], 'tmc_field_') ? substr($e['code'], strlen('tmc_field_')) : null;
             if ($e['type'] === 'success') {
                 $successes[] = $e['message'];
-            } elseif ($e['type'] === 'warning') {
+            } elseif ($e['type'] === 'warning' || $e['type'] === 'info') {
                 $warnings[] = $e['message'];
             } else {
                 $errors[] = ['field' => $field, 'message' => $e['message'], 'href' => $field ? '#tmc-field-' . $field : '#tmc-error-summary'];

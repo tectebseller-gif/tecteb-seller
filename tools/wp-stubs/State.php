@@ -21,6 +21,8 @@ final class State
     public static array $currentUserCaps = [];
     public static int $currentUserId = 0;
     public static bool $multisite = false;
+    /** When true, option writes fail the way a storage error would. */
+    public static bool $failOptionWrites = false;
     public static string $environmentType = 'production';
     public static string $homeUrl = 'https://example.test';
     public static string $wpVersion = 'stub';
@@ -52,6 +54,7 @@ final class State
         self::$currentUserCaps = [];
         self::$currentUserId = 0;
         self::$multisite = false;
+        self::$failOptionWrites = false;
         self::$environmentType = 'production';
         self::$homeUrl = 'https://example.test';
         self::$menus = [];

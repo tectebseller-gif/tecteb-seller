@@ -78,7 +78,14 @@ wp plugin activate tecteb-marketplace-core
 
 ### ۴٫۰ آماده‌سازی مشترک
 
+> **exit code در دستورهای لوله‌شده:** در `cmd | tee file` مقدار `$?` متعلق به
+> `tee` است، نه `cmd`؛ یعنی یک دستور شکست‌خورده «موفق» به نظر می‌رسد. در تمام
+> این بخش `set -o pipefail` روشن است تا exit code لوله همان دستور آزمون باشد،
+> و هرجا عدد را جدا ثبت می‌کنیم از `${PIPESTATUS[0]}` استفاده می‌شود.
+
 ```bash
+set -o pipefail          # exit code لوله = اولین دستور شکست‌خورده، نه tee
+
 # سایت یکبارمصرف با داده مصنوعی. Staging عملیاتی یا production مجاز نیست.
 SITE="https://<disposable-site>"
 EV="$HOME/tmc-gate-evidence"; mkdir -p "$EV"
@@ -109,6 +116,15 @@ curl -s -b "$EV/cookies-admin.txt" -o /dev/null -w '%{http_code}\n' "$SITE/wp-ad
 ```bash
 mark() { date -u +'%Y-%m-%dT%H:%M:%SZ' > "$EV/.mark"; : > wp-content/debug.log; }
 slice() { cp wp-content/debug.log "$EV/$1-debug.log"; wc -l < "$EV/$1-debug.log"; }
+# ثبت exit code واقعی یک دستور همراه با نگه‌داشتن خروجی آن:
+run_ev() { # run_ev <evidence-name> <command…>
+  local name="$1"; shift
+  "$@" > "$EV/$name.txt" 2>&1
+  local code=$?
+  echo "exit=$code" >> "$EV/$name.txt"
+  cat "$EV/$name.txt"
+  return $code
+}
 ```
 
 ---
@@ -125,7 +141,8 @@ slice() { cp wp-content/debug.log "$EV/$1-debug.log"; wc -l < "$EV/$1-debug.log"
 ```bash
 mark
 wp plugin install "$EV/tecteb-marketplace-core.zip" 2>&1 | tee "$EV/G-01-install.txt"
-wp plugin activate tecteb-marketplace-core 2>&1 | tee "$EV/G-01-activate.txt"; echo "exit=$?" >> "$EV/G-01-activate.txt"
+wp plugin activate tecteb-marketplace-core 2>&1 | tee "$EV/G-01-activate.txt"
+echo "exit=${PIPESTATUS[0]}" >> "$EV/G-01-activate.txt"   # the command's code, not tee's
 slice G-01
 grep -Ei 'fatal|warning|notice|deprecated' "$EV/G-01-debug.log" | grep -i tecteb \
   | tee "$EV/G-01-plugin-errors.txt"                    # انتظار: فایل خالی
