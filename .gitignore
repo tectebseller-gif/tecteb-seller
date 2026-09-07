@@ -1,9 +1,11 @@
 /vendor/
-/node_modules/
+node_modules/
 /dist/
 /build/
 /.phpunit.cache/
+/.phpunit.result.cache
 /tests/_output/
 *.log
 .env
 .DS_Store
+/docs/evidence/screenshots/*.tmp

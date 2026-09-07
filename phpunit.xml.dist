@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         colors="true"
+         failOnRisky="true"
+         failOnWarning="true"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
+         displayDetailsOnTestsThatTriggerErrors="true"
+         displayDetailsOnTestsThatTriggerNotices="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         cacheDirectory=".phpunit.cache"
+         bootstrap="tests/bootstrap-unit.php"
+         defaultTestSuite="unit">
+    <!--
+      Four suites, four bootstraps, four levels of evidence:
+        unit         pure PHP, NO WordPress function exists (proves Core/Contracts independence)
+        architecture token-level rules + PSR-4 conformance + autoload-all
+        contract     WordPress *stubs* (tools/wp-stubs) — NOT real WordPress integration
+        database     real MariaDB (disposable, synthetic data) through PDO and a PDO-backed wpdb stub
+    -->
+    <testsuites>
+        <testsuite name="unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="architecture">
+            <directory>tests/Architecture</directory>
+        </testsuite>
+        <testsuite name="contract">
+            <directory>tests/WordPressContract</directory>
+        </testsuite>
+        <testsuite name="database">
+            <directory>tests/Database</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory suffix=".php">src</directory>
+        </include>
+    </source>
+</phpunit>
