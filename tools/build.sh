@@ -50,7 +50,10 @@ SRC_ARCHIVE="${DIST}/${SLUG}-source-${VERSION}.tar.gz"
 # --cached --others --exclude-standard: everything tracked plus anything new
 # that is not gitignored, so the archive reflects the working tree rather than
 # only what happens to be committed at build time.
-git ls-files -z --cached --others --exclude-standard 2>/dev/null | LC_ALL=C sort -zu \
+# dist/ is excluded: this is the SOURCE archive, and including it would ship
+# the built ZIP plus a stale copy of this archive inside itself.
+git ls-files -z --cached --others --exclude-standard 2>/dev/null \
+  | grep -zv '^dist/' | LC_ALL=C sort -zu \
   | tar --null --files-from=- --owner=0 --group=0 --numeric-owner \
         --mtime="@${SOURCE_DATE}" --format=gnu -czf "${SRC_ARCHIVE}" 2>/dev/null \
   || tar --exclude-vcs --exclude='./dist' --exclude='./vendor' --exclude='./node_modules' \

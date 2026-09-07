@@ -192,7 +192,7 @@
 
 | فایل | SHA-256 |
 |---|---|
-| `dist/tecteb-marketplace-core.zip` | `c6993256d720552169ea414bfe9a68cc5e936ef079ea069925b3030ed2406615` |
+| `dist/tecteb-marketplace-core.zip` | `61526abf7a126bbcb1338a1f684da7ae58f5d75f91175017d1ae00b3776728e7` |
 
 `dist/SHA256SUMS` هر دو بسته را پوشش می‌دهد.
 `dist/READ-ME-BEFORE-INSTALL.txt` وضعیت «تأییدنشده» را کنار خود بسته تکرار می‌کند.
