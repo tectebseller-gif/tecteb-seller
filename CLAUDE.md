@@ -6,11 +6,14 @@
 Refund/Coupon/B2B/Ticket/SEO/Migration یا auth واقعی ساخته نمی‌شود. هیچ
 sender/gateway واقعی وجود ندارد؛ خروجی‌های افزونه در Alpha همیشه بسته‌اند.
 
-**وضعیت جاری:** فاز ۱ پیاده‌سازی و آزموده شد و **سه دور بازبینی سورس** روی آن
-اعمال شده است. بسته با برچسب **«تأییدنشده — نصب نشود»** تحویل شده چون گیت
-نصب واقعی WordPress اجرا نشده است.
-گزارش: `docs/phase-1-report.md` · اصلاح‌های بازبینی: `docs/review-fixes-phase-1.md`
-· تحویل بعدی: `docs/next-phase-handoff.md`.
+**وضعیت جاری:** فاز ۱ پیاده‌سازی شد، **چهار دور بازبینی سورس** روی آن اعمال شد،
+و پروتکل پذیرش (G-01 تا G-09 به‌علاوه ارتقا/بازیابی) روی یک **WordPress
+یکبارمصرف** با WooCommerce واقعی، دو بار — روی PHP 8.1.32 و 8.4.19 — اجرا و
+قبول شد. آن اجرا یک اشکال واقعی پیدا کرد (بند ۱۴ اصلاح‌های بازبینی) که اصلاح شد.
+نصب روی `tecteb.com` یا `staging.tecteb.com` **انجام نشده و در مجوز فعلی نیست**؛
+PHP 8.1.34 خودِ سایت، سرور وب واقعی و تداخل با افزونه‌های موجود همچنان `Not Run`.
+گزارش: `docs/phase-1-report.md` بند ۳ · شواهد: `docs/evidence/acceptance/` ·
+اصلاح‌های بازبینی: `docs/review-fixes-phase-1.md` · تحویل بعدی: `docs/next-phase-handoff.md`.
 
 ## مرجع‌ها (ترتیب اعتبار: دستور جاری مالک ← تصمیم مصوب ← Master ← UX ← پرامپت)
 - `docs/Tecteb-Marketplace-Core-Master-Spec-v0.3.docx` (مرجع) → `docs/generated/…Master-Spec-v0.3.md`

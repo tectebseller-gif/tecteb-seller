@@ -236,16 +236,29 @@ final class PackagingTest extends TestCase
         self::assertMatchesRegularExpression('/^\s*\*\s*Text Domain:\s*tecteb-marketplace-core$/m', $header);
         self::assertMatchesRegularExpression('/^\s*\*\s*Requires PHP:\s*8\.1$/m', $header);
         self::assertMatchesRegularExpression('/^\s*\*\s*Version:\s*0\.1\.0-alpha\.1$/m', $header);
-        self::assertStringContainsString('تأییدنشده', $header, 'the header states the package is unverified');
+        // The header must keep saying where this package has and has NOT been
+        // installed. It said "تأییدنشده" while no install gate had ever run;
+        // after the acceptance run it says the gates passed on a disposable
+        // site and that the owner's site is still untouched. What must never
+        // disappear is the second half.
+        self::assertStringContainsString('نصب نشده', $header, 'the header still says the plugin is not installed on the real site');
         self::assertStringContainsString('TODO(F-01)', $header, 'the version is marked provisional pending the lineage decision');
     }
 
-    public function testDistCarriesTheUnverifiedWarning(): void
+    /**
+     * The notice beside the package must state the status HONESTLY, which is
+     * not the same thing as stating it pessimistically. Two claims have to
+     * survive every rewrite: the owner's site has not been installed on, and
+     * the gates that were NOT run are named rather than glossed over.
+     */
+    public function testDistNoticeStatesTheRealStatusAndWhatIsStillNotRun(): void
     {
         $notice = self::root() . '/dist/READ-ME-BEFORE-INSTALL.txt';
         self::assertFileExists($notice);
         $text = (string) file_get_contents($notice);
-        self::assertStringContainsString('تأییدنشده — نصب نشود', $text);
+        self::assertStringContainsString('نصب روی سایت تک‌طب هنوز انجام نشده', $text);
         self::assertStringContainsString('Not Run', $text);
+        self::assertStringContainsString('8.1.34', $text, 'the untested PHP of the owner site is named');
+        self::assertStringContainsString('docs/evidence/acceptance/', $text, 'the notice points at the raw gate output');
     }
 }

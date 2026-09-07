@@ -1,0 +1,2 @@
+Plugin 'woocommerce' activated.
+Success: Activated 1 of 1 plugins.

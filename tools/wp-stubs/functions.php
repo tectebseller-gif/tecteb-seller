@@ -221,7 +221,13 @@ function add_option(string $option, mixed $value = '', string $deprecated = '', 
 {
     // Real add_option() sanitises too — this is the second pass for a new option.
     $value = apply_filters('sanitize_option_' . $option, $value, $option);
-    if (tmc_stub_option_exists($option)) {
+    // Core refuses only when the option exists AND differs from the registered
+    // default; when they are equal it treats the row as "not really there" and
+    // writes with INSERT ... ON DUPLICATE KEY UPDATE. Modelling this matters:
+    // it is what routes a save to add_option_{$option} instead of
+    // update_option_{$option} (wp-includes/option.php).
+    if (tmc_stub_option_exists($option)
+        && apply_filters('default_option_' . $option, false, $option, false) !== get_option($option)) {
         return false;
     }
     if (State::$failOptionWrites) {
@@ -243,6 +249,14 @@ function update_option(string $option, mixed $value, bool|string|null $autoload 
     $old = get_option($option);
     if ($old === $value) {
         return false; // WordPress quirk: unchanged value → false, no action fires
+    }
+    // Core: a stored value that equals the REGISTERED DEFAULT is treated as
+    // "the option was never really stored", and the save is routed through
+    // add_option() — which fires add_option_{$option}, not
+    // update_option_{$option}. A plugin that registers its current values as
+    // the default therefore sends every save down that path.
+    if (apply_filters('default_option_' . $option, false, $option, false) === $old) {
+        return add_option($option, $value, '', false);
     }
     if (State::$failOptionWrites) {
         return false; // the DB write failed; no update_option_ action fires
@@ -393,6 +407,14 @@ function register_setting(string $group, string $name, array $args = []): void
     State::$registeredSettings[$name] = ['group' => $group, 'args' => $args];
     if (isset($args['sanitize_callback']) && is_callable($args['sanitize_callback'])) {
         add_filter('sanitize_option_' . $name, static fn ($value) => call_user_func($args['sanitize_callback'], $value), 10, 2);
+    }
+    // Core registers the declared default on default_option_{$option} (see
+    // filter_default_option()). update_option() and add_option() BOTH consult
+    // it to decide whether the option really exists, so a stub that drops it
+    // cannot see the add_option/update_option routing at all.
+    if (array_key_exists('default', $args)) {
+        $default = $args['default'];
+        add_filter('default_option_' . $name, static fn ($passed) => $passed === false ? $default : $passed, 10, 3);
     }
 }
 function add_settings_error(string $setting, string $code, string $message, string $type = 'error'): void

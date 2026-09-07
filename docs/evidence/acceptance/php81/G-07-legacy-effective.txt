@@ -1,0 +1,3 @@
+hpos_enabled=0
+sync_enabled=0
+table_exists=1

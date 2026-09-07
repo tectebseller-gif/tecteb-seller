@@ -1,0 +1,5 @@
+settings_before={"schema_version":1,"values":{"default_commission_rate_bp":1234,"settlement_delay_days":9,"max_staff":33,"environment_override":"staging"}}
+settings_after ={"schema_version":1,"values":{"default_commission_rate_bp":1234,"settlement_delay_days":9,"max_staff":77,"environment_override":"staging"}}
+settings.updated rows: 1 -> 2 (expect +1)
+latest payload: {"changed":["max_staff"],"old":{"max_staff":33},"new":{"max_staff":77}}
+plugin_errors=0

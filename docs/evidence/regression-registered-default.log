@@ -1,0 +1,46 @@
+======================================================================
+Regression evidence: the registered option default.
+The delivered fix registers the SCHEMA defaults; here it is put back to
+the CURRENT stored values, which is what gate G-04 on WordPress 7.1
+exposed. The wp-stub now models core's default_option_{option} routing
+(wp-includes/option.php), so the contract suite reproduces it.
+Generated 2026-09-07T19:58:12Z. PHP 8.4.19
+======================================================================
+
+--- Expected
++++ Actual
+@@ @@
+ Array &0 [
+     'schema_version' => 1,
+     'values' => Array &1 [
+-        'default_commission_rate_bp' => null,
++        'default_commission_rate_bp' => 1234,
+         'settlement_delay_days' => 4,
+-        'max_staff' => 10,
++        'max_staff' => 33,
+         'environment_override' => 'auto',
+     ],
+ ]
+
+/home/user/tecteb-seller/tests/WordPressContract/SettingsApiTest.php:320
+
+2) Tecteb\Marketplace\Tests\WordPressContract\SettingsApiTest::testASecondSaveAuditsOnlyTheFieldThatChanged
+only the field that changed is audited
+Failed asserting that two arrays are identical.
+--- Expected
++++ Actual
+@@ @@
+ Array &0 [
+-    0 => 'max_staff',
++    0 => 'default_commission_rate_bp',
++    1 => 'settlement_delay_days',
++    2 => 'max_staff',
++    3 => 'environment_override',
+ ]
+
+/home/user/tecteb-seller/tests/WordPressContract/SettingsApiTest.php:345
+
+FAILURES!
+Tests: 2, Assertions: 10, Failures: 2.
+
+restore check: SettingsRegistrar.php byte-identical to the delivered source

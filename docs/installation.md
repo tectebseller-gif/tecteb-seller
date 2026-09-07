@@ -1,7 +1,12 @@
 # نصب، بازگشت و راه رساندن گیت‌های Not Run به Passed — فاز ۱
 
-> ## وضعیت بسته: تأییدنشده — روی سایت واقعی نصب نشود
-> گیت نصب Staging اجرا **نشده** است. این سند دستور اجراست، نه گزارش اجرا.
+> ## وضعیت بسته: گیت‌های پذیرش روی WordPress یکبارمصرف قبول شدند
+> پروتکل بند ۴ روی یک WordPress یکبارمصرف (WP 7.1 · WC 11.0.1 · MariaDB
+> 10.11.14) دو بار اجرا شد — روی PHP 8.1.32 و PHP 8.4.19 — و همه گیت‌ها قبول
+> شدند. خروجی خام: `docs/evidence/acceptance/`؛ جمع‌بندی: `docs/phase-1-report.md`
+> بند ۳. **نصب روی `tecteb.com` یا `staging.tecteb.com` انجام نشده و در مجوز
+> فعلی نیست.** این سند همچنان دستور اجراست: برای هر محیط تازه باید دوباره
+> اجرا شود.
 
 ## ۱. این بسته چیست و چه نیست
 
@@ -249,12 +254,21 @@ for who in guest none admin; do
   for p in tmc-dashboard tmc-health tmc-settings tmc-modules; do
     out="$EV/G-03-$who-$p.html"
     code=$(curl -s -b "$COOKIE" -o "$out" -w '%{http_code}' "$SITE/wp-admin/admin.php?page=$p")
+    # نشانه محتوا: کلاس پوسته صفحه که هر چهار صفحه آن را می‌سازند.
+    # نسخه قبلی این راهنما 'tmc-datalist|tmc-form' را می‌گرفت؛ آن دو کلاس فقط
+    # در دو صفحه از چهار صفحه هستند، پس یک افزونه سالم روی tmc-health عدد صفر
+    # می‌گرفت. (مشاهده‌شده در اجرای پذیرش روی WordPress 7.1.)
     printf '%-5s %-14s http=%s leak_content=%s leak_capname=%s\n' "$who" "$p" "$code" \
-      "$(grep -c 'tmc-datalist\|tmc-form' "$out")" \
+      "$(grep -c 'tmc-admin' "$out")" \
       "$(grep -c 'tmc_view_\|tmc_manage_' "$out")"
   done
 done | tee "$EV/G-03-matrix.txt"
 # انتظار: guest → 302/403؛ none → 403 و leak_content=0 و leak_capname=0؛ admin → 200 و leak_content≥1
+#
+# نکته: روی صفحه سلامتِ **کاربر مجاز**، leak_capname برابر ۱ است. آن یک جمله
+# توضیحی برای خود مدیرکل است («فقط با مجوز tmc_view_health و nonce معتبر REST
+# پاسخ می‌دهد…»). قاعده «افشا نشدن نام capability» درباره مهمان و کاربر فاقد
+# مجوز است؛ آن دو باید صفر باشند.
 ```
 
 ---
@@ -304,7 +318,7 @@ wp db query "SELECT payload FROM $(wp db prefix)tmc_audit_events WHERE event_typ
 |---|---|
 | **پیش‌شرط** | افزونه فعال. |
 | **اقدام** | `GET /wp-json/tmc/v1/health` با مهمان، کاربر فاقد مجوز، مدیرکل بدون nonce، مدیرکل با nonce نامعتبر، مدیرکل با nonce معتبر. |
-| **نتیجه مورد انتظار** | مهمان **۴۰۱**؛ فاقد مجوز **۴۰۳**؛ nonce نامعتبر → وردپرس کوکی را نمی‌پذیرد و نتیجه **۴۰۱** است (نه ۲۰۰)؛ مجاز با nonce معتبر **۲۰۰** با schema دقیق، سرآیند `no-store`، و **بدون** مسیر سرور، نسخه PHP/WP، فهرست کاربر یا stack trace. |
+| **نتیجه مورد انتظار** | مهمان **۴۰۱**؛ فاقد مجوز **۴۰۳**؛ بدون nonce **۴۰۱**؛ nonce نامعتبر → **۴۰۳** با کد `rest_cookie_invalid_nonce` (این پاسخِ خودِ هسته وردپرس است — `rest_cookie_check_errors()` در `wp-includes/rest-api.php` وضعیت ۴۰۳ می‌دهد و درخواست هرگز به permission_callback افزونه نمی‌رسد؛ نکته اصلی این است که ۲۰۰ نباشد و هیچ داده‌ای برنگردد)؛ مجاز با nonce معتبر **۲۰۰** با schema دقیق، سرآیند `no-store`، و **بدون** مسیر سرور، نسخه PHP/WP، فهرست کاربر یا stack trace. |
 | **مدرک** | `G-05-*.json` |
 
 ```bash
@@ -336,7 +350,7 @@ grep -Eic 'wp-content|/var/|/home/|Stack trace|PHP [0-9]|user_email' "$EV/G-05-o
 |---|---|
 | **پیش‌شرط** | تنظیمات **غیرپیش‌فرض** و **حداقل سه ردیف audit قبلی** موجود باشد. |
 | **اقدام** | غیرفعال‌سازی، سپس **حذف افزونه از پیشخوان** (که `uninstall.php` را اجرا می‌کند). |
-| **نتیجه مورد انتظار** | پس از حذف: جدول audit **و همه ردیف‌هایش** سرجایشان باشند؛ `tmc_settings` و `tmc_schema_version` دست‌نخورده؛ چهار capability روی مدیرکل باقی؛ هیچ محصول/سفارش/کاربری تغییر نکرده باشد. |
+| **نتیجه مورد انتظار** | پس از حذف: جدول audit **و همه ردیف‌هایش** سرجایشان باشند (هیچ سطری کم نشود؛ افزوده‌شدن ردیف `plugin.deactivated` خودِ این گیت طبیعی است)؛ `tmc_settings` و `tmc_schema_version` دست‌نخورده؛ چهار capability روی مدیرکل باقی؛ هیچ محصول/سفارش/کاربری تغییر نکرده باشد. |
 | **مدرک** | `G-06-before.txt`, `G-06-after.txt` |
 
 ```bash
@@ -358,7 +372,11 @@ wp plugin delete tecteb-marketplace-core        # uninstall.php اینجا اج�
 } | tee "$EV/G-06-after.txt"
 
 diff "$EV/G-06-before.txt" "$EV/G-06-after.txt" | tee "$EV/G-06-diff.txt"
-# انتظار: فایل diff خالی باشد
+comm -23 <(sort "$EV/G-06-before.txt") <(sort "$EV/G-06-after.txt") | tee "$EV/G-06-lost.txt"
+# انتظار: G-06-lost.txt خالی باشد (هیچ چیزی حذف نشده)، و تنها تفاوت در diff
+# یک سطر **اضافه‌شده** باشد: ردیف audit «plugin.deactivated» که همین گیت با
+# غیرفعال‌سازی می‌سازد. انتظارِ «diff کاملاً خالی» نادرست بود: غیرفعال‌سازی
+# طبق طراحی ممیزی می‌شود و گیت G-02 دقیقاً همان ردیف را الزامی می‌کند.
 ```
 
 ---
@@ -380,7 +398,9 @@ diff "$EV/G-06-before.txt" "$EV/G-06-after.txt" | tee "$EV/G-06-diff.txt"
 effective() {   # وضعیت مؤثر از زبان خود WooCommerce
   wp eval 'echo "hpos_enabled=" . (\Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled() ? "1" : "0") . "\n";'
   wp eval 'echo "sync_enabled=" . (get_option("woocommerce_custom_orders_table_data_sync_enabled") === "yes" ? "1" : "0") . "\n";'
-  wp eval 'echo "table_exists=" . ((int) $GLOBALS["wpdb"]->get_var("SHOW TABLES LIKE \"" . $GLOBALS["wpdb"]->prefix . "wc_orders\"") ? "1" : "0") . "\n";'
+  # SHOW TABLES نامِ جدول را برمی‌گرداند؛ (int) "wp_wc_orders" صفر است، پس
+  # cast نسخه قبلی برای جدولِ موجود هم «۰» گزارش می‌کرد.
+  wp eval 'echo "table_exists=" . ($GLOBALS["wpdb"]->get_var("SHOW TABLES LIKE \"" . $GLOBALS["wpdb"]->prefix . "wc_orders\"") ? "1" : "0") . "\n";'
 }
 
 for mode in hpos-sync-on hpos-sync-off legacy; do

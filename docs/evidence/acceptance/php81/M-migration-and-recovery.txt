@@ -1,0 +1,26 @@
+########## M-1: upgrade runs WITHOUT reactivation ##########
+before: schema=0 audit_table=
+plugin active (never reactivated): yes
+one ordinary wp-admin request http=200
+after : schema=1 audit_table=wp_tmc_audit_events
+indexes: PRIMARY tmc_evt_created tmc_actor_created tmc_object  
+
+########## M-2: retry throttled, then recovers ##########
+A) failure recorded now (2026-09-07T20:24:53+00:00)
+   admin request http=200
+   schema=0 table=   (expect 0 / none — inside the 300s cooldown)
+B) same failure recorded 20 minutes ago (2026-09-07T20:04:53+00:00)
+   admin request http=200
+   schema=1 table=wp_tmc_audit_events
+   recorded failure now: Error: Could not get 'tmc_migration_last_error' option. Does it exist?
+
+########## M-3: a stale record does not lock the health page red ##########
+schema=1  record={"step":"0001_create_audit_table","message":"a failure that is already over","at":"2026-09-07T10:00:00+00:00"}
+  says the schema is complete       : 1
+  calls the record old              : 1
+  names the recovery                : 1
+  does NOT claim a failed migration : 0  (expect 0)
+after reactivation, record: Error: Could not get 'tmc_migration_last_error' option. Does it exist?
+  stale note gone: 0  (expect 0)
+plugin errors across M-1..M-3: 0
+0

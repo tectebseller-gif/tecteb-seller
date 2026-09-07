@@ -1,0 +1,2 @@
+{"changed":["default_commission_rate_bp","settlement_delay_days","max_staff","environment_override"],"old":{"default_commission_rate_bp":null,"settlement_delay_days":4,"max_staff":10,"environment_override":"auto"},"new":{"default_commission_rate_bp":1234,"settlement_delay_days":9,"max_staff":77,"environment_override":"staging"}}
+

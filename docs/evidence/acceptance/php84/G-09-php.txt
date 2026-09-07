@@ -1,0 +1,4 @@
+cli_php=8.4.19
+cli_wp_php=8.4.19
+web_php=8.4.19|cli-server
+php_version: 8.4.19 64bit

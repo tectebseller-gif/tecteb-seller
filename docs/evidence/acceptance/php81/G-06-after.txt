@@ -1,0 +1,20 @@
+--- settings ---
+{"schema_version":1,"values":{"default_commission_rate_bp":1234,"settlement_delay_days":9,"max_staff":77,"environment_override":"staging"}}
+--- schema ---
+1
+--- caps ---
+tmc_view_dashboard
+tmc_view_health
+tmc_manage_settings
+tmc_view_modules
+--- audit ---
+id	event_type	correlation_id
+1	plugin.activated	f3c6cc05-fcb0-45ed-b4b1-2dd5f0450fc8
+2	settings.updated	42e71d1f-782a-47de-929e-0cca912d2c1a
+3	plugin.deactivated	4fb39280-e276-42d8-a219-1ae5eaae78d4
+4	plugin.activated	ae46f03f-a192-465e-8e9c-585bb2575d89
+5	settings.updated	2f8e3ba6-9822-439a-b3f4-86e91fe1d539
+6	plugin.deactivated	c64ec1c3-2543-4cc1-aa27-7b347e4e048f
+
+--- counts ---
+12

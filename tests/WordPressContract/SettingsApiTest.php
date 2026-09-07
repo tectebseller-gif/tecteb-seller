@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Tests\WordPressContract;
 
+use Tecteb\Marketplace\Core\Config\Settings;
 use Tecteb\Marketplace\Modules\Admin\Infrastructure\SettingsRegistrar;
 use TmcWpStubs\State;
 use TmcWpStubs\WpDieException;
@@ -283,6 +284,67 @@ final class SettingsApiTest extends ContractTestCase
 
         self::assertCount(1, $this->audit->records);
         self::assertSame(19, $this->stored()['max_staff']);
+    }
+
+    /**
+     * Regression from acceptance gate G-04 on WordPress 7.1.
+     *
+     * register_setting() was given the CURRENT stored values as the option's
+     * default. WordPress compares the registered default with the stored value
+     * to decide whether an option really exists:
+     *
+     *   if ( apply_filters( "default_option_{$option}", false, ... ) === $old_value ) {
+     *       return add_option( $option, $value, '', $autoload );
+     *   }                                     -- wp-includes/option.php
+     *
+     * With the current values registered, that was true on EVERY save, so every
+     * save went through add_option() and fired add_option_tmc_settings. The
+     * value still reached the database, but the audit row came from the
+     * "option did not exist" branch: it named the schema defaults as the old
+     * values and listed all four fields as changed, on a save that changed one.
+     */
+    public function testTheRegisteredDefaultIsTheSchemaDefaultNotTheCurrentValues(): void
+    {
+        $this->bootPlugin(false);
+        do_action('admin_init');
+        $this->loginAdmin();
+        $this->submit(['max_staff' => '33', 'default_commission_rate' => '12.34']);
+
+        // A later request registers the setting again, with the values stored.
+        State::newRequest();
+        \Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap::reset();
+        $this->bootPlugin(false);
+        do_action('admin_init');
+
+        $default = State::$registeredSettings[SettingsRegistrar::OPTION]['args']['default'];
+        self::assertSame(Settings::defaults()->toStored(), $default, 'the default must not follow the stored values');
+        self::assertNotSame(33, $default['values']['max_staff']);
+        self::assertNull($default['values']['default_commission_rate_bp']);
+    }
+
+    public function testASecondSaveAuditsOnlyTheFieldThatChanged(): void
+    {
+        $this->bootPlugin(false);
+        do_action('admin_init');
+        $this->loginAdmin();
+        $this->submit(['default_commission_rate' => '12.34', 'settlement_delay_days' => '9', 'max_staff' => '33', 'environment_override' => 'staging']);
+        self::assertCount(1, $this->audit->records);
+
+        // A separate request, exactly as options.php would be reached again.
+        State::newRequest();
+        \Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap::reset();
+        $this->bootPlugin(false);
+        do_action('admin_init');
+        $this->loginAdmin();
+        $this->submit(['max_staff' => '77']);
+
+        self::assertSame(77, $this->stored()['max_staff']);
+        self::assertSame(1234, $this->stored()['default_commission_rate_bp'], 'the untouched fields keep their values');
+        self::assertCount(2, $this->audit->records);
+        $payload = $this->audit->records[1]->payload;
+        self::assertSame(['max_staff'], $payload['changed'], 'only the field that changed is audited');
+        self::assertSame(['max_staff' => 33], $payload['old'], 'the previous value is the stored one, not the schema default');
+        self::assertSame(['max_staff' => 77], $payload['new']);
     }
 
     /** A replayed wrapper is honoured at most once, and only right after we produced it. */

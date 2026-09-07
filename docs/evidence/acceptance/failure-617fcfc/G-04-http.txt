@@ -1,0 +1,4 @@
+guest http=302
+none http=403
+badnonce http=403
+ok http=302

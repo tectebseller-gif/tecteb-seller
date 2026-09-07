@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name:       Tecteb Marketplace Core
- * Description:       هسته بازارگاه تک‌طب — زیرساخت و چهار صفحه مدیریت. نسخه آزمایشی (Alpha)؛ تأییدنشده — روی سایت واقعی نصب نشود.
+ * Description:       هسته بازارگاه تک‌طب — زیرساخت و چهار صفحه مدیریت. نسخه آزمایشی (Alpha)؛ گیت‌های پذیرش روی WordPress یکبارمصرف قبول شدند، اما روی سایت تک‌طب نصب نشده است.
  * Version:           0.1.0-alpha.1
  * Requires at least: 6.3
  * Requires PHP:      8.1

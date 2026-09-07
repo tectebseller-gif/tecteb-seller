@@ -3,8 +3,11 @@
 تاریخ اجرا: ۷ سپتامبر ۲۰۲۶ · نسخه انتشار `0.1.0-alpha.1` (موقت — F-01) ·
 نسخه schema دیتابیس `1` · محیط: کانتینر اجرای از راه دور Claude Code
 
-> **وضعیت بسته: «تأییدنشده — نصب نشود».** گیت نصب Staging اجرا نشده است.
-> هر سطر `Not Run` در این گزارش یعنی آزمون **اجرا نشده**، نه اینکه گذشته باشد.
+> **وضعیت بسته:** گیت‌های پذیرش فاز ۱ (G-01 تا G-09 به‌علاوه ارتقا و بازیابی)
+> روی یک **WordPress یکبارمصرف** با WooCommerce واقعی، دو بار — روی PHP 8.1.32
+> و PHP 8.4.19 — اجرا و **قبول** شدند. بند ۳ محیط، خروجی هر گیت و شکستی که این
+> اجرا پیدا کرد را می‌آورد. **نصب روی سایت تک‌طب انجام نشده و در مجوز فعلی
+> نیست.** هر سطر `Not Run` یعنی آزمون **اجرا نشده**، نه اینکه گذشته باشد.
 
 > **اصلاح‌های بازبینی سورس** (۷ سپتامبر) در `docs/review-fixes-phase-1.md`
 > آمده است؛ اعداد این گزارش پس از آن اصلاح‌ها به‌روزرسانی شده‌اند.
@@ -15,11 +18,11 @@
 |---|---|---|---|---|---|
 | Unit خالص (بدون هیچ نماد WordPress) | `vendor/bin/phpunit --testsuite unit` | PHPUnit 10.5.64 / PHP 8.4.19 | 0 | **۱۳۴ تست، ۲۰٬۵۵۲ assertion** | `docs/evidence/unit.log` |
 | معماری و قواعد ایستای امنیتی | `vendor/bin/phpunit --testsuite architecture` | همان | 0 | **۱۲ تست، ۶۰ assertion** | `docs/evidence/architecture.log` |
-| قرارداد با stub وردپرس | `vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php` | همان | 0 | **۴۵ تست، ۴۶۶ assertion** | `docs/evidence/contract.log` |
+| قرارداد با stub وردپرس | `vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php` | همان | 0 | **۴۷ تست، ۴۸۰ assertion** | `docs/evidence/contract.log` |
 | دیتابیس واقعی | `vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php` | MariaDB 10.11.14 | 0 | **۲۲ تست، ۲۰۸ assertion** | `docs/evidence/database.log` |
 | lint نحوی | `bash tools/lint.sh` | PHP 8.4.19 | 0 | ۱۱۳ فایل، ۰ خطا | `docs/evidence/lint.log` |
 | سازگاری ایستا با PHP 8.1 | `composer compat` | PHPCompatibility 10.0.0-alpha2 | 0 | ۱۱۳ فایل، ۰ خطا | `docs/evidence/phpcompat-8.1.log` |
-| بسته‌بندی روی artefact واقعی | `vendor/bin/phpunit --testsuite packaging` | همان | 0 | **۱۲ تست، ۲٬۶۸۰ assertion** | `docs/evidence/packaging.log` |
+| بسته‌بندی روی artefact واقعی | `vendor/bin/phpunit --testsuite packaging` | همان | 0 | **۱۲ تست، ۳٬۳۱۴ assertion** | `docs/evidence/packaging.log` |
 | کنتراست WCAG | `php tools/contrast.php` | — | 0 | ۱۳ ترکیب، ۰ خطا | `docs/evidence/contrast.log` |
 | مرورگر روی harness | `node tools/browser/check.mjs` | Playwright 1.63.0 / Chromium 141 / axe-core 4.13.0 | 0 | **۲۳۳ بررسی، ۰ خطا** | `docs/evidence/browser-checks.json` |
 | **نصب/فعال‌سازی واقعی WordPress** | — | — | — | **Not Run** | — |
@@ -189,26 +192,88 @@
 | audit فقط از مسیر sanitizer | payload خام هرگز به رکورد نمی‌رسد |
 | قفل خروجی با پیکربندی باز نمی‌شود | هیچ شاخه‌ای `true` برنمی‌گرداند |
 
-## ۳. آنچه اجرا نشد و چرا
+## ۳. پذیرش عملی روی WordPress واقعی
 
-| گیت | دلیل دقیق | راه اجرا |
+پروتکل بند ۴ `docs/installation.md` روی یک **WordPress یکبارمصرف با داده
+مصنوعی** اجرا شد. `tecteb.com` و `staging.tecteb.com` لمس نشدند.
+
+### ۳٫۱ محیط اجرا
+
+| مؤلفه | نسخه | چطور به دست آمد |
 |---|---|---|
-| نصب/فعال‌سازی واقعی (G-01، G-02) | `downloads.wordpress.org` و mirror گیت‌هاب WordPress هر دو با HTTP 403 از proxy مسدودند | `docs/installation.md` بند ۴ |
-| یکپارچگی WP/WC، HPOS on/sync-on/sync-off/legacy (G-07) | WooCommerce قابل دانلود نیست | همان |
-| اجرای واقعی روی PHP 8.1.34 (G-09 و تکرار کل پروتکل) | `ppa.launchpadcontent.net` مسدود است؛ فقط PHP 8.4.19 نصب‌شدنی بود | همان |
-| رابط روی wp-admin واقعی، و asset روی Posts با نشست معتبر (G-03، G-08) | نیازمند WordPress | همان |
-| screen reader دستی | نیازمند اپراتور انسانی | همان |
-| تداخل با LiteSpeed / Hello Elementor / Persian Woo / Rank Math / WP Rocket | هیچ‌کدام در محیط ساخت در دسترس نیستند | همان |
+| WordPress | 7.1 | تگ `7.1` از `github.com/WordPress/WordPress` (CDN وردپرس مسدود است) |
+| WooCommerce | 11.0.1 | بسته رسمی release، sha256 `88837ea0504544fdb835078d39c68c6c4abde00cdb4af8f67027255ee8ae494c` |
+| PHP (اجرای اول) | 8.4.19 | بسته سیستم |
+| PHP (اجرای دوم) | **8.1.32** | از سورس کامپایل شد (`github.com/php/php-src`، تگ `php-8.1.32`) چون PPA و `php.net` مسدودند |
+| MariaDB | 10.11.14 | دیتابیس یکبارمصرف `tmc_wp_test` |
+| WP-CLI | 2.12.0 | phar از `github.com/wp-cli/builds` |
+| سرور وب | PHP built-in (`cli-server`) روی `127.0.0.1:8080` | — |
+
+در اجرای ۸٫۱، **هر سه** لایه روی همان مفسر بودند: CLI، WP-CLI و SAPI وب
+(`G-09-php.txt`: `cli_php=8.1.32`، `cli_wp_php=8.1.32`، `web_php=8.1.32`،
+و Site Health هم `8.1.32`).
+
+### ۳٫۲ نتیجه گیت‌ها — بسته `c37f8902…f46c1`
+
+| گیت | PHP 8.4.19 | PHP 8.1.32 | شاهد |
+|---|---|---|---|
+| G-01 نصب و فعال‌سازی | **Passed** | **Passed** | `G-01-*` — چهار صفحه ۲۰۰، `php_error=0`، schema=1، یک ردیف `plugin.activated`، چهار capability فقط روی مدیرکل، پیش‌فرض‌ها با `default_commission_rate_bp=null` |
+| G-02 فعال‌سازی مجدد | **Passed** | **Passed** | `G-02-summary.txt` — تنظیمات غیرپیش‌فرض عیناً ماند، هیچ ردیفی گم نشد، +۲ ردیف، بدون DDL تازه |
+| G-03 دسترسی UI سه هویت | **Passed** | **Passed** | `G-03-matrix.txt` — مهمان ۳۰۲، فاقد مجوز ۴۰۳ بدون هیچ نشتی، مدیرکل ۲۰۰ |
+| G-04 ذخیره تنظیمات | **Passed** | **Passed** | `G-04-summary.txt` — سه ارسال غیرمجاز هیچ تغییری ندادند؛ ارسال مجاز یک ردیف با `{"changed":["max_staff"],"old":{"max_staff":33},"new":{"max_staff":77}}` |
+| G-05 REST سلامت | **Passed** | **Passed** | `G-05-http.txt` — مهمان ۴۰۱، فاقد مجوز ۴۰۳، بدون nonce ۴۰۱، nonce نامعتبر ۴۰۳ (هسته)، مجاز ۲۰۰ با `no-store` و صفر نشتی |
+| G-06 حفظ داده هنگام حذف | **Passed** | **Passed** | `G-06-summary.txt` — پس از `plugin delete`، جدول و همه ردیف‌ها، تنظیمات، schema و capabilityها سرجایشان |
+| G-07 سه حالت HPOS | **Passed** | **Passed** | `G-07-*` — `1/1/1`، `1/0/1`، `0/0/1` از زبان خود WooCommerce و همان مقدار در REST؛ ردیف «HPOS آزموده شده» در هر سه حالت **نامشخص** |
+| G-08 بارگذاری asset | **Passed** | **Passed** | `G-08-assets.txt` — صفر روی پنج صفحه wp-admin و صفحه اصلی، دو روی صفحه افزونه |
+| G-09 نسخه PHP | **Passed** | **Passed** | `G-09-php.txt` |
+| M-1 ارتقا بدون فعال‌سازی مجدد | — | **Passed** | `M-1-upgrade-without-activation.txt` — با schema=0 و جدول حذف‌شده، یک درخواست عادی wp-admin مهاجرت را اجرا کرد |
+| M-2 cooldown و بازیابی retry | — | **Passed** | `M-2-retry-cooldown.txt` — خطای تازه ⇒ retry متوقف؛ خطای ۲۰ دقیقه‌ای ⇒ اجرا، موفقیت، و پاک شدن رکورد |
+| M-3 رکورد کهنه و بازیابی | — | **Passed** | `M-3-stale-record-recovery.txt` — صفحه سلامت «ساختار داده کامل است» + یادداشت رکورد قدیمی، و فعال‌سازی دوباره آن را پاک کرد |
+
+WooCommerce خودش افزونه را در فهرست سازگارها می‌آورد:
+`wp wc hpos compatibility-info` → «1 compatible plugin found: Tecteb Marketplace Core»
+(`docs/evidence/acceptance/php81/G-07-compatibility-info.txt`).
+
+در هیچ گیتی، در هیچ‌کدام از دو اجرا، **حتی یک** سطر `Fatal`/`Warning`/`Notice`/
+`Deprecated` مربوط به `tecteb-marketplace-core` در `debug.log` نبود
+(`*-plugin-errors.txt` همه صفر خط).
+
+### ۳٫۳ شکستی که این اجرا پیدا کرد
+
+بسته‌ای که برای پذیرش ارائه شده بود (`617fcfc4…5eaed`) گیت **G-04 را رد کرد**:
+ذخیره‌ای که فقط `max_staff` را عوض می‌کرد، ردیف ممیزی‌اش هر چهار فیلد را
+«تغییرکرده» و مقادیر پیش‌فرض schema را «قبلی» ثبت می‌کرد. علت:
+`register_setting()` مقادیر **جاری** را به‌عنوان default ثبت می‌کرد و وردپرس با
+همان مقایسه تصمیم می‌گیرد که option اصلاً وجود دارد یا نه، پس هر ذخیره از مسیر
+`add_option()` می‌رفت. جزئیات و بازتولید:
+`docs/evidence/acceptance/failure-617fcfc/README.txt`. اصلاح در بند ۱۴
+`docs/review-fixes-phase-1.md`؛ بسته اصلاح‌شده همان گیت را پاس می‌کند.
+
+اجرای گیت‌ها روی هش نهایی تکرار شد: هر دو اجرای ۸٫۱ و ۸٫۴ در جدول بالا با
+بسته `c37f8902ef3152bfc897114f7044f546d521783528e2c9f38c1d3442227f46f1`
+انجام شده‌اند و `00-environment.txt` هر پوشه همان هش را ثبت کرده است.
+
+### ۳٫۴ آنچه هنوز اجرا نشده
+
+| گیت | دلیل دقیق |
+|---|---|
+| اجرا روی PHP **8.1.34** (نسخه دقیق سایت مالک) | فقط ۸٫۱٫۳۲ از سورس ساخته شد؛ PPA و `php.net` از proxy مسدودند |
+| نصب روی Staging/production تک‌طب | خارج از مجوز؛ عمداً انجام نشد |
+| screen reader دستی | نیازمند اپراتور انسانی |
+| اندازه‌گیری viewport/axe روی **wp-admin واقعی** | صفحه‌ها روی wp-admin واقعی رندر شدند، اما ۲۳۳ بررسی مرورگر همچنان روی harness است |
+| تداخل با LiteSpeed / Hello Elementor / Persian Woo / Rank Math / WP Rocket | هیچ‌کدام در محیط در دسترس نیستند |
+| سرور وب واقعی (Apache/LiteSpeed + PHP-FPM) | اجرا با SAPI `cli-server` بود؛ رفتار rewrite و هدرهای سرور واقعی آزموده نشده |
 
 ## ۴. تحویل
 
 | فایل | SHA-256 |
 |---|---|
-| `dist/tecteb-marketplace-core.zip` | `617fcfc451e3d2e1a6451a41ed616330b7e265d2ac6b3549bdf7b94f7a94f30a` |
+| `dist/tecteb-marketplace-core.zip` | `c37f8902ef3152bfc897114f7044f546d521783528e2c9f38c1d3442227f46f1` |
 
-> این هش پس از اصلاح‌های دور سوم بازبینی (بندهای ۱۲ و ۱۳ در
-> `docs/review-fixes-phase-1.md`) تولید شده و جایگزین هش‌های قبلی
-> `c16961df…01eaa` و `e32333ae…5a670c` است.
+> این هش پس از اصلاح دور چهارم (بند ۱۴ — ایرادی که اجرای پذیرش روی WordPress
+> واقعی پیدا کرد) و به‌روزرسانی متن وضعیت در سربرگ افزونه تولید شده است و
+> جایگزین هش‌های قبلی `c16961df…01eaa`، `e32333ae…5a670c` و
+> `617fcfc4…25eaed` است. گیت‌های پذیرش روی همین هش اجرا شده‌اند.
 
 **تکرارپذیری.** timestamp بسته دیگر از تاریخ آخرین commit گرفته نمی‌شود، بلکه
 یک epoch ثابت (`1757203200`، قابل override با `SOURCE_DATE_EPOCH`) است.
@@ -220,4 +285,4 @@ commitی که آن را ثبت می‌کرد جان سالم به در نمی‌
 `dist/SHA256SUMS` هر دو بسته را پوشش می‌دهد. هش بسته سورس با هر تغییر
 مستندات عوض می‌شود (چون مستندات داخل همان بسته‌اند)؛ مرجع، همان فایل
 `SHA256SUMS` است، نه رونوشتی در متن.
-`dist/READ-ME-BEFORE-INSTALL.txt` وضعیت «تأییدنشده» را کنار خود بسته تکرار می‌کند.
+`dist/READ-ME-BEFORE-INSTALL.txt` همین وضعیت و فهرست `Not Run`های باقی‌مانده را کنار خود بسته تکرار می‌کند.

@@ -64,7 +64,23 @@ final class SettingsRegistrar
             'type' => 'array',
             'sanitize_callback' => [$this, 'sanitize'],
             'show_in_rest' => false,
-            'default' => $this->settings->load()->toStored(),
+            // The SCHEMA defaults — what the plugin behaves as when nothing is
+            // stored — never the current values. WordPress compares this
+            // registered default against the stored value to decide whether an
+            // option really exists:
+            //
+            //   if ( apply_filters( "default_option_{$option}", false, ... ) === $old_value ) {
+            //       return add_option( $option, $value, '', $autoload );
+            //   }                                   -- wp-includes/option.php
+            //
+            // Registering the CURRENT values made that comparison true on every
+            // save, so every save went down the add_option() path and fired
+            // add_option_tmc_settings instead of update_option_tmc_settings.
+            // The value still reached the database, but the audit row was
+            // written from "the option did not exist": it reported the schema
+            // defaults as the previous values and listed every field as
+            // changed. Observed on WordPress 7.1 in gate G-04.
+            'default' => Settings::defaults()->toStored(),
         ]);
         add_filter('option_page_capability_' . self::GROUP, static fn () => Capabilities::MANAGE_SETTINGS);
         // Fired by WordPress only when the value actually reached the database.

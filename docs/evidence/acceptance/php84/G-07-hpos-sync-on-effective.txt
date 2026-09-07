@@ -1,0 +1,9 @@
+hpos_enabled=1
+sync_enabled=1
+table_exists=1
+
+NOTE: the first request for the health page right after `wp wc hpos enable`
+landed on WooCommerce's own one-shot Setup Wizard redirect
+(<title>Setup Wizard ‹ WooCommerce…), which is WooCommerce's onboarding, not a
+plugin fault. The immediately following request returned the plugin's health
+page with the "HPOS آزموده شده = نامشخص" row present, as in the other two modes.

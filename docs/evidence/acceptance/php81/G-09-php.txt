@@ -1,0 +1,4 @@
+cli_php=8.1.32
+cli_wp_php=8.1.32
+web_php=8.1.32|cli-server
+php_version: 8.1.32 64bit

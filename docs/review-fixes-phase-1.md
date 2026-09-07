@@ -216,6 +216,68 @@ Failed asserting that actual size 0 matches expected size 1.
 اگر اجرای دیگری قفل را در دست داشته باشد، پاک‌سازی انجام **نمی‌شود**
 (`SkippedNotOwner`): رکورد ممکن است متعلق به همان اجرای در جریان باشد.
 
+## خلاصه — دور چهارم: آنچه اجرای پذیرش روی WordPress واقعی پیدا کرد
+
+| # | ایراد | کجا پیدا شد | اصلاح | تست رگرسیون |
+|---|---|---|---|---|
+| ۱۴ | `register_setting()` مقادیر **جاری** را به‌عنوان default ثبت می‌کرد؛ وردپرس با همان مقایسه تصمیم می‌گیرد option وجود دارد یا نه، پس هر ذخیره از مسیر `add_option()` می‌رفت و ردیف ممیزی «قبلی» را پیش‌فرض‌های schema می‌نوشت | گیت G-04 روی WordPress 7.1 | ثبت **پیش‌فرض‌های schema** (`Settings::defaults()->toStored()`) | `testTheRegisteredDefaultIsTheSchemaDefaultNotTheCurrentValues`، `testASecondSaveAuditsOnlyTheFieldThatChanged` |
+| ۱۵ | چهار ایراد در **خود اسکریپت پذیرش** `docs/installation.md` | همان اجرا | هر چهار اصلاح شد (زیر) | — (مستندات) |
+
+---
+
+## ۱۴. default ثبت‌شده option — ایرادی که فقط WordPress واقعی نشان می‌داد
+
+**ایراد.** ذخیره‌ای که فقط `max_staff` را از ۳۳ به ۷۷ می‌برد، این ردیف ممیزی
+را می‌ساخت:
+
+```json
+{"changed":["default_commission_rate_bp","settlement_delay_days","max_staff","environment_override"],
+ "old":{"default_commission_rate_bp":null,"settlement_delay_days":4,"max_staff":10,"environment_override":"auto"}}
+```
+
+هر چهار فیلد «تغییرکرده»، و «قبلی» پیش‌فرض‌های schema — که از اولین ذخیره به بعد
+دیگر مقدار ذخیره‌شده نبودند. مقدار درست به دیتابیس می‌رسید؛ **ردپای** آن غلط بود.
+
+**علت.** `register_setting()` این را می‌گرفت:
+
+```php
+'default' => $this->settings->load()->toStored(),   // مقادیر جاری
+```
+
+و هسته وردپرس با همین مقایسه می‌کند:
+
+```php
+if ( apply_filters( "default_option_{$option}", false, $option, false ) === $old_value ) {
+    return add_option( $option, $value, '', $autoload );
+}                                              // wp-includes/option.php
+```
+
+وقتی default همان مقدار ذخیره‌شده باشد، این شرط در **هر** ذخیره درست است، پس
+هر ذخیره از `add_option()` می‌رود و `add_option_tmc_settings` را می‌زند، نه
+`update_option_tmc_settings`. ممیزی هم از شاخه «option وجود نداشت» نوشته
+می‌شود که «قبلی»‌اش طبق تعریف پیش‌فرض‌هاست.
+
+**اصلاح.** default همان چیزی است که واقعاً پیش‌فرض است:
+`Settings::defaults()->toStored()`.
+
+**چرا suite قبلاً ندیده بود.** stub وردپرس شاخه `default_option_{$option}` را
+مدل نمی‌کرد. حالا `register_setting`، `update_option` و `add_option` در
+`tools/wp-stubs/functions.php` همان مسیر هسته را دارند، پس این طبقه از اشکال
+دیگر نامرئی نیست. با برگرداندن موقت default به مقادیر جاری، هر دو تست تازه
+می‌شکنند: `docs/evidence/regression-registered-default.log`.
+
+## ۱۵. چهار ایراد در خود اسکریپت پذیرش
+
+اینها ایراد افزونه نیستند؛ ایراد راهنمای پذیرش بودند و یک افزونه سالم را
+مردود نشان می‌دادند یا یک واقعیت را اشتباه می‌سنجیدند.
+
+| بند | ایراد | اصلاح |
+|---|---|---|
+| G-03 | نشانه محتوا `tmc-datalist|tmc-form` بود؛ فقط دو صفحه از چهار صفحه این کلاس‌ها را دارند، پس `tmc-health` سالم هم صفر می‌گرفت | نشانه به کلاس پوسته `tmc-admin` تغییر کرد که هر چهار صفحه دارند |
+| G-05 | انتظار «nonce نامعتبر → ۴۰۱» | هسته وردپرس برای nonce نامعتبرِ همراه کوکی **۴۰۳** با `rest_cookie_invalid_nonce` می‌دهد و درخواست اصلاً به permission_callback نمی‌رسد؛ انتظار به واقعیت هسته اصلاح شد |
+| G-06 | انتظار «diff کاملاً خالی» | غیرفعال‌سازی طبق طراحی ممیزی می‌شود (گیت G-02 همان را الزام می‌کند)، پس یک ردیف **افزوده** می‌شود؛ معیار درست «هیچ سطری حذف نشود» است و با `comm -23` سنجیده می‌شود |
+| G-07 | `(int) $wpdb->get_var("SHOW TABLES LIKE …")` | `SHOW TABLES` **نام** جدول را برمی‌گرداند و `(int) "wp_wc_orders"` صفر است؛ probe برای جدول موجود «۰» می‌داد. cast حذف شد |
+
 ---
 
 ## ۱. تفکیک اعتبارسنجی، ذخیره و ممیزی
@@ -376,9 +438,9 @@ cooldown فقط retry را محدود می‌کند؛ خطا در تمام مد�
 |---|---|
 | Unit | ۱۳۴ تست، ۲۰٬۵۵۲ assertion |
 | معماری و قواعد امنیتی | ۱۲ تست، ۶۰ assertion |
-| قرارداد با stub | ۴۵ تست، ۴۶۶ assertion |
+| قرارداد با stub | ۴۷ تست، ۴۸۰ assertion |
 | دیتابیس واقعی MariaDB | ۲۲ تست، ۲۰۸ assertion |
-| بسته‌بندی | ۱۲ تست، ۲٬۶۸۰ assertion |
+| بسته‌بندی | ۱۲ تست، ۳٬۳۱۴ assertion |
 | `php -l` | ۱۱۳ فایل، ۰ خطا |
 | PHPCompatibility 8.1 | ۰ خطا |
 | کنتراست | ۱۳ ترکیب، ۰ خطا |

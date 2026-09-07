@@ -1,0 +1,4 @@
+id	event_type	correlation_id
+1	plugin.activated	03b202e8-546a-4bf2-adb7-6e3ea47d2053
+2	settings.updated	b95ad918-333a-49c9-b72d-15500657fd29
+
