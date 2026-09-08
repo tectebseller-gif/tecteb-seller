@@ -273,39 +273,44 @@ WooCommerce خودش افزونه را در فهرست سازگارها می‌�
 `browser-checks.json` فرق دارد: آن یکی harness را **بیرون** از وردپرس می‌سنجد
 و «نمونه رابط» است.
 
-**زبان و جهت از خود سند خوانده می‌شود، نه از locale مرورگر.** بررسی
-`wp-admin-is-fa-IR-rtl` در هر ۲۸ بارگذاری صفحه این‌ها را الزام می‌کند:
+**زبان و جهت با یک «بسته ترجمه حداقلی آزمایشی» و از خود سند خوانده می‌شود، نه
+از locale مرورگر.** بررسی `wp-admin-fa-IR-rtl-minimal-test-pack` در هر ۲۸
+بارگذاری صفحه این‌ها را الزام می‌کند:
 `html lang="fa-IR"`، `dir="rtl"`، کلاس `rtl` روی body، جهت محاسبه‌شده `rtl`،
 و بارگذاری شیوه‌نامه‌های `*-rtl.css` مدیریت. بسته زبان چون
 `translate.wordpress.org` و `downloads.wordpress.org` مسدودند، با
 `tools/wp-lang/make-fa-ir-mo.py` به‌صورت **حداقلی** ساخته شد: ورودی جهت متن
-به‌علاوه حدود بیست رشته پوسته مدیریت. این ترجمه رسمی فارسی **نیست** و شواهد
-همین را می‌گویند؛ آنچه تضمین می‌کند همان شرط تحت آزمون است.
+به‌علاوه حدود بیست رشته پوسته مدیریت. این یک بسته **حداقلی آزمایشی** است و
+ترجمه رسمی فارسی **نیست**؛ آنچه تضمین می‌کند فقط همان شرط تحت آزمون است
+(locale واقعی و جهت راست‌به‌چپ). **آزمون با ترجمه رسمی فارسی وردپرس اجرا نشده
+و `Not Run` است** — بند ۳٫۵.
 
 | بررسی | WooCommerce غیرفعال | WooCommerce فعال |
 |---|---|---|
 | ۳۲۰ / ۳۷۵ / ۷۶۸ / ۱۰۲۴ / ۱۴۴۰ — اسکرول افقی سند | ۲۰/۲۰ | ۲۰/۲۰ |
 | **شبیه‌سازی فضای چیدمان** `layout-space-640x512` | ۴/۴ | ۴/۴ |
-| **زوم واقعی مرورگر** `zoom200-browser` | ۴/۴ | ۴/۴ |
+| **device scale factor سطح مرورگر** `browser-device-scale-2` | ۴/۴ | ۴/۴ |
 | اثبات مقیاس واقعی (`browser-really-scaled`) | ۴/۴ | ۴/۴ |
 | بیرون‌نزدن عنصر افزونه، هدف لمسی ≥ ۴۴×۴۴ | ۵۶/۵۶ | ۵۶/۵۶ |
 | خطای JavaScript، بارگذاری asset افزونه | ۵۶/۵۶ | ۵۶/۵۶ |
 | axe WCAG 2.2 AA روی `.tmc-admin` | ۲۹/۲۹ | ۲۹/۲۹ |
 | axe روی **کل سند** (ثبت‌شده) | ۰ یافته | ۰ یافته |
-| `wp-admin-is-fa-IR-rtl` | ۲۸/۲۸ | ۲۸/۲۸ |
+| `wp-admin-fa-IR-rtl-minimal-test-pack` | ۲۸/۲۸ | ۲۸/۲۸ |
 | کیبورد (۵ بررسی در هر صفحه) | ۲۰/۲۰ | ۲۰/۲۰ |
 | خلاصه خطا (وجود، focus، لینک‌ها) | ۳/۳ | ۳/۳ |
 | **جمع** | **۲۵۲ بررسی، ۰ شکست** | **۲۵۲ بررسی، ۰ شکست** |
 
-**زوم — دو چیز متفاوت با دو نام متفاوت.**
+**مقیاس‌دهی — سه چیز متفاوت با سه نام متفاوت.**
 `layout-space-640x512` شبیه‌سازی فضای چیدمان با emulation سطح CDP است و زوم
-نیست. `zoom200-browser` یک Chromium جداست با
+نیست. `browser-device-scale-2` یک Chromium جداست با
 `--force-device-scale-factor=2` و پنجره ۶۴۰×۵۱۲ DIP — پنجره فیزیکی واقعی
 ۱۲۸۰×۱۰۲۴ — و context با `viewport: null`، پس هیچ
 `Emulation.setDeviceMetricsOverride` فرستاده نمی‌شود؛ مقیاس‌دهی کار خود مرورگر
-است. شاهد ثبت‌شده: `devicePixelRatio=2 innerWidth=640 outerWidth=640
-screen=400x300 narrowMediaQuery=true rootZoom=1`. زوم `Ctrl+` خود مرورگر
-(HostZoomMap) از Playwright/CDP قابل تنظیم نیست و **`Not Run`** است.
+است و نام هم از روی همان مکانیزم گذاشته شده، نه «زوم ۲۰۰٪». شاهد ثبت‌شده:
+`devicePixelRatio=2 innerWidth=640 outerWidth=640 screen=400x300
+narrowMediaQuery=true rootZoom=1`. **زوم واقعی صفحه از منوی مرورگر**
+(Ctrl+ / HostZoomMap) از Playwright/CDP قابل تنظیم نیست، **اجرا نشد** و
+`Not Run` است.
 
 **کیبورد با Tab واقعی.** هیچ `focus()` و هیچ تغییر `tabindex` در کار نیست؛
 پیمایش از بالای سند شروع می‌شود. پس از **۵۸ توقف پوسته وردپرس**، اولین توقف
@@ -318,7 +323,8 @@ screen=400x300 narrowMediaQuery=true rootZoom=1`. زوم `Ctrl+` خود مرور
 تنها میزبان خارجی ردشده `secure.gravatar.com` بود — آواتار نوار مدیریت هسته.
 
 **تصاویر:** `docs/evidence/acceptance/wpadmin-a11y/screenshots/` — هر صفحه در
-۳۷۵ و ۱۴۴۰، در شبیه‌سازی فضای چیدمان، و در زوم واقعی مرورگر؛ به‌علاوه صفحه
+۳۷۵ و ۱۴۴۰، در شبیه‌سازی فضای چیدمان، و با device scale factor سطح مرورگر؛
+به‌علاوه صفحه
 تنظیمات در حالت خطا. نوار مدیریت وردپرس در آن‌ها **سمت راست** است، چون خود
 وردپرس RTL شده است.
 
@@ -334,8 +340,8 @@ screen=400x300 narrowMediaQuery=true rootZoom=1`. زوم `Ctrl+` خود مرور
 | اجرا روی PHP **8.1.34** (نسخه دقیق سایت مالک) | فقط ۸٫۱٫۳۲ از سورس ساخته شد؛ PPA و `php.net` از proxy مسدودند |
 | نصب روی Staging/production تک‌طب | خارج از مجوز؛ عمداً انجام نشد |
 | screen reader دستی | نیازمند اپراتور انسانی؛ ابزار خودکار جایش را نمی‌گیرد |
-| زوم `Ctrl+` خود مرورگر (HostZoomMap) | از Playwright/CDP قابل تنظیم نیست؛ زوم واقعی سطح مرورگر با device scale factor اجرا شد |
-| ترجمه رسمی فارسی وردپرس | `translate.wordpress.org` و `downloads.wordpress.org` مسدودند؛ بسته حداقلی محلی ساخته شد |
+| **زوم واقعی صفحه از منوی مرورگر** (Ctrl+ / HostZoomMap) | از Playwright/CDP قابل تنظیم نیست. آنچه اجرا شد `browser-device-scale-2` است: device scale factor سطح مرورگر، که همان تنظیم منو نیست |
+| **ترجمه رسمی فارسی وردپرس** | `translate.wordpress.org` و `downloads.wordpress.org` مسدودند. آزمون RTL با **بسته ترجمه حداقلی آزمایشی** اجرا شد؛ رفتار با بسته رسمی آزموده **نشده** است |
 | مرورگرهای غیر Chromium (Firefox، Safari) | هر دو اجرای دسترس‌پذیری روی Chromium 141 بودند |
 | تداخل با LiteSpeed / Hello Elementor / Persian Woo / Rank Math / WP Rocket | هیچ‌کدام در محیط در دسترس نیستند |
 | سرور وب واقعی (Apache/LiteSpeed + PHP-FPM) | اجرا با SAPI `cli-server` بود؛ رفتار rewrite و هدرهای سرور واقعی آزموده نشده |

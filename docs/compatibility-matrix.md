@@ -69,12 +69,12 @@
 |---|---|---|
 | ۳۲۰ / ۳۷۵ / ۷۶۸ / ۱۰۲۴ / ۱۴۴۰ روی **wp-admin واقعی** | **`Passed`** | چهار صفحه با نشست معتبر مدیرکل، وردپرس روی **fa_IR و RTL**؛ در هیچ عرضی اسکرول افقی نبود · `acceptance/wpadmin-a11y/` |
 | **شبیه‌سازی فضای چیدمان** ۶۴۰×۵۱۲ (`layout-space-640x512`) | **`Passed`** | emulation سطح CDP — فضای چیدمانِ ۱۲۸۰×۱۰۲۴ در ۲۰۰٪. **زوم نیست** و به این نام ثبت می‌شود |
-| **زوم واقعی مرورگر ۲۰۰٪** (`zoom200-browser`) | **`Passed`** | Chromium جدا با `--force-device-scale-factor=2` و پنجره فیزیکی ۱۲۸۰×۱۰۲۴، `viewport: null` (بدون `Emulation.setDeviceMetricsOverride`)؛ شاهد: `devicePixelRatio=2 innerWidth=640 narrowMediaQuery=true rootZoom=1` |
-| زوم `Ctrl+` خود مرورگر (HostZoomMap) | `Not Run` | از Playwright/CDP قابل تنظیم نیست |
+| **device scale factor سطح مرورگر** (`browser-device-scale-2`) | **`Passed`** | Chromium جدا با `--force-device-scale-factor=2` و پنجره فیزیکی ۱۲۸۰×۱۰۲۴، `viewport: null` (بدون `Emulation.setDeviceMetricsOverride`)؛ شاهد: `devicePixelRatio=2 innerWidth=640 narrowMediaQuery=true rootZoom=1`. نام از روی مکانیزم است؛ «زوم ۲۰۰٪» نامیده نمی‌شود |
+| **زوم واقعی صفحه از منوی مرورگر** (Ctrl+ / HostZoomMap) | `Not Run` | از Playwright/CDP قابل تنظیم نیست و اجرا نشد |
 | axe-core (WCAG 2.2 AA) روی **wp-admin واقعی** | **`Passed`** | ۰ یافته داخل `.tmc-admin` و ۰ یافته در کل سند (`foreign_findings: []`) |
 | کیبورد روی **wp-admin واقعی** | **`Passed`** | با **Tab واقعی**، بدون `focus()` و بدون تغییر `tabindex`: پس از ۵۸ توقف پوسته وردپرس اولین توقف افزونه لینک پرش است؛ Tab به **همه** کنترل‌های focusable می‌رسد؛ لینک پرش hash **و** فوکوس را به `#tmc-main` می‌برد |
-| زبان و جهت واقعی مدیریت (fa_IR / RTL) | **`Passed`** | `html lang="fa-IR" dir="rtl"`، کلاس `rtl` روی body، شیوه‌نامه‌های `*-rtl.css` مدیریت — از سند سرو‌شده خوانده شد، نه از locale مرورگر |
-| ترجمه **رسمی** فارسی وردپرس | `Not Run` | `translate.wordpress.org`/`downloads.wordpress.org` مسدودند؛ بسته حداقلی محلی (`tools/wp-lang/make-fa-ir-mo.py`) شرط جهت و locale را می‌سازد، نه ترجمه کامل |
+| زبان و جهت واقعی مدیریت (fa_IR / RTL) **با بسته ترجمه حداقلی آزمایشی** | **`Passed`** | `html lang="fa-IR" dir="rtl"`، کلاس `rtl` روی body، شیوه‌نامه‌های `*-rtl.css` مدیریت — از سند سرو‌شده خوانده شد، نه از locale مرورگر. بسته: `tools/wp-lang/make-fa-ir-mo.py` |
+| **ترجمه رسمی فارسی وردپرس** | `Not Run` | `translate.wordpress.org`/`downloads.wordpress.org` مسدودند. آزمون RTL با بسته حداقلی آزمایشی اجرا شد؛ رفتار افزونه با بسته رسمی **آزموده نشده** است |
 | همان مجموعه با **WooCommerce فعال** | **`Passed`** | اجرای دوم، ۲۵۲ بررسی، ۰ شکست · `acceptance/wpadmin-a11y-with-wc/` |
 | همان روی harness رندر view (Chromium 141) | **۲۳۳ بررسی، ۰ خطا** | **فقط «نمونه رابط»** — اثبات کارکرد افزونه نیست · `browser-checks.json` |
 | Screen reader دستی | `Not Run` | ابزار خودکار جای بررسی دستی نیست |

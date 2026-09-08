@@ -22,12 +22,15 @@
  *   `layout-space-640x512` is CDP viewport emulation: it hands the page the
  *   layout space a 1280x1024 screen has at 200%, and nothing more. It is a
  *   SIMULATION OF LAYOUT SPACE, not zoom.
- *   `zoom200-browser` is the browser doing the scaling itself: a second
- *   Chromium launched with --force-device-scale-factor=2 and a 640x512 DIP
- *   window, i.e. a real 1280x1024 physical window where every CSS pixel
+ *   `browser-device-scale-2` is the browser doing the scaling itself: a
+ *   second Chromium launched with --force-device-scale-factor=2 and a 640x512
+ *   DIP window, i.e. a real 1280x1024 physical window where every CSS pixel
  *   covers two device pixels, with NO Emulation.setDeviceMetricsOverride.
- *   Chromium's literal Ctrl+ setting (HostZoomMap) is not reachable through
- *   CDP or Playwright; that exact mechanism stays Not Run.
+ *   It is named for the mechanism it actually uses — a browser-level device
+ *   scale factor — and NOT called "200% zoom", because it is not the browser's
+ *   page-zoom setting. Chromium's page zoom (the browser menu / Ctrl+, backed
+ *   by HostZoomMap) is not reachable through CDP or Playwright, is NOT
+ *   exercised here, and stays Not Run.
  *
  * Usage: node tools/browser/check-wpadmin.mjs
  *   TMC_SITE      site URL              (default http://127.0.0.1:8080)
@@ -236,9 +239,10 @@ async function measure(page, pageErrors, failedRequests, label, vpName, clientWi
   // 6. WordPress itself is in the locale and direction under test
   const loc = await localeFacts(page);
   localeSamples.push({ page: label, viewport: vpName, ...loc });
-  record(label, vpName, 'wp-admin-is-fa-IR-rtl',
+  record(label, vpName, 'wp-admin-fa-IR-rtl-minimal-test-pack',
     loc.htmlLang.toLowerCase().startsWith('fa') && loc.htmlDir === 'rtl' && loc.bodyClassRtl && loc.bodyComputedDir === 'rtl',
-    `html lang="${loc.htmlLang}" dir="${loc.htmlDir}" body.rtl=${loc.bodyClassRtl} computed=${loc.bodyComputedDir} rtl-stylesheets=${loc.adminRtlStylesheets}`);
+    `html lang="${loc.htmlLang}" dir="${loc.htmlDir}" body.rtl=${loc.bodyClassRtl} computed=${loc.bodyComputedDir} rtl-stylesheets=${loc.adminRtlStylesheets}` +
+    ' — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack');
 }
 
 // ---- per page: viewports, keyboard, 200% zoom -------------------------------
@@ -428,13 +432,13 @@ for (const p of PAGES) {
     zoomEnvironment = env;
     // At 200% the browser must be handing the page half the CSS width and a
     // device pixel ratio of 2; if it is not, the pass proves nothing.
-    record(p.name, 'zoom200-browser', 'browser-really-scaled',
+    record(p.name, 'browser-device-scale-2', 'browser-really-scaled',
       env.dpr === 2 && env.inner[0] <= 700 && env.mqNarrow,
       `devicePixelRatio=${env.dpr} innerWidth=${env.inner[0]} outerWidth=${env.outer[0]} screen=${env.screen.join('x')} narrowMediaQuery=${env.mqNarrow} rootZoom=${env.rootZoom} (no CDP viewport override)`);
 
-    await measure(page, pageErrors, failedRequests, p.name, 'zoom200-browser',
-      ' (real browser scaling: 1280x1024 physical window, device scale factor 2)');
-    await page.screenshot({ path: resolve(shotDir, `${p.name}-zoom200-browser.png`), fullPage: true });
+    await measure(page, pageErrors, failedRequests, p.name, 'browser-device-scale-2',
+      ' (browser-applied device scale factor 2: 1280x1024 physical window, no CDP viewport override; NOT the browser page-zoom setting)');
+    await page.screenshot({ path: resolve(shotDir, `${p.name}-browser-device-scale-2.png`), fullPage: true });
     await page.close();
   }
   zoomBrowserVersion = zoomBrowser.version();
@@ -489,16 +493,23 @@ const summary = {
   chromium: chromium_version,
   playwright: JSON.parse(readFileSync(resolve(here, 'node_modules/playwright/package.json'), 'utf8')).version,
   axe_core: JSON.parse(readFileSync(resolve(here, 'node_modules/axe-core/package.json'), 'utf8')).version,
-  viewports: VIEWPORTS.map((v) => v.name).concat(['layout-space-640x512', 'zoom200-browser']),
+  viewports: VIEWPORTS.map((v) => v.name).concat(['layout-space-640x512', 'browser-device-scale-2']),
   zoom: {
     'layout-space-640x512': 'CDP viewport emulation: the layout space a 1280x1024 screen has at 200%. A simulation of layout space, not zoom.',
-    'zoom200-browser': 'A separate Chromium with --force-device-scale-factor=2 and a 640x512 DIP window (a real 1280x1024 physical window), viewport:null so no Emulation.setDeviceMetricsOverride is sent. The browser does the scaling.',
+    'browser-device-scale-2': 'A separate Chromium with --force-device-scale-factor=2 and a 640x512 DIP window (a real 1280x1024 physical window), viewport:null so no Emulation.setDeviceMetricsOverride is sent. The browser does the scaling.',
     'not_run': "Chromium's literal Ctrl+ zoom setting (HostZoomMap) is not reachable through CDP or Playwright and was NOT exercised.",
     observed: null,
     browser: '',
   },
   locale: {
     intended: 'fa_IR, right-to-left, verified from the served document rather than the request',
+    translation_pack: {
+      kind: 'MINIMAL EXPERIMENTAL pack built locally by tools/wp-lang/make-fa-ir-mo.py',
+      contains: 'the "text direction" entry that makes is_rtl() true, plus about twenty admin-chrome strings',
+      is_official_persian_translation: false,
+      why: 'translate.wordpress.org, downloads.wordpress.org and api.wordpress.org are all refused by this container (403/blocked)',
+      not_run: 'The official WordPress Persian translation was NOT installed and is NOT covered by this run.',
+    },
     samples: [],
   },
   total: results.length,
@@ -524,10 +535,11 @@ for (const [k, v] of Object.entries(byCheck)) lines.push(`  ${k.padEnd(34)} pass
 lines.push(`\ntotal ${results.length}, failures ${failures.length}`);
 for (const f of failures) lines.push('  FAIL ' + f);
 lines.push('');
+lines.push(`translation pack : MINIMAL EXPERIMENTAL (tools/wp-lang/make-fa-ir-mo.py) — the official Persian pack is NOT installed and stays Not Run`);
 lines.push(`locale under test: ${summary.locale.samples[0] ? `html lang="${summary.locale.samples[0].htmlLang}" dir="${summary.locale.samples[0].htmlDir}" body.rtl=${summary.locale.samples[0].bodyClassRtl} rtl-stylesheets=${summary.locale.samples[0].adminRtlStylesheets}` : 'not recorded'}`);
-lines.push(`zoom, emulated  : layout-space-640x512 — CDP viewport emulation (simulation of layout space)`);
-lines.push(`zoom, real      : zoom200-browser — ${zoomEnvironment ? `devicePixelRatio=${zoomEnvironment.dpr} innerWidth=${zoomEnvironment.inner[0]} outerWidth=${zoomEnvironment.outer[0]} screen=${zoomEnvironment.screen.join('x')}` : 'not recorded'}`);
-lines.push(`zoom, NOT run   : Chromium's Ctrl+ setting (HostZoomMap) is not drivable from Playwright`);
+lines.push(`layout space    : layout-space-640x512 — CDP viewport emulation (simulation of layout space, not zoom)`);
+lines.push(`browser scaling : browser-device-scale-2 — ${zoomEnvironment ? `devicePixelRatio=${zoomEnvironment.dpr} innerWidth=${zoomEnvironment.inner[0]} outerWidth=${zoomEnvironment.outer[0]} screen=${zoomEnvironment.screen.join('x')}` : 'not recorded'}`);
+lines.push(`page zoom       : NOT RUN — the browser's own page-zoom setting (menu / Ctrl+, HostZoomMap) is not drivable from Playwright`);
 if (blockedHosts.size) {
   lines.push(`\nexternal hosts the sandbox refused (environment, not the plugin): ${[...blockedHosts].sort().join(', ')}`);
 }
