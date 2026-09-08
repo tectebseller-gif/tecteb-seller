@@ -8,8 +8,9 @@
 | `php81/` | اجرای کامل روی **PHP 8.1.32** (CLI، WP-CLI و SAPI وب، هر سه) |
 | `php84/` | همان پروتکل روی **PHP 8.4.19** |
 | `failure-617fcfc/` | شکست مشاهده‌شده گیت G-04 روی بسته‌ای که برای پذیرش ارائه شده بود (**تاریخچه** — بسته فعلی همان گیت را پاس می‌کند) |
-| `wpadmin-a11y/` | viewportها، زوم ۲۰۰٪، کیبورد و axe روی **wp-admin واقعی**، بدون WooCommerce |
+| `wpadmin-a11y/` | viewportها، شبیه‌سازی فضای چیدمان، **زوم واقعی مرورگر**، کیبورد با Tab واقعی و axe روی **wp-admin واقعی با fa_IR/RTL**، بدون WooCommerce |
 | `wpadmin-a11y-with-wc/` | همان مجموعه با WooCommerce 11.0.1 فعال |
+| `superseded-en_US-ltr/` | اجرای پیشین همان بررسی‌ها با wp-admin انگلیسی/LTR و نام‌گذاری قدیمی زوم — **جایگزین شده**، برای تاریخچه |
 
 بسته آزموده‌شده در `php81/`، `php84/` و هر دو پوشه دسترس‌پذیری:
 `c37f8902ef3152bfc897114f7044f546d521783528e2c9f38c1d3442227f46f1`
@@ -36,7 +37,7 @@
 | `M-migration-and-recovery.txt` | ارتقا بدون فعال‌سازی مجدد، cooldown و retry، رکورد کهنه و بازیابی |
 | `html-captures.tar.gz` | بدنه خام هر درخواست HTTP همان اجرا |
 
-| `wpadmin-a11y*/wpadmin-a11y.json` | نتیجه تک‌تک ۱۸۸ بررسی دسترس‌پذیری |
+| `wpadmin-a11y*/wpadmin-a11y.json` | نتیجه تک‌تک ۲۵۲ بررسی دسترس‌پذیری، به‌علاوه `zoom.observed` و `locale.samples` |
 
 `*-plugin-errors.txt` در همه گیت‌ها صفر خط است: هیچ
 `Fatal`/`Warning`/`Notice`/`Deprecated` مربوط به `tecteb-marketplace-core`

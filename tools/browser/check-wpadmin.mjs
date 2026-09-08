@@ -18,6 +18,17 @@
  *   Automated checks do not replace a manual screen-reader pass. That remains
  *   Not Run (docs/compatibility-matrix.md).
  *
+ * ZOOM — TWO DIFFERENT THINGS, NAMED APART
+ *   `layout-space-640x512` is CDP viewport emulation: it hands the page the
+ *   layout space a 1280x1024 screen has at 200%, and nothing more. It is a
+ *   SIMULATION OF LAYOUT SPACE, not zoom.
+ *   `zoom200-browser` is the browser doing the scaling itself: a second
+ *   Chromium launched with --force-device-scale-factor=2 and a 640x512 DIP
+ *   window, i.e. a real 1280x1024 physical window where every CSS pixel
+ *   covers two device pixels, with NO Emulation.setDeviceMetricsOverride.
+ *   Chromium's literal Ctrl+ setting (HostZoomMap) is not reachable through
+ *   CDP or Playwright; that exact mechanism stays Not Run.
+ *
  * Usage: node tools/browser/check-wpadmin.mjs
  *   TMC_SITE      site URL              (default http://127.0.0.1:8080)
  *   TMC_USER      administrator login   (default tmcadmin)
@@ -55,20 +66,23 @@ const VIEWPORTS = [
 const MIN_TOUCH = 44;
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const SCOPE = '.tmc-admin';
+const CHROMIUM = process.env.TMC_CHROMIUM || '/opt/pw-browsers/chromium';
+/** Tab presses allowed to walk WordPress's own admin chrome before the plugin. */
+const MAX_TAB_STOPS = 250;
 
 const results = [];
 const failures = [];
 const foreignFindings = [];
+const localeSamples = [];
+let zoomEnvironment = null;
+let zoomBrowserVersion = '';
 
 function record(page, viewport, check, ok, detail) {
   results.push({ page, viewport, check, ok, detail });
   if (!ok) failures.push(`${page} @ ${viewport}: ${check} — ${detail}`);
 }
 
-const browser = await chromium.launch({
-  executablePath: process.env.TMC_CHROMIUM || '/opt/pw-browsers/chromium',
-  args: ['--no-sandbox'],
-});
+const browser = await chromium.launch({ executablePath: CHROMIUM, args: ['--no-sandbox'] });
 
 // ---- one real login, reused by every context -------------------------------
 const loginCtx = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'fa-IR' });
@@ -106,6 +120,29 @@ async function newSignedInPage(options) {
     if (!url.startsWith(SITE)) { try { blockedHosts.add(new URL(url).host); } catch { /* ignore */ } }
   });
   return { ctx, page, pageErrors, failedRequests };
+}
+
+/**
+ * What WordPress itself says the locale and direction are. A browser locale
+ * does not put wp-admin into Persian or RTL — only WordPress's own translation
+ * files do — so this reads the served document, not the request.
+ */
+async function localeFacts(page) {
+  return page.evaluate(() => {
+    const rtlSheets = [...document.querySelectorAll('link[rel=stylesheet]')]
+      .map((l) => l.getAttribute('href') || '')
+      .filter((h) => /-rtl(\.min)?\.css/.test(h));
+    return {
+      htmlLang: document.documentElement.lang || '',
+      htmlDir: document.documentElement.dir || '',
+      bodyClassRtl: document.body.classList.contains('rtl'),
+      bodyComputedDir: getComputedStyle(document.body).direction,
+      pluginShellDir: (document.querySelector('.tmc-admin') || {}).dir || '',
+      pluginShellLang: (document.querySelector('.tmc-admin') || {}).lang || '',
+      adminRtlStylesheets: rtlSheets.length,
+      sampleRtlStylesheet: rtlSheets[0] ? rtlSheets[0].split('/').pop() : '',
+    };
+  });
 }
 
 /** Runs the per-viewport measurements on an already-loaded admin page. */
@@ -195,6 +232,13 @@ async function measure(page, pageErrors, failedRequests, label, vpName, clientWi
   if (foreign.length) foreignFindings.push({ page: label, viewport: vpName, violations: foreign });
   record(label, vpName, 'axe-whole-page-recorded', true,
     foreign.length ? `outside .tmc-admin (WordPress core markup): ${foreign.join(', ')}` : 'none anywhere on the page');
+
+  // 6. WordPress itself is in the locale and direction under test
+  const loc = await localeFacts(page);
+  localeSamples.push({ page: label, viewport: vpName, ...loc });
+  record(label, vpName, 'wp-admin-is-fa-IR-rtl',
+    loc.htmlLang.toLowerCase().startsWith('fa') && loc.htmlDir === 'rtl' && loc.bodyClassRtl && loc.bodyComputedDir === 'rtl',
+    `html lang="${loc.htmlLang}" dir="${loc.htmlDir}" body.rtl=${loc.bodyClassRtl} computed=${loc.bodyComputedDir} rtl-stylesheets=${loc.adminRtlStylesheets}`);
 }
 
 // ---- per page: viewports, keyboard, 200% zoom -------------------------------
@@ -212,64 +256,190 @@ for (const p of PAGES) {
     await ctx.close();
   }
 
-  // keyboard: the skip link comes first, every stop shows a focus ring
+  // ---- keyboard, by ACTUAL Tab navigation ---------------------------------
+  // Nothing here calls focus() and nothing changes tabindex. The walk starts
+  // where a real keyboard user starts — the top of the document — and presses
+  // Tab, so "the skip link is the first stop inside the plugin" is a property
+  // of the page, not of the test. The only DOM touch is a data-tmc-probe
+  // marker used to identify elements; it affects neither focus order nor
+  // styling.
   {
     const { ctx, page } = await newSignedInPage({ viewport: { width: 1024, height: 768 } });
     await page.goto(url, { waitUntil: 'load' });
     await page.waitForSelector(SCOPE);
-    // Start from the plugin's shell rather than from core's admin bar, which
-    // owns the first tab stops of every wp-admin screen.
-    await page.evaluate((scope) => {
-      const el = document.querySelector(`${scope} .tmc-skip`) || document.querySelector(scope);
-      el.setAttribute('tabindex', el.getAttribute('tabindex') ?? '-1');
-      el.focus();
-    }, SCOPE);
-    const first = await page.evaluate(() => (document.activeElement.className || '').toString().split(' ')[0]);
-    record(p.name, 'keyboard', 'skip-link-is-the-first-plugin-stop', first === 'tmc-skip', `first plugin stop = .${first}`);
 
-    const order = [];
-    for (let i = 0; i < 25; i++) {
+    // Everything inside the plugin's shell that a keyboard must be able to
+    // reach. Derived from the page, so no expectation is hand-written and
+    // none can silently go missing.
+    const expected = await page.evaluate((scope) => {
+      const shell = document.querySelector(scope);
+      const sel = 'a[href], button:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      const out = [];
+      let i = 0;
+      for (const el of shell.querySelectorAll(sel)) {
+        const r = el.getBoundingClientRect();
+        const cs = getComputedStyle(el);
+        const hidden = cs.visibility === 'hidden' || cs.display === 'none';
+        // The skip link is off-screen until focused; it is still expected.
+        const isSkip = el.classList.contains('tmc-skip');
+        if (hidden || (!isSkip && r.width === 0 && r.height === 0)) continue;
+        el.setAttribute('data-tmc-probe', String(i));
+        out.push({
+          probe: String(i),
+          tag: el.tagName.toLowerCase(),
+          cls: (el.className || '').toString().trim().split(/\s+/)[0] || '',
+          name: el.getAttribute('name') || '',
+          text: (el.textContent || el.value || '').trim().slice(0, 24),
+        });
+        i++;
+      }
+      return out;
+    }, SCOPE);
+
+    // Start the walk at the very top of the document.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.keyboard.press('Home').catch(() => {});
+    const walk = [];
+    let enteredPlugin = false;
+    let leftPlugin = false;
+    for (let i = 0; i < MAX_TAB_STOPS && !leftPlugin; i++) {
       await page.keyboard.press('Tab');
-      const info = await page.evaluate((scope) => {
+      const stop = await page.evaluate((scope) => {
         const el = document.activeElement;
-        if (!el || el === document.body) return null;
+        if (!el || el === document.body || el === document.documentElement) return null;
         const cs = getComputedStyle(el);
         return {
           tag: el.tagName.toLowerCase(),
           cls: (el.className || '').toString().trim().split(/\s+/)[0] || '',
+          id: el.id || '',
+          probe: el.getAttribute('data-tmc-probe'),
           mine: !!el.closest(scope),
           ring: cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0,
         };
       }, SCOPE);
-      if (!info) break;
-      order.push(info);
-      if (!info.mine && order.filter((o) => o.mine).length > 0) break; // left the plugin's shell
+      if (!stop) continue;
+      walk.push(stop);
+      if (stop.mine) enteredPlugin = true;
+      else if (enteredPlugin) leftPlugin = true;
     }
-    const inPlugin = order.filter((o) => o.mine);
-    record(p.name, 'keyboard', 'reaches-controls', inPlugin.length > 0, `${inPlugin.length} stops inside ${SCOPE}`);
-    const noRing = inPlugin.filter((o) => !o.ring).map((o) => `${o.tag}.${o.cls}`);
-    record(p.name, 'keyboard', 'focus-visible', noRing.length === 0, noRing.join(', ') || 'every plugin stop shows a ring');
 
-    // the skip link must actually move focus into the main region
-    await page.evaluate((scope) => document.querySelector(`${scope} .tmc-skip`).focus(), SCOPE);
-    await page.keyboard.press('Enter');
-    const landed = await page.evaluate(() => {
-      const t = document.getElementById('tmc-main');
-      return { hash: location.hash, focused: document.activeElement === t || (t && t.contains(document.activeElement)) };
-    });
-    record(p.name, 'keyboard', 'skip-link-reaches-main', landed.hash === '#tmc-main', `hash=${landed.hash || '(none)'} focusedMain=${landed.focused}`);
+    const pluginStops = walk.filter((w) => w.mine);
+    const chromeStopsBefore = walk.findIndex((w) => w.mine);
+    const first = pluginStops[0];
+    record(p.name, 'keyboard', 'skip-link-is-the-first-plugin-stop',
+      !!first && first.cls === 'tmc-skip',
+      first
+        ? `after ${chromeStopsBefore} WordPress chrome stops, the first stop inside ${SCOPE} is .${first.cls} (real Tab presses, no focus() and no tabindex change)`
+        : `Tab never reached ${SCOPE} within ${MAX_TAB_STOPS} presses`);
+
+    // Every focusable control the page offers must actually be reachable.
+    const reached = new Set(pluginStops.map((w) => w.probe).filter((x) => x !== null));
+    const missed = expected.filter((e) => !reached.has(e.probe));
+    record(p.name, 'keyboard', 'every-plugin-control-is-reachable', missed.length === 0,
+      `${reached.size}/${expected.length} reached` +
+      (missed.length ? `; unreachable: ${missed.map((m) => `${m.tag}.${m.cls}${m.name ? `[${m.name}]` : ''} "${m.text}"`).join(', ')}` : ''));
+
+    const noRing = pluginStops.filter((w) => !w.ring).map((w) => `${w.tag}.${w.cls}`);
+    record(p.name, 'keyboard', 'focus-visible', noRing.length === 0, noRing.join(', ') || `all ${pluginStops.length} plugin stops show a ring`);
     await ctx.close();
   }
 
-  // 200% zoom (WCAG 1.4.10 reflow): 1280x1024 at 2x ≈ 640x512 CSS px
+  // ---- the skip link must MOVE FOCUS, not just change the hash -------------
+  {
+    const { ctx, page } = await newSignedInPage({ viewport: { width: 1024, height: 768 } });
+    await page.goto(url, { waitUntil: 'load' });
+    await page.waitForSelector(SCOPE);
+    // Tab to the skip link the way a keyboard user does, then press Enter.
+    let onSkip = false;
+    for (let i = 0; i < MAX_TAB_STOPS && !onSkip; i++) {
+      await page.keyboard.press('Tab');
+      onSkip = await page.evaluate(() => !!document.activeElement && document.activeElement.classList.contains('tmc-skip'));
+    }
+    record(p.name, 'keyboard', 'skip-link-reachable-by-tab', onSkip, onSkip ? 'reached by Tab' : 'never focused by Tab');
+    if (onSkip) {
+      await page.keyboard.press('Enter');
+      const landed = await page.evaluate(() => {
+        const target = document.getElementById('tmc-main');
+        const active = document.activeElement;
+        return {
+          hash: location.hash,
+          exists: !!target,
+          focusOnTarget: !!target && (active === target || target.contains(active)),
+          activeTag: active ? active.tagName.toLowerCase() : 'none',
+          activeId: active ? active.id : '',
+        };
+      });
+      record(p.name, 'keyboard', 'skip-link-reaches-main',
+        landed.hash === '#tmc-main' && landed.focusOnTarget,
+        `hash=${landed.hash || '(none)'} focusMovedToTarget=${landed.focusOnTarget} activeElement=<${landed.activeTag} id="${landed.activeId}">`);
+    }
+    await ctx.close();
+  }
+
+  // Reflow (WCAG 1.4.10) in the LAYOUT SPACE a 1280x1024 screen has at 200%.
+  // This is CDP viewport emulation — a simulation of the available layout
+  // space, NOT the browser zooming. The real thing is measured further down.
   {
     const { ctx, page, pageErrors, failedRequests } = await newSignedInPage({ viewport: { width: 640, height: 512 }, deviceScaleFactor: 2 });
     await page.goto(url, { waitUntil: 'load' });
     await page.waitForSelector(SCOPE);
-    await measure(page, pageErrors, failedRequests, p.name, 'zoom200', ' (1280x1024 at 200%)');
-    await page.screenshot({ path: resolve(shotDir, `${p.name}-zoom200.png`), fullPage: true });
+    await measure(page, pageErrors, failedRequests, p.name, 'layout-space-640x512',
+      ' (emulated layout space of 1280x1024 at 200% — viewport emulation, not zoom)');
+    await page.screenshot({ path: resolve(shotDir, `${p.name}-layout-space-640x512.png`), fullPage: true });
     await ctx.close();
   }
+}
+
+// ---- REAL 200% zoom, done by the browser itself ----------------------------
+// A separate Chromium process with --force-device-scale-factor=2 and a 640x512
+// DIP window: a real 1280x1024 physical window in which every CSS pixel covers
+// two device pixels. The context passes viewport:null, so Playwright sends NO
+// Emulation.setDeviceMetricsOverride — the scaling is the browser's, not the
+// protocol's. window.devicePixelRatio, screen and the media-query response are
+// recorded as the proof of which mechanism produced the result.
+{
+  const zoomBrowser = await chromium.launch({
+    executablePath: CHROMIUM,
+    args: ['--no-sandbox', '--force-device-scale-factor=2', '--window-size=640,512'],
+  });
+  const zctx = await zoomBrowser.newContext({ storageState, locale: 'fa-IR', reducedMotion: 'reduce', viewport: null });
+  for (const p of PAGES) {
+    const page = await zctx.newPage();
+    const pageErrors = [];
+    const failedRequests = [];
+    page.on('pageerror', (e) => pageErrors.push(String(e)));
+    page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) pageErrors.push(m.text()); });
+    page.on('requestfailed', (r) => {
+      const u = r.url();
+      failedRequests.push({ url: u, failure: r.failure()?.errorText || '' });
+      if (!u.startsWith(SITE)) { try { blockedHosts.add(new URL(u).host); } catch { /* ignore */ } }
+    });
+    await page.goto(`${SITE}/wp-admin/admin.php?page=${p.slug}`, { waitUntil: 'load' });
+    await page.waitForSelector(SCOPE);
+
+    const env = await page.evaluate(() => ({
+      dpr: window.devicePixelRatio,
+      inner: [window.innerWidth, window.innerHeight],
+      outer: [window.outerWidth, window.outerHeight],
+      screen: [screen.width, screen.height],
+      mqNarrow: window.matchMedia('(max-width: 700px)').matches,
+      rootZoom: getComputedStyle(document.documentElement).zoom,
+    }));
+    zoomEnvironment = env;
+    // At 200% the browser must be handing the page half the CSS width and a
+    // device pixel ratio of 2; if it is not, the pass proves nothing.
+    record(p.name, 'zoom200-browser', 'browser-really-scaled',
+      env.dpr === 2 && env.inner[0] <= 700 && env.mqNarrow,
+      `devicePixelRatio=${env.dpr} innerWidth=${env.inner[0]} outerWidth=${env.outer[0]} screen=${env.screen.join('x')} narrowMediaQuery=${env.mqNarrow} rootZoom=${env.rootZoom} (no CDP viewport override)`);
+
+    await measure(page, pageErrors, failedRequests, p.name, 'zoom200-browser',
+      ' (real browser scaling: 1280x1024 physical window, device scale factor 2)');
+    await page.screenshot({ path: resolve(shotDir, `${p.name}-zoom200-browser.png`), fullPage: true });
+    await page.close();
+  }
+  zoomBrowserVersion = zoomBrowser.version();
+  await zctx.close();
+  await zoomBrowser.close();
 }
 
 // ---- the settings page in its error state ----------------------------------
@@ -319,13 +489,27 @@ const summary = {
   chromium: chromium_version,
   playwright: JSON.parse(readFileSync(resolve(here, 'node_modules/playwright/package.json'), 'utf8')).version,
   axe_core: JSON.parse(readFileSync(resolve(here, 'node_modules/axe-core/package.json'), 'utf8')).version,
-  viewports: VIEWPORTS.map((v) => v.name).concat(['zoom200']),
+  viewports: VIEWPORTS.map((v) => v.name).concat(['layout-space-640x512', 'zoom200-browser']),
+  zoom: {
+    'layout-space-640x512': 'CDP viewport emulation: the layout space a 1280x1024 screen has at 200%. A simulation of layout space, not zoom.',
+    'zoom200-browser': 'A separate Chromium with --force-device-scale-factor=2 and a 640x512 DIP window (a real 1280x1024 physical window), viewport:null so no Emulation.setDeviceMetricsOverride is sent. The browser does the scaling.',
+    'not_run': "Chromium's literal Ctrl+ zoom setting (HostZoomMap) is not reachable through CDP or Playwright and was NOT exercised.",
+    observed: null,
+    browser: '',
+  },
+  locale: {
+    intended: 'fa_IR, right-to-left, verified from the served document rather than the request',
+    samples: [],
+  },
   total: results.length,
   failed: failures.length,
   foreign_findings: foreignFindings,
   blocked_external_hosts: [...blockedHosts].sort(),
   results,
 };
+summary.zoom.observed = zoomEnvironment;
+summary.zoom.browser = zoomBrowserVersion;
+summary.locale.samples = localeSamples.slice(0, 8);
 writeFileSync(resolve(outDir, 'wpadmin-a11y.json'), JSON.stringify(summary, null, 2));
 
 const byCheck = {};
@@ -339,6 +523,11 @@ lines.push(`playwright ${summary.playwright}  axe-core ${summary.axe_core}  chro
 for (const [k, v] of Object.entries(byCheck)) lines.push(`  ${k.padEnd(34)} pass=${v.pass} fail=${v.fail}`);
 lines.push(`\ntotal ${results.length}, failures ${failures.length}`);
 for (const f of failures) lines.push('  FAIL ' + f);
+lines.push('');
+lines.push(`locale under test: ${summary.locale.samples[0] ? `html lang="${summary.locale.samples[0].htmlLang}" dir="${summary.locale.samples[0].htmlDir}" body.rtl=${summary.locale.samples[0].bodyClassRtl} rtl-stylesheets=${summary.locale.samples[0].adminRtlStylesheets}` : 'not recorded'}`);
+lines.push(`zoom, emulated  : layout-space-640x512 — CDP viewport emulation (simulation of layout space)`);
+lines.push(`zoom, real      : zoom200-browser — ${zoomEnvironment ? `devicePixelRatio=${zoomEnvironment.dpr} innerWidth=${zoomEnvironment.inner[0]} outerWidth=${zoomEnvironment.outer[0]} screen=${zoomEnvironment.screen.join('x')}` : 'not recorded'}`);
+lines.push(`zoom, NOT run   : Chromium's Ctrl+ setting (HostZoomMap) is not drivable from Playwright`);
 if (blockedHosts.size) {
   lines.push(`\nexternal hosts the sandbox refused (environment, not the plugin): ${[...blockedHosts].sort().join(', ')}`);
 }

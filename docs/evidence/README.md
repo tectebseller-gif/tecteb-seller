@@ -10,7 +10,7 @@ bash tools/build.sh                  # ساخت بسته
 
 # روی یک WordPress یکبارمصرف (نه سایت واقعی):
 bash tools/acceptance-gates.sh /usr/bin/php /tmp/ev dist/tecteb-marketplace-core.zip
-node tools/browser/check-wpadmin.mjs # ۱۸۸ بررسی روی wp-admin واقعی
+node tools/browser/check-wpadmin.mjs # ۲۵۲ بررسی روی wp-admin واقعی (fa_IR/RTL)
 ```
 
 | فایل | چیست |

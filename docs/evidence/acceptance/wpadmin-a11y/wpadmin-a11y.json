@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-07T21:02:31.266Z",
+  "generated_at": "2026-09-08T15:33:37.575Z",
   "scope": "The plugin's four pages inside a REAL wp-admin, signed in as an administrator. Scoped checks measure .tmc-admin only; axe also runs unscoped and attributes findings.",
   "site": "http://127.0.0.1:8080",
   "chromium": "141.0.7390.37",
@@ -11,9 +11,134 @@
     "768",
     "1024",
     "1440",
-    "zoom200"
+    "layout-space-640x512",
+    "zoom200-browser"
   ],
-  "total": 188,
+  "zoom": {
+    "layout-space-640x512": "CDP viewport emulation: the layout space a 1280x1024 screen has at 200%. A simulation of layout space, not zoom.",
+    "zoom200-browser": "A separate Chromium with --force-device-scale-factor=2 and a 640x512 DIP window (a real 1280x1024 physical window), viewport:null so no Emulation.setDeviceMetricsOverride is sent. The browser does the scaling.",
+    "not_run": "Chromium's literal Ctrl+ zoom setting (HostZoomMap) is not reachable through CDP or Playwright and was NOT exercised.",
+    "observed": {
+      "dpr": 2,
+      "inner": [
+        640,
+        425
+      ],
+      "outer": [
+        640,
+        512
+      ],
+      "screen": [
+        400,
+        300
+      ],
+      "mqNarrow": true,
+      "rootZoom": "1"
+    },
+    "browser": "141.0.7390.37"
+  },
+  "locale": {
+    "intended": "fa_IR, right-to-left, verified from the served document rather than the request",
+    "samples": [
+      {
+        "page": "dashboard",
+        "viewport": "320",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 1,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "dashboard",
+        "viewport": "375",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 1,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "dashboard",
+        "viewport": "768",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 1,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "dashboard",
+        "viewport": "1024",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 1,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "dashboard",
+        "viewport": "1440",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 1,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "dashboard",
+        "viewport": "layout-space-640x512",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 1,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "health",
+        "viewport": "320",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 1,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "health",
+        "viewport": "375",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 1,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      }
+    ]
+  },
+  "total": 252,
   "failed": 0,
   "foreign_findings": [],
   "blocked_external_hosts": [
@@ -71,6 +196,13 @@
     },
     {
       "page": "dashboard",
+      "viewport": "320",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
+    },
+    {
+      "page": "dashboard",
       "viewport": "375",
       "check": "no-horizontal-page-scroll",
       "ok": true,
@@ -117,6 +249,13 @@
       "check": "axe-whole-page-recorded",
       "ok": true,
       "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "dashboard",
@@ -169,6 +308,13 @@
     },
     {
       "page": "dashboard",
+      "viewport": "768",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
+    },
+    {
+      "page": "dashboard",
       "viewport": "1024",
       "check": "no-horizontal-page-scroll",
       "ok": true,
@@ -215,6 +361,13 @@
       "check": "axe-whole-page-recorded",
       "ok": true,
       "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "dashboard",
@@ -267,80 +420,101 @@
     },
     {
       "page": "dashboard",
-      "viewport": "keyboard",
-      "check": "skip-link-is-the-first-plugin-stop",
+      "viewport": "1440",
+      "check": "wp-admin-is-fa-IR-rtl",
       "ok": true,
-      "detail": "first plugin stop = .tmc-skip"
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "dashboard",
       "viewport": "keyboard",
-      "check": "reaches-controls",
+      "check": "skip-link-is-the-first-plugin-stop",
       "ok": true,
-      "detail": "9 stops inside .tmc-admin"
+      "detail": "after 58 WordPress chrome stops, the first stop inside .tmc-admin is .tmc-skip (real Tab presses, no focus() and no tabindex change)"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "keyboard",
+      "check": "every-plugin-control-is-reachable",
+      "ok": true,
+      "detail": "10/10 reached"
     },
     {
       "page": "dashboard",
       "viewport": "keyboard",
       "check": "focus-visible",
       "ok": true,
-      "detail": "every plugin stop shows a ring"
+      "detail": "all 10 plugin stops show a ring"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "keyboard",
+      "check": "skip-link-reachable-by-tab",
+      "ok": true,
+      "detail": "reached by Tab"
     },
     {
       "page": "dashboard",
       "viewport": "keyboard",
       "check": "skip-link-reaches-main",
       "ok": true,
-      "detail": "hash=#tmc-main focusedMain=true"
+      "detail": "hash=#tmc-main focusMovedToTarget=true activeElement=<main id=\"tmc-main\">"
     },
     {
       "page": "dashboard",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "no-horizontal-page-scroll",
       "ok": true,
-      "detail": "scrollWidth=640 clientWidth=640 (1280x1024 at 200%)"
+      "detail": "scrollWidth=640 clientWidth=640 (emulated layout space of 1280x1024 at 200% — viewport emulation, not zoom)"
     },
     {
       "page": "dashboard",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "no-element-overflow",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "dashboard",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "touch-target-44px",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "dashboard",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "no-js-errors",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "dashboard",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "plugin-assets-load",
       "ok": true,
       "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
     },
     {
       "page": "dashboard",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "axe-wcag-aa-plugin",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "dashboard",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "axe-whole-page-recorded",
       "ok": true,
       "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "layout-space-640x512",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "health",
@@ -393,6 +567,13 @@
     },
     {
       "page": "health",
+      "viewport": "320",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
+    },
+    {
+      "page": "health",
       "viewport": "375",
       "check": "no-horizontal-page-scroll",
       "ok": true,
@@ -439,6 +620,13 @@
       "check": "axe-whole-page-recorded",
       "ok": true,
       "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "health",
@@ -491,6 +679,13 @@
     },
     {
       "page": "health",
+      "viewport": "768",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
+    },
+    {
+      "page": "health",
       "viewport": "1024",
       "check": "no-horizontal-page-scroll",
       "ok": true,
@@ -537,6 +732,13 @@
       "check": "axe-whole-page-recorded",
       "ok": true,
       "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "health",
@@ -589,80 +791,101 @@
     },
     {
       "page": "health",
-      "viewport": "keyboard",
-      "check": "skip-link-is-the-first-plugin-stop",
+      "viewport": "1440",
+      "check": "wp-admin-is-fa-IR-rtl",
       "ok": true,
-      "detail": "first plugin stop = .tmc-skip"
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "health",
       "viewport": "keyboard",
-      "check": "reaches-controls",
+      "check": "skip-link-is-the-first-plugin-stop",
       "ok": true,
-      "detail": "5 stops inside .tmc-admin"
+      "detail": "after 58 WordPress chrome stops, the first stop inside .tmc-admin is .tmc-skip (real Tab presses, no focus() and no tabindex change)"
+    },
+    {
+      "page": "health",
+      "viewport": "keyboard",
+      "check": "every-plugin-control-is-reachable",
+      "ok": true,
+      "detail": "6/6 reached"
     },
     {
       "page": "health",
       "viewport": "keyboard",
       "check": "focus-visible",
       "ok": true,
-      "detail": "every plugin stop shows a ring"
+      "detail": "all 6 plugin stops show a ring"
+    },
+    {
+      "page": "health",
+      "viewport": "keyboard",
+      "check": "skip-link-reachable-by-tab",
+      "ok": true,
+      "detail": "reached by Tab"
     },
     {
       "page": "health",
       "viewport": "keyboard",
       "check": "skip-link-reaches-main",
       "ok": true,
-      "detail": "hash=#tmc-main focusedMain=true"
+      "detail": "hash=#tmc-main focusMovedToTarget=true activeElement=<main id=\"tmc-main\">"
     },
     {
       "page": "health",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "no-horizontal-page-scroll",
       "ok": true,
-      "detail": "scrollWidth=640 clientWidth=640 (1280x1024 at 200%)"
+      "detail": "scrollWidth=640 clientWidth=640 (emulated layout space of 1280x1024 at 200% — viewport emulation, not zoom)"
     },
     {
       "page": "health",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "no-element-overflow",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "health",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "touch-target-44px",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "health",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "no-js-errors",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "health",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "plugin-assets-load",
       "ok": true,
       "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
     },
     {
       "page": "health",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "axe-wcag-aa-plugin",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "health",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "axe-whole-page-recorded",
       "ok": true,
       "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "layout-space-640x512",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "settings",
@@ -715,6 +938,13 @@
     },
     {
       "page": "settings",
+      "viewport": "320",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
+    },
+    {
+      "page": "settings",
       "viewport": "375",
       "check": "no-horizontal-page-scroll",
       "ok": true,
@@ -761,6 +991,13 @@
       "check": "axe-whole-page-recorded",
       "ok": true,
       "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "settings",
@@ -813,6 +1050,13 @@
     },
     {
       "page": "settings",
+      "viewport": "768",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
+    },
+    {
+      "page": "settings",
       "viewport": "1024",
       "check": "no-horizontal-page-scroll",
       "ok": true,
@@ -859,6 +1103,13 @@
       "check": "axe-whole-page-recorded",
       "ok": true,
       "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "settings",
@@ -911,80 +1162,101 @@
     },
     {
       "page": "settings",
-      "viewport": "keyboard",
-      "check": "skip-link-is-the-first-plugin-stop",
+      "viewport": "1440",
+      "check": "wp-admin-is-fa-IR-rtl",
       "ok": true,
-      "detail": "first plugin stop = .tmc-skip"
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "settings",
       "viewport": "keyboard",
-      "check": "reaches-controls",
+      "check": "skip-link-is-the-first-plugin-stop",
       "ok": true,
-      "detail": "9 stops inside .tmc-admin"
+      "detail": "after 58 WordPress chrome stops, the first stop inside .tmc-admin is .tmc-skip (real Tab presses, no focus() and no tabindex change)"
+    },
+    {
+      "page": "settings",
+      "viewport": "keyboard",
+      "check": "every-plugin-control-is-reachable",
+      "ok": true,
+      "detail": "10/10 reached"
     },
     {
       "page": "settings",
       "viewport": "keyboard",
       "check": "focus-visible",
       "ok": true,
-      "detail": "every plugin stop shows a ring"
+      "detail": "all 10 plugin stops show a ring"
+    },
+    {
+      "page": "settings",
+      "viewport": "keyboard",
+      "check": "skip-link-reachable-by-tab",
+      "ok": true,
+      "detail": "reached by Tab"
     },
     {
       "page": "settings",
       "viewport": "keyboard",
       "check": "skip-link-reaches-main",
       "ok": true,
-      "detail": "hash=#tmc-main focusedMain=true"
+      "detail": "hash=#tmc-main focusMovedToTarget=true activeElement=<main id=\"tmc-main\">"
     },
     {
       "page": "settings",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "no-horizontal-page-scroll",
       "ok": true,
-      "detail": "scrollWidth=640 clientWidth=640 (1280x1024 at 200%)"
+      "detail": "scrollWidth=640 clientWidth=640 (emulated layout space of 1280x1024 at 200% — viewport emulation, not zoom)"
     },
     {
       "page": "settings",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "no-element-overflow",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "settings",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "touch-target-44px",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "settings",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "no-js-errors",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "settings",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "plugin-assets-load",
       "ok": true,
       "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
     },
     {
       "page": "settings",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "axe-wcag-aa-plugin",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "settings",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "axe-whole-page-recorded",
       "ok": true,
       "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "layout-space-640x512",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "modules",
@@ -1037,6 +1309,13 @@
     },
     {
       "page": "modules",
+      "viewport": "320",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
+    },
+    {
+      "page": "modules",
       "viewport": "375",
       "check": "no-horizontal-page-scroll",
       "ok": true,
@@ -1083,6 +1362,13 @@
       "check": "axe-whole-page-recorded",
       "ok": true,
       "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "modules",
@@ -1135,6 +1421,13 @@
     },
     {
       "page": "modules",
+      "viewport": "768",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
+    },
+    {
+      "page": "modules",
       "viewport": "1024",
       "check": "no-horizontal-page-scroll",
       "ok": true,
@@ -1181,6 +1474,13 @@
       "check": "axe-whole-page-recorded",
       "ok": true,
       "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "modules",
@@ -1233,80 +1533,353 @@
     },
     {
       "page": "modules",
-      "viewport": "keyboard",
-      "check": "skip-link-is-the-first-plugin-stop",
+      "viewport": "1440",
+      "check": "wp-admin-is-fa-IR-rtl",
       "ok": true,
-      "detail": "first plugin stop = .tmc-skip"
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "modules",
       "viewport": "keyboard",
-      "check": "reaches-controls",
+      "check": "skip-link-is-the-first-plugin-stop",
       "ok": true,
-      "detail": "5 stops inside .tmc-admin"
+      "detail": "after 58 WordPress chrome stops, the first stop inside .tmc-admin is .tmc-skip (real Tab presses, no focus() and no tabindex change)"
+    },
+    {
+      "page": "modules",
+      "viewport": "keyboard",
+      "check": "every-plugin-control-is-reachable",
+      "ok": true,
+      "detail": "6/6 reached"
     },
     {
       "page": "modules",
       "viewport": "keyboard",
       "check": "focus-visible",
       "ok": true,
-      "detail": "every plugin stop shows a ring"
+      "detail": "all 6 plugin stops show a ring"
+    },
+    {
+      "page": "modules",
+      "viewport": "keyboard",
+      "check": "skip-link-reachable-by-tab",
+      "ok": true,
+      "detail": "reached by Tab"
     },
     {
       "page": "modules",
       "viewport": "keyboard",
       "check": "skip-link-reaches-main",
       "ok": true,
-      "detail": "hash=#tmc-main focusedMain=true"
+      "detail": "hash=#tmc-main focusMovedToTarget=true activeElement=<main id=\"tmc-main\">"
     },
     {
       "page": "modules",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "no-horizontal-page-scroll",
       "ok": true,
-      "detail": "scrollWidth=640 clientWidth=640 (1280x1024 at 200%)"
+      "detail": "scrollWidth=640 clientWidth=640 (emulated layout space of 1280x1024 at 200% — viewport emulation, not zoom)"
     },
     {
       "page": "modules",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "no-element-overflow",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "modules",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "touch-target-44px",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "modules",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "no-js-errors",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "modules",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "plugin-assets-load",
       "ok": true,
       "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
     },
     {
       "page": "modules",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "axe-wcag-aa-plugin",
       "ok": true,
       "detail": "none"
     },
     {
       "page": "modules",
-      "viewport": "zoom200",
+      "viewport": "layout-space-640x512",
       "check": "axe-whole-page-recorded",
       "ok": true,
       "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "layout-space-640x512",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200-browser",
+      "check": "browser-really-scaled",
+      "ok": true,
+      "detail": "devicePixelRatio=2 innerWidth=640 outerWidth=640 screen=400x300 narrowMediaQuery=true rootZoom=1 (no CDP viewport override)"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200-browser",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (real browser scaling: 1280x1024 physical window, device scale factor 2)"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200-browser",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200-browser",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200-browser",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200-browser",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200-browser",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200-browser",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "zoom200-browser",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200-browser",
+      "check": "browser-really-scaled",
+      "ok": true,
+      "detail": "devicePixelRatio=2 innerWidth=640 outerWidth=640 screen=400x300 narrowMediaQuery=true rootZoom=1 (no CDP viewport override)"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200-browser",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (real browser scaling: 1280x1024 physical window, device scale factor 2)"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200-browser",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200-browser",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200-browser",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200-browser",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200-browser",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200-browser",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "zoom200-browser",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200-browser",
+      "check": "browser-really-scaled",
+      "ok": true,
+      "detail": "devicePixelRatio=2 innerWidth=640 outerWidth=640 screen=400x300 narrowMediaQuery=true rootZoom=1 (no CDP viewport override)"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200-browser",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (real browser scaling: 1280x1024 physical window, device scale factor 2)"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200-browser",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200-browser",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200-browser",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200-browser",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200-browser",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200-browser",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "zoom200-browser",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200-browser",
+      "check": "browser-really-scaled",
+      "ok": true,
+      "detail": "devicePixelRatio=2 innerWidth=640 outerWidth=640 screen=400x300 narrowMediaQuery=true rootZoom=1 (no CDP viewport override)"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200-browser",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (real browser scaling: 1280x1024 physical window, device scale factor 2)"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200-browser",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200-browser",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200-browser",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200-browser",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200-browser",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200-browser",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "zoom200-browser",
+      "check": "wp-admin-is-fa-IR-rtl",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=1"
     },
     {
       "page": "settings-error",
