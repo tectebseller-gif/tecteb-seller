@@ -60,7 +60,25 @@ bash tools/build.sh                         # dist/ZIP + SHA256SUMS + source arc
 - تنها مخزن محلی و DB آزمایشی disposable با داده مصنوعی قابل تغییر است.
 - `git reset --hard`، clean مخرب و overwrite فایل کاربر ممنوع.
 - هیچ افزونه موجودی (از جمله دکان) حذف/غیرفعال/ویرایش نمی‌شود.
-- Skillهای حوزه‌ای نصب نیستند؛ قواعد پرامپت فاز ۱ لازم‌الاجرا هستند.
+- Skillهای حوزه‌ای وردپرس از ۱۱ سپتامبر نصب‌اند (`docs/tooling-setup.md`)،
+  اما جای قواعد پرامپت فاز ۱ را نمی‌گیرند؛ در تعارض، دستور مالک و پرامپت مقدم است.
 - محیط ساخت: PHP 8.4 فقط؛ WP/WC قابل دانلود نیست → آزمون‌های وابسته
   `Not Run` می‌مانند، نه `Passed`. تصاویر خارج از WordPress «نمونه رابط»
   هستند، نه اثبات کارکرد.
+
+## ابزارهای دستیار (پلاگین و مهارت)
+پیکربندی در `.claude/settings.json` (scope=project) و رونوشت مهارت‌ها در
+`.claude/skills/`. گزارش کامل با شواهد: `docs/tooling-setup.md`.
+
+- پلاگین‌های marketplace رسمی (`anthropics/claude-code`): `frontend-design`،
+  `pr-review-toolkit`، `security-guidance`. کدشان **در مخزن نیست**؛ هر محیط
+  تازه باید از GitHub بگیردشان.
+- مهارت‌های `WordPress/agent-skills` @ `d87ee69`: `wordpress-router`،
+  `wp-project-triage`، `wp-plugin-development`، `wp-rest-api`، `wp-performance`.
+  رونوشت بالادست‌اند — دست‌نویس ویرایش نکنید (`.claude/skills/UPSTREAM.md`).
+- Playwright ۱٫۶۳ + axe-core ۴٫۱۳ از قبل نصب‌اند و **نصب دوباره نمی‌شوند**.
+  مرورگر باید با `executablePath` صریح اجرا شود (`/opt/pw-browsers/chromium`)؛
+  بررسی سلامت: `cd tools/browser && node check-toolchain.mjs`.
+- `check.mjs` و `check-wpadmin.mjs` را بی‌دلیل دوباره اجرا نکنید؛ شواهد
+  پذیرفته‌شده را بازنویسی می‌کنند.
+- Figma و PHP LSP عمداً نصب نشده‌اند.

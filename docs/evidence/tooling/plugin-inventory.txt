@@ -1,0 +1,93 @@
+# فهرست پلاگین‌ها و موجودی اجزا — 2026-09-11T16:03:46Z
+# marketplace: github anthropics/claude-code @ 536a2e23d9e28586f81f17b3535281b5f2995a70
+
+$ claude plugin marketplace list
+Configured marketplaces:
+
+  > claude-code-plugins
+    Source: GitHub (anthropics/claude-code)
+
+
+$ claude plugin list
+Installed plugins:
+
+  > frontend-design@claude-code-plugins
+    Version: 1.1.0
+    Scope: project
+    Status: √ enabled
+
+  > pr-review-toolkit@claude-code-plugins
+    Version: 1.0.0
+    Scope: project
+    Status: √ enabled
+
+  > security-guidance@claude-code-plugins
+    Version: 2.0.0
+    Scope: project
+    Status: √ enabled
+
+
+$ claude plugin details frontend-design
+frontend-design 1.1.0
+  Description: Create distinctive, production-grade frontend interfaces with high design quality. Generates creative, polished code that avoids generic AI aesthetics.
+  Source: frontend-design@claude-code-plugins
+
+Component inventory
+  Skills (1)  frontend-design
+  Agents (0)
+  Hooks (0)
+  MCP servers (0)
+  LSP servers (0)
+
+Projected token cost
+  Always-on:   ~78 tok   added to every session
+
+Per-component (rounded)
+  component        always-on  on-invoke
+  frontend-design        ~80      ~2.7k
+
+  On-invoke cost is paid each time a skill or agent fires.
+  Token counts are estimates and may differ from actual usage.
+
+$ claude plugin details pr-review-toolkit
+pr-review-toolkit 1.0.0
+  Description: Comprehensive PR review agents specializing in comments, tests, error handling, type design, code quality, and code simplification
+  Source: pr-review-toolkit@claude-code-plugins
+
+Component inventory
+  Skills (1)  review-pr
+  Agents (6)  comment-analyzer, type-design-analyzer, code-simplifier, pr-test-analyzer, code-reviewer, silent-failure-hunter
+  Hooks (0)
+  MCP servers (0)
+  LSP servers (0)
+
+Projected token cost
+  Always-on:   ~2,877 tok   added to every session
+
+Per-component (rounded)
+  component              always-on  on-invoke
+  comment-analyzer            ~660      ~1.3k
+  type-design-analyzer        ~480      ~1.3k
+  code-simplifier              ~40       ~980
+  pr-test-analyzer            ~510      ~1.2k
+  code-reviewer               ~670       ~650
+  silent-failure-hunter       ~490      ~2.1k
+  review-pr                    ~30      ~1.6k
+
+  On-invoke cost is paid each time a skill or agent fires.
+  Token counts are estimates and may differ from actual usage.
+
+$ claude plugin details security-guidance
+security-guidance 2.0.0
+  Description: Security reminder hook that warns about potential security issues when editing files, including command injection, XSS, and unsafe code patterns
+  Source: security-guidance@claude-code-plugins
+
+Component inventory
+  Skills (0)
+  Agents (0)
+  Hooks (4)  SessionStart, UserPromptSubmit, PostToolUse, Stop  (harness-only — no model context cost)
+  MCP servers (0)
+  LSP servers (0)
+
+Projected token cost
+  Always-on:   ~0 tok   added to every session

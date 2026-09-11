@@ -1,0 +1,15 @@
+# رویدادهای hook در همان پروب جلسهٔ تازه (stream-json) — 2026-09-11T16:03:42Z
+# دستور: claude -p "... Write tool ..." --permission-mode acceptEdits --output-format stream-json --verbose
+# فایل نوشته‌شده در scratchpad بود، نه در مخزن.
+# hookهای میزبان فقط SessionStart (git identity) و Stop (git check) هستند؛
+# کلیدهای sdk_bootstrap / skip_reason / preexisting_untracked_excluded فقط در
+# hookهای security-guidance وجود دارند (grep روی سورس پلاگین).
+
+{"subtype": "hook_started", "hook_name": "SessionStart:startup", "hook_event": "SessionStart"}
+{"subtype": "hook_response", "hook_name": "SessionStart:startup", "hook_event": "SessionStart", "outcome": "success", "exit_code": 0, "stdout": "{\"async\": true, \"asyncTimeout\": 180000}\n{\"metrics\": {\"sdk_bootstrap\": 5, \"sdk_bootstrap_ms\": 0, \"pv\": 20000}}\n"}
+{"subtype": "hook_started", "hook_name": "UserPromptSubmit", "hook_event": "UserPromptSubmit"}
+{"subtype": "hook_response", "hook_name": "UserPromptSubmit", "hook_event": "UserPromptSubmit", "outcome": "success", "exit_code": 0, "stdout": ""}
+{"subtype": "hook_started", "hook_name": "PostToolUse:Write", "hook_event": "PostToolUse"}
+{"subtype": "hook_response", "hook_name": "PostToolUse:Write", "hook_event": "PostToolUse", "outcome": "success", "exit_code": 0, "stdout": ""}
+{"subtype": "hook_started", "hook_name": "Stop", "hook_event": "Stop"}
+{"subtype": "hook_response", "hook_name": "Stop", "hook_event": "Stop", "outcome": "success", "exit_code": 0, "stdout": "{\"metrics\": {\"pv\": 20000, \"skipped\": true, \"skip_reason\": 9, \"fire_index\": 1, \"diff_strategy_v2\": true, \"dirty_now_count\": 0, \"changed_since_count\": 0, \"review_set_count\": 0, \"preexisting_untracked_excluded\": 37, \"touched_paths_count\": 1}}\n"}

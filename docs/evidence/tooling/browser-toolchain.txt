@@ -1,0 +1,10 @@
+node v22.22.2 · playwright 1.63.0 · axe-core 4.13.0 · @axe-core/playwright 4.13.0
+PASS  chromium-binary-present  — /opt/pw-browsers/chromium -> /opt/pw-browsers/chromium-1194/chrome-linux/chrome
+PASS  playwright-bundled-build-differs  — playwright would use /opt/pw-browsers/chromium-1243/chrome-linux64/chrome (absent in this image)
+PASS  chromium-launches  — version 141.0.7390.37
+PASS  renders-a-harness-page  — <title> = "پیشخوان — با WooCommerce — نمونه رابط (خارج WordPress)"
+PASS  no-js-errors-on-that-page  — none
+PASS  screenshot-written  — docs/evidence/tooling/browser-toolchain-dashboard-with-wc-1440.png (109550 bytes)
+PASS  axe-runs-in-the-page  — axe engine 4.13.0: 20 passes, 0 violations, 0 incomplete
+
+7 checks, 0 failed

@@ -1,0 +1,61 @@
+{
+  "tool": "check-toolchain",
+  "checks": [
+    {
+      "name": "chromium-binary-present",
+      "ok": true,
+      "detail": "/opt/pw-browsers/chromium -> /opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+    },
+    {
+      "name": "playwright-bundled-build-differs",
+      "ok": true,
+      "detail": "playwright would use /opt/pw-browsers/chromium-1243/chrome-linux64/chrome (absent in this image)"
+    },
+    {
+      "name": "chromium-launches",
+      "ok": true,
+      "detail": "version 141.0.7390.37"
+    },
+    {
+      "name": "renders-a-harness-page",
+      "ok": true,
+      "detail": "<title> = \"پیشخوان — با WooCommerce — نمونه رابط (خارج WordPress)\""
+    },
+    {
+      "name": "no-js-errors-on-that-page",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "name": "screenshot-written",
+      "ok": true,
+      "detail": "docs/evidence/tooling/browser-toolchain-dashboard-with-wc-1440.png (109550 bytes)"
+    },
+    {
+      "name": "axe-runs-in-the-page",
+      "ok": true,
+      "detail": "axe engine 4.13.0: 20 passes, 0 violations, 0 incomplete"
+    }
+  ],
+  "versions": {
+    "node": "v22.22.2",
+    "playwright": "1.63.0",
+    "axe_core": "4.13.0",
+    "axe_playwright": "4.13.0",
+    "browsers_path": "/opt/pw-browsers",
+    "chromium_executable": "/opt/pw-browsers/chromium",
+    "chromium": "141.0.7390.37"
+  },
+  "screenshot": {
+    "file": "docs/evidence/tooling/browser-toolchain-dashboard-with-wc-1440.png",
+    "bytes": 109550
+  },
+  "axe": {
+    "engine": "4.13.0",
+    "passes": 20,
+    "violations": 0,
+    "incomplete": 0,
+    "note": "smoke check of the axe integration on an already-delivered harness page; NOT a new accessibility result for wp-admin"
+  },
+  "ok": true
+}
