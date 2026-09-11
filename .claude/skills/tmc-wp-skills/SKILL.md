@@ -43,6 +43,10 @@ repo is a plugin whatever the script says. It also reports
 `tests.hasPlaywright: false` because it only inspects a root `package.json`;
 Playwright lives in `tools/browser/package.json`.
 
+`wp-plugin-development`'s own `scripts/detect_plugins.mjs` shares the regex and
+reports `count: 0` here for the same reason. Both scripts are wrong about this
+repo in the same way; neither is wrong about anything else.
+
 **Run the wrapper instead of the upstream script directly:**
 
 ```bash
