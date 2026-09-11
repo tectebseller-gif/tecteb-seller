@@ -19,15 +19,29 @@ final class PackagingTest extends TestCase
         return dirname(__DIR__, 2);
     }
 
+    /** The delivered package carries its version in the filename, so two
+     *  deliveries can never be confused for one another. */
+    private static function version(): string
+    {
+        $header = (string) file_get_contents(self::root() . '/' . self::SLUG . '.php');
+        preg_match('/^\s*\*\s*Version:\s*([0-9A-Za-z.\-+]+)/m', $header, $m);
+        return $m[1] ?? '';
+    }
+
+    private static function zipName(): string
+    {
+        return self::SLUG . '-' . self::version() . '.zip';
+    }
+
     private static function zip(): string
     {
-        return self::root() . '/dist/' . self::SLUG . '.zip';
+        return self::root() . '/dist/' . self::zipName();
     }
 
     public static function setUpBeforeClass(): void
     {
         if (!is_file(self::zip())) {
-            throw new \RuntimeException('dist/' . self::SLUG . '.zip is missing — run tools/build.sh first.');
+            throw new \RuntimeException('dist/' . self::zipName() . ' is missing — run tools/build.sh first.');
         }
     }
 
@@ -136,7 +150,7 @@ final class PackagingTest extends TestCase
         $sums = self::root() . '/dist/SHA256SUMS';
         self::assertFileExists($sums);
         $content = (string) file_get_contents($sums);
-        self::assertStringContainsString(hash_file('sha256', self::zip()) . '  ' . self::SLUG . '.zip', $content);
+        self::assertStringContainsString(hash_file('sha256', self::zip()) . '  ' . self::zipName(), $content);
         self::assertMatchesRegularExpression('/^[0-9a-f]{64}\s+' . preg_quote(self::SLUG, '/') . '-source-[0-9A-Za-z.\-+]+\.tar\.gz$/m', $content);
     }
 
@@ -258,7 +272,15 @@ final class PackagingTest extends TestCase
         self::assertMatchesRegularExpression('/^\s*\*\s*Plugin Name:\s*Tecteb Marketplace Core$/m', $header);
         self::assertMatchesRegularExpression('/^\s*\*\s*Text Domain:\s*tecteb-marketplace-core$/m', $header);
         self::assertMatchesRegularExpression('/^\s*\*\s*Requires PHP:\s*8\.1$/m', $header);
-        self::assertMatchesRegularExpression('/^\s*\*\s*Version:\s*0\.1\.0-alpha\.1$/m', $header);
+        // Pinning one literal version here meant editing this test on every
+        // delivery, which tests nothing. What must hold is that the version is
+        // still in the provisional 0.1.0-alpha line (F-01 is open) and that
+        // every place that declares it agrees — a package whose header, its
+        // own constant and readme.txt disagree is not deliverable.
+        self::assertMatchesRegularExpression('/^\s*\*\s*Version:\s*0\.1\.0-alpha\.\d+$/m', $header);
+        $version = self::version();
+        self::assertStringContainsString("define( 'TMC_PLUGIN_VERSION', '{$version}' );", $header);
+        self::assertStringContainsString("Stable tag: {$version}", (string) file_get_contents(self::root() . '/readme.txt'));
         // The header must keep saying where this package has and has NOT been
         // installed. It said "تأییدنشده" while no install gate had ever run;
         // after the acceptance run it says the gates passed on a disposable
@@ -279,7 +301,13 @@ final class PackagingTest extends TestCase
         $notice = self::root() . '/dist/READ-ME-BEFORE-INSTALL.txt';
         self::assertFileExists($notice);
         $text = (string) file_get_contents($notice);
-        self::assertStringContainsString('نصب روی سایت تک‌طب هنوز انجام نشده', $text);
+        // The owner installed the PREVIOUS version on staging themselves. The
+        // notice has to say both true things: this package is installed
+        // nowhere, and that staging report is the owner's evidence, not a
+        // test we ran.
+        self::assertStringContainsString('روی هیچ سایت واقعی نصب نشده', $text);
+        self::assertStringContainsString('شاهدِ ارائه‌شده توسط مالک', $text);
+        self::assertStringContainsString('هیچ آزمونی از سوی ما روی آن سایت اجرا نشده', $text);
         self::assertStringContainsString('Not Run', $text);
         self::assertStringContainsString('8.1.34', $text, 'the untested PHP of the owner site is named');
         self::assertStringContainsString('docs/evidence/acceptance/', $text, 'the notice points at the raw gate output');

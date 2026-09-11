@@ -1,0 +1,3 @@
+Plugin 'tecteb-marketplace-core' activated.
+Success: Activated 1 of 1 plugins.
+exit=0

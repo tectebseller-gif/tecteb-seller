@@ -1,0 +1,17 @@
+HTTP/1.1 200 OK
+Host: 127.0.0.1:8080
+Date: Fri, 11 Sep 2026 17:31:52 GMT
+Connection: close
+X-Powered-By: PHP/8.1.32
+Content-Type: application/json; charset=UTF-8
+X-Robots-Tag: noindex
+Link: <http://127.0.0.1:8080/wp-json/>; rel="https://api.w.org/"
+Access-Control-Expose-Headers: X-WP-Total, X-WP-TotalPages, Link
+Access-Control-Allow-Headers: Authorization, X-WP-Nonce, Content-Disposition, Content-MD5, Content-Type
+X-WP-Nonce: 70dcf5732a
+Pragma: no-cache
+X-Content-Type-Options: nosniff
+Allow: GET
+Expires: Wed, 11 Jan 1984 05:00:00 GMT
+Cache-Control: no-cache, must-revalidate, max-age=0, no-store, private
+

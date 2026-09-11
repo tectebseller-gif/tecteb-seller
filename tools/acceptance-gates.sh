@@ -142,6 +142,46 @@ print('keys:', sorted(d)); print('hpos.enabled =', repr(d['dependencies']['hpos'
 grep -Eic 'wp-content|/var/|/home/|Stack trace|PHP [0-9]|user_email' "$EV/G-05-ok.json" > "$EV/G-05-leak.txt"
 { cat "$EV/G-05-cache-control.txt"; cat "$EV/G-05-schema.txt"; echo "leaks=$(cat "$EV/G-05-leak.txt")"; } | tee -a "$EV/G-05-http.txt"
 
+# ---------- G-07: the three HPOS modes, set for real ----------
+# Reading woocommerce_custom_orders_table_enabled is NOT enough: WooCommerce
+# only treats HPOS as effective once the tables exist and sync is resolved, so
+# the effective state is read back from WooCommerce itself (installation.md
+# G-07). The owner reports HPOS ENABLED on staging, which is why this gate
+# runs on every package now.
+echo "########## G-07 ##########"
+wpx plugin activate woocommerce > "$EV/G-07-wc-activate.txt" 2>&1
+effective() {
+  wpx eval 'echo "hpos_enabled=" . (\Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled() ? "1" : "0") . "\n";'
+  wpx eval 'echo "sync_enabled=" . (get_option("woocommerce_custom_orders_table_data_sync_enabled") === "yes" ? "1" : "0") . "\n";'
+  wpx eval 'echo "table_exists=" . ($GLOBALS["wpdb"]->get_var("SHOW TABLES LIKE \"" . $GLOBALS["wpdb"]->prefix . "wc_orders\"") ? "1" : "0") . "\n";'
+}
+wpx wc hpos compatibility-info > "$EV/G-07-compatibility-info.txt" 2>&1 || :
+for mode in hpos-sync-on hpos-sync-off legacy; do
+  case "$mode" in
+    # `compatibility-mode` takes a SUBCOMMAND, not a flag: `--enable` was
+    # accepted silently as a usage message and left sync off, so both modes
+    # looked identical in the first run. Verified against `wp help`.
+    hpos-sync-on)  wpx wc hpos enable  > "$EV/G-07-$mode-apply.txt" 2>&1
+                   wpx wc hpos compatibility-mode enable  >> "$EV/G-07-$mode-apply.txt" 2>&1 ;;
+    hpos-sync-off) wpx wc hpos enable  > "$EV/G-07-$mode-apply.txt" 2>&1
+                   wpx wc hpos compatibility-mode disable >> "$EV/G-07-$mode-apply.txt" 2>&1 ;;
+    legacy)        wpx wc hpos disable > "$EV/G-07-$mode-apply.txt" 2>&1 ;;
+  esac
+  effective > "$EV/G-07-$mode-effective.txt" 2>&1
+  mark
+  curl -s -b "$EV/cookies-admin.txt" -H "X-WP-Nonce: $RN" "$REST" -o "$EV/G-07-$mode-health.json"
+  python3 -c "
+import json
+d = json.load(open('$EV/G-07-$mode-health.json'))
+h = d['dependencies']['hpos']
+print('reported.enabled =', repr(h['enabled']))
+print('reported.tested  =', repr(h.get('tested')))
+" > "$EV/G-07-$mode-reported.txt" 2>&1
+  slice "G-07-$mode"; errs "G-07-$mode" > /dev/null
+  { echo "--- $mode ---"; cat "$EV/G-07-$mode-effective.txt"; cat "$EV/G-07-$mode-reported.txt";
+    echo "plugin_errors=$(wc -l < "$EV/G-07-$mode-plugin-errors.txt")"; } | tee -a "$EV/G-07-summary.txt"
+done
+
 echo "########## G-08 ##########"
 for p in edit.php index.php plugins.php options-general.php users.php; do
   code=$(curl -s -b "$EV/cookies-admin.txt" -o "$EV/G-08-$p.html" -w '%{http_code}' "$SITE/wp-admin/$p")
@@ -159,4 +199,27 @@ echo "########## G-09 ##########"
 curl -s -b "$EV/cookies-admin.txt" "$SITE/wp-admin/site-health.php?tab=debug" -o "$EV/G-09-site-health.html"
 grep -A3 -i 'php_version' "$EV/G-09-site-health.html" | sed 's/<[^>]*>//g' | tr -s ' \n' ' \n' | grep -m1 -E "[0-9]+\.[0-9]+\.[0-9]+" | tee -a "$EV/G-09-php.txt"
 rm -f "$EV/cookies-admin.txt" "$EV/cookies-none.txt" 2>/dev/null
-echo "########## gates G-01..G-05, G-08, G-09 finished ##########"
+# ---------- G-06: data survives deactivation AND deletion ----------
+# Destructive on purpose and therefore LAST: it deletes the plugin (which runs
+# uninstall.php) and then reinstalls it so the site is left usable.
+echo "########## G-06 ##########"
+snapshot() {
+  { echo "--- settings ---"; wpx option get tmc_settings --format=json
+    echo "--- schema ---";   wpx option get tmc_schema_version
+    echo "--- caps ---";     wpx cap list administrator | grep tmc_ | sort
+    echo "--- audit ---";    wpx db query "SELECT id,event_type,correlation_id FROM $(wpx db prefix)tmc_audit_events ORDER BY id" --skip-column-names
+    echo "--- counts ---";   wpx post list --format=count; wpx user list --format=count; } 2>&1
+}
+snapshot > "$EV/G-06-before.txt"
+wpx plugin deactivate tecteb-marketplace-core > "$EV/G-06-deactivate.txt" 2>&1
+wpx plugin delete tecteb-marketplace-core     > "$EV/G-06-delete.txt" 2>&1
+snapshot > "$EV/G-06-after.txt"
+diff "$EV/G-06-before.txt" "$EV/G-06-after.txt" > "$EV/G-06-diff.txt" || :
+comm -23 <(sort "$EV/G-06-before.txt") <(sort "$EV/G-06-after.txt") > "$EV/G-06-lost.txt"
+{ echo "lost_lines=$(wc -l < "$EV/G-06-lost.txt")   (expected 0)"
+  echo "added_lines=$(grep -c '^>' "$EV/G-06-diff.txt" || true)   (expected 1: the plugin.deactivated audit row)"
+  cat "$EV/G-06-lost.txt"; } | tee "$EV/G-06-summary.txt"
+wpx plugin install "$PKG" --force > "$EV/G-06-reinstall.txt" 2>&1
+wpx plugin activate tecteb-marketplace-core >> "$EV/G-06-reinstall.txt" 2>&1
+
+echo "########## gates G-01..G-09 finished ##########"

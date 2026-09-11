@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-11T16:59:19.863Z",
+  "generated_at": "2026-09-11T17:37:17.698Z",
   "scope": "The plugin's four pages inside a REAL wp-admin, signed in as an administrator. Scoped checks measure .tmc-admin only; axe also runs unscoped and attributes findings.",
   "site": "http://127.0.0.1:8080",
   "chromium": "141.0.7390.37",

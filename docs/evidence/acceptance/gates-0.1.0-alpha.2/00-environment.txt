@@ -1,0 +1,10 @@
+site_url        = http://127.0.0.1:8080  (disposable; synthetic data only)
+wordpress       = 7.1  (git tag 7.1, github.com/WordPress/WordPress)
+php_cli         = 8.1.32 / cli   [/home/user/php-src/sapi/cli/php]
+php_web         = 8.1.32|cli-server
+php_wp_cli      = 8.1.32
+mariadb         = 10.11.14-MariaDB-0ubuntu0.24.04.1
+wp_cli          = WP-CLI 2.12.0
+woocommerce_zip = 88837ea0504544fdb835078d39c68c6c4abde00cdb4af8f67027255ee8ae494c
+package_sha256  = eb6bb3abba8480c21fcc552b47bcda100758de6d97670b67f4e8dc5b1aee2ce9
+generated_at    = 2026-09-11T17:31:33Z

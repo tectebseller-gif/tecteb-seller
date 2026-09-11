@@ -1,0 +1,8 @@
+
+1 compatible plugin found:
+
+  Tecteb Marketplace Core
+
+0 incompatible plugins found
+
+0 uncertain plugins found

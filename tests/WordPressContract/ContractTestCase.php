@@ -21,7 +21,7 @@ use TmcWpStubs\State;
 abstract class ContractTestCase extends TestCase
 {
     public const MAIN_FILE = '/srv/www/wp-content/plugins/tecteb-marketplace-core/tecteb-marketplace-core.php';
-    public const VERSION = '0.1.0-alpha.1';
+    public const VERSION = '0.1.0-alpha.2';
 
     protected RecordingAuditRepository $audit;
     protected FakeDependencyProbe $probe;

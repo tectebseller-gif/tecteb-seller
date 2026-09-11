@@ -1,0 +1,21 @@
+--- hpos-sync-on ---
+hpos_enabled=1
+sync_enabled=1
+table_exists=1
+reported.enabled = True
+reported.tested  = None
+plugin_errors=0
+--- hpos-sync-off ---
+hpos_enabled=1
+sync_enabled=0
+table_exists=1
+reported.enabled = True
+reported.tested  = None
+plugin_errors=0
+--- legacy ---
+hpos_enabled=0
+sync_enabled=0
+table_exists=1
+reported.enabled = False
+reported.tested  = None
+plugin_errors=0

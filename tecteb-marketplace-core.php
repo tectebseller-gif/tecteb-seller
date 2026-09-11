@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name:       Tecteb Marketplace Core
- * Description:       هسته بازارگاه تک‌طب — زیرساخت و چهار صفحه مدیریت. نسخه آزمایشی (Alpha)؛ گیت‌های پذیرش روی WordPress یکبارمصرف قبول شدند، اما روی سایت تک‌طب نصب نشده است.
- * Version:           0.1.0-alpha.1
+ * Description:       هسته بازارگاه تک‌طب — زیرساخت و چهار صفحه مدیریت. نسخه آزمایشی (Alpha)؛ گیت‌های پذیرش روی WordPress یکبارمصرف قبول شدند، اما همین نسخه روی هیچ سایت واقعی نصب نشده است.
+ * Version:           0.1.0-alpha.2
  * Requires at least: 6.3
  * Requires PHP:      8.1
  * Author:            Tecteb
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 if ( ! defined( 'TMC_PLUGIN_VERSION' ) ) {
 	// TODO(F-01): placeholder taken from the prompt's empty-repository rule.
 	// It is NOT a lineage decision; see docs/decision-log.md §4 and F-01.
-	define( 'TMC_PLUGIN_VERSION', '0.1.0-alpha.1' );
+	define( 'TMC_PLUGIN_VERSION', '0.1.0-alpha.2' );
 }
 if ( ! defined( 'TMC_PLUGIN_FILE' ) ) {
 	define( 'TMC_PLUGIN_FILE', __FILE__ );

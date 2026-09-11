@@ -1,0 +1,2 @@
+Deleted 'tecteb-marketplace-core' plugin.
+Success: Deleted 1 of 1 plugins.

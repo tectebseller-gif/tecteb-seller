@@ -1,0 +1,3 @@
+Running pre-enable checks...
+Warning: HPOS is already enabled.
+Success: Compatibility mode disabled.

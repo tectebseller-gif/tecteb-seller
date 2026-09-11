@@ -19,7 +19,12 @@ STAGE="${DIST}/build-stage"   # not dot-prefixed: the purge below scans for dot-
 VERSION="$(grep -oP '^\s*\*\s*Version:\s*\K[0-9A-Za-z.\-+]+' "${SLUG}.php" | head -1)"
 [ -n "${VERSION}" ] || { echo "cannot read Version from ${SLUG}.php" >&2; exit 1; }
 
-rm -rf "${DIST}"
+# The ZIP name carries the version, and previously built packages are NOT
+# deleted: every delivered package must stay identifiable by name and hash
+# (owner's standing delivery rule). Only this version's artefacts and the
+# staging directory are replaced.
+ZIP="${DIST}/${SLUG}-${VERSION}.zip"
+rm -rf "${STAGE}" "${ZIP}"
 mkdir -p "${STAGE}/${SLUG}"
 
 # --- what ships -------------------------------------------------------------
@@ -49,7 +54,6 @@ find "${PAYLOAD}" -depth -type d \( -name vendor -o -name node_modules -o -name 
 SOURCE_DATE="${SOURCE_DATE_EPOCH:-1757203200}"
 find "${STAGE}" -exec touch -h -d "@${SOURCE_DATE}" {} +
 
-ZIP="${DIST}/${SLUG}.zip"
 ( cd "${STAGE}" && find . -type f | LC_ALL=C sort | sed 's|^\./||' | zip -q -X -9 "${ZIP}" -@ )
 
 # --- source archive (tests, docs, lockfile, build tooling) ------------------
@@ -95,40 +99,52 @@ tar --null --files-from="${LIST_OK}" --owner=0 --group=0 --numeric-owner \
 
 rm -rf "${STAGE}"
 
-( cd "${DIST}" && sha256sum "${SLUG}.zip" "$(basename "${SRC_ARCHIVE}")" > SHA256SUMS )
+# SHA256SUMS covers every package still in dist/, newest build included, so a
+# reviewer can identify any package they were sent, not only the latest.
+( cd "${DIST}" && ls -1 *.zip *.tar.gz 2>/dev/null | LC_ALL=C sort | xargs sha256sum > SHA256SUMS )
 
 cat > "${DIST}/READ-ME-BEFORE-INSTALL.txt" <<TXT
 بازارگاه تک‌طب — Tecteb Marketplace Core ${VERSION}
 
-وضعیت این بسته: گیت‌های پذیرش فاز ۱ روی WordPress یکبارمصرف قبول شدند
-====================================================================
-پروتکل بند ۴ docs/installation.md (گیت‌های G-01 تا G-09 به‌علاوه ارتقا و
-بازیابی) روی یک WordPress یکبارمصرف با داده مصنوعی اجرا شد و قبول شد:
+وضعیت این بسته
+==============
+گیت‌های پذیرش فاز ۱ روی یک WordPress یکبارمصرف با داده مصنوعی اجرا و قبول
+شدند. این بسته روی هیچ سایت واقعی نصب نشده است.
 
   WordPress 7.1 · WooCommerce 11.0.1 · MariaDB 10.11.14
-  دو اجرای کامل: PHP 8.1.32 و PHP 8.4.19
+  PHP 8.1.32 (CLI، وب و WP-CLI) — و پیش‌تر PHP 8.4.19
 
-به‌علاوه، دسترس‌پذیری و چیدمان روی همان wp-admin واقعی: پنج viewport
-(320/375/768/1024/1440)، زوم 200%، کیبورد و axe-core روی هر چهار صفحه —
-دو اجرا (با و بدون WooCommerce)، هرکدام 188 بررسی، صفر شکست.
+روی همان wp-admin واقعی، با زبان مدیریت fa_IR و RTL (بسته ترجمه حداقلی
+آزمایشی): پنج viewport (320/375/768/1024/1440)، شبیه‌سازی فضای چیدمان،
+device scale factor سطح مرورگر، کیبورد با Tab واقعی و axe-core —
+۲۸۰ بررسی، صفر شکست.
 
-خروجی خام هر گیت در docs/evidence/acceptance/ است.
+خروجی خام هر گیت در docs/evidence/acceptance/ است و شواهد بازطراحی در
+docs/evidence/redesign/.
 
-نصب روی سایت تک‌طب هنوز انجام نشده و در مجوز فعلی نیست.
-آنچه همچنان Not Run است:
+گزارش مالک درباره staging (شاهدِ ارائه‌شده توسط مالک، نه آزمون ما)
+================================================================
+نسخه قبلی 0.1.0-alpha.1 روی staging.tecteb.com نصب و فعال شده و مالک
+PHP 8.1.34، WordPress 7.1، WooCommerce 11.0.1 و HPOS فعال را گزارش کرده
+است. هیچ آزمونی از سوی ما روی آن سایت اجرا نشده است.
+
+آنچه همچنان Not Run است
+=======================
   - PHP 8.1.34 (نسخه دقیق سایت مالک؛ آنچه آزموده شد 8.1.32 است)
   - سرور وب واقعی (Apache/LiteSpeed + PHP-FPM)؛ اجرا با SAPI cli-server بود
   - تداخل با LiteSpeed / Hello Elementor / Persian Woo / Rank Math / WP Rocket
+    و افزونه‌های نصب‌شده سایت، از جمله دکان
   - بررسی دستی screen reader
   - مرورگرهای غیر Chromium (Firefox، Safari)
+  - زوم صفحه از منوی مرورگر و ترجمه رسمی فارسی وردپرس
 
 آنچه واقعاً آزموده شده و آنچه نشده، سطربه‌سطر در این فایل‌هاست:
-  docs/phase-1-report.md  بند ۳
+  docs/phase-1-report.md  بند ۳ و بند ۵
   docs/compatibility-matrix.md
   docs/installation.md
 
-تصاویر رابط در docs/evidence/screenshots «نمونه رابط (خارج WordPress)» هستند
-و اثبات کارکرد افزونه داخل wp-admin نیستند.
+تصاویر رابط در docs/evidence/screenshots «نمونه رابط (خارج WordPress)» هستند؛
+تصاویر docs/evidence/redesign از wp-admin واقعیِ محیط یکبارمصرف‌اند.
 TXT
 
 echo "--- dist ---"

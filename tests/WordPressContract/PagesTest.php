@@ -87,7 +87,7 @@ final class PagesTest extends ContractTestCase
         // The version is direction-isolated. Asserted by intent, not by the
         // exact attribute list: the chip gained a class when the layout was
         // rebuilt, and that must not read as the isolation disappearing.
-        self::assertMatchesRegularExpression('/<bdi[^>]*\bdir="ltr"[^>]*>0\.1\.0-alpha\.1<\/bdi>/u', $out);
+        self::assertMatchesRegularExpression('/<bdi[^>]*\bdir="ltr"[^>]*>' . preg_quote(self::VERSION, '/') . '<\/bdi>/u', $out);
     }
 
     public function testHealthPageSeparatesEnabledFromTestedAndHidesTraces(): void

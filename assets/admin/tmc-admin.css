@@ -259,10 +259,14 @@
   padding: 0 var(--tmc-space-6); border-radius: var(--tmc-radius-sm); font-size: 1rem; font-weight: 700; cursor: pointer; text-decoration: none;
   border: 2px solid var(--tmc-primary); font-family: var(--tmc-font);
 }
-.tmc-button--primary { background: var(--tmc-primary); color: #fff; }
-.tmc-button--primary:hover { background: #0F2E3B; }
-.tmc-button--secondary { background: #fff; color: var(--tmc-primary); }
-.tmc-button--secondary:hover { background: var(--tmc-neutral); }
+/* Scoped with .tmc-admin on purpose: `.tmc-admin a` (0,1,1) outranks a bare
+   `.tmc-button--primary` (0,1,0), so a primary button written as a link came
+   out dark-on-dark — invisible. Found while previewing the vendor area, where
+   the primary action is a link rather than a submit button. */
+.tmc-admin .tmc-button--primary { background: var(--tmc-primary); color: #fff; }
+.tmc-admin .tmc-button--primary:hover { background: #0F2E3B; color: #fff; }
+.tmc-admin .tmc-button--secondary { background: #fff; color: var(--tmc-primary); }
+.tmc-admin .tmc-button--secondary:hover { background: var(--tmc-neutral); }
 
 /* tables: card-shaped rows by default, a real table when the card is wide --- */
 .tmc-table { inline-size: 100%; border-collapse: collapse; background: var(--tmc-surface); }

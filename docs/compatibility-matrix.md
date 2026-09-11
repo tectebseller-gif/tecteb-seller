@@ -39,6 +39,7 @@
 |---|---|---|
 | HPOS روشن، sync روشن | **`Passed`** | وضعیت مؤثر از خود WooCommerce: `hpos_enabled=1 sync_enabled=1 table_exists=1`؛ REST همان را گزارش کرد · `G-07-hpos-sync-on-*` |
 | HPOS روشن، sync خاموش | **`Passed`** | `1/0/1`؛ گزارش REST `True` · `G-07-hpos-sync-off-*` |
+| هر سه حالت روی **بسته تحویلی `0.1.0-alpha.2`** | **`Passed`** | اجرای تازه با PHP 8.1.32؛ در هر سه حالت `plugin_errors=0` · `acceptance/gates-0.1.0-alpha.2/G-07-summary.txt`. انگیزه: مالک گزارش کرده HPOS روی staging فعال است |
 | ذخیره قدیمی سفارش (posts) | **`Passed`** | `wp wc hpos disable` → `0/0/1`؛ گزارش REST `False` · `G-07-legacy-*` |
 | Checkout کلاسیک / Block | `Not Tested` | فاز ۱ هیچ checkout لمس نمی‌کند |
 
@@ -62,7 +63,7 @@
 | Persian Woo | 10.0.4 | User-Reported | `Not Run` |
 | Rank Math / WP Rocket | ? | سند مادر ۱۵ | `Not Tested` — inventory نشده |
 | Multisite | — | — | **`Unsupported`** در فاز ۱؛ network activation با پیام فارسی رد می‌شود |
-| **نصب روی `staging.tecteb.com`** | `0.1.0-alpha.1` | **User-Reported** (۱۱ سپتامبر) | **`Installed by owner / Not Tested by us`** — مالک نصب و فعال کرده؛ این مخزن هیچ دسترسی، آزمون یا شاهدی از آن سایت ندارد. هش بسته نصب‌شده، PHP و WordPress آن سایت گزارش نشده است (`docs/phase-1-report.md` بند ۵٫۱) |
+| **نصب روی `staging.tecteb.com`** | `0.1.0-alpha.1` | **User-Reported** (۱۱ سپتامبر، با تصاویر) | **`Installed by owner / Not Tested by us`** — مالک نصب و فعال کرده و محیط را گزارش کرده: PHP **8.1.34**، WordPress **7.1**، WooCommerce **11.0.1**، HPOS **فعال**. این‌ها شاهد ارائه‌شده مالک‌اند؛ ما هیچ آزمونی روی آن سایت اجرا نکرده‌ایم و هش بسته نصب‌شده هنوز گزارش نشده است (`docs/phase-1-report.md` بند ۵٫۱) |
 
 ## ۵. مرورگر و دسترس‌پذیری (CORE-05)
 

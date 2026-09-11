@@ -23,7 +23,7 @@ final class MainFileTest extends ContractTestCase
 
         require $file;
 
-        self::assertSame('0.1.0-alpha.1', TMC_PLUGIN_VERSION);
+        self::assertSame('0.1.0-alpha.2', TMC_PLUGIN_VERSION);
         self::assertSame($file, TMC_PLUGIN_FILE);
         self::assertTrue(Autoloader::isRegistered());
         $basename = 'tecteb-seller/tecteb-marketplace-core.php';
