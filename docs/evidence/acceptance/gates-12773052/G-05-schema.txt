@@ -1,0 +1,3 @@
+keys: ['checked_at', 'dependencies', 'environment', 'modules', 'outbound', 'plugin', 'schema_version']
+hpos.enabled = None
+OK

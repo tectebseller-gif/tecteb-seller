@@ -1,0 +1,29 @@
+site http://127.0.0.1:8080
+playwright 1.63.0  axe-core 4.13.0  chromium 141.0.7390.37
+  no-horizontal-page-scroll          pass=28 fail=0
+  no-element-overflow                pass=28 fail=0
+  touch-target-44px                  pass=28 fail=0
+  no-js-errors                       pass=28 fail=0
+  plugin-assets-load                 pass=28 fail=0
+  axe-wcag-aa-plugin                 pass=29 fail=0
+  axe-whole-page-recorded            pass=28 fail=0
+  wp-admin-fa-IR-rtl-minimal-test-pack pass=28 fail=0
+  skip-link-is-the-first-plugin-stop pass=4 fail=0
+  every-plugin-control-is-reachable  pass=4 fail=0
+  focus-visible                      pass=4 fail=0
+  skip-link-reachable-by-tab         pass=4 fail=0
+  skip-link-reaches-main             pass=4 fail=0
+  browser-really-scaled              pass=4 fail=0
+  error-summary-present              pass=1 fail=0
+  error-summary-focused-on-load      pass=1 fail=0
+  error-summary-links-reachable      pass=1 fail=0
+
+total 252, failures 0
+
+translation pack : MINIMAL EXPERIMENTAL (tools/wp-lang/make-fa-ir-mo.py) — the official Persian pack is NOT installed and stays Not Run
+locale under test: html lang="fa-IR" dir="rtl" body.rtl=true rtl-stylesheets=2
+layout space    : layout-space-640x512 — CDP viewport emulation (simulation of layout space, not zoom)
+browser scaling : browser-device-scale-2 — devicePixelRatio=2 innerWidth=640 outerWidth=640 screen=400x300
+page zoom       : NOT RUN — the browser's own page-zoom setting (menu / Ctrl+, HostZoomMap) is not drivable from Playwright
+
+external hosts the sandbox refused (environment, not the plugin): secure.gravatar.com

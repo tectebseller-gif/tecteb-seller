@@ -20,6 +20,18 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 گزارش: `docs/phase-1-report.md` بند ۳ · شواهد: `docs/evidence/acceptance/` ·
 اصلاح‌های بازبینی: `docs/review-fixes-phase-1.md` · تحویل بعدی: `docs/next-phase-handoff.md`.
 
+**۱۱ سپتامبر — دو چیز عوض شد (جزئیات: `docs/phase-1-report.md` بند ۵):**
+- مالک `0.1.0-alpha.1` را روی `staging.tecteb.com` **نصب و فعال کرده است**. این
+  کار را مالک انجام داده؛ این مخزن هیچ دسترسی و هیچ آزمونی روی آن سایت ندارد و
+  هیچ عددی از آنجا نمی‌آید.
+- همان نصب یک نقص واقعی نشان داد: شناسه و نسخه در کارت‌های ماژول‌ها حرف‌به‌حرف
+  زیر هم می‌افتادند. بازتولید شد، علت در CSS خودمان بود، اصلاح شد و گارد
+  رگرسیون گرفت (`ADR-006`, `docs/evidence/redesign/`). بسته فعلی
+  `12773052…035b20` است و گیت‌های G-01…G-05، G-08 و G-09 روی آن با PHP 8.1.32
+  (CLI و وب) قبول شدند؛ G-06/G-07 دوباره اجرا نشدند.
+- طرح بخش فروشندگان و پیشخوان اولیه: `docs/phase-2-vendor-plan.md` — **طرح
+  است، پیاده‌سازی شروع نشده**.
+
 ## مرجع‌ها (ترتیب اعتبار: دستور جاری مالک ← تصمیم مصوب ← Master ← UX ← پرامپت)
 - `docs/Tecteb-Marketplace-Core-Master-Spec-v0.3.docx` (مرجع) → `docs/generated/…Master-Spec-v0.3.md`
 - `docs/Tecteb-Marketplace-Core-UX-Wireframe-Spec-v0.2.docx` (مرجع) → `docs/generated/…UX-Wireframe-Spec-v0.2.md`
@@ -70,15 +82,23 @@ bash tools/build.sh                         # dist/ZIP + SHA256SUMS + source arc
 پیکربندی در `.claude/settings.json` (scope=project) و رونوشت مهارت‌ها در
 `.claude/skills/`. گزارش کامل با شواهد: `docs/tooling-setup.md`.
 
-- پلاگین‌های marketplace رسمی (`anthropics/claude-code`): `frontend-design`،
-  `pr-review-toolkit`، `security-guidance`. کدشان **در مخزن نیست**؛ هر محیط
-  تازه باید از GitHub بگیردشان.
+- پلاگین‌های marketplace رسمی **`anthropics/claude-plugins-official`**:
+  `frontend-design`، `pr-review-toolkit`، `security-guidance`. کدشان **در مخزن
+  نیست**؛ هر محیط تازه باید از GitHub بگیردشان. (پیش‌تر از `anthropics/claude-code`
+  نصب شده بود؛ دلیل تعویض در `docs/tooling-setup.md` بند ۲٫۱.)
 - مهارت‌های `WordPress/agent-skills` @ `d87ee69`: `wordpress-router`،
   `wp-project-triage`، `wp-plugin-development`، `wp-rest-api`، `wp-performance`.
   رونوشت بالادست‌اند — دست‌نویس ویرایش نکنید (`.claude/skills/UPSTREAM.md`).
+  پیش از استفاده، مهارت پروژه‌ای `tmc-wp-skills` را بخوانید: مسیر درست
+  `.claude/skills/…` و تشخیص این مخزن به‌عنوان افزونه وردپرس
+  (`node .claude/skills/tmc-wp-skills/scripts/triage.mjs`).
 - Playwright ۱٫۶۳ + axe-core ۴٫۱۳ از قبل نصب‌اند و **نصب دوباره نمی‌شوند**.
   مرورگر باید با `executablePath` صریح اجرا شود (`/opt/pw-browsers/chromium`)؛
   بررسی سلامت: `cd tools/browser && node check-toolchain.mjs`.
 - `check.mjs` و `check-wpadmin.mjs` را بی‌دلیل دوباره اجرا نکنید؛ شواهد
-  پذیرفته‌شده را بازنویسی می‌کنند.
+  پذیرفته‌شده را بازنویسی می‌کنند (`check-wpadmin.mjs` با `TMC_OUT` در پوشه دیگر
+  می‌نویسد). اسکرین‌شات چهار صفحه در wp-admin واقعی:
+  `OUT=… LABEL=… node tools/browser/shoot-wpadmin.mjs`.
+- **چیدمان صفحات با `@container` نوشته می‌شود، نه `@media`** — ADR-006. هیچ
+  تراکی نباید جعبه متن را خفه کند؛ بررسی `no-starved-text-box` این را می‌گیرد.
 - Figma و PHP LSP عمداً نصب نشده‌اند.

@@ -37,6 +37,10 @@ $pairs = [
     ['متن سرمه‌ای روی کارت muted', '#143C4D', '#F1F5F7', 4.5],
     ['حلقه focus سرمه‌ای روی پس‌زمینه صفحه (غیرمتنی ۳:۱)', '#143C4D', '#F7F9FA', 3.0],
     ['حاشیه ورودی روی سطح کارت (غیرمتنی ۳:۱)', '#4F6570', '#FFFFFF', 3.0],
+    // Added with the redesign: identifiers/versions now sit in a chip, and the
+    // health table header uses the same tint.
+    ['شناسه و نسخه روی زمینه chip فنی', '#143C4D', '#EEF4F7', 4.5],
+    ['سرستون جدول سلامت روی زمینه chip فنی', '#143C4D', '#EEF4F7', 4.5],
 ];
 
 $fail = 0;

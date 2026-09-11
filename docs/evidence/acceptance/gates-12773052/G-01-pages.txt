@@ -1,0 +1,4 @@
+tmc-dashboard http=200 bytes=89818 persian=4 dir_rtl=1 php_error=0
+tmc-health http=200 bytes=99324 persian=3 dir_rtl=1 php_error=0
+tmc-settings http=200 bytes=92676 persian=3 dir_rtl=1 php_error=0
+tmc-modules http=200 bytes=99776 persian=3 dir_rtl=1 php_error=0

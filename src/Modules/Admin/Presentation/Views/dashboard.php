@@ -28,7 +28,7 @@ if ($vm['modules_problems']) {
     <?php
     $env = $vm['environment'];
     echo Components::dataList([
-        ['label' => __('نسخه افزونه', 'tecteb-marketplace-core'), 'value' => Components::bdi($vm['version']), 'raw' => true],
+        ['label' => __('نسخه افزونه', 'tecteb-marketplace-core'), 'value' => Components::code($vm['version']), 'raw' => true],
         ['label' => __('محیط تشخیص‌داده‌شده', 'tecteb-marketplace-core'), 'value' => Messages::environmentType($env->type->value) . ' — ' . Messages::environmentSource($env->source)],
         ['label' => __('ارسال‌های خود افزونه (TMC)', 'tecteb-marketplace-core'), 'value' => __('مسدود — هیچ گزینه‌ای این قفل را باز نمی‌کند', 'tecteb-marketplace-core')],
         ['label' => __('ارسال‌های سایر افزونه‌ها', 'tecteb-marketplace-core'), 'value' => __('بررسی‌نشده — باید جداگانه آزموده شود', 'tecteb-marketplace-core')],

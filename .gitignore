@@ -5,8 +5,11 @@ node_modules/
 /.phpunit.result.cache
 /tests/_output/
 *.log
-# ...but the evidence logs docs/phase-1-report.md cites are deliverables.
+# ...but the evidence logs docs/phase-1-report.md cites are deliverables, at
+# any depth: the gate and accessibility runs write into subdirectories, and a
+# log that is cited as evidence but never committed is not evidence.
 !/docs/evidence/*.log
+!/docs/evidence/**/*.log
 .env
 .DS_Store
 /docs/evidence/screenshots/*.tmp

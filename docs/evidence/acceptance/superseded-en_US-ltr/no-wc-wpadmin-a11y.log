@@ -1,0 +1,20 @@
+site http://127.0.0.1:8080
+playwright 1.63.0  axe-core 4.13.0  chromium 141.0.7390.37
+  no-horizontal-page-scroll          pass=24 fail=0
+  no-element-overflow                pass=24 fail=0
+  touch-target-44px                  pass=24 fail=0
+  no-js-errors                       pass=24 fail=0
+  plugin-assets-load                 pass=24 fail=0
+  axe-wcag-aa-plugin                 pass=25 fail=0
+  axe-whole-page-recorded            pass=24 fail=0
+  skip-link-is-the-first-plugin-stop pass=4 fail=0
+  reaches-controls                   pass=4 fail=0
+  focus-visible                      pass=4 fail=0
+  skip-link-reaches-main             pass=4 fail=0
+  error-summary-present              pass=1 fail=0
+  error-summary-focused-on-load      pass=1 fail=0
+  error-summary-links-reachable      pass=1 fail=0
+
+total 188, failures 0
+
+external hosts the sandbox refused (environment, not the plugin): secure.gravatar.com

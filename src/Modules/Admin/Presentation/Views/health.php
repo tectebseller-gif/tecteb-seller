@@ -68,7 +68,8 @@ $jalali = JalaliDate::format($checkedAt);
             $reason = Messages::moduleReason($state->reasonCode, $state->reasonDetail, $state->phase);
             ?>
             <li class="tmc-list__item">
-                <span class="tmc-list__name"><?php echo esc_html($state->manifest->label); ?> <?php echo Components::bdi($state->id()); ?></span>
+                <span class="tmc-list__name"><?php echo esc_html($state->manifest->label); ?></span>
+                <?php echo Components::code($state->id()); ?>
                 <?php echo $badge; ?>
                 <?php if ($reason !== '') : ?><span class="tmc-list__reason"><?php echo esc_html($reason); ?></span><?php endif; ?>
             </li>
@@ -82,9 +83,16 @@ $jalali = JalaliDate::format($checkedAt);
 </section>
 
 <section class="tmc-card tmc-card--muted" aria-labelledby="tmc-rest-title">
-    <h2 id="tmc-rest-title" class="tmc-card__title"><?php esc_html_e('endpoint خصوصی سلامت', 'tecteb-marketplace-core'); ?></h2>
-    <p><?php esc_html_e('مسیر:', 'tecteb-marketplace-core'); ?> <?php echo Components::bdi($vm['rest_path']); ?></p>
-    <p><?php esc_html_e('فقط با مجوز tmc_view_health و nonce معتبر REST پاسخ می‌دهد؛ nonce به‌تنهایی مجوز نیست. پاسخ cache نمی‌شود و هیچ مسیر سرور، کاربر یا خطای خامی در آن نیست.', 'tecteb-marketplace-core'); ?></p>
-    <p><?php echo esc_html(sprintf(__('نسخه افزونه %s', 'tecteb-marketplace-core'), '')); ?><?php echo Components::bdi($report->pluginVersion); ?></p>
+    <h2 id="tmc-rest-title" class="tmc-card__title"><?php esc_html_e('دسترسی برنامه‌نویسی به همین گزارش', 'tecteb-marketplace-core'); ?></h2>
+    <p><?php esc_html_e('همان چیزی که در این صفحه می‌بینید، از یک مسیر خصوصی REST هم خواندنی است. برای کار روزمره لازمش ندارید.', 'tecteb-marketplace-core'); ?></p>
+    <details class="tmc-tech">
+        <summary><?php esc_html_e('جزئیات فنی', 'tecteb-marketplace-core'); ?></summary>
+        <?php echo Components::dataList([
+            ['label' => __('مسیر', 'tecteb-marketplace-core'), 'value' => Components::code($vm['rest_path']), 'raw' => true],
+            ['label' => __('نسخه افزونه', 'tecteb-marketplace-core'), 'value' => Components::code($report->pluginVersion), 'raw' => true],
+            ['label' => __('شرط دسترسی', 'tecteb-marketplace-core'), 'value' => __('فقط با مجوز tmc_view_health و nonce معتبر REST پاسخ می‌دهد؛ nonce به‌تنهایی مجوز نیست.', 'tecteb-marketplace-core')],
+            ['label' => __('محتوای پاسخ', 'tecteb-marketplace-core'), 'value' => __('cache نمی‌شود و هیچ مسیر سرور، نام کاربر یا خطای خامی در آن نیست.', 'tecteb-marketplace-core')],
+        ]); ?>
+    </details>
 </section>
 <?php echo Components::shellClose();

@@ -84,7 +84,10 @@ final class PagesTest extends ContractTestCase
             self::assertStringNotContainsString($fake, $body, 'no fabricated business statistic above the disclaimer');
         }
         self::assertDoesNotMatchRegularExpression('/<dd>\s*[۰-۹0-9]+\s*<\/dd>/u', $body, 'no bare numeric stat values');
-        self::assertStringContainsString('<bdi dir="ltr">0.1.0-alpha.1</bdi>', $out);
+        // The version is direction-isolated. Asserted by intent, not by the
+        // exact attribute list: the chip gained a class when the layout was
+        // rebuilt, and that must not read as the isolation disappearing.
+        self::assertMatchesRegularExpression('/<bdi[^>]*\bdir="ltr"[^>]*>0\.1\.0-alpha\.1<\/bdi>/u', $out);
     }
 
     public function testHealthPageSeparatesEnabledFromTestedAndHidesTraces(): void
@@ -131,9 +134,10 @@ final class PagesTest extends ContractTestCase
         $this->loginAdmin();
         $out = $this->capture(static fn () => (new ModulesPage(Bootstrap::container()))->render());
         self::assertStringContainsString('برنامه‌ریزی‌شده', $out);
-        self::assertStringContainsString('در این نسخه ممکن نیست (نقشه راه)', $out);
+        self::assertStringContainsString('فعال‌سازی در این نسخه ممکن نیست', $out);
+        self::assertStringContainsString('نقشه راه', $out);
         self::assertStringNotContainsString('<button', $out, 'planned modules never get an activation control');
-        self::assertStringContainsString('<bdi dir="ltr">vendor</bdi>', $out);
+        self::assertMatchesRegularExpression('/<bdi[^>]*\bdir="ltr"[^>]*>vendor<\/bdi>/u', $out);
         self::assertStringContainsString('نیازمند WooCommerce', $out);
         self::assertSame(10, substr_count($out, 'class="tmc-card tmc-module"'));
     }

@@ -105,6 +105,22 @@
             "ratio": 6.13,
             "required": 3,
             "pass": true
+        },
+        {
+            "pair": "شناسه و نسخه روی زمینه chip فنی",
+            "fg": "#143C4D",
+            "bg": "#EEF4F7",
+            "ratio": 10.61,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "سرستون جدول سلامت روی زمینه chip فنی",
+            "fg": "#143C4D",
+            "bg": "#EEF4F7",
+            "ratio": 10.61,
+            "required": 4.5,
+            "pass": true
         }
     ],
     "failures": 0

@@ -15,9 +15,9 @@
 
 | ابزار | پیکربندی شد؟ | دانلود/نصب شد؟ | در همین جلسه قابل استفاده؟ | اقدام لازم |
 |---|---|---|---|---|
-| `frontend-design` ۱٫۱٫۰ | ✅ scope=project | ✅ روی دیسک (`~/.claude/plugins/marketplaces/`) | ❌ **خیر** | فقط جلسهٔ تازه |
-| `pr-review-toolkit` ۱٫۰٫۰ | ✅ scope=project | ✅ | ❌ **خیر** | فقط جلسهٔ تازه |
-| `security-guidance` ۲٫۰٫۰ | ✅ scope=project | ✅ | ❌ **خیر** | فقط جلسهٔ تازه |
+| `frontend-design` (@`3deb821cb71c`) | ✅ scope=project | ✅ روی دیسک (`~/.claude/plugins/marketplaces/`) | ❌ **خیر** | فقط جلسهٔ تازه |
+| `pr-review-toolkit` (@`3deb821cb71c`) | ✅ scope=project | ✅ | ❌ **خیر** | فقط جلسهٔ تازه |
+| `security-guidance` ۲٫۰٫۸ | ✅ scope=project | ✅ | ❌ **خیر** | فقط جلسهٔ تازه |
 | ۵ مهارت `WordPress/agent-skills` | ✅ `.claude/skills/` | ✅ رونوشت داخل مخزن | ❌ **خیر** (اسکریپت‌هایشان ✅ بله) | فقط جلسهٔ تازه |
 | Playwright ۱٫۶۳٫۰ | ✅ دست‌نخورده | ✅ از قبل | ✅ **بله، اجرا شد** | — |
 | `axe-core` / `@axe-core/playwright` ۴٫۱۳٫۰ | ✅ دست‌نخورده | ✅ از قبل | ✅ **بله، اجرا شد** | — |
@@ -35,22 +35,49 @@
 
 ## ۲. پلاگین‌های marketplace رسمی Anthropic
 
-### ۲٫۱ منبع
+### ۲٫۱ منبع — و چرا یک‌بار عوض شد
+
+**اصلاح ۱۱ سپتامبر.** دور اول از `anthropics/claude-code` نصب شد؛ مالک
+`claude-plugins-official` را خواسته بود. دلیل انتخاب اول: در مستندات و در
+`/plugin marketplace add`، مخزن `anthropics/claude-code` مثال متداول است و
+manifest آن (`.claude-plugin/marketplace.json`) دقیقاً همین سه پلاگین را با
+مالکیت Anthropic دارد، پس «رسمی» بودنش تأیید شد و جست‌وجوی بیشتری انجام نشد.
+**این کافی نبود:** مخزن `anthropics/claude-plugins-official` وجود دارد، همان
+سه پلاگین را دارد و **تازه‌تر** است. مقایسه مستقیم دو کش:
+
+```
+frontend-design   : plugin.json متفاوت، LICENSE فقط در claude-plugins-official
+pr-review-toolkit : plugin.json و agents/*.md متفاوت
+security-guidance : 2.0.0 در claude-code  ↔  2.0.8 در claude-plugins-official
+```
+
+پس تنظیمات پروژه به همان چیزی که خواسته شده بود منتقل شد و اعلان قبلی از
+`.claude/settings.json` حذف شد (اعلان سطح کاربر در `~/.claude/settings.json`
+دست‌نخورده است و روی این مخزن اثری ندارد).
 
 | مورد | مقدار |
 |---|---|
-| marketplace | `claude-code-plugins` (owner: Anthropic) |
-| منبع | GitHub · `anthropics/claude-code` |
-| commit کش‌شده | `536a2e23d9e28586f81f17b3535281b5f2995a70` (۲۰۲۶-۰۹-۱۰T20:30:46Z) |
-| محل کش | `~/.claude/plugins/marketplaces/claude-code-plugins` (~۲۹ مگابایت، **بیرون از مخزن**) |
+| marketplace | `claude-plugins-official` (owner: Anthropic) |
+| منبع | GitHub · `anthropics/claude-plugins-official` (sparse: `.claude-plugin`, `plugins`) |
+| commit کش‌شده | `3deb821cb71ccfaaf2ffa9935e977df314ce5cd5` (۲۰۲۶-۰۹-۱۱T16:08:28Z) |
+| تعداد پلاگین در manifest | ۲۹۵ |
+| محل کش | `~/.claude/plugins/marketplaces/claude-plugins-official` (**بیرون از مخزن**) |
 | اعلان در مخزن | `.claude/settings.json` → `extraKnownMarketplaces` + `enabledPlugins` |
 
 ```bash
-claude plugin marketplace add anthropics/claude-code --scope project
-claude plugin install frontend-design@claude-code-plugins   --scope project
-claude plugin install pr-review-toolkit@claude-code-plugins --scope project
-claude plugin install security-guidance@claude-code-plugins --scope project
+claude plugin marketplace add anthropics/claude-plugins-official --scope project \
+  --sparse .claude-plugin plugins
+claude plugin install frontend-design@claude-plugins-official   --scope project
+claude plugin install pr-review-toolkit@claude-plugins-official --scope project
+claude plugin install security-guidance@claude-plugins-official --scope project
 ```
+
+**تطابق شناسه‌ها:** هر سه کلید در `enabledPlugins` به شکل
+`<name>@claude-plugins-official` است و با نام marketplace در manifest
+(`"name": "claude-plugins-official"`) و با خروجی `claude plugin list` یکی است.
+نسخه‌های نصب‌شده: `security-guidance` **2.0.8**؛ `frontend-design` و
+`pr-review-toolkit` در manifest نسخه اعلام نمی‌کنند، پس CLI همان commit
+marketplace (`3deb821cb71c`) را به‌عنوان نسخه نشان می‌دهد.
 
 `--scope project` عمدی است: اعلان در خودِ مخزن می‌ماند و با شاخه commit
 می‌شود، پس هر جلسهٔ بعدی روی همین مخزن همین سه پلاگین را می‌گیرد. خودِ کد
@@ -113,8 +140,20 @@ claude plugin install security-guidance@claude-code-plugins --scope project
 | صحت رونوشت | هر ۵ پوشه با clone بالادست **byte-identical** بودند (sha256 تجمعی) |
 | حجم | ۲۱۲ کیلوبایت، ۳۲ فایل |
 
-دو رفتار مشاهده‌شده که **اصلاح نشدند** (نقص بالادست است، نه کد ما؛ رونوشت
-دست‌نخورده می‌ماند):
+**راهنمای سازگاری پروژه‌ای (۱۱ سپتامبر):** دو رفتار زیر حالا در یک مهارت
+پروژه‌ای مستند و اجراپذیر شده‌اند — `.claude/skills/tmc-wp-skills/` — که مسیر
+درست (`.claude/skills/…` به‌جای `skills/…`)، تشخیص درست پروژه، مسیر routing و
+قواعد خود این مخزن را می‌گوید. wrapper آن اسکریپت بالادست را **بدون تغییر**
+اجرا می‌کند و تصحیح‌ها را جدا فهرست می‌کند:
+
+```bash
+node .claude/skills/tmc-wp-skills/scripts/triage.mjs
+# project: {"kind":["wp-plugin"],"primary":"wp-plugin", …}
+# corrections: project.primary → wp-plugin ; tooling.tests.hasPlaywright → true
+```
+
+دو رفتار مشاهده‌شده که در **رونوشت بالادست اصلاح نشدند** (نقص بالادست است، نه
+کد ما؛ رونوشت دست‌نخورده می‌ماند):
 
 1. `node .claude/skills/wp-project-triage/scripts/detect_wp_project.mjs`
    اجرا می‌شود و `composer install` / `vendor/bin/phpunit` را درست پیشنهاد
@@ -205,6 +244,7 @@ build ۱۲۴۳ می‌گردد که در این ایمیج نیست و دانل�
 |---|---|
 | `.claude/settings.json` | اعلان marketplace و سه پلاگین (scope=project) |
 | `.claude/skills/UPSTREAM.md` | منبع، commit و اثر انگشت مهارت‌های وردپرس |
+| `.claude/skills/tmc-wp-skills/` | راهنمای سازگاری پروژه‌ای + wrapper تشخیص پروژه |
 | `.claude/skills/w*/` | ۵ مهارت رونوشت بالادست (۳۲ فایل) |
 | `tools/browser/check-toolchain.mjs` | بررسی سلامت مرورگر/axe (فقط توسعه) |
 | `docs/evidence/tooling/` | شواهد این دور: JSON، لاگ، اسکرین‌شات، پروب جلسه، hookها، موجودی پلاگین |

@@ -100,4 +100,47 @@ final class Components
     {
         return '<bdi dir="ltr">' . esc_html($text) . '</bdi>';
     }
+
+    /**
+     * A Latin identifier or version as a self-contained chip.
+     *
+     * `bdi` isolates the direction so an id never reorders the Persian
+     * sentence around it; the class makes it one unbreakable token that
+     * scrolls inside its own box. Both matter: on staging these strings were
+     * laid out one character per line inside a starved grid column.
+     */
+    public static function code(string $text): string
+    {
+        return '<bdi class="tmc-code" dir="ltr">' . esc_html($text) . '</bdi>';
+    }
+
+    /** @param list<string> $items */
+    public static function codes(array $items): string
+    {
+        if ($items === []) {
+            return '';
+        }
+        $html = '<ul class="tmc-codes">';
+        foreach ($items as $item) {
+            $html .= '<li>' . self::code($item) . '</li>';
+        }
+        return $html . '</ul>';
+    }
+
+    /**
+     * Technical facts, collapsed. The page is read by a shop manager: ids,
+     * versions and dependency lists are true but not what they came for, so
+     * they are one click away instead of filling the card.
+     *
+     * @param list<array{label:string, value:string, raw?:bool}> $rows
+     */
+    public static function techDetails(array $rows, string $summary = ''): string
+    {
+        if ($rows === []) {
+            return '';
+        }
+        $summary = $summary !== '' ? $summary : __('جزئیات فنی', 'tecteb-marketplace-core');
+        return '<details class="tmc-tech"><summary>' . esc_html($summary) . '</summary>'
+            . self::dataList($rows) . '</details>';
+    }
 }

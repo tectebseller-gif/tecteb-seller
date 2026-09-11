@@ -1,0 +1,10 @@
+-- plugin list --
+name,status,update,version,update_version,auto_update
+hello,inactive,none,1.7.2,,off
+woocommerce,inactive,none,11.0.1,,off
+-- tmc_schema_version --
+Error: Could not get 'tmc_schema_version' option. Does it exist?
+exit=1
+-- audit table --
+-- woocommerce active? --
+exit=1

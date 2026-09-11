@@ -1,0 +1,7 @@
+# گارد رگرسیون روی رابط قدیمی (همان کد commit be8551d) — 2026-09-11T17:01:38Z
+# دستور: node tools/browser/check-wpadmin.mjs  روی WordPress یکبارمصرف با src/ و assets/ نسخه قبلی
+# هدف: نشان دادن اینکه بررسی تازه no-starved-text-box همان شکست گزارش‌شده را می‌گیرد.
+
+  no-starved-text-box                pass=27 fail=1
+total 280, failures 1
+  FAIL modules @ 1440: no-starved-text-box — bdi. width=9px font=15px text="0.1.0-alpha.1"; dd. width=16px font=16px text="زیرساخت"; dd. width=14px font=16px text="ندارد"; dd. width=14px font=16px text="bootstrap، container"; bdi. width=9px font=15px text="environment-guard"

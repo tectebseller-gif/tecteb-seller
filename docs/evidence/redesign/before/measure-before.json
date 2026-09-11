@@ -1,0 +1,2048 @@
+{
+  "label": "before",
+  "site": "http://127.0.0.1:8080",
+  "generated_at": "2026-09-11T16:40:27.295Z",
+  "runs": [
+    {
+      "page": "tmc-dashboard",
+      "width": 375,
+      "screenshot": "tmc-dashboard-375.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 365,
+      "wpbody_width": 365,
+      "cards_columns": null,
+      "card_width": 341,
+      "row_columns": "307px",
+      "value_width": 307,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 307,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 307,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 307,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-health",
+      "width": 375,
+      "screenshot": "tmc-health-375.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 365,
+      "wpbody_width": 365,
+      "cards_columns": null,
+      "card_width": 341,
+      "row_columns": null,
+      "value_width": null,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "span",
+          "cls": "tmc-status__text",
+          "text": "سالم",
+          "chars": 4,
+          "width": 31.7,
+          "height": 25.5,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "span",
+          "cls": "tmc-status__text",
+          "text": "سالم",
+          "chars": 4,
+          "width": 31.7,
+          "height": 25.5,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-settings",
+      "width": 375,
+      "screenshot": "tmc-settings-375.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 365,
+      "wpbody_width": 365,
+      "cards_columns": null,
+      "card_width": 341,
+      "row_columns": null,
+      "value_width": null,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "legend",
+          "cls": "tmc-card__title",
+          "text": "محیط",
+          "chars": 4,
+          "width": 54.9,
+          "height": 27.2,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "button",
+          "cls": "tmc-button tmc-button--primary",
+          "text": "ذخیره تنظیمات",
+          "chars": 13,
+          "width": 341,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 6.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-modules",
+      "width": 375,
+      "screenshot": "tmc-modules-375.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 365,
+      "wpbody_width": 365,
+      "cards_columns": "341px",
+      "card_width": 341,
+      "row_columns": "307px",
+      "value_width": 307,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "h2",
+          "cls": "tmc-card__title",
+          "text": "هسته",
+          "chars": 4,
+          "width": 307,
+          "height": 25.2,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "span",
+          "cls": "tmc-status__text",
+          "text": "فعال",
+          "chars": 4,
+          "width": 29.9,
+          "height": 25.5,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-dashboard",
+      "width": 412,
+      "screenshot": "tmc-dashboard-412.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 402,
+      "wpbody_width": 402,
+      "cards_columns": null,
+      "card_width": 378,
+      "row_columns": "344px",
+      "value_width": 344,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 166,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 166,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 166,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-health",
+      "width": 412,
+      "screenshot": "tmc-health-412.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 402,
+      "wpbody_width": 402,
+      "cards_columns": null,
+      "card_width": 378,
+      "row_columns": null,
+      "value_width": null,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "span",
+          "cls": "tmc-status__text",
+          "text": "سالم",
+          "chars": 4,
+          "width": 31.7,
+          "height": 25.5,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "span",
+          "cls": "tmc-status__text",
+          "text": "سالم",
+          "chars": 4,
+          "width": 31.7,
+          "height": 25.5,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-settings",
+      "width": 412,
+      "screenshot": "tmc-settings-412.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 402,
+      "wpbody_width": 402,
+      "cards_columns": null,
+      "card_width": 378,
+      "row_columns": null,
+      "value_width": null,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "legend",
+          "cls": "tmc-card__title",
+          "text": "محیط",
+          "chars": 4,
+          "width": 54.9,
+          "height": 27.2,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "button",
+          "cls": "tmc-button tmc-button--primary",
+          "text": "ذخیره تنظیمات",
+          "chars": 13,
+          "width": 151.9,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 6.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-modules",
+      "width": 412,
+      "screenshot": "tmc-modules-412.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 402,
+      "wpbody_width": 402,
+      "cards_columns": "181px 181px",
+      "card_width": 181,
+      "row_columns": "147px",
+      "value_width": 147,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "h2",
+          "cls": "tmc-card__title",
+          "text": "هسته",
+          "chars": 4,
+          "width": 147,
+          "height": 25.2,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "span",
+          "cls": "tmc-status__text",
+          "text": "فعال",
+          "chars": 4,
+          "width": 29.9,
+          "height": 25.5,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-dashboard",
+      "width": 600,
+      "screenshot": "tmc-dashboard-600.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 590,
+      "wpbody_width": 590,
+      "cards_columns": null,
+      "card_width": 566,
+      "row_columns": "532px",
+      "value_width": 532,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 260,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 260,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 260,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-health",
+      "width": 600,
+      "screenshot": "tmc-health-600.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 590,
+      "wpbody_width": 590,
+      "cards_columns": null,
+      "card_width": 566,
+      "row_columns": null,
+      "value_width": null,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "span",
+          "cls": "tmc-status__text",
+          "text": "سالم",
+          "chars": 4,
+          "width": 31.7,
+          "height": 25.5,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "span",
+          "cls": "tmc-status__text",
+          "text": "سالم",
+          "chars": 4,
+          "width": 31.7,
+          "height": 25.5,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-settings",
+      "width": 600,
+      "screenshot": "tmc-settings-600.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 590,
+      "wpbody_width": 590,
+      "cards_columns": null,
+      "card_width": 566,
+      "row_columns": null,
+      "value_width": null,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "legend",
+          "cls": "tmc-card__title",
+          "text": "محیط",
+          "chars": 4,
+          "width": 54.9,
+          "height": 27.2,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "button",
+          "cls": "tmc-button tmc-button--primary",
+          "text": "ذخیره تنظیمات",
+          "chars": 13,
+          "width": 151.9,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 6.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-modules",
+      "width": 600,
+      "screenshot": "tmc-modules-600.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 590,
+      "wpbody_width": 590,
+      "cards_columns": "275px 275px",
+      "card_width": 275,
+      "row_columns": "241px",
+      "value_width": 241,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "h2",
+          "cls": "tmc-card__title",
+          "text": "هسته",
+          "chars": 4,
+          "width": 241,
+          "height": 25.2,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "span",
+          "cls": "tmc-status__text",
+          "text": "فعال",
+          "chars": 4,
+          "width": 29.9,
+          "height": 25.5,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-dashboard",
+      "width": 768,
+      "screenshot": "tmc-dashboard-768.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 758,
+      "wpbody_width": 758,
+      "cards_columns": null,
+      "card_width": 734,
+      "row_columns": "700px",
+      "value_width": 700,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 344,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 344,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 344,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-health",
+      "width": 768,
+      "screenshot": "tmc-health-768.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 758,
+      "wpbody_width": 758,
+      "cards_columns": null,
+      "card_width": 734,
+      "row_columns": null,
+      "value_width": null,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "span",
+          "cls": "tmc-status__text",
+          "text": "سالم",
+          "chars": 4,
+          "width": 31.7,
+          "height": 25.5,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "span",
+          "cls": "tmc-status__text",
+          "text": "سالم",
+          "chars": 4,
+          "width": 31.7,
+          "height": 25.5,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-settings",
+      "width": 768,
+      "screenshot": "tmc-settings-768.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 758,
+      "wpbody_width": 758,
+      "cards_columns": null,
+      "card_width": 734,
+      "row_columns": null,
+      "value_width": null,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "legend",
+          "cls": "tmc-card__title",
+          "text": "محیط",
+          "chars": 4,
+          "width": 54.9,
+          "height": 27.2,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "button",
+          "cls": "tmc-button tmc-button--primary",
+          "text": "ذخیره تنظیمات",
+          "chars": 13,
+          "width": 151.9,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 6.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-modules",
+      "width": 768,
+      "screenshot": "tmc-modules-768.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 758,
+      "wpbody_width": 758,
+      "cards_columns": "359px 359px",
+      "card_width": 359,
+      "row_columns": "325px",
+      "value_width": 325,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "h2",
+          "cls": "tmc-card__title",
+          "text": "هسته",
+          "chars": 4,
+          "width": 325,
+          "height": 25.2,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "span",
+          "cls": "tmc-status__text",
+          "text": "فعال",
+          "chars": 4,
+          "width": 29.9,
+          "height": 25.5,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-dashboard",
+      "width": 1024,
+      "screenshot": "tmc-dashboard-1024.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 844,
+      "wpbody_width": 844,
+      "cards_columns": null,
+      "card_width": 812,
+      "row_columns": "220px 546px",
+      "value_width": 546,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 185.5,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 185.5,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 185.5,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-health",
+      "width": 1024,
+      "screenshot": "tmc-health-1024.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 844,
+      "wpbody_width": 844,
+      "cards_columns": null,
+      "card_width": 812,
+      "row_columns": null,
+      "value_width": null,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "th",
+          "cls": null,
+          "text": "بررسی",
+          "chars": 5,
+          "width": 142.8,
+          "height": 51.7,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "th",
+          "cls": null,
+          "text": "وضعیت",
+          "chars": 5,
+          "width": 130.2,
+          "height": 51.7,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "th",
+          "cls": null,
+          "text": "توضیح",
+          "chars": 5,
+          "width": 505,
+          "height": 51.7,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "th",
+          "cls": null,
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 142.8,
+          "height": 79.4,
+          "lines": 3,
+          "chars_per_line": 2.7,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-settings",
+      "width": 1024,
+      "screenshot": "tmc-settings-1024.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 844,
+      "wpbody_width": 844,
+      "cards_columns": null,
+      "card_width": 812,
+      "row_columns": null,
+      "value_width": null,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "legend",
+          "cls": "tmc-card__title",
+          "text": "محیط",
+          "chars": 4,
+          "width": 54.9,
+          "height": 27.2,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "button",
+          "cls": "tmc-button tmc-button--primary",
+          "text": "ذخیره تنظیمات",
+          "chars": 13,
+          "width": 151.9,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 6.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-modules",
+      "width": 1024,
+      "screenshot": "tmc-modules-1024.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 844,
+      "wpbody_width": 844,
+      "cards_columns": "398px 398px",
+      "card_width": 398,
+      "row_columns": "220px 132px",
+      "value_width": 132,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "dt",
+          "cls": null,
+          "text": "شناسه",
+          "chars": 5,
+          "width": 220,
+          "height": 55,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "dt",
+          "cls": null,
+          "text": "وابستگی‌ها",
+          "chars": 10,
+          "width": 220,
+          "height": 81.6,
+          "lines": 3,
+          "chars_per_line": 3.3,
+          "stacked": false
+        },
+        {
+          "tag": "dt",
+          "cls": null,
+          "text": "وابستگی‌ها",
+          "chars": 10,
+          "width": 220,
+          "height": 81.6,
+          "lines": 3,
+          "chars_per_line": 3.3,
+          "stacked": false
+        },
+        {
+          "tag": "dt",
+          "cls": null,
+          "text": "وابستگی‌ها",
+          "chars": 10,
+          "width": 220,
+          "height": 81.6,
+          "lines": 3,
+          "chars_per_line": 3.3,
+          "stacked": false
+        },
+        {
+          "tag": "dt",
+          "cls": null,
+          "text": "وابستگی‌ها",
+          "chars": 10,
+          "width": 220,
+          "height": 81.6,
+          "lines": 3,
+          "chars_per_line": 3.3,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-dashboard",
+      "width": 1440,
+      "screenshot": "tmc-dashboard-1440.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 1200,
+      "wpbody_width": 1260,
+      "cards_columns": null,
+      "card_width": 1168,
+      "row_columns": "220px 902px",
+      "value_width": 902,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 274.5,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 274.5,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-linkgrid__item",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 274.5,
+          "height": 55.2,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-health",
+      "width": 1440,
+      "screenshot": "tmc-health-1440.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 1200,
+      "wpbody_width": 1260,
+      "cards_columns": null,
+      "card_width": 1168,
+      "row_columns": null,
+      "value_width": null,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "th",
+          "cls": null,
+          "text": "بررسی",
+          "chars": 5,
+          "width": 207.9,
+          "height": 51.7,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "th",
+          "cls": null,
+          "text": "وضعیت",
+          "chars": 5,
+          "width": 130.2,
+          "height": 51.7,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "th",
+          "cls": null,
+          "text": "توضیح",
+          "chars": 5,
+          "width": 795.9,
+          "height": 51.7,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-settings",
+      "width": 1440,
+      "screenshot": "tmc-settings-1440.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 1200,
+      "wpbody_width": 1260,
+      "cards_columns": null,
+      "card_width": 1168,
+      "row_columns": null,
+      "value_width": null,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "سلامت",
+          "chars": 5,
+          "width": 79.2,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 2.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "پیشخوان",
+          "chars": 7,
+          "width": 90.3,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link is-current",
+          "text": "تنظیمات",
+          "chars": 7,
+          "width": 88.4,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 3.5,
+          "stacked": false
+        },
+        {
+          "tag": "a",
+          "cls": "tmc-nav__link",
+          "text": "ماژول‌ها",
+          "chars": 8,
+          "width": 85.8,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "legend",
+          "cls": "tmc-card__title",
+          "text": "محیط",
+          "chars": 4,
+          "width": 54.9,
+          "height": 27.2,
+          "lines": 1,
+          "chars_per_line": 4,
+          "stacked": false
+        },
+        {
+          "tag": "button",
+          "cls": "tmc-button tmc-button--primary",
+          "text": "ذخیره تنظیمات",
+          "chars": 13,
+          "width": 151.9,
+          "height": 44,
+          "lines": 2,
+          "chars_per_line": 6.5,
+          "stacked": false
+        }
+      ],
+      "stacked_count": 0
+    },
+    {
+      "page": "tmc-modules",
+      "width": 1440,
+      "screenshot": "tmc-modules-1440.png",
+      "doc": {
+        "lang": "fa-IR",
+        "dir": "rtl"
+      },
+      "admin_width": 1200,
+      "wpbody_width": 1260,
+      "cards_columns": "280px 280px 280px 280px",
+      "card_width": 280,
+      "row_columns": "220px 14px",
+      "value_width": 14,
+      "horizontal_overflow": 0,
+      "worst": [
+        {
+          "tag": "dt",
+          "cls": null,
+          "text": "نسخه",
+          "chars": 4,
+          "width": 220,
+          "height": 357.5,
+          "lines": 13,
+          "chars_per_line": 0.3,
+          "stacked": false
+        },
+        {
+          "tag": "dt",
+          "cls": null,
+          "text": "شناسه",
+          "chars": 5,
+          "width": 220,
+          "height": 467.5,
+          "lines": 17,
+          "chars_per_line": 0.3,
+          "stacked": true
+        },
+        {
+          "tag": "dt",
+          "cls": null,
+          "text": "نسخه",
+          "chars": 4,
+          "width": 220,
+          "height": 357.5,
+          "lines": 13,
+          "chars_per_line": 0.3,
+          "stacked": false
+        },
+        {
+          "tag": "dt",
+          "cls": null,
+          "text": "نسخه",
+          "chars": 4,
+          "width": 220,
+          "height": 357.5,
+          "lines": 13,
+          "chars_per_line": 0.3,
+          "stacked": false
+        },
+        {
+          "tag": "dt",
+          "cls": null,
+          "text": "نسخه",
+          "chars": 4,
+          "width": 220,
+          "height": 357.5,
+          "lines": 13,
+          "chars_per_line": 0.3,
+          "stacked": false
+        },
+        {
+          "tag": "dt",
+          "cls": null,
+          "text": "وابستگی‌ها",
+          "chars": 10,
+          "width": 220,
+          "height": 543.8,
+          "lines": 20,
+          "chars_per_line": 0.5,
+          "stacked": true
+        }
+      ],
+      "stacked_count": 72
+    }
+  ],
+  "stacked_total": 72
+}

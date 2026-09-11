@@ -1,0 +1,2116 @@
+{
+  "generated_at": "2026-09-11T16:59:19.863Z",
+  "scope": "The plugin's four pages inside a REAL wp-admin, signed in as an administrator. Scoped checks measure .tmc-admin only; axe also runs unscoped and attributes findings.",
+  "site": "http://127.0.0.1:8080",
+  "chromium": "141.0.7390.37",
+  "playwright": "1.63.0",
+  "axe_core": "4.13.0",
+  "viewports": [
+    "320",
+    "375",
+    "768",
+    "1024",
+    "1440",
+    "layout-space-640x512",
+    "browser-device-scale-2"
+  ],
+  "zoom": {
+    "layout-space-640x512": "CDP viewport emulation: the layout space a 1280x1024 screen has at 200%. A simulation of layout space, not zoom.",
+    "browser-device-scale-2": "A separate Chromium with --force-device-scale-factor=2 and a 640x512 DIP window (a real 1280x1024 physical window), viewport:null so no Emulation.setDeviceMetricsOverride is sent. The browser does the scaling.",
+    "not_run": "Chromium's literal Ctrl+ zoom setting (HostZoomMap) is not reachable through CDP or Playwright and was NOT exercised.",
+    "observed": {
+      "dpr": 2,
+      "inner": [
+        640,
+        425
+      ],
+      "outer": [
+        640,
+        512
+      ],
+      "screen": [
+        400,
+        300
+      ],
+      "mqNarrow": true,
+      "rootZoom": "1"
+    },
+    "browser": "141.0.7390.37"
+  },
+  "locale": {
+    "intended": "fa_IR, right-to-left, verified from the served document rather than the request",
+    "translation_pack": {
+      "kind": "MINIMAL EXPERIMENTAL pack built locally by tools/wp-lang/make-fa-ir-mo.py",
+      "contains": "the \"text direction\" entry that makes is_rtl() true, plus about twenty admin-chrome strings",
+      "is_official_persian_translation": false,
+      "why": "translate.wordpress.org, downloads.wordpress.org and api.wordpress.org are all refused by this container (403/blocked)",
+      "not_run": "The official WordPress Persian translation was NOT installed and is NOT covered by this run."
+    },
+    "samples": [
+      {
+        "page": "dashboard",
+        "viewport": "320",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 2,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "dashboard",
+        "viewport": "375",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 2,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "dashboard",
+        "viewport": "768",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 2,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "dashboard",
+        "viewport": "1024",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 2,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "dashboard",
+        "viewport": "1440",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 2,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "dashboard",
+        "viewport": "layout-space-640x512",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 2,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "health",
+        "viewport": "320",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 2,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      },
+      {
+        "page": "health",
+        "viewport": "375",
+        "htmlLang": "fa-IR",
+        "htmlDir": "rtl",
+        "bodyClassRtl": true,
+        "bodyComputedDir": "rtl",
+        "pluginShellDir": "rtl",
+        "pluginShellLang": "fa",
+        "adminRtlStylesheets": 2,
+        "sampleRtlStylesheet": "colors-rtl.min.css?ver=7.1"
+      }
+    ]
+  },
+  "total": 280,
+  "failed": 0,
+  "foreign_findings": [],
+  "blocked_external_hosts": [
+    "secure.gravatar.com"
+  ],
+  "results": [
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "320",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "375",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "768",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1024",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "1440",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "keyboard",
+      "check": "skip-link-is-the-first-plugin-stop",
+      "ok": true,
+      "detail": "after 93 WordPress chrome stops, the first stop inside .tmc-admin is .tmc-skip (real Tab presses, no focus() and no tabindex change)"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "keyboard",
+      "check": "every-plugin-control-is-reachable",
+      "ok": true,
+      "detail": "9/9 reached"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "all 9 plugin stops show a ring"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "keyboard",
+      "check": "skip-link-reachable-by-tab",
+      "ok": true,
+      "detail": "reached by Tab"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "keyboard",
+      "check": "skip-link-reaches-main",
+      "ok": true,
+      "detail": "hash=#tmc-main focusMovedToTarget=true activeElement=<main id=\"tmc-main\">"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "layout-space-640x512",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (emulated layout space of 1280x1024 at 200% — viewport emulation, not zoom)"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "layout-space-640x512",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "layout-space-640x512",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "layout-space-640x512",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "layout-space-640x512",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "layout-space-640x512",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "layout-space-640x512",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "layout-space-640x512",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "layout-space-640x512",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "320",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "375",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "768",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "1024",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "1440",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "health",
+      "viewport": "keyboard",
+      "check": "skip-link-is-the-first-plugin-stop",
+      "ok": true,
+      "detail": "after 93 WordPress chrome stops, the first stop inside .tmc-admin is .tmc-skip (real Tab presses, no focus() and no tabindex change)"
+    },
+    {
+      "page": "health",
+      "viewport": "keyboard",
+      "check": "every-plugin-control-is-reachable",
+      "ok": true,
+      "detail": "6/6 reached"
+    },
+    {
+      "page": "health",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "all 7 plugin stops show a ring"
+    },
+    {
+      "page": "health",
+      "viewport": "keyboard",
+      "check": "skip-link-reachable-by-tab",
+      "ok": true,
+      "detail": "reached by Tab"
+    },
+    {
+      "page": "health",
+      "viewport": "keyboard",
+      "check": "skip-link-reaches-main",
+      "ok": true,
+      "detail": "hash=#tmc-main focusMovedToTarget=true activeElement=<main id=\"tmc-main\">"
+    },
+    {
+      "page": "health",
+      "viewport": "layout-space-640x512",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (emulated layout space of 1280x1024 at 200% — viewport emulation, not zoom)"
+    },
+    {
+      "page": "health",
+      "viewport": "layout-space-640x512",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "layout-space-640x512",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "layout-space-640x512",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "layout-space-640x512",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "layout-space-640x512",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "layout-space-640x512",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "layout-space-640x512",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "layout-space-640x512",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "320",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "375",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "768",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "1024",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "1440",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "settings",
+      "viewport": "keyboard",
+      "check": "skip-link-is-the-first-plugin-stop",
+      "ok": true,
+      "detail": "after 93 WordPress chrome stops, the first stop inside .tmc-admin is .tmc-skip (real Tab presses, no focus() and no tabindex change)"
+    },
+    {
+      "page": "settings",
+      "viewport": "keyboard",
+      "check": "every-plugin-control-is-reachable",
+      "ok": true,
+      "detail": "10/10 reached"
+    },
+    {
+      "page": "settings",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "all 10 plugin stops show a ring"
+    },
+    {
+      "page": "settings",
+      "viewport": "keyboard",
+      "check": "skip-link-reachable-by-tab",
+      "ok": true,
+      "detail": "reached by Tab"
+    },
+    {
+      "page": "settings",
+      "viewport": "keyboard",
+      "check": "skip-link-reaches-main",
+      "ok": true,
+      "detail": "hash=#tmc-main focusMovedToTarget=true activeElement=<main id=\"tmc-main\">"
+    },
+    {
+      "page": "settings",
+      "viewport": "layout-space-640x512",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (emulated layout space of 1280x1024 at 200% — viewport emulation, not zoom)"
+    },
+    {
+      "page": "settings",
+      "viewport": "layout-space-640x512",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "layout-space-640x512",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "layout-space-640x512",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "layout-space-640x512",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "layout-space-640x512",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "layout-space-640x512",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "layout-space-640x512",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "layout-space-640x512",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=320 clientWidth=320"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "320",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=375 clientWidth=375"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "375",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=768 clientWidth=768"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "768",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1024 clientWidth=1024"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "1024",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=1440 clientWidth=1440"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "1440",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "modules",
+      "viewport": "keyboard",
+      "check": "skip-link-is-the-first-plugin-stop",
+      "ok": true,
+      "detail": "after 93 WordPress chrome stops, the first stop inside .tmc-admin is .tmc-skip (real Tab presses, no focus() and no tabindex change)"
+    },
+    {
+      "page": "modules",
+      "viewport": "keyboard",
+      "check": "every-plugin-control-is-reachable",
+      "ok": true,
+      "detail": "6/6 reached"
+    },
+    {
+      "page": "modules",
+      "viewport": "keyboard",
+      "check": "focus-visible",
+      "ok": true,
+      "detail": "all 16 plugin stops show a ring"
+    },
+    {
+      "page": "modules",
+      "viewport": "keyboard",
+      "check": "skip-link-reachable-by-tab",
+      "ok": true,
+      "detail": "reached by Tab"
+    },
+    {
+      "page": "modules",
+      "viewport": "keyboard",
+      "check": "skip-link-reaches-main",
+      "ok": true,
+      "detail": "hash=#tmc-main focusMovedToTarget=true activeElement=<main id=\"tmc-main\">"
+    },
+    {
+      "page": "modules",
+      "viewport": "layout-space-640x512",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (emulated layout space of 1280x1024 at 200% — viewport emulation, not zoom)"
+    },
+    {
+      "page": "modules",
+      "viewport": "layout-space-640x512",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "layout-space-640x512",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "layout-space-640x512",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "layout-space-640x512",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "layout-space-640x512",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "layout-space-640x512",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "layout-space-640x512",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "layout-space-640x512",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "browser-device-scale-2",
+      "check": "browser-really-scaled",
+      "ok": true,
+      "detail": "devicePixelRatio=2 innerWidth=640 outerWidth=640 screen=400x300 narrowMediaQuery=true rootZoom=1 (no CDP viewport override)"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "browser-device-scale-2",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (browser-applied device scale factor 2: 1280x1024 physical window, no CDP viewport override; NOT the browser page-zoom setting)"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "browser-device-scale-2",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "browser-device-scale-2",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "browser-device-scale-2",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "browser-device-scale-2",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "browser-device-scale-2",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "browser-device-scale-2",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "browser-device-scale-2",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "dashboard",
+      "viewport": "browser-device-scale-2",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "health",
+      "viewport": "browser-device-scale-2",
+      "check": "browser-really-scaled",
+      "ok": true,
+      "detail": "devicePixelRatio=2 innerWidth=640 outerWidth=640 screen=400x300 narrowMediaQuery=true rootZoom=1 (no CDP viewport override)"
+    },
+    {
+      "page": "health",
+      "viewport": "browser-device-scale-2",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (browser-applied device scale factor 2: 1280x1024 physical window, no CDP viewport override; NOT the browser page-zoom setting)"
+    },
+    {
+      "page": "health",
+      "viewport": "browser-device-scale-2",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "browser-device-scale-2",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "browser-device-scale-2",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "browser-device-scale-2",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "browser-device-scale-2",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "health",
+      "viewport": "browser-device-scale-2",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "health",
+      "viewport": "browser-device-scale-2",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "health",
+      "viewport": "browser-device-scale-2",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "settings",
+      "viewport": "browser-device-scale-2",
+      "check": "browser-really-scaled",
+      "ok": true,
+      "detail": "devicePixelRatio=2 innerWidth=640 outerWidth=640 screen=400x300 narrowMediaQuery=true rootZoom=1 (no CDP viewport override)"
+    },
+    {
+      "page": "settings",
+      "viewport": "browser-device-scale-2",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (browser-applied device scale factor 2: 1280x1024 physical window, no CDP viewport override; NOT the browser page-zoom setting)"
+    },
+    {
+      "page": "settings",
+      "viewport": "browser-device-scale-2",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "browser-device-scale-2",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "browser-device-scale-2",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "browser-device-scale-2",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "browser-device-scale-2",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "settings",
+      "viewport": "browser-device-scale-2",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "settings",
+      "viewport": "browser-device-scale-2",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "settings",
+      "viewport": "browser-device-scale-2",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "modules",
+      "viewport": "browser-device-scale-2",
+      "check": "browser-really-scaled",
+      "ok": true,
+      "detail": "devicePixelRatio=2 innerWidth=640 outerWidth=640 screen=400x300 narrowMediaQuery=true rootZoom=1 (no CDP viewport override)"
+    },
+    {
+      "page": "modules",
+      "viewport": "browser-device-scale-2",
+      "check": "no-horizontal-page-scroll",
+      "ok": true,
+      "detail": "scrollWidth=640 clientWidth=640 (browser-applied device scale factor 2: 1280x1024 physical window, no CDP viewport override; NOT the browser page-zoom setting)"
+    },
+    {
+      "page": "modules",
+      "viewport": "browser-device-scale-2",
+      "check": "no-element-overflow",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "browser-device-scale-2",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "browser-device-scale-2",
+      "check": "touch-target-44px",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "browser-device-scale-2",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "browser-device-scale-2",
+      "check": "plugin-assets-load",
+      "ok": true,
+      "detail": "none of the plugin's own; 1 external request(s) blocked by the sandbox"
+    },
+    {
+      "page": "modules",
+      "viewport": "browser-device-scale-2",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "modules",
+      "viewport": "browser-device-scale-2",
+      "check": "axe-whole-page-recorded",
+      "ok": true,
+      "detail": "none anywhere on the page"
+    },
+    {
+      "page": "modules",
+      "viewport": "browser-device-scale-2",
+      "check": "wp-admin-fa-IR-rtl-minimal-test-pack",
+      "ok": true,
+      "detail": "html lang=\"fa-IR\" dir=\"rtl\" body.rtl=true computed=rtl rtl-stylesheets=2 — with the MINIMAL EXPERIMENTAL translation pack built by tools/wp-lang/make-fa-ir-mo.py, not the official Persian pack"
+    },
+    {
+      "page": "settings-error",
+      "viewport": "keyboard",
+      "check": "error-summary-present",
+      "ok": true,
+      "detail": "activeElement id=\"tmc-error-summary\""
+    },
+    {
+      "page": "settings-error",
+      "viewport": "keyboard",
+      "check": "error-summary-focused-on-load",
+      "ok": true,
+      "detail": "activeElement id=\"tmc-error-summary\""
+    },
+    {
+      "page": "settings-error",
+      "viewport": "keyboard",
+      "check": "error-summary-links-reachable",
+      "ok": true,
+      "detail": "1 links"
+    },
+    {
+      "page": "settings-error",
+      "viewport": "1024",
+      "check": "axe-wcag-aa-plugin",
+      "ok": true,
+      "detail": "none"
+    }
+  ]
+}

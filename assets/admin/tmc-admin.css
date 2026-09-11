@@ -4,6 +4,23 @@
  * Brand tokens: #6ABFE7 header surface, #143C4D primary dark, #21D483 success,
  * #FFC658 warning; text colours on each are chosen for WCAG 2.2 AA (see
  * docs/evidence/contrast.md). Logical properties keep RTL real, not mirrored.
+ *
+ * TWO RULES THIS FILE EXISTS TO ENFORCE, both learned from a real failure on
+ * staging (docs/evidence/redesign/, docs/phase-1-report.md §5):
+ *
+ * 1. Layout follows the width of OUR content box, never the viewport.
+ *    wp-admin puts a 160px menu (36px folded) beside the content, so a
+ *    `@media (max-width: 768px)` rule fires at the wrong moment every time.
+ *    Every breakpoint here is an `@container` query: `tmc` is the page shell,
+ *    `tmccard` is a single card. A browser without container query support
+ *    keeps the single-column base, which is the safe end of the range.
+ *
+ * 2. No text box may be starved. `overflow-wrap: anywhere` (used here before)
+ *    lets a grid track shrink to one character, and that is exactly what
+ *    happened: identifiers and version numbers were laid out one letter per
+ *    line. Tracks are `minmax(0, …)`, wrapping is `break-word` (which does not
+ *    lower the min-content contribution), and Latin identifiers live in
+ *    `.tmc-code`, which scrolls instead of shattering.
  */
 .tmc-admin {
   --tmc-primary: #143C4D;
@@ -14,11 +31,14 @@
   --tmc-neutral: #E4EAEE;
   --tmc-bg: #F7F9FA;
   --tmc-surface: #FFFFFF;
+  --tmc-surface-2: #F1F5F7;
+  --tmc-code-bg: #EEF4F7;
   --tmc-text: #1F2A30;
   --tmc-muted: #4F6570;
   --tmc-border: #D3DDE3;
   --tmc-focus: #143C4D;
-  --tmc-radius: 10px;
+  --tmc-radius: 12px;
+  --tmc-radius-sm: 8px;
   --tmc-space-1: 4px;
   --tmc-space-2: 8px;
   --tmc-space-3: 12px;
@@ -26,22 +46,38 @@
   --tmc-space-6: 24px;
   --tmc-space-8: 32px;
   --tmc-touch: 44px;
-  max-width: 1200px;
+  /* Card grid: a card narrower than this cannot hold a label and a value side
+     by side, so the grid adds a column only when every column can stay above
+     it. min() keeps a single column honest below 22rem. */
+  --tmc-card-min: 22rem;
+  --tmc-prose: 72ch;
+  /* Persian first. No webfont is fetched: the admin must render the same with
+     no network, and Tahoma/Segoe are what a Persian wp-admin already uses. */
+  --tmc-font: "Vazirmatn", "Vazir", "IRANSans", "IRANYekan", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif;
+  --tmc-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+
+  container-type: inline-size;
+  container-name: tmc;
+  max-inline-size: 1400px;
   margin-inline: 0;
+  font-family: var(--tmc-font);
   font-size: 16px;
-  line-height: 1.7;
+  line-height: 1.75;
   color: var(--tmc-text);
   background: var(--tmc-bg);
   border-radius: var(--tmc-radius);
   padding: var(--tmc-space-4);
   box-sizing: border-box;
-  overflow-wrap: anywhere;
+  /* break-word only breaks a word that cannot fit on a line of its own; unlike
+     `anywhere` it does not let a grid or flex track collapse to one glyph. */
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .tmc-admin *, .tmc-admin *::before, .tmc-admin *::after { box-sizing: border-box; }
-.tmc-admin h1, .tmc-admin h2 { color: var(--tmc-primary); line-height: 1.4; margin: 0 0 var(--tmc-space-3); }
-.tmc-admin h1.tmc-title { font-size: 1.5rem; margin-block: var(--tmc-space-4) var(--tmc-space-4); }
+.tmc-admin h1, .tmc-admin h2, .tmc-admin h3 { color: var(--tmc-primary); line-height: 1.45; margin: 0 0 var(--tmc-space-3); font-weight: 700; }
+.tmc-admin h1.tmc-title { font-size: 1.5rem; margin-block: var(--tmc-space-6) var(--tmc-space-2); letter-spacing: -0.01em; }
 .tmc-admin h2.tmc-card__title { font-size: 1.125rem; }
-.tmc-admin p { margin: 0 0 var(--tmc-space-2); }
+.tmc-admin p { margin: 0 0 var(--tmc-space-2); max-inline-size: var(--tmc-prose); }
 .tmc-admin a { color: var(--tmc-primary); text-decoration: underline; text-underline-offset: 3px; }
 .tmc-admin a:hover { text-decoration-thickness: 2px; }
 .tmc-admin :focus-visible, .tmc-admin .tmc-error-summary:focus, .tmc-admin .tmc-main:focus {
@@ -60,29 +96,35 @@
   display: inline-flex; align-items: center; min-block-size: var(--tmc-touch);
   padding: var(--tmc-space-2) var(--tmc-space-4); overflow: visible;
   clip: auto; clip-path: none; background: var(--tmc-primary); color: #fff;
-  border-radius: 8px; text-decoration: none; font-weight: 700;
+  border-radius: var(--tmc-radius-sm); text-decoration: none; font-weight: 700;
 }
 
-/* header + navigation */
+/* header + navigation ------------------------------------------------------ */
 .tmc-header {
-  display: flex; flex-wrap: wrap; align-items: center; gap: var(--tmc-space-3);
+  display: grid; gap: var(--tmc-space-3);
   background: var(--tmc-header); color: var(--tmc-primary);
-  border-radius: var(--tmc-radius); padding: var(--tmc-space-3) var(--tmc-space-4);
+  border-radius: var(--tmc-radius); padding: var(--tmc-space-4);
 }
-.tmc-header__brand { display: flex; align-items: center; gap: var(--tmc-space-2); font-weight: 700; font-size: 1.125rem; }
-.tmc-nav ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--tmc-space-2); }
+.tmc-header__brand { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tmc-space-2); font-weight: 700; font-size: 1.25rem; }
+.tmc-header__product { letter-spacing: -0.01em; }
+.tmc-nav ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: var(--tmc-space-2); }
 .tmc-nav__link {
-  display: inline-flex; align-items: center; min-height: var(--tmc-touch); padding: 0 var(--tmc-space-4);
-  border-radius: 999px; background: rgba(255,255,255,0.65); color: var(--tmc-primary); text-decoration: none; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; min-height: var(--tmc-touch); padding: 0 var(--tmc-space-4);
+  border-radius: 999px; background: rgba(255,255,255,0.72); color: var(--tmc-primary); text-decoration: none; font-weight: 600;
 }
 .tmc-nav__link:hover { background: #fff; }
 .tmc-nav__link.is-current { background: var(--tmc-primary); color: #fff; }
 
-/* badges */
+/* badges + status ---------------------------------------------------------- */
 .tmc-badge { display: inline-block; padding: 2px var(--tmc-space-3); border-radius: 999px; font-size: 0.875rem; font-weight: 600; }
 .tmc-badge--alpha { background: var(--tmc-primary); color: #fff; }
-.tmc-status { display: inline-flex; align-items: center; gap: var(--tmc-space-2); padding: 2px var(--tmc-space-3); border-radius: 999px; font-weight: 600; font-size: 0.9375rem; white-space: nowrap; }
-.tmc-status__icon { display: inline-flex; align-items: center; justify-content: center; inline-size: 1.25em; block-size: 1.25em; border-radius: 50%; font-size: 0.85em; }
+.tmc-status {
+  display: inline-flex; align-items: center; gap: var(--tmc-space-2);
+  padding: 2px var(--tmc-space-3); border-radius: 999px; font-weight: 600; font-size: 0.9375rem;
+  /* the words stay together; the row they sit in wraps instead */
+  white-space: nowrap; max-inline-size: 100%;
+}
+.tmc-status__icon { display: inline-flex; align-items: center; justify-content: center; inline-size: 1.25em; block-size: 1.25em; border-radius: 50%; font-size: 0.85em; flex: 0 0 auto; }
 .tmc-status--success { background: var(--tmc-success); color: var(--tmc-primary); }
 .tmc-status--success .tmc-status__icon { background: var(--tmc-primary); color: #fff; }
 .tmc-status--warning { background: var(--tmc-warning); color: var(--tmc-primary); }
@@ -92,33 +134,92 @@
 .tmc-status--neutral { background: var(--tmc-neutral); color: var(--tmc-primary); }
 .tmc-status--neutral .tmc-status__icon { background: var(--tmc-primary); color: #fff; }
 
-/* cards + layout */
+/* cards + layout ----------------------------------------------------------- */
 .tmc-main { margin-block-start: var(--tmc-space-4); }
 .tmc-card {
+  container-type: inline-size;
+  container-name: tmccard;
   background: var(--tmc-surface); border: 1px solid var(--tmc-border); border-radius: var(--tmc-radius);
   padding: var(--tmc-space-4); margin-block-end: var(--tmc-space-4); min-inline-size: 0;
 }
-.tmc-card--muted { background: #F1F5F7; }
+.tmc-card--muted { background: var(--tmc-surface-2); }
 .tmc-card__note { color: var(--tmc-muted); }
-.tmc-lead { font-size: 1.0625rem; }
-.tmc-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--tmc-space-4); }
+.tmc-lead { font-size: 1.0625rem; color: var(--tmc-muted); }
+.tmc-cards {
+  list-style: none; margin: 0; padding: 0; display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--tmc-space-4);
+}
 .tmc-cards > .tmc-card { margin: 0; }
-.tmc-module .tmc-status { margin-block-end: var(--tmc-space-3); }
-.tmc-linkgrid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--tmc-space-3); }
+.tmc-linkgrid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: var(--tmc-space-3); }
 .tmc-linkgrid__item {
   display: flex; align-items: center; justify-content: center; min-height: var(--tmc-touch); padding: var(--tmc-space-3);
-  border: 2px solid var(--tmc-primary); border-radius: var(--tmc-radius); font-weight: 700; text-decoration: none; color: var(--tmc-primary); text-align: center;
+  border: 2px solid var(--tmc-primary); border-radius: var(--tmc-radius-sm); font-weight: 700; text-decoration: none; color: var(--tmc-primary); text-align: center;
 }
 .tmc-linkgrid__item:hover { background: var(--tmc-primary); color: #fff; }
 
-/* data list */
-.tmc-datalist { margin: 0; display: grid; gap: var(--tmc-space-2); }
-.tmc-datalist__row { display: grid; grid-template-columns: minmax(140px, 220px) 1fr; gap: var(--tmc-space-3); padding-block: var(--tmc-space-1); border-block-end: 1px dashed var(--tmc-border); }
-.tmc-datalist__row:last-child { border-block-end: 0; }
-.tmc-datalist dt { font-weight: 700; color: var(--tmc-muted); }
-.tmc-datalist dd { margin: 0; }
+/* module cards ------------------------------------------------------------- */
+/* The status colour is an accent on the inline-start edge. It repeats what the
+   status chip already says in words, so colour is never the only carrier. */
+.tmc-module { border-inline-start: 4px solid var(--tmc-accent, var(--tmc-border)); }
+.tmc-module[data-status="active"] { --tmc-accent: var(--tmc-success); }
+.tmc-module[data-status="degraded"] { --tmc-accent: var(--tmc-error); }
+.tmc-module[data-status="blocked"] { --tmc-accent: var(--tmc-warning); }
+.tmc-module[data-status="planned"] { --tmc-accent: var(--tmc-neutral); }
+.tmc-module__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tmc-space-2) var(--tmc-space-3); margin-block-end: var(--tmc-space-2); }
+.tmc-module__head .tmc-card__title { margin: 0; }
+.tmc-module__summary { color: var(--tmc-text); margin-block-end: var(--tmc-space-2); }
+.tmc-module__reason { color: var(--tmc-muted); }
+.tmc-module__kind { color: var(--tmc-muted); font-size: 0.9375rem; margin-block-end: 0; }
 
-/* notices */
+/* technical details -------------------------------------------------------- */
+/* Long identifiers are for developers; a manager sees them only on request. */
+.tmc-tech { margin-block-start: var(--tmc-space-3); border-block-start: 1px dashed var(--tmc-border); }
+.tmc-tech > summary {
+  display: flex; align-items: center; gap: var(--tmc-space-2);
+  min-block-size: var(--tmc-touch); cursor: pointer;
+  color: var(--tmc-primary); font-weight: 600; font-size: 0.9375rem;
+}
+.tmc-tech > summary:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tmc-tech[open] > summary { margin-block-end: var(--tmc-space-2); }
+.tmc-tech .tmc-datalist { padding-block-end: var(--tmc-space-2); }
+
+/* Latin identifiers and version numbers: isolated LTR, never broken between
+   characters, and allowed to scroll inside their own box if the box is small.
+   This is the piece that failed on staging. */
+.tmc-admin bdi, .tmc-code {
+  unicode-bidi: isolate;
+  direction: ltr;
+  font-family: var(--tmc-font-mono);
+  font-size: 0.9375em;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  white-space: nowrap;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  display: inline-block;
+  vertical-align: bottom;
+}
+.tmc-code {
+  background: var(--tmc-code-bg); color: var(--tmc-primary);
+  border-radius: var(--tmc-radius-sm); padding: 0 var(--tmc-space-2);
+}
+.tmc-codes { display: flex; flex-wrap: wrap; gap: var(--tmc-space-2); margin: 0; padding: 0; list-style: none; }
+
+/* data list ---------------------------------------------------------------- */
+/* Stacked by default: a label above its value always fits. The side-by-side
+   form appears only when the CARD (not the window) is wide enough for both,
+   and both tracks start at minmax(0, …) so neither can starve the other. */
+.tmc-datalist { margin: 0; display: grid; gap: var(--tmc-space-2); }
+.tmc-datalist__row {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 0;
+  padding-block: var(--tmc-space-2); border-block-end: 1px dashed var(--tmc-border);
+}
+.tmc-datalist__row:last-child { border-block-end: 0; }
+.tmc-datalist dt { font-weight: 700; color: var(--tmc-muted); font-size: 0.9375rem; min-inline-size: 0; }
+.tmc-datalist dd { margin: 0; min-inline-size: 0; }
+
+/* notices ------------------------------------------------------------------ */
 .tmc-notice { display: flex; gap: var(--tmc-space-3); align-items: flex-start; padding: var(--tmc-space-3) var(--tmc-space-4); border-radius: var(--tmc-radius); margin-block-end: var(--tmc-space-3); border: 1px solid transparent; background: var(--tmc-surface); }
 .tmc-notice__icon { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; inline-size: 28px; block-size: 28px; border-radius: 50%; font-weight: 700; }
 .tmc-notice__text { margin: 0; }
@@ -130,16 +231,16 @@
 .tmc-notice--error .tmc-notice__icon { background: var(--tmc-error); color: #fff; }
 .tmc-notice--info .tmc-notice__icon { background: var(--tmc-header); color: var(--tmc-primary); }
 
-/* error summary */
+/* error summary ------------------------------------------------------------ */
 .tmc-error-summary { border: 3px solid var(--tmc-error); border-radius: var(--tmc-radius); padding: var(--tmc-space-4); margin-block-end: var(--tmc-space-4); background: var(--tmc-surface); }
 .tmc-error-summary__title { color: var(--tmc-error); font-size: 1.125rem; margin: 0 0 var(--tmc-space-2); }
 .tmc-error-summary ul { margin: 0; padding-inline-start: var(--tmc-space-6); }
 .tmc-error-summary a { color: var(--tmc-error); font-weight: 600; }
 
-/* forms */
-.tmc-form fieldset { border: 1px solid var(--tmc-border); }
-.tmc-form legend { padding-inline: var(--tmc-space-2); }
-.tmc-field { margin-block-end: var(--tmc-space-4); }
+/* forms -------------------------------------------------------------------- */
+.tmc-form fieldset { border: 1px solid var(--tmc-border); border-radius: var(--tmc-radius-sm); padding: var(--tmc-space-4); }
+.tmc-form legend { padding-inline: var(--tmc-space-2); font-weight: 700; color: var(--tmc-primary); }
+.tmc-field { margin-block-end: var(--tmc-space-6); max-inline-size: var(--tmc-prose); }
 .tmc-field__label { display: block; font-weight: 700; margin-block-end: var(--tmc-space-1); }
 .tmc-field__control { display: flex; align-items: center; gap: var(--tmc-space-2); flex-wrap: wrap; }
 .tmc-field__desc { color: var(--tmc-muted); font-size: 0.9375rem; margin-block-start: var(--tmc-space-1); }
@@ -147,57 +248,96 @@
 .tmc-field.is-invalid .tmc-input, .tmc-field.is-invalid .tmc-select { border-color: var(--tmc-error); border-width: 2px; }
 .tmc-admin .tmc-input, .tmc-admin .tmc-select {
   min-height: var(--tmc-touch); font-size: 1rem; padding: var(--tmc-space-2) var(--tmc-space-3);
-  border: 1px solid var(--tmc-muted); border-radius: 8px; background: #fff; color: var(--tmc-text); max-inline-size: 100%;
+  border: 1px solid var(--tmc-muted); border-radius: var(--tmc-radius-sm); background: #fff; color: var(--tmc-text); max-inline-size: 100%;
+  font-family: var(--tmc-font);
 }
 .tmc-admin .tmc-input--short { inline-size: 9rem; }
 .tmc-field__unit { color: var(--tmc-muted); }
-.tmc-actions { display: flex; gap: var(--tmc-space-3); flex-wrap: wrap; }
+.tmc-actions { display: flex; gap: var(--tmc-space-3); flex-wrap: wrap; margin-block-start: var(--tmc-space-4); }
 .tmc-button {
   display: inline-flex; align-items: center; justify-content: center; min-height: var(--tmc-touch); min-inline-size: var(--tmc-touch);
-  padding: 0 var(--tmc-space-6); border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; text-decoration: none; border: 2px solid var(--tmc-primary);
+  padding: 0 var(--tmc-space-6); border-radius: var(--tmc-radius-sm); font-size: 1rem; font-weight: 700; cursor: pointer; text-decoration: none;
+  border: 2px solid var(--tmc-primary); font-family: var(--tmc-font);
 }
 .tmc-button--primary { background: var(--tmc-primary); color: #fff; }
 .tmc-button--primary:hover { background: #0F2E3B; }
 .tmc-button--secondary { background: #fff; color: var(--tmc-primary); }
 .tmc-button--secondary:hover { background: var(--tmc-neutral); }
 
-/* tables → cards on narrow screens */
+/* tables: card-shaped rows by default, a real table when the card is wide --- */
 .tmc-table { inline-size: 100%; border-collapse: collapse; background: var(--tmc-surface); }
-.tmc-table th, .tmc-table td { padding: var(--tmc-space-3); text-align: start; vertical-align: top; border-block-end: 1px solid var(--tmc-border); }
-.tmc-table thead th { background: #EEF4F7; color: var(--tmc-primary); }
+.tmc-table, .tmc-table thead, .tmc-table tbody, .tmc-table tr, .tmc-table th, .tmc-table td { display: block; }
+.tmc-table thead { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); }
+.tmc-table tr { border: 1px solid var(--tmc-border); border-radius: var(--tmc-radius-sm); margin-block-end: var(--tmc-space-3); padding: var(--tmc-space-3); }
+.tmc-table th, .tmc-table td { border: 0; padding: var(--tmc-space-1) 0; text-align: start; vertical-align: top; }
+.tmc-table td::before, .tmc-table tbody th::before { content: attr(data-label) ": "; font-weight: 700; color: var(--tmc-muted); }
 .tmc-table tbody th { font-weight: 700; }
-.tmc-list { list-style: none; margin: 0; padding: 0; }
-.tmc-list__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tmc-space-2) var(--tmc-space-3); padding-block: var(--tmc-space-2); border-block-end: 1px dashed var(--tmc-border); }
-.tmc-list__name { font-weight: 700; }
-.tmc-list__reason { flex-basis: 100%; color: var(--tmc-muted); }
-.tmc-overall { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tmc-space-3); margin-block-end: var(--tmc-space-4); }
-.tmc-overall__label { font-weight: 700; }
-.tmc-footer { color: var(--tmc-muted); font-size: 0.9375rem; margin-block-start: var(--tmc-space-6); }
-.tmc-sr-only { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-.tmc-admin bdi { unicode-bidi: isolate; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9375em; }
 
-@media (max-width: 768px) {
-  .tmc-admin { padding: var(--tmc-space-3); }
-  .tmc-header { flex-direction: column; align-items: stretch; }
-  .tmc-nav ul { display: grid; grid-template-columns: repeat(2, 1fr); }
-  .tmc-nav__link { justify-content: center; }
-  .tmc-cards, .tmc-linkgrid { grid-template-columns: repeat(2, 1fr); }
-  .tmc-datalist__row { grid-template-columns: 1fr; gap: 0; }
-  .tmc-table, .tmc-table thead, .tmc-table tbody, .tmc-table tr, .tmc-table th, .tmc-table td { display: block; }
-  .tmc-table thead { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .tmc-table tr { border: 1px solid var(--tmc-border); border-radius: var(--tmc-radius); margin-block-end: var(--tmc-space-3); padding: var(--tmc-space-2); }
-  .tmc-table th, .tmc-table td { border: 0; padding: var(--tmc-space-1) 0; }
-  .tmc-table td::before, .tmc-table tbody th::before { content: attr(data-label) ": "; font-weight: 700; color: var(--tmc-muted); }
-  .tmc-status { white-space: normal; }
+/* lists -------------------------------------------------------------------- */
+.tmc-list { list-style: none; margin: 0; padding: 0; }
+.tmc-list__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tmc-space-2) var(--tmc-space-3); padding-block: var(--tmc-space-3); border-block-end: 1px dashed var(--tmc-border); }
+.tmc-list__item:last-child { border-block-end: 0; }
+.tmc-list__name { font-weight: 700; min-inline-size: 0; }
+.tmc-list__reason { flex-basis: 100%; color: var(--tmc-muted); }
+.tmc-overall { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tmc-space-2) var(--tmc-space-3); margin-block-end: var(--tmc-space-4); padding: var(--tmc-space-3) var(--tmc-space-4); background: var(--tmc-surface); border: 1px solid var(--tmc-border); border-radius: var(--tmc-radius); }
+.tmc-overall__label { font-weight: 700; }
+.tmc-overall__time { color: var(--tmc-muted); font-size: 0.9375rem; }
+.tmc-footer { color: var(--tmc-muted); font-size: 0.9375rem; margin-block-start: var(--tmc-space-6); }
+.tmc-footer p { max-inline-size: var(--tmc-prose); }
+.tmc-sr-only { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* ---- container queries: everything below reacts to OUR width -------------- */
+
+/* The page shell: how many cards fit beside each other, and how the header
+   lays itself out. Never the window. */
+@container tmc (min-width: 20rem) {
+  /* Two pills per row as soon as two fit: four full-width pills push the
+     page's actual content below the fold on a phone. */
+  .tmc-nav ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 400px) {
-  .tmc-nav ul, .tmc-cards, .tmc-linkgrid { grid-template-columns: 1fr; }
-  /* Grow the field but keep its unit («٪», «روز», «نفر») on the same line:
-     a full-width input pushes the unit onto its own row, away from the label
-     it belongs to. */
-  .tmc-admin .tmc-input--short { inline-size: auto; flex: 1 1 7rem; min-inline-size: 0; }
-  .tmc-button { inline-size: 100%; }
+@container tmc (min-width: 30rem) {
+  .tmc-header { grid-template-columns: auto 1fr; align-items: center; }
+  .tmc-nav ul { justify-content: end; }
 }
+@container tmc (min-width: 46rem) {
+  .tmc-nav ul { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+  .tmc-nav__link { justify-content: flex-start; }
+  .tmc-cards, .tmc-linkgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--tmc-card-min)), 1fr)); }
+  .tmc-linkgrid { --tmc-card-min: 11rem; }
+}
+
+/* A single card: label beside value, and the health table as a table. Both
+   need real room, and the card knows how much room it has. */
+@container tmccard (min-width: 30rem) {
+  .tmc-datalist__row { grid-template-columns: minmax(0, 12rem) minmax(0, 1fr); gap: var(--tmc-space-3); align-items: baseline; }
+}
+/* A very wide card would otherwise show one short value per 1000px row. Two
+   rows side by side keep the label next to its value and the eye travelling a
+   short distance. */
+@container tmccard (min-width: 60rem) {
+  .tmc-datalist { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--tmc-space-8); }
+}
+@container tmccard (min-width: 44rem) {
+  .tmc-table { display: table; }
+  .tmc-table tbody { display: table-row-group; }
+  .tmc-table tr { display: table-row; }
+  .tmc-table thead { display: table-header-group; position: static; inline-size: auto; block-size: auto; clip: auto; clip-path: none; }
+  .tmc-table th, .tmc-table td { display: table-cell; padding: var(--tmc-space-3); border-block-end: 1px solid var(--tmc-border); }
+  .tmc-table thead th { background: var(--tmc-code-bg); color: var(--tmc-primary); }
+  .tmc-table tr { border: 0; border-radius: 0; margin: 0; padding: 0; }
+  .tmc-table td::before, .tmc-table tbody th::before { content: none; }
+}
+
+/* Fallback for engines without container queries: keep the single-column base
+   (safe), but give a wide WINDOW the multi-column card grid, since in that
+   case a starved column is impossible anyway — the cards are wide. */
+@supports not (container-type: inline-size) {
+  @media (min-width: 1100px) {
+    .tmc-cards, .tmc-linkgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--tmc-card-min)), 1fr)); }
+    .tmc-nav ul { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tmc-admin *, .tmc-admin *::before, .tmc-admin *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }

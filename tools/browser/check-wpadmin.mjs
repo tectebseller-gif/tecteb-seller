@@ -190,6 +190,35 @@ async function measure(page, pageErrors, failedRequests, label, vpName, clientWi
   }, SCOPE);
   record(label, vpName, 'no-element-overflow', spill.length === 0, spill.join('; ') || 'none');
 
+  // 2b. NO STARVED TEXT BOX (the staging failure of 2026-09-11).
+  // A grid track that collapses to about one character turns an identifier
+  // into a vertical column of letters. axe does not look at this and neither
+  // did any check here: the page had no violation, no overflow, and was
+  // unreadable. The property is simple — a box that holds text must be wide
+  // enough for a few characters of its own font — so it is asserted directly.
+  const starved = await page.evaluate((scope) => {
+    const MIN_CHARS = 4; // a box narrower than ~4 of its own characters is starved
+    const out = [];
+    for (const el of document.querySelectorAll(`${scope} *`)) {
+      if (el.children.length > 0) continue;            // leaves carry the text
+      const text = (el.textContent || '').trim();
+      if (text.length < 5) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;   // hidden / collapsed
+      // Visually-hidden text (the skip link, .tmc-sr-only) is deliberately
+      // clipped to 1x1 and is not a starved box: a starved box is NARROW and
+      // TALL, because the text spilled into many lines.
+      const cs = getComputedStyle(el);
+      if (r.height <= 2 || cs.clipPath !== 'none') continue;
+      const fs = parseFloat(cs.fontSize) || 16;
+      if (r.width < MIN_CHARS * fs * 0.6) {            // 0.6em ≈ one monospace glyph
+        out.push(`${el.tagName.toLowerCase()}.${(el.className || '').toString().trim().split(/\s+/)[0]} width=${Math.round(r.width)}px font=${Math.round(fs)}px text="${text.slice(0, 20)}"`);
+      }
+    }
+    return out.slice(0, 5);
+  }, SCOPE);
+  record(label, vpName, 'no-starved-text-box', starved.length === 0, starved.join('; ') || 'none');
+
   // 3. interactive targets of the plugin are at least 44x44 (UX §1.1)
   const small = await page.evaluate(([scope, min]) => {
     const out = [];
@@ -464,6 +493,18 @@ for (const p of PAGES) {
   ]);
   await page.waitForSelector(SCOPE);
   await page.waitForSelector('#tmc-error-summary', { timeout: 15000 }).catch(() => {});
+  // waitForSelector resolves as soon as the element is PARSED, which can be
+  // before the plugin's script (end of body) has run and moved focus — the
+  // check then sampled a moment that the contract says nothing about and
+  // failed at random. The contract is "after the page has loaded", so wait
+  // for the load to finish and give focus a bounded moment to land. A real
+  // failure still fails: the wait times out and the state below is read as is.
+  await page.waitForLoadState('load');
+  await page.waitForFunction(
+    () => document.activeElement && document.activeElement.id === 'tmc-error-summary',
+    null,
+    { timeout: 5000 }
+  ).catch(() => {});
   const state = await page.evaluate(() => {
     const summary = document.getElementById('tmc-error-summary');
     return {

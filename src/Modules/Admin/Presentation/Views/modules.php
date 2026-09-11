@@ -27,20 +27,33 @@ if ($report === null) {
         ModuleStatus::Planned => Components::badge('neutral', '…', Messages::moduleStatus($state->status)),
     };
     $reason = Messages::moduleReason($state->reasonCode, $state->reasonDetail, $state->phase);
+    // Technical facts a manager does not need in order to read the page. They
+    // stay one click away instead of pushing the readable text into a corner.
+    $tech = array_values(array_filter([
+        ['label' => __('شناسه', 'tecteb-marketplace-core'), 'value' => Components::code($state->id()), 'raw' => true],
+        ['label' => __('نسخه', 'tecteb-marketplace-core'), 'value' => Components::code($state->manifest->version), 'raw' => true],
+        $state->manifest->dependencies === []
+            ? ['label' => __('وابستگی‌ها', 'tecteb-marketplace-core'), 'value' => __('ندارد', 'tecteb-marketplace-core')]
+            : ['label' => __('وابستگی‌ها', 'tecteb-marketplace-core'), 'value' => Components::codes($state->manifest->dependencies), 'raw' => true],
+        $state->manifest->requiresWooCommerce ? ['label' => __('نیازمند WooCommerce', 'tecteb-marketplace-core'), 'value' => __('بله', 'tecteb-marketplace-core')] : null,
+    ]));
     ?>
-    <li class="tmc-card tmc-module" aria-labelledby="tmc-mod-<?php echo esc_attr($state->id()); ?>">
-        <h2 id="tmc-mod-<?php echo esc_attr($state->id()); ?>" class="tmc-card__title"><?php echo esc_html($state->manifest->label); ?></h2>
-        <?php echo $badge; ?>
-        <?php echo Components::dataList(array_values(array_filter([
-            ['label' => __('شناسه', 'tecteb-marketplace-core'), 'value' => Components::bdi($state->id()), 'raw' => true],
-            ['label' => __('نسخه', 'tecteb-marketplace-core'), 'value' => Components::bdi($state->manifest->version), 'raw' => true],
-            ['label' => __('نوع', 'tecteb-marketplace-core'), 'value' => Messages::moduleKind($state->kind())],
-            ['label' => __('وابستگی‌ها', 'tecteb-marketplace-core'), 'value' => $state->manifest->dependencies === [] ? __('ندارد', 'tecteb-marketplace-core') : implode('، ', $state->manifest->dependencies)],
-            $state->manifest->requiresWooCommerce ? ['label' => __('نیازمند WooCommerce', 'tecteb-marketplace-core'), 'value' => __('بله', 'tecteb-marketplace-core')] : null,
-            $state->manifest->description !== '' ? ['label' => __('شرح', 'tecteb-marketplace-core'), 'value' => $state->manifest->description] : null,
-            $reason !== '' ? ['label' => __('علت', 'tecteb-marketplace-core'), 'value' => $reason] : null,
-            $state->status === ModuleStatus::Planned ? ['label' => __('فعال‌سازی', 'tecteb-marketplace-core'), 'value' => __('در این نسخه ممکن نیست (نقشه راه)', 'tecteb-marketplace-core')] : null,
-        ]))); ?>
+    <li class="tmc-card tmc-module" data-status="<?php echo esc_attr($state->status->value); ?>" aria-labelledby="tmc-mod-<?php echo esc_attr($state->id()); ?>">
+        <div class="tmc-module__head">
+            <h2 id="tmc-mod-<?php echo esc_attr($state->id()); ?>" class="tmc-card__title"><?php echo esc_html($state->manifest->label); ?></h2>
+            <?php echo $badge; ?>
+        </div>
+        <?php if ($state->manifest->description !== '') : ?>
+            <p class="tmc-module__summary"><?php echo esc_html($state->manifest->description); ?></p>
+        <?php endif; ?>
+        <?php if ($reason !== '') : ?>
+            <p class="tmc-module__reason"><?php echo esc_html($reason); ?></p>
+        <?php endif; ?>
+        <?php if ($state->status === ModuleStatus::Planned) : ?>
+            <p class="tmc-module__reason"><?php esc_html_e('فعال‌سازی در این نسخه ممکن نیست؛ این ماژول در نقشه راه است.', 'tecteb-marketplace-core'); ?></p>
+        <?php endif; ?>
+        <p class="tmc-module__kind"><?php echo esc_html(sprintf(__('نوع: %s', 'tecteb-marketplace-core'), Messages::moduleKind($state->kind()))); ?></p>
+        <?php echo Components::techDetails($tech); ?>
     </li>
 <?php endforeach; ?>
 </ul>

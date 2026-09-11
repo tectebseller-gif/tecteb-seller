@@ -46,6 +46,17 @@ Gutenberg ندارد. `wp-playground`، `wp-wpcli-and-ops`، `wp-phpstan`،
 `wp-plugin-directory-guidelines` — خارج از چهار حوزه‌ای که مالک خواست؛ با
 همان فرمان بالا و افزودن نامشان قابل نصب‌اند.
 
+## راهنمای سازگاری پروژه‌ای
+
+دو نکتهٔ زیر در یک مهارت پروژه‌ای جمع شده‌اند تا در عمل هم رعایت شوند:
+**`.claude/skills/tmc-wp-skills/`** — نگاشت مسیرها و تشخیص درست پروژه، به‌همراه
+یک wrapper که همان اسکریپت بالادست را اجرا و نتیجه را تصحیح می‌کند:
+
+```bash
+node .claude/skills/tmc-wp-skills/scripts/triage.mjs        # نتیجه تصحیح‌شده
+node .claude/skills/tmc-wp-skills/scripts/triage.mjs --raw  # خروجی دست‌نخورده بالادست
+```
+
 ## دو نکتهٔ رفتاری که در همین مخزن مشاهده شد
 
 1. `wp-project-triage` این مخزن را `kind: unknown` طبقه‌بندی می‌کند. علت:
