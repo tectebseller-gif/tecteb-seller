@@ -50,6 +50,21 @@ final class State
     /** @var list<string> */
     public static array $wpDieCalls = [];
 
+    // Vendor phase: the front-end route, its redirects and its file storage.
+    /** @var array<string,string> */
+    public static array $rewriteRules = [];
+    public static int $rewriteFlushes = 0;
+    /** @var array<string,mixed> */
+    public static array $queryVars = [];
+    /** @var list<array{location:string,status:int}> */
+    public static array $redirects = [];
+    /** @var array<int,array<string,string>> */
+    public static array $users = [];
+    public static ?string $uploadBaseDir = null;
+    /** @var list<string> */
+    public static array $sentHeaders = [];
+    public static ?int $statusHeader = null;
+
     public static function reset(): void
     {
         self::$options = [];
@@ -71,6 +86,14 @@ final class State
         self::$enqueued = ['style' => [], 'script' => []];
         self::$restRoutes = [];
         self::$clearedScheduledHooks = [];
+        self::$rewriteRules = [];
+        self::$rewriteFlushes = 0;
+        self::$queryVars = [];
+        self::$redirects = [];
+        self::$users = [];
+        self::$uploadBaseDir = null;
+        self::$sentHeaders = [];
+        self::$statusHeader = null;
         self::$output = [];
         self::$wpDieCalls = [];
         $_REQUEST = [];

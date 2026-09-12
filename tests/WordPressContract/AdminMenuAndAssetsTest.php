@@ -9,7 +9,7 @@ use TmcWpStubs\State;
 /** CORE-03/05: four capability-gated pages; assets only on the plugin's own screens. */
 final class AdminMenuAndAssetsTest extends ContractTestCase
 {
-    public function testMenuHasExactlyFourCapabilityGatedPages(): void
+    public function testMenuHasExactlyTheCapabilityGatedPagesOfTheLoadedModules(): void
     {
         $this->bootPlugin(false);
         $this->loginAdmin();
@@ -22,13 +22,18 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
         self::assertSame('tmc-dashboard', $top[0]['slug']);
 
         $subs = array_values(array_filter(State::$menus, static fn ($m) => $m['parent'] === 'tmc-dashboard'));
+        // Four from the admin module, then the vendor module's two — which
+        // register through the same registrar, so they inherit the capability
+        // gate and the "styles on plugin screens only" rule.
         $expected = [
             ['tmc-dashboard', 'tmc_view_dashboard', 'پیشخوان'],
             ['tmc-health', 'tmc_view_health', 'سلامت'],
             ['tmc-settings', 'tmc_manage_settings', 'تنظیمات'],
             ['tmc-modules', 'tmc_view_modules', 'ماژول‌ها'],
+            ['tmc-vendor-applications', 'tmc_review_vendor', 'درخواست‌های فروشندگان'],
+            ['tmc-vendor-documents', 'tmc_manage_vendor_documents', 'مدارک فروشندگان'],
         ];
-        self::assertCount(4, $subs);
+        self::assertCount(6, $subs);
         foreach ($expected as $i => [$slug, $cap, $label]) {
             self::assertSame($slug, $subs[$i]['slug']);
             self::assertSame($cap, $subs[$i]['capability']);

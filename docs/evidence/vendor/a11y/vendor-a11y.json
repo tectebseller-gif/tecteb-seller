@@ -1,0 +1,548 @@
+{
+  "suite": "vendor-area",
+  "scope": "The vendor pages at /vendor/ in a real WordPress, signed in as a vendor. Separate from the admin-screen suite on purpose.",
+  "generated_at": "2026-09-12T14:49:22.636Z",
+  "widths": [
+    320,
+    375,
+    768,
+    1024,
+    1440
+  ],
+  "total": 76,
+  "failures": 0,
+  "results": [
+    {
+      "page": "vendor-dashboard",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "320",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "375",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "768",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1024",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1440",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "keyboard",
+      "check": "skip-link-is-the-first-stop",
+      "ok": true,
+      "detail": "first=tv-skip \"پرش به محتوای اصلی\""
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "keyboard",
+      "check": "skip-link-moves-focus-to-main",
+      "ok": true,
+      "detail": "{\"hash\":\"#tv-main\",\"focused\":\"tv-main\"}"
+    },
+    {
+      "page": "vendor-dashboard",
+      "scope": "keyboard",
+      "check": "controls-are-reachable-by-tab",
+      "ok": true,
+      "detail": "44 stops inside the page, 5 focusable controls"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "320",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "375",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "768",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1024",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1440",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "keyboard",
+      "check": "skip-link-is-the-first-stop",
+      "ok": true,
+      "detail": "first=tv-skip \"پرش به محتوای اصلی\""
+    },
+    {
+      "page": "vendor-application",
+      "scope": "keyboard",
+      "check": "skip-link-moves-focus-to-main",
+      "ok": true,
+      "detail": "{\"hash\":\"#tv-main\",\"focused\":\"tv-main\"}"
+    },
+    {
+      "page": "vendor-application",
+      "scope": "keyboard",
+      "check": "controls-are-reachable-by-tab",
+      "ok": true,
+      "detail": "49 stops inside the page, 8 focusable controls"
+    }
+  ]
+}

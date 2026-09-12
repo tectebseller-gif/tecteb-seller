@@ -1,0 +1,197 @@
+/*
+ * Tecteb Marketplace Core — vendor area (front end, /vendor/…).
+ *
+ * Not wp-admin: this file is the whole stylesheet for those pages, so every
+ * token it uses is defined HERE. That is the fix for the first preview's
+ * worst bug — the active menu item was white-on-light-blue because its
+ * colours came from a variable defined in the admin stylesheet, which this
+ * page never loads.
+ *
+ * Brand: #6ABFE7 header · #143C4D ink · #21D483 success · #FFC658 attention.
+ * Layout follows the width of OUR container, never the window (ADR-006).
+ */
+.tv {
+  --tv-ink: #143C4D;
+  --tv-ink-strong: #0F2E3B;
+  --tv-sky: #6ABFE7;
+  --tv-sky-soft: #D9EFF9;
+  --tv-green: #21D483;
+  --tv-amber: #FFC658;
+  --tv-red: #B3261E;
+  --tv-page: #EDF3F6;
+  --tv-surface: #FFFFFF;
+  --tv-surface-2: #F4F8FA;
+  --tv-text: #1F2A30;
+  --tv-muted: #4F6570;
+  --tv-border: #D3DDE3;
+  --tv-radius: 14px;
+  --tv-radius-sm: 9px;
+  --tv-s1: 4px;
+  --tv-s2: 8px;
+  --tv-s3: 12px;
+  --tv-s4: 16px;
+  --tv-s5: 24px;
+  --tv-s6: 32px;
+  --tv-touch: 46px;
+  --tv-font: "Vazirmatn", "Vazir", "IRANSans", "IRANYekan", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif;
+  --tv-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  margin: 0;
+  background: var(--tv-page);
+  color: var(--tv-text);
+  font-family: var(--tv-font);
+  font-size: 16px;
+  line-height: 1.8;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+.tv *, .tv *::before, .tv *::after { box-sizing: border-box; }
+.tv h1, .tv h2, .tv h3 { color: var(--tv-ink); line-height: 1.45; margin: 0 0 var(--tv-s2); font-weight: 700; }
+.tv p { margin: 0 0 var(--tv-s2); max-inline-size: 68ch; }
+.tv a { color: var(--tv-ink); text-underline-offset: 3px; }
+.tv :focus-visible { outline: 3px solid var(--tv-ink); outline-offset: 2px; }
+
+.tv-skip {
+  position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.tv-skip:focus {
+  position: static; inline-size: auto; block-size: auto; margin: 0; clip-path: none;
+  display: inline-flex; align-items: center; min-block-size: var(--tv-touch);
+  padding: 0 var(--tv-s4); background: var(--tv-ink); color: #fff; text-decoration: none; font-weight: 700;
+}
+
+/* header ------------------------------------------------------------------ */
+.tv-head {
+  background: var(--tv-sky);
+  padding: var(--tv-s4) var(--tv-s4) var(--tv-s3);
+  display: grid;
+  gap: var(--tv-s3);
+  border-block-end: 4px solid var(--tv-ink);
+}
+.tv-head__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--tv-s2) var(--tv-s4); max-inline-size: 1100px; margin-inline: auto; inline-size: 100%; }
+.tv-head__brand { display: flex; flex-direction: column; }
+.tv-head__name { font-weight: 700; font-size: 1.2rem; color: var(--tv-ink); }
+.tv-head__role { font-size: 0.9375rem; color: var(--tv-ink); opacity: 0.85; }
+.tv-head__store { margin: 0; font-weight: 700; color: var(--tv-ink); background: #fff; border-radius: 999px; padding: var(--tv-s1) var(--tv-s4); }
+
+/* navigation: the current item is INK on white, never white on sky --------- */
+.tv-nav { max-inline-size: 1100px; margin-inline: auto; inline-size: 100%; }
+.tv-nav ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--tv-s2); }
+.tv-nav__link {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  min-height: var(--tv-touch); padding: 0 var(--tv-s4);
+  background: #fff; color: var(--tv-ink); border: 2px solid transparent;
+  border-radius: 999px; font-weight: 700; text-decoration: none;
+}
+.tv-nav__link:hover { border-color: var(--tv-ink); }
+.tv-nav__link.is-current { background: var(--tv-ink); color: #fff; }
+
+/* content ----------------------------------------------------------------- */
+.tv-main { padding: var(--tv-s4); max-inline-size: 1100px; margin-inline: auto; }
+.tv-title { font-size: 1.375rem; margin-block: var(--tv-s3) var(--tv-s4); }
+.tv-lead { font-size: 1.0625rem; }
+.tv-card {
+  background: var(--tv-surface); border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
+  padding: var(--tv-s4); margin-block-end: var(--tv-s4);
+}
+.tv-card--status { border-inline-start: 5px solid var(--tv-sky); }
+.tv-card--submit { background: var(--tv-surface-2); }
+.tv-card__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tv-s2) var(--tv-s3); margin-block-end: var(--tv-s2); }
+.tv-card__title { font-size: 1.0625rem; margin: 0; }
+
+.tv-chip {
+  display: inline-flex; align-items: center; gap: var(--tv-s2);
+  padding: 2px var(--tv-s3); border-radius: 999px; font-weight: 700; font-size: 0.9375rem; white-space: nowrap;
+}
+.tv-chip__icon { display: inline-flex; align-items: center; justify-content: center; inline-size: 1.3em; block-size: 1.3em; border-radius: 50%; font-size: 0.8em; }
+.tv-chip--success { background: var(--tv-green); color: var(--tv-ink); }
+.tv-chip--success .tv-chip__icon { background: var(--tv-ink); color: #fff; }
+.tv-chip--warning { background: var(--tv-amber); color: var(--tv-ink); }
+.tv-chip--warning .tv-chip__icon { background: var(--tv-ink); color: #fff; }
+.tv-chip--error { background: var(--tv-red); color: #fff; }
+.tv-chip--error .tv-chip__icon { background: #fff; color: var(--tv-red); }
+.tv-chip--neutral { background: var(--tv-sky-soft); color: var(--tv-ink); }
+.tv-chip--neutral .tv-chip__icon { background: var(--tv-ink); color: #fff; }
+
+.tv-notice { border: 1px solid var(--tv-border); border-inline-start-width: 5px; border-radius: var(--tv-radius-sm); padding: var(--tv-s3) var(--tv-s4); margin-block-end: var(--tv-s4); background: #fff; }
+.tv-notice p { margin: 0; }
+.tv-notice--success { border-inline-start-color: var(--tv-green); }
+.tv-notice--warning { border-inline-start-color: var(--tv-amber); }
+.tv-notice--error { border-inline-start-color: var(--tv-red); }
+.tv-notice--info { border-inline-start-color: var(--tv-sky); }
+
+.tv-note { background: var(--tv-surface-2); border: 1px solid var(--tv-border); border-radius: var(--tv-radius-sm); padding: var(--tv-s3) var(--tv-s4); margin-block: var(--tv-s3); }
+.tv-note h2, .tv-note h3 { font-size: 1rem; margin-block-end: var(--tv-s1); }
+.tv-note--action { border-inline-start: 5px solid var(--tv-amber); }
+
+.tv-facts { display: grid; gap: var(--tv-s2); margin: var(--tv-s3) 0 0; }
+.tv-facts > div { display: grid; gap: 2px; padding-block: var(--tv-s2); border-block-end: 1px dashed var(--tv-border); }
+.tv-facts > div:last-child { border-block-end: 0; }
+.tv-facts dt { color: var(--tv-muted); font-size: 0.9375rem; font-weight: 700; }
+.tv-facts dd { margin: 0; }
+
+/* tasks: every one that can be acted on carries a button ------------------- */
+.tv-tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tv-s3); }
+.tv-task { border: 1px solid var(--tv-border); border-radius: var(--tv-radius-sm); padding: var(--tv-s3) var(--tv-s4); border-inline-start: 5px solid var(--tv-border); }
+.tv-task--todo { border-inline-start-color: var(--tv-amber); }
+.tv-task--done { border-inline-start-color: var(--tv-green); }
+.tv-task--waiting { border-inline-start-color: var(--tv-sky); background: var(--tv-surface-2); }
+.tv-task__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tv-s2) var(--tv-s3); }
+.tv-task__title { font-size: 1rem; margin: 0; }
+.tv-task__detail { color: var(--tv-muted); margin-block: var(--tv-s1) 0; }
+
+/* documents --------------------------------------------------------------- */
+.tv-docs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tv-s4); }
+.tv-doc { border: 1px solid var(--tv-border); border-radius: var(--tv-radius-sm); padding: var(--tv-s4); }
+.tv-doc__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tv-s2); margin-block-end: var(--tv-s2); }
+.tv-doc__title { font-size: 1rem; margin: 0; }
+.tv-doc__hint { color: var(--tv-muted); }
+.tv-doc__rules { color: var(--tv-muted); font-size: 0.9375rem; }
+.tv-doc__file { background: var(--tv-surface-2); border-radius: var(--tv-radius-sm); padding: var(--tv-s2) var(--tv-s3); font-size: 0.9375rem; }
+
+/* forms ------------------------------------------------------------------- */
+.tv-field { margin-block-end: var(--tv-s4); max-inline-size: 44rem; }
+.tv-field--check label { display: flex; align-items: center; gap: var(--tv-s2); font-weight: 600; min-block-size: var(--tv-touch); }
+/* WCAG 2.2 target size: a 13px browser default checkbox is below the 24px
+   floor, and on a phone it is simply hard to hit. */
+.tv-field--check input[type="checkbox"] { inline-size: 24px; block-size: 24px; accent-color: var(--tv-ink); flex: 0 0 auto; }
+.tv-label { display: block; font-weight: 700; margin-block-end: var(--tv-s1); }
+.tv-input {
+  inline-size: 100%; min-height: var(--tv-touch); font: inherit; font-size: 1rem;
+  padding: var(--tv-s2) var(--tv-s3); border: 1px solid var(--tv-muted);
+  border-radius: var(--tv-radius-sm); background: #fff; color: var(--tv-text);
+}
+.tv-input[readonly] { background: var(--tv-surface-2); color: var(--tv-muted); }
+textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
+.tv-hint { color: var(--tv-muted); font-size: 0.9375rem; margin-block-start: var(--tv-s1); }
+
+.tv-actions { display: flex; flex-wrap: wrap; gap: var(--tv-s3); margin-block-start: var(--tv-s3); }
+.tv-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--tv-touch); padding: 0 var(--tv-s5); border-radius: var(--tv-radius-sm);
+  font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; border: 2px solid var(--tv-ink);
+}
+/* Scoped with .tv for the same reason as in the admin stylesheet: `.tv a`
+   (0,1,1) outranks a bare `.tv-btn--primary` (0,1,0), and a primary button
+   written as a link then renders dark-on-dark. Caught on a screenshot of the
+   real page, not in review. */
+.tv .tv-btn--primary { background: var(--tv-ink); color: #fff; }
+.tv .tv-btn--primary:hover { background: var(--tv-ink-strong); color: #fff; }
+.tv .tv-btn--secondary { background: #fff; color: var(--tv-ink); }
+.tv .tv-btn--secondary:hover { background: var(--tv-sky-soft); color: var(--tv-ink); }
+
+/* wider containers --------------------------------------------------------- */
+@media (min-width: 48rem) {
+  .tv-head { padding-inline: var(--tv-s5); }
+  .tv-main { padding-inline: var(--tv-s5); }
+  .tv-nav ul { display: flex; flex-wrap: wrap; }
+  .tv-nav__link { justify-content: flex-start; }
+  .tv-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--tv-s5); }
+  .tv-task { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--tv-s4); align-items: center; }
+  .tv-task .tv-actions { margin: 0; grid-column: 2; grid-row: 1 / span 2; }
+  .tv-task__detail { grid-column: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tv *, .tv *::before, .tv *::after { transition: none !important; animation: none !important; }
+}

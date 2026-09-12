@@ -1,0 +1,7 @@
+subscriber: 0
+editor: 0
+author: 0
+contributor: 0
+customer: 0
+shop_manager: 0
+seller: 0

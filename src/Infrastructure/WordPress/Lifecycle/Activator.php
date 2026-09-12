@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Core\Config\SettingsService;
 use Tecteb\Marketplace\Core\Migration\MigrationRunner;
 use Tecteb\Marketplace\Core\Migration\MigrationStatus;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\VendorRoutes;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpCapabilities;
 
 /**
@@ -33,6 +34,13 @@ final class Activator
         /** @var MigrationRunner $runner */
         $runner = $container->get(MigrationRunner::class);
         $migration = $runner->run();
+
+        // The vendor area answers at /vendor/…, which only works once the
+        // rewrite rules are in the database. Registering them here (the init
+        // hook has not run yet during activation) and flushing once is the
+        // documented way; deactivation flushes again so nothing is left over.
+        VendorRoutes::addRewriteRules();
+        flush_rewrite_rules(false);
 
         $result = [
             'capabilities' => $capsOk,

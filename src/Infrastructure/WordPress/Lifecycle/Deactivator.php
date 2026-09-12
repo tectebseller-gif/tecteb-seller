@@ -37,5 +37,8 @@ final class Deactivator
         } catch (\Throwable) {
             // Best effort only: deactivation must never fail because of audit.
         }
+    
+        // Leaves no /vendor/ rules behind once the plugin is off.
+        flush_rewrite_rules(false);
     }
 }

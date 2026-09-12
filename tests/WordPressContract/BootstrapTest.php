@@ -15,10 +15,12 @@ final class BootstrapTest extends ContractTestCase
     {
         $report = $this->bootPlugin(false);
 
-        foreach (['core', 'environment-guard', 'admin', 'health'] as $id) {
+        // The vendor module is real now, and it does NOT need WooCommerce:
+        // onboarding is identity and paperwork, not products.
+        foreach (['core', 'environment-guard', 'admin', 'health', 'vendor'] as $id) {
             self::assertSame(ModuleStatus::Active, $report->status($id), $id . ' stays available without WooCommerce');
         }
-        foreach (['vendor', 'product', 'order', 'commission', 'settlement', 'migration'] as $id) {
+        foreach (['product', 'order', 'commission', 'settlement', 'migration'] as $id) {
             self::assertSame(ModuleStatus::Planned, $report->status($id));
         }
         self::assertFalse($report->wooCommerceAvailable);

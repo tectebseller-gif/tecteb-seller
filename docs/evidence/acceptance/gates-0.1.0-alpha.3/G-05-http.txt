@@ -1,0 +1,10 @@
+guest      http=401
+none       http=403
+no-nonce   http=401
+bad-nonce  http=403
+authorized http=200
+Cache-Control: no-cache, must-revalidate, max-age=0, no-store, private
+keys: ['checked_at', 'dependencies', 'environment', 'modules', 'outbound', 'plugin', 'schema_version']
+hpos.enabled = None
+OK
+leaks=0

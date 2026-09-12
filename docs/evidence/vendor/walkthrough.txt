@@ -1,0 +1,19 @@
+01 vendor-dashboard-empty  http://127.0.0.1:8080/vendor/
+02 application-requirements-undefined  http://127.0.0.1:8080/vendor/application/
+03 draft-saved  http://127.0.0.1:8080/vendor/application/?tmc_notice=draft_saved
+04 dashboard-after-draft  http://127.0.0.1:8080/vendor/
+05 admin-document-types-empty  http://127.0.0.1:8080/wp-admin/admin.php?page=tmc-vendor-documents  (admin)
+06 admin-document-types-configured  http://127.0.0.1:8080/wp-admin/admin.php?page=tmc-vendor-documents  (admin)
+07 application-documents-required  http://127.0.0.1:8080/vendor/application/
+08 upload-refused-too-large  http://127.0.0.1:8080/vendor/application/?tmc_notice=too_large
+09 upload-accepted  http://127.0.0.1:8080/vendor/application/?tmc_notice=document_uploaded
+10 submitted  http://127.0.0.1:8080/vendor/?tmc_notice=submitted
+11 admin-review-queue  http://127.0.0.1:8080/wp-admin/admin.php?page=tmc-vendor-applications  (admin)
+12 admin-review-detail  http://127.0.0.1:8080/wp-admin/admin.php?page=tmc-vendor-applications&application=1  (admin)
+13 admin-changes-requested  http://127.0.0.1:8080/wp-admin/admin.php?page=tmc-vendor-applications&application=1  (admin)
+14 changes-requested  http://127.0.0.1:8080/vendor/
+15 application-editable-again  http://127.0.0.1:8080/vendor/application/
+16 admin-approved  http://127.0.0.1:8080/wp-admin/admin.php?page=tmc-vendor-applications&application=1  (admin)
+17 approved-vendor  http://127.0.0.1:8080/vendor/
+
+no horizontal overflow on the final pages

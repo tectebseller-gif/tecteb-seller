@@ -36,18 +36,44 @@ final class SecurityRulesTest extends TestCase
         return str_replace(self::root() . '/', '', $path);
     }
 
-    public function testShippedCodeNeverTouchesSuperglobals(): void
+    /**
+     * Exactly one file may read a superglobal, and it is the one whose whole
+     * job is to sanitise them.
+     *
+     * Phase 1 needed none: its only input came through the Settings API,
+     * which WordPress hands over already nonce- and capability-checked. The
+     * vendor area has its own front controller and its own forms, so raw
+     * input exists. Rather than weaken the rule to "be careful", it is
+     * narrowed to one auditable file — if a second one appears, this fails.
+     */
+    private const REQUEST_READER = 'src/Infrastructure/WordPress/Http/Request.php';
+
+    public function testOnlyTheRequestReaderTouchesSuperglobals(): void
     {
-        // Input reaches the plugin through the Settings API sanitize callback,
-        // which WordPress calls only after verifying the nonce and the page
-        // capability. Reading $_POST directly would bypass that path.
         $offenders = [];
         foreach (self::shippedPhpFiles() as $file) {
+            if (self::rel($file) === self::REQUEST_READER) {
+                continue;
+            }
             if (preg_match_all('/\$_(POST|GET|REQUEST|COOKIE|FILES|SERVER)\b/', (string) file_get_contents($file), $m) > 0) {
                 $offenders[] = self::rel($file) . ': ' . implode(', ', array_unique($m[0]));
             }
         }
         self::assertSame([], $offenders);
+    }
+
+    /** The exception only holds while that file really is the sanitiser. */
+    public function testTheRequestReaderSanitisesEverythingItReturns(): void
+    {
+        $path = self::root() . '/' . self::REQUEST_READER;
+        self::assertFileExists($path);
+        $src = (string) file_get_contents($path);
+        foreach (['sanitize_key', 'sanitize_text_field', 'sanitize_textarea_field', 'sanitize_email', 'sanitize_file_name', 'wp_unslash', 'wp_verify_nonce'] as $needle) {
+            self::assertStringContainsString($needle, $src, "the request reader must use {$needle}");
+        }
+        // A reader that decided permissions would be doing two jobs; nonce
+        // helpers are fine, capability checks belong to the caller.
+        self::assertStringNotContainsString('current_user_can', $src);
     }
 
     /**

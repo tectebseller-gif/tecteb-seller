@@ -3,7 +3,7 @@ Contributors: tecteb
 Requires at least: 6.3
 Requires PHP: 8.1
 Tested up to: (not tested — see docs/compatibility-matrix.md)
-Stable tag: 0.1.0-alpha.2
+Stable tag: 0.1.0-alpha.3
 License: Proprietary
 
 هسته بازارگاه تک‌طب: زیرساخت و چهار صفحه مدیریت. نسخه آزمایشی.

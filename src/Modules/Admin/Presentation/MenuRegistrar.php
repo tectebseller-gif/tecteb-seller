@@ -48,6 +48,21 @@ final class MenuRegistrar
             );
             $this->remember($hook);
         }
+
+        // Pages other modules contribute (vendor review, document types).
+        // They register HERE so their hook suffix lands in hookSuffixes() and
+        // the stylesheet still loads on plugin screens only.
+        foreach (AdminExtensions::pages() as $extra) {
+            $hook = add_submenu_page(
+                DashboardPage::SLUG,
+                $extra['page_title'],
+                $extra['menu_label'],
+                $extra['capability'],
+                $extra['slug'],
+                $extra['render']
+            );
+            $this->remember($hook);
+        }
     }
 
     private function remember(mixed $hook): void

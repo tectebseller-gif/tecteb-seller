@@ -1,0 +1,7 @@
+admin edit.php               http=302 tmc_assets=0
+admin index.php              http=200 tmc_assets=0
+admin plugins.php            http=200 tmc_assets=0
+admin options-general.php    http=200 tmc_assets=0
+admin users.php              http=200 tmc_assets=0
+front  /                      http=200 tmc_assets=0
+plugin tmc-dashboard          tmc_assets=2

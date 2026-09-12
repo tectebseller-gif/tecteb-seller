@@ -236,7 +236,11 @@ final class PackagingTest extends TestCase
             if (!$f->isFile() || $f->getExtension() !== 'php') {
                 continue;
             }
-            $src = (string) file_get_contents($f->getPathname());
+            // Comments are stripped first: a file that EXPLAINS it never signs
+            // anyone in would otherwise be flagged for naming the function it
+            // refuses to call. Strings stay, since a call built from a string
+            // is exactly the kind of bypass this looks for.
+            $src = self::withoutComments((string) file_get_contents($f->getPathname()));
             foreach ([
                 '/wp_set_auth_cookie/' => 'sets an auth cookie',
                 '/wp_set_current_user/' => 'switches the current user',
@@ -252,6 +256,18 @@ final class PackagingTest extends TestCase
             }
         }
         self::assertSame([], $offenders);
+    }
+
+    private static function withoutComments(string $php): string
+    {
+        $out = '';
+        foreach (token_get_all($php) as $token) {
+            if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+                continue;
+            }
+            $out .= is_array($token) ? $token[1] : $token;
+        }
+        return $out;
     }
 
     public function testShippedSourceContainsNoTestDoubles(): void

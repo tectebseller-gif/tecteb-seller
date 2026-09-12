@@ -498,3 +498,107 @@ function is_wp_error(mixed $thing): bool
 {
     return $thing instanceof WP_Error;
 }
+
+// ---------------------------------------------------------------------------
+// Vendor phase: the front-end area has its own route, its own forms and its
+// own file downloads, so the contract suite needs the WordPress functions
+// those paths touch. Each stub does the minimum the real one guarantees and
+// records what it was asked to do, so a test can assert it.
+// ---------------------------------------------------------------------------
+
+function flush_rewrite_rules(bool $hard = true): void
+{
+    TmcWpStubs\State::$rewriteFlushes++;
+}
+
+function add_rewrite_rule(string $regex, string $query, string $after = 'bottom'): void
+{
+    TmcWpStubs\State::$rewriteRules[$regex] = $query;
+}
+
+function get_query_var(string $var, mixed $default = ''): mixed
+{
+    return TmcWpStubs\State::$queryVars[$var] ?? $default;
+}
+
+function wp_login_url(string $redirect = ''): string
+{
+    return 'https://example.test/wp-login.php' . ($redirect !== '' ? '?redirect_to=' . rawurlencode($redirect) : '');
+}
+
+function get_userdata(int $userId): object|false
+{
+    $user = TmcWpStubs\State::$users[$userId] ?? null;
+    if ($user === null) {
+        return false;
+    }
+    return (object) [
+        'ID' => $userId,
+        'display_name' => $user['display_name'] ?? ('user-' . $userId),
+        'user_email' => $user['user_email'] ?? ('user' . $userId . '@example.test'),
+    ];
+}
+
+function wp_upload_dir(): array
+{
+    $base = TmcWpStubs\State::$uploadBaseDir ?? sys_get_temp_dir() . '/tmc-stub-uploads';
+    return ['basedir' => $base, 'baseurl' => 'https://example.test/wp-content/uploads'];
+}
+
+function nocache_headers(): void
+{
+    TmcWpStubs\State::$sentHeaders[] = 'Cache-Control: no-cache';
+}
+
+function status_header(int $code): void
+{
+    TmcWpStubs\State::$statusHeader = $code;
+}
+
+function wp_safe_redirect(string $location, int $status = 302): bool
+{
+    TmcWpStubs\State::$redirects[] = ['location' => $location, 'status' => $status];
+    return true;
+}
+
+function sanitize_file_name(string $name): string
+{
+    $name = preg_replace('/[^A-Za-z0-9._\- ]+/u', '', $name) ?? '';
+    return trim(str_replace(['..', '/', '\\'], '', $name));
+}
+
+function sanitize_email(string $email): string
+{
+    return (string) filter_var(trim($email), FILTER_SANITIZE_EMAIL);
+}
+
+function sanitize_textarea_field(string $text): string
+{
+    $text = strip_tags($text);
+    return trim(preg_replace('/[\x{0000}-\x{0008}\x{000B}\x{000C}\x{000E}-\x{001F}]/u', '', $text) ?? '');
+}
+
+function add_query_arg(mixed ...$args): string
+{
+    if (is_array($args[0] ?? null)) {
+        $params = $args[0];
+        $url = (string) ($args[1] ?? 'https://example.test/');
+    } else {
+        $params = [(string) ($args[0] ?? '') => (string) ($args[1] ?? '')];
+        $url = (string) ($args[2] ?? 'https://example.test/');
+    }
+    if ($params === []) {
+        return $url;
+    }
+    $glue = str_contains($url, '?') ? '&' : '?';
+    $pairs = [];
+    foreach ($params as $key => $value) {
+        $pairs[] = rawurlencode((string) $key) . '=' . rawurlencode((string) $value);
+    }
+    return $url . $glue . implode('&', $pairs);
+}
+
+function wp_nonce_url(string $url, string $action = '-1', string $name = '_wpnonce'): string
+{
+    return add_query_arg([$name => wp_create_nonce($action)], $url);
+}

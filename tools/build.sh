@@ -24,7 +24,11 @@ VERSION="$(grep -oP '^\s*\*\s*Version:\s*\K[0-9A-Za-z.\-+]+' "${SLUG}.php" | hea
 # (owner's standing delivery rule). Only this version's artefacts and the
 # staging directory are replaced.
 ZIP="${DIST}/${SLUG}-${VERSION}.zip"
-rm -rf "${STAGE}" "${ZIP}"
+PREVIOUS_HASH=""
+if [ -f "${ZIP}" ]; then
+  PREVIOUS_HASH="$(sha256sum "${ZIP}" | cut -d' ' -f1)"
+fi
+rm -rf "${STAGE}"
 mkdir -p "${STAGE}/${SLUG}"
 
 # --- what ships -------------------------------------------------------------
@@ -54,7 +58,27 @@ find "${PAYLOAD}" -depth -type d \( -name vendor -o -name node_modules -o -name 
 SOURCE_DATE="${SOURCE_DATE_EPOCH:-1757203200}"
 find "${STAGE}" -exec touch -h -d "@${SOURCE_DATE}" {} +
 
-( cd "${STAGE}" && find . -type f | LC_ALL=C sort | sed 's|^\./||' | zip -q -X -9 "${ZIP}" -@ )
+# Build to a temporary name first, so an existing package of this version is
+# never destroyed before we know whether the content even changed.
+BUILT="${DIST}/.building-${SLUG}-${VERSION}.zip"
+rm -f "${BUILT}"
+( cd "${STAGE}" && find . -type f | LC_ALL=C sort | sed 's|^\./||' | zip -q -X -9 "${BUILT}" -@ )
+
+# One version, one package. A delivered ZIP must stay byte-identical for as
+# long as its version number exists, otherwise "which alpha.2 do you have?"
+# becomes unanswerable — which is exactly how a package the owner installed
+# on staging and a later internal build ended up sharing a version once.
+# Set TMC_REBUILD=1 to overwrite deliberately during local iteration.
+NEW_HASH="$(sha256sum "${BUILT}" | cut -d' ' -f1)"
+if [ -n "${PREVIOUS_HASH}" ] && [ "${PREVIOUS_HASH}" != "${NEW_HASH}" ] && [ "${TMC_REBUILD:-0}" != "1" ]; then
+  rm -f "${BUILT}"
+  echo "refusing to overwrite ${SLUG}-${VERSION}.zip: the content changed." >&2
+  echo "  on disk: ${PREVIOUS_HASH}" >&2
+  echo "  rebuilt: ${NEW_HASH}" >&2
+  echo "Bump the Version header (decision log F-06), or set TMC_REBUILD=1 to overwrite." >&2
+  exit 2
+fi
+mv -f "${BUILT}" "${ZIP}"
 
 # --- source archive (tests, docs, lockfile, build tooling) ------------------
 SRC_ARCHIVE="${DIST}/${SLUG}-source-${VERSION}.tar.gz"

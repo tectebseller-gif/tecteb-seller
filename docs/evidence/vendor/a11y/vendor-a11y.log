@@ -1,0 +1,12 @@
+vendor area — 76 checks, 0 failures
+
+  no-horizontal-scroll               pass=10 fail=0
+  no-starved-text-box                pass=10 fail=0
+  controls-are-touch-sized           pass=10 fail=0
+  document-is-persian-rtl            pass=10 fail=0
+  exactly-one-h1                     pass=10 fail=0
+  no-js-errors                       pass=10 fail=0
+  axe-wcag-aa                        pass=10 fail=0
+  skip-link-is-the-first-stop        pass=2 fail=0
+  skip-link-moves-focus-to-main      pass=2 fail=0
+  controls-are-reachable-by-tab      pass=2 fail=0

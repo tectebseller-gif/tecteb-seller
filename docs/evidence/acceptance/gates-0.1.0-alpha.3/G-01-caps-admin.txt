@@ -1,0 +1,6 @@
+tmc_view_dashboard
+tmc_view_health
+tmc_manage_settings
+tmc_view_modules
+tmc_review_vendor
+tmc_manage_vendor_documents

@@ -8,7 +8,7 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\Pages\HealthPage;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Pages\ModulesPage;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Pages\SettingsPage;
 
-/** The four real links of phase 1 — nothing else (UX §21: no oversized disabled menu). */
+/** Real links only — never a disabled menu of things that do not exist (UX §21). */
 final class Navigation
 {
     /** @return list<array{slug:string,label:string,capability:string,url:string}> */
@@ -24,6 +24,19 @@ final class Navigation
                 'label' => $page::menuLabel(),
                 'capability' => $page::CAPABILITY,
                 'url' => admin_url('admin.php?page=' . $page::SLUG),
+            ];
+        }
+        // Same source as the WordPress submenu, so the header cannot show a
+        // link the menu lacks (or the reverse).
+        foreach (AdminExtensions::pages() as $extra) {
+            if (!$extra['nav'] || !current_user_can($extra['capability'])) {
+                continue;
+            }
+            $items[] = [
+                'slug' => $extra['slug'],
+                'label' => $extra['menu_label'],
+                'capability' => $extra['capability'],
+                'url' => admin_url('admin.php?page=' . $extra['slug']),
             ];
         }
         return $items;

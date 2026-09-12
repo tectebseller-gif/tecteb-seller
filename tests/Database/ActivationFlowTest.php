@@ -41,21 +41,21 @@ final class ActivationFlowTest extends DatabaseTestCase
         $this->loginAdmin();
         $this->activate();
 
-        foreach (['tmc_view_dashboard', 'tmc_view_health', 'tmc_manage_settings', 'tmc_view_modules'] as $cap) {
+        foreach (['tmc_view_dashboard', 'tmc_view_health', 'tmc_manage_settings', 'tmc_view_modules', 'tmc_review_vendor', 'tmc_manage_vendor_documents'] as $cap) {
             self::assertTrue(State::$roles['administrator'][$cap], $cap);
         }
         self::assertArrayNotHasKey('subscriber', State::$roles);
         self::assertSame(['schema_version' => 1, 'values' => [
             'default_commission_rate_bp' => null, 'settlement_delay_days' => 4, 'max_staff' => 10, 'environment_override' => 'auto',
         ]], get_option('tmc_settings'));
-        self::assertSame(1, $this->storedSchemaVersion());
+        self::assertSame(SchemaVersion::TARGET, $this->storedSchemaVersion());
         self::assertTrue($this->tableExists($this->auditTable()));
         self::assertSame('applied', State::$transients[Activator::NOTICE_TRANSIENT]['migration']);
         $rows = $this->wpdb->get_results("SELECT event_type, actor_id, payload FROM `{$this->auditTable()}`", ARRAY_A);
         self::assertCount(1, $rows);
         self::assertSame('plugin.activated', $rows[0]['event_type']);
         self::assertSame('1', (string) $rows[0]['actor_id']);
-        self::assertSame(['plugin_version' => self::VERSION, 'schema_version' => 1, 'migration_status' => 'applied'], json_decode($rows[0]['payload'], true));
+        self::assertSame(['plugin_version' => self::VERSION, 'schema_version' => SchemaVersion::TARGET, 'migration_status' => 'applied'], json_decode($rows[0]['payload'], true));
         self::assertNull($this->lockRow());
 
         $this->nextRequest();
@@ -82,7 +82,7 @@ final class ActivationFlowTest extends DatabaseTestCase
         $after = get_option('tmc_settings');
         self::assertSame(250, $after['values']['default_commission_rate_bp'], 'user value not reset');
         self::assertSame(33, $after['values']['max_staff']);
-        self::assertSame(1, $this->storedSchemaVersion());
+        self::assertSame(SchemaVersion::TARGET, $this->storedSchemaVersion());
         self::assertSame('up_to_date', State::$transients[Activator::NOTICE_TRANSIENT]['migration']);
         self::assertSame(2, (int) $this->wpdb->get_var("SELECT COUNT(*) FROM `{$this->auditTable()}`"), 'second activation is audited too');
         self::assertSame(['PRIMARY', 'tmc_actor_created', 'tmc_evt_created', 'tmc_object'], $this->indexNames($this->auditTable()));
@@ -110,7 +110,7 @@ final class ActivationFlowTest extends DatabaseTestCase
         self::assertTrue($this->tableExists($this->auditTable()));
         self::assertSame(2, (int) $this->wpdb->get_var("SELECT COUNT(*) FROM `{$this->auditTable()}`"), 'activation + deactivation rows preserved');
         self::assertIsArray(get_option('tmc_settings'), 'settings survive deactivation');
-        self::assertSame(1, $this->storedSchemaVersion());
+        self::assertSame(SchemaVersion::TARGET, $this->storedSchemaVersion());
         self::assertTrue(State::$roles['administrator']['tmc_manage_settings']);
         self::assertSame([], State::$clearedScheduledHooks, 'phase 1 owns no cron hooks');
 

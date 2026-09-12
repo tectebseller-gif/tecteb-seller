@@ -1,0 +1,2 @@
+Plugin 'tecteb-marketplace-core' deactivated.
+Success: Deactivated 1 of 1 plugins.

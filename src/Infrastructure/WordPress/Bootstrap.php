@@ -32,6 +32,8 @@ use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\Activator;
 use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\Deactivator;
 use Tecteb\Marketplace\Modules\Admin\AdminModule;
 use Tecteb\Marketplace\Modules\Health\HealthModule;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
+use Tecteb\Marketplace\Modules\Vendor\VendorModule;
 
 /**
  * The only place that wires WordPress into the kernel. Everything WordPress-
@@ -174,7 +176,7 @@ final class Bootstrap
             $c->get(OptionStoreInterface::class),
             $c->get(GuardedOptionStoreInterface::class),
             new MigrationLock($c->get(LockStoreInterface::class), $c->get(ClockInterface::class), MigrationLock::generateOwnerToken()),
-            [new M0001CreateAuditTable()],
+            [new M0001CreateAuditTable(), new M0002CreateVendorTables()],
             $c->get(ClockInterface::class)
         ));
         $c->bind(UpgradeGate::class, static fn (ContainerInterface $c) => new UpgradeGate(
@@ -192,10 +194,10 @@ final class Bootstrap
         $registry->add(new EnvironmentGuardModule());
         $registry->add(new AdminModule());
         $registry->add(new HealthModule());
+        $registry->add(new VendorModule());
 
         // Roadmap only (CORE-02): no code, no hooks, no activation button.
         $planned = [
-            ['vendor', 'فروشندگان', true],
             ['product', 'محصولات و فرم پزشکی', true],
             ['order', 'سفارش‌ها و ارسال', true],
             ['commission', 'کمیسیون و دفترکل', true],

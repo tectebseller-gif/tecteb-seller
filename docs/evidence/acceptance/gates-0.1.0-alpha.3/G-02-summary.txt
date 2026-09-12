@@ -1,0 +1,6 @@
+settings_diff_lines=0
+lost_rows=0
+audit_count=2 -> 4 (expect +2)
+tables=17 -> 17 (expect equal)
+schema_version=2
+plugin_errors=0

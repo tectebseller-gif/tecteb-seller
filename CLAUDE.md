@@ -1,10 +1,15 @@
 # Tecteb Marketplace Core — راهنمای کار در این مخزن
 
-## محدوده فعلی: فاز ۱، Alpha قابل بررسی
-فقط زیرساخت و **چهار صفحه مدیریت** (پیشخوان، سلامت، تنظیمات، ماژول‌ها) زیر
-«بازارگاه تک‌طب». هیچ Vendor/Staff/Product/Order/Commission/Withdrawal/
-Refund/Coupon/B2B/Ticket/SEO/Migration یا auth واقعی ساخته نمی‌شود. هیچ
-sender/gateway واقعی وجود ندارد؛ خروجی‌های افزونه در Alpha همیشه بسته‌اند.
+## محدوده فعلی: فاز ۱ + اولین برش فروشندگان
+زیرساخت و **چهار صفحه مدیریت** (پیشخوان، سلامت، تنظیمات، ماژول‌ها)، و از
+۱۲ سپتامبر **بخش فروشندگان** به دستور مالک: درخواست فروشندگی، مدارک پویا،
+بررسی مدیر و پیشخوان فروشنده روی مسیر `/vendor/`
+(`docs/phase-2-vendor-delivery.md`).
+
+هنوز ساخته نشده: Staff/Product/Order/Commission/Withdrawal/Refund/Coupon/
+B2B/Ticket/SEO/Migration. هیچ sender/gateway واقعی وجود ندارد؛ خروجی‌های
+افزونه در Alpha همیشه بسته‌اند و **تأیید موبایل انجام نمی‌شود** تا وقتی
+Adapter واقعی و مستند وجود داشته باشد.
 
 **وضعیت جاری:** فاز ۱ پیاده‌سازی شد، **چهار دور بازبینی سورس** روی آن اعمال شد،
 و پروتکل پذیرش (G-01 تا G-09 به‌علاوه ارتقا/بازیابی) روی یک **WordPress
@@ -32,9 +37,9 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 - طرح بخش فروشندگان و پیشخوان اولیه: `docs/phase-2-vendor-plan.md` (نسخه ۲)
   — **طرح است، پیاده‌سازی شروع نشده**. پیش‌نمایش ناحیه فروشنده:
   `docs/evidence/preview/`.
-- بسته تحویلی اکنون `0.1.0-alpha.2` است
-  (`eb6bb3ab…ee2ce9`) و همه گیت‌ها از G-01 تا G-09 — شامل هر سه حالت HPOS —
-  روی همان بسته با PHP 8.1.32 قبول شدند.
+- بسته تحویلی اکنون **`0.1.0-alpha.3`** است (`8a838e3c…5a68a4`) و همه
+  گیت‌ها از G-01 تا G-09 — شامل هر سه حالت HPOS — روی همان بسته با
+  PHP 8.1.32 قبول شدند. شواهد ناحیه فروشنده: `docs/evidence/vendor/`.
 
 ## مرجع‌ها (ترتیب اعتبار: دستور جاری مالک ← تصمیم مصوب ← Master ← UX ← پرامپت)
 - `docs/Tecteb-Marketplace-Core-Master-Spec-v0.3.docx` (مرجع) → `docs/generated/…Master-Spec-v0.3.md`
@@ -117,6 +122,9 @@ bash tools/build.sh                         # dist/ZIP + SHA256SUMS + source arc
 - Playwright ۱٫۶۳ + axe-core ۴٫۱۳ از قبل نصب‌اند و **نصب دوباره نمی‌شوند**.
   مرورگر باید با `executablePath` صریح اجرا شود (`/opt/pw-browsers/chromium`)؛
   بررسی سلامت: `cd tools/browser && node check-toolchain.mjs`.
+- ناحیه فروشنده آزمون **مستقل** دارد: `node tools/browser/check-vendor.mjs`
+  (۷۶ بررسی) و `node tools/browser/shoot-vendor.mjs` برای پیمایش کامل مسیر با
+  تصویر. آزمون صفحات مدیر شاهد پذیرش آن ناحیه نیست.
 - `check.mjs` و `check-wpadmin.mjs` را بی‌دلیل دوباره اجرا نکنید؛ شواهد
   پذیرفته‌شده را بازنویسی می‌کنند (`check-wpadmin.mjs` با `TMC_OUT` در پوشه دیگر
   می‌نویسد). اسکرین‌شات چهار صفحه در wp-admin واقعی:

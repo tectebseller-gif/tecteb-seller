@@ -1,0 +1,12 @@
+guest tmc-dashboard  http=302 leak_content=0 leak_capname=0
+guest tmc-health     http=302 leak_content=0 leak_capname=0
+guest tmc-settings   http=302 leak_content=0 leak_capname=0
+guest tmc-modules    http=302 leak_content=0 leak_capname=0
+none  tmc-dashboard  http=403 leak_content=0 leak_capname=0
+none  tmc-health     http=403 leak_content=0 leak_capname=0
+none  tmc-settings   http=403 leak_content=0 leak_capname=0
+none  tmc-modules    http=403 leak_content=0 leak_capname=0
+admin tmc-dashboard  http=200 leak_content=3 leak_capname=0
+admin tmc-health     http=200 leak_content=3 leak_capname=1
+admin tmc-settings   http=200 leak_content=3 leak_capname=0
+admin tmc-modules    http=200 leak_content=3 leak_capname=0

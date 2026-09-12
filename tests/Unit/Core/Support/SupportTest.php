@@ -34,7 +34,13 @@ final class SupportTest extends TestCase
 
     public function testCapabilitiesAreExactlyTheFourOfPhaseOne(): void
     {
-        self::assertSame(['tmc_view_dashboard', 'tmc_view_health', 'tmc_manage_settings', 'tmc_view_modules'], Capabilities::all());
+        self::assertSame([
+            'tmc_view_dashboard', 'tmc_view_health', 'tmc_manage_settings', 'tmc_view_modules',
+            'tmc_review_vendor', 'tmc_manage_vendor_documents',
+        ], Capabilities::all());
+        // The applicant capability is NOT here on purpose: granting it would
+        // mean writing into roles the site already has (Dokan's included).
+        self::assertNotContains('tmc_apply_vendor', Capabilities::all());
         self::assertSame('administrator', Capabilities::TARGET_ROLE);
     }
 

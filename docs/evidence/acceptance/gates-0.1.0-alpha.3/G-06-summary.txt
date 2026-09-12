@@ -1,0 +1,2 @@
+lost_lines=0   (expected 0)
+added_lines=1   (expected 1: the plugin.deactivated audit row)
