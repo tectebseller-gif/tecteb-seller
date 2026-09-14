@@ -1,0 +1,5 @@
+tmc-dashboard=200
+tmc-health=200
+tmc-settings=200
+tmc-modules=200
+vendor_area=absent

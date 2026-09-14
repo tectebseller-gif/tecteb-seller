@@ -1,0 +1,81 @@
+## plugin
+0.1.0-alpha.3
+## schema_option
+2
+## options
+tmc_schema_version
+tmc_settings
+## settings_value
+{"schema_version":1,"values":{"default_commission_rate_bp":1234,"settlement_delay_days":9,"max_staff":77,"environment_override":"staging"}}
+## tables
+wp_tmc_audit_events
+wp_tmc_vendor_applications
+wp_tmc_vendor_document_types
+wp_tmc_vendor_documents
+wp_tmc_vendor_profiles
+## row_counts
+wp_tmc_audit_events=47
+wp_tmc_vendor_applications=0
+wp_tmc_vendor_document_types=0
+wp_tmc_vendor_documents=0
+wp_tmc_vendor_profiles=0
+## audit_rows
+1|plugin.activated|plugin|2026-09-12 14:52:41
+2|settings.updated|settings|2026-09-12 14:52:46
+3|plugin.deactivated|plugin|2026-09-12 14:52:48
+4|plugin.activated|plugin|2026-09-12 14:52:48
+5|settings.updated|settings|2026-09-12 14:52:53
+6|plugin.deactivated|plugin|2026-09-12 14:53:27
+7|plugin.activated|plugin|2026-09-12 14:53:34
+8|plugin.deactivated|plugin|2026-09-14 15:09:03
+9|plugin.activated|plugin|2026-09-14 15:10:27
+10|plugin.deactivated|plugin|2026-09-14 15:10:38
+11|plugin.activated|plugin|2026-09-14 15:10:38
+12|plugin.deactivated|plugin|2026-09-14 15:10:51
+13|plugin.deactivated|plugin|2026-09-14 15:11:00
+14|plugin.activated|plugin|2026-09-14 15:11:01
+15|plugin.deactivated|plugin|2026-09-14 15:11:06
+16|plugin.deactivated|plugin|2026-09-14 15:11:11
+17|plugin.activated|plugin|2026-09-14 15:11:12
+18|plugin.deactivated|plugin|2026-09-14 15:12:33
+19|plugin.activated|plugin|2026-09-14 15:12:36
+20|plugin.deactivated|plugin|2026-09-14 15:12:45
+21|plugin.activated|plugin|2026-09-14 15:12:46
+22|vendor.requirements_changed|vendor_document_type|2026-09-14 15:12:54
+23|vendor.document_uploaded|vendor_application|2026-09-14 15:12:54
+24|vendor.application_submitted|vendor_application|2026-09-14 15:12:54
+25|plugin.deactivated|plugin|2026-09-14 15:12:58
+26|plugin.deactivated|plugin|2026-09-14 15:13:07
+27|plugin.activated|plugin|2026-09-14 15:13:07
+28|plugin.deactivated|plugin|2026-09-14 15:13:11
+29|plugin.deactivated|plugin|2026-09-14 15:13:17
+30|plugin.activated|plugin|2026-09-14 15:13:18
+31|plugin.deactivated|plugin|2026-09-14 15:15:17
+32|plugin.activated|plugin|2026-09-14 15:15:20
+33|plugin.deactivated|plugin|2026-09-14 15:15:29
+34|plugin.activated|plugin|2026-09-14 15:15:30
+35|vendor.requirements_changed|vendor_document_type|2026-09-14 15:15:39
+36|vendor.document_uploaded|vendor_application|2026-09-14 15:15:39
+37|vendor.application_submitted|vendor_application|2026-09-14 15:15:39
+38|plugin.deactivated|plugin|2026-09-14 15:15:43
+39|plugin.deactivated|plugin|2026-09-14 15:15:51
+40|plugin.activated|plugin|2026-09-14 15:15:52
+41|plugin.deactivated|plugin|2026-09-14 15:15:56
+42|plugin.deactivated|plugin|2026-09-14 15:16:03
+43|plugin.activated|plugin|2026-09-14 15:16:04
+44|plugin.deactivated|plugin|2026-09-14 15:16:29
+45|plugin.activated|plugin|2026-09-14 15:16:32
+46|plugin.deactivated|plugin|2026-09-14 15:16:41
+47|plugin.activated|plugin|2026-09-14 15:16:42
+## vendor_applications
+## vendor_documents
+## vendor_document_types
+## vendor_profiles
+## admin_caps
+## private_files
+/wp-content/uploads/tmc-private/.htaccess
+/wp-content/uploads/tmc-private/application-1/06a121061a26c2579becb27c5d4c9180.pdf
+/wp-content/uploads/tmc-private/application-1/19e79d1967a31de04c583e5eb8a57015.pdf
+/wp-content/uploads/tmc-private/application-1/c4b6e0c4d5de226234ebfd97d1c77d09.pdf
+/wp-content/uploads/tmc-private/index.php
+/wp-content/uploads/tmc-private/web.config

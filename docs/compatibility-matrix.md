@@ -54,6 +54,20 @@
 |---|---|---|
 | فعال‌سازی بدون WooCommerce → notice فارسی، بدون fatal، feature بالا نمی‌آید | **`Passed`** (نصب واقعی) | گیت G-01 روی سایت واقعی: چهار صفحه با HTTP 200، بدون خطای PHP، و notice «WooCommerce فعال نیست» روی پیشخوان · `G-01-pages.txt`، `G-01-wc-notice.txt` |
 
+## ۳٫۱ ارتقای ساختار داده و بازگشت (schema ۱ ↔ ۲)
+
+| سناریو | وضعیت | یادداشت |
+|---|---|---|
+| ارتقای `alpha.2 → alpha.3` با حفظ داده (غیرفعال ← حذف ← نصب ← فعال) | **`Passed`** (وردپرس واقعی یکبارمصرف) | چهار جدول ساخته شد، schema ۱→۲، هیچ ردیف audit و هیچ تنظیمی گم نشد · `docs/evidence/upgrade/03-diff-upgrade.txt` |
+| ارتقا با جایگزینی فایل، بدون اجرای قلاب فعال‌سازی | **`Passed`** | `UpgradeGate` در نخستین `admin_init` migration را اجرا کرد؛ مسیر `/vendor/` تا تازه‌سازی پیوندهای یکتا باز نشد · `10-inplace-upgrade.txt` |
+| بازگشت به `alpha.2` روی دیتابیس schema ۲ | **`Passed`** | هیچ جدولی حذف نشد، دادهٔ فروشنده و فایل‌های خصوصی ماندند، صفحهٔ سلامت هشدار «جلوتر بودن» داد · `06-after-rollback.txt`، `08-health-ahead-message.txt` |
+| ارتقای دوباره پس از بازگشت | **`Passed`** | همان درخواست دوباره در پیشخوان فروشنده نمایش داده شد · `09-after-reupgrade.txt` |
+| ارتقا از `0.1.0-alpha.1` (نسخهٔ نصب‌شده روی staging) | `Not Run` | همان یک migration را اجرا می‌کند، ولی مستقیماً آزموده نشده |
+| هر کدام از این‌ها روی `staging.tecteb.com` یا PHP 8.1.34 | `Not Run` | خارج از مجوز فعلی؛ آزمون ما روی PHP 8.1.32 و سایت یکبارمصرف بود |
+
+روش اجرا: `bash tools/upgrade-rollback-check.sh <php> docs/evidence/upgrade <old-zip> <new-zip>`
+— ۳۲ بررسی، ۰ شکست. راهنمای خواندنی: `docs/upgrade-and-rollback.md`.
+
 ## ۴. سرور، قالب و افزونه‌های سایت (DEC-06-b)
 
 | مؤلفه | نسخه | منبع | وضعیت |

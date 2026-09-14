@@ -521,6 +521,13 @@ PHP 8.1.32 از سورس ساخته شد و کل پروتکل روی آن اجر
 
 ## ۵. بازگشت (rollback) — فقط فاز ۱
 
+> **از نسخه `0.1.0-alpha.3` به بعد این بند تنها نیمی از ماجراست.** آن بسته
+> ساختار داده را از ۱ به ۲ می‌برد و چهار جدول فروشنده می‌سازد. برای ارتقا با
+> حفظ داده، بازگشت از آن، و پاسخ صریح به «آیا بازگرداندن ZIP قبلی کافی است یا
+> بازیابی دیتابیس لازم می‌شود؟» به `docs/upgrade-and-rollback.md` مراجعه کنید؛
+> آنجا همین مسیر روی وردپرس واقعی اجرا و ثبت شده است
+> (`docs/evidence/upgrade/`). بند حاضر همچنان دربارهٔ خود فاز ۱ درست است.
+
 فاز ۱ **هیچ داده تجاری‌ای نمی‌نویسد**: نه محصول، نه سفارش، نه کاربر، نه سفارش
 دکان. تنها چیزهایی که می‌نویسد چهار option با پیشوند `tmc_`، چهار capability
 روی نقش مدیرکل، و جدول `{prefix}tmc_audit_events` است.
@@ -568,6 +575,12 @@ DEC-05 باز است و تا تعیین تکلیف، حذف خودکار انج�
 > از این دستورها را اجرا نمی‌کند و هرگز نخواهد کرد. فقط وقتی سراغش بروید که
 > صریحاً می‌خواهید اثر افزونه روی یک سایت **یکبارمصرف** صفر شود.
 
+> **به‌روزرسانی برای ساختار داده ۲:** فهرست‌های این پیوست برای فاز ۱ نوشته شده
+> بودند (یک جدول، چهار capability، چهار option). از `0.1.0-alpha.3` چهار جدول
+> فروشنده، دو capability و یک option دیگر هم وجود دارند و مدارک بارگذاری‌شده
+> بیرون از دیتابیس در `wp-content/uploads/tmc-private/` می‌نشینند. دستورهای
+> زیر همه را پوشش می‌دهند.
+
 ### الف-۱. سه بررسی اجباری پیش از هر حذف
 
 هر سه باید **قبل** از اجرای هر دستور حذف انجام و خروجی‌شان دیده شود.
@@ -600,8 +613,10 @@ wp db query "SELECT DISTINCT event_type FROM ${PREFIX}tmc_audit_events"
 
 ```bash
 wp db query "SELECT option_name FROM ${PREFIX}options WHERE option_name LIKE 'tmc\\_%'"
-# انتظار: دقیقاً چهار نام؛ هر نام دیگری یعنی چیزی خارج از قرارداد این افزونه
-# وجود دارد — پیش از حذف، منشأش را روشن کنید.
+# انتظار: چهار نام روی ساختار ۱، و روی ساختار ۲ حداکثر پنج نام (با
+# tmc_vendor_documents_none، که فقط پس از ثبت «بدون مدرک» ساخته می‌شود).
+# هر نام دیگری یعنی چیزی خارج از قرارداد این افزونه وجود دارد — پیش از حذف،
+# منشأش را روشن کنید.
 ```
 
 **۴) بک‌آپ تازه بگیرید.** بدون این، هیچ‌کدام از دستورهای زیر را اجرا نکنید.
@@ -614,17 +629,25 @@ wp db export "$HOME/pre-purge-$(date -u +%Y%m%dT%H%M%SZ).sql"
 
 ```bash
 # optionها: فقط چهار نام صریح، بدون الگوی wildcard
-for o in tmc_settings tmc_schema_version tmc_migration_last_error tmc_migration_lock; do
+for o in tmc_settings tmc_schema_version tmc_migration_last_error tmc_migration_lock \
+         tmc_vendor_documents_none; do
   wp option delete "$o" 2>/dev/null && echo "deleted $o" || echo "absent $o"
 done
 
-# جدول: با پیشوند تأییدشده، نه با پیشوند حدسی
+# جدول‌ها: با پیشوند تأییدشده، نه با پیشوند حدسی
 wp db query "DROP TABLE IF EXISTS ${PREFIX}tmc_audit_events"
+# فقط روی ساختار ۲ (اگر این جدول‌ها وجود دارند):
+wp db query "DROP TABLE IF EXISTS ${PREFIX}tmc_vendor_documents, ${PREFIX}tmc_vendor_document_types, ${PREFIX}tmc_vendor_profiles, ${PREFIX}tmc_vendor_applications"
 
-# capabilityها: فقط از نقش مدیرکل، فقط چهار مورد
-for c in tmc_view_dashboard tmc_view_health tmc_manage_settings tmc_view_modules; do
+# capabilityها: فقط از نقش مدیرکل، فقط همین‌ها
+# (tmc_apply_vendor عمداً نیست: هرگز در دیتابیس نوشته نمی‌شود)
+for c in tmc_view_dashboard tmc_view_health tmc_manage_settings tmc_view_modules \
+         tmc_review_vendor tmc_manage_vendor_documents; do
   wp cap remove administrator "$c"
 done
+
+# مدارک خصوصی فروشندگان — بیرون از دیتابیس و بیرون از پوشه افزونه
+rm -rf "$(wp eval 'echo wp_upload_dir()["basedir"];')/tmc-private"
 ```
 
 ### الف-۳. تأیید پس از حذف

@@ -25,6 +25,12 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 گزارش: `docs/phase-1-report.md` بند ۳ · شواهد: `docs/evidence/acceptance/` ·
 اصلاح‌های بازبینی: `docs/review-fixes-phase-1.md` · تحویل بعدی: `docs/next-phase-handoff.md`.
 
+**ارتقا و بازگشت (۱۴ سپتامبر):** مسیر `alpha.2 → alpha.3` (schema ۱→۲) و راه
+برگشت روی همان وردپرس یکبارمصرف اجرا شد — ۳۲ بررسی، ۰ شکست. migration فقط
+افزودنی است و نسخه قدیمی ساختار را پایین نمی‌آورد، پس **برای بازگشت
+بازگرداندن ZIP قبلی کافی است و بازیابی دیتابیس لازم نیست**
+(`docs/upgrade-and-rollback.md` · `docs/evidence/upgrade/`).
+
 **۱۱ سپتامبر — سه چیز عوض شد (جزئیات: `docs/phase-1-report.md` بند ۵):**
 - مالک `0.1.0-alpha.1` را روی `staging.tecteb.com` **نصب و فعال کرده است**. این
   کار را مالک انجام داده؛ این مخزن هیچ دسترسی و هیچ آزمونی روی آن سایت ندارد و
@@ -69,6 +75,11 @@ php  tools/render-harness/render.php        # رندر ۸ سناریو خارج 
 node tools/browser/check.mjs                # ۲۳۳ بررسی viewport/axe/keyboard
 php  tools/contrast.php                     # کنتراست WCAG رنگ‌های برند
 bash tools/build.sh                         # dist/ZIP + SHA256SUMS + source archive
+
+# ارتقای schema ۱→۲ و بازگشت، روی وردپرس یکبارمصرف (۳۲ بررسی)
+bash tools/upgrade-rollback-check.sh /opt/php81/bin/php docs/evidence/upgrade \
+     dist/tecteb-marketplace-core-0.1.0-alpha.2.zip \
+     dist/tecteb-marketplace-core-0.1.0-alpha.3.zip
 ```
 دیتابیس آزمون **یکبارمصرف** است و پیکربندی‌اش در `.env.testing` می‌آید؛ هرگز
 به دیتابیس واقعی اشاره نکنید (suite در نبود نام `tmc_test` اجرا نمی‌شود).

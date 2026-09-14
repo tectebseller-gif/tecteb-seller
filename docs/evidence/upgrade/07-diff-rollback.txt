@@ -1,0 +1,26 @@
+--- /home/user/tecteb-seller/docs/evidence/upgrade/05-with-vendor-data.txt	2026-09-14 15:16:53.576335930 +0000
++++ /home/user/tecteb-seller/docs/evidence/upgrade/06-after-rollback.txt	2026-09-14 15:16:58.290885644 +0000
+@@ -1,5 +1,5 @@
+ ## plugin
+-0.1.0-alpha.3
++0.1.0-alpha.2
+ ## schema_option
+ 2
+ ## options
+@@ -14,7 +14,7 @@
+ wp_tmc_vendor_documents
+ wp_tmc_vendor_profiles
+ ## row_counts
+-wp_tmc_audit_events=50
++wp_tmc_audit_events=51
+ wp_tmc_vendor_applications=1
+ wp_tmc_vendor_document_types=1
+ wp_tmc_vendor_documents=1
+@@ -70,6 +70,7 @@
+ 48|vendor.requirements_changed|vendor_document_type|2026-09-14 15:16:50
+ 49|vendor.document_uploaded|vendor_application|2026-09-14 15:16:50
+ 50|vendor.application_submitted|vendor_application|2026-09-14 15:16:50
++51|plugin.deactivated|plugin|2026-09-14 15:16:54
+ ## vendor_applications
+ 1|3|submitted|داروخانه نمونه ارتقا|09120000000
+ ## vendor_documents

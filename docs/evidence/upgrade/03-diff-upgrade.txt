@@ -1,0 +1,39 @@
+--- /home/user/tecteb-seller/docs/evidence/upgrade/01-before-upgrade.txt	2026-09-14 15:16:36.460336321 +0000
++++ /home/user/tecteb-seller/docs/evidence/upgrade/02-after-upgrade.txt	2026-09-14 15:16:44.962329421 +0000
+@@ -1,7 +1,7 @@
+ ## plugin
+-0.1.0-alpha.2
++0.1.0-alpha.3
+ ## schema_option
+-1
++2
+ ## options
+ tmc_schema_version
+ tmc_settings
+@@ -9,8 +9,16 @@
+ {"schema_version":1,"values":{"default_commission_rate_bp":1234,"settlement_delay_days":9,"max_staff":77,"environment_override":"staging"}}
+ ## tables
+ wp_tmc_audit_events
++wp_tmc_vendor_applications
++wp_tmc_vendor_document_types
++wp_tmc_vendor_documents
++wp_tmc_vendor_profiles
+ ## row_counts
+-wp_tmc_audit_events=45
++wp_tmc_audit_events=47
++wp_tmc_vendor_applications=0
++wp_tmc_vendor_document_types=0
++wp_tmc_vendor_documents=0
++wp_tmc_vendor_profiles=0
+ ## audit_rows
+ 1|plugin.activated|plugin|2026-09-12 14:52:41
+ 2|settings.updated|settings|2026-09-12 14:52:46
+@@ -57,6 +65,8 @@
+ 43|plugin.activated|plugin|2026-09-14 15:16:04
+ 44|plugin.deactivated|plugin|2026-09-14 15:16:29
+ 45|plugin.activated|plugin|2026-09-14 15:16:32
++46|plugin.deactivated|plugin|2026-09-14 15:16:41
++47|plugin.activated|plugin|2026-09-14 15:16:42
+ ## vendor_applications
+ ## vendor_documents
+ ## vendor_document_types
