@@ -8,11 +8,14 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Vendor\Application\DocumentRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\ChangeRequestRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\ReviewApplication;
+use Tecteb\Marketplace\Modules\Vendor\Application\ReviewChangeRequests;
+use Tecteb\Marketplace\Modules\Vendor\Domain\ChangeRequest;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorMessages;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorCapabilities;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
-use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorMessages;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
 
 /**
@@ -56,6 +59,7 @@ final class ApplicationsPage
             $this->renderDetail($openId);
         } else {
             $this->renderQueue($repository);
+            $this->renderChangeQueue();
         }
         echo Components::shellClose();
     }
@@ -160,8 +164,75 @@ final class ApplicationsPage
     }
 
     /** @return string '' | 'ok:<msg>' | 'err:<msg>' */
+    /**
+     * The two fields a vendor may not change alone (UX §11). They share this
+     * screen rather than getting their own menu item: a manager who is here
+     * to judge a vendor is the same person who judges a rename, and a queue
+     * nobody visits is a queue nobody empties.
+     */
+    private function renderChangeQueue(): void
+    {
+        $pending = $this->container->get(ChangeRequestRepositoryInterface::class)->pending();
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">' . esc_html__('درخواست‌های تغییر فروشگاه', 'tecteb-marketplace-core') . '</h2>';
+        if ($pending === []) {
+            echo '<p>' . esc_html__('درخواست تغییری در انتظار بررسی نیست.', 'tecteb-marketplace-core') . '</p></section>';
+            return;
+        }
+        foreach ($pending as $request) {
+            echo '<div class="tmc-datalist">'
+                . '<div class="tmc-datalist__row"><span>' . esc_html__('مورد', 'tecteb-marketplace-core') . '</span>'
+                . '<span>' . esc_html(VendorMessages::changeField($request->field)) . '</span></div>'
+                . '<div class="tmc-datalist__row"><span>' . esc_html__('مقدار فعلی', 'tecteb-marketplace-core') . '</span>'
+                . '<span><bdi class="tmc-code">' . esc_html($request->currentValue !== '' ? $request->currentValue : '—') . '</bdi></span></div>'
+                . '<div class="tmc-datalist__row"><span>' . esc_html__('مقدار درخواستی', 'tecteb-marketplace-core') . '</span>'
+                . '<span><bdi class="tmc-code">' . esc_html($request->requestedValue) . '</bdi></span></div>'
+                . '</div>';
+            if ($request->field === ChangeRequest::FIELD_BANK) {
+                echo Components::notice('warning', __('تأیید پیامکی این تغییر در این نسخه انجام نشده است؛ سرویس پیامک وصل نیست. تا تعیین تکلیف، تسویه این فروشنده متوقف است.', 'tecteb-marketplace-core'));
+            }
+            echo '<form method="post">' . wp_nonce_field(self::NONCE, 'tmc_review_nonce', true, false)
+                . '<input type="hidden" name="change_id" value="' . esc_attr((string) $request->id) . '">'
+                . '<div class="tmc-field"><label class="tmc-field__label" for="change-note-' . esc_attr((string) $request->id) . '">'
+                . esc_html__('یادداشت برای فروشنده', 'tecteb-marketplace-core') . '</label>'
+                . '<textarea class="tmc-input" id="change-note-' . esc_attr((string) $request->id) . '" name="change_note" rows="2"></textarea></div>'
+                . '<p class="tmc-hint">' . esc_html__('برای «رد» نوشتن یادداشت اجباری است؛ همین متن را فروشنده می‌بیند.', 'tecteb-marketplace-core') . '</p>'
+                . '<p><button type="submit" name="change_decision" value="approve" class="tmc-button tmc-button--primary">'
+                . esc_html__('تأیید تغییر', 'tecteb-marketplace-core') . '</button> '
+                . '<button type="submit" name="change_decision" value="reject" class="tmc-button">'
+                . esc_html__('رد درخواست', 'tecteb-marketplace-core') . '</button></p></form>';
+        }
+        echo '</section>';
+    }
+
+    private function handleChangeDecision(Request $request): string
+    {
+        if (!$request->nonceOk('tmc_review_nonce', self::NONCE)) {
+            return 'err:' . __('درخواست معتبر نبود. صفحه را تازه کنید و دوباره تلاش کنید.', 'tecteb-marketplace-core');
+        }
+        $service = $this->container->get(ReviewChangeRequests::class);
+        $id = $request->postInt('change_id');
+        $note = $request->postTextarea('change_note');
+        $result = $request->postKey('change_decision') === 'approve'
+            ? $service->approve($id, $note)
+            : $service->reject($id, $note);
+
+        if ($result->ok) {
+            return 'ok:' . __('تصمیم ثبت شد و برای فروشنده نمایش داده می‌شود.', 'tecteb-marketplace-core');
+        }
+        return 'err:' . match ($result->code) {
+            'note_required' => __('برای رد کردن، نوشتن یادداشت اجباری است.', 'tecteb-marketplace-core'),
+            'already_decided' => __('این درخواست پیش‌تر تعیین تکلیف شده است.', 'tecteb-marketplace-core'),
+            'forbidden' => __('دسترسی لازم را ندارید.', 'tecteb-marketplace-core'),
+            'not_found' => __('این درخواست پیدا نشد.', 'tecteb-marketplace-core'),
+            default => __('ثبت تصمیم انجام نشد.', 'tecteb-marketplace-core'),
+        };
+    }
+
     private function handleAction(Request $request): string
     {
+        if ($request->isPost() && $request->hasPost('change_decision')) {
+            return $this->handleChangeDecision($request);
+        }
         if (!$request->isPost() || !$request->hasPost('decision')) {
             return '';
         }

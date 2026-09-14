@@ -195,3 +195,100 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 @media (prefers-reduced-motion: reduce) {
   .tv *, .tv *::before, .tv *::after { transition: none !important; animation: none !important; }
 }
+
+/* ---------------------------------------------------------------------------
+ * Store settings and staff (stage 1).
+ *
+ * The tabs are links, so they must be sized like the buttons they sit beside:
+ * a 19px tap target is what an unstyled <a> gives you, and the touch-size
+ * check caught exactly that before this block existed.
+ * ------------------------------------------------------------------------ */
+.tv-tabs {
+  margin-block: 0 var(--tv-s4);
+}
+
+.tv-tabs ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tv-s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tv .tv-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--tv-touch);
+  min-inline-size: 6.5rem;          /* four Persian characters never starve */
+  padding-inline: var(--tv-s4);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface);
+  color: var(--tv-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tv .tv-tab:hover,
+.tv .tv-tab:focus-visible {
+  border-color: var(--tv-sky);
+  background: var(--tv-sky-soft);
+}
+
+.tv .tv-tab.is-current {
+  border-color: var(--tv-ink);
+  background: var(--tv-ink);
+  color: #fff;
+}
+
+.tv-subform {
+  margin-block-start: var(--tv-s4);
+  padding-block-start: var(--tv-s4);
+  border-block-start: 1px dashed var(--tv-border);
+}
+
+.tv-staff,
+.tv-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--tv-s4);
+}
+
+.tv-staff__item {
+  padding: var(--tv-s4);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-staff__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s2);
+  margin-block-end: var(--tv-s3);
+}
+
+.tv-staff__perms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tv-s2);
+  margin-block: var(--tv-s3);
+}
+
+/* An invitation link is long and latin; it must wrap instead of pushing the
+ * page sideways, and stay selectable in one gesture. */
+.tv-code--block {
+  display: block;
+  padding: var(--tv-s3);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface);
+  border: 1px solid var(--tv-border);
+  overflow-wrap: anywhere;
+  white-space: normal;
+  user-select: all;
+}

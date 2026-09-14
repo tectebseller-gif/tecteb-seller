@@ -58,8 +58,10 @@ final class State
     public static array $queryVars = [];
     /** @var list<array{location:string,status:int}> */
     public static array $redirects = [];
-    /** @var array<int,array<string,string>> */
+    /** @var array<int,array<string,mixed>> */
     public static array $users = [];
+    /** Next id wp_insert_user() will hand out. */
+    public static int $nextUserId = 500;
     public static ?string $uploadBaseDir = null;
     /** @var list<string> */
     public static array $sentHeaders = [];
@@ -91,6 +93,7 @@ final class State
         self::$queryVars = [];
         self::$redirects = [];
         self::$users = [];
+        self::$nextUserId = 500;
         self::$uploadBaseDir = null;
         self::$sentHeaders = [];
         self::$statusHeader = null;

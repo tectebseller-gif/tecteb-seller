@@ -1,25 +1,33 @@
 ## plugin
 0.1.0-alpha.3
 ## schema_option
-2
+3
 ## options
 tmc_private_storage_relocated
 tmc_schema_version
 tmc_settings
+tmc_vendor_carriers
+tmc_vendor_networks
 ## settings_value
 {"schema_version":1,"values":{"default_commission_rate_bp":1234,"settlement_delay_days":9,"max_staff":77,"environment_override":"staging"}}
 ## tables
 wp_tmc_audit_events
 wp_tmc_vendor_applications
+wp_tmc_vendor_change_requests
 wp_tmc_vendor_document_types
 wp_tmc_vendor_documents
 wp_tmc_vendor_profiles
+wp_tmc_vendor_staff
+wp_tmc_vendor_stores
 ## row_counts
-wp_tmc_audit_events=131
+wp_tmc_audit_events=268
 wp_tmc_vendor_applications=1
+wp_tmc_vendor_change_requests=0
 wp_tmc_vendor_document_types=1
 wp_tmc_vendor_documents=1
 wp_tmc_vendor_profiles=0
+wp_tmc_vendor_staff=0
+wp_tmc_vendor_stores=0
 ## audit_rows
 1|plugin.activated|plugin|2026-09-12 14:52:41
 2|settings.updated|settings|2026-09-12 14:52:46
@@ -152,6 +160,143 @@ wp_tmc_vendor_profiles=0
 129|vendor.application_submitted|vendor_application|2026-09-14 17:04:21
 130|plugin.deactivated|plugin|2026-09-14 17:04:29
 131|plugin.activated|plugin|2026-09-14 17:04:30
+132|plugin.deactivated|plugin|2026-09-14 17:04:42
+133|plugin.activated|plugin|2026-09-14 17:04:43
+134|plugin.deactivated|plugin|2026-09-14 17:04:50
+135|plugin.activated|plugin|2026-09-14 17:04:51
+136|plugin.deactivated|plugin|2026-09-14 17:04:59
+137|plugin.activated|plugin|2026-09-14 17:05:00
+138|plugin.deactivated|plugin|2026-09-14 17:05:28
+139|plugin.activated|plugin|2026-09-14 17:05:33
+140|plugin.deactivated|plugin|2026-09-14 17:05:48
+141|plugin.activated|plugin|2026-09-14 17:05:49
+142|vendor.requirements_changed|vendor_document_type|2026-09-14 17:06:03
+143|vendor.document_uploaded|vendor_application|2026-09-14 17:06:03
+144|vendor.application_submitted|vendor_application|2026-09-14 17:06:03
+145|plugin.deactivated|plugin|2026-09-14 17:06:11
+146|plugin.deactivated|plugin|2026-09-14 17:06:24
+147|plugin.activated|plugin|2026-09-14 17:06:25
+148|plugin.deactivated|plugin|2026-09-14 17:06:32
+149|plugin.deactivated|plugin|2026-09-14 17:06:41
+150|plugin.activated|plugin|2026-09-14 17:06:42
+151|plugin.deactivated|plugin|2026-09-14 17:06:59
+152|plugin.activated|plugin|2026-09-14 17:07:01
+153|plugin.deactivated|plugin|2026-09-14 17:07:03
+154|plugin.activated|plugin|2026-09-14 17:07:04
+155|vendor.requirements_changed|vendor_document_type|2026-09-14 17:07:21
+156|vendor.document_uploaded|vendor_application|2026-09-14 17:07:21
+157|vendor.application_submitted|vendor_application|2026-09-14 17:07:21
+158|plugin.deactivated|plugin|2026-09-14 17:07:23
+159|plugin.activated|plugin|2026-09-14 17:07:24
+160|plugin.deactivated|plugin|2026-09-14 17:07:26
+161|plugin.activated|plugin|2026-09-14 17:07:27
+162|vendor.requirements_changed|vendor_document_type|2026-09-14 17:13:30
+163|vendor.document_rejected|vendor_application|2026-09-14 17:13:39
+164|vendor.document_uploaded|vendor_application|2026-09-14 17:13:44
+165|vendor.application_submitted|vendor_application|2026-09-14 17:13:49
+166|vendor.application_reviewed|vendor_application|2026-09-14 17:14:03
+167|vendor.document_uploaded|vendor_application|2026-09-14 17:14:14
+168|vendor.application_submitted|vendor_application|2026-09-14 17:14:17
+169|vendor.application_reviewed|vendor_application|2026-09-14 17:14:23
+170|vendor.requirements_changed|vendor_document_type|2026-09-14 17:15:32
+171|vendor.document_rejected|vendor_application|2026-09-14 17:15:43
+172|plugin.deactivated|plugin|2026-09-14 17:46:08
+173|plugin.activated|plugin|2026-09-14 17:46:11
+174|plugin.deactivated|plugin|2026-09-14 17:49:25
+175|plugin.activated|plugin|2026-09-14 17:49:26
+176|vendor.store_updated|vendor_store|2026-09-14 17:49:45
+177|vendor.store_updated|vendor_store|2026-09-14 17:49:48
+178|vendor.change_requested|vendor_store|2026-09-14 17:49:51
+179|vendor.change_requested|vendor_store|2026-09-14 17:49:55
+180|vendor.change_reviewed|vendor_store|2026-09-14 17:50:02
+181|plugin.deactivated|plugin|2026-09-14 17:52:53
+182|plugin.activated|plugin|2026-09-14 17:52:54
+183|vendor.store_updated|vendor_store|2026-09-14 17:53:13
+184|vendor.store_updated|vendor_store|2026-09-14 17:53:18
+185|vendor.change_requested|vendor_store|2026-09-14 17:53:22
+186|vendor.change_requested|vendor_store|2026-09-14 17:53:26
+187|vendor.change_reviewed|vendor_store|2026-09-14 17:53:31
+188|vendor.staff_invited|vendor_staff|2026-09-14 17:53:36
+189|vendor.staff_activated|vendor_staff|2026-09-14 17:53:43
+190|vendor.store_updated|vendor_store|2026-09-14 17:55:38
+191|vendor.store_updated|vendor_store|2026-09-14 17:55:41
+192|vendor.change_requested|vendor_store|2026-09-14 17:55:45
+193|vendor.change_requested|vendor_store|2026-09-14 17:55:49
+194|vendor.change_reviewed|vendor_store|2026-09-14 17:55:54
+195|vendor.staff_invited|vendor_staff|2026-09-14 17:56:00
+196|vendor.staff_activated|vendor_staff|2026-09-14 17:56:07
+197|vendor.staff_status_changed|vendor_staff|2026-09-14 17:56:19
+198|plugin.deactivated|plugin|2026-09-14 17:58:24
+199|plugin.activated|plugin|2026-09-14 17:58:25
+200|plugin.deactivated|plugin|2026-09-14 17:59:35
+201|plugin.activated|plugin|2026-09-14 17:59:37
+202|vendor.store_updated|vendor_store|2026-09-14 17:59:53
+203|vendor.store_updated|vendor_store|2026-09-14 17:59:56
+204|vendor.change_requested|vendor_store|2026-09-14 18:00:01
+205|vendor.change_requested|vendor_store|2026-09-14 18:00:05
+206|vendor.change_reviewed|vendor_store|2026-09-14 18:00:10
+207|vendor.staff_invited|vendor_staff|2026-09-14 18:00:15
+208|vendor.staff_activated|vendor_staff|2026-09-14 18:00:22
+209|vendor.staff_status_changed|vendor_staff|2026-09-14 18:00:34
+210|plugin.deactivated|plugin|2026-09-14 18:00:48
+211|plugin.activated|plugin|2026-09-14 18:00:51
+212|plugin.deactivated|plugin|2026-09-14 18:01:05
+213|plugin.activated|plugin|2026-09-14 18:01:06
+214|vendor.requirements_changed|vendor_document_type|2026-09-14 18:01:18
+215|vendor.document_uploaded|vendor_application|2026-09-14 18:01:18
+216|plugin.deactivated|plugin|2026-09-14 18:01:26
+217|plugin.deactivated|plugin|2026-09-14 18:01:39
+218|plugin.activated|plugin|2026-09-14 18:01:40
+219|plugin.deactivated|plugin|2026-09-14 18:01:47
+220|plugin.deactivated|plugin|2026-09-14 18:02:02
+221|plugin.activated|plugin|2026-09-14 18:02:03
+222|plugin.deactivated|plugin|2026-09-14 18:02:36
+223|plugin.activated|plugin|2026-09-14 18:02:39
+224|plugin.deactivated|plugin|2026-09-14 18:02:52
+225|plugin.activated|plugin|2026-09-14 18:02:53
+226|vendor.requirements_changed|vendor_document_type|2026-09-14 18:03:06
+227|vendor.document_uploaded|vendor_application|2026-09-14 18:03:06
+228|vendor.application_submitted|vendor_application|2026-09-14 18:03:06
+229|plugin.deactivated|plugin|2026-09-14 18:03:14
+230|plugin.deactivated|plugin|2026-09-14 18:03:26
+231|plugin.activated|plugin|2026-09-14 18:03:27
+232|plugin.deactivated|plugin|2026-09-14 18:03:33
+233|plugin.deactivated|plugin|2026-09-14 18:03:42
+234|plugin.activated|plugin|2026-09-14 18:03:43
+235|plugin.deactivated|plugin|2026-09-14 18:04:01
+236|plugin.activated|plugin|2026-09-14 18:04:06
+237|plugin.deactivated|plugin|2026-09-14 18:04:26
+238|plugin.activated|plugin|2026-09-14 18:04:27
+239|vendor.requirements_changed|vendor_document_type|2026-09-14 18:04:40
+240|vendor.document_uploaded|vendor_application|2026-09-14 18:04:40
+241|vendor.application_submitted|vendor_application|2026-09-14 18:04:40
+242|plugin.deactivated|plugin|2026-09-14 18:04:48
+243|plugin.deactivated|plugin|2026-09-14 18:05:01
+244|plugin.activated|plugin|2026-09-14 18:05:02
+245|plugin.deactivated|plugin|2026-09-14 18:05:08
+246|plugin.deactivated|plugin|2026-09-14 18:05:17
+247|plugin.activated|plugin|2026-09-14 18:05:18
+248|plugin.deactivated|plugin|2026-09-14 18:06:02
+249|plugin.activated|plugin|2026-09-14 18:06:07
+250|plugin.deactivated|plugin|2026-09-14 18:06:21
+251|plugin.activated|plugin|2026-09-14 18:06:22
+252|vendor.requirements_changed|vendor_document_type|2026-09-14 18:06:33
+253|vendor.document_uploaded|vendor_application|2026-09-14 18:06:34
+254|vendor.application_submitted|vendor_application|2026-09-14 18:06:34
+255|plugin.deactivated|plugin|2026-09-14 18:06:42
+256|plugin.deactivated|plugin|2026-09-14 18:06:54
+257|plugin.activated|plugin|2026-09-14 18:06:55
+258|plugin.deactivated|plugin|2026-09-14 18:07:02
+259|plugin.deactivated|plugin|2026-09-14 18:07:17
+260|plugin.activated|plugin|2026-09-14 18:07:18
+261|plugin.deactivated|plugin|2026-09-14 18:07:36
+262|plugin.activated|plugin|2026-09-14 18:07:39
+263|plugin.deactivated|plugin|2026-09-14 18:07:52
+264|plugin.activated|plugin|2026-09-14 18:07:53
+265|vendor.requirements_changed|vendor_document_type|2026-09-14 18:08:05
+266|vendor.document_uploaded|vendor_application|2026-09-14 18:08:05
+267|vendor.application_submitted|vendor_application|2026-09-14 18:08:05
+268|plugin.deactivated|plugin|2026-09-14 18:08:13
 ## vendor_applications
 1|3|submitted|داروخانه نمونه ارتقا|09120000000
 ## vendor_documents

@@ -126,6 +126,43 @@ final class Request
     }
 
     /**
+     * A `name[key]` group, cleaned key and value. Used for the social links,
+     * where the KEYS are a manager-defined list and an unknown one must not
+     * survive long enough to be stored.
+     *
+     * @return array<string,string>
+     */
+    public function postMap(string $key): array
+    {
+        $raw = $this->post[$key] ?? [];
+        if (!is_array($raw)) {
+            return [];
+        }
+        $out = [];
+        foreach ($raw as $name => $value) {
+            if (!is_scalar($value)) {
+                continue;
+            }
+            $out[sanitize_key((string) $name)] = sanitize_text_field(wp_unslash((string) $value));
+        }
+        return $out;
+    }
+
+    /**
+     * A password, exactly as typed.
+     *
+     * The ONE value that must not be sanitised: `sanitize_text_field` would
+     * strip characters a person legitimately chose, and the password would
+     * then be stored as something they can never type again. It is hashed
+     * immediately by WordPress and never stored, echoed or logged here.
+     */
+    public function postRaw(string $key): string
+    {
+        $value = $this->post[$key] ?? '';
+        return is_scalar($value) ? (string) wp_unslash((string) $value) : '';
+    }
+
+    /**
      * One uploaded file, with the MIME read from the BYTES. The browser's
      * Content-Type and the file name are attacker-controlled and never
      * decide anything.

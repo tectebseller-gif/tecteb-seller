@@ -1,0 +1,8 @@
+doctype_added=ok:type_added
+draft_saved=ok:draft_saved
+doctype_slug=doc
+document_uploaded=ok:document_uploaded
+submitted=ok:submitted
+seed=complete
+private_base=/home/user/tecteb-private
+private_files=14

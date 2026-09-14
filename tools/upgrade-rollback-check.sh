@@ -168,7 +168,10 @@ install_pkg "$OLD"
 # dropping them under a package that declares schema 2 would build a site that
 # never existed, and the run would prove nothing.
 if [ "$OLD_SCHEMA" -lt 2 ]; then
-  for t in wp_tmc_vendor_documents wp_tmc_vendor_document_types wp_tmc_vendor_profiles wp_tmc_vendor_applications; do
+  # Every vendor table, discovered rather than listed: a fixed list goes stale
+  # the moment a release adds one, and the leftovers then look like the old
+  # package created them.
+  for t in $(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'"); do
     dbq "DROP TABLE IF EXISTS \`$t\`"
   done
   wpx option delete tmc_vendor_documents_none >/dev/null
@@ -191,8 +194,18 @@ wpx option patch update tmc_settings settlement_delay_days 9 >/dev/null
 snapshot "$EV/01-before-upgrade.txt"
 check "stage 1 version" "$(wpx plugin get tecteb-marketplace-core --field=version)" "$OLD_VERSION"
 check "stage 1 schema"  "$(wpx option get tmc_schema_version)" "$OLD_SCHEMA"
-EXPECTED_OLD_TABLES=0; [ "$OLD_SCHEMA" -ge 2 ] && EXPECTED_OLD_TABLES=4
-check "stage 1 vendor tables as the old package leaves them" "$(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'" | wc -l)" "$EXPECTED_OLD_TABLES"
+# How many vendor tables the OLD package leaves behind is a property of that
+# package, not a number to hard-code: every schema bump adds more, and a
+# constant here would fail the next release rather than the next defect.
+OLD_TABLES=$(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'" | wc -l | tr -d ' ')
+check "stage 1 vendor tables match the old package's schema" \
+  "$([ "$OLD_SCHEMA" -ge 2 ] && [ "$OLD_TABLES" -ge 4 ] && echo present || { [ "$OLD_SCHEMA" -lt 2 ] && [ "$OLD_TABLES" -eq 0 ] && echo absent; })" \
+  "$([ "$OLD_SCHEMA" -ge 2 ] && echo present || echo absent)"
+# Start the walk from an empty shop, whatever the previous run left.
+for t in $(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'"); do
+  dbq "TRUNCATE TABLE \`$t\`" 2>/dev/null || true
+done
+dbq "DELETE FROM wp_options WHERE option_name = 'tmc_vendor_documents_none'" 2>/dev/null || true
 { pages 01 "$SCRATCH/admin.jar"; echo "vendor_area=$(vendor_area "$EV/01-vendor.html")"; } > "$EV/01-http.txt"
 check "stage 1 admin pages 200" "$(grep -c '=200' "$EV/01-http.txt")" "4"
 check "stage 1 vendor area matches the old package" "$(grep -o 'vendor_area=.*' "$EV/01-http.txt")" "vendor_area=$OLD_VENDOR_AREA"
@@ -206,7 +219,8 @@ snapshot "$EV/02-after-upgrade.txt"
 diff -u "$EV/01-before-upgrade.txt" "$EV/02-after-upgrade.txt" > "$EV/03-diff-upgrade.txt"
 check "stage 2 version" "$(wpx plugin get tecteb-marketplace-core --field=version)" "$NEW_VERSION"
 check "stage 2 schema"  "$(wpx option get tmc_schema_version)" "$NEW_SCHEMA"
-check "stage 2 vendor tables created" "$(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'" | wc -l)" "4"
+NEW_TABLES=$(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'" | wc -l | tr -d ' ')
+check "stage 2 the upgrade only adds tables" "$([ "$NEW_TABLES" -ge "$OLD_TABLES" ] && [ "$NEW_TABLES" -ge 4 ] && echo yes || echo no)" "yes"
 check "stage 2 commission preserved" "$(wpx option get tmc_settings --format=json | grep -o '"default_commission_rate_bp":[0-9]*')" '"default_commission_rate_bp":1234'
 check "stage 2 no audit row lost" \
   "$(comm -23 <(grep -A999 '## audit_rows' "$EV/01-before-upgrade.txt" | sed -n '2,/^## /p' | grep '|' | sort) \
@@ -246,7 +260,7 @@ snapshot "$EV/06-after-rollback.txt"
 diff -u "$EV/05-with-vendor-data.txt" "$EV/06-after-rollback.txt" > "$EV/07-diff-rollback.txt"
 check "stage 4 version" "$(wpx plugin get tecteb-marketplace-core --field=version)" "$OLD_VERSION"
 check "stage 4 schema untouched"       "$(wpx option get tmc_schema_version)" "$NEW_SCHEMA"
-check "stage 4 vendor tables kept"     "$(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'" | wc -l)" "4"
+check "stage 4 vendor tables kept"     "$(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'" | wc -l | tr -d ' ')" "$NEW_TABLES"
 check "stage 4 application kept"       "$(dbq "SELECT COUNT(*) FROM wp_tmc_vendor_applications")" "1"
 check "stage 4 document row kept"      "$(dbq "SELECT COUNT(*) FROM wp_tmc_vendor_documents")" "1"
 # The old package cannot report a base dir, so count where stage 3 found them.

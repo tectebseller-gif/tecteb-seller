@@ -39,6 +39,21 @@ final class PrivateStoragePlacement
     /** Nothing to try: the host gave us no usable paths at all. */
     public const NO_CANDIDATE = 'no_candidate';
 
+    /**
+     * Directory names that mean "the web server serves this".
+     *
+     * Needed because a WordPress installed INSIDE the account's public
+     * directory — `public_html/staging/`, which is how the owner's staging
+     * site is laid out — has a parent that is still served, by the parent
+     * site, at a URL this install knows nothing about. Comparing only against
+     * this site's own roots would happily choose `public_html/tecteb-private`
+     * and publish every licence scan at `https://the-main-site/tecteb-private/…`.
+     *
+     * A name is weaker evidence than DOCUMENT_ROOT, so it is used only to
+     * EXCLUDE, never to permit.
+     */
+    public const WEB_DIRECTORY_NAMES = ['public_html', 'public', 'www', 'wwwroot', 'htdocs', 'httpdocs', 'httpsdocs', 'web'];
+
     private function __construct(
         private readonly ?string $path,
         private readonly string $reason
@@ -94,5 +109,70 @@ final class PrivateStoragePlacement
     public function isUsable(): bool
     {
         return $this->path !== null;
+    }
+
+    /**
+     * Every directory that must be treated as web-served: the ones the site
+     * declared, plus any ancestor of them whose NAME says so.
+     *
+     * @param list<string> $declared
+     * @param list<string> $names
+     * @return list<string>
+     */
+    public static function expandWebRoots(array $declared, array $names = self::WEB_DIRECTORY_NAMES): array
+    {
+        $roots = [];
+        foreach ($declared as $root) {
+            $path = FilesystemPath::normalize($root);
+            if ($path === '' || $path === '/') {
+                continue;
+            }
+            $roots[$path] = true;
+            foreach (self::ancestors($path) as $ancestor) {
+                if (in_array(basename($ancestor), $names, true)) {
+                    $roots[$ancestor] = true;
+                }
+            }
+        }
+        return array_keys($roots);
+    }
+
+    /**
+     * The first directory ABOVE everything web-served on the way up from
+     * $start — where a private directory can be created without sitting
+     * under somebody's document root.
+     *
+     * @param list<string> $webRoots already expanded
+     */
+    public static function firstDirectoryAboveWebRoots(string $start, array $webRoots): ?string
+    {
+        $path = FilesystemPath::normalize($start);
+        $outermost = null;
+        foreach ([$path, ...self::ancestors($path)] as $candidate) {
+            if (FilesystemPath::isInsideAny($candidate, $webRoots)) {
+                $outermost = $candidate;
+            }
+        }
+        if ($outermost === null) {
+            return dirname($path) === $path ? null : dirname($path);
+        }
+        $above = dirname($outermost);
+        return ($above === $outermost || $above === '/' || $above === '.') ? null : $above;
+    }
+
+    /** @return list<string> from the immediate parent upwards, excluding '/' */
+    private static function ancestors(string $path): array
+    {
+        $out = [];
+        $current = FilesystemPath::normalize($path);
+        while (true) {
+            $parent = dirname($current);
+            if ($parent === $current || $parent === '/' || $parent === '.') {
+                break;
+            }
+            $out[] = $parent;
+            $current = $parent;
+        }
+        return $out;
     }
 }

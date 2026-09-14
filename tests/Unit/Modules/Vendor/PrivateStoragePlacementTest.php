@@ -122,6 +122,62 @@ final class PrivateStoragePlacementTest extends TestCase
         self::assertFalse($placement->isUsable());
     }
 
+    /**
+     * The owner's staging site is `public_html/staging/`. Its parent is not
+     * this site's document root — it is the PARENT site's, which would serve
+     * `https://tecteb.com/tecteb-private/…`. Nothing in the site's own
+     * declared roots says so; the directory's name does.
+     */
+    public function testAWordPressNestedInsidePublicHtmlLandsAboveIt(): void
+    {
+        $declared = [
+            '/home/tecteb/public_html/staging/',
+            '/home/tecteb/public_html/staging/wp-content',
+            '/home/tecteb/public_html/staging/wp-content/uploads',
+            '/home/tecteb/public_html/staging',
+        ];
+        $roots = PrivateStoragePlacement::expandWebRoots($declared);
+
+        self::assertContains('/home/tecteb/public_html', $roots, 'the account public directory is web-served too');
+
+        $above = PrivateStoragePlacement::firstDirectoryAboveWebRoots('/home/tecteb/public_html/staging/', $roots);
+        self::assertSame('/home/tecteb', $above);
+
+        $placement = PrivateStoragePlacement::choose([$above . '/tecteb-private'], $roots, self::ALWAYS_USABLE);
+        self::assertSame('/home/tecteb/tecteb-private', $placement->path());
+    }
+
+    public function testTheOldOneLevelUpAnswerWouldHaveBeenRefused(): void
+    {
+        $roots = PrivateStoragePlacement::expandWebRoots(['/home/tecteb/public_html/staging']);
+
+        // dirname(ABSPATH) — what the first implementation chose.
+        $placement = PrivateStoragePlacement::choose(['/home/tecteb/public_html/tecteb-private'], $roots, self::ALWAYS_USABLE);
+
+        self::assertSame(PrivateStoragePlacement::INSIDE_WEB_ROOT, $placement->reason());
+    }
+
+    public function testASiteAtTheAccountRootIsUnaffected(): void
+    {
+        $roots = PrivateStoragePlacement::expandWebRoots(['/home/tecteb/public_html']);
+
+        self::assertSame('/home/tecteb', PrivateStoragePlacement::firstDirectoryAboveWebRoots('/home/tecteb/public_html/', $roots));
+    }
+
+    public function testADirectoryWithNoWebRootNameOrMatchStillMovesUpOne(): void
+    {
+        $roots = PrivateStoragePlacement::expandWebRoots(['/srv/site']);
+
+        self::assertSame('/srv', PrivateStoragePlacement::firstDirectoryAboveWebRoots('/srv/site/', $roots));
+    }
+
+    public function testItNeverProposesTheFilesystemRoot(): void
+    {
+        $roots = PrivateStoragePlacement::expandWebRoots(['/www']);
+
+        self::assertNull(PrivateStoragePlacement::firstDirectoryAboveWebRoots('/www/', $roots));
+    }
+
     public function testPathsAreComparedAfterNormalisation(): void
     {
         self::assertSame('/home/site', FilesystemPath::normalize('/home//site/'));

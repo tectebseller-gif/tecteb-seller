@@ -15,6 +15,22 @@ use Tecteb\Marketplace\Contracts\ModuleManifest;
 use Tecteb\Marketplace\Contracts\OptionStoreInterface;
 use Tecteb\Marketplace\Contracts\Otp\OtpProviderInterface;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Core\Config\SettingsService;
+use Tecteb\Marketplace\Modules\Vendor\Application\AcceptStaffInvitation;
+use Tecteb\Marketplace\Modules\Vendor\Application\ChangeRequestRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\ManageStaff;
+use Tecteb\Marketplace\Modules\Vendor\Application\ReviewChangeRequests;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffUserDirectoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\UpdateStoreSettings;
+use Tecteb\Marketplace\Modules\Vendor\Application\VendorListsInterface;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbChangeRequestRepository;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbStaffRepository;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbStoreRepository;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\OptionVendorLists;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\WpStaffUsers;
 use Tecteb\Marketplace\Modules\Vendor\Application\ConfigureDocumentTypes;
 use Tecteb\Marketplace\Modules\Vendor\Application\DocumentRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\DocumentTypeRepositoryInterface;
@@ -110,6 +126,51 @@ final class VendorModule implements ModuleInterface
         ));
         $c->bind(ConfigureDocumentTypes::class, static fn (ContainerInterface $c) => new ConfigureDocumentTypes(
             $c->get(DocumentTypeRepositoryInterface::class),
+            $c->get(AuditLogger::class),
+            $c->get(CapabilityCheckerInterface::class)
+        ));
+        $c->bind(StoreRepositoryInterface::class, static fn (ContainerInterface $c) => new DbStoreRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(StaffRepositoryInterface::class, static fn (ContainerInterface $c) => new DbStaffRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(ChangeRequestRepositoryInterface::class, static fn (ContainerInterface $c) => new DbChangeRequestRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(VendorListsInterface::class, static fn (ContainerInterface $c) => new OptionVendorLists(
+            $c->get(OptionStoreInterface::class)
+        ));
+        $c->bind(StaffUserDirectoryInterface::class, static fn () => new WpStaffUsers());
+        $c->bind(StaffAccess::class, static fn (ContainerInterface $c) => new StaffAccess(
+            $c->get(StaffRepositoryInterface::class),
+            $c->get(VendorRepositoryInterface::class)
+        ));
+        $c->bind(ManageStaff::class, static fn (ContainerInterface $c) => new ManageStaff(
+            $c->get(StaffRepositoryInterface::class),
+            $c->get(StaffUserDirectoryInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(SettingsService::class),
+            $c->get(AuditLogger::class)
+        ));
+        $c->bind(AcceptStaffInvitation::class, static fn (ContainerInterface $c) => new AcceptStaffInvitation(
+            $c->get(StaffRepositoryInterface::class),
+            $c->get(StaffUserDirectoryInterface::class),
+            $c->get(AuditLogger::class)
+        ));
+        $c->bind(UpdateStoreSettings::class, static fn (ContainerInterface $c) => new UpdateStoreSettings(
+            $c->get(StoreRepositoryInterface::class),
+            $c->get(ChangeRequestRepositoryInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(AuditLogger::class),
+            $c->get(MobileVerification::class)
+        ));
+        $c->bind(ReviewChangeRequests::class, static fn (ContainerInterface $c) => new ReviewChangeRequests(
+            $c->get(ChangeRequestRepositoryInterface::class),
+            $c->get(StoreRepositoryInterface::class),
             $c->get(AuditLogger::class),
             $c->get(CapabilityCheckerInterface::class)
         ));

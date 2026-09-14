@@ -1,0 +1,128 @@
+{
+  "suite": "vendor-stage-1",
+  "generated_at": "2026-09-14T18:00:36.733Z",
+  "total": 24,
+  "failures": 0,
+  "results": [
+    {
+      "name": "manager lists saved",
+      "ok": true,
+      "detail": "carriers and networks stored"
+    },
+    {
+      "name": "store page opens for an approved vendor",
+      "ok": true,
+      "detail": "five tabs rendered"
+    },
+    {
+      "name": "general tab saves",
+      "ok": true,
+      "detail": "تنظیمات فروشگاه ذخیره شد."
+    },
+    {
+      "name": "carrier choice persists",
+      "ok": true,
+      "detail": "tipax stayed checked"
+    },
+    {
+      "name": "the name does not change on asking",
+      "ok": true,
+      "detail": "«داروخانه آزمایشی» → «داروخانه آزمایشی»"
+    },
+    {
+      "name": "the vendor is told it is pending",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "banking says the SMS step is not performed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "settlement is put on hold",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "both change requests are queued",
+      "ok": true,
+      "detail": "2 waiting"
+    },
+    {
+      "name": "the approved name is now the store name",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an empty staff list explains itself",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an invitation link is shown once",
+      "ok": true,
+      "detail": "http://127.0.0.1:8080/vendor/invite/?token=4f062f2483443e56d…"
+    },
+    {
+      "name": "the mobile is shown as recorded, not verified",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the link is never shown again",
+      "ok": true,
+      "detail": "one render only"
+    },
+    {
+      "name": "a signed-out visitor may open the invitation",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "but not the staff page",
+      "ok": true,
+      "detail": "status 200"
+    },
+    {
+      "name": "activation succeeds",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the link cannot be used twice",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "staff reach the vendor area",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "staff cannot manage staff",
+      "ok": true,
+      "detail": "the store-manager preset stops short of this, and this one is weaker"
+    },
+    {
+      "name": "staff cannot open store settings",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "suspension is confirmed",
+      "ok": true,
+      "detail": "دسترسی این همکار همین حالا قطع شد. سابقه فعالیت او پاک نشده است."
+    },
+    {
+      "name": "the history is not deleted",
+      "ok": true,
+      "detail": "the member is still listed"
+    },
+    {
+      "name": "a suspended colleague is out at once",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

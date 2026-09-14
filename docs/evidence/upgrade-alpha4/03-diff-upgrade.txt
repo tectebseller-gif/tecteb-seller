@@ -1,0 +1,40 @@
+--- /home/user/tecteb-seller/docs/evidence/upgrade-alpha4/01-before-upgrade.txt	2026-09-14 18:02:46.069282640 +0000
++++ /home/user/tecteb-seller/docs/evidence/upgrade-alpha4/02-after-upgrade.txt	2026-09-14 18:02:59.425283130 +0000
+@@ -1,7 +1,7 @@
+ ## plugin
+-0.1.0-alpha.4
++0.1.0-alpha.5
+ ## schema_option
+-2
++3
+ ## options
+ tmc_private_storage_relocated
+ tmc_schema_version
+@@ -20,14 +20,14 @@
+ wp_tmc_vendor_staff
+ wp_tmc_vendor_stores
+ ## row_counts
+-wp_tmc_audit_events=223
++wp_tmc_audit_events=225
+ wp_tmc_vendor_applications=0
+-wp_tmc_vendor_change_requests=2
++wp_tmc_vendor_change_requests=0
+ wp_tmc_vendor_document_types=0
+ wp_tmc_vendor_documents=0
+ wp_tmc_vendor_profiles=0
+-wp_tmc_vendor_staff=1
+-wp_tmc_vendor_stores=1
++wp_tmc_vendor_staff=0
++wp_tmc_vendor_stores=0
+ ## audit_rows
+ 1|plugin.activated|plugin|2026-09-12 14:52:41
+ 2|settings.updated|settings|2026-09-12 14:52:46
+@@ -252,6 +252,8 @@
+ 221|plugin.activated|plugin|2026-09-14 18:02:03
+ 222|plugin.deactivated|plugin|2026-09-14 18:02:36
+ 223|plugin.activated|plugin|2026-09-14 18:02:39
++224|plugin.deactivated|plugin|2026-09-14 18:02:52
++225|plugin.activated|plugin|2026-09-14 18:02:53
+ ## vendor_applications
+ ## vendor_documents
+ ## vendor_document_types

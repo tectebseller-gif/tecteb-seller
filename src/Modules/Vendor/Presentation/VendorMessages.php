@@ -7,6 +7,12 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Vendor\Application\TaskState;
 use Tecteb\Marketplace\Modules\Vendor\Application\WorkspaceTask;
 use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
+use Tecteb\Marketplace\Modules\Vendor\Domain\ChangeRequest;
+use Tecteb\Marketplace\Modules\Vendor\Domain\ChangeRequestStatus;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffArea;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffLevel;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffRolePreset;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffStatus;
 
 /**
  * Every Persian sentence the vendor area says, in one file.
@@ -186,12 +192,113 @@ final class VendorMessages
             'storage_failed' => __('ذخیره‌سازی انجام نشد. کمی بعد دوباره تلاش کنید.', 'tecteb-marketplace-core'),
             'storage_unavailable' => __('بارگذاری مدرک فعلاً ممکن نیست: محل امنِ نگهداری مدارک روی این سایت آماده نیست. مدیر سایت باید آن را تنظیم کند؛ تا آن زمان هیچ مدرکی پذیرفته نمی‌شود.', 'tecteb-marketplace-core'),
             'forbidden' => __('دسترسی لازم را ندارید.', 'tecteb-marketplace-core'),
+            // ---- store settings ------------------------------------------
+            'store_saved' => __('تنظیمات فروشگاه ذخیره شد.', 'tecteb-marketplace-core'),
+            'store_saved_with_problems' => sprintf(
+                __('تنظیمات ذخیره شد، اما این موارد پذیرفته نشدند: %s', 'tecteb-marketplace-core'),
+                (string) ($context['problems'] ?? '')
+            ),
+            'change_requested' => __('درخواست شما ثبت شد و در صف بررسی مدیر است.', 'tecteb-marketplace-core'),
+            'bank_change_requested' => ($context['otp_available'] ?? 'no') === 'yes'
+                ? __('درخواست تغییر حساب ثبت شد و پس از تأیید پیامکی و تأیید مدیر اعمال می‌شود.', 'tecteb-marketplace-core')
+                : __('درخواست تغییر حساب ثبت شد و در انتظار تأیید مدیر است. تأیید پیامکی در این نسخه انجام نمی‌شود و تا تعیین تکلیف، تسویه متوقف است.', 'tecteb-marketplace-core'),
+            'change_already_pending' => __('یک درخواست برای همین مورد در انتظار بررسی است؛ تا تعیین تکلیف آن، درخواست تازه ثبت نمی‌شود.', 'tecteb-marketplace-core'),
+            'no_change' => __('تغییری نسبت به مقدار فعلی وجود ندارد.', 'tecteb-marketplace-core'),
+            'bad_iban' => __('شبا معتبر نیست. باید با IR شروع شود و ۲۴ رقم داشته باشد.', 'tecteb-marketplace-core'),
+            // ---- staff ----------------------------------------------------
+            'staff_invited' => __('دعوت ساخته شد. لینک یک‌بارمصرف را در همین صفحه ببینید و برای همکارتان بفرستید.', 'tecteb-marketplace-core'),
+            'staff_role_changed' => __('نقش به‌روزرسانی شد.', 'tecteb-marketplace-core'),
+            'staff_suspended' => __('دسترسی این همکار همین حالا قطع شد. سابقه فعالیت او پاک نشده است.', 'tecteb-marketplace-core'),
+            'staff_reinstated' => __('دسترسی این همکار بازگردانده شد.', 'tecteb-marketplace-core'),
+            'staff_activated' => __('حساب شما فعال شد. حالا می‌توانید با نام کاربری و رمز تازه وارد شوید.', 'tecteb-marketplace-core'),
+            'staff_limit' => sprintf(
+                __('به سقف %s نفر رسیده‌اید. افزایش سقف با مدیر بازارگاه است.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($context['limit'] ?? ''))
+            ),
+            'incomplete_staff' => __('همه فیلدهای پرسنل اجباری‌اند: نام، نام خانوادگی، نام کاربری، ایمیل و موبایل.', 'tecteb-marketplace-core'),
+            'bad_username' => __('نام کاربری فقط حروف کوچک انگلیسی، عدد، نقطه و خط تیره می‌پذیرد و دست‌کم سه نویسه است.', 'tecteb-marketplace-core'),
+            'bad_email' => __('ایمیل معتبر نیست.', 'tecteb-marketplace-core'),
+            'username_taken' => __('این نام کاربری قبلاً استفاده شده است.', 'tecteb-marketplace-core'),
+            'email_taken' => __('این ایمیل به حساب دیگری تعلق دارد.', 'tecteb-marketplace-core'),
+            'already_staff' => __('این شخص در فروشگاه دیگری پرسنل است. هر نفر فقط به یک فروشگاه وصل می‌شود.', 'tecteb-marketplace-core'),
+            'no_permissions' => __('نقشی بدون هیچ دسترسی ساخته نمی‌شود.', 'tecteb-marketplace-core'),
+            'user_not_created' => __('ساخت حساب کاربری انجام نشد. کمی بعد دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+            'invite_invalid' => __('این لینک دعوت معتبر نیست یا منقضی شده است.', 'tecteb-marketplace-core'),
+            'password_too_short' => sprintf(
+                __('رمز عبور باید دست‌کم %s نویسه باشد.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($context['minimum'] ?? ''))
+            ),
+            'not_found' => __('این مورد پیدا نشد.', 'tecteb-marketplace-core'),
             default => __('انجام شد.', 'tecteb-marketplace-core'),
+        };
+    }
+
+    public static function staffStatus(StaffStatus $status): string
+    {
+        return match ($status) {
+            StaffStatus::Invited => __('دعوت‌شده، هنوز فعال نشده', 'tecteb-marketplace-core'),
+            StaffStatus::Active => __('فعال', 'tecteb-marketplace-core'),
+            StaffStatus::Suspended => __('تعلیق‌شده', 'tecteb-marketplace-core'),
+        };
+    }
+
+    public static function staffPreset(StaffRolePreset $preset): string
+    {
+        return match ($preset) {
+            StaffRolePreset::StoreManager => __('مدیر فروشگاه', 'tecteb-marketplace-core'),
+            StaffRolePreset::ProductAndInventory => __('محصول و موجودی', 'tecteb-marketplace-core'),
+            StaffRolePreset::OrderAndShipping => __('سفارش و ارسال', 'tecteb-marketplace-core'),
+            StaffRolePreset::Accountant => __('حسابداری', 'tecteb-marketplace-core'),
+            StaffRolePreset::CustomerSupport => __('پشتیبانی مشتری', 'tecteb-marketplace-core'),
+            StaffRolePreset::Custom => __('سفارشی', 'tecteb-marketplace-core'),
+        };
+    }
+
+    public static function staffArea(StaffArea $area): string
+    {
+        return match ($area) {
+            StaffArea::Product => __('محصول', 'tecteb-marketplace-core'),
+            StaffArea::Inventory => __('موجودی', 'tecteb-marketplace-core'),
+            StaffArea::Order => __('سفارش', 'tecteb-marketplace-core'),
+            StaffArea::Report => __('گزارش', 'tecteb-marketplace-core'),
+            StaffArea::Finance => __('مالی', 'tecteb-marketplace-core'),
+        };
+    }
+
+    public static function staffLevel(StaffLevel $level): string
+    {
+        return match ($level) {
+            StaffLevel::None => __('بدون دسترسی', 'tecteb-marketplace-core'),
+            StaffLevel::View => __('مشاهده', 'tecteb-marketplace-core'),
+            StaffLevel::Respond => __('پاسخ و مشاهده', 'tecteb-marketplace-core'),
+            StaffLevel::Edit => __('ویرایش', 'tecteb-marketplace-core'),
+        };
+    }
+
+    public static function changeField(string $field): string
+    {
+        return match ($field) {
+            ChangeRequest::FIELD_STORE_NAME => __('نام فروشگاه', 'tecteb-marketplace-core'),
+            ChangeRequest::FIELD_BANK => __('حساب بانکی', 'tecteb-marketplace-core'),
+            default => $field,
+        };
+    }
+
+    public static function changeStatus(ChangeRequestStatus $status): string
+    {
+        return match ($status) {
+            ChangeRequestStatus::Pending => __('در انتظار تأیید مدیر', 'tecteb-marketplace-core'),
+            ChangeRequestStatus::Approved => __('تأیید شد', 'tecteb-marketplace-core'),
+            ChangeRequestStatus::Rejected => __('رد شد', 'tecteb-marketplace-core'),
         };
     }
 
     public static function isErrorNotice(string $code): bool
     {
-        return !in_array($code, ['draft_saved', 'submitted', 'document_uploaded'], true);
+        return !in_array($code, [
+            'draft_saved', 'submitted', 'document_uploaded',
+            'store_saved', 'change_requested', 'bank_change_requested',
+            'staff_invited', 'staff_role_changed', 'staff_suspended', 'staff_reinstated', 'staff_activated',
+        ], true);
     }
 }

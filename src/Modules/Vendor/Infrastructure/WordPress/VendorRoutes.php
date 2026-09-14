@@ -20,6 +20,25 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicantDetails;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\ApplicationView;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\DashboardView;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorMessages;
+use Tecteb\Marketplace\Modules\Vendor\Application\AcceptStaffInvitation;
+use Tecteb\Marketplace\Modules\Vendor\Application\ManageStaff;
+use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
+use Tecteb\Marketplace\Modules\Vendor\Application\UpdateStoreSettings;
+use Tecteb\Marketplace\Modules\Vendor\Application\VendorListsInterface;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffRolePreset;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\InviteView;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\StaffView;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\StoreView;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUi;
+use Tecteb\Marketplace\Core\Config\SettingsService;
+use Tecteb\Marketplace\Modules\Vendor\Application\ChangeRequestRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings;
+use Tecteb\Marketplace\Contracts\Files\PrivateFileStorageInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\MobileVerification;
+use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorNotice;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorShell;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
@@ -37,6 +56,12 @@ final class VendorRoutes
     public const QUERY_VAR = 'tmc_vendor';
     public const NONCE_ACTION = 'tmc_vendor_action';
     public const NONCE_FIELD = 'tmc_vendor_nonce';
+
+    /** @var list<string> the views this area answers on */
+    public const VIEWS = ['dashboard', 'application', 'store', 'staff', 'invite'];
+
+    /** The only view a signed-out visitor may reach: the token vouches for them. */
+    public const PUBLIC_VIEW = 'invite';
 
     public function __construct(
         private readonly ContainerInterface $container,
@@ -68,6 +93,14 @@ final class VendorRoutes
         $view = $this->requestedView($request);
         $docId = $request->queryInt('tmc_doc');
         if ($view === null && $docId <= 0) {
+            return;
+        }
+
+        // The invitation page is the one door a signed-out person may open:
+        // they have no account they can log into yet, and the token — long,
+        // hashed at rest, single use and expiring — is what vouches for them.
+        if ($view === self::PUBLIC_VIEW) {
+            $this->handleInvitation($request);
             return;
         }
 
@@ -106,18 +139,28 @@ final class VendorRoutes
         if ($request->queryKey('view') === 'application') {
             return 'application';
         }
-        return in_array($raw, ['dashboard', 'application'], true) ? $raw : 'dashboard';
+        return in_array($raw, self::VIEWS, true) ? $raw : 'dashboard';
     }
 
     private function urls(): VendorUrls
     {
         $pretty = (string) get_option('permalink_structure', '') !== '';
         if ($pretty) {
-            return new VendorUrls(home_url('/vendor/'), home_url('/vendor/application/'));
+            return new VendorUrls(
+                home_url('/vendor/'),
+                home_url('/vendor/application/'),
+                home_url('/vendor/store/'),
+                home_url('/vendor/staff/'),
+                home_url('/vendor/invite/')
+            );
         }
+        $byQuery = static fn (string $view): string => home_url('/?' . self::QUERY_VAR . '=' . $view);
         return new VendorUrls(
-            home_url('/?' . self::QUERY_VAR . '=dashboard'),
-            home_url('/?' . self::QUERY_VAR . '=application')
+            $byQuery('dashboard'),
+            $byQuery('application'),
+            $byQuery('store'),
+            $byQuery('staff'),
+            $byQuery('invite')
         );
     }
 
@@ -145,10 +188,24 @@ final class VendorRoutes
                 $request->file('document')
             ),
             'submit' => $this->container->get(SubmitApplication::class)->handle($userId),
+            'save_store' => $this->saveStore($request, $userId),
+            'request_rename' => $this->container->get(UpdateStoreSettings::class)
+                ->requestRename($userId, $userId, $request->postText('store_name')),
+            'request_bank' => $this->container->get(UpdateStoreSettings::class)
+                ->requestBankChange($userId, $userId, $request->postText('iban'), $request->postText('holder'), 0),
+            'invite_staff' => $this->inviteStaff($request, $userId),
+            'suspend_staff' => $this->container->get(ManageStaff::class)->suspend($userId, $request->postInt('staff_id')),
+            'reinstate_staff' => $this->container->get(ManageStaff::class)->reinstate($userId, $request->postInt('staff_id')),
             default => null,
         };
 
-        $target = $action === 'submit' && $result !== null && $result->ok ? $urls->dashboard() : $urls->application();
+        $target = match (true) {
+            in_array($action, ['save_store', 'request_rename', 'request_bank'], true)
+                => add_query_arg('tab', $request->postKey('tab') ?: 'general', $urls->store()),
+            in_array($action, ['invite_staff', 'suspend_staff', 'reinstate_staff'], true) => $urls->staff(),
+            $action === 'submit' && $result !== null && $result->ok => $urls->dashboard(),
+            default => $urls->application(),
+        };
         $code = $result?->code ?? 'forbidden';
         // The numbers in the sentence are the server's, so they travel in the
         // flash store rather than in the URL the applicant can edit. One
@@ -159,6 +216,92 @@ final class VendorRoutes
         }
         wp_safe_redirect($urls->withNotice($target, $code));
         exit;
+    }
+
+    /** The vendor edits only their own store: the id is never taken from the post. */
+    private function saveStore(Request $request, int $userId): OperationResult
+    {
+        $lists = $this->container->get(VendorListsInterface::class);
+        return $this->container->get(UpdateStoreSettings::class)->save(
+            $userId,
+            $userId,
+            [
+                'tab' => $request->postKey('tab'),
+                'city' => $request->postText('city'),
+                'intro' => $request->postTextarea('intro'),
+                'logo_id' => $request->postInt('logo_id'),
+                'banner_id' => $request->postInt('banner_id'),
+                'preparation_days' => $request->postInt('preparation_days'),
+                'origin_warehouse' => $request->postText('origin_warehouse'),
+                'carriers' => $request->postTextList('carriers'),
+                'closed' => $request->postChecked('closed'),
+                'closed_from' => $request->postText('closed_from'),
+                'closed_to' => $request->postText('closed_to'),
+                'reopen_message' => $request->postText('reopen_message'),
+                'social' => $request->postMap('social'),
+            ],
+            array_keys($lists->networks()),
+            array_keys($lists->carriers())
+        );
+    }
+
+    private function inviteStaff(Request $request, int $userId): OperationResult
+    {
+        $preset = StaffRolePreset::tryFrom($request->postKey('preset')) ?? StaffRolePreset::Custom;
+        return $this->container->get(ManageStaff::class)->invite(
+            $userId,
+            $userId,
+            $request->postText('first_name'),
+            $request->postText('last_name'),
+            $request->postKey('username'),
+            $request->postEmail('email'),
+            $request->postText('mobile'),
+            $preset
+        );
+    }
+
+    /**
+     * The invitation page, for somebody who is not signed in. Everything it
+     * can do is bounded by the token: show the form, or set a password.
+     */
+    private function handleInvitation(Request $request): void
+    {
+        $urls = $this->urls();
+        $service = $this->container->get(AcceptStaffInvitation::class);
+        $token = $request->isPost() ? $request->postKey('token') : $request->queryKey('token');
+        $notice = null;
+
+        if ($request->isPost()) {
+            if (!$request->nonceOk(self::NONCE_FIELD, self::NONCE_ACTION)) {
+                $notice = VendorNotice::of('forbidden');
+            } else {
+                $result = $service->accept($token, $request->postRaw('password'));
+                $notice = VendorNotice::of($result->code, $result->context);
+                if ($result->ok) {
+                    $this->renderShell(
+                        __('فعال‌سازی حساب پرسنل', 'tecteb-marketplace-core'),
+                        'invite',
+                        InviteView::render('', '', '', '', $notice) . VendorUi::button(wp_login_url(), __('ورود به حساب', 'tecteb-marketplace-core')),
+                        ''
+                    );
+                }
+            }
+        }
+
+        $found = $service->inspect($token);
+        $this->renderShell(
+            __('فعال‌سازی حساب پرسنل', 'tecteb-marketplace-core'),
+            'invite',
+            InviteView::render(
+                $found->ok ? $token : '',
+                (string) ($found->context['display_name'] ?? ''),
+                (string) ($found->context['username'] ?? ''),
+                wp_nonce_field(self::NONCE_ACTION, self::NONCE_FIELD, true, false),
+                $notice,
+                AcceptStaffInvitation::MIN_PASSWORD
+            ),
+            ''
+        );
     }
 
     private function detailsFromPost(Request $request): ApplicantDetails
@@ -231,21 +374,93 @@ final class VendorRoutes
             $this->container->get(FlashStoreInterface::class)->take(self::flashKey($userId))
         );
         $nonceField = wp_nonce_field(self::NONCE_ACTION, self::NONCE_FIELD, true, false);
+        $storeName = $workspace->profile?->storeName ?? ($workspace->application?->details->storeName ?? '');
 
+        // The store and staff pages belong to an approved vendor. Anyone else
+        // — an applicant mid-review, or a staff member who followed a link —
+        // is sent back rather than shown an empty shell.
+        $access = $this->container->get(StaffAccess::class);
+        if (in_array($view, ['store', 'staff'], true) && !$access->canManageStore($userId, $userId)) {
+            wp_safe_redirect($urls->withNotice($urls->dashboard(), 'not_a_vendor'));
+            exit;
+        }
+
+        [$title, $body] = match ($view) {
+            'application' => [
+                __('درخواست فروشندگی', 'tecteb-marketplace-core'),
+                ApplicationView::render($workspace, $urls, $nonceField, $notice),
+            ],
+            'store' => [
+                __('تنظیمات فروشگاه', 'tecteb-marketplace-core'),
+                $this->storeBody($request, $urls, $nonceField, $userId, $notice),
+            ],
+            'staff' => [
+                __('پرسنل فروشگاه', 'tecteb-marketplace-core'),
+                $this->staffBody($urls, $nonceField, $userId, $notice),
+            ],
+            default => [
+                __('پیشخوان فروشنده', 'tecteb-marketplace-core'),
+                DashboardView::render($workspace, $urls, $notice),
+            ],
+        };
+
+        $this->renderShell($title, $view, $body, $storeName, $this->navFor($urls, $access->canManageStore($userId, $userId)));
+    }
+
+    /** @return list<array{slug:string,label:string,url:string}> */
+    private function navFor(VendorUrls $urls, bool $isVendor): array
+    {
         $nav = [
             ['slug' => 'dashboard', 'label' => __('پیشخوان', 'tecteb-marketplace-core'), 'url' => $urls->dashboard()],
             ['slug' => 'application', 'label' => __('درخواست فروشندگی', 'tecteb-marketplace-core'), 'url' => $urls->application()],
         ];
-        $storeName = $workspace->profile?->storeName ?? ($workspace->application?->details->storeName ?? '');
+        if ($isVendor) {
+            $nav[] = ['slug' => 'store', 'label' => __('تنظیمات فروشگاه', 'tecteb-marketplace-core'), 'url' => $urls->store()];
+            $nav[] = ['slug' => 'staff', 'label' => __('پرسنل', 'tecteb-marketplace-core'), 'url' => $urls->staff()];
+        }
+        return $nav;
+    }
 
-        $body = $view === 'application'
-            ? ApplicationView::render($workspace, $urls, $nonceField, $notice)
-            : DashboardView::render($workspace, $urls, $notice);
+    private function storeBody(Request $request, VendorUrls $urls, string $nonceField, int $userId, ?VendorNotice $notice): string
+    {
+        $stores = $this->container->get(StoreRepositoryInterface::class);
+        $lists = $this->container->get(VendorListsInterface::class);
+        $tab = $request->queryKey('tab');
+        return StoreView::render(
+            $stores->find($userId) ?? new StoreSettings(),
+            array_key_exists($tab, StoreView::tabs()) ? $tab : 'general',
+            $urls,
+            $nonceField,
+            $lists->carriers(),
+            $lists->networks(),
+            $stores->bank($userId),
+            $this->container->get(ChangeRequestRepositoryInterface::class)->forVendor($userId),
+            $this->container->get(MobileVerification::class)->available(),
+            $notice
+        );
+    }
 
-        $title = $view === 'application'
-            ? __('درخواست فروشندگی', 'tecteb-marketplace-core')
-            : __('پیشخوان فروشنده', 'tecteb-marketplace-core');
+    private function staffBody(VendorUrls $urls, string $nonceField, int $userId, ?VendorNotice $notice): string
+    {
+        // The plain token exists for exactly one render: it came back from the
+        // invite call in the flash, and is never read from storage again.
+        $inviteUrl = '';
+        if ($notice !== null && $notice->code === 'staff_invited' && ($notice->context['token'] ?? '') !== '') {
+            $inviteUrl = $urls->invite((string) $notice->context['token']);
+        }
+        return StaffView::render(
+            $this->container->get(StaffRepositoryInterface::class)->forVendor($userId),
+            $this->container->get(SettingsService::class)->load()->maxStaff,
+            $urls,
+            $nonceField,
+            $notice,
+            $inviteUrl
+        );
+    }
 
+    /** @param list<array{slug:string,label:string,url:string}> $nav */
+    private function renderShell(string $title, string $view, string $body, string $storeName, array $nav = []): void
+    {
         status_header(200);
         nocache_headers();
         echo VendorShell::render(

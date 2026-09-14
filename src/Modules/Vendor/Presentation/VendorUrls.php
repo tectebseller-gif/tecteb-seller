@@ -11,7 +11,10 @@ final class VendorUrls
 {
     public function __construct(
         private readonly string $dashboard,
-        private readonly string $application
+        private readonly string $application,
+        private readonly string $store = '',
+        private readonly string $staff = '',
+        private readonly string $invite = ''
     ) {
     }
 
@@ -23,6 +26,22 @@ final class VendorUrls
     public function application(): string
     {
         return $this->application;
+    }
+
+    public function store(): string
+    {
+        return $this->store;
+    }
+
+    public function staff(): string
+    {
+        return $this->staff;
+    }
+
+    /** The link a vendor hands to a colleague; the token is the credential. */
+    public function invite(string $token): string
+    {
+        return add_query_arg('token', $token, $this->invite);
     }
 
     public function forRoute(?string $route): string

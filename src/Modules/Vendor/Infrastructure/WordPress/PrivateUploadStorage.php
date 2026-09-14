@@ -146,12 +146,18 @@ final class PrivateUploadStorage implements PrivateFileStorageInterface
         if (defined('TMC_PRIVATE_UPLOADS_DIR') && is_string(constant('TMC_PRIVATE_UPLOADS_DIR'))) {
             $candidates[] = (string) constant('TMC_PRIVATE_UPLOADS_DIR');
         }
-        if (defined('ABSPATH')) {
-            $candidates[] = dirname(rtrim((string) constant('ABSPATH'), '/')) . '/' . self::DIR;
-        }
-        $docRoot = Request::documentRoot();
-        if ($docRoot !== '') {
-            $candidates[] = dirname(rtrim($docRoot, '/')) . '/' . self::DIR;
+        // Above EVERYTHING web-served, not merely above WordPress. On a site
+        // installed at public_html/staging/ the parent of ABSPATH is still
+        // inside public_html, and the parent site would serve it.
+        $roots = $this->webRoots();
+        foreach ([defined('ABSPATH') ? (string) constant('ABSPATH') : '', Request::documentRoot()] as $start) {
+            if ($start === '') {
+                continue;
+            }
+            $above = PrivateStoragePlacement::firstDirectoryAboveWebRoots($start, $roots);
+            if ($above !== null) {
+                $candidates[] = $above . '/' . self::DIR;
+            }
         }
         return array_values(array_unique($candidates));
     }
@@ -174,7 +180,8 @@ final class PrivateUploadStorage implements PrivateFileStorageInterface
         if ($docRoot !== '') {
             $roots[] = $docRoot;
         }
-        return array_values(array_unique($roots));
+        // A `public_html` above this install is somebody else's document root.
+        return PrivateStoragePlacement::expandWebRoots(array_values(array_unique($roots)));
     }
 
     /**

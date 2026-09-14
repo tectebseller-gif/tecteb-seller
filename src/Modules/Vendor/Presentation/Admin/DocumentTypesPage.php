@@ -9,9 +9,12 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Vendor\Application\ConfigureDocumentTypes;
+use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
+use Tecteb\Marketplace\Modules\Vendor\Application\VendorListsInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\DocumentTypeRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorCapabilities;
 use Tecteb\Marketplace\Modules\Vendor\Domain\RequirementMode;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\PrivateUploadStorage;
 
 /**
  * Where the manager decides which documents applicants must upload.
@@ -41,7 +44,16 @@ final class DocumentTypesPage
         $storage = $this->container->get(PrivateFileStorageInterface::class);
         $reason = $storage->unavailableReason();
         if ($reason === null) {
-            return Components::notice('info', __('مدارک بارگذاری‌شده بیرون از پوشه‌های قابل‌دسترس وب نگهداری می‌شوند و فقط از راه همین پیشخوان و با مجوز قابل دریافت‌اند.', 'tecteb-marketplace-core'));
+            // The path is shown because "outside the web roots" is a claim the
+            // site owner must be able to check — especially where WordPress
+            // sits inside public_html and the obvious parent is still served.
+            $where = $storage instanceof PrivateUploadStorage ? (string) $storage->baseDir() : '';
+            return Components::notice('info', $where === ''
+                ? __('مدارک بارگذاری‌شده بیرون از پوشه‌های قابل‌دسترس وب نگهداری می‌شوند و فقط از راه همین پیشخوان و با مجوز قابل دریافت‌اند.', 'tecteb-marketplace-core')
+                : sprintf(
+                    __('مدارک بارگذاری‌شده بیرون از پوشه‌های قابل‌دسترس وب نگهداری می‌شوند و فقط از راه همین پیشخوان و با مجوز قابل دریافت‌اند. محل فعلی: %s', 'tecteb-marketplace-core'),
+                    $where
+                ));
         }
         return Components::notice('error', sprintf(
             /* translators: %s is a PHP constant definition for wp-config.php */
@@ -143,7 +155,69 @@ final class DocumentTypesPage
                 : '<button type="submit" name="doc_action" value="declare_none" class="tmc-button tmc-button--secondary">' . esc_html__('ثبت «بدون مدرک»', 'tecteb-marketplace-core') . '</button>')
             . '</div></form></section>';
 
+        echo $this->listsSection();
         echo Components::shellClose();
+    }
+
+    /**
+     * Two lists a vendor can only choose FROM: the couriers the marketplace
+     * works with, and the social networks it is willing to link to. Written
+     * as «slug: label» lines because a manager editing a dozen couriers
+     * should not need a screen per courier — and because the slug is what
+     * the store row stores, so it must be visible and stable.
+     */
+    private function listsSection(): string
+    {
+        $lists = $this->container->get(VendorListsInterface::class);
+        $html = '<section class="tmc-card"><h2 class="tmc-card__title">' . esc_html__('فهرست‌های فروشگاه', 'tecteb-marketplace-core') . '</h2>'
+            . '<p class="tmc-hint">' . esc_html__('هر خط یک مورد: شناسه لاتین، دونقطه، سپس عنوان فارسی. افزونه هیچ موردی پیشنهاد نمی‌کند؛ تا وقتی این فهرست‌ها خالی‌اند، فروشنده در آن بخش‌ها انتخابی ندارد.', 'tecteb-marketplace-core') . '</p>'
+            . '<form method="post">' . wp_nonce_field(self::NONCE, 'tmc_doctypes_nonce', true, false)
+            . '<input type="hidden" name="doc_action" value="save_lists">'
+            . '<div class="tmc-field"><label class="tmc-field__label" for="carriers">' . esc_html__('شرکت‌های حمل', 'tecteb-marketplace-core') . '</label>'
+            . '<textarea class="tmc-input" id="carriers" name="carriers" rows="4" dir="ltr" placeholder="post: پست جمهوری اسلامی">'
+            . esc_textarea($this->asLines($lists->carriers())) . '</textarea></div>'
+            . '<div class="tmc-field"><label class="tmc-field__label" for="networks">' . esc_html__('شبکه‌های اجتماعی مجاز', 'tecteb-marketplace-core') . '</label>'
+            . '<textarea class="tmc-input" id="networks" name="networks" rows="4" dir="ltr" placeholder="instagram: اینستاگرام">'
+            . esc_textarea($this->asLines($lists->networks())) . '</textarea></div>'
+            . '<p><button type="submit" class="tmc-button tmc-button--primary">' . esc_html__('ذخیره فهرست‌ها', 'tecteb-marketplace-core') . '</button></p>'
+            . '</form></section>';
+        return $html;
+    }
+
+    /** @param array<string,string> $entries */
+    private function asLines(array $entries): string
+    {
+        $lines = [];
+        foreach ($entries as $slug => $label) {
+            $lines[] = $slug . ': ' . $label;
+        }
+        return implode("\n", $lines);
+    }
+
+    /** @return array<string,string> */
+    private function parseLines(string $raw): array
+    {
+        $out = [];
+        foreach (preg_split('/\r?\n/', $raw) ?: [] as $line) {
+            $line = trim($line);
+            if ($line === '' || !str_contains($line, ':')) {
+                continue;
+            }
+            [$slug, $label] = explode(':', $line, 2);
+            $out[trim($slug)] = trim($label);
+        }
+        return $out;
+    }
+
+    private function saveLists(Request $request): OperationResult
+    {
+        if (!current_user_can(self::CAPABILITY)) {
+            return OperationResult::failure('forbidden');
+        }
+        $lists = $this->container->get(VendorListsInterface::class);
+        $lists->setCarriers($this->parseLines($request->postTextarea('carriers')));
+        $lists->setNetworks($this->parseLines($request->postTextarea('networks')));
+        return OperationResult::success('lists_saved');
     }
 
     private function handleAction(Request $request): string
@@ -168,6 +242,7 @@ final class DocumentTypesPage
             'remove' => $service->remove($request->postInt('type_id')),
             'declare_none' => $service->declareNoDocumentsNeeded(true),
             'withdraw_none' => $service->declareNoDocumentsNeeded(false),
+            'save_lists' => $this->saveLists($request),
             default => null,
         };
         if ($result === null) {
@@ -178,10 +253,12 @@ final class DocumentTypesPage
                 'type_added' => __('مدرک به فهرست اضافه شد.', 'tecteb-marketplace-core'),
                 'type_removed' => __('مدرک از فهرست حذف شد.', 'tecteb-marketplace-core'),
                 'declared_none' => __('ثبت شد: این نوع فروشندگی مدرکی لازم ندارد.', 'tecteb-marketplace-core'),
+                'lists_saved' => __('فهرست‌ها ذخیره شدند.', 'tecteb-marketplace-core'),
                 default => __('انجام شد.', 'tecteb-marketplace-core'),
             };
         }
         return 'err:' . match ($result->code) {
+            'lists_saved' => '',
             'label_required' => __('عنوان مدرک را بنویسید.', 'tecteb-marketplace-core'),
             'mime_required' => __('دست‌کم یک فرمت مجاز انتخاب کنید.', 'tecteb-marketplace-core'),
             'bad_size' => __('حداکثر حجم باید بین ۱ تا ۲۰ مگابایت باشد.', 'tecteb-marketplace-core'),

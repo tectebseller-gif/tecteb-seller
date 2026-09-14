@@ -526,6 +526,43 @@ function wp_login_url(string $redirect = ''): string
     return 'https://example.test/wp-login.php' . ($redirect !== '' ? '?redirect_to=' . rawurlencode($redirect) : '');
 }
 
+/**
+ * WordPress returns the user id or FALSE from both of these — never null.
+ * The stubs copy that exactly, because an adapter that compares against the
+ * wrong sentinel is a real bug this suite must be able to see.
+ */
+function username_exists(string $username): int|false
+{
+    foreach (TmcWpStubs\State::$users as $id => $user) {
+        if (($user['user_login'] ?? '') === $username) {
+            return (int) $id;
+        }
+    }
+    return false;
+}
+function email_exists(string $email): int|false
+{
+    foreach (TmcWpStubs\State::$users as $id => $user) {
+        if (($user['user_email'] ?? '') === $email) {
+            return (int) $id;
+        }
+    }
+    return false;
+}
+function wp_insert_user(array $data): int
+{
+    $id = TmcWpStubs\State::$nextUserId++;
+    TmcWpStubs\State::$users[$id] = $data;
+    return $id;
+}
+function wp_generate_password(int $length = 12, bool $special = true, bool $extra = false): string
+{
+    return substr(bin2hex(random_bytes((int) ceil($length / 2))), 0, $length);
+}
+function wp_set_password(string $password, int $userId): void
+{
+    TmcWpStubs\State::$users[$userId]['user_pass'] = $password;
+}
 function get_userdata(int $userId): object|false
 {
     $user = TmcWpStubs\State::$users[$userId] ?? null;

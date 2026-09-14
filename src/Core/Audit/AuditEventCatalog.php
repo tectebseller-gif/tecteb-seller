@@ -27,6 +27,14 @@ final class AuditEventCatalog
     public const VENDOR_REQUIREMENTS_CHANGED = 'vendor.requirements_changed';
     /** Documents moved out of the old in-uploads directory. Counts only. */
     public const VENDOR_DOCUMENTS_RELOCATED = 'vendor.documents_relocated';
+    /** Store settings, staff and the manager's change queue. */
+    public const VENDOR_STORE_UPDATED = 'vendor.store_updated';
+    public const VENDOR_CHANGE_REQUESTED = 'vendor.change_requested';
+    public const VENDOR_CHANGE_REVIEWED = 'vendor.change_reviewed';
+    public const VENDOR_STAFF_INVITED = 'vendor.staff_invited';
+    public const VENDOR_STAFF_ACTIVATED = 'vendor.staff_activated';
+    public const VENDOR_STAFF_ROLE_CHANGED = 'vendor.staff_role_changed';
+    public const VENDOR_STAFF_STATUS_CHANGED = 'vendor.staff_status_changed';
 
     /** @return array<string, list<string>> event type => allowed top-level payload keys */
     public static function allowlist(): array
@@ -44,6 +52,13 @@ final class AuditEventCatalog
             self::VENDOR_DOCUMENT_DOWNLOADED => ['application_id', 'document_id', 'type'],
             self::VENDOR_REQUIREMENTS_CHANGED => ['action', 'type', 'mode'],
             self::VENDOR_DOCUMENTS_RELOCATED => ['moved', 'failed'],
+            self::VENDOR_STORE_UPDATED => ['vendor_id', 'tab', 'problems'],
+            self::VENDOR_CHANGE_REQUESTED => ['vendor_id', 'field'],
+            self::VENDOR_CHANGE_REVIEWED => ['vendor_id', 'field', 'decision', 'has_note'],
+            self::VENDOR_STAFF_INVITED => ['vendor_id', 'preset', 'status'],
+            self::VENDOR_STAFF_ACTIVATED => ['vendor_id'],
+            self::VENDOR_STAFF_ROLE_CHANGED => ['vendor_id', 'preset'],
+            self::VENDOR_STAFF_STATUS_CHANGED => ['vendor_id', 'status'],
         ];
     }
 

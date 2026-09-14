@@ -52,12 +52,12 @@ final class ApplicationView
             . $nonceField
             . '<input type="hidden" name="tmc_vendor_action" value="save_draft">'
             . '<h2 class="tv-card__title">' . esc_html__('اطلاعات فروشگاه', 'tecteb-marketplace-core') . '</h2>'
-            . self::field('store_name', __('نام فروشگاه', 'tecteb-marketplace-core'), $details->storeName, $editable)
-            . self::field('legal_name', __('نام حقوقی یا نام کامل مالک', 'tecteb-marketplace-core'), $details->legalName, $editable)
-            . self::field('contact_email', __('ایمیل تماس', 'tecteb-marketplace-core'), $details->contactEmail, $editable, 'email', 'ltr')
-            . self::field('contact_mobile', __('موبایل', 'tecteb-marketplace-core'), $details->contactMobile, $editable, 'tel', 'ltr',
+            . VendorUi::input('store_name', __('نام فروشگاه', 'tecteb-marketplace-core'), $details->storeName, $editable)
+            . VendorUi::input('legal_name', __('نام حقوقی یا نام کامل مالک', 'tecteb-marketplace-core'), $details->legalName, $editable)
+            . VendorUi::input('contact_email', __('ایمیل تماس', 'tecteb-marketplace-core'), $details->contactEmail, $editable, 'email', 'ltr')
+            . VendorUi::input('contact_mobile', __('موبایل', 'tecteb-marketplace-core'), $details->contactMobile, $editable, 'tel', 'ltr',
                 __('ثبت شماره به‌معنای تأیید آن نیست. تأیید با پیامک انجام می‌شود و این سرویس هنوز به بازارگاه وصل نیست.', 'tecteb-marketplace-core'))
-            . self::textarea('address', __('نشانی', 'tecteb-marketplace-core'), $details->address, $editable)
+            . VendorUi::textarea('address', __('نشانی', 'tecteb-marketplace-core'), $details->address, $editable)
             . '<div class="tv-field tv-field--check"><label>'
             . '<input type="checkbox" name="terms" value="1"' . checked($details->termsAccepted, true, false) . ($editable ? '' : ' disabled') . '> '
             . esc_html__('قوانین بازارگاه تک‌طب را می‌پذیرم.', 'tecteb-marketplace-core')
@@ -179,32 +179,5 @@ final class ApplicationView
             return __('تا وقتی مدیر بازارگاه فهرست مدارک را تعیین نکند، ارسال ممکن نیست. پیش‌نویس شما محفوظ است و نیازی به اقدام دیگری ندارید.', 'tecteb-marketplace-core');
         }
         return __('مدارک اجباری را بارگذاری کنید تا ارسال ممکن شود.', 'tecteb-marketplace-core');
-    }
-
-    private static function field(
-        string $name,
-        string $label,
-        string $value,
-        bool $editable,
-        string $type = 'text',
-        string $dir = 'rtl',
-        string $hint = ''
-    ): string {
-        $id = 'f-' . $name;
-        return '<div class="tv-field">'
-            . '<label class="tv-label" for="' . esc_attr($id) . '">' . esc_html($label) . '</label>'
-            . '<input class="tv-input" type="' . esc_attr($type) . '" id="' . esc_attr($id) . '" name="' . esc_attr($name) . '"'
-            . ' value="' . esc_attr($value) . '" dir="' . esc_attr($dir) . '"' . ($editable ? '' : ' readonly') . '>'
-            . ($hint !== '' ? '<p class="tv-hint">' . esc_html($hint) . '</p>' : '')
-            . '</div>';
-    }
-
-    private static function textarea(string $name, string $label, string $value, bool $editable): string
-    {
-        $id = 'f-' . $name;
-        return '<div class="tv-field">'
-            . '<label class="tv-label" for="' . esc_attr($id) . '">' . esc_html($label) . '</label>'
-            . '<textarea class="tv-input" id="' . esc_attr($id) . '" name="' . esc_attr($name) . '" rows="3"'
-            . ($editable ? '' : ' readonly') . '>' . esc_textarea($value) . '</textarea></div>';
     }
 }

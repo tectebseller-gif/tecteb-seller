@@ -5,4 +5,4 @@ document_uploaded=ok:document_uploaded
 submitted=ok:submitted
 seed=complete
 private_base=/home/user/tecteb-private
-private_files=10
+private_files=16

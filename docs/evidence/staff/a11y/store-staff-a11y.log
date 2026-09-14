@@ -1,0 +1,10 @@
+store and staff screens — 120 checks, 0 failures
+
+  no-horizontal-scroll               pass=15 fail=0
+  no-starved-text-box                pass=15 fail=0
+  controls-are-touch-sized           pass=15 fail=0
+  every-field-has-a-label            pass=15 fail=0
+  document-is-persian-rtl            pass=15 fail=0
+  exactly-one-h1                     pass=15 fail=0
+  no-js-errors                       pass=15 fail=0
+  axe-wcag-aa                        pass=15 fail=0

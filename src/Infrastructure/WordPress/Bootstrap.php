@@ -35,6 +35,7 @@ use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\Deactivator;
 use Tecteb\Marketplace\Modules\Admin\AdminModule;
 use Tecteb\Marketplace\Modules\Health\HealthModule;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\LegacyPrivateDocuments;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\PrivateUploadStorage;
 use Tecteb\Marketplace\Modules\Vendor\VendorModule;
@@ -222,7 +223,7 @@ final class Bootstrap
             $c->get(OptionStoreInterface::class),
             $c->get(GuardedOptionStoreInterface::class),
             new MigrationLock($c->get(LockStoreInterface::class), $c->get(ClockInterface::class), MigrationLock::generateOwnerToken()),
-            [new M0001CreateAuditTable(), new M0002CreateVendorTables()],
+            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables()],
             $c->get(ClockInterface::class)
         ));
         $c->bind(UpgradeGate::class, static fn (ContainerInterface $c) => new UpgradeGate(
