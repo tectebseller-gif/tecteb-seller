@@ -1,0 +1,313 @@
+{
+  "suite": "product-stage",
+  "generated_at": "2026-09-14T19:37:12.113Z",
+  "total": 61,
+  "failures": 0,
+  "results": [
+    {
+      "name": "the products page opens for an approved vendor",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the vendor navigation carries a products link",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the list says «محصولات فروشگاه»",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the list says «افزودن محصول»",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the list says «پیش‌نویس»",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the list says «نیازمند اصلاح»",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the list says «منتشرشده»",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the list says «ورود و خروج CSV»",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the manager’s reason is on the row",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the seeded rows are listed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a status tab filters server-side",
+      "ok": true,
+      "detail": "only the published product"
+    },
+    {
+      "name": "the new-product form opens on step 1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "later steps are not linked before the draft exists",
+      "ok": true,
+      "detail": "steps 2–4 are announced but unreachable"
+    },
+    {
+      "name": "step 1 saves a draft",
+      "ok": true,
+      "detail": "محصول به‌عنوان پیش‌نویس ساخته شد. مرحله‌های بعد را کامل کنید."
+    },
+    {
+      "name": "the draft has an id and the form stays on it",
+      "ok": true,
+      "detail": "product=5"
+    },
+    {
+      "name": "the uploaded image is in the gallery",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the title came back",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "step 2 carries step 1 in hidden fields",
+      "ok": true,
+      "detail": "AC-UI: the four-step form must not lose what another step holds"
+    },
+    {
+      "name": "step 2 carries the gallery",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "step 2 saves with Persian digits accepted",
+      "ok": true,
+      "detail": "تغییرات محصول ذخیره شد."
+    },
+    {
+      "name": "the price was read as a number",
+      "ok": true,
+      "detail": "485000"
+    },
+    {
+      "name": "the stock was read as a number",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an impossible discount is refused",
+      "ok": true,
+      "detail": "قیمت تخفیف‌خورده نباید از قیمت اصلی بیشتر یا منفی باشد."
+    },
+    {
+      "name": "the refused values are still in the form",
+      "ok": true,
+      "detail": "AC-UI: a returned error keeps the data"
+    },
+    {
+      "name": "and so are the other steps’ values",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "step 3 asks the category’s medical fields",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a retired field is not asked",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the template version is shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "step 3 saves the medical answers",
+      "ok": true,
+      "detail": "تغییرات محصول ذخیره شد."
+    },
+    {
+      "name": "step 4 shows the marketplace’s verdict",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "an unset commission is NOT printed as zero",
+      "ok": true,
+      "detail": "FIN-02 on screen"
+    },
+    {
+      "name": "the submit button is «ارسال برای بررسی»",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "submitting queues rather than publishes",
+      "ok": true,
+      "detail": "محصول برای بررسی مدیر فرستاده شد. تا تعیین تکلیف، نسخه فعلی تغییر نمی‌کند."
+    },
+    {
+      "name": "the product is in the queue",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the queued product says it is being reviewed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "editing a queued product is refused",
+      "ok": true,
+      "detail": "این محصول در صف بررسی مدیر است و تا تعیین تکلیف ویرایش نمی‌شود. موجودی همچنان قابل تغییر است."
+    },
+    {
+      "name": "and the refused edit did not reach the row",
+      "ok": true,
+      "detail": "485000"
+    },
+    {
+      "name": "the review page lists the queued product",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the review page shows the pending proposal queue",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the diff names the fields that changed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "direct publishing is presented as a separate permission",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the manager publishes it",
+      "ok": true,
+      "detail": "تصمیم شما ثبت شد."
+    },
+    {
+      "name": "the vendor sees it published",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a live product says edits become a proposal",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the sensitive edit becomes a proposal",
+      "ok": true,
+      "detail": "تغییرهای حساس به‌صورت «نسخه پیشنهادی» ثبت شد. نسخه منتشرشده تا تأیید مدیر دست‌نخورده می‌ماند و موجودی همین حالا اعمال شد."
+    },
+    {
+      "name": "the live title is unchanged",
+      "ok": true,
+      "detail": "the published version stays as buyers see it"
+    },
+    {
+      "name": "the proposal reaches the manager with a diff",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "another shop’s product id shows nothing of theirs",
+      "ok": true,
+      "detail": "AC-PRIV: changing the id in the URL reaches nothing"
+    },
+    {
+      "name": "and says so plainly",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the export is a CSV file",
+      "ok": true,
+      "detail": "tecteb-products-4-20260914.csv"
+    },
+    {
+      "name": "the export carries this shop’s rows",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the export does not carry another shop’s rows",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the export has the medical columns",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the export has a BOM so Excel reads Persian",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the import previews before writing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the preview reports the bad row",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "nothing was written yet",
+      "ok": true,
+      "detail": "the catalogue is unchanged during a preview"
+    },
+    {
+      "name": "applying writes only the good rows",
+      "ok": true,
+      "detail": "ورود CSV انجام شد: ۱ ساخته، ۰ به‌روزرسانی، ۱ رد شد."
+    },
+    {
+      "name": "the imported product is listed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the refused row was not created",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a formula in a title leaves as text, not as a formula",
+      "ok": true,
+      "detail": "the exporter defuses it (§12)"
+    }
+  ]
+}

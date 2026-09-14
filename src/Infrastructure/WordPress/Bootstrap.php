@@ -23,6 +23,7 @@ use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Config\SettingsService;
 use Tecteb\Marketplace\Core\Environment\EnvironmentResolver;
 use Tecteb\Marketplace\Core\Kernel;
+use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Migration\MigrationLock;
 use Tecteb\Marketplace\Core\Migration\MigrationRunner;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0001CreateAuditTable;
@@ -31,13 +32,19 @@ use Tecteb\Marketplace\Core\Modules\LoadReport;
 use Tecteb\Marketplace\Core\Support\SystemClock;
 use Tecteb\Marketplace\Infrastructure\Otp\NullOtpProvider;
 use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\Activator;
+use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\CapabilityInstaller;
 use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\Deactivator;
 use Tecteb\Marketplace\Modules\Admin\AdminModule;
 use Tecteb\Marketplace\Modules\Health\HealthModule;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0004CreateFinanceTables;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\LegacyPrivateDocuments;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\PrivateUploadStorage;
+use Tecteb\Marketplace\Modules\Finance\FinanceModule;
+use Tecteb\Marketplace\Modules\Order\OrderModule;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
+use Tecteb\Marketplace\Modules\Product\ProductModule;
 use Tecteb\Marketplace\Modules\Vendor\VendorModule;
 
 /**
@@ -47,6 +54,9 @@ use Tecteb\Marketplace\Modules\Vendor\VendorModule;
 final class Bootstrap
 {
     public const TEXT_DOMAIN = 'tecteb-marketplace-core';
+
+    /** Hash of the capability list this site was last brought up to. */
+    public const CAPABILITY_SIGNATURE_OPTION = 'tmc_capability_signature';
 
     private static ?Kernel $kernel = null;
     private static bool $loaded = false;
@@ -104,7 +114,35 @@ final class Bootstrap
             // Never break wp-admin because of a migration attempt; the
             // outcome (including a recorded failure) is on the health page.
         }
+        self::ensureCapabilities();
         self::relocateLegacyPrivateDocuments();
+    }
+
+    /**
+     * Adds capabilities introduced by a NEWER build to the administrator role.
+     *
+     * Activation grants them, but replacing a plugin's files does not fire the
+     * activation hook — so without this, upgrading in place would leave the
+     * administrator unable to open a page the new build just added. The stored
+     * signature makes it one option read per admin request once it has run,
+     * and a changed list is what makes it run again.
+     */
+    public static function ensureCapabilities(): void
+    {
+        try {
+            /** @var OptionStoreInterface $options */
+            $options = self::container()->get(OptionStoreInterface::class);
+            $signature = md5(implode(',', Capabilities::all()));
+            if ((string) $options->get(self::CAPABILITY_SIGNATURE_OPTION, '') === $signature) {
+                return;
+            }
+            if (CapabilityInstaller::install()) {
+                $options->set(self::CAPABILITY_SIGNATURE_OPTION, $signature);
+            }
+        } catch (\Throwable) {
+            // Same rule as the migration above: never break wp-admin. The
+            // next admin request tries again.
+        }
     }
 
     /**
@@ -223,7 +261,7 @@ final class Bootstrap
             $c->get(OptionStoreInterface::class),
             $c->get(GuardedOptionStoreInterface::class),
             new MigrationLock($c->get(LockStoreInterface::class), $c->get(ClockInterface::class), MigrationLock::generateOwnerToken()),
-            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables()],
+            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables(), new M0004CreateFinanceTables(), new M0005CreateProductTables()],
             $c->get(ClockInterface::class)
         ));
         $c->bind(UpgradeGate::class, static fn (ContainerInterface $c) => new UpgradeGate(
@@ -242,12 +280,12 @@ final class Bootstrap
         $registry->add(new AdminModule());
         $registry->add(new HealthModule());
         $registry->add(new VendorModule());
+        $registry->add(new FinanceModule());
+        $registry->add(new ProductModule());
+        $registry->add(new OrderModule());
 
         // Roadmap only (CORE-02): no code, no hooks, no activation button.
         $planned = [
-            ['product', 'محصولات و فرم پزشکی', true],
-            ['order', 'سفارش‌ها و ارسال', true],
-            ['commission', 'کمیسیون و دفترکل', true],
             ['settlement', 'تسویه و برداشت', true],
             ['migration', 'مهاجرت از دکان', true],
         ];

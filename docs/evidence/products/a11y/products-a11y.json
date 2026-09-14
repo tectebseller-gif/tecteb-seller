@@ -1,0 +1,1695 @@
+{
+  "suite": "vendor-products",
+  "generated_at": "2026-09-14T19:38:04.855Z",
+  "widths": [
+    320,
+    375,
+    768,
+    1024,
+    1440
+  ],
+  "total": 240,
+  "failures": 0,
+  "results": [
+    {
+      "page": "products-list",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "products-list",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "products-list",
+      "scope": "320",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "products-list",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "products-list",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "products-list",
+      "scope": "375",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "products-list",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "products-list",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "products-list",
+      "scope": "768",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "products-list",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "products-list",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "products-list",
+      "scope": "1024",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "products-list",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "products-list",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "products-list",
+      "scope": "1440",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "products-list",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "320",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "375",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "768",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1024",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1440",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "products-list-filtered",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "320",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "375",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "768",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1024",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1440",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step1",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "320",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "375",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "768",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1024",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1440",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step2",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "320",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "375",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "768",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1024",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1440",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step3",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "320",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "375",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "768",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1024",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1440",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-form-step4",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    }
+  ]
+}

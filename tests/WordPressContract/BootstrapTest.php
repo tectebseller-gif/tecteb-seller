@@ -17,12 +17,20 @@ final class BootstrapTest extends ContractTestCase
 
         // The vendor module is real now, and it does NOT need WooCommerce:
         // onboarding is identity and paperwork, not products.
-        foreach (['core', 'environment-guard', 'admin', 'health', 'vendor'] as $id) {
-            self::assertSame(ModuleStatus::Active, $report->status($id), $id . ' stays available without WooCommerce');
+        // Finance is real too, and also does not need WooCommerce: commission
+        // rules and the ledger are this plugin's own tables, and the thing
+        // that WOULD need WooCommerce — reading a paid order — is precisely
+        // the part held back for the open financial decisions.
+        foreach (['core', 'environment-guard', 'admin', 'health', 'vendor', 'finance'] as $id) {
+            self::assertSame(ModuleStatus::Active, $report->status($id), $id . ' stays available without WooCommerce: ' . (($report->state($id)?->reasonCode ?? '?') . ' / ' . ($report->state($id)?->reasonDetail ?? '?') . ' @ ' . ($report->state($id)?->phase ?? '?')));
         }
-        foreach (['product', 'order', 'commission', 'settlement', 'migration'] as $id) {
+        foreach (['settlement', 'migration'] as $id) {
             self::assertSame(ModuleStatus::Planned, $report->status($id));
         }
+        // Orders are a real module that refuses to run — here for the plainer
+        // reason that WooCommerce is absent, which is checked first.
+        self::assertSame(ModuleStatus::Blocked, $report->status('order'));
+        self::assertSame('requires_woocommerce', $report->state('order')?->reasonCode);
         self::assertFalse($report->wooCommerceAvailable);
 
         // Persian notice for admins only.
@@ -51,6 +59,23 @@ final class BootstrapTest extends ContractTestCase
         self::assertTrue($health['dependencies']['woocommerce']['available']);
         self::assertSame('11.0.1', $health['dependencies']['woocommerce']['version']);
         self::assertTrue($health['dependencies']['hpos']['enabled']);
+    }
+
+    public function testWithWooCommerceOrdersStillRefuseToRunAndSayWhy(): void
+    {
+        $this->bootPlugin(true);
+        $report = Bootstrap::report();
+
+        // Nothing about WooCommerce makes an unrecordable sale safe: the
+        // module blocks itself, and the reason names the open decisions
+        // rather than pretending to be a missing dependency.
+        self::assertSame(ModuleStatus::Blocked, $report?->status('order'));
+        self::assertSame('self_gated', $report?->state('order')?->reasonCode);
+        self::assertStringContainsString('DEC-02', (string) $report?->state('order')?->reasonDetail);
+        self::assertStringContainsString('DEC-04', (string) $report?->state('order')?->reasonDetail);
+
+        // And finance, which CAN be configured today, is active beside it.
+        self::assertSame(ModuleStatus::Active, $report?->status('finance'));
     }
 
     public function testPluginsLoadedTwiceNeverDuplicatesHooks(): void

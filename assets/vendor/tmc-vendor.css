@@ -292,3 +292,181 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
   white-space: normal;
   user-select: all;
 }
+
+/* ---------------------------------------------------------------------------
+ * Products (stage 2).
+ *
+ * Every multi-column rule here is `auto-fit` + `minmax`, so the layout answers
+ * to the space the card actually has rather than to the window — the same
+ * reasoning as ADR-006, expressed without a breakpoint to get wrong. No track
+ * is allowed to go below 12rem, which is what keeps a Persian label from being
+ * squeezed into a one-word column (the `no-starved-text-box` check).
+ * ------------------------------------------------------------------------ */
+.tv-card__actions { margin: 0; }
+
+.tv-tab__count {
+  margin-inline-start: var(--tv-s2);
+  padding-inline: var(--tv-s2);
+  border-radius: 999px;
+  background: var(--tv-surface-2);
+  color: var(--tv-muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.tv .tv-tab.is-current .tv-tab__count { background: rgba(255, 255, 255, 0.22); color: #fff; }
+
+.tv .tv-tab.is-disabled {
+  border-style: dashed;
+  background: var(--tv-surface-2);
+  color: var(--tv-muted);
+  cursor: default;
+}
+
+.tv-products { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tv-s4); }
+
+.tv-product {
+  padding: var(--tv-s4);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-product__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s2);
+  margin-block-end: var(--tv-s3);
+}
+
+.tv-product__title { font-size: 1.0625rem; min-inline-size: 0; overflow-wrap: anywhere; }
+
+.tv-product__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--tv-s2) var(--tv-s5);
+  margin: 0;
+}
+
+.tv-product__facts > div { display: grid; gap: 2px; padding-block: var(--tv-s2); }
+.tv-product__facts dt { color: var(--tv-muted); font-size: 0.9375rem; font-weight: 700; }
+.tv-product__facts dd { margin: 0; overflow-wrap: anywhere; }
+
+.tv-product__note {
+  margin-block: var(--tv-s3) 0;
+  padding: var(--tv-s3);
+  border-inline-start: 4px solid var(--tv-amber);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface);
+}
+
+.tv-product__actions,
+.tv-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tv-s2);
+  align-items: center;
+  margin-block: var(--tv-s4) 0;
+}
+
+.tv-inline { display: inline-flex; margin: 0; }
+
+.tv-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s3);
+  margin-block-start: var(--tv-s4);
+}
+
+.tv-pager__status { color: var(--tv-muted); }
+
+.tv-fieldset {
+  margin-block: 0 var(--tv-s5);
+  padding: var(--tv-s4);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-fieldset legend {
+  padding-inline: var(--tv-s2);
+  font-weight: 700;
+  color: var(--tv-ink);
+}
+
+.tv-gallery {
+  list-style: none;
+  margin: 0 0 var(--tv-s4);
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--tv-s3);
+}
+
+.tv-gallery__item {
+  padding: var(--tv-s3);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface);
+}
+
+.tv-gallery__item img {
+  display: block;
+  inline-size: 96px;
+  block-size: 96px;
+  object-fit: cover;
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+/* The two controls under a thumbnail are tap targets, not captions. The
+ * browser default for a radio or a checkbox is 13px — below WCAG 2.2's 24px
+ * floor and simply hard to hit on a phone — so they are sized here the same
+ * way the settings checkboxes are. The a11y suite caught this one too. */
+.tv-gallery__main,
+.tv-gallery__drop {
+  display: flex;
+  align-items: center;
+  gap: var(--tv-s2);
+  min-block-size: var(--tv-touch);
+}
+
+.tv-gallery__main input[type="radio"],
+.tv-gallery__drop input[type="checkbox"] {
+  inline-size: 24px;
+  block-size: 24px;
+  accent-color: var(--tv-ink);
+  flex: 0 0 auto;
+}
+
+.tv-review {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--tv-s2) var(--tv-s5);
+  margin: 0;
+}
+
+.tv-review > div { display: grid; gap: 2px; padding-block: var(--tv-s2); border-block-end: 1px dashed var(--tv-border); }
+.tv-review dt { color: var(--tv-muted); font-size: 0.9375rem; font-weight: 700; }
+.tv-review dd { margin: 0; overflow-wrap: anywhere; }
+.tv-review__title { margin-block: 0 var(--tv-s3); font-size: 1rem; }
+
+/* A table is the one thing allowed to scroll sideways, and only inside this. */
+.tv-scroll { overflow-x: auto; }
+
+.tv-table { inline-size: 100%; border-collapse: collapse; }
+.tv-table th, .tv-table td { padding: var(--tv-s3); text-align: start; border-block-end: 1px solid var(--tv-border); }
+.tv-table thead th { background: var(--tv-surface-2); font-weight: 700; }
+
+.tv-visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

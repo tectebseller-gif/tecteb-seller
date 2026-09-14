@@ -32,11 +32,12 @@ final class SupportTest extends TestCase
         self::assertSame('UTC', (new SystemClock())->now()->getTimezone()->getName());
     }
 
-    public function testCapabilitiesAreExactlyTheFourOfPhaseOne(): void
+    public function testCapabilitiesAreExactlyTheOnesThisBuildCreates(): void
     {
         self::assertSame([
             'tmc_view_dashboard', 'tmc_view_health', 'tmc_manage_settings', 'tmc_view_modules',
             'tmc_review_vendor', 'tmc_manage_vendor_documents',
+            'tmc_review_products', 'tmc_manage_spec_templates',
         ], Capabilities::all());
         // The applicant capability is NOT here on purpose: granting it would
         // mean writing into roles the site already has (Dokan's included).

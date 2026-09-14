@@ -54,7 +54,7 @@
 |---|---|---|
 | فعال‌سازی بدون WooCommerce → notice فارسی، بدون fatal، feature بالا نمی‌آید | **`Passed`** (نصب واقعی) | گیت G-01 روی سایت واقعی: چهار صفحه با HTTP 200، بدون خطای PHP، و notice «WooCommerce فعال نیست» روی پیشخوان · `G-01-pages.txt`، `G-01-wc-notice.txt` |
 
-## ۳٫۱ ارتقای ساختار داده و بازگشت (schema ۱ ↔ ۲)
+## ۳٫۱ ارتقای ساختار داده و بازگشت (schema ۱ ↔ ۵)
 
 | سناریو | وضعیت | یادداشت |
 |---|---|---|
@@ -65,8 +65,16 @@
 | ارتقای دوباره پس از بازگشت | **`Passed`** | همان درخواست دوباره در پیشخوان فروشنده نمایش داده شد · `09-after-reupgrade.txt` |
 | **ارتقای `alpha.1 → alpha.5` با حفظ داده** (همان بستهٔ نصب‌شده روی staging، sha256 `c37f8902…7f46f1`) | **`Passed`** | ۳۵ بررسی، ۰ شکست؛ رفت و برگشت · `docs/evidence/upgrade-alpha1/` |
 | بازگشت از `alpha.5` به `alpha.1` | **`Passed`** | جدول‌ها، ردیف‌ها و مدارک ماندند؛ صفحهٔ سلامت هشدار «جلوتر بودن» داد |
+| ارتقای `alpha.5 → alpha.6` (schema ۴→۵) و بازگشت | **`Passed`** | ۳۵ بررسی، ۰ شکست · `docs/evidence/upgrade-alpha5/` |
+| **ارتقای `alpha.1 → alpha.6` با حفظ داده** (همان بستهٔ نصب‌شده روی staging) | **`Passed`** | ۳۵ بررسی، ۰ شکست؛ رفت و برگشت · `docs/evidence/upgrade-alpha1-to-6/` |
+| capability تازهٔ یک نسخه پس از **جایگزینی فایل** (بدون فعال‌سازی دوباره) | **`Passed`** | `Bootstrap::ensureCapabilities()` روی وردپرس واقعی دو capability حذف‌شده را برگرداند و امضا را ثبت کرد |
 | دسترسی مستقیم وب به یک مدرک (شش URL، شامل مسیر قدیمی و traversal) | **`Passed`** | همه ۴۰۴، در حالی که فایل شاهد داخل `uploads/` با ۲۰۰ سرو شد · `docs/evidence/vendor/private-access.log` |
 | متن و مقدار سه پیام خطا در مرورگر واقعی | **`Passed`** | ۱۱ بررسی، ۰ شکست · `docs/evidence/vendor/vendor-messages.json` |
+| **مسیر کامل محصول روی افزونهٔ نصب‌شده از ZIP نهایی** | **`Passed`** | ۶۱ بررسی، ۰ شکست · `docs/evidence/products/product-flow.json` |
+| **دسترس‌پذیری شش صفحهٔ محصول در پنج عرض + axe** | **`Passed`** | ۲۴۰ بررسی، ۰ شکست · `docs/evidence/products/a11y/products-a11y.json` |
+| **دو صفحهٔ تازهٔ مدیر در wp-admin واقعی با fa_IR و RTL** | **`Passed`** | ۱۴۲ بررسی، ۰ شکست (با **بستهٔ ترجمهٔ حداقلی آزمایشی**) · `docs/evidence/products/wpadmin-a11y/` |
+| صفحهٔ عمومی محصول و خرید در WooCommerce | `Not Run` | ساخته نشده: projection به WooCommerce با مرحلهٔ سفارش می‌آید |
+| تنوع‌های محصول متغیر (variations) | `Not Run` | ساخته نشده (`docs/feature-inventory.md` بند ۴) |
 | هر کدام از این‌ها روی `staging.tecteb.com` یا PHP 8.1.34 | `Not Run` | خارج از مجوز فعلی؛ آزمون ما روی PHP 8.1.32 و سایت یکبارمصرف بود |
 
 روش اجرا: `bash tools/upgrade-rollback-check.sh <php> <evidence-dir> <old-zip> <new-zip>`

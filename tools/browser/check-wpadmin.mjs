@@ -37,6 +37,7 @@
  *   TMC_USER      administrator login   (default tmcadmin)
  *   TMC_PASS_FILE file holding the password (default /root/.wp_pass)
  *   TMC_OUT       output directory      (default docs/evidence/acceptance/wpadmin-a11y)
+ *   TMC_PAGES     "slug:name,slug:name" to measure other plugin screens
  */
 import { chromium } from 'playwright';
 import { AxeBuilder } from '@axe-core/playwright';
@@ -53,12 +54,26 @@ const outDir = process.env.TMC_OUT || resolve(root, 'docs/evidence/acceptance/wp
 const shotDir = resolve(outDir, 'screenshots');
 mkdirSync(shotDir, { recursive: true });
 
-const PAGES = [
-  { slug: 'tmc-dashboard', name: 'dashboard' },
-  { slug: 'tmc-health', name: 'health' },
-  { slug: 'tmc-settings', name: 'settings' },
-  { slug: 'tmc-modules', name: 'modules' },
-];
+// The four phase-1 screens by default. A later stage adds its own admin
+// pages, and re-measuring them means naming them here rather than copying
+// this file: TMC_PAGES="slug:name,slug:name", with TMC_OUT pointing at a
+// NEW directory so the accepted evidence of the four is never overwritten.
+const PAGES = (process.env.TMC_PAGES || '')
+  .split(',')
+  .map((entry) => entry.trim())
+  .filter(Boolean)
+  .map((entry) => {
+    const [slug, name] = entry.split(':');
+    return { slug: slug.trim(), name: (name || slug).trim() };
+  });
+if (PAGES.length === 0) {
+  PAGES.push(
+    { slug: 'tmc-dashboard', name: 'dashboard' },
+    { slug: 'tmc-health', name: 'health' },
+    { slug: 'tmc-settings', name: 'settings' },
+    { slug: 'tmc-modules', name: 'modules' },
+  );
+}
 const VIEWPORTS = [
   { name: '320', width: 320, height: 720 },
   { name: '375', width: 375, height: 812 },

@@ -294,6 +294,46 @@ final class StoreAndStaffFlowTest extends DatabaseTestCase
         self::assertFalse($this->invitations->inspect(str_repeat('a', 48))->ok);
     }
 
+    public function testSuspendingAVendorCutsTheVendorAndEveryStaffMemberOffAtOnce(): void
+    {
+        $invite = $this->inviteNumbered(1);
+        $this->invitations->accept((string) $invite->context['token'], 'a-long-enough-password');
+        $staffUserId = $this->staff->find((int) $invite->context['staff_id'])?->staffUserId ?? 0;
+
+        self::assertTrue($this->access->can($staffUserId, self::VENDOR, StaffArea::Order, StaffLevel::Edit));
+        self::assertTrue($this->access->canManageStore(self::VENDOR, self::VENDOR));
+
+        // What the manager's «تعلیق فروشنده» button does.
+        $this->vendors->upsertProfile(self::VENDOR, 'داروخانه یک', false, false);
+
+        self::assertFalse($this->access->vendorCanTrade(self::VENDOR));
+        self::assertFalse($this->access->canManageStore(self::VENDOR, self::VENDOR), 'the vendor is out');
+        self::assertFalse(
+            $this->access->can($staffUserId, self::VENDOR, StaffArea::Order, StaffLevel::Edit),
+            'and so is everyone who derived access from them'
+        );
+        self::assertNull($this->access->storeFor($staffUserId));
+
+        // Nothing was deleted: the membership and its role are still there.
+        $member = $this->staff->find((int) $invite->context['staff_id']);
+        self::assertNotNull($member);
+        self::assertSame(StaffStatus::Active, $member->status, 'the staff member was never the one suspended');
+
+        // Reinstating the shop brings everyone back, without re-inviting.
+        $this->vendors->upsertProfile(self::VENDOR, 'داروخانه یک', true, false);
+        self::assertTrue($this->access->can($staffUserId, self::VENDOR, StaffArea::Order, StaffLevel::Edit));
+    }
+
+    public function testASuspendedVendorsStaffCannotReachAnotherShopEither(): void
+    {
+        $invite = $this->inviteNumbered(1);
+        $this->invitations->accept((string) $invite->context['token'], 'a-long-enough-password');
+        $staffUserId = $this->staff->find((int) $invite->context['staff_id'])?->staffUserId ?? 0;
+        $this->vendors->upsertProfile(self::VENDOR, 'داروخانه یک', false, false);
+
+        self::assertFalse($this->access->can($staffUserId, self::OTHER_VENDOR, StaffArea::Product, StaffLevel::View));
+    }
+
     // ------------------------------------------------------------- helpers
 
     private function inviteNumbered(int $n): \Tecteb\Marketplace\Modules\Vendor\Application\OperationResult

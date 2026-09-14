@@ -35,6 +35,22 @@ final class AuditEventCatalog
     public const VENDOR_STAFF_ACTIVATED = 'vendor.staff_activated';
     public const VENDOR_STAFF_ROLE_CHANGED = 'vendor.staff_role_changed';
     public const VENDOR_STAFF_STATUS_CHANGED = 'vendor.staff_status_changed';
+    /** Products: the vendor's catalogue and the manager's review of it. */
+    public const PRODUCT_SAVED = 'product.saved';
+    public const PRODUCT_SUBMITTED = 'product.submitted';
+    public const PRODUCT_REVIEWED = 'product.reviewed';
+    public const PRODUCT_STATUS_CHANGED = 'product.status_changed';
+    public const PRODUCT_INVENTORY_CHANGED = 'product.inventory_changed';
+    public const PRODUCT_REVISION_REQUESTED = 'product.revision_requested';
+    public const PRODUCT_REVISION_REVIEWED = 'product.revision_reviewed';
+    public const PRODUCT_TEMPLATE_CHANGED = 'product.template_changed';
+    public const PRODUCT_CSV_EXPORTED = 'product.csv_exported';
+    public const PRODUCT_CSV_IMPORTED = 'product.csv_imported';
+    public const PRODUCT_PUBLISH_PERMISSION_CHANGED = 'product.publish_permission_changed';
+    /** Finance: rules and the append-only ledger. */
+    public const FINANCE_RATE_CHANGED = 'finance.rate_changed';
+    public const FINANCE_ACCRUED = 'finance.accrued';
+    public const FINANCE_REVERSED = 'finance.reversed';
 
     /** @return array<string, list<string>> event type => allowed top-level payload keys */
     public static function allowlist(): array
@@ -59,6 +75,20 @@ final class AuditEventCatalog
             self::VENDOR_STAFF_ACTIVATED => ['vendor_id'],
             self::VENDOR_STAFF_ROLE_CHANGED => ['vendor_id', 'preset'],
             self::VENDOR_STAFF_STATUS_CHANGED => ['vendor_id', 'status'],
+            self::PRODUCT_SAVED => ['vendor_id', 'product_id', 'status', 'created'],
+            self::PRODUCT_SUBMITTED => ['vendor_id', 'product_id', 'to'],
+            self::PRODUCT_REVIEWED => ['vendor_id', 'product_id', 'decision', 'has_note'],
+            self::PRODUCT_STATUS_CHANGED => ['vendor_id', 'product_id', 'from', 'to'],
+            self::PRODUCT_INVENTORY_CHANGED => ['vendor_id', 'product_id', 'stock'],
+            self::PRODUCT_REVISION_REQUESTED => ['vendor_id', 'product_id', 'revision_id', 'fields'],
+            self::PRODUCT_REVISION_REVIEWED => ['vendor_id', 'product_id', 'revision_id', 'decision', 'has_note'],
+            self::PRODUCT_TEMPLATE_CHANGED => ['action', 'category', 'field', 'schema_version'],
+            self::PRODUCT_CSV_EXPORTED => ['vendor_id', 'rows'],
+            self::PRODUCT_CSV_IMPORTED => ['vendor_id', 'rows', 'created', 'updated', 'skipped'],
+            self::PRODUCT_PUBLISH_PERMISSION_CHANGED => ['vendor_id', 'granted'],
+            self::FINANCE_RATE_CHANGED => ['scope', 'reference', 'rate_bp', 'cleared'],
+            self::FINANCE_ACCRUED => ['vendor_id', 'rate_bp', 'rate_source', 'base_minor'],
+            self::FINANCE_REVERSED => ['vendor_id', 'reverses', 'amount_minor'],
         ];
     }
 

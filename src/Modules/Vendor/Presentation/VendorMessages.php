@@ -229,6 +229,8 @@ final class VendorMessages
                 PersianDigits::toPersian((string) ($context['minimum'] ?? ''))
             ),
             'not_found' => __('این مورد پیدا نشد.', 'tecteb-marketplace-core'),
+            'not_a_vendor' => __('این بخش برای فروشنده‌های تأییدشده است. تا تأیید درخواست، در پیشخوان می‌مانید.', 'tecteb-marketplace-core'),
+            'note_required' => __('نوشتن دلیل برای این تصمیم اجباری است.', 'tecteb-marketplace-core'),
             default => __('انجام شد.', 'tecteb-marketplace-core'),
         };
     }

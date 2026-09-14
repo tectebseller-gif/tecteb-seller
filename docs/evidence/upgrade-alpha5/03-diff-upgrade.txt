@@ -1,0 +1,45 @@
+--- /home/user/tecteb-seller/docs/evidence/upgrade-alpha5/01-before-upgrade.txt	2026-09-14 19:26:18.237466354 +0000
++++ /home/user/tecteb-seller/docs/evidence/upgrade-alpha5/02-after-upgrade.txt	2026-09-14 19:26:30.601466807 +0000
+@@ -1,7 +1,7 @@
+ ## plugin
+-0.1.0-alpha.5
++0.1.0-alpha.6
+ ## schema_option
+-3
++5
+ ## options
+ tmc_capability_signature
+ tmc_private_storage_relocated
+@@ -29,7 +29,7 @@
+ wp_tmc_vendor_staff
+ wp_tmc_vendor_stores
+ ## row_counts
+-wp_tmc_audit_events=31
++wp_tmc_audit_events=33
+ wp_tmc_commission_rules=0
+ wp_tmc_ledger_entries=0
+ wp_tmc_product_images=4
+@@ -42,7 +42,7 @@
+ wp_tmc_vendor_change_requests=0
+ wp_tmc_vendor_document_types=0
+ wp_tmc_vendor_documents=0
+-wp_tmc_vendor_profiles=2
++wp_tmc_vendor_profiles=0
+ wp_tmc_vendor_staff=0
+ wp_tmc_vendor_stores=0
+ ## audit_rows
+@@ -77,12 +77,12 @@
+ 29|product.csv_exported|vendor|2026-09-14 19:18:55
+ 30|plugin.deactivated|plugin|2026-09-14 19:26:08
+ 31|plugin.activated|plugin|2026-09-14 19:26:11
++32|plugin.deactivated|plugin|2026-09-14 19:26:24
++33|plugin.activated|plugin|2026-09-14 19:26:25
+ ## vendor_applications
+ ## vendor_documents
+ ## vendor_document_types
+ ## vendor_profiles
+-1|4|داروخانه نمونه تک‌طب|1|0
+-2|8|فروشگاه دوم آزمایشی|1|0
+ ## admin_caps
+ ## private_files
+ /home/user/tecteb-private/application-1/06a121061a26c2579becb27c5d4c9180.pdf

@@ -345,3 +345,56 @@
 @media (prefers-reduced-motion: reduce) {
   .tmc-admin *, .tmc-admin *::before, .tmc-admin *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+
+/* ---------------------------------------------------------------------------
+ * Product review and the category template builder (stage 2).
+ * ------------------------------------------------------------------------ */
+.tmc-hint { color: var(--tmc-muted); margin-block: var(--tmc-space-2) 0; }
+
+.tmc-card__subtitle { margin-block: var(--tmc-space-4) var(--tmc-space-2); font-size: 1rem; }
+
+.tmc-review {
+  margin-block-end: var(--tmc-space-4);
+  padding: var(--tmc-space-4);
+  border: 1px solid var(--tmc-border);
+  border-radius: 10px;
+}
+
+.tmc-review:last-child { margin-block-end: 0; }
+.tmc-review__title { margin-block: 0 var(--tmc-space-3); font-size: 1.0625rem; }
+
+.tmc-review__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--tmc-space-2) var(--tmc-space-4);
+  margin: 0 0 var(--tmc-space-3);
+}
+
+.tmc-review__facts > div { display: grid; gap: 2px; }
+.tmc-review__facts dt { color: var(--tmc-muted); font-weight: 700; }
+.tmc-review__facts dd { margin: 0; overflow-wrap: anywhere; }
+
+.tmc-review__form { margin-block-start: var(--tmc-space-3); }
+
+.tmc-inline { display: inline-flex; margin: 0; }
+
+/* UX §1.1 makes 44px the product's touch target, and a checkbox is a target
+ * like any other: the browser default is 13–25px depending on the width, and
+ * the wp-admin suite measures the input's own box, not the label around it.
+ * So the box IS 44px here rather than a small control with a large label. */
+.tmc-admin input[type="checkbox"],
+.tmc-admin input[type="radio"] {
+  inline-size: 44px;
+  block-size: 44px;
+  accent-color: var(--tmc-primary);
+  flex: 0 0 auto;
+  margin-inline-end: var(--tmc-space-2);
+}
+
+.tmc-admin .tmc-field label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: var(--tmc-space-2);
+  min-block-size: 44px;
+  font-weight: 700;
+}

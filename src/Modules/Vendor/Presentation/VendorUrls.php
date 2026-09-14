@@ -14,7 +14,8 @@ final class VendorUrls
         private readonly string $application,
         private readonly string $store = '',
         private readonly string $staff = '',
-        private readonly string $invite = ''
+        private readonly string $invite = '',
+        private readonly string $products = ''
     ) {
     }
 
@@ -36,6 +37,24 @@ final class VendorUrls
     public function staff(): string
     {
         return $this->staff;
+    }
+
+    public function products(): string
+    {
+        return $this->products;
+    }
+
+    /** One product's form. `0` is the "new product" form. */
+    public function product(int $productId): string
+    {
+        return $productId > 0
+            ? add_query_arg('product', $productId, $this->products)
+            : add_query_arg('product', 'new', $this->products);
+    }
+
+    public function productsInStatus(string $status): string
+    {
+        return $status === '' ? $this->products : add_query_arg('status', $status, $this->products);
     }
 
     /** The link a vendor hands to a colleague; the token is the credential. */

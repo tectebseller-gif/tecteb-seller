@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Core\Modules;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\ModuleKind;
 use Tecteb\Marketplace\Contracts\ModuleStatus;
+use Tecteb\Marketplace\Contracts\SelfGatedModuleInterface;
 use Tecteb\Marketplace\Core\Support\TextSanitizer;
 
 /**
@@ -30,6 +31,8 @@ final class ModuleLoader
     public const REASON_DEPENDENCY_FAILED = 'dependency_failed';
     public const REASON_REQUIRES_WOOCOMMERCE = 'requires_woocommerce';
     public const REASON_EXCEPTION = 'exception';
+    /** The module itself said it must not run yet (SelfGatedModuleInterface). */
+    public const REASON_SELF_GATED = 'self_gated';
 
     private ?LoadReport $report = null;
 
@@ -123,6 +126,23 @@ final class ModuleLoader
                 continue;
             }
             $module = $this->registry->module($id);
+            // A module may know something the loader cannot: the order module
+            // must not operate until money can be recorded. Asking before
+            // register() means none of its code runs while it is blocked.
+            if ($module instanceof SelfGatedModuleInterface) {
+                $selfReason = $module->blockedReason($container);
+                if ($selfReason !== null) {
+                    $states[$id] = new ModuleLoadState(
+                        $manifest,
+                        ModuleStatus::Blocked,
+                        self::REASON_SELF_GATED,
+                        $selfReason,
+                        'register'
+                    );
+                    $ok[$id] = false;
+                    continue;
+                }
+            }
             try {
                 $module->register($container);
                 $states[$id] = new ModuleLoadState($manifest, ModuleStatus::Active, null, null, 'register');

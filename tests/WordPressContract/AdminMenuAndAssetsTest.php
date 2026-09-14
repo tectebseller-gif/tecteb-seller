@@ -22,9 +22,9 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
         self::assertSame('tmc-dashboard', $top[0]['slug']);
 
         $subs = array_values(array_filter(State::$menus, static fn ($m) => $m['parent'] === 'tmc-dashboard'));
-        // Four from the admin module, then the vendor module's two — which
-        // register through the same registrar, so they inherit the capability
-        // gate and the "styles on plugin screens only" rule.
+        // Four from the admin module, then vendor, finance and product —
+        // every one of them through the same registrar, so they inherit the
+        // capability gate and the "styles on plugin screens only" rule.
         $expected = [
             ['tmc-dashboard', 'tmc_view_dashboard', 'پیشخوان'],
             ['tmc-health', 'tmc_view_health', 'سلامت'],
@@ -32,8 +32,11 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             ['tmc-modules', 'tmc_view_modules', 'ماژول‌ها'],
             ['tmc-vendor-applications', 'tmc_review_vendor', 'درخواست‌های فروشندگان'],
             ['tmc-vendor-documents', 'tmc_manage_vendor_documents', 'مدارک فروشندگان'],
+            ['tmc-commission-rules', 'tmc_manage_settings', 'قواعد کمیسیون'],
+            ['tmc-product-review', 'tmc_review_products', 'بررسی محصولات'],
+            ['tmc-spec-templates', 'tmc_manage_spec_templates', 'الگوهای مشخصات'],
         ];
-        self::assertCount(6, $subs);
+        self::assertCount(count($expected), $subs);
         foreach ($expected as $i => [$slug, $cap, $label]) {
             self::assertSame($slug, $subs[$i]['slug']);
             self::assertSame($cap, $subs[$i]['capability']);

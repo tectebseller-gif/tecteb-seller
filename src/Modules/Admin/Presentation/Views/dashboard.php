@@ -47,6 +47,6 @@ if ($vm['modules_problems']) {
 </section>
 <section class="tmc-card tmc-card--muted" aria-labelledby="tmc-scope-title">
     <h2 id="tmc-scope-title" class="tmc-card__title"><?php esc_html_e('آنچه در این نسخه نیست', 'tecteb-marketplace-core'); ?></h2>
-    <p><?php esc_html_e('این نسخه آزمایشی فقط زیرساخت و چهار صفحه مدیریت را دارد. فروشنده، محصول، سفارش، کمیسیون، تسویه، مهاجرت از دکان و هر ارسال واقعی هنوز ساخته نشده‌اند. هیچ آمار فروش یا درآمدی نمایش داده نمی‌شود چون داده‌ای وجود ندارد.', 'tecteb-marketplace-core'); ?></p>
+    <p><?php esc_html_e('سفارش، تسویه و برداشت، و مهاجرت از دکان هنوز ساخته نشده‌اند و هیچ ارسال واقعی (پیامک یا ایمیل) از این افزونه خارج نمی‌شود. قواعد کمیسیون قابل تنظیم است، اما تا ثبت تصمیم‌های باز، هیچ سهم مالی‌ای روی سفارش‌ها محاسبه و ثبت نمی‌شود. هیچ آمار فروش یا درآمدی نمایش داده نمی‌شود چون داده‌ای وجود ندارد.', 'tecteb-marketplace-core'); ?></p>
 </section>
 <?php echo Components::shellClose();

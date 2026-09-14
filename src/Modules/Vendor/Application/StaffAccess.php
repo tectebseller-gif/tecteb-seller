@@ -42,7 +42,22 @@ final class StaffAccess
         if ($membership === null || !$membership->status->canAct()) {
             return null;
         }
-        return $membership->vendorUserId;
+        // A suspended shop derives nothing: staff rights come FROM the vendor,
+        // so the vendor's own standing is part of every staff answer.
+        return $this->vendorCanTrade($membership->vendorUserId) ? $membership->vendorUserId : null;
+    }
+
+    /**
+     * Whether this shop may operate at all.
+     *
+     * Read on every question rather than cached, for the same reason staff
+     * suspension is: a suspension that takes effect at the next login is not
+     * a suspension.
+     */
+    public function vendorCanTrade(int $vendorUserId): bool
+    {
+        $profile = $this->vendors->findProfileByUser($vendorUserId);
+        return $profile !== null && $profile->canSell;
     }
 
     public function isOwner(int $userId, int $vendorUserId): bool
@@ -50,8 +65,7 @@ final class StaffAccess
         if ($userId <= 0 || $userId !== $vendorUserId) {
             return false;
         }
-        $profile = $this->vendors->findProfileByUser($userId);
-        return $profile !== null && $profile->canSell;
+        return $this->vendorCanTrade($userId);
     }
 
     /** Owners: yes. Staff: only their own store, only while active. */
@@ -66,6 +80,9 @@ final class StaffAccess
         }
         if ($membership->status !== StaffStatus::Active) {
             return false;
+        }
+        if (!$this->vendorCanTrade($vendorUserId)) {
+            return false;       // suspending the shop suspends everyone in it
         }
         return $membership->permissions->allows($area, $needed);
     }

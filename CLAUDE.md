@@ -1,15 +1,16 @@
 # Tecteb Marketplace Core — راهنمای کار در این مخزن
 
-## محدوده فعلی: فاز ۱ + فروشندگان (درخواست، مدارک، فروشگاه، پرسنل)
+## محدوده فعلی: فاز ۱ + فروشندگان + **محصولات**
 زیرساخت و **چهار صفحه مدیریت** (پیشخوان، سلامت، تنظیمات، ماژول‌ها)، و از
 ۱۲ سپتامبر **بخش فروشندگان** به دستور مالک: درخواست فروشندگی، مدارک پویا،
 بررسی مدیر و پیشخوان فروشنده روی مسیر `/vendor/`
 (`docs/phase-2-vendor-delivery.md`).
 
-هنوز ساخته نشده: Staff/Product/Order/Commission/Withdrawal/Refund/Coupon/
-B2B/Ticket/SEO/Migration. هیچ sender/gateway واقعی وجود ندارد؛ خروجی‌های
-افزونه در Alpha همیشه بسته‌اند و **تأیید موبایل انجام نمی‌شود** تا وقتی
-Adapter واقعی و مستند وجود داشته باشد.
+هنوز ساخته نشده: Order (اسکلت خودبسته دارد)/Withdrawal/Refund/Coupon/
+B2B/Ticket/SEO/Migration، و **تنوع محصول متغیر** و **projection محصول به
+WooCommerce**. هیچ sender/gateway واقعی وجود ندارد؛ خروجی‌های افزونه در Alpha
+همیشه بسته‌اند و **تأیید موبایل انجام نمی‌شود** تا وقتی Adapter واقعی و مستند
+وجود داشته باشد.
 
 **وضعیت جاری:** فاز ۱ پیاده‌سازی شد، **چهار دور بازبینی سورس** روی آن اعمال شد،
 و پروتکل پذیرش (G-01 تا G-09 به‌علاوه ارتقا/بازیابی) روی یک **WordPress
@@ -31,6 +32,22 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 پایین نمی‌آورد، پس **برای بازگشت بازگرداندن ZIP قبلی کافی است و بازیابی
 دیتابیس لازم نیست** (`docs/upgrade-and-rollback.md` ·
 `docs/evidence/upgrade-alpha1/` · `docs/evidence/upgrade/`).
+
+**`0.1.0-alpha.6` (۱۴ سپتامبر):** مرحله ۲ ترتیب مالک — **محصولات**: فرم
+چهارمرحله‌ای با حفظ داده در خطا، مالکیت scope‌شده در هر پرس‌وجو، تأیید انتشار و
+مجوز جدای انتشار مستقیم، **نسخه پیشنهادی** برای تغییر حساس محصول منتشرشده
+(نسخه فعلی روی سایت می‌ماند)، موجودی فوری در هر وضعیت، بارگذاری واقعی تصویر با
+مالک مشخص، **الگوی مشخصات پزشکی دسته‌محور** با بازنشستگی به‌جای حذف، و CSV با
+پیش‌نمایش و خنثی‌سازی فرمول. همراهش: تعلیق/بازگردانی فروشنده که دسترسی خودش و
+همه پرسنلش را فوری قطع می‌کند، موتور کمیسیون + دفترکل فقط‌افزودنی، و **دروازه
+عملیات سفارش** که ماژول سفارش را تا تعیین نرخ و بسته‌شدن DEC-02/DEC-04 اجرا
+نمی‌کند. ساختار داده **۵**. تحویل: `docs/phase-4-products.md` ·
+شواهد: `docs/evidence/products/`.
+**قاعده تازه:** قابلیت‌های تازه‌ای که capability جدید می‌سازند باید در
+`Core\Lifecycle\Capabilities::all()` بیایند؛ `Bootstrap::ensureCapabilities()`
+روی هر درخواست مدیر فهرست را با یک امضای ذخیره‌شده می‌سنجد، چون **جایگزینی
+فایل‌های افزونه hook فعال‌سازی را اجرا نمی‌کند** — همان حفره‌ای که UpgradeGate
+برای migration می‌بندد.
 
 **`0.1.0-alpha.5` (۱۴ سپتامبر):** مرحله ۱ ترتیب مالک — تنظیمات فروشگاه با پنج
 زبانه، صف تغییر نام و حساب بانکی برای مدیر، پرسنل با پنج نقش مصوب بند ۳٫۱،
@@ -99,6 +116,12 @@ bash tools/upgrade-rollback-check.sh /opt/php81/bin/php docs/evidence/upgrade-al
 
 node tools/browser/check-vendor-messages.mjs   # متن و مقدار پیام‌ها (۱۱ بررسی)
 bash tools/check-private-access.sh docs/evidence/vendor  # دسترسی مستقیم وب
+
+# مرحله محصولات، روی افزونه نصب‌شده از ZIP نهایی
+SITE=… TMC_OUT=docs/evidence/products node tools/browser/check-products.mjs      # ۶۱ بررسی
+SITE=… TMC_OUT=docs/evidence/products/a11y node tools/browser/check-products-a11y.mjs  # ۲۴۰ بررسی
+TMC_PAGES="tmc-product-review:product-review,tmc-spec-templates:spec-templates" \
+  TMC_OUT=docs/evidence/products/wpadmin-a11y node tools/browser/check-wpadmin.mjs  # ۱۴۲ بررسی
 node tools/browser/check-vendor-staff.mjs      # مسیر کامل مرحله ۱ (۲۴ بررسی)
 node tools/browser/check-vendor-staff-a11y.mjs # دو صفحه تازه (۱۲۰ بررسی)
 ```
@@ -156,7 +179,12 @@ node tools/browser/check-vendor-staff-a11y.mjs # دو صفحه تازه (۱۲۰ 
   بررسی سلامت: `cd tools/browser && node check-toolchain.mjs`.
 - ناحیه فروشنده آزمون **مستقل** دارد: `node tools/browser/check-vendor.mjs`
   (۷۶ بررسی) و `node tools/browser/shoot-vendor.mjs` برای پیمایش کامل مسیر با
-  تصویر. آزمون صفحات مدیر شاهد پذیرش آن ناحیه نیست.
+  تصویر. آزمون صفحات مدیر شاهد پذیرش آن ناحیه نیست. صفحه‌های محصول هم آزمون
+  خودشان را دارند (`check-products*.mjs`)؛ `check-wpadmin.mjs` حالا با
+  `TMC_PAGES` روی صفحه‌های تازه مدیر هم اجرا می‌شود — با `TMC_OUT` در پوشه
+  دیگر، تا شواهد پذیرفته‌شده چهار صفحه بازنویسی نشود.
+- داده نمونه مرحله محصولات با `tools/product-seed.php` و از مسیر سرویس‌های خود
+  افزونه ساخته می‌شود (`wp eval-file`)، نه با SQL دستی.
 - `check.mjs` و `check-wpadmin.mjs` را بی‌دلیل دوباره اجرا نکنید؛ شواهد
   پذیرفته‌شده را بازنویسی می‌کنند (`check-wpadmin.mjs` با `TMC_OUT` در پوشه دیگر
   می‌نویسد). اسکرین‌شات چهار صفحه در wp-admin واقعی:

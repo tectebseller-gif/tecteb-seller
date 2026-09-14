@@ -48,6 +48,29 @@ final class ReviewApplication
         return $this->decide($applicationId, ApplicationStatus::Rejected, $note, false);
     }
 
+    /**
+     * Stops a vendor trading, without erasing anything they did.
+     *
+     * The profile's selling permission is what every access question reads,
+     * so clearing it here is what cuts the vendor AND all of their staff off
+     * at once: staff rights are derived from the shop, and a shop that may
+     * not sell derives nothing. The membership rows, the products, the
+     * documents and the audit trail all stay exactly where they are.
+     */
+    public function suspend(int $applicationId, string $note): OperationResult
+    {
+        if (trim($note) === '') {
+            return OperationResult::failure('note_required');
+        }
+        return $this->decide($applicationId, ApplicationStatus::Suspended, $note, false);
+    }
+
+    /** Back to approved. Direct publishing is NOT restored silently. */
+    public function reinstate(int $applicationId, bool $canPublishDirectly = false): OperationResult
+    {
+        return $this->decide($applicationId, ApplicationStatus::Approved, null, $canPublishDirectly);
+    }
+
     private function decide(int $applicationId, ApplicationStatus $to, ?string $note, bool $canPublishDirectly): OperationResult
     {
         if (!$this->capabilities->can(VendorCapabilities::REVIEW)) {
@@ -73,6 +96,17 @@ final class ReviewApplication
                 $application->details->storeName,
                 true,
                 $canPublishDirectly
+            );
+        }
+        if ($to === ApplicationStatus::Suspended) {
+            // Both permissions go. Leaving direct publishing on would let a
+            // suspended shop keep pushing products live through a path that
+            // never asks whether it may still sell.
+            $this->applications->upsertProfile(
+                $application->userId,
+                $application->details->storeName,
+                false,
+                false
             );
         }
         $this->audit->log(AuditEventCatalog::VENDOR_APPLICATION_REVIEWED, $reviewer, 'vendor_application', (string) $applicationId, [

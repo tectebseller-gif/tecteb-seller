@@ -39,6 +39,9 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings;
 use Tecteb\Marketplace\Contracts\Files\PrivateFileStorageInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\MobileVerification;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaExtensions;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaOutcome;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaView;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorNotice;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorShell;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
@@ -57,7 +60,7 @@ final class VendorRoutes
     public const NONCE_ACTION = 'tmc_vendor_action';
     public const NONCE_FIELD = 'tmc_vendor_nonce';
 
-    /** @var list<string> the views this area answers on */
+    /** @var list<string> the views this module itself answers on */
     public const VIEWS = ['dashboard', 'application', 'store', 'staff', 'invite'];
 
     /** The only view a signed-out visitor may reach: the token vouches for them. */
@@ -139,7 +142,10 @@ final class VendorRoutes
         if ($request->queryKey('view') === 'application') {
             return 'application';
         }
-        return in_array($raw, self::VIEWS, true) ? $raw : 'dashboard';
+        if (in_array($raw, self::VIEWS, true) || $this->extension($raw) !== null) {
+            return $raw;
+        }
+        return 'dashboard';
     }
 
     private function urls(): VendorUrls
@@ -151,7 +157,8 @@ final class VendorRoutes
                 home_url('/vendor/application/'),
                 home_url('/vendor/store/'),
                 home_url('/vendor/staff/'),
-                home_url('/vendor/invite/')
+                home_url('/vendor/invite/'),
+                home_url('/vendor/products/')
             );
         }
         $byQuery = static fn (string $view): string => home_url('/?' . self::QUERY_VAR . '=' . $view);
@@ -160,7 +167,8 @@ final class VendorRoutes
             $byQuery('application'),
             $byQuery('store'),
             $byQuery('staff'),
-            $byQuery('invite')
+            $byQuery('invite'),
+            $byQuery('products')
         );
     }
 
@@ -177,6 +185,12 @@ final class VendorRoutes
         $action = $request->postKey('tmc_vendor_action');
         if (!$request->nonceOk(self::NONCE_FIELD, self::NONCE_ACTION)) {
             wp_safe_redirect($urls->withNotice($urls->application(), 'forbidden'));
+            exit;
+        }
+
+        $handled = $this->handleExtensionPost($action, $request, $userId);
+        if ($handled !== null) {
+            wp_safe_redirect($this->flashAndTarget($handled, $userId));
             exit;
         }
 
@@ -316,6 +330,65 @@ final class VendorRoutes
         );
     }
 
+    /**
+     * Gives a module's own POST action to the module that declared it.
+     *
+     * The nonce and the capability have already been checked above, so an
+     * extension never re-implements them — and never gets to skip them.
+     */
+    private function handleExtensionPost(string $action, Request $request, int $userId): ?VendorAreaOutcome
+    {
+        foreach (VendorAreaExtensions::views() as $view) {
+            if ($view['handle'] === null || !in_array($action, $view['actions'], true)) {
+                continue;
+            }
+            if ($view['requires_vendor'] && $this->storeFor($userId) === null) {
+                return new VendorAreaOutcome('not_a_vendor', $this->urls()->dashboard());
+            }
+            $outcome = ($view['handle'])($action, $request, $userId, $this->urls());
+            return $outcome instanceof VendorAreaOutcome ? $outcome : null;
+        }
+        return null;
+    }
+
+    /** Stashes the values a sentence needs, then hands back the redirect URL. */
+    private function flashAndTarget(VendorAreaOutcome $outcome, int $userId): string
+    {
+        if ($outcome->context !== []) {
+            $this->container->get(FlashStoreInterface::class)
+                ->put(self::flashKey($userId), ['code' => $outcome->code, 'context' => $outcome->context], MINUTE_IN_SECONDS);
+        }
+        return $this->urls()->withNotice($outcome->target, $outcome->code);
+    }
+
+    /** The address of one view, with or without pretty permalinks. */
+    private function viewUrl(string $slug): string
+    {
+        return (string) get_option('permalink_structure', '') !== ''
+            ? home_url('/vendor/' . $slug . '/')
+            : home_url('/?' . self::QUERY_VAR . '=' . $slug);
+    }
+
+    /** @return array{slug:string,label:string,title:string,requires_vendor:bool,render:callable,actions:list<string>,handle:?callable,url:?callable,nav:bool}|null */
+    private function extension(string $slug): ?array
+    {
+        foreach (VendorAreaExtensions::views() as $view) {
+            if ($view['slug'] === $slug) {
+                return $view;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The shop this user may act in — their own, or the one they are staff of.
+     * Staff reach the extension pages; only an owner reaches store and staff.
+     */
+    private function storeFor(int $userId): ?int
+    {
+        return $this->container->get(StaffAccess::class)->storeFor($userId);
+    }
+
     // ------------------------------------------------------------- downloads
 
     /**
@@ -385,6 +458,27 @@ final class VendorRoutes
             exit;
         }
 
+        $extension = $this->extension($view);
+        if ($extension !== null) {
+            // A staff member with product rights belongs on the product page
+            // even though they may not touch store settings, so the gate here
+            // is "acts in a shop", not "owns one".
+            if ($extension['requires_vendor'] && $access->storeFor($userId) === null) {
+                wp_safe_redirect($urls->withNotice($urls->dashboard(), 'not_a_vendor'));
+                exit;
+            }
+            $body = (string) ($extension['render'])(
+                new VendorAreaView($request, $userId, $urls, $nonceField, $notice)
+            );
+            $this->renderShell(
+                $extension['title'],
+                $extension['slug'],
+                $body,
+                $storeName,
+                $this->navFor($urls, $access->canManageStore($userId, $userId), $access->storeFor($userId) !== null)
+            );
+        }
+
         [$title, $body] = match ($view) {
             'application' => [
                 __('درخواست فروشندگی', 'tecteb-marketplace-core'),
@@ -404,19 +498,35 @@ final class VendorRoutes
             ],
         };
 
-        $this->renderShell($title, $view, $body, $storeName, $this->navFor($urls, $access->canManageStore($userId, $userId)));
+        $this->renderShell(
+            $title,
+            $view,
+            $body,
+            $storeName,
+            $this->navFor($urls, $access->canManageStore($userId, $userId), $access->storeFor($userId) !== null)
+        );
     }
 
     /** @return list<array{slug:string,label:string,url:string}> */
-    private function navFor(VendorUrls $urls, bool $isVendor): array
+    private function navFor(VendorUrls $urls, bool $isOwner, bool $actsInStore = false): array
     {
         $nav = [
             ['slug' => 'dashboard', 'label' => __('پیشخوان', 'tecteb-marketplace-core'), 'url' => $urls->dashboard()],
             ['slug' => 'application', 'label' => __('درخواست فروشندگی', 'tecteb-marketplace-core'), 'url' => $urls->application()],
         ];
-        if ($isVendor) {
+        if ($isOwner) {
             $nav[] = ['slug' => 'store', 'label' => __('تنظیمات فروشگاه', 'tecteb-marketplace-core'), 'url' => $urls->store()];
             $nav[] = ['slug' => 'staff', 'label' => __('پرسنل', 'tecteb-marketplace-core'), 'url' => $urls->staff()];
+        }
+        foreach (VendorAreaExtensions::views() as $view) {
+            if (!$view['nav'] || ($view['requires_vendor'] && !$actsInStore && !$isOwner)) {
+                continue;
+            }
+            $nav[] = [
+                'slug' => $view['slug'],
+                'label' => $view['label'],
+                'url' => $view['url'] !== null ? (string) ($view['url'])($urls) : $this->viewUrl($view['slug']),
+            ];
         }
         return $nav;
     }

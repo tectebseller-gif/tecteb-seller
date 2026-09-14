@@ -153,13 +153,18 @@ final class ApplicationsPage
             . '<input type="hidden" name="application_id" value="' . esc_attr((string) $applicationId) . '">'
             . '<div class="tmc-field"><label class="tmc-field__label" for="tmc-review-note">' . esc_html__('یادداشت برای فروشنده', 'tecteb-marketplace-core') . '</label>'
             . '<textarea class="tmc-input" id="tmc-review-note" name="note" rows="3" style="inline-size:100%"></textarea>'
-            . '<p class="tmc-field__desc">' . esc_html__('برای «درخواست اصلاح» و «رد» نوشتن یادداشت اجباری است؛ همین متن را فروشنده می‌بیند.', 'tecteb-marketplace-core') . '</p></div>'
+            . '<p class="tmc-field__desc">' . esc_html__('برای «درخواست اصلاح»، «رد» و «تعلیق» نوشتن یادداشت اجباری است؛ همین متن را فروشنده می‌بیند. تعلیق، دسترسی فروشنده و همه پرسنلش را همان لحظه قطع می‌کند و هیچ داده‌ای را پاک نمی‌کند.', 'tecteb-marketplace-core') . '</p></div>'
             . '<div class="tmc-field tmc-field--check"><label><input type="checkbox" name="can_publish" value="1"> '
             . esc_html__('اجازه انتشار مستقیم محصول هم داده شود (اختیاری و جدا از اجازه فروش)', 'tecteb-marketplace-core') . '</label></div>'
             . '<div class="tmc-actions">'
             . '<button type="submit" name="decision" value="approve" class="tmc-button tmc-button--primary">' . esc_html__('تأیید فروشنده', 'tecteb-marketplace-core') . '</button>'
             . '<button type="submit" name="decision" value="changes" class="tmc-button tmc-button--secondary">' . esc_html__('درخواست اصلاح', 'tecteb-marketplace-core') . '</button>'
             . '<button type="submit" name="decision" value="reject" class="tmc-button tmc-button--secondary">' . esc_html__('رد درخواست', 'tecteb-marketplace-core') . '</button>'
+            // Suspension and reinstatement are the same decision form: the
+            // state machine refuses whichever of them does not apply, so the
+            // manager cannot suspend a draft or reinstate an active shop.
+            . '<button type="submit" name="decision" value="suspend" class="tmc-button tmc-button--secondary">' . esc_html__('تعلیق فروشنده', 'tecteb-marketplace-core') . '</button>'
+            . '<button type="submit" name="decision" value="reinstate" class="tmc-button tmc-button--secondary">' . esc_html__('رفع تعلیق', 'tecteb-marketplace-core') . '</button>'
             . '</div></form></section>';
     }
 
@@ -247,6 +252,8 @@ final class ApplicationsPage
             'approve' => $service->approve($id, $request->postChecked('can_publish')),
             'changes' => $service->requestChanges($id, $note),
             'reject' => $service->reject($id, $note),
+            'suspend' => $service->suspend($id, $note),
+            'reinstate' => $service->reinstate($id, $request->postChecked('can_publish')),
             default => null,
         };
         if ($result === null) {

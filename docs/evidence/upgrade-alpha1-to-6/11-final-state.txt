@@ -1,0 +1,128 @@
+## plugin
+0.1.0-alpha.6
+## schema_option
+5
+## options
+tmc_capability_signature
+tmc_private_storage_relocated
+tmc_schema_version
+tmc_settings
+tmc_vendor_carriers
+tmc_vendor_networks
+## settings_value
+{"schema_version":1,"values":{"default_commission_rate_bp":1234,"settlement_delay_days":9,"max_staff":77,"environment_override":"staging"}}
+## tables
+wp_tmc_audit_events
+wp_tmc_commission_rules
+wp_tmc_ledger_entries
+wp_tmc_product_images
+wp_tmc_product_revisions
+wp_tmc_product_specs
+wp_tmc_products
+wp_tmc_spec_fields
+wp_tmc_spec_templates
+wp_tmc_vendor_applications
+wp_tmc_vendor_change_requests
+wp_tmc_vendor_document_types
+wp_tmc_vendor_documents
+wp_tmc_vendor_profiles
+wp_tmc_vendor_staff
+wp_tmc_vendor_stores
+## row_counts
+wp_tmc_audit_events=55
+wp_tmc_commission_rules=0
+wp_tmc_ledger_entries=0
+wp_tmc_product_images=4
+wp_tmc_product_revisions=2
+wp_tmc_product_specs=16
+wp_tmc_products=6
+wp_tmc_spec_fields=4
+wp_tmc_spec_templates=1
+wp_tmc_vendor_applications=0
+wp_tmc_vendor_change_requests=0
+wp_tmc_vendor_document_types=0
+wp_tmc_vendor_documents=0
+wp_tmc_vendor_profiles=0
+wp_tmc_vendor_staff=0
+wp_tmc_vendor_stores=0
+## audit_rows
+1|plugin.activated|plugin|2026-09-14 19:17:43
+2|product.template_changed|spec_template|2026-09-14 19:17:44
+3|product.template_changed|spec_template|2026-09-14 19:17:44
+4|product.template_changed|spec_template|2026-09-14 19:17:44
+5|product.template_changed|spec_template|2026-09-14 19:17:44
+6|product.template_changed|spec_template|2026-09-14 19:17:44
+7|product.saved|product|2026-09-14 19:17:44
+8|product.saved|product|2026-09-14 19:17:44
+9|product.saved|product|2026-09-14 19:17:44
+10|product.saved|product|2026-09-14 19:17:44
+11|product.saved|product|2026-09-14 19:17:44
+12|product.saved|product|2026-09-14 19:17:44
+13|product.submitted|product|2026-09-14 19:17:44
+14|product.submitted|product|2026-09-14 19:17:44
+15|product.reviewed|product|2026-09-14 19:17:44
+16|product.revision_requested|product|2026-09-14 19:17:44
+17|product.reviewed|product|2026-09-14 19:17:44
+18|product.saved|product|2026-09-14 19:17:45
+19|product.saved|product|2026-09-14 19:18:10
+20|product.saved|product|2026-09-14 19:18:14
+21|product.saved|product|2026-09-14 19:18:18
+22|product.saved|product|2026-09-14 19:18:21
+23|product.submitted|product|2026-09-14 19:18:24
+24|product.reviewed|product|2026-09-14 19:18:35
+25|product.revision_requested|product|2026-09-14 19:18:39
+26|product.csv_exported|vendor|2026-09-14 19:18:47
+27|product.saved|product|2026-09-14 19:18:52
+28|product.csv_imported|vendor|2026-09-14 19:18:52
+29|product.csv_exported|vendor|2026-09-14 19:18:55
+30|plugin.deactivated|plugin|2026-09-14 19:26:08
+31|plugin.activated|plugin|2026-09-14 19:26:11
+32|plugin.deactivated|plugin|2026-09-14 19:26:24
+33|plugin.activated|plugin|2026-09-14 19:26:25
+34|vendor.requirements_changed|vendor_document_type|2026-09-14 19:26:37
+35|vendor.document_uploaded|vendor_application|2026-09-14 19:26:37
+36|vendor.application_submitted|vendor_application|2026-09-14 19:26:37
+37|plugin.deactivated|plugin|2026-09-14 19:26:45
+38|plugin.deactivated|plugin|2026-09-14 19:26:58
+39|plugin.activated|plugin|2026-09-14 19:26:59
+40|plugin.deactivated|plugin|2026-09-14 19:27:05
+41|plugin.deactivated|plugin|2026-09-14 19:27:14
+42|plugin.activated|plugin|2026-09-14 19:27:15
+43|plugin.deactivated|plugin|2026-09-14 19:28:01
+44|plugin.activated|plugin|2026-09-14 19:28:06
+45|plugin.deactivated|plugin|2026-09-14 19:28:19
+46|plugin.activated|plugin|2026-09-14 19:28:20
+47|vendor.requirements_changed|vendor_document_type|2026-09-14 19:28:32
+48|vendor.document_uploaded|vendor_application|2026-09-14 19:28:32
+49|vendor.application_submitted|vendor_application|2026-09-14 19:28:32
+50|plugin.deactivated|plugin|2026-09-14 19:28:39
+51|plugin.deactivated|plugin|2026-09-14 19:28:51
+52|plugin.activated|plugin|2026-09-14 19:28:52
+53|plugin.deactivated|plugin|2026-09-14 19:28:59
+54|plugin.deactivated|plugin|2026-09-14 19:29:13
+55|plugin.activated|plugin|2026-09-14 19:29:14
+## vendor_applications
+## vendor_documents
+## vendor_document_types
+## vendor_profiles
+## admin_caps
+## private_files
+/home/user/tecteb-private/application-1/06a121061a26c2579becb27c5d4c9180.pdf
+/home/user/tecteb-private/application-1/19e79d1967a31de04c583e5eb8a57015.pdf
+/home/user/tecteb-private/application-1/39ff6ff621624b076a7f20a76a68b355.pdf
+/home/user/tecteb-private/application-1/40153faf56588be7dfb314cd525b21a7.pdf
+/home/user/tecteb-private/application-1/43dc59c443aa9de06437cbe28814875c.pdf
+/home/user/tecteb-private/application-1/4ea2788d8ac732d63eb1a238d4336635.pdf
+/home/user/tecteb-private/application-1/561f5410dbb822a19fdb8ca1e57ca400.pdf
+/home/user/tecteb-private/application-1/5d7577109fdf2451aa1e787a4cd3bae9.pdf
+/home/user/tecteb-private/application-1/638f6f8a3a78f3d3897b77cadfeacbf7.pdf
+/home/user/tecteb-private/application-1/8bb6a1c3972e5cb92c3bf35a7a7c0d25.pdf
+/home/user/tecteb-private/application-1/9da81fde7da3731a2303fb3ee64c7811.pdf
+/home/user/tecteb-private/application-1/abaf79985d794d4098796b972f253ac7.pdf
+/home/user/tecteb-private/application-1/bd299b128fe87ab845f4a39baa08bf72.pdf
+/home/user/tecteb-private/application-1/c4b6e0c4d5de226234ebfd97d1c77d09.pdf
+/home/user/tecteb-private/application-1/c6c9c758d99344aafb9bc0d8b95b027c.pdf
+/home/user/tecteb-private/application-1/d3985f40f50fbf74e9ab49250bd3d0f5.pdf
+/home/user/tecteb-private/application-1/e725fce96c52a4f02188b361e7659855.pdf
+/home/user/tecteb-private/application-1/edfc88c4dc76f6405a4744a906fb7811.pdf
+/home/user/tecteb-private/application-2/98f2093aaa6816c04db81ddda93c0ab2.pdf
