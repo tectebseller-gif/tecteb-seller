@@ -23,17 +23,17 @@ final class ApplicationView
         VendorWorkspace $workspace,
         VendorUrls $urls,
         string $nonceField,
-        string $notice = '',
+        ?VendorNotice $notice = null,
         string $mobileOnFile = ''
     ): string {
         $details = $workspace->application?->details ?? new ApplicantDetails();
         $editable = $workspace->application === null || $workspace->application->status->isEditableByApplicant();
         $html = '';
 
-        if ($notice !== '') {
+        if ($notice !== null) {
             $html .= VendorUi::notice(
-                VendorMessages::isErrorNotice($notice) ? 'warning' : 'success',
-                VendorMessages::notice($notice)
+                VendorMessages::isErrorNotice($notice->code) ? 'warning' : 'success',
+                VendorMessages::notice($notice->code, $notice->context)
             );
         }
 

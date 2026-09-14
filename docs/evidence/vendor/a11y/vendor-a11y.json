@@ -1,7 +1,7 @@
 {
   "suite": "vendor-area",
   "scope": "The vendor pages at /vendor/ in a real WordPress, signed in as a vendor. Separate from the admin-screen suite on purpose.",
-  "generated_at": "2026-09-12T14:49:22.636Z",
+  "generated_at": "2026-09-14T16:53:01.423Z",
   "widths": [
     320,
     375,
@@ -276,7 +276,7 @@
       "scope": "keyboard",
       "check": "controls-are-reachable-by-tab",
       "ok": true,
-      "detail": "44 stops inside the page, 5 focusable controls"
+      "detail": "46 stops inside the page, 6 focusable controls"
     },
     {
       "page": "vendor-application",
@@ -542,7 +542,7 @@
       "scope": "keyboard",
       "check": "controls-are-reachable-by-tab",
       "ok": true,
-      "detail": "49 stops inside the page, 8 focusable controls"
+      "detail": "53 stops inside the page, 13 focusable controls"
     }
   ]
 }

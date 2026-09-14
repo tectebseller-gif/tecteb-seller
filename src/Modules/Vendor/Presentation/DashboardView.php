@@ -17,13 +17,13 @@ use Tecteb\Marketplace\Modules\Vendor\Application\VendorWorkspace;
  */
 final class DashboardView
 {
-    public static function render(VendorWorkspace $workspace, VendorUrls $urls, string $notice = ''): string
+    public static function render(VendorWorkspace $workspace, VendorUrls $urls, ?VendorNotice $notice = null): string
     {
         $html = '';
-        if ($notice !== '') {
+        if ($notice !== null) {
             $html .= VendorUi::notice(
-                VendorMessages::isErrorNotice($notice) ? 'warning' : 'success',
-                VendorMessages::notice($notice)
+                VendorMessages::isErrorNotice($notice->code) ? 'warning' : 'success',
+                VendorMessages::notice($notice->code, $notice->context)
             );
         }
 

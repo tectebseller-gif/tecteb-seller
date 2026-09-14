@@ -4,26 +4,39 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress;
 
 use Tecteb\Marketplace\Contracts\Files\PrivateFileStorageInterface;
+use Tecteb\Marketplace\Contracts\Files\PrivateStorageUnavailable;
 use Tecteb\Marketplace\Contracts\Files\StoredFile;
 use Tecteb\Marketplace\Contracts\Files\UploadedFile;
+use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
+use Tecteb\Marketplace\Modules\Vendor\Domain\PrivateStoragePlacement;
 
 /**
  * Private document storage (plan §7).
  *
- * Three defences, in order of how much they can be trusted:
- *  1. the file name is 32 random hex characters, so it cannot be guessed;
- *  2. `.htaccess` / `web.config` deny direct access — helpful on Apache/IIS,
- *     and IGNORED by nginx, which is why it is not the real control;
- *  3. the only read path is read(), which the download route calls AFTER
- *     checking capability and ownership. That is the control that holds
- *     everywhere.
+ * The bytes live OUTSIDE every directory the web server maps to a URL, and
+ * that is the control. The rest — 32 random hex characters for a name, the
+ * `.htaccess`/`web.config` deny files, and a download route that checks nonce,
+ * capability and ownership before the first byte — is defence in depth on top
+ * of it, not a substitute for it: nginx never reads `.htaccess`, and a name
+ * stops being unguessable the moment it appears in a log or a backup listing.
+ * PrivateStoragePlacement explains the reasoning in full.
+ *
+ * Where it looks, in order:
+ *   1. `TMC_PRIVATE_UPLOADS_DIR`, when the site defines it in wp-config.php
+ *   2. a sibling of the WordPress directory
+ *   3. a sibling of the document root
+ * and if none of those is both outside the web roots and writable, storing
+ * throws. Nothing falls back to `uploads/`.
  *
  * Nothing here returns a URL, and the media library never learns the file
- * exists, so it can never appear in a public listing.
+ * exists, so it cannot appear in a public listing.
  */
 final class PrivateUploadStorage implements PrivateFileStorageInterface
 {
-    private const DIR = 'tmc-private';
+    public const DIR = 'tecteb-private';
+
+    /** Where the first build put documents; still read for relocation. */
+    public const LEGACY_DIR = 'tmc-private';
 
     /** Extension chosen from the DETECTED mime, never from the sent name. */
     private const EXTENSION = [
@@ -31,6 +44,8 @@ final class PrivateUploadStorage implements PrivateFileStorageInterface
         'image/jpeg' => 'jpg',
         'image/png' => 'png',
     ];
+
+    private ?PrivateStoragePlacement $placement = null;
 
     public function __construct(private readonly ?string $baseDirOverride = null)
     {
@@ -42,9 +57,13 @@ final class PrivateUploadStorage implements PrivateFileStorageInterface
         if ($ext === null) {
             throw new \RuntimeException('unsupported mime for private storage');
         }
+        $base = $this->baseDir();
+        if ($base === null) {
+            throw new PrivateStorageUnavailable($this->placement()->reason());
+        }
         $scopeDir = $this->safeScope($scope);
-        $dir = $this->baseDir() . '/' . $scopeDir;
-        $this->harden($this->baseDir());
+        $dir = $base . '/' . $scopeDir;
+        $this->harden($base);
         if (!is_dir($dir) && !mkdir($dir, 0o700, true) && !is_dir($dir)) {
             throw new \RuntimeException('cannot create private directory');
         }
@@ -83,13 +102,94 @@ final class PrivateUploadStorage implements PrivateFileStorageInterface
         return $path !== null && @unlink($path);
     }
 
-    public function baseDir(): string
+    /** Null when nothing may be stored; the reason is on placement(). */
+    public function baseDir(): ?string
     {
-        if ($this->baseDirOverride !== null) {
-            return rtrim($this->baseDirOverride, '/');
+        return $this->placement()->path();
+    }
+
+    public function unavailableReason(): ?string
+    {
+        $placement = $this->placement();
+        return $placement->isUsable() ? null : $placement->reason();
+    }
+
+    public function placement(): PrivateStoragePlacement
+    {
+        return $this->placement ??= $this->locate();
+    }
+
+    /** The old in-uploads directory, whether or not anything is left in it. */
+    public static function legacyBaseDir(): string
+    {
+        $uploads = wp_upload_dir();
+        return rtrim((string) ($uploads['basedir'] ?? ''), '/') . '/' . self::LEGACY_DIR;
+    }
+
+    /**
+     * An explicit override still faces the web-root test. A development
+     * setting that could quietly re-create the very exposure this class
+     * exists to remove would be worse than no override at all.
+     */
+    private function locate(): PrivateStoragePlacement
+    {
+        $candidates = $this->baseDirOverride !== null
+            ? [rtrim($this->baseDirOverride, '/')]
+            : $this->candidates();
+        return PrivateStoragePlacement::choose($candidates, $this->webRoots(), $this->probe());
+    }
+
+    /** @return list<string> */
+    private function candidates(): array
+    {
+        $candidates = [];
+        if (defined('TMC_PRIVATE_UPLOADS_DIR') && is_string(constant('TMC_PRIVATE_UPLOADS_DIR'))) {
+            $candidates[] = (string) constant('TMC_PRIVATE_UPLOADS_DIR');
+        }
+        if (defined('ABSPATH')) {
+            $candidates[] = dirname(rtrim((string) constant('ABSPATH'), '/')) . '/' . self::DIR;
+        }
+        $docRoot = Request::documentRoot();
+        if ($docRoot !== '') {
+            $candidates[] = dirname(rtrim($docRoot, '/')) . '/' . self::DIR;
+        }
+        return array_values(array_unique($candidates));
+    }
+
+    /** Every directory this server may hand out over HTTP. @return list<string> */
+    private function webRoots(): array
+    {
+        $roots = [];
+        if (defined('ABSPATH')) {
+            $roots[] = (string) constant('ABSPATH');
+        }
+        if (defined('WP_CONTENT_DIR')) {
+            $roots[] = (string) constant('WP_CONTENT_DIR');
         }
         $uploads = wp_upload_dir();
-        return rtrim((string) ($uploads['basedir'] ?? ''), '/') . '/' . self::DIR;
+        if (is_array($uploads) && ($uploads['basedir'] ?? '') !== '') {
+            $roots[] = (string) $uploads['basedir'];
+        }
+        $docRoot = Request::documentRoot();
+        if ($docRoot !== '') {
+            $roots[] = $docRoot;
+        }
+        return array_values(array_unique($roots));
+    }
+
+    /**
+     * Creating the directory IS the probe: is_writable() on a path that does
+     * not exist yet answers a different question, and a parent that looks
+     * writable can still refuse (open_basedir, a read-only mount, a quota).
+     */
+    private function probe(): callable
+    {
+        return static function (string $path): bool {
+            if (!is_dir($path) && !mkdir($path, 0o700, true) && !is_dir($path)) {
+                return false;
+            }
+            return is_writable($path);
+        };
     }
 
     /**
@@ -102,8 +202,12 @@ final class PrivateUploadStorage implements PrivateFileStorageInterface
         if (preg_match('#^[a-z0-9\-]{1,64}/[a-f0-9]{32}\.[a-z0-9]{1,5}$#', $relativePath) !== 1) {
             return null;
         }
-        $base = realpath($this->baseDir());
-        $path = realpath($this->baseDir() . '/' . $relativePath);
+        $baseDir = $this->baseDir();
+        if ($baseDir === null) {
+            return null;
+        }
+        $base = realpath($baseDir);
+        $path = realpath($baseDir . '/' . $relativePath);
         if ($base === false || $path === false || !str_starts_with($path, $base . '/')) {
             return null;
         }
@@ -116,7 +220,11 @@ final class PrivateUploadStorage implements PrivateFileStorageInterface
         return substr(trim($scope, '-'), 0, 64) ?: 'misc';
     }
 
-    /** Writes the deny files once; cheap enough to check on every store. */
+    /**
+     * Deny files and an index, written once. Outside the web root they should
+     * never be consulted — which is exactly why they are cheap insurance if a
+     * host ever maps this directory by accident.
+     */
     private function harden(string $base): void
     {
         if (!is_dir($base) && !mkdir($base, 0o700, true) && !is_dir($base)) {

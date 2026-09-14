@@ -1,0 +1,14 @@
+ok:   the document exists at /home/user/tecteb-private/application-1/561f5410dbb822a19fdb8ca1e57ca400.pdf
+ok:   storage base is outside uploads (/home/user/tecteb-private)
+ok:   storage base is outside the WordPress directory
+ok:   no document left behind in uploads/tmc-private
+ok:   control: a file inside uploads/ IS served (200) — the negative results below mean something
+ok:   legacy uploads path refused (404)
+ok:   new name under uploads refused (404)
+ok:   storage dir at web root refused (404)
+ok:   traversal from uploads refused (404)
+ok:   traversal from root refused (404)
+ok:   guessing under plugins refused (404)
+ok:   the owner CAN download through the guarded route (200)
+ok:   the same link signed out does not return the document (302)
+checks failed: 0

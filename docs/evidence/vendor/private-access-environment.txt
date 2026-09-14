@@ -1,0 +1,6 @@
+site         = http://127.0.0.1:8080
+stored_path  = application-1/561f5410dbb822a19fdb8ca1e57ca400.pdf
+storage_base = /home/user/tecteb-private
+uploads_base = /home/user/wp-disposable/wp-content/uploads
+abspath      = /home/user/wp-disposable/
+document     = /home/user/tecteb-private/application-1/561f5410dbb822a19fdb8ca1e57ca400.pdf (764 bytes)

@@ -1,0 +1,6 @@
+legacy uploads path http://127.0.0.1:8080/wp-content/uploads/tmc-private/application-1/561f5410dbb822a19fdb8ca1e57ca400.pdf -> 404
+new name under uploads http://127.0.0.1:8080/wp-content/uploads/tecteb-private/application-1/561f5410dbb822a19fdb8ca1e57ca400.pdf -> 404
+storage dir at web root http://127.0.0.1:8080/tecteb-private/application-1/561f5410dbb822a19fdb8ca1e57ca400.pdf -> 404
+traversal from uploads http://127.0.0.1:8080/wp-content/uploads/../../../tecteb-private/application-1/561f5410dbb822a19fdb8ca1e57ca400.pdf -> 404
+traversal from root http://127.0.0.1:8080/../tecteb-private/application-1/561f5410dbb822a19fdb8ca1e57ca400.pdf -> 404
+guessing under plugins http://127.0.0.1:8080/wp-content/plugins/tecteb-marketplace-core/application-1/561f5410dbb822a19fdb8ca1e57ca400.pdf -> 404

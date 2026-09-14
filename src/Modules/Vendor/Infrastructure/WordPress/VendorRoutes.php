@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress;
 
 use Tecteb\Marketplace\Contracts\Auth\AuthenticationBridgeInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
+use Tecteb\Marketplace\Contracts\FlashStoreInterface;
 use Tecteb\Marketplace\Contracts\Files\UploadedFile;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
@@ -19,6 +20,7 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicantDetails;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\ApplicationView;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\DashboardView;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorMessages;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorNotice;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorShell;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
 
@@ -147,7 +149,15 @@ final class VendorRoutes
         };
 
         $target = $action === 'submit' && $result !== null && $result->ok ? $urls->dashboard() : $urls->application();
-        wp_safe_redirect($urls->withNotice($target, $result?->code ?? 'forbidden'));
+        $code = $result?->code ?? 'forbidden';
+        // The numbers in the sentence are the server's, so they travel in the
+        // flash store rather than in the URL the applicant can edit. One
+        // minute is longer than a redirect and shorter than a second attempt.
+        if ($result !== null && $result->context !== []) {
+            $this->container->get(FlashStoreInterface::class)
+                ->put(self::flashKey($userId), ['code' => $code, 'context' => $result->context], MINUTE_IN_SECONDS);
+        }
+        wp_safe_redirect($urls->withNotice($target, $code));
         exit;
     }
 
@@ -216,7 +226,10 @@ final class VendorRoutes
     {
         $urls = $this->urls();
         $workspace = $this->container->get(VendorWorkspaceFactory::class)->forUser($userId);
-        $notice = $request->queryKey('tmc_notice');
+        $notice = VendorNotice::fromRequest(
+            $request->queryKey('tmc_notice'),
+            $this->container->get(FlashStoreInterface::class)->take(self::flashKey($userId))
+        );
         $nonceField = wp_nonce_field(self::NONCE_ACTION, self::NONCE_FIELD, true, false);
 
         $nav = [
@@ -245,6 +258,12 @@ final class VendorRoutes
             $this->version
         );
         exit;
+    }
+
+    /** One flash per user: a message belongs to whoever just wrote. */
+    private static function flashKey(int $userId): string
+    {
+        return 'vendor_notice_' . $userId;
     }
 
     private function deny(int $code = 403): void

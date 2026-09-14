@@ -1,39 +1,42 @@
---- /home/user/tecteb-seller/docs/evidence/upgrade/01-before-upgrade.txt	2026-09-14 15:16:36.460336321 +0000
-+++ /home/user/tecteb-seller/docs/evidence/upgrade/02-after-upgrade.txt	2026-09-14 15:16:44.962329421 +0000
-@@ -1,7 +1,7 @@
+--- /home/user/tecteb-seller/docs/evidence/upgrade/01-before-upgrade.txt	2026-09-14 17:03:51.449138444 +0000
++++ /home/user/tecteb-seller/docs/evidence/upgrade/02-after-upgrade.txt	2026-09-14 17:04:06.573138998 +0000
+@@ -1,8 +1,9 @@
  ## plugin
--0.1.0-alpha.2
-+0.1.0-alpha.3
+-0.1.0-alpha.3
++0.1.0-alpha.4
  ## schema_option
--1
-+2
+ 2
  ## options
++tmc_private_storage_relocated
  tmc_schema_version
  tmc_settings
-@@ -9,8 +9,16 @@
- {"schema_version":1,"values":{"default_commission_rate_bp":1234,"settlement_delay_days":9,"max_staff":77,"environment_override":"staging"}}
- ## tables
- wp_tmc_audit_events
-+wp_tmc_vendor_applications
-+wp_tmc_vendor_document_types
-+wp_tmc_vendor_documents
-+wp_tmc_vendor_profiles
+ ## settings_value
+@@ -14,7 +15,7 @@
+ wp_tmc_vendor_documents
+ wp_tmc_vendor_profiles
  ## row_counts
--wp_tmc_audit_events=45
-+wp_tmc_audit_events=47
-+wp_tmc_vendor_applications=0
-+wp_tmc_vendor_document_types=0
-+wp_tmc_vendor_documents=0
-+wp_tmc_vendor_profiles=0
- ## audit_rows
- 1|plugin.activated|plugin|2026-09-12 14:52:41
- 2|settings.updated|settings|2026-09-12 14:52:46
-@@ -57,6 +65,8 @@
- 43|plugin.activated|plugin|2026-09-14 15:16:04
- 44|plugin.deactivated|plugin|2026-09-14 15:16:29
- 45|plugin.activated|plugin|2026-09-14 15:16:32
-+46|plugin.deactivated|plugin|2026-09-14 15:16:41
-+47|plugin.activated|plugin|2026-09-14 15:16:42
+-wp_tmc_audit_events=124
++wp_tmc_audit_events=126
+ wp_tmc_vendor_applications=0
+ wp_tmc_vendor_document_types=0
+ wp_tmc_vendor_documents=0
+@@ -144,9 +145,19 @@
+ 122|plugin.activated|plugin|2026-09-14 17:03:06
+ 123|plugin.deactivated|plugin|2026-09-14 17:03:42
+ 124|plugin.activated|plugin|2026-09-14 17:03:45
++125|plugin.deactivated|plugin|2026-09-14 17:04:00
++126|plugin.activated|plugin|2026-09-14 17:04:01
  ## vendor_applications
  ## vendor_documents
  ## vendor_document_types
+ ## vendor_profiles
+ ## admin_caps
+ ## private_files
++/home/user/tecteb-private/application-1/06a121061a26c2579becb27c5d4c9180.pdf
++/home/user/tecteb-private/application-1/19e79d1967a31de04c583e5eb8a57015.pdf
++/home/user/tecteb-private/application-1/4ea2788d8ac732d63eb1a238d4336635.pdf
++/home/user/tecteb-private/application-1/561f5410dbb822a19fdb8ca1e57ca400.pdf
++/home/user/tecteb-private/application-1/9da81fde7da3731a2303fb3ee64c7811.pdf
++/home/user/tecteb-private/application-1/abaf79985d794d4098796b972f253ac7.pdf
++/home/user/tecteb-private/application-1/c4b6e0c4d5de226234ebfd97d1c77d09.pdf
++/home/user/tecteb-private/application-1/c6c9c758d99344aafb9bc0d8b95b027c.pdf

@@ -68,17 +68,29 @@ final class PackagingTest extends TestCase
         self::assertContains(self::SLUG . '/src/Core/Autoloader.php', $entries);
     }
 
+    /**
+     * The development directories are banned WHERE THEY LIVE — at the payload
+     * root — not by name at any depth.
+     *
+     * The looser rule cost a release: `assets/vendor/` matched the pattern
+     * meant for Composer's `vendor/`, the build deleted it, and this test
+     * agreed with the build, so 0.1.0-alpha.3 shipped the vendor area with no
+     * stylesheet and every suite stayed green. A name is not a reason; a
+     * location is. testEveryAssetInTheWorkingTreeIsPackaged is the other half.
+     */
     public function testZipContainsNoForbiddenPaths(): void
     {
+        $root = preg_quote(self::SLUG, '#');
         $forbidden = [
             '#(^|/)\.#' => 'dot-file or dot-directory (.git, .env, ...)',
             '#\.docx$#i' => 'reference DOCX',
-            '#(^|/)vendor/#' => 'dev vendor directory',
-            '#(^|/)node_modules/#' => 'node modules',
-            '#(^|/)tests?/#' => 'test code',
-            '#(^|/)tools/#' => 'build tooling',
-            '#(^|/)docs/#' => 'documentation',
-            '#(^|/)dist/#' => 'nested distribution',
+            "#^{$root}/vendor/#" => 'dev vendor directory',
+            "#^{$root}/node_modules/#" => 'node modules',
+            "#^{$root}/tests?/#" => 'test code',
+            "#^{$root}/tools/#" => 'build tooling',
+            "#^{$root}/docs/#" => 'documentation',
+            "#^{$root}/dist/#" => 'nested distribution',
+            '#(^|/)vendor/autoload\.php$#' => 'a Composer install at any depth',
             '#composer\.(json|lock)$#' => 'composer manifest',
             '#package(-lock)?\.json$#' => 'npm manifest',
             '#phpunit#i' => 'phpunit config',
@@ -91,6 +103,30 @@ final class PackagingTest extends TestCase
                 self::assertDoesNotMatchRegularExpression($pattern, $entry, "{$entry} must not ship ({$why})");
             }
         }
+    }
+
+    /**
+     * Every byte the pages ask the browser for must be in the package.
+     *
+     * A missing stylesheet does not fail any PHP test: the plugin activates,
+     * the routes answer, the HTML is correct, and the page is unreadable.
+     * Nothing short of comparing the working tree with the ZIP catches that.
+     */
+    public function testEveryAssetInTheWorkingTreeIsPackaged(): void
+    {
+        $root = dirname(__DIR__, 2) . '/assets';
+        $entries = $this->entries();
+        $found = 0;
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
+        foreach ($iterator as $file) {
+            if (!$file->isFile()) {
+                continue;
+            }
+            $relative = 'assets/' . str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
+            self::assertContains(self::SLUG . '/' . $relative, $entries, "{$relative} is used by a page but is not in the package");
+            $found++;
+        }
+        self::assertGreaterThanOrEqual(3, $found, 'the working tree should have at least the admin and vendor assets');
     }
 
     public function testZipIsIntactAndEveryShippedClassLoadsFromItAlone(): void

@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Contracts\FlashStoreInterface;
 use Tecteb\Marketplace\Contracts\GuardedOptionStoreInterface;
 use Tecteb\Marketplace\Contracts\DependencyProbeInterface;
 use Tecteb\Marketplace\Contracts\EnvironmentProbeInterface;
@@ -17,6 +18,7 @@ use Tecteb\Marketplace\Contracts\ModuleManifest;
 use Tecteb\Marketplace\Contracts\OptionStoreInterface;
 use Tecteb\Marketplace\Contracts\Otp\OtpProviderInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventSanitizer;
+use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Config\SettingsService;
 use Tecteb\Marketplace\Core\Environment\EnvironmentResolver;
@@ -33,6 +35,8 @@ use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\Deactivator;
 use Tecteb\Marketplace\Modules\Admin\AdminModule;
 use Tecteb\Marketplace\Modules\Health\HealthModule;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\LegacyPrivateDocuments;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\PrivateUploadStorage;
 use Tecteb\Marketplace\Modules\Vendor\VendorModule;
 
 /**
@@ -99,6 +103,47 @@ final class Bootstrap
             // Never break wp-admin because of a migration attempt; the
             // outcome (including a recorded failure) is on the health page.
         }
+        self::relocateLegacyPrivateDocuments();
+    }
+
+    /**
+     * Documents written by the first build sit in a directory the web server
+     * can serve. Activation moves them, but replacing a plugin's files does
+     * NOT fire the activation hook — the same hole UpgradeGate exists to
+     * close — so the move is attempted here too, once, and then never again:
+     * the option read below is the whole cost on every later request.
+     */
+    public static function relocateLegacyPrivateDocuments(): void
+    {
+        try {
+            /** @var OptionStoreInterface $options */
+            $options = self::container()->get(OptionStoreInterface::class);
+            if ((bool) $options->get(LegacyPrivateDocuments::DONE_OPTION, false)) {
+                return;
+            }
+            $result = LegacyPrivateDocuments::relocate(new PrivateUploadStorage());
+            if ($result['skipped'] && $result['reason'] === 'no_safe_directory') {
+                return;    // nothing safe to move INTO yet; try again next time
+            }
+            if ($result['failed'] === 0) {
+                $options->set(LegacyPrivateDocuments::DONE_OPTION, true);
+            }
+            if ($result['moved'] > 0) {
+                /** @var AuditLogger $audit */
+                $audit = self::container()->get(AuditLogger::class);
+                $audit->log(
+                    AuditEventCatalog::VENDOR_DOCUMENTS_RELOCATED,
+                    (new WpCapabilities())->currentUserId(),
+                    'plugin',
+                    'tecteb-marketplace-core',
+                    ['moved' => $result['moved'], 'failed' => $result['failed']]
+                );
+            }
+        } catch (\Throwable) {
+            // Same rule as above: wp-admin must load even if the filesystem
+            // refuses. The documents stay where they are and the vendor
+            // documents screen says so.
+        }
     }
 
     public static function mainFile(): string
@@ -155,6 +200,7 @@ final class Bootstrap
         $c->instance('tmc.version', new \ArrayObject(['version' => self::$version]));
         $c->bind(ClockInterface::class, static fn () => new SystemClock());
         $c->bind(OptionStoreInterface::class, static fn () => new WpOptionStore());
+        $c->bind(FlashStoreInterface::class, static fn () => new TransientFlashStore());
         $c->bind(LockStoreInterface::class, static fn () => new WpLockStore($GLOBALS['wpdb']));
         // Same adapter: the guarded writes act on the same options table and
         // must see the same lock row as the lock itself.

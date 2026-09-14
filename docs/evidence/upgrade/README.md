@@ -5,11 +5,14 @@
 
 ```
 bash tools/upgrade-rollback-check.sh /opt/php81/bin/php docs/evidence/upgrade \
-     dist/tecteb-marketplace-core-0.1.0-alpha.2.zip \
-     dist/tecteb-marketplace-core-0.1.0-alpha.3.zip
+     dist/tecteb-marketplace-core-0.1.0-alpha.3.zip \
+     dist/tecteb-marketplace-core-0.1.0-alpha.4.zip
 ```
 
-نتیجه: **۳۲ بررسی، ۰ شکست** (`summary.txt`).
+نتیجه: **۳۵ بررسی، ۰ شکست** (`summary.txt`).
+
+اجرای دوم، از بستهٔ `0.1.0-alpha.1` که روی staging نصب است، در پوشهٔ کنار دستی
+`docs/evidence/upgrade-alpha1/` است — همان اسکریپت، همان تعداد بررسی.
 محیط و sha256 هر دو بسته: `00-environment.txt`.
 
 | فایل | چیست |

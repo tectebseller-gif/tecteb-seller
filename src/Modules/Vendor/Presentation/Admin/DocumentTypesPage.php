@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Vendor\Presentation\Admin;
 
 use Tecteb\Marketplace\Contracts\ContainerInterface;
+use Tecteb\Marketplace\Contracts\Files\PrivateFileStorageInterface;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
@@ -31,6 +32,25 @@ final class DocumentTypesPage
     {
     }
 
+    /**
+     * Says, in one box, whether a document uploaded today has somewhere safe
+     * to go — and if not, exactly what to put in wp-config.php.
+     */
+    private function storageNotice(): string
+    {
+        $storage = $this->container->get(PrivateFileStorageInterface::class);
+        $reason = $storage->unavailableReason();
+        if ($reason === null) {
+            return Components::notice('info', __('مدارک بارگذاری‌شده بیرون از پوشه‌های قابل‌دسترس وب نگهداری می‌شوند و فقط از راه همین پیشخوان و با مجوز قابل دریافت‌اند.', 'tecteb-marketplace-core'));
+        }
+        return Components::notice('error', sprintf(
+            /* translators: %s is a PHP constant definition for wp-config.php */
+            __('بارگذاری مدارک متوقف است: هیچ پوشه امنی بیرون از ریشه‌های وب پیدا نشد (%1$s). تا وقتی مدیر سایت یک مسیر امن تعیین نکند، هیچ مدرکی پذیرفته نمی‌شود. برای تعیین مسیر، این خط را در wp-config.php اضافه کنید: %2$s', 'tecteb-marketplace-core'),
+            $reason,
+            "define( 'TMC_PRIVATE_UPLOADS_DIR', '/path/outside/public_html/tecteb-private' );"
+        ));
+    }
+
     public static function menuLabel(): string
     {
         return __('مدارک فروشندگان', 'tecteb-marketplace-core');
@@ -50,6 +70,10 @@ final class DocumentTypesPage
         if ($notice !== '') {
             echo Components::notice(str_starts_with($notice, 'ok:') ? 'success' : 'error', substr($notice, strpos($notice, ':') + 1));
         }
+        // Where the documents will land is this page's business: defining a
+        // required document while nothing can be stored would set applicants
+        // up to fail, so the manager sees it before the form.
+        echo $this->storageNotice();
 
         echo '<section class="tmc-card"><h2 class="tmc-card__title">' . esc_html__('وضعیت فعلی', 'tecteb-marketplace-core') . '</h2>';
         echo Components::notice(

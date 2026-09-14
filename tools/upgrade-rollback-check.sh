@@ -26,12 +26,42 @@ DB="${DB:-tmc_wp_test}"
 SOCK="${SOCK:-/run/mysqld/mysqld.sock}"
 PLUGDIR="$WPROOT/wp-content/plugins/tecteb-marketplace-core"
 SCRATCH="${SCRATCH:-/tmp/claude-0/upgrade-rehearsal}"
+LEGACY_DONE_OPTION="tmc_private_storage_relocated"
 
 EV="$(mkdir -p "$EV" && readlink -f "$EV")"
 mkdir -p "$SCRATCH"
+
+# Read the two packages rather than hard-coding what they contain: this same
+# script has to rehearse alpha.1 → alpha.4 (the owner's actual site) and
+# alpha.3 → alpha.4 (ours), and a hard-coded version string would quietly
+# test the wrong thing.
+pkg_field() {   # <zip> <path-inside> <grep -oP pattern>
+  unzip -p "$1" "tecteb-marketplace-core/$2" 2>/dev/null | grep -oP "$3" | head -1
+}
+OLD_VERSION="$(pkg_field "$OLD" tecteb-marketplace-core.php '^\s*\*\s*Version:\s*\K[0-9A-Za-z.\-+]+')"
+NEW_VERSION="$(pkg_field "$NEW" tecteb-marketplace-core.php '^\s*\*\s*Version:\s*\K[0-9A-Za-z.\-+]+')"
+OLD_SCHEMA="$(pkg_field "$OLD" src/Core/Migration/SchemaVersion.php 'TARGET = \K[0-9]+')"
+NEW_SCHEMA="$(pkg_field "$NEW" src/Core/Migration/SchemaVersion.php 'TARGET = \K[0-9]+')"
+[ -n "$OLD_VERSION" ] && [ -n "$NEW_VERSION" ] && [ -n "$OLD_SCHEMA" ] && [ -n "$NEW_SCHEMA" ] \
+  || { echo "cannot read version/schema out of the packages" >&2; exit 2; }
+# Whether the OLD package already had a vendor area decides what "before" is
+# supposed to look like: alpha.1 predates it entirely, alpha.3 does not.
+OLD_HAS_VENDOR=no
+unzip -l "$OLD" | grep -q 'src/Modules/Vendor/VendorModule.php' && OLD_HAS_VENDOR=yes
+OLD_VENDOR_AREA=absent
+[ "$OLD_HAS_VENDOR" = yes ] && OLD_VENDOR_AREA=vendor-dashboard
 wpx()  { "$PHPBIN" /usr/local/bin/wp --allow-root --path="$WPROOT" "$@" 2>/dev/null; }
 dbq()  { mariadb --socket="$SOCK" -uroot --default-character-set=utf8mb4 "$DB" -N -B -e "$1"; }
 code() { curl -s -o "$2" -w '%{http_code}' -b "$3" --max-time 20 "$1"; }
+# Asking the installed plugin, because only it knows where it settled — and on
+# the old package, which has no such class, the answer is correctly empty.
+private_base() {
+  wpx eval 'echo (new \Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\PrivateUploadStorage())->baseDir();' 2>/dev/null
+}
+private_count() {
+  local base; base="$(private_base)"
+  [ -n "$base" ] && [ -d "$base" ] && find "$base" -type f \( -name '*.pdf' -o -name '*.jpg' -o -name '*.png' \) | wc -l | tr -d ' ' || echo 0
+}
 
 fail() { echo "FAIL: $*" | tee -a "$EV/summary.txt"; FAILED=$((FAILED+1)); }
 pass() { echo "ok:   $*" | tee -a "$EV/summary.txt"; }
@@ -73,7 +103,12 @@ snapshot() {     # <file> — everything this plugin owns, in one comparable tex
     echo "## admin_caps"
     wpx user meta get 1 wp_capabilities --format=json | tr ',' '\n' | grep tmc_ | sort
     echo "## private_files"
-    find "$WPROOT/wp-content/uploads/tmc-private" -type f | sed "s|$WPROOT||" | sort
+    # Both places: the directory outside the web roots where documents live
+    # now, and the one inside uploads/ they used to live in. A rollback must
+    # leave the first untouched and must not repopulate the second.
+    for d in "$(private_base)" "$WPROOT/wp-content/uploads/tmc-private"; do
+      [ -n "$d" ] && [ -d "$d" ] && find "$d" -type f \( -name '*.pdf' -o -name '*.jpg' -o -name '*.png' \) | sort
+    done
   } > "$1" 2>&1
 }
 
@@ -96,7 +131,9 @@ pages() {        # <prefix> <cookie-jar> — the four phase-1 admin screens
   echo "php_cli        = $("$PHPBIN" -r 'echo PHP_VERSION;')"
   echo "mariadb        = $(mariadb --socket=$SOCK -uroot -N -B -e 'SELECT VERSION()')"
   echo "old_package    = $(basename "$OLD")  $(sha256sum "$OLD" | cut -d' ' -f1)"
+  echo "old_declares   = version $OLD_VERSION, schema $OLD_SCHEMA, vendor area: $OLD_HAS_VENDOR"
   echo "new_package    = $(basename "$NEW")  $(sha256sum "$NEW" | cut -d' ' -f1)"
+  echo "new_declares   = version $NEW_VERSION, schema $NEW_SCHEMA"
 } > "$EV/00-environment.txt"
 : > "$EV/summary.txt"
 
@@ -127,23 +164,38 @@ check "seller session" "$(grep -c wordpress_logged_in "$SCRATCH/seller.jar")" "1
 echo; echo "===== stage 1: the site as it is before the upgrade ====="
 wpx plugin deactivate tecteb-marketplace-core >/dev/null
 install_pkg "$OLD"
-for t in wp_tmc_vendor_documents wp_tmc_vendor_document_types wp_tmc_vendor_profiles wp_tmc_vendor_applications; do
-  dbq "DROP TABLE IF EXISTS \`$t\`"
-done
-wpx option delete tmc_vendor_documents_none >/dev/null
-wpx cap remove administrator tmc_review_vendor tmc_manage_vendor_documents >/dev/null
-wpx option update tmc_schema_version 1 >/dev/null
+# Only a package that predates the vendor tables gets a database without them;
+# dropping them under a package that declares schema 2 would build a site that
+# never existed, and the run would prove nothing.
+if [ "$OLD_SCHEMA" -lt 2 ]; then
+  for t in wp_tmc_vendor_documents wp_tmc_vendor_document_types wp_tmc_vendor_profiles wp_tmc_vendor_applications; do
+    dbq "DROP TABLE IF EXISTS \`$t\`"
+  done
+  wpx option delete tmc_vendor_documents_none >/dev/null
+  wpx cap remove administrator tmc_review_vendor tmc_manage_vendor_documents >/dev/null
+fi
+# What the database should look like under the old package: for one that
+# predates the vendor tables, schema 1 with the tables gone; for one that
+# already declares schema 2, whatever ITS OWN migration produces — so the
+# version is wound back to 1 and the old package is left to build the rest.
+if [ "$OLD_SCHEMA" -lt 2 ]; then
+  wpx option update tmc_schema_version "$OLD_SCHEMA" >/dev/null
+else
+  wpx option update tmc_schema_version 1 >/dev/null
+fi
+wpx option delete "$LEGACY_DONE_OPTION" >/dev/null
 wpx plugin activate tecteb-marketplace-core >/dev/null
 # a non-default settings value, so "preserved" means something
 wpx option patch update tmc_settings default_commission_rate_bp 1234 >/dev/null
 wpx option patch update tmc_settings settlement_delay_days 9 >/dev/null
 snapshot "$EV/01-before-upgrade.txt"
-check "stage 1 version" "$(wpx plugin get tecteb-marketplace-core --field=version)" "0.1.0-alpha.2"
-check "stage 1 schema"  "$(wpx option get tmc_schema_version)" "1"
-check "stage 1 vendor tables absent" "$(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'" | wc -l)" "0"
+check "stage 1 version" "$(wpx plugin get tecteb-marketplace-core --field=version)" "$OLD_VERSION"
+check "stage 1 schema"  "$(wpx option get tmc_schema_version)" "$OLD_SCHEMA"
+EXPECTED_OLD_TABLES=0; [ "$OLD_SCHEMA" -ge 2 ] && EXPECTED_OLD_TABLES=4
+check "stage 1 vendor tables as the old package leaves them" "$(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'" | wc -l)" "$EXPECTED_OLD_TABLES"
 { pages 01 "$SCRATCH/admin.jar"; echo "vendor_area=$(vendor_area "$EV/01-vendor.html")"; } > "$EV/01-http.txt"
 check "stage 1 admin pages 200" "$(grep -c '=200' "$EV/01-http.txt")" "4"
-check "stage 1 no vendor area"  "$(grep -o 'vendor_area=.*' "$EV/01-http.txt")" "vendor_area=absent"
+check "stage 1 vendor area matches the old package" "$(grep -o 'vendor_area=.*' "$EV/01-http.txt")" "vendor_area=$OLD_VENDOR_AREA"
 
 # ---------------------------------------------------------------- stage 2
 echo; echo "===== stage 2: the documented upgrade ====="
@@ -152,8 +204,8 @@ install_pkg "$NEW"
 wpx plugin activate tecteb-marketplace-core >/dev/null
 snapshot "$EV/02-after-upgrade.txt"
 diff -u "$EV/01-before-upgrade.txt" "$EV/02-after-upgrade.txt" > "$EV/03-diff-upgrade.txt"
-check "stage 2 version" "$(wpx plugin get tecteb-marketplace-core --field=version)" "0.1.0-alpha.3"
-check "stage 2 schema"  "$(wpx option get tmc_schema_version)" "2"
+check "stage 2 version" "$(wpx plugin get tecteb-marketplace-core --field=version)" "$NEW_VERSION"
+check "stage 2 schema"  "$(wpx option get tmc_schema_version)" "$NEW_SCHEMA"
 check "stage 2 vendor tables created" "$(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'" | wc -l)" "4"
 check "stage 2 commission preserved" "$(wpx option get tmc_settings --format=json | grep -o '"default_commission_rate_bp":[0-9]*')" '"default_commission_rate_bp":1234'
 check "stage 2 no audit row lost" \
@@ -162,6 +214,14 @@ check "stage 2 no audit row lost" \
 { pages 02 "$SCRATCH/admin.jar"; echo "vendor_area=$(vendor_area "$EV/02-vendor.html")"; } > "$EV/02-http.txt"
 check "stage 2 admin pages 200" "$(grep -c '=200' "$EV/02-http.txt")" "4"
 check "stage 2 vendor area live" "$(grep -o 'vendor_area=.*' "$EV/02-http.txt")" "vendor_area=vendor-dashboard"
+# 0.1.0-alpha.3 shipped this page without its stylesheet. A package that
+# activates cleanly and renders an unreadable page is still a broken upgrade,
+# so the asset is fetched from the site, not looked for in the repository.
+CSS_URL="$SITE/wp-content/plugins/tecteb-marketplace-core/assets/vendor/tmc-vendor.css"
+check "stage 2 vendor stylesheet is served" "$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$CSS_URL")" "200"
+# and nothing may be left in the directory the web server can serve
+check "stage 2 no document left inside uploads" \
+  "$(find "$WPROOT/wp-content/uploads" -path '*tmc-private*' \( -name '*.pdf' -o -name '*.jpg' -o -name '*.png' \) 2>/dev/null | wc -l | tr -d ' ')" "0"
 
 # ---------------------------------------------------------------- stage 3
 echo; echo "===== stage 3: real vendor data, written by the plugin itself ====="
@@ -171,8 +231,11 @@ check "stage 3 seed complete" "$(grep -c '^seed=complete' "$EV/04-seed.txt")" "1
 snapshot "$EV/05-with-vendor-data.txt"
 check "stage 3 application stored" "$(dbq "SELECT COUNT(*) FROM wp_tmc_vendor_applications")" "1"
 check "stage 3 document stored"    "$(dbq "SELECT COUNT(*) FROM wp_tmc_vendor_documents")" "1"
-PRIVATE_FILES=$(find "$WPROOT/wp-content/uploads/tmc-private" -name '*.pdf' | wc -l | tr -d ' ')
-echo "private_pdf_files=$PRIVATE_FILES" >> "$EV/04-seed.txt"
+PRIVATE_FILES=$(private_count)
+PRIVATE_BASE="$(private_base)"
+{ echo "private_base=$PRIVATE_BASE"; echo "private_files=$PRIVATE_FILES"; } >> "$EV/04-seed.txt"
+check "stage 3 documents are outside the web roots" \
+  "$(case "$PRIVATE_BASE/" in "$WPROOT"/*) echo inside;; *) echo outside;; esac)" "outside"
 
 # ---------------------------------------------------------------- stage 4
 echo; echo "===== stage 4: back to the previous package ====="
@@ -181,18 +244,23 @@ install_pkg "$OLD"
 wpx plugin activate tecteb-marketplace-core >/dev/null
 snapshot "$EV/06-after-rollback.txt"
 diff -u "$EV/05-with-vendor-data.txt" "$EV/06-after-rollback.txt" > "$EV/07-diff-rollback.txt"
-check "stage 4 version" "$(wpx plugin get tecteb-marketplace-core --field=version)" "0.1.0-alpha.2"
-check "stage 4 schema untouched"       "$(wpx option get tmc_schema_version)" "2"
+check "stage 4 version" "$(wpx plugin get tecteb-marketplace-core --field=version)" "$OLD_VERSION"
+check "stage 4 schema untouched"       "$(wpx option get tmc_schema_version)" "$NEW_SCHEMA"
 check "stage 4 vendor tables kept"     "$(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'" | wc -l)" "4"
 check "stage 4 application kept"       "$(dbq "SELECT COUNT(*) FROM wp_tmc_vendor_applications")" "1"
 check "stage 4 document row kept"      "$(dbq "SELECT COUNT(*) FROM wp_tmc_vendor_documents")" "1"
-check "stage 4 private file kept"      "$(find "$WPROOT/wp-content/uploads/tmc-private" -name '*.pdf' | wc -l | tr -d ' ')" "$PRIVATE_FILES"
+# The old package cannot report a base dir, so count where stage 3 found them.
+check "stage 4 private files kept" \
+  "$(find "$PRIVATE_BASE" -type f \( -name '*.pdf' -o -name '*.jpg' -o -name '*.png' \) 2>/dev/null | wc -l | tr -d ' ')" "$PRIVATE_FILES"
 { pages 06 "$SCRATCH/admin.jar"; echo "vendor_area=$(vendor_area "$EV/06-vendor.html")"; } > "$EV/06-http.txt"
 check "stage 4 admin pages 200" "$(grep -c '=200' "$EV/06-http.txt")" "4"
-check "stage 4 vendor area gone" "$(grep -o 'vendor_area=.*' "$EV/06-http.txt")" "vendor_area=absent"
-# the health page must say, in Persian, that the database is ahead of this build
+check "stage 4 vendor area matches the old package" "$(grep -o 'vendor_area=.*' "$EV/06-http.txt")" "vendor_area=$OLD_VENDOR_AREA"
+# The health page must say, in Persian, that the database was written by a
+# newer build — but only when the rollback actually leaves it behind. An old
+# package on the same schema has nothing to warn about.
 grep -o 'نسخه ساختار داده[^<]*' "$EV/06-tmc-health.html" | head -3 > "$EV/08-health-ahead-message.txt"
-check "stage 4 health warns 'ahead'" "$(grep -c 'نسخه ساختار داده' "$EV/08-health-ahead-message.txt")" "1"
+EXPECT_AHEAD=1; [ "$OLD_SCHEMA" -ge "$NEW_SCHEMA" ] && EXPECT_AHEAD=0
+check "stage 4 health warns 'ahead' when it should" "$(grep -c 'نسخه ساختار داده' "$EV/08-health-ahead-message.txt")" "$EXPECT_AHEAD"
 
 # ---------------------------------------------------------------- stage 5
 echo; echo "===== stage 5: forward again, same data ====="
@@ -224,7 +292,7 @@ wpx rewrite flush >/dev/null
 for t in wp_tmc_vendor_documents wp_tmc_vendor_document_types wp_tmc_vendor_profiles wp_tmc_vendor_applications; do
   dbq "DROP TABLE IF EXISTS \`$t\`"
 done
-wpx option update tmc_schema_version 1 >/dev/null
+wpx option update tmc_schema_version "$OLD_SCHEMA" >/dev/null
 install_pkg "$NEW"                                          # swap files only
 { echo "before_request_schema=$(wpx option get tmc_schema_version)"
   echo "admin_request=$(code "$SITE/wp-admin/admin.php?page=tmc-dashboard" "$EV/10-inplace-dashboard.html" "$SCRATCH/admin.jar")"
@@ -234,8 +302,11 @@ install_pkg "$NEW"                                          # swap files only
 wpx rewrite flush >/dev/null                                # = Settings › Permalinks › Save
 echo "vendor_after_flush=$(vendor_area "$EV/10-vendor-after-flush.html")" >> "$EV/10-inplace-upgrade.txt"
 cat "$EV/10-inplace-upgrade.txt"
-check "stage 6 migration ran without activation" "$(grep -o 'after_request_schema=[0-9]*' "$EV/10-inplace-upgrade.txt")" "after_request_schema=2"
-check "stage 6 /vendor/ needs a flush"           "$(grep -o 'vendor_before_flush=.*' "$EV/10-inplace-upgrade.txt")" "vendor_before_flush=absent"
+check "stage 6 migration ran without activation" "$(grep -o 'after_request_schema=[0-9]*' "$EV/10-inplace-upgrade.txt")" "after_request_schema=$NEW_SCHEMA"
+# Only an upgrade FROM a package without /vendor/ has rules to add; when the
+# old package already served it, the rules are already in the database and the
+# right expectation is that nothing breaks.
+check "stage 6 /vendor/ before a flush"          "$(grep -o 'vendor_before_flush=.*' "$EV/10-inplace-upgrade.txt")" "vendor_before_flush=$OLD_VENDOR_AREA"
 check "stage 6 /vendor/ answers after flush"     "$(grep -o 'vendor_after_flush=.*' "$EV/10-inplace-upgrade.txt")" "vendor_after_flush=vendor-dashboard"
 
 # ------------------------------------------------------------------ end

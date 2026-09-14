@@ -25,6 +25,8 @@ final class AuditEventCatalog
     public const VENDOR_DOCUMENT_REJECTED = 'vendor.document_rejected';
     public const VENDOR_DOCUMENT_DOWNLOADED = 'vendor.document_downloaded';
     public const VENDOR_REQUIREMENTS_CHANGED = 'vendor.requirements_changed';
+    /** Documents moved out of the old in-uploads directory. Counts only. */
+    public const VENDOR_DOCUMENTS_RELOCATED = 'vendor.documents_relocated';
 
     /** @return array<string, list<string>> event type => allowed top-level payload keys */
     public static function allowlist(): array
@@ -41,6 +43,7 @@ final class AuditEventCatalog
             self::VENDOR_DOCUMENT_REJECTED => ['application_id', 'type', 'reason', 'bytes'],
             self::VENDOR_DOCUMENT_DOWNLOADED => ['application_id', 'document_id', 'type'],
             self::VENDOR_REQUIREMENTS_CHANGED => ['action', 'type', 'mode'],
+            self::VENDOR_DOCUMENTS_RELOCATED => ['moved', 'failed'],
         ];
     }
 

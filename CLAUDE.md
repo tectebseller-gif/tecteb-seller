@@ -25,11 +25,18 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 گزارش: `docs/phase-1-report.md` بند ۳ · شواهد: `docs/evidence/acceptance/` ·
 اصلاح‌های بازبینی: `docs/review-fixes-phase-1.md` · تحویل بعدی: `docs/next-phase-handoff.md`.
 
-**ارتقا و بازگشت (۱۴ سپتامبر):** مسیر `alpha.2 → alpha.3` (schema ۱→۲) و راه
-برگشت روی همان وردپرس یکبارمصرف اجرا شد — ۳۲ بررسی، ۰ شکست. migration فقط
-افزودنی است و نسخه قدیمی ساختار را پایین نمی‌آورد، پس **برای بازگشت
-بازگرداندن ZIP قبلی کافی است و بازیابی دیتابیس لازم نیست**
-(`docs/upgrade-and-rollback.md` · `docs/evidence/upgrade/`).
+**ارتقا و بازگشت (۱۴ سپتامبر):** دو مسیر روی همان وردپرس یکبارمصرف اجرا شد —
+`alpha.1 → alpha.4` (همان بسته‌ای که روی staging نصب است) و `alpha.3 → alpha.4`
+— هرکدام ۳۵ بررسی و ۰ شکست. migration فقط افزودنی است و نسخه قدیمی ساختار را
+پایین نمی‌آورد، پس **برای بازگشت بازگرداندن ZIP قبلی کافی است و بازیابی
+دیتابیس لازم نیست** (`docs/upgrade-and-rollback.md` ·
+`docs/evidence/upgrade-alpha1/` · `docs/evidence/upgrade/`).
+
+**`0.1.0-alpha.4` (۱۴ سپتامبر):** مقدار پیام‌های خطا پس از redirect حفظ می‌شود؛
+مدارک خصوصی **بیرون از ریشه‌های قابل‌دسترس وب** ذخیره می‌شوند و اگر محل امنی
+نباشد بارگذاری با خطای روشن متوقف می‌شود (ADR-007، F-08)؛ و نقص بسته‌بندی
+`alpha.3` که `assets/vendor/tmc-vendor.css` را از ZIP بیرون می‌گذاشت اصلاح شد.
+هرگز پوشه‌ای را فقط به‌خاطر نامش از بسته حذف نکنید — فقط ریشه payload.
 
 **۱۱ سپتامبر — سه چیز عوض شد (جزئیات: `docs/phase-1-report.md` بند ۵):**
 - مالک `0.1.0-alpha.1` را روی `staging.tecteb.com` **نصب و فعال کرده است**. این
@@ -76,10 +83,12 @@ node tools/browser/check.mjs                # ۲۳۳ بررسی viewport/axe/key
 php  tools/contrast.php                     # کنتراست WCAG رنگ‌های برند
 bash tools/build.sh                         # dist/ZIP + SHA256SUMS + source archive
 
-# ارتقای schema ۱→۲ و بازگشت، روی وردپرس یکبارمصرف (۳۲ بررسی)
-bash tools/upgrade-rollback-check.sh /opt/php81/bin/php docs/evidence/upgrade \
-     dist/tecteb-marketplace-core-0.1.0-alpha.2.zip \
-     dist/tecteb-marketplace-core-0.1.0-alpha.3.zip
+# ارتقای schema ۱→۲ و بازگشت، روی وردپرس یکبارمصرف (۳۵ بررسی در هر اجرا)
+bash tools/upgrade-rollback-check.sh /opt/php81/bin/php docs/evidence/upgrade-alpha1 \
+     <alpha.1-zip> dist/tecteb-marketplace-core-0.1.0-alpha.4.zip
+
+node tools/browser/check-vendor-messages.mjs   # متن و مقدار پیام‌ها (۱۱ بررسی)
+bash tools/check-private-access.sh docs/evidence/vendor  # دسترسی مستقیم وب
 ```
 دیتابیس آزمون **یکبارمصرف** است و پیکربندی‌اش در `.env.testing` می‌آید؛ هرگز
 به دیتابیس واقعی اشاره نکنید (suite در نبود نام `tmc_test` اجرا نمی‌شود).

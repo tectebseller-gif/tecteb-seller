@@ -148,7 +148,16 @@ final class VendorMessages
         };
     }
 
-    /** Turns a use-case result code into one sentence for the vendor. */
+    /**
+     * Turns a use-case result code into one sentence for the vendor.
+     *
+     * Three of these sentences quote a value the server computed — a size
+     * limit, an allowed format list, the documents still missing. Each has a
+     * second shape for when that value did not survive the redirect: the
+     * page still says what went wrong and where to look, because a sentence
+     * that prints «حداکثر ۰ مگابایت» is worse than one that prints no number
+     * at all.
+     */
     public static function notice(string $code, array $context = []): string
     {
         $size = static fn (mixed $b): string => PersianDigits::toPersian((string) round(((int) $b) / 1048576, 1));
@@ -157,18 +166,25 @@ final class VendorMessages
             'submitted' => __('درخواست شما ارسال شد و در صف بررسی قرار گرفت.', 'tecteb-marketplace-core'),
             'document_uploaded' => __('مدرک بارگذاری شد.', 'tecteb-marketplace-core'),
             'requirements_undefined' => __('ارسال ممکن نیست: مدیر بازارگاه هنوز فهرست مدارک را تعریف نکرده است. پیش‌نویس شما محفوظ است.', 'tecteb-marketplace-core'),
-            'missing_documents' => sprintf(__('این مدارک اجباری هنوز بارگذاری نشده‌اند: %s', 'tecteb-marketplace-core'), (string) ($context['types'] ?? '')),
+            'missing_documents' => ($context['types'] ?? '') !== ''
+                ? sprintf(__('این مدارک اجباری هنوز بارگذاری نشده‌اند: %s', 'tecteb-marketplace-core'), (string) $context['types'])
+                : __('هنوز همه مدارک اجباری بارگذاری نشده‌اند. مدارکی که نشان «اجباری» دارند در همین صفحه مشخص‌اند.', 'tecteb-marketplace-core'),
             'incomplete_form' => __('چند فیلد اجباری خالی است. آن‌ها را پر کنید و دوباره ذخیره کنید.', 'tecteb-marketplace-core'),
             'not_editable' => __('این درخواست در وضعیتی است که دیگر ویرایش نمی‌شود.', 'tecteb-marketplace-core'),
             'no_application' => __('هنوز درخواستی ثبت نشده است.', 'tecteb-marketplace-core'),
             'not_submittable' => __('این درخواست در وضعیت فعلی ارسال‌شدنی نیست.', 'tecteb-marketplace-core'),
-            'too_large' => sprintf(__('فایل بزرگ‌تر از حد مجاز است (حداکثر %s مگابایت).', 'tecteb-marketplace-core'), $size($context['max_bytes'] ?? 0)),
-            'mime_not_allowed' => sprintf(__('نوع فایل پذیرفته نیست. فرمت‌های مجاز: %s', 'tecteb-marketplace-core'), (string) ($context['allowed'] ?? '')),
+            'too_large' => isset($context['max_bytes']) && (int) $context['max_bytes'] > 0
+                ? sprintf(__('فایل بزرگ‌تر از حد مجاز است (حداکثر %s مگابایت).', 'tecteb-marketplace-core'), $size($context['max_bytes']))
+                : __('فایل بزرگ‌تر از حد مجاز است. سقف حجم روی کارت همین مدرک نوشته شده است.', 'tecteb-marketplace-core'),
+            'mime_not_allowed' => ($context['allowed'] ?? '') !== ''
+                ? sprintf(__('نوع فایل پذیرفته نیست. فرمت‌های مجاز: %s', 'tecteb-marketplace-core'), (string) $context['allowed'])
+                : __('نوع فایل پذیرفته نیست. فرمت‌های مجاز روی کارت همین مدرک نوشته شده‌اند.', 'tecteb-marketplace-core'),
             'unknown_type' => __('این نوع مدرک دیگر خواسته نمی‌شود.', 'tecteb-marketplace-core'),
             'empty_file' => __('فایل خالی است.', 'tecteb-marketplace-core'),
             'no_file' => __('فایلی انتخاب نشده بود.', 'tecteb-marketplace-core'),
             'transfer_failed' => __('بارگذاری فایل ناتمام ماند. دوباره تلاش کنید.', 'tecteb-marketplace-core'),
             'storage_failed' => __('ذخیره‌سازی انجام نشد. کمی بعد دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+            'storage_unavailable' => __('بارگذاری مدرک فعلاً ممکن نیست: محل امنِ نگهداری مدارک روی این سایت آماده نیست. مدیر سایت باید آن را تنظیم کند؛ تا آن زمان هیچ مدرکی پذیرفته نمی‌شود.', 'tecteb-marketplace-core'),
             'forbidden' => __('دسترسی لازم را ندارید.', 'tecteb-marketplace-core'),
             default => __('انجام شد.', 'tecteb-marketplace-core'),
         };

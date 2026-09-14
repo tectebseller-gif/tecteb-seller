@@ -35,6 +35,10 @@ final class Activator
         $runner = $container->get(MigrationRunner::class);
         $migration = $runner->run();
 
+        // Documents the first build left inside uploads/ are moved now, while
+        // an administrator is watching, rather than on some later request.
+        Bootstrap::relocateLegacyPrivateDocuments();
+
         // The vendor area answers at /vendor/…, which only works once the
         // rewrite rules are in the database. Registering them here (the init
         // hook has not run yet during activation) and flushing once is the

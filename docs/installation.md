@@ -577,9 +577,9 @@ DEC-05 باز است و تا تعیین تکلیف، حذف خودکار انج�
 
 > **به‌روزرسانی برای ساختار داده ۲:** فهرست‌های این پیوست برای فاز ۱ نوشته شده
 > بودند (یک جدول، چهار capability، چهار option). از `0.1.0-alpha.3` چهار جدول
-> فروشنده، دو capability و یک option دیگر هم وجود دارند و مدارک بارگذاری‌شده
-> بیرون از دیتابیس در `wp-content/uploads/tmc-private/` می‌نشینند. دستورهای
-> زیر همه را پوشش می‌دهند.
+> فروشنده، دو capability و دو option دیگر هم وجود دارند، و از `0.1.0-alpha.4`
+> مدارک بارگذاری‌شده **بیرون از ریشه‌های قابل‌دسترس وب** نگهداری می‌شوند
+> (ADR-007) نه در `wp-content/uploads/`. دستورهای زیر همه را پوشش می‌دهند.
 
 ### الف-۱. سه بررسی اجباری پیش از هر حذف
 
@@ -630,7 +630,7 @@ wp db export "$HOME/pre-purge-$(date -u +%Y%m%dT%H%M%SZ).sql"
 ```bash
 # optionها: فقط چهار نام صریح، بدون الگوی wildcard
 for o in tmc_settings tmc_schema_version tmc_migration_last_error tmc_migration_lock \
-         tmc_vendor_documents_none; do
+         tmc_vendor_documents_none tmc_private_storage_relocated; do
   wp option delete "$o" 2>/dev/null && echo "deleted $o" || echo "absent $o"
 done
 
@@ -646,8 +646,10 @@ for c in tmc_view_dashboard tmc_view_health tmc_manage_settings tmc_view_modules
   wp cap remove administrator "$c"
 done
 
-# مدارک خصوصی فروشندگان — بیرون از دیتابیس و بیرون از پوشه افزونه
-rm -rf "$(wp eval 'echo wp_upload_dir()["basedir"];')/tmc-private"
+# مدارک خصوصی فروشندگان — بیرون از دیتابیس، بیرون از پوشه افزونه، و از
+# 0.1.0-alpha.4 بیرون از ریشه‌های قابل‌دسترس وب. مسیر را از خود افزونه بپرسید.
+rm -rf "$(wp eval 'echo (new \Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\PrivateUploadStorage())->baseDir();')"
+rm -rf "$(wp eval 'echo wp_upload_dir()["basedir"];')/tmc-private"   # محل قدیمی، اگر مانده باشد
 ```
 
 ### الف-۳. تأیید پس از حذف

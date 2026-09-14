@@ -45,7 +45,18 @@ cp languages/README.md "${STAGE}/${SLUG}/languages/" 2>/dev/null || true
 PAYLOAD="${STAGE}/${SLUG}"
 find "${PAYLOAD}" -depth \( -name '.*' -o -name '*.docx' -o -name '*.zip' -o -name '*.log' \
      -o -name 'composer.*' -o -name 'package*.json' -o -name '*.dist' -o -name '*.map' \) -print -exec rm -rf {} +
-find "${PAYLOAD}" -depth -type d \( -name vendor -o -name node_modules -o -name tests -o -name tools \) -print -exec rm -rf {} +
+# Only the TOP-LEVEL development directories. Matching `-name vendor` at any
+# depth is what silently dropped assets/vendor/ — the vendor area's entire
+# stylesheet — out of 0.1.0-alpha.3: a directory named after Composer's,
+# deleted because of its name rather than its contents. The packaging suite
+# now asserts that every asset in the working tree reaches the ZIP.
+for dev in vendor node_modules tests tools; do
+  [ -e "${PAYLOAD}/${dev}" ] && { echo "removing ${dev}/"; rm -rf "${PAYLOAD:?}/${dev}"; }
+done
+# A Composer install nested deeper would still be wrong; refuse rather than
+# guess, so the next surprise stops the build instead of shipping.
+NESTED="$(find "${PAYLOAD}" -type f -name autoload.php -path '*/vendor/*' | head -1)"
+[ -z "${NESTED}" ] || { echo "refusing to package a nested Composer vendor directory: ${NESTED}" >&2; exit 1; }
 
 # Deterministic timestamps so two builds of the same source match byte for byte.
 #

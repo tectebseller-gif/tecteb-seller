@@ -58,15 +58,18 @@
 
 | سناریو | وضعیت | یادداشت |
 |---|---|---|
-| ارتقای `alpha.2 → alpha.3` با حفظ داده (غیرفعال ← حذف ← نصب ← فعال) | **`Passed`** (وردپرس واقعی یکبارمصرف) | چهار جدول ساخته شد، schema ۱→۲، هیچ ردیف audit و هیچ تنظیمی گم نشد · `docs/evidence/upgrade/03-diff-upgrade.txt` |
+| ارتقا با حفظ داده (غیرفعال ← حذف ← نصب ← فعال) | **`Passed`** (وردپرس واقعی یکبارمصرف) | چهار جدول ساخته شد، schema ۱→۲، هیچ ردیف audit و هیچ تنظیمی گم نشد · `docs/evidence/upgrade*/03-diff-upgrade.txt` |
 | ارتقا با جایگزینی فایل، بدون اجرای قلاب فعال‌سازی | **`Passed`** | `UpgradeGate` در نخستین `admin_init` migration را اجرا کرد؛ مسیر `/vendor/` تا تازه‌سازی پیوندهای یکتا باز نشد · `10-inplace-upgrade.txt` |
-| بازگشت به `alpha.2` روی دیتابیس schema ۲ | **`Passed`** | هیچ جدولی حذف نشد، دادهٔ فروشنده و فایل‌های خصوصی ماندند، صفحهٔ سلامت هشدار «جلوتر بودن» داد · `06-after-rollback.txt`، `08-health-ahead-message.txt` |
+| بازگشت به بستهٔ قبلی روی دیتابیس schema ۲ | **`Passed`** | هیچ جدولی حذف نشد، دادهٔ فروشنده و فایل‌های خصوصی ماندند · `06-after-rollback.txt`، `08-health-ahead-message.txt`. **استثنا:** مدارک ذخیره‌شده با `alpha.4` برای `alpha.3` خوانا نیستند (اندازه‌گیری‌شده: `can_read=false`) — `docs/upgrade-and-rollback.md` بند ۴ |
 | ارتقای دوباره پس از بازگشت | **`Passed`** | همان درخواست دوباره در پیشخوان فروشنده نمایش داده شد · `09-after-reupgrade.txt` |
-| ارتقا از `0.1.0-alpha.1` (نسخهٔ نصب‌شده روی staging) | `Not Run` | همان یک migration را اجرا می‌کند، ولی مستقیماً آزموده نشده |
+| **ارتقای `alpha.1 → alpha.4` با حفظ داده** (همان بستهٔ نصب‌شده روی staging، sha256 `c37f8902…7f46f1`) | **`Passed`** | ۳۵ بررسی، ۰ شکست؛ رفت و برگشت · `docs/evidence/upgrade-alpha1/` |
+| بازگشت از `alpha.4` به `alpha.1` | **`Passed`** | جدول‌ها، ردیف‌ها و مدارک ماندند؛ صفحهٔ سلامت هشدار «جلوتر بودن» داد |
+| دسترسی مستقیم وب به یک مدرک (شش URL، شامل مسیر قدیمی و traversal) | **`Passed`** | همه ۴۰۴، در حالی که فایل شاهد داخل `uploads/` با ۲۰۰ سرو شد · `docs/evidence/vendor/private-access.log` |
+| متن و مقدار سه پیام خطا در مرورگر واقعی | **`Passed`** | ۱۱ بررسی، ۰ شکست · `docs/evidence/vendor/vendor-messages.json` |
 | هر کدام از این‌ها روی `staging.tecteb.com` یا PHP 8.1.34 | `Not Run` | خارج از مجوز فعلی؛ آزمون ما روی PHP 8.1.32 و سایت یکبارمصرف بود |
 
-روش اجرا: `bash tools/upgrade-rollback-check.sh <php> docs/evidence/upgrade <old-zip> <new-zip>`
-— ۳۲ بررسی، ۰ شکست. راهنمای خواندنی: `docs/upgrade-and-rollback.md`.
+روش اجرا: `bash tools/upgrade-rollback-check.sh <php> <evidence-dir> <old-zip> <new-zip>`
+— دو اجرا، هرکدام ۳۵ بررسی و ۰ شکست. راهنمای خواندنی: `docs/upgrade-and-rollback.md`.
 
 ## ۴. سرور، قالب و افزونه‌های سایت (DEC-06-b)
 

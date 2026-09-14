@@ -1,0 +1,63 @@
+{
+  "suite": "vendor-messages",
+  "generated_at": "2026-09-14T16:55:48.297Z",
+  "total": 11,
+  "failures": 0,
+  "results": [
+    {
+      "name": "a required document is defined",
+      "ok": true,
+      "detail": "1 row(s) on the manager's page"
+    },
+    {
+      "name": "no submit button while a document is missing",
+      "ok": true,
+      "detail": "the page explains instead of offering a button that would fail"
+    },
+    {
+      "name": "missing-documents message names the document",
+      "ok": true,
+      "detail": "«این مدارک اجباری هنوز بارگذاری نشده‌اند: پروانه کسب»"
+    },
+    {
+      "name": "missing-documents message is not left dangling",
+      "ok": true,
+      "detail": "«این مدارک اجباری هنوز بارگذاری نشده‌اند: پروانه کسب»"
+    },
+    {
+      "name": "size refusal quotes the manager’s limit",
+      "ok": true,
+      "detail": "«فایل بزرگ‌تر از حد مجاز است (حداکثر ۲ مگابایت).»"
+    },
+    {
+      "name": "size refusal never says zero megabytes",
+      "ok": true,
+      "detail": "«فایل بزرگ‌تر از حد مجاز است (حداکثر ۲ مگابایت).»"
+    },
+    {
+      "name": "format refusal lists the allowed formats",
+      "ok": true,
+      "detail": "«نوع فایل پذیرفته نیست. فرمت‌های مجاز: application/pdf»"
+    },
+    {
+      "name": "format refusal is not left dangling",
+      "ok": true,
+      "detail": "«نوع فایل پذیرفته نیست. فرمت‌های مجاز: application/pdf»"
+    },
+    {
+      "name": "accepted upload is confirmed",
+      "ok": true,
+      "detail": "«مدرک بارگذاری شد.»"
+    },
+    {
+      "name": "a replayed notice still renders a sentence",
+      "ok": true,
+      "detail": "«مدرک بارگذاری شد.»"
+    },
+    {
+      "name": "a replayed notice invents no number",
+      "ok": true,
+      "detail": "«مدرک بارگذاری شد.»"
+    }
+  ]
+}

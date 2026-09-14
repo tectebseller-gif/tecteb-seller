@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Vendor\Application;
 
 use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Contracts\Files\PrivateFileStorageInterface;
+use Tecteb\Marketplace\Contracts\Files\PrivateStorageUnavailable;
 use Tecteb\Marketplace\Contracts\Files\UploadedFile;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
@@ -63,6 +64,17 @@ final class UploadApplicationDocument
 
         try {
             $stored = $this->storage->store($file, 'application-' . $application->id);
+        } catch (PrivateStorageUnavailable $e) {
+            // Not "try again later": nothing will change until the site owner
+            // configures a directory outside the web roots, and the applicant
+            // deserves to be told that rather than sent in a circle.
+            $this->audit->log(AuditEventCatalog::VENDOR_DOCUMENT_REJECTED, $userId, 'vendor_application', (string) $application->id, [
+                'application_id' => $application->id,
+                'type' => $typeSlug,
+                'reason' => 'storage_unavailable',
+                'bytes' => $file->sizeBytes,
+            ]);
+            return OperationResult::failure('storage_unavailable', ['type' => $typeSlug, 'placement' => $e->reason]);
         } catch (\Throwable) {
             $this->audit->log(AuditEventCatalog::VENDOR_DOCUMENT_REJECTED, $userId, 'vendor_application', (string) $application->id, [
                 'application_id' => $application->id,

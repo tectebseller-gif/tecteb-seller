@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Infrastructure\WordPress\Http;
 
 use Tecteb\Marketplace\Contracts\Files\UploadedFile;
+use Tecteb\Marketplace\Core\Support\FilesystemPath;
 
 /**
  * The ONE place in shipped code that touches a superglobal.
@@ -36,6 +37,22 @@ final class Request
             $_FILES ?? [],
             strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'))
         );
+    }
+
+    /**
+     * The server's own document root, or '' when the SAPI does not set one
+     * (WP-CLI, cron). Read here because this is the one file allowed to touch
+     * $_SERVER, and normalised the same way every other path is: a value that
+     * arrives with a trailing slash or a stray `..` must still compare
+     * correctly against a candidate directory.
+     */
+    public static function documentRoot(): string
+    {
+        $raw = $_SERVER['DOCUMENT_ROOT'] ?? '';
+        if (!is_string($raw) || $raw === '') {
+            return '';
+        }
+        return FilesystemPath::normalize(wp_unslash($raw));
     }
 
     public function isPost(): bool
