@@ -29,6 +29,8 @@ use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontStop;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
@@ -38,9 +40,12 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbVariationRepository;
+use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductHooks;
+use Tecteb\Marketplace\Modules\Product\Presentation\Admin\StorefrontPage;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullCatalogProjector;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\CartGuard;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\PurchaseGuard;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceProjector;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpProductImages;
@@ -118,15 +123,28 @@ final class ProductModule implements ModuleInterface
                 ? new WooCommerceProjector($c->get(SpecTemplateRepositoryInterface::class))
                 : new NullCatalogProjector();
         });
+        $c->bind(StorefrontSwitch::class, static fn (ContainerInterface $c) => new StorefrontSwitch(
+            $c->get(OptionStoreInterface::class),
+            $c->get(ClockInterface::class)
+        ));
         $c->bind(PurchasePolicy::class, static fn (ContainerInterface $c) => new PurchasePolicy(
             $c->get(ProductRepositoryInterface::class),
             $c->get(StaffAccess::class),
-            $c->get(OrderOperationsGate::class)
+            $c->get(OrderOperationsGate::class),
+            $c->get(StorefrontSwitch::class)
         ));
         $c->bind(SyncCatalog::class, static fn (ContainerInterface $c) => new SyncCatalog(
             $c->get(ProductRepositoryInterface::class),
             $c->get(VariationRepositoryInterface::class),
             $c->get(CatalogProjectorInterface::class),
+            $c->get(AuditLogger::class)
+        ));
+        $c->bind(StorefrontStop::class, static fn (ContainerInterface $c) => new StorefrontStop(
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(SyncCatalog::class),
+            $c->get(ProductReadiness::class),
+            $c->get(StaffAccess::class),
+            $c->get(StorefrontSwitch::class),
             $c->get(AuditLogger::class)
         ));
         $c->bind(ManageProducts::class, static fn (ContainerInterface $c) => new ManageProducts(
@@ -173,12 +191,27 @@ final class ProductModule implements ModuleInterface
     public function boot(ContainerInterface $container): void
     {
         ProductHooks::register($container);
+        $storefront = new StorefrontPage($container);
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($storefront): array {
+            $pages[] = [
+                'slug' => StorefrontPage::SLUG,
+                'page_title' => StorefrontPage::menuLabel(),
+                'menu_label' => StorefrontPage::menuLabel(),
+                'capability' => StorefrontPage::CAPABILITY,
+                'render' => [$storefront, 'render'],
+            ];
+            return $pages;
+        });
         $this->followVendorStatus($container);
         // Registered whatever the order module's own state is: "the
         // marketplace may not sell" has to be enforceable exactly when the
         // order module is not there to enforce it.
         if ($container->get(DependencyProbeInterface::class)->woocommerceAvailable()) {
             PurchaseGuard::register($container);
+            // The other three doors into a purchase: a basket filled before
+            // the stop, the block checkout's Store API, and the pay link of
+            // an order that was never paid.
+            CartGuard::register($container);
         }
     }
 
@@ -201,9 +234,16 @@ final class ProductModule implements ModuleInterface
         });
         $events->on(EventBus::VENDOR_REINSTATED, static function (array $payload) use ($container): void {
             $vendorUserId = (int) ($payload['vendor_user_id'] ?? 0);
-            if ($vendorUserId > 0) {
-                $container->get(SyncCatalog::class)->republishVendor($vendorUserId);
+            if ($vendorUserId <= 0) {
+                return;
             }
+            // Reinstating a shop is permission to trade, not a blanket
+            // republish: each product still has to qualify on its own, and a
+            // marketplace whose selling is stopped republishes nothing.
+            $container->get(SyncCatalog::class)->republishVendor(
+                $vendorUserId,
+                $container->get(StorefrontStop::class)
+            );
         });
     }
 

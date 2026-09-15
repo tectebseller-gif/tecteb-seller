@@ -1,0 +1,1 @@
+stop withdrawn=3 failed=0 total=3 stopped=true

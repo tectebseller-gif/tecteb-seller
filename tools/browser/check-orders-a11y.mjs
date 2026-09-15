@@ -1,6 +1,7 @@
 /**
  * The two vendor screens this stage added, measured the way the earlier ones
- * were: the orders list, and the variations panel of a variable product.
+ * were: the orders list, the variations panel of a variable product, and the
+ * shop's own finance page.
  *
  * A page nobody measures is a page that drifts, and both of these arrived
  * after check-vendor.mjs and check-vendor-staff-a11y.mjs were written. Same
@@ -24,6 +25,7 @@ const VARIABLE = process.env.TMC_VARIABLE_PRODUCT || '3';
 const PAGES = [
   { name: 'vendor-orders', url: `${SITE}/vendor/orders/` },
   { name: 'vendor-variations', url: `${SITE}/vendor/products/?product=${VARIABLE}&step=2` },
+  { name: 'vendor-finance', url: `${SITE}/vendor/finance/` },
 ];
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 

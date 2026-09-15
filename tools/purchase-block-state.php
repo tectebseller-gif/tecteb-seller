@@ -19,6 +19,12 @@
  *   stock      <tmc-product-id> <stock>
  *   trial      <0|1>
  *   decide     <wc-product-id>…
+ *   stop       [reason]           توقف فروش بازارگاه
+ *   resume                        از سرگیری، فقط آنچه شرایطش برقرار است
+ *   settle     <order-item-id>    ثبت «تکمیل برای تسویه» توسط مدیر
+ *   balance    <vendor-user-id>   مانده و آنچه قابل برداشت است
+ *   withdraw   <vendor-user-id>   درخواست برداشت از سوی خود فروشنده
+ *   review     <withdrawal-id> <status> [reference|note]
  *   state
  */
 
@@ -172,6 +178,90 @@ switch ($command) {
         $on = (string) ($args[1] ?? '0') === '1';
         $c->get(OptionStoreInterface::class)->set(TrialUnlock::OPTION, $on);
         printf("trial requested=%s\n", $on ? 'true' : 'false');
+        break;
+
+    case 'stop':
+        $outcome = $c->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontStop::class)
+            ->stop((string) ($args[1] ?? 'manager_stopped'), $manager);
+        printf(
+            "stop withdrawn=%d failed=%d total=%d stopped=%s\n",
+            $outcome['withdrawn'],
+            $outcome['failed'],
+            $outcome['total'],
+            $c->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch::class)->isStopped() ? 'true' : 'false'
+        );
+        break;
+
+    case 'resume':
+        $outcome = $c->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontStop::class)->resume($manager);
+        printf("resume published=%d total=%d\n", $outcome['published'], $outcome['total']);
+        foreach ($outcome['refused'] as $productId => $why) {
+            printf("refused product=%d reason=%s\n", $productId, $why);
+        }
+        break;
+
+    case 'settle':
+        $itemId = (int) ($args[1] ?? 0);
+        $result = $c->get(\Tecteb\Marketplace\Modules\Order\Application\ManageOrderItems::class)
+            ->recordSettlementCompletion($itemId, (string) ($args[2] ?? '1') === '1');
+        printf("settle item=%d ok=%s code=%s\n", $itemId, $result->ok ? 'true' : 'false', $result->code);
+        break;
+
+    case 'balance':
+        $vendorUserId = (int) ($args[1] ?? 0);
+        $balance = $c->get(\Tecteb\Marketplace\Modules\Finance\Application\VendorBalance::class)->of($vendorUserId);
+        $gate = $c->get(\Tecteb\Marketplace\Modules\Finance\Application\SettlementGate::class)->check();
+        printf(
+            "vendor=%d earned=%d pending=%d eligible=%d reserved=%d paid=%d unrecorded=%d delay_days=%d awaiting_completion=%d awaiting_delay=%d gate=%s\n",
+            $vendorUserId,
+            $balance['earned'],
+            $balance['pending'],
+            $balance['eligible'],
+            $balance['reserved'],
+            $balance['paid'],
+            $balance['unrecorded'],
+            $balance['delay_days'],
+            $balance['awaiting_completion'],
+            $balance['awaiting_delay'],
+            $gate['reason']
+        );
+        break;
+
+    case 'withdraw':
+        $vendorUserId = (int) ($args[1] ?? 0);
+        // The VENDOR asks, not the manager: the permission check is part of
+        // what this evidence is measuring.
+        $result = $c->get(\Tecteb\Marketplace\Modules\Finance\Application\RequestWithdrawal::class)
+            ->handle($vendorUserId, $vendorUserId);
+        printf(
+            "withdraw vendor=%d ok=%s code=%s amount=%s lines=%s\n",
+            $vendorUserId,
+            $result->ok ? 'true' : 'false',
+            $result->code,
+            (string) ($result->context['amount_minor'] ?? '-'),
+            (string) ($result->context['lines'] ?? '-')
+        );
+        break;
+
+    case 'review':
+        $withdrawalId = (int) ($args[1] ?? 0);
+        $target = (string) ($args[2] ?? '');
+        $text = (string) ($args[3] ?? '');
+        $service = $c->get(\Tecteb\Marketplace\Modules\Finance\Application\ReviewWithdrawals::class);
+        $result = match ($target) {
+            'reviewing' => $service->startReview($withdrawalId),
+            'approved' => $service->approve($withdrawalId),
+            'payment_in_progress' => $service->startPayment($withdrawalId),
+            'paid' => $service->recordPayment($withdrawalId, $text),
+            'rejected' => $service->reject($withdrawalId, $text),
+            'reconciliation_required' => $service->needsReconciliation($withdrawalId, $text),
+            default => null,
+        };
+        if ($result === null) {
+            echo "unknown target status\n";
+            break;
+        }
+        printf("review withdrawal=%d to=%s ok=%s code=%s\n", $withdrawalId, $target, $result->ok ? 'true' : 'false', $result->code);
         break;
 
     case 'decide':

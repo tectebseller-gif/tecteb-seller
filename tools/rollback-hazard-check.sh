@@ -25,7 +25,7 @@ SHOP_PRODUCT="${SHOP_PRODUCT:-37}"
 SCRATCH="${SCRATCH:-/tmp/claude-0/rollback-hazard}"
 mkdir -p "$SCRATCH"
 cd "$WPROOT" || exit 2
-wp() { "$PHPBIN" "$WPCLI" --allow-root "$@"; }
+wp() { "$PHPBIN" "$WPCLI" --allow-root "$@" 2>/dev/null; }
 say() { echo; echo "== $* =="; }
 
 install_package() {
@@ -50,10 +50,11 @@ status_line() {
 
 say "on the new package, with the marketplace's products live"
 install_package "$NEW"
+wp eval-file purchase-block-state.php resume 2>&1 | tail -1
 status_line a
 
-say "the documented remedy: suspend the vendor first, so the products leave the shop"
-wp eval-file purchase-block-state.php suspend "$VENDOR" 'آماده‌سازی برای بازگشت بسته' 2>&1 | tail -1
+say "the documented remedy: stop selling first, so the products leave the shop"
+wp eval-file purchase-block-state.php stop 'manager_stopped' 2>&1 | tail -1
 wp post get "$WC_PRODUCT" --field=post_status 2>&1 | sed "s/^/wc $WC_PRODUCT status=/"
 status_line b
 
@@ -62,9 +63,13 @@ install_package "$OLD"
 wp post get "$WC_PRODUCT" --field=post_status 2>&1 | sed "s/^/wc $WC_PRODUCT status=/"
 status_line c
 
-say "the hazard, measured: the same rollback WITHOUT suspending first"
+say "the hazard, measured: the same rollback WITHOUT stopping first"
 install_package "$NEW" >/dev/null
-wp eval-file purchase-block-state.php reinstate "$VENDOR" 2>&1 | tail -1
+# Selling has to be ON for the hazard to exist at all — which is itself the
+# point. From alpha.8 onward the storefront stop survives a reactivation, so
+# the naive rollback only reaches the hazard when somebody has deliberately
+# resumed selling first.
+wp eval-file purchase-block-state.php resume 2>&1 | tail -1
 wp post get "$WC_PRODUCT" --field=post_status 2>&1 | sed "s/^/wc $WC_PRODUCT status=/"
 install_package "$OLD"
 echo "marketplace product $WC_PRODUCT purchasable=$(purchasable "$WC_PRODUCT" d)  <-- on sale with nothing recording the money"

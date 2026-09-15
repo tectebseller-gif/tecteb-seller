@@ -1,0 +1,48 @@
+Warning: include(/home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/vendor-dashboard/reports/index.asset.php): Failed to open stream: No such file or directory in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Analytics/Assets.php on line 94
+Warning: include(): Failed opening '/home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/vendor-dashboard/reports/index.asset.php' for inclusion (include_path='.:') in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Analytics/Assets.php on line 94
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/css/style.css in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 320
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/css/admin.css in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 357
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/css/dokan-vue-vendor.css in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 361
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/css/vue-bootstrap.css in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 366
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/css/vue-admin.css in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 375
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/css/global-admin.css in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 381
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/css/dokan-product-category-ui.css in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 385
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/css/reverse-withdrawal-style.css in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 389
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/css/dokan-admin-product-style.css in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 393
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/css/dokan-tailwind.css in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 397
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/css/frontend.css in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 402
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/css/components.css in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 407
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/dokan-admin.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 525
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/vendor-registration.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 530
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/dokan.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 535
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/vue-vendor.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 539
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/vue-bootstrap.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 545
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/vue-admin.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 550
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/vue-frontend.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 555
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/login-form-popup.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 560
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/helper.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 570
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/dokan-promo-notice.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 576
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/dokan-admin-notice.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 581
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/reverse-withdrawal.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 586
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/product-category-ui.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 591
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/vendor-address.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 596
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/dokan-admin-product.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 601
+Warning: filemtime(): stat failed for /home/user/wp-disposable/wp-content/plugins/dokan-lite/assets/js/dokan-frontend.js in /home/user/wp-disposable/wp-content/plugins/dokan-lite/includes/Assets.php on line 607
+=== coexistence with Dokan actually active (0.1.0-alpha.8, PHP 8.1.32, WooCommerce 11.0.1) ===
+dokan=active  dokan_version=5.1.1  tecteb=0.1.0-alpha.8
+-- roles: neither plugin overwrote the other's --
+roles=administrator,editor,author,contributor,subscriber,customer,shop_manager,seller
+dokan_seller_role=present  tmc_caps_on_administrator=10
+-- every product on the site, and who claims it --
+wc=88 owner=tecteb tmc_decision=allowed status=publish purchasable=true author=4 author_is_dokan_seller=false
+wc=90 owner=tecteb tmc_decision=allowed status=publish purchasable=true author=8 author_is_dokan_seller=false
+wc=92 owner=tecteb tmc_decision=allowed status=publish purchasable=true author=4 author_is_dokan_seller=false
+wc=79 owner=dokan tmc_decision=not_ours status=publish purchasable=true author=13 author_is_dokan_seller=true
+wc=37 owner=shop tmc_decision=not_ours status=publish purchasable=false author=1 author_is_dokan_seller=false
+-- admin menus: no slug collision --
+tecteb_slugs=tmc-dashboard,tmc-health,tmc-settings,tmc-modules,tmc-storefront,tmc-withdrawals
+collisions_with_dokan=0
+-- marketplace rows are untouched by Dokan --
+tmc=1 wc=88 vendor=4 dokan_meta_on_it=none
+tmc=2 wc=90 vendor=8 dokan_meta_on_it=none
+tmc=3 wc=92 vendor=4 dokan_meta_on_it=none

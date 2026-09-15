@@ -188,9 +188,16 @@ else
 fi
 wpx option delete "$LEGACY_DONE_OPTION" >/dev/null
 wpx plugin activate tecteb-marketplace-core >/dev/null
-# a non-default settings value, so "preserved" means something
-wpx option patch update tmc_settings default_commission_rate_bp 1234 >/dev/null
-wpx option patch update tmc_settings settlement_delay_days 9 >/dev/null
+# A non-default settings value, so "preserved" means something.
+#
+# The path is `values default_commission_rate_bp`, not the bare key: the option
+# is {schema_version, values:{…}} and patching the top level writes a stray key
+# that SettingsService drops the next time it saves. That is what this line did
+# until now, and the check still passed — because a PREVIOUS rehearsal had left
+# a real 1234 inside `values` for the grep to find. Seeding and asserting have
+# to name the same place, or the test only measures the last run.
+wpx option patch update tmc_settings values default_commission_rate_bp 1234 >/dev/null
+wpx option patch update tmc_settings values settlement_delay_days 9 >/dev/null
 snapshot "$EV/01-before-upgrade.txt"
 check "stage 1 version" "$(wpx plugin get tecteb-marketplace-core --field=version)" "$OLD_VERSION"
 check "stage 1 schema"  "$(wpx option get tmc_schema_version)" "$OLD_SCHEMA"
@@ -221,7 +228,7 @@ check "stage 2 version" "$(wpx plugin get tecteb-marketplace-core --field=versio
 check "stage 2 schema"  "$(wpx option get tmc_schema_version)" "$NEW_SCHEMA"
 NEW_TABLES=$(dbq "SHOW TABLES LIKE 'wp_tmc_vendor%'" | wc -l | tr -d ' ')
 check "stage 2 the upgrade only adds tables" "$([ "$NEW_TABLES" -ge "$OLD_TABLES" ] && [ "$NEW_TABLES" -ge 4 ] && echo yes || echo no)" "yes"
-check "stage 2 commission preserved" "$(wpx option get tmc_settings --format=json | grep -o '"default_commission_rate_bp":[0-9]*')" '"default_commission_rate_bp":1234'
+check "stage 2 commission preserved" "$(wpx eval 'echo (int) (get_option("tmc_settings")["values"]["default_commission_rate_bp"] ?? 0);')" '1234'
 check "stage 2 no audit row lost" \
   "$(comm -23 <(grep -A999 '## audit_rows' "$EV/01-before-upgrade.txt" | sed -n '2,/^## /p' | grep '|' | sort) \
               <(grep -A999 '## audit_rows' "$EV/02-after-upgrade.txt" | sed -n '2,/^## /p' | grep '|' | sort) | wc -l)" "0"

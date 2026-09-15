@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Order\Application;
 
+use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
+use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStateMachine;
@@ -30,7 +32,8 @@ final class ManageOrderItems
         private readonly StaffAccess $access,
         private readonly AuditLogger $audit,
         private readonly ClockInterface $clock,
-        private readonly OrderItemStateMachine $states
+        private readonly OrderItemStateMachine $states,
+        private readonly ?CapabilityCheckerInterface $capabilities = null
     ) {
     }
 
@@ -106,5 +109,47 @@ final class ManageOrderItems
             return [];
         }
         return $this->items->totalsForVendor($vendorUserId);
+    }
+
+    /**
+     * A manager saying this sale is complete for the purpose of settlement.
+     *
+     * Deliberately NOT derived from the shipping status. ORDER-01 keeps three
+     * axes apart — WooCommerce's payment status, the vendor's own shipping
+     * status, and the financial one — and says only a manager or an approved
+     * process may record the last. Reading it off «delivered» would be this
+     * plugin deciding DEC-02 by implication, which is exactly what it must
+     * not do while DEC-02 is open.
+     *
+     * The capability is the manager's, not the vendor's: a shop that could
+     * declare its own sales complete could start its own settlement clock.
+     */
+    public function recordSettlementCompletion(int $itemId, bool $complete): OperationResult
+    {
+        if (!$this->capabilities->can(Capabilities::REVIEW_WITHDRAWALS)) {
+            return OperationResult::failure('forbidden');
+        }
+        $item = $this->items->find($itemId);
+        if ($item === null) {
+            return OperationResult::failure('not_found');
+        }
+        if ($item->status === OrderItemStatus::Cancelled) {
+            return OperationResult::failure('order_item_cancelled');
+        }
+        $actorId = $this->capabilities->currentUserId() ?? 0;
+        $completedAt = $complete ? $this->clock->now()->format('Y-m-d H:i:s') : null;
+        if (!$this->items->recordSettlementCompletion($itemId, $completedAt, $complete ? $actorId : null)) {
+            return OperationResult::failure('storage_failed');
+        }
+        $this->audit->log(AuditEventCatalog::ORDER_SETTLEMENT_RECORDED, $actorId, 'order_item', (string) $itemId, [
+            'vendor_id' => $item->vendorUserId,
+            'order_id' => $item->orderId,
+            'item_id' => $itemId,
+            'completed_at' => (string) $completedAt,
+        ]);
+        return OperationResult::success(
+            $complete ? 'settlement_recorded' : 'settlement_cleared',
+            ['item_id' => $itemId]
+        );
     }
 }

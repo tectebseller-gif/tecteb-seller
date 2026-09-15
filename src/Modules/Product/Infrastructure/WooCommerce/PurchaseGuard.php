@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
+use Tecteb\Marketplace\Modules\Product\Presentation\PurchaseMessages;
 
 /**
  * The marketplace's answer to WooCommerce's "can this be bought?".
@@ -133,7 +134,7 @@ final class PurchaseGuard
      * The catalogue's verdict on a WooCommerce product object, asking the
      * parent for a variation, or null when it is not a marketplace product.
      */
-    private static function ask(PurchasePolicy $policy, mixed $product): ?string
+    public static function ask(PurchasePolicy $policy, mixed $product): ?string
     {
         if (!is_object($product) || !method_exists($product, 'get_id')) {
             return null;
@@ -162,14 +163,13 @@ final class PurchaseGuard
         return false;
     }
 
-    private static function reason(string $decision): string
+    /**
+     * One short sentence for the shopper. The decision code, the rate, and
+     * the open decisions behind it go to the audit log and the manager's
+     * screen — never to the storefront.
+     */
+    public static function reason(string $decision): string
     {
-        return match ($decision) {
-            PurchasePolicy::ORDERS_BLOCKED => __('فروش محصولات بازارگاه هنوز فعال نشده است: تا تعیین نرخ کمیسیون و بسته‌شدن تصمیم‌های مالی، این کالا قابل خرید نیست.', 'tecteb-marketplace-core'),
-            PurchasePolicy::VENDOR_STOPPED => __('فروشندهٔ این کالا فعلاً تعلیق است و کالاهایش قابل خرید نیستند.', 'tecteb-marketplace-core'),
-            PurchasePolicy::NOT_PUBLISHED => __('این کالا در حال حاضر منتشر نیست.', 'tecteb-marketplace-core'),
-            PurchasePolicy::OUT_OF_STOCK => __('این کالا ناموجود است.', 'tecteb-marketplace-core'),
-            default => __('این کالا قابل خرید نیست.', 'tecteb-marketplace-core'),
-        };
+        return PurchaseMessages::shopper($decision);
     }
 }

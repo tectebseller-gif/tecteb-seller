@@ -17,9 +17,12 @@ use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
 use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontStop;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
@@ -63,6 +66,8 @@ final class CatalogProjectionTest extends DatabaseTestCase
     private FakeCatalogProjector $storefront;
     private FakeProductImages $images;
     private EventBus $events;
+    private StorefrontStop $stop;
+    private StorefrontSwitch $switch;
 
     protected function setUp(): void
     {
@@ -100,6 +105,9 @@ final class CatalogProjectionTest extends DatabaseTestCase
         $access = new StaffAccess($staff, $this->vendors);
         $readiness = new ProductReadiness($templates, $variations);
         $this->catalog = new SyncCatalog($this->products, $variations, $this->storefront, $audit);
+        $this->switch = new StorefrontSwitch($options, $clock);
+        $this->switch->markResumed();
+        $this->stop = new StorefrontStop($this->products, $this->catalog, $readiness, $access, $this->switch, $audit);
         $publishing = new ProductPublishPolicy($options);
         $states = new ProductStateMachine();
 
@@ -137,8 +145,9 @@ final class CatalogProjectionTest extends DatabaseTestCase
         $this->events->on(EventBus::VENDOR_SUSPENDED, static function (array $p) use ($catalog): void {
             $catalog->withdrawVendor((int) $p['vendor_user_id'], (string) ($p['reason'] ?? ''));
         });
-        $this->events->on(EventBus::VENDOR_REINSTATED, static function (array $p) use ($catalog): void {
-            $catalog->republishVendor((int) $p['vendor_user_id']);
+        $conditions = $this->stop;
+        $this->events->on(EventBus::VENDOR_REINSTATED, static function (array $p) use ($catalog, $conditions): void {
+            $catalog->republishVendor((int) $p['vendor_user_id'], $conditions);
         });
 
         $this->vendors->upsertProfile(self::VENDOR, 'داروخانه نمونه', true, false);
@@ -234,6 +243,77 @@ final class CatalogProjectionTest extends DatabaseTestCase
         self::assertSame('publish', $this->storefront->statuses[$secondId]);
     }
 
+
+    /**
+     * Deactivating the plugin, or a manager preparing a rollback, must leave
+     * nothing of the marketplace's on sale — and must delete nothing.
+     */
+    public function testStoppingTakesEveryMarketplaceProductOutOfTheShopWithoutDeletingAnything(): void
+    {
+        $a = $this->publish('SKU-A');
+        $b = $this->publish('SKU-B');
+        $wcA = (int) $this->products->find($a)?->wcProductId;
+        $wcB = (int) $this->products->find($b)?->wcProductId;
+        self::assertSame('publish', $this->storefront->statuses[$wcA]);
+
+        $outcome = $this->stop->stop('plugin_deactivated', self::MANAGER);
+
+        self::assertSame(2, $outcome['withdrawn']);
+        self::assertSame(0, $outcome['failed']);
+        self::assertSame('draft', $this->storefront->statuses[$wcA], 'out of the shop');
+        self::assertSame('draft', $this->storefront->statuses[$wcB]);
+        self::assertTrue($this->stop->isStopped(), 'and the marketplace remembers that it is stopped');
+
+        // Nothing was deleted: both rows are still here, still linked, still
+        // published in the marketplace's own workflow.
+        self::assertNotNull($this->products->find($a));
+        self::assertSame($wcA, (int) $this->products->find($a)?->wcProductId);
+        self::assertTrue($this->products->find($a)?->status->isLive());
+        self::assertCount(2, $this->storefront->links, 'no storefront product was removed');
+    }
+
+    /**
+     * Coming back is not the mirror image of going away.
+     *
+     * A product that stopped qualifying while the shop was closed stays out,
+     * and says which condition it failed. This is the "reactivation must not
+     * put things back on sale unless the conditions hold" rule, measured.
+     */
+    public function testResumingBringsBackOnlyWhatStillQualifies(): void
+    {
+        $live = $this->publish('SKU-LIVE');
+        $suspendedShop = $this->publish('SKU-SUSPENDED');
+        $this->products->updateStatus($suspendedShop, ProductStatus::Suspended);
+
+        $this->stop->stop('manager_stopped', self::MANAGER);
+        $outcome = $this->stop->resume(self::MANAGER);
+
+        self::assertSame(1, $outcome['published'], 'only the one that still qualifies');
+        self::assertArrayHasKey($suspendedShop, $outcome['refused']);
+        self::assertSame(StorefrontStop::REFUSED_NOT_PUBLISHED, $outcome['refused'][$suspendedShop]);
+        self::assertFalse($this->stop->isStopped(), 'the stop itself is lifted');
+        self::assertSame('publish', $this->storefront->statuses[(int) $this->products->find($live)?->wcProductId]);
+    }
+
+    /** While selling is stopped, a reinstated vendor's products stay off sale. */
+    public function testReinstatingAVendorWhileSellingIsStoppedPutsNothingBackOnSale(): void
+    {
+        $productId = $this->publish();
+        $wcId = (int) $this->products->find($productId)?->wcProductId;
+
+        $this->stop->stop('manager_stopped', self::MANAGER);
+        self::assertSame('draft', $this->storefront->statuses[$wcId]);
+
+        // The vendor is suspended and reinstated while the marketplace is
+        // stopped: permission to trade is not permission to be on sale.
+        $this->vendors->upsertProfile(self::VENDOR, 'داروخانه نمونه', false, false);
+        $this->vendors->upsertProfile(self::VENDOR, 'داروخانه نمونه', true, false);
+        $this->catalog->republishVendor(self::VENDOR, $this->stop);
+
+        self::assertSame('draft', $this->storefront->statuses[$wcId], 'still off sale');
+        self::assertFalse($this->stop->mayGoLive($productId));
+    }
+
     public function testWithoutWooCommerceNothingIsProjectedAndTheProductSaysSo(): void
     {
         $this->storefront->available = false;
@@ -248,32 +328,28 @@ final class CatalogProjectionTest extends DatabaseTestCase
 
     // -------------------------------------------------------------- helpers
 
-    private function readyProduct(): int
+    /** The SKU is unique per shop, so a test that needs two products says so. */
+    private function readyProduct(string $sku = 'SKU-1'): int
     {
-        $created = $this->manage->save(self::VENDOR, self::VENDOR, 0, new ProductDetails(
+        $details = new ProductDetails(
             title: 'دستکش لاتکس',
             categoryKey: 'gloves',
             priceMinor: 200000,
-            sku: 'SKU-1',
+            sku: $sku,
             stock: 5
-        ));
+        );
+        $created = $this->manage->save(self::VENDOR, self::VENDOR, 0, $details);
         self::assertTrue($created->ok, $created->code);
         $productId = (int) $created->context['product_id'];
         $mediaId = 700 + $productId;
         $this->images->give($mediaId, self::VENDOR);
-        $this->manage->save(self::VENDOR, self::VENDOR, $productId, new ProductDetails(
-            title: 'دستکش لاتکس',
-            categoryKey: 'gloves',
-            priceMinor: 200000,
-            sku: 'SKU-1',
-            stock: 5
-        ), [], [$mediaId], $mediaId);
+        $this->manage->save(self::VENDOR, self::VENDOR, $productId, $details, [], [$mediaId], $mediaId);
         return $productId;
     }
 
-    private function publish(): int
+    private function publish(string $sku = 'SKU-1'): int
     {
-        $productId = $this->readyProduct();
+        $productId = $this->readyProduct($sku);
         self::assertTrue($this->manage->submit(self::VENDOR, self::VENDOR, $productId)->ok);
         self::assertTrue($this->review->approve($productId)->ok);
         return $productId;

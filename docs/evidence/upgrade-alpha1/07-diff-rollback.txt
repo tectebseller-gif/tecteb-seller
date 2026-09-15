@@ -1,35 +1,42 @@
---- /home/user/tecteb-seller/docs/evidence/upgrade-alpha1/05-with-vendor-data.txt	2026-09-15 14:34:07.816067491 +0000
-+++ /home/user/tecteb-seller/docs/evidence/upgrade-alpha1/06-after-rollback.txt	2026-09-15 14:34:14.008067859 +0000
+--- /home/user/tecteb-seller/docs/evidence/upgrade-alpha1/05-with-vendor-data.txt	2026-09-15 15:50:29.840339860 +0000
++++ /home/user/tecteb-seller/docs/evidence/upgrade-alpha1/06-after-rollback.txt	2026-09-15 15:50:36.648340265 +0000
 @@ -1,5 +1,5 @@
  ## plugin
--0.1.0-alpha.7
+-0.1.0-alpha.8
 +0.1.0-alpha.1
  ## schema_option
- 6
+ 7
  ## options
-@@ -33,7 +33,7 @@
- wp_tmc_vendor_staff
- wp_tmc_vendor_stores
+@@ -36,7 +36,7 @@
+ wp_tmc_withdrawal_lines
+ wp_tmc_withdrawals
  ## row_counts
--wp_tmc_audit_events=183
-+wp_tmc_audit_events=184
+-wp_tmc_audit_events=407
++wp_tmc_audit_events=412
  wp_tmc_commission_rules=1
- wp_tmc_ledger_entries=8
+ wp_tmc_ledger_entries=10
  wp_tmc_order_items=2
-@@ -236,6 +236,7 @@
- 181|vendor.requirements_changed|vendor_document_type|2026-09-15 14:34:03
- 182|vendor.document_uploaded|vendor_application|2026-09-15 14:34:03
- 183|vendor.application_submitted|vendor_application|2026-09-15 14:34:03
-+184|plugin.deactivated|plugin|2026-09-15 14:34:10
+@@ -465,6 +465,11 @@
+ 405|vendor.requirements_changed|vendor_document_type|2026-09-15 15:50:25
+ 406|vendor.document_uploaded|vendor_application|2026-09-15 15:50:25
+ 407|vendor.application_submitted|vendor_application|2026-09-15 15:50:25
++408|product.synced|product|2026-09-15 15:50:32
++409|product.synced|product|2026-09-15 15:50:32
++410|product.synced|product|2026-09-15 15:50:32
++411|storefront.stopped|storefront|2026-09-15 15:50:32
++412|plugin.deactivated|plugin|2026-09-15 15:50:32
  ## vendor_applications
  1|3|submitted|داروخانه نمونه ارتقا|09120000000
  ## vendor_documents
-@@ -245,24 +246,3 @@
+@@ -474,27 +479,3 @@
  ## vendor_profiles
  ## admin_caps
  ## private_files
 -/home/user/tecteb-private/application-1/06a121061a26c2579becb27c5d4c9180.pdf
+-/home/user/tecteb-private/application-1/0851342c7191b1d02762e621ffec76c7.pdf
+-/home/user/tecteb-private/application-1/198baaf8429002b837843504c2eacbef.pdf
 -/home/user/tecteb-private/application-1/19e79d1967a31de04c583e5eb8a57015.pdf
+-/home/user/tecteb-private/application-1/356434ad6797c6c5121bf905b10a1978.pdf
 -/home/user/tecteb-private/application-1/39ff6ff621624b076a7f20a76a68b355.pdf
 -/home/user/tecteb-private/application-1/40153faf56588be7dfb314cd525b21a7.pdf
 -/home/user/tecteb-private/application-1/410debc1b32189ab799160484cf80543.pdf

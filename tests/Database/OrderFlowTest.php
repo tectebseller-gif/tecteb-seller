@@ -31,6 +31,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
+use Tecteb\Marketplace\Modules\Product\Presentation\PurchaseMessages;
 use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
@@ -380,7 +381,23 @@ final class OrderFlowTest extends DatabaseTestCase
 
         $wooCommercesOwnWords = 'Sorry, this product cannot be purchased.';
         $ours = apply_filters('woocommerce_cart_product_cannot_be_purchased_message', $wooCommercesOwnWords, new FakeWcProduct($wcId));
-        self::assertStringContainsString('فروش محصولات بازارگاه هنوز فعال نشده است', (string) $ours);
+        self::assertSame(PurchaseMessages::shopper(PurchasePolicy::ORDERS_BLOCKED), (string) $ours);
+
+        // …and it is SHORT, and says nothing about the marketplace's own
+        // affairs. The rate, the gate and the open decisions are the
+        // manager's to see; a shopper who is told which DEC is unresolved has
+        // been handed somebody else's problem.
+        foreach (['DEC-', 'کمیسیون', 'دفترکل', 'نرخ'] as $internal) {
+            self::assertStringNotContainsString($internal, (string) $ours, 'the shopper is not told about ' . $internal);
+        }
+        self::assertLessThanOrEqual(60, mb_strlen((string) $ours), 'one short sentence');
+
+        // The manager's version of the same event names the reason.
+        self::assertStringContainsString(
+            'کمیسیون',
+            PurchaseMessages::manager(PurchasePolicy::ORDERS_BLOCKED),
+            'the manager is told what the shopper was not'
+        );
 
         // The shop's own product and Dokan's keep the message they had.
         $theirs = apply_filters('woocommerce_cart_product_cannot_be_purchased_message', $wooCommercesOwnWords, new FakeWcProduct(999999));

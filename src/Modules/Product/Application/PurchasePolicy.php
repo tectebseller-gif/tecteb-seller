@@ -20,9 +20,11 @@ use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
  * in. The owner's instruction is explicit — «خرید فعلی سایت و دکان تحت تأثیر
  * این قفل قرار نگیرند» — and this is where that holds or fails.
  *
- * For the marketplace's own products there are four reasons to refuse, and
- * each has a sentence a shopper can act on:
+ * For the marketplace's own products there are five reasons to refuse, and
+ * each has a short sentence a shopper can act on (PurchaseMessages):
  *
+ *   STOREFRONT_STOPPED the marketplace's shelf was deliberately emptied — by
+ *                   a manager, or by the plugin being deactivated
  *   ORDERS_BLOCKED  the financial rules are not settled, so the marketplace
  *                   does not sell (it does not "sell and hide the numbers")
  *   VENDOR_STOPPED  the shop is suspended — immediately, not at next login
@@ -33,6 +35,7 @@ final class PurchasePolicy
 {
     public const ALLOWED = 'allowed';
     public const NOT_OURS = 'not_ours';
+    public const STOREFRONT_STOPPED = 'storefront_stopped';
     public const ORDERS_BLOCKED = 'orders_blocked';
     public const VENDOR_STOPPED = 'vendor_stopped';
     public const NOT_PUBLISHED = 'not_published';
@@ -44,7 +47,8 @@ final class PurchasePolicy
     public function __construct(
         private readonly ProductRepositoryInterface $products,
         private readonly StaffAccess $access,
-        private readonly OrderOperationsGate $gate
+        private readonly OrderOperationsGate $gate,
+        private readonly ?StorefrontSwitch $storefront = null
     ) {
     }
 
@@ -83,13 +87,30 @@ final class PurchasePolicy
     /** Whether the marketplace may sell anything at all right now. */
     public function marketplaceIsOperational(): bool
     {
-        return $this->gate->check()['ready'];
+        return $this->marketplaceRefusal() === null;
+    }
+
+    /**
+     * The marketplace-wide refusal, or null when there is none.
+     *
+     * Asked before anything about a particular product, and in this order: an
+     * emptied shelf outranks an open financial decision, because the shelf was
+     * emptied deliberately and the flag is what a half-finished withdrawal
+     * leaves behind.
+     */
+    private function marketplaceRefusal(): ?string
+    {
+        if ($this->storefront?->isStopped() === true) {
+            return self::STOREFRONT_STOPPED;
+        }
+        return $this->gate->check()['ready'] ? null : self::ORDERS_BLOCKED;
     }
 
     private function decisionFor(Product $product, int $stockOverride): string
     {
-        if (!$this->marketplaceIsOperational()) {
-            return self::ORDERS_BLOCKED;
+        $marketplace = $this->marketplaceRefusal();
+        if ($marketplace !== null) {
+            return $marketplace;
         }
         // Read on every question rather than cached across requests: a
         // suspension that takes effect at the next login is not a suspension.

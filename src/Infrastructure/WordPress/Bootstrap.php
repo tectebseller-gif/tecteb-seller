@@ -45,10 +45,13 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\PrivateUploadStor
 use Tecteb\Marketplace\Modules\Finance\FinanceModule;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
+use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\DbOrderItemRepository;
 use Tecteb\Marketplace\Modules\Order\Application\TrialUnlock;
 use Tecteb\Marketplace\Modules\Order\OrderModule;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
 use Tecteb\Marketplace\Modules\Product\ProductModule;
 use Tecteb\Marketplace\Modules\Vendor\VendorModule;
@@ -270,7 +273,7 @@ final class Bootstrap
             $c->get(OptionStoreInterface::class),
             $c->get(GuardedOptionStoreInterface::class),
             new MigrationLock($c->get(LockStoreInterface::class), $c->get(ClockInterface::class), MigrationLock::generateOwnerToken()),
-            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables(), new M0004CreateFinanceTables(), new M0005CreateProductTables(), new M0006CatalogAndOrders()],
+            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables(), new M0004CreateFinanceTables(), new M0005CreateProductTables(), new M0006CatalogAndOrders(), new M0007SettlementTables()],
             $c->get(ClockInterface::class)
         ));
         $c->bind(UpgradeGate::class, static fn (ContainerInterface $c) => new UpgradeGate(
@@ -286,6 +289,14 @@ final class Bootstrap
         $c->bind(TrialUnlock::class, static fn (ContainerInterface $c) => new TrialUnlock(
             $c->get(OptionStoreInterface::class),
             $c->get(EnvironmentResolver::class)
+        ));
+        // The order LINES, bound here for the same reason the gate is: money
+        // that was already recorded has to stay readable — by the vendor's
+        // finance page, by settlement, by a report — while the order module
+        // itself is blocked and never registers. Reading is not operating.
+        $c->bind(OrderItemRepositoryInterface::class, static fn (ContainerInterface $c) => new DbOrderItemRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
         ));
         $c->bind(OrderOperationsGate::class, static fn (ContainerInterface $c) => new OrderOperationsGate(
             $c->get(ResolveCommissionRate::class),

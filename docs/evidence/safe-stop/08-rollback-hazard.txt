@@ -1,0 +1,26 @@
+
+== on the new package, with the marketplace's products live ==
+tecteb-marketplace-core	0.1.0-alpha.8
+resume published=3 total=3
+marketplace product 88 purchasable=yes | shop product 37 purchasable=yes
+
+== the documented remedy: stop selling first, so the products leave the shop ==
+stop withdrawn=3 failed=0 total=3 stopped=true
+wc 88 status=draft
+marketplace product 88 purchasable=no | shop product 37 purchasable=yes
+
+== …and only then roll the package back ==
+tecteb-marketplace-core	0.1.0-alpha.7
+wc 88 status=draft
+marketplace product 88 purchasable=no | shop product 37 purchasable=yes
+
+== the hazard, measured: the same rollback WITHOUT stopping first ==
+resume published=3 total=3
+wc 88 status=publish
+tecteb-marketplace-core	0.1.0-alpha.7
+marketplace product 88 purchasable=yes  <-- on sale with nothing recording the money
+0
+
+
+== back to the new package ==
+tecteb-marketplace-core	0.1.0-alpha.8

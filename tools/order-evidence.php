@@ -254,6 +254,12 @@ switch ($command) {
             wp_delete_post($postId, true);
         }
         foreach ([
+            // The settlement tables go first and are NOT optional: a reset
+            // that empties tmc_order_items while leaving withdrawal lines
+            // behind leaves reservations pointing at ids the next seed will
+            // reuse, and the next run then fails with `reservation_lost` for
+            // reasons that have nothing to do with the code.
+            'tmc_withdrawal_lines', 'tmc_withdrawals',
             'tmc_order_items', 'tmc_ledger_entries', 'tmc_commission_rules',
             'tmc_product_variations', 'tmc_product_attributes', 'tmc_product_revisions',
             'tmc_product_specs', 'tmc_product_images', 'tmc_products',

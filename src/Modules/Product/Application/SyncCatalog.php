@@ -126,12 +126,27 @@ final class SyncCatalog
         return $withdrawn;
     }
 
-    /** Puts a reinstated shop's LIVE products back in the storefront. */
-    public function republishVendor(int $vendorUserId): int
+    /**
+     * Puts a reinstated shop's products back — the ones that still qualify.
+     *
+     * `$conditions` is what makes this different from "undo the withdrawal".
+     * A shop that is allowed to trade again is not a promise that each of its
+     * products may be sold: one may have lost its last image while the shop
+     * was closed, and the marketplace as a whole may still be stopped. When a
+     * StorefrontStop is passed, every product is asked separately and the ones
+     * that fail stay out of the shop.
+     */
+    public function republishVendor(int $vendorUserId, ?StorefrontStop $conditions = null): int
     {
         $published = 0;
         foreach ($this->products->allForVendor($vendorUserId) as $product) {
-            if ($product->status === ProductStatus::Published && $this->publish($product->id)->ok) {
+            if ($product->status !== ProductStatus::Published) {
+                continue;
+            }
+            if ($conditions !== null && !$conditions->mayGoLive($product->id)) {
+                continue;
+            }
+            if ($this->publish($product->id)->ok) {
                 $published++;
             }
         }

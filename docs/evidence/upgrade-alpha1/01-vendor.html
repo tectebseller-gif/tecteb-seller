@@ -11,6 +11,7 @@
 img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
 /*# sourceURL=wp-img-auto-sizes-contain-inline-css */
 </style>
+<link rel='stylesheet' id='dashicons-css' href='http://127.0.0.1:8080/wp-includes/css/dashicons.min.css?ver=7.1' media='all' />
 <style id="wp-emoji-styles-inline-css">
 
 	img.wp-smiley, img.emoji {
@@ -59,9 +60,17 @@ h1:where(.wp-block-heading).has-background,h2:where(.wp-block-heading).has-backg
 .wp-block-search__button{margin-right:10px;word-break:normal}.wp-block-search__button.has-icon{line-height:0}.wp-block-search__button svg{fill:currentColor;height:1.25em;min-height:24px;min-width:24px;vertical-align:text-bottom;width:1.25em}:where(.wp-block-search__button){border:1px solid #ccc;padding:6px 10px}.wp-block-search__inside-wrapper{display:flex;flex:auto;flex-wrap:nowrap;max-width:100%}.wp-block-search__label{width:100%}.wp-block-search.wp-block-search__button-only .wp-block-search__button{box-sizing:border-box;display:flex;flex-shrink:0;justify-content:center;margin-right:0;max-width:100%}.wp-block-search.wp-block-search__button-only .wp-block-search__inside-wrapper{min-width:0!important;transition-property:width}.wp-block-search.wp-block-search__button-only .wp-block-search__input{flex-basis:100%;transition-duration:.3s}.wp-block-search.wp-block-search__button-only.wp-block-search__searchfield-hidden,.wp-block-search.wp-block-search__button-only.wp-block-search__searchfield-hidden .wp-block-search__inside-wrapper{overflow:hidden}.wp-block-search.wp-block-search__button-only.wp-block-search__searchfield-hidden .wp-block-search__input{border-left-width:0!important;border-right-width:0!important;flex-basis:0;flex-grow:0;margin:0;min-width:0!important;padding-left:0!important;padding-right:0!important;width:0!important}:where(.wp-block-search__input){-webkit-appearance:initial;-moz-appearance:initial;appearance:none;border:1px solid #949494;flex-grow:1;font-family:inherit;font-size:inherit;font-style:inherit;font-weight:inherit;letter-spacing:inherit;line-height:inherit;margin-left:0;margin-right:0;min-width:3rem;padding:8px;text-decoration:unset!important;text-transform:inherit}:where(.wp-block-search__button-inside .wp-block-search__inside-wrapper){background-color:#fff;border:1px solid #949494;box-sizing:border-box;padding:4px}:where(.wp-block-search__button-inside .wp-block-search__inside-wrapper) .wp-block-search__input{border:none;border-radius:0;padding:0 4px}:where(.wp-block-search__button-inside .wp-block-search__inside-wrapper) .wp-block-search__input:focus{outline:none}:where(.wp-block-search__button-inside .wp-block-search__inside-wrapper) :where(.wp-block-search__button){padding:4px 8px}.wp-block-search.aligncenter .wp-block-search__inside-wrapper{margin:auto}.wp-block[data-align=right] .wp-block-search.wp-block-search__button-only .wp-block-search__inside-wrapper{float:left}
 /*# sourceURL=http://127.0.0.1:8080/wp-includes/blocks/search/style.min.css */
 </style>
+<style id="wp-block-search-theme-inline-css">
+.wp-block-search .wp-block-search__label{font-weight:700}.wp-block-search__button{border:1px solid #ccc;padding:.375em .625em}
+/*# sourceURL=http://127.0.0.1:8080/wp-includes/blocks/search/theme.min.css */
+</style>
 <style id="wp-block-group-inline-css">
 .wp-block-group{box-sizing:border-box}:where(.wp-block-group.wp-block-group-is-layout-constrained){position:relative}
 /*# sourceURL=http://127.0.0.1:8080/wp-includes/blocks/group/style.min.css */
+</style>
+<style id="wp-block-group-theme-inline-css">
+:where(.wp-block-group.has-background){padding:1.25em 2.375em}
+/*# sourceURL=http://127.0.0.1:8080/wp-includes/blocks/group/theme.min.css */
 </style>
 
 <style id="classic-theme-styles-inline-css">
@@ -91,9 +100,32 @@ body,input,textarea,button,.button,.faux-button,.wp-block-button__link,.wp-block
 /*# sourceURL=twenty-twenty-one-style-inline-css */
 </style>
 <link rel='stylesheet' id='twenty-twenty-one-print-style-css' href='http://127.0.0.1:8080/wp-content/themes/twentytwentyone/assets/css/print.css?ver=2.9' media='print' />
+<link rel='stylesheet' id='dokan-style-css' href='http://127.0.0.1:8080/wp-content/plugins/dokan-lite/assets/css/style.css?ver=7.1' media='all' />
+<link rel='stylesheet' id='dokan-modal-css' href='http://127.0.0.1:8080/wp-content/plugins/dokan-lite/assets/vendors/izimodal/iziModal.min.css?ver=1789484088' media='all' />
+<link rel='stylesheet' id='dokan-fontawesome-css' href='http://127.0.0.1:8080/wp-content/plugins/dokan-lite/assets/vendors/font-awesome/css/font-awesome.min.css?ver=5.1.1' media='all' />
+<link rel='stylesheet' id='dokan-rtl-style-css' href='http://127.0.0.1:8080/wp-content/plugins/dokan-lite/assets/css/rtl.css?ver=5.1.1' media='all' />
 <script id="jquery-core-js" src="http://127.0.0.1:8080/wp-includes/js/jquery/jquery.min.js?ver=3.7.1"></script>
 <script id="jquery-migrate-js" src="http://127.0.0.1:8080/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1"></script>
-<script data-wp-strategy="defer" defer id="wc-jquery-blockui-js" src="http://127.0.0.1:8080/wp-content/plugins/woocommerce/assets/js/jquery-blockui/jquery.blockUI.min.js?ver=2.7.0-wc.11.0.1"></script>
+<script id="wp-hooks-js" src="http://127.0.0.1:8080/wp-includes/js/dist/hooks.min.js?ver=f0f188028580e8dc1255"></script>
+<script id="wp-i18n-js" src="http://127.0.0.1:8080/wp-includes/js/dist/i18n.min.js?ver=1dfe7db3940c23ea9216"></script>
+<script id="wp-i18n-js-after">
+wp.i18n.setLocaleData( { 'text direction\u0004ltr': [ 'rtl' ] } );
+//# sourceURL=wp-i18n-js-after
+</script>
+<script id="dokan-modal-js" src="http://127.0.0.1:8080/wp-content/plugins/dokan-lite/assets/vendors/izimodal/iziModal.min.js?ver=5.1.1"></script>
+<script id="dokan-sweetalert2-js" src="http://127.0.0.1:8080/wp-content/plugins/dokan-lite/assets/vendors/sweetalert2/sweetalert2.all.min.js?ver=1789484088"></script>
+<script id="moment-js" src="http://127.0.0.1:8080/wp-includes/js/dist/vendor/moment.min.js?ver=2.30.1"></script>
+<script id="moment-js-after">
+moment.updateLocale( 'fa_IR', {"months":["January","February","March","April","May","June","July","August","September","October","November","December"],"monthsShort":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],"weekdays":["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],"weekdaysShort":["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],"week":{"dow":1},"longDateFormat":{"LT":"g:i a","LTS":null,"L":null,"LL":"F j, Y","LLL":"F j, Y g:i a","LLLL":null}} );
+//# sourceURL=moment-js-after
+</script>
+<script id="dokan-util-helper-js-extra">
+var dokan_helper = {"i18n_date_format":"F j, Y","i18n_time_format":"g:i a","week_starts_day":"1","reverse_withdrawal":{"enabled":false},"timepicker_locale":{"am":"am","pm":"pm","AM":"AM","PM":"PM","hr":"hr","hrs":"hrs","mins":"mins"},"daterange_picker_local":{"toLabel":"To","firstDay":1,"fromLabel":"From","separator":" - ","weekLabel":"W","applyLabel":"Apply","cancelLabel":"Clear","customRangeLabel":"Custom","daysOfWeek":["Su","Mo","Tu","We","Th","Fr","Sa"],"monthNames":["January","February","March","April","May","June","July","August","September","October","November","December"]},"sweetalert_local":{"cancelButtonText":"Cancel","closeButtonText":"Close","confirmButtonText":"OK","denyButtonText":"No","closeButtonAriaLabel":"Close this dialog"}};
+var dokan = {"ajaxurl":"http://127.0.0.1:8080/wp-admin/admin-ajax.php","nonce":"2138df800b","order_nonce":"db0509d1a0","product_edit_nonce":"994cd04b7c","ajax_loader":"http://127.0.0.1:8080/wp-content/plugins/dokan-lite/assets/images/ajax-loader.gif","seller":{"available":"Available","notAvailable":"Not Available"},"delete_confirm":"Are you sure?","wrong_message":"Something went wrong. Please try again.","vendor_percentage":"","commission_type":"","rounding_precision":"6","mon_decimal_point":".","currency_format_num_decimals":"0","currency_format_symbol":"\u062a\u0648\u0645\u0627\u0646","currency_format_decimal_sep":".","currency_format_thousand_sep":",","currency_format":"%s%v","round_at_subtotal":"no","product_types":["simple"],"loading_img":"http://127.0.0.1:8080/wp-content/plugins/dokan-lite/assets/images/loading.gif","store_product_search_nonce":"42f3a81f3b","i18n_download_permission":"Are you sure you want to revoke access to this download?","i18n_download_access":"Could not grant access - the user may already have permission for this file or billing email is not set. Ensure the billing email is set, and the order has been saved.","maximum_tags_select_length":"-1","modal_header_color":"var(--dokan-button-background-color, #7047EB)","allow_shipment":"off","wc_shipping_enabled":"1","has_shipment_func":"","rest":{"root":"http://127.0.0.1:8080/wp-json/","nonce":"6a71cedec4","version":"dokan/v1"},"api":null,"libs":[],"routeComponents":{"default":null},"routes":[],"urls":{"assetsUrl":"http://127.0.0.1:8080/wp-content/plugins/dokan-lite/assets","dashboardUrl":"http://127.0.0.1:8080/dashboard/?path=%2Fanalytics%2FOverview","storeUrl":"http://127.0.0.1:8080/store/tmc_seller/","ordersUrl":"http://127.0.0.1:8080/dashboard/orders/","legacyOrdersUrl":"http://127.0.0.1:8080/dashboard/orders/"},"nonces":{"viewOrder":"db0509d1a0","orderExport":"607fd4554c"},"orderStatuses":[{"value":"all","label":"All"},{"value":"wc-pending","label":"Pending payment"},{"value":"wc-processing","label":"Processing"},{"value":"wc-on-hold","label":"On hold"},{"value":"wc-completed","label":"Completed"},{"value":"wc-cancelled","label":"Cancelled"},{"value":"wc-refunded","label":"Refunded"},{"value":"wc-failed","label":"Failed"}]};
+//# sourceURL=dokan-util-helper-js-extra
+</script>
+<script id="dokan-util-helper-js" src="http://127.0.0.1:8080/wp-content/plugins/dokan-lite/assets/js/helper.js?ver=7.1"></script>
+<script data-wp-strategy="defer" defer id="wc-jquery-blockui-js" src="http://127.0.0.1:8080/wp-content/plugins/woocommerce/assets/js/jquery-blockui/jquery.blockUI.min.js?ver=5.1.1"></script>
 <script id="wc-add-to-cart-js-extra">
 var wc_add_to_cart_params = {"ajax_url":"/wp-admin/admin-ajax.php","wc_ajax_url":"/?wc-ajax=%%endpoint%%","i18n_view_cart":"View cart","cart_url":"http://127.0.0.1:8080/cart/","is_cart":"","cart_redirect_after_add":"no"};
 //# sourceURL=wc-add-to-cart-js-extra
@@ -111,7 +143,7 @@ var woocommerce_params = {"ajax_url":"/wp-admin/admin-ajax.php","wc_ajax_url":"/
 	<noscript><style>.woocommerce-product-gallery{ opacity: 1 !important; }</style></noscript>
 	</head>
 
-<body class="rtl home blog logged-in wp-embed-responsive wp-theme-twentytwentyone theme-twentytwentyone woocommerce-no-js is-light-theme no-js hfeed">
+<body class="rtl home blog logged-in wp-embed-responsive wp-theme-twentytwentyone theme-twentytwentyone woocommerce-no-js is-light-theme no-js hfeed dokan-theme-twentytwentyone">
 <div id="page" class="site">
 	<a class="skip-link screen-reader-text" href="#content">
 		Skip to content	</a>

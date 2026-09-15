@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Order\Infrastructure;
 
+use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
@@ -26,12 +27,13 @@ final class OrderServices
 {
     public static function register(ContainerInterface $c): void
     {
+        // OrderItemRepositoryInterface is deliberately NOT bound here: it is
+        // bound in Bootstrap, because reading what was already recorded is not
+        // "operating orders" and the finance screens have to keep working
+        // while this module is blocked. Found by opening a vendor's finance
+        // page with the gate closed — it fatalled on an unknown service.
         $c->bind(OrderItemStateMachine::class, static fn () => new OrderItemStateMachine());
         $c->bind(WcOrderReader::class, static fn () => new WcOrderReader());
-        $c->bind(OrderItemRepositoryInterface::class, static fn (ContainerInterface $c) => new DbOrderItemRepository(
-            $c->get(DatabaseInterface::class),
-            $c->get(ClockInterface::class)
-        ));
         $c->bind(CaptureOrder::class, static fn (ContainerInterface $c) => new CaptureOrder(
             $c->get(OrderItemRepositoryInterface::class),
             $c->get(ProductRepositoryInterface::class),
@@ -45,7 +47,11 @@ final class OrderServices
             $c->get(StaffAccess::class),
             $c->get(AuditLogger::class),
             $c->get(ClockInterface::class),
-            $c->get(OrderItemStateMachine::class)
+            $c->get(OrderItemStateMachine::class),
+            // The manager's capability checker, for the one action on this
+            // service that is a manager's and not a vendor's: recording that
+            // a sale is complete for settlement (ORDER-01).
+            $c->get(CapabilityCheckerInterface::class)
         ));
     }
 }

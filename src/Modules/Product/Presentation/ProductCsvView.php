@@ -43,7 +43,13 @@ final class ProductCsvView
             return $html . '</section>';
         }
 
-        $html .= '<div class="tv-scroll"><table class="tv-table"><caption class="tv-visually-hidden">'
+        // tabindex and a label: a region only a mouse can scroll is
+        // unreachable by keyboard (axe scrollable-region-focusable). The same
+        // defect was measured on the finance history table; this one shares
+        // the pattern and therefore the fix.
+        $html .= '<div class="tv-scroll" tabindex="0" role="region" aria-label="'
+            . esc_attr__('پیش‌نمایش ردیف‌های فایل', 'tecteb-marketplace-core') . '">'
+            . '<table class="tv-table"><caption class="tv-visually-hidden">'
             . esc_html__('ردیف‌های فایل CSV و نتیجه هرکدام', 'tecteb-marketplace-core') . '</caption><thead><tr>'
             . '<th scope="col">' . esc_html__('سطر', 'tecteb-marketplace-core') . '</th>'
             . '<th scope="col">' . esc_html__('SKU', 'tecteb-marketplace-core') . '</th>'

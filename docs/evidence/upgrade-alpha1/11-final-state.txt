@@ -1,17 +1,18 @@
 ## plugin
-0.1.0-alpha.7
+0.1.0-alpha.8
 ## schema_option
-6
+7
 ## options
 tmc_capability_signature
 tmc_order_trial_mode
 tmc_private_storage_relocated
 tmc_schema_version
 tmc_settings
+tmc_storefront_stop
 tmc_vendor_carriers
 tmc_vendor_networks
 ## settings_value
-{"schema_version":1,"values":{"default_commission_rate_bp":1234,"settlement_delay_days":9,"max_staff":77,"environment_override":"staging"}}
+{"schema_version":1,"values":{"default_commission_rate_bp":1234,"settlement_delay_days":9,"max_staff":10,"environment_override":"staging"}}
 ## tables
 wp_tmc_audit_events
 wp_tmc_commission_rules
@@ -32,10 +33,12 @@ wp_tmc_vendor_documents
 wp_tmc_vendor_profiles
 wp_tmc_vendor_staff
 wp_tmc_vendor_stores
+wp_tmc_withdrawal_lines
+wp_tmc_withdrawals
 ## row_counts
-wp_tmc_audit_events=189
+wp_tmc_audit_events=425
 wp_tmc_commission_rules=1
-wp_tmc_ledger_entries=8
+wp_tmc_ledger_entries=10
 wp_tmc_order_items=2
 wp_tmc_product_attributes=1
 wp_tmc_product_images=3
@@ -52,6 +55,8 @@ wp_tmc_vendor_documents=0
 wp_tmc_vendor_profiles=0
 wp_tmc_vendor_staff=0
 wp_tmc_vendor_stores=0
+wp_tmc_withdrawal_lines=1
+wp_tmc_withdrawals=1
 ## audit_rows
 1|plugin.activated|plugin|2026-09-15 14:05:09
 2|product.template_changed|spec_template|2026-09-15 14:05:11
@@ -242,6 +247,242 @@ wp_tmc_vendor_stores=0
 187|plugin.deactivated|plugin|2026-09-15 14:34:25
 188|plugin.deactivated|plugin|2026-09-15 14:34:32
 189|plugin.activated|plugin|2026-09-15 14:34:32
+190|product.template_changed|spec_template|2026-09-15 14:37:56
+191|product.template_changed|spec_template|2026-09-15 14:37:56
+192|product.saved|product|2026-09-15 14:37:56
+193|product.saved|product|2026-09-15 14:37:56
+194|product.submitted|product|2026-09-15 14:37:56
+195|product.synced|product|2026-09-15 14:37:56
+196|product.reviewed|product|2026-09-15 14:37:56
+197|product.saved|product|2026-09-15 14:37:56
+198|product.saved|product|2026-09-15 14:37:56
+199|product.submitted|product|2026-09-15 14:37:56
+200|product.synced|product|2026-09-15 14:37:56
+201|product.reviewed|product|2026-09-15 14:37:56
+202|product.saved|product|2026-09-15 14:37:56
+203|product.saved|product|2026-09-15 14:37:56
+204|product.saved|product|2026-09-15 14:37:56
+205|product.saved|product|2026-09-15 14:37:56
+206|product.saved|product|2026-09-15 14:37:56
+207|product.submitted|product|2026-09-15 14:37:56
+208|product.synced|product|2026-09-15 14:37:56
+209|product.reviewed|product|2026-09-15 14:37:56
+210|vendor.application_reviewed|vendor_application|2026-09-15 14:37:57
+211|vendor.staff_invited|vendor_staff|2026-09-15 14:37:57
+212|product.synced|product|2026-09-15 14:38:18
+213|product.synced|product|2026-09-15 14:38:18
+214|vendor.application_reviewed|vendor_application|2026-09-15 14:38:18
+215|order.blocked|product|2026-09-15 14:38:20
+216|product.synced|product|2026-09-15 14:38:25
+217|product.synced|product|2026-09-15 14:38:25
+218|vendor.application_reviewed|vendor_application|2026-09-15 14:38:25
+219|product.synced|product|2026-09-15 14:38:56
+220|product.synced|product|2026-09-15 14:38:56
+221|vendor.application_reviewed|vendor_application|2026-09-15 14:38:56
+222|order.blocked|product|2026-09-15 14:38:57
+223|product.synced|product|2026-09-15 14:39:04
+224|product.synced|product|2026-09-15 14:39:04
+225|vendor.application_reviewed|vendor_application|2026-09-15 14:39:04
+226|product.synced|product|2026-09-15 15:28:11
+227|product.synced|product|2026-09-15 15:28:11
+228|product.synced|product|2026-09-15 15:28:11
+229|storefront.resumed|storefront|2026-09-15 15:28:11
+230|product.synced|product|2026-09-15 15:28:19
+231|product.synced|product|2026-09-15 15:28:19
+232|product.synced|product|2026-09-15 15:28:19
+233|storefront.stopped|storefront|2026-09-15 15:28:19
+234|order.blocked|product|2026-09-15 15:28:20
+235|product.synced|product|2026-09-15 15:28:32
+236|product.synced|product|2026-09-15 15:28:32
+237|product.synced|product|2026-09-15 15:28:32
+238|storefront.resumed|storefront|2026-09-15 15:28:32
+239|product.synced|product|2026-09-15 15:30:37
+240|product.synced|product|2026-09-15 15:30:37
+241|product.synced|product|2026-09-15 15:30:37
+242|storefront.resumed|storefront|2026-09-15 15:30:37
+243|product.synced|product|2026-09-15 15:30:45
+244|product.synced|product|2026-09-15 15:30:45
+245|product.synced|product|2026-09-15 15:30:45
+246|storefront.stopped|storefront|2026-09-15 15:30:45
+247|order.blocked|product|2026-09-15 15:30:46
+248|product.synced|product|2026-09-15 15:30:57
+249|product.synced|product|2026-09-15 15:30:57
+250|product.synced|product|2026-09-15 15:30:57
+251|storefront.resumed|storefront|2026-09-15 15:30:57
+252|product.synced|product|2026-09-15 15:31:29
+253|product.synced|product|2026-09-15 15:31:29
+254|product.synced|product|2026-09-15 15:31:29
+255|storefront.resumed|storefront|2026-09-15 15:31:29
+256|product.synced|product|2026-09-15 15:31:37
+257|product.synced|product|2026-09-15 15:31:37
+258|product.synced|product|2026-09-15 15:31:37
+259|storefront.stopped|storefront|2026-09-15 15:31:37
+260|order.blocked|product|2026-09-15 15:31:38
+261|product.synced|product|2026-09-15 15:31:48
+262|product.synced|product|2026-09-15 15:31:48
+263|product.synced|product|2026-09-15 15:31:48
+264|storefront.resumed|storefront|2026-09-15 15:31:48
+265|product.synced|product|2026-09-15 15:32:13
+266|product.synced|product|2026-09-15 15:32:13
+267|product.synced|product|2026-09-15 15:32:13
+268|storefront.resumed|storefront|2026-09-15 15:32:13
+269|product.synced|product|2026-09-15 15:32:21
+270|product.synced|product|2026-09-15 15:32:21
+271|product.synced|product|2026-09-15 15:32:21
+272|storefront.stopped|storefront|2026-09-15 15:32:21
+273|order.blocked|product|2026-09-15 15:32:22
+274|product.synced|product|2026-09-15 15:32:33
+275|product.synced|product|2026-09-15 15:32:33
+276|product.synced|product|2026-09-15 15:32:33
+277|storefront.resumed|storefront|2026-09-15 15:32:33
+278|product.synced|product|2026-09-15 15:32:37
+279|product.synced|product|2026-09-15 15:32:37
+280|product.synced|product|2026-09-15 15:32:37
+281|storefront.stopped|storefront|2026-09-15 15:32:37
+282|product.synced|product|2026-09-15 15:32:41
+283|product.synced|product|2026-09-15 15:32:41
+284|product.synced|product|2026-09-15 15:32:41
+285|storefront.resumed|storefront|2026-09-15 15:32:41
+286|product.synced|product|2026-09-15 15:33:23
+287|product.synced|product|2026-09-15 15:33:23
+288|product.synced|product|2026-09-15 15:33:23
+289|storefront.resumed|storefront|2026-09-15 15:33:23
+290|product.synced|product|2026-09-15 15:33:31
+291|product.synced|product|2026-09-15 15:33:31
+292|product.synced|product|2026-09-15 15:33:31
+293|storefront.stopped|storefront|2026-09-15 15:33:31
+294|order.blocked|product|2026-09-15 15:33:32
+295|product.synced|product|2026-09-15 15:33:43
+296|product.synced|product|2026-09-15 15:33:43
+297|product.synced|product|2026-09-15 15:33:43
+298|storefront.resumed|storefront|2026-09-15 15:33:43
+299|product.synced|product|2026-09-15 15:33:47
+300|product.synced|product|2026-09-15 15:33:47
+301|product.synced|product|2026-09-15 15:33:47
+302|storefront.stopped|storefront|2026-09-15 15:33:47
+303|product.synced|product|2026-09-15 15:33:51
+304|product.synced|product|2026-09-15 15:33:51
+305|product.synced|product|2026-09-15 15:33:51
+306|storefront.resumed|storefront|2026-09-15 15:33:51
+307|product.synced|product|2026-09-15 15:34:15
+308|product.synced|product|2026-09-15 15:34:15
+309|product.synced|product|2026-09-15 15:34:15
+310|storefront.resumed|storefront|2026-09-15 15:34:15
+311|product.synced|product|2026-09-15 15:34:19
+312|product.synced|product|2026-09-15 15:34:19
+313|product.synced|product|2026-09-15 15:34:19
+314|storefront.stopped|storefront|2026-09-15 15:34:19
+315|plugin.deactivated|plugin|2026-09-15 15:34:19
+316|plugin.activated|plugin|2026-09-15 15:34:25
+317|order.blocked|product|2026-09-15 15:34:27
+318|product.synced|product|2026-09-15 15:34:30
+319|product.synced|product|2026-09-15 15:34:30
+320|product.synced|product|2026-09-15 15:34:30
+321|storefront.resumed|storefront|2026-09-15 15:34:30
+322|finance.accrued|ledger|2026-09-15 15:35:37
+323|finance.accrued|ledger|2026-09-15 15:35:37
+324|order.captured|order|2026-09-15 15:35:37
+325|order.item_status_changed|order_item|2026-09-15 15:35:54
+326|order.item_status_changed|order_item|2026-09-15 15:35:56
+327|order.settlement_recorded|order_item|2026-09-15 15:37:32
+328|finance.withdrawal_requested|withdrawal|2026-09-15 15:37:33
+329|finance.withdrawal_reviewed|withdrawal|2026-09-15 15:37:38
+330|finance.withdrawal_reviewed|withdrawal|2026-09-15 15:37:39
+331|finance.withdrawal_reviewed|withdrawal|2026-09-15 15:37:40
+332|finance.withdrawal_reviewed|withdrawal|2026-09-15 15:37:42
+333|order.settlement_recorded|order_item|2026-09-15 15:38:52
+334|finance.withdrawal_requested|withdrawal|2026-09-15 15:38:55
+335|finance.withdrawal_reviewed|withdrawal|2026-09-15 15:39:01
+336|finance.withdrawal_reviewed|withdrawal|2026-09-15 15:39:02
+337|finance.withdrawal_reviewed|withdrawal|2026-09-15 15:39:03
+338|finance.withdrawal_reviewed|withdrawal|2026-09-15 15:39:05
+339|product.synced|product|2026-09-15 15:46:56
+340|product.synced|product|2026-09-15 15:46:56
+341|product.synced|product|2026-09-15 15:46:56
+342|storefront.stopped|storefront|2026-09-15 15:46:56
+343|plugin.deactivated|plugin|2026-09-15 15:46:56
+344|plugin.activated|plugin|2026-09-15 15:46:59
+345|plugin.deactivated|plugin|2026-09-15 15:47:11
+346|plugin.activated|plugin|2026-09-15 15:47:12
+347|vendor.requirements_changed|vendor_document_type|2026-09-15 15:47:23
+348|vendor.document_uploaded|vendor_application|2026-09-15 15:47:23
+349|vendor.application_submitted|vendor_application|2026-09-15 15:47:23
+350|product.synced|product|2026-09-15 15:47:30
+351|product.synced|product|2026-09-15 15:47:30
+352|product.synced|product|2026-09-15 15:47:30
+353|storefront.stopped|storefront|2026-09-15 15:47:30
+354|plugin.deactivated|plugin|2026-09-15 15:47:30
+355|plugin.deactivated|plugin|2026-09-15 15:47:41
+356|plugin.activated|plugin|2026-09-15 15:47:42
+357|product.synced|product|2026-09-15 15:47:48
+358|product.synced|product|2026-09-15 15:47:48
+359|product.synced|product|2026-09-15 15:47:48
+360|storefront.stopped|storefront|2026-09-15 15:47:48
+361|plugin.deactivated|plugin|2026-09-15 15:47:48
+362|product.synced|product|2026-09-15 15:47:56
+363|product.synced|product|2026-09-15 15:47:56
+364|product.synced|product|2026-09-15 15:47:56
+365|storefront.stopped|storefront|2026-09-15 15:47:56
+366|plugin.deactivated|plugin|2026-09-15 15:47:56
+367|plugin.activated|plugin|2026-09-15 15:47:58
+368|product.synced|product|2026-09-15 15:48:40
+369|product.synced|product|2026-09-15 15:48:40
+370|product.synced|product|2026-09-15 15:48:40
+371|storefront.stopped|storefront|2026-09-15 15:48:40
+372|plugin.deactivated|plugin|2026-09-15 15:48:40
+373|plugin.activated|plugin|2026-09-15 15:48:43
+374|plugin.deactivated|plugin|2026-09-15 15:48:54
+375|plugin.activated|plugin|2026-09-15 15:48:55
+376|vendor.requirements_changed|vendor_document_type|2026-09-15 15:49:07
+377|vendor.document_uploaded|vendor_application|2026-09-15 15:49:07
+378|vendor.application_submitted|vendor_application|2026-09-15 15:49:07
+379|product.synced|product|2026-09-15 15:49:14
+380|product.synced|product|2026-09-15 15:49:14
+381|product.synced|product|2026-09-15 15:49:14
+382|storefront.stopped|storefront|2026-09-15 15:49:14
+383|plugin.deactivated|plugin|2026-09-15 15:49:14
+384|plugin.deactivated|plugin|2026-09-15 15:49:25
+385|plugin.activated|plugin|2026-09-15 15:49:26
+386|product.synced|product|2026-09-15 15:49:32
+387|product.synced|product|2026-09-15 15:49:32
+388|product.synced|product|2026-09-15 15:49:32
+389|storefront.stopped|storefront|2026-09-15 15:49:32
+390|plugin.deactivated|plugin|2026-09-15 15:49:32
+391|product.synced|product|2026-09-15 15:49:39
+392|product.synced|product|2026-09-15 15:49:39
+393|product.synced|product|2026-09-15 15:49:39
+394|storefront.stopped|storefront|2026-09-15 15:49:39
+395|plugin.deactivated|plugin|2026-09-15 15:49:39
+396|plugin.activated|plugin|2026-09-15 15:49:40
+397|product.synced|product|2026-09-15 15:49:56
+398|product.synced|product|2026-09-15 15:49:56
+399|product.synced|product|2026-09-15 15:49:56
+400|storefront.stopped|storefront|2026-09-15 15:49:56
+401|plugin.deactivated|plugin|2026-09-15 15:49:56
+402|plugin.activated|plugin|2026-09-15 15:50:02
+403|plugin.deactivated|plugin|2026-09-15 15:50:13
+404|plugin.activated|plugin|2026-09-15 15:50:14
+405|vendor.requirements_changed|vendor_document_type|2026-09-15 15:50:25
+406|vendor.document_uploaded|vendor_application|2026-09-15 15:50:25
+407|vendor.application_submitted|vendor_application|2026-09-15 15:50:25
+408|product.synced|product|2026-09-15 15:50:32
+409|product.synced|product|2026-09-15 15:50:32
+410|product.synced|product|2026-09-15 15:50:32
+411|storefront.stopped|storefront|2026-09-15 15:50:32
+412|plugin.deactivated|plugin|2026-09-15 15:50:32
+413|plugin.deactivated|plugin|2026-09-15 15:50:43
+414|plugin.activated|plugin|2026-09-15 15:50:43
+415|product.synced|product|2026-09-15 15:50:49
+416|product.synced|product|2026-09-15 15:50:49
+417|product.synced|product|2026-09-15 15:50:49
+418|storefront.stopped|storefront|2026-09-15 15:50:49
+419|plugin.deactivated|plugin|2026-09-15 15:50:49
+420|product.synced|product|2026-09-15 15:50:58
+421|product.synced|product|2026-09-15 15:50:58
+422|product.synced|product|2026-09-15 15:50:58
+423|storefront.stopped|storefront|2026-09-15 15:50:58
+424|plugin.deactivated|plugin|2026-09-15 15:50:58
+425|plugin.activated|plugin|2026-09-15 15:50:59
 ## vendor_applications
 ## vendor_documents
 ## vendor_document_types
@@ -249,7 +490,10 @@ wp_tmc_vendor_stores=0
 ## admin_caps
 ## private_files
 /home/user/tecteb-private/application-1/06a121061a26c2579becb27c5d4c9180.pdf
+/home/user/tecteb-private/application-1/0851342c7191b1d02762e621ffec76c7.pdf
+/home/user/tecteb-private/application-1/198baaf8429002b837843504c2eacbef.pdf
 /home/user/tecteb-private/application-1/19e79d1967a31de04c583e5eb8a57015.pdf
+/home/user/tecteb-private/application-1/356434ad6797c6c5121bf905b10a1978.pdf
 /home/user/tecteb-private/application-1/39ff6ff621624b076a7f20a76a68b355.pdf
 /home/user/tecteb-private/application-1/40153faf56588be7dfb314cd525b21a7.pdf
 /home/user/tecteb-private/application-1/410debc1b32189ab799160484cf80543.pdf

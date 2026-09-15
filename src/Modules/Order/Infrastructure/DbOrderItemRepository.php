@@ -6,6 +6,8 @@ namespace Tecteb\Marketplace\Modules\Order\Infrastructure;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
+use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStatus;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables as Settlement;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as T;
@@ -171,6 +173,69 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
             'commission' => (int) ($row['commission'] ?? 0),
             'share' => (int) ($row['share'] ?? 0),
         ];
+    }
+
+    public function settlementView(int $vendorUserId): array
+    {
+        $rows = $this->db->getResults(
+            'SELECT i.id, i.vendor_share_minor, i.settlement_completed_at, i.withdrawal_id, w.status AS withdrawal_status
+             FROM `' . $this->table() . '` i
+             LEFT JOIN `' . $this->withdrawals() . '` w ON w.id = i.withdrawal_id
+             WHERE i.vendor_user_id = %d AND i.status <> %s
+             ORDER BY i.id ASC',
+            [$vendorUserId, OrderItemStatus::Cancelled->value]
+        );
+        $view = [];
+        foreach ($rows as $row) {
+            $view[] = [
+                'id' => (int) $row['id'],
+                'vendor_share_minor' => $row['vendor_share_minor'] === null ? null : (int) $row['vendor_share_minor'],
+                'settlement_completed_at' => $row['settlement_completed_at'] === null
+                    ? null
+                    : (string) $row['settlement_completed_at'],
+                'withdrawal_id' => $row['withdrawal_id'] === null ? null : (int) $row['withdrawal_id'],
+                'paid' => (string) ($row['withdrawal_status'] ?? '') === WithdrawalStatus::Paid->value,
+            ];
+        }
+        return $view;
+    }
+
+    public function recordSettlementCompletion(int $id, ?string $completedAt, ?int $actorId): bool
+    {
+        // Two literals rather than placeholders: a placeholder cannot carry
+        // NULL through wpdb::prepare(), and clearing a completion recorded by
+        // mistake has to be possible while the money is still unlocked.
+        $when = $completedAt === null ? 'NULL' : '%s';
+        $who = $actorId === null ? 'NULL' : '%d';
+        $params = [];
+        if ($completedAt !== null) {
+            $params[] = $completedAt;
+        }
+        if ($actorId !== null) {
+            $params[] = $actorId;
+        }
+        array_push($params, $this->now(), $id);
+        return $this->db->execute(
+            'UPDATE `' . $this->table() . "` SET settlement_completed_at = {$when},
+             settlement_completed_by = {$who}, updated_at = %s WHERE id = %d",
+            $params
+        ) !== null;
+    }
+
+    public function idsForWithdrawal(int $withdrawalId): array
+    {
+        return array_map(
+            static fn (array $row): int => (int) $row['id'],
+            $this->db->getResults(
+                'SELECT id FROM `' . $this->table() . '` WHERE withdrawal_id = %d ORDER BY id ASC',
+                [$withdrawalId]
+            )
+        );
+    }
+
+    private function withdrawals(): string
+    {
+        return Settlement::table($this->db, Settlement::WITHDRAWALS);
     }
 
     /** @param array<string,mixed> $row */

@@ -58,7 +58,16 @@ final class LifecycleTest extends ContractTestCase
         self::assertSame(1, State::$options['tmc_schema_version']);
         self::assertTrue(State::$roles['administrator']['tmc_view_health']);
         self::assertSame([], State::$clearedScheduledHooks, 'phase 1 owns no cron hooks; nothing else is touched');
-        self::assertSame('plugin.deactivated', $this->audit->records[0]->eventType);
-        self::assertSame(1, $this->audit->records[0]->actorId);
+
+        $events = array_map(static fn ($r): string => $r->eventType, $this->audit->records);
+        self::assertContains('plugin.deactivated', $events);
+        self::assertSame(1, $this->audit->records[array_search('plugin.deactivated', $events, true)]->actorId);
+
+        // …and, whatever happened to the shelf, the marketplace is left
+        // STOPPED. Without this a later reactivation would treat the site as
+        // one that was selling happily and put every product back on sale
+        // with nobody having asked for it.
+        self::assertArrayHasKey('tmc_storefront_stop', State::$options, 'deactivation leaves selling stopped');
+        self::assertSame('plugin_deactivated', State::$options['tmc_storefront_stop']['reason'] ?? '');
     }
 }

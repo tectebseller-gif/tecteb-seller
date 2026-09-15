@@ -29,6 +29,9 @@ final class Capabilities
     /** Product phase: decide on products and revisions, and shape category templates. */
     public const REVIEW_PRODUCTS = 'tmc_review_products';
     public const MANAGE_SPEC_TEMPLATES = 'tmc_manage_spec_templates';
+    /** Catalogue and settlement: stop or resume selling, and decide on withdrawals. */
+    public const MANAGE_STOREFRONT = 'tmc_manage_storefront';
+    public const REVIEW_WITHDRAWALS = 'tmc_review_withdrawals';
 
     /** @return list<string> */
     public static function all(): array
@@ -42,6 +45,8 @@ final class Capabilities
             self::MANAGE_VENDOR_DOCUMENTS,
             self::REVIEW_PRODUCTS,
             self::MANAGE_SPEC_TEMPLATES,
+            self::MANAGE_STOREFRONT,
+            self::REVIEW_WITHDRAWALS,
         ];
     }
 

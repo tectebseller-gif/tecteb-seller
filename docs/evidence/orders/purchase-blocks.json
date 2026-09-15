@@ -1,7 +1,7 @@
 {
   "suite": "purchase-blocks",
-  "generated_at": "2026-09-15T14:29:10.541Z",
-  "total": 25,
+  "generated_at": "2026-09-15T16:04:15.405Z",
+  "total": 26,
   "failures": 0,
   "results": [
     {
@@ -95,9 +95,14 @@
       "detail": "A=0 B=0 rows"
     },
     {
-      "name": "…and the shopper is told which rule is missing",
+      "name": "…and the shopper is told, in one short sentence",
       "ok": true,
       "detail": ""
+    },
+    {
+      "name": "…without a word about rates or internal decisions",
+      "ok": true,
+      "detail": "the manager screen carries that"
     },
     {
       "name": "…on the product’s own page as well",

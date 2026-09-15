@@ -1,5 +1,5 @@
 before_request_schema=1
 admin_request=200
-after_request_schema=6
+after_request_schema=7
 vendor_before_flush=absent
 vendor_after_flush=vendor-dashboard

@@ -33,8 +33,10 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             ['tmc-vendor-applications', 'tmc_review_vendor', 'درخواست‌های فروشندگان'],
             ['tmc-vendor-documents', 'tmc_manage_vendor_documents', 'مدارک فروشندگان'],
             ['tmc-commission-rules', 'tmc_manage_settings', 'قواعد کمیسیون'],
+            ['tmc-withdrawals', 'tmc_review_withdrawals', 'تسویه و برداشت'],
             ['tmc-product-review', 'tmc_review_products', 'بررسی محصولات'],
             ['tmc-spec-templates', 'tmc_manage_spec_templates', 'الگوهای مشخصات'],
+            ['tmc-storefront', 'tmc_manage_storefront', 'وضعیت فروش بازارگاه'],
         ];
         self::assertCount(count($expected), $subs);
         foreach ($expected as $i => [$slug, $cap, $label]) {

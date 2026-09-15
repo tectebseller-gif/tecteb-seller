@@ -1,6 +1,6 @@
 {
   "suite": "order-trial",
-  "generated_at": "2026-09-15T14:27:06.297Z",
+  "generated_at": "2026-09-15T15:56:21.252Z",
   "total": 14,
   "failures": 0,
   "results": [
@@ -22,7 +22,7 @@
     {
       "name": "the order is placed",
       "ok": true,
-      "detail": "http://127.0.0.1:8080/checkout/order-received/66/?key=wc_order_iIy9dX1teHw1C"
+      "detail": "http://127.0.0.1:8080/checkout/order-received/99/?key=wc_order_2cCAv6y239IEN"
     },
     {
       "name": "the buyer is told it went through",

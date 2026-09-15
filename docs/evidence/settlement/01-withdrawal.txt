@@ -1,0 +1,20 @@
+=== settlement and withdrawal on real WooCommerce ===
+name	status	version
+dokan-lite	active	5.1.1
+hello	inactive	1.7.2
+tecteb-marketplace-core	active	0.1.0-alpha.8
+woocommerce	active	11.0.1
+
+-- the vendor's balance, step by step --
+vendor=4 earned=1080000 pending=1080000 eligible=0 reserved=0 paid=0 unrecorded=0 delay_days=4 awaiting_completion=1 awaiting_delay=0 gate=ready_on_trial
+vendor=4 earned=1080000 pending=0 eligible=1080000 reserved=0 paid=0 unrecorded=0 delay_days=0 awaiting_completion=0 awaiting_delay=0 gate=ready_on_trial
+vendor=4 earned=1080000 pending=0 eligible=0 reserved=1080000 paid=0 unrecorded=0 delay_days=0 awaiting_completion=0 awaiting_delay=0 gate=ready_on_trial
+vendor=4 earned=1080000 pending=0 eligible=0 reserved=0 paid=1080000 unrecorded=0 delay_days=0 awaiting_completion=0 awaiting_delay=0 gate=ready_on_trial
+
+-- the ledger behind the payment --
+withdrawal:1:paid vendor_earning 1080000
+withdrawal:1:paid vendor_payout -1080000
+
+-- the request itself --
+id=1 vendor=4 status=paid amount=1080000 lines=1 reference=TRACE-ALPHA8 open=closed
+withdraw vendor=4 ok=false code=settlement_blocked amount=- lines=-

@@ -1,0 +1,30 @@
+--- /home/user/tecteb-seller/docs/evidence/upgrade-alpha7/01-before-upgrade.txt	2026-09-15 15:48:49.296333884 +0000
++++ /home/user/tecteb-seller/docs/evidence/upgrade-alpha7/02-after-upgrade.txt	2026-09-15 15:49:00.984334578 +0000
+@@ -1,7 +1,7 @@
+ ## plugin
+-0.1.0-alpha.7
++0.1.0-alpha.8
+ ## schema_option
+-6
++7
+ ## options
+ tmc_capability_signature
+ tmc_order_trial_mode
+@@ -36,7 +36,7 @@
+ wp_tmc_withdrawal_lines
+ wp_tmc_withdrawals
+ ## row_counts
+-wp_tmc_audit_events=373
++wp_tmc_audit_events=375
+ wp_tmc_commission_rules=1
+ wp_tmc_ledger_entries=10
+ wp_tmc_order_items=2
+@@ -431,6 +431,8 @@
+ 371|storefront.stopped|storefront|2026-09-15 15:48:40
+ 372|plugin.deactivated|plugin|2026-09-15 15:48:40
+ 373|plugin.activated|plugin|2026-09-15 15:48:43
++374|plugin.deactivated|plugin|2026-09-15 15:48:54
++375|plugin.activated|plugin|2026-09-15 15:48:55
+ ## vendor_applications
+ ## vendor_documents
+ ## vendor_document_types

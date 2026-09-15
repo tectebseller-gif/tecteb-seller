@@ -14,10 +14,12 @@ use Tecteb\Marketplace\Modules\Order\Application\OrderTrialInterface;
  */
 final class FakeTrialUnlock implements OrderTrialInterface
 {
-    public function __construct(
-        private readonly bool $active,
-        private readonly string $environment = 'local'
-    ) {
+    /** Writable, so a test can switch the waiver off mid-scenario. */
+    public bool $active;
+
+    public function __construct(bool $active, private readonly string $environment = 'local')
+    {
+        $this->active = $active;
     }
 
     public function isActive(): bool

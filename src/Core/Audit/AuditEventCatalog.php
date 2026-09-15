@@ -53,10 +53,16 @@ final class AuditEventCatalog
     public const ORDER_CAPTURED = 'order.captured';
     public const ORDER_ITEM_STATUS_CHANGED = 'order.item_status_changed';
     public const ORDER_BLOCKED = 'order.blocked';
+    public const ORDER_SETTLEMENT_RECORDED = 'order.settlement_recorded';
+    /** The storefront switch: the marketplace's own products, out of sale and back. */
+    public const STOREFRONT_STOPPED = 'storefront.stopped';
+    public const STOREFRONT_RESUMED = 'storefront.resumed';
     /** Finance: rules and the append-only ledger. */
     public const FINANCE_RATE_CHANGED = 'finance.rate_changed';
     public const FINANCE_ACCRUED = 'finance.accrued';
     public const FINANCE_REVERSED = 'finance.reversed';
+    public const WITHDRAWAL_REQUESTED = 'finance.withdrawal_requested';
+    public const WITHDRAWAL_REVIEWED = 'finance.withdrawal_reviewed';
 
     /** @return array<string, list<string>> event type => allowed top-level payload keys */
     public static function allowlist(): array
@@ -64,7 +70,7 @@ final class AuditEventCatalog
         return [
             self::SETTINGS_UPDATED => ['changed', 'old', 'new'],
             self::PLUGIN_ACTIVATED => ['plugin_version', 'schema_version', 'migration_status'],
-            self::PLUGIN_DEACTIVATED => ['plugin_version'],
+            self::PLUGIN_DEACTIVATED => ['plugin_version', 'withdrawn'],
             self::MIGRATION_APPLIED => ['from', 'to', 'steps'],
             self::MIGRATION_FAILED => ['step', 'message'],
             self::VENDOR_APPLICATION_SUBMITTED => ['application_id', 'from', 'to', 'documents'],
@@ -97,9 +103,14 @@ final class AuditEventCatalog
             self::ORDER_CAPTURED => ['order_id', 'vendors', 'items', 'recorded', 'skipped'],
             self::ORDER_ITEM_STATUS_CHANGED => ['vendor_id', 'order_id', 'item_id', 'from', 'to'],
             self::ORDER_BLOCKED => ['product_id', 'vendor_id', 'reason'],
+            self::ORDER_SETTLEMENT_RECORDED => ['vendor_id', 'order_id', 'item_id', 'completed_at'],
+            self::STOREFRONT_STOPPED => ['reason', 'withdrawn', 'failed', 'total'],
+            self::STOREFRONT_RESUMED => ['published', 'refused', 'total'],
             self::FINANCE_RATE_CHANGED => ['scope', 'reference', 'rate_bp', 'cleared'],
             self::FINANCE_ACCRUED => ['vendor_id', 'rate_bp', 'rate_source', 'base_minor'],
             self::FINANCE_REVERSED => ['vendor_id', 'reverses', 'amount_minor'],
+            self::WITHDRAWAL_REQUESTED => ['vendor_id', 'withdrawal_id', 'amount_minor', 'lines'],
+            self::WITHDRAWAL_REVIEWED => ['vendor_id', 'withdrawal_id', 'from', 'to', 'has_note'],
         ];
     }
 

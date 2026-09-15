@@ -1,20 +1,20 @@
---- /home/user/tecteb-seller/docs/evidence/upgrade-alpha1/01-before-upgrade.txt	2026-09-15 14:33:47.432066279 +0000
-+++ /home/user/tecteb-seller/docs/evidence/upgrade-alpha1/02-after-upgrade.txt	2026-09-15 14:33:58.048066911 +0000
+--- /home/user/tecteb-seller/docs/evidence/upgrade-alpha1/01-before-upgrade.txt	2026-09-15 15:50:07.224338516 +0000
++++ /home/user/tecteb-seller/docs/evidence/upgrade-alpha1/02-after-upgrade.txt	2026-09-15 15:50:18.680339197 +0000
 @@ -1,10 +1,11 @@
  ## plugin
 -0.1.0-alpha.1
-+0.1.0-alpha.7
++0.1.0-alpha.8
  ## schema_option
 -1
-+6
++7
  ## options
  tmc_capability_signature
  tmc_order_trial_mode
 +tmc_private_storage_relocated
  tmc_schema_version
  tmc_settings
- tmc_vendor_carriers
-@@ -24,8 +25,15 @@
+ tmc_storefront_stop
+@@ -25,10 +26,17 @@
  wp_tmc_products
  wp_tmc_spec_fields
  wp_tmc_spec_templates
@@ -25,13 +25,15 @@
 +wp_tmc_vendor_profiles
 +wp_tmc_vendor_staff
 +wp_tmc_vendor_stores
+ wp_tmc_withdrawal_lines
+ wp_tmc_withdrawals
  ## row_counts
--wp_tmc_audit_events=178
-+wp_tmc_audit_events=180
+-wp_tmc_audit_events=402
++wp_tmc_audit_events=404
  wp_tmc_commission_rules=1
- wp_tmc_ledger_entries=8
+ wp_tmc_ledger_entries=10
  wp_tmc_order_items=2
-@@ -37,6 +45,13 @@
+@@ -40,6 +48,13 @@
  wp_tmc_products=3
  wp_tmc_spec_fields=1
  wp_tmc_spec_templates=1
@@ -42,15 +44,15 @@
 +wp_tmc_vendor_profiles=0
 +wp_tmc_vendor_staff=0
 +wp_tmc_vendor_stores=0
+ wp_tmc_withdrawal_lines=1
+ wp_tmc_withdrawals=1
  ## audit_rows
- 1|plugin.activated|plugin|2026-09-15 14:05:09
- 2|product.template_changed|spec_template|2026-09-15 14:05:11
-@@ -216,9 +231,31 @@
- 176|plugin.activated|plugin|2026-09-15 14:33:25
- 177|plugin.deactivated|plugin|2026-09-15 14:33:39
- 178|plugin.activated|plugin|2026-09-15 14:33:42
-+179|plugin.deactivated|plugin|2026-09-15 14:33:52
-+180|plugin.activated|plugin|2026-09-15 14:33:53
+@@ -445,9 +460,34 @@
+ 400|storefront.stopped|storefront|2026-09-15 15:49:56
+ 401|plugin.deactivated|plugin|2026-09-15 15:49:56
+ 402|plugin.activated|plugin|2026-09-15 15:50:02
++403|plugin.deactivated|plugin|2026-09-15 15:50:13
++404|plugin.activated|plugin|2026-09-15 15:50:14
  ## vendor_applications
  ## vendor_documents
  ## vendor_document_types
@@ -58,7 +60,9 @@
  ## admin_caps
  ## private_files
 +/home/user/tecteb-private/application-1/06a121061a26c2579becb27c5d4c9180.pdf
++/home/user/tecteb-private/application-1/0851342c7191b1d02762e621ffec76c7.pdf
 +/home/user/tecteb-private/application-1/19e79d1967a31de04c583e5eb8a57015.pdf
++/home/user/tecteb-private/application-1/356434ad6797c6c5121bf905b10a1978.pdf
 +/home/user/tecteb-private/application-1/39ff6ff621624b076a7f20a76a68b355.pdf
 +/home/user/tecteb-private/application-1/40153faf56588be7dfb314cd525b21a7.pdf
 +/home/user/tecteb-private/application-1/410debc1b32189ab799160484cf80543.pdf
@@ -70,6 +74,7 @@
 +/home/user/tecteb-private/application-1/8bb6a1c3972e5cb92c3bf35a7a7c0d25.pdf
 +/home/user/tecteb-private/application-1/9da81fde7da3731a2303fb3ee64c7811.pdf
 +/home/user/tecteb-private/application-1/abaf79985d794d4098796b972f253ac7.pdf
++/home/user/tecteb-private/application-1/bc7e94ee3c2a6b6a2a3f79c4a1acb3d3.pdf
 +/home/user/tecteb-private/application-1/bd299b128fe87ab845f4a39baa08bf72.pdf
 +/home/user/tecteb-private/application-1/c4b6e0c4d5de226234ebfd97d1c77d09.pdf
 +/home/user/tecteb-private/application-1/c6c9c758d99344aafb9bc0d8b95b027c.pdf

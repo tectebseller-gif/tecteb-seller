@@ -14,11 +14,32 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Finance\Application\CommissionRuleRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
+use Tecteb\Marketplace\Modules\Finance\Application\RequestWithdrawal;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
+use Tecteb\Marketplace\Modules\Finance\Application\ReviewWithdrawals;
+use Tecteb\Marketplace\Modules\Finance\Application\SettlementGate;
+use Tecteb\Marketplace\Modules\Finance\Application\VendorBalance;
+use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
+use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStateMachine;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbCommissionRuleRepository;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbWithdrawalRepository;
 use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\CommissionRulesPage;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\WordPress\FinanceArea;
+use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\WithdrawalsPage;
+use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaExtensions;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaOutcome;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaView;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
+use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
+use Tecteb\Marketplace\Core\Config\SettingsService;
+use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
+use Tecteb\Marketplace\Modules\Order\Application\OrderTrialInterface;
+use Tecteb\Marketplace\Modules\Order\Application\TrialUnlock;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
+use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
 
 /**
  * The financial contract: rates, the calculation, and the ledger.
@@ -40,7 +61,7 @@ final class FinanceModule implements ModuleInterface
             ModuleKind::Operational,
             ['core', 'vendor'],
             false,
-            'قواعد کمیسیون، محاسبه سهم و دفترکل تغییرناپذیر'
+            'قواعد کمیسیون، محاسبه سهم، دفترکل تغییرناپذیر و تسویه'
         );
     }
 
@@ -64,6 +85,39 @@ final class FinanceModule implements ModuleInterface
             $c->get(CommissionCalculator::class),
             $c->get(AuditLogger::class)
         ));
+
+        // Settlement. Bound unconditionally, like the order gate: the screens
+        // have to be able to say WHY a withdrawal cannot be made, and a
+        // service that is not bound cannot say anything.
+        $c->bind(WithdrawalRepositoryInterface::class, static fn (ContainerInterface $c) => new DbWithdrawalRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(WithdrawalStateMachine::class, static fn () => new WithdrawalStateMachine());
+        $c->bind(SettlementGate::class, static fn (ContainerInterface $c) => new SettlementGate(
+            $c->get(TrialUnlock::class)
+        ));
+        $c->bind(VendorBalance::class, static fn (ContainerInterface $c) => new VendorBalance(
+            $c->get(OrderItemRepositoryInterface::class),
+            $c->get(SettingsService::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(RequestWithdrawal::class, static fn (ContainerInterface $c) => new RequestWithdrawal(
+            $c->get(WithdrawalRepositoryInterface::class),
+            $c->get(VendorBalance::class),
+            $c->get(SettlementGate::class),
+            $c->get(StaffAccess::class),
+            $c->get(StoreRepositoryInterface::class),
+            $c->get(WithdrawalStateMachine::class),
+            $c->get(AuditLogger::class)
+        ));
+        $c->bind(ReviewWithdrawals::class, static fn (ContainerInterface $c) => new ReviewWithdrawals(
+            $c->get(WithdrawalRepositoryInterface::class),
+            $c->get(LedgerRepositoryInterface::class),
+            $c->get(WithdrawalStateMachine::class),
+            $c->get(AuditLogger::class),
+            $c->get(CapabilityCheckerInterface::class)
+        ));
     }
 
     /**
@@ -74,16 +128,42 @@ final class FinanceModule implements ModuleInterface
      */
     public function boot(ContainerInterface $c): void
     {
-        $page = new CommissionRulesPage($c);
-        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($page): array {
+        $rules = new CommissionRulesPage($c);
+        $withdrawals = new WithdrawalsPage($c);
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($rules, $withdrawals): array {
             $pages[] = [
                 'slug' => CommissionRulesPage::SLUG,
                 'page_title' => CommissionRulesPage::menuLabel(),
                 'menu_label' => CommissionRulesPage::menuLabel(),
                 'capability' => CommissionRulesPage::CAPABILITY,
-                'render' => [$page, 'render'],
+                'render' => [$rules, 'render'],
+            ];
+            $pages[] = [
+                'slug' => WithdrawalsPage::SLUG,
+                'page_title' => WithdrawalsPage::menuLabel(),
+                'menu_label' => WithdrawalsPage::menuLabel(),
+                'capability' => WithdrawalsPage::CAPABILITY,
+                'render' => [$withdrawals, 'render'],
             ];
             return $pages;
+        });
+
+        // …and the vendor's own side of the same money.
+        $area = new FinanceArea($c);
+        add_filter(VendorAreaExtensions::FILTER, static function (array $views) use ($area): array {
+            $views[] = [
+                'slug' => FinanceArea::SLUG,
+                'label' => __('مالی', 'tecteb-marketplace-core'),
+                'title' => __('مالی فروشگاه', 'tecteb-marketplace-core'),
+                'requires_vendor' => true,
+                'render' => static fn (VendorAreaView $view): string => $area->render($view),
+                'actions' => FinanceArea::ACTIONS,
+                'handle' => static fn (string $action, Request $request, int $userId, VendorUrls $urls): ?VendorAreaOutcome
+                    => $area->handle($action, $request, $userId, $urls),
+                'url' => static fn (VendorUrls $urls): string => $area->financeUrl(),
+                'nav' => true,
+            ];
+            return $views;
         });
     }
 

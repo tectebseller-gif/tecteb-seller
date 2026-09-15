@@ -23,4 +23,13 @@ enum LedgerAccount: string
     case TaxCollected = 'tax_collected';
     /** A vendor owing the marketplace, e.g. a refund after a payout. */
     case VendorDebt = 'vendor_debt';
+    /**
+     * Money actually transferred to a vendor.
+     *
+     * Separate from VendorEarning on purpose: earning is what a sale created,
+     * payout is what left the marketplace's hands. Netting them into one
+     * balance would make «چقدر بدهکاریم» and «چقدر پرداخت کرده‌ایم»
+     * indistinguishable, and §4.4 wants both auditable.
+     */
+    case VendorPayout = 'vendor_payout';
 }

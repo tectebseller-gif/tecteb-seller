@@ -35,7 +35,7 @@ const B = process.env.TMC_WC_B || '44';          // vendor B, simple, in stock
 const SHOP = process.env.TMC_WC_SHOP || '37';    // the shop's own product
 const TMC_A = process.env.TMC_PRODUCT_A || '1';  // …its marketplace id
 const VENDOR_A = process.env.TMC_VENDOR_A || '4';
-const STAFF = process.env.TMC_STAFF_USER || 'tmcstaff';
+const STAFF = process.env.TMC_STAFF_USER || 'tmcstaff';   // the seeded order-and-shipping staff member
 const STAFF_PASS = process.env.TMC_STAFF_PASS || 'TmcStaff!2026';
 
 fs.mkdirSync(OUT, { recursive: true });
@@ -181,10 +181,15 @@ const lockedPageA = await productPage(A);
 const lockedPageShop = await productPage(SHOP);
 check('with the financial rules unsettled, no marketplace product sells',
   !marketplace.added && !marketplaceB.added, `A=${marketplace.rows} B=${marketplaceB.rows} rows`);
-check('…and the shopper is told which rule is missing',
-  marketplace.notice.includes('فروش محصولات بازارگاه هنوز فعال نشده است'), '');
+// One short clause about the KALA — and nothing about the marketplace's own
+// affairs. The rate, the gate and the open decisions belong on the manager's
+// screen, which is where the same event is spelled out in full.
+check('…and the shopper is told, in one short sentence',
+  marketplace.notice.includes('این کالا فعلاً برای فروش در دسترس نیست'), '');
+check('…without a word about rates or internal decisions',
+  !/DEC-0|کمیسیون|دفترکل/.test(marketplace.notice), 'the manager screen carries that');
 check('…on the product’s own page as well',
-  lockedPageA.blocked && lockedPageA.text.includes('فروش محصولات بازارگاه هنوز فعال نشده است'), '');
+  lockedPageA.blocked && lockedPageA.text.includes('این کالا فعلاً برای فروش در دسترس نیست'), '');
 check('…and the shop’s own product page says nothing of the kind',
   !lockedPageShop.blocked, 'the marketplace never speaks for somebody else’s catalogue');
 check('…the catalogue names the same reason',

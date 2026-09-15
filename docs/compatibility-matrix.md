@@ -29,6 +29,7 @@
 | PHP | 8.2 / 8.3 | — | `Not Tested` | خارج از دامنه اعلامی |
 | WordPress | 7.1 | نصب واقعی در کانتینر | **`Passed`** | هسته از `github.com/WordPress/WordPress` تگ `7.1`؛ سایت یکبارمصرف با داده مصنوعی، `WP_DEBUG` روشن · `docs/evidence/acceptance/*/00-environment.txt` |
 | WordPress | 6.3 (هدر `Requires at least`) | **حداقل پیشنهادی** | `Not Run` | آزموده‌نشده و بدون مبنای فنی مستند. تا محاسبه پایین‌ترین نسخه از روی APIهای مصرفی **و** اجرای پروتکل بند ۴ نصب، «حداقل پشتیبانی‌شده» خوانده نمی‌شود (`docs/installation.md` §۲٫۱) |
+| Dokan Lite | 5.1.1 | نصب واقعی از سورس رسمی، **فعال** | **`Passed`** (فقط PHP؛ JS ساخته نشده — بند ۳) |
 | WooCommerce | 11.0.1 | نصب واقعی در کانتینر | **`Passed`** | بسته رسمی release (sha256 `88837ea0…ae494c`)؛ خود WooCommerce افزونه را در فهرست «سازگار با HPOS» می‌آورد · `docs/evidence/acceptance/php81/G-07-compatibility-info.txt` |
 | MySQL / MariaDB | MariaDB 10.11.14 | نصب و اجرا در کانتینر | **`Passed`** — ۲۲ تست، DDL/ایندکس/قفل/هم‌زمانی/نوشتن guarded/پاک‌سازی | فقط جدول audit؛ **معادل نصب WP نیست** · `docs/evidence/database.log` |
 | MySQL سایت | ? | نامعلوم | `Not Tested` | نسخه DB سایت گزارش نشده |
@@ -82,8 +83,18 @@
 | **تعلیق/ناموجودی/قفل مالی در امکان خرید، و مصونیت محصولات سایت و دکان** | **`Passed`** | ۲۵ بررسی، ۰ شکست · `docs/evidence/orders/purchase-blocks.json` |
 | **دسترس‌پذیری دو صفحهٔ تازهٔ فروشنده در پنج عرض + axe** | **`Passed`** | ۸۰ بررسی، ۰ شکست · `docs/evidence/orders/a11y/orders-a11y.json` |
 | **خطر بازگشت `alpha.7 → alpha.6` و راه‌حل مستندش** | **`Passed`** | هر دو مسیر اجرا شد · `docs/evidence/orders/13-rollback-hazard.txt` |
-| checkout بلوکی ووکامرس (Store API) | `Not Run` | آزمون روی checkout کلاسیک اجرا شد؛ hook ثبت سفارش برای هر دو نوشته شده ولی مسیر بلوکی اجرا نشده است |
-| رفتار با **دکان واقعی نصب‌شده** | `Not Run` | دکان در این محیط نصب نیست؛ محصول شاهد با متای `_dokan_vendor_id` ساخته شد، که تشخیص «مال ما نیست» را می‌سنجد نه تداخل افزونه‌ای را |
+| **Store API ووکامرس (سبد و checkout بلوکی)** | **`Passed`** | روی HTTP واقعی با nonce واقعی؛ محصول بازارگاه رد می‌شود و پیام فارسی خودمان را می‌دهد · `docs/evidence/safe-stop/` |
+| **رفتار با دکانِ واقعاً فعال** | **`Passed`** (PHP) | Dokan Lite ۵٫۱٫۱ از سورس رسمی، فعال کنار ما: نقش‌ها، متاها، منو، خرید · `docs/evidence/coexistence/01-dokan-active.txt` |
+| صفحه‌های JS-محور خود دکان | `Not Run` | سورس گیت دکان `/assets/js/` را ندارد (git-ignored) و wordpress.org از این محیط ۴۰۳ می‌دهد؛ ساخت با npm در این محیط مجاز نیست. بستهٔ رسمی روی سایت مالک این شکاف را ندارد |
+| **غیرفعال‌سازی: محصولات بازارگاه از فروش خارج می‌شوند، بدون حذف داده** | **`Passed`** | ۱۳ بررسی، ۰ شکست · `docs/evidence/safe-stop/07-deactivation.txt` |
+| **فعال‌سازی دوباره خودکار چیزی را به فروش برنمی‌گرداند** | **`Passed`** | همان اجرا |
+| **سبد از قبل پُرشده و لینک پرداخت سفارش پرداخت‌نشده** | **`Passed`** | ۲۳ بررسی، ۰ شکست · `docs/evidence/safe-stop/` |
+| **تسویه و برداشت روی ووکامرس واقعی** | **`Passed`** | ۲۰ بررسی، ۰ شکست · `docs/evidence/settlement/01-withdrawal.txt` |
+| **ارتقای `alpha.7 → alpha.8` (schema ۶→۷) و بازگشت** | **`Passed`** | ۳۵ بررسی، ۰ شکست · `docs/evidence/upgrade-alpha7/` |
+| **ارتقای `alpha.1 → alpha.8` (schema ۱→۷) و بازگشت** | **`Passed`** | ۳۵ بررسی، ۰ شکست · `docs/evidence/upgrade-alpha1/` |
+| **دسترس‌پذیری سه صفحهٔ فروشنده + دو صفحهٔ تازهٔ مدیر** | **`Passed`** | ۱۲۰ + ۱۴۲ بررسی، ۰ شکست |
+| مرجوعی و بازپرداخت | `Not Run` | ساخته نشده (DEC-03 باز) |
+| ارسال جزئی (partial shipment) | `Not Run` | ساخته نشده |
 | هر کدام از این‌ها روی `staging.tecteb.com` یا PHP 8.1.34 | `Not Run` | خارج از مجوز فعلی؛ آزمون ما روی PHP 8.1.32 و سایت یکبارمصرف بود |
 
 روش اجرا: `bash tools/upgrade-rollback-check.sh <php> <evidence-dir> <old-zip> <new-zip>`
