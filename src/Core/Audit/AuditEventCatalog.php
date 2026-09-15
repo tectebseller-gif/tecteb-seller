@@ -60,6 +60,8 @@ final class AuditEventCatalog
     public const ORDER_RETURN_DECIDED = 'order.return_decided';
     public const ORDER_RETURN_REFUNDED = 'order.return_refunded';
     public const ORDER_RETURN_RESTOCKED = 'order.return_restocked';
+    /** A refund that got half way: the row claimed it, the ledger refused. */
+    public const ORDER_RETURN_RECONCILE = 'order.return_reconcile';
     /** The storefront switch: the marketplace's own products, out of sale and back. */
     public const STOREFRONT_STOPPED = 'storefront.stopped';
     public const STOREFRONT_RESUMED = 'storefront.resumed';
@@ -140,6 +142,7 @@ final class AuditEventCatalog
                 'tax_minor', 'commission_minor', 'vendor_share_minor', 'account', 'event_key',
             ],
             self::ORDER_RETURN_RESTOCKED => ['vendor_id', 'return_id', 'product_id', 'quantity', 'stock_after'],
+            self::ORDER_RETURN_RECONCILE => ['return_id', 'item_id', 'event_key'],
             self::STOREFRONT_STOPPED => ['reason', 'withdrawn', 'failed', 'total', 'orders_held', 'orders_stuck'],
             self::STOREFRONT_RESUMED => ['published', 'refused', 'total', 'orders_released'],
             self::STOREFRONT_ORDERS_RELEASED => ['released', 'stuck'],

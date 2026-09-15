@@ -44,6 +44,11 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\StaffLevel;
  *    refund — see ReturnTerms. What is reversed is arithmetic from the line's
  *    own snapshot, and the last return on a line closes it to the cent rather
  *    than to a rounded share.
+ * 5. **«بازپرداخت» is four things and this does two of them.** The ledger and
+ *    the stock are performed here; the WooCommerce refund record and the
+ *    actual transfer of money to the customer are not, and cannot be — there
+ *    is no gateway adapter in this build. RefundScope names all four, and
+ *    every screen quotes it instead of the bare word.
  *
  * Who may do what: a vendor (or their staff with order-edit) may OPEN a return
  * on their own line and receive the goods. Only a manager decides it, and only
@@ -60,6 +65,7 @@ final class ManageReturns
         private readonly ClockInterface $clock,
         private readonly ReturnStateMachine $states,
         private readonly ReturnTerms $terms,
+        private readonly RefundScope $scope,
         private readonly ProductRepositoryInterface $products,
         private readonly CatalogProjectorInterface $catalog,
         private readonly ?CapabilityCheckerInterface $capabilities = null
@@ -300,9 +306,27 @@ final class ManageReturns
         }
         if (!$this->ledger->record($transaction)) {
             // The row said this was the first refund and the ledger says the
-            // event is already there. Reported rather than swallowed: the two
-            // stores disagree and a person has to look.
-            return OperationResult::failure('ledger_already_recorded', ['event_key' => $eventKey]);
+            // event is already there. The two stores disagree, and the return
+            // is parked in a state that says so rather than left claiming a
+            // reversal that is not in the books. Nothing is retried: FIN-05's
+            // rule about an unknown outcome applies here for the same reason.
+            $this->returns->updateReturnStatus(
+                $returnId,
+                ReturnStatus::ReconciliationRequired,
+                $actorId,
+                'ledger refused the reversing transaction',
+                null,
+                null
+            );
+            $this->audit->log(AuditEventCatalog::ORDER_RETURN_RECONCILE, $actorId, 'order_return', (string) $returnId, [
+                'return_id' => $returnId,
+                'item_id' => $item->id,
+                'event_key' => $eventKey,
+            ]);
+            return OperationResult::failure('ledger_already_recorded', [
+                'event_key' => $eventKey,
+                'return_id' => $returnId,
+            ]);
         }
 
         $this->audit->log(AuditEventCatalog::ORDER_RETURN_REFUNDED, $actorId, 'order_return', (string) $returnId, [
@@ -318,12 +342,23 @@ final class ManageReturns
             'event_key' => $eventKey,
         ]);
         unset($note);
+        $parts = $this->scope->parts(
+            $request->restockedQuantity > 0,
+            $wcRefundId !== null
+        );
         return OperationResult::success('return_refunded', [
             'return_id' => $returnId,
             'refund_minor' => $share['refund'],
             'tax_minor' => $share['tax'],
             'vendor_account' => $account->value,
             'open_terms' => implode('، ', $this->terms->openTerms()),
+            // What this actually did, part by part. The screens quote these
+            // rather than the word «بازپرداخت», because two of the four are
+            // still a person's job and one of them is the money itself.
+            'did_ledger' => $parts[RefundScope::LEDGER_REVERSAL],
+            'did_stock' => $parts[RefundScope::STOCK_CORRECTION],
+            'did_wc_refund' => $parts[RefundScope::WC_REFUND_RECORD],
+            'did_money' => $parts[RefundScope::MONEY_TRANSFER],
         ]);
     }
 

@@ -91,15 +91,21 @@ final class OrderMessages
                 )
                 : __('کالا تحویل گرفته شد. موجودی تغییر نکرد.', 'tecteb-marketplace-core'),
             'return_cancelled' => __('درخواست مرجوعی لغو شد.', 'tecteb-marketplace-core'),
+            // Four parts, named. «بازپرداخت» on its own has been read as «the
+            // customer has their money», and two of the four are still a
+            // person's job — one of them being the money itself.
             'return_refunded' => sprintf(
-                /* translators: %s: amount in minor units, already formatted */
-                __('بازگشت مالی ثبت شد: %s. خطوط دفترکل معکوس شدند و هیچ خط قبلی پاک نشد. کرایهٔ ارسال و کسورات احتمالی تعیین‌نشده‌اند و در این مبلغ نیستند.', 'tecteb-marketplace-core'),
-                $fa(number_format((int) ($context['refund_minor'] ?? 0)))
+                /* translators: 1: amount, 2: what was done, 3: what was not */
+                __('در دفترکل بازگشت %1$s ثبت شد. انجام‌شده: %2$s. انجام‌نشده و با شماست: %3$s. کرایهٔ ارسال و کسورات احتمالی تعیین‌نشده‌اند و در این مبلغ نیستند.', 'tecteb-marketplace-core'),
+                $fa(number_format((int) ($context['refund_minor'] ?? 0))),
+                self::refundDid($context),
+                self::refundDidNot($context)
             ),
+            'reconciliation_required' => __('این مرجوعی نیمه‌کاره ماند: ردیف مرجوعی ثبت شد ولی دفترکل خطوط معکوس را نپذیرفت. هیچ تلاش خودکاری دوباره انجام نمی‌شود؛ یک نفر باید تصمیم بگیرد کدام درست است.', 'tecteb-marketplace-core'),
             'already_refunded' => __('این مرجوعی قبلاً بازپرداخت شده است. بازپرداخت دوم ثبت نمی‌شود.', 'tecteb-marketplace-core'),
             'use_refund' => __('برای ثبت بازگشت مالی از دکمهٔ بازپرداخت استفاده کنید؛ این مسیر پول جابه‌جا نمی‌کند.', 'tecteb-marketplace-core'),
             'nothing_recorded' => __('برای این قلم هیچ سهم مالی ثبت نشده بود (نرخ کمیسیون تعیین‌نشده)، پس چیزی برای معکوس‌کردن وجود ندارد.', 'tecteb-marketplace-core'),
-            'ledger_already_recorded' => __('ردیف مرجوعی ثبت شد ولی دفترکل این رویداد را از قبل داشت. این دو باید بررسی شوند.', 'tecteb-marketplace-core'),
+            'ledger_already_recorded' => __('ردیف مرجوعی ثبت شد ولی دفترکل این رویداد را از قبل داشت. مرجوعی به وضعیت «نیازمند تطبیق» رفت و خودکار تکرار نمی‌شود؛ یک نفر باید این دو را بررسی کند.', 'tecteb-marketplace-core'),
             'unbalanced_reversal' => __('خطوط معکوس متوازن نشدند؛ چیزی در دفترکل ثبت نشد.', 'tecteb-marketplace-core'),
             'order_item_cancelled_return' => __('روی قلمی که لغو شده، ارسال ثبت نمی‌شود.', 'tecteb-marketplace-core'),
             'order_item_delivered' => __('تحویل ثبت شد.', 'tecteb-marketplace-core'),
@@ -117,6 +123,43 @@ final class OrderMessages
             ),
             default => null,
         };
+    }
+
+    /**
+     * The parts of a refund this plugin actually performed, in words.
+     *
+     * @param array<string,scalar|null> $context
+     */
+    private static function refundDid(array $context): string
+    {
+        $done = [__('معکوس‌کردن خطوط دفترکل (بدون پاک‌کردن هیچ خط قبلی)', 'tecteb-marketplace-core')];
+        if (!empty($context['did_stock'])) {
+            $done[] = __('بازگرداندن کالا به موجودی ووکامرس', 'tecteb-marketplace-core');
+        }
+        if (!empty($context['did_wc_refund'])) {
+            $done[] = __('پیوند به refund ووکامرسی که خودتان ساخته‌اید', 'tecteb-marketplace-core');
+        }
+        return implode('، ', $done);
+    }
+
+    /**
+     * …and the parts it did not, which is the half people assume.
+     *
+     * @param array<string,scalar|null> $context
+     */
+    private static function refundDidNot(array $context): string
+    {
+        $missing = [];
+        if (empty($context['did_wc_refund'])) {
+            $missing[] = __('ساختن رکورد refund در ووکامرس', 'tecteb-marketplace-core');
+        }
+        if (empty($context['did_money'])) {
+            $missing[] = __('انتقال واقعی وجه به مشتری — در این نسخه هیچ درگاه پرداختی وصل نیست و این کار از افزونه برنمی‌آید', 'tecteb-marketplace-core');
+        }
+        if (empty($context['did_stock'])) {
+            $missing[] = __('بازگرداندن کالا به موجودی', 'tecteb-marketplace-core');
+        }
+        return $missing === [] ? __('چیزی', 'tecteb-marketplace-core') : implode('، ', $missing);
     }
 
     /** @return list<string> codes this module considers a success */

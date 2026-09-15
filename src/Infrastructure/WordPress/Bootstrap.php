@@ -53,6 +53,7 @@ use Tecteb\Marketplace\Modules\Order\OrderModule;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables;
 use Tecteb\Marketplace\Modules\Order\Application\ManageReturns;
+use Tecteb\Marketplace\Modules\Order\Application\RefundScope;
 use Tecteb\Marketplace\Modules\Order\Application\ReturnTerms;
 use Tecteb\Marketplace\Modules\Order\Application\ShipItems;
 use Tecteb\Marketplace\Modules\Order\Application\ShipmentRepositoryInterface;
@@ -327,6 +328,7 @@ final class Bootstrap
         ));
         $c->bind(ReturnStateMachine::class, static fn () => new ReturnStateMachine());
         $c->bind(ReturnTerms::class, static fn () => new ReturnTerms());
+        $c->bind(RefundScope::class, static fn () => new RefundScope());
         // Shipping what was already sold, and deciding a return that was
         // already opened, are both "finishing what the ledger recorded" rather
         // than "accepting new orders". They are bound here for the same reason
@@ -349,6 +351,7 @@ final class Bootstrap
             $c->get(ClockInterface::class),
             $c->get(ReturnStateMachine::class),
             $c->get(ReturnTerms::class),
+            $c->get(RefundScope::class),
             $c->get(ProductRepositoryInterface::class),
             $c->get(CatalogProjectorInterface::class),
             $c->get(CapabilityCheckerInterface::class)

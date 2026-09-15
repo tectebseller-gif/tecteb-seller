@@ -57,6 +57,43 @@ $shipments = $c->get(ShipmentRepositoryInterface::class);
 $ledger = $c->get(LedgerRepositoryInterface::class);
 
 switch ($command) {
+    case 'seed-line':
+        // A FRESH recorded order line, through the marketplace's own capture
+        // path — so this evidence can be re-run without hunting for a line
+        // that still has units left. (Hunting is what the first version did,
+        // and after a few runs every line was fully returned and sixteen
+        // checks failed for a reason that had nothing to do with the code.)
+        $wcProductId = (int) ($args[1] ?? 0);
+        $quantity = max(1, (int) ($args[2] ?? 2));
+        $product = $c->get(\Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface::class)
+            ->findByWcProduct($wcProductId);
+        if ($product === null) {
+            echo "not a marketplace product\n";
+            break;
+        }
+        $orderId = 90000 + random_int(1, 8999);
+        $report = $c->get(\Tecteb\Marketplace\Modules\Order\Application\CaptureOrder::class)->capture($orderId, [[
+            'order_item_id' => $orderId * 10,
+            'wc_product_id' => $wcProductId,
+            'variation_id' => null,
+            'title' => $product->details->title,
+            'sku' => $product->details->sku,
+            'quantity' => $quantity,
+            'line_total_minor' => $product->details->priceMinor * $quantity,
+            'line_tax_minor' => 0,
+        ]]);
+        $line = $c->get(\Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface::class)
+            ->findByOrderItem($orderId * 10);
+        printf(
+            "seed item=%s order=%d captured=%d unrecorded=%d quantity=%d\n",
+            $line === null ? '0' : (string) $line->id,
+            $orderId,
+            (int) $report['captured'],
+            (int) $report['unrecorded'],
+            $quantity
+        );
+        break;
+
     case 'first-item':
         global $wpdb;
         printf("item=%d\n", (int) $wpdb->get_var(
@@ -135,14 +172,34 @@ switch ($command) {
         break;
 
     case 'refund':
+        // An optional delay, so two processes can be made to meet inside the
+        // same refund rather than merely one after the other.
+        $delay = (float) ($args[2] ?? 0);
+        if ($delay > 0) {
+            usleep((int) ($delay * 1000000));
+        }
         $result = $returns->refund($manager, (int) ($args[1] ?? 0));
         printf(
-            "refund ok=%s code=%s refund_minor=%s tax_minor=%s account=%s\n",
+            "refund ok=%s code=%s refund_minor=%s tax_minor=%s account=%s did_ledger=%s did_stock=%s did_wc_refund=%s did_money=%s\n",
             $result->ok ? 'true' : 'false',
             $result->code,
             (string) ($result->context['refund_minor'] ?? '0'),
             (string) ($result->context['tax_minor'] ?? '0'),
-            (string) ($result->context['vendor_account'] ?? '-')
+            (string) ($result->context['vendor_account'] ?? '-'),
+            !empty($result->context['did_ledger']) ? 'true' : 'false',
+            !empty($result->context['did_stock']) ? 'true' : 'false',
+            !empty($result->context['did_wc_refund']) ? 'true' : 'false',
+            !empty($result->context['did_money']) ? 'true' : 'false'
+        );
+        break;
+
+    case 'scope':
+        $scope = new \Tecteb\Marketplace\Modules\Order\Application\RefundScope();
+        printf(
+            "scope performed=%s not_performed=%s can_transfer_money=%s\n",
+            implode(',', \Tecteb\Marketplace\Modules\Order\Application\RefundScope::PERFORMED),
+            implode(',', \Tecteb\Marketplace\Modules\Order\Application\RefundScope::NOT_PERFORMED),
+            $scope->canTransferMoney() ? 'true' : 'false'
         );
         break;
 

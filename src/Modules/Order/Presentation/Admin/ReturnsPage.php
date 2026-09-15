@@ -66,8 +66,10 @@ final class ReturnsPage
             );
         }
 
-        // The one thing this page must say before anything else.
+        // Two things this page must say before anything else: what is not
+        // decided, and what «بازپرداخت» does and does not do.
         echo Components::notice('warning', ReturnMessages::openTermsWarning());
+        echo Components::notice('warning', ReturnMessages::refundScopeWarning());
         echo '<p class="tmc-field__desc">'
             . esc_html(sprintf(
                 /* translators: %s: the open terms, as codes */
@@ -158,7 +160,7 @@ final class ReturnsPage
             }
             if ($target === ReturnStatus::Refunded) {
                 $html .= '<label class="tmc-field__label" for="wcref-' . esc_attr((string) $request->id) . '">'
-                    . esc_html__('شناسهٔ Refund ووکامرس (اختیاری)', 'tecteb-marketplace-core') . '</label>'
+                    . esc_html__('شناسهٔ Refund ووکامرس (اگر خودتان ساخته‌اید)', 'tecteb-marketplace-core') . '</label>'
                     . '<input class="tmc-input tmc-input--short" type="text" dir="ltr" name="wc_refund_id"'
                     . ' id="wcref-' . esc_attr((string) $request->id) . '">';
             }

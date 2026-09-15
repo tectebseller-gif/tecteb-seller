@@ -16,6 +16,8 @@ use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
+use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
+use Tecteb\Marketplace\Modules\Finance\Domain\Money;
 use Tecteb\Marketplace\Modules\Finance\Domain\RateScope;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbCommissionRuleRepository;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
@@ -25,6 +27,7 @@ use Tecteb\Marketplace\Modules\Order\Application\CaptureOrder;
 use Tecteb\Marketplace\Modules\Order\Application\ManageOrderItems;
 use Tecteb\Marketplace\Modules\Order\Application\ManageReturns;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
+use Tecteb\Marketplace\Modules\Order\Application\RefundScope;
 use Tecteb\Marketplace\Modules\Order\Application\ReturnTerms;
 use Tecteb\Marketplace\Modules\Order\Application\ShipItems;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStateMachine;
@@ -186,6 +189,7 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             $clock,
             new ReturnStateMachine(),
             new ReturnTerms(),
+            new RefundScope(),
             $this->products,
             $this->storefront,
             $manager
@@ -383,6 +387,93 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
         self::assertSame((int) $item?->commissionMinor, $commissionBack, 'and the commission came back whole');
     }
 
+    /**
+     * A refund that gets half way does not pretend it finished.
+     *
+     * The row is claimed first — that is what makes a second refund
+     * impossible — and if the ledger then refuses the reversing transaction,
+     * the two stores disagree. Parking the return in «نیازمند تطبیق» is the
+     * only honest outcome: retrying automatically would be guessing which
+     * store is right, which is the same mistake FIN-05 forbids for a transfer
+     * whose outcome is unknown.
+     */
+    public function testARefundWhoseLedgerWriteFailsIsParkedForAPersonRatherThanRetried(): void
+    {
+        $itemId = $this->sell(2, 200000);
+        $returnId = $this->receivedReturn($itemId, 1);
+
+        // The ledger already holds this exact event, so record() will refuse —
+        // the shape of "the row went through and the books did not".
+        $eventKey = 'return:' . $itemId . ':' . $returnId;
+        $this->ledger->record(
+            (new LedgerTransaction($eventKey, self::VENDOR, '0', (string) $itemId))
+                ->add(LedgerAccount::CentralPayment, Money::of(1000), 'squatter')
+                ->add(LedgerAccount::Commission, Money::of(-1000), 'squatter')
+        );
+
+        $result = $this->returns->refund(self::MANAGER, $returnId);
+
+        self::assertFalse($result->ok);
+        self::assertSame('ledger_already_recorded', $result->code);
+        self::assertSame(
+            ReturnStatus::ReconciliationRequired,
+            $this->shipments->findReturn($returnId)?->status,
+            'parked, not left claiming a reversal that is not in the books'
+        );
+        // …and the quantity is still held against the line, because those
+        // goods are back whatever the books say.
+        self::assertSame(1, $this->shipments->returnedQuantity($itemId));
+    }
+
+    /**
+     * Two refunds at the same moment: exactly one writes.
+     *
+     * Not a re-run of the sequential test — this calls through two SEPARATE
+     * service graphs over their own repository instances, which is the closest
+     * a single process gets to two requests racing. What decides the winner is
+     * the database: `recordReversal()` is an UPDATE guarded by
+     * `reversal_event_key IS NULL` behind a unique index, so the loser affects
+     * zero rows rather than overwriting the winner's numbers.
+     */
+    public function testTwoRefundsRacingOnTheSameReturnProduceExactlyOneReversal(): void
+    {
+        $itemId = $this->sell(2, 200000);
+        $returnId = $this->receivedReturn($itemId, 1);
+
+        $second = $this->secondRefundService();
+        $first = $this->returns->refund(self::MANAGER, $returnId);
+        $other = $second->refund(self::MANAGER, $returnId);
+
+        $wins = array_filter([$first, $other], static fn ($r): bool => $r->ok);
+        self::assertCount(1, $wins, 'exactly one of the two wrote the refund');
+        $loser = $first->ok ? $other : $first;
+        self::assertSame('already_refunded', $loser->code);
+
+        self::assertCount(
+            4,
+            $this->ledger->forEvent('return:' . $itemId . ':' . $returnId),
+            'one set of reversing lines, not two'
+        );
+        $row = $this->shipments->findReturn($returnId);
+        self::assertSame(ReturnStatus::Refunded, $row?->status);
+        self::assertSame(100000, $row?->refundMinor, 'and the amount is the winner\'s, unedited');
+    }
+
+    /** The refund names what it did and what it did not. */
+    public function testARefundSaysWhichOfItsFourPartsActuallyHappened(): void
+    {
+        $itemId = $this->sell(2, 200000);
+        $returnId = $this->receivedReturn($itemId, 1);
+
+        $result = $this->returns->refund(self::MANAGER, $returnId);
+
+        self::assertTrue($result->ok);
+        self::assertTrue($result->context['did_ledger'], 'the books are this plugin\'s job');
+        self::assertFalse($result->context['did_money'], 'moving money is not, and cannot be');
+        self::assertFalse($result->context['did_wc_refund'], 'nor is creating a WooCommerce refund');
+        self::assertFalse((new RefundScope())->canTransferMoney(), 'there is no gateway in this build');
+    }
+
     public function testALineWithNoRecordedShareHasNothingToReverse(): void
     {
         // No rate at all: FIN-02 says record nothing rather than zero.
@@ -412,6 +503,7 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             new SystemClock(),
             new ReturnStateMachine(),
             new ReturnTerms(),
+            new RefundScope(),
             $this->products,
             $this->storefront,
             new FakeCapabilityChecker(self::VENDOR, [])
@@ -419,6 +511,27 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
         $result = $vendorSide->refund(self::VENDOR, $returnId);
         self::assertFalse($result->ok);
         self::assertSame('forbidden', $result->code);
+    }
+
+    /** A second, independent service graph — two requests, not one retried. */
+    private function secondRefundService(): ManageReturns
+    {
+        $db = new WpDatabase($this->wpdb);
+        $clock = new SystemClock();
+        return new ManageReturns(
+            new DbOrderItemRepository($db, $clock),
+            new DbShipmentRepository($db, $clock),
+            new DbLedgerRepository($db, $clock),
+            new StaffAccess(new DbStaffRepository($db, $clock), new DbVendorRepository($db, $clock)),
+            new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock),
+            $clock,
+            new ReturnStateMachine(),
+            new ReturnTerms(),
+            new RefundScope(),
+            new DbProductRepository($db, $clock),
+            $this->storefront,
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS])
+        );
     }
 
     // --- helpers ------------------------------------------------------------

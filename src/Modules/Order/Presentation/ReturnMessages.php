@@ -18,6 +18,7 @@ final class ReturnMessages
             ReturnStatus::Received => __('کالا تحویل گرفته شد', 'tecteb-marketplace-core'),
             ReturnStatus::Refunded => __('بازپرداخت‌شده', 'tecteb-marketplace-core'),
             ReturnStatus::Cancelled => __('لغوشده', 'tecteb-marketplace-core'),
+            ReturnStatus::ReconciliationRequired => __('نیازمند تطبیق', 'tecteb-marketplace-core'),
         };
     }
 
@@ -28,6 +29,7 @@ final class ReturnMessages
             ReturnStatus::Refunded => 'success',
             ReturnStatus::Requested, ReturnStatus::Approved, ReturnStatus::Received => 'warning',
             ReturnStatus::Rejected, ReturnStatus::Cancelled => 'error',
+            ReturnStatus::ReconciliationRequired => 'error',
         };
     }
 
@@ -41,7 +43,22 @@ final class ReturnMessages
             ReturnStatus::Refunded => __('ثبت بازگشت مالی', 'tecteb-marketplace-core'),
             ReturnStatus::Cancelled => __('لغو درخواست', 'tecteb-marketplace-core'),
             ReturnStatus::Requested => __('بازگشت به درخواست‌شده', 'tecteb-marketplace-core'),
+            ReturnStatus::ReconciliationRequired => __('علامت‌زدن به‌عنوان نیازمند تطبیق', 'tecteb-marketplace-core'),
         };
+    }
+
+    /**
+     * What «بازپرداخت» means here, in four parts — the sentence every refund
+     * screen carries.
+     *
+     * Two of the four are performed by this plugin and two are not, and the
+     * two that are not include the money. A screen that said «بازپرداخت انجام
+     * شد» and stopped there would be telling a manager their customer has been
+     * paid.
+     */
+    public static function refundScopeWarning(): string
+    {
+        return __('«بازپرداخت» در این بازارگاه یعنی دو کار: معکوس‌کردن خطوط دفترکل، و در صورت درخواست، بازگرداندن کالا به موجودی ووکامرس. دو کار دیگر انجام نمی‌شود: ساختن رکورد refund در ووکامرس، و انتقال واقعی وجه به مشتری. در این نسخه هیچ درگاه پرداخت واقعی وصل نیست، پس پول را باید خودتان از مسیر درگاه یا بانک برگردانید و بعد شمارهٔ refund ووکامرس را اینجا ثبت کنید.', 'tecteb-marketplace-core');
     }
 
     /**

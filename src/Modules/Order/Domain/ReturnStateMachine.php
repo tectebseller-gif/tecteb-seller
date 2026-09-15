@@ -25,6 +25,10 @@ final class ReturnStateMachine
         'refunded' => [],
         'rejected' => [],
         'cancelled' => [],
+        // Reached only by a refund that got half way, and left only by a
+        // person deciding which store was right. There is no automatic way
+        // out, and that is deliberate (FIN-05's rule about unknown outcomes).
+        'reconciliation_required' => ['refunded'],
     ];
 
     public function canMove(ReturnStatus $from, ReturnStatus $to): bool
