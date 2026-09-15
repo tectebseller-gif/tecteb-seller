@@ -1,0 +1,42 @@
+[
+  {
+    "name": "the storefront page offers the stop button",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "the manager is NOT told it worked",
+    "ok": true,
+    "detail": "✕توقف کامل نشد: محصول بازارگاه شمارهٔ ۲ هنوز روی فروشگاه قابل خرید است. ۲ محصول بیرون رفت. تا بسته‌شدن این موارد، بستهٔ "
+  },
+  {
+    "name": "…the screen says the stop did not finish",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "…and names what is still on sale",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "…and warns against swapping the package now",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "name": "…as an error, not an aside",
+    "ok": true,
+    "detail": "error notices: 2"
+  },
+  {
+    "name": "the dashboard carries the warning too",
+    "ok": true,
+    "detail": "بازارگاه تک‌طب: توقف فروش کامل نشد. محصول(های) ۲ هنوز روی فروشگاه قابل خریدند. تا بسته‌شدن این موارد، بستهٔ افزونه را عو"
+  },
+  {
+    "name": "the storefront page still shows the live warning",
+    "ok": true,
+    "detail": ""
+  }
+]

@@ -21,6 +21,8 @@ final class State
     public static array $currentUserCaps = [];
     public static int $currentUserId = 0;
     public static bool $multisite = false;
+    /** wp-admin or the front end; the contract tests load the plugin as wp-admin does. */
+    public static bool $isAdmin = true;
     /** When true, option writes fail the way a storage error would. */
     public static bool $failOptionWrites = false;
     /**
@@ -78,6 +80,7 @@ final class State
         self::$currentUserCaps = [];
         self::$currentUserId = 0;
         self::$multisite = false;
+        self::$isAdmin = true;
         self::$failOptionWrites = false;
         self::$optionsBackedByWpdb = false;
         self::$environmentType = 'production';

@@ -334,6 +334,10 @@ function is_multisite(): bool
 {
     return State::$multisite;
 }
+function is_admin(): bool
+{
+    return State::$isAdmin;
+}
 function wp_get_environment_type(): string
 {
     return State::$environmentType;

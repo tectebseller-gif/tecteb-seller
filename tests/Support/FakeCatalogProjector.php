@@ -19,6 +19,9 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
 {
     public bool $available = true;
 
+    /** @var list<int> tmc product ids whose withdrawal will fail */
+    public array $refusesToWithdraw = [];
+
     /** @var array<int,int> tmc product id => storefront id */
     public array $links = [];
 
@@ -67,6 +70,12 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
     {
         $id = $this->links[$product->id] ?? 0;
         if ($id <= 0) {
+            return false;
+        }
+        if (in_array($product->id, $this->refusesToWithdraw, true)) {
+            // A storefront that reports the write and does not do it — the
+            // shape of the real failure this guards against, where a filter,
+            // a stale cache or a replica leaves the post published.
             return false;
         }
         $this->statuses[$id] = 'draft';

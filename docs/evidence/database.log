@@ -3,9 +3,36 @@ PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
 Runtime:       PHP 8.4.19
 Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
-...............................................................  63 / 119 ( 52%)
-........................................................        119 / 119 (100%)
+E...............................................EE.............  63 / 123 ( 51%)
+............................................................    123 / 123 (100%)
 
-Time: 00:10.215, Memory: 17.00 MB
+Time: 00:09.478, Memory: 17.00 MB
 
-OK (119 tests, 1033 assertions)
+There were 3 errors:
+
+1) Tecteb\Marketplace\Tests\Database\ActivationFlowTest::testActivationInstallsCapabilitiesDefaultsSchemaAndAuditRow
+Error: Call to undefined function Tecteb\Marketplace\Infrastructure\WordPress\is_admin()
+
+/home/user/tecteb-seller/src/Infrastructure/WordPress/Bootstrap.php:105
+/home/user/tecteb-seller/tools/wp-stubs/functions.php:37
+/home/user/tecteb-seller/tests/Database/ActivationFlowTest.php:36
+/home/user/tecteb-seller/tests/Database/ActivationFlowTest.php:61
+
+2) Tecteb\Marketplace\Tests\Database\ProductAdminPagesTest::testTheReviewPageSeparatesTheTwoQueuesAndTheTwoPermissions
+Error: Call to undefined function Tecteb\Marketplace\Infrastructure\WordPress\is_admin()
+
+/home/user/tecteb-seller/src/Infrastructure/WordPress/Bootstrap.php:105
+/home/user/tecteb-seller/tools/wp-stubs/functions.php:37
+/home/user/tecteb-seller/tests/WordPressContract/ContractTestCase.php:56
+/home/user/tecteb-seller/tests/Database/ProductAdminPagesTest.php:47
+
+3) Tecteb\Marketplace\Tests\Database\ProductAdminPagesTest::testTheTemplateBuilderSaysAKeyNeverChangesAndAFieldIsNeverDeleted
+Error: Call to undefined function Tecteb\Marketplace\Infrastructure\WordPress\is_admin()
+
+/home/user/tecteb-seller/src/Infrastructure/WordPress/Bootstrap.php:105
+/home/user/tecteb-seller/tools/wp-stubs/functions.php:37
+/home/user/tecteb-seller/tests/WordPressContract/ContractTestCase.php:56
+/home/user/tecteb-seller/tests/Database/ProductAdminPagesTest.php:61
+
+ERRORS!
+Tests: 123, Assertions: 1049, Errors: 3.

@@ -19,8 +19,10 @@
  *   stock      <tmc-product-id> <stock>
  *   trial      <0|1>
  *   decide     <wc-product-id>…
- *   stop       [reason]           توقف فروش بازارگاه
+ *   stop       [reason]           توقف فروش بازارگاه (نتیجه‌ای که به مدیر گفته می‌شود)
  *   resume                        از سرگیری، فقط آنچه شرایطش برقرار است
+ *   payable                       سفارش‌های پرداخت‌نشده‌ای که لینکشان هنوز کار می‌کند
+ *   stuck                         آنچه غیرفعال‌سازی نتوانست ببندد
  *   settle     <order-item-id>    ثبت «تکمیل برای تسویه» توسط مدیر
  *   balance    <vendor-user-id>   مانده و آنچه قابل برداشت است
  *   withdraw   <vendor-user-id>   درخواست برداشت از سوی خود فروشنده
@@ -181,23 +183,54 @@ switch ($command) {
         break;
 
     case 'stop':
-        $outcome = $c->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontStop::class)
-            ->stop((string) ($args[1] ?? 'manager_stopped'), $manager);
+        // stopAsResult(), not stop(): what the MANAGER is told is the thing
+        // under test. A stop that left one product on sale must not read as
+        // success anywhere — not on the screen, not here.
+        $service = $c->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontStop::class);
+        $result = $service->stopAsResult((string) ($args[1] ?? 'manager_stopped'), $manager);
         printf(
-            "stop withdrawn=%d failed=%d total=%d stopped=%s\n",
-            $outcome['withdrawn'],
-            $outcome['failed'],
-            $outcome['total'],
+            "stop ok=%s code=%s withdrawn=%s failed=%s total=%s stuck=%s orders_held=%s orders_stuck=%s stopped=%s\n",
+            $result->ok ? 'true' : 'false',
+            $result->code,
+            (string) ($result->context['withdrawn'] ?? '0'),
+            (string) ($result->context['failed'] ?? '0'),
+            (string) ($result->context['total'] ?? '0'),
+            ($result->context['stuck'] ?? '') === '' ? '-' : (string) $result->context['stuck'],
+            (string) ($result->context['orders_held'] ?? '0'),
+            ($result->context['orders_stuck'] ?? '') === '' ? '-' : (string) $result->context['orders_stuck'],
             $c->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch::class)->isStopped() ? 'true' : 'false'
         );
         break;
 
     case 'resume':
         $outcome = $c->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontStop::class)->resume($manager);
-        printf("resume published=%d total=%d\n", $outcome['published'], $outcome['total']);
+        printf(
+            "resume published=%d total=%d orders_released=%d\n",
+            $outcome['published'],
+            $outcome['total'],
+            $outcome['orders_released']
+        );
         foreach ($outcome['refused'] as $productId => $why) {
             printf("refused product=%d reason=%s\n", $productId, $why);
         }
+        break;
+
+    case 'payable':
+        // Unpaid orders whose mailed pay link still takes money, asked without
+        // changing anything.
+        $open = $c->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontStop::class)->payableOrders();
+        printf("payable count=%d orders=%s\n", count($open), $open === [] ? '-' : implode(',', $open));
+        break;
+
+    case 'stuck':
+        // What the last stop left behind, read from the options that outlive
+        // the run that wrote them — including a deactivation's.
+        $stuck = $c->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch::class)->stuck();
+        printf(
+            "stuck products=%s orders=%s\n",
+            $stuck['products'] === [] ? '-' : implode(',', $stuck['products']),
+            $stuck['orders'] === [] ? '-' : implode(',', $stuck['orders'])
+        );
         break;
 
     case 'settle':

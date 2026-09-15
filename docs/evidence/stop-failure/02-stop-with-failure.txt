@@ -1,0 +1,1 @@
+stop ok=false code=storefront_stop_incomplete withdrawn=2 failed=1 total=3 stuck=2 orders_held=0 orders_stuck=- stopped=true

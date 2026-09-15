@@ -41,6 +41,7 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStore
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
 use Tecteb\Marketplace\Tests\Support\FakeProductImages;
+use Tecteb\Marketplace\Tests\Support\FakeUnpaidOrderGuard;
 
 /**
  * ADR-008 as assertions: one storefront product per marketplace row, a sale
@@ -68,6 +69,7 @@ final class CatalogProjectionTest extends DatabaseTestCase
     private EventBus $events;
     private StorefrontStop $stop;
     private StorefrontSwitch $switch;
+    private FakeUnpaidOrderGuard $unpaidOrders;
 
     protected function setUp(): void
     {
@@ -107,7 +109,16 @@ final class CatalogProjectionTest extends DatabaseTestCase
         $this->catalog = new SyncCatalog($this->products, $variations, $this->storefront, $audit);
         $this->switch = new StorefrontSwitch($options, $clock);
         $this->switch->markResumed();
-        $this->stop = new StorefrontStop($this->products, $this->catalog, $readiness, $access, $this->switch, $audit);
+        $this->unpaidOrders = new FakeUnpaidOrderGuard();
+        $this->stop = new StorefrontStop(
+            $this->products,
+            $this->catalog,
+            $readiness,
+            $access,
+            $this->switch,
+            $audit,
+            $this->unpaidOrders
+        );
         $publishing = new ProductPublishPolicy($options);
         $states = new ProductStateMachine();
 
@@ -293,6 +304,95 @@ final class CatalogProjectionTest extends DatabaseTestCase
         self::assertSame(StorefrontStop::REFUSED_NOT_PUBLISHED, $outcome['refused'][$suspendedShop]);
         self::assertFalse($this->stop->isStopped(), 'the stop itself is lifted');
         self::assertSame('publish', $this->storefront->statuses[(int) $this->products->find($live)?->wcProductId]);
+    }
+
+    /**
+     * One product that would not leave the shop makes the whole stop a
+     * failure — the owner's rule, and the reason it is a rule.
+     *
+     * The flag is read only by this plugin, while it runs. The manager presses
+     * this button because they are about to take this plugin away, and from
+     * that moment the only thing between a shopper and an unrecorded sale is
+     * the product being a draft. So «۲ از ۳ محصول» is not a success with a
+     * footnote; it is the failure, and it has to be reported by id.
+     */
+    public function testAStopThatLeavesOneProductOnSaleIsReportedAsAFailure(): void
+    {
+        $ok = $this->publish('SKU-OK');
+        $stuck = $this->publish('SKU-STUCK');
+        $this->storefront->refusesToWithdraw = [$stuck];
+
+        $result = $this->stop->stopAsResult('manager_stopped', self::MANAGER);
+
+        self::assertFalse($result->ok, 'a partial stop is a failure');
+        self::assertSame('storefront_stop_incomplete', $result->code);
+        self::assertSame((string) $stuck, $result->context['stuck'], 'named by id');
+        self::assertSame(1, $result->context['withdrawn']);
+        self::assertSame(
+            'draft',
+            $this->storefront->statuses[(int) $this->products->find($ok)?->wcProductId],
+            'the ones that could leave still left'
+        );
+        self::assertSame(
+            'publish',
+            $this->storefront->statuses[(int) $this->products->find($stuck)?->wcProductId],
+            'and the one that could not is still on sale, which is the point'
+        );
+        // The marketplace still refuses to sell — a half-emptied shelf is
+        // precisely the state that must keep refusing.
+        self::assertTrue($this->stop->isStopped());
+    }
+
+    /** …and the failure is written down where the plugin's absence cannot erase it. */
+    public function testAPartialStopLeavesANoteForTheNextAdminPage(): void
+    {
+        $stuck = $this->publish('SKU-STUCK');
+        $this->storefront->refusesToWithdraw = [$stuck];
+
+        $this->stop->stop('plugin_deactivated', self::MANAGER);
+
+        self::assertSame(['products' => [$stuck], 'orders' => []], $this->switch->stuck());
+
+        // And a later stop that finishes clears it, without anyone asking.
+        $this->storefront->refusesToWithdraw = [];
+        $this->stop->stop('manager_stopped', self::MANAGER);
+        self::assertSame(['products' => [], 'orders' => []], $this->switch->stuck());
+    }
+
+    /**
+     * An unpaid order's pay link counts the same as a product on the shelf.
+     *
+     * WooCommerce never re-asks whether the goods may still be sold when it
+     * takes money for an existing order, so a link left working is a sale left
+     * open — and a stop that left one is not a success either.
+     */
+    public function testAPayLinkThatWouldNotRetireFailsTheStopToo(): void
+    {
+        $this->publish('SKU-A');
+        $this->unpaidOrders->payable = [4001, 4002];
+        $this->unpaidOrders->refuses = [4002];
+
+        $result = $this->stop->stopAsResult('manager_stopped', self::MANAGER);
+
+        self::assertFalse($result->ok);
+        self::assertSame('', $result->context['stuck'], 'no product is stuck');
+        self::assertSame('4002', $result->context['orders_stuck'], 'the order is');
+        self::assertSame(['products' => [], 'orders' => [4002]], $this->switch->stuck());
+    }
+
+    /** Stopping retires every open pay link; resuming hands back the same ones. */
+    public function testResumingGivesBackExactlyThePayLinksTheStopRetired(): void
+    {
+        $this->publish('SKU-A');
+        $this->unpaidOrders->payable = [5001, 5002];
+
+        $stopped = $this->stop->stop('manager_stopped', self::MANAGER);
+        self::assertSame(2, $stopped['orders_held']);
+        self::assertSame([], $this->stop->payableOrders(), 'none of them takes money now');
+
+        $resumed = $this->stop->resume(self::MANAGER);
+        self::assertSame(2, $resumed['orders_released']);
+        self::assertSame([5001, 5002], $this->stop->payableOrders(), 'the same links, not new ones');
     }
 
     /** While selling is stopped, a reinstated vendor's products stay off sale. */
