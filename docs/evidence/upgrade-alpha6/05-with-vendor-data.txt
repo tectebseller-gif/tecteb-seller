@@ -1,0 +1,254 @@
+## plugin
+0.1.0-alpha.7
+## schema_option
+6
+## options
+tmc_capability_signature
+tmc_order_trial_mode
+tmc_private_storage_relocated
+tmc_schema_version
+tmc_settings
+tmc_vendor_carriers
+tmc_vendor_networks
+## settings_value
+{"schema_version":1,"values":{"default_commission_rate_bp":1234,"settlement_delay_days":9,"max_staff":77,"environment_override":"staging"}}
+## tables
+wp_tmc_audit_events
+wp_tmc_commission_rules
+wp_tmc_ledger_entries
+wp_tmc_order_items
+wp_tmc_product_attributes
+wp_tmc_product_images
+wp_tmc_product_revisions
+wp_tmc_product_specs
+wp_tmc_product_variations
+wp_tmc_products
+wp_tmc_spec_fields
+wp_tmc_spec_templates
+wp_tmc_vendor_applications
+wp_tmc_vendor_change_requests
+wp_tmc_vendor_document_types
+wp_tmc_vendor_documents
+wp_tmc_vendor_profiles
+wp_tmc_vendor_staff
+wp_tmc_vendor_stores
+## row_counts
+wp_tmc_audit_events=170
+wp_tmc_commission_rules=1
+wp_tmc_ledger_entries=8
+wp_tmc_order_items=2
+wp_tmc_product_attributes=1
+wp_tmc_product_images=3
+wp_tmc_product_revisions=0
+wp_tmc_product_specs=3
+wp_tmc_product_variations=2
+wp_tmc_products=3
+wp_tmc_spec_fields=1
+wp_tmc_spec_templates=1
+wp_tmc_vendor_applications=1
+wp_tmc_vendor_change_requests=0
+wp_tmc_vendor_document_types=1
+wp_tmc_vendor_documents=1
+wp_tmc_vendor_profiles=0
+wp_tmc_vendor_staff=0
+wp_tmc_vendor_stores=0
+## audit_rows
+1|plugin.activated|plugin|2026-09-15 14:05:09
+2|product.template_changed|spec_template|2026-09-15 14:05:11
+3|product.template_changed|spec_template|2026-09-15 14:05:11
+4|product.saved|product|2026-09-15 14:05:11
+5|product.saved|product|2026-09-15 14:05:12
+6|product.submitted|product|2026-09-15 14:05:12
+7|product.synced|product|2026-09-15 14:05:12
+8|product.reviewed|product|2026-09-15 14:05:12
+9|product.saved|product|2026-09-15 14:05:12
+10|product.saved|product|2026-09-15 14:05:12
+11|product.submitted|product|2026-09-15 14:05:12
+12|product.synced|product|2026-09-15 14:05:12
+13|product.reviewed|product|2026-09-15 14:05:12
+14|product.saved|product|2026-09-15 14:05:12
+15|product.saved|product|2026-09-15 14:05:12
+16|product.saved|product|2026-09-15 14:05:12
+17|product.saved|product|2026-09-15 14:05:12
+18|product.saved|product|2026-09-15 14:05:12
+19|product.submitted|product|2026-09-15 14:05:12
+20|product.synced|product|2026-09-15 14:05:12
+21|product.reviewed|product|2026-09-15 14:05:12
+22|finance.accrued|ledger|2026-09-15 14:05:24
+23|finance.accrued|ledger|2026-09-15 14:05:24
+24|order.captured|order|2026-09-15 14:05:24
+25|order.item_status_changed|order_item|2026-09-15 14:05:37
+26|order.item_status_changed|order_item|2026-09-15 14:05:39
+27|vendor.application_reviewed|vendor_application|2026-09-15 14:12:12
+28|vendor.staff_invited|vendor_staff|2026-09-15 14:12:25
+29|product.synced|product|2026-09-15 14:14:10
+30|product.synced|product|2026-09-15 14:14:10
+31|vendor.application_reviewed|vendor_application|2026-09-15 14:14:10
+32|order.blocked|product|2026-09-15 14:14:12
+33|product.synced|product|2026-09-15 14:14:27
+34|product.synced|product|2026-09-15 14:14:27
+35|vendor.application_reviewed|vendor_application|2026-09-15 14:14:27
+36|product.inventory_changed|product|2026-09-15 14:14:30
+37|order.blocked|product|2026-09-15 14:14:32
+38|product.inventory_changed|product|2026-09-15 14:14:36
+39|order.blocked|product|2026-09-15 14:14:38
+40|order.blocked|product|2026-09-15 14:14:40
+41|order.blocked|product|2026-09-15 14:14:44
+42|order.blocked|product|2026-09-15 14:15:16
+43|product.synced|product|2026-09-15 14:17:05
+44|product.synced|product|2026-09-15 14:17:05
+45|vendor.application_reviewed|vendor_application|2026-09-15 14:17:05
+46|order.blocked|product|2026-09-15 14:17:06
+47|product.synced|product|2026-09-15 14:17:22
+48|product.synced|product|2026-09-15 14:17:22
+49|vendor.application_reviewed|vendor_application|2026-09-15 14:17:22
+50|product.inventory_changed|product|2026-09-15 14:17:26
+51|order.blocked|product|2026-09-15 14:17:27
+52|product.inventory_changed|product|2026-09-15 14:17:31
+53|order.blocked|product|2026-09-15 14:17:33
+54|order.blocked|product|2026-09-15 14:17:35
+55|order.blocked|product|2026-09-15 14:17:40
+56|order.blocked|product|2026-09-15 14:18:21
+57|order.blocked|product|2026-09-15 14:18:30
+58|product.synced|product|2026-09-15 14:20:07
+59|product.synced|product|2026-09-15 14:20:07
+60|vendor.application_reviewed|vendor_application|2026-09-15 14:20:07
+61|order.blocked|product|2026-09-15 14:20:09
+62|product.synced|product|2026-09-15 14:20:24
+63|product.synced|product|2026-09-15 14:20:24
+64|vendor.application_reviewed|vendor_application|2026-09-15 14:20:24
+65|product.inventory_changed|product|2026-09-15 14:20:28
+66|order.blocked|product|2026-09-15 14:20:30
+67|product.inventory_changed|product|2026-09-15 14:20:36
+68|order.blocked|product|2026-09-15 14:20:39
+69|order.blocked|product|2026-09-15 14:20:42
+70|order.blocked|product|2026-09-15 14:20:50
+71|product.template_changed|spec_template|2026-09-15 14:24:12
+72|product.template_changed|spec_template|2026-09-15 14:24:12
+73|product.saved|product|2026-09-15 14:24:12
+74|product.saved|product|2026-09-15 14:24:12
+75|product.submitted|product|2026-09-15 14:24:12
+76|product.synced|product|2026-09-15 14:24:12
+77|product.reviewed|product|2026-09-15 14:24:12
+78|product.saved|product|2026-09-15 14:24:12
+79|product.saved|product|2026-09-15 14:24:12
+80|product.submitted|product|2026-09-15 14:24:12
+81|product.synced|product|2026-09-15 14:24:12
+82|product.reviewed|product|2026-09-15 14:24:12
+83|product.saved|product|2026-09-15 14:24:12
+84|product.saved|product|2026-09-15 14:24:12
+85|product.saved|product|2026-09-15 14:24:12
+86|product.saved|product|2026-09-15 14:24:12
+87|product.saved|product|2026-09-15 14:24:12
+88|product.submitted|product|2026-09-15 14:24:12
+89|product.synced|product|2026-09-15 14:24:12
+90|product.reviewed|product|2026-09-15 14:24:12
+91|vendor.application_reviewed|vendor_application|2026-09-15 14:24:18
+92|vendor.staff_invited|vendor_staff|2026-09-15 14:24:18
+93|product.synced|product|2026-09-15 14:24:27
+94|product.synced|product|2026-09-15 14:24:27
+95|product.synced|product|2026-09-15 14:24:27
+96|product.synced|product|2026-09-15 14:24:27
+97|product.synced|product|2026-09-15 14:24:27
+98|product.synced|product|2026-09-15 14:24:27
+99|product.synced|product|2026-09-15 14:24:27
+100|product.synced|product|2026-09-15 14:24:27
+101|product.synced|product|2026-09-15 14:24:27
+102|product.template_changed|spec_template|2026-09-15 14:26:34
+103|product.template_changed|spec_template|2026-09-15 14:26:34
+104|product.saved|product|2026-09-15 14:26:34
+105|product.saved|product|2026-09-15 14:26:34
+106|product.submitted|product|2026-09-15 14:26:34
+107|product.synced|product|2026-09-15 14:26:34
+108|product.reviewed|product|2026-09-15 14:26:34
+109|product.saved|product|2026-09-15 14:26:34
+110|product.saved|product|2026-09-15 14:26:34
+111|product.submitted|product|2026-09-15 14:26:34
+112|product.synced|product|2026-09-15 14:26:34
+113|product.reviewed|product|2026-09-15 14:26:34
+114|product.saved|product|2026-09-15 14:26:34
+115|product.saved|product|2026-09-15 14:26:34
+116|product.saved|product|2026-09-15 14:26:34
+117|product.saved|product|2026-09-15 14:26:34
+118|product.saved|product|2026-09-15 14:26:34
+119|product.submitted|product|2026-09-15 14:26:35
+120|product.synced|product|2026-09-15 14:26:35
+121|product.reviewed|product|2026-09-15 14:26:35
+122|vendor.application_reviewed|vendor_application|2026-09-15 14:26:35
+123|vendor.staff_invited|vendor_staff|2026-09-15 14:26:35
+124|product.synced|product|2026-09-15 14:26:43
+125|product.synced|product|2026-09-15 14:26:43
+126|product.synced|product|2026-09-15 14:26:43
+127|product.synced|product|2026-09-15 14:26:43
+128|product.synced|product|2026-09-15 14:26:43
+129|product.synced|product|2026-09-15 14:26:43
+130|product.synced|product|2026-09-15 14:26:43
+131|product.synced|product|2026-09-15 14:26:43
+132|product.synced|product|2026-09-15 14:26:43
+133|finance.accrued|ledger|2026-09-15 14:26:57
+134|finance.accrued|ledger|2026-09-15 14:26:57
+135|order.captured|order|2026-09-15 14:26:57
+136|order.item_status_changed|order_item|2026-09-15 14:27:03
+137|order.item_status_changed|order_item|2026-09-15 14:27:05
+138|product.synced|product|2026-09-15 14:27:22
+139|product.synced|product|2026-09-15 14:27:22
+140|vendor.application_reviewed|vendor_application|2026-09-15 14:27:22
+141|order.blocked|product|2026-09-15 14:27:24
+142|product.synced|product|2026-09-15 14:27:32
+143|product.synced|product|2026-09-15 14:27:33
+144|vendor.application_reviewed|vendor_application|2026-09-15 14:27:33
+145|product.inventory_changed|product|2026-09-15 14:27:36
+146|order.blocked|product|2026-09-15 14:27:38
+147|product.inventory_changed|product|2026-09-15 14:27:43
+148|order.blocked|product|2026-09-15 14:27:46
+149|order.blocked|product|2026-09-15 14:27:49
+150|order.blocked|product|2026-09-15 14:27:59
+151|product.synced|product|2026-09-15 14:28:22
+152|product.synced|product|2026-09-15 14:28:23
+153|vendor.application_reviewed|vendor_application|2026-09-15 14:28:23
+154|order.blocked|product|2026-09-15 14:28:25
+155|product.synced|product|2026-09-15 14:28:40
+156|product.synced|product|2026-09-15 14:28:40
+157|vendor.application_reviewed|vendor_application|2026-09-15 14:28:40
+158|product.inventory_changed|product|2026-09-15 14:28:43
+159|order.blocked|product|2026-09-15 14:28:45
+160|product.inventory_changed|product|2026-09-15 14:28:51
+161|order.blocked|product|2026-09-15 14:28:54
+162|order.blocked|product|2026-09-15 14:28:58
+163|order.blocked|product|2026-09-15 14:29:06
+164|plugin.deactivated|plugin|2026-09-15 14:32:32
+165|plugin.activated|plugin|2026-09-15 14:32:35
+166|plugin.deactivated|plugin|2026-09-15 14:32:45
+167|plugin.activated|plugin|2026-09-15 14:32:46
+168|vendor.requirements_changed|vendor_document_type|2026-09-15 14:32:55
+169|vendor.document_uploaded|vendor_application|2026-09-15 14:32:55
+170|vendor.application_submitted|vendor_application|2026-09-15 14:32:55
+## vendor_applications
+1|3|submitted|داروخانه نمونه ارتقا|09120000000
+## vendor_documents
+1|1|doc|parvane-namune.pdf|69
+## vendor_document_types
+1|doc|پروانه کسب (نمونه آزمایشی)|1
+## vendor_profiles
+## admin_caps
+## private_files
+/home/user/tecteb-private/application-1/06a121061a26c2579becb27c5d4c9180.pdf
+/home/user/tecteb-private/application-1/19e79d1967a31de04c583e5eb8a57015.pdf
+/home/user/tecteb-private/application-1/39ff6ff621624b076a7f20a76a68b355.pdf
+/home/user/tecteb-private/application-1/40153faf56588be7dfb314cd525b21a7.pdf
+/home/user/tecteb-private/application-1/410debc1b32189ab799160484cf80543.pdf
+/home/user/tecteb-private/application-1/43dc59c443aa9de06437cbe28814875c.pdf
+/home/user/tecteb-private/application-1/4ea2788d8ac732d63eb1a238d4336635.pdf
+/home/user/tecteb-private/application-1/561f5410dbb822a19fdb8ca1e57ca400.pdf
+/home/user/tecteb-private/application-1/5d7577109fdf2451aa1e787a4cd3bae9.pdf
+/home/user/tecteb-private/application-1/638f6f8a3a78f3d3897b77cadfeacbf7.pdf
+/home/user/tecteb-private/application-1/8bb6a1c3972e5cb92c3bf35a7a7c0d25.pdf
+/home/user/tecteb-private/application-1/9da81fde7da3731a2303fb3ee64c7811.pdf
+/home/user/tecteb-private/application-1/abaf79985d794d4098796b972f253ac7.pdf
+/home/user/tecteb-private/application-1/bd299b128fe87ab845f4a39baa08bf72.pdf
+/home/user/tecteb-private/application-1/c4b6e0c4d5de226234ebfd97d1c77d09.pdf
+/home/user/tecteb-private/application-1/c6c9c758d99344aafb9bc0d8b95b027c.pdf
+/home/user/tecteb-private/application-1/d3985f40f50fbf74e9ab49250bd3d0f5.pdf
+/home/user/tecteb-private/application-1/e725fce96c52a4f02188b361e7659855.pdf
+/home/user/tecteb-private/application-1/edfc88c4dc76f6405a4744a906fb7811.pdf
+/home/user/tecteb-private/application-2/98f2093aaa6816c04db81ddda93c0ab2.pdf

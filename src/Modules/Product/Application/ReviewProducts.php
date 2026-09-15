@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
@@ -31,6 +32,7 @@ final class ReviewProducts
         private readonly ProductRevisionRepositoryInterface $revisions,
         private readonly SpecTemplateRepositoryInterface $templates,
         private readonly ProductReadiness $readiness,
+        private readonly SyncCatalog $catalog,
         private readonly ProductPublishPolicy $publishing,
         private readonly ProductStateMachine $states,
         private readonly AuditLogger $audit,
@@ -129,6 +131,11 @@ final class ReviewProducts
                 return $verdict;
             }
         }
+        // The proposal is now the product, so the storefront copy has to be
+        // the proposal too.
+        if ($product->status === ProductStatus::Published) {
+            $this->catalog->publish($product->id);
+        }
         $reviewer = $this->capabilities->currentUserId();
         $this->revisions->decide($revisionId, ProductRevision::APPROVED, $reviewer, '');
         $this->audit->log(AuditEventCatalog::PRODUCT_REVISION_REVIEWED, $reviewer, 'product', (string) $product->id, [
@@ -169,6 +176,44 @@ final class ReviewProducts
             'has_note' => true,
         ]);
         return OperationResult::success('revision_rejected', ['product_id' => $revision->productId]);
+    }
+
+    /**
+     * The product's SEO — the manager's alone (Master Spec §6: «SEO فقط مدیر»).
+     *
+     * The vendor's form never renders these fields and the vendor's save path
+     * never carries them, so this is the only way they can change. Saving
+     * re-projects immediately, because a slug that is not on the storefront
+     * is not a slug.
+     */
+    public function setSeo(int $productId, string $slug, string $title, string $description): OperationResult
+    {
+        if (!$this->capabilities->can(Capabilities::REVIEW_PRODUCTS)) {
+            return OperationResult::failure('forbidden');
+        }
+        $product = $this->products->find($productId);
+        if ($product === null) {
+            return OperationResult::failure('not_found');
+        }
+        $seo = new ProductSeo(
+            ProductSeo::normaliseSlug($slug),
+            trim($title),
+            trim($description)
+        );
+        if (!$this->products->updateSeo($productId, $seo)) {
+            return OperationResult::failure('storage_failed');
+        }
+        if ($product->status === ProductStatus::Published) {
+            $this->catalog->publish($productId);
+        }
+        $this->audit->log(
+            AuditEventCatalog::PRODUCT_SEO_CHANGED,
+            $this->capabilities->currentUserId(),
+            'product',
+            (string) $productId,
+            ['product_id' => $productId, 'has_slug' => $seo->slug !== '', 'has_title' => $seo->title !== '']
+        );
+        return OperationResult::success('seo_saved', ['product_id' => $productId]);
     }
 
     /** The second permission of §4.1, granted and revoked on its own. */
@@ -217,6 +262,14 @@ final class ReviewProducts
         }
         if (!$this->products->updateStatus($productId, $to, $note)) {
             return OperationResult::failure('storage_failed');
+        }
+        // The storefront follows the decision immediately: a product the
+        // manager just approved has to be buyable, and one they suspended has
+        // to stop being buyable in the same request (ADR-008).
+        if ($to === ProductStatus::Published) {
+            $this->catalog->publish($productId);
+        } else {
+            $this->catalog->withdraw($productId, $note);
         }
         $reviewer = $this->capabilities->currentUserId();
         $this->audit->log(AuditEventCatalog::PRODUCT_REVIEWED, $reviewer, 'product', (string) $productId, [

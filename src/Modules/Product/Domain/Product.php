@@ -18,8 +18,16 @@ final class Product
         public readonly string $reviewNote = '',
         public readonly int $specSchemaVersion = 0,
         public readonly ?string $publishedAt = null,
-        public readonly string $updatedAt = ''
+        public readonly string $updatedAt = '',
+        public readonly ?int $wcProductId = null,
+        public readonly ProductSeo $seo = new ProductSeo()
     ) {
+    }
+
+    /** Whether this row has a WooCommerce product behind it (ADR-008). */
+    public function isProjected(): bool
+    {
+        return $this->wcProductId !== null && $this->wcProductId > 0;
     }
 
     /** Ownership is a property of the row, never of the request. */

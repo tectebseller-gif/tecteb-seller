@@ -1,0 +1,25 @@
+
+== on the new package, with the marketplace's products live ==
+tecteb-marketplace-core	0.1.0-alpha.7
+marketplace product 68 purchasable=yes | shop product 37 purchasable=yes
+
+== the documented remedy: suspend the vendor first, so the products leave the shop ==
+suspend vendor=4 ok=true code=reviewed
+wc 68 status=draft
+marketplace product 68 purchasable=no | shop product 37 purchasable=yes
+
+== …and only then roll the package back ==
+tecteb-marketplace-core	0.1.0-alpha.6
+wc 68 status=draft
+marketplace product 68 purchasable=no | shop product 37 purchasable=yes
+
+== the hazard, measured: the same rollback WITHOUT suspending first ==
+reinstate vendor=4 ok=true code=reviewed
+wc 68 status=publish
+tecteb-marketplace-core	0.1.0-alpha.6
+marketplace product 68 purchasable=yes  <-- on sale with nothing recording the money
+0
+
+
+== back to the new package ==
+tecteb-marketplace-core	0.1.0-alpha.7

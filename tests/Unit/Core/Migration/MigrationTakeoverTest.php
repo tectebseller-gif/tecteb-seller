@@ -209,7 +209,7 @@ final class MigrationTakeoverTest extends TestCase
     /** Take-over, then the old run's verify() returns false. */
     public function testTakeoverThenVerifyReturnsFalseRecordsNothing(): void
     {
-        $result = $this->runAfterTakeover(static fn (): null => null, static fn (): bool => false);
+        $result = $this->runAfterTakeover(static fn (): mixed => null, static fn (): bool => false);
         self::assertSame(MigrationStatus::LockLost, $result->status);
         self::assertNull($this->options->get(SchemaVersion::LAST_ERROR_OPTION));
         self::assertSame(3, $this->options->get(SchemaVersion::OPTION));
@@ -219,7 +219,7 @@ final class MigrationTakeoverTest extends TestCase
     public function testTakeoverThenVerifyThrowsRecordsNothing(): void
     {
         $result = $this->runAfterTakeover(
-            static fn (): null => null,
+            static fn (): mixed => null,
             static function (): bool {
                 throw new \RuntimeException('information_schema unavailable');
             }

@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionOutcome;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecFieldType;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecTemplate;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
@@ -43,6 +44,7 @@ final class ProductFormView
      * @param array<string,string> $specs
      * @param list<array{id:int,url:string}> $images
      * @param array<string,string> $categories category key => label
+     * @param array{attributes?:list<\Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute>,variations?:list<\Tecteb\Marketplace\Modules\Product\Domain\ProductVariation>,thumbnails?:array<int,string>} $variable
      */
     public static function render(
         int $productId,
@@ -60,7 +62,8 @@ final class ProductFormView
         ?OperationResult $readiness = null,
         ?CommissionOutcome $share = null,
         bool $mayPublishDirectly = false,
-        bool $hasPendingRevision = false
+        bool $hasPendingRevision = false,
+        array $variable = []
     ): string {
         $step = array_key_exists($step, self::steps()) ? $step : '1';
         $html = '';
@@ -106,6 +109,21 @@ final class ProductFormView
             . '<p class="tv-form__actions">'
             . VendorUi::submit(__('ذخیره و ادامه', 'tecteb-marketplace-core'))
             . '</p></form>';
+
+        // OUTSIDE the form above, deliberately: each combination posts on its
+        // own, and a form inside a form is not valid HTML — the browser would
+        // silently drop the inner one and the vendor would press a button
+        // that does nothing.
+        if ($step === '2' && $details->type === ProductType::VARIABLE) {
+            $html .= VariationsView::render(
+                $productId,
+                $variable['attributes'] ?? [],
+                $variable['variations'] ?? [],
+                $variable['thumbnails'] ?? [],
+                $urls,
+                $nonceField
+            );
+        }
 
         if ($step === '4' && $productId > 0 && $status->isEditableByVendor()) {
             $html .= self::submitForm($urls, $nonceField, $productId, $readiness, $mayPublishDirectly);
@@ -334,11 +352,25 @@ final class ProductFormView
             $html .= '<p class="tv-hint">' . esc_html__('هنوز تصویری ندارید. ارسال محصول برای بررسی دست‌کم یک تصویر لازم دارد.', 'tecteb-marketplace-core') . '</p>';
         } else {
             $html .= '<ul class="tv-gallery">';
-            foreach ($images as $image) {
+            foreach ($images as $index => $image) {
                 $id = (int) $image['id'];
+                $position = $index + 1;
                 $html .= '<li class="tv-gallery__item">'
                     . '<img src="' . esc_url($image['url']) . '" alt="" width="96" height="96" loading="lazy">'
                     . '<input type="hidden" name="image_ids[]" value="' . esc_attr((string) $id) . '">'
+                    . '<p class="tv-gallery__position">' . esc_html(sprintf(
+                        /* translators: 1: this image's position, 2: how many images there are */
+                        __('تصویر %1$s از %2$s', 'tecteb-marketplace-core'),
+                        PersianDigits::toPersian((string) $position),
+                        PersianDigits::toPersian((string) count($images))
+                    )) . '</p>'
+                    // Ordinary submit buttons of the SAME form, so the order
+                    // can be changed with a keyboard alone — no drag, no
+                    // JavaScript, and nothing that a nested form would break.
+                    . '<div class="tv-gallery__move">'
+                    . self::moveButton('up', $id, $index > 0, __('یک پله بالاتر', 'tecteb-marketplace-core'))
+                    . self::moveButton('down', $id, $index < count($images) - 1, __('یک پله پایین‌تر', 'tecteb-marketplace-core'))
+                    . '</div>'
                     . '<label class="tv-gallery__main"><input type="radio" name="main_image_id" value="' . esc_attr((string) $id) . '"'
                     . checked($mainImageId, $id, false) . '> ' . esc_html__('تصویر اصلی', 'tecteb-marketplace-core') . '</label>'
                     . '<label class="tv-gallery__drop"><input type="checkbox" name="remove_image_ids[]" value="' . esc_attr((string) $id) . '"> '
@@ -353,6 +385,17 @@ final class ProductFormView
             . '<input class="tv-input" type="file" id="f-product-image" name="product_image" accept="image/jpeg,image/png,image/webp">'
             . '<p class="tv-hint">' . esc_html__('JPEG، PNG یا WebP تا ۳ مگابایت. با ذخیره همین فرم بارگذاری می‌شود.', 'tecteb-marketplace-core') . '</p></div>'
             . '</fieldset>';
+    }
+
+    /**
+     * One reorder button. Disabled at the ends rather than hidden, so the
+     * control does not move under a keyboard user between renders.
+     */
+    private static function moveButton(string $direction, int $imageId, bool $enabled, string $label): string
+    {
+        return '<button type="submit" class="tv-btn tv-btn--secondary tv-gallery__btn" name="move_image" value="'
+            . esc_attr($direction . ':' . $imageId) . '"' . ($enabled ? '' : ' disabled')
+            . '>' . esc_html($label) . '</button>';
     }
 
     private static function submitForm(VendorUrls $urls, string $nonce, int $productId, ?OperationResult $readiness, bool $direct): string

@@ -1,0 +1,575 @@
+{
+  "suite": "vendor-orders-and-variations",
+  "generated_at": "2026-09-15T14:31:16.066Z",
+  "widths": [
+    320,
+    375,
+    768,
+    1024,
+    1440
+  ],
+  "total": 80,
+  "failures": 0,
+  "results": [
+    {
+      "page": "vendor-orders",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "320",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "375",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "768",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1024",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1440",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-orders",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "320",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "375",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "768",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1024",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1440",
+      "check": "exactly-one-h1",
+      "ok": true,
+      "detail": "h1=1"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-variations",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+--- /home/user/tecteb-seller/docs/evidence/upgrade-alpha6/01-before-upgrade.txt	2026-09-15 14:32:40.444062298 +0000
++++ /home/user/tecteb-seller/docs/evidence/upgrade-alpha6/02-after-upgrade.txt	2026-09-15 14:32:50.048062868 +0000
+@@ -1,7 +1,7 @@
+ ## plugin
+-0.1.0-alpha.6
++0.1.0-alpha.7
+ ## schema_option
+-5
++6
+ ## options
+ tmc_capability_signature
+ tmc_order_trial_mode
+@@ -33,7 +33,7 @@
+ wp_tmc_vendor_staff
+ wp_tmc_vendor_stores
+ ## row_counts
+-wp_tmc_audit_events=165
++wp_tmc_audit_events=167
+ wp_tmc_commission_rules=1
+ wp_tmc_ledger_entries=8
+ wp_tmc_order_items=2
+@@ -45,12 +45,12 @@
+ wp_tmc_products=3
+ wp_tmc_spec_fields=1
+ wp_tmc_spec_templates=1
+-wp_tmc_vendor_applications=1
++wp_tmc_vendor_applications=0
+ wp_tmc_vendor_change_requests=0
+ wp_tmc_vendor_document_types=0
+ wp_tmc_vendor_documents=0
+-wp_tmc_vendor_profiles=2
+-wp_tmc_vendor_staff=1
++wp_tmc_vendor_profiles=0
++wp_tmc_vendor_staff=0
+ wp_tmc_vendor_stores=0
+ ## audit_rows
+ 1|plugin.activated|plugin|2026-09-15 14:05:09
+@@ -218,13 +218,12 @@
+ 163|order.blocked|product|2026-09-15 14:29:06
+ 164|plugin.deactivated|plugin|2026-09-15 14:32:32
+ 165|plugin.activated|plugin|2026-09-15 14:32:35
++166|plugin.deactivated|plugin|2026-09-15 14:32:45
++167|plugin.activated|plugin|2026-09-15 14:32:46
+ ## vendor_applications
+-1|4|approved|داروخانه آزمایشی یک|09120000004
+ ## vendor_documents
+ ## vendor_document_types
+ ## vendor_profiles
+-1|4|داروخانه آزمایشی یک|1|0
+-2|8|داروخانه آزمایشی دو|1|0
+ ## admin_caps
+ ## private_files
+ /home/user/tecteb-private/application-1/06a121061a26c2579becb27c5d4c9180.pdf

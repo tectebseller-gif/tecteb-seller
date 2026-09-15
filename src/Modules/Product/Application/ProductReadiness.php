@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Product\Application;
 
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductVariation;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 
 /**
@@ -18,8 +19,10 @@ use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
  */
 final class ProductReadiness
 {
-    public function __construct(private readonly SpecTemplateRepositoryInterface $templates)
-    {
+    public function __construct(
+        private readonly SpecTemplateRepositoryInterface $templates,
+        private readonly VariationRepositoryInterface $variations
+    ) {
     }
 
     public function check(Product $product): OperationResult
@@ -44,6 +47,48 @@ final class ProductReadiness
                 return OperationResult::failure('invalid_specs', ['fields' => implode('، ', $verdict['invalid'])]);
             }
         }
+        if ($product->details->type === ProductType::VARIABLE) {
+            $verdict = $this->variableIsSellable($product->id);
+            if ($verdict !== null) {
+                return $verdict;
+            }
+        }
         return OperationResult::success('ready');
+    }
+
+    /**
+     * A variable product is not "ready to sell" merely because its type says
+     * variable — the owner's instruction in as many words. It needs an axis
+     * with options, and at least one enabled combination that carries a
+     * price; a variation without a price has no number to charge.
+     */
+    private function variableIsSellable(int $productId): ?OperationResult
+    {
+        $attributes = $this->variations->attributes($productId);
+        $usable = array_filter($attributes, static fn ($attribute): bool => $attribute->isUsable());
+        if ($usable === []) {
+            return OperationResult::failure('variable_needs_attributes');
+        }
+        $variations = $this->variations->variations($productId);
+        if ($variations === []) {
+            return OperationResult::failure('variable_needs_variations');
+        }
+        $sellable = array_filter(
+            $variations,
+            static fn (ProductVariation $v): bool => $v->enabled && $v->isComplete()
+        );
+        if ($sellable === []) {
+            return OperationResult::failure('variable_needs_priced_variation');
+        }
+        $incomplete = array_filter(
+            $variations,
+            static fn (ProductVariation $v): bool => $v->enabled && !$v->isComplete()
+        );
+        if ($incomplete !== []) {
+            return OperationResult::failure('variation_without_price', [
+                'count' => count($incomplete),
+            ]);
+        }
+        return null;
     }
 }

@@ -73,8 +73,17 @@
 | **مسیر کامل محصول روی افزونهٔ نصب‌شده از ZIP نهایی** | **`Passed`** | ۶۱ بررسی، ۰ شکست · `docs/evidence/products/product-flow.json` |
 | **دسترس‌پذیری شش صفحهٔ محصول در پنج عرض + axe** | **`Passed`** | ۲۴۰ بررسی، ۰ شکست · `docs/evidence/products/a11y/products-a11y.json` |
 | **دو صفحهٔ تازهٔ مدیر در wp-admin واقعی با fa_IR و RTL** | **`Passed`** | ۱۴۲ بررسی، ۰ شکست (با **بستهٔ ترجمهٔ حداقلی آزمایشی**) · `docs/evidence/products/wpadmin-a11y/` |
-| صفحهٔ عمومی محصول و خرید در WooCommerce | `Not Run` | ساخته نشده: projection به WooCommerce با مرحلهٔ سفارش می‌آید |
-| تنوع‌های محصول متغیر (variations) | `Not Run` | ساخته نشده (`docs/feature-inventory.md` بند ۴) |
+| **صفحهٔ عمومی محصول و خرید در WooCommerce** | **`Passed`** | projection روی ووکامرس ۱۱٫۰٫۱ واقعی؛ صفحهٔ عمومی، سبد چندفروشنده و سفارش · `docs/evidence/orders/order-trial.json` |
+| **تنوع‌های محصول متغیر (variations)** | **`Passed`** | دو تنوع با قیمت، موجودی، SKU و پیوند دوطرفه · `docs/evidence/catalog/02-projection.txt` |
+| **بدون محصول تکراری و بدون دست‌زدن به محصول غیربازارگاهی** | **`Passed`** | سه projection پیاپی؛ محصول فروشگاه با متای دکان تا `post_modified` بدون تغییر · `docs/evidence/catalog/03-idempotent-and-foreign-untouched.txt` |
+| **ارتقای `alpha.6 → alpha.7` (schema ۵→۶) و بازگشت** | **`Passed`** | ۳۵ بررسی، ۰ شکست · `docs/evidence/upgrade-alpha6/` |
+| **ارتقای `alpha.1 → alpha.7` (schema ۱→۶) و بازگشت** | **`Passed`** | ۳۵ بررسی، ۰ شکست · `docs/evidence/upgrade-alpha1/` |
+| **مسیر کامل سفارش روی افزونهٔ نصب‌شده از ZIP نهایی** | **`Passed`** | ۱۴ بررسی، ۰ شکست · `docs/evidence/orders/order-trial.json` |
+| **تعلیق/ناموجودی/قفل مالی در امکان خرید، و مصونیت محصولات سایت و دکان** | **`Passed`** | ۲۵ بررسی، ۰ شکست · `docs/evidence/orders/purchase-blocks.json` |
+| **دسترس‌پذیری دو صفحهٔ تازهٔ فروشنده در پنج عرض + axe** | **`Passed`** | ۸۰ بررسی، ۰ شکست · `docs/evidence/orders/a11y/orders-a11y.json` |
+| **خطر بازگشت `alpha.7 → alpha.6` و راه‌حل مستندش** | **`Passed`** | هر دو مسیر اجرا شد · `docs/evidence/orders/13-rollback-hazard.txt` |
+| checkout بلوکی ووکامرس (Store API) | `Not Run` | آزمون روی checkout کلاسیک اجرا شد؛ hook ثبت سفارش برای هر دو نوشته شده ولی مسیر بلوکی اجرا نشده است |
+| رفتار با **دکان واقعی نصب‌شده** | `Not Run` | دکان در این محیط نصب نیست؛ محصول شاهد با متای `_dokan_vendor_id` ساخته شد، که تشخیص «مال ما نیست» را می‌سنجد نه تداخل افزونه‌ای را |
 | هر کدام از این‌ها روی `staging.tecteb.com` یا PHP 8.1.34 | `Not Run` | خارج از مجوز فعلی؛ آزمون ما روی PHP 8.1.32 و سایت یکبارمصرف بود |
 
 روش اجرا: `bash tools/upgrade-rollback-check.sh <php> <evidence-dir> <old-zip> <new-zip>`

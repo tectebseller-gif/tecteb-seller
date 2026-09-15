@@ -1,0 +1,47 @@
+=== what a shopper gets when the marketplace refuses (alpha.7 from the ZIP, PHP 8.1.32, WooCommerce 11.0.1) ===
+  baseline: marketplace=true shop=true
+  vendor suspended: marketplace=false shop=true
+  vendor reinstated: marketplace=true
+  stock zero: marketplace=false shop=true
+  trial off: marketplaceA=false marketplaceB=false shop=true
+
+-- the state changes and what the catalogue answered --
+$ wp eval-file purchase-block-state.php trial 1
+trial requested=true
+
+$ wp eval-file purchase-block-state.php suspend 4 آزمایش تعلیق در مسیر خرید
+suspend vendor=4 ok=true code=reviewed
+
+$ wp eval-file purchase-block-state.php decide 59 37
+wc=59 decision=vendor_stopped tmc_product=1 wc_status=draft wc_purchasable=false wc_in_stock=true
+wc=37 decision=not_ours tmc_product=none wc_status=publish wc_purchasable=true wc_in_stock=true
+
+$ wp eval-file purchase-block-state.php reinstate 4
+reinstate vendor=4 ok=true code=reviewed
+
+$ wp eval-file purchase-block-state.php stock 1 0
+stock product=1 to=0 ok=true code=inventory_saved
+
+$ wp eval-file purchase-block-state.php decide 59 37
+wc=59 decision=out_of_stock tmc_product=1 wc_status=publish wc_purchasable=false wc_in_stock=false
+wc=37 decision=not_ours tmc_product=none wc_status=publish wc_purchasable=true wc_in_stock=true
+
+$ wp eval-file purchase-block-state.php stock 1 9
+stock product=1 to=9 ok=true code=inventory_saved
+
+$ wp eval-file purchase-block-state.php trial 0
+trial requested=false
+
+$ wp eval-file purchase-block-state.php decide 59 61 37
+wc=59 decision=orders_blocked tmc_product=1 wc_status=publish wc_purchasable=false wc_in_stock=true
+wc=61 decision=orders_blocked tmc_product=2 wc_status=publish wc_purchasable=false wc_in_stock=true
+wc=37 decision=not_ours tmc_product=none wc_status=publish wc_purchasable=true wc_in_stock=true
+
+$ wp eval-file purchase-block-state.php trial 1
+trial requested=true
+
+$ wp eval-file purchase-block-state.php state
+trial requested=true permitted=true active=true environment=staging
+product=1 vendor=4 wc=59 status=published stock=9 vendor_can_trade=true
+product=2 vendor=8 wc=61 status=published stock=9 vendor_can_trade=true
+product=3 vendor=4 wc=63 status=published stock=0 vendor_can_trade=true

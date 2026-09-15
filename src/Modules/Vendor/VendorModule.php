@@ -15,6 +15,7 @@ use Tecteb\Marketplace\Contracts\ModuleManifest;
 use Tecteb\Marketplace\Contracts\OptionStoreInterface;
 use Tecteb\Marketplace\Contracts\Otp\OtpProviderInterface;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Core\Events\EventBus;
 use Tecteb\Marketplace\Core\Config\SettingsService;
 use Tecteb\Marketplace\Modules\Vendor\Application\AcceptStaffInvitation;
 use Tecteb\Marketplace\Modules\Vendor\Application\ChangeRequestRepositoryInterface;
@@ -122,7 +123,8 @@ final class VendorModule implements ModuleInterface
             $c->get(VendorRepositoryInterface::class),
             $c->get(ApplicationStateMachine::class),
             $c->get(AuditLogger::class),
-            $c->get(CapabilityCheckerInterface::class)
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(EventBus::class)
         ));
         $c->bind(ConfigureDocumentTypes::class, static fn (ContainerInterface $c) => new ConfigureDocumentTypes(
             $c->get(DocumentTypeRepositoryInterface::class),

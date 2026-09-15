@@ -1,16 +1,14 @@
 # Tecteb Marketplace Core — راهنمای کار در این مخزن
 
-## محدوده فعلی: فاز ۱ + فروشندگان + **محصولات**
+## محدوده فعلی: فاز ۱ + فروشندگان + محصولات + **ووکامرس و سفارش آزمایشی**
 زیرساخت و **چهار صفحه مدیریت** (پیشخوان، سلامت، تنظیمات، ماژول‌ها)، و از
 ۱۲ سپتامبر **بخش فروشندگان** به دستور مالک: درخواست فروشندگی، مدارک پویا،
 بررسی مدیر و پیشخوان فروشنده روی مسیر `/vendor/`
 (`docs/phase-2-vendor-delivery.md`).
 
-هنوز ساخته نشده: Order (اسکلت خودبسته دارد)/Withdrawal/Refund/Coupon/
-B2B/Ticket/SEO/Migration، و **تنوع محصول متغیر** و **projection محصول به
-WooCommerce**. هیچ sender/gateway واقعی وجود ندارد؛ خروجی‌های افزونه در Alpha
-همیشه بسته‌اند و **تأیید موبایل انجام نمی‌شود** تا وقتی Adapter واقعی و مستند
-وجود داشته باشد.
+هنوز ساخته نشده: Withdrawal/Refund/Coupon/B2B/Ticket/Migration و SEO خودکار.
+هیچ sender/gateway واقعی وجود ندارد؛ خروجی‌های افزونه در Alpha همیشه بسته‌اند و
+**تأیید موبایل انجام نمی‌شود** تا وقتی Adapter واقعی و مستند وجود داشته باشد.
 
 **وضعیت جاری:** فاز ۱ پیاده‌سازی شد، **چهار دور بازبینی سورس** روی آن اعمال شد،
 و پروتکل پذیرش (G-01 تا G-09 به‌علاوه ارتقا/بازیابی) روی یک **WordPress
@@ -32,6 +30,35 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 پایین نمی‌آورد، پس **برای بازگشت بازگرداندن ZIP قبلی کافی است و بازیابی
 دیتابیس لازم نیست** (`docs/upgrade-and-rollback.md` ·
 `docs/evidence/upgrade-alpha1/` · `docs/evidence/upgrade/`).
+
+**`0.1.0-alpha.7` (۱۵ سپتامبر):** مرحله ۳ ترتیب مالک — **اتصال به ووکامرس،
+سفارش و ارسال آزمایشی**. ساختار داده **۶**. سه چیز که باید بدانید:
+
+- **مرجع اصلی هر فیلد در ADR-008 نوشته شده و در کد قفل است.** قیمت/انتشار/
+  عنوان/تصویر/SEO مال بازارگاه؛ **موجودی پس از اولین projection مال ووکامرس**؛
+  سفارش و مشتری و مالیات مال ووکامرس. `SyncCatalog` عمداً `syncEverything()`
+  ندارد: موجودی فقط هنگام **ساخت** محصول و با **ویرایش صریح فروشنده** بیرون
+  نوشته می‌شود، وگرنه «موجودی قدیمی برمی‌گردد».
+- **هر پرسشی دربارهٔ محصول غیربازارگاهی `not_ours` می‌گیرد و هیچ نوشتنی رخ
+  نمی‌دهد.** محصولات سایت و دکان — از جمله وقتی قفل مالی روشن است — دست
+  نمی‌خورند. اندازه‌گیری‌شده تا `post_modified`.
+- **کلید آزمایشی سفارش** (`tmc_order_trial_mode`) فقط روی staging/development/
+  local پذیرفته می‌شود و فقط شرط «بسته‌بودن DEC-02/DEC-04» را waive می‌کند؛
+  همان خطوط دفترکل نوشته می‌شود. نرخ نمونه در **دیتابیس یکبارمصرف** است، نه در
+  بسته (F-13).
+
+تحویل: `docs/phase-5-catalog-and-orders.md` · شواهد: `docs/evidence/catalog/`
+و `docs/evidence/orders/`.
+
+**دو قاعده تازه:**
+- **`php -l` روی هر نسخه PHP که افزونه ادعای اجرا رویش دارد** اجرا می‌شود
+  (`tools/lint.sh`، امروز ۸٫۴ و ۸٫۱). `EnumCase->value` داخل `const` از ۸٫۲
+  است و روی ۸٫۱ فاتالِ **کامپایل** می‌دهد، یعنی کل سایت می‌میرد نه یک صفحه —
+  و lint روی ۸٫۴ چیزی نمی‌دید (F-11).
+- **بازگشت از `alpha.7` استثنا دارد:** محصولی که به ووکامرس رفته یک پست
+  منتشرشده است و با بازگشت پاک نمی‌شود، ولی `alpha.6` نه `PurchaseGuard` دارد
+  نه ثبت سفارش. پیش از بازگشت باید محصول‌ها/فروشنده‌ها را **تعلیق** کرد
+  (`docs/upgrade-and-rollback.md` بند ۵٫۱ · `tools/rollback-hazard-check.sh`).
 
 **`0.1.0-alpha.6` (۱۴ سپتامبر):** مرحله ۲ ترتیب مالک — **محصولات**: فرم
 چهارمرحله‌ای با حفظ داده در خطا، مالکیت scope‌شده در هر پرس‌وجو، تأیید انتشار و
@@ -124,6 +151,18 @@ TMC_PAGES="tmc-product-review:product-review,tmc-spec-templates:spec-templates" 
   TMC_OUT=docs/evidence/products/wpadmin-a11y node tools/browser/check-wpadmin.mjs  # ۱۴۲ بررسی
 node tools/browser/check-vendor-staff.mjs      # مسیر کامل مرحله ۱ (۲۴ بررسی)
 node tools/browser/check-vendor-staff-a11y.mjs # دو صفحه تازه (۱۲۰ بررسی)
+
+# مرحله ووکامرس و سفارش، روی افزونه نصب‌شده از ZIP نهایی و WooCommerce واقعی
+wp eval-file tools/order-trial-seed.php <vendor-a> <vendor-b>       # داده نمونه
+wp eval-file tools/purchase-block-state.php state|decide|suspend|…  # وضعیت
+wp eval-file tools/order-evidence.php trial-matrix|projection|…     # شواهد
+SITE=… TMC_WC_A=… TMC_WC_B=… TMC_WC_SHOP=… TMC_OUT=docs/evidence/orders \
+  node tools/browser/check-order-trial.mjs        # مسیر کامل سفارش (۱۴ بررسی)
+SITE=… TMC_WC_A=… TMC_WC_B=… TMC_WC_SHOP=… TMC_PRODUCT_A=… \
+  node tools/browser/check-purchase-blocks.mjs    # تعلیق/ناموجودی/قفل (۲۵ بررسی)
+SITE=… TMC_VARIABLE_PRODUCT=… TMC_OUT=docs/evidence/orders/a11y \
+  node tools/browser/check-orders-a11y.mjs        # دو صفحه تازه (۸۰ بررسی)
+bash tools/rollback-hazard-check.sh <wc-id> <vendor> <old-zip> <new-zip>
 ```
 دیتابیس آزمون **یکبارمصرف** است و پیکربندی‌اش در `.env.testing` می‌آید؛ هرگز
 به دیتابیس واقعی اشاره نکنید (suite در نبود نام `tmc_test` اجرا نمی‌شود).

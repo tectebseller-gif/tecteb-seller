@@ -47,6 +47,12 @@ final class AuditEventCatalog
     public const PRODUCT_CSV_EXPORTED = 'product.csv_exported';
     public const PRODUCT_CSV_IMPORTED = 'product.csv_imported';
     public const PRODUCT_PUBLISH_PERMISSION_CHANGED = 'product.publish_permission_changed';
+    public const PRODUCT_SYNCED = 'product.synced';
+    public const PRODUCT_SEO_CHANGED = 'product.seo_changed';
+    /** Orders: what the marketplace recorded about a WooCommerce sale. */
+    public const ORDER_CAPTURED = 'order.captured';
+    public const ORDER_ITEM_STATUS_CHANGED = 'order.item_status_changed';
+    public const ORDER_BLOCKED = 'order.blocked';
     /** Finance: rules and the append-only ledger. */
     public const FINANCE_RATE_CHANGED = 'finance.rate_changed';
     public const FINANCE_ACCRUED = 'finance.accrued';
@@ -86,6 +92,11 @@ final class AuditEventCatalog
             self::PRODUCT_CSV_EXPORTED => ['vendor_id', 'rows'],
             self::PRODUCT_CSV_IMPORTED => ['vendor_id', 'rows', 'created', 'updated', 'skipped'],
             self::PRODUCT_PUBLISH_PERMISSION_CHANGED => ['vendor_id', 'granted'],
+            self::PRODUCT_SYNCED => ['vendor_id', 'product_id', 'wc_product_id', 'action'],
+            self::PRODUCT_SEO_CHANGED => ['product_id', 'has_slug', 'has_title'],
+            self::ORDER_CAPTURED => ['order_id', 'vendors', 'items', 'recorded', 'skipped'],
+            self::ORDER_ITEM_STATUS_CHANGED => ['vendor_id', 'order_id', 'item_id', 'from', 'to'],
+            self::ORDER_BLOCKED => ['product_id', 'vendor_id', 'reason'],
             self::FINANCE_RATE_CHANGED => ['scope', 'reference', 'rate_bp', 'cleared'],
             self::FINANCE_ACCRUED => ['vendor_id', 'rate_bp', 'rate_source', 'base_minor'],
             self::FINANCE_REVERSED => ['vendor_id', 'reverses', 'amount_minor'],

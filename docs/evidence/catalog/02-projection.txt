@@ -1,0 +1,9 @@
+=== the storefront after projection (0.1.0-alpha.7, PHP 8.1.32, WooCommerce 11.0.1) ===
+tmc=1 wc=59 type=simple status=publish price=1200000 stock=10 sku=TRIAL-A tmc_meta=1 vendor_meta=4 children=0
+tmc=2 wc=61 type=simple status=publish price=600000 stock=10 sku=TRIAL-B tmc_meta=2 vendor_meta=8 children=0
+tmc=3 wc=63 type=variable status=publish price=- stock=NULL sku=TRIAL-VAR tmc_meta=3 vendor_meta=4 children=2
+--- variations of the variable product ---
+wc_variation=64 attrs={"%d8%a7%d9%86%d8%af%d8%a7%d8%b2%d9%87":"کوچک"} price=900000 stock=6 sku=TRIAL-VAR-S status=publish tmc_variation=1
+wc_variation=65 attrs={"%d8%a7%d9%86%d8%af%d8%a7%d8%b2%d9%87":"بزرگ"} price=1100000 stock=4 sku=TRIAL-VAR-L status=publish tmc_variation=2
+--- total WooCommerce products on the site ---
+products=4

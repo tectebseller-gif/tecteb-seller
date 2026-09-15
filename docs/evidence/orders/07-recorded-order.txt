@@ -1,0 +1,11 @@
+=== after the browser order (0.1.0-alpha.7 from the ZIP, PHP 8.1.32, WooCommerce 11.0.1) ===
+-- one line per vendor, with its own snapshot --
+vendor=4 order=66 product=1 qty=1 base=1200000 commission=120000 share=1080000 rate_bp=1000 source=general status=shipped ledger=order:66:item:7
+vendor=8 order=66 product=2 qty=1 base=600000 commission=60000 share=540000 rate_bp=1000 source=general status=placed ledger=order:66:item:8
+-- the ledger behind it --
+vendor=4 balances={"central_payment":1200000,"commission":-120000,"vendor_earning":-1080000}
+vendor=8 balances={"central_payment":600000,"commission":-60000,"vendor_earning":-540000}
+-- stock: WooCommerce is the source of truth, the marketplace mirrors it --
+tmc=1 wc=59 marketplace_mirror=9 woocommerce=9 agree=true
+tmc=2 wc=61 marketplace_mirror=9 woocommerce=9 agree=true
+tmc=3 wc=63 marketplace_mirror=0 woocommerce=NULL agree=true

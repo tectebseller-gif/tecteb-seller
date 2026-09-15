@@ -1,0 +1,133 @@
+{
+  "suite": "purchase-blocks",
+  "generated_at": "2026-09-15T14:29:10.541Z",
+  "total": 25,
+  "failures": 0,
+  "results": [
+    {
+      "name": "baseline — a marketplace product adds to the basket",
+      "ok": true,
+      "detail": "1 rows"
+    },
+    {
+      "name": "baseline — the shop’s own product adds to the basket",
+      "ok": true,
+      "detail": "1 rows"
+    },
+    {
+      "name": "a suspended vendor’s product cannot be bought",
+      "ok": true,
+      "detail": "0 rows"
+    },
+    {
+      "name": "…and it leaves the storefront rather than sitting there unbuyable",
+      "ok": true,
+      "detail": "withdrawn, never deleted"
+    },
+    {
+      "name": "…while the shop’s own product still adds to the basket",
+      "ok": true,
+      "detail": "1 rows"
+    },
+    {
+      "name": "…and the catalogue calls the shop’s product none of its business",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the suspended shop’s staff loses the orders page too",
+      "ok": true,
+      "detail": "suspension is derived, not copied"
+    },
+    {
+      "name": "reinstating the vendor puts their product back on sale",
+      "ok": true,
+      "detail": "1 rows"
+    },
+    {
+      "name": "the staff member sees their shop’s order line",
+      "ok": true,
+      "detail": "AC-PRIV, staff side"
+    },
+    {
+      "name": "…and nothing of the other shop",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "…with no customer e-mail",
+      "ok": true,
+      "detail": "PRIV-01"
+    },
+    {
+      "name": "…and no customer mobile",
+      "ok": true,
+      "detail": "PRIV-01"
+    },
+    {
+      "name": "a product with no stock cannot be bought",
+      "ok": true,
+      "detail": "0 rows"
+    },
+    {
+      "name": "…and says so in the marketplace’s own words",
+      "ok": true,
+      "detail": "woocommerce_cart_product_out_of_stock_message"
+    },
+    {
+      "name": "…and its own page says the same without being clicked",
+      "ok": true,
+      "detail": "no add-to-cart button to click"
+    },
+    {
+      "name": "…and the storefront agrees it is out of stock",
+      "ok": true,
+      "detail": "the vendor’s edit wrote through to WooCommerce"
+    },
+    {
+      "name": "…while the shop’s own product still adds to the basket",
+      "ok": true,
+      "detail": "1 rows"
+    },
+    {
+      "name": "with the financial rules unsettled, no marketplace product sells",
+      "ok": true,
+      "detail": "A=0 B=0 rows"
+    },
+    {
+      "name": "…and the shopper is told which rule is missing",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "…on the product’s own page as well",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "…and the shop’s own product page says nothing of the kind",
+      "ok": true,
+      "detail": "the marketplace never speaks for somebody else’s catalogue"
+    },
+    {
+      "name": "…the catalogue names the same reason",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "…while the shop’s own product still adds to the basket",
+      "ok": true,
+      "detail": "1 rows"
+    },
+    {
+      "name": "…and still reaches checkout",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the trial switch goes back on for the rest of the evidence",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

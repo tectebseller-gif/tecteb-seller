@@ -24,6 +24,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
+use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
@@ -32,7 +33,9 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\DbVariationRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffRolePreset;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbStaffRepository;
@@ -40,6 +43,7 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
+use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
 use Tecteb\Marketplace\Tests\Support\FakeProductImages;
 
 /**
@@ -60,6 +64,7 @@ final class ProductFlowTest extends DatabaseTestCase
     private DbProductRepository $products;
     private DbSpecTemplateRepository $templates;
     private DbProductRevisionRepository $revisions;
+    private DbVariationRepository $variations;
     private DbVendorRepository $vendors;
     private DbStaffRepository $staff;
     private DbCommissionRuleRepository $rules;
@@ -69,6 +74,7 @@ final class ProductFlowTest extends DatabaseTestCase
     private ProductCsv $csv;
     private ProductPublishPolicy $publishing;
     private FakeProductImages $images;
+    private FakeCatalogProjector $projector;
     private FakeCapabilityChecker $capabilities;
 
     protected function setUp(): void
@@ -80,6 +86,7 @@ final class ProductFlowTest extends DatabaseTestCase
             ...M0003CreateStoreAndStaffTables::TABLES,
             ...M0004CreateFinanceTables::TABLES,
             ...M0005CreateProductTables::TABLES,
+            ...M0006CatalogAndOrders::TABLES,
         ] as $suffix) {
             $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
         }
@@ -88,6 +95,7 @@ final class ProductFlowTest extends DatabaseTestCase
         (new M0003CreateStoreAndStaffTables())->up($db);
         (new M0004CreateFinanceTables())->up($db);
         (new M0005CreateProductTables())->up($db);
+        (new M0006CatalogAndOrders())->up($db);
 
         $clock = new SystemClock();
         $options = new WpOptionStore();
@@ -107,13 +115,17 @@ final class ProductFlowTest extends DatabaseTestCase
         ]);
         $access = new StaffAccess($this->staff, $this->vendors);
         $states = new ProductStateMachine();
-        $readiness = new ProductReadiness($this->templates);
+        $this->variations = new DbVariationRepository($db, $clock);
+        $readiness = new ProductReadiness($this->templates, $this->variations);
+        $this->projector = new FakeCatalogProjector();
+        $catalog = new SyncCatalog($this->products, $this->variations, $this->projector, $audit);
 
         $this->manage = new ManageProducts(
             $this->products,
             $this->templates,
             $this->revisions,
             $readiness,
+            $catalog,
             $this->images,
             $access,
             $this->publishing,
@@ -125,6 +137,7 @@ final class ProductFlowTest extends DatabaseTestCase
             $this->revisions,
             $this->templates,
             $readiness,
+            $catalog,
             $this->publishing,
             $states,
             $audit,
@@ -540,6 +553,50 @@ final class ProductFlowTest extends DatabaseTestCase
         $refused = $this->configure->addField($templateId, 'grade', 'رده', 'choice', false);
         self::assertFalse($refused->ok);
         self::assertSame('choice_needs_options', $refused->code);
+    }
+
+    // ------------------------------------------- search, ordering and SEO
+
+    public function testTheListSearchesTitleBrandAndSkuWithinTheShopOnly(): void
+    {
+        $this->createProduct(self::VENDOR, 'دستکش لاتکس پودری', 'GLV-100');
+        $this->createProduct(self::VENDOR, 'ماسک سه‌لایه', 'MSK-050');
+        $this->createProduct(self::OTHER_VENDOR, 'دستکش فروشگاه دیگر', 'GLV-999');
+
+        $byTitle = $this->products->forVendor(self::VENDOR, null, 20, 0, 'دستکش');
+        self::assertCount(1, $byTitle);
+        self::assertSame('دستکش لاتکس پودری', $byTitle[0]->details->title);
+        self::assertSame(1, $this->products->countForVendor(self::VENDOR, null, 'دستکش'), 'the count matches the rows');
+
+        $bySku = $this->products->forVendor(self::VENDOR, null, 20, 0, 'MSK');
+        self::assertCount(1, $bySku);
+
+        // A wildcard the vendor typed is a character they are looking for.
+        self::assertSame([], $this->products->forVendor(self::VENDOR, null, 20, 0, '%'));
+        // And the other shop's matching product is not in the answer.
+        self::assertSame(0, $this->products->countForVendor(self::VENDOR, null, 'GLV-999'));
+    }
+
+    public function testSeoIsTheManagersAloneAndReachesTheStorefront(): void
+    {
+        $productId = $this->publish(self::VENDOR);
+
+        $saved = $this->review->setSeo($productId, ' دستکش لاتکس ', 'دستکش لاتکس پزشکی', 'بستهٔ ۱۰۰ عددی');
+        self::assertTrue($saved->ok, $saved->code);
+        $product = $this->products->find($productId);
+        self::assertSame('دستکش-لاتکس', $product?->seo->slug, 'the slug is normalised, and Persian survives');
+        self::assertSame('دستکش لاتکس پزشکی', $product?->seo->title);
+
+        // Saving SEO re-projects, so the public page carries it at once.
+        $wcId = (int) $product?->wcProductId;
+        self::assertGreaterThan(1, $this->projector->writes[$wcId] ?? 0);
+
+        // Without the reviewer capability there is no way in at all.
+        $this->capabilities->become(self::MANAGER, []);
+        $refused = $this->review->setSeo($productId, 'other', '', '');
+        self::assertFalse($refused->ok);
+        self::assertSame('forbidden', $refused->code);
+        self::assertSame('دستکش-لاتکس', $this->products->find($productId)?->seo->slug);
     }
 
     // ------------------------------------------------------------------- CSV

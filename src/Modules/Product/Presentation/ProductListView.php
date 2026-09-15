@@ -37,7 +37,8 @@ final class ProductListView
         string $nonceField,
         ?VendorNotice $notice = null,
         bool $mayEdit = true,
-        bool $mayPublishDirectly = false
+        bool $mayPublishDirectly = false,
+        string $search = ''
     ): string {
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
         $html = '';
@@ -63,11 +64,14 @@ final class ProductListView
             : '<p class="tv-hint">' . esc_html__('محصول تازه و تغییرهای حساس پس از تأیید مدیر منتشر می‌شوند. موجودی همیشه فوری اعمال می‌شود.', 'tecteb-marketplace-core') . '</p>';
 
         $html .= self::tabs($counts, $currentStatus, $urls, $fa);
+        $html .= self::searchForm($search, $currentStatus, $urls);
 
         if ($products === []) {
-            $html .= VendorUi::notice('info', $currentStatus === ''
-                ? __('هنوز محصولی ثبت نکرده‌اید.', 'tecteb-marketplace-core')
-                : __('در این وضعیت محصولی ندارید.', 'tecteb-marketplace-core'));
+            $html .= VendorUi::notice('info', match (true) {
+                $search !== '' => sprintf(__('برای «%s» چیزی پیدا نشد.', 'tecteb-marketplace-core'), $search),
+                $currentStatus === '' => __('هنوز محصولی ثبت نکرده‌اید.', 'tecteb-marketplace-core'),
+                default => __('در این وضعیت محصولی ندارید.', 'tecteb-marketplace-core'),
+            });
             return $html . '</section>' . self::csvCard($urls, $nonceField, $mayEdit);
         }
 
@@ -78,6 +82,53 @@ final class ProductListView
         $html .= '</ul>';
         $html .= self::pager($page, $total, $currentStatus, $urls, $fa);
         return $html . '</section>' . self::csvCard($urls, $nonceField, $mayEdit);
+    }
+
+    /**
+     * Search as a GET form, so a result page is a URL: bookmarkable, shareable
+     * with a colleague, and reachable with the back button.
+     */
+    private static function searchForm(string $search, string $status, VendorUrls $urls): string
+    {
+        $html = '<form method="get" action="' . esc_url($urls->products()) . '" class="tv-search" role="search">';
+        // The status tab travels with the search, or searching would silently
+        // throw away the filter the vendor just chose.
+        if ($status !== '') {
+            $html .= '<input type="hidden" name="status" value="' . esc_attr($status) . '">';
+        }
+        foreach (self::queryCarryOver($urls) as $name => $value) {
+            $html .= '<input type="hidden" name="' . esc_attr($name) . '" value="' . esc_attr($value) . '">';
+        }
+        return $html
+            . '<div class="tv-field"><label class="tv-label" for="f-product-search">'
+            . esc_html__('جست‌وجو در عنوان، برند و کد SKU', 'tecteb-marketplace-core') . '</label>'
+            . '<input class="tv-input" type="search" id="f-product-search" name="q" value="' . esc_attr($search) . '"></div>'
+            . '<p class="tv-form__actions">' . VendorUi::submit(__('جست‌وجو', 'tecteb-marketplace-core'), 'secondary')
+            . ($search !== '' ? ' ' . VendorUi::button($urls->productsInStatus($status), __('پاک‌کردن جست‌وجو', 'tecteb-marketplace-core'), 'secondary') : '')
+            . '</p></form>';
+    }
+
+    /**
+     * The query arguments the vendor area itself needs when the site has no
+     * pretty permalinks — without them a GET form would drop `tmc_vendor` and
+     * land the vendor on the home page.
+     *
+     * @return array<string,string>
+     */
+    private static function queryCarryOver(VendorUrls $urls): array
+    {
+        $query = (string) wp_parse_url($urls->products(), PHP_URL_QUERY);
+        if ($query === '') {
+            return [];
+        }
+        parse_str($query, $parsed);
+        $out = [];
+        foreach ($parsed as $name => $value) {
+            if (is_string($name) && is_scalar($value) && $name !== 'q' && $name !== 'status') {
+                $out[$name] = (string) $value;
+            }
+        }
+        return $out;
     }
 
     /** @param array<string,int> $counts @param callable(string|int):string $fa */

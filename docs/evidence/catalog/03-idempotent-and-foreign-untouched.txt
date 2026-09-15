@@ -1,0 +1,24 @@
+=== projecting every marketplace product again: no duplicates, and the shop's own product untouched ===
+-- before --
+{
+    "id": 37,
+    "status": "publish",
+    "price": "450000",
+    "stock": 7,
+    "sku": "SHOP-ONLY-1",
+    "tmc_meta": "",
+    "modified": "2026-09-15 13:57:22"
+}
+links before=59,61,63 after=59,61,63 identical=true
+products on the site after three projections=4
+-- after --
+{
+    "id": 37,
+    "status": "publish",
+    "price": "450000",
+    "stock": 7,
+    "sku": "SHOP-ONLY-1",
+    "tmc_meta": "",
+    "modified": "2026-09-15 13:57:22"
+}
+RESULT: the shop's own product is byte-for-byte unchanged — post_modified included

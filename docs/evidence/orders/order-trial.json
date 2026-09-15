@@ -1,0 +1,78 @@
+{
+  "suite": "order-trial",
+  "generated_at": "2026-09-15T14:27:06.297Z",
+  "total": 14,
+  "failures": 0,
+  "results": [
+    {
+      "name": "an approved marketplace product has a public page",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "and it shows its price",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "a basket can hold two shops at once",
+      "ok": true,
+      "detail": "2 rows"
+    },
+    {
+      "name": "the order is placed",
+      "ok": true,
+      "detail": "http://127.0.0.1:8080/checkout/order-received/66/?key=wc_order_iIy9dX1teHw1C"
+    },
+    {
+      "name": "the buyer is told it went through",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the vendor has an orders page",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "it shows this shop’s line",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "and not the other shop’s",
+      "ok": true,
+      "detail": "AC-PRIV: one basket, two shops, two views"
+    },
+    {
+      "name": "the customer’s e-mail is nowhere on the page",
+      "ok": true,
+      "detail": "PRIV-01"
+    },
+    {
+      "name": "the customer’s mobile is nowhere on the page",
+      "ok": true,
+      "detail": "PRIV-01"
+    },
+    {
+      "name": "the shipping address IS shown",
+      "ok": true,
+      "detail": "the vendor can post the parcel"
+    },
+    {
+      "name": "the vendor’s share is shown",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the vendor can start preparing their own line",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "shipping is recorded with a carrier and a tracking code",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

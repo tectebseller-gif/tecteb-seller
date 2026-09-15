@@ -8,6 +8,8 @@ use Tecteb\Marketplace\Contracts\FlashStoreInterface;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Product\Application\EstimateVendorShare;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
+use Tecteb\Marketplace\Modules\Product\Application\ManageVariations;
+use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
@@ -48,6 +50,7 @@ final class ProductArea
     public const ACTIONS = [
         'save_product', 'submit_product', 'archive_product', 'restore_product',
         'export_products', 'import_products', 'apply_products_csv',
+        'save_attribute', 'delete_attribute', 'save_variation', 'delete_variation', 'save_variation_stock',
     ];
 
     private const FORM_TTL = 600;
@@ -86,23 +89,26 @@ final class ProductArea
         $request = $view->request;
         $status = ProductStatus::tryFrom($request->queryKey('status'));
         $page = max(1, $request->queryInt('paged'));
+        $search = $request->queryText('q');
         $products = $this->products()->forVendor(
             $vendorUserId,
             $status,
             ProductListView::PER_PAGE,
-            ($page - 1) * ProductListView::PER_PAGE
+            ($page - 1) * ProductListView::PER_PAGE,
+            $search
         );
         return ProductListView::render(
             $products,
             $this->products()->countsByStatus($vendorUserId),
             $status?->value ?? '',
             $page,
-            $this->products()->countForVendor($vendorUserId, $status),
+            $this->products()->countForVendor($vendorUserId, $status, $search),
             $view->urls,
             $view->nonceField,
             $view->notice,
             $mayEdit,
-            $this->publishing()->mayPublishDirectly($vendorUserId)
+            $this->publishing()->mayPublishDirectly($vendorUserId),
+            $search
         );
     }
 
@@ -166,7 +172,8 @@ final class ProductArea
             $readiness,
             $share,
             $this->publishing()->mayPublishDirectly($vendorUserId),
-            $product !== null && $this->revisions()->pendingFor($product->id) !== null
+            $product !== null && $this->revisions()->pendingFor($product->id) !== null,
+            $this->variableData($productId, $details->type)
         );
     }
 
@@ -198,6 +205,46 @@ final class ProductArea
             'export_products' => $this->export($userId, $vendorUserId, $urls),
             'import_products' => $this->preview($request, $userId, $vendorUserId, $urls),
             'apply_products_csv' => $this->apply($userId, $vendorUserId, $urls),
+            'save_attribute' => $this->onVariation($request, $urls, fn (): OperationResult => $this->variationService()->saveAttribute(
+                $userId,
+                $vendorUserId,
+                $request->postInt('product_id'),
+                $request->postText('attr_key'),
+                $request->postText('attr_label'),
+                $this->linesOf($request->postTextarea('attr_options'))
+            )),
+            'delete_attribute' => $this->onVariation($request, $urls, fn (): OperationResult => $this->variationService()->deleteAttribute(
+                $userId,
+                $vendorUserId,
+                $request->postInt('product_id'),
+                $request->postInt('attribute_id')
+            )),
+            'save_variation' => $this->onVariation($request, $urls, fn (): OperationResult => $this->variationService()->saveVariation(
+                $userId,
+                $vendorUserId,
+                $request->postInt('product_id'),
+                $request->postMap('variant'),
+                $this->number($request->postText('var_price')),
+                $this->optionalNumber($request->postText('var_sale_price')),
+                $request->postText('var_sku'),
+                $this->number($request->postText('var_stock')),
+                0,
+                $request->postChecked('var_enabled'),
+                $request->file('variation_image')
+            )),
+            'delete_variation' => $this->onVariation($request, $urls, fn (): OperationResult => $this->variationService()->deleteVariation(
+                $userId,
+                $vendorUserId,
+                $request->postInt('product_id'),
+                $request->postInt('variation_id')
+            )),
+            'save_variation_stock' => $this->onVariation($request, $urls, fn (): OperationResult => $this->variationService()->updateVariationStock(
+                $userId,
+                $vendorUserId,
+                $request->postInt('product_id'),
+                $request->postInt('variation_id'),
+                $this->number($request->postText('stock'))
+            )),
             default => null,
         };
     }
@@ -209,6 +256,7 @@ final class ProductArea
         $details = $this->detailsFromPost($request);
         $specs = $request->postMap('spec');
         [$imageIds, $mainImageId] = $this->imagesFromPost($request, $userId, $vendorUserId);
+        $imageIds = $this->reorder($imageIds, $request->postText('move_image'));
 
         $result = $this->manage()->save($userId, $vendorUserId, $productId, $details, $specs, $imageIds, $mainImageId);
         if (!$result->ok) {
@@ -222,7 +270,12 @@ final class ProductArea
             return new VendorAreaOutcome($result->code, $this->stepUrl($urls, $productId, $step), $result->context);
         }
         $savedId = (int) ($result->context['product_id'] ?? $productId);
-        $next = $productId === 0 ? '1' : $this->nextStep($step);
+        // A reorder is not "done with this step": stay where the gallery is.
+        $next = match (true) {
+            $request->postText('move_image') !== '' => $step,
+            $productId === 0 => '1',
+            default => $this->nextStep($step),
+        };
         return new VendorAreaOutcome($result->code, $this->stepUrl($urls, $savedId, $next), $result->context);
     }
 
@@ -292,18 +345,60 @@ final class ProductArea
         ]);
     }
 
+    /**
+     * Every variation write lands back on step 2 of the same product, which
+     * is where the panel lives: sending the vendor to the list after they
+     * priced one combination of six would be its own small punishment.
+     *
+     * @param callable():OperationResult $write
+     */
+    private function onVariation(Request $request, VendorUrls $urls, callable $write): VendorAreaOutcome
+    {
+        $result = $write();
+        return new VendorAreaOutcome(
+            $result->code,
+            $this->stepUrl($urls, $request->postInt('product_id'), '2'),
+            $result->context
+        );
+    }
+
+    private function variationService(): ManageVariations
+    {
+        return $this->container->get(ManageVariations::class);
+    }
+
+    private function variationRepository(): VariationRepositoryInterface
+    {
+        return $this->container->get(VariationRepositoryInterface::class);
+    }
+
+    /** @return list<string> */
+    private function linesOf(string $raw): array
+    {
+        $lines = preg_split('/\R/', $raw) ?: [];
+        return array_values(array_filter(array_map('trim', $lines), static fn (string $l): bool => $l !== ''));
+    }
+
+    private function number(string $raw): int
+    {
+        return (int) round((float) str_replace(
+            [',', '٬', ' '],
+            '',
+            \Tecteb\Marketplace\Core\Support\PersianDigits::toLatin(trim($raw))
+        ));
+    }
+
+    private function optionalNumber(string $raw): ?int
+    {
+        return trim($raw) === '' ? null : $this->number($raw);
+    }
+
     // ------------------------------------------------------------- plumbing
 
     private function detailsFromPost(Request $request): ProductDetails
     {
-        $number = static fn (string $raw): int => (int) round((float) str_replace(
-            [',', '٬', ' '],
-            '',
-            \Tecteb\Marketplace\Core\Support\PersianDigits::toLatin($raw)
-        ));
-        $optional = static function (string $raw) use ($number): ?int {
-            return trim($raw) === '' ? null : $number($raw);
-        };
+        $number = fn (string $raw): int => $this->number($raw);
+        $optional = fn (string $raw): ?int => $this->optionalNumber($raw);
         $date = static function (string $raw): ?string {
             $raw = trim($raw);
             return preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) === 1 ? $raw : null;
@@ -350,6 +445,63 @@ final class ProductArea
         }
         $main = $request->postInt('main_image_id');
         return [$ids, in_array($main, $ids, true) ? $main : ($ids[0] ?? 0)];
+    }
+
+    /**
+     * The axes and combinations of a variable product, and the thumbnails
+     * their pictures resolve to. Empty for a simple product, so the panel
+     * costs nothing where it does not belong.
+     *
+     * @return array{attributes?:list<\Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute>,variations?:list<\Tecteb\Marketplace\Modules\Product\Domain\ProductVariation>,thumbnails?:array<int,string>}
+     */
+    private function variableData(int $productId, string $type): array
+    {
+        if ($type !== \Tecteb\Marketplace\Modules\Product\Domain\ProductType::VARIABLE) {
+            return [];
+        }
+        $variations = $productId > 0 ? $this->variationRepository()->variations($productId) : [];
+        $library = $this->container->get(ProductImageLibraryInterface::class);
+        $thumbnails = [];
+        foreach ($variations as $variation) {
+            if ($variation->mediaId > 0 && !isset($thumbnails[$variation->mediaId])) {
+                $thumbnails[$variation->mediaId] = $library->thumbnailUrl($variation->mediaId);
+            }
+        }
+        return [
+            'attributes' => $productId > 0 ? $this->variationRepository()->attributes($productId) : [],
+            'variations' => $variations,
+            'thumbnails' => $thumbnails,
+        ];
+    }
+
+    /**
+     * Moves one image a single place, when a reorder button was the thing
+     * that submitted the form.
+     *
+     * The order is then saved by the ordinary save path, so reordering costs
+     * no extra request and no extra rule: the gallery is whatever the form
+     * posted, in the order it posted it.
+     *
+     * @param list<int> $imageIds
+     * @return list<int>
+     */
+    private function reorder(array $imageIds, string $instruction): array
+    {
+        if ($instruction === '' || !str_contains($instruction, ':')) {
+            return $imageIds;
+        }
+        [$direction, $rawId] = explode(':', $instruction, 2);
+        $imageId = (int) $rawId;
+        $position = array_search($imageId, $imageIds, true);
+        if ($position === false) {
+            return $imageIds;
+        }
+        $target = $direction === 'up' ? $position - 1 : $position + 1;
+        if ($target < 0 || $target >= count($imageIds)) {
+            return $imageIds;
+        }
+        [$imageIds[$position], $imageIds[$target]] = [$imageIds[$target], $imageIds[$position]];
+        return array_values($imageIds);
     }
 
     /** @param list<int> $imageIds @return list<array{id:int,url:string}> */

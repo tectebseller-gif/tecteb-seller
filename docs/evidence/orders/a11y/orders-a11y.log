@@ -1,0 +1,10 @@
+orders and variations screens — 80 checks, 0 failures
+
+  no-horizontal-scroll               pass=10 fail=0
+  no-starved-text-box                pass=10 fail=0
+  controls-are-touch-sized           pass=10 fail=0
+  every-field-has-a-label            pass=10 fail=0
+  document-is-persian-rtl            pass=10 fail=0
+  exactly-one-h1                     pass=10 fail=0
+  no-js-errors                       pass=10 fail=0
+  axe-wcag-aa                        pass=10 fail=0

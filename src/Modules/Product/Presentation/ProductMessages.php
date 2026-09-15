@@ -173,6 +173,34 @@ final class ProductMessages
             ),
             'image_mime_not_allowed' => __('فقط تصویر JPEG، PNG و WebP پذیرفته می‌شود.', 'tecteb-marketplace-core'),
 
+            // ---- variable products ---------------------------------------
+            'attribute_saved' => __('ویژگی ذخیره شد. حالا برای هر ترکیب، قیمت و موجودی تعیین کنید.', 'tecteb-marketplace-core'),
+            'attribute_deleted' => __('ویژگی و ترکیب‌های وابسته‌اش حذف شدند.', 'tecteb-marketplace-core'),
+            'variation_added' => __('ترکیب تازه اضافه شد.', 'tecteb-marketplace-core'),
+            'variation_saved' => __('ترکیب ذخیره شد.', 'tecteb-marketplace-core'),
+            'variation_deleted' => __('ترکیب حذف شد.', 'tecteb-marketplace-core'),
+            'not_variable' => __('این کار فقط برای محصول «متغیر» معنا دارد.', 'tecteb-marketplace-core'),
+            'incomplete_attribute' => __('کلید و عنوان ویژگی هر دو لازم‌اند.', 'tecteb-marketplace-core'),
+            'attribute_needs_options' => __('ویژگی بدون گزینه ساخته نمی‌شود؛ دست‌کم یک گزینه بنویسید.', 'tecteb-marketplace-core'),
+            'attributes_first' => __('اول ویژگی‌ها (مثل اندازه یا رنگ) را تعریف کنید، بعد ترکیب‌ها را.', 'tecteb-marketplace-core'),
+            'incomplete_combination' => ($context['fields'] ?? '') !== ''
+                ? sprintf(__('برای این ویژگی‌ها گزینه‌ای انتخاب نشده است: %s', 'tecteb-marketplace-core'), (string) $context['fields'])
+                : __('برای همه ویژگی‌ها باید یک گزینه انتخاب شود.', 'tecteb-marketplace-core'),
+            'unknown_option' => sprintf(
+                __('گزینه‌ای که انتخاب شده در فهرست ویژگی «%s» نیست.', 'tecteb-marketplace-core'),
+                (string) ($context['attribute'] ?? '')
+            ),
+            'unknown_attribute' => __('این ویژگی برای این محصول تعریف نشده است.', 'tecteb-marketplace-core'),
+            'too_many_attributes' => sprintf(__('سقف ویژگی‌های یک محصول %s است.', 'tecteb-marketplace-core'), $fa($context['limit'] ?? '')),
+            'too_many_variations' => sprintf(__('سقف ترکیب‌های یک محصول %s است.', 'tecteb-marketplace-core'), $fa($context['limit'] ?? '')),
+            'variable_needs_attributes' => __('محصول متغیر بدون ویژگی آمادهٔ فروش نیست: دست‌کم یک ویژگی با گزینه‌هایش تعریف کنید.', 'tecteb-marketplace-core'),
+            'variable_needs_variations' => __('محصول متغیر بدون ترکیب آمادهٔ فروش نیست: دست‌کم یک ترکیب با قیمت بسازید.', 'tecteb-marketplace-core'),
+            'variable_needs_priced_variation' => __('هیچ ترکیب فعالی با قیمت معتبر وجود ندارد.', 'tecteb-marketplace-core'),
+            'variation_without_price' => sprintf(
+                __('%s ترکیب فعال هنوز قیمت ندارد. تا وقتی قیمت هر ترکیب مشخص نشود، این محصول فروختنی نیست.', 'tecteb-marketplace-core'),
+                $fa($context['count'] ?? '')
+            ),
+
             // ---- category templates --------------------------------------
             'template_created' => __('الگوی مشخصات ساخته شد. حالا فیلدهای این دسته را اضافه کنید.', 'tecteb-marketplace-core'),
             'template_saved' => __('الگو ذخیره شد.', 'tecteb-marketplace-core'),
@@ -195,6 +223,11 @@ final class ProductMessages
             'field_key_taken' => __('این کلید در همین الگو استفاده شده است. کلید هرگز تغییر نمی‌کند تا پاسخ‌های قبلی گم نشوند.', 'tecteb-marketplace-core'),
             'choice_needs_options' => __('فیلد «انتخاب از فهرست» بدون گزینه ساخته نمی‌شود.', 'tecteb-marketplace-core'),
             'too_many_fields' => sprintf(__('سقف فیلدهای یک الگو %s است.', 'tecteb-marketplace-core'), $fa($context['limit'] ?? '')),
+
+            'seo_saved' => __('سئوی محصول ذخیره شد و روی صفحهٔ عمومی اعمال شد.', 'tecteb-marketplace-core'),
+            'projected' => __('محصول در فروشگاه به‌روزرسانی شد.', 'tecteb-marketplace-core'),
+            'withdrawn' => __('محصول از ویترین فروشگاه برداشته شد؛ حذف نشد.', 'tecteb-marketplace-core'),
+            'woocommerce_missing' => __('WooCommerce فعال نیست، پس این محصول صفحهٔ عمومی ندارد. تصمیم بازارگاه ثبت شده و با فعال‌شدن WooCommerce نگاشت انجام می‌شود.', 'tecteb-marketplace-core'),
 
             // ---- CSV ------------------------------------------------------
             'csv_exported' => sprintf(__('%s ردیف در فایل CSV نوشته شد.', 'tecteb-marketplace-core'), $fa($context['rows'] ?? 0)),
@@ -235,6 +268,8 @@ final class ProductMessages
             'template_created', 'template_saved', 'field_added', 'field_saved',
             'field_deprecated', 'field_restored',
             'csv_exported', 'csv_previewed', 'csv_imported', 'csv_row_ok', 'image_uploaded',
+            'attribute_saved', 'attribute_deleted', 'variation_added', 'variation_saved', 'variation_deleted',
+            'seo_saved', 'projected', 'withdrawn',
         ];
     }
 

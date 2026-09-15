@@ -46,6 +46,7 @@ final class ManageProducts
         private readonly SpecTemplateRepositoryInterface $templates,
         private readonly ProductRevisionRepositoryInterface $revisions,
         private readonly ProductReadiness $readiness,
+        private readonly SyncCatalog $catalog,
         private readonly ProductImageLibraryInterface $images,
         private readonly StaffAccess $access,
         private readonly ProductPublishPolicy $publishing,
@@ -138,6 +139,10 @@ final class ManageProducts
         if (!$this->products->updateInventory($productId, $stock, $sku, $minPurchase, $maxPurchase)) {
             return OperationResult::failure('storage_failed');
         }
+        // Write-through, not a mirror write: this is the one direction stock
+        // is allowed to travel outward, because it is the vendor saying so
+        // rather than a sync remembering (ADR-008).
+        $this->catalog->pushStock($productId, $stock);
         $this->audit->log(AuditEventCatalog::PRODUCT_INVENTORY_CHANGED, $actorId, 'product', (string) $productId, [
             'vendor_id' => $vendorUserId,
             'product_id' => $productId,
@@ -180,6 +185,9 @@ final class ManageProducts
         }
         if (!$this->products->updateStatus($productId, $target, '')) {
             return OperationResult::failure('storage_failed');
+        }
+        if ($target === ProductStatus::Published) {
+            $this->catalog->publish($productId);
         }
         $this->audit->log(AuditEventCatalog::PRODUCT_SUBMITTED, $actorId, 'product', (string) $productId, [
             'vendor_id' => $vendorUserId,
@@ -293,6 +301,7 @@ final class ManageProducts
         if (!$inventoryWritten) {
             return OperationResult::failure('storage_failed');
         }
+        $this->catalog->pushStock($product->id, $details->stock);
 
         if ($changed === [] && !$specsDiffer && !$imagesDiffer) {
             return OperationResult::success('inventory_saved', ['product_id' => $product->id]);
@@ -345,6 +354,11 @@ final class ManageProducts
         }
         if (!$this->products->updateStatus($productId, $to, $product->reviewNote)) {
             return OperationResult::failure('storage_failed');
+        }
+        if ($to === ProductStatus::Published) {
+            $this->catalog->publish($productId);
+        } elseif ($product->status === ProductStatus::Published) {
+            $this->catalog->withdraw($productId);
         }
         $this->audit->log(AuditEventCatalog::PRODUCT_STATUS_CHANGED, $actorId, 'product', (string) $productId, [
             'vendor_id' => $vendorUserId,

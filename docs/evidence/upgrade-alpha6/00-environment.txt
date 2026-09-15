@@ -1,0 +1,12 @@
+generated_at   = 2026-09-15T14:32:27Z
+site           = http://127.0.0.1:8080  (disposable, synthetic data only)
+wordpress      = 7.1
+woocommerce    = 11.0.1
+php_cli        = 8.1.32
+mariadb        = 10.11.14-MariaDB-0ubuntu0.24.04.1
+old_package    = tecteb-marketplace-core-0.1.0-alpha.6.zip  dd8e364fec5a9cd71e1e3ac8e2ce4afb0d7a39de05c98a8f72117f8dc622a385
+old_declares   = version 0.1.0-alpha.6, schema 5, vendor area: yes
+new_package    = tecteb-marketplace-core-0.1.0-alpha.7.zip  41c30c94b4c6745287552c0ac5344d5e19102e5719b06b642db9b712363a06b2
+new_declares   = version 0.1.0-alpha.7, schema 6
+db_dump        = /tmp/claude-0/upgrade-rehearsal/before-rehearsal.sql (655675 bytes)
+vendor_user_id = 3

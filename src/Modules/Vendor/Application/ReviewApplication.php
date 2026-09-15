@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Vendor\Application;
 use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Core\Events\EventBus;
 use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStateMachine;
 use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
 
@@ -23,7 +24,8 @@ final class ReviewApplication
         private readonly VendorRepositoryInterface $applications,
         private readonly ApplicationStateMachine $states,
         private readonly AuditLogger $audit,
-        private readonly CapabilityCheckerInterface $capabilities
+        private readonly CapabilityCheckerInterface $capabilities,
+        private readonly ?EventBus $events = null
     ) {
     }
 
@@ -108,6 +110,18 @@ final class ReviewApplication
                 false,
                 false
             );
+        }
+        // Announced AFTER the decision is stored, so a listener that takes
+        // the shop's products out of the storefront is acting on a suspension
+        // that is already true.
+        if ($to === ApplicationStatus::Suspended) {
+            $this->events?->emit(EventBus::VENDOR_SUSPENDED, [
+                'vendor_user_id' => $application->userId,
+                'reason' => (string) $note,
+            ]);
+        }
+        if ($to === ApplicationStatus::Approved && $application->status === ApplicationStatus::Suspended) {
+            $this->events?->emit(EventBus::VENDOR_REINSTATED, ['vendor_user_id' => $application->userId]);
         }
         $this->audit->log(AuditEventCatalog::VENDOR_APPLICATION_REVIEWED, $reviewer, 'vendor_application', (string) $applicationId, [
             'application_id' => $applicationId,

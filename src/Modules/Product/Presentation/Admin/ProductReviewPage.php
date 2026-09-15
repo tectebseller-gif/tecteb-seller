@@ -15,6 +15,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Domain\SensitiveChange;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorMessages;
@@ -63,6 +64,7 @@ final class ProductReviewPage
 
         $this->renderQueue($products->inStatus(ProductStatus::Submitted));
         $this->renderRevisions($revisions->pending(), $products);
+        $this->renderSeo($products->inStatus(ProductStatus::Published, 20));
         $this->renderPublishPermissions();
 
         echo Components::notice('info', __('تأیید محصول تازه یعنی همان نسخه منتشر می‌شود. تأیید «نسخه پیشنهادی» یعنی مقادیر پیشنهادی روی محصول منتشرشده می‌نشیند؛ موجودی از نسخه زنده گرفته می‌شود تا فروش این چند روز برنگردد.', 'tecteb-marketplace-core'));
@@ -195,6 +197,55 @@ final class ProductReviewPage
         return $html . '</p></form>';
     }
 
+    /**
+     * SEO — the manager's alone (§6). The vendor's form has no such fields and
+     * never had: this is the only screen in the plugin where they exist.
+     *
+     * @param list<Product> $published
+     */
+    private function renderSeo(array $published): void
+    {
+        $catalog = $this->container->get(SyncCatalog::class);
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">' . esc_html__('سئوی محصول — فقط مدیر', 'tecteb-marketplace-core') . '</h2>'
+            . '<p class="tmc-hint">' . esc_html__('نشانی عمومی، عنوان و توضیح متای محصول در اختیار فروشنده نیست. تغییر این‌ها بی‌درنگ روی صفحهٔ عمومی محصول اعمال می‌شود.', 'tecteb-marketplace-core') . '</p>';
+        if (!$catalog->isAvailable()) {
+            echo Components::notice('warning', __('WooCommerce فعال نیست، پس محصول‌های بازارگاه صفحهٔ عمومی ندارند و سئو جایی اعمال نمی‌شود. مقدارها ذخیره می‌شوند و با فعال‌شدن WooCommerce اعمال خواهند شد.', 'tecteb-marketplace-core'));
+        }
+        if ($published === []) {
+            echo '<p>' . esc_html__('هنوز محصول منتشرشده‌ای وجود ندارد.', 'tecteb-marketplace-core') . '</p></section>';
+            return;
+        }
+        foreach ($published as $product) {
+            $id = 'seo-' . $product->id;
+            echo '<form method="post" class="tmc-review">'
+                . wp_nonce_field(self::NONCE, 'tmc_review_nonce', true, false)
+                . '<input type="hidden" name="subject" value="seo">'
+                . '<input type="hidden" name="subject_id" value="' . esc_attr((string) $product->id) . '">'
+                . '<h3 class="tmc-review__title">' . esc_html($product->details->title) . '</h3>'
+                . '<p class="tmc-hint">' . esc_html(
+                    $product->isProjected()
+                        ? sprintf(__('شناسهٔ محصول در فروشگاه: %s', 'tecteb-marketplace-core'), PersianDigits::toPersian((string) $product->wcProductId))
+                        : __('این محصول هنوز به فروشگاه نگاشت نشده است.', 'tecteb-marketplace-core')
+                ) . '</p>'
+                . '<div class="tmc-field"><label class="tmc-field__label" for="' . $id . '-slug">'
+                . esc_html__('نشانی (slug)', 'tecteb-marketplace-core') . '</label>'
+                . '<input class="tmc-input" type="text" id="' . $id . '-slug" name="seo_slug" dir="ltr" value="'
+                . esc_attr($product->seo->slug) . '"></div>'
+                . '<div class="tmc-field"><label class="tmc-field__label" for="' . $id . '-title">'
+                . esc_html__('عنوان متا', 'tecteb-marketplace-core') . '</label>'
+                . '<input class="tmc-input" type="text" id="' . $id . '-title" name="seo_title" value="'
+                . esc_attr($product->seo->title) . '"></div>'
+                . '<div class="tmc-field"><label class="tmc-field__label" for="' . $id . '-desc">'
+                . esc_html__('توضیح متا', 'tecteb-marketplace-core') . '</label>'
+                . '<textarea class="tmc-input" id="' . $id . '-desc" name="seo_description" rows="2">'
+                . esc_textarea($product->seo->description) . '</textarea></div>'
+                . '<p><button type="submit" class="tmc-button tmc-button--primary" name="decision" value="save">'
+                . esc_html__('ذخیره سئو', 'tecteb-marketplace-core') . '</button></p>'
+                . '</form>';
+        }
+        echo '</section>';
+    }
+
     private function renderPublishPermissions(): void
     {
         $policy = $this->container->get(ProductPublishPolicy::class);
@@ -242,6 +293,12 @@ final class ProductReviewPage
             'product:reject' => $review->reject($id, $note),
             'revision:approve' => $review->approveRevision($id),
             'revision:reject' => $review->rejectRevision($id, $note),
+            'seo:save' => $review->setSeo(
+                $id,
+                $request->postText('seo_slug'),
+                $request->postText('seo_title'),
+                $request->postTextarea('seo_description')
+            ),
             'publishing:grant' => $review->setDirectPublishing($id, true),
             'publishing:revoke' => $review->setDirectPublishing($id, false),
             default => null,

@@ -22,6 +22,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Config\SettingsService;
 use Tecteb\Marketplace\Core\Environment\EnvironmentResolver;
+use Tecteb\Marketplace\Core\Events\EventBus;
 use Tecteb\Marketplace\Core\Kernel;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Migration\MigrationLock;
@@ -42,8 +43,13 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStore
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\LegacyPrivateDocuments;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\PrivateUploadStorage;
 use Tecteb\Marketplace\Modules\Finance\FinanceModule;
+use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
+use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
+use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
+use Tecteb\Marketplace\Modules\Order\Application\TrialUnlock;
 use Tecteb\Marketplace\Modules\Order\OrderModule;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
 use Tecteb\Marketplace\Modules\Product\ProductModule;
 use Tecteb\Marketplace\Modules\Vendor\VendorModule;
 
@@ -238,6 +244,9 @@ final class Bootstrap
     {
         $c->instance('tmc.version', new \ArrayObject(['version' => self::$version]));
         $c->bind(ClockInterface::class, static fn () => new SystemClock());
+        // One bus for the whole request: the container caches objects, so
+        // every module subscribes to and emits on the same instance.
+        $c->bind(EventBus::class, static fn () => new EventBus());
         $c->bind(OptionStoreInterface::class, static fn () => new WpOptionStore());
         $c->bind(FlashStoreInterface::class, static fn () => new TransientFlashStore());
         $c->bind(LockStoreInterface::class, static fn () => new WpLockStore($GLOBALS['wpdb']));
@@ -261,7 +270,7 @@ final class Bootstrap
             $c->get(OptionStoreInterface::class),
             $c->get(GuardedOptionStoreInterface::class),
             new MigrationLock($c->get(LockStoreInterface::class), $c->get(ClockInterface::class), MigrationLock::generateOwnerToken()),
-            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables(), new M0004CreateFinanceTables(), new M0005CreateProductTables()],
+            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables(), new M0004CreateFinanceTables(), new M0005CreateProductTables(), new M0006CatalogAndOrders()],
             $c->get(ClockInterface::class)
         ));
         $c->bind(UpgradeGate::class, static fn (ContainerInterface $c) => new UpgradeGate(
@@ -270,6 +279,19 @@ final class Bootstrap
             $c->get(ClockInterface::class)
         ));
         $c->bind(OtpProviderInterface::class, static fn () => new NullOtpProvider());
+        // The order gate is wired HERE rather than inside the order module,
+        // because the module is skipped entirely while it is blocked — and
+        // the catalogue still has to ask "may the marketplace sell?" on every
+        // add-to-cart, precisely when the answer is no.
+        $c->bind(TrialUnlock::class, static fn (ContainerInterface $c) => new TrialUnlock(
+            $c->get(OptionStoreInterface::class),
+            $c->get(EnvironmentResolver::class)
+        ));
+        $c->bind(OrderOperationsGate::class, static fn (ContainerInterface $c) => new OrderOperationsGate(
+            $c->get(ResolveCommissionRate::class),
+            $c->get(LedgerRepositoryInterface::class),
+            $c->get(TrialUnlock::class)
+        ));
     }
 
     private static function registerModules(Kernel $kernel): void

@@ -1,0 +1,5 @@
+=== trial switch: requested everywhere, honoured only outside production ===
+plugin=0.1.0-alpha.7  php=8.1.32  wc=11.0.1
+override=production resolved=production requested=true  permitted=false active=false refusal=environment_production
+override=staging    resolved=staging    requested=true  permitted=true  active=true  refusal=-
+restored override=staging

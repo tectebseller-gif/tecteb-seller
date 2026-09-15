@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
 
@@ -41,29 +42,53 @@ final class DbProductRepository implements ProductRepositoryInterface
         return $row === null ? null : $this->hydrate($row);
     }
 
-    public function forVendor(int $vendorUserId, ?ProductStatus $status = null, int $limit = 200, int $offset = 0): array
-    {
-        $sql = 'SELECT * FROM `' . $this->products() . '` WHERE vendor_user_id = %d';
-        $params = [$vendorUserId];
-        if ($status !== null) {
-            $sql .= ' AND status = %s';
-            $params[] = $status->value;
-        }
-        $sql .= ' ORDER BY updated_at DESC, id DESC LIMIT %d OFFSET %d';
+    public function forVendor(
+        int $vendorUserId,
+        ?ProductStatus $status = null,
+        int $limit = 200,
+        int $offset = 0,
+        string $search = ''
+    ): array {
+        [$where, $params] = $this->scope($vendorUserId, $status, $search);
         $params[] = max(1, $limit);
         $params[] = max(0, $offset);
-        return array_map([$this, 'hydrate'], $this->db->getResults($sql, $params));
+        return array_map([$this, 'hydrate'], $this->db->getResults(
+            'SELECT * FROM `' . $this->products() . '`' . $where . ' ORDER BY updated_at DESC, id DESC LIMIT %d OFFSET %d',
+            $params
+        ));
     }
 
-    public function countForVendor(int $vendorUserId, ?ProductStatus $status = null): int
+    public function countForVendor(int $vendorUserId, ?ProductStatus $status = null, string $search = ''): int
     {
-        $sql = 'SELECT COUNT(*) FROM `' . $this->products() . '` WHERE vendor_user_id = %d';
+        [$where, $params] = $this->scope($vendorUserId, $status, $search);
+        return (int) $this->db->getVar('SELECT COUNT(*) FROM `' . $this->products() . '`' . $where, $params);
+    }
+
+    /**
+     * One WHERE clause for the list and its count, so the number under the
+     * pager can never disagree with the rows above it.
+     *
+     * The search term is escaped for LIKE before it becomes a parameter:
+     * a `%` a vendor types is a percent sign they are looking for, not a
+     * wildcard that quietly matches everything.
+     *
+     * @return array{0:string, 1:list<mixed>}
+     */
+    private function scope(int $vendorUserId, ?ProductStatus $status, string $search): array
+    {
+        $where = ' WHERE vendor_user_id = %d';
         $params = [$vendorUserId];
         if ($status !== null) {
-            $sql .= ' AND status = %s';
+            $where .= ' AND status = %s';
             $params[] = $status->value;
         }
-        return (int) $this->db->getVar($sql, $params);
+        $search = trim($search);
+        if ($search !== '') {
+            $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
+            $where .= ' AND (title LIKE %s OR sku LIKE %s OR brand LIKE %s)';
+            array_push($params, $like, $like, $like);
+        }
+        return [$where, $params];
     }
 
     public function countsByStatus(int $vendorUserId): array
@@ -234,6 +259,61 @@ final class DbProductRepository implements ProductRepositoryInterface
         ) > 0;
     }
 
+    public function link(int $productId, ?int $wcProductId): bool
+    {
+        $value = $wcProductId === null || $wcProductId <= 0 ? 'NULL' : '%d';
+        $params = [];
+        if ($value === '%d') {
+            $params[] = $wcProductId;
+        }
+        array_push($params, $this->now(), $productId);
+        return $this->db->execute(
+            'UPDATE `' . $this->products() . '` SET wc_product_id = ' . $value . ', synced_at = %s WHERE id = %d',
+            $params
+        ) !== null;
+    }
+
+    public function findByWcProduct(int $wcProductId): ?Product
+    {
+        if ($wcProductId <= 0) {
+            return null;
+        }
+        $row = $this->db->getRow('SELECT * FROM `' . $this->products() . '` WHERE wc_product_id = %d', [$wcProductId]);
+        return $row === null ? null : $this->hydrate($row);
+    }
+
+    public function mirrorStock(int $productId, int $stock): bool
+    {
+        return $this->db->execute(
+            'UPDATE `' . $this->products() . '` SET stock = %d, synced_at = %s WHERE id = %d',
+            [$stock, $this->now(), $productId]
+        ) !== null;
+    }
+
+    public function updateSeo(int $productId, ProductSeo $seo): bool
+    {
+        return $this->db->execute(
+            'UPDATE `' . $this->products() . '` SET seo_slug = %s, seo_title = %s, seo_description = %s, updated_at = %s WHERE id = %d',
+            [$seo->slug, $seo->title, $seo->description, $this->now(), $productId]
+        ) !== null;
+    }
+
+    public function allForVendor(int $vendorUserId): array
+    {
+        return array_map([$this, 'hydrate'], $this->db->getResults(
+            'SELECT * FROM `' . $this->products() . '` WHERE vendor_user_id = %d ORDER BY id ASC',
+            [$vendorUserId]
+        ));
+    }
+
+    public function projected(int $limit = 500): array
+    {
+        return array_map([$this, 'hydrate'], $this->db->getResults(
+            'SELECT * FROM `' . $this->products() . '` WHERE wc_product_id IS NOT NULL ORDER BY id ASC LIMIT %d',
+            [max(1, $limit)]
+        ));
+    }
+
     /**
      * The detail columns, their placeholders and their values, in one place.
      *
@@ -312,7 +392,13 @@ final class DbProductRepository implements ProductRepositoryInterface
             (string) ($row['review_note'] ?? ''),
             (int) $row['spec_schema_version'],
             $row['published_at'] === null ? null : (string) $row['published_at'],
-            (string) $row['updated_at']
+            (string) $row['updated_at'],
+            ($row['wc_product_id'] ?? null) === null ? null : (int) $row['wc_product_id'],
+            new ProductSeo(
+                (string) ($row['seo_slug'] ?? ''),
+                (string) ($row['seo_title'] ?? ''),
+                (string) ($row['seo_description'] ?? '')
+            )
         );
     }
 

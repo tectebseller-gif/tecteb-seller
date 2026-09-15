@@ -35,7 +35,7 @@ require $root . '/tests/Support/FakeDependencyProbe.php';
 require $root . '/tests/Support/RecordingAuditRepository.php';
 
 const MAIN_FILE = '/srv/www/wp-content/plugins/tecteb-marketplace-core/tecteb-marketplace-core.php';
-const VERSION = '0.1.0-alpha.6';
+const VERSION = '0.1.0-alpha.7';
 
 $outDir = $root . '/docs/evidence/harness';
 if (!is_dir($outDir)) {

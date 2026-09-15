@@ -11,26 +11,38 @@ use Tecteb\Marketplace\Contracts\ModuleInterface;
 use Tecteb\Marketplace\Contracts\ModuleKind;
 use Tecteb\Marketplace\Contracts\ModuleManifest;
 use Tecteb\Marketplace\Contracts\OptionStoreInterface;
+use Tecteb\Marketplace\Contracts\DependencyProbeInterface;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Core\Events\EventBus;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
 use Tecteb\Marketplace\Modules\Product\Application\ConfigureSpecTemplates;
 use Tecteb\Marketplace\Modules\Product\Application\EstimateVendorShare;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
+use Tecteb\Marketplace\Modules\Product\Application\ManageVariations;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
+use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\DbVariationRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductHooks;
+use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullCatalogProjector;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\PurchaseGuard;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceProjector;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpProductImages;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 
@@ -82,14 +94,47 @@ final class ProductModule implements ModuleInterface
             $c->get(DatabaseInterface::class),
             $c->get(ClockInterface::class)
         ));
+        $c->bind(VariationRepositoryInterface::class, static fn (ContainerInterface $c) => new DbVariationRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
         $c->bind(ProductReadiness::class, static fn (ContainerInterface $c) => new ProductReadiness(
-            $c->get(SpecTemplateRepositoryInterface::class)
+            $c->get(SpecTemplateRepositoryInterface::class),
+            $c->get(VariationRepositoryInterface::class)
+        ));
+        $c->bind(ManageVariations::class, static fn (ContainerInterface $c) => new ManageVariations(
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(VariationRepositoryInterface::class),
+            $c->get(ProductImageLibraryInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(AuditLogger::class)
+        ));
+        // Which projector is bound is decided by whether WooCommerce is
+        // actually running, not by a setting: a marketplace that thinks it
+        // has a storefront and has not is worse than one that says so.
+        $c->bind(CatalogProjectorInterface::class, static function (ContainerInterface $c) {
+            $probe = $c->get(DependencyProbeInterface::class);
+            return $probe->woocommerceAvailable()
+                ? new WooCommerceProjector($c->get(SpecTemplateRepositoryInterface::class))
+                : new NullCatalogProjector();
+        });
+        $c->bind(PurchasePolicy::class, static fn (ContainerInterface $c) => new PurchasePolicy(
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(OrderOperationsGate::class)
+        ));
+        $c->bind(SyncCatalog::class, static fn (ContainerInterface $c) => new SyncCatalog(
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(VariationRepositoryInterface::class),
+            $c->get(CatalogProjectorInterface::class),
+            $c->get(AuditLogger::class)
         ));
         $c->bind(ManageProducts::class, static fn (ContainerInterface $c) => new ManageProducts(
             $c->get(ProductRepositoryInterface::class),
             $c->get(SpecTemplateRepositoryInterface::class),
             $c->get(ProductRevisionRepositoryInterface::class),
             $c->get(ProductReadiness::class),
+            $c->get(SyncCatalog::class),
             $c->get(ProductImageLibraryInterface::class),
             $c->get(StaffAccess::class),
             $c->get(ProductPublishPolicy::class),
@@ -101,6 +146,7 @@ final class ProductModule implements ModuleInterface
             $c->get(ProductRevisionRepositoryInterface::class),
             $c->get(SpecTemplateRepositoryInterface::class),
             $c->get(ProductReadiness::class),
+            $c->get(SyncCatalog::class),
             $c->get(ProductPublishPolicy::class),
             $c->get(ProductStateMachine::class),
             $c->get(AuditLogger::class),
@@ -127,6 +173,38 @@ final class ProductModule implements ModuleInterface
     public function boot(ContainerInterface $container): void
     {
         ProductHooks::register($container);
+        $this->followVendorStatus($container);
+        // Registered whatever the order module's own state is: "the
+        // marketplace may not sell" has to be enforceable exactly when the
+        // order module is not there to enforce it.
+        if ($container->get(DependencyProbeInterface::class)->woocommerceAvailable()) {
+            PurchaseGuard::register($container);
+        }
+    }
+
+    /**
+     * Suspending a shop takes its products out of the storefront, and
+     * reinstating it puts the live ones back.
+     *
+     * Through the bus rather than a direct call, because the vendor module
+     * must not learn what a product is — and because the rule then holds
+     * wherever the suspension happens: the admin screen, WP-CLI, or a test.
+     */
+    private function followVendorStatus(ContainerInterface $container): void
+    {
+        $events = $container->get(EventBus::class);
+        $events->on(EventBus::VENDOR_SUSPENDED, static function (array $payload) use ($container): void {
+            $vendorUserId = (int) ($payload['vendor_user_id'] ?? 0);
+            if ($vendorUserId > 0) {
+                $container->get(SyncCatalog::class)->withdrawVendor($vendorUserId, (string) ($payload['reason'] ?? ''));
+            }
+        });
+        $events->on(EventBus::VENDOR_REINSTATED, static function (array $payload) use ($container): void {
+            $vendorUserId = (int) ($payload['vendor_user_id'] ?? 0);
+            if ($vendorUserId > 0) {
+                $container->get(SyncCatalog::class)->republishVendor($vendorUserId);
+            }
+        });
     }
 
     private function version(): string
