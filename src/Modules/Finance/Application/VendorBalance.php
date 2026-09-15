@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Finance\Application;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Core\Config\SettingsService;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
+use Tecteb\Marketplace\Modules\Order\Application\ShipmentRepositoryInterface;
 
 /**
  * What a vendor has earned, and how much of it they may ask for today.
@@ -27,6 +28,10 @@ use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
  * has not defined, so it is a date a manager recorded on the line (ORDER-01),
  * never one this class inferred from a payment or a shipment.
  *
+ * A line with an OPEN return is pending too, with its own reason: the goods
+ * may be on their way back, and paying out a share that is about to be
+ * reversed is how a vendor ends up owing money they have already spent.
+ *
  * A share that was never recorded (an unresolvable rate, FIN-02) counts as
  * nothing at all here — not as zero. It is reported separately as
  * `unrecorded`, because a vendor whose sale produced no share is owed an
@@ -37,7 +42,8 @@ final class VendorBalance
     public function __construct(
         private readonly OrderItemRepositoryInterface $orderItems,
         private readonly SettingsService $settings,
-        private readonly ClockInterface $clock
+        private readonly ClockInterface $clock,
+        private readonly ?ShipmentRepositoryInterface $returns = null
     ) {
     }
 
@@ -45,7 +51,7 @@ final class VendorBalance
      * @return array{
      *   earned:int, pending:int, eligible:int, reserved:int, paid:int,
      *   unrecorded:int, eligible_line_ids:list<int>, delay_days:int,
-     *   awaiting_completion:int, awaiting_delay:int
+     *   awaiting_completion:int, awaiting_delay:int, awaiting_return:int
      * }
      */
     public function of(int $vendorUserId): array
@@ -61,6 +67,7 @@ final class VendorBalance
         $unrecorded = 0;
         $awaitingCompletion = 0;
         $awaitingDelay = 0;
+        $awaitingReturn = 0;
         $eligibleIds = [];
 
         foreach ($this->orderItems->settlementView($vendorUserId) as $line) {
@@ -89,6 +96,16 @@ final class VendorBalance
                 $awaitingDelay++;
                 continue;
             }
+            // UX §10.2: «ثبت مرجوعی، سهم مربوط را از قابل برداشت خارج می‌کند».
+            // A line with a return still being decided is not money anybody
+            // may ask for yet — the goods may be coming back and the share
+            // with them. It is `pending`, not lost: a rejected return puts the
+            // line straight back into `eligible` with no further action.
+            if (($this->returns?->returnedQuantity((int) $line['id']) ?? 0) > 0) {
+                $pending += $share;
+                $awaitingReturn++;
+                continue;
+            }
             $eligible += $share;
             $eligibleIds[] = $line['id'];
         }
@@ -104,6 +121,7 @@ final class VendorBalance
             'delay_days' => $delayDays,
             'awaiting_completion' => $awaitingCompletion,
             'awaiting_delay' => $awaitingDelay,
+            'awaiting_return' => $awaitingReturn,
         ];
     }
 }

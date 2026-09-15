@@ -28,6 +28,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbWithdrawalRepository;
 use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\CommissionRulesPage;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\WordPress\FinanceArea;
 use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\WithdrawalsPage;
+use Tecteb\Marketplace\Modules\Order\Application\ShipmentRepositoryInterface;
 use Tecteb\Marketplace\Modules\Order\Presentation\Admin\ReturnsPage;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaExtensions;
@@ -101,7 +102,9 @@ final class FinanceModule implements ModuleInterface
         $c->bind(VendorBalance::class, static fn (ContainerInterface $c) => new VendorBalance(
             $c->get(OrderItemRepositoryInterface::class),
             $c->get(SettingsService::class),
-            $c->get(ClockInterface::class)
+            $c->get(ClockInterface::class),
+            // So an open return holds its own share back (UX §10.2).
+            $c->get(ShipmentRepositoryInterface::class)
         ));
         $c->bind(RequestWithdrawal::class, static fn (ContainerInterface $c) => new RequestWithdrawal(
             $c->get(WithdrawalRepositoryInterface::class),

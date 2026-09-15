@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Migration\MigrationRunner;
 use Tecteb\Marketplace\Core\Modules\ModuleLoader;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Navigation;
+use Tecteb\Marketplace\Modules\Marketplace\Application\ActionQueue;
 use Tecteb\Marketplace\Modules\Admin\Presentation\View;
 
 final class DashboardPage extends AbstractPage
@@ -54,8 +55,22 @@ final class DashboardPage extends AbstractPage
             'migration_error' => $migrations->lastError(),
             'modules_problems' => $report !== null && $report->hasProblems(),
             'links' => Navigation::items(),
+            // Read defensively: the queue asks five other modules for counts,
+            // and the manager's first screen must not go blank because one of
+            // them is not loaded on this site today.
+            'action_queue' => $this->actionQueue(),
             'health_url' => admin_url('admin.php?page=' . HealthPage::SLUG),
             'settings_url' => admin_url('admin.php?page=' . SettingsPage::SLUG),
         ]);
+    }
+
+    /** @return list<array{key:string, count:int, tone:string, url:string}> */
+    private function actionQueue(): array
+    {
+        try {
+            return $this->container->get(ActionQueue::class)->forManager(admin_url());
+        } catch (\Throwable) {
+            return [];
+        }
     }
 }

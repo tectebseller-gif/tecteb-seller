@@ -4,6 +4,7 @@ declare(strict_types=1);
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Messages;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Marketplace\Presentation\ActionQueueMessages;
 
 /** @var array<string,mixed> $vm */
 echo Components::shellOpen(__('پیشخوان بازارگاه تک‌طب', 'tecteb-marketplace-core'), 'tmc-dashboard', __('نسخه آزمایشی', 'tecteb-marketplace-core'));
@@ -21,6 +22,20 @@ if (is_array($vm['migration_error'])) {
 }
 if ($vm['modules_problems']) {
     echo Components::notice('warning', __('برخی ماژول‌ها فعال نشده‌اند. علت در صفحه ماژول‌ها ثبت شده است.', 'tecteb-marketplace-core'));
+}
+// «صف اقدام» (UX §13). Only buckets with something in them are here at all,
+// so an empty queue prints nothing rather than a wall of zeroes.
+if (($vm['action_queue'] ?? []) !== []) {
+    echo '<section class="tmc-card" aria-labelledby="tmc-queue-title">'
+        . '<h2 id="tmc-queue-title" class="tmc-card__title">'
+        . esc_html__('صف اقدام', 'tecteb-marketplace-core') . '</h2><ul class="tmc-queue">';
+    foreach ($vm['action_queue'] as $row) {
+        echo '<li class="tmc-queue__row"><a href="' . esc_url((string) $row['url']) . '">'
+            . '<span class="tmc-chip tmc-chip--' . esc_attr((string) $row['tone']) . '">'
+            . esc_html(PersianDigits::toPersian((string) $row['count'])) . '</span> '
+            . esc_html(ActionQueueMessages::label((string) $row['key'])) . '</a></li>';
+    }
+    echo '</ul></section>';
 }
 ?>
 <section class="tmc-card" aria-labelledby="tmc-env-title">

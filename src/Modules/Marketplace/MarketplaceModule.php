@@ -1,0 +1,137 @@
+<?php
+declare(strict_types=1);
+
+namespace Tecteb\Marketplace\Modules\Marketplace;
+
+use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
+use Tecteb\Marketplace\Contracts\ClockInterface;
+use Tecteb\Marketplace\Contracts\ContainerInterface;
+use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Contracts\ModuleInterface;
+use Tecteb\Marketplace\Contracts\ModuleKind;
+use Tecteb\Marketplace\Contracts\ModuleManifest;
+use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
+use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
+use Tecteb\Marketplace\Modules\Marketplace\Application\ActionQueue;
+use Tecteb\Marketplace\Modules\Marketplace\Application\EngagementRepositoryInterface;
+use Tecteb\Marketplace\Modules\Marketplace\Application\ManageCoupons;
+use Tecteb\Marketplace\Modules\Marketplace\Application\ManageTickets;
+use Tecteb\Marketplace\Modules\Marketplace\Application\ManageWholesale;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\DbEngagementRepository;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WordPress\SupportArea;
+use Tecteb\Marketplace\Modules\Marketplace\Presentation\Admin\TicketsPage;
+use Tecteb\Marketplace\Modules\Marketplace\Presentation\Admin\WholesalePage;
+use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaExtensions;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaOutcome;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaView;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
+
+/**
+ * The phase-7 items: a shop's own discount codes, wholesale buyers and their
+ * ladders, the vendor↔marketplace ticket, and the action queue both dashboards
+ * are built from.
+ *
+ * Not self-gated, unlike the order module, and the difference is worth stating:
+ * nothing here can accept money or move stock. A coupon that cannot be applied
+ * because the order module is shut is simply a code sitting in a table, and a
+ * ticket is a conversation. So these screens stay available on a day the
+ * financial decisions are still open — which is most days, so far.
+ */
+final class MarketplaceModule implements ModuleInterface
+{
+    public function manifest(): ModuleManifest
+    {
+        return new ModuleManifest(
+            'marketplace',
+            $this->version(),
+            'کوپن، عمده‌فروشی و پشتیبانی',
+            ModuleKind::Operational,
+            ['core', 'vendor', 'product'],
+            // Not WooCommerce's: a discount code, a wholesale approval and a
+            // support thread are all rows and conversations. They stay usable
+            // on a site where WooCommerce is not running.
+            false,
+            'کد تخفیف فروشنده، خریدار عمده و قیمت پلکانی، تیکت فروشنده–مدیریت و صف اقدام مشترک — کد تخفیف سراسری تا DEC-04 ساخته نمی‌شود'
+        );
+    }
+
+    public function register(ContainerInterface $c): void
+    {
+        $c->bind(EngagementRepositoryInterface::class, static fn (ContainerInterface $c) => new DbEngagementRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(ManageCoupons::class, static fn (ContainerInterface $c) => new ManageCoupons(
+            $c->get(EngagementRepositoryInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(AuditLogger::class),
+            $c->get(ClockInterface::class),
+            $c->get(CapabilityCheckerInterface::class)
+        ));
+        $c->bind(ManageWholesale::class, static fn (ContainerInterface $c) => new ManageWholesale(
+            $c->get(EngagementRepositoryInterface::class),
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(AuditLogger::class),
+            $c->get(CapabilityCheckerInterface::class)
+        ));
+        $c->bind(ManageTickets::class, static fn (ContainerInterface $c) => new ManageTickets(
+            $c->get(EngagementRepositoryInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(AuditLogger::class),
+            $c->get(ClockInterface::class),
+            $c->get(CapabilityCheckerInterface::class)
+        ));
+        $c->bind(ActionQueue::class, static fn (ContainerInterface $c) => new ActionQueue($c));
+    }
+
+    public function boot(ContainerInterface $c): void
+    {
+        $tickets = new TicketsPage($c);
+        $wholesale = new WholesalePage($c);
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($tickets, $wholesale): array {
+            $pages[] = [
+                'slug' => TicketsPage::SLUG,
+                'page_title' => TicketsPage::menuLabel(),
+                'menu_label' => TicketsPage::menuLabel(),
+                'capability' => TicketsPage::CAPABILITY,
+                'render' => [$tickets, 'render'],
+            ];
+            $pages[] = [
+                'slug' => WholesalePage::SLUG,
+                'page_title' => WholesalePage::menuLabel(),
+                'menu_label' => WholesalePage::menuLabel(),
+                'capability' => WholesalePage::CAPABILITY,
+                'render' => [$wholesale, 'render'],
+            ];
+            return $pages;
+        });
+
+        $area = new SupportArea($c);
+        add_filter(VendorAreaExtensions::FILTER, static function (array $views) use ($area): array {
+            $views[] = [
+                'slug' => SupportArea::SLUG,
+                'label' => __('پشتیبانی', 'tecteb-marketplace-core'),
+                'title' => __('پشتیبانی و کد تخفیف', 'tecteb-marketplace-core'),
+                'requires_vendor' => true,
+                'render' => static fn (VendorAreaView $view): string => $area->render($view),
+                'actions' => SupportArea::ACTIONS,
+                'handle' => static fn (string $action, Request $request, int $userId, VendorUrls $urls): ?VendorAreaOutcome
+                    => $area->handle($action, $request, $userId, $urls),
+                'url' => static fn (VendorUrls $urls): string => $area->supportUrl(),
+                'nav' => true,
+            ];
+            return $views;
+        });
+    }
+
+    private function version(): string
+    {
+        return class_exists(\Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap::class, false)
+            ? \Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap::pluginVersion()
+            : '0.0.0';
+    }
+}

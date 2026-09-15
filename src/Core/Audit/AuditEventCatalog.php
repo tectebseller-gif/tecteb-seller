@@ -69,6 +69,21 @@ final class AuditEventCatalog
     public const FINANCE_REVERSED = 'finance.reversed';
     public const WITHDRAWAL_REQUESTED = 'finance.withdrawal_requested';
     public const WITHDRAWAL_REVIEWED = 'finance.withdrawal_reviewed';
+    /** Phase-7 items: a shop's own codes, wholesale buyers and the ticket thread. */
+    public const COUPON_CREATED = 'marketplace.coupon_created';
+    public const COUPON_DISABLED = 'marketplace.coupon_disabled';
+    public const COUPON_USED = 'marketplace.coupon_used';
+    public const WHOLESALE_APPLIED = 'marketplace.wholesale_applied';
+    public const WHOLESALE_DECIDED = 'marketplace.wholesale_decided';
+    public const WHOLESALE_TIERS_SET = 'marketplace.wholesale_tiers_set';
+    public const TICKET_OPENED = 'marketplace.ticket_opened';
+    public const TICKET_REPLIED = 'marketplace.ticket_replied';
+    public const TICKET_STATE_CHANGED = 'marketplace.ticket_state_changed';
+    public const TICKET_MESSAGE_HIDDEN = 'marketplace.ticket_message_hidden';
+    /** Dokan migration: read first, written only on an explicit import. */
+    public const DOKAN_DRY_RUN = 'migration.dokan_dry_run';
+    public const DOKAN_IMPORTED = 'migration.dokan_imported';
+    public const DOKAN_ROLLED_BACK = 'migration.dokan_rolled_back';
 
     /** @return array<string, list<string>> event type => allowed top-level payload keys */
     public static function allowlist(): array
@@ -128,6 +143,19 @@ final class AuditEventCatalog
             self::FINANCE_REVERSED => ['vendor_id', 'reverses', 'amount_minor'],
             self::WITHDRAWAL_REQUESTED => ['vendor_id', 'withdrawal_id', 'amount_minor', 'lines'],
             self::WITHDRAWAL_REVIEWED => ['vendor_id', 'withdrawal_id', 'from', 'to', 'has_note'],
+            self::COUPON_CREATED => ['vendor_id', 'coupon_id', 'kind', 'value'],
+            self::COUPON_DISABLED => ['vendor_id', 'coupon_id'],
+            self::COUPON_USED => ['coupon_id', 'order_id', 'amount_minor'],
+            self::WHOLESALE_APPLIED => ['user_id', 'has_registration'],
+            self::WHOLESALE_DECIDED => ['user_id', 'from', 'to'],
+            self::WHOLESALE_TIERS_SET => ['vendor_id', 'product_id', 'steps'],
+            self::TICKET_OPENED => ['vendor_id', 'ticket_id', 'has_order_ref'],
+            self::TICKET_REPLIED => ['vendor_id', 'ticket_id', 'role'],
+            self::TICKET_STATE_CHANGED => ['vendor_id', 'ticket_id', 'to', 'locked'],
+            self::TICKET_MESSAGE_HIDDEN => ['message_id', 'has_reason'],
+            self::DOKAN_DRY_RUN => ['vendors', 'products', 'orders', 'conflicts', 'run_id'],
+            self::DOKAN_IMPORTED => ['vendors', 'products', 'run_id', 'mode'],
+            self::DOKAN_ROLLED_BACK => ['vendors', 'products', 'run_id'],
         ];
     }
 

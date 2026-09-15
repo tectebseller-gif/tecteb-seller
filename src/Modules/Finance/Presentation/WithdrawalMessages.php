@@ -81,8 +81,12 @@ final class WithdrawalMessages
      * them apart: one is waiting on the marketplace to confirm the sale, the
      * other is the agreed waiting period running.
      */
-    public static function pendingReason(int $awaitingCompletion, int $awaitingDelay, int $delayDays): string
-    {
+    public static function pendingReason(
+        int $awaitingCompletion,
+        int $awaitingDelay,
+        int $delayDays,
+        int $awaitingReturn = 0
+    ): string {
         $parts = [];
         if ($awaitingCompletion > 0) {
             $parts[] = __('بعضی سفارش‌ها هنوز از سوی بازارگاه «تکمیل‌شده» ثبت نشده‌اند.', 'tecteb-marketplace-core');
@@ -93,6 +97,9 @@ final class WithdrawalMessages
                 __('بعضی مبالغ در مهلت %s روزهٔ پس از تکمیل هستند.', 'tecteb-marketplace-core'),
                 \Tecteb\Marketplace\Core\Support\PersianDigits::toPersian((string) $delayDays)
             );
+        }
+        if ($awaitingReturn > 0) {
+            $parts[] = __('سهم بعضی اقلام تا تعیین تکلیف مرجوعی‌شان قابل برداشت نیست؛ اگر مرجوعی رد شود، همان سهم برمی‌گردد.', 'tecteb-marketplace-core');
         }
         return implode(' ', $parts);
     }

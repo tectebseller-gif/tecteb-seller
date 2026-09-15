@@ -57,7 +57,8 @@ final class VendorFinanceView
         $pending = WithdrawalMessages::pendingReason(
             (int) $balance['awaiting_completion'],
             (int) $balance['awaiting_delay'],
-            (int) $balance['delay_days']
+            (int) $balance['delay_days'],
+            (int) ($balance['awaiting_return'] ?? 0)
         );
         if ($pending !== '') {
             $html .= '<p class="tv-hint">' . esc_html($pending) . '</p>';

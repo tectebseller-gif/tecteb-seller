@@ -32,6 +32,7 @@ use Tecteb\Marketplace\Modules\Vendor\Presentation\StoreView;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUi;
 use Tecteb\Marketplace\Core\Config\SettingsService;
 use Tecteb\Marketplace\Modules\Vendor\Application\ChangeRequestRepositoryInterface;
+use Tecteb\Marketplace\Modules\Marketplace\Application\ActionQueue;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
@@ -494,7 +495,7 @@ final class VendorRoutes
             ],
             default => [
                 __('پیشخوان فروشنده', 'tecteb-marketplace-core'),
-                DashboardView::render($workspace, $urls, $notice),
+                DashboardView::render($workspace, $urls, $notice, $this->actionQueueFor($userId)),
             ],
         };
 
@@ -529,6 +530,33 @@ final class VendorRoutes
             ];
         }
         return $nav;
+    }
+
+    /**
+     * The shop's «صف اقدام», or nothing at all.
+     *
+     * Wrapped whole: the queue asks four other modules for counts, and a
+     * vendor's first screen must not go blank because one of them is not
+     * loaded on this site today.
+     *
+     * @return list<array{key:string, count:int, tone:string, url:string}>
+     */
+    private function actionQueueFor(int $userId): array
+    {
+        try {
+            $vendorUserId = $this->container->get(StaffAccess::class)->storeFor($userId);
+            if ($vendorUserId === null) {
+                return [];
+            }
+            return $this->container->get(ActionQueue::class)->forVendor(
+                $vendorUserId,
+                (string) get_option('permalink_structure', '') !== ''
+                    ? home_url('/vendor/')
+                    : home_url('/?tmc_vendor=')
+            );
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     private function storeBody(Request $request, VendorUrls $urls, string $nonceField, int $userId, ?VendorNotice $notice): string

@@ -41,6 +41,10 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             ['tmc-product-review', 'tmc_review_products', 'بررسی محصولات'],
             ['tmc-spec-templates', 'tmc_manage_spec_templates', 'الگوهای مشخصات'],
             ['tmc-storefront', 'tmc_manage_storefront', 'وضعیت فروش بازارگاه'],
+            // The phase-7 module: a shop's own codes are not here (they are on
+            // the vendor's own page); what a MANAGER decides is.
+            ['tmc-tickets', 'tmc_review_vendor', 'تیکت فروشندگان'],
+            ['tmc-wholesale', 'tmc_review_vendor', 'خریداران عمده'],
         ];
         self::assertCount(count($expected), $subs);
         foreach ($expected as $i => [$slug, $cap, $label]) {

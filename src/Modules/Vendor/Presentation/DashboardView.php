@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Vendor\Presentation;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Marketplace\Presentation\ActionQueueMessages;
 use Tecteb\Marketplace\Modules\Vendor\Application\TaskState;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorWorkspace;
 
@@ -17,8 +18,18 @@ use Tecteb\Marketplace\Modules\Vendor\Application\VendorWorkspace;
  */
 final class DashboardView
 {
-    public static function render(VendorWorkspace $workspace, VendorUrls $urls, ?VendorNotice $notice = null): string
-    {
+    /**
+     * @param list<array{key:string, count:int, tone:string, url:string}> $queue
+     *        «صف اقدام» (UX §6). Empty is the normal case and prints nothing:
+     *        a queue that says «۰ سفارش تازه» teaches people to stop reading
+     *        it, so only buckets with something in them appear at all.
+     */
+    public static function render(
+        VendorWorkspace $workspace,
+        VendorUrls $urls,
+        ?VendorNotice $notice = null,
+        array $queue = []
+    ): string {
         $html = '';
         if ($notice !== null) {
             $html .= VendorUi::notice(
@@ -60,6 +71,8 @@ final class DashboardView
         }
         $html .= '</section>';
 
+        $html .= self::actionQueue($queue);
+
         $html .= '<section class="tv-card" aria-labelledby="tv-tasks">'
             . '<h2 id="tv-tasks" class="tv-card__title">' . esc_html__('کارهای شما', 'tecteb-marketplace-core') . '</h2>'
             . '<ul class="tv-tasks">';
@@ -80,6 +93,26 @@ final class DashboardView
         $html .= '</ul></section>';
 
         return $html;
+    }
+
+    /**
+     * @param list<array{key:string, count:int, tone:string, url:string}> $queue
+     */
+    private static function actionQueue(array $queue): string
+    {
+        if ($queue === []) {
+            return '';
+        }
+        $fa = static fn (int $v): string => PersianDigits::toPersian((string) $v);
+        $html = '<section class="tv-card" aria-labelledby="tv-queue">'
+            . '<h2 id="tv-queue" class="tv-card__title">'
+            . esc_html__('صف اقدام', 'tecteb-marketplace-core') . '</h2><ul class="tv-queue">';
+        foreach ($queue as $row) {
+            $html .= '<li class="tv-queue__row"><a href="' . esc_url((string) $row['url']) . '">'
+                . VendorUi::chip((string) $row['tone'], $fa((int) $row['count']))
+                . ' ' . esc_html(ActionQueueMessages::label((string) $row['key'])) . '</a></li>';
+        }
+        return $html . '</ul></section>';
     }
 
     private static function primaryAction(VendorWorkspace $workspace, VendorUrls $urls): string
