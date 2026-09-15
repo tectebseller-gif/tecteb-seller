@@ -1,1 +1,1 @@
-stop withdrawn=3 failed=0 total=3 stopped=true
+stop ok=true code=storefront_stopped withdrawn=3 failed=0 total=3 stuck=- orders_held=1 orders_stuck=- stopped=true

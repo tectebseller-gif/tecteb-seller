@@ -33,8 +33,8 @@ const bodyText = async (page) => (await page.locator('body').textContent() || ''
 const browser = await chromium.launch({ executablePath: CHROMIUM, args: ['--no-sandbox'] });
 const shopper = await (await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'fa-IR' })).newPage();
 
-async function addToCart(page, productId) {
-  await page.goto(`${SITE}/?add-to-cart=${productId}`, { waitUntil: 'load' });
+async function addToCart(page, productId, quantity = 1) {
+  await page.goto(`${SITE}/?add-to-cart=${productId}&quantity=${quantity}`, { waitUntil: 'load' });
   return (await bodyText(page));
 }
 async function cartCount(page) {
@@ -50,7 +50,9 @@ check('and it shows its price', /۱|1/.test(productPage), '');
 await shopper.screenshot({ path: path.join(OUT, '01-public-product-1280.png'), fullPage: true });
 
 // --- a basket holding two different shops ----------------------------------
-await addToCart(shopper, A);
+// Three of the first shop's product, so the line can ship in two parcels —
+// which is the whole point of the partial-shipment step further down.
+await addToCart(shopper, A, 3);
 await addToCart(shopper, B);
 const rows = await cartCount(shopper);
 check('a basket can hold two shops at once', rows === 2, `${rows} rows`);
@@ -117,30 +119,55 @@ if (await prepare.count() > 0) {
 } else {
   check('the vendor can start preparing their own line', false, 'no action button rendered');
 }
-const shipForm = vendor.locator('form:has(input[value="shipped"])').first();
-if (await shipForm.count() > 0) {
-  const select = shipForm.locator('select').first();
+// --- partial shipment: three units, two parcels, two tracking codes --------
+// Shipping is a QUANTITY now, so it is its own form (`ship_order_item`) and
+// the line's status is worked out from the parcels rather than chosen.
+async function shipParcel(quantity, trackingCode) {
+  const form = vendor.locator('form:has(input[value="ship_order_item"])').first();
+  if (await form.count() === 0) {
+    return null;
+  }
+  const qty = form.locator('input[type=number]').first();
+  if (await qty.count() > 0) {
+    await qty.fill(String(quantity));
+  }
+  const select = form.locator('select').first();
   if (await select.count() > 0) {
     const options = await select.locator('option').evaluateAll((els) => els.map((e) => e.value).filter(Boolean));
     if (options.length > 0) {
       await select.selectOption(options[0]);
     }
   }
-  const tracking = shipForm.locator('input[type=text]').first();
+  const tracking = form.locator('input[type=text]').first();
   if (await tracking.count() > 0) {
-    await tracking.fill('TRK-TRIAL-1');
+    await tracking.fill(trackingCode);
   }
   await Promise.all([
     vendor.waitForURL(/tmc_notice/, { timeout: 30000 }),
-    shipForm.locator('button[type=submit]').first().click(),
+    form.locator('button[type=submit]').first().click(),
   ]);
-  const shipped = await bodyText(vendor);
-  check('shipping is recorded with a carrier and a tracking code',
-    shipped.includes('ارسال ثبت شد') || shipped.includes('TRK-TRIAL-1'), '');
-} else {
-  check('shipping is recorded with a carrier and a tracking code', false, 'no shipping form rendered');
+  return await bodyText(vendor);
 }
-await vendor.screenshot({ path: path.join(OUT, '06-vendor-order-shipped-1280.png'), fullPage: true });
+
+const firstParcel = await shipParcel(2, 'TRK-TRIAL-1');
+if (firstParcel === null) {
+  check('a parcel can be recorded with a carrier and a tracking code', false, 'no shipping form rendered');
+} else {
+  check('a parcel can be recorded with a carrier and a tracking code',
+    firstParcel.includes('ارسال') && firstParcel.includes('ثبت شد'), '');
+  check('two of three leaves the line «بخشی ارسال‌شده», not «ارسال‌شده»',
+    firstParcel.includes('بخشی ارسال‌شده'), 'the customer is not told the whole line went out');
+  check('…and the vendor is told how many are left',
+    firstParcel.includes('هنوز ارسال نشده'), '');
+  await vendor.screenshot({ path: path.join(OUT, '06-vendor-order-partly-shipped-1280.png'), fullPage: true });
+
+  const secondParcel = await shipParcel(1, 'TRK-TRIAL-2');
+  check('the rest goes out as a second parcel', secondParcel !== null && secondParcel.includes('کل این قلم فرستاده شد'), '');
+  const both = await bodyText(vendor);
+  check('both tracking codes are on the page', both.includes('TRK-TRIAL-1') && both.includes('TRK-TRIAL-2'),
+    'one line, two parcels, two codes');
+}
+await vendor.screenshot({ path: path.join(OUT, '07-vendor-order-shipped-1280.png'), fullPage: true });
 
 await browser.close();
 const failures = results.filter((r) => !r.ok);

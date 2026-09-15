@@ -1,7 +1,7 @@
 === what the marketplace says afterwards ===
 trial requested=true permitted=true active=true environment=staging
-product=1 vendor=4 wc=88 status=published stock=9 vendor_can_trade=true
-product=2 vendor=8 wc=90 status=published stock=9 vendor_can_trade=true
-product=3 vendor=4 wc=92 status=published stock=0 vendor_can_trade=true
+product=1 vendor=4 wc=111 status=published stock=7 vendor_can_trade=true
+product=2 vendor=8 wc=113 status=published stock=9 vendor_can_trade=true
+product=3 vendor=4 wc=115 status=published stock=0 vendor_can_trade=true
 stuck products=- orders=-
-payable count=3 orders=97,102,104
+payable count=2 orders=121,123

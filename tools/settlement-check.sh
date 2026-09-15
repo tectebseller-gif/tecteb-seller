@@ -28,6 +28,16 @@ if [ -z "$ITEM" ] || [ "$ITEM" = "0" ]; then
   echo "no recorded order line for vendor ${VENDOR}; run the order trial first" >&2
   exit 2
 fi
+# This script SPENDS its fixture: it settles a line and pays a withdrawal
+# against it, and neither can happen twice. Running it again on the same data
+# produced nine confusing failures once, so it now says the one true thing
+# instead — re-seed and run it again.
+SPENT="$(wp eval "global \$wpdb; echo (int) \$wpdb->get_var('SELECT COUNT(*) FROM ' . \$wpdb->prefix . 'tmc_order_items WHERE id = ${ITEM} AND withdrawal_id IS NOT NULL');")"
+if [ "${SPENT:-0}" != "0" ]; then
+  echo "order line ${ITEM} is already settled and paid by an earlier run." >&2
+  echo "re-seed first: wp eval-file order-evidence.php reset && wp eval-file order-trial-seed.php <vendor-a> <vendor-b>" >&2
+  exit 2
+fi
 echo "    settling on order line ${ITEM}"
 
 # A bank account, because A.4 makes settlement wait for one. Set through the

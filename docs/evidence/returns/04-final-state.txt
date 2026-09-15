@@ -1,0 +1,7 @@
+=== final state ===
+item=1 vendor=4 wc_product=111 quantity=3 base=3600000 tax=0 commission=360000 share=3240000 status=shipped returned=3
+return=5 quantity=1 status=refunded refund=1200000
+return=4 quantity=1 status=rejected refund=-
+return=3 quantity=1 status=refunded refund=1200000
+return=2 quantity=1 status=rejected refund=-
+return=1 quantity=1 status=refunded refund=1200000

@@ -1,12 +1,14 @@
 # Tecteb Marketplace Core — راهنمای کار در این مخزن
 
-## محدوده فعلی: فاز ۱ + فروشندگان + محصولات + ووکامرس و سفارش + **تسویه**
+## محدوده فعلی: فاز ۱ + فروشندگان + محصولات + ووکامرس و سفارش + تسویه + **ارسال جزئی، مرجوعی، کوپن/B2B/تیکت و مهاجرت آزمایشی دکان**
 زیرساخت و **چهار صفحه مدیریت** (پیشخوان، سلامت، تنظیمات، ماژول‌ها)، و از
 ۱۲ سپتامبر **بخش فروشندگان** به دستور مالک: درخواست فروشندگی، مدارک پویا،
 بررسی مدیر و پیشخوان فروشنده روی مسیر `/vendor/`
 (`docs/phase-2-vendor-delivery.md`).
 
-هنوز ساخته نشده: Refund/Coupon/B2B/Ticket/Migration، SEO خودکار و ارسال جزئی.
+هنوز ساخته نشده: اعلان‌ها، نظرات، گزارش‌ها، SEO خودکار، اعمال خودکار کوپن روی
+سبد ووکامرس، نمایش نردبان عمده روی صفحهٔ محصول، پیوست فایل در تیکت، و انتقال
+مالکیت واقعی محصول در مهاجرت دکان.
 هیچ sender/gateway واقعی وجود ندارد؛ خروجی‌های افزونه در Alpha همیشه بسته‌اند و
 **تأیید موبایل انجام نمی‌شود** تا وقتی Adapter واقعی و مستند وجود داشته باشد.
 
@@ -30,6 +32,42 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 پایین نمی‌آورد، پس **برای بازگشت بازگرداندن ZIP قبلی کافی است و بازیابی
 دیتابیس لازم نیست** (`docs/upgrade-and-rollback.md` ·
 `docs/evidence/upgrade-alpha1/` · `docs/evidence/upgrade/`).
+
+**`0.1.0-alpha.9` (۱۵ سپتامبر):** مرحله ۵ ترتیب مالک — **توقفِ ناتمام، ارسال
+جزئی، مرجوعی، فاز ۷ و مهاجرت دکان**. ساختار داده **۹**. شش چیز که باید بدانید:
+
+- **توقف ناتمام یک شکست است.** `withdraw()` وضعیت را دوباره می‌خواند و نوشتنِ
+  بی‌اثر را می‌گیرد؛ `stopAsResult()` با یک محصول باقی‌مانده هم `false` است؛ و
+  `StorefrontSwitch::markStuck()` فهرست را در گزینه‌ای می‌نویسد که یک اعلان روی
+  هر صفحهٔ wp-admin می‌خواند.
+- **لینک پرداخت سفارش پرداخت‌نشده با چرخاندن کلید سفارش بازنشسته می‌شود**، نه با
+  فیلتر. اندازه‌گیری‌شده: `pay_action()` هرگز دوباره نمی‌پرسد کالا فروختنی هست یا
+  نه. از سرگیری **همان** لینک قبلی را برمی‌گرداند. `on-hold` عمداً استفاده نشد
+  چون موجودی را تکان می‌دهد.
+- **ارسال جزئی ردیف است، نه ستون:** `tmc_shipments`، یک ردیف به ازای هر بسته با
+  رهگیری خودش. وضعیت `partially_shipped` **مشتق** است و `move()` دیگر
+  «ارسال‌شده» را نمی‌پذیرد — از `ShipItems::ship()` برو.
+- **مرجوعی: `received → refunded` تنها گذارِ پول است و به جایی نمی‌رسد**، و
+  نوشتنش `UPDATE … WHERE reversal_event_key IS NULL` پشت ایندکس یکتاست. معکوس،
+  خط **اضافه** می‌کند و آخرین مرجوعیِ یک قلم «باقی‌مانده» را برمی‌گرداند نه سهم
+  گردشدهٔ خودش. سهمِ قبلاً پرداخت‌شده به `vendor_debt` می‌رود.
+- **آنچه حدس زده نمی‌شود، نام دارد:** `ReturnTerms` (DEC-03)،
+  `ManageCoupons::GLOBAL_UNDECIDED` (DEC-04)، `ManageWholesale::OPEN_TERMS`
+  و مدت نگهداری تیکت (DEC-05).
+- **مهاجرت دکان فقط می‌خواند.** `DokanReaderInterface` هیچ متد نوشتنی ندارد؛
+  اجرای آزمایشی تطبیق سطربه‌سطر می‌دهد، تعارض را رد می‌کند، ورودش پیش‌نویس و
+  متصل به همان شناسهٔ ووکامرس است، و `rollback()` دقیقاً همان ردیف‌ها را برمی‌دارد.
+
+تحویل: `docs/phase-7-shipping-returns-and-engagement.md` · شواهد:
+`docs/evidence/stop-failure/`، `docs/evidence/returns/`،
+`docs/evidence/dokan-migration/`، `docs/evidence/orders/`.
+
+**دو قاعده تازه:**
+- **لایهٔ Application حق صداکردن وردپرس را ندارد — از جمله `__()`.** صف اقدام
+  کلید برمی‌گرداند و متن فارسی در Presentation است (`ActionQueueMessages`).
+  آزمون معماری همین را گرفت.
+- **اسلاگ هیچ صفحهٔ ما نام افزونهٔ دیگری را ندارد** (`tmc-import`، نه
+  `tmc-dokan-migration`)؛ آزمون قرارداد منو این را می‌سنجد.
 
 **`0.1.0-alpha.8` (۱۵ سپتامبر):** مرحله ۴ ترتیب مالک — **بازگشت امن، درهای
 دیگر خرید، دکان، و تسویه**. ساختار داده **۷**. پنج چیز که باید بدانید:
@@ -197,6 +235,14 @@ SITE=… TMC_VARIABLE_PRODUCT=… TMC_OUT=docs/evidence/orders/a11y \
 bash tools/rollback-hazard-check.sh <wc-id> <vendor> <old-zip> <new-zip>
 
 # مرحله بازگشت امن، دکان و تسویه — همه با دکان Lite فعال
+# مرحله توقفِ ناتمام، مرجوعی و مهاجرت دکان — همه با دکان Lite فعال
+bash tools/stop-failure-check.sh   docs/evidence/stop-failure    # ۳۳ بررسی
+bash tools/return-check.sh         docs/evidence/returns         # ۱۸ بررسی
+bash tools/dokan-migration-check.sh docs/evidence/dokan-migration # ۲۰ بررسی
+SITE=… TMC_OUT=docs/evidence/stop-failure node tools/browser/check-stop-failure.mjs  # ۸ بررسی
+wp eval-file tools/return-state.php first-item|open|decide|refund|…
+wp eval-file tools/dokan-migration.php plan|import|runs|rollback|fingerprint
+
 bash tools/safe-stop-check.sh   docs/evidence/safe-stop    # ۲۳ بررسی
 bash tools/deactivation-check.sh docs/evidence/safe-stop   # ۱۳ بررسی
 bash tools/settlement-check.sh  docs/evidence/settlement   # ۲۰ بررسی

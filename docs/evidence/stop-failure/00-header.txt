@@ -2,8 +2,8 @@
 name	status	version
 dokan-lite	active	5.1.1
 hello	inactive	1.7.2
-tecteb-marketplace-core	active	0.1.0-alpha.8
+tecteb-marketplace-core	active	0.1.0-alpha.9
 woocommerce	active	11.0.1
 tmc-stop-failure-probe	must-use	
-marketplace products: 88 90 92 · shop: 37 · dokan: 79
-the injected failure blocks the status write of product 90 (row 2)
+marketplace products: 111 113 115 · shop: 37 · dokan: 79
+the injected failure blocks the status write of product 113 (row 2)

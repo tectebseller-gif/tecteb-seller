@@ -1,0 +1,7 @@
+=== returns and refunds, on the plugin installed from the ZIP ===
+name	status	version
+dokan-lite	active	5.1.1
+hello	inactive	1.7.2
+tecteb-marketplace-core	active	0.1.0-alpha.9
+woocommerce	active	11.0.1
+tmc-stop-failure-probe	must-use	

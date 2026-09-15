@@ -245,7 +245,7 @@ switch ($command) {
         $balance = $c->get(\Tecteb\Marketplace\Modules\Finance\Application\VendorBalance::class)->of($vendorUserId);
         $gate = $c->get(\Tecteb\Marketplace\Modules\Finance\Application\SettlementGate::class)->check();
         printf(
-            "vendor=%d earned=%d pending=%d eligible=%d reserved=%d paid=%d unrecorded=%d delay_days=%d awaiting_completion=%d awaiting_delay=%d gate=%s\n",
+            "vendor=%d earned=%d pending=%d eligible=%d reserved=%d paid=%d unrecorded=%d delay_days=%d awaiting_completion=%d awaiting_delay=%d awaiting_return=%d gate=%s\n",
             $vendorUserId,
             $balance['earned'],
             $balance['pending'],
@@ -256,6 +256,7 @@ switch ($command) {
             $balance['delay_days'],
             $balance['awaiting_completion'],
             $balance['awaiting_delay'],
+            $balance['awaiting_return'],
             $gate['reason']
         );
         break;

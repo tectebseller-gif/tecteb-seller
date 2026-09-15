@@ -1,7 +1,7 @@
 {
   "suite": "order-trial",
-  "generated_at": "2026-09-15T15:56:21.252Z",
-  "total": 14,
+  "generated_at": "2026-09-15T18:20:51.229Z",
+  "total": 18,
   "failures": 0,
   "results": [
     {
@@ -22,7 +22,7 @@
     {
       "name": "the order is placed",
       "ok": true,
-      "detail": "http://127.0.0.1:8080/checkout/order-received/99/?key=wc_order_2cCAv6y239IEN"
+      "detail": "http://127.0.0.1:8080/checkout/order-received/118/?key=wc_order_PYLyYMI1CgGah"
     },
     {
       "name": "the buyer is told it went through",
@@ -70,9 +70,29 @@
       "detail": ""
     },
     {
-      "name": "shipping is recorded with a carrier and a tracking code",
+      "name": "a parcel can be recorded with a carrier and a tracking code",
       "ok": true,
       "detail": ""
+    },
+    {
+      "name": "two of three leaves the line «بخشی ارسال‌شده», not «ارسال‌شده»",
+      "ok": true,
+      "detail": "the customer is not told the whole line went out"
+    },
+    {
+      "name": "…and the vendor is told how many are left",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "the rest goes out as a second parcel",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "both tracking codes are on the page",
+      "ok": true,
+      "detail": "one line, two parcels, two codes"
     }
   ]
 }
