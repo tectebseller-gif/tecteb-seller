@@ -12,6 +12,10 @@
  *   wp eval-file tools/dokan-migration.php runs          اجراهای انجام‌شده
  *   wp eval-file tools/dokan-migration.php rollback <id> بازگرداندن یک اجرا
  *   wp eval-file tools/dokan-migration.php fingerprint   اثر انگشت دادهٔ دکان
+ *   wp eval-file tools/dokan-migration.php observed      ردیف‌های نگاشت‌شده
+ *   wp eval-file tools/dokan-migration.php ownership <tmc-product-id>
+ *   wp eval-file tools/dokan-migration.php take-ownership <tmc-product-id>
+ *   wp eval-file tools/dokan-migration.php give-back-ownership <tmc-product-id>
  */
 
 use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
@@ -115,6 +119,47 @@ switch ($command) {
             (string) ($result->context['run_id'] ?? '-'),
             (string) ($result->context['vendors'] ?? '0'),
             (string) ($result->context['products'] ?? '0')
+        );
+        break;
+
+    case 'observed':
+        // What the trial mapped, and what that mapping means: nothing, until
+        // somebody transfers ownership on purpose.
+        $products = $c->get(\Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface::class);
+        $rows = $products->observed();
+        printf("observed count=%d\n", count($rows));
+        foreach ($rows as $product) {
+            printf(
+                "  tmc=%d wc=%d ownership=%s status=%s title=%s\n",
+                $product->id,
+                (int) ($product->wcProductId ?? 0),
+                $products->linkOwnership($product->id)->value,
+                $product->status->value,
+                $product->details->title
+            );
+        }
+        break;
+
+    case 'ownership':
+        $products = $c->get(\Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface::class);
+        printf("ownership product=%d value=%s\n", (int) ($args[1] ?? 0),
+            $products->linkOwnership((int) ($args[1] ?? 0))->value);
+        break;
+
+    case 'take-ownership':
+    case 'give-back-ownership':
+        $transfer = $c->get(\Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership::class);
+        $productId = (int) ($args[1] ?? 0);
+        $result = $command === 'take-ownership'
+            ? $transfer->take($productId)
+            : $transfer->giveBack($productId);
+        printf(
+            "%s ok=%s code=%s product=%s wc=%s\n",
+            $command,
+            $result->ok ? 'true' : 'false',
+            $result->code,
+            (string) ($result->context['product_id'] ?? '-'),
+            (string) ($result->context['wc_product_id'] ?? '-')
         );
         break;
 

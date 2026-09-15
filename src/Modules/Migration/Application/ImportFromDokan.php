@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
@@ -37,10 +38,17 @@ use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
  *    was touched, undoing a run really does restore the state before it.
  *
  * What this does NOT do, deliberately: it does not make the imported products
- * the marketplace's to sell. They arrive as drafts. Taking over a live
- * product's storefront presence means writing to a post another plugin
- * manages, and that is the owner's decision to take after reading the mapping
- * — not a side effect of pressing «وارد کردن».
+ * the marketplace's to sell. They arrive as drafts AND as `observed` links,
+ * which are two different refusals and both are needed.
+ *
+ * Draft alone was not enough, and finding that out is what produced the
+ * second one. A `marketplace` link makes every "is this ours?" question
+ * answer yes — so after a dry-run import, Dokan's own vendor product answered
+ * `vendor_stopped` and `is_purchasable()` went false, and a stop would have
+ * drafted a post Dokan manages. Nothing of Dokan's had been written; the hash
+ * of Dokan's data was identical; and the shop behaved differently anyway.
+ * That is precisely why a fingerprint is not a proof of unchanged behaviour,
+ * and why TransferOwnership is a separate, explicit act.
  */
 final class ImportFromDokan
 {
@@ -180,7 +188,13 @@ final class ImportFromDokan
                 ),
                 // Draft, always. Publishing would write to a post Dokan
                 // manages, and that is a decision, not an import step.
-                ProductStatus::Draft
+                ProductStatus::Draft,
+                // OBSERVED, always. The row knows which WooCommerce product it
+                // corresponds to and nothing else follows: the purchase guard,
+                // the storefront stop and the projector all skip it. Without
+                // this, a dry-run import made Dokan's own vendor product
+                // unpurchasable — measured, and the reason this value exists.
+                LinkOwnership::Observed
             );
             if ($productId === 0) {
                 continue;
@@ -224,8 +238,18 @@ final class ImportFromDokan
             return OperationResult::failure('not_found', ['run_id' => $runId]);
         }
         $removedProducts = 0;
+        $keptProducts = [];
         foreach ($run['products'] ?? [] as $productId) {
-            if ($this->products->deleteDraft((int) $productId)) {
+            $productId = (int) $productId;
+            if ($this->products->linkOwnership($productId) === LinkOwnership::Marketplace) {
+                // Somebody transferred operational ownership of this product
+                // since the import. It is not a trial copy any more — it is a
+                // product this marketplace now runs — so undoing the import
+                // must not take it away silently.
+                $keptProducts[] = $productId;
+                continue;
+            }
+            if ($this->products->deleteDraft($productId)) {
                 $removedProducts++;
             }
         }
@@ -244,6 +268,14 @@ final class ImportFromDokan
             'products' => $removedProducts,
             'run_id' => $runId,
         ]);
+        if ($keptProducts !== []) {
+            return OperationResult::failure('rollback_kept_transferred', [
+                'run_id' => $runId,
+                'vendors' => $removedVendors,
+                'products' => $removedProducts,
+                'kept' => implode('، ', array_map('strval', $keptProducts)),
+            ]);
+        }
         return OperationResult::success('dokan_rolled_back', [
             'run_id' => $runId,
             'vendors' => $removedVendors,
@@ -270,7 +302,10 @@ final class ImportFromDokan
     private function judgeProduct(array $product): array
     {
         if ($this->products->findByWcProduct($product['wc_product_id']) !== null) {
-            return [DokanMigrationPlan::SKIP, 'already_linked_to_a_marketplace_row'];
+            return [DokanMigrationPlan::SKIP, 'already_owned_by_the_marketplace'];
+        }
+        if ($this->products->findObservedByWcProduct($product['wc_product_id']) !== null) {
+            return [DokanMigrationPlan::SKIP, 'already_mapped_by_an_earlier_run'];
         }
         if ($product['sku'] !== ''
             && $this->products->skuTaken($product['vendor_user_id'], $product['sku'])) {

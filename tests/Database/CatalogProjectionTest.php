@@ -28,6 +28,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepositor
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbVariationRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
 use Tecteb\Marketplace\Modules\Vendor\Application\ReviewApplication;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
@@ -90,6 +91,7 @@ final class CatalogProjectionTest extends DatabaseTestCase
         (new M0004CreateFinanceTables())->up($db);
         (new M0005CreateProductTables())->up($db);
         (new M0006CatalogAndOrders())->up($db);
+        (new M0010LinkOwnership())->up($db);
 
         $clock = new SystemClock();
         $options = new WpOptionStore();

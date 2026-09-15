@@ -1,0 +1,3 @@
+=== final state ===
+observed count=0
+wc=79 decision=not_ours tmc_product=none wc_status=publish wc_purchasable=true wc_in_stock=true

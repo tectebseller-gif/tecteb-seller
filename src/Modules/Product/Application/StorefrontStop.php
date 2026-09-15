@@ -73,6 +73,16 @@ final class StorefrontStop
     }
 
     /**
+     * What the last stop could not close, as it was written down.
+     *
+     * @return array{products:list<int>, orders:list<int>}
+     */
+    public function stuck(): array
+    {
+        return $this->switch->stuck();
+    }
+
+    /**
      * Every projected product out of the shop, and the flag set.
      *
      * The flag is set even when some withdrawals failed — a marketplace that
@@ -211,6 +221,36 @@ final class StorefrontStop
             return self::REFUSED_INCOMPLETE;
         }
         return null;
+    }
+
+    /**
+     * Hands back the orders this stop held — WITHOUT reopening the shop.
+     *
+     * A separate act from resume(), and the separation is the whole point. A
+     * manager rolling back to a previous package has to be able to give
+     * customers their unpaid orders back while the marketplace stays shut; a
+     * release that only came bundled with «از سرگیری فروش» would force them to
+     * reopen buying for a moment to do it, which is the opposite of safe.
+     *
+     * The flag is untouched, the products stay out of the shop, and only the
+     * orders this plugin put on hold are moved — one at a time, restoring the
+     * status each of them had.
+     */
+    public function releaseOrders(int $actorId = 0): OperationResult
+    {
+        $outcome = $this->unpaidOrders->release();
+        $this->switch->markStuck($this->switch->stuck()['products'], $outcome['stuck']);
+        $this->audit->log(AuditEventCatalog::STOREFRONT_ORDERS_RELEASED, $actorId, 'storefront', 'marketplace', [
+            'released' => $outcome['released'],
+            'stuck' => count($outcome['stuck']),
+        ]);
+        if ($outcome['stuck'] !== []) {
+            return OperationResult::failure('orders_release_incomplete', [
+                'released' => $outcome['released'],
+                'stuck' => implode('، ', array_map('strval', $outcome['stuck'])),
+            ]);
+        }
+        return OperationResult::success('orders_released', ['released' => $outcome['released']]);
     }
 
     /**

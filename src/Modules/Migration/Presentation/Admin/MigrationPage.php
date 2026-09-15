@@ -10,6 +10,8 @@ use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanMigrationPlan;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
+use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
+use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 
 /**
  * The Dokan migration, in the order the owner asked for it: look first,
@@ -74,6 +76,7 @@ final class MigrationPage
                 . '</section>';
         }
 
+        $this->renderObserved($fa);
         $this->renderRuns($service, $fa);
         echo Components::shellClose();
     }
@@ -128,6 +131,49 @@ final class MigrationPage
             echo $this->form('import', __('ورود آزمایشی داده‌ها', 'tecteb-marketplace-core'));
         }
         echo '</section>';
+    }
+
+    /**
+     * The mapped products, and the one button that changes what they mean.
+     *
+     * Deliberately loud. Everything else on this page is reversible bookkeeping;
+     * this is the act that makes the marketplace start deciding whether another
+     * plugin's product may be sold.
+     */
+    private function renderObserved(callable $fa): void
+    {
+        $observed = $this->container->get(ProductRepositoryInterface::class)->observed();
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('محصولات نگاشت‌شده (هنوز مال بازارگاه نیستند)', 'tecteb-marketplace-core') . '</h2>';
+        echo '<p class="tmc-field__desc">'
+            . esc_html__('این ردیف‌ها فقط می‌دانند کدام محصول ووکامرس متناظرشان است. بازارگاه دربارهٔ خرید، توقف فروش یا انتشار این محصولات هیچ تصمیمی نمی‌گیرد و فروشندهٔ فعلی‌شان مثل قبل می‌فروشد.', 'tecteb-marketplace-core')
+            . '</p>';
+        if ($observed === []) {
+            echo '<p>' . esc_html__('هیچ محصول نگاشت‌شده‌ای وجود ندارد.', 'tecteb-marketplace-core') . '</p></section>';
+            return;
+        }
+        echo Components::notice('warning', __('«انتقال مالکیت عملیاتی» یعنی از آن لحظه بازارگاه تصمیم می‌گیرد این محصول فروخته شود یا نه: توقف فروش آن را به پیش‌نویس می‌برد و گارد خرید دربارهٔ آن نظر می‌دهد. محصول ووکامرس با این کار بازنویسی نمی‌شود و همین دکمه در جهت عکس هم کار می‌کند.', 'tecteb-marketplace-core'));
+        echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="'
+            . esc_attr__('جدول محصولات نگاشت‌شده', 'tecteb-marketplace-core') . '">';
+        echo '<table class="tmc-table"><thead><tr>'
+            . '<th scope="col">' . esc_html__('ردیف بازارگاه', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('عنوان', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('محصول ووکامرس', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('اقدام', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>';
+        foreach ($observed as $product) {
+            echo '<tr><td>' . Components::code((string) $product->id) . '</td>'
+                . '<td>' . esc_html($product->details->title) . '</td>'
+                . '<td>' . Components::code((string) ($product->wcProductId ?? 0)) . '</td>'
+                . '<td><form method="post" class="tmc-inline-form">'
+                . wp_nonce_field(self::NONCE, 'tmc_migration_nonce', true, false)
+                . '<input type="hidden" name="product_id" value="' . esc_attr((string) $product->id) . '">'
+                . '<button type="submit" class="tmc-button" name="migration_action" value="take_ownership">'
+                . esc_html__('انتقال مالکیت عملیاتی', 'tecteb-marketplace-core') . '</button>'
+                . '</form></td></tr>';
+        }
+        unset($fa);
+        echo '</tbody></table></div></section>';
     }
 
     private function renderRuns(ImportFromDokan $service, callable $fa): void
@@ -208,16 +254,47 @@ final class MigrationPage
                 )
                 : 'err:' . __('ورود انجام نشد. اگر تعارضی هست، اول آن را رفع کنید.', 'tecteb-marketplace-core');
         }
+        if ($action === 'take_ownership' || $action === 'give_back_ownership') {
+            $transfer = $this->container->get(TransferOwnership::class);
+            $productId = $request->postInt('product_id');
+            $result = $action === 'take_ownership'
+                ? $transfer->take($productId)
+                : $transfer->giveBack($productId);
+            if (!$result->ok) {
+                return 'err:' . __('این تغییر مالکیت انجام نشد.', 'tecteb-marketplace-core');
+            }
+            return 'ok:' . ($action === 'take_ownership'
+                ? sprintf(
+                    /* translators: %s: WooCommerce product id */
+                    __('مالکیت عملیاتی محصول ووکامرس %s به بازارگاه منتقل شد. از این پس توقف فروش و گارد خرید دربارهٔ آن تصمیم می‌گیرند.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $result->context['wc_product_id'])
+                )
+                : sprintf(
+                    /* translators: %s: WooCommerce product id */
+                    __('مالکیت عملیاتی محصول ووکامرس %s پس گرفته شد و دوباره فقط نگاشت است.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $result->context['wc_product_id'])
+                ));
+        }
+
         if ($action === 'rollback') {
             $result = $service->rollback($request->postText('run_id'));
-            return $result->ok
-                ? 'ok:' . sprintf(
+            if ($result->ok) {
+                return 'ok:' . sprintf(
                     /* translators: 1: vendors, 2: products */
                     __('این اجرا برگردانده شد: %1$s فروشنده و %2$s محصول حذف شدند.', 'tecteb-marketplace-core'),
                     PersianDigits::toPersian((string) $result->context['vendors']),
                     PersianDigits::toPersian((string) $result->context['products'])
-                )
-                : 'err:' . __('بازگرداندن انجام نشد.', 'tecteb-marketplace-core');
+                );
+            }
+            if ($result->code === 'rollback_kept_transferred') {
+                return 'err:' . sprintf(
+                    /* translators: 1: kept product ids, 2: removed products */
+                    __('محصول(های) %1$s حذف نشدند چون مالکیت عملیاتی‌شان منتقل شده و دیگر یک کپی آزمایشی نیستند؛ %2$s محصول دیگر برداشته شد. اگر می‌خواهید کاملاً برگردند، اول مالکیتشان را پس بگیرید.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $result->context['kept']),
+                    PersianDigits::toPersian((string) $result->context['products'])
+                );
+            }
+            return 'err:' . __('بازگرداندن انجام نشد.', 'tecteb-marketplace-core');
         }
         return 'err:' . __('این اقدام از این صفحه انجام نمی‌شود.', 'tecteb-marketplace-core');
     }
@@ -242,7 +319,8 @@ final class MigrationPage
         return match ($reason) {
             '' => '—',
             'already_a_marketplace_vendor' => __('از قبل فروشندهٔ بازارگاه است', 'tecteb-marketplace-core'),
-            'already_linked_to_a_marketplace_row' => __('از قبل به یک ردیف بازارگاه وصل است', 'tecteb-marketplace-core'),
+            'already_owned_by_the_marketplace' => __('از قبل مال بازارگاه است', 'tecteb-marketplace-core'),
+            'already_mapped_by_an_earlier_run' => __('اجرای قبلی نگاشتش کرده است', 'tecteb-marketplace-core'),
             'sku_already_used_in_this_shop' => __('این SKU در همین فروشگاه استفاده شده؛ کدام اصل است؟', 'tecteb-marketplace-core'),
             'no_price_recorded' => __('قیمتی ثبت نشده است', 'tecteb-marketplace-core'),
             'historic_commission_not_recomputed' => __('کمیسیون این سفارش با قواعد دکان حساب شده و دوباره ثبت نمی‌شود', 'tecteb-marketplace-core'),

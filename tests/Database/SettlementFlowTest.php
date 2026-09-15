@@ -30,6 +30,7 @@ use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\DbOrderItemRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbStaffRepository;
@@ -87,6 +88,7 @@ final class SettlementFlowTest extends DatabaseTestCase
         (new M0004CreateFinanceTables())->up($db);
         (new M0005CreateProductTables())->up($db);
         (new M0006CatalogAndOrders())->up($db);
+        (new M0010LinkOwnership())->up($db);
         (new M0007SettlementTables())->up($db);
 
         $clock = new SystemClock();

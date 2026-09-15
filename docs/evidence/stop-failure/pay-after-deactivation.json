@@ -1,0 +1,18 @@
+{
+  "phase": "after-deactivation",
+  "expect": "refused",
+  "fresh_url": "",
+  "takes_money": "no-link",
+  "results": [
+    {
+      "name": "the customer can see their own orders",
+      "ok": true,
+      "detail": "order 125"
+    },
+    {
+      "name": "the fresh link from the account is REFUSED",
+      "ok": true,
+      "detail": "after-deactivation: no pay button is even offered"
+    }
+  ]
+}

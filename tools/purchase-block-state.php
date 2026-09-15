@@ -21,7 +21,9 @@
  *   decide     <wc-product-id>…
  *   stop       [reason]           توقف فروش بازارگاه (نتیجه‌ای که به مدیر گفته می‌شود)
  *   resume                        از سرگیری، فقط آنچه شرایطش برقرار است
- *   payable                       سفارش‌های پرداخت‌نشده‌ای که لینکشان هنوز کار می‌کند
+ *   payable                       سفارش‌های پرداخت‌نشده‌ای که هنوز قابل پرداخت‌اند
+ *   release-orders                بازگرداندن سفارش‌های نگه‌داشته، بدون بازکردن فروش
+ *   order-status <id>             وضعیت و قابل‌پرداخت‌بودن یک سفارش
  *   stuck                         آنچه غیرفعال‌سازی نتوانست ببندد
  *   settle     <order-item-id>    ثبت «تکمیل برای تسویه» توسط مدیر
  *   balance    <vendor-user-id>   مانده و آنچه قابل برداشت است
@@ -213,6 +215,39 @@ switch ($command) {
         foreach ($outcome['refused'] as $productId => $why) {
             printf("refused product=%d reason=%s\n", $productId, $why);
         }
+        break;
+
+    case 'release-orders':
+        // The act that is NOT «از سرگیری»: hand the held orders back while the
+        // marketplace stays shut. The rollback guide depends on this working
+        // on its own.
+        $result = $c->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontStop::class)
+            ->releaseOrders($manager);
+        printf(
+            "release ok=%s code=%s released=%s stuck=%s stopped=%s\n",
+            $result->ok ? 'true' : 'false',
+            $result->code,
+            (string) ($result->context['released'] ?? '0'),
+            ($result->context['stuck'] ?? '') === '' ? '-' : (string) $result->context['stuck'],
+            $c->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch::class)->isStopped() ? 'true' : 'false'
+        );
+        break;
+
+    case 'order-status':
+        $order = wc_get_order((int) ($args[1] ?? 0));
+        if (!$order) {
+            echo "no such order\n";
+            break;
+        }
+        printf(
+            "order=%d status=%s needs_payment=%s items=%d total=%s held_from=%s\n",
+            (int) $order->get_id(),
+            $order->get_status(),
+            $order->needs_payment() ? 'true' : 'false',
+            count($order->get_items()),
+            (string) $order->get_total(),
+            ($order->get_meta('_tmc_stop_prev_status') ?: '-')
+        );
         break;
 
     case 'payable':

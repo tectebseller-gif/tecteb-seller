@@ -63,6 +63,8 @@ final class AuditEventCatalog
     /** The storefront switch: the marketplace's own products, out of sale and back. */
     public const STOREFRONT_STOPPED = 'storefront.stopped';
     public const STOREFRONT_RESUMED = 'storefront.resumed';
+    /** Handing unpaid orders back, which is NOT the same act as resuming sales. */
+    public const STOREFRONT_ORDERS_RELEASED = 'storefront.orders_released';
     /** Finance: rules and the append-only ledger. */
     public const FINANCE_RATE_CHANGED = 'finance.rate_changed';
     public const FINANCE_ACCRUED = 'finance.accrued';
@@ -84,6 +86,8 @@ final class AuditEventCatalog
     public const DOKAN_DRY_RUN = 'migration.dokan_dry_run';
     public const DOKAN_IMPORTED = 'migration.dokan_imported';
     public const DOKAN_ROLLED_BACK = 'migration.dokan_rolled_back';
+    /** The explicit act that makes a mapped product the marketplace's to run. */
+    public const DOKAN_OWNERSHIP_CHANGED = 'migration.ownership_changed';
 
     /** @return array<string, list<string>> event type => allowed top-level payload keys */
     public static function allowlist(): array
@@ -138,6 +142,7 @@ final class AuditEventCatalog
             self::ORDER_RETURN_RESTOCKED => ['vendor_id', 'return_id', 'product_id', 'quantity', 'stock_after'],
             self::STOREFRONT_STOPPED => ['reason', 'withdrawn', 'failed', 'total', 'orders_held', 'orders_stuck'],
             self::STOREFRONT_RESUMED => ['published', 'refused', 'total', 'orders_released'],
+            self::STOREFRONT_ORDERS_RELEASED => ['released', 'stuck'],
             self::FINANCE_RATE_CHANGED => ['scope', 'reference', 'rate_bp', 'cleared'],
             self::FINANCE_ACCRUED => ['vendor_id', 'rate_bp', 'rate_source', 'base_minor'],
             self::FINANCE_REVERSED => ['vendor_id', 'reverses', 'amount_minor'],
@@ -156,6 +161,7 @@ final class AuditEventCatalog
             self::DOKAN_DRY_RUN => ['vendors', 'products', 'orders', 'conflicts', 'run_id'],
             self::DOKAN_IMPORTED => ['vendors', 'products', 'run_id', 'mode'],
             self::DOKAN_ROLLED_BACK => ['vendors', 'products', 'run_id'],
+            self::DOKAN_OWNERSHIP_CHANGED => ['product_id', 'wc_product_id', 'from', 'to'],
         ];
     }
 

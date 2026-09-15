@@ -82,6 +82,22 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
         return true;
     }
 
+    public function claimStorefrontPost(Product $product, int $wcProductId): bool
+    {
+        if ($wcProductId <= 0) {
+            return false;
+        }
+        $this->links[$product->id] = $wcProductId;
+        $this->statuses[$wcProductId] ??= 'publish';
+        return true;
+    }
+
+    public function releaseStorefrontPost(Product $product, int $wcProductId): bool
+    {
+        unset($this->links[$product->id]);
+        return true;
+    }
+
     public function increaseStock(Product $product, int $by): ?int
     {
         $id = $this->links[$product->id] ?? 0;

@@ -103,7 +103,7 @@ final class StorefrontPage
         if ($payable !== []) {
             echo Components::notice($stopped ? 'error' : 'info', sprintf(
                 /* translators: 1: count, 2: order ids */
-                __('%1$s سفارش پرداخت‌نشده هست که قلم بازارگاه دارد و لینک پرداختش هنوز کار می‌کند (شماره: %2$s). با توقف فروش، این لینک‌ها بازنشسته می‌شوند و با از سرگیری، همان لینک قبلی برمی‌گردد؛ هیچ سفارشی لغو یا حذف نمی‌شود.', 'tecteb-marketplace-core'),
+                __('%1$s سفارش پرداخت‌نشده هست که قلم بازارگاه دارد و هنوز قابل پرداخت است (شماره: %2$s). با توقف فروش، این سفارش‌ها «در انتظار» نگه داشته می‌شوند تا ووکامرس خودش پرداخت تازه‌ای رویشان نپذیرد — حتی اگر این افزونه غیرفعال شود. هیچ سفارشی لغو، خالی یا بازپرداخت نمی‌شود و وضعیت قبلی‌شان ثبت می‌ماند.', 'tecteb-marketplace-core'),
                 esc_html($fa((string) count($payable))),
                 esc_html($fa(implode('، ', array_map('strval', $payable))))
             ));
@@ -117,8 +117,23 @@ final class StorefrontPage
         echo '<form method="post">';
         wp_nonce_field(self::NONCE, 'tmc_storefront_nonce');
         if ($stopped) {
+            // Three separate buttons on purpose. Rolling back to a previous
+            // package means dealing with what the stop left open — a product
+            // still on sale, an order still held — and none of that may
+            // require reopening the shop first. «از سرگیری» is the only one
+            // that starts selling again, and it is last.
             echo '<p class="tmc-field__desc">'
-                . esc_html__('با «از سرگیری»، فقط محصولاتی برمی‌گردند که هنوز شرایطشان برقرار است: فروشنده مجاز به فروش باشد، محصول منتشر باشد و کامل باشد. بقیه با ذکر علت بیرون می‌مانند.', 'tecteb-marketplace-core')
+                . esc_html__('اگر توقف کامل نشده بود، «تلاش دوباره» را بزنید؛ فروش بسته می‌ماند و فقط آنچه جا مانده بسته می‌شود.', 'tecteb-marketplace-core')
+                . '</p>'
+                . '<p><button type="submit" name="storefront_action" value="retry_stop" class="tmc-button">'
+                . esc_html__('تلاش دوبارهٔ توقف (فروش بسته می‌ماند)', 'tecteb-marketplace-core') . '</button></p>';
+            echo '<p class="tmc-field__desc">'
+                . esc_html__('سفارش‌های پرداخت‌نشده‌ای که هنگام توقف نگه داشته شدند، بدون بازکردن فروش به وضعیت قبلی‌شان برمی‌گردند. برای بازگشت به بستهٔ قبلی، همین کافی است و لازم نیست فروش را باز کنید.', 'tecteb-marketplace-core')
+                . '</p>'
+                . '<p><button type="submit" name="storefront_action" value="release_orders" class="tmc-button">'
+                . esc_html__('بازگرداندن سفارش‌های نگه‌داشته (فروش بسته می‌ماند)', 'tecteb-marketplace-core') . '</button></p>';
+            echo '<p class="tmc-field__desc">'
+                . esc_html__('با «از سرگیری»، فروش دوباره باز می‌شود و فقط محصولاتی برمی‌گردند که هنوز شرایطشان برقرار است: فروشنده مجاز به فروش باشد، محصول منتشر باشد و کامل باشد. بقیه با ذکر علت بیرون می‌مانند.', 'tecteb-marketplace-core')
                 . '</p>'
                 . '<p><button type="submit" name="storefront_action" value="resume" class="tmc-button tmc-button--primary">'
                 . esc_html__('از سرگیری فروش بازارگاه', 'tecteb-marketplace-core') . '</button></p>';
@@ -215,7 +230,26 @@ final class StorefrontPage
         $actorId = get_current_user_id();
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
 
-        if ($request->postKey('storefront_action') === 'resume') {
+        $action = $request->postKey('storefront_action');
+
+        if ($action === 'release_orders') {
+            $result = $stop->releaseOrders($actorId);
+            if (!$result->ok) {
+                return 'err:' . sprintf(
+                    /* translators: 1: released count, 2: order numbers still held */
+                    __('%1$s سفارش برگشت، ولی سفارش(های) %2$s برنگشتند. وضعیتشان را در ووکامرس بررسی کنید؛ هیچ‌کدام لغو یا خالی نشده‌اند.', 'tecteb-marketplace-core'),
+                    $fa((string) $result->context['released']),
+                    $fa((string) $result->context['stuck'])
+                );
+            }
+            return 'ok:' . sprintf(
+                /* translators: %s: number of orders */
+                __('%s سفارش نگه‌داشته به وضعیت قبلی‌شان برگشتند و دوباره قابل پرداخت‌اند. فروش بازارگاه همچنان بسته است.', 'tecteb-marketplace-core'),
+                $fa((string) $result->context['released'])
+            );
+        }
+
+        if ($action === 'resume') {
             $outcome = $stop->resume($actorId);
             $refused = count($outcome['refused']);
             return 'ok:' . sprintf(
@@ -226,6 +260,9 @@ final class StorefrontPage
                 $fa((string) $outcome['orders_released'])
             );
         }
+        // «توقف» and «تلاش دوباره» are the same operation; the second name
+        // exists so a manager in the middle of a rollback can run it without
+        // wondering whether pressing «توقف» again will reopen anything.
         $result = $stop->stopAsResult(StorefrontSwitch::REASON_MANAGER, $actorId);
         if (!$result->ok) {
             // A partial stop is a failure, and the screen says so in the words

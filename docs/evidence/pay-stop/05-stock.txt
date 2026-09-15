@@ -1,0 +1,10 @@
+=== stock movement caused by holding an order ===
+before the hold: 10
+while held:      6
+after release:   10
+
+WooCommerce reduces stock on the way into on-hold and increases it on the
+way out (wc_maybe_reduce_stock_levels is hooked to
+woocommerce_order_status_on-hold). That is WooCommerce acting on its own
+rules in response to a status, not this plugin writing stock — and the
+release puts it back.

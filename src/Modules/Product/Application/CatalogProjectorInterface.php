@@ -44,6 +44,25 @@ interface CatalogProjectorInterface
      */
     public function withdraw(Product $product, string $reason = ''): bool;
 
+    /**
+     * Writes this plugin's link meta onto a storefront product it did NOT
+     * create — the one sanctioned write to a foreign post.
+     *
+     * Everything else in this interface refuses a post it does not own, and
+     * `owns()` is that refusal: it asks whether `_tmc_product_id` on the post
+     * names this row. A migrated product never has that meta, which is why a
+     * mapped Dokan product cannot be withdrawn, projected or guarded — and
+     * why «انتقال مالکیت عملیاتی» has to be able to write it.
+     *
+     * Only TransferOwnership calls this, only with a manager's capability, and
+     * only after the person has been told what it means. `releaseStorefrontPost()`
+     * removes the same meta and hands the post back.
+     */
+    public function claimStorefrontPost(Product $product, int $wcProductId): bool;
+
+    /** Undoes claimStorefrontPost(): the post stops being ours. */
+    public function releaseStorefrontPost(Product $product, int $wcProductId): bool;
+
     /** The stock WooCommerce holds right now, or null when there is no link. */
     public function readStock(Product $product): ?int;
 

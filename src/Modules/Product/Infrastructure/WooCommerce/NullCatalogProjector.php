@@ -42,6 +42,16 @@ final class NullCatalogProjector implements CatalogProjectorInterface
         return false;
     }
 
+    public function claimStorefrontPost(Product $product, int $wcProductId): bool
+    {
+        return false;
+    }
+
+    public function releaseStorefrontPost(Product $product, int $wcProductId): bool
+    {
+        return false;
+    }
+
     public function increaseStock(Product $product, int $by): ?int
     {
         return null;

@@ -8,15 +8,48 @@
  *
  * No `declare(strict_types=1)`: `wp eval-file` wraps this in eval().
  *
+ *   wp eval-file tools/safe-stop-order.php customer [login] [password]
  *   wp eval-file tools/safe-stop-order.php create <product-id> [product-id…]
+ *   wp eval-file tools/safe-stop-order.php create-for <customer-id> <product-id>…
  *   wp eval-file tools/safe-stop-order.php payable <order-id>
  */
 
 $command = (string) ($args[0] ?? '');
 
-if ($command === 'create') {
+if ($command === 'customer') {
+    // A real WordPress customer, because the fresh pay link this evidence
+    // needs lives behind «حساب من ← سفارش‌ها» and a guest order has no such
+    // page. Idempotent: the same login is reused across runs.
+    $login = (string) ($args[1] ?? 'tmcbuyer');
+    $password = (string) ($args[2] ?? 'TmcBuyer!2026');
+    $user = get_user_by('login', $login);
+    if (!$user) {
+        $userId = wp_insert_user([
+            'user_login' => $login,
+            'user_pass' => $password,
+            'user_email' => $login . '@example.test',
+            'role' => 'customer',
+        ]);
+        $user = get_user_by('id', $userId);
+    } else {
+        wp_set_password($password, $user->ID);
+    }
+    printf("customer=%d login=%s\n", (int) $user->ID, $login);
+    return;
+}
+
+if ($command === 'create' || $command === 'create-for') {
+    // `create-for <customer-id> <product-id>…` — a separate verb rather than a
+    // trailing optional id, because a product id and a user id are both just
+    // integers and guessing which one was meant is how a fixture silently
+    // stops testing what it claims to.
     $order = wc_create_order(['status' => 'pending']);
-    foreach (array_slice($args, 1) as $productId) {
+    $productArgs = array_slice($args, 1);
+    if ($command === 'create-for') {
+        $order->set_customer_id((int) ($args[1] ?? 0));
+        $productArgs = array_slice($args, 2);
+    }
+    foreach ($productArgs as $productId) {
         $product = wc_get_product((int) $productId);
         if ($product) {
             $order->add_product($product, 1);

@@ -6,39 +6,51 @@ namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 use Tecteb\Marketplace\Modules\Product\Application\UnpaidOrderGuardInterface;
 
 /**
- * Retires the pay link of every unpaid order that holds a marketplace item.
+ * Stops payment on every unpaid order that holds a marketplace item — in a way
+ * that survives this plugin being switched off.
  *
- * WooCommerce decides whether an `order-pay` link may take money by three
- * questions, and only three: is the order id real, does the key in the URL
- * match the key on the order, and does the order still need payment. It never
- * asks again whether the goods may still be sold — measured on WooCommerce
- * 11.0.1, `WC_Form_Handler::pay_action()` and `WC_Shortcode_Checkout`.
+ * WooCommerce decides whether an order may take money by three questions, and
+ * only three: is the order id real, does the key in the URL match the key on
+ * the order, and does the order still need payment. It never asks again
+ * whether the goods may still be sold (measured on WooCommerce 11.0.1,
+ * `WC_Form_Handler::pay_action()` and `WC_Shortcode_Checkout`).
  *
- * So the link is retired by rotating the order key, and that choice is worth
- * the sentence it takes to explain, because three more obvious ones are worse:
+ * **This class used to rotate the order key, and that was not enough.** It
+ * killed the link that had been e-mailed, and nothing more: a customer who
+ * opens «حساب من ← سفارش‌ها» gets a FRESH pay link built from the order's
+ * CURRENT key, and with this plugin deactivated nothing refuses it. The owner
+ * named that exactly — «تغییر order_key به‌تنهایی اثبات توقف پرداخت نیست» — and
+ * they were right. The evidence now buys with the fresh link, after
+ * deactivation, and it is the check that failed before this rewrite.
  *
- *  - **Cancelling the order** destroys a customer's order over a marketplace
- *    problem, and returns stock the shop may have counted on. Never.
- *  - **Moving it to `on-hold`** works — WooCommerce refuses payment for that
- *    status — but `on-hold` REDUCES stock on the way in and increases it on
- *    the way back, so a temporary stop would quietly move inventory numbers
- *    that belong to WooCommerce (ADR-008).
- *  - **A filter on `woocommerce_order_needs_payment`** is what this plugin
- *    already does while it runs, and is exactly the defence the owner ruled
- *    insufficient: it is gone the moment the plugin is.
+ * So the order is moved to `on-hold`, which is the one thing WooCommerce
+ * itself understands as "not payable": `WC_Order::needs_payment()` answers
+ * true only for `pending` and `failed`. No code of ours is involved in the
+ * refusal, so removing our code does not remove it.
  *
- * Rotating the key moves no money, no stock and no status. The order keeps
- * every line, every note and its whole history; a manager can still take
- * payment from wp-admin; and the old key is kept so that resuming puts back
- * the very link that was retired.
+ * The honest cost, measured and reported rather than hidden: WooCommerce
+ * reduces stock on the way into `on-hold` and increases it on the way out
+ * (`wc_maybe_reduce_stock_levels` is hooked to `woocommerce_order_status_on-hold`).
+ * That is WooCommerce acting on its own rules in response to a status, not
+ * this plugin writing stock — but it is a real movement and the release puts
+ * it back. Weighed against an unrecorded sale, holding the stock of an order
+ * the marketplace has stopped honouring is the safer half of the trade.
+ *
+ * What is NOT done, deliberately: the order is never cancelled, never emptied,
+ * never refunded. It keeps every line, every note and its total, the previous
+ * status is remembered so a release restores exactly it, and a manager can
+ * still take payment by hand from wp-admin at any time.
  *
  * Scope is the usual one: an order with no marketplace item is not read past
  * the question "is any of this ours?", and is never written.
  */
 final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
 {
-    /** Where the retired link is kept, so resume() can hand it back. */
-    public const PREVIOUS_KEY_META = '_tmc_stop_prev_order_key';
+    /** The status the order had before the hold, so a release restores it. */
+    public const PREVIOUS_STATUS_META = '_tmc_stop_prev_status';
+
+    /** The status WooCommerce itself will not take payment for. */
+    public const HELD_STATUS = 'on-hold';
 
     /** Order statuses WooCommerce will take payment for (WC_Order::needs_payment). */
     private const PAYABLE_STATUSES = ['pending', 'failed'];
@@ -54,20 +66,22 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
         foreach ($this->unpaidMarketplaceOrders() as $order) {
             $examined++;
             $orderId = (int) $order->get_id();
-            if ((string) $order->get_meta(self::PREVIOUS_KEY_META) !== '') {
-                continue;       // already retired by an earlier stop
+            if ((string) $order->get_meta(self::PREVIOUS_STATUS_META) !== '') {
+                continue;       // already held by an earlier stop
             }
-            $previous = (string) $order->get_order_key();
+            $previous = (string) $order->get_status();
             try {
-                $order->update_meta_data(self::PREVIOUS_KEY_META, $previous);
-                $order->set_order_key(\wc_generate_order_key());
-                $order->add_order_note($this->note($reason));
+                $order->update_meta_data(self::PREVIOUS_STATUS_META, $previous);
                 $order->save();
+                // update_status(), not set_status(): the transition hooks are
+                // the point. WooCommerce's own rules about a held order —
+                // including the stock it holds — are what make this survive us.
+                $order->update_status(self::HELD_STATUS, $this->note($reason), true);
             } catch (\Throwable) {
                 // Fall through to the verification below: what the order says
                 // afterwards is the only answer that counts.
             }
-            if ($this->linkStillWorks($orderId, $previous)) {
+            if ($this->statusOf($orderId) !== self::HELD_STATUS) {
                 $stuck[] = $orderId;
                 continue;
             }
@@ -80,20 +94,28 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
     {
         $released = 0;
         $stuck = [];
-        foreach ($this->retiredOrders() as $order) {
+        foreach ($this->heldOrders() as $order) {
             $orderId = (int) $order->get_id();
-            $previous = (string) $order->get_meta(self::PREVIOUS_KEY_META);
+            $previous = (string) $order->get_meta(self::PREVIOUS_STATUS_META);
             if ($previous === '') {
                 continue;
             }
-            try {
-                $order->set_order_key($previous);
-                $order->delete_meta_data(self::PREVIOUS_KEY_META);
+            if ((string) $order->get_status() !== self::HELD_STATUS) {
+                // Somebody moved it on while it was held — paid it by hand,
+                // cancelled it, completed it. That decision outranks ours, so
+                // the note is dropped and the order is left exactly as it is.
+                $order->delete_meta_data(self::PREVIOUS_STATUS_META);
                 $order->save();
-            } catch (\Throwable) {
-                // Same as above: measured, not assumed.
+                continue;
             }
-            if (!$this->linkStillWorks($orderId, $previous)) {
+            try {
+                $order->delete_meta_data(self::PREVIOUS_STATUS_META);
+                $order->save();
+                $order->update_status($previous, $this->releaseNote(), true);
+            } catch (\Throwable) {
+                // Measured, not assumed.
+            }
+            if ($this->statusOf($orderId) !== $previous) {
                 $stuck[] = $orderId;
                 continue;
             }
@@ -106,7 +128,7 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
     {
         $open = [];
         foreach ($this->unpaidMarketplaceOrders() as $order) {
-            if ((string) $order->get_meta(self::PREVIOUS_KEY_META) === '') {
+            if ((string) $order->get_meta(self::PREVIOUS_STATUS_META) === '') {
                 $open[] = (int) $order->get_id();
             }
         }
@@ -114,21 +136,34 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
     }
 
     /**
-     * Re-read from storage: whether the link that was mailed out still opens
-     * this order. `wc_get_order` is called with the cache cleared so that the
-     * object we just saved is not the one answering for itself.
+     * The order's status, re-read from storage.
+     *
+     * Deliberately the STATUS and not `needs_payment()`, and the difference
+     * cost a wrong answer in both directions before it was noticed:
+     *
+     *  - Verifying a hold with `needs_payment()` would let a FAILED hold look
+     *    successful, because this plugin's own live filter on
+     *    `woocommerce_order_needs_payment` already answers false while selling
+     *    is stopped. The hold would report success and the order would go back
+     *    to taking money the moment the plugin was removed — which is the
+     *    entire failure this class exists to prevent.
+     *  - Verifying a release with it reported a correct release as STUCK, for
+     *    the same reason: the order really was back to `pending`, and our own
+     *    filter was still saying "no payment needed" because the marketplace
+     *    was still shut.
+     *
+     * The status is the fact that outlives this plugin, so the status is what
+     * is checked. The cache is cleared first so the object just saved is not
+     * the one answering for itself.
      */
-    private function linkStillWorks(int $orderId, string $mailedKey): bool
+    private function statusOf(int $orderId): string
     {
         if (function_exists('wp_cache_delete')) {
             wp_cache_delete($orderId, 'orders');
             wp_cache_delete($orderId, 'posts');
         }
         $fresh = \wc_get_order($orderId);
-        if (!$fresh) {
-            return false;
-        }
-        return hash_equals((string) $fresh->get_order_key(), $mailedKey);
+        return $fresh ? (string) $fresh->get_status() : '';
     }
 
     /**
@@ -145,13 +180,14 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
         }
     }
 
-    /** @return iterable<object> the orders whose link this guard retired */
-    private function retiredOrders(): iterable
+    /** @return iterable<object> the orders this guard put on hold */
+    private function heldOrders(): iterable
     {
-        // Any status: an order paid by hand in wp-admin while selling was
-        // stopped still has our meta on it and still deserves its key back.
+        // Any status, not just `on-hold`: an order somebody paid by hand while
+        // selling was stopped still carries our note, and the note has to go
+        // even though the status must not be touched.
         foreach ($this->ordersByStatus(array_keys(\wc_get_order_statuses())) as $order) {
-            if ((string) $order->get_meta(self::PREVIOUS_KEY_META) !== '') {
+            if ((string) $order->get_meta(self::PREVIOUS_STATUS_META) !== '') {
                 yield $order;
             }
         }
@@ -206,8 +242,13 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
     {
         return sprintf(
             /* translators: %s: the recorded reason selling stopped */
-            __('لینک پرداخت این سفارش بازنشسته شد چون فروش بازارگاه متوقف است (%s). سفارش، اقلام و سابقهٔ آن تغییری نکرده و با از سرگیری فروش، همان لینک قبلی بازمی‌گردد.', 'tecteb-marketplace-core'),
+            __('این سفارش در انتظار نگه داشته شد چون فروش بازارگاه متوقف است (%s). سفارش، اقلام و مبلغش تغییری نکرده و لغو نشده؛ فقط تا تعیین تکلیف، پرداخت تازه‌ای روی آن انجام نمی‌شود. با «بازگرداندن سفارش‌های نگه‌داشته» همین سفارش به وضعیت قبلی‌اش برمی‌گردد.', 'tecteb-marketplace-core'),
             $reason
         );
+    }
+
+    private function releaseNote(): string
+    {
+        return __('این سفارش به وضعیت پیش از توقف فروش بازگردانده شد و دوباره قابل پرداخت است.', 'tecteb-marketplace-core');
     }
 }

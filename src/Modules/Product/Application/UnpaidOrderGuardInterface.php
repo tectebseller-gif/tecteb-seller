@@ -11,14 +11,19 @@ namespace Tecteb\Marketplace\Modules\Product\Application;
  * draft product by itself, with none of our code present. An unpaid order is
  * different. `WC_Form_Handler::pay_action()` checks the order key, the order
  * status and the gateway; it never asks again whether the products are still
- * purchasable. So a `order-pay` link mailed before the stop still takes money
- * afterwards — and while this plugin is active a filter of ours refuses it,
- * which is exactly the kind of defence the owner ruled insufficient: «پرچمی
- * که فقط افزونهٔ فعال می‌خواند کافی نیست».
+ * purchasable. So an unpaid order still takes money afterwards — and while
+ * this plugin is active a filter of ours refuses it, which is exactly the
+ * kind of defence the owner ruled insufficient: «پرچمی که فقط افزونهٔ فعال
+ * می‌خواند کافی نیست».
  *
- * The durable act is to move those orders to a status WooCommerce itself will
- * not take payment for, and to remember which ones we moved so that resuming
- * puts back exactly those and nothing else.
+ * Nor is killing the e-mailed link enough, which is the second thing this
+ * interface learned: a customer who opens «حساب من ← سفارش‌ها» is handed a
+ * FRESH pay link built from the order's current key. Anything that only
+ * invalidates one URL leaves that door open.
+ *
+ * The durable act is therefore about the ORDER, not about a link: move it to a
+ * status WooCommerce itself will not take payment for, and remember which ones
+ * were moved so a release restores exactly those and nothing else.
  *
  * Two rules bound every implementation:
  *

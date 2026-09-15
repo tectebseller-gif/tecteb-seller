@@ -15,8 +15,10 @@ use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
+use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpDokanReader;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MigrationPage;
+use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 
@@ -48,6 +50,12 @@ final class MigrationModule implements ModuleInterface
     {
         $c->bind(DokanReaderInterface::class, static fn (ContainerInterface $c) => new WpDokanReader(
             $c->get(DatabaseInterface::class)
+        ));
+        $c->bind(TransferOwnership::class, static fn (ContainerInterface $c) => new TransferOwnership(
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(CatalogProjectorInterface::class),
+            $c->get(AuditLogger::class),
+            $c->get(CapabilityCheckerInterface::class)
         ));
         $c->bind(ImportFromDokan::class, static fn (ContainerInterface $c) => new ImportFromDokan(
             $c->get(DokanReaderInterface::class),

@@ -30,6 +30,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepositor
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbVariationRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbStaffRepository;
@@ -79,6 +80,7 @@ final class EngagementFlowTest extends DatabaseTestCase
         (new M0003CreateStoreAndStaffTables())->up($db);
         (new M0005CreateProductTables())->up($db);
         (new M0006CatalogAndOrders())->up($db);
+        (new M0010LinkOwnership())->up($db);
         (new M0009EngagementTables())->up($db);
 
         $clock = new SystemClock();

@@ -1,0 +1,5 @@
+ok:   the customer can see their own orders — order 126
+    fresh link offered: (none)
+ok:   the fresh link from the account is REFUSED — after-deactivation: no pay button is even offered
+
+after-deactivation — 2 checks, 0 failures

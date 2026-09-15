@@ -31,6 +31,15 @@ final class WooCommerceProjector implements CatalogProjectorInterface
 {
     public const PRODUCT_META = '_tmc_product_id';
     public const VENDOR_META = '_tmc_vendor_id';
+
+    /**
+     * The status a claimed post had before this plugin took it over.
+     *
+     * Only ever written by claimStorefrontPost(), and only for a post this
+     * plugin did not create. It is what makes «انتقال مالکیت عملیاتی»
+     * reversible rather than one-way.
+     */
+    public const CLAIMED_FROM_STATUS_META = '_tmc_claimed_from_status';
     public const VARIATION_META = '_tmc_variation_id';
     /** Marketplace categories live under their own slugs, so no shop term is renamed. */
     public const CATEGORY_SLUG_PREFIX = 'tmc-';
@@ -200,6 +209,59 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             return false;
         }
         return true;
+    }
+
+    public function claimStorefrontPost(Product $product, int $wcProductId): bool
+    {
+        if (!$this->isAvailable() || $wcProductId <= 0) {
+            return false;
+        }
+        $post = get_post($wcProductId);
+        if ($post === null || !in_array($post->post_type, ['product', 'product_variation'], true)) {
+            return false;
+        }
+        $existing = (int) get_post_meta($wcProductId, self::PRODUCT_META, true);
+        if ($existing > 0 && $existing !== $product->id) {
+            // Another marketplace row already owns this post. Two owners is
+            // not a state any later question could resolve.
+            return false;
+        }
+        // The ONLY write this plugin ever makes to a post it did not create,
+        // and it writes exactly three keys: the link, the vendor, and the
+        // status the post had at this moment. Nothing about the product
+        // itself — not its title, price, stock or author — is touched.
+        //
+        // The third key is what makes the transfer reversible, and it was
+        // added because leaving it out was measurably not reversible: take
+        // ownership, stop selling, give ownership back, and the Dokan
+        // vendor's product stayed a draft with nothing left to restore it.
+        update_post_meta($wcProductId, self::PRODUCT_META, $product->id);
+        update_post_meta($wcProductId, self::VENDOR_META, $product->vendorUserId);
+        if (get_post_meta($wcProductId, self::CLAIMED_FROM_STATUS_META, true) === '') {
+            update_post_meta($wcProductId, self::CLAIMED_FROM_STATUS_META, (string) get_post_status($wcProductId));
+        }
+        clean_post_cache($wcProductId);
+        return $this->owns($wcProductId, $product->id);
+    }
+
+    public function releaseStorefrontPost(Product $product, int $wcProductId): bool
+    {
+        if (!$this->isAvailable() || !$this->owns($wcProductId, $product->id)) {
+            return false;
+        }
+        // Put the post back the way it was found, THEN stop owning it. A
+        // product taken over, withdrawn by a stop and then handed back must
+        // not be left on the shelf as a draft: from the shop's point of view
+        // the whole episode has to be undoable.
+        $claimedFrom = (string) get_post_meta($wcProductId, self::CLAIMED_FROM_STATUS_META, true);
+        if ($claimedFrom !== '' && (string) get_post_status($wcProductId) !== $claimedFrom) {
+            wp_update_post(['ID' => $wcProductId, 'post_status' => $claimedFrom]);
+        }
+        delete_post_meta($wcProductId, self::PRODUCT_META);
+        delete_post_meta($wcProductId, self::VENDOR_META);
+        delete_post_meta($wcProductId, self::CLAIMED_FROM_STATUS_META);
+        clean_post_cache($wcProductId);
+        return !$this->owns($wcProductId, $product->id);
     }
 
     public function increaseStock(Product $product, int $by): ?int

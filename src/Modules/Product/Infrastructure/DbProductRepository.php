@@ -9,7 +9,9 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
+use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
 
 /**
@@ -21,6 +23,16 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProd
  */
 final class DbProductRepository implements ProductRepositoryInterface
 {
+    /**
+     * The scope every "is this ours?" query carries.
+     *
+     * Written as constants rather than repeated strings so that adding a
+     * query which forgets the scope is a visible omission rather than an
+     * invisible one.
+     */
+    private const OWNED = M0010LinkOwnership::COLUMN . " = '" . 'marketplace' . "'";
+    private const OBSERVED = M0010LinkOwnership::COLUMN . " = '" . 'observed' . "'";
+
     public function __construct(
         private readonly DatabaseInterface $db,
         private readonly ClockInterface $clock
@@ -120,13 +132,21 @@ final class DbProductRepository implements ProductRepositoryInterface
         );
     }
 
-    public function create(int $vendorUserId, ProductDetails $details, ProductStatus $status): int
-    {
+    public function create(
+        int $vendorUserId,
+        ProductDetails $details,
+        ProductStatus $status,
+        LinkOwnership $ownership = LinkOwnership::Marketplace
+    ): int {
         $now = $this->now();
         [$columns, $placeholders, $params] = $this->detailColumns($details);
         $sql = 'INSERT INTO `' . $this->products() . '` (vendor_user_id, ' . implode(', ', $columns)
-            . ', status, created_at, updated_at) VALUES (%d, ' . implode(', ', $placeholders) . ', %s, %s, %s)';
-        $ok = $this->db->execute($sql, array_merge([$vendorUserId], $params, [$status->value, $now, $now]));
+            . ', status, ' . M0010LinkOwnership::COLUMN . ', created_at, updated_at) VALUES (%d, '
+            . implode(', ', $placeholders) . ', %s, %s, %s, %s)';
+        $ok = $this->db->execute(
+            $sql,
+            array_merge([$vendorUserId], $params, [$status->value, $ownership->value, $now, $now])
+        );
         if ($ok === null) {
             return 0;
         }
@@ -273,13 +293,64 @@ final class DbProductRepository implements ProductRepositoryInterface
         ) !== null;
     }
 
+    /**
+     * The marketplace row that OWNS this storefront product, if any.
+     *
+     * Scoped to owned links on purpose. This is the question the purchase
+     * guard, the projector and the storefront stop all end at, and an
+     * `observed` row — a Dokan product a migration merely mapped — must answer
+     * "not ours" to every one of them. Before this scope existed, a dry-run
+     * import made another plugin's product unpurchasable.
+     */
     public function findByWcProduct(int $wcProductId): ?Product
     {
         if ($wcProductId <= 0) {
             return null;
         }
-        $row = $this->db->getRow('SELECT * FROM `' . $this->products() . '` WHERE wc_product_id = %d', [$wcProductId]);
+        $row = $this->db->getRow(
+            'SELECT * FROM `' . $this->products() . '` WHERE wc_product_id = %d AND ' . self::OWNED,
+            [$wcProductId]
+        );
         return $row === null ? null : $this->hydrate($row);
+    }
+
+    /** The row that merely POINTS at this storefront product, if any. */
+    public function findObservedByWcProduct(int $wcProductId): ?Product
+    {
+        if ($wcProductId <= 0) {
+            return null;
+        }
+        $row = $this->db->getRow(
+            'SELECT * FROM `' . $this->products() . '` WHERE wc_product_id = %d AND ' . self::OBSERVED,
+            [$wcProductId]
+        );
+        return $row === null ? null : $this->hydrate($row);
+    }
+
+    /** @return list<Product> rows a migration mapped but nobody took over */
+    public function observed(int $limit = 200): array
+    {
+        return array_map([$this, 'hydrate'], $this->db->getResults(
+            'SELECT * FROM `' . $this->products() . '` WHERE ' . self::OBSERVED . ' ORDER BY id ASC LIMIT %d',
+            [max(1, $limit)]
+        ));
+    }
+
+    public function linkOwnership(int $productId): LinkOwnership
+    {
+        $value = (string) $this->db->getVar(
+            'SELECT ' . M0010LinkOwnership::COLUMN . ' FROM `' . $this->products() . '` WHERE id = %d',
+            [$productId]
+        );
+        return LinkOwnership::tryFrom($value) ?? LinkOwnership::Marketplace;
+    }
+
+    public function setLinkOwnership(int $productId, LinkOwnership $ownership): bool
+    {
+        return $this->db->execute(
+            'UPDATE `' . $this->products() . '` SET ' . M0010LinkOwnership::COLUMN . ' = %s, updated_at = %s WHERE id = %d',
+            [$ownership->value, $this->now(), $productId]
+        ) !== null;
     }
 
     public function mirrorStock(int $productId, int $stock): bool
@@ -301,15 +372,24 @@ final class DbProductRepository implements ProductRepositoryInterface
     public function allForVendor(int $vendorUserId): array
     {
         return array_map([$this, 'hydrate'], $this->db->getResults(
-            'SELECT * FROM `' . $this->products() . '` WHERE vendor_user_id = %d ORDER BY id ASC',
+            'SELECT * FROM `' . $this->products() . '` WHERE vendor_user_id = %d AND ' . self::OWNED . ' ORDER BY id ASC',
             [$vendorUserId]
         ));
     }
 
+    /**
+     * Every product this marketplace has on the storefront — and only those.
+     *
+     * The storefront stop walks this list and drafts what it finds, so an
+     * `observed` row here would mean a stop taking another plugin's product
+     * off sale. That is the single most damaging thing the ownership column
+     * prevents, so the scope is not optional.
+     */
     public function projected(int $limit = 500): array
     {
         return array_map([$this, 'hydrate'], $this->db->getResults(
-            'SELECT * FROM `' . $this->products() . '` WHERE wc_product_id IS NOT NULL ORDER BY id ASC LIMIT %d',
+            'SELECT * FROM `' . $this->products() . '` WHERE wc_product_id IS NOT NULL AND ' . self::OWNED
+            . ' ORDER BY id ASC LIMIT %d',
             [max(1, $limit)]
         ));
     }

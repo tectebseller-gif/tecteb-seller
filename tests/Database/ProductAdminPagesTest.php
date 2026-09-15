@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0004CreateFinanceTables;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\ProductReviewPage;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\SpecTemplatesPage;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
@@ -40,6 +41,7 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         (new M0003CreateStoreAndStaffTables())->up($db);
         (new M0004CreateFinanceTables())->up($db);
         (new M0005CreateProductTables())->up($db);
+        (new M0010LinkOwnership())->up($db);
     }
 
     public function testTheReviewPageSeparatesTheTwoQueuesAndTheTwoPermissions(): void

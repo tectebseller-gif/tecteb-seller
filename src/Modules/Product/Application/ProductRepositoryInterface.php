@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Product\Application;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
+use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 
 /**
@@ -45,7 +46,17 @@ interface ProductRepositoryInterface
     public function countInStatus(ProductStatus $status): int;
 
     /** @return int the new product id, or 0 when the insert failed */
-    public function create(int $vendorUserId, ProductDetails $details, ProductStatus $status): int;
+    /**
+     * @param LinkOwnership $ownership whether this row will OWN the storefront
+     *        product it is later linked to. Everything the marketplace's own
+     *        flow creates is `Marketplace`; only a migration writes `Observed`.
+     */
+    public function create(
+        int $vendorUserId,
+        ProductDetails $details,
+        ProductStatus $status,
+        LinkOwnership $ownership = LinkOwnership::Marketplace
+    ): int;
 
     public function updateDetails(int $productId, ProductDetails $details): bool;
 
@@ -78,7 +89,24 @@ interface ProductRepositoryInterface
      */
     public function link(int $productId, ?int $wcProductId): bool;
 
+    /**
+     * The row that OWNS this storefront product — never one that merely maps
+     * it. Every purchase decision ends here, so an `observed` row answering
+     * this question is how a migration silently takes over another plugin's
+     * catalogue.
+     */
     public function findByWcProduct(int $wcProductId): ?Product;
+
+    /** The row that merely POINTS at this storefront product, if any. */
+    public function findObservedByWcProduct(int $wcProductId): ?Product;
+
+    /** @return list<Product> rows a migration mapped but nobody took over */
+    public function observed(int $limit = 200): array;
+
+    public function linkOwnership(int $productId): LinkOwnership;
+
+    /** The explicit transfer, in both directions. Never called implicitly. */
+    public function setLinkOwnership(int $productId, LinkOwnership $ownership): bool;
 
     /**
      * Mirrors the stock WooCommerce now holds onto the marketplace row.

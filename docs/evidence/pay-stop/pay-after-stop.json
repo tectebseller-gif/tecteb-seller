@@ -1,0 +1,18 @@
+{
+  "phase": "after-stop",
+  "expect": "refused",
+  "fresh_url": "",
+  "takes_money": "no-link",
+  "results": [
+    {
+      "name": "the customer can see their own orders",
+      "ok": true,
+      "detail": "order 126"
+    },
+    {
+      "name": "the fresh link from the account is REFUSED",
+      "ok": true,
+      "detail": "after-stop: no pay button is even offered"
+    }
+  ]
+}

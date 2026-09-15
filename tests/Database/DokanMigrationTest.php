@@ -14,15 +14,19 @@ use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanMigrationPlan;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
+use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
+use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
+use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
 use Tecteb\Marketplace\Tests\Support\FakeDokanReader;
 
 /**
@@ -40,6 +44,8 @@ final class DokanMigrationTest extends DatabaseTestCase
     private const SELLER = 401;
 
     private ImportFromDokan $migration;
+    private TransferOwnership $transfer;
+    private FakeCatalogProjector $storefront;
     private DbProductRepository $products;
     private DbVendorRepository $vendors;
     private FakeDokanReader $dokan;
@@ -61,6 +67,7 @@ final class DokanMigrationTest extends DatabaseTestCase
         (new M0003CreateStoreAndStaffTables())->up($db);
         (new M0005CreateProductTables())->up($db);
         (new M0006CatalogAndOrders())->up($db);
+        (new M0010LinkOwnership())->up($db);
 
         $clock = new SystemClock();
         $options = new WpOptionStore();
@@ -78,6 +85,13 @@ final class DokanMigrationTest extends DatabaseTestCase
             ['wc_order_id' => 5501, 'vendor_user_id' => self::SELLER, 'status' => 'completed', 'total_minor' => 120000],
         ];
 
+        $this->storefront = new FakeCatalogProjector();
+        $this->transfer = new TransferOwnership(
+            $this->products,
+            $this->storefront,
+            new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock),
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR])
+        );
         $this->migration = new ImportFromDokan(
             $this->dokan,
             $this->vendors,
@@ -120,11 +134,19 @@ final class DokanMigrationTest extends DatabaseTestCase
         self::assertSame('داروخانه دکان', $profile->storeName);
         self::assertFalse($profile->canSell, 'imported, not yet trading');
 
-        $imported = $this->products->allForVendor(self::SELLER);
+        // NOT in allForVendor(): an imported row is `observed`, and every
+        // "is this ours?" query — the vendor's catalogue, the purchase guard,
+        // the storefront stop — must skip it. That scope is the fix for a real
+        // measured bug: a dry-run import made Dokan's product unpurchasable.
+        self::assertSame([], $this->products->allForVendor(self::SELLER), 'not the shop\'s catalogue yet');
+        self::assertNull($this->products->findByWcProduct(991), 'and not ours to decide about');
+
+        $imported = $this->products->observed();
         self::assertCount(1, $imported);
         self::assertSame(ProductStatus::Draft, $imported[0]->status, 'nothing appears on the storefront');
         self::assertSame(991, $imported[0]->wcProductId, 'the id and the URL a customer bookmarked still work');
         self::assertSame('DK-1', $imported[0]->details->sku);
+        self::assertSame(LinkOwnership::Observed, $this->products->linkOwnership($imported[0]->id));
     }
 
     public function testARollbackRemovesExactlyWhatThatRunCreated(): void
@@ -144,7 +166,8 @@ final class DokanMigrationTest extends DatabaseTestCase
         self::assertTrue($rolled->ok, $rolled->code);
         self::assertSame(1, $rolled->context['products']);
         self::assertNotNull($this->products->find($ours), 'a row this run did not make is untouched');
-        self::assertCount(1, $this->products->allForVendor(self::SELLER));
+        self::assertCount(1, $this->products->allForVendor(self::SELLER), 'only our own row is left');
+        self::assertSame([], $this->products->observed(), 'and nothing mapped remains');
         self::assertSame([], $this->migration->runs(), 'and the run is gone from the manifest');
     }
 
@@ -152,7 +175,7 @@ final class DokanMigrationTest extends DatabaseTestCase
     public function testARollbackWillNotRemoveAProductSomebodyPublished(): void
     {
         $runId = (string) $this->migration->import($this->migration->plan())->context['run_id'];
-        $imported = $this->products->allForVendor(self::SELLER)[0];
+        $imported = $this->products->observed()[0];
         $this->products->updateStatus($imported->id, ProductStatus::Published);
 
         $rolled = $this->migration->rollback($runId);
@@ -191,8 +214,92 @@ final class DokanMigrationTest extends DatabaseTestCase
 
         self::assertSame(0, $second->summary()['products'], 'nothing left to import');
         self::assertSame(DokanMigrationPlan::SKIP, $second->products[0]['verdict']);
-        self::assertSame('already_linked_to_a_marketplace_row', $second->products[0]['reason']);
+        self::assertSame('already_mapped_by_an_earlier_run', $second->products[0]['reason']);
         self::assertSame(DokanMigrationPlan::SKIP, $second->vendors[0]['verdict']);
+    }
+
+    /**
+     * The bug this whole column exists for, in one test.
+     *
+     * A row that merely maps a product must be invisible to the two questions
+     * that decide whether somebody else's shop keeps working: "whose product
+     * is this?" and "what is on our shelf?". Measured on a real site before
+     * the fix, the answers were "ours" and "this one" — so Dokan's vendor
+     * product went unpurchasable and a stop would have drafted it.
+     */
+    public function testAMappedProductIsInvisibleToEverythingThatDecidesAboutSelling(): void
+    {
+        $this->migration->import($this->migration->plan());
+
+        self::assertNull($this->products->findByWcProduct(991), 'not ours to guard');
+        self::assertSame([], $this->products->projected(), 'not on our shelf to withdraw');
+        self::assertSame([], $this->products->allForVendor(self::SELLER), 'not in a vendor catalogue');
+        self::assertCount(1, $this->products->observed(), 'but the mapping is there to be read');
+    }
+
+    /** …and an explicit transfer is the one thing that changes all three. */
+    public function testAnExplicitTransferIsWhatMakesItOurs(): void
+    {
+        $this->migration->import($this->migration->plan());
+        $productId = $this->products->observed()[0]->id;
+
+        $taken = $this->transfer->take($productId);
+        self::assertTrue($taken->ok, $taken->code);
+        self::assertSame(991, $taken->context['wc_product_id']);
+
+        self::assertNotNull($this->products->findByWcProduct(991), 'now ours to guard');
+        self::assertCount(1, $this->products->projected(), 'now on our shelf');
+        self::assertSame([], $this->products->observed(), 'and no longer merely mapped');
+
+        // …and reversible, in the same explicit way.
+        $given = $this->transfer->giveBack($productId);
+        self::assertTrue($given->ok, $given->code);
+        self::assertNull($this->products->findByWcProduct(991));
+        self::assertCount(1, $this->products->observed());
+    }
+
+    public function testTransferringTwiceSaysSoRatherThanPretending(): void
+    {
+        $this->migration->import($this->migration->plan());
+        $productId = $this->products->observed()[0]->id;
+        self::assertTrue($this->transfer->take($productId)->ok);
+
+        $again = $this->transfer->take($productId);
+        self::assertFalse($again->ok);
+        self::assertSame('ownership_already', $again->code);
+        self::assertSame('marketplace', $again->context['ownership']);
+    }
+
+    /** A product somebody took over is no longer a trial copy to delete. */
+    public function testARollbackKeepsAProductWhoseOwnershipWasTransferred(): void
+    {
+        $runId = (string) $this->migration->import($this->migration->plan())->context['run_id'];
+        $productId = $this->products->observed()[0]->id;
+        self::assertTrue($this->transfer->take($productId)->ok);
+
+        $rolled = $this->migration->rollback($runId);
+
+        self::assertFalse($rolled->ok);
+        self::assertSame('rollback_kept_transferred', $rolled->code);
+        self::assertSame((string) $productId, $rolled->context['kept']);
+        self::assertNotNull($this->products->find($productId), 'it is still there');
+    }
+
+    public function testOnlyAManagerMayTransferOwnership(): void
+    {
+        $this->migration->import($this->migration->plan());
+        $productId = $this->products->observed()[0]->id;
+
+        $vendorSide = new TransferOwnership(
+            $this->products,
+            $this->storefront,
+            new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), new SystemClock()),
+            new FakeCapabilityChecker(self::SELLER, [])
+        );
+        $refused = $vendorSide->take($productId);
+        self::assertFalse($refused->ok);
+        self::assertSame('forbidden', $refused->code);
+        self::assertSame(LinkOwnership::Observed, $this->products->linkOwnership($productId));
     }
 
     public function testWithoutTheManagersCapabilityNothingRunsAtAll(): void
