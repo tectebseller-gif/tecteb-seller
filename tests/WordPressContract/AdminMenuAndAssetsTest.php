@@ -45,6 +45,9 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             // the vendor's own page); what a MANAGER decides is.
             ['tmc-tickets', 'tmc_review_vendor', 'تیکت فروشندگان'],
             ['tmc-wholesale', 'tmc_review_vendor', 'خریداران عمده'],
+            // The slug carries no other plugin's name — the assertion below
+            // enforces that, so «مهاجرت از دکان» is the label, not the id.
+            ['tmc-import', 'tmc_review_vendor', 'مهاجرت از دکان'],
         ];
         self::assertCount(count($expected), $subs);
         foreach ($expected as $i => [$slug, $cap, $label]) {

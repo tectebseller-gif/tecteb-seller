@@ -1,0 +1,7 @@
+=== Dokan migration: dry run, trial import, and the way back ===
+name	status	version
+dokan-lite	active	5.1.1
+hello	inactive	1.7.2
+tecteb-marketplace-core	active	0.1.0-alpha.8
+woocommerce	active	11.0.1
+tmc-stop-failure-probe	must-use	

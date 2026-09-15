@@ -64,6 +64,7 @@ use Tecteb\Marketplace\Modules\Order\Infrastructure\DbShipmentRepository;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0008ShipmentsAndReturns;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
 use Tecteb\Marketplace\Modules\Marketplace\MarketplaceModule;
+use Tecteb\Marketplace\Modules\Migration\MigrationModule;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0009EngagementTables;
 use Tecteb\Marketplace\Modules\Product\ProductModule;
 use Tecteb\Marketplace\Modules\Vendor\VendorModule;
@@ -369,12 +370,14 @@ final class Bootstrap
         $registry->add(new FinanceModule());
         $registry->add(new ProductModule());
         $registry->add(new MarketplaceModule());
+        $registry->add(new MigrationModule());
         $registry->add(new OrderModule());
 
         // Roadmap only (CORE-02): no code, no hooks, no activation button.
+        // «migration» left this list when the real module arrived — a planned
+        // entry beside a real one of the same id would show the roadmap twice.
         $planned = [
             ['settlement', 'تسویه و برداشت', true],
-            ['migration', 'مهاجرت از دکان', true],
         ];
         foreach ($planned as [$id, $label, $needsWc]) {
             $registry->addPlanned(new ModuleManifest($id, '0.0.0', $label, ModuleKind::Planned, ['core', 'environment-guard'], $needsWc));

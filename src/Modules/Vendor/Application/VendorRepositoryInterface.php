@@ -35,4 +35,14 @@ interface VendorRepositoryInterface
 
     /** Idempotent: approving twice must not create two vendors. */
     public function upsertProfile(int $userId, string $storeName, bool $canSell, bool $canPublishDirectly): int;
+
+    /**
+     * Removes a store profile that has nothing behind it.
+     *
+     * Refuses — and answers false — when the vendor has an application, any
+     * product, or any staff. Only a profile a migration trial created and
+     * nobody has used can go, and the WordPress USER is never touched: they
+     * were Dokan's before the trial and are Dokan's after it.
+     */
+    public function deleteEmptyProfile(int $userId): bool;
 }

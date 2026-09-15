@@ -184,6 +184,29 @@ final class DbVendorRepository implements VendorRepositoryInterface
         );
     }
 
+    public function deleteEmptyProfile(int $userId): bool
+    {
+        if ($this->findApplicationByUser($userId) !== null) {
+            return false;
+        }
+        $prefix = $this->db->prefix();
+        // Asked of the tables directly rather than through the product and
+        // staff repositories: this runs inside a rollback, and a rollback that
+        // needed three more services to answer "is this shop empty?" would be
+        // a rollback that could fail for a reason unrelated to the data.
+        foreach (['tmc_products' => 'vendor_user_id', 'tmc_vendor_staff' => 'vendor_user_id'] as $table => $column) {
+            $name = $prefix . $table;
+            if ((string) $this->db->getVar('SHOW TABLES LIKE %s', [$name]) !== $name) {
+                continue;
+            }
+            if ((int) $this->db->getVar('SELECT COUNT(*) FROM `' . $name . '` WHERE ' . $column . ' = %d', [$userId]) > 0) {
+                return false;
+            }
+        }
+        $removed = $this->db->execute('DELETE FROM `' . $this->profiles() . '` WHERE user_id = %d', [$userId]);
+        return $removed !== null && $removed > 0;
+    }
+
     private function applications(): string
     {
         return T::table($this->db, T::APPLICATIONS);

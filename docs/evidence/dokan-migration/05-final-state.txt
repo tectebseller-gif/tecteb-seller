@@ -1,0 +1,9 @@
+=== after the round trip ===
+plan run=dokan-20260915-181148 vendors=1 products=1 orders=4 conflicts=0 skipped=4 clean=true
+  vendor dokan=13 verdict=import reason=- target=tmc_vendor:new title=
+  product dokan=79 verdict=import reason=- target=tmc_product:new → wc:79 title=کالای فروشندهٔ دکان
+  order dokan=85 verdict=skip reason=historic_commission_not_recomputed target=wc_order:85 title=85
+  order dokan=86 verdict=skip reason=historic_commission_not_recomputed target=wc_order:86 title=86
+  order dokan=100 verdict=skip reason=historic_commission_not_recomputed target=wc_order:100 title=100
+  order dokan=101 verdict=skip reason=historic_commission_not_recomputed target=wc_order:101 title=101
+runs count=0

@@ -402,6 +402,24 @@ final class DbProductRepository implements ProductRepositoryInterface
         );
     }
 
+    public function deleteDraft(int $productId): bool
+    {
+        $product = $this->find($productId);
+        if ($product === null || $product->status !== ProductStatus::Draft) {
+            return false;
+        }
+        // The specs and images go with it — they are rows OF this draft, not
+        // records about it. The WooCommerce post the link points at is not
+        // touched: it was never ours to remove.
+        $this->db->execute('DELETE FROM `' . $this->specsTable() . '` WHERE product_id = %d', [$productId]);
+        $this->db->execute('DELETE FROM `' . $this->imagesTable() . '` WHERE product_id = %d', [$productId]);
+        $removed = $this->db->execute('DELETE FROM `' . $this->products() . '` WHERE id = %d AND status = %s', [
+            $productId,
+            ProductStatus::Draft->value,
+        ]);
+        return $removed !== null && $removed > 0;
+    }
+
     private function products(): string
     {
         return T::table($this->db, T::PRODUCTS);

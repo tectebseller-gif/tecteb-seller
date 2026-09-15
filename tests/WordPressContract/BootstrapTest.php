@@ -24,9 +24,11 @@ final class BootstrapTest extends ContractTestCase
         foreach (['core', 'environment-guard', 'admin', 'health', 'vendor', 'finance'] as $id) {
             self::assertSame(ModuleStatus::Active, $report->status($id), $id . ' stays available without WooCommerce: ' . (($report->state($id)?->reasonCode ?? '?') . ' / ' . ($report->state($id)?->reasonDetail ?? '?') . ' @ ' . ($report->state($id)?->phase ?? '?')));
         }
-        foreach (['settlement', 'migration'] as $id) {
-            self::assertSame(ModuleStatus::Planned, $report->status($id));
-        }
+        self::assertSame(ModuleStatus::Planned, $report->status('settlement'));
+        // Migration is a real module now, and it does not need WooCommerce:
+        // reading Dokan's users and posts is WordPress, and the dry run writes
+        // nothing at all.
+        self::assertSame(ModuleStatus::Active, $report->status('migration'));
         // Orders are a real module that refuses to run — here for the plainer
         // reason that WooCommerce is absent, which is checked first.
         self::assertSame(ModuleStatus::Blocked, $report->status('order'));
