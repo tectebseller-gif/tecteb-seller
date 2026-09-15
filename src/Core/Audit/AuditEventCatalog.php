@@ -54,6 +54,12 @@ final class AuditEventCatalog
     public const ORDER_ITEM_STATUS_CHANGED = 'order.item_status_changed';
     public const ORDER_BLOCKED = 'order.blocked';
     public const ORDER_SETTLEMENT_RECORDED = 'order.settlement_recorded';
+    /** Shipping and returns: how much of a line moved, and how much came back. */
+    public const ORDER_ITEM_SHIPPED = 'order.item_shipped';
+    public const ORDER_RETURN_OPENED = 'order.return_opened';
+    public const ORDER_RETURN_DECIDED = 'order.return_decided';
+    public const ORDER_RETURN_REFUNDED = 'order.return_refunded';
+    public const ORDER_RETURN_RESTOCKED = 'order.return_restocked';
     /** The storefront switch: the marketplace's own products, out of sale and back. */
     public const STOREFRONT_STOPPED = 'storefront.stopped';
     public const STOREFRONT_RESUMED = 'storefront.resumed';
@@ -104,8 +110,19 @@ final class AuditEventCatalog
             self::ORDER_ITEM_STATUS_CHANGED => ['vendor_id', 'order_id', 'item_id', 'from', 'to'],
             self::ORDER_BLOCKED => ['product_id', 'vendor_id', 'reason'],
             self::ORDER_SETTLEMENT_RECORDED => ['vendor_id', 'order_id', 'item_id', 'completed_at'],
-            self::STOREFRONT_STOPPED => ['reason', 'withdrawn', 'failed', 'total'],
-            self::STOREFRONT_RESUMED => ['published', 'refused', 'total'],
+            self::ORDER_ITEM_SHIPPED => [
+                'vendor_id', 'order_id', 'shipment_id', 'quantity', 'shipped_total',
+                'line_quantity', 'carrier', 'to',
+            ],
+            self::ORDER_RETURN_OPENED => ['vendor_id', 'order_id', 'item_id', 'return_id', 'quantity', 'has_reason'],
+            self::ORDER_RETURN_DECIDED => ['vendor_id', 'return_id', 'item_id', 'from', 'to'],
+            self::ORDER_RETURN_REFUNDED => [
+                'vendor_id', 'return_id', 'item_id', 'quantity', 'refund_minor',
+                'tax_minor', 'commission_minor', 'vendor_share_minor', 'account', 'event_key',
+            ],
+            self::ORDER_RETURN_RESTOCKED => ['vendor_id', 'return_id', 'product_id', 'quantity', 'stock_after'],
+            self::STOREFRONT_STOPPED => ['reason', 'withdrawn', 'failed', 'total', 'orders_held', 'orders_stuck'],
+            self::STOREFRONT_RESUMED => ['published', 'refused', 'total', 'orders_released'],
             self::FINANCE_RATE_CHANGED => ['scope', 'reference', 'rate_bp', 'cleared'],
             self::FINANCE_ACCRUED => ['vendor_id', 'rate_bp', 'rate_source', 'base_minor'],
             self::FINANCE_REVERSED => ['vendor_id', 'reverses', 'amount_minor'],

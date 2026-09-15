@@ -202,6 +202,31 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         return true;
     }
 
+    public function increaseStock(Product $product, int $by): ?int
+    {
+        if ($by <= 0) {
+            return null;
+        }
+        $wcProduct = $this->linkedProduct($product);
+        if ($wcProduct === null || !function_exists('wc_update_product_stock')) {
+            return null;
+        }
+        if (!$wcProduct->get_manage_stock()) {
+            // WooCommerce is not counting this product, so there is no number
+            // to correct. Saying so is the honest answer; inventing a stock
+            // level for a product whose shop chose not to track it is not.
+            return null;
+        }
+        // WooCommerce's own atomic increment — one UPDATE with `+ %d`, not a
+        // read and a write, so a sale landing between the two cannot be lost.
+        $after = wc_update_product_stock($wcProduct, $by, 'increase');
+        if ($after === false || $after === null) {
+            return null;
+        }
+        wc_delete_product_transients((int) $wcProduct->get_id());
+        return (int) $after;
+    }
+
     public function readVariationStock(Product $product): array
     {
         if (!$this->isAvailable() || !$product->isProjected()) {

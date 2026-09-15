@@ -73,23 +73,24 @@ final class ManageOrderItems
         if ($item === null || !$item->belongsTo($vendorUserId)) {
             return OperationResult::failure('not_found');
         }
+        if ($to === OrderItemStatus::Shipped || $to === OrderItemStatus::PartiallyShipped) {
+            // Shipping is a quantity, so it goes through ShipItems, which
+            // records the parcel and then works the status out from the rows.
+            // Setting «ارسال‌شده» here would leave a line that claims to have
+            // shipped with no parcel behind it and nothing for the customer to
+            // track — the exact lie partial shipment was built to stop.
+            return OperationResult::failure('use_shipment', ['item_id' => $itemId]);
+        }
         if (!$this->states->canMove($item->status, $to)) {
             return OperationResult::failure('invalid_transition', [
                 'from' => $item->status->value,
                 'to' => $to->value,
             ]);
         }
-        if ($this->states->requiresCarrier($to) && trim($carrier) === '') {
-            return OperationResult::failure('carrier_required');
-        }
-        $shippedAt = $to === OrderItemStatus::Shipped
-            ? $this->clock->now()->format('Y-m-d H:i:s')
-            : $item->shippedAt;
-
-        $carrier = $to === OrderItemStatus::Shipped ? trim($carrier) : $item->carrier;
-        $trackingCode = $to === OrderItemStatus::Shipped ? trim($trackingCode) : $item->trackingCode;
-
-        if (!$this->items->updateStatus($itemId, $to, $carrier, $trackingCode, $shippedAt)) {
+        // Carrier and tracking belong to a parcel now; a plain status move
+        // keeps whatever the last parcel recorded rather than clearing it.
+        unset($carrier, $trackingCode);
+        if (!$this->items->updateStatus($itemId, $to, $item->carrier, $item->trackingCode, $item->shippedAt)) {
             return OperationResult::failure('storage_failed');
         }
         $this->audit->log(AuditEventCatalog::ORDER_ITEM_STATUS_CHANGED, $actorId, 'order_item', (string) $itemId, [

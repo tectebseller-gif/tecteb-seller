@@ -34,6 +34,10 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             ['tmc-vendor-documents', 'tmc_manage_vendor_documents', 'مدارک فروشندگان'],
             ['tmc-commission-rules', 'tmc_manage_settings', 'قواعد کمیسیون'],
             ['tmc-withdrawals', 'tmc_review_withdrawals', 'تسویه و برداشت'],
+            // Registered by the finance module although it is an order screen:
+            // OrderModule is self-gated, and an open return has to stay
+            // decidable on a day the order gate is shut (F-15).
+            ['tmc-returns', 'tmc_review_withdrawals', 'مرجوعی و بازپرداخت'],
             ['tmc-product-review', 'tmc_review_products', 'بررسی محصولات'],
             ['tmc-spec-templates', 'tmc_manage_spec_templates', 'الگوهای مشخصات'],
             ['tmc-storefront', 'tmc_manage_storefront', 'وضعیت فروش بازارگاه'],

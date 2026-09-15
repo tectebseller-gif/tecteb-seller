@@ -6,7 +6,9 @@ namespace Tecteb\Marketplace\Modules\Order\Infrastructure\WordPress;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Order\Application\ManageOrderItems;
+use Tecteb\Marketplace\Modules\Order\Application\ManageReturns;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
+use Tecteb\Marketplace\Modules\Order\Application\ShipItems;
 use Tecteb\Marketplace\Modules\Order\Application\TrialUnlock;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderCustomerView;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
@@ -23,7 +25,7 @@ final class OrderArea
     public const SLUG = 'orders';
 
     /** @var list<string> */
-    public const ACTIONS = ['move_order_item'];
+    public const ACTIONS = ['move_order_item', 'ship_order_item', 'open_return'];
 
     public function __construct(private readonly ContainerInterface $container)
     {
@@ -70,13 +72,50 @@ final class OrderArea
             $view->notice,
             $orders->mayAct($view->userId, $vendorUserId),
             $trial->isActive(),
-            $trial->environmentName()
+            $trial->environmentName(),
+            $this->movementFor($items, $view->userId, $vendorUserId)
         );
+    }
+
+    /**
+     * What has actually left and come back, per line.
+     *
+     * Read here rather than inside the view so the view stays a function of
+     * its arguments — and read in ONE pair of queries for the whole page
+     * rather than two per row, because a vendor with twenty lines on screen
+     * should not cost forty round trips.
+     *
+     * @param list<\Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem> $items
+     * @return array<int,array{shipped:int, remaining:int, returnable:int, parcels:array, returns:array}>
+     */
+    private function movementFor(array $items, int $userId, int $vendorUserId): array
+    {
+        if ($items === []) {
+            return [];
+        }
+        $shipments = $this->container->get(\Tecteb\Marketplace\Modules\Order\Application\ShipmentRepositoryInterface::class);
+        $ids = array_map(static fn ($item): int => $item->id, $items);
+        $shipped = $shipments->shippedQuantities($ids);
+        $returned = $shipments->returnedQuantities($ids);
+        $movement = [];
+        foreach ($items as $item) {
+            $sent = (int) ($shipped[$item->id] ?? 0);
+            $back = (int) ($returned[$item->id] ?? 0);
+            $movement[$item->id] = [
+                'shipped' => $sent,
+                'remaining' => max(0, $item->quantity - $sent - $back),
+                'returnable' => max(0, $item->quantity - $back),
+                'parcels' => $shipments->shipmentsFor($item->id),
+                'returns' => $shipments->returnsFor($item->id),
+            ];
+        }
+        unset($userId, $vendorUserId);
+        return $movement;
     }
 
     public function handle(string $action, Request $request, int $userId, VendorUrls $urls): ?VendorAreaOutcome
     {
-        if ($action !== 'move_order_item') {
+        if (!in_array($action, self::ACTIONS, true)) {
             return null;
         }
         $vendorUserId = $this->container->get(StaffAccess::class)->storeFor($userId);
@@ -84,6 +123,30 @@ final class OrderArea
             return new VendorAreaOutcome('not_a_vendor', $urls->dashboard());
         }
         $itemId = $request->postInt('item_id');
+
+        if ($action === 'ship_order_item') {
+            $result = $this->container->get(ShipItems::class)->ship(
+                $userId,
+                $vendorUserId,
+                $itemId,
+                $request->postInt('ship_qty_' . $itemId),
+                $request->postText('carrier_' . $itemId),
+                $request->postText('tracking_' . $itemId)
+            );
+            return new VendorAreaOutcome($result->code, $this->ordersUrl(), $result->context);
+        }
+
+        if ($action === 'open_return') {
+            $result = $this->container->get(ManageReturns::class)->open(
+                $userId,
+                $vendorUserId,
+                $itemId,
+                $request->postInt('return_qty_' . $itemId),
+                $request->postText('return_reason_' . $itemId)
+            );
+            return new VendorAreaOutcome($result->code, $this->ordersUrl(), $result->context);
+        }
+
         $to = OrderItemStatus::tryFrom($request->postKey('to'));
         if ($to === null) {
             return new VendorAreaOutcome('invalid_transition', $this->ordersUrl());

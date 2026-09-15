@@ -52,6 +52,16 @@ use Tecteb\Marketplace\Modules\Order\Application\TrialUnlock;
 use Tecteb\Marketplace\Modules\Order\OrderModule;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables;
+use Tecteb\Marketplace\Modules\Order\Application\ManageReturns;
+use Tecteb\Marketplace\Modules\Order\Application\ReturnTerms;
+use Tecteb\Marketplace\Modules\Order\Application\ShipItems;
+use Tecteb\Marketplace\Modules\Order\Application\ShipmentRepositoryInterface;
+use Tecteb\Marketplace\Modules\Order\Domain\ReturnStateMachine;
+use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\DbShipmentRepository;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0008ShipmentsAndReturns;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
 use Tecteb\Marketplace\Modules\Product\ProductModule;
 use Tecteb\Marketplace\Modules\Vendor\VendorModule;
@@ -279,7 +289,7 @@ final class Bootstrap
             $c->get(OptionStoreInterface::class),
             $c->get(GuardedOptionStoreInterface::class),
             new MigrationLock($c->get(LockStoreInterface::class), $c->get(ClockInterface::class), MigrationLock::generateOwnerToken()),
-            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables(), new M0004CreateFinanceTables(), new M0005CreateProductTables(), new M0006CatalogAndOrders(), new M0007SettlementTables()],
+            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables(), new M0004CreateFinanceTables(), new M0005CreateProductTables(), new M0006CatalogAndOrders(), new M0007SettlementTables(), new M0008ShipmentsAndReturns()],
             $c->get(ClockInterface::class)
         ));
         $c->bind(UpgradeGate::class, static fn (ContainerInterface $c) => new UpgradeGate(
@@ -303,6 +313,41 @@ final class Bootstrap
         $c->bind(OrderItemRepositoryInterface::class, static fn (ContainerInterface $c) => new DbOrderItemRepository(
             $c->get(DatabaseInterface::class),
             $c->get(ClockInterface::class)
+        ));
+        // The parcels and the returns, bound here for the same reason: a
+        // manager reviewing a return, and a vendor reading what was sent,
+        // must not depend on the order module having been allowed to load.
+        $c->bind(ShipmentRepositoryInterface::class, static fn (ContainerInterface $c) => new DbShipmentRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(ReturnStateMachine::class, static fn () => new ReturnStateMachine());
+        $c->bind(ReturnTerms::class, static fn () => new ReturnTerms());
+        // Shipping what was already sold, and deciding a return that was
+        // already opened, are both "finishing what the ledger recorded" rather
+        // than "accepting new orders". They are bound here for the same reason
+        // the order LINES are (F-15): a manager must be able to close an open
+        // return, and a vendor to post the second parcel, on a day when the
+        // order gate is shut again.
+        $c->bind(ShipItems::class, static fn (ContainerInterface $c) => new ShipItems(
+            $c->get(OrderItemRepositoryInterface::class),
+            $c->get(ShipmentRepositoryInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(AuditLogger::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(ManageReturns::class, static fn (ContainerInterface $c) => new ManageReturns(
+            $c->get(OrderItemRepositoryInterface::class),
+            $c->get(ShipmentRepositoryInterface::class),
+            $c->get(LedgerRepositoryInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(AuditLogger::class),
+            $c->get(ClockInterface::class),
+            $c->get(ReturnStateMachine::class),
+            $c->get(ReturnTerms::class),
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(CatalogProjectorInterface::class),
+            $c->get(CapabilityCheckerInterface::class)
         ));
         $c->bind(OrderOperationsGate::class, static fn (ContainerInterface $c) => new OrderOperationsGate(
             $c->get(ResolveCommissionRate::class),

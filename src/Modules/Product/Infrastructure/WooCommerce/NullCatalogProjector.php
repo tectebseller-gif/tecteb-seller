@@ -42,6 +42,11 @@ final class NullCatalogProjector implements CatalogProjectorInterface
         return false;
     }
 
+    public function increaseStock(Product $product, int $by): ?int
+    {
+        return null;
+    }
+
     public function readVariationStock(Product $product): array
     {
         return [];

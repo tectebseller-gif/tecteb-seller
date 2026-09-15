@@ -7,6 +7,8 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderCustomerView;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStateMachine;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
+use Tecteb\Marketplace\Modules\Order\Domain\ReturnRequest;
+use Tecteb\Marketplace\Modules\Order\Domain\Shipment;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorMessages;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorNotice;
@@ -31,6 +33,10 @@ final class VendorOrdersView
      * @param array<int,OrderCustomerView> $customers order id => what may be shown
      * @param array<int,array{number:string,status:string,created:string}> $orders
      * @param array<string,string> $carriers
+     * @param array<int,array{
+     *   shipped:int, remaining:int, returnable:int,
+     *   parcels:list<Shipment>, returns:list<ReturnRequest>
+     * }> $movement item id => what has actually left and come back
      */
     public static function render(
         array $items,
@@ -46,7 +52,8 @@ final class VendorOrdersView
         ?VendorNotice $notice = null,
         bool $mayAct = true,
         bool $trialMode = false,
-        string $environment = ''
+        string $environment = '',
+        array $movement = []
     ): string {
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
         $states = new OrderItemStateMachine();
@@ -84,7 +91,8 @@ final class VendorOrdersView
                 $nonceField,
                 $fa,
                 $states,
-                $mayAct
+                $mayAct,
+                $movement[$item->id] ?? self::noMovement($item)
             );
         }
         $html .= '</ul>';
@@ -126,7 +134,8 @@ final class VendorOrdersView
         string $nonce,
         callable $fa,
         OrderItemStateMachine $states,
-        bool $mayAct
+        bool $mayAct,
+        array $movement
     ): string {
         $money = static fn (?int $minor): string => $minor === null
             ? __('تعیین‌نشده', 'tecteb-marketplace-core')
@@ -145,6 +154,15 @@ final class VendorOrdersView
             . ($item->sku !== '' ? ' — <bdi class="tv-code">' . esc_html($item->sku) . '</bdi>' : '') . '</p>'
             . '<dl class="tv-product__facts">'
             . '<div><dt>' . esc_html__('تعداد', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($fa($item->quantity)) . '</dd></div>'
+            . '<div><dt>' . esc_html__('ارسال‌شده', 'tecteb-marketplace-core') . '</dt><dd>'
+            . esc_html(sprintf(
+                /* translators: 1: shipped so far, 2: line quantity */
+                __('%1$s از %2$s', 'tecteb-marketplace-core'),
+                $fa((int) $movement['shipped']),
+                $fa($item->quantity)
+            )) . '</dd></div>'
+            . '<div><dt>' . esc_html__('مرجوعی', 'tecteb-marketplace-core') . '</dt><dd>'
+            . esc_html($fa($item->quantity - (int) $movement['returnable'])) . '</dd></div>'
             . '<div><dt>' . esc_html__('مبلغ قلم (پس از تخفیف)', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($money($item->baseMinor)) . '</dd></div>'
             . '<div><dt>' . esc_html__('کمیسیون بازارگاه', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($money($item->commissionMinor)) . '</dd></div>'
             . '<div><dt>' . esc_html__('سهم شما', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($money($item->vendorShareMinor)) . '</dd></div>'
@@ -171,38 +189,191 @@ final class VendorOrdersView
             )) . '</p>';
         }
 
+        $html .= self::parcels($movement['parcels'], $carriers, $fa)
+            . self::returns($movement['returns'], $fa);
+
         if ($mayAct) {
-            $html .= self::actions($item, $states, $carriers, $ordersUrl, $nonce);
+            $html .= self::actions($item, $states, $carriers, $ordersUrl, $nonce, $fa, $movement);
         }
         return $html . '</li>';
     }
 
-    /** @param array<string,string> $carriers */
+    /**
+     * A line with nothing recorded yet — the honest default when the caller
+     * did not look the movement up, rather than a zero that pretends to know.
+     *
+     * @return array{shipped:int, remaining:int, returnable:int, parcels:list<Shipment>, returns:list<ReturnRequest>}
+     */
+    private static function noMovement(VendorOrderItem $item): array
+    {
+        return [
+            'shipped' => 0,
+            'remaining' => $item->quantity,
+            'returnable' => $item->quantity,
+            'parcels' => [],
+            'returns' => [],
+        ];
+    }
+
+    /**
+     * Every parcel, with its own carrier and code.
+     *
+     * @param list<Shipment> $parcels
+     * @param array<string,string> $carriers
+     * @param callable(string|int):string $fa
+     */
+    private static function parcels(array $parcels, array $carriers, callable $fa): string
+    {
+        if ($parcels === []) {
+            return '';
+        }
+        $html = '<div class="tv-order__parcels"><h3 class="tv-review__title">'
+            . esc_html__('بسته‌های ارسالی', 'tecteb-marketplace-core') . '</h3><ul class="tv-list">';
+        foreach ($parcels as $parcel) {
+            $html .= '<li>' . esc_html(sprintf(
+                /* translators: 1: units, 2: carrier, 3: date */
+                __('%1$s عدد — %2$s — %3$s', 'tecteb-marketplace-core'),
+                $fa($parcel->quantity),
+                $carriers[$parcel->carrier] ?? $parcel->carrier,
+                $fa($parcel->shippedAt)
+            ));
+            if ($parcel->isTracked()) {
+                $html .= ' <bdi class="tv-code">' . esc_html($parcel->trackingCode) . '</bdi>';
+                if ($parcel->trackingUrl !== '') {
+                    $html .= ' <a href="' . esc_url($parcel->trackingUrl) . '" rel="nofollow noopener">'
+                        . esc_html__('رهگیری', 'tecteb-marketplace-core') . '</a>';
+                }
+            } else {
+                $html .= ' <span class="tv-hint">' . esc_html__('بدون کد رهگیری', 'tecteb-marketplace-core') . '</span>';
+            }
+            $html .= '</li>';
+        }
+        return $html . '</ul></div>';
+    }
+
+    /**
+     * @param list<ReturnRequest> $returns
+     * @param callable(string|int):string $fa
+     */
+    private static function returns(array $returns, callable $fa): string
+    {
+        if ($returns === []) {
+            return '';
+        }
+        $html = '<div class="tv-order__returns"><h3 class="tv-review__title">'
+            . esc_html__('مرجوعی‌ها', 'tecteb-marketplace-core') . '</h3><ul class="tv-list">';
+        foreach ($returns as $request) {
+            $html .= '<li>' . VendorUi::chip(
+                ReturnMessages::statusTone($request->status),
+                ReturnMessages::status($request->status)
+            ) . ' ' . esc_html(sprintf(
+                /* translators: %s: quantity */
+                __('%s عدد', 'tecteb-marketplace-core'),
+                $fa($request->quantity)
+            ));
+            if ($request->reason !== '') {
+                $html .= ' — ' . esc_html($request->reason);
+            }
+            if ($request->refundMinor !== null) {
+                $html .= ' — ' . esc_html(sprintf(
+                    /* translators: %s: refunded amount */
+                    __('بازگشت مالی: %s تومان', 'tecteb-marketplace-core'),
+                    $fa(number_format($request->refundMinor))
+                ));
+            }
+            if ($request->restockedQuantity > 0) {
+                $html .= ' — ' . esc_html(sprintf(
+                    /* translators: %s: units returned to stock */
+                    __('%s عدد به موجودی برگشت', 'tecteb-marketplace-core'),
+                    $fa($request->restockedQuantity)
+                ));
+            }
+            $html .= '</li>';
+        }
+        return $html . '</ul></div>';
+    }
+
+    /**
+     * @param array<string,string> $carriers
+     * @param callable(string|int):string $fa
+     * @param array{shipped:int, remaining:int, returnable:int, parcels:list<Shipment>, returns:list<ReturnRequest>} $movement
+     */
     private static function actions(
         VendorOrderItem $item,
         OrderItemStateMachine $states,
         array $carriers,
         string $ordersUrl,
-        string $nonce
+        string $nonce,
+        callable $fa,
+        array $movement
     ): string {
-        $next = $states->nextFrom($item->status);
-        if ($next === []) {
-            return '<p class="tv-hint">' . esc_html__('این قلم به وضعیت نهایی رسیده است.', 'tecteb-marketplace-core') . '</p>';
-        }
         $html = '<div class="tv-order__actions">';
-        foreach ($next as $status) {
+
+        // Shipping is its own form, because it is about a QUANTITY. The status
+        // is not chosen here: ShipItems works out whether this parcel finishes
+        // the line, and the line says «بخشی ارسال‌شده» until one does.
+        if ((int) $movement['remaining'] > 0 && $item->status !== OrderItemStatus::Cancelled) {
+            $options = ['' => __('— شرکت حمل —', 'tecteb-marketplace-core')] + $carriers;
+            $html .= '<form method="post" action="' . esc_url($ordersUrl) . '" class="tv-inline tv-ship">'
+                . $nonce
+                . '<input type="hidden" name="tmc_vendor_action" value="ship_order_item">'
+                . '<input type="hidden" name="item_id" value="' . esc_attr((string) $item->id) . '">'
+                . VendorUi::input(
+                    'ship_qty_' . $item->id,
+                    __('تعداد این بسته', 'tecteb-marketplace-core'),
+                    (string) $movement['remaining'],
+                    true,
+                    'number',
+                    'ltr',
+                    sprintf(
+                        /* translators: %s: units still to send */
+                        __('حداکثر %s عدد باقی مانده است. می‌توانید کمتر بفرستید و بقیه را بعداً.', 'tecteb-marketplace-core'),
+                        $fa((int) $movement['remaining'])
+                    )
+                )
+                . VendorUi::select('carrier_' . $item->id, __('شرکت حمل', 'tecteb-marketplace-core'), $options, $item->carrier)
+                . VendorUi::input('tracking_' . $item->id, __('کد رهگیری', 'tecteb-marketplace-core'), '', true, 'text', 'ltr')
+                . VendorUi::submit(__('ثبت ارسال این بسته', 'tecteb-marketplace-core'))
+                . '</form>';
+        }
+
+        // …and a return, which is about a quantity too. Opening one decides
+        // nothing: the manager does that, because the terms are not set.
+        if ((int) $movement['returnable'] > 0 && $item->status->hasShipped()) {
+            $html .= '<form method="post" action="' . esc_url($ordersUrl) . '" class="tv-inline tv-return">'
+                . $nonce
+                . '<input type="hidden" name="tmc_vendor_action" value="open_return">'
+                . '<input type="hidden" name="item_id" value="' . esc_attr((string) $item->id) . '">'
+                . VendorUi::input(
+                    'return_qty_' . $item->id,
+                    __('تعداد مرجوعی', 'tecteb-marketplace-core'),
+                    '1',
+                    true,
+                    'number',
+                    'ltr',
+                    sprintf(
+                        /* translators: %s: how many may still be returned */
+                        __('حداکثر %s عدد. مهلت و شرایط تجاری مرجوعی هنوز تعیین نشده؛ تصمیم با مدیر است.', 'tecteb-marketplace-core'),
+                        $fa((int) $movement['returnable'])
+                    )
+                )
+                . VendorUi::input('return_reason_' . $item->id, __('علت', 'tecteb-marketplace-core'), '')
+                . VendorUi::submit(__('ثبت درخواست مرجوعی', 'tecteb-marketplace-core'), 'secondary')
+                . '</form>';
+        }
+
+        // The plain status moves a person actually chooses.
+        foreach ($states->manualMovesFrom($item->status) as $status) {
             $html .= '<form method="post" action="' . esc_url($ordersUrl) . '" class="tv-inline">'
                 . $nonce
                 . '<input type="hidden" name="tmc_vendor_action" value="move_order_item">'
                 . '<input type="hidden" name="item_id" value="' . esc_attr((string) $item->id) . '">'
-                . '<input type="hidden" name="to" value="' . esc_attr($status->value) . '">';
-            if ($states->requiresCarrier($status)) {
-                $options = ['' => __('— شرکت حمل —', 'tecteb-marketplace-core')] + $carriers;
-                $html .= VendorUi::select('carrier_' . $item->id, __('شرکت حمل', 'tecteb-marketplace-core'), $options, $item->carrier)
-                    . VendorUi::input('tracking_' . $item->id, __('کد رهگیری', 'tecteb-marketplace-core'), $item->trackingCode, true, 'text', 'ltr');
-            }
-            $html .= VendorUi::submit(OrderMessages::action($status), $status === OrderItemStatus::Cancelled ? 'secondary' : 'primary')
+                . '<input type="hidden" name="to" value="' . esc_attr($status->value) . '">'
+                . VendorUi::submit(OrderMessages::action($status), $status === OrderItemStatus::Cancelled ? 'secondary' : 'primary')
                 . '</form>';
+        }
+        if ($html === '<div class="tv-order__actions">') {
+            return '<p class="tv-hint">' . esc_html__('کار باز دیگری روی این قلم نیست.', 'tecteb-marketplace-core') . '</p>';
         }
         return $html . '</div>';
     }

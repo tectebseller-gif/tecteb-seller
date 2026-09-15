@@ -26,7 +26,10 @@ use Tecteb\Marketplace\Modules\Order\Application\ManageOrderItems;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStateMachine;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
+use Tecteb\Marketplace\Modules\Order\Application\ShipItems;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\DbOrderItemRepository;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\DbShipmentRepository;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0008ShipmentsAndReturns;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
@@ -80,6 +83,7 @@ final class OrderFlowTest extends DatabaseTestCase
     private ReviewProducts $review;
     private CaptureOrder $capture;
     private ManageOrderItems $orders;
+    private ShipItems $ship;
     private PurchasePolicy $purchase;
     private DbVendorRepository $vendors;
     private FakeCatalogProjector $storefront;
@@ -96,6 +100,7 @@ final class OrderFlowTest extends DatabaseTestCase
             ...M0004CreateFinanceTables::TABLES,
             ...M0005CreateProductTables::TABLES,
             ...M0006CatalogAndOrders::TABLES,
+            ...M0008ShipmentsAndReturns::TABLES,
         ] as $suffix) {
             $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
         }
@@ -105,6 +110,7 @@ final class OrderFlowTest extends DatabaseTestCase
         (new M0004CreateFinanceTables())->up($db);
         (new M0005CreateProductTables())->up($db);
         (new M0006CatalogAndOrders())->up($db);
+        (new M0008ShipmentsAndReturns())->up($db);
 
         $clock = new SystemClock();
         $options = new WpOptionStore();
@@ -167,6 +173,13 @@ final class OrderFlowTest extends DatabaseTestCase
             $audit,
             $clock,
             new OrderItemStateMachine()
+        );
+        $this->ship = new ShipItems(
+            $this->orderItems,
+            new DbShipmentRepository($db, $clock),
+            $access,
+            $audit,
+            $clock
         );
         $this->purchase = new PurchasePolicy($this->products, $access, $gate);
 
@@ -295,11 +308,17 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertSame('invalid_transition', $this->orders->move(self::VENDOR_A, self::VENDOR_A, $itemId, OrderItemStatus::Delivered)->code);
         self::assertTrue($this->orders->move(self::VENDOR_A, self::VENDOR_A, $itemId, OrderItemStatus::Preparing)->ok);
 
-        $noCarrier = $this->orders->move(self::VENDOR_A, self::VENDOR_A, $itemId, OrderItemStatus::Shipped);
+        // Shipping is a quantity, so it goes through ShipItems; the status
+        // move refuses and says where to go instead.
+        self::assertSame(
+            'use_shipment',
+            $this->orders->move(self::VENDOR_A, self::VENDOR_A, $itemId, OrderItemStatus::Shipped)->code
+        );
+        $noCarrier = $this->ship->ship(self::VENDOR_A, self::VENDOR_A, $itemId, 1, '');
         self::assertFalse($noCarrier->ok);
         self::assertSame('carrier_required', $noCarrier->code);
 
-        self::assertTrue($this->orders->move(self::VENDOR_A, self::VENDOR_A, $itemId, OrderItemStatus::Shipped, 'post', 'TRK-1')->ok);
+        self::assertTrue($this->ship->ship(self::VENDOR_A, self::VENDOR_A, $itemId, 1, 'post', 'TRK-1')->ok);
         $shipped = $this->orderItems->find($itemId);
         self::assertSame('post', $shipped?->carrier);
         self::assertSame('TRK-1', $shipped?->trackingCode);

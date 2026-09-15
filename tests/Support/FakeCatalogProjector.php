@@ -82,6 +82,15 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
         return true;
     }
 
+    public function increaseStock(Product $product, int $by): ?int
+    {
+        $id = $this->links[$product->id] ?? 0;
+        if ($id <= 0 || $by <= 0) {
+            return null;
+        }
+        return $this->stock[$id] = ($this->stock[$id] ?? 0) + $by;
+    }
+
     public function readStock(Product $product): ?int
     {
         $id = $this->links[$product->id] ?? 0;

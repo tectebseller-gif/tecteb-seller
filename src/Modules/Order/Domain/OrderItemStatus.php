@@ -18,6 +18,14 @@ enum OrderItemStatus: string
 {
     case Placed = 'placed';
     case Preparing = 'preparing';
+    /**
+     * Some of the line is on its way and some is not.
+     *
+     * Derived from the shipment rows, never set by hand: a line of three with
+     * two parcels totalling two units is here, and marking the whole line
+     * «ارسال شد» on the first parcel is a lie the customer acts on.
+     */
+    case PartiallyShipped = 'partially_shipped';
     case Shipped = 'shipped';
     case Delivered = 'delivered';
     case Cancelled = 'cancelled';
@@ -25,12 +33,23 @@ enum OrderItemStatus: string
     /** @return list<self> */
     public static function all(): array
     {
-        return [self::Placed, self::Preparing, self::Shipped, self::Delivered, self::Cancelled];
+        return [
+            self::Placed, self::Preparing, self::PartiallyShipped,
+            self::Shipped, self::Delivered, self::Cancelled,
+        ];
     }
 
     public function isOpen(): bool
     {
-        return $this === self::Placed || $this === self::Preparing;
+        return $this === self::Placed || $this === self::Preparing
+            || $this === self::PartiallyShipped;
+    }
+
+    /** Whether any of this line's goods have left the vendor. */
+    public function hasShipped(): bool
+    {
+        return $this === self::PartiallyShipped || $this === self::Shipped
+            || $this === self::Delivered;
     }
 
     public function isFinished(): bool

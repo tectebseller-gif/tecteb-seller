@@ -50,6 +50,18 @@ interface CatalogProjectorInterface
     /** The vendor's explicit inventory edit, written through to WooCommerce. */
     public function writeStock(Product $product, int $stock): bool;
 
+    /**
+     * Puts returned goods back on the shelf, atomically.
+     *
+     * A read-then-write would lose a concurrent sale between the two steps;
+     * this is an increase BY an amount, not an assignment TO one, so two
+     * returns landing at the same moment both count.
+     *
+     * @return int|null the stock afterwards, or null when there is no link
+     *                  or WooCommerce does not manage stock for this product
+     */
+    public function increaseStock(Product $product, int $by): ?int;
+
     /** Per variation, same rules. @return array<int,int> tmc variation id => stock */
     public function readVariationStock(Product $product): array;
 

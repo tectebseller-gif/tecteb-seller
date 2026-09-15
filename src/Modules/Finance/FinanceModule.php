@@ -28,6 +28,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbWithdrawalRepository;
 use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\CommissionRulesPage;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\WordPress\FinanceArea;
 use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\WithdrawalsPage;
+use Tecteb\Marketplace\Modules\Order\Presentation\Admin\ReturnsPage;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaExtensions;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaOutcome;
@@ -130,7 +131,13 @@ final class FinanceModule implements ModuleInterface
     {
         $rules = new CommissionRulesPage($c);
         $withdrawals = new WithdrawalsPage($c);
-        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($rules, $withdrawals): array {
+        // The returns queue is an Order module screen, registered from here on
+        // purpose: OrderModule is self-gated and does not load at all while the
+        // gate is shut, and a return that is already open must still be
+        // decidable on such a day. Its services are bound in Bootstrap for the
+        // same reason (F-15).
+        $returns = new ReturnsPage($c);
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($rules, $withdrawals, $returns): array {
             $pages[] = [
                 'slug' => CommissionRulesPage::SLUG,
                 'page_title' => CommissionRulesPage::menuLabel(),
@@ -144,6 +151,13 @@ final class FinanceModule implements ModuleInterface
                 'menu_label' => WithdrawalsPage::menuLabel(),
                 'capability' => WithdrawalsPage::CAPABILITY,
                 'render' => [$withdrawals, 'render'],
+            ];
+            $pages[] = [
+                'slug' => ReturnsPage::SLUG,
+                'page_title' => ReturnsPage::menuLabel(),
+                'menu_label' => ReturnsPage::menuLabel(),
+                'capability' => ReturnsPage::CAPABILITY,
+                'render' => [$returns, 'render'],
             ];
             return $pages;
         });

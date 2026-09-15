@@ -38,4 +38,23 @@ interface OrderItemRepositoryInterface
 
     /** @return array<string,int> what this vendor has earned and owes, by account */
     public function totalsForVendor(int $vendorUserId): array;
+
+    /**
+     * Every line that settlement has to reason about, with the three facts
+     * that decide whether its money may be asked for yet.
+     *
+     * Declared here rather than only on the concrete class because
+     * VendorBalance and ManageReturns both depend on this interface and both
+     * call it: a method that exists only on the implementation is a contract
+     * that a second implementation would silently fail to honour.
+     *
+     * @return list<array{
+     *   id:int, vendor_share_minor:?int, settlement_completed_at:?string,
+     *   withdrawal_id:?int, paid:bool
+     * }>
+     */
+    public function settlementView(int $vendorUserId): array;
+
+    /** ORDER-01: a manager (never a process of ours) calling a sale complete. */
+    public function recordSettlementCompletion(int $id, ?string $completedAt, ?int $actorId): bool;
 }
