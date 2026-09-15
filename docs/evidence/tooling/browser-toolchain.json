@@ -29,7 +29,7 @@
     {
       "name": "screenshot-written",
       "ok": true,
-      "detail": "docs/evidence/tooling/browser-toolchain-dashboard-with-wc-1440.png (109550 bytes)"
+      "detail": "docs/evidence/tooling/browser-toolchain-dashboard-with-wc-1440.png (101302 bytes)"
     },
     {
       "name": "axe-runs-in-the-page",
@@ -48,7 +48,7 @@
   },
   "screenshot": {
     "file": "docs/evidence/tooling/browser-toolchain-dashboard-with-wc-1440.png",
-    "bytes": 109550
+    "bytes": 101302
   },
   "axe": {
     "engine": "4.13.0",

@@ -1,4 +1,4 @@
-plan run=dokan-20260915-182637 vendors=1 products=1 orders=6 conflicts=0 skipped=6 clean=true
+plan run=dokan-20260915-194120 vendors=1 products=1 orders=6 conflicts=0 skipped=6 clean=true
   vendor dokan=13 verdict=import reason=- target=tmc_vendor:new title=
   product dokan=79 verdict=import reason=- target=tmc_product:new → wc:79 title=کالای فروشندهٔ دکان
   order dokan=85 verdict=skip reason=historic_commission_not_recomputed target=wc_order:85 title=85

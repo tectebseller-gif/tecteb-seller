@@ -1,0 +1,6 @@
+=== what was measured ===
+plain cart:      2400000
+with the code:   1920000
+shop's own cart: 450000 → 450000 (unchanged)
+mixed basket:    2850000 → 2370000 (only the vendor's lines)
+tiers product=1 steps=5:960000,20:720000

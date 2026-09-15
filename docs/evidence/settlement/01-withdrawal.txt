@@ -2,15 +2,15 @@
 name	status	version
 dokan-lite	active	5.1.1
 hello	inactive	1.7.2
-tecteb-marketplace-core	active	0.1.0-alpha.9
+tecteb-marketplace-core	active	0.1.0-alpha.10
 woocommerce	active	11.0.1
 tmc-stop-failure-probe	must-use	
 
 -- the vendor's balance, step by step --
-vendor=4 earned=3240000 pending=3240000 eligible=0 reserved=0 paid=0 unrecorded=0 delay_days=4 awaiting_completion=1 awaiting_delay=0 gate=ready_on_trial
-vendor=4 earned=3240000 pending=0 eligible=3240000 reserved=0 paid=0 unrecorded=0 delay_days=0 awaiting_completion=0 awaiting_delay=0 gate=ready_on_trial
-vendor=4 earned=3240000 pending=0 eligible=0 reserved=3240000 paid=0 unrecorded=0 delay_days=0 awaiting_completion=0 awaiting_delay=0 gate=ready_on_trial
-vendor=4 earned=3240000 pending=0 eligible=0 reserved=0 paid=3240000 unrecorded=0 delay_days=0 awaiting_completion=0 awaiting_delay=0 gate=ready_on_trial
+vendor=4 earned=3240000 pending=3240000 eligible=0 reserved=0 paid=0 unrecorded=0 delay_days=4 awaiting_completion=1 awaiting_delay=0 awaiting_return=0 gate=ready_on_trial
+vendor=4 earned=3240000 pending=0 eligible=3240000 reserved=0 paid=0 unrecorded=0 delay_days=0 awaiting_completion=0 awaiting_delay=0 awaiting_return=0 gate=ready_on_trial
+vendor=4 earned=3240000 pending=0 eligible=0 reserved=3240000 paid=0 unrecorded=0 delay_days=0 awaiting_completion=0 awaiting_delay=0 awaiting_return=0 gate=ready_on_trial
+vendor=4 earned=3240000 pending=0 eligible=0 reserved=0 paid=3240000 unrecorded=0 delay_days=0 awaiting_completion=0 awaiting_delay=0 awaiting_return=0 gate=ready_on_trial
 
 -- the ledger behind the payment --
 withdrawal:1:paid vendor_earning 3240000

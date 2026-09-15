@@ -8,8 +8,10 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageCoupons;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageTickets;
+use Tecteb\Marketplace\Modules\Marketplace\Application\ManageWholesale;
 use Tecteb\Marketplace\Modules\Marketplace\Domain\Coupon;
 use Tecteb\Marketplace\Modules\Marketplace\Domain\Ticket;
+use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\MarketplaceMessages;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaOutcome;
@@ -18,18 +20,27 @@ use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUi;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
 
 /**
- * /vendor/support/ — this shop's own discount codes, and its conversation with
- * the marketplace.
+ * /vendor/support/ — this shop's own discount codes, its wholesale ladders,
+ * and its conversation with the marketplace.
  *
- * Two things on one page because they are the two places a shop talks outward,
- * and neither is big enough to earn its own tab in the vendor's navigation.
+ * Three things on one page because they are the places a shop talks outward,
+ * and none is big enough to earn its own tab in the vendor's navigation.
+ *
+ * The ladder editor is here rather than on the product form for a reason worth
+ * stating: a ladder is replaced whole (`setTiers()` takes every step at once,
+ * because the steps only mean anything together), and the product form saves
+ * field by field. Putting a whole-replacement control inside a field-by-field
+ * form is how somebody ends up deleting a step they never looked at.
  */
 final class SupportArea
 {
     public const SLUG = 'support';
 
     /** @var list<string> */
-    public const ACTIONS = ['create_coupon', 'disable_coupon', 'open_ticket', 'reply_ticket'];
+    public const ACTIONS = ['create_coupon', 'disable_coupon', 'set_tiers', 'open_ticket', 'reply_ticket'];
+
+    /** How many steps one ladder form offers. Three is what the spec's example uses. */
+    private const TIER_ROWS = 3;
 
     public function __construct(private readonly ContainerInterface $container)
     {
@@ -53,6 +64,7 @@ final class SupportArea
         $html .= VendorUi::notice('info', MarketplaceMessages::openTermsWarning());
         return $html
             . $this->couponSection($view, $vendorUserId, $fa)
+            . $this->tierSection($view, $vendorUserId, $fa)
             . $this->ticketSection($view, $vendorUserId, $fa);
     }
 
@@ -111,6 +123,114 @@ final class SupportArea
             . VendorUi::input('coupon_limit', __('سقف کل استفاده', 'tecteb-marketplace-core'), '0', true, 'number', 'ltr',
                 __('صفر یعنی بی‌نهایت.', 'tecteb-marketplace-core'))
             . VendorUi::submit(__('ساخت کد تخفیف', 'tecteb-marketplace-core'))
+            . '</form></section>';
+    }
+
+    /**
+     * The wholesale ladder for one of this shop's products.
+     *
+     * A ladder is REPLACED, never edited step by step, so the form shows every
+     * step at once and saving it is the whole truth about that product. An
+     * empty form therefore clears the ladder, and the hint says so in words
+     * rather than leaving it to be discovered.
+     *
+     * @param callable(string|int):string $fa
+     */
+    private function tierSection(VendorAreaView $view, int $vendorUserId, callable $fa): string
+    {
+        $products = $this->container->get(ProductRepositoryInterface::class)->allForVendor($vendorUserId);
+        $html = '<section class="tv-card"><h2 class="tv-card__title">'
+            . esc_html__('قیمت پلکانی عمده', 'tecteb-marketplace-core') . '</h2>';
+        if ($products === []) {
+            return $html . '<p class="tv-hint">'
+                . esc_html__('هنوز محصولی ندارید. پس از ساخت محصول، پلکان قیمتش را اینجا تعیین می‌کنید.', 'tecteb-marketplace-core')
+                . '</p></section>';
+        }
+
+        // Which product's ladder is on screen arrives in the QUERY, and the
+        // save form carries it as a hidden field. The two are deliberately
+        // separate: a select that both switched product and saved would write
+        // the boxes still showing the PREVIOUS product's steps onto the new
+        // one, and the vendor would never see it happen.
+        $wholesale = $this->container->get(ManageWholesale::class);
+        $selectedId = $view->request->queryInt('tier_product');
+        $selected = null;
+        $options = [];
+        foreach ($products as $product) {
+            $options[(string) $product->id] = $product->details->title;
+            if ($product->id === $selectedId) {
+                $selected = $product;
+            }
+        }
+        $selected ??= $products[0];
+        $tiers = $wholesale->tiersFor($selected->id);
+
+        $html .= '<p class="tv-hint">'
+            . esc_html__('قیمت پلکانی را فقط خریدار عمدهٔ تأییدشده می‌بیند و فقط او در سبد خرید همان قیمت را می‌پردازد. هر پله از تعداد ۲ به بالا، و با افزایش تعداد باید قیمت هر واحد کمتر شود.', 'tecteb-marketplace-core')
+            . '</p>'
+            . '<p class="tv-hint">'
+            . sprintf(
+                /* translators: %s: the product's ordinary price, already formatted */
+                esc_html__('قیمت عادی این محصول %s تومان است؛ هیچ پله‌ای نمی‌تواند از آن بیشتر باشد. ذخیرهٔ فرم خالی، پلکان این محصول را برمی‌دارد.', 'tecteb-marketplace-core'),
+                esc_html($fa(number_format($selected->details->priceMinor)))
+            )
+            . '</p>';
+
+        if ($tiers !== []) {
+            $html .= '<div class="tv-scroll" tabindex="0" role="region" aria-label="'
+                . esc_attr__('پلکان فعلی قیمت', 'tecteb-marketplace-core') . '">'
+                . '<table class="tv-table"><thead><tr>'
+                . '<th scope="col">' . esc_html__('از این تعداد به بالا', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('قیمت هر واحد', 'tecteb-marketplace-core') . '</th>'
+                . '</tr></thead><tbody>';
+            foreach ($tiers as $tier) {
+                $html .= '<tr><td>' . esc_html($fa((string) $tier->minQuantity)) . '</td>'
+                    . '<td>' . esc_html($fa(number_format($tier->unitPriceMinor))) . '</td></tr>';
+            }
+            $html .= '</tbody></table></div>';
+        }
+
+        if (count($products) > 1) {
+            $html .= '<form method="get" class="tv-form" action="' . esc_url($this->supportUrl()) . '">'
+                . ((string) get_option('permalink_structure', '') === ''
+                    ? '<input type="hidden" name="tmc_vendor" value="' . esc_attr(self::SLUG) . '">'
+                    : '')
+                . VendorUi::select('tier_product', __('محصول', 'tecteb-marketplace-core'), $options, (string) $selected->id,
+                    __('محصول را انتخاب کنید و «نمایش پلکان» را بزنید؛ این دکمه چیزی ذخیره نمی‌کند.', 'tecteb-marketplace-core'))
+                . VendorUi::submit(__('نمایش پلکان', 'tecteb-marketplace-core'), 'secondary')
+                . '</form>';
+        }
+
+        $html .= '<form method="post" class="tv-form">' . $view->nonceField
+            . '<input type="hidden" name="tmc_vendor_action" value="set_tiers">'
+            . '<input type="hidden" name="tier_product" value="' . esc_attr((string) $selected->id) . '">'
+            . '<h3 class="tv-subtitle">' . esc_html($selected->details->title) . '</h3>';
+        for ($row = 0; $row < self::TIER_ROWS; $row++) {
+            $tier = $tiers[$row] ?? null;
+            $html .= '<div class="tv-row">'
+                . VendorUi::input(
+                    'tier_qty[' . $row . ']',
+                    sprintf(
+                        /* translators: %s: the step's number, in Persian digits */
+                        __('پلهٔ %s — از تعداد', 'tecteb-marketplace-core'),
+                        $fa((string) ($row + 1))
+                    ),
+                    $tier !== null ? (string) $tier->minQuantity : '',
+                    true,
+                    'number',
+                    'ltr'
+                )
+                . VendorUi::input(
+                    'tier_price[' . $row . ']',
+                    __('قیمت هر واحد (تومان)', 'tecteb-marketplace-core'),
+                    $tier !== null ? (string) $tier->unitPriceMinor : '',
+                    true,
+                    'number',
+                    'ltr'
+                )
+                . '</div>';
+        }
+        return $html . VendorUi::submit(__('ذخیرهٔ پلکان قیمت', 'tecteb-marketplace-core'))
             . '</form></section>';
     }
 
@@ -213,6 +333,12 @@ final class SupportArea
                 $vendorUserId,
                 $request->postInt('coupon_id')
             ),
+            'set_tiers' => $this->container->get(ManageWholesale::class)->setTiers(
+                $userId,
+                $vendorUserId,
+                $request->postInt('tier_product'),
+                $this->postedSteps($request)
+            ),
             'open_ticket' => $this->container->get(ManageTickets::class)->open(
                 $userId,
                 $vendorUserId,
@@ -230,7 +356,38 @@ final class SupportArea
         if ($result === null) {
             return null;
         }
-        return new VendorAreaOutcome($result->code, $this->supportUrl(), $result->context);
+        // The ladder form comes back to the SAME product, because the next
+        // thing a vendor does after saving a ladder is look at it.
+        $back = $action === 'set_tiers'
+            ? add_query_arg('tier_product', (string) $request->postInt('tier_product'), $this->supportUrl())
+            : $this->supportUrl();
+        return new VendorAreaOutcome($result->code, $back, $result->context);
+    }
+
+    /**
+     * The steps as typed, with the empty rows dropped.
+     *
+     * An empty row is not a zero: a vendor who wants two steps instead of
+     * three leaves the third pair blank, and reading that as «from 0 at 0
+     * تومان» would refuse the whole save for a step they never meant. A row
+     * with only one of the two boxes filled IS kept, so `setTiers()` refuses it
+     * and says which half is missing rather than silently dropping it.
+     *
+     * @return array<int,int> min quantity => unit price in minor units
+     */
+    private function postedSteps(Request $request): array
+    {
+        $quantities = $request->postTextList('tier_qty');
+        $prices = $request->postTextList('tier_price');
+        $steps = [];
+        foreach ($quantities as $row => $quantity) {
+            $price = $prices[$row] ?? '';
+            if (trim($quantity) === '' && trim($price) === '') {
+                continue;
+            }
+            $steps[(int) $quantity] = (int) $price;
+        }
+        return $steps;
     }
 
     public function supportUrl(): string

@@ -1,13 +1,13 @@
 {
   "phase": "after-resume",
   "expect": "payable",
-  "fresh_url": "http://127.0.0.1:8080/checkout/order-pay/126/?pay_for_order=true&key=wc_order_BnfihIbwgR2xj",
+  "fresh_url": "http://127.0.0.1:8080/checkout/order-pay/127/?pay_for_order=true&key=wc_order_ZiT45iyDYkMc6",
   "takes_money": "yes",
   "results": [
     {
       "name": "the customer can see their own orders",
       "ok": true,
-      "detail": "order 126"
+      "detail": "order 127"
     },
     {
       "name": "the fresh link from the account takes money",

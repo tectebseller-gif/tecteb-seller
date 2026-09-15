@@ -1,0 +1,2 @@
+take-ownership ok=true code=ownership_taken product=9 wc=79
+give-back-ownership ok=true code=ownership_given_back product=9 wc=79

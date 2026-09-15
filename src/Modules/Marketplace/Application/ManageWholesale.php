@@ -102,6 +102,19 @@ final class ManageWholesale
         return OperationResult::success('wholesale_' . $status->value, ['user_id' => $userId]);
     }
 
+    /**
+     * This buyer's own wholesale standing, or null if they never asked.
+     *
+     * Unscoped on purpose and safe because of it: the only caller passes the
+     * id of the person who is logged in, and an account is one row belonging
+     * to one user. `queue()` is the one that lists other people's, and that
+     * one asks for the manager's capability.
+     */
+    public function accountFor(int $userId): ?WholesaleAccount
+    {
+        return $userId > 0 ? $this->repository->findWholesaleAccount($userId) : null;
+    }
+
     /** @return list<WholesaleAccount> */
     public function queue(?WholesaleStatus $status = null): array
     {

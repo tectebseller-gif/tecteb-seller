@@ -1,7 +1,7 @@
 === stock movement caused by holding an order ===
-before the hold: 10
-while held:      6
-after release:   10
+before the hold: 12
+while held:      7
+after release:   12
 
 WooCommerce reduces stock on the way into on-hold and increases it on the
 way out (wc_maybe_reduce_stock_levels is hooked to

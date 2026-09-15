@@ -581,3 +581,25 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 }
 
 .tv-order__actions .tv-inline { display: block; }
+
+/* --- the wholesale ladder editor -------------------------------------- */
+/* Two boxes that belong together on one line where there is room for them,
+   and stacked where there is not. `auto-fit` with a real minimum rather than a
+   breakpoint, so the pair reflows inside a narrow card as well as a narrow
+   screen — the same reason every other layout here is written this way
+   (ADR-006). */
+.tv-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--tv-s3);
+  align-items: start;
+}
+
+.tv-row .tv-field { max-inline-size: none; }
+
+.tv-subtitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-block: var(--tv-s4) var(--tv-s2);
+  overflow-wrap: anywhere;
+}

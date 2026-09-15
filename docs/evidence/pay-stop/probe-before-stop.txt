@@ -1,5 +1,5 @@
-ok:   the customer can see their own orders — order 126
-    fresh link offered: http://127.0.0.1:8080/checkout/order-pay/126/?pay_for_order=true&key=wc_order_BnfihIbwgR2xj
+ok:   the customer can see their own orders — order 127
+    fresh link offered: http://127.0.0.1:8080/checkout/order-pay/127/?pay_for_order=true&key=wc_order_ZiT45iyDYkMc6
     pay page: shows the payment form
 ok:   the fresh link from the account takes money — before-stop
 

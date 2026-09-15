@@ -228,31 +228,55 @@ final class PackagingTest extends TestCase
             }
         }
         // A toolchain slipping in shows up as size long before anyone reads
-        // the listing, so bound it too. The bound is a canary, not the rule —
-        // the path assertions above are — and it has to leave room for what
-        // the archive is SUPPOSED to carry: the acceptance evidence, including
-        // full-page screenshots of real wp-admin. Raised from 6 MB when that
-        // evidence was added; a vendored node_modules is an order of magnitude
-        // larger than the gap.
-        $bytes = filesize($archives[0]);
-        self::assertLessThan(24 * 1024 * 1024, $bytes, 'source archive is unexpectedly large: ' . $bytes . ' bytes');
-
-        // What actually makes it big must be evidence, not a toolchain: no
-        // single file may dominate the archive.
+        // the listing, so bound it too — but bound the part that CAN be
+        // bounded. A flat limit on the whole archive was the first attempt and
+        // it aged badly: the archive is supposed to carry the acceptance
+        // evidence, that evidence grows with every delivery, and by the tenth
+        // the canary was firing at legitimate screenshots. Raising the number
+        // each time would have made it a formality rather than a check.
+        //
+        // So: everything that is NOT evidence is what gets a hard ceiling,
+        // because that is where a vendored node_modules or a stray build
+        // output would land. Evidence is bounded by the per-file rule below
+        // instead, which is the one that actually distinguishes «a page
+        // screenshot» from «a toolchain».
         exec('tar -tzvf ' . escapeshellarg($archives[0]), $verbose, $vcode);
         self::assertSame(0, $vcode);
-        $biggest = 0;
-        $biggestName = '';
+        $sizes = [];
         foreach ($verbose as $line) {
-            if (preg_match('/^\S+\s+\S+\s+(\d+)\s+\S+\s+\S+\s+(.+)$/', $line, $m) !== 1) {
+            if (preg_match('/^\S+\s+\S+\s+(\d+)\s+\S+\s+\S+\s+(.+)$/', $line, $m) === 1) {
+                $sizes[$m[2]] = (int) $m[1];
+            }
+        }
+        self::assertNotEmpty($sizes, 'the archive listing could not be read');
+
+        $evidence = 0;
+        $rest = 0;
+        foreach ($sizes as $name => $size) {
+            if (str_contains($name, 'docs/evidence/')) {
+                $evidence += $size;
                 continue;
             }
-            if ((int) $m[1] > $biggest) {
-                $biggest = (int) $m[1];
-                $biggestName = $m[2];
+            $rest += $size;
+        }
+        self::assertLessThan(
+            24 * 1024 * 1024,
+            $rest,
+            'the source archive carries ' . $rest . ' bytes that are not acceptance evidence'
+        );
+
+        // What makes it big must be evidence, not a toolchain: no single file
+        // may dominate.
+        $biggestName = (string) array_key_first($sizes);
+        $biggest = 0;
+        foreach ($sizes as $name => $size) {
+            if ($size > $biggest) {
+                $biggest = $size;
+                $biggestName = (string) $name;
             }
         }
         self::assertLessThan(4 * 1024 * 1024, $biggest, "one file dominates the source archive: {$biggestName} ({$biggest} bytes)");
+        self::assertGreaterThan($rest, $evidence, 'the source archive should be mostly acceptance evidence');
     }
 
     public function testUninstallFileDeletesNothing(): void

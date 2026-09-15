@@ -1,4 +1,4 @@
 === final state ===
-item=4 vendor=4 wc_product=111 quantity=3 base=3600000 tax=0 commission=360000 share=3240000 status=placed returned=2
-return=12 quantity=1 status=refunded refund=1200000
-return=11 quantity=1 status=refunded refund=1200000
+item=5 vendor=4 wc_product=111 quantity=3 base=3600000 tax=0 commission=360000 share=3240000 status=placed returned=2
+return=15 quantity=1 status=refunded refund=1200000
+return=14 quantity=1 status=refunded refund=1200000

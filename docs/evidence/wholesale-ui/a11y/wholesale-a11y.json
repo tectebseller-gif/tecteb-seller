@@ -1,0 +1,907 @@
+{
+  "suite": "wholesale-and-coupon-screens",
+  "generated_at": "2026-09-15T19:50:16.846Z",
+  "widths": [
+    320,
+    375,
+    768,
+    1024,
+    1440
+  ],
+  "total": 120,
+  "failures": 0,
+  "results": [
+    {
+      "page": "vendor-support-tiers",
+      "scope": "320",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "375",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "768",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1024",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1440",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-support-tiers",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "320",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "375",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "768",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1024",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1440",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "account-wholesale",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "320",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=2"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "375",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=2"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "768",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=2"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1024",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=2"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1440",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=2"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "product-ladder",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    }
+  ],
+  "theme_pages_recorded_not_asserted": [
+    {
+      "page": "account-wholesale",
+      "width": 320,
+      "whole_page_violations": []
+    },
+    {
+      "page": "account-wholesale",
+      "width": 375,
+      "whole_page_violations": []
+    },
+    {
+      "page": "account-wholesale",
+      "width": 768,
+      "whole_page_violations": []
+    },
+    {
+      "page": "account-wholesale",
+      "width": 1024,
+      "whole_page_violations": []
+    },
+    {
+      "page": "account-wholesale",
+      "width": 1440,
+      "whole_page_violations": []
+    },
+    {
+      "page": "product-ladder",
+      "width": 320,
+      "whole_page_violations": []
+    },
+    {
+      "page": "product-ladder",
+      "width": 375,
+      "whole_page_violations": []
+    },
+    {
+      "page": "product-ladder",
+      "width": 768,
+      "whole_page_violations": []
+    },
+    {
+      "page": "product-ladder",
+      "width": 1024,
+      "whole_page_violations": []
+    },
+    {
+      "page": "product-ladder",
+      "width": 1440,
+      "whole_page_violations": []
+    }
+  ]
+}

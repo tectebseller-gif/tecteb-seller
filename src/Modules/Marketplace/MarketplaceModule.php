@@ -19,6 +19,8 @@ use Tecteb\Marketplace\Modules\Marketplace\Application\ManageCoupons;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageTickets;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageWholesale;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\DbEngagementRepository;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WooCommerce\CartPricing;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WooCommerce\WholesaleStorefront;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WordPress\SupportArea;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\Admin\TicketsPage;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\Admin\WholesalePage;
@@ -109,6 +111,17 @@ final class MarketplaceModule implements ModuleInterface
             ];
             return $pages;
         });
+
+        // The one thing that turns a coupon row and a price ladder into money
+        // in a real basket. Registered only when WooCommerce is actually
+        // running: without a cart there is nothing to price.
+        if (class_exists('WooCommerce', false) || function_exists('WC')) {
+            CartPricing::register($c);
+            // …and the two screens a BUYER needs for the same two features:
+            // where to ask to buy wholesale, and where to see the ladder once
+            // the manager has said yes.
+            WholesaleStorefront::register($c);
+        }
 
         $area = new SupportArea($c);
         add_filter(VendorAreaExtensions::FILTER, static function (array $views) use ($area): array {

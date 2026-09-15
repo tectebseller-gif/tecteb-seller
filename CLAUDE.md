@@ -6,9 +6,9 @@
 بررسی مدیر و پیشخوان فروشنده روی مسیر `/vendor/`
 (`docs/phase-2-vendor-delivery.md`).
 
-هنوز ساخته نشده: اعلان‌ها، نظرات، گزارش‌ها، SEO خودکار، اعمال خودکار کوپن روی
-سبد ووکامرس، نمایش نردبان عمده روی صفحهٔ محصول، پیوست فایل در تیکت، و انتقال
-مالکیت واقعی محصول در مهاجرت دکان.
+هنوز ساخته نشده: اعلان‌ها، نظرات، گزارش‌ها، SEO خودکار، و پیوست فایل در تیکت.
+(کوپن روی سبد واقعی، نردبان عمده روی صفحهٔ محصول و انتقال صریح مالکیت در
+مهاجرت دکان، در `alpha.10` ساخته شدند.)
 هیچ sender/gateway واقعی وجود ندارد؛ خروجی‌های افزونه در Alpha همیشه بسته‌اند و
 **تأیید موبایل انجام نمی‌شود** تا وقتی Adapter واقعی و مستند وجود داشته باشد.
 
@@ -32,6 +32,51 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 پایین نمی‌آورد، پس **برای بازگشت بازگرداندن ZIP قبلی کافی است و بازیابی
 دیتابیس لازم نیست** (`docs/upgrade-and-rollback.md` ·
 `docs/evidence/upgrade-alpha1/` · `docs/evidence/upgrade/`).
+
+**`0.1.0-alpha.10` (۱۵ سپتامبر):** بازخورد پنج‌بندی مالک. ساختار داده **۱۰**.
+**سه مورد از پنج، نقص واقعی بود** — اندازه‌گیری شد و اصلاح شد:
+
+- **چرخاندن `order_key` توقف پرداخت نیست.** با افزونهٔ غیرفعال، مشتری از «حساب
+  من» لینک **تازه** می‌گیرد و فرم پرداخت رندر می‌شود. حالا سفارش به **`on-hold`**
+  می‌رود — تنها چیزی که خود ووکامرس «غیرقابل‌پرداخت» می‌فهمد
+  (`needs_payment()` فقط `pending`/`failed`). هزینه‌اش: ووکامرس موجودی را با
+  همین وضعیت تکان می‌دهد؛ گفته شده، پنهان نشده.
+- **موفقیت توقف را با `needs_payment()` نسنجید.** فیلتر زندهٔ خودمان همان جواب
+  را می‌دهد، پس توقفِ شکست‌خورده موفق و بازگرداندنِ درست «گیرکرده» گزارش می‌شد.
+  **وضعیت** از انبار دوباره خوانده می‌شود، با پاک‌کردن cache.
+- **بازگشت به «از سرگیری فروش» وابسته نیست.** `retry_stop` و `release_orders`
+  دو کار جدا و **بدون بازکردن خرید**اند.
+- **ردیفِ مهاجرت مالکیت نمی‌آورد.** `link_ownership` با دو مقدار
+  `marketplace`/`observed`؛ هر پرس‌وجوی عملیاتی فقط `marketplace` را می‌بیند.
+  انتقال صریح `TransferOwnership::take()` هم پیش از تغییر ردیف، پست را
+  claim می‌کند و **وضعیتی را که پیدا کرده** در `_tmc_claimed_from_status`
+  نگه می‌دارد.
+- **«بازپرداخت» چهار بخش دارد و دو تا انجام می‌شود:** `RefundScope` —
+  دفترکل ✅، موجودی ✅، **refund ووکامرس ❌، انتقال وجه ❌** (درگاهی نیست).
+  شکست میانه ⇒ `ReconciliationRequired`، بدون تلاش دوبارهٔ خودکار.
+- **کوپن حالا کوپنِ خودِ ووکامرس است**، نه fee منفی: از
+  `woocommerce_get_shop_coupon_data` با `product_ids` همان فروشنده، و مقدار
+  به‌صورت **درصدی از زیرمجموع همان فروشنده**. اندازه‌گیری‌شده: سبد مخلوط
+  ۲٬۸۵۰٬۰۰۰ ← ۲٬۳۷۰٬۰۰۰، یعنی دقیقاً سهم خود فروشنده.
+- **B2B رابط پیدا کرد:** فرم درخواست روی «حساب من»، ویرایشگر پلکان روی
+  `/vendor/support/`، و نردبان روی صفحهٔ محصول **فقط برای خریدار تأییدشده**.
+  هیچ endpoint تازه‌ای ساخته نمی‌شود و permalink ای flush نمی‌شود.
+
+تحویل: `docs/phase-8-payment-stop-ownership-and-connection.md` · شواهد:
+`docs/evidence/pay-stop/`، `docs/evidence/cart-connection/`،
+`docs/evidence/wholesale-ui/`، `docs/evidence/dokan-migration/`،
+`docs/evidence/returns/`.
+
+**سه قاعدهٔ تازه:**
+- **`curl -L -X POST` در شواهد ممنوع.** `-X` متد را به کل زنجیره تحمیل می‌کند،
+  پس curl مقصد redirect را دوباره POST می‌کند و صفحهٔ PRG تا کد ۴۷ حلقه
+  می‌زند — ذخیره انجام شده بود و شواهد هیچ صفحه‌ای ندید. درست:
+  `curl -L --data-urlencode …`.
+- **نام جدول از migration می‌آید، نه از حافظه.** یک `DELETE` با نام دست‌نویس
+  بی‌صدا هیچ سطری پاک نکرد و یک بررسی را بی‌اثر کرد.
+- **هر جدولی که به سطر سفارش یا محصول آویزان است، در `order-evidence.php reset`
+  می‌آید.** دوبار تکرار شد؛ بار دوم شانزده مرجوعیِ اجرای قبلی، سطر سفارش ۱ را
+  گروگان گرفته بود و تسویه «قابل درخواست» نمی‌شد.
 
 **`0.1.0-alpha.9` (۱۵ سپتامبر):** مرحله ۵ ترتیب مالک — **توقفِ ناتمام، ارسال
 جزئی، مرجوعی، فاز ۷ و مهاجرت دکان**. ساختار داده **۹**. شش چیز که باید بدانید:
@@ -236,6 +281,15 @@ bash tools/rollback-hazard-check.sh <wc-id> <vendor> <old-zip> <new-zip>
 
 # مرحله بازگشت امن، دکان و تسویه — همه با دکان Lite فعال
 # مرحله توقفِ ناتمام، مرجوعی و مهاجرت دکان — همه با دکان Lite فعال
+# بازخورد پنج‌بندی مالک: توقف پرداخت، مالکیت، دامنهٔ بازپرداخت و اتصال به خرید
+bash tools/pay-stop-check.sh        docs/evidence/pay-stop          # ۱۸ بررسی
+bash tools/dokan-ownership-check.sh docs/evidence/dokan-migration   # ۲۲ بررسی
+bash tools/cart-connection-check.sh docs/evidence/cart-connection   # ۱۲ بررسی
+bash tools/wholesale-ui-check.sh    docs/evidence/wholesale-ui      # ۲۶ بررسی
+wp eval-file tools/marketplace-state.php seed|tiers|fresh-buyer|wholesale-account|…
+SITE=… TMC_PRODUCT_URL=… TMC_OUT=docs/evidence/wholesale-ui/a11y \
+  node tools/browser/check-wholesale-a11y.mjs      # ۱۲۰ بررسی، ۳ صفحهٔ تازه
+
 bash tools/stop-failure-check.sh   docs/evidence/stop-failure    # ۳۳ بررسی
 bash tools/return-check.sh         docs/evidence/returns         # ۱۸ بررسی
 bash tools/dokan-migration-check.sh docs/evidence/dokan-migration # ۲۰ بررسی
