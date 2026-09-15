@@ -1,0 +1,3 @@
+manager-report cards=2 vendors=2
+  report.finance available=1 vendors=2 earned_minor=18360000 pending_minor=15120000 eligible_minor=0 reserved_minor=0 paid_minor=3240000 unrecorded_lines=0
+  report.operations available=1 vendors=2 vendor_applications_waiting=0 awaiting_shipment=8 open_returns=0 open_tickets=0

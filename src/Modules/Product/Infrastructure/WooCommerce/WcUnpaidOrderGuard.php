@@ -18,23 +18,36 @@ use Tecteb\Marketplace\Modules\Product\Application\UnpaidOrderGuardInterface;
  * **This class used to rotate the order key, and that was not enough.** It
  * killed the link that had been e-mailed, and nothing more: a customer who
  * opens «حساب من ← سفارش‌ها» gets a FRESH pay link built from the order's
- * CURRENT key, and with this plugin deactivated nothing refuses it. The owner
- * named that exactly — «تغییر order_key به‌تنهایی اثبات توقف پرداخت نیست» — and
- * they were right. The evidence now buys with the fresh link, after
- * deactivation, and it is the check that failed before this rewrite.
+ * CURRENT key, and with this plugin deactivated nothing refuses it.
  *
  * So the order is moved to `on-hold`, which is the one thing WooCommerce
  * itself understands as "not payable": `WC_Order::needs_payment()` answers
  * true only for `pending` and `failed`. No code of ours is involved in the
  * refusal, so removing our code does not remove it.
  *
- * The honest cost, measured and reported rather than hidden: WooCommerce
- * reduces stock on the way into `on-hold` and increases it on the way out
- * (`wc_maybe_reduce_stock_levels` is hooked to `woocommerce_order_status_on-hold`).
- * That is WooCommerce acting on its own rules in response to a status, not
- * this plugin writing stock — but it is a real movement and the release puts
- * it back. Weighed against an unrecorded sale, holding the stock of an order
- * the marketplace has stopped honouring is the safer half of the trade.
+ * Four rules, each of which this class got wrong once:
+ *
+ *  1. **The STATUS is the fact, never the meta.** A note saying "this was
+ *     held" is not a hold. An earlier version skipped any order carrying the
+ *     restore meta, so an order whose meta was written and whose status change
+ *     then failed became invisible: `stillPayable()` called it handled, the
+ *     stop reported success, and «تلاش دوبارهٔ توقف» skipped it forever. Every
+ *     decision here is now made from the status, re-read from storage.
+ *  2. **The restore note is deleted only after the status really moved.** The
+ *     release used to delete the meta first and change the status after, so a
+ *     failed save destroyed the only record of where the order belonged. Now
+ *     the status moves, the move is verified, and only then is the note
+ *     dropped — a release that fails leaves everything it needs to be retried.
+ *  3. **Never iterate a query you are mutating.** `hold()` paged through the
+ *     payable orders while moving them OUT of payable, so page 2 began where
+ *     the shrunken result set had already moved past: with 200 per page and
+ *     more than 200 eligible orders, roughly every second page was skipped
+ *     silently. The ids are now snapshotted by a read-only pass and the writes
+ *     happen afterwards, one freshly loaded order at a time.
+ *  4. **Stock is WooCommerce's to move, and it is not symmetric.** See
+ *     `stockNote()` below: what the release gives back depends on the status
+ *     the order is going back to and on whether it had already reduced stock
+ *     before we touched it. The honest claim is measured, not "it comes back".
  *
  * What is NOT done, deliberately: the order is never cancelled, never emptied,
  * never refunded. It keeps every line, every note and its total, the previous
@@ -63,15 +76,29 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
         $held = 0;
         $examined = 0;
         $stuck = [];
-        foreach ($this->unpaidMarketplaceOrders() as $order) {
-            $examined++;
-            $orderId = (int) $order->get_id();
-            if ((string) $order->get_meta(self::PREVIOUS_STATUS_META) !== '') {
-                continue;       // already held by an earlier stop
+        // Snapshot first, write second. The list is built by a pass that
+        // changes nothing, so no page can slide past a row this method has
+        // just moved out of the result set.
+        foreach ($this->snapshotPayableMarketplaceOrders() as $orderId) {
+            $order = $this->load($orderId);
+            if ($order === null) {
+                continue;
             }
-            $previous = (string) $order->get_status();
+            $status = (string) $order->get_status();
+            if ($status === self::HELD_STATUS) {
+                continue;       // already held, by this stop or an earlier one
+            }
+            if (!in_array($status, self::PAYABLE_STATUSES, true)) {
+                continue;       // somebody paid or cancelled it since the snapshot
+            }
+            $examined++;
+
+            // The note is written BEFORE the move and re-written on a retry:
+            // the order is in `$status` right now and payable, so `$status` is
+            // the truthful place to put it back. A stale value from a hold
+            // that never took effect would move it somewhere it never was.
             try {
-                $order->update_meta_data(self::PREVIOUS_STATUS_META, $previous);
+                $order->update_meta_data(self::PREVIOUS_STATUS_META, $status);
                 $order->save();
                 // update_status(), not set_status(): the transition hooks are
                 // the point. WooCommerce's own rules about a held order —
@@ -94,23 +121,26 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
     {
         $released = 0;
         $stuck = [];
-        foreach ($this->heldOrders() as $order) {
-            $orderId = (int) $order->get_id();
+        foreach ($this->snapshotHeldOrders() as $orderId) {
+            $order = $this->load($orderId);
+            if ($order === null) {
+                continue;
+            }
             $previous = (string) $order->get_meta(self::PREVIOUS_STATUS_META);
             if ($previous === '') {
-                continue;
+                continue;       // not ours to put back
             }
             if ((string) $order->get_status() !== self::HELD_STATUS) {
                 // Somebody moved it on while it was held — paid it by hand,
                 // cancelled it, completed it. That decision outranks ours, so
                 // the note is dropped and the order is left exactly as it is.
-                $order->delete_meta_data(self::PREVIOUS_STATUS_META);
-                $order->save();
+                $this->forget($order, $orderId);
                 continue;
             }
             try {
-                $order->delete_meta_data(self::PREVIOUS_STATUS_META);
-                $order->save();
+                // The status first, the note second. A save that fails here
+                // leaves the note in place, so the order is still in the list
+                // this method reads and the next attempt finds it.
                 $order->update_status($previous, $this->releaseNote(), true);
             } catch (\Throwable) {
                 // Measured, not assumed.
@@ -119,20 +149,45 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
                 $stuck[] = $orderId;
                 continue;
             }
+            $this->forget($this->load($orderId), $orderId);
             $released++;
         }
         return ['released' => $released, 'stuck' => $stuck];
     }
 
+    /**
+     * Orders that hold a marketplace item and can still be paid right now.
+     *
+     * Asked of the STATUS and nothing else. An order carrying the restore note
+     * whose status never moved is still payable and is reported as such — that
+     * is the whole point of the question, and reading the note instead is what
+     * let a half-finished stop call itself finished.
+     */
     public function stillPayable(): array
     {
-        $open = [];
-        foreach ($this->unpaidMarketplaceOrders() as $order) {
-            if ((string) $order->get_meta(self::PREVIOUS_STATUS_META) === '') {
-                $open[] = (int) $order->get_id();
-            }
+        return $this->snapshotPayableMarketplaceOrders();
+    }
+
+    /**
+     * Drops the restore note, and says whether the drop stuck.
+     *
+     * Failing to forget is not the same kind of failure as failing to move:
+     * the order is where it belongs, and a leftover note only means the next
+     * release looks at it again and finds nothing to do.
+     */
+    private function forget(?object $order, int $orderId): bool
+    {
+        if ($order === null) {
+            return false;
         }
-        return $open;
+        try {
+            $order->delete_meta_data(self::PREVIOUS_STATUS_META);
+            $order->save();
+        } catch (\Throwable) {
+            return false;
+        }
+        $fresh = $this->load($orderId);
+        return $fresh !== null && (string) $fresh->get_meta(self::PREVIOUS_STATUS_META) === '';
     }
 
     /**
@@ -158,39 +213,68 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
      */
     private function statusOf(int $orderId): string
     {
+        $fresh = $this->load($orderId);
+        return $fresh !== null ? (string) $fresh->get_status() : '';
+    }
+
+    /** One order, read past every cache that might be holding an old copy. */
+    private function load(int $orderId): ?object
+    {
+        if (!function_exists('wc_get_order')) {
+            return null;
+        }
         if (function_exists('wp_cache_delete')) {
             wp_cache_delete($orderId, 'orders');
             wp_cache_delete($orderId, 'posts');
         }
-        $fresh = \wc_get_order($orderId);
-        return $fresh ? (string) $fresh->get_status() : '';
+        $order = \wc_get_order($orderId);
+        return is_object($order) && method_exists($order, 'get_status') ? $order : null;
     }
 
     /**
-     * Every unpaid order that holds at least one marketplace product.
+     * Every payable order holding a marketplace item, as ids, read-only.
      *
-     * @return iterable<object>
+     * @return list<int>
      */
-    private function unpaidMarketplaceOrders(): iterable
+    private function snapshotPayableMarketplaceOrders(): array
     {
+        $ids = [];
         foreach ($this->ordersByStatus(self::PAYABLE_STATUSES) as $order) {
             if ($this->holdsMarketplaceItem($order)) {
-                yield $order;
+                $ids[] = (int) $order->get_id();
             }
         }
+        return $ids;
     }
 
-    /** @return iterable<object> the orders this guard put on hold */
-    private function heldOrders(): iterable
+    /**
+     * Every order carrying this guard's restore note, as ids, read-only.
+     *
+     * Any status, not just `on-hold`: an order somebody paid by hand while
+     * selling was stopped still carries our note, and the note has to go even
+     * though the status must not be touched. That makes this a scan of the
+     * order table, which is the honest cost of not keeping a second list that
+     * could drift out of step with the orders themselves.
+     *
+     * @return list<int>
+     */
+    private function snapshotHeldOrders(): array
     {
-        // Any status, not just `on-hold`: an order somebody paid by hand while
-        // selling was stopped still carries our note, and the note has to go
-        // even though the status must not be touched.
-        foreach ($this->ordersByStatus(array_keys(\wc_get_order_statuses())) as $order) {
+        $ids = [];
+        foreach ($this->ordersByStatus($this->allStatuses()) as $order) {
             if ((string) $order->get_meta(self::PREVIOUS_STATUS_META) !== '') {
-                yield $order;
+                $ids[] = (int) $order->get_id();
             }
         }
+        return $ids;
+    }
+
+    /** @return list<string> */
+    private function allStatuses(): array
+    {
+        return function_exists('wc_get_order_statuses')
+            ? array_keys(\wc_get_order_statuses())
+            : [self::HELD_STATUS, ...self::PAYABLE_STATUSES];
     }
 
     /**
@@ -199,7 +283,7 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
      */
     private function ordersByStatus(array $statuses): iterable
     {
-        if (!function_exists('wc_get_orders')) {
+        if (!function_exists('wc_get_orders') || $statuses === []) {
             return;
         }
         $page = 1;
@@ -238,17 +322,45 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
         return false;
     }
 
+    /**
+     * What the hold and the release really do to stock — measured, not assumed.
+     *
+     * WooCommerce, not this plugin, moves the stock: `wc_maybe_reduce_stock_levels`
+     * is hooked to `woocommerce_order_status_on-hold`, and
+     * `wc_maybe_increase_stock_levels` to `pending`, `failed` and `cancelled`.
+     * Both are guarded by the order's own `_order_stock_reduced` flag, and that
+     * guard is what makes the pair asymmetric in two cases worth saying out
+     * loud rather than covering with «موجودی برمی‌گردد»:
+     *
+     *  - An order that had ALREADY reduced stock before the hold (an async
+     *    gateway leaves such orders `failed` or `on-hold`) reduces nothing when
+     *    we hold it — the flag is already set — but the release still increases,
+     *    because the release is a status change into a releasing status. Net
+     *    effect of one stop-and-release cycle on such an order: stock goes UP.
+     *  - `woocommerce_order_status_failed` only became a releasing status in
+     *    WooCommerce 11.0.0. On an older WooCommerce, an order held from
+     *    `failed` has its stock reduced by the hold and NOT given back by the
+     *    release.
+     *
+     * A repeated stop/release cycle on an ordinary `pending` order is symmetric
+     * and does not drift; that case is measured too, and is the common one.
+     */
+    public static function stockNote(): string
+    {
+        return __('جابه‌جایی موجودی هنگام نگه‌داشتن و بازگرداندن سفارش کارِ خود ووکامرس است، نه این افزونه. برای سفارش pending معمولی، توقف و بازگرداندن یکدیگر را خنثی می‌کنند. ولی سفارشی که پیش از توقف هم موجودی را کم کرده بود، با بازگرداندن موجودی را زیاد می‌کند بی‌آنکه توقف چیزی کم کرده باشد؛ و روی ووکامرس پیش از ۱۱٫۰٫۰ سفارشی که از وضعیت failed نگه داشته شود، موجودی‌اش با بازگرداندن برنمی‌گردد. پیش از بازگرداندن دسته‌ای، موجودی را یک‌بار بررسی کنید.', 'tecteb-marketplace-core');
+    }
+
     private function note(string $reason): string
     {
         return sprintf(
             /* translators: %s: the recorded reason selling stopped */
-            __('این سفارش در انتظار نگه داشته شد چون فروش بازارگاه متوقف است (%s). سفارش، اقلام و مبلغش تغییری نکرده و لغو نشده؛ فقط تا تعیین تکلیف، پرداخت تازه‌ای روی آن انجام نمی‌شود. با «بازگرداندن سفارش‌های نگه‌داشته» همین سفارش به وضعیت قبلی‌اش برمی‌گردد.', 'tecteb-marketplace-core'),
+            __('این سفارش در انتظار نگه داشته شد چون فروش بازارگاه متوقف است (%s). سفارش، اقلام و مبلغش تغییری نکرده و لغو نشده؛ فقط تا تعیین تکلیف، پرداخت تازه‌ای روی آن انجام نمی‌شود. با «بازگرداندن سفارش‌های نگه‌داشته» همین سفارش به وضعیت قبلی‌اش برمی‌گردد و دوباره قابل پرداخت می‌شود.', 'tecteb-marketplace-core'),
             $reason
         );
     }
 
     private function releaseNote(): string
     {
-        return __('این سفارش به وضعیت پیش از توقف فروش بازگردانده شد و دوباره قابل پرداخت است.', 'tecteb-marketplace-core');
+        return __('این سفارش به وضعیت پیش از توقف فروش بازگردانده شد و دوباره قابل پرداخت است — حتی اگر افزونهٔ بازارگاه بعداً غیرفعال شود.', 'tecteb-marketplace-core');
     }
 }

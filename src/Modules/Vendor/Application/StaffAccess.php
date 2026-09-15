@@ -48,6 +48,35 @@ final class StaffAccess
     }
 
     /**
+     * Everybody who acts in this shop right now: the owner and their active staff.
+     *
+     * Asked here rather than assembled by each caller, for the same reason
+     * every other question is: this is the ONE place that knows who a shop's
+     * people are, and a suspension has to remove somebody from the answer
+     * immediately. A notice addressed to a suspended staff member would be a
+     * suspension that leaked.
+     *
+     * A shop that may not trade has nobody: its owner is still a user, but a
+     * suspended shop is not a place work happens.
+     *
+     * @return list<int> user ids, the owner first, each appearing once
+     */
+    public function activeMembersOf(int $vendorUserId): array
+    {
+        if ($vendorUserId <= 0 || !$this->vendorCanTrade($vendorUserId)) {
+            return [];
+        }
+        $members = [$vendorUserId];
+        foreach ($this->staff->forVendor($vendorUserId) as $member) {
+            $userId = (int) $member->staffUserId;
+            if ($userId > 0 && $member->status->canAct() && !in_array($userId, $members, true)) {
+                $members[] = $userId;
+            }
+        }
+        return $members;
+    }
+
+    /**
      * Whether this shop may operate at all.
      *
      * Read on every question rather than cached, for the same reason staff

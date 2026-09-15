@@ -84,6 +84,11 @@ final class AuditEventCatalog
     public const TICKET_REPLIED = 'marketplace.ticket_replied';
     public const TICKET_STATE_CHANGED = 'marketplace.ticket_state_changed';
     public const TICKET_MESSAGE_HIDDEN = 'marketplace.ticket_message_hidden';
+    public const RETURN_WC_REFUND_RECORDED = 'order.return_wc_refund_recorded';
+    public const TICKET_FILE_ATTACHED = 'marketplace.ticket_file_attached';
+    public const TICKET_FILE_READ = 'marketplace.ticket_file_read';
+    public const TICKET_FILE_HIDDEN = 'marketplace.ticket_file_hidden';
+    public const NOTICE_SENT = 'marketplace.notice_sent';
     /** Dokan migration: read first, written only on an explicit import. */
     public const DOKAN_DRY_RUN = 'migration.dokan_dry_run';
     public const DOKAN_IMPORTED = 'migration.dokan_imported';
@@ -161,6 +166,11 @@ final class AuditEventCatalog
             self::TICKET_REPLIED => ['vendor_id', 'ticket_id', 'role'],
             self::TICKET_STATE_CHANGED => ['vendor_id', 'ticket_id', 'to', 'locked'],
             self::TICKET_MESSAGE_HIDDEN => ['message_id', 'has_reason'],
+            self::RETURN_WC_REFUND_RECORDED => ['return_id', 'wc_refund_id', 'amount_minor', 'money_moved'],
+            self::TICKET_FILE_ATTACHED => ['ticket_id', 'message_id', 'attachment_id', 'bytes', 'mime'],
+            self::TICKET_FILE_READ => ['ticket_id', 'attachment_id'],
+            self::TICKET_FILE_HIDDEN => ['ticket_id', 'attachment_id', 'reason'],
+            self::NOTICE_SENT => ['event', 'subject_type', 'subject_id', 'told'],
             self::DOKAN_DRY_RUN => ['vendors', 'products', 'orders', 'conflicts', 'run_id'],
             self::DOKAN_IMPORTED => ['vendors', 'products', 'run_id', 'mode'],
             self::DOKAN_ROLLED_BACK => ['vendors', 'products', 'run_id'],

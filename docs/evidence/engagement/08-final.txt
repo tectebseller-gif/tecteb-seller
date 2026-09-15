@@ -1,0 +1,21 @@
+=== final state ===
+files count=1
+  file=9 name=probe.png mime=image/png bytes=70 hidden=true
+inbox user=4 count=17 unread=8
+  notice=26 event=notice.product_approved unread=false
+  notice=25 event=notice.ticket_replied unread=true
+  notice=23 event=notice.product_approved unread=false
+  notice=22 event=notice.ticket_replied unread=true
+  notice=20 event=notice.product_approved unread=false
+  notice=19 event=notice.ticket_replied unread=true
+  notice=17 event=notice.product_approved unread=false
+  notice=16 event=notice.ticket_replied unread=true
+  notice=14 event=notice.product_approved unread=false
+  notice=13 event=notice.ticket_replied unread=true
+  notice=11 event=notice.product_approved unread=false
+  notice=10 event=notice.ticket_replied unread=true
+  notice=8 event=notice.product_approved unread=false
+  notice=7 event=notice.ticket_replied unread=true
+  notice=4 event=notice.ticket_replied unread=false
+  notice=2 event=notice.product_approved unread=false
+  notice=1 event=notice.ticket_replied unread=true

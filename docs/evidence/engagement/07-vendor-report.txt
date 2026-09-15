@@ -1,0 +1,5 @@
+vendor-report cards=4
+  report.sales available=1 lines=8 awaiting=8 preparing=0 partially_shipped=0 shipped=0 delivered=0 cancelled=0 returned=5
+  report.products available=1 total=2 published=2 in_review=0 needs_fix=0 draft=0 suspended=0
+  report.stock available=1 on_sale=2 out_of_stock=1 low_stock=0 threshold=5
+  report.finance available=1 earned_minor=18360000 pending_minor=15120000 eligible_minor=0 reserved_minor=0 paid_minor=3240000 unrecorded_lines=0

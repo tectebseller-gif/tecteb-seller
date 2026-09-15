@@ -3,8 +3,16 @@ PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
 Runtime:       PHP 8.4.19
 Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
-.............                                                     13 / 13 (100%)
+E
 
-Time: 00:04.393, Memory: 8.00 MB
+Time: 00:00.005, Memory: 8.00 MB
 
-OK (13 tests, 12062 assertions)
+There was 1 error:
+
+1) Tecteb\Marketplace\Tests\Packaging\PackagingTest
+RuntimeException: dist/tecteb-marketplace-core-0.1.0-alpha.11.zip is missing — run tools/build.sh first.
+
+/home/user/tecteb-seller/tests/Packaging/PackagingTest.php:44
+
+ERRORS!
+Tests: 1, Assertions: 0, Errors: 1.

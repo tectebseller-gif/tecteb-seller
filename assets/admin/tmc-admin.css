@@ -244,6 +244,18 @@
 .tmc-field__label { display: block; font-weight: 700; margin-block-end: var(--tmc-space-1); }
 .tmc-field__control { display: flex; align-items: center; gap: var(--tmc-space-2); flex-wrap: wrap; }
 .tmc-field__desc { color: var(--tmc-muted); font-size: 0.9375rem; margin-block-start: var(--tmc-space-1); }
+
+/* A description that is a WARNING, not a hint: the release of held orders
+   reopens payment on them, and that has to read differently from the sentence
+   above it. Ink on the surface rather than warning-coloured text, because
+   #FFC658 on white does not carry AA at this size; the rule and the weight do
+   the shouting (tools/contrast.php checks the pair that is actually used). */
+.tmc-field__desc--warn {
+  color: var(--tmc-text);
+  font-weight: 600;
+  border-inline-start: 4px solid var(--tmc-warning);
+  padding-inline-start: var(--tmc-space-2);
+}
 .tmc-field.is-invalid .tmc-field__label { color: var(--tmc-error); }
 .tmc-field.is-invalid .tmc-input, .tmc-field.is-invalid .tmc-select { border-color: var(--tmc-error); border-width: 2px; }
 .tmc-admin .tmc-input, .tmc-admin .tmc-select {
@@ -398,3 +410,24 @@
   min-block-size: 44px;
   font-weight: 700;
 }
+
+/* --- the manager's notice inbox ---------------------------------------- */
+/* Unread is a rule and a weight plus the word «خوانده‌نشده» beside the time —
+   never colour alone, which fails WCAG 1.4.1 for anyone who cannot see it. */
+.tmc-notices { list-style: none; margin: 0; padding: 0; }
+
+.tmc-notice {
+  padding: var(--tmc-space-3);
+  border-block-end: 1px solid var(--tmc-border);
+}
+
+.tmc-notice:last-child { border-block-end: 0; }
+
+.tmc-notice--unread {
+  border-inline-start: 4px solid var(--tmc-primary);
+  background: var(--tmc-surface-2);
+  font-weight: 600;
+}
+
+.tmc-notice p { margin: 0; overflow-wrap: anywhere; }
+.tmc-notice .tmc-field__desc { margin-block-start: var(--tmc-space-1); font-weight: 400; }

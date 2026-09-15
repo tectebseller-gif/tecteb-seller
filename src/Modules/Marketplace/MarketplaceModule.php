@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Contracts\Files\PrivateFileStorageInterface;
 use Tecteb\Marketplace\Contracts\ModuleInterface;
 use Tecteb\Marketplace\Contracts\ModuleKind;
 use Tecteb\Marketplace\Contracts\ModuleManifest;
@@ -18,10 +19,18 @@ use Tecteb\Marketplace\Modules\Marketplace\Application\EngagementRepositoryInter
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageCoupons;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageTickets;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageWholesale;
+use Tecteb\Marketplace\Modules\Marketplace\Application\NotificationRepositoryInterface;
+use Tecteb\Marketplace\Modules\Marketplace\Application\Notify;
+use Tecteb\Marketplace\Modules\Marketplace\Application\Reports;
+use Tecteb\Marketplace\Modules\Marketplace\Application\AttachTicketFile;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\DbEngagementRepository;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\DbNotificationRepository;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WooCommerce\CartPricing;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WooCommerce\WholesaleStorefront;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WordPress\NoticeArea;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WordPress\SupportArea;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WordPress\TicketFileRoute;
+use Tecteb\Marketplace\Modules\Marketplace\Presentation\Admin\ReportsPage;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\Admin\TicketsPage;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\Admin\WholesalePage;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
@@ -85,22 +94,49 @@ final class MarketplaceModule implements ModuleInterface
             $c->get(StaffAccess::class),
             $c->get(AuditLogger::class),
             $c->get(ClockInterface::class),
-            $c->get(CapabilityCheckerInterface::class)
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(Notify::class)
         ));
         $c->bind(ActionQueue::class, static fn (ContainerInterface $c) => new ActionQueue($c));
+        $c->bind(Reports::class, static fn (ContainerInterface $c) => new Reports($c));
+        $c->bind(NotificationRepositoryInterface::class, static fn (ContainerInterface $c) => new DbNotificationRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(Notify::class, static fn (ContainerInterface $c) => new Notify(
+            $c->get(NotificationRepositoryInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(AttachTicketFile::class, static fn (ContainerInterface $c) => new AttachTicketFile(
+            $c->get(NotificationRepositoryInterface::class),
+            $c->get(EngagementRepositoryInterface::class),
+            $c->get(ManageTickets::class),
+            $c->get(PrivateFileStorageInterface::class),
+            $c->get(AuditLogger::class),
+            $c->get(ClockInterface::class)
+        ));
     }
 
     public function boot(ContainerInterface $c): void
     {
         $tickets = new TicketsPage($c);
         $wholesale = new WholesalePage($c);
-        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($tickets, $wholesale): array {
+        $reports = new ReportsPage($c);
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($tickets, $wholesale, $reports): array {
             $pages[] = [
                 'slug' => TicketsPage::SLUG,
                 'page_title' => TicketsPage::menuLabel(),
                 'menu_label' => TicketsPage::menuLabel(),
                 'capability' => TicketsPage::CAPABILITY,
                 'render' => [$tickets, 'render'],
+            ];
+            $pages[] = [
+                'slug' => ReportsPage::SLUG,
+                'page_title' => ReportsPage::menuLabel(),
+                'menu_label' => ReportsPage::menuLabel(),
+                'capability' => ReportsPage::CAPABILITY,
+                'render' => [$reports, 'render'],
             ];
             $pages[] = [
                 'slug' => WholesalePage::SLUG,
@@ -115,6 +151,11 @@ final class MarketplaceModule implements ModuleInterface
         // The one thing that turns a coupon row and a price ladder into money
         // in a real basket. Registered only when WooCommerce is actually
         // running: without a cart there is nothing to price.
+        // The one door a ticket attachment leaves the server through. Not
+        // behind the WooCommerce check below: a support conversation is not a
+        // purchase and works on a site where WooCommerce is not running.
+        TicketFileRoute::register($c);
+
         if (class_exists('WooCommerce', false) || function_exists('WC')) {
             CartPricing::register($c);
             // …and the two screens a BUYER needs for the same two features:
@@ -124,6 +165,22 @@ final class MarketplaceModule implements ModuleInterface
         }
 
         $area = new SupportArea($c);
+        $notices = new NoticeArea($c);
+        add_filter(VendorAreaExtensions::FILTER, static function (array $views) use ($notices): array {
+            $views[] = [
+                'slug' => NoticeArea::SLUG,
+                'label' => __('اطلاعیه و گزارش', 'tecteb-marketplace-core'),
+                'title' => __('اطلاعیه‌ها و گزارش‌ها', 'tecteb-marketplace-core'),
+                'requires_vendor' => true,
+                'render' => static fn (VendorAreaView $view): string => $notices->render($view),
+                'actions' => NoticeArea::ACTIONS,
+                'handle' => static fn (string $action, Request $request, int $userId, VendorUrls $urls): ?VendorAreaOutcome
+                    => $notices->handle($action, $request, $userId, $urls),
+                'url' => static fn (VendorUrls $urls): string => $notices->noticesUrl(),
+                'nav' => true,
+            ];
+            return $views;
+        });
         add_filter(VendorAreaExtensions::FILTER, static function (array $views) use ($area): array {
             $views[] = [
                 'slug' => SupportArea::SLUG,

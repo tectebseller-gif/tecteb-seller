@@ -66,6 +66,7 @@ final class ManageReturns
         private readonly ReturnStateMachine $states,
         private readonly ReturnTerms $terms,
         private readonly RefundScope $scope,
+        private readonly ?RefundRecorderInterface $recorder,
         private readonly ProductRepositoryInterface $products,
         private readonly CatalogProjectorInterface $catalog,
         private readonly ?CapabilityCheckerInterface $capabilities = null
@@ -359,6 +360,93 @@ final class ManageReturns
             'did_stock' => $parts[RefundScope::STOCK_CORRECTION],
             'did_wc_refund' => $parts[RefundScope::WC_REFUND_RECORD],
             'did_money' => $parts[RefundScope::MONEY_TRANSFER],
+        ]);
+    }
+
+    /**
+     * Creates the WooCommerce refund RECORD for a return already reversed in
+     * the ledger — and does not move a rial.
+     *
+     * A separate, deliberate, manager-only step, because the two halves of
+     * «بازپرداخت» depend on different things and doing them together would
+     * make the record look like proof the money went. Measured out of
+     * WooCommerce 11.0.1: `wc_create_refund()` takes `refund_payment => false`
+     * by default and touches no gateway; the money would be
+     * `wc_refund_payment()`, which needs a gateway supporting refunds and a
+     * stored transaction id, neither of which this build has.
+     *
+     * Only after the ledger reversal, never before: the plugin's own books are
+     * the thing it is responsible for, and a WooCommerce record without one
+     * would be a refund this marketplace cannot account for.
+     */
+    public function recordWooCommerceRefund(int $actorId, int $returnId): OperationResult
+    {
+        if ($this->capabilities === null || !$this->capabilities->can(Capabilities::REVIEW_VENDOR)) {
+            return OperationResult::failure('forbidden');
+        }
+        if ($this->recorder === null || !$this->recorder->isAvailable()) {
+            return OperationResult::failure('refund_woocommerce_missing');
+        }
+        $request = $this->returns->findReturn($returnId);
+        if ($request === null) {
+            return OperationResult::failure('not_found');
+        }
+        if ($request->status !== ReturnStatus::Refunded) {
+            return OperationResult::failure('refund_ledger_first', [
+                'status' => $request->status->value,
+            ]);
+        }
+        if ($request->wcRefundId !== null) {
+            return OperationResult::failure('refund_already_recorded', [
+                'wc_refund_id' => $request->wcRefundId,
+            ]);
+        }
+        $item = $this->items->find($request->orderItemId);
+        if ($item === null) {
+            return OperationResult::failure('not_found');
+        }
+
+        // Nullable on the row and non-null once refunded; coalesced anyway,
+        // because a null here would silently become a zero-amount refund that
+        // WooCommerce refuses with an exception instead of a sentence.
+        $amount = (((int) $request->refundMinor) + ((int) $request->taxRefundMinor)) / 100;
+        $result = $this->recorder->record(
+            $item->orderId,
+            $item->orderItemId,
+            $amount,
+            $request->quantity,
+            (string) $returnId
+        );
+        if (!$result['ok']) {
+            return OperationResult::failure($result['reason'], [
+                'return_id' => $returnId,
+                'remaining' => $result['remaining'] ?? null,
+            ]);
+        }
+        if (!$this->returns->linkWcRefund($returnId, $result['refund_id'])) {
+            // The WooCommerce record exists and we could not attach it. Said
+            // out loud with the id, because the manager now has a refund in
+            // WooCommerce that this return does not know about, and a silent
+            // success would hide exactly that.
+            return OperationResult::failure('refund_link_failed', [
+                'return_id' => $returnId,
+                'wc_refund_id' => $result['refund_id'],
+            ]);
+        }
+        $this->audit->log(AuditEventCatalog::RETURN_WC_REFUND_RECORDED, $actorId, 'return', (string) $returnId, [
+            'return_id' => $returnId,
+            'wc_refund_id' => $result['refund_id'],
+            'amount_minor' => $request->refundMinor + $request->taxRefundMinor,
+            'money_moved' => false,
+        ]);
+        return OperationResult::success('refund_recorded', [
+            'return_id' => $returnId,
+            'wc_refund_id' => $result['refund_id'],
+            'did_wc_refund' => true,
+            // Said in the SAME result, so no screen can quote the line above
+            // without this one.
+            'did_money' => false,
+            'money_blockers' => implode('، ', $this->recorder->moneyBlockers($item->orderId)),
         ]);
     }
 

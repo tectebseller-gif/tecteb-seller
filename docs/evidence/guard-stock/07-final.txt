@@ -1,0 +1,3 @@
+=== final census ===
+census pending=32 failed=0 on_hold=2 with_note=0
+payable count=1 first=1241

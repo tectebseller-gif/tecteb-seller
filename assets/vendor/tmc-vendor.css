@@ -603,3 +603,75 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
   margin-block: var(--tv-s4) var(--tv-s2);
   overflow-wrap: anywhere;
 }
+
+/* --- notifications and reports ---------------------------------------- */
+/* An unread notice is marked by a rule and weight, not by colour alone:
+   colour on its own fails WCAG 1.4.1 for anyone who cannot see it, and the
+   badge next to the time says the same thing in words. */
+.tv-notices { list-style: none; margin: 0; padding: 0; }
+
+.tv-notice {
+  padding: var(--tv-s3);
+  border-block-end: 1px solid var(--tv-border);
+}
+
+.tv-notice:last-child { border-block-end: 0; }
+
+.tv-notice--unread {
+  border-inline-start: 4px solid var(--tv-ink);
+  background: var(--tv-surface-2);
+  font-weight: 600;
+}
+
+.tv-notice__text { margin: 0; overflow-wrap: anywhere; }
+
+.tv-notice__meta {
+  margin-block: var(--tv-s1) 0;
+  font-size: 0.875rem;
+  color: var(--tv-muted);
+  font-weight: 400;
+}
+
+.tv-badge {
+  display: inline-block;
+  padding-inline: var(--tv-s2);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-ink);
+  color: var(--tv-surface);
+  font-size: 0.8125rem;
+}
+
+/* Figures reflow by the space the CARD has, not by the screen width — the
+   same reason every layout here uses auto-fit rather than a breakpoint
+   (ADR-006). A figure whose box is too narrow for its label is what
+   `no-starved-text-box` catches, so the minimum is generous. */
+.tv-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--tv-s3);
+  margin-block: var(--tv-s3);
+}
+
+.tv-figure {
+  padding: var(--tv-s3);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-figure dt { font-size: 0.9375rem; color: var(--tv-muted); overflow-wrap: anywhere; }
+.tv-figure dd { margin: var(--tv-s1) 0 0; font-size: 1.125rem; font-weight: 700; overflow-wrap: anywhere; }
+
+/* --- ticket attachments ------------------------------------------------ */
+.tv-files { list-style: none; margin: var(--tv-s2) 0 0; padding: 0; }
+
+.tv-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s2);
+  padding-block: var(--tv-s1);
+}
+
+.tv-file__name { overflow-wrap: anywhere; }
+.tv-file__size { color: var(--tv-muted); font-size: 0.875rem; }
+.tv-file--hidden .tv-file__name { text-decoration: line-through; color: var(--tv-muted); }

@@ -1,0 +1,8 @@
+=== stock, measured ===
+pending: 5000 4999 5000
+repeat: 5000 4999 5000
+failed: 5000 4999 5000
+prereduced: 4999 4999 5000
+mixedtmc: 5000 4999 5000
+mixedshop: 5000 4999 5000
+failedwentbackto: failed

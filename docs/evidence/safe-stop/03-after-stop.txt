@@ -1,4 +1,4 @@
 trial requested=true permitted=true active=true environment=staging
-product=1 vendor=4 wc=111 status=published stock=7 vendor_can_trade=true
-product=2 vendor=8 wc=113 status=published stock=9 vendor_can_trade=true
-product=3 vendor=4 wc=115 status=published stock=0 vendor_can_trade=true
+product=1 vendor=4 wc=141 status=published stock=4999 vendor_can_trade=true
+product=2 vendor=8 wc=143 status=published stock=10 vendor_can_trade=true
+product=3 vendor=4 wc=145 status=published stock=0 vendor_can_trade=true

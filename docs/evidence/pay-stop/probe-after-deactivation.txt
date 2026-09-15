@@ -1,4 +1,4 @@
-ok:   the customer can see their own orders — order 127
+ok:   the customer can see their own orders — order 1243
     fresh link offered: (none)
 ok:   the fresh link from the account is REFUSED — after-deactivation: no pay button is even offered
 

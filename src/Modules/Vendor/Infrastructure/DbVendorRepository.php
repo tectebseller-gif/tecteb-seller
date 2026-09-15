@@ -134,6 +134,20 @@ final class DbVendorRepository implements VendorRepositoryInterface
         ) !== null;
     }
 
+    public function vendorUserIds(bool $sellingOnly = false, int $limit = 500): array
+    {
+        $sql = 'SELECT user_id FROM `' . $this->profiles() . '`';
+        if ($sellingOnly) {
+            $sql .= ' WHERE can_sell = 1';
+        }
+        $sql .= ' ORDER BY user_id ASC LIMIT %d';
+        $ids = [];
+        foreach ($this->db->getResults($sql, [max(1, min(2000, $limit))]) as $row) {
+            $ids[] = (int) $row['user_id'];
+        }
+        return $ids;
+    }
+
     public function findProfileByUser(int $userId): ?VendorProfile
     {
         $row = $this->db->getRow('SELECT * FROM `' . $this->profiles() . '` WHERE user_id = %d', [$userId]);

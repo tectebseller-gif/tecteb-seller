@@ -2,8 +2,9 @@
 name	status	version
 dokan-lite	active	5.1.1
 hello	inactive	1.7.2
-tecteb-marketplace-core	active	0.1.0-alpha.10
+tecteb-marketplace-core	active	0.1.0-alpha.11
 woocommerce	active	11.0.1
+order-fail-probe	must-use	
 tmc-stop-failure-probe	must-use	
 
-resume published=3 total=3 orders_released=7
+resume published=3 total=3 orders_released=2

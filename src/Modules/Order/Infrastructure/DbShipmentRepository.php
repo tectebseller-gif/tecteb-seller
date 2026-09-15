@@ -209,6 +209,22 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
         ) !== null;
     }
 
+    public function linkWcRefund(int $id, int $wcRefundId): bool
+    {
+        // `wc_refund_id IS NULL` is inside the statement for the same reason
+        // the reversal guard is: a return that already carries one matches
+        // nothing, so a second attempt affects zero rows rather than
+        // overwriting the first link. The unique index does the rest — a
+        // refund id already attached to another return makes this fail.
+        $affected = $this->db->execute(
+            'UPDATE `' . $this->returns() . '`
+             SET wc_refund_id = %d, updated_at = %s
+             WHERE id = %d AND wc_refund_id IS NULL',
+            [$wcRefundId, $this->now(), $id]
+        );
+        return $affected !== null && $affected > 0;
+    }
+
     public function recordReversal(
         int $id,
         string $eventKey,

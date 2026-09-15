@@ -61,6 +61,22 @@ interface ShipmentRepositoryInterface
     ): bool;
 
     /**
+     * Attaches a WooCommerce refund record to a return that already has one
+     * recorded in the ledger.
+     *
+     * Separate from `recordReversal()` because the two happen at different
+     * moments and depend on different things: the ledger reversal is this
+     * plugin's own and needs nothing outside it, while a `WC_Order_Refund` is
+     * a manager's deliberate act on the order. The unique index on
+     * `wc_refund_id` is what keeps one WooCommerce refund from being claimed
+     * by two returns.
+     *
+     * @return bool false when this return already carries one, or when that
+     *         refund id is already attached elsewhere
+     */
+    public function linkWcRefund(int $id, int $wcRefundId): bool;
+
+    /**
      * Writes the refund once.
      *
      * Returns false when this return already carries a reversal — enforced by

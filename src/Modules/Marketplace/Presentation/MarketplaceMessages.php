@@ -43,6 +43,51 @@ final class MarketplaceMessages
             'coupon_below_minimum' => __('مبلغ سبد به حداقل لازم این کد نرسیده است.', 'tecteb-marketplace-core'),
             'coupon_not_found' => __('چنین کدی وجود ندارد.', 'tecteb-marketplace-core'),
 
+            // --- ticket attachments ---
+            'attachment_added' => sprintf(
+                /* translators: %s: the file's name as the sender typed it */
+                __('فایل «%s» به این گفتگو پیوست شد. فایل بیرون از دسترس وب ذخیره می‌شود و فقط طرف‌های همین گفتگو می‌توانند بازش کنند.', 'tecteb-marketplace-core'),
+                (string) ($context['name'] ?? '')
+            ),
+            'attachment_no_file' => __('فایلی انتخاب نشده بود، یا بارگذاری‌اش کامل نشد.', 'tecteb-marketplace-core'),
+            'attachment_too_large' => sprintf(
+                /* translators: %s: the limit in megabytes */
+                __('فایل بزرگ‌تر از حد مجاز است. حداکثر %s مگابایت.', 'tecteb-marketplace-core'),
+                $fa((int) (((int) ($context['max_bytes'] ?? 0)) / 1024 / 1024))
+            ),
+            'attachment_type_not_allowed' => __('این نوع فایل پذیرفته نمی‌شود. فقط تصویر (JPEG، PNG، WebP)، PDF و متن ساده.', 'tecteb-marketplace-core'),
+            'attachment_too_many' => sprintf(
+                /* translators: %s: how many files one message may carry */
+                __('هر پیام حداکثر %s فایل می‌گیرد.', 'tecteb-marketplace-core'),
+                $fa((string) ($context['max'] ?? ''))
+            ),
+            'attachment_storage_unavailable' => __('جای امنی برای نگه‌داشتن فایل پیدا نشد، پس فایل ذخیره نشد. تا رفع این مشکل، پیوست ممکن نیست — فایل هرگز جایی که از وب خوانده شود گذاشته نمی‌شود.', 'tecteb-marketplace-core'),
+            'attachment_storage_failed' => __('فایل ذخیره نشد. دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+            'attachment_hidden' => __('فایل پنهان شد. حذف نشد و سابقه‌اش با دلیل ثبت است.', 'tecteb-marketplace-core'),
+            'hide_reason_required' => __('برای پنهان‌کردن، دلیل لازم است.', 'tecteb-marketplace-core'),
+
+            // --- the WooCommerce refund record, said apart from the money ---
+            'refund_recorded' => __('رکورد بازپرداخت در ووکامرس ساخته شد. این فقط یک ثبت است: هیچ پولی جابه‌جا نشد و درگاهی در کار نبوده.', 'tecteb-marketplace-core'),
+            'refund_ledger_first' => __('اول باید بازگشت مالی در دفترکل ثبت شود؛ رکورد ووکامرس پس از آن ساخته می‌شود.', 'tecteb-marketplace-core'),
+            'refund_already_recorded' => __('برای این مرجوعی قبلاً یک رکورد بازپرداخت ووکامرس ثبت شده است.', 'tecteb-marketplace-core'),
+            'refund_link_failed' => sprintf(
+                /* translators: %s: the WooCommerce refund id */
+                __('رکورد بازپرداخت در ووکامرس با شمارهٔ %s ساخته شد، ولی به این مرجوعی وصل نشد. این شماره را نگه دارید و با پشتیبانی فنی تماس بگیرید.', 'tecteb-marketplace-core'),
+                $fa((string) ($context['wc_refund_id'] ?? ''))
+            ),
+            'refund_amount_exceeds_remaining' => __('مبلغ از باقی‌ماندهٔ قابل بازپرداخت این سفارش بیشتر است.', 'tecteb-marketplace-core'),
+            'refund_woocommerce_missing' => __('ووکامرس در دسترس نیست، پس رکورد بازپرداختی ساخته نمی‌شود.', 'tecteb-marketplace-core'),
+            'refund_order_missing' => __('سفارش این قلم پیدا نشد.', 'tecteb-marketplace-core'),
+            'refund_record_failed' => __('ووکامرس ساختن رکورد بازپرداخت را نپذیرفت.', 'tecteb-marketplace-core'),
+            'refund_no_gateway_adapter' => __('هیچ درگاه پرداخت واقعی در این نسخه وصل نیست.', 'tecteb-marketplace-core'),
+            'refund_no_transaction_id' => __('این سفارش شمارهٔ تراکنش ندارد، پس چیزی برای بازگرداندن از طریق درگاه وجود ندارد.', 'tecteb-marketplace-core'),
+            'refund_gateway_not_installed' => __('درگاهی که این سفارش با آن پرداخت شده روی سایت نصب نیست.', 'tecteb-marketplace-core'),
+            'refund_gateway_no_refund_support' => __('درگاه این سفارش بازپرداخت خودکار را پشتیبانی نمی‌کند.', 'tecteb-marketplace-core'),
+
+            // --- notifications ---
+            'notices_all_read' => __('همهٔ اعلان‌ها خوانده‌شده شدند.', 'tecteb-marketplace-core'),
+            'notice_read' => __('اعلان خوانده‌شده شد.', 'tecteb-marketplace-core'),
+
             'wholesale_applied' => __('درخواست خرید عمده ثبت شد. تا تأیید مدیر، قیمت پلکانی نمایش داده نمی‌شود.', 'tecteb-marketplace-core'),
             'wholesale_already_applied' => __('درخواست شما از قبل ثبت شده است.', 'tecteb-marketplace-core'),
             'wholesale_approved' => __('خریدار عمده تأیید شد و از این پس قیمت پلکانی را می‌بیند.', 'tecteb-marketplace-core'),

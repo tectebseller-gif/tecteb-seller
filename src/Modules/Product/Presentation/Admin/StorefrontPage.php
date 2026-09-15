@@ -15,6 +15,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontStop;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WcUnpaidOrderGuard;
 use Tecteb\Marketplace\Modules\Product\Presentation\PurchaseMessages;
 
 /**
@@ -117,21 +118,29 @@ final class StorefrontPage
         echo '<form method="post">';
         wp_nonce_field(self::NONCE, 'tmc_storefront_nonce');
         if ($stopped) {
-            // Three separate buttons on purpose. Rolling back to a previous
-            // package means dealing with what the stop left open — a product
-            // still on sale, an order still held — and none of that may
-            // require reopening the shop first. «از سرگیری» is the only one
-            // that starts selling again, and it is last.
+            // Three separate buttons on purpose, and each says exactly what it
+            // opens. Rolling back to a previous package means dealing with what
+            // the stop left open, and none of that may require reopening the
+            // shop first — but «بازگرداندن سفارش‌های نگه‌داشته» is NOT a
+            // no-consequence tidy-up either: it puts those orders back to
+            // pending or failed, which is precisely where WooCommerce takes
+            // money, and it keeps taking it once this plugin is gone. Calling
+            // it «فروش بسته می‌ماند» was a contradiction of this plugin's own
+            // reason for holding them, and the owner named it.
             echo '<p class="tmc-field__desc">'
                 . esc_html__('اگر توقف کامل نشده بود، «تلاش دوباره» را بزنید؛ فروش بسته می‌ماند و فقط آنچه جا مانده بسته می‌شود.', 'tecteb-marketplace-core')
                 . '</p>'
                 . '<p><button type="submit" name="storefront_action" value="retry_stop" class="tmc-button">'
                 . esc_html__('تلاش دوبارهٔ توقف (فروش بسته می‌ماند)', 'tecteb-marketplace-core') . '</button></p>';
-            echo '<p class="tmc-field__desc">'
-                . esc_html__('سفارش‌های پرداخت‌نشده‌ای که هنگام توقف نگه داشته شدند، بدون بازکردن فروش به وضعیت قبلی‌شان برمی‌گردند. برای بازگشت به بستهٔ قبلی، همین کافی است و لازم نیست فروش را باز کنید.', 'tecteb-marketplace-core')
+            echo '<p class="tmc-field__desc tmc-field__desc--warn">'
+                . esc_html__('هشدار: بازگرداندن سفارش‌های نگه‌داشته، همان سفارش‌ها را به وضعیت «در انتظار پرداخت» یا «ناموفق» برمی‌گرداند — یعنی دوباره قابل پرداخت می‌شوند، و اگر این افزونه بعداً غیرفعال شود هم قابل پرداخت می‌مانند. محصولی به فروشگاه برنمی‌گردد، ولی این کار «بی‌اثر» نیست: تصمیم تجاری است، نه مرتب‌کردن.', 'tecteb-marketplace-core')
+                . '</p>'
+                . '<p class="tmc-field__desc">'
+                . esc_html__('برای بازگشت به بستهٔ قبلی، این دکمه لازم نیست و توصیه هم نمی‌شود؛ سفارش‌ها را نگه‌داشته رها کنید تا تعیین تکلیف شوند.', 'tecteb-marketplace-core')
+                . ' ' . esc_html(WcUnpaidOrderGuard::stockNote())
                 . '</p>'
                 . '<p><button type="submit" name="storefront_action" value="release_orders" class="tmc-button">'
-                . esc_html__('بازگرداندن سفارش‌های نگه‌داشته (فروش بسته می‌ماند)', 'tecteb-marketplace-core') . '</button></p>';
+                . esc_html__('بازگرداندن سفارش‌های نگه‌داشته (پرداختشان دوباره باز می‌شود)', 'tecteb-marketplace-core') . '</button></p>';
             echo '<p class="tmc-field__desc">'
                 . esc_html__('با «از سرگیری»، فروش دوباره باز می‌شود و فقط محصولاتی برمی‌گردند که هنوز شرایطشان برقرار است: فروشنده مجاز به فروش باشد، محصول منتشر باشد و کامل باشد. بقیه با ذکر علت بیرون می‌مانند.', 'tecteb-marketplace-core')
                 . '</p>'

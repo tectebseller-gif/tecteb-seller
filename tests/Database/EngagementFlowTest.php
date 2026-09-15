@@ -19,6 +19,7 @@ use Tecteb\Marketplace\Modules\Marketplace\Domain\Ticket;
 use Tecteb\Marketplace\Modules\Marketplace\Domain\WholesaleStatus;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\DbEngagementRepository;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0009EngagementTables;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0011AttachmentsAndNotices;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
@@ -82,6 +83,7 @@ final class EngagementFlowTest extends DatabaseTestCase
         (new M0006CatalogAndOrders())->up($db);
         (new M0010LinkOwnership())->up($db);
         (new M0009EngagementTables())->up($db);
+        (new M0011AttachmentsAndNotices())->up($db);
 
         $clock = new SystemClock();
         $audit = new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock);

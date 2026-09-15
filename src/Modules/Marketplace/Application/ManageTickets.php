@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
+use Tecteb\Marketplace\Modules\Marketplace\Domain\Notification;
 use Tecteb\Marketplace\Modules\Marketplace\Domain\Ticket;
 use Tecteb\Marketplace\Modules\Marketplace\Domain\TicketMessage;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
@@ -42,7 +43,11 @@ final class ManageTickets
         private readonly StaffAccess $access,
         private readonly AuditLogger $audit,
         private readonly ClockInterface $clock,
-        private readonly ?CapabilityCheckerInterface $capabilities = null
+        private readonly ?CapabilityCheckerInterface $capabilities = null,
+        // Optional so this service still constructs where notices are not
+        // wired — the conversation is the feature, the notice is a courtesy,
+        // and a missing courtesy must not take the conversation down with it.
+        private readonly ?Notify $notify = null
     ) {
     }
 
@@ -68,13 +73,19 @@ final class ManageTickets
         if ($ticketId === 0) {
             return OperationResult::failure('storage_failed');
         }
-        $this->post($ticketId, $actorId, Ticket::ROLE_VENDOR, $body);
+        $messageId = $this->post($ticketId, $actorId, Ticket::ROLE_VENDOR, $body);
         $this->audit->log(AuditEventCatalog::TICKET_OPENED, $actorId, 'ticket', (string) $ticketId, [
             'vendor_id' => $vendorUserId,
             'ticket_id' => $ticketId,
             'has_order_ref' => trim($orderRef) !== '',
         ]);
-        return OperationResult::success('ticket_opened', ['ticket_id' => $ticketId]);
+        // The message id travels back because an attachment hangs off a
+        // MESSAGE, not off a thread, and the caller has no other way to learn
+        // which one was just written.
+        return OperationResult::success('ticket_opened', [
+            'ticket_id' => $ticketId,
+            'message_id' => $messageId,
+        ]);
     }
 
     public function reply(int $actorId, int $ticketId, string $body, bool $asManager = false): OperationResult
@@ -107,7 +118,20 @@ final class ManageTickets
             'ticket_id' => $ticketId,
             'role' => $role,
         ]);
-        return OperationResult::success('ticket_replied', ['ticket_id' => $ticketId]);
+        // Whoever did NOT write this message is the one who needs telling.
+        if ($role === Ticket::ROLE_MANAGER) {
+            $this->notify?->toStore(
+                $ticket->vendorUserId,
+                Notify::TICKET_REPLIED,
+                Notification::SUBJECT_TICKET,
+                (string) $ticketId . ':' . $messageId,
+                ['subject' => $ticket->subject]
+            );
+        }
+        return OperationResult::success('ticket_replied', [
+            'ticket_id' => $ticketId,
+            'message_id' => $messageId,
+        ]);
     }
 
     /** Closing, reopening or locking — all a manager's, all recorded. */
@@ -191,6 +215,36 @@ final class ManageTickets
             return [];
         }
         return $this->repository->ticketMessages($ticketId);
+    }
+
+    /**
+     * May this person take part in this thread at all?
+     *
+     * The one question anything hanging off a ticket has to ask — a file, in
+     * particular. Public because the attachment service is a separate class
+     * and must not re-derive the answer: two places deciding who is in a
+     * conversation is how they end up disagreeing.
+     */
+    public function mayPostTo(int $actorId, int $ticketId): bool
+    {
+        $ticket = $this->repository->findTicket($ticketId);
+        if ($ticket === null) {
+            return false;
+        }
+        return $this->mayModerate($actorId) || $this->mayTalk($actorId, $ticket->vendorUserId);
+    }
+
+    /**
+     * Whether this person is the marketplace's side of every conversation.
+     *
+     * Hiding a message or a file is a manager's act and is reviewable, so the
+     * capability is the same one that reviews vendors — there is no separate
+     * «moderator» role, and inventing one would put a permission in the code
+     * that nobody approved.
+     */
+    public function mayModerate(int $actorId): bool
+    {
+        return $this->capabilities?->can(Capabilities::REVIEW_VENDOR) ?? false;
     }
 
     /**

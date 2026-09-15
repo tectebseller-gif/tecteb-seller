@@ -44,6 +44,9 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             // The phase-7 module: a shop's own codes are not here (they are on
             // the vendor's own page); what a MANAGER decides is.
             ['tmc-tickets', 'tmc_review_vendor', 'تیکت فروشندگان'],
+            // «مالی و عملیاتی» (UX §12.3) plus the manager's OWN inbox. There
+            // is no everybody's-notifications screen anywhere, on purpose.
+            ['tmc-reports', 'tmc_review_vendor', 'گزارش‌ها'],
             ['tmc-wholesale', 'tmc_review_vendor', 'خریداران عمده'],
             // The slug carries no other plugin's name — the assertion below
             // enforces that, so «مهاجرت از دکان» is the label, not the id.

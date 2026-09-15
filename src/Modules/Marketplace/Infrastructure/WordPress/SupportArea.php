@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WordPress;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
+use Tecteb\Marketplace\Modules\Marketplace\Application\AttachTicketFile;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageCoupons;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageTickets;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageWholesale;
@@ -13,6 +14,7 @@ use Tecteb\Marketplace\Modules\Marketplace\Domain\Coupon;
 use Tecteb\Marketplace\Modules\Marketplace\Domain\Ticket;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\MarketplaceMessages;
+use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaOutcome;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaView;
@@ -276,14 +278,23 @@ final class SupportArea
                     $html .= $message->hidden
                         ? '<em>' . esc_html__('این پیام توسط مدیر پنهان شده است.', 'tecteb-marketplace-core') . '</em>'
                         : esc_html($message->visibleBody());
+                    // A hidden message hides its files with it: the attachment
+                    // belongs to what somebody said, not to the thread.
+                    if (!$message->hidden) {
+                        $html .= $this->fileList($view->userId, $ticket->id, $message->id, $fa);
+                    }
                     $html .= '</li>';
                 }
                 $html .= '</ul>';
                 $html .= $ticket->acceptsReplies()
-                    ? '<form method="post" class="tv-form">' . $view->nonceField
+                    // enctype, because this form can carry a file. Without it
+                    // the browser posts only the field NAMES and the upload
+                    // arrives as nothing at all.
+                    ? '<form method="post" class="tv-form" enctype="multipart/form-data">' . $view->nonceField
                         . '<input type="hidden" name="tmc_vendor_action" value="reply_ticket">'
                         . '<input type="hidden" name="ticket_id" value="' . esc_attr((string) $ticket->id) . '">'
                         . VendorUi::textarea('ticket_body', __('پاسخ شما', 'tecteb-marketplace-core'), '')
+                        . $this->fileField()
                         . VendorUi::submit(__('ارسال پاسخ', 'tecteb-marketplace-core'))
                         . '</form>'
                     : VendorUi::notice('info', $ticket->locked
@@ -302,6 +313,64 @@ final class SupportArea
             . '</p>'
             . VendorUi::submit(__('ثبت گفتگوی تازه', 'tecteb-marketplace-core'))
             . '</form></section>';
+    }
+
+    /**
+     * The file input on a reply, and the rules said before they are hit.
+     *
+     * The limits are printed rather than discovered by failing: a person who
+     * has just typed a paragraph and attached a 9MB photo should be told the
+     * limit before they press the button, not after.
+     */
+    private function fileField(): string
+    {
+        return '<div class="tv-field">'
+            . '<label class="tv-label" for="f-ticket_file">'
+            . esc_html__('پیوست (اختیاری)', 'tecteb-marketplace-core') . '</label>'
+            . '<input class="tv-input" type="file" id="f-ticket_file" name="ticket_file"'
+            . ' accept="' . esc_attr(implode(',', AttachTicketFile::ALLOWED_MIME)) . '">'
+            . '<p class="tv-hint">'
+            . esc_html(sprintf(
+                /* translators: 1: size limit in megabytes, 2: how many files per message */
+                __('تصویر، PDF یا متن ساده؛ حداکثر %1$s مگابایت و %2$s فایل برای هر پیام. فایل بیرون از دسترس وب ذخیره می‌شود و فقط طرف‌های همین گفتگو بازش می‌کنند.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) (AttachTicketFile::MAX_BYTES / 1024 / 1024)),
+                PersianDigits::toPersian((string) AttachTicketFile::MAX_PER_MESSAGE)
+            ))
+            . '</p></div>';
+    }
+
+    /**
+     * The files hanging off one message.
+     *
+     * Each link carries its own nonce and goes through the one route that
+     * checks who is asking — there is no path here that prints a file's
+     * location, because a private file has no URL to print.
+     *
+     * @param callable(string|int):string $fa
+     */
+    private function fileList(int $userId, int $ticketId, int $messageId, callable $fa): string
+    {
+        $files = $this->container->get(AttachTicketFile::class)->forMessage($ticketId, $messageId);
+        if ($files === []) {
+            return '';
+        }
+        $html = '<ul class="tv-files">';
+        foreach ($files as $file) {
+            if ($file->hidden) {
+                $html .= '<li class="tv-file tv-file--hidden"><span class="tv-file__name">'
+                    . esc_html__('این فایل توسط مدیر پنهان شده است.', 'tecteb-marketplace-core')
+                    . '</span></li>';
+                continue;
+            }
+            $html .= '<li class="tv-file">'
+                . '<a class="tv-file__name" href="' . esc_url(TicketFileRoute::url($file->id)) . '">'
+                . esc_html($file->visibleName()) . '</a>'
+                . '<span class="tv-file__size">'
+                . esc_html($fa(number_format((int) ceil($file->sizeBytes / 1024))))
+                . ' ' . esc_html__('کیلوبایت', 'tecteb-marketplace-core') . '</span>'
+                . '</li>';
+        }
+        return $html . '</ul>';
     }
 
     public function handle(string $action, Request $request, int $userId, VendorUrls $urls): ?VendorAreaOutcome
@@ -356,6 +425,18 @@ final class SupportArea
         if ($result === null) {
             return null;
         }
+        // A file is attached to the message that was just written, and only if
+        // that write succeeded: an attachment with no message to hang from
+        // would be unreachable and unmoderatable. A refused file does NOT undo
+        // the message — the person said something and it stands; what they
+        // get is the reason their file did not go with it.
+        if ($result->ok && in_array($action, ['open_ticket', 'reply_ticket'], true)
+            && $request->file('ticket_file')->sizeBytes > 0) {
+            $attached = $this->attach($request, $userId, $result);
+            if ($attached !== null) {
+                return $attached;
+            }
+        }
         // The ladder form comes back to the SAME product, because the next
         // thing a vendor does after saving a ladder is look at it.
         $back = $action === 'set_tiers'
@@ -388,6 +469,32 @@ final class SupportArea
             $steps[(int) $quantity] = (int) $price;
         }
         return $steps;
+    }
+
+    /**
+     * Attaches the posted file to the message this action just created.
+     *
+     * Returns the outcome to show when the file was REFUSED, and null when it
+     * went through — so a successful attachment leaves the caller's own
+     * «ثبت شد» message alone rather than replacing it with a second one.
+     */
+    private function attach(Request $request, int $userId, OperationResult $result): ?VendorAreaOutcome
+    {
+        $ticketId = (int) ($result->context['ticket_id'] ?? 0);
+        $messageId = (int) ($result->context['message_id'] ?? 0);
+        if ($ticketId <= 0 || $messageId <= 0) {
+            return null;
+        }
+        $attached = $this->container->get(AttachTicketFile::class)
+            ->attach($userId, $ticketId, $messageId, $request->file('ticket_file'));
+        if ($attached->ok) {
+            return null;
+        }
+        return new VendorAreaOutcome(
+            $attached->code,
+            add_query_arg('ticket', (string) $ticketId, $this->supportUrl()),
+            $attached->context
+        );
     }
 
     public function supportUrl(): string

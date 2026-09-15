@@ -190,6 +190,10 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             new ReturnStateMachine(),
             new ReturnTerms(),
             new RefundScope(),
+            // No WooCommerce in the database suite, so there is nothing to
+            // record a refund against. Null is the honest argument: the
+            // service refuses rather than pretending.
+            null,
             $this->products,
             $this->storefront,
             $manager
@@ -504,6 +508,10 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             new ReturnStateMachine(),
             new ReturnTerms(),
             new RefundScope(),
+            // No WooCommerce in the database suite, so there is nothing to
+            // record a refund against. Null is the honest argument: the
+            // service refuses rather than pretending.
+            null,
             $this->products,
             $this->storefront,
             new FakeCapabilityChecker(self::VENDOR, [])
@@ -528,6 +536,10 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             new ReturnStateMachine(),
             new ReturnTerms(),
             new RefundScope(),
+            // No WooCommerce in the database suite, so there is nothing to
+            // record a refund against. Null is the honest argument: the
+            // service refuses rather than pretending.
+            null,
             new DbProductRepository($db, $clock),
             $this->storefront,
             new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS])
