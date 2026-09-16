@@ -25,6 +25,24 @@ field() { grep -oE "(^| )$1=[^ ]*" | head -1 | cut -d= -f2-; }
 
 cp "$(dirname "$0")"/*.php "$WPROOT/" 2>/dev/null || true
 
+# This file measures the shop page AS ITS OWN DOCUMENT: `<!DOCTYPE>`, the
+# `lang`/`dir` pair, «no script beyond the JSON-LD», one occurrence of each
+# field. All of that is about markup THIS plugin emits, and inside a theme the
+# document belongs to the theme — 26 of its scripts, its `<html>` element, and
+# the city read once in the page and once in the JSON-LD.
+#
+# So the mode is stated rather than inherited. Left to whatever the site
+# happened to be set to, this suite reported four failures that were not
+# defects; the theme-wrapped page has its own suite in
+# `tools/store-surface-check.sh` section 7.
+PREVIOUS_MODE="$(wp option get tmc_store_page_theme 2>/dev/null || true)"
+restore_mode() {
+  if [ -n "${PREVIOUS_MODE}" ]; then wp option update tmc_store_page_theme "${PREVIOUS_MODE}" >/dev/null 2>&1
+  else wp option delete tmc_store_page_theme >/dev/null 2>&1 || true; fi
+}
+trap restore_mode EXIT
+wp option update tmc_store_page_theme standalone >/dev/null 2>&1
+
 {
 echo "=== the shop's public page, on the plugin installed from the ZIP ==="
 wp plugin list --fields=name,status,version | grep tecteb

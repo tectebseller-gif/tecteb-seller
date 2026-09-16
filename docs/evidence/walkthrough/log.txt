@@ -1,0 +1,19 @@
+plugin on the site: 0.1.0-alpha.16
+desktop 1 فروشگاه عمومی — داروخانهٔ نمونهٔ تک‌طب — Tecteb Disposable Acceptance Site
+desktop 3 صفحهٔ دوم کاتالوگ
+desktop 4 پیشخوان فروشنده
+desktop 5 محصولات
+desktop 6 سفارش‌های فروش
+desktop 7 فرم تنظیمات فروشگاه
+desktop 8 پیشخوان مدیر
+desktop 9 وضعیت فروش بازارگاه
+desktop: 3 video file(s) in /home/user/tecteb-seller/docs/evidence/walkthrough/video-desktop
+mobile 1 فروشگاه عمومی — داروخانهٔ نمونهٔ تک‌طب — Tecteb Disposable Acceptance Site
+mobile 3 صفحهٔ دوم کاتالوگ
+mobile 4 پیشخوان فروشنده
+mobile 5 محصولات
+mobile 6 سفارش‌های فروش
+mobile 7 فرم تنظیمات فروشگاه
+mobile 8 پیشخوان مدیر
+mobile 9 وضعیت فروش بازارگاه
+mobile: 3 video file(s) in /home/user/tecteb-seller/docs/evidence/walkthrough/video-mobile

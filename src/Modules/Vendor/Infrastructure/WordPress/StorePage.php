@@ -126,32 +126,65 @@ final class StorePage
         // one case where «up to ten minutes stale» is the wrong answer to
         // «why does my shop still say closed», so that path renders fresh.
         $closed = $store->isClosedOn(current_time('Y-m-d'));
-        $cached = $closed ? null : StorePageCache::get($vendorUserId, $page);
-        if ($cached !== null) {
-            status_header(200);
-            header('Content-Type: text/html; charset=utf-8');
-            header('X-TMC-Store-Cache: hit');
-            echo $cached;                       // phpcs:ignore WordPress.Security.EscapeOutput
-            exit;
-        }
+        $standing = $container->get(ManageReviews::class)->standing($vendorUserId);
+        // The canonical is THIS page, not page one. Pointing every page at the
+        // first would tell a crawler that pages two and three are duplicates
+        // of it, and their products would drop out of the index.
+        $canonical = self::url($vendorUserId, $page);
+        // The two modes render different bytes from the same shop, so the mode
+        // is part of the key. Sharing one key and relying on somebody
+        // remembering to bump the version when the setting changes is the
+        // sweep problem again, one level up.
+        $mode = StoreThemeRenderer::mode();
+
+        $cached = $closed ? null : StorePageCache::get($vendorUserId, $page, $mode);
+        $state = $cached !== null ? 'hit' : ($closed ? 'skip' : 'miss');
 
         status_header(200);
         header('Content-Type: text/html; charset=utf-8');
-        header('X-TMC-Store-Cache: ' . ($closed ? 'skip' : 'miss'));
-        $html = StorePageView::html(
+        header('X-TMC-Store-Cache: ' . $state);
+        header('X-TMC-Store-Render: ' . $mode);
+
+        if ($mode === StoreThemeRenderer::THEME) {
+            // Only OUR fragment is cached. The rest of the page is the theme's,
+            // and it is not ours to store: it carries the admin bar, nonces and
+            // whatever else a plugin puts on `wp_head` for THIS visitor.
+            $body = $cached ?? StorePageView::body(
+                $vendorUserId,
+                $store,
+                $products,
+                $standing,
+                $canonical,
+                $page,
+                $pages
+            );
+            if (!$closed && $cached === null) {
+                StorePageCache::put($vendorUserId, $page, $body, $mode);
+            }
+            StoreThemeRenderer::render(
+                $vendorUserId,
+                $store,
+                $products,
+                $standing,
+                $canonical,
+                $page,
+                $pages,
+                $body
+            );
+            return;                             // render() exits; this is for the reader
+        }
+
+        $html = $cached ?? StorePageView::html(
             $vendorUserId,
             $store,
             $products,
-            $container->get(ManageReviews::class)->standing($vendorUserId),
-            // The canonical is THIS page, not page one. Pointing every page at
-            // the first would tell a crawler that pages two and three are
-            // duplicates of it, and their products would drop out of the index.
-            self::url($vendorUserId, $page),
+            $standing,
+            $canonical,
             $page,
             $pages
         );
-        if (!$closed) {
-            StorePageCache::put($vendorUserId, $page, $html);
+        if (!$closed && $cached === null) {
+            StorePageCache::put($vendorUserId, $page, $html, $mode);
         }
         // phpcs:ignore WordPress.Security.EscapeOutput -- the view escapes.
         echo $html;

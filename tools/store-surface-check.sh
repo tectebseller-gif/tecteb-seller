@@ -24,6 +24,8 @@ check() { if [ "$2" = "$3" ]; then pass=$((pass+1)); printf 'ok:   %-62s %s\n' "
 wp() { (cd "$WPROOT" && "$PHPBIN" "$WPCLI" --allow-root "$@" 2>/dev/null); }
 hdr() { curl -sI "$1" | tr -d '\r' | grep -i "^$2:" | head -1 | cut -d' ' -f2-; }
 code() { curl -s -o /dev/null -w '%{http_code}' "$1"; }
+# Pulls `name=value` out of a fixture's one-line report.
+field() { grep -oE "(^| )$1=[^ ]*" | head -1 | cut -d= -f2-; }
 
 # `wp eval-file` reads from the WordPress root, not from this repo, so every
 # evidence script copies its own helpers in. A stale copy there answers
@@ -177,6 +179,72 @@ wp eval-file store-surface-state.php drop-dokan-seller > "$EV/10-cleanup-seller.
 
 curl -s -D "$EV/11-redirect-headers.txt" -o /dev/null --max-redirs 0 "$OLD"
 echo "    (the full cutover — Dokan deactivated — is tools/cutover-check.sh)"
+
+echo "--- 7. the shop inside the site's own theme ---"
+render() { hdr "$1" X-TMC-Store-Render; }
+wp option delete tmc_store_page_theme >/dev/null 2>&1 || true
+THEME="$(wp eval 'echo get_stylesheet();')"
+echo "    theme=${THEME}"
+check "auto picks the theme when it has header/footer"    theme "$(render "$URL")"
+
+curl -s "$URL" > "$EV/12-in-theme.html"
+check "the site's header is on the page"                  1 "$(grep -c 'site-header' "$EV/12-in-theme.html")"
+check "…and its footer"                                 1 "$(grep -c 'site-footer' "$EV/12-in-theme.html")"
+check "…and the shop itself"                            1 \
+  "$(grep -c '<header class=.tmc-store__head.' "$EV/12-in-theme.html")"
+# One title, not two. `head()` carries one for the standalone document, and
+# the theme prints its own from `pre_get_document_title`; both would be
+# invalid, and which one a browser keeps depends on hook order.
+check "exactly one <title>"                               1 "$(grep -c '<title>' "$EV/12-in-theme.html")"
+check "the canonical survived"                            1 "$(grep -c 'rel=\"canonical\"' "$EV/12-in-theme.html")"
+check "the Schema.org block survived"                     1 "$(grep -c 'ld+json' "$EV/12-in-theme.html")"
+check "the Open Graph card survived"                      1 "$(grep -c 'og:title' "$EV/12-in-theme.html")"
+check "the bundled font survived"                         1 "$(grep -c '@font-face' "$EV/12-in-theme.html")"
+check "the page is not styled as the blog index"          0 \
+  "$(grep -oE '<body class=\"[^\"]*\"' "$EV/12-in-theme.html" | grep -cE '(^| )(home|blog)( |\")')"
+check "…but carries our own class"                      1 \
+  "$(grep -oE '<body class=\"[^\"]*\"' "$EV/12-in-theme.html" | grep -c 'tmc-store')"
+
+echo "    the private fields are still absent — the wrapper changed, not the rule"
+# Real values, so their absence means something: a page that omits an EMPTY
+# warehouse proves nothing. And each value's PRESENCE is checked first — the
+# first run of this section skipped all five silently, because `field` was not
+# defined here and an unset value makes a check vanish rather than fail.
+PRIVATE="$(wp eval-file store-page-state.php seed "$VENDOR")"
+echo "    ${PRIVATE:-<no output>}"
+wp eval "Tecteb\\Marketplace\\Modules\\Vendor\\Infrastructure\\WordPress\\StorePageCache::forget(${VENDOR});" >/dev/null
+curl -s "$URL" > "$EV/13-in-theme-seeded.html"
+# The literals `store-page-state.php seed` writes, named here rather than
+# parsed out of its report — that report says `warehouse=set`, a STATUS word,
+# and the first version of this loop grepped the page for «set» and found it
+# 28 times. It also reports nothing at all for the other four.
+check "  the fixture ran"                                 1 "$(echo "$PRIVATE" | grep -c 'warehouse=set')"
+leaked() { grep -c -- "$1" "$EV/13-in-theme-seeded.html"; }
+check "  NOT the dispatch warehouse"                      0 "$(leaked 'انبار خصوصی خیابان')"
+check "  NOT the bank account"                            0 "$(leaked 'IR12')"
+check "  NOT the applicant's e-mail"                      0 "$(leaked 'private-store@example')"
+check "  NOT the applicant's mobile"                      0 "$(leaked '09121112233')"
+check "  NOT the applicant's own address"                 0 "$(leaked 'نشانی شخصی متقاضی')"
+check "  the published address is the city and no more"   1 "$(leaked '\"addressLocality\"')"
+check "  …with no street in it"                         0 "$(leaked '\"streetAddress\"')"
+
+echo "    a manager can force either mode"
+wp option update tmc_store_page_theme standalone >/dev/null 2>&1
+check "forced standalone is standalone"                   standalone "$(render "$URL")"
+curl -s "$URL" > "$EV/14-standalone.html"
+check "…and that really is a document of its own"       1 "$(grep -c '<!DOCTYPE html>' "$EV/14-standalone.html")"
+check "…with no theme header"                           0 "$(grep -c 'site-header' "$EV/14-standalone.html")"
+check "…and still exactly one <title>"                  1 "$(grep -c '<title>' "$EV/14-standalone.html")"
+
+# The two modes are different bytes from the same shop and page number, so a
+# shared cache key would serve one for the other — a bare fragment with no
+# document around it. The key carries the mode.
+check "the standalone body is not the theme body"         yes \
+  "$(cmp -s "$EV/12-in-theme.html" "$EV/14-standalone.html" && echo no || echo yes)"
+wp option update tmc_store_page_theme theme >/dev/null 2>&1
+check "switching back does not serve the other body"      1 \
+  "$(curl -s "$URL" | grep -c 'site-header')"
+wp option delete tmc_store_page_theme >/dev/null 2>&1 || true
 
 echo
 echo "=== pass=${pass} fail=${fail} ==="

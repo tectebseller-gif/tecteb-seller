@@ -33,21 +33,21 @@ final class StorePageCache
     private const VERSION_PREFIX = 'tmc_store_v_';
     private const BODY_PREFIX = 'tmc_store_page_';
 
-    public static function get(int $vendorUserId, int $page): ?string
+    public static function get(int $vendorUserId, int $page, string $variant = ''): ?string
     {
         if (!self::enabled()) {
             return null;
         }
-        $body = get_transient(self::key($vendorUserId, $page));
+        $body = get_transient(self::key($vendorUserId, $page, $variant));
         return is_string($body) && $body !== '' ? $body : null;
     }
 
-    public static function put(int $vendorUserId, int $page, string $html): void
+    public static function put(int $vendorUserId, int $page, string $html, string $variant = ''): void
     {
         if (!self::enabled() || $html === '') {
             return;
         }
-        set_transient(self::key($vendorUserId, $page), $html, self::TTL);
+        set_transient(self::key($vendorUserId, $page, $variant), $html, self::TTL);
     }
 
     /**
@@ -83,8 +83,17 @@ final class StorePageCache
         return max(1, (int) get_option(self::VERSION_PREFIX . $vendorUserId, 1));
     }
 
-    private static function key(int $vendorUserId, int $page): string
+    /**
+     * `$variant` separates bodies that are not interchangeable — today, the
+     * theme-wrapped fragment from the standalone document. They come from the
+     * same shop and the same page number, so without it the one stored first
+     * would be served for the other, and switching the render mode would show
+     * a fragment with no document around it.
+     */
+    private static function key(int $vendorUserId, int $page, string $variant = ''): string
     {
-        return self::BODY_PREFIX . $vendorUserId . '_' . max(1, $page) . '_v' . self::version($vendorUserId);
+        $suffix = $variant === '' ? '' : '_' . preg_replace('/[^a-z0-9_-]/i', '', $variant);
+        return self::BODY_PREFIX . $vendorUserId . '_' . max(1, $page) . $suffix
+            . '_v' . self::version($vendorUserId);
     }
 }

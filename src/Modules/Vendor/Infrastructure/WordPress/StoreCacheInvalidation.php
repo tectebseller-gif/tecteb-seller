@@ -47,6 +47,21 @@ final class StoreCacheInvalidation
                 self::forgetOwnerOf($container, (int) $post->ID);
             }
         }, 20, 3);
+        // The featured image, set on its own.
+        //
+        // Saving a product in wp-admin fires `woocommerce_update_product`, so
+        // the usual path is already covered — but `set_post_thumbnail()` from
+        // the media library, an importer or WP-CLI only writes the meta, and
+        // the card on the shop page kept the previous picture until the TTL
+        // ran out. Found while swapping the walkthrough's images: the page
+        // served blank cards from a body cached before they existed.
+        foreach (['added_post_meta', 'updated_post_meta', 'deleted_post_meta'] as $hook) {
+            add_action($hook, static function ($metaId, $postId, $metaKey) use ($container): void {
+                if ((string) $metaKey === '_thumbnail_id') {
+                    self::forgetOwnerOf($container, (int) $postId);
+                }
+            }, 20, 3);
+        }
         // The shop's own settings — name, intro, carriers, and the temporary
         // closure. Fired by the repository, so it does not matter who asked
         // for the write: the vendor's own form, a manager, or WP-CLI.

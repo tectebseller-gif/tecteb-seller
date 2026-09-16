@@ -1,0 +1,134 @@
+{
+  "site": "http://127.0.0.1:8080",
+  "version": "0.1.0-alpha.16",
+  "recorded_at": "2026-09-16T18:09:32.510Z",
+  "runs": [
+    {
+      "size": "desktop",
+      "viewport": "1440x900",
+      "steps": [
+        {
+          "step": "1",
+          "name": "store-page",
+          "title": "داروخانهٔ نمونهٔ تک‌طب — Tecteb Disposable Acceptance Site",
+          "file": "1-store-page-desktop.png"
+        },
+        {
+          "step": "2",
+          "name": "store-products",
+          "file": "2-store-products-desktop.png"
+        },
+        {
+          "step": "3",
+          "name": "store-page-two",
+          "title": "داروخانهٔ نمونهٔ تک‌طب — Tecteb Disposable Acceptance Site",
+          "file": "3-store-page-two-desktop.png"
+        },
+        {
+          "step": "4",
+          "name": "vendor",
+          "title": "پیشخوان فروشنده",
+          "file": "4-vendor-desktop.png"
+        },
+        {
+          "step": "5",
+          "name": "vendor-products",
+          "title": "محصولات فروشگاه",
+          "file": "5-vendor-products-desktop.png"
+        },
+        {
+          "step": "6",
+          "name": "vendor-orders",
+          "title": "سفارش‌های فروشگاه",
+          "file": "6-vendor-orders-desktop.png"
+        },
+        {
+          "step": "7",
+          "name": "vendor-store-form",
+          "file": "7-vendor-store-form-desktop.png"
+        },
+        {
+          "step": "8",
+          "name": "tmc-dashboard",
+          "title": "پیشخوان بازارگاه تک‌طب ‹ Tecteb Disposable Acceptance Site — WordPress",
+          "file": "8-tmc-dashboard-desktop.png"
+        },
+        {
+          "step": "9",
+          "name": "tmc-storefront",
+          "title": "وضعیت فروش بازارگاه ‹ Tecteb Disposable Acceptance Site — WordPress",
+          "file": "9-tmc-storefront-desktop.png"
+        }
+      ],
+      "videos": [
+        "page@a0b827d8bd38a81d8cc0748a0f7af4f9.webm",
+        "page@b76839689d6c528410ef88c47100adc9.webm",
+        "page@db911b03207fba7e77dcb9708527df29.webm"
+      ]
+    },
+    {
+      "size": "mobile",
+      "viewport": "390x844",
+      "steps": [
+        {
+          "step": "1",
+          "name": "store-page",
+          "title": "داروخانهٔ نمونهٔ تک‌طب — Tecteb Disposable Acceptance Site",
+          "file": "1-store-page-mobile.png"
+        },
+        {
+          "step": "2",
+          "name": "store-products",
+          "file": "2-store-products-mobile.png"
+        },
+        {
+          "step": "3",
+          "name": "store-page-two",
+          "title": "داروخانهٔ نمونهٔ تک‌طب — Tecteb Disposable Acceptance Site",
+          "file": "3-store-page-two-mobile.png"
+        },
+        {
+          "step": "4",
+          "name": "vendor",
+          "title": "پیشخوان فروشنده",
+          "file": "4-vendor-mobile.png"
+        },
+        {
+          "step": "5",
+          "name": "vendor-products",
+          "title": "محصولات فروشگاه",
+          "file": "5-vendor-products-mobile.png"
+        },
+        {
+          "step": "6",
+          "name": "vendor-orders",
+          "title": "سفارش‌های فروشگاه",
+          "file": "6-vendor-orders-mobile.png"
+        },
+        {
+          "step": "7",
+          "name": "vendor-store-form",
+          "file": "7-vendor-store-form-mobile.png"
+        },
+        {
+          "step": "8",
+          "name": "tmc-dashboard",
+          "title": "پیشخوان بازارگاه تک‌طب ‹ Tecteb Disposable Acceptance Site — WordPress",
+          "file": "8-tmc-dashboard-mobile.png"
+        },
+        {
+          "step": "9",
+          "name": "tmc-storefront",
+          "title": "وضعیت فروش بازارگاه ‹ Tecteb Disposable Acceptance Site — WordPress",
+          "file": "9-tmc-storefront-mobile.png"
+        }
+      ],
+      "videos": [
+        "page@4a983f78d717961bb086c8dd0b4770a1.webm",
+        "page@9f555f5d72e51a006adf6aae2e19dab7.webm",
+        "page@e5432f0a03a2ec7d339347d9c49c29ce.webm"
+      ]
+    }
+  ],
+  "problems": []
+}

@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\VendorApplication;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\DokanUrlRedirects;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StorePageCache;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StoreSitemapProvider;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StoreThemeRenderer;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use TmcWpStubs\RedirectedException;
 use TmcWpStubs\State;
@@ -86,6 +87,65 @@ final class StorePublicSurfaceTest extends ContractTestCase
         update_option('tmc_store_page_cache', '0');
         StorePageCache::put(7, 1, 'body');
         self::assertNull(StorePageCache::get(7, 1), 'nothing may be served from a cache switched off');
+    }
+
+    public function testAClassicThemeWrapsTheShopAndABlockThemeDoesNot(): void
+    {
+        State::$themeTemplates = ['header.php', 'footer.php'];
+        self::assertTrue(StoreThemeRenderer::supported());
+        self::assertSame(StoreThemeRenderer::THEME, StoreThemeRenderer::mode());
+
+        // A block theme's header is a template part the block renderer
+        // assembles; `get_header()` finds no file and renders nothing, which
+        // would leave the shop on a page with no site chrome at all — worse
+        // than either mode. So it falls back rather than half-integrating.
+        State::$themeTemplates = [];
+        self::assertFalse(StoreThemeRenderer::supported());
+        self::assertSame(StoreThemeRenderer::STANDALONE, StoreThemeRenderer::mode());
+    }
+
+    public function testHalfATemplatePairIsNotEnough(): void
+    {
+        foreach ([['header.php'], ['footer.php']] as $half) {
+            State::$themeTemplates = $half;
+            self::assertFalse(
+                StoreThemeRenderer::supported(),
+                implode(',', $half) . ' alone cannot wrap the page'
+            );
+        }
+    }
+
+    public function testTheManagerCanForceEitherModeWhateverTheThemeIs(): void
+    {
+        State::$themeTemplates = [];                    // auto would say standalone
+        update_option(StoreThemeRenderer::OPTION, StoreThemeRenderer::THEME);
+        self::assertSame(StoreThemeRenderer::THEME, StoreThemeRenderer::mode());
+
+        State::$themeTemplates = ['header.php', 'footer.php'];  // auto would say theme
+        update_option(StoreThemeRenderer::OPTION, StoreThemeRenderer::STANDALONE);
+        self::assertSame(StoreThemeRenderer::STANDALONE, StoreThemeRenderer::mode());
+
+        update_option(StoreThemeRenderer::OPTION, 'nonsense-somebody-typed');
+        self::assertSame(StoreThemeRenderer::THEME, StoreThemeRenderer::mode(), 'an unknown value falls back to auto');
+    }
+
+    /**
+     * The two modes produce different bytes for the same shop and page, so a
+     * shared key would serve a bare fragment as a whole document.
+     */
+    public function testTheTwoRenderModesDoNotShareACacheEntry(): void
+    {
+        StorePageCache::put(7, 1, '<main>fragment</main>', StoreThemeRenderer::THEME);
+        StorePageCache::put(7, 1, '<!DOCTYPE html>…', StoreThemeRenderer::STANDALONE);
+
+        self::assertSame('<main>fragment</main>', StorePageCache::get(7, 1, StoreThemeRenderer::THEME));
+        self::assertSame('<!DOCTYPE html>…', StorePageCache::get(7, 1, StoreThemeRenderer::STANDALONE));
+
+        // And one version bump still clears both, because the version is the
+        // shop's and not the variant's.
+        StorePageCache::forget(7);
+        self::assertNull(StorePageCache::get(7, 1, StoreThemeRenderer::THEME));
+        self::assertNull(StorePageCache::get(7, 1, StoreThemeRenderer::STANDALONE));
     }
 
     public function testTheStoreBaseComesFromDokansOwnSettingNotFromAGuess(): void

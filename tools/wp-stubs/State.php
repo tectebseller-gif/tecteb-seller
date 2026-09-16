@@ -78,6 +78,14 @@ final class State
      */
     public static array $dokanSellers = [];
 
+    /**
+     * Template files the active theme provides, as `locate_template()` sees
+     * them. A CLASSIC theme has header.php and footer.php; a BLOCK theme
+     * usually has neither, and that difference decides whether the shop page
+     * can be wrapped in the theme at all.
+     */
+    public static array $themeTemplates = ['header.php', 'footer.php'];
+
     public static bool $throwOnRedirect = false;
     public static bool $is404 = false;
     /**
@@ -127,6 +135,7 @@ final class State
         self::$queryVars = [];
         self::$redirects = [];
         self::$dokanSellers = [];
+        self::$themeTemplates = ['header.php', 'footer.php'];
         self::$throwOnRedirect = false;
         self::$is404 = false;
         self::$requestUri = '/';

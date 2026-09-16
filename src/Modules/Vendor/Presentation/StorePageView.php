@@ -69,6 +69,10 @@ final class StorePageView
      * @param array{product:array{count:int, average_hundredths:int, available:bool},
      *              vendor:array{count:int, average_hundredths:int, distribution:array<int,int>}} $standing
      */
+    /**
+     * The whole page, as its own document. Used when the shop's page is NOT
+     * rendered inside the active theme.
+     */
     public static function html(
         int $vendorUserId,
         StoreSettings $store,
@@ -78,22 +82,54 @@ final class StorePageView
         int $page = 1,
         int $pages = 1
     ): string {
-        $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
-        $name = $store->storeName !== ''
-            ? $store->storeName
-            : __('فروشگاه بازارگاه تک‌طب', 'tecteb-marketplace-core');
-        $description = $store->intro !== ''
-            ? mb_substr(wp_strip_all_tags($store->intro), 0, 155)
-            : sprintf(
-                /* translators: %s: the shop's name */
-                __('صفحهٔ فروشگاه %s در بازارگاه تک‌طب', 'tecteb-marketplace-core'),
-                $name
-            );
-
-        $html = '<!DOCTYPE html><html lang="' . esc_attr(get_bloginfo('language')) . '" dir="rtl"><head>'
+        return '<!DOCTYPE html><html lang="' . esc_attr(get_bloginfo('language')) . '" dir="rtl"><head>'
             . '<meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
-            . '<title>' . esc_html($name . ' — ' . get_bloginfo('name')) . '</title>'
+            . self::head($store, $standing, $canonical)
+            . '</head><body class="tmc-store tmc-store--standalone">'
+            . self::body($vendorUserId, $store, $products, $standing, $canonical, $page, $pages)
+            . '</body></html>';
+    }
+
+    /** The shop's name, as the page titles it. */
+    public static function name(StoreSettings $store): string
+    {
+        return $store->storeName !== ''
+            ? $store->storeName
+            : __('فروشگاه بازارگاه تک‌طب', 'tecteb-marketplace-core');
+    }
+
+    /** The 155-character description the page and the share card both use. */
+    public static function description(StoreSettings $store): string
+    {
+        if ($store->intro !== '') {
+            return mb_substr(wp_strip_all_tags($store->intro), 0, 155);
+        }
+        return sprintf(
+            /* translators: %s: the shop's name */
+            __('صفحهٔ فروشگاه %s در بازارگاه تک‌طب', 'tecteb-marketplace-core'),
+            self::name($store)
+        );
+    }
+
+    /**
+     * Everything that belongs inside `<head>` — and it is the SAME string in
+     * both rendering modes.
+     *
+     * Split out of `html()` rather than duplicated for the theme path,
+     * because the title, the canonical, the Open Graph card and the
+     * Schema.org block are what make this page findable, and a second copy of
+     * them is a second copy to forget. The theme path prints this on
+     * `wp_head`; the standalone path concatenates it.
+     *
+     * @param array<string,mixed> $standing
+     */
+    public static function head(StoreSettings $store, array $standing, string $canonical): string
+    {
+        $name = self::name($store);
+        $description = self::description($store);
+
+        $html = '<title>' . esc_html($name . ' — ' . get_bloginfo('name')) . '</title>'
             . '<meta name="description" content="' . esc_attr($description) . '">'
             . '<link rel="canonical" href="' . esc_url($canonical) . '">'
             // Open Graph, because a shop link pasted into a messenger is how
@@ -108,11 +144,28 @@ final class StorePageView
                 $html .= '<meta property="og:image" content="' . esc_url($logo) . '">';
             }
         }
-        $html .= self::jsonLd($name, $description, $canonical, $store, $standing)
-            . self::style()
-            . '</head><body class="tmc-store">';
+        return $html . self::jsonLd($name, $description, $canonical, $store, $standing) . self::style();
+    }
 
-        $html .= '<main class="tmc-store__main">';
+    /**
+     * The shop itself, with no document around it — what the theme wraps.
+     *
+     * @param list<object>        $products
+     * @param array<string,mixed> $standing
+     */
+    public static function body(
+        int $vendorUserId,
+        StoreSettings $store,
+        array $products,
+        array $standing,
+        string $canonical,
+        int $page = 1,
+        int $pages = 1
+    ): string {
+        $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
+        $name = self::name($store);
+
+        $html = '<main class="tmc-store__main">';
         if ($store->bannerId > 0) {
             $banner = wp_get_attachment_image_url($store->bannerId, 'large');
             if (is_string($banner)) {
@@ -140,7 +193,7 @@ final class StorePageView
         $html .= self::productSection($products, $fa, $page, $pages, $canonical);
         $html .= self::socialSection($store);
 
-        return $html . '</main></body></html>';
+        return $html . '</main>';
     }
 
     /** @param array<string,mixed> $standing */
@@ -404,9 +457,21 @@ final class StorePageView
         return '<style>'
             . ($fontUrl === '' ? '' : BrandFont::faceRule($fontUrl))
             . ':root{--s-ink:#143C4D;--s-sky:#6ABFE7;--s-green:#21D483;--s-page:#EDF3F6;'
-            . '--s-surface:#fff;--s-muted:#4F6570;--s-border:#D3DDE3;--s-amber:#FFC658}'
-            . 'body{margin:0;background:var(--s-page);color:#1F2A30;'
-            . 'font-family:' . BrandFont::STACK . ';line-height:1.7}'
+            . '--s-surface:#fff;--s-muted:#4F6570;--s-border:#D3DDE3;--s-amber:#FFC658;'
+            . '--s-font:' . BrandFont::STACK . '}'
+            // Page-level styling belongs to whoever owns the page. In the
+            // STANDALONE document that is us, so the body gets the background
+            // and the face. Inside a theme it is the theme's, and painting its
+            // header with our page colour is not «sitting inside the theme» —
+            // it is repainting the site around our content. The extra class is
+            // what tells the two apart, and it exists only on the standalone
+            // body.
+            . 'body.tmc-store--standalone{margin:0;background:var(--s-page);color:#1F2A30;'
+            . 'font-family:var(--s-font);line-height:1.7}'
+            // …and this is what makes the shop read as the shop in EITHER
+            // mode: scoped to our own region, so it travels into any theme
+            // without reaching past its own edges.
+            . '.tmc-store__main{font-family:var(--s-font);line-height:1.7;color:#1F2A30}'
             // The card grid. `auto-fill` with a 150px floor rather than fixed
             // columns: one rule covers a phone (two across), a tablet (three)
             // and a desktop (five) without a single media query, which is the
@@ -423,7 +488,14 @@ final class StorePageView
             // page of twenty-four cards does not reflow twenty-four times.
             . '.tmc-store__thumb{display:block;aspect-ratio:1;background:var(--s-page);'
             . 'border-radius:10px;overflow:hidden}'
-            . '.tmc-store__img{inline-size:100%;block-size:100%;object-fit:cover;display:block}'
+            // `object-fit:cover` fills the box with a big photo; a SMALL one
+            // would be stretched into mush, so it is centred at its own size
+            // instead. WordPress prints `width`/`height` attributes and can
+            // print an inline `max-width` with them, which no stylesheet
+            // outranks — hence the one `!important` on this page, kept to the
+            // single declaration that needs it.
+            . '.tmc-store__img{inline-size:100%;block-size:100%;object-fit:cover;display:block;'
+            . 'max-inline-size:100% !important}'
             . '.tmc-store__img--none{display:grid;place-items:center;font-size:2rem;font-weight:700;'
             . 'color:var(--s-ink);background:var(--s-sky)}'
             . '.tmc-store__product-title{font-weight:700;line-height:1.5;overflow-wrap:anywhere}'
@@ -434,7 +506,15 @@ final class StorePageView
             . '.tmc-store a:focus-visible{outline:3px solid var(--s-ink);outline-offset:2px;border-radius:6px}'
             . '.tmc-store__main{max-inline-size:60rem;margin-inline:auto;padding:16px}'
             . '.tmc-store__banner{inline-size:100%;block-size:auto;border-radius:14px;display:block}'
-            . '.tmc-store__head h1{color:var(--s-ink);margin:16px 0 8px}'
+            // The size is stated, not inherited. Inside a theme, `h1` is the
+            // theme's page-title rule — Twenty Twenty-One's is ~5rem — and a
+            // shop name set in it dwarfs everything under it and pushes the
+            // products off the first screen. Measured in the walkthrough
+            // before this line existed. `clamp` keeps it readable at 320px
+            // and sane at 1440 without a media query.
+            . '.tmc-store__head h1{color:var(--s-ink);margin:16px 0 8px;'
+            . 'font-family:var(--s-font);font-size:clamp(1.5rem,1.1rem + 2vw,2.25rem);'
+            . 'line-height:1.35;font-weight:700}'
             . '.tmc-store__badge{display:inline-block;margin:0 0 8px;padding:4px 12px;border-radius:999px;'
             . 'background:var(--s-green);color:var(--s-ink);font-weight:700;font-size:.9375rem}'
             . '.tmc-store__city{color:var(--s-muted);margin:0 0 16px}'

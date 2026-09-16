@@ -1,1 +1,1 @@
-seed vendor=4 store=فروشگاه بازارگاه تک‌طب city=اصفهان warehouse=set shelf=restored
+seed vendor=4 store=داروخانهٔ نمونهٔ تک‌طب city=اصفهان warehouse=set shelf=already

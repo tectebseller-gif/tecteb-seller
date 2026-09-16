@@ -740,3 +740,19 @@ function dokan_is_user_seller(int $userId, bool $excludeStaff = false): bool
 {
     return in_array((int) $userId, TmcWpStubs\State::$dokanSellers, true);
 }
+
+/**
+ * Returns the located path, or '' when the theme has no such file — exactly
+ * what WordPress returns, because `false` would be a different bug.
+ *
+ * @param string|string[] $templateNames
+ */
+function locate_template(string|array $templateNames, bool $load = false, bool $loadOnce = true, array $args = []): string
+{
+    foreach ((array) $templateNames as $name) {
+        if (in_array((string) $name, TmcWpStubs\State::$themeTemplates, true)) {
+            return '/srv/www/wp-content/themes/stub/' . $name;
+        }
+    }
+    return '';
+}
