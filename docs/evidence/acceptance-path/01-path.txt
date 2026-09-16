@@ -1,8 +1,8 @@
 stage=vendor_and_staff ok=true vendor_a=4 vendor_b=8 staff_rows=1 active_staff_user=27 staff_scoped=true
 stage=product ok=true wc_a=141 wc_b=143 published_a=published published_b=published
-stage=multi_vendor_purchase ok=true order=3558 captured=2 vendors_on_one_order=2 foreign_line_on_order=yes foreign_line_captured=no
+stage=multi_vendor_purchase ok=true order=3577 captured=2 vendors_on_one_order=2 foreign_line_on_order=yes foreign_line_captured=no
 stage=partial_shipment ok=true code=order_item_shipped shipped_of=2/3 status=partially_shipped packages=1
-stage=return ok=true return=39 opened=return_opened received=return_received refunded=return_refunded did_ledger=true did_stock=true did_money=false
-stage=ledger_and_withdrawal ok=true earned_minor=99360000 eligible_before_settlement=0 a_eligible_after=0 a_held_by_return=5 b_eligible_after=1620000 b_withdrawal_ok=false b_withdrawal_code=bank_account_missing a_withdrawal_code=nothing_eligible
-stage=reports ok=true vendor_cards=4 manager_cards=2 sales_lines=52 sales_partially_shipped=5 sales_returned=39 rating_product=400 rating_vendor=500
-done ids=vendor_a:4,vendor_b:8,wc_a:141,wc_b:143,order:3558,item_a:79,return:39
+stage=return ok=true return=44 opened=return_opened received=return_received refunded=return_refunded did_ledger=true did_stock=true did_money=false
+stage=ledger_and_withdrawal ok=true earned_minor=113400000 eligible_before_settlement=0 a_eligible_after=0 a_held_by_return=6 b_eligible_after=2160000 b_withdrawal_ok=false b_withdrawal_code=bank_account_missing a_withdrawal_code=nothing_eligible
+stage=reports ok=true vendor_cards=4 manager_cards=2 sales_lines=60 sales_partially_shipped=6 sales_returned=44 rating_product=400 rating_vendor=500
+done ids=vendor_a:4,vendor_b:8,wc_a:141,wc_b:143,order:3577,item_a:94,return:44

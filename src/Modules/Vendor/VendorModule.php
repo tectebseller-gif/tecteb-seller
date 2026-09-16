@@ -48,6 +48,7 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbDocumentRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbDocumentTypeRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\PrivateUploadStorage;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StorePage;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\VendorHooks;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\WpAuthenticationBridge;
 
@@ -187,6 +188,11 @@ final class VendorModule implements ModuleInterface
     public function boot(ContainerInterface $container): void
     {
         VendorHooks::register($container);
+        // The shop's public page. Registered unconditionally — it is a page
+        // about a shop, not about a purchase, so it does not need WooCommerce
+        // to be running. It adds a query var and no rewrite rule, so there is
+        // nothing to flush and nothing left 404ing after deactivation.
+        StorePage::register($container);
     }
 
     private function version(): string

@@ -1,0 +1,1 @@
+buyable vendor=4 product=141 decision=vendor_closed message=این_فروشگاه_موقتاً_تعطیل_است_و_بعد_از_بازگشایی_دوباره_سفارش_می‌گیرد.

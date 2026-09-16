@@ -7,7 +7,9 @@ use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
+use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
+use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
 
 /**
  * "May this storefront product be bought?" — asked of the marketplace, about
@@ -28,8 +30,17 @@ use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
  *   ORDERS_BLOCKED  the financial rules are not settled, so the marketplace
  *                   does not sell (it does not "sell and hide the numbers")
  *   VENDOR_STOPPED  the shop is suspended — immediately, not at next login
+ *   VENDOR_CLOSED   the shop set itself temporarily closed (A.5). NOT the same
+ *                   as suspended: nobody did anything wrong, the shop is away,
+ *                   and the two say different things to a shopper.
  *   NOT_PUBLISHED   the product is not live in the marketplace's own workflow
  *   OUT_OF_STOCK    zero stock stops the purchase (A.1)
+ *
+ * Temporary closure stops NEW purchases and nothing else. A.5 is explicit that
+ * «سفارش‌های قبلی باید ادامه یابند», so closure is asked here — at the point of
+ * buying — and nowhere near the order module. An order placed before the shop
+ * closed goes on being prepared, shipped, returned and settled exactly as it
+ * would have.
  */
 final class PurchasePolicy
 {
@@ -38,6 +49,7 @@ final class PurchasePolicy
     public const STOREFRONT_STOPPED = 'storefront_stopped';
     public const ORDERS_BLOCKED = 'orders_blocked';
     public const VENDOR_STOPPED = 'vendor_stopped';
+    public const VENDOR_CLOSED = 'vendor_closed';
     public const NOT_PUBLISHED = 'not_published';
     public const OUT_OF_STOCK = 'out_of_stock';
 
@@ -48,7 +60,12 @@ final class PurchasePolicy
         private readonly ProductRepositoryInterface $products,
         private readonly StaffAccess $access,
         private readonly OrderOperationsGate $gate,
-        private readonly ?StorefrontSwitch $storefront = null
+        private readonly ?StorefrontSwitch $storefront = null,
+        // Optional so every existing construction site keeps working; a build
+        // without it simply never reports a closure, which is the old
+        // behaviour rather than a wrong new one.
+        private readonly ?StoreRepositoryInterface $stores = null,
+        private readonly ?ClockInterface $clock = null
     ) {
     }
 
@@ -106,6 +123,23 @@ final class PurchasePolicy
         return $this->gate->check()['ready'] ? null : self::ORDERS_BLOCKED;
     }
 
+    /**
+     * Whether this shop has set itself temporarily closed, today.
+     *
+     * Read on every question, like the suspension above and for the same
+     * reason: a closure that begins at the next cache flush is not a closure.
+     * The date is the SITE's today, because that is the day the shop meant.
+     */
+    private function vendorIsClosed(int $vendorUserId): bool
+    {
+        if ($this->stores === null || $this->clock === null) {
+            return false;
+        }
+        return $this->stores->find($vendorUserId)?->isClosedOn(
+            $this->clock->now()->format('Y-m-d')
+        ) === true;
+    }
+
     private function decisionFor(Product $product, int $stockOverride): string
     {
         $marketplace = $this->marketplaceRefusal();
@@ -116,6 +150,13 @@ final class PurchasePolicy
         // suspension that takes effect at the next login is not a suspension.
         if (!$this->access->vendorCanTrade($product->vendorUserId)) {
             return self::VENDOR_STOPPED;
+        }
+        // After suspension, never before: a suspended shop is suspended
+        // whatever its holiday dates say, and telling a shopper «فروشگاه در
+        // تعطیلات است» about a shop the marketplace has stopped would be the
+        // wrong sentence and a misleading one.
+        if ($this->vendorIsClosed($product->vendorUserId)) {
+            return self::VENDOR_CLOSED;
         }
         if ($product->status !== ProductStatus::Published) {
             return self::NOT_PUBLISHED;

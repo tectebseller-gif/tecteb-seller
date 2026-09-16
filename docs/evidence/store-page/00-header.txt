@@ -1,0 +1,2 @@
+=== the shop's public page, on the plugin installed from the ZIP ===
+tecteb-marketplace-core	active	0.1.0-alpha.12

@@ -53,6 +53,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WcUnpaidOrderG
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceProjector;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpProductImages;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
+use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
 
 /**
  * The vendor's catalogue: the four-step form, the manager's review queue, the
@@ -134,7 +135,9 @@ final class ProductModule implements ModuleInterface
             $c->get(ProductRepositoryInterface::class),
             $c->get(StaffAccess::class),
             $c->get(OrderOperationsGate::class),
-            $c->get(StorefrontSwitch::class)
+            $c->get(StorefrontSwitch::class),
+            $c->get(StoreRepositoryInterface::class),
+            $c->get(ClockInterface::class)
         ));
         $c->bind(SyncCatalog::class, static fn (ContainerInterface $c) => new SyncCatalog(
             $c->get(ProductRepositoryInterface::class),

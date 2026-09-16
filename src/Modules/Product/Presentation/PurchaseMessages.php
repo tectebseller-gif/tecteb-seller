@@ -35,6 +35,11 @@ final class PurchaseMessages
             PurchasePolicy::STOREFRONT_STOPPED,
             PurchasePolicy::ORDERS_BLOCKED => __('این کالا فعلاً برای فروش در دسترس نیست.', 'tecteb-marketplace-core'),
             PurchasePolicy::VENDOR_STOPPED => __('فروش این کالا فعلاً متوقف است.', 'tecteb-marketplace-core'),
+            // A closure is a shop being away, not a shop in trouble, and the
+            // shopper is told the one thing they can act on: it comes back.
+            // No date, because the shop's own dates are its business and a
+            // date that slips reads as a broken promise.
+            PurchasePolicy::VENDOR_CLOSED => __('این فروشگاه موقتاً تعطیل است و بعد از بازگشایی دوباره سفارش می‌گیرد.', 'tecteb-marketplace-core'),
             PurchasePolicy::NOT_PUBLISHED => __('این کالا در حال حاضر در دسترس نیست.', 'tecteb-marketplace-core'),
             PurchasePolicy::OUT_OF_STOCK => __('این کالا ناموجود است.', 'tecteb-marketplace-core'),
             default => __('این کالا قابل خرید نیست.', 'tecteb-marketplace-core'),
@@ -69,6 +74,7 @@ final class PurchaseMessages
             PurchasePolicy::STOREFRONT_STOPPED => __('فروش بازارگاه متوقف شده است (کلید توقف روشن است).', 'tecteb-marketplace-core'),
             PurchasePolicy::ORDERS_BLOCKED => __('دروازهٔ عملیات سفارش اجازه نمی‌دهد: نرخ کمیسیون یا تصمیم‌های مالی باز است.', 'tecteb-marketplace-core'),
             PurchasePolicy::VENDOR_STOPPED => __('فروشنده تعلیق است، پس هیچ‌کدام از کالاهایش فروخته نمی‌شوند.', 'tecteb-marketplace-core'),
+            PurchasePolicy::VENDOR_CLOSED => __('فروشنده خودش فروشگاه را موقتاً تعطیل کرده است. این تعلیق نیست: سفارش‌های قبلی‌اش عادی ادامه دارند و فقط سفارش تازه گرفته نمی‌شود.', 'tecteb-marketplace-core'),
             PurchasePolicy::NOT_PUBLISHED => __('محصول در گردش کار بازارگاه منتشر نیست.', 'tecteb-marketplace-core'),
             PurchasePolicy::OUT_OF_STOCK => __('موجودی صفر است.', 'tecteb-marketplace-core'),
             PurchasePolicy::NOT_OURS => __('این محصول از آنِ بازارگاه نیست؛ بازارگاه دربارهٔ آن تصمیمی نمی‌گیرد.', 'tecteb-marketplace-core'),

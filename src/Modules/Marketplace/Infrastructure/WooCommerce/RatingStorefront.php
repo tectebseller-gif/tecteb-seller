@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Modules\Marketplace\Domain\VendorRating;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\ReviewMessages;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StorePage;
 
 /**
  * The buyer's half of «نظرات و امتیاز»: where a shopper rates the SHOP, and
@@ -170,17 +171,35 @@ final class RatingStorefront
         }
         $standing = $container->get(ManageReviews::class)->standing($product->vendorUserId);
         if ($standing['vendor']['count'] <= 0) {
-            return '';
+            // No score yet — but the shop still has a page, and a shopper
+            // still wants to see who they are buying from.
+            return '<p class="tmc-vendor-standing"><a href="'
+                . esc_url(StorePage::url($product->vendorUserId)) . '">'
+                . esc_html(sprintf(
+                    /* translators: %s: the shop's name */
+                    __('صفحهٔ فروشگاه %s', 'tecteb-marketplace-core'),
+                    self::shopName($product->vendorUserId)
+                ))
+                . '</a></p>';
         }
+        // The shop's name links to its public page. Without this the page
+        // built for A.5 would exist and be reachable by nobody: a shopper has
+        // no way to guess a query var, and there is no menu on a storefront.
         return '<p class="tmc-vendor-standing">'
             . esc_html(sprintf(
-                /* translators: 1: the shop's name, 2: its star average, 3: how many ratings */
-                __('امتیاز فروشگاه %1$s: %2$s از ۵ (%3$s)', 'tecteb-marketplace-core'),
-                self::shopName($product->vendorUserId),
+                /* translators: 1: the shop's star average, 2: how many ratings */
+                __('امتیاز فروشگاه: %1$s از ۵ (%2$s)', 'tecteb-marketplace-core'),
                 ReviewMessages::stars($standing['vendor']['average_hundredths']),
                 ReviewMessages::count($standing['vendor']['count'])
             ))
-            . ' <span class="tmc-vendor-standing__note">'
+            . ' <a class="tmc-vendor-standing__link" href="'
+            . esc_url(StorePage::url($product->vendorUserId)) . '">'
+            . esc_html(sprintf(
+                /* translators: %s: the shop's name */
+                __('صفحهٔ فروشگاه %s', 'tecteb-marketplace-core'),
+                self::shopName($product->vendorUserId)
+            ))
+            . '</a> <span class="tmc-vendor-standing__note">'
             . esc_html__('(جدا از امتیاز خود کالا)', 'tecteb-marketplace-core')
             . '</span></p>';
     }

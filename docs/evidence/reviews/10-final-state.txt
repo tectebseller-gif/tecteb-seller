@@ -1,7 +1,7 @@
 === final state ===
 standing vendor=4 product_count=1 product_avg=400 product_available=true vendor_count=1 vendor_avg=500 dist=1:0,2:0,3:0,4:0,5:1
 ratings vendor=4 count=1
-  rating=32 stars=5 status=approved body=سریع فرستادند reply=- reason=-
+  rating=35 stars=5 status=approved body=سریع فرستادند reply=- reason=-
 reviews vendor=4 count=1
-  review=38956 product=141 stars=4 approved=true verified=false reply=38957
+  review=38995 product=141 stars=4 approved=true verified=false reply=38996
 comments product=141 reviews=1 vendor_replies=1
