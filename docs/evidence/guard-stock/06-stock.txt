@@ -2,7 +2,10 @@
 pending: 5000 4999 5000
 repeat: 5000 4999 5000
 failed: 5000 4999 5000
-prereduced: 4999 4999 5000
-mixedtmc: 5000 4999 5000
+prereduced: 4999 4999 4999
+prereducedagain: 4999 4999 4999
+mixedtmc: 4999 4998 4999
 mixedshop: 5000 4999 5000
+concurrent: 4999 4995 4996
 failedwentbackto: failed
+pretrail: trail held=true was_reduced=true moved=false reconcile=-

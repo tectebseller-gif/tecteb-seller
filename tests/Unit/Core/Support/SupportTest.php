@@ -39,6 +39,7 @@ final class SupportTest extends TestCase
             'tmc_review_vendor', 'tmc_manage_vendor_documents',
             'tmc_review_products', 'tmc_manage_spec_templates',
             'tmc_manage_storefront', 'tmc_review_withdrawals',
+            'tmc_moderate_reviews',
         ], Capabilities::all());
         // The applicant capability is NOT here on purpose: granting it would
         // mean writing into roles the site already has (Dokan's included).

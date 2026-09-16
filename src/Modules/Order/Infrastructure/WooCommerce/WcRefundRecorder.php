@@ -43,6 +43,9 @@ use Tecteb\Marketplace\Modules\Order\Application\RefundRecorderInterface;
  */
 final class WcRefundRecorder implements RefundRecorderInterface
 {
+    /** The return a refund belongs to, stamped on the refund itself. */
+    public const RETURN_META = '_tmc_return_id';
+
     public function isAvailable(): bool
     {
         return function_exists('wc_create_refund') && function_exists('wc_get_order');
@@ -86,14 +89,63 @@ final class WcRefundRecorder implements RefundRecorderInterface
         return $blockers;
     }
 
-    public function record(int $wcOrderId, int $wcOrderItemId, float $amount, int $quantity, string $reason): array
+    /**
+     * The refund this return already has in WooCommerce, if any.
+     *
+     * The crash this exists for: `wc_create_refund()` succeeds, the process
+     * dies, and the id never reaches the marketplace's own row. A retry that
+     * simply called `wc_create_refund()` again would make a SECOND refund
+     * against the same order — real money on the books twice.
+     *
+     * So every refund this class makes is stamped with the return it belongs
+     * to, and a retry looks for that stamp first. The stamp is written on the
+     * `woocommerce_create_refund` hook, which fires BEFORE `$refund->save()`,
+     * so the id and the stamp are one insert and there is no window between
+     * them for a crash to land in.
+     */
+    public function findExisting(int $wcOrderId, int $returnId): int
     {
+        if (!$this->isAvailable() || $returnId <= 0) {
+            return 0;
+        }
+        $order = \wc_get_order($wcOrderId);
+        if (!$order || !method_exists($order, 'get_refunds')) {
+            return 0;
+        }
+        foreach ($order->get_refunds() as $refund) {
+            if ((string) $refund->get_meta(self::RETURN_META) === (string) $returnId) {
+                return (int) $refund->get_id();
+            }
+        }
+        return 0;
+    }
+
+    public function record(
+        int $wcOrderId,
+        int $wcOrderItemId,
+        float $amount,
+        int $quantity,
+        string $reason,
+        int $returnId
+    ): array {
         if (!$this->isAvailable()) {
             return ['ok' => false, 'reason' => 'refund_woocommerce_missing', 'refund_id' => 0];
         }
         $order = \wc_get_order($wcOrderId);
         if (!$order) {
             return ['ok' => false, 'reason' => 'refund_order_missing', 'refund_id' => 0];
+        }
+        // An orphan from a run that died between the create and the link.
+        // Found and handed back rather than made again: the caller then links
+        // THIS id, and nothing is created, restocked or reversed twice.
+        $orphan = $this->findExisting($wcOrderId, $returnId);
+        if ($orphan > 0) {
+            return [
+                'ok' => true,
+                'reason' => 'refund_recovered',
+                'refund_id' => $orphan,
+                'money_moved' => false,
+            ];
         }
         $remaining = (float) $order->get_remaining_refund_amount();
         if ($amount <= 0 || $amount > $remaining) {
@@ -107,17 +159,30 @@ final class WcRefundRecorder implements RefundRecorderInterface
             ];
         }
 
-        $refund = \wc_create_refund([
-            'order_id' => $wcOrderId,
-            'amount' => $amount,
-            'reason' => $reason,
-            'line_items' => $wcOrderItemId > 0 ? [
-                $wcOrderItemId => ['qty' => $quantity, 'refund_total' => $amount],
-            ] : [],
-            // The two that matter. See the class docblock.
-            'refund_payment' => false,
-            'restock_items' => false,
-        ]);
+        // The stamp goes on before the save, so the refund cannot exist without
+        // it. Removed again straight after, so no other plugin's refund on
+        // this request is marked with our return id.
+        $stamp = static function ($refund) use ($returnId): void {
+            if (is_object($refund) && method_exists($refund, 'update_meta_data')) {
+                $refund->update_meta_data(self::RETURN_META, (string) $returnId);
+            }
+        };
+        add_action('woocommerce_create_refund', $stamp, 10, 1);
+        try {
+            $refund = \wc_create_refund([
+                'order_id' => $wcOrderId,
+                'amount' => $amount,
+                'reason' => $reason,
+                'line_items' => $wcOrderItemId > 0 ? [
+                    $wcOrderItemId => ['qty' => $quantity, 'refund_total' => $amount],
+                ] : [],
+                // The two that matter. See the class docblock.
+                'refund_payment' => false,
+                'restock_items' => false,
+            ]);
+        } finally {
+            remove_action('woocommerce_create_refund', $stamp, 10);
+        }
 
         if (is_wp_error($refund)) {
             return [

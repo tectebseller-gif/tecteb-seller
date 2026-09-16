@@ -1,0 +1,1755 @@
+{
+  "suite": "reviews-ratings-and-charts",
+  "generated_at": "2026-09-16T09:34:29.080Z",
+  "widths": [
+    320,
+    375,
+    768,
+    1024,
+    1440
+  ],
+  "total": 240,
+  "failures": 0,
+  "results": [
+    {
+      "page": "vendor-reviews",
+      "scope": "320",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "320",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "320",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "320",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "320",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "375",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "375",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "375",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "375",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "375",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "768",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "768",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "768",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "768",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "768",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1024",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1024",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1024",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1024",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1024",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1440",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1440",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1440",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1440",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1440",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=5"
+    },
+    {
+      "page": "vendor-reviews",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "320",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "320",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "320",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "320",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "320",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "375",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "375",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "375",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "375",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "375",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "768",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "768",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "768",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "768",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "768",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1024",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1024",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1024",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1024",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1024",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1440",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa dir=rtl"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1440",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1440",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1440",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1440",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=15"
+    },
+    {
+      "page": "vendor-notices-reports",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "320",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "320",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "320",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "320",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "320",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "375",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "375",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "375",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "375",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "375",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "768",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "768",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "768",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "768",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "768",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1024",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1024",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1024",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1024",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1024",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1440",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1440",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1440",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1440",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1440",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=0"
+    },
+    {
+      "page": "admin-reviews",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "320",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "320",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "320",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "320",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "320",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "320",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "320",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "320",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "320",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "320",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "320",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "320",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "375",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "375",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "375",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "375",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "375",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "375",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "375",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "375",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "375",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "375",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "375",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "375",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "768",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "768",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "768",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "768",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "768",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "768",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "768",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "768",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "768",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "768",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "768",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "768",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1024",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1024",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1024",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1024",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1024",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1024",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1024",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1024",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1024",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1024",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1024",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1024",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1440",
+      "check": "our-markup-is-on-the-page",
+      "ok": true,
+      "detail": "roots=1"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1440",
+      "check": "no-horizontal-scroll",
+      "ok": true,
+      "detail": "overflow=0"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1440",
+      "check": "no-starved-text-box",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1440",
+      "check": "controls-are-touch-sized",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1440",
+      "check": "every-field-has-a-label",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1440",
+      "check": "document-is-persian-rtl",
+      "ok": true,
+      "detail": "lang=fa-IR dir=rtl"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1440",
+      "check": "no-js-errors",
+      "ok": true,
+      "detail": "none"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1440",
+      "check": "every-chart-row-is-labelled",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1440",
+      "check": "every-chart-row-prints-its-value",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1440",
+      "check": "the-bar-itself-is-aria-hidden",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1440",
+      "check": "a-chart-is-text-not-a-picture",
+      "ok": true,
+      "detail": "rows=4"
+    },
+    {
+      "page": "admin-reports",
+      "scope": "1440",
+      "check": "axe-wcag-aa",
+      "ok": true,
+      "detail": "none"
+    }
+  ],
+  "theme_pages_recorded_not_asserted": [
+    {
+      "page": "admin-reviews",
+      "width": 320,
+      "whole_page_violations": []
+    },
+    {
+      "page": "admin-reviews",
+      "width": 375,
+      "whole_page_violations": []
+    },
+    {
+      "page": "admin-reviews",
+      "width": 768,
+      "whole_page_violations": []
+    },
+    {
+      "page": "admin-reviews",
+      "width": 1024,
+      "whole_page_violations": [
+        "link-name(1)"
+      ]
+    },
+    {
+      "page": "admin-reviews",
+      "width": 1440,
+      "whole_page_violations": [
+        "link-name(1)"
+      ]
+    },
+    {
+      "page": "admin-reports",
+      "width": 320,
+      "whole_page_violations": []
+    },
+    {
+      "page": "admin-reports",
+      "width": 375,
+      "whole_page_violations": []
+    },
+    {
+      "page": "admin-reports",
+      "width": 768,
+      "whole_page_violations": []
+    },
+    {
+      "page": "admin-reports",
+      "width": 1024,
+      "whole_page_violations": [
+        "link-name(1)"
+      ]
+    },
+    {
+      "page": "admin-reports",
+      "width": 1440,
+      "whole_page_violations": [
+        "link-name(1)"
+      ]
+    }
+  ]
+}

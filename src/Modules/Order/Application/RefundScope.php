@@ -19,10 +19,13 @@ namespace Tecteb\Marketplace\Modules\Order\Application;
  *  2. **STOCK** — the goods going back on WooCommerce's shelf, when the
  *     manager says they were received. **Done here, on request.**
  *  3. **WOOCOMMERCE REFUND RECORD** — a `WC_Order_Refund` against the order.
- *     **Not created here**, on purpose: creating one can call the payment
- *     gateway's refund API, and this plugin has no mandate to move a
- *     customer's money. A manager who creates it in WooCommerce can record its
- *     id against the return, and the unique index makes that link one-to-one.
+ *     **Done here since `alpha.11`, but only when a manager asks**, never as
+ *     part of the refund itself. It was withheld entirely until it had been
+ *     read out of WooCommerce rather than assumed: `wc_create_refund()` takes
+ *     `refund_payment => false` by default and calls no gateway at all, so the
+ *     record can be written honestly without moving anybody's money. It is
+ *     still a separate, deliberate step, because a record created alongside
+ *     the ledger reversal would look like proof of (4).
  *  4. **THE MONEY** — the actual transfer back to the customer, through the
  *     gateway or the bank. **Not done here and cannot be**: there is no real
  *     gateway adapter in this build (no sender, no gateway, Alpha). It is a
@@ -31,22 +34,33 @@ namespace Tecteb\Marketplace\Modules\Order\Application;
  * The four are named rather than implied so that a later build which does gain
  * a gateway changes this class and the sentences that quote it, instead of
  * quietly changing what an old message meant.
+ *
+ * **«Performed» is three-valued, not two.** An earlier version of this class
+ * had only PERFORMED and NOT_PERFORMED, and (2) and (3) fit neither: both are
+ * real capabilities that happen only when somebody asks for them. Filing them
+ * under «not performed» would understate the plugin, and under «performed»
+ * would promise they happen by themselves. They have their own list.
  */
 final class RefundScope
 {
-    /** What this plugin actually performs. */
+    /** Written by the refund itself, every time. */
     public const LEDGER_REVERSAL = 'ledger_reversal';
-    public const STOCK_CORRECTION = 'stock_correction';
 
-    /** What it deliberately leaves to a person. */
+    /** Real, and done only when somebody asks for it. */
+    public const STOCK_CORRECTION = 'stock_correction';
     public const WC_REFUND_RECORD = 'woocommerce_refund_record';
+
+    /** What no build of this plugin has ever been able to do. */
     public const MONEY_TRANSFER = 'money_transfer';
 
-    /** @var list<string> */
-    public const PERFORMED = [self::LEDGER_REVERSAL, self::STOCK_CORRECTION];
+    /** @var list<string> happens as part of the refund, unasked */
+    public const PERFORMED = [self::LEDGER_REVERSAL];
+
+    /** @var list<string> capabilities that wait for an explicit decision */
+    public const ON_REQUEST = [self::STOCK_CORRECTION, self::WC_REFUND_RECORD];
 
     /** @var list<string> */
-    public const NOT_PERFORMED = [self::WC_REFUND_RECORD, self::MONEY_TRANSFER];
+    public const NOT_PERFORMED = [self::MONEY_TRANSFER];
 
     /**
      * Whether a real payment gateway exists to move money through.

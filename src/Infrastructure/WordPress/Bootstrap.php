@@ -54,6 +54,9 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProd
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables;
 use Tecteb\Marketplace\Modules\Order\Application\ManageReturns;
 use Tecteb\Marketplace\Modules\Order\Application\RefundRecorderInterface;
+use Tecteb\Marketplace\Modules\Order\Application\BuyerVerifierInterface;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\WooCommerce\NullBuyerVerifier;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\WooCommerce\WcBuyerVerifier;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\WooCommerce\WcRefundRecorder;
 use Tecteb\Marketplace\Modules\Order\Application\RefundScope;
 use Tecteb\Marketplace\Modules\Order\Application\ReturnTerms;
@@ -71,6 +74,7 @@ use Tecteb\Marketplace\Modules\Marketplace\MarketplaceModule;
 use Tecteb\Marketplace\Modules\Migration\MigrationModule;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0009EngagementTables;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0011AttachmentsAndNotices;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0012VendorRatings;
 use Tecteb\Marketplace\Modules\Product\ProductModule;
 use Tecteb\Marketplace\Modules\Vendor\VendorModule;
 
@@ -297,7 +301,7 @@ final class Bootstrap
             $c->get(OptionStoreInterface::class),
             $c->get(GuardedOptionStoreInterface::class),
             new MigrationLock($c->get(LockStoreInterface::class), $c->get(ClockInterface::class), MigrationLock::generateOwnerToken()),
-            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables(), new M0004CreateFinanceTables(), new M0005CreateProductTables(), new M0006CatalogAndOrders(), new M0007SettlementTables(), new M0008ShipmentsAndReturns(), new M0009EngagementTables(), new M0010LinkOwnership(), new M0011AttachmentsAndNotices()],
+            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables(), new M0004CreateFinanceTables(), new M0005CreateProductTables(), new M0006CatalogAndOrders(), new M0007SettlementTables(), new M0008ShipmentsAndReturns(), new M0009EngagementTables(), new M0010LinkOwnership(), new M0011AttachmentsAndNotices(), new M0012VendorRatings()],
             $c->get(ClockInterface::class)
         ));
         $c->bind(UpgradeGate::class, static fn (ContainerInterface $c) => new UpgradeGate(
@@ -361,6 +365,13 @@ final class Bootstrap
             $c->get(CapabilityCheckerInterface::class)
         ));
         $c->bind(RefundRecorderInterface::class, static fn () => new WcRefundRecorder());
+        // «Did this person buy this?» — decided once, here, by whether there is
+        // a WooCommerce to ask. The null one answers «could not check», which
+        // the callers are careful not to report as «did not buy».
+        $c->bind(BuyerVerifierInterface::class, static fn (ContainerInterface $c) =>
+            function_exists('wc_get_order')
+                ? new WcBuyerVerifier($c->get(OrderItemRepositoryInterface::class))
+                : new NullBuyerVerifier());
         $c->bind(OrderOperationsGate::class, static fn (ContainerInterface $c) => new OrderOperationsGate(
             $c->get(ResolveCommissionRate::class),
             $c->get(LedgerRepositoryInterface::class),

@@ -1,0 +1,126 @@
+{
+  "site": "http://127.0.0.1:8080",
+  "generated_at": "2026-09-16T09:37:29.160Z",
+  "runs": [
+    {
+      "screen": "نظرها و امتیازها (فروشنده)",
+      "width": 390,
+      "file": "vendor-reviews-390.png",
+      "charts": [
+        {
+          "width": 244,
+          "rows": 5,
+          "narrowest_label": 96
+        }
+      ],
+      "narrowest_text_box": 96,
+      "horizontal_scroll": false
+    },
+    {
+      "screen": "اطلاعیه‌ها و گزارش‌ها (فروشنده)",
+      "width": 390,
+      "file": "vendor-notices-390.png",
+      "charts": [
+        {
+          "width": 244,
+          "rows": 7,
+          "narrowest_label": 96
+        },
+        {
+          "width": 244,
+          "rows": 5,
+          "narrowest_label": 96
+        },
+        {
+          "width": 244,
+          "rows": 3,
+          "narrowest_label": 96
+        }
+      ],
+      "narrowest_text_box": 96,
+      "horizontal_scroll": false
+    },
+    {
+      "screen": "نظرها و امتیازها (مدیر)",
+      "width": 390,
+      "file": "admin-reviews-390.png",
+      "charts": [],
+      "narrowest_text_box": 314,
+      "horizontal_scroll": false
+    },
+    {
+      "screen": "گزارش‌ها (مدیر)",
+      "width": 390,
+      "file": "admin-reports-390.png",
+      "charts": [
+        {
+          "width": 234,
+          "rows": 4,
+          "narrowest_label": 96
+        }
+      ],
+      "narrowest_text_box": 96,
+      "horizontal_scroll": false
+    },
+    {
+      "screen": "نظرها و امتیازها (فروشنده)",
+      "width": 1280,
+      "file": "vendor-reviews-1280.png",
+      "charts": [
+        {
+          "width": 938,
+          "rows": 5,
+          "narrowest_label": 96
+        }
+      ],
+      "narrowest_text_box": 96,
+      "horizontal_scroll": false
+    },
+    {
+      "screen": "اطلاعیه‌ها و گزارش‌ها (فروشنده)",
+      "width": 1280,
+      "file": "vendor-notices-1280.png",
+      "charts": [
+        {
+          "width": 938,
+          "rows": 7,
+          "narrowest_label": 96
+        },
+        {
+          "width": 938,
+          "rows": 5,
+          "narrowest_label": 96
+        },
+        {
+          "width": 938,
+          "rows": 3,
+          "narrowest_label": 96
+        }
+      ],
+      "narrowest_text_box": 96,
+      "horizontal_scroll": false
+    },
+    {
+      "screen": "نظرها و امتیازها (مدیر)",
+      "width": 1280,
+      "file": "admin-reviews-1280.png",
+      "charts": [],
+      "narrowest_text_box": 687.1,
+      "horizontal_scroll": false
+    },
+    {
+      "screen": "گزارش‌ها (مدیر)",
+      "width": 1280,
+      "file": "admin-reports-1280.png",
+      "charts": [
+        {
+          "width": 954,
+          "rows": 4,
+          "narrowest_label": 96
+        }
+      ],
+      "narrowest_text_box": 96,
+      "horizontal_scroll": false
+    }
+  ]
+}

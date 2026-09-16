@@ -12,6 +12,10 @@
  *   wp eval-file tools/guard-state.php seed-prereduced <wc-product>
  *   wp eval-file tools/guard-state.php hold [reason]
  *   wp eval-file tools/guard-state.php release
+ *   wp eval-file tools/guard-state.php trail <order-id>
+ *   wp eval-file tools/guard-state.php reconcile-list
+ *   wp eval-file tools/guard-state.php move-order <order-id> <status>
+ *   wp eval-file tools/guard-state.php sell-more <wc-product> <qty>
  *   wp eval-file tools/guard-state.php payable
  *   wp eval-file tools/guard-state.php order <order-id>
  *   wp eval-file tools/guard-state.php census
@@ -117,10 +121,51 @@ switch ($command) {
     case 'release':
         $result = $guard->release();
         printf(
-            "release released=%d stuck=%s\n",
+            "release released=%d stuck=%s moved_on=%s reconcile=%s\n",
             $result['released'],
-            $result['stuck'] === [] ? '-' : implode(',', $result['stuck'])
+            $result['stuck'] === [] ? '-' : implode(',', $result['stuck']),
+            $result['moved_on'] === [] ? '-' : implode(',', $result['moved_on']),
+            $result['reconcile'] === [] ? '-' : implode(',', $result['reconcile'])
         );
+        break;
+
+    case 'trail':
+        // What the guard wrote down about one order's stock.
+        $trail = $guard->stockTrail((int) ($args[1] ?? 0));
+        printf(
+            "trail held=%s was_reduced=%s moved=%s reconcile=%s\n",
+            $trail['held'] ? 'true' : 'false',
+            $trail['was_reduced'] === null ? '-' : ($trail['was_reduced'] ? 'true' : 'false'),
+            $trail['moved'] === null ? '-' : ($trail['moved'] ? 'true' : 'false'),
+            $trail['reconcile'] === '' ? '-' : $trail['reconcile']
+        );
+        break;
+
+    case 'reconcile-list':
+        $ids = $guard->needsReconciliation();
+        printf("reconcile count=%d ids=%s\n", count($ids), $ids === [] ? '-' : implode(',', $ids));
+        break;
+
+    case 'move-order':
+        // Somebody pays or cancels the order WHILE it is held — the case the
+        // release must leave alone rather than correct.
+        $order = wc_get_order((int) ($args[1] ?? 0));
+        if (!$order) {
+            echo "no such order\n";
+            break;
+        }
+        $order->update_status((string) ($args[2] ?? 'completed'), 'moved by hand during the hold', true);
+        printf("moved order=%d status=%s\n", (int) $order->get_id(), $order->get_status());
+        break;
+
+    case 'sell-more':
+        // A sale of the SAME product between the hold and the release, so the
+        // evidence can show the release does not undo it.
+        $product = wc_get_product((int) ($args[1] ?? 0));
+        $by = max(1, (int) ($args[2] ?? 1));
+        wc_update_product_stock($product, $by, 'decrease');
+        printf("sold product=%d by=%d now=%s\n", (int) $product->get_id(), $by,
+            (string) (int) wc_get_product((int) $product->get_id())->get_stock_quantity());
         break;
 
     case 'payable':
@@ -200,6 +245,33 @@ switch ($command) {
             }
         }
         printf("cleanup removed=%d\n", $removed);
+        break;
+
+    case 'purge':
+        // Deletes EVERY unpaid or held order that carries a marketplace item,
+        // whoever made it — so a stock sub-case can be measured to the unit.
+        //
+        // The tagged-only `cleanup` is not enough for that: this disposable
+        // site carries orders from other evidence runs, they are eligible too,
+        // and `hold()` moves all of them at once. That is correct behaviour
+        // and it made «the hold takes exactly one unit out» read 4997.
+        //
+        // Fixture only, disposable site only. It deletes orders.
+        $removed = 0;
+        foreach (wc_get_orders(['status' => ['pending', 'failed', 'on-hold'], 'limit' => -1, 'return' => 'ids']) as $id) {
+            $order = wc_get_order($id);
+            if (!$order) {
+                continue;
+            }
+            foreach ($order->get_items() as $item) {
+                if ((string) get_post_meta((int) $item->get_product_id(), '_tmc_product_id', true) !== '') {
+                    $order->delete(true);
+                    $removed++;
+                    break;
+                }
+            }
+        }
+        printf("purged orders=%d\n", $removed);
         break;
 
     case 'forget-all':

@@ -1,0 +1,1 @@
+rate ok=true code=rating_recorded item=53 stars=5 pending=true

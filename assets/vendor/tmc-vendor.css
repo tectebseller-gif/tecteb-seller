@@ -675,3 +675,93 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 .tv-file__name { overflow-wrap: anywhere; }
 .tv-file__size { color: var(--tv-muted); font-size: 0.875rem; }
 .tv-file--hidden .tv-file__name { text-decoration: line-through; color: var(--tv-muted); }
+
+/* --- reviews and ratings ------------------------------------------------ */
+.tv-reviews { list-style: none; margin: var(--tv-s3) 0 0; padding: 0; }
+
+.tv-review {
+  padding: var(--tv-s3);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+  margin-block-end: var(--tv-s3);
+}
+
+.tv-review__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s2);
+  margin-block-end: var(--tv-s2);
+}
+
+/* The stars are digits, not glyphs a font may not have. They are also LTR-safe
+   because the star follows the number in the same string — so there is no
+   bidi reordering to guard against here. */
+.tv-review__stars { font-weight: 700; color: var(--tv-ink); white-space: nowrap; }
+.tv-review__body { overflow-wrap: anywhere; }
+
+.tv-review__reply {
+  margin-block-start: var(--tv-s2);
+  padding-inline-start: var(--tv-s3);
+  border-inline-start: 3px solid var(--tv-sky);
+  color: var(--tv-muted);
+  overflow-wrap: anywhere;
+}
+
+.tv-reply { margin-block-start: var(--tv-s3); }
+
+/* --- charts -------------------------------------------------------------
+   HTML and CSS, not SVG. An inline SVG scales its own text with the drawing,
+   so on a 320px viewport the category labels rendered ~9px wide — about a 5px
+   font — and `no-starved-text-box` failed, correctly. Here the bar is a span
+   with a percentage width and every word is ordinary text that wraps, zooms
+   and can be translated.
+
+   Rows rather than columns: a column on a phone is ~45px wide and «آماده‌سازی»
+   has nowhere to go. A row gives the label a column of its own. */
+.tv-chart {
+  margin-block: var(--tv-s4);
+  padding: var(--tv-s3);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-chart__title { font-weight: 700; color: var(--tv-ink); margin-block-end: var(--tv-s3); }
+.tv-chart__rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tv-s2); }
+
+/* The label column has a floor so a long word is never squeezed to a stripe,
+   and `max-content` so a short one does not hog the track. */
+.tv-chart__row {
+  display: grid;
+  grid-template-columns: minmax(6rem, max-content) 1fr minmax(2.5rem, max-content);
+  align-items: center;
+  gap: var(--tv-s2);
+}
+
+.tv-chart__label { color: var(--tv-muted); overflow-wrap: anywhere; }
+.tv-chart__value { font-weight: 700; text-align: start; font-variant-numeric: tabular-nums; }
+
+.tv-chart__track {
+  display: block;
+  block-size: 12px;
+  border-radius: 999px;
+  background: var(--tv-sky-soft);
+  overflow: hidden;
+}
+
+.tv-chart__fill {
+  display: block;
+  block-size: 100%;
+  border-radius: 999px;
+  background: var(--tv-ink);
+}
+
+/* Five series colours before they repeat. They carry no meaning on their own —
+   every row prints its label and its number — so this is variety, not a key. */
+.tv-chart__fill[data-series="1"] { background: #6ABFE7; }
+.tv-chart__fill[data-series="2"] { background: #21D483; }
+.tv-chart__fill[data-series="3"] { background: #FFC658; }
+.tv-chart__fill[data-series="4"] { background: #4F6570; }
+
+.tv-chart__caption { color: var(--tv-muted); font-size: 0.9375rem; margin-block: var(--tv-s2) 0; }

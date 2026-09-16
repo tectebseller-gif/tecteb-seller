@@ -1,0 +1,17 @@
+reviews, ratings and charts — 240 checks, 0 failures
+
+  our-markup-is-on-the-page          pass=20 fail=0
+  no-horizontal-scroll               pass=20 fail=0
+  no-starved-text-box                pass=20 fail=0
+  controls-are-touch-sized           pass=20 fail=0
+  every-field-has-a-label            pass=20 fail=0
+  document-is-persian-rtl            pass=20 fail=0
+  no-js-errors                       pass=20 fail=0
+  every-chart-row-is-labelled        pass=20 fail=0
+  every-chart-row-prints-its-value   pass=20 fail=0
+  the-bar-itself-is-aria-hidden      pass=20 fail=0
+  a-chart-is-text-not-a-picture      pass=20 fail=0
+  axe-wcag-aa                        pass=20 fail=0
+
+recorded, NOT asserted — the theme's own page around our markup:
+  link-name(1)

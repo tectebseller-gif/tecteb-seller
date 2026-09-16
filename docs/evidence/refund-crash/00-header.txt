@@ -1,0 +1,10 @@
+=== the refund record across a crash, on the plugin installed from the ZIP ===
+name	status	version
+dokan-lite	active	5.1.1
+hello	inactive	1.7.2
+tecteb-marketplace-core	active	0.1.0-alpha.12
+woocommerce	active	11.0.1
+order-fail-probe	must-use	
+refund-crash-probe	must-use	
+tmc-stop-failure-probe	must-use	
+scope performed=ledger_reversal on_request=stock_correction,woocommerce_refund_record not_performed=money_transfer can_transfer_money=false

@@ -47,6 +47,10 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             // «مالی و عملیاتی» (UX §12.3) plus the manager's OWN inbox. There
             // is no everybody's-notifications screen anywhere, on purpose.
             ['tmc-reports', 'tmc_review_vendor', 'گزارش‌ها'],
+            // Moderation, with its OWN capability: approving what the public
+            // reads about a shop is not the same permission as approving the
+            // shop, so it is not `tmc_review_vendor`.
+            ['tmc-reviews', 'tmc_moderate_reviews', 'نظرات'],
             ['tmc-wholesale', 'tmc_review_vendor', 'خریداران عمده'],
             // The slug carries no other plugin's name — the assertion below
             // enforces that, so «مهاجرت از دکان» is the label, not the id.

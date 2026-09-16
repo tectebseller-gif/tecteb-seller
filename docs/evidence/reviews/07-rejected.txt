@@ -1,0 +1,1 @@
+  rating=28 stars=1 status=rejected body=متن رد شده reply=- reason=خارج از موضوع

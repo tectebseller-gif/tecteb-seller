@@ -44,10 +44,13 @@ use Tecteb\Marketplace\Modules\Product\Application\UnpaidOrderGuardInterface;
  *     more than 200 eligible orders, roughly every second page was skipped
  *     silently. The ids are now snapshotted by a read-only pass and the writes
  *     happen afterwards, one freshly loaded order at a time.
- *  4. **Stock is WooCommerce's to move, and it is not symmetric.** See
- *     `stockNote()` below: what the release gives back depends on the status
- *     the order is going back to and on whether it had already reduced stock
- *     before we touched it. The honest claim is measured, not "it comes back".
+ *  4. **Stock is WooCommerce's to move, and the pair has to cancel out.** The
+ *     hold records whether the order had ALREADY reduced stock; the release
+ *     lets WooCommerce increase only when the hold actually reduced. Nothing
+ *     here writes a stock number, so a sale, a return or a vendor's own edit
+ *     between the two survives untouched — and an order whose stock does not
+ *     come back where it started is reported for a person to look at rather
+ *     than counted as released. See `stockNote()`.
  *
  * What is NOT done, deliberately: the order is never cancelled, never emptied,
  * never refunded. It keeps every line, every note and its total, the previous
@@ -61,6 +64,22 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
 {
     /** The status the order had before the hold, so a release restores it. */
     public const PREVIOUS_STATUS_META = '_tmc_stop_prev_status';
+
+    /**
+     * Whether THIS ORDER had already reduced stock before the hold touched it.
+     *
+     * The whole stock correctness of a stop hangs on this one fact, so it is
+     * written down rather than re-derived: by the time the release runs, the
+     * order is `on-hold` and every order in that status has reduced stock, so
+     * there is no way to tell afterwards which of them arrived that way.
+     */
+    public const STOCK_WAS_REDUCED_META = '_tmc_stop_stock_was_reduced';
+
+    /** What the hold itself moved: '1' when our transition reduced, else '0'. */
+    public const STOCK_MOVED_META = '_tmc_stop_stock_moved';
+
+    /** Set when a hold or release ended somewhere a person has to look at. */
+    public const RECONCILE_META = '_tmc_stop_reconcile';
 
     /** The status WooCommerce itself will not take payment for. */
     public const HELD_STATUS = 'on-hold';
@@ -93,12 +112,20 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
             }
             $examined++;
 
+            // Whether the stock of this order was ALREADY reduced before we
+            // touched it, read before anything moves. Everything the release
+            // does about stock is decided by this one value, and after the
+            // hold it is unrecoverable: every `on-hold` order has reduced
+            // stock, so they all look the same from then on.
+            $wasReduced = $this->stockReduced($orderId);
+
             // The note is written BEFORE the move and re-written on a retry:
             // the order is in `$status` right now and payable, so `$status` is
             // the truthful place to put it back. A stale value from a hold
             // that never took effect would move it somewhere it never was.
             try {
                 $order->update_meta_data(self::PREVIOUS_STATUS_META, $status);
+                $order->update_meta_data(self::STOCK_WAS_REDUCED_META, $wasReduced ? '1' : '0');
                 $order->save();
                 // update_status(), not set_status(): the transition hooks are
                 // the point. WooCommerce's own rules about a held order —
@@ -112,15 +139,48 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
                 $stuck[] = $orderId;
                 continue;
             }
+            // What the hold ACTUALLY moved, measured rather than assumed: it
+            // reduced only if the order was not already reduced and is now.
+            $this->remember($orderId, self::STOCK_MOVED_META,
+                (!$wasReduced && $this->stockReduced($orderId)) ? '1' : '0');
             $held++;
         }
         return ['held' => $held, 'examined' => $examined, 'stuck' => $stuck];
     }
 
+    /**
+     * Puts back exactly the orders this guard held — and moves no stock that
+     * the hold did not move.
+     *
+     * The stock problem this solves, measured before it was fixed: WooCommerce
+     * reduces on the way into `on-hold` and increases on the way out, but both
+     * are guarded by the order's own `_order_stock_reduced` flag. An order that
+     * had ALREADY reduced stock before the hold — what an asynchronous gateway
+     * leaves behind — is not reduced again by the hold, because the flag is
+     * already set. The release then increases anyway, and one stop-and-release
+     * cycle leaves the product with **one unit of stock that nobody returned**.
+     *
+     * The fix is a delta, never a restore. This method does not write a stock
+     * number anywhere and never puts a product back to a remembered total: a
+     * sale, a return or a vendor's own edit between the hold and the release
+     * must survive, and an absolute write would silently undo all three. What
+     * it does instead is decide, per order, whether WooCommerce's increase
+     * should happen at all — and when our hold reduced nothing, it takes
+     * `wc_maybe_increase_stock_levels` off that one transition and puts it
+     * straight back.
+     *
+     * Anything that does not end where it should goes to `reconcile`, which is
+     * NOT counted as released: an order a person has to look at is not a
+     * success, and reporting it as one is how a phantom unit gets believed.
+     *
+     * @return array{released:int, stuck:list<int>, moved_on:list<int>, reconcile:list<int>}
+     */
     public function release(): array
     {
         $released = 0;
         $stuck = [];
+        $movedOn = [];
+        $reconcile = [];
         foreach ($this->snapshotHeldOrders() as $orderId) {
             $order = $this->load($orderId);
             if ($order === null) {
@@ -133,9 +193,27 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
             if ((string) $order->get_status() !== self::HELD_STATUS) {
                 // Somebody moved it on while it was held — paid it by hand,
                 // cancelled it, completed it. That decision outranks ours, so
-                // the note is dropped and the order is left exactly as it is.
+                // the status is left exactly as it is and only our notes go.
+                //
+                // Its stock is WooCommerce's business now: whatever transition
+                // that person made has already applied its own rule, and a
+                // correction from us on top would be the second movement for
+                // one decision. Reported separately from `released`, because a
+                // stop that ends with somebody having paid is worth seeing.
+                $movedOn[] = $orderId;
                 $this->forget($order, $orderId);
                 continue;
+            }
+
+            $wasReduced = (string) $order->get_meta(self::STOCK_WAS_REDUCED_META) === '1';
+            // When the hold reduced nothing, the release must increase
+            // nothing. Taking the hook off for exactly this one transition is
+            // narrower than any alternative: no filter of ours runs during
+            // somebody else's status change, and the hook is back before the
+            // next line of this loop.
+            $suppress = $wasReduced;
+            if ($suppress) {
+                remove_action('woocommerce_order_status_' . $previous, 'wc_maybe_increase_stock_levels');
             }
             try {
                 // The status first, the note second. A save that fails here
@@ -144,15 +222,33 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
                 $order->update_status($previous, $this->releaseNote(), true);
             } catch (\Throwable) {
                 // Measured, not assumed.
+            } finally {
+                if ($suppress) {
+                    add_action('woocommerce_order_status_' . $previous, 'wc_maybe_increase_stock_levels');
+                }
             }
             if ($this->statusOf($orderId) !== $previous) {
                 $stuck[] = $orderId;
                 continue;
             }
+            // The order is back. Is its stock back where it started? The flag
+            // is the question: it must read exactly what it read before the
+            // hold. Anything else means the two movements did not cancel, and
+            // that is a person's problem, not a number to report as fine.
+            if ($this->stockReduced($orderId) !== $wasReduced) {
+                $reconcile[] = $orderId;
+                $this->remember($orderId, self::RECONCILE_META, 'stock_mismatch');
+                continue;       // the notes stay: a retry must still find it
+            }
             $this->forget($this->load($orderId), $orderId);
             $released++;
         }
-        return ['released' => $released, 'stuck' => $stuck];
+        return [
+            'released' => $released,
+            'stuck' => $stuck,
+            'moved_on' => $movedOn,
+            'reconcile' => $reconcile,
+        ];
     }
 
     /**
@@ -181,13 +277,95 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
             return false;
         }
         try {
+            // All of them, together. A leftover «stock was reduced» on an
+            // order this guard no longer holds would be read by the NEXT stop
+            // as that stop's own measurement, and the release after it would
+            // suppress an increase it should have made.
             $order->delete_meta_data(self::PREVIOUS_STATUS_META);
+            $order->delete_meta_data(self::STOCK_WAS_REDUCED_META);
+            $order->delete_meta_data(self::STOCK_MOVED_META);
+            $order->delete_meta_data(self::RECONCILE_META);
             $order->save();
         } catch (\Throwable) {
             return false;
         }
         $fresh = $this->load($orderId);
         return $fresh !== null && (string) $fresh->get_meta(self::PREVIOUS_STATUS_META) === '';
+    }
+
+    /**
+     * Whether WooCommerce considers this order's stock already taken.
+     *
+     * Asked of the data store rather than of a meta read, because that is the
+     * same place `wc_maybe_reduce_stock_levels` and `wc_maybe_increase_stock_levels`
+     * ask — and a second way of reading one fact is a second answer waiting to
+     * disagree.
+     */
+    private function stockReduced(int $orderId): bool
+    {
+        $order = $this->load($orderId);
+        if ($order === null || !method_exists($order, 'get_data_store')) {
+            return false;
+        }
+        try {
+            return (bool) $order->get_data_store()->get_stock_reduced($orderId);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /** Writes one note on an order, and says nothing when it cannot. */
+    private function remember(int $orderId, string $key, string $value): void
+    {
+        $order = $this->load($orderId);
+        if ($order === null) {
+            return;
+        }
+        try {
+            $order->update_meta_data($key, $value);
+            $order->save();
+        } catch (\Throwable) {
+            // A note that did not stick is not worth failing a hold for: the
+            // status is the fact, and this is only the trail beside it.
+        }
+    }
+
+    /**
+     * Orders a person has to look at: the stop moved stock in a way that did
+     * not cancel out, and nobody should call that finished.
+     *
+     * @return list<int>
+     */
+    public function needsReconciliation(): array
+    {
+        $ids = [];
+        foreach ($this->ordersByStatus($this->allStatuses()) as $order) {
+            if ((string) $order->get_meta(self::RECONCILE_META) !== '') {
+                $ids[] = (int) $order->get_id();
+            }
+        }
+        return $ids;
+    }
+
+    /**
+     * What this guard knows about one order's stock, for a screen to show.
+     *
+     * @return array{held:bool, was_reduced:?bool, moved:?bool, reconcile:string}
+     */
+    public function stockTrail(int $orderId): array
+    {
+        $order = $this->load($orderId);
+        if ($order === null) {
+            return ['held' => false, 'was_reduced' => null, 'moved' => null, 'reconcile' => ''];
+        }
+        $wasReduced = (string) $order->get_meta(self::STOCK_WAS_REDUCED_META);
+        $moved = (string) $order->get_meta(self::STOCK_MOVED_META);
+        return [
+            'held' => (string) $order->get_meta(self::PREVIOUS_STATUS_META) !== '',
+            'was_reduced' => $wasReduced === '' ? null : $wasReduced === '1',
+            'moved' => $moved === '' ? null : $moved === '1',
+            'reconcile' => (string) $order->get_meta(self::RECONCILE_META),
+        ];
     }
 
     /**
@@ -329,25 +507,25 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
      * is hooked to `woocommerce_order_status_on-hold`, and
      * `wc_maybe_increase_stock_levels` to `pending`, `failed` and `cancelled`.
      * Both are guarded by the order's own `_order_stock_reduced` flag, and that
-     * guard is what makes the pair asymmetric in two cases worth saying out
-     * loud rather than covering with «موجودی برمی‌گردد»:
+     * guard used to make the pair asymmetric: an order that had ALREADY reduced
+     * stock before the hold was not reduced again — the flag was set — yet the
+     * release increased anyway, so one cycle left the product with a unit
+     * nobody had returned.
      *
-     *  - An order that had ALREADY reduced stock before the hold (an async
-     *    gateway leaves such orders `failed` or `on-hold`) reduces nothing when
-     *    we hold it — the flag is already set — but the release still increases,
-     *    because the release is a status change into a releasing status. Net
-     *    effect of one stop-and-release cycle on such an order: stock goes UP.
-     *  - `woocommerce_order_status_failed` only became a releasing status in
-     *    WooCommerce 11.0.0. On an older WooCommerce, an order held from
-     *    `failed` has its stock reduced by the hold and NOT given back by the
-     *    release.
+     * **That is fixed, not documented.** The hold writes down whether the
+     * order's stock was already reduced, and the release uses that to decide
+     * whether WooCommerce's increase should run at all. Nothing here writes a
+     * stock number: a sale, a return or a vendor's edit between the two must
+     * survive, and restoring a remembered total would quietly undo all three.
      *
-     * A repeated stop/release cycle on an ordinary `pending` order is symmetric
-     * and does not drift; that case is measured too, and is the common one.
+     * What is left, and why it is a sentence rather than a silence: an order
+     * somebody paid or cancelled while it was held keeps whatever stock
+     * movement THAT transition made, because it was their decision and a
+     * correction from us would be a second movement for one act.
      */
     public static function stockNote(): string
     {
-        return __('جابه‌جایی موجودی هنگام نگه‌داشتن و بازگرداندن سفارش کارِ خود ووکامرس است، نه این افزونه. برای سفارش pending معمولی، توقف و بازگرداندن یکدیگر را خنثی می‌کنند. ولی سفارشی که پیش از توقف هم موجودی را کم کرده بود، با بازگرداندن موجودی را زیاد می‌کند بی‌آنکه توقف چیزی کم کرده باشد؛ و روی ووکامرس پیش از ۱۱٫۰٫۰ سفارشی که از وضعیت failed نگه داشته شود، موجودی‌اش با بازگرداندن برنمی‌گردد. پیش از بازگرداندن دسته‌ای، موجودی را یک‌بار بررسی کنید.', 'tecteb-marketplace-core');
+        return __('جابه‌جایی موجودی هنگام نگه‌داشتن و بازگرداندن سفارش کارِ خود ووکامرس است. این افزونه هیچ عدد موجودی‌ای نمی‌نویسد و هیچ موجودی‌ای را به مقدار قدیمی برنمی‌گرداند؛ فقط جلوی افزایشی را می‌گیرد که توقفش کاهشی نداشته. نتیجه: یک دور توقف و بازگرداندن، موجودی را تغییر نمی‌دهد — حتی اگر سفارش پیش از توقف هم موجودی را کم کرده بود، و حتی اگر در این فاصله فروش یا مرجوعی دیگری ثبت شده باشد. سفارشی که کسی در همین فاصله پرداخت یا لغو کند، همان حرکتی را نگه می‌دارد که تصمیم خودش ساخته است.', 'tecteb-marketplace-core');
     }
 
     private function note(string $reason): string

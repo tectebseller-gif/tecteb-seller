@@ -68,6 +68,7 @@ final class MarketplaceMessages
 
             // --- the WooCommerce refund record, said apart from the money ---
             'refund_recorded' => __('رکورد بازپرداخت در ووکامرس ساخته شد. این فقط یک ثبت است: هیچ پولی جابه‌جا نشد و درگاهی در کار نبوده.', 'tecteb-marketplace-core'),
+            'refund_recovered' => __('همین مرجوعی از قبل یک رکورد بازپرداخت در ووکامرس داشت — از تلاش قبلی که نیمه‌کاره مانده بود. همان رکورد وصل شد؛ رکورد دومی ساخته نشد، موجودی دست نخورد و خط مالی دومی نوشته نشد.', 'tecteb-marketplace-core'),
             'refund_ledger_first' => __('اول باید بازگشت مالی در دفترکل ثبت شود؛ رکورد ووکامرس پس از آن ساخته می‌شود.', 'tecteb-marketplace-core'),
             'refund_already_recorded' => __('برای این مرجوعی قبلاً یک رکورد بازپرداخت ووکامرس ثبت شده است.', 'tecteb-marketplace-core'),
             'refund_link_failed' => sprintf(

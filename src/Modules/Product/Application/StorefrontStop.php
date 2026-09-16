@@ -178,6 +178,7 @@ final class StorefrontStop
             'refused' => count($refused),
             'total' => count($projected),
             'orders_released' => $orders['released'],
+            'orders_reconcile' => count($orders['reconcile']),
         ]);
         return [
             'published' => $published,
@@ -239,18 +240,51 @@ final class StorefrontStop
     public function releaseOrders(int $actorId = 0): OperationResult
     {
         $outcome = $this->unpaidOrders->release();
-        $this->switch->markStuck($this->switch->stuck()['products'], $outcome['stuck']);
+        // A stuck order and one that needs reconciliation are both «not
+        // finished», so both keep the stop's own list warm. They are reported
+        // apart because they need different things: one a retry, the other a
+        // person.
+        $this->switch->markStuck(
+            $this->switch->stuck()['products'],
+            array_values(array_unique(array_merge($outcome['stuck'], $outcome['reconcile'])))
+        );
         $this->audit->log(AuditEventCatalog::STOREFRONT_ORDERS_RELEASED, $actorId, 'storefront', 'marketplace', [
             'released' => $outcome['released'],
             'stuck' => count($outcome['stuck']),
+            'moved_on' => count($outcome['moved_on']),
+            'reconcile' => count($outcome['reconcile']),
         ]);
+        if ($outcome['reconcile'] !== []) {
+            // Deliberately ahead of `stuck`: an order whose stock did not come
+            // back is the more expensive of the two to leave unread.
+            return OperationResult::failure('orders_need_reconciliation', [
+                'released' => $outcome['released'],
+                'reconcile' => implode('، ', array_map('strval', $outcome['reconcile'])),
+            ]);
+        }
         if ($outcome['stuck'] !== []) {
             return OperationResult::failure('orders_release_incomplete', [
                 'released' => $outcome['released'],
                 'stuck' => implode('، ', array_map('strval', $outcome['stuck'])),
             ]);
         }
-        return OperationResult::success('orders_released', ['released' => $outcome['released']]);
+        return OperationResult::success('orders_released', [
+            'released' => $outcome['released'],
+            'moved_on' => count($outcome['moved_on']),
+        ]);
+    }
+
+    /**
+     * Orders whose stock did not come back where it started.
+     *
+     * Asked by the manager's screen, which has to be able to say «این‌ها را
+     * دستی بررسی کنید» without changing anything.
+     *
+     * @return list<int>
+     */
+    public function needingReconciliation(): array
+    {
+        return $this->unpaidOrders->needsReconciliation();
     }
 
     /**

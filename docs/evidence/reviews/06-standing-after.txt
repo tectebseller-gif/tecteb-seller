@@ -1,0 +1,1 @@
+standing vendor=4 product_count=1 product_avg=400 product_available=true vendor_count=1 vendor_avg=500 dist=1:0,2:0,3:0,4:0,5:1

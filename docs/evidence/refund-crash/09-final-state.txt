@@ -1,0 +1,5 @@
+=== final state ===
+wc-refunds order=2623 count=3 stamped=2 total=24001.00 remaining=2375999.00 ids=2626:16:12000,2625:-:1,2624:15:12000
+return=16 quantity=1 status=refunded refund=1200000
+return=15 quantity=1 status=refunded refund=1200000
+scope performed=ledger_reversal on_request=stock_correction,woocommerce_refund_record not_performed=money_transfer can_transfer_money=false

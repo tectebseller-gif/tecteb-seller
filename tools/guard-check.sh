@@ -150,12 +150,16 @@ check "…and no restore note is left behind"               0 "$(g census | fiel
 
 echo
 echo "--- 6. stock, for every shape of order ---"
-# Not «موجودی برمی‌گردد». Five fixtures, each ISOLATED — every sub-case clears
-# the previous one's orders first, because `hold()` holds every payable order
-# there is and a leftover from the case before makes the delta a different
-# number than it looks. The first version of this section did not, and its
-# «pending» line moved by 213 for one order.
-isolate() { g release > /dev/null; g cleanup > /dev/null; g forget-all > /dev/null; }
+# Not «موجودی برمی‌گردد» and not «محدودیت مستند» either: the pair has to
+# CANCEL OUT, including for an order that arrived already reduced. Every
+# sub-case is isolated, because `hold()` holds every payable order there is
+# and a leftover from the case before makes the delta a different number than
+# it looks.
+# Truly alone: release what is held, then DELETE every marketplace order that
+# is still unpaid — including ones other evidence runs left behind. Without
+# that, `hold()` correctly moves several orders at once and every «exactly one
+# unit» reading below is a different number than it looks.
+isolate() { g release > /dev/null; g purge > /dev/null; g forget-all > /dev/null; }
 {
 echo "=== stock, measured ==="
 
@@ -187,17 +191,25 @@ S7="$(g stock "$TMC_A" | field "$TMC_A")"
 BACK_TO="$(g order "$O_F" | field status)"
 echo "failed: ${S5} ${S6} ${S7}"
 
-# 6d. an order that had ALREADY reduced stock before we touched it
+# 6d. THE ONE THAT USED TO LEAK: already reduced before the hold
 isolate
 O_P="$(g seed-prereduced "$TMC_A" | field order)"
 S8="$(g stock "$TMC_A" | field "$TMC_A")"
 g hold 'stock_prereduced' > /dev/null
 S9="$(g stock "$TMC_A" | field "$TMC_A")"
+PRE_TRAIL="$(g trail "$O_P")"
 g release > /dev/null
 S10="$(g stock "$TMC_A" | field "$TMC_A")"
 echo "prereduced: ${S8} ${S9} ${S10}"
 
-# 6e. a MIXED order: a marketplace line and the shop's own goods together
+# 6e. the same one, a SECOND cycle — a leak would compound here
+g hold 'stock_prereduced_again' > /dev/null
+S11="$(g stock "$TMC_A" | field "$TMC_A")"
+g release > /dev/null
+S12="$(g stock "$TMC_A" | field "$TMC_A")"
+echo "prereducedagain: ${S10} ${S11} ${S12}"
+
+# 6f. a MIXED order: a marketplace line and the shop's own goods together
 isolate
 M0_T="$(g stock "$TMC_A" | field "$TMC_A")"
 M0_S="$(g stock "$SHOP" | field "$SHOP")"
@@ -210,7 +222,21 @@ M2_T="$(g stock "$TMC_A" | field "$TMC_A")"
 M2_S="$(g stock "$SHOP" | field "$SHOP")"
 echo "mixedtmc: ${M0_T} ${M1_T} ${M2_T}"
 echo "mixedshop: ${M0_S} ${M1_S} ${M2_S}"
+
+# 6g. A SALE happens between the hold and the release. The release must not
+#     undo it — which is exactly what restoring a remembered total would do.
+isolate
+C0="$(g stock "$TMC_A" | field "$TMC_A")"
+g seed 1 "$TMC_A" pending > /dev/null
+g hold 'stock_concurrent' > /dev/null
+g sell-more "$TMC_A" 3 > /dev/null
+C1="$(g stock "$TMC_A" | field "$TMC_A")"
+g release > /dev/null
+C2="$(g stock "$TMC_A" | field "$TMC_A")"
+echo "concurrent: ${C0} ${C1} ${C2}"
+
 echo "failedwentbackto: ${BACK_TO}"
+echo "pretrail: ${PRE_TRAIL}"
 } | tee "$EV/06-stock.txt"
 
 STOCKLOG="$EV/06-stock.txt"
@@ -222,8 +248,10 @@ read -r P0 P1 P2 <<< "$(num pending)"
 read -r R2 R3 R4 <<< "$(num repeat)"
 read -r F5 F6 F7 <<< "$(num failed)"
 read -r Q8 Q9 Q10 <<< "$(num prereduced)"
+read -r Q10b Q11 Q12 <<< "$(num prereducedagain)"
 read -r T0 T1 T2 <<< "$(num mixedtmc)"
 read -r H0 H1 H2 <<< "$(num mixedshop)"
+read -r C0 C1 C2 <<< "$(num concurrent)"
 FBACK="$(num failedwentbackto | tr -d ' ')"
 
 check "pending: the hold takes exactly one unit out"      "$((P0 - 1))" "$P1"
@@ -231,13 +259,64 @@ check "pending: the release puts back exactly that"       "$P0" "$P2"
 check "repeat: a second cycle takes the same one out"     "$((R2 - 1))" "$R3"
 check "repeat: …and does not drift"                       "$R2" "$R4"
 check "failed: the hold takes stock out"                  "$((F5 - 1))" "$F6"
-check "failed: WooCommerce 11 gives it back too"          "$F5" "$F7"
+check "failed: …and it comes back"                        "$F5" "$F7"
 check "failed: …to the status it really came from"        failed "$FBACK"
 check "pre-reduced: the hold reduces NOTHING more"        "$Q8" "$Q9"
-check "pre-reduced: …yet the release still increases"     "$((Q8 + 1))" "$Q10"
+check "pre-reduced: …AND THE RELEASE ADDS NOTHING"       "$Q8" "$Q10"
+check "pre-reduced: …a second cycle does not compound"   "$Q10b" "$Q12"
 check "mixed: the marketplace line came back level"       "$T0" "$T2"
 check "mixed: the SHOP's own goods were moved too"        "$((H0 - 1))" "$H1"
 check "mixed: …and came back level as well"               "$H0" "$H2"
+# The sale took three units and the hold's own one comes back, so the end
+# state is exactly «three fewer than we started». A release that restored a
+# remembered total would read $C0 here and silently undo the sale.
+check "a sale during the hold survives the release"       "$((C0 - 3))" "$C2"
+check "…so the release restored no remembered total"      yes \
+  "$([ "$C2" -lt "$C0" ] && echo yes || echo no)"
+check "the trail says the order arrived already reduced"  true \
+  "$(grep '^pretrail:' "$STOCKLOG" | grep -oE 'was_reduced=[a-z]+' | cut -d= -f2)"
+check "…and that our own hold moved nothing"              false \
+  "$(grep '^pretrail:' "$STOCKLOG" | grep -oE 'moved=[a-z]+' | cut -d= -f2)"
+check "nothing was left needing a person"                 0 "$(g reconcile-list | field count)"
+
+echo
+echo "--- 6h. somebody pays the order while it is held ---"
+# Their decision outranks ours: the release must leave the status alone, take
+# only its own notes off, and report it apart from «released».
+isolate
+O_PAID="$(g seed 1 "$TMC_A" pending | field first)"
+PAID_START="$(g stock "$TMC_A" | field "$TMC_A")"
+g hold 'paid_midway' > /dev/null
+g move-order "$O_PAID" completed > /dev/null
+REL_PAID="$(g release)"
+echo "    $REL_PAID"
+check "the paid order is reported as moved on, not released" "$O_PAID" \
+  "$(echo "$REL_PAID" | field moved_on | tr ',' '\n' | grep -c "^${O_PAID}$" | sed "s/^1$/${O_PAID}/;s/^0$/-/")"
+check "…its status is left exactly as the person set it"  completed "$(g order "$O_PAID" | field status)"
+check "…and the stop's own notes are gone"                '-' "$(g order "$O_PAID" | field note)"
+# The order SOLD: WooCommerce reduced on the way into on-hold and `completed`
+# keeps it reduced. One unit fewer is the truth, and a correction from us on
+# top would be the second movement for one decision.
+check "…and its stock shows the sale, corrected by nobody" "$((PAID_START - 1))" "$(g stock "$TMC_A" | field "$TMC_A")"
+
+echo
+echo "--- 6i. somebody CANCELS the order while it is held ---"
+isolate
+O_CAN="$(g seed 1 "$TMC_A" pending | field first)"
+g hold 'cancelled_midway' > /dev/null
+CAN_START="$(g stock "$TMC_A" | field "$TMC_A")"
+g move-order "$O_CAN" cancelled > /dev/null
+CAN_AFTER_CANCEL="$(g stock "$TMC_A" | field "$TMC_A")"
+REL_CAN="$(g release)"
+echo "    $REL_CAN"
+check "the cancelled order is reported as moved on"       "$O_CAN" \
+  "$(echo "$REL_CAN" | field moved_on | tr ',' '\n' | grep -c "^${O_CAN}$" | sed "s/^1$/${O_CAN}/;s/^0$/-/")"
+check "…and WooCommerce's own cancel movement stands"     "$CAN_AFTER_CANCEL" "$(g stock "$TMC_A" | field "$TMC_A")"
+# CAN_START is read AFTER the hold, so the unit is already out. Cancelling is
+# a releasing status, so WooCommerce puts it back — one MORE than CAN_START,
+# not the same. The first version of this check asserted equality and was
+# simply reading the arrow backwards.
+check "…which put the cancelled order's unit back"       "$((CAN_START + 1))" "$CAN_AFTER_CANCEL"
 
 echo
 echo "--- 7. an order with nothing of ours is never touched ---"

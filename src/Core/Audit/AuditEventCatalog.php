@@ -89,6 +89,12 @@ final class AuditEventCatalog
     public const TICKET_FILE_READ = 'marketplace.ticket_file_read';
     public const TICKET_FILE_HIDDEN = 'marketplace.ticket_file_hidden';
     public const NOTICE_SENT = 'marketplace.notice_sent';
+    /** Reviews and ratings: who said it, who answered it, who moderated it. */
+    public const VENDOR_RATING_GIVEN = 'marketplace.vendor_rating_given';
+    public const VENDOR_RATING_REPLIED = 'marketplace.vendor_rating_replied';
+    public const VENDOR_RATING_MODERATED = 'marketplace.vendor_rating_moderated';
+    public const PRODUCT_REVIEW_REPLIED = 'marketplace.product_review_replied';
+    public const PRODUCT_REVIEW_MODERATED = 'marketplace.product_review_moderated';
     /** Dokan migration: read first, written only on an explicit import. */
     public const DOKAN_DRY_RUN = 'migration.dokan_dry_run';
     public const DOKAN_IMPORTED = 'migration.dokan_imported';
@@ -170,6 +176,11 @@ final class AuditEventCatalog
             self::TICKET_FILE_ATTACHED => ['ticket_id', 'message_id', 'attachment_id', 'bytes', 'mime'],
             self::TICKET_FILE_READ => ['ticket_id', 'attachment_id'],
             self::TICKET_FILE_HIDDEN => ['ticket_id', 'attachment_id', 'reason'],
+            self::VENDOR_RATING_GIVEN => ['vendor_user_id', 'stars'],
+            self::VENDOR_RATING_REPLIED => ['vendor_user_id'],
+            self::VENDOR_RATING_MODERATED => ['status', 'vendor_user_id', 'reason'],
+            self::PRODUCT_REVIEW_REPLIED => ['vendor_user_id', 'reply_id'],
+            self::PRODUCT_REVIEW_MODERATED => ['approved', 'vendor_user_id'],
             self::NOTICE_SENT => ['event', 'subject_type', 'subject_id', 'told'],
             self::DOKAN_DRY_RUN => ['vendors', 'products', 'orders', 'conflicts', 'run_id'],
             self::DOKAN_IMPORTED => ['vendors', 'products', 'run_id', 'mode'],

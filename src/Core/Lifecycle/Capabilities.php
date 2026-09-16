@@ -32,6 +32,8 @@ final class Capabilities
     /** Catalogue and settlement: stop or resume selling, and decide on withdrawals. */
     public const MANAGE_STOREFRONT = 'tmc_manage_storefront';
     public const REVIEW_WITHDRAWALS = 'tmc_review_withdrawals';
+    /** Reviews and ratings: «moderation و گزارش» is the manager's (UX §12). */
+    public const MODERATE_REVIEWS = 'tmc_moderate_reviews';
 
     /** @return list<string> */
     public static function all(): array
@@ -47,6 +49,7 @@ final class Capabilities
             self::MANAGE_SPEC_TEMPLATES,
             self::MANAGE_STOREFRONT,
             self::REVIEW_WITHDRAWALS,
+            self::MODERATE_REVIEWS,
         ];
     }
 

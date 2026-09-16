@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Marketplace\Application\Notify;
 use Tecteb\Marketplace\Modules\Marketplace\Application\Reports;
+use Tecteb\Marketplace\Modules\Marketplace\Presentation\Charts;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\NoticeMessages;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 
@@ -89,10 +90,26 @@ final class ReportsPage
                 $shown = NoticeMessages::isMoney((string) $figure)
                     ? $fa(number_format((int) $value / 100)) . ' ' . __('تومان', 'tecteb-marketplace-core')
                     : $fa((string) $value);
-                echo '<tr><th scope="row">' . esc_html(NoticeMessages::figure((string) $figure)) . '</th>'
-                    . '<td>' . esc_html($shown) . '</td></tr>';
+                // Same `data-label` rule as the moderation queue: the header
+                // row is hidden when this table stacks, so the cells carry
+                // their own labels.
+                echo '<tr><th scope="row" data-label="' . esc_attr__('عنوان', 'tecteb-marketplace-core') . '">'
+                    . esc_html(NoticeMessages::figure((string) $figure)) . '</th>'
+                    . '<td data-label="' . esc_attr__('مقدار', 'tecteb-marketplace-core') . '">'
+                    . esc_html($shown) . '</td></tr>';
             }
             echo '</tbody></table></div>';
+            // Same rule as the vendor's page: the chart follows the table it
+            // illustrates, and the money card has none.
+            $rows = NoticeMessages::chartRows((string) $key, $figures);
+            if ($rows !== []) {
+                echo Charts::card(     // phpcs:ignore WordPress.Security.EscapeOutput
+                    NoticeMessages::reportTitle((string) $key),
+                    $rows,
+                    NoticeMessages::chartCaption((string) $key),
+                    'tmc-chart'
+                );
+            }
             if ($key === Reports::FINANCE && (int) ($figures['unrecorded_lines'] ?? 0) > 0) {
                 echo Components::notice('info', NoticeMessages::unrecordedNote());
             }

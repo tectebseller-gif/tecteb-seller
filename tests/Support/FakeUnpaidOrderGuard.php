@@ -44,11 +44,31 @@ final class FakeUnpaidOrderGuard implements UnpaidOrderGuardInterface
         $released = count($this->retired);
         $this->payable = array_values(array_merge($this->payable, $this->retired));
         $this->retired = [];
-        return ['released' => $released, 'stuck' => []];
+        return ['released' => $released, 'stuck' => [], 'moved_on' => [], 'reconcile' => []];
     }
 
     public function stillPayable(): array
     {
         return $this->payable;
+    }
+
+    public function needsReconciliation(): array
+    {
+        // This fake moves no stock, so it can never leave any to reconcile.
+        // Returning [] is the truth here, not a stub.
+        return [];
+    }
+
+    public function stockTrail(int $orderId): array
+    {
+        // Nulls rather than falses, for the same reason NullUnpaidOrderGuard
+        // uses them: «no stock was moved» and «nothing here moves stock» are
+        // different answers, and a test that confused them would pass wrongly.
+        return [
+            'held' => in_array($orderId, $this->retired, true),
+            'was_reduced' => null,
+            'moved' => null,
+            'reconcile' => '',
+        ];
     }
 }

@@ -45,11 +45,38 @@ interface UnpaidOrderGuardInterface
     public function hold(string $reason): array;
 
     /**
-     * Puts back exactly the orders this guard held, and no others.
+     * Puts back exactly the orders this guard held, and no others — moving no
+     * stock the hold did not move.
      *
-     * @return array{released:int, stuck:list<int>}
+     * Four outcomes, and only the first is a success:
+     *
+     *  - `released` — back where it was, and its stock is where it started.
+     *  - `stuck` — the status would not move. Retryable.
+     *  - `moved_on` — somebody paid, cancelled or completed it while it was
+     *    held. Their decision stands; only this guard's notes are removed.
+     *  - `reconcile` — the status moved but the stock did not end where it
+     *    began. **Never counted as released**, because a stop that leaves a
+     *    product with stock nobody returned is a person's problem, not a
+     *    number to report as fine.
+     *
+     * @return array{released:int, stuck:list<int>, moved_on:list<int>, reconcile:list<int>}
      */
     public function release(): array;
+
+    /**
+     * Orders whose stock did not come back where it started.
+     *
+     * @return list<int>
+     */
+    public function needsReconciliation(): array;
+
+    /**
+     * What this guard knows about one order's stock — so a screen can say
+     * «این سفارش پیش از توقف هم موجودی را کم کرده بود» instead of a shrug.
+     *
+     * @return array{held:bool, was_reduced:?bool, moved:?bool, reconcile:string}
+     */
+    public function stockTrail(int $orderId): array;
 
     /**
      * Orders that hold a marketplace item and can still be paid right now.

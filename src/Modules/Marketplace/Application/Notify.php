@@ -42,6 +42,8 @@ final class Notify
     public const RETURN_DECIDED = 'notice.return_decided';
     public const WITHDRAWAL_DECIDED = 'notice.withdrawal_decided';
     public const STOREFRONT_STOPPED = 'notice.storefront_stopped';
+    public const RATING_RECEIVED = 'notice.rating_received';
+    public const RATING_MODERATED = 'notice.rating_moderated';
 
     public function __construct(
         private readonly NotificationRepositoryInterface $repository,

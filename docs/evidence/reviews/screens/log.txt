@@ -1,0 +1,8 @@
+نظرها و امتیازها (فروشنده) @ 390px → vendor-reviews-390.png  charts=1  narrowest_chart_label=96px  narrowest_text=96px  hscroll=false
+اطلاعیه‌ها و گزارش‌ها (فروشنده) @ 390px → vendor-notices-390.png  charts=3  narrowest_chart_label=96px  narrowest_text=96px  hscroll=false
+نظرها و امتیازها (مدیر) @ 390px → admin-reviews-390.png  charts=0  narrowest_chart_label=—  narrowest_text=314px  hscroll=false
+گزارش‌ها (مدیر) @ 390px → admin-reports-390.png  charts=1  narrowest_chart_label=96px  narrowest_text=96px  hscroll=false
+نظرها و امتیازها (فروشنده) @ 1280px → vendor-reviews-1280.png  charts=1  narrowest_chart_label=96px  narrowest_text=96px  hscroll=false
+اطلاعیه‌ها و گزارش‌ها (فروشنده) @ 1280px → vendor-notices-1280.png  charts=3  narrowest_chart_label=96px  narrowest_text=96px  hscroll=false
+نظرها و امتیازها (مدیر) @ 1280px → admin-reviews-1280.png  charts=0  narrowest_chart_label=—  narrowest_text=687.1px  hscroll=false
+گزارش‌ها (مدیر) @ 1280px → admin-reports-1280.png  charts=1  narrowest_chart_label=96px  narrowest_text=96px  hscroll=false

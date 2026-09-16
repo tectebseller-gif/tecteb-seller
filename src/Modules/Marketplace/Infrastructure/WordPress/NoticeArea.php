@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Marketplace\Application\Notify;
 use Tecteb\Marketplace\Modules\Marketplace\Application\Reports;
+use Tecteb\Marketplace\Modules\Marketplace\Presentation\Charts;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\MarketplaceMessages;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\NoticeMessages;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
@@ -150,6 +151,17 @@ final class NoticeArea
                     . '</dt><dd>' . esc_html($shown) . '</dd></div>';
             }
             $html .= '</dl>';
+            // The chart AFTER the figures, never instead of them. A picture of
+            // a number is not the number, and the money card gets no chart at
+            // all — see NoticeMessages::chartRows().
+            $rows = NoticeMessages::chartRows((string) $key, $figures);
+            if ($rows !== []) {
+                $html .= Charts::card(
+                    NoticeMessages::reportTitle((string) $key),
+                    $rows,
+                    NoticeMessages::chartCaption((string) $key)
+                );
+            }
             if ($key === Reports::FINANCE && (int) ($figures['unrecorded_lines'] ?? 0) > 0) {
                 $html .= '<p class="tv-hint">' . esc_html(NoticeMessages::unrecordedNote()) . '</p>';
             }

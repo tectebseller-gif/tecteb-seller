@@ -405,7 +405,13 @@ final class ManageReturns
         if ($item === null) {
             return OperationResult::failure('not_found');
         }
-
+        // The return says it has no WooCommerce refund. WooCommerce might
+        // disagree — a previous attempt can have created one and died before
+        // the id got here. That lookup is NOT repeated here: `record()` does it
+        // as its first act and hands the orphan back, so there is exactly one
+        // place that decides «made one» from «found mine». Asking twice would
+        // be two answers to keep in step.
+        //
         // Nullable on the row and non-null once refunded; coalesced anyway,
         // because a null here would silently become a zero-amount refund that
         // WooCommerce refuses with an exception instead of a sentence.
@@ -415,7 +421,10 @@ final class ManageReturns
             $item->orderItemId,
             $amount,
             $request->quantity,
-            (string) $returnId
+            // What a person reads on the refund, and — separately — the key
+            // that makes a retry idempotent.
+            sprintf('tmc return #%d', $returnId),
+            $returnId
         );
         if (!$result['ok']) {
             return OperationResult::failure($result['reason'], [
@@ -438,8 +447,14 @@ final class ManageReturns
             'wc_refund_id' => $result['refund_id'],
             'amount_minor' => $request->refundMinor + $request->taxRefundMinor,
             'money_moved' => false,
+            // Whether this run made the refund or adopted one an interrupted
+            // run had already made. Different facts, and the audit trail is
+            // the one place that difference must not be flattened.
+            'recovered' => $result['reason'] === 'refund_recovered',
         ]);
-        return OperationResult::success('refund_recorded', [
+        return OperationResult::success(
+            $result['reason'] === 'refund_recovered' ? 'refund_recovered' : 'refund_recorded',
+            [
             'return_id' => $returnId,
             'wc_refund_id' => $result['refund_id'],
             'did_wc_refund' => true,
@@ -447,7 +462,8 @@ final class ManageReturns
             // without this one.
             'did_money' => false,
             'money_blockers' => implode('، ', $this->recorder->moneyBlockers($item->orderId)),
-        ]);
+            ]
+        );
     }
 
     /** @return list<ReturnRequest> */

@@ -17,6 +17,9 @@
  *   wp eval-file tools/return-state.php ledger-count
  *   wp eval-file tools/return-state.php reversal-sum <order-item-id> <return-id>
  *   wp eval-file tools/return-state.php accrual-intact <order-item-id>
+ *   wp eval-file tools/return-state.php wc-refund <return-id>
+ *   wp eval-file tools/return-state.php wc-refunds <order-item-id>
+ *   wp eval-file tools/return-state.php unlink-refund <return-id>
  */
 
 use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
@@ -119,8 +122,9 @@ switch ($command) {
             break;
         }
         printf(
-            "item=%d vendor=%d wc_product=%d quantity=%d base=%d tax=%d commission=%s share=%s status=%s returned=%d\n",
+            "item=%d order=%d vendor=%d wc_product=%d quantity=%d base=%d tax=%d commission=%s share=%s status=%s returned=%d\n",
             $item->id,
+            $item->orderId,
             $item->vendorUserId,
             $item->wcProductId,
             $item->quantity,
@@ -196,8 +200,9 @@ switch ($command) {
     case 'scope':
         $scope = new \Tecteb\Marketplace\Modules\Order\Application\RefundScope();
         printf(
-            "scope performed=%s not_performed=%s can_transfer_money=%s\n",
+            "scope performed=%s on_request=%s not_performed=%s can_transfer_money=%s\n",
             implode(',', \Tecteb\Marketplace\Modules\Order\Application\RefundScope::PERFORMED),
+            implode(',', \Tecteb\Marketplace\Modules\Order\Application\RefundScope::ON_REQUEST),
             implode(',', \Tecteb\Marketplace\Modules\Order\Application\RefundScope::NOT_PERFORMED),
             $scope->canTransferMoney() ? 'true' : 'false'
         );
@@ -279,6 +284,85 @@ switch ($command) {
             $central,
             $item->baseMinor + $item->taxMinor
         );
+        break;
+
+    case 'wc-refund':
+        // The THIRD part of RefundScope, asked for on its own. This is the
+        // call the crash test interrupts and then repeats.
+        $result = $returns->recordWooCommerceRefund($manager, (int) ($args[1] ?? 0));
+        printf(
+            "wc-refund ok=%s code=%s wc_refund_id=%s did_wc_refund=%s did_money=%s blockers=%s\n",
+            $result->ok ? 'true' : 'false',
+            $result->code,
+            (string) ($result->context['wc_refund_id'] ?? '-'),
+            !empty($result->context['did_wc_refund']) ? 'true' : 'false',
+            !empty($result->context['did_money']) ? 'true' : 'false',
+            (string) ($result->context['money_blockers'] ?? '-')
+        );
+        break;
+
+    case 'wc-refunds':
+        // Every refund WooCommerce itself holds against this line's order, with
+        // the stamp that says which return made it. Counted from WooCommerce,
+        // not from our own row — the whole point is to catch a refund our row
+        // does not know about.
+        $item = $items->find((int) ($args[1] ?? 0));
+        if ($item === null) {
+            echo "no such line\n";
+            break;
+        }
+        $order = wc_get_order($item->orderId);
+        $refunds = $order ? $order->get_refunds() : [];
+        $stamped = 0;
+        $total = 0.0;
+        $ids = [];
+        foreach ($refunds as $refund) {
+            $ids[] = (int) $refund->get_id()
+                . ':' . ((string) $refund->get_meta('_tmc_return_id') ?: '-')
+                . ':' . (string) $refund->get_amount();
+            if ((string) $refund->get_meta('_tmc_return_id') !== '') {
+                $stamped++;
+            }
+            $total += (float) $refund->get_amount();
+        }
+        printf(
+            "wc-refunds order=%d count=%d stamped=%d total=%s remaining=%s ids=%s\n",
+            $item->orderId,
+            count($refunds),
+            $stamped,
+            number_format($total, 2, '.', ''),
+            $order ? number_format((float) $order->get_remaining_refund_amount(), 2, '.', '') : '-',
+            $ids === [] ? '-' : implode(',', $ids)
+        );
+        break;
+
+    case 'wc-refund-link':
+        // What the MARKETPLACE row believes, as opposed to what WooCommerce
+        // holds. The gap between the two is the crash this round is about.
+        $request = $shipments->findReturn((int) ($args[1] ?? 0));
+        printf(
+            "link return=%s wc_refund_id=%s\n",
+            $request === null ? '-' : (string) $request->id,
+            ($request === null || $request->wcRefundId === null) ? '-' : (string) $request->wcRefundId
+        );
+        break;
+
+    case 'unlink-refund':
+        // Puts the marketplace row back exactly where a crash would have left
+        // it: WooCommerce holds the refund, our row has never heard of it.
+        // Only the link is cleared — the WooCommerce refund is NOT touched,
+        // because a test that tidied it away would test nothing.
+        global $wpdb;
+        $id = (int) ($args[1] ?? 0);
+        $before = (string) $wpdb->get_var($wpdb->prepare(
+            'SELECT wc_refund_id FROM ' . $wpdb->prefix . 'tmc_returns WHERE id = %d',
+            $id
+        ));
+        $wpdb->query($wpdb->prepare(
+            'UPDATE ' . $wpdb->prefix . 'tmc_returns SET wc_refund_id = NULL WHERE id = %d',
+            $id
+        ));
+        printf("unlink return=%d was=%s now=%s\n", $id, $before === '' ? '-' : $before, '-');
         break;
 
     default:

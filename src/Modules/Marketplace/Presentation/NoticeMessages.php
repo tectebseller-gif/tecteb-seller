@@ -56,6 +56,17 @@ final class NoticeMessages
             Notify::RETURN_DECIDED => __('دربارهٔ یک مرجوعی تصمیم گرفته شد.', 'tecteb-marketplace-core'),
             Notify::WITHDRAWAL_DECIDED => __('دربارهٔ درخواست برداشت شما تصمیم گرفته شد.', 'tecteb-marketplace-core'),
             Notify::STOREFRONT_STOPPED => __('فروش بازارگاه متوقف شده است؛ تا از سرگیری، محصولات از فروشگاه بیرون‌اند.', 'tecteb-marketplace-core'),
+            Notify::RATING_RECEIVED => sprintf(
+                /* translators: %s: how many stars the buyer gave */
+                __('یک خریدار به فروشگاه شما %s ستاره داد. تا تأیید مدیر در صفحهٔ عمومی دیده نمی‌شود.', 'tecteb-marketplace-core'),
+                $fa((string) ($context['stars'] ?? ''))
+            ),
+            Notify::RATING_MODERATED => ((string) ($context['status'] ?? '') === 'approved'
+                ? __('یکی از امتیازهای فروشگاه شما تأیید شد و حالا در صفحهٔ عمومی دیده می‌شود.', 'tecteb-marketplace-core')
+                : __('یکی از امتیازهای فروشگاه شما رد شد. متن و دلیلش در صفحهٔ «نظرات» هست.', 'tecteb-marketplace-core')),
+            // A key nobody has written a sentence for is shown as the key, not
+            // as a blank — a notice with no text is a notice nobody can act on,
+            // and the key at least names what happened.
             default => $event,
         };
     }
@@ -133,6 +144,56 @@ final class NoticeMessages
     public static function hiddenFigures(): array
     {
         return ['available', 'threshold'];
+    }
+
+    /**
+     * The figures of one report, as chart rows — or none, when it should not
+     * be charted.
+     *
+     * Two exclusions, both deliberate:
+     *
+     *  - **Money is never charted.** A column chart rounds to fit a label
+     *    above a bar, and a rounded balance is exactly the kind of number
+     *    somebody acts on wrongly. The finance report keeps its table, where
+     *    every figure is exact to the ریال.
+     *  - **Totals are never charted beside their own parts.** «کل اقلام» next
+     *    to the statuses that add up to it makes every other column a stub and
+     *    says nothing the sum did not. So the whole-count keys are dropped and
+     *    the breakdown is what gets drawn.
+     *
+     * @param array<string,mixed> $figures
+     * @return list<array{label:string, value:int}>
+     */
+    public static function chartRows(string $reportKey, array $figures): array
+    {
+        $keys = match ($reportKey) {
+            Reports::SALES => ['awaiting', 'preparing', 'partially_shipped', 'shipped', 'delivered', 'cancelled', 'returned'],
+            Reports::PRODUCTS => ['published', 'in_review', 'needs_fix', 'draft', 'suspended'],
+            Reports::STOCK => ['on_sale', 'low_stock', 'out_of_stock'],
+            Reports::OPERATIONS => ['vendor_applications_waiting', 'awaiting_shipment', 'open_returns', 'open_tickets'],
+            // Reports::FINANCE and anything unknown: no chart. See above.
+            default => [],
+        };
+        $rows = [];
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $figures)) {
+                continue;
+            }
+            $rows[] = ['label' => self::figure($key), 'value' => (int) $figures[$key]];
+        }
+        return $rows;
+    }
+
+    /** What a chart of a report is measuring, said under it. */
+    public static function chartCaption(string $reportKey): string
+    {
+        return match ($reportKey) {
+            Reports::SALES => __('تعداد اقلام در هر وضعیت، همین لحظه.', 'tecteb-marketplace-core'),
+            Reports::PRODUCTS => __('تعداد محصول در هر وضعیت.', 'tecteb-marketplace-core'),
+            Reports::STOCK => __('وضعیت موجودی محصولات روی فروشگاه.', 'tecteb-marketplace-core'),
+            Reports::OPERATIONS => __('کارهای باز بازارگاه، همین لحظه.', 'tecteb-marketplace-core'),
+            default => '',
+        };
     }
 
     /** The sentence that explains what «سهم ثبت‌نشده» means, and why not zero. */

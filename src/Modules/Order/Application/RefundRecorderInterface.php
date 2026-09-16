@@ -38,10 +38,36 @@ interface RefundRecorderInterface
     public function moneyBlockers(int $wcOrderId): array;
 
     /**
-     * Writes the refund record against ONE order line.
+     * The refund this return already has in WooCommerce, or 0.
+     *
+     * Exists because of one crash: the refund is created and the process dies
+     * before its id reaches the marketplace's own row. A retry must find that
+     * orphan, not make a second refund.
+     */
+    public function findExisting(int $wcOrderId, int $returnId): int;
+
+    /**
+     * Writes the refund record against ONE order line — or hands back the one
+     * a previous, interrupted attempt already made.
+     *
+     * `$returnId` is a parameter rather than something read out of `$reason`,
+     * because it is the idempotency key: it is stamped on the refund inside
+     * the same insert that creates it, and it is what `findExisting()` looks
+     * for. A key carried inside a human-readable string is a key somebody will
+     * reword.
+     *
+     * `reason` comes back as `refund_recovered` when an orphan was adopted, so
+     * a caller can tell «made one» from «found the one I had already made».
      *
      * @return array{ok:bool, reason:string, refund_id:int, money_moved?:bool,
      *               remaining?:float, message?:string}
      */
-    public function record(int $wcOrderId, int $wcOrderItemId, float $amount, int $quantity, string $reason): array;
+    public function record(
+        int $wcOrderId,
+        int $wcOrderItemId,
+        float $amount,
+        int $quantity,
+        string $reason,
+        int $returnId
+    ): array;
 }

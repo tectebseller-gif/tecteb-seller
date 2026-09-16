@@ -243,6 +243,17 @@ final class StorefrontPage
 
         if ($action === 'release_orders') {
             $result = $stop->releaseOrders($actorId);
+            // Two different failures, two different sentences. «برنگشت» asks
+            // for a retry; «موجودی جور درنیامد» asks for a person, and telling
+            // somebody to press the button again would be the wrong advice.
+            if (!$result->ok && $result->code === 'orders_need_reconciliation') {
+                return 'err:' . sprintf(
+                    /* translators: 1: released count, 2: order numbers to check by hand */
+                    __('%1$s سفارش برگشت، ولی موجودیِ سفارش(های) %2$s سرِ جای اولش برنگشت و این بازارگاه آن را خودسرانه درست نمی‌کند. موجودی همین محصول‌ها را در ووکامرس دستی بررسی کنید. هیچ سفارشی لغو یا خالی نشده و هیچ عدد موجودی‌ای بازنویسی نشده است.', 'tecteb-marketplace-core'),
+                    $fa((string) $result->context['released']),
+                    $fa((string) $result->context['reconcile'])
+                );
+            }
             if (!$result->ok) {
                 return 'err:' . sprintf(
                     /* translators: 1: released count, 2: order numbers still held */
@@ -251,11 +262,16 @@ final class StorefrontPage
                     $fa((string) $result->context['stuck'])
                 );
             }
+            $movedOn = (int) ($result->context['moved_on'] ?? 0);
             return 'ok:' . sprintf(
                 /* translators: %s: number of orders */
                 __('%s سفارش نگه‌داشته به وضعیت قبلی‌شان برگشتند و دوباره قابل پرداخت‌اند. فروش بازارگاه همچنان بسته است.', 'tecteb-marketplace-core'),
                 $fa((string) $result->context['released'])
-            );
+            ) . ($movedOn > 0 ? ' ' . sprintf(
+                /* translators: %s: how many orders somebody else had already moved */
+                __('%s سفارش دیگر را در همین فاصله کسی پرداخت یا لغو کرده بود؛ آن‌ها دست‌نخورده ماندند و فقط نشانهٔ توقف از رویشان برداشته شد.', 'tecteb-marketplace-core'),
+                $fa((string) $movedOn)
+            ) : '');
         }
 
         if ($action === 'resume') {

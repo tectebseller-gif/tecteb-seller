@@ -1,4 +1,4 @@
 === bulk ===
 hold held=212 examined=212 stuck=-
-release released=212 stuck=-
-census pending=242 failed=0 on_hold=2 with_note=0
+release released=212 stuck=- moved_on=- reconcile=-
+census pending=243 failed=0 on_hold=0 with_note=0

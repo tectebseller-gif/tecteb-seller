@@ -388,7 +388,33 @@
 
 .tmc-review__form { margin-block-start: var(--tmc-space-3); }
 
-.tmc-inline { display: inline-flex; margin: 0; }
+/* A form that must not force the page sideways. `inline-flex` alone kept every
+   control on one line, and one long control then widened the table, the card
+   and the document — measured at 390px on the moderation queue. */
+.tmc-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.tmc-inline .tmc-field { min-inline-size: 0; flex: 1 1 10rem; }
+.tmc-inline input[type="text"] { inline-size: 100%; max-inline-size: 100%; min-inline-size: 0; }
+
+/* The table scrolls, NOT the page.
+   `role="region"` + `tabindex="0"` were already on this wrapper — a keyboard
+   user can reach the overflow — but nothing ever made it scroll, so a wide
+   table pushed the document instead and a phone got a horizontal page scroll.
+   `max-inline-size: 100%` is what stops a table's intrinsic width winning. */
+.tmc-scroll {
+  overflow-x: auto;
+  max-inline-size: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tmc-scroll:focus-visible { outline: 3px solid var(--tmc-focus, #143C4D); outline-offset: 2px; }
 
 /* UX §1.1 makes 44px the product's touch target, and a checkbox is a target
  * like any other: the browser default is 13–25px depending on the width, and
@@ -431,3 +457,54 @@
 
 .tmc-notice p { margin: 0; overflow-wrap: anywhere; }
 .tmc-notice .tmc-field__desc { margin-block-start: var(--tmc-space-1); font-weight: 400; }
+
+/* --- charts -------------------------------------------------------------
+   HTML and CSS, not SVG. An inline SVG scales its own text with the drawing,
+   so on a 320px viewport the category labels rendered ~9px wide — about a 5px
+   font — and `no-starved-text-box` failed, correctly. Here the bar is a span
+   with a percentage width and every word is ordinary text that wraps, zooms
+   and can be translated.
+
+   Rows rather than columns: a column on a phone is ~45px wide and «آماده‌سازی»
+   has nowhere to go. A row gives the label a column of its own. */
+.tmc-chart {
+  margin-block: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--tmc-surface-2, #F4F8FA);
+}
+
+.tmc-chart__title { font-weight: 700; color: var(--tmc-primary, #143C4D); margin-block-end: 12px; }
+.tmc-chart__rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+.tmc-chart__row {
+  display: grid;
+  grid-template-columns: minmax(6rem, max-content) 1fr minmax(2.5rem, max-content);
+  align-items: center;
+  gap: 8px;
+}
+
+.tmc-chart__label { color: var(--tmc-muted, #4F6570); overflow-wrap: anywhere; }
+.tmc-chart__value { font-weight: 700; text-align: start; font-variant-numeric: tabular-nums; }
+
+.tmc-chart__track {
+  display: block;
+  block-size: 12px;
+  border-radius: 999px;
+  background: #D9EFF9;
+  overflow: hidden;
+}
+
+.tmc-chart__fill {
+  display: block;
+  block-size: 100%;
+  border-radius: 999px;
+  background: var(--tmc-primary, #143C4D);
+}
+
+.tmc-chart__fill[data-series="1"] { background: #6ABFE7; }
+.tmc-chart__fill[data-series="2"] { background: #21D483; }
+.tmc-chart__fill[data-series="3"] { background: #FFC658; }
+.tmc-chart__fill[data-series="4"] { background: #4F6570; }
+
+.tmc-chart__caption { color: var(--tmc-muted, #4F6570); font-size: 0.9375rem; margin-block: 8px 0; }

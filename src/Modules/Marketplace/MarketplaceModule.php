@@ -17,22 +17,34 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ActionQueue;
 use Tecteb\Marketplace\Modules\Marketplace\Application\EngagementRepositoryInterface;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageCoupons;
+use Tecteb\Marketplace\Modules\Marketplace\Application\ManageReviews;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageTickets;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageWholesale;
 use Tecteb\Marketplace\Modules\Marketplace\Application\NotificationRepositoryInterface;
+use Tecteb\Marketplace\Modules\Marketplace\Application\ProductReviewGatewayInterface;
+use Tecteb\Marketplace\Modules\Marketplace\Application\RatingRepositoryInterface;
 use Tecteb\Marketplace\Modules\Marketplace\Application\Notify;
 use Tecteb\Marketplace\Modules\Marketplace\Application\Reports;
 use Tecteb\Marketplace\Modules\Marketplace\Application\AttachTicketFile;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\DbEngagementRepository;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\DbNotificationRepository;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\DbRatingRepository;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WooCommerce\CartPricing;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WooCommerce\NullProductReviewGateway;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WooCommerce\PurchaseOnlyReviews;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WooCommerce\RatingStorefront;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WooCommerce\WcProductReviewGateway;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WooCommerce\WholesaleStorefront;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WordPress\NoticeArea;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WordPress\ReviewArea;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WordPress\SupportArea;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WordPress\TicketFileRoute;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\Admin\ReportsPage;
+use Tecteb\Marketplace\Modules\Marketplace\Presentation\Admin\ReviewsPage;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\Admin\TicketsPage;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\Admin\WholesalePage;
+use Tecteb\Marketplace\Modules\Order\Application\BuyerVerifierInterface;
+use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaExtensions;
@@ -108,6 +120,29 @@ final class MarketplaceModule implements ModuleInterface
             $c->get(StaffAccess::class),
             $c->get(ClockInterface::class)
         ));
+        $c->bind(RatingRepositoryInterface::class, static fn (ContainerInterface $c) => new DbRatingRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        // Which gateway is decided ONCE, here, by whether WooCommerce is
+        // running — not by a `function_exists()` inside each caller. A screen
+        // asks `isAvailable()` and gets an honest «خوانده نشد» instead of a
+        // zero it would otherwise print as a fact.
+        $c->bind(ProductReviewGatewayInterface::class, static fn (ContainerInterface $c) =>
+            (class_exists('WooCommerce', false) || function_exists('WC'))
+                ? new WcProductReviewGateway($c->get(ProductRepositoryInterface::class))
+                : new NullProductReviewGateway());
+        $c->bind(ManageReviews::class, static fn (ContainerInterface $c) => new ManageReviews(
+            $c->get(RatingRepositoryInterface::class),
+            $c->get(OrderItemRepositoryInterface::class),
+            $c->get(BuyerVerifierInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(AuditLogger::class),
+            $c->get(ClockInterface::class),
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(ProductReviewGatewayInterface::class),
+            $c->get(Notify::class)
+        ));
         $c->bind(AttachTicketFile::class, static fn (ContainerInterface $c) => new AttachTicketFile(
             $c->get(NotificationRepositoryInterface::class),
             $c->get(EngagementRepositoryInterface::class),
@@ -123,7 +158,8 @@ final class MarketplaceModule implements ModuleInterface
         $tickets = new TicketsPage($c);
         $wholesale = new WholesalePage($c);
         $reports = new ReportsPage($c);
-        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($tickets, $wholesale, $reports): array {
+        $reviewsPage = new ReviewsPage($c);
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($tickets, $wholesale, $reports, $reviewsPage): array {
             $pages[] = [
                 'slug' => TicketsPage::SLUG,
                 'page_title' => TicketsPage::menuLabel(),
@@ -137,6 +173,13 @@ final class MarketplaceModule implements ModuleInterface
                 'menu_label' => ReportsPage::menuLabel(),
                 'capability' => ReportsPage::CAPABILITY,
                 'render' => [$reports, 'render'],
+            ];
+            $pages[] = [
+                'slug' => ReviewsPage::SLUG,
+                'page_title' => ReviewsPage::menuLabel(),
+                'menu_label' => ReviewsPage::menuLabel(),
+                'capability' => ReviewsPage::CAPABILITY,
+                'render' => [$reviewsPage, 'render'],
             ];
             $pages[] = [
                 'slug' => WholesalePage::SLUG,
@@ -162,10 +205,32 @@ final class MarketplaceModule implements ModuleInterface
             // where to ask to buy wholesale, and where to see the ladder once
             // the manager has said yes.
             WholesaleStorefront::register($c);
+            // Reviews: the rule about who may write one, and the two places a
+            // shopper meets a shop's standing. Both inside the WooCommerce
+            // check, because a product review IS a WooCommerce review and a
+            // purchase cannot be proved without orders.
+            PurchaseOnlyReviews::register($c);
+            RatingStorefront::register($c);
         }
 
         $area = new SupportArea($c);
         $notices = new NoticeArea($c);
+        $reviewArea = new ReviewArea($c);
+        add_filter(VendorAreaExtensions::FILTER, static function (array $views) use ($reviewArea): array {
+            $views[] = [
+                'slug' => ReviewArea::SLUG,
+                'label' => __('نظرات', 'tecteb-marketplace-core'),
+                'title' => __('نظرها و امتیازها', 'tecteb-marketplace-core'),
+                'requires_vendor' => true,
+                'render' => static fn (VendorAreaView $view): string => $reviewArea->render($view),
+                'actions' => ReviewArea::ACTIONS,
+                'handle' => static fn (string $action, Request $request, int $userId, VendorUrls $urls): ?VendorAreaOutcome
+                    => $reviewArea->handle($action, $request, $userId, $urls),
+                'url' => static fn (VendorUrls $urls): string => $reviewArea->reviewsUrl(),
+                'nav' => true,
+            ];
+            return $views;
+        });
         add_filter(VendorAreaExtensions::FILTER, static function (array $views) use ($notices): array {
             $views[] = [
                 'slug' => NoticeArea::SLUG,
