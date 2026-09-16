@@ -70,7 +70,14 @@ final class ProductFormView
         string $autosaveUrl = '',
         string $autosaveAction = '',
         string $autosaveNonce = '',
-        int $maxImageBytes = 0
+        int $maxImageBytes = 0,
+        /**
+         * The row as it stands, for the two refusals that ask the vendor to
+         * look before they press save again. Null every other time: a form
+         * that always rendered a comparison would be a form that never had a
+         * reason to.
+         */
+        ?ProductDetails $storedForComparison = null
     ): string {
         $step = array_key_exists($step, self::steps()) ? $step : '1';
         $html = '';
@@ -80,6 +87,13 @@ final class ProductFormView
                 ProductMessages::notice($notice->code, $notice->context)
                     ?? VendorMessages::notice($notice->code, $notice->context)
             );
+            // The two refusals that end in «look, then decide» get something
+            // to look at. Without this the advice was «open another tab», and
+            // the fields that actually differed were never named.
+            if ($storedForComparison !== null
+                && in_array($notice->code, ['revision_missing', 'stale_revision'], true)) {
+                $html .= ProductConflictView::render($details, $storedForComparison);
+            }
         }
         if ($productId > 0 && !$status->isEditableByVendor()) {
             $html .= VendorUi::notice('info', $status === ProductStatus::Submitted

@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
@@ -136,16 +137,61 @@ final class DbProductRepository implements ProductRepositoryInterface
         int $vendorUserId,
         ProductDetails $details,
         ProductStatus $status,
-        LinkOwnership $ownership = LinkOwnership::Marketplace
+        LinkOwnership $ownership = LinkOwnership::Marketplace,
+        ?int $wcProductId = null,
+        string $importRunId = ''
     ): int {
         $now = $this->now();
         [$columns, $placeholders, $params] = $this->detailColumns($details);
+
+        // The WooCommerce link and the import run go in THIS insert, not in an
+        // UPDATE after it.
+        //
+        // The migration used to do three writes per product: create, stamp,
+        // link. A process killed between the first and the third left a row
+        // with `wc_product_id = NULL` — and NULL is invisible to both
+        // `findByWcProduct()` and `findObservedByWcProduct()`, so the resumed
+        // run judged that Dokan product «not imported yet» and made a SECOND
+        // row. The unique key on `wc_product_id` could not stop it, because the
+        // orphan's value was NULL and MySQL lets NULL repeat.
+        //
+        // Written together, the row either exists complete or does not exist:
+        // there is no state in which it is half made. The resume then finds it
+        // by its wc id and skips, and the unique key is a real second line of
+        // defence rather than one the orphan slipped past.
+        $extraColumns = [];
+        $extraPlaceholders = [];
+        $extraParams = [];
+        if ($wcProductId !== null && $wcProductId > 0) {
+            $extraColumns[] = 'wc_product_id';
+            $extraPlaceholders[] = '%d';
+            $extraParams[] = $wcProductId;
+            $extraColumns[] = 'synced_at';
+            $extraPlaceholders[] = '%s';
+            $extraParams[] = $now;
+        }
+        if ($importRunId !== '') {
+            $extraColumns[] = 'import_run_id';
+            $extraPlaceholders[] = '%s';
+            $extraParams[] = mb_substr($importRunId, 0, 64);
+        }
+
         $sql = 'INSERT INTO `' . $this->products() . '` (vendor_user_id, ' . implode(', ', $columns)
-            . ', status, ' . M0010LinkOwnership::COLUMN . ', created_at, updated_at) VALUES (%d, '
-            . implode(', ', $placeholders) . ', %s, %s, %s, %s)';
+            . ', status, ' . M0010LinkOwnership::COLUMN
+            . ($extraColumns === [] ? '' : ', ' . implode(', ', $extraColumns))
+            . ', created_at, updated_at) VALUES (%d, '
+            . implode(', ', $placeholders) . ', %s, %s'
+            . ($extraPlaceholders === [] ? '' : ', ' . implode(', ', $extraPlaceholders))
+            . ', %s, %s)';
         $ok = $this->db->execute(
             $sql,
-            array_merge([$vendorUserId], $params, [$status->value, $ownership->value, $now, $now])
+            array_merge(
+                [$vendorUserId],
+                $params,
+                [$status->value, $ownership->value],
+                $extraParams,
+                [$now, $now]
+            )
         );
         if ($ok === null) {
             return 0;
@@ -180,8 +226,16 @@ final class DbProductRepository implements ProductRepositoryInterface
         $params[] = $this->now();
         $params[] = $productId;
 
+        // A token this layer cannot compare is a REFUSAL, never a waiver.
+        // Until alpha.15 an empty or unrecognised token simply dropped the
+        // guard and the write went through unchecked — which is the race the
+        // counter exists to stop, reachable by any form that happened not to
+        // carry a stamp.
+        if (!ProductRowVersion::permitsWrite($expectedVersion)) {
+            return false;
+        }
         $guard = '';
-        if ($expectedVersion !== '' && ctype_digit($expectedVersion)) {
+        if (ProductRowVersion::isUsable($expectedVersion)) {
             $guard = ' AND row_version = %d';
             $params[] = (int) $expectedVersion;
         }
@@ -206,8 +260,14 @@ final class DbProductRepository implements ProductRepositoryInterface
 
     public function bumpVersion(int $productId, string $expectedVersion): bool
     {
-        if ($expectedVersion === '' || !ctype_digit($expectedVersion)) {
-            return true;                        // nothing to check against
+        // Same rule as `updateDetails()`. This used to answer «true — nothing
+        // to check against», which let the revision path write a proposal on
+        // top of somebody else's without ever looking.
+        if (!ProductRowVersion::permitsWrite($expectedVersion)) {
+            return false;
+        }
+        if (ProductRowVersion::isDeliberatelyUnguarded($expectedVersion)) {
+            return true;
         }
         $written = $this->db->execute(
             'UPDATE `' . $this->products() . '`

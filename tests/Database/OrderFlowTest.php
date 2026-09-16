@@ -481,7 +481,7 @@ final class OrderFlowTest extends DatabaseTestCase
             priceMinor: 200000,
             sku: $sku,
             stock: 20
-        ), [], [$mediaId], $mediaId);
+        ), [], [$mediaId], $mediaId, $this->stampOf($productId));
         self::assertTrue($this->manage->submit($vendorUserId, $vendorUserId, $productId)->ok);
         self::assertTrue($this->review->approve($productId)->ok);
         return $productId;
@@ -502,4 +502,18 @@ final class OrderFlowTest extends DatabaseTestCase
             '2030-01-01 00:00:00'
         );
     }
+
+    /**
+     * The stamp a real form would carry: the row's counter, read now.
+     *
+     * Every save of an EXISTING product goes through this, because from
+     * alpha.15 a save with no usable version is refused rather than written
+     * unguarded. A test that omitted it would be testing a path the product
+     * form cannot reach.
+     */
+    private function stampOf(int $productId): string
+    {
+        return $this->products->find($productId)?->rowVersion ?? '';
+    }
+
 }

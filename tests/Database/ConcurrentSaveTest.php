@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Tests\Database;
 use Tecteb\Marketplace\Core\Support\SystemClock;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 
@@ -96,24 +97,64 @@ final class ConcurrentSaveTest extends DatabaseTestCase
         self::assertFalse($this->products->updateDetails($id, $this->details('سریع دوم'), '0'));
     }
 
-    public function testAFormWithNoVersionStillSaves(): void
+    /**
+     * A form with no stamp is REFUSED, not written unguarded.
+     *
+     * Until alpha.15 this test asserted the opposite, and the reasoning looked
+     * sound: refusing would break saving for anybody mid-edit across an
+     * upgrade. But the cost of being kind was that the one submission the
+     * counter could not check was the one submission it let through — and a
+     * concurrency guard with a door in it is not a guard. The vendor is not
+     * abandoned either: nothing they typed is lost, and the form comes back
+     * with the row's real counter so the next press goes through.
+     */
+    public function testAFormWithNoVersionIsRefusedRatherThanWrittenUnchecked(): void
     {
         $id = $this->create();
         $this->products->updateDetails($id, $this->details('یک'), '0');
-        // A form rendered by a build from before the column existed. Refusing
-        // it would break saving for anybody mid-edit across the upgrade.
-        self::assertTrue($this->products->updateDetails($id, $this->details('بدون نسخه'), ''));
+
+        self::assertFalse(
+            $this->products->updateDetails($id, $this->details('بدون نسخه'), ''),
+            'an empty token is not a licence to skip the check'
+        );
+        self::assertSame('یک', $this->products->find($id)?->details->title, 'and nothing was written');
     }
 
-    public function testAVersionThatIsNotANumberIsIgnoredRatherThanRefusing(): void
+    public function testAVersionThatIsNotANumberIsRefusedToo(): void
     {
         $id = $this->create();
-        // `alpha.13` put the `updated_at` STAMP in this field. A form cached in
-        // somebody's browser across the upgrade still sends one, and it must
-        // not lock them out of their own product.
-        self::assertTrue($this->products->updateDetails($id, $this->details('مهر قدیمی'), '2026-09-16 11:24:05'));
+        $this->products->updateDetails($id, $this->details('یک'), '0');
+
+        // `alpha.13` put the `updated_at` STAMP in this field, and a form
+        // cached in somebody's browser across the upgrade still sends one.
+        // It is refused — with a code that tells them to refresh and resubmit —
+        // rather than silently overwriting whatever happened in between.
+        self::assertFalse(
+            $this->products->updateDetails($id, $this->details('مهر قدیمی'), '2026-09-16 11:24:05'),
+            'a token this layer cannot compare is a refusal, never a waiver'
+        );
+        self::assertSame('یک', $this->products->find($id)?->details->title);
     }
 
+    /**
+     * The one write that may skip the check says so in a word.
+     *
+     * `UNGUARDED` is how the manager applies a revision they have already
+     * approved: one actor, no competing form, nothing to compare against. It
+     * is a constant and not an omission so that every unchecked write in this
+     * codebase can be found by searching for it.
+     */
+    public function testTheOnlyUncheckedWriteIsTheOneThatNamesItself(): void
+    {
+        $id = $this->create();
+        $this->products->updateDetails($id, $this->details('یک'), '0');
+
+        self::assertTrue(
+            $this->products->updateDetails($id, $this->details('تأیید مدیر'), ProductRowVersion::UNGUARDED)
+        );
+        self::assertSame('تأیید مدیر', $this->products->find($id)?->details->title);
+        self::assertTrue($this->products->bumpVersion($id, ProductRowVersion::UNGUARDED));
+    }
     public function testBumpVersionTakesItAtomicallyForThePathsThatDoNotWriteDetails(): void
     {
         $id = $this->create();

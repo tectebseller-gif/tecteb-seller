@@ -176,6 +176,11 @@ final class ProductMessages
                 $fa((string) ($context['limit'] ?? 0))
             ),
             // The one message whose job is to stop somebody losing work.
+            // A form with no stamp, or one from a build that stamped
+            // differently. It is refused rather than written, and the sentence
+            // has to carry the whole answer: nothing was lost, nothing was
+            // overwritten, and pressing save once more is all that is needed.
+            'revision_missing' => __('این فرم نشانهٔ نسخه ندارد — احتمالاً از نسخهٔ قبلی افزونه در مرورگر شما باز مانده است. برای اینکه کار کسی پاک نشود، این ذخیره انجام نشد. مقدارهایی که نوشته‌اید همین‌جا مانده‌اند و فرم با نسخهٔ فعلی محصول تازه شده است: یک بار تفاوت‌های زیر را ببینید و دوباره ذخیره کنید.', 'tecteb-marketplace-core'),
             'stale_revision' => __('این محصول از وقتی این صفحه باز شده تغییر کرده است — احتمالاً یکی دیگر از فروشگاه شما ذخیره‌اش کرده. برای اینکه کار او پاک نشود، این ذخیره انجام نشد. مقدارهای شما همین‌جا مانده‌اند: صفحه را در یک تب دیگر باز کنید، تفاوت را ببینید و بعد تصمیم بگیرید.', 'tecteb-marketplace-core'),
             'product_reviewed' => __('تصمیم شما ثبت شد.', 'tecteb-marketplace-core'),
             'revision_approved' => __('نسخه پیشنهادی تأیید و روی محصول اعمال شد.', 'tecteb-marketplace-core'),

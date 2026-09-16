@@ -164,17 +164,35 @@ final class DbVendorRepository implements VendorRepositoryInterface
         );
     }
 
-    public function upsertProfile(int $userId, string $storeName, bool $canSell, bool $canPublishDirectly): int
-    {
+    public function upsertProfile(
+        int $userId,
+        string $storeName,
+        bool $canSell,
+        bool $canPublishDirectly,
+        string $importRunId = ''
+    ): int {
         $now = $this->clock->now()->format('Y-m-d H:i:s');
         // Approving twice must not create a second vendor: the unique key on
         // user_id turns the retry into an update.
+        //
+        // `import_run_id` is written HERE rather than by a follow-up UPDATE.
+        // A profile created by an import and stamped a statement later is a
+        // profile a process can die in the middle of — and an unstamped shop
+        // is one `rollback()` cannot find once the manifest is gone, which is
+        // the failure alpha.14's own evidence run walked into.
+        //
+        // `IF(VALUES(...) = '', import_run_id, VALUES(...))` and not a plain
+        // assignment: an ordinary approval passes no run id, and that must not
+        // wipe the stamp an earlier import left. The first stamp wins and
+        // only an import can set one.
         $ok = $this->db->execute(
-            'INSERT INTO `' . $this->profiles() . '` (user_id, store_name, can_sell, can_publish_directly, created_at, updated_at)
-             VALUES (%d, %s, %d, %d, %s, %s)
+            'INSERT INTO `' . $this->profiles() . '` (user_id, store_name, can_sell, can_publish_directly, import_run_id, created_at, updated_at)
+             VALUES (%d, %s, %d, %d, %s, %s, %s)
              ON DUPLICATE KEY UPDATE store_name = VALUES(store_name), can_sell = VALUES(can_sell),
-                                     can_publish_directly = VALUES(can_publish_directly), updated_at = VALUES(updated_at)',
-            [$userId, $storeName, $canSell ? 1 : 0, $canPublishDirectly ? 1 : 0, $now, $now]
+                                     can_publish_directly = VALUES(can_publish_directly),
+                                     import_run_id = IF(VALUES(import_run_id) = \'\', import_run_id, VALUES(import_run_id)),
+                                     updated_at = VALUES(updated_at)',
+            [$userId, $storeName, $canSell ? 1 : 0, $canPublishDirectly ? 1 : 0, mb_substr($importRunId, 0, 64), $now, $now]
         );
         if ($ok === null) {
             return 0;

@@ -30,6 +30,7 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStore
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
 use Tecteb\Marketplace\Tests\Support\FakeDokanReader;
+use Tecteb\Marketplace\Tests\Support\KillsTheProcessOnWrite;
 
 /**
  * The migration's three promises, on real MariaDB: the dry run writes nothing,
@@ -455,6 +456,159 @@ final class DokanMigrationTest extends DatabaseTestCase
             $this->history->record('run-a', $order),
             'and a broken write says so rather than passing for a duplicate'
         );
+    }
+
+    // ------------------------------- the process actually dies, mid-import
+
+    /**
+     * Kill the importer between every pair of writes and check what it left.
+     *
+     * This replaces the alpha.14 test, which deleted the manifest AFTER the
+     * run had finished. That proved something — the rollback can work from the
+     * rows alone — but it never proved the thing it was named for: nothing was
+     * interrupted, so no half-written state was ever created or examined.
+     *
+     * Here a forked child runs the import with a database that `SIGKILL`s the
+     * process before write N, for N = 1, 2, 3, … through the whole run. SIGKILL
+     * cannot be caught, so the child stops with no `finally`, no shutdown
+     * function and no destructor. Whatever the parent then reads is what a
+     * crashed importer really leaves behind.
+     *
+     * After each kill the parent asserts the three things that must hold no
+     * matter where the process died:
+     *
+     *  1. every row that exists carries the run that made it — there is no
+     *     orphan nothing can name;
+     *  2. no row is half made — a product row either has its WooCommerce link
+     *     or does not exist at all;
+     *  3. resuming creates no duplicate, and finishes with exactly the rows
+     *     one clean run would have made.
+     */
+    public function testKillingTheImporterBetweenAnyTwoWritesLeavesNothingHalfMade(): void
+    {
+        if (!function_exists('pcntl_fork') || !function_exists('posix_kill')) {
+            self::fail('pcntl/posix are required to kill a real process; skipping would hide the gap.');
+        }
+
+        // What one clean run produces, to compare every crashed run against.
+        $cleanRun = (string) $this->migration->import($this->migration->plan())->context['run_id'];
+        $expectedProducts = count($this->products->idsFromImportRun($cleanRun));
+        $expectedVendors = count($this->vendors->idsFromImportRun($cleanRun));
+        self::assertGreaterThan(0, $expectedProducts + $expectedVendors, 'the fixture must actually import something');
+        $this->migration->rollback($cleanRun);
+        $this->options->delete(ImportFromDokan::RUNS_OPTION);
+
+        $observed = [];
+        for ($killBefore = 1; $killBefore <= 12; $killBefore++) {
+            $runId = sprintf('dokan-crash-%02d', $killBefore);
+
+            $this->wpdb->disconnect();
+            $pid = pcntl_fork();
+            if ($pid === -1) {
+                self::fail('fork failed');
+            }
+            if ($pid === 0) {
+                // Child: its own connection, its own importer, and a database
+                // that will stop the process mid-sequence.
+                $this->runImportInDoomedChild($runId, $killBefore);
+                exit(0);                        // reached only when it survived
+            }
+            pcntl_waitpid($pid, $status);
+            $this->wpdb->reconnect();
+
+            $died = pcntl_wifsignaled($status) && pcntl_wtermsig($status) === SIGKILL;
+            $observed[] = $died ? 'killed' : 'finished';
+
+            // (1) and (2): whatever is there, is whole and named.
+            $this->assertNothingHalfMade($runId);
+
+            // (3) resume, then compare with a clean run.
+            $this->migration->importVendorPage($runId, 0, 50);
+            $this->migration->importProductPage($runId, 0, 50);
+            $this->assertNothingHalfMade($runId);
+            self::assertSame(
+                $expectedProducts,
+                count($this->products->idsFromImportRun($runId)),
+                "resuming after a kill before write {$killBefore} produced the wrong number of products"
+            );
+            self::assertSame(
+                $expectedVendors,
+                count($this->vendors->idsFromImportRun($runId)),
+                "resuming after a kill before write {$killBefore} produced the wrong number of shops"
+            );
+
+            $rolled = $this->migration->rollback($runId);
+            self::assertTrue($rolled->ok, $rolled->code);
+            $this->options->delete(ImportFromDokan::RUNS_OPTION);
+        }
+
+        // The test is worthless if nothing ever died. A run that always
+        // «finished» would pass every assertion above and prove nothing.
+        self::assertContains('killed', $observed, 'no child was actually killed — the harness is not testing a crash');
+    }
+
+    /** Runs one import inside the forked child, on a database that will kill it. */
+    private function runImportInDoomedChild(string $runId, int $killBefore): void
+    {
+        $wpdb = new \wpdb();
+        $clock = new SystemClock();
+        $doomed = new KillsTheProcessOnWrite(new WpDatabase($wpdb), $killBefore);
+        $products = new DbProductRepository($doomed, $clock);
+        $vendors = new DbVendorRepository($doomed, $clock);
+        $migration = new ImportFromDokan(
+            $this->dokan,
+            $vendors,
+            $products,
+            new WpOptionStore(),
+            new AuditLogger(new WpAuditRepository($wpdb), new AuditEventSanitizer(), $clock),
+            $clock,
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR]),
+            new DbOrderHistoryRepository($doomed, $clock)
+        );
+        $migration->importVendorPage($runId, 0, 50);
+        $migration->importProductPage($runId, 0, 50);
+    }
+
+    /**
+     * The two invariants a crash must not be able to break.
+     *
+     * Read straight off the table rather than through the repository: the
+     * question is what is ON DISK after the process stopped, and a method that
+     * filters is a method that could hide the orphan.
+     */
+    private function assertNothingHalfMade(string $runId): void
+    {
+        $prefix = $this->wpdb->prefix;
+
+        $unstamped = $this->wpdb->get_var(
+            "SELECT COUNT(*) FROM `{$prefix}tmc_products` WHERE import_run_id = '' AND link_ownership = 'observed'"
+        );
+        self::assertSame(0, (int) $unstamped, 'an imported row exists that no run claims');
+
+        $unlinked = $this->wpdb->get_var(
+            "SELECT COUNT(*) FROM `{$prefix}tmc_products` WHERE import_run_id <> '' AND wc_product_id IS NULL"
+        );
+        self::assertSame(
+            0,
+            (int) $unlinked,
+            'a row was created without its WooCommerce link — the resume cannot see it and will make a second one'
+        );
+
+        $duplicated = $this->wpdb->get_var(
+            "SELECT COUNT(*) FROM (
+                SELECT wc_product_id FROM `{$prefix}tmc_products`
+                 WHERE wc_product_id IS NOT NULL
+                 GROUP BY wc_product_id HAVING COUNT(*) > 1
+             ) d"
+        );
+        self::assertSame(0, (int) $duplicated, 'two marketplace rows point at one WooCommerce product');
+
+        $unstampedShops = $this->wpdb->get_var(
+            "SELECT COUNT(*) FROM `{$prefix}tmc_vendor_profiles` p
+              WHERE p.import_run_id = ''
+                AND NOT EXISTS (SELECT 1 FROM `{$prefix}tmc_vendor_applications` a WHERE a.user_id = p.user_id)"
+        );
+        self::assertSame(0, (int) $unstampedShops, 'an imported shop exists that no run claims');
     }
 
     public function testEachCreatedRowCarriesTheRunThatMadeIt(): void

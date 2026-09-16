@@ -439,7 +439,7 @@ final class CatalogProjectionTest extends DatabaseTestCase
         $productId = (int) $created->context['product_id'];
         $mediaId = 700 + $productId;
         $this->images->give($mediaId, self::VENDOR);
-        $this->manage->save(self::VENDOR, self::VENDOR, $productId, $details, [], [$mediaId], $mediaId);
+        $this->manage->save(self::VENDOR, self::VENDOR, $productId, $details, [], [$mediaId], $mediaId, $this->stampOf($productId));
         return $productId;
     }
 
@@ -471,4 +471,18 @@ final class CatalogProjectionTest extends DatabaseTestCase
         );
         return $applicationId;
     }
+
+    /**
+     * The stamp a real form would carry: the row's counter, read now.
+     *
+     * Every save of an EXISTING product goes through this, because from
+     * alpha.15 a save with no usable version is refused rather than written
+     * unguarded. A test that omitted it would be testing a path the product
+     * form cannot reach.
+     */
+    private function stampOf(int $productId): string
+    {
+        return $this->products->find($productId)?->rowVersion ?? '';
+    }
+
 }

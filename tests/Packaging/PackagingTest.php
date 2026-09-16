@@ -190,6 +190,61 @@ final class PackagingTest extends TestCase
         self::assertMatchesRegularExpression('/^[0-9a-f]{64}\s+' . preg_quote(self::SLUG, '/') . '-source-[0-9A-Za-z.\-+]+\.tar\.gz$/m', $content);
     }
 
+    /**
+     * Every abbreviated hash a document quotes is a real hash of a real file.
+     *
+     * The phase-12 delivery note quoted `78d7bc79…` for the source archive and
+     * it was wrong: the number was copied by hand from the output of an EARLIER
+     * build, and the rebuild after it produced a different archive — the
+     * evidence run in between had rewritten text files that live inside that
+     * archive. Nothing caught it, because a hash in prose is just prose.
+     *
+     * So the prose is checked against `dist/SHA256SUMS`, which is generated.
+     * A document may abbreviate («ba4af307…577b43»); it may not invent.
+     */
+    public function testEveryHashQuotedInTheDocsMatchesAPackageWeActuallyBuilt(): void
+    {
+        $sums = (string) file_get_contents(self::root() . '/dist/SHA256SUMS');
+        preg_match_all('/^([0-9a-f]{64})\s+(\S+)$/m', $sums, $rows, PREG_SET_ORDER);
+        $known = [];
+        foreach ($rows as $row) {
+            $known[] = $row[1];
+        }
+        self::assertNotEmpty($known, 'dist/SHA256SUMS has no entries to check against');
+
+        // «<8 hex>…<6 hex>» — the shape every delivery note in this repo uses.
+        $quoted = 0;
+        $wrong = [];
+        foreach (glob(self::root() . '/docs/*.md') ?: [] as $doc) {
+            $text = (string) file_get_contents($doc);
+            preg_match_all('/`([0-9a-f]{8})…([0-9a-f]{6,8})`/u', $text, $found, PREG_SET_ORDER);
+            foreach ($found as $hit) {
+                $quoted++;
+                $matches = false;
+                foreach ($known as $full) {
+                    if (str_starts_with($full, $hit[1]) && str_ends_with($full, $hit[2])) {
+                        $matches = true;
+                        break;
+                    }
+                }
+                // A hash from a package this dist/ no longer holds cannot be
+                // checked — and must not fail the build for a reviewer who
+                // pruned old archives. Only a hash whose PREFIX is known and
+                // whose SUFFIX is not is a real contradiction.
+                if (!$matches) {
+                    foreach ($known as $full) {
+                        if (str_starts_with($full, $hit[1])) {
+                            $wrong[] = basename($doc) . ': ' . $hit[1] . '…' . $hit[2]
+                                . ' but that package is ' . substr($full, 0, 8) . '…' . substr($full, -6);
+                        }
+                    }
+                }
+            }
+        }
+        self::assertGreaterThan(0, $quoted, 'no abbreviated hashes found — has the format changed?');
+        self::assertSame([], $wrong, "a document quotes a hash that contradicts dist/SHA256SUMS:\n" . implode("\n", $wrong));
+    }
+
     public function testSourceArchiveCarriesTestsDocsAndLockfile(): void
     {
         $archives = glob(self::root() . '/dist/' . self::SLUG . '-source-*.tar.gz');

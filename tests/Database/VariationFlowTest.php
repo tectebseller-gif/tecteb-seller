@@ -307,7 +307,7 @@ final class VariationFlowTest extends DatabaseTestCase
             priceMinor: 100000,
             sku: 'VAR-1',
             stock: 0
-        ), [], [$mediaId], $mediaId);
+        ), [], [$mediaId], $mediaId, $this->stampOf($productId));
         return $productId;
     }
 
@@ -330,4 +330,18 @@ final class VariationFlowTest extends DatabaseTestCase
         self::assertTrue($saved->ok, $saved->code);
         return $productId;
     }
+
+    /**
+     * The stamp a real form would carry: the row's counter, read now.
+     *
+     * Every save of an EXISTING product goes through this, because from
+     * alpha.15 a save with no usable version is refused rather than written
+     * unguarded. A test that omitted it would be testing a path the product
+     * form cannot reach.
+     */
+    private function stampOf(int $productId): string
+    {
+        return $this->products->find($productId)?->rowVersion ?? '';
+    }
+
 }

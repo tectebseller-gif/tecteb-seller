@@ -121,6 +121,30 @@
             "ratio": 10.61,
             "required": 4.5,
             "pass": true
+        },
+        {
+            "pair": "متن جدول تفاوت روی زمینهٔ کهربایی کم‌رنگ",
+            "fg": "#1F2A30",
+            "bg": "#FFF9EC",
+            "ratio": 13.97,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "مقدار تایپ‌شده (پررنگ) روی همان زمینه",
+            "fg": "#0F2E3B",
+            "bg": "#FFF9EC",
+            "ratio": 13.58,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "راهنمای خاکستری روی همان زمینه",
+            "fg": "#4F6570",
+            "bg": "#FFF9EC",
+            "ratio": 5.84,
+            "required": 4.5,
+            "pass": true
         }
     ],
     "failures": 0

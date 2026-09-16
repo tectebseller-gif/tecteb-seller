@@ -178,11 +178,16 @@ final class ImportFromDokan
             }
             // canSell false: an imported shop is present, not yet trading. The
             // owner turns that on per shop once the mapping has been read.
-            $this->vendors->upsertProfile($vendor['user_id'], $vendor['store_name'], false, false);
-            // Stamped, like the products: the profile that was created IS the
-            // record that this run created it, so a crash before the manifest
-            // write cannot leave a shop nothing can name.
-            $this->vendors->stampImportRun((int) $vendor['user_id'], $plan->runId);
+            // Stamped IN the insert, like the products: the profile that was
+            // created IS the record that this run created it, and there is no
+            // second write for a crash to fall between.
+            $this->vendors->upsertProfile(
+                $vendor['user_id'],
+                $vendor['store_name'],
+                false,
+                false,
+                $plan->runId
+            );
             $created['vendors'][] = $vendor['user_id'];
         }
 
@@ -215,17 +220,21 @@ final class ImportFromDokan
                 // the storefront stop and the projector all skip it. Without
                 // this, a dry-run import made Dokan's own vendor product
                 // unpurchasable — measured, and the reason this value exists.
-                LinkOwnership::Observed
+                LinkOwnership::Observed,
+                // Linked to the EXISTING WooCommerce product — in the SAME
+                // insert, so the id and the URL a customer bookmarked keep
+                // working AND a process killed here cannot leave a row whose
+                // link is missing. An unlinked row is invisible to the resume
+                // lookup, which then makes a second one.
+                (int) $product['wc_product_id'],
+                // And the same stamp the paged path writes, in that one
+                // statement too. Two import paths that record their origin
+                // differently is two paths for a rollback to miss.
+                $plan->runId
             );
             if ($productId === 0) {
                 continue;
             }
-            // Linked to the EXISTING WooCommerce product, so the id and the
-            // URL a customer bookmarked keep working.
-            // The same stamp the paged path writes. Two import paths that record
-            // their origin differently is two paths for a rollback to miss.
-            $this->products->stampImportRun($productId, $plan->runId);
-            $this->products->link($productId, $product['wc_product_id']);
             $created['products'][] = $productId;
         }
 
@@ -502,8 +511,7 @@ final class ImportFromDokan
                 continue;                       // already ours; the plan said skip
             }
             // canSell false: an imported shop is present, not yet trading.
-            $this->vendors->upsertProfile($last, $vendor['store_name'], false, false);
-            $this->vendors->stampImportRun($last, $runId);
+            $this->vendors->upsertProfile($last, $vendor['store_name'], false, false, $runId);
             $created['vendors'][] = $last;
         }
         if ($created['vendors'] !== []) {
@@ -556,19 +564,19 @@ final class ImportFromDokan
                     stock: $product['stock']
                 ),
                 ProductStatus::Draft,
-                LinkOwnership::Observed
+                LinkOwnership::Observed,
+                // One statement: link and stamp included. The row that exists
+                // is complete, carries the run that made it, and is findable
+                // by its WooCommerce id — so a resumed page skips it instead
+                // of creating a second one.
+                (int) $product['wc_product_id'],
+                $runId
             );
             if ($productId === 0) {
                 $failed++;
                 $notes[] = $last . ':create_failed';
                 continue;
             }
-            // The stamp goes on FIRST, before the link and before the manifest.
-            // It is the only record of this row's origin that cannot be lost
-            // to a process dying between two writes: the row that exists is
-            // the row that says which run made it.
-            $this->products->stampImportRun($productId, $runId);
-            $this->products->link($productId, $product['wc_product_id']);
             $created['products'][] = $productId;
         }
         if ($created['products'] !== []) {

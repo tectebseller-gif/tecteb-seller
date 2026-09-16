@@ -41,6 +41,11 @@ $pairs = [
     // health table header uses the same tint.
     ['شناسه و نسخه روی زمینه chip فنی', '#143C4D', '#EEF4F7', 4.5],
     ['سرستون جدول سلامت روی زمینه chip فنی', '#143C4D', '#EEF4F7', 4.5],
+    // The comparison block a refused save renders. A new background, so it is
+    // measured rather than assumed to be fine because it «looks light».
+    ['متن جدول تفاوت روی زمینهٔ کهربایی کم‌رنگ', '#1F2A30', '#FFF9EC', 4.5],
+    ['مقدار تایپ‌شده (پررنگ) روی همان زمینه', '#0F2E3B', '#FFF9EC', 4.5],
+    ['راهنمای خاکستری روی همان زمینه', '#4F6570', '#FFF9EC', 4.5],
 ];
 
 $fail = 0;

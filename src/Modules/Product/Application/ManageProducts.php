@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\SensitiveChange;
@@ -105,12 +106,23 @@ final class ManageProducts
         if ($product === null) {
             return OperationResult::failure('not_found');
         }
-        // NOTE: the version is NOT compared here. Comparing it in PHP and then
-        // writing is a check two concurrent editors both pass — both read
-        // version 4, both find it equal, both write — which is the race this
-        // exists to close, moved one step earlier. It travels down to the
-        // UPDATE's WHERE clause instead, and `storage_failed` is distinguished
-        // from `stale_revision` by asking the row afterwards.
+        // The version's VALUE is still not compared here — that belongs in the
+        // UPDATE's WHERE clause, because a comparison between a read and a
+        // write is a check two concurrent editors both pass.
+        //
+        // Its SHAPE is checked here, and refused. A form with no stamp, or one
+        // carrying an `alpha.13` timestamp, used to be written unguarded: the
+        // one submission that could not be checked was the one allowed through
+        // without checking. Now it is refused with a code of its own, the
+        // vendor's values are kept by the caller, and the form comes back
+        // carrying the row's CURRENT counter — so the second submission is
+        // guarded and goes through, and nothing they typed was lost.
+        if (!ProductRowVersion::isUsable($revision)) {
+            return OperationResult::failure('revision_missing', [
+                'product_id' => $product->id,
+                'current_revision' => $this->products->rowVersion($product->id),
+            ]);
+        }
         return match (true) {
             $product->status === ProductStatus::Submitted => OperationResult::failure('in_review'),
             $product->status === ProductStatus::Archived => OperationResult::failure('product_archived'),

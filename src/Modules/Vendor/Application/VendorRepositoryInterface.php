@@ -48,7 +48,20 @@ interface VendorRepositoryInterface
      */
     public function vendorUserIds(bool $sellingOnly = false, int $limit = 500): array;
 
-    public function upsertProfile(int $userId, string $storeName, bool $canSell, bool $canPublishDirectly): int;
+    /**
+     * Create or update one shop profile, in one statement.
+     *
+     * `$importRunId` is a parameter and not a follow-up write for the same
+     * reason as on the product side: a shop stamped a statement after it was
+     * created is a shop a crash can leave nameless.
+     */
+    public function upsertProfile(
+        int $userId,
+        string $storeName,
+        bool $canSell,
+        bool $canPublishDirectly,
+        string $importRunId = ''
+    ): int;
 
     /**
      * Removes a store profile that has nothing behind it.

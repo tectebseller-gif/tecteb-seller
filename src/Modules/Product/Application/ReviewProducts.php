@@ -11,6 +11,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 
@@ -101,7 +102,10 @@ final class ReviewProducts
             return OperationResult::failure('not_found');
         }
         $details = $this->detailsFromPayload($revision->payload, $product->details);
-        if (!$this->products->updateDetails($product->id, $details)) {
+        // UNGUARDED, and said so. The manager is applying a revision they
+        // have already approved: one actor, no competing form, and no stamp to
+        // carry. Every other write in this codebase names its version.
+        if (!$this->products->updateDetails($product->id, $details, ProductRowVersion::UNGUARDED)) {
             return OperationResult::failure('storage_failed');
         }
         $specs = $revision->payload['specs'] ?? [];
@@ -125,7 +129,7 @@ final class ReviewProducts
         if ($updated !== null) {
             $verdict = $this->readiness->check($updated);
             if (!$verdict->ok) {
-                $this->products->updateDetails($product->id, $product->details);
+                $this->products->updateDetails($product->id, $product->details, ProductRowVersion::UNGUARDED);
                 $this->products->saveSpecs($product->id, $product->specs, $product->specSchemaVersion);
                 $this->products->saveImages($product->id, $product->imageIds, $product->mainImageId);
                 return $verdict;

@@ -192,6 +192,12 @@ final class ProductCsv
             return $report($action, 'csv_row_ok');
         }
 
+        // The row's OWN counter, read in the same pass that matched it. A CSV
+        // import has no form and therefore no stamp of its own — but it must
+        // still be guarded, or a file applied while somebody is editing would
+        // be the one write in the system that never checks. Reading it here
+        // means the guard is real: if that editor saves between this read and
+        // the write, the WHERE clause refuses the row and the report says so.
         $result = $this->manage->save(
             $actorId,
             $vendorUserId,
@@ -199,7 +205,8 @@ final class ProductCsv
             $details,
             $specs,
             $existing?->imageIds ?? [],
-            $existing?->mainImageId ?? 0
+            $existing?->mainImageId ?? 0,
+            $existing?->rowVersion ?? ''
         );
         if (!$result->ok) {
             return $report('skip', $result->code, $result->context);

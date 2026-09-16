@@ -169,6 +169,20 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
    is always in the markup. `:empty` keeps it from reserving a line of space
    while it has nothing to say — a gap that opens under the file chooser on
    every render would be a layout bug paid for by a message nobody sees. */
+/* The comparison a refused save shows. Bordered and tinted rather than a bare
+   table: it sits between a warning notice and the form, and a reader has to be
+   able to tell at a glance where the explanation ends and their own form
+   begins. */
+.tv-conflict {
+  margin-block: var(--tv-s4);
+  padding: var(--tv-s4);
+  border: 2px solid var(--tv-amber);
+  border-radius: var(--tv-radius);
+  background: #FFF9EC;
+}
+.tv-conflict__title { margin: 0 0 var(--tv-s3); font-size: 1rem; }
+.tv-conflict .tv-table td strong { color: var(--tv-ink-strong); }
+
 .tv-hint--warn { color: var(--tv-red); font-weight: 700; }
 .tv-hint--warn:empty { display: none; margin-block-start: 0; }
 

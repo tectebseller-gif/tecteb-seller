@@ -17,6 +17,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\SpecTemplate;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\ProductReviewPage;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\SpecTemplatesPage;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductBulkPreviewView;
+use Tecteb\Marketplace\Modules\Product\Presentation\ProductConflictView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductCsvView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductFormView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductListView;
@@ -604,5 +605,102 @@ final class ProductViewsTest extends ContractTestCase
     {
         // «هنوز چیزی انجام نشده» in a red box reads as «چیزی خراب شد».
         self::assertFalse(ProductMessages::isErrorNotice('bulk_previewed'));
+    }
+
+    // ------------------------------- a refused save, and the way out of it
+
+    public function testAFormWithNoStampIsToldWhatHappenedAndWhatToDo(): void
+    {
+        $text = (string) ProductMessages::notice('revision_missing', ['current_revision' => '7']);
+
+        // The three things the vendor needs, in the order they need them.
+        self::assertStringContainsString('این ذخیره انجام نشد', $text, 'it did not happen');
+        self::assertStringContainsString('مقدارهایی که نوشته‌اید همین‌جا مانده‌اند', $text, 'nothing was lost');
+        self::assertStringContainsString('دوباره ذخیره کنید', $text, 'and this is the way out');
+        self::assertTrue(ProductMessages::isErrorNotice('revision_missing'));
+    }
+
+    /**
+     * «تفاوت را ببینید» has to have something to look at.
+     *
+     * The older wording told the vendor to open a second tab and compare by
+     * eye. A refusal nobody can act on is a refusal that gets pressed through.
+     */
+    public function testTheRefusalNamesTheFieldsThatActuallyDiffer(): void
+    {
+        $typed = new ProductDetails(title: 'دستکش نیتریل', categoryKey: 'gloves', priceMinor: 300000, sku: 'SKU-1', stock: 4);
+        $stored = new ProductDetails(title: 'دستکش لاتکس', categoryKey: 'gloves', priceMinor: 200000, sku: 'SKU-1', stock: 4);
+
+        $html = ProductConflictView::render($typed, $stored);
+
+        self::assertStringContainsString('دستکش لاتکس', $html, 'what is on the row now');
+        self::assertStringContainsString('دستکش نیتریل', $html, 'and what they typed');
+        // The thousands separator is the one the rest of the plugin already
+        // uses — a plain comma after the digits are converted. Inventing
+        // «٬» here would make this one table read differently from the product
+        // list beside it.
+        self::assertStringContainsString('۳۰۰,۰۰۰', $html, 'prices are compared, in Persian digits');
+        self::assertStringContainsString('۲۰۰,۰۰۰', $html);
+        // Only what differs. A table repeating the unchanged SKU and stock
+        // would bury the two rows it was built to show.
+        self::assertStringNotContainsString('SKU-1', $html, 'an identical field is not listed');
+        self::assertStringContainsString('۲ فیلد', $html, 'and it says how many differ');
+        // Scrollable regions are reachable by keyboard — the same rule the
+        // finance history table was fixed for.
+        self::assertStringContainsString('tabindex="0"', $html);
+    }
+
+    public function testWhenNothingDiffersItSaysSoRatherThanShowingAnEmptyTable(): void
+    {
+        $same = new ProductDetails(title: 'دستکش لاتکس', categoryKey: 'gloves', priceMinor: 200000, sku: 'SKU-1', stock: 4);
+
+        $html = ProductConflictView::render($same, $same);
+
+        self::assertStringNotContainsString('<table', $html);
+        self::assertStringContainsString('فرقی ندارند', $html);
+    }
+
+    public function testTheComparisonIsRenderedOnlyForTheRefusalsThatAskForIt(): void
+    {
+        $typed = new ProductDetails(title: 'تایپ‌شده', categoryKey: 'gloves', priceMinor: 300000);
+        $stored = new ProductDetails(title: 'ثبت‌شده', categoryKey: 'gloves', priceMinor: 200000);
+
+        $withComparison = $this->renderFormWithNotice('revision_missing', $typed, $stored);
+        self::assertStringContainsString('ثبت‌شده', $withComparison, 'the stored value is shown');
+
+        // An ordinary refusal — a missing price, say — has nothing to compare,
+        // and rendering a diff table under it would be noise.
+        $without = $this->renderFormWithNotice('bad_price', $typed, null);
+        self::assertStringNotContainsString('tv-conflict', $without);
+    }
+
+    private function renderFormWithNotice(string $code, ProductDetails $typed, ?ProductDetails $stored): string
+    {
+        return ProductFormView::render(
+            5,
+            $typed,
+            [],
+            [],
+            0,
+            null,
+            '1',
+            ProductStatus::Draft,
+            ['gloves' => 'دستکش'],
+            $this->urls(),
+            '',
+            VendorNotice::of($code),
+            null,
+            null,
+            false,
+            false,
+            [],
+            '9',
+            '',
+            '',
+            '',
+            '',
+            ProductImagePolicy::MAX_BYTES,
+            $stored
+        );
     }
 }

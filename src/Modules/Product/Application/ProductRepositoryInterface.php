@@ -51,15 +51,29 @@ interface ProductRepositoryInterface
      *        product it is later linked to. Everything the marketplace's own
      *        flow creates is `Marketplace`; only a migration writes `Observed`.
      */
+    /**
+     * Create one product row — whole, in one statement.
+     *
+     * `$wcProductId` and `$importRunId` are parameters rather than follow-up
+     * writes because a row that is half made is a row a resumed import cannot
+     * recognise. See the implementation for the duplicate this prevents.
+     */
     public function create(
         int $vendorUserId,
         ProductDetails $details,
         ProductStatus $status,
-        LinkOwnership $ownership = LinkOwnership::Marketplace
+        LinkOwnership $ownership = LinkOwnership::Marketplace,
+        ?int $wcProductId = null,
+        string $importRunId = ''
     ): int;
 
     /**
      * Write the details, refusing when `$expectedVersion` no longer matches.
+     *
+     * **A token this cannot compare is refused, not waived.** Pass the row's
+     * counter, or `ProductRowVersion::UNGUARDED` to say in words that this
+     * write is deliberately unchecked. An empty string is neither and returns
+     * false — an omission must not become a silent unguarded write.
      *
      * The version has to reach the WHERE clause; an implementation that
      * compares it in PHP and then writes has reintroduced the race this

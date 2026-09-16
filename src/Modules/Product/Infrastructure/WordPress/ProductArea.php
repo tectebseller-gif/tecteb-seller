@@ -208,7 +208,14 @@ final class ProductArea
             $mayEdit ? admin_url('admin-ajax.php') : '',
             ProductAutosave::ACTION,
             $mayEdit ? wp_create_nonce(ProductAutosave::NONCE) : '',
-            $this->imagePolicy()->maxBytes()
+            $this->imagePolicy()->maxBytes(),
+            // Passed only when the notice is one of the two that asks the
+            // vendor to compare. `$product` is the row as it is NOW — re-read
+            // on this request — while `$details` above is what they typed.
+            $view->notice !== null
+                && in_array($view->notice->code, ['revision_missing', 'stale_revision'], true)
+                    ? $product?->details
+                    : null
         );
     }
 

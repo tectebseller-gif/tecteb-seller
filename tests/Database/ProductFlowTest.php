@@ -163,8 +163,7 @@ final class ProductFlowTest extends DatabaseTestCase
             self::VENDOR,
             self::VENDOR,
             $theirs,
-            new ProductDetails(title: 'دزدیده‌شده', categoryKey: 'gloves', priceMinor: 1)
-        );
+            new ProductDetails(title: 'دزدیده‌شده', categoryKey: 'gloves', priceMinor: 1), [], [], 0, $this->stampOf($theirs));
         self::assertFalse($stolen->ok);
         self::assertSame('not_found', $stolen->code);
         self::assertSame('ماسک سه‌لایه', $this->products->find($theirs)?->details->title);
@@ -187,7 +186,8 @@ final class ProductFlowTest extends DatabaseTestCase
             $this->details('باند کشی'),
             [],
             [900, 901],
-            900
+            900,
+            $this->stampOf($productId)
         );
         $product = $this->products->find($productId);
         self::assertSame([901], $product?->imageIds, 'only this shop\'s attachment survives');
@@ -287,7 +287,7 @@ final class ProductFlowTest extends DatabaseTestCase
         self::assertStringContainsString('title', (string) $verdict->context['fields']);
 
         // Complete, but no picture: UX §5.2 makes the image mandatory.
-        $this->manage->save(self::VENDOR, self::VENDOR, $productId, $this->details('ترمومتر'));
+        $this->manage->save(self::VENDOR, self::VENDOR, $productId, $this->details('ترمومتر'), [], [], 0, $this->stampOf($productId));
         self::assertSame('missing_image', $this->manage->submit(self::VENDOR, self::VENDOR, $productId)->code);
     }
 
@@ -317,8 +317,7 @@ final class ProductFlowTest extends DatabaseTestCase
             $this->details(),
             ['material' => 'لاتکس'],
             $this->galleryOf($productId),
-            $this->mainOf($productId)
-        );
+            $this->mainOf($productId), $this->stampOf($productId));
         self::assertTrue($this->manage->submit(self::VENDOR, self::VENDOR, $productId)->ok);
         self::assertTrue($this->review->approve($productId)->ok);
 
@@ -330,8 +329,7 @@ final class ProductFlowTest extends DatabaseTestCase
             $this->details('دستکش نیتریل'),
             ['material' => ''],
             $this->galleryOf($productId),
-            $this->mainOf($productId)
-        );
+            $this->mainOf($productId), $this->stampOf($productId));
         $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
 
         $refused = $this->review->approveRevision($revisionId);
@@ -357,8 +355,7 @@ final class ProductFlowTest extends DatabaseTestCase
             $this->details('عنوان تازه', priceMinor: 250000, stock: 3),
             [],
             $this->products->find($productId)?->imageIds ?? [],
-            $this->products->find($productId)?->mainImageId ?? 0
-        );
+            $this->products->find($productId)?->mainImageId ?? 0, $this->stampOf($productId));
         self::assertSame('revision_requested', $changed->code);
 
         $live = $this->products->find($productId);
@@ -375,7 +372,7 @@ final class ProductFlowTest extends DatabaseTestCase
     public function testRejectingARevisionLeavesThePublishedProductOnTheSite(): void
     {
         $productId = $this->publish(self::VENDOR);
-        $this->manage->save(self::VENDOR, self::VENDOR, $productId, $this->details('عنوان تازه'), [], $this->galleryOf($productId), $this->mainOf($productId));
+        $this->manage->save(self::VENDOR, self::VENDOR, $productId, $this->details('عنوان تازه'), [], $this->galleryOf($productId), $this->mainOf($productId), $this->stampOf($productId));
         $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
 
         $rejected = $this->review->rejectRevision($revisionId, 'عنوان تازه گمراه‌کننده است.');
@@ -398,8 +395,7 @@ final class ProductFlowTest extends DatabaseTestCase
             $this->details('دستکش نیتریل', priceMinor: 260000, stock: 9),
             [],
             $this->galleryOf($productId),
-            $this->mainOf($productId)
-        );
+            $this->mainOf($productId), $this->stampOf($productId));
         $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
 
         // Days pass and the shop sells: stock is now 2, not the 9 in the payload.
@@ -415,9 +411,9 @@ final class ProductFlowTest extends DatabaseTestCase
     public function testASecondProposalSupersedesTheFirstRatherThanQueueingBehindIt(): void
     {
         $productId = $this->publish(self::VENDOR);
-        $this->manage->save(self::VENDOR, self::VENDOR, $productId, $this->details('اولی'), [], $this->galleryOf($productId), $this->mainOf($productId));
+        $this->manage->save(self::VENDOR, self::VENDOR, $productId, $this->details('اولی'), [], $this->galleryOf($productId), $this->mainOf($productId), $this->stampOf($productId));
         $first = $this->revisions->pendingFor($productId)?->id ?? 0;
-        $this->manage->save(self::VENDOR, self::VENDOR, $productId, $this->details('دومی'), [], $this->galleryOf($productId), $this->mainOf($productId));
+        $this->manage->save(self::VENDOR, self::VENDOR, $productId, $this->details('دومی'), [], $this->galleryOf($productId), $this->mainOf($productId), $this->stampOf($productId));
         $second = $this->revisions->pendingFor($productId)?->id ?? 0;
 
         self::assertNotSame($first, $second);
@@ -430,7 +426,7 @@ final class ProductFlowTest extends DatabaseTestCase
         $productId = $this->readyProduct(self::VENDOR);
         $this->manage->submit(self::VENDOR, self::VENDOR, $productId);
 
-        $refused = $this->manage->save(self::VENDOR, self::VENDOR, $productId, $this->details('عنوان تازه'));
+        $refused = $this->manage->save(self::VENDOR, self::VENDOR, $productId, $this->details('عنوان تازه'), [], [], 0, $this->stampOf($productId));
         self::assertFalse($refused->ok);
         self::assertSame('in_review', $refused->code);
 
@@ -473,8 +469,7 @@ final class ProductFlowTest extends DatabaseTestCase
             self::VENDOR,
             $productId,
             $this->details('دستکش لاتکس'),
-            ['material' => 'لاتکس', 'old_code' => 'X-1']
-        );
+            ['material' => 'لاتکس', 'old_code' => 'X-1'], [], 0, $this->stampOf($productId));
         $versionThen = $this->templates->find($templateId)?->schemaVersion ?? 0;
         self::assertSame($versionThen, $this->products->find($productId)?->specSchemaVersion);
 
@@ -504,8 +499,7 @@ final class ProductFlowTest extends DatabaseTestCase
             self::VENDOR,
             $productId,
             $this->details('دستکش لاتکس'),
-            ['size_mm' => 'بزرگ']
-        );
+            ['size_mm' => 'بزرگ'], [], 0, $this->stampOf($productId));
         self::assertFalse($refused->ok);
         self::assertSame('invalid_specs', $refused->code);
         self::assertSame([], $this->products->specs($productId));
@@ -529,8 +523,7 @@ final class ProductFlowTest extends DatabaseTestCase
             $this->details('دستکش لاتکس'),
             ['material' => 'لاتکس'],
             $this->galleryOf($productId),
-            $this->mainOf($productId)
-        );
+            $this->mainOf($productId), $this->stampOf($productId));
         self::assertTrue($this->manage->submit(self::VENDOR, self::VENDOR, $productId)->ok);
     }
 
@@ -709,6 +702,53 @@ final class ProductFlowTest extends DatabaseTestCase
         );
     }
 
+
+    /**
+     * And the refusal reaches the vendor as something they can act on.
+     *
+     * A `false` from the repository is not a user experience. The application
+     * turns it into a named code that carries the row's CURRENT counter, which
+     * is what lets the form come back stamped correctly with their own values
+     * still in it.
+     */
+    public function testTheVendorIsToldWhatToDoAboutAFormWithNoStamp(): void
+    {
+        $id = $this->createProduct(self::VENDOR, 'روی سطر');
+
+        $refused = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $this->details('چیزی که تایپ کرده'),
+            [],
+            [],
+            0,
+            ''
+        );
+
+        self::assertFalse($refused->ok);
+        self::assertSame('revision_missing', $refused->code);
+        self::assertSame(
+            $this->products->rowVersion($id),
+            $refused->context['current_revision'],
+            'the answer carries the stamp the next attempt needs'
+        );
+        self::assertSame('روی سطر', $this->products->find($id)?->details->title, 'and the row is untouched');
+
+        // Resubmitted with the stamp the refusal handed back: it goes through.
+        $again = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $this->details('چیزی که تایپ کرده'),
+            [],
+            [],
+            0,
+            (string) $refused->context['current_revision']
+        );
+        self::assertTrue($again->ok, $again->code);
+        self::assertSame('چیزی که تایپ کرده', $this->products->find($id)?->details->title);
+    }
 
     // ------------------------------------------------------- bulk and preview
 
@@ -889,8 +929,7 @@ final class ProductFlowTest extends DatabaseTestCase
             $this->details($title, sku: $sku),
             [],
             [$mediaId],
-            $mediaId
-        );
+            $mediaId, $this->stampOf($productId));
         self::assertTrue($saved->ok, $saved->code);
         return $productId;
     }
@@ -936,4 +975,18 @@ final class ProductFlowTest extends DatabaseTestCase
     {
         return $this->products->find($productId)?->mainImageId ?? 0;
     }
+
+    /**
+     * The stamp a real form would carry: the row's counter, read now.
+     *
+     * Every save of an EXISTING product goes through this, because from
+     * alpha.15 a save with no usable version is refused rather than written
+     * unguarded. A test that omitted it would be testing a path the product
+     * form cannot reach.
+     */
+    private function stampOf(int $productId): string
+    {
+        return $this->products->find($productId)?->rowVersion ?? '';
+    }
+
 }
