@@ -179,6 +179,10 @@ final class ImportFromDokan
             // canSell false: an imported shop is present, not yet trading. The
             // owner turns that on per shop once the mapping has been read.
             $this->vendors->upsertProfile($vendor['user_id'], $vendor['store_name'], false, false);
+            // Stamped, like the products: the profile that was created IS the
+            // record that this run created it, so a crash before the manifest
+            // write cannot leave a shop nothing can name.
+            $this->vendors->stampImportRun((int) $vendor['user_id'], $plan->runId);
             $created['vendors'][] = $vendor['user_id'];
         }
 
@@ -229,11 +233,14 @@ final class ImportFromDokan
         // paths that write history differently is two paths for a rollback to
         // miss — the same lesson the run stamp just taught.
         $historyRecorded = 0;
+        $historyFailed = 0;
         if ($this->history !== null) {
             foreach ($this->dokan->orders() as $order) {
-                if ($this->history->record($plan->runId, $order)) {
-                    $historyRecorded++;
-                }
+                match ($this->history->record($plan->runId, $order)) {
+                    OrderHistoryRepositoryInterface::RECORDED => $historyRecorded++,
+                    OrderHistoryRepositoryInterface::FAILED => $historyFailed++,
+                    default => null,            // already there: a re-run, not a fault
+                };
             }
         }
 
@@ -242,6 +249,10 @@ final class ImportFromDokan
             'vendors' => count($created['vendors']),
             'products' => count($created['products']),
             'history' => $historyRecorded,
+            // Counted separately and never folded into the total: a run that
+            // reports «۶ سفارش وارد شد» while two of them failed is a run
+            // somebody will trust.
+            'history_failed' => $historyFailed,
             'run_id' => $plan->runId,
             'mode' => 'trial',
         ]);
@@ -292,26 +303,54 @@ final class ImportFromDokan
                 // Somebody transferred operational ownership of this product
                 // since the import. It is not a trial copy any more — it is a
                 // product this marketplace now runs — so undoing the import
-                // must not take it away silently.
+                // must not take it away silently. It stops carrying the run
+                // for the same reason: the run is over, and the row is ours.
                 $keptProducts[] = $productId;
+                $this->products->stampImportRun($productId, '');
                 continue;
             }
             if ($this->products->deleteDraft($productId)) {
                 $removedProducts++;
+                continue;
             }
+            // Not deleted — a published row is a record of something and
+            // `deleteDraft()` refuses it — but no longer this run's either.
+            // A row a rollback leaves behind still carrying the run id makes
+            // `runs()` resurrect a run that has been undone and offer to undo
+            // it again. It is NOT added to `keptProducts`: that list is the
+            // narrower «somebody took ownership» case, which is a failure of
+            // the rollback, and widening it here would turn an ordinary
+            // publish into one.
+            $this->products->stampImportRun($productId, '');
         }
         // The history goes with the products. A rollback that removed the
         // catalogue but left the past orders would leave a shop half-migrated
         // with no way back — and the next import would find its own rows there.
         $removedHistory = $this->history?->deleteRun($runId) ?? 0;
 
+        // The same union on the vendor side. `0014` stamped products only, and
+        // the first evidence run with the manifest deleted removed the
+        // products and left the shop standing, reporting «vendors=0» about a
+        // profile that was plainly there. Half a fix is not a fix.
+        $vendorIds = array_values(array_unique(array_merge(
+            array_map('intval', $run['vendors'] ?? []),
+            $this->vendors->idsFromImportRun($runId)
+        )));
+        sort($vendorIds);
+
         $removedVendors = 0;
-        foreach ($run['vendors'] ?? [] as $vendorUserId) {
+        foreach ($vendorIds as $vendorUserId) {
             // The PROFILE goes; the WordPress user does not. The user was
             // Dokan's before this ran and is Dokan's after it.
             if ($this->vendors->deleteEmptyProfile((int) $vendorUserId)) {
                 $removedVendors++;
+                continue;
             }
+            // The shop stays — it has an application of its own, or products
+            // that are not this run's. The run does not: clearing the stamp is
+            // what makes «the run is gone» true of the rows as well as of the
+            // manifest.
+            $this->vendors->stampImportRun((int) $vendorUserId, '');
         }
         unset($runs[$runId]);
         $this->options->set(self::RUNS_OPTION, $runs);
@@ -356,12 +395,20 @@ final class ImportFromDokan
         foreach ($runs as $runId => $run) {
             $runs[$runId]['source'] = 'manifest';
         }
-        foreach ($this->products->importRunIds() as $runId) {
+        // Both tables, because a run killed between the vendor loop and the
+        // product loop created a shop and no products at all — and asking
+        // only the products would call that run nonexistent.
+        $stampedRuns = array_values(array_unique(array_merge(
+            $this->products->importRunIds(),
+            $this->vendors->importRunIds()
+        )));
+        rsort($stampedRuns);
+        foreach ($stampedRuns as $runId) {
             if (isset($runs[$runId])) {
                 continue;
             }
             $runs[$runId] = [
-                'vendors' => [],
+                'vendors' => $this->vendors->idsFromImportRun($runId),
                 'products' => $this->products->idsFromImportRun($runId),
                 'at' => '',
                 // Named so the page can say «this run was interrupted» rather
@@ -456,6 +503,7 @@ final class ImportFromDokan
             }
             // canSell false: an imported shop is present, not yet trading.
             $this->vendors->upsertProfile($last, $vendor['store_name'], false, false);
+            $this->vendors->stampImportRun($last, $runId);
             $created['vendors'][] = $last;
         }
         if ($created['vendors'] !== []) {
@@ -554,21 +602,29 @@ final class ImportFromDokan
     public function importOrderPage(string $runId, int $afterOrderId, int $limit): array
     {
         if ($this->history === null) {
-            return ['done' => 0, 'skipped' => 0, 'last' => $afterOrderId, 'more' => false];
+            return ['done' => 0, 'skipped' => 0, 'failed' => 0, 'last' => $afterOrderId, 'more' => false];
         }
         $page = $this->dokan->ordersAfter($afterOrderId, $limit);
         $last = $afterOrderId;
         $done = 0;
         $skipped = 0;
+        $failed = 0;
         foreach ($page as $order) {
             $last = max($last, (int) $order['wc_order_id']);
-            // `false` here means the unique index already had it — a resumed
-            // job re-running its last page, which is normal and not a failure.
-            $this->history->record($runId, $order) ? $done++ : $skipped++;
+            // «already there» is a resumed job re-running its last page, which
+            // is normal. «failed» is not, and counting it as the first would
+            // report a shop as migrated on the strength of writes that never
+            // landed.
+            match ($this->history->record($runId, $order)) {
+                OrderHistoryRepositoryInterface::RECORDED => $done++,
+                OrderHistoryRepositoryInterface::ALREADY => $skipped++,
+                default => $failed++,
+            };
         }
         return [
             'done' => $done,
             'skipped' => $skipped,
+            'failed' => $failed,
             'last' => $last,
             'more' => count($page) >= $limit,
         ];

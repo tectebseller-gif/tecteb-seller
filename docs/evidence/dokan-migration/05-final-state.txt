@@ -1,11 +1,11 @@
 === after the round trip ===
-plan run=dokan-20260915-194136 vendors=1 products=1 orders=6 conflicts=0 skipped=6 clean=true
-  vendor dokan=13 verdict=import reason=- target=tmc_vendor:new title=
+plan run=dokan-20260916-161013 vendors=1 products=1 orders=6 conflicts=0 skipped=0 clean=true
+  vendor dokan=13 verdict=import reason=- target=tmc_vendor:new title=dokanvendor
   product dokan=79 verdict=import reason=- target=tmc_product:new → wc:79 title=کالای فروشندهٔ دکان
-  order dokan=85 verdict=skip reason=historic_commission_not_recomputed target=wc_order:85 title=85
-  order dokan=86 verdict=skip reason=historic_commission_not_recomputed target=wc_order:86 title=86
-  order dokan=100 verdict=skip reason=historic_commission_not_recomputed target=wc_order:100 title=100
-  order dokan=101 verdict=skip reason=historic_commission_not_recomputed target=wc_order:101 title=101
-  order dokan=119 verdict=skip reason=historic_commission_not_recomputed target=wc_order:119 title=119
-  order dokan=120 verdict=skip reason=historic_commission_not_recomputed target=wc_order:120 title=120
+  order dokan=85 verdict=import reason=history_recorded_without_recomputing target=wc_order:85 title=85
+  order dokan=86 verdict=import reason=history_recorded_without_recomputing target=wc_order:86 title=86
+  order dokan=100 verdict=import reason=history_recorded_without_recomputing target=wc_order:100 title=100
+  order dokan=101 verdict=import reason=history_recorded_without_recomputing target=wc_order:101 title=101
+  order dokan=119 verdict=import reason=history_recorded_without_recomputing target=wc_order:119 title=119
+  order dokan=120 verdict=import reason=history_recorded_without_recomputing target=wc_order:120 title=120
 runs count=0

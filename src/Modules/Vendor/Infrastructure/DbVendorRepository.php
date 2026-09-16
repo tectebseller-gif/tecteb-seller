@@ -198,6 +198,42 @@ final class DbVendorRepository implements VendorRepositoryInterface
         );
     }
 
+    public function stampImportRun(int $userId, string $runId): bool
+    {
+        return $this->db->execute(
+            'UPDATE `' . $this->profiles() . '` SET import_run_id = %s WHERE user_id = %d',
+            [mb_substr($runId, 0, 64), $userId]
+        ) !== null;
+    }
+
+    public function idsFromImportRun(string $runId): array
+    {
+        if ($runId === '') {
+            // `import_run_id` defaults to '', so an empty id would match every
+            // profile that predates the column — every shop on the site.
+            return [];
+        }
+        return array_map(
+            static fn (array $row): int => (int) $row['user_id'],
+            $this->db->getResults(
+                'SELECT user_id FROM `' . $this->profiles() . '` WHERE import_run_id = %s ORDER BY user_id ASC',
+                [$runId]
+            )
+        );
+    }
+
+    public function importRunIds(): array
+    {
+        return array_map(
+            static fn (array $row): string => (string) $row['import_run_id'],
+            $this->db->getResults(
+                'SELECT DISTINCT import_run_id FROM `' . $this->profiles() . '`
+                 WHERE import_run_id <> %s ORDER BY import_run_id DESC',
+                ['']
+            )
+        );
+    }
+
     public function deleteEmptyProfile(int $userId): bool
     {
         if ($this->findApplicationByUser($userId) !== null) {

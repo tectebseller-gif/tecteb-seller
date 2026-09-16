@@ -14,6 +14,7 @@ use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanMigrationPlan;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
+use Tecteb\Marketplace\Modules\Migration\Application\OrderHistoryRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
@@ -366,6 +367,94 @@ final class DokanMigrationTest extends DatabaseTestCase
         self::assertTrue($rollback->ok, $rollback->code);
         self::assertSame(count($page['created']['products']), $rollback->context['products']);
         self::assertSame([], $this->products->allForVendor(self::SELLER), 'the rows are gone');
+    }
+
+    /**
+     * The half of the stamp that `0014` missed, and the evidence run found.
+     *
+     * With the manifest deleted, the rollback removed the products and left
+     * the SHOP standing — reporting `vendors=0` about a profile that was
+     * plainly there and that nothing could now name.
+     */
+    public function testAShopCreatedBeforeAManifestWriteIsStillFoundByRollback(): void
+    {
+        $runId = 'dokan-shop-interrupted';
+
+        $page = $this->migration->importVendorPage($runId, 0, 50);
+        self::assertNotSame([], $page['created']['vendors'], 'the batch created a shop');
+        self::assertNotNull($this->vendors->findProfileByUser(self::SELLER));
+
+        $this->options->set(ImportFromDokan::RUNS_OPTION, []);
+
+        self::assertArrayHasKey($runId, $this->migration->runs(), 'a run that made only a shop is still a run');
+        self::assertSame([self::SELLER], $this->migration->runs()[$runId]['vendors']);
+        self::assertSame('rows_only', $this->migration->runs()[$runId]['source']);
+
+        $rollback = $this->migration->rollback($runId);
+        self::assertTrue($rollback->ok, $rollback->code);
+        self::assertSame(1, $rollback->context['vendors']);
+        self::assertNull($this->vendors->findProfileByUser(self::SELLER), 'the shop went with it');
+    }
+
+    /**
+     * A rollback ends the run — on the rows too, not only in the manifest.
+     *
+     * A row a rollback deliberately KEEPS still carrying the run id made
+     * `runs()` bring the run back from the dead and offer to undo it again.
+     */
+    public function testARowARollbackKeepsStopsCarryingTheRun(): void
+    {
+        $runId = (string) $this->migration->import($this->migration->plan())->context['run_id'];
+        $imported = $this->products->observed()[0];
+        // Published: a record of something, so `deleteDraft()` refuses it.
+        $this->products->updateStatus($imported->id, ProductStatus::Published);
+
+        $rolled = $this->migration->rollback($runId);
+
+        self::assertTrue($rolled->ok, $rolled->code);
+        self::assertNotNull($this->products->find($imported->id), 'the row is kept');
+        self::assertSame([], $this->products->idsFromImportRun($runId), 'but it is not this run\'s any more');
+        self::assertArrayNotHasKey($runId, $this->migration->runs(), 'so the run stays undone');
+    }
+
+    /**
+     * «Already there» and «did not work» are different answers.
+     *
+     * They were one boolean until an evidence run reported «already imported»
+     * about six orders the table did not contain. A migration that cannot tell
+     * them apart reports a shop as migrated on the strength of writes that
+     * never landed.
+     */
+    public function testARecordThatFailsIsNotReportedAsAlreadyThere(): void
+    {
+        $order = [
+            'wc_order_id' => 9001,
+            'vendor_user_id' => self::SELLER,
+            'status' => 'wc-completed',
+            'total_minor' => 900000,
+            'net_minor' => 700000,
+            'commission_minor' => 200000,
+            'refunded' => false,
+        ];
+
+        self::assertSame(
+            OrderHistoryRepositoryInterface::RECORDED,
+            $this->history->record('run-a', $order),
+            'the first write lands'
+        );
+        self::assertSame(
+            OrderHistoryRepositoryInterface::ALREADY,
+            $this->history->record('run-a', $order),
+            'the second is the unique index, not a fault'
+        );
+
+        // A write that cannot land at all: the table is gone.
+        $this->wpdb->dropTable($this->wpdb->prefix . 'tmc_dokan_order_history');
+        self::assertSame(
+            OrderHistoryRepositoryInterface::FAILED,
+            $this->history->record('run-a', $order),
+            'and a broken write says so rather than passing for a duplicate'
+        );
     }
 
     public function testEachCreatedRowCarriesTheRunThatMadeIt(): void

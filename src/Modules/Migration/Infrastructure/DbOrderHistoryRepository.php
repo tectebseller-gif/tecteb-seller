@@ -28,7 +28,7 @@ final class DbOrderHistoryRepository implements OrderHistoryRepositoryInterface
     ) {
     }
 
-    public function record(string $runId, array $order): bool
+    public function record(string $runId, array $order): string
     {
         $written = $this->db->execute(
             'INSERT IGNORE INTO `' . $this->t() . '`
@@ -48,7 +48,16 @@ final class DbOrderHistoryRepository implements OrderHistoryRepositoryInterface
                 $this->now(),
             ]
         );
-        return $written !== null && $written > 0;
+        // Three answers, not two. `execute()` returns null on FAILURE and a
+        // row count on success — and `INSERT IGNORE` counts 0 for a duplicate.
+        // Collapsing those into one boolean made a broken insert look exactly
+        // like a row that was already there, so a resumed job reported
+        // «already imported» about orders it had never managed to write.
+        return match (true) {
+            $written === null => self::FAILED,
+            $written > 0 => self::RECORDED,
+            default => self::ALREADY,
+        };
     }
 
     public function forVendor(int $vendorUserId, int $limit = 50, int $offset = 0): array

@@ -1,4 +1,4 @@
-بازارگاه تک‌طب — Tecteb Marketplace Core 0.1.0-alpha.13
+بازارگاه تک‌طب — Tecteb Marketplace Core 0.1.0-alpha.14
 
 وضعیت این بسته
 ==============
@@ -10,11 +10,18 @@
 
 روی همان wp-admin واقعی، با زبان مدیریت fa_IR و RTL (بسته ترجمه حداقلی
 آزمایشی): پنج viewport (320/375/768/1024/1440)، شبیه‌سازی فضای چیدمان،
-device scale factor سطح مرورگر، کیبورد با Tab واقعی و axe-core —
-۲۸۰ بررسی، صفر شکست.
+device scale factor سطح مرورگر، کیبورد با Tab واقعی و axe-core.
 
-خروجی خام هر گیت در docs/evidence/acceptance/ است و شواهد بازطراحی در
-docs/evidence/redesign/.
+هر مجموعه عدد خودش را دارد و اینجا جمع نمی‌شوند:
+
+  چهار صفحهٔ فاز ۱                 ۲۵۲ بررسی   ۰ شکست
+  صفحه‌های محصول                   ۲۴۰ بررسی   ۰ شکست
+  نظر و امتیاز و نمودار            ۲۴۰ بررسی   ۰ شکست
+  چهار صفحهٔ عملیات (alpha.13)     ۲۸۰ بررسی   ۰ شکست
+
+خروجی خام هر گیت در docs/evidence/acceptance/ است، شواهد بازطراحی در
+docs/evidence/redesign/، و شواهد این دور در docs/evidence/operations/ و
+docs/evidence/product-ux/.
 
 پیش از نصب، پنج چیز را بدانید
 =============================

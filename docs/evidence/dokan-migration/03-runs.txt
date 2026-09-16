@@ -1,2 +1,2 @@
 runs count=1
-  run=dokan-20260915-194120 at=2026-09-15 19:41:23 vendors=13 products=10
+  run=dokan-20260916-160949 at= vendors=13 products=42 source=rows_only

@@ -1,5 +1,11 @@
-revision_on_the_form=2026-09-16 13:47:25
+revision_on_the_form=6
+revision_is_a_counter=yes
 editor_a=saved
 editor_b=refused:stale_revision
 both_stamps_reported=yes
+counter_moved_once=yes
+two_saves_in_one_second=yes
+timestamp_could_tell_them_apart=no
+counter_could_tell_them_apart=yes
 empty_stamp=saved
+old_format_stamp=saved

@@ -19,6 +19,10 @@ namespace Tecteb\Marketplace\Modules\Migration\Application;
  */
 interface OrderHistoryRepositoryInterface
 {
+    public const RECORDED = 'recorded';
+    public const ALREADY = 'already';
+    public const FAILED = 'failed';
+
     /**
      * Record one seller's share of one past order.
      *
@@ -26,10 +30,17 @@ interface OrderHistoryRepositoryInterface
      * re-running its last page must produce one row, and «did we already
      * import this?» asked in PHP is a question two batches can both answer no.
      *
+     * **Three answers, because there are three outcomes.** This returned a
+     * bool until an evidence run reported «already imported» about six orders
+     * the table did not contain: `INSERT IGNORE` counts zero rows for a
+     * duplicate, `execute()` returns null for a failure, and one boolean made
+     * those the same event. A migration that cannot tell «already done» from
+     * «did not work» will report a shop as migrated that is not.
+     *
      * @param array{wc_order_id:int, vendor_user_id:int, status:string, total_minor:int, net_minor:int, commission_minor:int, refunded:bool} $order
-     * @return bool true when a row was written, false when it was already there
+     * @return self::RECORDED|self::ALREADY|self::FAILED
      */
-    public function record(string $runId, array $order): bool;
+    public function record(string $runId, array $order): string;
 
     /** @return list<array<string,mixed>> newest order first */
     public function forVendor(int $vendorUserId, int $limit = 50, int $offset = 0): array;

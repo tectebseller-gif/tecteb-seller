@@ -1,0 +1,16 @@
+preview_ok=1 code=bulk_previewed
+forecast_go=2
+forecast_stay=1
+forecast product=1 ok=1 code=product_archived_ok from=draft to=archived titled=1
+forecast product=3 ok=1 code=product_archived_ok from=draft to=archived titled=1
+forecast product=99999 ok=0 code=not_found from= to= titled=0
+rows_moved_by_preview=0
+audit_lines_by_preview=0
+actual product=1 ok=1 code=product_archived_ok
+actual product=3 ok=1 code=product_archived_ok
+actual product=99999 ok=0 code=not_found
+forecast_matched_outcome=1
+actual_go=2
+refusal_empty=nothing_selected:nothing_selected
+refusal_unknown=unknown_bulk_action:unknown_bulk_action
+refusal_too_large=bulk_too_large:bulk_too_large

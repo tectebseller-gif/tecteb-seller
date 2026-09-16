@@ -59,4 +59,19 @@ interface VendorRepositoryInterface
      * were Dokan's before the trial and are Dokan's after it.
      */
     public function deleteEmptyProfile(int $userId): bool;
+
+    /**
+     * Write the import run that created this profile onto the profile itself.
+     *
+     * The same reason as the product side: a manifest written beside the rows
+     * is a second write that a crash can lose, and a rollback that cannot name
+     * what it created leaves a shop nobody can undo.
+     */
+    public function stampImportRun(int $userId, string $runId): bool;
+
+    /** @return list<int> the user ids of profiles this run created */
+    public function idsFromImportRun(string $runId): array;
+
+    /** @return list<string> every run id any profile carries, newest first */
+    public function importRunIds(): array;
 }

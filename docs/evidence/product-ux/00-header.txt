@@ -2,10 +2,10 @@
 name	status	version
 dokan-lite	active	5.1.1
 hello	inactive	1.7.2
-tecteb-marketplace-core	active	0.1.0-alpha.13
+tecteb-marketplace-core	active	0.1.0-alpha.14
 woocommerce	active	11.0.1
 order-fail-probe	must-use	
 refund-crash-probe	must-use	
 tmc-stop-failure-probe	must-use	
 
-vendor=4 products=1:draft,3:draft
+vendor=4 products=1:draft,3:draft,4:archived,5:archived,6:archived,7:archived,8:archived,9:archived,10:archived,11:archived,12:archived,13:archived,14:archived,15:archived,16:archived,17:archived,18:archived,19:archived,20:archived,21:archived,22:archived,23:archived,24:archived,25:archived,26:archived,27:archived,28:archived,29:archived,30:archived,31:archived,32:archived,33:archived

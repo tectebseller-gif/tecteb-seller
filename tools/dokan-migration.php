@@ -10,6 +10,11 @@
  *   wp eval-file tools/dokan-migration.php plan          اجرای آزمایشی، بدون نوشتن
  *   wp eval-file tools/dokan-migration.php import        ورود آزمایشی همان نقشه
  *   wp eval-file tools/dokan-migration.php runs          اجراهای انجام‌شده
+ *   wp eval-file tools/dokan-migration.php reset         پاک‌کردن باقیماندهٔ اجرای قبلی
+ *   wp eval-file tools/dokan-migration.php stamps        مهرِ اجرا روی خود ردیف‌ها
+ *   wp eval-file tools/dokan-migration.php forget-manifest <run>  شبیه‌سازی قطع میانه
+ *   wp eval-file tools/dokan-migration.php import-orders <run>    تاریخچهٔ سفارش، صفحه‌به‌صفحه
+ *   wp eval-file tools/dokan-migration.php history <vendor>       تاریخچهٔ سفارش دکان
  *   wp eval-file tools/dokan-migration.php rollback <id> بازگرداندن یک اجرا
  *   wp eval-file tools/dokan-migration.php fingerprint   اثر انگشت دادهٔ دکان
  *   wp eval-file tools/dokan-migration.php observed      ردیف‌های نگاشت‌شده
@@ -168,13 +173,158 @@ switch ($command) {
         printf("runs count=%d\n", count($runs));
         foreach ($runs as $runId => $run) {
             printf(
-                "  run=%s at=%s vendors=%s products=%s\n",
+                "  run=%s at=%s vendors=%s products=%s source=%s\n",
                 $runId,
                 (string) ($run['at'] ?? ''),
                 implode(',', $run['vendors'] ?? []) ?: '-',
-                implode(',', $run['products'] ?? []) ?: '-'
+                implode(',', $run['products'] ?? []) ?: '-',
+                (string) ($run['source'] ?? '-')
             );
         }
+        break;
+
+    case 'forget-manifest':
+        // The crash this fix is about, reproduced: the rows were created and
+        // the process died before the manifest option beside them was written.
+        // Deleting the option is the same end state — and the rows must still
+        // be findable, because each one carries the run that made it.
+        $options = $c->get(\Tecteb\Marketplace\Contracts\OptionStoreInterface::class);
+        $before = $options->get(\Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan::RUNS_OPTION, []);
+        $options->set(\Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan::RUNS_OPTION, []);
+        $after = $service->runs();
+        $runId = (string) ($args[1] ?? '');
+        printf(
+            "forget-manifest run=%s was_in_manifest=%s still_listed=%s source=%s rows=%d vendors=%d\n",
+            $runId,
+            isset($before[$runId]) ? 'true' : 'false',
+            isset($after[$runId]) ? 'true' : 'false',
+            (string) ($after[$runId]['source'] ?? '-'),
+            count($after[$runId]['products'] ?? []),
+            count($after[$runId]['vendors'] ?? [])
+        );
+        break;
+
+    case 'stamps':
+        // Which run each row says made it. Read straight off the column, so
+        // «the manifest agrees with itself» cannot pass for evidence.
+        global $wpdb;
+        $rows = $wpdb->get_results(
+            'SELECT import_run_id, COUNT(*) AS n FROM `' . $wpdb->prefix . 'tmc_products`'
+            . " WHERE import_run_id <> '' GROUP BY import_run_id",
+            ARRAY_A
+        );
+        printf("stamps runs=%d\n", count($rows));
+        foreach ($rows as $row) {
+            printf("  stamp run=%s rows=%d\n", (string) $row['import_run_id'], (int) $row['n']);
+        }
+        break;
+
+    case 'reset':
+        // «آزمونی که چیزی را خرج می‌کند باید اول reset کند.» An import that was
+        // rolled back BEFORE the vendor stamp existed left its shop profile
+        // behind, and the next run then imported nothing and had no vendor to
+        // look at — evidence that measured an empty set and called it a pass.
+        //
+        // The rule used here is the rollback's own: a profile goes only if the
+        // shop is empty and has no application of its own, so a real
+        // marketplace vendor is never touched.
+        $vendors = $c->get(\Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface::class);
+        $reader = $c->get(\Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface::class);
+        $productRepo = $c->get(\Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface::class);
+
+        // The products FIRST, or the shop is not empty and the profile stays.
+        // `observed` is precisely «this row came from an import and the
+        // marketplace does not run it» — a marketplace product is `marketplace`
+        // and is never in this list, so nothing real can be caught here.
+        $removedProducts = 0;
+        foreach ($productRepo->observed() as $product) {
+            if ($productRepo->deleteDraft($product->id)) {
+                $removedProducts++;
+            }
+        }
+        $removedProfiles = 0;
+        foreach ($reader->vendors() as $vendor) {
+            if ($vendors->deleteEmptyProfile((int) $vendor['user_id'])) {
+                $removedProfiles++;
+            }
+        }
+        global $wpdb;
+        $history = $wpdb->query(
+            "DELETE FROM `{$wpdb->prefix}tmc_dokan_order_history` WHERE source = 'dokan'"
+        );
+        $options = $c->get(\Tecteb\Marketplace\Contracts\OptionStoreInterface::class);
+        $options->set(\Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan::RUNS_OPTION, []);
+        printf(
+            "reset products_removed=%d profiles_removed=%d history_removed=%d runs_cleared=true\n",
+            $removedProducts,
+            $removedProfiles,
+            (int) $history
+        );
+        break;
+
+    case 'import-orders':
+        // The path the JOB drives. Orders are the one thing a trial import
+        // does not do inline — a shop with ten thousand of them would time out
+        // mid-page — so the resumable page method is what the evidence runs,
+        // exactly as `DeliverEventsJob`'s sibling does.
+        $runId = (string) ($args[1] ?? '');
+        $after = 0;
+        $done = 0;
+        $skipped = 0;
+        $failed = 0;
+        $pages = 0;
+        do {
+            $page = $service->importOrderPage($runId, $after, 50);
+            $done += (int) $page['done'];
+            $skipped += (int) $page['skipped'];
+            $failed += (int) ($page['failed'] ?? 0);
+            $after = (int) $page['last'];
+            $pages++;
+        } while (($page['more'] ?? false) && $pages < 100);
+        printf("import-orders run=%s pages=%d recorded=%d already_there=%d failed=%d\n", $runId, $pages, $done, $skipped, $failed);
+        break;
+
+    case 'history':
+        // Dokan's past orders, as records. FIN-02: they carry Dokan's own
+        // figures, apply no rate of ours and write no ledger line — this
+        // marketplace has one financial engine per order and it is not this.
+        $vendorId = (int) ($args[1] ?? 0);
+        $summary = $service->historyFor($vendorId);
+        global $wpdb;
+        $ledgerLines = (int) $wpdb->get_var(
+            'SELECT COUNT(*) FROM `' . $wpdb->prefix . 'tmc_ledger_entries`'
+        );
+        $table = $wpdb->prefix . 'tmc_dokan_order_history';
+        $allRows = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$table}`");
+        // The seller a Dokan ORDER belongs to is not always the seller the
+        // plan imported — the shop whose catalogue moved need not be the shop
+        // with the sales. So the busiest one in the table is named too, or the
+        // evidence asks a shop with no orders whether its orders arrived and
+        // is told «no» by a page that is working perfectly.
+        $top = $wpdb->get_row(
+            "SELECT vendor_user_id, COUNT(*) AS n FROM `{$table}`
+             GROUP BY vendor_user_id ORDER BY n DESC LIMIT 1",
+            ARRAY_A
+        );
+        $topVendor = (int) ($top['vendor_user_id'] ?? 0);
+        $topSummary = $topVendor > 0
+            ? $service->historyFor($topVendor)
+            : ['orders' => 0, 'total_minor' => 0, 'net_minor' => 0];
+        printf(
+            "history vendor=%d available=%s orders=%d total_minor=%d net_minor=%d ledger_lines=%d all_rows=%d"
+            . " top_vendor=%d top_orders=%d top_total_minor=%d top_net_minor=%d\n",
+            $vendorId,
+            ($summary['available'] ?? false) ? 'true' : 'false',
+            (int) ($summary['orders'] ?? 0),
+            (int) ($summary['total_minor'] ?? 0),
+            (int) ($summary['net_minor'] ?? 0),
+            $ledgerLines,
+            $allRows,
+            $topVendor,
+            (int) ($topSummary['orders'] ?? 0),
+            (int) ($topSummary['total_minor'] ?? 0),
+            (int) ($topSummary['net_minor'] ?? 0)
+        );
         break;
 
     case 'rollback':
@@ -189,6 +339,6 @@ switch ($command) {
         break;
 
     default:
-        echo "usage: plan | import | runs | rollback <run-id> | fingerprint\n";
+        echo "usage: plan | import | runs | rollback <run-id> | fingerprint | forget-manifest <run-id> | stamps | history <vendor>\n";
         break;
 }

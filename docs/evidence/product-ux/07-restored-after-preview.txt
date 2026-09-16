@@ -1,0 +1,8 @@
+ok=1 code=bulk_done
+succeeded=2
+refused=0
+row product=1 ok=1 code=product_restored
+row product=3 ok=1 code=product_restored
+empty=nothing_selected
+unknown_verb=unknown_bulk_action
+too_large=bulk_too_large

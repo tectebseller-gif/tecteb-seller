@@ -1,0 +1,12 @@
+our_ceiling=3145728
+host_ceiling=2097152
+effective=2097152
+effective_is_the_smaller=1
+refusal ini_size code=image_too_large said=1 ends_with_instruction=1
+refusal partial code=transfer_failed said=1 ends_with_instruction=1
+refusal no_tmp_dir code=transfer_failed said=1 ends_with_instruction=1
+refusal absent code=no_file said=1 ends_with_instruction=1
+refusal empty code=empty_file said=1 ends_with_instruction=1
+refusal over_cap code=image_too_large said=1 ends_with_instruction=1
+refusal php_in_a_jpg code=image_mime_not_allowed said=1 ends_with_instruction=1
+refusal good code=- said=- ends_with_instruction=-
