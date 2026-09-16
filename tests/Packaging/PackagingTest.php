@@ -245,6 +245,63 @@ final class PackagingTest extends TestCase
         self::assertSame([], $wrong, "a document quotes a hash that contradicts dist/SHA256SUMS:\n" . implode("\n", $wrong));
     }
 
+    /**
+     * The font ships, and its licence ships with it.
+     *
+     * Vazirmatn is under SIL OFL 1.1, which permits redistribution on the
+     * condition that the copyright notice and the licence travel with the
+     * font. A package carrying the `.woff2` and not `OFL.txt` is not a missing
+     * file — it is a licence violation, which is why this is asserted rather
+     * than trusted to a `cp -r`.
+     *
+     * The size is checked too. The variable build is ~109 KB; if a future
+     * change ever swapped in the full static family, every visitor to every
+     * shop page would pay for it and nothing would have said so.
+     */
+    public function testTheBundledFontTravelsWithItsLicence(): void
+    {
+        $entries = $this->entries();
+        $font = self::SLUG . '/assets/fonts/vazirmatn-variable.woff2';
+        $licence = self::SLUG . '/assets/fonts/Vazirmatn-OFL.txt';
+
+        self::assertContains($font, $entries, 'the font the pages are designed in is not in the package');
+        self::assertContains($licence, $entries, 'a font without its licence must not be distributed');
+
+        $text = (string) file_get_contents(self::root() . '/assets/fonts/Vazirmatn-OFL.txt');
+        self::assertStringContainsString('SIL Open Font License', $text);
+        self::assertStringContainsString('Copyright', $text, 'OFL 1.1 requires the copyright notice to travel too');
+
+        $bytes = (int) filesize(self::root() . '/assets/fonts/vazirmatn-variable.woff2');
+        self::assertLessThan(200 * 1024, $bytes, 'one variable file, not a static family');
+        self::assertGreaterThan(50 * 1024, $bytes, 'and a real font rather than a placeholder');
+    }
+
+    /**
+     * Demo pictures and sample rows belong to the demo environment.
+     *
+     * The walkthrough needs products with photographs to look like a shop; a
+     * plugin that shipped those photographs would be installing somebody's
+     * catalogue onto their site. The seed scripts live in `tools/` — which is
+     * not in the installable package at all — and this asserts that stays
+     * true rather than assuming it.
+     */
+    public function testNoDemoContentIsInTheInstallablePackage(): void
+    {
+        foreach ($this->entries() as $entry) {
+            self::assertStringNotContainsString('/demo/', $entry, "demo content in the package: {$entry}");
+            self::assertStringNotContainsString('/fixtures/', $entry, "fixture content in the package: {$entry}");
+            self::assertDoesNotMatchRegularExpression(
+                '#/tools/#',
+                $entry,
+                "seed tooling in the package: {$entry}"
+            );
+            // The one picture kind a plugin legitimately ships is an icon or a
+            // UI asset. A JPEG is a photograph, and a photograph here is
+            // somebody's product.
+            self::assertDoesNotMatchRegularExpression('#\.jpe?g$#i', $entry, "a photograph in the package: {$entry}");
+        }
+    }
+
     public function testSourceArchiveCarriesTestsDocsAndLockfile(): void
     {
         $archives = glob(self::root() . '/dist/' . self::SLUG . '-source-*.tar.gz');

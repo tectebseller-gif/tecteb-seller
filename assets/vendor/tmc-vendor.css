@@ -10,6 +10,26 @@
  * Brand: #6ABFE7 header · #143C4D ink · #21D483 success · #FFC658 attention.
  * Layout follows the width of OUR container, never the window (ADR-006).
  */
+/* The font the whole area is designed in, shipped with the plugin rather than
+   hoped for. Every stack here already NAMED Vazirmatn; none of them shipped
+   it, so a visitor without it installed read these pages in Tahoma and the
+   identity existed only on the machines of people who happened to have the
+   font. Declared once, in `BrandFont`, and mirrored here — the store page
+   builds the identical rule from that class, so the two cannot drift.
+
+   `local()` first: many Iranian desktops already have it and should pay
+   nothing. `swap`: text a reader can read now beats text that is invisible
+   until 109 KB arrives. */
+@font-face {
+  font-family: "Vazirmatn";
+  src: local("Vazirmatn"),
+       url("../fonts/vazirmatn-variable.woff2") format("woff2-variations"),
+       url("../fonts/vazirmatn-variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 .tv {
   --tv-ink: #143C4D;
   --tv-ink-strong: #0F2E3B;

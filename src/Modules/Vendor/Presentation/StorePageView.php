@@ -208,17 +208,42 @@ final class StorePageView
             return $html . '<p>' . esc_html__('هنوز محصولی روی این فروشگاه منتشر نشده است.', 'tecteb-marketplace-core')
                 . '</p></section>';
         }
+        // Cards with pictures, because this is a shop.
+        //
+        // The list used to be a link and a price per line — correct, and
+        // nothing anybody would browse. The picture comes from WooCommerce's
+        // own thumbnail, at `woocommerce_thumbnail` size, so it is the image
+        // the rest of the site already serves and no new size is registered.
         $html .= '<ul class="tmc-store__products" role="list">';
         foreach ($products as $product) {
             $wcId = (int) $product->wcProductId;
+            $link = esc_url((string) get_permalink($wcId));
+            $title = $product->details->title;
+
             $html .= '<li class="tmc-store__product">'
-                . '<a href="' . esc_url((string) get_permalink($wcId)) . '">'
-                . esc_html($product->details->title) . '</a>';
+                . '<a class="tmc-store__product-link" href="' . $link . '">'
+                // The image is decorative HERE: the title right below it says
+                // the same thing, and a screen reader that read both would say
+                // every product name twice. `alt=""` is the correct answer,
+                // not a missing attribute.
+                . '<span class="tmc-store__thumb">' . self::thumbnail($wcId) . '</span>'
+                . '<span class="tmc-store__product-title">' . esc_html($title) . '</span>'
+                . '</a>';
             if ($product->details->priceMinor > 0) {
-                $html .= ' <span class="tmc-store__price">'
-                    . esc_html($fa(number_format((int) $product->details->priceMinor / 100)) . ' '
-                        . __('تومان', 'tecteb-marketplace-core'))
-                    . '</span>';
+                $sale = $product->details->salePriceMinor;
+                $hasSale = $sale !== null && $sale > 0 && $sale < $product->details->priceMinor;
+                $html .= '<p class="tmc-store__price">';
+                if ($hasSale) {
+                    // `<del>` and not a strike-through class: the crossed-out
+                    // price means «this no longer applies», and that is a fact
+                    // about the content, not a colour.
+                    $html .= '<del class="tmc-store__was">'
+                        . esc_html(self::toman($product->details->priceMinor, $fa)) . '</del> ';
+                    $html .= '<strong>' . esc_html(self::toman($sale, $fa)) . '</strong>';
+                } else {
+                    $html .= '<strong>' . esc_html(self::toman($product->details->priceMinor, $fa)) . '</strong>';
+                }
+                $html .= '</p>';
             }
             $html .= '</li>';
         }
@@ -227,6 +252,40 @@ final class StorePageView
             $html .= self::pager($page, $pages, $canonical, $fa);
         }
         return $html . '</section>';
+    }
+
+    /**
+     * WooCommerce's own thumbnail, or a lettered placeholder.
+     *
+     * A product with no picture gets its first letter on a tinted square
+     * rather than a broken-image icon or an empty hole — the row keeps its
+     * shape, and the grid does not jump around as the reader scrolls.
+     */
+    private static function thumbnail(int $wcProductId): string
+    {
+        if (function_exists('get_the_post_thumbnail')) {
+            $img = (string) get_the_post_thumbnail($wcProductId, 'woocommerce_thumbnail', [
+                'alt' => '',
+                'loading' => 'lazy',
+                // Told to the browser so it can reserve the box before the
+                // bytes arrive. Without it a page of twenty-four cards reflows
+                // twenty-four times as they load.
+                'decoding' => 'async',
+                'class' => 'tmc-store__img',
+            ]);
+            if ($img !== '') {
+                return $img;
+            }
+        }
+        $title = (string) get_the_title($wcProductId);
+        return '<span class="tmc-store__img tmc-store__img--none" aria-hidden="true">'
+            . esc_html(mb_substr($title !== '' ? $title : '؟', 0, 1)) . '</span>';
+    }
+
+    /** @param callable(string|int):string $fa */
+    private static function toman(int $minor, callable $fa): string
+    {
+        return $fa(number_format($minor / 100)) . ' ' . __('تومان', 'tecteb-marketplace-core');
     }
 
     /**
@@ -333,11 +392,46 @@ final class StorePageView
      */
     private static function style(): string
     {
+        // The plugin's own font, served from the plugin, with its licence
+        // beside it. Built from `BrandFont` rather than written out here, so
+        // this page and the vendor area declare the identical face — two
+        // hand-written copies would drift, and the drift would be invisible
+        // until somebody noticed the two screens looked different.
+        $fontUrl = function_exists('plugins_url')
+            ? plugins_url(BrandFont::FILE, dirname(__DIR__, 4) . '/tecteb-marketplace-core.php')
+            : '';
+
         return '<style>'
+            . ($fontUrl === '' ? '' : BrandFont::faceRule($fontUrl))
             . ':root{--s-ink:#143C4D;--s-sky:#6ABFE7;--s-green:#21D483;--s-page:#EDF3F6;'
-            . '--s-surface:#fff;--s-muted:#4F6570;--s-border:#D3DDE3}'
+            . '--s-surface:#fff;--s-muted:#4F6570;--s-border:#D3DDE3;--s-amber:#FFC658}'
             . 'body{margin:0;background:var(--s-page);color:#1F2A30;'
-            . 'font-family:Vazirmatn,Vazir,IRANSans,"Segoe UI",Tahoma,system-ui,sans-serif;line-height:1.7}'
+            . 'font-family:' . BrandFont::STACK . ';line-height:1.7}'
+            // The card grid. `auto-fill` with a 150px floor rather than fixed
+            // columns: one rule covers a phone (two across), a tablet (three)
+            // and a desktop (five) without a single media query, which is the
+            // same container-first rule ADR-006 sets for the admin screens.
+            . '.tmc-store__products{display:grid;gap:16px;list-style:none;margin:0;padding:0;'
+            . 'grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}'
+            . '.tmc-store__product{background:var(--s-surface);border:1px solid var(--s-border);'
+            . 'border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}'
+            . '.tmc-store__product-link{display:flex;flex-direction:column;gap:8px;'
+            . 'text-decoration:none;color:inherit}'
+            . '.tmc-store__product-link:hover .tmc-store__product-title,'
+            . '.tmc-store__product-link:focus-visible .tmc-store__product-title{text-decoration:underline}'
+            // `aspect-ratio` reserves the box before the image arrives, so a
+            // page of twenty-four cards does not reflow twenty-four times.
+            . '.tmc-store__thumb{display:block;aspect-ratio:1;background:var(--s-page);'
+            . 'border-radius:10px;overflow:hidden}'
+            . '.tmc-store__img{inline-size:100%;block-size:100%;object-fit:cover;display:block}'
+            . '.tmc-store__img--none{display:grid;place-items:center;font-size:2rem;font-weight:700;'
+            . 'color:var(--s-ink);background:var(--s-sky)}'
+            . '.tmc-store__product-title{font-weight:700;line-height:1.5;overflow-wrap:anywhere}'
+            . '.tmc-store__price{margin:auto 0 0;color:var(--s-ink)}'
+            . '.tmc-store__was{color:var(--s-muted);font-weight:400;margin-inline-end:6px}'
+            // A focus ring the page owns, rather than whatever the browser
+            // would have done over a coloured card.
+            . '.tmc-store a:focus-visible{outline:3px solid var(--s-ink);outline-offset:2px;border-radius:6px}'
             . '.tmc-store__main{max-inline-size:60rem;margin-inline:auto;padding:16px}'
             . '.tmc-store__banner{inline-size:100%;block-size:auto;border-radius:14px;display:block}'
             . '.tmc-store__head h1{color:var(--s-ink);margin:16px 0 8px}'
@@ -354,15 +448,11 @@ final class StorePageView
             . '.tmc-store__figures dd{margin:4px 0 0;font-weight:700;font-size:1.125rem}'
             . '.tmc-store__note{color:var(--s-muted);font-size:.9375rem}'
             . '.tmc-store__closed{background:#FFF4D6;border-radius:9px;padding:12px}'
-            . '.tmc-store__products{list-style:none;margin:0;padding:0;display:grid;gap:12px}'
             // Wraps rather than scrolling: at 320px three pager items on one
             // line squeeze each other into a column of single letters, which is
             // the failure the charts already taught us to measure for.
             . '.tmc-store__pager ul{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:12px;align-items:center}'
             . '.tmc-store__pager a{display:inline-block;min-block-size:44px;line-height:44px;padding:0 12px}'
-            . '.tmc-store__product a{color:var(--s-ink);text-underline-offset:3px;overflow-wrap:anywhere}'
-            . '.tmc-store__price{color:var(--s-muted);white-space:nowrap}'
-            . 'a:focus-visible{outline:3px solid var(--s-ink);outline-offset:2px}'
             . '</style>';
     }
 }
