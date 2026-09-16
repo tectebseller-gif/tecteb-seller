@@ -330,7 +330,87 @@ check "…and was never marked"                             '-' "$(echo "$SHOP_S
 g release > /dev/null
 g probe-off > /dev/null
 
-{ echo "=== final census ==="; g census; g payable; } > "$EV/07-final.txt"
+echo
+echo "--- 8. a reconcile mark survives the NEXT release, and only a person clears it ---"
+# The defect this section exists for: after a mismatch the order's status is
+# already back at `$previous`, NOT `on-hold`. So the second release matched it
+# on the «somebody moved it on» branch, called it moved_on, and `forget()` wiped
+# the mark and the whole stock trail with it — the one run that reported the
+# problem was also the last run that knew about it.
+g forget-all > /dev/null; g purge > /dev/null
+# A PRE-REDUCED order, because that is the shape where a mismatch can be staged
+# from outside. Its hold records «stock was already reduced», so the release
+# suppresses WooCommerce's increase and expects the flag still set afterwards.
+# Flipping the flag off between the two is exactly what a third-party plugin, a
+# half-finished import or a restored backup leaves behind — and the flag is
+# flipped rather than a stock NUMBER changed, so what is measured is the
+# guard's reaction to a disagreement and nothing else.
+MIS_ORDER="$(g seed-prereduced "$TMC_A" | field order)"
+g hold 'reconcile-survives' > /dev/null
+g force-mismatch "$MIS_ORDER" > /dev/null
+FIRST="$(g release | tee "$EV/08-release-1.txt")"
+echo "    run 1: $FIRST"
+check "the first release reports it, not as released"     "$MIS_ORDER" \
+  "$(echo "$FIRST" | field reconcile | tr ',' '\n' | grep -c "^${MIS_ORDER}$" | sed "s/^1$/${MIS_ORDER}/;s/^0$/-/")"
+check "…and counts none as released"                      0 "$(echo "$FIRST" | field released)"
+check "…and does not call it moved_on"                    0 \
+  "$(echo "$FIRST" | field moved_on | tr ',' '\n' | grep -c "^${MIS_ORDER}$" || true)"
+TRAIL1="$(g trail "$MIS_ORDER")"
+echo "    $TRAIL1"
+check "…and the trail is kept, not dropped"               stock_mismatch "$(echo "$TRAIL1" | field reconcile)"
+check "…with «where it was» still on the order"           true "$(echo "$TRAIL1" | field held)"
+
+SECOND="$(g release | tee "$EV/08-release-2.txt")"
+echo "    run 2: $SECOND"
+check "the SECOND release reports it again"               "$MIS_ORDER" \
+  "$(echo "$SECOND" | field reconcile | tr ',' '\n' | grep -c "^${MIS_ORDER}$" | sed "s/^1$/${MIS_ORDER}/;s/^0$/-/")"
+check "…and does not call it moved_on"                    0 \
+  "$(echo "$SECOND" | field moved_on | tr ',' '\n' | grep -c "^${MIS_ORDER}$" || true)"
+TRAIL2="$(g trail "$MIS_ORDER")"
+echo "    $TRAIL2"
+check "…and the mark is still there after run 2"          stock_mismatch "$(echo "$TRAIL2" | field reconcile)"
+check "…and so is the stock trail"                        "$(echo "$TRAIL1" | field was_reduced)" \
+  "$(echo "$TRAIL2" | field was_reduced)"
+check "…and «where it was» was not forgotten"             true "$(echo "$TRAIL2" | field held)"
+check "the order is on the manager's list"                1 \
+  "$(g reconcile-list | field ids | tr ',' '\n' | grep -c "^${MIS_ORDER}$" || true)"
+
+check "an unexplained resolution is refused"              reconcile_note_required \
+  "$(g resolve "$MIS_ORDER" '' | field code)"
+RESOLVED="$(g resolve "$MIS_ORDER" 'موجودی را دستی در ووکامرس درست کردم.' | tee "$EV/08-resolve.txt")"
+echo "    $RESOLVED"
+check "a recorded decision closes it"                     true "$(echo "$RESOLVED" | field ok)"
+check "…and the mark is gone"                             '-' "$(g trail "$MIS_ORDER" | field reconcile)"
+check "…and the list is empty"                            0 \
+  "$(g reconcile-list | field ids | tr ',' '\n' | grep -c "^${MIS_ORDER}$" || true)"
+# The record has to outlive this plugin: an order note is WooCommerce's, and it
+# is still there after the package is replaced.
+check "…and the reason is on the WooCommerce order itself" 1 \
+  "$(g order-notes "$MIS_ORDER" | grep -c 'موجودی را دستی' || true)"
+
+echo
+echo "--- 9. an absent stock flag is «unknown», never «no» ---"
+# Two real orders produce this: one held by alpha.11 before the flag existed,
+# and one whose hold wrote the status and died before the second save. Both are
+# the same shape on disk, so one fixture covers both.
+g forget-all > /dev/null; g purge > /dev/null
+OLD_ORDER="$(g seed 1 "$TMC_A" pending | field first)"
+STOCK_BEFORE_OLD="$(g stock "$TMC_A" | field stock)"
+g hold 'old-build' > /dev/null
+DROPPED="$(g drop-stock-flag "$OLD_ORDER")"
+echo "    $DROPPED"
+check "the order is still held"                           true "$(echo "$DROPPED" | field held)"
+check "…but the stock note is gone"                       '-' "$(echo "$DROPPED" | field flag)"
+OLD_RELEASE="$(g release | tee "$EV/09-unknown-flag.txt")"
+echo "    $OLD_RELEASE"
+check "an unknown flag goes to reconciliation"            "$OLD_ORDER" \
+  "$(echo "$OLD_RELEASE" | field reconcile | tr ',' '\n' | grep -c "^${OLD_ORDER}$" | sed "s/^1$/${OLD_ORDER}/;s/^0$/-/")"
+check "…and is NOT guessed as «not reduced»"              stock_state_unknown \
+  "$(g trail "$OLD_ORDER" | field reconcile)"
+check "…and is not counted as released"                   0 "$(echo "$OLD_RELEASE" | field released)"
+g resolve "$OLD_ORDER" 'سفارش قدیمی؛ بررسی شد.' > /dev/null
+
+{ echo "=== final census ==="; g census; g payable; g reconcile-list; } > "$EV/07-final.txt"
 g cleanup > /dev/null
 
 echo

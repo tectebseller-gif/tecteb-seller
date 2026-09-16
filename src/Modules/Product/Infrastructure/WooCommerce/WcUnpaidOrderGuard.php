@@ -190,6 +190,25 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
             if ($previous === '') {
                 continue;       // not ours to put back
             }
+            // FIRST, before anything else looks at the status.
+            //
+            // A reconciled-pending order has ALREADY been put back: its status
+            // is `$previous`, not `on-hold`. So the `moved_on` branch below
+            // matched it on the very next run, called it somebody else's
+            // decision, and `forget()` wiped the reconcile mark and the
+            // «where it was and what its stock did» trail along with it — the
+            // one run that reported the problem was also the last run that
+            // knew about it.
+            //
+            // Nothing here is touched and nothing is forgotten. The mark is
+            // cleared by `resolveReconciliation()` and by nothing else: either
+            // a person has actually put the stock right, or a person has
+            // recorded a decision to accept it. A later release must not be
+            // able to do it by accident.
+            if ((string) $order->get_meta(self::RECONCILE_META) !== '') {
+                $reconcile[] = $orderId;
+                continue;
+            }
             if ((string) $order->get_status() !== self::HELD_STATUS) {
                 // Somebody moved it on while it was held — paid it by hand,
                 // cancelled it, completed it. That decision outranks ours, so
@@ -205,7 +224,25 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
                 continue;
             }
 
-            $wasReduced = (string) $order->get_meta(self::STOCK_WAS_REDUCED_META) === '1';
+            // Three answers, not two. An ABSENT flag is «we do not know», and
+            // guessing false there is the phantom unit all over again: the
+            // release would let WooCommerce increase stock on an order whose
+            // hold may well have reduced none.
+            //
+            // It is absent on two real orders. One held by `alpha.11`, before
+            // this flag existed, and released by this build. One whose hold
+            // wrote the previous status and then failed before the second
+            // `save()` — the status moved, the trail did not.
+            //
+            // Both go to reconciliation. A stop this build cannot account for
+            // is a person's to look at, not a number to guess.
+            $recorded = (string) $order->get_meta(self::STOCK_WAS_REDUCED_META);
+            if ($recorded !== '1' && $recorded !== '0') {
+                $reconcile[] = $orderId;
+                $this->remember($orderId, self::RECONCILE_META, 'stock_state_unknown');
+                continue;
+            }
+            $wasReduced = $recorded === '1';
             // When the hold reduced nothing, the release must increase
             // nothing. Taking the hook off for exactly this one transition is
             // narrower than any alternative: no filter of ours runs during
@@ -345,6 +382,53 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
             }
         }
         return $ids;
+    }
+
+    /**
+     * A manager says this one is dealt with — the ONLY thing that clears a
+     * reconcile mark.
+     *
+     * Not a retry, not a later release, not «it looks fine now». The mark
+     * exists because a number did not add up and a person has to decide what
+     * that meant; code deciding it for them is how the problem stops being
+     * visible without stopping being real.
+     *
+     * The decision is written into the order's own notes before the mark goes,
+     * so the record outlives this plugin: an order whose stock was corrected
+     * by hand says so on the order, where anybody looking at it will see it,
+     * rather than only in a log this build happens to keep.
+     *
+     * @param string $note what the person actually did. Required — an
+     *        unexplained resolution is the same as no resolution.
+     */
+    public function resolveReconciliation(int $orderId, int $actorId, string $note): bool
+    {
+        $note = trim($note);
+        if ($orderId <= 0 || $note === '') {
+            return false;
+        }
+        $order = $this->load($orderId);
+        if ($order === null || (string) $order->get_meta(self::RECONCILE_META) === '') {
+            return false;
+        }
+        $mark = (string) $order->get_meta(self::RECONCILE_META);
+        try {
+            // The note first. If the save below fails, the mark is still
+            // there — an order that keeps its mark and gains an extra note is
+            // recoverable; one that loses its mark and gains nothing is not.
+            $order->add_order_note($this->resolutionNote($mark, $actorId, $note), false, false);
+            $order->delete_meta_data(self::RECONCILE_META);
+            $order->delete_meta_data(self::PREVIOUS_STATUS_META);
+            $order->delete_meta_data(self::STOCK_WAS_REDUCED_META);
+            $order->delete_meta_data(self::STOCK_MOVED_META);
+            $order->save();
+        } catch (\Throwable) {
+            return false;
+        }
+        // Verified by re-reading, because `WC_Order::save()` swallows its own
+        // exception and a successful return proves nothing.
+        $fresh = $this->load($orderId);
+        return $fresh !== null && (string) $fresh->get_meta(self::RECONCILE_META) === '';
     }
 
     /**
@@ -534,6 +618,28 @@ final class WcUnpaidOrderGuard implements UnpaidOrderGuardInterface
             /* translators: %s: the recorded reason selling stopped */
             __('این سفارش در انتظار نگه داشته شد چون فروش بازارگاه متوقف است (%s). سفارش، اقلام و مبلغش تغییری نکرده و لغو نشده؛ فقط تا تعیین تکلیف، پرداخت تازه‌ای روی آن انجام نمی‌شود. با «بازگرداندن سفارش‌های نگه‌داشته» همین سفارش به وضعیت قبلی‌اش برمی‌گردد و دوباره قابل پرداخت می‌شود.', 'tecteb-marketplace-core'),
             $reason
+        );
+    }
+
+    /**
+     * The manager's decision, written onto the WooCommerce order.
+     *
+     * On the ORDER rather than only in this plugin's audit log, because the
+     * whole point of the note is that it outlives this package: somebody
+     * reading that order after a rollback still finds out why a flagged
+     * difference was accepted.
+     */
+    private function resolutionNote(string $mark, int $actorId, string $note): string
+    {
+        $why = $mark === 'stock_state_unknown'
+            ? __('این سفارش پیش از ثبت ردِ موجودی نگه داشته شده بود.', 'tecteb-marketplace-core')
+            : __('موجودی پس از بازگرداندن، همان چیزی نشد که پیش از توقف بود.', 'tecteb-marketplace-core');
+        return sprintf(
+            /* translators: 1: why it was flagged, 2: the manager's user id, 3: what they did */
+            __('بازارگاه تک‌طب — بررسی دستی موجودی: %1$s مدیر (شناسهٔ %2$s) این را بررسی و ثبت کرد: %3$s', 'tecteb-marketplace-core'),
+            $why,
+            (string) $actorId,
+            $note
         );
     }
 

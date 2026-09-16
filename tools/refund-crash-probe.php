@@ -42,3 +42,59 @@ $tmc_refund_crash = static function ($orderId, $refundId): void {
 
 add_action('woocommerce_order_partially_refunded', $tmc_refund_crash, 1, 2);
 add_action('woocommerce_order_fully_refunded', $tmc_refund_crash, 1, 2);
+
+/**
+ * The EARLIER window, and the one the first probe cannot reach.
+ *
+ * WooCommerce creates a refund in THREE separate, uncommitted-together steps —
+ * the same shape on both storage backends:
+ *
+ *   HPOS   `OrdersTableDataStore::persist_save()`:
+ *          persist_order_to_db() → update_order_meta() → save_meta_data()
+ *   legacy `Abstract_WC_Order_Data_Store_CPT::create()`:
+ *          wp_insert_post() → update_post_meta() → save_meta_data()
+ *
+ * Our `_tmc_return_id` stamp lands in step 3. Nothing wraps the three in a
+ * transaction, and nothing in step 1 carries the return id. So there is a real
+ * state the first probe never produces: a refund row that exists and is NOT
+ * stamped.
+ *
+ * This one produces it, by dying while WooCommerce is writing `_refund_amount`
+ * — after the row, before the stamp.
+ *
+ * The hook took three wrong guesses to find, and every one of them was SILENT:
+ * a probe that never fires reads exactly like a probe whose condition never
+ * happened, which is why the check beside it asserts the exit code rather than
+ * only the outcome.
+ *
+ *   - Not `added_post_meta`: that is the legacy-posts path, and this site runs
+ *     HPOS.
+ *   - Not `added_order_meta`: a refund is its own WooCommerce object type, so
+ *     the action is `added_order_refund_meta`.
+ *   - Not on `_refund_amount`: under HPOS the amount and the reason are
+ *     COLUMNS of `wp_wc_orders`, written inside step 1, so they never reach a
+ *     meta hook at all.
+ *
+ * All three actions are registered, and both meta keys are accepted, so this
+ * probe stays honest on either storage backend.
+ *
+ *   wp option update tmc_probe_crash_unstamped 1
+ */
+$tmc_unstamped_crash = static function ($metaId, $objectId, $metaKey): void {
+    // Under HPOS the amount and the reason are COLUMNS of `wp_wc_orders`, not
+    // meta rows, so they are part of step 1 and never reach a meta hook.
+    // `_refund_type` is a real meta and is queued before this plugin's stamp,
+    // so it is the last thing written before the window opens. On the legacy
+    // backend `_refund_amount` is the equivalent. Either one is the signal.
+    if (!in_array($metaKey, ['_refund_type', '_refund_amount'], true)
+        || (int) get_option('tmc_probe_crash_unstamped', 0) !== 1) {
+        return;
+    }
+    delete_option('tmc_probe_crash_unstamped');
+    fwrite(STDERR, sprintf("probe: killed after refund %d existed, before it was stamped\n", (int) $objectId));
+    exit(8);
+};
+
+add_action('added_order_refund_meta', $tmc_unstamped_crash, 1, 3);
+add_action('added_order_meta', $tmc_unstamped_crash, 1, 3);
+add_action('added_post_meta', $tmc_unstamped_crash, 1, 3);

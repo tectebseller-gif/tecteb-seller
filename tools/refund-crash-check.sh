@@ -159,6 +159,108 @@ check "…so the order holds three refunds, each written once"  3 "$(ret wc-refu
 check "…and recording refunds moved no stock at all"          "$STOCK_4" "$(stock)"
 check "…nor wrote a financial line"                           "$LEDGER_4" "$(ledger)"
 
+# ---------------------------------------------------------------------------
+# 5. The EARLIER window — the one the stamp cannot cover.
+#
+#    The claim this section replaces was that the refund's id and our stamp are
+#    «one insert». They are not, on either storage backend. This site runs
+#    HPOS, so the path is `OrdersTableDataStore::persist_save()`:
+#    persist_order_to_db() → update_order_meta() → save_meta_data(), with our
+#    stamp in the third. The legacy-posts path has the same three-step shape.
+#    Nothing wraps them in a transaction and nothing in the row names the
+#    return, so the store in use is PRINTED below rather than assumed.
+#
+#    So a crash between step 1 and step 3 leaves a refund this build cannot
+#    recognise. The stamp alone would then make a SECOND one. The intent marker
+#    is what closes it: the retry stops and hands the ids to a person.
+# ---------------------------------------------------------------------------
+echo
+echo "--- 5. killed BEFORE the stamp: the retry refuses to guess ---"
+# WooCommerce's own source, read at run time rather than quoted from memory.
+STEPS="$(wp eval-file refund-storage-probe.php | tee "$EV/10-storage-path.txt")"
+echo "    $STEPS"
+check "the row is one write…"                                 1 "$(echo "$STEPS" | field row_write)"
+check "…the internal props another…"                          1 "$(echo "$STEPS" | field prop_write)"
+check "…and OUR stamp a third"                                1 "$(echo "$STEPS" | field stamp_write)"
+check "…with nothing wrapping them in a transaction"          0 "$(echo "$STEPS" | field transaction)"
+check "…and the row itself names no return"                   0 "$(echo "$STEPS" | field excerpt_carries_reason)"
+
+# A FRESH order and return, not the line section 1 used. That line's two units
+# are already spent — one returned in section 1, one in section 4 — and a third
+# `open` is refused by the quantity rule, which would make this section test
+# nothing while looking like it passed.
+SEED_5="$(wp eval-file engagement-state.php seed-real-return "$TMC_A" | tee "$EV/09b-seed.txt")"
+echo "    $SEED_5"
+ITEM_5="$(echo "$SEED_5" | field item)"
+THIRD_RETURN="$(echo "$SEED_5" | field return)"
+[ -n "$THIRD_RETURN" ] && [ "$THIRD_RETURN" != "0" ] || { echo "could not seed a second real return" >&2; exit 2; }
+check "the fresh return is refunded in our books"             refunded \
+  "$(ret show-return "$THIRD_RETURN" | field status)"
+BEFORE_5="$(ret wc-refunds "$ITEM_5")"
+COUNT_5="$(echo "$BEFORE_5" | field count)"
+STAMPED_5="$(echo "$BEFORE_5" | field stamped)"
+STOCK_5="$(stock)"; LEDGER_5="$(ledger)"
+
+wp option update tmc_probe_crash_unstamped 1 > /dev/null
+CRASH2=0
+(cd "$WPROOT" && "$PHPBIN" "$WPCLI" --allow-root eval-file return-state.php wc-refund "$THIRD_RETURN") \
+  > "$EV/11-crash-unstamped-stdout.txt" 2> "$EV/11-crash-unstamped-stderr.txt" || CRASH2=$?
+echo "    exit=${CRASH2}  $(head -1 "$EV/11-crash-unstamped-stderr.txt")"
+check "the process died before the stamp was written"         8 "$CRASH2"
+
+ORPHAN2="$(ret wc-refunds "$ITEM_5" | tee "$EV/12-after-crash.txt")"
+echo "    $ORPHAN2"
+check "WooCommerce kept a refund all the same"                "$((COUNT_5 + 1))" "$(echo "$ORPHAN2" | field count)"
+# MEASURED, not assumed, and it is better news than the design allowed for:
+# under HPOS this plugin's stamp is written BEFORE `_refund_type`, so by the
+# time the earliest reachable meta hook fires the refund is already
+# recognisable. The window is therefore narrower than the three-step shape
+# suggests — but it is not zero, because the row insert and the first meta
+# insert are still separate statements with nothing between them.
+check "…and on THIS backend it was already stamped"          "$((STAMPED_5 + 1))" \
+  "$(echo "$ORPHAN2" | field stamped)"
+RETRY_STAMPED="$(ret wc-refund "$THIRD_RETURN" | tee "$EV/13-retry-after-crash.txt")"
+echo "    $RETRY_STAMPED"
+check "…so the retry recovers it automatically"              refund_recovered \
+  "$(echo "$RETRY_STAMPED" | field code)"
+
+# ---------------------------------------------------------------------------
+# 6. The state the stamp CANNOT cover, staged directly.
+#
+#    A refund that exists with no stamp is what the un-transactioned window
+#    leaves — and it is also exactly what a manager's own wp-admin refund
+#    leaves. From the plugin's side the two are indistinguishable, which is
+#    precisely why it must not adopt one by resemblance.
+# ---------------------------------------------------------------------------
+echo
+echo "--- 6. an unstamped refund plus a known attempt: the retry refuses ---"
+SEED_6="$(wp eval-file engagement-state.php seed-real-return "$TMC_A" | tee "$EV/14-seed.txt")"
+echo "    $SEED_6"
+ITEM_6="$(echo "$SEED_6" | field item)"
+RETURN_6="$(echo "$SEED_6" | field return)"
+STOCK_6="$(stock)"; LEDGER_6="$(ledger)"
+STAGED="$(ret stage-orphan "$RETURN_6" | tee "$EV/15-orphan.txt")"
+echo "    $STAGED"
+AFTER_STAGE="$(ret wc-refunds "$ITEM_6")"
+echo "    $AFTER_STAGE"
+check "the order carries a refund with no stamp"              1 \
+  "$(echo "$AFTER_STAGE" | field ids | tr ',' '\n' | grep -c ':-:' || true)"
+check "…and the return still says it has none"                - \
+  "$(ret wc-refund-link "$RETURN_6" | field wc_refund_id)"
+
+RETRY3="$(ret wc-refund "$RETURN_6" | tee "$EV/16-retry-orphan.txt")"
+echo "    $RETRY3"
+check "the retry refuses rather than guessing"                refund_reconcile_required \
+  "$(echo "$RETRY3" | field code)"
+check "…and made no second refund"                            "$(echo "$AFTER_STAGE" | field count)" \
+  "$(ret wc-refunds "$ITEM_6" | field count)"
+check "…and moved no stock"                                   "$STOCK_6" "$(stock)"
+check "…and wrote no financial line"                          "$LEDGER_6" "$(ledger)"
+check "…and left the return honestly unlinked"                - \
+  "$(ret wc-refund-link "$RETURN_6" | field wc_refund_id)"
+check "…and named the id a person has to look at"             yes \
+  "$([ "$(echo "$RETRY3" | field candidates)" != "-" ] && echo yes || echo no)"
+
 {
 echo "=== final state ==="
 ret wc-refunds "$ITEM"

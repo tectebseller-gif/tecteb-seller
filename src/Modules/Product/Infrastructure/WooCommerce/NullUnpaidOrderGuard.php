@@ -34,6 +34,14 @@ final class NullUnpaidOrderGuard implements UnpaidOrderGuardInterface
         return [];
     }
 
+    public function resolveReconciliation(int $orderId, int $actorId, string $note): bool
+    {
+        // There is no order here to resolve anything about. False rather than
+        // true: reporting a resolution that did not happen is the one answer
+        // that would let a real mark be cleared by a site without WooCommerce.
+        return false;
+    }
+
     public function stockTrail(int $orderId): array
     {
         // Not «no stock was moved» — «there is no WooCommerce here to have

@@ -40,6 +40,7 @@
 |---|---|---|
 | HPOS روشن، sync روشن | **`Passed`** | وضعیت مؤثر از خود WooCommerce: `hpos_enabled=1 sync_enabled=1 table_exists=1`؛ REST همان را گزارش کرد · `G-07-hpos-sync-on-*` |
 | HPOS روشن، sync خاموش | **`Passed`** | `1/0/1`؛ گزارش REST `True` · `G-07-hpos-sync-off-*` |
+| **مسیر ذخیرهٔ refund زیر HPOS** | **`Passed`** | وضعیت جاری محیط یکبارمصرف: `woocommerce_custom_orders_table_enabled=yes`، کلاس `OrdersTableRefundDataStore`. سه نوشتنِ جدا بدون transaction (`persist_order_to_db` → `update_order_meta` → `save_meta_data`) و `post_excerpt` خالی — یعنی هیچ چیز در خودِ ردیف نام مرجوعی را نمی‌برد. از خودِ کد خوانده می‌شود، نه از حافظه: `tools/refund-storage-probe.php` · `docs/evidence/refund-crash/10-storage-path.txt` |
 | هر سه حالت روی **بسته تحویلی `0.1.0-alpha.2`** | **`Passed`** | اجرای تازه با PHP 8.1.32؛ در هر سه حالت `plugin_errors=0` · `acceptance/gates-0.1.0-alpha.2/G-07-summary.txt`. انگیزه: مالک گزارش کرده HPOS روی staging فعال است |
 | ذخیره قدیمی سفارش (posts) | **`Passed`** | `wp wc hpos disable` → `0/0/1`؛ گزارش REST `False` · `G-07-legacy-*` |
 | Checkout کلاسیک / Block | `Not Tested` | فاز ۱ هیچ checkout لمس نمی‌کند |

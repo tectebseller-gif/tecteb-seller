@@ -67,6 +67,8 @@ final class AuditEventCatalog
     public const STOREFRONT_RESUMED = 'storefront.resumed';
     /** Handing unpaid orders back, which is NOT the same act as resuming sales. */
     public const STOREFRONT_ORDERS_RELEASED = 'storefront.orders_released';
+    /** A manager's recorded decision about an order whose stock did not add up. */
+    public const STOREFRONT_RECONCILED = 'storefront.order_reconciled';
     /** Finance: rules and the append-only ledger. */
     public const FINANCE_RATE_CHANGED = 'finance.rate_changed';
     public const FINANCE_ACCRUED = 'finance.accrued';
@@ -156,7 +158,11 @@ final class AuditEventCatalog
             self::ORDER_RETURN_RECONCILE => ['return_id', 'item_id', 'event_key'],
             self::STOREFRONT_STOPPED => ['reason', 'withdrawn', 'failed', 'total', 'orders_held', 'orders_stuck'],
             self::STOREFRONT_RESUMED => ['published', 'refused', 'total', 'orders_released'],
-            self::STOREFRONT_ORDERS_RELEASED => ['released', 'stuck'],
+            // `moved_on` and `reconcile` are counted here too — they were
+            // being logged and silently dropped, which made the audit trail
+            // quieter than the screen it was supposed to corroborate.
+            self::STOREFRONT_ORDERS_RELEASED => ['released', 'stuck', 'moved_on', 'reconcile'],
+            self::STOREFRONT_RECONCILED => ['order_id', 'has_note'],
             self::FINANCE_RATE_CHANGED => ['scope', 'reference', 'rate_bp', 'cleared'],
             self::FINANCE_ACCRUED => ['vendor_id', 'rate_bp', 'rate_source', 'base_minor'],
             self::FINANCE_REVERSED => ['vendor_id', 'reverses', 'amount_minor'],

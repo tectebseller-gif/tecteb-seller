@@ -430,6 +430,11 @@ final class ManageReturns
             return OperationResult::failure($result['reason'], [
                 'return_id' => $returnId,
                 'remaining' => $result['remaining'] ?? null,
+                // The refund ids a person has to look at, when an interrupted
+                // attempt left something this build cannot identify. Carried
+                // through rather than summarised: «چند مورد» is not something
+                // anybody can act on.
+                'candidates' => implode('، ', array_map('strval', $result['candidates'] ?? [])),
             ]);
         }
         if (!$this->returns->linkWcRefund($returnId, $result['refund_id'])) {

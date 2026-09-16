@@ -20,6 +20,7 @@
  *   wp eval-file tools/return-state.php wc-refund <return-id>
  *   wp eval-file tools/return-state.php wc-refunds <order-item-id>
  *   wp eval-file tools/return-state.php unlink-refund <return-id>
+ *   wp eval-file tools/return-state.php stage-orphan <return-id>
  */
 
 use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
@@ -291,12 +292,15 @@ switch ($command) {
         // call the crash test interrupts and then repeats.
         $result = $returns->recordWooCommerceRefund($manager, (int) ($args[1] ?? 0));
         printf(
-            "wc-refund ok=%s code=%s wc_refund_id=%s did_wc_refund=%s did_money=%s blockers=%s\n",
+            "wc-refund ok=%s code=%s wc_refund_id=%s did_wc_refund=%s did_money=%s candidates=%s blockers=%s\n",
             $result->ok ? 'true' : 'false',
             $result->code,
             (string) ($result->context['wc_refund_id'] ?? '-'),
             !empty($result->context['did_wc_refund']) ? 'true' : 'false',
             !empty($result->context['did_money']) ? 'true' : 'false',
+            ((string) ($result->context['candidates'] ?? '')) === ''
+                ? '-'
+                : (string) $result->context['candidates'],
             (string) ($result->context['money_blockers'] ?? '-')
         );
         break;
@@ -344,6 +348,55 @@ switch ($command) {
             "link return=%s wc_refund_id=%s\n",
             $request === null ? '-' : (string) $request->id,
             ($request === null || $request->wcRefundId === null) ? '-' : (string) $request->wcRefundId
+        );
+        break;
+
+    case 'stage-orphan':
+        // The state a crash between the refund's row and its stamp leaves —
+        // and the state a manager's OWN wp-admin refund leaves, which from the
+        // outside is indistinguishable. That is the whole point: the plugin
+        // cannot tell them apart, so it must not guess.
+        //
+        // Staged directly rather than by contorting a probe. Measured on this
+        // site: under HPOS the stamp is written BEFORE `_refund_type`, so
+        // killing on a meta hook lands after the stamp and cannot produce this
+        // state — but the row insert and the meta insert are still separate
+        // statements with no transaction between them, so the state is real.
+        $id = (int) ($args[1] ?? 0);
+        $request = $shipments->findReturn($id);
+        if ($request === null) {
+            echo "no such return\n";
+            break;
+        }
+        $item = $items->find($request->orderItemId);
+        $order = $item === null ? null : wc_get_order($item->orderId);
+        if (!$order) {
+            echo "no order behind that return\n";
+            break;
+        }
+        // The intent marker, exactly as `record()` writes it before it tries.
+        $order->update_meta_data(
+            \Tecteb\Marketplace\Modules\Order\Infrastructure\WooCommerce\WcRefundRecorder::INTENT_META . $id,
+            (string) time()
+        );
+        $order->save();
+        $refund = wc_create_refund([
+            'order_id' => $item->orderId,
+            'amount' => 1,
+            'reason' => 'orphan without a stamp',
+            'refund_payment' => false,
+            'restock_items' => false,
+        ]);
+        global $wpdb;
+        $wpdb->query($wpdb->prepare(
+            'UPDATE ' . $wpdb->prefix . 'tmc_returns SET wc_refund_id = NULL WHERE id = %d',
+            $id
+        ));
+        printf(
+            "stage-orphan return=%d order=%d refund=%s intent=set\n",
+            $id,
+            $item->orderId,
+            is_wp_error($refund) ? 'error' : (string) $refund->get_id()
         );
         break;
 

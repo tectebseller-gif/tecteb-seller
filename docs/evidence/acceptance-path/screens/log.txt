@@ -1,0 +1,24 @@
+1 پیشخوان فروشنده (vendor) @ 390px → 1-vendor-dashboard-390.png  cards=3 charts=0 hscroll=false error=false
+1 پرسنل (vendor) @ 390px → 1-vendor-staff-390.png  cards=2 charts=0 hscroll=false error=false
+2 محصولات (vendor) @ 390px → 2-vendor-products-390.png  cards=2 charts=0 hscroll=false error=false
+3 سفارش‌های فروش (vendor) @ 390px → 3-vendor-orders-390.png  cards=1 charts=0 hscroll=false error=false
+4 ارسال جزئی (vendor) @ 390px → 4-vendor-orders-shipping-390.png  cards=1 charts=0 hscroll=false error=false
+5 مرجوعی و بازپرداخت (admin) @ 390px → 5-admin-returns-390.png  cards=1 charts=0 hscroll=false error=false
+6 امور مالی (vendor) @ 390px → 6-vendor-finance-390.png  cards=3 charts=0 hscroll=false error=false
+6 تسویه و برداشت (admin) @ 390px → 6-admin-withdrawals-390.png  cards=1 charts=0 hscroll=false error=false
+7 گزارش‌های فروشنده (vendor) @ 390px → 7-vendor-reports-390.png  cards=2 charts=3 hscroll=false error=false
+7 گزارش‌های مدیر (admin) @ 390px → 7-admin-reports-390.png  cards=3 charts=1 hscroll=false error=false
+7 نظرها و امتیازها (vendor) @ 390px → 7-vendor-reviews-390.png  cards=3 charts=1 hscroll=false error=false
+· وضعیت فروش بازارگاه (admin) @ 390px → ·-admin-storefront-390.png  cards=3 charts=0 hscroll=false error=false
+1 پیشخوان فروشنده (vendor) @ 1440px → 1-vendor-dashboard-1440.png  cards=3 charts=0 hscroll=false error=false
+1 پرسنل (vendor) @ 1440px → 1-vendor-staff-1440.png  cards=2 charts=0 hscroll=false error=false
+2 محصولات (vendor) @ 1440px → 2-vendor-products-1440.png  cards=2 charts=0 hscroll=false error=false
+3 سفارش‌های فروش (vendor) @ 1440px → 3-vendor-orders-1440.png  cards=1 charts=0 hscroll=false error=false
+4 ارسال جزئی (vendor) @ 1440px → 4-vendor-orders-shipping-1440.png  cards=1 charts=0 hscroll=false error=false
+5 مرجوعی و بازپرداخت (admin) @ 1440px → 5-admin-returns-1440.png  cards=1 charts=0 hscroll=false error=false
+6 امور مالی (vendor) @ 1440px → 6-vendor-finance-1440.png  cards=3 charts=0 hscroll=false error=false
+6 تسویه و برداشت (admin) @ 1440px → 6-admin-withdrawals-1440.png  cards=1 charts=0 hscroll=false error=false
+7 گزارش‌های فروشنده (vendor) @ 1440px → 7-vendor-reports-1440.png  cards=2 charts=3 hscroll=false error=false
+7 گزارش‌های مدیر (admin) @ 1440px → 7-admin-reports-1440.png  cards=3 charts=1 hscroll=false error=false
+7 نظرها و امتیازها (vendor) @ 1440px → 7-vendor-reviews-1440.png  cards=3 charts=1 hscroll=false error=false
+· وضعیت فروش بازارگاه (admin) @ 1440px → ·-admin-storefront-1440.png  cards=3 charts=0 hscroll=false error=false

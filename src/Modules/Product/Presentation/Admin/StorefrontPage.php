@@ -15,6 +15,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontStop;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch;
+use Tecteb\Marketplace\Modules\Product\Application\UnpaidOrderGuardInterface;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WcUnpaidOrderGuard;
 use Tecteb\Marketplace\Modules\Product\Presentation\PurchaseMessages;
 
@@ -151,6 +152,88 @@ final class StorefrontPage
                 . esc_html__('توقف فروش بازارگاه و خارج‌کردن محصول‌ها از فروشگاه', 'tecteb-marketplace-core') . '</button></p>';
         }
         echo '</form></section>';
+        $this->renderReconcilePanel($fa);
+    }
+
+    /**
+     * The orders a person has to look at — and the one control that closes one.
+     *
+     * Its own panel, below the buttons, because it is the only thing on this
+     * screen that cannot be fixed by pressing something again. A reconcile mark
+     * survives every retry and every release; nothing clears it but a decision
+     * recorded here, with a note that is written onto the WooCommerce order
+     * itself so it outlives this plugin.
+     */
+    private function renderReconcilePanel(callable $fa): void
+    {
+        $orders = $this->container->get(StorefrontStop::class)->needingReconciliation();
+        if ($orders === []) {
+            return;
+        }
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('سفارش‌هایی که باید دستی بررسی شوند', 'tecteb-marketplace-core') . '</h2>';
+        echo Components::notice('error', sprintf(
+            /* translators: 1: how many, 2: the WooCommerce order numbers */
+            __('%1$s سفارش (شمارهٔ %2$s) نگه داشته و برگردانده شدند، ولی موجودی‌شان سرِ جای اولش برنگشت یا این بسته نمی‌داند توقف با موجودی چه کرد. این بازارگاه هیچ عدد موجودی‌ای را خودسرانه بازنویسی نمی‌کند، پس تا تصمیم شما این نشانه سرِ جایش می‌ماند — «بازگرداندن» دوباره هم پاکش نمی‌کند.', 'tecteb-marketplace-core'),
+            esc_html($fa((string) count($orders))),
+            esc_html($fa(implode('، ', array_map('strval', $orders))))
+        ));
+        echo '<p class="tmc-field__desc">'
+            . esc_html__('موجودی هر محصول این سفارش‌ها را در ووکامرس ببینید. اگر عددی جا مانده بود، همان‌جا درستش کنید؛ اگر اختلاف پذیرفتنی بود، همین را بنویسید. در هر دو حالت یادداشتتان روی خود سفارش ثبت می‌شود.', 'tecteb-marketplace-core')
+            . '</p>';
+        echo '<div class="tmc-scroll" tabindex="0" role="region" aria-label="'
+            . esc_attr__('سفارش‌های نیازمند بررسی', 'tecteb-marketplace-core') . '">'
+            . '<table class="tmc-table"><thead><tr>'
+            . '<th scope="col">' . esc_html__('سفارش', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('آنچه می‌دانیم', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('ثبت تصمیم', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>';
+        $guard = $this->container->get(UnpaidOrderGuardInterface::class);
+        foreach ($orders as $orderId) {
+            $trail = $guard->stockTrail((int) $orderId);
+            echo '<tr>'
+                . '<th scope="row" data-label="' . esc_attr__('سفارش', 'tecteb-marketplace-core') . '">'
+                . esc_html($fa((string) $orderId)) . '</th>'
+                . '<td data-label="' . esc_attr__('آنچه می‌دانیم', 'tecteb-marketplace-core') . '">'
+                . esc_html(self::trailSentence($trail)) . '</td>'
+                . '<td data-label="' . esc_attr__('ثبت تصمیم', 'tecteb-marketplace-core') . '">'
+                . '<form method="post" class="tmc-inline">'
+                . wp_nonce_field(self::NONCE, 'tmc_storefront_nonce', true, false)
+                . '<input type="hidden" name="reconcile_order" value="' . esc_attr((string) $orderId) . '">'
+                . '<label class="tmc-field"><span class="tmc-field__label">'
+                . esc_html__('چه کردید؟', 'tecteb-marketplace-core') . '</span>'
+                . '<textarea name="reconcile_note" rows="2" class="large-text" required></textarea></label>'
+                . '<button type="submit" name="storefront_action" value="resolve_reconcile" class="tmc-button">'
+                . esc_html__('ثبت و بستن', 'tecteb-marketplace-core') . '</button>'
+                . '</form></td></tr>';
+        }
+        echo '</tbody></table></div></section>';
+    }
+
+    /**
+     * What the guard recorded about one order, as a sentence.
+     *
+     * `null` is «we do not know», and it is said as that rather than as «no».
+     * An order held by a build that predates the stock trail is exactly the
+     * case this distinction exists for.
+     *
+     * @param array{held:bool, was_reduced:?bool, moved:?bool, reconcile:string} $trail
+     */
+    private static function trailSentence(array $trail): string
+    {
+        $unknown = __('نامعلوم', 'tecteb-marketplace-core');
+        $yesNo = static fn (?bool $v): string => $v === null
+            ? $unknown
+            : ($v ? __('بله', 'tecteb-marketplace-core') : __('خیر', 'tecteb-marketplace-core'));
+        $why = $trail['reconcile'] === 'stock_state_unknown'
+            ? __('این سفارش پیش از ثبت ردِ موجودی نگه داشته شده بود، پس نمی‌دانیم توقف موجودی را کم کرد یا نه.', 'tecteb-marketplace-core')
+            : __('موجودی پس از بازگرداندن، همان چیزی نشد که پیش از توقف بود.', 'tecteb-marketplace-core');
+        return $why . ' ' . sprintf(
+            /* translators: 1: whether stock was already reduced before the hold, 2: whether the hold moved it */
+            __('پیش از توقف کم شده بود: %1$s · خودِ توقف موجودی را تکان داد: %2$s', 'tecteb-marketplace-core'),
+            $yesNo($trail['was_reduced']),
+            $yesNo($trail['moved'])
+        );
     }
 
     /** The gate's reasons, in full — the half PurchaseMessages keeps back. */
@@ -272,6 +355,24 @@ final class StorefrontPage
                 __('%s سفارش دیگر را در همین فاصله کسی پرداخت یا لغو کرده بود؛ آن‌ها دست‌نخورده ماندند و فقط نشانهٔ توقف از رویشان برداشته شد.', 'tecteb-marketplace-core'),
                 $fa((string) $movedOn)
             ) : '');
+        }
+
+        if ($action === 'resolve_reconcile') {
+            $result = $stop->resolveReconciliation(
+                $request->postInt('reconcile_order'),
+                $actorId,
+                $request->postTextarea('reconcile_note')
+            );
+            if (!$result->ok) {
+                return 'err:' . ($result->code === 'reconcile_note_required'
+                    ? __('بنویسید چه کردید. یادداشتِ خالی یعنی نفر بعدی یک پرچمِ پاک‌شده می‌بیند و نمی‌داند چه اتفاقی افتاده.', 'tecteb-marketplace-core')
+                    : __('ثبت نشد. سفارش را در ووکامرس بررسی کنید؛ نشانهٔ بررسی هنوز سرِ جایش است.', 'tecteb-marketplace-core'));
+            }
+            return 'ok:' . sprintf(
+                /* translators: %s: the WooCommerce order number */
+                __('سفارش %s بسته شد. یادداشت شما روی خود سفارش در ووکامرس هم ثبت شد، پس بعداً هرکس آن سفارش را ببیند دلیلش را می‌خواند.', 'tecteb-marketplace-core'),
+                $fa((string) $result->context['order_id'])
+            );
         }
 
         if ($action === 'resume') {

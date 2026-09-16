@@ -71,6 +71,19 @@ interface UnpaidOrderGuardInterface
     public function needsReconciliation(): array;
 
     /**
+     * A manager records what they did about one of those orders, which is the
+     * ONLY thing that clears its mark.
+     *
+     * Deliberately not «retry and see if it looks right now». The mark says a
+     * number did not add up; whether that meant a correction, an acceptable
+     * difference or a mistake is a judgement, and code making it is how the
+     * problem stops being visible without stopping being real.
+     *
+     * @param string $note what was actually done. Required.
+     */
+    public function resolveReconciliation(int $orderId, int $actorId, string $note): bool;
+
+    /**
      * What this guard knows about one order's stock — so a screen can say
      * «این سفارش پیش از توقف هم موجودی را کم کرده بود» instead of a shrug.
      *

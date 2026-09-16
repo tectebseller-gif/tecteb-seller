@@ -288,6 +288,39 @@ final class StorefrontStop
     }
 
     /**
+     * A manager records what they did about one flagged order.
+     *
+     * The only path that clears a reconcile mark, and it needs a note: an
+     * unexplained resolution is the same as no resolution, because the next
+     * person to look will find a cleared flag and no idea what happened.
+     */
+    public function resolveReconciliation(int $orderId, int $actorId, string $note): OperationResult
+    {
+        // Capability is the SCREEN's gate here, the same as `releaseOrders()`
+        // and `stop()`: this service has no capability checker, and inventing
+        // one for a single method would put the same rule in two places and
+        // let them drift.
+        if (trim($note) === '') {
+            return OperationResult::failure('reconcile_note_required');
+        }
+        if (!$this->unpaidOrders->resolveReconciliation($orderId, $actorId, $note)) {
+            return OperationResult::failure('reconcile_failed', ['order_id' => $orderId]);
+        }
+        $this->audit->log(AuditEventCatalog::STOREFRONT_RECONCILED, $actorId, 'order', (string) $orderId, [
+            'order_id' => $orderId,
+            'has_note' => true,
+        ]);
+        // The stop's own «still not finished» list is recomputed from what is
+        // left, so resolving the last one is what finally clears the notice.
+        $current = $this->switch->stuck();
+        $this->switch->markStuck(
+            $current['products'],
+            array_values(array_diff($current['orders'], [$orderId]))
+        );
+        return OperationResult::success('reconcile_recorded', ['order_id' => $orderId]);
+    }
+
+    /**
      * Result-shaped wrapper, for the screens that report to a person.
      *
      * Succeeds only when the shelf is actually empty. One product left on sale

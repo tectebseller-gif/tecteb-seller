@@ -59,6 +59,18 @@ final class FakeUnpaidOrderGuard implements UnpaidOrderGuardInterface
         return [];
     }
 
+    /** @var list<int> orders a manager has recorded a decision about */
+    public array $resolved = [];
+
+    public function resolveReconciliation(int $orderId, int $actorId, string $note): bool
+    {
+        if (trim($note) === '') {
+            return false;
+        }
+        $this->resolved[] = $orderId;
+        return true;
+    }
+
     public function stockTrail(int $orderId): array
     {
         // Nulls rather than falses, for the same reason NullUnpaidOrderGuard

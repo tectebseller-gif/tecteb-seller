@@ -24,6 +24,10 @@
  *   wp eval-file tools/guard-state.php probe-off
  *   wp eval-file tools/guard-state.php forget-all
  *   wp eval-file tools/guard-state.php cleanup
+ *   wp eval-file tools/guard-state.php force-mismatch <order-id>
+ *   wp eval-file tools/guard-state.php drop-stock-flag <order-id>
+ *   wp eval-file tools/guard-state.php resolve <order-id> <note>
+ *   wp eval-file tools/guard-state.php order-notes <order-id>
  */
 
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
@@ -33,6 +37,8 @@ $command = (string) ($args[0] ?? '');
 $c = Bootstrap::container();
 $guard = $c->get(\Tecteb\Marketplace\Modules\Product\Application\UnpaidOrderGuardInterface::class);
 $META = WcUnpaidOrderGuard::PREVIOUS_STATUS_META;
+$manager = (int) (get_users(['role' => 'administrator', 'number' => 1, 'fields' => 'ID'])[0] ?? 1);
+wp_set_current_user($manager);
 
 /** Stock as a number, or the word that says the product does not track it. */
 $stockOf = static function (int $productId) {
@@ -139,6 +145,63 @@ switch ($command) {
             $trail['moved'] === null ? '-' : ($trail['moved'] ? 'true' : 'false'),
             $trail['reconcile'] === '' ? '-' : $trail['reconcile']
         );
+        break;
+
+    case 'force-mismatch':
+        // Makes the stock flag disagree with what the hold recorded, WITHOUT
+        // touching a stock number — so `release()` finds exactly the condition
+        // it is meant to report and nothing else has been staged.
+        //
+        // The flag is WooCommerce's own `_order_stock_reduced`; flipping it is
+        // what a third-party plugin, a half-finished import or a restored
+        // backup can really leave behind.
+        $orderId = (int) ($args[1] ?? 0);
+        $order = wc_get_order($orderId);
+        if (!$order) {
+            echo "no such order\n";
+            break;
+        }
+        $was = (bool) $order->get_data_store()->get_stock_reduced($orderId);
+        $order->get_data_store()->set_stock_reduced($orderId, !$was);
+        printf("force-mismatch order=%d from=%s to=%s\n", $orderId, $was ? '1' : '0', $was ? '0' : '1');
+        break;
+
+    case 'drop-stock-flag':
+        // Removes the guard's own «was it already reduced» note, leaving the
+        // previous-status note in place: exactly an order held by `alpha.11`,
+        // or one whose hold saved the status and then died.
+        $orderId = (int) ($args[1] ?? 0);
+        $order = wc_get_order($orderId);
+        if (!$order) {
+            echo "no such order\n";
+            break;
+        }
+        $order->delete_meta_data(\Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WcUnpaidOrderGuard::STOCK_WAS_REDUCED_META);
+        $order->save();
+        $fresh = wc_get_order($orderId);
+        printf(
+            "drop-stock-flag order=%d held=%s flag=%s\n",
+            $orderId,
+            (string) $fresh->get_meta(\Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WcUnpaidOrderGuard::PREVIOUS_STATUS_META) !== '' ? 'true' : 'false',
+            (string) $fresh->get_meta(\Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WcUnpaidOrderGuard::STOCK_WAS_REDUCED_META) === '' ? '-' : 'set'
+        );
+        break;
+
+    case 'resolve':
+        // The manager's recorded decision — the only thing that clears a mark.
+        $result = $c->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontStop::class)
+            ->resolveReconciliation((int) ($args[1] ?? 0), $manager, (string) ($args[2] ?? ''));
+        printf("resolve ok=%s code=%s\n", $result->ok ? 'true' : 'false', $result->code);
+        break;
+
+    case 'order-notes':
+        // The notes WooCommerce itself holds on the order, so the evidence can
+        // check that a resolution outlives this plugin.
+        $notes = wc_get_order_notes(['order_id' => (int) ($args[1] ?? 0), 'limit' => 50]);
+        printf("notes order=%s count=%d\n", (string) ($args[1] ?? 0), count($notes));
+        foreach ($notes as $note) {
+            printf("  note=%s\n", str_replace("\n", ' ', (string) $note->content));
+        }
         break;
 
     case 'reconcile-list':

@@ -32,8 +32,10 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 **ارتقا و بازگشت (۱۴ سپتامبر):** دو مسیر روی همان وردپرس یکبارمصرف اجرا شد —
 `alpha.1 → alpha.4` (همان بسته‌ای که روی staging نصب است) و `alpha.3 → alpha.4`
 — هرکدام ۳۵ بررسی و ۰ شکست. migration فقط افزودنی است و نسخه قدیمی ساختار را
-پایین نمی‌آورد، پس **برای بازگشت بازگرداندن ZIP قبلی کافی است و بازیابی
-دیتابیس لازم نیست** (`docs/upgrade-and-rollback.md` ·
+پایین نمی‌آورد، پس **بازیابی دیتابیس برای بازگشت لازم نیست**. ولی «فقط ZIP را
+عوض کن» دستور کاملی **نیست**: پیش از تعویض باید فروش متوقف، جاماندگان بسته و
+سفارش‌های نیازمند بررسی تعیین تکلیف شده باشند — ترتیب پنج‌گامی در
+`docs/upgrade-and-rollback.md` بند ۵٫۲-ب (`docs/upgrade-and-rollback.md` ·
 `docs/evidence/upgrade-alpha1/` · `docs/evidence/upgrade/`).
 
 **`0.1.0-alpha.12` (۱۶ سپتامبر):** چهار بند مالک. ساختار داده **۱۲**.
@@ -86,6 +88,51 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
   `wc_customer_bought_product()` کل تاریخچهٔ سفارش را می‌خواند.
 - **`cut -c` بایت می‌شمارد نه حرف.** هر حرف فارسی دو بایت است، پس برشِ بایتی
   «متن» هرگز با «متن» برابر نمی‌شود. در شواهد `grep -q` بزنید.
+
+**بازبینی دوم `alpha.12` (۱۶ سپتامبر):** شش بند مالک؛ **سه‌تای اول نقص واقعی
+بودند** و سومی ادعای خودِ ما را رد کرد.
+
+- **نشانهٔ «نیازمند بررسی» اجرای بعدی را دوام نمی‌آورد.** سفارشِ تطبیق‌نشده
+  وضعیتش **قبلاً برگشته بود**، پس `release()` بعدی آن را `moved_on` می‌گرفت و
+  `forget()` نشانه و کل ردِ موجودی را پاک می‌کرد — همان یک اجرایی که مشکل را
+  گزارش کرد، آخرین اجرایی بود که از آن خبر داشت. حالا تشخیص `RECONCILE_META`
+  **پیش از** شاخهٔ `moved_on` است و فقط `resolveReconciliation()` پاکش می‌کند.
+- **یادداشت مدیر روی خودِ سفارش ووکامرس نوشته می‌شود**، نه فقط در audit ما — چون
+  تمام دلیلش این است که پس از تعویض بسته هم خوانده شود.
+- **متای غایب «نامعلوم» است، نه `false`.** `=== '1'` یعنی سفارشی که `alpha.11`
+  نگه داشته بود (پیش از وجود پرچم) یا توقفش نیمه‌ذخیره شده بود، «کم نشده» خوانده
+  می‌شد و بازگرداندن یکی اضافه می‌کرد. حالا `stock_state_unknown` → تطبیق دستی.
+- **«شناسه و متا یک insert اند» غلط بود.** از ترتیب هوک‌ها خوانده شده بود نه از
+  data store. دو کشف: **این سایت HPOS دارد** (پس مسیر CPT اصلاً اجرا نمی‌شود)، و
+  هر دو backend یک شکل دارند — `persist_order_to_db()` → `update_order_meta()`
+  → `save_meta_data()` (مهر ما)، **بدون transaction**، و `post_excerpt` یک
+  refund خالی است پس هیچ چیز در خودِ ردیف نام مرجوعی را نمی‌برد.
+- **نشانهٔ تلاش (intent marker)** روی سفارش والد، پیش از `wc_create_refund()`.
+  تلاش دوباره سه حالت دارد: مهرخورده ⇒ `refund_recovered`؛ نشانه + refund بی‌مهر
+  ⇒ **`refund_reconcile_required`** با شماره‌ها به مدیر؛ نشانه بدون هیچ refund
+  ⇒ ساختن امن. **adopt بر اساس شباهت انجام نمی‌شود** — یک refund بی‌مهر ممکن است
+  refund دستیِ خود مدیر باشد و چیزی که حدس زده می‌شود پول است.
+- **راهنمای بازگشت:** «فقط ZIP را عوض کن» حذف شد؛ پنج گام با شرط خروج
+  (`docs/upgrade-and-rollback.md` ۵٫۲-ب) و «اگر بدون توقف عوض کردید» (۵٫۲-پ).
+- **یک مسیر پذیرش یکپارچه:** `tools/acceptance-path.php` هفت مرحله را در **یک
+  پاس PHP** اجرا می‌کند، `tools/acceptance-check.sh` ۲۷ بررسی، و
+  `shoot-acceptance.mjs` ۱۲ صفحه × ۲ اندازه از چشمِ صاحبِ هر صفحه.
+
+شواهد: guard-stock ۷۳ · refund-crash ۴۵ · acceptance-path ۲۷ · reviews ۴۸ ·
+reviews a11y ۲۴۰ — همه ۰ شکست.
+
+**چهار قاعدهٔ تازه:**
+- **مسیر ذخیره‌سازی را از data store بخوانید، نه از ترتیب هوک‌ها.** و **اول
+  بپرسید کدام backend اجرا می‌شود**: این سایت HPOS دارد و بخش زیادی از تحلیل
+  اولیه مسیری را توصیف می‌کرد که هرگز اجرا نمی‌شود.
+- **probe ای که اجرا نمی‌شود دقیقاً شبیه probe ای است که شرطش پیش نیامده.**
+  سه حدسِ خاموش تا پیدا شدن `added_order_refund_meta`. بررسیِ کنار هر probe باید
+  **کد خروج** را بسنجد، نه فقط نتیجه را.
+- **زیر HPOS، مبلغ و دلیل refund ستون‌اند نه متا** — پس هیچ‌وقت به hook متا
+  نمی‌رسند.
+- **مسیر چندمرحله‌ای را در یک پاس بنویسید، نه زنجیرهٔ shell.** زنجیره‌ای که هر
+  شناسه را از stdout قبلی استخراج می‌کند، با یک خط خروجیِ عوض‌شده بی‌صدا یک مرحله
+  را رد می‌کند.
 
 **`0.1.0-alpha.11` (۱۵ سپتامبر):** پنج ایراد مالک روی `WcUnpaidOrderGuard` —
 **هر پنج‌تا درست بود** — به‌علاوهٔ پیوست تیکت، اعلان و گزارش. ساختار داده **۱۱**.
@@ -265,10 +312,10 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
   (`tools/lint.sh`، امروز ۸٫۴ و ۸٫۱). `EnumCase->value` داخل `const` از ۸٫۲
   است و روی ۸٫۱ فاتالِ **کامپایل** می‌دهد، یعنی کل سایت می‌میرد نه یک صفحه —
   و lint روی ۸٫۴ چیزی نمی‌دید (F-11).
-- **بازگشت امن از `alpha.8` خودکار است:** فقط افزونه را غیرفعال کنید (یا دکمهٔ
-  توقف را بزنید) و بعد بستهٔ قبلی را بازگردانید — محصول‌ها خودشان از فروش خارج
-  می‌شوند. خطر فقط وقتی می‌ماند که کسی عمداً فروش را از سر بگیرد و بعد بسته را
-  برگرداند (`docs/upgrade-and-rollback.md` بند ۵٫۱ ·
+- **بازگشت امن از `alpha.8` با غیرفعال‌سازی شروع می‌شود، ولی به آن ختم نمی‌شود:**
+  غیرفعال‌سازی محصول‌ها را بیرون می‌برد؛ ولی پیش از تعویض بسته باید فهرست
+  جاماندگان خالی و سفارش‌های «نیازمند بررسی دستی» تعیین تکلیف شده باشند
+  (`docs/upgrade-and-rollback.md` بند ۵٫۲-ب، پنج گام با شرط خروج ·
   `tools/rollback-hazard-check.sh`).
 
 **`0.1.0-alpha.6` (۱۴ سپتامبر):** مرحله ۲ ترتیب مالک — **محصولات**: فرم
@@ -387,14 +434,17 @@ SITE=… TMC_PRODUCT_URL=… TMC_OUT=docs/evidence/wholesale-ui/a11y \
   node tools/browser/check-wholesale-a11y.mjs      # ۱۲۰ بررسی، ۳ صفحهٔ تازه
 
 # فاز ۱۰: موجودیِ اصلاح‌شده، refund تکرارناپذیر، نظر و امتیاز، و نمودار
-bash tools/refund-crash-check.sh docs/evidence/refund-crash   # ۲۷ بررسی
-bash tools/review-check.sh       docs/evidence/reviews        # ۴۵ بررسی
+bash tools/refund-crash-check.sh docs/evidence/refund-crash   # ۴۵ بررسی
+bash tools/review-check.sh       docs/evidence/reviews        # ۴۸ بررسی
+bash tools/acceptance-check.sh   docs/evidence/acceptance-path # ۲۷ بررسی، هفت مرحله
+wp eval-file tools/acceptance-path.php run|ids
+SITE=… OUT=docs/evidence/acceptance-path/screens node tools/browser/shoot-acceptance.mjs
 wp eval-file tools/review-state.php reset|buyer|buy|rate|moderate|standing|chart|…
 SITE=… OUT=docs/evidence/reviews/screens node tools/browser/shoot-reviews.mjs
 
 # فاز ۹: گارد سفارش پرداخت‌نشده، پیوست، اعلان، گزارش و دو نیمهٔ بازپرداخت
 bash tools/disposable-site.sh                          # محیط را برمی‌گرداند
-bash tools/guard-check.sh      docs/evidence/guard-stock  # ۵۲ بررسی (۲۱۲ سفارش)
+bash tools/guard-check.sh      docs/evidence/guard-stock  # ۷۳ بررسی (۲۱۲ سفارش)
 bash tools/engagement-check.sh docs/evidence/engagement   # ۳۶ بررسی
 wp eval-file tools/guard-state.php seed|hold|release|census|stock|probe|cleanup
 wp eval-file tools/engagement-state.php attach|read-file|hide-file|inbox|report-manager|…

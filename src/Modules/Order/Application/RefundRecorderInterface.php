@@ -59,8 +59,15 @@ interface RefundRecorderInterface
      * `reason` comes back as `refund_recovered` when an orphan was adopted, so
      * a caller can tell «made one» from «found the one I had already made».
      *
+     * It comes back as `refund_reconcile_required` — with `candidates` — when
+     * an earlier attempt is known to have run and left refunds this class
+     * cannot identify as its own. An implementation must NOT create a refund
+     * in that case and must NOT adopt one by resemblance: the whole point is
+     * that from here the possibilities are indistinguishable, and the thing
+     * being guessed about is money.
+     *
      * @return array{ok:bool, reason:string, refund_id:int, money_moved?:bool,
-     *               remaining?:float, message?:string}
+     *               remaining?:float, message?:string, candidates?:list<int>}
      */
     public function record(
         int $wcOrderId,
