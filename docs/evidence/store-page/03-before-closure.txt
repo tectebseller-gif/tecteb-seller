@@ -1,1 +1,1 @@
-buyable vendor=4 product=141 decision=allowed message=این_کالا_قابل_خرید_نیست.
+buyable vendor=4 product=141 decision=allowed message=

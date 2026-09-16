@@ -107,7 +107,8 @@ SRC_ARCHIVE="${DIST}/${SLUG}-source-${VERSION}.tar.gz"
 # assertion now checks for that, but the build must not paper over it either.
 LIST="$(mktemp)"
 LIST_OK="$(mktemp)"
-trap 'rm -f "${LIST}" "${LIST_OK}"' EXIT
+IMG_LIST="$(mktemp)"
+IMG_LIST_OK="$(mktemp)"
 
 # Credentials are never in the source archive, even the disposable ones.
 # `.env.testing` names a throwaway MariaDB with synthetic data, and it is
@@ -118,17 +119,35 @@ trap 'rm -f "${LIST}" "${LIST_OK}"' EXIT
 # set rather than handed somebody else's values.
 SECRET_PATTERN='^(\.env|\.env\..*|.*\.pem|.*\.key|.*credentials.*)$'
 
+# Evidence SCREENSHOTS travel in their own archive, and are NOT deleted.
+#
+# They are 49 MB of the 55 MB source drop: a reviewer downloading the source to
+# read the code pays for every screenshot from every phase. Splitting them out
+# is not a tidy-up — it is what keeps the source archive readable and the
+# evidence complete at the same time. The text half of the evidence (every
+# `.txt`, `.json`, `.log`, `.html` and `.md` under `docs/evidence/`) STAYS in
+# the source archive, because that is the half a reviewer reads.
+EVIDENCE_IMAGE_PATTERN='^docs/evidence/.*\.(png|jpg|jpeg|webp|gif|pdf)$'
+
+ALL_FILES="$(mktemp)"
+trap 'rm -f "${LIST}" "${LIST_OK}" "${ALL_FILES}" "${IMG_LIST}" "${IMG_LIST_OK}"' EXIT
+
 if git rev-parse --git-dir >/dev/null 2>&1; then
   # tracked files plus anything new that is not gitignored
   git ls-files -z --cached --others --exclude-standard \
     | grep -zv '^dist/' \
-    | grep -zEv "${SECRET_PATTERN}" > "${LIST}"
+    | grep -zEv "${SECRET_PATTERN}" > "${ALL_FILES}"
 else
   find . -type f \
     -not -path './.git/*' -not -path './dist/*' -not -path './vendor/*' \
     -not -path '*/node_modules/*' -print0 | sed -z 's|^\./||' \
-    | grep -zEv "${SECRET_PATTERN}" > "${LIST}"
+    | grep -zEv "${SECRET_PATTERN}" > "${ALL_FILES}"
 fi
+
+# Split, rather than drop: one list for the source archive, one for the
+# evidence archive, and every file is in exactly one of them.
+grep -zEv "${EVIDENCE_IMAGE_PATTERN}" < "${ALL_FILES}" > "${LIST}" || true
+grep -zE  "${EVIDENCE_IMAGE_PATTERN}" < "${ALL_FILES}" > "${IMG_LIST}" || true
 
 # Keep only paths that still exist: a file deleted but still listed would
 # abort tar and, previously, trigger the silent fallback.
@@ -143,6 +162,26 @@ COUNT=$(tr -cd '\0' < "${LIST_OK}" | wc -c)
 LC_ALL=C sort -zu "${LIST_OK}" -o "${LIST_OK}"
 tar --null --files-from="${LIST_OK}" --owner=0 --group=0 --numeric-owner \
     --mtime="@${SOURCE_DATE}" --format=gnu -czf "${SRC_ARCHIVE}"
+
+# --- evidence images, in their own archive ----------------------------------
+: > "${IMG_LIST_OK}"
+while IFS= read -r -d '' f; do
+  [ -f "${f}" ] && printf '%s\0' "${f}" >> "${IMG_LIST_OK}"
+done < "${IMG_LIST}"
+IMG_COUNT=$(tr -cd '\0' < "${IMG_LIST_OK}" | wc -c)
+
+EV_ARCHIVE="${DIST}/${SLUG}-evidence-${VERSION}.tar.gz"
+if [ "${IMG_COUNT}" -gt 0 ]; then
+  LC_ALL=C sort -zu "${IMG_LIST_OK}" -o "${IMG_LIST_OK}"
+  tar --null --files-from="${IMG_LIST_OK}" --owner=0 --group=0 --numeric-owner \
+      --mtime="@${SOURCE_DATE}" --format=gnu -czf "${EV_ARCHIVE}"
+  echo "evidence archive: ${IMG_COUNT} images → $(basename "${EV_ARCHIVE}")"
+else
+  # Loudly, not silently: an empty evidence archive would look like «there
+  # were no screenshots» rather than «the list was built wrong».
+  echo "evidence archive: NO images matched — check EVIDENCE_IMAGE_PATTERN" >&2
+  exit 1
+fi
 
 rm -rf "${STAGE}"
 
