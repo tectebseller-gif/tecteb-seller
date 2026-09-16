@@ -136,5 +136,84 @@ check "after reopening, buying works again"               allowed \
 curl -s "$URL" > "$EV/06-final-page.html"
 
 echo
-printf 'the shop public page and closure — %d checks, %d failures\n' "$((pass+fail))" "$fail"
+echo "--- 6. a catalogue big enough to actually page ---"
+# Until this section the shop had two products, so PER_PAGE, prev/next and the
+# 404 past the end were code that nothing could make run. A rule nobody has
+# seen execute is a rule nobody knows about.
+MADE="$(wp eval-file store-page-state.php catalogue "$VENDOR" 30 | tee "$EV/07-catalogue.txt" | field made)"
+echo "    fixture rows: ${MADE}"
+COUNTS="$(wp eval-file store-page-state.php catalogue-count "$VENDOR" | tee "$EV/08-counts.txt")"
+echo "    $COUNTS"
+PUBLISHED="$(echo "$COUNTS" | field published)"
+PER_PAGE="$(echo "$COUNTS" | field per_page)"
+PAGES="$(echo "$COUNTS" | field pages)"
+# The expected numbers come from the repository and the constant, not from a
+# number typed here: a fixture that seeded 28 would otherwise fail a check
+# that is right.
+LAST_PAGE_ROWS=$(( PUBLISHED - (PAGES - 1) * PER_PAGE ))
+
+check "the catalogue is big enough to page at all"        yes \
+  "$([ "$PAGES" -ge 2 ] && echo yes || echo no)"
+
+curl -s "$URL" > "$EV/09-page-1.html"
+curl -s "${URL}&tmc_store_page=${PAGES}" > "$EV/10-page-last.html"
+cards() { grep -o '<li class="tmc-store__product"' "$1" | wc -l | tr -d ' '; }
+
+check "page one holds exactly one page of products"       "$PER_PAGE" "$(cards "$EV/09-page-1.html")"
+check "the last page holds the remainder"                 "$LAST_PAGE_ROWS" "$(cards "$EV/10-page-last.html")"
+check "page one offers a next"                            1 "$(grep -c 'rel="next"' "$EV/09-page-1.html")"
+check "…and no previous"                                  0 "$(grep -c 'rel="prev"' "$EV/09-page-1.html")"
+check "the last page offers a previous"                   1 "$(grep -c 'rel="prev"' "$EV/10-page-last.html")"
+check "…and no next"                                      0 "$(grep -c 'rel="next"' "$EV/10-page-last.html")"
+
+# A paged list that repeats or drops a row is worse than an unpaged one: the
+# shopper never learns which. Measured on the TITLES in the bytes.
+titles() { grep -oE 'کالای صفحه‌بندی شمارهٔ [0-9]+' "$1" | sort -u; }
+titles "$EV/09-page-1.html" > "$EV/11-titles-1.txt"
+titles "$EV/10-page-last.html" > "$EV/12-titles-last.txt"
+check "no product appears on both pages"                  0 \
+  "$(comm -12 "$EV/11-titles-1.txt" "$EV/12-titles-last.txt" | wc -l | tr -d ' ')"
+# Every fixture row is on one page or the other. Counted against what the
+# fixture actually MADE, not against the shop's published total: this shop
+# also carries its own product from section 5, and an expectation that
+# ignored it would fail on a page that is right.
+check "…and every fixture row is on one of them"          "$MADE" \
+  "$(cat "$EV/11-titles-1.txt" "$EV/12-titles-last.txt" | sort -u | wc -l | tr -d ' ')"
+# And the two pages together hold the whole shelf, fixture or not.
+check "…and the two pages together are the whole shelf"   "$PUBLISHED" \
+  "$(( $(cards "$EV/09-page-1.html") + $(cards "$EV/10-page-last.html") ))"
+
+# Read with the real page count converted to Persian digits, not a literal:
+# a fixture of 60 would make «۱ از ۲» wrong and the page right.
+FA_PAGES="$(echo "$PAGES" | tr '0-9' '۰۱۲۳۴۵۶۷۸۹')"
+check "the pager says which page this is"                 1 \
+  "$(grep -c "صفحهٔ ۱ از ${FA_PAGES}" "$EV/09-page-1.html")"
+
+echo
+echo "--- 7. the page numbers a crawler may invent ---"
+check "a page past the end is a 404, not an empty shelf"  404 \
+  "$(curl -s -o /dev/null -w '%{http_code}' "${URL}&tmc_store_page=$((PAGES + 1))")"
+check "…and so is a page far past it"                     404 \
+  "$(curl -s -o /dev/null -w '%{http_code}' "${URL}&tmc_store_page=99999")"
+# Each of these is a DIFFERENT URL for page one. Serving it is right; giving
+# it its own canonical would hand a crawler four duplicates of the same shelf.
+for BAD in 0 -3 abc 1.5; do
+  check "«tmc_store_page=${BAD}» is page one"             200 \
+    "$(curl -s -o /dev/null -w '%{http_code}' "${URL}&tmc_store_page=${BAD}")"
+  check "…canonical to the unnumbered url"                1 \
+    "$(curl -s "${URL}&tmc_store_page=${BAD}" \
+       | grep -c "rel=\"canonical\" href=\"[^\"]*tmc_store=${VENDOR}\"")"
+done
+# Page two is NOT canonical to page one: telling a crawler that page two
+# duplicates page one drops its products out of the index entirely.
+check "page two is canonical to itself"                   1 \
+  "$(curl -s "${URL}&tmc_store_page=2" | grep -c 'rel="canonical"[^>]*tmc_store_page=2')"
+
+wp eval-file store-page-state.php catalogue-clear "$VENDOR" > "$EV/13-catalogue-clear.txt" 2>/dev/null
+echo "    $(cat "$EV/13-catalogue-clear.txt" | tail -1)"
+check "the fixture catalogue is taken back down"          1 \
+  "$(wp eval-file store-page-state.php catalogue-count "$VENDOR" | field pages)"
+
+echo
+printf 'the shop public page, closure and paging — %d checks, %d failures\n' "$((pass+fail))" "$fail"
 exit $([ "$fail" -eq 0 ] && echo 0 || echo 1)

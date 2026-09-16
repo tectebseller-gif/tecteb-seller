@@ -413,6 +413,17 @@ final class OrderFlowTest extends DatabaseTestCase
             'the manager is told what the shopper was not'
         );
 
+        // The one decision with nothing to say says nothing. Every caller
+        // checks for ALLOWED before asking — but a catch-all that answered
+        // «این کالا قابل خرید نیست» for a product that MAY be bought is a
+        // sentence one forgotten guard away from a shopper's screen.
+        self::assertSame('', PurchaseMessages::shopper(PurchasePolicy::ALLOWED));
+        self::assertNotSame(
+            '',
+            PurchaseMessages::shopper('something_this_version_does_not_know'),
+            'an unknown code still gets an answer; silence is only for «allowed»'
+        );
+
         // The shop's own product and Dokan's keep the message they had.
         $theirs = apply_filters('woocommerce_cart_product_cannot_be_purchased_message', $wooCommercesOwnWords, new FakeWcProduct(999999));
         self::assertSame($wooCommercesOwnWords, $theirs);

@@ -1,1 +1,1 @@
-ongoing ok=true shipped=true item=25 status=shipped code=order_item_shipped
+ongoing ok=true shipped=true item=39 status=partially_shipped code=order_item_shipped

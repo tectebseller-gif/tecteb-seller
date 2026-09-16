@@ -28,6 +28,12 @@ final class PurchaseMessages
     public static function shopper(string $decision): string
     {
         return match ($decision) {
+            // Nothing to say about a product that may be bought. Every caller
+            // already checks for ALLOWED first — but the one value where the
+            // honest answer is silence must not fall through to the catch-all
+            // and come back «این کالا قابل خرید نیست», which is the exact
+            // opposite of what happened.
+            PurchasePolicy::ALLOWED => '',
             // "Not available right now" covers every marketplace-wide stop
             // in the same words: from the shopper's side an emptied shelf and
             // an unsettled rule are the same event — this is not for sale

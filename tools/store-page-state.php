@@ -10,6 +10,8 @@
  *   wp eval-file tools/store-page-state.php suspend|reinstate <vendor-id>
  *   wp eval-file tools/store-page-state.php buyable <vendor-id>
  *   wp eval-file tools/store-page-state.php ongoing <vendor-id>
+ *   wp eval-file tools/store-page-state.php catalogue <vendor-id> [how-many]
+ *   wp eval-file tools/store-page-state.php catalogue-count|catalogue-clear <vendor-id>
  */
 
 use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
@@ -90,13 +92,43 @@ switch ($command) {
         update_user_meta($vendorId, 'tmc_probe_applicant_mobile', '09121112233');
         update_user_meta($vendorId, 'tmc_probe_applicant_address', 'نشانی شخصی متقاضی');
         update_user_meta($vendorId, 'tmc_probe_iban', 'IR120000000000000000000000');
+        // Back on the shelf, if an earlier run took it off.
+        //
+        // «آزمونی که چیزی را خرج می‌کند باید اول reset کند»: section 5 asks
+        // whether this shop's product may be bought, and a suspension in an
+        // earlier run leaves every product in `draft`, where reinstatement
+        // deliberately does NOT put it back (F-14). Without this the closure
+        // section measures `not_published` and reports it as a closure
+        // failure — the wrong thing, failing for the right reason.
+        $republished = '-';
+        $manageForSeed = $c->get(\Tecteb\Marketplace\Modules\Product\Application\ManageProducts::class);
+        $reviewForSeed = $c->get(\Tecteb\Marketplace\Modules\Product\Application\ReviewProducts::class);
+        foreach ($products->allForVendor($vendorId) as $candidate) {
+            if ((int) ($candidate->wcProductId ?? 0) <= 0) {
+                continue;
+            }
+            if ($candidate->status === \Tecteb\Marketplace\Modules\Product\Domain\ProductStatus::Published) {
+                $republished = 'already';
+                break;
+            }
+            if ($candidate->status === \Tecteb\Marketplace\Modules\Product\Domain\ProductStatus::Archived) {
+                $manageForSeed->restore($vendorId, $vendorId, $candidate->id);
+            }
+            $submitted = $manageForSeed->submit($vendorId, $vendorId, $candidate->id);
+            $republished = $submitted->ok ? 'restored' : $submitted->code;
+            if ($submitted->ok) {
+                $reviewForSeed->approve($candidate->id);
+            }
+            break;
+        }
         $saved = $stores->find($vendorId);
         printf(
-            "seed vendor=%d store=%s city=%s warehouse=%s\n",
+            "seed vendor=%d store=%s city=%s warehouse=%s shelf=%s\n",
             $vendorId,
             ($saved?->storeName ?? '') === '' ? 'فروشگاه بازارگاه تک‌طب' : $saved->storeName,
             $saved?->city ?? '-',
-            ($saved?->originWarehouse ?? '') === '' ? '-' : 'set'
+            ($saved?->originWarehouse ?? '') === '' ? '-' : 'set',
+            $republished
         );
         break;
 
@@ -184,6 +216,132 @@ switch ($command) {
             $after?->status->value ?? '-',
             $result->code
         );
+        break;
+
+    case 'catalogue':
+        // A catalogue big enough to PAGE. The test shop has two products, so
+        // every paging rule in StorePage — prev/next, the 404 past the end,
+        // the self-canonical — has until now been code nobody could see run.
+        //
+        // Published AND projected, because the page lists only what has a
+        // WooCommerce id to link to: a shelf of thirty published-but-
+        // unprojected rows would render an empty page two and prove the
+        // opposite of what it looks like it proves.
+        $want = max(1, (int) ($args[2] ?? 30));
+        $manage = $c->get(\Tecteb\Marketplace\Modules\Product\Application\ManageProducts::class);
+        $review = $c->get(\Tecteb\Marketplace\Modules\Product\Application\ReviewProducts::class);
+        $images = new \Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpProductImages(
+            new \Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy()
+        );
+        $png = base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAWklEQVR42u3QMQEAAAgDoC252H'
+            . 'zAR4dAqz9zAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIEHgtL'
+            . 'jkAAdSPbCEAAAAASUVORK5CYII='
+        );
+        // One attachment, reused. Thirty identical PNGs would measure the
+        // media library, which is not what this is about.
+        $tmp = wp_tempnam('tmc-page-fixture');
+        file_put_contents($tmp, $png);
+        $stored = $images->store(
+            new \Tecteb\Marketplace\Contracts\Files\UploadedFile('tmc-page-fixture.png', $tmp, strlen($png), 'image/png'),
+            $vendorId,
+            'tmc-page-fixture'
+        );
+        $mediaId = (int) ($stored['media_id'] ?? 0);
+
+        // Reused, not re-created. A SKU stays taken after a row is archived —
+        // `sku_taken` is asked of the whole shop, not of the shelf — so a
+        // second run of this fixture would create nothing and then report
+        // «made=0» as though the seeding code were broken. Which is exactly
+        // what the first version of this did.
+        $existing = [];
+        foreach ($products->allForVendor($vendorId) as $candidate) {
+            if (str_starts_with($candidate->details->sku, 'TMC-PAGE-')) {
+                $existing[$candidate->details->sku] = $candidate;
+            }
+        }
+
+        $made = 0;
+        $listed = 0;
+        for ($n = 1; $n <= $want; $n++) {
+            $sku = sprintf('TMC-PAGE-%03d', $n);
+            $details = new \Tecteb\Marketplace\Modules\Product\Domain\ProductDetails(
+                title: sprintf('کالای صفحه‌بندی شمارهٔ %d', $n),
+                categoryKey: 'gloves',
+                brand: 'تک‌طب',
+                shortDescription: 'ردیف آزمایشی صفحه‌بندی صفحهٔ عمومی.',
+                priceMinor: 100000 + ($n * 1000),
+                sku: $sku,
+                stock: 10
+            );
+            $known = $existing[$sku] ?? null;
+            if ($known === null) {
+                $created = $manage->save($vendorId, $vendorId, 0, $details);
+                $id = (int) ($created->context['product_id'] ?? 0);
+                if ($id === 0) {
+                    printf("catalogue stopped at %d code=%s\n", $n, $created->code);
+                    break;
+                }
+            } else {
+                $id = $known->id;
+                if ($known->status === \Tecteb\Marketplace\Modules\Product\Domain\ProductStatus::Archived) {
+                    $manage->restore($vendorId, $vendorId, $id);
+                }
+            }
+            $manage->save($vendorId, $vendorId, $id, $details, ['material' => 'لاتکس'], [$mediaId], $mediaId);
+            $after = $products->find($id);
+            if ($after?->status !== \Tecteb\Marketplace\Modules\Product\Domain\ProductStatus::Published) {
+                $submitted = $manage->submit($vendorId, $vendorId, $id);
+                if (!$submitted->ok) {
+                    printf("catalogue stopped at %d code=%s\n", $n, $submitted->code);
+                    break;
+                }
+                $review->approve($id);
+            }
+            $made++;
+            $after = $products->find($id);
+            if ($after !== null && (int) ($after->wcProductId ?? 0) > 0) {
+                $listed++;
+            }
+        }
+        $total = $products->countForVendor($vendorId, \Tecteb\Marketplace\Modules\Product\Domain\ProductStatus::Published);
+        printf(
+            "catalogue vendor=%d made=%d projected=%d published_total=%d\n",
+            $vendorId,
+            $made,
+            $listed,
+            $total
+        );
+        break;
+
+    case 'catalogue-count':
+        // Read back from the same repository the page reads, so the expected
+        // page count in the evidence is not a number somebody typed.
+        $total = $products->countForVendor($vendorId, \Tecteb\Marketplace\Modules\Product\Domain\ProductStatus::Published);
+        $perPage = \Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StorePage::PER_PAGE;
+        printf(
+            "catalogue-count vendor=%d published=%d per_page=%d pages=%d\n",
+            $vendorId,
+            $total,
+            $perPage,
+            max(1, (int) ceil($total / $perPage))
+        );
+        break;
+
+    case 'catalogue-clear':
+        // Named by SKU prefix, not «everything»: the shop's own two products
+        // belong to the other sections of this evidence and must survive.
+        $removed = 0;
+        foreach ($products->allForVendor($vendorId) as $product) {
+            if (!str_starts_with($product->details->sku, 'TMC-PAGE-')) {
+                continue;
+            }
+            $c->get(\Tecteb\Marketplace\Modules\Product\Application\SyncCatalog::class)->withdraw($product->id);
+            $c->get(\Tecteb\Marketplace\Modules\Product\Application\ManageProducts::class)
+                ->archive($vendorId, $vendorId, $product->id);
+            $removed++;
+        }
+        printf("catalogue-clear vendor=%d removed=%d\n", $vendorId, $removed);
         break;
 
     default:
