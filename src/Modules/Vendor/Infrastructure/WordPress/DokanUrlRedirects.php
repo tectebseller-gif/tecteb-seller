@@ -16,23 +16,34 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
  * result, every message somebody sent a friend. `301` is the one answer that
  * tells a browser, a crawler and a person the same thing.
  *
- * **Two ways a Dokan store URL stops resolving, and both are handled.**
+ * **A Dokan store URL stops resolving in three different ways, and only one
+ * of them looks like a 404.** All three were measured on a real Dokan Lite:
  *
- * The first is the obvious one: Dokan is gone, WordPress matches no rewrite
- * rule and `is_404()` is true by `template_redirect`. The second is the one a
- * live probe found, and it is the one an actual migration hits first:
+ * | state                                   | `is_404()` | what the URL answered |
+ * |-----------------------------------------|-----------|------------------------|
+ * | Dokan active, shop moved off it          | `false`   | `404` from its template |
+ * | Dokan deactivated, rules still cached    | `false`   | **`200`, the home page** |
+ * | Dokan gone and rewrites flushed          | `true`    | `404`                   |
  *
- * > **Dokan can be installed and still not serve a shop.** Dokan owns the
- * > rewrite `store/([^/]+)/?$` for as long as it is active, so `is_404()` is
- * > FALSE at `template_redirect` even for a shop it is about to refuse. It
- * > decides later, on `template_include` priority 99, by asking
- * > `dokan_is_user_seller()` — and answers `404` from inside the template.
- * > Measured: `/store/tmcvendor/` returned `404` while `is_404()` said `no`.
+ * The middle row is the nastiest and the least obvious. Deactivating a plugin
+ * does not flush the rewrite rules it registered: six `store/…` rules were
+ * still in the `rewrite_rules` option right after
+ * `wp plugin deactivate dokan-lite`, so the URL still matched — while `store`
+ * was no longer a registered query var, so WordPress dropped it and served the
+ * front page with `200`. The site's home page at every old shop address is
+ * duplicate content on dozens of URLs, and a bookmark lands somewhere
+ * plausible and wrong.
  *
- * A marketplace does not move every shop on one night. It moves one, then
- * another, with Dokan still installed for the rest — and each moved shop's old
- * URL starts 404ing through Dokan, which the `is_404()` test cannot see. So
- * this asks Dokan's OWN predicate whether it is going to serve the shop.
+ * The first row is the one an actual migration hits first, because a
+ * marketplace does not move every shop on one night: Dokan stays installed for
+ * the shops that have not moved, owns the rewrite, and decides only later — on
+ * `template_include` priority 99, by asking `dokan_is_user_seller()`.
+ *
+ * So the question this file asks first is **«is Dokan running»**, not «is this
+ * a 404». Running means Dokan owns the URL and its own predicate settles it.
+ * Not running means nobody else will answer, and the slug is read from the
+ * path — which is the only place it survives, since its query var is
+ * unregistered in both of the not-running rows.
  *
  * **Four deliberate narrowings, because a redirect that is too eager breaks a
  * site nobody asked us to touch:**
@@ -101,17 +112,56 @@ final class DokanUrlRedirects
      * The shop slug of a store URL that nobody else is going to answer — or
      * '' when somebody is.
      *
-     * Two sources, because there are two ways the URL dies (see the class
-     * docblock). They are checked in that order and never both: once Dokan is
-     * uninstalled its query var is gone, and while it is installed `is_404()`
-     * is false for anything matching its rewrite.
+     * **Deactivating Dokan does not remove its rewrite rules.** They live in
+     * the cached `rewrite_rules` option and stay there until something
+     * flushes it. Measured on the disposable site immediately after
+     * `wp plugin deactivate dokan-lite`: **six `store/…` rules still in the
+     * option**, so `is_404()` was FALSE — while `store` was no longer a
+     * registered query var, so WordPress dropped it and answered the home
+     * page with `200`.
+     *
+     * That is the worst of the three outcomes. A `404` at least tells a
+     * crawler the page is gone; the site's front page served at every old
+     * shop URL is duplicate content on dozens of addresses, and a customer
+     * following a bookmark lands somewhere plausible and wrong.
+     *
+     * So the question asked first is «is Dokan running», not «is this a 404»:
+     *
+     * - **Dokan gone** — whether its rules were flushed or not, nobody else
+     *   will answer, and the slug has to come from the PATH because its query
+     *   var is unregistered either way.
+     * - **Dokan running** — it owns the URL; its own predicate says whether it
+     *   is going to serve this shop, and its query var carries the slug.
      */
     private static function slugNobodyElseWillServe(): string
     {
-        if (is_404()) {
-            return self::sellerSlugFromRequest();       // Dokan is gone
+        // Is Dokan actually running? Its own predicate is the honest test —
+        // and the answer decides WHERE the slug can be read from, not just
+        // whether to redirect.
+        if (!self::dokanIsRunning()) {
+            return self::sellerSlugFromRequest();
         }
-        return self::slugDokanClaimedButWillRefuse();   // Dokan is here
+        return self::slugDokanClaimedButWillRefuse();
+    }
+
+    /**
+     * Is Dokan running on this site?
+     *
+     * The presence of its own published function is the test — a plugin that
+     * is deactivated has not loaded, so the symbol is gone even while its
+     * rewrite rules linger in the options table.
+     *
+     * The filter is not a test hook. It is for the site that has Dokan
+     * installed but wants this marketplace to own the store URLs anyway (or
+     * the reverse), which is a decision about that site and not one this
+     * plugin should make for it. Returning `false` puts every `/<base>/<slug>/`
+     * under the rule below; returning `true` hands them all back to Dokan.
+     *
+     * @param bool $running whether Dokan's own function is loaded
+     */
+    private static function dokanIsRunning(): bool
+    {
+        return (bool) apply_filters('tmc_dokan_is_running', function_exists('dokan_is_user_seller'));
     }
 
     /**
@@ -125,7 +175,7 @@ final class DokanUrlRedirects
     private static function slugDokanClaimedButWillRefuse(): string
     {
         if (!function_exists('dokan_is_user_seller')) {
-            return '';                          // Dokan is not running; nothing claimed anything
+            return '';                          // the filter said «running»; Dokan disagrees
         }
         // Dokan registers its query var under the store base and its rewrite
         // fills it, so a non-empty value means Dokan matched this URL.

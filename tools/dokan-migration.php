@@ -68,6 +68,59 @@ switch ($command) {
         printf("dokan_fingerprint=%s\n", $fingerprint());
         break;
 
+    case 'audit-trail':
+        // The trail is read through the same `search()` the audit PAGE uses,
+        // not with hand-written SQL — so this asks the question a manager can
+        // actually ask afterwards, rather than a question only a script can.
+        $audit = $c->get(\Tecteb\Marketplace\Contracts\AuditRepositoryInterface::class);
+        $runId = (string) ($args[1] ?? '');
+        $of = static function (string $event) use ($audit, $runId): int {
+            $filters = ['event' => $event];
+            if ($runId !== '') {
+                $filters['object_id'] = $runId;
+            }
+            return $audit->count($filters);
+        };
+        printf(
+            "audit-trail run=%s dry_run=%d imported=%d rolled_back=%d\n",
+            $runId === '' ? '<any>' : $runId,
+            $of(\Tecteb\Marketplace\Core\Audit\AuditEventCatalog::DOKAN_DRY_RUN),
+            $of(\Tecteb\Marketplace\Core\Audit\AuditEventCatalog::DOKAN_IMPORTED),
+            $of(\Tecteb\Marketplace\Core\Audit\AuditEventCatalog::DOKAN_ROLLED_BACK)
+        );
+        break;
+
+    case 'dokan-untouched':
+        // Dokan's OWN rows, read straight from its tables rather than through
+        // our reader — so «we changed nothing of theirs» is measured against
+        // the database and not against the interface that promises it.
+        //
+        // The standing rule is «هیچ افزونه موجودی (از جمله دکان)
+        // حذف/غیرفعال/ویرایش نمی‌شود», and a cutover is exactly the moment
+        // somebody would find out the hard way that it had been broken.
+        global $wpdb;
+        $counts = [];
+        foreach (['dokan_orders', 'dokan_vendor_balance', 'dokan_withdraw', 'dokan_refund'] as $name) {
+            $table = $wpdb->prefix . $name;
+            $exists = (string) $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
+            $counts[$name] = $exists ? (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$table}`") : -1;
+        }
+        // The sellers themselves are users, and their Dokan flags are meta.
+        $counts['sellers'] = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM `{$wpdb->usermeta}` WHERE meta_key = 'dokan_enable_selling'"
+        );
+        $counts['dokan_products'] = (int) $wpdb->get_var(
+            "SELECT COUNT(*) FROM `{$wpdb->posts}` p
+             INNER JOIN `{$wpdb->usermeta}` m ON m.user_id = p.post_author AND m.meta_key = 'dokan_enable_selling'
+             WHERE p.post_type = 'product'"
+        );
+        $line = '';
+        foreach ($counts as $key => $value) {
+            $line .= $key . '=' . $value . ' ';
+        }
+        printf("dokan-untouched %sdigest=%s\n", $line, substr(hash('sha256', json_encode($counts)), 0, 16));
+        break;
+
     case 'plan':
         $plan = $service->plan();
         $summary = $plan->summary();

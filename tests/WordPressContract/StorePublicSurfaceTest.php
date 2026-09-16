@@ -254,6 +254,19 @@ final class StorePublicSurfaceTest extends ContractTestCase
         self::assertSame([], State::$redirects, $status->value . ' has no page to send anybody to');
     }
 
+    public function testAStaleRewriteRuleAfterDeactivationStillRedirects(): void
+    {
+        $this->bootWithVendor(ApplicationStatus::Approved, 'daroukhane');
+        $this->requestWithStaleDokanRules('/store/daroukhane/');
+
+        // Without this the URL answers `200` with the site's front page:
+        // duplicate content on every old shop address, and a bookmark that
+        // lands somewhere plausible and wrong. Worse than the 404 it replaced.
+        self::assertCount(1, State::$redirects, 'a stale rule must not leave the URL on the home page');
+        self::assertSame(301, State::$redirects[0]['status']);
+        self::assertStringContainsString('tmc_store=' . self::VENDOR_ID, State::$redirects[0]['location']);
+    }
+
     public function testADeeperDokanUrlIsNotRedirectedToTheShopFrontPage(): void
     {
         $this->bootWithVendor(ApplicationStatus::Approved, 'daroukhane');
@@ -295,9 +308,32 @@ final class StorePublicSurfaceTest extends ContractTestCase
         State::$users[self::VENDOR_ID] = ['user_nicename' => $nicename];
     }
 
+    /**
+     * A request with Dokan GONE.
+     *
+     * The stubs always define `dokan_is_user_seller`, and a process cannot
+     * un-define a function — so «Dokan is not running» is expressed through
+     * the same filter a site owner would use. That is the seam the production
+     * code reads, so this exercises the real branch rather than a parallel
+     * one.
+     */
     private function request404(string $path): void
     {
+        add_filter('tmc_dokan_is_running', static fn (): bool => false);
         $this->fireTemplateRedirect($path, true);
+    }
+
+    /**
+     * The nastiest of the three states: Dokan deactivated, but its rewrite
+     * rules still cached, so the URL matches and `is_404()` is FALSE while
+     * WordPress serves the front page with `200`. Measured on the disposable
+     * site right after `wp plugin deactivate dokan-lite` — six `store/…`
+     * rules still in the option.
+     */
+    private function requestWithStaleDokanRules(string $path): void
+    {
+        add_filter('tmc_dokan_is_running', static fn (): bool => false);
+        $this->fireTemplateRedirect($path, false);
     }
 
     /**
