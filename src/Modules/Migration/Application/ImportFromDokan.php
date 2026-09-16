@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Contracts\OptionStoreInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
+use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
@@ -68,8 +69,110 @@ final class ImportFromDokan
          * means history is not imported, and the plan says so rather than
          * silently dropping it.
          */
-        private readonly ?OrderHistoryRepositoryInterface $history = null
+        private readonly ?OrderHistoryRepositoryInterface $history = null,
+        /**
+         * The rest of a shop's past: staff, balance ledger, withdrawals.
+         * Optional for the same reason as `$history` — an install without
+         * schema 17 still loads, and the plan says so rather than pretending
+         * it imported something it could not store.
+         */
+        private readonly ?ShopRecordRepositoryInterface $shopRecords = null,
+        /**
+         * Asked one question and one only: «does our own ledger already
+         * account for this order?» FIN-02 says one financial engine per order,
+         * and a rule nothing can check is a wish.
+         */
+        private readonly ?LedgerRepositoryInterface $ledger = null
     ) {
+    }
+
+    /**
+     * Import one page of a shop's staff, balance ledger and withdrawals.
+     *
+     * Records, all three — Dokan's own figures, no rate applied, no ledger
+     * line written. A balance is the clearest case: a shop that earned under a
+     * 5% commission and is now on 8% must still see the number Dokan recorded,
+     * so the amounts travel as strings straight into `DECIMAL(19,4)` columns
+     * and nothing here multiplies anything.
+     *
+     * @return array{staff:int, balance:int, withdrawals:int, failed:int, last_balance:int, last_withdraw:int, more:bool}
+     */
+    public function importShopRecordPage(string $runId, int $afterBalanceId, int $afterWithdrawId, int $limit): array
+    {
+        $done = ['staff' => 0, 'balance' => 0, 'withdrawals' => 0, 'failed' => 0];
+        if ($this->shopRecords === null) {
+            return $done + ['last_balance' => $afterBalanceId, 'last_withdraw' => $afterWithdrawId, 'more' => false];
+        }
+
+        // Staff first, and only on the first page: a shop has a handful of
+        // them, and paging a handful is machinery with nothing to do.
+        if ($afterBalanceId === 0 && $afterWithdrawId === 0) {
+            foreach ($this->vendors->idsFromImportRun($runId) ?: $this->dokanVendorIds() as $vendorUserId) {
+                foreach ($this->dokan->staffFor((int) $vendorUserId) as $member) {
+                    $this->count($done, 'staff', $this->shopRecords->recordStaff($runId, $member));
+                }
+            }
+        }
+
+        $balanceRows = $this->dokan->balanceRowsAfter($afterBalanceId, $limit);
+        $lastBalance = $afterBalanceId;
+        foreach ($balanceRows as $row) {
+            $lastBalance = max($lastBalance, (int) ($row['row_id'] ?? $row['trn_id']));
+            $this->count($done, 'balance', $this->shopRecords->recordBalance($runId, $row));
+        }
+
+        $withdrawRows = $this->dokan->withdrawalsAfter($afterWithdrawId, $limit);
+        $lastWithdraw = $afterWithdrawId;
+        foreach ($withdrawRows as $row) {
+            $lastWithdraw = max($lastWithdraw, (int) $row['withdraw_id']);
+            $this->count($done, 'withdrawals', $this->shopRecords->recordWithdrawal($runId, $row));
+        }
+
+        return $done + [
+            'last_balance' => $lastBalance,
+            'last_withdraw' => $lastWithdraw,
+            'more' => count($balanceRows) >= $limit || count($withdrawRows) >= $limit,
+        ];
+    }
+
+    /** What a shop's imported past adds up to, in Dokan's own figures. */
+    public function shopRecordsFor(int $vendorUserId): array
+    {
+        if ($this->shopRecords === null) {
+            return ['available' => false, 'staff' => 0, 'balance_rows' => 0, 'debit' => '0', 'credit' => '0', 'withdrawals' => 0, 'withdrawn' => '0'];
+        }
+        return $this->shopRecords->summaryForVendor($vendorUserId) + ['available' => true];
+    }
+
+    /**
+     * Whether a past order may be recorded as history at all.
+     *
+     * FIN-02: one financial engine per order. If this marketplace's ledger
+     * already carries lines for it — because the order was placed here, or
+     * because somebody transferred it — then Dokan's figures for the same
+     * order would be a second, contradictory answer to «what is this worth»,
+     * with nothing to say which is authoritative. So it is refused and named,
+     * not written and reconciled later.
+     */
+    public function orderIsAlreadyOurs(int $wcOrderId): bool
+    {
+        return $this->ledger?->coversOrder($wcOrderId) ?? false;
+    }
+
+    /** @param array<string,int> $tally */
+    private function count(array &$tally, string $key, string $outcome): void
+    {
+        match ($outcome) {
+            ShopRecordRepositoryInterface::RECORDED => $tally[$key]++,
+            ShopRecordRepositoryInterface::FAILED => $tally['failed']++,
+            default => null,                    // already there: a re-run
+        };
+    }
+
+    /** @return list<int> */
+    private function dokanVendorIds(): array
+    {
+        return array_map(static fn (array $v): int => (int) $v['user_id'], $this->dokan->vendors());
     }
 
     /**
@@ -243,8 +346,17 @@ final class ImportFromDokan
         // miss — the same lesson the run stamp just taught.
         $historyRecorded = 0;
         $historyFailed = 0;
+        $historyRefused = 0;
         if ($this->history !== null) {
             foreach ($this->dokan->orders() as $order) {
+                // FIN-02, enforced rather than asserted. An order our own
+                // ledger already carries must not also get Dokan's figures:
+                // two answers to «what is this worth» and nothing to say
+                // which one settlement should believe.
+                if ($this->orderIsAlreadyOurs((int) $order['wc_order_id'])) {
+                    $historyRefused++;
+                    continue;
+                }
                 match ($this->history->record($plan->runId, $order)) {
                     OrderHistoryRepositoryInterface::RECORDED => $historyRecorded++,
                     OrderHistoryRepositoryInterface::FAILED => $historyFailed++,
@@ -262,6 +374,9 @@ final class ImportFromDokan
             // reports «۶ سفارش وارد شد» while two of them failed is a run
             // somebody will trust.
             'history_failed' => $historyFailed,
+            // Named separately from «failed»: an order this marketplace
+            // already owns is not a fault, it is the rule working.
+            'history_already_ours' => $historyRefused,
             'run_id' => $plan->runId,
             'mode' => 'trial',
         ]);
@@ -270,6 +385,7 @@ final class ImportFromDokan
             'vendors' => count($created['vendors']),
             'products' => count($created['products']),
             'history' => $historyRecorded,
+            'history_already_ours' => $historyRefused,
         ]);
     }
 
@@ -336,6 +452,10 @@ final class ImportFromDokan
         // catalogue but left the past orders would leave a shop half-migrated
         // with no way back — and the next import would find its own rows there.
         $removedHistory = $this->history?->deleteRun($runId) ?? 0;
+        // The staff, balance and withdrawal records go with them. A rollback
+        // that removed the catalogue and left a shop's balance history behind
+        // would show figures for an import that no longer exists.
+        $removedRecords = $this->shopRecords?->deleteRun($runId) ?? ['staff' => 0, 'balance' => 0, 'withdrawals' => 0];
 
         // The same union on the vendor side. `0014` stamped products only, and
         // the first evidence run with the manifest deleted removed the
@@ -367,6 +487,9 @@ final class ImportFromDokan
             'vendors' => $removedVendors,
             'products' => $removedProducts,
             'history' => $removedHistory,
+            'staff' => $removedRecords['staff'],
+            'balance' => $removedRecords['balance'],
+            'withdrawals' => $removedRecords['withdrawals'],
             'run_id' => $runId,
         ]);
         if ($keptProducts !== []) {
@@ -382,6 +505,9 @@ final class ImportFromDokan
             'vendors' => $removedVendors,
             'products' => $removedProducts,
             'history' => $removedHistory,
+            'staff' => $removedRecords['staff'],
+            'balance' => $removedRecords['balance'],
+            'withdrawals' => $removedRecords['withdrawals'],
         ]);
     }
 
@@ -610,19 +736,24 @@ final class ImportFromDokan
     public function importOrderPage(string $runId, int $afterOrderId, int $limit): array
     {
         if ($this->history === null) {
-            return ['done' => 0, 'skipped' => 0, 'failed' => 0, 'last' => $afterOrderId, 'more' => false];
+            return ['done' => 0, 'skipped' => 0, 'failed' => 0, 'already_ours' => 0, 'last' => $afterOrderId, 'more' => false];
         }
         $page = $this->dokan->ordersAfter($afterOrderId, $limit);
         $last = $afterOrderId;
         $done = 0;
         $skipped = 0;
         $failed = 0;
+        $ours = 0;
         foreach ($page as $order) {
             $last = max($last, (int) $order['wc_order_id']);
             // «already there» is a resumed job re-running its last page, which
             // is normal. «failed» is not, and counting it as the first would
             // report a shop as migrated on the strength of writes that never
             // landed.
+            if ($this->orderIsAlreadyOurs((int) $order['wc_order_id'])) {
+                $ours++;
+                continue;
+            }
             match ($this->history->record($runId, $order)) {
                 OrderHistoryRepositoryInterface::RECORDED => $done++,
                 OrderHistoryRepositoryInterface::ALREADY => $skipped++,
@@ -633,6 +764,7 @@ final class ImportFromDokan
             'done' => $done,
             'skipped' => $skipped,
             'failed' => $failed,
+            'already_ours' => $ours,
             'last' => $last,
             'more' => count($page) >= $limit,
         ];

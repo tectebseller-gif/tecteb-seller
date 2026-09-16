@@ -19,6 +19,14 @@ use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
+use Tecteb\Marketplace\Modules\Finance\Domain\Money;
+use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
+use Tecteb\Marketplace\Modules\Order\Application\CaptureOrder;
+use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbShopRecordRepository;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0004CreateFinanceTables;
+use Tecteb\Marketplace\Core\Migration\Migrations\M0017DokanShopRecords;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
@@ -57,6 +65,8 @@ final class DokanMigrationTest extends DatabaseTestCase
     private WpOptionStore $options;
 
     private DbOrderHistoryRepository $history;
+    private DbShopRecordRepository $shopRecords;
+    private DbLedgerRepository $ledger;
 
     protected function setUp(): void
     {
@@ -67,6 +77,8 @@ final class DokanMigrationTest extends DatabaseTestCase
             ...M0003CreateStoreAndStaffTables::TABLES,
             ...M0005CreateProductTables::TABLES,
             ...M0006CatalogAndOrders::TABLES,
+            ...M0004CreateFinanceTables::TABLES,
+            ...M0017DokanShopRecords::TABLES,
         ] as $suffix) {
             $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
         }
@@ -79,6 +91,8 @@ final class DokanMigrationTest extends DatabaseTestCase
         $this->products = new DbProductRepository($db, $clock);
         $this->vendors = new DbVendorRepository($db, $clock);
         $this->history = new DbOrderHistoryRepository($db, $clock);
+        $this->shopRecords = new DbShopRecordRepository($db, $clock);
+        $this->ledger = new DbLedgerRepository($db, $clock);
         $this->dokan = new FakeDokanReader();
         $this->dokan->vendorRows = [
             ['user_id' => self::SELLER, 'store_name' => 'داروخانه دکان', 'email' => 's@example.test', 'enabled' => true],
@@ -114,7 +128,9 @@ final class DokanMigrationTest extends DatabaseTestCase
             new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock),
             $clock,
             new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR]),
-            $this->history
+            $this->history,
+            $this->shopRecords,
+            $this->ledger
         );
     }
 
@@ -456,6 +472,168 @@ final class DokanMigrationTest extends DatabaseTestCase
             $this->history->record('run-a', $order),
             'and a broken write says so rather than passing for a duplicate'
         );
+    }
+
+    // ------------------------- the rest of a shop: staff, balance, withdrawals
+
+    public function testAShopsStaffBalanceAndWithdrawalsArriveAsRecords(): void
+    {
+        $this->dokan->staffRows = [
+            ['staff_user_id' => 7001, 'vendor_user_id' => self::SELLER, 'display_name' => 'مریم رضایی', 'user_email' => 'm@example.test', 'dokan_role' => 'vendor_staff'],
+        ];
+        $this->dokan->balanceRows = [
+            ['row_id' => 1, 'trn_id' => 5501, 'vendor_user_id' => self::SELLER, 'trn_type' => 'dokan_orders', 'debit' => '700000.0000', 'credit' => '0.0000', 'status' => 'approved'],
+            ['row_id' => 2, 'trn_id' => 9001, 'vendor_user_id' => self::SELLER, 'trn_type' => 'dokan_withdraw', 'debit' => '0.0000', 'credit' => '250000.0000', 'status' => 'approved'],
+        ];
+        $this->dokan->withdrawRows = [
+            ['withdraw_id' => 9001, 'vendor_user_id' => self::SELLER, 'amount' => '250000.0000', 'status' => 'dokan:1', 'method' => 'bank'],
+        ];
+
+        $runId = 'dokan-records-1';
+        $page = $this->migration->importShopRecordPage($runId, 0, 0, 50);
+
+        self::assertSame(1, $page['staff']);
+        self::assertSame(2, $page['balance']);
+        self::assertSame(1, $page['withdrawals']);
+        self::assertSame(0, $page['failed']);
+
+        $summary = $this->migration->shopRecordsFor(self::SELLER);
+        self::assertTrue($summary['available']);
+        self::assertSame(1, $summary['staff']);
+        self::assertSame(2, $summary['balance_rows']);
+        // Dokan's own figures, to the last of four decimal places. Nothing
+        // here was converted to minor units or through a float on the way.
+        self::assertSame('700000.0000', $summary['debit']);
+        self::assertSame('250000.0000', $summary['credit']);
+        self::assertSame('250000.0000', $summary['withdrawn']);
+    }
+
+    /**
+     * An old balance is never restated under a new rate.
+     *
+     * This is the one that would be invisible in production until somebody's
+     * accountant noticed. The shop's marketplace commission is set to 8% here,
+     * and the imported rows must still read exactly what Dokan recorded under
+     * whatever rate applied at the time.
+     */
+    public function testAnImportedBalanceIsNotRecomputedWithTodaysRate(): void
+    {
+        $this->dokan->balanceRows = [
+            ['row_id' => 1, 'trn_id' => 5501, 'vendor_user_id' => self::SELLER, 'trn_type' => 'dokan_orders', 'debit' => '700000.0000', 'credit' => '0.0000'],
+        ];
+
+        $this->migration->importShopRecordPage('dokan-rate-1', 0, 0, 50);
+
+        // 900,000 at today's 8% would leave 828,000; at Dokan's own rate it
+        // was 700,000. The number that comes back is Dokan's.
+        self::assertSame('700000.0000', $this->migration->shopRecordsFor(self::SELLER)['debit']);
+        self::assertNotSame('828000.0000', $this->migration->shopRecordsFor(self::SELLER)['debit']);
+    }
+
+    public function testRecordingTheSameShopRecordTwiceWritesOneRow(): void
+    {
+        $this->dokan->balanceRows = [
+            ['row_id' => 1, 'trn_id' => 5501, 'vendor_user_id' => self::SELLER, 'trn_type' => 'dokan_orders', 'debit' => '700000.0000', 'credit' => '0.0000'],
+        ];
+        $this->dokan->withdrawRows = [
+            ['withdraw_id' => 9001, 'vendor_user_id' => self::SELLER, 'amount' => '250000.0000'],
+        ];
+
+        $first = $this->migration->importShopRecordPage('dokan-twice', 0, 0, 50);
+        $second = $this->migration->importShopRecordPage('dokan-twice', 0, 0, 50);
+
+        self::assertSame(1, $first['balance']);
+        self::assertSame(0, $second['balance'], 'the unique key answered, not a check in PHP');
+        self::assertSame(0, $second['failed'], 'and «already there» is not a failure');
+        self::assertSame(1, $this->migration->shopRecordsFor(self::SELLER)['balance_rows']);
+    }
+
+    /**
+     * FIN-02, enforced: one financial engine per order.
+     *
+     * An order this marketplace's own ledger already carries must not also
+     * receive Dokan's figures. Two answers to «what is this worth», with
+     * nothing to say which settlement should believe, is worse than either.
+     */
+    public function testAnOrderOurLedgerAlreadyCarriesIsRefusedHistory(): void
+    {
+        // Our ledger takes the order first — the shape CaptureOrder writes.
+        // Double entry, so it balances to zero — the ledger refuses anything
+        // else. Money in from the shopper, split between the seller's earning
+        // and this marketplace's commission.
+        $this->ledger->record(
+            (new LedgerTransaction(CaptureOrder::eventKey(5501, 77), self::SELLER, '5501', '77'))
+                ->add(LedgerAccount::CentralPayment, Money::of(-900000), 'order_captured')
+                ->add(LedgerAccount::VendorEarning, Money::of(700000), 'order_captured')
+                ->add(LedgerAccount::Commission, Money::of(200000), 'order_captured')
+        );
+        self::assertTrue($this->ledger->coversOrder(5501));
+
+        $result = $this->migration->import($this->migration->plan());
+
+        self::assertTrue($result->ok, $result->code);
+        self::assertSame(0, $result->context['history'], 'no history was written for it');
+        self::assertSame(1, $result->context['history_already_ours'], 'and the reason is named, not silent');
+        self::assertSame(0, $this->history->summaryForVendor(self::SELLER)['orders']);
+    }
+
+    public function testAnOrderNobodyElseCarriesIsRecordedNormally(): void
+    {
+        self::assertFalse($this->ledger->coversOrder(5501));
+
+        $result = $this->migration->import($this->migration->plan());
+
+        self::assertSame(1, $result->context['history']);
+        self::assertSame(0, $result->context['history_already_ours']);
+    }
+
+    public function testRollingBackTakesTheShopRecordsWithIt(): void
+    {
+        $this->dokan->staffRows = [
+            ['staff_user_id' => 7001, 'vendor_user_id' => self::SELLER, 'display_name' => 'مریم رضایی'],
+        ];
+        $this->dokan->balanceRows = [
+            ['row_id' => 1, 'trn_id' => 5501, 'vendor_user_id' => self::SELLER, 'trn_type' => 'dokan_orders', 'debit' => '700000.0000'],
+        ];
+        $this->dokan->withdrawRows = [
+            ['withdraw_id' => 9001, 'vendor_user_id' => self::SELLER, 'amount' => '250000.0000'],
+        ];
+
+        $runId = (string) $this->migration->import($this->migration->plan())->context['run_id'];
+        $this->migration->importShopRecordPage($runId, 0, 0, 50);
+        self::assertSame(1, $this->migration->shopRecordsFor(self::SELLER)['staff']);
+
+        $rolled = $this->migration->rollback($runId);
+
+        self::assertTrue($rolled->ok, $rolled->code);
+        self::assertSame(1, $rolled->context['staff']);
+        self::assertSame(1, $rolled->context['balance']);
+        self::assertSame(1, $rolled->context['withdrawals']);
+        $after = $this->migration->shopRecordsFor(self::SELLER);
+        self::assertSame(0, $after['staff']);
+        self::assertSame(0, $after['balance_rows']);
+        self::assertSame(0, $after['withdrawals']);
+        // «0.0000», not «0»: MySQL types `COALESCE(SUM(debit), 0)` by the
+        // widest operand, which is the DECIMAL(19,4) column. Asserting the
+        // literal the database actually returns beats asserting a tidier one.
+        self::assertSame('0.0000', $after['debit'], 'and the balance history went with them');
+    }
+
+    /**
+     * Dokan Lite has no staff feature at all, and that is a different fact
+     * from «this shop has no staff». The reader answers empty and the report
+     * has to be able to say which — guessing is how four people's accounts
+     * get quietly dropped.
+     */
+    public function testAnInstallWithNoStaffFeatureImportsNoneWithoutFailing(): void
+    {
+        $this->dokan->staffRows = [];
+
+        $page = $this->migration->importShopRecordPage('dokan-lite', 0, 0, 50);
+
+        self::assertSame(0, $page['staff']);
+        self::assertSame(0, $page['failed'], 'absence is not a failure');
+        self::assertSame(0, $this->dokan->counts()['staff'], 'and the count says none were found');
     }
 
     // ------------------------------- the process actually dies, mid-import

@@ -26,6 +26,21 @@ interface LedgerRepositoryInterface
     /** @return list<LedgerEntry> */
     public function forEvent(string $eventKey): array;
 
+    /**
+     * Whether this marketplace's ledger already accounts for a WooCommerce
+     * order.
+     *
+     * FIN-02 says one financial engine per order. That is only a rule if
+     * something can ask the question, so this exists: the Dokan import asks it
+     * before writing a historical record, and refuses rather than leaving an
+     * order with two sets of figures and no way to tell which is authoritative.
+     *
+     * Asked by the event-key prefix `order:<id>:item:` — the key
+     * `CaptureOrder::eventKey()` builds — so it is a prefix scan on the same
+     * unique index the ledger already keeps.
+     */
+    public function coversOrder(int $wcOrderId): bool;
+
     /** Sum per account, for one vendor. @return array<string,int> */
     public function balances(int $vendorUserId): array;
 }

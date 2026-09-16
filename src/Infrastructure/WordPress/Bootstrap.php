@@ -80,6 +80,7 @@ use Tecteb\Marketplace\Core\Migration\Migrations\M0013JobsAndOutbox;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0014RowVersionAndImportRun;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0015DokanOrderHistory;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0016VendorImportRun;
+use Tecteb\Marketplace\Core\Migration\Migrations\M0017DokanShopRecords;
 use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
 use Tecteb\Marketplace\Infrastructure\Jobs\DbJobRepository;
@@ -434,6 +435,7 @@ final class Bootstrap
             new M0014RowVersionAndImportRun(),
             new M0015DokanOrderHistory(),
             new M0016VendorImportRun(),
+            new M0017DokanShopRecords(),
         ];
     }
 

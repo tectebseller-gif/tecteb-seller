@@ -87,12 +87,92 @@ final class FakeDokanReader implements DokanReaderInterface
         return $this->page($this->orders(), 'wc_order_id', $afterId, $limit);
     }
 
+    /** @var list<array<string,mixed>> */
+    public array $staffRows = [];
+
+    /** @var list<array<string,mixed>> */
+    public array $balanceRows = [];
+
+    /** @var list<array<string,mixed>> */
+    public array $withdrawRows = [];
+
+    public function staffFor(int $vendorUserId): array
+    {
+        $out = [];
+        foreach ($this->staffRows as $row) {
+            if ((int) ($row['vendor_user_id'] ?? 0) !== $vendorUserId) {
+                continue;
+            }
+            $out[] = [
+                'staff_user_id' => (int) $row['staff_user_id'],
+                'vendor_user_id' => $vendorUserId,
+                'display_name' => (string) ($row['display_name'] ?? ''),
+                'user_email' => (string) ($row['user_email'] ?? ''),
+                'dokan_role' => (string) ($row['dokan_role'] ?? ''),
+            ];
+        }
+        return $out;
+    }
+
+    public function balanceRowsAfter(int $afterId, int $limit = self::PAGE): array
+    {
+        return $this->pageOf($this->balanceRows, 'row_id', $afterId, $limit, static fn (array $row): array => [
+            'row_id' => (int) $row['row_id'],
+            'trn_id' => (int) $row['trn_id'],
+            'vendor_user_id' => (int) $row['vendor_user_id'],
+            'trn_type' => (string) ($row['trn_type'] ?? ''),
+            'particulars' => (string) ($row['particulars'] ?? ''),
+            // Strings throughout, exactly as the real reader returns them:
+            // a fake that handed back floats would let a rounding bug pass.
+            'debit' => (string) ($row['debit'] ?? '0.0000'),
+            'credit' => (string) ($row['credit'] ?? '0.0000'),
+            'status' => (string) ($row['status'] ?? ''),
+            'trn_date' => (string) ($row['trn_date'] ?? ''),
+        ]);
+    }
+
+    public function withdrawalsAfter(int $afterId, int $limit = self::PAGE): array
+    {
+        return $this->pageOf($this->withdrawRows, 'withdraw_id', $afterId, $limit, static fn (array $row): array => [
+            'withdraw_id' => (int) $row['withdraw_id'],
+            'vendor_user_id' => (int) $row['vendor_user_id'],
+            'amount' => (string) ($row['amount'] ?? '0.0000'),
+            'status' => (string) ($row['status'] ?? ''),
+            'method' => (string) ($row['method'] ?? ''),
+            'note' => (string) ($row['note'] ?? ''),
+            'requested_at' => (string) ($row['requested_at'] ?? ''),
+        ]);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $rows
+     * @param callable(array<string,mixed>):array<string,mixed> $shape
+     * @return list<array<string,mixed>>
+     */
+    private function pageOf(array $rows, string $key, int $afterId, int $limit, callable $shape): array
+    {
+        $out = [];
+        foreach ($rows as $row) {
+            if ((int) ($row[$key] ?? 0) <= $afterId) {
+                continue;
+            }
+            $out[] = $shape($row);
+            if (count($out) >= max(1, $limit)) {
+                break;
+            }
+        }
+        return $out;
+    }
+
     public function counts(): array
     {
         return [
             'vendors' => count($this->vendors()),
             'products' => count($this->products()),
             'orders' => count($this->orders()),
+            'staff' => count($this->staffRows),
+            'balance' => count($this->balanceRows),
+            'withdrawals' => count($this->withdrawRows),
         ];
     }
 

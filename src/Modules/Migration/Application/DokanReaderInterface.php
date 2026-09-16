@@ -81,10 +81,41 @@ interface DokanReaderInterface
     public function ordersAfter(int $afterId, int $limit = self::PAGE): array;
 
     /**
+     * A shop's staff, as Dokan records them.
+     *
+     * Dokan Lite has no vendor staff at all — the feature is Pro's — so this
+     * answers `[]` on a Lite install. That is «none found here», not «this
+     * shop has none», and the report says which. Guessing the difference is
+     * how a migration quietly drops four people's accounts.
+     *
+     * @return list<array{staff_user_id:int, vendor_user_id:int, display_name:string, user_email:string, dokan_role:string}>
+     */
+    public function staffFor(int $vendorUserId): array;
+
+    /**
+     * One page of a shop's balance ledger, strictly after `$afterId`.
+     *
+     * The amounts come back as STRINGS in Dokan's own `DECIMAL(19,4)` form.
+     * Not floats, and not «minor units» — a float would round somebody's
+     * balance and a conversion would be the first step towards recomputing it.
+     * The rule is that this marketplace never restates what Dokan recorded.
+     *
+     * @return list<array{trn_id:int, vendor_user_id:int, trn_type:string, particulars:string, debit:string, credit:string, status:string, trn_date:string}>
+     */
+    public function balanceRowsAfter(int $afterId, int $limit = self::PAGE): array;
+
+    /**
+     * One page of a shop's withdrawal requests, strictly after `$afterId`.
+     *
+     * @return list<array{withdraw_id:int, vendor_user_id:int, amount:string, status:string, method:string, note:string, requested_at:string}>
+     */
+    public function withdrawalsAfter(int $afterId, int $limit = self::PAGE): array;
+
+    /**
      * How many rows there are in total, per kind, so a caller can say «۴ از
      * ۳٬۲۰۰» instead of «در حال کار».
      *
-     * @return array{vendors:int, products:int, orders:int}
+     * @return array{vendors:int, products:int, orders:int, staff:int, balance:int, withdrawals:int}
      */
     public function counts(): array;
 }

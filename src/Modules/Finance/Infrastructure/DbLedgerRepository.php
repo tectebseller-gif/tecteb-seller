@@ -71,6 +71,20 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
         ) > 0;
     }
 
+    public function coversOrder(int $wcOrderId): bool
+    {
+        if ($wcOrderId <= 0) {
+            return false;
+        }
+        // `LIKE 'order:12:item:%'` — anchored at the start, so it uses the
+        // index rather than scanning. The trailing colon matters: without it
+        // `order:1:item:` would also match order 12's keys.
+        return (int) $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->table() . '` WHERE event_key LIKE %s LIMIT 1',
+            ['order:' . $wcOrderId . ':item:%']
+        ) > 0;
+    }
+
     public function forVendor(int $vendorUserId, int $limit = 100): array
     {
         $rows = $this->db->getResults(

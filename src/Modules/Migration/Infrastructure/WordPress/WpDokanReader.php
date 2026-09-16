@@ -212,10 +212,119 @@ final class WpDokanReader implements DokanReaderInterface
         }, $rows);
     }
 
+    public function staffFor(int $vendorUserId): array
+    {
+        // Dokan Pro stores a staff member as an ordinary WordPress user
+        // carrying `_dokan_vendor_id`. Lite has no such users at all, so this
+        // is empty on a Lite install — which the report names as «Lite has no
+        // staff feature» rather than «this shop has no staff», because those
+        // are different facts and only one of them is about the shop.
+        if (!$this->isAvailable() || $vendorUserId <= 0) {
+            return [];
+        }
+        $rows = $this->db->getResults(
+            'SELECT u.ID, u.display_name, u.user_email, caps.meta_value AS caps
+               FROM `' . $this->db->prefix() . 'users` u
+         INNER JOIN `' . $this->db->prefix() . 'usermeta` m
+                 ON m.user_id = u.ID AND m.meta_key = %s AND m.meta_value = %s
+          LEFT JOIN `' . $this->db->prefix() . 'usermeta` caps
+                 ON caps.user_id = u.ID AND caps.meta_key = %s
+           ORDER BY u.ID ASC',
+            ['_dokan_vendor_id', (string) $vendorUserId, $this->db->prefix() . 'capabilities']
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'staff_user_id' => (int) $row['ID'],
+                'vendor_user_id' => $vendorUserId,
+                'display_name' => (string) $row['display_name'],
+                'user_email' => (string) $row['user_email'],
+                'dokan_role' => $this->firstRole((string) ($row['caps'] ?? '')),
+            ];
+        }
+        return $out;
+    }
+
+    public function balanceRowsAfter(int $afterId, int $limit = self::PAGE): array
+    {
+        $table = $this->db->prefix() . 'dokan_vendor_balance';
+        if (!$this->isAvailable() || !$this->tableExists($table)) {
+            return [];
+        }
+        // `CAST(... AS CHAR)` on purpose. Reading a DECIMAL(19,4) into PHP as a
+        // float is the first place a balance can quietly change value, and the
+        // whole promise here is that Dokan's number arrives unchanged.
+        $rows = $this->db->getResults(
+            'SELECT id, vendor_id, trn_id, trn_type, perticulars, status, trn_date,
+                    CAST(debit AS CHAR) AS debit, CAST(credit AS CHAR) AS credit
+               FROM `' . $table . '`
+              WHERE id > %d ORDER BY id ASC LIMIT %d',
+            [max(0, $afterId), $this->page($limit)]
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'row_id' => (int) $row['id'],
+                'trn_id' => (int) $row['trn_id'],
+                'vendor_user_id' => (int) $row['vendor_id'],
+                'trn_type' => (string) $row['trn_type'],
+                'particulars' => (string) ($row['perticulars'] ?? ''),
+                'debit' => (string) $row['debit'],
+                'credit' => (string) $row['credit'],
+                'status' => (string) ($row['status'] ?? ''),
+                'trn_date' => (string) ($row['trn_date'] ?? ''),
+            ];
+        }
+        return $out;
+    }
+
+    public function withdrawalsAfter(int $afterId, int $limit = self::PAGE): array
+    {
+        $table = $this->db->prefix() . 'dokan_withdraw';
+        if (!$this->isAvailable() || !$this->tableExists($table)) {
+            return [];
+        }
+        $rows = $this->db->getResults(
+            'SELECT id, user_id, status, method, note, date, CAST(amount AS CHAR) AS amount
+               FROM `' . $table . '`
+              WHERE id > %d ORDER BY id ASC LIMIT %d',
+            [max(0, $afterId), $this->page($limit)]
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'withdraw_id' => (int) $row['id'],
+                'vendor_user_id' => (int) $row['user_id'],
+                'amount' => (string) $row['amount'],
+                // Dokan stores this as 0/1/2. Kept as Dokan's own token rather
+                // than mapped onto one of ours: a «pending» here means what
+                // Dokan meant by it, and our withdrawal states are not the
+                // same set.
+                'status' => 'dokan:' . (string) $row['status'],
+                'method' => (string) ($row['method'] ?? ''),
+                'note' => (string) ($row['note'] ?? ''),
+                'requested_at' => (string) ($row['date'] ?? ''),
+            ];
+        }
+        return $out;
+    }
+
+    /** The first role in a serialised WordPress capabilities blob, or ''. */
+    private function firstRole(string $serialised): string
+    {
+        if ($serialised === '') {
+            return '';
+        }
+        // Read with a pattern rather than `unserialize()`: this string comes
+        // from a table another plugin owns, and unserialising foreign data is
+        // how object-injection bugs start.
+        return preg_match('/"([a-z0-9_\-]+)";b:1;/i', $serialised, $m) === 1 ? $m[1] : '';
+    }
+
     public function counts(): array
     {
         if (!$this->isAvailable()) {
-            return ['vendors' => 0, 'products' => 0, 'orders' => 0];
+            return ['vendors' => 0, 'products' => 0, 'orders' => 0, 'staff' => 0, 'balance' => 0, 'withdrawals' => 0];
         }
         $sellerIds = array_map(static fn (array $v): int => $v['user_id'], $this->vendors());
         $products = 0;
@@ -231,7 +340,24 @@ final class WpDokanReader implements DokanReaderInterface
         if ($this->tableExists($this->ordersTable())) {
             $orders = (int) $this->db->getVar('SELECT COUNT(*) FROM `' . $this->ordersTable() . '`');
         }
-        return ['vendors' => count($sellerIds), 'products' => $products, 'orders' => $orders];
+        $staff = 0;
+        foreach ($sellerIds as $sellerId) {
+            $staff += count($this->staffFor($sellerId));
+        }
+        $balanceTable = $this->db->prefix() . 'dokan_vendor_balance';
+        $withdrawTable = $this->db->prefix() . 'dokan_withdraw';
+        return [
+            'vendors' => count($sellerIds),
+            'products' => $products,
+            'orders' => $orders,
+            'staff' => $staff,
+            'balance' => $this->tableExists($balanceTable)
+                ? (int) $this->db->getVar('SELECT COUNT(*) FROM `' . $balanceTable . '`')
+                : 0,
+            'withdrawals' => $this->tableExists($withdrawTable)
+                ? (int) $this->db->getVar('SELECT COUNT(*) FROM `' . $withdrawTable . '`')
+                : 0,
+        ];
     }
 
     /**
