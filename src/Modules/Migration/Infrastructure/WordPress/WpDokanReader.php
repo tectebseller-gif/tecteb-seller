@@ -21,9 +21,42 @@ use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
  *
  * Every query is a SELECT. If Dokan changes its layout, this reads less and
  * reports it; it never guesses a shape it did not find.
+ *
+ * **Reading is paged, and the page is keyed rather than offset.** The first
+ * version of `orders()` ended in `LIMIT 500` with nothing after it: a shop with
+ * 600 Dokan orders had 500 of them planned, 100 of them invisible, and a report
+ * that said the run was complete. Silent truncation is worse than a refusal,
+ * because the refusal would at least have been read. Now every read walks
+ * `WHERE id > ? ORDER BY id ASC LIMIT ?` until a page comes back short, and the
+ * resumable import asks for one page at a time and writes down which id it
+ * reached. Keyset and not OFFSET for the reason `alpha.11` measured on the
+ * unpaid-order guard: paging by offset over a set somebody else is writing to
+ * skips rows, and here the other writer is the live Dokan shop.
  */
 final class WpDokanReader implements DokanReaderInterface
 {
+    /**
+     * Ceiling on a single unpaged read, so `products()` cannot spin for ever on
+     * a shop whose ids keep moving. At `PAGE` rows each this is 200,000 rows —
+     * far above any shop this migration targets, and low enough that hitting it
+     * means something is wrong rather than something is big. The resumable job
+     * never reaches it: it asks for one page at a time.
+     */
+    private const MAX_PAGES = 1000;
+
+    /**
+     * Sellers, read once per request.
+     *
+     * Every product page needs the seller list to scope its query, and without
+     * this a 40-page walk asked WordPress for the same user list 40 times. It
+     * is a request-scoped memo, not a cache: the object is rebuilt on the next
+     * request, so a seller added meanwhile is seen by the next batch — which is
+     * exactly the granularity a resumable job wants.
+     *
+     * @var list<array{user_id:int, store_name:string, email:string, enabled:bool}>|null
+     */
+    private ?array $vendorMemo = null;
+
     public function __construct(private readonly DatabaseInterface $db)
     {
     }
@@ -37,6 +70,9 @@ final class WpDokanReader implements DokanReaderInterface
 
     public function vendors(): array
     {
+        if ($this->vendorMemo !== null) {
+            return $this->vendorMemo;
+        }
         if (!$this->isAvailable() || !function_exists('get_users')) {
             return [];
         }
@@ -54,10 +90,16 @@ final class WpDokanReader implements DokanReaderInterface
                 'enabled' => is_array($settings) ? (($settings['enable_selling'] ?? 'yes') === 'yes') : true,
             ];
         }
+        $this->vendorMemo = $vendors;
         return $vendors;
     }
 
     public function products(): array
+    {
+        return $this->drain(fn (int $after): array => $this->productsAfter($after), 'wc_product_id');
+    }
+
+    public function productsAfter(int $afterId, int $limit = DokanReaderInterface::PAGE): array
     {
         if (!$this->isAvailable()) {
             return [];
@@ -70,8 +112,9 @@ final class WpDokanReader implements DokanReaderInterface
         $rows = $this->db->getResults(
             'SELECT p.ID, p.post_author, p.post_title FROM `' . $this->posts() . '` p
              WHERE p.post_type = %s AND p.post_status IN (%s, %s) AND p.post_author IN (' . $placeholders . ')
-             ORDER BY p.ID ASC',
-            array_merge(['product', 'publish', 'draft'], $sellerIds)
+               AND p.ID > %d
+             ORDER BY p.ID ASC LIMIT %d',
+            array_merge(['product', 'publish', 'draft'], $sellerIds, [max(0, $afterId), $this->page($limit)])
         );
         $products = [];
         foreach ($rows as $row) {
@@ -90,12 +133,19 @@ final class WpDokanReader implements DokanReaderInterface
 
     public function orders(): array
     {
-        $table = $this->db->prefix() . 'dokan_orders';
+        return $this->drain(fn (int $after): array => $this->ordersAfter($after), 'wc_order_id');
+    }
+
+    public function ordersAfter(int $afterId, int $limit = DokanReaderInterface::PAGE): array
+    {
+        $table = $this->ordersTable();
         if (!$this->isAvailable() || !$this->tableExists($table)) {
             return [];
         }
         $rows = $this->db->getResults(
-            'SELECT order_id, seller_id, order_status, order_total FROM `' . $table . '` ORDER BY order_id ASC LIMIT 500'
+            'SELECT order_id, seller_id, order_status, order_total FROM `' . $table . '`
+             WHERE order_id > %d ORDER BY order_id ASC LIMIT %d',
+            [max(0, $afterId), $this->page($limit)]
         );
         return array_map(static fn (array $row): array => [
             'wc_order_id' => (int) $row['order_id'],
@@ -103,6 +153,70 @@ final class WpDokanReader implements DokanReaderInterface
             'status' => (string) $row['order_status'],
             'total_minor' => (int) round((float) $row['order_total']),
         ], $rows);
+    }
+
+    public function counts(): array
+    {
+        if (!$this->isAvailable()) {
+            return ['vendors' => 0, 'products' => 0, 'orders' => 0];
+        }
+        $sellerIds = array_map(static fn (array $v): int => $v['user_id'], $this->vendors());
+        $products = 0;
+        if ($sellerIds !== []) {
+            $placeholders = implode(', ', array_fill(0, count($sellerIds), '%d'));
+            $products = (int) $this->db->getVar(
+                'SELECT COUNT(*) FROM `' . $this->posts() . '`
+                 WHERE post_type = %s AND post_status IN (%s, %s) AND post_author IN (' . $placeholders . ')',
+                array_merge(['product', 'publish', 'draft'], $sellerIds)
+            );
+        }
+        $orders = 0;
+        if ($this->tableExists($this->ordersTable())) {
+            $orders = (int) $this->db->getVar('SELECT COUNT(*) FROM `' . $this->ordersTable() . '`');
+        }
+        return ['vendors' => count($sellerIds), 'products' => $products, 'orders' => $orders];
+    }
+
+    /**
+     * Walk every page until one comes back short.
+     *
+     * The cap exists so a runaway query cannot hang wp-admin, and when it is
+     * reached the last row read is still the true last row read — which is what
+     * makes this safe to resume from. The previous version stopped at 500 rows
+     * with no page after it and no note anywhere, so a shop with 600 products
+     * migrated 500 of them and reported success.
+     *
+     * @param callable(int):list<array<string,mixed>> $page
+     * @return list<array<string,mixed>>
+     */
+    private function drain(callable $page, string $idKey): array
+    {
+        $all = [];
+        $after = 0;
+        for ($guard = 0; $guard < self::MAX_PAGES; $guard++) {
+            $rows = $page($after);
+            if ($rows === []) {
+                return $all;
+            }
+            foreach ($rows as $row) {
+                $all[] = $row;
+                $after = max($after, (int) $row[$idKey]);
+            }
+            if (count($rows) < DokanReaderInterface::PAGE) {
+                return $all;
+            }
+        }
+        return $all;
+    }
+
+    private function page(int $limit): int
+    {
+        return max(1, min(1000, $limit));
+    }
+
+    private function ordersTable(): string
+    {
+        return $this->db->prefix() . 'dokan_orders';
     }
 
     private function tableExists(string $table): bool

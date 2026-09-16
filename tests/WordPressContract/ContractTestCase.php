@@ -21,7 +21,7 @@ use TmcWpStubs\State;
 abstract class ContractTestCase extends TestCase
 {
     public const MAIN_FILE = '/srv/www/wp-content/plugins/tecteb-marketplace-core/tecteb-marketplace-core.php';
-    public const VERSION = '0.1.0-alpha.12';
+    public const VERSION = '0.1.0-alpha.13';
 
     protected RecordingAuditRepository $audit;
     protected FakeDependencyProbe $probe;
@@ -59,9 +59,22 @@ abstract class ContractTestCase extends TestCase
         return $report;
     }
 
+    /**
+     * An administrator with everything this build actually grants.
+     *
+     * The list comes from `Capabilities::all()` rather than being written out
+     * here, and that is not tidiness: a hand-written list goes stale the
+     * moment a capability is added, and the symptom is a new admin page
+     * refusing to render inside the test harness while working perfectly on a
+     * real site. Activation grants the whole list to this role, so the fixture
+     * should too.
+     */
     protected function loginAdmin(): void
     {
-        State::loginAs(1, ['manage_options', 'activate_plugins', 'tmc_view_dashboard', 'tmc_view_health', 'tmc_manage_settings', 'tmc_view_modules']);
+        State::loginAs(1, array_merge(
+            ['manage_options', 'activate_plugins'],
+            \Tecteb\Marketplace\Core\Lifecycle\Capabilities::all()
+        ));
     }
 
     /** @return string captured output */

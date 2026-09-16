@@ -377,6 +377,27 @@ final class DbProductRepository implements ProductRepositoryInterface
         ));
     }
 
+    public function stockSummary(int $vendorUserId, int $lowThreshold): array
+    {
+        // One pass, three answers. `SUM(condition)` rather than three queries,
+        // because three queries over the same rows can disagree with each other
+        // when somebody sells something between them — and a report whose
+        // «موجود» and «رو به اتمام» do not add up is worse than a slow one.
+        $row = $this->db->getRow(
+            'SELECT COUNT(*) AS on_sale,
+                    SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END) AS out_of_stock,
+                    SUM(CASE WHEN stock > 0 AND stock < %d THEN 1 ELSE 0 END) AS low
+             FROM `' . $this->products() . '`
+             WHERE vendor_user_id = %d AND status = %s AND ' . self::OWNED,
+            [max(1, $lowThreshold), $vendorUserId, ProductStatus::Published->value]
+        );
+        return [
+            'on_sale' => (int) ($row['on_sale'] ?? 0),
+            'out' => (int) ($row['out_of_stock'] ?? 0),
+            'low' => (int) ($row['low'] ?? 0),
+        ];
+    }
+
     /**
      * Every product this marketplace has on the storefront — and only those.
      *

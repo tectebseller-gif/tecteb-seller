@@ -1,0 +1,5 @@
+revision_on_the_form=2026-09-16 13:47:25
+editor_a=saved
+editor_b=refused:stale_revision
+both_stamps_reported=yes
+empty_stamp=saved

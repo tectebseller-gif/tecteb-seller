@@ -1,0 +1,5 @@
+installed=0
+usable=0
+reason=no_published_php_contract
+send=unavailable
+bound=Tecteb\Marketplace\Infrastructure\Otp\NullOtpProvider

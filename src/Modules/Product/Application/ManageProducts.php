@@ -61,6 +61,19 @@ final class ManageProducts
      * @param array<string,string> $specs
      * @param list<int> $imageIds
      */
+    /**
+     * Saving somebody else's newer work is the one failure a form cannot
+     * undo, so `$revision` exists to stop it.
+     *
+     * A shop with staff has two people who can open the same product, and the
+     * old behaviour was last-write-wins with no trace: the second save
+     * overwrote the first and neither person was told. The form carries the
+     * `updated_at` it was rendered from, and a save whose token no longer
+     * matches the row is REFUSED — with both values reported, so the editor
+     * decides which is right. An empty token skips the check, because a form
+     * from an older build has nothing to compare and refusing it would break
+     * saving for anybody mid-edit across an upgrade.
+     */
     public function save(
         int $actorId,
         int $vendorUserId,
@@ -68,7 +81,8 @@ final class ManageProducts
         ProductDetails $details,
         array $specs = [],
         array $imageIds = [],
-        int $mainImageId = 0
+        int $mainImageId = 0,
+        string $revision = ''
     ): OperationResult {
         if (!$this->access->can($actorId, $vendorUserId, StaffArea::Product, StaffLevel::Edit)) {
             return OperationResult::failure('forbidden');
@@ -90,6 +104,17 @@ final class ManageProducts
         $product = $this->products->findOwned($productId, $vendorUserId);
         if ($product === null) {
             return OperationResult::failure('not_found');
+        }
+        if ($revision !== '' && $product->updatedAt !== '' && $revision !== $product->updatedAt) {
+            // Refused, not merged. A merge would have to guess which of two
+            // prices is the intended one, and a wrong guess about a price is
+            // money. The context carries both stamps so the page can say who
+            // changed it and when.
+            return OperationResult::failure('stale_revision', [
+                'product_id' => $productId,
+                'submitted_revision' => $revision,
+                'current_revision' => $product->updatedAt,
+            ]);
         }
         return match (true) {
             $product->status === ProductStatus::Submitted => OperationResult::failure('in_review'),
@@ -158,6 +183,12 @@ final class ManageProducts
      * keystroke, so a half-filled draft is always savable and only a
      * submission has to be complete.
      */
+    /** @var list<string> the bulk verbs, each one an existing single-row action */
+    public const BULK_ACTIONS = ['submit', 'archive', 'restore'];
+
+    /** Rows one POST may carry. Above it the request is refused, not truncated. */
+    public const BULK_LIMIT = 100;
+
     public function submit(int $actorId, int $vendorUserId, int $productId): OperationResult
     {
         if (!$this->access->can($actorId, $vendorUserId, StaffArea::Product, StaffLevel::Edit)) {
@@ -209,6 +240,74 @@ final class ManageProducts
     public function restore(int $actorId, int $vendorUserId, int $productId): OperationResult
     {
         return $this->move($actorId, $vendorUserId, $productId, ProductStatus::Draft, 'product_restored');
+    }
+
+    /**
+     * The same three actions, over a selection, with a verdict per row.
+     *
+     * **A refused row does not stop the batch, and it does not disappear.**
+     * A vendor selecting forty products and pressing «ارسال برای بررسی» has
+     * some that are ready and some that are missing a price; stopping at the
+     * first incomplete one would make the feature useless on exactly the
+     * catalogue that needs it, and skipping it silently would tell them
+     * everything went out when four things did not. So every row gets its own
+     * line in the answer, with the same code the single-row action would have
+     * returned.
+     *
+     * **It calls the single-row methods.** Not a faster bulk query — every
+     * ownership check, every readiness rule and every audit line is the one
+     * that already exists. A bulk path with its own rules is a second set of
+     * rules, and the looser one always wins the day they differ.
+     *
+     * **The selection is capped.** A POST carrying ten thousand ids would
+     * time out half way, which is the failure the job queue exists for; until
+     * bulk work is queued, the honest answer is to refuse the oversized
+     * request rather than start one that cannot finish.
+     *
+     * @param list<int> $productIds
+     * @return OperationResult context: rows, ok, failed
+     */
+    public function bulk(int $actorId, int $vendorUserId, string $action, array $productIds): OperationResult
+    {
+        if (!in_array($action, self::BULK_ACTIONS, true)) {
+            return OperationResult::failure('unknown_bulk_action');
+        }
+        if (!$this->access->can($actorId, $vendorUserId, StaffArea::Product, StaffLevel::Edit)) {
+            return OperationResult::failure('forbidden');
+        }
+        $productIds = array_values(array_unique(array_filter($productIds, static fn (int $id): bool => $id > 0)));
+        if ($productIds === []) {
+            return OperationResult::failure('nothing_selected');
+        }
+        if (count($productIds) > self::BULK_LIMIT) {
+            return OperationResult::failure('bulk_too_large', [
+                'selected' => count($productIds),
+                'limit' => self::BULK_LIMIT,
+            ]);
+        }
+
+        $rows = [];
+        $ok = 0;
+        $failed = 0;
+        foreach ($productIds as $productId) {
+            $result = match ($action) {
+                'submit' => $this->submit($actorId, $vendorUserId, $productId),
+                'archive' => $this->archive($actorId, $vendorUserId, $productId),
+                default => $this->restore($actorId, $vendorUserId, $productId),
+            };
+            $rows[] = ['product_id' => $productId, 'ok' => $result->ok, 'code' => $result->code];
+            $result->ok ? $ok++ : $failed++;
+        }
+
+        // `ok` is true when the batch RAN, not when every row succeeded. The
+        // caller reads the rows to find out what happened; a false here would
+        // have made «۳۶ از ۴۰ رفت» look like a failure of the whole thing.
+        return OperationResult::success('bulk_done', [
+            'action' => $action,
+            'rows' => $rows,
+            'ok' => $ok,
+            'failed' => $failed,
+        ]);
     }
 
     /**

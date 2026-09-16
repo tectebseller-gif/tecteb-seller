@@ -1,0 +1,12 @@
+step=woocommerce status=done blocker=-
+step=commission status=done blocker=-
+step=documents status=todo blocker=-
+step=settlement status=todo blocker=-
+step=staff_limit status=done blocker=-
+step=vendor_page status=done blocker=-
+step=queue status=done blocker=-
+summary_done=5
+summary_todo=2
+summary_blocked=0
+summary_skipped=0
+summary_total=7

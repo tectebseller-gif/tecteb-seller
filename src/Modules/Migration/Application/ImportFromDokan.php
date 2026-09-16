@@ -319,16 +319,160 @@ final class ImportFromDokan
         return [DokanMigrationPlan::IMPORT, ''];
     }
 
-    /** @param array{vendors:list<int>, products:list<int>} $created */
-    private function rememberRun(string $runId, array $created): void
+    /**
+     * Write down what this run has created SO FAR — appending, never replacing.
+     *
+     * The old version built the whole list in memory and wrote it once, after
+     * both loops. That made the manifest a record of runs that finished, and
+     * only those: a run killed by a PHP timeout half way through had created
+     * real rows and left nothing that knew about them, so `rollback()` could
+     * not undo it and a re-run had no idea they were there. Appending after
+     * every batch means the manifest is always at least as complete as the
+     * work, which is the direction the error has to lean.
+     *
+     * @param array{vendors:list<int>, products:list<int>} $created
+     */
+    public function rememberRun(string $runId, array $created): void
     {
         $runs = $this->runs();
+        $existing = $runs[$runId] ?? ['vendors' => [], 'products' => []];
         $runs[$runId] = [
-            'vendors' => $created['vendors'],
-            'products' => $created['products'],
+            'vendors' => array_values(array_unique(array_merge(
+                array_map('intval', $existing['vendors'] ?? []),
+                $created['vendors']
+            ))),
+            'products' => array_values(array_unique(array_merge(
+                array_map('intval', $existing['products'] ?? []),
+                $created['products']
+            ))),
             'at' => $this->clock->now()->format('Y-m-d H:i:s'),
         ];
         $this->options->set(self::RUNS_OPTION, $runs);
+    }
+
+    /**
+     * Import one page of vendors, starting strictly after `$afterUserId`.
+     *
+     * Idempotent against its cursor, because a worker can die between doing the
+     * work and writing the checkpoint: `upsertProfile` on a shop that is
+     * already there changes nothing, and the manifest de-duplicates.
+     *
+     * @return array{done:int, last:int, more:bool, created:array{vendors:list<int>, products:list<int>}}
+     */
+    public function importVendorPage(string $runId, int $afterUserId, int $limit): array
+    {
+        $created = ['vendors' => [], 'products' => []];
+        $rows = array_values(array_filter(
+            $this->dokan->vendors(),
+            static fn (array $v): bool => $v['user_id'] > $afterUserId
+        ));
+        usort($rows, static fn (array $a, array $b): int => $a['user_id'] <=> $b['user_id']);
+        $page = array_slice($rows, 0, max(1, $limit));
+        $last = $afterUserId;
+        foreach ($page as $vendor) {
+            $last = (int) $vendor['user_id'];
+            if ($this->vendors->findProfileByUser($last) !== null) {
+                continue;                       // already ours; the plan said skip
+            }
+            // canSell false: an imported shop is present, not yet trading.
+            $this->vendors->upsertProfile($last, $vendor['store_name'], false, false);
+            $created['vendors'][] = $last;
+        }
+        if ($created['vendors'] !== []) {
+            $this->rememberRun($runId, $created);
+        }
+        return [
+            'done' => count($page),
+            'last' => $last,
+            'more' => count($page) >= $limit && count($rows) > count($page),
+            'created' => $created,
+        ];
+    }
+
+    /**
+     * Import one page of products, starting strictly after `$afterProductId`.
+     *
+     * A row the plan would have called a conflict is counted as failed and
+     * SKIPPED rather than aborting the job, because a job that stops on the
+     * first bad SKU leaves a half-imported shop and tells the manager nothing
+     * about the other 300 rows. The reasons come back in the notes.
+     *
+     * @return array{done:int, failed:int, last:int, more:bool, created:array{vendors:list<int>, products:list<int>}, notes:list<string>}
+     */
+    public function importProductPage(string $runId, int $afterProductId, int $limit): array
+    {
+        $created = ['vendors' => [], 'products' => []];
+        $notes = [];
+        $page = $this->dokan->productsAfter($afterProductId, $limit);
+        $last = $afterProductId;
+        $failed = 0;
+        foreach ($page as $product) {
+            $last = (int) $product['wc_product_id'];
+            [$verdict, $reason] = $this->judgeProduct($product);
+            if ($verdict !== DokanMigrationPlan::IMPORT) {
+                if ($verdict === DokanMigrationPlan::CONFLICT) {
+                    $failed++;
+                    $notes[] = $last . ':' . $reason;
+                }
+                continue;
+            }
+            $productId = $this->products->create(
+                $product['vendor_user_id'],
+                new ProductDetails(
+                    title: $product['title'],
+                    categoryKey: '',
+                    priceMinor: $product['price_minor'],
+                    sku: $product['sku'],
+                    stock: $product['stock']
+                ),
+                ProductStatus::Draft,
+                LinkOwnership::Observed
+            );
+            if ($productId === 0) {
+                $failed++;
+                $notes[] = $last . ':create_failed';
+                continue;
+            }
+            $this->products->link($productId, $product['wc_product_id']);
+            $created['products'][] = $productId;
+        }
+        if ($created['products'] !== []) {
+            $this->rememberRun($runId, $created);
+        }
+        return [
+            'done' => count($page) - $failed,
+            'failed' => $failed,
+            'last' => $last,
+            'more' => count($page) >= $limit,
+            'created' => $created,
+            'notes' => array_slice($notes, 0, 20),
+        ];
+    }
+
+    /**
+     * Record the audit line that closes a run. Separate from the loops because
+     * a resumable import finishes in a different request from the one that
+     * started it.
+     */
+    public function finishRun(string $runId, int $vendors, int $products, int $skipped): void
+    {
+        $this->audit->log(AuditEventCatalog::DOKAN_IMPORTED, $this->actorId(), 'migration', $runId, [
+            'vendors' => $vendors,
+            'products' => $products,
+            'skipped' => $skipped,
+            'run_id' => $runId,
+            'mode' => 'trial',
+        ]);
+    }
+
+    /** What a run has created so far, for a progress report mid-import. */
+    public function runProgress(string $runId): array
+    {
+        $run = $this->runs()[$runId] ?? ['vendors' => [], 'products' => []];
+        return [
+            'vendors' => count($run['vendors'] ?? []),
+            'products' => count($run['products'] ?? []),
+        ];
     }
 
     private function actorId(): int

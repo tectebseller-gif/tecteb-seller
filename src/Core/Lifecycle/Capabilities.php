@@ -34,6 +34,18 @@ final class Capabilities
     public const REVIEW_WITHDRAWALS = 'tmc_review_withdrawals';
     /** Reviews and ratings: «moderation و گزارش» is the manager's (UX §12). */
     public const MODERATE_REVIEWS = 'tmc_moderate_reviews';
+    /**
+     * Reading the audit trail is its own permission, and deliberately not part
+     * of any other. The trail records what every manager did, so somebody who
+     * can approve a vendor should not automatically be able to read who else
+     * approved which — that is the one page whose readers a site owner may want
+     * to be a shorter list than its actors.
+     */
+    public const VIEW_AUDIT = 'tmc_view_audit';
+    /** Running, retrying and cancelling queued work. */
+    public const MANAGE_JOBS = 'tmc_manage_jobs';
+    /** Issuing API keys and naming event endpoints. Not the same as using them. */
+    public const MANAGE_API = 'tmc_manage_api';
 
     /** @return list<string> */
     public static function all(): array
@@ -50,6 +62,9 @@ final class Capabilities
             self::MANAGE_STOREFRONT,
             self::REVIEW_WITHDRAWALS,
             self::MODERATE_REVIEWS,
+            self::VIEW_AUDIT,
+            self::MANAGE_JOBS,
+            self::MANAGE_API,
         ];
     }
 

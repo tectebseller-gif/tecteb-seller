@@ -13,6 +13,7 @@ use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
+use Tecteb\Marketplace\Modules\Product\Application\ProductDraftStoreInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
@@ -48,7 +49,7 @@ final class ProductArea
 
     /** @var list<string> the POST actions this page owns */
     public const ACTIONS = [
-        'save_product', 'submit_product', 'archive_product', 'restore_product',
+        'save_product', 'submit_product', 'archive_product', 'restore_product', 'bulk_products',
         'export_products', 'import_products', 'apply_products_csv',
         'save_attribute', 'delete_attribute', 'save_variation', 'delete_variation', 'save_variation_stock',
     ];
@@ -146,6 +147,19 @@ final class ProductArea
             $mainImageId = (int) ($carried['main_image_id'] ?? $mainImageId);
         }
 
+        // An autosaved draft is OFFERED, never applied: what somebody typed
+        // and did not save is a suggestion, and silently loading it over the
+        // stored product would hide a real difference between the two. The
+        // carried values of a failed save still win, because those are the
+        // values of the submission being corrected.
+        $draftSavedAt = '';
+        if ($productId > 0 && !is_array($carried)) {
+            $draft = $this->drafts()->get($view->userId, $productId);
+            if ($draft !== null) {
+                $draftSavedAt = substr($draft['saved_at'], 11, 5);
+            }
+        }
+
         $template = $this->templates()->findByCategory($details->categoryKey);
         $status = $product?->status ?? ProductStatus::Draft;
         $readiness = null;
@@ -173,7 +187,12 @@ final class ProductArea
             $share,
             $this->publishing()->mayPublishDirectly($vendorUserId),
             $product !== null && $this->revisions()->pendingFor($product->id) !== null,
-            $this->variableData($productId, $details->type)
+            $this->variableData($productId, $details->type),
+            $product?->updatedAt ?? '',
+            $draftSavedAt,
+            $mayEdit ? admin_url('admin-ajax.php') : '',
+            ProductAutosave::ACTION,
+            $mayEdit ? wp_create_nonce(ProductAutosave::NONCE) : ''
         );
     }
 
@@ -202,6 +221,7 @@ final class ProductArea
                 $urls,
                 0
             ),
+            'bulk_products' => $this->bulk($request, $userId, $vendorUserId, $urls),
             'export_products' => $this->export($userId, $vendorUserId, $urls),
             'import_products' => $this->preview($request, $userId, $vendorUserId, $urls),
             'apply_products_csv' => $this->apply($userId, $vendorUserId, $urls),
@@ -258,7 +278,16 @@ final class ProductArea
         [$imageIds, $mainImageId] = $this->imagesFromPost($request, $userId, $vendorUserId);
         $imageIds = $this->reorder($imageIds, $request->postText('move_image'));
 
-        $result = $this->manage()->save($userId, $vendorUserId, $productId, $details, $specs, $imageIds, $mainImageId);
+        $result = $this->manage()->save(
+            $userId,
+            $vendorUserId,
+            $productId,
+            $details,
+            $specs,
+            $imageIds,
+            $mainImageId,
+            $request->postText('revision')
+        );
         if (!$result->ok) {
             $this->flash()->put($this->formKey($userId), [
                 'product_id' => $productId,
@@ -270,6 +299,11 @@ final class ProductArea
             return new VendorAreaOutcome($result->code, $this->stepUrl($urls, $productId, $step), $result->context);
         }
         $savedId = (int) ($result->context['product_id'] ?? $productId);
+        // The draft has done its job. Cleared HERE and not on a successful
+        // autosave: a draft that deleted itself when the form was submitted
+        // would throw the work away at exactly the moment a refused save
+        // needed it.
+        $this->drafts()->forget($userId, $savedId);
         // A reorder is not "done with this step": stay where the gallery is.
         $next = match (true) {
             $request->postText('move_image') !== '' => $step,
@@ -277,6 +311,35 @@ final class ProductArea
             default => $this->nextStep($step),
         };
         return new VendorAreaOutcome($result->code, $this->stepUrl($urls, $savedId, $next), $result->context);
+    }
+
+    /**
+     * One action over a selection, with the outcome of every row reported.
+     *
+     * The counts go in the redirect's context rather than the URL, so a
+     * refresh of the landing page does not repeat them as if they had just
+     * happened. The refused rows are named: «۳۶ رفت، ۴ نرفت» without saying
+     * WHICH four is a message that sends somebody hunting through forty rows.
+     */
+    private function bulk(Request $request, int $userId, int $vendorUserId, VendorUrls $urls): VendorAreaOutcome
+    {
+        $ids = array_map('intval', $request->postTextList('selected'));
+        $result = $this->manage()->bulk($userId, $vendorUserId, $request->postKey('bulk_action'), $ids);
+        if (!$result->ok) {
+            return new VendorAreaOutcome($result->code, $urls->products(), $result->context);
+        }
+        $refused = [];
+        foreach ($result->context['rows'] ?? [] as $row) {
+            if (!($row['ok'] ?? false)) {
+                $refused[(string) $row['product_id']] = (string) $row['code'];
+            }
+        }
+        return new VendorAreaOutcome('bulk_done', $urls->products(), [
+            'action' => $result->context['action'] ?? '',
+            'ok' => $result->context['ok'] ?? 0,
+            'failed' => $result->context['failed'] ?? 0,
+            'refused' => $refused,
+        ]);
     }
 
     private function finish(OperationResult $result, VendorUrls $urls, int $productId): VendorAreaOutcome
@@ -626,6 +689,11 @@ final class ProductArea
     private function publishing(): ProductPublishPolicy
     {
         return $this->container->get(ProductPublishPolicy::class);
+    }
+
+    private function drafts(): ProductDraftStoreInterface
+    {
+        return $this->container->get(ProductDraftStoreInterface::class);
     }
 
     private function flash(): FlashStoreInterface

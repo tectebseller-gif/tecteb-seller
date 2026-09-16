@@ -47,6 +47,12 @@ final class State
     public static array $restRoutes = [];
     /** @var list<string> */
     public static array $clearedScheduledHooks = [];
+
+    /** hook => timestamp, as WP-Cron keeps it. */
+    public static array $scheduled = [];
+
+    /** hook => recurrence name, so a test can assert WHICH schedule was asked for. */
+    public static array $scheduledRecurrences = [];
     /** @var list<string> */
     public static array $output = [];
     /** @var list<string> */
@@ -91,6 +97,8 @@ final class State
         self::$enqueued = ['style' => [], 'script' => []];
         self::$restRoutes = [];
         self::$clearedScheduledHooks = [];
+        self::$scheduled = [];
+        self::$scheduledRecurrences = [];
         self::$rewriteRules = [];
         self::$rewriteFlushes = 0;
         self::$queryVars = [];

@@ -85,6 +85,32 @@
   outline-offset: 2px;
 }
 
+/* Form controls ring on ANY focus, not only `:focus-visible`.
+ *
+ * `<input type="date">` is the reason. Chromium gives it a shadow tree of
+ * segments, and tabbing in focuses one of those — `document.activeElement` is
+ * still the input, but `:focus-visible` does not match it, so the field a
+ * keyboard user is standing in had no ring at all. Measured on the audit
+ * page's two date filters, which is where it was found.
+ *
+ * `:focus-within` is there for the LAST of those stops. Measured: a date field
+ * costs four Tab presses in Chromium — day, month, year, then the calendar
+ * picker button — and on the fourth, `document.activeElement` is still the
+ * input but `:focus` no longer matches it, so the ring disappeared underneath
+ * a keyboard user mid-field. `:focus-within` matches the host while anything
+ * inside it holds focus, which is exactly the case.
+ *
+ * The cost is that clicking a field also rings it, which is exactly what
+ * `:focus-visible` exists to avoid elsewhere — but on a form control it is the
+ * conventional behaviour and tells a mouse user where they are typing. */
+.tmc-admin .tmc-input:focus,
+.tmc-admin .tmc-input:focus-within,
+.tmc-admin .tmc-select:focus,
+.tmc-admin textarea:focus {
+  outline: 3px solid var(--tmc-focus);
+  outline-offset: 2px;
+}
+
 /* skip link: clipped rather than pushed off-screen, so it never adds
    geometry outside the viewport (an inset-inline-start of -9999px does). */
 .tmc-skip {

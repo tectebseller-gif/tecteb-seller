@@ -1,0 +1,8 @@
+job=18
+only_job_in_queue=1
+worker_a=won job 18
+worker_b=lost
+winners=1
+same_job_twice=no
+returned_token=token-a
+row_token=token-a

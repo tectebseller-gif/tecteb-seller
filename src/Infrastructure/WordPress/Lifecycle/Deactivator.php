@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpCapabilities;
+use Tecteb\Marketplace\Infrastructure\WordPress\WpJobScheduler;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontStop;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch;
 
@@ -31,13 +32,19 @@ use Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch;
 final class Deactivator
 {
     /** @var list<string> own cron hooks to clear on deactivation */
-    public const OWN_SCHEDULED_HOOKS = [];
+    /**
+     * Ours to clear on the way out, because a scheduled hook whose callback no
+     * longer exists fires for ever against nothing. The queue's own rows stay:
+     * a pending import is data, and deactivation has never deleted data here.
+     */
+    public const OWN_SCHEDULED_HOOKS = [WpJobScheduler::HOOK];
 
     public static function deactivate(): void
     {
         foreach (self::OWN_SCHEDULED_HOOKS as $hook) {
             wp_clear_scheduled_hook($hook);
         }
+        WpJobScheduler::unregister();
         delete_transient(Activator::NOTICE_TRANSIENT);
         $withdrawn = self::stopSellingMarketplaceProducts();
         try {

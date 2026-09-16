@@ -112,7 +112,10 @@ final class ActivationFlowTest extends DatabaseTestCase
         self::assertIsArray(get_option('tmc_settings'), 'settings survive deactivation');
         self::assertSame(SchemaVersion::TARGET, $this->storedSchemaVersion());
         self::assertTrue(State::$roles['administrator']['tmc_manage_settings']);
-        self::assertSame([], State::$clearedScheduledHooks, 'phase 1 owns no cron hooks');
+        // Ours and only ours: the queue tick, whose callback goes away with
+        // the plugin. Nothing else on the site is unscheduled — and the jobs
+        // table below survives, because a pending import is data.
+        self::assertSame(['tmc_run_jobs'], State::$clearedScheduledHooks);
 
         foreach ($during as $q) {
             self::assertDoesNotMatchRegularExpression('/^\s*(DROP|TRUNCATE|DELETE|ALTER)\b/i', $q, 'no destructive SQL during deactivation: ' . $q);

@@ -765,3 +765,73 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 .tv-chart__fill[data-series="4"] { background: #4F6570; }
 
 .tv-chart__caption { color: var(--tv-muted); font-size: 0.9375rem; margin-block: var(--tv-s2) 0; }
+
+/* ------------------------------------------------------------------ bulk bar
+   The checkboxes live in the product cards and point at this form by id, so
+   the per-row «بایگانی» forms are never nested inside it. See
+   ProductListView::bulkBar(). */
+.tv-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--tv-s2);
+  padding: var(--tv-s3);
+  margin-block-end: var(--tv-s3);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-bulk__label { font-weight: 600; flex-basis: 100%; }
+
+/* The hint takes the whole row. A sentence squeezed beside a select is the
+   starved text box ADR-006 forbids, and at 320px it becomes one word a line. */
+.tv-bulk .tv-hint { flex-basis: 100%; margin-block-start: 0; }
+
+/* A checkbox target small enough to miss is one a vendor mis-taps on a phone;
+   44px is the smallest reliable one. */
+.tv-product__pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  margin-inline-end: var(--tv-s1);
+}
+
+.tv-product__pick input { inline-size: 1.25rem; block-size: 1.25rem; }
+
+/* Visible to a screen reader, invisible on screen, and NOT display:none —
+   which would take it out of the accessibility tree along with everything
+   else. */
+.tv-sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* -------------------------------------------------------------- autosave
+   One line under the form. It is `role="status"` in the markup, so it is
+   announced politely rather than interrupting somebody mid-sentence. */
+.tv-autosave {
+  min-block-size: 1.5rem;
+  margin-block: var(--tv-s2) 0;
+  font-size: 0.9375rem;
+  color: var(--tv-muted);
+}
+
+.tv-autosave--ok { color: var(--tv-ink); }
+/* --tv-red on the card surface, which the contrast tool already measures for
+   every error notice; a warning that cannot be read is not one. */
+.tv-autosave--warn { color: var(--tv-red); font-weight: 600; }
+
+/* The bulk select sits beside its button rather than taking the whole row:
+   `.tv-input` is 100% wide by design (a form field should be), and in the
+   wrapping bar that pushed the button onto its own line at every width. */
+.tv-bulk select.tv-input { inline-size: auto; min-inline-size: 12rem; max-inline-size: 100%; }

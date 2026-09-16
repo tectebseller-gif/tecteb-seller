@@ -38,6 +38,23 @@ function do_action(string $tag, mixed ...$args): void
         }
     }
 }
+/**
+ * How many times an action has fired.
+ *
+ * Needed because readiness in WordPress is often «has this hook run yet», not
+ * «does this function exist» — the job scheduler learned that from Action
+ * Scheduler, whose functions are declared long before its data store is built.
+ */
+function did_action(string $tag): int
+{
+    $n = 0;
+    foreach (State::$firedActions as $fired) {
+        if ($fired['tag'] === $tag) {
+            $n++;
+        }
+    }
+    return $n;
+}
 function apply_filters(string $tag, mixed $value, mixed ...$args): mixed
 {
     $byPriority = State::$hooks[$tag] ?? [];
@@ -310,7 +327,35 @@ function wp_cache_delete(string $key, string $group = ''): bool
 function wp_clear_scheduled_hook(string $hook, array $args = []): int
 {
     State::$clearedScheduledHooks[] = $hook;
+    unset(State::$scheduled[$hook]);
     return 0;
+}
+/**
+ * The cron surface the job queue binds to.
+ *
+ * Recorded rather than ignored: the contract suite asserts that the queue asks
+ * for a schedule exactly once and clears it on deactivation, and a stub that
+ * silently returned false would have let a double registration through.
+ */
+function wp_next_scheduled(string $hook, array $args = []): int|false
+{
+    return State::$scheduled[$hook] ?? false;
+}
+function wp_schedule_event(int $timestamp, string $recurrence, string $hook, array $args = [], bool $wpError = false): bool
+{
+    State::$scheduled[$hook] = $timestamp;
+    State::$scheduledRecurrences[$hook] = $recurrence;
+    return true;
+}
+function wp_schedule_single_event(int $timestamp, string $hook, array $args = [], bool $wpError = false): bool
+{
+    State::$scheduled[$hook] = $timestamp;
+    return true;
+}
+function wp_unschedule_event(int $timestamp, string $hook, array $args = [], bool $wpError = false): bool
+{
+    unset(State::$scheduled[$hook]);
+    return true;
 }
 
 // ---- users / roles / capabilities -------------------------------------------

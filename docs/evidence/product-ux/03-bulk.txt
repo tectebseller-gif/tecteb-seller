@@ -1,0 +1,9 @@
+ok=1 code=bulk_done
+succeeded=2
+refused=1
+row product=1 ok=1 code=product_archived_ok
+row product=3 ok=1 code=product_archived_ok
+row product=99999 ok=0 code=not_found
+empty=nothing_selected
+unknown_verb=unknown_bulk_action
+too_large=bulk_too_large

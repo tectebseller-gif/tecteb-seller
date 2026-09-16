@@ -1,0 +1,14 @@
+vendor.approved ok=1 reason=-
+vendor.suspended ok=1 reason=-
+product.approved ok=1 reason=-
+product.rejected ok=1 reason=-
+order.recorded ok=1 reason=-
+shipment.created ok=1 reason=-
+return.decided ok=1 reason=-
+withdrawal.decided ok=1 reason=-
+unknown_type ok=0 reason=unknown_event_type
+secret_stored=yes
+secret_length=64
+signatures_checked=8
+signatures_bad=0
+undeclared_fields_on_the_wire=0

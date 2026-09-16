@@ -74,7 +74,9 @@ final class StorePageView
         StoreSettings $store,
         array $products,
         array $standing,
-        string $canonical
+        string $canonical,
+        int $page = 1,
+        int $pages = 1
     ): string {
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
         $name = $store->storeName !== ''
@@ -135,7 +137,7 @@ final class StorePageView
 
         $html .= self::standingSection($standing);
         $html .= self::policySection($store, $fa);
-        $html .= self::productSection($products, $fa);
+        $html .= self::productSection($products, $fa, $page, $pages, $canonical);
         $html .= self::socialSection($store);
 
         return $html . '</main></body></html>';
@@ -198,7 +200,7 @@ final class StorePageView
      * @param list<Product> $products
      * @param callable(string|int):string $fa
      */
-    private static function productSection(array $products, callable $fa): string
+    private static function productSection(array $products, callable $fa, int $page = 1, int $pages = 1, string $canonical = ''): string
     {
         $html = '<section class="tmc-store__card"><h2>'
             . esc_html__('محصولات', 'tecteb-marketplace-core') . '</h2>';
@@ -220,7 +222,53 @@ final class StorePageView
             }
             $html .= '</li>';
         }
-        return $html . '</ul></section>';
+        $html .= '</ul>';
+        if ($pages > 1) {
+            $html .= self::pager($page, $pages, $canonical, $fa);
+        }
+        return $html . '</section>';
+    }
+
+    /**
+     * Real links, not a script.
+     *
+     * Every page of this catalogue is a URL somebody can bookmark, send to a
+     * colleague or reach with the back button — which is the whole point of a
+     * public shop page, and something an «بیشتر» button that appends rows
+     * cannot do.
+     *
+     * @param callable(string|int):string $fa
+     */
+    private static function pager(int $page, int $pages, string $canonical, callable $fa): string
+    {
+        $html = '<nav class="tmc-store__pager" aria-label="'
+            . esc_attr__('صفحه‌بندی محصولات فروشگاه', 'tecteb-marketplace-core') . '"><ul role="list">';
+        if ($page > 1) {
+            $html .= '<li><a rel="prev" href="' . esc_url(self::pageUrl($canonical, $page - 1)) . '">'
+                . esc_html__('صفحهٔ قبل', 'tecteb-marketplace-core') . '</a></li>';
+        }
+        $html .= '<li><span>' . esc_html(sprintf(
+            /* translators: 1: current page, 2: total pages */
+            __('صفحهٔ %1$s از %2$s', 'tecteb-marketplace-core'),
+            $fa((string) $page),
+            $fa((string) $pages)
+        )) . '</span></li>';
+        if ($page < $pages) {
+            $html .= '<li><a rel="next" href="' . esc_url(self::pageUrl($canonical, $page + 1)) . '">'
+                . esc_html__('صفحهٔ بعد', 'tecteb-marketplace-core') . '</a></li>';
+        }
+        return $html . '</ul></nav>';
+    }
+
+    /**
+     * The canonical carries this page's own number, so it is stripped before
+     * another is added. Appending would give `…&page=2&page=3`, and which one
+     * wins is the server's business, not ours to guess.
+     */
+    private static function pageUrl(string $canonical, int $page): string
+    {
+        $base = remove_query_arg('tmc_store_page', $canonical);
+        return $page > 1 ? add_query_arg('tmc_store_page', (string) $page, $base) : $base;
     }
 
     private static function socialSection(StoreSettings $store): string
@@ -307,6 +355,11 @@ final class StorePageView
             . '.tmc-store__note{color:var(--s-muted);font-size:.9375rem}'
             . '.tmc-store__closed{background:#FFF4D6;border-radius:9px;padding:12px}'
             . '.tmc-store__products{list-style:none;margin:0;padding:0;display:grid;gap:12px}'
+            // Wraps rather than scrolling: at 320px three pager items on one
+            // line squeeze each other into a column of single letters, which is
+            // the failure the charts already taught us to measure for.
+            . '.tmc-store__pager ul{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:12px;align-items:center}'
+            . '.tmc-store__pager a{display:inline-block;min-block-size:44px;line-height:44px;padding:0 12px}'
             . '.tmc-store__product a{color:var(--s-ink);text-underline-offset:3px;overflow-wrap:anywhere}'
             . '.tmc-store__price{color:var(--s-muted);white-space:nowrap}'
             . 'a:focus-visible{outline:3px solid var(--s-ink);outline-offset:2px}'

@@ -12,7 +12,9 @@ use Tecteb\Marketplace\Contracts\ModuleKind;
 use Tecteb\Marketplace\Contracts\ModuleManifest;
 use Tecteb\Marketplace\Contracts\OptionStoreInterface;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Core\Jobs\JobRunner;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
+use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
@@ -70,6 +72,11 @@ final class MigrationModule implements ModuleInterface
 
     public function boot(ContainerInterface $c): void
     {
+        // Registered on the ONE runner in the container, at module load, so the
+        // cron tick later in this same request finds a handler for the type it
+        // claims. A runner built at tick time would know nothing.
+        $c->get(JobRunner::class)->register(new DokanImportJob($c->get(ImportFromDokan::class)));
+
         $page = new MigrationPage($c);
         add_filter(AdminExtensions::FILTER, static function (array $pages) use ($page): array {
             $pages[] = [

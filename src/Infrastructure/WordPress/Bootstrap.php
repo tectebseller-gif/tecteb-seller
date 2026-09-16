@@ -72,9 +72,14 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAnd
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Marketplace\MarketplaceModule;
 use Tecteb\Marketplace\Modules\Migration\MigrationModule;
+use Tecteb\Marketplace\Modules\Operations\OperationsModule;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0009EngagementTables;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0011AttachmentsAndNotices;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0012VendorRatings;
+use Tecteb\Marketplace\Core\Migration\Migrations\M0013JobsAndOutbox;
+use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
+use Tecteb\Marketplace\Core\Jobs\JobRunner;
+use Tecteb\Marketplace\Infrastructure\Jobs\DbJobRepository;
 use Tecteb\Marketplace\Modules\Product\ProductModule;
 use Tecteb\Marketplace\Modules\Vendor\VendorModule;
 
@@ -121,6 +126,10 @@ final class Bootstrap
         }
         Notices::registerActivationResult();
         self::kernel()->load($wooCommerceAvailable);
+        // AFTER the modules, because each of them registers its handlers on
+        // the runner as it loads. Registering the tick first would bind a
+        // runner that knows no handlers and quietly drains nothing.
+        WpJobScheduler::register(static fn (): JobRunner => $container->get(JobRunner::class));
         // After the modules, because it asks one of them a question. Two
         // option reads on an admin request, and only for somebody who could
         // act on the answer.
@@ -301,13 +310,24 @@ final class Bootstrap
             $c->get(OptionStoreInterface::class),
             $c->get(GuardedOptionStoreInterface::class),
             new MigrationLock($c->get(LockStoreInterface::class), $c->get(ClockInterface::class), MigrationLock::generateOwnerToken()),
-            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables(), new M0004CreateFinanceTables(), new M0005CreateProductTables(), new M0006CatalogAndOrders(), new M0007SettlementTables(), new M0008ShipmentsAndReturns(), new M0009EngagementTables(), new M0010LinkOwnership(), new M0011AttachmentsAndNotices(), new M0012VendorRatings()],
+            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables(), new M0004CreateFinanceTables(), new M0005CreateProductTables(), new M0006CatalogAndOrders(), new M0007SettlementTables(), new M0008ShipmentsAndReturns(), new M0009EngagementTables(), new M0010LinkOwnership(), new M0011AttachmentsAndNotices(), new M0012VendorRatings(), new M0013JobsAndOutbox()],
             $c->get(ClockInterface::class)
         ));
         $c->bind(UpgradeGate::class, static fn (ContainerInterface $c) => new UpgradeGate(
             $c->get(MigrationRunner::class),
             $c->get(OptionStoreInterface::class),
             $c->get(ClockInterface::class)
+        ));
+        $c->bind(JobRepositoryInterface::class, static fn (ContainerInterface $c) => new DbJobRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        // One runner per request, because modules register their handlers on
+        // it as they load and the cron tick — which fires later in the same
+        // request — has to see all of them. A second instance would see none.
+        $c->bind(JobRunner::class, static fn (ContainerInterface $c) => new JobRunner(
+            $c->get(JobRepositoryInterface::class),
+            static fn (): string => bin2hex(random_bytes(16))
         ));
         $c->bind(OtpProviderInterface::class, static fn () => new NullOtpProvider());
         // The order gate is wired HERE rather than inside the order module,
@@ -386,6 +406,7 @@ final class Bootstrap
         $registry->add(new EnvironmentGuardModule());
         $registry->add(new AdminModule());
         $registry->add(new HealthModule());
+        $registry->add(new OperationsModule());
         $registry->add(new VendorModule());
         $registry->add(new FinanceModule());
         $registry->add(new ProductModule());

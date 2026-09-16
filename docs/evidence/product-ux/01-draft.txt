@@ -1,0 +1,7 @@
+stored=1
+read_back=عنوانِ نیمه‌تمام
+revision=rev-a
+visible_to_another_user=no
+before=present
+after=absent
+forget_is_idempotent=yes

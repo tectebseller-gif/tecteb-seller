@@ -119,8 +119,27 @@ interface ProductRepositoryInterface
 
     public function updateSeo(int $productId, ProductSeo $seo): bool;
 
-    /** @return list<Product> every product of this vendor, whatever its status */
+    /**
+     * @return list<Product> every product of this vendor, whatever its status
+     *
+     * Use it when you genuinely need every row. For a page use `forVendor()`,
+     * for a total `countForVendor()`, for the stock figures `stockSummary()` —
+     * all three answer in SQL. Hydrating a whole catalogue into objects to
+     * count it costs the same on a shop with twelve products and falls over on
+     * one with twelve thousand.
+     */
     public function allForVendor(int $vendorUserId): array;
+
+    /**
+     * Stock figures for the published catalogue, counted in SQL.
+     *
+     * The report used to walk every product, hydrate each one and add up in
+     * PHP — three figures at the cost of the whole catalogue, on every page
+     * load. These are three `COUNT`s behind the index the table already has.
+     *
+     * @return array{on_sale:int, out:int, low:int}
+     */
+    public function stockSummary(int $vendorUserId, int $lowThreshold): array;
 
     /** @return list<Product> products that are live and projected */
     public function projected(int $limit = 500): array;

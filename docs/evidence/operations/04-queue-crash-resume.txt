@@ -1,0 +1,12 @@
+job=19
+cursor_written={"at":2}
+status_after_death=running
+stalled=1
+
+resumed_job=19
+cursor_before={"at":2}
+done_before=2
+outcome=more
+cursor_after={"at":3}
+done_after=3
+restarted_from_zero=no

@@ -75,6 +75,9 @@ final class ProductListView
             return $html . '</section>' . self::csvCard($urls, $nonceField, $mayEdit);
         }
 
+        if ($mayEdit) {
+            $html .= self::bulkBar($urls, $nonceField);
+        }
         $html .= '<ul class="tv-products">';
         foreach ($products as $product) {
             $html .= self::row($product, $urls, $nonceField, $fa, $mayEdit);
@@ -151,6 +154,39 @@ final class ProductListView
         return $html . '</ul></nav>';
     }
 
+    /**
+     * The bulk bar, and the reason the checkboxes are not inside it.
+     *
+     * Each product card already carries its own «بایگانی» form, and a form
+     * inside a form is not valid HTML — the browser silently drops the inner
+     * one, so the per-row buttons would stop working. HTML's `form` attribute
+     * solves exactly this: a control anywhere in the document can belong to a
+     * form by id, with no nesting at all. So the bar is one form, the
+     * checkboxes live in the cards and point at it, and both kinds of button
+     * keep working.
+     *
+     * The select has no «انجام بده» default. A bulk action is the one control
+     * where an accidental Enter should do nothing.
+     */
+    private static function bulkBar(VendorUrls $urls, string $nonce): string
+    {
+        return '<form method="post" id="tmc-bulk" action="' . esc_url($urls->products()) . '" class="tv-bulk">'
+            . $nonce
+            . '<input type="hidden" name="tmc_vendor_action" value="bulk_products">'
+            . '<label class="tv-bulk__label" for="tmc-bulk-action">'
+            . esc_html__('اقدام گروهی روی موارد انتخاب‌شده', 'tecteb-marketplace-core') . '</label>'
+            . '<select id="tmc-bulk-action" name="bulk_action" class="tv-input">'
+            . '<option value="">' . esc_html__('انتخاب کنید', 'tecteb-marketplace-core') . '</option>'
+            . '<option value="submit">' . esc_html__('ارسال برای بررسی', 'tecteb-marketplace-core') . '</option>'
+            . '<option value="archive">' . esc_html__('بایگانی', 'tecteb-marketplace-core') . '</option>'
+            . '<option value="restore">' . esc_html__('بازگشت به پیش‌نویس', 'tecteb-marketplace-core') . '</option>'
+            . '</select> '
+            . VendorUi::submit(__('اجرا روی انتخاب‌شده‌ها', 'tecteb-marketplace-core'), 'secondary')
+            . '<p class="tv-hint">'
+            . esc_html__('هر مورد جداگانه بررسی می‌شود: اگر یکی شرایطش را نداشته باشد، بقیه انجام می‌شوند و همان یکی با دلیلش گزارش می‌شود.', 'tecteb-marketplace-core')
+            . '</p></form>';
+    }
+
     /** @param callable(string|int):string $fa */
     private static function row(Product $product, VendorUrls $urls, string $nonce, callable $fa, bool $mayEdit): string
     {
@@ -169,7 +205,19 @@ final class ProductListView
             ? __('ناموجود', 'tecteb-marketplace-core')
             : sprintf(__('موجودی %s', 'tecteb-marketplace-core'), $fa($d->stock));
 
+        $checkbox = $mayEdit
+            // `form="tmc-bulk"` rather than nesting: see bulkBar().
+            ? '<label class="tv-product__pick"><input type="checkbox" form="tmc-bulk" name="selected[]"'
+                . ' value="' . esc_attr((string) $product->id) . '">'
+                . '<span class="tv-sr-only">' . esc_html(sprintf(
+                    /* translators: %s: product title */
+                    __('انتخاب «%s» برای اقدام گروهی', 'tecteb-marketplace-core'),
+                    $d->title !== '' ? $d->title : __('بدون عنوان', 'tecteb-marketplace-core')
+                )) . '</span></label>'
+            : '';
+
         $html = '<li class="tv-product"><div class="tv-product__head">'
+            . $checkbox
             . '<strong class="tv-product__title">' . esc_html($d->title !== '' ? $d->title : __('بدون عنوان', 'tecteb-marketplace-core')) . '</strong> '
             . VendorUi::chip(ProductMessages::statusTone($product->status), ProductMessages::status($product->status))
             . '</div>'

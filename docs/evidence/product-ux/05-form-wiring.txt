@@ -1,0 +1,8 @@
+revision_field=yes
+status_region=yes
+js_shipped=yes
+beforeunload=yes
+submit_clears_dirty=yes
+no_cdn=yes
+nopriv_absent=yes
+superglobals_absent=yes

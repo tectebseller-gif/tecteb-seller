@@ -18,7 +18,7 @@ final class WpAuditRepository implements AuditRepositoryInterface
 
     public function insert(AuditRecord $record): bool
     {
-        $table = $this->wpdb->prefix . M0001CreateAuditTable::TABLE_SUFFIX;
+        $table = $this->table();
         $payload = json_encode($record->payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($payload === false) {
             $this->error = 'payload_encoding_failed';
@@ -45,8 +45,115 @@ final class WpAuditRepository implements AuditRepositoryInterface
         return true;
     }
 
+    public function search(array $filters, int $limit, int $offset): array
+    {
+        [$where, $params] = $this->where($filters);
+        $limit = max(1, min(200, $limit));
+        $offset = max(0, $offset);
+        $sql = 'SELECT * FROM `' . $this->table() . '`' . $where . ' ORDER BY id DESC LIMIT %d OFFSET %d';
+        $rows = $this->wpdb->get_results(
+            $this->wpdb->prepare($sql, array_merge($params, [$limit, $offset])),
+            ARRAY_A
+        );
+        if (!is_array($rows)) {
+            return [];
+        }
+        return array_map(fn (array $row): AuditRecord => $this->hydrate($row), $rows);
+    }
+
+    public function count(array $filters): int
+    {
+        [$where, $params] = $this->where($filters);
+        $sql = 'SELECT COUNT(*) FROM `' . $this->table() . '`' . $where;
+        return (int) $this->wpdb->get_var($params === [] ? $sql : $this->wpdb->prepare($sql, $params));
+    }
+
+    public function eventTypes(int $limit = 100): array
+    {
+        $rows = $this->wpdb->get_col(
+            $this->wpdb->prepare(
+                'SELECT DISTINCT event_type FROM `' . $this->table() . '` ORDER BY event_type ASC LIMIT %d',
+                max(1, min(500, $limit))
+            )
+        );
+        return is_array($rows) ? array_map('strval', $rows) : [];
+    }
+
     public function lastError(): string
     {
         return $this->error;
+    }
+
+    // ------------------------------------------------------------- internals
+
+    /**
+     * Build the WHERE from the filters that were actually given.
+     *
+     * Every value is a placeholder, none is interpolated, and an absent filter
+     * adds no clause at all — so the unfiltered page is a plain ordered read of
+     * the primary key rather than a `WHERE 1=1` the optimiser has to think
+     * about. The date bounds are inclusive at both ends because a manager
+     * looking for «what happened on Tuesday» means all of Tuesday.
+     *
+     * @param array<string,mixed> $filters
+     * @return array{0:string, 1:list<mixed>}
+     */
+    private function where(array $filters): array
+    {
+        $clauses = [];
+        $params = [];
+        if (($filters['event'] ?? '') !== '') {
+            $clauses[] = 'event_type = %s';
+            $params[] = (string) $filters['event'];
+        }
+        if ((int) ($filters['actor'] ?? 0) > 0) {
+            $clauses[] = 'actor_id = %d';
+            $params[] = (int) $filters['actor'];
+        }
+        if (($filters['object_type'] ?? '') !== '') {
+            $clauses[] = 'object_type = %s';
+            $params[] = (string) $filters['object_type'];
+        }
+        if (($filters['object_id'] ?? '') !== '') {
+            $clauses[] = 'object_id = %s';
+            $params[] = (string) $filters['object_id'];
+        }
+        if (($filters['from'] ?? '') !== '') {
+            $clauses[] = 'created_at >= %s';
+            $params[] = (string) $filters['from'] . ' 00:00:00';
+        }
+        if (($filters['to'] ?? '') !== '') {
+            $clauses[] = 'created_at <= %s';
+            $params[] = (string) $filters['to'] . ' 23:59:59';
+        }
+        if (($filters['search'] ?? '') !== '') {
+            // Against the payload only. It is a LIKE and therefore a scan, which
+            // is why it is offered last and alongside the indexed filters rather
+            // than instead of them: «this order id, in June» stays an index seek
+            // with a small scan on top.
+            $clauses[] = 'payload LIKE %s';
+            $params[] = '%' . $this->wpdb->esc_like((string) $filters['search']) . '%';
+        }
+        return [$clauses === [] ? '' : ' WHERE ' . implode(' AND ', $clauses), $params];
+    }
+
+    /** @param array<string,mixed> $row */
+    private function hydrate(array $row): AuditRecord
+    {
+        $payload = json_decode((string) ($row['payload'] ?? ''), true);
+        return new AuditRecord(
+            (string) $row['event_type'],
+            $row['actor_id'] === null ? null : (int) $row['actor_id'],
+            $row['object_type'] === null ? null : (string) $row['object_type'],
+            $row['object_id'] === null ? null : (string) $row['object_id'],
+            is_array($payload) ? $payload : [],
+            $row['correlation_id'] === null ? null : (string) $row['correlation_id'],
+            new \DateTimeImmutable((string) $row['created_at'], new \DateTimeZone('UTC'))
+        );
+    }
+
+    private function table(): string
+    {
+        return $this->wpdb->prefix . M0001CreateAuditTable::TABLE_SUFFIX;
     }
 }

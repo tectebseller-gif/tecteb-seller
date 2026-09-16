@@ -599,6 +599,11 @@ final class VendorRoutes
     /** @param list<array{slug:string,label:string,url:string}> $nav */
     private function renderShell(string $title, string $view, string $body, string $storeName, array $nav = []): void
     {
+        // One script, on one view. The products screen is the only place in
+        // this area where losing a tab costs an afternoon's typing.
+        $scripts = $view === 'products'
+            ? [$this->assetsBaseUrl . 'assets/vendor/tmc-product-form.js']
+            : [];
         status_header(200);
         nocache_headers();
         echo VendorShell::render(
@@ -608,7 +613,8 @@ final class VendorRoutes
             $storeName,
             $body,
             $this->assetsBaseUrl . 'assets/vendor/tmc-vendor.css',
-            $this->version
+            $this->version,
+            $scripts
         );
         exit;
     }

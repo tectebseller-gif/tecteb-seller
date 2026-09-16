@@ -24,7 +24,8 @@ final class VendorShell
         string $storeName,
         string $bodyHtml,
         string $stylesheetUrl,
-        string $version
+        string $version,
+        array $scriptUrls = []
     ): string {
         $items = '';
         foreach ($nav as $item) {
@@ -51,7 +52,18 @@ final class VendorShell
             . '</header>'
             . '<main id="tv-main" class="tv-main" tabindex="-1"><h1 class="tv-title">' . esc_html($title) . '</h1>'
             . $bodyHtml
-            . '</main></body></html>';
+            . '</main>';
+
+        // Scripts, when a view asks for one, at the end of the body and
+        // deferred. This area works with none: every form is a plain POST and
+        // every page is a URL. A script here may only ADD to that — the
+        // product form's autosave and its «you have unsaved changes» warning —
+        // and a vendor whose JavaScript is off loses those and nothing else.
+        foreach ($scriptUrls as $scriptUrl) {
+            $html .= '<script src="' . esc_url($scriptUrl . '?ver=' . $version) . '" defer></script>';
+        }
+
+        $html .= '</body></html>';
 
         return $html;
     }

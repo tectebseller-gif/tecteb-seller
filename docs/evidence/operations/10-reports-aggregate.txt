@@ -1,0 +1,11 @@
+vendor=4
+stock_on_sale=2
+stock_out=1
+stock_low=0
+statuses=1
+total_from_counts=2
+report_readable=yes
+report_total=2
+report_on_sale=2
+agrees=yes
+reports_still_walk_the_catalogue=no

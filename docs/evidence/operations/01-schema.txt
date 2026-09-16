@@ -1,0 +1,16 @@
+schema=13
+tmc_jobs=present
+tmc_event_outbox=present
+index_tmc_job_live=present
+index_tmc_outbox_event=present
+cron_binding=action_scheduler
+cron_scheduled=yes
+=== the package these numbers come from ===
+name	status	version
+dokan-lite	active	5.1.1
+hello	inactive	1.7.2
+tecteb-marketplace-core	active	0.1.0-alpha.13
+woocommerce	active	11.0.1
+order-fail-probe	must-use	
+refund-crash-probe	must-use	
+tmc-stop-failure-probe	must-use	

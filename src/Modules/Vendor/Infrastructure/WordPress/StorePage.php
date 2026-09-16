@@ -43,10 +43,21 @@ final class StorePage
     /** `?tmc_store=<vendor-user-id>` — no rewrite rule, so nothing to flush. */
     public const QUERY_VAR = 'tmc_store';
 
+    /** Which page of the catalogue. Its own var, so it survives a rewrite. */
+    public const PAGE_VAR = 'tmc_store_page';
+
+    /**
+     * Products per page. Small enough that the page stays quick on a phone
+     * connection, large enough that a shop of fifty is two pages rather than
+     * nine.
+     */
+    public const PER_PAGE = 24;
+
     public static function register(ContainerInterface $container): void
     {
         add_filter('query_vars', static function (array $vars): array {
             $vars[] = self::QUERY_VAR;
+            $vars[] = self::PAGE_VAR;
             return $vars;
         });
         add_action('template_redirect', static function () use ($container): void {
@@ -55,9 +66,10 @@ final class StorePage
     }
 
     /** The public URL of one shop's page. */
-    public static function url(int $vendorUserId): string
+    public static function url(int $vendorUserId, int $page = 1): string
     {
-        return add_query_arg(self::QUERY_VAR, (string) $vendorUserId, home_url('/'));
+        $url = add_query_arg(self::QUERY_VAR, (string) $vendorUserId, home_url('/'));
+        return $page > 1 ? add_query_arg(self::PAGE_VAR, (string) $page, $url) : $url;
     }
 
     private static function render(ContainerInterface $container): void
@@ -77,11 +89,29 @@ final class StorePage
             self::notFound();
             return;
         }
+        // Paged in SQL, not filtered in PHP. Reading a whole catalogue into
+        // memory to show twenty-four of it is how a public page — the one a
+        // search engine crawls repeatedly and a customer opens on a phone —
+        // becomes the slowest thing on the site.
+        $repository = $container->get(ProductRepositoryInterface::class);
+        $page = max(1, (int) get_query_var(self::PAGE_VAR, 1));
+        $total = $repository->countForVendor($vendorUserId, ProductStatus::Published);
+        $pages = max(1, (int) ceil($total / self::PER_PAGE));
+        if ($page > $pages) {
+            // A page beyond the end is a 404, not an empty shelf: an infinite
+            // supply of empty pages is an infinite supply of thin URLs for a
+            // crawler to index.
+            self::notFound();
+            return;
+        }
         $products = [];
-        foreach ($container->get(ProductRepositoryInterface::class)->allForVendor($vendorUserId) as $product) {
-            // Published AND projected: a product with no WooCommerce id has no
-            // page to link to, and a link to nothing is worse than an omission.
-            if ($product->status === ProductStatus::Published && (int) ($product->wcProductId ?? 0) > 0) {
+        foreach ($repository->forVendor($vendorUserId, ProductStatus::Published, self::PER_PAGE, ($page - 1) * self::PER_PAGE) as $product) {
+            // Projected too: a product with no WooCommerce id has no page to
+            // link to, and a link to nothing is worse than an omission. The
+            // count above may therefore exceed what is listed; the pager
+            // follows the count, because an unprojected product is a transient
+            // state that the next projection fixes.
+            if ((int) ($product->wcProductId ?? 0) > 0) {
                 $products[] = $product;
             }
         }
@@ -94,7 +124,12 @@ final class StorePage
             $store,
             $products,
             $container->get(ManageReviews::class)->standing($vendorUserId),
-            self::url($vendorUserId)
+            // The canonical is THIS page, not page one. Pointing every page at
+            // the first would tell a crawler that pages two and three are
+            // duplicates of it, and their products would drop out of the index.
+            self::url($vendorUserId, $page),
+            $page,
+            $pages
         );
         exit;
     }

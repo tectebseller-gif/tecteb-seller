@@ -1,0 +1,17 @@
+routes=9
+/tecteb/v1 methods=GET gated=0
+/tecteb/v1/vendors/(?P<vendor>\d+)/products methods=GET gated=1
+/tecteb/v1/vendors/(?P<vendor>\d+)/products methods=GET gated=1
+/tecteb/v1/vendors/(?P<vendor>\d+)/orders methods=GET gated=1
+/tecteb/v1/vendors/(?P<vendor>\d+)/orders methods=GET gated=1
+/tecteb/v1/events methods=GET gated=1
+/tecteb/v1/events methods=GET gated=1
+/tecteb/v1/contract methods=GET gated=1
+/tecteb/v1/contract methods=GET gated=1
+writable=0
+ungated=1
+ungated_are_index_only=yes
+index_status=200
+index_keys=namespace,routes
+guest_products_status=401
+guest_events_status=401

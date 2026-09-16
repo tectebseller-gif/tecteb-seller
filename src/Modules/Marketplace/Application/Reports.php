@@ -139,15 +139,13 @@ final class Reports
         if ($products === null) {
             return ['available' => 0];
         }
-        $byStatus = [];
-        $total = 0;
-        foreach ($products->allForVendor($vendorUserId) as $product) {
-            $byStatus[$product->status->value] = ($byStatus[$product->status->value] ?? 0) + 1;
-            $total++;
-        }
+        // Counted in SQL. The old version hydrated every product of the shop
+        // into an object to add one to a counter — the whole catalogue read on
+        // every page load, for six numbers.
+        $byStatus = $products->countsByStatus($vendorUserId);
         return [
             'available' => 1,
-            'total' => $total,
+            'total' => array_sum($byStatus),
             'published' => (int) ($byStatus[ProductStatus::Published->value] ?? 0),
             'in_review' => (int) ($byStatus[ProductStatus::Submitted->value] ?? 0),
             'needs_fix' => (int) ($byStatus[ProductStatus::ChangesRequested->value] ?? 0),
@@ -163,23 +161,14 @@ final class Reports
         if ($products === null) {
             return ['available' => 0];
         }
-        $out = 0;
-        $low = 0;
-        $counted = 0;
-        foreach ($products->allForVendor($vendorUserId) as $product) {
-            if ($product->status !== ProductStatus::Published) {
-                continue;       // a draft's stock is nobody's problem yet
-            }
-            $counted++;
-            $quantity = (int) $product->details->stock;
-            if ($quantity <= 0) {
-                $out++;
-                continue;
-            }
-            if ($quantity < self::LOW_STOCK_THRESHOLD) {
-                $low++;
-            }
-        }
+        // One query, three figures, and they agree with each other because
+        // they are counted in the same pass — «موجود» and «رو به اتمام» that do
+        // not add up is worse than a slow report. A draft's stock is still
+        // nobody's problem: the WHERE says published.
+        $summary = $products->stockSummary($vendorUserId, self::LOW_STOCK_THRESHOLD);
+        $counted = $summary['on_sale'];
+        $out = $summary['out'];
+        $low = $summary['low'];
         return [
             'available' => 1,
             'on_sale' => $counted,

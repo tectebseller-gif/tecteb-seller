@@ -30,6 +30,14 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             ['tmc-health', 'tmc_view_health', 'سلامت'],
             ['tmc-settings', 'tmc_manage_settings', 'تنظیمات'],
             ['tmc-modules', 'tmc_view_modules', 'ماژول‌ها'],
+            // Operations: three of the four pages carry their OWN capability
+            // rather than borrowing another's. Reading the audit trail is not
+            // implied by being able to approve a vendor, and issuing an API
+            // contract is not implied by being able to run a job.
+            ['tmc-setup', 'tmc_manage_settings', 'راه‌اندازی'],
+            ['tmc-jobs', 'tmc_manage_jobs', 'صف و سلامت اجرا'],
+            ['tmc-events', 'tmc_manage_api', 'رویدادها و API'],
+            ['tmc-audit', 'tmc_view_audit', 'ممیزی'],
             ['tmc-vendor-applications', 'tmc_review_vendor', 'درخواست‌های فروشندگان'],
             ['tmc-vendor-documents', 'tmc_manage_vendor_documents', 'مدارک فروشندگان'],
             ['tmc-commission-rules', 'tmc_manage_settings', 'قواعد کمیسیون'],

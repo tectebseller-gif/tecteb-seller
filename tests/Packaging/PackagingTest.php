@@ -388,4 +388,46 @@ final class PackagingTest extends TestCase
         self::assertStringContainsString('8.1.34', $text, 'the untested PHP of the owner site is named');
         self::assertStringContainsString('docs/evidence/acceptance/', $text, 'the notice points at the raw gate output');
     }
+
+    /**
+     * The source archive ships no credentials — not even the disposable ones.
+     *
+     * `.env.testing` names a throwaway MariaDB with synthetic data and it is
+     * still excluded, because an archive that ships a DSN, a user and a
+     * password teaches whoever reads it that this is a normal thing to find in
+     * a source drop. The database suite refuses to run without those variables,
+     * so a reader is told what to set rather than handed somebody else's.
+     */
+    public function testTheSourceArchiveCarriesNoCredentials(): void
+    {
+        $entries = self::sourceArchiveEntries();
+        self::assertNotSame([], $entries, 'the source archive must exist and be readable');
+        foreach ($entries as $entry) {
+            self::assertDoesNotMatchRegularExpression(
+                '#(^|/)\.env($|\.)#',
+                $entry,
+                'no environment file may be shipped: ' . $entry
+            );
+            self::assertStringNotContainsString('.pem', $entry);
+        }
+        // And the lockfiles a reader DOES need are there.
+        self::assertContains('composer.lock', $entries);
+        self::assertContains('tools/browser/package-lock.json', $entries);
+    }
+
+    /** @return list<string> */
+    private static function sourceArchiveEntries(): array
+    {
+        $matches = glob(dirname(__DIR__, 2) . '/dist/*-source-*.tar.gz');
+        if ($matches === false || $matches === []) {
+            return [];
+        }
+        usort($matches, static fn (string $a, string $b): int => filemtime($b) <=> filemtime($a));
+        $out = [];
+        $archive = new \PharData($matches[0]);
+        foreach (new \RecursiveIteratorIterator($archive) as $file) {
+            $out[] = ltrim(str_replace('phar://' . $matches[0], '', $file->getPathname()), '/');
+        }
+        return $out;
+    }
 }

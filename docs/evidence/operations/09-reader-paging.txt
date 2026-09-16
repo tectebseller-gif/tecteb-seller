@@ -1,0 +1,10 @@
+count_vendors=1
+count_products=1
+count_orders=6
+paged_products=1
+whole_products=1
+paged_equals_whole=yes
+strictly_ascending=yes
+orders_paged=2
+hardcoded_limit_in_code=gone
+limit_is_a_placeholder=yes

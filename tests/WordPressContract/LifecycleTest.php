@@ -57,7 +57,11 @@ final class LifecycleTest extends ContractTestCase
         self::assertSame(42, State::$options['tmc_settings']['values']['max_staff']);
         self::assertSame(1, State::$options['tmc_schema_version']);
         self::assertTrue(State::$roles['administrator']['tmc_view_health']);
-        self::assertSame([], State::$clearedScheduledHooks, 'phase 1 owns no cron hooks; nothing else is touched');
+        // Ours and only ours. A scheduled hook whose callback is gone fires
+        // for ever against nothing, so deactivation clears the queue tick —
+        // and clears NOTHING else, which is the half of this assertion that
+        // protects the other plugins on the site.
+        self::assertSame(['tmc_run_jobs'], State::$clearedScheduledHooks);
 
         $events = array_map(static fn ($r): string => $r->eventType, $this->audit->records);
         self::assertContains('plugin.deactivated', $events);

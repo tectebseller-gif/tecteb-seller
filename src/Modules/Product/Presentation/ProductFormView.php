@@ -63,7 +63,12 @@ final class ProductFormView
         ?CommissionOutcome $share = null,
         bool $mayPublishDirectly = false,
         bool $hasPendingRevision = false,
-        array $variable = []
+        array $variable = [],
+        string $revision = '',
+        string $draftSavedAt = '',
+        string $autosaveUrl = '',
+        string $autosaveAction = '',
+        string $autosaveNonce = ''
     ): string {
         $step = array_key_exists($step, self::steps()) ? $step : '1';
         $html = '';
@@ -91,13 +96,38 @@ final class ProductFormView
         if ($productId > 0) {
             $html .= '<p class="tv-hint">' . VendorUi::chip(ProductMessages::statusTone($status), ProductMessages::status($status)) . '</p>';
         }
+        if ($draftSavedAt !== '') {
+            $html .= VendorUi::notice('info', sprintf(
+                /* translators: %s: time the draft was kept */
+                __('یک پیش‌نویس ذخیره‌نشده از ساعت %s برای این محصول هست. اگر همین صفحه را ذخیره کنید، جای آن را می‌گیرد.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian($draftSavedAt)
+            ));
+        }
         $html .= self::stepNav($step, $base, $productId);
 
-        $html .= '<form method="post" action="' . esc_url($urls->products()) . '" enctype="multipart/form-data" class="tv-form">'
+        // The autosave configuration travels on the form's own attributes.
+        // Not an inline <script>: the vendor area renders no executable markup
+        // at all, and that is worth keeping for one JSON object.
+        $autosave = $autosaveUrl === '' ? '' :
+            ' data-autosave-url="' . esc_url($autosaveUrl) . '"'
+            . ' data-autosave-action="' . esc_attr($autosaveAction) . '"'
+            . ' data-autosave-nonce="' . esc_attr($autosaveNonce) . '"'
+            . ' data-text-saving="' . esc_attr__('در حال نگه‌داشتن…', 'tecteb-marketplace-core') . '"'
+            . ' data-text-saved="' . esc_attr__('پیش‌نویس نگه داشته شد', 'tecteb-marketplace-core') . '"'
+            . ' data-text-failed="' . esc_attr__('پیش‌نویس نگه داشته نشد؛ پیش از بستن صفحه، ذخیره کنید.', 'tecteb-marketplace-core') . '"'
+            . ' data-text-conflict="' . esc_attr__('یکی دیگر این محصول را از وقتی این صفحه باز شده ذخیره کرده است. ذخیرهٔ شما رد می‌شود تا کار او پاک نشود.', 'tecteb-marketplace-core') . '"';
+
+        $html .= '<form method="post" action="' . esc_url($urls->products()) . '" enctype="multipart/form-data" class="tv-form"' . $autosave . '>'
             . $nonceField
             . '<input type="hidden" name="tmc_vendor_action" value="save_product">'
             . '<input type="hidden" name="product_id" value="' . esc_attr((string) $productId) . '">'
             . '<input type="hidden" name="step" value="' . esc_attr($step) . '">'
+            // The stamp this form was rendered from. A save whose stamp no
+            // longer matches the row is refused rather than overwriting
+            // somebody else's newer work — and it is a hidden field rather than
+            // something computed at submit time, because the whole point is
+            // that it is the value as it WAS when this page loaded.
+            . '<input type="hidden" name="revision" value="' . esc_attr($revision) . '">'
             . self::carryOver($step, $details, $specs, $template)
             . self::gallery($images, $mainImageId, $step)
             . match ($step) {
@@ -108,7 +138,11 @@ final class ProductFormView
             }
             . '<p class="tv-form__actions">'
             . VendorUi::submit(__('ذخیره و ادامه', 'tecteb-marketplace-core'))
-            . '</p></form>';
+            . '</p>'
+            // Polite, not assertive: a save confirmation must not interrupt
+            // somebody mid-sentence in the field above it.
+            . ($autosaveUrl === '' ? '' : '<p id="tmc-autosave-status" class="tv-autosave" role="status" aria-live="polite"></p>')
+            . '</form>';
 
         // OUTSIDE the form above, deliberately: each combination posts on its
         // own, and a form inside a form is not valid HTML — the browser would

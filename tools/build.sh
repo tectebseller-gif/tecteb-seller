@@ -109,13 +109,25 @@ LIST="$(mktemp)"
 LIST_OK="$(mktemp)"
 trap 'rm -f "${LIST}" "${LIST_OK}"' EXIT
 
+# Credentials are never in the source archive, even the disposable ones.
+# `.env.testing` names a throwaway MariaDB with synthetic data, and it is
+# STILL excluded: an archive that ships a DSN, a user and a password teaches
+# whoever reads it that this is a normal thing to find in a source drop, and
+# the next file with that shape will not be disposable. The database suite
+# refuses to run without these variables anyway, so a reader is told what to
+# set rather than handed somebody else's values.
+SECRET_PATTERN='^(\.env|\.env\..*|.*\.pem|.*\.key|.*credentials.*)$'
+
 if git rev-parse --git-dir >/dev/null 2>&1; then
   # tracked files plus anything new that is not gitignored
-  git ls-files -z --cached --others --exclude-standard | grep -zv '^dist/' > "${LIST}"
+  git ls-files -z --cached --others --exclude-standard \
+    | grep -zv '^dist/' \
+    | grep -zEv "${SECRET_PATTERN}" > "${LIST}"
 else
   find . -type f \
     -not -path './.git/*' -not -path './dist/*' -not -path './vendor/*' \
-    -not -path '*/node_modules/*' -print0 | sed -z 's|^\./||' > "${LIST}"
+    -not -path '*/node_modules/*' -print0 | sed -z 's|^\./||' \
+    | grep -zEv "${SECRET_PATTERN}" > "${LIST}"
 fi
 
 # Keep only paths that still exist: a file deleted but still listed would
@@ -151,11 +163,18 @@ cat > "${DIST}/READ-ME-BEFORE-INSTALL.txt" <<TXT
 
 روی همان wp-admin واقعی، با زبان مدیریت fa_IR و RTL (بسته ترجمه حداقلی
 آزمایشی): پنج viewport (320/375/768/1024/1440)، شبیه‌سازی فضای چیدمان،
-device scale factor سطح مرورگر، کیبورد با Tab واقعی و axe-core —
-۲۸۰ بررسی، صفر شکست.
+device scale factor سطح مرورگر، کیبورد با Tab واقعی و axe-core.
 
-خروجی خام هر گیت در docs/evidence/acceptance/ است و شواهد بازطراحی در
-docs/evidence/redesign/.
+هر مجموعه عدد خودش را دارد و اینجا جمع نمی‌شوند:
+
+  چهار صفحهٔ فاز ۱                 ۲۵۲ بررسی   ۰ شکست
+  صفحه‌های محصول                   ۲۴۰ بررسی   ۰ شکست
+  نظر و امتیاز و نمودار            ۲۴۰ بررسی   ۰ شکست
+  چهار صفحهٔ عملیات (alpha.13)     ۲۸۰ بررسی   ۰ شکست
+
+خروجی خام هر گیت در docs/evidence/acceptance/ است، شواهد بازطراحی در
+docs/evidence/redesign/، و شواهد این دور در docs/evidence/operations/ و
+docs/evidence/product-ux/.
 
 پیش از نصب، پنج چیز را بدانید
 =============================

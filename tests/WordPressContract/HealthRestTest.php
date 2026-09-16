@@ -19,11 +19,22 @@ final class HealthRestTest extends ContractTestCase
     {
         $this->bootPlugin(false);
         do_action('rest_api_init');
-        self::assertCount(1, State::$restRoutes, 'exactly one public route in phase 1');
         $args = State::$restRoutes['tmc/v1/health'];
         self::assertSame('GET', $args['methods']);
         self::assertIsCallable($args['permission_callback']);
         self::assertIsCallable($args['callback']);
+
+        // EVERY route this plugin registers is a read with a permission
+        // callback — the health probe and the four `tecteb/v1` business reads
+        // alike. The assertion is the rule rather than a count, so adding a
+        // route that writes, or one that forgot its permission callback, fails
+        // here instead of in somebody's audit.
+        foreach (State::$restRoutes as $route => $registered) {
+            self::assertSame('GET', $registered['methods'], $route . ' must be a read');
+            self::assertIsCallable($registered['permission_callback'], $route . ' must be permission-gated');
+            self::assertIsCallable($registered['callback'], $route . ' must have a handler');
+        }
+        self::assertArrayHasKey('tecteb/v1/contract', State::$restRoutes);
     }
 
     public function testGuestGets401AndSubscriberGets403(): void

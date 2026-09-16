@@ -21,6 +21,61 @@ final class RecordingAuditRepository implements AuditRepositoryInterface
         return true;
     }
 
+    /**
+     * The same filters the real repository applies, in PHP, so a service test
+     * that reads the trail back is testing the filter semantics rather than a
+     * fake that always says yes.
+     */
+    public function search(array $filters, int $limit, int $offset): array
+    {
+        $matched = array_values(array_filter($this->records, fn (AuditRecord $r): bool => $this->matches($r, $filters)));
+        $matched = array_reverse($matched);                 // newest first, as the real one orders
+        return array_slice($matched, max(0, $offset), max(1, $limit));
+    }
+
+    public function count(array $filters): int
+    {
+        return count(array_filter($this->records, fn (AuditRecord $r): bool => $this->matches($r, $filters)));
+    }
+
+    public function eventTypes(int $limit = 100): array
+    {
+        $types = array_values(array_unique(array_map(static fn (AuditRecord $r): string => $r->eventType, $this->records)));
+        sort($types);
+        return array_slice($types, 0, $limit);
+    }
+
+    /** @param array<string,mixed> $filters */
+    private function matches(AuditRecord $record, array $filters): bool
+    {
+        if (($filters['event'] ?? '') !== '' && $record->eventType !== $filters['event']) {
+            return false;
+        }
+        if ((int) ($filters['actor'] ?? 0) > 0 && $record->actorId !== (int) $filters['actor']) {
+            return false;
+        }
+        if (($filters['object_type'] ?? '') !== '' && $record->objectType !== $filters['object_type']) {
+            return false;
+        }
+        if (($filters['object_id'] ?? '') !== '' && $record->objectId !== $filters['object_id']) {
+            return false;
+        }
+        $day = $record->createdAtUtc->format('Y-m-d');
+        if (($filters['from'] ?? '') !== '' && $day < (string) $filters['from']) {
+            return false;
+        }
+        if (($filters['to'] ?? '') !== '' && $day > (string) $filters['to']) {
+            return false;
+        }
+        if (($filters['search'] ?? '') !== '') {
+            $haystack = (string) json_encode($record->payload, JSON_UNESCAPED_UNICODE);
+            if (!str_contains($haystack, (string) $filters['search'])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public function lastError(): string
     {
         return $this->fail ? 'simulated insert failure (Duplicate entry for key ...)' : '';

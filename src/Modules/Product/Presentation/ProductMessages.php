@@ -134,6 +134,32 @@ final class ProductMessages
             'revision_requested' => __('تغییرهای حساس به‌صورت «نسخه پیشنهادی» ثبت شد. نسخه منتشرشده تا تأیید مدیر دست‌نخورده می‌ماند و موجودی همین حالا اعمال شد.', 'tecteb-marketplace-core'),
             'product_archived_ok' => __('محصول بایگانی شد. سابقه و سفارش‌های قبلی آن پاک نشده است.', 'tecteb-marketplace-core'),
             'product_restored' => __('محصول از بایگانی به پیش‌نویس بازگشت.', 'tecteb-marketplace-core'),
+
+            // A refused row is named, not counted. «۴ نرفت» sends somebody
+            // hunting through forty rows; «۴ نرفت: ۱۲، ۱۹، ۲۳، ۴۱» does not.
+            'bulk_done' => (int) ($context['failed'] ?? 0) === 0
+                ? sprintf(
+                    /* translators: %s: how many rows succeeded */
+                    __('اقدام گروهی روی %s مورد انجام شد.', 'tecteb-marketplace-core'),
+                    $fa((string) ($context['ok'] ?? 0))
+                )
+                : sprintf(
+                    /* translators: 1: succeeded, 2: refused, 3: the refused ids with their reasons */
+                    __('%1$s مورد انجام شد و %2$s مورد انجام نشد: %3$s', 'tecteb-marketplace-core'),
+                    $fa((string) ($context['ok'] ?? 0)),
+                    $fa((string) ($context['failed'] ?? 0)),
+                    self::refusedList(is_array($context['refused'] ?? null) ? $context['refused'] : [])
+                ),
+            'nothing_selected' => __('هیچ موردی انتخاب نشده بود.', 'tecteb-marketplace-core'),
+            'unknown_bulk_action' => __('اقدام گروهی انتخاب نشده بود.', 'tecteb-marketplace-core'),
+            'bulk_too_large' => sprintf(
+                /* translators: 1: how many were selected, 2: the limit */
+                __('%1$s مورد انتخاب شده و این بیش از سقف %2$s موردِ یک درخواست است. کمتر انتخاب کنید؛ نیمه‌کاره‌ماندن وسط کار بدتر از رد کردنِ درخواست است.', 'tecteb-marketplace-core'),
+                $fa((string) ($context['selected'] ?? 0)),
+                $fa((string) ($context['limit'] ?? 0))
+            ),
+            // The one message whose job is to stop somebody losing work.
+            'stale_revision' => __('این محصول از وقتی این صفحه باز شده تغییر کرده است — احتمالاً یکی دیگر از فروشگاه شما ذخیره‌اش کرده. برای اینکه کار او پاک نشود، این ذخیره انجام نشد. مقدارهای شما همین‌جا مانده‌اند: صفحه را در یک تب دیگر باز کنید، تفاوت را ببینید و بعد تصمیم بگیرید.', 'tecteb-marketplace-core'),
             'product_reviewed' => __('تصمیم شما ثبت شد.', 'tecteb-marketplace-core'),
             'revision_approved' => __('نسخه پیشنهادی تأیید و روی محصول اعمال شد.', 'tecteb-marketplace-core'),
             'revision_rejected' => __('نسخه پیشنهادی رد شد. نسخه منتشرشده همچنان روی سایت است.', 'tecteb-marketplace-core'),
@@ -270,7 +296,37 @@ final class ProductMessages
             'csv_exported', 'csv_previewed', 'csv_imported', 'csv_row_ok', 'image_uploaded',
             'attribute_saved', 'attribute_deleted', 'variation_added', 'variation_saved', 'variation_deleted',
             'seo_saved', 'projected', 'withdrawn',
+            // A batch that RAN is a success, even when some rows were refused:
+            // the refusals are in the message, and painting the whole thing red
+            // would hide the thirty-six that went.
+            'bulk_done',
         ];
+    }
+
+    /**
+     * «۱۲ (قیمت ندارد)، ۱۹ (در حال بررسی)» — id and reason, in the vendor's
+     * words, capped so one bad import cannot produce a paragraph.
+     *
+     * @param array<string,string> $refused product id => refusal code
+     */
+    private static function refusedList(array $refused): string
+    {
+        $parts = [];
+        foreach (array_slice($refused, 0, 10, true) as $productId => $code) {
+            $parts[] = sprintf(
+                '%s (%s)',
+                PersianDigits::toPersian((string) $productId),
+                self::notice((string) $code) ?? (string) $code
+            );
+        }
+        if (count($refused) > 10) {
+            $parts[] = sprintf(
+                /* translators: %s: how many more rows were refused */
+                __('و %s مورد دیگر', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) (count($refused) - 10))
+            );
+        }
+        return implode('، ', $parts);
     }
 
     public static function isErrorNotice(string $code): bool

@@ -24,6 +24,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
+use Tecteb\Marketplace\Modules\Product\Application\ProductDraftStoreInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
@@ -42,7 +43,9 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepositor
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbVariationRepository;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductAutosave;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductHooks;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpProductDraftStore;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\StorefrontPage;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullCatalogProjector;
@@ -84,6 +87,9 @@ final class ProductModule implements ModuleInterface
     public function register(ContainerInterface $c): void
     {
         $c->bind(ProductStateMachine::class, static fn () => new ProductStateMachine());
+        $c->bind(ProductDraftStoreInterface::class, static fn (ContainerInterface $c) => new WpProductDraftStore(
+            $c->get(ClockInterface::class)
+        ));
         $c->bind(ProductImagePolicy::class, static fn () => new ProductImagePolicy());
         $c->bind(ProductImageLibraryInterface::class, static fn (ContainerInterface $c) => new WpProductImages(
             $c->get(ProductImagePolicy::class)
@@ -203,6 +209,10 @@ final class ProductModule implements ModuleInterface
     public function boot(ContainerInterface $container): void
     {
         ProductHooks::register($container);
+        // The autosave endpoint, so a closed tab does not cost somebody an
+        // afternoon. `wp_ajax_` only — no `nopriv` variant — so a logged-out
+        // caller is refused by WordPress before any of this runs.
+        (new ProductAutosave($container))->register();
         $storefront = new StorefrontPage($container);
         add_filter(AdminExtensions::FILTER, static function (array $pages) use ($storefront): array {
             $pages[] = [

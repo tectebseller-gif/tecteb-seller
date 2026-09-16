@@ -4,10 +4,13 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Migration\Presentation\Admin;
 
 use Tecteb\Marketplace\Contracts\ContainerInterface;
+use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
+use Tecteb\Marketplace\Infrastructure\WordPress\WpJobScheduler;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
+use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanMigrationPlan;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
@@ -31,6 +34,16 @@ final class MigrationPage
     public const CAPABILITY = Capabilities::REVIEW_VENDOR;
     private const NONCE = 'tmc_dokan_migration';
     private const PLAN_TRANSIENT = 'tmc_dokan_plan';
+
+    /**
+     * Rows this page is willing to import inside the POST that asked for it.
+     *
+     * Not a guess: `max_execution_time` is 30 seconds on most shared hosts and
+     * each product costs an insert plus a link plus an option write. Above this
+     * the inline button is not rendered at all, and the queue — which checkpoints
+     * after every page and resumes where it stopped — is the only path offered.
+     */
+    private const INLINE_LIMIT = 200;
 
     public function __construct(private readonly ContainerInterface $container)
     {
@@ -128,7 +141,22 @@ final class MigrationPage
             . '</p>';
         echo $this->form('dry_run', __('گرفتن اجرای آزمایشی تازه', 'tecteb-marketplace-core'));
         if ($plan->isClean()) {
-            echo $this->form('import', __('ورود آزمایشی داده‌ها', 'tecteb-marketplace-core'));
+            $rows = (int) $summary['vendors'] + (int) $summary['products'];
+            if ($rows > self::INLINE_LIMIT) {
+                // Above this, running inside the POST is how an import gets
+                // killed by max_execution_time half way through. The button
+                // that would do that is not offered — a warning next to it
+                // would have been read after the timeout, not before.
+                echo Components::notice('info', sprintf(
+                    /* translators: 1: rows in the plan, 2: inline limit */
+                    __('این نقشه %1$s ردیف دارد و بیش از %2$s ردیف در همان درخواست وارد نمی‌شود: مهلت اجرای PHP وسط کار تمام می‌شود. ورود به صف می‌رود و صفحه‌به‌صفحه اجرا می‌گردد؛ اگر نیمه‌کاره قطع شود، از همان‌جا ادامه می‌دهد.', 'tecteb-marketplace-core'),
+                    esc_html($fa((string) $rows)),
+                    esc_html($fa((string) self::INLINE_LIMIT))
+                ));
+            } else {
+                echo $this->form('import', __('ورود آزمایشی داده‌ها', 'tecteb-marketplace-core'));
+            }
+            echo $this->form('queue_import', __('ورود آزمایشی در صف (قابل ادامه)', 'tecteb-marketplace-core'));
         }
         echo '</section>';
     }
@@ -254,6 +282,47 @@ final class MigrationPage
                 )
                 : 'err:' . __('ورود انجام نشد. اگر تعارضی هست، اول آن را رفع کنید.', 'tecteb-marketplace-core');
         }
+        if ($action === 'queue_import') {
+            $plan = $this->storedPlan();
+            if ($plan === null) {
+                return 'err:' . __('اول یک اجرای آزمایشی بگیرید؛ ورود بدون تطبیق انجام نمی‌شود.', 'tecteb-marketplace-core');
+            }
+            if (!$plan->isClean()) {
+                return 'err:' . __('ورود انجام نشد. اگر تعارضی هست، اول آن را رفع کنید.', 'tecteb-marketplace-core');
+            }
+            $summary = $plan->summary();
+            /** @var JobRepositoryInterface $jobs */
+            $jobs = $this->container->get(JobRepositoryInterface::class);
+            $queued = $jobs->enqueue(
+                DokanImportJob::TYPE,
+                ['run_id' => $plan->runId, 'total' => (int) $summary['vendors'] + (int) $summary['products']],
+                // One LIVE import at a time, whatever the run id. Two managers
+                // pressing this at once must not start two walks over the same
+                // Dokan rows; the unique index decides, not a check.
+                DokanImportJob::TYPE,
+                get_current_user_id()
+            );
+            if ($queued['id'] === 0) {
+                return 'err:' . __('ورود به صف اضافه نشد. صفحهٔ سلامت صف را ببینید.', 'tecteb-marketplace-core');
+            }
+            delete_transient(self::PLAN_TRANSIENT . '_' . get_current_user_id());
+            if (!$queued['created']) {
+                return 'err:' . sprintf(
+                    /* translators: %s: job id */
+                    __('یک ورود در صف هست (کار شمارهٔ %s) و تا پایانش ورود تازه‌ای شروع نمی‌شود.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $queued['id'])
+                );
+            }
+            // The manager has just pressed a button; they should not be told to
+            // wait for the five-minute tick.
+            WpJobScheduler::nudge();
+            return 'ok:' . sprintf(
+                /* translators: %s: job id */
+                __('ورود به صف رفت (کار شمارهٔ %s). پیشرفتش در «صف و سلامت اجرا» دیده می‌شود و قطع‌شدن این صفحه کاری با آن ندارد.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) $queued['id'])
+            );
+        }
+
         if ($action === 'take_ownership' || $action === 'give_back_ownership') {
             $transfer = $this->container->get(TransferOwnership::class);
             $productId = $request->postInt('product_id');
