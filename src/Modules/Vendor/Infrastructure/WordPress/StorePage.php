@@ -63,6 +63,12 @@ final class StorePage
         add_action('template_redirect', static function () use ($container): void {
             self::render($container);
         });
+        // A bookmarked Dokan store URL keeps working, and the approved shops
+        // appear in the site's own sitemap. Both are registered here so the
+        // public face of a shop is set up in one place.
+        DokanUrlRedirects::register($container);
+        StoreCacheInvalidation::register($container);
+        StoreSitemapProvider::register($container);
     }
 
     /** The public URL of one shop's page. */
@@ -116,10 +122,23 @@ final class StorePage
             }
         }
 
+        // Cached only while the shop's state is steady. A closed shop is the
+        // one case where «up to ten minutes stale» is the wrong answer to
+        // «why does my shop still say closed», so that path renders fresh.
+        $closed = $store->isClosedOn(current_time('Y-m-d'));
+        $cached = $closed ? null : StorePageCache::get($vendorUserId, $page);
+        if ($cached !== null) {
+            status_header(200);
+            header('Content-Type: text/html; charset=utf-8');
+            header('X-TMC-Store-Cache: hit');
+            echo $cached;                       // phpcs:ignore WordPress.Security.EscapeOutput
+            exit;
+        }
+
         status_header(200);
         header('Content-Type: text/html; charset=utf-8');
-        // phpcs:ignore WordPress.Security.EscapeOutput -- the view escapes.
-        echo StorePageView::html(
+        header('X-TMC-Store-Cache: ' . ($closed ? 'skip' : 'miss'));
+        $html = StorePageView::html(
             $vendorUserId,
             $store,
             $products,
@@ -131,6 +150,11 @@ final class StorePage
             $page,
             $pages
         );
+        if (!$closed) {
+            StorePageCache::put($vendorUserId, $page, $html);
+        }
+        // phpcs:ignore WordPress.Security.EscapeOutput -- the view escapes.
+        echo $html;
         exit;
     }
 

@@ -126,6 +126,13 @@ final class ProductMessages
             );
             return implode('، ', $names);
         };
+        // Hoisted out of the `bulk_done` arm: inside it, this was a second
+        // ternary in the same expression, and PHP 8 removed the implicit
+        // left-associativity that made such a pair legal without parentheses.
+        // `php -l` accepts it — the argument list is unambiguous — but the
+        // 8.1 compatibility sniff is right that nobody should have to work
+        // that out while reading.
+        $refusedRows = is_array($context['refused'] ?? null) ? $context['refused'] : [];
 
         return match ($code) {
             'product_created' => __('محصول به‌عنوان پیش‌نویس ساخته شد. مرحله‌های بعد را کامل کنید.', 'tecteb-marketplace-core'),
@@ -150,7 +157,7 @@ final class ProductMessages
                     __('%1$s مورد انجام شد و %2$s مورد انجام نشد: %3$s', 'tecteb-marketplace-core'),
                     $fa((string) ($context['ok'] ?? 0)),
                     $fa((string) ($context['failed'] ?? 0)),
-                    self::refusedList(is_array($context['refused'] ?? null) ? $context['refused'] : [])
+                    self::refusedList($refusedRows)
                 ),
             // A forecast, and it says so. «۳۶ مورد انجام می‌شود» would be a
             // promise this page cannot keep, because another member of the

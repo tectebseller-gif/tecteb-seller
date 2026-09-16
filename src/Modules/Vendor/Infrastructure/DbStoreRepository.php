@@ -81,15 +81,44 @@ final class DbStoreRepository implements StoreRepositoryInterface
         }
         array_push($params, $settings->reopenMessage, json_encode($settings->social, JSON_UNESCAPED_UNICODE), $now, $now);
 
-        return $this->db->execute($sql, $params) !== null;
+        $saved = $this->db->execute($sql, $params) !== null;
+        if ($saved) {
+            self::announce($vendorUserId);
+        }
+        return $saved;
     }
 
     public function renameStore(int $vendorUserId, string $storeName): bool
     {
-        return $this->db->execute(
+        $renamed = $this->db->execute(
             'UPDATE `' . $this->table() . '` SET store_name = %s, updated_at = %s WHERE user_id = %d',
             [$storeName, $this->now(), $vendorUserId]
         ) !== null;
+        if ($renamed) {
+            self::announce($vendorUserId);
+        }
+        return $renamed;
+    }
+
+    /**
+     * «this shop's settings changed» — fired from the one place they can.
+     *
+     * The public page's cache listens to this rather than to the vendor route
+     * that used to call it directly. That mattered: closing and reopening a
+     * shop through any other path — a manager action, WP-CLI, a future
+     * service — left the pre-closure page cached, because the invalidation
+     * hung off the caller instead of the write. Measured on the disposable
+     * site, where a reopen served a `hit` of the page from before the closure.
+     *
+     * An action rather than a direct `StorePageCache::forget()` so this class
+     * keeps knowing nothing about caching, and so anything else that needs to
+     * hear about a store change has a seam to use.
+     */
+    private static function announce(int $vendorUserId): void
+    {
+        if ($vendorUserId > 0 && function_exists('do_action')) {
+            do_action('tmc_store_settings_saved', $vendorUserId);
+        }
     }
 
     public function bank(int $vendorUserId): array

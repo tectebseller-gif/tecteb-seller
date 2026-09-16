@@ -3,8 +3,20 @@ PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
 Runtime:       PHP 8.4.19
 Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
-..............                                                    14 / 14 (100%)
+....F............                                                 17 / 17 (100%)
 
-Time: 00:05.497, Memory: 12.50 MB
+Time: 00:02.306, Memory: 12.00 MB
 
-OK (14 tests, 16738 assertions)
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Packaging\PackagingTest::testBuildIsReproducible
+refusing to overwrite tecteb-marketplace-core-0.1.0-alpha.15.zip: the content changed.
+  on disk: 2e0f3027e0f2618c001f2b7c34662f38fd94f00efed72db5c130b460398720de
+  rebuilt: fdcb5241b35e56e3d33a216da8ed1060affce763e57b6fc3a6be3ea2b72218b2
+Bump the Version header (decision log F-06), or set TMC_REBUILD=1 to overwrite.
+Failed asserting that 2 is identical to 0.
+
+/home/user/tecteb-seller/tests/Packaging/PackagingTest.php:180
+
+FAILURES!
+Tests: 17, Assertions: 18529, Failures: 1.

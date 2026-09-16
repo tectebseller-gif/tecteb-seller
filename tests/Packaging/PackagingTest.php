@@ -181,6 +181,56 @@ final class PackagingTest extends TestCase
         self::assertSame($before, hash_file('sha256', self::zip()), 'two builds of the same source are byte-identical');
     }
 
+    /**
+     * Every package that has been committed still has the bytes it was
+     * committed with.
+     *
+     * A delivered ZIP is quoted by hash and may already be installed
+     * somewhere, so its name must never mean two different things. The build
+     * refuses to overwrite one — but `TMC_REBUILD=1` used to reach it, and a
+     * rebuild run before the Version header was bumped replaced the delivered
+     * `alpha.14` package and rewrote `SHA256SUMS` to agree. The file then
+     * matched its own recorded hash and nothing anywhere looked wrong; git was
+     * the only surviving witness, so this asks git.
+     */
+    public function testEveryCommittedPackageStillHasTheBytesItWasCommittedWith(): void
+    {
+        $root = self::root();
+        exec('git -C ' . escapeshellarg($root) . ' rev-parse --git-dir 2>/dev/null', $o, $c);
+        if ($c !== 0) {
+            self::markTestSkipped('not a git checkout');
+        }
+
+        exec('git -C ' . escapeshellarg($root) . ' ls-tree --name-only HEAD dist/', $tracked, $c);
+        self::assertSame(0, $c, 'could not list the committed packages');
+
+        $checked = 0;
+        foreach ($tracked as $path) {
+            if (!preg_match('/\.(zip|tar\.gz)$/', $path)) {
+                continue;
+            }
+            $onDisk = $root . '/' . $path;
+            self::assertFileExists($onDisk, $path . ' was committed and is now missing');
+
+            exec(
+                'git -C ' . escapeshellarg($root) . ' show ' . escapeshellarg('HEAD:' . $path) . ' | sha256sum',
+                $out,
+                $c
+            );
+            self::assertSame(0, $c, 'could not read ' . $path . ' from HEAD');
+            $committed = substr((string) array_pop($out), 0, 64);
+            $out = [];
+
+            self::assertSame(
+                $committed,
+                hash_file('sha256', $onDisk),
+                $path . ' differs from the version committed under that name'
+            );
+            $checked++;
+        }
+        self::assertGreaterThan(10, $checked, 'sanity: committed packages were found');
+    }
+
     public function testChecksumsFileCoversBothArtefacts(): void
     {
         $sums = self::root() . '/dist/SHA256SUMS';

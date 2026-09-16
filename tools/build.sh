@@ -89,6 +89,38 @@ if [ -n "${PREVIOUS_HASH}" ] && [ "${PREVIOUS_HASH}" != "${NEW_HASH}" ] && [ "${
   echo "Bump the Version header (decision log F-06), or set TMC_REBUILD=1 to overwrite." >&2
   exit 2
 fi
+
+# `TMC_REBUILD=1` is for a version that has not gone anywhere yet. Once a
+# package is COMMITTED it has been quoted in a delivery, and git is the honest
+# record of that — so the iteration flag must not reach it.
+#
+# This guard exists because the weaker one was not enough: a rebuild run while
+# the Version header still said `alpha.14` silently replaced the delivered
+# alpha.14 package with different bytes and rewrote SHA256SUMS to agree, so
+# the file matched its recorded hash and nothing looked wrong. The committed
+# hash was the only surviving witness.
+# `cat-file -e` asks «does this path exist at HEAD» and answers with its exit
+# code alone. Asking first matters under `set -euo pipefail`: a `git show` for
+# a version that is NOT yet committed — the normal case for the build in hand —
+# fails, and inside a pipeline that failure takes the whole script down with
+# exit 128, which looks nothing like «this version is new».
+COMMITTED_HASH=""
+COMMITTED_PATH="dist/${SLUG}-${VERSION}.zip"
+if command -v git >/dev/null 2>&1 \
+   && git -C "${ROOT}" rev-parse --git-dir >/dev/null 2>&1 \
+   && git -C "${ROOT}" cat-file -e "HEAD:${COMMITTED_PATH}" 2>/dev/null; then
+  COMMITTED_HASH="$(git -C "${ROOT}" show "HEAD:${COMMITTED_PATH}" | sha256sum | cut -d' ' -f1)"
+fi
+if [ -n "${COMMITTED_HASH}" ] && [ "${COMMITTED_HASH}" != "${NEW_HASH}" ] \
+   && [ "${TMC_REBUILD_RELEASED:-0}" != "1" ]; then
+  rm -f "${BUILT}"
+  echo "refusing to rebuild ${SLUG}-${VERSION}.zip: that version is already committed." >&2
+  echo "  committed: ${COMMITTED_HASH}" >&2
+  echo "  rebuilt:   ${NEW_HASH}" >&2
+  echo "Bump the Version header. TMC_REBUILD=1 does NOT cover a released package;" >&2
+  echo "TMC_REBUILD_RELEASED=1 does, and it changes bytes somebody may already have." >&2
+  exit 2
+fi
 mv -f "${BUILT}" "${ZIP}"
 
 # --- source archive (tests, docs, lockfile, build tooling) ------------------

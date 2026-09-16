@@ -252,6 +252,26 @@ final class DbVendorRepository implements VendorRepositoryInterface
         );
     }
 
+    public function approvedVendorUserIds(int $limit = 50, int $offset = 0): array
+    {
+        return array_map(
+            static fn (array $row): int => (int) $row['user_id'],
+            $this->db->getResults(
+                'SELECT user_id FROM `' . $this->applications() . '`
+                  WHERE status = %s ORDER BY user_id ASC LIMIT %d OFFSET %d',
+                [ApplicationStatus::Approved->value, max(1, min(2000, $limit)), max(0, $offset)]
+            )
+        );
+    }
+
+    public function countApprovedVendors(): int
+    {
+        return (int) $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->applications() . '` WHERE status = %s',
+            [ApplicationStatus::Approved->value]
+        );
+    }
+
     public function deleteEmptyProfile(int $userId): bool
     {
         if ($this->findApplicationByUser($userId) !== null) {

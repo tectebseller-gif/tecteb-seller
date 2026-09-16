@@ -644,6 +644,10 @@ function status_header(int $code): void
 function wp_safe_redirect(string $location, int $status = 302): bool
 {
     TmcWpStubs\State::$redirects[] = ['location' => $location, 'status' => $status];
+    if (TmcWpStubs\State::$throwOnRedirect) {
+        // The caller's next line is `exit`. See RedirectedException.
+        throw new TmcWpStubs\RedirectedException($location, $status);
+    }
     return true;
 }
 
@@ -668,7 +672,10 @@ function add_query_arg(mixed ...$args): string
 {
     if (is_array($args[0] ?? null)) {
         $params = $args[0];
-        $url = (string) ($args[1] ?? 'https://example.test/');
+        // Core rebuilds the CURRENT request when no URL is given. Callers rely
+        // on that — it is the supported way to read one's own URL without
+        // touching a superglobal — so the stub has to do the same thing.
+        $url = (string) ($args[1] ?? TmcWpStubs\State::$requestUri);
     } else {
         $params = [(string) ($args[0] ?? '') => (string) ($args[1] ?? '')];
         $url = (string) ($args[2] ?? 'https://example.test/');
@@ -687,4 +694,49 @@ function add_query_arg(mixed ...$args): string
 function wp_nonce_url(string $url, string $action = '-1', string $name = '_wpnonce'): string
 {
     return add_query_arg([$name => wp_create_nonce($action)], $url);
+}
+
+/** True when WordPress found nothing for this request. */
+function is_404(): bool
+{
+    return TmcWpStubs\State::$is404;
+}
+/**
+ * Only the `slug` field is modelled, because only it is used here.
+ * Returns FALSE — not null — exactly as WordPress does.
+ */
+function get_user_by(string $field, string|int $value): object|false
+{
+    foreach (TmcWpStubs\State::$users as $id => $user) {
+        $match = match ($field) {
+            'slug' => ($user['user_nicename'] ?? '') === (string) $value,
+            'login' => ($user['user_login'] ?? '') === (string) $value,
+            'email' => ($user['user_email'] ?? '') === (string) $value,
+            'id', 'ID' => (int) $id === (int) $value,
+            default => false,
+        };
+        if ($match) {
+            return (object) (['ID' => (int) $id] + $user);
+        }
+    }
+    return false;
+}
+function sanitize_title(string $title): string
+{
+    $title = strtolower(trim($title));
+    $title = preg_replace('/[^a-z0-9\p{L}\p{N}_-]+/u', '-', $title) ?? '';
+    return trim($title, '-');
+}
+
+/**
+ * Dokan's own predicate, stubbed.
+ *
+ * Declared unconditionally because the plugin guards every call with
+ * `function_exists()`, and the «Dokan is gone» case is modelled by the state
+ * WordPress actually reports then — `is_404()` true — not by hiding the
+ * symbol.
+ */
+function dokan_is_user_seller(int $userId, bool $excludeStaff = false): bool
+{
+    return in_array((int) $userId, TmcWpStubs\State::$dokanSellers, true);
 }

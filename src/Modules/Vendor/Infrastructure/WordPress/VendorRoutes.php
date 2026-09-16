@@ -237,6 +237,13 @@ final class VendorRoutes
     private function saveStore(Request $request, int $userId): OperationResult
     {
         $lists = $this->container->get(VendorListsInterface::class);
+        // The public page's cache is NOT forgotten here. It used to be, and
+        // it was wrong twice over: it ran BEFORE the write, so a read landing
+        // in between re-cached the old page under the new version; and it
+        // made invalidation a property of this route rather than of the
+        // change, so the same save from anywhere else left the page stale.
+        // `DbStoreRepository::save()` now announces the write once it has
+        // succeeded, and `StoreCacheInvalidation` listens.
         return $this->container->get(UpdateStoreSettings::class)->save(
             $userId,
             $userId,

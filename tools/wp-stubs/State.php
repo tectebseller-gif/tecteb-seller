@@ -67,6 +67,29 @@ final class State
     /** @var list<array{location:string,status:int}> */
     public static array $redirects = [];
     /** @var array<int,array<string,mixed>> */
+    /** What `is_404()` answers. The Dokan redirect only ever runs on true. */
+    /** When true, `wp_safe_redirect()` throws instead of returning — see RedirectedException. */
+    /**
+     * User ids `dokan_is_user_seller()` answers TRUE for.
+     *
+     * The one Dokan function this plugin calls, and it only ever reads. A
+     * shop in this list is one Dokan is going to serve, so nothing of ours may
+     * touch its URL.
+     */
+    public static array $dokanSellers = [];
+
+    public static bool $throwOnRedirect = false;
+    public static bool $is404 = false;
+    /**
+     * The path of the request being served, as `add_query_arg([])` reports it.
+     *
+     * Core's `add_query_arg()` with no URL rebuilds the CURRENT request, which
+     * is why a caller can use it instead of reading the request superglobal
+     * directly. A stub that ignored it would let a test pass against a code
+     * path that never sees a real URL.
+     */
+    public static string $requestUri = '/';
+
     public static array $users = [];
     /** Next id wp_insert_user() will hand out. */
     public static int $nextUserId = 500;
@@ -103,6 +126,10 @@ final class State
         self::$rewriteFlushes = 0;
         self::$queryVars = [];
         self::$redirects = [];
+        self::$dokanSellers = [];
+        self::$throwOnRedirect = false;
+        self::$is404 = false;
+        self::$requestUri = '/';
         self::$users = [];
         self::$nextUserId = 500;
         self::$uploadBaseDir = null;

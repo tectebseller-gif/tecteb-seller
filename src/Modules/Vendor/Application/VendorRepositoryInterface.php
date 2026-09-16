@@ -87,4 +87,16 @@ interface VendorRepositoryInterface
 
     /** @return list<string> every run id any profile carries, newest first */
     public function importRunIds(): array;
+
+    /**
+     * The user ids of shops whose application is APPROVED, ascending.
+     *
+     * Paged, because the sitemap asks for a page at a time and a site with
+     * three thousand shops must not load three thousand rows to print fifty.
+     *
+     * @return list<int>
+     */
+    public function approvedVendorUserIds(int $limit = 50, int $offset = 0): array;
+
+    public function countApprovedVendors(): int;
 }

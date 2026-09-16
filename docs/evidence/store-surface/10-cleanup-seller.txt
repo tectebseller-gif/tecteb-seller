@@ -1,0 +1,1 @@
+drop-dokan-seller vendor=35 result=removed
