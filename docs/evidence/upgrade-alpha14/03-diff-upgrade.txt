@@ -1,0 +1,61 @@
+--- /home/user/tecteb-seller/docs/evidence/upgrade-alpha14/01-before-upgrade.txt	2026-09-16 18:30:13.265122376 +0000
++++ /home/user/tecteb-seller/docs/evidence/upgrade-alpha14/02-after-upgrade.txt	2026-09-16 18:30:24.713123057 +0000
+@@ -1,5 +1,5 @@
+ ## plugin
+-0.1.0-alpha.14
++0.1.0-alpha.16
+ ## schema_option
+ 17
+ ## options
+@@ -59,7 +59,7 @@
+ wp_tmc_withdrawal_lines
+ wp_tmc_withdrawals
+ ## row_counts
+-wp_tmc_audit_events=5075
++wp_tmc_audit_events=5111
+ wp_tmc_b2b_accounts=2
+ wp_tmc_commission_rules=1
+ wp_tmc_coupon_uses=0
+@@ -5173,6 +5173,42 @@
+ 5073|storefront.stopped|storefront|2026-09-16 18:30:04
+ 5074|plugin.deactivated|plugin|2026-09-16 18:30:04
+ 5075|plugin.activated|plugin|2026-09-16 18:30:06
++5076|product.synced|product|2026-09-16 18:30:18
++5077|product.synced|product|2026-09-16 18:30:18
++5078|product.synced|product|2026-09-16 18:30:18
++5079|product.synced|product|2026-09-16 18:30:18
++5080|product.synced|product|2026-09-16 18:30:18
++5081|product.synced|product|2026-09-16 18:30:18
++5082|product.synced|product|2026-09-16 18:30:18
++5083|product.synced|product|2026-09-16 18:30:18
++5084|product.synced|product|2026-09-16 18:30:18
++5085|product.synced|product|2026-09-16 18:30:18
++5086|product.synced|product|2026-09-16 18:30:18
++5087|product.synced|product|2026-09-16 18:30:18
++5088|product.synced|product|2026-09-16 18:30:19
++5089|product.synced|product|2026-09-16 18:30:19
++5090|product.synced|product|2026-09-16 18:30:19
++5091|product.synced|product|2026-09-16 18:30:19
++5092|product.synced|product|2026-09-16 18:30:19
++5093|product.synced|product|2026-09-16 18:30:19
++5094|product.synced|product|2026-09-16 18:30:19
++5095|product.synced|product|2026-09-16 18:30:19
++5096|product.synced|product|2026-09-16 18:30:19
++5097|product.synced|product|2026-09-16 18:30:19
++5098|product.synced|product|2026-09-16 18:30:19
++5099|product.synced|product|2026-09-16 18:30:19
++5100|product.synced|product|2026-09-16 18:30:19
++5101|product.synced|product|2026-09-16 18:30:19
++5102|product.synced|product|2026-09-16 18:30:19
++5103|product.synced|product|2026-09-16 18:30:19
++5104|product.synced|product|2026-09-16 18:30:19
++5105|product.synced|product|2026-09-16 18:30:19
++5106|product.synced|product|2026-09-16 18:30:19
++5107|product.synced|product|2026-09-16 18:30:19
++5108|product.synced|product|2026-09-16 18:30:19
++5109|storefront.stopped|storefront|2026-09-16 18:30:19
++5110|plugin.deactivated|plugin|2026-09-16 18:30:19
++5111|plugin.activated|plugin|2026-09-16 18:30:20
+ ## vendor_applications
+ ## vendor_documents
+ ## vendor_document_types

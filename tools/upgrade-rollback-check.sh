@@ -336,4 +336,28 @@ install_pkg "$NEW"
 wpx plugin activate tecteb-marketplace-core >/dev/null
 snapshot "$EV/11-final-state.txt"
 echo; echo "checks failed: $FAILED" | tee -a "$EV/summary.txt"
+
+# --- and a warning, because this script is destructive by design -----------
+#
+# Stage 1 DROPS the plugin's tables to build a genuine old-schema site. That is
+# the point — an upgrade rehearsal on tables that were never old proves nothing
+# — but it also means every OTHER evidence script's fixtures are gone
+# afterwards, and two things then lie:
+#
+#   * `tmc_schema_version` still reads 17 while the tables are missing, so the
+#     upgrade gate sees nothing to do. Set it to 0 to force a rebuild.
+#   * deactivation set the marketplace's sale-stop flag, and reactivation does
+#     NOT clear it (alpha.8: «از سرگیری» صریح لازم است). Every purchase then
+#     answers `storefront_stopped`, which looks like a broken guard.
+#
+# So: run this LAST, or rebuild afterwards with
+#
+#   wp option update tmc_schema_version 0
+#   wp eval 'Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap::runPendingMigrations();'
+#   wp eval-file tools/acceptance-path.php run
+#   wp eval-file tools/store-surface-state.php approve <vendor-id>
+#   wp eval-file tools/purchase-block-state.php resume
+echo
+echo "NOTE: this run dropped and rebuilt the plugin's tables on ${WPROOT:-the disposable site}."
+echo "      Other evidence scripts need the fixtures rebuilt — see the comment at the end of this file."
 exit $(( FAILED > 0 ))

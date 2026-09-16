@@ -9,6 +9,7 @@
  *   wp eval-file tools/store-surface-state.php suspended-vendor
  *   wp eval-file tools/store-surface-state.php drop-suspended
  *   wp eval-file tools/store-surface-state.php dokan-seller|drop-dokan-seller
+ *   wp eval-file tools/store-surface-state.php approve <vendor-id>
  *   wp eval-file tools/store-surface-state.php demo-name <vendor-id>
  *   wp eval-file tools/store-surface-state.php demo-images <vendor-id>
  *
@@ -109,6 +110,34 @@ switch ($command) {
         printf(
             "drop-suspended vendor=%d result=removed approved_total=%d\n",
             $userId,
+            $vendors->countApprovedVendors()
+        );
+        break;
+
+    case 'approve':
+        // An APPROVED application for a vendor that has none.
+        //
+        // Needed because `tools/upgrade-rollback-check.sh` drops the plugin's
+        // tables to build a genuine old-schema site — that is what it is for —
+        // and the acceptance path rebuilds stores and products but not the
+        // application that makes a shop PUBLIC. Without this, every store-page
+        // check afterwards measures a 404 and reports «no approved vendor»,
+        // which is true and useless.
+        $application = $vendors->findApplicationByUser($vendorId);
+        $applicationId = $application?->id ?? $vendors->saveDraft($vendorId, new ApplicantDetails(
+            'داروخانهٔ نمونهٔ تک‌طب',
+            'شخص حقیقی آزمایشی',
+            'vendor@evidence.invalid',
+            '09120000001',
+            'نشانی آزمایشی',
+            true
+        ));
+        $vendors->updateStatus($applicationId, ApplicationStatus::Approved, 1, 'شاهد');
+        printf(
+            "approve vendor=%d application=%d status=%s approved_total=%d\n",
+            $vendorId,
+            $applicationId,
+            (string) ($vendors->findApplicationByUser($vendorId)?->status->value ?? 'none'),
             $vendors->countApprovedVendors()
         );
         break;
@@ -243,6 +272,6 @@ switch ($command) {
         break;
 
     default:
-        print("usage: touch-product <vendor-id> | suspended-vendor | drop-suspended"
+        print("usage: touch-product <vendor-id> | approve <vendor-id> | suspended-vendor | drop-suspended"
             . " | dokan-seller | drop-dokan-seller\n");
 }

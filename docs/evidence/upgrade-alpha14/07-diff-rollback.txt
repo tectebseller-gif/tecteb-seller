@@ -1,0 +1,61 @@
+--- /home/user/tecteb-seller/docs/evidence/upgrade-alpha14/05-with-vendor-data.txt	2026-09-16 18:30:35.481123697 +0000
++++ /home/user/tecteb-seller/docs/evidence/upgrade-alpha14/06-after-rollback.txt	2026-09-16 18:30:43.905124197 +0000
+@@ -1,5 +1,5 @@
+ ## plugin
+-0.1.0-alpha.16
++0.1.0-alpha.14
+ ## schema_option
+ 17
+ ## options
+@@ -59,7 +59,7 @@
+ wp_tmc_withdrawal_lines
+ wp_tmc_withdrawals
+ ## row_counts
+-wp_tmc_audit_events=5114
++wp_tmc_audit_events=5150
+ wp_tmc_b2b_accounts=2
+ wp_tmc_commission_rules=1
+ wp_tmc_coupon_uses=0
+@@ -5212,6 +5212,42 @@
+ 5112|vendor.requirements_changed|vendor_document_type|2026-09-16 18:30:30
+ 5113|vendor.document_uploaded|vendor_application|2026-09-16 18:30:30
+ 5114|vendor.application_submitted|vendor_application|2026-09-16 18:30:30
++5115|product.synced|product|2026-09-16 18:30:38
++5116|product.synced|product|2026-09-16 18:30:38
++5117|product.synced|product|2026-09-16 18:30:38
++5118|product.synced|product|2026-09-16 18:30:38
++5119|product.synced|product|2026-09-16 18:30:38
++5120|product.synced|product|2026-09-16 18:30:38
++5121|product.synced|product|2026-09-16 18:30:38
++5122|product.synced|product|2026-09-16 18:30:38
++5123|product.synced|product|2026-09-16 18:30:38
++5124|product.synced|product|2026-09-16 18:30:38
++5125|product.synced|product|2026-09-16 18:30:38
++5126|product.synced|product|2026-09-16 18:30:38
++5127|product.synced|product|2026-09-16 18:30:38
++5128|product.synced|product|2026-09-16 18:30:38
++5129|product.synced|product|2026-09-16 18:30:38
++5130|product.synced|product|2026-09-16 18:30:38
++5131|product.synced|product|2026-09-16 18:30:38
++5132|product.synced|product|2026-09-16 18:30:38
++5133|product.synced|product|2026-09-16 18:30:38
++5134|product.synced|product|2026-09-16 18:30:38
++5135|product.synced|product|2026-09-16 18:30:38
++5136|product.synced|product|2026-09-16 18:30:38
++5137|product.synced|product|2026-09-16 18:30:38
++5138|product.synced|product|2026-09-16 18:30:38
++5139|product.synced|product|2026-09-16 18:30:38
++5140|product.synced|product|2026-09-16 18:30:38
++5141|product.synced|product|2026-09-16 18:30:38
++5142|product.synced|product|2026-09-16 18:30:38
++5143|product.synced|product|2026-09-16 18:30:38
++5144|product.synced|product|2026-09-16 18:30:38
++5145|product.synced|product|2026-09-16 18:30:38
++5146|product.synced|product|2026-09-16 18:30:38
++5147|product.synced|product|2026-09-16 18:30:38
++5148|storefront.stopped|storefront|2026-09-16 18:30:38
++5149|plugin.deactivated|plugin|2026-09-16 18:30:38
++5150|plugin.activated|plugin|2026-09-16 18:30:39
+ ## vendor_applications
+ 1|3|submitted|داروخانه نمونه ارتقا|09120000000
+ ## vendor_documents
