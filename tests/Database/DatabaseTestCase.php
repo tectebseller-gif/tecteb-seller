@@ -73,6 +73,48 @@ abstract class DatabaseTestCase extends ContractTestCase
         return $raw === null ? null : (int) $raw;
     }
 
+    /**
+     * Build every table from the REAL migration chain.
+     *
+     * Each fixture used to list the migrations it thought it needed, and adding
+     * one broke sixty-one tests at once — they were building a schema the code
+     * had already moved past. A fixture that copies a list is a fixture that
+     * goes stale, so it asks Bootstrap for the list instead.
+     */
+    protected function migrateAll(\Tecteb\Marketplace\Contracts\DatabaseInterface $db): void
+    {
+        foreach (\Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap::migrations() as $migration) {
+            $migration->up($db);
+        }
+    }
+
+    /**
+     * Drop every table this plugin owns, then build them all again.
+     *
+     * The drop is by PREFIX, not by a list. Each fixture used to name the
+     * tables it thought it had to clear, and the lists went stale the same way
+     * the migration lists did — the order-history table was added, no fixture
+     * named it, and rows from one test turned up inside the next one asserting
+     * somebody else's numbers. CLAUDE.md already carries this lesson from
+     * `alpha.10`: «every table hanging off an order or product row belongs in
+     * the reset». A prefix match cannot forget a table.
+     *
+     * `information_schema` rather than `SHOW TABLES LIKE`, because the prefix
+     * can contain an underscore and `LIKE` would read it as a wildcard.
+     */
+    protected function resetSchema(\Tecteb\Marketplace\Contracts\DatabaseInterface $db): void
+    {
+        $stmt = $this->wpdb->pdo()->prepare(
+            'SELECT TABLE_NAME FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE ?'
+        );
+        $stmt->execute([$this->wpdb->prefix . 'tmc\_%']);
+        foreach ($stmt->fetchAll(\PDO::FETCH_COLUMN) as $table) {
+            $this->wpdb->dropTable((string) $table);
+        }
+        $this->migrateAll($db);
+    }
+
     protected function auditTable(): string
     {
         return $this->wpdb->prefix . M0001CreateAuditTable::TABLE_SUFFIX;

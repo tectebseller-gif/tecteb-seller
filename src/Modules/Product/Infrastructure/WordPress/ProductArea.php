@@ -15,11 +15,13 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductDraftStoreInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Presentation\ProductBulkPreviewView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductCsvView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductFormView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductListView;
@@ -56,6 +58,9 @@ final class ProductArea
 
     private const FORM_TTL = 600;
 
+    /** Where the file chooser is; a failed upload lands back on it. */
+    private const GALLERY_STEP = '1';
+
     public function __construct(private readonly ContainerInterface $container)
     {
     }
@@ -76,6 +81,16 @@ final class ProductArea
             /** @var array{rows:list<array{line:int,sku:string,title:string,action:string,code:string,context:array<string,scalar|null>}>,created:int,updated:int,skipped:int} $report */
             $report = $csv['report'];
             return ProductCsvView::render($report, (bool) ($csv['applied'] ?? false), $view->urls, $view->nonceField);
+        }
+
+        // Taken, not read: a preview that survived a refresh would describe
+        // rows as they were minutes ago, and the vendor would confirm a list
+        // that is no longer true. One look, then it is gone.
+        $held = $this->flash()->take($this->bulkPreviewKey($view->userId));
+        if (is_array($held) && isset($held['preview']) && is_array($held['preview'])) {
+            /** @var array{action:string,rows:list<array{product_id:int,ok:bool,code:string,title:string,from:string,to:string}>,ok:int,failed:int} $preview */
+            $preview = $held['preview'];
+            return ProductBulkPreviewView::render($preview, $view->urls, $view->nonceField);
         }
 
         $requested = $request->queryText('product');
@@ -188,11 +203,12 @@ final class ProductArea
             $this->publishing()->mayPublishDirectly($vendorUserId),
             $product !== null && $this->revisions()->pendingFor($product->id) !== null,
             $this->variableData($productId, $details->type),
-            $product?->updatedAt ?? '',
+            $product?->rowVersion ?? '',
             $draftSavedAt,
             $mayEdit ? admin_url('admin-ajax.php') : '',
             ProductAutosave::ACTION,
-            $mayEdit ? wp_create_nonce(ProductAutosave::NONCE) : ''
+            $mayEdit ? wp_create_nonce(ProductAutosave::NONCE) : '',
+            $this->imagePolicy()->maxBytes()
         );
     }
 
@@ -222,6 +238,7 @@ final class ProductArea
                 0
             ),
             'bulk_products' => $this->bulk($request, $userId, $vendorUserId, $urls),
+            'preview_bulk_products' => $this->previewBulk($request, $userId, $vendorUserId, $urls),
             'export_products' => $this->export($userId, $vendorUserId, $urls),
             'import_products' => $this->preview($request, $userId, $vendorUserId, $urls),
             'apply_products_csv' => $this->apply($userId, $vendorUserId, $urls),
@@ -275,7 +292,7 @@ final class ProductArea
         $step = $request->postKey('step');
         $details = $this->detailsFromPost($request);
         $specs = $request->postMap('spec');
-        [$imageIds, $mainImageId] = $this->imagesFromPost($request, $userId, $vendorUserId);
+        [$imageIds, $mainImageId, $imageError] = $this->imagesFromPost($request, $userId, $vendorUserId);
         $imageIds = $this->reorder($imageIds, $request->postText('move_image'));
 
         $result = $this->manage()->save(
@@ -299,6 +316,20 @@ final class ProductArea
             return new VendorAreaOutcome($result->code, $this->stepUrl($urls, $productId, $step), $result->context);
         }
         $savedId = (int) ($result->context['product_id'] ?? $productId);
+
+        // The text saved and the picture did not. Reporting the SAVE as a
+        // failure would be a lie and would throw away work that is safely
+        // stored; reporting only the save would hide the loss. So the save
+        // stands, the notice names the upload, and the vendor is left on the
+        // step where the file chooser is — able to pick the file again without
+        // retyping anything.
+        if ($imageError !== '') {
+            return new VendorAreaOutcome(
+                $imageError,
+                $this->stepUrl($urls, $savedId, self::GALLERY_STEP),
+                ['saved' => 1, 'max_mb' => $this->maxImageMb()]
+            );
+        }
         // The draft has done its job. Cleared HERE and not on a successful
         // autosave: a draft that deleted itself when the form was submitted
         // would throw the work away at exactly the moment a refused save
@@ -339,6 +370,28 @@ final class ProductArea
             'ok' => $result->context['ok'] ?? 0,
             'failed' => $result->context['failed'] ?? 0,
             'refused' => $refused,
+        ]);
+    }
+
+    /**
+     * The same selection, judged and not touched.
+     *
+     * It ends in a redirect like every other POST here, so the preview page is
+     * a GET the vendor can reload, leave and come back from without the
+     * browser offering to re-send anything.
+     */
+    private function previewBulk(Request $request, int $userId, int $vendorUserId, VendorUrls $urls): VendorAreaOutcome
+    {
+        $ids = array_map('intval', $request->postTextList('selected'));
+        $result = $this->manage()->previewBulk($userId, $vendorUserId, $request->postKey('bulk_action'), $ids);
+        if (!$result->ok) {
+            return new VendorAreaOutcome($result->code, $urls->products(), $result->context);
+        }
+        $this->flash()->put($this->bulkPreviewKey($userId), ['preview' => $result->context], self::FORM_TTL);
+        return new VendorAreaOutcome('bulk_previewed', $urls->products(), [
+            'action' => $result->context['action'] ?? '',
+            'ok' => $result->context['ok'] ?? 0,
+            'failed' => $result->context['failed'] ?? 0,
         ]);
     }
 
@@ -493,21 +546,42 @@ final class ProductArea
      *
      * @return array{0:list<int>,1:int}
      */
+    /**
+     * @return array{0:list<int>, 1:int, 2:string} ids, main id, and the code of
+     *         an upload that failed — empty when nothing was uploaded or it
+     *         worked
+     */
     private function imagesFromPost(Request $request, int $userId, int $vendorUserId): array
     {
         $ids = array_map('intval', $request->postTextList('image_ids'));
         $remove = array_map('intval', $request->postTextList('remove_image_ids'));
         $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0 && !in_array($id, $remove, true)));
 
+        // A failed upload used to vanish. `if ($uploaded->ok)` with no else
+        // meant the vendor picked a file, pressed save, watched the save
+        // succeed — and found no picture, with nothing anywhere saying why.
+        // Silence is the worst of the three possible answers.
+        $imageError = '';
         $file = $request->file('product_image');
         if ($file->tempPath !== '' && $file->errorCode !== UPLOAD_ERR_NO_FILE) {
             $uploaded = $this->manage()->uploadImage($userId, $vendorUserId, $file, $request->postText('title'));
             if ($uploaded->ok) {
                 $ids[] = (int) $uploaded->context['media_id'];
+            } else {
+                $imageError = $uploaded->code;
             }
+        } elseif ($file->errorCode !== UPLOAD_ERR_OK && $file->errorCode !== UPLOAD_ERR_NO_FILE) {
+            // PHP refused it before our code ran — usually `upload_max_filesize`
+            // or a half-finished POST — so there is no temp file to hand to
+            // `uploadImage()`, and asking it would get «no file», the one thing
+            // that did not happen. The policy already tells these error codes
+            // apart, so it names this one too: «too large» and «interrupted»
+            // call for different second attempts, and a single catch-all code
+            // would tell the vendor neither.
+            $imageError = $this->imagePolicy()->refuse($file);
         }
         $main = $request->postInt('main_image_id');
-        return [$ids, in_array($main, $ids, true) ? $main : ($ids[0] ?? 0)];
+        return [$ids, in_array($main, $ids, true) ? $main : ($ids[0] ?? 0), $imageError];
     }
 
     /**
@@ -696,6 +770,22 @@ final class ProductArea
         return $this->container->get(ProductDraftStoreInterface::class);
     }
 
+    private function imagePolicy(): ProductImagePolicy
+    {
+        return $this->container->get(ProductImagePolicy::class);
+    }
+
+    /**
+     * The cap the vendor is actually subject to, in whole megabytes, rounded
+     * DOWN: «۲ مگابایت» when the host allows 2.5 refuses fewer files than
+     * «۳» would, and a limit that is stated larger than it is gets the vendor
+     * blamed for the host's setting.
+     */
+    private function maxImageMb(): int
+    {
+        return max(1, (int) floor($this->imagePolicy()->maxBytes() / 1048576));
+    }
+
     private function flash(): FlashStoreInterface
     {
         return $this->container->get(FlashStoreInterface::class);
@@ -714,5 +804,10 @@ final class ProductArea
     private function csvReportKey(int $userId): string
     {
         return 'product_csv_report_' . $userId;
+    }
+
+    private function bulkPreviewKey(int $userId): string
+    {
+        return 'product_bulk_preview_' . $userId;
     }
 }

@@ -90,7 +90,12 @@ final class ProductModule implements ModuleInterface
         $c->bind(ProductDraftStoreInterface::class, static fn (ContainerInterface $c) => new WpProductDraftStore(
             $c->get(ClockInterface::class)
         ));
-        $c->bind(ProductImagePolicy::class, static fn () => new ProductImagePolicy());
+        // The host's own upload ceiling, not ours: PHP enforces
+        // `upload_max_filesize` before this plugin runs, so a policy that did
+        // not know about it would promise a size the server refuses.
+        $c->bind(ProductImagePolicy::class, static fn () => new ProductImagePolicy(
+            function_exists('wp_max_upload_size') ? (int) wp_max_upload_size() : 0
+        ));
         $c->bind(ProductImageLibraryInterface::class, static fn (ContainerInterface $c) => new WpProductImages(
             $c->get(ProductImagePolicy::class)
         ));

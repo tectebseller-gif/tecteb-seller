@@ -37,6 +37,18 @@ interface DokanReaderInterface
     public function products(): array;
 
     /**
+     * One page of sellers, strictly after `$afterUserId`, ascending.
+     *
+     * Paged for the same reason products and orders are: the resumable import
+     * asks for one page per batch, and reading every seller on a shop with
+     * thousands of them — on every batch — is how a job that exists to avoid a
+     * timeout causes one.
+     *
+     * @return list<array{user_id:int, store_name:string, email:string, enabled:bool}>
+     */
+    public function vendorsAfter(int $afterUserId, int $limit = self::PAGE): array;
+
+    /**
      * One page of products, strictly after `$afterId`, ascending.
      *
      * Keyset rather than OFFSET, for the reason the unpaid-order guard learned
@@ -52,14 +64,19 @@ interface DokanReaderInterface
     /**
      * Orders Dokan recorded against a seller.
      *
-     * @return list<array{wc_order_id:int, vendor_user_id:int, status:string, total_minor:int}>
+     * Every figure is DOKAN's own, copied rather than computed. `net_minor` is
+     * what Dokan recorded as the seller's share and `commission_minor` is the
+     * difference it recorded — no rate from this marketplace is ever applied to
+     * a historical order.
+     *
+     * @return list<array{wc_order_id:int, vendor_user_id:int, status:string, total_minor:int, net_minor:int, commission_minor:int, refunded:bool}>
      */
     public function orders(): array;
 
     /**
      * One page of order rows, strictly after `$afterId`, ascending.
      *
-     * @return list<array{wc_order_id:int, vendor_user_id:int, status:string, total_minor:int}>
+     * @return list<array{wc_order_id:int, vendor_user_id:int, status:string, total_minor:int, net_minor:int, commission_minor:int, refunded:bool}>
      */
     public function ordersAfter(int $afterId, int $limit = self::PAGE): array;
 

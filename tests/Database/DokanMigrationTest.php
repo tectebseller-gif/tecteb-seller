@@ -18,6 +18,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
@@ -50,6 +51,11 @@ final class DokanMigrationTest extends DatabaseTestCase
     private DbVendorRepository $vendors;
     private FakeDokanReader $dokan;
 
+    /** Kept so a test can lose the manifest the way a dying process does. */
+    private WpOptionStore $options;
+
+    private DbOrderHistoryRepository $history;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -62,18 +68,15 @@ final class DokanMigrationTest extends DatabaseTestCase
         ] as $suffix) {
             $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
         }
-        (new M0001CreateAuditTable())->up($db);
-        (new M0002CreateVendorTables())->up($db);
-        (new M0003CreateStoreAndStaffTables())->up($db);
-        (new M0005CreateProductTables())->up($db);
-        (new M0006CatalogAndOrders())->up($db);
-        (new M0010LinkOwnership())->up($db);
+        $this->resetSchema($db);
 
         $clock = new SystemClock();
         $options = new WpOptionStore();
         $options->delete(ImportFromDokan::RUNS_OPTION);
+        $this->options = $options;
         $this->products = new DbProductRepository($db, $clock);
         $this->vendors = new DbVendorRepository($db, $clock);
+        $this->history = new DbOrderHistoryRepository($db, $clock);
         $this->dokan = new FakeDokanReader();
         $this->dokan->vendorRows = [
             ['user_id' => self::SELLER, 'store_name' => 'داروخانه دکان', 'email' => 's@example.test', 'enabled' => true],
@@ -81,8 +84,17 @@ final class DokanMigrationTest extends DatabaseTestCase
         $this->dokan->productRows = [
             ['wc_product_id' => 991, 'vendor_user_id' => self::SELLER, 'title' => 'باند کشی', 'sku' => 'DK-1', 'price_minor' => 120000, 'stock' => 7],
         ];
+        // Total and net stated separately, because the point of the history is
+        // that BOTH are Dokan's and neither is worked out here. The 200,000
+        // difference is what Dokan itself kept; no rate of ours produced it.
         $this->dokan->orderRows = [
-            ['wc_order_id' => 5501, 'vendor_user_id' => self::SELLER, 'status' => 'completed', 'total_minor' => 120000],
+            [
+                'wc_order_id' => 5501,
+                'vendor_user_id' => self::SELLER,
+                'status' => 'completed',
+                'total_minor' => 900000,
+                'net_minor' => 700000,
+            ],
         ];
 
         $this->storefront = new FakeCatalogProjector();
@@ -99,7 +111,8 @@ final class DokanMigrationTest extends DatabaseTestCase
             $options,
             new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock),
             $clock,
-            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR])
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR]),
+            $this->history
         );
     }
 
@@ -109,11 +122,12 @@ final class DokanMigrationTest extends DatabaseTestCase
 
         self::assertTrue($plan->isClean());
         self::assertSame(
-            ['vendors' => 1, 'products' => 1, 'orders' => 0, 'conflicts' => 0, 'skipped' => 1],
+            ['vendors' => 1, 'products' => 1, 'orders' => 1, 'conflicts' => 0, 'skipped' => 0],
             $plan->summary(),
-            'the order is counted and skipped: its commission was Dokan\'s to compute'
+            'the past order is now recorded rather than skipped'
         );
-        self::assertSame('historic_commission_not_recomputed', $plan->orders[0]['reason']);
+        // The reason names what «import» means here, and it is not «recompute».
+        self::assertSame('history_recorded_without_recomputing', $plan->orders[0]['reason']);
         self::assertStringContainsString('wc:991', $plan->products[0]['target'], 'and it points at the EXISTING product');
 
         self::assertNull($this->vendors->findProfileByUser(self::SELLER), 'nothing was written');
@@ -317,5 +331,162 @@ final class DokanMigrationTest extends DatabaseTestCase
         self::assertFalse($result->ok);
         self::assertSame('forbidden', $result->code);
         self::assertSame([], $this->products->allForVendor(self::SELLER));
+    }
+
+    // ------------------------------------------- the manifest that cannot drift
+
+    /**
+     * The defect this closes: a process killed part-way through a page had
+     * created real rows that no run claimed, so `rollback()` could not find
+     * them and a re-run did not know they were there.
+     *
+     * `alpha.13` moved the manifest write from «after both loops» to «after
+     * each page», which made the window smaller and did not close it. The row
+     * stamp closes it, because the row that exists IS the record that it was
+     * created.
+     */
+    public function testRowsCreatedBeforeAManifestWriteAreStillFoundByRollback(): void
+    {
+        $runId = 'dokan-interrupted';
+
+        // Exactly what a batch does before the manifest write it never reached.
+        $page = $this->migration->importProductPage($runId, 0, 50);
+        self::assertNotSame([], $page['created']['products'], 'the batch created something');
+
+        // Now lose the manifest, which is what dying between the two writes
+        // looks like from the outside.
+        $this->options->set(ImportFromDokan::RUNS_OPTION, []);
+        self::assertArrayNotHasKey($runId, $this->options->get(ImportFromDokan::RUNS_OPTION, []));
+
+        // The run is still known, and still undoable, because the ROWS say so.
+        self::assertArrayHasKey($runId, $this->migration->runs());
+        self::assertSame('rows_only', $this->migration->runs()[$runId]['source']);
+
+        $rollback = $this->migration->rollback($runId);
+        self::assertTrue($rollback->ok, $rollback->code);
+        self::assertSame(count($page['created']['products']), $rollback->context['products']);
+        self::assertSame([], $this->products->allForVendor(self::SELLER), 'the rows are gone');
+    }
+
+    public function testEachCreatedRowCarriesTheRunThatMadeIt(): void
+    {
+        $runId = (string) $this->migration->import($this->migration->plan())->context['run_id'];
+
+        $stamped = $this->products->idsFromImportRun($runId);
+        self::assertNotSame([], $stamped);
+        self::assertContains($runId, $this->products->importRunIds());
+
+        // And a run that made nothing claims nothing — the stamp is a fact
+        // about the row, not a label applied to the catalogue.
+        self::assertSame([], $this->products->idsFromImportRun('dokan-never-happened'));
+    }
+
+    public function testRollingBackTakesTheUnionSoNeitherSourceIsLost(): void
+    {
+        $runId = (string) $this->migration->import($this->migration->plan())->context['run_id'];
+        $fromRows = $this->products->idsFromImportRun($runId);
+        $fromManifest = array_map('intval', $this->migration->runs()[$runId]['products'] ?? []);
+
+        // In a healthy run the two agree; the union must therefore delete each
+        // row ONCE rather than counting it twice.
+        self::assertSame($fromRows, $fromManifest);
+        $rollback = $this->migration->rollback($runId);
+        self::assertTrue($rollback->ok, $rollback->code);
+        self::assertSame(count($fromRows), $rollback->context['products']);
+    }
+
+    public function testAnUnknownRunIsStillRefused(): void
+    {
+        // The fallback must not turn «no such run» into «an empty run», or a
+        // typo would report a successful rollback of nothing.
+        $result = $this->migration->rollback('dokan-not-a-run');
+        self::assertFalse($result->ok);
+        self::assertSame('not_found', $result->code);
+    }
+
+    // ------------------------------------------ the history, and what it is not
+
+    public function testPastOrdersArriveCarryingDokansOwnFigures(): void
+    {
+        $runId = (string) $this->migration->import($this->migration->plan())->context['run_id'];
+
+        $rows = $this->history->forVendor(self::SELLER);
+        self::assertCount(1, $rows);
+        self::assertSame($runId, (string) $rows[0]['run_id']);
+        self::assertSame('dokan', (string) $rows[0]['source']);
+        // The fixture's order: total 900000, net 700000. Both are carried, and
+        // the commission is the DIFFERENCE Dokan recorded — not a rate applied.
+        self::assertSame(900000, (int) $rows[0]['total_minor']);
+        self::assertSame(700000, (int) $rows[0]['net_minor']);
+        self::assertSame(200000, (int) $rows[0]['commission_minor']);
+    }
+
+    /**
+     * The rule the whole table exists to keep: one financial engine per order.
+     *
+     * Settlement, the balance and every report read the ledger. If importing
+     * history wrote a single line there, a shop's payable balance would include
+     * money Dokan already paid them.
+     */
+    public function testImportingHistoryWritesNoLedgerLine(): void
+    {
+        $before = (int) $this->wpdb->get_var(
+            'SELECT COUNT(*) FROM `' . $this->wpdb->prefix . 'tmc_ledger`'
+        );
+        $this->migration->import($this->migration->plan());
+        $after = (int) $this->wpdb->get_var(
+            'SELECT COUNT(*) FROM `' . $this->wpdb->prefix . 'tmc_ledger`'
+        );
+
+        self::assertSame($before, $after, 'the ledger must not learn about Dokan\'s past orders');
+        self::assertSame(1, $this->history->countForVendor(self::SELLER), 'but the history did');
+    }
+
+    public function testTheSameOrderIsRecordedOnceHoweverOftenTheJobResumes(): void
+    {
+        $runId = 'dokan-resumed';
+        $first = $this->migration->importOrderPage($runId, 0, 50);
+        // A resumed job re-runs its last page from the cursor it wrote before
+        // the crash. That is normal, and must not duplicate a past sale.
+        $second = $this->migration->importOrderPage($runId, 0, 50);
+
+        self::assertSame(1, $first['done']);
+        self::assertSame(0, $second['done']);
+        self::assertSame(1, $second['skipped'], 'the unique index refused it, not a check in PHP');
+        self::assertSame(1, $this->history->countForVendor(self::SELLER));
+    }
+
+    public function testRollingBackAnImportTakesItsHistoryWithIt(): void
+    {
+        $runId = (string) $this->migration->import($this->migration->plan())->context['run_id'];
+        self::assertSame(1, $this->history->countForRun($runId));
+
+        $result = $this->migration->rollback($runId);
+        self::assertTrue($result->ok, $result->code);
+        self::assertSame(1, $result->context['history']);
+        self::assertSame(0, $this->history->countForVendor(self::SELLER), 'no half-migrated shop');
+    }
+
+    public function testDeletingARunNeverTakesRowsThatBelongToAnother(): void
+    {
+        $this->migration->importOrderPage('run-a', 0, 50);
+        // An empty run id must delete NOTHING: `run_id` defaults to '', so a
+        // careless DELETE would take every row a pre-run-id build wrote.
+        self::assertSame(0, $this->history->deleteRun(''));
+        self::assertSame(1, $this->history->countForVendor(self::SELLER));
+
+        self::assertSame(0, $this->history->deleteRun('run-b'), 'a different run owns nothing here');
+        self::assertSame(1, $this->history->countForVendor(self::SELLER));
+    }
+
+    public function testTheSummaryAddsDokansNumbersAndComputesNothing(): void
+    {
+        $this->migration->importOrderPage('run-sum', 0, 50);
+        $summary = $this->migration->historyFor(self::SELLER);
+
+        self::assertTrue($summary['available']);
+        self::assertSame(1, $summary['orders']);
+        self::assertSame(900000, $summary['total_minor']);
+        self::assertSame(700000, $summary['net_minor']);
     }
 }

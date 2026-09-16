@@ -105,22 +105,17 @@ final class ManageProducts
         if ($product === null) {
             return OperationResult::failure('not_found');
         }
-        if ($revision !== '' && $product->updatedAt !== '' && $revision !== $product->updatedAt) {
-            // Refused, not merged. A merge would have to guess which of two
-            // prices is the intended one, and a wrong guess about a price is
-            // money. The context carries both stamps so the page can say who
-            // changed it and when.
-            return OperationResult::failure('stale_revision', [
-                'product_id' => $productId,
-                'submitted_revision' => $revision,
-                'current_revision' => $product->updatedAt,
-            ]);
-        }
+        // NOTE: the version is NOT compared here. Comparing it in PHP and then
+        // writing is a check two concurrent editors both pass — both read
+        // version 4, both find it equal, both write — which is the race this
+        // exists to close, moved one step earlier. It travels down to the
+        // UPDATE's WHERE clause instead, and `storage_failed` is distinguished
+        // from `stale_revision` by asking the row afterwards.
         return match (true) {
             $product->status === ProductStatus::Submitted => OperationResult::failure('in_review'),
             $product->status === ProductStatus::Archived => OperationResult::failure('product_archived'),
-            $product->status->isEditableByVendor() => $this->saveInPlace($product, $details, $specs, $imageIds, $mainImageId),
-            default => $this->saveAsRevision($product, $details, $specs, $imageIds, $mainImageId),
+            $product->status->isEditableByVendor() => $this->saveInPlace($product, $details, $specs, $imageIds, $mainImageId, $revision),
+            default => $this->saveAsRevision($product, $details, $specs, $imageIds, $mainImageId, $revision),
         };
     }
 
@@ -183,63 +178,30 @@ final class ManageProducts
      * keystroke, so a half-filled draft is always savable and only a
      * submission has to be complete.
      */
+    public const ACTION_SUBMIT = 'submit';
+    public const ACTION_ARCHIVE = 'archive';
+    public const ACTION_RESTORE = 'restore';
+
     /** @var list<string> the bulk verbs, each one an existing single-row action */
-    public const BULK_ACTIONS = ['submit', 'archive', 'restore'];
+    public const BULK_ACTIONS = [self::ACTION_SUBMIT, self::ACTION_ARCHIVE, self::ACTION_RESTORE];
 
     /** Rows one POST may carry. Above it the request is refused, not truncated. */
     public const BULK_LIMIT = 100;
 
     public function submit(int $actorId, int $vendorUserId, int $productId): OperationResult
     {
-        if (!$this->access->can($actorId, $vendorUserId, StaffArea::Product, StaffLevel::Edit)) {
-            return OperationResult::failure('forbidden');
-        }
-        $product = $this->products->findOwned($productId, $vendorUserId);
-        if ($product === null) {
-            return OperationResult::failure('not_found');
-        }
-        if (!$product->status->isEditableByVendor()) {
-            return OperationResult::failure('not_submittable');
-        }
-        $verdict = $this->readiness->check($product);
-        if (!$verdict->ok) {
-            return $verdict;
-        }
-
-        $direct = $this->publishing->mayPublishDirectly($vendorUserId);
-        $target = $direct ? ProductStatus::Published : ProductStatus::Submitted;
-        if (!$this->states->vendorMayMove($product->status, $target, $direct)) {
-            return OperationResult::failure('invalid_transition', [
-                'from' => $product->status->value,
-                'to' => $target->value,
-            ]);
-        }
-        if (!$this->products->updateStatus($productId, $target, '')) {
-            return OperationResult::failure('storage_failed');
-        }
-        if ($target === ProductStatus::Published) {
-            $this->catalog->publish($productId);
-        }
-        $this->audit->log(AuditEventCatalog::PRODUCT_SUBMITTED, $actorId, 'product', (string) $productId, [
-            'vendor_id' => $vendorUserId,
-            'product_id' => $productId,
-            'to' => $target->value,
-        ]);
-        return OperationResult::success(
-            $direct ? 'product_published' : 'product_submitted',
-            ['product_id' => $productId]
-        );
+        return $this->carryOut($this->plan($actorId, $vendorUserId, $productId, self::ACTION_SUBMIT), $actorId, $vendorUserId);
     }
 
     /** Off the shelf without deleting anything: history and orders stay. */
     public function archive(int $actorId, int $vendorUserId, int $productId): OperationResult
     {
-        return $this->move($actorId, $vendorUserId, $productId, ProductStatus::Archived, 'product_archived_ok');
+        return $this->carryOut($this->plan($actorId, $vendorUserId, $productId, self::ACTION_ARCHIVE), $actorId, $vendorUserId);
     }
 
     public function restore(int $actorId, int $vendorUserId, int $productId): OperationResult
     {
-        return $this->move($actorId, $vendorUserId, $productId, ProductStatus::Draft, 'product_restored');
+        return $this->carryOut($this->plan($actorId, $vendorUserId, $productId, self::ACTION_RESTORE), $actorId, $vendorUserId);
     }
 
     /**
@@ -269,32 +231,20 @@ final class ManageProducts
      */
     public function bulk(int $actorId, int $vendorUserId, string $action, array $productIds): OperationResult
     {
-        if (!in_array($action, self::BULK_ACTIONS, true)) {
-            return OperationResult::failure('unknown_bulk_action');
+        $refusal = $this->guardBulkRequest($actorId, $vendorUserId, $action, $productIds);
+        if ($refusal !== null) {
+            return $refusal;
         }
-        if (!$this->access->can($actorId, $vendorUserId, StaffArea::Product, StaffLevel::Edit)) {
-            return OperationResult::failure('forbidden');
-        }
-        $productIds = array_values(array_unique(array_filter($productIds, static fn (int $id): bool => $id > 0)));
-        if ($productIds === []) {
-            return OperationResult::failure('nothing_selected');
-        }
-        if (count($productIds) > self::BULK_LIMIT) {
-            return OperationResult::failure('bulk_too_large', [
-                'selected' => count($productIds),
-                'limit' => self::BULK_LIMIT,
-            ]);
-        }
+        $productIds = $this->bulkSelection($productIds);
 
         $rows = [];
         $ok = 0;
         $failed = 0;
         foreach ($productIds as $productId) {
-            $result = match ($action) {
-                'submit' => $this->submit($actorId, $vendorUserId, $productId),
-                'archive' => $this->archive($actorId, $vendorUserId, $productId),
-                default => $this->restore($actorId, $vendorUserId, $productId),
-            };
+            // Re-planned per row and NOT taken from any preview the vendor was
+            // shown: between looking and pressing, somebody else can have
+            // submitted the same product. The forecast is never the authority.
+            $result = $this->carryOut($this->plan($actorId, $vendorUserId, $productId, $action), $actorId, $vendorUserId);
             $rows[] = ['product_id' => $productId, 'ok' => $result->ok, 'code' => $result->code];
             $result->ok ? $ok++ : $failed++;
         }
@@ -303,6 +253,62 @@ final class ManageProducts
         // caller reads the rows to find out what happened; a false here would
         // have made «۳۶ از ۴۰ رفت» look like a failure of the whole thing.
         return OperationResult::success('bulk_done', [
+            'action' => $action,
+            'rows' => $rows,
+            'ok' => $ok,
+            'failed' => $failed,
+        ]);
+    }
+
+    /**
+     * What `bulk()` would do to this selection — without doing any of it.
+     *
+     * The reason this exists is that «۴۰ مورد انتخاب شد» hides the one thing
+     * the vendor needs to decide: which of the forty are actually going to
+     * move. Pressing the button to find out costs an audit line and a status
+     * change on thirty-six products, and there is no undo for «ارسال برای
+     * بررسی» — the manager now has thirty-six items in their queue.
+     *
+     * **It writes nothing.** No status, no audit line, no catalogue call. It
+     * runs the same `plan()` the action runs and stops before `carryOut()`.
+     *
+     * **It is a forecast, not a promise,** and the screen says so: another
+     * member of the same store can save one of these products in the seconds
+     * between the preview and the button. `bulk()` therefore re-plans every
+     * row rather than trusting what was shown, and a row whose answer changed
+     * in between is reported with its NEW code.
+     *
+     * @param list<int> $productIds
+     * @return OperationResult context: action, rows, ok, failed
+     */
+    public function previewBulk(int $actorId, int $vendorUserId, string $action, array $productIds): OperationResult
+    {
+        $refusal = $this->guardBulkRequest($actorId, $vendorUserId, $action, $productIds);
+        if ($refusal !== null) {
+            return $refusal;
+        }
+        $productIds = $this->bulkSelection($productIds);
+
+        $rows = [];
+        $ok = 0;
+        $failed = 0;
+        foreach ($productIds as $productId) {
+            $plan = $this->plan($actorId, $vendorUserId, $productId, $action);
+            $result = $plan->asResult();
+            $rows[] = [
+                'product_id' => $productId,
+                'ok' => $plan->ok(),
+                'code' => $result->code,
+                // The title is what the vendor recognises; an id is what they
+                // would have to go and look up, forty times.
+                'title' => $plan->product?->details->title ?? '',
+                'from' => $plan->product?->status->value ?? '',
+                'to' => $plan->target?->value ?? '',
+            ];
+            $plan->ok() ? $ok++ : $failed++;
+        }
+
+        return OperationResult::success('bulk_previewed', [
             'action' => $action,
             'rows' => $rows,
             'ok' => $ok,
@@ -359,10 +365,16 @@ final class ManageProducts
     }
 
     /** @param array<string,string> $specs @param list<int> $imageIds */
-    private function saveInPlace(Product $product, ProductDetails $details, array $specs, array $imageIds, int $mainImageId): OperationResult
-    {
-        if (!$this->products->updateDetails($product->id, $details)) {
-            return OperationResult::failure('storage_failed');
+    private function saveInPlace(
+        Product $product,
+        ProductDetails $details,
+        array $specs,
+        array $imageIds,
+        int $mainImageId,
+        string $expectedVersion = ''
+    ): OperationResult {
+        if (!$this->products->updateDetails($product->id, $details, $expectedVersion)) {
+            return $this->refusedOrFailed($product, $expectedVersion);
         }
         $this->persistSpecsAndImages($product->id, $details->categoryKey, $specs, $imageIds, $mainImageId);
         $this->audit->log(AuditEventCatalog::PRODUCT_SAVED, $product->vendorUserId, 'product', (string) $product->id, [
@@ -375,6 +387,30 @@ final class ManageProducts
     }
 
     /**
+     * A guarded write that hit nothing: was it a conflict, or a broken table?
+     *
+     * The distinction matters to the person reading the message. «Somebody else
+     * saved this» sends them to look at the product; «the save failed» sends
+     * them to support. Asking the row which version it carries now separates
+     * them, and costs one read on a path that has already failed.
+     */
+    private function refusedOrFailed(Product $product, string $expectedVersion): OperationResult
+    {
+        if ($expectedVersion === '') {
+            return OperationResult::failure('storage_failed');
+        }
+        $current = $this->products->rowVersion($product->id);
+        if ($current !== '' && $current !== $expectedVersion) {
+            return OperationResult::failure('stale_revision', [
+                'product_id' => $product->id,
+                'submitted_revision' => $expectedVersion,
+                'current_revision' => $current,
+            ]);
+        }
+        return OperationResult::failure('storage_failed');
+    }
+
+    /**
      * A live product's sensitive edit becomes a proposal.
      *
      * The immediate fields are still written straight through: refusing to
@@ -384,8 +420,14 @@ final class ManageProducts
      * @param array<string,string> $specs
      * @param list<int> $imageIds
      */
-    private function saveAsRevision(Product $product, ProductDetails $details, array $specs, array $imageIds, int $mainImageId): OperationResult
-    {
+    private function saveAsRevision(
+        Product $product,
+        ProductDetails $details,
+        array $specs,
+        array $imageIds,
+        int $mainImageId,
+        string $expectedVersion = ''
+    ): OperationResult {
         $changed = SensitiveChange::between($product->details, $details);
         $specsDiffer = SensitiveChange::specsChanged($product->specs, $specs);
         $imagesDiffer = $product->imageIds !== $imageIds || $product->mainImageId !== $mainImageId;
@@ -402,8 +444,21 @@ final class ManageProducts
         }
         $this->catalog->pushStock($product->id, $details->stock);
 
+        // Inventory is deliberately NOT version-guarded, and that is not an
+        // oversight. A.1 puts stock on the immediate side: a vendor who has
+        // just sold their last unit must be able to say so, and refusing that
+        // because a colleague renamed the product two minutes ago is exactly
+        // the queue between a sale and its inventory that A.1 forbids. Last
+        // write wins on a number whose latest value is the true one.
         if ($changed === [] && !$specsDiffer && !$imagesDiffer) {
             return OperationResult::success('inventory_saved', ['product_id' => $product->id]);
+        }
+
+        // The PROPOSAL is guarded. Proposing an edit built on a view somebody
+        // else has already replaced would queue a change that silently undoes
+        // theirs the moment a manager approves it.
+        if (!$this->products->bumpVersion($product->id, $expectedVersion)) {
+            return $this->refusedOrFailed($product, $expectedVersion);
         }
 
         // One pending proposal per product. A newer one replaces the older
@@ -435,37 +490,120 @@ final class ManageProducts
         ]);
     }
 
-    private function move(int $actorId, int $vendorUserId, int $productId, ProductStatus $to, string $successCode): OperationResult
+    /**
+     * The refusals that belong to the REQUEST rather than to any one row —
+     * shared so a selection the preview accepted cannot be one the action
+     * rejects, and the other way round.
+     *
+     * @param list<int> $productIds
+     * @return OperationResult|null null when the request itself is fine
+     */
+    private function guardBulkRequest(int $actorId, int $vendorUserId, string $action, array $productIds): ?OperationResult
     {
+        if (!in_array($action, self::BULK_ACTIONS, true)) {
+            return OperationResult::failure('unknown_bulk_action');
+        }
         if (!$this->access->can($actorId, $vendorUserId, StaffArea::Product, StaffLevel::Edit)) {
             return OperationResult::failure('forbidden');
         }
-        $product = $this->products->findOwned($productId, $vendorUserId);
-        if ($product === null) {
-            return OperationResult::failure('not_found');
+        $selection = $this->bulkSelection($productIds);
+        if ($selection === []) {
+            return OperationResult::failure('nothing_selected');
         }
-        $direct = $this->publishing->mayPublishDirectly($vendorUserId);
-        if (!$this->states->vendorMayMove($product->status, $to, $direct)) {
-            return OperationResult::failure('invalid_transition', [
-                'from' => $product->status->value,
-                'to' => $to->value,
+        if (count($selection) > self::BULK_LIMIT) {
+            return OperationResult::failure('bulk_too_large', [
+                'selected' => count($selection),
+                'limit' => self::BULK_LIMIT,
             ]);
         }
-        if (!$this->products->updateStatus($productId, $to, $product->reviewNote)) {
+        return null;
+    }
+
+    /**
+     * @param list<int> $productIds
+     * @return list<int>
+     */
+    private function bulkSelection(array $productIds): array
+    {
+        return array_values(array_unique(array_filter($productIds, static fn (int $id): bool => $id > 0)));
+    }
+
+    /**
+     * Everything one of the three verbs checks, and nothing it changes.
+     *
+     * This is the only place those rules are written. `submit()`, `archive()`,
+     * `restore()` and the preview all come through here, so «what the preview
+     * said» and «what the button did» are the same sentence produced by the
+     * same code — not two implementations that agree until the day somebody
+     * edits one of them.
+     */
+    private function plan(int $actorId, int $vendorUserId, int $productId, string $action): ProductActionPlan
+    {
+        if (!in_array($action, self::BULK_ACTIONS, true)) {
+            return ProductActionPlan::refused(OperationResult::failure('unknown_bulk_action'));
+        }
+        if (!$this->access->can($actorId, $vendorUserId, StaffArea::Product, StaffLevel::Edit)) {
+            return ProductActionPlan::refused(OperationResult::failure('forbidden'));
+        }
+        $product = $this->products->findOwned($productId, $vendorUserId);
+        if ($product === null) {
+            return ProductActionPlan::refused(OperationResult::failure('not_found'));
+        }
+        $direct = $this->publishing->mayPublishDirectly($vendorUserId);
+
+        if ($action === self::ACTION_SUBMIT) {
+            if (!$product->status->isEditableByVendor()) {
+                return ProductActionPlan::refused(OperationResult::failure('not_submittable'));
+            }
+            $verdict = $this->readiness->check($product);
+            if (!$verdict->ok) {
+                return ProductActionPlan::refused($verdict);
+            }
+            $target = $direct ? ProductStatus::Published : ProductStatus::Submitted;
+            $code = $direct ? 'product_published' : 'product_submitted';
+            // A fresh submission clears the review note: «قیمت را اصلاح کنید»
+            // was about the version being replaced.
+            $note = '';
+            $event = AuditEventCatalog::PRODUCT_SUBMITTED;
+        } else {
+            $target = $action === self::ACTION_ARCHIVE ? ProductStatus::Archived : ProductStatus::Draft;
+            $code = $action === self::ACTION_ARCHIVE ? 'product_archived_ok' : 'product_restored';
+            $note = $product->reviewNote;
+            $event = AuditEventCatalog::PRODUCT_STATUS_CHANGED;
+        }
+
+        if (!$this->states->vendorMayMove($product->status, $target, $direct)) {
+            return ProductActionPlan::refused(OperationResult::failure('invalid_transition', [
+                'from' => $product->status->value,
+                'to' => $target->value,
+            ]));
+        }
+        return ProductActionPlan::allowed($product, $target, $code, $note, $event);
+    }
+
+    /** The write half, which runs only for a plan that was allowed. */
+    private function carryOut(ProductActionPlan $plan, int $actorId, int $vendorUserId): OperationResult
+    {
+        if (!$plan->ok() || $plan->product === null || $plan->target === null) {
+            return $plan->refusal ?? OperationResult::failure('storage_failed');
+        }
+        $product = $plan->product;
+        $target = $plan->target;
+        if (!$this->products->updateStatus($product->id, $target, $plan->note)) {
             return OperationResult::failure('storage_failed');
         }
-        if ($to === ProductStatus::Published) {
-            $this->catalog->publish($productId);
+        if ($target === ProductStatus::Published) {
+            $this->catalog->publish($product->id);
         } elseif ($product->status === ProductStatus::Published) {
-            $this->catalog->withdraw($productId);
+            $this->catalog->withdraw($product->id);
         }
-        $this->audit->log(AuditEventCatalog::PRODUCT_STATUS_CHANGED, $actorId, 'product', (string) $productId, [
+        $this->audit->log($plan->auditEvent, $actorId, 'product', (string) $product->id, [
             'vendor_id' => $vendorUserId,
-            'product_id' => $productId,
+            'product_id' => $product->id,
             'from' => $product->status->value,
-            'to' => $to->value,
+            'to' => $target->value,
         ]);
-        return OperationResult::success($successCode, ['product_id' => $productId]);
+        return OperationResult::success($plan->code, ['product_id' => $product->id]);
     }
 
     /** @param array<string,string> $specs @param list<int> $imageIds */

@@ -91,13 +91,7 @@ final class ProductFlowTest extends DatabaseTestCase
         ] as $suffix) {
             $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
         }
-        (new M0001CreateAuditTable())->up($db);
-        (new M0002CreateVendorTables())->up($db);
-        (new M0003CreateStoreAndStaffTables())->up($db);
-        (new M0004CreateFinanceTables())->up($db);
-        (new M0005CreateProductTables())->up($db);
-        (new M0006CatalogAndOrders())->up($db);
-        (new M0010LinkOwnership())->up($db);
+        $this->resetSchema($db);
 
         $clock = new SystemClock();
         $options = new WpOptionStore();
@@ -713,6 +707,161 @@ final class ProductFlowTest extends DatabaseTestCase
             sku: $sku,
             stock: $stock
         );
+    }
+
+
+    // ------------------------------------------------------- bulk and preview
+
+    public function testABulkActionRunsEveryRowAndNamesTheOnesItRefused(): void
+    {
+        $ready = $this->readyProduct(self::VENDOR, 'دستکش لاتکس', 'SKU-B1');
+        $bare = $this->createProduct(self::VENDOR, 'ماسک بدون تصویر', 'SKU-B2');
+
+        $result = $this->manage->bulk(self::VENDOR, self::VENDOR, 'submit', [$ready, $bare]);
+
+        self::assertTrue($result->ok, 'a batch that RAN is a success even when a row was refused');
+        self::assertSame('bulk_done', $result->code);
+        self::assertSame(1, $result->context['ok']);
+        self::assertSame(1, $result->context['failed']);
+
+        $byId = [];
+        foreach ($result->context['rows'] as $row) {
+            $byId[$row['product_id']] = $row;
+        }
+        self::assertTrue($byId[$ready]['ok']);
+        self::assertSame('product_submitted', $byId[$ready]['code']);
+        self::assertFalse($byId[$bare]['ok'], 'the incomplete row did not stop the complete one');
+        self::assertSame('missing_image', $byId[$bare]['code'], 'and it is refused with its own reason');
+
+        self::assertSame(ProductStatus::Submitted, $this->products->find($ready)?->status);
+        self::assertSame(ProductStatus::Draft, $this->products->find($bare)?->status);
+    }
+
+    /**
+     * The point of the preview: the vendor learns what would happen without
+     * anything happening. Measured on the rows themselves and on the audit
+     * trail, because «it returned the right answer» would still be true of an
+     * implementation that had already submitted everything.
+     */
+    public function testAPreviewChangesNoRowAndWritesNoAuditLine(): void
+    {
+        $ready = $this->readyProduct(self::VENDOR, 'دستکش لاتکس', 'SKU-P1');
+        $bare = $this->createProduct(self::VENDOR, 'ماسک بدون تصویر', 'SKU-P2');
+        $before = $this->auditCount();
+
+        $preview = $this->manage->previewBulk(self::VENDOR, self::VENDOR, 'submit', [$ready, $bare]);
+
+        self::assertTrue($preview->ok);
+        self::assertSame('bulk_previewed', $preview->code);
+        self::assertSame(1, $preview->context['ok']);
+        self::assertSame(1, $preview->context['failed']);
+
+        self::assertSame(ProductStatus::Draft, $this->products->find($ready)?->status, 'nothing moved');
+        self::assertSame(ProductStatus::Draft, $this->products->find($bare)?->status);
+        self::assertSame($before, $this->auditCount(), 'a preview leaves no trace, because it did nothing');
+        self::assertSame([], $this->projector->writes, 'and it never reaches the storefront');
+    }
+
+    public function testThePreviewSaysExactlyWhatTheActionThenDoes(): void
+    {
+        $ready = $this->readyProduct(self::VENDOR, 'دستکش لاتکس', 'SKU-A1');
+        $bare = $this->createProduct(self::VENDOR, 'ماسک بدون تصویر', 'SKU-A2');
+        $archived = $this->readyProduct(self::VENDOR, 'گاز استریل', 'SKU-A3');
+        self::assertTrue($this->manage->archive(self::VENDOR, self::VENDOR, $archived)->ok);
+
+        $selection = [$ready, $bare, $archived];
+        $forecast = $this->manage->previewBulk(self::VENDOR, self::VENDOR, 'submit', $selection);
+        $actual = $this->manage->bulk(self::VENDOR, self::VENDOR, 'submit', $selection);
+
+        self::assertSame(
+            $this->codesById($forecast->context['rows']),
+            $this->codesById($actual->context['rows']),
+            'the preview and the action are one decision, not two implementations'
+        );
+        self::assertSame($forecast->context['ok'], $actual->context['ok']);
+        self::assertSame($forecast->context['failed'], $actual->context['failed']);
+    }
+
+    /**
+     * The honest half of the promise. A preview is a forecast, and this test
+     * is what stops us calling it anything stronger: the row that somebody
+     * else changed in between is reported with its NEW answer, because the
+     * action re-plans instead of trusting what was shown.
+     */
+    public function testARowChangedAfterThePreviewIsReportedWithItsNewAnswer(): void
+    {
+        $productId = $this->readyProduct(self::VENDOR, 'دستکش لاتکس', 'SKU-R1');
+
+        $forecast = $this->manage->previewBulk(self::VENDOR, self::VENDOR, 'submit', [$productId]);
+        self::assertTrue($forecast->context['rows'][0]['ok']);
+
+        // The same product goes out in another tab in the seconds in between.
+        self::assertTrue($this->manage->submit(self::VENDOR, self::VENDOR, $productId)->ok);
+
+        $actual = $this->manage->bulk(self::VENDOR, self::VENDOR, 'submit', [$productId]);
+        self::assertFalse($actual->context['rows'][0]['ok']);
+        self::assertSame('not_submittable', $actual->context['rows'][0]['code']);
+        self::assertSame(0, $actual->context['ok']);
+    }
+
+    public function testThePreviewCarriesTheTitleAndBothEndsOfTheMove(): void
+    {
+        $productId = $this->readyProduct(self::VENDOR, 'دستکش لاتکس', 'SKU-T1');
+
+        $row = $this->manage->previewBulk(self::VENDOR, self::VENDOR, 'archive', [$productId])->context['rows'][0];
+
+        // An id is what the vendor would have to go and look up, forty times.
+        self::assertSame('دستکش لاتکس', $row['title']);
+        self::assertSame('draft', $row['from']);
+        self::assertSame('archived', $row['to']);
+        self::assertTrue($row['ok']);
+    }
+
+    public function testThePreviewRefusesExactlyWhatTheActionRefuses(): void
+    {
+        $mine = $this->readyProduct(self::VENDOR, 'دستکش لاتکس', 'SKU-G1');
+
+        foreach ([
+            ['submit', [], 'nothing_selected'],
+            ['dance', [$mine], 'unknown_bulk_action'],
+            ['submit', range(1, ManageProducts::BULK_LIMIT + 1), 'bulk_too_large'],
+        ] as [$action, $ids, $expected]) {
+            $forecast = $this->manage->previewBulk(self::VENDOR, self::VENDOR, $action, $ids);
+            $actual = $this->manage->bulk(self::VENDOR, self::VENDOR, $action, $ids);
+            self::assertFalse($forecast->ok, $action);
+            self::assertSame($expected, $forecast->code);
+            self::assertSame($actual->code, $forecast->code, 'a selection one accepts and the other rejects is a bug');
+        }
+    }
+
+    public function testAnotherShopsProductIsRefusedInThePreviewToo(): void
+    {
+        $theirs = $this->readyProduct(self::OTHER_VENDOR, 'ماسک سه‌لایه', 'SKU-X1');
+
+        $row = $this->manage->previewBulk(self::VENDOR, self::VENDOR, 'submit', [$theirs])->context['rows'][0];
+
+        self::assertFalse($row['ok']);
+        // Not «forbidden» and not a list of what exists: the same answer an
+        // id that never existed gets, so the preview cannot be used to probe.
+        self::assertSame('not_found', $row['code']);
+        self::assertSame('', $row['title'], 'and it does not leak the other shop\'s title');
+        self::assertSame(ProductStatus::Draft, $this->products->find($theirs)?->status);
+    }
+
+    /** @param list<array{product_id:int,ok:bool,code:string}> $rows @return array<int,string> */
+    private function codesById(array $rows): array
+    {
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(int) $row['product_id']] = (string) $row['code'];
+        }
+        ksort($out);
+        return $out;
+    }
+
+    private function auditCount(): int
+    {
+        return (int) $this->wpdb->get_var('SELECT COUNT(*) FROM `' . $this->auditTable() . '`');
     }
 
     private function createProduct(int $vendorUserId, string $title, string $sku = ''): int

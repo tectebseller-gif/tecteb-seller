@@ -20,6 +20,40 @@ final class ProductImagePolicy
     /** @var list<string> */
     public const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'];
 
+    private readonly int $maxBytes;
+
+    /**
+     * @param int $platformMaxBytes the host's own upload ceiling, 0 when the
+     *        caller does not know it. Infrastructure reads it (on WordPress,
+     *        `wp_max_upload_size()`); this layer only takes the number.
+     */
+    public function __construct(int $platformMaxBytes = 0)
+    {
+        $this->maxBytes = self::effectiveMaxBytes($platformMaxBytes);
+    }
+
+    /**
+     * The smallest cap that actually applies.
+     *
+     * `MAX_BYTES` is only the ceiling WE chose. `upload_max_filesize` and
+     * `post_max_size` are ceilings we do not control and are often lower, and
+     * PHP enforces them before a single line of this plugin runs. Telling a
+     * vendor «حداکثر ۳ مگابایت» on a host that stops at ۲ is telling them to
+     * retry the same file forever.
+     */
+    public static function effectiveMaxBytes(int $platformMaxBytes = 0): int
+    {
+        return $platformMaxBytes > 0 && $platformMaxBytes < self::MAX_BYTES
+            ? $platformMaxBytes
+            : self::MAX_BYTES;
+    }
+
+    /** The cap this instance enforces, for the form hint and the message. */
+    public function maxBytes(): int
+    {
+        return $this->maxBytes;
+    }
+
     /** @return string '' when the file is acceptable, otherwise a refusal code */
     public function refuse(UploadedFile $file): string
     {
@@ -38,7 +72,7 @@ final class ProductImagePolicy
         if ($file->sizeBytes <= 0) {
             return 'empty_file';
         }
-        if ($file->sizeBytes > self::MAX_BYTES) {
+        if ($file->sizeBytes > $this->maxBytes) {
             return 'image_too_large';
         }
         if (!in_array($file->detectedMime, self::ALLOWED_MIME, true)) {

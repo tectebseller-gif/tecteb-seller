@@ -9,15 +9,18 @@ use Tecteb\Marketplace\Modules\Finance\Domain\CommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\Money;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecField;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecFieldType;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecTemplate;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\ProductReviewPage;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\SpecTemplatesPage;
+use Tecteb\Marketplace\Modules\Product\Presentation\ProductBulkPreviewView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductCsvView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductFormView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductListView;
+use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorNotice;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
@@ -365,4 +368,241 @@ final class ProductViewsTest extends ContractTestCase
         }
     }
 
+    /**
+     * The limit appears on the control, in the hint and in the refusal — and
+     * it is the same number in all three, because it comes from one place.
+     */
+    public function testTheFileChooserCarriesTheLimitItWillBeJudgedBy(): void
+    {
+        $html = ProductFormView::render(
+            5,
+            new ProductDetails(title: 'دستکش'),
+            [],
+            [],
+            0,
+            null,
+            '1',
+            ProductStatus::Draft,
+            ['gloves' => 'دستکش'],
+            $this->urls(),
+            '',
+            null,
+            null,
+            null,
+            false,
+            false,
+            [],
+            '',
+            '',
+            '',
+            '',
+            '',
+            ProductImagePolicy::MAX_BYTES
+        );
+
+        self::assertStringContainsString('data-max-bytes="3145728"', $html);
+        self::assertStringContainsString('data-allowed-mime="image/jpeg,image/png,image/webp"', $html);
+        self::assertStringContainsString('accept="image/jpeg,image/png,image/webp"', $html);
+        // Said in words too: a limit only a script can read is not a limit the
+        // vendor was told about.
+        self::assertStringContainsString('تا ۳ مگابایت', $html);
+        // The pre-flight has somewhere to speak, and it is a live region so a
+        // screen reader hears it without the focus moving.
+        self::assertStringContainsString('id="f-product-image-problem"', $html);
+        self::assertStringContainsString('aria-live="polite"', $html);
+        self::assertStringContainsString('aria-describedby="f-product-image-hint"', $html);
+    }
+
+    public function testAHostThatAllowsLessThanWeDoIsTheNumberTheVendorSees(): void
+    {
+        $html = ProductFormView::render(
+            5,
+            new ProductDetails(title: 'دستکش'),
+            [],
+            [],
+            0,
+            null,
+            '1',
+            ProductStatus::Draft,
+            ['gloves' => 'دستکش'],
+            $this->urls(),
+            '',
+            null,
+            null,
+            null,
+            false,
+            false,
+            [],
+            '',
+            '',
+            '',
+            '',
+            '',
+            2097152                                   // the host stops at 2 MB
+        );
+
+        self::assertStringContainsString('data-max-bytes="2097152"', $html);
+        self::assertStringContainsString('تا ۲ مگابایت', $html);
+        self::assertStringNotContainsString('تا ۳ مگابایت', $html, 'promising 3 on a 2 MB host is an unwinnable retry');
+    }
+
+    /**
+     * Every refusal the policy can produce has a Persian sentence — and the
+     * list is read from the policy's own source, so a code added without a
+     * sentence fails here rather than reaching a vendor as a bare key.
+     */
+    public function testEveryUploadRefusalTheServerCanProduceIsSaidInPersian(): void
+    {
+        $source = (string) file_get_contents(
+            dirname(__DIR__, 2) . '/src/Modules/Product/Domain/ProductImagePolicy.php'
+        );
+        preg_match_all("/return '([a-z_]+)';/", $source, $matches);
+        $codes = array_values(array_filter(array_unique($matches[1])));
+
+        self::assertNotEmpty($codes);
+        self::assertContains('image_too_large', $codes, 'the extraction still finds the codes');
+        foreach ($codes as $code) {
+            $text = ProductMessages::notice($code, ['saved' => 1, 'max_mb' => 3]);
+            self::assertNotNull($text, "«{$code}» would reach the vendor as a bare key");
+            self::assertStringNotContainsString($code, $text, 'the code itself is not the message');
+            // Not merely named: every one of them says what to do next, which
+            // is the whole difference between a message and a dead end.
+            // A Persian imperative addressed to the vendor ends «…ید», so this
+            // asks «is the last thing said something to DO», not «does it use
+            // one particular verb».
+            self::assertMatchesRegularExpression('/ید\.$/u', $text, "«{$code}» does not end with an instruction");
+        }
+    }
+
+    /**
+     * The picture failed and the text did not. Both facts are in the sentence,
+     * in that order — the save is what the vendor is worried about.
+     */
+    public function testAFailedUploadSaysTheRestWasSavedBeforeItSaysWhatWentWrong(): void
+    {
+        $text = (string) ProductMessages::notice('image_too_large', ['saved' => 1, 'max_mb' => 2]);
+
+        self::assertStringContainsString('بقیهٔ فرم ذخیره شد', $text);
+        self::assertStringContainsString('۲ مگابایت', $text, 'the number quoted is the one this installation enforces');
+        self::assertLessThan(
+            mb_strpos($text, '۲ مگابایت'),
+            mb_strpos($text, 'بقیهٔ فرم ذخیره شد'),
+            'the reassurance comes first'
+        );
+
+        // Without a save behind it — an upload on its own — the sentence does
+        // not claim one happened.
+        $alone = (string) ProductMessages::notice('image_too_large');
+        self::assertStringNotContainsString('بقیهٔ فرم ذخیره شد', $alone);
+        self::assertStringContainsString('۳ مگابایت', $alone, 'and falls back to our own ceiling');
+    }
+
+    public function testAnUploadRefusalIsPaintedAsAProblemNotAsASuccess(): void
+    {
+        foreach (['image_too_large', 'image_mime_not_allowed', 'transfer_failed', 'empty_file', 'no_file'] as $code) {
+            self::assertTrue(ProductMessages::isErrorNotice($code), "«{$code}» must not render as a success");
+        }
+        self::assertFalse(ProductMessages::isErrorNotice('image_uploaded'));
+    }
+
+    // --------------------------------------------------- bulk action preview
+
+    public function testTheBulkBarOffersBothPreviewAndRunWithoutJavaScript(): void
+    {
+        $html = ProductListView::render(
+            [$this->product()],
+            ['draft' => 1],
+            '',
+            1,
+            1,
+            $this->urls(),
+            '<input type="hidden" name="n" value="x">'
+        );
+
+        // Two submits in one form, told apart by `name`/`value` — the plain
+        // HTML mechanism, so the page needs no script to offer both.
+        self::assertStringContainsString('name="tmc_vendor_action" value="preview_bulk_products"', $html);
+        self::assertStringContainsString('name="tmc_vendor_action" value="bulk_products"', $html);
+        self::assertStringNotContainsString(
+            '<input type="hidden" name="tmc_vendor_action" value="bulk_products">',
+            $html,
+            'a hidden action would override whichever button was pressed'
+        );
+        self::assertStringContainsString('پیش‌نمایش نتیجه', $html);
+    }
+
+    public function testThePreviewNamesEveryRowAndWhatWouldHappenToIt(): void
+    {
+        $html = ProductBulkPreviewView::render(
+            [
+                'action' => 'submit',
+                'rows' => [
+                    ['product_id' => 5, 'ok' => true, 'code' => 'product_submitted', 'title' => 'دستکش لاتکس', 'from' => 'draft', 'to' => 'submitted'],
+                    ['product_id' => 6, 'ok' => false, 'code' => 'missing_image', 'title' => 'ماسک سه‌لایه', 'from' => 'draft', 'to' => ''],
+                ],
+                'ok' => 1,
+                'failed' => 1,
+            ],
+            $this->urls(),
+            '<input type="hidden" name="n" value="x">'
+        );
+
+        self::assertStringContainsString('دستکش لاتکس', $html);
+        self::assertStringContainsString('ماسک سه‌لایه', $html);
+        self::assertStringContainsString('انجام می‌شود', $html);
+        self::assertStringContainsString('انجام نمی‌شود', $html);
+        // The refused row carries its own reason, not a count.
+        self::assertStringContainsString('دست‌کم یک تصویر لازم است', $html);
+        self::assertStringContainsString('هنوز چیزی انجام نشده', $html);
+        // And it says out loud that this is a forecast.
+        self::assertStringContainsString('پیش‌بینی است، نه تضمین', $html);
+    }
+
+    public function testConfirmingThePreviewPostsTheOrdinaryBulkActionWithTheSameRows(): void
+    {
+        $html = ProductBulkPreviewView::render(
+            [
+                'action' => 'archive',
+                'rows' => [
+                    ['product_id' => 5, 'ok' => true, 'code' => 'product_archived_ok', 'title' => 'الف', 'from' => 'draft', 'to' => 'archived'],
+                    ['product_id' => 6, 'ok' => false, 'code' => 'invalid_transition', 'title' => 'ب', 'from' => 'archived', 'to' => 'archived'],
+                ],
+                'ok' => 1,
+                'failed' => 1,
+            ],
+            $this->urls(),
+            '<input type="hidden" name="n" value="x">'
+        );
+
+        // Not an «apply the preview» path of its own: the same action the list
+        // posts, so there is one write path and it cannot drift.
+        self::assertStringContainsString('name="tmc_vendor_action" value="bulk_products"', $html);
+        self::assertStringContainsString('name="bulk_action" value="archive"', $html);
+        // Every previewed row travels, including the one forecast to fail:
+        // dropping it silently would make the after-report disagree with the
+        // selection the vendor confirmed.
+        self::assertStringContainsString('name="selected[]" value="5"', $html);
+        self::assertStringContainsString('name="selected[]" value="6"', $html);
+        // A preview whose only control commits it is not a preview.
+        self::assertStringContainsString('بازگشت بدون اجرا', $html);
+    }
+
+    public function testThePreviewOfAnEmptySelectionOffersNothingToConfirm(): void
+    {
+        $html = ProductBulkPreviewView::render(
+            ['action' => 'submit', 'rows' => [], 'ok' => 0, 'failed' => 0],
+            $this->urls(),
+            '<input type="hidden" name="n" value="x">'
+        );
+
+        self::assertStringNotContainsString('name="selected[]"', $html);
+        self::assertStringNotContainsString('value="bulk_products"', $html, 'nothing to confirm, so no confirm form');
+        self::assertStringContainsString('هیچ موردی انتخاب نشده بود', $html);
+    }
+
+    public function testAPreviewIsNotPaintedAsAFailure(): void
+    {
+        // «هنوز چیزی انجام نشده» in a red box reads as «چیزی خراب شد».
+        self::assertFalse(ProductMessages::isErrorNotice('bulk_previewed'));
+    }
 }

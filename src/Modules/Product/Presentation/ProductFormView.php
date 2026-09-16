@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Product\Presentation;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionOutcome;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecFieldType;
@@ -68,7 +69,8 @@ final class ProductFormView
         string $draftSavedAt = '',
         string $autosaveUrl = '',
         string $autosaveAction = '',
-        string $autosaveNonce = ''
+        string $autosaveNonce = '',
+        int $maxImageBytes = 0
     ): string {
         $step = array_key_exists($step, self::steps()) ? $step : '1';
         $html = '';
@@ -129,7 +131,7 @@ final class ProductFormView
             // that it is the value as it WAS when this page loaded.
             . '<input type="hidden" name="revision" value="' . esc_attr($revision) . '">'
             . self::carryOver($step, $details, $specs, $template)
-            . self::gallery($images, $mainImageId, $step)
+            . self::gallery($images, $mainImageId, $step, $maxImageBytes)
             . match ($step) {
                 '2' => self::stepPrice($details),
                 '3' => self::stepTechnical($details, $specs, $template),
@@ -369,7 +371,7 @@ final class ProductFormView
     }
 
     /** @param list<array{id:int,url:string}> $images */
-    private static function gallery(array $images, int $mainImageId, string $step): string
+    private static function gallery(array $images, int $mainImageId, string $step, int $maxImageBytes = 0): string
     {
         if ($step !== '1') {
             // Carried, not shown: the gallery belongs to step 1, and the other
@@ -413,11 +415,39 @@ final class ProductFormView
             }
             $html .= '</ul>';
         }
+        $maxBytes = ProductImagePolicy::effectiveMaxBytes($maxImageBytes);
+        $maxMb = max(1, (int) floor($maxBytes / 1048576));
+
+        // The limit is WRITTEN on the control, not only enforced behind it.
+        // The same number reaches the hint the vendor reads, the pre-flight
+        // check in the browser and the refusal on the server, because three
+        // places quoting three numbers is how «فایلم که ۲ مگابایت بود» starts.
         return $html
             . '<div class="tv-field"><label class="tv-label" for="f-product-image">'
             . esc_html__('افزودن تصویر', 'tecteb-marketplace-core') . '</label>'
-            . '<input class="tv-input" type="file" id="f-product-image" name="product_image" accept="image/jpeg,image/png,image/webp">'
-            . '<p class="tv-hint">' . esc_html__('JPEG، PNG یا WebP تا ۳ مگابایت. با ذخیره همین فرم بارگذاری می‌شود.', 'tecteb-marketplace-core') . '</p></div>'
+            . '<input class="tv-input" type="file" id="f-product-image" name="product_image"'
+            . ' accept="' . esc_attr(implode(',', ProductImagePolicy::ALLOWED_MIME)) . '"'
+            . ' data-max-bytes="' . esc_attr((string) $maxBytes) . '"'
+            . ' data-allowed-mime="' . esc_attr(implode(',', ProductImagePolicy::ALLOWED_MIME)) . '"'
+            . ' data-text-too-large="' . esc_attr(sprintf(
+                /* translators: 1: {size}, replaced by the browser with the chosen file's size; 2: the limit. Both in megabytes. Keep {size} as it is. */
+                __('این فایل %1$s مگابایت است و سقف %2$s مگابایت است. پیش از ذخیره، فایل کوچک‌تری انتخاب کنید.', 'tecteb-marketplace-core'),
+                '{size}',
+                PersianDigits::toPersian((string) $maxMb)
+            )) . '"'
+            . ' data-text-bad-type="' . esc_attr__('فقط JPEG، PNG و WebP پذیرفته می‌شود. این فایل از این سه نیست.', 'tecteb-marketplace-core') . '"'
+            . ' aria-describedby="f-product-image-hint">'
+            . '<p class="tv-hint" id="f-product-image-hint">' . esc_html(sprintf(
+                /* translators: %s: the largest image this installation accepts, in megabytes */
+                __('JPEG، PNG یا WebP تا %s مگابایت. با ذخیره همین فرم بارگذاری می‌شود.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) $maxMb)
+            )) . '</p>'
+            // Emptied on every render, filled by the browser only when a
+            // chosen file is already going to be refused. A vendor without
+            // JavaScript never sees it and loses nothing: the server says the
+            // same thing after the save, which is where it said it before.
+            . '<p class="tv-hint tv-hint--warn" id="f-product-image-problem" role="status" aria-live="polite"></p>'
+            . '</div>'
             . '</fieldset>';
     }
 

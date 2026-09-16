@@ -58,7 +58,48 @@ interface ProductRepositoryInterface
         LinkOwnership $ownership = LinkOwnership::Marketplace
     ): int;
 
-    public function updateDetails(int $productId, ProductDetails $details): bool;
+    /**
+     * Write the details, refusing when `$expectedVersion` no longer matches.
+     *
+     * The version has to reach the WHERE clause; an implementation that
+     * compares it in PHP and then writes has reintroduced the race this
+     * parameter exists to close. An empty string means «do not check», which is
+     * what a form from an older build sends.
+     */
+    public function updateDetails(int $productId, ProductDetails $details, string $expectedVersion = ''): bool;
+
+    /**
+     * Take the version, atomically, without changing anything else.
+     *
+     * For the paths that do not write details — proposing a revision of a
+     * published product, for instance — but still must not act on a view of the
+     * product somebody else has already replaced. One statement, so exactly one
+     * of two concurrent callers wins. An empty expectation succeeds: there is
+     * nothing to compare against.
+     */
+    public function bumpVersion(int $productId, string $expectedVersion): bool;
+
+    /** The row's current optimistic-lock counter, as the form should carry it. */
+    public function rowVersion(int $productId): string;
+
+    /**
+     * Mark a row as created by an import run.
+     *
+     * The stamp lives on the row rather than in a manifest beside it, so a
+     * process killed mid-import leaves nothing that no run claims.
+     */
+    public function stampImportRun(int $productId, string $runId): bool;
+
+    /**
+     * @return list<string> every import run the catalogue remembers, newest first
+     *
+     * Read from the rows, so a run whose process died before it could write a
+     * manifest entry still appears — which is the whole point of the stamp.
+     */
+    public function importRunIds(): array;
+
+    /** @return list<int> the products this run created, read from the rows */
+    public function idsFromImportRun(string $runId): array;
 
     public function updateStatus(int $productId, ProductStatus $status, string $reviewNote = ''): bool;
 

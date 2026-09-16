@@ -172,7 +172,6 @@ final class ProductListView
     {
         return '<form method="post" id="tmc-bulk" action="' . esc_url($urls->products()) . '" class="tv-bulk">'
             . $nonce
-            . '<input type="hidden" name="tmc_vendor_action" value="bulk_products">'
             . '<label class="tv-bulk__label" for="tmc-bulk-action">'
             . esc_html__('اقدام گروهی روی موارد انتخاب‌شده', 'tecteb-marketplace-core') . '</label>'
             . '<select id="tmc-bulk-action" name="bulk_action" class="tv-input">'
@@ -181,9 +180,17 @@ final class ProductListView
             . '<option value="archive">' . esc_html__('بایگانی', 'tecteb-marketplace-core') . '</option>'
             . '<option value="restore">' . esc_html__('بازگشت به پیش‌نویس', 'tecteb-marketplace-core') . '</option>'
             . '</select> '
-            . VendorUi::submit(__('اجرا روی انتخاب‌شده‌ها', 'tecteb-marketplace-core'), 'secondary')
+            // Two submits, one form, distinguished by `name` — so the whole
+            // thing still works with JavaScript off. The preview is the
+            // primary button because «ارسال برای بررسی» on forty products has
+            // no undo; running straight away stays one click away for somebody
+            // who already knows what is in their selection.
+            . '<button type="submit" class="tv-btn tv-btn--primary" name="tmc_vendor_action" value="preview_bulk_products">'
+            . esc_html__('پیش‌نمایش نتیجه', 'tecteb-marketplace-core') . '</button> '
+            . '<button type="submit" class="tv-btn tv-btn--secondary" name="tmc_vendor_action" value="bulk_products">'
+            . esc_html__('اجرا روی انتخاب‌شده‌ها', 'tecteb-marketplace-core') . '</button>'
             . '<p class="tv-hint">'
-            . esc_html__('هر مورد جداگانه بررسی می‌شود: اگر یکی شرایطش را نداشته باشد، بقیه انجام می‌شوند و همان یکی با دلیلش گزارش می‌شود.', 'tecteb-marketplace-core')
+            . esc_html__('پیش‌نمایش چیزی را تغییر نمی‌دهد و فقط نشان می‌دهد هر مورد انتخاب‌شده چه می‌شود. در اجرا هم هر مورد جداگانه بررسی می‌شود: اگر یکی شرایطش را نداشته باشد، بقیه انجام می‌شوند و همان یکی با دلیلش گزارش می‌شود.', 'tecteb-marketplace-core')
             . '</p></form>';
     }
 

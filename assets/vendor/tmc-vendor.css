@@ -165,6 +165,12 @@
 .tv-input[readonly] { background: var(--tv-surface-2); color: var(--tv-muted); }
 textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 .tv-hint { color: var(--tv-muted); font-size: 0.9375rem; margin-block-start: var(--tv-s1); }
+/* A live region has to EXIST before anything is put in it, so this paragraph
+   is always in the markup. `:empty` keeps it from reserving a line of space
+   while it has nothing to say — a gap that opens under the file chooser on
+   every render would be a layout bug paid for by a message nobody sees. */
+.tv-hint--warn { color: var(--tv-red); font-weight: 700; }
+.tv-hint--warn:empty { display: none; margin-block-start: 0; }
 
 .tv-actions { display: flex; flex-wrap: wrap; gap: var(--tv-s3); margin-block-start: var(--tv-s3); }
 .tv-btn {

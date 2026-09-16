@@ -77,6 +77,8 @@ use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0009Engage
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0011AttachmentsAndNotices;
 use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0012VendorRatings;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0013JobsAndOutbox;
+use Tecteb\Marketplace\Core\Migration\Migrations\M0014RowVersionAndImportRun;
+use Tecteb\Marketplace\Core\Migration\Migrations\M0015DokanOrderHistory;
 use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
 use Tecteb\Marketplace\Infrastructure\Jobs\DbJobRepository;
@@ -310,7 +312,7 @@ final class Bootstrap
             $c->get(OptionStoreInterface::class),
             $c->get(GuardedOptionStoreInterface::class),
             new MigrationLock($c->get(LockStoreInterface::class), $c->get(ClockInterface::class), MigrationLock::generateOwnerToken()),
-            [new M0001CreateAuditTable(), new M0002CreateVendorTables(), new M0003CreateStoreAndStaffTables(), new M0004CreateFinanceTables(), new M0005CreateProductTables(), new M0006CatalogAndOrders(), new M0007SettlementTables(), new M0008ShipmentsAndReturns(), new M0009EngagementTables(), new M0010LinkOwnership(), new M0011AttachmentsAndNotices(), new M0012VendorRatings(), new M0013JobsAndOutbox()],
+            self::migrations(),
             $c->get(ClockInterface::class)
         ));
         $c->bind(UpgradeGate::class, static fn (ContainerInterface $c) => new UpgradeGate(
@@ -397,6 +399,40 @@ final class Bootstrap
             $c->get(LedgerRepositoryInterface::class),
             $c->get(TrialUnlock::class)
         ));
+    }
+
+    /**
+     * Every migration, in order — the ONE list.
+     *
+     * It is a named method rather than an inline array because the database
+     * test fixtures need exactly this list too, and each of them used to carry
+     * a hand-written copy. Adding migration 14 broke sixty-one tests at once:
+     * the fixtures built their tables from a list that stopped at 10, so a
+     * column the code now writes to did not exist. That is the same staleness
+     * that bit the test administrator's capability list one release earlier —
+     * a copy of a list is a list that goes wrong later.
+     *
+     * @return list<MigrationInterface>
+     */
+    public static function migrations(): array
+    {
+        return [
+            new M0001CreateAuditTable(),
+            new M0002CreateVendorTables(),
+            new M0003CreateStoreAndStaffTables(),
+            new M0004CreateFinanceTables(),
+            new M0005CreateProductTables(),
+            new M0006CatalogAndOrders(),
+            new M0007SettlementTables(),
+            new M0008ShipmentsAndReturns(),
+            new M0009EngagementTables(),
+            new M0010LinkOwnership(),
+            new M0011AttachmentsAndNotices(),
+            new M0012VendorRatings(),
+            new M0013JobsAndOutbox(),
+            new M0014RowVersionAndImportRun(),
+            new M0015DokanOrderHistory(),
+        ];
     }
 
     private static function registerModules(Kernel $kernel): void

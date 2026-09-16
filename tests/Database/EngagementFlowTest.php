@@ -76,14 +76,7 @@ final class EngagementFlowTest extends DatabaseTestCase
         ] as $suffix) {
             $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
         }
-        (new M0001CreateAuditTable())->up($db);
-        (new M0002CreateVendorTables())->up($db);
-        (new M0003CreateStoreAndStaffTables())->up($db);
-        (new M0005CreateProductTables())->up($db);
-        (new M0006CatalogAndOrders())->up($db);
-        (new M0010LinkOwnership())->up($db);
-        (new M0009EngagementTables())->up($db);
-        (new M0011AttachmentsAndNotices())->up($db);
+        $this->resetSchema($db);
 
         $clock = new SystemClock();
         $audit = new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock);

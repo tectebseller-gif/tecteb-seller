@@ -41,8 +41,7 @@ final class LedgerTest extends DatabaseTestCase
         foreach (M0004CreateFinanceTables::TABLES as $suffix) {
             $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
         }
-        (new M0004CreateFinanceTables())->up($db);
-        (new M0001CreateAuditTable())->up($db);
+        $this->resetSchema($db);
 
         $clock = new SystemClock();
         $this->ledger = new DbLedgerRepository($db, $clock);

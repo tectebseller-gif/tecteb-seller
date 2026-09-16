@@ -65,9 +65,7 @@ final class StoreAndStaffFlowTest extends DatabaseTestCase
         foreach ([...M0002CreateVendorTables::TABLES, ...M0003CreateStoreAndStaffTables::TABLES] as $suffix) {
             $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
         }
-        (new M0002CreateVendorTables())->up($db);
-        (new M0003CreateStoreAndStaffTables())->up($db);
-        (new M0001CreateAuditTable())->up($db);
+        $this->resetSchema($db);
 
         $clock = new SystemClock();
         $options = new WpOptionStore();

@@ -155,7 +155,22 @@ final class DbProductRepository implements ProductRepositoryInterface
         return (int) $this->db->getVar('SELECT LAST_INSERT_ID()');
     }
 
-    public function updateDetails(int $productId, ProductDetails $details): bool
+    /**
+     * Write the details, and — when a version is given — only if nobody else
+     * has written since the caller read.
+     *
+     * The version belongs in the WHERE clause and nowhere else. `alpha.13`
+     * compared it in PHP between a read and a write, which is a check two
+     * concurrent editors both pass: both read version 4, both find it equal,
+     * both write, and the second silently replaces the first. Here the database
+     * decides, `row_version` moves by one in the same statement, and the loser
+     * gets zero rows.
+     *
+     * An empty `$expectedVersion` skips the check. A form rendered by an older
+     * build carries no version, and refusing those would break saving for
+     * anybody mid-edit across an upgrade.
+     */
+    public function updateDetails(int $productId, ProductDetails $details, string $expectedVersion = ''): bool
     {
         [$columns, $placeholders, $params] = $this->detailColumns($details);
         $assignments = [];
@@ -164,10 +179,86 @@ final class DbProductRepository implements ProductRepositoryInterface
         }
         $params[] = $this->now();
         $params[] = $productId;
-        return $this->db->execute(
-            'UPDATE `' . $this->products() . '` SET ' . implode(', ', $assignments) . ', updated_at = %s WHERE id = %d',
+
+        $guard = '';
+        if ($expectedVersion !== '' && ctype_digit($expectedVersion)) {
+            $guard = ' AND row_version = %d';
+            $params[] = (int) $expectedVersion;
+        }
+
+        $written = $this->db->execute(
+            'UPDATE `' . $this->products() . '`
+             SET ' . implode(', ', $assignments) . ', updated_at = %s, row_version = row_version + 1
+             WHERE id = %d' . $guard,
             $params
+        );
+        if ($written === null) {
+            return false;                       // a real storage failure
+        }
+        if ($guard === '') {
+            return true;                        // unguarded: nothing to lose to
+        }
+        // `row_version = row_version + 1` changes a column on every guarded
+        // write, so zero rows here really does mean «the WHERE did not match»
+        // rather than the «nothing changed» ambiguity the job queue hit.
+        return $written > 0;
+    }
+
+    public function bumpVersion(int $productId, string $expectedVersion): bool
+    {
+        if ($expectedVersion === '' || !ctype_digit($expectedVersion)) {
+            return true;                        // nothing to check against
+        }
+        $written = $this->db->execute(
+            'UPDATE `' . $this->products() . '`
+             SET row_version = row_version + 1, updated_at = %s
+             WHERE id = %d AND row_version = %d',
+            [$this->now(), $productId, (int) $expectedVersion]
+        );
+        return $written !== null && $written > 0;
+    }
+
+    public function rowVersion(int $productId): string
+    {
+        $value = $this->db->getVar(
+            'SELECT row_version FROM `' . $this->products() . '` WHERE id = %d',
+            [$productId]
+        );
+        return $value === null ? '' : (string) (int) $value;
+    }
+
+    public function stampImportRun(int $productId, string $runId): bool
+    {
+        return $this->db->execute(
+            'UPDATE `' . $this->products() . '` SET import_run_id = %s WHERE id = %d',
+            [mb_substr($runId, 0, 64), $productId]
         ) !== null;
+    }
+
+    public function importRunIds(): array
+    {
+        return array_map(
+            static fn (array $row): string => (string) $row['import_run_id'],
+            $this->db->getResults(
+                'SELECT DISTINCT import_run_id FROM `' . $this->products() . '`
+                 WHERE import_run_id <> %s ORDER BY import_run_id DESC',
+                ['']
+            )
+        );
+    }
+
+    public function idsFromImportRun(string $runId): array
+    {
+        if ($runId === '') {
+            return [];
+        }
+        return array_map(
+            static fn (array $row): int => (int) $row['id'],
+            $this->db->getResults(
+                'SELECT id FROM `' . $this->products() . '` WHERE import_run_id = %s ORDER BY id ASC',
+                [$runId]
+            )
+        );
     }
 
     public function updateStatus(int $productId, ProductStatus $status, string $reviewNote = ''): bool
@@ -499,7 +590,11 @@ final class DbProductRepository implements ProductRepositoryInterface
                 (string) ($row['seo_slug'] ?? ''),
                 (string) ($row['seo_title'] ?? ''),
                 (string) ($row['seo_description'] ?? '')
-            )
+            ),
+            // Absent on a row read before migration 14 ran; an empty version
+            // means the form carries nothing to compare and the write is
+            // unguarded, which is what a mid-upgrade save needs.
+            isset($row['row_version']) ? (string) (int) $row['row_version'] : ''
         );
     }
 

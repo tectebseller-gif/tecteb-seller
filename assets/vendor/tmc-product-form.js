@@ -1,8 +1,9 @@
 /**
- * Two things the product form cannot do without JavaScript, and nothing else.
+ * Three things the product form cannot do without JavaScript, and nothing else.
  *
  *  1. Keep what somebody typed, so a closed tab does not cost an afternoon.
  *  2. Say so before they close it.
+ *  3. Say a picture is too big BEFORE it is uploaded, not after.
  *
  * Everything the form DOES — every field, every step, every button — is a plain
  * POST that works with this file absent. That is the rule for this whole area
@@ -15,6 +16,12 @@
  */
 (function () {
     'use strict';
+
+    // The picture check belongs to the form whether or not autosave is
+    // configured, so it is wired from the input itself. Reading the config off
+    // the control means a page that renders no file chooser — every step but
+    // the first — simply has nothing to wire.
+    preflightPicture();
 
     var form = document.querySelector('form.tv-form[data-autosave-url]');
     if (!form) {
@@ -120,4 +127,57 @@
         dirty = false;
         window.clearTimeout(pending);
     });
+
+    /**
+     * Name a picture that is already going to be refused, at the moment it is
+     * chosen.
+     *
+     * This does NOT replace the server's check and cannot: `size` and `type`
+     * here are the browser's word, and `type` in particular comes from the
+     * file extension, which is exactly what the server refuses to believe. The
+     * server still reads the bytes and still refuses. What this buys is the
+     * minute the vendor would otherwise spend uploading 8 MB over a phone
+     * connection to be told the limit is 3 — and the save that goes through
+     * with the picture missing.
+     *
+     * It never blocks the submit. A vendor who wants to save the text and deal
+     * with the picture afterwards is doing something reasonable, and the
+     * server's own refusal keeps the text save either way.
+     */
+    function preflightPicture() {
+        var input = document.querySelector('input[type="file"][data-max-bytes]');
+        var slot = document.getElementById('f-product-image-problem');
+        if (!input || !slot) {
+            return;
+        }
+
+        var maxBytes = parseInt(input.getAttribute('data-max-bytes'), 10);
+        var allowed = (input.getAttribute('data-allowed-mime') || '').split(',');
+
+        input.addEventListener('change', function () {
+            slot.textContent = '';
+            var file = input.files && input.files[0];
+            if (!file || !(maxBytes > 0)) {
+                return;
+            }
+            if (file.size > maxBytes) {
+                slot.textContent = (input.getAttribute('data-text-too-large') || '')
+                    .replace('{size}', digits((file.size / 1048576).toFixed(1)));
+                return;
+            }
+            // An empty type is «the browser does not know», not «wrong»: some
+            // browsers report nothing for WebP. Guessing wrong here would stop
+            // a vendor uploading a file the server would have accepted.
+            if (file.type && allowed.indexOf(file.type) === -1) {
+                slot.textContent = input.getAttribute('data-text-bad-type') || '';
+            }
+        });
+    }
+
+    /** ۱٫۵ not 1.5 — the rest of this page counts in Persian digits. */
+    function digits(value) {
+        return String(value)
+            .replace(/[0-9]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.charAt(Number(d)); })
+            .replace('.', '٫');
+    }
 }());

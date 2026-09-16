@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Product\Presentation;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecFieldType;
@@ -150,6 +152,21 @@ final class ProductMessages
                     $fa((string) ($context['failed'] ?? 0)),
                     self::refusedList(is_array($context['refused'] ?? null) ? $context['refused'] : [])
                 ),
+            // A forecast, and it says so. «۳۶ مورد انجام می‌شود» would be a
+            // promise this page cannot keep, because another member of the
+            // same store can save one of these rows in the meantime.
+            'bulk_previewed' => (int) ($context['failed'] ?? 0) === 0
+                ? sprintf(
+                    /* translators: %s: how many of the selected products would go through */
+                    __('هنوز چیزی انجام نشده. با این اقدام، پیش‌بینی می‌شود هر %s مورد انجام شود.', 'tecteb-marketplace-core'),
+                    $fa((string) ($context['ok'] ?? 0))
+                )
+                : sprintf(
+                    /* translators: 1: how many would go through, 2: how many would be refused */
+                    __('هنوز چیزی انجام نشده. پیش‌بینی: %1$s مورد انجام می‌شود و %2$s مورد انجام نمی‌شود. دلیل هرکدام در ستون «توضیح» است.', 'tecteb-marketplace-core'),
+                    $fa((string) ($context['ok'] ?? 0)),
+                    $fa((string) ($context['failed'] ?? 0))
+                ),
             'nothing_selected' => __('هیچ موردی انتخاب نشده بود.', 'tecteb-marketplace-core'),
             'unknown_bulk_action' => __('اقدام گروهی انتخاب نشده بود.', 'tecteb-marketplace-core'),
             'bulk_too_large' => sprintf(
@@ -193,11 +210,37 @@ final class ProductMessages
             'note_required' => __('برای اصلاح و رد، نوشتن دلیل اجباری است.', 'tecteb-marketplace-core'),
 
             'image_uploaded' => __('تصویر افزوده شد. برای ثبت روی محصول، فرم را ذخیره کنید.', 'tecteb-marketplace-core'),
-            'image_too_large' => sprintf(
-                __('تصویر بزرگ‌تر از حد مجاز است (حداکثر %s مگابایت).', 'tecteb-marketplace-core'),
-                $fa(round(\Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy::MAX_BYTES / 1048576, 1))
+            'image_too_large' => self::uploadRefusal(
+                sprintf(
+                    /* translators: %s: the largest image this installation accepts, in megabytes */
+                    __('حجم این تصویر از %s مگابایت بیشتر است.', 'tecteb-marketplace-core'),
+                    $fa(self::maxMb($context))
+                ),
+                __('آن را فشرده یا کوچک‌تر کنید و دوباره انتخاب کنید.', 'tecteb-marketplace-core'),
+                $context
             ),
-            'image_mime_not_allowed' => __('فقط تصویر JPEG، PNG و WebP پذیرفته می‌شود.', 'tecteb-marketplace-core'),
+            'image_mime_not_allowed' => self::uploadRefusal(
+                __('این فایل تصویر JPEG، PNG یا WebP نیست.', 'tecteb-marketplace-core'),
+                // The type is read from the BYTES, so «ولی پسوندش jpg است» is
+                // the commonest next thought and the answer belongs here.
+                __('نوع فایل از محتوای آن خوانده می‌شود، نه از پسوندش؛ تصویر را با یکی از این سه قالب ذخیره کنید.', 'tecteb-marketplace-core'),
+                $context
+            ),
+            'transfer_failed' => self::uploadRefusal(
+                __('بارگذاری تصویر ناتمام ماند.', 'tecteb-marketplace-core'),
+                __('معمولاً قطعی لحظه‌ای اینترنت است؛ همین فایل را دوباره انتخاب کنید.', 'tecteb-marketplace-core'),
+                $context
+            ),
+            'empty_file' => self::uploadRefusal(
+                __('فایل انتخاب‌شده خالی است.', 'tecteb-marketplace-core'),
+                __('فایل دیگری انتخاب کنید.', 'tecteb-marketplace-core'),
+                $context
+            ),
+            'no_file' => self::uploadRefusal(
+                __('فایلی به سرور نرسید.', 'tecteb-marketplace-core'),
+                __('دوباره از همین مرحله فایل را انتخاب کنید.', 'tecteb-marketplace-core'),
+                $context
+            ),
 
             // ---- variable products ---------------------------------------
             'attribute_saved' => __('ویژگی ذخیره شد. حالا برای هر ترکیب، قیمت و موجودی تعیین کنید.', 'tecteb-marketplace-core'),
@@ -273,6 +316,17 @@ final class ProductMessages
         };
     }
 
+    /** The bulk verbs by the name the vendor picked them by. */
+    public static function bulkAction(string $action): string
+    {
+        return match ($action) {
+            ManageProducts::ACTION_SUBMIT => __('ارسال برای بررسی', 'tecteb-marketplace-core'),
+            ManageProducts::ACTION_ARCHIVE => __('بایگانی', 'tecteb-marketplace-core'),
+            ManageProducts::ACTION_RESTORE => __('بازگشت به پیش‌نویس', 'tecteb-marketplace-core'),
+            default => __('اقدام گروهی', 'tecteb-marketplace-core'),
+        };
+    }
+
     public static function csvAction(string $action): string
     {
         return match ($action) {
@@ -294,6 +348,9 @@ final class ProductMessages
             'template_created', 'template_saved', 'field_added', 'field_saved',
             'field_deprecated', 'field_restored',
             'csv_exported', 'csv_previewed', 'csv_imported', 'csv_row_ok', 'image_uploaded',
+            // A preview is not a warning: nothing happened, and painting the
+            // page red would make «هنوز چیزی انجام نشده» look like a failure.
+            'bulk_previewed',
             'attribute_saved', 'attribute_deleted', 'variation_added', 'variation_saved', 'variation_deleted',
             'seo_saved', 'projected', 'withdrawn',
             // A batch that RAN is a success, even when some rows were refused:
@@ -301,6 +358,43 @@ final class ProductMessages
             // would hide the thirty-six that went.
             'bulk_done',
         ];
+    }
+
+    /**
+     * What an image refusal says, and why it says it in three parts.
+     *
+     * A multipart POST cannot be replayed: the bytes are gone the moment PHP
+     * refuses them, and no browser hands them back. So «retry» here is not a
+     * resend — it is the text save standing on its own, the vendor landing back
+     * on the step that holds the file chooser, and the reason named clearly
+     * enough that the second attempt is not the same file again. A message that
+     * said only «بارگذاری نشد» would buy a second identical failure.
+     *
+     * @param array<string,scalar|null> $context
+     */
+    private static function uploadRefusal(string $why, string $whatToDo, array $context): string
+    {
+        $parts = [];
+        if ((int) ($context['saved'] ?? 0) === 1) {
+            // Said FIRST, because it is the thing the vendor is afraid of.
+            $parts[] = __('بقیهٔ فرم ذخیره شد و فقط تصویر افزوده نشد.', 'tecteb-marketplace-core');
+        }
+        $parts[] = $why;
+        $parts[] = $whatToDo;
+        return implode(' ', $parts);
+    }
+
+    /**
+     * The size cap to quote. The caller knows the installation's real ceiling
+     * — which may be the host's, not ours — and when it is absent (a refusal
+     * repeated inside a bulk list) our own constant is the honest fallback.
+     *
+     * @param array<string,scalar|null> $context
+     */
+    private static function maxMb(array $context): int
+    {
+        $given = (int) ($context['max_mb'] ?? 0);
+        return $given > 0 ? $given : (int) floor(ProductImagePolicy::MAX_BYTES / 1048576);
     }
 
     /**

@@ -28,7 +28,7 @@ final class VendorRatingTest extends DatabaseTestCase
         foreach (M0012VendorRatings::TABLES as $suffix) {
             $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
         }
-        (new M0012VendorRatings())->up($db);
+        $this->resetSchema($db);
         $this->ratings = new DbRatingRepository($db, new SystemClock());
     }
 

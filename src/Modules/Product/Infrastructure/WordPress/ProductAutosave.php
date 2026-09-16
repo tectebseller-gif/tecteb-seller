@@ -113,6 +113,6 @@ final class ProductAutosave
         /** @var ProductRepositoryInterface $products */
         $products = $this->container->get(ProductRepositoryInterface::class);
         $product = $products->findOwned($productId, $vendorUserId);
-        return $product === null ? '' : $product->updatedAt;
+        return $product === null ? '' : $product->rowVersion;
     }
 }

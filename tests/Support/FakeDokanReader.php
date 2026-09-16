@@ -21,7 +21,13 @@ final class FakeDokanReader implements DokanReaderInterface
     /** @var list<array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int}> */
     public array $productRows = [];
 
-    /** @var list<array{wc_order_id:int, vendor_user_id:int, status:string, total_minor:int}> */
+    /**
+     * @var list<array{wc_order_id:int, vendor_user_id:int, status:string, total_minor:int, net_minor?:int, commission_minor?:int, refunded?:bool}>
+     *
+     * The three history keys are optional in a fixture and filled in by
+     * `orders()`, so a test that only cares about ids does not have to state
+     * money it is not testing.
+     */
     public array $orderRows = [];
 
     public bool $available = true;
@@ -43,7 +49,19 @@ final class FakeDokanReader implements DokanReaderInterface
 
     public function orders(): array
     {
-        return $this->available ? $this->orderRows : [];
+        if (!$this->available) {
+            return [];
+        }
+        return array_map(static function (array $row): array {
+            $total = (int) $row['total_minor'];
+            // Unknown net is the total, never a computed share — the same rule
+            // the real reader follows, so a fixture cannot accidentally prove a
+            // recalculation the production code refuses to do.
+            $row['net_minor'] ??= $total;
+            $row['commission_minor'] ??= max(0, $total - (int) $row['net_minor']);
+            $row['refunded'] ??= false;
+            return $row;
+        }, $this->orderRows);
     }
 
     /**
@@ -54,6 +72,11 @@ final class FakeDokanReader implements DokanReaderInterface
      * resumable-import test pass while the real reader re-imported page one for
      * ever — which is precisely the class of bug the cursor exists to prevent.
      */
+    public function vendorsAfter(int $afterUserId, int $limit = DokanReaderInterface::PAGE): array
+    {
+        return $this->page($this->vendors(), 'user_id', $afterUserId, $limit);
+    }
+
     public function productsAfter(int $afterId, int $limit = DokanReaderInterface::PAGE): array
     {
         return $this->page($this->products(), 'wc_product_id', $afterId, $limit);

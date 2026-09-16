@@ -64,7 +64,7 @@ final class VendorFlowTest extends DatabaseTestCase
         foreach (M0002CreateVendorTables::TABLES as $suffix) {
             $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
         }
-        (new M0002CreateVendorTables())->up($db);
+        $this->resetSchema($db);
 
         $clock = new SystemClock();
         $this->applications = new DbVendorRepository($db, $clock);
@@ -74,7 +74,7 @@ final class VendorFlowTest extends DatabaseTestCase
         $this->auditLogger = new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock);
         $this->storageDir = sys_get_temp_dir() . '/tmc-vendor-test-' . bin2hex(random_bytes(4));
         $this->storage = new PrivateUploadStorage($this->storageDir);
-        (new \Tecteb\Marketplace\Core\Migration\Migrations\M0001CreateAuditTable())->up($db);
+        $this->resetSchema($db);
     }
 
     protected function tearDown(): void

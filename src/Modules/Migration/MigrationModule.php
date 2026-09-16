@@ -17,7 +17,9 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
+use Tecteb\Marketplace\Modules\Migration\Application\OrderHistoryRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
+use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpDokanReader;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MigrationPage;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
@@ -59,6 +61,10 @@ final class MigrationModule implements ModuleInterface
             $c->get(AuditLogger::class),
             $c->get(CapabilityCheckerInterface::class)
         ));
+        $c->bind(OrderHistoryRepositoryInterface::class, static fn (ContainerInterface $c) => new DbOrderHistoryRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
         $c->bind(ImportFromDokan::class, static fn (ContainerInterface $c) => new ImportFromDokan(
             $c->get(DokanReaderInterface::class),
             $c->get(VendorRepositoryInterface::class),
@@ -66,7 +72,8 @@ final class MigrationModule implements ModuleInterface
             $c->get(OptionStoreInterface::class),
             $c->get(AuditLogger::class),
             $c->get(ClockInterface::class),
-            $c->get(CapabilityCheckerInterface::class)
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(OrderHistoryRepositoryInterface::class)
         ));
     }
 

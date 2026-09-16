@@ -68,28 +68,60 @@ final class WpDokanReader implements DokanReaderInterface
             || $this->tableExists($this->db->prefix() . 'dokan_orders');
     }
 
+    public function vendorsAfter(int $afterUserId, int $limit = DokanReaderInterface::PAGE): array
+    {
+        if (!$this->isAvailable() || !function_exists('get_userdata')) {
+            return [];
+        }
+        // Keyset in SQL, because `WP_User_Query` has no «id greater than».
+        //
+        // The join is how WordPress itself implements a role filter: a role is
+        // a key inside the serialized `capabilities` meta, and core matches it
+        // with exactly this LIKE. Doing it here rather than in `get_users`
+        // buys the one thing `get_users` cannot express — `u.ID > ?` — which
+        // is what makes the walk a keyset rather than an offset.
+        //
+        // An offset walk would be wrong for the reason `alpha.11` measured on
+        // the unpaid-order guard: paging by offset over a set somebody else is
+        // writing to skips rows, and here the other writer is a live Dokan
+        // shop granting somebody the seller role mid-import.
+        $rows = $this->db->getResults(
+            'SELECT u.ID FROM `' . $this->db->prefix() . 'users` u
+             INNER JOIN `' . $this->db->prefix() . 'usermeta` m
+                     ON m.user_id = u.ID AND m.meta_key = %s
+             WHERE m.meta_value LIKE %s AND u.ID > %d
+             ORDER BY u.ID ASC LIMIT %d',
+            [
+                $this->db->prefix() . 'capabilities',
+                '%"seller"%',
+                max(0, $afterUserId),
+                $this->page($limit),
+            ]
+        );
+
+        $vendors = [];
+        foreach ($rows as $row) {
+            $user = get_userdata((int) $row['ID']);
+            if ($user === false) {
+                continue;                       // a meta row whose user is gone
+            }
+            $vendors[] = $this->vendorRow($user);
+        }
+        return $vendors;
+    }
+
     public function vendors(): array
     {
         if ($this->vendorMemo !== null) {
             return $this->vendorMemo;
         }
-        if (!$this->isAvailable() || !function_exists('get_users')) {
+        if (!$this->isAvailable() || !function_exists('get_userdata')) {
             return [];
         }
-        $vendors = [];
-        foreach (get_users(['role' => 'seller', 'fields' => ['ID', 'user_email']]) as $user) {
-            $settings = get_user_meta((int) $user->ID, 'dokan_profile_settings', true);
-            $vendors[] = [
-                'user_id' => (int) $user->ID,
-                'store_name' => is_array($settings) && ($settings['store_name'] ?? '') !== ''
-                    ? (string) $settings['store_name']
-                    // Dokan allows a seller with no store name; the migration
-                    // reports what is there rather than inventing a title.
-                    : (string) ($user->display_name ?? ''),
-                'email' => (string) $user->user_email,
-                'enabled' => is_array($settings) ? (($settings['enable_selling'] ?? 'yes') === 'yes') : true,
-            ];
-        }
+        // Drained through the SAME paged read the import uses, so «all of them»
+        // and «one page at a time» can never disagree about who a seller is.
+        /** @var list<array{user_id:int, store_name:string, email:string, enabled:bool}> $vendors */
+        $vendors = $this->drain(fn (int $after): array => $this->vendorsAfter($after), 'user_id');
         $this->vendorMemo = $vendors;
         return $vendors;
     }
@@ -142,17 +174,42 @@ final class WpDokanReader implements DokanReaderInterface
         if (!$this->isAvailable() || !$this->tableExists($table)) {
             return [];
         }
+        // `net_amount` and `is_refunded` are Dokan's own columns and they are
+        // read because the history has to carry DOKAN's numbers. Selected
+        // defensively: older Dokan releases do not have them, and a migration
+        // that fatals on a column it assumed would be a migration nobody can
+        // run.
+        $hasNet = $this->columnExists($table, 'net_amount');
+        $hasRefunded = $this->columnExists($table, 'is_refunded');
+        $columns = 'order_id, seller_id, order_status, order_total'
+            . ($hasNet ? ', net_amount' : '')
+            . ($hasRefunded ? ', is_refunded' : '');
+
         $rows = $this->db->getResults(
-            'SELECT order_id, seller_id, order_status, order_total FROM `' . $table . '`
+            'SELECT ' . $columns . ' FROM `' . $table . '`
              WHERE order_id > %d ORDER BY order_id ASC LIMIT %d',
             [max(0, $afterId), $this->page($limit)]
         );
-        return array_map(static fn (array $row): array => [
-            'wc_order_id' => (int) $row['order_id'],
-            'vendor_user_id' => (int) $row['seller_id'],
-            'status' => (string) $row['order_status'],
-            'total_minor' => (int) round((float) $row['order_total']),
-        ], $rows);
+        return array_map(static function (array $row): array {
+            $total = (int) round((float) $row['order_total']);
+            // Absent net means unknown, NOT zero — and unknown is carried as
+            // the total rather than as a figure this plugin worked out. A
+            // computed commission here would be exactly the recalculation the
+            // whole design refuses.
+            $net = array_key_exists('net_amount', $row) && $row['net_amount'] !== null
+                ? (int) round((float) $row['net_amount'])
+                : $total;
+            return [
+                'wc_order_id' => (int) $row['order_id'],
+                'vendor_user_id' => (int) $row['seller_id'],
+                'status' => (string) $row['order_status'],
+                'total_minor' => $total,
+                'net_minor' => $net,
+                // The difference Dokan itself recorded, not a rate applied.
+                'commission_minor' => max(0, $total - $net),
+                'refunded' => array_key_exists('is_refunded', $row) && (int) $row['is_refunded'] === 1,
+            ];
+        }, $rows);
     }
 
     public function counts(): array
@@ -209,6 +266,27 @@ final class WpDokanReader implements DokanReaderInterface
         return $all;
     }
 
+    /**
+     * One seller, as this migration reads them.
+     *
+     * @param object $user
+     * @return array{user_id:int, store_name:string, email:string, enabled:bool}
+     */
+    private function vendorRow(object $user): array
+    {
+        $settings = get_user_meta((int) $user->ID, 'dokan_profile_settings', true);
+        return [
+            'user_id' => (int) $user->ID,
+            'store_name' => is_array($settings) && ($settings['store_name'] ?? '') !== ''
+                ? (string) $settings['store_name']
+                // Dokan allows a seller with no store name; the migration
+                // reports what is there rather than inventing a title.
+                : (string) ($user->display_name ?? ''),
+            'email' => (string) ($user->user_email ?? ''),
+            'enabled' => is_array($settings) ? (($settings['enable_selling'] ?? 'yes') === 'yes') : true,
+        ];
+    }
+
     private function page(int $limit): int
     {
         return max(1, min(1000, $limit));
@@ -217,6 +295,15 @@ final class WpDokanReader implements DokanReaderInterface
     private function ordersTable(): string
     {
         return $this->db->prefix() . 'dokan_orders';
+    }
+
+    private function columnExists(string $table, string $column): bool
+    {
+        return (int) $this->db->getVar(
+            'SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s',
+            [$table, $column]
+        ) > 0;
     }
 
     private function tableExists(string $table): bool

@@ -62,7 +62,13 @@ final class ImportFromDokan
         private readonly OptionStoreInterface $options,
         private readonly AuditLogger $audit,
         private readonly ClockInterface $clock,
-        private readonly ?CapabilityCheckerInterface $capabilities = null
+        private readonly ?CapabilityCheckerInterface $capabilities = null,
+        /**
+         * Optional so an install without schema 15 still loads. A null here
+         * means history is not imported, and the plan says so rather than
+         * silently dropping it.
+         */
+        private readonly ?OrderHistoryRepositoryInterface $history = null
     ) {
     }
 
@@ -105,13 +111,24 @@ final class ImportFromDokan
         // re-recording it under ours would either invent a rate (FIN-02
         // forbids it) or write a ledger line that contradicts the money that
         // actually moved. So the plan counts them and says so.
+        // The verdict changed in `alpha.14`, and the REASON it changed is worth
+        // keeping. These orders were skipped because re-recording them under
+        // our rules would either invent a rate (FIN-02 forbids it) or write a
+        // ledger line contradicting money that already moved. Both are still
+        // true — so the history arrives as a RECORD carrying Dokan's own
+        // figures, with no ledger line and no rate applied. «Imported» here
+        // means «written down», never «recalculated».
         $orderRows = [];
         foreach ($this->dokan->orders() as $order) {
             $orderRows[] = [
                 'dokan_id' => $order['wc_order_id'],
                 'title' => (string) $order['wc_order_id'],
-                'verdict' => DokanMigrationPlan::SKIP,
-                'reason' => 'historic_commission_not_recomputed',
+                'verdict' => $this->history === null
+                    ? DokanMigrationPlan::SKIP
+                    : DokanMigrationPlan::IMPORT,
+                'reason' => $this->history === null
+                    ? 'history_storage_unavailable'
+                    : 'history_recorded_without_recomputing',
                 'target' => 'wc_order:' . $order['wc_order_id'],
             ];
         }
@@ -201,14 +218,30 @@ final class ImportFromDokan
             }
             // Linked to the EXISTING WooCommerce product, so the id and the
             // URL a customer bookmarked keep working.
+            // The same stamp the paged path writes. Two import paths that record
+            // their origin differently is two paths for a rollback to miss.
+            $this->products->stampImportRun($productId, $plan->runId);
             $this->products->link($productId, $product['wc_product_id']);
             $created['products'][] = $productId;
+        }
+
+        // The history, through the same recorder the job uses. Two import
+        // paths that write history differently is two paths for a rollback to
+        // miss — the same lesson the run stamp just taught.
+        $historyRecorded = 0;
+        if ($this->history !== null) {
+            foreach ($this->dokan->orders() as $order) {
+                if ($this->history->record($plan->runId, $order)) {
+                    $historyRecorded++;
+                }
+            }
         }
 
         $this->rememberRun($plan->runId, $created);
         $this->audit->log(AuditEventCatalog::DOKAN_IMPORTED, $this->actorId(), 'migration', $plan->runId, [
             'vendors' => count($created['vendors']),
             'products' => count($created['products']),
+            'history' => $historyRecorded,
             'run_id' => $plan->runId,
             'mode' => 'trial',
         ]);
@@ -216,6 +249,7 @@ final class ImportFromDokan
             'run_id' => $plan->runId,
             'vendors' => count($created['vendors']),
             'products' => count($created['products']),
+            'history' => $historyRecorded,
         ]);
     }
 
@@ -234,12 +268,25 @@ final class ImportFromDokan
         }
         $runs = $this->runs();
         $run = $runs[$runId] ?? null;
-        if ($run === null) {
+        // Rows stamped with this run id are authoritative; the manifest is the
+        // fallback for runs imported before the stamp existed, and for rows a
+        // pre-stamp build created. A run with neither is genuinely unknown.
+        $stamped = $this->products->idsFromImportRun($runId);
+        if ($run === null && $stamped === []) {
             return OperationResult::failure('not_found', ['run_id' => $runId]);
         }
+        // The union, de-duplicated: a row can be in both and must be deleted
+        // once. This is also what makes a crash mid-page recoverable — those
+        // rows are stamped and absent from the manifest.
+        $productIds = array_values(array_unique(array_merge(
+            array_map('intval', $run['products'] ?? []),
+            $stamped
+        )));
+        sort($productIds);
+
         $removedProducts = 0;
         $keptProducts = [];
-        foreach ($run['products'] ?? [] as $productId) {
+        foreach ($productIds as $productId) {
             $productId = (int) $productId;
             if ($this->products->linkOwnership($productId) === LinkOwnership::Marketplace) {
                 // Somebody transferred operational ownership of this product
@@ -253,6 +300,11 @@ final class ImportFromDokan
                 $removedProducts++;
             }
         }
+        // The history goes with the products. A rollback that removed the
+        // catalogue but left the past orders would leave a shop half-migrated
+        // with no way back — and the next import would find its own rows there.
+        $removedHistory = $this->history?->deleteRun($runId) ?? 0;
+
         $removedVendors = 0;
         foreach ($run['vendors'] ?? [] as $vendorUserId) {
             // The PROFILE goes; the WordPress user does not. The user was
@@ -266,6 +318,7 @@ final class ImportFromDokan
         $this->audit->log(AuditEventCatalog::DOKAN_ROLLED_BACK, $this->actorId(), 'migration', $runId, [
             'vendors' => $removedVendors,
             'products' => $removedProducts,
+            'history' => $removedHistory,
             'run_id' => $runId,
         ]);
         if ($keptProducts !== []) {
@@ -280,14 +333,43 @@ final class ImportFromDokan
             'run_id' => $runId,
             'vendors' => $removedVendors,
             'products' => $removedProducts,
+            'history' => $removedHistory,
         ]);
     }
 
     /** @return array<string,array{vendors:list<int>, products:list<int>, at:string}> */
+    /**
+     * Every run this install knows about — from the manifest AND from the rows.
+     *
+     * A run whose process died before writing its first manifest entry exists
+     * only as stamped rows, and leaving it out of this list would leave a
+     * manager looking at products they cannot undo. So the two sources are
+     * merged, and a run present only in the rows is reported with the count
+     * read back from them.
+     *
+     * @return array<string, array{vendors:list<int>, products:list<int>, at?:string, source?:string}>
+     */
     public function runs(): array
     {
         $stored = $this->options->get(self::RUNS_OPTION, []);
-        return is_array($stored) ? $stored : [];
+        $runs = is_array($stored) ? $stored : [];
+        foreach ($runs as $runId => $run) {
+            $runs[$runId]['source'] = 'manifest';
+        }
+        foreach ($this->products->importRunIds() as $runId) {
+            if (isset($runs[$runId])) {
+                continue;
+            }
+            $runs[$runId] = [
+                'vendors' => [],
+                'products' => $this->products->idsFromImportRun($runId),
+                'at' => '',
+                // Named so the page can say «this run was interrupted» rather
+                // than showing a row with no date and letting somebody guess.
+                'source' => 'rows_only',
+            ];
+        }
+        return $runs;
     }
 
     public function dokanIsPresent(): bool
@@ -362,12 +444,10 @@ final class ImportFromDokan
     public function importVendorPage(string $runId, int $afterUserId, int $limit): array
     {
         $created = ['vendors' => [], 'products' => []];
-        $rows = array_values(array_filter(
-            $this->dokan->vendors(),
-            static fn (array $v): bool => $v['user_id'] > $afterUserId
-        ));
-        usort($rows, static fn (array $a, array $b): int => $a['user_id'] <=> $b['user_id']);
-        $page = array_slice($rows, 0, max(1, $limit));
+        // One page from the reader, not every seller sliced in PHP. The old
+        // version read the whole shop on every batch — which is the cost a
+        // batched job exists to avoid, paid once per batch instead of once.
+        $page = $this->dokan->vendorsAfter($afterUserId, $limit);
         $last = $afterUserId;
         foreach ($page as $vendor) {
             $last = (int) $vendor['user_id'];
@@ -384,7 +464,9 @@ final class ImportFromDokan
         return [
             'done' => count($page),
             'last' => $last,
-            'more' => count($page) >= $limit && count($rows) > count($page),
+            // A short page is the end. Asking «are there more?» by counting the
+            // whole set again would undo the reason for paging at all.
+            'more' => count($page) >= $limit,
             'created' => $created,
         ];
     }
@@ -433,10 +515,18 @@ final class ImportFromDokan
                 $notes[] = $last . ':create_failed';
                 continue;
             }
+            // The stamp goes on FIRST, before the link and before the manifest.
+            // It is the only record of this row's origin that cannot be lost
+            // to a process dying between two writes: the row that exists is
+            // the row that says which run made it.
+            $this->products->stampImportRun($productId, $runId);
             $this->products->link($productId, $product['wc_product_id']);
             $created['products'][] = $productId;
         }
         if ($created['products'] !== []) {
+            // Still written, and still useful — it is where the VENDOR ids
+            // live, and vendors have no row of ours to stamp. For products it
+            // is now a convenience rather than the source of truth.
             $this->rememberRun($runId, $created);
         }
         return [
@@ -447,6 +537,50 @@ final class ImportFromDokan
             'created' => $created,
             'notes' => array_slice($notes, 0, 20),
         ];
+    }
+
+    /**
+     * Import one page of past orders, starting strictly after `$afterOrderId`.
+     *
+     * Nothing is computed. Each row carries the four numbers Dokan recorded —
+     * total, the seller's net, the difference it called commission, and whether
+     * it was refunded — and no rate from this marketplace touches any of them.
+     * No ledger line is written, so settlement, the balance and every report
+     * stay blind to these orders: Dokan owned them, and one engine stays
+     * responsible per order.
+     *
+     * @return array{done:int, skipped:int, last:int, more:bool}
+     */
+    public function importOrderPage(string $runId, int $afterOrderId, int $limit): array
+    {
+        if ($this->history === null) {
+            return ['done' => 0, 'skipped' => 0, 'last' => $afterOrderId, 'more' => false];
+        }
+        $page = $this->dokan->ordersAfter($afterOrderId, $limit);
+        $last = $afterOrderId;
+        $done = 0;
+        $skipped = 0;
+        foreach ($page as $order) {
+            $last = max($last, (int) $order['wc_order_id']);
+            // `false` here means the unique index already had it — a resumed
+            // job re-running its last page, which is normal and not a failure.
+            $this->history->record($runId, $order) ? $done++ : $skipped++;
+        }
+        return [
+            'done' => $done,
+            'skipped' => $skipped,
+            'last' => $last,
+            'more' => count($page) >= $limit,
+        ];
+    }
+
+    /** What a shop's imported history adds up to, in Dokan's own figures. */
+    public function historyFor(int $vendorUserId): array
+    {
+        if ($this->history === null) {
+            return ['orders' => 0, 'total_minor' => 0, 'net_minor' => 0, 'available' => false];
+        }
+        return $this->history->summaryForVendor($vendorUserId) + ['available' => true];
     }
 
     /**

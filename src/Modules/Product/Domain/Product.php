@@ -20,7 +20,15 @@ final class Product
         public readonly ?string $publishedAt = null,
         public readonly string $updatedAt = '',
         public readonly ?int $wcProductId = null,
-        public readonly ProductSeo $seo = new ProductSeo()
+        public readonly ProductSeo $seo = new ProductSeo(),
+        /**
+         * Optimistic-lock counter, as a string because it travels through a
+         * form field and an empty one means «this form predates the column».
+         * It is NOT the «نسخهٔ پیشنهادی» of a published product — that is
+         * ProductRevision, and calling both of them revision is how a reader
+         * picks the wrong one.
+         */
+        public readonly string $rowVersion = ''
     ) {
     }
 
