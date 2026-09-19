@@ -15,6 +15,7 @@ use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
+use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
@@ -62,7 +63,13 @@ final class MigrationModule implements ModuleInterface
             $c->get(ProductRepositoryInterface::class),
             $c->get(CatalogProjectorInterface::class),
             $c->get(AuditLogger::class),
-            $c->get(CapabilityCheckerInterface::class)
+            $c->get(CapabilityCheckerInterface::class),
+            // So a transfer drops the remembered «is this ours» answer. The
+            // product module owns the policy; if it is not loaded there is no
+            // answer to forget either.
+            $c->has(\Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy::class)
+                ? $c->get(\Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy::class)
+                : null
         ));
         $c->bind(OrderHistoryRepositoryInterface::class, static fn (ContainerInterface $c) => new DbOrderHistoryRepository(
             $c->get(DatabaseInterface::class),
@@ -82,7 +89,14 @@ final class MigrationModule implements ModuleInterface
             $c->get(CapabilityCheckerInterface::class),
             $c->get(OrderHistoryRepositoryInterface::class),
             $c->get(ShopRecordRepositoryInterface::class),
-            $c->get(LedgerRepositoryInterface::class)
+            $c->get(LedgerRepositoryInterface::class),
+            $c->get(CategoryMap::class),
+            $c->has(\Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface::class)
+                ? $c->get(\Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface::class)
+                : null
+        ));
+        $c->bind(CategoryMap::class, static fn (ContainerInterface $c) => new CategoryMap(
+            $c->get(OptionStoreInterface::class)
         ));
     }
 

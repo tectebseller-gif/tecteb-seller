@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 
@@ -46,7 +47,11 @@ final class TransferOwnership
         private readonly ProductRepositoryInterface $products,
         private readonly CatalogProjectorInterface $catalog,
         private readonly AuditLogger $audit,
-        private readonly ?CapabilityCheckerInterface $capabilities = null
+        private readonly ?CapabilityCheckerInterface $capabilities = null,
+        // Optional, so every existing construction site keeps working. Its
+        // absence means a long-lived process may keep a stale «is this ours»
+        // answer after a transfer — see `PurchasePolicy::forget()`.
+        private readonly ?PurchasePolicy $purchases = null
     ) {
     }
 
@@ -110,6 +115,11 @@ final class TransferOwnership
             'from' => $from->value,
             'to' => $to->value,
         ]);
+        // Whatever the direction, the answer to «is this storefront product
+        // ours» has just changed. Anything that remembered the old one is now
+        // wrong about a product somebody is about to try to buy.
+        $this->purchases?->forget($wcProductId);
+
         return OperationResult::success($code, [
             'product_id' => $productId,
             'wc_product_id' => (int) ($product->wcProductId ?? 0),

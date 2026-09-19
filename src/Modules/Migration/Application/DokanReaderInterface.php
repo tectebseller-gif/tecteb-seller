@@ -32,7 +32,7 @@ interface DokanReaderInterface
     /**
      * The products Dokan attributes to a seller.
      *
-     * @return list<array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int}>
+     * @return list<array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int, source_category_key?:string, source_category_label?:string, source_image_id?:int}>
      */
     public function products(): array;
 
@@ -57,7 +57,7 @@ interface DokanReaderInterface
      * a seller publishing a product mid-import — and a skipped row would be a
      * product that never arrived, with nothing anywhere saying so.
      *
-     * @return list<array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int}>
+     * @return list<array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int, source_category_key?:string, source_category_label?:string, source_image_id?:int}>
      */
     public function productsAfter(int $afterId, int $limit = self::PAGE): array;
 

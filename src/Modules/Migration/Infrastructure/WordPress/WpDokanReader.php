@@ -158,9 +158,40 @@ final class WpDokanReader implements DokanReaderInterface
                 'sku' => (string) get_post_meta($id, '_sku', true),
                 'price_minor' => (int) round((float) get_post_meta($id, '_price', true)),
                 'stock' => (int) get_post_meta($id, '_stock', true),
+                // The category AS THE SOURCE HAS IT. Not this marketplace's
+                // category — those are two different vocabularies, and
+                // treating a WooCommerce term slug as a marketplace category
+                // key would be guessing a business rule. It travels so the
+                // owner can MAP it; `CategoryMap` is where that decision
+                // lives.
+                'source_category_key' => $this->firstCategorySlug($id),
+                'source_category_label' => $this->firstCategoryName($id),
+                // The product's own featured image. No decision involved —
+                // see the note at the import's creation site.
+                'source_image_id' => (int) get_post_thumbnail_id($id),
             ];
         }
         return $products;
+    }
+
+    /** The product's first `product_cat` slug, or '' when it has none. */
+    private function firstCategorySlug(int $wcProductId): string
+    {
+        $terms = get_the_terms($wcProductId, 'product_cat');
+        if (!is_array($terms) || $terms === []) {
+            return '';
+        }
+        return (string) ($terms[0]->slug ?? '');
+    }
+
+    /** The same term's human name, so a mapping screen can show it. */
+    private function firstCategoryName(int $wcProductId): string
+    {
+        $terms = get_the_terms($wcProductId, 'product_cat');
+        if (!is_array($terms) || $terms === []) {
+            return '';
+        }
+        return (string) ($terms[0]->name ?? '');
     }
 
     public function orders(): array

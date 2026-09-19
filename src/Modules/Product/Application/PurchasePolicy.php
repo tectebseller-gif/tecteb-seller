@@ -53,7 +53,17 @@ final class PurchasePolicy
     public const NOT_PUBLISHED = 'not_published';
     public const OUT_OF_STOCK = 'out_of_stock';
 
-    /** @var array<int,array{decision:string, product:?Product}> per-request memo */
+    /**
+     * Per-request memo.
+     *
+     * «Per-request» is the intended lifetime and not automatically the real
+     * one: the container hands out one instance and keeps it, so inside a
+     * long-lived process — WP-CLI, a queue worker — this survives changes
+     * that a browser request would never have seen. `forget()` is how the one
+     * operation that changes «is this ours» tells it so.
+     *
+     * @var array<int,array{decision:string, product:?Product}>
+     */
     private array $memo = [];
 
     public function __construct(
@@ -88,6 +98,26 @@ final class PurchasePolicy
             $this->memo[$wcProductId] = $answer;
         }
         return $answer;
+    }
+
+    /**
+     * Drop the remembered answer for one product, or for all of them.
+     *
+     * Called when ownership moves between `observed` and `marketplace`,
+     * because that is the only operation that changes whether a storefront
+     * product is this marketplace's at all — and a remembered `not_ours`
+     * would then refuse to sell a product the marketplace had just taken on.
+     * Measured on the disposable site: without this, a transfer followed by
+     * a sale in the same process answered `not_ours` for a product whose
+     * ownership column already read `marketplace`.
+     */
+    public function forget(?int $wcProductId = null): void
+    {
+        if ($wcProductId === null) {
+            $this->memo = [];
+            return;
+        }
+        unset($this->memo[$wcProductId]);
     }
 
     public function isOurs(int $wcProductId): bool

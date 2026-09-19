@@ -27,6 +27,17 @@ final class FakeProductImages implements ProductImageLibraryInterface
         return ['ok' => true, 'code' => 'image_uploaded', 'media_id' => $id];
     }
 
+    /** Copies into a new id this vendor owns, mirroring the real adapter. */
+    public function duplicateForVendor(int $mediaId, int $vendorUserId): int
+    {
+        if ($mediaId <= 0 || $vendorUserId <= 0 || !isset($this->owners[$mediaId])) {
+            return 0;
+        }
+        $newId = max(array_keys($this->owners)) + 1;
+        $this->owners[$newId] = $vendorUserId;
+        return $newId;
+    }
+
     public function ownedBy(int $mediaId, int $vendorUserId): bool
     {
         return ($this->owners[$mediaId] ?? 0) === $vendorUserId;

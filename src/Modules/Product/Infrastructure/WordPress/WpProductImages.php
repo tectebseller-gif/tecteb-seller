@@ -82,6 +82,44 @@ final class WpProductImages implements ProductImageLibraryInterface
         return ['ok' => true, 'code' => 'image_uploaded', 'media_id' => $attachmentId];
     }
 
+    public function duplicateForVendor(int $mediaId, int $vendorUserId): int
+    {
+        if ($mediaId <= 0 || $vendorUserId <= 0) {
+            return 0;
+        }
+        $source = get_attached_file($mediaId);
+        if (!is_string($source) || $source === '' || !file_exists($source)) {
+            return 0;
+        }
+        $uploads = wp_upload_dir();
+        if (!empty($uploads['error'])) {
+            return 0;
+        }
+        $name = wp_unique_filename($uploads['path'], basename($source));
+        $target = trailingslashit($uploads['path']) . $name;
+        if (!@copy($source, $target)) {
+            return 0;
+        }
+        $type = wp_check_filetype($target);
+        $newId = wp_insert_attachment([
+            'post_mime_type' => (string) ($type['type'] ?? get_post_mime_type($mediaId)),
+            'post_title' => (string) get_the_title($mediaId),
+            'post_status' => 'inherit',
+            'post_author' => $vendorUserId,
+        ], $target);
+        if (is_wp_error($newId) || (int) $newId <= 0) {
+            @unlink($target);
+            return 0;
+        }
+        $newId = (int) $newId;
+        // The same marker every uploaded image gets, so `ownedBy()` answers
+        // yes for it through the ordinary path rather than a special case.
+        update_post_meta($newId, self::OWNER_META, $vendorUserId);
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+        wp_update_attachment_metadata($newId, wp_generate_attachment_metadata($newId, $target));
+        return $newId;
+    }
+
     public function ownedBy(int $mediaId, int $vendorUserId): bool
     {
         if ($mediaId <= 0 || $vendorUserId <= 0) {

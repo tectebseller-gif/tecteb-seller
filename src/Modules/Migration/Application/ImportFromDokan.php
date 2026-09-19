@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
@@ -82,7 +83,14 @@ final class ImportFromDokan
          * account for this order?» FIN-02 says one financial engine per order,
          * and a rule nothing can check is a wish.
          */
-        private readonly ?LedgerRepositoryInterface $ledger = null
+        private readonly ?LedgerRepositoryInterface $ledger = null,
+        // Optional: without it nothing is mapped and every product keeps an
+        // empty category, which is the old behaviour rather than a wrong new
+        // one.
+        private readonly ?CategoryMap $categories = null,
+        // Optional: without it a migrated product keeps no picture, which is
+        // the old behaviour rather than a wrong new one.
+        private readonly ?ProductImageLibraryInterface $images = null
     ) {
     }
 
@@ -310,10 +318,26 @@ final class ImportFromDokan
                 $product['vendor_user_id'],
                 new ProductDetails(
                     title: $product['title'],
-                    categoryKey: '',
+                    // Mapped, or empty. Empty keeps the product a draft,
+                    // which is the visible «somebody must decide this» —
+                    // see `CategoryMap`.
+                    categoryKey: $this->categories?->marketplaceCategoryFor(
+                        (string) ($product['source_category_key'] ?? '')
+                    ) ?? '',
                     priceMinor: $product['price_minor'],
                     sku: $product['sku'],
-                    stock: $product['stock']
+                    // Never below zero.
+                    //
+                    // Dokan permits backorders, so a live shop really does
+                    // carry products at `-2`, and this marketplace's own
+                    // validation refuses a negative stock — every such
+                    // product would arrive and then be unsaveable, which is
+                    // the worst of both. Zero is the conservative reading of
+                    // «somebody already sold more than they had»: none
+                    // available, nothing oversold twice. The count is
+                    // reported, so it is a number the owner sees rather than
+                    // a correction nobody was told about.
+                    stock: max(0, (int) $product['stock'])
                 ),
                 // Draft, always. Publishing would write to a post Dokan
                 // manages, and that is a decision, not an import step.
@@ -337,6 +361,38 @@ final class ImportFromDokan
             );
             if ($productId === 0) {
                 continue;
+            }
+            // The picture the product already has.
+            //
+            // Unlike the CATEGORY — two vocabularies, no reliable
+            // correspondence, so a mapping the owner writes — the featured
+            // image needs no decision at all: it is the same photograph of
+            // the same product, hanging on the very WooCommerce post this row
+            // now points at. Carrying it is not a guess; leaving it behind
+            // would just make every migrated product fail readiness with
+            // `missing_image` and wait for somebody to re-upload a file that
+            // is already there.
+            //
+            // A SECOND write, deliberately, and safe in a way the run stamp
+            // was not: a row that lost its image between the two is still
+            // findable, still stamped, still rolled back with its run — and
+            // it says `missing_image` out loud instead of turning into a
+            // duplicate on the next pass.
+            $sourceImageId = (int) ($product['source_image_id'] ?? 0);
+            if ($sourceImageId > 0 && $this->images !== null) {
+                // COPIED into the vendor's own media, not referenced.
+                //
+                // The gallery only keeps images the vendor owns, and the
+                // source attachment belongs to whoever uploaded it in the old
+                // system — so a reference survives the import and then
+                // vanishes the first time the vendor saves the product, which
+                // is the worst possible moment to lose it. Measured: the
+                // picture arrived, the vendor filled in the specs, and the
+                // save dropped it again.
+                $ownCopy = $this->images->duplicateForVendor($sourceImageId, (int) $product['vendor_user_id']);
+                if ($ownCopy > 0) {
+                    $this->products->saveImages($productId, [$ownCopy], $ownCopy);
+                }
             }
             $created['products'][] = $productId;
         }
@@ -684,10 +740,26 @@ final class ImportFromDokan
                 $product['vendor_user_id'],
                 new ProductDetails(
                     title: $product['title'],
-                    categoryKey: '',
+                    // Mapped, or empty. Empty keeps the product a draft,
+                    // which is the visible «somebody must decide this» —
+                    // see `CategoryMap`.
+                    categoryKey: $this->categories?->marketplaceCategoryFor(
+                        (string) ($product['source_category_key'] ?? '')
+                    ) ?? '',
                     priceMinor: $product['price_minor'],
                     sku: $product['sku'],
-                    stock: $product['stock']
+                    // Never below zero.
+                    //
+                    // Dokan permits backorders, so a live shop really does
+                    // carry products at `-2`, and this marketplace's own
+                    // validation refuses a negative stock — every such
+                    // product would arrive and then be unsaveable, which is
+                    // the worst of both. Zero is the conservative reading of
+                    // «somebody already sold more than they had»: none
+                    // available, nothing oversold twice. The count is
+                    // reported, so it is a number the owner sees rather than
+                    // a correction nobody was told about.
+                    stock: max(0, (int) $product['stock'])
                 ),
                 ProductStatus::Draft,
                 LinkOwnership::Observed,
@@ -702,6 +774,38 @@ final class ImportFromDokan
                 $failed++;
                 $notes[] = $last . ':create_failed';
                 continue;
+            }
+            // The picture the product already has.
+            //
+            // Unlike the CATEGORY — two vocabularies, no reliable
+            // correspondence, so a mapping the owner writes — the featured
+            // image needs no decision at all: it is the same photograph of
+            // the same product, hanging on the very WooCommerce post this row
+            // now points at. Carrying it is not a guess; leaving it behind
+            // would just make every migrated product fail readiness with
+            // `missing_image` and wait for somebody to re-upload a file that
+            // is already there.
+            //
+            // A SECOND write, deliberately, and safe in a way the run stamp
+            // was not: a row that lost its image between the two is still
+            // findable, still stamped, still rolled back with its run — and
+            // it says `missing_image` out loud instead of turning into a
+            // duplicate on the next pass.
+            $sourceImageId = (int) ($product['source_image_id'] ?? 0);
+            if ($sourceImageId > 0 && $this->images !== null) {
+                // COPIED into the vendor's own media, not referenced.
+                //
+                // The gallery only keeps images the vendor owns, and the
+                // source attachment belongs to whoever uploaded it in the old
+                // system — so a reference survives the import and then
+                // vanishes the first time the vendor saves the product, which
+                // is the worst possible moment to lose it. Measured: the
+                // picture arrived, the vendor filled in the specs, and the
+                // save dropped it again.
+                $ownCopy = $this->images->duplicateForVendor($sourceImageId, (int) $product['vendor_user_id']);
+                if ($ownCopy > 0) {
+                    $this->products->saveImages($productId, [$ownCopy], $ownCopy);
+                }
             }
             $created['products'][] = $productId;
         }
