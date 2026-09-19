@@ -90,37 +90,31 @@ if [ -n "${PREVIOUS_HASH}" ] && [ "${PREVIOUS_HASH}" != "${NEW_HASH}" ] && [ "${
   exit 2
 fi
 
-# `TMC_REBUILD=1` is for a version that has not gone anywhere yet. Once a
-# package is COMMITTED it has been quoted in a delivery, and git is the honest
-# record of that — so the iteration flag must not reach it.
+# A package that was DELIVERED may never be rebuilt, full stop.
 #
-# This guard exists because the weaker one was not enough: a rebuild run while
-# the Version header still said `alpha.14` silently replaced the delivered
-# alpha.14 package with different bytes and rewrote SHA256SUMS to agree, so
-# the file matched its recorded hash and nothing looked wrong. The committed
-# hash was the only surviving witness.
-# `cat-file -e` asks «does this path exist at HEAD» and answers with its exit
-# code alone. Asking first matters under `set -euo pipefail`: a `git show` for
-# a version that is NOT yet committed — the normal case for the build in hand —
-# fails, and inside a pipeline that failure takes the whole script down with
-# exit 128, which looks nothing like «this version is new».
-COMMITTED_HASH=""
-COMMITTED_PATH="dist/${SLUG}-${VERSION}.zip"
-if command -v git >/dev/null 2>&1 \
-   && git -C "${ROOT}" rev-parse --git-dir >/dev/null 2>&1 \
-   && git -C "${ROOT}" cat-file -e "HEAD:${COMMITTED_PATH}" 2>/dev/null; then
-  COMMITTED_HASH="$(git -C "${ROOT}" show "HEAD:${COMMITTED_PATH}" | sha256sum | cut -d' ' -f1)"
+# This used to ask git for the version at HEAD. That was not enough, and the
+# failure was instructive: the overwrite had already been committed, so HEAD
+# held the WRONG bytes — and a "restore" from HEAD restored the overwrite. The
+# owner noticed, from the hash they had been given, that a package with their
+# version number no longer matched what they had.
+#
+# So the question is asked of `dist/DELIVERED.txt`, which is written by hand
+# and records what was handed over. Not of git (which records what was
+# committed) and not of SHA256SUMS (which is regenerated from disk, and so
+# agrees with any mistake already made).
+LEDGER="${ROOT}/dist/DELIVERED.txt"
+if [ -f "${LEDGER}" ]; then
+  DELIVERED_HASH="$(awk -v f="${SLUG}-${VERSION}.zip" '!/^#/ && $2 == f { print $1 }' "${LEDGER}" | head -1)"
+  if [ -n "${DELIVERED_HASH}" ] && [ "${DELIVERED_HASH}" != "${NEW_HASH}" ]; then
+    rm -f "${BUILT}"
+    echo "refusing to rebuild ${SLUG}-${VERSION}.zip: that package was DELIVERED." >&2
+    echo "  delivered: ${DELIVERED_HASH}" >&2
+    echo "  rebuilt:   ${NEW_HASH}" >&2
+    echo "Somebody has these bytes. Bump the Version header; there is no flag for this." >&2
+    exit 2
+  fi
 fi
-if [ -n "${COMMITTED_HASH}" ] && [ "${COMMITTED_HASH}" != "${NEW_HASH}" ] \
-   && [ "${TMC_REBUILD_RELEASED:-0}" != "1" ]; then
-  rm -f "${BUILT}"
-  echo "refusing to rebuild ${SLUG}-${VERSION}.zip: that version is already committed." >&2
-  echo "  committed: ${COMMITTED_HASH}" >&2
-  echo "  rebuilt:   ${NEW_HASH}" >&2
-  echo "Bump the Version header. TMC_REBUILD=1 does NOT cover a released package;" >&2
-  echo "TMC_REBUILD_RELEASED=1 does, and it changes bytes somebody may already have." >&2
-  exit 2
-fi
+
 mv -f "${BUILT}" "${ZIP}"
 
 # --- source archive (tests, docs, lockfile, build tooling) ------------------

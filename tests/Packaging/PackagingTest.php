@@ -182,6 +182,51 @@ final class PackagingTest extends TestCase
     }
 
     /**
+     * Every package the owner was actually GIVEN still has the bytes they
+     * were given.
+     *
+     * `dist/SHA256SUMS` cannot answer this. It is regenerated from whatever
+     * is on disk, so a wrong overwrite is copied into it and the file then
+     * agrees with itself — which is exactly what happened: `alpha.14` was
+     * rebuilt over the delivered package before the version was bumped, and
+     * `SHA256SUMS` was rewritten to match. Nothing contradicted anything.
+     *
+     * `dist/DELIVERED.txt` is written by hand and never generated. It records
+     * what was handed over, and this test is the thing that makes the record
+     * binding. A name listed there may never mean different bytes again; new
+     * content gets a new version number.
+     */
+    public function testEveryDeliveredPackageStillHasTheBytesItWasDeliveredWith(): void
+    {
+        $ledger = self::root() . '/dist/DELIVERED.txt';
+        self::assertFileExists($ledger, 'the delivery ledger is the record; it may not go missing');
+
+        $checked = 0;
+        foreach (explode("\n", (string) file_get_contents($ledger)) as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '#')) {
+                continue;
+            }
+            self::assertMatchesRegularExpression(
+                '/^[0-9a-f]{64}\s+\S+\s+\d{4}-\d{2}-\d{2}$/',
+                $line,
+                'every ledger line is «<sha256>  <file>  <date>»: ' . $line
+            );
+            [$hash, $name] = preg_split('/\s+/', $line);
+            $path = self::root() . '/dist/' . $name;
+            self::assertFileExists($path, $name . ' was delivered and is no longer in dist/');
+            self::assertSame(
+                $hash,
+                hash_file('sha256', $path),
+                $name . ' no longer has the bytes it was delivered with. A delivered name never'
+                    . ' changes content — if the content must change, the version must.'
+            );
+            $checked++;
+        }
+        self::assertGreaterThan(3, $checked, 'sanity: the ledger has entries');
+    }
+
+    /**
      * Every package that has been committed still has the bytes it was
      * committed with.
      *
