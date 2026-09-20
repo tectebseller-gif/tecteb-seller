@@ -119,6 +119,7 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         if ($withdrawalId <= 0) {
             return 0;
         }
+        $this->figuresChanged($vendorUserId);
         foreach ($orderItemIds as $orderItemId) {
             $claimed = $this->db->execute(
                 'INSERT INTO `' . $this->lines() . '` (withdrawal_id, order_item_id, vendor_user_id, amount_minor, created_at)
@@ -181,12 +182,16 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         $params[] = $now;
         $params[] = $withdrawalId;
 
-        return $this->db->execute(
+        $written = $this->db->execute(
             'UPDATE `' . $this->table() . "` SET status = %s, open_marker = {$marker},
              reviewed_by = {$reviewer}, reviewed_at = %s, note = %s, reference = %s,
              paid_at = {$paidAt}, updated_at = %s WHERE id = %d",
             $params
         ) !== null;
+        if ($written) {
+            $this->figuresChanged((int) ($this->find($withdrawalId)?->vendorUserId ?? 0));
+        }
+        return $written;
     }
 
     public function release(int $withdrawalId): bool
@@ -252,5 +257,21 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
     private function now(): string
     {
         return $this->clock->now()->format('Y-m-d H:i:s');
+    }
+
+    /**
+     * The one hook a report cache listens to.
+     *
+     * Fired from the repository rather than from the service above it,
+     * because Application may not call WordPress — and fired from the WRITE
+     * rather than from the caller, which is the mistake `alpha.16` made with
+     * the store page: forgetting before the save let a read land in between
+     * and re-cache the stale answer under the new version.
+     */
+    private function figuresChanged(int $vendorUserId): void
+    {
+        if ($vendorUserId > 0 && function_exists('do_action')) {
+            do_action('tmc_vendor_figures_changed', $vendorUserId);
+        }
     }
 }

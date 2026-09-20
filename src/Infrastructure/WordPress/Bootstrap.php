@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Infrastructure\WordPress;
 
 use Tecteb\Marketplace\Contracts\AuditRepositoryInterface;
 use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
+use Tecteb\Marketplace\Contracts\CacheInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
@@ -292,6 +293,7 @@ final class Bootstrap
         // every module subscribes to and emits on the same instance.
         $c->bind(EventBus::class, static fn () => new EventBus());
         $c->bind(OptionStoreInterface::class, static fn () => new WpOptionStore());
+        $c->bind(CacheInterface::class, static fn () => new WpCache());
         $c->bind(FlashStoreInterface::class, static fn () => new TransientFlashStore());
         $c->bind(LockStoreInterface::class, static fn () => new WpLockStore($GLOBALS['wpdb']));
         // Same adapter: the guarded writes act on the same options table and

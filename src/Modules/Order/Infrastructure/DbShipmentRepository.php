@@ -52,7 +52,11 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
                 $now,
             ]
         );
-        return $written === null ? 0 : (int) $this->db->getVar('SELECT LAST_INSERT_ID()');
+        if ($written === null) {
+            return 0;
+        }
+        $this->figuresChanged($shipment->vendorUserId);
+        return (int) $this->db->getVar('SELECT LAST_INSERT_ID()');
     }
 
     public function shipmentsFor(int $orderItemId): array
@@ -97,7 +101,11 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
                 $now,
             ]
         );
-        return $written === null ? 0 : (int) $this->db->getVar('SELECT LAST_INSERT_ID()');
+        if ($written === null) {
+            return 0;
+        }
+        $this->figuresChanged($request->vendorUserId);
+        return (int) $this->db->getVar('SELECT LAST_INSERT_ID()');
     }
 
     public function findReturn(int $id): ?ReturnRequest
@@ -203,10 +211,14 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
             $params[] = $receivedAt;
         }
         $params[] = $id;
-        return $this->db->execute(
+        $written = $this->db->execute(
             'UPDATE `' . $this->returns() . '` SET ' . implode(', ', $sets) . ' WHERE id = %d',
             $params
         ) !== null;
+        if ($written) {
+            $this->figuresChanged((int) ($this->findReturn($id)?->vendorUserId ?? 0));
+        }
+        return $written;
     }
 
     public function linkWcRefund(int $id, int $wcRefundId): bool
@@ -375,5 +387,21 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
     private function now(): string
     {
         return $this->clock->now()->format('Y-m-d H:i:s');
+    }
+
+    /**
+     * The one hook a report cache listens to.
+     *
+     * Fired from the repository rather than from the service above it,
+     * because Application may not call WordPress — and fired from the WRITE
+     * rather than from the caller, which is the mistake `alpha.16` made with
+     * the store page: forgetting before the save let a read land in between
+     * and re-cache the stale answer under the new version.
+     */
+    private function figuresChanged(int $vendorUserId): void
+    {
+        if ($vendorUserId > 0 && function_exists('do_action')) {
+            do_action('tmc_vendor_figures_changed', $vendorUserId);
+        }
     }
 }

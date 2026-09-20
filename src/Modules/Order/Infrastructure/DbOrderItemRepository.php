@@ -81,6 +81,7 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
         if ($written === null) {
             return 0;
         }
+        $this->figuresChanged($item->vendorUserId);
         return $this->findByOrderItem($item->orderItemId)?->id ?? 0;
     }
 
@@ -150,11 +151,17 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
             $params[] = $shippedAt;
         }
         array_push($params, $this->now(), $id);
-        return $this->db->execute(
+        $written = $this->db->execute(
             'UPDATE `' . $this->table() . '` SET status = %s, carrier = %s, tracking_code = %s,
              shipped_at = ' . $shipped . ', updated_at = %s WHERE id = %d',
             $params
         ) !== null;
+        if ($written) {
+            // Read back rather than passed in: the caller has an id, and the
+            // shop the row belongs to is the row's own answer.
+            $this->figuresChanged((int) ($this->find($id)?->vendorUserId ?? 0));
+        }
+        return $written;
     }
 
     public function totalsForVendor(int $vendorUserId): array
@@ -215,11 +222,15 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
             $params[] = $actorId;
         }
         array_push($params, $this->now(), $id);
-        return $this->db->execute(
+        $written = $this->db->execute(
             'UPDATE `' . $this->table() . "` SET settlement_completed_at = {$when},
              settlement_completed_by = {$who}, updated_at = %s WHERE id = %d",
             $params
         ) !== null;
+        if ($written) {
+            $this->figuresChanged((int) ($this->find($id)?->vendorUserId ?? 0));
+        }
+        return $written;
     }
 
     public function idsForWithdrawal(int $withdrawalId): array
@@ -276,5 +287,21 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
     private function now(): string
     {
         return $this->clock->now()->format('Y-m-d H:i:s');
+    }
+
+    /**
+     * The one hook a report cache listens to.
+     *
+     * Fired from the repository rather than from the service above it,
+     * because Application may not call WordPress — and fired from the WRITE
+     * rather than from the caller, which is the mistake `alpha.16` made with
+     * the store page: forgetting before the save let a read land in between
+     * and re-cache the stale answer under the new version.
+     */
+    private function figuresChanged(int $vendorUserId): void
+    {
+        if ($vendorUserId > 0 && function_exists('do_action')) {
+            do_action('tmc_vendor_figures_changed', $vendorUserId);
+        }
     }
 }

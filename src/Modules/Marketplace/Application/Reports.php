@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Marketplace\Application;
 
+use Tecteb\Marketplace\Contracts\CacheInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\VendorBalance;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
@@ -26,9 +27,15 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
  * Three rules, each of which is the difference between a report and a
  * decoration:
  *
- *  - **Computed, never cached.** Every figure is derived from the ledger and
- *    the order lines when it is asked for. A stored total is a total that
- *    drifts, and a financial number that drifts is worse than no number.
+ *  - **Computed, then cached behind a version — never stored.** Every figure
+ *    is still derived from the ledger and the order lines. What is kept is the
+ *    RESULT of that derivation, under a key carrying a counter that any write
+ *    to the shop bumps, so a figure cannot outlive the data it came from. That
+ *    is a different thing from a stored total, which is what drifts: nothing
+ *    here is ever written back as though it were a fact. A cache miss and a
+ *    cold install produce the same numbers by the same path, and
+ *    `ReportCacheKey::NAMESPACE_PREFIX` is per shop, so one shop's entry is
+ *    not reachable with another shop's id.
  *  - **Scoped by the asker.** A vendor's report is built from their own rows
  *    and cannot be widened by any argument; the marketplace-wide one asks for
  *    the manager's capability first and returns nothing without it.
@@ -57,8 +64,42 @@ final class Reports
     /** Below this, a product is worth a vendor's attention. Display only. */
     public const LOW_STOCK_THRESHOLD = 5;
 
-    public function __construct(private readonly ContainerInterface $container)
+    /**
+     * How long a report may be stale.
+     *
+     * Ninety seconds, not ten minutes. The version counter is what actually
+     * retires a figure; this is only the backstop for a write that forgot to
+     * bump one, and a backstop measured in minutes on a financial screen is a
+     * wrong number somebody acts on. Short enough that «refresh and it is
+     * right» is true, long enough to absorb a manager clicking between tabs.
+     */
+    public const TTL = 90;
+
+    public function __construct(
+        private readonly ContainerInterface $container,
+        private readonly ?CacheInterface $cache = null
+    ) {
+    }
+
+    /**
+     * Retire everything cached for one shop.
+     *
+     * Called from the WRITE, never from the reader — the rule the store page
+     * cache learned the hard way in `alpha.16`, where `VendorRoutes` forgot
+     * BEFORE saving and a read landing in between re-cached the stale page
+     * under the new version.
+     */
+    public function forgetVendor(int $vendorUserId): void
     {
+        if ($vendorUserId > 0) {
+            $this->cache?->bump(ReportCacheKey::forVendor($vendorUserId));
+        }
+    }
+
+    /** Retire the marketplace-wide pair. */
+    public function forgetMarketplace(): void
+    {
+        $this->cache?->bump(ReportCacheKey::MARKETPLACE);
     }
 
     /**
@@ -68,16 +109,37 @@ final class Reports
      */
     public function forVendor(int $actorId, int $vendorUserId): array
     {
+        // The access check is BEFORE the cache and is never cached itself.
+        // A cached report keyed only by shop is correct precisely because
+        // nobody reaches this line without already being that shop's — a key
+        // that also carried the actor would multiply the entries and change
+        // nothing about who may read them.
         $access = $this->service(StaffAccess::class);
         if ($access === null || $access->storeFor($actorId) !== $vendorUserId) {
             return [];
         }
-        return [
+
+        $namespace = ReportCacheKey::forVendor($vendorUserId);
+        $key = $this->cache !== null
+            ? $namespace . ':v' . $this->cache->version($namespace)
+            : '';
+        if ($key !== '') {
+            $hit = $this->cache?->get($key);
+            if (is_array($hit) && $hit !== []) {
+                return $hit;
+            }
+        }
+
+        $report = [
             self::SALES => $this->sales($vendorUserId),
             self::PRODUCTS => $this->products($vendorUserId),
             self::STOCK => $this->stock($vendorUserId),
             self::FINANCE => $this->finance($vendorUserId),
         ];
+        if ($key !== '') {
+            $this->cache?->put($key, $report, self::TTL);
+        }
+        return $report;
     }
 
     /**
@@ -92,10 +154,30 @@ final class Reports
      */
     public function forManager(array $vendorIds): array
     {
-        return [
-            self::FINANCE => $this->marketplaceFinance($vendorIds),
-            self::OPERATIONS => $this->marketplaceOperations($vendorIds),
+        // The set of shops is part of the key. Two managers looking at
+        // different selections must not share an entry, and the same
+        // selection in a different order is the same selection.
+        $ids = array_values(array_unique(array_map('intval', $vendorIds)));
+        sort($ids);
+        $namespace = ReportCacheKey::MARKETPLACE;
+        $key = $this->cache !== null
+            ? $namespace . ':v' . $this->cache->version($namespace) . ':' . md5(implode(',', $ids))
+            : '';
+        if ($key !== '') {
+            $hit = $this->cache?->get($key);
+            if (is_array($hit) && $hit !== []) {
+                return $hit;
+            }
+        }
+
+        $report = [
+            self::FINANCE => $this->marketplaceFinance($ids),
+            self::OPERATIONS => $this->marketplaceOperations($ids),
         ];
+        if ($key !== '') {
+            $this->cache?->put($key, $report, self::TTL);
+        }
+        return $report;
     }
 
     /** «فروش» — what this shop sold, by the state each line is in. */

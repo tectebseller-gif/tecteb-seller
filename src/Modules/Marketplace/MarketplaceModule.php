@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Marketplace;
 
 use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
+use Tecteb\Marketplace\Contracts\CacheInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Contracts\Files\PrivateFileStorageInterface;
@@ -14,6 +15,7 @@ use Tecteb\Marketplace\Contracts\ModuleManifest;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WordPress\ReportCacheInvalidation;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ActionQueue;
 use Tecteb\Marketplace\Modules\Marketplace\Application\EngagementRepositoryInterface;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageCoupons;
@@ -110,7 +112,13 @@ final class MarketplaceModule implements ModuleInterface
             $c->get(Notify::class)
         ));
         $c->bind(ActionQueue::class, static fn (ContainerInterface $c) => new ActionQueue($c));
-        $c->bind(Reports::class, static fn (ContainerInterface $c) => new Reports($c));
+        $c->bind(Reports::class, static fn (ContainerInterface $c) => new Reports(
+            $c,
+            // Optional on purpose: a report must be computable with no cache
+            // at all, and a caller that cannot answer without one has a bug
+            // rather than a cache.
+            $c->has(CacheInterface::class) ? $c->get(CacheInterface::class) : null
+        ));
         $c->bind(NotificationRepositoryInterface::class, static fn (ContainerInterface $c) => new DbNotificationRepository(
             $c->get(DatabaseInterface::class),
             $c->get(ClockInterface::class)
@@ -155,6 +163,13 @@ final class MarketplaceModule implements ModuleInterface
 
     public function boot(ContainerInterface $c): void
     {
+        // Every write that can move a figure retires that shop's cached
+        // reports. Registered here rather than in each repository, for the
+        // reason the store page's invalidation lives in Infrastructure: the
+        // services that do the writing are Application classes and may not
+        // call WordPress.
+        ReportCacheInvalidation::register($c);
+
         $tickets = new TicketsPage($c);
         $wholesale = new WholesalePage($c);
         $reports = new ReportsPage($c);

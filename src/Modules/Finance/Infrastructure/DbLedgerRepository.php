@@ -60,7 +60,11 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
         $sql = 'INSERT INTO `' . $this->table() . '`
                 (event_key, vendor_user_id, account, amount_minor, currency, exponent, order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
                 VALUES ' . implode(', ', $tuples);
-        return $this->db->execute($sql, $params) !== null;
+        $written = $this->db->execute($sql, $params) !== null;
+        if ($written) {
+            $this->figuresChanged($transaction->vendorUserId);
+        }
+        return $written;
     }
 
     public function hasEvent(string $eventKey): bool
@@ -143,5 +147,21 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
             (string) ($row['snapshot'] ?? ''),
             (string) $row['created_at']
         );
+    }
+
+    /**
+     * The one hook a report cache listens to.
+     *
+     * Fired from the repository rather than from the service above it,
+     * because Application may not call WordPress — and fired from the WRITE
+     * rather than from the caller, which is the mistake `alpha.16` made with
+     * the store page: forgetting before the save let a read land in between
+     * and re-cache the stale answer under the new version.
+     */
+    private function figuresChanged(int $vendorUserId): void
+    {
+        if ($vendorUserId > 0 && function_exists('do_action')) {
+            do_action('tmc_vendor_figures_changed', $vendorUserId);
+        }
     }
 }
