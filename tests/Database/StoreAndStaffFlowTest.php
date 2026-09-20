@@ -15,6 +15,7 @@ use Tecteb\Marketplace\Modules\Vendor\Application\AcceptStaffInvitation;
 use Tecteb\Marketplace\Modules\Vendor\Application\ManageStaff;
 use Tecteb\Marketplace\Modules\Vendor\Application\MobileVerification;
 use Tecteb\Marketplace\Modules\Vendor\Application\ReviewChangeRequests;
+use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Application\UpdateStoreSettings;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorCapabilities;
@@ -333,6 +334,136 @@ final class StoreAndStaffFlowTest extends DatabaseTestCase
     }
 
     // ------------------------------------------------------------- helpers
+
+    // ------------------------------------------------ staff activity report
+
+    /**
+     * WHAT THIS PROVES: the owner can see what each of their staff has
+     * actually DONE, and can see it only for their own shop.
+     *
+     * Until now Master §۵ was answered by `last_seen_at` alone — a stamp that
+     * says somebody opened a page. «Logged in» and «did the job» are
+     * different questions, and the audit log already holds the second one, so
+     * the report reads it rather than keeping a second copy of the count.
+     */
+    public function testTheOwnerSeesWhatEachStaffMemberActuallyDid(): void
+    {
+        // Invited AND accepted: only an accepted invitation has a WordPress
+        // user behind it, and only a user can be an actor in the trail.
+        $invite = $this->inviteNumbered(1);
+        $this->invitations->accept((string) $invite->context['token'], 'a-long-enough-password');
+        $member = $this->staff->find((int) $invite->context['staff_id']);
+        self::assertNotNull($member);
+        $actor = $member->staffUserId;
+        self::assertGreaterThan(0, $actor);
+
+        // Three real audit lines for this person, one for somebody else.
+        // Real catalogue events on purpose: AuditEventSanitizer DROPS any
+        // event type not on the allowlist, so an invented name writes nothing
+        // and the report would be counting an empty table.
+        $audit = $this->auditLoggerFor();
+        $audit->log(AuditEventCatalog::PRODUCT_SAVED, $actor, 'product', '11', []);
+        $audit->log(AuditEventCatalog::PRODUCT_SAVED, $actor, 'product', '12', []);
+        $audit->log(AuditEventCatalog::PRODUCT_SUBMITTED, $actor, 'product', '13', []);
+        $audit->log(AuditEventCatalog::PRODUCT_SAVED, self::MANAGER, 'product', '99', []);
+        $mine = $this->activityReport()->forVendor(self::VENDOR, self::VENDOR)['rows'][0]['actions'];
+
+        $report = $this->activityReport()->forVendor(self::VENDOR, self::VENDOR);
+
+        self::assertTrue($report['allowed']);
+        self::assertSame('ok', $report['reason']);
+        self::assertCount(1, $report['rows']);
+        self::assertSame($actor, $report['rows'][0]['staff_user_id']);
+        // At least the three written here. Accepting the invitation also logs
+        // a line as this same person, so an exact total would be asserting
+        // the invitation flow rather than the report.
+        self::assertGreaterThanOrEqual(3, $mine);
+        self::assertSame(
+            AuditEventCatalog::PRODUCT_SUBMITTED,
+            $report['rows'][0]['last_event'],
+            'newest first'
+        );
+        self::assertNotSame('', $report['rows'][0]['last_at']);
+
+        // And the manager's own line is not in this shop's total: the report
+        // counts only actors who are this shop's staff.
+        $everything = (new WpAuditRepository($this->wpdb))->count([]);
+        self::assertGreaterThan(
+            $mine,
+            $everything,
+            'the site-wide trail has more in it than this shop\'s staff did — so the report really is filtering'
+        );
+    }
+
+    /**
+     * And it is scoped: another shop's owner sees nothing of this one.
+     *
+     * The audit log is site-wide. An unscoped read here would hand a vendor
+     * the manager's activity and every other shop's, which is the failure
+     * that matters more than any counting bug.
+     */
+    public function testTheActivityReportIsRefusedToAnotherShopAndToStaff(): void
+    {
+        $invite = $this->inviteNumbered(1);
+        $this->invitations->accept((string) $invite->context['token'], 'a-long-enough-password');
+        $member = $this->staff->find((int) $invite->context['staff_id']);
+        self::assertNotNull($member);
+        self::assertGreaterThan(0, $member->staffUserId);
+        $this->auditLoggerFor()->log(AuditEventCatalog::PRODUCT_SAVED, $member->staffUserId, 'product', '11', []);
+
+        // The other shop's owner: allowed to ask, told nothing about us.
+        $other = $this->activityReport()->forVendor(self::OTHER_VENDOR, self::OTHER_VENDOR);
+        self::assertTrue($other['allowed']);
+        self::assertSame([], $other['rows'], 'another shop has no staff of its own and must see none of ours');
+
+        // The other shop's owner asking about OUR shop: refused outright.
+        $reach = $this->activityReport()->forVendor(self::OTHER_VENDOR, self::VENDOR);
+        self::assertFalse($reach['allowed']);
+        self::assertSame('forbidden', $reach['reason']);
+        self::assertSame([], $reach['rows']);
+
+        // A staff member asking about the shop they work in: also refused —
+        // the same gate that keeps them off the staff page.
+        $asStaff = $this->activityReport()->forVendor($member->staffUserId, self::VENDOR);
+        self::assertFalse($asStaff['allowed']);
+        self::assertSame('forbidden', $asStaff['reason']);
+    }
+
+    /**
+     * A shop whose invitations are all unaccepted gets «no activity», not an
+     * unfiltered read.
+     *
+     * An invited row has no WordPress user yet, so the actor list is empty —
+     * and an empty `IN ()` list means «no restriction», which would return
+     * the whole site's trail. Saying so explicitly is the guard.
+     */
+    public function testAShopWithNoStaffReadsNobodyElsesTrail(): void
+    {
+        // Nobody invited at all. The guard that matters is that an empty
+        // actor set becomes «no rows» rather than «no restriction»: an empty
+        // `IN ()` list would match the whole site's trail.
+        //
+        // Note the WordPress account here is created at INVITE time, not at
+        // acceptance — so an invited-but-unaccepted member already has a user
+        // id, and the emptiness this guards has to come from having no staff.
+        $this->auditLoggerFor()->log(AuditEventCatalog::PRODUCT_SAVED, self::MANAGER, 'product', '99', []);
+
+        $report = $this->activityReport()->forVendor(self::VENDOR, self::VENDOR);
+
+        self::assertTrue($report['allowed']);
+        self::assertSame('no_staff', $report['reason']);
+        self::assertSame([], $report['rows'], 'an empty actor list must not read the site-wide log');
+    }
+
+    private function activityReport(): \Tecteb\Marketplace\Modules\Vendor\Application\StaffActivityReport
+    {
+        return new \Tecteb\Marketplace\Modules\Vendor\Application\StaffActivityReport(
+            $this->staff,
+            new WpAuditRepository($this->wpdb),
+            $this->access,
+            new SystemClock()
+        );
+    }
 
     private function inviteNumbered(int $n): \Tecteb\Marketplace\Modules\Vendor\Application\OperationResult
     {

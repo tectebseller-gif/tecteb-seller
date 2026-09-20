@@ -1,0 +1,10 @@
+# The files under test and the files that test them.
+# Repository paths, so a reader can diff these against the tree:
+tests/Database/HandoverConcurrencyTest.php
+tests/Support/concurrent-shop-write.php
+src/Modules/Migration/Infrastructure/DbShopRecordRepository.php
+src/Modules/Migration/Application/DokanFinanceSnapshot.php
+sha256=a8b187ab2f15d6fb68e97a905e07a9916f868211144c1c0f08e0fc500be9c886  DbShopRecordRepository.php
+sha256=621469b5833ec4be7280c8ad46eee820d29a8a27c35c7801f56243d5351c1a9b  DokanFinanceSnapshot.php
+sha256=161cb852a1a7a9ef5773d8092ae35a16d792fe8428dce123ed1be2b68b821f76  HandoverConcurrencyTest.php
+sha256=8eaaad0d5991bc69491c85f74837d506d34cf4645591ad38963f9607f9de02bf  concurrent-shop-write.php

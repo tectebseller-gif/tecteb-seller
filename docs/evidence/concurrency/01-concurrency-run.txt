@@ -1,0 +1,22 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+.........                                                           9 / 9 (100%)
+
+Time: 00:07.032, Memory: 12.00 MB
+
+Handover Concurrency (Tecteb\Marketplace\Tests\Database\HandoverConcurrency)
+ ✔ The report and its token describe the same read even when the rows move between them
+ ✔ Figures that leave and come back are not the same receipt
+ ✔ An import landing between the check and the record is made to wait
+ ✔ Every write to the imported past moves the version with it
+ ✔ A rollback moves the version of every shop whose rows it removes
+ ✔ An import cannot join a run while it is being rolled back
+ ✔ Two decisions taken at the same moment do not erase each other
+ ✔ The shared option shape loses a decision and is why the table exists
+ ✔ A refused decision commits nothing
+
+OK (9 tests, 62 assertions)
+exit=0

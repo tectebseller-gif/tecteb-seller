@@ -127,19 +127,35 @@ final class AuditPage
             . '</td></tr>';
     }
 
-    /** @return array<string,string> */
+    /**
+     * The payload as rows `Components::dataList()` can actually draw.
+     *
+     * This used to return a MAP (`key => value`), while `dataList()` has
+     * always taken a LIST of `{label, value}`. So every row it was handed was
+     * a bare string, and `$row['label']` on a string is a TypeError in PHP 8
+     * — the page fatalled the moment it had a single line to show.
+     *
+     * It went unseen because the only thing rendering it was a test that
+     * opens every registered page against an EMPTY audit table: with no
+     * records, `row()` never runs and the broken call is never reached. The
+     * page was «rendered» and proved nothing about rendering a row. Same
+     * lesson as `alpha.13`'s — a test that checks registration does not check
+     * behaviour — one level further in.
+     *
+     * @return list<array{label:string, value:string}>
+     */
     private function details(AuditRecord $record): array
     {
         $rows = [];
         foreach ($record->payload as $key => $value) {
             if (is_scalar($value) || $value === null) {
-                $rows[(string) $key] = (string) ($value ?? '');
+                $rows[] = ['label' => (string) $key, 'value' => (string) ($value ?? '')];
             }
         }
         if ($record->correlationId !== null && $record->correlationId !== '') {
-            $rows['correlation_id'] = $record->correlationId;
+            $rows[] = ['label' => 'correlation_id', 'value' => $record->correlationId];
         }
-        return $rows === [] ? ['—' => ''] : $rows;
+        return $rows === [] ? [['label' => '—', 'value' => '']] : $rows;
     }
 
     /** @param array<string,mixed> $filters */

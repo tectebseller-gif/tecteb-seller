@@ -17,7 +17,7 @@ interface AuditRepositoryInterface
      * the table already had — event type, actor, object, and a date range on
      * `created_at` — so a filtered page is an index seek and not a scan.
      *
-     * @param array{event?:string, actor?:int, object_type?:string, object_id?:string, from?:string, to?:string, search?:string} $filters
+     * @param array{event?:string, actor?:int, actors?:list<int>, object_type?:string, object_id?:string, from?:string, to?:string, search?:string} $filters
      * @return list<AuditRecord>
      */
     public function search(array $filters, int $limit, int $offset): array;

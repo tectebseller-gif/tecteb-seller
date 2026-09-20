@@ -26,7 +26,8 @@ final class StaffView
         VendorUrls $urls,
         string $nonceField,
         ?VendorNotice $notice = null,
-        string $freshInviteUrl = ''
+        string $freshInviteUrl = '',
+        array $activity = []
     ): string {
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
         $used = count(array_filter($members, static fn (StaffMember $m): bool => $m->status !== StaffStatus::Suspended));
@@ -63,7 +64,105 @@ final class StaffView
         }
         $html .= '</section>';
 
-        return $html . self::addForm($urls, $nonceField, $limit, $used);
+        return $html . self::activityCard($activity, $fa) . self::addForm($urls, $nonceField, $limit, $used);
+    }
+
+    /**
+     * What each member has actually DONE, beside what the list above says
+     * they MAY do.
+     *
+     * The row above already carries «آخرین فعالیت» — a stamp saying somebody
+     * opened a page. That answers «are they still here», not «are they doing
+     * the job», and an owner deciding whether to keep giving somebody order
+     * rights needs the second question answered.
+     *
+     * A card list rather than a table, for the reason the whole vendor area
+     * is card lists: a four-column table on a 390px screen is either a
+     * horizontal scroll nobody finds or a column squeezed to one character.
+     *
+     * @param array<string,mixed> $activity as StaffActivityReport returns it
+     * @param callable(string|int):string $fa
+     */
+    private static function activityCard(array $activity, callable $fa): string
+    {
+        if (($activity['allowed'] ?? false) !== true) {
+            return '';
+        }
+        $rows = array_values(array_filter(
+            (array) ($activity['rows'] ?? []),
+            static fn (array $r): bool => (int) $r['actions'] > 0
+        ));
+        $days = (int) ($activity['window_days'] ?? 0);
+
+        $html = '<section class="tv-card"><h2 class="tv-card__title">'
+            . esc_html__('فعالیت پرسنل', 'tecteb-marketplace-core') . '</h2>'
+            . '<p class="tv-hint">' . esc_html(sprintf(
+                /* translators: %s is a number of days */
+                __('کارهای ثبت‌شده در %s روز گذشته، از روی ردِ ممیزی. فقط کارهای همین فروشگاه شمرده می‌شود.', 'tecteb-marketplace-core'),
+                $fa($days)
+            )) . '</p>';
+
+        if ($rows === []) {
+            return $html . VendorUi::notice('info', __('در این بازه هیچ کار ثبت‌شده‌ای از پرسنل نیست. این یعنی کاری ثبت نشده، نه اینکه کسی وارد نشده باشد.', 'tecteb-marketplace-core'))
+                . '</section>';
+        }
+
+        if (($activity['truncated'] ?? false) === true) {
+            // Said out loud: at the cap the numbers are a floor, and a report
+            // that quietly rounded that off would mislead exactly the busiest
+            // shop.
+            $html .= VendorUi::notice('warning', __('تعداد کارها از سقف شمارش گذشته است؛ عددهای زیر «دست‌کم» است، نه کل.', 'tecteb-marketplace-core'));
+        }
+
+        $html .= '<ul class="tv-staff">';
+        foreach ($rows as $row) {
+            $html .= '<li class="tv-staff__item"><div class="tv-staff__head">'
+                . '<strong>' . esc_html((string) $row['display_name']) . '</strong> '
+                . VendorUi::chip('ok', sprintf(
+                    /* translators: %s is a number of recorded actions */
+                    __('%s کار', 'tecteb-marketplace-core'),
+                    $fa((int) $row['actions'])
+                ))
+                . '</div><dl class="tv-datalist">'
+                . '<dt>' . esc_html__('آخرین کار', 'tecteb-marketplace-core') . '</dt><dd>'
+                . esc_html(self::eventLabel((string) $row['last_event'])) . '</dd>'
+                . '<dt>' . esc_html__('زمان آخرین کار', 'tecteb-marketplace-core') . '</dt><dd>'
+                . esc_html($fa((string) $row['last_at'])) . '</dd>'
+                . '</dl></li>';
+        }
+        return $html . '</ul></section>';
+    }
+
+    /**
+     * A Persian name for the events a vendor's own staff can generate.
+     *
+     * Unknown keys fall through as themselves rather than as «نامشخص»: an
+     * event this map has not caught up with is still a true thing that
+     * happened, and hiding its name would make the newest features the
+     * hardest to audit.
+     */
+    private static function eventLabel(string $event): string
+    {
+        return match ($event) {
+            'product.saved' => __('ذخیرهٔ محصول', 'tecteb-marketplace-core'),
+            'product.submitted' => __('ارسال محصول برای بررسی', 'tecteb-marketplace-core'),
+            'product.inventory_changed' => __('تغییر موجودی', 'tecteb-marketplace-core'),
+            'product.revision_requested' => __('درخواست نسخهٔ تازه', 'tecteb-marketplace-core'),
+            'product.csv_imported' => __('ورود CSV', 'tecteb-marketplace-core'),
+            'product.csv_exported' => __('خروجی CSV', 'tecteb-marketplace-core'),
+            // Keys copied from AuditEventCatalog, not guessed: the first
+            // version of this map invented `order.shipped`, which no event
+            // uses, so the commonest staff action of all fell through to its
+            // raw key on the page.
+            'order.item_shipped' => __('ثبت ارسال', 'tecteb-marketplace-core'),
+            'order.item_status_changed' => __('تغییر وضعیت سفارش', 'tecteb-marketplace-core'),
+            'order.return_opened' => __('باز کردن مرجوعی', 'tecteb-marketplace-core'),
+            'order.return_decided' => __('تصمیم دربارهٔ مرجوعی', 'tecteb-marketplace-core'),
+            'vendor.store_updated' => __('تغییر تنظیمات فروشگاه', 'tecteb-marketplace-core'),
+            'vendor.staff_invited' => __('دعوت همکار', 'tecteb-marketplace-core'),
+            'vendor.staff_activated' => __('پذیرش دعوت', 'tecteb-marketplace-core'),
+            default => $event,
+        };
     }
 
     /** @param callable(string|int):string $fa */

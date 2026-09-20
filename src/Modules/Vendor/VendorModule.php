@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Vendor;
 
 use Tecteb\Marketplace\Contracts\Auth\AuthenticationBridgeInterface;
 use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
+use Tecteb\Marketplace\Contracts\AuditRepositoryInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
@@ -22,6 +23,7 @@ use Tecteb\Marketplace\Modules\Vendor\Application\ChangeRequestRepositoryInterfa
 use Tecteb\Marketplace\Modules\Vendor\Application\ManageStaff;
 use Tecteb\Marketplace\Modules\Vendor\Application\ReviewChangeRequests;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffActivityReport;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffUserDirectoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
@@ -148,6 +150,12 @@ final class VendorModule implements ModuleInterface
             $c->get(OptionStoreInterface::class)
         ));
         $c->bind(StaffUserDirectoryInterface::class, static fn () => new WpStaffUsers());
+        $c->bind(StaffActivityReport::class, static fn (ContainerInterface $c) => new StaffActivityReport(
+            $c->get(StaffRepositoryInterface::class),
+            $c->get(AuditRepositoryInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(ClockInterface::class)
+        ));
         $c->bind(StaffAccess::class, static fn (ContainerInterface $c) => new StaffAccess(
             $c->get(StaffRepositoryInterface::class),
             $c->get(VendorRepositoryInterface::class)

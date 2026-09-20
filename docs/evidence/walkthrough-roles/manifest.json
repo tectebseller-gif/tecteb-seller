@@ -1,0 +1,405 @@
+{
+  "site": "http://127.0.0.1:8080",
+  "widths": [
+    390,
+    1440
+  ],
+  "shots": [
+    {
+      "role": "manager",
+      "width": 390,
+      "screen": "manager-01-dashboard",
+      "name": "پیشخوان بازارگاه",
+      "url": "/wp-admin/admin.php?page=tmc-dashboard",
+      "file": "manager-01-dashboard@390.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 390,
+      "screen": "manager-02-vendors",
+      "name": "بررسی فروشندگان",
+      "url": "/wp-admin/admin.php?page=tmc-vendor-applications",
+      "file": "manager-02-vendors@390.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 390,
+      "screen": "manager-03-products",
+      "name": "بررسی محصول",
+      "url": "/wp-admin/admin.php?page=tmc-product-review",
+      "file": "manager-03-products@390.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 390,
+      "screen": "manager-04-storefront",
+      "name": "وضعیت فروش بازارگاه",
+      "url": "/wp-admin/admin.php?page=tmc-storefront",
+      "file": "manager-04-storefront@390.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 390,
+      "screen": "manager-05-withdrawals",
+      "name": "تسویه و برداشت",
+      "url": "/wp-admin/admin.php?page=tmc-withdrawals",
+      "file": "manager-05-withdrawals@390.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 390,
+      "screen": "manager-06-handover",
+      "name": "تحویل مهاجرت",
+      "url": "/wp-admin/admin.php?page=tmc-handover",
+      "file": "manager-06-handover@390.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 390,
+      "screen": "manager-07-reports",
+      "name": "گزارش‌ها",
+      "url": "/wp-admin/admin.php?page=tmc-reports",
+      "file": "manager-07-reports@390.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 390,
+      "screen": "manager-08-audit",
+      "name": "ممیزی",
+      "url": "/wp-admin/admin.php?page=tmc-audit",
+      "file": "manager-08-audit@390.png",
+      "problem": ""
+    },
+    {
+      "role": "vendor",
+      "width": 390,
+      "screen": "vendor-01-dashboard",
+      "name": "پیشخوان فروشنده",
+      "url": "/vendor/",
+      "file": "vendor-01-dashboard@390.png",
+      "problem": ""
+    },
+    {
+      "role": "vendor",
+      "width": 390,
+      "screen": "vendor-02-store",
+      "name": "تنظیمات فروشگاه",
+      "url": "/vendor/store/",
+      "file": "vendor-02-store@390.png",
+      "problem": ""
+    },
+    {
+      "role": "vendor",
+      "width": 390,
+      "screen": "vendor-03-staff",
+      "name": "پرسنل و فعالیتشان",
+      "url": "/vendor/staff/",
+      "file": "vendor-03-staff@390.png",
+      "problem": ""
+    },
+    {
+      "role": "vendor",
+      "width": 390,
+      "screen": "vendor-04-products",
+      "name": "محصولات",
+      "url": "/vendor/products/",
+      "file": "vendor-04-products@390.png",
+      "problem": ""
+    },
+    {
+      "role": "vendor",
+      "width": 390,
+      "screen": "vendor-05-orders",
+      "name": "سفارش‌ها و ارسال",
+      "url": "/vendor/orders/",
+      "file": "vendor-05-orders@390.png",
+      "problem": ""
+    },
+    {
+      "role": "vendor",
+      "width": 390,
+      "screen": "vendor-06-finance",
+      "name": "امور مالی",
+      "url": "/vendor/finance/",
+      "file": "vendor-06-finance@390.png",
+      "problem": ""
+    },
+    {
+      "role": "staff",
+      "width": 390,
+      "screen": "staff-01-lands",
+      "name": "ورود پرسنل",
+      "url": "/vendor/",
+      "file": "staff-01-lands@390.png",
+      "problem": ""
+    },
+    {
+      "role": "staff",
+      "width": 390,
+      "screen": "staff-02-products",
+      "name": "محصولات — دید پرسنل",
+      "url": "/vendor/products/",
+      "file": "staff-02-products@390.png",
+      "problem": ""
+    },
+    {
+      "role": "staff",
+      "width": 390,
+      "screen": "staff-03-orders",
+      "name": "سفارش‌ها — دید پرسنل",
+      "url": "/vendor/orders/",
+      "file": "staff-03-orders@390.png",
+      "problem": ""
+    },
+    {
+      "role": "staff",
+      "width": 390,
+      "screen": "staff-04-store-refused",
+      "name": "تنظیمات فروشگاه — باید رد شود",
+      "url": "/vendor/store/",
+      "file": "staff-04-store-refused@390.png",
+      "problem": ""
+    },
+    {
+      "role": "staff",
+      "width": 390,
+      "screen": "staff-05-staff-refused",
+      "name": "پرسنل — باید رد شود",
+      "url": "/vendor/staff/",
+      "file": "staff-05-staff-refused@390.png",
+      "problem": ""
+    },
+    {
+      "role": "buyer",
+      "width": 390,
+      "screen": "buyer-01-shop",
+      "name": "فهرست محصولات",
+      "url": "/?post_type=product",
+      "file": "buyer-01-shop@390.png",
+      "problem": ""
+    },
+    {
+      "role": "buyer",
+      "width": 390,
+      "screen": "buyer-02-account",
+      "name": "حساب من",
+      "url": "/my-account/",
+      "file": "buyer-02-account@390.png",
+      "problem": ""
+    },
+    {
+      "role": "buyer",
+      "width": 390,
+      "screen": "buyer-03-orders",
+      "name": "سفارش‌های من",
+      "url": "/my-account/orders/",
+      "file": "buyer-03-orders@390.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 1440,
+      "screen": "manager-01-dashboard",
+      "name": "پیشخوان بازارگاه",
+      "url": "/wp-admin/admin.php?page=tmc-dashboard",
+      "file": "manager-01-dashboard@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 1440,
+      "screen": "manager-02-vendors",
+      "name": "بررسی فروشندگان",
+      "url": "/wp-admin/admin.php?page=tmc-vendor-applications",
+      "file": "manager-02-vendors@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 1440,
+      "screen": "manager-03-products",
+      "name": "بررسی محصول",
+      "url": "/wp-admin/admin.php?page=tmc-product-review",
+      "file": "manager-03-products@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 1440,
+      "screen": "manager-04-storefront",
+      "name": "وضعیت فروش بازارگاه",
+      "url": "/wp-admin/admin.php?page=tmc-storefront",
+      "file": "manager-04-storefront@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 1440,
+      "screen": "manager-05-withdrawals",
+      "name": "تسویه و برداشت",
+      "url": "/wp-admin/admin.php?page=tmc-withdrawals",
+      "file": "manager-05-withdrawals@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 1440,
+      "screen": "manager-06-handover",
+      "name": "تحویل مهاجرت",
+      "url": "/wp-admin/admin.php?page=tmc-handover",
+      "file": "manager-06-handover@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 1440,
+      "screen": "manager-07-reports",
+      "name": "گزارش‌ها",
+      "url": "/wp-admin/admin.php?page=tmc-reports",
+      "file": "manager-07-reports@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "manager",
+      "width": 1440,
+      "screen": "manager-08-audit",
+      "name": "ممیزی",
+      "url": "/wp-admin/admin.php?page=tmc-audit",
+      "file": "manager-08-audit@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "vendor",
+      "width": 1440,
+      "screen": "vendor-01-dashboard",
+      "name": "پیشخوان فروشنده",
+      "url": "/vendor/",
+      "file": "vendor-01-dashboard@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "vendor",
+      "width": 1440,
+      "screen": "vendor-02-store",
+      "name": "تنظیمات فروشگاه",
+      "url": "/vendor/store/",
+      "file": "vendor-02-store@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "vendor",
+      "width": 1440,
+      "screen": "vendor-03-staff",
+      "name": "پرسنل و فعالیتشان",
+      "url": "/vendor/staff/",
+      "file": "vendor-03-staff@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "vendor",
+      "width": 1440,
+      "screen": "vendor-04-products",
+      "name": "محصولات",
+      "url": "/vendor/products/",
+      "file": "vendor-04-products@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "vendor",
+      "width": 1440,
+      "screen": "vendor-05-orders",
+      "name": "سفارش‌ها و ارسال",
+      "url": "/vendor/orders/",
+      "file": "vendor-05-orders@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "vendor",
+      "width": 1440,
+      "screen": "vendor-06-finance",
+      "name": "امور مالی",
+      "url": "/vendor/finance/",
+      "file": "vendor-06-finance@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "staff",
+      "width": 1440,
+      "screen": "staff-01-lands",
+      "name": "ورود پرسنل",
+      "url": "/vendor/",
+      "file": "staff-01-lands@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "staff",
+      "width": 1440,
+      "screen": "staff-02-products",
+      "name": "محصولات — دید پرسنل",
+      "url": "/vendor/products/",
+      "file": "staff-02-products@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "staff",
+      "width": 1440,
+      "screen": "staff-03-orders",
+      "name": "سفارش‌ها — دید پرسنل",
+      "url": "/vendor/orders/",
+      "file": "staff-03-orders@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "staff",
+      "width": 1440,
+      "screen": "staff-04-store-refused",
+      "name": "تنظیمات فروشگاه — باید رد شود",
+      "url": "/vendor/store/",
+      "file": "staff-04-store-refused@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "staff",
+      "width": 1440,
+      "screen": "staff-05-staff-refused",
+      "name": "پرسنل — باید رد شود",
+      "url": "/vendor/staff/",
+      "file": "staff-05-staff-refused@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "buyer",
+      "width": 1440,
+      "screen": "buyer-01-shop",
+      "name": "فهرست محصولات",
+      "url": "/?post_type=product",
+      "file": "buyer-01-shop@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "buyer",
+      "width": 1440,
+      "screen": "buyer-02-account",
+      "name": "حساب من",
+      "url": "/my-account/",
+      "file": "buyer-02-account@1440.png",
+      "problem": ""
+    },
+    {
+      "role": "buyer",
+      "width": 1440,
+      "screen": "buyer-03-orders",
+      "name": "سفارش‌های من",
+      "url": "/my-account/orders/",
+      "file": "buyer-03-orders@1440.png",
+      "problem": ""
+    }
+  ]
+}

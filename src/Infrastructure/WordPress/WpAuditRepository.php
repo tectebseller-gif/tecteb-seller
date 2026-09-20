@@ -110,6 +110,17 @@ final class WpAuditRepository implements AuditRepositoryInterface
             $clauses[] = 'actor_id = %d';
             $params[] = (int) $filters['actor'];
         }
+        // Several actors at once, so «what has this shop's staff been doing»
+        // is one indexed seek rather than one query per person. Ids are cast
+        // to int and inlined because the number of placeholders varies and
+        // wpdb::prepare() takes a fixed list; a cast int cannot carry SQL.
+        $actors = array_values(array_filter(
+            array_map('intval', (array) ($filters['actors'] ?? [])),
+            static fn (int $id): bool => $id > 0
+        ));
+        if ($actors !== []) {
+            $clauses[] = 'actor_id IN (' . implode(',', $actors) . ')';
+        }
         if (($filters['object_type'] ?? '') !== '') {
             $clauses[] = 'object_type = %s';
             $params[] = (string) $filters['object_type'];

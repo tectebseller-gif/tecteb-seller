@@ -34,6 +34,7 @@ use Tecteb\Marketplace\Core\Config\SettingsService;
 use Tecteb\Marketplace\Modules\Vendor\Application\ChangeRequestRepositoryInterface;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ActionQueue;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffActivityReport;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings;
@@ -599,7 +600,12 @@ final class VendorRoutes
             $urls,
             $nonceField,
             $notice,
-            $inviteUrl
+            $inviteUrl,
+            // The report gates itself on `canManageStore`, the same rule that
+            // let this page render at all — asked again rather than assumed,
+            // because a view that trusts its caller is a view that leaks the
+            // day somebody renders it from somewhere else.
+            $this->container->get(StaffActivityReport::class)->forVendor($userId, $userId)
         );
     }
 

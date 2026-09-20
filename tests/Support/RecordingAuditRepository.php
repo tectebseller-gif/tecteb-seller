@@ -54,6 +54,18 @@ final class RecordingAuditRepository implements AuditRepositoryInterface
         if ((int) ($filters['actor'] ?? 0) > 0 && $record->actorId !== (int) $filters['actor']) {
             return false;
         }
+        // The `actors` list, with the SAME semantics as the SQL: an empty or
+        // absent list is «no actor restriction», a non-empty one is
+        // `actor_id IN (...)`. A fake that ignored this key would return the
+        // whole site's trail and let a scoping test pass against a query that
+        // does not scope.
+        $actors = array_values(array_filter(
+            array_map('intval', (array) ($filters['actors'] ?? [])),
+            static fn (int $id): bool => $id > 0
+        ));
+        if ($actors !== [] && !in_array((int) $record->actorId, $actors, true)) {
+            return false;
+        }
         if (($filters['object_type'] ?? '') !== '' && $record->objectType !== $filters['object_type']) {
             return false;
         }
