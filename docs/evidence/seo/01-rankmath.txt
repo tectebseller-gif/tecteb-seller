@@ -1,13 +1,14 @@
 stage=the_stand_in_is_in_place ok=true rank_math_active=true owns_head=true
 stage=a_provider_joins_rank_maths_list ok=true providers=1 type=tmcstore
 stage=it_claims_only_its_own_type ok=true ours=true post=false
-stage=the_index_carries_one_entry_per_file ok=true entries=1 listable_shops=1
+stage=the_index_carries_one_entry_per_file ok=true entries=1 listable_shops=2
 stage=and_the_entry_points_at_a_sitemap_file ok=true loc=http://127.0.0.1:8080/tmcstore-sitemap.xml
 stage=the_type_is_routable ok=true type=tmcstore
-stage=the_file_lists_the_listable_shops ok=true urls=1 listable=1
-stage=no_url_appears_twice ok=true unique=1
+stage=the_file_lists_the_listable_shops ok=true urls=2 listable=2
+stage=no_url_appears_twice ok=true unique=2
 stage=another_type_gets_nothing ok=true
 sitemap_url index=0 loc=http://127.0.0.1:8080/?tmc_store=4
+sitemap_url index=1 loc=http://127.0.0.1:8080/?tmc_store=8
 stage=a_fresh_core_registration_is_refused ok=true attempted=(none) registry_from_boot=posts,taxonomies,users,tmcstores
 stage=an_approved_shop_exists_to_look_at ok=true vendor=4
 stage=the_standalone_document_prints_its_own_head ok=true canonical=1 json_ld=1

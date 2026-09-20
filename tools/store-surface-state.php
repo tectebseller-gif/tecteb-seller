@@ -27,6 +27,28 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
 $command = (string) ($args[0] ?? '');
 $vendorId = (int) ($args[1] ?? 0);
 $c = Bootstrap::container();
+
+// A manager, because `wp eval-file` runs as nobody and the services that
+// matter here check a capability first. Taken from `Capabilities::all()`
+// rather than written out, so a new capability does not silently make a
+// fixture step refuse while the same call works on a real site.
+$manager = (int) (get_users(['role' => 'administrator', 'number' => 1, 'fields' => 'ID'])[0] ?? 1);
+wp_set_current_user($manager);
+$c->bind(
+    \Tecteb\Marketplace\Contracts\CapabilityCheckerInterface::class,
+    static fn () => new class implements \Tecteb\Marketplace\Contracts\CapabilityCheckerInterface {
+        public function can(string $capability): bool
+        {
+            return in_array($capability, \Tecteb\Marketplace\Core\Lifecycle\Capabilities::all(), true);
+        }
+
+        public function currentUserId(): ?int
+        {
+            return (int) get_current_user_id();
+        }
+    }
+);
+
 $vendors = $c->get(VendorRepositoryInterface::class);
 
 /** The logins these fixtures own, so cleanup can never hit a real account. */
@@ -132,12 +154,31 @@ switch ($command) {
             'نشانی آزمایشی',
             true
         ));
-        $vendors->updateStatus($applicationId, ApplicationStatus::Approved, 1, 'شاهد');
+        // Through `ReviewApplication`, not `updateStatus()`.
+        //
+        // The status is the PAPERWORK; the profile's `canSell` is the
+        // operational switch, and only the review service writes it. Writing
+        // the status directly left every rebuilt shop «approved» and unable to
+        // trade — so after `upgrade-rollback-check.sh` (which drops the
+        // tables, by design) the acceptance path came back `forbidden` on
+        // shipping, returns, withdrawals and reports, and the rebuild
+        // procedure had been quietly producing a half-admitted site.
+        //
+        // The paperwork is moved to «submitted» directly because the
+        // application FORM has its own suite; the DECISION goes through the
+        // service, because the switch is the thing everything else depends on.
+        $vendors->updateStatus($applicationId, ApplicationStatus::Submitted, 1, 'شاهد');
+        $review = $c->get(\Tecteb\Marketplace\Modules\Vendor\Application\ReviewApplication::class);
+        $approved = $review->approve($applicationId);
+        $profile = $vendors->findProfileByUser($vendorId);
         printf(
-            "approve vendor=%d application=%d status=%s approved_total=%d\n",
+            "approve vendor=%d application=%d status=%s can_sell=%s ok=%s code=%s approved_total=%d\n",
             $vendorId,
             $applicationId,
             (string) ($vendors->findApplicationByUser($vendorId)?->status->value ?? 'none'),
+            $profile?->canSell ? 'true' : 'false',
+            $approved->ok ? 'true' : 'false',
+            $approved->code,
             $vendors->countApprovedVendors()
         );
         break;

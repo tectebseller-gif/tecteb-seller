@@ -1,19 +1,19 @@
 stage=unmapped_categories_are_named ok=true source_products=1 unmapped_groups=1 first_key=tmc-gloves first_label=دستکش و ملزومات یکبارمصرف products_waiting=1
 stage=owner_maps_the_category ok=true source=tmc-gloves marketplace=gloves unmapped_groups_after=0
-stage=imported_as_observed ok=true run=dokan-20260920-091739 ok_import=true observed_rows=1 ownership=observed images_carried=1
+stage=imported_as_observed ok=true run=dokan-20260920-093233 ok_import=true observed_rows=1 ownership=observed images_carried=1
 stage=observed_is_not_sellable ok=true wc=79 decision=not_ours
-stage=ownership_taken ok=true product=102 code=ownership_taken ownership=marketplace
+stage=ownership_taken ok=true product=107 code=ownership_taken ownership=marketplace
 stage=imported_shop_may_not_trade_yet ok=true vendor=13 can_trade=false decision=vendor_stopped
-stage=shop_admitted_by_a_manager ok=true vendor=13 application=23 code=reviewed status=approved can_sell=true can_publish_directly=false
+stage=shop_admitted_by_a_manager ok=true vendor=13 application=4 code=reviewed status=approved can_sell=true can_publish_directly=false
 stage=specs_are_the_one_gap_migration_cannot_fill ok=true required_fields=1 code=product_saved note=demo_data_on_the_disposable_site_only
 stage=migrated_product_published_through_review ok=true submit=product_submitted approve=product_reviewed status=published category=gloves
 stage=shop_restocks_after_the_clamp ok=true code=inventory_saved source_stock=-2 imported_as=0 now=25
 stage=owned_is_sellable ok=true wc=79 decision=allowed
-stage=bought_and_stock_fell ok=true order=4039 stock_before=25 stock_after=23
+stage=bought_and_stock_fell ok=true order=4085 stock_before=25 stock_after=23
 stage=captured_for_the_moved_shop ok=true captured=1 vendor=13 expected_vendor=13
 stage=vendor_sees_own_sale_only ok=true vendor=13 their_lines=1 other_vendor=4 lines_of_ours_they_can_see=0
 stage=staff_access_is_derived_not_assumed ok=true vendor=13 active_members=1 staff_user=none_on_this_shop owner_is_owner=true stranger_is_owner=false
-stage=shipped ok=true item=112 code=order_item_shipped status=partially_shipped
-stage=one_financial_engine ok=true order=4039 event_key=order:4039:item:3758 ledger_lines=3 dokan_history_rows=0 covers_order=true
+stage=shipped ok=true item=129 code=order_item_shipped status=partially_shipped
+stage=one_financial_engine ok=true order=4085 event_key=order:4085:item:3783 ledger_lines=3 dokan_history_rows=0 covers_order=true
 stage=rollback_keeps_what_was_sold ok=true code=rollback_kept_transferred kept=- product_still_there=true ownership_after=marketplace order_lines_after=1 ledger_lines_after=3
-done product=102 wc=79 vendor=13 order=4039 item=112 run=dokan-20260920-091739
+done product=107 wc=79 vendor=13 order=4085 item=129 run=dokan-20260920-093233

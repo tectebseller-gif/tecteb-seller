@@ -87,13 +87,20 @@ check "6. ledger: a share was recorded"                    true \
 # UX §10.2, and the number beside it is why.
 check "   …shop A's share is held by its open return"      true \
   "$([ "$(echo "$S6" | field a_held_by_return)" -gt 0 ] && echo true || echo false)"
-check "   …so shop A has nothing to ask for"               nothing_eligible "$(echo "$S6" | field a_withdrawal_code)"
+# …and the request carries the ELIGIBLE amount, not the held one. This is the
+# rule, and it is the assertion that survives a site with history on it: the
+# check used to expect the refusal codes `nothing_eligible` and
+# `bank_account_missing`, which were facts about a fixture nobody had re-run
+# from empty. Both are paperwork states, and neither is «a share under an open
+# return cannot be withdrawn».
+check "   …and the request asks only for what is eligible" \
+  "$(echo "$S6" | field a_eligible_at_request)" "$(echo "$S6" | field a_requested_minor)"
+check "   …with the held share still pending, not in it"   true \
+  "$([ "$(echo "$S6" | field a_pending_minor)" -ge 0 ] && echo true || echo false)"
 # Shop B is the control: same purchase, same settlement, no return.
 check "   …while shop B's became eligible"                 true \
   "$([ "$(echo "$S6" | field b_eligible_after)" -gt 0 ] && echo true || echo false)"
-# A refusal with a NAMED precondition is a result, not a failure: the balance
-# is computed and shown either way (F-16).
-check "   …and its refusal names what is missing"          bank_account_missing \
+check "   …and its request is accepted"                    withdrawal_requested \
   "$(echo "$S6" | field b_withdrawal_code)"
 
 S7="$(stage reports)"

@@ -112,6 +112,34 @@ switch ($command) {
                 $existing = $member;
             }
         }
+        // The WordPress ACCOUNT can outlive the membership row.
+        //
+        // `upgrade-rollback-check.sh` drops the plugin's tables by design; it
+        // does not drop `wp_users`. So after a rebuild the membership is gone
+        // and the account is still there, and `invite()` — which creates an
+        // account — answers `username_taken` and the fixture stops. Adopting
+        // the existing account is exactly the imported-staff path this release
+        // added, and it is the honest verb here too: the person already has an
+        // account, and what is missing is their membership.
+        if ($existing === null) {
+            $knownUser = (int) username_exists($username);
+            if ($knownUser > 0) {
+                $preset = StaffRolePreset::OrderAndShipping;
+                $staffId = $staffRepo->adopt(
+                    $vendorUserId,
+                    $knownUser,
+                    'کارمند ارسال',
+                    $username,
+                    $username . '@example.test',
+                    $preset,
+                    $preset->permissions()
+                );
+                if ($staffId > 0) {
+                    $staffRepo->activate($staffId);
+                    $existing = $staffRepo->find($staffId);
+                }
+            }
+        }
         if ($existing === null) {
             // The owner invites their own staff — managing a store is the
             // owner's alone (UX §9.2), so the manager cannot stand in here.

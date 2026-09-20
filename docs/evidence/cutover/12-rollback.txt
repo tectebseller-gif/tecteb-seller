@@ -1,1 +1,1 @@
-rollback ok=true code=dokan_rolled_back vendors=0 products=1
+rollback ok=true code=dokan_rolled_back vendors=1 products=1

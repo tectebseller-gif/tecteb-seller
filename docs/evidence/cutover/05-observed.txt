@@ -1,2 +1,2 @@
 observed count=1
-  tmc=101 wc=79 ownership=observed status=draft title=کالای فروشندهٔ دکان
+  tmc=106 wc=79 ownership=observed status=draft title=کالای فروشندهٔ دکان

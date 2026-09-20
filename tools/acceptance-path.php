@@ -254,10 +254,49 @@ $ids['return'] = $returnId;
 $settings = get_option('tmc_settings');
 $settings['values']['settlement_delay_days'] = 0;
 update_option('tmc_settings', $settings);
+// A bank account on file, for both shops.
+//
+// Without one `RequestWithdrawal` refuses with `bank_account_missing` — which
+// is correct and is NOT the fact this stage is about. The stage asserts that a
+// share held by an open return cannot be asked for; if the request dies on
+// paperwork first, the assertion passes or fails for the wrong reason. The
+// bank columns live on the store row, which `upgrade-rollback-check.sh` drops
+// by design, so this is exactly the kind of prerequisite a rebuild loses.
+$stores = $c->get(\Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface::class);
+foreach ([$vendorA, $vendorB] as $shopId) {
+    $bank = $stores->bank($shopId);
+    if (trim((string) ($bank['iban'] ?? '')) === '') {
+        $stores->saveBank(
+            $shopId,
+            'IR' . str_pad((string) $shopId, 24, '0', STR_PAD_LEFT),
+            'صاحب حساب آزمایشی',
+            0,
+            'approved',
+            false
+        );
+    }
+}
+
+// Any request still open from a previous run, cancelled first.
+//
+// «یک درخواست باز در هر فروشگاه» is the rule, and the rule is why a second run
+// of this fixture got `withdrawal_already_open` from both shops — a true
+// answer about the previous run, dressed up as this run's result. Cancelling
+// is the vendor's own verb while the request is still free, so the fixture
+// uses it rather than reaching into the table.
+$withdrawals = $c->get(\Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface::class);
+$requests = $c->get(RequestWithdrawal::class);
+foreach ([$vendorA, $vendorB] as $shopId) {
+    $open = $withdrawals->openFor($shopId);
+    if ($open !== null) {
+        $requests->cancel($shopId, $shopId, $open->id);
+    }
+}
+
 $balanceBefore = $c->get(VendorBalance::class)->of($vendorA);
 $settled = $items->recordSettlementCompletion($lineA->id, gmdate('Y-m-d H:i:s'), $manager);
 $balanceAfter = $c->get(VendorBalance::class)->of($vendorA);
-$withdrawal = $c->get(RequestWithdrawal::class)->handle($vendorA, $vendorA);
+$withdrawal = $requests->handle($vendorA, $vendorA);
 
 // Shop B's line is the control. It went through the same purchase and the same
 // settlement, and it has NO return on it — so the two side by side show the one
@@ -274,7 +313,7 @@ $settledB = $lineB !== null
 $balanceB = $lineB === null ? [] : $c->get(VendorBalance::class)->of($vendorB);
 $withdrawalB = $lineB === null
     ? null
-    : $c->get(RequestWithdrawal::class)->handle($vendorB, $vendorB);
+    : $requests->handle($vendorB, $vendorB);
 
 $say('ledger_and_withdrawal', $settled && $settledB, [
     'earned_minor' => (int) ($balanceAfter['earned'] ?? 0),
@@ -289,6 +328,19 @@ $say('ledger_and_withdrawal', $settled && $settledB, [
     // is still computed and shown (F-16). The code names which it is.
     'b_withdrawal_code' => $withdrawalB?->code ?? '-',
     'a_withdrawal_code' => $withdrawal->code,
+    // The amount actually requested, beside the amount actually eligible.
+    //
+    // This is the assertion that survives a site with history on it. The check
+    // used to expect the refusal codes `nothing_eligible` and
+    // `bank_account_missing`, which were facts about a fixture that had never
+    // been re-run: after a rebuild both shops have a bank on file and shop A
+    // has eligible money from earlier runs, so both requests succeed and the
+    // old expectation failed for a reason that was about the fixture. What is
+    // true either way, and is the rule under test, is that the share held by
+    // an open return is NOT in the request.
+    'a_requested_minor' => (int) ($withdrawal->context['amount_minor'] ?? 0),
+    'a_eligible_at_request' => (int) ($balanceAfter['eligible'] ?? 0),
+    'a_pending_minor' => (int) ($balanceAfter['pending'] ?? 0),
 ]);
 
 // --- 7. reports ---------------------------------------------------------------

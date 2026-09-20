@@ -243,6 +243,11 @@ final class PackagingTest extends TestCase
      * committed package, which is a different and wrong rule: a version that
      * nobody has received is still being built, and committing a mid-phase
      * build must not burn its version number. That mistake cost `alpha.15`.
+     *
+     * **Ordering:** a new ledger line and the bytes it names belong in the
+     * SAME commit. Adding the line first makes this fail until the commit
+     * lands, which is the correct direction to fail in — the alternative is a
+     * ledger that vouches for bytes git has never seen.
      */
     public function testEveryDeliveredPackageMatchesTheBytesGitHasForIt(): void
     {

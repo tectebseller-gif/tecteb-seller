@@ -9,7 +9,18 @@
 #
 # قاعده: نامی که یک بار اینجا نوشته شد، هرگز محتوای دیگری پیدا نمی‌کند. اگر
 # محتوا باید عوض شود، شمارهٔ نسخه عوض می‌شود. یک آزمون packaging هر سطر این
-# فایل را با بایت‌های روی دیسک می‌سنجد.
+# فایل را با بایت‌های روی دیسک می‌سنجد، و یک آزمون دیگر همان را از git
+# می‌پرسد — چون این فایل دست‌نویس است و می‌شود آن را هم‌زمان با بسته ویرایش
+# کرد، و git را نمی‌شود.
+#
+# هش‌ها را از `dist/SHA256SUMS` بردارید، نه از یک `sha256sum` جداگانه بلافاصله
+# پس از build. یک بار همین اتفاق افتاد: آرشیو سورس هنوز در حال نوشته‌شدن بود و
+# خواندن جداگانه عددی داد که چند ثانیه بعد دیگر درست نبود. `build.sh` فایل
+# چک‌سام را **پس از** همه‌چیز می‌نویسد؛ آن عدد، عددِ نهایی است.
+#
+# و هر سطر تازه با همان commitی می‌آید که بایت‌هایش را وارد می‌کند. افزودن
+# سطر پیش از commit، آزمون را می‌شکند — که جهت درستِ شکستن است: بدیلش دفتری
+# است که برای بایت‌هایی ضمانت می‌دهد که git هرگز ندیده.
 
 ba4af30738e09d856996bbb27203869f3e9f588d7e0504d70afcc9a096577b43  tecteb-marketplace-core-0.1.0-alpha.14.zip  2026-09-16
 c2f79857d828642721fc38ccaafcfc102da45fa6e49fde84ec5bf5bcede61056  tecteb-marketplace-core-source-0.1.0-alpha.14.tar.gz  2026-09-16
@@ -17,6 +28,9 @@ af75c4774d25c78988753c450f7140dffc78409e045c141a07a39d1ba809ce0c  tecteb-marketp
 0fa88f35f1552a1cea02c20207e0d3d3ecb2b10a76cac2be6840d2b8dcbb0431  tecteb-marketplace-core-0.1.0-alpha.16.zip  2026-09-16
 86b797aa29c5772adbcc76657615814b3d834ca2072dee4bf339db049f6e98f4  tecteb-marketplace-core-source-0.1.0-alpha.16.tar.gz  2026-09-16
 9287f597c13b50d7c8dab62d71fd54bc63e989bcff0aa1f491e8b842c32e561b  tecteb-marketplace-core-evidence-0.1.0-alpha.16.tar.gz  2026-09-16
+b06e44dcdf338a51c7474c1d7e60f20a478e9aa2db1d7be1fc0ab6e5b1364b5b  tecteb-marketplace-core-0.1.0-alpha.17.zip  2026-09-20
+46808c6a1492c3775b3904e95a6a81d0095ab9d8de6792d409fee14bb7fdbbe3  tecteb-marketplace-core-source-0.1.0-alpha.17.tar.gz  2026-09-20
+e34e494a38d83fa62afcf483b80bbde0488018b95b307068851827b9a654c003  tecteb-marketplace-core-evidence-0.1.0-alpha.17.tar.gz  2026-09-20
 
 # --- آنچه تحویل نشد، و باید از تحویل‌شده جدا بماند ---------------------------
 #

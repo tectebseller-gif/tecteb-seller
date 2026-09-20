@@ -1,1 +1,1 @@
-import ok=true code=dokan_imported run=dokan-20260920-091710 vendors=0 products=1
+import ok=true code=dokan_imported run=dokan-20260920-093211 vendors=1 products=1

@@ -38,6 +38,86 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 `docs/upgrade-and-rollback.md` بند ۵٫۲-ب (`docs/upgrade-and-rollback.md` ·
 `docs/evidence/upgrade-alpha1/` · `docs/evidence/upgrade/`).
 
+**`0.1.0-alpha.17` (۲۰ سپتامبر):** تحویل مهاجرت، رابط کاربری، کش گزارش و
+اتصال SEO. ساختار داده همچنان **۱۷** (migration تازه‌ای اضافه نشد).
+تحویل: `docs/phase-14-handover-ui-cache-and-seo.md`.
+
+**سابقهٔ واردشده دسترسی نیست، و بدهی هم نیست.** `StaffRoleMap` نقشِ دکان را
+به یکی از پنج نقش مصوب می‌نگارد — نقشِ نگاشت‌نشده `null` می‌دهد و هیچ ردیفی
+ساخته نمی‌شود. `GrantImportedStaff` تنها راه عبور است و ردیفی که می‌سازد
+`Invited` با `invite_hash` **خالی** است؛ `findByInviteHash('')` هیچ‌چیزی
+برنمی‌گرداند، پس هیچ توکنی وجود ندارد که فعالش کند. `adopt()` از `add()`
+جداست چون یکی توکن زنده می‌نویسد و آن یکی هیچ.
+`ReconcileDokanFinance` دو ستون می‌دهد که **هرگز جمع نمی‌شوند**: دکان
+برداشتِ پرداخت‌شده را عمداً دوبار ثبت می‌کند (یک ردیف withdraw و یک debit در
+دفتر مانده)، پس ماندهٔ پایانی از قبل کسرش کرده.
+`MigrationCompleteness` آرشیو را «دروازهٔ صفر» می‌کند: لازم، و به‌تنهایی هیچ.
+صفحهٔ `tmc-handover` جایی است که این تصمیم‌ها گرفته می‌شوند — جدا از صفحهٔ
+ورود، چون ورود دفترداریِ برگشت‌پذیر است و این تصمیمِ یک نفر دربارهٔ دسترسی و
+پول.
+
+**منو جمع‌شونده شد، و اندازه‌گیری شد.** ۲۲ صفحهٔ مدیر و ۱۰ بخش فروشنده،
+به‌صورت `<details>` بومی: روی ۳۹۰×۸۴۴ منوی فروشنده ۴۶px، منوی مدیر ۴۴px،
+محتوا از پیکسل ۱۵۲. **CSS نمی‌تواند یک `<details>` بسته را باز کند** —
+اندازه‌گیری‌شده در Chromium ۱۴۱: نه `details:not([open]) > *{display:block}`
+و نه `display:contents`، چون مرورگر محتوا را از shadow slot خودش پنهان
+می‌کند. پس `open` و `is-wide` کار اسکریپت‌اند، و `summary` فقط زیر
+`is-wide` مخفی می‌شود تا مرورگر بی‌اسکریپت کنترل را از دست ندهد.
+پنج حالت (خالی/خطا/بارگذاری/موفقیت/نبود دسترسی) یک مؤلفه در هر دو پوسته‌اند
+و قاعده‌شان: بگو چه شد، چرا، و قدم بعدی چیست.
+`tools/demo-image.php` حالا یک رستریزر ۲×۲ است و شش تجهیز پزشکی می‌کشد؛
+تصویر هر ردیف از روی **SKU** انتخاب می‌شود نه ترتیب حلقه.
+
+**کش گزارش: شمارندهٔ نسخه، مقدار در transient و نسخه در option.** transient
+می‌تواند پاک شود و برای یک مقدار اشکالی ندارد؛ برای شمارنده فاجعه است.
+ابطال از **نوشتن** آویزان است (`tmc_vendor_figures_changed` از داخل
+`figuresChanged()` هر repository)، و `ReportInvalidationTest` همین را برای
+هر چهار repository grep می‌کند. TTL نود ثانیه، نه ده دقیقه.
+اندازه‌گیری: سرد ۱۸ کوئری، گرم ۱ کوئری، همان جواب.
+
+**Rank Math سایت‌مپ هسته را خاموش می‌کند.** پس provider هسته روی چنین سایتی
+اصلاً رندر نمی‌شود و «فروشگاه‌ها در sitemap‌اند» دربارهٔ سایت‌مپی صدق می‌کند
+که کسی سرو نمی‌کند. `RankMathStoreSitemap` سمت دیگر را می‌گیرد (duck typing
+عمدی: رابطِ غایب = fatal در autoload روی هر درخواست) و
+`StoreSitemapProvider` کنار می‌کشد. `SeoHandover` هم canonical/OG/JSON-LD را
+**تحویل می‌دهد و کنار می‌کشد** — کنارکشیدنِ بدون تحویل بدتر است، چون افزونه‌ای
+که `?tmc_store=4` را نمی‌شناسد صفحه را به صفحهٔ اول سایت canonical می‌کند.
+**Rank Math خودش `Not Run` است** (wordpress.org و github.com از این محیط
+مسدودند)؛ آنچه اجرا شد ایستاده‌ای جایگزین است.
+
+**«تأییدشده» شرط لازم است، نه کافی.** صفحهٔ عمومی به ردیف تنظیمات فروشگاه هم
+نیاز دارد. sitemap از `approvedVendorUserIds()` می‌خواند و از سه نشانیِ
+فهرست‌شده **دو تا ۴۰۴** بودند. حالا `listableVendorUserIds()`.
+
+شواهد: `handover/` (۴۸)، `ui-states/` (۳۵)، `report-cache/` (۱۴)،
+`seo/` (۲۸)، `upgrade-alpha16/` (۳۵)، `acceptance-path/` (۲۸)،
+`store-page/` (۵۵)، `store-surface/` (۶۳)، `cutover/` (۲۳)،
+`continuity/` (۳۵)، `dokan-migration/` (۳۷) — همه ۰ شکست.
+
+**شش قاعدهٔ تازه:**
+- **آزمونِ «بستهٔ commit‌شده عوض نمی‌شود» قاعدهٔ غلطی بود.** نسخه‌ای که کسی
+  دریافتش نکرده هنوز در حال ساخت است و commit کردن build میانی نباید
+  شماره‌اش را بسوزاند — همین `alpha.15` را خرج کرد. فقط بسته‌های **تحویل‌شده**
+  با git سنجیده می‌شوند، چون دفترِ دست‌نویس را می‌شود هم‌زمان با بسته ویرایش
+  کرد و git را نمی‌شود.
+- **وضعیت پرونده کاغذ است؛ `canSell` کلید عملیاتی.** fixtureی که وضعیت را
+  مستقیم می‌نوشت، هر فروشگاهِ بازسازی‌شده را «تأییدشده و ناتوان از فروش»
+  می‌گذاشت و مسیر بازسازیِ مستند بی‌صدا سایتی نیمه‌پذیرفته می‌ساخت. از
+  `ReviewApplication` برو.
+- **حساب وردپرس از عضویت بیشتر عمر می‌کند.** `upgrade-rollback-check.sh`
+  جدول‌های افزونه را DROP می‌کند و `wp_users` را نه، پس `invite()` بعدش
+  `username_taken` می‌دهد. فعلِ درست `adopt()` است.
+- **fixtureی که چیزی را باز می‌گذارد باید اول ببندد.** «یک درخواست باز در هر
+  فروشگاه» همان قاعده‌ای بود که به اجرای دوم `withdrawal_already_open`
+  می‌داد: جوابی درست دربارهٔ اجرای قبلی، در لباس نتیجهٔ این اجرا.
+- **کدِ ردِ درخواست فرضیهٔ ضعیفی برای آزمون است.** `nothing_eligible` و
+  `bank_account_missing` هر دو دربارهٔ کاغذبازی بودند، نه دربارهٔ قاعده. حالا
+  مبلغ درخواست‌شده کنار مبلغ قابل‌درخواست سنجیده می‌شود.
+- **`reset` باید همان چیزی را برگرداند که فاز خرج کرده.** `dokan-migration.php
+  reset` فقط پیش‌نویس‌های `observed` را برمی‌داشت، ولی مسیر انتقال عملیاتی
+  عمداً از `observed` خارج می‌شود — پس reset زمین خالی را جارو می‌کرد و شش
+  بررسی دربارهٔ مهاجرتی که از قبل انجام شده بود شکست می‌خورد.
+
 **`0.1.0-alpha.16` (۱۶ سپتامبر):** انتقال از دکان، اتصال به قالب و سطح عمومی
 فروشگاه. ساختار داده **۱۷**.
 
@@ -636,6 +716,23 @@ bash tools/wholesale-ui-check.sh    docs/evidence/wholesale-ui      # ۲۶ بر�
 wp eval-file tools/marketplace-state.php seed|tiers|fresh-buyer|wholesale-account|…
 SITE=… TMC_PRODUCT_URL=… TMC_OUT=docs/evidence/wholesale-ui/a11y \
   node tools/browser/check-wholesale-a11y.mjs      # ۱۲۰ بررسی، ۳ صفحهٔ تازه
+
+# فاز ۱۴: تحویل مهاجرت، رابط کاربری، کش گزارش و SEO
+bash tools/handover-check.sh     docs/evidence/handover      # ۴۸ بررسی
+bash tools/report-cache-check.sh docs/evidence/report-cache  # ۱۴ بررسی
+bash tools/seo-check.sh          docs/evidence/seo           # ۲۸ بررسی
+wp eval-file tools/handover-state.php run|reset
+wp eval-file tools/report-cache-state.php run
+wp eval-file tools/rankmath-state.php run
+SITE=… TMC_OUT=docs/evidence/ui-states node tools/browser/check-ui-states.mjs  # ۳۵ بررسی
+# ارتقای از بستهٔ واقعی قبلی و بازگشت (۳۵ بررسی) — ویران‌گر، آخر اجرا شود
+bash tools/upgrade-rollback-check.sh /opt/php81/bin/php docs/evidence/upgrade-alpha16 \
+     dist/tecteb-marketplace-core-0.1.0-alpha.16.zip dist/tecteb-marketplace-core-0.1.0-alpha.17.zip
+# …و بعدش بازسازی: option را ۰ کنید، migration را بدوانید، سپس
+#   store-surface-state.php approve <vendor>   (از ReviewApplication می‌رود)
+#   purchase-block-state.php seed-staff 4 tmcstaff <pass>
+#   purchase-block-state.php resume
+#   acceptance-path.php run
 
 # فاز ۱۳: انتقال از دکان، اتصال به قالب، کش، sitemap و مسیر کامل با ویدئو
 bash tools/store-surface-check.sh docs/evidence/store-surface  # ۶۳ بررسی

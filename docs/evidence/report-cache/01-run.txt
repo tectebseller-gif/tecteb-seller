@@ -1,14 +1,14 @@
-stage=two_shops_with_figures ok=true a=4 b=13
-stage=a_cold_read_computes ok=true queries=18
-stage=a_warm_read_is_cheaper ok=true cold=18 warm=1
-stage=and_says_the_same_thing ok=true earned_minor=125280000
+stage=two_shops_with_figures ok=true a=4 b=8
+stage=a_cold_read_computes ok=true queries=24
+stage=a_warm_read_is_cheaper ok=true cold=24 warm=1
+stage=and_says_the_same_thing ok=true earned_minor=151200000
 stage=each_shop_gets_its_own_figures ok=true match=true
-stage=the_two_shops_do_not_share_an_answer ok=true a_lines=66 b_lines=1
-stage=their_namespaces_differ ok=true a=tmc_report_vendor_4 b=tmc_report_vendor_13
+stage=the_two_shops_do_not_share_an_answer ok=true a_lines=74 b_lines=47
+stage=their_namespaces_differ ok=true a=tmc_report_vendor_4 b=tmc_report_vendor_8
 stage=a_real_write_lands ok=true subject=order-item:2
-stage=the_write_bumps_that_shop ok=true from=7 to=8
-stage=and_leaves_the_other_shop_alone ok=true b=3
-stage=the_next_read_shows_the_new_figure ok=true pending_before=118800000 pending_after=116640000 moved_by=-2160000 eligible_after=5400000
-stage=the_old_entry_is_unreachable ok=true stale_key_still_readable_by_key=true but_no_reader_asks_for_it=version=8
+stage=the_write_bumps_that_shop ok=true from=1215 to=1216
+stage=and_leaves_the_other_shop_alone ok=true b=47
+stage=the_next_read_shows_the_new_figure ok=true pending_before=141480000 pending_after=139320000 moved_by=-2160000 eligible_after=2160000
+stage=the_old_entry_is_unreachable ok=true stale_key_still_readable_by_key=true but_no_reader_asks_for_it=version=1216
 stage=the_fixture_puts_the_line_back ok=true line=2
-stage=summary ok=true failures=0 a=4 b=13
+stage=summary ok=true failures=0 a=4 b=8
