@@ -104,6 +104,15 @@ final class AuditEventCatalog
     /** The explicit act that makes a mapped product the marketplace's to run. */
     public const DOKAN_OWNERSHIP_CHANGED = 'migration.ownership_changed';
 
+    /**
+     * The two explicit acts that turn an imported RECORD into something
+     * operational — and they are audited precisely because the record itself
+     * is not. Importing a staff row grants nothing and importing a balance
+     * owes nothing; these are the moments somebody decided otherwise.
+     */
+    public const DOKAN_STAFF_GRANTED = 'migration.dokan_staff_granted';
+    public const DOKAN_FINANCE_HANDOVER = 'migration.dokan_finance_handover';
+
     /** @return array<string, list<string>> event type => allowed top-level payload keys */
     public static function allowlist(): array
     {
@@ -192,6 +201,8 @@ final class AuditEventCatalog
             self::DOKAN_IMPORTED => ['vendors', 'products', 'run_id', 'mode'],
             self::DOKAN_ROLLED_BACK => ['vendors', 'products', 'run_id'],
             self::DOKAN_OWNERSHIP_CHANGED => ['product_id', 'wc_product_id', 'from', 'to'],
+            self::DOKAN_STAFF_GRANTED => ['vendor_id', 'staff_user_id', 'dokan_role', 'preset', 'status'],
+            self::DOKAN_FINANCE_HANDOVER => ['vendor_id', 'closing', 'paid_by_dokan', 'pending_requests', 'pending_total', 'decision'],
         ];
     }
 

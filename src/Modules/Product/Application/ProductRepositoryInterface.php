@@ -164,6 +164,19 @@ interface ProductRepositoryInterface
     public function setLinkOwnership(int $productId, LinkOwnership $ownership): bool;
 
     /**
+     * How many of a shop's rows are the marketplace's to run, and how many
+     * are still only notes — counted in SQL.
+     *
+     * The migration report needs this and needs it cheap: «is this shop
+     * actually migrated» is asked about every imported shop on one page, and
+     * hydrating each catalogue to look at one column would make the answer
+     * cost the catalogue.
+     *
+     * @return array{marketplace:int, observed:int}
+     */
+    public function ownershipTallyForVendor(int $vendorUserId): array;
+
+    /**
      * Mirrors the stock WooCommerce now holds onto the marketplace row.
      *
      * This is the ONLY way stock travels from WooCommerce to here, and there

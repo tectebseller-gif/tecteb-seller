@@ -504,6 +504,26 @@ final class DbProductRepository implements ProductRepositoryInterface
         ) !== null;
     }
 
+    public function ownershipTallyForVendor(int $vendorUserId): array
+    {
+        $rows = $this->db->getResults(
+            'SELECT ' . M0010LinkOwnership::COLUMN . ' AS ownership, COUNT(*) AS rows_seen
+               FROM `' . $this->products() . '` WHERE vendor_user_id = %d
+              GROUP BY ' . M0010LinkOwnership::COLUMN,
+            [$vendorUserId]
+        );
+        $tally = ['marketplace' => 0, 'observed' => 0];
+        foreach ($rows as $row) {
+            // An unrecognised value counts as marketplace, matching
+            // `linkOwnership()`: the column was added by migration 10 and a
+            // row written before it has no value at all, which has always
+            // meant «ours».
+            $key = (LinkOwnership::tryFrom((string) $row['ownership']) ?? LinkOwnership::Marketplace)->value;
+            $tally[$key] += (int) $row['rows_seen'];
+        }
+        return $tally;
+    }
+
     public function mirrorStock(int $productId, int $stock): bool
     {
         return $this->db->execute(

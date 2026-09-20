@@ -1,0 +1,4 @@
+=== imported history vs operational capability, on the plugin installed from the ZIP ===
+dokan-lite	active	5.1.1
+tecteb-marketplace-core	active	0.1.0-alpha.17
+woocommerce	active	11.0.1

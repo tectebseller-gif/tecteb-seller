@@ -17,7 +17,11 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\GrantImportedStaff;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationCompleteness;
+use Tecteb\Marketplace\Modules\Migration\Application\ReconcileDokanFinance;
+use Tecteb\Marketplace\Modules\Migration\Application\StaffRoleMap;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\OrderHistoryRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
@@ -28,6 +32,9 @@ use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpDokanReader;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MigrationPage;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffUserDirectoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 
 /**
@@ -97,6 +104,38 @@ final class MigrationModule implements ModuleInterface
         ));
         $c->bind(CategoryMap::class, static fn (ContainerInterface $c) => new CategoryMap(
             $c->get(OptionStoreInterface::class)
+        ));
+        $c->bind(StaffRoleMap::class, static fn (ContainerInterface $c) => new StaffRoleMap(
+            $c->get(OptionStoreInterface::class)
+        ));
+        $c->bind(GrantImportedStaff::class, static fn (ContainerInterface $c) => new GrantImportedStaff(
+            $c->get(ShopRecordRepositoryInterface::class),
+            $c->get(StaffRoleMap::class),
+            $c->get(StaffRepositoryInterface::class),
+            $c->get(StaffUserDirectoryInterface::class),
+            $c->get(AuditLogger::class),
+            $c->get(CapabilityCheckerInterface::class)
+        ));
+        $c->bind(ReconcileDokanFinance::class, static fn (ContainerInterface $c) => new ReconcileDokanFinance(
+            $c->get(ShopRecordRepositoryInterface::class),
+            $c->get(OptionStoreInterface::class),
+            $c->get(AuditLogger::class),
+            $c->get(ClockInterface::class),
+            $c->get(CapabilityCheckerInterface::class),
+            // Read only, and optional: the report says «this marketplace's own
+            // engine holds nothing for this shop» and must be able to say it
+            // without the finance module loaded.
+            $c->has(LedgerRepositoryInterface::class) ? $c->get(LedgerRepositoryInterface::class) : null,
+            $c->has(WithdrawalRepositoryInterface::class) ? $c->get(WithdrawalRepositoryInterface::class) : null
+        ));
+        $c->bind(MigrationCompleteness::class, static fn (ContainerInterface $c) => new MigrationCompleteness(
+            $c->get(ShopRecordRepositoryInterface::class),
+            $c->get(StaffRoleMap::class),
+            $c->get(ReconcileDokanFinance::class),
+            $c->get(VendorRepositoryInterface::class),
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(DokanReaderInterface::class),
+            $c->get(CategoryMap::class)
         ));
     }
 

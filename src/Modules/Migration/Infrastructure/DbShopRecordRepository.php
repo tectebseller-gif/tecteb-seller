@@ -124,6 +124,89 @@ final class DbShopRecordRepository implements ShopRecordRepositoryInterface
         ];
     }
 
+    public function staffForVendor(int $vendorUserId): array
+    {
+        $rows = $this->db->getResults(
+            'SELECT staff_user_id, vendor_user_id, display_name, user_email, dokan_role
+               FROM `' . $this->t(T::STAFF) . '` WHERE vendor_user_id = %d ORDER BY staff_user_id ASC',
+            [$vendorUserId]
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'staff_user_id' => (int) $row['staff_user_id'],
+                'vendor_user_id' => (int) $row['vendor_user_id'],
+                'display_name' => (string) $row['display_name'],
+                'user_email' => (string) $row['user_email'],
+                'dokan_role' => (string) $row['dokan_role'],
+            ];
+        }
+        return $out;
+    }
+
+    public function withdrawalsByStatus(int $vendorUserId): array
+    {
+        // `CAST(... AS CHAR)` for the same reason every other amount here is a
+        // string: SUM() over DECIMAL comes back exact, and letting PHP see it
+        // as a float is the first rounding nobody asked for.
+        $rows = $this->db->getResults(
+            'SELECT status, COUNT(*) AS rows_seen, CAST(COALESCE(SUM(amount), 0) AS CHAR) AS total
+               FROM `' . $this->t(T::WITHDRAW) . '` WHERE vendor_user_id = %d
+              GROUP BY status ORDER BY status ASC',
+            [$vendorUserId]
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(string) $row['status']] = [
+                'count' => (int) $row['rows_seen'],
+                'total' => (string) $row['total'],
+            ];
+        }
+        return $out;
+    }
+
+    public function balanceByType(int $vendorUserId): array
+    {
+        $rows = $this->db->getResults(
+            'SELECT trn_type, COUNT(*) AS rows_seen,
+                    CAST(COALESCE(SUM(debit), 0) AS CHAR) AS debit,
+                    CAST(COALESCE(SUM(credit), 0) AS CHAR) AS credit
+               FROM `' . $this->t(T::BALANCE) . '` WHERE vendor_user_id = %d
+              GROUP BY trn_type ORDER BY trn_type ASC',
+            [$vendorUserId]
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(string) $row['trn_type']] = [
+                'count' => (int) $row['rows_seen'],
+                'debit' => (string) $row['debit'],
+                'credit' => (string) $row['credit'],
+            ];
+        }
+        return $out;
+    }
+
+    public function closingBalance(int $vendorUserId): string
+    {
+        return (string) ($this->db->getVar(
+            'SELECT CAST(COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) AS CHAR)
+               FROM `' . $this->t(T::BALANCE) . '` WHERE vendor_user_id = %d',
+            [$vendorUserId]
+        ) ?? '0');
+    }
+
+    public function vendorsWithRecords(): array
+    {
+        $rows = $this->db->getResults(
+            'SELECT vendor_user_id FROM `' . $this->t(T::STAFF) . '`
+              UNION SELECT vendor_user_id FROM `' . $this->t(T::BALANCE) . '`
+              UNION SELECT vendor_user_id FROM `' . $this->t(T::WITHDRAW) . '`
+              ORDER BY vendor_user_id ASC',
+            []
+        );
+        return array_map(static fn (array $r): int => (int) $r['vendor_user_id'], $rows);
+    }
+
     public function deleteRun(string $runId): array
     {
         if ($runId === '') {

@@ -106,6 +106,36 @@ final class DbStaffRepository implements StaffRepositoryInterface
         );
     }
 
+    public function adopt(
+        int $vendorUserId,
+        int $staffUserId,
+        string $displayName,
+        string $username,
+        string $email,
+        StaffRolePreset $preset,
+        StaffPermissions $permissions
+    ): int {
+        $now = $this->now();
+        $ok = $this->db->execute(
+            'INSERT INTO `' . $this->table() . '`
+             (vendor_user_id, staff_user_id, display_name, username, email, mobile, role_preset, permissions,
+              status, invite_hash, invite_expires_at, invited_at, created_at, updated_at)
+             VALUES (%d, %d, %s, %s, %s, %s, %s, %s, %s, %s, NULL, %s, %s, %s)',
+            [
+                $vendorUserId, $staffUserId, $displayName, $username, $email, '',
+                $preset->value, json_encode($permissions->toArray(), JSON_UNESCAPED_UNICODE),
+                StaffStatus::Invited->value, '', $now, $now, $now,
+            ]
+        );
+        if ($ok === null) {
+            return 0;
+        }
+        return (int) $this->db->getVar(
+            'SELECT id FROM `' . $this->table() . '` WHERE staff_user_id = %d',
+            [$staffUserId]
+        );
+    }
+
     public function updateRole(int $staffId, StaffRolePreset $preset, StaffPermissions $permissions): bool
     {
         return $this->db->execute(

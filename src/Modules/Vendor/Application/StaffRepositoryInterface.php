@@ -37,6 +37,29 @@ interface StaffRepositoryInterface
         string $inviteExpiresAt
     ): int;
 
+    /**
+     * A membership for a WordPress user who already exists and was never
+     * invited — the imported-Dokan-staff path, and nothing else.
+     *
+     * Separate from `add()` because the difference is not cosmetic: `add()`
+     * stores a live invitation token, and this stores none. The row lands
+     * `Invited`, whose `canAct()` is false, with an empty hash and a NULL
+     * expiry — so no token that could activate it exists anywhere, and the
+     * only way forward is somebody pressing confirm. An imported name must
+     * never arrive holding a credential.
+     *
+     * @return int the new membership id, or 0
+     */
+    public function adopt(
+        int $vendorUserId,
+        int $staffUserId,
+        string $displayName,
+        string $username,
+        string $email,
+        StaffRolePreset $preset,
+        StaffPermissions $permissions
+    ): int;
+
     public function updateRole(int $staffId, StaffRolePreset $preset, StaffPermissions $permissions): bool;
 
     public function updateStatus(int $staffId, StaffStatus $status): bool;
