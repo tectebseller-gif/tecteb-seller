@@ -13,7 +13,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 SLUG="tecteb-marketplace-core"
-DIST="${ROOT}/dist"
+# Where the artefacts land. Overridable so a TEST can build somewhere else:
+# `testBuildIsReproducible` used to run this straight over `dist/`, and the
+# source archive contains `docs/`, which the same suite rewrites as it runs —
+# so a full run always left `dist/` dirty and the delivery ledger disagreeing
+# with a file it had itself just caused to change. A check must not mutate the
+# thing it is checking.
+DIST="${TMC_DIST:-${ROOT}/dist}"
 STAGE="${DIST}/build-stage"   # not dot-prefixed: the purge below scans for dot-files
 
 VERSION="$(grep -oP '^\s*\*\s*Version:\s*\K[0-9A-Za-z.\-+]+' "${SLUG}.php" | head -1)"
@@ -117,6 +123,27 @@ fi
 
 mv -f "${BUILT}" "${ZIP}"
 
+
+# A companion archive that was DELIVERED is not rebuilt.
+#
+# The ZIP is byte-reproducible; the source and evidence archives are not,
+# because they carry `docs/` and the evidence logs change on every suite run.
+# Rebuilding them over a delivered version therefore breaks the ledger on a
+# run that changed nothing anybody installs. The ZIP guard above already
+# refuses a changed payload; this keeps its two companions honest by simply
+# leaving them alone once they have been handed over.
+#
+# Asked of DELIVERED.txt for the same reason as the ZIP: git records what was
+# committed and SHA256SUMS is regenerated from disk.
+delivered_already() {                 # $1 = file name
+  [ -f "${LEDGER}" ] || return 1
+  local want
+  want="$(grep -v '^#' "${LEDGER}" | awk -v f="$1" '$2 == f { print $1 }' | head -1)"
+  [ -n "${want}" ] || return 1
+  [ -f "${DIST}/$1" ] || return 1
+  [ "$(sha256sum "${DIST}/$1" | cut -c1-64)" = "${want}" ]
+}
+
 # --- source archive (tests, docs, lockfile, build tooling) ------------------
 SRC_ARCHIVE="${DIST}/${SLUG}-source-${VERSION}.tar.gz"
 # --cached --others --exclude-standard: everything tracked plus anything new
@@ -186,8 +213,12 @@ COUNT=$(tr -cd '\0' < "${LIST_OK}" | wc -c)
 [ "${COUNT}" -gt 50 ] || { echo "source archive: file list looks wrong (${COUNT} entries)" >&2; exit 1; }
 
 LC_ALL=C sort -zu "${LIST_OK}" -o "${LIST_OK}"
-tar --null --files-from="${LIST_OK}" --owner=0 --group=0 --numeric-owner \
-    --mtime="@${SOURCE_DATE}" --format=gnu -czf "${SRC_ARCHIVE}"
+if delivered_already "$(basename "${SRC_ARCHIVE}")"; then
+  echo "source archive: already delivered, left untouched → $(basename "${SRC_ARCHIVE}")"
+else
+  tar --null --files-from="${LIST_OK}" --owner=0 --group=0 --numeric-owner \
+      --mtime="@${SOURCE_DATE}" --format=gnu -czf "${SRC_ARCHIVE}"
+fi
 
 # --- evidence images, in their own archive ----------------------------------
 : > "${IMG_LIST_OK}"
@@ -197,7 +228,9 @@ done < "${IMG_LIST}"
 IMG_COUNT=$(tr -cd '\0' < "${IMG_LIST_OK}" | wc -c)
 
 EV_ARCHIVE="${DIST}/${SLUG}-evidence-${VERSION}.tar.gz"
-if [ "${IMG_COUNT}" -gt 0 ]; then
+if delivered_already "$(basename "${EV_ARCHIVE}")"; then
+  echo "evidence archive: already delivered, left untouched → $(basename "${EV_ARCHIVE}")"
+elif [ "${IMG_COUNT}" -gt 0 ]; then
   LC_ALL=C sort -zu "${IMG_LIST_OK}" -o "${IMG_LIST_OK}"
   tar --null --files-from="${IMG_LIST_OK}" --owner=0 --group=0 --numeric-owner \
       --mtime="@${SOURCE_DATE}" --format=gnu -czf "${EV_ARCHIVE}"

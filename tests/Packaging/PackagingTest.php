@@ -173,12 +173,34 @@ final class PackagingTest extends TestCase
         exec('rm -rf ' . escapeshellarg($dir));
     }
 
+    /**
+     * Two builds of the same source produce byte-identical packages.
+     *
+     * Built into a TEMPORARY directory, not over `dist/`. The source archive
+     * contains `docs/`, and a full suite run rewrites the evidence logs in
+     * there as it goes — so building over `dist/` left the delivered source
+     * archive different from the hash the ledger had just recorded for it,
+     * every single run. A check must not mutate the thing it is checking.
+     */
     public function testBuildIsReproducible(): void
     {
         $before = hash_file('sha256', self::zip());
-        exec('bash ' . escapeshellarg(self::root() . '/tools/build.sh') . ' 2>&1', $out, $code);
-        self::assertSame(0, $code, implode("\n", $out));
-        self::assertSame($before, hash_file('sha256', self::zip()), 'two builds of the same source are byte-identical');
+        $dir = sys_get_temp_dir() . '/tmc-build-' . bin2hex(random_bytes(6));
+        mkdir($dir, 0700, true);
+
+        exec(
+            'TMC_DIST=' . escapeshellarg($dir) . ' TMC_REBUILD=1 bash '
+            . escapeshellarg(self::root() . '/tools/build.sh') . ' 2>&1',
+            $out,
+            $code
+        );
+        $rebuilt = $dir . '/' . self::zipName();
+        $ok = $code === 0 && is_file($rebuilt);
+        $again = $ok ? hash_file('sha256', $rebuilt) : '';
+        exec('rm -rf ' . escapeshellarg($dir));
+
+        self::assertTrue($ok, implode("\n", $out));
+        self::assertSame($before, $again, 'two builds of the same source are byte-identical');
     }
 
     /**
