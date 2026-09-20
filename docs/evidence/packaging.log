@@ -3,20 +3,8 @@ PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
 Runtime:       PHP 8.4.19
 Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
-....F..............                                               19 / 19 (100%)
+...................                                               19 / 19 (100%)
 
-Time: 00:02.341, Memory: 12.00 MB
+Time: 00:05.838, Memory: 12.00 MB
 
-There was 1 failure:
-
-1) Tecteb\Marketplace\Tests\Packaging\PackagingTest::testBuildIsReproducible
-refusing to rebuild tecteb-marketplace-core-0.1.0-alpha.17.zip: that package was DELIVERED.
-  delivered: b06e44dcdf338a51c7474c1d7e60f20a478e9aa2db1d7be1fc0ab6e5b1364b5b
-  rebuilt:   4ab0fcfc315fbf21739fd25e7cc76744cbc496a51720d3a432ffb152565a923e
-Somebody has these bytes. Bump the Version header; there is no flag for this.
-Failed asserting that false is true.
-
-/home/user/tecteb-seller/tests/Packaging/PackagingTest.php:202
-
-FAILURES!
-Tests: 19, Assertions: 19175, Failures: 1.
+OK (19 tests, 19182 assertions)

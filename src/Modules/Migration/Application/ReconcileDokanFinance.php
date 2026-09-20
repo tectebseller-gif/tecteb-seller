@@ -143,6 +143,46 @@ final class ReconcileDokanFinance
     }
 
     /**
+     * A receipt for the figures a manager was actually shown.
+     *
+     * «Acceptance only after the report was displayed» cannot be enforced with
+     * a flag. A flag records that somebody clicked, not that anybody looked —
+     * and worse, it stays true after the numbers move underneath it. So the
+     * report hands its form a hash of the very figures on screen, and
+     * `decide()` recomputes that hash from the rows at the moment of the
+     * decision. A token that no longer matches means this shop's imported past
+     * changed between the reading and the decision — a re-import, a rollback,
+     * an extension — and the manager is sent back to look again rather than
+     * taking on a figure nobody ever saw.
+     *
+     * The same shape as the optimistic lock on the product form, for the same
+     * reason (alpha.14): a check made between the read and the write is a
+     * check that two people both pass.
+     *
+     * Every figure the report puts on screen is in here. A number the manager
+     * reads must be a number that can invalidate their decision, otherwise the
+     * receipt is for a different document than the one they were handed.
+     */
+    public function figuresToken(int $vendorUserId): string
+    {
+        $summary = $this->records->summaryForVendor($vendorUserId);
+        $byStatus = $this->records->withdrawalsByStatus($vendorUserId);
+        $byType = $this->records->balanceByType($vendorUserId);
+        ksort($byStatus);
+        ksort($byType);
+
+        return substr(hash('sha256', (string) json_encode([
+            'closing' => $this->records->closingBalance($vendorUserId),
+            'credit' => (string) $summary['credit'],
+            'debit' => (string) $summary['debit'],
+            'balance_rows' => (int) $summary['balance_rows'],
+            'withdrawal_rows' => (int) $summary['withdrawals'],
+            'by_status' => $byStatus,
+            'by_type' => $byType,
+        ])), 0, 32);
+    }
+
+    /**
      * Record who is responsible for a shop's imported balance.
      *
      * Writes one option entry and one audit row. It writes **no ledger line**,
@@ -152,7 +192,7 @@ final class ReconcileDokanFinance
      *
      * @return array{ok:bool, reason:string, handover:array<string,mixed>}
      */
-    public function decide(int $vendorUserId, string $decision, string $note = ''): array
+    public function decide(int $vendorUserId, string $decision, string $note = '', string $seenToken = ''): array
     {
         $current = $this->decisionFor($vendorUserId);
         if (!$this->caps->can(Capabilities::REVIEW_VENDOR)) {
@@ -160,6 +200,21 @@ final class ReconcileDokanFinance
         }
         if (!in_array($decision, self::decisions(), true)) {
             return ['ok' => false, 'reason' => 'unknown_decision', 'handover' => $current];
+        }
+
+        // Both closing decisions are statements about money — one takes the
+        // figure on, the other declares we owe nothing for it — and both shut
+        // the `finance_decided` gate. Neither may be made blind. Returning TO
+        // `open` needs no receipt: it creates no obligation, it removes one.
+        $expectedToken = '';
+        if ($decision !== self::OPEN) {
+            $expectedToken = $this->figuresToken($vendorUserId);
+            if ($seenToken === '') {
+                return ['ok' => false, 'reason' => 'report_not_seen', 'handover' => $current];
+            }
+            if (!hash_equals($expectedToken, $seenToken)) {
+                return ['ok' => false, 'reason' => 'figures_changed', 'handover' => $current];
+            }
         }
 
         $closing = $this->records->closingBalance($vendorUserId);
@@ -176,6 +231,9 @@ final class ReconcileDokanFinance
             // took the unpaid requests too». Paying them is DEC-06 and is not
             // this decision.
             'pending_requests_untouched' => $this->pendingCount($pending),
+            // Which report was on screen. Kept so «what did they agree to»
+            // names the document as well as the amount.
+            'figures_token' => $expectedToken,
         ];
 
         $all = $this->allDecisions();
@@ -196,6 +254,7 @@ final class ReconcileDokanFinance
                 'pending_requests' => (int) $record['pending_requests_untouched'],
                 'pending_total' => $this->pendingTotal($pending),
                 'decision' => $decision,
+                'figures_token' => $expectedToken,
             ]
         );
 
@@ -213,6 +272,7 @@ final class ReconcileDokanFinance
             'decided_by' => 0,
             'note' => '',
             'pending_requests_untouched' => 0,
+            'figures_token' => '',
         ];
     }
 

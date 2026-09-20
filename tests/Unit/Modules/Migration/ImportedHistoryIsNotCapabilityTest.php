@@ -222,7 +222,7 @@ final class ImportedHistoryIsNotCapabilityTest extends TestCase
         $this->withdrawal(7, '750.0000', 'pending');
         $service = $this->financeService();
 
-        $result = $service->decide(7, ReconcileDokanFinance::ACCEPTED, 'تسویه خارج از دفترکل');
+        $result = $service->decide(7, ReconcileDokanFinance::ACCEPTED, 'تسویه خارج از دفترکل', $service->figuresToken(7));
 
         self::assertTrue($result['ok']);
         self::assertSame('5000.0000', $result['handover']['closing_at_decision']);
@@ -236,7 +236,7 @@ final class ImportedHistoryIsNotCapabilityTest extends TestCase
     {
         $this->balance(7, '5000.0000', '0', 'dokan_orders');
         $service = $this->financeService();
-        $service->decide(7, ReconcileDokanFinance::ACCEPTED);
+        $service->decide(7, ReconcileDokanFinance::ACCEPTED, '', $service->figuresToken(7));
 
         $this->balance(7, '1000.0000', '0', 'dokan_orders');
         $report = $service->forVendor(7);
@@ -258,9 +258,40 @@ final class ImportedHistoryIsNotCapabilityTest extends TestCase
         $this->withdrawal(7, '500.0000', 'dokan:2');    // cancelled: closed, never paid
         $this->withdrawal(7, '750.0000', 'dokan:0');    // pending: nobody has paid it
 
-        $result = $this->financeService()->decide(7, ReconcileDokanFinance::ACCEPTED);
+        $service = $this->financeService();
+        $result = $service->decide(7, ReconcileDokanFinance::ACCEPTED, '', $service->figuresToken(7));
 
         self::assertSame(1, $result['handover']['pending_requests_untouched'], 'only the pending one is outstanding');
+    }
+
+    /**
+     * A balance is never taken on by somebody who was not reading the report.
+     *
+     * The receipt is a hash of the very figures the page printed, so it cannot
+     * be produced without having been served them — and it stops matching the
+     * moment the imported past moves. A «seen» checkbox would do neither: it
+     * records a click, and it stays true after the numbers change.
+     */
+    public function testAcceptanceWithoutTheReportsReceiptIsRefused(): void
+    {
+        $this->balance(7, '5000.0000', '0', 'dokan_orders');
+        $service = $this->financeService();
+
+        $blind = $service->decide(7, ReconcileDokanFinance::ACCEPTED);
+        self::assertFalse($blind['ok']);
+        self::assertSame('report_not_seen', $blind['reason']);
+
+        $stale = $service->figuresToken(7);
+        $this->balance(7, '1000.0000', '0', 'dokan_orders');
+        $moved = $service->decide(7, ReconcileDokanFinance::ACCEPTED, '', $stale);
+        self::assertFalse($moved['ok']);
+        self::assertSame('figures_changed', $moved['reason']);
+
+        self::assertSame(
+            ReconcileDokanFinance::OPEN,
+            $service->decisionFor(7)['decision'],
+            'two refusals later the shop is still nobody\'s obligation'
+        );
     }
 
     public function testAnUnknownDecisionIsRefused(): void

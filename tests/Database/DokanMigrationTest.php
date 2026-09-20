@@ -986,4 +986,147 @@ final class DokanMigrationTest extends DatabaseTestCase
         $judged = array_column($this->completeness()->all(), 'vendor_user_id');
         self::assertContains($orphan, $judged, 'the profile stamp is a trace too');
     }
+
+    private function finance(): ReconcileDokanFinance
+    {
+        $clock = new SystemClock();
+        return new ReconcileDokanFinance(
+            $this->shopRecords,
+            new WpOptionStore(),
+            new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock),
+            $clock,
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR]),
+            $this->ledger
+        );
+    }
+
+    /** A shop with a real Dokan past: one credit, one unpaid withdrawal request. */
+    private function seedDokanFinance(): void
+    {
+        (new WpOptionStore())->delete(ReconcileDokanFinance::SETTING);
+        $this->shopRecords->recordBalance('run-fin', [
+            'trn_id' => 1, 'vendor_user_id' => self::SELLER, 'trn_type' => 'order',
+            'particulars' => 'فروش', 'debit' => '0', 'credit' => '500000',
+            'status' => 'approved', 'trn_date' => '2026-01-01 00:00:00',
+        ]);
+        $this->shopRecords->recordWithdrawal('run-fin', [
+            'withdraw_id' => 1, 'vendor_user_id' => self::SELLER, 'amount' => '200000',
+            'status' => 'pending', 'method' => 'bank', 'note' => '',
+            'requested_at' => '2026-01-02 00:00:00',
+        ]);
+    }
+
+    /**
+     * Nothing is accepted on its own. The starting state is «nobody looked».
+     */
+    public function testNoBalanceIsAcceptedOrPaidWithoutSomebodyDeciding(): void
+    {
+        $this->seedDokanFinance();
+        $report = $this->finance()->forVendor(self::SELLER);
+
+        self::assertSame(ReconcileDokanFinance::OPEN, $report['handover']['decision']);
+        self::assertFalse($report['complete'], 'an imported balance is nobody\'s obligation yet');
+        self::assertSame([], $this->ledger->balances(self::SELLER), 'and no ledger line exists for it');
+    }
+
+    /**
+     * Acceptance without the report is refused.
+     *
+     * This cannot be a «seen» flag: a flag records that somebody clicked, not
+     * that anybody looked, and it stays true after the numbers move. The form
+     * carries a hash of the figures printed above it, and a decision arriving
+     * without one never reached a manager who was reading the report.
+     */
+    public function testTheBalanceIsNotAcceptedWithoutTheReportHavingBeenShown(): void
+    {
+        $this->seedDokanFinance();
+        $finance = $this->finance();
+
+        $result = $finance->decide(self::SELLER, ReconcileDokanFinance::ACCEPTED, 'بدون دیدن گزارش');
+
+        self::assertFalse($result['ok']);
+        self::assertSame('report_not_seen', $result['reason']);
+        self::assertSame(
+            ReconcileDokanFinance::OPEN,
+            $finance->decisionFor(self::SELLER)['decision'],
+            'a refused decision leaves the shop exactly where it was'
+        );
+    }
+
+    /**
+     * A decision made against figures that have since moved is refused.
+     *
+     * The window is real: a re-import, a rollback or an extension can land
+     * between the manager reading the page and pressing the button, and the
+     * amount they would be taking on is then not the amount they read.
+     */
+    public function testADecisionAgainstFiguresThatHaveSinceMovedIsRefused(): void
+    {
+        $this->seedDokanFinance();
+        $finance = $this->finance();
+        $tokenTheyWereShown = $finance->figuresToken(self::SELLER);
+
+        // The imported past changes under them.
+        $this->shopRecords->recordBalance('run-fin-2', [
+            'trn_id' => 2, 'vendor_user_id' => self::SELLER, 'trn_type' => 'order',
+            'particulars' => 'فروش دوم', 'debit' => '0', 'credit' => '300000',
+            'status' => 'approved', 'trn_date' => '2026-01-03 00:00:00',
+        ]);
+
+        self::assertNotSame($tokenTheyWereShown, $finance->figuresToken(self::SELLER), 'sanity: the receipt moved');
+
+        $result = $finance->decide(self::SELLER, ReconcileDokanFinance::ACCEPTED, '', $tokenTheyWereShown);
+
+        self::assertFalse($result['ok']);
+        self::assertSame('figures_changed', $result['reason']);
+        self::assertSame(ReconcileDokanFinance::OPEN, $finance->decisionFor(self::SELLER)['decision']);
+    }
+
+    /**
+     * With the report's own receipt, acceptance is recorded — and moves no money.
+     */
+    public function testAcceptanceWithTheShownFiguresIsRecordedAndMovesNoMoney(): void
+    {
+        $this->seedDokanFinance();
+        $finance = $this->finance();
+        $before = $this->ledger->balances(self::SELLER);
+
+        $report = $finance->forVendor(self::SELLER);
+        $result = $finance->decide(
+            self::SELLER,
+            ReconcileDokanFinance::ACCEPTED,
+            'تأیید صریح مدیر',
+            $finance->figuresToken(self::SELLER)
+        );
+
+        self::assertTrue($result['ok'], (string) $result['reason']);
+        self::assertSame(ReconcileDokanFinance::ACCEPTED, $finance->decisionFor(self::SELLER)['decision']);
+        self::assertSame(
+            (string) $report['dokan']['closing'],
+            (string) $result['handover']['closing_at_decision'],
+            'the amount frozen is the amount that was on screen'
+        );
+        self::assertNotSame('', (string) $result['handover']['figures_token'], 'which report was read is recorded too');
+
+        // The whole point: responsibility was recorded, money was not moved.
+        self::assertSame($before, $this->ledger->balances(self::SELLER), 'accepting writes no ledger line');
+        self::assertSame(
+            1,
+            (int) $result['handover']['pending_requests_untouched'],
+            'and the unpaid Dokan request is named as still unpaid'
+        );
+    }
+
+    /** Returning a shop to «undecided» removes an obligation, so it needs no receipt. */
+    public function testReturningToUndecidedNeedsNoReceipt(): void
+    {
+        $this->seedDokanFinance();
+        $finance = $this->finance();
+        $finance->decide(self::SELLER, ReconcileDokanFinance::ACCEPTED, '', $finance->figuresToken(self::SELLER));
+
+        $result = $finance->decide(self::SELLER, ReconcileDokanFinance::OPEN, 'بازگشت به بررسی');
+
+        self::assertTrue($result['ok'], (string) $result['reason']);
+        self::assertSame(ReconcileDokanFinance::OPEN, $finance->decisionFor(self::SELLER)['decision']);
+    }
 }

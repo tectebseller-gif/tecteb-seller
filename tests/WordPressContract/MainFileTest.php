@@ -23,7 +23,15 @@ final class MainFileTest extends ContractTestCase
 
         require $file;
 
-        self::assertSame('0.1.0-alpha.17', TMC_PLUGIN_VERSION);
+        // Pinning one literal version here meant editing this test on every
+        // delivery, which tests nothing — and it cost something real: the
+        // alpha.18 bump left this suite red and the package went out anyway,
+        // because only the packaging suite was re-run after the bump. What
+        // must hold is that the header and the constant name the SAME
+        // version, and that it is still the provisional alpha line (F-01).
+        preg_match('/^\s*\*\s*Version:\s*([0-9A-Za-z.\-+]+)/m', $header, $declared);
+        self::assertMatchesRegularExpression('/^0\.1\.0-alpha\.\d+$/', $declared[1] ?? '');
+        self::assertSame($declared[1], TMC_PLUGIN_VERSION, 'the header and the constant must agree');
         self::assertSame($file, TMC_PLUGIN_FILE);
         self::assertTrue(Autoloader::isRegistered());
         $basename = 'tecteb-seller/tecteb-marketplace-core.php';

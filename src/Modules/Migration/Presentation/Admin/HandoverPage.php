@@ -307,9 +307,15 @@ final class HandoverPage
                 echo '<p class="tmc-field__desc">'
                     . esc_html__('تا وقتی تصمیمی ثبت نشود، این بازارگاه بابت این رقم هیچ تعهدی ندارد و هیچ پرداختی انجام نمی‌شود.', 'tecteb-marketplace-core')
                     . '</p>';
+                // The receipt for the figures printed above. It travels with
+                // the decision so the service can refuse a decision made
+                // against numbers that have since moved. Not a «seen» flag:
+                // a flag would survive the numbers changing.
                 echo '<form method="post" class="tmc-inline-form">'
                     . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)
                     . '<input type="hidden" name="vendor_user_id" value="' . esc_attr((string) $vendorUserId) . '">'
+                    . '<input type="hidden" name="figures_token" value="'
+                    . esc_attr($finance->figuresToken($vendorUserId)) . '">'
                     . '<label class="screen-reader-text" for="tmc-note-' . esc_attr((string) $vendorUserId) . '">'
                     . esc_html__('یادداشت تصمیم', 'tecteb-marketplace-core') . '</label>'
                     . '<input type="text" id="tmc-note-' . esc_attr((string) $vendorUserId) . '" name="handover_note" class="tmc-input"'
@@ -394,11 +400,20 @@ final class HandoverPage
             $result = $this->container->get(ReconcileDokanFinance::class)->decide(
                 $request->postInt('vendor_user_id'),
                 $decision,
-                $request->postText('handover_note')
+                $request->postText('handover_note'),
+                $request->postText('figures_token')
             );
-            return $result['ok']
-                ? 'ok:' . __('مسئولیت مالی ثبت شد. هیچ خط دفترکلی نوشته نشد، هیچ برداشتی ساخته نشد و هیچ رقمی با نرخ تازه محاسبه نشد.', 'tecteb-marketplace-core')
-                : 'err:' . __('ثبت تصمیم انجام نشد.', 'tecteb-marketplace-core');
+            if ($result['ok']) {
+                return 'ok:' . __('مسئولیت مالی ثبت شد. هیچ خط دفترکلی نوشته نشد، هیچ برداشتی ساخته نشد و هیچ رقمی با نرخ تازه محاسبه نشد.', 'tecteb-marketplace-core');
+            }
+            // Each refusal says what to DO, because «ثبت نشد» sends a manager
+            // looking for a broken button instead of a changed number.
+            return 'err:' . match ((string) $result['reason']) {
+                'figures_changed' => __('ارقام این فروشگاه از لحظه‌ای که گزارش را دیدید تغییر کرده‌اند. صفحه را تازه کنید و گزارش تازه را ببینید؛ تصمیم روی ارقامی که دیگر برقرار نیستند ثبت نمی‌شود.', 'tecteb-marketplace-core'),
+                'report_not_seen' => __('تصمیم بدون گزارش تطبیق ثبت نمی‌شود. از همین صفحه و از روی ارقام نمایش‌داده‌شده اقدام کنید.', 'tecteb-marketplace-core'),
+                'forbidden' => __('شما اجازهٔ ثبت این تصمیم را ندارید.', 'tecteb-marketplace-core'),
+                default => __('ثبت تصمیم انجام نشد.', 'tecteb-marketplace-core'),
+            };
         }
 
         return 'err:' . __('اقدام ناشناخته.', 'tecteb-marketplace-core');
