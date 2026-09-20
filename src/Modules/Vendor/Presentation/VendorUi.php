@@ -34,6 +34,61 @@ final class VendorUi
             . '<p>' . esc_html($text) . '</p></div>';
     }
 
+    /**
+     * The five states other than «here is your data»: empty, error, loading,
+     * success and no-access.
+     *
+     * A notice and a state are not the same thing, which is why this is not
+     * `notice()` with a different colour. A notice is a sentence ABOUT the
+     * page; a state IS the page — it stands where the list would be, and it
+     * owes the reader three things: what happened, why, and the one next
+     * step. «هنوز سفارشی ثبت نشده است» answers only the first.
+     *
+     * @param 'empty'|'error'|'loading'|'success'|'denied' $kind
+     * @param list<array{href:string, label:string, primary?:bool}> $actions
+     */
+    public static function state(string $kind, string $title, string $text = '', array $actions = []): string
+    {
+        if ($kind === 'loading') {
+            return '<div class="tv-state tv-state--loading">'
+                . '<p class="tv-state__title">' . esc_html($title) . '</p>'
+                . '<span class="tv-skeleton"></span><span class="tv-skeleton"></span><span class="tv-skeleton"></span>'
+                . '<span class="tv-sr-only">' . esc_html__('در حال بارگذاری', 'tecteb-marketplace-core') . '</span>'
+                . '</div>';
+        }
+        $icon = match ($kind) {
+            'error' => '✕',
+            'success' => '✓',
+            'denied' => '⌧',
+            default => '∅',
+        };
+        // An error and a refusal interrupt; an empty list does not. A panel
+        // that announces «هیچ محصولی ندارید» on every visit is noise.
+        $role = match ($kind) {
+            'error' => ' role="alert"',
+            'denied' => ' role="status"',
+            default => '',
+        };
+        $html = '<div class="tv-state tv-state--' . esc_attr($kind) . '"' . $role . '>'
+            . '<span class="tv-state__icon" aria-hidden="true">' . esc_html($icon) . '</span>'
+            . '<p class="tv-state__title">' . esc_html($title) . '</p>';
+        if ($text !== '') {
+            $html .= '<p class="tv-state__text">' . esc_html($text) . '</p>';
+        }
+        if ($actions !== []) {
+            $html .= '<p class="tv-state__actions">';
+            foreach ($actions as $action) {
+                $html .= self::button(
+                    (string) $action['href'],
+                    (string) $action['label'],
+                    !empty($action['primary']) ? 'primary' : 'secondary'
+                );
+            }
+            $html .= '</p>';
+        }
+        return $html . '</div>';
+    }
+
     public static function button(string $href, string $label, string $variant = 'primary'): string
     {
         return '<a class="tv-btn tv-btn--' . esc_attr($variant) . '" href="' . esc_url($href) . '">' . esc_html($label) . '</a>';

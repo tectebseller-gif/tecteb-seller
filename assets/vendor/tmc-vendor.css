@@ -95,8 +95,48 @@
 .tv-head__role { font-size: 0.9375rem; color: var(--tv-ink); opacity: 0.85; }
 .tv-head__store { margin: 0; font-weight: 700; color: var(--tv-ink); background: #fff; border-radius: 999px; padding: var(--tv-s1) var(--tv-s4); }
 
-/* navigation: the current item is INK on white, never white on sky --------- */
+/* navigation: the current item is INK on white, never white on sky ---------
+ *
+ * And it is a `<details>`, collapsed. Ten sections laid out two-up put five
+ * rows of buttons above every page on a phone — the owner's words were «منوی
+ * موبایل جمع‌شونده باشد تا ابتدای صفحه را اشغال نکند». `tmc-vendor.js` opens
+ * it when the viewport is wide and adds `is-wide`; both are the script's job
+ * because CSS cannot reveal a closed `<details>` (measured in Chromium 141:
+ * the UA hides the panel through its own shadow slot). The summary is hidden
+ * only under `is-wide`, so a browser running no script always keeps the
+ * control that opens the menu. */
 .tv-nav { max-inline-size: 1100px; margin-inline: auto; inline-size: 100%; }
+.tv-nav__toggle {
+  display: flex; align-items: center; gap: var(--tv-s2);
+  min-height: var(--tv-touch); padding: 0 var(--tv-s4);
+  background: #fff; color: var(--tv-ink); border: 2px solid transparent; border-radius: 999px;
+  font-weight: 700; cursor: pointer; list-style: none;
+}
+.tv-nav__toggle::-webkit-details-marker { display: none; }
+.tv-nav__toggle:hover { border-color: var(--tv-ink); }
+.tv-nav__toggle-icon {
+  inline-size: 18px; block-size: 2px; background: currentColor; border-radius: 2px;
+  position: relative; flex: none;
+}
+.tv-nav__toggle-icon::before,
+.tv-nav__toggle-icon::after {
+  content: ""; position: absolute; inset-inline: 0; block-size: 2px; background: currentColor; border-radius: 2px;
+  transition: transform 120ms ease-out;
+}
+.tv-nav__toggle-icon::before { inset-block-start: -6px; }
+.tv-nav__toggle-icon::after { inset-block-start: 6px; }
+.tv-nav[open] .tv-nav__toggle-icon { background: transparent; }
+.tv-nav[open] .tv-nav__toggle-icon::before { transform: translateY(6px) rotate(45deg); }
+.tv-nav[open] .tv-nav__toggle-icon::after { transform: translateY(-6px) rotate(-45deg); }
+/* A collapsed menu that does not say where you are trades one problem for
+   another, so the current section rides on the closed toggle. */
+.tv-nav__toggle-current {
+  margin-inline-start: auto; font-weight: 600; font-size: 0.9375rem; color: var(--tv-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-inline-size: 0;
+}
+.tv-nav__panel { margin-block-start: var(--tv-s3); }
+.tv-nav.is-wide > .tv-nav__toggle { display: none; }
+.tv-nav.is-wide > .tv-nav__panel { margin-block-start: 0; }
 .tv-nav ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--tv-s2); }
 .tv-nav__link {
   display: flex; align-items: center; justify-content: center; text-align: center;
@@ -220,6 +260,44 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 .tv .tv-btn--primary:hover { background: var(--tv-ink-strong); color: #fff; }
 .tv .tv-btn--secondary { background: #fff; color: var(--tv-ink); }
 .tv .tv-btn--secondary:hover { background: var(--tv-sky-soft); color: var(--tv-ink); }
+
+/* states: empty, error, loading, success, no access ------------------------
+ *
+ * The same five as the manager side, and the same rule: a state screen says
+ * what happened, why, and what the one next step is. A vendor who opens
+ * «سفارش‌ها» on their first day should read «هنوز سفارشی ثبت نشده» and be
+ * told where a first order comes from — not face an empty box. */
+.tv-state {
+  display: grid; justify-items: center; gap: var(--tv-s3);
+  padding: var(--tv-s5) var(--tv-s4); text-align: center;
+  border: 1px dashed var(--tv-border); border-radius: var(--tv-radius);
+  background: var(--tv-surface-2);
+}
+.tv-state__icon {
+  inline-size: 44px; block-size: 44px; display: grid; place-items: center;
+  border-radius: 999px; background: var(--tv-surface); color: var(--tv-muted);
+  border: 1px solid var(--tv-border); font-size: 1.25rem; line-height: 1;
+}
+.tv-state__title { margin: 0; font-weight: 700; font-size: 1.0625rem; color: var(--tv-text); }
+.tv-state__text { margin: 0; color: var(--tv-muted); max-inline-size: 46ch; }
+.tv-state__actions { display: flex; flex-wrap: wrap; gap: var(--tv-s2); justify-content: center; }
+.tv-state--error { border-style: solid; border-color: var(--tv-red); background: #FDF3F2; }
+.tv-state--error .tv-state__icon { color: var(--tv-red); border-color: var(--tv-red); }
+.tv-state--success { border-style: solid; border-color: #0F7A4A; background: #F1FBF6; }
+.tv-state--success .tv-state__icon { color: #0F7A4A; border-color: #0F7A4A; }
+.tv-state--denied { border-style: solid; border-color: var(--tv-amber); background: #FFF8E8; }
+.tv-state--denied .tv-state__icon { color: #6B4D00; border-color: #C79500; }
+/* Loading is bars where the rows will be, so the page does not jump when they
+   arrive — not a spinner that says only «something is happening». */
+.tv-state--loading { border-style: solid; justify-items: stretch; text-align: start; gap: var(--tv-s2); }
+.tv-skeleton {
+  block-size: 1rem; border-radius: var(--tv-radius-sm, 8px);
+  background: linear-gradient(90deg, var(--tv-border) 25%, var(--tv-surface) 50%, var(--tv-border) 75%);
+  background-size: 200% 100%; animation: tv-shimmer 1.4s linear infinite;
+}
+.tv-skeleton:nth-child(3) { inline-size: 80%; }
+.tv-skeleton:nth-child(4) { inline-size: 60%; }
+@keyframes tv-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* wider containers --------------------------------------------------------- */
 @media (min-width: 48rem) {

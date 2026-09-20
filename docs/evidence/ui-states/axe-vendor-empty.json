@@ -1,0 +1,7 @@
+{
+  "url": "http://127.0.0.1:8080/vendor/products/?q=zzz-nothing-matches-this",
+  "scope": ".tv",
+  "violations": [],
+  "passes": 22,
+  "whole_page_violations": []
+}

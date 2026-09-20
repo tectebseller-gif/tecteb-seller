@@ -1,0 +1,218 @@
+{
+  "at": "2026-09-20T08:50:24.185Z",
+  "site": "http://127.0.0.1:8080",
+  "checks": 35,
+  "failures": 0,
+  "results": [
+    {
+      "scope": "vendor/phone",
+      "check": "the menu exists and carries every section",
+      "ok": true,
+      "detail": "links=10"
+    },
+    {
+      "scope": "vendor/phone",
+      "check": "the menu is COLLAPSED on a phone",
+      "ok": true,
+      "detail": "open=false"
+    },
+    {
+      "scope": "vendor/phone",
+      "check": "…its toggle is still there",
+      "ok": true,
+      "detail": "summary=46px"
+    },
+    {
+      "scope": "vendor/phone",
+      "check": "…and it costs under a tenth of the viewport",
+      "ok": true,
+      "detail": "nav=46px of 844px"
+    },
+    {
+      "scope": "vendor/phone",
+      "check": "content starts in the first screenful",
+      "ok": true,
+      "detail": "content top=152px"
+    },
+    {
+      "scope": "vendor/phone",
+      "check": "Enter on the toggle opens it",
+      "ok": true,
+      "detail": "open=true"
+    },
+    {
+      "scope": "vendor/phone",
+      "check": "…and the links become visible",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "vendor/phone",
+      "check": "Enter again closes it",
+      "ok": true,
+      "detail": "open=false"
+    },
+    {
+      "scope": "vendor/phone",
+      "check": "axe finds no violation",
+      "ok": true,
+      "detail": "17 passes"
+    },
+    {
+      "scope": "vendor/desktop",
+      "check": "the menu exists and carries every section",
+      "ok": true,
+      "detail": "links=10"
+    },
+    {
+      "scope": "vendor/desktop",
+      "check": "the menu is OPEN on a wide screen",
+      "ok": true,
+      "detail": "open=true"
+    },
+    {
+      "scope": "vendor/desktop",
+      "check": "…as a bar, with the toggle out of the way",
+      "ok": true,
+      "detail": "is-wide=true summary=false"
+    },
+    {
+      "scope": "vendor/desktop",
+      "check": "axe finds no violation",
+      "ok": true,
+      "detail": "15 passes"
+    },
+    {
+      "scope": "vendor/empty",
+      "check": "a fruitless search renders a STATE, not a bare line",
+      "ok": true,
+      "detail": "tv-state--empty"
+    },
+    {
+      "scope": "vendor/empty",
+      "check": "…with a title",
+      "ok": true,
+      "detail": "برای «zzz-nothing-matches-this» چیزی پیدا نشد"
+    },
+    {
+      "scope": "vendor/empty",
+      "check": "…an explanation",
+      "ok": true,
+      "detail": "86 chars"
+    },
+    {
+      "scope": "vendor/empty",
+      "check": "…and a way out",
+      "ok": true,
+      "detail": "actions=1"
+    },
+    {
+      "scope": "vendor/empty",
+      "check": "it does NOT claim the shop has no products",
+      "ok": true,
+      "detail": "برای «zzz-nothing-matches-this» چیزی پیدا نشد"
+    },
+    {
+      "scope": "vendor/empty",
+      "check": "axe finds no violation",
+      "ok": true,
+      "detail": "22 passes"
+    },
+    {
+      "scope": "admin/phone",
+      "check": "the section menu exists",
+      "ok": true,
+      "detail": "links=22"
+    },
+    {
+      "scope": "admin/phone",
+      "check": "it is COLLAPSED on a phone",
+      "ok": true,
+      "detail": "open=false"
+    },
+    {
+      "scope": "admin/phone",
+      "check": "…and costs under a tenth of the viewport",
+      "ok": true,
+      "detail": "nav=44px of 844px"
+    },
+    {
+      "scope": "admin/phone",
+      "check": "axe finds no violation",
+      "ok": true,
+      "detail": "25 passes"
+    },
+    {
+      "scope": "admin/desktop",
+      "check": "the section menu exists",
+      "ok": true,
+      "detail": "links=22"
+    },
+    {
+      "scope": "admin/desktop",
+      "check": "it is OPEN on a wide screen",
+      "ok": true,
+      "detail": "open=true"
+    },
+    {
+      "scope": "admin/desktop",
+      "check": "…with the toggle out of the way",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "admin/desktop",
+      "check": "axe finds no violation",
+      "ok": true,
+      "detail": "26 passes"
+    },
+    {
+      "scope": "store/phone",
+      "check": "the shelf has products",
+      "ok": true,
+      "detail": "cards=24"
+    },
+    {
+      "scope": "store/phone",
+      "check": "…each with a picture big enough to look at",
+      "ok": true,
+      "detail": "24/24 ≥150px"
+    },
+    {
+      "scope": "store/phone",
+      "check": "no horizontal page scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "store/phone",
+      "check": "axe finds no violation",
+      "ok": true,
+      "detail": "18 passes"
+    },
+    {
+      "scope": "store/desktop",
+      "check": "the shelf has products",
+      "ok": true,
+      "detail": "cards=24"
+    },
+    {
+      "scope": "store/desktop",
+      "check": "…each with a picture big enough to look at",
+      "ok": true,
+      "detail": "24/24 ≥150px"
+    },
+    {
+      "scope": "store/desktop",
+      "check": "no horizontal page scroll",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "store/desktop",
+      "check": "axe finds no violation",
+      "ok": true,
+      "detail": "18 passes"
+    }
+  ]
+}

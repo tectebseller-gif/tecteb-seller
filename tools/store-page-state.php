@@ -28,6 +28,13 @@ use Tecteb\Marketplace\Modules\Vendor\Application\ReviewApplication;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings;
 
+/** Persian digits for the demo titles; the plugin has its own PersianDigits. */
+function tmc_fa_digits(string $value): string
+{
+    return strtr($value, ['0' => '۰', '1' => '۱', '2' => '۲', '3' => '۳', '4' => '۴',
+        '5' => '۵', '6' => '۶', '7' => '۷', '8' => '۸', '9' => '۹']);
+}
+
 $command = (string) ($args[0] ?? '');
 $vendorId = (int) ($args[1] ?? 0);
 $c = Bootstrap::container();
@@ -261,15 +268,33 @@ switch ($command) {
             }
         }
 
+        // Named after real equipment, in the order `demo-images` paints it,
+        // so the walkthrough shows a medical shop rather than thirty rows of
+        // «کالای شمارهٔ ۱۲». The shelf is still demo data and still lives only
+        // on the disposable site — but a preview meant to show the DESIGN has
+        // to look like the thing it stands for.
+        $catalogue = [
+            ['گوشی پزشکی دوکاره', 'مدلاین', 'دیافراگم و زنگ، شیلنگ دوکاناله، قابل استفاده برای بزرگسال و کودک.'],
+            ['فشارسنج بازویی دیجیتال', 'تک‌طب', 'اندازه‌گیری خودکار فشار و نبض با حافظهٔ دو کاربره و بازوبند استاندارد.'],
+            ['سرنگ یک‌بارمصرف ۵ سی‌سی', 'پارس‌طب', 'بستهٔ ۱۰۰ عددی، استریل، با سرسوزن جداشدنی.'],
+            ['تب‌سنج دیجیتال نوک‌نرم', 'مدلاین', 'اندازه‌گیری در ۱۰ ثانیه، ضدآب، با حافظهٔ آخرین دما.'],
+            ['پالس‌اکسیمتر انگشتی', 'تک‌طب', 'نمایش اشباع اکسیژن و ضربان با نمودار موج، مناسب بزرگسال.'],
+            ['ماسک سه‌لایه جراحی', 'پارس‌طب', 'بستهٔ ۵۰ عددی، ملت‌بلون داخلی، کِشِ گوشی نرم.'],
+        ];
+
         $made = 0;
         $listed = 0;
         for ($n = 1; $n <= $want; $n++) {
             $sku = sprintf('TMC-PAGE-%03d', $n);
+            [$name, $brand, $blurb] = $catalogue[($n - 1) % count($catalogue)];
+            $batch = (int) ceil($n / count($catalogue));
             $details = new \Tecteb\Marketplace\Modules\Product\Domain\ProductDetails(
-                title: sprintf('کالای صفحه‌بندی شمارهٔ %d', $n),
+                // The batch suffix keeps thirty rows distinguishable without
+                // turning the title back into a number.
+                title: $batch > 1 ? $name . ' — سری ' . tmc_fa_digits((string) $batch) : $name,
                 categoryKey: 'gloves',
-                brand: 'تک‌طب',
-                shortDescription: 'ردیف آزمایشی صفحه‌بندی صفحهٔ عمومی.',
+                brand: $brand,
+                shortDescription: $blurb,
                 priceMinor: 100000 + ($n * 1000),
                 sku: $sku,
                 stock: 10
@@ -288,7 +313,29 @@ switch ($command) {
                     $manage->restore($vendorId, $vendorId, $id);
                 }
             }
-            $manage->save($vendorId, $vendorId, $id, $details, ['material' => 'لاتکس'], [$mediaId], $mediaId);
+            // The row's CURRENT counter, read back rather than left empty.
+            //
+            // A save on an existing product carries an optimistic-lock token
+            // and `alpha.14` refuses a blank one — correctly: a form with no
+            // stamp is a form from a build that predates the counter, and
+            // waving it through is how one editor's work vanishes. The
+            // fixture had been passing nothing and then ignoring the result,
+            // so every re-seed silently kept the PREVIOUS titles and reported
+            // «made=30». «بررسی‌ای که اجرا نشود شبیه بررسی‌ای است که رد نشده».
+            $withImages = $manage->save(
+                $vendorId,
+                $vendorId,
+                $id,
+                $details,
+                ['material' => 'لاتکس'],
+                [$mediaId],
+                $mediaId,
+                $products->rowVersion($id)
+            );
+            if (!$withImages->ok) {
+                printf("catalogue stopped at %d save_code=%s media=%d\n", $n, $withImages->code, $mediaId);
+                break;
+            }
             $after = $products->find($id);
             if ($after?->status !== \Tecteb\Marketplace\Modules\Product\Domain\ProductStatus::Published) {
                 $submitted = $manage->submit($vendorId, $vendorId, $id);
@@ -342,6 +389,37 @@ switch ($command) {
             $removed++;
         }
         printf("catalogue-clear vendor=%d removed=%d\n", $vendorId, $removed);
+        break;
+
+    case 'catalogue-purge':
+        // `catalogue-clear` ARCHIVES, which is the right verb for a plugin
+        // and the wrong one for a fixture that wants different rows next
+        // time: an archived row keeps its SKU, so the next seeding run finds
+        // it, restores it — and then cannot rename it, because renaming a
+        // published product is a proposed revision, not an edit (the rule
+        // from `alpha.6`). The catalogue silently kept last month's titles.
+        //
+        // So this removes the rows outright. A fixture doing fixture things
+        // on a disposable site: there is deliberately no «delete a published
+        // product» service, and this is not one.
+        global $wpdb;
+        $purged = 0;
+        foreach ($products->allForVendor($vendorId) as $product) {
+            if (!str_starts_with($product->details->sku, 'TMC-PAGE-')) {
+                continue;
+            }
+            $c->get(\Tecteb\Marketplace\Modules\Product\Application\SyncCatalog::class)->withdraw($product->id);
+            $wc = (int) ($product->wcProductId ?? 0);
+            if ($wc > 0 && ($wcProduct = wc_get_product($wc))) {
+                $wcProduct->delete(true);
+            }
+            foreach (['tmc_product_images', 'tmc_product_specs', 'tmc_product_revisions'] as $table) {
+                $wpdb->delete($wpdb->prefix . $table, ['product_id' => $product->id]);
+            }
+            $wpdb->delete($wpdb->prefix . 'tmc_products', ['id' => $product->id]);
+            $purged++;
+        }
+        printf("catalogue-purge vendor=%d purged=%d\n", $vendorId, $purged);
         break;
 
     default:

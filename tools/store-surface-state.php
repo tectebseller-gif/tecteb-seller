@@ -161,49 +161,39 @@ switch ($command) {
         break;
 
     case 'demo-images':
-        // Product-shaped placeholder photos for the walkthrough.
+        // Product photos for the walkthrough, drawn rather than blocked out.
         //
         // The catalogue fixture attaches a 64x64 marker, which is the right
         // size for asserting «a thumbnail is present» and the wrong size for
         // showing anybody what a shop looks like: at 64px in a 150px card it
-        // reads as a broken image. A walkthrough exists to show the real
-        // thing, so it gets images with real proportions.
+        // reads as a broken image.
         //
-        // DEMO DATA. It is written on the disposable site and nowhere else;
-        // the package ships no demo content and a packaging test says so.
-        // Written byte by byte, because this host's PHP has neither GD nor
-        // Imagick and the box has no ImageMagick either. A PNG is a signature
-        // and three chunks, and `gzcompress` produces exactly the zlib stream
-        // PNG wants — so the picture costs thirty lines rather than a
-        // dependency that would have to exist on every machine running this.
-        $png = static function (int $size, array $ink, array $paper): string {
-            $raw = '';
-            for ($y = 0; $y < $size; $y++) {
-                $raw .= chr(0);                 // filter type 0 for this scanline
-                for ($x = 0; $x < $size; $x++) {
-                    // A jar: a body and a neck, drawn with two tests rather
-                    // than a drawing library.
-                    $inBody = $x > $size * 0.18 && $x < $size * 0.82
-                        && $y > $size * 0.30 && $y < $size * 0.86;
-                    $inNeck = $x > $size * 0.34 && $x < $size * 0.66
-                        && $y > $size * 0.14 && $y <= $size * 0.30;
-                    $c = ($inBody || $inNeck) ? $ink : $paper;
-                    $raw .= chr($c[0]) . chr($c[1]) . chr($c[2]);
-                }
-            }
-            $chunk = static function (string $type, string $data): string {
-                return pack('N', strlen($data)) . $type . $data . pack('N', crc32($type . $data));
-            };
-            return "\x89PNG\r\n\x1a\n"
-                . $chunk('IHDR', pack('NN', $size, $size) . chr(8) . chr(2) . chr(0) . chr(0) . chr(0))
-                . $chunk('IDAT', gzcompress($raw, 9))
-                . $chunk('IEND', '');
-        };
+        // The pictures themselves used to be one-bit silhouettes, and the
+        // owner named them for what they were — «تصاویر هندسیِ آزمون، ارائهٔ
+        // نهایی طراحی نیستند». They now come from `demo-image.php`, which
+        // paints six pieces of medical equipment with a small rasteriser of
+        // its own (this host has no GD, no Imagick and no ImageMagick). They
+        // are still illustrations and still meant to read as illustrations: a
+        // placeholder that pretends to be a photograph is one somebody
+        // eventually ships.
+        //
+        // DEMO DATA. Written on the disposable site and nowhere else; the
+        // package ships no demo content and a packaging test says so.
+        require_once ABSPATH . 'demo-image.php';
 
         $uploads = wp_upload_dir();
         $made = 0;
         $reused = 0;
-        $palette = [[0x6A, 0xBF, 0xE7], [0x21, 0xD4, 0x83], [0xFF, 0xC6, 0x58], [0x14, 0x3C, 0x4D]];
+        // One ink per subject, so a shelf of six cards reads as six products
+        // rather than as one product in six colours.
+        $subjects = [
+            ['stethoscope', [0x14, 0x6B, 0x8C]],
+            ['monitor', [0x1E, 0x7A, 0x66]],
+            ['syringe', [0x2F, 0x5E, 0x9E]],
+            ['thermometer', [0xB0, 0x4A, 0x3C]],
+            ['oximeter', [0x5A, 0x3E, 0x8E]],
+            ['mask', [0x0F, 0x6E, 0x7A]],
+        ];
         $products = array_values($c->get(ProductRepositoryInterface::class)->forVendor($vendorId, null, 60));
         require_once ABSPATH . 'wp-admin/includes/image.php';
         foreach ($products as $i => $row) {
@@ -217,17 +207,13 @@ switch ($command) {
                 $reused++;
                 continue;                       // already a usable picture
             }
-            $file = $uploads['path'] . '/tmc-demo-product-' . $wc . '.png';
-            file_put_contents($file, $png(600, $palette[$i % count($palette)], [0xED, 0xF3, 0xF6]));
-
-            $attachmentId = (int) wp_insert_attachment([
-                'post_mime_type' => 'image/png',
-                'post_title' => 'تصویر نمونهٔ محصول ' . $wc,
-                'post_status' => 'inherit',
-            ], $file, $wc);
-            wp_update_attachment_metadata($attachmentId, wp_generate_attachment_metadata($attachmentId, $file));
-            set_post_thumbnail($wc, $attachmentId);
-            $made++;
+            // Keyed off the SKU, not the loop index: the catalogue fixture
+            // names row N after subject (N-1) mod 6, and `forVendor()` does
+            // not promise that order. Indexing by position would hang a
+            // picture of a mask on a product called «گوشی پزشکی».
+            $n = preg_match('/TMC-PAGE-(\d+)/', $row->details->sku, $m) === 1 ? (int) $m[1] : $i + 1;
+            [$subject, $ink] = $subjects[($n - 1) % count($subjects)];
+            $made += tmc_demo_attach_image($wc, 'tmc-demo-product-' . $wc, $subject, $ink) > 0 ? 1 : 0;
         }
         printf("demo-images vendor=%d made=%d reused=%d\n", $vendorId, $made, $reused);
         break;

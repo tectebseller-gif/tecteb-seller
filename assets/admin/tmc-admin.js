@@ -36,9 +36,54 @@
     window.setTimeout(function () { live.innerHTML = content; }, 120);
   }
 
+  /*
+   * The section menu is a `<details>` that ships COLLAPSED: this plugin now
+   * registers more than twenty manager screens, and as a flat list that was a
+   * wall of links above every page on a narrow viewport.
+   *
+   * Opening it on a wide screen needs a script, and that is measured rather
+   * than assumed: in Chromium 141 neither `details:not([open]) > * { display:
+   * block }` nor `display: contents` on the `<details>` makes a closed panel
+   * visible, because the UA hides the content through its own shadow slot.
+   *
+   * With scripts off the menu is collapsed on desktop too — one click away,
+   * never missing. Nothing on any page depends on this running.
+   */
+  function bindNav() {
+    var details = document.getElementById('tmc-nav');
+    if (!details || !window.matchMedia) { return; }
+    // wp-admin puts a 160px menu (36px folded) beside the content, so the
+    // viewport is the wrong thing to ask. The shell is a container; its own
+    // width is what decides whether a menu bar fits.
+    var wide = window.matchMedia('(min-width: 52rem)');
+    var userClosed = false;
+
+    details.addEventListener('toggle', function () {
+      if (wide.matches) { userClosed = !details.open; }
+    });
+
+    function apply() {
+      if (wide.matches) {
+        if (!userClosed) { details.open = true; }
+        details.classList.add('is-wide');
+      } else {
+        details.open = false;
+        details.classList.remove('is-wide');
+      }
+    }
+
+    apply();
+    if (wide.addEventListener) {
+      wide.addEventListener('change', apply);
+    } else if (wide.addListener) {
+      wide.addListener(apply);
+    }
+  }
+
   function init() {
     focusErrorSummary();
     reannounceLiveRegion();
+    bindNav();
   }
 
   if (document.readyState === 'loading') {

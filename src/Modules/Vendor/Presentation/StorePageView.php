@@ -258,8 +258,18 @@ final class StorePageView
         $html = '<section class="tmc-store__card"><h2>'
             . esc_html__('محصولات', 'tecteb-marketplace-core') . '</h2>';
         if ($products === []) {
-            return $html . '<p>' . esc_html__('هنوز محصولی روی این فروشگاه منتشر نشده است.', 'tecteb-marketplace-core')
-                . '</p></section>';
+            // A shopper, not a manager, reads this. It must not sound like a
+            // fault, and it must not leave them stranded: the shop is real and
+            // its details are on the same page, so the sentence says «not
+            // yet» and points at what IS here.
+            return $html
+                . '<div class="tmc-store__state">'
+                . '<span class="tmc-store__state-icon" aria-hidden="true">∅</span>'
+                . '<p class="tmc-store__state-title">'
+                . esc_html__('هنوز محصولی روی این فروشگاه منتشر نشده است', 'tecteb-marketplace-core') . '</p>'
+                . '<p class="tmc-store__state-text">'
+                . esc_html__('این فروشگاه تازه به بازارگاه پیوسته یا در حال آماده‌سازی فهرست خود است. مشخصات و راه‌های تماس همین صفحه معتبرند.', 'tecteb-marketplace-core')
+                . '</p></div></section>';
         }
         // Cards with pictures, because this is a shop.
         //
@@ -472,6 +482,14 @@ final class StorePageView
             // mode: scoped to our own region, so it travels into any theme
             // without reaching past its own edges.
             . '.tmc-store__main{font-family:var(--s-font);line-height:1.7;color:#1F2A30}'
+            // The empty state, in the same scoped block as everything else so
+            // it survives whatever theme wraps this page.
+            . '.tmc-store__state{display:grid;justify-items:center;gap:8px;text-align:center;'
+            . 'padding:32px 16px;border:1px dashed var(--s-border);border-radius:12px;background:#F7FAFC}'
+            . '.tmc-store__state-icon{inline-size:44px;block-size:44px;display:grid;place-items:center;'
+            . 'border-radius:999px;background:#fff;border:1px solid var(--s-border);color:#4F6570;font-size:1.25rem}'
+            . '.tmc-store__state-title{margin:0;font-weight:700}'
+            . '.tmc-store__state-text{margin:0;color:#4F6570;max-inline-size:46ch}'
             // The card grid. `auto-fill` with a 150px floor rather than fixed
             // columns: one rule covers a phone (two across), a tablet (three)
             // and a desktop (five) without a single media query, which is the

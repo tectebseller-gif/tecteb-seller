@@ -29,6 +29,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbShopRecordRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpDokanReader;
+use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\HandoverPage;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MigrationPage;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
@@ -147,13 +148,25 @@ final class MigrationModule implements ModuleInterface
         $c->get(JobRunner::class)->register(new DokanImportJob($c->get(ImportFromDokan::class)));
 
         $page = new MigrationPage($c);
-        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($page): array {
+        // Importing and handing over are two pages on purpose. The first is
+        // reversible bookkeeping; the second is a person deciding who may
+        // touch orders and who owes money. On one screen, the second gets
+        // clicked through on the way to the first.
+        $handover = new HandoverPage($c);
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($page, $handover): array {
             $pages[] = [
                 'slug' => MigrationPage::SLUG,
                 'page_title' => MigrationPage::menuLabel(),
                 'menu_label' => MigrationPage::menuLabel(),
                 'capability' => MigrationPage::CAPABILITY,
                 'render' => [$page, 'render'],
+            ];
+            $pages[] = [
+                'slug' => HandoverPage::SLUG,
+                'page_title' => HandoverPage::menuLabel(),
+                'menu_label' => HandoverPage::menuLabel(),
+                'capability' => HandoverPage::CAPABILITY,
+                'render' => [$handover, 'render'],
             ];
             return $pages;
         });

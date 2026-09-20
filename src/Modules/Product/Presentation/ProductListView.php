@@ -67,11 +67,31 @@ final class ProductListView
         $html .= self::searchForm($search, $currentStatus, $urls);
 
         if ($products === []) {
-            $html .= VendorUi::notice('info', match (true) {
-                $search !== '' => sprintf(__('برای «%s» چیزی پیدا نشد.', 'tecteb-marketplace-core'), $search),
-                $currentStatus === '' => __('هنوز محصولی ثبت نکرده‌اید.', 'tecteb-marketplace-core'),
-                default => __('در این وضعیت محصولی ندارید.', 'tecteb-marketplace-core'),
-            });
+            // Three different empty lists, and they are not the same page. A
+            // search that found nothing wants the filter cleared; a shop with
+            // no products at all wants the «new product» button; a status tab
+            // with nothing in it wants the tab that has something. One shared
+            // sentence would send all three readers to the wrong place.
+            $html .= match (true) {
+                $search !== '' => VendorUi::state(
+                    'empty',
+                    sprintf(__('برای «%s» چیزی پیدا نشد', 'tecteb-marketplace-core'), $search),
+                    __('عبارت دیگری را امتحان کنید، یا جست‌وجو را بردارید تا همهٔ محصولات این وضعیت را ببینید.', 'tecteb-marketplace-core'),
+                    [['href' => $urls->products(), 'label' => __('برداشتن جست‌وجو', 'tecteb-marketplace-core'), 'primary' => true]]
+                ),
+                $currentStatus === '' => VendorUi::state(
+                    'empty',
+                    __('هنوز محصولی ثبت نکرده‌اید', 'tecteb-marketplace-core'),
+                    __('اولین محصول را در چهار گام ثبت می‌کنید: مشخصات پایه، مشخصات پزشکی، تصویر و قیمت و موجودی. تا پیش از ارسال، هر گام به‌صورت پیش‌نویس ذخیره می‌ماند.', 'tecteb-marketplace-core'),
+                    $mayEdit ? [['href' => $urls->product(0), 'label' => __('ثبت اولین محصول', 'tecteb-marketplace-core'), 'primary' => true]] : []
+                ),
+                default => VendorUi::state(
+                    'empty',
+                    __('در این وضعیت محصولی ندارید', 'tecteb-marketplace-core'),
+                    __('محصولات شما در وضعیت دیگری هستند. از زبانه‌های بالا وضعیت دیگری را ببینید.', 'tecteb-marketplace-core'),
+                    [['href' => $urls->products(), 'label' => __('دیدن همهٔ محصولات', 'tecteb-marketplace-core')]]
+                ),
+            };
             return $html . '</section>' . self::csvCard($urls, $nonceField, $mayEdit);
         }
 

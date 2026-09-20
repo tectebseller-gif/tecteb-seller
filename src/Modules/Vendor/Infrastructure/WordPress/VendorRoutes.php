@@ -606,11 +606,16 @@ final class VendorRoutes
     /** @param list<array{slug:string,label:string,url:string}> $nav */
     private function renderShell(string $title, string $view, string $body, string $storeName, array $nav = []): void
     {
-        // One script, on one view. The products screen is the only place in
+        // One shell script on every view, and it does exactly one thing: open
+        // the collapsed menu when the viewport is wide. With scripts off the
+        // menu stays collapsed and one click away — which is still better than
+        // the five rows of buttons it replaced.
+        $scripts = [$this->assetsBaseUrl . 'assets/vendor/tmc-vendor.js'];
+        // And one more, on one view. The products screen is the only place in
         // this area where losing a tab costs an afternoon's typing.
-        $scripts = $view === 'products'
-            ? [$this->assetsBaseUrl . 'assets/vendor/tmc-product-form.js']
-            : [];
+        if ($view === 'products') {
+            $scripts[] = $this->assetsBaseUrl . 'assets/vendor/tmc-product-form.js';
+        }
         status_header(200);
         nocache_headers();
         echo VendorShell::render(

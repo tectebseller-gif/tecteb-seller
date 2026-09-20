@@ -206,7 +206,7 @@ require_once ABSPATH . 'demo-image.php';
 foreach ($reader->products() as $sourceProduct) {
     $sourceWc = (int) ($sourceProduct['wc_product_id'] ?? 0);
     if ($sourceWc > 0 && !get_post_thumbnail_id($sourceWc)) {
-        tmc_demo_attach_image($sourceWc, 'tmc-source-product-' . $sourceWc, 'bottle', [0x6A, 0xBF, 0xE7]);
+        tmc_demo_attach_image($sourceWc, 'tmc-source-product-' . $sourceWc, 'stethoscope', [0x14, 0x6B, 0x8C]);
     }
 }
 $sourceProducts = $reader->products();

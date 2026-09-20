@@ -28,11 +28,16 @@ final class VendorShell
         array $scriptUrls = []
     ): string {
         $items = '';
+        $currentLabel = '';
         foreach ($nav as $item) {
             $isCurrent = $item['slug'] === $current;
+            if ($isCurrent) {
+                $currentLabel = (string) $item['label'];
+            }
             $items .= '<li><a class="tv-nav__link' . ($isCurrent ? ' is-current' : '') . '" href="' . esc_url($item['url']) . '"'
                 . ($isCurrent ? ' aria-current="page"' : '') . '>' . esc_html($item['label']) . '</a></li>';
         }
+        $navLabel = __('بخش‌های پنل فروشنده', 'tecteb-marketplace-core');
         $store = $storeName !== ''
             ? '<p class="tv-head__store">' . esc_html($storeName) . '</p>'
             : '';
@@ -48,7 +53,23 @@ final class VendorShell
             . '<div class="tv-head__brand"><span class="tv-head__name">' . esc_html__('بازارگاه تک‌طب', 'tecteb-marketplace-core') . '</span>'
             . '<span class="tv-head__role">' . esc_html__('پنل فروشنده', 'tecteb-marketplace-core') . '</span></div>'
             . $store . '</div>'
-            . '<nav class="tv-nav" aria-label="' . esc_attr__('بخش‌های پنل فروشنده', 'tecteb-marketplace-core') . '"><ul>' . $items . '</ul></nav>'
+            // Collapsed on a phone, and collapsed without a script: a ten-item
+            // menu laid out two-up put five rows of buttons above every page.
+            // `<details>` is the native disclosure — keyboard operable and
+            // announced as expandable with nothing loaded. The script only
+            // opens it when the viewport is wide, which was measured to be
+            // impossible in CSS (Chromium 141 hides a closed panel through its
+            // own shadow slot, so no `display` rule from here reaches it).
+            . '<details class="tv-nav" id="tv-nav">'
+            . '<summary class="tv-nav__toggle">'
+            . '<span class="tv-nav__toggle-icon" aria-hidden="true"></span>'
+            . '<span class="tv-nav__toggle-text">' . esc_html($navLabel) . '</span>'
+            . ($currentLabel !== ''
+                ? '<span class="tv-nav__toggle-current">' . esc_html($currentLabel) . '</span>'
+                : '')
+            . '</summary>'
+            . '<nav class="tv-nav__panel" aria-label="' . esc_attr($navLabel) . '"><ul>' . $items . '</ul></nav>'
+            . '</details>'
             . '</header>'
             . '<main id="tv-main" class="tv-main" tabindex="-1"><h1 class="tv-title">' . esc_html($title) . '</h1>'
             . $bodyHtml

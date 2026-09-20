@@ -75,9 +75,22 @@ final class VendorOrdersView
             . self::tabs($counts, $currentStatus, $ordersUrl, $fa);
 
         if ($items === []) {
-            return $html . VendorUi::notice('info', $currentStatus === ''
-                ? __('هنوز سفارشی برای این فروشگاه ثبت نشده است.', 'tecteb-marketplace-core')
-                : __('در این وضعیت قلمی ندارید.', 'tecteb-marketplace-core')) . '</section>';
+            // «هیچ سفارشی نیست» on the first day and on a filtered tab are two
+            // different facts, and only one of them needs an explanation of
+            // where orders come from.
+            $state = $currentStatus === ''
+                ? VendorUi::state(
+                    'empty',
+                    __('هنوز سفارشی برای این فروشگاه ثبت نشده است', 'tecteb-marketplace-core'),
+                    __('سفارش وقتی اینجا می‌آید که مشتری یکی از محصولات منتشرشدهٔ شما را بخرد. تا وقتی محصولی منتشر نشده باشد، این فهرست خالی می‌ماند.', 'tecteb-marketplace-core')
+                )
+                : VendorUi::state(
+                    'empty',
+                    __('در این وضعیت قلمی ندارید', 'tecteb-marketplace-core'),
+                    __('اقلام شما در وضعیت دیگری هستند. از زبانه‌های بالا وضعیت دیگری را ببینید.', 'tecteb-marketplace-core'),
+                    [['href' => $ordersUrl, 'label' => __('دیدن همهٔ اقلام', 'tecteb-marketplace-core')]]
+                );
+            return $html . $state . '</section>';
         }
 
         $html .= '<ul class="tv-orders">';

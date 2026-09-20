@@ -63,6 +63,10 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             // The slug carries no other plugin's name — the assertion below
             // enforces that, so «مهاجرت از دکان» is the label, not the id.
             ['tmc-import', 'tmc_review_vendor', 'مهاجرت از دکان'],
+            // Importing and handing over are two screens on purpose: the first
+            // is reversible bookkeeping, the second is a person deciding who
+            // may touch orders and who owes money.
+            ['tmc-handover', 'tmc_review_vendor', 'تحویل مهاجرت'],
         ];
         self::assertCount(count($expected), $subs);
         foreach ($expected as $i => [$slug, $cap, $label]) {
