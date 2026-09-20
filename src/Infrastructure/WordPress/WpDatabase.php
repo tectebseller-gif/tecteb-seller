@@ -8,6 +8,13 @@ use Tecteb\Marketplace\Contracts\DatabaseInterface;
 /** $wpdb adapter. All parameters go through $wpdb->prepare(). */
 final class WpDatabase implements DatabaseInterface
 {
+    /**
+     * Counted nesting depth. wpdb offers no transaction API of its own, so
+     * the statements are issued raw; InnoDB is the only engine this plugin's
+     * tables use, so they are real transactions and not silent no-ops.
+     */
+    private int $depth = 0;
+
     public function __construct(private \wpdb $wpdb)
     {
     }
@@ -46,6 +53,51 @@ final class WpDatabase implements DatabaseInterface
     {
         $rows = $this->wpdb->get_results($this->prepare($sql, $params), ARRAY_A);
         return is_array($rows) ? array_values($rows) : [];
+    }
+
+    public function begin(): bool
+    {
+        if ($this->depth > 0) {
+            $this->depth++;
+            return true;
+        }
+        if ($this->wpdb->query('START TRANSACTION') === false) {
+            return false;
+        }
+        $this->depth = 1;
+        return true;
+    }
+
+    public function commit(): bool
+    {
+        if ($this->depth === 0) {
+            return false;                       // nothing open to commit
+        }
+        if ($this->depth > 1) {
+            $this->depth--;
+            return true;
+        }
+        $ok = $this->wpdb->query('COMMIT') !== false;
+        $this->depth = 0;
+        return $ok;
+    }
+
+    public function rollback(): bool
+    {
+        if ($this->depth === 0) {
+            return false;
+        }
+        // Every depth at once, on purpose: see the contract. A nested caller
+        // that rolls back has abandoned the outer unit of work too, and
+        // pretending otherwise would commit half of it.
+        $ok = $this->wpdb->query('ROLLBACK') !== false;
+        $this->depth = 0;
+        return $ok;
+    }
+
+    public function inTransaction(): bool
+    {
+        return $this->depth > 0;
     }
 
     public function lastError(): string

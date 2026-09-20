@@ -17,6 +17,8 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\StaffStatus;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeStaffUserDirectory;
 use Tecteb\Marketplace\Tests\Support\InMemoryOptionStore;
+use Tecteb\Marketplace\Tests\Support\CountingTransaction;
+use Tecteb\Marketplace\Tests\Support\InMemoryHandover;
 use Tecteb\Marketplace\Tests\Support\InMemoryShopRecords;
 use Tecteb\Marketplace\Tests\Support\InMemoryStaffRepository;
 use Tecteb\Marketplace\Tests\Support\RecordingAuditRepository;
@@ -34,6 +36,8 @@ final class ImportedHistoryIsNotCapabilityTest extends TestCase
 {
     private InMemoryOptionStore $options;
     private InMemoryShopRecords $records;
+    private InMemoryHandover $handover;
+    private CountingTransaction $tx;
     private InMemoryStaffRepository $staff;
     private FakeStaffUserDirectory $users;
     private FakeCapabilityChecker $caps;
@@ -42,6 +46,8 @@ final class ImportedHistoryIsNotCapabilityTest extends TestCase
     {
         $this->options = new InMemoryOptionStore();
         $this->records = new InMemoryShopRecords();
+        $this->handover = new InMemoryHandover();
+        $this->tx = new CountingTransaction();
         $this->staff = new InMemoryStaffRepository();
         $this->users = new FakeStaffUserDirectory();
         $this->caps = new FakeCapabilityChecker(9, [Capabilities::REVIEW_VENDOR]);
@@ -265,14 +271,17 @@ final class ImportedHistoryIsNotCapabilityTest extends TestCase
     }
 
     /**
-     * A balance is never taken on by somebody who was not reading the report.
+     * A balance is never taken on against a figures version nobody named.
      *
-     * The receipt is a hash of the very figures the page printed, so it cannot
-     * be produced without having been served them — and it stops matching the
-     * moment the imported past moves. A «seen» checkbox would do neither: it
-     * records a click, and it stays true after the numbers change.
+     * The receipt is a hash of the very figures the page printed, together
+     * with the counter the repository moves — so it stops matching the
+     * moment the imported past moves. It is a version match and nothing more:
+     * it cannot show that a person read a figure, and a check that claimed to
+     * would be worse than none, because it would be believed. A «seen»
+     * checkbox would answer neither question — it records a click, and it
+     * stays true after the numbers change.
      */
-    public function testAcceptanceWithoutTheReportsReceiptIsRefused(): void
+    public function testAcceptanceWithoutAFiguresVersionIsRefused(): void
     {
         $this->balance(7, '5000.0000', '0', 'dokan_orders');
         $service = $this->financeService();
@@ -334,7 +343,8 @@ final class ImportedHistoryIsNotCapabilityTest extends TestCase
     {
         return new ReconcileDokanFinance(
             $this->records,
-            $this->options,
+            $this->handover,
+            $this->tx,
             $this->auditLogger(),
             self::clock(),
             $this->caps

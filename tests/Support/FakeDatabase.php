@@ -14,6 +14,10 @@ final class FakeDatabase implements DatabaseInterface
     /** @var list<array{sql:string, params:array}> */
     public array $executed = [];
     public bool $failExecute = false;
+    /** Transaction verbs in the order they were called, e.g. ['begin','commit']. */
+    public array $transactions = [];
+    public bool $failBegin = false;
+    private int $depth = 0;
     public bool $tableExists = false;
     public bool $createMarksTable = true;
     private string $error = '';
@@ -57,6 +61,42 @@ final class FakeDatabase implements DatabaseInterface
     public function getResults(string $sql, array $params = []): array
     {
         return [];
+    }
+
+    public function begin(): bool
+    {
+        if ($this->failBegin) {
+            $this->error = 'simulated begin failure';
+            return false;
+        }
+        $this->transactions[] = $this->depth === 0 ? 'begin' : 'begin-nested';
+        $this->depth++;
+        return true;
+    }
+
+    public function commit(): bool
+    {
+        if ($this->depth === 0) {
+            return false;
+        }
+        $this->depth--;
+        $this->transactions[] = $this->depth === 0 ? 'commit' : 'commit-nested';
+        return true;
+    }
+
+    public function rollback(): bool
+    {
+        if ($this->depth === 0) {
+            return false;
+        }
+        $this->depth = 0;
+        $this->transactions[] = 'rollback';
+        return true;
+    }
+
+    public function inTransaction(): bool
+    {
+        return $this->depth > 0;
     }
 
     public function lastError(): string

@@ -20,6 +20,8 @@ final class InMemoryShopRecords implements ShopRecordRepositoryInterface
     public array $balance = [];
     /** @var list<array<string,mixed>> */
     public array $withdrawals = [];
+    /** @var array<int,int> vendor id => how many times its records were written */
+    private array $versions = [];
 
     public function recordStaff(string $runId, array $staff): string
     {
@@ -29,18 +31,21 @@ final class InMemoryShopRecords implements ShopRecordRepositoryInterface
             }
         }
         $this->staff[] = $staff + ['run_id' => $runId];
+        $this->bump((int) $staff['vendor_user_id']);
         return self::RECORDED;
     }
 
     public function recordBalance(string $runId, array $row): string
     {
         $this->balance[] = $row + ['run_id' => $runId];
+        $this->bump((int) $row['vendor_user_id']);
         return self::RECORDED;
     }
 
     public function recordWithdrawal(string $runId, array $row): string
     {
         $this->withdrawals[] = $row + ['run_id' => $runId];
+        $this->bump((int) $row['vendor_user_id']);
         return self::RECORDED;
     }
 
@@ -125,6 +130,9 @@ final class InMemoryShopRecords implements ShopRecordRepositoryInterface
         if ($runId === '') {
             return ['staff' => 0, 'balance' => 0, 'withdrawals' => 0];
         }
+        foreach ($this->vendorsInRun($runId) as $vendorUserId) {
+            $this->bump($vendorUserId);
+        }
         $counts = [];
         foreach (['staff', 'balance', 'withdrawals'] as $set) {
             $before = count($this->{$set});
@@ -147,6 +155,42 @@ final class InMemoryShopRecords implements ShopRecordRepositoryInterface
             ));
         }
         return $counts;
+    }
+
+    public function recordsVersion(int $vendorUserId): int
+    {
+        return $this->versions[$vendorUserId] ?? 0;
+    }
+
+    /**
+     * In one process there is nothing to lock against, so this is the plain
+     * read. The lock is a property of the DATABASE repository; a fake that
+     * pretended to hold one would be testing its own pretence, which is why
+     * the contention tests run against real MariaDB instead.
+     */
+    public function lockRecordsVersion(int $vendorUserId): int
+    {
+        return $this->recordsVersion($vendorUserId);
+    }
+
+    /** Test seam: move a shop's version without changing a figure. */
+    public function bump(int $vendorUserId): void
+    {
+        $this->versions[$vendorUserId] = ($this->versions[$vendorUserId] ?? 0) + 1;
+    }
+
+    /** @return list<int> */
+    private function vendorsInRun(string $runId): array
+    {
+        $seen = [];
+        foreach ([$this->staff, $this->balance, $this->withdrawals] as $set) {
+            foreach ($set as $row) {
+                if (($row['run_id'] ?? '') === $runId) {
+                    $seen[(int) $row['vendor_user_id']] = true;
+                }
+            }
+        }
+        return array_keys($seen);
     }
 
     /**

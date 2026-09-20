@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Migration\Infrastructure;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0017DokanShopRecords as T;
+use Tecteb\Marketplace\Core\Migration\Migrations\M0018HandoverRowsAndRecordVersion as V;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
 
 /**
@@ -35,7 +36,7 @@ final class DbShopRecordRepository implements ShopRecordRepositoryInterface
 
     public function recordStaff(string $runId, array $staff): string
     {
-        return $this->outcome($this->db->execute(
+        return $this->writing((int) $staff['vendor_user_id'], fn (): ?int => $this->db->execute(
             'INSERT IGNORE INTO `' . $this->t(T::STAFF) . '`
              (run_id, vendor_user_id, staff_user_id, display_name, user_email, dokan_role, source, imported_at)
              VALUES (%s, %d, %d, %s, %s, %s, %s, %s)',
@@ -54,7 +55,7 @@ final class DbShopRecordRepository implements ShopRecordRepositoryInterface
 
     public function recordBalance(string $runId, array $row): string
     {
-        return $this->outcome($this->db->execute(
+        return $this->writing((int) $row['vendor_user_id'], fn (): ?int => $this->db->execute(
             'INSERT IGNORE INTO `' . $this->t(T::BALANCE) . '`
              (run_id, vendor_user_id, trn_id, trn_type, particulars, debit, credit, status, trn_date, source, imported_at)
              VALUES (%s, %d, %d, %s, %s, %s, %s, %s, %s, %s, %s)',
@@ -78,7 +79,7 @@ final class DbShopRecordRepository implements ShopRecordRepositoryInterface
 
     public function recordWithdrawal(string $runId, array $row): string
     {
-        return $this->outcome($this->db->execute(
+        return $this->writing((int) $row['vendor_user_id'], fn (): ?int => $this->db->execute(
             'INSERT IGNORE INTO `' . $this->t(T::WITHDRAW) . '`
              (run_id, vendor_user_id, dokan_withdraw_id, amount, status, method, note, requested_at, source, imported_at)
              VALUES (%s, %d, %d, %s, %s, %s, %s, %s, %s, %s)',
@@ -214,11 +215,145 @@ final class DbShopRecordRepository implements ShopRecordRepositoryInterface
             // pre-run-id build ever wrote. Same guard as the order history.
             return ['staff' => 0, 'balance' => 0, 'withdrawals' => 0];
         }
-        return [
-            'staff' => $this->db->execute('DELETE FROM `' . $this->t(T::STAFF) . '` WHERE run_id = %s', [$runId]) ?? 0,
-            'balance' => $this->db->execute('DELETE FROM `' . $this->t(T::BALANCE) . '` WHERE run_id = %s', [$runId]) ?? 0,
-            'withdrawals' => $this->db->execute('DELETE FROM `' . $this->t(T::WITHDRAW) . '` WHERE run_id = %s', [$runId]) ?? 0,
+        // The shops this run touched have to be read BEFORE the delete: once
+        // the rows are gone there is nothing left to say whose version moved,
+        // and a rollback that quietly left a stale version behind would let a
+        // manager accept a figure the rollback had already taken away.
+        $touched = $this->vendorsInRun($runId);
+        if (!$this->db->begin()) {
+            return ['staff' => 0, 'balance' => 0, 'withdrawals' => 0];
+        }
+        $out = [
+            'staff' => $this->db->execute('DELETE FROM `' . $this->t(T::STAFF) . '` WHERE run_id = %s', [$runId]),
+            'balance' => $this->db->execute('DELETE FROM `' . $this->t(T::BALANCE) . '` WHERE run_id = %s', [$runId]),
+            'withdrawals' => $this->db->execute('DELETE FROM `' . $this->t(T::WITHDRAW) . '` WHERE run_id = %s', [$runId]),
         ];
+        foreach ($out as $affected) {
+            if ($affected === null) {
+                $this->db->rollback();
+                return ['staff' => 0, 'balance' => 0, 'withdrawals' => 0];
+            }
+        }
+        foreach ($touched as $vendorUserId) {
+            if (!$this->bump($vendorUserId)) {
+                $this->db->rollback();
+                return ['staff' => 0, 'balance' => 0, 'withdrawals' => 0];
+            }
+        }
+        if (!$this->db->commit()) {
+            return ['staff' => 0, 'balance' => 0, 'withdrawals' => 0];
+        }
+        return array_map(static fn (?int $n): int => $n ?? 0, $out);
+    }
+
+    public function recordsVersion(int $vendorUserId): int
+    {
+        return (int) $this->db->getVar(
+            'SELECT records_version FROM `' . $this->v() . '` WHERE vendor_user_id = %d',
+            [$vendorUserId]
+        );
+    }
+
+    public function lockRecordsVersion(int $vendorUserId): int
+    {
+        // The lock is taken FIRST, and the row is only created when there is
+        // none. The obvious order — `INSERT IGNORE` to make sure a row exists,
+        // then `SELECT ... FOR UPDATE` — is wrong twice over. An `INSERT
+        // IGNORE` that hits an existing key takes a SHARED lock on it, so the
+        // pair becomes «take S, then upgrade to X»: two managers deciding the
+        // same shop would both hold S and both wait for the other's X, which
+        // is a deadlock, not a queue. It also means the real exclusion came
+        // from the `INSERT IGNORE` rather than from the `FOR UPDATE` that
+        // claims to provide it — a guard that works by accident stops working
+        // when somebody tidies the accident away.
+        $version = $this->db->getVar(
+            'SELECT records_version FROM `' . $this->v() . '` WHERE vendor_user_id = %d FOR UPDATE',
+            [$vendorUserId]
+        );
+        if ($version !== null) {
+            return (int) $version;
+        }
+        // No row yet: `FOR UPDATE` over nothing locks nothing. Create it and
+        // take the lock properly. Two callers can race here; the unique key
+        // decides, and the loser's `FOR UPDATE` then blocks on the winner's
+        // row, which is the behaviour wanted.
+        $this->db->execute(
+            'INSERT IGNORE INTO `' . $this->v() . '` (vendor_user_id, records_version, updated_at)
+             VALUES (%d, 0, %s)',
+            [$vendorUserId, $this->now()]
+        );
+        return (int) $this->db->getVar(
+            'SELECT records_version FROM `' . $this->v() . '` WHERE vendor_user_id = %d FOR UPDATE',
+            [$vendorUserId]
+        );
+    }
+
+    /**
+     * One write to one shop's imported past, with its version bump inside the
+     * same transaction.
+     *
+     * The order matters and is the whole point. If the row were committed and
+     * the counter bumped afterwards, there would be a window in which the new
+     * row is visible under the OLD version — and a manager reading in that
+     * window would be handed figures that had already moved together with a
+     * version saying they had not. Committing both together closes it: a
+     * reader holding the version row's lock blocks the bump, and because the
+     * bump and the insert are one transaction, it blocks the insert too.
+     *
+     * A duplicate does not bump. `INSERT IGNORE` writing nothing means the
+     * shop's past is unchanged, and a version that moved for a no-op would
+     * refuse decisions for no reason — the resumed-import case, which re-runs
+     * its last page every time it picks up.
+     *
+     * @param callable():(?int) $write
+     * @return self::RECORDED|self::ALREADY|self::FAILED
+     */
+    private function writing(int $vendorUserId, callable $write): string
+    {
+        if (!$this->db->begin()) {
+            return self::FAILED;
+        }
+        $written = $write();
+        if ($written === null) {
+            $this->db->rollback();
+            return self::FAILED;
+        }
+        if ($written > 0 && !$this->bump($vendorUserId)) {
+            $this->db->rollback();
+            return self::FAILED;
+        }
+        if (!$this->db->commit()) {
+            return self::FAILED;
+        }
+        return $written > 0 ? self::RECORDED : self::ALREADY;
+    }
+
+    /** One statement: create the shop's counter at 1, or move the one there. */
+    private function bump(int $vendorUserId): bool
+    {
+        return $this->db->execute(
+            'INSERT INTO `' . $this->v() . '` (vendor_user_id, records_version, updated_at)
+             VALUES (%d, 1, %s)
+             ON DUPLICATE KEY UPDATE records_version = records_version + 1, updated_at = VALUES(updated_at)',
+            [$vendorUserId, $this->now()]
+        ) !== null;
+    }
+
+    /** @return list<int> */
+    private function vendorsInRun(string $runId): array
+    {
+        $rows = $this->db->getResults(
+            'SELECT vendor_user_id FROM `' . $this->t(T::STAFF) . '` WHERE run_id = %s
+              UNION SELECT vendor_user_id FROM `' . $this->t(T::BALANCE) . '` WHERE run_id = %s
+              UNION SELECT vendor_user_id FROM `' . $this->t(T::WITHDRAW) . '` WHERE run_id = %s',
+            [$runId, $runId, $runId]
+        );
+        return array_map(static fn (array $r): int => (int) $r['vendor_user_id'], $rows);
+    }
+
+    private function v(): string
+    {
+        return V::table($this->db, V::VERSION_TABLE);
     }
 
     public function countsForRun(string $runId): array

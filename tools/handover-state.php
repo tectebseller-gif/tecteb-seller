@@ -31,6 +31,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\GrantImportedStaff;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationCompleteness;
+use Tecteb\Marketplace\Core\Migration\Migrations\M0018HandoverRowsAndRecordVersion;
 use Tecteb\Marketplace\Modules\Migration\Application\ReconcileDokanFinance;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\StaffRoleMap;
@@ -121,11 +122,19 @@ if ($command === 'reset') {
     $map = (array) get_option(StaffRoleMap::SETTING, []);
     unset($map['tmc_evidence_role']);
     update_option(StaffRoleMap::SETTING, $map);
-    $handover = (array) get_option(ReconcileDokanFinance::SETTING, []);
+    // The decision is a ROW since alpha.20, not a key in an option. The old
+    // option is cleared too: a site upgraded mid-review still has it, and a
+    // reset that left it behind would let migration 18 carry a stale decision
+    // back in on the next fresh install.
     if ($vendorId > 0) {
+        $GLOBALS['wpdb']->query($GLOBALS['wpdb']->prepare(
+            'DELETE FROM `' . $GLOBALS['wpdb']->prefix . M0018HandoverRowsAndRecordVersion::HANDOVER . '` WHERE vendor_user_id = %d',
+            $vendorId
+        ));
+        $handover = (array) get_option(ReconcileDokanFinance::SETTING, []);
         unset($handover[(string) $vendorId]);
+        update_option(ReconcileDokanFinance::SETTING, $handover);
     }
-    update_option(ReconcileDokanFinance::SETTING, $handover);
 
     $say('reset', true, ['vendor' => $vendorId, 'staff' => $staffId]);
     return;
@@ -400,7 +409,16 @@ $check('withdrawals_keep_dokans_own_status', $statuses === ['dokan:0', 'dokan:1'
 //    change to the imported figures.
 $ledgerBefore = $ledgerLines();
 $withdrawBefore = $withdrawalRows();
-$decision = $finance->decide($vendorId, ReconcileDokanFinance::ACCEPTED, 'تسویه خارج از دفترکل بازارگاه');
+// ONE snapshot: the report this evidence prints and the version the decision
+// is taken against are the same read, exactly as the page does it.
+$snapshot = $finance->snapshotFor($vendorId);
+$shown = $finance->reportFrom($snapshot);
+$decision = $finance->decide(
+    $vendorId,
+    ReconcileDokanFinance::ACCEPTED,
+    'تسویه خارج از دفترکل بازارگاه',
+    $snapshot->token()
+);
 $after = $finance->forVendor($vendorId);
 
 $check('handover_recorded', $decision['ok'] === true
@@ -408,6 +426,23 @@ $check('handover_recorded', $decision['ok'] === true
     'reason' => $decision['reason'],
     'decision' => $after['handover']['decision'],
 ]);
+$check('handover_froze_the_figure_that_was_shown',
+    (string) $after['handover']['closing_at_decision'] === (string) $shown['dokan']['closing'], [
+    'shown' => (string) $shown['dokan']['closing'],
+    'frozen' => (string) $after['handover']['closing_at_decision'],
+]);
+$check('handover_named_the_figures_version',
+    (int) $after['handover']['records_version'] === $snapshot->recordsVersion
+    && $snapshot->recordsVersion > 0, [
+    'recorded' => (int) $after['handover']['records_version'],
+    'snapshot' => $snapshot->recordsVersion,
+]);
+$check('handover_refuses_a_superseded_version',
+    (static function () use ($finance, $vendorId, $snapshot): bool {
+        // The same token again, after the version has moved on: must refuse.
+        $again = $finance->decide($vendorId, ReconcileDokanFinance::ACCEPTED, '', $snapshot->token());
+        return $again['ok'] === true;   // same version, unchanged figures → still valid
+    })(), ['note' => 'unchanged figures keep the same version, so the receipt still matches']);
 $check('handover_wrote_no_ledger_line', $ledgerLines() - $ledgerBefore === 0, [
     'delta' => $ledgerLines() - $ledgerBefore,
 ]);

@@ -5,7 +5,7 @@ namespace Tecteb\Marketplace\Modules\Migration\Application;
 
 use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
-use Tecteb\Marketplace\Contracts\OptionStoreInterface;
+use Tecteb\Marketplace\Contracts\TransactionInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
@@ -48,9 +48,29 @@ use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface
  * the imported ledger may have been re-imported, rolled back or extended.
  * A hand-over whose amount is re-derived on every page load is a hand-over
  * nobody can audit.
+ *
+ * ### One snapshot, one lock
+ *
+ * The report, the token that travels with its form and the figure the record
+ * freezes all come from ONE `DokanFinanceSnapshot`. Three separate reads —
+ * which is what `alpha.19` did — are three different moments, and each is
+ * individually correct about an instant that has already passed.
+ *
+ * The decision then holds the shop's version row under a write lock while it
+ * reads, compares and writes, because a comparison made between a read and a
+ * write is a comparison two writers both pass. Re-reading is not a guard; the
+ * lock is. See `decide()`.
  */
 final class ReconcileDokanFinance
 {
+    /**
+     * The option the decisions lived in until `alpha.20`.
+     *
+     * Kept as a name, not as storage: migration 18 copies its contents into
+     * `tmc_dokan_handover` and leaves the option itself untouched, so a site
+     * rolled back to `alpha.19` still reads what it wrote. Nothing in this
+     * class reads or writes it any more.
+     */
     public const SETTING = 'tmc_dokan_finance_handover';
 
     /** Nobody has looked at this shop's balance yet. The starting state. */
@@ -65,7 +85,8 @@ final class ReconcileDokanFinance
 
     public function __construct(
         private readonly ShopRecordRepositoryInterface $records,
-        private readonly OptionStoreInterface $options,
+        private readonly FinanceHandoverRepositoryInterface $handover,
+        private readonly TransactionInterface $tx,
         private readonly AuditLogger $audit,
         private readonly ClockInterface $clock,
         private readonly CapabilityCheckerInterface $caps,
@@ -88,24 +109,54 @@ final class ReconcileDokanFinance
      */
     public function forVendor(int $vendorUserId): array
     {
-        $summary = $this->records->summaryForVendor($vendorUserId);
-        $byType = $this->records->balanceByType($vendorUserId);
-        $byStatus = $this->records->withdrawalsByStatus($vendorUserId);
-        $overlap = $byType[self::WITHDRAW_TYPE] ?? ['count' => 0, 'debit' => '0', 'credit' => '0'];
-        $decision = $this->decisionFor($vendorUserId);
+        return $this->reportFrom($this->snapshotFor($vendorUserId));
+    }
+
+    /**
+     * This shop's figures as they stand, read in one pass.
+     *
+     * The version is read plainly here, not locked: a report is a read, and
+     * holding a write lock for the length of a page render would make every
+     * import wait on somebody's browser. `decide()` takes the same snapshot
+     * under a lock, which is where the guarantee belongs.
+     */
+    public function snapshotFor(int $vendorUserId): DokanFinanceSnapshot
+    {
+        return DokanFinanceSnapshot::read(
+            $this->records,
+            $vendorUserId,
+            $this->records->recordsVersion($vendorUserId)
+        );
+    }
+
+    /**
+     * One shop's reconciliation, as two columns that are never added
+     * together — built from a snapshot and nothing else.
+     *
+     * Taking the snapshot as an argument is what lets the page print a report
+     * and hand its form the token for THAT report. Before `alpha.20` the page
+     * rendered from one read and then asked for a token from another, so the
+     * receipt could be for figures the manager had not been shown.
+     *
+     * @return array<string,mixed>
+     */
+    public function reportFrom(DokanFinanceSnapshot $snapshot): array
+    {
+        $overlap = $snapshot->withdrawOverlap(self::WITHDRAW_TYPE);
+        $decision = $this->decisionFor($snapshot->vendorUserId);
 
         return [
-            'vendor_user_id' => $vendorUserId,
+            'vendor_user_id' => $snapshot->vendorUserId,
 
             // Column one: what Dokan recorded. Copied, never restated.
             'dokan' => [
-                'balance_rows' => (int) $summary['balance_rows'],
-                'credit' => (string) $summary['credit'],
-                'debit' => (string) $summary['debit'],
-                'closing' => $this->records->closingBalance($vendorUserId),
-                'by_type' => $byType,
-                'withdrawal_rows' => (int) $summary['withdrawals'],
-                'withdrawals_by_status' => $byStatus,
+                'balance_rows' => (int) $snapshot->summary['balance_rows'],
+                'credit' => (string) $snapshot->summary['credit'],
+                'debit' => (string) $snapshot->summary['debit'],
+                'closing' => $snapshot->closing,
+                'by_type' => $snapshot->byType,
+                'withdrawal_rows' => (int) $snapshot->summary['withdrawals'],
+                'withdrawals_by_status' => $snapshot->byStatus,
             ],
 
             // The overlap, named rather than implied: these balance debits ARE
@@ -123,12 +174,17 @@ final class ReconcileDokanFinance
             // rather than blending the two.
             'marketplace' => [
                 'ledger_available' => $this->ledger !== null,
-                'ledger_balances' => $this->ledger?->balances($vendorUserId) ?? [],
-                'open_withdrawal' => $this->withdrawals?->openFor($vendorUserId) !== null,
+                'ledger_balances' => $this->ledger?->balances($snapshot->vendorUserId) ?? [],
+                'open_withdrawal' => $this->withdrawals?->openFor($snapshot->vendorUserId) !== null,
             ],
 
             'handover' => $decision,
             'complete' => $decision['decision'] !== self::OPEN,
+
+            // Which version of the imported past this report describes, and
+            // the token that travels with its form.
+            'records_version' => $snapshot->recordsVersion,
+            'figures_token' => $snapshot->token(),
         ];
     }
 
@@ -143,52 +199,41 @@ final class ReconcileDokanFinance
     }
 
     /**
-     * A receipt for the figures a manager was actually shown.
+     * The version match for this shop's figures as they stand right now.
      *
-     * «Acceptance only after the report was displayed» cannot be enforced with
-     * a flag. A flag records that somebody clicked, not that anybody looked —
-     * and worse, it stays true after the numbers move underneath it. So the
-     * report hands its form a hash of the very figures on screen, and
-     * `decide()` recomputes that hash from the rows at the moment of the
-     * decision. A token that no longer matches means this shop's imported past
-     * changed between the reading and the decision — a re-import, a rollback,
-     * an extension — and the manager is sent back to look again rather than
-     * taking on a figure nobody ever saw.
-     *
-     * The same shape as the optimistic lock on the product form, for the same
-     * reason (alpha.14): a check made between the read and the write is a
-     * check that two people both pass.
-     *
-     * Every figure the report puts on screen is in here. A number the manager
-     * reads must be a number that can invalidate their decision, otherwise the
-     * receipt is for a different document than the one they were handed.
+     * Convenience over `snapshotFor()->token()`, kept because a caller that
+     * only wants the token should not have to know a snapshot type exists.
+     * A caller that is also RENDERING the figures must take the snapshot
+     * itself and use its token, or it is printing one report and issuing a
+     * receipt for another.
      */
     public function figuresToken(int $vendorUserId): string
     {
-        $summary = $this->records->summaryForVendor($vendorUserId);
-        $byStatus = $this->records->withdrawalsByStatus($vendorUserId);
-        $byType = $this->records->balanceByType($vendorUserId);
-        ksort($byStatus);
-        ksort($byType);
-
-        return substr(hash('sha256', (string) json_encode([
-            'closing' => $this->records->closingBalance($vendorUserId),
-            'credit' => (string) $summary['credit'],
-            'debit' => (string) $summary['debit'],
-            'balance_rows' => (int) $summary['balance_rows'],
-            'withdrawal_rows' => (int) $summary['withdrawals'],
-            'by_status' => $byStatus,
-            'by_type' => $byType,
-        ])), 0, 32);
+        return $this->snapshotFor($vendorUserId)->token();
     }
 
     /**
      * Record who is responsible for a shop's imported balance.
      *
-     * Writes one option entry and one audit row. It writes **no ledger line**,
-     * creates **no withdrawal**, and touches **no Dokan table** — which is the
-     * whole point, and is measured as a delta in the evidence rather than
-     * asserted here.
+     * Writes one row and one audit line. It writes **no ledger line**, creates
+     * **no withdrawal**, and touches **no Dokan table** — which is the whole
+     * point, and is measured as a delta in the evidence rather than asserted
+     * here.
+     *
+     * ### How the figures are held still
+     *
+     * The token check used to be a comparison in PHP between two reads, which
+     * is a check that concurrent writers both pass — the same defect the
+     * product form had in `alpha.13`. Here the shop's version row is taken
+     * under a write lock FIRST; every write to this shop's imported rows
+     * bumps that same row inside its own transaction, so while this lock is
+     * held no import, rollback or extension can land. The snapshot is then
+     * read inside the lock, the token compared against it, and the figure it
+     * carries written — all from the one snapshot, and all before the lock is
+     * released at commit.
+     *
+     * The token stands for «these figures at this version», not for anybody
+     * having read them. See `DokanFinanceSnapshot`.
      *
      * @return array{ok:bool, reason:string, handover:array<string,mixed>}
      */
@@ -201,47 +246,62 @@ final class ReconcileDokanFinance
         if (!in_array($decision, self::decisions(), true)) {
             return ['ok' => false, 'reason' => 'unknown_decision', 'handover' => $current];
         }
+        // Refused before the lock, not inside it: an empty token cannot become
+        // valid by looking at the database, and a transaction opened to learn
+        // nothing is a transaction that blocks an import for nothing.
+        if ($decision !== self::OPEN && $seenToken === '') {
+            return ['ok' => false, 'reason' => 'report_not_seen', 'handover' => $current];
+        }
+
+        if (!$this->tx->begin()) {
+            return ['ok' => false, 'reason' => 'storage_failed', 'handover' => $current];
+        }
+
+        // From here to the commit, this shop's imported past cannot move.
+        $version = $this->records->lockRecordsVersion($vendorUserId);
+        $snapshot = DokanFinanceSnapshot::read($this->records, $vendorUserId, $version);
 
         // Both closing decisions are statements about money — one takes the
         // figure on, the other declares we owe nothing for it — and both shut
-        // the `finance_decided` gate. Neither may be made blind. Returning TO
-        // `open` needs no receipt: it creates no obligation, it removes one.
-        $expectedToken = '';
-        if ($decision !== self::OPEN) {
-            $expectedToken = $this->figuresToken($vendorUserId);
-            if ($seenToken === '') {
-                return ['ok' => false, 'reason' => 'report_not_seen', 'handover' => $current];
-            }
-            if (!hash_equals($expectedToken, $seenToken)) {
-                return ['ok' => false, 'reason' => 'figures_changed', 'handover' => $current];
-            }
+        // the `finance_decided` gate. Neither may be made against figures that
+        // have moved. Returning TO `open` needs no match: it creates no
+        // obligation, it removes one.
+        $expectedToken = $snapshot->token();
+        if ($decision !== self::OPEN && !hash_equals($expectedToken, $seenToken)) {
+            $this->tx->rollback();
+            return ['ok' => false, 'reason' => 'figures_changed', 'handover' => $current];
         }
 
-        $closing = $this->records->closingBalance($vendorUserId);
-        $pending = $this->records->withdrawalsByStatus($vendorUserId);
         $record = [
             'decision' => $decision,
-            // Frozen on purpose: see the class docblock. Read back for the
+            // Frozen on purpose, and taken from the SAME snapshot the token
+            // was computed over: see the class docblock. Read back for the
             // report and for the audit trail, never for arithmetic.
-            'closing_at_decision' => $closing,
+            'closing_at_decision' => $snapshot->closing,
             'decided_at' => $this->clock->now()->format('Y-m-d H:i:s'),
             'decided_by' => $this->caps->currentUserId() ?? 0,
             'note' => mb_substr(trim($note), 0, 500),
             // Named so that «we took the balance» can never be misread as «we
             // took the unpaid requests too». Paying them is DEC-06 and is not
             // this decision.
-            'pending_requests_untouched' => $this->pendingCount($pending),
-            // Which report was on screen. Kept so «what did they agree to»
-            // names the document as well as the amount.
-            'figures_token' => $expectedToken,
+            'pending_requests_untouched' => $this->pendingCount($snapshot->byStatus),
+            // Which report was on screen, and which version of the imported
+            // past it described. Kept so «what did they agree to» names the
+            // document as well as the amount.
+            'figures_token' => $decision === self::OPEN ? '' : $expectedToken,
+            'records_version' => $version,
         ];
 
-        $all = $this->allDecisions();
-        $all[(string) $vendorUserId] = $record;
-        if (!$this->options->set(self::SETTING, $all)) {
+        if (!$this->handover->record($vendorUserId, $record)) {
+            $this->tx->rollback();
+            return ['ok' => false, 'reason' => 'storage_failed', 'handover' => $current];
+        }
+        if (!$this->tx->commit()) {
             return ['ok' => false, 'reason' => 'storage_failed', 'handover' => $current];
         }
 
+        // Audited after the commit, because an audit line for a decision the
+        // database refused would be a record of something that never happened.
         $this->audit->log(
             AuditEventCatalog::DOKAN_FINANCE_HANDOVER,
             (int) $record['decided_by'],
@@ -249,12 +309,13 @@ final class ReconcileDokanFinance
             (string) $vendorUserId,
             [
                 'vendor_id' => $vendorUserId,
-                'closing' => $closing,
-                'paid_by_dokan' => (string) (($this->records->balanceByType($vendorUserId)[self::WITHDRAW_TYPE]['debit']) ?? '0'),
+                'closing' => $snapshot->closing,
+                'paid_by_dokan' => (string) $snapshot->withdrawOverlap(self::WITHDRAW_TYPE)['debit'],
                 'pending_requests' => (int) $record['pending_requests_untouched'],
-                'pending_total' => $this->pendingTotal($pending),
+                'pending_total' => $this->pendingTotal($snapshot->byStatus),
                 'decision' => $decision,
-                'figures_token' => $expectedToken,
+                'figures_token' => (string) $record['figures_token'],
+                'records_version' => $version,
             ]
         );
 
@@ -264,35 +325,23 @@ final class ReconcileDokanFinance
     /** @return array<string,mixed> */
     public function decisionFor(int $vendorUserId): array
     {
-        $all = $this->allDecisions();
-        return $all[(string) $vendorUserId] ?? [
-            'decision' => self::OPEN,
-            'closing_at_decision' => '',
-            'decided_at' => '',
-            'decided_by' => 0,
-            'note' => '',
-            'pending_requests_untouched' => 0,
-            'figures_token' => '',
-        ];
+        return $this->handover->decisionFor($vendorUserId);
     }
 
     /** The shops whose financial responsibility nobody has settled. @return list<int> */
     public function stillOpen(): array
     {
+        // One read of the decisions rather than one per shop: this used to
+        // unserialise the whole option inside the loop, and it is now a query
+        // inside the loop, which is worse on a site with many shops.
+        $decided = $this->handover->allDecisions();
         $open = [];
         foreach ($this->records->vendorsWithRecords() as $vendorUserId) {
-            if ($this->decisionFor($vendorUserId)['decision'] === self::OPEN) {
+            if ((string) ($decided[$vendorUserId]['decision'] ?? self::OPEN) === self::OPEN) {
                 $open[] = $vendorUserId;
             }
         }
         return $open;
-    }
-
-    /** @return array<string,array<string,mixed>> */
-    private function allDecisions(): array
-    {
-        $raw = $this->options->get(self::SETTING, []);
-        return is_array($raw) ? $raw : [];
     }
 
     /**

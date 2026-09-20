@@ -10,7 +10,7 @@ namespace Tecteb\Marketplace\Contracts;
  *
  * Table names are never parameters; callers build them from prefix().
  */
-interface DatabaseInterface
+interface DatabaseInterface extends TransactionInterface
 {
     public function prefix(): string;
 

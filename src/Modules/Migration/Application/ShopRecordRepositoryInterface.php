@@ -110,4 +110,32 @@ interface ShopRecordRepositoryInterface
 
     /** @return array{staff:int, balance:int, withdrawals:int} */
     public function countsForRun(string $runId): array;
+
+    /**
+     * How many times this shop's imported past has been written to.
+     *
+     * A counter, not a fingerprint. A fingerprint of the figures collides
+     * when a rollback puts back exactly what was there before, and «the
+     * numbers came back» is still a change that a decision taken in between
+     * must not be silently carried across.
+     *
+     * Every write to this shop's staff, balance or withdrawal rows moves it,
+     * **in the same transaction as the write itself**, so a row can never be
+     * visible under a version that has not yet moved.
+     */
+    public function recordsVersion(int $vendorUserId): int;
+
+    /**
+     * Take the shop's version row under a write lock and return the version.
+     *
+     * Only meaningful inside a transaction: the lock is held until that
+     * transaction ends. A caller that needs «these figures, and nobody may
+     * change them until I have decided» opens a transaction, calls this, and
+     * reads the figures afterwards — every later write to this shop blocks on
+     * the version row rather than slipping in between the read and the write.
+     *
+     * The row is created at version 0 when the shop has none yet, because a
+     * `FOR UPDATE` over no row locks no row.
+     */
+    public function lockRecordsVersion(int $vendorUserId): int;
 }

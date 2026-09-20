@@ -100,6 +100,13 @@ check "the unpaid Dokan request stays unpaid, and named"       1 "$(field handov
 check "no rate was applied to the balance"                     3000000.0000 "$(field no_rate_was_applied closing)"
 check "…and the agreed figure is frozen"                     3000000.0000 "$(field no_rate_was_applied frozen)"
 check "Dokan's own tables are byte-identical throughout"       true "$(ok_of dokan_tables_untouched)"
+# alpha.20: one snapshot feeds the report, the token and the frozen figure.
+# Asserting the VALUES, not just that a stage ran — a stage that reports
+# nothing looks exactly like a stage that reported the right thing.
+check "the frozen figure is the figure the report showed"      true "$(ok_of handover_froze_the_figure_that_was_shown)"
+check "…shown and frozen are the same number"                "$(field handover_froze_the_figure_that_was_shown shown)" "$(field handover_froze_the_figure_that_was_shown frozen)"
+check "the record names the figures version it was taken at"   true "$(ok_of handover_named_the_figures_version)"
+check "…and that version is the snapshot's, not zero"        "$(field handover_named_the_figures_version snapshot)" "$(field handover_named_the_figures_version recorded)"
 
 echo
 echo "--- 7. «مهاجرت کامل» is not something the archive can say ---"

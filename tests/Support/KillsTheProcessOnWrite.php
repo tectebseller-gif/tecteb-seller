@@ -73,6 +73,26 @@ final class KillsTheProcessOnWrite implements DatabaseInterface
         return $this->inner->getResults($sql, $params);
     }
 
+    public function begin(): bool
+    {
+        return $this->inner->begin();
+    }
+
+    public function commit(): bool
+    {
+        return $this->inner->commit();
+    }
+
+    public function rollback(): bool
+    {
+        return $this->inner->rollback();
+    }
+
+    public function inTransaction(): bool
+    {
+        return $this->inner->inTransaction();
+    }
+
     public function lastError(): string
     {
         return $this->inner->lastError();

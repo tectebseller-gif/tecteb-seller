@@ -9,7 +9,9 @@ use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0001CreateAuditTable;
 use Tecteb\Marketplace\Core\Support\SystemClock;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpAuditRepository;
+use Tecteb\Marketplace\Core\Migration\Migrations\M0018HandoverRowsAndRecordVersion;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
+use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbFinanceHandoverRepository;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanMigrationPlan;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
@@ -70,6 +72,8 @@ final class DokanMigrationTest extends DatabaseTestCase
     private DbOrderHistoryRepository $history;
     private DbShopRecordRepository $shopRecords;
     private DbLedgerRepository $ledger;
+    private WpDatabase $database;
+    private DbFinanceHandoverRepository $handover;
 
     protected function setUp(): void
     {
@@ -82,6 +86,7 @@ final class DokanMigrationTest extends DatabaseTestCase
             ...M0006CatalogAndOrders::TABLES,
             ...M0004CreateFinanceTables::TABLES,
             ...M0017DokanShopRecords::TABLES,
+            ...M0018HandoverRowsAndRecordVersion::TABLES,
         ] as $suffix) {
             $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
         }
@@ -95,6 +100,8 @@ final class DokanMigrationTest extends DatabaseTestCase
         $this->vendors = new DbVendorRepository($db, $clock);
         $this->history = new DbOrderHistoryRepository($db, $clock);
         $this->shopRecords = new DbShopRecordRepository($db, $clock);
+        $this->database = $db;
+        $this->handover = new DbFinanceHandoverRepository($db, $clock);
         $this->ledger = new DbLedgerRepository($db, $clock);
         $this->dokan = new FakeDokanReader();
         $this->dokan->vendorRows = [
@@ -924,7 +931,7 @@ final class DokanMigrationTest extends DatabaseTestCase
         return new MigrationCompleteness(
             $this->shopRecords,
             new StaffRoleMap($options),
-            new ReconcileDokanFinance($this->shopRecords, $options, $audit, $clock, $caps, $this->ledger),
+            new ReconcileDokanFinance($this->shopRecords, $this->handover, $this->database, $audit, $clock, $caps, $this->ledger),
             $this->vendors,
             $this->products
         );
@@ -992,7 +999,8 @@ final class DokanMigrationTest extends DatabaseTestCase
         $clock = new SystemClock();
         return new ReconcileDokanFinance(
             $this->shopRecords,
-            new WpOptionStore(),
+            $this->handover,
+            $this->database,
             new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock),
             $clock,
             new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR]),
@@ -1030,14 +1038,16 @@ final class DokanMigrationTest extends DatabaseTestCase
     }
 
     /**
-     * Acceptance without the report is refused.
+     * Acceptance without a figures version is refused.
      *
-     * This cannot be a «seen» flag: a flag records that somebody clicked, not
-     * that anybody looked, and it stays true after the numbers move. The form
-     * carries a hash of the figures printed above it, and a decision arriving
-     * without one never reached a manager who was reading the report.
+     * The token is a VERSION MATCH, not evidence anybody read anything. It
+     * says «these figures, at this version»; a request that carries none
+     * names no version at all, so there is nothing to record the decision
+     * against and nothing that could later invalidate it. A «seen» flag would
+     * answer a different question badly: it records a click, and it stays
+     * true after the numbers move.
      */
-    public function testTheBalanceIsNotAcceptedWithoutTheReportHavingBeenShown(): void
+    public function testAcceptanceWithoutAFiguresVersionIsRefused(): void
     {
         $this->seedDokanFinance();
         $finance = $this->finance();
@@ -1057,8 +1067,10 @@ final class DokanMigrationTest extends DatabaseTestCase
      * A decision made against figures that have since moved is refused.
      *
      * The window is real: a re-import, a rollback or an extension can land
-     * between the manager reading the page and pressing the button, and the
-     * amount they would be taking on is then not the amount they read.
+     * between the page being rendered and the button being pressed, and the
+     * amount being taken on is then not the amount the form was built from.
+     * Held still by a lock on the shop's version row, not by re-reading —
+     * see HandoverConcurrencyTest for the interleaved proof.
      */
     public function testADecisionAgainstFiguresThatHaveSinceMovedIsRefused(): void
     {

@@ -275,7 +275,12 @@ final class HandoverPage
         echo Components::notice('warning', __('ارقام زیر دقیقاً همان چیزی است که دکان ثبت کرده و با هیچ نرخی دوباره محاسبه نشده است. برداشتِ پرداخت‌شده در خودِ «ماندهٔ پایانی» کسر شده؛ این دو عدد هرگز با هم جمع نمی‌شوند.', 'tecteb-marketplace-core'));
 
         foreach ($shops as $vendorUserId) {
-            $report = $finance->forVendor($vendorUserId);
+            // ONE snapshot per shop: the figures printed below and the token
+            // the form carries are the same read. Asking for the report and
+            // then asking separately for a token — which is what alpha.19 did
+            // — issues a receipt for a document the manager was never handed.
+            $snapshot = $finance->snapshotFor($vendorUserId);
+            $report = $finance->reportFrom($snapshot);
             $handover = $report['handover'];
             echo '<article class="tmc-card tmc-card--nested"><h3 class="tmc-card__title">'
                 . esc_html($this->shopName($vendorUserId)) . '</h3>';
@@ -307,15 +312,17 @@ final class HandoverPage
                 echo '<p class="tmc-field__desc">'
                     . esc_html__('تا وقتی تصمیمی ثبت نشود، این بازارگاه بابت این رقم هیچ تعهدی ندارد و هیچ پرداختی انجام نمی‌شود.', 'tecteb-marketplace-core')
                     . '</p>';
-                // The receipt for the figures printed above. It travels with
-                // the decision so the service can refuse a decision made
-                // against numbers that have since moved. Not a «seen» flag:
-                // a flag would survive the numbers changing.
+                // The version match for the figures printed above, taken from
+                // the SAME snapshot they were printed from. It travels with
+                // the decision so the service can refuse one taken against
+                // numbers that have since moved. It is not a «seen» flag and
+                // not evidence anybody read anything — it says which version
+                // of the imported past this form was built from.
                 echo '<form method="post" class="tmc-inline-form">'
                     . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)
                     . '<input type="hidden" name="vendor_user_id" value="' . esc_attr((string) $vendorUserId) . '">'
                     . '<input type="hidden" name="figures_token" value="'
-                    . esc_attr($finance->figuresToken($vendorUserId)) . '">'
+                    . esc_attr((string) $report['figures_token']) . '">'
                     . '<label class="screen-reader-text" for="tmc-note-' . esc_attr((string) $vendorUserId) . '">'
                     . esc_html__('یادداشت تصمیم', 'tecteb-marketplace-core') . '</label>'
                     . '<input type="text" id="tmc-note-' . esc_attr((string) $vendorUserId) . '" name="handover_note" class="tmc-input"'
@@ -409,8 +416,8 @@ final class HandoverPage
             // Each refusal says what to DO, because «ثبت نشد» sends a manager
             // looking for a broken button instead of a changed number.
             return 'err:' . match ((string) $result['reason']) {
-                'figures_changed' => __('ارقام این فروشگاه از لحظه‌ای که گزارش را دیدید تغییر کرده‌اند. صفحه را تازه کنید و گزارش تازه را ببینید؛ تصمیم روی ارقامی که دیگر برقرار نیستند ثبت نمی‌شود.', 'tecteb-marketplace-core'),
-                'report_not_seen' => __('تصمیم بدون گزارش تطبیق ثبت نمی‌شود. از همین صفحه و از روی ارقام نمایش‌داده‌شده اقدام کنید.', 'tecteb-marketplace-core'),
+                'figures_changed' => __('ارقام این فروشگاه نسبت به نسخه‌ای که این فرم از روی آن ساخته شده تغییر کرده‌اند. صفحه را تازه کنید؛ تصمیم روی نسخه‌ای که دیگر برقرار نیست ثبت نمی‌شود.', 'tecteb-marketplace-core'),
+                'report_not_seen' => __('این درخواست نسخهٔ ارقام را همراه نداشت. تصمیم باید از فرم همین صفحه ثبت شود تا معلوم باشد روی کدام نسخه از ارقام گرفته شده است.', 'tecteb-marketplace-core'),
                 'forbidden' => __('شما اجازهٔ ثبت این تصمیم را ندارید.', 'tecteb-marketplace-core'),
                 default => __('ثبت تصمیم انجام نشد.', 'tecteb-marketplace-core'),
             };

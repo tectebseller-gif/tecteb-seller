@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Contracts\TransactionInterface;
 use Tecteb\Marketplace\Contracts\ModuleInterface;
 use Tecteb\Marketplace\Contracts\ModuleKind;
 use Tecteb\Marketplace\Contracts\ModuleManifest;
@@ -24,9 +25,11 @@ use Tecteb\Marketplace\Modules\Migration\Application\ReconcileDokanFinance;
 use Tecteb\Marketplace\Modules\Migration\Application\StaffRoleMap;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\OrderHistoryRepositoryInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\FinanceHandoverRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository;
+use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbFinanceHandoverRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbShopRecordRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpDokanReader;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\HandoverPage;
@@ -117,9 +120,18 @@ final class MigrationModule implements ModuleInterface
             $c->get(AuditLogger::class),
             $c->get(CapabilityCheckerInterface::class)
         ));
+        $c->bind(FinanceHandoverRepositoryInterface::class, static fn (ContainerInterface $c) => new DbFinanceHandoverRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        // The same object the repositories write through, so the lock the
+        // decision takes and the writes an import makes are on one connection
+        // pair and really do contend.
+        $c->bind(TransactionInterface::class, static fn (ContainerInterface $c) => $c->get(DatabaseInterface::class));
         $c->bind(ReconcileDokanFinance::class, static fn (ContainerInterface $c) => new ReconcileDokanFinance(
             $c->get(ShopRecordRepositoryInterface::class),
-            $c->get(OptionStoreInterface::class),
+            $c->get(FinanceHandoverRepositoryInterface::class),
+            $c->get(TransactionInterface::class),
             $c->get(AuditLogger::class),
             $c->get(ClockInterface::class),
             $c->get(CapabilityCheckerInterface::class),
