@@ -1,0 +1,11 @@
+# The files under test and the files that test them.
+src/Modules/Vendor/Application/StaffActivityReport.php
+src/Infrastructure/WordPress/WpAuditRepository.php
+src/Contracts/AuditRepositoryInterface.php
+tests/Database/StoreAndStaffFlowTest.php
+tests/Unit/Modules/Vendor/StaffActivityLabelsTest.php
+sha256=8e71df88ed515efabeb302fa144cfd2e1ecf0bca5767665edb1040b251917f81  AuditRepositoryInterface.php
+sha256=25e790101e61d7d05912d2a7ab217f6a49e3f4c1312b4ecc922bce989f5921e4  StaffActivityLabelsTest.php
+sha256=6c40fc97bddab42c05ba125406acd50ce67f8ecc1927565172772b1677766e46  StaffActivityReport.php
+sha256=ec387d2493080a041c06f53c33cc0d491ab669a027dbe2228e1f6440ede92a23  StoreAndStaffFlowTest.php
+sha256=e0ecd8440395ee76eddaba8a08a3c389142979457eae58488d32e5fd8ed7947b  WpAuditRepository.php

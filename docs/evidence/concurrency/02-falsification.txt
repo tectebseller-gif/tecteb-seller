@@ -1,13 +1,13 @@
 # Each guard is removed, the suite re-run, and the failure recorded.
 
 ## guard 1: the FOR UPDATE that holds the shop's version row
-Time: 00:01.439, Memory: 12.00 MB
+Time: 00:01.418, Memory: 12.00 MB
 
 There was 1 failure:
 
 1) Tecteb\Marketplace\Tests\Database\HandoverConcurrencyTest::testAnImportLandingBetweenTheCheckAndTheRecordIsMadeToWait
 the concurrent import committed while the decision held the lock — it was never made to wait
-Failed asserting that file "/tmp/tmc-late-import-6954" does not exist.
+Failed asserting that file "/tmp/tmc-late-import-5430" does not exist.
 
 /home/user/tecteb-seller/tests/Database/HandoverConcurrencyTest.php:176
 
@@ -16,7 +16,7 @@ Tests: 1, Assertions: 2, Failures: 1.
 
 ## guard 2: the locking read that decides whose version a rollback moves
 
-Time: 00:00.273, Memory: 12.00 MB
+Time: 00:00.254, Memory: 12.00 MB
 
 There was 1 failure:
 

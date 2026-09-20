@@ -1,0 +1,31 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+..................                                                18 / 18 (100%)
+
+Time: 00:03.817, Memory: 12.00 MB
+
+Store And Staff Flow (Tecteb\Marketplace\Tests\Database\StoreAndStaffFlow)
+ ✔ A vendor saves their own settings but cannot rename the shop
+ ✔ Renaming goes through the manager and only then takes effect
+ ✔ Changing the bank account stops settlement until the manager decides
+ ✔ A rejected bank change leaves the hold in place
+ ✔ A malformed iban is refused before anything is written
+ ✔ Inviting suspending and reinstating one colleague
+ ✔ Staff of one shop can do nothing in another
+ ✔ Staff cannot manage staff or store settings
+ ✔ One person belongs to one shop
+ ✔ The seat limit counts invitations too
+ ✔ A role can be changed but never to nothing
+ ✔ An expired or unknown invitation opens nothing
+ ✔ Suspending a vendor cuts the vendor and every staff member off at once
+ ✔ A suspended vendors staff cannot reach another shop either
+ ✔ The owner sees what each staff member actually did
+ ✔ The activity report is refused to another shop and to staff
+ ✔ Counts are exact well past the search page size
+ ✔ A shop with no staff reads nobody elses trail
+
+OK (18 tests, 108 assertions)
+exit=0

@@ -1,0 +1,20 @@
+# The aggregate calls replaced by the pre-fix shape:
+#   search($scope, 2000, 0) — which WpAuditRepository caps at 200.
+# If this still passes, the test is not testing the cap.
+
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+F                                                                   1 / 1 (100%)
+
+Time: 00:00.355, Memory: 12.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Database\StoreAndStaffFlowTest::testCountsAreExactWellPastTheSearchPageSize
+the count stopped at the search page size instead of counting the trail
+Failed asserting that 155 is identical to 261.
+
+/home/user/tecteb-seller/tests/Database/StoreAndStaffFlowTest.php:491
+
+FAILURES!
+Tests: 1, Assertions: 8, Failures: 1.

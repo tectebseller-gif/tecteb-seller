@@ -5,7 +5,7 @@ Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
 .........                                                           9 / 9 (100%)
 
-Time: 00:07.032, Memory: 12.00 MB
+Time: 00:07.001, Memory: 12.00 MB
 
 Handover Concurrency (Tecteb\Marketplace\Tests\Database\HandoverConcurrency)
  ✔ The report and its token describe the same read even when the rows move between them

@@ -16,3 +16,34 @@ node_modules/
 
 # dist/ is a DELIVERABLE (ZIP + SHA256SUMS + source archive) and is committed
 # on purpose; see docs/phase-1-report.md §4.
+
+# ---------------------------------------------------------------------------
+# Binary evidence and the two large archives live in RELEASE ATTACHMENTS, not
+# in git. `docs/evidence-manifest.txt` indexes every one of them with its
+# SHA-256, so nothing became unverifiable when it moved: download the
+# attachment, check the hash, and the file is the file.
+#
+# Nothing was deleted and no history was rewritten — the copies already
+# committed are still in the history they were committed to. This governs
+# what FUTURE commits carry, on a repository whose .git had reached 1.4 GB
+# and which GitHub already warned about on every push.
+#
+# The installable ZIP deliberately stays tracked: it is small, it is
+# byte-reproducible, and tools/build.sh refuses to overwrite a delivered one
+# — a guard that only works while the bytes are somewhere it can check.
+docs/evidence/**/*.png
+docs/evidence/**/*.jpg
+docs/evidence/**/*.jpeg
+docs/evidence/**/*.webp
+docs/evidence/**/*.gif
+docs/evidence/**/*.pdf
+docs/evidence/**/*.webm
+docs/evidence/**/*.mp4
+dist/*-source-*.tar.gz
+dist/*-evidence-*.tar.gz
+dist/*-reviewable-*.tar.gz
+# …that last one, the reviewable bundle, for a different reason: every byte inside it is
+# already in git (text evidence, tests, sources, tools). Committing the
+# tarball would carry a second copy of files the repository already has, once
+# per release. `bash tools/reviewable-bundle.sh` rebuilds it, and the manifest
+# records the hash of the one that was sent.

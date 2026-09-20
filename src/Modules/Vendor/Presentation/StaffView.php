@@ -107,13 +107,6 @@ final class StaffView
                 . '</section>';
         }
 
-        if (($activity['truncated'] ?? false) === true) {
-            // Said out loud: at the cap the numbers are a floor, and a report
-            // that quietly rounded that off would mislead exactly the busiest
-            // shop.
-            $html .= VendorUi::notice('warning', __('تعداد کارها از سقف شمارش گذشته است؛ عددهای زیر «دست‌کم» است، نه کل.', 'tecteb-marketplace-core'));
-        }
-
         $html .= '<ul class="tv-staff">';
         foreach ($rows as $row) {
             $html .= '<li class="tv-staff__item"><div class="tv-staff__head">'

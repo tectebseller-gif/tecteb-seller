@@ -200,7 +200,19 @@ fi
 # Split, rather than drop: one list for the source archive, one for the
 # evidence archive, and every file is in exactly one of them.
 grep -zEv "${EVIDENCE_IMAGE_PATTERN}" < "${ALL_FILES}" > "${LIST}" || true
-grep -zE  "${EVIDENCE_IMAGE_PATTERN}" < "${ALL_FILES}" > "${IMG_LIST}" || true
+
+# The images come from the FILESYSTEM, not from the git listing.
+#
+# Since the binary evidence moved to release attachments it is deliberately
+# untracked and gitignored, so `git ls-files --others --exclude-standard`
+# does not report it — and building the image list from git would have
+# produced an EMPTY evidence archive on a tree where every image was still
+# sitting on disk. The archive would have been «successfully» built with
+# nothing in it.
+find docs/evidence -type f \
+  \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \
+     -o -iname '*.gif' -o -iname '*.pdf' -o -iname '*.webm' -o -iname '*.mp4' \) \
+  -print0 2>/dev/null > "${IMG_LIST}" || true
 
 # Keep only paths that still exist: a file deleted but still listed would
 # abort tar and, previously, trigger the silent fallback.
@@ -240,6 +252,24 @@ else
   # were no screenshots» rather than «the list was built wrong».
   echo "evidence archive: NO images matched — check EVIDENCE_IMAGE_PATTERN" >&2
   exit 1
+fi
+
+# --- the half of the evidence that can travel in a message -------------------
+#
+# The evidence archive above is ~77 MB of screenshots and video, which is why
+# naming a repository path kept standing in for handing the evidence over.
+# The text half — transcripts, check lists, measurements, hashes, and the
+# sources that produced them — compresses to well under ten, so it ships as
+# its own archive and the delivery note can actually attach it.
+# The index of what is NOT in git goes first: it travels inside the bundle
+# below, so building the bundle first would ship last release's index.
+bash "${ROOT}/tools/evidence-manifest.sh"
+
+REV_ARCHIVE="${DIST}/${SLUG}-reviewable-${VERSION}.tar.gz"
+if delivered_already "$(basename "${REV_ARCHIVE}")"; then
+  echo "reviewable bundle: already delivered, left untouched → $(basename "${REV_ARCHIVE}")"
+else
+  bash "${ROOT}/tools/reviewable-bundle.sh"
 fi
 
 rm -rf "${STAGE}"

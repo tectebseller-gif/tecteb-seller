@@ -1,0 +1,6 @@
+# Staff activity: exact counts past the search page size
+generated_at=2026-09-20T14:49:28Z
+plugin_version=0.1.0-alpha.22
+php=8.4.19
+search_page_cap=51:        $limit = max(1, min(200, $limit));
+events_in_test=260 + 45 by this shop's staff, 300 by the manager

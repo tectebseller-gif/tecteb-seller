@@ -1,4 +1,4 @@
-بازارگاه تک‌طب — Tecteb Marketplace Core 0.1.0-alpha.21
+بازارگاه تک‌طب — Tecteb Marketplace Core 0.1.0-alpha.22
 
 وضعیت این بسته
 ==============

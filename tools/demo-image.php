@@ -31,6 +31,25 @@
  * Included, never run directly:  require_once ABSPATH . 'demo-image.php';
  */
 
+// --- refuses to run anywhere but the disposable install -------------------
+//
+// This file touches WordPress and writes. On the owner's site that is not a
+// tool, it is damage, and a docblock saying «disposable» stops nobody who
+// pastes the command at the wrong shell. Two independent facts, the same
+// pair tools/disposable-site.sh trusts — NOT wp_get_environment_type(),
+// which reports `production` on the disposable container itself.
+if (!defined('DB_NAME') || DB_NAME !== 'tmc_wp_test') {
+    fwrite(STDERR, "refused: DB_NAME is not the disposable tmc_wp_test. This tool writes and will not run here.\n");
+    echo "refused=1 reason=database_is_not_the_disposable_one\n";
+    return;
+}
+if (!preg_match('~^https?://(127\.0\.0\.1|localhost)(:\d+)?~', (string) home_url())) {
+    fwrite(STDERR, "refused: home_url() is not local. This tool writes and will not run here.\n");
+    echo "refused=1 reason=home_url_is_not_local\n";
+    return;
+}
+
+
 if (!function_exists('tmc_demo_png')) {
 
     /** The subjects this file can draw, in the order a demo catalogue uses them. */

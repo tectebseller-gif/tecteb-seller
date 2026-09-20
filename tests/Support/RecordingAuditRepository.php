@@ -38,6 +38,35 @@ final class RecordingAuditRepository implements AuditRepositoryInterface
         return count(array_filter($this->records, fn (AuditRecord $r): bool => $this->matches($r, $filters)));
     }
 
+    public function countByActor(array $filters): array
+    {
+        $out = [];
+        foreach ($this->records as $record) {
+            if ($record->actorId === null || !$this->matches($record, $filters)) {
+                continue;
+            }
+            $out[$record->actorId] = ($out[$record->actorId] ?? 0) + 1;
+        }
+        return $out;
+    }
+
+    public function latestByActor(array $filters): array
+    {
+        // Insertion order is id order here, so the LAST match per actor is
+        // the newest — the same row `MAX(id)` picks in SQL.
+        $out = [];
+        foreach ($this->records as $record) {
+            if ($record->actorId === null || !$this->matches($record, $filters)) {
+                continue;
+            }
+            $out[$record->actorId] = [
+                'event_type' => $record->eventType,
+                'created_at' => $record->createdAtUtc->format('Y-m-d H:i:s'),
+            ];
+        }
+        return $out;
+    }
+
     public function eventTypes(int $limit = 100): array
     {
         $types = array_values(array_unique(array_map(static fn (AuditRecord $r): string => $r->eventType, $this->records)));

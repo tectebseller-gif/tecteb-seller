@@ -33,6 +33,30 @@ use Tecteb\Marketplace\Modules\Order\Application\CaptureOrder;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 
+// --- refuses to run anywhere but the disposable install -------------------
+//
+// This file WRITES test data — shops, products, orders, refunds. On the
+// owner's site that is not a seeding tool, it is damage. A docblock saying
+// «DISPOSABLE» is documentation, not a guard: it stops nobody who pastes the
+// command at the wrong shell.
+//
+// Two independent facts, the same pair tools/disposable-site.sh already
+// trusts: the database must be the disposable one by name, and the site must
+// be on a host nobody outside the container can reach. Deliberately NOT
+// wp_get_environment_type(), which reports `production` on the disposable
+// container itself because nobody set the constant.
+if (!defined('DB_NAME') || DB_NAME !== 'tmc_wp_test') {
+    fwrite(STDERR, "refused: DB_NAME is not the disposable tmc_wp_test. This tool writes test data and will not run here.\n");
+    echo "refused=1 reason=database_is_not_the_disposable_one\n";
+    return;
+}
+if (!preg_match('~^https?://(127\.0\.0\.1|localhost)(:\d+)?~', (string) home_url())) {
+    fwrite(STDERR, "refused: home_url() is not local. This tool writes test data and will not run here.\n");
+    echo "refused=1 reason=home_url_is_not_local\n";
+    return;
+}
+
+
 $command = (string) ($args[0] ?? 'standing');
 $c = Bootstrap::container();
 $manager = (int) (get_users(['role' => 'administrator', 'number' => 1, 'fields' => 'ID'])[0] ?? 1);
