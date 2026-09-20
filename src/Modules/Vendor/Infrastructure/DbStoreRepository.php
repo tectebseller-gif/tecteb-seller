@@ -88,6 +88,28 @@ final class DbStoreRepository implements StoreRepositoryInterface
         return $saved;
     }
 
+    public function seedName(int $vendorUserId, string $storeName): bool
+    {
+        if ($storeName === '') {
+            return false;
+        }
+        // Two statements, both idempotent, and neither can clobber a name
+        // somebody chose: the INSERT only fires when there is no row, and the
+        // UPDATE only fires while the name is still empty.
+        $this->db->execute(
+            'INSERT IGNORE INTO `' . $this->table() . '` (user_id, store_name, created_at, updated_at)
+             VALUES (%d, %s, %s, %s)',
+            [$vendorUserId, $storeName, $this->now(), $this->now()]
+        );
+        $filled = $this->db->execute(
+            'UPDATE `' . $this->table() . '` SET store_name = %s, updated_at = %s
+             WHERE user_id = %d AND store_name = \'\'',
+            [$storeName, $this->now(), $vendorUserId]
+        ) !== null;
+        self::announce($vendorUserId);
+        return $filled;
+    }
+
     public function renameStore(int $vendorUserId, string $storeName): bool
     {
         $renamed = $this->db->execute(

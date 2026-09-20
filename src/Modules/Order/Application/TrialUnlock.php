@@ -88,4 +88,27 @@ final class TrialUnlock implements OrderTrialInterface
     {
         return $this->environment->resolve()->type->value;
     }
+
+    /**
+     * Ask for the switch, or stop asking.
+     *
+     * Until `alpha.23` the option had no writer anywhere in the plugin: it
+     * could only be set from a terminal, by a tool that refuses to run off the
+     * disposable install. So the owner's own staging site could satisfy every
+     * other condition and still never open the order module — and the guide
+     * had to end in «ask us to run a command», which is exactly the hidden
+     * developer preparation the owner ruled out.
+     *
+     * Requesting is deliberately NOT the same as being granted. This writes
+     * the request and nothing else; `isPermitted()` still decides whether it
+     * is honoured, so a production site can hold the option at `1` for ever
+     * and sell nothing. That separation is why the setter is safe to expose:
+     * the dangerous half was never in the option.
+     */
+    public function request(bool $on): bool
+    {
+        return $on
+            ? $this->options->set(self::OPTION, true)
+            : $this->options->delete(self::OPTION);
+    }
 }

@@ -25,7 +25,8 @@ final class ReviewApplication
         private readonly ApplicationStateMachine $states,
         private readonly AuditLogger $audit,
         private readonly CapabilityCheckerInterface $capabilities,
-        private readonly ?EventBus $events = null
+        private readonly ?EventBus $events = null,
+        private readonly ?StoreRepositoryInterface $stores = null
     ) {
     }
 
@@ -99,6 +100,19 @@ final class ReviewApplication
                 true,
                 $canPublishDirectly
             );
+            // The approved name belongs to the SHOP, not only to the file.
+            //
+            // Until `alpha.23` it was written to the profile and nowhere
+            // else, and the store settings row — the one the public page
+            // reads — was created empty by the vendor's first save. So a
+            // freshly approved shop's public page was titled «فروشگاه
+            // بازارگاه تک‌طب» for every vendor, and the only way to put the
+            // real name on it was to ask the manager to approve a rename to
+            // the name the manager had just approved.
+            //
+            // Seeded, never overwritten: `renameStore` stays the one path
+            // that CHANGES a name, so this cannot undo a rename.
+            $this->stores?->seedName($application->userId, $application->details->storeName);
         }
         if ($to === ApplicationStatus::Suspended) {
             // Both permissions go. Leaving direct publishing on would let a

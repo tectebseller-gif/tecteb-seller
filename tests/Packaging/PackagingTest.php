@@ -312,10 +312,39 @@ final class PackagingTest extends TestCase
             );
             $checked++;
         }
+
+        // The archives a delivery carried are no longer committed from
+        // `alpha.22` on: images and video moved to attachments, and git keeps
+        // the hashes instead of the bytes. So the rule is not «every ledger
+        // name is a committed file» any more — it is «every ledger name is
+        // vouched for by something committed», which for those is their line
+        // in `dist/SHA256SUMS`, itself in git and covered by the checks above.
+        //
+        // The installable ZIP is deliberately NOT allowed to take this route:
+        // it stays tracked, and the byte-for-byte comparison with HEAD above
+        // is what stops a rebuild from replacing a package somebody installed.
+        $sums = @file_get_contents($root . '/dist/SHA256SUMS') ?: '';
+        $vouched = $checked;
+        foreach ($delivered as $name) {
+            if (in_array('dist/' . $name, $tracked, true)) {
+                continue;               // already compared against HEAD
+            }
+            self::assertStringEndsWith(
+                '.tar.gz',
+                $name,
+                $name . ' is a delivered ZIP and must stay committed: a hash alone cannot stop a rebuild replacing it'
+            );
+            self::assertStringContainsString(
+                '  ' . $name,
+                $sums,
+                $name . ' was delivered, is not in git, and has no line in dist/SHA256SUMS — nothing vouches for it'
+            );
+            $vouched++;
+        }
         self::assertSame(
             count($delivered),
-            $checked,
-            'every name in the ledger must be a committed file: a delivered package that git has never seen is one nothing can vouch for'
+            $vouched,
+            'every name in the ledger must be vouched for: by its committed bytes, or by a committed hash'
         );
     }
 

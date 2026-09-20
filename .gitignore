@@ -42,6 +42,10 @@ docs/evidence/**/*.mp4
 dist/*-source-*.tar.gz
 dist/*-evidence-*.tar.gz
 dist/*-reviewable-*.tar.gz
+# The split parts are a way to POST the archive, not a thing to keep: they
+# are the archive cut up, and `bash tools/split-evidence.sh` remakes them in
+# seconds from a file git deliberately does not carry.
+dist/evidence-parts/
 # …that last one, the reviewable bundle, for a different reason: every byte inside it is
 # already in git (text evidence, tests, sources, tools). Committing the
 # tarball would carry a second copy of files the repository already has, once

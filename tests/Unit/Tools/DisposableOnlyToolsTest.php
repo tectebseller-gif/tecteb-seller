@@ -39,6 +39,10 @@ final class DisposableOnlyToolsTest extends TestCase
         // Pure arithmetic over the brand palette. Never loads WordPress, so
         // there is no site it could be pointed at.
         'contrast.php' => 'computes WCAG ratios; defines and calls no WordPress symbol',
+        // The rasteriser, split out of demo-image.php in `alpha.23`. It draws
+        // PNG bytes and returns them; the caller decides where they go, and
+        // the WordPress-side caller (demo-image.php) carries the guard.
+        'demo-image-shapes.php' => 'pure rasteriser; returns PNG bytes and writes nothing by itself',
     ];
 
     /** The refusal, verbatim enough that a rewrite has to be deliberate. */

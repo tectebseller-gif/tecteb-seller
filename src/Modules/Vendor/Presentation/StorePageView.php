@@ -385,9 +385,24 @@ final class StorePageView
     }
 
     /** @param callable(string|int):string $fa */
-    private static function toman(int $minor, callable $fa): string
+    /**
+     * The product price, in the same unit every other surface uses.
+     *
+     * This divided by 100 until `alpha.23`, on the theory that the field's
+     * name — `priceMinor` — meant minor units. Nothing else in the system
+     * agreed: the vendor's own form labels the box «قیمت (تومان)» and stores
+     * what was typed, its review step prints `number_format($priceMinor)`
+     * unchanged, and `WooCommerceProjector` writes the same integer into
+     * `_price`. So the ONE customer-facing page showed a price a hundred
+     * times too low — 2,450,000 تومان on the vendor's screen and «۲۴٬۵۰۰
+     * تومان» on the shop page a buyer reads.
+     *
+     * Found by running the install guide on a site built that morning, which
+     * is the only place the two numbers are ever seen side by side.
+     */
+    private static function toman(int $price, callable $fa): string
     {
-        return $fa(number_format($minor / 100)) . ' ' . __('تومان', 'tecteb-marketplace-core');
+        return $fa(number_format($price)) . ' ' . __('تومان', 'tecteb-marketplace-core');
     }
 
     /**

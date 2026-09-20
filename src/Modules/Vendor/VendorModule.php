@@ -127,7 +127,8 @@ final class VendorModule implements ModuleInterface
             $c->get(ApplicationStateMachine::class),
             $c->get(AuditLogger::class),
             $c->get(CapabilityCheckerInterface::class),
-            $c->get(EventBus::class)
+            $c->get(EventBus::class),
+            $c->get(StoreRepositoryInterface::class)
         ));
         $c->bind(ConfigureDocumentTypes::class, static fn (ContainerInterface $c) => new ConfigureDocumentTypes(
             $c->get(DocumentTypeRepositoryInterface::class),

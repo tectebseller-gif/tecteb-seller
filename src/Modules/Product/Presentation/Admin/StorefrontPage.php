@@ -10,7 +10,10 @@ use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\RateScope;
+use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
+use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
+use Tecteb\Marketplace\Modules\Order\Application\TrialUnlock;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontStop;
@@ -267,7 +270,68 @@ final class StorefrontPage
             . esc_html(implode('، ', OrderOperationsGate::OPEN_DECISIONS)) . '</td></tr>';
         echo '</tbody></table>';
         unset($fa);
+        $this->renderTrialSwitch();
         echo '</section>';
+    }
+
+    /**
+     * The one control that can open the order module while DEC-02 and DEC-04
+     * are still open — and the one that says so in the same breath.
+     *
+     * `OPEN_DECISIONS` is a constant, not a setting: nothing on this site can
+     * close DEC-02 or DEC-04, so while they are listed there is exactly one
+     * way for orders to run at all, and it is this. Leaving it terminal-only
+     * meant the panel above could say «بسته» for ever with no next step —
+     * a reason without a remedy, which is the failure mode this whole page
+     * exists to avoid.
+     *
+     * The button appears only where the switch would actually be honoured.
+     * On a production-resolved site it is replaced by the refusal and the
+     * place to change it, because offering a control that silently does
+     * nothing is worse than offering none.
+     */
+    private function renderTrialSwitch(): void
+    {
+        if (OrderOperationsGate::OPEN_DECISIONS === []) {
+            return;   // nothing to waive; the switch would be noise
+        }
+        $trial = $this->container->get(TrialUnlock::class);
+        $requested = $trial->isRequested();
+        $permitted = $trial->isPermitted();
+
+        echo '<h3 class="tmc-card__subtitle">'
+            . esc_html__('حالت آزمایشی سفارش', 'tecteb-marketplace-core') . '</h3>';
+        echo '<p class="tmc-field__desc">'
+            . esc_html__('این کلید فقط شرطِ «تصمیم‌های باز» را کنار می‌گذارد. نرخ کمیسیون و نوشتنی‌بودن دفترکل همچنان لازم‌اند، همان خطوط دفترکل نوشته می‌شود، و هر صفحهٔ سفارش می‌گوید روی قواعد نمونه کار می‌کند.', 'tecteb-marketplace-core')
+            . '</p>';
+
+        if (!$permitted) {
+            // Not a failure of the switch — a fact about this site. Say which
+            // environment was resolved and where it is chosen, so the next
+            // click is obvious instead of being guessed at.
+            echo Components::notice('warning', sprintf(
+                /* translators: %s: the resolved environment name */
+                __('این کلید روی محیطی که «%s» تشخیص داده شده پذیرفته نمی‌شود. فقط staging، development و local پذیرفته‌اند — و محیطِ اعلام‌نشده، «اصلی» حساب می‌شود. محیط را در «بازارگاه تک‌طب ← تنظیمات» انتخاب کنید، یا ثابت TMC_ENVIRONMENT را در wp-config.php بگذارید (ثابت مقدم است).', 'tecteb-marketplace-core'),
+                esc_html($trial->environmentName())
+            ));
+            if ($requested) {
+                echo '<p class="tmc-field__desc">'
+                    . esc_html__('کلید روشن است ولی همین‌جا رد می‌شود؛ روشن‌بودنش به‌تنهایی هیچ سفارشی را باز نمی‌کند.', 'tecteb-marketplace-core')
+                    . '</p>';
+            }
+            return;
+        }
+
+        echo '<form method="post">';
+        wp_nonce_field(self::NONCE, 'tmc_storefront_nonce');
+        if ($requested) {
+            echo '<p><button type="submit" name="storefront_action" value="trial_off" class="tmc-button">'
+                . esc_html__('خاموش‌کردن حالت آزمایشی سفارش', 'tecteb-marketplace-core') . '</button></p>';
+        } else {
+            echo '<p><button type="submit" name="storefront_action" value="trial_on" class="tmc-button tmc-button--primary">'
+                . esc_html__('روشن‌کردن حالت آزمایشی سفارش', 'tecteb-marketplace-core') . '</button></p>';
+        }
+        echo '</form>';
     }
 
     /** Every projected product, and what the catalogue would answer about it. */
@@ -323,6 +387,38 @@ final class StorefrontPage
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
 
         $action = $request->postKey('storefront_action');
+
+        if ($action === 'trial_on' || $action === 'trial_off') {
+            $trial = $this->container->get(TrialUnlock::class);
+            $wanted = $action === 'trial_on';
+            // Asked again, not taken from the form: a button rendered before
+            // somebody changed the environment in another tab would otherwise
+            // write a request this site cannot honour, and report success.
+            if ($wanted && !$trial->isPermitted()) {
+                return 'err:' . sprintf(
+                    /* translators: %s: the resolved environment name */
+                    __('محیط «%s» این کلید را نمی‌پذیرد، پس چیزی تغییر نکرد.', 'tecteb-marketplace-core'),
+                    $trial->environmentName()
+                );
+            }
+            if (!$trial->request($wanted)) {
+                return 'err:' . __('ذخیرهٔ این کلید انجام نشد.', 'tecteb-marketplace-core');
+            }
+            $this->container->get(AuditLogger::class)->log(
+                AuditEventCatalog::ORDER_TRIAL_CHANGED,
+                $actorId,
+                'storefront',
+                TrialUnlock::OPTION,
+                [
+                    'requested' => $wanted ? '1' : '0',
+                    'permitted' => $trial->isPermitted() ? '1' : '0',
+                    'environment' => $trial->environmentName(),
+                ]
+            );
+            return 'ok:' . ($wanted
+                ? __('حالت آزمایشی سفارش روشن شد. تصمیم‌های باز کنار گذاشته می‌شوند؛ نرخ کمیسیون و دفترکل همچنان بررسی می‌شوند.', 'tecteb-marketplace-core')
+                : __('حالت آزمایشی سفارش خاموش شد. تا بسته‌شدن تصمیم‌های باز، ماژول سفارش اجرا نمی‌شود.', 'tecteb-marketplace-core'));
+        }
 
         if ($action === 'release_orders') {
             $result = $stop->releaseOrders($actorId);

@@ -1,0 +1,58 @@
+ok:   credentials for manager                                    present
+ok:   credentials for vendor                                     present
+ok:   credentials for staff                                      present
+ok:   credentials for buyer                                      present
+ok:   manager @390: signed in as the intended user               tmcowner
+ok:   manager-01-dashboard @390                                  shown
+ok:   manager-02-vendors @390                                    shown
+ok:   manager-03-products @390                                   shown
+ok:   manager-04-storefront @390                                 shown
+ok:   manager-05-withdrawals @390                                shown
+ok:   manager-06-handover @390                                   shown
+ok:   manager-07-reports @390                                    shown
+ok:   manager-08-audit @390                                      shown
+ok:   vendor @390: signed in as the intended user                demo-vendor
+ok:   vendor-01-dashboard @390                                   shown
+ok:   vendor-02-store @390                                       shown
+ok:   vendor-03-staff @390                                       shown
+ok:   vendor-04-products @390                                    shown
+ok:   vendor-05-orders @390                                      shown
+ok:   vendor-06-finance @390                                     shown
+ok:   staff @390: signed in as the intended user                 demo-staff
+ok:   staff-01-lands @390                                        shown
+ok:   staff-02-products @390                                     shown
+ok:   staff-03-orders @390                                       shown
+ok:   staff-04-store-refused @390                                refused
+ok:   staff-05-staff-refused @390                                refused
+ok:   buyer @390: signed in as the intended user                 demo-buyer
+ok:   buyer-01-shop @390                                         shown
+ok:   buyer-02-account @390                                      shown
+ok:   buyer-03-orders @390                                       shown
+ok:   manager @1440: signed in as the intended user              tmcowner
+ok:   manager-01-dashboard @1440                                 shown
+ok:   manager-02-vendors @1440                                   shown
+ok:   manager-03-products @1440                                  shown
+ok:   manager-04-storefront @1440                                shown
+ok:   manager-05-withdrawals @1440                               shown
+ok:   manager-06-handover @1440                                  shown
+ok:   manager-07-reports @1440                                   shown
+ok:   manager-08-audit @1440                                     shown
+ok:   vendor @1440: signed in as the intended user               demo-vendor
+ok:   vendor-01-dashboard @1440                                  shown
+ok:   vendor-02-store @1440                                      shown
+ok:   vendor-03-staff @1440                                      shown
+ok:   vendor-04-products @1440                                   shown
+ok:   vendor-05-orders @1440                                     shown
+ok:   vendor-06-finance @1440                                    shown
+ok:   staff @1440: signed in as the intended user                demo-staff
+ok:   staff-01-lands @1440                                       shown
+ok:   staff-02-products @1440                                    shown
+ok:   staff-03-orders @1440                                      shown
+ok:   staff-04-store-refused @1440                               refused
+ok:   staff-05-staff-refused @1440                               refused
+ok:   buyer @1440: signed in as the intended user                demo-buyer
+ok:   buyer-01-shop @1440                                        shown
+ok:   buyer-02-account @1440                                     shown
+ok:   buyer-03-orders @1440                                      shown
+
+pass=56 fail=0

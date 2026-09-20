@@ -53,6 +53,7 @@ final class AuditEventCatalog
     public const ORDER_CAPTURED = 'order.captured';
     public const ORDER_ITEM_STATUS_CHANGED = 'order.item_status_changed';
     public const ORDER_BLOCKED = 'order.blocked';
+    public const ORDER_TRIAL_CHANGED = 'order.trial_mode_changed';
     public const ORDER_SETTLEMENT_RECORDED = 'order.settlement_recorded';
     /** Shipping and returns: how much of a line moved, and how much came back. */
     public const ORDER_ITEM_SHIPPED = 'order.item_shipped';
@@ -152,6 +153,7 @@ final class AuditEventCatalog
             self::ORDER_CAPTURED => ['order_id', 'vendors', 'items', 'recorded', 'skipped'],
             self::ORDER_ITEM_STATUS_CHANGED => ['vendor_id', 'order_id', 'item_id', 'from', 'to'],
             self::ORDER_BLOCKED => ['product_id', 'vendor_id', 'reason'],
+            self::ORDER_TRIAL_CHANGED => ['requested', 'permitted', 'environment'],
             self::ORDER_SETTLEMENT_RECORDED => ['vendor_id', 'order_id', 'item_id', 'completed_at'],
             self::ORDER_ITEM_SHIPPED => [
                 'vendor_id', 'order_id', 'shipment_id', 'quantity', 'shipped_total',
