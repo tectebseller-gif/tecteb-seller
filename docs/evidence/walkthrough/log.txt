@@ -1,4 +1,4 @@
-plugin on the site: 0.1.0-alpha.16
+plugin on the site: 0.1.0-alpha.17
 desktop 1 فروشگاه عمومی — داروخانهٔ نمونهٔ تک‌طب — Tecteb Disposable Acceptance Site
 desktop 3 صفحهٔ دوم کاتالوگ
 desktop 4 پیشخوان فروشنده

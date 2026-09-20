@@ -1,1 +1,1 @@
-reset products_removed=0 profiles_removed=0 history_removed=0 runs_cleared=true
+reset products_removed=1 profiles_removed=0 history_removed=0 runs_cleared=true

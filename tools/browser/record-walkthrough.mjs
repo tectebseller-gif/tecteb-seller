@@ -121,6 +121,12 @@ const manifest = { site: SITE, version: EXPECT, recorded_at: new Date().toISOStr
 
 for (const size of SIZES) {
   const videoDir = path.join(OUT, `video-${size.name}`);
+  // Emptied first. Playwright names each file after a hash of the page, so a
+  // re-recording leaves the PREVIOUS version's videos sitting beside the new
+  // ones with nothing in the folder to tell them apart. The superseded ones
+  // are not lost: each delivery's evidence archive is built at release time
+  // and keeps that version's recording.
+  fs.rmSync(videoDir, { recursive: true, force: true });
   fs.mkdirSync(videoDir, { recursive: true });
   const ctx = await browser.newContext({
     viewport: { width: size.width, height: size.height },

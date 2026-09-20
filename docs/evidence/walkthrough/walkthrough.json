@@ -1,7 +1,7 @@
 {
   "site": "http://127.0.0.1:8080",
-  "version": "0.1.0-alpha.16",
-  "recorded_at": "2026-09-16T18:09:32.510Z",
+  "version": "0.1.0-alpha.17",
+  "recorded_at": "2026-09-20T09:22:15.060Z",
   "runs": [
     {
       "size": "desktop",
@@ -61,9 +61,9 @@
         }
       ],
       "videos": [
-        "page@a0b827d8bd38a81d8cc0748a0f7af4f9.webm",
-        "page@b76839689d6c528410ef88c47100adc9.webm",
-        "page@db911b03207fba7e77dcb9708527df29.webm"
+        "page@337cd198c1f0570ec51fcdaedbae422b.webm",
+        "page@7fff9e05c339a3a29d33f268c7983851.webm",
+        "page@a6995d2141c9235bd4eebc97b5eedd24.webm"
       ]
     },
     {
@@ -124,9 +124,9 @@
         }
       ],
       "videos": [
-        "page@4a983f78d717961bb086c8dd0b4770a1.webm",
-        "page@9f555f5d72e51a006adf6aae2e19dab7.webm",
-        "page@e5432f0a03a2ec7d339347d9c49c29ce.webm"
+        "page@6b1a52cf0c855e22485ffe602079286b.webm",
+        "page@71e725589442da1eb49ab7876b45c254.webm",
+        "page@9936630abe25e54f1ef2f2e42c81900d.webm"
       ]
     }
   ],

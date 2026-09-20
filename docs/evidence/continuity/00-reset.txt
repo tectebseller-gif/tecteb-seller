@@ -1,2 +1,2 @@
-reset orders_removed=1 ownership_given_back=1 products_removed=1 applications_cleared=1 observed_left=0
+reset orders_removed=1 ownership_given_back=0 products_removed=0 applications_cleared=1 observed_left=0
 reset products_removed=0 profiles_removed=0 history_removed=0 runs_cleared=true

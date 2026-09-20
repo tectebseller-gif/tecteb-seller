@@ -186,16 +186,22 @@ check "…and no next"                                      0 "$(grep -c 'rel="n
 
 # A paged list that repeats or drops a row is worse than an unpaged one: the
 # shopper never learns which. Measured on the TITLES in the bytes.
-titles() { grep -oE 'کالای صفحه‌بندی شمارهٔ [0-9]+' "$1" | sort -u; }
+# Read off the CARD, not off a phrase. The first version grepped the fixture's
+# old title («کالای صفحه‌بندی شمارهٔ ۱۲»); renaming the demo catalogue to real
+# equipment made it match nothing and the check reported «0 of 30 rows are on a
+# page» about two pages that were correct.
+titles() { grep -oE '<span class="tmc-store__product-title">[^<]+' "$1" \
+  | sed 's/.*tmc-store__product-title">//' | sort -u; }
 titles "$EV/09-page-1.html" > "$EV/11-titles-1.txt"
 titles "$EV/10-page-last.html" > "$EV/12-titles-last.txt"
 check "no product appears on both pages"                  0 \
   "$(comm -12 "$EV/11-titles-1.txt" "$EV/12-titles-last.txt" | wc -l | tr -d ' ')"
-# Every fixture row is on one page or the other. Counted against what the
-# fixture actually MADE, not against the shop's published total: this shop
-# also carries its own product from section 5, and an expectation that
-# ignored it would fail on a page that is right.
-check "…and every fixture row is on one of them"          "$MADE" \
+# Every PUBLISHED row is on one page or the other — the shop's own product
+# from section 5 included. The count used to be the fixture's own `made`,
+# which worked only because the title grep was fixture-specific; reading the
+# titles off the cards counts the whole shelf, so the expectation is the whole
+# shelf too. `$MADE` is still checked above, where it belongs.
+check "…and every published row is on one of them"        "$PUBLISHED" \
   "$(cat "$EV/11-titles-1.txt" "$EV/12-titles-last.txt" | sort -u | wc -l | tr -d ' ')"
 # And the two pages together hold the whole shelf, fixture or not.
 check "…and the two pages together are the whole shelf"   "$PUBLISHED" \

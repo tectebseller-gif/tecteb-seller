@@ -295,13 +295,49 @@ switch ($command) {
                 $removedProducts++;
             }
         }
+        // …and the rows this suite's OTHER fixtures took ownership of.
+        //
+        // `observed()` is «imported and not ours to run», and the continuity
+        // path deliberately stops being that: it transfers ownership and
+        // publishes. So after a continuity run there is nothing observed
+        // left, this reset swept an empty floor, and the next import found the
+        // Dokan product already linked — six checks then failed about a
+        // migration that had simply already happened. Same shape as the
+        // continuity fixture's own reset, and the same justification: a
+        // fixture doing fixture things on a disposable site. There is
+        // deliberately no «delete a published product» service, and this is
+        // not one.
+        global $wpdb;
+        $transfer = $c->get(\Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership::class);
+        foreach ($reader->products() as $dokanProduct) {
+            $wcId = (int) ($dokanProduct['wc_product_id'] ?? 0);
+            if ($wcId <= 0) {
+                continue;
+            }
+            $row = $productRepo->findByWcProduct($wcId) ?? $productRepo->findObservedByWcProduct($wcId);
+            if ($row === null) {
+                continue;
+            }
+            if ($productRepo->linkOwnership((int) $row->id)
+                === \Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership::Marketplace) {
+                $transfer->giveBack((int) $row->id);
+            }
+            if ($productRepo->deleteDraft((int) $row->id)) {
+                $removedProducts++;
+                continue;
+            }
+            foreach (['tmc_product_images', 'tmc_product_specs', 'tmc_product_revisions'] as $table) {
+                $wpdb->delete($wpdb->prefix . $table, ['product_id' => (int) $row->id]);
+            }
+            $wpdb->delete($wpdb->prefix . 'tmc_products', ['id' => (int) $row->id]);
+            $removedProducts++;
+        }
         $removedProfiles = 0;
         foreach ($reader->vendors() as $vendor) {
             if ($vendors->deleteEmptyProfile((int) $vendor['user_id'])) {
                 $removedProfiles++;
             }
         }
-        global $wpdb;
         $history = $wpdb->query(
             "DELETE FROM `{$wpdb->prefix}tmc_dokan_order_history` WHERE source = 'dokan'"
         );

@@ -1,5 +1,6 @@
-plan run=dokan-20260916-184427 vendors=1 products=1 orders=6 conflicts=0 skipped=0 clean=true
-  vendor dokan=13 verdict=import reason=- target=tmc_vendor:new title=dokanvendor
+plan run=dokan-20260920-091710 vendors=0 products=1 orders=6 conflicts=0 skipped=2 clean=true
+  vendor dokan=13 verdict=skip reason=already_a_marketplace_vendor target=tmc_vendor:13 title=dokanvendor
+  vendor dokan=56 verdict=skip reason=already_a_marketplace_vendor target=tmc_vendor:56 title=فروشگاه نمونهٔ انتقال
   product dokan=79 verdict=import reason=- target=tmc_product:new → wc:79 title=کالای فروشندهٔ دکان
   order dokan=85 verdict=import reason=history_recorded_without_recomputing target=wc_order:85 title=85
   order dokan=86 verdict=import reason=history_recorded_without_recomputing target=wc_order:86 title=86

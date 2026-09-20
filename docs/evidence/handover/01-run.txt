@@ -10,7 +10,7 @@ stage=invited_still_cannot_act ok=true order_edit=false order_view=false
 stage=no_token_exists_for_the_adopted_row ok=true invite_hash=(empty)
 stage=confirmed_but_the_shop_is_not_admitted_yet ok=true membership=active shop_may_trade=false order_edit=false
 stage=confirmed_member_has_exactly_the_mapped_role ok=true order_edit=true inventory_view=true inventory_edit=false finance_view=false
-stage=member_is_scoped_to_their_own_shop ok=true other_shop_order_view=false store=54
+stage=member_is_scoped_to_their_own_shop ok=true other_shop_order_view=false store=60
 stage=closing_is_dokans_own_arithmetic ok=true credit=5000000.0000 debit=2000000.0000 closing=3000000.0000
 stage=paid_withdrawal_is_already_inside_closing ok=true rows=1 debit=2000000.0000
 stage=withdrawals_keep_dokans_own_status ok=true statuses=dokan:0,dokan:1
@@ -18,8 +18,8 @@ stage=handover_recorded ok=true reason=handover_recorded decision=accepted
 stage=handover_wrote_no_ledger_line ok=true delta=0
 stage=handover_created_no_second_payment ok=true withdrawal_delta=0 pending_untouched=1
 stage=no_rate_was_applied ok=true closing=3000000.0000 frozen=3000000.0000
-stage=dokan_tables_untouched ok=true balance=ed16bcd1bc8a->ed16bcd1bc8a withdraw=86d610f1758a->86d610f1758a
+stage=dokan_tables_untouched ok=true balance=2854a01d41c9->2854a01d41c9 withdraw=513bb3a2bbd2->513bb3a2bbd2
 stage=archive_alone_is_not_complete ok=true verdict=incomplete missing=ownership_taken
 stage=finance_gate_closed_by_the_decision ok=true finance_decided=true staff_decided=true
 stage=marketplace_is_not_declared_migrated ok=true all_complete=false
-stage=summary ok=true failures=0 vendor=54 staff=55
+stage=summary ok=true failures=0 vendor=60 staff=61

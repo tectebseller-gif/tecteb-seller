@@ -202,18 +202,34 @@ switch ($command) {
         // A.5: «سفارش‌های قبلی باید ادامه یابند». The order module is never
         // asked about closure, and this proves it rather than asserting it: a
         // line captured before the shop closed is shipped while it is closed.
+        // The line must have something LEFT to ship. «Placed» is not enough:
+        // a previous run of this fixture already shipped the whole quantity of
+        // the last open line, so the next run asked to ship one more unit of a
+        // line with none remaining and read `quantity_exceeds_remaining` as
+        // «a closed shop stops an ongoing order» — the opposite of the fact
+        // under test, and a fixture measuring its own leftovers.
         $items = $c->get(OrderItemRepositoryInterface::class);
+        $ship = $c->get(ShipItems::class);
         $line = null;
         foreach ($items->forVendor($vendorId, null, 50) as $candidate) {
-            if ($candidate->status === OrderItemStatus::Placed || $candidate->status === OrderItemStatus::Preparing) {
+            if ($candidate->status !== OrderItemStatus::Placed && $candidate->status !== OrderItemStatus::Preparing) {
+                continue;
+            }
+            // Asked of `ShipItems::remaining()`, the same function the service
+            // itself uses. Counting shipments alone was not enough: item 58
+            // had none and still had nothing left, because two REFUNDED
+            // returns had taken both its units. The fixture then read
+            // `quantity_exceeds_remaining` as «a closed shop stops an ongoing
+            // order» — the opposite of the fact under test.
+            if ($ship->remaining($candidate->id, $candidate->quantity) >= 1) {
                 $line = $candidate;
             }
         }
         if ($line === null) {
-            echo "ongoing ok=false shipped=false reason=no_open_line\n";
+            echo "ongoing ok=false shipped=false reason=no_open_line_with_stock_left\n";
             break;
         }
-        $result = $c->get(ShipItems::class)->ship($vendorId, $vendorId, $line->id, 1, 'پست پیشتاز', 'TRK-CLOSED-1');
+        $result = $ship->ship($vendorId, $vendorId, $line->id, 1, 'پست پیشتاز', 'TRK-CLOSED-' . $line->id);
         $after = $items->find($line->id);
         printf(
             "ongoing ok=%s shipped=%s item=%d status=%s code=%s\n",

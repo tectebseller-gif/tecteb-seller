@@ -1,1 +1,1 @@
-dokan-untouched dokan_orders=6 dokan_vendor_balance=24 dokan_withdraw=0 dokan_refund=0 sellers=1 dokan_products=1 digest=7643897fef1f68bc
+dokan-untouched dokan_orders=6 dokan_vendor_balance=26 dokan_withdraw=2 dokan_refund=0 sellers=2 dokan_products=1 digest=4bcb8c7223221587

@@ -1,1 +1,1 @@
-drop-suspended vendor=48 result=removed approved_total=1
+drop-suspended vendor=58 result=removed approved_total=2
