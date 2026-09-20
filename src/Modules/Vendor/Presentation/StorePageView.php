@@ -124,13 +124,34 @@ final class StorePageView
      *
      * @param array<string,mixed> $standing
      */
-    public static function head(StoreSettings $store, array $standing, string $canonical): string
-    {
+    public static function head(
+        StoreSettings $store,
+        array $standing,
+        string $canonical,
+        bool $seoPluginOwnsHead = false
+    ): string {
         $name = self::name($store);
         $description = self::description($store);
+        $logo = $store->logoId > 0 ? wp_get_attachment_image_url($store->logoId, 'medium') : false;
+        $logoUrl = is_string($logo) ? $logo : '';
 
-        $html = '<title>' . esc_html($name . ' — ' . get_bloginfo('name')) . '</title>'
-            . '<meta name="description" content="' . esc_attr($description) . '">'
+        // The title always. Every SEO plugin prints the title through
+        // `document_title_parts`, which the theme path already uses, and the
+        // standalone document has no other source for one.
+        $html = '<title>' . esc_html($name . ' — ' . get_bloginfo('name')) . '</title>';
+
+        if ($seoPluginOwnsHead) {
+            // Stand down, having handed the values over. Printing a second
+            // canonical beside somebody else's does not make ours win — a
+            // crawler picks, and which one it picks is not ours to decide.
+            // The hand-over happens in `SeoHandover`, and standing down
+            // WITHOUT it would be worse than the duplicate: an SEO plugin that
+            // has never heard of this route canonicalises the page to whatever
+            // WordPress thinks the current URL is.
+            return $html . self::style();
+        }
+
+        $html .= '<meta name="description" content="' . esc_attr($description) . '">'
             . '<link rel="canonical" href="' . esc_url($canonical) . '">'
             // Open Graph, because a shop link pasted into a messenger is how
             // most people will meet this page.
@@ -138,13 +159,31 @@ final class StorePageView
             . '<meta property="og:title" content="' . esc_attr($name) . '">'
             . '<meta property="og:description" content="' . esc_attr($description) . '">'
             . '<meta property="og:url" content="' . esc_url($canonical) . '">';
-        if ($store->logoId > 0) {
-            $logo = wp_get_attachment_image_url($store->logoId, 'medium');
-            if (is_string($logo)) {
-                $html .= '<meta property="og:image" content="' . esc_url($logo) . '">';
-            }
+        if ($logoUrl !== '') {
+            $html .= '<meta property="og:image" content="' . esc_url($logoUrl) . '">';
         }
         return $html . self::jsonLd($name, $description, $canonical, $store, $standing) . self::style();
+    }
+
+    /**
+     * The same values the head would have printed, as data.
+     *
+     * Handed to whichever SEO plugin owns the head so that standing down does
+     * not mean losing them.
+     *
+     * @param array<string,mixed> $standing
+     * @return array{canonical:string, title:string, description:string, image:string, schema:array<string,mixed>}
+     */
+    public static function seoValues(StoreSettings $store, array $standing, string $canonical): array
+    {
+        $logo = $store->logoId > 0 ? wp_get_attachment_image_url($store->logoId, 'medium') : false;
+        return [
+            'canonical' => $canonical,
+            'title' => self::name($store),
+            'description' => self::description($store),
+            'image' => is_string($logo) ? $logo : '',
+            'schema' => self::schema(self::name($store), self::description($store), $canonical, $store, $standing),
+        ];
     }
 
     /**
@@ -419,6 +458,29 @@ final class StorePageView
         StoreSettings $store,
         array $standing
     ): string {
+        return '<script type="application/ld+json">'
+            . wp_json_encode(
+                self::schema($name, $description, $canonical, $store, $standing),
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            )
+            . '</script>';
+    }
+
+    /**
+     * The `Store` node itself, apart from the script tag that usually carries
+     * it — so an SEO plugin can merge it into the one block it already prints
+     * instead of this page adding a second one beside it.
+     *
+     * @param array<string,mixed> $standing
+     * @return array<string,mixed>
+     */
+    private static function schema(
+        string $name,
+        string $description,
+        string $canonical,
+        StoreSettings $store,
+        array $standing
+    ): array {
         $data = [
             '@context' => 'https://schema.org',
             '@type' => 'Store',
@@ -441,9 +503,7 @@ final class StorePageView
                 'worstRating' => 1,
             ];
         }
-        return '<script type="application/ld+json">'
-            . wp_json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-            . '</script>';
+        return $data;
     }
 
     /**

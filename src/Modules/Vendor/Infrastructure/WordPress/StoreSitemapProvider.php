@@ -62,6 +62,14 @@ final class StoreSitemapProvider
                 // cannot route. No sitemap beats a broken one.
                 return;
             }
+            if (SeoHandover::rankMathIsActive()) {
+                // Rank Math switches core's sitemaps off and serves its own,
+                // so this provider would render nothing — and registering it
+                // anyway is how «the shops are in the sitemap» becomes true of
+                // a sitemap nobody serves. `RankMathStoreSitemap` has that
+                // side; exactly one of the two is ever live.
+                return;
+            }
             wp_register_sitemap_provider(self::NAME, self::provider($container));
         }, 30);
     }
@@ -79,8 +87,13 @@ final class StoreSitemapProvider
             public function get_url_list($page_num, $object_subtype = ''): array
             {
                 $perPage = (int) wp_sitemaps_get_max_urls($this->object_type);
+                // `listable`, not `approved`. Approved is necessary and not
+                // sufficient: the page also needs the shop's settings row, and
+                // without one it answers 404. Measured on the disposable site
+                // with `approvedVendorUserIds()`: two of three listed URLs were
+                // 404s, from a provider whose own docblock promised otherwise.
                 $vendors = $this->container->get(VendorRepositoryInterface::class)
-                    ->approvedVendorUserIds($perPage, max(0, ((int) $page_num - 1) * $perPage));
+                    ->listableVendorUserIds($perPage, max(0, ((int) $page_num - 1) * $perPage));
                 $out = [];
                 foreach ($vendors as $vendorUserId) {
                     $out[] = ['loc' => StorePage::url((int) $vendorUserId)];
@@ -91,7 +104,7 @@ final class StoreSitemapProvider
             public function get_max_num_pages($object_subtype = ''): int
             {
                 $perPage = max(1, (int) wp_sitemaps_get_max_urls($this->object_type));
-                $total = $this->container->get(VendorRepositoryInterface::class)->countApprovedVendors();
+                $total = $this->container->get(VendorRepositoryInterface::class)->countListableVendors();
                 return max(1, (int) ceil($total / $perPage));
             }
         };

@@ -11,6 +11,7 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
 use Tecteb\Marketplace\Modules\Vendor\Domain\VendorApplication;
 use Tecteb\Marketplace\Modules\Vendor\Domain\VendorProfile;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables as T;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables as StoreTables;
 
 /**
  * Applications and profiles on the plugin's own tables.
@@ -272,6 +273,29 @@ final class DbVendorRepository implements VendorRepositoryInterface
         );
     }
 
+    public function listableVendorUserIds(int $limit = 50, int $offset = 0): array
+    {
+        return array_map(
+            static fn (array $row): int => (int) $row['user_id'],
+            $this->db->getResults(
+                'SELECT a.user_id FROM `' . $this->applications() . '` a
+           INNER JOIN `' . $this->stores() . '` s ON s.user_id = a.user_id
+                WHERE a.status = %s ORDER BY a.user_id ASC LIMIT %d OFFSET %d',
+                [ApplicationStatus::Approved->value, max(1, min(2000, $limit)), max(0, $offset)]
+            )
+        );
+    }
+
+    public function countListableVendors(): int
+    {
+        return (int) $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->applications() . '` a
+       INNER JOIN `' . $this->stores() . '` s ON s.user_id = a.user_id
+            WHERE a.status = %s',
+            [ApplicationStatus::Approved->value]
+        );
+    }
+
     public function deleteEmptyProfile(int $userId): bool
     {
         if ($this->findApplicationByUser($userId) !== null) {
@@ -303,5 +327,17 @@ final class DbVendorRepository implements VendorRepositoryInterface
     private function profiles(): string
     {
         return T::table($this->db, T::PROFILES);
+    }
+
+    /**
+     * The shop-settings table, named from ITS OWN migration.
+     *
+     * Not from `T`, which is migration 2's constants: the stores table is
+     * migration 3's, and a name typed by hand here would be a `DELETE` that
+     * quietly matches nothing (`alpha.10`'s rule).
+     */
+    private function stores(): string
+    {
+        return StoreTables::table($this->db, StoreTables::STORES);
     }
 }

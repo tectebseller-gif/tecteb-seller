@@ -1,0 +1,9 @@
+HTTP/1.1 200 OK
+Host: 127.0.0.1:8080
+Date: Sun, 20 Sep 2026 09:06:45 GMT
+Connection: close
+X-Powered-By: PHP/8.1.32
+Content-Type: text/html; charset=utf-8
+X-TMC-Store-Cache: hit
+X-TMC-Store-Render: theme
+

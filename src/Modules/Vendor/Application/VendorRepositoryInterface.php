@@ -99,4 +99,22 @@ interface VendorRepositoryInterface
     public function approvedVendorUserIds(int $limit = 50, int $offset = 0): array;
 
     public function countApprovedVendors(): int;
+
+    /**
+     * Shops whose public page a crawler can actually fetch.
+     *
+     * Approved is necessary and not sufficient: the page also needs the
+     * shop's own settings row, and without one `StorePage` answers 404. The
+     * sitemap used `approvedVendorUserIds()` and therefore advertised shops
+     * that were approved but never set up — measured on the disposable site,
+     * where two of three listed URLs answered 404. A sitemap entry pointing at
+     * a 404 is not a missing entry; it is a crawl budget spent on nothing and
+     * a quality signal against the whole index.
+     *
+     * @return list<int>
+     */
+    public function listableVendorUserIds(int $limit = 50, int $offset = 0): array;
+
+    /** How many shops `listableVendorUserIds()` would return in total. */
+    public function countListableVendors(): int;
 }

@@ -227,18 +227,24 @@ final class PackagingTest extends TestCase
     }
 
     /**
-     * Every package that has been committed still has the bytes it was
-     * committed with.
+     * Every DELIVERED package still has the bytes git has for it — asked of
+     * git, which is the one witness the ledger cannot contradict.
      *
      * A delivered ZIP is quoted by hash and may already be installed
-     * somewhere, so its name must never mean two different things. The build
-     * refuses to overwrite one — but `TMC_REBUILD=1` used to reach it, and a
-     * rebuild run before the Version header was bumped replaced the delivered
-     * `alpha.14` package and rewrote `SHA256SUMS` to agree. The file then
-     * matched its own recorded hash and nothing anywhere looked wrong; git was
-     * the only surviving witness, so this asks git.
+     * somewhere, so its name must never mean two different things. A rebuild
+     * run before the Version header was bumped once replaced the delivered
+     * `alpha.14` package and rewrote `SHA256SUMS` to agree; the file then
+     * matched its own recorded hash and nothing anywhere looked wrong.
+     * `DELIVERED.txt` closes that, and this closes the next one down: the
+     * ledger is hand-written, so an edit to the package AND an edit to the
+     * ledger in one commit would still read as consistent. Git would not.
+     *
+     * **Only delivered packages.** An earlier version of this froze every
+     * committed package, which is a different and wrong rule: a version that
+     * nobody has received is still being built, and committing a mid-phase
+     * build must not burn its version number. That mistake cost `alpha.15`.
      */
-    public function testEveryCommittedPackageStillHasTheBytesItWasCommittedWith(): void
+    public function testEveryDeliveredPackageMatchesTheBytesGitHasForIt(): void
     {
         $root = self::root();
         exec('git -C ' . escapeshellarg($root) . ' rev-parse --git-dir 2>/dev/null', $o, $c);
@@ -249,13 +255,19 @@ final class PackagingTest extends TestCase
         exec('git -C ' . escapeshellarg($root) . ' ls-tree --name-only HEAD dist/', $tracked, $c);
         self::assertSame(0, $c, 'could not list the committed packages');
 
+        $delivered = self::deliveredNames();
+        self::assertNotEmpty($delivered, 'sanity: the ledger names delivered packages');
+
         $checked = 0;
         foreach ($tracked as $path) {
             if (!preg_match('/\.(zip|tar\.gz)$/', $path)) {
                 continue;
             }
+            if (!in_array(basename($path), $delivered, true)) {
+                continue;               // built and committed, never handed over
+            }
             $onDisk = $root . '/' . $path;
-            self::assertFileExists($onDisk, $path . ' was committed and is now missing');
+            self::assertFileExists($onDisk, $path . ' was delivered and is now missing');
 
             exec(
                 'git -C ' . escapeshellarg($root) . ' show ' . escapeshellarg('HEAD:' . $path) . ' | sha256sum',
@@ -273,7 +285,36 @@ final class PackagingTest extends TestCase
             );
             $checked++;
         }
-        self::assertGreaterThan(10, $checked, 'sanity: committed packages were found');
+        self::assertSame(
+            count($delivered),
+            $checked,
+            'every name in the ledger must be a committed file: a delivered package that git has never seen is one nothing can vouch for'
+        );
+    }
+
+    /**
+     * The file names `dist/DELIVERED.txt` records — the hand-written list of
+     * what was actually handed over, as opposed to what happens to be built.
+     *
+     * @return list<string>
+     */
+    private static function deliveredNames(): array
+    {
+        $ledger = self::root() . '/dist/DELIVERED.txt';
+        if (!is_file($ledger)) {
+            return [];
+        }
+        $names = [];
+        foreach (file($ledger, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            if (str_starts_with(trim($line), '#')) {
+                continue;
+            }
+            $parts = preg_split('/\s+/', trim($line)) ?: [];
+            if (count($parts) >= 2 && preg_match('/^[0-9a-f]{64}$/', $parts[0]) === 1) {
+                $names[] = $parts[1];
+            }
+        }
+        return $names;
     }
 
     public function testChecksumsFileCoversBothArtefacts(): void

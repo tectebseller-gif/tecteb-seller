@@ -72,7 +72,22 @@ final class StoreThemeRenderer
         int $pages,
         string $body
     ): void {
-        $head = StorePageView::head($store, $standing, $canonical);
+        // Hand the values over BEFORE deciding whether to print them, so that
+        // standing down never means losing them. An SEO plugin that has never
+        // heard of this route would otherwise canonicalise the page to
+        // whatever WordPress thinks the current URL is — which on a query-var
+        // route is the home page.
+        $values = StorePageView::seoValues($store, $standing, $canonical);
+        SeoHandover::describe(
+            (string) $values['canonical'],
+            (string) $values['title'],
+            (string) $values['description'],
+            (string) $values['image']
+        );
+        SeoHandover::describeSchema((array) $values['schema']);
+
+        $ownsHead = SeoHandover::ownsHead();
+        $head = StorePageView::head($store, $standing, $canonical, $ownsHead);
         $name = StorePageView::name($store);
 
         // The theme's header prints the document title from this filter, so
@@ -104,6 +119,10 @@ final class StoreThemeRenderer
         // phpcs:ignore WordPress.Security.EscapeOutput -- the view escapes.
         echo $body;
         get_footer();
+        // A stale description would belong to another page; the request is
+        // over either way, and forgetting here keeps that true under any test
+        // harness that does not exit.
+        SeoHandover::forget();
         exit;
     }
 

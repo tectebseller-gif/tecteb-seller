@@ -69,6 +69,10 @@ final class StorePage
         DokanUrlRedirects::register($container);
         StoreCacheInvalidation::register($container);
         StoreSitemapProvider::register($container);
+        // One canonical, one Schema block, one sitemap entry — whoever ends up
+        // printing them.
+        SeoHandover::register($container);
+        RankMathStoreSitemap::register($container);
     }
 
     /** The public URL of one shop's page. */
