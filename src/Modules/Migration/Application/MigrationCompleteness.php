@@ -32,6 +32,10 @@ use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
  * a shop with nine hundred pass and fail identically, because the question is
  * whether the decisions were taken, and a decision is not more taken for
  * having more rows under it.
+ *
+ * And note what decides WHICH shops are asked at all: every trace an import
+ * leaves, not only the financial one. See `all()` — the list is the part that
+ * was wrong, and a shop left off it is not judged lenient, it is not judged.
  */
 final class MigrationCompleteness
 {
@@ -110,18 +114,60 @@ final class MigrationCompleteness
         ];
     }
 
-    /** @return list<array<string,mixed>> */
+    /**
+     * Every imported shop, from every trace an import leaves.
+     *
+     * Asking only `vendorsWithRecords()` was wrong, and wrong in the direction
+     * that hides work. That method unions the staff, balance and withdrawal
+     * tables, so a shop imported with nothing but a catalogue — no Dokan
+     * balance, no withdrawal, no staff, which is an ordinary shop and not an
+     * edge case — never appeared here at all. It was not reported incomplete;
+     * it was absent. `allComplete()` then answered about the shops it could
+     * see and declared the migration finished over the top of it, which is
+     * precisely the true-but-misleading sentence this class exists to refuse.
+     *
+     * So the universe is the union of all three traces, for the same reason
+     * `ImportFromDokan::runs()` reads both stamp tables: migration 16 added
+     * the profile stamp and deliberately did NOT backfill, so a shop imported
+     * by an earlier build carries a stamp on its PRODUCTS and none on its
+     * profile. Ask only the profiles and those shops vanish; ask only the
+     * products and a run that died before writing one vanishes instead.
+     *
+     * @return list<array<string,mixed>>
+     */
     public function all(): array
     {
-        $seen = [];
-        foreach ($this->records->vendorsWithRecords() as $vendorUserId) {
-            $seen[$vendorUserId] = true;
-        }
+        $ids = $this->importedVendorUserIds();
+        sort($ids);
         $out = [];
-        foreach (array_keys($seen) as $vendorUserId) {
-            $out[] = $this->forVendor((int) $vendorUserId);
+        foreach ($ids as $vendorUserId) {
+            $out[] = $this->forVendor($vendorUserId);
         }
         return $out;
+    }
+
+    /**
+     * The three traces, merged: Dokan history rows, the product stamp
+     * (migration 14) and the profile stamp (migration 16).
+     *
+     * The profile stamp is read run by run because that is the shape the
+     * vendor repository exposes, and the run list is short — the same walk
+     * `runs()` makes.
+     *
+     * @return list<int>
+     */
+    private function importedVendorUserIds(): array
+    {
+        $ids = array_map('intval', $this->records->vendorsWithRecords());
+        foreach ($this->products->vendorsFromImportRuns() as $vendorUserId) {
+            $ids[] = (int) $vendorUserId;
+        }
+        foreach ($this->vendors->importRunIds() as $runId) {
+            foreach ($this->vendors->idsFromImportRun($runId) as $vendorUserId) {
+                $ids[] = (int) $vendorUserId;
+            }
+        }
+        return array_values(array_unique($ids));
     }
 
     /**

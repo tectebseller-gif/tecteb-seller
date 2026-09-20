@@ -1,0 +1,98 @@
+[
+  {
+    "page": "dashboard-no-wc",
+    "viewport": "desktop",
+    "width": 1440,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "dashboard-with-wc",
+    "viewport": "desktop",
+    "width": 1440,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "health-no-wc",
+    "viewport": "desktop",
+    "width": 1440,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "health-with-error",
+    "viewport": "desktop",
+    "width": 1440,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "modules-degraded",
+    "viewport": "desktop",
+    "width": 1440,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "modules",
+    "viewport": "desktop",
+    "width": 1440,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "settings-default",
+    "viewport": "desktop",
+    "width": 1440,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "settings-errors",
+    "viewport": "desktop",
+    "width": 1440,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "dashboard-no-wc",
+    "viewport": "mobile",
+    "width": 390,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "dashboard-with-wc",
+    "viewport": "mobile",
+    "width": 390,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "health-no-wc",
+    "viewport": "mobile",
+    "width": 390,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "health-with-error",
+    "viewport": "mobile",
+    "width": 390,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "modules-degraded",
+    "viewport": "mobile",
+    "width": 390,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "modules",
+    "viewport": "mobile",
+    "width": 390,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "settings-default",
+    "viewport": "mobile",
+    "width": 390,
+    "horizontal_overflow": 0
+  },
+  {
+    "page": "settings-errors",
+    "viewport": "mobile",
+    "width": 390,
+    "horizontal_overflow": 0
+  }
+]

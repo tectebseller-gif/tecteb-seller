@@ -321,6 +321,18 @@ final class DbProductRepository implements ProductRepositoryInterface
         );
     }
 
+    public function vendorsFromImportRuns(): array
+    {
+        return array_map(
+            static fn (array $row): int => (int) $row['vendor_user_id'],
+            $this->db->getResults(
+                'SELECT DISTINCT vendor_user_id FROM `' . $this->products() . '`
+                 WHERE import_run_id <> %s ORDER BY vendor_user_id ASC',
+                ['']
+            )
+        );
+    }
+
     public function updateStatus(int $productId, ProductStatus $status, string $reviewNote = ''): bool
     {
         $published = $status === ProductStatus::Published ? '%s' : 'published_at';

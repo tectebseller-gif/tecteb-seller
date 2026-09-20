@@ -115,6 +115,18 @@ interface ProductRepositoryInterface
     /** @return list<int> the products this run created, read from the rows */
     public function idsFromImportRun(string $runId): array;
 
+    /**
+     * @return list<int> every vendor owning at least one product an import stamped
+     *
+     * The companion to `idsFromImportRun()`, asked of the whole catalogue
+     * rather than of one run: not «what did this run create» but «which shops
+     * did the migration touch at all». `MigrationCompleteness` needs it
+     * because a shop can arrive carrying nothing but a catalogue — no balance
+     * row, no withdrawal, no staff — and a shop missing from that list is not
+     * judged incomplete, it is absent, which reads as nothing left to do.
+     */
+    public function vendorsFromImportRuns(): array;
+
     public function updateStatus(int $productId, ProductStatus $status, string $reviewNote = ''): bool;
 
     /** Stock and the other immediate fields, which never wait for a review. */

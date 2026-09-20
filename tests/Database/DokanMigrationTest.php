@@ -14,6 +14,9 @@ use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanMigrationPlan;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationCompleteness;
+use Tecteb\Marketplace\Modules\Migration\Application\ReconcileDokanFinance;
+use Tecteb\Marketplace\Modules\Migration\Application\StaffRoleMap;
 use Tecteb\Marketplace\Modules\Migration\Application\OrderHistoryRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
@@ -909,5 +912,78 @@ final class DokanMigrationTest extends DatabaseTestCase
         self::assertSame(1, $summary['orders']);
         self::assertSame(900000, $summary['total_minor']);
         self::assertSame(700000, $summary['net_minor']);
+    }
+
+    private function completeness(): MigrationCompleteness
+    {
+        $clock = new SystemClock();
+        $options = new WpOptionStore();
+        $audit = new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock);
+        $caps = new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR]);
+
+        return new MigrationCompleteness(
+            $this->shopRecords,
+            new StaffRoleMap($options),
+            new ReconcileDokanFinance($this->shopRecords, $options, $audit, $clock, $caps, $this->ledger),
+            $this->vendors,
+            $this->products
+        );
+    }
+
+    /**
+     * A shop that arrived carrying only a catalogue is still judged.
+     *
+     * The list `MigrationCompleteness::all()` walks used to come from
+     * `vendorsWithRecords()` alone — the union of the staff, balance and
+     * withdrawal tables. A shop imported with no Dokan balance, no withdrawal
+     * request and no staff is an ORDINARY shop, not an edge case, and it was
+     * not in that list at all. It was never reported incomplete; it was
+     * absent. Absent reads as «nothing left to do», which is the exact shape
+     * of misleading-by-true-statement this class exists to refuse.
+     */
+    public function testAShopWithNoFinanceOrStaffRecordIsStillJudged(): void
+    {
+        $this->migration->import($this->migration->plan());
+
+        // The blindness itself, pinned: the old source cannot see this shop.
+        self::assertNotContains(
+            self::SELLER,
+            $this->shopRecords->vendorsWithRecords(),
+            'sanity: this shop has no financial and no staff record at all'
+        );
+        // And the trace that must now find it.
+        self::assertContains(self::SELLER, $this->products->vendorsFromImportRuns());
+
+        $rows = $this->completeness()->all();
+        $judged = array_column($rows, 'vendor_user_id');
+        self::assertContains(self::SELLER, $judged, 'an imported shop must be judged, not skipped');
+
+        $mine = $rows[(int) array_search(self::SELLER, $judged, true)];
+        self::assertSame(MigrationCompleteness::INCOMPLETE, $mine['verdict']);
+        self::assertContains('vendor_can_sell', $mine['missing'], 'an import is not an admission');
+        self::assertContains('ownership_taken', $mine['missing'], 'the rows are still notes');
+        self::assertFalse($this->completeness()->allComplete(), 'and it holds the marketplace answer at no');
+    }
+
+    /**
+     * The other half of the same rule: a shop stamped on the profile alone.
+     *
+     * Migration 16 added the profile stamp and deliberately did NOT backfill,
+     * and an import killed between the vendor loop and the product loop leaves
+     * exactly this — a shop, and no products to find it by. `runs()` reads
+     * both stamp tables for that reason; the completeness list has to as well,
+     * or the shop that got furthest from being finished is the one that
+     * disappears.
+     */
+    public function testAShopStampedOnTheProfileAloneIsStillJudged(): void
+    {
+        $orphan = 777;
+        $this->vendors->upsertProfile($orphan, 'فروشگاه بی‌کالا', false, false, 'run-interrupted');
+
+        self::assertNotContains($orphan, $this->shopRecords->vendorsWithRecords());
+        self::assertNotContains($orphan, $this->products->vendorsFromImportRuns(), 'no product carries it');
+
+        $judged = array_column($this->completeness()->all(), 'vendor_user_id');
+        self::assertContains($orphan, $judged, 'the profile stamp is a trace too');
     }
 }
