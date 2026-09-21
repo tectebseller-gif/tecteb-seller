@@ -19,6 +19,9 @@
 #   bash tools/evidence-manifest.sh [output]
 set -u
 OUT="${1:-docs/evidence-manifest.txt}"
+# Same reason as reviewable-bundle.sh: a throwaway build must hash the archive
+# IT made, not the delivered one sitting in the real dist/.
+DIST="${TMC_DIST:-dist}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${ROOT}"
 
@@ -54,7 +57,7 @@ VERSION="$(grep -m1 '^ \* Version:' tecteb-marketplace-core.php | awk '{print $3
   # a row produced two different source-archive hashes for an unchanged tree.
   # Their hashes live in dist/SHA256SUMS, which is written after they exist.
   echo "## attachment: the image-and-video archive itself"
-  for f in dist/*-evidence-*.tar.gz; do
+  for f in "${DIST}"/*-evidence-*.tar.gz; do
     [ -f "$f" ] || continue
     printf '%s  %s  %s\n' "$(sha256sum "$f" | cut -c1-64)" "$(stat -c%s "$f")" "$f"
   done
@@ -64,7 +67,7 @@ VERSION="$(grep -m1 '^ \* Version:' tecteb-marketplace-core.php | awk '{print $3
   echo "# the installable package is small and byte-reproducible, and"
   echo "# tools/build.sh refuses to overwrite one that has been delivered —"
   echo "# a guard that only works while the bytes are somewhere it can check."
-  for f in dist/tecteb-marketplace-core-0*.zip; do
+  for f in "${DIST}"/tecteb-marketplace-core-0*.zip; do
     [ -f "$f" ] || continue
     printf '%s  %s  %s\n' "$(sha256sum "$f" | cut -c1-64)" "$(stat -c%s "$f")" "$f"
   done

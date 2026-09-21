@@ -94,7 +94,11 @@ SQL
      "$SRC/wp-blog-header.php" "$SRC/wp-cron.php" "$SRC/wp-links-opml.php" \
      "$SRC/wp-mail.php" "$SRC/wp-signup.php" "$SRC/wp-trackback.php" \
      "$SRC/wp-activate.php" "$SRC/wp-comments-post.php" "$SRC/xmlrpc.php" "$ROOT/" 2>/dev/null
-  cp "$SRC/tmc-router.php" "$ROOT/"
+  # The router comes from THIS repository, not from the disposable install —
+  # a demo whose web server is configured by a file nobody can review is a
+  # demo whose bugs nobody can see. (tools/demo-router.php, copied in so its
+  # __DIR__ is the WordPress root.)
+  cp "$(dirname "$0")/demo-router.php" "$ROOT/tmc-router.php"
   cp -r "$SRC/wp-content/plugins/woocommerce" "$ROOT/wp-content/plugins/"
   cp -r "$SRC/wp-content/themes/${THEME}" "$ROOT/wp-content/themes/"
   cp "$SRC/wp-content/index.php" "$ROOT/wp-content/" 2>/dev/null || true
@@ -138,7 +142,26 @@ PHP
   wp option update woocommerce_store_city 'تهران' > /dev/null
   wp option update woocommerce_default_country 'IR:THR' > /dev/null
   wp option update woocommerce_currency 'IRT' > /dev/null
+  # «تومان2,450,000.00» is not a price anybody in this market reads. The panel
+  # prints «۲٬۴۵۰٬۰۰۰ تومان»; the shop has to agree with it, or the same figure
+  # looks like two different numbers to the same person.
+  wp option update woocommerce_price_num_decimals 0 > /dev/null
+  wp option update woocommerce_currency_pos 'right_space' > /dev/null
   wp option update blogdescription 'تجهیزات پزشکی — دادهٔ نمایشی' > /dev/null
+  # Cash on delivery, ON — and disclosed rather than quiet.
+  #
+  # A shop with no payment method cannot take an order at all, so the demo
+  # could never get past the cart. COD is WooCommerce's own offline method:
+  # it completes a real order and moves no money, which is exactly what a
+  # demo needs and exactly what this build can honestly offer — there is no
+  # gateway. It is set here rather than clicked because WooCommerce 11
+  # renders that screen as a React app; the owner guide gives the click path
+  # for a real site, and `owner-guide-run.mjs` ASSERTS a method is available
+  # before it tries to buy, so a missing one fails the run instead of
+  # quietly turning the purchase into an «added to cart».
+  wp option patch update woocommerce_cod_settings enabled yes > /dev/null 2>&1 || \
+    wp option update woocommerce_cod_settings '{"enabled":"yes","title":"پرداخت در محل (نمایشی)","description":"سفارش نمایشی — هیچ پولی جابه‌جا نمی‌شود.","instructions":"دادهٔ آزمایشی است."}' --format=json > /dev/null
+  wp option update woocommerce_gateway_order '["cod"]' --format=json > /dev/null 2>&1 || true
   # Persian admin, RTL. The whole point is to look at Persian UI.
   # fa_IR, the way it actually works on a box with no network: the .mo files
   # are copied in and WPLANG is written directly. `wp language core install`
@@ -148,6 +171,49 @@ PHP
   mkdir -p "$ROOT/wp-content/languages"
   cp "$SRC"/wp-content/languages/*.mo "$ROOT/wp-content/languages/" 2>/dev/null || true
   wp option update WPLANG fa_IR > /dev/null
+  # --- a demo that looks like a shop, not like a fresh WordPress ----------
+  #
+  # A fresh install ships «Hello world!», a sample page, a canned comment and
+  # a sidebar of Recent Posts / Archives / Meta. On a marketplace demo that is
+  # not neutral furniture — it is the first thing the owner sees, in English,
+  # next to the thing they asked to look at.
+  wp post delete $(wp post list --post_type=post --format=ids) --force > /dev/null 2>&1 || true
+  wp post delete $(wp post list --post_type=page --title='Sample Page' --format=ids) --force > /dev/null 2>&1 || true
+  wp comment delete $(wp comment list --format=ids) --force > /dev/null 2>&1 || true
+  wp widget reset --all > /dev/null 2>&1 || true
+  wp option update show_on_front page > /dev/null
+  wp option update page_on_front "$(wp option get woocommerce_shop_page_id)" > /dev/null
+
+  # Classic cart and checkout, on purpose.
+  #
+  # WooCommerce's block cart and checkout render their strings from a
+  # JavaScript translation pack that has to be downloaded from
+  # translate.wordpress.org — unreachable here — so they stay English whatever
+  # WPLANG says. The classic shortcodes are PHP-rendered, so the minimal pack
+  # below actually reaches them, and a shopper sees one language. It is also
+  # what a shop running a local gateway usually ends up on.
+  CART_ID="$(wp option get woocommerce_cart_page_id)"
+  CHECKOUT_ID="$(wp option get woocommerce_checkout_page_id)"
+  wp post update "${CART_ID}" --post_content='[woocommerce_cart]' > /dev/null
+  wp post update "${CHECKOUT_ID}" --post_content='[woocommerce_checkout]' > /dev/null
+
+  # A page TITLE is content, not a translatable string: «Shop», «Cart»,
+  # «Checkout» and «My account» are rows WooCommerce wrote into the database
+  # at install time, so no translation pack of any size will ever touch them.
+  # They are the page headings a shopper reads first.
+  wp post update "$(wp option get woocommerce_shop_page_id)" --post_title='فروشگاه' > /dev/null
+  wp post update "${CART_ID}" --post_title='سبد خرید' > /dev/null
+  wp post update "${CHECKOUT_ID}" --post_title='تسویه حساب' > /dev/null
+  wp post update "$(wp option get woocommerce_myaccount_page_id)" --post_title='حساب کاربری' > /dev/null
+  wp option update blogname 'بازارگاه تک‌طب' > /dev/null
+  wp option update blogdescription 'تجهیزات پزشکی — محیط نمایشی' > /dev/null
+
+  # A minimal Persian pack for WooCommerce's own storefront strings. Labelled
+  # everywhere as «بسته ترجمه حداقلی آزمایشی»: it covers what a shopper meets
+  # on this demo and nothing else, and what it misses stays visibly English.
+  mkdir -p "$ROOT/wp-content/languages/plugins" "$ROOT/wp-content/languages/themes"
+  php "$(dirname "$0")/demo-translations.php" "$ROOT/wp-content/languages" > /dev/null
+
   echo "demo site built: http://127.0.0.1:${PORT}  admin=${ADMIN_USER}"
   ;;
 start)

@@ -443,11 +443,44 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 
 .tv-products { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tv-s4); }
 
+/* A picture, then the words — and tighter than it was.
+ *
+ * The card carried a four-column definition grid with a full line of padding
+ * above and below each cell, so one product filled a phone screen. Same
+ * facts, one flowing row: three or four products now fit where one and a
+ * half did, which is what a vendor checking stock actually wants.
+ *
+ * The media column is a fixed 72px track rather than a percentage, because
+ * the thumbnail is a fixed 72px square: a percentage would shrink it into
+ * illegibility at 320px, and `no-starved-text-box` would be right to object.
+ */
 .tv-product {
-  padding: var(--tv-s4);
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--tv-s3);
+  padding: var(--tv-s3);
   border: 1px solid var(--tv-border);
   border-radius: var(--tv-radius-sm);
   background: var(--tv-surface-2);
+}
+
+.tv-product__media { display: flex; flex-direction: column; align-items: center; gap: var(--tv-s2); }
+.tv-product__body { min-inline-size: 0; }
+
+.tv-product__thumb {
+  inline-size: 72px;
+  block-size: 72px;
+  object-fit: cover;
+  border-radius: var(--tv-radius-sm);
+  border: 1px solid var(--tv-border);
+  background: var(--tv-surface);
+}
+
+.tv-product__thumb--empty {
+  display: grid;
+  place-items: center;
+  color: var(--tv-muted);
+  font-size: 1.5rem;
 }
 
 .tv-product__head {
@@ -455,21 +488,26 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
   flex-wrap: wrap;
   align-items: center;
   gap: var(--tv-s2);
-  margin-block-end: var(--tv-s3);
+  margin-block-end: var(--tv-s2);
 }
 
 .tv-product__title { font-size: 1.0625rem; min-inline-size: 0; overflow-wrap: anywhere; }
 
 .tv-product__facts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: var(--tv-s2) var(--tv-s5);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tv-s2) var(--tv-s4);
   margin: 0;
 }
 
-.tv-product__facts > div { display: grid; gap: 2px; padding-block: var(--tv-s2); }
+.tv-product__facts > div { display: flex; align-items: baseline; gap: var(--tv-s2); }
 .tv-product__facts dt { color: var(--tv-muted); font-size: 0.9375rem; font-weight: 700; }
 .tv-product__facts dd { margin: 0; overflow-wrap: anywhere; }
+
+/* The work card an approved shop opens on. Same components as the rest of
+ * the panel; only the accent says «start here». */
+.tv-card--today { border-inline-start: 4px solid var(--tv-accent, var(--tv-amber)); }
+.tv-queue--today { font-size: 1.0625rem; }
 
 .tv-product__note {
   margin-block: var(--tv-s3) 0;
@@ -485,10 +523,21 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
   flex-wrap: wrap;
   gap: var(--tv-s2);
   align-items: center;
-  margin-block: var(--tv-s4) 0;
+  margin-block: var(--tv-s3) 0;
 }
 
 .tv-inline { display: inline-flex; margin: 0; }
+
+/* «ویرایش» and «بایگانی» are a <p> and a <form>: two block boxes, so they
+ * stacked and every row in the list was one line taller than it needed to be.
+ * Making the actions box inline-level puts them on one line without touching
+ * the markup — the form has to stay a form. */
+.tv-product .tv-product__actions {
+  display: inline-flex;
+  margin-inline-end: var(--tv-s2);
+  vertical-align: middle;
+}
+.tv-product .tv-inline { vertical-align: middle; }
 
 .tv-pager {
   display: flex;

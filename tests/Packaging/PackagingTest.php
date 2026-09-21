@@ -184,6 +184,15 @@ final class PackagingTest extends TestCase
      */
     public function testBuildIsReproducible(): void
     {
+        // Every file dist/ holds, before the throwaway build runs. The
+        // assertion at the end is not decoration: `tools/reviewable-bundle.sh`
+        // ignored TMC_DIST when it was added in `alpha.22`, so THIS test wrote
+        // its rebuilt bundle over the delivered one while its own SHA256SUMS
+        // went to the temp directory and was deleted. The archive that was
+        // handed over and the checksum file that was handed over then
+        // disagreed, and nothing here noticed — the docblock above said a
+        // check must not mutate what it checks, and only said it.
+        $distBefore = self::distFingerprint();
         $before = hash_file('sha256', self::zip());
         $dir = sys_get_temp_dir() . '/tmc-build-' . bin2hex(random_bytes(6));
         mkdir($dir, 0700, true);
@@ -201,6 +210,36 @@ final class PackagingTest extends TestCase
 
         self::assertTrue($ok, implode("\n", $out));
         self::assertSame($before, $again, 'two builds of the same source are byte-identical');
+        self::assertSame(
+            $distBefore,
+            self::distFingerprint(),
+            'the reproducibility build wrote into the real dist/: a check must not mutate what it checks'
+        );
+    }
+
+    /**
+     * Name, content hash AND mtime of everything in dist/.
+     *
+     * The mtime is the half that makes this bite. Content alone would pass
+     * whenever the tree had not changed since the delivered build — which is
+     * most runs, and was NOT the run where this went wrong: the bundle was
+     * rewritten after a doc edit, so its bytes moved too. A rebuild that
+     * lands identical bytes over a delivered file is still a write onto a
+     * delivered file, and the only reason it looked harmless is that nothing
+     * was measuring it.
+     *
+     * @return array<string,string>
+     */
+    private static function distFingerprint(): array
+    {
+        $out = [];
+        foreach (glob(self::root() . '/dist/*') ?: [] as $path) {
+            if (is_file($path)) {
+                $out[basename($path)] = hash_file('sha256', $path) . '@' . filemtime($path);
+            }
+        }
+        ksort($out);
+        return $out;
     }
 
     /**

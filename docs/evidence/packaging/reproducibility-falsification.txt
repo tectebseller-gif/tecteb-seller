@@ -1,0 +1,39 @@
+سنجشِ خلافِ گاردِ تکرارپذیری — ۲۱ سپتامبر ۲۰۲۶
+=================================================
+
+سؤال: آیا اصلاحِ «آزمون نباید چیزی را که می‌سنجد عوض کند» واقعاً سنجیده می‌شود،
+یا فقط نوشته شده؟
+
+روش: همان گریزِ قدیمی در `tools/reviewable-bundle.sh` برگردانده شد —
+یعنی سطر ۳۳ از `DIST="${TMC_DIST:-dist}"` به `DIST="dist"` تغییر کرد، که
+دقیقاً رفتار پیش از اصلاح است: هرجا build شود، خروجی در `dist/` واقعی
+نوشته می‌شود.
+
+فرمان:
+    vendor/bin/phpunit --testsuite packaging --filter testBuildIsReproducible
+
+نتیجه با گریز برگردانده‌شده — **شکست**:
+
+    1) Tecteb\Marketplace\Tests\Packaging\PackagingTest::testBuildIsReproducible
+    two builds of the same source are byte-identical
+    Failed asserting that two strings are identical.
+    --- Expected
+    +++ Actual
+    @@ @@
+    -'92f7464d07cb84ce172d930247580fee08f6fe877168dbcda778217937aa48e0'
+    +'3609bc26368dc8322d09b6231fde128b1ea59607ee38ec2a453732a850073bb3'
+
+    /home/user/tecteb-seller/tests/Packaging/PackagingTest.php:212
+    FAILURES! Tests: 1, Assertions: 2, Failures: 1.
+
+کدام assert شکست: سطر ۲۱۲، یعنی «دو build از یک سورس بایت‌به‌بایت یکسان‌اند» —
+که **پیش از** assertِ اثرانگشتِ `dist/` است. دلیلش روشن است: با گریزِ
+برگردانده‌شده، همان build آزمایشی بایگانی reviewable را در `dist/` واقعی
+بازنویسی می‌کند، آن فایل داخل آرشیو سورس می‌آید، و بستهٔ دوم دیگر با اولی یکی
+نیست. پس زنجیره همان‌جا می‌شکند.
+
+assertِ اثرانگشت (سطر ۲۱۳ به بعد) حالتِ سخت‌ترِ همین مسئله را می‌گیرد: نوشتنی
+که **همان بایت‌ها** را روی فایل تحویل‌شده بگذارد. محتوا آن را نمی‌بیند؛ به همین
+دلیل اثرانگشت `filemtime` را هم در خود دارد.
+
+پس از سنجش، فایل از نسخهٔ پشتیبان برگردانده شد و آزمون دوباره قبول می‌شود.

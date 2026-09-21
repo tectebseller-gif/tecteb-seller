@@ -29,7 +29,7 @@ ok:   3-2. the vendor reaches store settings                         yes
 ok:   3-2. store settings saved                                      saved
 ok:   3-3. the colleague was invited                                 invited
 ok:   3-3. the one-time invite link is on screen                     shown
-      invite link: http://127.0.0.1:8081/vendor/invite/?token=0600a722aa082a5c0ba86a044a19a30560381e0d9bcd20c4
+      invite link: http://127.0.0.1:8081/vendor/invite/?token=f1a058685c1b2d49843774bd6a0437a66136d30680567246
 ok:   3-3. the colleague activated their account                     active
 ok:   4-2. the vendor created the demo catalogue                     3
 ok:   4-1. the manager sees products awaiting review                 listed
@@ -40,5 +40,17 @@ ok:   4-4. the vendor user id was found                              found
 ok:   4-4. the public store page renders                             renders
 ok:   4-4. and it shows none of the private fields                   clean
 ok:   4-4. a marketplace product can be added to the cart            added
+      checkout shape: classic (shortcode)
+ok:   4-5. a payment method is offered at checkout                   offered
+ok:   4-5. the order was placed (not just carted)                    placed
+      order number: 23
+ok:   4-5. the buyer sees it under their own orders                  listed
+ok:   4-6. the vendor sees that order                                sees it
+ok:   4-6. and not the buyer's phone or email                        withheld
+ok:   4-6. the colleague sees the same order                         sees it
+ok:   4-6. the colleague has the shipment form                       present
+      carriers offered: (none — the manager has not entered the list)
+ok:   4-6. the shipment is recorded                                  recorded
+ok:   4-6. the owner sees the shipment their colleague recorded      visible
 
-pass=40 fail=0
+pass=49 fail=0

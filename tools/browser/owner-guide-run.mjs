@@ -73,7 +73,11 @@ async function signIn(login, password) {
   await page.goto(`${SITE}/wp-login.php?loggedout=true`, { waitUntil: 'domcontentloaded' });
   await page.fill('#user_login', login);
   await page.fill('#user_pass', password);
-  await Promise.all([page.waitForLoadState('domcontentloaded'), page.click('#wp-submit')]);
+  await page.click('#wp-submit');
+  // `waitForLoadState` can settle against the page being left, so reading the
+  // URL straight afterwards found wp-login.php and called a sign-in that had
+  // worked a failure. Wait for the destination, not for a load to happen.
+  await page.waitForURL(/\/wp-admin\//, { timeout: 30000 }).catch(() => null);
 }
 
 /**
@@ -323,10 +327,22 @@ async function asUser(who) {
   await pg.goto(`${SITE}/wp-login.php`, { waitUntil: 'domcontentloaded' });
   await pg.fill('#user_login', who.login);
   await pg.fill('#user_pass', who.pass);
-  await Promise.all([pg.waitForLoadState('domcontentloaded'), pg.click('#wp-submit')]);
+  await pg.click('#wp-submit');
+  await pg.waitForURL((u) => !/wp-login\.php/.test(u.toString()), { timeout: 30000 }).catch(() => null);
   return { c, pg };
 }
 const say = async (pg) => (await pg.locator('body').innerText()).replace(/\s+/g, ' ');
+
+/**
+ * Persian digits back to ASCII.
+ *
+ * The vendor's screens print numbers in Persian — «سفارش ۱۸» — and the
+ * buyer's order-received page gives `18`. Searching one for the other found
+ * nothing and reported that the vendor could not see an order that was on
+ * the screen in front of it. Same trap as the Persian text needles, one
+ * alphabet over.
+ */
+const latin = (text) => String(text).replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
 
 const { c: vctx, pg: vp } = await asUser(VENDOR);
 await vp.goto(`${SITE}/vendor/`, { waitUntil: 'domcontentloaded' });
@@ -618,7 +634,221 @@ check(
 await bp.goto(`${SITE}/cart/`, { waitUntil: 'domcontentloaded' });
 await bp.waitForTimeout(4000);   // let the cart block hydrate before the photo
 await bp.screenshot({ path: path.join(OUT, '24-buyer-cart.png'), fullPage: true });
+
+// ---------------------------------------------------------------------------
+// ۴-۵. یک سفارش واقعی — بدون پرداخت واقعی
+//
+// «افزودن به سبد» خرید نیست. This places an ORDER: WooCommerce's own offline
+// method (cash on delivery) completes it and moves no money, which is the
+// most this build can honestly do — there is no gateway. The run refuses to
+// continue if no payment method is offered, rather than stopping at the cart
+// and calling that a purchase.
+// ---------------------------------------------------------------------------
+await bp.goto(`${SITE}/checkout/`, { waitUntil: 'domcontentloaded' });
+
+// Two checkout shapes exist and this run accepts either. The demo site now
+// serves the CLASSIC shortcode checkout, because the block checkout draws its
+// labels from a JavaScript translation pack we do not ship, so a Persian site
+// showed an English checkout. A site that kept the block pages must still
+// pass this step rather than fail on a selector.
+const classicCheckout = await bp
+  .waitForSelector('#billing_first_name', { timeout: 20000 })
+  .then(() => true)
+  .catch(() => false);
+if (!classicCheckout) {
+  await bp.waitForSelector('#billing-first_name', { timeout: 20000 }).catch(() => null);
+}
+note(`checkout shape: ${classicCheckout ? 'classic (shortcode)' : 'block'}`);
+
+const F = classicCheckout
+  ? {
+      email: '#billing_email',
+      country: '#billing_country',
+      first: '#billing_first_name',
+      last: '#billing_last_name',
+      state: '#billing_state',
+      city: '#billing_city',
+      address: '#billing_address_1',
+      postcode: '#billing_postcode',
+      phone: '#billing_phone',
+      pay: 'input[name="payment_method"]',
+    }
+  : {
+      email: '#email',
+      country: '#billing-country',
+      first: '#billing-first_name',
+      last: '#billing-last_name',
+      state: '#billing-state',
+      city: '#billing-city',
+      address: '#billing-address_1',
+      postcode: '#billing-postcode',
+      phone: '#billing-phone',
+      pay: 'input[type="radio"][id*="payment-method-options"]',
+    };
+
+// Both shapes hydrate the payment section after the address section. Asking
+// the moment the address field appeared reported «no payment method» about a
+// checkout that grew one a second later.
+await bp.waitForSelector(F.pay, { state: 'attached', timeout: 30000 }).catch(() => null);
+const codRadio = bp.locator(F.pay).first();
+check('4-5. a payment method is offered at checkout', await codRadio.count() ? 'offered' : 'none', 'offered');
+
+// With exactly one gateway enabled the classic checkout still renders the
+// radio but hides it and ticks it itself — so a plain .check() fails on an
+// invisible element that is already in the state we want.
+const pick = async (locator) => {
+  if (await locator.isChecked().catch(() => false)) { return; }
+  await locator.check({ force: true }).catch(async () => {
+    await locator.evaluate((el) => {
+      el.checked = true;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
+};
+
+// The classic country field is a select2 widget: the real <select> is hidden,
+// so Playwright's own actionability check refuses it. force + a native change
+// event is what jQuery's delegated handler listens for anyway.
+const choose = async (selector, value) => {
+  const el = bp.locator(selector);
+  if (!(await el.count())) { return; }
+  await el.selectOption(value, { force: true, timeout: 10000 }).catch(async () => {
+    await el.evaluate((node, v) => {
+      node.value = v;
+      node.dispatchEvent(new Event('change', { bubbles: true }));
+    }, value);
+  });
+};
+
+const settle = async () => {
+  await bp
+    .waitForFunction(() => !document.querySelector('.blockUI'), null, { timeout: 30000 })
+    .catch(() => null);
+  await bp.waitForTimeout(1000);
+};
+
+if (await codRadio.count()) {
+  await bp.fill(F.email, BUYER.email).catch(() => null);
+  await choose(F.country, 'IR');
+  await settle();   // changing the country rebuilds the state and postcode fields
+  await bp.fill(F.first, 'خریدار');
+  await bp.fill(F.last, 'نمونه');
+
+  // After the country change the state field can be a <select> of provinces
+  // or a plain text input, depending on the country. Read what is there.
+  const state = bp.locator(F.state);
+  if (await state.count()) {
+    const tag = await state.evaluate((el) => el.tagName.toLowerCase()).catch(() => '');
+    if (tag === 'select') {
+      const opts = await state.locator('option').evaluateAll((o) => o.map((x) => x.value).filter(Boolean));
+      if (opts.length) { await choose(F.state, opts[0]); }
+    } else {
+      await state.fill('تهران').catch(() => null);
+    }
+  }
+  await bp.fill(F.city, 'تهران').catch(() => null);
+  await bp.fill(F.address, 'خیابان نمونه، پلاک ۱ — نشانی ساختگی').catch(() => null);
+  const postcode = bp.locator(F.postcode);
+  if (await postcode.count()) { await postcode.fill('1234567890').catch(() => null); }
+  await bp.fill(F.phone, '09120000002').catch(() => null);
+  await pick(codRadio);
+
+  const terms = bp.locator('#terms');
+  if (await terms.count()) { await pick(terms); }
+
+  // Both shapes revalidate after every field: the block checkout disables its
+  // button while it does, the classic one covers the form with an overlay.
+  // Clicking the moment the radio was ticked raced that and timed out on a
+  // control that became clickable a second later.
+  await settle();
+  const placeOrder = classicCheckout
+    ? bp.locator('#place_order')
+    : bp.locator('button', { hasText: /Place Order|ثبت سفارش/ }).first();
+  for (let i = 0; i < 30 && !(await placeOrder.isEnabled().catch(() => false)); i++) {
+    await bp.waitForTimeout(1000);
+  }
+  await bp.screenshot({ path: path.join(OUT, '25-buyer-checkout.png'), fullPage: true });
+  await placeOrder.click({ timeout: 60000 });
+  await bp.waitForURL(/order-received/, { timeout: 60000 }).catch(() => null);
+  await bp.waitForTimeout(3000);
+}
+
+const received = (await bp.locator('body').innerText()).replace(/\s+/g, ' ');
+const orderNo = (received.match(/(?:Order number|شماره سفارش)[:\s]*#?\s*([0-9\u06F0-\u06F9]+)/) || [])[1]
+  || (bp.url().match(/order-received\/(\d+)/) || [])[1] || '';
+check('4-5. the order was placed (not just carted)', orderNo ? 'placed' : 'not placed', 'placed');
+note(`order number: ${orderNo || '(none)'}`);
+await bp.screenshot({ path: path.join(OUT, '26-buyer-order-received.png'), fullPage: true });
+
+await bp.goto(`${SITE}/my-account/orders/`, { waitUntil: 'domcontentloaded' });
+const myOrders = (await bp.locator('body').innerText()).replace(/\s+/g, ' ');
+check('4-5. the buyer sees it under their own orders', orderNo && latin(myOrders).includes(String(orderNo)) ? 'listed' : 'absent', 'listed');
+await bp.screenshot({ path: path.join(OUT, '27-buyer-orders.png'), fullPage: true });
 await bctx.close();
+
+// ---------------------------------------------------------------------------
+// ۴-۶. همان سفارش، از چشم فروشنده و پرسنل — و ثبت ارسال
+// ---------------------------------------------------------------------------
+await vp.goto(`${SITE}/vendor/orders/`, { waitUntil: 'domcontentloaded' });
+const vendorOrders = await say(vp);
+check(
+  '4-6. the vendor sees that order',
+  orderNo && latin(vendorOrders).includes(String(orderNo)) ? 'sees it' : 'absent',
+  'sees it'
+);
+check(
+  '4-6. and not the buyer\'s phone or email',
+  /09120000002|buyer@example\.invalid/.test(vendorOrders) ? 'LEAKED' : 'withheld',
+  'withheld'
+);
+await vp.screenshot({ path: path.join(OUT, '28-vendor-orders.png'), fullPage: true });
+
+// The colleague — a separate login, the narrower view — sees the same order
+// and is the one who records the shipment.
+const { c: sctx2, pg: sp2 } = await asUser(STAFF);
+await sp2.goto(`${SITE}/vendor/orders/`, { waitUntil: 'domcontentloaded' });
+const staffOrders = (await sp2.locator('body').innerText()).replace(/\s+/g, ' ');
+check(
+  '4-6. the colleague sees the same order',
+  orderNo && latin(staffOrders).includes(String(orderNo)) ? 'sees it' : 'absent',
+  'sees it'
+);
+
+const shipForm = sp2.locator('input[name="tmc_vendor_action"][value="ship_order_item"]').locator('xpath=ancestor::form').first();
+check('4-6. the colleague has the shipment form', await shipForm.count() ? 'present' : 'missing', 'present');
+if (await shipForm.count()) {
+  const carrier = shipForm.locator('select[name^="carrier_"]');
+  if (await carrier.count()) {
+    const opts = await carrier.locator('option').evaluateAll((o) => o.map((x) => x.value).filter(Boolean));
+    note(`carriers offered: ${opts.length ? opts.join(',') : '(none — the manager has not entered the list)'}`);
+    if (opts.length) { await carrier.selectOption(opts[0]); }
+  }
+  const tracking = shipForm.locator('input[name^="tracking_"]');
+  if (await tracking.count()) { await tracking.fill('DEMO-TRACK-0001'); }
+  await Promise.all([
+    sp2.waitForLoadState('domcontentloaded'),
+    shipForm.locator('button[type="submit"]').first().click(),
+  ]);
+}
+const afterShip = (await sp2.locator('body').innerText()).replace(/\s+/g, ' ');
+check(
+  '4-6. the shipment is recorded',
+  /ارسال ثبت شد|ارسال‌شده|بخشی ارسال/.test(afterShip) ? 'recorded' : 'not recorded',
+  'recorded'
+);
+await sp2.screenshot({ path: path.join(OUT, '29-staff-shipped.png'), fullPage: true });
+await sctx2.close();
+
+// And the vendor sees the new state — the colleague's work, on the owner's
+// screen, which is the whole point of the two accounts being separate.
+await vp.goto(`${SITE}/vendor/orders/`, { waitUntil: 'domcontentloaded' });
+const vendorAfter = await say(vp);
+check(
+  '4-6. the owner sees the shipment their colleague recorded',
+  /ارسال‌شده|بخشی ارسال|DEMO-TRACK-0001/.test(vendorAfter) ? 'visible' : 'absent',
+  'visible'
+);
+await vp.screenshot({ path: path.join(OUT, '30-vendor-after-shipment.png'), fullPage: true });
 
 fs.writeFileSync(path.join(OUT, '01-checks.txt'), lines.join('\n') + `\n\npass=${pass} fail=${fail}\n`);
 console.log(`\npass=${pass} fail=${fail}`);

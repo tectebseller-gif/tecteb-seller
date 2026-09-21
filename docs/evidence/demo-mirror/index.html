@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fa" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>آینهٔ محیط نمایشی تک‌طب</title>
+<style>
+  :root{--ink:#111827;--muted:#4b5563;--line:#e5e7eb;--bg:#f9fafb;--card:#fff;--accent:#b45309}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ink:#f3f4f6;--muted:#9ca3af;--line:#374151;--bg:#111827;--card:#1f2937;--accent:#fbbf24}}
+  :root[data-theme="dark"]{--ink:#f3f4f6;--muted:#9ca3af;--line:#374151;--bg:#111827;--card:#1f2937;--accent:#fbbf24}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.9 system-ui,'Segoe UI',Tahoma,sans-serif}
+  .wrap{max-width:60rem;margin:0 auto;padding:2rem 16px 4rem}
+  h1{font-size:1.6rem;margin:0 0 .3rem}
+  .lede{color:var(--muted);margin:0 0 1.5rem}
+  .warn{background:var(--card);border:1px solid var(--line);border-inline-start:4px solid var(--accent);
+    border-radius:10px;padding:1rem 1.1rem;margin:0 0 2rem}
+  .warn h2{margin:.1rem 0 .5rem;font-size:1.05rem}
+  .warn ul{margin:.4rem 0 0;padding-inline-start:1.2rem}
+  .role{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1rem 1.2rem;margin:0 0 1rem}
+  .role h2{margin:.1rem 0 .2rem;font-size:1.1rem}
+  .blurb{color:var(--muted);margin:0 0 .6rem;font-size:.95rem}
+  ol{margin:0;padding-inline-start:1.4rem}
+  li{margin:.2rem 0}
+  a{color:var(--accent)}
+  code{color:var(--muted);font-size:.8rem}
+  footer{color:var(--muted);font-size:.85rem;margin-top:2rem;border-top:1px solid var(--line);padding-top:1rem}
+</style></head><body><div class="wrap">
+  <h1>آینهٔ محیط نمایشی — بازارگاه تک‌طب 0.1.0-alpha.24</h1>
+  <p class="lede">صفحه‌های واقعیِ محیط نمایشی، از چشم هر چهار نقش. HTML و CSS و فونت و تصویرها همان‌هایی هستند که سایت می‌فرستد.</p>
+  <div class="warn">
+    <h2>این آینه چه هست و چه نیست</h2>
+    <ul>
+      <li><strong>هست:</strong> ظاهر واقعی هر صفحه، با چیدمان و راست‌به‌چپ و فونت واقعی. پنجرهٔ مرورگر را باریک کنید تا حالت موبایل را ببینید — همان CSS است.</li>
+      <li><strong>نیست:</strong> زنده. فرم‌ها ثبت نمی‌شوند، دکمه‌ها چیزی را تغییر نمی‌دهند و جاوااسکریپت عمداً حذف شده است.</li>
+      <li>برای «وارد شوم و کار کنم» یک میزبان واقعی لازم است؛ نیاز دقیق دسترسی در <code>docs/demo-hosting-request-fa.md</code> نوشته شده.</li>
+    </ul>
+  </div>
+  
+  <section class="role">
+    <h2>مدیر بازارگاه</h2>
+    <p class="blurb">همان صفحه‌هایی که با <code>tmcowner</code> دیده می‌شوند.</p>
+    <ol><li><a href="manager-01-dashboard.html">پیشخوان بازارگاه</a> <code>/wp-admin/admin.php?page=tmc-dashboard</code></li><li><a href="manager-02-vendors.html">بررسی فروشندگان</a> <code>/wp-admin/admin.php?page=tmc-vendor-applications</code></li><li><a href="manager-03-products.html">بررسی محصول</a> <code>/wp-admin/admin.php?page=tmc-product-review</code></li><li><a href="manager-04-storefront.html">وضعیت فروش بازارگاه</a> <code>/wp-admin/admin.php?page=tmc-storefront</code></li><li><a href="manager-05-withdrawals.html">تسویه و برداشت</a> <code>/wp-admin/admin.php?page=tmc-withdrawals</code></li><li><a href="manager-06-reports.html">گزارش‌ها</a> <code>/wp-admin/admin.php?page=tmc-reports</code></li><li><a href="manager-07-audit.html">ممیزی</a> <code>/wp-admin/admin.php?page=tmc-audit</code></li><li><a href="manager-08-settings.html">تنظیمات</a> <code>/wp-admin/admin.php?page=tmc-settings</code></li><li><a href="manager-09-orders.html">سفارش‌های ووکامرس</a> <code>/wp-admin/admin.php?page=wc-orders</code></li></ol>
+  </section>
+  
+  <section class="role">
+    <h2>فروشنده</h2>
+    <p class="blurb">پیشخوان فروشگاهِ تأییدشده — کارِ امروز اول، بعد بقیه.</p>
+    <ol><li><a href="vendor-01-dashboard.html">پیشخوان فروشنده</a> <code>/vendor/</code></li><li><a href="vendor-02-products.html">محصولات</a> <code>/vendor/products/</code></li><li><a href="vendor-03-product-new.html">افزودن محصول</a> <code>/vendor/products/?product=new</code></li><li><a href="vendor-04-orders.html">سفارش‌ها و ارسال</a> <code>/vendor/orders/</code></li><li><a href="vendor-05-store.html">تنظیمات فروشگاه</a> <code>/vendor/store/</code></li><li><a href="vendor-06-staff.html">پرسنل</a> <code>/vendor/staff/</code></li><li><a href="vendor-07-finance.html">امور مالی</a> <code>/vendor/finance/</code></li><li><a href="vendor-08-reports.html">گزارش‌های فروشنده</a> <code>/vendor/reports/</code></li><li><a href="vendor-09-support.html">پشتیبانی و تیکت</a> <code>/vendor/support/</code></li></ol>
+  </section>
+  
+  <section class="role">
+    <h2>پرسنل فروشگاه</h2>
+    <p class="blurb">همان فروشگاه، با مرزِ دسترسی: «تنظیمات فروشگاه» باید رد شود.</p>
+    <ol><li><a href="staff-01-dashboard.html">پیشخوان پرسنل</a> <code>/vendor/</code></li><li><a href="staff-02-products.html">محصولات — دید پرسنل</a> <code>/vendor/products/</code></li><li><a href="staff-03-orders.html">سفارش‌ها — دید پرسنل</a> <code>/vendor/orders/</code></li><li><a href="staff-04-store-refused.html">تنظیمات فروشگاه — باید رد شود</a> <code>/vendor/store/</code></li></ol>
+  </section>
+  
+  <section class="role">
+    <h2>خریدار</h2>
+    <p class="blurb">سطح عمومی: فروشگاه، صفحهٔ فروشنده، سبد و حساب کاربری.</p>
+    <ol><li><a href="buyer-01-shop.html">فروشگاه</a> <code>/?post_type=product</code></li><li><a href="buyer-02-store-page.html">صفحهٔ عمومی فروشگاه</a> <code>/?tmc_store=2</code></li><li><a href="buyer-03-product.html">صفحهٔ محصول</a> <code>(صفحهٔ محصول)</code></li><li><a href="buyer-04-cart.html">سبد خرید</a> <code>/cart/</code></li><li><a href="buyer-05-account.html">حساب کاربری</a> <code>/my-account/</code></li><li><a href="buyer-06-orders.html">سفارش‌های من</a> <code>/my-account/orders/</code></li></ol>
+  </section>
+  <footer>ساخته‌شده با <code>tools/browser/mirror-demo.mjs</code> از روی نصب تمیزِ 0.1.0-alpha.24. دادهٔ داخل آن ساختگی است.</footer>
+</div></body></html>

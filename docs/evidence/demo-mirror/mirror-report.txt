@@ -1,0 +1,33 @@
+manager-01-dashboard       live-urls= 0  broken-stylesheets=0
+manager-02-vendors         live-urls= 0  broken-stylesheets=0
+manager-03-products        live-urls= 0  broken-stylesheets=0
+manager-04-storefront      live-urls= 0  broken-stylesheets=0
+manager-05-withdrawals     live-urls= 0  broken-stylesheets=0
+manager-06-reports         live-urls= 0  broken-stylesheets=0
+manager-07-audit           live-urls= 0  broken-stylesheets=0
+manager-08-settings        live-urls= 0  broken-stylesheets=0
+manager-09-orders          live-urls= 0  broken-stylesheets=0
+vendor-01-dashboard        live-urls= 0  broken-stylesheets=0
+vendor-02-products         live-urls= 0  broken-stylesheets=0
+vendor-03-product-new      live-urls= 0  broken-stylesheets=0
+vendor-04-orders           live-urls= 0  broken-stylesheets=0
+vendor-05-store            live-urls= 0  broken-stylesheets=0
+vendor-06-staff            live-urls= 0  broken-stylesheets=0
+vendor-07-finance          live-urls= 0  broken-stylesheets=0
+vendor-08-reports          live-urls= 0  broken-stylesheets=0
+vendor-09-support          live-urls= 0  broken-stylesheets=0
+staff-01-dashboard         live-urls= 0  broken-stylesheets=0
+staff-02-products          live-urls= 0  broken-stylesheets=0
+staff-03-orders            live-urls= 0  broken-stylesheets=0
+staff-04-store-refused     live-urls= 0  broken-stylesheets=0
+buyer-01-shop              live-urls= 0  broken-stylesheets=0
+buyer-02-store-page        live-urls= 0  broken-stylesheets=0
+buyer-03-product           live-urls= 0  broken-stylesheets=0
+buyer-04-cart              live-urls= 0  broken-stylesheets=0
+buyer-05-account           live-urls= 0  broken-stylesheets=0
+buyer-06-orders            live-urls= 0  broken-stylesheets=0
+
+شمارش فقط روی href/src/action است — یعنی چیزی که مرورگر واقعاً می‌گیرد یا دنبال می‌کند.
+مقدارهای بی‌اثر (data-src وردپرس، og:url خودِ همان صفحه) همان‌طور که ضبط شده‌اند باقی می‌مانند.
+
+pages=28 assets=47 files=78 leftovers=0

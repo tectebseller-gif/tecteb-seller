@@ -38,7 +38,8 @@ final class ProductListView
         ?VendorNotice $notice = null,
         bool $mayEdit = true,
         bool $mayPublishDirectly = false,
-        string $search = ''
+        string $search = '',
+        array $thumbnails = []
     ): string {
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
         $html = '';
@@ -100,7 +101,7 @@ final class ProductListView
         }
         $html .= '<ul class="tv-products">';
         foreach ($products as $product) {
-            $html .= self::row($product, $urls, $nonceField, $fa, $mayEdit);
+            $html .= self::row($product, $urls, $nonceField, $fa, $mayEdit, $thumbnails[$product->id] ?? '');
         }
         $html .= '</ul>';
         $html .= self::pager($page, $total, $currentStatus, $urls, $fa);
@@ -215,8 +216,29 @@ final class ProductListView
     }
 
     /** @param callable(string|int):string $fa */
-    private static function row(Product $product, VendorUrls $urls, string $nonce, callable $fa, bool $mayEdit): string
-    {
+    /**
+     * One product, as a card with its own picture.
+     *
+     * The list used to be text only, which on a catalogue of medical devices
+     * means twelve rows that read alike: a vendor scanning for the right
+     * oximeter had the title and nothing else to recognise it by. The
+     * thumbnail is the product's own main image — the one they uploaded — and
+     * the facts moved from a four-column definition grid onto one line, so a
+     * phone shows three or four products at once instead of one and a half.
+     *
+     * `$thumbnail` is a URL the caller resolved, empty when the product has
+     * no image yet. Empty renders a labelled placeholder rather than a broken
+     * frame: «no picture» is a real state of a draft, and a product with no
+     * image cannot be submitted, so saying so here saves a round trip.
+     */
+    private static function row(
+        Product $product,
+        VendorUrls $urls,
+        string $nonce,
+        callable $fa,
+        bool $mayEdit,
+        string $thumbnail = ''
+    ): string {
         $d = $product->details;
         $price = $d->salePriceMinor !== null && $d->salePriceMinor < $d->priceMinor
             ? sprintf(
@@ -243,9 +265,21 @@ final class ProductListView
                 )) . '</span></label>'
             : '';
 
-        $html = '<li class="tv-product"><div class="tv-product__head">'
-            . $checkbox
-            . '<strong class="tv-product__title">' . esc_html($d->title !== '' ? $d->title : __('بدون عنوان', 'tecteb-marketplace-core')) . '</strong> '
+        $title = $d->title !== '' ? $d->title : __('بدون عنوان', 'tecteb-marketplace-core');
+        // alt="" on purpose: the title is right beside it in the same link
+        // target, so a screen reader announcing the picture too would read
+        // the product's name twice.
+        $media = $thumbnail !== ''
+            ? '<img class="tv-product__thumb" src="' . esc_url($thumbnail) . '" alt="" width="72" height="72" loading="lazy" decoding="async">'
+            : '<span class="tv-product__thumb tv-product__thumb--empty">'
+                . '<span class="tv-sr-only">' . esc_html__('بدون تصویر', 'tecteb-marketplace-core') . '</span>'
+                . '<span aria-hidden="true">—</span></span>';
+
+        $html = '<li class="tv-product">'
+            . '<div class="tv-product__media">' . $checkbox . $media . '</div>'
+            . '<div class="tv-product__body">'
+            . '<div class="tv-product__head">'
+            . '<strong class="tv-product__title">' . esc_html($title) . '</strong> '
             . VendorUi::chip(ProductMessages::statusTone($product->status), ProductMessages::status($product->status))
             . '</div>'
             . '<dl class="tv-product__facts">'
@@ -268,7 +302,7 @@ final class ProductListView
         if ($mayEdit && $product->status === ProductStatus::Archived) {
             $html .= self::inlineForm($urls, $nonce, 'restore_product', $product->id, __('بازگشت به پیش‌نویس', 'tecteb-marketplace-core'));
         }
-        return $html . '</p></li>';
+        return $html . '</p></div></li>';
     }
 
     private static function inlineForm(VendorUrls $urls, string $nonce, string $action, int $productId, string $label): string

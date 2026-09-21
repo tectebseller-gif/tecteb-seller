@@ -43,6 +43,8 @@ final class DisposableOnlyToolsTest extends TestCase
         // PNG bytes and returns them; the caller decides where they go, and
         // the WordPress-side caller (demo-image.php) carries the guard.
         'demo-image-shapes.php' => 'pure rasteriser; returns PNG bytes and writes nothing by itself',
+        'demo-translations.php' => 'standalone .mo writer; takes a directory argument and never loads WordPress',
+        'demo-router.php' => 'web-server router, copied into the demo root; has no CLI entry point to guard',
     ];
 
     /** The refusal, verbatim enough that a rewrite has to be deliberate. */

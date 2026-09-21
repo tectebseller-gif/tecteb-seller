@@ -23,7 +23,15 @@ cd "${ROOT}"
 
 SLUG='tecteb-marketplace-core'
 VERSION="$(grep -m1 '^ \* Version:' tecteb-marketplace-core.php | awk '{print $3}')"
-OUT="dist/${SLUG}-reviewable-${VERSION}.tar.gz"
+# TMC_DIST, honoured — because `build.sh` is run against a throwaway dist by
+# the packaging test that asks «are two builds of the same source identical?».
+# This script ignored it, so that check wrote its rebuilt bundle over the REAL
+# `dist/` while its own SHA256SUMS went to the temp directory and was deleted.
+# The delivered archive and the delivered checksum file then disagreed, and
+# the owner found it. A check must not mutate the thing it is checking — the
+# test's own docblock says so, and this is the file that got around it.
+DIST="${TMC_DIST:-dist}"
+OUT="${DIST}/${SLUG}-reviewable-${VERSION}.tar.gz"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "${STAGE}"' EXIT
 BUNDLE="${STAGE}/${SLUG}-reviewable-${VERSION}"
@@ -123,7 +131,7 @@ README
     | LC_ALL=C sort -z \
     | xargs -0 sha256sum > SHA256SUMS )
 
-mkdir -p dist
+mkdir -p "${DIST}"
 # Byte-reproducible, like every other archive this repository ships: fixed
 # mtime, fixed ownership, sorted entries. A hash recorded for an archive that
 # changes on every rebuild is a hash nobody can check.

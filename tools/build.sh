@@ -263,13 +263,21 @@ fi
 # its own archive and the delivery note can actually attach it.
 # The index of what is NOT in git goes first: it travels inside the bundle
 # below, so building the bundle first would ship last release's index.
-bash "${ROOT}/tools/evidence-manifest.sh"
+# Both are told WHERE to write. A throwaway build (TMC_DIST, which the
+# packaging test uses to ask whether two builds are identical) must leave the
+# real dist/ alone — and the manifest, which lives in git, is written to the
+# throwaway directory instead of over the committed copy.
+if [ -n "${TMC_DIST:-}" ]; then
+  TMC_DIST="${DIST}" bash "${ROOT}/tools/evidence-manifest.sh" "${DIST}/evidence-manifest.txt"
+else
+  bash "${ROOT}/tools/evidence-manifest.sh"
+fi
 
 REV_ARCHIVE="${DIST}/${SLUG}-reviewable-${VERSION}.tar.gz"
 if delivered_already "$(basename "${REV_ARCHIVE}")"; then
   echo "reviewable bundle: already delivered, left untouched → $(basename "${REV_ARCHIVE}")"
 else
-  bash "${ROOT}/tools/reviewable-bundle.sh"
+  TMC_DIST="${DIST}" bash "${ROOT}/tools/reviewable-bundle.sh"
 fi
 
 rm -rf "${STAGE}"

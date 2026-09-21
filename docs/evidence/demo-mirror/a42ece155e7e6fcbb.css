@@ -1,0 +1,1004 @@
+/*
+ * Tecteb Marketplace Core — vendor area (front end, /vendor/…).
+ *
+ * Not wp-admin: this file is the whole stylesheet for those pages, so every
+ * token it uses is defined HERE. That is the fix for the first preview's
+ * worst bug — the active menu item was white-on-light-blue because its
+ * colours came from a variable defined in the admin stylesheet, which this
+ * page never loads.
+ *
+ * Brand: #6ABFE7 header · #143C4D ink · #21D483 success · #FFC658 attention.
+ * Layout follows the width of OUR container, never the window (ADR-006).
+ */
+/* The font the whole area is designed in, shipped with the plugin rather than
+   hoped for. Every stack here already NAMED Vazirmatn; none of them shipped
+   it, so a visitor without it installed read these pages in Tahoma and the
+   identity existed only on the machines of people who happened to have the
+   font. Declared once, in `BrandFont`, and mirrored here — the store page
+   builds the identical rule from that class, so the two cannot drift.
+
+   `local()` first: many Iranian desktops already have it and should pay
+   nothing. `swap`: text a reader can read now beats text that is invisible
+   until 109 KB arrives. */
+@font-face {
+  font-family: "Vazirmatn";
+  src: local("Vazirmatn"),
+       url(a4e3fa217d38fdafc.woff2) format("woff2-variations"),
+       url(a4e3fa217d38fdafc.woff2) format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.tv {
+  --tv-ink: #143C4D;
+  --tv-ink-strong: #0F2E3B;
+  --tv-sky: #6ABFE7;
+  --tv-sky-soft: #D9EFF9;
+  --tv-green: #21D483;
+  --tv-amber: #FFC658;
+  --tv-red: #B3261E;
+  --tv-page: #EDF3F6;
+  --tv-surface: #FFFFFF;
+  --tv-surface-2: #F4F8FA;
+  --tv-text: #1F2A30;
+  --tv-muted: #4F6570;
+  --tv-border: #D3DDE3;
+  --tv-radius: 14px;
+  --tv-radius-sm: 9px;
+  --tv-s1: 4px;
+  --tv-s2: 8px;
+  --tv-s3: 12px;
+  --tv-s4: 16px;
+  --tv-s5: 24px;
+  --tv-s6: 32px;
+  --tv-touch: 46px;
+  --tv-font: "Vazirmatn", "Vazir", "IRANSans", "IRANYekan", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif;
+  --tv-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  margin: 0;
+  background: var(--tv-page);
+  color: var(--tv-text);
+  font-family: var(--tv-font);
+  font-size: 16px;
+  line-height: 1.8;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+.tv *, .tv *::before, .tv *::after { box-sizing: border-box; }
+.tv h1, .tv h2, .tv h3 { color: var(--tv-ink); line-height: 1.45; margin: 0 0 var(--tv-s2); font-weight: 700; }
+.tv p { margin: 0 0 var(--tv-s2); max-inline-size: 68ch; }
+.tv a { color: var(--tv-ink); text-underline-offset: 3px; }
+.tv :focus-visible { outline: 3px solid var(--tv-ink); outline-offset: 2px; }
+
+.tv-skip {
+  position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.tv-skip:focus {
+  position: static; inline-size: auto; block-size: auto; margin: 0; clip-path: none;
+  display: inline-flex; align-items: center; min-block-size: var(--tv-touch);
+  padding: 0 var(--tv-s4); background: var(--tv-ink); color: #fff; text-decoration: none; font-weight: 700;
+}
+
+/* header ------------------------------------------------------------------ */
+.tv-head {
+  background: var(--tv-sky);
+  padding: var(--tv-s4) var(--tv-s4) var(--tv-s3);
+  display: grid;
+  gap: var(--tv-s3);
+  border-block-end: 4px solid var(--tv-ink);
+}
+.tv-head__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--tv-s2) var(--tv-s4); max-inline-size: 1100px; margin-inline: auto; inline-size: 100%; }
+.tv-head__brand { display: flex; flex-direction: column; }
+.tv-head__name { font-weight: 700; font-size: 1.2rem; color: var(--tv-ink); }
+.tv-head__role { font-size: 0.9375rem; color: var(--tv-ink); opacity: 0.85; }
+.tv-head__store { margin: 0; font-weight: 700; color: var(--tv-ink); background: #fff; border-radius: 999px; padding: var(--tv-s1) var(--tv-s4); }
+
+/* navigation: the current item is INK on white, never white on sky ---------
+ *
+ * And it is a `<details>`, collapsed. Ten sections laid out two-up put five
+ * rows of buttons above every page on a phone — the owner's words were «منوی
+ * موبایل جمع‌شونده باشد تا ابتدای صفحه را اشغال نکند». `tmc-vendor.js` opens
+ * it when the viewport is wide and adds `is-wide`; both are the script's job
+ * because CSS cannot reveal a closed `<details>` (measured in Chromium 141:
+ * the UA hides the panel through its own shadow slot). The summary is hidden
+ * only under `is-wide`, so a browser running no script always keeps the
+ * control that opens the menu. */
+.tv-nav { max-inline-size: 1100px; margin-inline: auto; inline-size: 100%; }
+.tv-nav__toggle {
+  display: flex; align-items: center; gap: var(--tv-s2);
+  min-height: var(--tv-touch); padding: 0 var(--tv-s4);
+  background: #fff; color: var(--tv-ink); border: 2px solid transparent; border-radius: 999px;
+  font-weight: 700; cursor: pointer; list-style: none;
+}
+.tv-nav__toggle::-webkit-details-marker { display: none; }
+.tv-nav__toggle:hover { border-color: var(--tv-ink); }
+.tv-nav__toggle-icon {
+  inline-size: 18px; block-size: 2px; background: currentColor; border-radius: 2px;
+  position: relative; flex: none;
+}
+.tv-nav__toggle-icon::before,
+.tv-nav__toggle-icon::after {
+  content: ""; position: absolute; inset-inline: 0; block-size: 2px; background: currentColor; border-radius: 2px;
+  transition: transform 120ms ease-out;
+}
+.tv-nav__toggle-icon::before { inset-block-start: -6px; }
+.tv-nav__toggle-icon::after { inset-block-start: 6px; }
+.tv-nav[open] .tv-nav__toggle-icon { background: transparent; }
+.tv-nav[open] .tv-nav__toggle-icon::before { transform: translateY(6px) rotate(45deg); }
+.tv-nav[open] .tv-nav__toggle-icon::after { transform: translateY(-6px) rotate(-45deg); }
+/* A collapsed menu that does not say where you are trades one problem for
+   another, so the current section rides on the closed toggle. */
+.tv-nav__toggle-current {
+  margin-inline-start: auto; font-weight: 600; font-size: 0.9375rem; color: var(--tv-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-inline-size: 0;
+}
+.tv-nav__panel { margin-block-start: var(--tv-s3); }
+.tv-nav.is-wide > .tv-nav__toggle { display: none; }
+.tv-nav.is-wide > .tv-nav__panel { margin-block-start: 0; }
+.tv-nav ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--tv-s2); }
+.tv-nav__link {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  min-height: var(--tv-touch); padding: 0 var(--tv-s4);
+  background: #fff; color: var(--tv-ink); border: 2px solid transparent;
+  border-radius: 999px; font-weight: 700; text-decoration: none;
+}
+.tv-nav__link:hover { border-color: var(--tv-ink); }
+.tv-nav__link.is-current { background: var(--tv-ink); color: #fff; }
+
+/* content ----------------------------------------------------------------- */
+.tv-main { padding: var(--tv-s4); max-inline-size: 1100px; margin-inline: auto; }
+.tv-title { font-size: 1.375rem; margin-block: var(--tv-s3) var(--tv-s4); }
+.tv-lead { font-size: 1.0625rem; }
+.tv-card {
+  background: var(--tv-surface); border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
+  padding: var(--tv-s4); margin-block-end: var(--tv-s4);
+}
+.tv-card--status { border-inline-start: 5px solid var(--tv-sky); }
+.tv-card--submit { background: var(--tv-surface-2); }
+.tv-card__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tv-s2) var(--tv-s3); margin-block-end: var(--tv-s2); }
+.tv-card__title { font-size: 1.0625rem; margin: 0; }
+
+.tv-chip {
+  display: inline-flex; align-items: center; gap: var(--tv-s2);
+  padding: 2px var(--tv-s3); border-radius: 999px; font-weight: 700; font-size: 0.9375rem; white-space: nowrap;
+}
+.tv-chip__icon { display: inline-flex; align-items: center; justify-content: center; inline-size: 1.3em; block-size: 1.3em; border-radius: 50%; font-size: 0.8em; }
+.tv-chip--success { background: var(--tv-green); color: var(--tv-ink); }
+.tv-chip--success .tv-chip__icon { background: var(--tv-ink); color: #fff; }
+.tv-chip--warning { background: var(--tv-amber); color: var(--tv-ink); }
+.tv-chip--warning .tv-chip__icon { background: var(--tv-ink); color: #fff; }
+.tv-chip--error { background: var(--tv-red); color: #fff; }
+.tv-chip--error .tv-chip__icon { background: #fff; color: var(--tv-red); }
+.tv-chip--neutral { background: var(--tv-sky-soft); color: var(--tv-ink); }
+.tv-chip--neutral .tv-chip__icon { background: var(--tv-ink); color: #fff; }
+
+.tv-notice { border: 1px solid var(--tv-border); border-inline-start-width: 5px; border-radius: var(--tv-radius-sm); padding: var(--tv-s3) var(--tv-s4); margin-block-end: var(--tv-s4); background: #fff; }
+.tv-notice p { margin: 0; }
+.tv-notice--success { border-inline-start-color: var(--tv-green); }
+.tv-notice--warning { border-inline-start-color: var(--tv-amber); }
+.tv-notice--error { border-inline-start-color: var(--tv-red); }
+.tv-notice--info { border-inline-start-color: var(--tv-sky); }
+
+.tv-note { background: var(--tv-surface-2); border: 1px solid var(--tv-border); border-radius: var(--tv-radius-sm); padding: var(--tv-s3) var(--tv-s4); margin-block: var(--tv-s3); }
+.tv-note h2, .tv-note h3 { font-size: 1rem; margin-block-end: var(--tv-s1); }
+.tv-note--action { border-inline-start: 5px solid var(--tv-amber); }
+
+.tv-facts { display: grid; gap: var(--tv-s2); margin: var(--tv-s3) 0 0; }
+.tv-facts > div { display: grid; gap: 2px; padding-block: var(--tv-s2); border-block-end: 1px dashed var(--tv-border); }
+.tv-facts > div:last-child { border-block-end: 0; }
+.tv-facts dt { color: var(--tv-muted); font-size: 0.9375rem; font-weight: 700; }
+.tv-facts dd { margin: 0; }
+
+/* tasks: every one that can be acted on carries a button ------------------- */
+.tv-tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tv-s3); }
+.tv-task { border: 1px solid var(--tv-border); border-radius: var(--tv-radius-sm); padding: var(--tv-s3) var(--tv-s4); border-inline-start: 5px solid var(--tv-border); }
+.tv-task--todo { border-inline-start-color: var(--tv-amber); }
+.tv-task--done { border-inline-start-color: var(--tv-green); }
+.tv-task--waiting { border-inline-start-color: var(--tv-sky); background: var(--tv-surface-2); }
+.tv-task__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tv-s2) var(--tv-s3); }
+.tv-task__title { font-size: 1rem; margin: 0; }
+.tv-task__detail { color: var(--tv-muted); margin-block: var(--tv-s1) 0; }
+
+/* documents --------------------------------------------------------------- */
+.tv-docs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tv-s4); }
+.tv-doc { border: 1px solid var(--tv-border); border-radius: var(--tv-radius-sm); padding: var(--tv-s4); }
+.tv-doc__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tv-s2); margin-block-end: var(--tv-s2); }
+.tv-doc__title { font-size: 1rem; margin: 0; }
+.tv-doc__hint { color: var(--tv-muted); }
+.tv-doc__rules { color: var(--tv-muted); font-size: 0.9375rem; }
+.tv-doc__file { background: var(--tv-surface-2); border-radius: var(--tv-radius-sm); padding: var(--tv-s2) var(--tv-s3); font-size: 0.9375rem; }
+
+/* forms ------------------------------------------------------------------- */
+.tv-field { margin-block-end: var(--tv-s4); max-inline-size: 44rem; }
+.tv-field--check label { display: flex; align-items: center; gap: var(--tv-s2); font-weight: 600; min-block-size: var(--tv-touch); }
+/* WCAG 2.2 target size: a 13px browser default checkbox is below the 24px
+   floor, and on a phone it is simply hard to hit. */
+.tv-field--check input[type="checkbox"] { inline-size: 24px; block-size: 24px; accent-color: var(--tv-ink); flex: 0 0 auto; }
+.tv-label { display: block; font-weight: 700; margin-block-end: var(--tv-s1); }
+.tv-input {
+  inline-size: 100%; min-height: var(--tv-touch); font: inherit; font-size: 1rem;
+  padding: var(--tv-s2) var(--tv-s3); border: 1px solid var(--tv-muted);
+  border-radius: var(--tv-radius-sm); background: #fff; color: var(--tv-text);
+}
+.tv-input[readonly] { background: var(--tv-surface-2); color: var(--tv-muted); }
+textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
+.tv-hint { color: var(--tv-muted); font-size: 0.9375rem; margin-block-start: var(--tv-s1); }
+/* A live region has to EXIST before anything is put in it, so this paragraph
+   is always in the markup. `:empty` keeps it from reserving a line of space
+   while it has nothing to say — a gap that opens under the file chooser on
+   every render would be a layout bug paid for by a message nobody sees. */
+/* The comparison a refused save shows. Bordered and tinted rather than a bare
+   table: it sits between a warning notice and the form, and a reader has to be
+   able to tell at a glance where the explanation ends and their own form
+   begins. */
+.tv-conflict {
+  margin-block: var(--tv-s4);
+  padding: var(--tv-s4);
+  border: 2px solid var(--tv-amber);
+  border-radius: var(--tv-radius);
+  background: #FFF9EC;
+}
+.tv-conflict__title { margin: 0 0 var(--tv-s3); font-size: 1rem; }
+.tv-conflict .tv-table td strong { color: var(--tv-ink-strong); }
+
+.tv-hint--warn { color: var(--tv-red); font-weight: 700; }
+.tv-hint--warn:empty { display: none; margin-block-start: 0; }
+
+.tv-actions { display: flex; flex-wrap: wrap; gap: var(--tv-s3); margin-block-start: var(--tv-s3); }
+.tv-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--tv-touch); padding: 0 var(--tv-s5); border-radius: var(--tv-radius-sm);
+  font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; border: 2px solid var(--tv-ink);
+}
+/* Scoped with .tv for the same reason as in the admin stylesheet: `.tv a`
+   (0,1,1) outranks a bare `.tv-btn--primary` (0,1,0), and a primary button
+   written as a link then renders dark-on-dark. Caught on a screenshot of the
+   real page, not in review. */
+.tv .tv-btn--primary { background: var(--tv-ink); color: #fff; }
+.tv .tv-btn--primary:hover { background: var(--tv-ink-strong); color: #fff; }
+.tv .tv-btn--secondary { background: #fff; color: var(--tv-ink); }
+.tv .tv-btn--secondary:hover { background: var(--tv-sky-soft); color: var(--tv-ink); }
+
+/* states: empty, error, loading, success, no access ------------------------
+ *
+ * The same five as the manager side, and the same rule: a state screen says
+ * what happened, why, and what the one next step is. A vendor who opens
+ * «سفارش‌ها» on their first day should read «هنوز سفارشی ثبت نشده» and be
+ * told where a first order comes from — not face an empty box. */
+.tv-state {
+  display: grid; justify-items: center; gap: var(--tv-s3);
+  padding: var(--tv-s5) var(--tv-s4); text-align: center;
+  border: 1px dashed var(--tv-border); border-radius: var(--tv-radius);
+  background: var(--tv-surface-2);
+}
+.tv-state__icon {
+  inline-size: 44px; block-size: 44px; display: grid; place-items: center;
+  border-radius: 999px; background: var(--tv-surface); color: var(--tv-muted);
+  border: 1px solid var(--tv-border); font-size: 1.25rem; line-height: 1;
+}
+.tv-state__title { margin: 0; font-weight: 700; font-size: 1.0625rem; color: var(--tv-text); }
+.tv-state__text { margin: 0; color: var(--tv-muted); max-inline-size: 46ch; }
+.tv-state__actions { display: flex; flex-wrap: wrap; gap: var(--tv-s2); justify-content: center; }
+.tv-state--error { border-style: solid; border-color: var(--tv-red); background: #FDF3F2; }
+.tv-state--error .tv-state__icon { color: var(--tv-red); border-color: var(--tv-red); }
+.tv-state--success { border-style: solid; border-color: #0F7A4A; background: #F1FBF6; }
+.tv-state--success .tv-state__icon { color: #0F7A4A; border-color: #0F7A4A; }
+.tv-state--denied { border-style: solid; border-color: var(--tv-amber); background: #FFF8E8; }
+.tv-state--denied .tv-state__icon { color: #6B4D00; border-color: #C79500; }
+/* Loading is bars where the rows will be, so the page does not jump when they
+   arrive — not a spinner that says only «something is happening». */
+.tv-state--loading { border-style: solid; justify-items: stretch; text-align: start; gap: var(--tv-s2); }
+.tv-skeleton {
+  block-size: 1rem; border-radius: var(--tv-radius-sm, 8px);
+  background: linear-gradient(90deg, var(--tv-border) 25%, var(--tv-surface) 50%, var(--tv-border) 75%);
+  background-size: 200% 100%; animation: tv-shimmer 1.4s linear infinite;
+}
+.tv-skeleton:nth-child(3) { inline-size: 80%; }
+.tv-skeleton:nth-child(4) { inline-size: 60%; }
+@keyframes tv-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* wider containers --------------------------------------------------------- */
+@media (min-width: 48rem) {
+  .tv-head { padding-inline: var(--tv-s5); }
+  .tv-main { padding-inline: var(--tv-s5); }
+  .tv-nav ul { display: flex; flex-wrap: wrap; }
+  .tv-nav__link { justify-content: flex-start; }
+  .tv-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--tv-s5); }
+  .tv-task { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--tv-s4); align-items: center; }
+  .tv-task .tv-actions { margin: 0; grid-column: 2; grid-row: 1 / span 2; }
+  .tv-task__detail { grid-column: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tv *, .tv *::before, .tv *::after { transition: none !important; animation: none !important; }
+}
+
+/* ---------------------------------------------------------------------------
+ * Store settings and staff (stage 1).
+ *
+ * The tabs are links, so they must be sized like the buttons they sit beside:
+ * a 19px tap target is what an unstyled <a> gives you, and the touch-size
+ * check caught exactly that before this block existed.
+ * ------------------------------------------------------------------------ */
+.tv-tabs {
+  margin-block: 0 var(--tv-s4);
+}
+
+.tv-tabs ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tv-s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tv .tv-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: var(--tv-touch);
+  min-inline-size: 6.5rem;          /* four Persian characters never starve */
+  padding-inline: var(--tv-s4);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface);
+  color: var(--tv-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tv .tv-tab:hover,
+.tv .tv-tab:focus-visible {
+  border-color: var(--tv-sky);
+  background: var(--tv-sky-soft);
+}
+
+.tv .tv-tab.is-current {
+  border-color: var(--tv-ink);
+  background: var(--tv-ink);
+  color: #fff;
+}
+
+.tv-subform {
+  margin-block-start: var(--tv-s4);
+  padding-block-start: var(--tv-s4);
+  border-block-start: 1px dashed var(--tv-border);
+}
+
+.tv-staff,
+.tv-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--tv-s4);
+}
+
+.tv-staff__item {
+  padding: var(--tv-s4);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-staff__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s2);
+  margin-block-end: var(--tv-s3);
+}
+
+.tv-staff__perms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tv-s2);
+  margin-block: var(--tv-s3);
+}
+
+/* An invitation link is long and latin; it must wrap instead of pushing the
+ * page sideways, and stay selectable in one gesture. */
+.tv-code--block {
+  display: block;
+  padding: var(--tv-s3);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface);
+  border: 1px solid var(--tv-border);
+  overflow-wrap: anywhere;
+  white-space: normal;
+  user-select: all;
+}
+
+/* ---------------------------------------------------------------------------
+ * Products (stage 2).
+ *
+ * Every multi-column rule here is `auto-fit` + `minmax`, so the layout answers
+ * to the space the card actually has rather than to the window — the same
+ * reasoning as ADR-006, expressed without a breakpoint to get wrong. No track
+ * is allowed to go below 12rem, which is what keeps a Persian label from being
+ * squeezed into a one-word column (the `no-starved-text-box` check).
+ * ------------------------------------------------------------------------ */
+.tv-card__actions { margin: 0; }
+
+.tv-tab__count {
+  margin-inline-start: var(--tv-s2);
+  padding-inline: var(--tv-s2);
+  border-radius: 999px;
+  background: var(--tv-surface-2);
+  color: var(--tv-muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.tv .tv-tab.is-current .tv-tab__count { background: rgba(255, 255, 255, 0.22); color: #fff; }
+
+.tv .tv-tab.is-disabled {
+  border-style: dashed;
+  background: var(--tv-surface-2);
+  color: var(--tv-muted);
+  cursor: default;
+}
+
+.tv-products { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tv-s4); }
+
+/* A picture, then the words — and tighter than it was.
+ *
+ * The card carried a four-column definition grid with a full line of padding
+ * above and below each cell, so one product filled a phone screen. Same
+ * facts, one flowing row: three or four products now fit where one and a
+ * half did, which is what a vendor checking stock actually wants.
+ *
+ * The media column is a fixed 72px track rather than a percentage, because
+ * the thumbnail is a fixed 72px square: a percentage would shrink it into
+ * illegibility at 320px, and `no-starved-text-box` would be right to object.
+ */
+.tv-product {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--tv-s3);
+  padding: var(--tv-s3);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-product__media { display: flex; flex-direction: column; align-items: center; gap: var(--tv-s2); }
+.tv-product__body { min-inline-size: 0; }
+
+.tv-product__thumb {
+  inline-size: 72px;
+  block-size: 72px;
+  object-fit: cover;
+  border-radius: var(--tv-radius-sm);
+  border: 1px solid var(--tv-border);
+  background: var(--tv-surface);
+}
+
+.tv-product__thumb--empty {
+  display: grid;
+  place-items: center;
+  color: var(--tv-muted);
+  font-size: 1.5rem;
+}
+
+.tv-product__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s2);
+  margin-block-end: var(--tv-s2);
+}
+
+.tv-product__title { font-size: 1.0625rem; min-inline-size: 0; overflow-wrap: anywhere; }
+
+.tv-product__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tv-s2) var(--tv-s4);
+  margin: 0;
+}
+
+.tv-product__facts > div { display: flex; align-items: baseline; gap: var(--tv-s2); }
+.tv-product__facts dt { color: var(--tv-muted); font-size: 0.9375rem; font-weight: 700; }
+.tv-product__facts dd { margin: 0; overflow-wrap: anywhere; }
+
+/* The work card an approved shop opens on. Same components as the rest of
+ * the panel; only the accent says «start here». */
+.tv-card--today { border-inline-start: 4px solid var(--tv-accent, var(--tv-amber)); }
+.tv-queue--today { font-size: 1.0625rem; }
+
+.tv-product__note {
+  margin-block: var(--tv-s3) 0;
+  padding: var(--tv-s3);
+  border-inline-start: 4px solid var(--tv-amber);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface);
+}
+
+.tv-product__actions,
+.tv-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tv-s2);
+  align-items: center;
+  margin-block: var(--tv-s3) 0;
+}
+
+.tv-inline { display: inline-flex; margin: 0; }
+
+/* «ویرایش» and «بایگانی» are a <p> and a <form>: two block boxes, so they
+ * stacked and every row in the list was one line taller than it needed to be.
+ * Making the actions box inline-level puts them on one line without touching
+ * the markup — the form has to stay a form. */
+.tv-product .tv-product__actions {
+  display: inline-flex;
+  margin-inline-end: var(--tv-s2);
+  vertical-align: middle;
+}
+.tv-product .tv-inline { vertical-align: middle; }
+
+.tv-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s3);
+  margin-block-start: var(--tv-s4);
+}
+
+.tv-pager__status { color: var(--tv-muted); }
+
+.tv-fieldset {
+  margin-block: 0 var(--tv-s5);
+  padding: var(--tv-s4);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-fieldset legend {
+  padding-inline: var(--tv-s2);
+  font-weight: 700;
+  color: var(--tv-ink);
+}
+
+.tv-gallery {
+  list-style: none;
+  margin: 0 0 var(--tv-s4);
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--tv-s3);
+}
+
+.tv-gallery__item {
+  padding: var(--tv-s3);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface);
+}
+
+.tv-gallery__item img {
+  display: block;
+  inline-size: 96px;
+  block-size: 96px;
+  object-fit: cover;
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+/* The two controls under a thumbnail are tap targets, not captions. The
+ * browser default for a radio or a checkbox is 13px — below WCAG 2.2's 24px
+ * floor and simply hard to hit on a phone — so they are sized here the same
+ * way the settings checkboxes are. The a11y suite caught this one too. */
+.tv-gallery__main,
+.tv-gallery__drop {
+  display: flex;
+  align-items: center;
+  gap: var(--tv-s2);
+  min-block-size: var(--tv-touch);
+}
+
+.tv-gallery__main input[type="radio"],
+.tv-gallery__drop input[type="checkbox"] {
+  inline-size: 24px;
+  block-size: 24px;
+  accent-color: var(--tv-ink);
+  flex: 0 0 auto;
+}
+
+.tv-review {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--tv-s2) var(--tv-s5);
+  margin: 0;
+}
+
+.tv-review > div { display: grid; gap: 2px; padding-block: var(--tv-s2); border-block-end: 1px dashed var(--tv-border); }
+.tv-review dt { color: var(--tv-muted); font-size: 0.9375rem; font-weight: 700; }
+.tv-review dd { margin: 0; overflow-wrap: anywhere; }
+.tv-review__title { margin-block: 0 var(--tv-s3); font-size: 1rem; }
+
+/* A table is the one thing allowed to scroll sideways, and only inside this. */
+.tv-scroll { overflow-x: auto; }
+
+.tv-table { inline-size: 100%; border-collapse: collapse; }
+.tv-table th, .tv-table td { padding: var(--tv-s3); text-align: start; border-block-end: 1px solid var(--tv-border); }
+.tv-table thead th { background: var(--tv-surface-2); font-weight: 700; }
+
+.tv-visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+ * Variations, search, gallery ordering and orders (stage 3).
+ *
+ * Same rule as the product block above: every multi-column layout is
+ * `auto-fit` + `minmax(12rem, …)`, so nothing answers to the window and no
+ * track can starve a Persian label.
+ * ------------------------------------------------------------------------ */
+.tv-search {
+  margin-block-end: var(--tv-s4);
+  padding: var(--tv-s3) var(--tv-s4);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-search .tv-field { margin-block-end: var(--tv-s2); }
+
+.tv-subform__title { margin-block: 0 var(--tv-s3); font-size: 1rem; }
+
+.tv-gallery__position { margin-block: var(--tv-s2) 0; color: var(--tv-muted); font-size: 0.9375rem; }
+
+.tv-gallery__move { display: flex; flex-wrap: wrap; gap: var(--tv-s2); margin-block: var(--tv-s2); }
+
+.tv .tv-gallery__btn { padding-inline: var(--tv-s3); font-size: 0.9375rem; }
+.tv .tv-gallery__btn[disabled] { opacity: 0.55; cursor: default; }
+
+.tv-attrs,
+.tv-variations,
+.tv-orders {
+  list-style: none;
+  margin: 0 0 var(--tv-s4);
+  padding: 0;
+  display: grid;
+  gap: var(--tv-s3);
+}
+
+.tv-attrs__item,
+.tv-variations__item,
+.tv-order {
+  padding: var(--tv-s4);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface);
+}
+
+.tv-attrs__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s2);
+  margin-block-end: var(--tv-s2);
+}
+
+.tv-variations__item {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--tv-s3);
+  align-items: start;
+}
+
+.tv-variations__item img {
+  inline-size: 64px;
+  block-size: 64px;
+  object-fit: cover;
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-variations__body { min-inline-size: 0; }
+
+.tv-inline--stock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--tv-s2);
+  margin-block-start: var(--tv-s3);
+}
+
+.tv-inline--stock .tv-label { inline-size: 100%; margin-block-end: 0; }
+.tv .tv-input--short { inline-size: 7rem; }
+
+.tv-order__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s2);
+  margin-block-end: var(--tv-s2);
+}
+
+.tv-order__date { color: var(--tv-muted); }
+.tv-order__title { margin-block: 0 var(--tv-s3); font-weight: 600; overflow-wrap: anywhere; }
+
+.tv-order__ship {
+  margin-block-start: var(--tv-s3);
+  padding: var(--tv-s3);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-order__ship p { margin-block: 0 var(--tv-s1); }
+
+.tv-order__actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--tv-s3);
+  margin-block-start: var(--tv-s4);
+  align-items: end;
+}
+
+.tv-order__actions .tv-inline { display: block; }
+
+/* --- the wholesale ladder editor -------------------------------------- */
+/* Two boxes that belong together on one line where there is room for them,
+   and stacked where there is not. `auto-fit` with a real minimum rather than a
+   breakpoint, so the pair reflows inside a narrow card as well as a narrow
+   screen — the same reason every other layout here is written this way
+   (ADR-006). */
+.tv-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--tv-s3);
+  align-items: start;
+}
+
+.tv-row .tv-field { max-inline-size: none; }
+
+.tv-subtitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-block: var(--tv-s4) var(--tv-s2);
+  overflow-wrap: anywhere;
+}
+
+/* --- notifications and reports ---------------------------------------- */
+/* An unread notice is marked by a rule and weight, not by colour alone:
+   colour on its own fails WCAG 1.4.1 for anyone who cannot see it, and the
+   badge next to the time says the same thing in words. */
+.tv-notices { list-style: none; margin: 0; padding: 0; }
+
+.tv-notice {
+  padding: var(--tv-s3);
+  border-block-end: 1px solid var(--tv-border);
+}
+
+.tv-notice:last-child { border-block-end: 0; }
+
+.tv-notice--unread {
+  border-inline-start: 4px solid var(--tv-ink);
+  background: var(--tv-surface-2);
+  font-weight: 600;
+}
+
+.tv-notice__text { margin: 0; overflow-wrap: anywhere; }
+
+.tv-notice__meta {
+  margin-block: var(--tv-s1) 0;
+  font-size: 0.875rem;
+  color: var(--tv-muted);
+  font-weight: 400;
+}
+
+.tv-badge {
+  display: inline-block;
+  padding-inline: var(--tv-s2);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-ink);
+  color: var(--tv-surface);
+  font-size: 0.8125rem;
+}
+
+/* Figures reflow by the space the CARD has, not by the screen width — the
+   same reason every layout here uses auto-fit rather than a breakpoint
+   (ADR-006). A figure whose box is too narrow for its label is what
+   `no-starved-text-box` catches, so the minimum is generous. */
+.tv-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--tv-s3);
+  margin-block: var(--tv-s3);
+}
+
+.tv-figure {
+  padding: var(--tv-s3);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-figure dt { font-size: 0.9375rem; color: var(--tv-muted); overflow-wrap: anywhere; }
+.tv-figure dd { margin: var(--tv-s1) 0 0; font-size: 1.125rem; font-weight: 700; overflow-wrap: anywhere; }
+
+/* --- ticket attachments ------------------------------------------------ */
+.tv-files { list-style: none; margin: var(--tv-s2) 0 0; padding: 0; }
+
+.tv-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s2);
+  padding-block: var(--tv-s1);
+}
+
+.tv-file__name { overflow-wrap: anywhere; }
+.tv-file__size { color: var(--tv-muted); font-size: 0.875rem; }
+.tv-file--hidden .tv-file__name { text-decoration: line-through; color: var(--tv-muted); }
+
+/* --- reviews and ratings ------------------------------------------------ */
+.tv-reviews { list-style: none; margin: var(--tv-s3) 0 0; padding: 0; }
+
+.tv-review {
+  padding: var(--tv-s3);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+  margin-block-end: var(--tv-s3);
+}
+
+.tv-review__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s2);
+  margin-block-end: var(--tv-s2);
+}
+
+/* The stars are digits, not glyphs a font may not have. They are also LTR-safe
+   because the star follows the number in the same string — so there is no
+   bidi reordering to guard against here. */
+.tv-review__stars { font-weight: 700; color: var(--tv-ink); white-space: nowrap; }
+.tv-review__body { overflow-wrap: anywhere; }
+
+.tv-review__reply {
+  margin-block-start: var(--tv-s2);
+  padding-inline-start: var(--tv-s3);
+  border-inline-start: 3px solid var(--tv-sky);
+  color: var(--tv-muted);
+  overflow-wrap: anywhere;
+}
+
+.tv-reply { margin-block-start: var(--tv-s3); }
+
+/* --- charts -------------------------------------------------------------
+   HTML and CSS, not SVG. An inline SVG scales its own text with the drawing,
+   so on a 320px viewport the category labels rendered ~9px wide — about a 5px
+   font — and `no-starved-text-box` failed, correctly. Here the bar is a span
+   with a percentage width and every word is ordinary text that wraps, zooms
+   and can be translated.
+
+   Rows rather than columns: a column on a phone is ~45px wide and «آماده‌سازی»
+   has nowhere to go. A row gives the label a column of its own. */
+.tv-chart {
+  margin-block: var(--tv-s4);
+  padding: var(--tv-s3);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-chart__title { font-weight: 700; color: var(--tv-ink); margin-block-end: var(--tv-s3); }
+.tv-chart__rows { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tv-s2); }
+
+/* The label column has a floor so a long word is never squeezed to a stripe,
+   and `max-content` so a short one does not hog the track. */
+.tv-chart__row {
+  display: grid;
+  grid-template-columns: minmax(6rem, max-content) 1fr minmax(2.5rem, max-content);
+  align-items: center;
+  gap: var(--tv-s2);
+}
+
+.tv-chart__label { color: var(--tv-muted); overflow-wrap: anywhere; }
+.tv-chart__value { font-weight: 700; text-align: start; font-variant-numeric: tabular-nums; }
+
+.tv-chart__track {
+  display: block;
+  block-size: 12px;
+  border-radius: 999px;
+  background: var(--tv-sky-soft);
+  overflow: hidden;
+}
+
+.tv-chart__fill {
+  display: block;
+  block-size: 100%;
+  border-radius: 999px;
+  background: var(--tv-ink);
+}
+
+/* Five series colours before they repeat. They carry no meaning on their own —
+   every row prints its label and its number — so this is variety, not a key. */
+.tv-chart__fill[data-series="1"] { background: #6ABFE7; }
+.tv-chart__fill[data-series="2"] { background: #21D483; }
+.tv-chart__fill[data-series="3"] { background: #FFC658; }
+.tv-chart__fill[data-series="4"] { background: #4F6570; }
+
+.tv-chart__caption { color: var(--tv-muted); font-size: 0.9375rem; margin-block: var(--tv-s2) 0; }
+
+/* ------------------------------------------------------------------ bulk bar
+   The checkboxes live in the product cards and point at this form by id, so
+   the per-row «بایگانی» forms are never nested inside it. See
+   ProductListView::bulkBar(). */
+.tv-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--tv-s2);
+  padding: var(--tv-s3);
+  margin-block-end: var(--tv-s3);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-bulk__label { font-weight: 600; flex-basis: 100%; }
+
+/* The hint takes the whole row. A sentence squeezed beside a select is the
+   starved text box ADR-006 forbids, and at 320px it becomes one word a line. */
+.tv-bulk .tv-hint { flex-basis: 100%; margin-block-start: 0; }
+
+/* A checkbox target small enough to miss is one a vendor mis-taps on a phone;
+   44px is the smallest reliable one. */
+.tv-product__pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  margin-inline-end: var(--tv-s1);
+}
+
+.tv-product__pick input { inline-size: 1.25rem; block-size: 1.25rem; }
+
+/* Visible to a screen reader, invisible on screen, and NOT display:none —
+   which would take it out of the accessibility tree along with everything
+   else. */
+.tv-sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* -------------------------------------------------------------- autosave
+   One line under the form. It is `role="status"` in the markup, so it is
+   announced politely rather than interrupting somebody mid-sentence. */
+.tv-autosave {
+  min-block-size: 1.5rem;
+  margin-block: var(--tv-s2) 0;
+  font-size: 0.9375rem;
+  color: var(--tv-muted);
+}
+
+.tv-autosave--ok { color: var(--tv-ink); }
+/* --tv-red on the card surface, which the contrast tool already measures for
+   every error notice; a warning that cannot be read is not one. */
+.tv-autosave--warn { color: var(--tv-red); font-weight: 600; }
+
+/* The bulk select sits beside its button rather than taking the whole row:
+   `.tv-input` is 100% wide by design (a form field should be), and in the
+   wrapping bar that pushed the button onto its own line at every width. */
+.tv-bulk select.tv-input { inline-size: auto; min-inline-size: 12rem; max-inline-size: 100%; }

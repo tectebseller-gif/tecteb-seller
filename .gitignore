@@ -32,6 +32,13 @@ node_modules/
 # byte-reproducible, and tools/build.sh refuses to overwrite a delivered one
 # — a guard that only works while the bytes are somewhere it can check.
 docs/evidence/**/*.png
+# ...with one exception, and a narrow one. The static mirror's own PNG/GIF are
+# not screenshots: they are the product images and sprites the mirrored PAGES
+# load, and without them the mirror somebody clones is a mirror with broken
+# thumbnails — which is exactly the «0 missing local files» claim it makes.
+# 25KB in total. Its `screens/` folder stays out; those ARE screenshots.
+!/docs/evidence/demo-mirror/*.png
+!/docs/evidence/demo-mirror/*.gif
 docs/evidence/**/*.jpg
 docs/evidence/**/*.jpeg
 docs/evidence/**/*.webp

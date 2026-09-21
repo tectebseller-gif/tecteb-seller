@@ -124,7 +124,8 @@ final class ProductArea
             $view->notice,
             $mayEdit,
             $this->publishing()->mayPublishDirectly($vendorUserId),
-            $search
+            $search,
+            $this->listThumbnails($products)
         );
     }
 
@@ -646,6 +647,41 @@ final class ProductArea
         }
         [$imageIds[$position], $imageIds[$target]] = [$imageIds[$target], $imageIds[$position]];
         return array_values($imageIds);
+    }
+
+    /**
+     * Main-image thumbnails for the page of products being shown, keyed by
+     * product id.
+     *
+     * Resolved here rather than in the view, which knows nothing about
+     * WordPress and is handed URLs. Only the visible page is asked about —
+     * `PER_PAGE` rows — so a shop with six hundred products costs what one
+     * with six costs.
+     *
+     * @param list<\Tecteb\Marketplace\Modules\Product\Domain\Product> $products
+     * @return array<int,string>
+     */
+    private function listThumbnails(array $products): array
+    {
+        $ids = [];
+        foreach ($products as $product) {
+            $main = $product->mainImageId > 0 ? $product->mainImageId : ($product->imageIds[0] ?? 0);
+            if ((int) $main > 0) {
+                $ids[$product->id] = (int) $main;
+            }
+        }
+        if ($ids === []) {
+            return [];
+        }
+        $library = $this->container->get(ProductImageLibraryInterface::class);
+        $out = [];
+        foreach ($ids as $productId => $mediaId) {
+            $url = $library->thumbnailUrl($mediaId);
+            if ($url !== '') {
+                $out[$productId] = $url;
+            }
+        }
+        return $out;
     }
 
     /** @param list<int> $imageIds @return list<array{id:int,url:string}> */
