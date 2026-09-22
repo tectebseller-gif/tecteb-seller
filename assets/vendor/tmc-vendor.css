@@ -1002,3 +1002,52 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
    `.tv-input` is 100% wide by design (a form field should be), and in the
    wrapping bar that pushed the button onto its own line at every width. */
 .tv-bulk select.tv-input { inline-size: auto; min-inline-size: 12rem; max-inline-size: 100%; }
+
+/* The category picker. A thousand terms, so the list is a bounded, scrollable
+ * region rather than a page that grows to the height of the taxonomy. The
+ * path is the primary line because the leaf name alone is ambiguous on this
+ * shop — «لوازم جانبی» lives in six branches. */
+.tv-catpick__search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tv-s2);
+  align-items: center;
+  margin-block-end: var(--tv-s3);
+}
+.tv-catpick__search .tv-input { flex: 1 1 14rem; min-inline-size: 0; }
+
+.tv-catpick__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-block-size: 24rem;
+  overflow-y: auto;
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+.tv-catpick__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--tv-s2);
+  padding: var(--tv-s2) var(--tv-s3);
+  border-block-end: 1px solid var(--tv-border);
+}
+.tv-catpick__row:last-child { border-block-end: 0; }
+.tv-catpick__row.is-selected { background: var(--tv-surface); }
+.tv-catpick__row input { margin-block-start: 0.35rem; flex: 0 0 auto; }
+.tv-catpick__row label { display: grid; gap: 0.15rem; min-inline-size: 0; cursor: pointer; }
+.tv-catpick__path { overflow-wrap: anywhere; }
+.tv-catpick__meta { color: var(--tv-muted); font-size: 0.875rem; overflow-wrap: anywhere; }
+
+/* The logo and banner pickers show what is already there. A field that only
+ * held a number could not. */
+.tv-imgpick__preview {
+  display: block;
+  max-inline-size: 100%;
+  max-block-size: 9rem;
+  margin-block-end: var(--tv-s2);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}

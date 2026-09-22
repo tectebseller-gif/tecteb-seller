@@ -633,3 +633,20 @@
 .tmc-chart__fill[data-series="4"] { background: #4F6570; }
 
 .tmc-chart__caption { color: var(--tmc-muted, #4F6570); font-size: 0.9375rem; margin-block: 8px 0; }
+
+/* The template's category chooser: a bounded list of real `product_cat`
+ * terms, each shown with its whole ancestry. Bounded because the shop this
+ * was written for has 1,070 of them. */
+.tmc-catlist {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  max-height: 22rem;
+  overflow-y: auto;
+  border: 1px solid var(--tmc-border, #d6dbe1);
+  border-radius: 6px;
+}
+.tmc-catlist li { padding: 0.35rem 0.6rem; border-bottom: 1px solid var(--tmc-border, #d6dbe1); }
+.tmc-catlist li:last-child { border-bottom: 0; }
+.tmc-catlist label { display: block; cursor: pointer; overflow-wrap: anywhere; }
+.tmc-catlist small { color: var(--tmc-muted, #5b6b76); }

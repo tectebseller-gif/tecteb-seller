@@ -756,3 +756,48 @@ function locate_template(string|array $templateNames, bool $load = false, bool $
     }
     return '';
 }
+
+// ---- taxonomy ---------------------------------------------------------------
+function taxonomy_exists(string $taxonomy): bool
+{
+    return isset(State::$terms[$taxonomy]);
+}
+function get_terms(array $args = []): array
+{
+    $taxonomy = (string) ($args['taxonomy'] ?? '');
+    $rows = State::$terms[$taxonomy] ?? [];
+    $out = [];
+    foreach ($rows as $id => $row) {
+        if (empty($args['hide_empty']) === false && (int) $row['count'] === 0) {
+            continue;
+        }
+        $out[] = new \WP_Term((int) $id, $taxonomy, $row['name'], $row['slug'], (int) $row['parent'], (int) $row['count']);
+    }
+    usort($out, static fn (\WP_Term $a, \WP_Term $b): int => strcmp($a->name, $b->name));
+    return $out;
+}
+function get_term_by(string $field, string $value, string $taxonomy): \WP_Term|false
+{
+    foreach (State::$terms[$taxonomy] ?? [] as $id => $row) {
+        if (($row[$field] ?? null) === $value) {
+            return new \WP_Term((int) $id, $taxonomy, $row['name'], $row['slug'], (int) $row['parent'], (int) $row['count']);
+        }
+    }
+    return false;
+}
+/**
+ * Deliberately a failure.
+ *
+ * Nothing in the plugin may create a category any more — that was the
+ * parallel taxonomy `alpha.24` removed. A stub that quietly succeeded would
+ * let the behaviour come back without a test noticing.
+ */
+function wp_insert_term(string $term, string $taxonomy, array $args = []): \WP_Error
+{
+    State::$firedActions[] = ['tag' => 'wp_insert_term', 'args' => [$term, $taxonomy]];
+    return new \WP_Error('stub_refuses', 'the plugin must not create categories');
+}
+function number_format_i18n(float|int $number, int $decimals = 0): string
+{
+    return number_format((float) $number, $decimals);
+}

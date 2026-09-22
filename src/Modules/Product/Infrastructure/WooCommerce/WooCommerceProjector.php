@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute;
@@ -44,7 +45,10 @@ final class WooCommerceProjector implements CatalogProjectorInterface
     /** Marketplace categories live under their own slugs, so no shop term is renamed. */
     public const CATEGORY_SLUG_PREFIX = 'tmc-';
 
-    public function __construct(private readonly SpecTemplateRepositoryInterface $templates)
+    public function __construct(
+        private readonly SpecTemplateRepositoryInterface $templates,
+        private readonly ?ProductCategoryDirectoryInterface $categories = null
+    )
     {
     }
 
@@ -85,7 +89,10 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             static fn (int $id): bool => $id !== $product->mainImageId
         ));
         $wcProduct->set_gallery_image_ids($gallery);
-        $wcProduct->set_category_ids($this->categoryIds($details->categoryKey));
+        $wcProduct->set_category_ids($this->categoryIds(
+            $details->categoryKey,
+            array_map('intval', $wcProduct->get_category_ids())
+        ));
 
         if ($details->type === ProductType::VARIABLE) {
             $wcProduct->set_attributes($this->wcAttributes($attributes));
@@ -420,23 +427,36 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         return implode("\n\n", $parts);
     }
 
-    /** @return list<int> */
-    private function categoryIds(string $categoryKey): array
+    /**
+     * The WooCommerce term this product belongs to — resolved, never created.
+     *
+     * Until `alpha.24` this built a `tmc-…` slug out of the template key and
+     * called `wp_insert_term()` when it did not exist. On a shop with 1,070
+     * real categories that is a second, invisible taxonomy: the product lands
+     * under a term the shop's menus, filters, Elementor templates and Rank
+     * Math sitemap have never heard of, and the category the owner actually
+     * uses stays empty. The owner's instruction is explicit — «دسته‌بندی
+     * موازی یا تعریف دوبارهٔ آن‌ها نمی‌خواهیم» — so nothing here writes to the
+     * taxonomy any more.
+     *
+     * `$current` is what the product already carries. An unresolvable value
+     * KEEPS it rather than clearing it: a stored key whose term somebody
+     * renamed or deleted is a reason to leave the product where the shop put
+     * it, not a reason to strip its category on the next sync.
+     *
+     * @param list<int> $current
+     * @return list<int>
+     */
+    private function categoryIds(string $categoryKey, array $current = []): array
     {
         if (trim($categoryKey) === '' || !taxonomy_exists('product_cat')) {
-            return [];
+            return $current;
         }
-        $slug = self::CATEGORY_SLUG_PREFIX . sanitize_title($categoryKey);
-        $term = get_term_by('slug', $slug, 'product_cat');
-        if ($term instanceof \WP_Term) {
-            return [(int) $term->term_id];
+        $category = $this->categories?->find($categoryKey);
+        if ($category !== null) {
+            return [$category->id];
         }
-        $label = $this->templates->findByCategory($categoryKey)?->label ?? $categoryKey;
-        $created = wp_insert_term($label, 'product_cat', ['slug' => $slug]);
-        if (is_wp_error($created)) {
-            return [];
-        }
-        return [(int) $created['term_id']];
+        return $current;
     }
 
     /**

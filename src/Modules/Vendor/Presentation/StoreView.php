@@ -69,6 +69,39 @@ final class StoreView
         ];
     }
 
+    /**
+     * Pick a picture, and see the one that is already there.
+     *
+     * Both fields were number inputs until `alpha.25`, with a hint promising
+     * a picker «in the products stage». A vendor has no wp-admin, so there was
+     * no way for them to learn an attachment id — the field was unusable by
+     * the only people it was for. The hidden id is kept so that saving
+     * without choosing a file changes nothing.
+     */
+    private static function imageField(string $name, string $label, int $currentId): string
+    {
+        $url = $currentId > 0 ? wp_get_attachment_image_url($currentId, 'medium') : false;
+        $id = 'f-' . $name . '-file';
+        $html = '<div class="tv-field tv-imgpick">'
+            . '<label class="tv-label" for="' . esc_attr($id) . '">' . esc_html($label) . '</label>';
+        if (is_string($url) && $url !== '') {
+            $html .= '<img class="tv-imgpick__preview" src="' . esc_url($url) . '" alt="'
+                . esc_attr(sprintf(
+                    /* translators: %s: logo or banner */
+                    __('%s فعلی', 'tecteb-marketplace-core'),
+                    $label
+                )) . '" loading="lazy" decoding="async">';
+        } else {
+            $html .= '<p class="tv-hint">' . esc_html__('هنوز تصویری انتخاب نشده است.', 'tecteb-marketplace-core') . '</p>';
+        }
+        return $html
+            . '<input class="tv-input" type="file" id="' . esc_attr($id) . '" name="' . esc_attr($name) . '_file"'
+            . ' accept="image/png,image/jpeg,image/webp">'
+            . '<input type="hidden" name="' . esc_attr($name) . '_id" value="' . esc_attr((string) $currentId) . '">'
+            . '<p class="tv-hint">' . esc_html__('اگر فایلی انتخاب نکنید، تصویر فعلی دست‌نخورده می‌ماند.', 'tecteb-marketplace-core') . '</p>'
+            . '</div>';
+    }
+
     private static function general(StoreSettings $s, VendorUrls $urls, string $nonce, ?ChangeRequest $pending): string
     {
         $html = self::formOpen($urls, $nonce, 'save_store', 'general')
@@ -76,9 +109,8 @@ final class StoreView
             . VendorUi::input('city', __('شهر', 'tecteb-marketplace-core'), $s->city)
             . VendorUi::textarea('intro', __('معرفی فروشگاه', 'tecteb-marketplace-core'), $s->intro,
                 true, __('این متن در صفحه عمومی فروشگاه دیده می‌شود.', 'tecteb-marketplace-core'))
-            . VendorUi::input('logo_id', __('شناسه تصویر لوگو', 'tecteb-marketplace-core'), (string) $s->logoId, true, 'number', 'ltr',
-                __('فعلاً شناسه رسانه وارد می‌شود؛ انتخابگر تصویر در مرحله محصولات اضافه می‌شود.', 'tecteb-marketplace-core'))
-            . VendorUi::input('banner_id', __('شناسه تصویر بنر', 'tecteb-marketplace-core'), (string) $s->bannerId, true, 'number', 'ltr')
+            . self::imageField('logo', __('لوگوی فروشگاه', 'tecteb-marketplace-core'), $s->logoId)
+            . self::imageField('banner', __('بنر فروشگاه', 'tecteb-marketplace-core'), $s->bannerId)
             . '<div class="tv-actions">' . VendorUi::submit(__('ذخیره', 'tecteb-marketplace-core'), 'secondary') . '</div></form>';
 
         $html .= '<section class="tv-card"><h2 class="tv-card__title">' . esc_html__('نام فروشگاه', 'tecteb-marketplace-core') . '</h2>'
@@ -204,9 +236,16 @@ final class StoreView
         return null;
     }
 
+    /**
+     * `enctype` is not decoration: without it the browser sends the file's
+     * NAME and no bytes, the upload silently does nothing, and the vendor
+     * watches a save succeed with no picture — the exact silence the product
+     * form's image handling was rewritten in `alpha.14` to stop.
+     */
     private static function formOpen(VendorUrls $urls, string $nonce, string $action, string $tab, bool $card = true): string
     {
-        return '<form class="' . ($card ? 'tv-card' : 'tv-subform') . '" method="post" action="' . esc_url(add_query_arg('tab', $tab, $urls->store())) . '">'
+        return '<form class="' . ($card ? 'tv-card' : 'tv-subform') . '" method="post" enctype="multipart/form-data"'
+            . ' action="' . esc_url(add_query_arg('tab', $tab, $urls->store())) . '">'
             . $nonce
             . '<input type="hidden" name="tmc_vendor_action" value="' . esc_attr($action) . '">'
             . '<input type="hidden" name="tab" value="' . esc_attr($tab) . '">';

@@ -21,6 +21,7 @@ use Tecteb\Marketplace\Modules\Product\Application\EstimateVendorShare;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\ManageVariations;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
@@ -40,6 +41,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\AliasingSpecTemplateRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbVariationRepository;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
@@ -49,6 +51,8 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpProductDraftSt
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\StorefrontPage;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullCatalogProjector;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullProductCategoryDirectory;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WpProductCategoryDirectory;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\CartGuard;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\PurchaseGuard;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullUnpaidOrderGuard;
@@ -106,10 +110,28 @@ final class ProductModule implements ModuleInterface
             $c->get(DatabaseInterface::class),
             $c->get(ClockInterface::class)
         ));
-        $c->bind(SpecTemplateRepositoryInterface::class, static fn (ContainerInterface $c) => new DbSpecTemplateRepository(
-            $c->get(DatabaseInterface::class),
-            $c->get(ClockInterface::class)
+        // Wrapped, so a template keyed by the old word and a product carrying
+        // the new term id still find each other. The directory is resolved
+        // through a closure because it, in turn, wants to know which
+        // categories have a template.
+        $c->bind(SpecTemplateRepositoryInterface::class, static fn (ContainerInterface $c) => new AliasingSpecTemplateRepository(
+            new DbSpecTemplateRepository(
+                $c->get(DatabaseInterface::class),
+                $c->get(ClockInterface::class)
+            ),
+            static fn (): ProductCategoryDirectoryInterface => $c->get(ProductCategoryDirectoryInterface::class)
         ));
+        // Categories are WooCommerce's, so the directory only exists when
+        // WooCommerce does. Off a storefront it answers «nothing», which is
+        // honest: there is no taxonomy to read.
+        $c->bind(ProductCategoryDirectoryInterface::class, static function (ContainerInterface $c) {
+            return $c->get(DependencyProbeInterface::class)->woocommerceAvailable()
+                ? new WpProductCategoryDirectory(new DbSpecTemplateRepository(
+                    $c->get(DatabaseInterface::class),
+                    $c->get(ClockInterface::class)
+                ))
+                : new NullProductCategoryDirectory();
+        });
         $c->bind(ProductRevisionRepositoryInterface::class, static fn (ContainerInterface $c) => new DbProductRevisionRepository(
             $c->get(DatabaseInterface::class),
             $c->get(ClockInterface::class)
@@ -135,7 +157,10 @@ final class ProductModule implements ModuleInterface
         $c->bind(CatalogProjectorInterface::class, static function (ContainerInterface $c) {
             $probe = $c->get(DependencyProbeInterface::class);
             return $probe->woocommerceAvailable()
-                ? new WooCommerceProjector($c->get(SpecTemplateRepositoryInterface::class))
+                ? new WooCommerceProjector(
+                    $c->get(SpecTemplateRepositoryInterface::class),
+                    $c->get(ProductCategoryDirectoryInterface::class)
+                )
                 : new NullCatalogProjector();
         });
         $c->bind(StorefrontSwitch::class, static fn (ContainerInterface $c) => new StorefrontSwitch(

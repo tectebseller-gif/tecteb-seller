@@ -55,14 +55,51 @@ final class ProductAdminPagesTest extends DatabaseTestCase
 
     public function testTheTemplateBuilderSaysAKeyNeverChangesAndAFieldIsNeverDeleted(): void
     {
-        $this->bootPlugin(false);
+        // WooCommerce ON: categories are ITS taxonomy, so the directory only
+        // exists when it does. Booting without it and then seeding terms
+        // tested nothing — the page correctly answered «no categories».
+        $this->bootPlugin(true);
         State::loginAs(9, ['read', 'tmc_manage_spec_templates']);
+        // A template attaches to a category that exists, so one has to exist.
+        State::$terms = ['product_cat' => [
+            42 => ['name' => 'بیهوشی و تنفسی', 'slug' => 'anesthesia', 'parent' => 0, 'count' => 0],
+        ]];
         $out = $this->capture(fn () => (new SpecTemplatesPage(Bootstrap::container()))->render());
+        State::$terms = [];
 
         self::assertStringContainsString('الگوهای مشخصات', $out);
         self::assertStringContainsString('فیلدهای پزشکی برای همه دسته‌ها نمایش داده نمی‌شوند', $out);
         self::assertStringContainsString('الزام قانونی نیست', $out, 'MED-01: no automatic medical claim');
         self::assertStringContainsString('ساخت الگو', $out);
         self::assertStringContainsString('هنوز الگویی ساخته نشده است.', $out);
+        self::assertStringContainsString(
+            'name="category_key" value="42"',
+            $out,
+            'the template is attached to a real product_cat term, not to a word typed here'
+        );
+        self::assertStringNotContainsString(
+            'کلید دسته (انگلیسی)',
+            $out,
+            'the manager no longer INVENTS a category on this page'
+        );
+    }
+
+    /**
+     * No categories at all is a different sentence from no templates.
+     *
+     * Before `alpha.25` this page could not tell them apart, because it did
+     * not read the taxonomy: it offered a key field, the manager typed a
+     * word, and a category nobody could see came into being.
+     */
+    public function testWithNoWooCommerceCategoriesThePageSaysWhereToMakeThem(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_manage_spec_templates']);
+        State::$terms = ['product_cat' => []];
+        $out = $this->capture(fn () => (new SpecTemplatesPage(Bootstrap::container()))->render());
+        State::$terms = [];
+
+        self::assertStringContainsString('محصولات ← دسته‌بندی‌ها', $out);
+        self::assertStringNotContainsString('ساخت الگو', $out, 'nothing to attach a template to yet');
     }
 }

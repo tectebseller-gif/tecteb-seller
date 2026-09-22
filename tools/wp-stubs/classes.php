@@ -35,6 +35,19 @@ namespace TmcWpStubs {
 }
 
 namespace {
+    class WP_Term
+    {
+        public function __construct(
+            public int $term_id,
+            public string $taxonomy,
+            public string $name,
+            public string $slug,
+            public int $parent = 0,
+            public int $count = 0
+        ) {
+        }
+    }
+
     if (!defined('ARRAY_A')) { define('ARRAY_A', 'ARRAY_A'); }
     if (!defined('OBJECT')) { define('OBJECT', 'OBJECT'); }
     if (!defined('MINUTE_IN_SECONDS')) { define('MINUTE_IN_SECONDS', 60); }

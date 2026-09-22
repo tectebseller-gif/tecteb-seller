@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Product\Application\ConfigureSpecTemplates;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecTemplate;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
@@ -61,14 +62,30 @@ final class SpecTemplatesPage
         if ($templates === []) {
             echo '<section class="tmc-card"><p>' . esc_html__('هنوز الگویی ساخته نشده است.', 'tecteb-marketplace-core') . '</p></section>';
         }
-        $this->renderNewTemplateForm();
+        $this->renderNewTemplateForm(Request::capture()->queryText('cat_q'));
         echo Components::shellClose();
     }
 
     private function renderTemplate(SpecTemplate $template): void
     {
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
+        // Which real category is this attached to? A template made before
+        // `alpha.24` carries a word rather than a term id, and the manager
+        // needs to see which of the two it is before trusting it.
+        $category = $this->container->get(ProductCategoryDirectoryInterface::class)->find($template->categoryKey);
         echo '<section class="tmc-card"><h2 class="tmc-card__title">' . esc_html($template->label) . '</h2>'
+            . '<p class="description">' . esc_html($category !== null
+                ? sprintf(
+                    /* translators: 1: category path 2: term id */
+                    __('دستهٔ ووکامرس: %1$s (شناسه %2$s)', 'tecteb-marketplace-core'),
+                    $category->path,
+                    number_format_i18n($category->id)
+                )
+                : sprintf(
+                    /* translators: %s: the stored key */
+                    __('به هیچ دستهٔ ووکامرسی وصل نیست — کلید ذخیره‌شده: %s. الگوی تازه‌ای روی دستهٔ درست بسازید؛ این یکی دست نمی‌خورد.', 'tecteb-marketplace-core'),
+                    $template->categoryKey
+                )) . '</p>'
             . '<p class="tmc-hint">' . esc_html(sprintf(
                 /* translators: 1: category key, 2: template schema version */
                 __('کلید دسته: %1$s — نسخه الگو: %2$s', 'tecteb-marketplace-core'),
@@ -153,19 +170,93 @@ final class SpecTemplatesPage
             . '</form>';
     }
 
-    private function renderNewTemplateForm(): void
+    /**
+     * A template attaches to a category that already exists.
+     *
+     * It used to ask for a free-text key and a Persian title, which meant the
+     * manager was DEFINING a category here — a second list beside the 1,070
+     * the shop already has, and the source of the parallel `tmc-…` terms the
+     * projector used to create. Now the category is picked from
+     * `product_cat`, and what gets stored is its term id.
+     */
+    private function renderNewTemplateForm(string $query = ''): void
     {
-        echo '<section class="tmc-card"><h2 class="tmc-card__title">' . esc_html__('الگوی تازه', 'tecteb-marketplace-core') . '</h2>'
-            . '<form method="post">' . wp_nonce_field(self::NONCE, 'tmc_templates_nonce', true, false)
+        $directory = $this->container->get(ProductCategoryDirectoryInterface::class);
+        $total = $directory->total();
+
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">' . esc_html__('الگوی تازه', 'tecteb-marketplace-core') . '</h2>';
+        if ($total === 0) {
+            echo Components::notice('warn', __('هیچ دستهٔ محصولی در ووکامرس پیدا نشد. الگو به دستهٔ موجود وصل می‌شود، پس اول دسته‌ها را در «محصولات ← دسته‌بندی‌ها» بسازید یا ووکامرس را فعال کنید.', 'tecteb-marketplace-core'));
+            echo '</section>';
+            return;
+        }
+
+        echo '<form method="get"><input type="hidden" name="page" value="' . esc_attr(self::SLUG) . '">'
+            . '<div class="tmc-field"><label class="tmc-field__label" for="tpl-cat-q">'
+            . esc_html__('جست‌وجوی دستهٔ ووکامرس', 'tecteb-marketplace-core') . '</label>'
+            . '<input class="tmc-input" type="search" id="tpl-cat-q" name="cat_q" value="' . esc_attr($query) . '">'
+            . '</div>'
+            . '<p><button type="submit" class="tmc-button">' . esc_html__('جست‌وجو', 'tecteb-marketplace-core') . '</button></p>'
+            . '</form>';
+
+        $results = $directory->search($query, 40);
+        $matched = $directory->countMatches($query);
+        if ($results === []) {
+            echo Components::notice('info', __('دسته‌ای با این نام پیدا نشد.', 'tecteb-marketplace-core')) . '</section>';
+            return;
+        }
+
+        echo '<form method="post">' . wp_nonce_field(self::NONCE, 'tmc_templates_nonce', true, false)
             . '<input type="hidden" name="template_action" value="create_template">'
-            . '<div class="tmc-field"><label class="tmc-field__label" for="new-template-key">'
-            . esc_html__('کلید دسته (انگلیسی)', 'tecteb-marketplace-core') . '</label>'
-            . '<input class="tmc-input" type="text" id="new-template-key" name="category_key" dir="ltr"></div>'
+            . '<fieldset class="tmc-field"><legend class="tmc-field__label">'
+            . esc_html__('دسته', 'tecteb-marketplace-core') . '</legend><ul class="tmc-catlist">';
+        foreach ($results as $category) {
+            $id = 'tpl-cat-' . $category->id;
+            echo '<li><label for="' . esc_attr($id) . '">'
+                . '<input type="radio" id="' . esc_attr($id) . '" name="category_key" value="' . esc_attr($category->value()) . '"'
+                . ($category->hasTemplate ? ' disabled' : '') . '> '
+                . esc_html($category->path)
+                . ' <small>' . esc_html(sprintf(
+                    /* translators: %s: term id */
+                    __('شناسه %s', 'tecteb-marketplace-core'),
+                    number_format_i18n($category->id)
+                )) . '</small>'
+                . ($category->hasTemplate
+                    ? ' <small>' . esc_html__('— از قبل الگو دارد', 'tecteb-marketplace-core') . '</small>'
+                    : '')
+                . '</label></li>';
+        }
+        echo '</ul>';
+        if ($matched > count($results)) {
+            echo '<p class="description">' . esc_html(sprintf(
+                /* translators: 1: shown 2: matched */
+                __('%1$s مورد از %2$s مورد نمایش داده شد؛ برای باریک‌کردن، نام دقیق‌تری جست‌وجو کنید.', 'tecteb-marketplace-core'),
+                number_format_i18n(count($results)),
+                number_format_i18n($matched)
+            )) . '</p>';
+        }
+        echo '</fieldset>'
             . '<div class="tmc-field"><label class="tmc-field__label" for="new-template-label">'
-            . esc_html__('عنوان فارسی دسته', 'tecteb-marketplace-core') . '</label>'
+            . esc_html__('عنوان الگو (اختیاری — پیش‌فرض نام همان دسته است)', 'tecteb-marketplace-core') . '</label>'
             . '<input class="tmc-input" type="text" id="new-template-label" name="template_label"></div>'
             . '<p><button type="submit" class="tmc-button tmc-button--primary">' . esc_html__('ساخت الگو', 'tecteb-marketplace-core') . '</button></p>'
             . '</form></section>';
+    }
+
+    /**
+     * A template's title defaults to the category's own name.
+     *
+     * Typing it again is how two names for one thing get out of step — and
+     * the name that matters is the one the shop already shows.
+     */
+    private function templateLabel(string $categoryKey, string $typed): string
+    {
+        $typed = trim($typed);
+        if ($typed !== '') {
+            return $typed;
+        }
+        return $this->container->get(ProductCategoryDirectoryInterface::class)
+            ->find($categoryKey)?->name ?? $categoryKey;
     }
 
     /** @return array{code:string,context:array<string,scalar|null>}|null */
@@ -180,7 +271,10 @@ final class SpecTemplatesPage
         $service = $this->container->get(ConfigureSpecTemplates::class);
         $templateId = $request->postInt('template_id');
         $result = match ($request->postKey('template_action')) {
-            'create_template' => $service->createTemplate($request->postText('category_key'), $request->postText('template_label')),
+            'create_template' => $service->createTemplate(
+                $request->postText('category_key'),
+                $this->templateLabel($request->postText('category_key'), $request->postText('template_label'))
+            ),
             'add_field' => $service->addField(
                 $templateId,
                 $request->postText('field_key'),

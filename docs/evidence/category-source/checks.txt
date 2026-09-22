@@ -1,0 +1,14 @@
+      terms: medical=19 anesthesia=20 ambobag=21 acc-anes=22 urology=23 acc-uro=24
+ok:   a three-level category exists                              20
+ok:   its own parent has a parent                                19
+ok:   the deep leaf has no products at all                       0
+ok:   two different branches end in the same name                2
+ok:   no spec template exists for these categories               0
+      product_cat terms on this site: 10
+ok:   the taxonomy is not empty                                  yes
+      product 22 carries product_cat ids: 18
+ok:   the WooCommerce product is filed under the chosen term     18
+ok:   and under exactly one term, not a duplicate beside it      1
+ok:   no tmc- category was invented for it                       0
+
+pass=9 fail=0

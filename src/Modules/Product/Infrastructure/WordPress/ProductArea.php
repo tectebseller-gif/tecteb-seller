@@ -4,12 +4,14 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress;
 
 use Tecteb\Marketplace\Contracts\ContainerInterface;
+use Tecteb\Marketplace\Contracts\DependencyProbeInterface;
 use Tecteb\Marketplace\Contracts\FlashStoreInterface;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Product\Application\EstimateVendorShare;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\ManageVariations;
 use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
@@ -21,6 +23,7 @@ use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterfa
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Presentation\ProductCategoryPickerView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductBulkPreviewView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductCsvView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductFormView;
@@ -195,7 +198,7 @@ final class ProductArea
             $template,
             $view->request->queryKey('step'),
             $status,
-            $this->categories(),
+            $this->categoryPicker($details->categoryKey, $view->request->queryText('cat_q')),
             $view->urls,
             $view->nonceField,
             $view->notice,
@@ -344,12 +347,22 @@ final class ProductArea
         // needed it.
         $this->drafts()->forget($userId, $savedId);
         // A reorder is not "done with this step": stay where the gallery is.
+        // Nor is a category search: the vendor asked to see a different list,
+        // not to move on. Both save first, which is the whole reason the
+        // search is a submit button rather than a link — a link would lose the
+        // title and the brand they had just typed.
+        $searching = $request->postText('search_category') !== '';
         $next = match (true) {
+            $searching => self::GALLERY_STEP,
             $request->postText('move_image') !== '' => $step,
             $productId === 0 => '1',
             default => $this->nextStep($step),
         };
-        return new VendorAreaOutcome($result->code, $this->stepUrl($urls, $savedId, $next), $result->context);
+        $url = $this->stepUrl($urls, $savedId, $next);
+        if ($searching) {
+            $url = add_query_arg('cat_q', rawurlencode($request->postText('category_q')), $url);
+        }
+        return new VendorAreaOutcome($result->code, $url, $result->context);
     }
 
     /**
@@ -695,14 +708,29 @@ final class ProductArea
         return $gallery;
     }
 
-    /** Categories are the manager's templates: the vendor picks from what exists. */
-    private function categories(): array
+    /**
+     * The state of the «دسته» picker: WooCommerce's own categories.
+     *
+     * This used to read the manager's SPEC TEMPLATES and hand the form a
+     * «key => label» map. On the owner's staging — 1,070 `product_cat` terms
+     * and no template yet — that map was EMPTY, so the dropdown had nothing in
+     * it, step 1 could never be completed, and no product ever reached review.
+     * The templates were never the catalogue; they are notes ABOUT it.
+     *
+     * @return array<string,mixed>
+     */
+    private function categoryPicker(string $selectedKey, string $query): array
     {
-        $categories = [];
-        foreach ($this->templates()->all() as $template) {
-            $categories[$template->categoryKey] = $template->label;
-        }
-        return $categories;
+        $directory = $this->container->get(ProductCategoryDirectoryInterface::class);
+        $total = $directory->total();
+        return [
+            'selected' => $directory->find($selectedKey),
+            'results' => $directory->search($query, ProductCategoryPickerView::SHOW),
+            'query' => $query,
+            'matched' => $directory->countMatches($query),
+            'total' => $total,
+            'missing' => $total === 0 && !$this->container->get(DependencyProbeInterface::class)->woocommerceAvailable(),
+        ];
     }
 
     private function stepUrl(VendorUrls $urls, int $productId, string $step): string

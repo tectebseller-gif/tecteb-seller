@@ -5,6 +5,16 @@ namespace TmcWpStubs;
 
 final class State
 {
+    /**
+     * Taxonomy terms, keyed by taxonomy then term id.
+     *
+     * Added for the category picker: the thing under test reads
+     * `product_cat`, so a stub that cannot hold a hierarchy cannot test it.
+     *
+     * @var array<string,array<int,array{name:string,slug:string,parent:int,count:int}>>
+     */
+    public static array $terms = [];
+
     /** @var array<string,mixed> */
     public static array $options = [];
     /** @var array<string,mixed> */

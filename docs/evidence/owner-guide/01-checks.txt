@@ -7,8 +7,10 @@ ok:   2. the marketplace dashboard opens                             yes
 ok:   2-2. a fresh install says documents are undefined              says so
 ok:   2-2. the type is now defined                                   listed
 ok:   2-2. and the page now says submission is possible              says so
-ok:   2-4. a fresh install has no spec template (so no product category) none yet
-ok:   2-4. the category now exists                                   created
+ok:   2-4. a three-level WooCommerce category tree exists            created
+ok:   2-4. and the third level really is a grandchild, not a second root nested
+ok:   2-4. a fresh install has no spec template                      none yet
+ok:   2-4. and the template form offers real categories rather than a free-text key offers categories
 ok:   2-3. a general commission rate is recorded                     yes
 ok:   the rate ALONE does not open the order gate                    still closed
 ok:   and on an undeclared environment the switch is refused, with a reason refused with reason
@@ -29,11 +31,14 @@ ok:   3-2. the vendor reaches store settings                         yes
 ok:   3-2. store settings saved                                      saved
 ok:   3-3. the colleague was invited                                 invited
 ok:   3-3. the one-time invite link is on screen                     shown
-      invite link: http://127.0.0.1:8081/vendor/invite/?token=f1a058685c1b2d49843774bd6a0437a66136d30680567246
+      invite link: http://127.0.0.1:8081/vendor/invite/?token=7648ec0506a2dc18d185582104e988d05965260717e1b906
 ok:   3-3. the colleague activated their account                     active
 ok:   4-2. the vendor created the demo catalogue                     3
 ok:   4-1. the manager sees products awaiting review                 listed
 ok:   4-1. every demo product is approved                            3
+      category chosen in the form: 18
+ok:   4-1. WooCommerce lists the product under the category the vendor chose listed
+ok:   4-1. and no tmc- category was invented beside it               none invented
 ok:   4-4. approved products are on the shop                         visible
 ok:   4-4. the vendor user id was found                              found
       public store page: http://127.0.0.1:8081/?tmc_store=2
@@ -53,4 +58,4 @@ ok:   4-6. the colleague has the shipment form                       present
 ok:   4-6. the shipment is recorded                                  recorded
 ok:   4-6. the owner sees the shipment their colleague recorded      visible
 
-pass=49 fail=0
+pass=53 fail=0

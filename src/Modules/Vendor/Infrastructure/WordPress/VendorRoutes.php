@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Contracts\Files\UploadedFile;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
+use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Vendor\Application\DocumentRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\SaveApplicationDraft;
 use Tecteb\Marketplace\Modules\Vendor\Application\SubmitApplication;
@@ -101,6 +102,26 @@ final class VendorRoutes
             return;
         }
 
+        // Nothing under /vendor/ may be cached, and saying so has to happen
+        // HERE — before the login redirect, before any render — because that
+        // is when a page cache decides.
+        //
+        // The owner saw the panel report «no application» right after signing
+        // in again, while the manager was looking at the same file approved.
+        // This code cannot produce that pair: `findApplicationByUser()` is an
+        // uncached `SELECT … WHERE user_id = %d`, and a signed-out visitor is
+        // redirected to the login form rather than shown an empty panel. So
+        // the HTML in that tab was not produced by this request — which is
+        // what a page cache does, and their site runs one (WP Rocket).
+        //
+        // That is a hypothesis, not a diagnosis, and it is written down as
+        // one. What is NOT a hypothesis: `nocache_headers()` alone was being
+        // called at the very end of the render, and page caches do not read
+        // `Cache-Control` — they read these constants. `DONOTCACHEPAGE` is
+        // the contract WP Rocket, W3 Total Cache, LiteSpeed and WP Super
+        // Cache all honour, and until now the plugin never set it.
+        $this->refuseCaching();
+
         // The invitation page is the one door a signed-out person may open:
         // they have no account they can log into yet, and the token — long,
         // hashed at rest, single use and expiring — is what vouches for them.
@@ -128,6 +149,25 @@ final class VendorRoutes
         }
 
         $this->renderPage($request, $view ?? 'dashboard', $userId);
+    }
+
+    /**
+     * «Do not cache this», in the three forms page caches actually look at.
+     *
+     * Constants rather than headers: by the time a header is sent, a cache
+     * that decided at `init` has already decided. Defined, never redefined —
+     * another plugin may have set them first and it means the same thing.
+     */
+    private function refuseCaching(): void
+    {
+        foreach (['DONOTCACHEPAGE', 'DONOTCACHEOBJECT', 'DONOTCACHEDB'] as $flag) {
+            if (!defined($flag)) {
+                define($flag, true);
+            }
+        }
+        if (!headers_sent()) {
+            nocache_headers();
+        }
     }
 
     // ---------------------------------------------------------------- routing
@@ -252,8 +292,8 @@ final class VendorRoutes
                 'tab' => $request->postKey('tab'),
                 'city' => $request->postText('city'),
                 'intro' => $request->postTextarea('intro'),
-                'logo_id' => $request->postInt('logo_id'),
-                'banner_id' => $request->postInt('banner_id'),
+                'logo_id' => $this->pickedImage($request, $userId, 'logo'),
+                'banner_id' => $this->pickedImage($request, $userId, 'banner'),
                 'preparation_days' => $request->postInt('preparation_days'),
                 'origin_warehouse' => $request->postText('origin_warehouse'),
                 'carriers' => $request->postTextList('carriers'),
@@ -266,6 +306,39 @@ final class VendorRoutes
             array_keys($lists->networks()),
             array_keys($lists->carriers())
         );
+    }
+
+    /**
+     * The logo or banner: a file the vendor chose, or the id already stored.
+     *
+     * Since `alpha.5` these two fields were bare number inputs whose own hint
+     * said an image picker «would be added in the products stage». It never
+     * was, so the only way to set a shop's logo was to find an attachment id
+     * in wp-admin and type it — which a vendor cannot do, because they have no
+     * wp-admin. The upload path is the one the product form has used since
+     * `alpha.6`; nothing new is invented here, it is just finally wired up.
+     *
+     * An empty file input means «leave it alone», so the stored id is carried
+     * through. A failed upload also leaves it alone rather than clearing it:
+     * losing the logo you already had is not an acceptable outcome of a
+     * refused upload.
+     */
+    private function pickedImage(Request $request, int $userId, string $field): int
+    {
+        $current = $request->postInt($field . '_id');
+        $file = $request->file($field . '_file');
+        if ($file->tempPath === '' || $file->errorCode === UPLOAD_ERR_NO_FILE) {
+            return $current;
+        }
+        $uploaded = $this->container->get(ManageProducts::class)->uploadImage(
+            $userId,
+            $userId,
+            $file,
+            $field === 'logo'
+                ? __('لوگوی فروشگاه', 'tecteb-marketplace-core')
+                : __('بنر فروشگاه', 'tecteb-marketplace-core')
+        );
+        return $uploaded->ok ? (int) $uploaded->context['media_id'] : $current;
     }
 
     private function inviteStaff(Request $request, int $userId): OperationResult

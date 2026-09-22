@@ -191,30 +191,86 @@ check(
 await shot('05-documents-defined');
 
 // ---------------------------------------------------------------------------
-// ۲-۴. الگوی مشخصات = دستهٔ محصول
+// ۲-۴. دستهٔ محصول = دستهٔ ووکامرس (و الگوی مشخصات، که اختیاری است)
 //
-// Found by this run, not by reading: the product form's «دسته» dropdown is
-// fed by the manager's SPEC TEMPLATES, not by WooCommerce categories. On a
-// clean install it therefore has nothing in it but the placeholder — and a
-// product with no category can never be completed, so no product can ever be
-// sent for review. The guide used to call this step optional («اگر خالی
-// بماند فرم بخش مشخصات ندارد»), which is the same mistake it made about
-// documents: a prerequisite described as a nicety.
+// `alpha.23` found that the product form's «دسته» came from the manager's
+// SPEC TEMPLATES rather than from WooCommerce, so a clean install offered
+// none and no product could ever be completed. The owner then found the same
+// defect the other way round on their own shop: 1,070 real `product_cat`
+// terms, and still an empty dropdown.
+//
+// From `alpha.25` the categories ARE WooCommerce's. This step creates a real
+// three-level tree the way the site's own admin does, and deliberately
+// creates NO template for it — because a category without a template must
+// still be choosable, and the product must still be submittable.
 // ---------------------------------------------------------------------------
-await gotoStable(`${SITE}/wp-admin/admin.php?page=tmc-spec-templates`, 'input[name="category_key"]');
+let chosenCategoryId = '';
+const CATEGORY = { name: 'آمبوبگ', parent: 'بیهوشی و تنفسی', root: 'تجهیزات پزشکی' };
+const catId = async (slug) => {
+  await gotoStable(`${SITE}/wp-admin/edit-tags.php?taxonomy=product_cat&post_type=product`, '#tag-name');
+  const link = page.locator(`a[href*="tag_ID="][href*="&"]`).first();
+  return link;
+};
+const addCategory = async (name, slug, parentSlug) => {
+  await gotoStable(`${SITE}/wp-admin/edit-tags.php?taxonomy=product_cat&post_type=product`, '#tag-name');
+  await page.fill('#tag-name', name);
+  await page.fill('#tag-slug', slug);
+  if (parentSlug) {
+    // WordPress indents child options with NBSPs, not dashes. Stripping only
+    // «— » left «\u00a0\u00a0\u00a0بیهوشی و تنفسی» unmatched, so the third
+    // level was created at the root and the tree was two levels, not three.
+    const flat = (t) => t.replace(/[\s\u00a0]+/g, ' ').trim();
+    const opts = await page.locator('#parent option').evaluateAll((o) =>
+      o.map((x) => ({ value: x.value, text: x.textContent })));
+    const match = opts.find((o) => flat(o.text) === flat(parentSlug));
+    if (!match) { throw new Error('parent category not offered: ' + parentSlug); }
+    await page.selectOption('#parent', match.value);
+  }
+  // `edit-tags.php` adds the term by AJAX — `admin-ajax.php?action=add-tag` —
+  // and does NOT reload. Waiting for a load therefore resolved against the
+  // page we were already on, and the next step read a parent dropdown that
+  // did not have the term in it yet: the third level was created at the root
+  // and the «three-level tree» was two levels deep.
+  await page.click('#submit');
+  await page.waitForFunction(
+    (wanted) => (document.querySelector('#the-list')?.textContent || '').includes(wanted),
+    name,
+    { timeout: 20000 }
+  ).catch(() => null);
+};
+await addCategory(CATEGORY.root, 'guide-medical', '');
+await addCategory(CATEGORY.parent, 'guide-anesthesia', CATEGORY.root);
+await addCategory(CATEGORY.name, 'guide-ambobag', CATEGORY.parent);
+// Read the list fresh, and check the SHAPE rather than just the names: three
+// rows prove nothing if all three sit at the root.
+await gotoStable(`${SITE}/wp-admin/edit-tags.php?taxonomy=product_cat&post_type=product`, '#the-list');
+const categoryRows = await words();
+check(
+  '2-4. a three-level WooCommerce category tree exists',
+  [CATEGORY.root, CATEGORY.parent, CATEGORY.name].every((n) => categoryRows.includes(n)) ? 'created' : 'missing',
+  'created'
+);
+const depth = await page.locator('#the-list tr').evaluateAll((rows) =>
+  rows.map((r) => (r.querySelector('.row-title')?.textContent || '')
+    .match(/^[\u2014\-\s]*/)[0].replace(/[\s]/g, '').length));
+check(
+  '2-4. and the third level really is a grandchild, not a second root',
+  Math.max(0, ...depth) >= 2 ? 'nested' : 'flat',
+  'nested'
+);
+
+await gotoStable(`${SITE}/wp-admin/admin.php?page=tmc-spec-templates`, '#wpbody-content');
 const templatesFresh = await words();
 check(
-  '2-4. a fresh install has no spec template (so no product category)',
+  '2-4. a fresh install has no spec template',
   /هنوز الگویی ساخته نشده/.test(templatesFresh) ? 'none yet' : 'unexpected',
   'none yet'
 );
-await page.fill('input[name="category_key"]', 'diagnostics');
-await page.fill('input[name="template_label"]', 'تجهیزات تشخیصی');
-await Promise.all([
-  page.waitForLoadState('domcontentloaded'),
-  page.locator('input[name="template_action"][value="create_template"]').locator('xpath=ancestor::form').locator('button[type="submit"]').first().click(),
-]);
-check('2-4. the category now exists', /تجهیزات تشخیصی/.test(await words()) ? 'created' : 'failed', 'created');
+check(
+  '2-4. and the template form offers real categories rather than a free-text key',
+  /جست‌وجوی دستهٔ ووکامرس/.test(templatesFresh) ? 'offers categories' : 'still free text',
+  'offers categories'
+);
 await shot('06a-spec-template');
 
 // ---------------------------------------------------------------------------
@@ -517,10 +573,24 @@ async function createProduct(item) {
     if (await has('textarea[name="short_description"]')) {
       await vp.fill('textarea[name="short_description"]', 'کالای نمایشی برای آزمایش ظاهر و مسیر خرید. مشخصات واقعی نیست.');
     }
-    if (await has('select[name="category"]')) {
-      const values = await vp.locator('select[name="category"] option').evaluateAll((o) => o.map((x) => x.value).filter(Boolean));
-      if (!values.length) { return Number(step || 0); }   // nothing to pick: the run says so rather than looping
-      await vp.selectOption('select[name="category"]', values[0]);
+    // The category picker: a search box and radios carrying the whole
+    // ancestry, because the shop this was written for has 1,070 terms. The
+    // search button SAVES first, so nothing typed above is lost.
+    if (await has('input[name="category_q"]')) {
+      if (!(await vp.locator('input[type="radio"][name="category"]:checked').count())) {
+        await vp.fill('input[name="category_q"]', CATEGORY.name);
+        await Promise.all([
+          vp.waitForLoadState('domcontentloaded'),
+          vp.locator('button[name="search_category"]').first().click(),
+        ]);
+        await vp.waitForSelector('input[type="radio"][name="category"]', { timeout: 20000 }).catch(() => null);
+      }
+      // Scoped to radios: the form also carries a HIDDEN `category` for the
+      // steps that are not on screen, and `.first()` found that instead.
+      const radios = vp.locator('input[type="radio"][name="category"]');
+      if (!(await radios.count())) { return Number(step || 0); }  // nothing to pick: say so rather than loop
+      await radios.first().check();
+      chosenCategoryId = await radios.first().getAttribute('value');
     }
     for (const [sel, value] of [
       ['input[type="text"][name="price"], input[type="number"][name="price"]', item.price],
@@ -572,6 +642,35 @@ for (let i = 0; i < 6; i++) {
   approved++;
 }
 check('4-1. every demo product is approved', approved, CATALOGUE.length);
+
+// ---------------------------------------------------------------------------
+// ۴-۱-الف. آیا محصول واقعاً زیر همان دستهٔ ووکامرس نشست؟
+//
+// The half that matters and that no unit test can answer: the vendor chose a
+// term, the manager approved, and WooCommerce's OWN category filter must now
+// list the product. Asked through wp-admin's product list filtered by that
+// category — WooCommerce's reading of its own taxonomy, not ours.
+// ---------------------------------------------------------------------------
+note(`category chosen in the form: ${chosenCategoryId || '(none)'}`);
+await gotoStable(`${SITE}/wp-admin/edit.php?post_type=product&product_cat=guide-ambobag`, '#wpbody-content');
+const filtered = await words();
+check(
+  '4-1. WooCommerce lists the product under the category the vendor chose',
+  CATALOGUE.some((i) => filtered.includes(i.title)) ? 'listed' : 'absent',
+  'listed'
+);
+await shot('06b-category-filter');
+
+// And no second, invented category beside it. Before `alpha.25` the projector
+// created a `tmc-…` term whenever it could not find one, which is the
+// parallel taxonomy the owner refused.
+await gotoStable(`${SITE}/wp-admin/edit-tags.php?taxonomy=product_cat&post_type=product&s=tmc-`, '#wpbody-content');
+const invented = await words();
+check(
+  '4-1. and no tmc- category was invented beside it',
+  /tmc-demo|guide-/.test(invented) || !/\btmc-[a-z]/.test(invented) ? 'none invented' : 'INVENTED',
+  'none invented'
+);
 await shot('21-products-approved');
 
 // ---------------------------------------------------------------------------

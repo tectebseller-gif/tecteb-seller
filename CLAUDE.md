@@ -38,6 +38,53 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 `docs/upgrade-and-rollback.md` بند ۵٫۲-ب (`docs/upgrade-and-rollback.md` ·
 `docs/evidence/upgrade-alpha1/` · `docs/evidence/upgrade/`).
 
+**`0.1.0-alpha.25` (۲۲ سپتامبر):** دسته از ووکامرس می‌آید، نه از الگوی
+مشخصات. ساختار داده همچنان **۱۸**.
+تحویل: `docs/phase-22-woocommerce-categories.md`.
+
+- **دراپ‌داون «دسته» از الگوهای مشخصات پر می‌شد، نه از `product_cat`.** روی
+  سایت مالک ۱٬۰۷۰ دسته هست و صفر الگو ⇒ فهرست خالی ⇒ مرحلهٔ ۱ کامل نمی‌شود ⇒
+  هیچ محصولی به بررسی نمی‌رسد. `alpha.23` همین را روی نصب تمیز دیده بود و
+  **راه‌حل را در الگو جست‌وجو کرده بود**؛ الگو هرگز کاتالوگ نبود، یادداشتی
+  دربارهٔ آن بود.
+- **و projector دستهٔ تازه می‌ساخت.** `'tmc-' . sanitize_title($key)` و
+  `wp_insert_term()` اگر نبود: یک تاکسونومی موازی کنار همان ۱٬۰۷۰ تا، که
+  منو و فیلتر و Elementor و sitemap سایت نمی‌شناسندش. حالا
+  `ProductCategoryDirectoryInterface` می‌خواند و **هیچ‌چیز نمی‌نویسد** —
+  `NoParallelTaxonomyTest` هر `wp_insert_term`/`wp_update_term`/
+  `wp_delete_term`/`register_taxonomy` را در کل `src/` ممنوع می‌کند
+  (کامنت‌ها اول خالی می‌شوند؛ قاعدهٔ `alpha.22`).
+- **مقدار ذخیره‌شده حالا `term_id` است**، و هیچ migration ای کلیدهای قدیمی را
+  بازنویسی نمی‌کند: بازنویسی یعنی حدس‌زدن اینکه هر واژه کدام ترم بوده، و حدسِ
+  غلط مشخصات پزشکیِ اشتباه را به محصول کسی می‌چسباند.
+  `AliasingSpecTemplateRepository` به‌جایش **دو بار می‌پرسد**.
+- **انتخاب از میان هزار مورد: جست‌وجو، مسیر کامل، سقف.** «لوازم جانبی» در شش
+  شاخه هست؛ نام برگ به‌تنهایی جواب نیست. و دکمهٔ جست‌وجو **خودش یک ذخیره
+  است**، پس آنچه تایپ شده از بین نمی‌رود — همان ترفند «جابه‌جایی تصویر».
+- **نبودِ الگو هیچ‌چیز را نمی‌بندد.** `ProductReadiness` از قبل هم الگوی غایب
+  را مانع نمی‌دانست؛ تنها مانع، فهرست خالی بود.
+- **لوگو و بنر بالاخره انتخابگر گرفتند.** از `alpha.5` فیلد عددی بودند با
+  راهنمایی که می‌گفت انتخابگر «در مرحله محصولات» می‌آید. فروشنده wp-admin
+  ندارد، پس فیلد برای تنها کسی که استفاده‌اش می‌کرد غیرقابل‌استفاده بود.
+- **`/vendor/` دیگر قابل کش نیست، و این در لحظهٔ شناسایی مسیر اعلام می‌شود.**
+  `nocache_headers()` تنها، آن هم در آخرین لحظهٔ رندر، به page cache نمی‌رسد:
+  آن‌ها `DONOTCACHEPAGE` را می‌خوانند.
+
+اجرا: unit ۲۸۵ · architecture **۲۲** · contract **۱۲۷** · database **۲۳۹** ·
+packaging ۱۹ · lint ۴۶۴ فایل روی ۸٫۴ و ۸٫۱ — همه ۰ شکست. مسیر راهنما روی نصب
+تمیز **۵۳**، و `category-source-check.sh` **۹** — هر دو ۰ شکست.
+
+**سه قاعدهٔ تازه:**
+- **`edit-tags.php` ترم را با AJAX اضافه می‌کند و صفحه را بارگذاری نمی‌کند.**
+  `waitForLoadState` روی همان صفحه‌ای که هستیم قطعی می‌شود، پس گام بعدی
+  دراپ‌داون والد را بدون ترم تازه می‌خواند و سطح سوم زیر ریشه ساخته می‌شود.
+  منتظر **ردیف** بمانید، نه منتظر بارگذاری.
+- **فرمی که `enctype` ندارد، نام فایل را می‌فرستد و بایت‌ها را نه.** ذخیره
+  موفق می‌شود و تصویر نمی‌آید — همان سکوتی که `alpha.14` بار اول بست.
+- **«کدام backend اجرا می‌شود» را اول بپرسید — این بار برای دسته.** فهرست
+  دسته‌ها فقط وقتی وجود دارد که ووکامرس وجود داشته باشد؛ آزمونی که بدون
+  ووکامرس ترم می‌کارد، چیزی را نمی‌سنجد و درست هم «دسته‌ای نیست» می‌گیرد.
+
 **`0.1.0-alpha.24` (۲۱ سپتامبر):** آینه‌ای که باز می‌شود، سفارشی که ثبت
 می‌شود، و هشی که می‌ماند. ساختار داده همچنان **۱۸**.
 تحویل: `docs/phase-21-reachable-demo-and-order-path.md` ·
@@ -942,7 +989,7 @@ bash tools/upgrade-rollback-check.sh /opt/php81/bin/php docs/evidence/upgrade-al
 # فاز ۱۹: شمارش دقیق، شواهد قابل تحویل، و فهرست هشِ چیزهای نیامده
 # فاز ۲۰: نصب تمیز و محیط نمایشی چهار نقش
 bash tools/demo-site.sh build          # وردپرس خالی روی 127.0.0.1:8081 (DB جدا)
-SITE=http://127.0.0.1:8081 ZIP=dist/tecteb-marketplace-core-0.1.0-alpha.24.zip \
+SITE=http://127.0.0.1:8081 ZIP=dist/tecteb-marketplace-core-0.1.0-alpha.25.zip \
   ADMIN=tmcowner ADMIN_PASS=demo-owner-2026 OUT=docs/evidence/owner-guide \
   node tools/browser/owner-guide-run.mjs     # راهنما، با کلیک — ۴۰ بررسی
 php tools/demo-image.php /home/user/demo-images   # شش PNG، بدون وردپرس
@@ -952,6 +999,10 @@ bash tools/split-evidence.sh           # آرشیو تصویرها، ۹ تکه +
 SITE=http://127.0.0.1:8081 OUT=docs/evidence/demo-mirror \
   node tools/browser/mirror-demo.mjs   # ۲۸ صفحه + دارایی‌ها، و باز کردنشان از file://
 bash tools/hosting-probe.sh docs/evidence/demo-mirror/hosting-probe.txt
+
+# فاز ۲۲: دستهٔ ووکامرس — خوانده از خودِ سایت با WP-CLI (۹ بررسی)
+TMC_PRODUCT_ID=<id> TMC_EXPECT_TERM=<term> \
+  bash tools/category-source-check.sh docs/evidence/category-source
 php tools/demo-translations.php <wp>/wp-content/languages  # بستهٔ فارسی حداقلی
 
 bash tools/staff-activity-evidence.sh docs/evidence/staff-activity  # اجرا + falsification

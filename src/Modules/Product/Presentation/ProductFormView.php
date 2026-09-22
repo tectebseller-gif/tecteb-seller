@@ -44,7 +44,11 @@ final class ProductFormView
     /**
      * @param array<string,string> $specs
      * @param list<array{id:int,url:string}> $images
-     * @param array<string,string> $categories category key => label
+     * @param array{selected?:\Tecteb\Marketplace\Modules\Product\Domain\ProductCategory|null,results?:list<\Tecteb\Marketplace\Modules\Product\Domain\ProductCategory>,query?:string,matched?:int,total?:int,missing?:bool} $categories
+     *        The category picker's state. Until `alpha.24` this was a flat
+     *        «key => label» map built from the manager's spec templates — the
+     *        defect that left a shop with 1,070 real categories offering the
+     *        vendor none.
      * @param array{attributes?:list<\Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute>,variations?:list<\Tecteb\Marketplace\Modules\Product\Domain\ProductVariation>,thumbnails?:array<int,string>} $variable
      */
     public static function render(
@@ -149,7 +153,7 @@ final class ProductFormView
             . match ($step) {
                 '2' => self::stepPrice($details),
                 '3' => self::stepTechnical($details, $specs, $template),
-                '4' => self::stepReview($details, $readiness, $share, $mayPublishDirectly, $status),
+                '4' => self::stepReview($details, $readiness, $share, $mayPublishDirectly, $status, $categories),
                 default => self::stepIntro($details, $categories),
             }
             . '<p class="tv-form__actions">'
@@ -250,14 +254,22 @@ final class ProductFormView
         return $html;
     }
 
-    /** @param array<string,string> $categories */
+    /** @param array<string,mixed> $categories the picker's state */
     private static function stepIntro(ProductDetails $d, array $categories): string
     {
-        $options = ['' => __('— انتخاب کنید —', 'tecteb-marketplace-core')] + $categories;
+        /** @var list<\Tecteb\Marketplace\Modules\Product\Domain\ProductCategory> $results */
+        $results = is_array($categories['results'] ?? null) ? $categories['results'] : [];
         return '<fieldset class="tv-fieldset"><legend>' . esc_html__('معرفی محصول', 'tecteb-marketplace-core') . '</legend>'
             . VendorUi::input('title', __('عنوان محصول', 'tecteb-marketplace-core'), $d->title)
             . VendorUi::select('type', __('نوع محصول', 'tecteb-marketplace-core'), ProductMessages::types(), $d->type, __('محصول خارجی و گروهی در این نسخه ساخته نمی‌شود.', 'tecteb-marketplace-core'))
-            . VendorUi::select('category', __('دسته', 'tecteb-marketplace-core'), $options, $d->categoryKey, __('مشخصه‌های پزشکی مرحله ۳ از روی همین دسته می‌آیند.', 'tecteb-marketplace-core'))
+            . ProductCategoryPickerView::render(
+                $categories['selected'] ?? null,
+                $results,
+                (string) ($categories['query'] ?? ''),
+                (int) ($categories['matched'] ?? count($results)),
+                (int) ($categories['total'] ?? count($results)),
+                (bool) ($categories['missing'] ?? false)
+            )
             . VendorUi::input('brand', __('برند', 'tecteb-marketplace-core'), $d->brand)
             . VendorUi::textarea('short_description', __('توضیح کوتاه', 'tecteb-marketplace-core'), $d->shortDescription)
             . '</fieldset>';
@@ -324,19 +336,26 @@ final class ProductFormView
         return $html . '</fieldset>';
     }
 
+    /** @param array<string,mixed> $categories the picker's state */
     private static function stepReview(
         ProductDetails $d,
         ?OperationResult $readiness,
         ?CommissionOutcome $share,
         bool $mayPublishDirectly,
-        ProductStatus $status
+        ProductStatus $status,
+        array $categories = []
     ): string {
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
         $html = '<fieldset class="tv-fieldset"><legend>' . esc_html__('بازبینی', 'tecteb-marketplace-core') . '</legend>'
             . '<dl class="tv-review">'
             . self::reviewRow(__('عنوان', 'tecteb-marketplace-core'), $d->title)
             . self::reviewRow(__('نوع', 'tecteb-marketplace-core'), ProductMessages::type($d->type))
-            . self::reviewRow(__('دسته', 'tecteb-marketplace-core'), $d->categoryKey)
+            // The stored value is a term id. Printing it raw would show the
+            // vendor «۲۱۴۰» where they chose «تجهیزات پزشکی › بیهوشی و تنفسی».
+            . self::reviewRow(
+                __('دسته', 'tecteb-marketplace-core'),
+                ($categories['selected'] ?? null)?->path ?? $d->categoryKey
+            )
             . self::reviewRow(__('قیمت', 'tecteb-marketplace-core'), sprintf(__('%s تومان', 'tecteb-marketplace-core'), $fa(number_format($d->priceMinor))))
             . self::reviewRow(__('موجودی', 'tecteb-marketplace-core'), $fa($d->stock))
             . '</dl>';
