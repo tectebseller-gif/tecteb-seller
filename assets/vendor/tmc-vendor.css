@@ -1040,6 +1040,35 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 .tv-catpick__path { overflow-wrap: anywhere; }
 .tv-catpick__meta { color: var(--tv-muted); font-size: 0.875rem; overflow-wrap: anywhere; }
 
+/* The chosen category is a block of its own, above the search, and it stays
+ * there while the vendor looks for something else. Reading «what is selected»
+ * out of a list of forty rows is not reading, it is hunting. */
+.tv-catpick__chosen { margin-block-end: var(--tv-s3); }
+.tv-catpick__chosen-label {
+  display: block; font-weight: 700; font-size: 0.9375rem;
+  margin-block-end: var(--tv-s1);
+}
+.tv-catpick__chosen .tv-catpick__list { max-block-size: none; background: var(--tv-surface); }
+.tv-catpick__chosen .tv-catpick__row.is-selected {
+  background: var(--tv-surface);
+  border-inline-start: 4px solid var(--tv-ink);
+}
+.tv-catpick__status { min-block-size: 1.25rem; margin-block: 0 var(--tv-s2); }
+
+/* A near match is a guess. It says so, in a colour that is not the colour of
+ * everything else — measured at 6.6:1 on its own background, because a label
+ * nobody can read is a label that is not there. */
+.tv-catpick__divider {
+  padding: var(--tv-s2) var(--tv-s3);
+  background: #FFF4DC;
+  color: #7A4E00;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  border-block-end: 1px solid var(--tv-border);
+}
+.tv-catpick__row.is-fuzzy { background: #FFFBF2; }
+.tv-catpick__near { color: #7A4E00; font-weight: 700; }
+
 /* The logo and banner pickers show what is already there. A field that only
  * held a number could not. */
 .tv-imgpick__preview {

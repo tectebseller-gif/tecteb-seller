@@ -133,6 +133,11 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
         return ($this->links[$productId] ?? 0) === $wcProductId && $wcProductId > 0;
     }
 
+    public function storefrontStatus(int $wcProductId): string
+    {
+        return $this->statuses[$wcProductId] ?? '';
+    }
+
     /** Test hook: somebody bought one. */
     public function sell(int $productId, int $quantity = 1): void
     {

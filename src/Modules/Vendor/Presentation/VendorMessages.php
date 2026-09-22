@@ -192,6 +192,17 @@ final class VendorMessages
             'storage_failed' => __('ذخیره‌سازی انجام نشد. کمی بعد دوباره تلاش کنید.', 'tecteb-marketplace-core'),
             'storage_unavailable' => __('بارگذاری مدرک فعلاً ممکن نیست: محل امنِ نگهداری مدارک روی این سایت آماده نیست. مدیر سایت باید آن را تنظیم کند؛ تا آن زمان هیچ مدرکی پذیرفته نمی‌شود.', 'tecteb-marketplace-core'),
             'forbidden' => __('دسترسی لازم را ندارید.', 'tecteb-marketplace-core'),
+            // ---- the shop's logo and banner ------------------------------
+            //
+            // The text is saved by the time any of these is shown, so each one
+            // says so: «تنظیمات ذخیره شد» and then what went wrong with the
+            // picture, and that the old one is still there. A refusal that
+            // reads like a failed save sends people back to retype what is
+            // already stored.
+            'image_too_large' => __('تنظیمات ذخیره شد، ولی تصویر بارگذاری نشد: حجمش از سقف این میزبان بیشتر است. تصویر فعلی دست‌نخورده ماند؛ فایل کوچک‌تری انتخاب کنید.', 'tecteb-marketplace-core'),
+            'image_mime_not_allowed' => __('تنظیمات ذخیره شد، ولی تصویر بارگذاری نشد: فقط JPEG، PNG و WebP پذیرفته می‌شوند. تصویر فعلی دست‌نخورده ماند.', 'tecteb-marketplace-core'),
+            'image_dimensions_too_small' => __('تنظیمات ذخیره شد، ولی تصویر بارگذاری نشد: ابعادش کمتر از حداقل است. تصویر فعلی دست‌نخورده ماند.', 'tecteb-marketplace-core'),
+            'not_an_image' => __('تنظیمات ذخیره شد، ولی فایل انتخاب‌شده تصویر نبود. تصویر فعلی دست‌نخورده ماند.', 'tecteb-marketplace-core'),
             // ---- store settings ------------------------------------------
             'store_saved' => __('تنظیمات فروشگاه ذخیره شد.', 'tecteb-marketplace-core'),
             'store_saved_with_problems' => sprintf(

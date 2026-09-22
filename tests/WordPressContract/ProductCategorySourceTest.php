@@ -154,6 +154,98 @@ final class ProductCategorySourceTest extends TestCase
         self::assertSame(99, $found->id);
     }
 
+    /**
+     * The three spellings the owner named, against the same term.
+     *
+     * «آمبوبگ» as it is on the site, «آمبو بگ» with a space, and «امبوبک»
+     * with two letters off. The first two must be exact — a space is not a
+     * difference in Persian — and the third must arrive labelled as a guess.
+     */
+    public function testTheThreeSpellingsOfOneTermAllFindIt(): void
+    {
+        $this->seedTree();
+        $directory = new WpProductCategoryDirectory();
+
+        foreach (['آمبوبگ', 'آمبو بگ'] as $typed) {
+            $hits = $directory->search($typed, 40);
+            self::assertNotSame([], $hits, $typed . ' finds something');
+            self::assertSame(30, $hits[0]->id, $typed . ' finds the right term first');
+            self::assertFalse($hits[0]->fuzzy, $typed . ' is an exact answer, not a guess');
+        }
+
+        $near = $directory->search('امبوبک', 40);
+        self::assertNotSame([], $near, 'a one-letter slip still finds the term');
+        self::assertSame(30, $near[0]->id);
+        self::assertTrue($near[0]->fuzzy, 'and it is labelled a guess rather than passed off as exact');
+    }
+
+    public function testAnExactMatchIsNeverPushedBelowAGuess(): void
+    {
+        $this->seed([
+            1 => ['name' => 'ماسک', 'slug' => 'mask', 'parent' => 0, 'count' => 0],
+            2 => ['name' => 'ماسک اکسیژن', 'slug' => 'oxygen-mask', 'parent' => 0, 'count' => 0],
+            3 => ['name' => 'مانک', 'slug' => 'manek', 'parent' => 0, 'count' => 0],
+        ]);
+        $hits = (new WpProductCategoryDirectory())->search('ماسک', 40);
+        self::assertSame([1, 2, 3], array_map(static fn (ProductCategory $c): int => $c->id, $hits));
+        self::assertSame([false, false, true], array_map(static fn (ProductCategory $c): bool => $c->fuzzy, $hits));
+    }
+
+    public function testTheChosenCategoryIsRenderedApartFromTheResults(): void
+    {
+        $this->seedTree();
+        $directory = new WpProductCategoryDirectory();
+
+        $html = ProductCategoryPickerView::render(
+            $directory->find('30'),
+            $directory->search('لوازم', 40),
+            'لوازم',
+            $directory->countMatches('لوازم'),
+            $directory->total(),
+            false,
+            'https://example.test/wp-admin/admin-ajax.php',
+            'a-nonce',
+            'tmc_category_suggest'
+        );
+
+        // The chosen block comes first and carries the checked radio; the
+        // result list below is a separate element the script replaces whole.
+        self::assertLessThan(
+            strpos($html, 'id="tv-catpick-results"'),
+            strpos($html, 'id="tv-catpick-chosen"'),
+            'the choice is above the results, not buried in them'
+        );
+        self::assertSame(1, substr_count($html, 'value="30"'), 'the chosen category appears once, not twice');
+        self::assertStringContainsString('value="30" checked', $html);
+        self::assertStringContainsString('data-suggest-url=', $html, 'the live search is configured from the markup');
+        self::assertStringContainsString('role="status"', $html, 'and it says out loud what changed');
+    }
+
+    public function testWithoutTheEndpointThePickerIsStillTheOldForm(): void
+    {
+        $this->seedTree();
+        $directory = new WpProductCategoryDirectory();
+        // What a reader who may not edit gets: no url, no nonce.
+        $html = ProductCategoryPickerView::render(
+            $directory->find('30'),
+            $directory->search('', 40),
+            '',
+            $directory->countMatches(''),
+            $directory->total()
+        );
+        self::assertStringNotContainsString('data-suggest-url=', $html);
+        self::assertStringContainsString('name="search_category"', $html, 'the submit button is the feature, not the fallback');
+    }
+
+    public function testANearMatchSaysSoOnScreen(): void
+    {
+        $this->seedTree();
+        $directory = new WpProductCategoryDirectory();
+        $html = ProductCategoryPickerView::results($directory->search('امبوبک', 40), null, 'امبوبک', 1);
+        self::assertStringContainsString('پیشنهاد نزدیک', $html);
+        self::assertStringContainsString('is-fuzzy', $html);
+    }
+
     public function testTheReviewStepShowsThePathNotTheBareTermId(): void
     {
         $this->seedTree();

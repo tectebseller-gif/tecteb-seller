@@ -53,8 +53,21 @@ final class ProductArea
     public const SLUG = 'products';
 
     /** @var list<string> the POST actions this page owns */
+    /**
+     * Every action this area answers to.
+     *
+     * The router checks this list BEFORE dispatching, so a verb that exists in
+     * `handle()` and not here is not «unhandled» — it is *forbidden*, and the
+     * vendor is bounced to the application page with `tmc_notice=forbidden`.
+     * That is exactly what «پیش‌نمایش نتیجه» did from `alpha.14` to
+     * `alpha.25`: the handler was written, wired and tested at the service
+     * level, and the one line that lets a request reach it was missing.
+     * `ProductActionsAreRegisteredTest` now compares the two by reading the
+     * source, so the next verb cannot be half-added.
+     */
     public const ACTIONS = [
-        'save_product', 'submit_product', 'archive_product', 'restore_product', 'bulk_products',
+        'save_product', 'submit_product', 'archive_product', 'restore_product',
+        'bulk_products', 'preview_bulk_products',
         'export_products', 'import_products', 'apply_products_csv',
         'save_attribute', 'delete_attribute', 'save_variation', 'delete_variation', 'save_variation_stock',
     ];
@@ -198,7 +211,7 @@ final class ProductArea
             $template,
             $view->request->queryKey('step'),
             $status,
-            $this->categoryPicker($details->categoryKey, $view->request->queryText('cat_q')),
+            $this->categoryPicker($details->categoryKey, $view->request->queryText('cat_q'), $mayEdit),
             $view->urls,
             $view->nonceField,
             $view->notice,
@@ -719,7 +732,7 @@ final class ProductArea
      *
      * @return array<string,mixed>
      */
-    private function categoryPicker(string $selectedKey, string $query): array
+    private function categoryPicker(string $selectedKey, string $query, bool $mayEdit = false): array
     {
         $directory = $this->container->get(ProductCategoryDirectoryInterface::class);
         $total = $directory->total();
@@ -730,6 +743,12 @@ final class ProductArea
             'matched' => $directory->countMatches($query),
             'total' => $total,
             'missing' => $total === 0 && !$this->container->get(DependencyProbeInterface::class)->woocommerceAvailable(),
+            // Where the live suggestions come from. Empty for a reader who may
+            // not edit, and the picker then renders exactly what it rendered
+            // before the script existed.
+            'suggest_url' => $mayEdit ? admin_url('admin-ajax.php') : '',
+            'suggest_nonce' => $mayEdit ? wp_create_nonce(CategorySuggest::NONCE) : '',
+            'suggest_action' => CategorySuggest::ACTION,
         ];
     }
 

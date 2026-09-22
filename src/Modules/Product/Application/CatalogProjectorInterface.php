@@ -90,4 +90,13 @@ interface CatalogProjectorInterface
      * made by hand — answers false and is never written to.
      */
     public function owns(int $wcProductId, int $productId): bool;
+
+    /**
+     * What the storefront says this post's status IS, read fresh.
+     *
+     * Asked rather than assumed: `prepare()` promises that opening an editor
+     * cannot put a product on sale, and a promise verified against the value
+     * we just wrote is a promise verified against ourselves.
+     */
+    public function storefrontStatus(int $wcProductId): string;
 }

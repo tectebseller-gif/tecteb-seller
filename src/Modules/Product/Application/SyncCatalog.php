@@ -92,6 +92,52 @@ final class SyncCatalog
         return OperationResult::success('projected', ['wc_product_id' => $result['wc_product_id']]);
     }
 
+    /**
+     * Give a product that is NOT approved yet a storefront row, as a draft.
+     *
+     * The manager asked for something WooCommerce and Rank Math already do
+     * well — a real editor, a real SEO box — rather than a second editor
+     * built here. Both live on the WooCommerce product edit screen, and
+     * before approval that screen did not exist: `project()` only ran when a
+     * product was approved. So there was nowhere to prepare anything, and
+     * «open the editor» meant «publish it first», which is exactly backwards.
+     *
+     * This creates the row and nothing else. The projector already writes
+     * `draft` and `hidden` for every status but Published, so the product is
+     * not purchasable, not in the catalogue and not in a sitemap — and that
+     * is CHECKED here rather than trusted, because the whole promise of this
+     * method is that opening an editor cannot put something on sale.
+     */
+    public function prepare(int $productId): OperationResult
+    {
+        $product = $this->products->find($productId);
+        if ($product === null) {
+            return OperationResult::failure('not_found');
+        }
+        if ($product->status === ProductStatus::Published) {
+            return OperationResult::failure('already_published');
+        }
+        $result = $this->publish($productId);
+        if (!$result->ok) {
+            return $result;
+        }
+        $wcProductId = (int) ($result->context['wc_product_id'] ?? 0);
+        if ($this->projector->storefrontStatus($wcProductId) === 'publish') {
+            // Should be unreachable, and is checked anyway: a preparation
+            // step that put a product on sale would do it silently, and the
+            // first person to find out would be a buyer.
+            $this->projector->withdraw($product, 'prepared_not_approved');
+            return OperationResult::failure('prepare_would_publish');
+        }
+        $this->audit->log(AuditEventCatalog::PRODUCT_SYNCED, 0, 'product', (string) $product->id, [
+            'vendor_id' => $product->vendorUserId,
+            'product_id' => $product->id,
+            'wc_product_id' => $wcProductId,
+            'action' => 'prepare',
+        ]);
+        return OperationResult::success('prepared', ['wc_product_id' => $wcProductId]);
+    }
+
     /** Out of the shop without deleting anything. */
     public function withdraw(int $productId, string $reason = ''): OperationResult
     {

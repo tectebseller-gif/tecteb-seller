@@ -1,0 +1,48 @@
+ok:   6-1. Cache-Control carries no-store                              true
+ok:   6-2. Vary names the cookie                                       true
+      cache-control: no-cache, must-revalidate, max-age=0, no-store, private | vary: Cookie
+      database says: {"draft":2,"published":3}
+ok:   6-3. the «all» tab equals the row count                          5
+ok:   6-4. the counters survive moving to another tab                  5
+ok:   6-5. and coming back, with no ?tmc_check= of any kind            5
+ok:   6-6. the url carries no extra parameter                          
+ok:   6-7. a refresh does not zero them                                5
+ok:   6-8. and neither does signing out and back in                    5
+ok:   6-9. a buyer is not handed the vendor panel                      true
+ok:   2-0. the picker is on step 1                                     true
+ok:   2-1. typing suggests without leaving the page                    http://127.0.0.1:8081/vendor/products/?product=new&step=1
+ok:   2-2. the exact spelling finds it                                 true
+ok:   2-3. and is not labelled a guess                                 false
+ok:   2-4. the same word with a space finds the same term              true
+ok:   2-5. still not a guess                                           false
+ok:   2-6. one wrong letter still finds it                             true
+ok:   2-7. and it is labelled «پیشنهاد نزدیک»                          true
+ok:   2-8. nothing was chosen for the vendor                           0
+ok:   2-9. what was typed is still there                               عنوان آزمایشی که نباید گم شود
+ok:   2-10. a keyboard choice moves the row into the chosen block      true
+ok:   2-11. exactly one category is checked                            1
+ok:   2-12. and it is in the chosen block, not the results             1
+ok:   2-13. the title survived choosing too                            عنوان آزمایشی که نباید گم شود
+ok:   2-14. with JavaScript off the button still searches              true
+ok:   2-15. and the query came back in the url                         true
+ok:   5-1. a refused picture says why                                  true
+ok:   5-2. the picture that was there stays                            0
+ok:   5-3. and the text was saved anyway                               true
+ok:   1-1. preview stays on the products page                          /vendor/products/
+ok:   1-2. and is not refused                                          false
+ok:   1-3. the forecast is on screen                                   true
+ok:   1-4. preview wrote nothing                                       {"draft":3,"published":3}
+ok:   1-5. an empty selection is answered on the products page         /vendor/products/
+ok:   1-6. and says so in words                                        true
+ok:   1-7. no action chosen is its own message                         true
+ok:   1-8. «بایگانی» moved rows                                        true
+      after archive: {"archived":2,"draft":2,"published":2}
+      after restore: {"draft":4,"published":2}
+ok:   1-9. «بازگشت به پیش‌نویس» brought them back                      0
+ok:   1-10. and they are drafts again                                  true
+      after submit: {"draft":3,"published":2,"submitted":1}
+ok:   1-11. «ارسال برای بررسی» accounted for every selected row        true
+      submitted moved: 1
+ok:   1-12. running with nothing ticked is refused clearly             true
+
+checks: 40  pass: 40  fail: 0

@@ -109,6 +109,25 @@ final class ProductMessages
     }
 
     /**
+     * The five fields the marketplace writes into WooCommerce.
+     *
+     * A separate list from `field()` on purpose: these are names of things on
+     * the SHOP — «متن صفحهٔ محصول» is not the vendor's «توضیح کوتاه», and a
+     * manager deciding who owns which one has to be told which is which.
+     */
+    public static function storefrontField(string $key): string
+    {
+        return match ($key) {
+            'title' => __('عنوان محصول', 'tecteb-marketplace-core'),
+            'short_description' => __('توضیح کوتاه', 'tecteb-marketplace-core'),
+            'description' => __('متن صفحهٔ محصول', 'tecteb-marketplace-core'),
+            'category' => __('دستهٔ ووکامرس', 'tecteb-marketplace-core'),
+            'images' => __('تصویرها', 'tecteb-marketplace-core'),
+            default => $key,
+        };
+    }
+
+    /**
      * @param array<string,scalar|null> $context
      * @return string|null null when this code belongs to another module
      */
@@ -190,6 +209,19 @@ final class ProductMessages
             'revision_missing' => __('این فرم نشانهٔ نسخه ندارد — احتمالاً از نسخهٔ قبلی افزونه در مرورگر شما باز مانده است. برای اینکه کار کسی پاک نشود، این ذخیره انجام نشد. مقدارهایی که نوشته‌اید همین‌جا مانده‌اند و فرم با نسخهٔ فعلی محصول تازه شده است: یک بار تفاوت‌های زیر را ببینید و دوباره ذخیره کنید.', 'tecteb-marketplace-core'),
             'stale_revision' => __('این محصول از وقتی این صفحه باز شده تغییر کرده است — احتمالاً یکی دیگر از فروشگاه شما ذخیره‌اش کرده. برای اینکه کار او پاک نشود، این ذخیره انجام نشد. مقدارهای شما همین‌جا مانده‌اند: صفحه را در یک تب دیگر باز کنید، تفاوت را ببینید و بعد تصمیم بگیرید.', 'tecteb-marketplace-core'),
             'product_reviewed' => __('تصمیم شما ثبت شد.', 'tecteb-marketplace-core'),
+            // Preparation and correction — the manager's own two verbs on the
+            // review screen. Each one says what it did NOT do as well, because
+            // «آماده شد» next to a publish button is a sentence somebody will
+            // read as «منتشر شد».
+            'prepared' => __('محصول در ووکامرس به‌صورت پیش‌نویس ساخته شد. در فروشگاه دیده نمی‌شود و قابل خرید نیست؛ حالا می‌توانید همان‌جا ویرایش و سئویش را تنظیم کنید.', 'tecteb-marketplace-core'),
+            'already_published' => __('این محصول منتشر شده است و صفحه‌اش در ووکامرس وجود دارد؛ آماده‌سازی لازم نیست.', 'tecteb-marketplace-core'),
+            'prepare_would_publish' => __('آماده‌سازی انجام نشد: محصول در ووکامرس منتشر می‌شد. برای اینکه چیزی ناخواسته روی سایت نرود، تغییر برگردانده شد.', 'tecteb-marketplace-core'),
+            'product_corrected' => __('اصلاح شما روی پروندهٔ بازارگاه و روی ووکامرس ثبت شد.', 'tecteb-marketplace-core'),
+            'nothing_changed' => __('چیزی تغییر نکرده بود، پس چیزی نوشته نشد.', 'tecteb-marketplace-core'),
+            'title_required' => __('عنوان محصول نمی‌تواند خالی بماند.', 'tecteb-marketplace-core'),
+            'proposal_accepted' => __('خواستهٔ فروشنده روی ووکامرس نشست و این فیلد دوباره در اختیار بازارگاه است.', 'tecteb-marketplace-core'),
+            'storefront_kept' => __('نسخهٔ ووکامرس ماند. بازارگاه دیگر روی این فیلد چیزی نمی‌نویسد و پروندهٔ محصول هم با همین مقدار هماهنگ شد.', 'tecteb-marketplace-core'),
+            'unknown_decision' => __('این تصمیم شناخته نشد.', 'tecteb-marketplace-core'),
             'revision_approved' => __('نسخه پیشنهادی تأیید و روی محصول اعمال شد.', 'tecteb-marketplace-core'),
             'revision_rejected' => __('نسخه پیشنهادی رد شد. نسخه منتشرشده همچنان روی سایت است.', 'tecteb-marketplace-core'),
             'direct_publish_granted' => __('مجوز انتشار مستقیم برای این فروشنده صادر شد.', 'tecteb-marketplace-core'),
@@ -365,6 +397,8 @@ final class ProductMessages
             'bulk_previewed',
             'attribute_saved', 'attribute_deleted', 'variation_added', 'variation_saved', 'variation_deleted',
             'seo_saved', 'projected', 'withdrawn',
+            'prepared', 'product_corrected', 'nothing_changed',
+            'proposal_accepted', 'storefront_kept',
             // A batch that RAN is a success, even when some rows were refused:
             // the refusals are in the message, and painting the whole thing red
             // would hide the thirty-six that went.

@@ -49,6 +49,10 @@ final class AuditEventCatalog
     public const PRODUCT_PUBLISH_PERMISSION_CHANGED = 'product.publish_permission_changed';
     public const PRODUCT_SYNCED = 'product.synced';
     public const PRODUCT_SEO_CHANGED = 'product.seo_changed';
+    /** Who won a field the manager and the vendor both wrote. */
+    public const PRODUCT_FIELD_OWNERSHIP = 'product.field_ownership';
+    /** The manager corrected a product's own record, not just the storefront. */
+    public const PRODUCT_CORRECTED = 'product.corrected';
     /** Orders: what the marketplace recorded about a WooCommerce sale. */
     public const ORDER_CAPTURED = 'order.captured';
     public const ORDER_ITEM_STATUS_CHANGED = 'order.item_status_changed';
@@ -150,6 +154,8 @@ final class AuditEventCatalog
             self::PRODUCT_PUBLISH_PERMISSION_CHANGED => ['vendor_id', 'granted'],
             self::PRODUCT_SYNCED => ['vendor_id', 'product_id', 'wc_product_id', 'action'],
             self::PRODUCT_SEO_CHANGED => ['product_id', 'has_slug', 'has_title'],
+            self::PRODUCT_FIELD_OWNERSHIP => ['vendor_id', 'product_id', 'field', 'decision'],
+            self::PRODUCT_CORRECTED => ['vendor_id', 'product_id', 'fields'],
             self::ORDER_CAPTURED => ['order_id', 'vendors', 'items', 'recorded', 'skipped'],
             self::ORDER_ITEM_STATUS_CHANGED => ['vendor_id', 'order_id', 'item_id', 'from', 'to'],
             self::ORDER_BLOCKED => ['product_id', 'vendor_id', 'reason'],

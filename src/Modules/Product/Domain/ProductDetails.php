@@ -36,6 +36,39 @@ final class ProductDetails
     }
 
     /**
+     * The same details with a few fields replaced.
+     *
+     * Sixteen readonly promoted properties make a hand-written copy a place
+     * for a field to go missing — and the manager's correction is exactly the
+     * write where losing one would be silent. Unknown keys are ignored rather
+     * than guessed at.
+     *
+     * @param array<string,mixed> $changes
+     */
+    public function with(array $changes): self
+    {
+        $pick = fn (string $key, mixed $current): mixed => array_key_exists($key, $changes) ? $changes[$key] : $current;
+        return new self(
+            (string) $pick('title', $this->title),
+            (string) $pick('type', $this->type),
+            (string) $pick('categoryKey', $this->categoryKey),
+            (string) $pick('brand', $this->brand),
+            (string) $pick('shortDescription', $this->shortDescription),
+            (int) $pick('priceMinor', $this->priceMinor),
+            ($v = $pick('salePriceMinor', $this->salePriceMinor)) === null ? null : (int) $v,
+            ($v = $pick('saleFrom', $this->saleFrom)) === null ? null : (string) $v,
+            ($v = $pick('saleTo', $this->saleTo)) === null ? null : (string) $v,
+            (string) $pick('sku', $this->sku),
+            (int) $pick('stock', $this->stock),
+            (int) $pick('minPurchase', $this->minPurchase),
+            ($v = $pick('maxPurchase', $this->maxPurchase)) === null ? null : (int) $v,
+            (int) $pick('weightGrams', $this->weightGrams),
+            (string) $pick('dimensions', $this->dimensions),
+            (string) $pick('taxClass', $this->taxClass)
+        );
+    }
+
+    /**
      * Fields that must be filled before the product can be submitted. Stock
      * is NOT here: a product may legitimately be submitted out of stock, and
      * zero stock stops the sale rather than the paperwork (A.1).

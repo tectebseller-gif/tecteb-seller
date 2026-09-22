@@ -8,16 +8,22 @@ use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
+use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Domain\SensitiveChange;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
+use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorMessages;
 
 /**
@@ -62,9 +68,11 @@ final class ProductReviewPage
             );
         }
 
+        $published = $products->inStatus(ProductStatus::Published, 20);
         $this->renderQueue($products->inStatus(ProductStatus::Submitted));
         $this->renderRevisions($revisions->pending(), $products);
-        $this->renderSeo($products->inStatus(ProductStatus::Published, 20));
+        $this->renderPublished($published);
+        $this->renderSeo($published);
         $this->renderPublishPermissions();
 
         echo Components::notice('info', __('تأیید محصول تازه یعنی همان نسخه منتشر می‌شود. تأیید «نسخه پیشنهادی» یعنی مقادیر پیشنهادی روی محصول منتشرشده می‌نشیند؛ موجودی از نسخه زنده گرفته می‌شود تا فروش این چند روز برنگردد.', 'tecteb-marketplace-core'));
@@ -79,27 +87,90 @@ final class ProductReviewPage
             echo '<p>' . esc_html__('صف خالی است.', 'tecteb-marketplace-core') . '</p></section>';
             return;
         }
-        $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
         foreach ($queue as $product) {
-            $d = $product->details;
-            echo '<article class="tmc-review"><h3 class="tmc-review__title">' . esc_html($d->title) . '</h3>'
-                . '<dl class="tmc-review__facts">'
-                . '<div><dt>' . esc_html__('فروشنده', 'tecteb-marketplace-core') . '</dt><dd>'
-                . Components::code('#' . $product->vendorUserId) . '</dd></div>'
-                . '<div><dt>' . esc_html__('دسته', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($d->categoryKey) . '</dd></div>'
-                . '<div><dt>' . esc_html__('قیمت', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($fa(number_format($d->priceMinor))) . '</dd></div>'
-                . '<div><dt>' . esc_html__('موجودی', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($fa($d->stock)) . '</dd></div>'
-                . '<div><dt>' . esc_html__('تصویر', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($fa(count($product->imageIds))) . '</dd></div>'
-                . '<div><dt>' . esc_html__('مشخصات پزشکی', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($fa(count($product->specs))) . '</dd></div>'
-                . '</dl>'
+            echo $this->card($product)
                 . $this->decisionForm('product', $product->id, [
                     'approve' => __('تأیید و انتشار', 'tecteb-marketplace-core'),
                     'changes' => __('نیازمند اصلاح', 'tecteb-marketplace-core'),
                     'reject' => __('رد و بایگانی', 'tecteb-marketplace-core'),
-                ])
-                . '</article>';
+                ]);
         }
         echo '</section>';
+    }
+
+    /**
+     * One product, rendered the way somebody deciding about it needs it.
+     *
+     * Everything the card shows is read HERE and handed over, so the view
+     * holds no container and asks no repository — and the two derived values
+     * (the shop's description and the category path) come from the same code
+     * that writes them, not from a second implementation.
+     */
+    private function card(Product $product): string
+    {
+        $catalog = $this->container->get(SyncCatalog::class);
+        $available = $catalog->isAvailable();
+        /** @var StorefrontFieldsInterface|null $storefront */
+        $storefront = $this->container->get(StorefrontFieldsInterface::class);
+        $fields = $storefront?->compare($product) ?? [];
+
+        $description = '';
+        foreach ($fields as $field) {
+            if ($field->key === 'description') {
+                $description = $field->marketplace;
+            }
+        }
+
+        return ProductReviewCardView::render(
+            $product,
+            $this->imagesOf($product),
+            $this->container->get(ProductCategoryDirectoryInterface::class)
+                ->find($product->details->categoryKey)?->path ?? '',
+            $this->container->get(SpecTemplateRepositoryInterface::class)
+                ->findByCategory($product->details->categoryKey),
+            $this->storeOf($product->vendorUserId),
+            $fields,
+            $description,
+            $product->isProjected() ? ($storefront?->editorUrl((int) $product->wcProductId) ?? '') : '',
+            $storefront?->seoPluginName() ?? '',
+            wp_nonce_field(self::NONCE, 'tmc_review_nonce', true, false),
+            $available
+        );
+    }
+
+    /** @return list<array{url:string,id:int,main:bool}> */
+    private function imagesOf(Product $product): array
+    {
+        $library = $this->container->get(ProductImageLibraryInterface::class);
+        $ids = array_values(array_unique(array_merge(
+            $product->mainImageId > 0 ? [$product->mainImageId] : [],
+            $product->imageIds
+        )));
+        $out = [];
+        foreach ($ids as $id) {
+            $out[] = [
+                'id' => (int) $id,
+                'url' => $library->thumbnailUrl((int) $id),
+                'main' => (int) $id === $product->mainImageId,
+            ];
+        }
+        return $out;
+    }
+
+    /** @return array<string,string> */
+    private function storeOf(int $vendorUserId): array
+    {
+        $settings = $this->container->get(StoreRepositoryInterface::class)->find($vendorUserId);
+        $profile = $this->container->get(VendorRepositoryInterface::class)->findProfileByUser($vendorUserId);
+        return [
+            'name' => $settings?->storeName ?? ($profile?->storeName ?? ''),
+            'city' => $settings?->city ?? '',
+            'status' => $profile === null
+                ? __('بدون پروندهٔ فروشندگی', 'tecteb-marketplace-core')
+                : ($profile->canSell
+                    ? __('اجازهٔ فروش دارد', 'tecteb-marketplace-core')
+                    : __('اجازهٔ فروش ندارد', 'tecteb-marketplace-core')),
+        ];
     }
 
     /** @param list<ProductRevision> $pending */
@@ -195,6 +266,31 @@ final class ProductReviewPage
                 . ' name="decision" value="' . esc_attr($value) . '">' . esc_html($label) . '</button> ';
         }
         return $html . '</p></form>';
+    }
+
+    /**
+     * Published products: the same card, so a manager can see and correct
+     * what is live without leaving this page.
+     *
+     * The queue above is about a decision. This is about the product after
+     * it: the pictures a buyer sees, the text WooCommerce actually has, and
+     * — when the two sides disagree — the two buttons that end it.
+     *
+     * @param list<Product> $published
+     */
+    private function renderPublished(array $published): void
+    {
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('محصول‌های منتشرشده', 'tecteb-marketplace-core') . '</h2>';
+        if ($published === []) {
+            echo '<p>' . esc_html__('هنوز محصول منتشرشده‌ای وجود ندارد.', 'tecteb-marketplace-core') . '</p></section>';
+            return;
+        }
+        echo '<p class="tmc-hint">' . esc_html__('این کارت‌ها برای اصلاح و مقایسه‌اند، نه برای تصمیم دوباره. بیست محصول آخر نمایش داده می‌شود.', 'tecteb-marketplace-core') . '</p>';
+        foreach ($published as $product) {
+            echo $this->card($product);
+        }
+        echo '</section>';
     }
 
     /**
@@ -301,6 +397,17 @@ final class ProductReviewPage
             ),
             'publishing:grant' => $review->setDirectPublishing($id, true),
             'publishing:revoke' => $review->setDirectPublishing($id, false),
+            'storefront:prepare' => $review->prepareStorefront($id),
+            'correct:save' => $review->correct($id, [
+                'title' => $request->postText('fix_title'),
+                'short_description' => $request->postTextarea('fix_short'),
+                'category' => $request->postText('fix_category'),
+            ]),
+            'field:keep', 'field:accept' => $review->resolveField(
+                $id,
+                $request->postKey('field'),
+                $request->postKey('decision')
+            ),
             default => null,
         };
         return $result === null ? null : ['code' => $result->code, 'context' => $result->context];

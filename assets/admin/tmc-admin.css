@@ -513,6 +513,71 @@
 
 .tmc-review__form { margin-block-start: var(--tmc-space-3); }
 
+/* The full review card. Until alpha.25 this screen showed «تصویر: ۳» and a
+   term id; a manager cannot approve a medical product from a counter. The
+   pictures are real, capped in height so twelve of them do not turn one
+   product into a page, and laid out with `auto-fill` so the row reflows
+   instead of scrolling the document sideways on a phone. */
+.tmc-review--full { background: var(--tmc-surface); }
+.tmc-review__store { color: var(--tmc-muted); margin-block: 0 var(--tmc-space-3); }
+
+.tmc-review__gallery {
+  list-style: none;
+  margin: 0 0 var(--tmc-space-3);
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: var(--tmc-space-2);
+}
+.tmc-review__shot {
+  display: grid;
+  gap: var(--tmc-space-1);
+  padding: var(--tmc-space-2);
+  border: 1px solid var(--tmc-border);
+  border-radius: var(--tmc-radius-sm);
+  background: var(--tmc-surface-2);
+  min-inline-size: 0;
+}
+.tmc-review__shot.is-main { border-color: var(--tmc-primary); border-width: 2px; }
+.tmc-review__shot img {
+  inline-size: 100%;
+  block-size: auto;
+  max-block-size: 9rem;
+  object-fit: contain;
+  border-radius: var(--tmc-radius-sm);
+  background: var(--tmc-surface);
+}
+.tmc-review__shot-meta, .tmc-review__missing { font-size: 0.875rem; color: var(--tmc-muted); }
+
+.tmc-review__text { margin-block-end: var(--tmc-space-3); }
+.tmc-review__text h4 { margin-block: var(--tmc-space-3) var(--tmc-space-1); font-size: 0.9375rem; }
+/* A description can be long. Bounded and scrollable, so one wordy product
+   does not push the decision buttons off the screen. */
+.tmc-review__long {
+  max-block-size: 14rem;
+  overflow-y: auto;
+  padding: var(--tmc-space-2) var(--tmc-space-3);
+  border: 1px solid var(--tmc-border);
+  border-radius: var(--tmc-radius-sm);
+  background: var(--tmc-surface-2);
+}
+
+.tmc-review__specs caption, .tmc-review__owner caption {
+  text-align: start; font-weight: 700; padding-block-end: var(--tmc-space-2);
+}
+.tmc-review__storefront {
+  margin-block: var(--tmc-space-4);
+  padding-block-start: var(--tmc-space-3);
+  border-block-start: 1px solid var(--tmc-border);
+}
+.tmc-review__storefront h4 { margin-block: 0 var(--tmc-space-2); font-size: 0.9375rem; }
+.tmc-review__links { display: flex; flex-wrap: wrap; gap: var(--tmc-space-2); }
+.tmc-review__fix { margin-block-start: var(--tmc-space-3); }
+.tmc-review__fix > summary {
+  cursor: pointer; font-weight: 700; padding: var(--tmc-space-2) 0;
+  min-block-size: 44px; display: flex; align-items: center;
+}
+
 /* A form that must not force the page sideways. `inline-flex` alone kept every
    control on one line, and one long control then widened the table, the card
    and the document — measured at 390px on the moderation queue. */

@@ -268,7 +268,10 @@ final class ProductFormView
                 (string) ($categories['query'] ?? ''),
                 (int) ($categories['matched'] ?? count($results)),
                 (int) ($categories['total'] ?? count($results)),
-                (bool) ($categories['missing'] ?? false)
+                (bool) ($categories['missing'] ?? false),
+                (string) ($categories['suggest_url'] ?? ''),
+                (string) ($categories['suggest_nonce'] ?? ''),
+                (string) ($categories['suggest_action'] ?? '')
             )
             . VendorUi::input('brand', __('برند', 'tecteb-marketplace-core'), $d->brand)
             . VendorUi::textarea('short_description', __('توضیح کوتاه', 'tecteb-marketplace-core'), $d->shortDescription)

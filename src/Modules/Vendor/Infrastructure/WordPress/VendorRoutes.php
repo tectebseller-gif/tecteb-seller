@@ -79,6 +79,10 @@ final class VendorRoutes
     public static function register(ContainerInterface $container, string $assetsBaseUrl, string $version): void
     {
         $routes = new self($container, $assetsBaseUrl, $version);
+        // Before anything else: the panel is per-person and must never be
+        // cached. Registered here so it is hooked whether or not a request
+        // ever reaches `handle()`.
+        VendorCacheControl::register();
         add_action('init', [self::class, 'addRewriteRules']);
         add_filter('query_vars', static function (array $vars): array {
             $vars[] = self::QUERY_VAR;
@@ -160,11 +164,12 @@ final class VendorRoutes
      */
     private function refuseCaching(): void
     {
-        foreach (['DONOTCACHEPAGE', 'DONOTCACHEOBJECT', 'DONOTCACHEDB'] as $flag) {
-            if (!defined($flag)) {
-                define($flag, true);
-            }
-        }
+        // The real refusal happens at `plugins_loaded` — see
+        // VendorCacheControl, and the note there about why `template_redirect`
+        // is both too late and only half the problem. This stays as the
+        // second belt: it costs nothing, and it still covers a request that
+        // arrives through some path where that hook did not run.
+        VendorCacheControl::refuseIfVendorRequest();
         if (!headers_sent()) {
             nocache_headers();
         }
@@ -285,7 +290,8 @@ final class VendorRoutes
         // change, so the same save from anywhere else left the page stale.
         // `DbStoreRepository::save()` now announces the write once it has
         // succeeded, and `StoreCacheInvalidation` listens.
-        return $this->container->get(UpdateStoreSettings::class)->save(
+        $this->imageRefusal = '';
+        $result = $this->container->get(UpdateStoreSettings::class)->save(
             $userId,
             $userId,
             [
@@ -306,6 +312,16 @@ final class VendorRoutes
             array_keys($lists->networks()),
             array_keys($lists->carriers())
         );
+
+        // The text saved and the picture did not. Reporting the save as a
+        // failure would be a lie and would throw away work that is safely
+        // stored; reporting only the save hides the loss. So the save stands,
+        // the notice names the upload, and the picture already there is
+        // untouched — the same three-way answer the product form gives.
+        if ($this->imageRefusal !== '' && $result->ok) {
+            return OperationResult::failure($this->imageRefusal, ['saved' => 1]);
+        }
+        return $result;
     }
 
     /**
@@ -323,11 +339,30 @@ final class VendorRoutes
      * losing the logo you already had is not an acceptable outcome of a
      * refused upload.
      */
+    /**
+     * Why the last picture refused to upload, or '' when none did.
+     *
+     * A failed upload used to be perfectly silent: the id was kept, the text
+     * fields saved, the page said «ذخیره شد» and no picture appeared. That is
+     * the same silence the product form was rewritten in `alpha.14` to stop,
+     * reintroduced in `alpha.25` on a different form — so the refusal now
+     * travels out with the save rather than being swallowed here.
+     */
+    private string $imageRefusal = '';
+
     private function pickedImage(Request $request, int $userId, string $field): int
     {
         $current = $request->postInt($field . '_id');
         $file = $request->file($field . '_file');
         if ($file->tempPath === '' || $file->errorCode === UPLOAD_ERR_NO_FILE) {
+            // PHP itself refused it before our code ran — «too large» and
+            // «interrupted» are different instructions to the person, so the
+            // policy names them rather than one catch-all.
+            if ($file->errorCode !== UPLOAD_ERR_OK && $file->errorCode !== UPLOAD_ERR_NO_FILE) {
+                $this->imageRefusal = in_array($file->errorCode, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)
+                    ? 'image_too_large'
+                    : 'transfer_failed';
+            }
             return $current;
         }
         $uploaded = $this->container->get(ManageProducts::class)->uploadImage(
@@ -338,7 +373,11 @@ final class VendorRoutes
                 ? __('لوگوی فروشگاه', 'tecteb-marketplace-core')
                 : __('بنر فروشگاه', 'tecteb-marketplace-core')
         );
-        return $uploaded->ok ? (int) $uploaded->context['media_id'] : $current;
+        if ($uploaded->ok) {
+            return (int) $uploaded->context['media_id'];
+        }
+        $this->imageRefusal = $uploaded->code;
+        return $current;                        // the picture already there stays
     }
 
     private function inviteStaff(Request $request, int $userId): OperationResult
@@ -694,6 +733,11 @@ final class VendorRoutes
         // this area where losing a tab costs an afternoon's typing.
         if ($view === 'products') {
             $scripts[] = $this->assetsBaseUrl . 'assets/vendor/tmc-product-form.js';
+            // And the category suggestions. Separate file, separate job: the
+            // picker has to keep working on a page where the draft store is
+            // off, and the draft has to keep working on a shop with no
+            // WooCommerce to have categories.
+            $scripts[] = $this->assetsBaseUrl . 'assets/vendor/tmc-category-picker.js';
         }
         status_header(200);
         nocache_headers();

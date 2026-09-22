@@ -34,6 +34,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontStop;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch;
 use Tecteb\Marketplace\Modules\Product\Application\UnpaidOrderGuardInterface;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
@@ -45,6 +46,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\AliasingSpecTemplateReposi
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbVariationRepository;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\CategorySuggest;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductAutosave;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductHooks;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpProductDraftStore;
@@ -58,6 +60,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\PurchaseGuard;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullUnpaidOrderGuard;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WcUnpaidOrderGuard;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceProjector;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceStorefrontFields;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpProductImages;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
@@ -163,6 +166,16 @@ final class ProductModule implements ModuleInterface
                 )
                 : new NullCatalogProjector();
         });
+        // The read side of the projection, and the two ways to settle a field
+        // the manager and the vendor both wrote. Bound only when WooCommerce
+        // is there: without it there is no storefront to disagree with, and a
+        // null that answered «no difference» would be a lie by omission.
+        $c->bind(StorefrontFieldsInterface::class, static function (ContainerInterface $c): ?StorefrontFieldsInterface {
+            $projector = $c->get(CatalogProjectorInterface::class);
+            return $projector instanceof WooCommerceProjector
+                ? new WooCommerceStorefrontFields($projector)
+                : null;
+        });
         $c->bind(StorefrontSwitch::class, static fn (ContainerInterface $c) => new StorefrontSwitch(
             $c->get(OptionStoreInterface::class),
             $c->get(ClockInterface::class)
@@ -216,7 +229,8 @@ final class ProductModule implements ModuleInterface
             $c->get(ProductPublishPolicy::class),
             $c->get(ProductStateMachine::class),
             $c->get(AuditLogger::class),
-            $c->get(CapabilityCheckerInterface::class)
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(StorefrontFieldsInterface::class)
         ));
         $c->bind(ConfigureSpecTemplates::class, static fn (ContainerInterface $c) => new ConfigureSpecTemplates(
             $c->get(SpecTemplateRepositoryInterface::class),
@@ -243,6 +257,9 @@ final class ProductModule implements ModuleInterface
         // afternoon. `wp_ajax_` only — no `nopriv` variant — so a logged-out
         // caller is refused by WordPress before any of this runs.
         (new ProductAutosave($container))->register();
+        // And the category suggestions the picker asks for while somebody
+        // types. Same door, same rule, and it writes nothing at all.
+        (new CategorySuggest($container))->register();
         $storefront = new StorefrontPage($container);
         add_filter(AdminExtensions::FILTER, static function (array $pages) use ($storefront): array {
             $pages[] = [

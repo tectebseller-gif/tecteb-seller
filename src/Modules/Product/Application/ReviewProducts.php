@@ -37,7 +37,12 @@ final class ReviewProducts
         private readonly ProductPublishPolicy $publishing,
         private readonly ProductStateMachine $states,
         private readonly AuditLogger $audit,
-        private readonly CapabilityCheckerInterface $capabilities
+        private readonly CapabilityCheckerInterface $capabilities,
+        /**
+         * Null when WooCommerce is not installed. Every method that uses it
+         * says so rather than pretending the storefront agreed.
+         */
+        private readonly ?StorefrontFieldsInterface $storefront = null
     ) {
     }
 
@@ -218,6 +223,172 @@ final class ReviewProducts
             ['product_id' => $productId, 'has_slug' => $seo->slug !== '', 'has_title' => $seo->title !== '']
         );
         return OperationResult::success('seo_saved', ['product_id' => $productId]);
+    }
+
+    /**
+     * The manager's own correction of a product — the record AND the shop.
+     *
+     * The owner's constraint is the whole design here: «راه‌حل نباید به دو
+     * نسخهٔ ناسازگار از اطلاعات محصول منجر شود». So this writes the
+     * marketplace row first and then re-projects, which re-stamps the fields
+     * as ours. One value, in two places that agree, rather than a correction
+     * that lives only in WooCommerce until the next save erases it.
+     *
+     * Price and stock are deliberately NOT here. They are the vendor's
+     * commercial terms and WooCommerce's live inventory (ADR-008); a manager
+     * editing either from a review screen would be changing what somebody
+     * else is accountable for, silently.
+     *
+     * @param array<string,string> $fields title, short_description, category
+     */
+    public function correct(int $productId, array $fields): OperationResult
+    {
+        if (!$this->capabilities->can(Capabilities::REVIEW_PRODUCTS)) {
+            return OperationResult::failure('forbidden');
+        }
+        $product = $this->products->find($productId);
+        if ($product === null) {
+            return OperationResult::failure('not_found');
+        }
+        $changes = [];
+        foreach (['title' => 'title', 'short_description' => 'shortDescription', 'category' => 'categoryKey'] as $key => $property) {
+            if (!array_key_exists($key, $fields)) {
+                continue;
+            }
+            $value = trim($fields[$key]);
+            if ($value !== (string) $product->details->{$property}) {
+                $changes[$property] = $value;
+            }
+        }
+        if ($changes === []) {
+            return OperationResult::success('nothing_changed', ['product_id' => $productId]);
+        }
+        if (($changes['title'] ?? $product->details->title) === '') {
+            return OperationResult::failure('title_required');
+        }
+        if (!$this->products->updateDetails($productId, $product->details->with($changes), $product->rowVersion)) {
+            // The vendor saved while this form was open. Refused, not merged:
+            // merging would mean guessing which title is the right one.
+            return OperationResult::failure('stale_revision');
+        }
+        // Re-projected so the shop carries the correction and the stamps say
+        // the marketplace wrote it — otherwise the manager's own edit would
+        // look, on the next run, like somebody else's.
+        if ($product->isProjected()) {
+            $this->catalog->publish($productId);
+        }
+        $this->audit->log(
+            AuditEventCatalog::PRODUCT_CORRECTED,
+            $this->capabilities->currentUserId(),
+            'product',
+            (string) $productId,
+            [
+                'vendor_id' => $product->vendorUserId,
+                'product_id' => $productId,
+                'fields' => implode(',', array_keys($changes)),
+            ]
+        );
+        return OperationResult::success('product_corrected', ['product_id' => $productId]);
+    }
+
+    /**
+     * Give a product waiting for review a storefront row, as a draft.
+     *
+     * This is what makes «ویرایش در ووکامرس» and the SEO box reachable before
+     * approval. It cannot publish anything: `SyncCatalog::prepare()` checks
+     * the resulting status and undoes itself if it is ever `publish`.
+     */
+    public function prepareStorefront(int $productId): OperationResult
+    {
+        if (!$this->capabilities->can(Capabilities::REVIEW_PRODUCTS)) {
+            return OperationResult::failure('forbidden');
+        }
+        return $this->catalog->prepare($productId);
+    }
+
+    /**
+     * End a disagreement about one field, one way or the other.
+     *
+     * `$decision` is `keep` (the manager's WooCommerce text stays) or
+     * `accept` (the vendor's held value is written). Both end with one value
+     * rather than two: `keep` copies the storefront value back into the
+     * marketplace row for every field that can round-trip, and says so for
+     * the one that cannot.
+     */
+    public function resolveField(int $productId, string $field, string $decision): OperationResult
+    {
+        if (!$this->capabilities->can(Capabilities::REVIEW_PRODUCTS)) {
+            return OperationResult::failure('forbidden');
+        }
+        if ($this->storefront === null) {
+            return OperationResult::failure('woocommerce_missing');
+        }
+        $product = $this->products->find($productId);
+        if ($product === null) {
+            return OperationResult::failure('not_found');
+        }
+        if ($decision === 'accept') {
+            if (!$this->storefront->acceptProposal($product, $field)) {
+                return OperationResult::failure('storage_failed');
+            }
+            $this->logOwnership($product->vendorUserId, $productId, $field, 'accept');
+            return OperationResult::success('proposal_accepted', ['product_id' => $productId]);
+        }
+        if ($decision !== 'keep') {
+            return OperationResult::failure('unknown_decision');
+        }
+        $value = $this->storefront->keepStorefront($product, $field);
+        if ($value === null) {
+            return OperationResult::failure('storage_failed');
+        }
+        // Copy it home, so the vendor's record and the shop say the same
+        // thing. `description` is the exception the constant names: the
+        // projector builds it, so there is nothing to copy it into.
+        $property = match ($field) {
+            'title' => 'title',
+            'short_description' => 'shortDescription',
+            'category' => 'categoryKey',
+            default => '',
+        };
+        if ($property !== '') {
+            $this->products->updateDetails(
+                $productId,
+                $product->details->with([$property => self::firstId($field, $value)]),
+                $product->rowVersion
+            );
+        }
+        if ($field === 'images') {
+            $ids = array_values(array_filter(array_map('intval', explode(',', $value)), static fn (int $id): bool => $id > 0));
+            $this->products->saveImages($productId, $ids, $ids[0] ?? 0);
+        }
+        $this->logOwnership($product->vendorUserId, $productId, $field, 'keep');
+        return OperationResult::success('storefront_kept', ['product_id' => $productId]);
+    }
+
+    /** The category round-trips as ONE term id, not as the id list WooCommerce keeps. */
+    private static function firstId(string $field, string $value): string
+    {
+        if ($field !== 'category') {
+            return $value;
+        }
+        $parts = array_values(array_filter(array_map('trim', explode(',', $value)), static fn (string $v): bool => $v !== '' && $v !== '0'));
+        return $parts[0] ?? '';
+    }
+
+    private function logOwnership(int $vendorUserId, int $productId, string $field, string $decision): void
+    {
+        $this->audit->log(
+            AuditEventCatalog::PRODUCT_FIELD_OWNERSHIP,
+            $this->capabilities->currentUserId(),
+            'product',
+            (string) $productId,
+            [
+                'vendor_id' => $vendorUserId,
+                'product_id' => $productId,
+                'field' => $field,
+                'decision' => $decision,
+            ]
+        );
     }
 
     /** The second permission of §4.1, granted and revoked on its own. */

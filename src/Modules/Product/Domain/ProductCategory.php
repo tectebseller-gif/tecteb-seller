@@ -23,7 +23,16 @@ final class ProductCategory
         public readonly string $path,
         public readonly int $parentId = 0,
         public readonly int $productCount = 0,
-        public readonly bool $hasTemplate = false
+        public readonly bool $hasTemplate = false,
+        /**
+         * True when this row was found only by tolerating a typo.
+         *
+         * It travels with the category rather than being recomputed by the
+         * view, because the view has no idea what was typed — and a guess
+         * rendered beside a certainty, with nothing to tell them apart, is
+         * how the wrong category gets picked.
+         */
+        public readonly bool $fuzzy = false
     ) {
     }
 

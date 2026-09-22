@@ -66,4 +66,9 @@ final class NullCatalogProjector implements CatalogProjectorInterface
     {
         return false;
     }
+
+    public function storefrontStatus(int $wcProductId): string
+    {
+        return '';
+    }
 }

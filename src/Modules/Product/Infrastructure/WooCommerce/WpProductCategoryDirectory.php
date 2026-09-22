@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\CategoryMatcher;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductCategory;
 
 /**
@@ -33,14 +34,28 @@ final class WpProductCategoryDirectory implements ProductCategoryDirectoryInterf
     /** @var array<string,true>|null category keys that have a template */
     private ?array $templated = null;
 
+    /**
+     * Ranked hits, per query, for this request.
+     *
+     * One render asks the same question twice — `search()` for the page and
+     * `countMatches()` for «۴۰ مورد از ۱۲۰». Measured on 1,070 terms, one pass
+     * is 7ms of `preg_replace`; doing it twice is 7ms of nothing.
+     *
+     * @var array<string,list<array{id:int,rank:int}>>
+     */
+    private array $ranked = [];
+
     public function __construct(private readonly ?SpecTemplateRepositoryInterface $templates = null)
     {
     }
 
     public function search(string $query, int $limit = 50): array
     {
-        $matches = $this->matching($query);
-        return array_map(fn (int $id): ProductCategory => $this->make($id), array_slice($matches, 0, max(1, $limit)));
+        $matches = array_slice($this->matching($query), 0, max(1, $limit));
+        return array_map(
+            fn (array $hit): ProductCategory => $this->make($hit['id'], CategoryMatcher::isFuzzy($hit['rank'])),
+            $matches
+        );
     }
 
     public function countMatches(string $query): int
@@ -82,47 +97,56 @@ final class WpProductCategoryDirectory implements ProductCategoryDirectoryInterf
     }
 
     /**
-     * Ordered ids for a query: exact name first, then prefix, then anywhere.
+     * Ranked hits for a query: every exact match before any near one.
      *
-     * @return list<int>
+     * The ranking itself is `CategoryMatcher`, which is pure and tested on its
+     * own. This method only decides WHAT is compared: the term name against
+     * the query, with the slug and the whole ancestry as the secondary
+     * haystack. An ancestor matching is a reason to offer the row, never a
+     * reason to call it exact — «تجهیزات پزشکی» is not the category, it is
+     * where the category lives.
+     *
+     * Ties break on the path, so two branches that both end in «لوازم جانبی»
+     * come out in a stable, readable order rather than whatever the database
+     * felt like.
+     *
+     * @return list<array{id:int,rank:int}>
      */
     private function matching(string $query): array
     {
         $this->load();
-        $query = $this->fold($query);
+        if (isset($this->ranked[$query])) {
+            return $this->ranked[$query];
+        }
 
-        if ($query === '') {
+        if (CategoryMatcher::fold($query) === '') {
             // Nothing typed: the top of the tree, which is a browsable answer
             // rather than an arbitrary first fifty out of a thousand.
             $top = [];
             foreach ($this->terms as $id => $term) {
                 if ($term['parent'] === 0) {
-                    $top[] = $id;
+                    $top[] = ['id' => $id, 'rank' => CategoryMatcher::CONTAINS];
                 }
             }
-            usort($top, fn (int $a, int $b): int => $this->compareNames($a, $b));
-            return $top;
+            usort($top, fn (array $a, array $b): int => $this->compareNames($a['id'], $b['id']));
+            return $this->ranked[$query] = $top;
         }
 
-        $exact = [];
-        $prefix = [];
-        $anywhere = [];
+        $hits = [];
         foreach ($this->terms as $id => $term) {
-            $name = $this->fold($term['name']);
-            $haystack = $name . ' ' . $this->fold($term['slug']) . ' ' . $this->fold($this->paths[$id] ?? '');
-            if ($name === $query) {
-                $exact[] = $id;
-            } elseif (str_starts_with($name, $query)) {
-                $prefix[] = $id;
-            } elseif (str_contains($haystack, $query)) {
-                $anywhere[] = $id;
+            $rank = CategoryMatcher::rank(
+                $query,
+                $term['name'],
+                $term['slug'] . ' ' . ($this->paths[$id] ?? '')
+            );
+            if ($rank !== CategoryMatcher::NO_MATCH) {
+                $hits[] = ['id' => $id, 'rank' => $rank];
             }
         }
-        foreach ([&$exact, &$prefix, &$anywhere] as &$bucket) {
-            usort($bucket, fn (int $a, int $b): int => $this->compareNames($a, $b));
-        }
-        unset($bucket);
-        return array_merge($exact, $prefix, $anywhere);
+        usort($hits, function (array $a, array $b): int {
+            return $a['rank'] <=> $b['rank'] ?: $this->compareNames($a['id'], $b['id']);
+        });
+        return $this->ranked[$query] = $hits;
     }
 
     private function compareNames(int $a, int $b): int
@@ -130,21 +154,7 @@ final class WpProductCategoryDirectory implements ProductCategoryDirectoryInterf
         return strcmp($this->paths[$a] ?? '', $this->paths[$b] ?? '');
     }
 
-    /**
-     * Case and Arabic/Persian letter shapes folded, so «كتاب» finds «کتاب».
-     *
-     * Typing Persian on an Arabic keyboard — or pasting from a supplier's
-     * sheet — produces U+064A and U+0643 where the site has U+06CC and U+06A9.
-     * They look identical and never match as bytes.
-     */
-    private function fold(string $text): string
-    {
-        $text = strtr($text, ['ي' => 'ی', 'ك' => 'ک', 'ة' => 'ه', 'أ' => 'ا', 'إ' => 'ا', 'آ' => 'ا', 'ؤ' => 'و']);
-        $text = preg_replace('/[\x{200c}\x{200f}\x{200e}]/u', '', $text) ?? $text;
-        return trim(function_exists('mb_strtolower') ? mb_strtolower($text, 'UTF-8') : strtolower($text));
-    }
-
-    private function make(int $id): ProductCategory
+    private function make(int $id, bool $fuzzy = false): ProductCategory
     {
         $term = $this->terms[$id];
         return new ProductCategory(
@@ -153,7 +163,8 @@ final class WpProductCategoryDirectory implements ProductCategoryDirectoryInterf
             $this->paths[$id] ?? $term['name'],
             $term['parent'],
             $term['count'],
-            isset($this->templated[(string) $id])
+            isset($this->templated[(string) $id]),
+            $fuzzy
         );
     }
 

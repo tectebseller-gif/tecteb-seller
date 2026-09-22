@@ -55,6 +55,27 @@ final class Request
         return FilesystemPath::normalize(wp_unslash($raw));
     }
 
+    /**
+     * The path and query of the request being served, raw but not unchecked.
+     *
+     * Needed by the cache-control guard, which has to decide «is this a
+     * `/vendor/` page?» at `plugins_loaded` — before `parse_request` has run
+     * and before any WordPress function can answer. That is a real read of
+     * `$_SERVER`, so it happens HERE, in the one file allowed to make it,
+     * rather than being the second place that reaches for a superglobal
+     * because it had a good reason. Control characters are stripped and the
+     * length is bounded; the caller parses what is left.
+     */
+    public static function uri(): string
+    {
+        $raw = $_SERVER['REQUEST_URI'] ?? '';
+        if (!is_string($raw) || $raw === '') {
+            return '';
+        }
+        $clean = preg_replace('/[\x00-\x1f\x7f]/', '', wp_unslash($raw));
+        return substr(is_string($clean) ? $clean : '', 0, 2048);
+    }
+
     public function isPost(): bool
     {
         return $this->method === 'POST';
