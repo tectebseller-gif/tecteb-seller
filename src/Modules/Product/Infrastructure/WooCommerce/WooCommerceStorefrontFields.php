@@ -38,18 +38,26 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
             $storefront = self::readField($wcProduct, $field);
             $stamp = (string) get_post_meta($id, ProjectedFieldOwnership::STAMP_PREFIX . $field, true);
             $managerOwns = (string) get_post_meta($id, ProjectedFieldOwnership::MANAGER_PREFIX . $field, true) === '1';
+            // Asked of the meta table, not of the value. A vendor who cleared
+            // a field proposed an empty string, and a screen that reads
+            // absence off emptiness never shows that proposal at all — the
+            // manager is never asked the question, so it can never be
+            // answered.
+            $pendingKey = ProjectedFieldOwnership::PENDING_PREFIX . $field;
+            $hasPending = metadata_exists('post', $id, $pendingKey);
             $rows[] = new StorefrontField(
                 $field,
                 $this->marketplaceValue($product, $field, array_map('intval', $wcProduct->get_category_ids())),
                 $storefront,
-                (string) get_post_meta($id, ProjectedFieldOwnership::PENDING_PREFIX . $field, true),
+                $hasPending ? (string) get_post_meta($id, $pendingKey, true) : '',
                 // `$createdByUs` is false and cannot be anything else here:
                 // this reads a post that already existed. An unstamped field
                 // therefore comes back `unknown`, which is what the review
                 // screen needs in order to ask.
                 ProjectedFieldOwnership::owner($stamp, $storefront, $managerOwns),
                 in_array($field, ProjectedFieldOwnership::ROUND_TRIP, true),
-                $managerOwns
+                $managerOwns,
+                $hasPending
             );
         }
         return $rows;
@@ -72,15 +80,34 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
         return self::readField($wcProduct, $field);
     }
 
-    public function acceptProposal(Product $product, string $field): bool
+    /**
+     * The vendor's value wins — including when the vendor's value is nothing.
+     *
+     * Presence and content are two questions and `get_post_meta()` answers
+     * them with the same empty string. The version this replaces asked only
+     * the second: `$pending !== ''` meant «there is a proposal», so a vendor
+     * who cleared their short description had that proposal treated as
+     * absent. Pressing «خواستهٔ فروشنده اعمال شود» then deleted the proposal,
+     * left the old text on the shop, stamped that text as the marketplace's
+     * own — and said it had worked. Three lies in one click, and the next
+     * projection kept all of them.
+     *
+     * So presence is `metadata_exists()` and the value is whatever is in
+     * there, empty or not.
+     */
+    public function acceptProposal(Product $product, string $field): ?string
     {
         $wcProduct = $this->storefrontProduct($product);
         if ($wcProduct === null || !in_array($field, ProjectedFieldOwnership::FIELDS, true)) {
-            return false;
+            return 'storage_failed';
         }
         $id = (int) $wcProduct->get_id();
-        $pending = (string) get_post_meta($id, ProjectedFieldOwnership::PENDING_PREFIX . $field, true);
-        if ($pending === '') {
+        $pendingKey = ProjectedFieldOwnership::PENDING_PREFIX . $field;
+        $before = self::readField($wcProduct, $field);
+
+        if (metadata_exists('post', $id, $pendingKey)) {
+            $value = (string) get_post_meta($id, $pendingKey, true);
+        } else {
             // No proposal recorded. On a product older than the stamps that
             // is the normal case rather than an edge one: the field was
             // frozen the moment it was read, and no projection has run since
@@ -88,33 +115,59 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
             // to mean the marketplace's value, so it is taken from the
             // product record here instead of being read back off the shop —
             // reading it off the shop would make the button a no-op that
-            // looked like it had done something.
-            $marketplace = $this->marketplaceValue(
+            // looked like it had done something. Empty counts here too: the
+            // unsettled path and the proposal path are the same button and
+            // have to be the same promise.
+            $value = $this->marketplaceValue(
                 $product,
                 $field,
                 array_map('intval', $wcProduct->get_category_ids())
             );
-            if (ProjectedFieldOwnership::fingerprint($marketplace)
-                !== ProjectedFieldOwnership::fingerprint(self::readField($wcProduct, $field))) {
-                $pending = $marketplace;
-            }
         }
-        if ($pending !== '' && !self::writeField($wcProduct, $field, $pending)) {
-            return false;
+
+        if ($value === '' && !StorefrontField::mayBeEmpty($field)) {
+            // Refused before anything is written, and the proposal stays
+            // where it is. A product with no name is a row nobody can find
+            // again; quietly keeping the old title instead would leave the
+            // record and the shop saying different things, which is the one
+            // outcome this whole mechanism exists to prevent.
+            return $field . '_required';
         }
-        delete_post_meta($id, ProjectedFieldOwnership::PENDING_PREFIX . $field);
-        delete_post_meta($id, ProjectedFieldOwnership::MANAGER_PREFIX . $field);
-        // Re-read before stamping, for the reason the projector does: the
-        // value WooCommerce keeps is not always the one it was handed.
+
+        $changes = ProjectedFieldOwnership::fingerprint($value)
+            !== ProjectedFieldOwnership::fingerprint($before);
+        if ($changes && !self::writeField($wcProduct, $field, $value)) {
+            return 'storage_failed';
+        }
+        // Re-read, for the reason the projector does: the value WooCommerce
+        // keeps is not always the one it was handed. And `WC_Product::save()`
+        // swallows its own exceptions and still hands back the product id
+        // (`WC_Order::save()` does the same — `alpha.11`), so reading is the
+        // only thing here that can tell a write from a failure.
         $fresh = wc_get_product($id);
+        if (!$fresh instanceof \WC_Product) {
+            return 'storage_failed';
+        }
+        $after = self::readField($fresh, $field);
+        if ($changes && ProjectedFieldOwnership::fingerprint($after)
+            === ProjectedFieldOwnership::fingerprint($before)) {
+            // Asked for something different and got back exactly what was
+            // there. Nothing moved, so nothing is cleared and nothing is
+            // stamped, and the proposal is still on the review screen to try
+            // again. A stamp written here would say the marketplace owns a
+            // value it never managed to write.
+            return 'storage_failed';
+        }
+        // Only now, and in this order: the proposal is gone BECAUSE it has
+        // been applied, and the stamp records what the shop actually holds.
+        delete_post_meta($id, $pendingKey);
+        delete_post_meta($id, ProjectedFieldOwnership::MANAGER_PREFIX . $field);
         update_post_meta(
             $id,
             ProjectedFieldOwnership::STAMP_PREFIX . $field,
-            ProjectedFieldOwnership::fingerprint(
-                $fresh instanceof \WC_Product ? self::readField($fresh, $field) : $pending
-            )
+            ProjectedFieldOwnership::fingerprint($after)
         );
-        return true;
+        return null;
     }
 
     public function editorUrl(int $wcProductId): string

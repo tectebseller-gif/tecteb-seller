@@ -128,4 +128,76 @@ final class StorefrontFieldTest extends TestCase
         );
         self::assertTrue($fresh->needsDecision());
     }
+
+    public function testPresenceOfAProposalIsNotItsEmptiness(): void
+    {
+        // Defect 1, stated as a fact about this object. «هیچ پیشنهادی نیست»
+        // and «فروشنده می‌خواهد این فیلد پاک شود» are opposite instructions,
+        // and `get_post_meta()` returns the same empty string for both. So
+        // presence is carried, never derived.
+        $empty = new StorefrontField(
+            'short_description',
+            '',
+            'متنی که مدیر نوشته',
+            '',
+            StorefrontField::OWNER_MANAGER,
+            true,
+            false,
+            true
+        );
+        $absent = new StorefrontField(
+            'short_description',
+            '',
+            'متنی که مدیر نوشته',
+            '',
+            StorefrontField::OWNER_MANAGER,
+            true,
+            false,
+            false
+        );
+        self::assertTrue($empty->hasPending);
+        self::assertFalse($absent->hasPending);
+    }
+
+    public function testAnEmptyProposalOnAnAgreeingFieldStillAsks(): void
+    {
+        // The shape where presence is the ONLY thing that can ask, and it is
+        // reachable: the proposal was recorded while the two sides differed,
+        // the manager then edited WooCommerce back to what the record says,
+        // and nothing since has cleared the held value — a projection that
+        // finds both sides equal writes no new proposal and deletes no old
+        // one. Read off the value, the question disappears while the answer
+        // is still owed.
+        $field = new StorefrontField(
+            'short_description',
+            'توضیح یکسان',
+            'توضیح یکسان',
+            '',
+            StorefrontField::OWNER_MANAGER,
+            true,
+            false,
+            true
+        );
+        self::assertFalse($field->differs());
+        self::assertTrue($field->needsDecision(), 'پیشنهاد خالی هنوز بی‌پاسخ است');
+    }
+
+    public function testCallersThatPassOnlyAValueKeepTheirOldMeaning(): void
+    {
+        // The default is derived, so every call site written before presence
+        // existed still says what it meant.
+        self::assertTrue((new StorefrontField('title', 'الف', 'ب', 'پ'))->hasPending);
+        self::assertFalse((new StorefrontField('title', 'الف', 'ب'))->hasPending);
+    }
+
+    public function testOnlyTheTitleMustNotBeEmpty(): void
+    {
+        // A product with no short description, no gallery or no category is
+        // something a shop may legitimately want. A product with no name is
+        // a row nobody can find again.
+        self::assertFalse(StorefrontField::mayBeEmpty('title'));
+        foreach (['short_description', 'description', 'category', 'images'] as $field) {
+            self::assertTrue(StorefrontField::mayBeEmpty($field), $field . ' may legitimately be empty');
+        }
+    }
 }

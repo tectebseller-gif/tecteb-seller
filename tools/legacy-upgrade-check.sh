@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# alpha.25 makes the product. A manager edits it. alpha.27 takes over.
+# alpha.25 makes the product. A manager edits it. alpha.28 takes over.
 #
 # The two defects this measures are both about products that ALREADY EXIST,
 # and a test that starts by creating one cannot see either of them: the
@@ -21,7 +21,7 @@ WPCLI="${WPCLI:-/usr/local/bin/wp}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGINS="$WPROOT/wp-content/plugins"
 OLD_ZIP="${TMC_OLD_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.25.zip}"
-NEW_ZIP="${TMC_NEW_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.27.zip}"
+NEW_ZIP="${TMC_NEW_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.28.zip}"
 
 mkdir -p "$OUT"
 LOG="$OUT/legacy-upgrade-check.txt"

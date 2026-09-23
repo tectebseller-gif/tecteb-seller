@@ -192,6 +192,46 @@ final class ProductReviewCardTest extends TestCase
         self::assertStringContainsString('value="accept"', $html);
     }
 
+    public function testAProposalToEmptyAFieldIsNamedRatherThanShownAsADash(): void
+    {
+        // Defect 1, on the screen. The vendor cleared their short description,
+        // so the proposal IS the empty string — and the cell rendered «—»,
+        // which is exactly what a field with no proposal at all renders as.
+        // A manager cannot approve a change they were never shown.
+        $fields = [
+            new StorefrontField(
+                'short_description',
+                '',
+                'کیسهٔ تنفس دستی قابل اتوکلاو',
+                '',
+                StorefrontField::OWNER_MANAGER,
+                true,
+                false,
+                true
+            ),
+        ];
+        $html = ProductReviewCardView::render(
+            $this->product(1234),
+            $this->images(),
+            'تجهیزات پزشکی',
+            null,
+            [],
+            $fields,
+            '',
+            'https://shop.test/wp-admin/post.php?post=1234&action=edit',
+            '',
+            '',
+            true
+        );
+        self::assertStringContainsString(
+            'فروشنده می‌خواهد این فیلد پاک شود',
+            $html,
+            'an empty proposal has to say that it is one'
+        );
+        self::assertStringContainsString('کیسهٔ تنفس دستی قابل اتوکلاو', $html, 'and what WooCommerce still has');
+        self::assertStringContainsString('value="accept"', $html);
+    }
+
     public function testTheDerivedDescriptionIsCalledOutAsNotRoundTripping(): void
     {
         $fields = [

@@ -346,7 +346,11 @@ final class ProductReviewCardView
             . '<th scope="col">' . esc_html__('تصمیم', 'tecteb-marketplace-core') . '</th>'
             . '</tr></thead><tbody>';
         foreach ($fields as $field) {
-            $wanted = $field->pending !== '' ? $field->pending : $field->marketplace;
+            // `hasPending`, not `pending !== ''`: an empty proposal is a
+            // proposal, and reading it as «there isn't one» put the
+            // marketplace's OLD value in this cell — so the manager approved
+            // a change they were never shown.
+            $wanted = $field->hasPending ? $field->pending : $field->marketplace;
             $html .= '<tr>'
                 . '<th scope="row" data-label="' . esc_attr__('فیلد', 'tecteb-marketplace-core') . '">'
                 . esc_html(ProductMessages::storefrontField($field->key))
@@ -357,7 +361,12 @@ final class ProductReviewCardView
                 . '<td data-label="' . esc_attr__('روی ووکامرس', 'tecteb-marketplace-core') . '">'
                 . esc_html(self::excerpt($field->storefront)) . '</td>'
                 . '<td data-label="' . esc_attr__('خواستهٔ فروشنده', 'tecteb-marketplace-core') . '">'
-                . esc_html(self::excerpt($wanted)) . '</td>'
+                // Named, not left as the «—» that an empty value renders as:
+                // «هیچ پیشنهادی نیست» and «فروشنده می‌خواهد این پاک شود» are
+                // opposite instructions and they looked identical here.
+                . ($wanted === ''
+                    ? '<em>' . esc_html__('خالی — فروشنده می‌خواهد این فیلد پاک شود', 'tecteb-marketplace-core') . '</em>'
+                    : esc_html(self::excerpt($wanted))) . '</td>'
                 . '<td data-label="' . esc_attr__('تصمیم', 'tecteb-marketplace-core') . '">'
                 . self::decisionButtons($product, $field->key, $nonceField)
                 . '</td></tr>';

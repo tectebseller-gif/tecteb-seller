@@ -11,6 +11,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductVariation;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
 
 /**
  * The marketplace product, written into WooCommerce (ADR-008).
@@ -132,13 +133,24 @@ final class WooCommerceProjector implements CatalogProjectorInterface
                 $p->get_gallery_image_ids()
             ),
             static function (\WC_Product $p) use ($product): void {
-                if ($product->mainImageId > 0) {
-                    $p->set_image_id($product->mainImageId);
-                }
-                $p->set_gallery_image_ids(array_values(array_filter(
-                    $product->imageIds,
-                    static fn (int $id): bool => $id !== $product->mainImageId
-                )));
+                // Built from the same value object the comparison above is
+                // built from, so «what we want» and «what we write» cannot
+                // drift apart the way they did when one of them filtered the
+                // list by hand.
+                $images = StorefrontImages::of($product->mainImageId, $product->imageIds);
+                // UNCONDITIONAL, and that is the whole of this fix. The line
+                // this replaces was `if ($product->mainImageId > 0)`, so zero
+                // never reached WooCommerce: a vendor who removed the
+                // featured picture kept it on the shop for ever, and it was
+                // the one change the marketplace owned and could not make.
+                // Zero is a value here — `main:0` — not a missing one.
+                $p->set_image_id($images->main);
+                // The gallery is written as it stands. Nothing is promoted
+                // into an emptied featured slot: WooCommerce draws its
+                // placeholder, which is what «بدون تصویر اصلی» looks like,
+                // and quietly publishing the next picture instead would be
+                // this plugin choosing somebody's main photo for them.
+                $p->set_gallery_image_ids($images->gallery);
             },
             $outcome,
             $isNew

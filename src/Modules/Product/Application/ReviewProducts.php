@@ -329,8 +329,13 @@ final class ReviewProducts
             return OperationResult::failure('not_found');
         }
         if ($decision === 'accept') {
-            if (!$this->storefront->acceptProposal($product, $field)) {
-                return OperationResult::failure('storage_failed');
+            // The code is passed through rather than flattened to
+            // «ذخیره نشد». «عنوان نمی‌تواند خالی بماند» tells the manager what
+            // to do next; a generic failure tells them to press the button
+            // again, which will refuse again.
+            $failure = $this->storefront->acceptProposal($product, $field);
+            if ($failure !== null) {
+                return OperationResult::failure($failure, ['product_id' => $productId, 'field' => $field]);
             }
             $this->logOwnership($product->vendorUserId, $productId, $field, 'accept');
             return OperationResult::success('proposal_accepted', ['product_id' => $productId]);

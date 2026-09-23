@@ -131,4 +131,16 @@ final class StorefrontImagesTest extends TestCase
             ProjectedFieldOwnership::idsToValue([23, 19])
         );
     }
+
+    public function testRemovingTheFeaturedPictureDoesNotPromoteTheNextOne(): void
+    {
+        // What the projector's write path now relies on. «بدون تصویر اصلی»
+        // with a gallery still in it is an arrangement somebody chose, and
+        // quietly publishing the first gallery picture in the empty slot
+        // would be this plugin choosing a product's main photo for them.
+        $images = StorefrontImages::of(0, [20, 30]);
+        self::assertSame(0, $images->main);
+        self::assertSame([20, 30], $images->gallery);
+        self::assertSame([20, 30], $images->ids(), 'main-first only applies when there IS a main');
+    }
 }

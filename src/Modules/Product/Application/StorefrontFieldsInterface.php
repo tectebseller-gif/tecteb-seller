@@ -39,8 +39,16 @@ interface StorefrontFieldsInterface
     /**
      * The vendor's held proposal wins: written to the storefront, re-stamped,
      * and the field belongs to the marketplace again.
+     *
+     * Returns a CODE rather than a boolean because the two ways this can
+     * refuse are not the same refusal. «عنوان نمی‌تواند خالی بماند» is a
+     * decision the manager can act on; «ذخیره نشد» is a fault to retry. A
+     * boolean made both of them the same sentence.
+     *
+     * @return string|null null when the storefront now holds the proposal;
+     *         otherwise the reason it does not, and nothing was changed
      */
-    public function acceptProposal(Product $product, string $field): bool;
+    public function acceptProposal(Product $product, string $field): ?string;
 
     /** Where the manager edits this product — WooCommerce's own editor. */
     public function editorUrl(int $wcProductId): string;
