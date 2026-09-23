@@ -247,12 +247,92 @@ final class ProductReviewCardView
                 PersianDigits::toPersian((string) $product->wcProductId)
             )) . '</p>';
 
-        $decisions = array_values(array_filter($fields, static fn (StorefrontField $f): bool => $f->needsDecision()));
-        if ($decisions === []) {
+        // Two different questions, so two different blocks. «این دو با هم
+        // نمی‌خوانند، کدام درست است؟» is a comparison. «این محصول از نسخهٔ
+        // قدیمی مانده و معلوم نیست این متن را چه کسی نوشته» is a piece of
+        // history, and mixing them would put a product's whole field list
+        // under a heading that says the sides disagree when they may not.
+        $unsettled = array_values(array_filter($fields, static fn (StorefrontField $f): bool => $f->isUnsettled()));
+        $conflicts = array_values(array_filter(
+            $fields,
+            static fn (StorefrontField $f): bool => !$f->isUnsettled() && $f->needsDecision()
+        ));
+        if ($unsettled === [] && $conflicts === []) {
             return $html . '<p class="tmc-card__note">' . esc_html__('اطلاعات بازارگاه و ووکامرس برای این محصول یکی است.', 'tecteb-marketplace-core') . '</p></div>';
         }
-        $html .= self::ownershipTable($product, $decisions, $nonceField);
+        if ($unsettled !== []) {
+            $html .= self::unsettledBlock($product, $unsettled, $nonceField);
+        }
+        if ($conflicts !== []) {
+            $html .= self::ownershipTable($product, $conflicts, $nonceField);
+        }
         return $html . '</div>';
+    }
+
+    /**
+     * Fields on a product older than the ownership stamps.
+     *
+     * The marketplace does not know whether the text in WooCommerce is its
+     * own work or the manager's, because the version that projected this
+     * product recorded nothing either way. It writes nothing until somebody
+     * says — and this block is where they say it, per field or in one go.
+     *
+     * @param list<StorefrontField> $fields
+     */
+    private static function unsettledBlock(Product $product, array $fields, string $nonceField): string
+    {
+        $html = Components::notice('warning', __('این محصول پیش از نسخهٔ ۰٫۱٫۰-alpha.27 ساخته شده است، پس سابقه‌ای از اینکه متن فعلی ووکامرس را بازارگاه نوشته یا شما، وجود ندارد. تا وقتی تعیین تکلیف نکنید، بازارگاه روی این فیلدها چیزی نمی‌نویسد و ذخیرهٔ فروشنده هم آن‌ها را عوض نمی‌کند.', 'tecteb-marketplace-core'))
+            . '<table class="tmc-table tmc-review__owner"><caption>'
+            . esc_html__('فیلدهای بدون سابقه', 'tecteb-marketplace-core') . '</caption><thead><tr>'
+            . '<th scope="col">' . esc_html__('فیلد', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('روی ووکامرس', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('در پروندهٔ بازارگاه', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('تصمیم', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>';
+        foreach ($fields as $field) {
+            $html .= '<tr>'
+                . '<th scope="row" data-label="' . esc_attr__('فیلد', 'tecteb-marketplace-core') . '">'
+                . esc_html(ProductMessages::storefrontField($field->key))
+                . (!$field->differs()
+                    ? '<br><span class="tmc-card__note">'
+                        . esc_html__('هر دو طرف یکی است؛ فقط باید ثبت شود.', 'tecteb-marketplace-core')
+                        . '</span>'
+                    : '')
+                . '</th>'
+                . '<td data-label="' . esc_attr__('روی ووکامرس', 'tecteb-marketplace-core') . '">'
+                . esc_html(self::excerpt($field->storefront)) . '</td>'
+                . '<td data-label="' . esc_attr__('در پروندهٔ بازارگاه', 'tecteb-marketplace-core') . '">'
+                . esc_html(self::excerpt($field->marketplace)) . '</td>'
+                . '<td data-label="' . esc_attr__('تصمیم', 'tecteb-marketplace-core') . '">'
+                . self::decisionButtons($product, $field->key, $nonceField)
+                . '</td></tr>';
+        }
+        $html .= '</tbody></table>';
+
+        // One button for the whole product. Five fields times however many
+        // products a shop carried over is not a decision, it is a chore —
+        // and a chore is what somebody clicks through without reading.
+        return $html . '<form method="post" class="tmc-inline">' . $nonceField
+            . '<input type="hidden" name="subject" value="product_fields">'
+            . '<input type="hidden" name="subject_id" value="' . esc_attr((string) $product->id) . '">'
+            . '<button type="submit" class="tmc-button" name="decision" value="keep">'
+            . esc_html__('برای همهٔ این فیلدها: نسخهٔ ووکامرس بماند', 'tecteb-marketplace-core') . '</button> '
+            . '<button type="submit" class="tmc-button" name="decision" value="accept">'
+            . esc_html__('برای همهٔ این فیلدها: مقدار بازارگاه اعمال شود', 'tecteb-marketplace-core') . '</button>'
+            . '</form>';
+    }
+
+    private static function decisionButtons(Product $product, string $field, string $nonceField): string
+    {
+        return '<form method="post" class="tmc-inline">' . $nonceField
+            . '<input type="hidden" name="subject" value="field">'
+            . '<input type="hidden" name="subject_id" value="' . esc_attr((string) $product->id) . '">'
+            . '<input type="hidden" name="field" value="' . esc_attr($field) . '">'
+            . '<button type="submit" class="tmc-button" name="decision" value="keep">'
+            . esc_html__('نسخهٔ ووکامرس بماند', 'tecteb-marketplace-core') . '</button> '
+            . '<button type="submit" class="tmc-button" name="decision" value="accept">'
+            . esc_html__('خواستهٔ فروشنده اعمال شود', 'tecteb-marketplace-core') . '</button>'
+            . '</form>';
     }
 
     /** @param list<StorefrontField> $fields */
@@ -279,15 +359,8 @@ final class ProductReviewCardView
                 . '<td data-label="' . esc_attr__('خواستهٔ فروشنده', 'tecteb-marketplace-core') . '">'
                 . esc_html(self::excerpt($wanted)) . '</td>'
                 . '<td data-label="' . esc_attr__('تصمیم', 'tecteb-marketplace-core') . '">'
-                . '<form method="post" class="tmc-inline">' . $nonceField
-                . '<input type="hidden" name="subject" value="field">'
-                . '<input type="hidden" name="subject_id" value="' . esc_attr((string) $product->id) . '">'
-                . '<input type="hidden" name="field" value="' . esc_attr($field->key) . '">'
-                . '<button type="submit" class="tmc-button" name="decision" value="keep">'
-                . esc_html__('نسخهٔ ووکامرس بماند', 'tecteb-marketplace-core') . '</button> '
-                . '<button type="submit" class="tmc-button" name="decision" value="accept">'
-                . esc_html__('خواستهٔ فروشنده اعمال شود', 'tecteb-marketplace-core') . '</button>'
-                . '</form></td></tr>';
+                . self::decisionButtons($product, $field->key, $nonceField)
+                . '</td></tr>';
         }
         return $html . '</tbody></table>';
     }

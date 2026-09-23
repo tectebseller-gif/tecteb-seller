@@ -1,0 +1,51 @@
+
+=== guard in place: the product is made by the previous package ===
+seeded=1 product=10 vendor=2 images=4,17,18
+projected=1 code=projected wc=28 plugin=0.1.0-alpha.25
+
+--- the manager edits it in WooCommerce, before any upgrade ---
+edited=1 wc=28 images=main:18|gallery:4,17
+read=1 wc=28 title=عنوانی_که_مدیر_در_ووکامرس_نوشته short=توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته long=متن_کاملی_که_مدیر_در_ووکامرس_نوشته images=main:18|gallery:4,17 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=محصول_نسخهٔ_قدیمی record_main=4 record_images=4,17,18
+
+--- upgrade, then the vendor saves and it is synced ---
+installed: 0.1.0-alpha.25 -> 0.1.0-alpha.27  (product=10 wc=28)
+saved=1 synced=1 vendor_title=عنوان_تازهٔ_فروشنده_174306 vendor_short=توضیح_کوتاه_تازهٔ_فروشنده_174306
+read=1 wc=28 title=عنوانی_که_مدیر_در_ووکامرس_نوشته short=توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته long=متن_کاملی_که_مدیر_در_ووکامرس_نوشته images=main:18|gallery:4,17 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=عنوان_تازهٔ_فروشنده_174306 record_main=4 record_images=4,17,18
+fields=1 title=unknown/asks short_description=unknown/asks description=unknown/asks category=unknown/asks images=unknown/asks
+ok:   the manager's title survived the upgrade                 عنوانی_که_مدیر_در_ووکامرس_نوشته
+ok:   and the short description                                توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته
+ok:   and the full description                                 متن_کاملی_که_مدیر_در_ووکامرس_نوشته
+ok:   the featured picture and gallery order survived          main:18|gallery:4,17
+ok:   and the SEO fields were never touched                    عنوان_سئوی_نوشتهٔ_مدیر
+ok:   title is unsettled and asks                              unknown/asks
+ok:   short_description is unsettled and asks                  unknown/asks
+ok:   description is unsettled and asks                        unknown/asks
+ok:   images is unsettled and asks                             unknown/asks
+
+--- the manager settles the product, and it stops asking ---
+settled=1 code=storefront_kept_all count=5
+fields=1 title=manager/settled short_description=manager/settled description=manager/settled category=manager/settled images=manager/settled
+ok:   after «نسخهٔ ووکامرس بماند» nothing is unsettled 0
+ok:   and nothing is still asking                              0
+ok:   and the record now agrees with the shop                  عنوانی_که_مدیر_در_ووکامرس_نوشته
+ok:   including which picture is featured                      18
+
+--- a genuinely new product is still filled in normally ---
+projected=1 code=projected wc=29 plugin=0.1.0-alpha.27
+read=1 wc=29 title=محصول_نسخهٔ_قدیمی short=توضیح_کوتاه_اولیهٔ_فروشنده long=برند:_برند_نمونه
+
+توضیح_کوتاه_اولیهٔ_فروشنده images=main:4|gallery:17,18 seo_title= seo_desc= seo_keyword= record_title=محصول_نسخهٔ_قدیمی record_main=4 record_images=4,17,18
+ok:   a new product gets the vendor's title                    محصول_نسخهٔ_قدیمی
+fields=1 title=marketplace/settled short_description=marketplace/settled description=marketplace/settled category=marketplace/settled images=marketplace/settled
+ok:   and nothing about it is unsettled                        0
+
+=== the same run with the guard reverted to the previous rule ===
+reverted: an absent stamp means «ours» again
+read=1 wc=30 title=عنوان_تازهٔ_فروشنده_174322 short=توضیح_کوتاه_تازهٔ_فروشنده_174322 long=برند:_برند_نمونه
+
+توضیح_کوتاه_تازهٔ_فروشنده_174322 images=main:4|gallery:17,18 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=عنوان_تازهٔ_فروشنده_174322 record_main=4 record_images=4,17,18
+ok:   without the guard the manager's title is destroyed       destroyed
+ok:   and the picture arrangement with it                      destroyed
+ok:   the installed plugin is the delivered package            1
+
+checks: 18  pass: 18  fail: 0

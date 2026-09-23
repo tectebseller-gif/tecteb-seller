@@ -74,14 +74,21 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         // Text the manager may have edited in WooCommerce. Each one is written
         // only while it is still what we last wrote; otherwise the vendor's
         // value is held as a proposal and the manager decides.
-        $held = [];
+        //
+        // `$isNew` travels with every one of them. A post created a moment
+        // ago by this call is ours in full; an EXISTING post with no stamp is
+        // not, however much it looks the same from here — that is a product
+        // an older version projected, and whatever is in it may be the
+        // manager's own text.
+        $outcome = [];
         $this->writeOwned(
             $wcProduct,
             'title',
             $details->title !== '' ? $details->title : __('بدون عنوان', 'tecteb-marketplace-core'),
             static fn (\WC_Product $p): string => (string) $p->get_name(),
             static fn (\WC_Product $p, string $v): mixed => $p->set_name($v),
-            $held
+            $outcome,
+            $isNew
         );
         $this->writeOwned(
             $wcProduct,
@@ -89,7 +96,8 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             $details->shortDescription,
             static fn (\WC_Product $p): string => (string) $p->get_short_description(),
             static fn (\WC_Product $p, string $v): mixed => $p->set_short_description($v),
-            $held
+            $outcome,
+            $isNew
         );
         $this->writeOwned(
             $wcProduct,
@@ -97,7 +105,8 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             $this->storefrontDescription($product),
             static fn (\WC_Product $p): string => (string) $p->get_description(),
             static fn (\WC_Product $p, string $v): mixed => $p->set_description($v),
-            $held
+            $outcome,
+            $isNew
         );
         $wcProduct->set_status($product->status === ProductStatus::Published ? 'publish' : 'draft');
         $wcProduct->set_catalog_visibility($product->status === ProductStatus::Published ? 'visible' : 'hidden');
@@ -110,18 +119,18 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         // Pictures and category follow the same rule as the text: a gallery
         // the manager rearranged in WooCommerce, or a category they moved the
         // product into, is not undone by the vendor's next save.
-        $wantImages = array_values(array_unique(array_merge(
-            $product->mainImageId > 0 ? [$product->mainImageId] : [],
-            $product->imageIds
-        )));
         $this->writeOwned(
             $wcProduct,
             'images',
-            ProjectedFieldOwnership::idsToValue($wantImages),
-            static fn (\WC_Product $p): string => ProjectedFieldOwnership::idsToValue(array_merge(
-                $p->get_image_id() ? [(int) $p->get_image_id()] : [],
-                array_map('intval', $p->get_gallery_image_ids())
-            )),
+            // Main named, gallery in ITS order, nothing sorted: swapping the
+            // featured picture or dragging the gallery about are the two
+            // edits a manager actually makes, and the sorted form made both
+            // of them invisible.
+            ProjectedFieldOwnership::imagesToValue($product->mainImageId, $product->imageIds),
+            static fn (\WC_Product $p): string => ProjectedFieldOwnership::imagesToValue(
+                (int) $p->get_image_id(),
+                $p->get_gallery_image_ids()
+            ),
             static function (\WC_Product $p) use ($product): void {
                 if ($product->mainImageId > 0) {
                     $p->set_image_id($product->mainImageId);
@@ -131,7 +140,8 @@ final class WooCommerceProjector implements CatalogProjectorInterface
                     static fn (int $id): bool => $id !== $product->mainImageId
                 )));
             },
-            $held
+            $outcome,
+            $isNew
         );
         $wantCategories = $this->categoryIds(
             $details->categoryKey,
@@ -145,7 +155,8 @@ final class WooCommerceProjector implements CatalogProjectorInterface
                 array_map('intval', $p->get_category_ids())
             ),
             static fn (\WC_Product $p): mixed => $p->set_category_ids($wantCategories),
-            $held
+            $outcome,
+            $isNew
         );
 
         if ($details->type === ProductType::VARIABLE) {
@@ -176,7 +187,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         // filters on the way in, so the value that comes back is routinely not
         // the one that went out. Stamping what we *sent* would mark every
         // product manager-edited on its next projection.
-        $this->stampOwned($wcProductId, $held);
+        $this->stampOwned($wcProductId, $outcome);
         // The author is the vendor, so WordPress' own "posts by this user"
         // views and any theme byline attribute the product correctly.
         wp_update_post(['ID' => $wcProductId, 'post_author' => $product->vendorUserId]);
@@ -514,11 +525,18 @@ final class WooCommerceProjector implements CatalogProjectorInterface
     }
 
     /**
-     * Write a field only while the marketplace still owns it.
+     * Write a field, or refuse and say why — and record which it was.
      *
-     * @param callable(\WC_Product):string        $read  what WooCommerce has now
-     * @param callable(\WC_Product,string):mixed  $write how to set it
-     * @param array<string,string>                $held  filled with what was refused
+     * @param callable(\WC_Product):string        $read    what WooCommerce has now
+     * @param callable(\WC_Product,string):mixed  $write   how to set it
+     * @param array<string,string>                $outcome filled with what happened
+     *
+     * `$outcome[$field]` is how `stampOwned()` knows what actually happened:
+     * `wrote` gets a stamp, `held` gets a pending proposal, and `frozen` gets
+     * NEITHER. That last one is new in `alpha.27` and it is the point of the
+     * whole change: a field on a product older than the stamps must come out
+     * of a projection with the marketplace having touched nothing and
+     * claimed nothing.
      */
     private function writeOwned(
         \WC_Product $wcProduct,
@@ -526,36 +544,47 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         string $want,
         callable $read,
         callable $write,
-        array &$held
+        array &$outcome,
+        bool $createdByUs
     ): void {
         $id = (int) $wcProduct->get_id();
         $stamp = $id > 0 ? (string) get_post_meta($id, ProjectedFieldOwnership::STAMP_PREFIX . $field, true) : '';
         $managerOwns = $id > 0 && (string) get_post_meta($id, ProjectedFieldOwnership::MANAGER_PREFIX . $field, true) === '1';
         $current = (string) $read($wcProduct);
+        $owner = ProjectedFieldOwnership::owner($stamp, $current, $managerOwns, $createdByUs);
 
-        if (ProjectedFieldOwnership::mayWrite($stamp, $current, $managerOwns)) {
+        if ($owner === ProjectedFieldOwnership::OWNER_MARKETPLACE) {
             $write($wcProduct, $want);
+            $outcome[$field] = 'wrote';
             return;
         }
         if ($managerOwns) {
             // Asked and answered. Re-recording the vendor's value as a
             // proposal would put the same question back on the review screen
             // after every save, which is how a decision stops being one.
+            $outcome[$field] = 'frozen';
             return;
         }
         // Held back. Recording a proposal that equals what is already there
         // would show the manager a «change» that changes nothing.
         if (ProjectedFieldOwnership::fingerprint($want) !== ProjectedFieldOwnership::fingerprint($current)) {
-            $held[$field] = $want;
+            $outcome[$field] = 'held';
+            $outcome[$field . ':value'] = $want;
+            return;
         }
+        // Same on both sides. Nothing to propose — and for an `unknown` field
+        // nothing to stamp either, because agreeing with a value is not the
+        // same as having written it.
+        $outcome[$field] = 'frozen';
     }
 
     /**
      * Record what we just wrote, and what we did not.
      *
-     * @param array<string,string> $held
+     * @param array<string,string> $outcome field => wrote|held|frozen, plus
+     *        `<field>:value` for the ones held back
      */
-    private function stampOwned(int $wcProductId, array $held): void
+    private function stampOwned(int $wcProductId, array $outcome): void
     {
         $wcProduct = wc_get_product($wcProductId);
         if (!$wcProduct instanceof \WC_Product) {
@@ -565,35 +594,38 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             'title' => (string) $wcProduct->get_name(),
             'short_description' => (string) $wcProduct->get_short_description(),
             'description' => (string) $wcProduct->get_description(),
-            'images' => ProjectedFieldOwnership::idsToValue(array_merge(
-                $wcProduct->get_image_id() ? [(int) $wcProduct->get_image_id()] : [],
-                array_map('intval', $wcProduct->get_gallery_image_ids())
-            )),
+            'images' => ProjectedFieldOwnership::imagesToValue(
+                (int) $wcProduct->get_image_id(),
+                $wcProduct->get_gallery_image_ids()
+            ),
             'category' => ProjectedFieldOwnership::idsToValue(
                 array_map('intval', $wcProduct->get_category_ids())
             ),
         ];
         foreach (ProjectedFieldOwnership::FIELDS as $field) {
             $pending = ProjectedFieldOwnership::PENDING_PREFIX . $field;
-            if ((string) get_post_meta($wcProductId, ProjectedFieldOwnership::MANAGER_PREFIX . $field, true) === '1') {
-                // Not ours to stamp. Stamping it would say «the marketplace
-                // wrote this», and the next projection would believe it and
-                // overwrite the manager — the exact failure this whole
-                // mechanism exists to stop.
-                continue;
+            switch ($outcome[$field] ?? 'frozen') {
+                case 'wrote':
+                    delete_post_meta($wcProductId, $pending);
+                    update_post_meta(
+                        $wcProductId,
+                        ProjectedFieldOwnership::STAMP_PREFIX . $field,
+                        ProjectedFieldOwnership::fingerprint($now[$field] ?? '')
+                    );
+                    break;
+                case 'held':
+                    // A proposal the manager has not answered yet. The stamp
+                    // is deliberately left alone: the field is still theirs.
+                    update_post_meta($wcProductId, $pending, $outcome[$field . ':value'] ?? '');
+                    break;
+                default:
+                    // `frozen`: either the manager owns it, or nobody knows
+                    // who does. Not ours to stamp. Stamping would say «the
+                    // marketplace wrote this», and the next projection would
+                    // believe it and overwrite — the exact failure this whole
+                    // mechanism exists to stop.
+                    break;
             }
-            if (isset($held[$field])) {
-                // A proposal the manager has not answered yet. The stamp is
-                // deliberately left alone: the field is still theirs.
-                update_post_meta($wcProductId, $pending, $held[$field]);
-                continue;
-            }
-            delete_post_meta($wcProductId, $pending);
-            update_post_meta(
-                $wcProductId,
-                ProjectedFieldOwnership::STAMP_PREFIX . $field,
-                ProjectedFieldOwnership::fingerprint($now[$field] ?? '')
-            );
         }
     }
 

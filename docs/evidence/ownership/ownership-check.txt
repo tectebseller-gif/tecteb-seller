@@ -1,16 +1,20 @@
 === the guard in place ===
-stage=reset ok=true product=1 cleared=5
-stage=project ok=true product=1 wc=20 code=projected
-stage=edit ok=true title=عنوان_ویرایش‌شدهٔ_مدیر_2
-stage=resave ok=true storefront=عنوان_ویرایش‌شدهٔ_مدیر_2 pending=عنوان_تازهٔ_فروشنده_2006 survived=yes
+stage=reset ok=true product=2 cleared=6 claimed=5
+stage=project ok=true product=2 wc=21 code=projected
+stage=edit ok=true title=عنوان_ویرایش‌شدهٔ_مدیر_1
+stage=resave ok=true storefront=عنوان_ویرایش‌شدهٔ_مدیر_1 pending=عنوان_تازهٔ_فروشنده_1803 survived=yes
 stage=compare ok=true owner=manager needs_decision=yes
-stage=keep ok=true code=storefront_kept storefront=عنوان_ویرایش‌شدهٔ_مدیر_2 record=عنوان_ویرایش‌شدهٔ_مدیر_2 one_version=yes
-stage=keep_survives_projection ok=true storefront=عنوان_ویرایش‌شدهٔ_مدیر_2 pending=none
+stage=keep ok=true code=storefront_kept storefront=عنوان_ویرایش‌شدهٔ_مدیر_1 record=عنوان_ویرایش‌شدهٔ_مدیر_1 one_version=yes
+stage=keep_survives_projection ok=true storefront=عنوان_ویرایش‌شدهٔ_مدیر_1 pending=none
 stage=hold_short ok=true pending=توضیح_کوتاه_پیشنهادی_فرو
 stage=accept ok=true code=proposal_accepted storefront=توضیح_کوتاه_پیشنهادی_فرو pending_cleared=yes
 stage=accept_returns_the_field ok=true storefront=توضیح_کوتاه_بعدی_فروشنده
 stage=category_edit_survives ok=true moved_to=15 now=15
-stage=render ok=true bytes=24211 gallery=yes category_path=yes prepare_button=n/a editor_link=yes bare_counter_only=no
+stage=render ok=true bytes=58304 gallery=yes category_path=yes prepare_button=n/a editor_link=yes bare_counter_only=no
+stage=image_swap_survives_a_sync ok=true manager=main:18|gallery:4,17 now=main:18|gallery:4,17 pending=recorded
+stage=accept_images_is_idempotent ok=true after_first=main:4|gallery:17,18 after_second=main:4|gallery:17,18
+stage=no_featured_picture_is_seen_as_a_change ok=true now=main:0|gallery:17,18 pending=recorded
+stage=images_restored ok=true now=main:4|gallery:17,18
 stage=prepare ok=true code=prepared wc=24 status=draft purchasable=no
 ok:   reset                                                      ok=true
 ok:   project                                                    ok=true
@@ -23,6 +27,10 @@ ok:   hold_short                                                 ok=true
 ok:   accept                                                     ok=true
 ok:   accept_returns_the_field                                   ok=true
 ok:   category_edit_survives                                     ok=true
+ok:   image_swap_survives_a_sync                                 ok=true
+ok:   accept_images_is_idempotent                                ok=true
+ok:   no_featured_picture_is_seen_as_a_change                    ok=true
+ok:   images_restored                                            ok=true
 ok:   render                                                     ok=true
 ok:   prepare                                                    ok=true
 ok:   one version of the product, not two                        yes
@@ -32,21 +40,25 @@ ok:   the review card shows pictures, not a count                yes
 ok:   and the category as a path                                 yes
 
 === the same run with the guard removed ===
-stage=reset ok=true product=1 cleared=6
-stage=project ok=true product=1 wc=20 code=projected
-stage=edit ok=true title=عنوان_ویرایش‌شدهٔ_مدیر_2
-stage=resave ok=false storefront=عنوان_تازهٔ_فروشنده_2006 pending= survived=no
+stage=reset ok=true product=2 cleared=6 claimed=5
+stage=project ok=true product=2 wc=21 code=projected
+stage=edit ok=true title=عنوان_ویرایش‌شدهٔ_مدیر_1
+stage=resave ok=false storefront=عنوان_تازهٔ_فروشنده_1803 pending= survived=no
 stage=compare ok=false owner=marketplace needs_decision=no
-stage=keep ok=false code=storefront_kept storefront=عنوان_تازهٔ_فروشنده_2006 record=عنوان_تازهٔ_فروشنده_2006 one_version=yes
-stage=keep_survives_projection ok=false storefront=عنوان_تازهٔ_فروشنده_2006 pending=none
+stage=keep ok=false code=storefront_kept storefront=عنوان_تازهٔ_فروشنده_1803 record=عنوان_تازهٔ_فروشنده_1803 one_version=yes
+stage=keep_survives_projection ok=false storefront=عنوان_تازهٔ_فروشنده_1803 pending=none
 stage=hold_short ok=false pending=
 stage=accept ok=true code=proposal_accepted storefront=توضیح_کوتاه_پیشنهادی_فرو pending_cleared=yes
 stage=accept_returns_the_field ok=true storefront=توضیح_کوتاه_بعدی_فروشنده
 stage=category_edit_survives ok=false moved_to=15 now=18
-stage=render ok=true bytes=22909 gallery=yes category_path=yes prepare_button=n/a editor_link=yes bare_counter_only=no
+stage=render ok=true bytes=57002 gallery=yes category_path=yes prepare_button=n/a editor_link=yes bare_counter_only=no
+stage=image_swap_survives_a_sync ok=false manager=main:18|gallery:4,17 now=main:4|gallery:17,18 pending=none
+stage=accept_images_is_idempotent ok=true after_first=main:4|gallery:17,18 after_second=main:4|gallery:17,18
+stage=no_featured_picture_is_seen_as_a_change ok=false now=main:4|gallery:17,18 pending=none
+stage=images_restored ok=true now=main:4|gallery:17,18
 stage=prepare ok=true code=prepared wc=24 status=draft purchasable=no
 ok:   without the guard the manager's text is destroyed          ok=false
 ok:   and the run says so in one word                            no
 ok:   the installed plugin was put back                          1
 
-checks: 21  pass: 21  fail: 0
+checks: 25  pass: 25  fail: 0

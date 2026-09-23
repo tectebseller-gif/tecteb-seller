@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontField;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
 
 /**
  * Reading the other side of the projection, and closing a disagreement.
@@ -42,10 +43,13 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
                 $this->marketplaceValue($product, $field, array_map('intval', $wcProduct->get_category_ids())),
                 $storefront,
                 (string) get_post_meta($id, ProjectedFieldOwnership::PENDING_PREFIX . $field, true),
-                $managerOwns || !ProjectedFieldOwnership::mayWrite($stamp, $storefront)
-                    ? StorefrontField::OWNER_MANAGER
-                    : StorefrontField::OWNER_MARKETPLACE,
-                in_array($field, ProjectedFieldOwnership::ROUND_TRIP, true)
+                // `$createdByUs` is false and cannot be anything else here:
+                // this reads a post that already existed. An unstamped field
+                // therefore comes back `unknown`, which is what the review
+                // screen needs in order to ask.
+                ProjectedFieldOwnership::owner($stamp, $storefront, $managerOwns),
+                in_array($field, ProjectedFieldOwnership::ROUND_TRIP, true),
+                $managerOwns
             );
         }
         return $rows;
@@ -76,9 +80,25 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
         }
         $id = (int) $wcProduct->get_id();
         $pending = (string) get_post_meta($id, ProjectedFieldOwnership::PENDING_PREFIX . $field, true);
-        // No proposal is not a failure: it is «the vendor has not asked for
-        // anything», and the answer is to hand the field back so the next
-        // save lands normally.
+        if ($pending === '') {
+            // No proposal recorded. On a product older than the stamps that
+            // is the normal case rather than an edge one: the field was
+            // frozen the moment it was read, and no projection has run since
+            // to write a proposal down. «خواستهٔ فروشنده اعمال شود» still has
+            // to mean the marketplace's value, so it is taken from the
+            // product record here instead of being read back off the shop —
+            // reading it off the shop would make the button a no-op that
+            // looked like it had done something.
+            $marketplace = $this->marketplaceValue(
+                $product,
+                $field,
+                array_map('intval', $wcProduct->get_category_ids())
+            );
+            if (ProjectedFieldOwnership::fingerprint($marketplace)
+                !== ProjectedFieldOwnership::fingerprint(self::readField($wcProduct, $field))) {
+                $pending = $marketplace;
+            }
+        }
         if ($pending !== '' && !self::writeField($wcProduct, $field, $pending)) {
             return false;
         }
@@ -134,10 +154,10 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
             'title' => (string) $wcProduct->get_name(),
             'short_description' => (string) $wcProduct->get_short_description(),
             'description' => (string) $wcProduct->get_description(),
-            'images' => ProjectedFieldOwnership::idsToValue(array_merge(
-                $wcProduct->get_image_id() ? [(int) $wcProduct->get_image_id()] : [],
-                array_map('intval', $wcProduct->get_gallery_image_ids())
-            )),
+            'images' => ProjectedFieldOwnership::imagesToValue(
+                (int) $wcProduct->get_image_id(),
+                $wcProduct->get_gallery_image_ids()
+            ),
             'category' => ProjectedFieldOwnership::idsToValue(
                 array_map('intval', $wcProduct->get_category_ids())
             ),
@@ -166,12 +186,12 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
                     $wcProduct->set_category_ids($ids($value));
                     break;
                 case 'images':
-                    $list = $ids($value);
-                    $main = array_shift($list) ?? 0;
-                    if ($main > 0) {
-                        $wcProduct->set_image_id($main);
-                    }
-                    $wcProduct->set_gallery_image_ids($list);
+                    // Decoded, not split on commas: the value names which
+                    // picture is the featured one and what order the gallery
+                    // is in, and accepting a proposal has to reproduce both.
+                    $images = StorefrontImages::decode($value);
+                    $wcProduct->set_image_id($images->main);
+                    $wcProduct->set_gallery_image_ids($images->gallery);
                     break;
                 default:
                     return false;
@@ -193,10 +213,7 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
             // manager-edited.
             'description' => $this->projector->storefrontDescriptionFor($product),
             'category' => $this->projector->storefrontCategoryFor($product, $currentCategoryIds),
-            'images' => ProjectedFieldOwnership::idsToValue(array_values(array_unique(array_merge(
-                $product->mainImageId > 0 ? [$product->mainImageId] : [],
-                $product->imageIds
-            )))),
+            'images' => ProjectedFieldOwnership::imagesToValue($product->mainImageId, $product->imageIds),
             default => '',
         };
     }

@@ -48,7 +48,7 @@ REAL="$(run_state)"
 printf '%s\n' "$REAL" | tee -a "$LOG" >/dev/null
 printf '%s\n' "$REAL"
 
-for stage in reset project edit resave compare keep keep_survives_projection hold_short accept accept_returns_the_field category_edit_survives render prepare; do
+for stage in reset project edit resave compare keep keep_survives_projection hold_short accept accept_returns_the_field category_edit_survives image_swap_survives_a_sync accept_images_is_idempotent no_featured_picture_is_seen_as_a_change images_restored render prepare; do
   line="$(printf '%s\n' "$REAL" | grep "^stage=$stage " || true)"
   if [ -z "$line" ]; then
     check "$stage reported" "missing" "ok=true"
@@ -87,7 +87,7 @@ python3 - "$PROJECTOR" <<'PYEOF'
 import sys, pathlib
 path = pathlib.Path(sys.argv[1])
 src = path.read_text()
-needle = "if (ProjectedFieldOwnership::mayWrite($stamp, $current, $managerOwns)) {"
+needle = "if ($owner === ProjectedFieldOwnership::OWNER_MARKETPLACE) {"
 if src.count(needle) != 1:
     sys.stderr.write("guard line not found exactly once\n")
     sys.exit(2)
@@ -110,7 +110,7 @@ fi
 cp "$OUT/projector.bak" "$PROJECTOR"
 rm -f "$OUT/projector.bak"
 # Proved restored, not assumed: the next evidence run uses this install.
-restored="$(grep -c 'mayWrite($stamp, $current, $managerOwns)' "$PROJECTOR" || true)"
+restored="$(grep -c '$owner === ProjectedFieldOwnership::OWNER_MARKETPLACE' "$PROJECTOR" || true)"
 check "the installed plugin was put back" "$restored" "1"
 rm -f "$WPROOT/ownership-state.php"
 

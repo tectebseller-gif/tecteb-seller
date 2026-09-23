@@ -408,6 +408,10 @@ final class ProductReviewPage
                 $request->postKey('field'),
                 $request->postKey('decision')
             ),
+            'product_fields:keep', 'product_fields:accept' => $review->resolveProduct(
+                $id,
+                $request->postKey('decision')
+            ),
             default => null,
         };
         return $result === null ? null : ['code' => $result->code, 'context' => $result->context];

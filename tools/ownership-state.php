@@ -134,9 +134,30 @@ $reset = static function (int $wcId): int {
     }
     return $cleared;
 };
-$say('reset', true, [
+$cleared = $reset((int) ($product->wcProductId ?? 0));
+
+// Clearing the metas leaves the product looking like one an older version
+// projected — which is a real state, and the one `legacy-upgrade-check.sh`
+// exists to measure. It is NOT the state this run is about: everything below
+// is about a product the marketplace demonstrably owns, so the fixture has
+// to establish that ownership before the manager touches anything.
+//
+// It is established the way a manager would establish it — through the same
+// `accept` the review screen calls — rather than by writing stamps behind the
+// code's back. A fixture that reaches around the thing it is testing is a
+// fixture that can pass while the thing is broken.
+$catalog->publish($product->id);
+$claimed = 0;
+foreach (ProjectedFieldOwnership::FIELDS as $field) {
+    if ($review->resolveField($product->id, $field, 'accept')->ok) {
+        $claimed++;
+    }
+}
+$catalog->publish($product->id);
+$say('reset', $claimed === count(ProjectedFieldOwnership::FIELDS), [
     'product' => $product->id,
-    'cleared' => $reset((int) ($product->wcProductId ?? 0)),
+    'cleared' => $cleared,
+    'claimed' => $claimed,
 ]);
 
 // ---------------------------------------------------------------- project
@@ -337,6 +358,96 @@ $say('render', $rendered && $hasImage && $hasPath, [
     'bare_counter_only' => str_contains($html, 'tmc-review__gallery') ? 'no' : 'yes',
 ]);
 $products->updateStatus($product->id, ProductStatus::Published, '');
+
+// ---------------------------------------------------------------- pictures
+//
+// The two edits a sorted id list could not see, on a product that IS stamped
+// — so this is about the comparison rather than about legacy data.
+$product = $products->find($product->id);
+$arrangement = static function (int $wcId): string {
+    $p = wc_get_product($wcId);
+    return $p instanceof WC_Product
+        ? 'main:' . (int) $p->get_image_id() . '|gallery:' . implode(',', array_map('intval', $p->get_gallery_image_ids()))
+        : 'none';
+};
+// The fixture gives itself a gallery when it has none. A product with one
+// picture cannot demonstrate a reordering, and «skipped, no gallery» is a
+// stage that looks exactly like a stage that passed.
+$product = $products->find($product->id);
+if (count($product->imageIds) < 3) {
+    $pool = get_posts([
+        'post_type' => 'attachment',
+        'post_mime_type' => 'image',
+        'numberposts' => 3,
+        'fields' => 'ids',
+        'orderby' => 'ID',
+        'order' => 'ASC',
+    ]);
+    if (count($pool) >= 3) {
+        $products->saveImages($product->id, array_map('intval', $pool), (int) $pool[0]);
+        $product = $products->find($product->id);
+        // Re-projected so the marketplace legitimately owns this arrangement
+        // before the manager touches it — otherwise the swap below would be
+        // measuring an unstamped field rather than the comparison.
+        $catalog->publish($product->id);
+    }
+}
+$wcProduct = wc_get_product($wcId);
+$gallery = array_map('intval', $wcProduct->get_gallery_image_ids());
+$wasMain = (int) $wcProduct->get_image_id();
+if ($gallery === []) {
+    $say('images', false, ['reason' => 'product_has_no_gallery', 'record' => count($product->imageIds)]);
+} else {
+    // Swap the featured picture with the last gallery one AND reverse what is
+    // left. Under the old encoding both are the identical sorted string.
+    $promoted = array_pop($gallery);
+    $wcProduct->set_image_id($promoted);
+    $wcProduct->set_gallery_image_ids(array_reverse(array_merge($gallery, [$wasMain])));
+    $wcProduct->save();
+    $managerArrangement = $arrangement($wcId);
+
+    $product = $products->find($product->id);
+    $products->updateDetails($product->id, $product->details->with(['brand' => 'برند ' . gmdate('His')]), $product->rowVersion);
+    $catalog->publish($product->id);
+    $say('image_swap_survives_a_sync', $arrangement($wcId) === $managerArrangement, [
+        'manager' => $managerArrangement,
+        'now' => $arrangement($wcId),
+        'pending' => (string) get_post_meta($wcId, ProjectedFieldOwnership::PENDING_PREFIX . 'images', true) === ''
+            ? 'none'
+            : 'recorded',
+    ]);
+
+    // And the manager can hand it back. Accepting writes the marketplace's
+    // arrangement — which is the vendor's, featured picture and order — and
+    // running it twice must not move anything the second time.
+    $product = $products->find($product->id);
+    $accepted = $review->resolveField($product->id, 'images', 'accept');
+    $afterAccept = $arrangement($wcId);
+    $product = $products->find($product->id);
+    $again = $review->resolveField($product->id, 'images', 'accept');
+    $say('accept_images_is_idempotent', $accepted->ok && $again->ok && $arrangement($wcId) === $afterAccept, [
+        'after_first' => $afterAccept,
+        'after_second' => $arrangement($wcId),
+    ]);
+
+    // A product with no featured picture at all is a state WooCommerce allows
+    // and the comparison has to be able to represent.
+    $wcProduct = wc_get_product($wcId);
+    $wcProduct->set_image_id(0);
+    $wcProduct->save();
+    $product = $products->find($product->id);
+    $catalog->publish($product->id);
+    $say('no_featured_picture_is_seen_as_a_change', str_starts_with($arrangement($wcId), 'main:0'), [
+        'now' => $arrangement($wcId),
+        'pending' => (string) get_post_meta($wcId, ProjectedFieldOwnership::PENDING_PREFIX . 'images', true) === ''
+            ? 'none'
+            : 'recorded',
+    ]);
+    // Put it back so the run can be repeated.
+    $product = $products->find($product->id);
+    $review->resolveField($product->id, 'images', 'accept');
+    $say('images_restored', $arrangement($wcId) !== 'none', ['now' => $arrangement($wcId)]);
+}
 
 // ---------------------------------------------------------------- prepare
 //

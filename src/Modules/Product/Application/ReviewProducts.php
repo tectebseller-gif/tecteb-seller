@@ -13,6 +13,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 
 /**
@@ -351,18 +352,81 @@ final class ReviewProducts
             default => '',
         };
         if ($property !== '') {
-            $this->products->updateDetails(
+            // Reported, not ignored. The whole promise of «نسخهٔ ووکامرس
+            // بماند» is that the record ends up agreeing with the shop, and a
+            // write that lost a version race leaves them disagreeing — with a
+            // success message on screen saying they do not.
+            if (!$this->products->updateDetails(
                 $productId,
                 $product->details->with([$property => self::firstId($field, $value)]),
                 $product->rowVersion
-            );
+            )) {
+                return OperationResult::failure('stale_revision', ['product_id' => $productId]);
+            }
         }
         if ($field === 'images') {
-            $ids = array_values(array_filter(array_map('intval', explode(',', $value)), static fn (int $id): bool => $id > 0));
-            $this->products->saveImages($productId, $ids, $ids[0] ?? 0);
+            // Decoded rather than split on commas: which picture is featured
+            // and what order the gallery is in are both carried in the value,
+            // and both are exactly what the manager pressed this button to
+            // keep. `ids()` puts the featured one first because WooCommerce
+            // does not record where in the vendor's list it sat — the only
+            // place that information could come from.
+            $images = StorefrontImages::decode($value);
+            $this->products->saveImages($productId, $images->ids(), $images->main);
         }
         $this->logOwnership($product->vendorUserId, $productId, $field, 'keep');
         return OperationResult::success('storefront_kept', ['product_id' => $productId]);
+    }
+
+    /**
+     * Settle every field of one product at once, the same way.
+     *
+     * The per-field buttons are the careful path and stay the default. This
+     * is the one a manager needs when a shop carries products from an older
+     * version: five fields × however many products is not a decision, it is a
+     * chore, and a chore is what gets clicked through without reading.
+     *
+     * It resolves only fields that are actually waiting — a field the
+     * marketplace already owns is left exactly as it is, so pressing this
+     * cannot take a working product away from the vendor.
+     *
+     * @return OperationResult context carries how many fields were settled
+     */
+    public function resolveProduct(int $productId, string $decision): OperationResult
+    {
+        if (!$this->capabilities->can(Capabilities::REVIEW_PRODUCTS)) {
+            return OperationResult::failure('forbidden');
+        }
+        if ($this->storefront === null) {
+            return OperationResult::failure('woocommerce_missing');
+        }
+        if (!in_array($decision, ['keep', 'accept'], true)) {
+            return OperationResult::failure('unknown_decision');
+        }
+        $product = $this->products->find($productId);
+        if ($product === null) {
+            return OperationResult::failure('not_found');
+        }
+        $settled = 0;
+        $failed = 0;
+        foreach ($this->storefront->compare($product) as $field) {
+            if (!$field->needsDecision()) {
+                continue;
+            }
+            // Re-read between fields: `keep` writes the product record, so
+            // the row version the next field would carry is already stale.
+            $this->resolveField($productId, $field->key, $decision)->ok ? $settled++ : $failed++;
+        }
+        if ($settled === 0 && $failed === 0) {
+            return OperationResult::success('nothing_unsettled', ['product_id' => $productId]);
+        }
+        if ($failed > 0) {
+            return OperationResult::failure('storage_failed', ['settled' => $settled, 'failed' => $failed]);
+        }
+        return OperationResult::success(
+            $decision === 'keep' ? 'storefront_kept_all' : 'proposal_accepted_all',
+            ['product_id' => $productId, 'settled' => $settled]
+        );
     }
 
     /** The category round-trips as ONE term id, not as the id list WooCommerce keeps. */

@@ -221,6 +221,17 @@ final class ProductMessages
             'title_required' => __('عنوان محصول نمی‌تواند خالی بماند.', 'tecteb-marketplace-core'),
             'proposal_accepted' => __('خواستهٔ فروشنده روی ووکامرس نشست و این فیلد دوباره در اختیار بازارگاه است.', 'tecteb-marketplace-core'),
             'storefront_kept' => __('نسخهٔ ووکامرس ماند. بازارگاه دیگر روی این فیلد چیزی نمی‌نویسد و پروندهٔ محصول هم با همین مقدار هماهنگ شد.', 'tecteb-marketplace-core'),
+            'storefront_kept_all' => sprintf(
+                /* translators: %s: how many fields were settled */
+                __('برای %s فیلد، نسخهٔ ووکامرس ماند و پروندهٔ محصول با آن هماهنگ شد.', 'tecteb-marketplace-core'),
+                $fa($context['settled'] ?? 0)
+            ),
+            'proposal_accepted_all' => sprintf(
+                /* translators: %s: how many fields were settled */
+                __('برای %s فیلد، مقدار بازارگاه روی ووکامرس نشست و آن فیلدها دوباره در اختیار بازارگاه‌اند.', 'tecteb-marketplace-core'),
+                $fa($context['settled'] ?? 0)
+            ),
+            'nothing_unsettled' => __('فیلد بدون تکلیفی روی این محصول نبود.', 'tecteb-marketplace-core'),
             'unknown_decision' => __('این تصمیم شناخته نشد.', 'tecteb-marketplace-core'),
             'revision_approved' => __('نسخه پیشنهادی تأیید و روی محصول اعمال شد.', 'tecteb-marketplace-core'),
             'revision_rejected' => __('نسخه پیشنهادی رد شد. نسخه منتشرشده همچنان روی سایت است.', 'tecteb-marketplace-core'),
@@ -399,6 +410,7 @@ final class ProductMessages
             'seo_saved', 'projected', 'withdrawn',
             'prepared', 'product_corrected', 'nothing_changed',
             'proposal_accepted', 'storefront_kept',
+            'storefront_kept_all', 'proposal_accepted_all', 'nothing_unsettled',
             // A batch that RAN is a success, even when some rows were refused:
             // the refusals are in the message, and painting the whole thing red
             // would hide the thirty-six that went.

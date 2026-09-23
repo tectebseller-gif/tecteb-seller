@@ -11,11 +11,20 @@
  * version gets it wrong:
  *
  *  1. **Stale answers.** Two requests in flight do not come back in the order
- *     they left. The answer to «آمبو» arriving after the answer to «آمبوبگ»
- *     would widen the list under the vendor's hands, and they would be
- *     choosing from results for a word they had already finished editing.
- *     Every request carries a sequence number and anything older than the
- *     newest one already rendered is dropped.
+ *     they left, and the gap is wider than it looks: after a keystroke there
+ *     is a quarter of a second of debounce during which the PREVIOUS query's
+ *     answer can arrive with nothing newer to compare it against. Comparing
+ *     against «the newest answer already rendered» lets that one through — it
+ *     really is the newest — so the vendor watches results for a word they
+ *     have finished editing appear under a box that says something else, and
+ *     if the next request then fails, that wrong list is what stays.
+ *
+ *     So there are two counters, not one. A **generation** moves on every
+ *     change to the input, before any request exists; a **sequence** numbers
+ *     the requests. An answer, a failure, or a render held back for focus is
+ *     applied only if its generation is still the current one. Cancelling the
+ *     previous request would not have been enough: the answer that does the
+ *     damage was already on its way back.
  *  2. **Focus.** Replacing the list while somebody is walking it with the
  *     arrow keys takes the row out from under them mid-choice. So the swap
  *     waits until focus leaves the list.
@@ -63,9 +72,23 @@
 
     var seq = 0;                 // the last request sent
     var rendered = 0;            // the newest answer already on screen
+    var generation = 0;          // bumped by the INPUT, not by the request
     var timer = null;
     var deferred = null;         // an answer held back because focus was in the list
     var lastQuery = input.value;
+
+    /**
+     * The input changed. Everything in flight now belongs to the past.
+     *
+     * Called before the debounce timer is even set, which is the whole point:
+     * the window this closes is the one between a keystroke and the request
+     * it will eventually cause.
+     */
+    function newGeneration() {
+        generation += 1;
+        deferred = null;         // a held answer to an older question
+        return generation;
+    }
 
     // ------------------------------------------------------------ selection
 
@@ -151,14 +174,17 @@
         }
     }
 
-    function apply(html, summary, answered) {
+    function apply(html, summary, answered, gen) {
+        if (gen !== generation) {
+            return;                         // answers a query nobody is asking
+        }
         if (answered <= rendered) {
             return;                         // an older answer; drop it
         }
         // Someone is inside the list with the keyboard. Taking it away now
         // would move the choice under their fingers, so it waits.
         if (results.contains(document.activeElement)) {
-            deferred = { html: html, summary: summary, seq: answered };
+            deferred = { html: html, summary: summary, seq: answered, gen: gen };
             return;
         }
         rendered = answered;
@@ -197,11 +223,14 @@
             }
             var held = deferred;
             deferred = null;
-            apply(held.html, held.summary, held.seq);
+            // `apply` checks the generation again rather than trusting this
+            // one: focus can leave the list minutes after the answer was
+            // held, and by then the box may say something else entirely.
+            apply(held.html, held.summary, held.seq, held.gen);
         }, 0);
     });
 
-    function request(query) {
+    function request(query, gen) {
         seq += 1;
         var mine = seq;
         var body = new FormData();
@@ -221,12 +250,15 @@
                 // The sequence the SERVER echoed, not the one this closure
                 // remembers: it is the only evidence of which question was
                 // answered, and the two differ the moment a retry exists.
-                apply(payload.data.html, payload.data.summary || '', Number(payload.data.seq) || mine);
+                apply(payload.data.html, payload.data.summary || '', Number(payload.data.seq) || mine, gen);
             })
             .catch(function () {
-                if (mine < seq) {
-                    return;                 // a newer request is still coming
+                if (gen !== generation || mine < seq) {
+                    return;                 // nobody is waiting on this any more
                 }
+                // The list on screen belongs to an older query and this one
+                // failed, so there is nothing trustworthy to show. Say so,
+                // and leave the button that still works.
                 say(textFailed);
             });
     }
@@ -237,10 +269,11 @@
             return;
         }
         lastQuery = value;
+        var gen = newGeneration();
         if (timer) {
             window.clearTimeout(timer);
         }
-        timer = window.setTimeout(function () { request(value); }, DEBOUNCE_MS);
+        timer = window.setTimeout(function () { request(value, gen); }, DEBOUNCE_MS);
     });
 
     // Enter in a search box would submit the form — a full save and a page
@@ -257,6 +290,6 @@
             timer = null;
         }
         lastQuery = input.value;
-        request(input.value);
+        request(input.value, newGeneration());
     });
 })();

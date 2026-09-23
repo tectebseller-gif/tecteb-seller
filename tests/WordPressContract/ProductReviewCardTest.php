@@ -238,4 +238,70 @@ final class ProductReviewCardTest extends TestCase
         self::assertStringContainsString('ووکامرس فعال نیست', $html);
         self::assertStringNotContainsString('value="prepare"', $html);
     }
+
+    public function testAProductOlderThanTheStampsGetsItsOwnBlockAndABulkWayOut(): void
+    {
+        $fields = [
+            new StorefrontField(
+                'title',
+                'عنوان بازارگاه',
+                'عنوانی که مدیر نوشته',
+                '',
+                StorefrontField::OWNER_UNKNOWN
+            ),
+            // Same on both sides, and it STILL has to appear: the field is
+            // frozen until somebody settles it, and a vendor whose next edit
+            // silently becomes a proposal deserves a screen that said why.
+            new StorefrontField(
+                'short_description',
+                'توضیح یکسان',
+                'توضیح یکسان',
+                '',
+                StorefrontField::OWNER_UNKNOWN
+            ),
+        ];
+        $html = ProductReviewCardView::render(
+            $this->product(1234),
+            $this->images(),
+            'تجهیزات پزشکی',
+            null,
+            [],
+            $fields,
+            '',
+            'https://shop.test/wp-admin/post.php?post=1234&action=edit',
+            '',
+            '',
+            true
+        );
+
+        self::assertStringContainsString('فیلدهای بدون سابقه', $html, 'its own block, not the disagreement table');
+        self::assertStringContainsString('سابقه‌ای', $html, 'and it explains what that means');
+        self::assertStringContainsString('هر دو طرف یکی است', $html, 'the agreeing field says so rather than looking like a conflict');
+        self::assertStringContainsString('value="product_fields"', $html, 'one button for the whole product');
+        self::assertSame(2, substr_count($html, 'name="field" value="'), 'and one pair per field as well');
+    }
+
+    public function testASettledProductShowsNoOwnershipTableAtAll(): void
+    {
+        $settled = [
+            new StorefrontField('title', 'یکی', 'یکی', '', StorefrontField::OWNER_MARKETPLACE),
+            new StorefrontField('description', 'الف', 'ب', '', StorefrontField::OWNER_MANAGER, false, true),
+        ];
+        $html = ProductReviewCardView::render(
+            $this->product(1234),
+            $this->images(),
+            'تجهیزات پزشکی',
+            null,
+            [],
+            $settled,
+            '',
+            '',
+            '',
+            '',
+            true
+        );
+        self::assertStringContainsString('یکی است', $html);
+        self::assertStringNotContainsString('فیلدهای بدون سابقه', $html);
+        self::assertStringNotContainsString('value="keep"', $html, 'a decided field is not asked about again');
+    }
 }

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
+
 /**
  * Who owns each field of a projected product — decided by evidence, not by a
  * rule written once and hoped for.
@@ -77,28 +79,96 @@ final class ProjectedFieldOwnership
         return hash('sha256', trim(preg_replace('/\s+/u', ' ', $value) ?? $value));
     }
 
+    /** Who a field belongs to right now. */
+    public const OWNER_MARKETPLACE = 'marketplace';
+    public const OWNER_MANAGER = 'manager';
+    public const OWNER_UNKNOWN = 'unknown';
+
+    /**
+     * Who owns this field?
+     *
+     * **`$createdByUs` is the whole of the fix that `alpha.27` exists for.**
+     * Until it existed, an empty stamp meant «nobody has said anything about
+     * this field, so it is ours» — and that is true of exactly one thing: a
+     * WooCommerce product this projection just created. It is NOT true of a
+     * product that a previous version of this plugin projected, because those
+     * versions stamped nothing. Those products carry whatever the manager
+     * typed into WooCommerce months ago, and the first save after an upgrade
+     * wrote straight over it. The protection was real and it protected only
+     * products created after it shipped.
+     *
+     * So an existing field with no stamp is `unknown`, and unknown does not
+     * write. Nothing here guesses which side is right and nothing adopts the
+     * current value as a baseline: guessing wrong about a product description
+     * is silently publishing the wrong text, and there is no evidence in the
+     * database to guess from. The manager decides, once, on the review
+     * screen, and the decision is what creates the baseline.
+     *
+     * @param string $stamp       what we recorded last time ('' when never)
+     * @param string $current     what WooCommerce has right now
+     * @param bool   $managerOwns the manager said «my version stays»
+     * @param bool   $createdByUs this projection created the post, this run
+     */
+    public static function owner(
+        string $stamp,
+        string $current,
+        bool $managerOwns = false,
+        bool $createdByUs = false
+    ): string {
+        if ($managerOwns) {
+            return self::OWNER_MANAGER;         // decided, and not by us
+        }
+        if ($createdByUs) {
+            // Every byte of this post was written a moment ago by this
+            // projection. There is nobody else it could belong to.
+            return self::OWNER_MARKETPLACE;
+        }
+        if ($stamp === '') {
+            return self::OWNER_UNKNOWN;         // older than the stamps
+        }
+        return hash_equals($stamp, self::fingerprint($current))
+            ? self::OWNER_MARKETPLACE
+            : self::OWNER_MANAGER;
+    }
+
     /**
      * May the marketplace write this field?
      *
-     * @param string $stamp   what we recorded last time ('' when never)
-     * @param string $current what WooCommerce has right now
+     * The default for `$createdByUs` is `false`, deliberately: the safe
+     * answer has to be the one a caller gets by forgetting to pass anything.
      */
-    public static function mayWrite(string $stamp, string $current, bool $managerOwns = false): bool
-    {
-        if ($managerOwns) {
-            return false;                       // decided, and not by us
-        }
-        if ($stamp === '') {
-            return true;                        // never projected: it is ours
-        }
-        return hash_equals($stamp, self::fingerprint($current));
+    public static function mayWrite(
+        string $stamp,
+        string $current,
+        bool $managerOwns = false,
+        bool $createdByUs = false
+    ): bool {
+        return self::owner($stamp, $current, $managerOwns, $createdByUs) === self::OWNER_MARKETPLACE;
     }
 
-    /** @param list<int> $ids */
+    /**
+     * A SET of ids, for a field where order carries no meaning.
+     *
+     * Categories only. Pictures went to `StorefrontImages` in `alpha.27`
+     * because sorting them hid the two edits a manager most often makes —
+     * see that class for what it cost.
+     *
+     * @param list<int> $ids
+     */
     public static function idsToValue(array $ids): string
     {
         $ids = array_values(array_unique(array_map('intval', $ids)));
         sort($ids);
         return implode(',', $ids);
+    }
+
+    /**
+     * The pictures, with the main one named and the gallery in its order.
+     *
+     * @param list<int>|array<int|string,int|string> $galleryIds
+     */
+    public static function imagesToValue(int $mainId, array $galleryIds): string
+    {
+        return StorefrontImages::encode($mainId, $galleryIds);
     }
 }

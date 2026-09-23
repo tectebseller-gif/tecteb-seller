@@ -1,0 +1,16 @@
+      with the guard: out-of-order  -> تجهیزات پزشکی › اورولوژی شناسهٔ ووکامرس: 23 · بدون محصول · بدون الگوی مشخصات تجهیزات پزشکی
+      with the guard: failed-new    -> Uncategorized شناسهٔ ووکامرس: 15 · 1 محصول · بدون الگوی مشخصات تجهیزات پزشکی شناسهٔ ووکامر | status: جست‌وجوی خودکار انجام نشد. دکمهٔ «جست‌وجوی دسته» را بزنید.
+      with the guard: deferred      -> تجهیزات پزشکی › اورولوژی شناسهٔ ووکامرس: 23 · بدون محصول · بدون الگوی مشخصات تجهیزات پزشکی
+ok:   an out-of-order answer is not shown                        false
+ok:   and the answer that IS wanted is                           true
+ok:   a failed new request does not fall back to the old list    false
+ok:   it says the search failed instead                          true
+ok:   a render held for focus is dropped when the query moved on false
+      without the guard: out-of-order  -> تجهیزات پزشکی › اورولوژی شناسهٔ ووکامرس: 23 · بدون محصول · بدون الگوی مشخصات تجهیزات پزشکی
+      without the guard: failed-new    -> تجهیزات پزشکی › بیهوشی و تنفسی › آمبوبگ شناسهٔ ووکامرس: 18 · 7 محصول · بدون الگوی مشخصات ت | status: 2 دسته پیدا شد.
+      without the guard: deferred      -> تجهیزات پزشکی › اورولوژی شناسهٔ ووکامرس: 23 · بدون محصول · بدون الگوی مشخصات تجهیزات پزشکی
+ok:   without it, a stale answer survives a failed new request   true
+ok:   and the screen stops admitting the search failed           false
+ok:   and the installed script was put back                      true
+
+checks: 8  pass: 8  fail: 0
