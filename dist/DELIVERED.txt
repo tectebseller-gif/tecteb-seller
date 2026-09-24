@@ -38,6 +38,7 @@ d4309fe8489f77261b91d4ece41ce2b5658ee4f0479fda611dfe02e22c9db084  tecteb-marketp
 b0c1750aeb3f76068bd680e202b37581f969286cfccefcf57305e799e73a2e37  tecteb-marketplace-core-0.1.0-alpha.26.zip  2026-09-22
 fef34205edc5787a487f747509760d3bc6746869919bc6f6fcd1d1b2ee3ab105  tecteb-marketplace-core-0.1.0-alpha.27.zip  2026-09-23
 acdfb22bcb3732450d1ee9d11adfb7934c48c9b3e69c4e27326be213a5e92c61  tecteb-marketplace-core-0.1.0-alpha.28.zip  2026-09-23
+b3b237b4fb45ef83f91ad28c3cbeef29445acb50f771ea0c0f39094eaa3be824  tecteb-marketplace-core-0.1.0-alpha.29.zip  2026-09-24
 
 # --- آنچه تحویل نشد، و باید از تحویل‌شده جدا بماند ---------------------------
 #

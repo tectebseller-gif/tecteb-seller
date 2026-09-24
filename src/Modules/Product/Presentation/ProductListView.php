@@ -163,6 +163,20 @@ final class ProductListView
             $tabs[$status->value] = ProductMessages::status($status);
         }
         $all = array_sum($counts);
+        // «همه» must equal the sum of the chips beside it. It is one query
+        // and one array, so the only way they can disagree is a row whose
+        // status this enum does not know — and the version this replaces drew
+        // no chip for such a row, so «همه ۴» sat above «پیش‌نویس ۳» and four
+        // zeros with nothing to explain the missing one. That is the shape of
+        // the mismatch the owner reported, and whether or not it was the
+        // cause, a page that can hide a row is a page that cannot be trusted
+        // to report one.
+        $known = 0;
+        foreach (ProductStatus::cases() as $status) {
+            $known += $counts[$status->value] ?? 0;
+        }
+        $unknown = $all - $known;
+
         $html = '<nav class="tv-tabs" aria-label="' . esc_attr__('وضعیت محصول', 'tecteb-marketplace-core') . '"><ul>';
         foreach ($tabs as $value => $label) {
             $n = $value === '' ? $all : ($counts[$value] ?? 0);
@@ -171,6 +185,11 @@ final class ProductListView
                 . ($isCurrent ? ' aria-current="page"' : '')
                 . ' href="' . esc_url($urls->productsInStatus((string) $value)) . '">'
                 . esc_html($label) . ' <span class="tv-tab__count">' . esc_html($fa($n)) . '</span></a></li>';
+        }
+        if ($unknown !== 0) {
+            $html .= '<li><span class="tv-tab tv-tab--warning">'
+                . esc_html__('وضعیت ناشناخته', 'tecteb-marketplace-core')
+                . ' <span class="tv-tab__count">' . esc_html($fa($unknown)) . '</span></span></li>';
         }
         return $html . '</ul></nav>';
     }

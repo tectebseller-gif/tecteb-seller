@@ -28,7 +28,17 @@ final class Product
          * ProductRevision, and calling both of them revision is how a reader
          * picks the wrong one.
          */
-        public readonly string $rowVersion = ''
+        public readonly string $rowVersion = '',
+        /**
+         * The fields as they stood at the last recorded agreement.
+         *
+         * Null for a product that has not been through an approval since the
+         * baseline existed, and nothing invents one: an invented base would
+         * license writing over text nobody has read. Null falls back to the
+         * `alpha.28` rules (see `FieldMerge`), so an upgrade changes nothing
+         * until the first approval records it.
+         */
+        public readonly ?ApprovedBaseline $baseline = null
     ) {
     }
 

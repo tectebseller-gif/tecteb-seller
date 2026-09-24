@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 
+use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
 
 /**
@@ -76,7 +77,12 @@ final class ProjectedFieldOwnership
         // Whitespace-insensitive: WooCommerce and the editor disagree about
         // trailing newlines often enough that a byte comparison would call an
         // untouched field edited.
-        return hash('sha256', trim(preg_replace('/\s+/u', ' ', $value) ?? $value));
+        //
+        // Delegated rather than repeated. The merge rule compares baselines
+        // with the SAME hash, and two implementations of «are these the same
+        // text» that drift apart would disagree about untouched fields —
+        // which is the exact failure both of them exist to prevent.
+        return FieldMerge::fingerprint($value);
     }
 
     /** Who a field belongs to right now. */

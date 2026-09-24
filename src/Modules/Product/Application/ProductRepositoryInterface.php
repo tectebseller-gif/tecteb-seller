@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Product\Application;
 
+use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
@@ -42,6 +43,38 @@ interface ProductRepositoryInterface
 
     /** @return list<Product> the manager's review queue, newest request first */
     public function inStatus(ProductStatus $status, int $limit = 200, int $offset = 0): array;
+
+    /**
+     * The manager's catalogue — every shop, every status, searchable.
+     *
+     * `inStatus(Submitted)` was the only manager-facing read, so a product
+     * that had been decided any way at all disappeared from the marketplace
+     * admin while its WooCommerce post carried on existing. There is no new
+     * status here and no second copy of one: the marketplace status is the
+     * column it has always been, and the shop's own status is READ from
+     * WordPress at render time rather than mirrored into a column that could
+     * then be wrong.
+     *
+     * @return list<Product>
+     */
+    public function forManager(
+        ?ProductStatus $status = null,
+        string $search = '',
+        int $limit = 20,
+        int $offset = 0,
+        int $vendorUserId = 0
+    ): array;
+
+    public function countForManager(?ProductStatus $status = null, string $search = '', int $vendorUserId = 0): int;
+
+    /**
+     * How many products are in each status, under the same filter.
+     *
+     * One GROUP BY, so no two numbers on the page can come from two moments.
+     *
+     * @return array<string,int>
+     */
+    public function countsByStatusForManager(string $search = '', int $vendorUserId = 0): array;
 
     public function countInStatus(ProductStatus $status): int;
 
@@ -128,6 +161,17 @@ interface ProductRepositoryInterface
     public function vendorsFromImportRuns(): array;
 
     public function updateStatus(int $productId, ProductStatus $status, string $reviewNote = ''): bool;
+
+    /**
+     * Record the values both sides agreed on, so the NEXT vendor edit can be
+     * measured against something.
+     *
+     * Called by an approval or an explicit field decision — never by a
+     * projection, which is the marketplace writing rather than the two sides
+     * agreeing. `null` clears it, which is what a rollback of a decision
+     * means: back to «no record of agreement», not to a guessed one.
+     */
+    public function saveBaseline(int $productId, ?ApprovedBaseline $baseline): bool;
 
     /** Stock and the other immediate fields, which never wait for a review. */
     public function updateInventory(int $productId, int $stock, string $sku, int $minPurchase, ?int $maxPurchase): bool;

@@ -89,6 +89,24 @@ final class VendorRoutes
             return $vars;
         });
         add_action('template_redirect', [$routes, 'handle']);
+        // The way in, from the page a customer already has. Registered here
+        // rather than in the account module because THIS class is the one
+        // that knows the address.
+        VendorAccountLink::register($container);
+    }
+
+    /**
+     * The dashboard's public address, for anything outside this router.
+     *
+     * Static and built from `home_url()` so nothing else has to repeat the
+     * path or guess at the permalink setting — «نشانی را از مسیر معتبر
+     * افزونه و دامنهٔ جاری بساز؛ staging را hardcode نکن».
+     */
+    public static function dashboardUrl(): string
+    {
+        return (string) get_option('permalink_structure', '') !== ''
+            ? home_url('/vendor/')
+            : home_url('/?' . self::QUERY_VAR . '=dashboard');
     }
 
     public static function addRewriteRules(): void

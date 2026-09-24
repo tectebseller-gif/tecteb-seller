@@ -16,6 +16,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductDraftStoreInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductDecisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
@@ -102,6 +103,18 @@ final class ProductArea
         // Taken, not read: a preview that survived a refresh would describe
         // rows as they were minutes ago, and the vendor would confirm a list
         // that is no longer true. One look, then it is gone.
+        // Taken before the preview, so a run that follows a preview shows what
+        // HAPPENED rather than what was forecast.
+        $ran = $this->flash()->take($this->bulkResultKey($view->userId));
+        if (is_array($ran) && isset($ran['result']) && is_array($ran['result'])) {
+            /** @var array{action:string,rows:list<array{product_id:int,ok:bool,code:string,title:string,from:string,to:string}>,ok:int,failed:int} $report */
+            $report = $ran['result'];
+            // The result view carries its own notice with the right tone, so
+            // the list beneath it is asked not to repeat it.
+            return ProductBulkPreviewView::renderResult($report, $view->urls)
+                . $this->list($view, $vendorUserId, $mayEdit, false);
+        }
+
         $held = $this->flash()->take($this->bulkPreviewKey($view->userId));
         if (is_array($held) && isset($held['preview']) && is_array($held['preview'])) {
             /** @var array{action:string,rows:list<array{product_id:int,ok:bool,code:string,title:string,from:string,to:string}>,ok:int,failed:int} $preview */
@@ -116,7 +129,7 @@ final class ProductArea
         return $this->list($view, $vendorUserId, $mayEdit);
     }
 
-    private function list(VendorAreaView $view, int $vendorUserId, bool $mayEdit): string
+    private function list(VendorAreaView $view, int $vendorUserId, bool $mayEdit, bool $withNotice = true): string
     {
         $request = $view->request;
         $status = ProductStatus::tryFrom($request->queryKey('status'));
@@ -137,7 +150,7 @@ final class ProductArea
             $this->products()->countForVendor($vendorUserId, $status, $search),
             $view->urls,
             $view->nonceField,
-            $view->notice,
+            $withNotice ? $view->notice : null,
             $mayEdit,
             $this->publishing()->mayPublishDirectly($vendorUserId),
             $search,
@@ -232,8 +245,18 @@ final class ProductArea
             $view->notice !== null
                 && in_array($view->notice->code, ['revision_missing', 'stale_revision'], true)
                     ? $product?->details
-                    : null
+                    : null,
+            // Scoped by the vendor, in the QUERY: a product id from another
+            // shop finds nothing rather than somebody else's correspondence.
+            $product === null
+                ? null
+                : $this->decisions()->latestForVendor($product->id, $vendorUserId)
         );
+    }
+
+    private function decisions(): ProductDecisionRepositoryInterface
+    {
+        return $this->container->get(ProductDecisionRepositoryInterface::class);
     }
 
     // --------------------------------------------------------------- writes
@@ -393,18 +416,23 @@ final class ProductArea
         if (!$result->ok) {
             return new VendorAreaOutcome($result->code, $urls->products(), $result->context);
         }
-        $refused = [];
-        foreach ($result->context['rows'] ?? [] as $row) {
-            if (!($row['ok'] ?? false)) {
-                $refused[(string) $row['product_id']] = (string) $row['code'];
-            }
-        }
-        return new VendorAreaOutcome('bulk_done', $urls->products(), [
-            'action' => $result->context['action'] ?? '',
-            'ok' => $result->context['ok'] ?? 0,
-            'failed' => $result->context['failed'] ?? 0,
-            'refused' => $refused,
-        ]);
+        // The rows are held in the flash store and rendered as a table on the
+        // landing page, the same way the preview is. A sentence with a list
+        // of ids inside it was the old answer, and the ids never arrived:
+        // `VendorNotice` dropped the array on its way through the redirect,
+        // so the owner read «۴ مورد انجام نشد:» followed by nothing.
+        $this->flash()->put($this->bulkResultKey($userId), ['result' => $result->context], self::FORM_TTL);
+        $failed = (int) ($result->context['failed'] ?? 0);
+        $done = (int) ($result->context['ok'] ?? 0);
+        return new VendorAreaOutcome(
+            $failed === 0 ? 'bulk_done' : ($done === 0 ? 'bulk_none' : 'bulk_partial'),
+            $urls->products(),
+            [
+                'action' => $result->context['action'] ?? '',
+                'ok' => $done,
+                'failed' => $failed,
+            ]
+        );
     }
 
     /**
@@ -894,6 +922,11 @@ final class ProductArea
     private function csvReportKey(int $userId): string
     {
         return 'product_csv_report_' . $userId;
+    }
+
+    private function bulkResultKey(int $userId): string
+    {
+        return 'product_bulk_result_' . $userId;
     }
 
     private function bulkPreviewKey(int $userId): string

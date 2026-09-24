@@ -26,6 +26,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
 use Tecteb\Marketplace\Modules\Product\Application\ProductDraftStoreInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductDecisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
@@ -40,6 +41,7 @@ use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterfa
 use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductDecisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\AliasingSpecTemplateRepository;
@@ -110,6 +112,10 @@ final class ProductModule implements ModuleInterface
             $c->get(OptionStoreInterface::class)
         ));
         $c->bind(ProductRepositoryInterface::class, static fn (ContainerInterface $c) => new DbProductRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(ProductDecisionRepositoryInterface::class, static fn (ContainerInterface $c) => new DbProductDecisionRepository(
             $c->get(DatabaseInterface::class),
             $c->get(ClockInterface::class)
         ));
@@ -218,7 +224,8 @@ final class ProductModule implements ModuleInterface
             $c->get(StaffAccess::class),
             $c->get(ProductPublishPolicy::class),
             $c->get(ProductStateMachine::class),
-            $c->get(AuditLogger::class)
+            $c->get(AuditLogger::class),
+            $c->get(ProductDecisionRepositoryInterface::class)
         ));
         $c->bind(ReviewProducts::class, static fn (ContainerInterface $c) => new ReviewProducts(
             $c->get(ProductRepositoryInterface::class),
@@ -230,7 +237,8 @@ final class ProductModule implements ModuleInterface
             $c->get(ProductStateMachine::class),
             $c->get(AuditLogger::class),
             $c->get(CapabilityCheckerInterface::class),
-            $c->get(StorefrontFieldsInterface::class)
+            $c->get(StorefrontFieldsInterface::class),
+            $c->get(ProductDecisionRepositoryInterface::class)
         ));
         $c->bind(ConfigureSpecTemplates::class, static fn (ContainerInterface $c) => new ConfigureSpecTemplates(
             $c->get(SpecTemplateRepositoryInterface::class),

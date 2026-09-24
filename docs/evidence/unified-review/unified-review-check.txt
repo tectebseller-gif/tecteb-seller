@@ -1,0 +1,169 @@
+installed plugin: 0.1.0-alpha.29   schema: 19
+ok:   the upgrade gate reached schema 19                         19
+ok:   the decision table exists                                  found
+
+=== every rule in place ===
+stage=reset ok=true product=8 wc=26 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-121049
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-121049
+stage=one_vendor_edit_asks_nothing ok=true questions=none verdicts=title:skip|short_description:write|description:manager|category:skip|images:skip
+stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
+stage=the_record_agrees_with_the_shop ok=true record_title=عنوانی_که_مدیر_در_وو shop_title=عنوانی_که_مدیر_در_وو one_version=yes baseline_fields=5
+stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-121049 manager_chose=manager-chosen-address-121049 marketplace_would_write=marketplace-address-121049
+stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:skip|short_description:conflict|description:manager|category:skip|images:skip
+stage=an_edit_during_review_refuses_the_approval ok=true code=storefront_moved fields=title edit_survived=yes
+stage=and_pressing_again_goes_through ok=true code=product_reviewed title=عنوانی_که_مدیر_وسط_بررسی
+stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
+stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
+stage=history_only_grows ok=true newest_before=654 newest_after=656 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=24
+stage=restored ok=true code=product_reviewed status=published
+ok:   reset                                                      ok=true
+ok:   the_marketplace_sets_an_address_once                       ok=true
+ok:   manager_edits_in_woocommerce                               ok=true
+ok:   one_vendor_edit_asks_nothing                               ok=true
+ok:   approval_writes_only_what_the_vendor_changed               ok=true
+ok:   the_record_agrees_with_the_shop                            ok=true
+ok:   a_vendor_save_does_not_move_the_address                    ok=true
+ok:   a_real_conflict_asks_once                                  ok=true
+ok:   an_edit_during_review_refuses_the_approval                 ok=true
+ok:   and_pressing_again_goes_through                            ok=true
+ok:   the_managers_message_reaches_the_vendor                    ok=true
+ok:   one_shop_cannot_read_anothers                              ok=true
+ok:   history_only_grows                                         ok=true
+ok:   a_rejected_product_is_still_findable                       ok=true
+ok:   restored                                                   ok=true
+ok:   one vendor edit produced no questions at all               none
+ok:   and the manager's title was skipped, not asked about       skip
+ok:   and their generated text became theirs                     manager
+ok:   approval applied the one field the vendor changed          yes
+ok:   and left the manager's title alone                         yes
+ok:   and their long description with it                         yes
+ok:   after approval there is one version, not two               yes
+ok:   a real disagreement still asks, once                       short_description
+ok:   an edit during review is refused by name                   storefront_moved
+ok:   and that edit survived the refusal                         yes
+ok:   the manager's note has a date                              yes
+ok:   another shop reads nothing                                 nothing
+ok:   a rejected product is still in the manager's list          yes
+ok:   and the status counters add up to the total                yes
+
+=== with «skip_is_a_conflict_again» taken back out ===
+stage=reset ok=true product=8 wc=26 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-121050
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-121050
+stage=one_vendor_edit_asks_nothing ok=false questions=title verdicts=title:conflict|short_description:write|description:manager|category:write|images:write
+stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
+stage=the_record_agrees_with_the_shop ok=true record_title=عنوانی_که_مدیر_در_وو shop_title=عنوانی_که_مدیر_در_وو one_version=yes baseline_fields=5
+stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-121050 manager_chose=manager-chosen-address-121050 marketplace_would_write=marketplace-address-121050
+stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:write|short_description:conflict|description:manager|category:write|images:write
+stage=an_edit_during_review_refuses_the_approval ok=true code=storefront_moved fields=title edit_survived=yes
+stage=and_pressing_again_goes_through ok=true code=product_reviewed title=عنوانی_که_مدیر_وسط_بررسی
+stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
+stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
+stage=history_only_grows ok=true newest_before=666 newest_after=668 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=24
+stage=restored ok=true code=product_reviewed status=published
+ok:   without it, one_vendor_edit_asks_nothing fails             ok=false
+ok:   the installed plugin still parses (skip_is_a_conflict_again) yes
+
+=== with «a_generated_field_is_just_another_conflict» taken back out ===
+stage=reset ok=true product=8 wc=26 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-121051
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-121051
+stage=one_vendor_edit_asks_nothing ok=false questions=description verdicts=title:skip|short_description:write|description:conflict|category:skip|images:skip
+stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
+stage=the_record_agrees_with_the_shop ok=true record_title=عنوانی_که_مدیر_در_وو shop_title=عنوانی_که_مدیر_در_وو one_version=yes baseline_fields=5
+stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-121051 manager_chose=manager-chosen-address-121051 marketplace_would_write=marketplace-address-121051
+stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:skip|short_description:conflict|description:manager|category:skip|images:skip
+stage=an_edit_during_review_refuses_the_approval ok=true code=storefront_moved fields=title edit_survived=yes
+stage=and_pressing_again_goes_through ok=true code=product_reviewed title=عنوانی_که_مدیر_وسط_بررسی
+stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
+stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
+stage=history_only_grows ok=true newest_before=678 newest_after=680 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=24
+stage=restored ok=true code=product_reviewed status=published
+ok:   without it, one_vendor_edit_asks_nothing fails             ok=false
+ok:   the installed plugin still parses (a_generated_field_is_just_another_conflict) yes
+
+=== with «no_lock_on_the_shop_side» taken back out ===
+stage=reset ok=true product=8 wc=26 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-121053
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-121053
+stage=one_vendor_edit_asks_nothing ok=true questions=none verdicts=title:skip|short_description:write|description:manager|category:skip|images:skip
+stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
+stage=the_record_agrees_with_the_shop ok=true record_title=عنوانی_که_مدیر_در_وو shop_title=عنوانی_که_مدیر_در_وو one_version=yes baseline_fields=5
+stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-121053 manager_chose=manager-chosen-address-121053 marketplace_would_write=marketplace-address-121053
+stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:skip|short_description:conflict|description:manager|category:skip|images:skip
+stage=an_edit_during_review_refuses_the_approval ok=false code=product_reviewed fields=- edit_survived=yes
+stage=and_pressing_again_goes_through ok=false code=invalid_transition title=عنوانی_که_مدیر_وسط_بررسی
+stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
+stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
+stage=history_only_grows ok=true newest_before=690 newest_after=692 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=24
+stage=restored ok=true code=product_reviewed status=published
+ok:   without it, an_edit_during_review_refuses_the_approval fails ok=false
+ok:   the installed plugin still parses (no_lock_on_the_shop_side) yes
+
+=== with «the_address_is_rewritten_every_time» taken back out ===
+stage=reset ok=true product=8 wc=26 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-121054
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-121054
+stage=one_vendor_edit_asks_nothing ok=true questions=none verdicts=title:skip|short_description:write|description:manager|category:skip|images:skip
+stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
+stage=the_record_agrees_with_the_shop ok=true record_title=عنوانی_که_مدیر_در_وو shop_title=عنوانی_که_مدیر_در_وو one_version=yes baseline_fields=5
+stage=a_vendor_save_does_not_move_the_address ok=false slug=marketplace-address-121054 manager_chose=manager-chosen-address-121054 marketplace_would_write=marketplace-address-121054
+stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:skip|short_description:conflict|description:manager|category:skip|images:skip
+stage=an_edit_during_review_refuses_the_approval ok=true code=storefront_moved fields=title edit_survived=yes
+stage=and_pressing_again_goes_through ok=true code=product_reviewed title=عنوانی_که_مدیر_وسط_بررسی
+stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
+stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
+stage=history_only_grows ok=true newest_before=702 newest_after=704 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=24
+stage=restored ok=true code=product_reviewed status=published
+ok:   without it, a_vendor_save_does_not_move_the_address fails  ok=false
+ok:   the installed plugin still parses (the_address_is_rewritten_every_time) yes
+
+=== with «no_reconciliation_after_approval» taken back out ===
+stage=reset ok=true product=8 wc=26 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-121055
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-121055
+stage=one_vendor_edit_asks_nothing ok=true questions=none verdicts=title:skip|short_description:write|description:manager|category:skip|images:skip
+stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
+stage=the_record_agrees_with_the_shop ok=false record_title=عنوانی_که_مدیر_وسط_ب shop_title=عنوانی_که_مدیر_در_وو one_version=no baseline_fields=5
+stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-121055 manager_chose=manager-chosen-address-121055 marketplace_would_write=marketplace-address-121055
+stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:skip|short_description:conflict|description:manager|category:skip|images:skip
+stage=an_edit_during_review_refuses_the_approval ok=true code=storefront_moved fields=title edit_survived=yes
+stage=and_pressing_again_goes_through ok=true code=product_reviewed title=عنوانی_که_مدیر_وسط_بررسی
+stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
+stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
+stage=history_only_grows ok=true newest_before=714 newest_after=716 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=24
+stage=restored ok=true code=product_reviewed status=published
+ok:   without it, the_record_agrees_with_the_shop fails          ok=false
+ok:   the installed plugin still parses (no_reconciliation_after_approval) yes
+
+ok:   FieldMerge.php matches the repository again                same
+ok:   WooCommerceStorefrontFields.php matches the repository again same
+ok:   WooCommerceProjector.php matches the repository again      same
+ok:   ReviewProducts.php matches the repository again            same
+
+=== the shipped code, once more, after every patch was reverted ===
+stage=reset ok=true product=8 wc=26 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-121056
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-121056
+stage=one_vendor_edit_asks_nothing ok=true questions=none verdicts=title:skip|short_description:write|description:manager|category:skip|images:skip
+stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
+stage=the_record_agrees_with_the_shop ok=true record_title=عنوانی_که_مدیر_در_وو shop_title=عنوانی_که_مدیر_در_وو one_version=yes baseline_fields=5
+stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-121056 manager_chose=manager-chosen-address-121056 marketplace_would_write=marketplace-address-121056
+stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:skip|short_description:conflict|description:manager|category:skip|images:skip
+stage=an_edit_during_review_refuses_the_approval ok=true code=storefront_moved fields=title edit_survived=yes
+stage=and_pressing_again_goes_through ok=true code=product_reviewed title=عنوانی_که_مدیر_وسط_بررسی
+stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
+stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
+stage=history_only_grows ok=true newest_before=726 newest_after=728 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=24
+stage=restored ok=true code=product_reviewed status=published
+ok:   no stage fails on the restored install                     0
+
+checks: 46  pass: 46  fail: 0

@@ -17,6 +17,9 @@ use Tecteb\Marketplace\Modules\Product\Domain\Product;
  */
 final class FakeCatalogProjector implements CatalogProjectorInterface
 {
+    /** @var array<int,string> product id => the address the manager asked for */
+    public array $slugs = [];
+
     public bool $available = true;
 
     /** @var list<int> tmc product ids whose withdrawal will fail */
@@ -131,6 +134,13 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
     public function owns(int $wcProductId, int $productId): bool
     {
         return ($this->links[$productId] ?? 0) === $wcProductId && $wcProductId > 0;
+    }
+
+    /** Recorded, not simulated: the tests that care assert on the calls. */
+    public function applySlug(Product $product, string $slug): bool
+    {
+        $this->slugs[$product->id] = $slug;
+        return true;
     }
 
     public function storefrontStatus(int $wcProductId): string

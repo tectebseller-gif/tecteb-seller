@@ -99,4 +99,18 @@ interface CatalogProjectorInterface
      * we just wrote is a promise verified against ourselves.
      */
     public function storefrontStatus(int $wcProductId): string;
+
+    /**
+     * Set the product's public address, as an explicit manager decision.
+     *
+     * Separate from `project()` on purpose. A projection may NOT move an
+     * address a person has changed — a vendor pressing save is not a request
+     * to rename anybody's URL, and until this round it was exactly that. But
+     * the manager typing a slug on the review screen IS a request, and a rule
+     * that refused it would leave them typing into a box that does nothing.
+     *
+     * So the projection is evidence-driven and this is decision-driven, and
+     * the two are different methods because they are different events.
+     */
+    public function applySlug(Product $product, string $slug): bool;
 }

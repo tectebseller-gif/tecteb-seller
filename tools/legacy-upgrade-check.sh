@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# alpha.25 makes the product. A manager edits it. alpha.28 takes over.
+# alpha.25 makes the product. A manager edits it. alpha.29 takes over.
 #
 # The two defects this measures are both about products that ALREADY EXIST,
 # and a test that starts by creating one cannot see either of them: the
@@ -21,7 +21,7 @@ WPCLI="${WPCLI:-/usr/local/bin/wp}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGINS="$WPROOT/wp-content/plugins"
 OLD_ZIP="${TMC_OLD_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.25.zip}"
-NEW_ZIP="${TMC_NEW_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.28.zip}"
+NEW_ZIP="${TMC_NEW_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.29.zip}"
 
 mkdir -p "$OUT"
 LOG="$OUT/legacy-upgrade-check.txt"
@@ -165,20 +165,24 @@ check "and nothing about it is unsettled" \
 say ""
 say "=== the same run with the guard reverted to the previous rule ==="
 install_zip "$NEW_ZIP"
-PROJECTOR="$PLUGINS/tecteb-marketplace-core/src/Modules/Product/Infrastructure/WooCommerce/ProjectedFieldOwnership.php"
-python3 - "$PROJECTOR" <<'PYEOF'
+# `alpha.29` moved the WRITE decision out of `ProjectedFieldOwnership` and
+# into the pure merge rule, so this is the file the guard now lives in. The
+# guard itself is unchanged in meaning: no stamp ⇒ nobody knows ⇒ write
+# nothing.
+MERGE="$PLUGINS/tecteb-marketplace-core/src/Modules/Product/Domain/FieldMerge.php"
+python3 - "$MERGE" <<'PYEOF'
 import sys, pathlib
 path = pathlib.Path(sys.argv[1])
 src = path.read_text()
 needle = """        if ($stamp === '') {
-            return self::OWNER_UNKNOWN;         // older than the stamps
+            return self::UNSETTLED;
         }"""
 if src.count(needle) != 1:
     sys.stderr.write("guard line not found exactly once\n")
     sys.exit(2)
 # Exactly what alpha.26 did: an absent stamp meant «ours».
 path.write_text(src.replace(needle, """        if ($stamp === '') {
-            return self::OWNER_MARKETPLACE;
+            return self::WRITE;
         }""", 1))
 PYEOF
 if [ $? -ne 0 ]; then
@@ -194,14 +198,14 @@ else
   B2="$(state read "$P2")"
   MT2="$(field "$B2" title)"; MI2="$(field "$B2" images)"
   install_zip "$NEW_ZIP"
-  python3 - "$PROJECTOR" <<'PYEOF'
+  python3 - "$MERGE" <<'PYEOF'
 import sys, pathlib
 path = pathlib.Path(sys.argv[1])
 src = path.read_text()
 src = src.replace("""        if ($stamp === '') {
-            return self::OWNER_UNKNOWN;         // older than the stamps
+            return self::UNSETTLED;
         }""", """        if ($stamp === '') {
-            return self::OWNER_MARKETPLACE;
+            return self::WRITE;
         }""", 1)
 path.write_text(src)
 PYEOF
@@ -217,7 +221,7 @@ fi
 # The installed package is left as the delivered one, and that is CHECKED.
 install_zip "$NEW_ZIP"
 check "the installed plugin is the delivered package" \
-  "$(grep -c 'return self::OWNER_UNKNOWN;' "$PROJECTOR" || true)" "1"
+  "$(grep -c 'return self::UNSETTLED;' "$MERGE" || true)" "1"
 rm -f "$WPROOT/legacy-ownership-state.php"
 
 say ""

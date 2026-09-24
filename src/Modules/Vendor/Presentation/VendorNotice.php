@@ -16,7 +16,7 @@ namespace Tecteb\Marketplace\Modules\Vendor\Presentation;
  */
 final class VendorNotice
 {
-    /** @param array<string,scalar|null> $context */
+    /** @param array<string,scalar|null|array<array-key,scalar|null>> $context */
     private function __construct(
         public readonly string $code,
         public readonly array $context
@@ -32,15 +32,37 @@ final class VendorNotice
         $context = [];
         if (is_array($flash) && ($flash['code'] ?? null) === $code && is_array($flash['context'] ?? null)) {
             foreach ($flash['context'] as $key => $value) {
-                if (is_string($key) && (is_scalar($value) || $value === null)) {
+                if (!is_string($key)) {
+                    continue;
+                }
+                if (is_scalar($value) || $value === null) {
                     $context[$key] = $value;
+                    continue;
+                }
+                // One level of scalars is kept, and it is the line whose
+                // absence the owner read as a bug: the bulk answer put the
+                // refused rows in an array, this loop dropped it without a
+                // word, and the page printed «۴ مورد انجام نشد:» followed by
+                // nothing. The values come from the server's own flash store,
+                // not from the URL, so there is nothing here to tamper with —
+                // the filter's job is to keep the SHAPE predictable, and one
+                // flat map is a shape a message can be written against.
+                if (is_array($value)) {
+                    $flat = [];
+                    foreach ($value as $innerKey => $innerValue) {
+                        if ((is_string($innerKey) || is_int($innerKey))
+                            && (is_scalar($innerValue) || $innerValue === null)) {
+                            $flat[$innerKey] = $innerValue;
+                        }
+                    }
+                    $context[$key] = $flat;
                 }
             }
         }
         return new self($code, $context);
     }
 
-    /** @param array<string,scalar|null> $context */
+    /** @param array<string,scalar|null|array<array-key,scalar|null>> $context */
     public static function of(string $code, array $context = []): self
     {
         return new self($code, $context);

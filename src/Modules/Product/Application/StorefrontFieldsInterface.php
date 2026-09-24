@@ -50,6 +50,48 @@ interface StorefrontFieldsInterface
      */
     public function acceptProposal(Product $product, string $field): ?string;
 
+    /**
+     * The shop's current value of every field, as fingerprints.
+     *
+     * The review screen carries these into its own form so that an approval
+     * can tell whether a manager fixed something in WooCommerce between the
+     * page being drawn and the button being pressed. It is the same
+     * optimistic lock `row_version` is on the record side.
+     *
+     * @return array<string,string>
+     */
+    public function fingerprints(Product $product): array;
+
+    /**
+     * Which of the fingerprints the reviewer was shown no longer hold.
+     *
+     * @param array<string,string> $seen
+     * @return list<string> empty when `$seen` is empty — nothing claimed, nothing checked
+     */
+    public function changedSince(Product $product, array $seen): array;
+
+    /**
+     * What the shop holds, for the fields that can be copied back.
+     *
+     * Called once at approval, after the write, so the record and the shop
+     * end up saying the same thing rather than drifting into two versions of
+     * one product.
+     *
+     * @return array<string,string>
+     */
+    public function reconcile(Product $product): array;
+
+    /**
+     * Every field as the shop holds it — the material a baseline is made of.
+     *
+     * Includes the derived description, which `reconcile()` deliberately
+     * omits: it was part of what both sides agreed, even though it cannot be
+     * written back into the record.
+     *
+     * @return array<string,string>
+     */
+    public function storefrontValues(Product $product): array;
+
     /** Where the manager edits this product — WooCommerce's own editor. */
     public function editorUrl(int $wcProductId): string;
 

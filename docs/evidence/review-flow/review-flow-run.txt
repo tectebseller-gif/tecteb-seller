@@ -1,0 +1,36 @@
+      vendor 2, product 1
+ok:   1-1. the edit page carries the manager's heading                 true
+ok:   1-2. and their actual sentence                                   true
+ok:   1-3. and says what to do next                                    true
+ok:   5-1. the account page offers the vendor dashboard                true
+      link: http://127.0.0.1:8081/vendor/
+ok:   5-2. and its address is on THIS host                             true
+ok:   5-3. and it is the plugin's own route                            true
+ok:   5-4. no other host is baked into it                              false
+ok:   5-5. a plain customer is not offered it                          false
+      buyer typing the address landed on: http://127.0.0.1:8081/vendor/?tmc_notice=not_a_vendor
+ok:   5-6. and typing the address anyway does not open the panel       true
+ok:   5-7. with no product list on the page                            false
+      selected 4 draft rows for «بازگشت به پیش‌نویس»
+ok:   6-1. the run reports a result, not just a count                  true
+ok:   6-2. total failure has its own sentence                          true
+ok:   6-3. there is a reason column                                    true
+ok:   6-4. and one row per product that was selected                   true
+      rows in the result table: 4
+ok:   6-5. no row is left without a reason                             0
+ok:   2-1. the manager has a list of every product                     true
+ok:   2-2. with WooCommerce's own status beside ours                   true
+      admin chips: ["همه ۲۴","پیش‌نویس ۶","در انتظار بررسی ۳","نیازمند اصلاح ۱","منتشرشده ۱۴","تعلیق‌شده ۰","بایگانی ۰"]
+ok:   2-3. «همه» equals the sum of the chips beside it                 24
+ok:   2-4. and the database agrees                                     24
+      no archived product on this install; 2-5 not run
+      counter rounds walked: 9
+ok:   7-1. every round agreed with the database                        0
+ok:   7-2. and «همه» always equalled the sum of the chips              0
+      7-x. NOT REPRODUCED. This walks the shape the owner described and finds
+           no disagreement, so the report stays OPEN rather than closed. What
+           would identify it: the response headers on the request that showed
+           the wrong numbers (x-cache / age / cf-cache-status), whether it was
+           the first load after the action, and the exact four numbers.
+
+checks: 21  pass: 21  fail: 0

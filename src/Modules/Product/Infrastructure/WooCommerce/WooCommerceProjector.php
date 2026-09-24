@@ -6,6 +6,8 @@ namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
+use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
@@ -31,6 +33,17 @@ use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
  */
 final class WooCommerceProjector implements CatalogProjectorInterface
 {
+    /**
+     * The address, stamped like every other projected field — but kept OUT of
+     * `ProjectedFieldOwnership::FIELDS` on purpose: the slug is the manager's
+     * either way, so it is a write to stop rather than a disagreement to put
+     * a button on.
+     */
+    public const SLUG_FIELD = 'slug';
+
+    /** Whether the run in progress wrote the address; see `applySeo()`. */
+    private bool $wroteSlug = false;
+
     public const PRODUCT_META = '_tmc_product_id';
     public const VENDOR_META = '_tmc_vendor_id';
 
@@ -89,7 +102,8 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             static fn (\WC_Product $p): string => (string) $p->get_name(),
             static fn (\WC_Product $p, string $v): mixed => $p->set_name($v),
             $outcome,
-            $isNew
+            $isNew,
+            $product->baseline
         );
         $this->writeOwned(
             $wcProduct,
@@ -98,7 +112,8 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             static fn (\WC_Product $p): string => (string) $p->get_short_description(),
             static fn (\WC_Product $p, string $v): mixed => $p->set_short_description($v),
             $outcome,
-            $isNew
+            $isNew,
+            $product->baseline
         );
         $this->writeOwned(
             $wcProduct,
@@ -107,7 +122,8 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             static fn (\WC_Product $p): string => (string) $p->get_description(),
             static fn (\WC_Product $p, string $v): mixed => $p->set_description($v),
             $outcome,
-            $isNew
+            $isNew,
+            $product->baseline
         );
         $wcProduct->set_status($product->status === ProductStatus::Published ? 'publish' : 'draft');
         $wcProduct->set_catalog_visibility($product->status === ProductStatus::Published ? 'visible' : 'hidden');
@@ -153,7 +169,8 @@ final class WooCommerceProjector implements CatalogProjectorInterface
                 $p->set_gallery_image_ids($images->gallery);
             },
             $outcome,
-            $isNew
+            $isNew,
+            $product->baseline
         );
         $wantCategories = $this->categoryIds(
             $details->categoryKey,
@@ -168,7 +185,8 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             ),
             static fn (\WC_Product $p): mixed => $p->set_category_ids($wantCategories),
             $outcome,
-            $isNew
+            $isNew,
+            $product->baseline
         );
 
         if ($details->type === ProductType::VARIABLE) {
@@ -200,6 +218,14 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         // the one that went out. Stamping what we *sent* would mark every
         // product manager-edited on its next projection.
         $this->stampOwned($wcProductId, $outcome);
+        // ONLY when this run actually wrote it. Stamping an address we
+        // refused to touch would launder somebody else's slug into ours, and
+        // the projection after that would happily overwrite it — the same
+        // «don't stamp what you did not write» rule `alpha.27` established
+        // for every other field, arriving late for this one.
+        if ($this->wroteSlug) {
+            $this->stampSlug($wcProductId);
+        }
         // The author is the vendor, so WordPress' own "posts by this user"
         // views and any theme byline attribute the product correctly.
         wp_update_post(['ID' => $wcProductId, 'post_author' => $product->vendorUserId]);
@@ -468,13 +494,39 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         $wcProduct->set_date_on_sale_to($details->saleTo);
     }
 
+    /**
+     * The public address, and the one rule that was missing from it.
+     *
+     * `set_slug()` ran on every projection while the marketplace had a slug
+     * — with no ownership test at all. So a manager who corrected the address
+     * in WooCommerce or in Rank Math had it silently put back the next time
+     * the VENDOR pressed save, which is the one thing a vendor is explicitly
+     * not allowed to touch (Master A.5: «فروشنده فیلد تخصصی SEO ندارد»).
+     *
+     * So the slug gets the same stamp everything else has. We write it while
+     * it is still the one we wrote; the moment somebody else changes it, it
+     * is theirs and this method stops. It is deliberately NOT added to the
+     * review screen's field list: the address belongs to the manager either
+     * way, so there is no disagreement to put a button on — only a write to
+     * stop making.
+     */
     private function applySeo(mixed $wcProduct, Product $product): void
     {
         $seo = $product->seo;
-        if (trim($seo->slug) !== '') {
+        $wcProductId = (int) $wcProduct->get_id();
+        $currentSlug = (string) $wcProduct->get_slug();
+        $slugStamp = $wcProductId > 0
+            ? (string) get_post_meta($wcProductId, ProjectedFieldOwnership::STAMP_PREFIX . self::SLUG_FIELD, true)
+            : '';
+        // A post this projection is creating has no address yet; anything
+        // else must still be carrying OUR address for us to move it.
+        $slugIsOurs = $wcProductId <= 0
+            || $currentSlug === ''
+            || ($slugStamp !== '' && hash_equals($slugStamp, ProjectedFieldOwnership::fingerprint($currentSlug)));
+        $this->wroteSlug = trim($seo->slug) !== '' && $slugIsOurs;
+        if ($this->wroteSlug) {
             $wcProduct->set_slug($seo->slug);
         }
-        $wcProductId = (int) $wcProduct->get_id();
         if ($wcProductId <= 0) {
             return;    // set after save, on the next projection
         }
@@ -484,6 +536,54 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         if (trim($seo->description) !== '') {
             update_post_meta($wcProductId, '_tmc_seo_description', $seo->description);
         }
+    }
+
+    /**
+     * Stamp the slug from what WordPress KEPT, after the save.
+     *
+     * `sanitize_title()` runs on the way in and `wp_unique_post_slug()` may
+     * append `-2`, so the value that comes back is routinely not the one that
+     * went out — stamping what we sent would mark the address foreign on its
+     * very next projection.
+     */
+    /**
+     * The manager's explicit decision about the address.
+     *
+     * A projection is evidence-driven and will not move a slug somebody else
+     * chose. This is the other path: the manager typing an address on the
+     * review screen, which is a decision and is applied once — and stamped,
+     * so the next projection knows the address is ours again.
+     */
+    public function applySlug(Product $product, string $slug): bool
+    {
+        $slug = trim($slug);
+        if (!$this->isAvailable() || !$product->isProjected() || $slug === '') {
+            return false;
+        }
+        $wcProductId = (int) $product->wcProductId;
+        if (!$this->owns($wcProductId, $product->id)) {
+            return false;       // not ours; never rename somebody else's post
+        }
+        $updated = wp_update_post(['ID' => $wcProductId, 'post_name' => $slug], true);
+        if (is_wp_error($updated)) {
+            return false;
+        }
+        clean_post_cache($wcProductId);
+        $this->stampSlug($wcProductId);
+        return true;
+    }
+
+    private function stampSlug(int $wcProductId): void
+    {
+        $fresh = get_post($wcProductId);
+        if (!$fresh instanceof \WP_Post) {
+            return;
+        }
+        update_post_meta(
+            $wcProductId,
+            ProjectedFieldOwnership::STAMP_PREFIX . self::SLUG_FIELD,
+            ProjectedFieldOwnership::fingerprint((string) $fresh->post_name)
+        );
     }
 
     /**
@@ -557,37 +657,105 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         callable $read,
         callable $write,
         array &$outcome,
-        bool $createdByUs
+        bool $createdByUs,
+        ?ApprovedBaseline $baseline = null
     ): void {
         $id = (int) $wcProduct->get_id();
         $stamp = $id > 0 ? (string) get_post_meta($id, ProjectedFieldOwnership::STAMP_PREFIX . $field, true) : '';
-        $managerOwns = $id > 0 && (string) get_post_meta($id, ProjectedFieldOwnership::MANAGER_PREFIX . $field, true) === '1';
         $current = (string) $read($wcProduct);
-        $owner = ProjectedFieldOwnership::owner($stamp, $current, $managerOwns, $createdByUs);
+        // Before asking who owns it: a GENERATED field that no longer matches
+        // our stamp has been edited in WooCommerce by a person, and that is
+        // recorded now rather than rediscovered on every save.
+        $this->recordDerivedTakeover($id, $field, $stamp, $current);
+        $managerOwns = $id > 0 && (string) get_post_meta($id, ProjectedFieldOwnership::MANAGER_PREFIX . $field, true) === '1';
 
-        if ($owner === ProjectedFieldOwnership::OWNER_MARKETPLACE) {
-            $write($wcProduct, $want);
-            $outcome[$field] = 'wrote';
+        // Three values, not two. `$want` is what the marketplace row says,
+        // `$current` is what the shop holds, and the baseline is what the
+        // vendor's edit was measured from — without which «the manager
+        // changed a field nobody asked about» and «the two sides disagree»
+        // are the same fact.
+        $verdict = FieldMerge::decide(
+            $baseline !== null && $baseline->has($field),
+            $baseline?->get($field) ?? '',
+            $want,
+            $current,
+            $stamp,
+            $managerOwns,
+            $createdByUs,
+            !in_array($field, ProjectedFieldOwnership::ROUND_TRIP, true)
+        );
+
+        switch ($verdict) {
+            case FieldMerge::WRITE:
+                $write($wcProduct, $want);
+                $outcome[$field] = 'wrote';
+                return;
+
+            case FieldMerge::SKIP:
+                // The vendor did not touch this field. Whatever the manager
+                // did with it stands, and NOTHING is recorded: no write, no
+                // proposal, no question. This one line is what turns one
+                // vendor edit back into one question instead of five.
+                $outcome[$field] = 'skipped';
+                return;
+
+            case FieldMerge::CONFLICT:
+                // A real disagreement: both sides moved it, to different
+                // values. Recording a proposal equal to what is already there
+                // would show the manager a «change» that changes nothing, and
+                // `decide()` has already ruled that case out.
+                $outcome[$field] = 'held';
+                $outcome[$field . ':value'] = $want;
+                return;
+
+            case FieldMerge::MANAGER:
+                // `description` is the field this matters most for. The
+                // marketplace BUILDS that text, so once a manager has edited
+                // it every short-description change would otherwise re-raise
+                // the same question for ever.
+                $outcome[$field] = 'frozen';
+                return;
+
+            default:
+                // `unsettled`: older than the stamps, and nobody knows who
+                // wrote what is there. Not ours to write and not ours to
+                // stamp — agreeing with a value is not the same as having
+                // written it. But the vendor's value IS recorded beside it,
+                // exactly as `alpha.27` recorded it, because the «فیلدهای
+                // بدون سابقه» block is where somebody settles this and a
+                // block with nothing to compare against settles nothing.
+                if (ProjectedFieldOwnership::fingerprint($want) !== ProjectedFieldOwnership::fingerprint($current)) {
+                    $outcome[$field] = 'held';
+                    $outcome[$field . ':value'] = $want;
+                    return;
+                }
+                $outcome[$field] = 'frozen';
+                return;
+        }
+    }
+
+    /**
+     * A generated field the manager has edited belongs to the manager — and
+     * that is recorded rather than re-derived every run.
+     *
+     * `description` is not authored by anyone here: the projector renders it
+     * out of the short description, the brand and the medical specification.
+     * So if the stamp says we wrote X and the shop holds Y, the only thing
+     * that can have happened is that somebody edited it in WooCommerce. That
+     * is evidence, not a guess, and the safe conclusion — «stop writing it» —
+     * is recorded once, with an audit line, instead of being rediscovered on
+     * every save. The manager can hand the field back from the review screen.
+     */
+    private function recordDerivedTakeover(int $wcProductId, string $field, string $stamp, string $current): void
+    {
+        if ($wcProductId <= 0 || $stamp === '' || $field !== 'description') {
             return;
         }
-        if ($managerOwns) {
-            // Asked and answered. Re-recording the vendor's value as a
-            // proposal would put the same question back on the review screen
-            // after every save, which is how a decision stops being one.
-            $outcome[$field] = 'frozen';
+        if (hash_equals($stamp, ProjectedFieldOwnership::fingerprint($current))) {
             return;
         }
-        // Held back. Recording a proposal that equals what is already there
-        // would show the manager a «change» that changes nothing.
-        if (ProjectedFieldOwnership::fingerprint($want) !== ProjectedFieldOwnership::fingerprint($current)) {
-            $outcome[$field] = 'held';
-            $outcome[$field . ':value'] = $want;
-            return;
-        }
-        // Same on both sides. Nothing to propose — and for an `unknown` field
-        // nothing to stamp either, because agreeing with a value is not the
-        // same as having written it.
-        $outcome[$field] = 'frozen';
+        update_post_meta($wcProductId, ProjectedFieldOwnership::MANAGER_PREFIX . $field, '1');
+        delete_post_meta($wcProductId, ProjectedFieldOwnership::PENDING_PREFIX . $field);
     }
 
     /**

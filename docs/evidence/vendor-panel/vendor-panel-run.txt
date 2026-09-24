@@ -1,13 +1,13 @@
 ok:   6-1. Cache-Control carries no-store                              true
 ok:   6-2. Vary names the cookie                                       true
       cache-control: no-cache, must-revalidate, max-age=0, no-store, private | vary: Cookie
-      database says: {"draft":4,"published":7,"submitted":2}
-ok:   6-3. the «all» tab equals the row count                          13
-ok:   6-4. the counters survive moving to another tab                  13
-ok:   6-5. and coming back, with no ?tmc_check= of any kind            13
+      database says: {"draft":7,"published":14,"submitted":3}
+ok:   6-3. the «all» tab equals the row count                          24
+ok:   6-4. the counters survive moving to another tab                  24
+ok:   6-5. and coming back, with no ?tmc_check= of any kind            24
 ok:   6-6. the url carries no extra parameter                          
-ok:   6-7. a refresh does not zero them                                13
-ok:   6-8. and neither does signing out and back in                    13
+ok:   6-7. a refresh does not zero them                                24
+ok:   6-8. and neither does signing out and back in                    24
 ok:   6-9. a buyer is not handed the vendor panel                      true
 ok:   2-0. the picker is on step 1                                     true
 ok:   2-1. typing suggests without leaving the page                    http://127.0.0.1:8081/vendor/products/?product=new&step=1
@@ -31,16 +31,16 @@ ok:   5-3. and the text was saved anyway                               true
 ok:   1-1. preview stays on the products page                          /vendor/products/
 ok:   1-2. and is not refused                                          false
 ok:   1-3. the forecast is on screen                                   true
-ok:   1-4. preview wrote nothing                                       {"draft":5,"published":7,"submitted":2}
+ok:   1-4. preview wrote nothing                                       {"draft":8,"published":14,"submitted":3}
 ok:   1-5. an empty selection is answered on the products page         /vendor/products/
 ok:   1-6. and says so in words                                        true
 ok:   1-7. no action chosen is its own message                         true
 ok:   1-8. «بایگانی» moved rows                                        true
-      after archive: {"archived":2,"draft":4,"published":6,"submitted":2}
-      after restore: {"draft":6,"published":6,"submitted":2}
+      after archive: {"archived":2,"draft":7,"published":13,"submitted":3}
+      after restore: {"draft":9,"published":13,"submitted":3}
 ok:   1-9. «بازگشت به پیش‌نویس» brought them back                      0
 ok:   1-10. and they are drafts again                                  true
-      after submit: {"draft":5,"published":6,"submitted":3}
+      after submit: {"draft":8,"published":13,"submitted":4}
 ok:   1-11. «ارسال برای بررسی» accounted for every selected row        true
       submitted moved: 1
 ok:   1-12. running with nothing ticked is refused clearly             true

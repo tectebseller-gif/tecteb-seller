@@ -1,6 +1,6 @@
-installed plugin: 0.1.0-alpha.28
+installed plugin: 0.1.0-alpha.29
 === both fixes in place ===
-stage=reset ok=true product=7 wc=25 cleared=5 claimed=5 pictures=3 arrangement=main:4|gallery:17,18
+stage=reset ok=true product=8 wc=26 cleared=6 claimed=5 pictures=3 arrangement=main:4|gallery:17,18
 stage=hold_empty_short ok=true pending_row=present pending_len=0 storefront_len=55 manager_text_survived=yes
 stage=accept_empty_clears_the_field ok=true code=proposal_accepted storefront_len=0 really_empty=yes pending_cleared=yes stamp_matches_stored_value=yes
 stage=empty_survives_the_sync ok=true after_sync_len=0 second_accept=proposal_accepted after_second_accept_len=0
@@ -40,7 +40,7 @@ ok:   a manager-owned arrangement was left alone                 yes
 ok:   an unsettled one too, and it was recorded as a proposal    yes
 
 === with «empty_is_never_written» taken back out ===
-stage=reset ok=false product=7 wc=25 cleared=5 claimed=0 pictures=3 arrangement=main:4|gallery:17,18
+stage=reset ok=false product=8 wc=26 cleared=5 claimed=1 pictures=3 arrangement=main:4|gallery:17,18
 stage=hold_empty_short ok=true pending_row=present pending_len=0 storefront_len=55 manager_text_survived=yes
 stage=accept_empty_clears_the_field ok=false code=proposal_accepted storefront_len=55 really_empty=no pending_cleared=yes stamp_matches_stored_value=yes
 stage=empty_survives_the_sync ok=true after_sync_len=0 second_accept=proposal_accepted after_second_accept_len=0
@@ -58,7 +58,7 @@ ok:   without it, accept_empty_clears_the_field fails            ok=false
 ok:   the installed plugin was put back (empty_is_never_written) yes
 
 === with «no_required_field_check» taken back out ===
-stage=reset ok=true product=7 wc=25 cleared=3 claimed=5 pictures=3 arrangement=main:4|gallery:17,18
+stage=reset ok=true product=8 wc=26 cleared=3 claimed=5 pictures=3 arrangement=main:4|gallery:17,18
 stage=hold_empty_short ok=true pending_row=present pending_len=0 storefront_len=55 manager_text_survived=yes
 stage=accept_empty_clears_the_field ok=true code=proposal_accepted storefront_len=0 really_empty=yes pending_cleared=yes stamp_matches_stored_value=yes
 stage=empty_survives_the_sync ok=true after_sync_len=0 second_accept=proposal_accepted after_second_accept_len=0
@@ -76,7 +76,7 @@ ok:   without it, an_empty_title_proposal_is_refused fails       ok=false
 ok:   the installed plugin was put back (no_required_field_check) yes
 
 === with «no_read_back_after_the_save» taken back out ===
-stage=reset ok=true product=7 wc=25 cleared=5 claimed=5 pictures=3 arrangement=main:4|gallery:17,18
+stage=reset ok=true product=8 wc=26 cleared=5 claimed=5 pictures=3 arrangement=main:4|gallery:17,18
 stage=hold_empty_short ok=true pending_row=present pending_len=0 storefront_len=55 manager_text_survived=yes
 stage=accept_empty_clears_the_field ok=true code=proposal_accepted storefront_len=0 really_empty=yes pending_cleared=yes stamp_matches_stored_value=yes
 stage=empty_survives_the_sync ok=true after_sync_len=0 second_accept=proposal_accepted after_second_accept_len=0
@@ -94,7 +94,7 @@ ok:   without it, a_silent_save_failure_is_not_a_success fails   ok=false
 ok:   the installed plugin was put back (no_read_back_after_the_save) yes
 
 === with «zero_main_image_is_skipped» taken back out ===
-stage=reset ok=true product=7 wc=25 cleared=5 claimed=5 pictures=3 arrangement=main:4|gallery:17,18
+stage=reset ok=true product=8 wc=26 cleared=5 claimed=5 pictures=3 arrangement=main:4|gallery:17,18
 stage=hold_empty_short ok=true pending_row=present pending_len=0 storefront_len=55 manager_text_survived=yes
 stage=accept_empty_clears_the_field ok=true code=proposal_accepted storefront_len=0 really_empty=yes pending_cleared=yes stamp_matches_stored_value=yes
 stage=empty_survives_the_sync ok=true after_sync_len=0 second_accept=proposal_accepted after_second_accept_len=0
@@ -115,7 +115,7 @@ ok:   WooCommerceStorefrontFields.php matches the repository again same
 ok:   WooCommerceProjector.php matches the repository again      same
 
 === the shipped code, once more, after every patch was reverted ===
-stage=reset ok=true product=7 wc=25 cleared=5 claimed=5 pictures=3 arrangement=main:4|gallery:17,18
+stage=reset ok=true product=8 wc=26 cleared=5 claimed=5 pictures=3 arrangement=main:4|gallery:17,18
 stage=hold_empty_short ok=true pending_row=present pending_len=0 storefront_len=55 manager_text_survived=yes
 stage=accept_empty_clears_the_field ok=true code=proposal_accepted storefront_len=0 really_empty=yes pending_cleared=yes stamp_matches_stored_value=yes
 stage=empty_survives_the_sync ok=true after_sync_len=0 second_accept=proposal_accepted after_second_accept_len=0

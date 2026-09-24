@@ -117,6 +117,97 @@ final class ProductBulkPreviewView
         return $html . self::backLink($urls) . '</section>';
     }
 
+    /**
+     * The same table, AFTER the run — what happened to each row and why.
+     *
+     * The owner pressed a bulk action and was told «۰ مورد انجام شد و ۴ مورد
+     * انجام نشد» with nothing after the colon. The reasons existed the whole
+     * time; they were dropped on the way to the page (`VendorNotice` kept
+     * only scalars, and the refusal list is an array). Rather than repair the
+     * sentence, the rows are shown — the same shape, the same wording and the
+     * same `explain()` the forecast uses, so «پیش‌بینی» and «آنچه شد» can
+     * never describe the same row differently.
+     *
+     * @param array{action:string,rows:list<array{product_id:int,ok:bool,code:string,title:string,from:string,to:string}>,ok:int,failed:int} $report
+     */
+    public static function renderResult(array $report, VendorUrls $urls): string
+    {
+        $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
+        $rows = $report['rows'] ?? [];
+        $action = (string) ($report['action'] ?? '');
+        $done = (int) ($report['ok'] ?? 0);
+        $not = (int) ($report['failed'] ?? 0);
+
+        // Three shapes, deliberately not one with a number in it: «همه رفت»,
+        // «بعضی رفت» and «هیچ‌کدام نرفت» are three different things to do
+        // next, and a single grey box makes them look like one.
+        $code = $not === 0 ? 'bulk_done' : ($done === 0 ? 'bulk_none' : 'bulk_partial');
+        $tone = $not === 0 ? 'success' : ($done === 0 ? 'error' : 'warning');
+
+        $html = '<section class="tv-card"><h2 class="tv-card__title">'
+            . esc_html(sprintf(
+                /* translators: %s: the bulk action's name */
+                __('نتیجهٔ «%s»', 'tecteb-marketplace-core'),
+                ProductMessages::bulkAction($action)
+            )) . '</h2>';
+        $html .= VendorUi::notice($tone, (string) ProductMessages::notice($code, [
+            'action' => $action,
+            'ok' => $done,
+            'failed' => $not,
+        ]));
+
+        if ($rows === []) {
+            return $html . self::backLink($urls) . '</section>';
+        }
+
+        $html .= '<div class="tv-scroll" tabindex="0" role="region" aria-label="'
+            . esc_attr__('نتیجهٔ اجرا برای هر مورد انتخاب‌شده', 'tecteb-marketplace-core') . '">'
+            . '<table class="tv-table"><caption class="tv-visually-hidden">'
+            . esc_html__('موارد انتخاب‌شده و آنچه این اقدام با هرکدام کرد', 'tecteb-marketplace-core')
+            . '</caption><thead><tr>'
+            . '<th scope="col">' . esc_html__('محصول', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('وضعیت کنونی', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('نتیجه', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('توضیح', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>';
+
+        foreach ($rows as $row) {
+            $ok = (bool) ($row['ok'] ?? false);
+            $title = (string) ($row['title'] ?? '');
+            $html .= '<tr>'
+                . '<td>' . esc_html($title !== '' ? $title : sprintf(
+                    /* translators: %s: the product's id, shown when it has no title yet */
+                    __('محصول %s', 'tecteb-marketplace-core'),
+                    $fa((int) ($row['product_id'] ?? 0))
+                )) . '</td>'
+                . '<td>' . self::statusCell((string) ($row['to'] ?? '')) . '</td>'
+                . '<td>' . VendorUi::chip(
+                    $ok ? 'success' : 'warning',
+                    $ok ? __('انجام شد', 'tecteb-marketplace-core') : __('انجام نشد', 'tecteb-marketplace-core')
+                ) . '</td>'
+                . '<td>' . esc_html(self::explainResult($ok, (string) ($row['code'] ?? ''), (string) ($row['to'] ?? '')))
+                . '</td></tr>';
+        }
+
+        return $html . '</tbody></table></div>' . self::backLink($urls) . '</section>';
+    }
+
+    /** Past tense for a row that ran; the refusal's own sentence for one that did not. */
+    private static function explainResult(bool $ok, string $code, string $to): string
+    {
+        if (!$ok) {
+            return ProductMessages::notice($code) ?? VendorMessages::notice($code) ?? $code;
+        }
+        $case = ProductStatus::tryFrom($to);
+        return $case === null
+            ? (string) (ProductMessages::notice($code) ?? '')
+            : sprintf(
+                /* translators: %s: the status the product moved to */
+                __('به «%s» رفت.', 'tecteb-marketplace-core'),
+                ProductMessages::status($case)
+            );
+    }
+
     private static function backLink(VendorUrls $urls): string
     {
         // A way out that is not the confirm button. A preview whose only

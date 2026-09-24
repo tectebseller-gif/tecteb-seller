@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Product\Presentation;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionOutcome;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
@@ -81,7 +82,17 @@ final class ProductFormView
          * that always rendered a comparison would be a form that never had a
          * reason to.
          */
-        ?ProductDetails $storedForComparison = null
+        ?ProductDetails $storedForComparison = null,
+        /**
+         * The manager's last message about this product, if they left one.
+         *
+         * The status chip said «نیازمند اصلاح» and the sentence saying WHAT
+         * to correct was written into a column nothing on this page read. So
+         * the vendor was told to fix something and not told what — and the
+         * manager, having typed it, had every reason to think it had been
+         * delivered.
+         */
+        ?ProductDecision $managerMessage = null
     ): string {
         $step = array_key_exists($step, self::steps()) ? $step : '1';
         $html = '';
@@ -98,6 +109,12 @@ final class ProductFormView
                 && in_array($notice->code, ['revision_missing', 'stale_revision'], true)) {
                 $html .= ProductConflictView::render($details, $storedForComparison);
             }
+        }
+        // Above the form, before anything else the vendor can act on: a
+        // message about work they have to redo belongs where the work is, not
+        // three clicks away in a list.
+        if ($managerMessage !== null) {
+            $html .= self::managerMessage($managerMessage);
         }
         if ($productId > 0 && !$status->isEditableByVendor()) {
             $html .= VendorUi::notice('info', $status === ProductStatus::Submitted
@@ -183,6 +200,42 @@ final class ProductFormView
             $html .= self::submitForm($urls, $nonceField, $productId, $readiness, $mayPublishDirectly);
         }
         return $html . '</section>';
+    }
+
+    /**
+     * The manager's own words, quoted, with the decision they belong to.
+     *
+     * Quoted rather than paraphrased: «قیمت با بازار نمی‌خواند» and «عکس
+     * دوم مال محصول دیگری است» are different instructions, and a generic
+     * «نیازمند اصلاح» delivers neither. The date is shown because «چه وقت
+     * گفته شد» is what tells the vendor whether it is about the version they
+     * have just changed.
+     */
+    private static function managerMessage(ProductDecision $decision): string
+    {
+        $heading = match ($decision->decision) {
+            ProductDecision::CHANGES_REQUESTED => __('مدیر اصلاح خواسته است', 'tecteb-marketplace-core'),
+            ProductDecision::REJECTED => __('این محصول رد و بایگانی شد', 'tecteb-marketplace-core'),
+            ProductDecision::SUSPENDED => __('این محصول تعلیق شد', 'tecteb-marketplace-core'),
+            ProductDecision::CORRECTED => __('مدیر این محصول را اصلاح کرد', 'tecteb-marketplace-core'),
+            default => __('پیام مدیر', 'tecteb-marketplace-core'),
+        };
+        $when = trim($decision->createdAt) === ''
+            ? ''
+            : PersianDigits::toPersian(substr($decision->createdAt, 0, 16));
+
+        return '<section class="tv-card tv-card--message"><h2 class="tv-card__title">'
+            . esc_html($heading) . '</h2>'
+            . ($when !== ''
+                ? '<p class="tv-hint">' . esc_html(sprintf(
+                    /* translators: %s: the date and time of the decision */
+                    __('ثبت‌شده در %s', 'tecteb-marketplace-core'),
+                    $when
+                )) . '</p>'
+                : '')
+            . '<blockquote class="tv-quote"><p>' . esc_html($decision->note) . '</p></blockquote>'
+            . '<p class="tv-hint">' . esc_html__('پس از اصلاح، دوباره «ارسال برای بررسی» را بزنید.', 'tecteb-marketplace-core') . '</p>'
+            . '</section>';
     }
 
     private static function stepNav(string $current, string $base, int $productId): string

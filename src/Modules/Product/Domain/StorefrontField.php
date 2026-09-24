@@ -80,7 +80,18 @@ final class StorefrontField
          * somebody has already answered teaches people to ignore it.
          */
         public readonly bool $decided = false,
-        ?bool $hasPending = null
+        ?bool $hasPending = null,
+        /**
+         * What `FieldMerge` said about this field, when the caller knows.
+         *
+         * Null for a caller written before the baseline existed, and then the
+         * older rule below applies unchanged. When it IS given it wins,
+         * because it is the only one of the two that can tell «the manager
+         * edited a field the vendor never touched» from «the two sides
+         * disagree» — and the first of those must not put a button on the
+         * screen.
+         */
+        public readonly ?string $verdict = null
     ) {
         $this->hasPending = $hasPending ?? ($pending !== '');
     }
@@ -90,6 +101,13 @@ final class StorefrontField
     {
         if ($this->decided) {
             return false;                       // asked, and answered
+        }
+        if ($this->verdict !== null) {
+            // Exactly two of the five verdicts are questions. `skip` is the
+            // one the owner's test run ran into: the manager had edited the
+            // title and the long description, the vendor changed only the
+            // short description, and the screen asked about all three.
+            return in_array($this->verdict, [FieldMerge::CONFLICT, FieldMerge::UNSETTLED], true);
         }
         if ($this->owner === self::OWNER_UNKNOWN) {
             // Always — even when the two sides happen to agree today. The
@@ -107,7 +125,22 @@ final class StorefrontField
     /** True while nobody has established who this field belongs to. */
     public function isUnsettled(): bool
     {
-        return $this->owner === self::OWNER_UNKNOWN;
+        return $this->verdict !== null
+            ? $this->verdict === FieldMerge::UNSETTLED
+            : $this->owner === self::OWNER_UNKNOWN;
+    }
+
+    /**
+     * Did the manager change this field without the vendor asking for
+     * anything?
+     *
+     * Not a question — a fact worth showing. The review card lists these
+     * separately so a manager can see their own edits survived, with no
+     * buttons next to them, because there is nothing to decide.
+     */
+    public function isManagerEditLeftAlone(): bool
+    {
+        return $this->verdict === FieldMerge::SKIP && $this->differs();
     }
 
     public function differs(): bool
@@ -115,9 +148,9 @@ final class StorefrontField
         return self::normalise($this->marketplace) !== self::normalise($this->storefront);
     }
 
-    /** Whitespace-insensitive, for the same reason the projector's stamp is. */
+    /** Whitespace-insensitive, and the SAME rule the stamp and the merge use. */
     private static function normalise(string $value): string
     {
-        return trim(preg_replace('/\s+/u', ' ', $value) ?? $value);
+        return FieldMerge::fingerprint($value);
     }
 }

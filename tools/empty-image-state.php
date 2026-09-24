@@ -399,6 +399,11 @@ $catalog->publish($productId);
 $say('all_pictures_removed', $mainOf($wcId) === 0 && $galleryOf($wcId) === [], [
     'now' => $arrangement($wcId),
 ]);
+// Settled through the production path, so the baseline follows the shop.
+// Without it the next stage puts the record BACK to the value the baseline
+// still holds, the merge rule correctly answers «the vendor changed
+// nothing», and the fixture reads that correct answer as a failure.
+$review->resolveField($productId, 'images', 'accept');
 
 // ------------------------------ manager_owned_pictures_are_not_cleared
 //

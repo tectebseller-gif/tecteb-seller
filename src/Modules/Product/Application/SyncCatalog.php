@@ -93,6 +93,19 @@ final class SyncCatalog
     }
 
     /**
+     * The manager's address decision, applied once and stamped.
+     *
+     * Deliberately not part of `publish()`: a projection must not move an
+     * address a person has chosen, and this is the one event that says a
+     * person chose one.
+     */
+    public function applySlug(int $productId, string $slug): bool
+    {
+        $product = $this->products->find($productId);
+        return $product !== null && $this->projector->applySlug($product, $slug);
+    }
+
+    /**
      * Give a product that is NOT approved yet a storefront row, as a draft.
      *
      * The manager asked for something WooCommerce and Rank Math already do

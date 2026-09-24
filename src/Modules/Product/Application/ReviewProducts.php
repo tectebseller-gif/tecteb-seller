@@ -7,12 +7,15 @@ use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
+use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontField;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 
@@ -43,13 +46,25 @@ final class ReviewProducts
          * Null when WooCommerce is not installed. Every method that uses it
          * says so rather than pretending the storefront agreed.
          */
-        private readonly ?StorefrontFieldsInterface $storefront = null
+        private readonly ?StorefrontFieldsInterface $storefront = null,
+        /**
+         * Append-only. Null only in the tests that predate it, and every
+         * caller here treats a missing trail as «record nothing», never as
+         * «there is nothing to record».
+         */
+        private readonly ?ProductDecisionRepositoryInterface $decisions = null
     ) {
     }
 
-    public function approve(int $productId): OperationResult
+    /**
+     * @param array<string,string> $seenFingerprints what the review screen
+     *        showed for each storefront field. A manager can fix a typo in
+     *        WooCommerce while this page is open, and an approval that wrote
+     *        over it would undo an edit nobody was shown.
+     */
+    public function approve(int $productId, array $seenFingerprints = []): OperationResult
     {
-        return $this->decide($productId, ProductStatus::Published, '');
+        return $this->decide($productId, ProductStatus::Published, '', $seenFingerprints);
     }
 
     public function requestChanges(int $productId, string $note): OperationResult
@@ -81,9 +96,10 @@ final class ReviewProducts
         return $this->decide($productId, ProductStatus::Suspended, $note);
     }
 
-    public function republish(int $productId): OperationResult
+    /** @param array<string,string> $seenFingerprints see `approve()` */
+    public function republish(int $productId, array $seenFingerprints = []): OperationResult
     {
-        return $this->decide($productId, ProductStatus::Published, '');
+        return $this->decide($productId, ProductStatus::Published, '', $seenFingerprints);
     }
 
     /**
@@ -216,6 +232,13 @@ final class ReviewProducts
         if ($product->status === ProductStatus::Published) {
             $this->catalog->publish($productId);
         }
+        // AFTER the projection, and as its own call: projecting will not move
+        // an address somebody else chose, which is right for a vendor's save
+        // and wrong for the manager typing one here. Their decision is
+        // applied explicitly, once.
+        if ($seo->slug !== '') {
+            $this->catalog->applySlug($productId, $seo->slug);
+        }
         $this->audit->log(
             AuditEventCatalog::PRODUCT_SEO_CHANGED,
             $this->capabilities->currentUserId(),
@@ -278,6 +301,13 @@ final class ReviewProducts
         if ($product->isProjected()) {
             $this->catalog->publish($productId);
         }
+        $this->decisions?->record(
+            $productId,
+            $product->vendorUserId,
+            (int) $this->capabilities->currentUserId(),
+            ProductDecision::CORRECTED,
+            implode(', ', array_keys($changes))
+        );
         $this->audit->log(
             AuditEventCatalog::PRODUCT_CORRECTED,
             $this->capabilities->currentUserId(),
@@ -337,6 +367,14 @@ final class ReviewProducts
             if ($failure !== null) {
                 return OperationResult::failure($failure, ['product_id' => $productId, 'field' => $field]);
             }
+            $this->settleField($productId, $field);
+            $this->decisions?->record(
+                $productId,
+                $product->vendorUserId,
+                (int) $this->capabilities->currentUserId(),
+                ProductDecision::FIELD_ACCEPTED,
+                $field
+            );
             $this->logOwnership($product->vendorUserId, $productId, $field, 'accept');
             return OperationResult::success('proposal_accepted', ['product_id' => $productId]);
         }
@@ -379,6 +417,14 @@ final class ReviewProducts
             $images = StorefrontImages::decode($value);
             $this->products->saveImages($productId, $images->ids(), $images->main);
         }
+        $this->settleField($productId, $field);
+        $this->decisions?->record(
+            $productId,
+            $product->vendorUserId,
+            (int) $this->capabilities->currentUserId(),
+            ProductDecision::FIELD_KEPT,
+            $field
+        );
         $this->logOwnership($product->vendorUserId, $productId, $field, 'keep');
         return OperationResult::success('storefront_kept', ['product_id' => $productId]);
     }
@@ -434,6 +480,87 @@ final class ReviewProducts
         );
     }
 
+    /**
+     * Bring the record into line with the shop, and record that as the base.
+     *
+     * Three steps, in this order, and each one is the reason for the next:
+     *
+     *  1. read what WooCommerce ACTUALLY kept (it filters values on the way
+     *     in, and the projector may legitimately have written nothing for a
+     *     field whose owner is the manager);
+     *  2. copy the round-trip fields home, so there are not two versions of
+     *     one product — this is what makes «ووکامرس مرجع اطلاعات نهایی
+     *     تأییدشده» a fact rather than an intention;
+     *  3. record the whole set as the baseline, so the vendor's NEXT edit can
+     *     be told apart from the manager's.
+     *
+     * `description` is copied into the baseline but never into the record:
+     * the projector builds it, so writing it home would paste the rendered
+     * text into the raw field and the next projection would render it again.
+     */
+    private function settleBaseline(int $productId): void
+    {
+        if ($this->storefront === null) {
+            return;
+        }
+        $product = $this->products->find($productId);
+        if ($product === null || !$product->isProjected()) {
+            return;
+        }
+        $values = $this->storefront->storefrontValues($product);
+        if ($values === []) {
+            return;     // no storefront row to agree with; nothing to record
+        }
+        $roundTrip = $this->storefront->reconcile($product);
+        $changes = [];
+        foreach (['title' => 'title', 'short_description' => 'shortDescription', 'category' => 'categoryKey'] as $key => $property) {
+            if (!array_key_exists($key, $roundTrip)) {
+                continue;
+            }
+            $value = self::firstId($key, $roundTrip[$key]);
+            // The title is the one field that cannot legitimately come back
+            // empty, and a shop row with no name would blank the record.
+            if ($value === '' && !StorefrontField::mayBeEmpty($key)) {
+                continue;
+            }
+            if ($value !== (string) $product->details->{$property}) {
+                $changes[$property] = $value;
+            }
+        }
+        if ($changes !== []) {
+            $this->products->updateDetails($productId, $product->details->with($changes), ProductRowVersion::UNGUARDED);
+        }
+        if (array_key_exists('images', $roundTrip)) {
+            $images = StorefrontImages::decode($roundTrip['images']);
+            $this->products->saveImages($productId, $images->ids(), $images->main);
+        }
+        $this->products->saveBaseline($productId, ApprovedBaseline::of($values));
+    }
+
+    /**
+     * One field settled, so the baseline for that field settles with it.
+     *
+     * Without this, a manager who answers a question would be asked it again
+     * on the next save: the decision changes the shop and the stamp, but the
+     * baseline would still hold the value from before the argument.
+     */
+    private function settleField(int $productId, string $field): void
+    {
+        if ($this->storefront === null) {
+            return;
+        }
+        $product = $this->products->find($productId);
+        if ($product === null || !$product->isProjected()) {
+            return;
+        }
+        $values = $this->storefront->storefrontValues($product);
+        if (!array_key_exists($field, $values)) {
+            return;
+        }
+        $baseline = $product->baseline ?? ApprovedBaseline::of([]);
+        $this->products->saveBaseline($productId, $baseline->with($field, $values[$field]));
+    }
+
     /** The category round-trips as ONE term id, not as the id list WooCommerce keeps. */
     private static function firstId(string $field, string $value): string
     {
@@ -480,7 +607,8 @@ final class ReviewProducts
         return OperationResult::success($granted ? 'direct_publish_granted' : 'direct_publish_revoked');
     }
 
-    private function decide(int $productId, ProductStatus $to, string $note): OperationResult
+    /** @param array<string,string> $seenFingerprints */
+    private function decide(int $productId, ProductStatus $to, string $note, array $seenFingerprints = []): OperationResult
     {
         if (!$this->capabilities->can(Capabilities::REVIEW_PRODUCTS)) {
             return OperationResult::failure('forbidden');
@@ -488,6 +616,17 @@ final class ReviewProducts
         $product = $this->products->find($productId);
         if ($product === null) {
             return OperationResult::failure('not_found');
+        }
+        // Refused, not merged. The manager pressing again sees the new values
+        // first — which is the whole point of naming the fields that moved.
+        if ($to === ProductStatus::Published && $this->storefront !== null) {
+            $moved = $this->storefront->changedSince($product, $seenFingerprints);
+            if ($moved !== []) {
+                return OperationResult::failure('storefront_moved', [
+                    'product_id' => $productId,
+                    'fields' => implode(',', $moved),
+                ]);
+            }
         }
         if (!$this->states->canTransition($product->status, $to)) {
             return OperationResult::failure('invalid_transition', [
@@ -512,10 +651,17 @@ final class ReviewProducts
         // to stop being buyable in the same request (ADR-008).
         if ($to === ProductStatus::Published) {
             $this->catalog->publish($productId);
+            // One action, one reconciliation: what the shop actually kept is
+            // written home and recorded as the baseline. From here the record
+            // and the shop say the same thing, so the vendor's form shows the
+            // approved values rather than a stale copy of their own draft —
+            // and the NEXT edit can be measured against something.
+            $this->settleBaseline($productId);
         } else {
             $this->catalog->withdraw($productId, $note);
         }
         $reviewer = $this->capabilities->currentUserId();
+        $this->decisions?->record($productId, $product->vendorUserId, (int) $reviewer, $to->value, $note);
         $this->audit->log(AuditEventCatalog::PRODUCT_REVIEWED, $reviewer, 'product', (string) $productId, [
             'vendor_id' => $product->vendorUserId,
             'product_id' => $productId,

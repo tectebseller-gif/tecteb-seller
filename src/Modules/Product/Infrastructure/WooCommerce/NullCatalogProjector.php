@@ -67,6 +67,11 @@ final class NullCatalogProjector implements CatalogProjectorInterface
         return false;
     }
 
+    public function applySlug(Product $product, string $slug): bool
+    {
+        return false;
+    }
+
     public function storefrontStatus(int $wcProductId): string
     {
         return '';

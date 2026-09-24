@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Product\Infrastructure;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
@@ -13,6 +14,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
 
 /**
@@ -75,6 +77,85 @@ final class DbProductRepository implements ProductRepositoryInterface
     {
         [$where, $params] = $this->scope($vendorUserId, $status, $search);
         return (int) $this->db->getVar('SELECT COUNT(*) FROM `' . $this->products() . '`' . $where, $params);
+    }
+
+    /**
+     * The manager's catalogue: every product of every shop, filterable.
+     *
+     * Until now the only manager view was `inStatus(Submitted)`, so a product
+     * that had been decided ANY way vanished from the marketplace side of the
+     * admin while its WooCommerce post carried on existing. «محصول پس از
+     * خروج از صف بررسی، از صفحهٔ مدیریت بازارگاه ناپدید می‌شود.»
+     *
+     * @return list<Product>
+     */
+    public function forManager(
+        ?ProductStatus $status = null,
+        string $search = '',
+        int $limit = 20,
+        int $offset = 0,
+        int $vendorUserId = 0
+    ): array {
+        [$where, $params] = $this->managerScope($status, $search, $vendorUserId);
+        $params[] = max(1, $limit);
+        $params[] = max(0, $offset);
+        return array_map([$this, 'hydrate'], $this->db->getResults(
+            'SELECT * FROM `' . $this->products() . '`' . $where . ' ORDER BY updated_at DESC, id DESC LIMIT %d OFFSET %d',
+            $params
+        ));
+    }
+
+    public function countForManager(?ProductStatus $status = null, string $search = '', int $vendorUserId = 0): int
+    {
+        [$where, $params] = $this->managerScope($status, $search, $vendorUserId);
+        return (int) $this->db->getVar('SELECT COUNT(*) FROM `' . $this->products() . '`' . $where, $params);
+    }
+
+    /**
+     * How many products are in each status, across every shop.
+     *
+     * The same GROUP BY the vendor's own counters use, minus the owner
+     * filter — one query, so the chips cannot disagree with each other.
+     *
+     * @return array<string,int>
+     */
+    public function countsByStatusForManager(string $search = '', int $vendorUserId = 0): array
+    {
+        [$where, $params] = $this->managerScope(null, $search, $vendorUserId);
+        $rows = $this->db->getResults(
+            'SELECT status, COUNT(*) AS n FROM `' . $this->products() . '`' . $where . ' GROUP BY status',
+            $params
+        );
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(string) $row['status']] = (int) $row['n'];
+        }
+        return $counts;
+    }
+
+    /** @return array{0:string, 1:list<mixed>} */
+    private function managerScope(?ProductStatus $status, string $search, int $vendorUserId = 0): array
+    {
+        // `1 = 1` so every branch below can append with AND and the clause is
+        // never empty — a `WHERE` with nothing after it is a syntax error and
+        // an `if` on the first condition is how that gets forgotten.
+        $where = ' WHERE 1 = 1';
+        $params = [];
+        if ($vendorUserId > 0) {
+            $where .= ' AND vendor_user_id = %d';
+            $params[] = $vendorUserId;
+        }
+        if ($status !== null) {
+            $where .= ' AND status = %s';
+            $params[] = $status->value;
+        }
+        $search = trim($search);
+        if ($search !== '') {
+            $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
+            $where .= ' AND (title LIKE %s OR sku LIKE %s OR brand LIKE %s)';
+            array_push($params, $like, $like, $like);
+        }
+        return [$where, $params];
     }
 
     /**
@@ -686,8 +767,32 @@ final class DbProductRepository implements ProductRepositoryInterface
             // Absent on a row read before migration 14 ran; an empty version
             // means the form carries nothing to compare and the write is
             // unguarded, which is what a mid-upgrade save needs.
-            isset($row['row_version']) ? (string) (int) $row['row_version'] : ''
+            isset($row['row_version']) ? (string) (int) $row['row_version'] : '',
+            // Absent before migration 19, and NULL for every product that has
+            // not been approved since. `decode()` answers null for both,
+            // which is the honest answer: «no record of agreement».
+            ApprovedBaseline::decode(
+                isset($row[M0019BaselineAndDecisions::BASELINE_COLUMN])
+                    ? (string) $row[M0019BaselineAndDecisions::BASELINE_COLUMN]
+                    : null
+            )
         );
+    }
+
+    /**
+     * Record what both sides agreed on, for the next edit to be measured from.
+     *
+     * Only an approval or an explicit decision calls this. A projection does
+     * not: projecting is the marketplace writing, not the two sides agreeing,
+     * and a baseline written on every sync would make «the vendor changed
+     * this» permanently false.
+     */
+    public function saveBaseline(int $productId, ?ApprovedBaseline $baseline): bool
+    {
+        return $this->db->execute(
+            'UPDATE `' . $this->products() . '` SET `' . M0019BaselineAndDecisions::BASELINE_COLUMN . '` = %s WHERE id = %d',
+            [$baseline?->encode() ?? '', $productId]
+        ) !== null;
     }
 
     public function deleteDraft(int $productId): bool

@@ -11,6 +11,7 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
+use Tecteb\Marketplace\Modules\Product\Application\ProductDecisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
@@ -21,6 +22,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Domain\SensitiveChange;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\ProjectedFieldOwnership;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
 use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
@@ -71,12 +73,96 @@ final class ProductReviewPage
         $published = $products->inStatus(ProductStatus::Published, 20);
         $this->renderQueue($products->inStatus(ProductStatus::Submitted));
         $this->renderRevisions($revisions->pending(), $products);
+        $this->renderCatalogue(Request::capture());
         $this->renderPublished($published);
         $this->renderSeo($published);
         $this->renderPublishPermissions();
 
         echo Components::notice('info', __('تأیید محصول تازه یعنی همان نسخه منتشر می‌شود. تأیید «نسخه پیشنهادی» یعنی مقادیر پیشنهادی روی محصول منتشرشده می‌نشیند؛ موجودی از نسخه زنده گرفته می‌شود تا فروش این چند روز برنگردد.', 'tecteb-marketplace-core'));
         echo Components::shellClose();
+    }
+
+    /**
+     * The one thing a decided product had nowhere to be.
+     *
+     * Everything shown here is read on the spot. The WooCommerce column is
+     * `get_post_status()`, not a mirror column of our own: a status copied
+     * into our table is a second truth, and the first person to edit the post
+     * in wp-admin makes it wrong without anyone finding out.
+     */
+    private function renderCatalogue(Request $request): void
+    {
+        $products = $this->container->get(ProductRepositoryInterface::class);
+        $decisions = $this->container->get(ProductDecisionRepositoryInterface::class);
+        $vendors = $this->container->get(VendorRepositoryInterface::class);
+        $stores = $this->container->get(StoreRepositoryInterface::class);
+
+        $status = ProductStatus::tryFrom($request->queryKey('status'));
+        $search = $request->queryText('q');
+        $page = max(1, $request->queryInt('paged'));
+        $rows = $products->forManager(
+            $status,
+            $search,
+            ProductCatalogueView::PER_PAGE,
+            ($page - 1) * ProductCatalogueView::PER_PAGE
+        );
+
+        $shopStatus = [];
+        $editorUrls = [];
+        $history = [];
+        $names = [];
+        foreach ($rows as $product) {
+            $history[$product->id] = $decisions->forProduct($product->id, null, 12);
+            if ($product->isProjected()) {
+                $wcId = (int) $product->wcProductId;
+                // '' when the post is gone — which the view says in words
+                // rather than drawing as an empty cell.
+                $shopStatus[$product->id] = (string) (get_post_status($wcId) ?: '');
+                $editorUrls[$product->id] = (string) get_edit_post_link($wcId, 'url');
+            }
+            // The settings row first, then the application: a shop that has
+            // been approved has a name in the first and a shop mid-review
+            // only has one in the second. `find()` does not exist on the
+            // vendor repository and never did — the page threw on its first
+            // render, which is precisely what `AdminPagesRenderTest` is for.
+            $names[$product->id] = $stores->find($product->vendorUserId)?->storeName
+                ?: ($vendors->findApplicationByUser($product->vendorUserId)?->details->storeName ?? '');
+        }
+
+        echo ProductCatalogueView::render(
+            $rows,
+            $products->countsByStatusForManager($search),
+            $status?->value ?? '',
+            $search,
+            $page,
+            $products->countForManager($status, $search),
+            admin_url('admin.php?page=' . self::SLUG),
+            $shopStatus,
+            $editorUrls,
+            $history,
+            $names
+        );
+    }
+
+    /**
+     * What the reviewer was shown, as it arrived back from their form.
+     *
+     * Read as a flat map of field => fingerprint and nothing else: these
+     * values decide whether an approval is refused, so a nested structure
+     * arriving from a POST has no business being followed.
+     *
+     * @return array<string,string>
+     */
+    private static function seenFingerprints(Request $request): array
+    {
+        $seen = [];
+        foreach (ProjectedFieldOwnership::FIELDS as $field) {
+            $value = $request->postKey('seen_' . $field);
+            if ($value !== '') {
+                $seen[$field] = $value;
+            }
+        }
+        return $seen;
     }
 
     /** @param list<Product> $queue */
@@ -87,13 +173,15 @@ final class ProductReviewPage
             echo '<p>' . esc_html__('صف خالی است.', 'tecteb-marketplace-core') . '</p></section>';
             return;
         }
+        /** @var StorefrontFieldsInterface|null $storefront */
+        $storefront = $this->container->get(StorefrontFieldsInterface::class);
         foreach ($queue as $product) {
             echo $this->card($product)
                 . $this->decisionForm('product', $product->id, [
                     'approve' => __('تأیید و انتشار', 'tecteb-marketplace-core'),
                     'changes' => __('نیازمند اصلاح', 'tecteb-marketplace-core'),
                     'reject' => __('رد و بایگانی', 'tecteb-marketplace-core'),
-                ]);
+                ], $storefront?->fingerprints($product) ?? []);
         }
         echo '</section>';
     }
@@ -252,12 +340,20 @@ final class ProductReviewPage
     }
 
     /** @param array<string,string> $decisions */
-    private function decisionForm(string $subject, int $id, array $decisions): string
+    /** @param array<string,string> $seen the shop's fingerprints as this page read them */
+    private function decisionForm(string $subject, int $id, array $decisions, array $seen = []): string
     {
         $html = '<form method="post" class="tmc-review__form">'
             . wp_nonce_field(self::NONCE, 'tmc_review_nonce', true, false)
             . '<input type="hidden" name="subject" value="' . esc_attr($subject) . '">'
-            . '<input type="hidden" name="subject_id" value="' . esc_attr((string) $id) . '">'
+            . '<input type="hidden" name="subject_id" value="' . esc_attr((string) $id) . '">';
+        // Carried, not recomputed on submit: the whole point is to compare
+        // what the reviewer SAW against what is there now.
+        foreach ($seen as $field => $fingerprint) {
+            $html .= '<input type="hidden" name="seen_' . esc_attr((string) $field)
+                . '" value="' . esc_attr((string) $fingerprint) . '">';
+        }
+        $html .= ''
             . '<div class="tmc-field"><label class="tmc-field__label" for="note-' . esc_attr($subject . '-' . $id) . '">'
             . esc_html__('دلیل تصمیم (برای اصلاح و رد اجباری است)', 'tecteb-marketplace-core') . '</label>'
             . '<textarea class="tmc-input" id="note-' . esc_attr($subject . '-' . $id) . '" name="note" rows="2"></textarea></div><p>';
@@ -311,6 +407,19 @@ final class ProductReviewPage
             echo '<p>' . esc_html__('هنوز محصول منتشرشده‌ای وجود ندارد.', 'tecteb-marketplace-core') . '</p></section>';
             return;
         }
+        /** @var StorefrontFieldsInterface|null $storefront */
+        $storefront = $this->container->get(StorefrontFieldsInterface::class);
+        $seoPlugin = $storefront?->seoPluginName() ?? '';
+        if ($seoPlugin !== '') {
+            // The owner had values saved in Rank Math and this form showed
+            // them blank, because it has never read anything but our own
+            // column. An empty box next to a filled one is not a second
+            // opinion, it is a trap: somebody types into it and the real
+            // fields stay as they were. So when a real SEO plugin is here,
+            // the form goes and a link to ITS editor takes its place.
+            $this->renderSeoHandover($published, $seoPlugin);
+            return;
+        }
         foreach ($published as $product) {
             $id = 'seo-' . $product->id;
             echo '<form method="post" class="tmc-review">'
@@ -340,6 +449,67 @@ final class ProductReviewPage
                 . '</form>';
         }
         echo '</section>';
+    }
+
+    /**
+     * When a real SEO plugin is installed, it is the one place SEO lives.
+     *
+     * Nothing is deleted. `_tmc_seo_*` values written by earlier versions are
+     * still in the database and still shown here — READ-ONLY, labelled as
+     * this plugin's own older data, with the name of the field they belong in
+     * on the other side. They are not copied across: writing into another
+     * plugin's meta keys from here would be this plugin guessing at that
+     * plugin's storage contract, and the day the guess is wrong it is the
+     * owner's search results that pay for it.
+     *
+     * @param list<Product> $published
+     */
+    private function renderSeoHandover(array $published, string $plugin): void
+    {
+        /** @var StorefrontFieldsInterface|null $storefront */
+        $storefront = $this->container->get(StorefrontFieldsInterface::class);
+        echo Components::notice('info', sprintf(
+            /* translators: %s: the SEO plugin's name, e.g. Rank Math */
+            __('سئوی این محصول‌ها در «%s» تنظیم می‌شود — همان‌جایی که مقدارهای فعلی‌تان ذخیره شده‌اند. فرم جداگانهٔ سئو از این صفحه برداشته شد چون مقدارهای آن افزونه را نمی‌خواند و خالی نشان می‌داد.', 'tecteb-marketplace-core'),
+            $plugin
+        ));
+        echo '<ul class="tmc-list">';
+        foreach ($published as $product) {
+            $editor = $product->isProjected() ? $storefront?->editorUrl((int) $product->wcProductId) ?? '' : '';
+            echo '<li><strong>' . esc_html($product->details->title) . '</strong> — '
+                . ($editor !== ''
+                    ? '<a href="' . esc_url($editor) . '">' . esc_html(sprintf(
+                        /* translators: %s: the SEO plugin's name */
+                        __('ویرایش سئو در %s', 'tecteb-marketplace-core'),
+                        $plugin
+                    )) . '</a>'
+                    : esc_html__('هنوز در ووکامرس ساخته نشده است.', 'tecteb-marketplace-core'))
+                . self::legacySeo($product)
+                . '</li>';
+        }
+        echo '</ul></section>';
+    }
+
+    /** The old plugin-specific values, shown so nobody thinks they were deleted. */
+    private static function legacySeo(Product $product): string
+    {
+        $rows = array_filter([
+            __('نشانی (slug)', 'tecteb-marketplace-core') => trim($product->seo->slug),
+            __('عنوان متا', 'tecteb-marketplace-core') => trim($product->seo->title),
+            __('توضیح متا', 'tecteb-marketplace-core') => trim($product->seo->description),
+        ], static fn (string $v): bool => $v !== '');
+        if ($rows === []) {
+            return '';
+        }
+        $out = '<details class="tmc-history"><summary>'
+            . esc_html__('دادهٔ سئوی قدیمیِ این افزونه (فقط برای دیدن)', 'tecteb-marketplace-core')
+            . '</summary><p class="tmc-card__note">'
+            . esc_html__('این مقدارها پاک نشده‌اند و جایی هم کپی نمی‌شوند. اگر می‌خواهید، خودتان آن‌ها را در افزونهٔ سئو بگذارید.', 'tecteb-marketplace-core')
+            . '</p><ul>';
+        foreach ($rows as $label => $value) {
+            $out .= '<li>' . esc_html($label . ': ') . '<code>' . esc_html($value) . '</code></li>';
+        }
+        return $out . '</ul></details>';
     }
 
     private function renderPublishPermissions(): void
@@ -384,7 +554,11 @@ final class ProductReviewPage
         $id = $request->postInt('subject_id');
         $note = $request->postTextarea('note');
         $result = match ($request->postKey('subject') . ':' . $request->postKey('decision')) {
-            'product:approve' => $review->approve($id),
+            // The fingerprints the review screen rendered travel back with the
+            // decision. A manager can fix a typo in WooCommerce while this
+            // page is open, and an approval that wrote over it would undo an
+            // edit nobody was shown.
+            'product:approve' => $review->approve($id, self::seenFingerprints($request)),
             'product:changes' => $review->requestChanges($id, $note),
             'product:reject' => $review->reject($id, $note),
             'revision:approve' => $review->approveRevision($id),

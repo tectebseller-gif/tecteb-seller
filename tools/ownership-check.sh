@@ -18,6 +18,7 @@ PHPBIN="${PHPBIN:-/opt/php81/bin/php}"
 WPCLI="${WPCLI:-/usr/local/bin/wp}"
 PLUGIN="$WPROOT/wp-content/plugins/tecteb-marketplace-core"
 PROJECTOR="$PLUGIN/src/Modules/Product/Infrastructure/WooCommerce/WooCommerceProjector.php"
+MERGE="$PLUGIN/src/Modules/Product/Domain/FieldMerge.php"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 
 mkdir -p "$OUT"
@@ -74,7 +75,7 @@ check "and the category as a path" \
 # ---------------------------------------------------------- falsification
 say ""
 say "=== the same run with the guard removed ==="
-cp "$PROJECTOR" "$OUT/projector.bak"
+cp "$MERGE" "$OUT/merge.bak"
 # The pre-alpha.26 behaviour, in one line: write unconditionally. Nothing
 # else is touched, so a failure below is about ownership and not about a
 # broken file.
@@ -83,15 +84,18 @@ cp "$PROJECTOR" "$OUT/projector.bak"
 # PHP mangles one of them. A patch that silently matched nothing would read
 # exactly like «the guard is not there» — the one answer this script must not
 # give by accident, so the needle is compared as literal bytes.
-python3 - "$PROJECTOR" <<'PYEOF'
+python3 - "$MERGE" <<'PYEOF'
 import sys, pathlib
 path = pathlib.Path(sys.argv[1])
 src = path.read_text()
-needle = "if ($owner === ProjectedFieldOwnership::OWNER_MARKETPLACE) {"
+# `alpha.29` moved the decision out of the projector and into this pure rule,
+# so the guard to remove is the rule's first answer: make it always say
+# «write» and the projector is back to the pre-`alpha.26` behaviour.
+needle = "    ): string {\n        if ($managerOwns) {\n"
 if src.count(needle) != 1:
     sys.stderr.write("guard line not found exactly once\n")
     sys.exit(2)
-path.write_text(src.replace(needle, "if (true) {", 1))
+path.write_text(src.replace(needle, "    ): string {\n        return self::WRITE;\n        if ($managerOwns) {\n", 1))
 PYEOF
 falsify_status=$?
 
@@ -107,11 +111,11 @@ else
   check "and the run says so in one word" "$broken_survived" "no"
 fi
 
-cp "$OUT/projector.bak" "$PROJECTOR"
-rm -f "$OUT/projector.bak"
+cp "$OUT/merge.bak" "$MERGE"
+rm -f "$OUT/merge.bak"
 # Proved restored, not assumed: the next evidence run uses this install.
-restored="$(grep -c '$owner === ProjectedFieldOwnership::OWNER_MARKETPLACE' "$PROJECTOR" || true)"
-check "the installed plugin was put back" "$restored" "1"
+restored="$(grep -c 'return self::WRITE;' "$MERGE" || true)"
+check "the installed plugin was put back" "$restored" "2"
 rm -f "$WPROOT/ownership-state.php"
 
 say ""

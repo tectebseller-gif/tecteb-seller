@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontField;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
@@ -45,9 +46,10 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
             // answered.
             $pendingKey = ProjectedFieldOwnership::PENDING_PREFIX . $field;
             $hasPending = metadata_exists('post', $id, $pendingKey);
+            $marketplace = $this->marketplaceValue($product, $field, array_map('intval', $wcProduct->get_category_ids()));
             $rows[] = new StorefrontField(
                 $field,
-                $this->marketplaceValue($product, $field, array_map('intval', $wcProduct->get_category_ids())),
+                $marketplace,
                 $storefront,
                 $hasPending ? (string) get_post_meta($id, $pendingKey, true) : '',
                 // `$createdByUs` is false and cannot be anything else here:
@@ -57,7 +59,20 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
                 ProjectedFieldOwnership::owner($stamp, $storefront, $managerOwns),
                 in_array($field, ProjectedFieldOwnership::ROUND_TRIP, true),
                 $managerOwns,
-                $hasPending
+                $hasPending,
+                // The SAME rule the projector writes by. Two implementations
+                // of «is this a conflict?» are two answers on the day they
+                // drift, and the screen would be the one that lies.
+                FieldMerge::decide(
+                    $product->baseline !== null && $product->baseline->has($field),
+                    $product->baseline?->get($field) ?? '',
+                    $marketplace,
+                    $storefront,
+                    $stamp,
+                    $managerOwns,
+                    false,
+                    !in_array($field, ProjectedFieldOwnership::ROUND_TRIP, true)
+                )
             );
         }
         return $rows;
@@ -168,6 +183,108 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
             ProjectedFieldOwnership::fingerprint($after)
         );
         return null;
+    }
+
+    /**
+     * What the shop holds right now, field by field, as fingerprints.
+     *
+     * The review screen carries these into its own form. Between the page
+     * being drawn and the button being pressed a manager can fix a typo in
+     * WooCommerce, and an approval that wrote over it would undo an edit
+     * nobody was shown. This is the same optimistic lock `row_version` is on
+     * the record side — the other side of the product.
+     *
+     * @return array<string,string>
+     */
+    public function fingerprints(Product $product): array
+    {
+        $wcProduct = $this->storefrontProduct($product);
+        if ($wcProduct === null) {
+            return [];
+        }
+        $out = [];
+        foreach (ProjectedFieldOwnership::FIELDS as $field) {
+            $out[$field] = ProjectedFieldOwnership::fingerprint(self::readField($wcProduct, $field));
+        }
+        return $out;
+    }
+
+    /**
+     * Which of the fields the reviewer was shown have moved since.
+     *
+     * Refused, not merged — the rule this codebase settled on for every
+     * other lock: a merge would have to guess which title is the right one.
+     *
+     * @param array<string,string> $seen as `fingerprints()` returned them
+     * @return list<string>
+     */
+    public function changedSince(Product $product, array $seen): array
+    {
+        if ($seen === []) {
+            return [];          // nothing was claimed, so nothing is checked
+        }
+        $now = $this->fingerprints($product);
+        $moved = [];
+        foreach ($seen as $field => $fingerprint) {
+            if (!is_string($field) || !isset($now[$field])) {
+                continue;
+            }
+            if (!hash_equals((string) $fingerprint, $now[$field])) {
+                $moved[] = $field;
+            }
+        }
+        return $moved;
+    }
+
+    /**
+     * What the shop actually holds, in the shape the marketplace row keeps.
+     *
+     * Called once, at approval, AFTER the projection. From that moment the
+     * record and the shop say the same thing — which is what makes «ووکامرس
+     * مرجع اطلاعات نهایی تأییدشده» true rather than aspirational, and what
+     * lets the vendor's form show the approved values instead of a stale copy
+     * of their own last draft.
+     *
+     * `description` is absent on purpose: the projector BUILDS it, so copying
+     * it home would paste a rendered table into the raw text and the next
+     * projection would render it again.
+     *
+     * @return array<string,string> field => value, for the fields that round-trip
+     */
+    public function reconcile(Product $product): array
+    {
+        $wcProduct = $this->storefrontProduct($product);
+        if ($wcProduct === null) {
+            return [];
+        }
+        $out = [];
+        foreach (ProjectedFieldOwnership::ROUND_TRIP as $field) {
+            $out[$field] = self::readField($wcProduct, $field);
+        }
+        return $out;
+    }
+
+    /**
+     * Every field as the shop holds it — including the derived one.
+     *
+     * This is what a baseline is made of, and it deliberately includes
+     * `description`: the baseline is «what both sides agreed», and the
+     * generated text was part of that agreement even though it cannot be
+     * copied back into the record.
+     *
+     * @return array<string,string>
+     */
+    public function storefrontValues(Product $product): array
+    {
+        $wcProduct = $this->storefrontProduct($product);
+        if ($wcProduct === null) {
+            return [];
+        }
+        $out = [];
+        foreach (ProjectedFieldOwnership::FIELDS as $field) {
+            $out[$field] = self::readField($wcProduct, $field);
+        }
+        return $out;
     }
 
     public function editorUrl(int $wcProductId): string

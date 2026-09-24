@@ -52,7 +52,13 @@ final class ManageProducts
         private readonly StaffAccess $access,
         private readonly ProductPublishPolicy $publishing,
         private readonly ProductStateMachine $states,
-        private readonly AuditLogger $audit
+        private readonly AuditLogger $audit,
+        /**
+         * Append-only. A resubmission is a line in the history too — without
+         * it the manager reads «نیازمند اصلاح» and «ارسال شد» as one event
+         * and cannot tell which version their own note was about.
+         */
+        private readonly ?ProductDecisionRepositoryInterface $decisions = null
     ) {
     }
 
@@ -256,8 +262,25 @@ final class ManageProducts
             // Re-planned per row and NOT taken from any preview the vendor was
             // shown: between looking and pressing, somebody else can have
             // submitted the same product. The forecast is never the authority.
-            $result = $this->carryOut($this->plan($actorId, $vendorUserId, $productId, $action), $actorId, $vendorUserId);
-            $rows[] = ['product_id' => $productId, 'ok' => $result->ok, 'code' => $result->code];
+            //
+            // `plan()` re-runs every ownership and capability check, so the
+            // permissions are tested again HERE, at the moment of the write,
+            // and not inherited from the preview the vendor looked at.
+            $plan = $this->plan($actorId, $vendorUserId, $productId, $action);
+            $from = $plan->product?->status->value ?? '';
+            $title = $plan->product?->details->title ?? '';
+            $result = $this->carryOut($plan, $actorId, $vendorUserId);
+            // The SAME row shape the preview produces, so one view renders
+            // both. «۴ مورد انجام نشد» with no row is what the owner was
+            // shown, and it is a sentence nobody can act on.
+            $rows[] = [
+                'product_id' => $productId,
+                'ok' => $result->ok,
+                'code' => $result->code,
+                'title' => $title,
+                'from' => $from,
+                'to' => $result->ok ? ($plan->target?->value ?? '') : $from,
+            ];
             $result->ok ? $ok++ : $failed++;
         }
 
@@ -615,6 +638,10 @@ final class ManageProducts
             'from' => $product->status->value,
             'to' => $target->value,
         ]);
+        // The vendor's own move, in the same trail as the manager's. Note
+        // deliberately empty: this row records WHAT happened and when, and
+        // inventing a sentence for it would put words in the vendor's mouth.
+        $this->decisions?->record($product->id, $vendorUserId, $actorId, $target->value, '');
         return OperationResult::success($plan->code, ['product_id' => $product->id]);
     }
 

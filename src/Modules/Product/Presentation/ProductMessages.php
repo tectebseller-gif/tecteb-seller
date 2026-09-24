@@ -145,14 +145,6 @@ final class ProductMessages
             );
             return implode('، ', $names);
         };
-        // Hoisted out of the `bulk_done` arm: inside it, this was a second
-        // ternary in the same expression, and PHP 8 removed the implicit
-        // left-associativity that made such a pair legal without parentheses.
-        // `php -l` accepts it — the argument list is unambiguous — but the
-        // 8.1 compatibility sniff is right that nobody should have to work
-        // that out while reading.
-        $refusedRows = is_array($context['refused'] ?? null) ? $context['refused'] : [];
-
         return match ($code) {
             'product_created' => __('محصول به‌عنوان پیش‌نویس ساخته شد. مرحله‌های بعد را کامل کنید.', 'tecteb-marketplace-core'),
             'product_saved' => __('تغییرات محصول ذخیره شد.', 'tecteb-marketplace-core'),
@@ -165,19 +157,29 @@ final class ProductMessages
 
             // A refused row is named, not counted. «۴ نرفت» sends somebody
             // hunting through forty rows; «۴ نرفت: ۱۲، ۱۹، ۲۳، ۴۱» does not.
-            'bulk_done' => (int) ($context['failed'] ?? 0) === 0
-                ? sprintf(
-                    /* translators: %s: how many rows succeeded */
-                    __('اقدام گروهی روی %s مورد انجام شد.', 'tecteb-marketplace-core'),
-                    $fa((string) ($context['ok'] ?? 0))
-                )
-                : sprintf(
-                    /* translators: 1: succeeded, 2: refused, 3: the refused ids with their reasons */
-                    __('%1$s مورد انجام شد و %2$s مورد انجام نشد: %3$s', 'tecteb-marketplace-core'),
-                    $fa((string) ($context['ok'] ?? 0)),
-                    $fa((string) ($context['failed'] ?? 0)),
-                    self::refusedList($refusedRows)
-                ),
+            // Three outcomes, three sentences. One sentence with two numbers
+            // in it made «همه رفت» and «هیچ‌کدام نرفت» look like the same
+            // event — and the reasons, which existed all along, were dropped
+            // on the way through the redirect, so the owner read
+            // «۴ مورد انجام نشد:» and then nothing. They are a table under
+            // this notice now, which is where a list of forty belongs.
+            'bulk_done' => sprintf(
+                /* translators: %s: how many rows succeeded */
+                __('اقدام گروهی روی %s مورد انجام شد.', 'tecteb-marketplace-core'),
+                $fa((string) ($context['ok'] ?? 0))
+            ),
+            'bulk_partial' => sprintf(
+                /* translators: 1: succeeded, 2: refused */
+                __('%1$s مورد انجام شد و %2$s مورد انجام نشد. دلیل هرکدام در جدول زیر آمده است.', 'tecteb-marketplace-core'),
+                $fa((string) ($context['ok'] ?? 0)),
+                $fa((string) ($context['failed'] ?? 0))
+            ),
+            'bulk_none' => sprintf(
+                /* translators: %s: how many rows were refused */
+                __('هیچ‌کدام از %s مورد انجام نشد. دلیل هرکدام در جدول زیر آمده است.', 'tecteb-marketplace-core'),
+                $fa((string) ($context['failed'] ?? 0))
+            ),
+            'storefront_moved' => __('یکی از فیلدهای این محصول در ووکامرس عوض شد در فاصله‌ای که این صفحه باز بود. برای اینکه ویرایش تازه پاک نشود، تأیید انجام نشد: صفحه را تازه کنید، مقدارهای تازه را ببینید و دوباره تصمیم بگیرید.', 'tecteb-marketplace-core'),
             // A forecast, and it says so. «۳۶ مورد انجام می‌شود» would be a
             // promise this page cannot keep, because another member of the
             // same store can save one of these rows in the meantime.
@@ -455,31 +457,6 @@ final class ProductMessages
         return $given > 0 ? $given : (int) floor(ProductImagePolicy::MAX_BYTES / 1048576);
     }
 
-    /**
-     * «۱۲ (قیمت ندارد)، ۱۹ (در حال بررسی)» — id and reason, in the vendor's
-     * words, capped so one bad import cannot produce a paragraph.
-     *
-     * @param array<string,string> $refused product id => refusal code
-     */
-    private static function refusedList(array $refused): string
-    {
-        $parts = [];
-        foreach (array_slice($refused, 0, 10, true) as $productId => $code) {
-            $parts[] = sprintf(
-                '%s (%s)',
-                PersianDigits::toPersian((string) $productId),
-                self::notice((string) $code) ?? (string) $code
-            );
-        }
-        if (count($refused) > 10) {
-            $parts[] = sprintf(
-                /* translators: %s: how many more rows were refused */
-                __('و %s مورد دیگر', 'tecteb-marketplace-core'),
-                PersianDigits::toPersian((string) (count($refused) - 10))
-            );
-        }
-        return implode('، ', $parts);
-    }
 
     public static function isErrorNotice(string $code): bool
     {
