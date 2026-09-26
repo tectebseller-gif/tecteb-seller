@@ -1,20 +1,20 @@
-installed plugin: 0.1.0-alpha.30   schema: 19
-ok:   the installed package is the one under test                0.1.0-alpha.30
+installed plugin: 0.1.0-alpha.31   schema: 19
+ok:   the installed package is the one under test                0.1.0-alpha.31
 ok:   the upgrade gate reached schema 19                         19
 
 === every guard in place ===
-stage=reset ok=true product=9 wc=27 claimed=5 shop_title=عنوان_الف_143822 baseline_title=عنوان_الف_143822 pending_revisions=0
-stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=96 shop_title_unchanged=yes
-stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_143822 record_title=عنوان_ب_143822 baseline_title=عنوان_ب_143822 agreed=yes
-stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_143822 record_title=عنوان_الف_143822 baseline_title=عنوان_الف_143822 shop_is_a=yes two_versions=no
+stage=reset ok=true product=20 wc=36 claimed=5 shop_title=عنوان_الف_161104 baseline_title=عنوان_الف_161104 pending_revisions=0
+stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=176 shop_title_unchanged=yes
+stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_161104 record_title=عنوان_ب_161104 baseline_title=عنوان_ب_161104 agreed=yes
+stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_161104 record_title=عنوان_الف_161104 baseline_title=عنوان_الف_161104 shop_is_a=yes two_versions=no
 stage=an_edit_during_a_revision_review_refuses_it ok=true code=storefront_moved fields=title edit_survived=yes still_pending=yes
-stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_143822 record_title=عنوان_ج_143822 baseline_title=عنوان_ج_143822 one_version=yes
+stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_161104 record_title=عنوان_ج_161104 baseline_title=عنوان_ج_161104 one_version=yes
 stage=the_managers_title_becomes_the_agreement_without_a_stamp ok=true code=product_reviewed questions=none short_applied=yes baseline_is_the_managers=yes stamp_untouched=yes
-stage=and_the_old_stamp_is_not_a_conflict ok=true code=revision_approved shop_title=عنوان_د_143822 record_title=عنوان_د_143822 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
+stage=and_the_old_stamp_is_not_a_conflict ok=true code=revision_approved shop_title=عنوان_د_161104 record_title=عنوان_د_161104 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
 stage=a_failed_sync_is_not_a_review ok=true code=sync_failed reason=storage_failed restored=yes status=submitted baseline_untouched=yes
 stage=and_the_same_button_works_once_the_shop_does ok=true code=product_reviewed status=published
 stage=a_failed_sync_leaves_the_revision_pending ok=true code=sync_failed reason=storage_failed still_pending=yes record_rolled_back=yes shop_untouched=yes
-stage=and_the_revision_goes_through_afterwards ok=true code=revision_approved shop_title=عنوان_ه_143822
+stage=and_the_revision_goes_through_afterwards ok=true code=revision_approved shop_title=عنوان_ه_161105
 stage=restored ok=true status=published one_version=yes agreed=yes pending_revisions=0
 ok:   reset                                                      ok=true
 ok:   a_published_product_gets_a_revision                        ok=true
@@ -47,86 +47,86 @@ ok:   and the live product exactly as it was                     yes
 ok:   and the record rolled back with it                         yes
 
 === with «no_baseline_after_a_revision» taken back out ===
-stage=reset ok=true product=9 wc=27 claimed=5 shop_title=عنوان_الف_143824 baseline_title=عنوان_الف_143824 pending_revisions=0
-stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=101 shop_title_unchanged=yes
-stage=approving_the_revision_moves_the_agreement ok=false code=revision_approved shop_title=عنوان_ب_143824 record_title=عنوان_ب_143824 baseline_title=عنوان_الف_143824 agreed=no
-stage=and_a_revision_back_to_a_reaches_the_shop ok=false code=revision_approved shop_title=عنوان_ب_143824 record_title=عنوان_الف_143824 baseline_title=عنوان_الف_143824 shop_is_a=no two_versions=yes
+stage=reset ok=true product=10 wc=28 claimed=5 shop_title=عنوان_الف_161106 baseline_title=عنوان_الف_161106 pending_revisions=0
+stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=181 shop_title_unchanged=yes
+stage=approving_the_revision_moves_the_agreement ok=false code=revision_approved shop_title=عنوان_ب_161106 record_title=عنوان_ب_161106 baseline_title=عنوان_الف_161106 agreed=no
+stage=and_a_revision_back_to_a_reaches_the_shop ok=false code=revision_approved shop_title=عنوان_ب_161106 record_title=عنوان_الف_161106 baseline_title=عنوان_الف_161106 shop_is_a=no two_versions=yes
 stage=an_edit_during_a_revision_review_refuses_it ok=true code=storefront_moved fields=title edit_survived=yes still_pending=yes
-stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_143824 record_title=عنوان_ج_143824 baseline_title=عنوان_ج_143824 one_version=yes
+stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:write settle=proposal_accepted shop_title=عنوان_ج_161106 record_title=عنوان_ج_161106 baseline_title=عنوان_ج_161106 one_version=yes
 stage=the_managers_title_becomes_the_agreement_without_a_stamp ok=true code=product_reviewed questions=none short_applied=yes baseline_is_the_managers=yes stamp_untouched=yes
-stage=and_the_old_stamp_is_not_a_conflict ok=false code=revision_approved shop_title=عنوان_د_143824 record_title=عنوان_د_143824 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
+stage=and_the_old_stamp_is_not_a_conflict ok=false code=revision_approved shop_title=عنوان_د_161106 record_title=عنوان_د_161106 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
 stage=a_failed_sync_is_not_a_review ok=true code=sync_failed reason=storage_failed restored=yes status=submitted baseline_untouched=yes
 stage=and_the_same_button_works_once_the_shop_does ok=true code=product_reviewed status=published
 stage=a_failed_sync_leaves_the_revision_pending ok=true code=sync_failed reason=storage_failed still_pending=yes record_rolled_back=yes shop_untouched=yes
-stage=and_the_revision_goes_through_afterwards ok=true code=revision_approved shop_title=عنوان_ه_143824
+stage=and_the_revision_goes_through_afterwards ok=true code=revision_approved shop_title=عنوان_ه_161106
 stage=restored ok=false status=published one_version=yes agreed=no pending_revisions=0
 ok:   without it, and_a_revision_back_to_a_reaches_the_shop fails ok=false
 ok:   the installed plugin still parses (no_baseline_after_a_revision) yes
 
 === with «no_lock_on_the_revision_form» taken back out ===
-stage=reset ok=true product=9 wc=27 claimed=5 shop_title=عنوان_الف_143825 baseline_title=عنوان_الف_143825 pending_revisions=0
-stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=106 shop_title_unchanged=yes
-stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_143825 record_title=عنوان_ب_143825 baseline_title=عنوان_ب_143825 agreed=yes
-stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_143825 record_title=عنوان_الف_143825 baseline_title=عنوان_الف_143825 shop_is_a=yes two_versions=no
+stage=reset ok=true product=11 wc=29 claimed=5 shop_title=عنوان_الف_161107 baseline_title=عنوان_الف_161107 pending_revisions=0
+stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=186 shop_title_unchanged=yes
+stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_161107 record_title=عنوان_ب_161107 baseline_title=عنوان_ب_161107 agreed=yes
+stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_161107 record_title=عنوان_الف_161107 baseline_title=عنوان_الف_161107 shop_is_a=yes two_versions=no
 stage=an_edit_during_a_revision_review_refuses_it ok=false code=revision_approved fields=- edit_survived=yes still_pending=no
-stage=and_pressing_again_asks_once_and_settles ok=false code=already_decided questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_143825 record_title=عنوان_ج_143825 baseline_title=عنوان_ج_143825 one_version=yes
+stage=and_pressing_again_asks_once_and_settles ok=false code=already_decided questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_161107 record_title=عنوان_ج_161107 baseline_title=عنوان_ج_161107 one_version=yes
 stage=the_managers_title_becomes_the_agreement_without_a_stamp ok=true code=product_reviewed questions=none short_applied=yes baseline_is_the_managers=yes stamp_untouched=yes
-stage=and_the_old_stamp_is_not_a_conflict ok=true code=revision_approved shop_title=عنوان_د_143825 record_title=عنوان_د_143825 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
+stage=and_the_old_stamp_is_not_a_conflict ok=true code=revision_approved shop_title=عنوان_د_161107 record_title=عنوان_د_161107 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
 stage=a_failed_sync_is_not_a_review ok=true code=sync_failed reason=storage_failed restored=yes status=submitted baseline_untouched=yes
 stage=and_the_same_button_works_once_the_shop_does ok=true code=product_reviewed status=published
 stage=a_failed_sync_leaves_the_revision_pending ok=true code=sync_failed reason=storage_failed still_pending=yes record_rolled_back=yes shop_untouched=yes
-stage=and_the_revision_goes_through_afterwards ok=true code=revision_approved shop_title=عنوان_ه_143825
+stage=and_the_revision_goes_through_afterwards ok=true code=revision_approved shop_title=عنوان_ه_161107
 stage=restored ok=true status=published one_version=yes agreed=yes pending_revisions=0
 ok:   without it, an_edit_during_a_revision_review_refuses_it fails ok=false
 ok:   the installed plugin still parses (no_lock_on_the_revision_form) yes
 
 === with «the_sync_result_is_ignored_again» taken back out ===
-stage=reset ok=true product=9 wc=27 claimed=5 shop_title=عنوان_الف_143826 baseline_title=عنوان_الف_143826 pending_revisions=0
-stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=111 shop_title_unchanged=yes
-stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_143826 record_title=عنوان_ب_143826 baseline_title=عنوان_ب_143826 agreed=yes
-stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_143826 record_title=عنوان_الف_143826 baseline_title=عنوان_الف_143826 shop_is_a=yes two_versions=no
+stage=reset ok=true product=12 wc=30 claimed=5 shop_title=عنوان_الف_161108 baseline_title=عنوان_الف_161108 pending_revisions=0
+stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=191 shop_title_unchanged=yes
+stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_161108 record_title=عنوان_ب_161108 baseline_title=عنوان_ب_161108 agreed=yes
+stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_161108 record_title=عنوان_الف_161108 baseline_title=عنوان_الف_161108 shop_is_a=yes two_versions=no
 stage=an_edit_during_a_revision_review_refuses_it ok=true code=storefront_moved fields=title edit_survived=yes still_pending=yes
-stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_143826 record_title=عنوان_ج_143826 baseline_title=عنوان_ج_143826 one_version=yes
+stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_161108 record_title=عنوان_ج_161108 baseline_title=عنوان_ج_161108 one_version=yes
 stage=the_managers_title_becomes_the_agreement_without_a_stamp ok=true code=product_reviewed questions=none short_applied=yes baseline_is_the_managers=yes stamp_untouched=yes
-stage=and_the_old_stamp_is_not_a_conflict ok=true code=revision_approved shop_title=عنوان_د_143826 record_title=عنوان_د_143826 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
+stage=and_the_old_stamp_is_not_a_conflict ok=true code=revision_approved shop_title=عنوان_د_161108 record_title=عنوان_د_161108 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
 stage=a_failed_sync_is_not_a_review ok=false code=product_reviewed reason=- restored=- status=published baseline_untouched=yes
 stage=and_the_same_button_works_once_the_shop_does ok=false code=invalid_transition status=published
 stage=a_failed_sync_leaves_the_revision_pending ok=true code=sync_failed reason=storage_failed still_pending=yes record_rolled_back=yes shop_untouched=yes
-stage=and_the_revision_goes_through_afterwards ok=true code=revision_approved shop_title=عنوان_ه_143826
+stage=and_the_revision_goes_through_afterwards ok=true code=revision_approved shop_title=عنوان_ه_161108
 stage=restored ok=true status=published one_version=yes agreed=yes pending_revisions=0
 ok:   without it, a_failed_sync_is_not_a_review fails            ok=false
 ok:   the installed plugin still parses (the_sync_result_is_ignored_again) yes
 
 === with «the_revision_sync_result_is_ignored» taken back out ===
-stage=reset ok=true product=9 wc=27 claimed=5 shop_title=عنوان_الف_143827 baseline_title=عنوان_الف_143827 pending_revisions=0
-stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=116 shop_title_unchanged=yes
-stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_143827 record_title=عنوان_ب_143827 baseline_title=عنوان_ب_143827 agreed=yes
-stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_143827 record_title=عنوان_الف_143827 baseline_title=عنوان_الف_143827 shop_is_a=yes two_versions=no
+stage=reset ok=true product=15 wc=31 claimed=5 shop_title=عنوان_الف_161109 baseline_title=عنوان_الف_161109 pending_revisions=0
+stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=196 shop_title_unchanged=yes
+stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_161109 record_title=عنوان_ب_161109 baseline_title=عنوان_ب_161109 agreed=yes
+stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_161109 record_title=عنوان_الف_161109 baseline_title=عنوان_الف_161109 shop_is_a=yes two_versions=no
 stage=an_edit_during_a_revision_review_refuses_it ok=true code=storefront_moved fields=title edit_survived=yes still_pending=yes
-stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_143827 record_title=عنوان_ج_143827 baseline_title=عنوان_ج_143827 one_version=yes
+stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_161110 record_title=عنوان_ج_161110 baseline_title=عنوان_ج_161110 one_version=yes
 stage=the_managers_title_becomes_the_agreement_without_a_stamp ok=true code=product_reviewed questions=none short_applied=yes baseline_is_the_managers=yes stamp_untouched=yes
-stage=and_the_old_stamp_is_not_a_conflict ok=true code=revision_approved shop_title=عنوان_د_143827 record_title=عنوان_د_143827 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
+stage=and_the_old_stamp_is_not_a_conflict ok=true code=revision_approved shop_title=عنوان_د_161110 record_title=عنوان_د_161110 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
 stage=a_failed_sync_is_not_a_review ok=true code=sync_failed reason=storage_failed restored=yes status=submitted baseline_untouched=yes
 stage=and_the_same_button_works_once_the_shop_does ok=true code=product_reviewed status=published
 stage=a_failed_sync_leaves_the_revision_pending ok=false code=revision_approved reason=- still_pending=no record_rolled_back=no shop_untouched=yes
-stage=and_the_revision_goes_through_afterwards ok=false code=already_decided shop_title=عنوان_د_143827
+stage=and_the_revision_goes_through_afterwards ok=false code=already_decided shop_title=عنوان_د_161110
 stage=restored ok=false status=published one_version=no agreed=yes pending_revisions=0
 ok:   without it, a_failed_sync_leaves_the_revision_pending fails ok=false
 ok:   the installed plugin still parses (the_revision_sync_result_is_ignored) yes
 
 === with «the_old_stamp_still_decides» taken back out ===
-stage=reset ok=true product=9 wc=27 claimed=5 shop_title=عنوان_الف_143828 baseline_title=عنوان_الف_143828 pending_revisions=0
-stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=121 shop_title_unchanged=yes
-stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_143828 record_title=عنوان_ب_143828 baseline_title=عنوان_ب_143828 agreed=yes
-stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_143828 record_title=عنوان_الف_143828 baseline_title=عنوان_الف_143828 shop_is_a=yes two_versions=no
+stage=reset ok=true product=16 wc=32 claimed=5 shop_title=عنوان_الف_161111 baseline_title=عنوان_الف_161111 pending_revisions=0
+stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=201 shop_title_unchanged=yes
+stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_161111 record_title=عنوان_ب_161111 baseline_title=عنوان_ب_161111 agreed=yes
+stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_161111 record_title=عنوان_الف_161111 baseline_title=عنوان_الف_161111 shop_is_a=yes two_versions=no
 stage=an_edit_during_a_revision_review_refuses_it ok=true code=storefront_moved fields=title edit_survived=yes still_pending=yes
-stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_143828 record_title=عنوان_ج_143828 baseline_title=عنوان_ج_143828 one_version=yes
+stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_161111 record_title=عنوان_ج_161111 baseline_title=عنوان_ج_161111 one_version=yes
 stage=the_managers_title_becomes_the_agreement_without_a_stamp ok=true code=product_reviewed questions=none short_applied=yes baseline_is_the_managers=yes stamp_untouched=yes
-stage=and_the_old_stamp_is_not_a_conflict ok=false code=revision_approved shop_title=عنوان_مدیر_بدون_مهر_143829 record_title=عنوان_د_143829 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=no
+stage=and_the_old_stamp_is_not_a_conflict ok=false code=revision_approved shop_title=عنوان_مدیر_بدون_مهر_161111 record_title=عنوان_د_161111 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=no
 stage=a_failed_sync_is_not_a_review ok=true code=sync_failed reason=storage_failed restored=yes status=submitted baseline_untouched=yes
 stage=and_the_same_button_works_once_the_shop_does ok=true code=product_reviewed status=published
 stage=a_failed_sync_leaves_the_revision_pending ok=true code=sync_failed reason=storage_failed still_pending=yes record_rolled_back=yes shop_untouched=yes
-stage=and_the_revision_goes_through_afterwards ok=false code=revision_approved shop_title=عنوان_مدیر_بدون_مهر_143829
+stage=and_the_revision_goes_through_afterwards ok=false code=revision_approved shop_title=عنوان_مدیر_بدون_مهر_161111
 stage=restored ok=false status=published one_version=no agreed=yes pending_revisions=0
 ok:   without it, and_the_old_stamp_is_not_a_conflict fails      ok=false
 ok:   the installed plugin still parses (the_old_stamp_still_decides) yes
@@ -135,18 +135,18 @@ ok:   FieldMerge.php matches the repository again                same
 ok:   ReviewProducts.php matches the repository again            same
 
 === the shipped code, once more, after every patch was reverted ===
-stage=reset ok=true product=9 wc=27 claimed=5 shop_title=عنوان_الف_143830 baseline_title=عنوان_الف_143830 pending_revisions=0
-stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=126 shop_title_unchanged=yes
-stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_143830 record_title=عنوان_ب_143830 baseline_title=عنوان_ب_143830 agreed=yes
-stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_143830 record_title=عنوان_الف_143830 baseline_title=عنوان_الف_143830 shop_is_a=yes two_versions=no
+stage=reset ok=true product=17 wc=33 claimed=5 shop_title=عنوان_الف_161112 baseline_title=عنوان_الف_161112 pending_revisions=0
+stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=206 shop_title_unchanged=yes
+stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_161112 record_title=عنوان_ب_161112 baseline_title=عنوان_ب_161112 agreed=yes
+stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_161112 record_title=عنوان_الف_161112 baseline_title=عنوان_الف_161112 shop_is_a=yes two_versions=no
 stage=an_edit_during_a_revision_review_refuses_it ok=true code=storefront_moved fields=title edit_survived=yes still_pending=yes
-stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_143830 record_title=عنوان_ج_143830 baseline_title=عنوان_ج_143830 one_version=yes
+stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_161112 record_title=عنوان_ج_161112 baseline_title=عنوان_ج_161112 one_version=yes
 stage=the_managers_title_becomes_the_agreement_without_a_stamp ok=true code=product_reviewed questions=none short_applied=yes baseline_is_the_managers=yes stamp_untouched=yes
-stage=and_the_old_stamp_is_not_a_conflict ok=true code=revision_approved shop_title=عنوان_د_143830 record_title=عنوان_د_143830 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
+stage=and_the_old_stamp_is_not_a_conflict ok=true code=revision_approved shop_title=عنوان_د_161112 record_title=عنوان_د_161112 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
 stage=a_failed_sync_is_not_a_review ok=true code=sync_failed reason=storage_failed restored=yes status=submitted baseline_untouched=yes
 stage=and_the_same_button_works_once_the_shop_does ok=true code=product_reviewed status=published
 stage=a_failed_sync_leaves_the_revision_pending ok=true code=sync_failed reason=storage_failed still_pending=yes record_rolled_back=yes shop_untouched=yes
-stage=and_the_revision_goes_through_afterwards ok=true code=revision_approved shop_title=عنوان_ه_143830
+stage=and_the_revision_goes_through_afterwards ok=true code=revision_approved shop_title=عنوان_ه_161112
 stage=restored ok=true status=published one_version=yes agreed=yes pending_revisions=0
 ok:   no stage fails on the restored install                     0
 

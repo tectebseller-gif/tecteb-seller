@@ -1,0 +1,32 @@
+base: 685803e (alpha.30: the approval path reads what the storefront answer)
+ok:   DbProductRepository.php differs from 685803e                   different
+ok:   ReviewProducts.php differs from 685803e                        different
+ok:   ProductMessages.php differs from 685803e                       different
+
+=== the three files put back to their alpha.30 bytes ===
+ok:   DbProductRepository.php is now the alpha.30 file               same
+ok:   ReviewProducts.php is now the alpha.30 file                    same
+ok:   ProductMessages.php is now the alpha.30 file                   same
+
+tests that failed on alpha.30:
+  testAFailedGalleryDeleteLeavesTheOldPicturesAloneAndSaysSo
+  testAFailedPictureInsertLeavesNoHalfWrittenGallery
+  testAFailedSpecInsertLeavesTheAnswersAsTheyWere
+  testAReadinessRefusalWhoseRestoreFailedNamesBoth
+  testARestoreThatFailedIsSaidOutLoudRatherThanAssumed
+  testAnOptionalSpecThatDidNotSaveStopsTheRevisionFromBeingApproved
+ok:   item 1 reproduced: testAnOptionalSpecThatDidNotSaveStopsTheRevisionFromBeingApproved failed
+ok:   item 2 reproduced: testARestoreThatFailedIsSaidOutLoudRatherThanAssumed failed
+ok:   item 2 reproduced: testAReadinessRefusalWhoseRestoreFailedNamesBoth failed
+ok:   item 3 reproduced: testAFailedGalleryDeleteLeavesTheOldPicturesAloneAndSaysSo failed
+ok:   item 3 reproduced: testAFailedPictureInsertLeavesNoHalfWrittenGallery failed
+ok:   item 3 reproduced: testAFailedSpecInsertLeavesTheAnswersAsTheyWere failed
+
+=== the fix put back ===
+ok:   DbProductRepository.php is the shipped file again              changed
+ok:   ReviewProducts.php is the shipped file again                   changed
+ok:   ProductMessages.php is the shipped file again                  changed
+ok:   nothing fails after the fix                                    none
+ok:   both suites report OK                                          2
+
+checks: 17   passed: 17   failed: 0

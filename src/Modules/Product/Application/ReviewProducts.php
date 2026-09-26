@@ -156,18 +156,28 @@ final class ReviewProducts
         if (!$this->products->updateDetails($product->id, $details, ProductRowVersion::UNGUARDED)) {
             return OperationResult::failure('storage_failed');
         }
+        // Both of these answer, and until `alpha.31` neither was asked. A
+        // failed spec write is the quiet one: the product keeps its OLD medical
+        // answers, readiness still passes because they are all still there, the
+        // projection goes out, a baseline is recorded about them and the
+        // revision is marked approved. The vendor's edit simply never happened
+        // and every screen says it did.
         $specs = $revision->payload['specs'] ?? [];
         if (is_array($specs)) {
             $template = $this->templates->findByCategory($details->categoryKey);
-            $this->products->saveSpecs($product->id, array_map('strval', $specs), $template?->schemaVersion ?? 0);
+            if (!$this->products->saveSpecs($product->id, array_map('strval', $specs), $template?->schemaVersion ?? 0)) {
+                return $this->revisionWriteFailed($product, $revisionId, 'specs');
+            }
         }
         $images = $revision->payload['images'] ?? null;
         if (is_array($images)) {
-            $this->products->saveImages(
+            if (!$this->products->saveImages(
                 $product->id,
                 array_values(array_map('intval', $images)),
                 (int) ($revision->payload['main_image_id'] ?? 0)
-            );
+            )) {
+                return $this->revisionWriteFailed($product, $revisionId, 'images');
+            }
         }
         // The product is live, and the proposal has just been written onto it.
         // If that made it unpublishable — a required field emptied, the last
@@ -177,7 +187,17 @@ final class ReviewProducts
         if ($updated !== null) {
             $verdict = $this->readiness->check($updated);
             if (!$verdict->ok) {
-                $this->restoreProduct($product);
+                $failed = $this->restoreProduct($product);
+                if ($failed !== []) {
+                    // «نسخه قبول نشد» is true and no longer the whole truth:
+                    // part of the proposal is still on the product.
+                    return OperationResult::failure('revision_not_restored', [
+                        'product_id' => $product->id,
+                        'revision_id' => $revisionId,
+                        'reason' => $verdict->code,
+                        'restore_failed' => implode(',', $failed),
+                    ]);
+                }
                 return $verdict;
             }
         }
@@ -190,11 +210,19 @@ final class ReviewProducts
                 // pending, which is the only state from which the manager can
                 // try again, and the product on the site is the one the
                 // shopper was already looking at.
-                $this->restoreProduct($product);
+                //
+                // And whether it went back is REPORTED. A restore is three
+                // writes on a database that has just refused one of them, so
+                // «به حالت قبل برگشت» is a claim, not a certainty — and a
+                // message that makes it when it is false sends the manager away
+                // from the one product they need to look at.
+                $failed = $this->restoreProduct($product);
                 return OperationResult::failure('sync_failed', [
                     'product_id' => $product->id,
                     'revision_id' => $revisionId,
                     'reason' => $sync->code,
+                    'restored' => $failed === [] ? 'yes' : 'no',
+                    'restore_failed' => implode(',', $failed),
                 ]);
             }
             // The agreement moves with the product. Without this the NEXT
@@ -682,12 +710,48 @@ final class ReviewProducts
         return $result->ok || $result->code === 'woocommerce_missing';
     }
 
-    /** Put back everything an approved revision wrote, exactly as it was. */
-    private function restoreProduct(Product $product): void
+    /**
+     * Put back everything an approved revision wrote — and say what would not
+     * go back.
+     *
+     * Three writes, on a database that is being asked to undo something
+     * precisely because a write has just failed. Returning `void` made the
+     * caller's «محصول به حالت قبل برگشت» a sentence nobody had checked.
+     *
+     * @return list<string> the parts still holding the proposal's values
+     */
+    private function restoreProduct(Product $product): array
     {
-        $this->products->updateDetails($product->id, $product->details, ProductRowVersion::UNGUARDED);
-        $this->products->saveSpecs($product->id, $product->specs, $product->specSchemaVersion);
-        $this->products->saveImages($product->id, $product->imageIds, $product->mainImageId);
+        $failed = [];
+        if (!$this->products->updateDetails($product->id, $product->details, ProductRowVersion::UNGUARDED)) {
+            $failed[] = 'details';
+        }
+        if (!$this->products->saveSpecs($product->id, $product->specs, $product->specSchemaVersion)) {
+            $failed[] = 'specs';
+        }
+        if (!$this->products->saveImages($product->id, $product->imageIds, $product->mainImageId)) {
+            $failed[] = 'images';
+        }
+        return $failed;
+    }
+
+    /**
+     * One of the revision's own writes did not happen.
+     *
+     * Before the projection and before the decision row, both deliberately:
+     * a product that is only half the proposal must not reach the shop, and a
+     * revision nobody applied must not read as approved.
+     */
+    private function revisionWriteFailed(Product $product, int $revisionId, string $part): OperationResult
+    {
+        $failed = $this->restoreProduct($product);
+        return OperationResult::failure('revision_write_failed', [
+            'product_id' => $product->id,
+            'revision_id' => $revisionId,
+            'part' => $part,
+            'restored' => $failed === [] ? 'yes' : 'no',
+            'restore_failed' => implode(',', $failed),
+        ]);
     }
 
     /**
@@ -826,6 +890,7 @@ final class ReviewProducts
                 'to' => $to->value,
                 'reason' => $sync->code,
                 'restored' => $restored ? 'yes' : 'no',
+                'restore_failed' => $restored ? '' : 'status',
             ]);
         }
         $reviewer = $this->capabilities->currentUserId();

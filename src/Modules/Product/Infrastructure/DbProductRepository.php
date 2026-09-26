@@ -446,10 +446,21 @@ final class DbProductRepository implements ProductRepositoryInterface
         ) !== null;
     }
 
+    /**
+     * The medical answers, together or not at all.
+     *
+     * The same rule as the gallery, one step down: this one always reported a
+     * failure honestly, but it could still leave three fields new and two old
+     * and the schema version bumped over the mixture. A caller putting the
+     * previous values back has enough to do without having to guess which
+     * half of them are already there.
+     */
     public function saveSpecs(int $productId, array $values, int $schemaVersion): bool
     {
         $now = $this->now();
-        $ok = true;
+        if (!$this->db->begin()) {
+            return false;
+        }
         foreach ($values as $key => $value) {
             $written = $this->db->execute(
                 'INSERT INTO `' . $this->specsTable() . '` (product_id, field_key, value, schema_version, updated_at)
@@ -457,13 +468,20 @@ final class DbProductRepository implements ProductRepositoryInterface
                  ON DUPLICATE KEY UPDATE value = VALUES(value), schema_version = VALUES(schema_version), updated_at = VALUES(updated_at)',
                 [$productId, (string) $key, (string) $value, $schemaVersion, $now]
             );
-            $ok = $ok && $written !== null;
+            if ($written === null) {
+                $this->db->rollback();
+                return false;
+            }
         }
         $bumped = $this->db->execute(
             'UPDATE `' . $this->products() . '` SET spec_schema_version = %d, updated_at = %s WHERE id = %d',
             [$schemaVersion, $now, $productId]
         );
-        return $ok && $bumped !== null;
+        if ($bumped === null) {
+            $this->db->rollback();
+            return false;
+        }
+        return $this->db->commit();
     }
 
     public function specs(int $productId): array
@@ -484,23 +502,54 @@ final class DbProductRepository implements ProductRepositoryInterface
      * the gallery, so a removed picture disappears instead of lingering
      * because no DELETE matched it. The media items themselves are untouched.
      */
+    /**
+     * Replace the gallery — all of it, or none of it.
+     *
+     * This is a REPLACEMENT built out of a `DELETE` and a row per picture, and
+     * until `alpha.31` the `DELETE`'s answer was thrown away. Two ways that
+     * went wrong, and the first one is the worse:
+     *
+     *   * the delete fails, the inserts go ahead, and the product ends up with
+     *     the old pictures AND the new ones — in a sort order they now share,
+     *     so even «which is first» is a coin toss. And the method returned
+     *     `true`, so nothing anywhere knew;
+     *   * an insert fails halfway, and the gallery is left holding a piece of
+     *     the new list with the old one already gone.
+     *
+     * A transaction is the answer to both, and this is what
+     * `DatabaseInterface` grew one for in `alpha.20`. Every step is checked
+     * against `null` — `0` rows is a SUCCESS (`alpha.8`'s rule) and a product
+     * whose gallery was already empty deletes nothing.
+     */
     public function saveImages(int $productId, array $mediaIds, int $mainImageId): bool
     {
-        $this->db->execute('DELETE FROM `' . $this->imagesTable() . '` WHERE product_id = %d', [$productId]);
-        $ok = true;
+        if (!$this->db->begin()) {
+            return false;
+        }
+        if ($this->db->execute('DELETE FROM `' . $this->imagesTable() . '` WHERE product_id = %d', [$productId]) === null) {
+            $this->db->rollback();
+            return false;
+        }
         foreach (array_values($mediaIds) as $sort => $mediaId) {
             $written = $this->db->execute(
                 'INSERT INTO `' . $this->imagesTable() . '` (product_id, media_id, sort_order) VALUES (%d, %d, %d)
                  ON DUPLICATE KEY UPDATE sort_order = VALUES(sort_order)',
                 [$productId, (int) $mediaId, (int) $sort]
             );
-            $ok = $ok && $written !== null;
+            if ($written === null) {
+                $this->db->rollback();
+                return false;
+            }
         }
         $main = $this->db->execute(
             'UPDATE `' . $this->products() . '` SET main_image_id = %d, updated_at = %s WHERE id = %d',
             [$mainImageId, $this->now(), $productId]
         );
-        return $ok && $main !== null;
+        if ($main === null) {
+            $this->db->rollback();
+            return false;
+        }
+        return $this->db->commit();
     }
 
     public function images(int $productId): array

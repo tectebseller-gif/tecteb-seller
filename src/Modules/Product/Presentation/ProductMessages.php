@@ -134,6 +134,29 @@ final class ProductMessages
     public static function notice(string $code, array $context = []): ?string
     {
         $fa = static fn (mixed $v): string => PersianDigits::toPersian((string) $v);
+        // «images» is not a sentence a manager reads. This turns the parts a
+        // failed restore names into the words the rest of the screen uses.
+        $parts = static function (array $context): string {
+            $raw = (string) ($context['restore_failed'] ?? '');
+            if ($raw === '') {
+                // Named or not, the sentence has to be about something. The
+                // fallback lives HERE rather than at each call site: a ternary
+                // at three call sites inside another ternary is the PHP 8.0
+                // left-associativity error this repository lints for.
+                return __('محصول', 'tecteb-marketplace-core');
+            }
+            $names = array_map(
+                static fn (string $key): string => match (trim($key)) {
+                    'details' => __('مقدارهای محصول', 'tecteb-marketplace-core'),
+                    'specs' => __('مشخصات', 'tecteb-marketplace-core'),
+                    'images' => __('تصویرها', 'tecteb-marketplace-core'),
+                    'status' => __('وضعیت محصول', 'tecteb-marketplace-core'),
+                    default => trim($key),
+                },
+                explode(',', $raw)
+            );
+            return implode('، ', array_filter($names));
+        };
         $fields = static function (array $context): string {
             $raw = (string) ($context['fields'] ?? '');
             if ($raw === '') {
@@ -192,9 +215,10 @@ final class ProductMessages
                 )
                 : (((string) ($context['restored'] ?? '')) === 'no'
                     ? sprintf(
-                        /* translators: %s: the reason the storefront write refused */
-                        __('همگام‌سازی با ووکامرس انجام نشد (دلیل: %s) و برگرداندن وضعیت محصول هم انجام نشد. یعنی ممکن است پروندهٔ بازارگاه این محصول را «منتشرشده» نشان دهد در حالی که صفحه‌ای در فروشگاه ندارد. لطفاً همین محصول را در فهرست محصول‌ها بررسی کنید.', 'tecteb-marketplace-core'),
-                        (string) ($context['reason'] ?? '')
+                        /* translators: 1: the reason the storefront write refused, 2: what could not be put back */
+                        __('همگام‌سازی با ووکامرس انجام نشد (دلیل: %1$s) و برگرداندن %2$s به حالت قبل هم انجام نشد. یعنی ممکن است این محصول بخشی از مقدارهای تازه — یا وضعیت «منتشرشده» — را داشته باشد در حالی که فروشگاه آن را ندارد. لطفاً همین محصول را در فهرست محصول‌ها بررسی کنید.', 'tecteb-marketplace-core'),
+                        (string) ($context['reason'] ?? ''),
+                        $parts($context)
                     )
                     : sprintf(
                         /* translators: %s: the reason the storefront write refused */
@@ -203,6 +227,35 @@ final class ProductMessages
                     )),
             'baseline_not_recorded' => __('تصمیم شما اعمال شد، ولی «مبنای توافق» این محصول ثبت نشد. چیزی پاک نشده و مبنای غلطی هم ثبت نشده است؛ فقط ممکن است در ویرایش بعدی فروشنده، همان پرسش‌های قبلی دوباره پرسیده شوند. یک تأیید یا یک تعیین تکلیفِ فیلد، آن را ثبت می‌کند.', 'tecteb-marketplace-core'),
             'decision_not_recorded' => __('تصمیم شما اعمال شد، ولی متن آن در سابقهٔ محصول ثبت نشد — پس فروشنده فقط برچسب وضعیت را می‌بیند و جملهٔ شما را نمی‌بیند. متن را با یک تصمیم تازه یا از طریق تیکت به او برسانید.', 'tecteb-marketplace-core'),
+            // The revision's own writes. «انجام نشد» is not enough here: the
+            // manager needs to know that the product is the one the shopper was
+            // already looking at, and that pressing again is safe.
+            'revision_write_failed' => ((string) ($context['restored'] ?? '')) === 'yes'
+                ? sprintf(
+                    /* translators: %s: which part of the proposal did not save */
+                    __('نسخهٔ پیشنهادی اعمال نشد: ذخیرهٔ %s انجام نشد. محصول به حالت قبل برگشت و نسخهٔ پیشنهادی هم در انتظار مانده است، پس پس از رفع اشکال می‌توانید دوباره «تأیید تغییر» را بزنید.', 'tecteb-marketplace-core'),
+                    match ((string) ($context['part'] ?? '')) {
+                        'specs' => __('مشخصات', 'tecteb-marketplace-core'),
+                        'images' => __('تصویرها', 'tecteb-marketplace-core'),
+                        default => __('مقدارهای محصول', 'tecteb-marketplace-core'),
+                    }
+                )
+                : sprintf(
+                    /* translators: 1: which part did not save, 2: what could not be put back */
+                    __('نسخهٔ پیشنهادی اعمال نشد: ذخیرهٔ %1$s انجام نشد — و برگرداندن %2$s به حالت قبل هم انجام نشد. یعنی این محصول ممکن است بخشی از مقدارهای تازه را داشته باشد؛ نسخهٔ پیشنهادی در انتظار مانده و لازم است همین محصول را بررسی کنید.', 'tecteb-marketplace-core'),
+                    match ((string) ($context['part'] ?? '')) {
+                        'specs' => __('مشخصات', 'tecteb-marketplace-core'),
+                        'images' => __('تصویرها', 'tecteb-marketplace-core'),
+                        default => __('مقدارهای محصول', 'tecteb-marketplace-core'),
+                    },
+                    $parts($context)
+                ),
+            'revision_not_restored' => sprintf(
+                /* translators: 1: why the proposal was refused, 2: what could not be put back */
+                __('نسخهٔ پیشنهادی پذیرفته نشد (دلیل: %1$s) — و برگرداندن %2$s به حالت قبل انجام نشد. یعنی این محصول ممکن است بخشی از مقدارهای پیشنهادی را داشته باشد؛ نسخهٔ پیشنهادی در انتظار مانده و لازم است همین محصول را بررسی کنید.', 'tecteb-marketplace-core'),
+                (string) ($context['reason'] ?? ''),
+                $parts($context)
+            ),
             // A forecast, and it says so. «۳۶ مورد انجام می‌شود» would be a
             // promise this page cannot keep, because another member of the
             // same store can save one of these rows in the meantime.

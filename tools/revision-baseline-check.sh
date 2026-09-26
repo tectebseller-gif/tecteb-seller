@@ -117,7 +117,7 @@ falsify() {
 VERSION="$(cd "$WPROOT" && "$PHPBIN" "$WPCLI" --allow-root plugin get tecteb-marketplace-core --field=version 2>/dev/null)"
 SCHEMA="$(cd "$WPROOT" && "$PHPBIN" "$WPCLI" --allow-root option get tmc_schema_version 2>/dev/null)"
 say "installed plugin: ${VERSION:-unknown}   schema: ${SCHEMA:-unknown}"
-check "the installed package is the one under test" "$VERSION" "${TMC_EXPECT_VERSION:-0.1.0-alpha.30}"
+check "the installed package is the one under test" "$VERSION" "${TMC_EXPECT_VERSION:-0.1.0-alpha.31}"
 check "the upgrade gate reached schema 19" "$SCHEMA" "19"
 
 say ""

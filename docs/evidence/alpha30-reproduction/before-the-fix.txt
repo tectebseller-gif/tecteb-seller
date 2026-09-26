@@ -1,0 +1,99 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+FFFFFF                                                              6 / 6 (100%)
+
+Time: 00:01.889, Memory: 14.00 MB
+
+There were 6 failures:
+
+1) Tecteb\Marketplace\Tests\Database\SaveAndRestoreFailureTest::testAFailedGalleryDeleteLeavesTheOldPicturesAloneAndSaysSo
+the old pictures, and only the old pictures
+Failed asserting that two arrays are identical.
+--- Expected
++++ Actual
+@@ @@
+ Array &0 [
+     0 => 811,
+-    1 => 812,
+-    2 => 813,
++    1 => 901,
++    2 => 812,
++    3 => 902,
++    4 => 813,
+ ]
+
+/home/user/tecteb-seller/tests/Database/SaveAndRestoreFailureTest.php:151
+
+2) Tecteb\Marketplace\Tests\Database\SaveAndRestoreFailureTest::testAFailedPictureInsertLeavesNoHalfWrittenGallery
+alpha.30 left the product holding only the first new picture
+Failed asserting that two arrays are identical.
+--- Expected
++++ Actual
+@@ @@
+ Array &0 [
+-    0 => 811,
+-    1 => 812,
+-    2 => 813,
++    0 => 901,
++    1 => 903,
+ ]
+
+/home/user/tecteb-seller/tests/Database/SaveAndRestoreFailureTest.php:173
+
+3) Tecteb\Marketplace\Tests\Database\SaveAndRestoreFailureTest::testAFailedSpecInsertLeavesTheAnswersAsTheyWere
+alpha.30 left one answer new and one old
+Failed asserting that two arrays are identical.
+--- Expected
++++ Actual
+@@ @@
+ Array &0 [
+-    'material' => 'لاتکس',
++    'material' => 'نیتریل',
+     'size' => 'M',
+ ]
+
+/home/user/tecteb-seller/tests/Database/SaveAndRestoreFailureTest.php:193
+
+4) Tecteb\Marketplace\Tests\Database\SaveAndRestoreFailureTest::testAnOptionalSpecThatDidNotSaveStopsTheRevisionFromBeingApproved
+alpha.30 answered revision_approved
+Failed asserting that true is false.
+
+/home/user/tecteb-seller/tests/Database/SaveAndRestoreFailureTest.php:231
+
+5) Tecteb\Marketplace\Tests\Database\SaveAndRestoreFailureTest::testARestoreThatFailedIsSaidOutLoudRatherThanAssumed
+alpha.30 said nothing at all about the restore
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'no'
++''
+
+/home/user/tecteb-seller/tests/Database/SaveAndRestoreFailureTest.php:275
+
+6) Tecteb\Marketplace\Tests\Database\SaveAndRestoreFailureTest::testAReadinessRefusalWhoseRestoreFailedNamesBoth
+alpha.30 answered missing_image and stopped there
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'revision_not_restored'
++'missing_image'
+
+/home/user/tecteb-seller/tests/Database/SaveAndRestoreFailureTest.php:316
+
+FAILURES!
+Tests: 6, Assertions: 51, Failures: 6.
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+.......                                                             7 / 7 (100%)
+
+Time: 00:02.212, Memory: 14.00 MB
+
+OK (7 tests, 88 assertions)
