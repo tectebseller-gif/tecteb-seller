@@ -182,10 +182,19 @@ await shot(opage, '2-manager-catalogue');
 check('2-1. the manager has a list of every product', adminText.includes(T.catalogue), true);
 check('2-2. with WooCommerce\'s own status beside ours', adminText.includes(T.wcStatusColumn), true);
 
-/** «همه» and the chips, as the admin page renders them. */
+/**
+ * «همه» and the chips, as the admin page renders them.
+ *
+ * `alpha.32` renamed these: `.tmc-tab` had no rule in any stylesheet — which is
+ * why the owner saw seven underlined links in a column — and the filters on this
+ * page are now `.tmc-filter`, this section's own class. A scraper that keeps
+ * looking for the old name returns an empty list, and an empty list makes «the
+ * numbers always agreed» true by having no numbers: the count below is asserted
+ * for that reason.
+ */
 async function adminTabs(p) {
-  return p.$$eval('.tmc-tabs a, .tmc-tabs span.tmc-tab', (nodes) => nodes.map((n) => {
-    const count = n.querySelector('.tmc-tab__count');
+  return p.$$eval('.tmc-filters a.tmc-filter, .tmc-filters span.tmc-filter', (nodes) => nodes.map((n) => {
+    const count = n.querySelector('.tmc-filter__count');
     return {
       label: n.textContent.replace(/\s+/g, ' ').trim(),
       raw: (count ? count.textContent : '').trim(),
@@ -194,6 +203,7 @@ async function adminTabs(p) {
 }
 const tabs = (await adminTabs(opage)).map((t) => ({ ...t, n: Number(fa2en(t.raw)) }));
 note(`admin chips: ${JSON.stringify(tabs.map((t) => `${t.label}`))}`);
+check('2-2b. the chips were actually found', tabs.length >= 7, true);
 const all = tabs[0]?.n ?? -1;
 const sumOfRest = tabs.slice(1).reduce((a, t) => a + (Number.isFinite(t.n) ? t.n : 0), 0);
 check('2-3. «همه» equals the sum of the chips beside it', all, sumOfRest);
@@ -207,8 +217,12 @@ const archivedId = Number(wp(
 ) || 0);
 if (archivedId > 0) {
   await opage.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&status=archived`, { waitUntil: 'domcontentloaded' });
-  const archivedText = await words(opage);
-  check('2-5. an archived product is still listed', archivedText.includes(String(archivedId)), true);
+  // Asked of the LINK rather than of the text: the list writes ids in Persian
+  // digits, and since `alpha.32` it is paged, so «is this id somewhere in the
+  // words on the screen» answers a question about page one instead of about
+  // the archived filter.
+  const linked = await opage.locator(`a[href*="product=${archivedId}"]`).count();
+  check('2-5. an archived product is still listed', linked > 0, true);
 } else {
   note('no archived product on this install; 2-5 not run');
 }

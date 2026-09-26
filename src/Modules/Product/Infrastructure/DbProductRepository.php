@@ -11,6 +11,8 @@ use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
@@ -94,21 +96,47 @@ final class DbProductRepository implements ProductRepositoryInterface
         string $search = '',
         int $limit = 20,
         int $offset = 0,
-        int $vendorUserId = 0
+        int $vendorUserId = 0,
+        ?ProductSort $sort = null,
+        bool $onlyPendingRevision = false
     ): array {
-        [$where, $params] = $this->managerScope($status, $search, $vendorUserId);
+        [$where, $params] = $this->managerScope($status, $search, $vendorUserId, $onlyPendingRevision);
         $params[] = max(1, $limit);
         $params[] = max(0, $offset);
         return array_map([$this, 'hydrate'], $this->db->getResults(
-            'SELECT * FROM `' . $this->products() . '`' . $where . ' ORDER BY updated_at DESC, id DESC LIMIT %d OFFSET %d',
+            'SELECT * FROM `' . $this->products() . '`' . $where
+                . ' ORDER BY ' . self::order($sort) . ' LIMIT %d OFFSET %d',
             $params
         ));
     }
 
-    public function countForManager(?ProductStatus $status = null, string $search = '', int $vendorUserId = 0): int
-    {
-        [$where, $params] = $this->managerScope($status, $search, $vendorUserId);
+    public function countForManager(
+        ?ProductStatus $status = null,
+        string $search = '',
+        int $vendorUserId = 0,
+        bool $onlyPendingRevision = false
+    ): int {
+        [$where, $params] = $this->managerScope($status, $search, $vendorUserId, $onlyPendingRevision);
         return (int) $this->db->getVar('SELECT COUNT(*) FROM `' . $this->products() . '`' . $where, $params);
+    }
+
+    /**
+     * The ORDER BY for one sort case — a whitelist, and the only place in this
+     * read where a column name comes from anything the request influenced.
+     *
+     * The fragment is built from the enum, never from the string that
+     * arrived: `ProductSort::fromKey()` has already turned anything unknown
+     * into the default, so no request value reaches SQL. Every case ends in
+     * `id` because `updated_at` has second precision, and a page boundary
+     * inside one second is one row shown twice and another never shown.
+     */
+    private static function order(?ProductSort $sort): string
+    {
+        return match ($sort ?? ProductSort::LastChanged) {
+            ProductSort::OldestChanged => 'updated_at ASC, id ASC',
+            ProductSort::Title => 'title ASC, id ASC',
+            ProductSort::LastChanged => 'updated_at DESC, id DESC',
+        };
     }
 
     /**
@@ -119,9 +147,12 @@ final class DbProductRepository implements ProductRepositoryInterface
      *
      * @return array<string,int>
      */
-    public function countsByStatusForManager(string $search = '', int $vendorUserId = 0): array
-    {
-        [$where, $params] = $this->managerScope(null, $search, $vendorUserId);
+    public function countsByStatusForManager(
+        string $search = '',
+        int $vendorUserId = 0,
+        bool $onlyPendingRevision = false
+    ): array {
+        [$where, $params] = $this->managerScope(null, $search, $vendorUserId, $onlyPendingRevision);
         $rows = $this->db->getResults(
             'SELECT status, COUNT(*) AS n FROM `' . $this->products() . '`' . $where . ' GROUP BY status',
             $params
@@ -134,8 +165,12 @@ final class DbProductRepository implements ProductRepositoryInterface
     }
 
     /** @return array{0:string, 1:list<mixed>} */
-    private function managerScope(?ProductStatus $status, string $search, int $vendorUserId = 0): array
-    {
+    private function managerScope(
+        ?ProductStatus $status,
+        string $search,
+        int $vendorUserId = 0,
+        bool $onlyPendingRevision = false
+    ): array {
         // `1 = 1` so every branch below can append with AND and the clause is
         // never empty — a `WHERE` with nothing after it is a syntax error and
         // an `if` on the first condition is how that gets forgotten.
@@ -154,6 +189,17 @@ final class DbProductRepository implements ProductRepositoryInterface
             $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
             $where .= ' AND (title LIKE %s OR sku LIKE %s OR brand LIKE %s)';
             array_push($params, $like, $like, $like);
+        }
+        if ($onlyPendingRevision) {
+            // The same WHERE as the list, so the chips, the total and the
+            // pager are answers about one set of rows. A second query that
+            // collected ids and handed them to an `IN (…)` would be a second
+            // moment, and the number under the pager would disagree with the
+            // rows above it the first time a vendor proposed a change between
+            // the two.
+            $where .= ' AND EXISTS (SELECT 1 FROM `' . T::table($this->db, T::REVISIONS)
+                . '` r WHERE r.product_id = `' . $this->products() . '`.id AND r.status = %s)';
+            $params[] = ProductRevision::PENDING;
         }
         return [$where, $params];
     }

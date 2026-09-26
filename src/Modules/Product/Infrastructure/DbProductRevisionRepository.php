@@ -50,6 +50,21 @@ final class DbProductRevisionRepository implements ProductRevisionRepositoryInte
         );
     }
 
+    public function pendingProductIds(array $productIds): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $productIds)));
+        if ($ids === []) {
+            return [];
+        }
+        $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
+        $rows = $this->db->getResults(
+            'SELECT DISTINCT product_id FROM `' . $this->table() . '`'
+                . ' WHERE status = %s AND product_id IN (' . $placeholders . ')',
+            [ProductRevision::PENDING, ...$ids]
+        );
+        return array_map(static fn (array $row): int => (int) $row['product_id'], $rows);
+    }
+
     public function create(int $productId, int $vendorUserId, array $payload): int
     {
         $ok = $this->db->execute(

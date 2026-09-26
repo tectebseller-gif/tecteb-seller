@@ -20,10 +20,11 @@ ok:   6-4. and one row per product that was selected                   true
 ok:   6-5. no row is left without a reason                             0
 ok:   2-1. the manager has a list of every product                     true
 ok:   2-2. with WooCommerce's own status beside ours                   true
-      admin chips: ["همه ۵۰","پیش‌نویس ۹","در انتظار بررسی ۶","نیازمند اصلاح ۱","منتشرشده ۳۴","تعلیق‌شده ۰","بایگانی ۰"]
-ok:   2-3. «همه» equals the sum of the chips beside it                 50
-ok:   2-4. and the database agrees                                     50
-      no archived product on this install; 2-5 not run
+      admin chips: ["همه۸۱","پیش‌نویس۱۶","در انتظار بررسی۱۳","نیازمند اصلاح۷","منتشرشده۳۹","تعلیق‌شده۰","بایگانی۶"]
+ok:   2-2b. the chips were actually found                              true
+ok:   2-3. «همه» equals the sum of the chips beside it                 81
+ok:   2-4. and the database agrees                                     81
+ok:   2-5. an archived product is still listed                         true
       counter rounds walked: 9
 ok:   7-1. every round agreed with the database                        0
 ok:   7-2. and «همه» always equalled the sum of the chips              0
@@ -33,4 +34,4 @@ ok:   7-2. and «همه» always equalled the sum of the chips              0
            the wrong numbers (x-cache / age / cf-cache-status), whether it was
            the first load after the action, and the exact four numbers.
 
-checks: 21  pass: 21  fail: 0
+checks: 23  pass: 23  fail: 0

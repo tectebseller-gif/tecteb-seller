@@ -71,6 +71,11 @@ check "the review card shows pictures, not a count" \
   "$(printf '%s\n' "$REAL" | grep '^stage=render ' | grep -o 'gallery=[a-z]*' | cut -d= -f2)" "yes"
 check "and the category as a path" \
   "$(printf '%s\n' "$REAL" | grep '^stage=render ' | grep -o 'category_path=[a-z]*' | cut -d= -f2)" "yes"
+check "the product is reachable from the list" \
+  "$(printf '%s\n' "$REAL" | grep '^stage=render ' | grep -o 'listed=[a-z]*' | cut -d= -f2)" "yes"
+check "and the list carries no full card" \
+  "$(printf '%s\n' "$REAL" | grep '^stage=render ' | grep -o 'list_is_summary=[a-z]*' | cut -d= -f2)" "yes"
+
 
 # ---------------------------------------------------------- falsification
 say ""

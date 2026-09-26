@@ -19,6 +19,7 @@ use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterfa
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Domain\SensitiveChange;
@@ -29,13 +30,27 @@ use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorMessages;
 
 /**
- * The manager's product queue (UX §14.2).
+ * The manager's products (UX §14.2): one list, and one product at a time.
  *
- * Two queues on one page, because they are two different questions: a product
- * waiting to go live for the first time, and a CHANGE proposed to one that is
- * already live. The second is shown as a field-by-field diff — current value
- * beside proposed value — and rejecting it leaves the live product alone,
- * which is the rule the whole revision mechanism exists to keep.
+ * **`alpha.32` made this two views instead of five sections.** The page used to
+ * render the submission queue as full cards, the proposed revisions as diff
+ * tables, the whole catalogue as a table, the twenty most recent published
+ * products as full cards again and an SEO form for each of those twenty — all
+ * on one screen, so a product could appear three times and every appearance
+ * read its gallery, its specification table and its comparison against
+ * WooCommerce. With a real catalogue that is a page nobody can work through.
+ *
+ * Now the list is a list — twenty summary rows with a `LIMIT` behind them — and
+ * everything a decision needs is on the product's own page, reached by
+ * «مشاهده و بررسی» and returning to the exact search, filter and page number it
+ * was opened from (`ProductCatalogueState`).
+ *
+ * Nothing about WHAT a decision does changed here. A product waiting to go live
+ * for the first time and a CHANGE proposed to one that is already live are
+ * still two different questions with two different forms; the second is still
+ * shown as a field-by-field diff — current value beside proposed value — and
+ * rejecting it still leaves the live product alone, which is the rule the whole
+ * revision mechanism exists to keep.
  */
 final class ProductReviewPage
 {
@@ -57,9 +72,11 @@ final class ProductReviewPage
         if (!current_user_can(self::CAPABILITY)) {
             wp_die(esc_html__('دسترسی لازم را ندارید.', 'tecteb-marketplace-core'), '', ['response' => 403]);
         }
-        $notice = $this->handleAction(Request::capture());
-        $products = $this->container->get(ProductRepositoryInterface::class);
-        $revisions = $this->container->get(ProductRevisionRepositoryInterface::class);
+        // Captured once and used both for the decision and for the list state.
+        // Two captures of one request are two chances to read it differently —
+        // and the state decides where the manager lands afterwards.
+        $request = Request::capture();
+        $notice = $this->handleAction($request);
 
         echo Components::shellOpen(self::menuLabel(), self::SLUG, __('نسخه آزمایشی', 'tecteb-marketplace-core'));
         if ($notice !== null) {
@@ -70,78 +87,233 @@ final class ProductReviewPage
             );
         }
 
-        $published = $products->inStatus(ProductStatus::Published, 20);
-        $this->renderQueue($products->inStatus(ProductStatus::Submitted));
-        $this->renderRevisions($revisions->pending(), $products);
-        $this->renderCatalogue(Request::capture());
-        $this->renderPublished($published);
-        $this->renderSeo($published);
-        $this->renderPublishPermissions();
+        // One product, or the list. Never both: until `alpha.32` this page
+        // rendered the submission queue as full cards, then the proposed
+        // revisions as diff tables, then the catalogue as a table, then the
+        // twenty most recent published products as full cards AGAIN, and then
+        // an SEO form for each of those twenty. The same product appeared
+        // three times; each of those renders read its gallery, its
+        // specification table and its field-by-field comparison against
+        // WooCommerce; and the row the manager came for was somewhere below
+        // all of it.
+        $productId = $request->queryInt('product');
+        if ($productId > 0) {
+            $this->renderDetail($request, $productId);
+        } else {
+            $this->renderCatalogue($request);
+            // Stays on the list: a permission belongs to a VENDOR, not to any
+            // one product, so it has no product page to live on.
+            $this->renderPublishPermissions();
+        }
 
-        echo Components::notice('info', __('تأیید محصول تازه یعنی همان نسخه منتشر می‌شود. تأیید «نسخه پیشنهادی» یعنی مقادیر پیشنهادی روی محصول منتشرشده می‌نشیند؛ موجودی از نسخه زنده گرفته می‌شود تا فروش این چند روز برنگردد.', 'tecteb-marketplace-core'));
         echo Components::shellClose();
     }
 
     /**
-     * The one thing a decided product had nowhere to be.
+     * The list's state, read from the URL in exactly one place.
      *
-     * Everything shown here is read on the spot. The WooCommerce column is
-     * `get_post_status()`, not a mirror column of our own: a status copied
-     * into our table is a second truth, and the first person to edit the post
-     * in wp-admin makes it wrong without anyone finding out.
+     * Both views need it: the list to query and draw itself, and a product's
+     * own page to know where «بازگشت به فهرست» goes. Read in two places it
+     * would drift, and the manager would come back from a decision to page one
+     * of an unfiltered list — which, on a catalogue of hundreds, means starting
+     * over.
+     *
+     * Every value is validated here rather than trusted onwards: an unknown
+     * status is «همه», an unknown sort is the default order, and a page size
+     * that is not one of the three offered is twenty. A URL somebody typed by
+     * hand is not an error worth reporting, but it is not a query to run
+     * either.
+     *
+     * @param array<string,int> $counts
+     */
+    private function catalogueState(
+        Request $request,
+        int $total = 0,
+        array $counts = [],
+        int $pendingRevisions = 0
+    ): ProductCatalogueState {
+        return new ProductCatalogueState(
+            ProductStatus::tryFrom($request->queryKey('status'))?->value ?? '',
+            $request->queryText('q'),
+            max(1, $request->queryInt('paged')),
+            ProductCatalogueState::perPage($request->queryInt('per_page')),
+            ProductSort::fromKey($request->queryKey('orderby')),
+            $request->queryKey('revisions') === ProductCatalogueState::REVISIONS_PENDING,
+            $total,
+            $counts,
+            $pendingRevisions,
+            admin_url('admin.php?page=' . self::SLUG)
+        );
+    }
+
+    /**
+     * The one list: every product of every shop, twenty rows at a time.
+     *
+     * **The limit is in the query.** `forManager()` reads `per_page` rows with
+     * a real `LIMIT`/`OFFSET`; nothing here fetches the catalogue and hides the
+     * rest, because the cost of a page is not its markup — it is the store
+     * name, the WooCommerce status and the thumbnail of every row, and a row
+     * hidden by CSS costs exactly as much as a visible one.
+     *
+     * Everything a row shows is read here and handed over, so the view holds no
+     * container and asks no repository. The WooCommerce column is
+     * `get_post_status()`, not a mirror column of our own: a status copied into
+     * our table is a second truth, and the first person to edit the post in
+     * wp-admin makes it wrong without anyone finding out.
      */
     private function renderCatalogue(Request $request): void
     {
         $products = $this->container->get(ProductRepositoryInterface::class);
-        $decisions = $this->container->get(ProductDecisionRepositoryInterface::class);
+        $revisions = $this->container->get(ProductRevisionRepositoryInterface::class);
         $vendors = $this->container->get(VendorRepositoryInterface::class);
         $stores = $this->container->get(StoreRepositoryInterface::class);
+        $library = $this->container->get(ProductImageLibraryInterface::class);
 
-        $status = ProductStatus::tryFrom($request->queryKey('status'));
-        $search = $request->queryText('q');
-        $page = max(1, $request->queryInt('paged'));
-        $rows = $products->forManager(
+        $state = $this->catalogueState($request);
+        $status = ProductStatus::tryFrom($state->status);
+        $found = $products->forManager(
             $status,
-            $search,
-            ProductCatalogueView::PER_PAGE,
-            ($page - 1) * ProductCatalogueView::PER_PAGE
+            $state->search,
+            $state->perPage,
+            ($state->page - 1) * $state->perPage,
+            0,
+            $state->sort,
+            $state->onlyRevisions
+        );
+        $state = $state->withCounts(
+            $products->countForManager($status, $state->search, 0, $state->onlyRevisions),
+            $products->countsByStatusForManager($state->search, 0, $state->onlyRevisions),
+            $revisions->countPending()
         );
 
-        $shopStatus = [];
-        $editorUrls = [];
-        $history = [];
-        $names = [];
-        foreach ($rows as $product) {
-            $history[$product->id] = $decisions->forProduct($product->id, null, 12);
-            if ($product->isProjected()) {
-                $wcId = (int) $product->wcProductId;
+        // One query for the whole page rather than `pendingFor()` per row.
+        $proposed = array_fill_keys(
+            $revisions->pendingProductIds(array_map(
+                static fn (Product $product): int => $product->id,
+                $found
+            )),
+            true
+        );
+
+        $rows = [];
+        foreach ($found as $product) {
+            $rows[] = new ProductCatalogueRow(
+                $product->id,
+                $product->details->title,
+                $product->details->sku,
+                // The settings row first, then the application: a shop that has
+                // been approved has a name in the first and a shop mid-review
+                // only has one in the second. `find()` does not exist on the
+                // vendor repository and never did — the page threw on its first
+                // render, which is precisely what `AdminPagesRenderTest` is for.
+                $stores->find($product->vendorUserId)?->storeName
+                    ?: ($vendors->findApplicationByUser($product->vendorUserId)?->details->storeName ?? ''),
+                $product->status,
+                $product->isProjected(),
                 // '' when the post is gone — which the view says in words
                 // rather than drawing as an empty cell.
-                $shopStatus[$product->id] = (string) (get_post_status($wcId) ?: '');
-                $editorUrls[$product->id] = (string) get_edit_post_link($wcId, 'url');
-            }
-            // The settings row first, then the application: a shop that has
-            // been approved has a name in the first and a shop mid-review
-            // only has one in the second. `find()` does not exist on the
-            // vendor repository and never did — the page threw on its first
-            // render, which is precisely what `AdminPagesRenderTest` is for.
-            $names[$product->id] = $stores->find($product->vendorUserId)?->storeName
-                ?: ($vendors->findApplicationByUser($product->vendorUserId)?->details->storeName ?? '');
+                $product->isProjected() ? (string) (get_post_status((int) $product->wcProductId) ?: '') : '',
+                $product->updatedAt,
+                self::thumbnailOf($product, $library),
+                isset($proposed[$product->id])
+            );
         }
 
-        echo ProductCatalogueView::render(
-            $rows,
-            $products->countsByStatusForManager($search),
-            $status?->value ?? '',
-            $search,
-            $page,
-            $products->countForManager($status, $search),
-            admin_url('admin.php?page=' . self::SLUG),
-            $shopStatus,
-            $editorUrls,
-            $history,
-            $names
-        );
+        echo ProductCatalogueView::render($rows, $state);
+    }
+
+    /** The picture a row shows: the main one, or the first of the gallery. */
+    private static function thumbnailOf(Product $product, ProductImageLibraryInterface $library): string
+    {
+        $id = $product->mainImageId > 0 ? $product->mainImageId : (int) ($product->imageIds[0] ?? 0);
+        return $id > 0 ? $library->thumbnailUrl($id) : '';
+    }
+
+    /**
+     * One product, on its own page — «صفحهٔ جزئیات مستقل».
+     *
+     * Everything that used to be repeated for twenty products at once is here
+     * for one: the pictures, both descriptions, the specification table, the
+     * field-by-field comparison with WooCommerce and its two buttons, the
+     * correction form, the link into the WooCommerce editor and into the SEO
+     * plugin, the proposed revision with its diff, the SEO fields and the
+     * decision history.
+     *
+     * The way back carries the search, the filter and the page number — and so
+     * does every form on this page without being told to: a
+     * `<form method="post">` with no `action` submits to the address it was
+     * drawn at, which is the address the manager arrived from.
+     */
+    private function renderDetail(Request $request, int $productId): void
+    {
+        $state = $this->catalogueState($request);
+        echo '<p class="tmc-catalogue__back"><a class="tmc-button tmc-button--ghost" href="'
+            . esc_url($state->selfLink()) . '">'
+            . esc_html__('بازگشت به فهرست محصولات', 'tecteb-marketplace-core') . '</a></p>';
+
+        $product = $this->container->get(ProductRepositoryInterface::class)->find($productId);
+        if ($product === null) {
+            echo Components::state(
+                'error',
+                __('این محصول پیدا نشد.', 'tecteb-marketplace-core'),
+                __('شناسهٔ این نشانی به هیچ ردیفی در بازارگاه نمی‌خورد. ممکن است محصول حذف شده باشد یا نشانی دست‌نویس باشد.', 'tecteb-marketplace-core')
+            );
+            return;
+        }
+
+        $decisions = $this->container->get(ProductDecisionRepositoryInterface::class);
+        $history = $decisions->forProduct($product->id, null, 20);
+        $revision = $this->container->get(ProductRevisionRepositoryInterface::class)->pendingFor($product->id);
+        /** @var StorefrontFieldsInterface|null $storefront */
+        $storefront = $this->container->get(StorefrontFieldsInterface::class);
+
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html($product->details->title !== '' ? $product->details->title : sprintf(
+                /* translators: %s: the product's marketplace id */
+                __('محصول %s', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) $product->id)
+            )) . '</h2>'
+            . Components::dataList([
+                [
+                    'label' => __('وضعیت بازارگاه', 'tecteb-marketplace-core'),
+                    'value' => ProductMessages::status($product->status),
+                ],
+                [
+                    'label' => __('وضعیت ووکامرس', 'tecteb-marketplace-core'),
+                    'value' => $product->isProjected()
+                        ? (string) (get_post_status((int) $product->wcProductId)
+                            ?: __('پست پیدا نشد', 'tecteb-marketplace-core'))
+                        : __('هنوز در ووکامرس ساخته نشده', 'tecteb-marketplace-core'),
+                ],
+                [
+                    'label' => __('آخرین تغییر', 'tecteb-marketplace-core'),
+                    'value' => PersianDigits::toPersian(substr($product->updatedAt, 0, 16)),
+                ],
+                [
+                    'label' => __('آخرین تصمیم', 'tecteb-marketplace-core'),
+                    'value' => ProductDecisionHistoryView::latest($history[0] ?? null),
+                    'raw' => true,
+                ],
+            ])
+            . '</section>';
+
+        echo '<section class="tmc-card">' . $this->card($product);
+        if ($product->status === ProductStatus::Submitted) {
+            echo Components::notice('info', __('تأیید این محصول یعنی همین نسخه منتشر می‌شود. موجودی از نسخهٔ زنده گرفته می‌شود تا فروش این چند روز برنگردد.', 'tecteb-marketplace-core'));
+            echo $this->decisionForm('product', $product->id, [
+                'approve' => __('تأیید و انتشار', 'tecteb-marketplace-core'),
+                'changes' => __('نیازمند اصلاح', 'tecteb-marketplace-core'),
+                'reject' => __('رد و بایگانی', 'tecteb-marketplace-core'),
+            ], $storefront?->fingerprints($product) ?? []);
+        }
+        echo '</section>';
+
+        if ($revision !== null) {
+            echo $this->revisionPanel($product, $revision, $storefront);
+        }
+        $this->seoPanel($product);
+
+        echo '<section class="tmc-card">' . ProductDecisionHistoryView::render($history) . '</section>';
     }
 
     /**
@@ -163,27 +335,6 @@ final class ProductReviewPage
             }
         }
         return $seen;
-    }
-
-    /** @param list<Product> $queue */
-    private function renderQueue(array $queue): void
-    {
-        echo '<section class="tmc-card"><h2 class="tmc-card__title">' . esc_html__('محصول‌های در انتظار انتشار', 'tecteb-marketplace-core') . '</h2>';
-        if ($queue === []) {
-            echo '<p>' . esc_html__('صف خالی است.', 'tecteb-marketplace-core') . '</p></section>';
-            return;
-        }
-        /** @var StorefrontFieldsInterface|null $storefront */
-        $storefront = $this->container->get(StorefrontFieldsInterface::class);
-        foreach ($queue as $product) {
-            echo $this->card($product)
-                . $this->decisionForm('product', $product->id, [
-                    'approve' => __('تأیید و انتشار', 'tecteb-marketplace-core'),
-                    'changes' => __('نیازمند اصلاح', 'tecteb-marketplace-core'),
-                    'reject' => __('رد و بایگانی', 'tecteb-marketplace-core'),
-                ], $storefront?->fingerprints($product) ?? []);
-        }
-        echo '</section>';
     }
 
     /**
@@ -261,37 +412,31 @@ final class ProductReviewPage
         ];
     }
 
-    /** @param list<ProductRevision> $pending */
-    private function renderRevisions(array $pending, ProductRepositoryInterface $products): void
-    {
-        echo '<section class="tmc-card"><h2 class="tmc-card__title">' . esc_html__('نسخه‌های پیشنهادی محصول‌های منتشرشده', 'tecteb-marketplace-core') . '</h2>';
-        if ($pending === []) {
-            echo '<p>' . esc_html__('نسخه پیشنهادی در انتظاری وجود ندارد.', 'tecteb-marketplace-core') . '</p></section>';
-            return;
-        }
-        // The same lock the queue's form carries. This form writes over a
-        // PUBLISHED product, so it is the one where a manager's edit made
-        // between drawing the page and pressing the button costs the most.
-        /** @var StorefrontFieldsInterface|null $storefront */
-        $storefront = $this->container->get(StorefrontFieldsInterface::class);
-        foreach ($pending as $revision) {
-            $product = $products->find($revision->productId);
-            if ($product === null) {
-                continue;
-            }
-            echo '<article class="tmc-review"><h3 class="tmc-review__title">' . esc_html($product->details->title) . '</h3>'
-                . '<p class="tmc-hint">' . esc_html(sprintf(
-                    __('فروشنده #%s — نسخه فعلی روی سایت است و با رد این پیشنهاد حذف نمی‌شود.', 'tecteb-marketplace-core'),
-                    PersianDigits::toPersian((string) $revision->vendorUserId)
-                )) . '</p>'
-                . $this->diffTable($product, $revision)
-                . $this->decisionForm('revision', $revision->id, [
-                    'approve' => __('تأیید تغییر', 'tecteb-marketplace-core'),
-                    'reject' => __('رد تغییر', 'tecteb-marketplace-core'),
-                ], $storefront?->fingerprints($product) ?? [])
-                . '</article>';
-        }
-        echo '</section>';
+    /**
+     * The proposed version of a published product, with its diff.
+     *
+     * It carries the same lock the queue's form does. This form writes over a
+     * PUBLISHED product, so it is the one where a manager's edit made between
+     * drawing the page and pressing the button costs the most.
+     */
+    private function revisionPanel(
+        Product $product,
+        ProductRevision $revision,
+        ?StorefrontFieldsInterface $storefront
+    ): string {
+        return '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('نسخهٔ پیشنهادی فروشنده', 'tecteb-marketplace-core') . '</h2>'
+            . '<p class="tmc-hint">' . esc_html(sprintf(
+                /* translators: %s: the vendor's user id */
+                __('فروشنده #%s — نسخه فعلی روی سایت است و با رد این پیشنهاد حذف نمی‌شود.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) $revision->vendorUserId)
+            )) . '</p>'
+            . $this->diffTable($product, $revision)
+            . $this->decisionForm('revision', $revision->id, [
+                'approve' => __('تأیید تغییر', 'tecteb-marketplace-core'),
+                'reject' => __('رد تغییر', 'tecteb-marketplace-core'),
+            ], $storefront?->fingerprints($product) ?? [])
+            . '</section>';
     }
 
     private function diffTable(Product $product, ProductRevision $revision): string
@@ -370,37 +515,10 @@ final class ProductReviewPage
     }
 
     /**
-     * Published products: the same card, so a manager can see and correct
-     * what is live without leaving this page.
-     *
-     * The queue above is about a decision. This is about the product after
-     * it: the pictures a buyer sees, the text WooCommerce actually has, and
-     * — when the two sides disagree — the two buttons that end it.
-     *
-     * @param list<Product> $published
-     */
-    private function renderPublished(array $published): void
-    {
-        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
-            . esc_html__('محصول‌های منتشرشده', 'tecteb-marketplace-core') . '</h2>';
-        if ($published === []) {
-            echo '<p>' . esc_html__('هنوز محصول منتشرشده‌ای وجود ندارد.', 'tecteb-marketplace-core') . '</p></section>';
-            return;
-        }
-        echo '<p class="tmc-hint">' . esc_html__('این کارت‌ها برای اصلاح و مقایسه‌اند، نه برای تصمیم دوباره. بیست محصول آخر نمایش داده می‌شود.', 'tecteb-marketplace-core') . '</p>';
-        foreach ($published as $product) {
-            echo $this->card($product);
-        }
-        echo '</section>';
-    }
-
-    /**
      * SEO — the manager's alone (§6). The vendor's form has no such fields and
      * never had: this is the only screen in the plugin where they exist.
-     *
-     * @param list<Product> $published
      */
-    private function renderSeo(array $published): void
+    private function seoPanel(Product $product): void
     {
         $catalog = $this->container->get(SyncCatalog::class);
         echo '<section class="tmc-card"><h2 class="tmc-card__title">' . esc_html__('سئوی محصول — فقط مدیر', 'tecteb-marketplace-core') . '</h2>'
@@ -408,91 +526,73 @@ final class ProductReviewPage
         if (!$catalog->isAvailable()) {
             echo Components::notice('warning', __('WooCommerce فعال نیست، پس محصول‌های بازارگاه صفحهٔ عمومی ندارند و سئو جایی اعمال نمی‌شود. مقدارها ذخیره می‌شوند و با فعال‌شدن WooCommerce اعمال خواهند شد.', 'tecteb-marketplace-core'));
         }
-        if ($published === []) {
-            echo '<p>' . esc_html__('هنوز محصول منتشرشده‌ای وجود ندارد.', 'tecteb-marketplace-core') . '</p></section>';
-            return;
-        }
         /** @var StorefrontFieldsInterface|null $storefront */
         $storefront = $this->container->get(StorefrontFieldsInterface::class);
         $seoPlugin = $storefront?->seoPluginName() ?? '';
         if ($seoPlugin !== '') {
-            // The owner had values saved in Rank Math and this form showed
-            // them blank, because it has never read anything but our own
-            // column. An empty box next to a filled one is not a second
-            // opinion, it is a trap: somebody types into it and the real
-            // fields stay as they were. So when a real SEO plugin is here,
-            // the form goes and a link to ITS editor takes its place.
-            $this->renderSeoHandover($published, $seoPlugin);
+            // The owner had values saved in Rank Math and this form showed them
+            // blank, because it has never read anything but our own column. An
+            // empty box next to a filled one is not a second opinion, it is a
+            // trap: somebody types into it and the real fields stay as they
+            // were. So when a real SEO plugin is here, the form goes and a link
+            // to ITS editor takes its place.
+            echo $this->seoHandover($product, $seoPlugin, $storefront);
             return;
         }
-        foreach ($published as $product) {
-            $id = 'seo-' . $product->id;
-            echo '<form method="post" class="tmc-review">'
-                . wp_nonce_field(self::NONCE, 'tmc_review_nonce', true, false)
-                . '<input type="hidden" name="subject" value="seo">'
-                . '<input type="hidden" name="subject_id" value="' . esc_attr((string) $product->id) . '">'
-                . '<h3 class="tmc-review__title">' . esc_html($product->details->title) . '</h3>'
-                . '<p class="tmc-hint">' . esc_html(
-                    $product->isProjected()
-                        ? sprintf(__('شناسهٔ محصول در فروشگاه: %s', 'tecteb-marketplace-core'), PersianDigits::toPersian((string) $product->wcProductId))
-                        : __('این محصول هنوز به فروشگاه نگاشت نشده است.', 'tecteb-marketplace-core')
-                ) . '</p>'
-                . '<div class="tmc-field"><label class="tmc-field__label" for="' . $id . '-slug">'
-                . esc_html__('نشانی (slug)', 'tecteb-marketplace-core') . '</label>'
-                . '<input class="tmc-input" type="text" id="' . $id . '-slug" name="seo_slug" dir="ltr" value="'
-                . esc_attr($product->seo->slug) . '"></div>'
-                . '<div class="tmc-field"><label class="tmc-field__label" for="' . $id . '-title">'
-                . esc_html__('عنوان متا', 'tecteb-marketplace-core') . '</label>'
-                . '<input class="tmc-input" type="text" id="' . $id . '-title" name="seo_title" value="'
-                . esc_attr($product->seo->title) . '"></div>'
-                . '<div class="tmc-field"><label class="tmc-field__label" for="' . $id . '-desc">'
-                . esc_html__('توضیح متا', 'tecteb-marketplace-core') . '</label>'
-                . '<textarea class="tmc-input" id="' . $id . '-desc" name="seo_description" rows="2">'
-                . esc_textarea($product->seo->description) . '</textarea></div>'
-                . '<p><button type="submit" class="tmc-button tmc-button--primary" name="decision" value="save">'
-                . esc_html__('ذخیره سئو', 'tecteb-marketplace-core') . '</button></p>'
-                . '</form>';
-        }
-        echo '</section>';
+        $id = 'seo-' . $product->id;
+        echo '<form method="post" class="tmc-review">'
+            . wp_nonce_field(self::NONCE, 'tmc_review_nonce', true, false)
+            . '<input type="hidden" name="subject" value="seo">'
+            . '<input type="hidden" name="subject_id" value="' . esc_attr((string) $product->id) . '">'
+            . '<p class="tmc-hint">' . esc_html(
+                $product->isProjected()
+                    ? sprintf(__('شناسهٔ محصول در فروشگاه: %s', 'tecteb-marketplace-core'), PersianDigits::toPersian((string) $product->wcProductId))
+                    : __('این محصول هنوز به فروشگاه نگاشت نشده است.', 'tecteb-marketplace-core')
+            ) . '</p>'
+            . '<div class="tmc-field"><label class="tmc-field__label" for="' . $id . '-slug">'
+            . esc_html__('نشانی (slug)', 'tecteb-marketplace-core') . '</label>'
+            . '<input class="tmc-input" type="text" id="' . $id . '-slug" name="seo_slug" dir="ltr" value="'
+            . esc_attr($product->seo->slug) . '"></div>'
+            . '<div class="tmc-field"><label class="tmc-field__label" for="' . $id . '-title">'
+            . esc_html__('عنوان متا', 'tecteb-marketplace-core') . '</label>'
+            . '<input class="tmc-input" type="text" id="' . $id . '-title" name="seo_title" value="'
+            . esc_attr($product->seo->title) . '"></div>'
+            . '<div class="tmc-field"><label class="tmc-field__label" for="' . $id . '-desc">'
+            . esc_html__('توضیح متا', 'tecteb-marketplace-core') . '</label>'
+            . '<textarea class="tmc-input" id="' . $id . '-desc" name="seo_description" rows="2">'
+            . esc_textarea($product->seo->description) . '</textarea></div>'
+            . '<p><button type="submit" class="tmc-button tmc-button--primary" name="decision" value="save">'
+            . esc_html__('ذخیره سئو', 'tecteb-marketplace-core') . '</button></p>'
+            . '</form></section>';
     }
 
     /**
      * When a real SEO plugin is installed, it is the one place SEO lives.
      *
      * Nothing is deleted. `_tmc_seo_*` values written by earlier versions are
-     * still in the database and still shown here — READ-ONLY, labelled as
-     * this plugin's own older data, with the name of the field they belong in
-     * on the other side. They are not copied across: writing into another
-     * plugin's meta keys from here would be this plugin guessing at that
-     * plugin's storage contract, and the day the guess is wrong it is the
-     * owner's search results that pay for it.
-     *
-     * @param list<Product> $published
+     * still in the database and still shown here — READ-ONLY, labelled as this
+     * plugin's own older data, with the name of the field they belong in on the
+     * other side. They are not copied across: writing into another plugin's
+     * meta keys from here would be this plugin guessing at that plugin's
+     * storage contract, and the day the guess is wrong it is the owner's search
+     * results that pay for it.
      */
-    private function renderSeoHandover(array $published, string $plugin): void
+    private function seoHandover(Product $product, string $plugin, ?StorefrontFieldsInterface $storefront): string
     {
-        /** @var StorefrontFieldsInterface|null $storefront */
-        $storefront = $this->container->get(StorefrontFieldsInterface::class);
-        echo Components::notice('info', sprintf(
+        $editor = $product->isProjected() ? $storefront?->editorUrl((int) $product->wcProductId) ?? '' : '';
+        return Components::notice('info', sprintf(
             /* translators: %s: the SEO plugin's name, e.g. Rank Math */
-            __('سئوی این محصول‌ها در «%s» تنظیم می‌شود — همان‌جایی که مقدارهای فعلی‌تان ذخیره شده‌اند. فرم جداگانهٔ سئو از این صفحه برداشته شد چون مقدارهای آن افزونه را نمی‌خواند و خالی نشان می‌داد.', 'tecteb-marketplace-core'),
+            __('سئوی این محصول در «%s» تنظیم می‌شود — همان‌جایی که مقدارهای فعلی‌تان ذخیره شده‌اند. فرم جداگانهٔ سئو از این صفحه برداشته شد چون مقدارهای آن افزونه را نمی‌خواند و خالی نشان می‌داد.', 'tecteb-marketplace-core'),
             $plugin
-        ));
-        echo '<ul class="tmc-list">';
-        foreach ($published as $product) {
-            $editor = $product->isProjected() ? $storefront?->editorUrl((int) $product->wcProductId) ?? '' : '';
-            echo '<li><strong>' . esc_html($product->details->title) . '</strong> — '
-                . ($editor !== ''
-                    ? '<a href="' . esc_url($editor) . '">' . esc_html(sprintf(
-                        /* translators: %s: the SEO plugin's name */
-                        __('ویرایش سئو در %s', 'tecteb-marketplace-core'),
-                        $plugin
-                    )) . '</a>'
-                    : esc_html__('هنوز در ووکامرس ساخته نشده است.', 'tecteb-marketplace-core'))
-                . self::legacySeo($product)
-                . '</li>';
-        }
-        echo '</ul></section>';
+        ))
+            . '<p>' . ($editor !== ''
+                ? '<a class="tmc-button" href="' . esc_url($editor . '#rank_math_metabox') . '">' . esc_html(sprintf(
+                    /* translators: %s: the SEO plugin's name */
+                    __('ویرایش سئو در %s', 'tecteb-marketplace-core'),
+                    $plugin
+                )) . '</a>'
+                : esc_html__('هنوز در ووکامرس ساخته نشده است.', 'tecteb-marketplace-core'))
+            . '</p>' . self::legacySeo($product) . '</section>';
     }
 
     /** The old plugin-specific values, shown so nobody thinks they were deleted. */

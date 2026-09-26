@@ -715,3 +715,247 @@
 .tmc-catlist li:last-child { border-bottom: 0; }
 .tmc-catlist label { display: block; cursor: pointer; overflow-wrap: anywhere; }
 .tmc-catlist small { color: var(--tmc-muted, #5b6b76); }
+
+/* ---------------------------------------------------------------------------
+ * The manager's product list: filters, search, rows and pager (alpha.32).
+ *
+ * WHY THIS BLOCK EXISTS. The owner reported the status filters on
+ * `tmc-product-review` as «هفت لینک زیرخط‌دار به‌صورت عمودی» with no visible
+ * current one. The markup was not missing a class — the STYLESHEET was.
+ * `.tmc-tabs`/`.tmc-tab` were written by twenty admin views and matched by
+ * ZERO rules in either stylesheet (measured, not assumed), so a `<nav><ul>` of
+ * links fell back to the browser's list layout (one block per line) and to
+ * this file's own `.tmc-admin a { text-decoration: underline }`. `is-current`
+ * styled nothing, which is why the active filter was invisible.
+ *
+ * The classes below are the product list's own, so these rules cannot reach
+ * the nineteen other screens that still write `.tmc-tab`: their markup is
+ * untouched by this round, and their unstyled state is recorded as a finding
+ * rather than silently redesigned here.
+ *
+ * TWO THINGS TO KEEP IN MIND WHEN EDITING:
+ *  1. Every selector that touches a LINK is scoped with `.tmc-admin`, because
+ *     `.tmc-admin a` is (0,1,1) and outranks a bare `.tmc-filter` (0,1,0) —
+ *     the same trap that once drew a primary button dark-on-dark.
+ *  2. Breakpoints are `@container`, never `@media` (ADR-006): wp-admin puts a
+ *     160px menu beside this content, so a viewport query fires at the wrong
+ *     moment every time.
+ * ------------------------------------------------------------------------ */
+
+/* the list's own rhythm ---------------------------------------------------- */
+/* The hint under the title stays with the title, so the search box and the
+   filters sit near the top of the card instead of below a tall gap — «فاصلهٔ
+   فیلترها تا جدول متعادل باشد؛ فضای خالی بلند فعلی حذف شود». */
+.tmc-catalogue > .tmc-hint { margin-block: var(--tmc-space-1) 0; }
+.tmc-catalogue > .tmc-scroll { margin-block-start: var(--tmc-space-1); }
+
+/* search, directly above the filters --------------------------------------- */
+.tmc-catalogue__search { margin-block: var(--tmc-space-4) var(--tmc-space-3); }
+.tmc-catalogue__searchrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tmc-space-2);
+  margin-block-start: var(--tmc-space-1);
+}
+/* Room to type a product name, and never narrower than a search box has to be:
+   `flex: 1 1 18rem` grows into the space the buttons leave and wraps to its own
+   line before it can be starved. */
+.tmc-admin .tmc-catalogue__q { flex: 1 1 18rem; min-inline-size: 0; max-inline-size: 34rem; }
+
+/* status filters ----------------------------------------------------------- */
+.tmc-filters { margin-block-end: var(--tmc-space-3); }
+.tmc-filters__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tmc-space-2);
+}
+.tmc-admin .tmc-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tmc-space-2);
+  min-block-size: var(--tmc-touch);
+  padding: 0 var(--tmc-space-4);
+  border: 1px solid var(--tmc-border);
+  border-radius: 999px;
+  background: var(--tmc-surface-2);
+  color: var(--tmc-primary);
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+}
+/* The label may not break mid-word; the chip itself is allowed to be as narrow
+   as the label and its badge need, which is what lets seven of them wrap into
+   tidy rows instead of one long line. */
+.tmc-filter__label { white-space: nowrap; }
+.tmc-admin .tmc-filter:hover {
+  background: var(--tmc-neutral);
+  border-color: var(--tmc-primary);
+  text-decoration: none;
+}
+/* The active filter reads twice: navy fill for the eye, `aria-current` for a
+   screen reader. A state that is only a colour is a state a colour-blind
+   manager cannot read. */
+.tmc-admin .tmc-filter.is-current {
+  background: var(--tmc-primary);
+  border-color: var(--tmc-primary);
+  color: #fff;
+  font-weight: 700;
+}
+.tmc-admin .tmc-filter.is-current:hover { background: #0F2E3B; color: #fff; }
+/* Nothing to show is quieter but still a place to stand — the link stays a
+   link, so a manager can always get back to a status the last row just left. */
+.tmc-admin .tmc-filter.is-empty { color: var(--tmc-muted); background: var(--tmc-surface); }
+.tmc-admin .tmc-filter.is-empty .tmc-filter__count { color: var(--tmc-muted); }
+.tmc-admin .tmc-filter.is-warning {
+  background: #FFF7E6;
+  border-color: var(--tmc-warning);
+  color: var(--tmc-text);
+  cursor: default;
+}
+/* The count is its own badge, not part of the label: a number glued to a word
+   is a number that reads as part of it. */
+.tmc-filter__count {
+  display: inline-block;
+  min-inline-size: 1.75rem;
+  padding-inline: var(--tmc-space-2);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--tmc-primary);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.tmc-admin .tmc-filter.is-current .tmc-filter__count { background: #fff; color: var(--tmc-primary); }
+
+/* rows per page, sort, and how many rows of how many ------------------------ */
+/* One bar, so the filters are followed by the table rather than by a stack of
+   controls. Measured before and after on the real install: 168px of furniture
+   between the last filter and the first row became 88px. */
+.tmc-catalogue__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--tmc-space-2) var(--tmc-space-4);
+  margin-block: var(--tmc-space-2);
+}
+.tmc-catalogue__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--tmc-space-3);
+  margin: 0;
+}
+.tmc-catalogue__tool { display: grid; gap: var(--tmc-space-1); }
+.tmc-catalogue__tool .tmc-field__label { margin: 0; }
+.tmc-catalogue__scope { color: var(--tmc-muted); margin-block-end: var(--tmc-space-2); }
+.tmc-catalogue__meta { font-weight: 700; margin: 0; }
+.tmc-catalogue__empty { margin-block: var(--tmc-space-3); }
+.tmc-catalogue__back { margin-block-end: var(--tmc-space-3); }
+
+/* summary rows ------------------------------------------------------------- */
+.tmc-catalogue__product { display: flex; align-items: flex-start; gap: var(--tmc-space-3); min-inline-size: 0; }
+.tmc-catalogue__name { display: grid; gap: 2px; min-inline-size: 0; }
+/* The title is a link into the product's own page, and it stays underlined:
+   it is the row's second way in (the button is the first), and a link that
+   does not look like one is a link nobody tries. */
+.tmc-admin .tmc-catalogue__link { font-weight: 700; }
+.tmc-catalogue__thumb {
+  flex: 0 0 auto;
+  inline-size: 48px;
+  block-size: 48px;
+  border: 1px solid var(--tmc-border);
+  border-radius: var(--tmc-radius-sm);
+  object-fit: cover;
+  background: var(--tmc-surface-2);
+}
+.tmc-catalogue__thumb--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  font-size: 0.6875rem;
+  line-height: 1.1;
+  color: var(--tmc-muted);
+  text-align: center;
+}
+.tmc-catalogue__when { font-variant-numeric: tabular-nums; }
+/* Marketplace status as a tone, and NOT `.tmc-state` — that class is the
+   full-width empty/error panel, and borrowing it would draw a bordered box
+   inside every cell. */
+.tmc-catalogue__status {
+  display: inline-block;
+  padding: 2px var(--tmc-space-3);
+  border-radius: 999px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  background: var(--tmc-surface-2);
+  color: var(--tmc-text);
+}
+.tmc-catalogue__status--success { background: #E6F8EF; color: #0F5132; }
+.tmc-catalogue__status--warning { background: #FFF4DB; color: #6B4B00; }
+.tmc-catalogue__status--error { background: #FDECEA; color: #8A1C15; }
+.tmc-catalogue__status--neutral { background: var(--tmc-neutral); color: var(--tmc-text); }
+.tmc-catalogue__badge {
+  justify-self: start;
+  padding: 2px var(--tmc-space-2);
+  border: 1px solid var(--tmc-warning);
+  border-radius: var(--tmc-radius-sm);
+  background: #FFF7E6;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+/* Card mode (a narrow card): the row's one action is a full-width button, so
+   the thing the row exists for is the easiest thing to hit on a phone. */
+.tmc-admin .tmc-catalogue__action { inline-size: 100%; }
+
+/* The folded «older data» block on a product's own page. A `<details>` renders
+   readably with no rules at all, which is exactly why it went three releases
+   without any — see the note at the top of this section. */
+.tmc-history { margin-block-start: var(--tmc-space-2); }
+.tmc-history > summary { cursor: pointer; color: var(--tmc-primary); font-weight: 600; }
+.tmc-history > summary:hover { text-decoration: underline; }
+
+/* pager -------------------------------------------------------------------- */
+.tmc-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tmc-space-2) var(--tmc-space-3);
+  margin-block-start: var(--tmc-space-3);
+}
+.tmc-pager__pages { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--tmc-space-1); }
+.tmc-admin .tmc-pager__page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: var(--tmc-touch);
+  min-block-size: var(--tmc-touch);
+  padding-inline: var(--tmc-space-2);
+  border: 1px solid var(--tmc-border);
+  border-radius: var(--tmc-radius-sm);
+  background: var(--tmc-surface);
+  color: var(--tmc-primary);
+  font-weight: 700;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+.tmc-admin .tmc-pager__page:hover { background: var(--tmc-neutral); border-color: var(--tmc-primary); text-decoration: none; }
+.tmc-admin .tmc-pager__page.is-current {
+  background: var(--tmc-primary);
+  border-color: var(--tmc-primary);
+  color: #fff;
+}
+.tmc-pager__gap { display: inline-flex; align-items: center; min-block-size: var(--tmc-touch); padding-inline: var(--tmc-space-1); color: var(--tmc-muted); }
+
+@container tmccard (min-width: 44rem) {
+  /* A real table: the action goes back to being a button the width of its
+     label, and the picture column stays narrow. */
+  .tmc-admin .tmc-catalogue__action { inline-size: auto; }
+  .tmc-catalogue__table td, .tmc-catalogue__table th { vertical-align: middle; }
+}

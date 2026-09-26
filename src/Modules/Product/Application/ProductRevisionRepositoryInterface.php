@@ -16,6 +16,20 @@ interface ProductRevisionRepositoryInterface
 
     public function countPending(): int;
 
+    /**
+     * Which of THESE products have an unanswered proposal.
+     *
+     * One query for the page's rows rather than `pendingFor()` twenty times,
+     * and a subset rather than a flag per row: the caller marks the ids it
+     * gets back and leaves every other row alone. An empty input means no
+     * query at all — asking the database about nothing is how an `IN ()`
+     * syntax error reaches a page that had nothing to show anyway.
+     *
+     * @param list<int> $productIds
+     * @return list<int>
+     */
+    public function pendingProductIds(array $productIds): array;
+
     /** @param array<string,mixed> $payload @return int revision id, or 0 on failure */
     public function create(int $productId, int $vendorUserId, array $payload): int;
 

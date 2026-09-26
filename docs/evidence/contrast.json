@@ -145,6 +145,54 @@
             "ratio": 5.84,
             "required": 4.5,
             "pass": true
+        },
+        {
+            "pair": "وضعیت منتشرشده روی زمینهٔ سبز کم‌رنگ",
+            "fg": "#0F5132",
+            "bg": "#E6F8EF",
+            "ratio": 8.49,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "وضعیت در انتظار روی زمینهٔ کهربایی",
+            "fg": "#6B4B00",
+            "bg": "#FFF4DB",
+            "ratio": 7.3,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "وضعیت تعلیق روی زمینهٔ قرمز کم‌رنگ",
+            "fg": "#8A1C15",
+            "bg": "#FDECEA",
+            "ratio": 8.13,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "وضعیت پیش‌نویس روی خاکستری خنثی",
+            "fg": "#1F2A30",
+            "bg": "#E4EAEE",
+            "ratio": 12.08,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "نشان «نسخهٔ پیشنهادی» روی زمینهٔ کهربایی روشن",
+            "fg": "#1F2A30",
+            "bg": "#FFF7E6",
+            "ratio": 13.76,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "زمینهٔ چیپ فیلتر فعال روی سطح کارت (غیرمتنی ۳:۱)",
+            "fg": "#143C4D",
+            "bg": "#FFFFFF",
+            "ratio": 11.78,
+            "required": 3,
+            "pass": true
         }
     ],
     "failures": 0

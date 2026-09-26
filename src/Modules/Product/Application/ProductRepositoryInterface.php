@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 
@@ -55,6 +56,17 @@ interface ProductRepositoryInterface
      * WordPress at render time rather than mirrored into a column that could
      * then be wrong.
      *
+     * **The limit is in the query.** `$limit`/`$offset` are a real `LIMIT` and
+     * a real `OFFSET`, so a catalogue of two hundred products reads twenty
+     * rows; a page that fetched everything and hid the rest with CSS would
+     * still cost every row, every image lookup and every store name.
+     *
+     * @param ?ProductSort $sort                null means the default order
+     * @param bool         $onlyPendingRevision only products whose published
+     *                                          version has an unanswered
+     *                                          proposal — the same WHERE, so
+     *                                          the counts and the pager below
+     *                                          it stay this list's own
      * @return list<Product>
      */
     public function forManager(
@@ -62,10 +74,17 @@ interface ProductRepositoryInterface
         string $search = '',
         int $limit = 20,
         int $offset = 0,
-        int $vendorUserId = 0
+        int $vendorUserId = 0,
+        ?ProductSort $sort = null,
+        bool $onlyPendingRevision = false
     ): array;
 
-    public function countForManager(?ProductStatus $status = null, string $search = '', int $vendorUserId = 0): int;
+    public function countForManager(
+        ?ProductStatus $status = null,
+        string $search = '',
+        int $vendorUserId = 0,
+        bool $onlyPendingRevision = false
+    ): int;
 
     /**
      * How many products are in each status, under the same filter.
@@ -74,7 +93,11 @@ interface ProductRepositoryInterface
      *
      * @return array<string,int>
      */
-    public function countsByStatusForManager(string $search = '', int $vendorUserId = 0): array;
+    public function countsByStatusForManager(
+        string $search = '',
+        int $vendorUserId = 0,
+        bool $onlyPendingRevision = false
+    ): array;
 
     public function countInStatus(ProductStatus $status): int;
 

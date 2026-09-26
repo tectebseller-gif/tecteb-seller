@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Product\Presentation;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecFieldType;
@@ -41,6 +42,31 @@ final class ProductMessages
             ProductStatus::Suspended => 'error',
             ProductStatus::Draft, ProductStatus::Archived => 'neutral',
         };
+    }
+
+    /** The order a list is read in — the labels for `ProductSort`. */
+    public static function sort(ProductSort $sort): string
+    {
+        return match ($sort) {
+            ProductSort::LastChanged => __('آخرین تغییر', 'tecteb-marketplace-core'),
+            ProductSort::OldestChanged => __('قدیمی‌ترین تغییر', 'tecteb-marketplace-core'),
+            ProductSort::Title => __('عنوان (الفبایی)', 'tecteb-marketplace-core'),
+        };
+    }
+
+    /**
+     * @return array<string,string> value => label, for a <select>
+     *
+     * Built from `ProductSort::cases()`, so a case the query knows and the
+     * control does not cannot exist.
+     */
+    public static function sorts(): array
+    {
+        $labels = [];
+        foreach (ProductSort::cases() as $case) {
+            $labels[$case->value] = self::sort($case);
+        }
+        return $labels;
     }
 
     public static function type(string $type): string

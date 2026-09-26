@@ -333,23 +333,40 @@ if ($otherTerm > 0) {
 // the queue first, and the page is rendered with it there.
 $product = $products->find($product->id);
 $products->updateStatus($product->id, ProductStatus::Submitted, '');
-ob_start();
-try {
-    (new Tecteb\Marketplace\Modules\Product\Presentation\Admin\ProductReviewPage($c))->render();
-    $html = (string) ob_get_clean();
-    $rendered = true;
-} catch (Throwable $e) {
-    ob_end_clean();
-    $html = '';
-    $rendered = false;
-    $say('render_error', false, ['message' => str_replace(' ', '_', $e->getMessage())]);
-}
+// From `alpha.32` the pictures, the specification table and the category path
+// are on the PRODUCT's own page: the list is a list. Both addresses are
+// rendered here, because the question «does the review card still show the
+// product» and the question «is the product still reachable from the list» are
+// now two questions.
+$render = static function (array $query) use ($c, &$say): string {
+    $_GET = $query;
+    ob_start();
+    try {
+        (new Tecteb\Marketplace\Modules\Product\Presentation\Admin\ProductReviewPage($c))->render();
+        return (string) ob_get_clean();
+    } catch (Throwable $e) {
+        ob_end_clean();
+        $say('render_error', false, ['message' => str_replace(' ', '_', $e->getMessage())]);
+        return '';
+    } finally {
+        $_GET = [];
+    }
+};
+$html = $render(['page' => 'tmc-product-review', 'product' => (string) $product->id]);
+$listHtml = $render(['page' => 'tmc-product-review']);
+$rendered = $html !== '' && $listHtml !== '';
 $product = $products->find($product->id);
 $hasImage = str_contains($html, '<img src=') && str_contains($html, 'tmc-review__gallery');
 $hasPath = $product->details->categoryKey !== ''
     && str_contains($html, '›');
-$say('render', $rendered && $hasImage && $hasPath, [
+// The list is a list: the row is there, it links to the product's own page,
+// and it does NOT carry the full card.
+$listed = str_contains($listHtml, 'product=' . $product->id);
+$listIsSummary = !str_contains($listHtml, 'tmc-review--full');
+$say('render', $rendered && $hasImage && $hasPath && $listed && $listIsSummary, [
     'bytes' => strlen($html),
+    'listed' => $listed ? 'yes' : 'no',
+    'list_is_summary' => $listIsSummary ? 'yes' : 'no',
     'gallery' => $hasImage ? 'yes' : 'no',
     'category_path' => $hasPath ? 'yes' : 'no',
     'prepare_button' => str_contains($html, 'value="prepare"') ? 'yes' : 'n/a',

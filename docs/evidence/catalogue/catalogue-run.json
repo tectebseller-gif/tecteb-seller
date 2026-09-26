@@ -1,0 +1,10 @@
+{
+  "site": "http://127.0.0.1:8081",
+  "version": "0.1.0-alpha.32",
+  "scope": "The manager product list on a real wp-admin, signed in as an administrator, with a catalogue seeded by tools/catalogue-state.php.",
+  "fixture": "stage=report total=81 pages_at_20=5 draft=17 submitted=13 changes_requested=6 published=39 suspended=0 archived=6 pending_revisions=1\noff_page_one_sku=CAT-001 off_page_one_id=142 seeded_rows=30",
+  "total": 81,
+  "pages": 5,
+  "pass": 89,
+  "fail": 0
+}

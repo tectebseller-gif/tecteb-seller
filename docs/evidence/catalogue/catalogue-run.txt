@@ -1,0 +1,97 @@
+      stage=report total=81 pages_at_20=5 draft=17 submitted=13 changes_requested=6 published=39 suspended=0 archived=6 pending_revisions=1
+off_page_one_sku=CAT-001 off_page_one_id=142 seeded_rows=30
+ok:   the fixture is big enough to page through                      yes
+ok:   and it leaves one status empty, for the zero counter           0
+ok:   the installed package is the one under test                    0.1.0-alpha.32
+ok:   signed in as tmcowner (js=true)                                yes
+ok:   the list renders                                               yes
+ok:   seven filters                                                  7
+ok:   they are laid out in rows, not one per line                    yes(1)
+ok:   and on a desktop width they fit on one row                     1
+ok:   none of them is underlined                                     yes
+ok:   every one of them is a touch-sized target                      yes
+ok:   with rounded corners                                           yes
+ok:   the first filter is the rightmost one (RTL)                    yes
+ok:   the order starts with «همه»                                    همه
+ok:   and ends with «بایگانی»                                        بایگانی
+ok:   exactly one filter is marked with aria-current                 1
+ok:   the active one is the Tecteb navy                              rgb(20, 60, 77)
+ok:   with white text                                                rgb(255, 255, 255)
+ok:   the empty status is on the row                                 yes
+ok:   its counter reads zero                                         0
+ok:   it is dimmer than the others                                   rgb(79, 101, 112)
+ok:   and it is still a link                                         yes
+ok:   the counter is a separate badge                                rgb(255, 255, 255)
+ok:   and it is round                                                yes
+ok:   the search box is above the filters                            yes
+      between the filters and the table: .tmc-filters:50px .tmc-catalogue__scope:19px .tmc-catalogue__bar:94px .tmc-catalogue__table:2273px (total 141px)
+ok:   no empty gap is left between the filters and the table         yes(12px)
+ok:   the search input has room to type in                           yes
+ok:   the placeholder is the agreed one                              جست‌وجوی عنوان، SKU یا برند…
+ok:   a filter can be focused from the keyboard                      yes
+ok:   and the focus ring is visible                                  yes
+ok:   a hover rule exists for the filters                            yes
+      the resting background of an empty filter is rgb(255, 255, 255)
+ok:   no filter markup exists outside the plugin shell               0
+ok:   the wp-admin menu looks the same on our page as on the dashboard none|rgb(30, 30, 30)
+ok:   page one holds twenty rows                                     20
+ok:   and says which rows of how many                                1-20/81
+ok:   the row count control offers three sizes                       3
+ok:   the sort control offers the orders                             3
+ok:   a summary row carries a thumbnail                              yes
+ok:   and one action                                                 20
+ok:   no full review card is rendered in the list                    no
+ok:   and no per-product decision button in the list                 0
+      the page's only decision button is the vendor-level publish permission: 1
+ok:   a product with an unanswered proposal is marked somewhere in the list yes
+ok:   the pager offers page numbers                                  yes
+ok:   the current page is not a link to itself                       1
+ok:   the next page starts where the first one stopped               21-40
+ok:   and it has twenty rows too                                     20
+ok:   the last page ends at the total                                81
+ok:   it holds the remainder                                         1
+ok:   and offers no next page                                        0
+ok:   every page together draws the whole catalogue                  81
+ok:   and no product appears on two pages                            81
+ok:   fifty a page reads fifty rows                                  50
+ok:   a hundred a page reads the whole catalogue                     81
+ok:   and then there is no pager at all                              0
+ok:   nothing is fetched and hidden with CSS                         0
+ok:   the fixture named a landmark to search for                     yes
+ok:   the landmark product is not on page one                        yes
+ok:   the search finds it anyway                                     yes
+ok:   and says it is the only result                                 1-1/1
+ok:   the search term survives in the box                            CAT-001
+      search «CAT-» inside «منتشرشده»: rows 1-6 of 6
+ok:   the active filter is the published one                         منتشرشده
+ok:   changing the status keeps the search                           CAT-
+ok:   and goes back to page one                                      null
+ok:   an empty status says so                                        yes
+ok:   and offers to clear the filters                                yes
+ok:   the zero filter opens its own empty list                       yes
+ok:   the product opens on its own page                              yes
+ok:   the list is not underneath it                                  yes
+ok:   the review card is here instead                                yes
+ok:   with the decision history                                      yes
+ok:   the way back carries the filter                                published
+ok:   and the page number                                            2
+ok:   pressing it lands on the same page of the same filter          21-39/39
+ok:   with the same filter still active                              منتشرشده
+ok:   signed in as tmcowner (js=false)                               yes
+ok:   with JavaScript off, the list still renders                    yes
+ok:   and the rows are there                                         yes
+ok:   a filter still navigates                                       suspended
+ok:   and so does the pager                                          3
+ok:   signed in as tmcowner (js=true)                                yes
+ok:   on a phone each product is a card                              yes
+ok:   with a border of its own                                       yes
+ok:   and the action reaches across the card                         yes(288/314)
+ok:   the filters are still touch-sized                              yes
+ok:   and the page does not scroll sideways                          0
+ok:   on a phone the filters wrap into rows instead of one per line  yes(5 rows)
+ok:   and a product page is reachable from a phone                   yes
+ok:   axe over the list finds nothing                                none
+ok:   axe over the empty list finds nothing                          none
+ok:   axe over a product page finds nothing                          none
+
+pass=89 fail=0

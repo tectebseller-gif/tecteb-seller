@@ -46,6 +46,20 @@ $pairs = [
     ['متن جدول تفاوت روی زمینهٔ کهربایی کم‌رنگ', '#1F2A30', '#FFF9EC', 4.5],
     ['مقدار تایپ‌شده (پررنگ) روی همان زمینه', '#0F2E3B', '#FFF9EC', 4.5],
     ['راهنمای خاکستری روی همان زمینه', '#4F6570', '#FFF9EC', 4.5],
+    // The product list's status pills and the proposal badge (alpha.32). A
+    // colour that carries a status has to be readable, not merely tinted — and
+    // the pale fills are exactly the ones an eye forgives and a ratio does not.
+    ['وضعیت منتشرشده روی زمینهٔ سبز کم‌رنگ', '#0F5132', '#E6F8EF', 4.5],
+    ['وضعیت در انتظار روی زمینهٔ کهربایی', '#6B4B00', '#FFF4DB', 4.5],
+    ['وضعیت تعلیق روی زمینهٔ قرمز کم‌رنگ', '#8A1C15', '#FDECEA', 4.5],
+    ['وضعیت پیش‌نویس روی خاکستری خنثی', '#1F2A30', '#E4EAEE', 4.5],
+    ['نشان «نسخهٔ پیشنهادی» روی زمینهٔ کهربایی روشن', '#1F2A30', '#FFF7E6', 4.5],
+    // «which filter is on» is state, and the navy fill is what carries it, so
+    // the fill against the card is the 3:1 pair that matters. The chip's 1px
+    // border is decoration and is deliberately NOT listed: inventing a lower
+    // threshold for it would turn this table into a list of things that passed
+    // a bar chosen to fit them.
+    ['زمینهٔ چیپ فیلتر فعال روی سطح کارت (غیرمتنی ۳:۱)', '#143C4D', '#FFFFFF', 3.0],
 ];
 
 $fail = 0;

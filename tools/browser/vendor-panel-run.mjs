@@ -339,7 +339,12 @@ note(`after restore: ${JSON.stringify(afterRestore)}`);
 // first version of this check was `text.length > 0`, which is a check that
 // cannot fail — and a check that cannot fail looks exactly like one that
 // passed.
-check('1-9. «بازگشت به پیش‌نویس» brought them back', (afterRestore.archived || 0), 0);
+// Back to where it started, not to zero: this install carries archived rows
+// that this run never touched (the paging fixture seeds some), and a check
+// written against zero measures the fixture rather than the action. Measure the
+// baseline, do not assume it — CLAUDE.md, `alpha.22`.
+check('1-9. «بازگشت به پیش‌نویس» brought them back',
+  (afterRestore.archived || 0), (beforeBulk.archived || 0));
 check('1-10. and they are drafts again', (afterRestore.draft || 0) >= (beforeBulk.draft || 0), true);
 
 const submitted = await runBulk({ action: 'submit', button: 'bulk_products', select: true });
