@@ -25,6 +25,15 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
     /** @var list<int> tmc product ids whose withdrawal will fail */
     public array $refusesToWithdraw = [];
 
+    /**
+     * @var list<int> tmc product ids whose PROJECTION will fail
+     *
+     * The other half of `refusesToWithdraw`, and the shape of the failure the
+     * review path could not see until `alpha.30`: WooCommerce is there, the
+     * write is attempted, and it does not happen.
+     */
+    public array $refusesToProject = [];
+
     /** @var array<int,int> tmc product id => storefront id */
     public array $links = [];
 
@@ -51,6 +60,14 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
     {
         if (!$this->available) {
             return ['ok' => false, 'code' => 'woocommerce_missing', 'wc_product_id' => 0, 'variation_links' => []];
+        }
+        if (in_array($product->id, $this->refusesToProject, true)) {
+            return [
+                'ok' => false,
+                'code' => 'storage_failed',
+                'wc_product_id' => $this->links[$product->id] ?? 0,
+                'variation_links' => [],
+            ];
         }
         $id = $this->links[$product->id] ?? 0;
         $isNew = $id <= 0;

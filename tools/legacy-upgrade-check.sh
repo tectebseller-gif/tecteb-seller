@@ -21,7 +21,7 @@ WPCLI="${WPCLI:-/usr/local/bin/wp}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGINS="$WPROOT/wp-content/plugins"
 OLD_ZIP="${TMC_OLD_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.25.zip}"
-NEW_ZIP="${TMC_NEW_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.29.zip}"
+NEW_ZIP="${TMC_NEW_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.30.zip}"
 
 mkdir -p "$OUT"
 LOG="$OUT/legacy-upgrade-check.txt"
@@ -174,15 +174,16 @@ python3 - "$MERGE" <<'PYEOF'
 import sys, pathlib
 path = pathlib.Path(sys.argv[1])
 src = path.read_text()
-needle = """        if ($stamp === '') {
-            return self::UNSETTLED;
+# The `if` now carries a paragraph of its own explaining why a recorded
+# agreement does not settle a field older than the stamps, so the needle is the
+# ANSWER rather than the whole block — and at this indentation it appears once.
+needle = """            return self::UNSETTLED;
         }"""
 if src.count(needle) != 1:
     sys.stderr.write("guard line not found exactly once\n")
     sys.exit(2)
 # Exactly what alpha.26 did: an absent stamp meant «ours».
-path.write_text(src.replace(needle, """        if ($stamp === '') {
-            return self::WRITE;
+path.write_text(src.replace(needle, """            return self::WRITE;
         }""", 1))
 PYEOF
 if [ $? -ne 0 ]; then
@@ -198,17 +199,27 @@ else
   B2="$(state read "$P2")"
   MT2="$(field "$B2" title)"; MI2="$(field "$B2" images)"
   install_zip "$NEW_ZIP"
-  python3 - "$MERGE" <<'PYEOF'
+  # The SECOND patch, and the one the measurement below depends on: the two
+  # `install_zip` calls above have replaced the whole plugin directory, so the
+  # first patch is long gone. It counts its needle and FAILS LOUDLY on a miss —
+  # a silent no-op here would leave the guard in place and report «the old rule
+  # kept the manager's text», which is the one answer this script must never
+  # give by accident.
+  if ! python3 - "$MERGE" <<'PYEOF'
 import sys, pathlib
 path = pathlib.Path(sys.argv[1])
 src = path.read_text()
-src = src.replace("""        if ($stamp === '') {
-            return self::UNSETTLED;
-        }""", """        if ($stamp === '') {
-            return self::WRITE;
-        }""", 1)
-path.write_text(src)
+needle = """            return self::UNSETTLED;
+        }"""
+if src.count(needle) != 1:
+    sys.stderr.write("guard line not found exactly once in the reinstalled package\n")
+    sys.exit(2)
+path.write_text(src.replace(needle, """            return self::WRITE;
+        }""", 1))
 PYEOF
+  then
+    check "the guard line was found in the reinstalled package" "no" "yes"
+  fi
   state vendor-save "$P2" >/dev/null
   A2="$(state read "$P2")"
   say "$A2"

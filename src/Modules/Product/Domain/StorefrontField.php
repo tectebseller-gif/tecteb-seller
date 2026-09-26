@@ -107,7 +107,14 @@ final class StorefrontField
             // one the owner's test run ran into: the manager had edited the
             // title and the long description, the vendor changed only the
             // short description, and the screen asked about all three.
-            return in_array($this->verdict, [FieldMerge::CONFLICT, FieldMerge::UNSETTLED], true);
+            //
+            // `hasPending` is the other half, and it is not redundant: a
+            // proposal was recorded because something was HELD, and a proposal
+            // nobody is asked about is work the vendor did that no screen will
+            // ever show again. Whatever the verdict says today, an unanswered
+            // proposal is an unanswered question.
+            return $this->hasPending
+                || in_array($this->verdict, [FieldMerge::CONFLICT, FieldMerge::UNSETTLED], true);
         }
         if ($this->owner === self::OWNER_UNKNOWN) {
             // Always — even when the two sides happen to agree today. The

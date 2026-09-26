@@ -180,6 +180,29 @@ final class ProductMessages
                 $fa((string) ($context['failed'] ?? 0))
             ),
             'storefront_moved' => __('یکی از فیلدهای این محصول در ووکامرس عوض شد در فاصله‌ای که این صفحه باز بود. برای اینکه ویرایش تازه پاک نشود، تأیید انجام نشد: صفحه را تازه کنید، مقدارهای تازه را ببینید و دوباره تصمیم بگیرید.', 'tecteb-marketplace-core'),
+            // Three sentences for three things that used to be silent. The
+            // first two say what state the product is in NOW, because that is
+            // the only thing a manager can act on: «انجام نشد» without it
+            // sends somebody to look at the shop and guess.
+            'sync_failed' => ((string) ($context['applied'] ?? '')) === 'yes'
+                ? sprintf(
+                    /* translators: %s: the reason the storefront write refused */
+                    __('مقدارها در پروندهٔ بازارگاه ذخیره شد، ولی روی ووکامرس اعمال نشد (دلیل: %s). چیزی روی فروشگاه عوض نشده است؛ پس از رفع اشکال یک بار دیگر ذخیره کنید.', 'tecteb-marketplace-core'),
+                    (string) ($context['reason'] ?? '')
+                )
+                : (((string) ($context['restored'] ?? '')) === 'no'
+                    ? sprintf(
+                        /* translators: %s: the reason the storefront write refused */
+                        __('همگام‌سازی با ووکامرس انجام نشد (دلیل: %s) و برگرداندن وضعیت محصول هم انجام نشد. یعنی ممکن است پروندهٔ بازارگاه این محصول را «منتشرشده» نشان دهد در حالی که صفحه‌ای در فروشگاه ندارد. لطفاً همین محصول را در فهرست محصول‌ها بررسی کنید.', 'tecteb-marketplace-core'),
+                        (string) ($context['reason'] ?? '')
+                    )
+                    : sprintf(
+                        /* translators: %s: the reason the storefront write refused */
+                        __('تصمیم شما اعمال نشد: همگام‌سازی با ووکامرس انجام نشد (دلیل: %s). وضعیت محصول به همان حالت قبل برگشت، پس چیزی نیمه‌کاره نمانده و می‌توانید پس از رفع اشکال دوباره تصمیم بگیرید.', 'tecteb-marketplace-core'),
+                        (string) ($context['reason'] ?? '')
+                    )),
+            'baseline_not_recorded' => __('تصمیم شما اعمال شد، ولی «مبنای توافق» این محصول ثبت نشد. چیزی پاک نشده و مبنای غلطی هم ثبت نشده است؛ فقط ممکن است در ویرایش بعدی فروشنده، همان پرسش‌های قبلی دوباره پرسیده شوند. یک تأیید یا یک تعیین تکلیفِ فیلد، آن را ثبت می‌کند.', 'tecteb-marketplace-core'),
+            'decision_not_recorded' => __('تصمیم شما اعمال شد، ولی متن آن در سابقهٔ محصول ثبت نشد — پس فروشنده فقط برچسب وضعیت را می‌بیند و جملهٔ شما را نمی‌بیند. متن را با یک تصمیم تازه یا از طریق تیکت به او برسانید.', 'tecteb-marketplace-core'),
             // A forecast, and it says so. «۳۶ مورد انجام می‌شود» would be a
             // promise this page cannot keep, because another member of the
             // same store can save one of these rows in the meantime.

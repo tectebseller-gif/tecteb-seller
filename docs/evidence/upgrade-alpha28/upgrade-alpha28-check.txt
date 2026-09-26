@@ -1,0 +1,51 @@
+=== the site goes back to what alpha.28 leaves behind ===
+installed: 0.1.0-alpha.28   schema: 18
+ok:   the installed package is alpha.28                          0.1.0-alpha.28
+ok:   the baseline column is gone                                0
+ok:   the decision table is gone                                 0
+ok:   and the recorded schema says 18                            18
+projected=1 code=projected wc=55 plugin=0.1.0-alpha.28
+edited=1 wc=55 images=main:18|gallery:4,17
+read=1 wc=55 title=عنوانی_که_مدیر_در_ووکامرس_نوشته short=توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته long=متن_کاملی_که_مدیر_در_ووکامرس_نوشته images=main:18|gallery:4,17 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=محصول_نسخهٔ_قدیمی record_main=4 record_images=4,17,18
+ok:   alpha.28 left a review note on the product                 یادداشت مدیر از زمان alpha.28
+
+=== the files are replaced and an admin page is opened ===
+ok:   there is an admin session to make the request with         1
+installed: 0.1.0-alpha.28 -> 0.1.0-alpha.30   schema: 18 -> 19   admin request: 200
+ok:   the admin page opened                                      200
+ok:   and no activation hook was needed                          18
+ok:   the upgrade gate reached schema 19                         19
+ok:   the baseline column exists now                             1
+ok:   and the decision table with it                             1
+ok:   the baseline arrives EMPTY for the old product             1
+ok:   the manager's sentence became a row in the trail           یادداشت مدیر از زمان alpha.28
+ok:   and the old column was NOT cleared, so a rollback finds it یادداشت مدیر از زمان alpha.28
+
+=== a vendor save on the upgraded product ===
+saved=1 synced=1 vendor_title=عنوان_تازهٔ_فروشنده_144614 vendor_short=توضیح_کوتاه_تازهٔ_فروشنده_144614
+read=1 wc=55 title=عنوانی_که_مدیر_در_ووکامرس_نوشته short=توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته long=متن_کاملی_که_مدیر_در_ووکامرس_نوشته images=main:18|gallery:4,17 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=عنوان_تازهٔ_فروشنده_144614 record_main=4 record_images=4,17,18
+fields=1 title=manager/asks short_description=manager/asks description=manager/settled category=marketplace/settled images=manager/asks
+ok:   the manager's title survived the upgrade                   عنوانی_که_مدیر_در_ووکامرس_نوشته
+ok:   and the full description                                   متن_کاملی_که_مدیر_در_ووکامرس_نوشته
+ok:   and the picture arrangement                                main:18|gallery:4,17
+ok:   behaviour is alpha.28's until the first approval records a baseline 1
+settled=1 code=storefront_kept_all count=3
+ok:   the manager's decision records the first agreement         1
+
+=== the approval path, on a database that came from alpha.28 ===
+stage=reset ok=true product=9 wc=27 claimed=5 shop_title=عنوان_الف_144617 baseline_title=عنوان_الف_144617 pending_revisions=0
+stage=a_published_product_gets_a_revision ok=true code=revision_requested revision=131 shop_title_unchanged=yes
+stage=approving_the_revision_moves_the_agreement ok=true code=revision_approved shop_title=عنوان_ب_144617 record_title=عنوان_ب_144617 baseline_title=عنوان_ب_144617 agreed=yes
+stage=and_a_revision_back_to_a_reaches_the_shop ok=true code=revision_approved shop_title=عنوان_الف_144617 record_title=عنوان_الف_144617 baseline_title=عنوان_الف_144617 shop_is_a=yes two_versions=no
+stage=an_edit_during_a_revision_review_refuses_it ok=true code=storefront_moved fields=title edit_survived=yes still_pending=yes
+stage=and_pressing_again_asks_once_and_settles ok=true code=revision_approved questions=title verdicts=title:conflict|short_description:skip|description:skip|category:skip|images:skip settle=proposal_accepted shop_title=عنوان_ج_144617 record_title=عنوان_ج_144617 baseline_title=عنوان_ج_144617 one_version=yes
+stage=the_managers_title_becomes_the_agreement_without_a_stamp ok=true code=product_reviewed questions=none short_applied=yes baseline_is_the_managers=yes stamp_untouched=yes
+stage=and_the_old_stamp_is_not_a_conflict ok=true code=revision_approved shop_title=عنوان_د_144617 record_title=عنوان_د_144617 verdicts_before=title:skip|short_description:skip|description:skip|category:skip|images:skip vendor_title_reached_the_shop=yes
+stage=a_failed_sync_is_not_a_review ok=true code=sync_failed reason=storage_failed restored=yes status=submitted baseline_untouched=yes
+stage=and_the_same_button_works_once_the_shop_does ok=true code=product_reviewed status=published
+stage=a_failed_sync_leaves_the_revision_pending ok=true code=sync_failed reason=storage_failed still_pending=yes record_rolled_back=yes shop_untouched=yes
+stage=and_the_revision_goes_through_afterwards ok=true code=revision_approved shop_title=عنوان_ه_144617
+stage=restored ok=true status=published one_version=yes agreed=yes pending_revisions=0
+ok:   no stage of the approval path fails after the upgrade      0
+
+checks: 20  pass: 20  fail: 0

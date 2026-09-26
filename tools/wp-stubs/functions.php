@@ -625,6 +625,35 @@ function get_userdata(int $userId): object|false
     ];
 }
 
+/**
+ * A thumbnail source for an attachment id.
+ *
+ * Added when the render test started reaching it: the product review card
+ * shows real pictures, and until a product with images happened to be in the
+ * table while that page rendered, nothing here had ever called this. The stub
+ * answers in WordPress's own shape — [url, width, height] or false — so the
+ * caller's `is_array()` branch and its fallback are both exercised.
+ *
+ * @return array{0:string,1:int,2:int}|false
+ */
+function wp_get_attachment_image_src(int $attachmentId, string $size = 'thumbnail'): array|false
+{
+    if ($attachmentId <= 0) {
+        return false;
+    }
+    $dir = wp_upload_dir();
+    return [(string) $dir['baseurl'] . '/' . $attachmentId . '-' . $size . '.png', 150, 150];
+}
+
+function wp_get_attachment_url(int $attachmentId): string|false
+{
+    if ($attachmentId <= 0) {
+        return false;
+    }
+    $dir = wp_upload_dir();
+    return (string) $dir['baseurl'] . '/' . $attachmentId . '.png';
+}
+
 function wp_upload_dir(): array
 {
     $base = TmcWpStubs\State::$uploadBaseDir ?? sys_get_temp_dir() . '/tmc-stub-uploads';

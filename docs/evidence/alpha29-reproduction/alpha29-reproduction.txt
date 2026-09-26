@@ -1,0 +1,34 @@
+base: ff91e8b (alpha.29: one vendor edit, one question — a review flow wi)
+ok:   FieldMerge.php differs from ff91e8b                            different
+ok:   StorefrontField.php differs from ff91e8b                       different
+ok:   ReviewProducts.php differs from ff91e8b                        different
+
+=== the two files put back to their alpha.29 bytes ===
+ok:   FieldMerge.php is now the alpha.29 file                        same
+ok:   StorefrontField.php is now the alpha.29 file                   same
+ok:   ReviewProducts.php is now the alpha.29 file                    same
+
+tests that failed on alpha.29:
+  testAFieldWithAHeldProposalIsNotReconciledAndDoesNotMoveTheAgreement
+  testARevisionWhoseSyncFailedStaysPendingAndLeavesTheLiveProductAsItWas
+  testASuspensionTheShopRefusedIsReportedAndNotRecorded
+  testAnApprovalWhoseSyncFailedIsNotAReviewAndLeavesTheProductInTheQueue
+  testAnOldStampIsNotEvidenceOnceTheBaselineHasMoved
+  testApprovingARevisionIsRefusedWhenTheShopMovedUnderTheReviewer
+  testEveryApprovalLeavesTheBaselineEqualToWhatTheShopHolds
+ok:   item 1 reproduced: testEveryApprovalLeavesTheBaselineEqualToWhatTheShopHolds failed
+ok:   item 1 reproduced: testApprovingARevisionIsRefusedWhenTheShopMovedUnderTheReviewer failed
+ok:   item 2 reproduced: testAnOldStampIsNotEvidenceOnceTheBaselineHasMoved failed
+ok:   item 3 reproduced: testAnApprovalWhoseSyncFailedIsNotAReviewAndLeavesTheProductInTheQueue failed
+ok:   item 3 reproduced: testARevisionWhoseSyncFailedStaysPendingAndLeavesTheLiveProductAsItWas failed
+ok:   item 3 reproduced: testASuspensionTheShopRefusedIsReportedAndNotRecorded failed
+ok:   item 4 reproduced: testAFieldWithAHeldProposalIsNotReconciledAndDoesNotMoveTheAgreement failed
+
+=== the fix put back ===
+ok:   FieldMerge.php is the shipped file again                       changed
+ok:   StorefrontField.php is the shipped file again                  changed
+ok:   ReviewProducts.php is the shipped file again                   changed
+ok:   nothing fails after the fix                                    none
+ok:   both suites report OK                                          2
+
+checks: 18   passed: 18   failed: 0

@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
+use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
@@ -106,8 +107,19 @@ final class ReviewProducts
      * Approving a revision is the ONLY path that rewrites a live product.
      * The payload was captured when the vendor proposed it, so what the
      * manager saw in the diff is what gets written.
+     *
+     * It now carries the three guards the queue's approval carries, and until
+     * `alpha.30` it carried none of them: no lock on the shop side, no look at
+     * what the sync answered, and no new baseline. The last of those is the
+     * one that compounds. A published product revised to B and then revised
+     * back to A ends with the record saying A and — because the baseline was
+     * never moved — «the vendor changed nothing», so nothing is written and
+     * WooCommerce goes on holding B. Two versions of one product, and neither
+     * screen able to say so.
+     *
+     * @param array<string,string> $seenFingerprints see `approve()`
      */
-    public function approveRevision(int $revisionId): OperationResult
+    public function approveRevision(int $revisionId, array $seenFingerprints = []): OperationResult
     {
         if (!$this->capabilities->can(Capabilities::REVIEW_PRODUCTS)) {
             return OperationResult::failure('forbidden');
@@ -122,6 +134,20 @@ final class ReviewProducts
         $product = $this->products->find($revision->productId);
         if ($product === null) {
             return OperationResult::failure('not_found');
+        }
+        // The same lock the queue's approval carries, on the same side. A
+        // manager can fix a typo in WooCommerce while the revision page is
+        // open, and this is the path that writes over the shop without ever
+        // having shown the manager what is there now.
+        if ($product->status === ProductStatus::Published && $this->storefront !== null) {
+            $moved = $this->storefront->changedSince($product, $seenFingerprints);
+            if ($moved !== []) {
+                return OperationResult::failure('storefront_moved', [
+                    'product_id' => $product->id,
+                    'revision_id' => $revisionId,
+                    'fields' => implode(',', $moved),
+                ]);
+            }
         }
         $details = $this->detailsFromPayload($revision->payload, $product->details);
         // UNGUARDED, and said so. The manager is applying a revision they
@@ -151,19 +177,49 @@ final class ReviewProducts
         if ($updated !== null) {
             $verdict = $this->readiness->check($updated);
             if (!$verdict->ok) {
-                $this->products->updateDetails($product->id, $product->details, ProductRowVersion::UNGUARDED);
-                $this->products->saveSpecs($product->id, $product->specs, $product->specSchemaVersion);
-                $this->products->saveImages($product->id, $product->imageIds, $product->mainImageId);
+                $this->restoreProduct($product);
                 return $verdict;
             }
         }
         // The proposal is now the product, so the storefront copy has to be
-        // the proposal too.
+        // the proposal too — and whether it got there is READ, not assumed.
         if ($product->status === ProductStatus::Published) {
-            $this->catalog->publish($product->id);
+            $sync = $this->catalog->publish($product->id);
+            if (!self::synced($sync)) {
+                // Everything this method wrote goes back. The revision stays
+                // pending, which is the only state from which the manager can
+                // try again, and the product on the site is the one the
+                // shopper was already looking at.
+                $this->restoreProduct($product);
+                return OperationResult::failure('sync_failed', [
+                    'product_id' => $product->id,
+                    'revision_id' => $revisionId,
+                    'reason' => $sync->code,
+                ]);
+            }
+            // The agreement moves with the product. Without this the NEXT
+            // revision is measured against the values of two agreements ago,
+            // and a change back to an earlier value reads as no change at all.
+            if ($sync->ok && !$this->settleBaseline($product->id)) {
+                return OperationResult::failure('baseline_not_recorded', [
+                    'product_id' => $product->id,
+                    'revision_id' => $revisionId,
+                    'applied' => 'yes',
+                ]);
+            }
         }
         $reviewer = $this->capabilities->currentUserId();
-        $this->revisions->decide($revisionId, ProductRevision::APPROVED, $reviewer, '');
+        // Reported, like every other write a decision hangs on: a revision
+        // that stays pending while the product already carries it would be
+        // approved again, and «تأیید شد» would be the only thing that was not
+        // true.
+        if (!$this->revisions->decide($revisionId, ProductRevision::APPROVED, $reviewer, '')) {
+            return OperationResult::failure('storage_failed', [
+                'product_id' => $product->id,
+                'revision_id' => $revisionId,
+                'applied' => 'yes',
+            ]);
+        }
         $this->audit->log(AuditEventCatalog::PRODUCT_REVISION_REVIEWED, $reviewer, 'product', (string) $product->id, [
             'vendor_id' => $product->vendorUserId,
             'product_id' => $product->id,
@@ -230,14 +286,34 @@ final class ReviewProducts
             return OperationResult::failure('storage_failed');
         }
         if ($product->status === ProductStatus::Published) {
-            $this->catalog->publish($productId);
+            $sync = $this->catalog->publish($productId);
+            if (!self::synced($sync)) {
+                // The values are saved — that part is real, and the message
+                // says so. What did not happen is the shop showing them, and
+                // «ذخیره شد» on its own would have left the owner looking for
+                // a title that is in the database and nowhere else.
+                return OperationResult::failure('sync_failed', [
+                    'product_id' => $productId,
+                    'reason' => $sync->code,
+                    'applied' => 'yes',
+                ]);
+            }
         }
         // AFTER the projection, and as its own call: projecting will not move
         // an address somebody else chose, which is right for a vendor's save
         // and wrong for the manager typing one here. Their decision is
         // applied explicitly, once.
-        if ($seo->slug !== '') {
-            $this->catalog->applySlug($productId, $seo->slug);
+        if ($seo->slug !== '' && !$this->catalog->applySlug($productId, $seo->slug)) {
+            // A product with no storefront post has no address to move yet,
+            // and the next projection will write the one just saved. So a
+            // refusal is only a failure when there was something to write to.
+            if ($this->products->find($productId)?->isProjected() ?? false) {
+                return OperationResult::failure('sync_failed', [
+                    'product_id' => $productId,
+                    'reason' => 'slug_not_applied',
+                    'applied' => 'yes',
+                ]);
+            }
         }
         $this->audit->log(
             AuditEventCatalog::PRODUCT_SEO_CHANGED,
@@ -367,7 +443,13 @@ final class ReviewProducts
             if ($failure !== null) {
                 return OperationResult::failure($failure, ['product_id' => $productId, 'field' => $field]);
             }
-            $this->settleField($productId, $field);
+            if (!$this->settleField($productId, $field)) {
+                return OperationResult::failure('baseline_not_recorded', [
+                    'product_id' => $productId,
+                    'field' => $field,
+                    'applied' => 'yes',
+                ]);
+            }
             $this->decisions?->record(
                 $productId,
                 $product->vendorUserId,
@@ -417,7 +499,13 @@ final class ReviewProducts
             $images = StorefrontImages::decode($value);
             $this->products->saveImages($productId, $images->ids(), $images->main);
         }
-        $this->settleField($productId, $field);
+        if (!$this->settleField($productId, $field)) {
+            return OperationResult::failure('baseline_not_recorded', [
+                'product_id' => $productId,
+                'field' => $field,
+                'applied' => 'yes',
+            ]);
+        }
         $this->decisions?->record(
             $productId,
             $product->vendorUserId,
@@ -497,21 +585,61 @@ final class ReviewProducts
      * `description` is copied into the baseline but never into the record:
      * the projector builds it, so writing it home would paste the rendered
      * text into the raw field and the next projection would render it again.
+     *
+     * **Returns false when any part of that failed, and the order matters.**
+     * The baseline is the shop's values; if copying them home did not stick,
+     * recording them as agreed would say «the vendor asked for the old value»
+     * on the next save and write it back over the shop. So a failed copy stops
+     * the baseline from being written at all — and no baseline is a state the
+     * code already knows how to be safe in (`alpha.28`'s rule, one question
+     * per field), while a wrong baseline is not.
+     *
+     * @return bool false when the record or the baseline was not written
      */
-    private function settleBaseline(int $productId): void
+    private function settleBaseline(int $productId): bool
     {
         if ($this->storefront === null) {
-            return;
+            // No WooCommerce at all: there is no second side to agree with,
+            // and `publish()` has already said so in its own words.
+            return true;
         }
         $product = $this->products->find($productId);
         if ($product === null || !$product->isProjected()) {
-            return;
+            // The sync reported success, so a missing link here is a fault
+            // rather than a normal state.
+            return false;
         }
         $values = $this->storefront->storefrontValues($product);
         if ($values === []) {
-            return;     // no storefront row to agree with; nothing to record
+            return false;   // projected, and yet no storefront row to read
         }
         $roundTrip = $this->storefront->reconcile($product);
+        // A field whose proposal is still waiting is not part of the
+        // agreement, and it is not copied home either. Measured, not reasoned:
+        // `alpha.30`'s own evidence run found what happens without this. The
+        // projection HELD the vendor's title because the manager had edited it,
+        // the reconciliation then wrote the manager's title into the record —
+        // and from that moment the record and the baseline agreed, so the
+        // verdict became `skip`, the review screen asked nothing, and the
+        // vendor's proposal sat in the meta table where nobody would ever see
+        // it again. Recording the shop's value as the agreed one is worse
+        // still: it erases the evidence that the manager moved the field, and
+        // the NEXT projection writes the vendor's value straight over it.
+        //
+        // So for a disputed field the record keeps what the vendor asked for,
+        // the agreement keeps whatever it already said, and the question stays
+        // on the screen until somebody answers it.
+        foreach ($this->storefront->compare($product) as $row) {
+            if (!$row->hasPending) {
+                continue;
+            }
+            unset($roundTrip[$row->key]);
+            if ($product->baseline !== null && $product->baseline->has($row->key)) {
+                $values[$row->key] = $product->baseline->get($row->key);
+            } else {
+                unset($values[$row->key]);
+            }
+        }
         $changes = [];
         foreach (['title' => 'title', 'short_description' => 'shortDescription', 'category' => 'categoryKey'] as $key => $property) {
             if (!array_key_exists($key, $roundTrip)) {
@@ -527,14 +655,39 @@ final class ReviewProducts
                 $changes[$property] = $value;
             }
         }
-        if ($changes !== []) {
-            $this->products->updateDetails($productId, $product->details->with($changes), ProductRowVersion::UNGUARDED);
+        if ($changes !== []
+            && !$this->products->updateDetails($productId, $product->details->with($changes), ProductRowVersion::UNGUARDED)) {
+            return false;
         }
         if (array_key_exists('images', $roundTrip)) {
             $images = StorefrontImages::decode($roundTrip['images']);
-            $this->products->saveImages($productId, $images->ids(), $images->main);
+            if (!$this->products->saveImages($productId, $images->ids(), $images->main)) {
+                return false;
+            }
         }
-        $this->products->saveBaseline($productId, ApprovedBaseline::of($values));
+        return $this->products->saveBaseline($productId, ApprovedBaseline::of($values));
+    }
+
+    /**
+     * Did the storefront actually take it?
+     *
+     * `woocommerce_missing` is the one refusal that leaves nothing out of
+     * step: there is no shop, the product already answers `isProjected()` with
+     * false, and the marketplace decision stands on its own — which is a rule
+     * this codebase has had since the catalog existed. Every other code means
+     * the shop was there and the write did not happen.
+     */
+    private static function synced(OperationResult $result): bool
+    {
+        return $result->ok || $result->code === 'woocommerce_missing';
+    }
+
+    /** Put back everything an approved revision wrote, exactly as it was. */
+    private function restoreProduct(Product $product): void
+    {
+        $this->products->updateDetails($product->id, $product->details, ProductRowVersion::UNGUARDED);
+        $this->products->saveSpecs($product->id, $product->specs, $product->specSchemaVersion);
+        $this->products->saveImages($product->id, $product->imageIds, $product->mainImageId);
     }
 
     /**
@@ -543,22 +696,25 @@ final class ReviewProducts
      * Without this, a manager who answers a question would be asked it again
      * on the next save: the decision changes the shop and the stamp, but the
      * baseline would still hold the value from before the argument.
+     *
+     * @return bool false when the baseline was not written, so the caller can
+     *         say that the decision took effect and the question will return
      */
-    private function settleField(int $productId, string $field): void
+    private function settleField(int $productId, string $field): bool
     {
         if ($this->storefront === null) {
-            return;
+            return true;
         }
         $product = $this->products->find($productId);
         if ($product === null || !$product->isProjected()) {
-            return;
+            return false;
         }
         $values = $this->storefront->storefrontValues($product);
         if (!array_key_exists($field, $values)) {
-            return;
+            return false;
         }
         $baseline = $product->baseline ?? ApprovedBaseline::of([]);
-        $this->products->saveBaseline($productId, $baseline->with($field, $values[$field]));
+        return $this->products->saveBaseline($productId, $baseline->with($field, $values[$field]));
     }
 
     /** The category round-trips as ONE term id, not as the id list WooCommerce keeps. */
@@ -649,25 +805,68 @@ final class ReviewProducts
         // The storefront follows the decision immediately: a product the
         // manager just approved has to be buyable, and one they suspended has
         // to stop being buyable in the same request (ADR-008).
-        if ($to === ProductStatus::Published) {
-            $this->catalog->publish($productId);
-            // One action, one reconciliation: what the shop actually kept is
-            // written home and recorded as the baseline. From here the record
-            // and the shop say the same thing, so the vendor's form shows the
-            // approved values rather than a stale copy of their own draft —
-            // and the NEXT edit can be measured against something.
-            $this->settleBaseline($productId);
-        } else {
-            $this->catalog->withdraw($productId, $note);
+        //
+        // And its answer is read. `alpha.29` made this call and dropped the
+        // result: a projection that refused left the record saying «منتشر شد»
+        // with nothing of the kind on the shop, the manager was told the
+        // review had gone through, and the baseline recorded an agreement
+        // about values nobody had agreed to.
+        $sync = $to === ProductStatus::Published
+            ? $this->catalog->publish($productId)
+            : $this->catalog->withdraw($productId, $note);
+        if (!self::synced($sync)) {
+            // The status goes back where it was. Two reasons, and either alone
+            // would be enough: a record that says published while the shop
+            // holds nothing is the lie this whole round is about, and
+            // `published → published` is not a transition — so a product left
+            // Published here could never be approved again.
+            $restored = $this->products->updateStatus($productId, $product->status, $product->reviewNote);
+            return OperationResult::failure('sync_failed', [
+                'product_id' => $productId,
+                'to' => $to->value,
+                'reason' => $sync->code,
+                'restored' => $restored ? 'yes' : 'no',
+            ]);
         }
         $reviewer = $this->capabilities->currentUserId();
-        $this->decisions?->record($productId, $product->vendorUserId, (int) $reviewer, $to->value, $note);
+        // Logged here, before the two writes below: the decision itself has
+        // happened and the shop has followed it, and that is true whatever the
+        // agreement record does next.
         $this->audit->log(AuditEventCatalog::PRODUCT_REVIEWED, $reviewer, 'product', (string) $productId, [
             'vendor_id' => $product->vendorUserId,
             'product_id' => $productId,
             'decision' => $to->value,
             'has_note' => trim($note) !== '',
         ]);
+        // One action, one reconciliation: what the shop actually kept is
+        // written home and recorded as the baseline. From here the record and
+        // the shop say the same thing, so the vendor's form shows the approved
+        // values rather than a stale copy of their own draft — and the NEXT
+        // edit can be measured against something.
+        // `$sync->ok`, not `synced()`: with no WooCommerce at all nothing was
+        // written, so there is no second side to have agreed with — and
+        // recording an agreement about a shop that does not exist is the
+        // invented baseline this whole column was designed to avoid.
+        if ($to === ProductStatus::Published && $sync->ok && !$this->settleBaseline($productId)) {
+            return OperationResult::failure('baseline_not_recorded', [
+                'product_id' => $productId,
+                'to' => $to->value,
+                'applied' => 'yes',
+            ]);
+        }
+        if ($this->decisions !== null
+            && !$this->decisions->record($productId, $product->vendorUserId, (int) $reviewer, $to->value, $note)) {
+            // The whole point of the trail is that the vendor reads the
+            // sentence the manager wrote. A status chip with no message is
+            // exactly the complaint this table was built for, so a row that
+            // did not get written is said out loud rather than counted as a
+            // clean review.
+            return OperationResult::failure('decision_not_recorded', [
+                'product_id' => $productId,
+                'to' => $to->value,
+                'applied' => 'yes',
+            ]);
+        }
         return OperationResult::success('product_reviewed', ['product_id' => $productId, 'to' => $to->value]);
     }
 

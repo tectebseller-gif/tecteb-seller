@@ -7,7 +7,7 @@ ok:   a failed new request does not fall back to the old list    false
 ok:   it says the search failed instead                          true
 ok:   a render held for focus is dropped when the query moved on false
       without the guard: out-of-order  -> تجهیزات پزشکی › اورولوژی شناسهٔ ووکامرس: 23 · بدون محصول · بدون الگوی مشخصات تجهیزات پزشکی
-      without the guard: failed-new    -> تجهیزات پزشکی › بیهوشی و تنفسی › آمبوبگ شناسهٔ ووکامرس: 21 · بدون محصول · بدون الگوی مشخصا | status: 2 دسته پیدا شد.
+      without the guard: failed-new    -> تجهیزات پزشکی › بیهوشی و تنفسی › آمبوبگ شناسهٔ ووکامرس: 18 · 28 محصول · بدون الگوی مشخصات  | status: 2 دسته پیدا شد.
       without the guard: deferred      -> تجهیزات پزشکی › اورولوژی شناسهٔ ووکامرس: 23 · بدون محصول · بدون الگوی مشخصات تجهیزات پزشکی
 ok:   without it, a stale answer survives a failed new request   true
 ok:   and the screen stops admitting the search failed           false

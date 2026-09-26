@@ -269,6 +269,11 @@ final class ProductReviewPage
             echo '<p>' . esc_html__('نسخه پیشنهادی در انتظاری وجود ندارد.', 'tecteb-marketplace-core') . '</p></section>';
             return;
         }
+        // The same lock the queue's form carries. This form writes over a
+        // PUBLISHED product, so it is the one where a manager's edit made
+        // between drawing the page and pressing the button costs the most.
+        /** @var StorefrontFieldsInterface|null $storefront */
+        $storefront = $this->container->get(StorefrontFieldsInterface::class);
         foreach ($pending as $revision) {
             $product = $products->find($revision->productId);
             if ($product === null) {
@@ -283,7 +288,7 @@ final class ProductReviewPage
                 . $this->decisionForm('revision', $revision->id, [
                     'approve' => __('تأیید تغییر', 'tecteb-marketplace-core'),
                     'reject' => __('رد تغییر', 'tecteb-marketplace-core'),
-                ])
+                ], $storefront?->fingerprints($product) ?? [])
                 . '</article>';
         }
         echo '</section>';
@@ -561,7 +566,7 @@ final class ProductReviewPage
             'product:approve' => $review->approve($id, self::seenFingerprints($request)),
             'product:changes' => $review->requestChanges($id, $note),
             'product:reject' => $review->reject($id, $note),
-            'revision:approve' => $review->approveRevision($id),
+            'revision:approve' => $review->approveRevision($id, self::seenFingerprints($request)),
             'revision:reject' => $review->rejectRevision($id, $note),
             'seo:save' => $review->setSeo(
                 $id,

@@ -1,0 +1,49 @@
+
+=== guard in place: the product is made by the previous package ===
+seeded=1 product=37 vendor=2 images=4,17,18
+projected=1 code=projected wc=52 plugin=0.1.0-alpha.28
+
+--- the manager edits it in WooCommerce, before any upgrade ---
+edited=1 wc=52 images=main:18|gallery:4,17
+read=1 wc=52 title=عنوانی_که_مدیر_در_ووکامرس_نوشته short=توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته long=متن_کاملی_که_مدیر_در_ووکامرس_نوشته images=main:18|gallery:4,17 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=محصول_نسخهٔ_قدیمی record_main=4 record_images=4,17,18
+
+--- upgrade, then the vendor saves and it is synced ---
+installed: 0.1.0-alpha.28 -> 0.1.0-alpha.30  (product=37 wc=52)
+saved=1 synced=1 vendor_title=عنوان_تازهٔ_فروشنده_144336 vendor_short=توضیح_کوتاه_تازهٔ_فروشنده_144336
+read=1 wc=52 title=عنوانی_که_مدیر_در_ووکامرس_نوشته short=توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته long=متن_کاملی_که_مدیر_در_ووکامرس_نوشته images=main:18|gallery:4,17 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=عنوان_تازهٔ_فروشنده_144336 record_main=4 record_images=4,17,18
+fields=1 title=manager/asks short_description=manager/asks description=manager/settled category=marketplace/settled images=manager/asks
+ok:   the manager's title survived the upgrade                 عنوانی_که_مدیر_در_ووکامرس_نوشته
+ok:   and the short description                                توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته
+ok:   and the full description                                 متن_کاملی_که_مدیر_در_ووکامرس_نوشته
+ok:   the featured picture and gallery order survived          main:18|gallery:4,17
+ok:   and the SEO fields were never touched                    عنوان_سئوی_نوشتهٔ_مدیر
+FAIL: title is unsettled and asks                              expected=unknown/asks actual=manager/asks
+FAIL: short_description is unsettled and asks                  expected=unknown/asks actual=manager/asks
+FAIL: description is unsettled and asks                        expected=unknown/asks actual=manager/asks
+FAIL: images is unsettled and asks                             expected=unknown/asks actual=manager/asks
+
+--- the manager settles the product, and it stops asking ---
+settled=1 code=storefront_kept_all count=3
+fields=1 title=manager/settled short_description=manager/settled description=manager/settled category=marketplace/settled images=manager/settled
+ok:   after «نسخهٔ ووکامرس بماند» nothing is unsettled 0
+ok:   and nothing is still asking                              0
+ok:   and the record now agrees with the shop                  عنوانی_که_مدیر_در_ووکامرس_نوشته
+ok:   including which picture is featured                      18
+
+--- a genuinely new product is still filled in normally ---
+projected=1 code=projected wc=53 plugin=0.1.0-alpha.30
+read=1 wc=53 title=محصول_نسخهٔ_قدیمی short=توضیح_کوتاه_اولیهٔ_فروشنده long=برند:_برند_نمونه
+
+توضیح_کوتاه_اولیهٔ_فروشنده images=main:4|gallery:17,18 seo_title= seo_desc= seo_keyword= record_title=محصول_نسخهٔ_قدیمی record_main=4 record_images=4,17,18
+ok:   a new product gets the vendor's title                    محصول_نسخهٔ_قدیمی
+fields=1 title=marketplace/settled short_description=marketplace/settled description=marketplace/settled category=marketplace/settled images=marketplace/settled
+ok:   and nothing about it is unsettled                        0
+
+=== the same run with the guard reverted to the previous rule ===
+reverted: an absent stamp means «ours» again
+read=1 wc=54 title=عنوانی_که_مدیر_در_ووکامرس_نوشته short=توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته long=متن_کاملی_که_مدیر_در_ووکامرس_نوشته images=main:18|gallery:4,17 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=عنوان_تازهٔ_فروشنده_144347 record_main=4 record_images=4,17,18
+FAIL: without the guard the manager's title is destroyed       expected=destroyed actual=kept
+FAIL: and the picture arrangement with it                      expected=destroyed actual=kept
+ok:   the installed plugin is the delivered package            1
+
+checks: 18  pass: 12  fail: 6

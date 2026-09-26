@@ -3,22 +3,8 @@ PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
 Runtime:       PHP 8.4.19
 Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
-....F..............                                               19 / 19 (100%)
+...................                                               19 / 19 (100%)
 
-Time: 00:19.048, Memory: 12.00 MB
+Time: 00:20.065, Memory: 12.00 MB
 
-There was 1 failure:
-
-1) Tecteb\Marketplace\Tests\Packaging\PackagingTest::testBuildIsReproducible
-two builds of the same source are byte-identical
-Failed asserting that two strings are identical.
---- Expected
-+++ Actual
-@@ @@
--'a6f0fe69827e854cf188eee6ee79344e5b90ac3c38fe7edce6d88462110ab242'
-+'b3b237b4fb45ef83f91ad28c3cbeef29445acb50f771ea0c0f39094eaa3be824'
-
-/home/user/tecteb-seller/tests/Packaging/PackagingTest.php:212
-
-FAILURES!
-Tests: 19, Assertions: 20187, Failures: 1.
+OK (19 tests, 20212 assertions)

@@ -18,10 +18,38 @@ namespace Tecteb\Marketplace\Modules\Product\Domain;
  * With a baseline the two questions come apart:
  *
  *   vendorChanged  = the record no longer equals the baseline
- *   managerChanged = the shop no longer equals what we last wrote
+ *   managerChanged = the shop is neither what we wrote nor what was agreed
  *
  * and only `vendorChanged && managerChanged && the two results differ` is a
  * disagreement. Everything else has exactly one answer.
+ *
+ * **Both halves are measured from the same value, and `alpha.30` is here
+ * because `alpha.29` measured them from two.** The vendor's half was measured
+ * against the baseline and the manager's against the projection stamp — the
+ * fingerprint of what the marketplace last WROTE. Those are answers to
+ * different questions, and they part company the moment an approval adopts
+ * the manager's value as the new agreement: the baseline moves, the stamp
+ * does not, and from then on the stamp says «somebody changed this» about a
+ * field the manager has not touched since. The next vendor edit was called a
+ * conflict on that evidence alone.
+ *
+ * So the two are now separate in meaning as well as in name, and the
+ * manager's half needs BOTH of them:
+ *
+ *   * the **baseline** is what both sides agreed — «is what the shop holds
+ *     the value this vendor's edit was measured from?»;
+ *   * the **stamp** is provenance — «is the text in the shop still the text we
+ *     put there?».
+ *
+ * Each goes stale on its own: the stamp when an agreement adopts the manager's
+ * value, the baseline when the marketplace writes a field between two
+ * agreements. A field has been changed by somebody else only when neither one
+ * recognises what is there.
+ *
+ * Nothing here adopts the manager's value into the marketplace's ownership to
+ * achieve that — «راه‌حل نباید مقدار مدیر را بدون مجوز به مالکیت افزونه
+ * درآورد». No stamp is written and no flag is set by this class; the stamp
+ * simply stops being asked a question it cannot answer.
  *
  * Nothing here calls WordPress and nothing here reads a database: it is the
  * rule, alone, so it can be argued with in a unit test.
@@ -72,6 +100,11 @@ final class FieldMerge
          * «the two of you disagree». Without this, every later change to the
          * short description re-renders the text, re-raises the difference and
          * asks the same question again for ever.
+         *
+         * It needs no special case in the measurement below: a field the
+         * marketplace re-renders between two agreements still carries OUR stamp
+         * on what the shop holds, and that is enough to know a person has not
+         * touched it.
          */
         bool $derived = false
     ): string {
@@ -84,10 +117,34 @@ final class FieldMerge
             return self::WRITE;
         }
         if ($stamp === '') {
+            // Older than the stamps, and a recorded agreement does not change
+            // that: an approval settles what the two sides hold, not who
+            // typed the text that was already in WooCommerce. `alpha.27`
+            // exists because that guess is how a manager's year-old
+            // description gets overwritten, and the manager still ends this
+            // state per field, in words.
             return self::UNSETTLED;
         }
 
-        $managerChanged = !hash_equals($stamp, self::fingerprint($shop));
+        // Two pieces of evidence, and each is stale in a different direction —
+        // which is why `alpha.29` got this wrong with one of them and the first
+        // attempt at `alpha.30` got it wrong with the other:
+        //
+        //   * the STAMP is rewritten every time the marketplace writes, so it
+        //     knows about our own writes — but it says nothing about a value the
+        //     agreement ADOPTED from the manager, and goes on reporting their
+        //     untouched field as changed for ever;
+        //   * the BASELINE knows what both sides agreed — but between one
+        //     agreement and the next the marketplace writes fields itself, and
+        //     measured against a baseline that has not moved, our own write
+        //     reads as somebody else's edit.
+        //
+        // So somebody else has changed this field only when BOTH say so: what
+        // the shop holds is neither what we wrote nor what was agreed. Measured,
+        // not reasoned — with the baseline alone, clearing the pictures on a real
+        // WooCommerce install came back as a conflict with an edit nobody made.
+        $agreed = $hasBaseline && hash_equals(self::fingerprint($baseline), self::fingerprint($shop));
+        $managerChanged = !$agreed && !hash_equals($stamp, self::fingerprint($shop));
 
         if ($derived && $managerChanged) {
             return self::MANAGER;

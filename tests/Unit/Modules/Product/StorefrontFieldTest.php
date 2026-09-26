@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Tests\Unit\Modules\Product;
 
 use PHPUnit\Framework\TestCase;
+use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontField;
 
 /**
@@ -199,5 +200,51 @@ final class StorefrontFieldTest extends TestCase
         foreach (['short_description', 'description', 'category', 'images'] as $field) {
             self::assertTrue(StorefrontField::mayBeEmpty($field), $field . ' may legitimately be empty');
         }
+    }
+
+    public function testAHeldProposalStillAsksEvenWhenTheVerdictIsSkip(): void
+    {
+        // Found by `alpha.30`'s own evidence run, not reasoned about. The
+        // projection HELD the vendor's title because the manager had edited it;
+        // the approval then reconciled the manager's value into the record, and
+        // from that moment the record equalled the baseline — so the verdict
+        // was `skip`, the screen asked nothing, and the vendor's proposal sat
+        // in the meta table where nobody would see it again.
+        //
+        // `settleBaseline()` no longer reconciles a disputed field, so the
+        // verdict stays `conflict`. This is the second lock on the same door:
+        // a recorded proposal is an unanswered question whatever the verdict
+        // says.
+        $field = new StorefrontField(
+            'title',
+            'عنوان یکسان',
+            'عنوان یکسان',
+            'عنوانی که فروشنده خواسته',
+            StorefrontField::OWNER_MARKETPLACE,
+            true,
+            false,
+            true,
+            FieldMerge::SKIP
+        );
+        self::assertTrue($field->needsDecision(), 'پیشنهاد ثبت‌شده بی‌پاسخ است');
+    }
+
+    public function testAFieldWithNoProposalAndASkipVerdictAsksNothing(): void
+    {
+        // And the rule `alpha.29` exists for is untouched: the manager edited
+        // a field the vendor never asked about, so there is nothing to decide.
+        $field = new StorefrontField(
+            'title',
+            'عنوان تأییدشده',
+            'عنوانی که مدیر نوشت',
+            '',
+            StorefrontField::OWNER_MANAGER,
+            true,
+            false,
+            false,
+            FieldMerge::SKIP
+        );
+        self::assertFalse($field->needsDecision());
+        self::assertTrue($field->isManagerEditLeftAlone());
     }
 }

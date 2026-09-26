@@ -1,0 +1,88 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+...............F......                                            22 / 22 (100%)
+
+Time: 00:00.016, Memory: 12.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Unit\Modules\Product\FieldMergeTest::testAnOldStampIsNotEvidenceOnceTheBaselineHasMoved
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'write'
++'conflict'
+
+/home/user/tecteb-seller/tests/Unit/Modules/Product/FieldMergeTest.php:302
+
+FAILURES!
+Tests: 22, Assertions: 30, Failures: 1.
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+FFFFFF.                                                             7 / 7 (100%)
+
+Time: 00:01.969, Memory: 14.00 MB
+
+There were 6 failures:
+
+1) Tecteb\Marketplace\Tests\Database\ApprovalSyncAndBaselineTest::testEveryApprovalLeavesTheBaselineEqualToWhatTheShopHolds
+the recorded agreement must be what the shop holds — after the revision to B
+Failed asserting that two arrays are identical.
+--- Expected
++++ Actual
+@@ @@
+ Array &0 [
+-    'title' => 'دستکش نیتریل',
++    'title' => 'دستکش لاتکس',
+     'short_description' => '',
+     'description' => 'ساخته‌شده: ',
+     'category' => 'gloves',
+     'images' => 'main:701|gallery:',
+ ]
+
+/home/user/tecteb-seller/tests/Database/ApprovalSyncAndBaselineTest.php:361
+/home/user/tecteb-seller/tests/Database/ApprovalSyncAndBaselineTest.php:140
+
+2) Tecteb\Marketplace\Tests\Database\ApprovalSyncAndBaselineTest::testApprovingARevisionIsRefusedWhenTheShopMovedUnderTheReviewer
+alpha.29 approved it and the manager's title was gone
+Failed asserting that true is false.
+
+/home/user/tecteb-seller/tests/Database/ApprovalSyncAndBaselineTest.php:176
+
+3) Tecteb\Marketplace\Tests\Database\ApprovalSyncAndBaselineTest::testAFieldWithAHeldProposalIsNotReconciledAndDoesNotMoveTheAgreement
+the record keeps what the vendor asked for while the question is open
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'دستکش نیتریل'
++'دستکش لاتکس استریل'
+
+/home/user/tecteb-seller/tests/Database/ApprovalSyncAndBaselineTest.php:235
+
+4) Tecteb\Marketplace\Tests\Database\ApprovalSyncAndBaselineTest::testAnApprovalWhoseSyncFailedIsNotAReviewAndLeavesTheProductInTheQueue
+alpha.29 answered product_reviewed
+Failed asserting that true is false.
+
+/home/user/tecteb-seller/tests/Database/ApprovalSyncAndBaselineTest.php:274
+
+5) Tecteb\Marketplace\Tests\Database\ApprovalSyncAndBaselineTest::testARevisionWhoseSyncFailedStaysPendingAndLeavesTheLiveProductAsItWas
+alpha.29 answered revision_approved
+Failed asserting that true is false.
+
+/home/user/tecteb-seller/tests/Database/ApprovalSyncAndBaselineTest.php:296
+
+6) Tecteb\Marketplace\Tests\Database\ApprovalSyncAndBaselineTest::testASuspensionTheShopRefusedIsReportedAndNotRecorded
+Failed asserting that true is false.
+
+/home/user/tecteb-seller/tests/Database/ApprovalSyncAndBaselineTest.php:324
+
+FAILURES!
+Tests: 7, Assertions: 55, Failures: 6.

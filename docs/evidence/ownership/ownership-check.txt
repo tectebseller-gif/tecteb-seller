@@ -1,8 +1,8 @@
 === the guard in place ===
-stage=reset ok=true product=8 cleared=5 claimed=5
-stage=project ok=true product=8 wc=26 code=projected
+stage=reset ok=true product=9 cleared=5 claimed=5
+stage=project ok=true product=9 wc=27 code=projected
 stage=edit ok=true title=عنوان_ویرایش‌شدهٔ_مدیر_1
-stage=resave ok=true storefront=عنوان_ویرایش‌شدهٔ_مدیر_1 pending=عنوان_تازهٔ_فروشنده_1211 survived=yes
+stage=resave ok=true storefront=عنوان_ویرایش‌شدهٔ_مدیر_1 pending=عنوان_تازهٔ_فروشنده_1438 survived=yes
 stage=compare ok=true owner=manager needs_decision=yes
 stage=keep ok=true code=storefront_kept storefront=عنوان_ویرایش‌شدهٔ_مدیر_1 record=عنوان_ویرایش‌شدهٔ_مدیر_1 one_version=yes
 stage=keep_survives_projection ok=true storefront=عنوان_ویرایش‌شدهٔ_مدیر_1 pending=none
@@ -10,8 +10,8 @@ stage=hold_short ok=true pending=توضیح_کوتاه_پیشنهادی_فرو
 stage=accept ok=true code=proposal_accepted storefront=توضیح_کوتاه_پیشنهادی_فرو pending_cleared=yes
 stage=accept_returns_the_field ok=true storefront=توضیح_کوتاه_بعدی_فروشنده
 stage=category_edit_survives ok=true moved_to=15 now=15
-stage=render ok=true bytes=128627 gallery=yes category_path=yes prepare_button=n/a editor_link=yes bare_counter_only=no
-stage=image_swap_survives_a_sync ok=true manager=main:18|gallery:4,17 now=main:18|gallery:4,17 pending=none
+stage=render ok=true bytes=147561 gallery=yes category_path=yes prepare_button=n/a editor_link=yes bare_counter_only=no
+stage=image_swap_survives_a_sync ok=true manager=main:18|gallery:4,17 now=main:18|gallery:4,17 pending=recorded
 stage=accept_images_is_idempotent ok=true after_first=main:4|gallery:17,18 after_second=main:4|gallery:17,18
 stage=no_featured_picture_is_seen_as_a_change ok=true now=main:0|gallery:17,18 pending=none
 stage=images_restored ok=true now=main:4|gallery:17,18
@@ -40,18 +40,18 @@ ok:   the review card shows pictures, not a count                yes
 ok:   and the category as a path                                 yes
 
 === the same run with the guard removed ===
-stage=reset ok=true product=8 cleared=5 claimed=5
-stage=project ok=true product=8 wc=26 code=projected
+stage=reset ok=true product=9 cleared=5 claimed=5
+stage=project ok=true product=9 wc=27 code=projected
 stage=edit ok=true title=عنوان_ویرایش‌شدهٔ_مدیر_1
-stage=resave ok=false storefront=عنوان_تازهٔ_فروشنده_1211 pending= survived=no
+stage=resave ok=false storefront=عنوان_تازهٔ_فروشنده_1438 pending= survived=no
 stage=compare ok=false owner=marketplace needs_decision=no
-stage=keep ok=false code=storefront_kept storefront=عنوان_تازهٔ_فروشنده_1211 record=عنوان_تازهٔ_فروشنده_1211 one_version=yes
-stage=keep_survives_projection ok=false storefront=عنوان_تازهٔ_فروشنده_1211 pending=none
+stage=keep ok=false code=storefront_kept storefront=عنوان_تازهٔ_فروشنده_1438 record=عنوان_تازهٔ_فروشنده_1438 one_version=yes
+stage=keep_survives_projection ok=false storefront=عنوان_تازهٔ_فروشنده_1438 pending=none
 stage=hold_short ok=false pending=
 stage=accept ok=true code=proposal_accepted storefront=توضیح_کوتاه_پیشنهادی_فرو pending_cleared=yes
 stage=accept_returns_the_field ok=true storefront=توضیح_کوتاه_بعدی_فروشنده
 stage=category_edit_survives ok=false moved_to=15 now=18
-stage=render ok=true bytes=122734 gallery=yes category_path=yes prepare_button=n/a editor_link=yes bare_counter_only=no
+stage=render ok=true bytes=146229 gallery=yes category_path=yes prepare_button=n/a editor_link=yes bare_counter_only=no
 stage=image_swap_survives_a_sync ok=false manager=main:18|gallery:4,17 now=main:4|gallery:17,18 pending=none
 stage=accept_images_is_idempotent ok=true after_first=main:4|gallery:17,18 after_second=main:4|gallery:17,18
 stage=no_featured_picture_is_seen_as_a_change ok=false now=main:4|gallery:17,18 pending=none
