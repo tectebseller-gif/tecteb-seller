@@ -1,4 +1,4 @@
-packages under test: 0.1.0-alpha.32 -> 0.1.0-alpha.34
+packages under test: 0.1.0-alpha.32 -> 0.1.0-alpha.35
 === 1. the site goes back to what alpha.32 leaves behind ===
 ok:   alpha.32 is the installed package                          0.1.0-alpha.32
 ok:   the recorded schema says 19                                19
@@ -10,8 +10,8 @@ ok:   and it is alpha.32 serving it                              1
 ok:   alpha.32 never mentions the column anywhere in src/        0
 
 === 2. the files are replaced and an admin page is opened ===
-installed: 0.1.0-alpha.32 -> 0.1.0-alpha.34   schema: 19 -> 20   admin request: 200
-ok:   the new package is installed                               0.1.0-alpha.34
+installed: 0.1.0-alpha.32 -> 0.1.0-alpha.35   schema: 19 -> 20   admin request: 200
+ok:   the new package is installed                               0.1.0-alpha.35
 ok:   the admin page opened                                      200
 ok:   no activation hook was needed                              19
 ok:   the upgrade gate reached schema 20                         20
@@ -41,7 +41,7 @@ ok:   and no row lost its key                                    0
 ok:   nor disagrees with its title                               0
 
 === 6. back to alpha.32, and this time a title is edited and a product made ===
-edited product 1 («عنوان تازهٔ فروشنده 200655» -> «یدک خودرو ۱۰۰۰۰۰۰۰۰۰۰۰۰»), created product 196
+edited product 1 («عنوان تازهٔ فروشنده 200655» -> «یدک خودرو ۱۰۰۰۰۰۰۰۰۰۰۰۰»), created product 198
 ok:   the edited row still carries its OLD key                   1avbdbeabbd aeabanbf axambeaqbdakbf 006200655
 ok:   the created row has no key at all                          1
 
@@ -73,7 +73,7 @@ ok:   every key was rebuilt                                      0
 ok:   and the recorded build caught up                           2
 
 === 10. a settled table is not written to again ===
-ok:   three more requests changed no key                         196c90e6b22b09fb0efe883b7ba210fd
+ok:   three more requests changed no key                         4f19babb8ad7a7f3d797a1de31e3bc6d
 ok:   nothing is left open                                       closed
 ok:   the fixture put the catalogue back                         102
 ok:   and the repair followed the title back                     0

@@ -1,0 +1,104 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+FFFFFFFF.FFF                                                      12 / 12 (100%)
+
+Time: 00:03.897, Memory: 14.00 MB
+
+There were 11 failures:
+
+1) Tecteb\Marketplace\Tests\Database\TitleSortRepairFailureTest::testARefusedWriteStopsTheSweepWhereverItHappens with data set "short batch, first row" (1, 5)
+a refused write is not a finished sweep
+Failed asserting that two strings are not identical.
+
+/home/user/tecteb-seller/tests/Database/TitleSortRepairFailureTest.php:91
+
+2) Tecteb\Marketplace\Tests\Database\TitleSortRepairFailureTest::testARefusedWriteStopsTheSweepWhereverItHappens with data set "short batch, middle row" (3, 5)
+a refused write is not a finished sweep
+Failed asserting that two strings are not identical.
+
+/home/user/tecteb-seller/tests/Database/TitleSortRepairFailureTest.php:91
+
+3) Tecteb\Marketplace\Tests\Database\TitleSortRepairFailureTest::testARefusedWriteStopsTheSweepWhereverItHappens with data set "short batch, last row" (5, 5)
+a refused write is not a finished sweep
+Failed asserting that two strings are not identical.
+
+/home/user/tecteb-seller/tests/Database/TitleSortRepairFailureTest.php:91
+
+4) Tecteb\Marketplace\Tests\Database\TitleSortRepairFailureTest::testARefusedWriteStopsTheSweepWhereverItHappens with data set "full batch, first row" (1, 200)
+the cursor stops at the last row that was actually written
+Failed asserting that 200 is identical to 0.
+
+/home/user/tecteb-seller/tests/Database/TitleSortRepairFailureTest.php:98
+
+5) Tecteb\Marketplace\Tests\Database\TitleSortRepairFailureTest::testARefusedWriteStopsTheSweepWhereverItHappens with data set "full batch, middle row" (100, 200)
+the cursor stops at the last row that was actually written
+Failed asserting that 200 is identical to 99.
+
+/home/user/tecteb-seller/tests/Database/TitleSortRepairFailureTest.php:98
+
+6) Tecteb\Marketplace\Tests\Database\TitleSortRepairFailureTest::testARefusedWriteStopsTheSweepWhereverItHappens with data set "full batch, last row" (200, 200)
+the cursor stops at the last row that was actually written
+Failed asserting that 200 is identical to 199.
+
+/home/user/tecteb-seller/tests/Database/TitleSortRepairFailureTest.php:98
+
+7) Tecteb\Marketplace\Tests\Database\TitleSortRepairFailureTest::testARefusedWriteInTheAuditIsNotReportedAsClean
+a refused repair is not a clean table
+Failed asserting that two strings are not identical.
+
+/home/user/tecteb-seller/tests/Database/TitleSortRepairFailureTest.php:142
+
+8) Tecteb\Marketplace\Tests\Database\TitleSortRepairFailureTest::testAfterTheFailureIsLiftedTheRetryFinishesWithoutDoubleCounting
+every row is right
+Failed asserting that 197 is identical to 0.
+
+/home/user/tecteb-seller/tests/Database/TitleSortRepairFailureTest.php:185
+
+9) Tecteb\Marketplace\Tests\Database\TitleSortRepairFailureTest::testAConcurrentSaveKeepsItsOwnKeyAndItsOwnTitle
+and the new key stands — the old name's key was not written over it
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'1bebgbbaham aeabaqbe'
++'1aabcacbe acba'
+
+/home/user/tecteb-seller/tests/Database/TitleSortRepairFailureTest.php:249
+
+10) Tecteb\Marketplace\Tests\Database\TitleSortRepairFailureTest::testARowThatMovedAndIsStillWrongStaysUnresolved
+the stale snapshot was not written
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'still-wrong'
++'1bcabapaz 0012'
+
+/home/user/tecteb-seller/tests/Database/TitleSortRepairFailureTest.php:286
+
+11) Tecteb\Marketplace\Tests\Database\TitleSortRepairFailureTest::testTheGuardIsNotFooledByACaseInsensitiveCollation
+the collation says these titles are equal; the guard must not
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'2cccacfce'
++'2cccacfd0e9'
+
+/home/user/tecteb-seller/tests/Database/TitleSortRepairFailureTest.php:339
+
+FAILURES!
+Tests: 12, Assertions: 56, Failures: 11.
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+.........                                                           9 / 9 (100%)
+
+Time: 00:03.079, Memory: 14.00 MB
+
+OK (9 tests, 68 assertions)

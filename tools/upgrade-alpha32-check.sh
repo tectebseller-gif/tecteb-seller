@@ -54,7 +54,17 @@ WPCLI="${WPCLI:-/usr/local/bin/wp}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGINS="$WPROOT/wp-content/plugins"
 OLD_ZIP="${TMC_OLD_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.32.zip}"
-NEW_ZIP="${TMC_NEW_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.34.zip}"
+# The NEWEST package in `dist/`, derived rather than written here. `alpha.34`
+# removed this same hard-coded default from two other upgrade scripts and left
+# it in this one, so the first run of the next round measured `alpha.32 ->
+# alpha.34` and reported sixty green checks about a package that was no longer
+# the one being delivered. `catalogue-run.mjs` caught it by comparing the
+# installed version against the plugin header — which is why that check exists.
+newest_zip() {
+  ls -1 "$REPO"/dist/tecteb-marketplace-core-0.1.0-alpha.*.zip 2>/dev/null \
+    | sed 's/.*alpha\.\([0-9]*\)\.zip/\1 &/' | sort -n | tail -1 | cut -d' ' -f2-
+}
+NEW_ZIP="${TMC_NEW_ZIP:-$(newest_zip)}"
 
 mkdir -p "$OUT"
 LOG="$OUT/upgrade-alpha32-check.txt"

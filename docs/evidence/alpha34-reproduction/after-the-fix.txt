@@ -1,0 +1,20 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+............                                                      12 / 12 (100%)
+
+Time: 00:03.793, Memory: 14.00 MB
+
+OK (12 tests, 94 assertions)
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+.........                                                           9 / 9 (100%)
+
+Time: 00:02.522, Memory: 14.00 MB
+
+OK (9 tests, 68 assertions)

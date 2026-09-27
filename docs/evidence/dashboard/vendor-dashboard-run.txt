@@ -1,6 +1,6 @@
-ok:   the installed package is the one under test                        0.1.0-alpha.34
+ok:   the installed package is the one under test                        0.1.0-alpha.35
 ok:   and its schema is the one this round ships                         20
-      stage=report published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=23 applicant_status=rejected
+      stage=report published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=25 applicant_status=rejected
 ok:   1-1 the shop is named at the top                                   true
 ok:   1-2 «افزودن محصول» is there                                        true
 ok:   1-3 and «مشاهده فروشگاه», because the shop has a page              true
@@ -46,23 +46,23 @@ ok:   2-9 with no save button                                            false
 ok:   2-10 the menu calls it a file, not a request                       1
       reset=ok
 stage=reset published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=0 applicant_status=-
-      applicant=24 draft=ok document=doc=ok submit=ok
+      applicant=26 draft=ok document=doc=ok submit=ok
 sent_back=8 code=already note_recorded=yes
-stage=seed published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=24 applicant_status=submitted
+stage=seed published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=26 applicant_status=submitted
 ok:   2-11 a submitted application IS «در نوبت بررسی»                    true
 ok:   2-12 and says it is a request, not a file                          true
       applicant_moved=changes_requested ok=yes
-stage=applicant-changes_requested published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=24 applicant_status=changes_requested
+stage=applicant-changes_requested published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=26 applicant_status=changes_requested
 ok:   2-13 a correction shows the manager's reason on the existing path  true
 ok:   2-14 with the manager's own words                                  true
 ok:   2-15 and the form is editable again                                true
       reset=ok
 stage=reset published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=0 applicant_status=-
-      applicant=25 draft=ok document=doc=ok submit=ok
+      applicant=27 draft=ok document=doc=ok submit=ok
 sent_back=8 code=already note_recorded=yes
-stage=seed published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=25 applicant_status=submitted
+stage=seed published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=27 applicant_status=submitted
       applicant_moved=rejected ok=yes
-stage=applicant-rejected published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=25 applicant_status=rejected
+stage=applicant-rejected published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=27 applicant_status=rejected
 ok:   2-16 a rejection has its own heading                               true
 ok:   2-17 and is not described as being under review                    false
 ok:   2-18 the dashboard still opens for them                            200

@@ -93,8 +93,10 @@ final class TitleSortRepair
      * @return array{
      *     state: string, reason: string, cursor: int, audited: int,
      *     checked: int, repaired: int, swept: int, swept_repaired: int,
-     *     remaining: int
-     * } `state` is one of `no_column`, `sweeping`, `finished`, `clean`.
+     *     blocked_at: ?int, blocked_by: string, remaining: int
+     * } `state` is one of `no_column`, `sweeping`, `finished`, `clean`,
+     *   `blocked`. **`blocked` is the one that is not a success**: a row could
+     *   not be settled, the sweep stays open, and the build is not stamped.
      */
     public function run(): array
     {
@@ -143,6 +145,18 @@ final class TitleSortRepair
     }
 
     /**
+     * The batch result, for a caller that wants the reason rather than the
+     * state word — `tools/` evidence and the tests read this.
+     *
+     * Kept separate from `run()`'s array because `run()` is the thing a hook
+     * calls and throws away; this is the thing a person asks.
+     */
+    public static function isBlocked(array $result): bool
+    {
+        return ($result['state'] ?? '') === 'blocked';
+    }
+
+    /**
      * Opens a sweep from outside — the documented way to stop waiting for the
      * audit to come round, used by the rollback guide and by the evidence.
      */
@@ -177,18 +191,31 @@ final class TitleSortRepair
             [(int) $state['cursor'], self::SWEEP]
         );
 
-        $repaired = $this->rewrite($rows);
-        $state['checked'] = (int) $state['checked'] + count($rows);
-        $state['repaired'] = (int) $state['repaired'] + $repaired;
-        if ($rows !== []) {
-            $state['cursor'] = (int) $rows[count($rows) - 1]['id'];
+        $batch = $this->rewrite($rows);
+        $state['checked'] = (int) $state['checked'] + $batch->examined;
+        $state['repaired'] = (int) $state['repaired'] + $batch->repaired;
+        // Only ever to the last row that came out RIGHT. The cursor is a
+        // promise that everything behind it is settled, and moving it to the
+        // end of the window on a pass that stopped half way turns that promise
+        // into a lie no later pass can detect.
+        if ($batch->cursor > 0) {
+            $state['cursor'] = $batch->cursor;
+        }
+
+        if (!$batch->complete()) {
+            // A short window that did not finish is NOT the end of the table.
+            // This is the whole defect: the build must not be stamped, the
+            // reason must stay, and the cursor must still point at the row
+            // before the one that stopped us.
+            $this->store($state);
+            return $this->result('blocked', $state, 0, $batch->examined, $batch->repaired, null, $batch);
         }
 
         if (count($rows) < self::SWEEP) {
-            // The end of the table. The build is recorded only HERE, because a
-            // build recorded at the start would make an interrupted sweep look
-            // like a finished one and leave the rest of the table on the old
-            // format for good.
+            // The end of the table, reached with every row settled. The build
+            // is recorded only HERE, because a build recorded at the start
+            // would make an interrupted sweep look like a finished one and
+            // leave the rest of the table on the old format for good.
             $total = ['checked' => (int) $state['checked'], 'repaired' => (int) $state['repaired']];
             $state['build'] = PersianCollation::BUILD;
             $state['reason'] = '';
@@ -197,11 +224,11 @@ final class TitleSortRepair
             $state['checked'] = 0;
             $state['repaired'] = 0;
             $this->store($state);
-            return $this->result('finished', $state, 0, count($rows), $repaired, $total);
+            return $this->result('finished', $state, 0, $batch->examined, $batch->repaired, $total);
         }
 
         $this->store($state);
-        return $this->result('sweeping', $state, 0, count($rows), $repaired);
+        return $this->result('sweeping', $state, 0, $batch->examined, $batch->repaired);
     }
 
     /**
@@ -231,11 +258,19 @@ final class TitleSortRepair
             );
         }
 
-        $repaired = $this->rewrite($rows);
-        if ($rows !== []) {
-            $state['audit'] = (int) $rows[count($rows) - 1]['id'];
+        $batch = $this->rewrite($rows);
+        // Same rule as the sweep: the audit cursor may only pass rows that came
+        // out right, or the one row it could not settle is the one row it never
+        // looks at again.
+        if ($batch->cursor > 0) {
+            $state['audit'] = $batch->cursor;
         }
-        if ($repaired > 0) {
+        // A repair found here means some build wrote titles without maintaining
+        // the column, and the rows it touched are not confined to this window —
+        // so a sweep opens. A window that could not be FINISHED opens one too:
+        // «we did not get to the end of this» is not «the table is clean», and
+        // leaving it closed would drop the pending repair on the floor.
+        if ($batch->repaired > 0 || !$batch->complete()) {
             $state['reason'] = self::REASON_AUDIT;
             $state['cursor'] = 0;
             $state['checked'] = 0;
@@ -243,42 +278,136 @@ final class TitleSortRepair
         }
         $this->store($state);
 
+        $outcome = match (true) {
+            !$batch->complete() => 'blocked',
+            $batch->repaired > 0 => 'sweeping',
+            default => 'clean',
+        };
         return $this->result(
-            $repaired > 0 ? 'sweeping' : 'clean',
+            $outcome,
             $state,
-            count($rows),
-            count($rows),
-            $repaired
+            $batch->examined,
+            $batch->examined,
+            $batch->repaired,
+            null,
+            $batch
         );
     }
 
     /**
-     * Writes the rows whose key disagrees with their title, and only those.
+     * Writes the rows whose key disagrees with their title, and only those —
+     * and stops at the first row it cannot settle.
+     *
+     * **The write is guarded on the snapshot it was planned from.** The title
+     * and the key are read in one statement and written back in another, and in
+     * between the ordinary save path — which maintains the key itself — may
+     * have stored a new title and its correct key. Keyed on `id` alone, this
+     * `UPDATE` would then put the key of a name the product no longer has on
+     * top of the right one, and the repair would have CAUSED the staleness it
+     * exists to remove. So the row must still be the row that was read.
+     *
+     * **The comparison is bytes, not text.** `title` is
+     * `utf8mb4_unicode_520_ci`, which holds that «Café» and «Cafe» are the same
+     * string — and those two produce different keys. A plain `=` would accept
+     * the stale snapshot and write the wrong key with a clear conscience, so
+     * both sides are cast to `BINARY`. `title_sort` is already `utf8mb4_bin`
+     * and is cast anyway, because a guard that is only correct while somebody
+     * remembers which column has which collation is a guard waiting to break.
+     *
+     * **Zero rows here means the guard did not match, not «nothing to do».**
+     * `alpha.8`'s rule still holds — `execute()` answers `null` for a failure
+     * and a row count for a success — and it is exactly because zero is a
+     * success that it has to be read carefully: this statement only runs when
+     * the new key DIFFERS from the stored one, so a matching row is always a
+     * changed row. wpdb does not set `CLIENT_FOUND_ROWS`, so zero changed rows
+     * can only mean the `WHERE` found nothing: the row moved.
+     *
+     * A moved row is re-read ONCE and re-judged — somebody else may have
+     * already put it right, in which case it is settled and costs nobody a
+     * retry. If it is still wrong, the pass stops there and the next request
+     * starts from the title the row has by then. One extra read per conflict,
+     * and no loop: a row that keeps moving is retried on later requests, never
+     * spun on inside this one.
      *
      * @param list<array<string,mixed>> $rows
      */
-    private function rewrite(array $rows): int
+    private function rewrite(array $rows): TitleSortRepairBatch
     {
         $repaired = 0;
+        $examined = 0;
+        $cursor = 0;
+
         foreach ($rows as $row) {
-            $key = PersianCollation::sortKey((string) ($row['title'] ?? ''));
-            if ($key === (string) ($row['stored'] ?? '')) {
+            $id = (int) $row['id'];
+            $title = (string) ($row['title'] ?? '');
+            $stored = (string) ($row['stored'] ?? '');
+            $key = PersianCollation::sortKey($title);
+
+            if ($key === $stored) {
+                $examined++;
+                $cursor = $id;
                 continue;
             }
+
             $written = $this->db->execute(
-                'UPDATE `' . $this->products() . '` SET `' . M0020ProductTitleSort::COLUMN . '` = %s WHERE id = %d',
-                [$key, (int) $row['id']]
+                'UPDATE `' . $this->products() . '` SET `' . M0020ProductTitleSort::COLUMN . '` = %s
+                 WHERE id = %d
+                   AND CAST(`title` AS BINARY) = CAST(%s AS BINARY)
+                   AND CAST(`' . M0020ProductTitleSort::COLUMN . '` AS BINARY) = CAST(%s AS BINARY)',
+                [$key, $id, $title, $stored]
             );
+
             if ($written === null) {
-                // `execute()` answers null for a failure and 0 for a write that
-                // changed nothing, so this is the failure. Stop counting rather
-                // than report a repair that did not happen; the cursor does not
-                // advance past this batch's start, so the next request retries.
-                return $repaired;
+                return new TitleSortRepairBatch(
+                    $repaired,
+                    $examined,
+                    $cursor,
+                    $id,
+                    TitleSortRepairBatch::WRITE_FAILED
+                );
             }
+            if ($written === 0) {
+                if ($this->alreadyCorrect($id)) {
+                    $examined++;
+                    $cursor = $id;
+                    continue;
+                }
+                return new TitleSortRepairBatch(
+                    $repaired,
+                    $examined,
+                    $cursor,
+                    $id,
+                    TitleSortRepairBatch::ROW_MOVED
+                );
+            }
+
             $repaired++;
+            $examined++;
+            $cursor = $id;
         }
-        return $repaired;
+
+        return new TitleSortRepairBatch($repaired, $examined, $cursor);
+    }
+
+    /**
+     * Re-read one row and ask whether its key matches its title NOW.
+     *
+     * Only ever called about a row whose guarded write found nothing, so this
+     * costs one read per conflict rather than one per row. A row that somebody
+     * else has already put right is settled — reporting it as unresolved would
+     * stop a sweep for work that is done.
+     */
+    private function alreadyCorrect(int $id): bool
+    {
+        $row = $this->db->getRow(
+            'SELECT title, `' . M0020ProductTitleSort::COLUMN . '` AS stored
+             FROM `' . $this->products() . '` WHERE id = %d',
+            [$id]
+        );
+        if ($row === null) {
+            return true;    // deleted between the read and the write: nothing left to repair
+        }
+        return PersianCollation::sortKey((string) ($row['title'] ?? '')) === (string) ($row['stored'] ?? '');
     }
 
     /**
@@ -321,6 +450,12 @@ final class TitleSortRepair
      * knowing: one is the cost of this request, the other the size of the
      * damage.
      *
+     * `blocked_at` and `blocked_by` are the part `alpha.34` could not say: the
+     * row a pass stopped at, and why. A caller that only reads `repaired` still
+     * reads it correctly — the count has always been «rows written» and still
+     * is — but it can no longer mistake a stopped pass for a finished one,
+     * because `state` says `blocked` and the id is right there.
+     *
      * @param ?array{checked:int,repaired:int} $total
      * @return array<string,mixed>
      */
@@ -330,7 +465,8 @@ final class TitleSortRepair
         int $audited,
         int $checked,
         int $repaired,
-        ?array $total = null
+        ?array $total = null,
+        ?TitleSortRepairBatch $batch = null
     ): array {
         return [
             'state' => $state,
@@ -341,6 +477,8 @@ final class TitleSortRepair
             'repaired' => $repaired,
             'swept' => $total['checked'] ?? $checked,
             'swept_repaired' => $total['repaired'] ?? $repaired,
+            'blocked_at' => $batch?->stoppedAt,
+            'blocked_by' => $batch === null ? '' : $batch->reason,
             'remaining' => $s['reason'] === '' ? 0 : $this->remaining((int) $s['cursor']),
         ];
     }

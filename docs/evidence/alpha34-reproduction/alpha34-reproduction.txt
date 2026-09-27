@@ -1,0 +1,29 @@
+base: 810b10d (Deliver 0.1.0-alpha.34: page order, suspended-shop staff, ke)
+ok:   TitleSortRepair.php differs from 810b10d                         different
+
+=== the changed file put back to its alpha.34 bytes ===
+ok:   TitleSortRepair.php is now the alpha.34 file                     same
+ok:   the swapped tree still loads and runs the tests                  2
+ok:   and nothing fatalled while loading it                            0
+
+tests that failed on alpha.34:
+  testAConcurrentSaveKeepsItsOwnKeyAndItsOwnTitle
+  testARefusedWriteInTheAuditIsNotReportedAsClean
+  testARefusedWriteStopsTheSweepWhereverItHappens
+  testARowThatMovedAndIsStillWrongStaysUnresolved
+  testAfterTheFailureIsLiftedTheRetryFinishesWithoutDoubleCounting
+  testTheGuardIsNotFooledByACaseInsensitiveCollation
+ok:   item 1 reproduced: testARefusedWriteStopsTheSweepWhereverItHappens failed
+ok:   item 1 reproduced: testARefusedWriteInTheAuditIsNotReportedAsClean failed
+ok:   item 1 reproduced: testAfterTheFailureIsLiftedTheRetryFinishesWithoutDoubleCounting failed
+ok:   item 2 reproduced: testAConcurrentSaveKeepsItsOwnKeyAndItsOwnTitle failed
+ok:   item 2 reproduced: testARowThatMovedAndIsStillWrongStaysUnresolved failed
+ok:   item 2 reproduced: testTheGuardIsNotFooledByACaseInsensitiveCollation failed
+ok:   and the alpha.8 zero-rows rule was already right on alpha.34     passed
+
+=== the fix put back ===
+ok:   TitleSortRepair.php is byte-identical to what it was             1259b8c82573bef2a8f8817fb9ef1799e95a0e0eaee077db0a1c6ffce38f7fb0
+ok:   nothing fails after the fix                                      none
+ok:   both suites report OK                                            2
+
+checks: 14   passed: 14   failed: 0
