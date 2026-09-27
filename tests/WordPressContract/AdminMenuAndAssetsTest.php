@@ -22,44 +22,56 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
         self::assertSame('tmc-dashboard', $top[0]['slug']);
 
         $subs = array_values(array_filter(State::$menus, static fn ($m) => $m['parent'] === 'tmc-dashboard'));
-        // Four from the admin module, then vendor, finance and product —
-        // every one of them through the same registrar, so they inherit the
-        // capability gate and the "styles on plugin screens only" rule.
+        // **The order is the decision, so it is written out.** From
+        // `alpha.36` the sidebar follows `AdminNavigation::GROUPS`: the five
+        // screens somebody opens every day, then sales and money, then content
+        // and reports, then settings and tools, then setup and migration. Until
+        // `alpha.35` it was the order the modules happened to register in, so
+        // «راه‌اندازی» sat third and «بررسی محصولات» thirteenth.
+        //
+        // Every capability below is unchanged by that reordering, and that is
+        // half of what this list is for: moving a page must not quietly widen
+        // or narrow who can open it.
         $expected = [
+            // روزمره
             ['tmc-dashboard', 'tmc_view_dashboard', 'پیشخوان'],
-            ['tmc-health', 'tmc_view_health', 'سلامت'],
-            ['tmc-settings', 'tmc_manage_settings', 'تنظیمات'],
-            ['tmc-modules', 'tmc_view_modules', 'ماژول‌ها'],
-            // Operations: three of the four pages carry their OWN capability
-            // rather than borrowing another's. Reading the audit trail is not
-            // implied by being able to approve a vendor, and issuing an API
-            // contract is not implied by being able to run a job.
-            ['tmc-setup', 'tmc_manage_settings', 'راه‌اندازی'],
-            ['tmc-jobs', 'tmc_manage_jobs', 'صف و سلامت اجرا'],
-            ['tmc-events', 'tmc_manage_api', 'رویدادها و API'],
-            ['tmc-audit', 'tmc_view_audit', 'ممیزی'],
+            ['tmc-product-review', 'tmc_review_products', 'بررسی محصولات'],
             ['tmc-vendor-applications', 'tmc_review_vendor', 'درخواست‌های فروشندگان'],
             ['tmc-vendor-documents', 'tmc_manage_vendor_documents', 'مدارک فروشندگان'],
+            // The phase-7 module: a shop's own codes are not here (they are on
+            // the vendor's own page); what a MANAGER decides is.
+            ['tmc-tickets', 'tmc_review_vendor', 'تیکت فروشندگان'],
+            // فروش و مالی
+            ['tmc-storefront', 'tmc_manage_storefront', 'وضعیت فروش بازارگاه'],
             ['tmc-commission-rules', 'tmc_manage_settings', 'قواعد کمیسیون'],
             ['tmc-withdrawals', 'tmc_review_withdrawals', 'تسویه و برداشت'],
             // Registered by the finance module although it is an order screen:
             // OrderModule is self-gated, and an open return has to stay
             // decidable on a day the order gate is shut (F-15).
             ['tmc-returns', 'tmc_review_withdrawals', 'مرجوعی و بازپرداخت'],
-            ['tmc-product-review', 'tmc_review_products', 'بررسی محصولات'],
+            ['tmc-wholesale', 'tmc_review_vendor', 'خریداران عمده'],
+            // محتوا و گزارش
             ['tmc-spec-templates', 'tmc_manage_spec_templates', 'الگوهای مشخصات'],
-            ['tmc-storefront', 'tmc_manage_storefront', 'وضعیت فروش بازارگاه'],
-            // The phase-7 module: a shop's own codes are not here (they are on
-            // the vendor's own page); what a MANAGER decides is.
-            ['tmc-tickets', 'tmc_review_vendor', 'تیکت فروشندگان'],
-            // «مالی و عملیاتی» (UX §12.3) plus the manager's OWN inbox. There
-            // is no everybody's-notifications screen anywhere, on purpose.
-            ['tmc-reports', 'tmc_review_vendor', 'گزارش‌ها'],
             // Moderation, with its OWN capability: approving what the public
             // reads about a shop is not the same permission as approving the
             // shop, so it is not `tmc_review_vendor`.
             ['tmc-reviews', 'tmc_moderate_reviews', 'نظرات'],
-            ['tmc-wholesale', 'tmc_review_vendor', 'خریداران عمده'],
+            // «مالی و عملیاتی» (UX §12.3) plus the manager's OWN inbox. There
+            // is no everybody's-notifications screen anywhere, on purpose.
+            ['tmc-reports', 'tmc_review_vendor', 'گزارش‌ها'],
+            // تنظیمات و ابزارها
+            ['tmc-settings', 'tmc_manage_settings', 'تنظیمات'],
+            ['tmc-modules', 'tmc_view_modules', 'ماژول‌ها'],
+            ['tmc-health', 'tmc_view_health', 'سلامت'],
+            // Operations: three of the four pages carry their OWN capability
+            // rather than borrowing another's. Reading the audit trail is not
+            // implied by being able to approve a vendor, and issuing an API
+            // contract is not implied by being able to run a job.
+            ['tmc-jobs', 'tmc_manage_jobs', 'صف و سلامت اجرا'],
+            ['tmc-events', 'tmc_manage_api', 'رویدادها و API'],
+            ['tmc-audit', 'tmc_view_audit', 'ممیزی'],
+            // راه‌اندازی و مهاجرت
+            ['tmc-setup', 'tmc_manage_settings', 'راه‌اندازی'],
             // The slug carries no other plugin's name — the assertion below
             // enforces that, so «مهاجرت از دکان» is the label, not the id.
             ['tmc-import', 'tmc_review_vendor', 'مهاجرت از دکان'],
@@ -68,6 +80,15 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             // may touch orders and who owes money.
             ['tmc-handover', 'tmc_review_vendor', 'تحویل مهاجرت'],
         ];
+        // And the definition agrees with the list above. Without this, a group
+        // edited in `AdminNavigation` and not reflected here would be caught
+        // only by the slug-by-slug loop failing with an off-by-one message
+        // about the wrong page.
+        self::assertSame(
+            array_column($expected, 0),
+            \Tecteb\Marketplace\Modules\Admin\Presentation\AdminNavigation::order(),
+            'the navigation groups and the expected sidebar order are one decision'
+        );
         self::assertCount(count($expected), $subs);
         foreach ($expected as $i => [$slug, $cap, $label]) {
             self::assertSame($slug, $subs[$i]['slug']);

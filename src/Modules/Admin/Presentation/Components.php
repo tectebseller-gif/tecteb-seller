@@ -12,53 +12,123 @@ use Tecteb\Marketplace\Modules\Health\Application\HealthStatus;
 final class Components
 {
     /**
-     * The page shell, with a menu that does not eat the top of a phone.
+     * The page shell: who we are, which group, which page.
      *
-     * This marketplace now registers more than twenty manager screens. As a
-     * flat list that is a wall of links above every page on a narrow viewport,
-     * and the owner said so: «منوی موبایل جمع‌شونده باشد تا ابتدای صفحه را
-     * اشغال نکند».
+     * **Three rows, because twenty-two links in one row is not a menu.** Until
+     * `alpha.35` this rendered every screen the plugin registers as a flat list
+     * of pills — «همهٔ گزینه‌ها یک‌جا باز» — so the four things somebody opens
+     * every day sat between a migration tool and an event log, and on a phone
+     * the list was the page. Now: the name and the build badge; then the five
+     * groups; then only the ACTIVE group's pages.
      *
-     * It is a real `<details>`, which is the native disclosure: keyboard
+     * **The active group is derived from the current slug, and nothing is
+     * stored.** A direct link to `tmc-audit` opens with «تنظیمات و ابزارها»
+     * already selected, because `AdminNavigation::groups()` is asked which group
+     * owns that slug. There is no state, no cookie and no query parameter to
+     * get out of step with the page actually on screen.
+     *
+     * **Every group is a real link to a real page.** A group is not a screen and
+     * this round adds none, so «فروش و مالی» goes to the first page in it. That
+     * is what makes the whole thing work with no JavaScript at all: clicking a
+     * group navigates, the new page derives its own group, and the second row
+     * is that group's pages. No script decides what is visible.
+     *
+     * It is still a real `<details>`, which is the native disclosure: keyboard
      * operable, announced as expandable, and collapsed WITHOUT any script.
-     * A `<button aria-expanded>` would need JavaScript to do anything at all,
-     * and this shell's rule is that every page works with none.
+     * A `<button aria-expanded>` would need JavaScript to do anything at all.
      *
-     * Wide screens get the menu open, and that IS a script — measured, not
-     * assumed: in Chromium 141 neither `details:not([open]) > * { display:
-     * block }` nor `display: contents` on the details makes a closed panel
-     * visible, because the UA hides the content through its own shadow slot.
-     * So `tmc-admin.js` sets `open` when the shell is wide. With scripts off
-     * the menu is collapsed on desktop too — one click away, never missing.
+     * Wide screens get it open, and that IS a script — measured, not assumed:
+     * in Chromium 141 neither `details:not([open]) > * { display: block }` nor
+     * `display: contents` on the details makes a closed panel visible, because
+     * the UA hides the content through its own shadow slot. So `tmc-admin.js`
+     * sets `open` when the shell is wide. With scripts off the menu is
+     * collapsed on desktop too — one click away, never missing.
      */
     public static function shellOpen(string $title, string $current, string $badge = ''): string
     {
-        $nav = '';
+        $groups = AdminNavigation::groups(Navigation::items(), $current);
+
+        $groupRow = '';
+        $pageRow = '';
+        $currentGroupLabel = '';
         $currentLabel = '';
-        foreach (Navigation::items() as $item) {
-            $isCurrent = $item['slug'] === $current;
-            if ($isCurrent) {
-                $currentLabel = (string) $item['label'];
+        foreach ($groups as $group) {
+            $groupRow .= '<li><a class="tmc-nav__group' . ($group['current'] ? ' is-current' : '') . '"'
+                . ' href="' . esc_url($group['url']) . '"'
+                // `true`, not `page`: this says «the current item in this set of
+                // groups». The page link below is the one that is the page, and
+                // two `aria-current="page"` in one header would be two answers
+                // to one question.
+                . ($group['current'] ? ' aria-current="true"' : '') . '>'
+                . esc_html($group['label']) . '</a></li>';
+            if (!$group['current']) {
+                continue;
             }
-            $nav .= '<li><a class="tmc-nav__link' . ($isCurrent ? ' is-current' : '') . '" href="' . esc_url($item['url']) . '"'
-                . ($isCurrent ? ' aria-current="page"' : '') . '>' . esc_html($item['label']) . '</a></li>';
+            $currentGroupLabel = (string) $group['label'];
+            foreach ($group['items'] as $item) {
+                if ($item['current']) {
+                    $currentLabel = (string) $item['label'];
+                }
+                $pageRow .= '<li><a class="tmc-nav__link' . ($item['current'] ? ' is-current' : '') . '"'
+                    . ' href="' . esc_url($item['url']) . '"'
+                    . ($item['current'] ? ' aria-current="page"' : '') . '>'
+                    . esc_html($item['label']) . '</a></li>';
+            }
         }
+
         $navLabel = __('بخش‌های بازارگاه', 'tecteb-marketplace-core');
+        $groupsLabel = __('گروه‌های بازارگاه', 'tecteb-marketplace-core');
+        $pagesLabel = $currentGroupLabel !== ''
+            ? sprintf(
+                /* translators: %s: the open group's name */
+                __('صفحه‌های گروه %s', 'tecteb-marketplace-core'),
+                $currentGroupLabel
+            )
+            : $navLabel;
+        // Where you are, on the closed toggle: a collapsed menu that does not
+        // say so trades one problem for another.
+        $here = trim($currentGroupLabel . ($currentLabel !== '' ? ' › ' . $currentLabel : ''));
+
+        // **Row one carries the build, on every page.** `$badge` is passed by
+        // most callers and was left out by four — the Operations screens — so
+        // «کدام نسخه را باز کرده‌ام» depended on which page you were on. The
+        // channel word is the default rather than a required argument, and the
+        // version number beside it comes from the plugin header, so neither can
+        // be forgotten by a page added later.
+        $channel = $badge !== '' ? $badge : __('نسخه آزمایشی', 'tecteb-marketplace-core');
+        $version = defined('TMC_PLUGIN_VERSION') ? (string) constant('TMC_PLUGIN_VERSION') : '';
+
         return '<div class="wrap tmc-admin" dir="rtl" lang="fa">'
             . '<a class="tmc-skip" href="#tmc-main">' . esc_html__('پرش به محتوای اصلی', 'tecteb-marketplace-core') . '</a>'
             . '<header class="tmc-header">'
+            . '<div class="tmc-header__top">'
             . '<div class="tmc-header__brand"><span class="tmc-header__product">' . esc_html__('بازارگاه تک‌طب', 'tecteb-marketplace-core') . '</span>'
-            . ($badge !== '' ? ' <span class="tmc-badge tmc-badge--alpha">' . esc_html($badge) . '</span>' : '')
+            . ' <span class="tmc-badge tmc-badge--alpha">' . esc_html($channel) . '</span>'
+            // The version is left in Latin digits on purpose: it is an
+            // identifier somebody copies into a bug report, not a number they
+            // read aloud, and «۰٫۱٫۰-alpha.۳۶» is not a string anybody can search.
+            . ($version !== ''
+                ? ' <span class="tmc-badge tmc-badge--version" dir="ltr">' . esc_html($version) . '</span>'
+                : '')
+            . '</div>'
             . '</div>'
             . '<details class="tmc-nav" id="tmc-nav">'
             . '<summary class="tmc-nav__toggle">'
             . '<span class="tmc-nav__toggle-icon" aria-hidden="true"></span>'
             . '<span class="tmc-nav__toggle-text">' . esc_html($navLabel) . '</span>'
-            . ($currentLabel !== ''
-                ? '<span class="tmc-nav__toggle-current">' . esc_html($currentLabel) . '</span>'
-                : '')
+            . ($here !== '' ? '<span class="tmc-nav__toggle-current">' . esc_html($here) . '</span>' : '')
+            // The open/closed word, for the eye only: the browser already
+            // announces a `<summary>` as collapsed or expanded, and a second
+            // copy in the accessibility tree would be read twice.
+            . '<span class="tmc-nav__state" aria-hidden="true">'
+            . '<span class="tmc-nav__state-closed">' . esc_html__('نمایش', 'tecteb-marketplace-core') . '</span>'
+            . '<span class="tmc-nav__state-open">' . esc_html__('بستن', 'tecteb-marketplace-core') . '</span>'
+            . '</span>'
             . '</summary>'
-            . '<nav class="tmc-nav__panel" aria-label="' . esc_attr($navLabel) . '"><ul>' . $nav . '</ul></nav>'
+            . '<div class="tmc-nav__panel">'
+            . '<nav class="tmc-nav__groups" aria-label="' . esc_attr($groupsLabel) . '"><ul>' . $groupRow . '</ul></nav>'
+            . '<nav class="tmc-nav__pages" aria-label="' . esc_attr($pagesLabel) . '"><ul>' . $pageRow . '</ul></nav>'
+            . '</div>'
             . '</details>'
             . '</header>'
             . '<main id="tmc-main" class="tmc-main" tabindex="-1">'

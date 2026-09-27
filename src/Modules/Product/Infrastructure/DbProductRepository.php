@@ -12,6 +12,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\PersianCollation;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
@@ -101,14 +102,127 @@ final class DbProductRepository implements ProductRepositoryInterface
         ?ProductSort $sort = null,
         bool $onlyPendingRevision = false
     ): array {
+        return array_column(
+            $this->forManagerWithSubmission($status, $search, $limit, $offset, $vendorUserId, $sort, $onlyPendingRevision),
+            'product'
+        );
+    }
+
+    /**
+     * The same page of rows, each with the identity of the submission on it.
+     *
+     * **One statement, and that is the whole point.** The red count is now per
+     * manager and cleared by opening the list, so the page has to record WHICH
+     * submission it showed. Read in a second query, that token could be newer
+     * than the row above it — a vendor submitting between the two reads would
+     * have their submission marked as seen by somebody who was looking at the
+     * previous one. Selected here as part of the row, there is no «between».
+     *
+     * The token is the pair of append-only ids that ALREADY name a submission:
+     * the newest `submitted` row in the decision trail, and the id of the
+     * unanswered proposal. Neither is a timestamp and neither is the status, so
+     * an ordinary edit — a price, a stock number, a title — does not move it,
+     * and a resubmission always does.
+     *
+     * Both subqueries are correlated and indexed, and they run for the rows of
+     * ONE page (`LIMIT` is in the statement), not for the catalogue.
+     *
+     * @return list<array{product:Product, submission:string}>
+     */
+    public function forManagerWithSubmission(
+        ?ProductStatus $status = null,
+        string $search = '',
+        int $limit = 20,
+        int $offset = 0,
+        int $vendorUserId = 0,
+        ?ProductSort $sort = null,
+        bool $onlyPendingRevision = false
+    ): array {
         [$where, $params] = $this->managerScope($status, $search, $vendorUserId, $onlyPendingRevision);
+        $params = array_merge([ProductDecision::SUBMITTED, ProductRevision::PENDING], $params);
         $params[] = max(1, $limit);
         $params[] = max(0, $offset);
-        return array_map([$this, 'hydrate'], $this->db->getResults(
-            'SELECT * FROM `' . $this->products() . '`' . $where
+        $rows = $this->db->getResults(
+            'SELECT p.*, ' . $this->submissionColumns() . ' FROM `' . $this->products() . '` p'
+                . str_replace('`' . $this->products() . '`.', 'p.', $where)
                 . ' ORDER BY ' . self::order($sort) . ' LIMIT %d OFFSET %d',
             $params
-        ));
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'product' => $this->hydrate($row),
+                'submission' => self::submissionToken($row),
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Which of these products are waiting, and under which submission.
+     *
+     * Used for the badge: the manager's recorded marks are the input, so the
+     * query is bounded by how many things they have looked at rather than by
+     * the size of the queue. A product that has LEFT the queue is simply absent
+     * from the answer, which is what stops a decided product subtracting from a
+     * count it is no longer part of.
+     *
+     * @param list<int> $productIds
+     * @return array<int,string> product id => submission token
+     */
+    public function submissionsOf(array $productIds): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $productIds)));
+        $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
+        if ($ids === []) {
+            // Asking the database about nothing is how an `IN ()` syntax error
+            // reaches a page that had nothing to ask about (`alpha.32`).
+            return [];
+        }
+        $params = [ProductDecision::SUBMITTED, ProductRevision::PENDING, ProductStatus::Submitted->value, ProductRevision::PENDING];
+        $rows = $this->db->getResults(
+            'SELECT p.id, ' . $this->submissionColumns() . ' FROM `' . $this->products() . '` p'
+                . ' WHERE p.id IN (' . implode(',', array_map('intval', $ids)) . ')'
+                . ' AND (p.status = %s OR EXISTS (SELECT 1 FROM `' . T::table($this->db, T::REVISIONS) . '` r2'
+                . ' WHERE r2.product_id = p.id AND r2.status = %s))',
+            $params
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(int) $row['id']] = self::submissionToken($row);
+        }
+        return $out;
+    }
+
+    /**
+     * The two correlated reads that name a submission, as SELECT columns.
+     *
+     * Written once because two copies of this would be two definitions of «the
+     * same submission», and the badge compares a token recorded by one against
+     * a token produced by the other.
+     */
+    private function submissionColumns(): string
+    {
+        return '(SELECT MAX(d.id) FROM `' . M0019BaselineAndDecisions::table($this->db, M0019BaselineAndDecisions::DECISIONS) . '` d'
+            . ' WHERE d.product_id = p.id AND d.decision = %s) AS tmc_submission_id,'
+            . ' (SELECT MAX(r.id) FROM `' . T::table($this->db, T::REVISIONS) . '` r'
+            . ' WHERE r.product_id = p.id AND r.status = %s) AS tmc_revision_id';
+    }
+
+    /**
+     * The token: two ids, and nought for «there is none».
+     *
+     * `s0.r0` is a real answer, not a missing one — a product submitted before
+     * the decision trail existed (`alpha.29`) has no `submitted` row to point
+     * at. It reads as unseen until a manager opens it and seen afterwards, which
+     * is the documented behaviour for data that predates this feature. It moves
+     * the moment the vendor submits again, because that writes a row.
+     *
+     * @param array<string,mixed> $row
+     */
+    private static function submissionToken(array $row): string
+    {
+        return 's' . (int) ($row['tmc_submission_id'] ?? 0) . '.r' . (int) ($row['tmc_revision_id'] ?? 0);
     }
 
     public function countForManager(

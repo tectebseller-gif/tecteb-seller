@@ -292,11 +292,11 @@ final class ProductListView
                 . '<span class="tv-sr-only">' . esc_html(sprintf(
                     /* translators: %s: product title */
                     __('انتخاب «%s» برای اقدام گروهی', 'tecteb-marketplace-core'),
-                    $d->title !== '' ? $d->title : __('بدون عنوان', 'tecteb-marketplace-core')
+                    ProductMessages::displayTitle($d->title, $product->id)
                 )) . '</span></label>'
             : '';
 
-        $title = $d->title !== '' ? $d->title : __('بدون عنوان', 'tecteb-marketplace-core');
+        $title = ProductMessages::displayTitle($d->title, $product->id);
         // alt="" on purpose: the title is right beside it in the same link
         // target, so a screen reader announcing the picture too would read
         // the product's name twice.

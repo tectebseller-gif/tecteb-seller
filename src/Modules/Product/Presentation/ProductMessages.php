@@ -21,6 +21,36 @@ use Tecteb\Marketplace\Modules\Product\Domain\SpecFieldType;
  */
 final class ProductMessages
 {
+    /**
+     * What to call a product whose title is empty.
+     *
+     * **It is a display fallback and nothing else.** No title is written
+     * anywhere to make this read better: the row keeps its empty `title`, and
+     * `TitleSortRepair` keeps sorting it last (`PersianCollation` puts an empty
+     * key in group 3). A placeholder saved as data would be a title somebody
+     * has to notice and delete later, and the vendor never typed it.
+     *
+     * **One sentence, in every place.** Until `alpha.35` there were two: the
+     * manager's list and detail said «محصول ۲» from the marketplace id, while
+     * the vendor's list and the manager's own review card said «بدون عنوان» —
+     * so the same untitled draft had two names, and on the review page it had
+     * both AT ONCE. Neither half was wrong about the data; they were written in
+     * different rounds and nothing compared them. Now the id is what tells two
+     * untitled drafts apart and «بدون عنوان» is what says why they have no
+     * name, and they are one string.
+     */
+    public static function displayTitle(string $title, int $productId): string
+    {
+        if (trim($title) !== '') {
+            return $title;
+        }
+        return sprintf(
+            /* translators: %s: the product's marketplace id, in Persian digits */
+            __('بدون عنوان — محصول #%s', 'tecteb-marketplace-core'),
+            PersianDigits::toPersian((string) $productId)
+        );
+    }
+
     public static function status(ProductStatus $status): string
     {
         return match ($status) {

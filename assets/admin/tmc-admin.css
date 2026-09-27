@@ -126,11 +126,14 @@
 }
 
 /* header + navigation ------------------------------------------------------ */
+/* Three rows: who we are, which group, which page. The flat list of twenty-two
+   pills this replaced was the owner's «همهٔ گزینه‌ها یک‌جا باز». */
 .tmc-header {
   display: grid; gap: var(--tmc-space-3);
   background: var(--tmc-header); color: var(--tmc-primary);
   border-radius: var(--tmc-radius); padding: var(--tmc-space-4);
 }
+.tmc-header__top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tmc-space-3); }
 .tmc-header__brand { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tmc-space-2); font-weight: 700; font-size: 1.25rem; }
 .tmc-header__product { letter-spacing: -0.01em; }
 /* The menu is a `<details>`: collapsed on a phone so it does not eat the top
@@ -164,21 +167,49 @@
 .tmc-nav[open] .tmc-nav__toggle-icon { background: transparent; }
 .tmc-nav[open] .tmc-nav__toggle-icon::before { transform: translateY(6px) rotate(45deg); }
 .tmc-nav[open] .tmc-nav__toggle-icon::after { transform: translateY(-6px) rotate(-45deg); }
-/* The current section's name on the closed toggle: a collapsed menu that does
-   not say where you are trades one problem for another. It is the first thing
-   dropped when the bar is short of room. */
+/* «گروه › صفحه» on the closed toggle: a collapsed menu that does not say where
+   you are trades one problem for another. It is the first thing dropped when
+   the bar is short of room. */
 .tmc-nav__toggle-current {
   margin-inline-start: auto; font-weight: 600; font-size: 0.9375rem; opacity: 0.85;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-inline-size: 0;
 }
-.tmc-nav__panel { margin-block-start: var(--tmc-space-3); }
+/* The open/closed word. Visible state, beside the state the browser announces
+   on the `<summary>` itself — one for the eye, one for the screen reader. */
+/* The button's own label. It keeps its words together so the toggle never
+   reads as two stacked lines; «گروه › صفحه» beside it is what gives way. */
+.tmc-nav__toggle-text { white-space: nowrap; flex: none; }
+.tmc-nav__state { font-weight: 700; font-size: 0.875rem; flex: none; }
+.tmc-nav__toggle-current + .tmc-nav__state { margin-inline-start: var(--tmc-space-2); }
+.tmc-nav:not([open]) .tmc-nav__toggle-current { margin-inline-start: auto; }
+.tmc-nav:not([open]) .tmc-nav__state-open,
+.tmc-nav[open] .tmc-nav__state-closed { display: none; }
+/* Two rows inside the panel, always: the groups, then the open group's pages.
+   Never all groups' pages at once — that is the wall this redesign removes. */
+.tmc-nav__panel { margin-block-start: var(--tmc-space-3); display: grid; gap: var(--tmc-space-2); }
+/* Both rows must be allowed to be narrower than their content, or the pills
+   inside them push the header wider than the page instead of wrapping. */
+.tmc-nav__groups, .tmc-nav__pages { min-inline-size: 0; }
 .tmc-nav ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: var(--tmc-space-2); }
+.tmc-nav__group,
 .tmc-nav__link {
   display: flex; align-items: center; justify-content: center; min-height: var(--tmc-touch); padding: 0 var(--tmc-space-4);
-  border-radius: 999px; background: rgba(255,255,255,0.72); color: var(--tmc-primary); text-decoration: none; font-weight: 600;
+  border-radius: 999px; background: rgba(255,255,255,0.72); color: var(--tmc-primary); text-decoration: none;
 }
+/* The group row is the louder of the two: it is the first choice on the page. */
+.tmc-nav__group { font-weight: 700; }
+.tmc-nav__link { font-weight: 600; }
+.tmc-nav__group:hover,
 .tmc-nav__link:hover { background: #fff; }
+.tmc-nav__group:focus-visible,
+.tmc-nav__link:focus-visible { outline: 3px solid var(--tmc-focus); outline-offset: 2px; }
+.tmc-nav__group.is-current { background: var(--tmc-primary); color: #fff; }
+/* The page inside an open group: filled, so «کدام گروه» and «کدام صفحه» are
+   two different marks rather than the same one twice. */
 .tmc-nav__link.is-current { background: var(--tmc-primary); color: #fff; }
+/* The second row sits on a divider, so the two questions are visibly two rows
+   and not one long wrapped list. */
+.tmc-nav__pages { border-block-start: 1px solid rgba(255,255,255,0.55); padding-block-start: var(--tmc-space-2); }
 /* Wide: the menu bar it used to be, and the toggle steps out of the way. Set
    by the script together with `open`, never by a media query alone — a media
    query that hid the summary on a browser without the script would leave the
@@ -189,12 +220,22 @@
 /* badges + status ---------------------------------------------------------- */
 .tmc-badge { display: inline-block; padding: 2px var(--tmc-space-3); border-radius: 999px; font-size: 0.875rem; font-weight: 600; }
 .tmc-badge--alpha { background: var(--tmc-primary); color: #fff; }
+/* The build number beside the channel word. Quieter than the channel — it is an
+   identifier to copy, not a warning to read — and `dir="ltr"` in the markup so
+   «0.1.0-alpha.36» is not reordered inside an RTL line. */
+.tmc-badge--version {
+  background: rgba(255,255,255,0.82); color: var(--tmc-primary);
+  font-variant-numeric: tabular-nums; font-size: 0.8125rem;
+}
 .tmc-status {
   display: inline-flex; align-items: center; gap: var(--tmc-space-2);
   padding: 2px var(--tmc-space-3); border-radius: 999px; font-weight: 600; font-size: 0.9375rem;
   /* the words stay together; the row they sit in wraps instead */
   white-space: nowrap; max-inline-size: 100%;
 }
+/* The word inside a status chip. The chip is `nowrap`, so the text needs to be
+   allowed to shrink — otherwise a long status widens the row it sits in. */
+.tmc-status__text { min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; }
 .tmc-status__icon { display: inline-flex; align-items: center; justify-content: center; inline-size: 1.25em; block-size: 1.25em; border-radius: 50%; font-size: 0.85em; flex: 0 0 auto; }
 .tmc-status--success { background: var(--tmc-success); color: var(--tmc-primary); }
 .tmc-status--success .tmc-status__icon { background: var(--tmc-primary); color: #fff; }
@@ -432,17 +473,20 @@
 /* The page shell: how many cards fit beside each other, and how the header
    lays itself out. Never the window. */
 @container tmc (min-width: 20rem) {
-  /* Two pills per row as soon as two fit: four full-width pills push the
+  /* Two pills per row as soon as two fit: five full-width pills push the
      page's actual content below the fold on a phone. */
   .tmc-nav ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @container tmc (min-width: 30rem) {
-  .tmc-header { grid-template-columns: auto 1fr; align-items: center; }
   .tmc-nav ul { justify-content: end; }
 }
 @container tmc (min-width: 46rem) {
+  /* Real rows now. `flex-wrap` and NOT `row-reverse`: the document order is
+     already right-to-left inside `dir="rtl"`, so visual order and keyboard
+     order are the same order — reversing here would make the Tab key walk the
+     bar backwards. */
   .tmc-nav ul { display: flex; flex-wrap: wrap; justify-content: flex-end; }
-  .tmc-nav__link { justify-content: flex-start; }
+  .tmc-nav__group, .tmc-nav__link { justify-content: flex-start; }
   .tmc-cards, .tmc-linkgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--tmc-card-min)), 1fr)); }
   .tmc-linkgrid { --tmc-card-min: 11rem; }
 }
@@ -476,6 +520,7 @@
   @media (min-width: 1100px) {
     .tmc-cards, .tmc-linkgrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--tmc-card-min)), 1fr)); }
     .tmc-nav ul { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+    .tmc-nav__group, .tmc-nav__link { justify-content: flex-start; }
   }
 }
 
@@ -572,6 +617,13 @@
 }
 .tmc-review__storefront h4 { margin-block: 0 var(--tmc-space-2); font-size: 0.9375rem; }
 .tmc-review__links { display: flex; flex-wrap: wrap; gap: var(--tmc-space-2); }
+/* What «مشاهدهٔ محصول» opens, said right under the button rather than in a
+   tooltip: the one sentence a manager needs is that an unanswered proposal is
+   NOT applied to the page they are about to look at. */
+.tmc-review__viewnote {
+  margin-block: var(--tmc-space-2) 0; color: var(--tmc-muted);
+  font-size: 0.9375rem; line-height: 1.7; max-inline-size: 70ch;
+}
 .tmc-review__fix { margin-block-start: var(--tmc-space-3); }
 .tmc-review__fix > summary {
   cursor: pointer; font-weight: 700; padding: var(--tmc-space-2) 0;

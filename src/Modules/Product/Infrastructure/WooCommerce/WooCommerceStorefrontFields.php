@@ -292,6 +292,54 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
         return $wcProductId > 0 ? (string) get_edit_post_link($wcProductId, 'url') : '';
     }
 
+    /**
+     * The shop page, or WordPress's preview of it, or nothing and a reason.
+     *
+     * **`get_post_status()` is asked first, and false is not ''.** A product row
+     * can carry a WooCommerce id whose post has been deleted — the review list
+     * already shows that state in words — and in that case there is nothing to
+     * open. Offering a link to it would be a 404 with our name on it.
+     *
+     * **A non-published product is a preview, and a preview is gated here.** The
+     * link WordPress builds is `?p=<id>&preview=true`, which carries no nonce, so
+     * whether it may be opened is decided by core's own status rules for the
+     * person who opens it. This method does not rely on that alone: it hands the
+     * link out only to somebody who may edit the post, so the screen never puts
+     * a non-public address in front of a viewer who has no business with it.
+     * `edit_post` rather than a capability of ours, because the thing being
+     * previewed is a WordPress post and WordPress is what decides who may see an
+     * unpublished one.
+     *
+     * **Nothing is created and nothing is written.** Looking at a product that
+     * has no WooCommerce post does not make one; that is «آماده‌سازی», a separate
+     * button with its own nonce.
+     *
+     * @return array{url:string, public:bool, reason:string}
+     */
+    public function viewLink(int $wcProductId): array
+    {
+        if ($wcProductId <= 0) {
+            return ['url' => '', 'public' => false, 'reason' => 'missing'];
+        }
+        $status = get_post_status($wcProductId);
+        if ($status === false || $status === '') {
+            return ['url' => '', 'public' => false, 'reason' => 'missing'];
+        }
+        if ($status === 'publish') {
+            $url = (string) get_permalink($wcProductId);
+            return $url !== ''
+                ? ['url' => $url, 'public' => true, 'reason' => '']
+                : ['url' => '', 'public' => false, 'reason' => 'missing'];
+        }
+        if (!current_user_can('edit_post', $wcProductId)) {
+            return ['url' => '', 'public' => false, 'reason' => 'not_permitted'];
+        }
+        $url = (string) get_preview_post_link($wcProductId);
+        return $url !== ''
+            ? ['url' => $url, 'public' => false, 'reason' => '']
+            : ['url' => '', 'public' => false, 'reason' => 'missing'];
+    }
+
     public function seoPluginName(): string
     {
         if (defined('RANK_MATH_VERSION') || class_exists('RankMath')) {

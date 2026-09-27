@@ -214,6 +214,43 @@ function selected(mixed $selected, mixed $current = true, bool $echo = true): st
 
 // ---- options / transients / cache -------------------------------------------
 /** @return mixed the stored value, or $default when the option is absent */
+/**
+ * User meta, with WordPress's own return values.
+ *
+ * `get_user_meta($id, $key, true)` gives '' — not null and not false — when
+ * there is no row, which is why every caller here tests `is_array()` rather
+ * than emptiness. `update_user_meta()` returns an int meta id on insert and
+ * true on update, so a caller may only test `!== false`; `delete_user_meta()`
+ * returns false when there was nothing to delete.
+ */
+function get_user_meta(int $userId, string $key = '', bool $single = false): mixed
+{
+    $all = State::$userMeta[$userId] ?? [];
+    if ($key === '') {
+        return $all;
+    }
+    if (!array_key_exists($key, $all)) {
+        return $single ? '' : [];
+    }
+    return $single ? $all[$key] : [$all[$key]];
+}
+function update_user_meta(int $userId, string $key, mixed $value, mixed $prev = ''): int|bool
+{
+    if ($userId <= 0) {
+        return false;
+    }
+    $existed = array_key_exists($key, State::$userMeta[$userId] ?? []);
+    State::$userMeta[$userId][$key] = $value;
+    return $existed ? true : 1;
+}
+function delete_user_meta(int $userId, string $key, mixed $value = ''): bool
+{
+    if (!array_key_exists($key, State::$userMeta[$userId] ?? [])) {
+        return false;
+    }
+    unset(State::$userMeta[$userId][$key]);
+    return true;
+}
 function get_option(string $option, mixed $default = false): mixed
 {
     if (State::$optionsBackedByWpdb) {
@@ -666,6 +703,50 @@ function wp_get_attachment_image_src(int $attachmentId, string $size = 'thumbnai
     }
     $dir = wp_upload_dir();
     return [(string) $dir['baseurl'] . '/' . $attachmentId . '-' . $size . '.png', 150, 150];
+}
+
+/**
+ * Posts, in WordPress's own return shapes.
+ *
+ * `get_post_status()` gives false for a post that is not there — not '' — which
+ * is the difference between «this product has no page in the shop» and «the page
+ * is a draft», and the button on the review screen says two different things
+ * about those two.
+ *
+ * `get_permalink()` also answers false for a missing post, and
+ * `get_preview_post_link()` builds its link from the permalink plus
+ * `preview=true`, exactly as core does — no nonce, which is why the review
+ * screen checks `edit_post` itself before offering the link at all.
+ */
+function get_post_status(int $postId): string|false
+{
+    return TmcWpStubs\State::$posts[$postId]['status'] ?? false;
+}
+
+function get_permalink(int $postId, bool $leavename = false): string|false
+{
+    if (!isset(TmcWpStubs\State::$posts[$postId])) {
+        return false;
+    }
+    return TmcWpStubs\State::$homeUrl . '/?p=' . $postId;
+}
+
+/** @param array<string,string> $queryArgs */
+function get_preview_post_link(int $postId, array $queryArgs = [], string $previewLink = ''): string
+{
+    $link = $previewLink !== '' ? $previewLink : (string) get_permalink($postId);
+    if ($link === '') {
+        return '';
+    }
+    return add_query_arg(array_merge($queryArgs, ['preview' => 'true']), $link);
+}
+
+function get_edit_post_link(int $postId, string $context = 'display'): ?string
+{
+    if (!isset(TmcWpStubs\State::$posts[$postId])) {
+        return null;
+    }
+    return admin_url('post.php?post=' . $postId . '&action=edit');
 }
 
 function wp_get_attachment_url(int $attachmentId): string|false

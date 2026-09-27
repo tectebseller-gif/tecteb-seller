@@ -119,6 +119,27 @@ final class State
     public static string $requestUri = '/';
 
     public static array $users = [];
+    /**
+     * User meta, as `user_id => [key => value]`.
+     *
+     * Added in `alpha.36`: nothing stubbed user meta before, which meant the
+     * draft store (`alpha.13`) and now the review-seen store had no test that
+     * could reach them at all.
+     *
+     * @var array<int,array<string,mixed>>
+     */
+    public static array $userMeta = [];
+    /**
+     * WordPress posts, as `id => ['status' => …, 'title' => …]`.
+     *
+     * Added in `alpha.36` for the «مشاهدهٔ محصول» button: the three branches it
+     * has — published, a draft that exists, and no WooCommerce post at all —
+     * are three answers from `get_post_status()`, and until now nothing in the
+     * stub environment could reach any of them.
+     *
+     * @var array<int,array{status:string,title?:string}>
+     */
+    public static array $posts = [];
     /** Next id wp_insert_user() will hand out. */
     public static int $nextUserId = 500;
     public static ?string $uploadBaseDir = null;
@@ -162,6 +183,8 @@ final class State
         self::$is404 = false;
         self::$requestUri = '/';
         self::$users = [];
+        self::$userMeta = [];
+        self::$posts = [];
         self::$nextUserId = 500;
         self::$uploadBaseDir = null;
         self::$sentHeaders = [];

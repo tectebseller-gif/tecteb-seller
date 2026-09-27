@@ -6,7 +6,7 @@ namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
-use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ReviewSeen;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\ProductReviewPage;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\SpecTemplatesPage;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaExtensions;
@@ -46,13 +46,23 @@ final class ProductHooks
                 'capability' => ProductReviewPage::CAPABILITY,
                 'render' => [$review, 'render'],
                 'nav' => true,
-                // Products waiting for a decision — submitted, or live with an
-                // unanswered proposal. Counted from the same rows the review
-                // list is built from, so the badge and the list cannot say two
-                // different things, and counted per PRODUCT so one product
-                // that is both is one thing to look at.
+                // Submissions THIS manager has not looked at yet — «اعلان قرمز
+                // بر اساس دیده‌نشده». Until `alpha.35` it was the size of the
+                // queue, which is the same number for everybody and only a
+                // decision could change: a manager who had read every one of
+                // them still had a red badge, and a second manager reading them
+                // changed nothing for the first.
+                //
+                // Counted per PRODUCT, out of the same `WHERE` the review list
+                // uses, so the badge and the list cannot say two different
+                // things — and one product that is both submitted and carrying
+                // a proposal is still one thing to look at.
+                //
+                // `get_current_user_id()` here rather than inside `ReviewSeen`:
+                // «who is asking» is a WordPress question, and the Application
+                // layer does not call WordPress.
                 'bubble' => static fn (): int
-                    => $container->get(ProductRepositoryInterface::class)->countAwaitingReview(),
+                    => $container->get(ReviewSeen::class)->unseenCount(get_current_user_id()),
             ];
             $pages[] = [
                 'slug' => SpecTemplatesPage::SLUG,

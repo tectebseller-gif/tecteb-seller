@@ -26,6 +26,8 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
 use Tecteb\Marketplace\Modules\Product\Application\ProductDraftStoreInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ReviewSeen;
+use Tecteb\Marketplace\Modules\Product\Application\ReviewSeenStoreInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductDecisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
@@ -53,6 +55,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\CategorySuggest;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductAutosave;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductHooks;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpProductDraftStore;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpReviewSeenStore;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\StorefrontPage;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullCatalogProjector;
@@ -99,6 +102,17 @@ final class ProductModule implements ModuleInterface
         $c->bind(ProductStateMachine::class, static fn () => new ProductStateMachine());
         $c->bind(ProductDraftStoreInterface::class, static fn (ContainerInterface $c) => new WpProductDraftStore(
             $c->get(ClockInterface::class)
+        ));
+        // Which submission each manager has already looked at. User meta, so the
+        // red count on the menu became per-person without a table, a column or a
+        // schema bump — see `WpReviewSeenStore` for why a view state is stored
+        // this way and a decision could not be.
+        $c->bind(ReviewSeenStoreInterface::class, static fn (ContainerInterface $c) => new WpReviewSeenStore(
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(ReviewSeen::class, static fn (ContainerInterface $c) => new ReviewSeen(
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(ReviewSeenStoreInterface::class)
         ));
         // The host's own upload ceiling, not ours: PHP enforces
         // `upload_max_filesize` before this plugin runs, so a policy that did

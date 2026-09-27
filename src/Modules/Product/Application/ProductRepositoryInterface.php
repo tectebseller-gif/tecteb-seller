@@ -87,6 +87,47 @@ interface ProductRepositoryInterface
     ): int;
 
     /**
+     * The same page of rows, each with the identity of the submission on it.
+     *
+     * **One statement, and that is the whole point.** The red count on the menu
+     * is per manager and cleared by opening the list, so the page has to record
+     * WHICH submission it showed. Read in a second query, that token could be
+     * newer than the row above it — a vendor submitting between the two reads
+     * would have their submission counted as seen by somebody who was looking at
+     * the previous one. Selected as part of the row, there is no «between».
+     *
+     * The token names a submission out of the two APPEND-ONLY trails that
+     * already record one: the newest `submitted` row of the decision trail, and
+     * the id of the unanswered proposal. It is deliberately not the status and
+     * not `updated_at` — an edited price must not look like a new submission,
+     * and a resubmission of an unchanged product must.
+     *
+     * @return list<array{product:Product, submission:string}>
+     */
+    public function forManagerWithSubmission(
+        ?ProductStatus $status = null,
+        string $search = '',
+        int $limit = 20,
+        int $offset = 0,
+        int $vendorUserId = 0,
+        ?ProductSort $sort = null,
+        bool $onlyPendingRevision = false
+    ): array;
+
+    /**
+     * Which of these products are waiting, and under which submission.
+     *
+     * The badge's second read: the input is what one manager has already looked
+     * at, so the query is bounded by that rather than by the size of the queue.
+     * A product that has LEFT the queue is absent from the answer, which is how
+     * a decided product stops subtracting from a count it is no longer part of.
+     *
+     * @param list<int> $productIds
+     * @return array<int,string> product id => submission token
+     */
+    public function submissionsOf(array $productIds): array;
+
+    /**
      * How many products are in each status, under the same filter.
      *
      * One GROUP BY, so no two numbers on the page can come from two moments.

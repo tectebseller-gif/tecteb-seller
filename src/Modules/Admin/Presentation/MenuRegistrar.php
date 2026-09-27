@@ -29,10 +29,15 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\Pages\SettingsPage;
  *
  * Two rules it keeps:
  *
- *  - **It is derived, never stored.** The number is a query taken while the
- *    menu is built, so opening the page cannot clear it and a decision cannot
- *    leave it behind. There is nothing to mark as read, because there is no
- *    mark.
+ *  - **The number is asked for, never kept here.** `waiting()` calls each page's
+ *    own callable while the menu is built, and this class stores nothing about
+ *    what it was told. From `alpha.36` the review page's answer is «how many
+ *    submissions has THIS manager not seen» rather than «how big is the queue» —
+ *    a per-person view state that `ReviewSeen` owns and `WpReviewSeenStore`
+ *    keeps in user meta. Building the menu still writes nothing: the count is a
+ *    question, and asking it is not reading. Only the review LIST and a
+ *    product's own page record a view, because they are the only two screens
+ *    that show the manager the submission.
  *  - **It is never asked for a user who cannot see the page.** The capability
  *    is checked before the callable runs, so a subscriber landing in wp-admin
  *    costs no query at all.
@@ -88,29 +93,53 @@ final class MenuRegistrar
         );
         $this->remember($hook);
 
+        // One list, in ONE order: this module's four pages and every page the
+        // other modules contribute, sorted by where `AdminNavigation` puts
+        // them. Until `alpha.35` the four came first and the rest followed in
+        // whatever order the modules happened to register, so «راه‌اندازی» sat
+        // above «بررسی محصولات» and the sidebar disagreed with the header about
+        // what matters. The order now comes from the same definition the header
+        // reads, which is what stops the two drifting again.
+        //
+        // A page no group claims lands at the end (`position()` answers
+        // PHP_INT_MAX) rather than disappearing — `usort` is not stable across
+        // equal keys, so pages within a group carry their index too.
+        $rows = [];
         foreach ([$dashboard, $health, $settings, $modules] as $page) {
-            $hook = add_submenu_page(
-                DashboardPage::SLUG,
-                $page::pageTitle(),
-                $page::menuLabel(),
-                $page::CAPABILITY,
-                $page::SLUG,
-                [$page, 'render']
-            );
-            $this->remember($hook);
+            $rows[] = [
+                'slug' => $page::SLUG,
+                'page_title' => $page::pageTitle(),
+                'menu_label' => $page::menuLabel(),
+                'capability' => $page::CAPABILITY,
+                'render' => [$page, 'render'],
+            ];
         }
-
-        // Pages other modules contribute (vendor review, document types).
+        // Pages other modules contribute (product review, document types…).
         // They register HERE so their hook suffix lands in hookSuffixes() and
         // the stylesheet still loads on plugin screens only.
         foreach (AdminExtensions::pages() as $extra) {
+            $rows[] = [
+                'slug' => $extra['slug'],
+                'page_title' => $extra['page_title'],
+                'menu_label' => $extra['menu_label'],
+                'capability' => $extra['capability'],
+                'render' => $extra['render'],
+            ];
+        }
+        $ordered = [];
+        foreach ($rows as $index => $row) {
+            $ordered[] = [AdminNavigation::position((string) $row['slug']), $index, $row];
+        }
+        usort($ordered, static fn (array $a, array $b): int => [$a[0], $a[1]] <=> [$b[0], $b[1]]);
+
+        foreach ($ordered as [, , $row]) {
             $hook = add_submenu_page(
                 DashboardPage::SLUG,
-                $extra['page_title'],
-                $extra['menu_label'] . $this->bubble($waiting[$extra['slug']] ?? 0),
-                $extra['capability'],
-                $extra['slug'],
-                $extra['render']
+                (string) $row['page_title'],
+                (string) $row['menu_label'] . $this->bubble($waiting[(string) $row['slug']] ?? 0),
+                (string) $row['capability'],
+                (string) $row['slug'],
+                $row['render']
             );
             $this->remember($hook);
         }

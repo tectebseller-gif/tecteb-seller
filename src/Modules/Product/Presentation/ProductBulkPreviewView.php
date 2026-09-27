@@ -74,11 +74,9 @@ final class ProductBulkPreviewView
             $code = (string) ($row['code'] ?? '');
             $title = (string) ($row['title'] ?? '');
             $html .= '<tr>'
-                . '<td>' . esc_html($title !== '' ? $title : sprintf(
-                    /* translators: %s: the product's id, shown when it has no title yet */
-                    __('محصول %s', 'tecteb-marketplace-core'),
-                    $fa((int) ($row['product_id'] ?? 0))
-                )) . '</td>'
+                . '<td>' . esc_html(
+                    ProductMessages::displayTitle($title, (int) ($row['product_id'] ?? 0))
+                ) . '</td>'
                 . '<td>' . self::statusCell((string) ($row['from'] ?? '')) . '</td>'
                 . '<td>' . VendorUi::chip(
                     $ok ? 'success' : 'warning',
@@ -175,11 +173,9 @@ final class ProductBulkPreviewView
             $ok = (bool) ($row['ok'] ?? false);
             $title = (string) ($row['title'] ?? '');
             $html .= '<tr>'
-                . '<td>' . esc_html($title !== '' ? $title : sprintf(
-                    /* translators: %s: the product's id, shown when it has no title yet */
-                    __('محصول %s', 'tecteb-marketplace-core'),
-                    $fa((int) ($row['product_id'] ?? 0))
-                )) . '</td>'
+                . '<td>' . esc_html(
+                    ProductMessages::displayTitle($title, (int) ($row['product_id'] ?? 0))
+                ) . '</td>'
                 . '<td>' . self::statusCell((string) ($row['to'] ?? '')) . '</td>'
                 . '<td>' . VendorUi::chip(
                     $ok ? 'success' : 'warning',

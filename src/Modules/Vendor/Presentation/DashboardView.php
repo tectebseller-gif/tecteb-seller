@@ -206,13 +206,9 @@ final class DashboardView
         $rows = '';
         foreach ($dashboard->needsWork as $product) {
             $rows .= '<li class="tv-todo__row">'
-                . '<h3 class="tv-todo__title">' . esc_html($product['title'] !== ''
-                    ? $product['title']
-                    : sprintf(
-                        /* translators: %s: the product's id */
-                        __('محصول %s', 'tecteb-marketplace-core'),
-                        PersianDigits::toPersian((string) $product['id'])
-                    )) . '</h3>'
+                . '<h3 class="tv-todo__title">' . esc_html(
+                    ProductMessages::displayTitle((string) $product['title'], (int) $product['id'])
+                ) . '</h3>'
                 . '<p class="tv-todo__reason">'
                 . ($product['note'] !== ''
                     ? esc_html(sprintf(

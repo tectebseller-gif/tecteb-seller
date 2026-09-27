@@ -96,6 +96,31 @@ interface StorefrontFieldsInterface
     public function editorUrl(int $wcProductId): string;
 
     /**
+     * Where to LOOK at this product in the shop, and what that page is.
+     *
+     * Three answers, because there are three situations and they are not the
+     * same thing to tell somebody:
+     *
+     *  - `public` — the product is published and this is the address a buyer
+     *    sees. Opening it is what «مشاهدهٔ محصول» means.
+     *  - a link with `public` false — the product exists in WooCommerce but is
+     *    not published, so this is WordPress's own preview of it. It is offered
+     *    ONLY to a viewer who may edit that post: `preview=true` on its own is a
+     *    query parameter, not an authorisation, and a link this screen hands out
+     *    must not be one the person receiving it has no right to open.
+     *  - no link at all, with a `reason` — either there is no WooCommerce post
+     *    yet (`missing`) or this viewer may not preview it (`not_permitted`).
+     *    The screen says which; it does not draw a dead link, and looking never
+     *    CREATES the product.
+     *
+     * Read-only from end to end: nothing here saves, publishes, syncs or moves a
+     * status. It answers a question about a post that already exists.
+     *
+     * @return array{url:string, public:bool, reason:string}
+     */
+    public function viewLink(int $wcProductId): array;
+
+    /**
      * Whether an SEO plugin is present, and which.
      *
      * Not so the plugin can be reimplemented — the opposite. The review screen

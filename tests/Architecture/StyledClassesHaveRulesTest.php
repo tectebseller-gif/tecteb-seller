@@ -49,6 +49,10 @@ final class StyledClassesHaveRulesTest extends TestCase
                 'src/Modules/Product/Presentation/Admin/ProductCatalogueView.php',
                 'src/Modules/Product/Presentation/Admin/ProductDecisionHistoryView.php',
                 'src/Modules/Product/Presentation/Admin/ProductReviewPage.php',
+                // `alpha.36` rebuilt the blue header into three rows and five
+                // groups; every class that markup writes is checked here for
+                // the same reason the filters were.
+                'src/Modules/Admin/Presentation/Components.php',
             ],
         ],
         'assets/vendor/tmc-vendor.css' => [

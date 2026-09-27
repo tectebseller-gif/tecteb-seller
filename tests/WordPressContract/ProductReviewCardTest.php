@@ -117,6 +117,139 @@ final class ProductReviewCardTest extends TestCase
         self::assertStringContainsString('هیچ تصویری ندارد', $html);
     }
 
+    /**
+     * WHAT THIS PROVES: «مشاهدهٔ محصول» opens the shop page of a PUBLISHED
+     * product, in a new tab, beside «ویرایش در ووکامرس».
+     */
+    public function testAPublishedProductGetsAPlainViewButtonBesideTheEditor(): void
+    {
+        $html = $this->card([
+            'url' => 'https://shop.test/product/ambo-bag/',
+            'public' => true,
+            'reason' => '',
+        ]);
+
+        self::assertStringContainsString('ویرایش در ووکامرس', $html);
+        self::assertStringContainsString('>مشاهدهٔ محصول<', $html, 'the plain label, not the preview one');
+        self::assertStringContainsString('href="https://shop.test/product/ambo-bag/"', $html);
+        self::assertStringContainsString('target="_blank" rel="noopener"', $html, 'a new tab, and no handle on this one');
+        // A published product needs no explanation, so there is none.
+        self::assertStringNotContainsString('پیش‌نمایش وردپرس', $html);
+        self::assertStringNotContainsString('تغییرهای پیشنهادی', $html);
+    }
+
+    /**
+     * WHAT THIS PROVES: a draft opens a PREVIEW, the label says so, and the note
+     * says who can open it.
+     *
+     * `preview=true` is not an authorisation and the sentence says as much: the
+     * link is only drawn for somebody `viewLink()` has already checked, and the
+     * note tells the manager that the address is not one a buyer can use.
+     */
+    public function testADraftGetsAPreviewButtonThatSaysItIsAPreview(): void
+    {
+        $html = $this->card([
+            'url' => 'https://shop.test/?p=804&preview=true',
+            'public' => false,
+            'reason' => '',
+        ]);
+
+        self::assertStringContainsString('مشاهدهٔ محصول (پیش‌نمایش)', $html);
+        self::assertStringContainsString('preview=true', $html);
+        self::assertStringContainsString('خریدار آن را نمی‌بیند', $html);
+        self::assertStringContainsString('دسترسی ویرایش ندارد', $html, 'and that the address is gated');
+    }
+
+    /**
+     * WHAT THIS PROVES: no link, and a reason, when there is nothing to open or
+     * this viewer may not open it.
+     *
+     * Two different reasons and two different sentences — «نوشته حذف شده» and
+     * «شما اجازه ندارید» are not the same news, and one message for both would
+     * send a manager to look for a deleted product.
+     */
+    public function testNoLinkIsDrawnWhenThereIsNothingToOpenOrNoRightToOpenIt(): void
+    {
+        $gone = $this->card(['url' => '', 'public' => false, 'reason' => 'missing']);
+        self::assertStringNotContainsString('مشاهدهٔ محصول', $gone, 'no button at all');
+        self::assertStringContainsString('صفحهٔ این محصول در فروشگاه پیدا نشد', $gone);
+
+        $refused = $this->card(['url' => '', 'public' => false, 'reason' => 'not_permitted']);
+        self::assertStringNotContainsString('مشاهدهٔ محصول', $refused);
+        self::assertStringContainsString('دسترسی ویرایش همان محصول', $refused);
+        self::assertStringNotContainsString('حذف شده', $refused, 'a refusal is not a missing product');
+    }
+
+    /**
+     * WHAT THIS PROVES: with an unanswered proposal, the button says it shows the
+     * CURRENT page — and it is never labelled «پیش‌نمایش تغییرات».
+     *
+     * The owner asked for exactly this and for the opposite not to happen: «برای
+     * این دور پیش‌نمایش نسخهٔ پیشنهادی ساخته نشود و صفحهٔ فعلی «پیش‌نمایش
+     * تغییرات» نامیده نشود». A label that promised the proposed version would be
+     * a lie about which bytes the shop is serving.
+     */
+    public function testAnUnappliedProposalIsSaidBesideTheButton(): void
+    {
+        $html = $this->card(
+            ['url' => 'https://shop.test/product/ambo-bag/', 'public' => true, 'reason' => ''],
+            true
+        );
+
+        self::assertStringContainsString('>مشاهدهٔ محصول<', $html);
+        self::assertStringContainsString('نسخهٔ فعلی فروشگاه است', $html);
+        self::assertStringContainsString('اعمال نشده‌اند', $html);
+        self::assertStringNotContainsString('پیش‌نمایش تغییرات', $html, 'no promise this round does not keep');
+    }
+
+    /**
+     * WHAT THIS PROVES: a product with no WooCommerce post is told so, and
+     * looking is not what creates it.
+     */
+    public function testAProductWithNoStorefrontPostSaysWhyThereIsNothingToOpen(): void
+    {
+        $html = ProductReviewCardView::render(
+            $this->product(),          // no wcProductId at all
+            $this->images(),
+            'تجهیزات پزشکی',
+            null,
+            [],
+            [],
+            '',
+            '',
+            'Rank Math',
+            '',
+            true
+        );
+        self::assertStringContainsString('هنوز صفحه‌ای در فروشگاه ندارد', $html);
+        self::assertStringContainsString('محصولی نمی‌سازد', $html, 'and looking does not create one');
+        self::assertStringNotContainsString('target="_blank"', $html, 'no link to open');
+    }
+
+    /**
+     * One projected product, with the view link the test is about.
+     *
+     * @param array{url:string, public:bool, reason:string} $link
+     */
+    private function card(array $link, bool $hasPendingRevision = false): string
+    {
+        return ProductReviewCardView::render(
+            $this->product(804),
+            $this->images(),
+            'تجهیزات پزشکی',
+            null,
+            [],
+            [],
+            '',
+            'https://shop.test/wp-admin/post.php?post=804&action=edit',
+            'Rank Math',
+            '<input type="hidden" name="n" value="x">',
+            true,
+            $link,
+            $hasPendingRevision
+        );
+    }
+
     public function testWithoutAStorefrontRowTheOfferIsPreparationAndNotPublication(): void
     {
         $html = ProductReviewCardView::render(

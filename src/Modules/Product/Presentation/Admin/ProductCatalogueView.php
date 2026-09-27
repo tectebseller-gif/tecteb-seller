@@ -84,11 +84,7 @@ final class ProductCatalogueView
     private static function row(ProductCatalogueRow $row, ProductCatalogueState $state): string
     {
         $detail = $state->link(['product' => $row->id, 'paged' => $state->page]);
-        $title = $row->title !== '' ? $row->title : sprintf(
-            /* translators: %s: the product's marketplace id */
-            __('محصول %s', 'tecteb-marketplace-core'),
-            self::fa($row->id)
-        );
+        $title = ProductMessages::displayTitle($row->title, $row->id);
 
         return '<tr>'
             . '<th scope="row" data-label="' . esc_attr__('محصول', 'tecteb-marketplace-core') . '">'

@@ -15,6 +15,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductDecisionRepositoryInte
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
+use Tecteb\Marketplace\Modules\Product\Application\ReviewSeen;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
@@ -181,7 +182,12 @@ final class ProductReviewPage
             $products->countsByStatusForManager($state->search, 0, $state->onlyRevisions),
             $revisions->countPending()
         );
-        $found = $products->forManager(
+        // Rows and the identity of the submission on each of them, in ONE
+        // statement. The list marks what it SHOWS as seen, so the token has to
+        // be the one belonging to the row above it: read separately, a vendor
+        // submitting between the two reads would have their submission recorded
+        // as seen by a manager who was looking at the previous one.
+        $page = $products->forManagerWithSubmission(
             $status,
             $state->search,
             $state->perPage,
@@ -190,6 +196,11 @@ final class ProductReviewPage
             $state->sort,
             $state->onlyRevisions
         );
+        $found = array_column($page, 'product');
+        $shown = [];
+        foreach ($page as $row) {
+            $shown[$row['product']->id] = $row['submission'];
+        }
 
         // One query for the whole page rather than `pendingFor()` per row.
         $proposed = array_fill_keys(
@@ -225,6 +236,18 @@ final class ProductReviewPage
         }
 
         echo ProductCatalogueView::render($rows, $state);
+
+        // **Only what this page actually drew, and only after it drew it.**
+        // «فقط نسخه‌هایی که در آن صفحه و با آن فیلتر نمایش داده شده‌اند»: the
+        // ids come from the rows above, so a product on page two, or outside the
+        // current filter, is untouched. And it is recorded AFTER the render, so
+        // a request that failed on the way here marks nothing — a view that did
+        // not happen is not a view.
+        //
+        // Nothing about the product changes: no status, no decision, no
+        // baseline, no proposal. The product stays in the review queue until
+        // somebody decides about it.
+        $this->container->get(ReviewSeen::class)->markSeen(get_current_user_id(), $shown);
     }
 
     /** The picture a row shows: the main one, or the first of the gallery. */
@@ -256,7 +279,8 @@ final class ProductReviewPage
             . esc_url($state->selfLink()) . '">'
             . esc_html__('بازگشت به فهرست محصولات', 'tecteb-marketplace-core') . '</a></p>';
 
-        $product = $this->container->get(ProductRepositoryInterface::class)->find($productId);
+        $products = $this->container->get(ProductRepositoryInterface::class);
+        $product = $products->find($productId);
         if ($product === null) {
             echo Components::state(
                 'error',
@@ -269,15 +293,18 @@ final class ProductReviewPage
         $decisions = $this->container->get(ProductDecisionRepositoryInterface::class);
         $history = $decisions->forProduct($product->id, null, 20);
         $revision = $this->container->get(ProductRevisionRepositoryInterface::class)->pendingFor($product->id);
+
+        // «باز شدن موفق جزئیات محصول، اعلان همان نسخهٔ نمایش‌داده‌شده را
+        // خوانده‌شده کند» — the token of THIS product, read the same way the
+        // list reads it, and empty when the product is not waiting for anybody:
+        // opening a published product with nothing proposed marks nothing,
+        // because there is no submission to have seen.
+        $shown = $products->submissionsOf([$product->id]);
         /** @var StorefrontFieldsInterface|null $storefront */
         $storefront = $this->container->get(StorefrontFieldsInterface::class);
 
         echo '<section class="tmc-card"><h2 class="tmc-card__title">'
-            . esc_html($product->details->title !== '' ? $product->details->title : sprintf(
-                /* translators: %s: the product's marketplace id */
-                __('محصول %s', 'tecteb-marketplace-core'),
-                PersianDigits::toPersian((string) $product->id)
-            )) . '</h2>'
+            . esc_html(ProductMessages::displayTitle($product->details->title, $product->id)) . '</h2>'
             . Components::dataList([
                 [
                     'label' => __('وضعیت بازارگاه', 'tecteb-marketplace-core'),
@@ -304,7 +331,7 @@ final class ProductReviewPage
             ])
             . '</section>';
 
-        echo '<section class="tmc-card">' . $this->card($product);
+        echo '<section class="tmc-card">' . $this->card($product, $revision !== null);
         if ($product->status === ProductStatus::Submitted) {
             echo Components::notice('info', __('تأیید این محصول یعنی همین نسخه منتشر می‌شود. موجودی از نسخهٔ زنده گرفته می‌شود تا فروش این چند روز برنگردد.', 'tecteb-marketplace-core'));
             echo $this->decisionForm('product', $product->id, [
@@ -321,6 +348,11 @@ final class ProductReviewPage
         $this->seoPanel($product);
 
         echo '<section class="tmc-card">' . ProductDecisionHistoryView::render($history) . '</section>';
+
+        // After the page, not before it: a render that threw half way through
+        // has not been read. And nothing here decides anything — the product is
+        // still in the queue, and still waiting for an approval or a rejection.
+        $this->container->get(ReviewSeen::class)->markSeen(get_current_user_id(), $shown);
     }
 
     /**
@@ -352,7 +384,7 @@ final class ProductReviewPage
      * (the shop's description and the category path) come from the same code
      * that writes them, not from a second implementation.
      */
-    private function card(Product $product): string
+    private function card(Product $product, bool $hasPendingRevision = false): string
     {
         $catalog = $this->container->get(SyncCatalog::class);
         $available = $catalog->isAvailable();
@@ -380,7 +412,16 @@ final class ProductReviewPage
             $product->isProjected() ? ($storefront?->editorUrl((int) $product->wcProductId) ?? '') : '',
             $storefront?->seoPluginName() ?? '',
             wp_nonce_field(self::NONCE, 'tmc_review_nonce', true, false),
-            $available
+            $available,
+            // Asked here rather than in the view, like every other value on this
+            // card: the view holds no container and calls no adapter. And asked
+            // only for a product that HAS a storefront post — the answer for one
+            // that does not is a refusal with a reason, which is what the default
+            // is.
+            $product->isProjected() && $storefront !== null
+                ? $storefront->viewLink((int) $product->wcProductId)
+                : ['url' => '', 'public' => false, 'reason' => 'missing'],
+            $hasPendingRevision
         );
     }
 

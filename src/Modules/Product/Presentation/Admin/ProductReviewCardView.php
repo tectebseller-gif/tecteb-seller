@@ -53,19 +53,31 @@ final class ProductReviewCardView
         string $editorUrl,
         string $seoPlugin,
         string $nonceField,
-        bool $woocommerceAvailable
+        bool $woocommerceAvailable,
+        /**
+         * Where to LOOK at the product, from `StorefrontFieldsInterface::viewLink()`.
+         *
+         * A default, so the branch that draws no button is what a caller that
+         * has not been told about this gets. The alternative default — a link —
+         * would be a link nobody decided to offer.
+         *
+         * @var array{url:string, public:bool, reason:string}
+         */
+        array $viewLink = ['url' => '', 'public' => false, 'reason' => 'missing'],
+        /** An unanswered proposal: what the shop shows is NOT what is proposed. */
+        bool $hasPendingRevision = false
     ): string {
         $d = $product->details;
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
 
         $html = '<article class="tmc-review tmc-review--full">'
-            . '<h3 class="tmc-review__title">' . esc_html($d->title !== '' ? $d->title : __('بدون عنوان', 'tecteb-marketplace-core')) . '</h3>'
+            . '<h3 class="tmc-review__title">' . esc_html(ProductMessages::displayTitle($d->title, $product->id)) . '</h3>'
             . self::storeLine($product, $store)
             . self::gallery($images)
             . self::descriptions($d->shortDescription, $fullDescription)
             . self::facts($product, $categoryPath, $fa)
             . self::specs($product, $template)
-            . self::storefrontBlock($product, $storefront, $editorUrl, $seoPlugin, $nonceField, $woocommerceAvailable)
+            . self::storefrontBlock($product, $storefront, $editorUrl, $seoPlugin, $nonceField, $woocommerceAvailable, $viewLink, $hasPendingRevision)
             . self::correctionForm($product, $categoryPath, $nonceField);
 
         return $html . '</article>';
@@ -203,7 +215,9 @@ final class ProductReviewCardView
         string $editorUrl,
         string $seoPlugin,
         string $nonceField,
-        bool $woocommerceAvailable
+        bool $woocommerceAvailable,
+        array $viewLink,
+        bool $hasPendingRevision
     ): string {
         $html = '<div class="tmc-review__storefront"><h4>'
             . esc_html__('صفحهٔ محصول در ووکامرس', 'tecteb-marketplace-core') . '</h4>';
@@ -226,14 +240,27 @@ final class ProductReviewCardView
                 . '<input type="hidden" name="subject" value="storefront">'
                 . '<input type="hidden" name="subject_id" value="' . esc_attr((string) $product->id) . '">'
                 . '<button type="submit" class="tmc-button" name="decision" value="prepare">'
-                . esc_html__('آماده‌سازی در ووکامرس (پیش‌نویس)', 'tecteb-marketplace-core') . '</button></form></div>';
+                . esc_html__('آماده‌سازی در ووکامرس (پیش‌نویس)', 'tecteb-marketplace-core') . '</button></form>'
+                // Said rather than drawn as a dead button: «مشاهدهٔ محصول» has
+                // nothing to open, and clicking it must not be what CREATES the
+                // product either.
+                . '<p class="tmc-review__viewnote">'
+                . esc_html__('«مشاهدهٔ محصول» فعلاً در دسترس نیست، چون این محصول هنوز صفحه‌ای در فروشگاه ندارد. باز کردن یک صفحه، محصولی نمی‌سازد.', 'tecteb-marketplace-core')
+                . '</p></div>';
         }
 
         $html .= '<p class="tmc-review__links">';
         if ($editorUrl !== '') {
             $html .= '<a class="tmc-button" href="' . esc_url($editorUrl) . '">'
                 . esc_html__('ویرایش در ووکامرس', 'tecteb-marketplace-core') . '</a> ';
-            $html .= '<a class="tmc-button" href="' . esc_url($editorUrl . '#rank_math_metabox') . '">'
+        }
+        // «مشاهدهٔ محصول», beside the editor. A new tab, because the manager is
+        // mid-review and the decision form on this page is what they come back
+        // to; `rel="noopener"` because `target="_blank"` without it hands the
+        // opened page a handle on this one.
+        $html .= self::viewButton($viewLink);
+        if ($editorUrl !== '') {
+            $html .= ' <a class="tmc-button" href="' . esc_url($editorUrl . '#rank_math_metabox') . '">'
                 . esc_html(sprintf(
                     /* translators: %s: SEO plugin name */
                     __('تنظیم سئو (%s)', 'tecteb-marketplace-core'),
@@ -241,6 +268,7 @@ final class ProductReviewCardView
                 )) . '</a>';
         }
         $html .= '</p>'
+            . self::viewNote($viewLink, $hasPendingRevision)
             . '<p class="tmc-card__note">' . esc_html(sprintf(
                 /* translators: %s: storefront product id */
                 __('شناسهٔ محصول در فروشگاه: %s — ویرایش در ووکامرس محصول را منتشر نمی‌کند؛ انتشار فقط با «تأیید و انتشار» همین صفحه انجام می‌شود.', 'tecteb-marketplace-core'),
@@ -267,6 +295,63 @@ final class ProductReviewCardView
             $html .= self::ownershipTable($product, $conflicts, $nonceField);
         }
         return $html . '</div>';
+    }
+
+    /**
+     * The «مشاهدهٔ محصول» button, or nothing and a reason beside it.
+     *
+     * Three shapes for three situations, because «صفحهٔ فروشگاه» and «پیش‌نمایش
+     * پیش‌نویس» are not the same promise, and «نمی‌شود» has to say why.
+     *
+     * @param array{url:string, public:bool, reason:string} $link
+     */
+    private static function viewButton(array $link): string
+    {
+        if ($link['url'] === '') {
+            return '';
+        }
+        return '<a class="tmc-button" href="' . esc_url($link['url']) . '" target="_blank" rel="noopener">'
+            . esc_html(
+                $link['public']
+                    ? __('مشاهدهٔ محصول', 'tecteb-marketplace-core')
+                    : __('مشاهدهٔ محصول (پیش‌نمایش)', 'tecteb-marketplace-core')
+            )
+            . '<span class="tmc-sr-only"> ' . esc_html__('در زبانهٔ تازه', 'tecteb-marketplace-core') . '</span></a>';
+    }
+
+    /**
+     * What that button opens — said in words, right beside it.
+     *
+     * **The proposal sentence is the important one.** What the shop serves is
+     * the version that was approved; an unanswered proposal is not applied to it
+     * and will not be until the manager says so. A button labelled «پیش‌نمایش
+     * تغییرات» would be a promise this round does not keep, so the label says
+     * «محصول» and this note says which version that is. A preview of the
+     * PROPOSED version is deliberately not built here.
+     *
+     * @param array{url:string, public:bool, reason:string} $link
+     */
+    private static function viewNote(array $link, bool $hasPendingRevision): string
+    {
+        $lines = [];
+        if ($link['url'] === '') {
+            $lines[] = $link['reason'] === 'not_permitted'
+                ? __('برای دیدن پیش‌نمایش این محصول به دسترسی ویرایش همان محصول در ووکامرس نیاز است؛ حساب شما این دسترسی را ندارد.', 'tecteb-marketplace-core')
+                : __('صفحهٔ این محصول در فروشگاه پیدا نشد؛ ممکن است نوشتهٔ ووکامرس آن حذف شده باشد.', 'tecteb-marketplace-core');
+        } elseif (!$link['public']) {
+            $lines[] = __('این محصول در ووکامرس منتشر نشده است، پس «مشاهدهٔ محصول» پیش‌نمایش وردپرس را باز می‌کند — خریدار آن را نمی‌بیند و این نشانی برای کسی که دسترسی ویرایش ندارد باز نمی‌شود.', 'tecteb-marketplace-core');
+        }
+        if ($hasPendingRevision) {
+            $lines[] = __('توجه: آنچه باز می‌شود نسخهٔ فعلی فروشگاه است. تغییرهای پیشنهادی فروشنده روی آن اعمال نشده‌اند و تا تأیید شما اعمال نمی‌شوند.', 'tecteb-marketplace-core');
+        }
+        if ($lines === []) {
+            return '';
+        }
+        $html = '';
+        foreach ($lines as $line) {
+            $html .= '<p class="tmc-review__viewnote">' . esc_html($line) . '</p>';
+        }
+        return $html;
     }
 
     /**

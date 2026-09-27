@@ -8,6 +8,10 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
+use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpReviewSeenStore;
 use TmcWpStubs\State;
 
 /**
@@ -162,6 +166,91 @@ final class AdminPagesRenderTest extends DatabaseTestCase
         ($auditPage['render'])();
         $html = (string) ob_get_clean();
         self::assertStringContainsString('product_id', $html, 'the audit page must actually print a payload row');
+    }
+
+    /**
+     * WHAT THIS PROVES: only the review screens mark a submission as seen.
+     *
+     * «باز کردن پیشخوان بازارگاه یا منو، به‌تنهایی نباید اعلانی را پاک کند». The
+     * risk is not theoretical: the badge is built while the MENU is built, on
+     * every wp-admin request, so a marking call in the wrong place would clear
+     * the notification for every screen the manager happens to open — including
+     * screens that show them nothing about the product.
+     *
+     * Measured by rendering every registered page, one at a time, and asking
+     * after each one whether a mark appeared. The review pages are named as the
+     * only two that may.
+     */
+    public function testOnlyTheReviewScreensRecordThatASubmissionWasSeen(): void
+    {
+        $products = Bootstrap::container()->get(ProductRepositoryInterface::class);
+        // Measured, not assumed. This class does not reset the schema, so «the
+        // queue is empty» is a claim about whatever ran before — and when it is
+        // wrong the failure is about a number rather than about the thing under
+        // test.
+        $before = $products->countAwaitingReview();
+        $id = $products->create(
+            7,
+            new ProductDetails(title: 'ماسک سه‌لایه', categoryKey: 'gloves', priceMinor: 120000, stock: 5),
+            ProductStatus::Submitted
+        );
+        self::assertGreaterThan(0, $id);
+        self::assertSame($before + 1, $products->countAwaitingReview(), 'the fixture must be waiting for review');
+
+        // Building the menu — which is what computes the red count — writes
+        // nothing. The count is a question; answering it is not reading.
+        State::$userMeta = [];
+        do_action('admin_menu');
+        self::assertSame([], State::$userMeta, 'building the menu marked something as seen');
+
+        $pages = AdminExtensions::pages();
+        $marked = [];
+        foreach ($pages as $page) {
+            State::$userMeta = [];
+            $_GET['page'] = $page['slug'];
+            $_GET['product'] = '';
+            ob_start();
+            try {
+                ($page['render'])();
+            } finally {
+                ob_end_clean();
+            }
+            if (isset(State::$userMeta[1][WpReviewSeenStore::META_KEY])) {
+                $marked[] = $page['slug'];
+            }
+        }
+        self::assertSame(['tmc-product-review'], $marked, 'these pages recorded a view: ' . implode(', ', $marked));
+
+        // And the product page of the review screen does too — the other half of
+        // «مشاهدهٔ موفق جزئیات محصول».
+        State::$userMeta = [];
+        $_GET['page'] = 'tmc-product-review';
+        $_GET['product'] = (string) $id;
+        $review = null;
+        foreach ($pages as $page) {
+            if ($page['slug'] === 'tmc-product-review') {
+                $review = $page;
+            }
+        }
+        self::assertNotNull($review);
+        ob_start();
+        try {
+            ($review['render'])();
+        } finally {
+            ob_end_clean();
+        }
+        self::assertArrayHasKey(
+            (string) $id,
+            (array) State::$userMeta[1][WpReviewSeenStore::META_KEY],
+            'opening the product did not record its submission'
+        );
+        $_GET['product'] = '';
+
+        // And give the queue back. The contract suite's stub `wpdb` is a real
+        // PDO on this same database, and a product left waiting here puts a red
+        // bubble into a menu title another suite asserts exactly.
+        self::assertTrue($products->updateStatus($id, ProductStatus::Archived, ''));
+        self::assertSame($before, $products->countAwaitingReview(), 'the fixture gave back what it spent');
     }
 
     public function testAPageRefusesAUserWithoutItsCapability(): void

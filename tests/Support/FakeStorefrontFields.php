@@ -143,6 +143,23 @@ final class FakeStorefrontFields implements StorefrontFieldsInterface
         return '';
     }
 
+    /**
+     * Whatever the test set, or «no post» — never a link by accident.
+     *
+     * The default is the refusal, so a test that has not said which case it is
+     * about gets the branch that draws no link, rather than one that quietly
+     * offers a preview nobody set up.
+     *
+     * @return array{url:string, public:bool, reason:string}
+     */
+    public function viewLink(int $wcProductId): array
+    {
+        return $this->viewLink ?? ['url' => '', 'public' => false, 'reason' => 'missing'];
+    }
+
+    /** @var array{url:string, public:bool, reason:string}|null */
+    public ?array $viewLink = null;
+
     public function seoPluginName(): string
     {
         return '';

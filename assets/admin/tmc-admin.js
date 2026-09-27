@@ -37,9 +37,13 @@
   }
 
   /*
-   * The section menu is a `<details>` that ships COLLAPSED: this plugin now
-   * registers more than twenty manager screens, and as a flat list that was a
-   * wall of links above every page on a narrow viewport.
+   * The section menu is a `<details>` that ships COLLAPSED: this plugin
+   * registers twenty-two manager screens, and as a flat list that was a
+   * wall of links above every page on a narrow viewport. From `alpha.36` the
+   * panel holds two rows — the five groups, then the open group's pages — and
+   * WHICH group is open is decided on the server from the current slug, not
+   * here. Nothing in this function chooses what is visible; it only opens a
+   * disclosure that a click would open anyway.
    *
    * Opening it on a wide screen needs a script, and that is measured rather
    * than assumed: in Chromium 141 neither `details:not([open]) > * { display:
