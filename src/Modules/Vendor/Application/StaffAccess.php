@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Vendor\Application;
 
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffArea;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffLevel;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffMember;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffStatus;
 
 /**
@@ -45,6 +46,40 @@ final class StaffAccess
         // A suspended shop derives nothing: staff rights come FROM the vendor,
         // so the vendor's own standing is part of every staff answer.
         return $this->vendorCanTrade($membership->vendorUserId) ? $membership->vendorUserId : null;
+    }
+
+    /**
+     * Which shop this user is on the roster of — a question about MEMBERSHIP,
+     * and deliberately not about permission.
+     *
+     * **Why this is separate from `storeFor()`, and must stay separate.**
+     * `storeFor()` answers «which shop may this user act in», so it says `null`
+     * for a member of a suspended shop and for a member whose own standing is
+     * suspended or still invited. That is right, and it is the answer every
+     * gate must keep using. But a screen that reads it as «which shop is this
+     * person part of» concludes «none», and the only page left for somebody who
+     * is part of no shop is the one that invites them to apply for one — so an
+     * employee of a suspended shop was shown «هنوز درخواستی ثبت نکرده‌اید» and
+     * a «شروع درخواست فروشندگی» button, above the shop they work in. Measured
+     * on `alpha.33`.
+     *
+     * So: this says who somebody IS, `can()` says what they may DO, and nothing
+     * here widens the second. Callers get a row, not a right — every existing
+     * gate is untouched, and a caller that wanted a permission and reached for
+     * this instead is reading a `StaffMember`, which grants nothing.
+     *
+     * The row is returned whatever its status, including `Suspended` and
+     * `Invited`: «your access here is paused» is a true and useful sentence, and
+     * it is the one a person in that state needs. There is no `deleted` status
+     * (§3.1), so this never resurrects a membership that was ended — it cannot
+     * be ended, only suspended, and a suspended member is told exactly that.
+     */
+    public function membershipFor(int $userId): ?StaffMember
+    {
+        if ($userId <= 0) {
+            return null;
+        }
+        return $this->staff->findByUser($userId);
     }
 
     /**

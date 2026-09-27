@@ -52,17 +52,27 @@ final class ProductListView
             );
         }
 
+        // The page in the order somebody works in it (`alpha.34`). The owner's
+        // words: «بالای صفحه: نوار جست‌وجو و دکمهٔ افزودن محصول. سپس فیلتر
+        // وضعیت‌ها و اقدامات گروهی. سپس محصولات و صفحه‌بندی. پایین همهٔ این‌ها:
+        // بخش جمع‌شوندهٔ ورود و خروج گروهی».
+        //
+        // `alpha.33` had the CSV disclosure at the top, beside «افزودن محصول»,
+        // and the search below it. Two things were wrong with that and only one
+        // was the order: a `<details>` at the top pushes the search field and
+        // every product down the moment somebody opens it, so the tool used
+        // twice a year moved the tool used every day. Last in the document is
+        // the one position from which opening it can push nothing.
         $html .= '<section class="tv-card"><div class="tv-card__head">'
             . '<h2 class="tv-card__title">' . esc_html__('محصولات فروشگاه', 'tecteb-marketplace-core') . '</h2>'
             . '</div>'
-            . self::tools($urls, $nonceField, $mayEdit);
+            . self::topBar($search, $currentStatus, $urls, $mayEdit);
 
         $html .= $mayPublishDirectly
             ? '<p class="tv-hint">' . esc_html__('فروشگاه شما مجوز انتشار مستقیم دارد: محصول با «ارسال» بی‌درنگ منتشر می‌شود.', 'tecteb-marketplace-core') . '</p>'
             : '<p class="tv-hint">' . esc_html__('محصول تازه و تغییرهای حساس پس از تأیید مدیر منتشر می‌شوند. موجودی همیشه فوری اعمال می‌شود.', 'tecteb-marketplace-core') . '</p>';
 
         $html .= self::tabs($counts, $currentStatus, $urls, $fa);
-        $html .= self::searchForm($search, $currentStatus, $urls);
 
         if ($products === []) {
             // Three different empty lists, and they are not the same page. A
@@ -90,7 +100,12 @@ final class ProductListView
                     [['href' => $urls->products(), 'label' => __('دیدن همهٔ محصولات', 'tecteb-marketplace-core')]]
                 ),
             };
-            return $html . '</section>';
+            // The CSV tools stay reachable with an empty list: «در حالت فهرست
+            // خالی نیز ابزار CSV برای کاربران مجاز در دسترس بماند». A shop with
+            // no products yet is exactly the shop most likely to want to bring a
+            // file in, and `alpha.33` printed the tools above the empty state by
+            // accident of position rather than by decision.
+            return $html . self::csvFold($urls, $nonceField, $mayEdit) . '</section>';
         }
 
         if ($mayEdit) {
@@ -102,7 +117,7 @@ final class ProductListView
         }
         $html .= '</ul>';
         $html .= self::pager($page, $total, $currentStatus, $urls, $fa);
-        return $html . '</section>';
+        return $html . self::csvFold($urls, $nonceField, $mayEdit) . '</section>';
     }
 
     /**
@@ -377,18 +392,29 @@ final class ProductListView
      * nonce, same two-step (preview, then an explicit «اعمال») — only where
      * they sit and what is said beside them.
      */
-    private static function tools(VendorUrls $urls, string $nonce, bool $mayEdit): string
+    /**
+     * The top of the page: the search field and the one button.
+     *
+     * These two are what somebody opening the list came for — find a product,
+     * or add one — so they are the first thing on it and they are on one row.
+     * Nothing here expands: the row is the same height whatever is typed in it,
+     * which is the property the CSV disclosure could not have and is why that
+     * moved to the bottom.
+     */
+    private static function topBar(string $search, string $status, VendorUrls $urls, bool $mayEdit): string
     {
-        $html = '<div class="tv-tools">';
+        $html = '<div class="tv-tools">' . self::searchForm($search, $status, $urls);
         if ($mayEdit) {
-            $html .= VendorUi::button($urls->product(0), __('افزودن محصول', 'tecteb-marketplace-core'));
+            $html .= '<p class="tv-tools__action">'
+                . VendorUi::button($urls->product(0), __('افزودن محصول', 'tecteb-marketplace-core'))
+                . '</p>';
         }
-        return $html . self::csvFold($urls, $nonce, $mayEdit) . '</div>';
+        return $html . '</div>';
     }
 
     private static function csvFold(VendorUrls $urls, string $nonce, bool $mayEdit): string
     {
-        $html = '<details class="tv-bulk-csv"><summary class="tv-bulk-csv__summary">'
+        $html = '<details class="tv-bulk-csv tv-bulk-csv--foot"><summary class="tv-bulk-csv__summary">'
             . esc_html__('ورود و خروج گروهی محصولات', 'tecteb-marketplace-core')
             . '</summary><div class="tv-bulk-csv__body">'
             // Export first, and said as what it is FOR: the file that comes out

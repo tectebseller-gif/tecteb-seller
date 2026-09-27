@@ -24,7 +24,15 @@ WPCLI="${WPCLI:-/usr/local/bin/wp}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGINS="$WPROOT/wp-content/plugins"
 OLD_ZIP="${TMC_OLD_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.28.zip}"
-NEW_ZIP="${TMC_NEW_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.31.zip}"
+# The NEWEST package in `dist/`, derived rather than written here. Both of these
+# scripts carried `alpha.31` as a literal for three rounds, so they kept passing
+# — about a package nobody was delivering any more. A default that has to be
+# edited by hand is a default that goes stale silently.
+newest_zip() {
+  ls -1 "$REPO"/dist/tecteb-marketplace-core-0.1.0-alpha.*.zip 2>/dev/null \
+    | sed 's/.*alpha\.\([0-9]*\)\.zip/\1 &/' | sort -n | tail -1 | cut -d' ' -f2-
+}
+NEW_ZIP="${TMC_NEW_ZIP:-$(newest_zip)}"
 
 mkdir -p "$OUT"
 LOG="$OUT/upgrade-alpha28-check.txt"
@@ -105,7 +113,12 @@ SCHEMA_AFTER="$(wpx option get tmc_schema_version)"
 say "installed: $OLDV -> $NEWV   schema: $SCHEMA_BEFORE -> $SCHEMA_AFTER   admin request: $HTTP"
 check "the admin page opened"                        "$HTTP" "200"
 check "and no activation hook was needed"            "$SCHEMA_BEFORE" "18"
-check "the upgrade gate reached schema 19"           "$SCHEMA_AFTER" "19"
+# Read from `SchemaVersion::TARGET`, not written here. This line said «19» for
+# three rounds and passed only because the package under test was frozen at
+# `alpha.31` by the stale default above; the first round that moved both made it
+# report a failure about a site that had upgraded exactly right.
+TARGET="$(grep -oE "TARGET = [0-9]+" "$REPO/src/Core/Migration/SchemaVersion.php" | grep -oE "[0-9]+")"
+check "the upgrade gate reached this package's schema" "$SCHEMA_AFTER" "$TARGET"
 check "the baseline column exists now" \
   "$(dbq "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${PREFIX}tmc_products' AND COLUMN_NAME = 'approved_baseline'")" "1"
 check "and the decision table with it" \

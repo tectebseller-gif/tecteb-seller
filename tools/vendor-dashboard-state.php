@@ -24,6 +24,7 @@
  *   wp eval-file tools/vendor-dashboard-state.php applicant <status>
  *   wp eval-file tools/vendor-dashboard-state.php publishing on|off
  *   wp eval-file tools/vendor-dashboard-state.php staff view|none
+ *   wp eval-file tools/vendor-dashboard-state.php shop suspend|reinstate
  *   wp eval-file tools/vendor-dashboard-state.php reset
  */
 
@@ -281,6 +282,36 @@ switch ($command) {
             [$permissions, $vendorUserId]
         );
         echo 'staff_products=' . $argument . "\n";
+        break;
+
+    case 'shop':
+        // Suspend and reinstate the DEMO SHOP itself — `alpha.34` item 2. The
+        // point is its STAFF, whose screen said «هنوز درخواستی ثبت نکرده‌اید»
+        // while the shop they work in was suspended.
+        //
+        // Through `ReviewApplication` and not an UPDATE, for the `alpha.17`
+        // reason: a status written behind the code's back produces states no
+        // real path reaches, and then the screen is measured for a site nobody
+        // has. `suspend()` and `approve()` are the two buttons the manager has.
+        $application = $vendors->findApplicationByUser($vendorUserId);
+        if ($application === null) {
+            echo "refused=1 reason=no_shop_application\n";
+            return;
+        }
+        $review = $c->get(ReviewApplication::class);
+        $result = match ($argument) {
+            'suspend' => $review->suspend($application->id, 'تعلیق آزمایشی فروشگاه، برای سنجش صفحهٔ پرسنل.'),
+            'reinstate' => $review->approve($application->id),
+            default => null,
+        };
+        $profile = $vendors->findProfileByUser($vendorUserId);
+        printf(
+            "shop=%s ok=%s status=%s can_sell=%s\n",
+            $argument,
+            $result === null ? 'unknown_action' : ($result->ok ? 'yes' : $result->code),
+            $vendors->findApplicationByUser($vendorUserId)?->status->value ?? 'none',
+            $profile !== null && $profile->canSell ? 'yes' : 'no'
+        );
         break;
 
     case 'reset':

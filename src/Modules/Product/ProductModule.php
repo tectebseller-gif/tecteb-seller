@@ -43,6 +43,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductDecisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\TitleSortRepair;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\AliasingSpecTemplateRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
@@ -114,6 +115,12 @@ final class ProductModule implements ModuleInterface
         $c->bind(ProductRepositoryInterface::class, static fn (ContainerInterface $c) => new DbProductRepository(
             $c->get(DatabaseInterface::class),
             $c->get(ClockInterface::class)
+        ));
+        // Keeps the sort key honest after a build that did not maintain it —
+        // which is what a rollback to `alpha.32` and back again leaves behind.
+        $c->bind(TitleSortRepair::class, static fn (ContainerInterface $c) => new TitleSortRepair(
+            $c->get(DatabaseInterface::class),
+            $c->get(OptionStoreInterface::class)
         ));
         $c->bind(ProductDecisionRepositoryInterface::class, static fn (ContainerInterface $c) => new DbProductDecisionRepository(
             $c->get(DatabaseInterface::class),
@@ -280,6 +287,7 @@ final class ProductModule implements ModuleInterface
             return $pages;
         });
         $this->followVendorStatus($container);
+        $this->repairTitleSort($container);
         // Registered whatever the order module's own state is: "the
         // marketplace may not sell" has to be enforceable exactly when the
         // order module is not there to enforce it.
@@ -290,6 +298,38 @@ final class ProductModule implements ModuleInterface
             // an order that was never paid.
             CartGuard::register($container);
         }
+    }
+
+    /**
+     * One bounded pass of the sort-key repair per wp-admin request.
+     *
+     * Priority 20, so the upgrade gate at priority 5 has already had its turn:
+     * on a site coming from `alpha.32` the column is created by the migration
+     * in the same request, and asking about it first would answer «not there».
+     *
+     * `admin_init` and not `init`, because the only reader of `title_sort` is
+     * the manager's product list in wp-admin — a shopper must not pay for this.
+     * AJAX and the REST route are excluded for the same reason: `admin_init`
+     * fires on `admin-ajax.php` too, and the autosave endpoint is on a path
+     * somebody is waiting on keystroke by keystroke.
+     */
+    private function repairTitleSort(ContainerInterface $container): void
+    {
+        if (!is_admin()) {
+            return;
+        }
+        add_action('admin_init', static function () use ($container): void {
+            if (wp_doing_ajax() || (defined('REST_REQUEST') && REST_REQUEST)) {
+                return;
+            }
+            try {
+                $container->get(TitleSortRepair::class)->run();
+            } catch (\Throwable) {
+                // Same rule as the migration gate above it: wp-admin must load.
+                // A key that stays stale puts a handful of rows in the wrong
+                // place; a fatal here would take the whole screen.
+            }
+        }, 20);
     }
 
     /**

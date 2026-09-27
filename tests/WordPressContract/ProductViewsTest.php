@@ -107,24 +107,79 @@ final class ProductViewsTest extends ContractTestCase
      * operates on, and the last thing on every page whether anybody wanted it
      * or not.
      */
-    public function testTheCsvToolsAreADisclosureBesideTheAddButtonAndNotACardAtTheBottom(): void
+    /**
+     * WHAT THIS PROVES: the page is in the order the owner asked for, measured as
+     * DOCUMENT ORDER rather than described.
+     *
+     * «بالای صفحه: نوار جست‌وجو و دکمهٔ افزودن محصول. سپس فیلتر وضعیت‌ها و اقدامات
+     * گروهی. سپس محصولات و صفحه‌بندی. پایین همهٔ این‌ها: بخش جمع‌شوندهٔ ورود و
+     * خروج گروهی، پیش‌فرض بسته.»
+     *
+     * `alpha.33` put the CSV disclosure at the top beside «افزودن محصول» and the
+     * search below it, so opening a tool used twice a year pushed the field used
+     * every day — and every product — down the page. Asserted as five positions
+     * in one string, because «is it above the filters» is a claim about order and
+     * only order can answer it.
+     */
+    public function testThePageRunsSearchThenFiltersThenProductsThenTheCsvFold(): void
     {
         $this->bootPlugin(false);
         $html = $this->list();
 
-        // Beside: both controls are inside the one tools row, and the row comes
-        // before the filters rather than after the pager.
-        self::assertStringContainsString('class="tv-tools"', $html);
-        self::assertLessThan(
-            strpos($html, 'class="tv-tabs"'),
-            strpos($html, 'tv-bulk-csv__summary'),
-            'the tools row belongs above the filters, not under the pager'
-        );
+        $search = strpos($html, 'id="f-product-search"');
+        $add = strpos($html, 'افزودن محصول');
+        $tabs = strpos($html, 'class="tv-tabs"');
+        $bulk = strpos($html, 'id="tmc-bulk"');
+        $products = strpos($html, 'class="tv-products"');
+        $csv = strpos($html, 'tv-bulk-csv__summary');
+        foreach (['search' => $search, 'add' => $add, 'tabs' => $tabs, 'bulk' => $bulk,
+                  'products' => $products, 'csv' => $csv] as $name => $at) {
+            self::assertIsInt($at, $name . ' is not on the page at all');
+        }
+
+        self::assertLessThan($tabs, $search, 'the search belongs above the filters');
+        self::assertLessThan($tabs, $add, 'and so does the add button');
+        self::assertLessThan($bulk, $tabs, 'filters, then bulk actions');
+        self::assertLessThan($products, $bulk, 'bulk actions, then the products');
+        self::assertGreaterThan($products, $csv, 'and the CSV fold is below all of it');
+
+        // Both halves of the CSV tool are at the bottom, not just its button:
+        // «دکمه و محتوای CSV هر دو پایین باشند». The body is inside the same
+        // `<details>`, so its position is the summary's — asserted anyway,
+        // because that is the property the owner named.
+        self::assertGreaterThan($products, strpos($html, 'tv-bulk-csv__body'));
+
+        // Closed by default, and closed by ABSENCE of `open` rather than by a
+        // script: a `<details>` with no `open` attribute is shut in every browser
+        // and shut with JavaScript off.
+        self::assertStringContainsString('<details class="tv-bulk-csv tv-bulk-csv--foot"><summary', $html);
+        self::assertStringNotContainsString('<details class="tv-bulk-csv tv-bulk-csv--foot" open', $html);
         self::assertStringContainsString('ورود و خروج گروهی محصولات', $html);
-        // A native disclosure: no script, and a `<summary>` Tab reaches.
-        self::assertStringContainsString('<details class="tv-bulk-csv"><summary', $html);
         self::assertStringNotContainsString('<script', $html);
         self::assertStringNotContainsString('onclick', $html);
+    }
+
+    /**
+     * WHAT THIS PROVES: an empty list still offers the CSV tools — «در حالت فهرست
+     * خالی نیز ابزار CSV برای کاربران مجاز در دسترس بماند».
+     *
+     * A shop with no products is the shop most likely to want to bring a file in,
+     * and `alpha.33` showed the tools there only because they happened to sit
+     * above the empty state. Now they are below it, by decision.
+     */
+    public function testTheCsvToolsAreStillThereWhenThereAreNoProductsYet(): void
+    {
+        $this->bootPlugin(false);
+        $html = $this->list(products: []);
+
+        self::assertStringContainsString('هنوز محصولی ثبت نکرده‌اید', $html, 'the empty state itself');
+        self::assertStringContainsString('ورود و خروج گروهی محصولات', $html);
+        self::assertStringContainsString('name="products_csv"', $html, 'and the file chooser with it');
+        self::assertGreaterThan(
+            strpos($html, 'هنوز محصولی ثبت نکرده‌اید'),
+            strpos($html, 'tv-bulk-csv__summary'),
+            'below the empty state, in the same place it is below a list'
+        );
     }
 
     /**
@@ -170,11 +225,16 @@ final class ProductViewsTest extends ContractTestCase
         self::assertStringContainsString('value="import_products"', $html);
         self::assertStringContainsString('name="products_csv"', $html);
         self::assertStringContainsString('enctype="multipart/form-data"', $html);
-        $fold = substr(
-            $html,
-            (int) strpos($html, '<details class="tv-bulk-csv">'),
-            (int) strpos($html, '</details>') - (int) strpos($html, '<details class="tv-bulk-csv">')
-        );
+        // Sliced from the fold's own opening tag to its own closing one. The
+        // first version searched for `</details>` from position zero, and when
+        // the class name changed `strpos` answered `false`, cast to 0, and the
+        // «slice» became the whole page — so it counted the bulk bar's nonce too
+        // and reported four. A slice whose start is not asserted is not a slice.
+        $open = strpos($html, '<details class="tv-bulk-csv tv-bulk-csv--foot">');
+        self::assertIsInt($open, 'the CSV fold is not on the page under that class');
+        $close = strpos($html, '</details>', $open);
+        self::assertIsInt($close);
+        $fold = substr($html, $open, $close - $open);
         self::assertSame(2, substr_count($fold, 'tmc_vendor_nonce'), 'both CSV forms carry the nonce');
         self::assertStringContainsString('پیش‌نمایش ورود', $html);
         self::assertStringNotContainsString('value="apply_products_csv"', $html);
@@ -191,10 +251,11 @@ final class ProductViewsTest extends ContractTestCase
         self::assertStringContainsString('ورود فایل به دسترسی ویرایش محصول نیاز دارد.', $html);
     }
 
-    private function list(string $nonce = '', bool $mayEdit = true): string
+    /** @param ?list<\Tecteb\Marketplace\Modules\Product\Domain\Product> $products */
+    private function list(string $nonce = '', bool $mayEdit = true, ?array $products = null): string
     {
         return ProductListView::render(
-            [$this->product()],
+            $products ?? [$this->product()],
             ['draft' => 1],
             '',
             1,

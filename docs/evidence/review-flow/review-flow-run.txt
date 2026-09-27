@@ -20,10 +20,10 @@ ok:   6-4. and one row per product that was selected                   true
 ok:   6-5. no row is left without a reason                             0
 ok:   2-1. the manager has a list of every product                     true
 ok:   2-2. with WooCommerce's own status beside ours                   true
-      admin chips: ["همه۸۷","پیش‌نویس۱۸","در انتظار بررسی۱۷","نیازمند اصلاح۲","منتشرشده۴۲","تعلیق‌شده۰","بایگانی۸"]
+      admin chips: ["همه۱۰۱","پیش‌نویس۱۹","در انتظار بررسی۱۷","نیازمند اصلاح۲","منتشرشده۵۵","تعلیق‌شده۰","بایگانی۸"]
 ok:   2-2b. the chips were actually found                              true
-ok:   2-3. «همه» equals the sum of the chips beside it                 87
-ok:   2-4. and the database agrees                                     87
+ok:   2-3. «همه» equals the sum of the chips beside it                 101
+ok:   2-4. and the database agrees                                     101
 ok:   2-5. an archived product is still listed                         true
       counter rounds walked: 9
 ok:   7-1. every round agreed with the database                        0

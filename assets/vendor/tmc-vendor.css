@@ -1223,7 +1223,17 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 .tv-form { display: grid; gap: var(--tv-s3); margin-block-start: var(--tv-s3); }
 
 /* ---------------------------------------------------------------------------
- * The product list's two tools (alpha.33): one product, or all of them.
+ * The product list's top row (alpha.34): search, and the one button.
+ *
+ * `alpha.33` put the CSV disclosure here instead of the search, so opening a
+ * tool used twice a year pushed the field used every day — and every product —
+ * down the page. The search now owns the row and the disclosure owns the
+ * bottom, where opening it moves nothing.
+ *
+ * The search grows and the button does not: `1 1 22rem` against `0 0 auto`, so
+ * a wide card gives the extra width to the field, and a narrow one wraps the
+ * button onto its own line rather than squeezing the input to nothing. 22rem is
+ * the label «جست‌وجو در عنوان، برند و کد SKU» on one line.
  * ------------------------------------------------------------------------ */
 .tv-tools {
   display: flex;
@@ -1232,15 +1242,23 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
   gap: var(--tv-s3);
   margin-block-end: var(--tv-s4);
 }
+.tv-tools .tv-search { flex: 1 1 22rem; min-inline-size: 0; margin-block-end: 0; }
+.tv-tools__action { flex: 0 0 auto; margin-block: 0; }
 
-/* Beside the button, not under the pager. `min-inline-size: 0` so the open
-   panel may shrink inside the flex row instead of pushing the card wider —
-   a `<details>` defaults to its content's width, and a table of column names
-   is wide. */
-.tv-bulk-csv { flex: 1 1 18rem; min-inline-size: 0; }
+/* Below the pager, on its own, full width: the open panel is a table of column
+   names and has no flex row left to shrink inside. The top border says the
+   section ended — everything above it is the list, everything below is a tool
+   for all of it at once. */
+.tv-bulk-csv { min-inline-size: 0; }
+.tv-bulk-csv--foot {
+  display: block;
+  margin-block-start: var(--tv-s5);
+  padding-block-start: var(--tv-s4);
+  border-block-start: 1px solid var(--tv-border);
+}
 
-/* Shaped like the secondary button it sits next to, so the two read as two
-   controls rather than a button and a stray line of text. */
+/* Shaped like a secondary button, so it reads as a control rather than a stray
+   line of text. */
 .tv-bulk-csv__summary {
   display: inline-flex;
   align-items: center;

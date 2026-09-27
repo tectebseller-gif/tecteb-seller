@@ -323,6 +323,84 @@ final class StoreAndStaffFlowTest extends DatabaseTestCase
         self::assertTrue($this->access->can($staffUserId, self::VENDOR, StaffArea::Order, StaffLevel::Edit));
     }
 
+    /**
+     * WHAT THIS PROVES: a suspended shop's colleague is still a colleague — and
+     * still may do nothing.
+     *
+     * `storeFor()` says `null` for them, which is right and is what every gate
+     * reads. But `null` there was also read as «this person belongs to no shop»,
+     * and the only screen for somebody who belongs to no shop invites them to
+     * register one: the owner found an employee of a suspended shop being
+     * offered a vendor application for the shop they work in.
+     *
+     * So membership and permission are separate questions now, and this asserts
+     * BOTH answers at once — the row is found, and not one gate moved. A fix that
+     * widened access to make the screen work would fail here, which is the point
+     * of asserting them together rather than in two tests.
+     */
+    public function testASuspendedShopsStaffAreStillMembersAndStillMayDoNothing(): void
+    {
+        $invite = $this->inviteNumbered(1);
+        $this->invitations->accept((string) $invite->context['token'], 'a-long-enough-password');
+        $staffUserId = $this->staff->find((int) $invite->context['staff_id'])?->staffUserId ?? 0;
+
+        $this->vendors->upsertProfile(self::VENDOR, 'داروخانه یک', false, false);
+
+        // The display answer: who they are.
+        $membership = $this->access->membershipFor($staffUserId);
+        self::assertNotNull($membership, 'a suspended shop does not un-employ anybody');
+        self::assertSame(self::VENDOR, $membership->vendorUserId, 'and it names which shop');
+        self::assertSame(StaffStatus::Active, $membership->status, 'their own standing was never touched');
+
+        // The operational answers: all of them still no.
+        self::assertNull($this->access->storeFor($staffUserId), 'nothing to act in');
+        self::assertFalse($this->access->can($staffUserId, self::VENDOR, StaffArea::Product, StaffLevel::View));
+        self::assertFalse($this->access->can($staffUserId, self::VENDOR, StaffArea::Order, StaffLevel::Edit));
+        self::assertFalse($this->access->canManageStore($staffUserId, self::VENDOR));
+        self::assertSame([], $this->access->activeMembersOf(self::VENDOR), 'and nobody is addressable');
+
+        // And membership answers about ONE shop, never about a neighbour's.
+        self::assertNotSame(self::OTHER_VENDOR, $membership->vendorUserId);
+        self::assertFalse($this->access->can($staffUserId, self::OTHER_VENDOR, StaffArea::Product, StaffLevel::View));
+
+        // Reinstating is one field, and it restores the operational answer
+        // without touching the membership that was there all along.
+        $this->vendors->upsertProfile(self::VENDOR, 'داروخانه یک', true, false);
+        self::assertSame(self::VENDOR, $this->access->storeFor($staffUserId));
+        self::assertTrue($this->access->can($staffUserId, self::VENDOR, StaffArea::Product, StaffLevel::View));
+        self::assertSame(
+            self::VENDOR,
+            $this->access->membershipFor($staffUserId)?->vendorUserId,
+            'the same row, before and after'
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: membership is not a back door.
+     *
+     * A member whose OWN standing is suspended is found by `membershipFor()` —
+     * so the screen can say «your access here is paused» instead of «you work
+     * nowhere» — and refused by every gate.
+     */
+    public function testASuspendedMembersRowIsReadableAndGrantsNothing(): void
+    {
+        $invite = $this->inviteNumbered(1);
+        $this->invitations->accept((string) $invite->context['token'], 'a-long-enough-password');
+        $staffId = (int) $invite->context['staff_id'];
+        $staffUserId = $this->staff->find($staffId)?->staffUserId ?? 0;
+
+        self::assertTrue($this->manageStaff->suspend(self::VENDOR, $staffId)->ok);
+
+        $membership = $this->access->membershipFor($staffUserId);
+        self::assertNotNull($membership);
+        self::assertSame(StaffStatus::Suspended, $membership->status, 'and the row says which state they are in');
+        self::assertSame(self::VENDOR, $membership->vendorUserId);
+
+        self::assertNull($this->access->storeFor($staffUserId));
+        self::assertFalse($this->access->can($staffUserId, self::VENDOR, StaffArea::Product, StaffLevel::View));
+        self::assertNotContains($staffUserId, $this->access->activeMembersOf(self::VENDOR));
+    }
+
     public function testASuspendedVendorsStaffCannotReachAnotherShopEither(): void
     {
         $invite = $this->inviteNumbered(1);

@@ -40,6 +40,9 @@ final class State
     public static bool $multisite = false;
     /** wp-admin or the front end; the contract tests load the plugin as wp-admin does. */
     public static bool $isAdmin = true;
+
+    /** `admin_init` also fires on `admin-ajax.php`; false is an ordinary page. */
+    public static bool $doingAjax = false;
     /** When true, option writes fail the way a storage error would. */
     public static bool $failOptionWrites = false;
     /**
@@ -136,6 +139,7 @@ final class State
         self::$currentUserId = 0;
         self::$multisite = false;
         self::$isAdmin = true;
+        self::$doingAjax = false;
         self::$failOptionWrites = false;
         self::$optionsBackedByWpdb = false;
         self::$environmentType = 'production';

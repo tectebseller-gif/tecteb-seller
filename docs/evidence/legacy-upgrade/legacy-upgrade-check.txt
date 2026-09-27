@@ -1,16 +1,16 @@
 
 === guard in place: the product is made by the previous package ===
-seeded=1 product=180 vendor=2 images=4,17,18
-projected=1 code=projected wc=71 plugin=0.1.0-alpha.25
+seeded=1 product=191 vendor=2 images=4,17,18
+projected=1 code=projected wc=79 plugin=0.1.0-alpha.25
 
 --- the manager edits it in WooCommerce, before any upgrade ---
-edited=1 wc=71 images=main:18|gallery:4,17
-read=1 wc=71 title=عنوانی_که_مدیر_در_ووکامرس_نوشته short=توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته long=متن_کاملی_که_مدیر_در_ووکامرس_نوشته images=main:18|gallery:4,17 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=محصول_نسخهٔ_قدیمی record_main=4 record_images=4,17,18
+edited=1 wc=79 images=main:18|gallery:4,17
+read=1 wc=79 title=عنوانی_که_مدیر_در_ووکامرس_نوشته short=توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته long=متن_کاملی_که_مدیر_در_ووکامرس_نوشته images=main:18|gallery:4,17 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=محصول_نسخهٔ_قدیمی record_main=4 record_images=4,17,18
 
 --- upgrade, then the vendor saves and it is synced ---
-installed: 0.1.0-alpha.25 -> 0.1.0-alpha.31  (product=180 wc=71)
-saved=1 synced=1 vendor_title=عنوان_تازهٔ_فروشنده_102711 vendor_short=توضیح_کوتاه_تازهٔ_فروشنده_102711
-read=1 wc=71 title=عنوانی_که_مدیر_در_ووکامرس_نوشته short=توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته long=متن_کاملی_که_مدیر_در_ووکامرس_نوشته images=main:18|gallery:4,17 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=عنوان_تازهٔ_فروشنده_102711 record_main=4 record_images=4,17,18
+installed: 0.1.0-alpha.25 -> 0.1.0-alpha.34  (product=191 wc=79)
+saved=1 synced=1 vendor_title=عنوان_تازهٔ_فروشنده_121848 vendor_short=توضیح_کوتاه_تازهٔ_فروشنده_121848
+read=1 wc=79 title=عنوانی_که_مدیر_در_ووکامرس_نوشته short=توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته long=متن_کاملی_که_مدیر_در_ووکامرس_نوشته images=main:18|gallery:4,17 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=عنوان_تازهٔ_فروشنده_121848 record_main=4 record_images=4,17,18
 fields=1 title=unknown/asks short_description=unknown/asks description=unknown/asks category=unknown/asks images=unknown/asks
 ok:   the manager's title survived the upgrade                 عنوانی_که_مدیر_در_ووکامرس_نوشته
 ok:   and the short description                                توضیح_کوتاهی_که_مدیر_در_ووکامرس_نوشته
@@ -31,8 +31,8 @@ ok:   and the record now agrees with the shop                  عنوانی_که
 ok:   including which picture is featured                      18
 
 --- a genuinely new product is still filled in normally ---
-projected=1 code=projected wc=72 plugin=0.1.0-alpha.31
-read=1 wc=72 title=محصول_نسخهٔ_قدیمی short=توضیح_کوتاه_اولیهٔ_فروشنده long=برند:_برند_نمونه
+projected=1 code=projected wc=80 plugin=0.1.0-alpha.34
+read=1 wc=80 title=محصول_نسخهٔ_قدیمی short=توضیح_کوتاه_اولیهٔ_فروشنده long=برند:_برند_نمونه
 
 توضیح_کوتاه_اولیهٔ_فروشنده images=main:4|gallery:17,18 seo_title= seo_desc= seo_keyword= record_title=محصول_نسخهٔ_قدیمی record_main=4 record_images=4,17,18
 ok:   a new product gets the vendor's title                    محصول_نسخهٔ_قدیمی
@@ -41,9 +41,9 @@ ok:   and nothing about it is unsettled                        0
 
 === the same run with the guard reverted to the previous rule ===
 reverted: an absent stamp means «ours» again
-read=1 wc=73 title=عنوان_تازهٔ_فروشنده_102723 short=توضیح_کوتاه_تازهٔ_فروشنده_102723 long=برند:_برند_نمونه
+read=1 wc=81 title=عنوان_تازهٔ_فروشنده_121901 short=توضیح_کوتاه_تازهٔ_فروشنده_121901 long=برند:_برند_نمونه
 
-توضیح_کوتاه_تازهٔ_فروشنده_102723 images=main:4|gallery:17,18 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=عنوان_تازهٔ_فروشنده_102723 record_main=4 record_images=4,17,18
+توضیح_کوتاه_تازهٔ_فروشنده_121901 images=main:4|gallery:17,18 seo_title=عنوان_سئوی_نوشتهٔ_مدیر seo_desc=توضیح_سئوی_نوشتهٔ_مدیر seo_keyword=تجهیزات_پزشکی record_title=عنوان_تازهٔ_فروشنده_121901 record_main=4 record_images=4,17,18
 ok:   without the guard the manager's title is destroyed       destroyed
 ok:   and the picture arrangement with it                      destroyed
 ok:   the installed plugin is the delivered package            1

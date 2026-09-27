@@ -44,6 +44,7 @@ use Tecteb\Marketplace\Core\Config\SettingsService;
 use Tecteb\Marketplace\Modules\Vendor\Application\ChangeRequestRepositoryInterface;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ActionQueue;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
+use Tecteb\Marketplace\Modules\Vendor\Application\VendorStaffStanding;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffActivityReport;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
@@ -748,7 +749,39 @@ final class VendorRoutes
     private function dashboardFor(int $userId, VendorWorkspace $workspace, string $storeName): VendorDashboard
     {
         $access = $this->container->get(StaffAccess::class);
-        $vendorUserId = $access->storeFor($userId) ?? $userId;
+        // WHOSE shop is this screen about? Two questions, asked in this order,
+        // because `alpha.33` asked only the first and used its answer for both.
+        //
+        // `storeFor()` answers «which shop may this user act in», and `null`
+        // there covers three different situations: no shop at all, a shop that
+        // may not trade, and a membership that is suspended or not yet accepted.
+        // Falling back to the viewer's own id turned all three into «this is
+        // your own application», so a suspended shop's employee was shown «هنوز
+        // درخواستی ثبت نکرده‌اید» and a button to register — for the shop they
+        // work in.
+        //
+        // So when there is no shop to ACT in and the viewer has no application
+        // of their own, ask the display question: are they on somebody's roster?
+        // `membershipFor()` grants nothing — every permission below still comes
+        // from `can()` / `canManageStore()`, which have not changed.
+        $vendorUserId = $access->storeFor($userId);
+        $standing = null;
+        if ($vendorUserId === null && $workspace->application === null) {
+            $membership = $access->membershipFor($userId);
+            if ($membership !== null && $membership->vendorUserId > 0) {
+                $vendorUserId = $membership->vendorUserId;
+                $standing = new VendorStaffStanding($membership->status, $membership->permissions);
+            }
+        } elseif ($vendorUserId !== null && $vendorUserId !== $userId) {
+            // Staff of a shop that IS open: carry their standing too, so the
+            // shop's screen can say whose access is live when a section is
+            // missing rather than leaving a page of gaps.
+            $membership = $access->membershipFor($userId);
+            if ($membership !== null && $membership->vendorUserId === $vendorUserId) {
+                $standing = new VendorStaffStanding($membership->status, $membership->permissions);
+            }
+        }
+        $vendorUserId ??= $userId;
         $isOwner = $access->canManageStore($userId, $vendorUserId);
         $mayView = $access->can($userId, $vendorUserId, StaffArea::Product, StaffLevel::View);
         $mayEdit = $access->can($userId, $vendorUserId, StaffArea::Product, StaffLevel::Edit);
@@ -786,7 +819,8 @@ final class VendorRoutes
             $mayView,
             $mayEdit,
             $canPublish,
-            $this->supportUrl()
+            $this->supportUrl(),
+            $standing
         );
     }
 

@@ -5,11 +5,15 @@ namespace Tecteb\Marketplace\Tests\WordPressContract;
 
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorDashboard;
+use Tecteb\Marketplace\Modules\Vendor\Application\VendorStaffStanding;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorWorkspace;
 use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicantDetails;
 use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
 use Tecteb\Marketplace\Modules\Vendor\Domain\MobileIdentity;
 use Tecteb\Marketplace\Modules\Vendor\Domain\RequirementSet;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffLevel;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffPermissions;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffStatus;
 use Tecteb\Marketplace\Modules\Vendor\Domain\VendorApplication;
 use Tecteb\Marketplace\Modules\Vendor\Domain\VendorProfile;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\DashboardView;
@@ -292,6 +296,144 @@ final class VendorDashboardTest extends ContractTestCase
 
     // ------------------------------------------------------------- fixtures
 
+    // ------------------------------------- staff of a shop that cannot trade
+
+    /**
+     * WHAT THIS PROVES: the defect the owner named — «همکار فروشگاه تعلیق‌شده
+     * نباید متقاضی جدید فرض شود یا دعوت به ثبت‌نام ببیند».
+     *
+     * `alpha.33` fixed the APPROVED shop's screen for staff and left this one:
+     * `storeFor()` answers `null` for a suspended shop, the route read that as
+     * «belongs to no shop», and the only page for somebody who belongs to no shop
+     * invites them to register. So the employee of a suspended shop was offered a
+     * vendor application for the shop they work in.
+     */
+    public function testStaffOfASuspendedShopSeeTheShopAndNoInvitationToRegister(): void
+    {
+        $html = $this->render($this->staffOf(ApplicationStatus::Suspended));
+
+        self::assertStringNotContainsString('شروع درخواست فروشندگی', $html, 'the button that was the defect');
+        self::assertStringNotContainsString('هنوز درخواستی ثبت نکرده‌اید', $html);
+        self::assertStringNotContainsString('وضعیت درخواست شما', $html, 'they have no application');
+        self::assertStringNotContainsString('کارهای شما', $html, 'nor any registration steps');
+
+        self::assertStringContainsString('فروشگاه نمونه', $html, 'the shop they work in is named');
+        // The needle is the half that belongs to the SHOP's sentence alone.
+        // «این فروشگاه تعلیق شده است» is a substring of «دسترسی شما در این
+        // فروشگاه تعلیق شده است», so it would answer about either one — the same
+        // collision «محصولات شما» caused in `alpha.33`.
+        self::assertStringContainsString('دسترسی همکاران آن هم موقتاً بسته است', $html, 'and why nothing works');
+    }
+
+    /**
+     * WHAT THIS PROVES: nothing on that page belongs to the shop's owner or to
+     * another shop.
+     *
+     * The review note is the manager writing to the OWNER about their
+     * application. It is the one field on the applicant screen that is somebody
+     * else's, so it is asserted absent by its own text and by its heading.
+     */
+    public function testStaffOfASuspendedShopAreShownNothingPrivateToTheOwner(): void
+    {
+        $html = $this->render($this->staffOf(ApplicationStatus::Suspended, note: 'مدارک مالکیت جعلی بود'));
+
+        self::assertStringNotContainsString('مدارک مالکیت جعلی بود', $html, "the manager's note is the owner's");
+        self::assertStringNotContainsString('یادداشت مدیر بازارگاه', $html);
+        self::assertStringNotContainsString('پروندهٔ فروشندگی و مدارک', $html, 'nor the shop file');
+        self::assertStringNotContainsString('tv-number__value', $html, 'and no figures');
+    }
+
+    /**
+     * WHAT THIS PROVES: «مجوزهای پرسنل را درست نمایش دهد» — their own access is
+     * stated, area by area, and stated as CLOSED.
+     *
+     * Every area appears, «بدون دسترسی» included: a list that drops the empty
+     * rows cannot answer «do I have order access?», because a missing row reads
+     * as a page that forgot rather than as a no.
+     */
+    public function testStaffSeeWhatTheirOwnAccessCoversAndThatItIsClosed(): void
+    {
+        $html = $this->render($this->staffOf(ApplicationStatus::Suspended));
+
+        self::assertStringContainsString('دسترسی‌های شما در این فروشگاه', $html);
+        self::assertStringContainsString('فعلاً بسته', $html, 'closed, not simply absent');
+        foreach (['محصول', 'موجودی', 'سفارش', 'گزارش', 'مالی'] as $area) {
+            self::assertStringContainsString($area, $html, $area . ' is missing from the access list');
+        }
+        self::assertStringContainsString('ویرایش', $html, 'the level they were granted');
+        self::assertStringContainsString('بدون دسترسی', $html, 'and the ones they were not');
+    }
+
+    /**
+     * WHAT THIS PROVES: reinstatement needs nothing but the shop's own standing.
+     *
+     * The same membership, the same permissions, the shop approved and able to
+     * sell again: the shop's working screen comes back, with the sections the
+     * person's rights cover. Suspension and its reversal are one field.
+     */
+    public function testReinstatingTheShopGivesTheSameStaffMemberTheWorkingScreen(): void
+    {
+        $html = $this->render($this->staffOf(ApplicationStatus::Approved, canSell: true));
+
+        self::assertStringNotContainsString('دسترسی همکاران آن هم موقتاً بسته است', $html);
+        self::assertStringNotContainsString('فعلاً بسته', $html);
+        self::assertStringNotContainsString('شروع درخواست فروشندگی', $html);
+        self::assertStringContainsString('فروشگاه نمونه', $html);
+        self::assertStringContainsString('افزودن محصول', $html, 'their edit right is live again');
+        self::assertStringContainsString('tv-number__value', $html, 'and the figures with it');
+    }
+
+    /**
+     * WHAT THIS PROVES: the two halves are separate, and the screen says which
+     * one is shut.
+     *
+     * A suspended MEMBER of a working shop is not in the same situation as a
+     * live member of a suspended shop, and only one of them has anything to wait
+     * for. Without this the page showed a working shop with every section
+     * silently missing, which reads as a broken site.
+     */
+    public function testASuspendedMemberOfAWorkingShopIsToldItIsTheirOwnAccess(): void
+    {
+        $html = $this->render($this->staffOf(ApplicationStatus::Approved, canSell: true, staffStatus: StaffStatus::Suspended));
+
+        self::assertStringContainsString('دسترسی شما در این فروشگاه تعلیق شده است', $html);
+        self::assertStringNotContainsString('دسترسی همکاران آن هم موقتاً بسته است', $html, 'the shop is open');
+        self::assertStringNotContainsString('شروع درخواست فروشندگی', $html);
+    }
+
+    /**
+     * WHAT THIS PROVES: an invitation that was never activated is its own
+     * sentence, not a suspension and not a registration form.
+     */
+    public function testAnUnactivatedInvitationSaysThatRatherThanSuspended(): void
+    {
+        $html = $this->render($this->staffOf(
+            ApplicationStatus::Approved,
+            canSell: true,
+            staffStatus: StaffStatus::Invited
+        ));
+
+        self::assertStringContainsString('دعوت شما هنوز فعال نشده است', $html);
+        self::assertStringNotContainsString('تعلیق', $html, 'an unused invitation is not a suspension');
+    }
+
+    /**
+     * WHAT THIS PROVES: somebody who really is a new applicant still gets the
+     * registration page.
+     *
+     * The fix must not swallow the case it is next to. Nothing on the staff path
+     * is reachable without a membership, and the assertion is the button that
+     * SHOULD be there.
+     */
+    public function testSomebodyWithNoMembershipStillGetsTheApplicationPage(): void
+    {
+        $html = $this->render($this->applicant(null));
+
+        self::assertStringContainsString('شروع درخواست فروشندگی', $html);
+        self::assertStringContainsString('وضعیت درخواست شما', $html);
+        self::assertStringNotContainsString('دسترسی‌های شما در این فروشگاه', $html);
+    }
+
     private function render(VendorDashboard $dashboard): string
     {
         return DashboardView::render($dashboard, $this->urls());
@@ -363,6 +505,55 @@ final class VendorDashboardTest extends ContractTestCase
             false,
             false,
             false
+        );
+    }
+
+    /**
+     * A shop seen by somebody on its staff roster: no application of their own,
+     * and a standing that is theirs alone.
+     *
+     * `mayView`/`mayEdit` are derived here the way `StaffAccess::can()` derives
+     * them — both halves must hold — rather than passed in, so a fixture cannot
+     * describe a person with rights in a shop that may not trade. That
+     * combination does not exist, and a test built on it would pass about
+     * nothing.
+     */
+    private function staffOf(
+        ApplicationStatus $shopStatus,
+        bool $canSell = false,
+        StaffStatus $staffStatus = StaffStatus::Active,
+        string $note = ''
+    ): VendorDashboard {
+        // Derived from the status and never passed separately: a fixture that
+        // took «can act» as its own argument let a test ask for `Invited` and
+        // silently get `Suspended`, and then assert about the wrong sentence.
+        $live = $staffStatus->canAct() && $shopStatus === ApplicationStatus::Approved && $canSell;
+        $permissions = StaffPermissions::of([
+            'product' => StaffLevel::Edit,
+            'inventory' => StaffLevel::Edit,
+            'order' => StaffLevel::View,
+            'report' => StaffLevel::None,
+            'finance' => StaffLevel::None,
+        ]);
+
+        return new VendorDashboard(
+            // Their OWN workspace, which is what the route hands over: empty,
+            // because a staff member has never applied for anything. The note
+            // argument exists to prove the owner's note cannot reach this screen
+            // even when there is one — so it goes nowhere near the workspace.
+            new VendorWorkspace(null, null, new RequirementSet([], true), [], MobileIdentity::registered(''), false),
+            'فروشگاه نمونه',
+            $live ? 'https://example.test/?tmc_store=7' : '',
+            $live ? ['published' => 4, 'submitted' => 1, 'changes_requested' => 0, 'draft' => 0] : null,
+            [],
+            $shopStatus,
+            $canSell,
+            false,
+            $live,
+            $live,
+            true,
+            '',
+            new VendorStaffStanding($staffStatus, $permissions)
         );
     }
 

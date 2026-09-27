@@ -1,8 +1,8 @@
-      stage=report total=87 pages_at_20=5 draft=19 submitted=17 changes_requested=1 published=42 suspended=0 archived=8 pending_revisions=1
+      stage=report total=101 pages_at_20=6 draft=20 submitted=17 changes_requested=1 published=55 suspended=0 archived=8 pending_revisions=1
 off_page_one_sku=CAT-001 off_page_one_id=142 seeded_rows=30
 ok:   the fixture is big enough to page through                      yes
 ok:   and it leaves one status empty, for the zero counter           0
-ok:   the installed package is the one under test                    0.1.0-alpha.33
+ok:   the installed package is the one under test                    0.1.0-alpha.34
 ok:   signed in as tmcowner (js=true)                                yes
 ok:   the list renders                                               yes
 ok:   seven filters                                                  7
@@ -24,7 +24,7 @@ ok:   and it is still a link                                         yes
 ok:   the counter is a separate badge                                rgb(255, 255, 255)
 ok:   and it is round                                                yes
 ok:   the search box is above the filters                            yes
-      between the filters and the table: .tmc-filters:50px .tmc-catalogue__scope:19px .tmc-catalogue__bar:94px .tmc-catalogue__table:2221px (total 141px)
+      between the filters and the table: .tmc-filters:50px .tmc-catalogue__scope:19px .tmc-catalogue__bar:94px .tmc-catalogue__table:2329px (total 141px)
 ok:   no empty gap is left between the filters and the table         yes(12px)
 ok:   the search input has room to type in                           yes
 ok:   the placeholder is the agreed one                              جست‌وجوی عنوان، SKU یا برند…
@@ -35,7 +35,7 @@ ok:   a hover rule exists for the filters                            yes
 ok:   no filter markup exists outside the plugin shell               0
 ok:   the wp-admin menu looks the same on our page as on the dashboard none|rgb(30, 30, 30)
 ok:   page one holds twenty rows                                     20
-ok:   and says which rows of how many                                1-20/87
+ok:   and says which rows of how many                                1-20/101
 ok:   the row count control offers three sizes                       3
 ok:   the sort control offers the orders                             3
 ok:   a summary row carries a thumbnail                              yes
@@ -48,14 +48,14 @@ ok:   the pager offers page numbers                                  yes
 ok:   the current page is not a link to itself                       1
 ok:   the next page starts where the first one stopped               21-40
 ok:   and it has twenty rows too                                     20
-ok:   the last page ends at the total                                87
-ok:   it holds the remainder                                         7
+ok:   the last page ends at the total                                101
+ok:   it holds the remainder                                         1
 ok:   and offers no next page                                        0
-ok:   every page together draws the whole catalogue                  87
-ok:   and no product appears on two pages                            87
+ok:   every page together draws the whole catalogue                  101
+ok:   and no product appears on two pages                            101
 ok:   fifty a page reads fifty rows                                  50
-ok:   a hundred a page reads the whole catalogue                     87
-ok:   and then there is no pager at all                              0
+ok:   a hundred a page reads a hundred rows, or the lot              100
+ok:   and the pager appears only when a hundred is not the lot       1
 ok:   nothing is fetched and hidden with CSS                         0
 ok:   the fixture named a landmark to search for                     yes
 ok:   the landmark product is not on page one                        yes
@@ -75,7 +75,7 @@ ok:   the review card is here instead                                yes
 ok:   with the decision history                                      yes
 ok:   the way back carries the filter                                published
 ok:   and the page number                                            2
-ok:   pressing it lands on the same page of the same filter          21-40/42
+ok:   pressing it lands on the same page of the same filter          21-40/55
 ok:   with the same filter still active                              منتشرشده
 ok:   signed in as tmcowner (js=false)                               yes
 ok:   with JavaScript off, the list still renders                    yes

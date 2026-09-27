@@ -21,7 +21,15 @@ WPCLI="${WPCLI:-/usr/local/bin/wp}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGINS="$WPROOT/wp-content/plugins"
 OLD_ZIP="${TMC_OLD_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.25.zip}"
-NEW_ZIP="${TMC_NEW_ZIP:-$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.31.zip}"
+# The NEWEST package in `dist/`, derived rather than written here. Both of these
+# scripts carried `alpha.31` as a literal for three rounds, so they kept passing
+# — about a package nobody was delivering any more. A default that has to be
+# edited by hand is a default that goes stale silently.
+newest_zip() {
+  ls -1 "$REPO"/dist/tecteb-marketplace-core-0.1.0-alpha.*.zip 2>/dev/null \
+    | sed 's/.*alpha\.\([0-9]*\)\.zip/\1 &/' | sort -n | tail -1 | cut -d' ' -f2-
+}
+NEW_ZIP="${TMC_NEW_ZIP:-$(newest_zip)}"
 
 mkdir -p "$OUT"
 LOG="$OUT/legacy-upgrade-check.txt"

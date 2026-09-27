@@ -32,7 +32,13 @@ const SITE = (process.env.SITE || 'http://127.0.0.1:8081').replace(/\/$/, '');
 const CHROMIUM = process.env.TMC_CHROMIUM || '/opt/pw-browsers/chromium';
 const OUT = process.env.OUT || 'docs/evidence/dashboard';
 const WP = process.env.WP || '/opt/php81/bin/php /usr/local/bin/wp --allow-root --path=/home/user/wp-demo';
-const EXPECT = process.env.TMC_EXPECT_VERSION || '0.1.0-alpha.33';
+// The version under test is read from the plugin header in THIS repository, not
+// written here. A literal breaks the first round that moves the number and then
+// reports a failure about a site that is entirely correct — `alpha.33`'s own
+// lesson, which this file had not learned.
+const HEADER = fs.readFileSync(new URL('../../tecteb-marketplace-core.php', import.meta.url), 'utf8');
+const EXPECT = process.env.TMC_EXPECT_VERSION
+  || (HEADER.match(/^\s*\*\s*Version:\s*(.+)$/m)?.[1] ?? '').trim();
 
 const VENDOR = { login: 'demo-vendor', pass: 'demo-vendor-2026' };
 const STAFF = { login: 'demo-staff', pass: 'demo-staff-2026' };
@@ -65,6 +71,20 @@ const T = {
   csvPreview: 'پیش‌نمایش ورود',
   underReview: 'در نوبت بررسی است',
   fileClosed: 'تأیید شده است',
+  startApplication: 'شروع درخواست فروشندگی',
+  noApplicationYet: 'هنوز درخواستی ثبت نکرده‌اید',
+  // The SHOP's half of the suspension sentence, on its own. The whole sentence
+  // «این فروشگاه تعلیق شده است…» is a SUBSTRING of the member's own sentence
+  // «دسترسی شما در این فروشگاه تعلیق شده است…», so a needle cut at the wrong
+  // word answers about either — which is the collision «محصولات شما» caused in
+  // `alpha.33`.
+  shopSuspended: 'دسترسی همکاران آن هم موقتاً بسته است',
+  myAccessSuspended: 'دسترسی شما در این فروشگاه تعلیق شده است',
+  myAccessList: 'دسترسی‌های شما در این فروشگاه',
+  accessClosed: 'فعلاً بسته',
+  nothingLost: 'چیزی از دست نرفته است',
+  managerNote: 'تعلیق آزمایشی فروشگاه، برای سنجش صفحهٔ پرسنل.',
+  noteHeading: 'یادداشت مدیر بازارگاه',
 };
 
 fs.mkdirSync(OUT, { recursive: true });
@@ -109,6 +129,29 @@ async function session(who, { javaScriptEnabled = true, width = 1280, height = 9
     page.waitForNavigation({ timeout: 30000 }).catch(() => null),
     page.click('#wp-submit'),
   ]);
+  // The login is CONFIRMED, once, here — and a second attempt is made before
+  // giving up. Without this, a login that did not take made every «is not on
+  // the page» assertion below it pass about a login form: one run reported ten
+  // failures in the menu-bubble section while the bubble was there and the
+  // database held the right number, because that session was never signed in.
+  // `check()` is not used, so this cannot be confused for a finding about the
+  // plugin: a session that will not open is a broken measurement.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if ((await ctx.cookies()).some((c) => c.name.startsWith('wordpress_logged_in_'))) {
+      return { ctx, page };
+    }
+    await page.goto(`${SITE}/wp-login.php`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#user_login', { timeout: 30000 });
+    await page.fill('#user_login', who.login);
+    await page.fill('#user_pass', who.pass);
+    await Promise.all([
+      page.waitForNavigation({ timeout: 30000 }).catch(() => null),
+      page.click('#wp-submit'),
+    ]);
+  }
+  if (!(await ctx.cookies()).some((c) => c.name.startsWith('wordpress_logged_in_'))) {
+    throw new Error(`could not sign in as ${who.login} — every later assertion would be about a login page`);
+  }
   return { ctx, page };
 }
 const textOf = async (page) => (await page.locator('body').innerText()).replace(/ /g, ' ');
@@ -330,18 +373,57 @@ note(state('seed'));
     await page.locator('details.tv-bulk-csv').count(), 1);
   check('4-2 which starts closed',
     await page.locator('details.tv-bulk-csv[open]').count(), 0);
-  // «Beside»: both controls in one row, and the row above the filters.
+  // `alpha.34`: the search and the add button share the TOP row, and the CSV
+  // control is below the products. Measured as geometry rather than document
+  // order, because the claim the owner made is about what moves on the screen.
   const geometry = await page.evaluate(() => {
-    const add = document.querySelector('.tv-tools a.tv-btn');
+    const search = document.querySelector('#f-product-search');
+    const add = document.querySelector('.tv-tools__action a.tv-btn');
     const csv = document.querySelector('.tv-bulk-csv__summary');
     const tabs = document.querySelector('.tv-tabs');
-    if (!add || !csv || !tabs) { return null; }
-    const a = add.getBoundingClientRect(), c = csv.getBoundingClientRect(), t = tabs.getBoundingClientRect();
-    return { sameRow: Math.abs(a.top - c.top) < 8, aboveFilters: c.bottom <= t.top + 1, gap: Math.round(Math.abs(a.left - c.right)) };
+    const list = document.querySelector('.tv-products');
+    const pager = document.querySelector('.tv-pager') || document.querySelector('.tv-hint');
+    if (!search || !add || !csv || !tabs || !list) { return null; }
+    const box = (el) => el.getBoundingClientRect();
+    const s = box(search), a = box(add), c = box(csv), t = box(tabs), l = box(list);
+    return {
+      // The two overlap vertically — the button's box sits within the search
+      // card's height, whatever the exact alignment. `Math.abs(top - top)` was
+      // the wrong test: the search is a bordered card with a label above the
+      // input, so its top is 20-odd pixels above the button's however
+      // correctly they share the row.
+      searchAndAddShareARow: a.top < s.bottom && s.top < a.bottom && a.top < t.top,
+      searchAboveFilters: s.bottom <= t.top + 1,
+      csvBelowProducts: c.top >= l.bottom - 1,
+      csvIsLast: pager ? c.top >= box(pager).top : true,
+      searchTop: Math.round(s.top),
+      csvTop: Math.round(c.top),
+      listBottom: Math.round(l.bottom),
+    };
   });
-  check('4-3 «افزودن محصول» and the CSV control share a row', geometry && geometry.sameRow, true);
-  check('4-4 and both sit above the status filters', geometry && geometry.aboveFilters, true);
-  note(`tools row: ${JSON.stringify(geometry)}`);
+  check('4-3 the search and «افزودن محصول» are the top row', geometry && geometry.searchAndAddShareARow, true);
+  check('4-4 above the status filters', geometry && geometry.searchAboveFilters, true);
+  check('4-4b and the CSV control is below the products', geometry && geometry.csvBelowProducts, true);
+  note(`layout: ${JSON.stringify(geometry)}`);
+
+  // The reason it moved: opening it must not push the search or the products
+  // down. Measured — the two positions before and after the click.
+  // DOCUMENT positions, not viewport ones. The first version read
+  // `getBoundingClientRect().top` on both sides, and clicking the summary
+  // scrolls it into view — so every number moved by the scroll amount and the
+  // check failed about a layout that had not shifted at all (365 → -3191).
+  // `window.scrollY` takes the scroll back out.
+  const positions = () => page.evaluate(() => {
+    const at = (sel) => Math.round(document.querySelector(sel).getBoundingClientRect().top + window.scrollY);
+    return { search: at('#f-product-search'), firstProduct: at('.tv-products li') };
+  });
+  const before = await positions();
+  await page.locator('.tv-bulk-csv__summary').click();
+  const after = await positions();
+  check('4-4c opening it does not move the search', after.search, before.search);
+  check('4-4d nor the first product', after.firstProduct, before.firstProduct);
+  note(`before/after open: ${JSON.stringify({ before, after })}`);
+  await page.locator('.tv-bulk-csv__summary').click();     // back to closed
 
   await page.locator('.tv-bulk-csv__summary').click();
   const open = await textOf(page);
@@ -418,6 +500,11 @@ note(state('seed'));
   });
 
   await page.goto(`${SITE}/wp-admin/`, { waitUntil: 'domcontentloaded' });
+  // Asserted BEFORE anything about the bubble, for the same reason the staff
+  // section does it: «the badge is not drawn» is also true of a login page, and
+  // «an empty queue draws nothing» passes there without measuring anything.
+  check('5-0 this is wp-admin, with a menu to hang a badge on',
+    await page.locator('#adminmenu').count(), 1);
   const first = await bubbleOf();
   note(`bubble: ${JSON.stringify(first)}`);
   const awaiting = field(state('report'), 'awaiting_review');
@@ -499,6 +586,65 @@ note(state('seed'));
   }
   const restored = field(state('report'), 'awaiting_review');
   note(`queue restored to ${restored}`);
+}
+
+// ================================================================= item 2 (alpha.34)
+//
+// The colleague of a SUSPENDED shop. `alpha.33` fixed the approved shop's screen
+// for staff and left this one: `storeFor()` answers `null` for a suspended shop,
+// the route read that as «belongs to no shop», and the only page for somebody
+// who belongs to no shop invites them to register — so a suspended shop's
+// employee was offered a vendor application for the shop they work in.
+{
+  state('staff view');
+  note(`shop: ${state('shop suspend')}`);
+  const { ctx, page } = await session(STAFF);
+  await page.goto(`${SITE}/vendor/`, { waitUntil: 'domcontentloaded' });
+  const text = await textOf(page);
+
+  // Asserted FIRST: every «is not there» below is also true of a login page.
+  check('6-1 the staff member reaches a vendor screen', text.includes('پیشخوان فروشنده'), true);
+  check('6-2 and is NOT invited to register', text.includes(T.startApplication), false);
+  check('6-3 nor told they have never applied', text.includes(T.noApplicationYet), false);
+  check('6-4 nor shown the application status card', text.includes(T.oldStatusCard), false);
+
+  check('6-5 the shop they work in is named', text.includes('تجهیزات پزشکی نمونه'), true);
+  check('6-6 the suspension is stated', text.includes(T.shopSuspended), true);
+  check('6-7 and that nothing is lost', text.includes(T.nothingLost), true);
+
+  // Nothing of the owner's.
+  check('6-8 the manager\'s note is not shown', text.includes(T.managerNote), false);
+  check('6-9 nor its heading', text.includes(T.noteHeading), false);
+  check('6-10 nor the shop file', text.includes(T.paperwork), false);
+  check('6-11 nor any figures', await page.locator('a.tv-number').count(), 0);
+  check('6-12 nor «افزودن محصول»', text.includes(T.addProduct), false);
+
+  // Their own access, stated and stated as closed.
+  check('6-13 their own access is listed', text.includes(T.myAccessList), true);
+  check('6-14 and marked closed', text.includes(T.accessClosed), true);
+  const areas = ['محصول', 'موجودی', 'سفارش', 'گزارش', 'مالی'];
+  check('6-15 every area appears', areas.every((a) => text.includes(a)), true);
+
+  // Operational access is still blocked — asserted by going at the page
+  // directly rather than by the absence of a link.
+  const products = await page.goto(`${SITE}/vendor/products/`, { waitUntil: 'domcontentloaded' });
+  const afterProducts = page.url();
+  check('6-16 the product list is refused', afterProducts.includes('tmc_notice=not_a_vendor')
+    || !(await textOf(page)).includes(T.csvSummary), true);
+  note(`product list landed on: ${afterProducts} (${products?.status()})`);
+  await page.screenshot({ path: path.join(OUT, 'staff-suspended-shop.png'), fullPage: true });
+  await ctx.close();
+
+  // Reinstatement: one field, and the working screen comes back.
+  note(`shop: ${state('shop reinstate')}`);
+  const back = await session(STAFF);
+  await back.page.goto(`${SITE}/vendor/`, { waitUntil: 'domcontentloaded' });
+  const t3 = await textOf(back.page);
+  check('6-17 after reinstatement the suspension line is gone', t3.includes(T.shopSuspended), false);
+  check('6-18 and still no invitation to register', t3.includes(T.startApplication), false);
+  check('6-19 the counters are back', await back.page.locator('a.tv-number').count(), 4);
+  check('6-20 and the access list stands down', t3.includes(T.myAccessList), false);
+  await back.ctx.close();
 }
 
 fs.writeFileSync(path.join(OUT, 'vendor-dashboard-run.txt'), lines.join('\n') + `\n\nchecks: ${pass} passed, ${fail} failed\n`);

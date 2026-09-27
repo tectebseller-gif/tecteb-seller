@@ -1,0 +1,10 @@
+label=alpha.33
+site=http://127.0.0.1:8081
+vendor_dashboard_desktop height=1233 scrollWidth=1280 innerWidth=1280
+csv_disclosure_desktop=present
+vendor_dashboard_mobile height=1475 scrollWidth=390 innerWidth=390
+csv_disclosure_mobile=present
+applicant=shot
+staff=shot
+admin_menu_bubbles=8
+marketplace_menu_text=بازارگاه تک‌طب ۱۸ ۱۸ مورد در انتظار بررسی پیشخوان سلام

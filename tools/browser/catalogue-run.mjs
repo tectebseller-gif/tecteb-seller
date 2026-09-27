@@ -109,7 +109,13 @@ check('the fixture is big enough to page through', TOTAL >= 60 ? 'yes' : `no(${T
 check('and it leaves one status empty, for the zero counter', SUSPENDED, 0);
 
 const VERSION = wp('plugin get tecteb-marketplace-core --field=version');
-check('the installed package is the one under test', VERSION, process.env.TMC_EXPECT_VERSION || '0.1.0-alpha.32');
+// Read from the plugin header in THIS repository, not written here. The
+// literal said `alpha.32` for two rounds and then reported a failure about an
+// install that was exactly right.
+const EXPECT = process.env.TMC_EXPECT_VERSION
+  || (fs.readFileSync(new URL('../../tecteb-marketplace-core.php', import.meta.url), 'utf8')
+    .match(/^\s*\*\s*Version:\s*(.+)$/m)?.[1] ?? '').trim();
+check('the installed package is the one under test', VERSION, EXPECT);
 
 const browser = await chromium.launch({ executablePath: CHROMIUM, args: ['--no-sandbox'] });
 async function session({ width = 1440, height = 1000, javaScriptEnabled = true } = {}) {
@@ -329,8 +335,15 @@ check('and no product appears on two pages', allIds.size, TOTAL);
 await page.goto(`${LIST}&per_page=50`, { waitUntil: 'domcontentloaded' });
 check('fifty a page reads fifty rows', await rows(page).count(), 50);
 await page.goto(`${LIST}&per_page=100`, { waitUntil: 'domcontentloaded' });
-check('a hundred a page reads the whole catalogue', await rows(page).count(), TOTAL);
-check('and then there is no pager at all', await page.locator('.tmc-pager').count(), 0);
+// Written against `TOTAL` rather than against «all of them»: the catalogue on
+// this install is not fixed at the size it had when this line was written, and
+// the first run with more than a hundred products made both of these report a
+// failure about paging that was working correctly. The claim is «the row count
+// is a real LIMIT», which is `min(total, 100)` at any catalogue size.
+check('a hundred a page reads a hundred rows, or the lot',
+  await rows(page).count(), Math.min(TOTAL, 100));
+check('and the pager appears only when a hundred is not the lot',
+  await page.locator('.tmc-pager').count(), TOTAL > 100 ? 1 : 0);
 const hiddenRows = await page.evaluate(() => [...document.querySelectorAll('.tmc-catalogue__table tbody tr')]
   .filter((tr) => getComputedStyle(tr).display === 'none').length);
 check('nothing is fetched and hidden with CSS', hiddenRows, 0);

@@ -1,15 +1,17 @@
-=== the site goes back to what alpha.32 leaves behind ===
+packages under test: 0.1.0-alpha.32 -> 0.1.0-alpha.34
+=== 1. the site goes back to what alpha.32 leaves behind ===
 ok:   alpha.32 is the installed package                          0.1.0-alpha.32
 ok:   the recorded schema says 19                                19
 ok:   and the sort column does not exist                         0
-products on this site: 92
+products on this site: 102
 ok:   there is an admin session to make the request with         1
 ok:   alpha.32's own product list opens                          200
 ok:   and it is alpha.32 serving it                              1
+ok:   alpha.32 never mentions the column anywhere in src/        0
 
-=== the files are replaced and an admin page is opened ===
-installed: 0.1.0-alpha.32 -> 0.1.0-alpha.33   schema: 19 -> 20   admin request: 200
-ok:   alpha.33 is the installed package                          0.1.0-alpha.33
+=== 2. the files are replaced and an admin page is opened ===
+installed: 0.1.0-alpha.32 -> 0.1.0-alpha.34   schema: 19 -> 20   admin request: 200
+ok:   the new package is installed                               0.1.0-alpha.34
 ok:   the admin page opened                                      200
 ok:   no activation hook was needed                              19
 ok:   the upgrade gate reached schema 20                         20
@@ -17,23 +19,72 @@ ok:   the sort column exists now                                 1
 ok:   and it is indexed                                          1
 ok:   it is a binary collation, not the table's                  utf8mb4_bin
 
-=== every row carries a key, including the ones alpha.32 wrote ===
+=== 3. every row carries a key, including the ones alpha.32 wrote ===
 ok:   no product was left without a sort key                     0
-ok:   and every product has one                                  92
-distinct leading group digits across 92 products: 2
+ok:   and every product has one                                  102
+ok:   no row disagrees with its own title                        0
+distinct leading group digits across 102 products: 2
 ok:   at least one group digit is in use                         yes
+ok:   and the repair recorded which format wrote them            yes
 ok:   a second admin request is still fine                       200
 ok:   and the schema did not move again                          20
 
-=== back to alpha.32, with the new column left where it is ===
+=== 4. back to alpha.32, with the new column left where it is ===
 ok:   alpha.32's product list still opens                        200
 ok:   with the column still on the table                         1
-ok:   and alpha.32 never mentions it                             0
 ok:   no fatal on the rolled-back page                           0
 
-=== and forward again, which is how the owner will leave it ===
-ok:   alpha.33's product list opens                              200
+=== 5. forward again after an idle rollback — the alpha.33 measurement ===
+ok:   the new package's dashboard opens                          200
 ok:   the schema is 20                                           20
 ok:   and no row lost its key                                    0
+ok:   nor disagrees with its title                               0
 
-checks: 25 passed, 0 failed
+=== 6. back to alpha.32, and this time a title is edited and a product made ===
+edited product 1 («عنوان تازهٔ فروشنده 200655» -> «یدک خودرو ۱۰۰۰۰۰۰۰۰۰۰۰۰»), created product 196
+ok:   the edited row still carries its OLD key                   1avbdbeabbd aeabanbf axambeaqbdakbf 006200655
+ok:   the created row has no key at all                          1
+
+=== 7. falsification — migration 20, forced, does not fix the edited row ===
+forced migration: verify_before=no verify_after=yes
+ok:   verify() saw the empty key                                 no
+ok:   and calls the table done afterwards                        yes
+ok:   the created row's key was filled                           0
+ok:   and the EDITED row is still wrong                          1
+ok:   which is the defect, on the real site                      1avbdbeabbd aeabanbf axambeaqbdakbf 006200655
+ok:   the created row is empty again, as a re-upgrade finds it   1
+
+=== 8. one wp-admin request, and the keys tell the truth again ===
+ok:   the dashboard opens                                        200
+ok:   no row disagrees with its title                            0
+ok:   and none is empty                                          0
+ok:   the edited row's key changed                               yes
+ok:   and its number carries its length, not twelve digits       1
+ok:   the alphabetical list opens after the repair               200
+ok:   and shows no fatal                                         0
+
+=== 9. keys written by alpha.33's format are rebuilt, though none looks broken ===
+ok:   the fixture really produced a different key                yes
+ok:   the recorded build says the old format                     1
+ok:   and that key is in the column                              1bgakaz ajbeakambe 000000000000
+ok:   no row is empty, so nothing looks broken                   0
+ok:   one admin request                                          200
+ok:   every key was rebuilt                                      0
+ok:   and the recorded build caught up                           2
+
+=== 10. a settled table is not written to again ===
+ok:   three more requests changed no key                         196c90e6b22b09fb0efe883b7ba210fd
+ok:   nothing is left open                                       closed
+ok:   the fixture put the catalogue back                         102
+ok:   and the repair followed the title back                     0
+
+=== 11. a title edited on the old package, with no product created ===
+ok:   one row disagrees with its title                           1
+ok:   and NO row is empty — no cheap symptom                   0
+ok:   nor is the recorded build behind                           2
+wp-admin requests the rotating audit needed on 102 products: 1
+ok:   the audit found it without anybody noticing                0
+ok:   and it took no more than ceil(total/50)+1                  yes
+ok:   and the title went back with its key                       0
+
+checks: 60 passed, 0 failed

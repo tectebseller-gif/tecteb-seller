@@ -8,6 +8,9 @@ use Tecteb\Marketplace\Modules\Marketplace\Presentation\ActionQueueMessages;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
 use Tecteb\Marketplace\Modules\Vendor\Application\TaskState;
+use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffArea;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffStatus;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorDashboard;
 use Tecteb\Marketplace\Modules\Vendor\Application\WorkspaceTask;
 
@@ -65,12 +68,23 @@ final class DashboardView
             );
         }
 
+        // Three screens, and the third one was missing.
+        //
         // The SHOP, not the viewer: a staff member has no application of their
         // own, and asking about theirs put «هنوز درخواستی ثبت نکرده‌اید» and a
         // «شروع درخواست فروشندگی» button above the real work of the shop they
         // already work in.
+        //
+        // But «the shop is not open» and «you have not applied» are not the same
+        // page either. For a shop's own owner they are: it is their file, their
+        // status and their note. For somebody on the roster they are not — and
+        // `alpha.33` gave them the owner's version of the sentence, so a
+        // suspended shop's employee was invited to register. What they need is
+        // which shop, what has happened to it, and what their own access covers.
         if (!$dashboard->shopIsOpen()) {
-            return $html . self::applicantPage($dashboard, $urls, $queue);
+            return $html . ($dashboard->viewerIsStaff()
+                ? self::staffPage($dashboard)
+                : self::applicantPage($dashboard, $urls, $queue));
         }
 
         return $html
@@ -120,6 +134,13 @@ final class DashboardView
         }
         if ($actions !== '') {
             $html .= '<p class="tv-actions">' . $actions . '</p>';
+        }
+        if (!$dashboard->viewerCanAct()) {
+            // The other half of the same pair: the shop is open and this
+            // person's own access is not. Without this the page showed them a
+            // working shop with every section silently missing, which reads as a
+            // broken screen rather than as a paused account.
+            $html .= '<p class="tv-hint tv-hint--warn">' . esc_html(self::staffStandingSentence($dashboard)) . '</p>';
         }
         if (!$dashboard->canPublishDirectly && $dashboard->mayEditProducts) {
             // Said once, here, in the words the owner asked for — and nothing
@@ -353,6 +374,108 @@ final class DashboardView
             . '<p class="tv-fold__link"><a href="' . esc_url($urls->application()) . '">'
             . esc_html__('پروندهٔ فروشندگی و مدارک', 'tecteb-marketplace-core') . '</a></p>'
             . '</details>';
+    }
+
+    /**
+     * A shop that cannot trade, seen by somebody who works in it.
+     *
+     * Deliberately narrow. It says which shop, what state that shop is in, and
+     * what this person's own access covers — and nothing else:
+     *
+     *  - **no manager's note.** The review note is written to the shop's owner
+     *    about their application. `applicantPage()` prints it from the VIEWER's
+     *    own workspace, and a staff member's workspace holds no application, so
+     *    there was never a leak — but this page must not grow one either, and
+     *    saying so here is cheaper than discovering it later.
+     *  - **no figures.** The counters are not read at all for somebody who may
+     *    not view products, so there is nothing to withhold; and a suspended
+     *    shop's numbers are not this person's business while their access is off.
+     *  - **no «شروع درخواست فروشندگی».** That button is the defect. Somebody who
+     *    genuinely wants to apply on their own account reaches the application
+     *    from the navigation, where it has always been.
+     *
+     * The permission list IS shown, because the owner asked for it («مجوزهای
+     * پرسنل را درست نمایش دهد») and because it is a fact about the reader
+     * themselves. It is labelled as inactive rather than removed: «you had no
+     * access» and «your access is paused» are different things to be told.
+     */
+    private static function staffPage(VendorDashboard $dashboard): string
+    {
+        $status = $dashboard->shopStatus;
+        $html = '<section class="tv-card tv-shop" aria-labelledby="tv-shop-name">'
+            . '<div class="tv-card__head">'
+            . '<h2 id="tv-shop-name" class="tv-card__title">' . esc_html($dashboard->storeName) . '</h2>'
+            . VendorUi::chip(VendorMessages::statusTone($status), VendorMessages::status($status))
+            . '</div>'
+            . '<p class="tv-hint tv-hint--warn">' . esc_html(self::staffStandingSentence($dashboard)) . '</p>'
+            . '<p class="tv-hint">'
+            . esc_html__('کاری برای انجام ندارید و چیزی از دست نرفته است؛ با رفع محدودیت، دسترسی شما به همین شکل برمی‌گردد.', 'tecteb-marketplace-core')
+            . '</p>'
+            . '</section>';
+
+        return $html . self::staffPermissions($dashboard);
+    }
+
+    /**
+     * One sentence naming BOTH halves of why nothing works.
+     *
+     * The shop's standing and the reader's own are separate facts, and a screen
+     * that names only one of them sends somebody to ask the wrong person. The
+     * shop's own state comes first, because it is the one that overrides.
+     */
+    private static function staffStandingSentence(VendorDashboard $dashboard): string
+    {
+        if (!$dashboard->shopIsOpen()) {
+            return match ($dashboard->shopStatus) {
+                ApplicationStatus::Suspended => __('این فروشگاه تعلیق شده است، پس دسترسی همکاران آن هم موقتاً بسته است. تصمیم با مدیر بازارگاه است و پیام او برای مالک فروشگاه فرستاده می‌شود.', 'tecteb-marketplace-core'),
+                ApplicationStatus::Rejected => __('درخواست این فروشگاه رد شده است، پس دسترسی همکاران آن باز نیست. پیگیری با مالک فروشگاه است.', 'tecteb-marketplace-core'),
+                ApplicationStatus::Approved => __('این فروشگاه تأییدشده است ولی اجازهٔ فروش ندارد، پس دسترسی همکاران آن هم باز نیست. پیگیری با مالک فروشگاه است.', 'tecteb-marketplace-core'),
+                default => __('پروندهٔ این فروشگاه هنوز به تأیید نرسیده است، پس دسترسی همکاران آن باز نمی‌شود. پیگیری با مالک فروشگاه است.', 'tecteb-marketplace-core'),
+            };
+        }
+        return $dashboard->staffStanding?->status === StaffStatus::Invited
+            ? __('دعوت شما هنوز فعال نشده است، پس دسترسی‌تان در این فروشگاه باز نیست.', 'tecteb-marketplace-core')
+            : __('دسترسی شما در این فروشگاه تعلیق شده است؛ فروشگاه خودش باز است. تصمیم با مالک فروشگاه است.', 'tecteb-marketplace-core');
+    }
+
+    /**
+     * What this person's access covers, marked with whether it is live.
+     *
+     * Every area is listed, `بدون دسترسی` included, because a list that hides
+     * the empty rows cannot answer «do I have order access?» — the absence of a
+     * row reads as a page that forgot rather than as a no.
+     */
+    private static function staffPermissions(VendorDashboard $dashboard): string
+    {
+        $standing = $dashboard->staffStanding;
+        if ($standing === null) {
+            return '';
+        }
+        $live = $standing->canAct() && $dashboard->shopIsOpen();
+        $html = '<section class="tv-card" aria-labelledby="tv-access">'
+            . '<div class="tv-card__head">'
+            . '<h2 id="tv-access" class="tv-card__title">' . esc_html__('دسترسی‌های شما در این فروشگاه', 'tecteb-marketplace-core') . '</h2>'
+            . VendorUi::chip(
+                $live ? 'success' : 'warning',
+                $live
+                    ? __('فعال', 'tecteb-marketplace-core')
+                    : __('فعلاً بسته', 'tecteb-marketplace-core')
+            )
+            . '</div><ul class="tv-queue">';
+        foreach (StaffArea::all() as $area) {
+            // `neutral` for every row, granted or not: the chip states the
+            // level and the heading above already says whether the whole set is
+            // live. A green chip on «ویرایش» inside a list labelled «فعلاً بسته»
+            // would be the page arguing with itself — and `VendorUi::chip()`
+            // knows four tones, so a fifth word would have printed a class no
+            // stylesheet defines.
+            $level = $standing->permissions->level($area);
+            $html .= '<li class="tv-queue__row">'
+                . VendorUi::chip('neutral', VendorMessages::staffLevel($level))
+                . ' ' . esc_html(VendorMessages::staffArea($area))
+                . '</li>';
+        }
+        return $html . '</ul></section>';
     }
 
     /**

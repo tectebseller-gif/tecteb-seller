@@ -28,10 +28,18 @@ namespace Tecteb\Marketplace\Modules\Product\Domain;
  *  3. **ی/ي and ک/ك are the same letter.** So are the hamza carriers (أ إ ٱ →
  *     ا, ؤ → و, ئ → ی) and ة → ه. The STORED title is never touched: this is a
  *     reading of it, not a correction to it.
- *  4. **Numbers read as numbers.** A digit run becomes a zero-padded block, so
- *     «محصول ۲» comes before «محصول ۱۰», and Persian, Arabic-Indic and Latin
- *     digits all reduce to the same block — «محصول ۲» and «محصول 2» sort
+ *  4. **Numbers read as numbers, at any length.** A digit run becomes
+ *     `0` + how many digits it has + the digits themselves, so a longer number
+ *     is a bigger number and two numbers of the same length compare digit by
+ *     digit. «محصول ۲» comes before «محصول ۱۰», and Persian, Arabic-Indic and
+ *     Latin digits all reduce to the same block — «محصول ۲» and «محصول 2» sort
  *     together instead of in two different alphabets.
+ *
+ *     **This replaced a fixed twelve-digit block in `alpha.34`, and the old
+ *     one was wrong.** Padding to twelve and keeping the LAST twelve digits
+ *     meant `1000000000000` — thirteen digits — encoded as twelve zeros, i.e.
+ *     as the number nought, and sorted below `1`. A length prefix has no such
+ *     ceiling: the only bound left is the key length itself.
  *  5. **Nothing invisible changes the order.** ZWNJ, tatweel and the Arabic
  *     diacritics are dropped, and runs of whitespace become one space, so
  *     «آمبو بگ», «آمبو‌بگ» (with a half-space) and «آمبو  بگ» sort as one word
@@ -46,11 +54,35 @@ namespace Tecteb\Marketplace\Modules\Product\Domain;
  */
 final class PersianCollation
 {
+    /**
+     * Which key format the stored column holds.
+     *
+     * Bumped whenever `sortKey()` would answer differently for some title.
+     * Every stored key is then stale by definition, and `TitleSortRepair`
+     * rebuilds them — the alternative being a column that silently mixes two
+     * formats, where the order between an old row and a new one is whatever
+     * the two happen to produce.
+     *
+     *  - `1` — `alpha.33`. Numbers were a fixed twelve-digit block.
+     *  - `2` — `alpha.34`. Numbers carry their length, so thirteen digits and
+     *    more sort above twelve rather than wrapping to zero.
+     */
+    public const BUILD = 2;
+
     /** Fits an indexable `VARCHAR` and holds ~90 Persian letters. */
     public const KEY_LENGTH = 191;
 
-    /** Digits per numeric block: twelve is more than any product code needs. */
-    private const NUMBER_WIDTH = 12;
+    /**
+     * How many characters the digit-count prefix takes.
+     *
+     * Two, so a run of up to 99 digits is ordered exactly. A longer run than
+     * that cannot fit in a 191-character key anyway, and is recorded here as
+     * the limit it is rather than discovered as a wrong order.
+     */
+    private const NUMBER_LENGTH_DIGITS = 2;
+
+    /** The longest digit run the length prefix can describe. */
+    private const MAX_NUMBER_DIGITS = 99;
 
     private const GROUP_PERSIAN = '1';
     private const GROUP_OTHER = '2';
@@ -162,15 +194,15 @@ final class PersianCollation
         for ($i = 0; $i < $count; $i++) {
             $char = $characters[$i];
             if ($char >= '0' && $char <= '9') {
-                // The whole run at once, zero-padded, so twelve beats two by
-                // value and not by its first digit.
+                // The whole run at once, so ten beats two by value and not by
+                // its first digit.
                 $number = '';
                 while ($i < $count && $characters[$i] >= '0' && $characters[$i] <= '9') {
                     $number .= $characters[$i];
                     $i++;
                 }
                 $i--;
-                $key .= '0' . substr(str_pad($number, self::NUMBER_WIDTH, '0', STR_PAD_LEFT), -self::NUMBER_WIDTH);
+                $key .= self::number($number);
                 continue;
             }
             if (isset(self::ALPHABET[$char])) {
@@ -191,6 +223,37 @@ final class PersianCollation
             $key .= sprintf('d%03x', min(0xfff, self::codepoint($char)));
         }
         return $key;
+    }
+
+    /**
+     * One digit run, encoded so that byte order is numeric order.
+     *
+     * `0` + the digit COUNT + the digits. Length first is what makes this work
+     * without a ceiling: `002` sorts below `013`, so any two-digit number is
+     * below any thirteen-digit one, and within a length the digits compare
+     * directly. Leading zeros are dropped first, so `007` and `7` are one
+     * number and not two.
+     *
+     * The old fixed-width form kept the last twelve digits of the run, which
+     * turned `1000000000000` into twelve zeros — the number nought, sorted
+     * below `1`. Measured, then fixed.
+     */
+    private static function number(string $digits): string
+    {
+        $digits = ltrim($digits, '0');
+        if ($digits === '') {
+            $digits = '0';
+        }
+        $length = strlen($digits);
+        if ($length > self::MAX_NUMBER_DIGITS) {
+            // A run this long cannot fit the key at all. Keeping the MOST
+            // significant digits is the reading that is least wrong, and the
+            // clamp on the prefix keeps every such run in the same, highest
+            // bucket rather than wrapping it back under short numbers.
+            $digits = substr($digits, 0, self::MAX_NUMBER_DIGITS);
+            $length = self::MAX_NUMBER_DIGITS;
+        }
+        return '0' . str_pad((string) $length, self::NUMBER_LENGTH_DIGITS, '0', STR_PAD_LEFT) . $digits;
     }
 
     /** @return list<string> */

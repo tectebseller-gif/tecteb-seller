@@ -396,6 +396,16 @@ function is_admin(): bool
 {
     return State::$isAdmin;
 }
+/**
+ * `admin_init` fires on `admin-ajax.php` too, so work that belongs on a page
+ * request has to ask. Defaults to false, which is what an ordinary wp-admin
+ * request is — a stub that answered true would switch that work off in every
+ * test and prove nothing about it.
+ */
+function wp_doing_ajax(): bool
+{
+    return State::$doingAjax;
+}
 function wp_get_environment_type(): string
 {
     return State::$environmentType;

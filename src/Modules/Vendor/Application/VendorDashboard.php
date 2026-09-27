@@ -74,8 +74,42 @@ final class VendorDashboard
         public readonly bool $mayEditProducts,
         public readonly bool $canPublishDirectly,
         /** Where support lives, when that module registered a page. */
-        public readonly string $supportUrl = ''
+        public readonly string $supportUrl = '',
+        /**
+         * The VIEWER's own standing in this shop, when they are on its roster.
+         *
+         * `null` for the shop's owner and for somebody who works nowhere. It is
+         * set from `StaffAccess::membershipFor()`, which asks about membership
+         * and not about permission — the three booleans above are still the
+         * only permissions this object carries, and they still come from
+         * `can()`.
+         *
+         * It exists because «may act» and «is a member» are different questions
+         * and `alpha.33` answered the second with the first: a suspended shop's
+         * employee derives no rights, so `storeFor()` said `null`, so the screen
+         * concluded they belonged to no shop and offered them a registration
+         * form for the shop they work in.
+         */
+        public readonly ?VendorStaffStanding $staffStanding = null
     ) {
+    }
+
+    /** Is the person reading this on the shop's staff roster rather than its owner? */
+    public function viewerIsStaff(): bool
+    {
+        return $this->staffStanding !== null;
+    }
+
+    /**
+     * Is the viewer's OWN access live — separately from whether the shop is?
+     *
+     * Two halves, and a screen needs both: a live member of a suspended shop and
+     * a suspended member of a working shop are in different situations and only
+     * one of them has anything to wait for.
+     */
+    public function viewerCanAct(): bool
+    {
+        return $this->staffStanding === null || $this->staffStanding->canAct();
     }
 
     /** Were the counters read at all? See the constructor on `null`. */
