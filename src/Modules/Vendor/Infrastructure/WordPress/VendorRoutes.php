@@ -11,13 +11,20 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
+use Tecteb\Marketplace\Modules\Product\Application\ProductDecisionRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
+use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Vendor\Application\DocumentRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\SaveApplicationDraft;
 use Tecteb\Marketplace\Modules\Vendor\Application\SubmitApplication;
 use Tecteb\Marketplace\Modules\Vendor\Application\UploadApplicationDocument;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorCapabilities;
+use Tecteb\Marketplace\Modules\Vendor\Application\VendorDashboard;
+use Tecteb\Marketplace\Modules\Vendor\Application\VendorWorkspace;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorWorkspaceFactory;
 use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicantDetails;
+use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\ApplicationView;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\DashboardView;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorMessages;
@@ -26,6 +33,8 @@ use Tecteb\Marketplace\Modules\Vendor\Application\ManageStaff;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 use Tecteb\Marketplace\Modules\Vendor\Application\UpdateStoreSettings;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorListsInterface;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffArea;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffLevel;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffRolePreset;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\InviteView;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\StaffView;
@@ -68,6 +77,17 @@ final class VendorRoutes
 
     /** The only view a signed-out visitor may reach: the token vouches for them. */
     public const PUBLIC_VIEW = 'invite';
+
+    /**
+     * How many «نیازمند اصلاح» products the first screen lists BY NAME.
+     *
+     * Five, not twenty: measured on a shop with seven of them, twenty rows
+     * pushed «منتظر تصمیم مدیر» and every quick link below two screens of
+     * repeated cards — the same complaint this round exists to fix, in a new
+     * place. The rest are one line with a link to the filtered list, and the
+     * counter above already says the true total.
+     */
+    private const DASHBOARD_TODO = 5;
 
     public function __construct(
         private readonly ContainerInterface $container,
@@ -614,13 +634,18 @@ final class VendorRoutes
                 $extension['slug'],
                 $body,
                 $storeName,
-                $this->navFor($urls, $access->canManageStore($userId, $userId), $access->storeFor($userId) !== null)
+                $this->navFor(
+                    $urls,
+                    $access->canManageStore($userId, $userId),
+                    $access->storeFor($userId) !== null,
+                    self::applicationTitle($workspace)
+                )
             );
         }
 
         [$title, $body] = match ($view) {
             'application' => [
-                __('درخواست فروشندگی', 'tecteb-marketplace-core'),
+                self::applicationTitle($workspace),
                 ApplicationView::render($workspace, $urls, $nonceField, $notice),
             ],
             'store' => [
@@ -633,7 +658,12 @@ final class VendorRoutes
             ],
             default => [
                 __('پیشخوان فروشنده', 'tecteb-marketplace-core'),
-                DashboardView::render($workspace, $urls, $notice, $this->actionQueueFor($userId)),
+                DashboardView::render(
+                    $this->dashboardFor($userId, $workspace, $storeName),
+                    $urls,
+                    $notice,
+                    $this->actionQueueFor($userId)
+                ),
             ],
         };
 
@@ -642,16 +672,42 @@ final class VendorRoutes
             $view,
             $body,
             $storeName,
-            $this->navFor($urls, $access->canManageStore($userId, $userId), $access->storeFor($userId) !== null)
+            $this->navFor(
+                $urls,
+                $access->canManageStore($userId, $userId),
+                $access->storeFor($userId) !== null,
+                self::applicationTitle($workspace)
+            )
         );
     }
 
+    /**
+     * «درخواست» or «پرونده»: the same page, and not the same thing.
+     *
+     * For somebody still applying it is a request they are writing. Once it is
+     * approved the request is finished and what is left is the record it
+     * became — and calling that a request sends an approved vendor here
+     * looking for the settings of their live shop.
+     */
+    private static function applicationTitle(VendorWorkspace $workspace): string
+    {
+        return $workspace->status()->isDecided()
+            ? __('پروندهٔ فروشندگی و مدارک', 'tecteb-marketplace-core')
+            : __('درخواست فروشندگی', 'tecteb-marketplace-core');
+    }
+
     /** @return list<array{slug:string,label:string,url:string}> */
-    private function navFor(VendorUrls $urls, bool $isOwner, bool $actsInStore = false): array
+    private function navFor(VendorUrls $urls, bool $isOwner, bool $actsInStore = false, string $applicationLabel = ''): array
     {
         $nav = [
             ['slug' => 'dashboard', 'label' => __('پیشخوان', 'tecteb-marketplace-core'), 'url' => $urls->dashboard()],
-            ['slug' => 'application', 'label' => __('درخواست فروشندگی', 'tecteb-marketplace-core'), 'url' => $urls->application()],
+            [
+                'slug' => 'application',
+                'label' => $applicationLabel !== ''
+                    ? $applicationLabel
+                    : __('درخواست فروشندگی', 'tecteb-marketplace-core'),
+                'url' => $urls->application(),
+            ],
         ];
         if ($isOwner) {
             $nav[] = ['slug' => 'store', 'label' => __('تنظیمات فروشگاه', 'tecteb-marketplace-core'), 'url' => $urls->store()];
@@ -668,6 +724,162 @@ final class VendorRoutes
             ];
         }
         return $nav;
+    }
+
+    /**
+     * Everything the vendor's first screen is about, read once, here.
+     *
+     * Three separations this method exists to keep:
+     *
+     *  - **Permission is asked, never assumed.** `StaffAccess` answers what
+     *    this person may see, and the view renders only those cards. A staff
+     *    member with no product rights gets no counters — not counters showing
+     *    zero, which would be a claim about another shop's data they are not
+     *    entitled to.
+     *  - **The numbers come from the product list's own query.**
+     *    `countsByStatus()` is what the vendor's list builds its chips from, so
+     *    a card and the page it links to cannot disagree. Two counting
+     *    implementations are two answers waiting for the day they differ.
+     *  - **A failed read is `null`, not zero.** The whole product block is one
+     *    `try`, and its failure leaves `productCounts` null so the page can say
+     *    the numbers were not read. A site with the product module switched off
+     *    must not tell a shop with sixty products that it has none.
+     */
+    private function dashboardFor(int $userId, VendorWorkspace $workspace, string $storeName): VendorDashboard
+    {
+        $access = $this->container->get(StaffAccess::class);
+        $vendorUserId = $access->storeFor($userId) ?? $userId;
+        $isOwner = $access->canManageStore($userId, $vendorUserId);
+        $mayView = $access->can($userId, $vendorUserId, StaffArea::Product, StaffLevel::View);
+        $mayEdit = $access->can($userId, $vendorUserId, StaffArea::Product, StaffLevel::Edit);
+
+        $counts = null;
+        $needsWork = [];
+        $canPublish = false;
+        if ($mayView) {
+            try {
+                $products = $this->container->get(ProductRepositoryInterface::class);
+                $counts = $products->countsByStatus($vendorUserId);
+                $needsWork = $this->needsWorkFor($products, $vendorUserId);
+                $canPublish = $this->container->get(ProductPublishPolicy::class)
+                    ->mayPublishDirectly($vendorUserId);
+            } catch (\Throwable) {
+                $counts = null;
+                $needsWork = [];
+            }
+        }
+
+        // The SHOP's own paperwork, which is not the viewer's: a staff member
+        // has no application at all, and asking about theirs put «هنوز
+        // درخواستی ثبت نکرده‌اید» above the real work of the shop they work in.
+        $shop = $this->shopProfile($vendorUserId);
+
+        return new VendorDashboard(
+            $workspace,
+            $shop['name'] !== '' ? $shop['name'] : $storeName,
+            $this->storefrontUrlFor($shop['status'], $vendorUserId),
+            $counts,
+            $needsWork,
+            $shop['status'],
+            $shop['can_sell'],
+            $isOwner,
+            $mayView,
+            $mayEdit,
+            $canPublish,
+            $this->supportUrl()
+        );
+    }
+
+    /**
+     * The shop's status, name and trading permission — read once, here.
+     *
+     * Wrapped whole and answering `Draft` on failure, because `Draft` is the
+     * state whose screen asks somebody to start an application: the safest
+     * thing an unreadable shop can produce is the page that offers to create
+     * one, never a shop header that claims an approval nobody read.
+     *
+     * @return array{status:ApplicationStatus, can_sell:bool, name:string}
+     */
+    private function shopProfile(int $vendorUserId): array
+    {
+        try {
+            $vendors = $this->container->get(VendorRepositoryInterface::class);
+            $profile = $vendors->findProfileByUser($vendorUserId);
+            $application = $vendors->findApplicationByUser($vendorUserId);
+            return [
+                'status' => $application?->status ?? ApplicationStatus::Draft,
+                'can_sell' => $profile !== null && $profile->canSell,
+                'name' => $profile?->storeName ?? '',
+            ];
+        } catch (\Throwable) {
+            return ['status' => ApplicationStatus::Draft, 'can_sell' => false, 'name' => ''];
+        }
+    }
+
+    /**
+     * The products the manager sent back, each with the manager's own words.
+     *
+     * The words come from `tmc_product_decisions` through the vendor-scoped
+     * read — the SAME row the vendor sees above the edit form (`alpha.29`). No
+     * second store of messages: a reason that lives in two places is a reason
+     * that will be corrected in one of them.
+     *
+     * @return list<array{id:int,title:string,note:string}>
+     */
+    private function needsWorkFor(ProductRepositoryInterface $products, int $vendorUserId): array
+    {
+        $rows = $products->forVendor($vendorUserId, ProductStatus::ChangesRequested, self::DASHBOARD_TODO);
+        if ($rows === []) {
+            return [];
+        }
+        $decisions = $this->container->get(ProductDecisionRepositoryInterface::class);
+        $out = [];
+        foreach ($rows as $product) {
+            $latest = $decisions->latestForVendor($product->id, $vendorUserId);
+            $out[] = [
+                'id' => $product->id,
+                'title' => $product->details->title,
+                'note' => $latest !== null ? trim($latest->note) : '',
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * The address a customer could open — or '' when there is nothing there.
+     *
+     * `StorePage` refuses a shop whose settings row has not been created yet
+     * (it answers 404), so the two conditions asked here are exactly its two
+     * conditions. A button that leads to a 404 reads as a broken site rather
+     * than as an unfinished setup, which is why the button is absent instead.
+     */
+    private function storefrontUrlFor(ApplicationStatus $status, int $vendorUserId): string
+    {
+        if ($status !== ApplicationStatus::Approved) {
+            return '';
+        }
+        try {
+            if ($this->container->get(StoreRepositoryInterface::class)->find($vendorUserId) === null) {
+                return '';
+            }
+        } catch (\Throwable) {
+            return '';
+        }
+        return StorePage::url($vendorUserId);
+    }
+
+    /** Support's address, from the module that registered it — or ''. */
+    private function supportUrl(): string
+    {
+        foreach (VendorAreaExtensions::views() as $view) {
+            if ($view['slug'] !== 'support') {
+                continue;
+            }
+            return $view['url'] !== null
+                ? (string) ($view['url'])($this->urls())
+                : $this->viewUrl($view['slug']);
+        }
+        return '';
     }
 
     /**

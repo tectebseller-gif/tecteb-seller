@@ -193,6 +193,14 @@
             "ratio": 11.78,
             "required": 3,
             "pass": true
+        },
+        {
+            "pair": "شمارندهٔ «در انتظار بررسی» روی نشان قرمز منو",
+            "fg": "#FFFFFF",
+            "bg": "#D63638",
+            "ratio": 4.73,
+            "required": 4.5,
+            "pass": true
         }
     ],
     "failures": 0

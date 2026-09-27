@@ -5,7 +5,7 @@ Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
 FFFFFF                                                              6 / 6 (100%)
 
-Time: 00:02.090, Memory: 14.00 MB
+Time: 00:02.208, Memory: 14.00 MB
 
 There were 6 failures:
 
@@ -94,6 +94,6 @@ Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
 .......                                                             7 / 7 (100%)
 
-Time: 00:02.575, Memory: 14.00 MB
+Time: 00:01.978, Memory: 14.00 MB
 
 OK (7 tests, 88 assertions)

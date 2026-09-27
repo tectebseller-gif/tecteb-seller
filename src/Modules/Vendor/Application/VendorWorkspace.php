@@ -105,11 +105,19 @@ final class VendorWorkspace
 
         // The number is on file and nothing has proved it. No button: there is
         // nothing the vendor can press that would change that today.
+        //
+        // `available` travels with the row because the sentence the vendor
+        // reads depends on it and the view cannot ask: with no adapter the
+        // honest thing to say is that verification is not available and NO
+        // ACTION IS NEEDED, and with one it is that the number is not verified
+        // yet. Carrying the flag does not make the number verified and changes
+        // no access rule — `isVerified()` is still the only thing that decides
+        // the state, and it still answers to a provider timestamp alone.
         $tasks[] = new WorkspaceTask(
             'mobile',
             $this->mobile->isVerified() ? TaskState::Done : TaskState::Waiting,
             null,
-            ['number' => $this->mobile->number]
+            ['number' => $this->mobile->number, 'available' => $this->mobileVerificationAvailable]
         );
 
         return $tasks;

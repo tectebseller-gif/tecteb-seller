@@ -1,0 +1,10 @@
+label=alpha.32
+site=http://127.0.0.1:8081
+vendor_dashboard_desktop height=1380 scrollWidth=1280 innerWidth=1280
+csv_disclosure_desktop=absent
+vendor_dashboard_mobile height=1719 scrollWidth=390 innerWidth=390
+csv_disclosure_mobile=absent
+applicant=shot
+staff=shot
+admin_menu_bubbles=5
+marketplace_menu_text=بازارگاه تک‌طب پیشخوان سلامت تنظیمات ماژول‌ها راه‌اندا

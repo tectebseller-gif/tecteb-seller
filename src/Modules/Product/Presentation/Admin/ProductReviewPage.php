@@ -171,6 +171,16 @@ final class ProductReviewPage
 
         $state = $this->catalogueState($request);
         $status = ProductStatus::tryFrom($state->status);
+        // Counted BEFORE the rows are read, because the count is what decides
+        // which page exists. A decision that empties the last page leaves the
+        // browser asking for a page that is gone, and reading the rows first
+        // answers that question with an empty screen instead of with the last
+        // page there is.
+        $state = $state->withCounts(
+            $products->countForManager($status, $state->search, 0, $state->onlyRevisions),
+            $products->countsByStatusForManager($state->search, 0, $state->onlyRevisions),
+            $revisions->countPending()
+        );
         $found = $products->forManager(
             $status,
             $state->search,
@@ -179,11 +189,6 @@ final class ProductReviewPage
             0,
             $state->sort,
             $state->onlyRevisions
-        );
-        $state = $state->withCounts(
-            $products->countForManager($status, $state->search, 0, $state->onlyRevisions),
-            $products->countsByStatusForManager($state->search, 0, $state->onlyRevisions),
-            $revisions->countPending()
         );
 
         // One query for the whole page rather than `pendingFor()` per row.
@@ -280,10 +285,12 @@ final class ProductReviewPage
                 ],
                 [
                     'label' => __('وضعیت ووکامرس', 'tecteb-marketplace-core'),
+                    // Through the same mapping the list uses. Until `alpha.33`
+                    // this printed WooCommerce's raw value, so the manager read
+                    // «منتشرشده» in the list and `publish` on the product.
                     'value' => $product->isProjected()
-                        ? (string) (get_post_status((int) $product->wcProductId)
-                            ?: __('پست پیدا نشد', 'tecteb-marketplace-core'))
-                        : __('هنوز در ووکامرس ساخته نشده', 'tecteb-marketplace-core'),
+                        ? ProductMessages::shopStatus((string) (get_post_status((int) $product->wcProductId) ?: ''))
+                        : ProductMessages::shopNotProjected(),
                 ],
                 [
                     'label' => __('آخرین تغییر', 'tecteb-marketplace-core'),

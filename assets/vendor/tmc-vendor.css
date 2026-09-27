@@ -1080,3 +1080,188 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
   border-radius: var(--tv-radius-sm);
   background: var(--tv-surface-2);
 }
+
+/* ---------------------------------------------------------------------------
+ * The approved shop's first screen (alpha.33).
+ *
+ * Written the day `StyledClassesHaveRulesTest` started reading the views: in
+ * `alpha.32` twenty admin pages wrote `.tmc-tab` and not one stylesheet
+ * defined it, and the page rendered as a column of underlined links for three
+ * releases. Every class below is one this view writes, and the guard compares
+ * the two on every run.
+ *
+ * Nothing here is a breakpoint: the counters reflow by the space the CARD has
+ * (`auto-fit` + `minmax`), which is the rule for this whole file (ADR-006).
+ * ------------------------------------------------------------------------ */
+.tv-shop { border-inline-start: 5px solid var(--tv-sky); }
+
+.tv-numbers__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  /* 9rem, not 13rem: four counters should sit on one line on a laptop and two
+     on a phone. The label is two Persian words, so the floor is what the
+     longest of them («در انتظار بررسی») needs to wrap into two lines rather
+     than be starved — `no-starved-text-box` measures it. */
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--tv-s3);
+}
+
+/* The whole card is the link: a number a reader has to aim at is a number they
+   miss on a phone. `min-height` is the touch target, not decoration. */
+.tv .tv-number {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tv-s1);
+  min-height: var(--tv-touch);
+  padding: var(--tv-s3) var(--tv-s4);
+  border: 1px solid var(--tv-border);
+  border-inline-start: 5px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+  color: var(--tv-text);
+  text-decoration: none;
+}
+.tv .tv-number:hover { background: var(--tv-surface); border-color: var(--tv-ink); }
+.tv .tv-number:focus-visible { outline: 3px solid var(--tv-ink); outline-offset: 2px; }
+
+.tv-number__value { font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+.tv-number__label { color: var(--tv-muted); font-size: 0.9375rem; overflow-wrap: anywhere; }
+
+/* The tone is the marketplace status's own tone, so «منتشرشده» is the same
+   green here as on the row it opens. Carried on the start border only: four
+   filled colour blocks side by side would make the page read as a warning. */
+.tv-number--success { border-inline-start-color: var(--tv-green); }
+.tv-number--warning { border-inline-start-color: var(--tv-amber); }
+.tv-number--error { border-inline-start-color: var(--tv-red); }
+.tv-number--neutral { border-inline-start-color: var(--tv-border); }
+
+/* Zero is dimmed and still a link — «کارت صفر کم‌رنگ ولی قابل کلیک». The
+   value, not the label: a number nobody can read is not dimmed, it is gone. */
+.tv .tv-number.is-empty { background: var(--tv-surface); }
+.tv .tv-number.is-empty .tv-number__value { color: var(--tv-muted); font-weight: 400; }
+
+/* --- what the vendor has to do ----------------------------------------- */
+/* The amber edge is on `has-work` and on nothing else. A card that wears the
+   warning colour while saying «کاری لازم نیست» teaches the reader that amber
+   means nothing, which is the one thing it must not mean. */
+.tv-todo.has-work { border-inline-start: 5px solid var(--tv-amber); }
+
+.tv-todo__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tv-s3); }
+
+.tv-todo__row {
+  padding: var(--tv-s3) var(--tv-s4);
+  border: 1px solid var(--tv-border);
+  border-inline-start: 5px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+.tv-todo__title { font-size: 1rem; margin: 0; }
+.tv-todo__reason { margin-block: var(--tv-s2) 0; overflow-wrap: anywhere; }
+/* A queue row is one line with a count, so it gets neither the padding of a
+   product row nor its own heading. */
+.tv-todo__row--queue { padding: var(--tv-s2) var(--tv-s3); }
+
+/* --- what somebody else is holding ------------------------------------- */
+/* Deliberately quiet: «۳ محصول در انتظار بررسی» is news. Giving it the amber
+   border of a task is how a warning colour stops meaning anything. */
+.tv-waiting { background: var(--tv-surface-2); }
+.tv-waiting__list { margin: 0; padding-inline-start: var(--tv-s5); display: grid; gap: var(--tv-s2); }
+
+/* --- the registration, folded away ------------------------------------- */
+/* A real `<details>`, so it opens with no script and keyboard-reaches through
+   its own summary — the `alpha.17` finding: CSS cannot open a closed one, so
+   anything that needs a script to be READ is gone the day the script fails. */
+.tv-fold { padding: 0; }
+.tv-fold__summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--tv-touch);
+  padding: 0 var(--tv-s4);
+  font-weight: 700;
+  cursor: pointer;
+}
+.tv-fold__summary:focus-visible { outline: 3px solid var(--tv-ink); outline-offset: -3px; }
+.tv-fold__list {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--tv-s4);
+  display: grid;
+  gap: var(--tv-s2);
+}
+.tv-fold__row { padding-block: var(--tv-s2); border-block-end: 1px dashed var(--tv-border); overflow-wrap: anywhere; }
+.tv-fold__row:last-child { border-block-end: 0; }
+/* A link, not a button: the file is a thing to look at, and `alpha.32`'s
+   button made it the largest thing on the page. */
+.tv-fold__link { margin: 0; padding: var(--tv-s3) var(--tv-s4); }
+
+/* ---------------------------------------------------------------------------
+ * Three gaps the `alpha.33` guard found on its first run — all of them older
+ * than this round, and all of them the same shape as `alpha.32`'s: a class
+ * name written by a view that no rule in either stylesheet matched.
+ * ------------------------------------------------------------------------ */
+
+/* The applicant's «صف اقدام» was a default bulleted list: `.tv-queue--today`
+   had a rule, `.tv-queue` and `.tv-queue__row` never did. */
+.tv-queue { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tv-s2); }
+.tv-queue__row { padding-block: var(--tv-s1); }
+
+/* «وضعیت ناشناخته» is a warning and not a filter: it carries `.tv-tab` for its
+   shape, but it is a `<span>` nobody can click, and until now it was drawn
+   exactly like the six links beside it. */
+.tv .tv-tab--warning {
+  border-color: var(--tv-amber);
+  background: #FFF4DC;
+  color: #7A4E00;
+  cursor: default;
+}
+.tv .tv-tab--warning .tv-tab__count { background: var(--tv-amber); color: var(--tv-ink); }
+
+/* The CSV import form: a stack, with the same rhythm as every other form in
+   the area. It had none, so its field and its button sat on top of each other. */
+.tv-form { display: grid; gap: var(--tv-s3); margin-block-start: var(--tv-s3); }
+
+/* ---------------------------------------------------------------------------
+ * The product list's two tools (alpha.33): one product, or all of them.
+ * ------------------------------------------------------------------------ */
+.tv-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--tv-s3);
+  margin-block-end: var(--tv-s4);
+}
+
+/* Beside the button, not under the pager. `min-inline-size: 0` so the open
+   panel may shrink inside the flex row instead of pushing the card wider —
+   a `<details>` defaults to its content's width, and a table of column names
+   is wide. */
+.tv-bulk-csv { flex: 1 1 18rem; min-inline-size: 0; }
+
+/* Shaped like the secondary button it sits next to, so the two read as two
+   controls rather than a button and a stray line of text. */
+.tv-bulk-csv__summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tv-touch);
+  padding: 0 var(--tv-s5);
+  border: 2px solid var(--tv-ink);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface);
+  color: var(--tv-ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+.tv-bulk-csv__summary:hover { background: var(--tv-sky-soft); }
+.tv-bulk-csv__summary:focus-visible { outline: 3px solid var(--tv-ink); outline-offset: 2px; }
+
+.tv-bulk-csv__body {
+  margin-block-start: var(--tv-s3);
+  padding: var(--tv-s4);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+.tv-bulk-csv__body > p:first-child { margin-block-start: 0; }

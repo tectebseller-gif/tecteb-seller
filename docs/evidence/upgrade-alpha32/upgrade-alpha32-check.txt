@@ -1,0 +1,39 @@
+=== the site goes back to what alpha.32 leaves behind ===
+ok:   alpha.32 is the installed package                          0.1.0-alpha.32
+ok:   the recorded schema says 19                                19
+ok:   and the sort column does not exist                         0
+products on this site: 92
+ok:   there is an admin session to make the request with         1
+ok:   alpha.32's own product list opens                          200
+ok:   and it is alpha.32 serving it                              1
+
+=== the files are replaced and an admin page is opened ===
+installed: 0.1.0-alpha.32 -> 0.1.0-alpha.33   schema: 19 -> 20   admin request: 200
+ok:   alpha.33 is the installed package                          0.1.0-alpha.33
+ok:   the admin page opened                                      200
+ok:   no activation hook was needed                              19
+ok:   the upgrade gate reached schema 20                         20
+ok:   the sort column exists now                                 1
+ok:   and it is indexed                                          1
+ok:   it is a binary collation, not the table's                  utf8mb4_bin
+
+=== every row carries a key, including the ones alpha.32 wrote ===
+ok:   no product was left without a sort key                     0
+ok:   and every product has one                                  92
+distinct leading group digits across 92 products: 2
+ok:   at least one group digit is in use                         yes
+ok:   a second admin request is still fine                       200
+ok:   and the schema did not move again                          20
+
+=== back to alpha.32, with the new column left where it is ===
+ok:   alpha.32's product list still opens                        200
+ok:   with the column still on the table                         1
+ok:   and alpha.32 never mentions it                             0
+ok:   no fatal on the rolled-back page                           0
+
+=== and forward again, which is how the owner will leave it ===
+ok:   alpha.33's product list opens                              200
+ok:   the schema is 20                                           20
+ok:   and no row lost its key                                    0
+
+checks: 25 passed, 0 failed

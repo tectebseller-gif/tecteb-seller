@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0004CreateFina
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\ProductReviewPage;
+use Tecteb\Marketplace\Modules\Product\Domain\PersianCollation;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
@@ -317,6 +318,109 @@ final class ProductAdminPagesTest extends DatabaseTestCase
     }
 
     /**
+     * WHAT THIS PROVES: «عنوان (الفبایی فارسی)» is the Persian alphabet, read
+     * by the query over the whole catalogue and not by the page.
+     *
+     * The fixture is chosen so that the two orders disagree everywhere: by
+     * codepoint پ, چ, ژ and گ all land after ی, so a list that sorted by the
+     * column would put «پالس‌اکسیمتر» and «گاز استریل» at the END. The
+     * assertion is the whole sequence across BOTH pages, because a sort that
+     * ran on the page would look right on page one and wrong at the boundary.
+     */
+    public function testPersianTitlesAreSortedInPersianOrderAcrossPages(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+        // Deliberately created in an order that is neither alphabetical nor
+        // reversed, so passing by accident is not possible.
+        $titles = [
+            'یدک‌کش', 'پالس‌اکسیمتر', 'آمبوبگ', 'گاز استریل', 'چسب زخم',
+            'ژل الکترود', 'ماسک ۱۰', 'ماسک ۲', 'کیف کمک‌های اولیه', 'باند',
+            'دستکش', 'سرنگ', 'ترمومتر', 'اکسیژن‌ساز', 'نبولایزر',
+            'زیرانداز', 'فشارسنج', 'قیچی', 'لارنگوسکوپ', 'ویلچر',
+            'هدست', 'نوار قلب', 'میکروسکوپ', 'الکل', 'بتادین',
+        ];
+        $this->seedProducts(count($titles), ProductStatus::Draft, $titles);
+
+        $seen = [];
+        foreach ([1, 2] as $page) {
+            $html = $this->render(['orderby' => 'title', 'paged' => (string) $page]);
+            preg_match_all('/class="tmc-catalogue__link"[^>]*>([^<]+)</u', $html, $matches);
+            foreach ($matches[1] as $title) {
+                $seen[] = html_entity_decode($title, ENT_QUOTES, 'UTF-8');
+            }
+        }
+
+        $expected = $titles;
+        usort($expected, static fn (string $a, string $b): int => PersianCollation::sortKey($a) <=> PersianCollation::sortKey($b));
+        self::assertSame($expected, $seen, 'the two pages together are the Persian alphabet');
+
+        // The four letters Persian added, in their places rather than after ی.
+        self::assertLessThan(
+            array_search('یدک‌کش', $seen, true),
+            array_search('پالس‌اکسیمتر', $seen, true),
+            'پ before ی — by codepoint it is the other way round'
+        );
+        self::assertLessThan(array_search('ماسک ۱۰', $seen, true), array_search('ماسک ۲', $seen, true));
+    }
+
+    /**
+     * WHAT THIS PROVES: a page number that no longer exists shows the last
+     * page that does, keeps every filter, and says what happened.
+     *
+     * This is the state a manager reaches by deciding on the last product of
+     * the last page: the list gets shorter under them and the browser asks for
+     * a page that is gone.
+     */
+    public function testAPageThatNoLongerExistsShowsTheLastOneAndSaysSo(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+        $this->seedProducts(25);
+
+        $out = $this->render(['paged' => '9', 'q' => 'کالا', 'per_page' => '20']);
+        self::assertCount(5, $this->productIds($out), 'the last page, not an empty one');
+        self::assertStringContainsString('نمایش ۲۱ تا ۲۵ از ۲۵ محصول', $out);
+        self::assertStringContainsString('صفحهٔ ۹ دیگر وجود ندارد', $out);
+        self::assertStringContainsString('صفحهٔ ۲', $out, 'and it says which page it did show');
+        self::assertStringContainsString('value="کالا"', $out, 'the search survived the correction');
+
+        // A result that is genuinely empty is a different sentence, and must
+        // NOT claim a page disappeared.
+        $empty = $this->render(['paged' => '9', 'q' => 'چنین چیزی نیست']);
+        self::assertStringContainsString('چیزی با این عبارت پیدا نشد.', $empty);
+        self::assertStringNotContainsString('دیگر وجود ندارد', $empty);
+    }
+
+    /**
+     * WHAT THIS PROVES: the number on the menu counts PRODUCTS waiting for the
+     * manager — submitted, or live with an unanswered proposal — and counts a
+     * product that is both exactly once.
+     */
+    public function testTheWaitingCountIsProductsAndNotRows(): void
+    {
+        $this->bootPlugin(false);
+        $products = new DbProductRepository(new WpDatabase($this->wpdb), new SystemClock());
+        $revisions = new DbProductRevisionRepository(new WpDatabase($this->wpdb), new SystemClock());
+        self::assertSame(0, $products->countAwaitingReview(), 'nothing waiting is nothing to show');
+
+        $drafts = $this->seedProducts(2, ProductStatus::Draft);
+        self::assertSame(0, $products->countAwaitingReview(), 'a draft is the vendor\'s own work');
+
+        $submitted = $this->seedProducts(3, ProductStatus::Submitted);
+        self::assertSame(3, $products->countAwaitingReview());
+
+        $published = $this->seedProducts(1, ProductStatus::Published);
+        $revisions->create($published[0], 7, ['details' => ['title' => 'عنوان تازه']]);
+        self::assertSame(4, $products->countAwaitingReview(), 'an unanswered proposal is a decision too');
+
+        // The same product, both ways at once: still one thing to look at.
+        $revisions->create($submitted[0], 7, ['details' => ['title' => 'دوباره']]);
+        self::assertSame(4, $products->countAwaitingReview(), 'one product, one row in the count');
+        self::assertNotSame([], $drafts);
+    }
+
+    /**
      * WHAT THIS PROVES: an empty result says which emptiness it is, and offers
      * a way out of the filter that caused it.
      */
@@ -429,7 +533,8 @@ final class ProductAdminPagesTest extends DatabaseTestCase
     /**
      * @return list<int> the ids, oldest first
      */
-    private function seedProducts(int $count, ProductStatus $status = ProductStatus::Draft): array
+    /** @param list<string> $titles when given, the title of each row in order */
+    private function seedProducts(int $count, ProductStatus $status = ProductStatus::Draft, array $titles = []): array
     {
         $products = new DbProductRepository(new WpDatabase($this->wpdb), new SystemClock());
         $ids = [];
@@ -437,7 +542,7 @@ final class ProductAdminPagesTest extends DatabaseTestCase
             $ids[] = $products->create(
                 7,
                 new ProductDetails(
-                    title: sprintf('کالای شمارهٔ %d', $n),
+                    title: $titles[$n - 1] ?? sprintf('کالای شمارهٔ %d', $n),
                     categoryKey: 'general',
                     priceMinor: 100000 + $n,
                     sku: sprintf('SKU-%03d', $n),

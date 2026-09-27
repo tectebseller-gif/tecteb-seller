@@ -93,6 +93,20 @@ interface ProductRepositoryInterface
      *
      * @return array<string,int>
      */
+    /**
+     * How many products are waiting for the MANAGER, counted as products.
+     *
+     * A product waits when it has been submitted, or when the version live in
+     * the shop has a proposed change nobody has answered. Both are one
+     * decision on one product, so the count is of products and not of rows: a
+     * submitted product that also carries a proposal is one thing to look at,
+     * not two, and the badge that shows this number must not say otherwise.
+     *
+     * Drafts are not counted. A draft is the vendor's own work in progress and
+     * has not been handed to anybody.
+     */
+    public function countAwaitingReview(): int;
+
     public function countsByStatusForManager(
         string $search = '',
         int $vendorUserId = 0,

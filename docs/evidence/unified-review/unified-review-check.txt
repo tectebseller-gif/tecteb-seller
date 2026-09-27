@@ -1,22 +1,22 @@
-installed plugin: 0.1.0-alpha.32   schema: 19
-ok:   the upgrade gate reached schema 19                         19
+installed plugin: 0.1.0-alpha.33   schema: 20
+ok:   the upgrade gate reached this package's schema             20
 ok:   the decision table exists                                  found
 
 === every rule in place ===
-stage=reset ok=true product=10 wc=28 claimed=5 baseline_fields=5 questions=0
-stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-195353
-stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-195354
+stage=reset ok=true product=27 wc=42 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-102812
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-102812
 stage=one_vendor_edit_asks_nothing ok=true questions=none verdicts=title:skip|short_description:write|description:manager|category:skip|images:skip
 stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
 stage=the_record_agrees_with_the_shop ok=true record_title=عنوانی_که_مدیر_در_وو shop_title=عنوانی_که_مدیر_در_وو one_version=yes baseline_fields=5
-stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-195354 manager_chose=manager-chosen-address-195354 marketplace_would_write=marketplace-address-195353
+stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-102812 manager_chose=manager-chosen-address-102812 marketplace_would_write=marketplace-address-102812
 stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:skip|short_description:conflict|description:manager|category:skip|images:skip
 stage=an_edit_during_review_refuses_the_approval ok=true code=storefront_moved fields=title edit_survived=yes
 stage=and_pressing_again_goes_through ok=true code=product_reviewed title=عنوانی_که_مدیر_وسط_بررسی
 stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
 stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
-stage=history_only_grows ok=true newest_before=36 newest_after=38 earlier_row_still_there=yes newest=archived
-stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=81
+stage=history_only_grows ok=true newest_before=112 newest_after=114 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=92
 stage=restored ok=true code=product_reviewed status=published
 ok:   reset                                                      ok=true
 ok:   the_marketplace_sets_an_address_once                       ok=true
@@ -49,96 +49,96 @@ ok:   a rejected product is still in the manager's list          yes
 ok:   and the status counters add up to the total                yes
 
 === with «skip_is_a_conflict_again» taken back out ===
-stage=reset ok=true product=11 wc=29 claimed=5 baseline_fields=5 questions=0
-stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-195355
-stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-195355
+stage=reset ok=true product=28 wc=43 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-102813
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-102813
 stage=one_vendor_edit_asks_nothing ok=false questions=title verdicts=title:conflict|short_description:write|description:manager|category:write|images:write
 stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
-stage=the_record_agrees_with_the_shop ok=false record_title=عنوانی_که_مدیر_وسط_ب shop_title=عنوانی_که_مدیر_در_وو one_version=no baseline_fields=5
-stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-195355 manager_chose=manager-chosen-address-195355 marketplace_would_write=marketplace-address-195355
+stage=the_record_agrees_with_the_shop ok=false record_title=عنوان_ویرایش‌شدهٔ_مد shop_title=عنوانی_که_مدیر_در_وو one_version=no baseline_fields=5
+stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-102813 manager_chose=manager-chosen-address-102813 marketplace_would_write=marketplace-address-102813
 stage=a_real_conflict_asks_once ok=false questions=title,short_description verdicts=title:conflict|short_description:conflict|description:manager|category:write|images:write
 stage=an_edit_during_review_refuses_the_approval ok=true code=storefront_moved fields=title edit_survived=yes
 stage=and_pressing_again_goes_through ok=true code=product_reviewed title=عنوانی_که_مدیر_وسط_بررسی
 stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
 stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
-stage=history_only_grows ok=true newest_before=48 newest_after=50 earlier_row_still_there=yes newest=archived
-stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=81
+stage=history_only_grows ok=true newest_before=124 newest_after=126 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=92
 stage=restored ok=true code=product_reviewed status=published
 ok:   without it, one_vendor_edit_asks_nothing fails             ok=false
 ok:   the installed plugin still parses (skip_is_a_conflict_again) yes
 
 === with «a_generated_field_is_just_another_conflict» taken back out ===
-stage=reset ok=true product=12 wc=30 claimed=5 baseline_fields=5 questions=0
-stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-195357
-stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-195357
+stage=reset ok=true product=29 wc=44 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-102814
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-102814
 stage=one_vendor_edit_asks_nothing ok=false questions=description verdicts=title:skip|short_description:write|description:conflict|category:skip|images:skip
 stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
 stage=the_record_agrees_with_the_shop ok=true record_title=عنوانی_که_مدیر_در_وو shop_title=عنوانی_که_مدیر_در_وو one_version=yes baseline_fields=5
-stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-195357 manager_chose=manager-chosen-address-195357 marketplace_would_write=marketplace-address-195357
+stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-102814 manager_chose=manager-chosen-address-102814 marketplace_would_write=marketplace-address-102814
 stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:skip|short_description:conflict|description:manager|category:skip|images:skip
 stage=an_edit_during_review_refuses_the_approval ok=true code=storefront_moved fields=title edit_survived=yes
 stage=and_pressing_again_goes_through ok=true code=product_reviewed title=عنوانی_که_مدیر_وسط_بررسی
 stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
 stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
-stage=history_only_grows ok=true newest_before=60 newest_after=62 earlier_row_still_there=yes newest=archived
-stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=81
+stage=history_only_grows ok=true newest_before=136 newest_after=138 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=92
 stage=restored ok=true code=product_reviewed status=published
 ok:   without it, one_vendor_edit_asks_nothing fails             ok=false
 ok:   the installed plugin still parses (a_generated_field_is_just_another_conflict) yes
 
 === with «no_lock_on_the_shop_side» taken back out ===
-stage=reset ok=true product=15 wc=31 claimed=5 baseline_fields=5 questions=0
-stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-195358
-stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-195358
+stage=reset ok=true product=30 wc=45 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-102815
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-102816
 stage=one_vendor_edit_asks_nothing ok=true questions=none verdicts=title:skip|short_description:write|description:manager|category:skip|images:skip
 stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
 stage=the_record_agrees_with_the_shop ok=true record_title=عنوانی_که_مدیر_در_وو shop_title=عنوانی_که_مدیر_در_وو one_version=yes baseline_fields=5
-stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-195358 manager_chose=manager-chosen-address-195358 marketplace_would_write=marketplace-address-195358
+stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-102816 manager_chose=manager-chosen-address-102816 marketplace_would_write=marketplace-address-102815
 stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:skip|short_description:conflict|description:manager|category:skip|images:skip
 stage=an_edit_during_review_refuses_the_approval ok=false code=product_reviewed fields=- edit_survived=yes
 stage=and_pressing_again_goes_through ok=false code=invalid_transition title=عنوانی_که_مدیر_وسط_بررسی
 stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
 stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
-stage=history_only_grows ok=true newest_before=72 newest_after=74 earlier_row_still_there=yes newest=archived
-stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=81
+stage=history_only_grows ok=true newest_before=148 newest_after=150 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=92
 stage=restored ok=true code=product_reviewed status=published
 ok:   without it, an_edit_during_review_refuses_the_approval fails ok=false
 ok:   the installed plugin still parses (no_lock_on_the_shop_side) yes
 
 === with «the_address_is_rewritten_every_time» taken back out ===
-stage=reset ok=true product=16 wc=32 claimed=5 baseline_fields=5 questions=0
-stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-195401
-stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-195401
+stage=reset ok=true product=31 wc=46 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-102817
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-102817
 stage=one_vendor_edit_asks_nothing ok=true questions=none verdicts=title:skip|short_description:write|description:manager|category:skip|images:skip
 stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
 stage=the_record_agrees_with_the_shop ok=true record_title=عنوانی_که_مدیر_در_وو shop_title=عنوانی_که_مدیر_در_وو one_version=yes baseline_fields=5
-stage=a_vendor_save_does_not_move_the_address ok=false slug=marketplace-address-195401 manager_chose=manager-chosen-address-195401 marketplace_would_write=marketplace-address-195401
+stage=a_vendor_save_does_not_move_the_address ok=false slug=marketplace-address-102817 manager_chose=manager-chosen-address-102817 marketplace_would_write=marketplace-address-102817
 stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:skip|short_description:conflict|description:manager|category:skip|images:skip
 stage=an_edit_during_review_refuses_the_approval ok=true code=storefront_moved fields=title edit_survived=yes
 stage=and_pressing_again_goes_through ok=true code=product_reviewed title=عنوانی_که_مدیر_وسط_بررسی
 stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
 stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
-stage=history_only_grows ok=true newest_before=84 newest_after=86 earlier_row_still_there=yes newest=archived
-stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=81
+stage=history_only_grows ok=true newest_before=160 newest_after=162 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=92
 stage=restored ok=true code=product_reviewed status=published
 ok:   without it, a_vendor_save_does_not_move_the_address fails  ok=false
 ok:   the installed plugin still parses (the_address_is_rewritten_every_time) yes
 
 === with «no_reconciliation_after_approval» taken back out ===
-stage=reset ok=true product=17 wc=33 claimed=5 baseline_fields=5 questions=0
-stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-195402
-stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-195402
+stage=reset ok=true product=35 wc=50 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-102818
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-102818
 stage=one_vendor_edit_asks_nothing ok=true questions=none verdicts=title:skip|short_description:write|description:manager|category:skip|images:skip
 stage=approval_writes_only_what_the_vendor_changed ok=false code=baseline_not_recorded short_applied=yes manager_title_survived=yes manager_long_survived=yes
-stage=the_record_agrees_with_the_shop ok=false record_title=عنوان_ه_161112 shop_title=عنوانی_که_مدیر_در_وو one_version=no baseline_fields=5
-stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-195402 manager_chose=manager-chosen-address-195402 marketplace_would_write=marketplace-address-195402
+stage=the_record_agrees_with_the_shop ok=false record_title=محصول_نسخهٔ_قدیمی shop_title=عنوانی_که_مدیر_در_وو one_version=no baseline_fields=5
+stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-102818 manager_chose=manager-chosen-address-102818 marketplace_would_write=marketplace-address-102818
 stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:skip|short_description:conflict|description:manager|category:skip|images:skip
 stage=an_edit_during_review_refuses_the_approval ok=true code=storefront_moved fields=title edit_survived=yes
 stage=and_pressing_again_goes_through ok=false code=baseline_not_recorded title=عنوانی_که_مدیر_وسط_بررسی
 stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
 stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
-stage=history_only_grows ok=true newest_before=94 newest_after=96 earlier_row_still_there=yes newest=archived
-stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=81
+stage=history_only_grows ok=true newest_before=170 newest_after=172 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=92
 stage=restored ok=false code=baseline_not_recorded status=published
 ok:   without it, the_record_agrees_with_the_shop fails          ok=false
 ok:   the installed plugin still parses (no_reconciliation_after_approval) yes
@@ -149,20 +149,20 @@ ok:   WooCommerceProjector.php matches the repository again      same
 ok:   ReviewProducts.php matches the repository again            same
 
 === the shipped code, once more, after every patch was reverted ===
-stage=reset ok=true product=21 wc=37 claimed=5 baseline_fields=5 questions=0
-stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-195404
-stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-195404
+stage=reset ok=true product=36 wc=51 claimed=5 baseline_fields=5 questions=0
+stage=the_marketplace_sets_an_address_once ok=true code=seo_saved slug=marketplace-address-102820
+stage=manager_edits_in_woocommerce ok=true title=عنوانی_که_مدیر_در_وو slug=manager-chosen-address-102820
 stage=one_vendor_edit_asks_nothing ok=true questions=none verdicts=title:skip|short_description:write|description:manager|category:skip|images:skip
 stage=approval_writes_only_what_the_vendor_changed ok=true code=product_reviewed short_applied=yes manager_title_survived=yes manager_long_survived=yes
 stage=the_record_agrees_with_the_shop ok=true record_title=عنوانی_که_مدیر_در_وو shop_title=عنوانی_که_مدیر_در_وو one_version=yes baseline_fields=5
-stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-195404 manager_chose=manager-chosen-address-195404 marketplace_would_write=marketplace-address-195404
+stage=a_vendor_save_does_not_move_the_address ok=true slug=manager-chosen-address-102820 manager_chose=manager-chosen-address-102820 marketplace_would_write=marketplace-address-102820
 stage=a_real_conflict_asks_once ok=true questions=short_description verdicts=title:skip|short_description:conflict|description:manager|category:skip|images:skip
 stage=an_edit_during_review_refuses_the_approval ok=true code=storefront_moved fields=title edit_survived=yes
 stage=and_pressing_again_goes_through ok=true code=product_reviewed title=عنوانی_که_مدیر_وسط_بررسی
 stage=the_managers_message_reaches_the_vendor ok=true code=product_reviewed stored=قیمت_با_بازار_نمی‌خواند؛ decision=changes_requested has_date=yes
 stage=one_shop_cannot_read_anothers ok=true other_vendor_sees=nothing
-stage=history_only_grows ok=true newest_before=105 newest_after=107 earlier_row_still_there=yes newest=archived
-stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=81
+stage=history_only_grows ok=true newest_before=181 newest_after=183 earlier_row_still_there=yes newest=archived
+stage=a_rejected_product_is_still_findable ok=true in_archived_list=yes wc_status=draft counts_add_up=yes total=92
 stage=restored ok=true code=product_reviewed status=published
 ok:   no stage fails on the restored install                     0
 

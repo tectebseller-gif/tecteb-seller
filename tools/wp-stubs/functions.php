@@ -14,6 +14,19 @@ function add_filter(string $tag, callable $cb, int $priority = 10, int $accepted
 {
     return add_action($tag, $cb, $priority, $acceptedArgs);
 }
+/** Shortcodes are a registry, not a hook: the tag is the key and there is one. */
+function add_shortcode(string $tag, callable $cb): void
+{
+    State::$shortcodes[$tag] = $cb;
+}
+function shortcode_exists(string $tag): bool
+{
+    return isset(State::$shortcodes[$tag]);
+}
+function do_shortcode_tag(string $tag, mixed ...$args): string
+{
+    return isset(State::$shortcodes[$tag]) ? (string) (State::$shortcodes[$tag])(...$args) : '';
+}
 function remove_all_actions(string $tag, int|false $priority = false): bool
 {
     if ($priority === false) {

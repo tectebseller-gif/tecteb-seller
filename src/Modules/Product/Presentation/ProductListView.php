@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Product\Presentation;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorNotice;
@@ -52,13 +53,9 @@ final class ProductListView
         }
 
         $html .= '<section class="tv-card"><div class="tv-card__head">'
-            . '<h2 class="tv-card__title">' . esc_html__('محصولات فروشگاه', 'tecteb-marketplace-core') . '</h2>';
-        if ($mayEdit) {
-            $html .= '<p class="tv-card__actions">'
-                . VendorUi::button($urls->product(0), __('افزودن محصول', 'tecteb-marketplace-core'))
-                . '</p>';
-        }
-        $html .= '</div>';
+            . '<h2 class="tv-card__title">' . esc_html__('محصولات فروشگاه', 'tecteb-marketplace-core') . '</h2>'
+            . '</div>'
+            . self::tools($urls, $nonceField, $mayEdit);
 
         $html .= $mayPublishDirectly
             ? '<p class="tv-hint">' . esc_html__('فروشگاه شما مجوز انتشار مستقیم دارد: محصول با «ارسال» بی‌درنگ منتشر می‌شود.', 'tecteb-marketplace-core') . '</p>'
@@ -93,7 +90,7 @@ final class ProductListView
                     [['href' => $urls->products(), 'label' => __('دیدن همهٔ محصولات', 'tecteb-marketplace-core')]]
                 ),
             };
-            return $html . '</section>' . self::csvCard($urls, $nonceField, $mayEdit);
+            return $html . '</section>';
         }
 
         if ($mayEdit) {
@@ -105,7 +102,7 @@ final class ProductListView
         }
         $html .= '</ul>';
         $html .= self::pager($page, $total, $currentStatus, $urls, $fa);
-        return $html . '</section>' . self::csvCard($urls, $nonceField, $mayEdit);
+        return $html . '</section>';
     }
 
     /**
@@ -362,17 +359,55 @@ final class ProductListView
         return $html . '</nav>';
     }
 
-    private static function csvCard(VendorUrls $urls, string $nonce, bool $mayEdit): string
+    /**
+     * The two things somebody opens this page to DO, side by side.
+     *
+     * «افزودن محصول» is one product; CSV is all of them. Until `alpha.33` the
+     * second was a full card at the very bottom, below the list and below the
+     * pager — so on a shop with eighty products the bulk tool was three screens
+     * past the thing it operates on, and it was the last thing on every page
+     * whether anybody wanted it or not.
+     *
+     * A native `<details>`, for the reason this repository has now written down
+     * twice: it opens with no script, its `<summary>` is reached by Tab and
+     * announced as expandable, and both forms inside it are plain POSTs. A
+     * vendor with JavaScript off loses nothing at all.
+     *
+     * **The forms are not rewritten.** Same actions, same field names, same
+     * nonce, same two-step (preview, then an explicit «اعمال») — only where
+     * they sit and what is said beside them.
+     */
+    private static function tools(VendorUrls $urls, string $nonce, bool $mayEdit): string
     {
-        $html = '<section class="tv-card"><h2 class="tv-card__title">' . esc_html__('ورود و خروج CSV', 'tecteb-marketplace-core') . '</h2>'
-            . '<p class="tv-hint">' . esc_html__('خروجی فقط محصول‌های همین فروشگاه را دارد. ستون شناسه و وضعیت فقط برای خواندن است و هنگام ورود نادیده گرفته می‌شود.', 'tecteb-marketplace-core') . '</p>'
+        $html = '<div class="tv-tools">';
+        if ($mayEdit) {
+            $html .= VendorUi::button($urls->product(0), __('افزودن محصول', 'tecteb-marketplace-core'));
+        }
+        return $html . self::csvFold($urls, $nonce, $mayEdit) . '</div>';
+    }
+
+    private static function csvFold(VendorUrls $urls, string $nonce, bool $mayEdit): string
+    {
+        $html = '<details class="tv-bulk-csv"><summary class="tv-bulk-csv__summary">'
+            . esc_html__('ورود و خروج گروهی محصولات', 'tecteb-marketplace-core')
+            . '</summary><div class="tv-bulk-csv__body">'
+            // Export first, and said as what it is FOR: the file that comes out
+            // is the file that goes back in, so the vendor never builds a
+            // header row by hand.
+            . '<p>' . esc_html__('خروجی فقط محصول‌های همین فروشگاه را دارد و همان قالب ورود است: بگیرید، ستون‌ها را ویرایش کنید و همان فایل را برگردانید.', 'tecteb-marketplace-core') . '</p>'
             . '<form method="post" action="' . esc_url($urls->products()) . '" class="tv-inline">'
             . $nonce
             . '<input type="hidden" name="tmc_vendor_action" value="export_products">'
             . VendorUi::submit(__('دریافت فایل CSV', 'tecteb-marketplace-core'), 'secondary')
-            . '</form>';
+            . '</form>'
+            . self::csvColumnGuide();
         if (!$mayEdit) {
-            return $html . '</section>';
+            // Read-only staff may take the file and may not bring one back —
+            // the same rule the service enforces, said on the page instead of
+            // being discovered by a refusal.
+            return $html . '<p class="tv-hint">'
+                . esc_html__('ورود فایل به دسترسی ویرایش محصول نیاز دارد.', 'tecteb-marketplace-core')
+                . '</p></div></details>';
         }
         return $html
             . '<form method="post" action="' . esc_url($urls->products()) . '" enctype="multipart/form-data" class="tv-form">'
@@ -383,6 +418,42 @@ final class ProductListView
             . '<input class="tv-input" type="file" id="f-products-csv" name="products_csv" accept=".csv,text/csv">'
             . '<p class="tv-hint">' . esc_html__('اول پیش‌نمایش می‌بینید؛ تا وقتی «اعمال» را نزنید چیزی ذخیره نمی‌شود.', 'tecteb-marketplace-core') . '</p></div>'
             . VendorUi::submit(__('پیش‌نمایش ورود', 'tecteb-marketplace-core'), 'secondary')
-            . '</form></section>';
+            . '</form></div></details>';
+    }
+
+    /**
+     * Which columns an edit actually reaches — read off `ProductCsv` itself.
+     *
+     * Built from the constants rather than typed out, so the list cannot drift
+     * from the file the exporter writes. `READ_ONLY_COLUMNS` is named too, and
+     * named as read-only: a vendor who changes `id` and sees nothing happen has
+     * been told nothing, and a vendor who changes `status` expecting to publish
+     * has been misled.
+     */
+    private static function csvColumnGuide(): string
+    {
+        $editable = [];
+        foreach (ProductCsv::COLUMNS as $column) {
+            $editable[] = ProductMessages::csvColumn($column);
+        }
+        $readOnly = [];
+        foreach (ProductCsv::READ_ONLY_COLUMNS as $column) {
+            $readOnly[] = ProductMessages::csvColumn($column);
+        }
+        return '<p class="tv-hint"><strong>'
+            . esc_html__('ستون‌های قابل ویرایش:', 'tecteb-marketplace-core') . '</strong> '
+            . esc_html(implode('، ', $editable))
+            . '</p><p class="tv-hint"><strong>'
+            . esc_html__('فقط خواندنی:', 'tecteb-marketplace-core') . '</strong> '
+            . esc_html(implode('، ', $readOnly)) . ' — '
+            . esc_html__('هنگام ورود نادیده گرفته می‌شوند؛ ورود فایل هیچ محصولی را منتشر نمی‌کند.', 'tecteb-marketplace-core')
+            . '</p><p class="tv-hint">'
+            . esc_html(sprintf(
+                /* translators: 1: the spec column prefix, 2: how many rows one upload may carry */
+                __('ستون‌هایی که با «%1$s» شروع می‌شوند مشخصات پزشکی همان دسته‌اند. هر فایل تا %2$s ردیف.', 'tecteb-marketplace-core'),
+                ProductCsv::SPEC_PREFIX,
+                PersianDigits::toPersian((string) ProductCsv::MAX_ROWS)
+            ))
+            . '</p>';
     }
 }

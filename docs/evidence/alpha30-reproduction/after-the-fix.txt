@@ -5,7 +5,7 @@ Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
 ......                                                              6 / 6 (100%)
 
-Time: 00:02.104, Memory: 14.00 MB
+Time: 00:01.525, Memory: 14.00 MB
 
 OK (6 tests, 79 assertions)
 PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
@@ -15,6 +15,6 @@ Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
 .......                                                             7 / 7 (100%)
 
-Time: 00:02.557, Memory: 14.00 MB
+Time: 00:02.057, Memory: 14.00 MB
 
 OK (7 tests, 88 assertions)

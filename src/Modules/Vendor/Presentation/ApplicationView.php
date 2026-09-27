@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Vendor\Presentation;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorWorkspace;
 use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicantDetails;
+use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
 use Tecteb\Marketplace\Modules\Vendor\Domain\DocumentType;
 use Tecteb\Marketplace\Modules\Vendor\Domain\RequirementMode;
 
@@ -37,26 +38,44 @@ final class ApplicationView
             );
         }
 
+        // What this page IS, said before anything on it is read. Until
+        // `alpha.33` it opened straight into a form headed «اطلاعات فروشگاه» —
+        // the name of a different page, the one that holds the shop's live
+        // settings — so a vendor editing their address here could not tell
+        // which of the two they were changing.
+        $html .= '<p class="tv-lead">' . esc_html(self::lead($workspace)) . '</p>';
+
+        // The manager's own words, on the path the vendor is already on. Every
+        // decision that carries a reason shows it: «نیازمند اصلاح» to act on,
+        // «رد شده» and «تعلیق‌شده» to understand. Reading it for only one of
+        // the three is how a manager's sentence disappears.
         $note = $workspace->application?->reviewNote;
-        if ($note !== null && trim($note) !== '' && $workspace->status()->value === 'changes_requested') {
-            $html .= '<div class="tv-note tv-note--action"><h2>' . esc_html__('چه چیزی باید اصلاح شود', 'tecteb-marketplace-core') . '</h2>'
+        $heading = self::noteHeading($workspace->status());
+        if ($note !== null && trim($note) !== '' && $heading !== '') {
+            $tone = $workspace->status() === ApplicationStatus::ChangesRequested ? ' tv-note--action' : '';
+            $html .= '<div class="tv-note' . $tone . '"><h2>' . esc_html($heading) . '</h2>'
                 . '<p>' . esc_html($note) . '</p></div>';
         }
 
         if (!$editable) {
-            $html .= VendorUi::notice('info', __('این درخواست در حال بررسی است و تا اعلام نتیجه ویرایش نمی‌شود. اطلاعات ثبت‌شده در پایین آمده است.', 'tecteb-marketplace-core'));
+            // Five statuses reach this line and only two of them are «در حال
+            // بررسی». An approved shop was told for months that its own file
+            // was still being reviewed.
+            $html .= VendorUi::notice(self::lockedTone($workspace->status()), self::whyLocked($workspace->status()));
         }
 
         // ---- details -------------------------------------------------------
         $html .= '<form class="tv-card" method="post" action="' . esc_url($urls->application()) . '">'
             . $nonceField
             . '<input type="hidden" name="tmc_vendor_action" value="save_draft">'
-            . '<h2 class="tv-card__title">' . esc_html__('اطلاعات فروشگاه', 'tecteb-marketplace-core') . '</h2>'
+            . '<h2 class="tv-card__title">' . esc_html__('اطلاعات ثبت‌شده در درخواست', 'tecteb-marketplace-core') . '</h2>'
             . VendorUi::input('store_name', __('نام فروشگاه', 'tecteb-marketplace-core'), $details->storeName, $editable)
             . VendorUi::input('legal_name', __('نام حقوقی یا نام کامل مالک', 'tecteb-marketplace-core'), $details->legalName, $editable)
             . VendorUi::input('contact_email', __('ایمیل تماس', 'tecteb-marketplace-core'), $details->contactEmail, $editable, 'email', 'ltr')
             . VendorUi::input('contact_mobile', __('موبایل', 'tecteb-marketplace-core'), $details->contactMobile, $editable, 'tel', 'ltr',
-                __('ثبت شماره به‌معنای تأیید آن نیست. تأیید با پیامک انجام می‌شود و این سرویس هنوز به بازارگاه وصل نیست.', 'tecteb-marketplace-core'))
+                $workspace->mobileVerificationAvailable
+                    ? __('ثبت شماره به‌معنای تأیید آن نیست؛ تأیید با پیامک انجام می‌شود.', 'tecteb-marketplace-core')
+                    : __('تأیید پیامکی فعلاً در دسترس نیست؛ اقدامی لازم نیست.', 'tecteb-marketplace-core'))
             . VendorUi::textarea('address', __('نشانی', 'tecteb-marketplace-core'), $details->address, $editable)
             . '<div class="tv-field tv-field--check"><label>'
             . '<input type="checkbox" name="terms" value="1"' . checked($details->termsAccepted, true, false) . ($editable ? '' : ' disabled') . '> '
@@ -93,6 +112,66 @@ final class ApplicationView
         }
 
         return $html;
+    }
+
+    /**
+     * One sentence naming the data on the page — and, for a shop that is
+     * already trading, naming the OTHER page too.
+     *
+     * The application record and the store settings are two sets of values
+     * with one subject, and the approval froze the first. Sending an approved
+     * vendor here to change their address would be sending them to edit a
+     * document nobody reads any more.
+     */
+    private static function lead(VendorWorkspace $workspace): string
+    {
+        if ($workspace->application === null) {
+            return __('این صفحه درخواست فروشندگی شماست. تا وقتی ارسال نکنید پیش‌نویس می‌ماند.', 'tecteb-marketplace-core');
+        }
+        if ($workspace->status()->isEditableByApplicant()) {
+            return __('این صفحه درخواست فروشندگی شماست: همان اطلاعاتی که مدیر بازارگاه برای بررسی می‌بیند.', 'tecteb-marketplace-core');
+        }
+        if ($workspace->status() === ApplicationStatus::Approved) {
+            return __('این پروندهٔ فروشندگی شماست — اطلاعاتی که در زمان درخواست ثبت شد و مبنای تأیید بود. تنظیمات جاری فروشگاه (نام نمایشی، لوگو، حساب بانکی) در «تنظیمات فروشگاه» است و از اینجا عوض نمی‌شود.', 'tecteb-marketplace-core');
+        }
+        return __('این پروندهٔ فروشندگی شماست: اطلاعاتی که ثبت شده و مدیر بازارگاه بررسی می‌کند.', 'tecteb-marketplace-core');
+    }
+
+    /** Why the form is read-only — per status, because the reasons differ. */
+    private static function whyLocked(ApplicationStatus $status): string
+    {
+        return match ($status) {
+            ApplicationStatus::Submitted, ApplicationStatus::InReview => __('این درخواست در نوبت بررسی است و تا اعلام نتیجه ویرایش نمی‌شود. اطلاعات ثبت‌شده در پایین آمده است.', 'tecteb-marketplace-core'),
+            ApplicationStatus::Approved => __('این درخواست تأیید شده است، پس پروندهٔ آن بسته و فقط برای مشاهده است. تغییر اطلاعات فروشگاه از «تنظیمات فروشگاه» انجام می‌شود.', 'tecteb-marketplace-core'),
+            ApplicationStatus::Rejected => __('این درخواست رد شده و ویرایش نمی‌شود. برای درخواست تازه با مدیر بازارگاه تماس بگیرید.', 'tecteb-marketplace-core'),
+            ApplicationStatus::Suspended => __('فروشگاه شما تعلیق شده است؛ تا رفع تعلیق، این پرونده فقط برای مشاهده است.', 'tecteb-marketplace-core'),
+            default => __('این پرونده در این وضعیت ویرایش نمی‌شود. اطلاعات ثبت‌شده در پایین آمده است.', 'tecteb-marketplace-core'),
+        };
+    }
+
+    /**
+     * A refusal and a decision are not the same colour.
+     *
+     * `info` for «در نوبت» and for a closed, successful file; `warning` only
+     * where something is actually wrong — a rejection or a suspension.
+     */
+    private static function lockedTone(ApplicationStatus $status): string
+    {
+        return match ($status) {
+            ApplicationStatus::Rejected, ApplicationStatus::Suspended => 'warning',
+            default => 'info',
+        };
+    }
+
+    /** The heading the manager's note gets, or '' when this status has none. */
+    private static function noteHeading(ApplicationStatus $status): string
+    {
+        return match ($status) {
+            ApplicationStatus::ChangesRequested => __('چه چیزی باید اصلاح شود', 'tecteb-marketplace-core'),
+            ApplicationStatus::Rejected => __('دلیل رد درخواست', 'tecteb-marketplace-core'),
+            ApplicationStatus::Suspended => __('دلیل تعلیق فروشگاه', 'tecteb-marketplace-core'),
+            default => '',
+        };
     }
 
     private static function documentsUndefined(): string

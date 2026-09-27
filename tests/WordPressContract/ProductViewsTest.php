@@ -20,6 +20,7 @@ use Tecteb\Marketplace\Modules\Product\Presentation\ProductBulkPreviewView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductConflictView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductCsvView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductFormView;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductListView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
@@ -95,6 +96,115 @@ final class ProductViewsTest extends ContractTestCase
         self::assertStringContainsString('۱۵۰٬۰۰۰', str_replace(',', '٬', $html), 'the sale price is what a buyer would pay');
         self::assertStringContainsString('تصویر واضح‌تری لازم است.', $html, 'the reason to fix is on the row (UX §5.1)');
         self::assertStringContainsString('محصول تازه و تغییرهای حساس پس از تأیید مدیر', $html);
+    }
+
+    /**
+     * WHAT THIS PROVES: CSV is a disclosure beside «افزودن محصول», it opens with
+     * no script, and the guidance beside it is read off the importer.
+     *
+     * Until `alpha.33` the block was a full card BELOW the list and below the
+     * pager — on a shop with eighty products, three screens past the thing it
+     * operates on, and the last thing on every page whether anybody wanted it
+     * or not.
+     */
+    public function testTheCsvToolsAreADisclosureBesideTheAddButtonAndNotACardAtTheBottom(): void
+    {
+        $this->bootPlugin(false);
+        $html = $this->list();
+
+        // Beside: both controls are inside the one tools row, and the row comes
+        // before the filters rather than after the pager.
+        self::assertStringContainsString('class="tv-tools"', $html);
+        self::assertLessThan(
+            strpos($html, 'class="tv-tabs"'),
+            strpos($html, 'tv-bulk-csv__summary'),
+            'the tools row belongs above the filters, not under the pager'
+        );
+        self::assertStringContainsString('ورود و خروج گروهی محصولات', $html);
+        // A native disclosure: no script, and a `<summary>` Tab reaches.
+        self::assertStringContainsString('<details class="tv-bulk-csv"><summary', $html);
+        self::assertStringNotContainsString('<script', $html);
+        self::assertStringNotContainsString('onclick', $html);
+    }
+
+    /**
+     * WHAT THIS PROVES: the columns named beside the file chooser are the
+     * columns the importer actually reads.
+     *
+     * Built from `ProductCsv::COLUMNS`, so the guidance cannot drift from the
+     * file the exporter writes — and `id`/`status` are named as read-only
+     * rather than left out, because a vendor who edits `status` expecting to
+     * publish has been misled by silence.
+     */
+    public function testTheGuidanceNamesEveryEditableColumnAndBothReadOnlyOnes(): void
+    {
+        $this->bootPlugin(false);
+        $html = $this->list();
+
+        foreach (ProductCsv::COLUMNS as $column) {
+            self::assertStringContainsString(
+                ProductMessages::csvColumn($column),
+                $html,
+                'the editable column ' . $column . ' is not named'
+            );
+        }
+        self::assertStringContainsString('فقط خواندنی:', $html);
+        self::assertStringContainsString('ورود فایل هیچ محصولی را منتشر نمی‌کند.', $html);
+        self::assertStringContainsString('۵۰۰', $html, 'the real row limit, in Persian digits');
+        self::assertStringContainsString(ProductCsv::SPEC_PREFIX, $html);
+    }
+
+    /**
+     * WHAT THIS PROVES: moving the forms did not change what they do.
+     *
+     * Same two actions, same field name, same nonce, and still two steps — the
+     * first button previews and the word «اعمال» is nowhere on this page,
+     * because applying is a separate, explicit action on the preview screen.
+     */
+    public function testTheMovedFormsStillPostTheSameThingsAndStillPreviewFirst(): void
+    {
+        $this->bootPlugin(false);
+        $html = $this->list('<input type="hidden" name="tmc_vendor_nonce" value="n">');
+
+        self::assertStringContainsString('value="export_products"', $html);
+        self::assertStringContainsString('value="import_products"', $html);
+        self::assertStringContainsString('name="products_csv"', $html);
+        self::assertStringContainsString('enctype="multipart/form-data"', $html);
+        $fold = substr(
+            $html,
+            (int) strpos($html, '<details class="tv-bulk-csv">'),
+            (int) strpos($html, '</details>') - (int) strpos($html, '<details class="tv-bulk-csv">')
+        );
+        self::assertSame(2, substr_count($fold, 'tmc_vendor_nonce'), 'both CSV forms carry the nonce');
+        self::assertStringContainsString('پیش‌نمایش ورود', $html);
+        self::assertStringNotContainsString('value="apply_products_csv"', $html);
+    }
+
+    public function testAReadOnlyViewerIsToldWhyTheyCannotBringAFileBack(): void
+    {
+        $this->bootPlugin(false);
+        $html = $this->list(mayEdit: false);
+
+        self::assertStringContainsString('ورود و خروج گروهی محصولات', $html, 'they may still take the file');
+        self::assertStringContainsString('export_products', $html);
+        self::assertStringNotContainsString('import_products', $html);
+        self::assertStringContainsString('ورود فایل به دسترسی ویرایش محصول نیاز دارد.', $html);
+    }
+
+    private function list(string $nonce = '', bool $mayEdit = true): string
+    {
+        return ProductListView::render(
+            [$this->product()],
+            ['draft' => 1],
+            '',
+            1,
+            1,
+            $this->urls(),
+            $nonce,
+            null,
+            $mayEdit,
+            false
+        );
     }
 
     public function testTheListEscapesWhatAVendorTypedAndNeverRunsIt(): void

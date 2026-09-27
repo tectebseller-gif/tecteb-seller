@@ -44,13 +44,85 @@ final class ProductMessages
         };
     }
 
+    /**
+     * WooCommerce's own post status, in Persian — the ONE mapping.
+     *
+     * It was written once inside the list's cell, and the product's own page
+     * printed `get_post_status()` raw: the same product read «منتشرشده» in the
+     * list and `publish` on its own page. Two readings of one value are two
+     * chances to translate it differently, so there is one, and both screens
+     * call it.
+     *
+     * `''` is the honest answer for a post that is gone — not «پیش‌نویس»,
+     * which is a plausible word for a broken link to hide behind — and a
+     * status this plugin does not know is shown as itself rather than guessed
+     * at, because a WooCommerce extension may add one.
+     */
+    public static function shopStatus(string $status): string
+    {
+        return match ($status) {
+            'publish' => __('منتشرشده', 'tecteb-marketplace-core'),
+            'draft' => __('پیش‌نویس', 'tecteb-marketplace-core'),
+            'pending' => __('در انتظار', 'tecteb-marketplace-core'),
+            'private' => __('خصوصی', 'tecteb-marketplace-core'),
+            'future' => __('زمان‌بندی‌شده', 'tecteb-marketplace-core'),
+            'trash' => __('در زباله‌دان', 'tecteb-marketplace-core'),
+            'auto-draft' => __('پیش‌نویس خودکار', 'tecteb-marketplace-core'),
+            '' => __('پست پیدا نشد', 'tecteb-marketplace-core'),
+            default => $status,
+        };
+    }
+
+    /** The product has no WooCommerce row at all — a state, not a status. */
+    public static function shopNotProjected(): string
+    {
+        return __('هنوز در ووکامرس ساخته نشده', 'tecteb-marketplace-core');
+    }
+
+    /**
+     * One CSV column's Persian name — the same word the product form uses.
+     *
+     * Written here and not in the view so the guidance beside the file chooser
+     * can be BUILT from `ProductCsv::COLUMNS` instead of listing the columns by
+     * hand. A hand-written list is a second source of truth: it stays right
+     * until the day a column is added, and then it quietly tells the vendor to
+     * edit a column that no longer exists (or omits one that does).
+     */
+    public static function csvColumn(string $column): string
+    {
+        return match ($column) {
+            'sku' => __('کد SKU', 'tecteb-marketplace-core'),
+            'title' => __('عنوان محصول', 'tecteb-marketplace-core'),
+            'type' => __('نوع محصول', 'tecteb-marketplace-core'),
+            'category' => __('دسته', 'tecteb-marketplace-core'),
+            'brand' => __('برند', 'tecteb-marketplace-core'),
+            'short_description' => __('توضیح کوتاه', 'tecteb-marketplace-core'),
+            'price' => __('قیمت (تومان)', 'tecteb-marketplace-core'),
+            'sale_price' => __('قیمت با تخفیف', 'tecteb-marketplace-core'),
+            'sale_from' => __('شروع تخفیف', 'tecteb-marketplace-core'),
+            'sale_to' => __('پایان تخفیف', 'tecteb-marketplace-core'),
+            'stock' => __('موجودی', 'tecteb-marketplace-core'),
+            'min_purchase' => __('حداقل خرید', 'tecteb-marketplace-core'),
+            'max_purchase' => __('حداکثر خرید', 'tecteb-marketplace-core'),
+            'weight_grams' => __('وزن (گرم)', 'tecteb-marketplace-core'),
+            'dimensions' => __('ابعاد', 'tecteb-marketplace-core'),
+            'tax_class' => __('گروه مالیاتی', 'tecteb-marketplace-core'),
+            'id' => __('شناسه', 'tecteb-marketplace-core'),
+            'status' => __('وضعیت', 'tecteb-marketplace-core'),
+            // A column added to the file and not named here shows as its own
+            // key, which is honest and visibly unfinished — the alternative is
+            // a column the vendor cannot see at all.
+            default => $column,
+        };
+    }
+
     /** The order a list is read in — the labels for `ProductSort`. */
     public static function sort(ProductSort $sort): string
     {
         return match ($sort) {
             ProductSort::LastChanged => __('آخرین تغییر', 'tecteb-marketplace-core'),
             ProductSort::OldestChanged => __('قدیمی‌ترین تغییر', 'tecteb-marketplace-core'),
-            ProductSort::Title => __('عنوان (الفبایی)', 'tecteb-marketplace-core'),
+            ProductSort::Title => __('عنوان (الفبایی فارسی)', 'tecteb-marketplace-core'),
         };
     }
 

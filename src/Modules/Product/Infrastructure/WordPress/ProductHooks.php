@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
+use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\ProductReviewPage;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\SpecTemplatesPage;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaExtensions;
@@ -45,6 +46,13 @@ final class ProductHooks
                 'capability' => ProductReviewPage::CAPABILITY,
                 'render' => [$review, 'render'],
                 'nav' => true,
+                // Products waiting for a decision — submitted, or live with an
+                // unanswered proposal. Counted from the same rows the review
+                // list is built from, so the badge and the list cannot say two
+                // different things, and counted per PRODUCT so one product
+                // that is both is one thing to look at.
+                'bubble' => static fn (): int
+                    => $container->get(ProductRepositoryInterface::class)->countAwaitingReview(),
             ];
             $pages[] = [
                 'slug' => SpecTemplatesPage::SLUG,

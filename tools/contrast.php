@@ -60,6 +60,11 @@ $pairs = [
     // threshold for it would turn this table into a list of things that passed
     // a bar chosen to fit them.
     ['زمینهٔ چیپ فیلتر فعال روی سطح کارت (غیرمتنی ۳:۱)', '#143C4D', '#FFFFFF', 3.0],
+    // The admin menu's review count (`alpha.33`). Measured on WordPress 6.8,
+    // core paints `.update-plugins` BLUE and `.current .update-plugins` almost
+    // black, so this red is ours and this row is the reason it is this red.
+    // The number is 11px bold — small text, so the bar is 4.5:1, not 3:1.
+    ['شمارندهٔ «در انتظار بررسی» روی نشان قرمز منو', '#FFFFFF', '#D63638', 4.5],
 ];
 
 $fail = 0;

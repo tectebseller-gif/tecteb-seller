@@ -23,30 +23,53 @@ use PHPUnit\Framework\TestCase;
  * name is a contract between a view and a stylesheet, and this is the only
  * place that contract is checked.
  *
- * **Scope, stated plainly.** The files below are the ones `alpha.32` rebuilt.
- * Nineteen other admin views still write `.tmc-tab`, and those screens are
- * still unstyled in exactly the way the owner described — a finding of this
- * round, recorded in the delivery document, not something quietly redesigned
- * here. When one of them is rebuilt, add it to this list.
+ * **Scope, stated plainly.** The files below are the ones `alpha.32` and
+ * `alpha.33` rebuilt. Nineteen other admin views still write `.tmc-tab`, and
+ * those screens are still unstyled in exactly the way the owner described — a
+ * finding of that round, recorded in the delivery document, not something
+ * quietly redesigned here. When one of them is rebuilt, add it to this list.
+ *
+ * Two stylesheets, because the vendor area is not wp-admin and loads a file of
+ * its own: `alpha.33` rebuilt the vendor's first screen, and a class written
+ * there has to be found in THAT sheet — a `tv-` rule in the admin stylesheet
+ * would never reach the page.
  */
 final class StyledClassesHaveRulesTest extends TestCase
 {
-    private const STYLESHEET = __DIR__ . '/../../assets/admin/tmc-admin.css';
-
-    private const VIEWS = [
-        'src/Modules/Product/Presentation/Admin/ProductCatalogueView.php',
-        'src/Modules/Product/Presentation/Admin/ProductDecisionHistoryView.php',
-        'src/Modules/Product/Presentation/Admin/ProductReviewPage.php',
+    /**
+     * Which stylesheet each rebuilt view's classes must be found in, and the
+     * class prefix that sheet owns.
+     *
+     * @var array<string,array{prefix:string,views:list<string>}>
+     */
+    private const SHEETS = [
+        'assets/admin/tmc-admin.css' => [
+            'prefix' => 'tmc',
+            'views' => [
+                'src/Modules/Product/Presentation/Admin/ProductCatalogueView.php',
+                'src/Modules/Product/Presentation/Admin/ProductDecisionHistoryView.php',
+                'src/Modules/Product/Presentation/Admin/ProductReviewPage.php',
+            ],
+        ],
+        'assets/vendor/tmc-vendor.css' => [
+            'prefix' => 'tv',
+            'views' => [
+                'src/Modules/Vendor/Presentation/DashboardView.php',
+                'src/Modules/Product/Presentation/ProductListView.php',
+            ],
+        ],
     ];
 
-    public function testEveryClassTheProductListWritesIsStyled(): void
+    public function testEveryClassARebuiltViewWritesIsStyled(): void
     {
-        $css = (string) file_get_contents(self::STYLESHEET);
         $missing = [];
-        foreach (self::VIEWS as $view) {
-            foreach (self::classesIn(__DIR__ . '/../../' . $view) as $class) {
-                if (preg_match('/\.' . preg_quote($class, '/') . '(?![A-Za-z0-9_-])/', $css) !== 1) {
-                    $missing[] = $class . ' (' . $view . ')';
+        foreach (self::SHEETS as $sheet => $spec) {
+            $css = (string) file_get_contents(__DIR__ . '/../../' . $sheet);
+            foreach ($spec['views'] as $view) {
+                foreach (self::classesIn(__DIR__ . '/../../' . $view, $spec['prefix']) as $class) {
+                    if (preg_match('/\.' . preg_quote($class, '/') . '(?![A-Za-z0-9_-])/', $css) !== 1) {
+                        $missing[] = $class . ' (' . $view . ' → ' . $sheet . ')';
+                    }
                 }
             }
         }
@@ -91,7 +114,7 @@ final class StyledClassesHaveRulesTest extends TestCase
      *
      * @return list<string>
      */
-    private static function classesIn(string $file): array
+    private static function classesIn(string $file, string $prefix = 'tmc'): array
     {
         $source = (string) file_get_contents($file);
         $code = '';
@@ -108,7 +131,7 @@ final class StyledClassesHaveRulesTest extends TestCase
                 // Interpolated fragments (`tmc-catalogue__status--' . $tone`)
                 // are not class names; the fixed part before them is.
                 $class = trim($class);
-                if ($class === '' || !preg_match('/^tmc-[A-Za-z0-9_-]+$/', $class)) {
+                if ($class === '' || !preg_match('/^' . preg_quote($prefix, '/') . '-[A-Za-z0-9_-]+$/', $class)) {
                     continue;
                 }
                 $classes[$class] = true;

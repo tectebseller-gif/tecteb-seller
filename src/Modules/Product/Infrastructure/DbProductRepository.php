@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
+use Tecteb\Marketplace\Modules\Product\Domain\PersianCollation;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
@@ -120,6 +121,21 @@ final class DbProductRepository implements ProductRepositoryInterface
         return (int) $this->db->getVar('SELECT COUNT(*) FROM `' . $this->products() . '`' . $where, $params);
     }
 
+    public function countAwaitingReview(): int
+    {
+        // One query, and one row per product: `OR EXISTS` rather than a union
+        // of two counts, because a product that is both submitted and carries
+        // a proposal would otherwise be counted twice and the badge would ask
+        // the manager to find a decision that does not exist.
+        return (int) $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->products() . '` p'
+                . ' WHERE p.status = %s'
+                . ' OR EXISTS (SELECT 1 FROM `' . T::table($this->db, T::REVISIONS) . '` r'
+                . ' WHERE r.product_id = p.id AND r.status = %s)',
+            [ProductStatus::Submitted->value, ProductRevision::PENDING]
+        );
+    }
+
     /**
      * The ORDER BY for one sort case — a whitelist, and the only place in this
      * read where a column name comes from anything the request influenced.
@@ -134,7 +150,12 @@ final class DbProductRepository implements ProductRepositoryInterface
     {
         return match ($sort ?? ProductSort::LastChanged) {
             ProductSort::OldestChanged => 'updated_at ASC, id ASC',
-            ProductSort::Title => 'title ASC, id ASC',
+            // The stored key, not the title: ordering by the column itself is
+            // the ARABIC alphabet, which puts پ چ ژ گ after ی (see
+            // `PersianCollation`). The key is ASCII and the index is on
+            // (title_sort, id), so this is one index scan over the whole
+            // result — not a sort of the page, and not every row in PHP.
+            ProductSort::Title => 'title_sort ASC, id ASC',
             ProductSort::LastChanged => 'updated_at DESC, id DESC',
         };
     }
@@ -786,9 +807,24 @@ final class DbProductRepository implements ProductRepositoryInterface
      */
     private function detailColumns(ProductDetails $d): array
     {
-        $columns = ['title', 'type', 'category_key', 'brand', 'short_description', 'price_minor'];
-        $placeholders = ['%s', '%s', '%s', '%s', '%s', '%d'];
-        $params = [$d->title, $d->type, $d->categoryKey, $d->brand, $d->shortDescription, $d->priceMinor];
+        // `title_sort` is written HERE and nowhere else, because this is the
+        // one place both `create()` and `updateDetails()` build their column
+        // list from — so the form, the CSV import, a manager's correction and
+        // an approved revision all maintain it without any of them knowing it
+        // exists. A key written in some paths and not others is worse than no
+        // key: the list would order most rows correctly and quietly misplace
+        // the ones last touched by the path that forgot.
+        $columns = ['title', 'title_sort', 'type', 'category_key', 'brand', 'short_description', 'price_minor'];
+        $placeholders = ['%s', '%s', '%s', '%s', '%s', '%s', '%d'];
+        $params = [
+            $d->title,
+            PersianCollation::sortKey($d->title),
+            $d->type,
+            $d->categoryKey,
+            $d->brand,
+            $d->shortDescription,
+            $d->priceMinor,
+        ];
 
         foreach ([
             ['sale_price_minor', '%d', $d->salePriceMinor],

@@ -16,7 +16,7 @@ final class AdminExtensions
     public const FILTER = 'tmc_admin_submenu_pages';
 
     /**
-     * @return list<array{slug:string,page_title:string,menu_label:string,capability:string,render:callable,nav:bool}>
+     * @return list<array{slug:string,page_title:string,menu_label:string,capability:string,render:callable,nav:bool,bubble:?callable}>
      */
     public static function pages(): array
     {
@@ -37,6 +37,13 @@ final class AdminExtensions
                 'capability' => (string) $entry['capability'],
                 'render' => $entry['render'],
                 'nav' => (bool) ($entry['nav'] ?? true),
+                // How many things on this page are waiting for somebody, for
+                // the red count on the menu. A callable rather than a number
+                // because the menu is built on every admin request and the
+                // answer is a query: it must not be asked for a user who
+                // cannot open the page, and it must not be cached into a
+                // number that goes stale the moment a decision is taken.
+                'bubble' => isset($entry['bubble']) && is_callable($entry['bubble']) ? $entry['bubble'] : null,
             ];
         }
         return $out;

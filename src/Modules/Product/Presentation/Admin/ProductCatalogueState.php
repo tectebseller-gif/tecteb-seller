@@ -62,7 +62,17 @@ final class ProductCatalogueState
         public readonly int $total,
         public readonly array $counts,
         public readonly int $pendingRevisions,
-        public readonly string $baseUrl
+        public readonly string $baseUrl,
+        /**
+         * The page that was ASKED for, when it no longer exists.
+         *
+         * A manager decides on the last product of page seven and the list
+         * becomes six pages long; the browser then asks for a page that is
+         * past the end, and an unguarded query answers with no rows — an empty
+         * screen with no way back, after an action that worked. Null means the
+         * page asked for is the page shown.
+         */
+        public readonly ?int $outOfRangePage = null
     ) {
     }
 
@@ -90,17 +100,26 @@ final class ProductCatalogueState
      */
     public function withCounts(int $total, array $counts, int $pendingRevisions): self
     {
+        // The page is clamped HERE, before the rows are read, so the query
+        // asks for a page that exists rather than for an offset past the end
+        // and the list then explaining an emptiness it created. A result with
+        // no rows at all is a different state and is left alone: «this page is
+        // gone» and «nothing matches» send the reader to two different places.
+        $pages = max(1, (int) ceil($total / max(1, $this->perPage)));
+        $outOfRange = $total > 0 && $this->page > $pages ? $this->page : null;
+
         return new self(
             $this->status,
             $this->search,
-            $this->page,
+            $outOfRange === null ? $this->page : $pages,
             $this->perPage,
             $this->sort,
             $this->onlyRevisions,
             $total,
             $counts,
             $pendingRevisions,
-            $this->baseUrl
+            $this->baseUrl,
+            $outOfRange
         );
     }
 

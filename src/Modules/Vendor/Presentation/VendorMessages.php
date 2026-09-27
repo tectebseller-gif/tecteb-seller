@@ -127,9 +127,15 @@ final class VendorMessages
                 'detail' => __('فروشگاه موقتاً تعلیق شده است. برای پیگیری با مدیر بازارگاه تماس بگیرید.', 'tecteb-marketplace-core'),
                 'action' => '',
             ],
+            // Two different sentences, because they are two different facts.
+            // With no SMS adapter there is nothing to wait for and nothing to
+            // press, and the row said «تأیید نشده است» — which reads as a step
+            // the vendor has skipped. The owner's words, verbatim.
             'mobile' => [
                 'title' => __('شماره موبایل', 'tecteb-marketplace-core'),
-                'detail' => __('شماره شما ثبت شده اما تأیید نشده است: سرویس پیامک هنوز به بازارگاه وصل نیست. هیچ دسترسی‌ای به تأیید این شماره گره نخورده است.', 'tecteb-marketplace-core'),
+                'detail' => ($task->context['available'] ?? false)
+                    ? __('شماره شما ثبت شده و هنوز تأیید نشده است. هیچ دسترسی‌ای به تأیید این شماره گره نخورده است.', 'tecteb-marketplace-core')
+                    : __('تأیید پیامکی فعلاً در دسترس نیست؛ اقدامی لازم نیست. شماره ثبت شده و تأییدنشده می‌ماند و هیچ دسترسی‌ای به آن گره نخورده است.', 'tecteb-marketplace-core'),
                 'action' => '',
             ],
             default => ['title' => $task->key, 'detail' => '', 'action' => ''],

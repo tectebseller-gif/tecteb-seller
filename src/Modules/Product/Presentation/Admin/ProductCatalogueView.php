@@ -60,7 +60,8 @@ final class ProductCatalogueView
             return $html . self::emptyState($state) . '</section>';
         }
 
-        $html .= '<div class="tmc-scroll" tabindex="0" role="region" aria-label="'
+        $html .= self::outOfRange($state)
+            . '<div class="tmc-scroll" tabindex="0" role="region" aria-label="'
             . esc_attr__('فهرست محصولات', 'tecteb-marketplace-core') . '">'
             . '<table class="tmc-table tmc-catalogue__table"><thead><tr>'
             . '<th scope="col">' . esc_html__('محصول', 'tecteb-marketplace-core') . '</th>'
@@ -153,21 +154,12 @@ final class ProductCatalogueView
     private static function shopCell(ProductCatalogueRow $row): string
     {
         if (!$row->projected) {
-            return '<span class="tmc-card__note">' . esc_html__('هنوز در ووکامرس ساخته نشده', 'tecteb-marketplace-core') . '</span>';
+            return '<span class="tmc-card__note">' . esc_html(ProductMessages::shopNotProjected()) . '</span>';
         }
-        $label = match ($row->shopStatus) {
-            'publish' => __('منتشرشده', 'tecteb-marketplace-core'),
-            'draft' => __('پیش‌نویس', 'tecteb-marketplace-core'),
-            'pending' => __('در انتظار', 'tecteb-marketplace-core'),
-            'private' => __('خصوصی', 'tecteb-marketplace-core'),
-            'trash' => __('در زباله‌دان', 'tecteb-marketplace-core'),
-            // The honest answer when the post the link points at is gone. It
-            // is not the same as «پیش‌نویس», and reading it as one would hide
-            // a broken link behind a plausible word.
-            '' => __('پست پیدا نشد', 'tecteb-marketplace-core'),
-            default => $row->shopStatus,
-        };
-        return esc_html($label);
+        // The mapping lives in `ProductMessages` from `alpha.33`: the product's
+        // own page used to print this value raw, so one product read
+        // «منتشرشده» here and `publish` there.
+        return esc_html(ProductMessages::shopStatus($row->shopStatus));
     }
 
     /**
@@ -316,6 +308,27 @@ final class ProductCatalogueView
         return $html . '</select></span>'
             . '<button type="submit" class="tmc-button">' . esc_html__('اعمال', 'tecteb-marketplace-core') . '</button>'
             . '</form>';
+    }
+
+    /**
+     * «the page you asked for is gone, here is the last one» — said out loud.
+     *
+     * Without it, a manager who decides on the last product of page seven is
+     * silently moved to page six and has to work out why the numbers changed.
+     * This is not the empty-result message: that one is about the filter, this
+     * one is about the page, and the reader needs to know which happened.
+     */
+    private static function outOfRange(ProductCatalogueState $state): string
+    {
+        if ($state->outOfRangePage === null) {
+            return '';
+        }
+        return '<p class="tmc-catalogue__scope">' . esc_html(sprintf(
+            /* translators: 1: the page that was asked for, 2: the page being shown */
+            __('صفحهٔ %1$s دیگر وجود ندارد — احتمالاً پس از یک تصمیم، فهرست کوتاه‌تر شده است. صفحهٔ %2$s، آخرین صفحهٔ موجود، نشان داده شد.', 'tecteb-marketplace-core'),
+            self::fa($state->outOfRangePage),
+            self::fa($state->page)
+        )) . '</p>';
     }
 
     /** «نمایش ۱ تا ۲۰ از ۲۳۴ محصول» — the sentence a pager is for. */

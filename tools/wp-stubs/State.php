@@ -23,6 +23,13 @@ final class State
     public static array $cache = [];
     /** @var array<string,array<int,list<callable>>> */
     public static array $hooks = [];
+    /**
+     * Shortcode callbacks by tag. A registry, not a hook: WordPress keeps one
+     * callback per tag and a second `add_shortcode()` replaces the first.
+     *
+     * @var array<string,callable>
+     */
+    public static array $shortcodes = [];
     /** @var list<array{tag:string,args:array}> */
     public static array $firedActions = [];
     /** @var array<string,array<string,bool>> */
@@ -122,6 +129,7 @@ final class State
         self::$transients = [];
         self::$cache = [];
         self::$hooks = [];
+        self::$shortcodes = [];
         self::$firedActions = [];
         self::$roles = ['administrator' => ['manage_options' => true, 'activate_plugins' => true]];
         self::$currentUserCaps = [];
@@ -171,6 +179,7 @@ final class State
     public static function newRequest(): void
     {
         self::$hooks = [];
+        self::$shortcodes = [];
         self::$firedActions = [];
         self::$menus = [];
         self::$registeredSettings = [];

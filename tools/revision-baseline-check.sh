@@ -117,8 +117,15 @@ falsify() {
 VERSION="$(cd "$WPROOT" && "$PHPBIN" "$WPCLI" --allow-root plugin get tecteb-marketplace-core --field=version 2>/dev/null)"
 SCHEMA="$(cd "$WPROOT" && "$PHPBIN" "$WPCLI" --allow-root option get tmc_schema_version 2>/dev/null)"
 say "installed plugin: ${VERSION:-unknown}   schema: ${SCHEMA:-unknown}"
-check "the installed package is the one under test" "$VERSION" "${TMC_EXPECT_VERSION:-0.1.0-alpha.31}"
-check "the upgrade gate reached schema 19" "$SCHEMA" "19"
+# Same reasoning: the version under test is whatever this checkout builds.
+EXPECT_VERSION="${TMC_EXPECT_VERSION:-$(grep -oE "Version: *[0-9][^ ]*" "$REPO/tecteb-marketplace-core.php" | head -1 | awk '{print $2}')}"
+check "the installed package is the one under test" "$VERSION" "$EXPECT_VERSION"
+# The number is READ from the package under test, not typed in. Written as
+# a literal it said «19» from `alpha.29` on, so the first round that moved
+# the schema made two old evidence scripts report a failure about a site
+# that was perfectly correct — the `alpha.22` rule, applied to a constant.
+TARGET="$(grep -oE "TARGET = [0-9]+" "$REPO/src/Core/Migration/SchemaVersion.php" | grep -oE "[0-9]+")"
+check "the upgrade gate reached this package's schema" "$SCHEMA" "$TARGET"
 
 say ""
 say "=== every guard in place ==="

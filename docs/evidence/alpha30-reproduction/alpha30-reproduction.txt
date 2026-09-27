@@ -5,7 +5,7 @@ ok:   ProductMessages.php differs from 685803e                       different
 ok:   ProductRepositoryInterface.php differs from 685803e            different
 ok:   ProductRevisionRepositoryInterface.php differs from 685803e    different
 
-=== the three files put back to their alpha.30 bytes ===
+=== the changed files put back to their alpha.30 bytes ===
 ok:   DbProductRepository.php is now the alpha.30 file               same
 ok:   ReviewProducts.php is now the alpha.30 file                    same
 ok:   ProductMessages.php is now the alpha.30 file                   same
@@ -29,10 +29,10 @@ ok:   item 3 reproduced: testAFailedPictureInsertLeavesNoHalfWrittenGallery fail
 ok:   item 3 reproduced: testAFailedSpecInsertLeavesTheAnswersAsTheyWere failed
 
 === the fix put back ===
-ok:   DbProductRepository.php is byte-identical to what it was       e24962f306a5bec849fd6a85190868365de99ab4a4c697a3b1652ace1b343be0
+ok:   DbProductRepository.php is byte-identical to what it was       aa36cd33ce44de1a3e0669ae18882b2a5d5043754e0199917ce96b74ff53cf16
 ok:   ReviewProducts.php is byte-identical to what it was            7af992000f23bb6893ea389ea37f7fdf01f6777d73da316fed9c0b2a618555d0
-ok:   ProductMessages.php is byte-identical to what it was           9fbefca15efeff4f7c0f0144246c699e7399337800e41caf4910e7a791728a83
-ok:   ProductRepositoryInterface.php is byte-identical to what it was 9960d84242ed6f4e9f997dd63016ef37d1a9606f95e94654e843e72ed3aae9aa
+ok:   ProductMessages.php is byte-identical to what it was           8c6e517bfc018f51223092399f88665ed2853c360cc4658c4ba8de771e70bef1
+ok:   ProductRepositoryInterface.php is byte-identical to what it was 68ced25594d30fdbf86b826160bb16679e530c8c7d001c55c44135ddc77c9983
 ok:   ProductRevisionRepositoryInterface.php is byte-identical to what it was 3020da326a2e25fa587eb4d92d49d932ee318bc286c7112c0825262f04731820
 ok:   nothing fails after the fix                                    none
 ok:   both suites report OK                                          2
