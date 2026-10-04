@@ -72,12 +72,32 @@ async function newSession() {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 950 }, locale: 'fa-IR' });
   return { ctx, page: await ctx.newPage() };
 }
+/**
+ * Signs in, and CONFIRMS it.
+ *
+ * The `.catch(() => null)` on the navigation wait made a failed login look
+ * exactly like a successful one, and every later assertion then described the
+ * login page: «۰ ردیف پیش‌نویس» followed by a click that timed out on a button
+ * that was never going to be there. That is a broken measurement, not a
+ * finding — the `alpha.34` rule, which this file had not learned. A session
+ * that will not open THROWS, so the run stops where the truth stops.
+ */
 async function signIn(page, who) {
-  await page.goto(`${SITE}/wp-login.php?loggedout=true`, { waitUntil: 'domcontentloaded' });
-  await page.fill('#user_login', who.login);
-  await page.fill('#user_pass', who.pass);
-  await page.click('#wp-submit');
-  await page.waitForURL(/wp-admin|\/vendor\/|my-account/, { timeout: 30000 }).catch(() => null);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.goto(`${SITE}/wp-login.php?loggedout=true`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#user_login', { timeout: 30000 });
+    await page.fill('#user_login', who.login);
+    await page.fill('#user_pass', who.pass);
+    await Promise.all([
+      page.waitForNavigation({ timeout: 30000 }).catch(() => null),
+      page.click('#wp-submit'),
+    ]);
+    const cookies = await page.context().cookies();
+    if (cookies.some((c) => c.name.startsWith('wordpress_logged_in_'))) {
+      return;
+    }
+  }
+  throw new Error(`could not sign in as ${who.login} — every later assertion would be about a login page`);
 }
 const shot = (page, name) => page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: true });
 const words = async (page) => (await page.locator('body').innerText()).replace(/\s+/g, ' ');
@@ -156,6 +176,13 @@ const boxes = await v2page.locator('input[type="checkbox"][name="selected[]"]').
 const picked = Math.min(boxes.length, 4);
 for (let i = 0; i < picked; i++) { await boxes[i].check(); }
 note(`selected ${picked} draft rows for «بازگشت به پیش‌نویس»`);
+// Stated, not assumed. With nothing selected there is no bulk control to
+// click, and the run died on a 30-second timeout instead of saying which
+// precondition was missing.
+check('6-0. there are draft rows to act on', picked > 0, true);
+if (picked === 0) {
+  throw new Error('no draft rows on /vendor/products/?status=draft — the fixture, not the page, is what failed');
+}
 await v2page.selectOption('select[name="bulk_action"]', 'restore').catch(() => null);
 await v2page.locator('button[name="tmc_vendor_action"][value="bulk_products"], button[value="bulk_products"]').first().click();
 await v2page.waitForLoadState('domcontentloaded');
