@@ -16,7 +16,7 @@ final class AdminExtensions
     public const FILTER = 'tmc_admin_submenu_pages';
 
     /**
-     * @return list<array{slug:string,page_title:string,menu_label:string,capability:string,render:callable,nav:bool,bubble:?callable}>
+     * @return list<array{slug:string,page_title:string,menu_label:string,capability:string,render:callable,nav:bool,bubble:?callable,prepare:?callable}>
      */
     public static function pages(): array
     {
@@ -44,6 +44,15 @@ final class AdminExtensions
                 // cannot open the page, and it must not be cached into a
                 // number that goes stale the moment a decision is taken.
                 'bubble' => isset($entry['bubble']) && is_callable($entry['bubble']) ? $entry['bubble'] : null,
+                // Build the page NOW, on `load-{$hook}`, instead of waiting for
+                // the render callback. WordPress fires `load-{$hook}` before it
+                // requires `admin-header.php`, and the header is what prints
+                // the red bubble — so a page that records a view (the review
+                // list marking submissions seen) must run before the header or
+                // its own number is a request behind. A page with no `prepare`
+                // is untouched: nothing runs early, and `render` is still the
+                // only thing that prints.
+                'prepare' => isset($entry['prepare']) && is_callable($entry['prepare']) ? $entry['prepare'] : null,
             ];
         }
         return $out;

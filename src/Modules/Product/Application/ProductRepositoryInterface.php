@@ -115,6 +115,20 @@ interface ProductRepositoryInterface
     ): array;
 
     /**
+     * One product, its pending proposal and its submission identity — together.
+     *
+     * The detail page's half of the one-statement rule. Reading the product, the
+     * proposal and the token separately leaves a window: a submission arriving
+     * between the first read and the last lets the page show the previous
+     * content while recording the newer identity as seen. `revisionId` names the
+     * exact proposal the identity refers to, so the caller can load that
+     * proposal BY ID rather than asking again for «the pending one».
+     *
+     * @return array{product:Product, submission:string, revisionId:int, waiting:bool}|null
+     */
+    public function findWithSubmission(int $productId): ?array;
+
+    /**
      * Which of these products are waiting, and under which submission.
      *
      * The badge's second read: the input is what one manager has already looked

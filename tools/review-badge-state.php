@@ -183,13 +183,21 @@ $report = static function () use ($products, $seen, $store, $ana, $babak, $outsi
     $waiting = $products->countAwaitingReview();
     printf("ana=%d babak=%d outsider=%d vendor=%d\n", $ana, $babakId, $outsider(), $vendorId());
     printf("waiting=%d unseen_ana=%d unseen_babak=%d\n", $waiting, $seen->unseenCount($ana), $seen->unseenCount($babakId));
-    printf("marks_ana=%d marks_babak=%d\n", count($store->seenBy($ana)), count($store->seenBy($babakId)));
     // Which products are waiting, and under which token — the numbers the
     // browser run compares its screen against.
     $ids = [];
     foreach ($products->forManager(null, '', 200, 0) as $product) {
         $ids[] = $product->id;
     }
+    // Marks, counted against the products that are actually here. `alpha.36`
+    // asked the store for ALL of a manager's marks; from `alpha.37` the store
+    // deliberately has no such method, because a reader that returns
+    // everything is the shape the 500-mark cap existed to bound.
+    printf(
+        "marks_ana=%d marks_babak=%d\n",
+        count($store->marksFor($ana, $ids)),
+        count($store->marksFor($babakId, $ids))
+    );
     foreach ($products->submissionsOf($ids) as $productId => $token) {
         printf("awaiting id=%d token=%s\n", $productId, $token);
     }
@@ -308,10 +316,15 @@ switch ($command) {
 
     case 'marks':
         $id = $whoever($argument === '' ? 'ana' : $argument);
-        foreach ($store->seenBy($id) as $productId => $token) {
+        $here = [];
+        foreach ($products->forManager(null, '', 200, 0) as $product) {
+            $here[] = $product->id;
+        }
+        $marks = $store->marksFor($id, $here);
+        foreach ($marks as $productId => $token) {
             printf("mark user=%d product=%d token=%s\n", $id, $productId, $token);
         }
-        printf("marks=%d user=%d\n", count($store->seenBy($id)), $id);
+        printf("marks=%d user=%d\n", count($marks), $id);
         break;
 
     case 'reset':

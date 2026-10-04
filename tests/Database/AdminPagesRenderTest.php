@@ -11,7 +11,7 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
-use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpReviewSeenStore;
+use Tecteb\Marketplace\Modules\Product\Application\ReviewSeenStoreInterface;
 use TmcWpStubs\State;
 
 /**
@@ -197,16 +197,18 @@ final class AdminPagesRenderTest extends DatabaseTestCase
         self::assertGreaterThan(0, $id);
         self::assertSame($before + 1, $products->countAwaitingReview(), 'the fixture must be waiting for review');
 
+        $seen = Bootstrap::container()->get(ReviewSeenStoreInterface::class);
+        $viewer = get_current_user_id();
+
         // Building the menu — which is what computes the red count — writes
         // nothing. The count is a question; answering it is not reading.
-        State::$userMeta = [];
+        self::assertTrue($seen->forget($viewer));
         do_action('admin_menu');
-        self::assertSame([], State::$userMeta, 'building the menu marked something as seen');
+        self::assertSame([], $seen->marksFor($viewer, [$id]), 'building the menu marked something as seen');
 
-        $pages = AdminExtensions::pages();
         $marked = [];
-        foreach ($pages as $page) {
-            State::$userMeta = [];
+        foreach (AdminExtensions::pages() as $page) {
+            self::assertTrue($seen->forget($viewer));
             $_GET['page'] = $page['slug'];
             $_GET['product'] = '';
             ob_start();
@@ -215,7 +217,7 @@ final class AdminPagesRenderTest extends DatabaseTestCase
             } finally {
                 ob_end_clean();
             }
-            if (isset(State::$userMeta[1][WpReviewSeenStore::META_KEY])) {
+            if ($seen->marksFor($viewer, [$id]) !== []) {
                 $marked[] = $page['slug'];
             }
         }
@@ -223,11 +225,17 @@ final class AdminPagesRenderTest extends DatabaseTestCase
 
         // And the product page of the review screen does too — the other half of
         // «مشاهدهٔ موفق جزئیات محصول».
-        State::$userMeta = [];
+        //
+        // A fresh `AdminExtensions::pages()`, because one `ProductReviewPage`
+        // builds ONE page: the output is buffered on `load-{hook}` and echoed by
+        // the render callback, so an instance that has already built the list
+        // would echo the list again. In wp-admin that is a request, and a
+        // request renders one screen.
+        self::assertTrue($seen->forget($viewer));
         $_GET['page'] = 'tmc-product-review';
         $_GET['product'] = (string) $id;
         $review = null;
-        foreach ($pages as $page) {
+        foreach (AdminExtensions::pages() as $page) {
             if ($page['slug'] === 'tmc-product-review') {
                 $review = $page;
             }
@@ -240,10 +248,11 @@ final class AdminPagesRenderTest extends DatabaseTestCase
             ob_end_clean();
         }
         self::assertArrayHasKey(
-            (string) $id,
-            (array) State::$userMeta[1][WpReviewSeenStore::META_KEY],
+            $id,
+            $seen->marksFor($viewer, [$id]),
             'opening the product did not record its submission'
         );
+        self::assertTrue($seen->forget($viewer));
         $_GET['product'] = '';
 
         // And give the queue back. The contract suite's stub `wpdb` is a real

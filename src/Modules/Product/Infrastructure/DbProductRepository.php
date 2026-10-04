@@ -12,7 +12,6 @@ use Tecteb\Marketplace\Modules\Product\Domain\PersianCollation;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
-use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
@@ -139,11 +138,12 @@ final class DbProductRepository implements ProductRepositoryInterface
         bool $onlyPendingRevision = false
     ): array {
         [$where, $params] = $this->managerScope($status, $search, $vendorUserId, $onlyPendingRevision);
-        $params = array_merge([ProductDecision::SUBMITTED, ProductRevision::PENDING], $params);
+        [$columns, $columnParams] = ReviewQueueSql::submissionColumns($this->db);
+        $params = array_merge($columnParams, $params);
         $params[] = max(1, $limit);
         $params[] = max(0, $offset);
         $rows = $this->db->getResults(
-            'SELECT p.*, ' . $this->submissionColumns() . ' FROM `' . $this->products() . '` p'
+            'SELECT p.*, ' . $columns . ' FROM `' . $this->products() . '` p'
                 . str_replace('`' . $this->products() . '`.', 'p.', $where)
                 . ' ORDER BY ' . self::order($sort) . ' LIMIT %d OFFSET %d',
             $params
@@ -152,10 +152,60 @@ final class DbProductRepository implements ProductRepositoryInterface
         foreach ($rows as $row) {
             $out[] = [
                 'product' => $this->hydrate($row),
-                'submission' => self::submissionToken($row),
+                'submission' => ReviewQueueSql::token($row),
             ];
         }
         return $out;
+    }
+
+    /**
+     * One product, its pending proposal and its submission identity — together.
+     *
+     * **The detail page's half of the one-statement rule.** `alpha.36` read the
+     * product with `find()`, the proposal with `pendingFor()` and the token with
+     * `submissionsOf()`: three statements, and a submission landing between the
+     * first and the third let the page show the previous content while recording
+     * the newer identity as seen. Moving the token read a few lines up would not
+     * have proved anything — the window is between two reads, wherever they sit.
+     *
+     * So the product row and the two append-only ids come back from ONE SELECT,
+     * and `revisionId` names the exact proposal that identity refers to. The
+     * caller loads that proposal BY ID: a revision row is append-only, so
+     * fetching it by its own id returns the payload this token is about even if
+     * a newer proposal has superseded it in the meantime — and that newer one
+     * then carries a different token and is correctly still unseen.
+     *
+     * `waiting` comes out of the SAME statement, and it is what the caller
+     * records on rather than the token. `s0.r0` is a REAL token — a product
+     * submitted before the decision trail existed (`alpha.29`) has one — so
+     * «is there a submission to have seen» cannot be answered by looking at the
+     * token. It is answered by the queue predicate, read here, beside the row.
+     * The detail page shows published products too, and those have nothing to
+     * mark.
+     *
+     * @return array{product:Product, submission:string, revisionId:int, waiting:bool}|null
+     */
+    public function findWithSubmission(int $productId): ?array
+    {
+        if ($productId <= 0) {
+            return null;
+        }
+        [$columns, $columnParams] = ReviewQueueSql::submissionColumns($this->db);
+        [$waiting, $waitingParams] = ReviewQueueSql::waiting($this->db);
+        $row = $this->db->getRow(
+            'SELECT p.*, ' . $columns . ', ' . $waiting . ' AS tmc_waiting'
+                . ' FROM `' . $this->products() . '` p WHERE p.id = %d',
+            array_merge($columnParams, $waitingParams, [$productId])
+        );
+        if ($row === null) {
+            return null;
+        }
+        return [
+            'product' => $this->hydrate($row),
+            'submission' => ReviewQueueSql::token($row),
+            'revisionId' => (int) ($row['tmc_revision_id'] ?? 0),
+            'waiting' => (int) ($row['tmc_waiting'] ?? 0) === 1,
+        ];
     }
 
     /**
@@ -179,50 +229,19 @@ final class DbProductRepository implements ProductRepositoryInterface
             // reaches a page that had nothing to ask about (`alpha.32`).
             return [];
         }
-        $params = [ProductDecision::SUBMITTED, ProductRevision::PENDING, ProductStatus::Submitted->value, ProductRevision::PENDING];
+        [$columns, $columnParams] = ReviewQueueSql::submissionColumns($this->db);
+        [$waiting, $waitingParams] = ReviewQueueSql::waiting($this->db);
         $rows = $this->db->getResults(
-            'SELECT p.id, ' . $this->submissionColumns() . ' FROM `' . $this->products() . '` p'
+            'SELECT p.id, ' . $columns . ' FROM `' . $this->products() . '` p'
                 . ' WHERE p.id IN (' . implode(',', array_map('intval', $ids)) . ')'
-                . ' AND (p.status = %s OR EXISTS (SELECT 1 FROM `' . T::table($this->db, T::REVISIONS) . '` r2'
-                . ' WHERE r2.product_id = p.id AND r2.status = %s))',
-            $params
+                . ' AND ' . $waiting,
+            array_merge($columnParams, $waitingParams)
         );
         $out = [];
         foreach ($rows as $row) {
-            $out[(int) $row['id']] = self::submissionToken($row);
+            $out[(int) $row['id']] = ReviewQueueSql::token($row);
         }
         return $out;
-    }
-
-    /**
-     * The two correlated reads that name a submission, as SELECT columns.
-     *
-     * Written once because two copies of this would be two definitions of «the
-     * same submission», and the badge compares a token recorded by one against
-     * a token produced by the other.
-     */
-    private function submissionColumns(): string
-    {
-        return '(SELECT MAX(d.id) FROM `' . M0019BaselineAndDecisions::table($this->db, M0019BaselineAndDecisions::DECISIONS) . '` d'
-            . ' WHERE d.product_id = p.id AND d.decision = %s) AS tmc_submission_id,'
-            . ' (SELECT MAX(r.id) FROM `' . T::table($this->db, T::REVISIONS) . '` r'
-            . ' WHERE r.product_id = p.id AND r.status = %s) AS tmc_revision_id';
-    }
-
-    /**
-     * The token: two ids, and nought for «there is none».
-     *
-     * `s0.r0` is a real answer, not a missing one — a product submitted before
-     * the decision trail existed (`alpha.29`) has no `submitted` row to point
-     * at. It reads as unseen until a manager opens it and seen afterwards, which
-     * is the documented behaviour for data that predates this feature. It moves
-     * the moment the vendor submits again, because that writes a row.
-     *
-     * @param array<string,mixed> $row
-     */
-    private static function submissionToken(array $row): string
-    {
-        return 's' . (int) ($row['tmc_submission_id'] ?? 0) . '.r' . (int) ($row['tmc_revision_id'] ?? 0);
     }
 
     public function countForManager(
@@ -241,12 +260,10 @@ final class DbProductRepository implements ProductRepositoryInterface
         // of two counts, because a product that is both submitted and carries
         // a proposal would otherwise be counted twice and the badge would ask
         // the manager to find a decision that does not exist.
+        [$waiting, $params] = ReviewQueueSql::waiting($this->db);
         return (int) $this->db->getVar(
-            'SELECT COUNT(*) FROM `' . $this->products() . '` p'
-                . ' WHERE p.status = %s'
-                . ' OR EXISTS (SELECT 1 FROM `' . T::table($this->db, T::REVISIONS) . '` r'
-                . ' WHERE r.product_id = p.id AND r.status = %s)',
-            [ProductStatus::Submitted->value, ProductRevision::PENDING]
+            'SELECT COUNT(*) FROM `' . $this->products() . '` p WHERE ' . $waiting,
+            $params
         );
     }
 

@@ -12,24 +12,18 @@ namespace Tecteb\Marketplace\Modules\Product\Application;
  * when a vendor submits and goes away when the manager has LOOKED, per manager,
  * without approving or rejecting anything.
  *
- * **The count is a subtraction, and it is exact.**
+ * **The count is one query, and it is exact.** `alpha.36` computed it here, by
+ * subtracting the manager's matching marks from the size of the queue, which
+ * meant reading their marks into PHP — and that read is what had to be capped,
+ * and the cap is what made a six-hundred-product queue impossible to clear. From
+ * `alpha.37` the store answers in SQL and this class asks it.
  *
- *     unseen = everything waiting − the waiting things whose submission this
- *              manager has already seen
- *
- * The first term is the existing `COUNT(*)`. The second is read for the products
- * this manager has marks for — bounded by how much they have looked at, not by
- * the size of the queue — and a mark only counts when the token still MATCHES:
- *
- *  - the product left the queue → it is in neither term, so it subtracts
- *    nothing. «مواردی که از صف بررسی خارج شده‌اند نباید در شمارنده باقی بمانند».
- *  - the vendor submitted again → the token moved, the mark no longer matches,
- *    and the product is unseen again without any path having to clear a flag.
+ *  - the product left the queue → it is not in the count, so a mark left behind
+ *    for it subtracts nothing. «مواردی که از صف بررسی خارج شده‌اند نباید در
+ *    شمارنده باقی بمانند».
+ *  - the vendor submitted again → the identity moved, the mark no longer
+ *    matches, and the product is unseen again without any path clearing a flag.
  *  - nothing happened → the mark matches and the product is not counted.
- *
- * **Zero queries when there is nothing to ask.** A manager with no marks — every
- * manager, on the first request after the upgrade — costs exactly the one
- * `COUNT(*)` the badge already cost.
  *
  * **Nothing here decides anything.** `markSeen()` writes a view state; it does
  * not touch the product, its status, its baseline, its proposal or the queue.
@@ -37,44 +31,25 @@ namespace Tecteb\Marketplace\Modules\Product\Application;
  */
 final class ReviewSeen
 {
-    public function __construct(
-        private readonly ProductRepositoryInterface $products,
-        private readonly ReviewSeenStoreInterface $store
-    ) {
+    public function __construct(private readonly ReviewSeenStoreInterface $store)
+    {
     }
 
     /** How many waiting products this manager has not seen the current submission of. */
     public function unseenCount(int $userId): int
     {
-        $waiting = $this->products->countAwaitingReview();
-        if ($waiting <= 0 || $userId <= 0) {
-            return max(0, $waiting);
-        }
-        $marks = $this->store->seenBy($userId);
-        if ($marks === []) {
-            return $waiting;
-        }
-        $current = $this->products->submissionsOf(array_map('intval', array_keys($marks)));
-        $seen = 0;
-        foreach ($current as $productId => $token) {
-            if (($marks[$productId] ?? null) === $token) {
-                $seen++;
-            }
-        }
-        // Clamped rather than trusted: the two terms are two reads, and a
-        // decision landing between them can only make the subtraction too big.
-        // A negative badge is a number nobody can act on.
-        return max(0, $waiting - $seen);
+        return $userId > 0 ? max(0, $this->store->countUnseenFor($userId)) : 0;
     }
 
     /**
      * Record the submissions this manager just had on screen.
      *
      * `$seen` is what the page RENDERED, read in the same statement as the rows
-     * (`forManagerWithSubmission()`), and it is written through unchanged. This
-     * method must never look the tokens up again: re-reading here is exactly how
-     * a submission that arrived after the page was built would be marked as
-     * seen by somebody who never saw it.
+     * (`forManagerWithSubmission()`) or as the product (`findWithSubmission()`),
+     * and it is written through unchanged. This method must never look the
+     * tokens up again: re-reading here is exactly how a submission that arrived
+     * after the page was built would be marked as seen by somebody who never
+     * saw it.
      *
      * @param array<int,string> $seen product id => the token that was rendered
      */

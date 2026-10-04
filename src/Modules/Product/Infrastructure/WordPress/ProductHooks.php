@@ -63,6 +63,14 @@ final class ProductHooks
                 // layer does not call WordPress.
                 'bubble' => static fn (): int
                     => $container->get(ReviewSeen::class)->unseenCount(get_current_user_id()),
+                // Build the page — and record the view — on `load-{$hook}`,
+                // which WordPress fires BEFORE it prints the admin menu. This
+                // is the whole of «عدد اعلان باید در همان صفحه به‌روز شود»:
+                // `alpha.36` recorded the view inside `render`, long after the
+                // header had already printed yesterday's number beside it.
+                // `render()` then echoes what `prepare()` buffered, so the page
+                // is built exactly once either way.
+                'prepare' => [$review, 'prepare'],
             ];
             $pages[] = [
                 'slug' => SpecTemplatesPage::SLUG,

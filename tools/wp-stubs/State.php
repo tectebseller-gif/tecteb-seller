@@ -166,6 +166,8 @@ final class State
         self::$environmentType = 'production';
         self::$homeUrl = 'https://example.test';
         self::$menus = [];
+        $GLOBALS['menu'] = [];
+        $GLOBALS['submenu'] = [];
         self::$registeredSettings = [];
         self::$settingsErrors = [];
         self::$enqueued = ['style' => [], 'script' => []];
@@ -209,6 +211,8 @@ final class State
         self::$shortcodes = [];
         self::$firedActions = [];
         self::$menus = [];
+        $GLOBALS['menu'] = [];
+        $GLOBALS['submenu'] = [];
         self::$registeredSettings = [];
         self::$settingsErrors = [];
         self::$enqueued = ['style' => [], 'script' => []];

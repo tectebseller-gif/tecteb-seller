@@ -28,6 +28,9 @@ final class InterferingDatabase implements DatabaseInterface
     /** @var list<array{needles:list<string>,nth:int,seen:int,run:callable,fired:bool}> */
     private array $rules = [];
 
+    /** @var list<array{needles:list<string>,nth:int,seen:int,run:callable,fired:bool}> */
+    private array $readRules = [];
+
     /** @var list<string> what actually fired, so a test can prove its hook ran */
     public array $fired = [];
 
@@ -44,6 +47,22 @@ final class InterferingDatabase implements DatabaseInterface
     public function before(array $needles, int $nth, callable $callback): void
     {
         $this->rules[] = ['needles' => $needles, 'nth' => $nth, 'seen' => 0, 'run' => $callback, 'fired' => false];
+    }
+
+    /**
+     * The same, but before a READ.
+     *
+     * A separate list on purpose: `before()` is matched against writes only,
+     * and quietly extending it to reads would change what every existing rule
+     * fires on. «گاردی که روی نیمی از مجموعه اعمال شود» cuts both ways — a
+     * matcher that suddenly covers more is the same hazard as one that covers
+     * less.
+     *
+     * @param list<string> $needles
+     */
+    public function beforeRead(array $needles, int $nth, callable $callback): void
+    {
+        $this->readRules[] = ['needles' => $needles, 'nth' => $nth, 'seen' => 0, 'run' => $callback, 'fired' => false];
     }
 
     public function execute(string $sql, array $params = []): ?int
@@ -91,17 +110,36 @@ final class InterferingDatabase implements DatabaseInterface
 
     public function getVar(string $sql, array $params = []): mixed
     {
+        $this->maybeInterfereRead($sql);
         return $this->inner->getVar($sql, $params);
     }
 
     public function getRow(string $sql, array $params = []): ?array
     {
+        $this->maybeInterfereRead($sql);
         return $this->inner->getRow($sql, $params);
     }
 
     public function getResults(string $sql, array $params = []): array
     {
+        $this->maybeInterfereRead($sql);
         return $this->inner->getResults($sql, $params);
+    }
+
+    private function maybeInterfereRead(string $sql): void
+    {
+        foreach ($this->readRules as $i => $rule) {
+            if ($rule['fired'] || !self::matches($sql, $rule['needles'])) {
+                continue;
+            }
+            $this->readRules[$i]['seen']++;
+            if ($this->readRules[$i]['seen'] !== $rule['nth']) {
+                continue;
+            }
+            $this->readRules[$i]['fired'] = true;
+            $this->fired[] = $sql;
+            ($rule['run'])();
+        }
     }
 
     public function begin(): bool

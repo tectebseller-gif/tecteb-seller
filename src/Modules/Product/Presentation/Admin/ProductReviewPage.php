@@ -59,6 +59,29 @@ final class ProductReviewPage
     public const CAPABILITY = Capabilities::REVIEW_PRODUCTS;
     private const NONCE = 'tmc_product_review';
 
+    /**
+     * The whole page, built on `load-{hook}` and echoed by the render callback.
+     *
+     * Null until built. It is also the «already done» flag: WordPress calls the
+     * render callback after the load hook, and building twice would record the
+     * view twice and show the page twice.
+     */
+    private ?string $output = null;
+
+    /**
+     * What this render SHOWED, as product id => submission token.
+     *
+     * Collected while building and written once, after the buffer is whole. The
+     * tokens come from the same statement as the rows they belong to; nothing
+     * here looks them up again.
+     *
+     * @var array<int,string>
+     */
+    private array $seen = [];
+
+    /** A throw from `build()`, re-thrown by `render()` rather than by the hook. */
+    private ?\Throwable $failure = null;
+
     public function __construct(private readonly ContainerInterface $container)
     {
     }
@@ -68,11 +91,72 @@ final class ProductReviewPage
         return __('بررسی محصولات', 'tecteb-marketplace-core');
     }
 
+    /**
+     * The page, built BEFORE WordPress prints the admin menu.
+     *
+     * **Why this runs on `load-{hook}` and not in the render callback.**
+     * `wp-admin/admin.php` fires `load-{$page_hook}`, then includes
+     * `admin-header.php` — which is where `_wp_menu_output()` prints the red
+     * count — and only THEN calls the page's render callback. So in `alpha.36`
+     * the bubble was already on the wire by the time this page recorded a view,
+     * and the manager's own screen kept the number they had just cleared.
+     * Doing the work here, one hook earlier, is what lets `MenuRegistrar`
+     * repaint the count on this very request. Nothing is simulated and no
+     * JavaScript is involved: the menu is simply printed after the page has
+     * decided what it shows.
+     *
+     * **Buffered, so «rendered successfully» is a fact rather than a hope.** The
+     * view is recorded only once the whole page is in the buffer. A throw on the
+     * way through leaves the buffer discarded and nothing marked — «مواردی را که
+     * هنوز با موفقیت رندر نشده‌اند خوانده‌شده ثبت نکن».
+     *
+     * **And the count the menu then prints is read from the database, not from
+     * arithmetic here.** If `markSeen()` failed, the number is unchanged, so the
+     * screen cannot show a success that did not happen.
+     */
+    public function prepare(): void
+    {
+        if ($this->output !== null || !current_user_can(self::CAPABILITY)) {
+            return;
+        }
+        $this->seen = [];
+        ob_start();
+        try {
+            $this->build();
+        } catch (\Throwable $e) {
+            ob_end_clean();
+            $this->seen = [];
+            // Kept, not thrown here. This hook runs before `admin-header.php`,
+            // so throwing would take the whole back office — menu, header and
+            // all — down with this one page. `render()` throws it instead, in
+            // the same place `alpha.36` would have: loudly, inside the page,
+            // with the rest of wp-admin intact.
+            $this->failure = $e;
+            return;
+        }
+        $this->output = (string) ob_get_clean();
+
+        if ($this->seen !== []) {
+            $this->container->get(ReviewSeen::class)->markSeen(get_current_user_id(), $this->seen);
+        }
+    }
+
     public function render(): void
     {
         if (!current_user_can(self::CAPABILITY)) {
             wp_die(esc_html__('دسترسی لازم را ندارید.', 'tecteb-marketplace-core'), '', ['response' => 403]);
         }
+        // Built on `load-{hook}` in wp-admin; built here when something calls
+        // the render callback directly, which is what the render tests do.
+        $this->prepare();
+        if ($this->failure !== null) {
+            throw $this->failure;
+        }
+        echo (string) $this->output;
+    }
+
+    private function build(): void
+    {
         // Captured once and used both for the decision and for the list state.
         // Two captures of one request are two chances to read it differently —
         // and the state decides where the manager lands afterwards.
@@ -237,17 +321,18 @@ final class ProductReviewPage
 
         echo ProductCatalogueView::render($rows, $state);
 
-        // **Only what this page actually drew, and only after it drew it.**
-        // «فقط نسخه‌هایی که در آن صفحه و با آن فیلتر نمایش داده شده‌اند»: the
-        // ids come from the rows above, so a product on page two, or outside the
-        // current filter, is untouched. And it is recorded AFTER the render, so
-        // a request that failed on the way here marks nothing — a view that did
-        // not happen is not a view.
+        // **Only what this page actually drew.** «فقط نسخه‌هایی که در آن صفحه و
+        // با آن فیلتر نمایش داده شده‌اند»: the ids come from the rows above, so a
+        // product on page two, or outside the current filter, is untouched.
+        //
+        // Handed to `prepare()` rather than written here: the view is recorded
+        // once the WHOLE page is in the buffer, so a throw further down this
+        // method marks nothing.
         //
         // Nothing about the product changes: no status, no decision, no
         // baseline, no proposal. The product stays in the review queue until
         // somebody decides about it.
-        $this->container->get(ReviewSeen::class)->markSeen(get_current_user_id(), $shown);
+        $this->seen += $shown;
     }
 
     /** The picture a row shows: the main one, or the first of the gallery. */
@@ -279,8 +364,13 @@ final class ProductReviewPage
             . esc_url($state->selfLink()) . '">'
             . esc_html__('بازگشت به فهرست محصولات', 'tecteb-marketplace-core') . '</a></p>';
 
-        $products = $this->container->get(ProductRepositoryInterface::class);
-        $product = $products->find($productId);
+        // **One statement for the product, its proposal's id and its submission
+        // identity.** Three separate reads — `find()`, `pendingFor()`,
+        // `submissionsOf()` — left a window in which a vendor's new submission
+        // could land, and the page would then show the previous content while
+        // recording the newer identity as seen.
+        $snapshot = $this->container->get(ProductRepositoryInterface::class)->findWithSubmission($productId);
+        $product = $snapshot['product'] ?? null;
         if ($product === null) {
             echo Components::state(
                 'error',
@@ -292,14 +382,28 @@ final class ProductReviewPage
 
         $decisions = $this->container->get(ProductDecisionRepositoryInterface::class);
         $history = $decisions->forProduct($product->id, null, 20);
-        $revision = $this->container->get(ProductRevisionRepositoryInterface::class)->pendingFor($product->id);
+        // **The proposal is loaded BY THE ID the snapshot named**, not by asking
+        // again for «the pending one». A revision row is append-only, so this
+        // returns the payload the token is about even if a newer proposal has
+        // superseded it since — and that newer one carries a different token, so
+        // it is correctly still unseen.
+        $revisionId = (int) ($snapshot['revisionId'] ?? 0);
+        $revision = $revisionId > 0
+            ? $this->container->get(ProductRevisionRepositoryInterface::class)->find($revisionId)
+            : null;
 
         // «باز شدن موفق جزئیات محصول، اعلان همان نسخهٔ نمایش‌داده‌شده را
-        // خوانده‌شده کند» — the token of THIS product, read the same way the
-        // list reads it, and empty when the product is not waiting for anybody:
-        // opening a published product with nothing proposed marks nothing,
-        // because there is no submission to have seen.
-        $shown = $products->submissionsOf([$product->id]);
+        // خوانده‌شده کند» — the identity that came back WITH the product above.
+        // `s0.r0` means nobody is waiting on it: opening a published product
+        // with nothing proposed records nothing, because there is no submission
+        // to have seen.
+        // Recorded on `waiting`, from the same statement, NOT on the token:
+        // `s0.r0` is a real submission identity for anything that predates the
+        // decision trail, and this page also opens published products, which
+        // have nothing to have seen.
+        $shown = ($snapshot['waiting'] ?? false)
+            ? [$product->id => (string) $snapshot['submission']]
+            : [];
         /** @var StorefrontFieldsInterface|null $storefront */
         $storefront = $this->container->get(StorefrontFieldsInterface::class);
 
@@ -349,10 +453,11 @@ final class ProductReviewPage
 
         echo '<section class="tmc-card">' . ProductDecisionHistoryView::render($history) . '</section>';
 
-        // After the page, not before it: a render that threw half way through
-        // has not been read. And nothing here decides anything — the product is
-        // still in the queue, and still waiting for an approval or a rejection.
-        $this->container->get(ReviewSeen::class)->markSeen(get_current_user_id(), $shown);
+        // Handed up, not written here: `prepare()` records it once the whole
+        // page is in the buffer, so a render that threw half way through has not
+        // been read. And nothing here decides anything — the product is still in
+        // the queue, and still waiting for an approval or a rejection.
+        $this->seen += $shown;
     }
 
     /**

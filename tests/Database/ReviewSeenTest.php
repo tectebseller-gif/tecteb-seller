@@ -13,7 +13,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductDecisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
-use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpReviewSeenStore;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\DbReviewSeenStore;
 use TmcWpStubs\State;
 
 /**
@@ -45,7 +45,7 @@ final class ReviewSeenTest extends DatabaseTestCase
     private DbProductRevisionRepository $revisions;
     private DbProductDecisionRepository $decisions;
     private ReviewSeen $seen;
-    private WpReviewSeenStore $store;
+    private DbReviewSeenStore $store;
 
     protected function setUp(): void
     {
@@ -57,8 +57,8 @@ final class ReviewSeenTest extends DatabaseTestCase
         $this->products = new DbProductRepository($this->db, $clock);
         $this->revisions = new DbProductRevisionRepository($this->db, $clock);
         $this->decisions = new DbProductDecisionRepository($this->db, $clock);
-        $this->store = new WpReviewSeenStore($clock);
-        $this->seen = new ReviewSeen($this->products, $this->store);
+        $this->store = new DbReviewSeenStore($this->db, $clock);
+        $this->seen = new ReviewSeen($this->store);
     }
 
     /**
@@ -128,7 +128,7 @@ final class ReviewSeenTest extends DatabaseTestCase
         // …and page two.
         $this->record(self::ANA, $this->products->forManagerWithSubmission(ProductStatus::Submitted, '', 2, 2));
         self::assertSame(1, $this->seen->unseenCount(self::ANA));
-        self::assertCount(4, $this->store->seenBy(self::ANA), 'page two did not un-see page one');
+        self::assertCount(4, $this->store->marksFor(self::ANA, $ids), 'page two did not un-see page one');
 
         // A filter that excludes a row leaves that row unseen, however wide the
         // page is: the marks come from the rows, not from the query's intent.
@@ -256,7 +256,7 @@ final class ReviewSeenTest extends DatabaseTestCase
         // And the mark that WAS recorded is the old token, not the new one — the
         // proof that nothing re-read the database at recording time.
         $current = $this->products->submissionsOf([$id]);
-        self::assertNotSame($current[$id], $this->store->seenBy(self::ANA)[$id]);
+        self::assertNotSame($current[$id], $this->store->marksFor(self::ANA, [$id])[$id]);
     }
 
     /**
@@ -321,12 +321,12 @@ final class ReviewSeenTest extends DatabaseTestCase
 
         self::assertFalse($this->seen->markSeen(0, [$id => 's1.r0']), 'no user, no mark');
         self::assertFalse($this->seen->markSeen(self::ANA, []), 'no rows, no mark');
-        self::assertSame([], $this->store->seenBy(self::ANA));
+        self::assertSame([], $this->store->marksFor(self::ANA, [$id]));
         self::assertSame(1, $this->seen->unseenCount(self::ANA));
         // And a request that never got as far as reading rows: a filter that
         // matches nothing records nothing, even for a real manager.
         $this->record(self::ANA, $this->products->forManagerWithSubmission(ProductStatus::Submitted, 'چیزی که نیست', 20, 0));
-        self::assertSame([], $this->store->seenBy(self::ANA));
+        self::assertSame([], $this->store->marksFor(self::ANA, [$id]));
     }
 
     /**
@@ -359,39 +359,146 @@ final class ReviewSeenTest extends DatabaseTestCase
     }
 
     /**
-     * WHAT THIS PROVES: the marks are bounded, and the overflow fails towards
-     * «unseen».
+     * WHAT THIS PROVES: a queue LARGER than the old cap reaches nought, and
+     * stays there.
      *
-     * A cap that silently drops the newest mark would hide a submission. This
-     * one drops the OLDEST, so the worst it can do is show a manager something
-     * they have already read.
+     * This is the owner's own case, and the one `alpha.36` could not pass:
+     * «حداقل ۶۰۰ محصول در صف — پس از مشاهدهٔ همهٔ صفحه‌ها اعلان صفر باشد و
+     * شمارش صف همچنان ۶۰۰ بماند، و باز کردن صفحهٔ دیگر یا ورود دوبارهٔ کاربر،
+     * اعلان قبلی را برنگرداند». With a 500-mark cap, recording the
+     * five-hundred-and-first view dropped the first, so the count could not go
+     * below the overflow however much the manager read.
+     *
+     * Paged twenty at a time, which is what the list actually draws with — a
+     * single `markSeen()` of six hundred tokens would have been a scenario no
+     * manager can produce.
      */
-    public function testTheMarksAreCappedAndTheOldestGoFirst(): void
+    public function testAQueueLargerThanTheOldCapReachesZeroAndStaysThere(): void
     {
-        $marks = [];
-        for ($i = 1; $i <= WpReviewSeenStore::MAX_MARKS + 5; $i++) {
-            $marks[$i] = 's' . $i . '.r0';
+        $total = 600;
+        for ($i = 1; $i <= $total; $i++) {
+            $this->submit('قلم ' . $i);
         }
-        // Two writes so the timestamps differ by more than the loop's own speed:
-        // the first five, then the rest.
-        $first = array_slice($marks, 0, 5, true);
-        self::assertTrue($this->store->markSeen(self::ANA, $first));
-        // A second later, so `at` really orders them.
-        $store = new WpReviewSeenStore(new class () implements \Tecteb\Marketplace\Contracts\ClockInterface {
-            public function now(): \DateTimeImmutable
-            {
-                return new \DateTimeImmutable('2030-01-01 00:00:00');
-            }
-        });
-        self::assertTrue($store->markSeen(self::ANA, array_slice($marks, 5, null, true)));
+        self::assertSame($total, $this->products->countAwaitingReview());
+        self::assertSame($total, $this->seen->unseenCount(self::ANA));
 
-        $kept = $this->store->seenBy(self::ANA);
-        self::assertCount(WpReviewSeenStore::MAX_MARKS, $kept);
-        self::assertArrayNotHasKey(1, $kept, 'the oldest mark went');
-        self::assertArrayHasKey(WpReviewSeenStore::MAX_MARKS + 5, $kept, 'the newest stayed');
+        for ($offset = 0; $offset < $total; $offset += 20) {
+            $this->record(self::ANA, $this->products->forManagerWithSubmission(
+                ProductStatus::Submitted,
+                '',
+                20,
+                $offset
+            ));
+        }
+
+        self::assertSame(0, $this->seen->unseenCount(self::ANA), 'every page was read');
+        // «شمارش صف همچنان ۶۰۰ بماند» — reading is not deciding.
+        self::assertSame($total, $this->products->countAwaitingReview());
+        // «باز کردن صفحهٔ دیگر یا ورود دوبارهٔ کاربر، اعلان قبلی را برنگرداند».
+        // A fresh store on the same database is exactly «logged in again»:
+        // nothing about the answer lives in this process.
+        $fresh = new DbReviewSeenStore($this->db, new SystemClock());
+        self::assertSame(0, (new ReviewSeen($fresh))->unseenCount(self::ANA));
+        self::assertSame($total, $this->seen->unseenCount(self::BABAK), 'and Babak still has all of them');
+    }
+
+    /**
+     * WHAT THIS PROVES: after that same scenario, one resubmission is exactly
+     * one notification.
+     *
+     * «پس از همان سناریو، ارسال مجدد یک محصول یک اعلان تازه ایجاد کند» — one,
+     * not nought and not six hundred. The product is chosen from the marks ANA
+     * actually holds, because a falsification that picks at random can land on
+     * something she never saw (`alpha.36`).
+     */
+    public function testOneResubmissionAfterALargeQueueIsOneNotification(): void
+    {
+        $ids = [];
+        for ($i = 1; $i <= 520; $i++) {
+            $ids[] = $this->submit('سرنگ ' . $i);
+        }
+        for ($offset = 0; $offset < count($ids); $offset += 20) {
+            $this->record(self::ANA, $this->products->forManagerWithSubmission(ProductStatus::Submitted, '', 20, $offset));
+        }
+        self::assertSame(0, $this->seen->unseenCount(self::ANA));
+
+        $marked = $this->store->marksFor(self::ANA, $ids);
+        self::assertCount(520, $marked, 'all of them are recorded, past the old cap');
+        $target = (int) array_key_first($marked);
+
+        // The vendor edits and sends it back: the status leaves the queue and
+        // returns, which is what writes a new `submitted` row.
+        $this->products->updateStatus($target, ProductStatus::ChangesRequested, 'عکس بهتر');
+        $this->submitExisting($target);
+
+        self::assertSame(1, $this->seen->unseenCount(self::ANA), 'exactly one, and it is the resubmitted one');
+        self::assertSame(
+            [$target => true],
+            array_map(static fn (): bool => true, array_diff_assoc(
+                $this->products->submissionsOf([$target]),
+                [$target => $marked[$target]]
+            )),
+            'the token moved for that product and no other'
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: two records at once lose nothing, and a late record of
+     * an OLDER view does not pull a newer one backwards.
+     *
+     * «دو ثبت مشاهدهٔ هم‌زمان برای یک مدیر، علامتی را از دست ندهد و علامت
+     * تازه‌تر را به عقب نبرد». Deterministic on purpose: the two writes are
+     * ordered by the clock each store carries, not by which process got there
+     * first — a real two-process run is reported separately and is not what
+     * this asserts.
+     */
+    public function testTwoRecordsDoNotDestroyEachOtherAndAnOlderOneCannotWin(): void
+    {
+        $a = $this->submit('ونتیلاتور');
+        $b = $this->submit('مونیتور');
+        $tokens = $this->products->submissionsOf([$a, $b]);
+
+        $later = new DbReviewSeenStore($this->db, self::clockAt('2030-01-01 10:00:00.500000'));
+        $earlier = new DbReviewSeenStore($this->db, self::clockAt('2030-01-01 09:59:59.500000'));
+
+        // Tab one marks both; tab two — whose request started earlier — lands
+        // afterwards carrying its own, older view of product A only.
+        self::assertTrue($later->markSeen(self::ANA, $tokens));
+        self::assertTrue($earlier->markSeen(self::ANA, [$a => 's0.r0']));
+
+        $kept = $later->marksFor(self::ANA, [$a, $b]);
+        self::assertCount(2, $kept, 'neither write removed the other\'s row');
+        self::assertSame($tokens[$a], $kept[$a], 'the older write did not overwrite the newer token');
+        self::assertSame($tokens[$b], $kept[$b]);
+        self::assertSame(0, $this->seen->unseenCount(self::ANA), 'and the count did not go back up');
+
+        // The other direction, same two stores: a NEWER view does move it.
+        $this->products->updateStatus($a, ProductStatus::ChangesRequested, '');
+        $this->submitExisting($a);
+        $moved = $this->products->submissionsOf([$a]);
+        self::assertNotSame($tokens[$a], $moved[$a]);
+        $newest = new DbReviewSeenStore($this->db, self::clockAt('2030-01-01 11:00:00.000000'));
+        self::assertTrue($newest->markSeen(self::ANA, $moved));
+        self::assertSame($moved[$a], $newest->marksFor(self::ANA, [$a])[$a]);
+        self::assertSame(0, $this->seen->unseenCount(self::ANA));
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /** A clock that answers one instant, to the microsecond. */
+    private static function clockAt(string $when): \Tecteb\Marketplace\Contracts\ClockInterface
+    {
+        return new class ($when) implements \Tecteb\Marketplace\Contracts\ClockInterface {
+            public function __construct(private readonly string $when)
+            {
+            }
+
+            public function now(): \DateTimeImmutable
+            {
+                return new \DateTimeImmutable($this->when);
+            }
+        };
+    }
 
     private function create(string $title): int
     {

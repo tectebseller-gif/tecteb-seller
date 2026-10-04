@@ -499,16 +499,47 @@ function wp_nonce_field(string $action, string $name = '_wpnonce', bool $referer
 }
 
 // ---- admin menu / settings api -----------------------------------------------
+/*
+ * `State::$menus` is this project's own record of what was registered, and
+ * `$GLOBALS['menu']` / `$GLOBALS['submenu']` are CORE's — the two arrays
+ * `wp-admin/menu-header.php` reads at print time, in core's own row shape.
+ *
+ * Both, because they answer different questions. `State::$menus` says «this
+ * page was registered with this label»; the globals say «this is the string
+ * WordPress is about to print», which is the only place a plugin can still
+ * change it after `admin_menu` has run. `alpha.37` repaints the red count
+ * there, on `load-{$hook}`, so a stub without them would make that fix
+ * untestable outside a browser.
+ */
 function add_menu_page(string $pageTitle, string $menuTitle, string $capability, string $slug, callable|string $callback = '', string $icon = '', int|float|null $position = null): string
 {
     $hook = 'toplevel_page_' . $slug;
     State::$menus[] = compact('pageTitle', 'menuTitle', 'capability', 'slug', 'callback', 'icon', 'position', 'hook') + ['parent' => null];
+    if (!isset($GLOBALS['menu']) || !is_array($GLOBALS['menu'])) {
+        $GLOBALS['menu'] = [];
+    }
+    // Core's seven columns, in core's order: title, capability, slug, page
+    // title, classes, hookname, icon.
+    $GLOBALS['menu'][(string) ($position ?? count($GLOBALS['menu']))] = [
+        $menuTitle,
+        $capability,
+        $slug,
+        $pageTitle,
+        'menu-top toplevel_page_' . $slug,
+        $hook,
+        $icon,
+    ];
     return $hook;
 }
 function add_submenu_page(string $parent, string $pageTitle, string $menuTitle, string $capability, string $slug, callable|string $callback = '', int|float|null $position = null): string
 {
     $hook = 'tecteb-marketplace_page_' . $slug;
     State::$menus[] = compact('parent', 'pageTitle', 'menuTitle', 'capability', 'slug', 'callback', 'position', 'hook');
+    if (!isset($GLOBALS['submenu']) || !is_array($GLOBALS['submenu'])) {
+        $GLOBALS['submenu'] = [];
+    }
+    // Core's four columns: title, capability, slug, page title.
+    $GLOBALS['submenu'][$parent][] = [$menuTitle, $capability, $slug, $pageTitle];
     return $hook;
 }
 function register_setting(string $group, string $name, array $args = []): void

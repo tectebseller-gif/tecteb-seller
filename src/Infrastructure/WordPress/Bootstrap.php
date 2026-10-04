@@ -85,6 +85,7 @@ use Tecteb\Marketplace\Core\Migration\Migrations\M0017DokanShopRecords;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0018HandoverRowsAndRecordVersion;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0020ProductTitleSort;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0021ReviewSeen;
 use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
 use Tecteb\Marketplace\Infrastructure\Jobs\DbJobRepository;
@@ -444,6 +445,7 @@ final class Bootstrap
             new M0018HandoverRowsAndRecordVersion(),
             new M0019BaselineAndDecisions(),
             new M0020ProductTitleSort(),
+            new M0021ReviewSeen(),
         ];
     }
 

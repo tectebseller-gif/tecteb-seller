@@ -45,6 +45,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductDecisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\DbReviewSeenStore;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\TitleSortRepair;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\AliasingSpecTemplateRepository;
@@ -55,7 +56,6 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\CategorySuggest;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductAutosave;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductHooks;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpProductDraftStore;
-use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\WpReviewSeenStore;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\StorefrontPage;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullCatalogProjector;
@@ -103,15 +103,16 @@ final class ProductModule implements ModuleInterface
         $c->bind(ProductDraftStoreInterface::class, static fn (ContainerInterface $c) => new WpProductDraftStore(
             $c->get(ClockInterface::class)
         ));
-        // Which submission each manager has already looked at. User meta, so the
-        // red count on the menu became per-person without a table, a column or a
-        // schema bump — see `WpReviewSeenStore` for why a view state is stored
-        // this way and a decision could not be.
-        $c->bind(ReviewSeenStoreInterface::class, static fn (ContainerInterface $c) => new WpReviewSeenStore(
+        // Which submission each manager has already looked at. A row per
+        // (manager, product) in `tmc_review_seen`, and the count is a single
+        // bounded query — `alpha.36` kept the whole set in one user-meta array
+        // and a 500-mark cap made a read notification come back, which is the
+        // defect this round closes. See `DbReviewSeenStore`.
+        $c->bind(ReviewSeenStoreInterface::class, static fn (ContainerInterface $c) => new DbReviewSeenStore(
+            $c->get(DatabaseInterface::class),
             $c->get(ClockInterface::class)
         ));
         $c->bind(ReviewSeen::class, static fn (ContainerInterface $c) => new ReviewSeen(
-            $c->get(ProductRepositoryInterface::class),
             $c->get(ReviewSeenStoreInterface::class)
         ));
         // The host's own upload ceiling, not ours: PHP enforces
