@@ -8,7 +8,7 @@ use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 
 /**
- * «داشبورد فروشنده» where a vendor actually goes looking for it: /my-account/.
+ * «ورود به پنل فروشنده» where a vendor actually goes looking for it: /my-account/.
  *
  * Until now the panel had no entry point at all from the shop side. A vendor
  * who had not bookmarked `/vendor/` had to be told the address, and the owner
@@ -33,17 +33,52 @@ use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
  *    using none of the three still has the address, because the address is not
  *    the access.
  *
- * ### Who sees it (`alpha.33`)
+ * ### Who sees it (`alpha.33`, corrected in `alpha.37`)
  *
  * «یک مشتری عادی فروشنده نیست» — and an applicant is not a customer either.
- * Until this round the test was `storeFor() !== null`, which is «acts in a shop
+ * Until `alpha.33` the test was `storeFor() !== null`, which is «acts in a shop
  * that may trade today»: it hid the link from the two people who need it most,
  * the applicant waiting for a decision and the vendor whose shop was just
  * suspended. Both have exactly one page that tells them what happened, and
- * neither could find it. So the test is «has a vendor path at all» — a store,
- * or an application on file — and the LABEL says which, because sending
- * somebody to «داشبورد فروشنده» and showing them a review status is a link that
- * lied about where it went.
+ * neither could find it.
+ *
+ * `alpha.33` answered that with «a store, or an application on file», which
+ * still left one person out: the STAFF of a suspended shop. They act in no
+ * shop (`storeFor()` is null, correctly) and they have no application of their
+ * own, so they got nothing at all. The question is membership, not permission,
+ * and `StaffAccess::membershipFor()` is the method that answers it without
+ * granting anything (`alpha.34`). So the test is now, in order:
+ *
+ *  1. a vendor profile of their own — the owner, whatever the shop's standing;
+ *  2. a place on some shop's roster — staff, whatever their own standing;
+ *  3. an application on file — an applicant, or somebody who was refused;
+ *  4. otherwise nothing, which is «یک مشتری عادی فروشنده نیست».
+ *
+ * **None of this is access control, and it must not be read as any.** It
+ * decides whether a link is drawn. `/vendor/` refuses anyone without a store
+ * on its own, a suspended shop's staff still «may do nothing» there
+ * (`alpha.34`), and every gate still asks `storeFor()` / `can()`. A link is
+ * not a right.
+ *
+ * ### Why the button came back (`alpha.37`)
+ *
+ * The owner reported «دکمهٔ ورود به پنل فروشنده از صفحهٔ حساب کاربری حذف شده
+ * است», and the cause was this file: `renderPanel()` returned early whenever
+ * the menu filter had run, so on ANY theme that renders WooCommerce's stock
+ * account navigation the button in the dashboard was never printed. The
+ * guard was written for a real defect — the same label appearing twice on
+ * `/my-account/` — but it treated the two as one thing, and they are not:
+ *
+ *  - the MENU ROW is wayfinding. It sits in a list of endpoints with «سفارش‌ها»
+ *    and «خروج», and it is read by somebody who already knows where they are
+ *    going.
+ *  - the DASHBOARD BUTTON is the call to action. It is the first thing on the
+ *    page a vendor lands on after logging in, and it is what the owner means
+ *    by «دکمهٔ روشن».
+ *
+ * One of each is not a duplicate. What must not happen is the same block
+ * printed twice in one request, and that is what `$printed` is for — a flag
+ * about this plugin's own output, not about somebody else's menu.
  */
 final class VendorAccountLink
 {
@@ -51,22 +86,23 @@ final class VendorAccountLink
     public const MENU_KEY = 'tmc-vendor-dashboard';
 
     /**
-     * Did the theme render WooCommerce's own account navigation this request?
+     * Has this plugin already printed the panel on this page?
      *
-     * Measured on the demo install: with a stock theme BOTH places fired and
-     * `/my-account/` carried «داشبورد فروشنده» twice — «ابتدا پیاده‌سازی فعلی
-     * را بررسی کن تا لینک تکراری ساخته نشود», and a duplicate we print
-     * ourselves is the same defect as a duplicate we add beside somebody
-     * else's. WooCommerce's `my-account.php` renders `navigation.php` before
-     * the content area, so by the time the dashboard hook runs the answer is
-     * already known: the menu got it, and the panel stands down.
+     * The ONE duplicate rule: the same block twice in one request. It is not a
+     * question about WooCommerce's menu — a row in the navigation and a button
+     * in the dashboard are different things in different places, and
+     * `alpha.36` suppressed the button because it conflated them.
      *
-     * An INSTANCE flag, not a static: `register()` hooks both callbacks onto
+     * Both the dashboard hook and the shortcode consult it, so a site that has
+     * the hook AND a pasted `[tmc_vendor_dashboard]` gets exactly one button,
+     * whichever comes first in the page.
+     *
+     * An INSTANCE flag, not a static: `register()` hooks every callback onto
      * one object, so per-request is exactly per-instance — and a static would
      * leak from one test to the next, which is a bug that only shows up in the
      * second test written.
      */
-    private bool $menuCarriedIt = false;
+    private bool $printed = false;
 
     public function __construct(private readonly ContainerInterface $container)
     {
@@ -74,6 +110,19 @@ final class VendorAccountLink
 
     /** The shortcode for an account page this plugin cannot hook into. */
     public const SHORTCODE = 'tmc_vendor_dashboard';
+
+    /**
+     * The owner's words, and a method rather than a `const` because `__()`
+     * cannot run at class-definition time.
+     *
+     * «دکمهٔ ورود به پنل فروشنده» — one string, used by the menu row, the
+     * dashboard button and the shortcode, so the three cannot disagree about
+     * where they go.
+     */
+    public static function panelLabel(): string
+    {
+        return __('ورود به پنل فروشنده', 'tecteb-marketplace-core');
+    }
 
     public static function register(ContainerInterface $container): void
     {
@@ -99,7 +148,6 @@ final class VendorAccountLink
         $logout = $items['customer-logout'] ?? null;
         unset($items['customer-logout']);
         $items[self::MENU_KEY] = $label;
-        $this->menuCarriedIt = true;
         if ($logout !== null) {
             $items['customer-logout'] = $logout;
         }
@@ -116,19 +164,15 @@ final class VendorAccountLink
     }
 
     /**
-     * A panel on the account dashboard, for the themes that replace the menu.
+     * The button on the account dashboard — on every theme, menu or no menu.
      *
-     * The owner's site has a custom account page; a link that only exists
-     * inside WooCommerce's stock navigation would be a link that only exists
-     * on a site nobody has.
+     * Not a fallback for themes that replace the navigation: this is the
+     * primary entry point, and the menu row beside it is a second, smaller
+     * one. `alpha.36` made this conditional on the menu not having run and so
+     * removed the button from every stock theme; see the class docblock.
      */
     public function renderPanel(): void
     {
-        if ($this->menuCarriedIt) {
-            // The navigation already has it. A second copy in the content area
-            // is not a fallback, it is a duplicate.
-            return;
-        }
         echo $this->panel();
     }
 
@@ -143,19 +187,36 @@ final class VendorAccountLink
      */
     public function shortcode(): string
     {
-        // Deliberately NOT gated on the menu: somebody who pastes the
-        // shortcode has asked for the block to be in that spot, and a
-        // shortcode that renders nothing because a menu elsewhere has a row
-        // is a shortcode that looks broken.
+        // Not gated on the MENU — somebody who pastes the shortcode has asked
+        // for the block to be in that spot, and a shortcode that renders
+        // nothing because a menu elsewhere has a row is a shortcode that looks
+        // broken. It is gated on the same `$printed` flag as the hook, so the
+        // two cannot both print on one page.
         return $this->panel();
     }
 
+    /**
+     * The block, once per request.
+     *
+     * The flag is set only when something is actually returned: a buyer, for
+     * whom this is '', must not use up the one print and silence a later
+     * caller that would also have printed nothing.
+     *
+     * `class="button"` is WooCommerce's own — `.woocommerce a.button` is in
+     * `woocommerce.css` on every store, so the button looks like the store's
+     * other buttons without this plugin putting a stylesheet on a page it has
+     * no business on.
+     */
     private function panel(): string
     {
+        if ($this->printed) {
+            return '';
+        }
         $label = $this->label();
         if ($label === '') {
             return '';
         }
+        $this->printed = true;
         return '<p class="tmc-account-vendor"><a class="button" href="'
             . esc_url($this->dashboardUrl()) . '">' . esc_html($label) . '</a> '
             . esc_html(self::blurb($label))
@@ -191,15 +252,26 @@ final class VendorAccountLink
             return '';
         }
         try {
-            if ($this->container->get(StaffAccess::class)->storeFor($userId) !== null) {
-                return __('داشبورد فروشنده', 'tecteb-marketplace-core');
+            $vendors = $this->container->get(VendorRepositoryInterface::class);
+            // The owner of a shop, whatever its standing. `findProfileByUser()`
+            // rather than `storeFor()`: the second is «may act today», and a
+            // vendor whose shop was suspended an hour ago needs this link more
+            // than anyone.
+            if ($vendors->findProfileByUser($userId) !== null) {
+                return self::panelLabel();
             }
-            // No shop that may trade today. An application on file still means
-            // a vendor path: an applicant in review, a rejected one, or a
-            // suspended shop whose reason is on that page and nowhere else.
-            $application = $this->container->get(VendorRepositoryInterface::class)
-                ->findApplicationByUser($userId);
-            return $application === null
+            // On some shop's roster. A question about membership, answered by
+            // the method that cannot grant anything — staff of a suspended
+            // shop, and staff whose own place is paused, both have a page that
+            // says so and had no way to reach it.
+            if ($this->container->get(StaffAccess::class)->membershipFor($userId) !== null) {
+                return self::panelLabel();
+            }
+            // Neither, but with an application on file: an applicant in
+            // review, or somebody who was refused. The LABEL differs because
+            // sending them to «ورود به پنل فروشنده» and showing them a review
+            // status is a link that lied about where it went.
+            return $vendors->findApplicationByUser($userId) === null
                 ? ''
                 : __('درخواست فروشندگی من', 'tecteb-marketplace-core');
         } catch (\Throwable) {
@@ -215,7 +287,7 @@ final class VendorAccountLink
      */
     private static function blurb(string $label): string
     {
-        return $label === __('داشبورد فروشنده', 'tecteb-marketplace-core')
+        return $label === self::panelLabel()
             ? __('مدیریت محصول‌ها، سفارش‌ها و تنظیمات فروشگاه شما.', 'tecteb-marketplace-core')
             : __('وضعیت درخواست فروشندگی و مدارک شما.', 'tecteb-marketplace-core');
     }

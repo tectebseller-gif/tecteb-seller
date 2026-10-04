@@ -12,7 +12,7 @@
  *      four counters that agree with the list, the corrections with the
  *      manager's own words, «منتظر تصمیم مدیر» kept apart, the folded file
  *   2. the SMS sentence and the application record's per-status text
- *   3. «داشبورد فروشنده» from /my-account/, for a vendor, an applicant and a
+ *   3. «ورود به پنل فروشنده» from /my-account/, for a vendor, an applicant and a
  *      plain customer
  *   4. the CSV disclosure beside «افزودن محصول», closed and open, with no
  *      JavaScript
@@ -63,7 +63,7 @@ const T = {
   oldButton: 'مشاهده اطلاعات ثبت‌شده',
   smsUnavailable: 'تأیید پیامکی فعلاً در دسترس نیست؛ اقدامی لازم نیست.',
   afterApproval: 'محصولات شما پس از تأیید مدیر منتشر می‌شوند.',
-  vendorDashboardLink: 'داشبورد فروشنده',
+  vendorDashboardLink: 'ورود به پنل فروشنده',
   applicantLink: 'درخواست فروشندگی من',
   csvSummary: 'ورود و خروج گروهی محصولات',
   csvEditable: 'ستون‌های قابل ویرایش:',
@@ -155,9 +155,26 @@ async function session(who, { javaScriptEnabled = true, width = 1280, height = 9
   return { ctx, page };
 }
 const textOf = async (page) => (await page.locator('body').innerText()).replace(/ /g, ' ');
+// The badge's numbers come from `review-badge-state.php`, not from this file's
+// own state tool: the bubble is «how many has THIS manager not seen», and that
+// tool is the one that names the manager by login and answers per person.
+// Item 5 compared it against `awaiting_review` until `alpha.37`, which is a
+// different number and was only ever equal while nobody had marks.
+const badgeState = (cmd) => {
+  execSync('cp tools/review-badge-state.php /home/user/wp-demo/', { stdio: 'ignore' });
+  return wp(`eval-file /home/user/wp-demo/review-badge-state.php ${cmd}`);
+};
 
 check('the installed package is the one under test', wp('plugin get tecteb-marketplace-core --field=version'), EXPECT);
-check('and its schema is the one this round ships', wp('option get tmc_schema_version'), '20');
+// Read from `SchemaVersion::TARGET`, never written here: a literal breaks the
+// first round that moves the number and then reports a failure about a site
+// that is entirely correct (`alpha.33`'s lesson — which the version line above
+// had learned and this one had not).
+const SCHEMA = (fs.readFileSync(
+  new URL('../../src/Core/Migration/SchemaVersion.php', import.meta.url),
+  'utf8',
+).match(/TARGET\s*=\s*(\d+)/)?.[1] ?? '').trim();
+check('and its schema is the one this round ships', wp('option get tmc_schema_version'), SCHEMA);
 
 // ================================================================= item 1
 const seeded = state('report');
@@ -338,12 +355,20 @@ note(state('seed'));
   const { ctx, page } = await session(VENDOR);
   await page.goto(`${SITE}/my-account/`, { waitUntil: 'domcontentloaded' });
   const text = await textOf(page);
-  check('3-1 a vendor finds «داشبورد فروشنده» on my-account', text.includes(T.vendorDashboardLink), true);
+  check('3-1 a vendor finds «ورود به پنل فروشنده» on my-account', text.includes(T.vendorDashboardLink), true);
   const href = await page.locator('a', { hasText: T.vendorDashboardLink }).first().getAttribute('href');
   note(`my-account link: ${href}`);
   check('3-2 and it goes to the panel, not to a 404',
     await page.request.get(href).then((r) => r.status()), 200);
-  check('3-3 it is one link, not two', (text.match(/داشبورد فروشنده/g) || []).length, 1);
+  // «دکمه در هیچ صفحه‌ای تکرار نشود» — ONE button. The menu row beside it is a
+  // different thing in a different place (`alpha.37`): counting the words
+  // instead would have failed about a page that is right, and in `alpha.36` the
+  // guard that kept that count at one was what removed the button altogether.
+  const buttons = await page.locator('p.tmc-account-vendor a.button').count();
+  check('3-3 the dashboard button is there, exactly once', buttons, 1);
+  const navRows = await page.locator('nav.woocommerce-MyAccount-navigation a', { hasText: T.vendorDashboardLink }).count();
+  note(`my-account: ${buttons} button(s), ${navRows} navigation row(s)`);
+  check('3-3b and the navigation row did not remove it', navRows >= 1 && buttons === 1, true);
   await ctx.close();
 }
 {
@@ -362,6 +387,20 @@ note(state('seed'));
   const text = await textOf(page);
   check('3-6 a plain customer is not a vendor', text.includes(T.vendorDashboardLink), false);
   check('3-7 and gets no applicant row either', text.includes(T.applicantLink), false);
+  check('3-8 and no block of ours at all', await page.locator('p.tmc-account-vendor').count(), 0);
+  await ctx.close();
+}
+{
+  // «همکار فروشگاه نیز باید مسیر ورود مناسب ... داشته باشد». Staff hold no
+  // application of their own, so `alpha.36` gave them nothing once their shop
+  // was suspended — and nothing at all if they were still invited.
+  const { ctx, page } = await session(STAFF);
+  await page.goto(`${SITE}/my-account/`, { waitUntil: 'domcontentloaded' });
+  check('3-9 a shop employee gets the button too',
+    await page.locator('p.tmc-account-vendor a.button', { hasText: T.vendorDashboardLink }).count(), 1);
+  const staffHref = await page.locator('p.tmc-account-vendor a.button').first().getAttribute('href');
+  check('3-10 and it opens the panel for them',
+    await page.request.get(staffHref).then((r) => r.status()), 200);
   await ctx.close();
 }
 
@@ -499,6 +538,13 @@ note(state('seed'));
     };
   });
 
+  // The marks this manager already holds are cleared FIRST, so there is
+  // something unseen to measure. A previous run of this very file reads the
+  // whole list, and «the badge is drawn» then fails about a manager who has
+  // genuinely read everything — a fixture that spends state has to set it
+  // (`alpha.33`). Only the marks go; the queue is not touched.
+  note(badgeState('forget ana'));
+
   await page.goto(`${SITE}/wp-admin/`, { waitUntil: 'domcontentloaded' });
   // Asserted BEFORE anything about the bubble, for the same reason the staff
   // section does it: «the badge is not drawn» is also true of a login page, and
@@ -507,59 +553,98 @@ note(state('seed'));
     await page.locator('#adminmenu').count(), 1);
   const first = await bubbleOf();
   note(`bubble: ${JSON.stringify(first)}`);
-  const awaiting = field(state('report'), 'awaiting_review');
+  // THIS manager's unseen count — not the size of the queue.
+  //
+  // Until `alpha.37` this section compared the bubble against
+  // `awaiting_review`, which was the right question in `alpha.33` and the wrong
+  // one from `alpha.36`, when the badge became «چند مورد را ندیده‌ام». It kept
+  // passing because the two numbers are equal on an install with no marks — and
+  // the old `5-6` («opening the queue does not clear it») passed only BECAUSE
+  // of the defect this round fixes: the bubble was built before the view was
+  // recorded, so it printed the number from before the view.
+  const unseen = () => field(badgeState('report'), 'unseen_ana');
+  const startUnseen = unseen();
   check('5-1 the count is drawn', first.present, true);
-  check('5-2 and matches the database', fromPersian((first.value || '').trim()), awaiting);
+  check('5-2 and matches what the database says this manager has not seen',
+    fromPersian((first.value || '').trim()), startUnseen);
   check('5-3 it is red, not core\'s blue', first.bg || '-', 'rgb(214, 54, 56)');
   check('5-4 with a sentence for a screen reader', (first.sr || '').includes('در انتظار بررسی'), true);
   check('5-5 on the top-level item and the submenu', (first.count || 0) >= 2, true);
 
-  // Merely opening the page must not clear it.
+  // ---- «عدد اعلان باید در همان صفحه به‌روز شود» --------------------------
+  //
+  // Read on the review page ITSELF, with no second navigation. This is the
+  // whole of defect 1, and the reason the owner said a run that navigates
+  // elsewhere to pass is not evidence.
   await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review`, { waitUntil: 'domcontentloaded' });
-  const afterLook = await bubbleOf();
-  check('5-6 opening the queue does not clear it', fromPersian((afterLook.value || '').trim()), awaiting);
-  check('5-7 and it stays red on our own screens', afterLook.bg || '-', 'rgb(214, 54, 56)');
+  const onList = await bubbleOf();
+  const afterList = unseen();
+  note(`unseen ${startUnseen} -> ${afterList} (read on the list itself)`);
+  check('5-6 the list lowered the count', Number(afterList) < Number(startUnseen), true);
+  check('5-6b and the badge on THAT page already says the new number',
+    onList.present ? fromPersian((onList.value || '').trim()) : '0', afterList);
+  check('5-7 and it is still red while there is one to draw',
+    onList.present ? (onList.bg || '-') : 'none', afterList === '0' ? 'none' : 'rgb(214, 54, 56)');
 
-  // A filter must not change it either: it is the queue, not the page.
-  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&status=draft&paged=2`, { waitUntil: 'domcontentloaded' });
+  // A filtered page agrees with the database on that same page.
+  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&status=submitted`, { waitUntil: 'domcontentloaded' });
   const filtered = await bubbleOf();
-  check('5-8 a filter does not change it', fromPersian((filtered.value || '').trim()), awaiting);
+  check('5-8 a filtered page agrees with the database, on that page',
+    filtered.present ? fromPersian((filtered.value || '').trim()) : '0', unseen());
+  note(`filtered: unseen now ${unseen()}`);
 
   // Collapsed: core puts the bubble in the submenu head, which is what shows.
-  await page.click('#collapse-menu').catch(() => null);
-  await page.waitForTimeout(300);
-  const collapsed = await page.evaluate(() => {
-    const els = [...document.querySelectorAll('#adminmenu .tmc-count')];
-    return els.filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length;
-  });
-  check('5-9 the collapsed menu still shows it', collapsed >= 1, true);
-  await page.click('#collapse-menu').catch(() => null);
-  await page.waitForTimeout(200);
+  // Asked only while there IS one to find — «it is not there» would otherwise
+  // be a pass about an empty menu.
+  if (Number(unseen()) > 0) {
+    await page.click('#collapse-menu').catch(() => null);
+    await page.waitForTimeout(300);
+    const collapsed = await page.evaluate(() => {
+      const els = [...document.querySelectorAll('#adminmenu .tmc-count')];
+      return els.filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length;
+    });
+    check('5-9 the collapsed menu still shows it', collapsed >= 1, true);
+    await page.click('#collapse-menu').catch(() => null);
+    await page.waitForTimeout(200);
+  } else {
+    note('5-9 skipped: nothing unseen to draw while collapsed');
+  }
 
-  // A decision takes one product out of the queue, and the number follows.
-  const decided = wp('db query "SELECT id FROM wp_tmc_products WHERE status = \'submitted\' ORDER BY id LIMIT 1" --skip-column-names');
-  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&product=${decided}`, { waitUntil: 'domcontentloaded' });
-  const rejectButton = page.locator('button[name="decision"][value="reject"]').first();
-  if (await rejectButton.count() > 0) {
-    await page.locator('textarea[name="note"]').first().fill('برای سنجش شمارنده — دادهٔ آزمایشی.').catch(() => null);
-    await Promise.all([page.waitForNavigation({ timeout: 30000 }).catch(() => null), rejectButton.click()]);
-    // Read on the NEXT page load, not on whatever the click left behind.
-    // `waitForNavigation` resolves on the POST's 302 and the redirected page
-    // may not have committed yet — measured: the bubble read the old number
-    // while the database already held the new one. This is also the question
-    // that matters: what a manager sees on their next screen.
+  // ---- a resubmission is exactly one new notification ---------------------
+  //
+  // The product is taken from the marks this manager actually holds. Picking
+  // one at random can land on something they never saw, and then «it became
+  // unseen again» is true of something that was never seen (`alpha.36`).
+  //
+  // And it has to be a product that is ALSO still waiting: `submit` on a
+  // marked product that has since left the queue puts it BACK, which grows the
+  // queue — measured, and it made «the queue is the size it was» fail about a
+  // fixture rather than about the code.
+  const report = badgeState('report');
+  const awaitingIds = report.split('\n')
+    .map((l) => (l.match(/^awaiting id=(\d+)/) || [])[1])
+    .filter(Boolean);
+  const marked = badgeState('marks ana').split('\n')
+    .map((l) => (l.match(/^mark user=\d+ product=(\d+)/) || [])[1])
+    .filter(Boolean)
+    .filter((id) => awaitingIds.includes(id));
+  const queueBefore = field(state('report'), 'awaiting_review');
+  const seenNow = unseen();
+  if (marked.length > 0) {
+    const target = marked[0];
+    badgeState(`submit ${target}`);
+    const resubmitted = unseen();
+    check('5-10 a resubmission adds exactly one notification',
+      Number(resubmitted) - Number(seenNow), 1);
     await page.goto(`${SITE}/wp-admin/`, { waitUntil: 'domcontentloaded' });
     const after = await bubbleOf();
-    const nowAwaiting = field(state('report'), 'awaiting_review');
-    check('5-10 a decision lowers the queue', Number(nowAwaiting) < Number(awaiting), true);
-    check('5-11 and the bubble follows it', fromPersian((after.value || '').trim()), nowAwaiting);
-    note(`awaiting: ${awaiting} -> ${nowAwaiting}`);
-    // A run that SPENDS a submitted product leaves the next run a smaller
-    // queue, and eventually none — the `alpha.12` rule. Put it back.
-    wp(`db query "UPDATE wp_tmc_products SET status = 'submitted' WHERE id = ${decided}"`);
-    note(`product ${decided} returned to the queue: ${field(state('report'), 'awaiting_review')}`);
+    check('5-11 and the bubble follows it',
+      after.present ? fromPersian((after.value || '').trim()) : '0', resubmitted);
+    check('5-12 while the review queue is the size it was',
+      field(state('report'), 'awaiting_review'), queueBefore);
+    note(`resubmitted ${target}: unseen ${seenNow} -> ${resubmitted}, queue ${queueBefore}`);
   } else {
-    check('5-10 a decision lowers the queue', 'no reject control found', 'a control');
+    check('5-10 a resubmission adds exactly one notification', 'no mark to resubmit', 'a mark');
   }
   await ctx.close();
 }
@@ -572,9 +657,9 @@ note(state('seed'));
   wp(`db query "UPDATE wp_tmc_product_revisions SET status = 'withdrawn' WHERE status = 'pending'"`);
   const { ctx, page } = await session(MANAGER);
   await page.goto(`${SITE}/wp-admin/`, { waitUntil: 'domcontentloaded' });
-  check('5-12 an empty queue draws nothing at all',
+  check('5-13 an empty queue draws nothing at all',
     await page.locator('#adminmenu .tmc-count').count(), 0);
-  check('5-13 and prints no style for it',
+  check('5-14 and prints no style for it',
     await page.locator('#tmc-menu-count').count(), 0);
   await ctx.close();
   // Put it back: a fixture that spends something has to return it.

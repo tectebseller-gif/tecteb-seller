@@ -185,10 +185,13 @@ $report = static function () use ($products, $seen, $store, $ana, $babak, $outsi
     printf("waiting=%d unseen_ana=%d unseen_babak=%d\n", $waiting, $seen->unseenCount($ana), $seen->unseenCount($babakId));
     // Which products are waiting, and under which token — the numbers the
     // browser run compares its screen against.
-    $ids = [];
-    foreach ($products->forManager(null, '', 200, 0) as $product) {
-        $ids[] = $product->id;
-    }
+    //
+    // PAGED, because `forManager()` has a `LIMIT`: a single call of 200 is the
+    // tool's page size and not the catalogue, and «every mark is still there»
+    // then reported 200 about a manager holding 624. The run that found it was
+    // the first with more products than one page (`alpha.22`'s rule, in a new
+    // place).
+    $ids = tmc_badge_all_product_ids($products);
     // Marks, counted against the products that are actually here. `alpha.36`
     // asked the store for ALL of a manager's marks; from `alpha.37` the store
     // deliberately has no such method, because a reader that returns
@@ -215,6 +218,128 @@ $report = static function () use ($products, $seen, $store, $ana, $babak, $outsi
 };
 
 switch ($command) {
+    case 'bulk':
+        // A queue BIGGER than `alpha.36`'s 500-mark cap, on a real install.
+        //
+        // The cap failed towards «unseen», which was documented and safe — and
+        // the owner found the case where safe is still wrong: with more than
+        // five hundred products waiting, reading all of them could not take the
+        // badge to nought, because recording the five-hundred-and-first dropped
+        // the first. The number below is the ONLY reason this subcommand
+        // exists, and `drop-bulk` gives every row of it back.
+        $vendor = $vendorId();
+        if ($vendor <= 0) {
+            echo "refused=1 reason=no_demo_vendor\n";
+            return;
+        }
+        $want = max(1, (int) ($argument === '' ? 600 : $argument));
+        $made = 0;
+        for ($i = 1; $i <= $want; $i++) {
+            $id = $products->create(
+                $vendor,
+                new ProductDetails(
+                    title: 'BULK-' . $i . ' قلم انبوه',
+                    type: 'simple',
+                    categoryKey: 'gloves',
+                    priceMinor: 100000,
+                    sku: 'BULK-' . $i . '-' . wp_generate_password(4, false),
+                    stock: 1
+                ),
+                ProductStatus::Draft
+            );
+            if ($id > 0 && $submit($id)) {
+                $made++;
+            }
+        }
+        printf("bulk_made=%d waiting=%d\n", $made, $products->countAwaitingReview());
+        break;
+
+    case 'drop-bulk':
+        // Everything `bulk` created, by its own prefix — and the marks that
+        // were recorded for those rows, because a mark for a product that no
+        // longer exists is a row this tool left behind.
+        $db = $c->get(\Tecteb\Marketplace\Contracts\DatabaseInterface::class);
+        $removed = 0;
+        while (true) {
+            $page = $products->forManager(null, 'BULK-', 200, 0);
+            if ($page === []) {
+                break;
+            }
+            $before = $removed;
+            foreach ($page as $product) {
+                // `deleteDraft()` is the only delete there is, and it is
+                // deliberately narrow: a submitted product is somebody's
+                // pending work. Back to draft first, which is what a vendor
+                // withdrawing their own submission does.
+                $products->updateStatus($product->id, ProductStatus::Draft, '');
+                if ($products->deleteDraft($product->id)) {
+                    // The marks for a row that is gone are rows this tool left
+                    // behind. They subtract nothing from the count — the
+                    // derived table only holds products that exist — but a
+                    // fixture tidies up after itself.
+                    $db->execute(
+                        'DELETE FROM `' . $db->prefix() . 'tmc_review_seen` WHERE product_id = %d',
+                        [$product->id]
+                    );
+                    $removed++;
+                }
+            }
+            if ($removed === $before) {
+                break;      // nothing could be removed; stop rather than loop
+            }
+        }
+        printf("bulk_removed=%d waiting=%d\n", $removed, $products->countAwaitingReview());
+        break;
+
+    case 'cost':
+        // What the count actually costs on the data that is here — MEASURED,
+        // never reasoned about. «هزینهٔ شمارش و حجم دادهٔ خوانده‌شده را روی
+        // مجموعهٔ آزمایش اندازه بگیر؛ عدد محاسباتی را نتیجهٔ اجرا معرفی نکن».
+        //
+        // `Com_select` is how many statements it took and the `Handler_read_*`
+        // counters are how many rows the storage engine actually touched, both
+        // read from the SAME session before and after. A number worked out from
+        // the query's shape would be a claim about the plan, not about the run.
+        $db = $c->get(\Tecteb\Marketplace\Contracts\DatabaseInterface::class);
+        $counters = static function () use ($db): array {
+            $out = [];
+            foreach ($db->getResults(
+                "SHOW SESSION STATUS WHERE Variable_name IN"
+                    . " ('Com_select','Handler_read_key','Handler_read_next','Handler_read_rnd_next','Handler_read_first')"
+            ) as $row) {
+                $out[(string) ($row['Variable_name'] ?? '')] = (int) ($row['Value'] ?? 0);
+            }
+            return $out;
+        };
+        $anaId = $ana;
+        $before = $counters();
+        $started = hrtime(true);
+        $answer = $seen->unseenCount($anaId);
+        $elapsed = (hrtime(true) - $started) / 1e6;
+        $after = $counters();
+        $marks = (int) $db->getVar(
+            'SELECT COUNT(*) FROM `' . $db->prefix() . 'tmc_review_seen` WHERE user_id = %d',
+            [$anaId]
+        );
+        printf(
+            "cost unseen=%d queue=%d marks=%d statements=%d rows_touched=%d elapsed_ms=%.2f\n",
+            $answer,
+            $products->countAwaitingReview(),
+            $marks,
+            // `SHOW SESSION STATUS` increments `Com_show_status`, not
+            // `Com_select`, so the delta is the count's own statements and
+            // nothing else — measured, because subtracting a reading of our
+            // own that never happened reported nought statements for a query
+            // that ran.
+            ($after['Com_select'] ?? 0) - ($before['Com_select'] ?? 0),
+            ($after['Handler_read_key'] ?? 0) - ($before['Handler_read_key'] ?? 0)
+                + ($after['Handler_read_next'] ?? 0) - ($before['Handler_read_next'] ?? 0)
+                + ($after['Handler_read_rnd_next'] ?? 0) - ($before['Handler_read_rnd_next'] ?? 0)
+                + ($after['Handler_read_first'] ?? 0) - ($before['Handler_read_first'] ?? 0),
+            $elapsed
+        );
+        break;
+
     case 'seed':
         $vendor = $vendorId();
         if ($vendor <= 0) {
@@ -316,11 +441,7 @@ switch ($command) {
 
     case 'marks':
         $id = $whoever($argument === '' ? 'ana' : $argument);
-        $here = [];
-        foreach ($products->forManager(null, '', 200, 0) as $product) {
-            $here[] = $product->id;
-        }
-        $marks = $store->marksFor($id, $here);
+        $marks = $store->marksFor($id, tmc_badge_all_product_ids($products));
         foreach ($marks as $productId => $token) {
             printf("mark user=%d product=%d token=%s\n", $id, $productId, $token);
         }
@@ -347,4 +468,24 @@ switch ($command) {
     default:
         $report();
         break;
+}
+
+/**
+ * Every product id, a page at a time.
+ *
+ * @return list<int>
+ */
+function tmc_badge_all_product_ids(
+    \Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface $products
+): array {
+    $ids = [];
+    for ($offset = 0; ; $offset += 200) {
+        $page = $products->forManager(null, '', 200, $offset);
+        if ($page === []) {
+            return $ids;
+        }
+        foreach ($page as $product) {
+            $ids[] = $product->id;
+        }
+    }
 }

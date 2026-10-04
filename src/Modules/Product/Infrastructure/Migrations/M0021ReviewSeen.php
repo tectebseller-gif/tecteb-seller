@@ -151,12 +151,24 @@ final class M0021ReviewSeen implements MigrationInterface
                     continue;
                 }
                 foreach (self::parseLegacy((string) ($row['meta_value'] ?? '')) as $productId => $mark) {
-                    $db->execute(
+                    // Checked, not fired and forgotten. An `INSERT` that fails
+                    // here carries nothing over while the step still reports
+                    // success — the half-applied shape this repository has
+                    // unpicked three times. Throwing keeps the site on schema
+                    // 20, which is `alpha.36` and works, and the upgrade gate
+                    // retries on the next admin request: `INSERT IGNORE` makes
+                    // the retry a no-op for the rows that did land.
+                    if ($db->execute(
                         "INSERT IGNORE INTO `{$table}`
                          (`user_id`, `product_id`, `submission_id`, `revision_id`, `seen_at`)
                          VALUES (%d, %d, %d, %d, %s)",
                         [$userId, $productId, $mark['submission'], $mark['revision'], $mark['at']]
-                    );
+                    ) === null) {
+                        throw new MigrationException(
+                            'migration ' . $this->id() . ' failed carrying over user ' . $userId
+                                . ' product ' . $productId . ': ' . $db->lastError()
+                        );
+                    }
                 }
             }
             if ($highest <= $after) {
@@ -209,13 +221,38 @@ final class M0021ReviewSeen implements MigrationInterface
         return $out;
     }
 
+    /**
+     * The table, and the SHAPE of it.
+     *
+     * «آیا جدولی به این نام هست» is not the question. `CREATE TABLE IF NOT
+     * EXISTS` is satisfied by any table of that name, so a site that already
+     * had one — a half-finished attempt, something another tool left — would
+     * pass an existence check and then fail every write against it. Measured:
+     * with a one-column table of this name in the way, the existence check
+     * reported the step complete and the schema moved to 21 over a table
+     * nothing could be written to.
+     *
+     * So the five columns are named and the primary key is checked. Not the
+     * types: a column that exists with a wider type still holds what this
+     * writes, and a verify that insisted on `bigint(20) unsigned` would start
+     * failing on the first MariaDB that reports it differently.
+     */
     public function verify(DatabaseInterface $db): bool
     {
-        return (int) $db->getVar(
-            'SELECT COUNT(*) FROM information_schema.TABLES
+        $table = self::table($db, self::SEEN);
+        $columns = $db->getVar(
+            'SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY COLUMN_NAME) FROM information_schema.COLUMNS
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
-            [self::table($db, self::SEEN)]
-        ) > 0;
+            [$table]
+        );
+        if ($columns !== 'product_id,revision_id,seen_at,submission_id,user_id') {
+            return false;
+        }
+        return $db->getVar(
+            'SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) FROM information_schema.STATISTICS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND INDEX_NAME = %s',
+            [$table, 'PRIMARY']
+        ) === 'user_id,product_id';
     }
 
     /** `execute()` answers with a row count, and a successful DDL affects none (`alpha.8`). */

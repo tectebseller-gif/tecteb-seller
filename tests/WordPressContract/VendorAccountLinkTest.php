@@ -10,23 +10,36 @@ use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicantDetails;
 use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
 use Tecteb\Marketplace\Modules\Vendor\Domain\VendorApplication;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffMember;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffPermissions;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffRolePreset;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffStatus;
 use Tecteb\Marketplace\Modules\Vendor\Domain\VendorProfile;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\VendorAccountLink;
 use TmcWpStubs\State;
 
 /**
- * WHAT THIS PROVES: the way into the panel from `/my-account/` exists for the
- * people who have a vendor path, says where it goes, and is one link.
+ * WHAT THIS PROVES: «ورود به پنل فروشنده» is on the account dashboard, for the
+ * people who have a vendor path, and it is printed once.
  *
  * `alpha.29` added it and asked one question — «does this person act in a shop
  * that may trade today?» That is the right question for a buyer and the wrong
- * one for the two people who need the link most: an applicant waiting for a
- * decision, and a vendor whose shop was just suspended. `storeFor()` answers
- * null for both, so neither could find the page that explains their own state.
+ * one for the people who need the link most: an applicant waiting for a
+ * decision, a vendor whose shop was just suspended, and the STAFF of that shop,
+ * who have no application of their own at all.
  *
- * The other half of this is that there must not be a SECOND link. The menu row,
- * the dashboard panel and the shortcode all ask `label()`, so they cannot
- * disagree about who is a vendor or about where the link goes.
+ * And `alpha.36` lost the button altogether. `renderPanel()` stood down
+ * whenever the menu filter had run, so on every theme that renders
+ * WooCommerce's stock navigation the dashboard printed nothing — which is what
+ * the owner reported. The menu row and the dashboard button are not duplicates
+ * of each other: one is wayfinding in a list of endpoints, the other is the
+ * call to action on the page a vendor lands on. What must not happen is the
+ * same block twice in one request, and that is what is asserted here.
+ *
+ * Nothing here is access control. `addMenuItem()` and `panel()` both ask
+ * `label()`, so the row, the button and the shortcode cannot disagree about
+ * where they go — and `/vendor/` still refuses anyone without a store on its
+ * own, which two tests state explicitly.
  */
 final class VendorAccountLinkTest extends ContractTestCase
 {
@@ -55,15 +68,16 @@ final class VendorAccountLinkTest extends ContractTestCase
             array_keys($items),
             'the row goes before «خروج», not after it'
         );
-        self::assertSame('داشبورد فروشنده', $items[VendorAccountLink::MENU_KEY]);
+        self::assertSame(VendorAccountLink::panelLabel(), $items[VendorAccountLink::MENU_KEY]);
+        self::assertSame('ورود به پنل فروشنده', VendorAccountLink::panelLabel(), 'the owner\'s words');
     }
 
     /**
      * WHAT THIS PROVES: an applicant keeps their own route, under its own name.
      *
-     * They have no shop, so «داشبورد فروشنده» would be a link that lied about
-     * where it goes — and hiding it altogether leaves the one page that shows
-     * their review status unreachable from the account they signed in to.
+     * They have no shop, so «ورود به پنل فروشنده» would be a link that lied
+     * about where it goes — and hiding it altogether leaves the one page that
+     * shows their review status unreachable from the account they signed in to.
      */
     public function testAnApplicantWithNoShopStillReachesTheirOwnPage(): void
     {
@@ -123,54 +137,188 @@ final class VendorAccountLinkTest extends ContractTestCase
     }
 
     /**
-     * WHAT THIS PROVES: there is one link, registered in three places, and the
-     * panel hook and the shortcode print the SAME block.
+     * WHAT THIS PROVES: the hook and the shortcode print the SAME block.
      *
      * Two renderers of one link are two links waiting for the day they differ —
-     * the `alpha.26` rule, applied to the thing the owner explicitly asked not
-     * to be duplicated: «ابتدا پیاده‌سازی فعلی را بررسی کن تا لینک تکراری ساخته
-     * نشود».
+     * the `alpha.26` rule. Compared across two instances, because one instance
+     * prints once: the point is that the markup is identical, not that a
+     * second call repeats it.
      */
     public function testThePanelHookAndTheShortcodePrintTheSameBlock(): void
     {
+        ob_start();
+        $this->link(profile: $this->profile())->renderPanel();
+        $printed = (string) ob_get_clean();
+
+        self::assertSame($this->link(profile: $this->profile())->shortcode(), $printed);
+        self::assertSame(1, substr_count($printed, '<a class="button"'), 'one link, not two');
+    }
+
+    /**
+     * WHAT THIS PROVES: the menu row and the dashboard button BOTH appear, one
+     * each — and the row's existence is not a reason to drop the button.
+     *
+     * «وجود پیوند در منوی حساب کاربری نباید باعث حذف دکمه در داخل داشبورد
+     * شود». `alpha.36` asserted the opposite here, which is why this test is
+     * the shape of the defect: WooCommerce's `my-account.php` renders
+     * `navigation.php` before the content, so by the time the dashboard hook
+     * ran the old guard had already decided to print nothing.
+     */
+    public function testTheMenuRowDoesNotRemoveTheDashboardButton(): void
+    {
         $link = $this->link(profile: $this->profile());
+
+        $items = $link->addMenuItem($this->menu());
+        self::assertArrayHasKey(VendorAccountLink::MENU_KEY, $items, 'the navigation row is there');
 
         ob_start();
         $link->renderPanel();
         $printed = (string) ob_get_clean();
 
-        self::assertSame($link->shortcode(), $printed);
-        self::assertSame(1, substr_count($printed, '<a class="button"'), 'one link, not two');
+        self::assertStringContainsString('ورود به پنل فروشنده', $printed, 'and so is the button');
+        self::assertSame(1, substr_count($printed, '<a class="button"'), 'one button, not two');
     }
 
     /**
-     * WHAT THIS PROVES: the menu row and the panel never both appear.
+     * WHAT THIS PROVES: the block is printed once per request, whichever of the
+     * three places gets there first.
      *
-     * Measured on the demo install: with a stock theme both fired and
-     * `/my-account/` carried «داشبورد فروشنده» twice. WooCommerce renders its
-     * navigation before the content area, so the panel can tell — and stands
-     * down. On a theme that renders no navigation the menu filter never runs
-     * and the panel is the only copy, which is the case it exists for.
+     * «دکمه در هیچ صفحه‌ای تکرار نشود». The flag is about this plugin's own
+     * output and nothing else — a site with the dashboard hook AND a pasted
+     * `[tmc_vendor_dashboard]` gets one button.
      */
-    public function testThePanelStandsDownWhenTheMenuAlreadyCarriesTheRow(): void
+    public function testTheSameBlockIsNotPrintedTwiceInOneRequest(): void
     {
         $link = $this->link(profile: $this->profile());
-        $link->addMenuItem($this->menu());
 
         ob_start();
         $link->renderPanel();
-        self::assertSame('', (string) ob_get_clean(), 'the navigation already has it');
+        $first = (string) ob_get_clean();
+        ob_start();
+        $link->renderPanel();
+        $second = (string) ob_get_clean();
 
-        self::assertNotSame('', $link->shortcode(), 'a pasted shortcode is an explicit request');
+        self::assertStringContainsString('<a class="button"', $first);
+        self::assertSame('', $second, 'the second call prints nothing');
+        self::assertSame('', $link->shortcode(), 'and neither does a shortcode after it');
+
+        // The other order: a shortcode first, then the hook.
+        $other = $this->link(profile: $this->profile());
+        self::assertStringContainsString('<a class="button"', $other->shortcode());
+        ob_start();
+        $other->renderPanel();
+        self::assertSame('', (string) ob_get_clean());
     }
 
-    public function testWithoutTheNavigationThePanelIsTheOnlyCopy(): void
+    /**
+     * WHAT THIS PROVES: a buyer's empty answer does not use up the one print.
+     *
+     * A flag set before the label was asked would let a customer's '' silence
+     * a later caller — a bug that only shows itself on a page with two of our
+     * three entry points.
+     */
+    public function testABuyersEmptyAnswerDoesNotConsumeThePrint(): void
     {
-        $link = $this->link(profile: $this->profile());
+        $link = $this->link(profile: null, application: null);
 
+        self::assertSame('', $link->shortcode());
         ob_start();
         $link->renderPanel();
-        self::assertStringContainsString('داشبورد فروشنده', (string) ob_get_clean());
+        self::assertSame('', (string) ob_get_clean());
+    }
+
+    /**
+     * WHAT THIS PROVES: staff of a suspended shop get a route, and still may do
+     * nothing.
+     *
+     * «همکار فروشگاه نیز باید مسیر ورود مناسب بر اساس عضویت و دسترسی‌های موجود
+     * خود داشته باشد» — and «نمایش دکمه نباید محدودیت فروشگاه تعلیق‌شده را دور
+     * بزند». Both halves in one test, because a link that came with a
+     * permission attached would pass the first and break the second. The
+     * membership question is `membershipFor()`, which returns a row and grants
+     * nothing (`alpha.34`).
+     */
+    public function testStaffOfASuspendedShopGetTheButtonAndStillMayDoNothing(): void
+    {
+        $staff = $this->createStub(StaffRepositoryInterface::class);
+        $staff->method('findByUser')->willReturn($this->member(StaffStatus::Active));
+        $vendors = $this->createStub(VendorRepositoryInterface::class);
+        // The employee is 9 and the SHOP is 7: `findProfileByUser(9)` must be
+        // null, or `label()` answers on the owner branch and this test passes
+        // without ever asking the membership question it is about.
+        $vendors->method('findProfileByUser')->willReturnCallback(
+            static fn (int $id): ?VendorProfile => $id === 7
+                ? new VendorProfile(1, 7, 'فروشگاه نمونه', false, false)
+                : null
+        );
+        $vendors->method('findApplicationByUser')->willReturn(null);
+
+        $container = new Container();
+        $access = new StaffAccess($staff, $vendors);
+        $container->instance(StaffAccess::class, $access);
+        $container->instance(VendorRepositoryInterface::class, $vendors);
+        State::$currentUserId = 9;
+        $link = new VendorAccountLink($container);
+
+        self::assertStringContainsString('ورود به پنل فروشنده', $link->shortcode(), 'they have a route');
+        self::assertNull($access->storeFor(9), 'and no shop they may act in');
+    }
+
+    /**
+     * WHAT THIS PROVES: so do staff of a shop that is trading normally.
+     *
+     * The ordinary case, which the suspended one would otherwise be the only
+     * evidence for: an employee with no application of their own was getting
+     * nothing at all, whatever the shop's standing.
+     */
+    public function testStaffOfATradingShopGetTheButtonToo(): void
+    {
+        $staff = $this->createStub(StaffRepositoryInterface::class);
+        $staff->method('findByUser')->willReturn($this->member(StaffStatus::Active));
+        $vendors = $this->createStub(VendorRepositoryInterface::class);
+        $vendors->method('findProfileByUser')->willReturnCallback(
+            static fn (int $id): ?VendorProfile => $id === 7
+                ? new VendorProfile(1, 7, 'فروشگاه نمونه', true, false)
+                : null
+        );
+        $vendors->method('findApplicationByUser')->willReturn(null);
+
+        $container = new Container();
+        $container->instance(StaffAccess::class, new StaffAccess($staff, $vendors));
+        $container->instance(VendorRepositoryInterface::class, $vendors);
+        State::$currentUserId = 9;
+
+        self::assertStringContainsString('ورود به پنل فروشنده', (new VendorAccountLink($container))->shortcode());
+    }
+
+    /**
+     * WHAT THIS PROVES: an INVITED member who has not accepted yet also has a
+     * page, and still no access.
+     *
+     * `membershipFor()` returns the row whatever its status, deliberately:
+     * «your place here is not active yet» is a true and useful sentence, and
+     * the page that says it is the one they cannot otherwise find.
+     */
+    public function testAnInvitedMemberHasARouteAndNoAccess(): void
+    {
+        $staff = $this->createStub(StaffRepositoryInterface::class);
+        $staff->method('findByUser')->willReturn($this->member(StaffStatus::Invited));
+        $vendors = $this->createStub(VendorRepositoryInterface::class);
+        $vendors->method('findProfileByUser')->willReturnCallback(
+            static fn (int $id): ?VendorProfile => $id === 7
+                ? new VendorProfile(1, 7, 'فروشگاه نمونه', true, false)
+                : null
+        );
+        $vendors->method('findApplicationByUser')->willReturn(null);
+
+        $container = new Container();
+        $access = new StaffAccess($staff, $vendors);
+        $container->instance(StaffAccess::class, $access);
+        $container->instance(VendorRepositoryInterface::class, $vendors);
+        State::$currentUserId = 9;
+
+        self::assertStringContainsString('ورود به پنل فروشنده', (new VendorAccountLink($container))->shortcode());
+        self::assertNull($access->storeFor(9));
     }
 
     public function testRegisteringWiresTheMenuTheEndpointThePanelAndTheShortcode(): void
@@ -189,6 +337,22 @@ final class VendorAccountLinkTest extends ContractTestCase
     private function menu(): array
     {
         return ['dashboard' => 'x', 'customer-logout' => 'y'];
+    }
+
+    private function member(StaffStatus $status): StaffMember
+    {
+        return new StaffMember(
+            1,
+            7,
+            9,
+            'همکار نمونه',
+            'demo-staff',
+            'staff@example.test',
+            '09120000000',
+            StaffRolePreset::ProductAndInventory,
+            StaffPermissions::none(),
+            $status
+        );
     }
 
     private function profile(bool $canSell = true): VendorProfile

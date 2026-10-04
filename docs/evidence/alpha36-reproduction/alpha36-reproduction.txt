@@ -1,0 +1,58 @@
+base: cbc3fd4 (Fix a duplicated ledger line in dist/DELIVERED.txt)
+installed before this script: 0.1.0-alpha.37
+ok:   the install starts on the build under test                     0.1.0-alpha.37
+
+=== the plugin directory filled with alpha.36's payload ===
+ok:   the install is now alpha.36                                    0.1.0-alpha.36
+ok:   and the old tree loads                                         loaded
+ok:   with no fatal in the probe's own bootstrap                     0
+  badge_hook=%d8%a8%d8%a7%d8%b2%d8%a7%d8%b1%da%af%d8%a7%d9%87-%d8%aa%da%a9%d8%b7%d8%a8-%db%b2%db%b1%db%b2%db%b1-%d9%85%d9%88%d8%b1%d8%af-%d8%af%d8%b1-%d8%a7%d9%86%d8%aa%d8%b8%d8%a7%d8%b1-%d8%a8%d8%b1_page_tmc-product-review
+badge before=21 after=1 menu_label=21 header_label=21 render_label=21 page_rendered=yes
+  snapshot reads=three content=old recorded=current this_seen=yes current=s2507.r0 unseen_total=21
+  cap seeded=600 queue=621 unseen_before=621 unseen_after=121 marks=500
+cap cleaned waiting=21
+
+--- item 1 on alpha.36: the number the header printed ---
+ok:   1-1 the visit really lowered the count                         yes
+ok:   1-2 but the label the header printed was the OLD number        21
+ok:   1-3 and it only caught up after the page had rendered          stale
+ok:   1-4 the page did render, so this is not a report about an empty screen yes
+
+--- item 2 on alpha.36: three reads, and a gap between them ---
+ok:   2-1 the detail path read the product and the token separately  three
+ok:   2-2 the content on screen was the older one                    old
+ok:   2-3 and the identity recorded as seen was the NEWER one        current
+ok:   2-4 so the newer submission counted as read by somebody who never saw it yes
+
+--- item 3 on alpha.36: the cap ---
+ok:   3-1 the queue really was bigger than the cap                   yes
+ok:   3-2 reading every page could not reach nought                  stuck
+ok:   3-3 because the marks were capped at five hundred              500
+
+=== alpha.37 put back, byte for byte ===
+ok:   the snapshot was not touched while it was being used           3d8eef13bf54148f201905c0bfa76f045a986e13daf2b1190eebe373e26e81e0
+ok:   the install is the build under test again                      0.1.0-alpha.37
+  badge_hook=%d8%a8%d8%a7%d8%b2%d8%a7%d8%b1%da%af%d8%a7%d9%87-%d8%aa%da%a9%d8%b7%d8%a8-%db%b2%db%b1%db%b2%db%b1-%d9%85%d9%88%d8%b1%d8%af-%d8%af%d8%b1-%d8%a7%d9%86%d8%aa%d8%b8%d8%a7%d8%b1-%d8%a8%d8%b1_page_tmc-product-review
+badge before=21 after=1 menu_label=21 header_label=1 render_label=1 page_rendered=yes
+  snapshot reads=one content=old recorded=older this_seen=no current=s3109.r0 unseen_total=22
+  cap seeded=600 queue=621 unseen_before=621 unseen_after=0 marks=621
+cap cleaned waiting=21
+
+--- item 1 after the fix ---
+ok:   1-5 the visit lowers the count                                 yes
+ok:   1-6 and the label the header prints is the NEW number          1
+ok:   1-7 the page still renders exactly once                        yes
+
+--- item 2 after the fix ---
+ok:   2-5 the detail path reads the product and the token together   one
+ok:   2-6 the content on screen is the older one, as before          old
+ok:   2-7 and the identity recorded is the one that was SHOWN        older
+ok:   2-8 so the newer submission is still a notification            no
+
+--- item 3 after the fix ---
+ok:   3-4 the same queue, the same size                              600
+ok:   3-4b and it is still past the cap                              yes
+ok:   3-5 reading every page reaches nought                          0
+ok:   3-6 and every waiting product has a mark, none dropped         621
+
+checks: 28   passed: 28   failed: 0

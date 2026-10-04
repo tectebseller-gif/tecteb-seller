@@ -133,11 +133,22 @@ const textOf = async (page) => (await page.locator('body').innerText()).replace(
 
 /** The red number on the marketplace menu, as a Latin integer, or -1 for «no bubble». */
 async function badge(page) {
-  const found = page.locator('#adminmenu a.toplevel_page_tmc-dashboard .update-count').first();
-  if ((await found.count()) === 0) {
+  // The SUBMENU row's own bubble — «نشان بررسی محصولات». Read separately from
+  // the parent's, because `alpha.37` repaints both and a reader that looked at
+  // one would pass while the other said yesterday's number.
+  return numberIn(page.locator('#adminmenu a[href*="page=tmc-product-review"] .update-count').first());
+}
+
+/** The top-level «بازارگاه تک‌طب» bubble, which is the SUM of its pages. */
+async function parentBadge(page) {
+  return numberIn(page.locator('#adminmenu a.toplevel_page_tmc-dashboard .update-count').first());
+}
+
+async function numberIn(locator) {
+  if ((await locator.count()) === 0) {
     return -1;
   }
-  return Number(fromPersian((await found.innerText()).trim()));
+  return Number(fromPersian((await locator.innerText()).trim()));
 }
 
 check('the installed package is the one under test', wp('plugin get tecteb-marketplace-core --field=version'), EXPECT);
@@ -183,17 +194,49 @@ note(`ana=${anaId} babak=${babakId} — two accounts, same role, so a difference
   check('1-7 and recorded no marks', field(state('marks ana'), 'marks'), '0');
 
   // The review LIST, with a page small enough to leave some rows out.
+  //
+  // **Everything below is read on THIS page.** `alpha.36` read the number on a
+  // later `tmc-dashboard` request, which is exactly why the owner said this
+  // file was not proof: a badge that is right one request later is a badge
+  // that was wrong on the screen that lowered it. Nothing here navigates.
   await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&status=submitted&per_page=20`, { waitUntil: 'domcontentloaded' });
+  const listUrl = page.url();
   const rowsShown = await page.locator('a[href*="&product="]').count();
+  const badgeOnList = await badge(page);
+  const parentOnList = await parentBadge(page);
   note(`rows with a «مشاهده و بررسی» link on the opened page: ${rowsShown}`);
   const afterList = state('report');
-  check('1-8 the rows that were shown are now seen', Number(field(afterList, 'unseen_ana')) < waiting, true);
+  const unseenNow = Number(field(afterList, 'unseen_ana'));
+  check('1-8 the rows that were shown are now seen', unseenNow < waiting, true);
   check('1-9 and exactly as many marks as the queue it showed',
     Number(field(state('marks ana'), 'marks')) > 0, true);
-  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-dashboard`, { waitUntil: 'domcontentloaded' });
-  const anaBadge = await badge(page);
-  check('1-10 the badge agrees with the database', anaBadge, Number(field(state('report'), 'unseen_ana')) || -1);
+  // The two numbers the owner asked for, on the page that produced them.
+  check('1-10 the submenu badge on THAT page already shows the new number',
+    badgeOnList, unseenNow === 0 ? -1 : unseenNow);
+  check('1-10b and so does the parent «بازارگاه تک‌طب»',
+    parentOnList, unseenNow === 0 ? -1 : unseenNow);
+  check('1-10c measured without going anywhere else', page.url(), listUrl);
   await page.screenshot({ path: path.join(OUT, 'screens', 'badge-after-desktop.png'), fullPage: false });
+  await ctx.close();
+}
+
+// The same, with JavaScript OFF. The fix is in the HTML that is sent, so this
+// is not a second code path to keep working — it is the measurement that says
+// so. «مسیر بدون جاوااسکریپت قابل استفاده بماند و رفتار اعلان در آن حالت
+// صریحاً توضیح و آزمایش شود»: the behaviour in that state is identical,
+// because nothing about the badge is scripted.
+{
+  state('forget ana');
+  const unseenBefore = Number(field(state('report'), 'unseen_ana'));
+  const { ctx, page } = await session(ANA, { javaScriptEnabled: false });
+  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&status=submitted&per_page=20`, { waitUntil: 'domcontentloaded' });
+  const noJsBadge = await badge(page);
+  const noJsUnseen = Number(field(state('report'), 'unseen_ana'));
+  note(`no JavaScript: unseen ${unseenBefore} -> ${noJsUnseen}, badge ${noJsBadge}`);
+  check('1-10d without JavaScript the list still records the view', noJsUnseen < unseenBefore, true);
+  check('1-10e and the badge on that same page is still right',
+    noJsBadge, noJsUnseen === 0 ? -1 : noJsUnseen);
+  await page.screenshot({ path: path.join(OUT, 'screens', 'badge-no-js-desktop.png'), fullPage: false });
   await ctx.close();
 }
 
@@ -249,19 +292,113 @@ note(`ana=${anaId} babak=${babakId} — two accounts, same role, so a difference
     after.includes(`awaiting id=${firstWaiting}`), true);
 }
 
-// Zero: the bubble is gone, and the queue is not.
+// A queue BIGGER than the old 500-mark cap — the owner's own case, on a real
+// install rather than in a test double.
+//
+// «حداقل ۶۰۰ محصول در صف — پس از مشاهدهٔ همهٔ صفحه‌ها اعلان صفر باشد و شمارش صف
+// همچنان ۶۰۰ بماند، و باز کردن صفحهٔ دیگر یا ورود دوبارهٔ کاربر، اعلان قبلی را
+// برنگرداند». On `alpha.36` this could not reach nought at all: recording the
+// five-hundred-and-first view dropped the first mark, so the red number came
+// back for submissions nobody had resubmitted.
+//
+// Guarded by TMC_BULK so an ordinary run of this file stays quick; the delivery
+// run sets it, and the result is in the evidence either way.
+if ((process.env.TMC_BULK || '') !== '') {
+  const want = Number(process.env.TMC_BULK) || 600;
+  state('forget all');
+  note(state(`bulk ${want}`));
+  const seeded = state('report');
+  const queue = Number(field(seeded, 'waiting'));
+  check('1-23 the queue really is past the old cap', queue > 500, true);
+  check('1-24 and all of it is unseen', field(seeded, 'unseen_ana'), String(queue));
+
+  const { ctx, page } = await session(ANA);
+  // Every page, a hundred at a time, as a manager working through it would.
+  let pages = 0;
+  for (let paged = 1; paged <= Math.ceil(queue / 100) + 1; paged++) {
+    await page.goto(
+      `${SITE}/wp-admin/admin.php?page=tmc-product-review&per_page=100&paged=${paged}`,
+      { waitUntil: 'domcontentloaded' },
+    );
+    pages++;
+    if (Number(field(state('report'), 'unseen_ana')) === 0) {
+      break;
+    }
+  }
+  const lastUrl = page.url();
+  const afterAll = state('report');
+  note(`${pages} page(s) of ${queue}: unseen ${queue} -> ${field(afterAll, 'unseen_ana')}`);
+  check('1-25 reading every page takes it to nought', field(afterAll, 'unseen_ana'), '0');
+  check('1-26 on that very page, with no bubble left', await badge(page), -1);
+  check('1-26b and none on the parent either', await parentBadge(page), -1);
+  check('1-26c measured without going anywhere else', page.url(), lastUrl);
+  check('1-27 and the queue is exactly as full as it was', field(afterAll, 'waiting'), String(queue));
+  // «هیچ علامتی برای سقف نیفتاد». Not `=== queue`: a mark stays for a product
+  // that has LEFT the queue — it subtracts nothing from the count, and this
+  // install carries marks from earlier sections. Measured: 726 marks against a
+  // 625-product queue, which is right and which an equality check called a
+  // failure. What matters is that the number is past the old cap and covers
+  // the whole queue, and that `1-25` already proved nothing waiting is unseen.
+  const marksHeld = Number(field(afterAll, 'marks_ana'));
+  note(`marks held: ${marksHeld} (queue ${queue}, old cap 500)`);
+  check('1-28 the marks cover the whole queue', marksHeld >= queue, true);
+  check('1-28b and there are more of them than the old cap allowed', marksHeld > 500, true);
+
+  // «باز کردن صفحهٔ دیگر» — another screen must not bring it back.
+  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-dashboard`, { waitUntil: 'domcontentloaded' });
+  check('1-29 another page does not bring the old notification back', await badge(page), -1);
+  await ctx.close();
+
+  // «ورود دوبارهٔ کاربر» — and neither does a fresh login in a fresh context.
+  const again = await session(ANA);
+  await again.page.goto(`${SITE}/wp-admin/`, { waitUntil: 'domcontentloaded' });
+  check('1-30 and nor does logging in again', await badge(again.page), -1);
+  check('1-30b with the queue still the size it was',
+    field(state('report'), 'waiting'), String(queue));
+  await again.ctx.close();
+
+  // One resubmission is exactly one notification, after all that.
+  const marks = state('marks ana').split('\n').filter((l) => l.startsWith('mark '))
+    .map((l) => field(l, 'product'));
+  const stillWaiting = state('report').split('\n').filter((l) => l.startsWith('awaiting id='))
+    .map((l) => field(l, 'id'));
+  const one = marks.find((id) => stillWaiting.includes(id));
+  check('1-31 there is a waiting product this manager has read', Boolean(one), true);
+  state(`submit ${one}`);
+  const resub = state('report');
+  check('1-32 a resubmission is exactly one new notification', field(resub, 'unseen_ana'), '1');
+  check('1-33 and the queue did not change size', field(resub, 'waiting'), String(queue));
+
+  // Measured cost, on this set: how much work the count is. Reported as a
+  // measurement and never as arithmetic — «عدد محاسباتی را نتیجهٔ اجرا معرفی
+  // نکن».
+  note(state('cost'));
+  note(state('drop-bulk'));
+} else {
+  note('1-23…1-33 skipped: set TMC_BULK=600 to run the large-queue case');
+}
+
+// Zero: the bubble is gone ON THE PAGE THAT REACHED IT, and the queue is not.
 {
   const { ctx, page } = await session(ANA);
-  // Every page of the queue, so everything waiting has been on screen.
-  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&per_page=100`, { waitUntil: 'domcontentloaded' });
-  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-dashboard`, { waitUntil: 'domcontentloaded' });
+  // Both halves of the queue: products waiting on their own status, and
+  // products carrying an unanswered proposal. The second load is the one that
+  // takes the count to nought, so the badge is read on IT — not on a later
+  // request, which is the whole complaint about the old version of this check.
+  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&status=submitted&per_page=100`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&revisions=pending&per_page=100`, { waitUntil: 'domcontentloaded' });
+  const lastUrl = page.url();
+  const zeroBadge = await badge(page);
+  const zeroStyle = await page.locator('#tmc-menu-count').count();
   const report = state('report');
   check('1-19 nothing is unseen any more', field(report, 'unseen_ana'), '0');
-  check('1-20 so no bubble is drawn at all', await badge(page), -1);
+  check('1-20 so no bubble is drawn at all, on that very page', zeroBadge, -1);
+  check('1-20b and the parent carries none either', await parentBadge(page), -1);
+  check('1-20c measured without going anywhere else', page.url(), lastUrl);
   check('1-21 and the review queue is exactly as full as it was',
     Number(field(report, 'waiting')) > 0, true);
-  check('1-22 the red rule is not printed when nothing was drawn',
-    await page.locator('#tmc-menu-count').count(), 0);
+  check('1-22 the red rule is not printed when nothing was drawn', zeroStyle, 0);
+  await page.screenshot({ path: path.join(OUT, 'screens', 'badge-zero-desktop.png'), fullPage: false });
   await ctx.close();
 }
 

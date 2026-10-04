@@ -1,0 +1,5 @@
+badge_hook=%d8%a8%d8%a7%d8%b2%d8%a7%d8%b1%da%af%d8%a7%d9%87-%d8%aa%da%a9%d8%b7%d8%a8-%db%b2%db%b1%db%b2%db%b1-%d9%85%d9%88%d8%b1%d8%af-%d8%af%d8%b1-%d8%a7%d9%86%d8%aa%d8%b8%d8%a7%d8%b1-%d8%a8%d8%b1_page_tmc-product-review
+badge before=21 after=1 menu_label=21 header_label=1 render_label=1 page_rendered=yes
+snapshot reads=one content=old recorded=older this_seen=no current=s3109.r0 unseen_total=22
+cap seeded=600 queue=621 unseen_before=621 unseen_after=0 marks=621
+cap cleaned waiting=21

@@ -7,7 +7,7 @@
  *   1. the manager's message, on the page where the vendor has to act on it
  *   2. a decided product still reachable from the manager's admin, with the
  *      marketplace status and WooCommerce's own status side by side
- *   5. «داشبورد فروشنده» on /my-account/, built from the current domain —
+ *   5. «ورود به پنل فروشنده» on /my-account/, built from the current domain —
  *      and the fact that removing the link is not what stops a stranger
  *   6. a bulk run that says what happened to every row, and why
  *   7. an attempt to reproduce the counter mismatch the owner reported
@@ -37,7 +37,7 @@ const OWNER = { login: 'tmcowner', pass: 'demo-owner-2026' };
 const T = {
   managerAsked: 'مدیر اصلاح خواسته است',
   resubmitHint: 'ارسال برای بررسی',
-  dashboardLink: 'داشبورد فروشنده',
+  dashboardLink: 'ورود به پنل فروشنده',
   catalogue: 'همهٔ محصولات بازارگاه',
   wcStatusColumn: 'وضعیت ووکامرس',
   bulkResult: 'نتیجهٔ',
