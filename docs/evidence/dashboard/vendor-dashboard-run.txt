@@ -1,15 +1,15 @@
 ok:   the installed package is the one under test                        0.1.0-alpha.37
 ok:   and its schema is the one this round ships                         21
-      stage=report published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=37 applicant_status=rejected
+      stage=report published=53 submitted=19 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=20 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=39 applicant_status=rejected
 ok:   1-1 the shop is named at the top                                   true
 ok:   1-2 «افزودن محصول» is there                                        true
 ok:   1-3 and «مشاهده فروشگاه», because the shop has a page              true
       storefront link: http://127.0.0.1:8081/?tmc_store=2
 ok:   1-4 and that link is a page, not a 404                             200
 ok:   1-5 the «published» card matches the database                      53
-ok:   1-5 the «submitted» card matches the database                      20
+ok:   1-5 the «submitted» card matches the database                      19
 ok:   1-5 the «changes_requested» card matches the database              1
-ok:   1-5 the «draft» card matches the database                          20
+ok:   1-5 the «draft» card matches the database                          21
 ok:   1-6 every card is a link into the list                             4
 ok:   1-7 «نیازمند اقدام» is on the page                                 true
 ok:   1-8 with the manager's own sentence                                true
@@ -17,7 +17,7 @@ ok:   1-9 and a way to the product it is about                           true
 ok:   1-10 the section wears the warning edge only because there is work 1
 ok:   1-11 «منتظر تصمیم مدیر» is its own section                         true
 ok:   1-12 and it carries no buttons                                     0
-ok:   1-13 the submitted count is the one the database has               20
+ok:   1-13 the submitted count is the one the database has               19
 ok:   1-14 the paperwork is a closed disclosure                          1
 ok:   1-15 and it starts closed                                          0
 ok:   1-16 with the file as a small link inside it                       1
@@ -45,24 +45,24 @@ ok:   2-8 and the form stays read-only                                   1
 ok:   2-9 with no save button                                            false
 ok:   2-10 the menu calls it a file, not a request                       1
       reset=ok
-stage=reset published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=0 applicant_status=-
-      applicant=38 draft=ok document=doc=ok submit=ok
+stage=reset published=53 submitted=19 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=20 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=0 applicant_status=-
+      applicant=40 draft=ok document=doc=ok submit=ok
 sent_back=8 code=already note_recorded=yes
-stage=seed published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=38 applicant_status=submitted
+stage=seed published=53 submitted=19 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=20 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=40 applicant_status=submitted
 ok:   2-11 a submitted application IS «در نوبت بررسی»                    true
 ok:   2-12 and says it is a request, not a file                          true
       applicant_moved=changes_requested ok=yes
-stage=applicant-changes_requested published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=38 applicant_status=changes_requested
+stage=applicant-changes_requested published=53 submitted=19 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=20 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=40 applicant_status=changes_requested
 ok:   2-13 a correction shows the manager's reason on the existing path  true
 ok:   2-14 with the manager's own words                                  true
 ok:   2-15 and the form is editable again                                true
       reset=ok
-stage=reset published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=0 applicant_status=-
-      applicant=39 draft=ok document=doc=ok submit=ok
+stage=reset published=53 submitted=19 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=20 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=0 applicant_status=-
+      applicant=41 draft=ok document=doc=ok submit=ok
 sent_back=8 code=already note_recorded=yes
-stage=seed published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=39 applicant_status=submitted
+stage=seed published=53 submitted=19 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=20 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=41 applicant_status=submitted
       applicant_moved=rejected ok=yes
-stage=applicant-rejected published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=39 applicant_status=rejected
+stage=applicant-rejected published=53 submitted=19 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=20 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=41 applicant_status=rejected
 ok:   2-16 a rejection has its own heading                               true
 ok:   2-17 and is not described as being under review                    false
 ok:   2-18 the dashboard still opens for them                            200
@@ -84,7 +84,7 @@ ok:   4-2 which starts closed                                            0
 ok:   4-3 the search and «افزودن محصول» are the top row                  true
 ok:   4-4 above the status filters                                       true
 ok:   4-4b and the CSV control is below the products                     true
-      layout: {"searchAndAddShareARow":true,"searchAboveFilters":true,"csvBelowProducts":true,"csvIsLast":true,"searchTop":365,"csvTop":5627,"listBottom":5524}
+      layout: {"searchAndAddShareARow":true,"searchAboveFilters":true,"csvBelowProducts":true,"csvIsLast":true,"searchTop":365,"csvTop":5567,"listBottom":5464}
 ok:   4-4c opening it does not move the search                           365
 ok:   4-4d nor the first product                                         844
       before/after open: {"before":{"search":365,"firstProduct":844},"after":{"search":365,"firstProduct":844}}
@@ -103,7 +103,7 @@ ok:   4-15 and a row for each of this shop's products                    true
 ok:   4-16 and nothing was written                                       130
       forgot=ana id=1 ok=yes
 ana=1 babak=28 outsider=29 vendor=2
-waiting=21 unseen_ana=21 unseen_babak=21
+waiting=20 unseen_ana=20 unseen_babak=20
 marks_ana=0 marks_babak=0
 awaiting id=194 token=s0.r390
 awaiting id=155 token=s0.r0
@@ -125,7 +125,7 @@ awaiting id=144 token=s55.r387
 awaiting id=145 token=s60.r0
 awaiting id=150 token=s65.r0
 awaiting id=7 token=s0.r0
-awaiting id=1 token=s4921.r0
+product id=1 status=draft wc=20 shop_status=draft title=عنوان تازهٔ فروشنده 200655
 product id=4450 status=archived wc=- shop_status=- title=(empty)
 product id=4449 status=archived wc=- shop_status=- title=ترمومتر تماسی دیجیتال
 product id=4448 status=archived wc=92 shop_status=draft title=دستکش نیتریل بدون پودر
@@ -154,7 +154,6 @@ product id=202 status=archived wc=- shop_status=- title=(empty)
 product id=201 status=archived wc=- shop_status=- title=ترمومتر تماسی دیجیتال
 product id=200 status=archived wc=- shop_status=- title=دستکش نیتریل بدون پودر
 product id=199 status=archived wc=- shop_status=- title=ماسک N95 پنج‌لایه
-product id=1 status=submitted wc=20 shop_status=draft title=عنوان تازهٔ فروشنده 200655
 product id=7 status=submitted wc=25 shop_status=draft title=عنوان تازهٔ فروشنده 115703
 product id=150 status=submitted wc=- shop_status=- title=کالای فهرست 009
 product id=145 status=submitted wc=- shop_status=- title=کالای فهرست 004
@@ -257,26 +256,26 @@ product id=6 status=draft wc=- shop_status=- title=(empty)
 product id=5 status=draft wc=83 shop_status=draft title=(empty)
 product id=4 status=draft wc=24 shop_status=draft title=(empty)
 ok:   5-0 this is wp-admin, with a menu to hang a badge on               1
-      bubble: {"present":true,"value":"۲۱","sr":"۲۱ مورد در انتظار بررسی","bg":"rgb(214, 54, 56)","visible":true,"count":3}
+      bubble: {"present":true,"value":"۲۰","sr":"۲۰ مورد در انتظار بررسی","bg":"rgb(214, 54, 56)","visible":true,"count":3}
 ok:   5-1 the count is drawn                                             true
-ok:   5-2 and matches what the database says this manager has not seen   21
+ok:   5-2 and matches what the database says this manager has not seen   20
 ok:   5-3 it is red, not core's blue                                     rgb(214, 54, 56)
 ok:   5-4 with a sentence for a screen reader                            true
 ok:   5-5 on the top-level item and the submenu                          true
-      unseen 21 -> 21 (read on the list itself)
-FAIL: 5-6 the list lowered the count                                     expected=true actual=false
-ok:   5-6b and the badge on THAT page already says the new number        21
+      unseen 20 -> 1 (read on the list itself)
+ok:   5-6 the list lowered the count                                     true
+ok:   5-6b and the badge on THAT page already says the new number        1
 ok:   5-7 and it is still red while there is one to draw                 rgb(214, 54, 56)
-ok:   5-8 a filtered page agrees with the database, on that page         1
-      filtered: unseen now 1
+ok:   5-8 another page agrees with the database, on that page            1
+      default list: unseen now 1
 ok:   5-9 the collapsed menu still shows it                              true
 ok:   5-10 a resubmission adds exactly one notification                  1
 ok:   5-11 and the bubble follows it                                     2
-ok:   5-12 while the review queue is the size it was                     21
-      resubmitted 1: unseen 1 -> 2, queue 21
+ok:   5-12 while the review queue is the size it was                     20
+      resubmitted 7: unseen 1 -> 2, queue 20
 ok:   5-13 an empty queue draws nothing at all                           0
 ok:   5-14 and prints no style for it                                    0
-      queue restored to 21
+      queue restored to 20
       shop: shop=suspend ok=yes status=suspended can_sell=no
 ok:   6-1 the staff member reaches a vendor screen                       true
 ok:   6-2 and is NOT invited to register                                 false
@@ -301,4 +300,4 @@ ok:   6-18 and still no invitation to register                           false
 ok:   6-19 the counters are back                                         4
 ok:   6-20 and the access list stands down                               false
 
-checks: 116 passed, 1 failed
+checks: 117 passed, 0 failed

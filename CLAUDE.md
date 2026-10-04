@@ -102,7 +102,7 @@ packaging ۱۹ · lint **۴۹۷** فایل روی ۸٫۴ و ۸٫۱ · contrast �
 (هر سه نقص روی بایت‌های `alpha.36`)، `upgrade-alpha36-check.sh` **۷۸**
 (`36→37` و `35→37`، به‌علاوهٔ شکست و ازسرگیری migration)،
 `badge-header-run.mjs` **۱۱۴** (با `TMC_BULK=600`)،
-`vendor-dashboard-run.mjs` **۱۱۶** — همه ۰ شکست.
+`vendor-dashboard-run.mjs` **۱۱۷** و `review-flow-run.mjs` **۲۴** — همه ۰ شکست.
 
 **شش قاعدهٔ تازه:**
 - **مسئله‌ای که شبیه کش است، ممکن است ترتیب باشد — و ترتیبِ هسته را بخوانید.**
