@@ -576,7 +576,18 @@ note(state('seed'));
   // Read on the review page ITSELF, with no second navigation. This is the
   // whole of defect 1, and the reason the owner said a run that navigates
   // elsewhere to pass is not evidence.
-  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review`, { waitUntil: 'domcontentloaded' });
+  // The QUEUE, in one page — not the default list.
+  //
+  // The default list is every product sorted by last change, and on this
+  // install the twenty most recent are published ones: the page showed nothing
+  // waiting, `unseen 21 -> 21` was correct, and «the list lowered the count»
+  // failed about a page that had nothing to lower. Measured, and the same trap
+  // the probe fell into. A check whose precondition does not hold refutes
+  // nothing — so the page this opens is the one the claim is about.
+  await page.goto(
+    `${SITE}/wp-admin/admin.php?page=tmc-product-review&status=submitted&per_page=100`,
+    { waitUntil: 'domcontentloaded' },
+  );
   const onList = await bubbleOf();
   const afterList = unseen();
   note(`unseen ${startUnseen} -> ${afterList} (read on the list itself)`);
@@ -586,12 +597,15 @@ note(state('seed'));
   check('5-7 and it is still red while there is one to draw',
     onList.present ? (onList.bg || '-') : 'none', afterList === '0' ? 'none' : 'rgb(214, 54, 56)');
 
-  // A filtered page agrees with the database on that same page.
-  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&status=submitted`, { waitUntil: 'domcontentloaded' });
+  // A different page agrees with the database too — the default list, whose
+  // rows may or may not be waiting. The claim here is only «the number on
+  // whatever page is open is the database's», which is the part that holds
+  // regardless of what the page happened to show.
+  await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review`, { waitUntil: 'domcontentloaded' });
   const filtered = await bubbleOf();
-  check('5-8 a filtered page agrees with the database, on that page',
+  check('5-8 another page agrees with the database, on that page',
     filtered.present ? fromPersian((filtered.value || '').trim()) : '0', unseen());
-  note(`filtered: unseen now ${unseen()}`);
+  note(`default list: unseen now ${unseen()}`);
 
   // Collapsed: core puts the bubble in the submenu head, which is what shows.
   // Asked only while there IS one to find — «it is not there» would otherwise

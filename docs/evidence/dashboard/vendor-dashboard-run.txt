@@ -1,15 +1,15 @@
-ok:   the installed package is the one under test                        0.1.0-alpha.35
-ok:   and its schema is the one this round ships                         20
-      stage=report published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=25 applicant_status=rejected
+ok:   the installed package is the one under test                        0.1.0-alpha.37
+ok:   and its schema is the one this round ships                         21
+      stage=report published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=37 applicant_status=rejected
 ok:   1-1 the shop is named at the top                                   true
 ok:   1-2 «افزودن محصول» is there                                        true
 ok:   1-3 and «مشاهده فروشگاه», because the shop has a page              true
       storefront link: http://127.0.0.1:8081/?tmc_store=2
 ok:   1-4 and that link is a page, not a 404                             200
-ok:   1-5 the «published» card matches the database                      54
-ok:   1-5 the «submitted» card matches the database                      18
+ok:   1-5 the «published» card matches the database                      53
+ok:   1-5 the «submitted» card matches the database                      20
 ok:   1-5 the «changes_requested» card matches the database              1
-ok:   1-5 the «draft» card matches the database                          21
+ok:   1-5 the «draft» card matches the database                          20
 ok:   1-6 every card is a link into the list                             4
 ok:   1-7 «نیازمند اقدام» is on the page                                 true
 ok:   1-8 with the manager's own sentence                                true
@@ -17,7 +17,7 @@ ok:   1-9 and a way to the product it is about                           true
 ok:   1-10 the section wears the warning edge only because there is work 1
 ok:   1-11 «منتظر تصمیم مدیر» is its own section                         true
 ok:   1-12 and it carries no buttons                                     0
-ok:   1-13 the submitted count is the one the database has               18
+ok:   1-13 the submitted count is the one the database has               20
 ok:   1-14 the paperwork is a closed disclosure                          1
 ok:   1-15 and it starts closed                                          0
 ok:   1-16 with the file as a small link inside it                       1
@@ -45,41 +45,46 @@ ok:   2-8 and the form stays read-only                                   1
 ok:   2-9 with no save button                                            false
 ok:   2-10 the menu calls it a file, not a request                       1
       reset=ok
-stage=reset published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=0 applicant_status=-
-      applicant=26 draft=ok document=doc=ok submit=ok
+stage=reset published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=0 applicant_status=-
+      applicant=38 draft=ok document=doc=ok submit=ok
 sent_back=8 code=already note_recorded=yes
-stage=seed published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=26 applicant_status=submitted
+stage=seed published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=38 applicant_status=submitted
 ok:   2-11 a submitted application IS «در نوبت بررسی»                    true
 ok:   2-12 and says it is a request, not a file                          true
       applicant_moved=changes_requested ok=yes
-stage=applicant-changes_requested published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=26 applicant_status=changes_requested
+stage=applicant-changes_requested published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=38 applicant_status=changes_requested
 ok:   2-13 a correction shows the manager's reason on the existing path  true
 ok:   2-14 with the manager's own words                                  true
 ok:   2-15 and the form is editable again                                true
       reset=ok
-stage=reset published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=0 applicant_status=-
-      applicant=27 draft=ok document=doc=ok submit=ok
+stage=reset published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=0 applicant_status=-
+      applicant=39 draft=ok document=doc=ok submit=ok
 sent_back=8 code=already note_recorded=yes
-stage=seed published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=27 applicant_status=submitted
+stage=seed published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=39 applicant_status=submitted
       applicant_moved=rejected ok=yes
-stage=applicant-rejected published=54 submitted=18 changes_requested=1 draft=21 can_sell=yes publish_directly=no awaiting_review=19 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=27 applicant_status=rejected
+stage=applicant-rejected published=53 submitted=20 changes_requested=1 draft=20 can_sell=yes publish_directly=no awaiting_review=21 needs_work_id=8 needs_work_note=تصویر_دوم_تار_است_و_برگهٔ_استاندارد_پیوست_نشده. applicant_user=39 applicant_status=rejected
 ok:   2-16 a rejection has its own heading                               true
 ok:   2-17 and is not described as being under review                    false
 ok:   2-18 the dashboard still opens for them                            200
-ok:   3-1 a vendor finds «داشبورد فروشنده» on my-account                 true
+ok:   3-1 a vendor finds «ورود به پنل فروشنده» on my-account             true
       my-account link: http://127.0.0.1:8081/vendor/
 ok:   3-2 and it goes to the panel, not to a 404                         200
-ok:   3-3 it is one link, not two                                        1
+ok:   3-3 the dashboard button is there, exactly once                    1
+      my-account: 1 button(s), 1 navigation row(s)
+ok:   3-3b and the navigation row did not remove it                      true
 ok:   3-4 an applicant gets their own route under its own name           true
 ok:   3-5 and is not promised a dashboard they have no shop for          false
 ok:   3-6 a plain customer is not a vendor                               false
 ok:   3-7 and gets no applicant row either                               false
+ok:   3-8 and no block of ours at all                                    0
+ok:   3-9 a shop employee gets the button too                            1
+ok:   3-10 and it opens the panel for them                               200
 ok:   4-1 the CSV tools are a closed disclosure                          1
 ok:   4-2 which starts closed                                            0
 ok:   4-3 the search and «افزودن محصول» are the top row                  true
 ok:   4-4 above the status filters                                       true
 ok:   4-4b and the CSV control is below the products                     true
-      layout: {"searchAndAddShareARow":true,"searchAboveFilters":true,"csvBelowProducts":true,"csvIsLast":true,"searchTop":365,"csvTop":4411,"listBottom":4308}
+      layout: {"searchAndAddShareARow":true,"searchAboveFilters":true,"csvBelowProducts":true,"csvIsLast":true,"searchTop":365,"csvTop":5627,"listBottom":5524}
 ok:   4-4c opening it does not move the search                           365
 ok:   4-4d nor the first product                                         844
       before/after open: {"before":{"search":365,"firstProduct":844},"after":{"search":365,"firstProduct":844}}
@@ -95,25 +100,183 @@ ok:   4-13 and both forms with it                                        true
 ok:   4-14 the export carries the id and status columns                  true
 ok:   4-15 and a row for each of this shop's products                    true
       export header: ﻿"id","status","sku","title","type","category","brand","short_description","price","sale_price","sale_from","sale_to","s
-ok:   4-16 and nothing was written                                       102
+ok:   4-16 and nothing was written                                       130
+      forgot=ana id=1 ok=yes
+ana=1 babak=28 outsider=29 vendor=2
+waiting=21 unseen_ana=21 unseen_babak=21
+marks_ana=0 marks_babak=0
+awaiting id=194 token=s0.r390
+awaiting id=155 token=s0.r0
+awaiting id=160 token=s0.r0
+awaiting id=165 token=s0.r0
+awaiting id=170 token=s0.r0
+awaiting id=16 token=s0.r0
+awaiting id=168 token=s0.r0
+awaiting id=163 token=s0.r0
+awaiting id=158 token=s0.r0
+awaiting id=153 token=s0.r0
+awaiting id=148 token=s0.r0
+awaiting id=143 token=s0.r0
+awaiting id=50 token=s0.r0
+awaiting id=19 token=s0.r0
+awaiting id=9 token=s0.r0
+awaiting id=35 token=s48.r0
+awaiting id=144 token=s55.r387
+awaiting id=145 token=s60.r0
+awaiting id=150 token=s65.r0
+awaiting id=7 token=s0.r0
+awaiting id=1 token=s4921.r0
+product id=4450 status=archived wc=- shop_status=- title=(empty)
+product id=4449 status=archived wc=- shop_status=- title=ترمومتر تماسی دیجیتال
+product id=4448 status=archived wc=92 shop_status=draft title=دستکش نیتریل بدون پودر
+product id=4447 status=archived wc=- shop_status=- title=ماسک N95 پنج‌لایه
+product id=3846 status=archived wc=- shop_status=- title=(empty)
+product id=3845 status=archived wc=- shop_status=- title=ترمومتر تماسی دیجیتال
+product id=3844 status=archived wc=91 shop_status=draft title=دستکش نیتریل بدون پودر
+product id=3843 status=archived wc=- shop_status=- title=ماسک N95 پنج‌لایه
+product id=219 status=archived wc=- shop_status=- title=(empty)
+product id=218 status=archived wc=- shop_status=- title=ترمومتر تماسی دیجیتال
+product id=217 status=archived wc=90 shop_status=draft title=دستکش نیتریل بدون پودر
+product id=216 status=archived wc=- shop_status=- title=ماسک N95 پنج‌لایه
+product id=214 status=archived wc=- shop_status=- title=(empty)
+product id=213 status=archived wc=- shop_status=- title=ترمومتر تماسی دیجیتال
+product id=212 status=archived wc=88 shop_status=draft title=دستکش نیتریل بدون پودر
+product id=211 status=archived wc=- shop_status=- title=ماسک N95 پنج‌لایه
+product id=210 status=archived wc=- shop_status=- title=(empty)
+product id=209 status=archived wc=- shop_status=- title=ترمومتر تماسی دیجیتال
+product id=208 status=archived wc=87 shop_status=draft title=دستکش نیتریل بدون پودر
+product id=207 status=archived wc=- shop_status=- title=ماسک N95 پنج‌لایه
+product id=206 status=archived wc=- shop_status=- title=(empty)
+product id=205 status=archived wc=- shop_status=- title=ترمومتر تماسی دیجیتال
+product id=204 status=archived wc=86 shop_status=draft title=دستکش نیتریل بدون پودر
+product id=203 status=archived wc=- shop_status=- title=ماسک N95 پنج‌لایه
+product id=202 status=archived wc=- shop_status=- title=(empty)
+product id=201 status=archived wc=- shop_status=- title=ترمومتر تماسی دیجیتال
+product id=200 status=archived wc=- shop_status=- title=دستکش نیتریل بدون پودر
+product id=199 status=archived wc=- shop_status=- title=ماسک N95 پنج‌لایه
+product id=1 status=submitted wc=20 shop_status=draft title=عنوان تازهٔ فروشنده 200655
+product id=7 status=submitted wc=25 shop_status=draft title=عنوان تازهٔ فروشنده 115703
+product id=150 status=submitted wc=- shop_status=- title=کالای فهرست 009
+product id=145 status=submitted wc=- shop_status=- title=کالای فهرست 004
+product id=144 status=submitted wc=64 shop_status=draft title=کالای فهرست 003
+product id=195 status=draft wc=- shop_status=- title=(empty)
+product id=35 status=submitted wc=50 shop_status=draft title=عنوان ه 121942
+product id=194 status=published wc=82 shop_status=publish title=عنوانی که مدیر در ووکامرس نوشته
+product id=193 status=published wc=81 shop_status=publish title=عنوان تازهٔ فروشنده 121901
+product id=192 status=published wc=80 shop_status=publish title=محصول نسخهٔ قدیمی
+product id=191 status=published wc=79 shop_status=publish title=عنوانی که مدیر در ووکامرس نوشته
+product id=31 status=published wc=46 shop_status=publish title=عنوان ه 121839
+product id=190 status=published wc=78 shop_status=publish title=عنوانی که مدیر در ووکامرس نوشته
+product id=189 status=published wc=77 shop_status=publish title=عنوان تازهٔ فروشنده 121731
+product id=188 status=published wc=76 shop_status=publish title=محصول نسخهٔ قدیمی
+product id=187 status=published wc=75 shop_status=publish title=عنوانی که مدیر در ووکامرس نوشته
+product id=30 status=published wc=45 shop_status=publish title=عنوان ه 121711
+product id=186 status=published wc=74 shop_status=publish title=عنوانی که مدیر در ووکامرس نوشته
+product id=29 status=published wc=44 shop_status=publish title=عنوان تازهٔ فروشنده 121647
+product id=28 status=published wc=43 shop_status=publish title=عنوان ویرایش‌شدهٔ مدیر 121646
+product id=27 status=published wc=42 shop_status=publish title=عنوانی که مدیر وسط بررسی اصلاح کرد 102812
+product id=20 status=published wc=36 shop_status=publish title=عنوان ه 102809
+product id=26 status=published wc=41 shop_status=publish title=عنوان ه 102808
+product id=24 status=published wc=40 shop_status=publish title=عنوان ه 102806
+product id=23 status=published wc=39 shop_status=publish title=عنوان ه 102805
+product id=22 status=published wc=38 shop_status=publish title=عنوان ه 102804
+product id=21 status=published wc=37 shop_status=publish title=عنوانی که مدیر وسط بررسی اصلاح کرد 121635
+product id=17 status=published wc=33 shop_status=publish title=عنوان ه 102801
+product id=42 status=published wc=56 shop_status=publish title=عنوانی که مدیر وسط بررسی اصلاح کرد 121632
+product id=40 status=published wc=55 shop_status=publish title=عنوانی که مدیر وسط بررسی اصلاح کرد 121630
+product id=15 status=published wc=31 shop_status=publish title=عنوانی که مدیر وسط بررسی اصلاح کرد 121629
+product id=39 status=published wc=54 shop_status=publish title=عنوان تازهٔ فروشنده 144347
+product id=12 status=published wc=30 shop_status=publish title=عنوانی که مدیر وسط بررسی اصلاح کرد 121626
+product id=11 status=published wc=29 shop_status=publish title=عنوان ه 121623
+product id=10 status=published wc=28 shop_status=publish title=عنوان ه 121621
+product id=34 status=published wc=49 shop_status=publish title=عنوان ه 121620
+product id=33 status=published wc=48 shop_status=publish title=عنوان ه 121619
+product id=32 status=published wc=47 shop_status=publish title=عنوان ه 121618
+product id=38 status=published wc=53 shop_status=publish title=عنوان ه 121616
+product id=37 status=published wc=52 shop_status=publish title=عنوان ه 121615
+product id=182 status=published wc=73 shop_status=publish title=عنوان تازهٔ فروشنده 102723
+product id=36 status=published wc=51 shop_status=publish title=عنوانی که مدیر وسط بررسی اصلاح کرد 102820
+product id=181 status=published wc=72 shop_status=publish title=محصول نسخهٔ قدیمی
+product id=180 status=published wc=71 shop_status=publish title=عنوانی که مدیر در ووکامرس نوشته
+product id=179 status=published wc=70 shop_status=publish title=عنوانی که مدیر در ووکامرس نوشته
+product id=178 status=draft wc=- shop_status=- title=(empty)
+product id=8 status=changes_requested wc=26 shop_status=draft title=عنوان تازهٔ فروشنده 121109
+product id=9 status=submitted wc=27 shop_status=draft title=عنوان ه 144617
+product id=19 status=submitted wc=35 shop_status=draft title=عنوان ه 155847
+product id=50 status=submitted wc=63 shop_status=draft title=عنوان تازهٔ فروشنده 161219
+product id=3 status=archived wc=22 shop_status=draft title=عنوان تازهٔ فروشنده 192412
+product id=143 status=submitted wc=- shop_status=- title=کالای فهرست 002
+product id=148 status=submitted wc=- shop_status=- title=کالای فهرست 007
+product id=2 status=archived wc=21 shop_status=draft title=عنوان تازهٔ فروشنده 180315
+product id=153 status=submitted wc=- shop_status=- title=کالای فهرست 012
+product id=158 status=submitted wc=- shop_status=- title=کالای فهرست 017
+product id=163 status=submitted wc=- shop_status=- title=کالای فهرست 022
+product id=168 status=submitted wc=- shop_status=- title=کالای فهرست 027
+product id=16 status=submitted wc=32 shop_status=draft title=عنوان ه 195621
+product id=177 status=draft wc=- shop_status=- title=(empty)
+product id=176 status=draft wc=- shop_status=- title=(empty)
+product id=175 status=published wc=69 shop_status=publish title=عنوانی که مدیر در ووکامرس نوشته
+product id=174 status=published wc=68 shop_status=publish title=عنوان تازهٔ فروشنده 195536
+product id=173 status=published wc=67 shop_status=publish title=محصول نسخهٔ قدیمی
+product id=172 status=published wc=66 shop_status=publish title=عنوانی که مدیر در ووکامرس نوشته
+product id=171 status=archived wc=- shop_status=- title=کالای فهرست 030
+product id=170 status=submitted wc=- shop_status=- title=کالای فهرست 029
+product id=169 status=published wc=- shop_status=- title=کالای فهرست 028
+product id=167 status=draft wc=- shop_status=- title=کالای فهرست 026
+product id=166 status=archived wc=- shop_status=- title=کالای فهرست 025
+product id=165 status=submitted wc=- shop_status=- title=کالای فهرست 024
+product id=164 status=published wc=- shop_status=- title=کالای فهرست 023
+product id=162 status=draft wc=- shop_status=- title=کالای فهرست 021
+product id=161 status=archived wc=- shop_status=- title=کالای فهرست 020
+product id=160 status=submitted wc=- shop_status=- title=کالای فهرست 019
+product id=159 status=published wc=- shop_status=- title=کالای فهرست 018
+product id=157 status=draft wc=- shop_status=- title=کالای فهرست 016
+product id=156 status=archived wc=- shop_status=- title=کالای فهرست 015
+product id=155 status=submitted wc=- shop_status=- title=کالای فهرست 014
+product id=154 status=published wc=- shop_status=- title=کالای فهرست 013
+product id=152 status=draft wc=- shop_status=- title=کالای فهرست 011
+product id=151 status=archived wc=- shop_status=- title=کالای فهرست 010
+product id=149 status=published wc=65 shop_status=draft title=کالای فهرست 008
+product id=147 status=draft wc=- shop_status=- title=کالای فهرست 006
+product id=146 status=archived wc=- shop_status=- title=کالای فهرست 005
+product id=142 status=draft wc=- shop_status=- title=کالای فهرست 001
+product id=51 status=draft wc=- shop_status=- title=(empty)
+product id=49 status=published wc=62 shop_status=publish title=محصول نسخهٔ قدیمی
+product id=48 status=published wc=61 shop_status=publish title=عنوانی که مدیر در ووکامرس نوشته
+product id=47 status=published wc=60 shop_status=publish title=عنوانی که مدیر در ووکامرس نوشته
+product id=46 status=draft wc=- shop_status=- title=(empty)
+product id=45 status=published wc=59 shop_status=publish title=عنوانی که مدیر در ووکامرس نوشته
+product id=44 status=published wc=58 shop_status=publish title=عنوان تازهٔ فروشنده 155829
+product id=43 status=published wc=57 shop_status=publish title=محصول نسخهٔ قدیمی
+product id=41 status=draft wc=- shop_status=- title=(empty)
+product id=25 status=draft wc=- shop_status=- title=(empty)
+product id=18 status=draft wc=- shop_status=- title=(empty)
+product id=14 status=draft wc=- shop_status=- title=(empty)
+product id=13 status=draft wc=- shop_status=- title=(empty)
+product id=6 status=draft wc=- shop_status=- title=(empty)
+product id=5 status=draft wc=83 shop_status=draft title=(empty)
+product id=4 status=draft wc=24 shop_status=draft title=(empty)
 ok:   5-0 this is wp-admin, with a menu to hang a badge on               1
-      bubble: {"present":true,"value":"۱۹","sr":"۱۹ مورد در انتظار بررسی","bg":"rgb(214, 54, 56)","visible":true,"count":3}
+      bubble: {"present":true,"value":"۲۱","sr":"۲۱ مورد در انتظار بررسی","bg":"rgb(214, 54, 56)","visible":true,"count":3}
 ok:   5-1 the count is drawn                                             true
-ok:   5-2 and matches the database                                       19
+ok:   5-2 and matches what the database says this manager has not seen   21
 ok:   5-3 it is red, not core's blue                                     rgb(214, 54, 56)
 ok:   5-4 with a sentence for a screen reader                            true
 ok:   5-5 on the top-level item and the submenu                          true
-ok:   5-6 opening the queue does not clear it                            19
-ok:   5-7 and it stays red on our own screens                            rgb(214, 54, 56)
-ok:   5-8 a filter does not change it                                    19
+      unseen 21 -> 21 (read on the list itself)
+FAIL: 5-6 the list lowered the count                                     expected=true actual=false
+ok:   5-6b and the badge on THAT page already says the new number        21
+ok:   5-7 and it is still red while there is one to draw                 rgb(214, 54, 56)
+ok:   5-8 a filtered page agrees with the database, on that page         1
+      filtered: unseen now 1
 ok:   5-9 the collapsed menu still shows it                              true
-ok:   5-10 a decision lowers the queue                                   true
-ok:   5-11 and the bubble follows it                                     18
-      awaiting: 19 -> 18
-      product 7 returned to the queue: 19
-ok:   5-12 an empty queue draws nothing at all                           0
-ok:   5-13 and prints no style for it                                    0
-      queue restored to 19
+ok:   5-10 a resubmission adds exactly one notification                  1
+ok:   5-11 and the bubble follows it                                     2
+ok:   5-12 while the review queue is the size it was                     21
+      resubmitted 1: unseen 1 -> 2, queue 21
+ok:   5-13 an empty queue draws nothing at all                           0
+ok:   5-14 and prints no style for it                                    0
+      queue restored to 21
       shop: shop=suspend ok=yes status=suspended can_sell=no
 ok:   6-1 the staff member reaches a vendor screen                       true
 ok:   6-2 and is NOT invited to register                                 false
@@ -138,4 +301,4 @@ ok:   6-18 and still no invitation to register                           false
 ok:   6-19 the counters are back                                         4
 ok:   6-20 and the access list stands down                               false
 
-checks: 111 passed, 0 failed
+checks: 116 passed, 1 failed

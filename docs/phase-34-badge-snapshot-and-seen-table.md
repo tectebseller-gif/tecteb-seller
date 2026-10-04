@@ -341,7 +341,7 @@ build **دارد** و رفتار را می‌سنجد، نه شکل را.
 |---|---|---|
 | `alpha36-reproduction.sh` (هر سه نقص، روی بایت‌های `alpha.36`) | ۲۸ | ۰ |
 | `upgrade-alpha36-check.sh` (`36→37` و `35→37`، شکست و ازسرگیری) | ۷۸ | ۰ |
-| `badge-header-run.mjs` (با `TMC_BULK=600`) | ۱۲۳ | ۰ |
+| `badge-header-run.mjs` (با `TMC_BULK=600`) | ۱۱۴ | ۰ |
 | `vendor-dashboard-run.mjs` | ۱۱۶ | ۰ |
 
 ### ۷٫۳ آنچه `Not Run` است — صریح

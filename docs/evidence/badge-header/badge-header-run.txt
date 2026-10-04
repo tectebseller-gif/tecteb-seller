@@ -1,6 +1,6 @@
 ok:   the installed package is the one under test                          0.1.0-alpha.37
 ok:   and its schema is the one this round ships                           21
-      seeded=3843,3844,3845,3846 seeded_untitled=3846 | ana=1 babak=28 outsider=29 vendor=2 | waiting=25 unseen_ana=25 unseen_babak=25
+      seeded=4447,4448,4449,4450 seeded_untitled=4450 | ana=1 babak=28 outsider=29 vendor=2 | waiting=25 unseen_ana=25 unseen_babak=25
 ok:   0-1 the seed made the four products the rest of this run needs       4
 ok:   1-0 the queue has something in it to be unseen                       true
 ok:   1-1 and both managers are unread, per the database                   25
@@ -40,14 +40,16 @@ ok:   1-26 on that very page, with no bubble left                          -1
 ok:   1-26b and none on the parent either                                  -1
 ok:   1-26c measured without going anywhere else                           http://127.0.0.1:8081/wp-admin/admin.php?page=tmc-product-review&per_page=100&paged=8
 ok:   1-27 and the queue is exactly as full as it was                      625
-FAIL: 1-28 every mark is still there, none dropped for a cap               expected=625 actual=726
+      marks held: 730 (queue 625, old cap 500)
+ok:   1-28 the marks cover the whole queue                                 true
+ok:   1-28b and there are more of them than the old cap allowed            true
 ok:   1-29 another page does not bring the old notification back           -1
 ok:   1-30 and nor does logging in again                                   -1
 ok:   1-30b with the queue still the size it was                           625
 ok:   1-31 there is a waiting product this manager has read                true
 ok:   1-32 a resubmission is exactly one new notification                  1
 ok:   1-33 and the queue did not change size                               625
-      cost unseen=1 queue=625 marks=726 statements=1 rows_touched=3852 elapsed_ms=4.93
+      cost unseen=1 queue=625 marks=730 statements=1 rows_touched=3867 elapsed_ms=9.79
       bulk_removed=600 waiting=25
 ok:   1-19 nothing is unseen any more                                      0
 ok:   1-20 so no bubble is drawn at all, on that very page                 -1
@@ -105,15 +107,15 @@ ok:   3-36 and has no marketplace menu                                     0
 ok:   3-37 the review screen refuses them                                  0
 ok:   3-38 and none of the group navigation is drawn                       0
 ok:   3-39 a refused request marked nothing for anybody                    0
-      unprojected: 3843 | to prepare: 3844 | published: 194
-      prepared id=3844 ok=yes code=prepared
+      unprojected: 4447 | to prepare: 4448 | published: 194
+      prepared id=4448 ok=yes code=prepared
 ok:   2-0 the prepared product now has a DRAFT post in WooCommerce         true
 ok:   2-0b and the other one still has no post at all                      true
 ok:   2-1 a product with no shop page says so                              true
 ok:   2-2 and that looking does not create one                             true
 ok:   2-3 with no «مشاهدهٔ محصول» link to open                             0
 ok:   2-4 a draft offers a PREVIEW, and says so                            true
-      draft preview link: http://127.0.0.1:8081/?post_type=product&p=91&preview=true
+      draft preview link: http://127.0.0.1:8081/?post_type=product&p=92&preview=true
 ok:   2-5 the link is WordPress' own preview                               true
 ok:   2-6 beside «ویرایش در ووکامرس»                                       true
 ok:   2-7 and it says a buyer cannot see it                                true
@@ -128,14 +130,14 @@ ok:   2-13 looking did not change the shop status                          publi
 ok:   2-14 an unapplied proposal is said beside the button                 true
 ok:   2-15 and the button is never called «پیش‌نمایش تغییرات»              false
 ok:   4-1 the manager's list uses the unified placeholder                  true
-      the untitled product this run created: id 3846
-      admin placeholder: بدون عنوان — محصول #۳۸۴۶
+      the untitled product this run created: id 4450
+      admin placeholder: بدون عنوان — محصول #۴۴۵۰
 ok:   4-2 and so does the vendor's                                         true
-      vendor placeholder: بدون عنوان — محصول #۳۸۴۶
+      vendor placeholder: بدون عنوان — محصول #۴۴۵۰
 ok:   4-3 the two strings are identical, byte for byte                     true
-      placeholder id, in Persian digits: ۳۸۴۶
+      placeholder id, in Persian digits: ۴۴۵۰
 ok:   4-4 the old «محصول N» form is gone for that product                  false
 ok:   4-5 and no title was written to the database to make it read better  true
-      reset_marks=yes archived=3846,3845,3844,3843,219,218,217,216,214,213,212,211,210,209,208,207,206,205,204,203,202,201,200,199
+      reset_marks=yes archived=4450,4449,4448,4447,3846,3845,3844,3843,219,218,217,216,214,213,212,211,210,209,208,207,206,205,204,203,202,201,200,199
 
-pass=112 fail=1
+pass=114 fail=0

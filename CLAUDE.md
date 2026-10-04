@@ -101,7 +101,7 @@ packaging ۱۹ · lint **۴۹۷** فایل روی ۸٫۴ و ۸٫۱ · contrast �
 روی نصب تمیز از خودِ `alpha.37.zip`: `alpha36-reproduction.sh` **۲۸**
 (هر سه نقص روی بایت‌های `alpha.36`)، `upgrade-alpha36-check.sh` **۷۸**
 (`36→37` و `35→37`، به‌علاوهٔ شکست و ازسرگیری migration)،
-`badge-header-run.mjs` **۱۲۳** (با `TMC_BULK=600`)،
+`badge-header-run.mjs` **۱۱۴** (با `TMC_BULK=600`)،
 `vendor-dashboard-run.mjs` **۱۱۶** — همه ۰ شکست.
 
 **شش قاعدهٔ تازه:**
@@ -1823,7 +1823,7 @@ wp eval-file tools/alpha36-probe.php badge|snapshot|cap [n]
 wp eval-file tools/review-badge-state.php cost|bulk [n]|drop-bulk
 SITE=http://127.0.0.1:8081 OUT=docs/evidence/badge-header TMC_BULK=600 \
   WP="/opt/php81/bin/php /usr/local/bin/wp --allow-root --path=/home/user/wp-demo" \
-  node tools/browser/badge-header-run.mjs   # ۱۲۳ بررسی: نشان روی همان صفحه، بدون JS، ۶۰۰ محصول
+  node tools/browser/badge-header-run.mjs   # ۱۱۴ بررسی: نشان روی همان صفحه، بدون JS، ۶۰۰ محصول
 vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php \
   --filter 'MenuBadgeRefreshTest|ReviewDetailSnapshotTest|ReviewSeenTest'
 vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php \
