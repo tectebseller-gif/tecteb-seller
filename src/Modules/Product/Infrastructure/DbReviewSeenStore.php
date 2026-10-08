@@ -26,9 +26,10 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0021ReviewSeen
  *    not grow with what the manager has read. The join is on the primary key.
  *  - **Two tabs cannot destroy each other's marks.** A blob is a
  *    read-modify-write over everything; a row is a write to one key.
- *  - **A late write cannot pull a mark backwards.** The guard is on `seen_at`,
- *    which is `DATETIME(6)` because second precision ties two tabs in the same
- *    second — and that tie is the case the guard exists for.
+ *  - **A late write cannot pull a mark backwards.** The guard is not a clock —
+ *    see `markSeen()`. A mark is written only while the identity it carries is
+ *    still the product's current one, asked in the same statement that writes,
+ *    so «which request finished last» stops being part of the answer.
  *
  * **The token is stored as two integers, not as the string.** `s<n>.r<n>` is
  * built for comparison by the caller; splitting it here is what lets the SQL
@@ -85,17 +86,42 @@ final class DbReviewSeenStore implements ReviewSeenStoreInterface
     }
 
     /**
-     * One upsert per product, and a mark only ever moves FORWARD.
+     * One guarded upsert per product: «آنچه نشان دادم همان است که الان هست».
      *
-     * `seen_at` is assigned LAST in the `ON DUPLICATE KEY UPDATE` list, so the
-     * two guards above it still compare against the stored value. MariaDB
-     * evaluates those assignments left to right, and a guard that read a column
-     * it had already overwritten would always be true — which is the whole
-     * mechanism, written in the one order that works.
+     * **Why the guard is not a timestamp.** `alpha.37` wrote `seen_at` from the
+     * clock AT WRITE TIME and let the three assignments compare against it, so
+     * the order it enforced was the order in which requests FINISHED. A request
+     * that had rendered the previous version and then took a long time wrote
+     * last, carried the newer timestamp, and put the older token over the newer
+     * one — and the red number came back for a version the manager had already
+     * seen. Moving the clock read to the start of the request would not fix it:
+     * the order in which two requests START is not the order in which they read
+     * their snapshots.
      *
-     * A row is written even when the token is the one already stored, because
-     * `seen_at` moving is what makes «this is the newer view» true for the next
-     * writer.
+     * **Why the guard is not a comparison of the two halves either.** The pair
+     * is not monotonic. `approveRevision()` and `rejectRevision()` decide a
+     * proposal without appending to the decision trail, so `r` falls back to
+     * nought and the pair for «proposal 12 is open» and «proposal 12 has been
+     * decided» is the same pair — no ordering of numbers can tell those two
+     * states apart.
+     *
+     * **So the guard is equality with the identity that is current NOW**,
+     * evaluated inside the one statement that writes. The justification is the
+     * definition of «seen» itself: `countUnseenFor()` asks `<>` against these
+     * same two columns, so a mark holding any other identity is «دیده‌نشده»
+     * already. Writing a stale identity cannot make anything seen; the only
+     * thing it can do is destroy a newer mark. A submission that lands after
+     * the snapshot moves the identity, so this write finds no row to insert
+     * from and the new, undisplayed version stays unseen — which is the answer
+     * asked for, not a side effect.
+     *
+     * Nothing else is touched: no status, no decision, no proposal, no
+     * baseline, no product column. The statement reads the product row only to
+     * ask the question.
+     *
+     * `seen_at` is still recorded, and still with `GREATEST`, but it now
+     * decides nothing — it is the «when», kept monotone so a report cannot read
+     * a view as having happened before an earlier one.
      */
     public function markSeen(int $userId, array $seen): bool
     {
@@ -113,18 +139,34 @@ final class DbReviewSeenStore implements ReviewSeenStoreInterface
             if ($submission === null) {
                 continue;
             }
+            [$identity, $identityParams] = ReviewQueueSql::identityIs(
+                $this->db,
+                $submission,
+                $revision
+            );
             $rows = $this->db->execute(
                 'INSERT INTO `' . $this->seen() . '`'
                     . ' (`user_id`, `product_id`, `submission_id`, `revision_id`, `seen_at`)'
-                    . ' VALUES (%d, %d, %d, %d, %s)'
+                    . ' SELECT %d, p.id, %d, %d, %s FROM `' . $this->products() . '` p'
+                    . ' WHERE p.id = %d AND ' . $identity
                     . ' ON DUPLICATE KEY UPDATE'
-                    . ' `submission_id` = IF(VALUES(`seen_at`) >= `seen_at`, VALUES(`submission_id`), `submission_id`),'
-                    . ' `revision_id` = IF(VALUES(`seen_at`) >= `seen_at`, VALUES(`revision_id`), `revision_id`),'
-                    . ' `seen_at` = GREATEST(`seen_at`, VALUES(`seen_at`))',
-                [$userId, $productId, $submission, $revision, $at]
+                    . ' `submission_id` = %d,'
+                    . ' `revision_id` = %d,'
+                    . ' `seen_at` = GREATEST(`seen_at`, %s)',
+                array_merge(
+                    [$userId, $submission, $revision, $at, $productId],
+                    $identityParams,
+                    [$submission, $revision, $at]
+                )
             );
-            // Zero changed rows is a success (`alpha.8`): re-recording the same
-            // view at the same microsecond changes no column.
+            // Three answers, and only one of them is a failure. `null` is the
+            // database refusing the statement. Nought rows is either the guard
+            // declining — the identity moved, so this view is not the current
+            // one and must NOT be recorded — or the same view recorded twice,
+            // which changes no column (`alpha.8`). Neither is an error, and
+            // neither may be reported to the manager as one; what the screen
+            // then shows is the count re-read from the database, never
+            // arithmetic on this answer.
             $written = $written || $rows !== null;
         }
         return $written;

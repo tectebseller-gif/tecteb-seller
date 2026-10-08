@@ -253,10 +253,14 @@ final class ReviewSeenTest extends DatabaseTestCase
         $this->record(self::ANA, $page);
 
         self::assertSame(1, $this->seen->unseenCount(self::ANA), 'the newer proposal was never on screen');
-        // And the mark that WAS recorded is the old token, not the new one — the
-        // proof that nothing re-read the database at recording time.
-        $current = $this->products->submissionsOf([$id]);
-        self::assertNotSame($current[$id], $this->store->marksFor(self::ANA, [$id])[$id]);
+        // And NOTHING was recorded for it. Until `alpha.38` the stale token was
+        // written — harmless on its own, because a mark that is not the current
+        // identity reads as unseen anyway, and fatal in company: that same write
+        // is what could land on top of a newer mark. Since the write is guarded
+        // on «what I displayed is still current», a page whose content went out
+        // of date mid-render records nothing at all. Either way the manager sees
+        // the notification, which is the assertion above.
+        self::assertSame([], $this->store->marksFor(self::ANA, [$id]), 'a view that went stale records nothing');
     }
 
     /**
@@ -443,40 +447,92 @@ final class ReviewSeenTest extends DatabaseTestCase
     }
 
     /**
-     * WHAT THIS PROVES: two records at once lose nothing, and a late record of
-     * an OLDER view does not pull a newer one backwards.
+     * WHAT THIS PROVES: two records at once lose nothing.
      *
-     * «دو ثبت مشاهدهٔ هم‌زمان برای یک مدیر، علامتی را از دست ندهد و علامت
-     * تازه‌تر را به عقب نبرد». Deterministic on purpose: the two writes are
-     * ordered by the clock each store carries, not by which process got there
-     * first — a real two-process run is reported separately and is not what
-     * this asserts.
+     * «دو ثبت مشاهدهٔ هم‌زمان برای یک مدیر، علامتی را از دست ندهد». A row per
+     * (manager, product) rather than one blob is the whole mechanism: two
+     * writes touch two keys and neither is a read-modify-write over the other's.
      */
-    public function testTwoRecordsDoNotDestroyEachOtherAndAnOlderOneCannotWin(): void
+    public function testTwoRecordsAtOnceLoseNothing(): void
     {
         $a = $this->submit('ونتیلاتور');
         $b = $this->submit('مونیتور');
         $tokens = $this->products->submissionsOf([$a, $b]);
 
-        $later = new DbReviewSeenStore($this->db, self::clockAt('2030-01-01 10:00:00.500000'));
-        $earlier = new DbReviewSeenStore($this->db, self::clockAt('2030-01-01 09:59:59.500000'));
+        $one = new DbReviewSeenStore($this->db, self::clockAt('2030-01-01 10:00:00.500000'));
+        $two = new DbReviewSeenStore($this->db, self::clockAt('2030-01-01 09:59:59.500000'));
 
-        // Tab one marks both; tab two — whose request started earlier — lands
-        // afterwards carrying its own, older view of product A only.
-        self::assertTrue($later->markSeen(self::ANA, $tokens));
-        self::assertTrue($earlier->markSeen(self::ANA, [$a => 's0.r0']));
+        self::assertTrue($one->markSeen(self::ANA, $tokens));
+        self::assertTrue($two->markSeen(self::ANA, [$a => $tokens[$a]]));
 
-        $kept = $later->marksFor(self::ANA, [$a, $b]);
+        $kept = $one->marksFor(self::ANA, [$a, $b]);
         self::assertCount(2, $kept, 'neither write removed the other\'s row');
-        self::assertSame($tokens[$a], $kept[$a], 'the older write did not overwrite the newer token');
+        self::assertSame($tokens[$a], $kept[$a]);
         self::assertSame($tokens[$b], $kept[$b]);
-        self::assertSame(0, $this->seen->unseenCount(self::ANA), 'and the count did not go back up');
+        self::assertSame(0, $this->seen->unseenCount(self::ANA));
+    }
 
-        // The other direction, same two stores: a NEWER view does move it.
+    /**
+     * WHAT THIS PROVES: a record that arrives LATE, carrying an older view and
+     * a LATER write time, does not pull a newer mark backwards.
+     *
+     * **Why this test is written this way.** The `alpha.37` version of it gave
+     * the late writer an EARLIER clock, which is the one case `alpha.37` got
+     * right and is not what a real `SystemClock` does: a request that finishes
+     * later reads a later instant. So the test agreed with the code it was
+     * testing instead of with the site. Here the slow request carries the older
+     * view AND the later timestamp — exactly the shape the owner described —
+     * and `alpha.37` fails it.
+     *
+     * Deterministic: the four steps are written out in order. A real
+     * two-process race is a separate claim and is not what this asserts.
+     */
+    public function testALateRecordOfAnOlderViewCannotPullANewerOneBackwards(): void
+    {
+        $a = $this->submit('ونتیلاتور');
+        $b = $this->submit('مونیتور');
+
+        // 1. the slow request reads its rows and starts rendering
+        $old = $this->products->submissionsOf([$a, $b]);
+
+        // 2. the vendor sends A back while it renders
+        $this->products->updateStatus($a, ProductStatus::ChangesRequested, 'عکس بهتر');
+        $this->submitExisting($a);
+        $new = $this->products->submissionsOf([$a, $b]);
+        self::assertNotSame($old[$a], $new[$a], 'the fixture must really have resubmitted');
+        self::assertSame($old[$b], $new[$b], 'and B did not move');
+
+        // 3. a second request reads the NEW version and records it first
+        $fast = new DbReviewSeenStore($this->db, self::clockAt('2030-01-01 10:00:00.000000'));
+        self::assertTrue($fast->markSeen(self::ANA, $new));
+        self::assertSame(0, $this->seen->unseenCount(self::ANA), 'the manager has seen both');
+
+        // 4. the slow request finishes LAST and records the view it displayed,
+        //    with the later write time a real clock gives it
+        $slow = new DbReviewSeenStore($this->db, self::clockAt('2030-01-01 10:00:05.000000'));
+        $slow->markSeen(self::ANA, $old);
+
+        $kept = $this->store->marksFor(self::ANA, [$a, $b]);
+        self::assertSame($new[$a], $kept[$a], 'the late record did not overwrite the newer mark');
+        self::assertSame($new[$b], $kept[$b], 'and the product that did not move is still recorded');
+        self::assertSame(0, $this->seen->unseenCount(self::ANA), 'the count did not go back up');
+    }
+
+    /**
+     * WHAT THIS PROVES: and a NEWER view does still move the mark — the guard
+     * refuses stale writes, not writes.
+     */
+    public function testANewerViewStillMovesTheMark(): void
+    {
+        $a = $this->submit('ونتیلاتور');
+        $this->view(self::ANA, [$a]);
+        self::assertSame(0, $this->seen->unseenCount(self::ANA));
+
         $this->products->updateStatus($a, ProductStatus::ChangesRequested, '');
         $this->submitExisting($a);
         $moved = $this->products->submissionsOf([$a]);
-        self::assertNotSame($tokens[$a], $moved[$a]);
+        self::assertSame(1, $this->seen->unseenCount(self::ANA), 'a resubmission is a new notification');
+
         $newest = new DbReviewSeenStore($this->db, self::clockAt('2030-01-01 11:00:00.000000'));
         self::assertTrue($newest->markSeen(self::ANA, $moved));
         self::assertSame($moved[$a], $newest->marksFor(self::ANA, [$a])[$a]);

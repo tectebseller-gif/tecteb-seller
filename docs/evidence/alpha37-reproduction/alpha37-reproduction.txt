@@ -1,0 +1,71 @@
+snapshot: 3 files in /tmp/tmp.apWLiewnfk
+ok:   reverted DbReviewSeenStore.php                                     84c09c030bd5be1b
+ok:   reverted ReviewQueueSql.php                                        7af163cbeb38f40d
+ok:   reverted M0021ReviewSeen.php                                       630b9d4741e7b278
+
+--- on the alpha.37 bytes: the named scenarios must FAIL, the controls must pass
+ok:   alpha.37 ran        testTheLateRecordOfAnOlderSubmissionDoesNotRestoreTheNotification 1
+ok:   alpha.37 result     testTheLateRecordOfAnOlderSubmissionDoesNotRestoreTheNotification failed
+ok:   alpha.37 ran        testTheLateRecordOfAnOlderProposalDoesNotRestoreTheNotification 1
+ok:   alpha.37 result     testTheLateRecordOfAnOlderProposalDoesNotRestoreTheNotification failed
+ok:   alpha.37 ran        testTheNewerUndisplayedVersionStaysUnseen      1
+ok:   alpha.37 result     testTheNewerUndisplayedVersionStaysUnseen      failed
+ok:   alpha.37 ran        testTheOtherManagersMarkIsUntouched            1
+ok:   alpha.37 result     testTheOtherManagersMarkIsUntouched            failed
+ok:   alpha.37 ran        testAMarkIsNotWrittenForAProductThatIsNotThere 1
+ok:   alpha.37 result     testAMarkIsNotWrittenForAProductThatIsNotThere failed
+ok:   alpha.37 ran        testALateRecordOfAnOlderViewCannotPullANewerOneBackwards 1
+ok:   alpha.37 result     testALateRecordOfAnOlderViewCannotPullANewerOneBackwards failed
+ok:   alpha.37 ran        testASubmissionArrivingAfterTheReadIsStillUnseen 1
+ok:   alpha.37 result     testASubmissionArrivingAfterTheReadIsStillUnseen failed
+ok:   alpha.37 ran        testASubmissionLandingAfterTheSnapshotStaysUnseen 1
+ok:   alpha.37 result     testASubmissionLandingAfterTheSnapshotStaysUnseen failed
+ok:   alpha.37 ran        testANewerProposalLandingMidRenderIsNotTheOneRecorded 1
+ok:   alpha.37 result     testANewerProposalLandingMidRenderIsNotTheOneRecorded failed
+ok:   alpha.37 ran        testAFailedExistenceReadStopsTheUpgradeInsteadOfSkippingTheCarryOver 1
+ok:   alpha.37 result     testAFailedExistenceReadStopsTheUpgradeInsteadOfSkippingTheCarryOver failed
+ok:   alpha.37 ran        testTheRetryAfterTheErrorIsClearedCompletesTheCarryOver 1
+ok:   alpha.37 result     testTheRetryAfterTheErrorIsClearedCompletesTheCarryOver failed
+ok:   alpha.37 ran        testTheGateHoldsItsCooldownAndThenCompletes    1
+ok:   alpha.37 result     testTheGateHoldsItsCooldownAndThenCompletes    failed
+ok:   alpha.37 control    testDecidingAProposalReturnsTheSamePairAsBeforeItExisted passed
+ok:   alpha.37 control    testAFailureReadingTheLegacyPagesAlsoStopsTheUpgrade passed
+ok:   alpha.37 control    testAnAbsentUserMetaTableIsNotAFailure         passed
+ok:   alpha.37 control    testTwoRecordsAtOnceLoseNothing                passed
+ok:   alpha.37 control    testViewingChangesNoStatusDecisionBaselineOrProposal passed
+ok:   restored DbReviewSeenStore.php                                     1782897e16af9498
+ok:   restored ReviewQueueSql.php                                        5085b539dfa01083
+ok:   restored M0021ReviewSeen.php                                       143944da01a70294
+
+--- on the alpha.38 bytes: every one of them must PASS
+ok:   alpha.38 ran        testTheLateRecordOfAnOlderSubmissionDoesNotRestoreTheNotification 1
+ok:   alpha.38 result     testTheLateRecordOfAnOlderSubmissionDoesNotRestoreTheNotification passed
+ok:   alpha.38 ran        testTheLateRecordOfAnOlderProposalDoesNotRestoreTheNotification 1
+ok:   alpha.38 result     testTheLateRecordOfAnOlderProposalDoesNotRestoreTheNotification passed
+ok:   alpha.38 ran        testTheNewerUndisplayedVersionStaysUnseen      1
+ok:   alpha.38 result     testTheNewerUndisplayedVersionStaysUnseen      passed
+ok:   alpha.38 ran        testTheOtherManagersMarkIsUntouched            1
+ok:   alpha.38 result     testTheOtherManagersMarkIsUntouched            passed
+ok:   alpha.38 ran        testAMarkIsNotWrittenForAProductThatIsNotThere 1
+ok:   alpha.38 result     testAMarkIsNotWrittenForAProductThatIsNotThere passed
+ok:   alpha.38 ran        testALateRecordOfAnOlderViewCannotPullANewerOneBackwards 1
+ok:   alpha.38 result     testALateRecordOfAnOlderViewCannotPullANewerOneBackwards passed
+ok:   alpha.38 ran        testASubmissionArrivingAfterTheReadIsStillUnseen 1
+ok:   alpha.38 result     testASubmissionArrivingAfterTheReadIsStillUnseen passed
+ok:   alpha.38 ran        testASubmissionLandingAfterTheSnapshotStaysUnseen 1
+ok:   alpha.38 result     testASubmissionLandingAfterTheSnapshotStaysUnseen passed
+ok:   alpha.38 ran        testANewerProposalLandingMidRenderIsNotTheOneRecorded 1
+ok:   alpha.38 result     testANewerProposalLandingMidRenderIsNotTheOneRecorded passed
+ok:   alpha.38 ran        testAFailedExistenceReadStopsTheUpgradeInsteadOfSkippingTheCarryOver 1
+ok:   alpha.38 result     testAFailedExistenceReadStopsTheUpgradeInsteadOfSkippingTheCarryOver passed
+ok:   alpha.38 ran        testTheRetryAfterTheErrorIsClearedCompletesTheCarryOver 1
+ok:   alpha.38 result     testTheRetryAfterTheErrorIsClearedCompletesTheCarryOver passed
+ok:   alpha.38 ran        testTheGateHoldsItsCooldownAndThenCompletes    1
+ok:   alpha.38 result     testTheGateHoldsItsCooldownAndThenCompletes    passed
+ok:   alpha.38 control    testDecidingAProposalReturnsTheSamePairAsBeforeItExisted passed
+ok:   alpha.38 control    testAFailureReadingTheLegacyPagesAlsoStopsTheUpgrade passed
+ok:   alpha.38 control    testAnAbsentUserMetaTableIsNotAFailure         passed
+ok:   alpha.38 control    testTwoRecordsAtOnceLoseNothing                passed
+ok:   alpha.38 control    testViewingChangesNoStatusDecisionBaselineOrProposal passed
+
+pass=64 fail=0

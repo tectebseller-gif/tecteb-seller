@@ -32,10 +32,11 @@ use Tecteb\Marketplace\Core\Exceptions\MigrationException;
  * Nothing is loaded into PHP: the count is a `COUNT(*)`.
  *
  * **Two ids, not one string.** The submission token is a pair, and storing it
- * as two integers is what lets a late write be refused: a tab that recorded an
- * older view must not move a newer one backwards. `seen_at` is `DATETIME(6)` —
- * second precision ties two tabs in the same second, and the tie is exactly the
- * case the guard is for.
+ * as two integers is what lets the write be guarded in SQL: a mark is recorded
+ * only while the identity it carries is still the product's current one, which
+ * is what refuses a late write of an older view (`DbReviewSeenStore`). `seen_at`
+ * is `DATETIME(6)` so that two views in the same second are still two values in
+ * a report; since `alpha.38` it decides nothing.
  *
  * **The `alpha.36` marks are carried over, and no further.** Whatever is in the
  * meta value becomes rows; whatever the cap already dropped is simply not there,
@@ -103,17 +104,36 @@ final class M0021ReviewSeen implements MigrationInterface
     private function carryOverLegacyMarks(DatabaseInterface $db, string $table): void
     {
         $meta = $db->prefix() . 'usermeta';
-        // Asked, not assumed. A read that fails here returns an empty page and
-        // the carry-over would end silently — «پرچمی که هرگز روشن نشود». On a
-        // real site the table is always there, so «it is not» and «the read
-        // broke» are two different answers and only one of them is nothing to
-        // do. The other throws, and the upgrade gate retries on the next
-        // request: the step is idempotent by `INSERT IGNORE`.
-        if ((int) $db->getVar(
+        // Asked, not assumed — and the answer read in THREE states, not two.
+        // `alpha.37` wrote `(int) $db->getVar(...) === 0`, and a failed read
+        // answers `null`, which casts to nought, which reads as «the table is
+        // not there, nothing to carry». The carry-over then returned silently
+        // while `up()` reported success, and `verify()` only inspects the
+        // DESTINATION table — so the schema reached 21 with not one `alpha.36`
+        // mark carried and nothing anywhere said so. The same shape this
+        // repository has unpicked at `alpha.8`, `alpha.11`, `alpha.13` and
+        // `alpha.28`: «صفر یک جواب است، null جوابِ دیگری».
+        //
+        // `null` throws. The runner records the reason and does NOT advance the
+        // version, so the site stays on 20 — which is `alpha.36` and works —
+        // and the next admin request retries the whole step. The retry is safe
+        // because every write in it is idempotent: `CREATE TABLE IF NOT EXISTS`
+        // and `INSERT IGNORE`, which also leaves a row the plugin has written
+        // SINCE alone, that being the newer truth.
+        $hasMeta = $db->getVar(
             'SELECT COUNT(*) FROM information_schema.TABLES
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
             [$meta]
-        ) === 0) {
+        );
+        if ($hasMeta === null) {
+            throw new MigrationException(
+                'migration ' . $this->id() . ' failed asking for `' . $meta . '`: ' . $db->lastError()
+            );
+        }
+        // Nought here is a VALID answer and means the table genuinely is not
+        // there — a fresh install, or one whose user meta lives elsewhere.
+        // There is nothing to carry and that is not a failure.
+        if ((int) $hasMeta === 0) {
             return;
         }
         $after = 0;

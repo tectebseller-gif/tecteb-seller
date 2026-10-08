@@ -139,10 +139,19 @@ final class ReviewDetailSnapshotTest extends DatabaseTestCase
 
         self::assertStringContainsString('نبولایزر رومیزی', $html, 'the page printed the title it had read');
         self::assertStringNotContainsString('نبولایزر پرتابل', $html, 'the newer title was never on screen');
+        // Since `alpha.38` nothing is recorded at all for a view that went out
+        // of date before it could be written. `alpha.37` wrote the displayed
+        // token here, which was invisible in this scenario — a mark that is not
+        // the current identity reads as unseen either way — and was the defect
+        // in another: the same write, arriving late, could land on top of a
+        // NEWER mark and bring the notification back. The guard is «what I
+        // displayed is still current», so this write finds no row to insert
+        // from. What the manager sees is unchanged, and that is the assertion
+        // below.
         self::assertSame(
-            [$id => $before],
+            [],
             $this->store->marksFor($this->manager, [$id]),
-            'the recorded identity is the one that was displayed'
+            'a view the database had already moved past records nothing'
         );
         self::assertSame(1, $this->unseen(), 'the newer submission is still a notification');
     }
@@ -204,7 +213,9 @@ final class ReviewDetailSnapshotTest extends DatabaseTestCase
 
         self::assertStringContainsString('ترازوی دیجیتال نسخهٔ دو', $html, 'the proposal on screen is the one the snapshot named');
         self::assertStringNotContainsString('ترازوی دیجیتال نسخهٔ سه', $html);
-        self::assertSame([$id => $before], $this->store->marksFor($this->manager, [$id]));
+        // Same rule as the submission path above, and checked separately on
+        // purpose: the proposal half of the page is a different read.
+        self::assertSame([], $this->store->marksFor($this->manager, [$id]));
         self::assertSame(1, $this->unseen(), 'the newer proposal is a new question');
     }
 

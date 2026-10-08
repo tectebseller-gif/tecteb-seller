@@ -67,13 +67,58 @@ final class ReviewQueueSql
     public static function submissionColumns(DatabaseInterface $db, string $alias = 'p'): array
     {
         return [
-            '(SELECT MAX(tmc_d.id) FROM `'
-                . M0019BaselineAndDecisions::table($db, M0019BaselineAndDecisions::DECISIONS) . '` tmc_d'
-                . ' WHERE tmc_d.product_id = ' . $alias . '.id AND tmc_d.decision = %s) AS tmc_submission_id,'
-                . ' (SELECT MAX(tmc_r.id) FROM `' . T::table($db, T::REVISIONS) . '` tmc_r'
-                . ' WHERE tmc_r.product_id = ' . $alias . '.id AND tmc_r.status = %s) AS tmc_revision_id',
+            self::submissionSubquery($db, $alias) . ' AS tmc_submission_id,'
+                . ' ' . self::revisionSubquery($db, $alias) . ' AS tmc_revision_id',
             [ProductDecision::SUBMITTED, ProductRevision::PENDING],
         ];
+    }
+
+    /**
+     * «هویتی که نشان داده شد هنوز هویت جاری است» — the same two subqueries, as
+     * a condition.
+     *
+     * This exists so that the one place that WRITES a mark asks the identity
+     * question with the bytes that the places which READ it use. `alpha.37`
+     * ordered marks by `seen_at`, the wall clock at write time, which orders by
+     * which request FINISHED — so a slow request that had rendered the previous
+     * version wrote last and won. The order that matters is the order of the
+     * version that was SEEN, and the only version a mark can ever read as seen
+     * for is the current one: `countUnseenFor()` asks `<>` against these very
+     * columns, so a mark holding anything else is «دیده‌نشده» already. A write
+     * of a stale identity therefore has nothing to gain and one thing to lose,
+     * which is a newer mark.
+     *
+     * `COALESCE(..., 0)` on both sides because `s0.r0` is a real identity
+     * (`token()`), and `NULL = 0` is neither true nor false.
+     *
+     * @return array{0:string,1:list<string|int>} fragment (parenthesised), params
+     */
+    public static function identityIs(
+        DatabaseInterface $db,
+        int $submission,
+        int $revision,
+        string $alias = 'p'
+    ): array {
+        return [
+            '(COALESCE(' . self::submissionSubquery($db, $alias) . ', 0) = %d'
+                . ' AND COALESCE(' . self::revisionSubquery($db, $alias) . ', 0) = %d)',
+            [ProductDecision::SUBMITTED, $submission, ProductRevision::PENDING, $revision],
+        ];
+    }
+
+    /** The newest `submitted` row in the append-only decision trail. One `%s`. */
+    private static function submissionSubquery(DatabaseInterface $db, string $alias): string
+    {
+        return '(SELECT MAX(tmc_d.id) FROM `'
+            . M0019BaselineAndDecisions::table($db, M0019BaselineAndDecisions::DECISIONS) . '` tmc_d'
+            . ' WHERE tmc_d.product_id = ' . $alias . '.id AND tmc_d.decision = %s)';
+    }
+
+    /** The id of the unanswered proposal, if there is one. One `%s`. */
+    private static function revisionSubquery(DatabaseInterface $db, string $alias): string
+    {
+        return '(SELECT MAX(tmc_r.id) FROM `' . T::table($db, T::REVISIONS) . '` tmc_r'
+            . ' WHERE tmc_r.product_id = ' . $alias . '.id AND tmc_r.status = %s)';
     }
 
     /**
