@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
+use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
 use Tecteb\Marketplace\Modules\Finance\Domain\Money;
@@ -71,6 +72,29 @@ final class ManageReturns
         private readonly CatalogProjectorInterface $catalog,
         private readonly ?CapabilityCheckerInterface $capabilities = null
     ) {
+    }
+
+    /**
+     * The currency and exponent this line's money was RECORDED in.
+     *
+     * One source, and it is the ledger: `tmc_ledger` carries `currency` and
+     * `exponent` on every row (migration 4), so the unit of an amount is
+     * stored beside the amount rather than inferred. A line with no ledger
+     * event — captured while no rate resolved, or imported — has no recorded
+     * unit, and this answers `null` so the caller refuses by name instead of
+     * assuming one.
+     *
+     * @return array{currency:string, exponent:int}|null
+     */
+    private function refundUnit(VendorOrderItem $item): ?array
+    {
+        if ($item->ledgerEvent === '') {
+            return null;
+        }
+        foreach ($this->ledger->forEvent($item->ledgerEvent) as $entry) {
+            return ['currency' => $entry->amount->currency, 'exponent' => $entry->amount->exponent];
+        }
+        return null;
     }
 
     /** What is still returnable on this line: quantity − already claimed. */
@@ -412,10 +436,46 @@ final class ManageReturns
         // place that decides «made one» from «found mine». Asking twice would
         // be two answers to keep in step.
         //
+        // THE UNIT, read rather than assumed — and this line was the single
+        // worst defect in the financial surface until `alpha.39`.
+        //
+        // It used to be `(refundMinor + taxRefundMinor) / 100`. Nothing else
+        // anywhere in this plugin scales money by a hundred: orders are
+        // captured with `exponent = 0`, because ریال and تومان have no minor
+        // unit, so a line stored as `100000` IS one hundred thousand. Dividing
+        // it by a hundred asked WooCommerce to refund **۱٬۰۰۰**. Measured on
+        // the shipped `alpha.38` bytes.
+        //
+        // The unit is not guessed from «the shop shows تومان» either. It comes
+        // off the LEDGER event this return already reversed: `tmc_ledger`
+        // stores `currency` and `exponent` per line and has since migration 4,
+        // so the unit of a recorded amount is a fact on disk. A row whose unit
+        // cannot be established is refused by name — «با واحد حدسی ثبت
+        // نشود» — rather than converted on a hunch.
+        $unit = $this->refundUnit($item);
+        if ($unit === null) {
+            return OperationResult::failure('refund_unit_unknown', [
+                'return_id' => $returnId,
+                'order_item_id' => $item->id,
+                // What a person has to look at: the item carries no ledger
+                // event, so no recorded unit exists for it. Recording a refund
+                // for it needs the order re-captured, or the amount entered in
+                // WooCommerce by hand.
+                'ledger_event' => $item->ledgerEvent,
+            ]);
+        }
         // Nullable on the row and non-null once refunded; coalesced anyway,
         // because a null here would silently become a zero-amount refund that
         // WooCommerce refuses with an exception instead of a sentence.
-        $amount = (((int) $request->refundMinor) + ((int) $request->taxRefundMinor)) / 100;
+        $minor = ((int) $request->refundMinor) + ((int) $request->taxRefundMinor);
+        $amount = DecimalAmount::toDecimal($minor, $unit['exponent']);
+        if ($amount === null) {
+            return OperationResult::failure('refund_unit_unknown', [
+                'return_id' => $returnId,
+                'order_item_id' => $item->id,
+                'ledger_event' => $item->ledgerEvent,
+            ]);
+        }
         $result = $this->recorder->record(
             $item->orderId,
             $item->orderItemId,

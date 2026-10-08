@@ -17,6 +17,18 @@ final class LedgerTransaction
     /** @var list<array{account:LedgerAccount, amount:Money, reason:string, reverses:?int}> */
     private array $lines = [];
 
+    /**
+     * What produced these lines, as JSON, for the `snapshot` column.
+     *
+     * The column has existed since migration 4 and `CommissionSnapshot`
+     * has said «for storage beside the ledger row» just as long — and until
+     * `alpha.39` the repository wrote an empty string into it. The cost showed
+     * up in retries: a line whose ledger write had succeeded could not be
+     * rebuilt, because the figures were on disk and the rate behind them was
+     * not. Empty stays legal; it means «recorded before this was written».
+     */
+    private string $snapshotJson = '';
+
     public function __construct(
         public readonly string $eventKey,
         public readonly int $vendorUserId,
@@ -30,6 +42,20 @@ final class LedgerTransaction
      * and a zero row for tax nobody collected would only make every event
      * look busier than it was — while still balancing, so it proves nothing.
      */
+    /** @param array<string,mixed> $snapshot */
+    public function snapshot(array $snapshot): self
+    {
+        $this->snapshotJson = $snapshot === []
+            ? ''
+            : (string) (json_encode($snapshot, JSON_UNESCAPED_UNICODE) ?: '');
+        return $this;
+    }
+
+    public function snapshotJson(): string
+    {
+        return $this->snapshotJson;
+    }
+
     public function add(LedgerAccount $account, Money $amount, string $reason, ?int $reverses = null): self
     {
         if ($amount->isZero()) {

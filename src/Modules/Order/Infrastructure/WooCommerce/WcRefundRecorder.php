@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Order\Infrastructure\WooCommerce;
 
+use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
 use Tecteb\Marketplace\Modules\Order\Application\RefundRecorderInterface;
 
 /**
@@ -167,10 +168,25 @@ final class WcRefundRecorder implements RefundRecorderInterface
         return 0;
     }
 
+    /**
+     * How many decimal places a decimal string actually carries.
+     *
+     * Trailing zeros count: `'10.50'` is two places, which is the scale the
+     * storefront wrote it in. Anything unparseable answers 0 and the caller's
+     * conversion then refuses it by name.
+     */
+    private static function placesIn(string $decimal): int
+    {
+        if (preg_match('/^-?\d+\.(\d+)$/', trim($decimal), $m) !== 1) {
+            return 0;
+        }
+        return min(strlen($m[1]), DecimalAmount::MAX_EXPONENT);
+    }
+
     public function record(
         int $wcOrderId,
         int $wcOrderItemId,
-        float $amount,
+        string $amount,
         int $quantity,
         string $reason,
         int $returnId
@@ -216,15 +232,37 @@ final class WcRefundRecorder implements RefundRecorderInterface
             // interruption landed before WooCommerce wrote anything. Nothing
             // exists to duplicate.
         }
-        $remaining = (float) $order->get_remaining_refund_amount();
-        if ($amount <= 0 || $amount > $remaining) {
+        // Compared as INTEGERS, in the amount's own scale. `$amount` arrives
+        // as an exact decimal string (`alpha.39`; it was a float, and the
+        // caller divided by a hundred to make it) and the ceiling comes from
+        // WooCommerce as a decimal too, so both are scaled to minor units and
+        // compared there. A float comparison of money is a comparison that is
+        // right until the day it is not.
+        //
+        // The scale is taken from the AMOUNT's own places, so a ریال amount
+        // (`'100000'`) compares at exponent 0 and a two-decimal one at 2. The
+        // ceiling is floored into that scale: it is somebody else's limit and
+        // the safe reading of a limit is the smaller one.
+        $remainingText = (string) $order->get_remaining_refund_amount();
+        $scale = self::placesIn($amount);
+        $wanted = DecimalAmount::toMinor($amount, $scale);
+        $ceiling = DecimalAmount::toMinorFloor($remainingText, $scale);
+        if ($wanted === null || $ceiling === null) {
+            return [
+                'ok' => false,
+                'reason' => 'refund_amount_unreadable',
+                'refund_id' => 0,
+                'remaining' => $remainingText,
+            ];
+        }
+        if ($wanted <= 0 || $wanted > $ceiling) {
             // WooCommerce throws on this; asking first turns an exception into
             // a sentence the manager's screen can show.
             return [
                 'ok' => false,
                 'reason' => 'refund_amount_exceeds_remaining',
                 'refund_id' => 0,
-                'remaining' => $remaining,
+                'remaining' => $remainingText,
             ];
         }
 

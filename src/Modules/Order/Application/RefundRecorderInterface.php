@@ -66,13 +66,20 @@ interface RefundRecorderInterface
      * that from here the possibilities are indistinguishable, and the thing
      * being guessed about is money.
      *
+     * `$amount` is an EXACT DECIMAL STRING in the order's own currency, not a
+     * float. It was a float until `alpha.39`, and the caller produced it by
+     * dividing stored minor units by a hundred — a scale nothing else in this
+     * plugin uses, which made every recorded refund a hundredth of what it
+     * should have been. A string carries the storefront's own scale with it
+     * and cannot acquire a rounding error on the way here.
+     *
      * @return array{ok:bool, reason:string, refund_id:int, money_moved?:bool,
-     *               remaining?:float, message?:string, candidates?:list<int>}
+     *               remaining?:string, message?:string, candidates?:list<int>}
      */
     public function record(
         int $wcOrderId,
         int $wcOrderItemId,
-        float $amount,
+        string $amount,
         int $quantity,
         string $reason,
         int $returnId

@@ -965,3 +965,17 @@ function number_format_i18n(float|int $number, int $decimals = 0): string
 {
     return number_format((float) $number, $decimals);
 }
+
+// --- WooCommerce, the one function the money boundary reads -------------------
+//
+// `WcOrderReader::unit()` asks WooCommerce how many decimal places the store
+// keeps, and nothing else in this plugin reads a WooCommerce function to decide
+// a scale. Stubbed so the boundary can be tested for a decimal currency; absent
+// WooCommerce the reader falls back to 0, which is what it does on a site with
+// no WooCommerce at all.
+if (!function_exists('wc_get_price_decimals')) {
+    function wc_get_price_decimals(): int
+    {
+        return \TmcWpStubs\State::$priceDecimals;
+    }
+}

@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionOutcome;
+use Tecteb\Marketplace\Modules\Finance\Domain\CommissionSnapshot;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
 use Tecteb\Marketplace\Modules\Finance\Domain\Money;
@@ -62,6 +63,7 @@ final class RecordCommission
         $base = $outcome->base;
         $tax = $taxCollected ?? $base->zero();
         $transaction = (new LedgerTransaction($eventKey, $vendorUserId, $orderRef, $itemRef))
+            ->snapshot($outcome->snapshot->toArray())
             ->add(LedgerAccount::CentralPayment, $base->add($tax), 'item_paid')
             ->add(LedgerAccount::Commission, $outcome->commission->negate(), 'commission_due')
             ->add(LedgerAccount::VendorEarning, $outcome->vendorShare->negate(), 'vendor_earned')
@@ -71,7 +73,20 @@ final class RecordCommission
             return CommissionOutcome::needsConfiguration('unbalanced_transaction');
         }
         if (!$this->ledger->record($transaction)) {
-            return CommissionOutcome::needsConfiguration('already_recorded');
+            // THREE answers here, not one. `record()` is a `bool` and says
+            // `false` both for «the unique index refused a duplicate» and for
+            // «the write failed», and `alpha.38` called both of them
+            // `already_recorded`. The caller then wrote an order line with a
+            // null commission and an empty event reference and skipped the
+            // line for ever — with a perfectly good ledger event sitting
+            // beside it.
+            //
+            // So the ledger is asked. If the event is there, these are its
+            // figures and they are recovered FROM IT, not recomputed at
+            // today's rate. If it is not, the write genuinely failed and that
+            // is a different word.
+            $recovered = $this->recover($eventKey);
+            return $recovered ?? CommissionOutcome::needsConfiguration('ledger_unwritable');
         }
 
         $this->audit->log(AuditEventCatalog::FINANCE_ACCRUED, 0, 'ledger', $eventKey, [
@@ -81,5 +96,61 @@ final class RecordCommission
             'base_minor' => $base->minor,
         ]);
         return $outcome;
+    }
+
+    /**
+     * The figures of an event already in the ledger, read back off its rows.
+     *
+     * `item_paid` is base + tax, so the base is recovered by subtracting the
+     * tax line rather than by trusting the caller's argument — the point of a
+     * recovery is to report what was RECORDED, and a caller whose input had
+     * changed would otherwise be believed.
+     *
+     * Returns null when there is no such event, which is the one case that
+     * means the write failed.
+     */
+    private function recover(string $eventKey): ?CommissionOutcome
+    {
+        $entries = $this->ledger->forEvent($eventKey);
+        if ($entries === []) {
+            return null;
+        }
+        $paid = null;
+        $commission = null;
+        $vendorShare = null;
+        $tax = null;
+        $snapshotJson = '';
+        foreach ($entries as $entry) {
+            if ($snapshotJson === '' && $entry->snapshotJson !== '') {
+                $snapshotJson = $entry->snapshotJson;
+            }
+            switch ($entry->reason) {
+                case 'item_paid':
+                    $paid = $entry->amount;
+                    break;
+                case 'commission_due':
+                    $commission = $entry->amount->negate();
+                    break;
+                case 'vendor_earned':
+                    $vendorShare = $entry->amount->negate();
+                    break;
+                case 'tax_collected':
+                    $tax = $entry->amount->negate();
+                    break;
+            }
+        }
+        if ($paid === null || $commission === null || $vendorShare === null) {
+            // An event with rows but not THESE rows is not a commission
+            // accrual. Reported as a failure to recover rather than guessed at.
+            return null;
+        }
+        $base = $tax === null ? $paid : $paid->subtract($tax);
+        $decoded = $snapshotJson === '' ? null : json_decode($snapshotJson, true);
+        return CommissionOutcome::recovered(
+            $base,
+            $commission,
+            $vendorShare,
+            is_array($decoded) ? CommissionSnapshot::fromArray($decoded) : null
+        );
     }
 }

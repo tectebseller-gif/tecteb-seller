@@ -12,6 +12,7 @@ use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
+use Tecteb\Marketplace\Modules\Finance\Domain\CommissionOutcome;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Finance\Domain\Money;
@@ -33,6 +34,10 @@ final class LedgerTest extends DatabaseTestCase
     private DbLedgerRepository $ledger;
     private DbCommissionRuleRepository $rules;
     private RecordCommission $accrual;
+    /** Kept so one test can rebuild the service over a database that refuses. */
+    private WpDatabase $db;
+    private SystemClock $clock;
+    private AuditLogger $logger;
 
     protected function setUp(): void
     {
@@ -44,13 +49,16 @@ final class LedgerTest extends DatabaseTestCase
         $this->resetSchema($db);
 
         $clock = new SystemClock();
+        $this->db = $db;
+        $this->clock = $clock;
+        $this->logger = new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock);
         $this->ledger = new DbLedgerRepository($db, $clock);
         $this->rules = new DbCommissionRuleRepository($db, $clock);
         $this->accrual = new RecordCommission(
             $this->ledger,
             new ResolveCommissionRate($this->rules),
             new CommissionCalculator(),
-            new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock)
+            $this->logger
         );
     }
 
@@ -136,10 +144,62 @@ final class LedgerTest extends DatabaseTestCase
         $second = $this->accrual->accrue(...$args);
 
         self::assertTrue($first->isCalculated());
-        self::assertFalse($second->isCalculated(), 'a repeated callback must not double the money');
-        self::assertSame('already_recorded', $second->reason);
+        // The money is recorded ONCE — that is the whole claim and it is
+        // unchanged: three lines, one commission balance.
         self::assertCount(3, $this->ledger->forEvent('order-2:item-1:paid'));
         self::assertSame(-50000, $this->ledger->balances(self::VENDOR)[LedgerAccount::Commission->value]);
+
+        // What changed in `alpha.39` is the ANSWER to the second call. It used
+        // to be `needsConfiguration('already_recorded')` — not calculated —
+        // and `CaptureOrder` read «not calculated» as «no figures», wrote the
+        // order line with a null commission, a null share and an empty event
+        // reference, and then skipped that line for ever because a row
+        // existed. The ledger held the money and the line said it did not.
+        //
+        // Now the second call RECOVERS the figures off the event that is
+        // already there, so a retry can write a correct line. The reason still
+        // says where they came from, and the figures are byte-for-byte the
+        // first call's — recovered, never recomputed at today's rate.
+        self::assertTrue($second->isCalculated(), 'the figures are on disk; the answer must carry them');
+        self::assertTrue($second->isRecovered(), 'and must say it read them rather than calculating them');
+        self::assertSame(CommissionOutcome::ALREADY_RECORDED, $second->reason);
+        self::assertSame($first->base?->minor, $second->base?->minor, 'base recovered from item_paid minus tax');
+        self::assertSame($first->commission?->minor, $second->commission?->minor);
+        self::assertSame($first->vendorShare?->minor, $second->vendorShare?->minor);
+        self::assertSame($first->base?->currency, $second->base?->currency);
+        self::assertSame($first->base?->exponent, $second->base?->exponent);
+        // And the rate behind them, because the snapshot column is written now.
+        self::assertSame(1000, $second->snapshot?->rateBasisPoints, 'the recorded rate, not a rate resolved today');
+    }
+
+    /**
+     * WHAT THIS PROVES: a ledger write that genuinely FAILED is not reported
+     * as «already recorded».
+     *
+     * The two were one answer until `alpha.39`, and they call for opposite
+     * actions: one means «your figures are safe, use them», the other means
+     * «nothing was written, do not pretend a sale was captured».
+     */
+    public function testAFailedLedgerWriteIsNotReportedAsAlreadyRecorded(): void
+    {
+        $this->rules->setRate(RateScope::General, 'general', CommissionRate::ofBasisPoints(1000));
+        $gate = new \Tecteb\Marketplace\Tests\Support\FailingDatabase($this->db);
+        $gate->failWhen(['INSERT INTO', 'tmc_ledger']);
+        // The rate still comes from the real database — only the ledger write
+        // is refused, which is the one statement this test is about.
+        $accrual = new RecordCommission(
+            new DbLedgerRepository($gate, $this->clock),
+            new ResolveCommissionRate($this->rules),
+            new CommissionCalculator(),
+            $this->logger
+        );
+
+        $outcome = $accrual->accrue('order-9:item-1:paid', self::VENDOR, 'order-9', 'item-1', Money::of(500000), ['vendor' => (string) self::VENDOR]);
+
+        self::assertNotSame([], $gate->refused, 'the injected failure never fired: this test proved nothing');
+        self::assertFalse($outcome->isCalculated());
+        self::assertSame('ledger_unwritable', $outcome->reason, 'not «already_recorded»: nothing is recorded');
+        self::assertSame([], $this->ledger->forEvent('order-9:item-1:paid'));
     }
 
     public function testAnEventKeyIsRequired(): void

@@ -98,9 +98,18 @@ final class OrderHooks
         }
         try {
             $reader = $container->get(WcOrderReader::class);
+            // The unit travels with the order. Until `alpha.39` this call
+            // passed only the lines, so `CaptureOrder` fell back to its
+            // `'IRR', 0` default and an order placed in any other currency was
+            // recorded under a currency nobody had read. The reader puts the
+            // same pair on every line as well, and `CaptureOrder` refuses a
+            // line whose unit it could not read rather than storing a guess.
+            $unit = $reader->unit($order);
             $container->get(CaptureOrder::class)->capture(
                 (int) $order->get_id(),
-                $reader->lines($order)
+                $reader->lines($order),
+                $unit['currency'],
+                max(0, $unit['exponent'])
             );
         } catch (\Throwable) {
             // A capture that throws must not break the customer's checkout.

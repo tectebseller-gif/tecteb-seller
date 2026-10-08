@@ -60,6 +60,7 @@ use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
 use Tecteb\Marketplace\Tests\Support\FakeProductImages;
 use Tecteb\Marketplace\Tests\Support\FakeTrialUnlock;
+use Tecteb\Marketplace\Tests\Support\SpyRefundRecorder;
 
 /**
  * Half a line on its way, and some of it coming back — on real MariaDB.
@@ -514,6 +515,34 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
     }
 
     /** A second, independent service graph — two requests, not one retried. */
+    /**
+     * The same service, with a recorder that remembers what it was handed.
+     *
+     * The capability is `REVIEW_VENDOR`, because that is what
+     * `recordWooCommerceRefund()` asks for — a different permission from the
+     * ledger reversal above it, on purpose.
+     */
+    private function refundServiceWith(SpyRefundRecorder $recorder): ManageReturns
+    {
+        $db = new WpDatabase($this->wpdb);
+        $clock = new SystemClock();
+        return new ManageReturns(
+            new DbOrderItemRepository($db, $clock),
+            new DbShipmentRepository($db, $clock),
+            new DbLedgerRepository($db, $clock),
+            new StaffAccess(new DbStaffRepository($db, $clock), new DbVendorRepository($db, $clock)),
+            new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock),
+            $clock,
+            new ReturnStateMachine(),
+            new ReturnTerms(),
+            new RefundScope(),
+            $recorder,
+            new DbProductRepository($db, $clock),
+            $this->storefront,
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR, Capabilities::REVIEW_WITHDRAWALS])
+        );
+    }
+
     private function secondRefundService(): ManageReturns
     {
         $db = new WpDatabase($this->wpdb);
@@ -536,6 +565,108 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             $this->storefront,
             new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS])
         );
+    }
+
+    /**
+     * WHAT THIS PROVES: the amount handed to WooCommerce is the amount that
+     * was recorded — and for a ریال order of ۱۰۰٬۰۰۰ that is `'100000'`, not
+     * `'1000'`.
+     *
+     * **The defect this pins down.** `alpha.38`'s
+     * `recordWooCommerceRefund()` computed
+     * `(refundMinor + taxRefundMinor) / 100`. Nothing else in the plugin
+     * scales money by a hundred: orders are captured at `exponent = 0` because
+     * ریال and تومان have no minor unit, so a line stored as `100000` IS one
+     * hundred thousand. Every refund this build recorded was a hundredth of
+     * its value, and no test looked — every returns test passed `null` for the
+     * recorder, which is honest about WooCommerce and silent about the
+     * conversion.
+     *
+     * A double stands in for WooCommerce and is not presented as WooCommerce:
+     * what is asserted is the argument this plugin hands over.
+     */
+    public function testTheRefundAmountIsTheRecordedAmountAndNotAHundredthOfIt(): void
+    {
+        $itemId = $this->sell(1, 100000);
+        $returnId = $this->receivedReturn($itemId, 1);
+        self::assertTrue($this->returns->refund(self::MANAGER, $returnId)->ok);
+
+        $spy = new SpyRefundRecorder();
+        $result = $this->refundServiceWith($spy)->recordWooCommerceRefund(self::MANAGER, $returnId);
+
+        self::assertTrue($result->ok, $result->code);
+        self::assertCount(1, $spy->calls, 'exactly one refund record');
+        // 100,000 base + 10,000 tax, at exponent 0.
+        self::assertSame('110000', $spy->lastAmount(), 'the recorded amount, in the order own unit');
+        self::assertNotSame('1100', $spy->lastAmount(), 'and not the hundredth alpha.38 sent');
+    }
+
+    /**
+     * WHAT THIS PROVES: a line whose unit was never recorded is REFUSED by
+     * name rather than converted on a hunch.
+     *
+     * «اگر اطلاعات واحد برای رکورد قدیمی کافی نیست، وضعیت و راه بازیابی روشن
+     * باشد». A line captured while no commission rate resolved carries no
+     * ledger event, so no stored unit exists for it — and the refusal names
+     * the line and the empty event so a person can act.
+     */
+    public function testALineWithNoRecordedUnitIsRefusedRatherThanGuessed(): void
+    {
+        $itemId = $this->sell(1, 100000);
+        $returnId = $this->receivedReturn($itemId, 1);
+        self::assertTrue($this->returns->refund(self::MANAGER, $returnId)->ok);
+
+        // The legacy shape, made on purpose: a line whose amounts are stored
+        // and whose LEDGER EVENT is not. Rows like this exist — a line
+        // captured while no rate resolved keeps its amounts and records no
+        // event — and until `alpha.39` the refund path did not need a unit
+        // from anywhere, so it never noticed. Written straight to the column
+        // because no service produces this state on purpose; the point is to
+        // meet it, not to make it.
+        $table = $this->wpdb->prefix . M0006CatalogAndOrders::ORDER_ITEMS;
+        $this->wpdb->pdo()->exec("UPDATE `{$table}` SET ledger_event = '' WHERE id = {$itemId}");
+
+        $spy = new SpyRefundRecorder();
+        $result = $this->refundServiceWith($spy)->recordWooCommerceRefund(self::MANAGER, $returnId);
+
+        self::assertFalse($result->ok, 'a unit nobody recorded is not a unit to convert with');
+        self::assertSame('refund_unit_unknown', $result->code);
+        self::assertSame([], $spy->calls, 'nothing was handed over at all');
+        // And the refusal names what a person has to look at.
+        self::assertSame($itemId, (int) $result->context['order_item_id']);
+        self::assertSame('', (string) $result->context['ledger_event']);
+    }
+
+    /**
+     * WHAT THIS PROVES: partial refunds of one line add up to the line and
+     * never past it, with every amount in the recorded unit.
+     *
+     * Three units sold, refunded one at a time: three records, each the third
+     * of the line it reverses, and their sum exactly the line.
+     */
+    public function testPartialRefundsAddUpToTheLineAndNoFurther(): void
+    {
+        $itemId = $this->sell(3, 300000);
+        $spy = new SpyRefundRecorder();
+        $service = $this->refundServiceWith($spy);
+
+        $total = 0;
+        for ($i = 0; $i < 3; $i++) {
+            $returnId = $this->receivedReturn($itemId, 1);
+            self::assertTrue($this->returns->refund(self::MANAGER, $returnId)->ok);
+            $result = $service->recordWooCommerceRefund(self::MANAGER, $returnId);
+            self::assertTrue($result->ok, $result->code);
+            $total += (int) $spy->lastAmount();
+        }
+
+        self::assertCount(3, $spy->calls);
+        // 300,000 base + 30,000 tax, reversed in three parts with nothing lost
+        // to rounding and nothing invented.
+        self::assertSame(330000, $total, 'the three parts are exactly the line');
+        foreach ($spy->calls as $call) {
+            self::assertSame('110000', $call['amount']);
+            self::assertSame(1, $call['quantity']);
+        }
     }
 
     // --- helpers ------------------------------------------------------------

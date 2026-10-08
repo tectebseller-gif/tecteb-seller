@@ -53,6 +53,7 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbStaffRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables;
+use Tecteb\Marketplace\Tests\Support\FailingDatabase;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
 use Tecteb\Marketplace\Tests\Support\FakeProductImages;
@@ -90,6 +91,10 @@ final class OrderFlowTest extends DatabaseTestCase
     private FakeCatalogProjector $storefront;
     private FakeProductImages $images;
     private FakeTrialUnlock $trial;
+    /** Kept so one test can rebuild the capture over a database that refuses. */
+    private SyncCatalog $catalogService;
+    private OrderOperationsGate $orderGate;
+    private AuditLogger $logger;
 
     protected function setUp(): void
     {
@@ -127,9 +132,12 @@ final class OrderFlowTest extends DatabaseTestCase
         $access = new StaffAccess($this->staff, $this->vendors);
         $readiness = new ProductReadiness($templates, $variations);
         $catalog = new SyncCatalog($this->products, $variations, $this->storefront, $audit);
+        $this->catalogService = $catalog;
+        $this->logger = $audit;
         $publishing = new ProductPublishPolicy($options);
         $rates = new ResolveCommissionRate($this->rules);
         $gate = new OrderOperationsGate($rates, $this->ledger, $this->trial);
+        $this->orderGate = $gate;
 
         $this->manage = new ManageProducts(
             $this->products,
@@ -232,6 +240,114 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertSame(0, $again['captured'], 'nothing is captured twice');
         self::assertCount(count($first), $this->ledger->forEvent(CaptureOrder::eventKey(5002, 21)));
         self::assertCount(1, $this->orderItems->forVendor(self::VENDOR_A));
+    }
+
+    /**
+     * WHAT THIS PROVES: the ledger write succeeds, storing the LINE fails, and
+     * the retry ends with exactly one financial event and one line that
+     * carries its share, its rate and its event reference.
+     *
+     * **The trap this closes.** On `alpha.38` the sequence was:
+     *
+     *   1. the commission reaches the ledger;
+     *   2. `items->record()` fails — and `CaptureOrder` never looked at the
+     *      answer, so `captured` counted the sale anyway;
+     *   3. the retry's ledger write is refused by the unique index;
+     *   4. `RecordCommission` called that `needsConfiguration('already_recorded')`;
+     *   5. so the line was written with a NULL commission, a NULL share and an
+     *      empty event reference;
+     *   6. and every later attempt skipped the line, because a row existed.
+     *
+     * The money was in the ledger and the line said it was unknown — for ever.
+     * Four separate answers had to become four separate answers for this to
+     * work, and the end state is what this asserts.
+     */
+    public function testALedgerWriteThatSucceedsSurvivesAFailedLineWriteAndItsRetry(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-1');
+        $lines = [$this->line(41, $a, 1, 500000)];
+        $eventKey = CaptureOrder::eventKey(5010, 41);
+
+        // Step 1 and 2: the ledger takes it, the line does not.
+        $gate = new FailingDatabase(new WpDatabase($this->wpdb));
+        $gate->failWhen(['INSERT INTO', M0006CatalogAndOrders::ORDER_ITEMS]);
+        $report = $this->captureOver($gate)->capture(5010, $lines);
+
+        self::assertNotSame([], $gate->refused, 'the injected failure never fired: this test proved nothing');
+        self::assertSame(0, $report['captured'], 'a line that was not stored is not a captured sale');
+        self::assertSame(1, $report['failed'], 'and the count says which way it went');
+        self::assertContains('item_not_stored', $report['reasons']);
+        self::assertNotSame([], $this->ledger->forEvent($eventKey), 'the money IS recorded');
+        self::assertSame([], $this->orderItems->forVendor(self::VENDOR_A), 'and the line is not');
+
+        // Step 3 to 6: the retry. The ledger refuses a duplicate; the figures
+        // are recovered off the event that is already there.
+        $retry = $this->capture->capture(5010, $lines);
+
+        self::assertSame(1, $retry['captured'], 'the retry is the thing that fixes it');
+        self::assertSame(0, $retry['unrecorded'], 'the figures were recovered, not lost');
+        self::assertSame(0, $retry['failed']);
+
+        // Exactly one financial event, with nothing doubled.
+        self::assertCount(3, $this->ledger->forEvent($eventKey));
+        $balances = $this->ledger->balances(self::VENDOR_A);
+        self::assertSame(-450000, $balances[LedgerAccount::VendorEarning->value] ?? 0);
+        self::assertSame(-50000, $balances[LedgerAccount::Commission->value] ?? 0);
+
+        // And exactly one line, which knows what it is worth.
+        $stored = $this->orderItems->forVendor(self::VENDOR_A);
+        self::assertCount(1, $stored);
+        self::assertSame(50000, $stored[0]->commissionMinor, 'the commission recorded at the time');
+        self::assertSame(450000, $stored[0]->vendorShareMinor);
+        self::assertSame(1000, $stored[0]->rateBasisPoints, 'the rate recorded at the time, not resolved again');
+        self::assertSame($eventKey, $stored[0]->ledgerEvent, 'and it points at its own event');
+        self::assertTrue($stored[0]->isRecorded());
+    }
+
+    /**
+     * WHAT THIS PROVES: a line whose unit the reader could not read exactly is
+     * refused by name — nothing is written to the ledger and nothing to the
+     * line.
+     *
+     * «اگر ارز یا مقیاسی پشتیبانی نمی‌شود، صریح و قابل تشخیص رد شود؛ با واحد
+     * حدسی ثبت نشود.» The reader names it (`WcOrderReader`, and
+     * `OrderMoneyUnitTest` covers that half); this is what the capture does
+     * with the name.
+     */
+    public function testALineWhoseUnitCouldNotBeReadIsRefusedAndNothingIsWritten(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-1');
+        $line = $this->line(51, $a, 1, 500000);
+        $line['unit_error'] = 'amount_not_exact';
+
+        $report = $this->capture->capture(5011, [$line]);
+
+        self::assertSame(0, $report['captured']);
+        self::assertSame(1, $report['refused_unit']);
+        self::assertSame(['amount_not_exact'], $report['reasons']);
+        self::assertSame([], $this->ledger->forEvent(CaptureOrder::eventKey(5011, 51)), 'no money was recorded');
+        self::assertSame([], $this->orderItems->forVendor(self::VENDOR_A), 'and no line');
+    }
+
+    /**
+     * WHAT THIS PROVES: a line that carries its OWN currency and exponent is
+     * recorded in that unit, not in this method's default.
+     */
+    public function testALineRecordsTheUnitItCarries(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-1');
+        $line = $this->line(61, $a, 1, 1050);
+        $line['currency'] = 'USD';
+        $line['exponent'] = 2;
+
+        self::assertSame(1, $this->capture->capture(5012, [$line])['captured']);
+
+        $entries = $this->ledger->forEvent(CaptureOrder::eventKey(5012, 61));
+        self::assertNotSame([], $entries);
+        foreach ($entries as $entry) {
+            self::assertSame('USD', $entry->amount->currency, 'the order own currency reached the ledger');
+            self::assertSame(2, $entry->amount->exponent);
+        }
     }
 
     public function testWithoutAResolvableRateTheLineIsRecordedAsUNRECORDEDRatherThanAsZero(): void
@@ -447,6 +563,32 @@ final class OrderFlowTest extends DatabaseTestCase
     // -------------------------------------------------------------- helpers
 
     /** @return array{order_item_id:int, wc_product_id:int, variation_id:null, title:string, sku:string, quantity:int, line_total_minor:int, line_tax_minor:int} */
+    /**
+     * The same capture, with ORDER-ITEM storage pointed at a database that
+     * refuses — and the ledger left on the real one.
+     *
+     * That asymmetry is the test: «the money was recorded and the line was
+     * not» is the state `alpha.38` could not recover from, and it cannot be
+     * built by failing everything.
+     */
+    private function captureOver(FailingDatabase $failing): CaptureOrder
+    {
+        $clock = new SystemClock();
+        return new CaptureOrder(
+            new DbOrderItemRepository($failing, $clock),
+            $this->products,
+            new RecordCommission(
+                $this->ledger,
+                new ResolveCommissionRate($this->rules),
+                new CommissionCalculator(),
+                $this->logger
+            ),
+            $this->catalogService,
+            $this->orderGate,
+            $this->logger
+        );
+    }
+
     private function line(int $orderItemId, int $productId, int $quantity, int $totalMinor): array
     {
         $product = $this->products->find($productId);

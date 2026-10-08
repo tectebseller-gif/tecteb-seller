@@ -16,6 +16,8 @@ final class CommissionOutcome
 {
     public const CALCULATED = 'calculated';
     public const NEEDS_CONFIGURATION = 'needs_configuration';
+    /** A calculated outcome whose figures came off an existing ledger event. */
+    public const ALREADY_RECORDED = 'already_recorded';
 
     private function __construct(
         public readonly string $state,
@@ -32,6 +34,31 @@ final class CommissionOutcome
         return new self(self::CALCULATED, $base, $commission, $vendorShare, $snapshot);
     }
 
+    /**
+     * The figures of an event the ledger ALREADY holds, read back off it.
+     *
+     * **Why this is a third answer.** `alpha.38` turned a refused ledger write
+     * into `needsConfiguration('already_recorded')`, which is not calculated —
+     * so `CaptureOrder` wrote the order line with a null commission, a null
+     * share and an empty ledger event, and then skipped the line for ever
+     * because a row existed. The money was in the ledger and the line said it
+     * was unknown. Measured on the shipped bytes.
+     *
+     * Calculated is the right state: these ARE the figures, and they are the
+     * ones recorded at the time rather than a rate resolved again today
+     * («نرخ تازه نباید تاریخ را بازنویسی کند»). `reason` marks where they came
+     * from, and `$snapshot` is null when the event predates the snapshot
+     * column being written — figures recovered, rate honestly unknown.
+     */
+    public static function recovered(
+        Money $base,
+        Money $commission,
+        Money $vendorShare,
+        ?CommissionSnapshot $snapshot
+    ): self {
+        return new self(self::CALCULATED, $base, $commission, $vendorShare, $snapshot, self::ALREADY_RECORDED);
+    }
+
     public static function needsConfiguration(string $reason): self
     {
         return new self(self::NEEDS_CONFIGURATION, null, null, null, null, $reason);
@@ -40,5 +67,11 @@ final class CommissionOutcome
     public function isCalculated(): bool
     {
         return $this->state === self::CALCULATED;
+    }
+
+    /** Calculated, but read back off an event that was already recorded. */
+    public function isRecovered(): bool
+    {
+        return $this->state === self::CALCULATED && $this->reason === self::ALREADY_RECORDED;
     }
 }

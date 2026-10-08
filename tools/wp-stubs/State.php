@@ -52,6 +52,16 @@ final class State
      * one storage layer, as they do in WordPress.
      */
     public static bool $optionsBackedByWpdb = false;
+    /**
+     * How many decimal places the stub storefront keeps its prices to.
+     *
+     * Backs `wc_get_price_decimals()`. Zero is WooCommerce's setting on a
+     * ریال/تومان shop and the value every existing test assumed without ever
+     * saying so; `alpha.39` made the assumption a value a test can change,
+     * which is what lets the money boundary be exercised for a decimal
+     * currency at all.
+     */
+    public static int $priceDecimals = 0;
     public static string $environmentType = 'production';
     public static string $homeUrl = 'https://example.test';
     public static string $wpVersion = 'stub';
@@ -162,6 +172,7 @@ final class State
         self::$isAdmin = true;
         self::$doingAjax = false;
         self::$failOptionWrites = false;
+        self::$priceDecimals = 0;
         self::$optionsBackedByWpdb = false;
         self::$environmentType = 'production';
         self::$homeUrl = 'https://example.test';

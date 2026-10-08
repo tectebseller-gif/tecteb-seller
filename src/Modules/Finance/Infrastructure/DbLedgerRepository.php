@@ -54,7 +54,7 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
             if ($line['reverses'] !== null) {
                 $params[] = (int) $line['reverses'];
             }
-            array_push($params, '', $now);
+            array_push($params, $transaction->snapshotJson(), $now);
         }
 
         $sql = 'INSERT INTO `' . $this->table() . '`

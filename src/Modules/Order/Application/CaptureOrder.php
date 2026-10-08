@@ -49,13 +49,17 @@ final class CaptureOrder
      *   order_item_id:int, wc_product_id:int, variation_id:?int, title:string,
      *   sku:string, quantity:int, line_total_minor:int, line_tax_minor:int
      * }> $lines the WooCommerce order's lines, already read into plain values
-     * @return array{captured:int, skipped:int, unrecorded:int, vendors:list<int>}
+     * @return array{captured:int, skipped:int, unrecorded:int, failed:int, refused_unit:int, reasons:list<string>, vendors:list<int>}
      */
     public function capture(int $orderId, array $lines, string $currency = 'IRR', int $exponent = 0): array
     {
         $captured = 0;
         $skipped = 0;
         $unrecorded = 0;
+        $failed = 0;
+        $refusedUnit = 0;
+        /** @var list<string> every named reason this pass produced */
+        $reasons = [];
         $vendors = [];
 
         foreach ($lines as $line) {
@@ -68,9 +72,28 @@ final class CaptureOrder
                 continue;           // already recorded; the hook fired twice
             }
 
+            // The unit the READER measured, when it supplied one. A line that
+            // carries its own currency and exponent is authoritative: the
+            // arguments to this method are the order's unit, and the line's is
+            // the same unit read at the same moment. Until `alpha.39` neither
+            // travelled at all and this method's `'IRR', 0` default decided
+            // the unit of every order on every site.
+            $lineCurrency = (string) ($line['currency'] ?? '') !== '' ? (string) $line['currency'] : $currency;
+            $lineExponent = isset($line['exponent']) ? (int) $line['exponent'] : $exponent;
+            // «اگر ارز یا مقیاسی پشتیبانی نمی‌شود، صریح و قابل تشخیص رد شود؛
+            // با واحد حدسی ثبت نشود.» The reader names what it could not read
+            // exactly; nothing is written for such a line, and the count says
+            // so instead of a silently rounded amount reaching the ledger.
+            $unitError = (string) ($line['unit_error'] ?? '');
+            if ($unitError !== '') {
+                $refusedUnit++;
+                $reasons[] = $unitError;
+                continue;
+            }
+
             $quantity = max(1, (int) ($line['quantity'] ?? 1));
-            $base = Money::of((int) ($line['line_total_minor'] ?? 0), $currency, $exponent);
-            $tax = Money::of((int) ($line['line_tax_minor'] ?? 0), $currency, $exponent);
+            $base = Money::of((int) ($line['line_total_minor'] ?? 0), $lineCurrency, $lineExponent);
+            $tax = Money::of((int) ($line['line_tax_minor'] ?? 0), $lineCurrency, $lineExponent);
             $eventKey = self::eventKey($orderId, (int) $line['order_item_id']);
 
             $outcome = $this->commissions->accrue(
@@ -90,8 +113,9 @@ final class CaptureOrder
             $recorded = $outcome->isCalculated();
             if (!$recorded) {
                 $unrecorded++;
+                $reasons[] = $outcome->reason;
             }
-            $this->items->record(new VendorOrderItem(
+            $stored = $this->items->record(new VendorOrderItem(
                 0,
                 $orderId,
                 (int) $line['order_item_id'],
@@ -116,6 +140,17 @@ final class CaptureOrder
                 (int) $line['wc_product_id']
             ));
 
+            // CHECKED, not fired and forgotten. `alpha.38` dropped this
+            // answer and still said `captured++`, so a storage failure read as
+            // a captured sale — and because the next attempt looks for the row
+            // that was never written, the retry was the only thing that could
+            // have fixed it and it reported success too.
+            if (!$stored) {
+                $failed++;
+                $reasons[] = 'item_not_stored';
+                continue;
+            }
+
             // The sale has moved WooCommerce's stock; bring it home so the
             // vendor's own list stops showing yesterday's number.
             $this->catalog->pullStock($product->id);
@@ -126,16 +161,32 @@ final class CaptureOrder
             }
         }
 
-        if ($captured > 0 || $unrecorded > 0) {
+        // Logged whenever anything happened OR anything was refused: a pass
+        // that stored nothing because every line's unit was unreadable is the
+        // most important one to find in the trail later.
+        if ($captured > 0 || $unrecorded > 0 || $failed > 0 || $refusedUnit > 0) {
             $this->audit->log(AuditEventCatalog::ORDER_CAPTURED, 0, 'order', (string) $orderId, [
                 'order_id' => $orderId,
                 'vendors' => count($vendors),
                 'items' => $captured,
-                'recorded' => $captured - $unrecorded,
+                'recorded' => max(0, $captured - $unrecorded),
                 'skipped' => $skipped,
+                'failed' => $failed,
+                'refused_unit' => $refusedUnit,
+                'reasons' => implode(',', array_unique(array_filter($reasons))),
             ]);
         }
-        return ['captured' => $captured, 'skipped' => $skipped, 'unrecorded' => $unrecorded, 'vendors' => $vendors];
+        return [
+            'captured' => $captured,
+            'skipped' => $skipped,
+            'unrecorded' => $unrecorded,
+            // Two new counts, and the caller is meant to look at them: a
+            // capture that refused or failed is not a capture that worked.
+            'failed' => $failed,
+            'refused_unit' => $refusedUnit,
+            'reasons' => array_values(array_unique(array_filter($reasons))),
+            'vendors' => $vendors,
+        ];
     }
 
     /**
