@@ -49,7 +49,7 @@ final class CaptureOrder
      *   order_item_id:int, wc_product_id:int, variation_id:?int, title:string,
      *   sku:string, quantity:int, line_total_minor:int, line_tax_minor:int
      * }> $lines the WooCommerce order's lines, already read into plain values
-     * @return array{captured:int, skipped:int, unrecorded:int, failed:int, refused_unit:int, reasons:list<string>, vendors:list<int>}
+     * @return array{captured:int, skipped:int, unrecorded:int, failed:int, refused_unit:int, repaired:int, incomplete:int, reasons:list<string>, vendors:list<int>}
      */
     public function capture(int $orderId, array $lines, string $currency = 'IRR', int $exponent = 0): array
     {
@@ -58,6 +58,8 @@ final class CaptureOrder
         $unrecorded = 0;
         $failed = 0;
         $refusedUnit = 0;
+        $repaired = 0;
+        $incomplete = 0;
         /** @var list<string> every named reason this pass produced */
         $reasons = [];
         $vendors = [];
@@ -68,8 +70,29 @@ final class CaptureOrder
                 $skipped++;         // not ours: a shop or Dokan product
                 continue;
             }
-            if ($this->items->findByOrderItem((int) $line['order_item_id']) !== null) {
-                continue;           // already recorded; the hook fired twice
+            $already = $this->items->findByOrderItem((int) $line['order_item_id']);
+            if ($already !== null) {
+                // The hook fired twice — OR the row is one of `alpha.38`'s
+                // half-finished ones, and this is the only moment anything
+                // looks at it.
+                //
+                // A row with a null share and an empty `ledger_event` beside a
+                // perfectly good ledger event was the end state of the defect
+                // §5 names: the item write was unchecked, a refused ledger
+                // write was reported as «already recorded», and every later
+                // callback skipped the line BECAUSE the row existed. So this
+                // branch repairs instead of skipping, from the event the
+                // ledger already holds — never at today's rate.
+                $repair = $this->repair($already, $orderId);
+                if ($repair !== '') {
+                    $reasons[] = $repair;
+                    if ($repair === 'line_repaired') {
+                        $repaired++;
+                    } else {
+                        $incomplete++;
+                    }
+                }
+                continue;
             }
 
             // The unit the READER measured, when it supplied one. A line that
@@ -183,7 +206,7 @@ final class CaptureOrder
         // Logged whenever anything happened OR anything was refused: a pass
         // that stored nothing because every line's unit was unreadable is the
         // most important one to find in the trail later.
-        if ($captured > 0 || $unrecorded > 0 || $failed > 0 || $refusedUnit > 0) {
+        if ($captured > 0 || $unrecorded > 0 || $failed > 0 || $refusedUnit > 0 || $repaired > 0 || $incomplete > 0) {
             $this->audit->log(AuditEventCatalog::ORDER_CAPTURED, 0, 'order', (string) $orderId, [
                 'order_id' => $orderId,
                 'vendors' => count($vendors),
@@ -192,6 +215,8 @@ final class CaptureOrder
                 'skipped' => $skipped,
                 'failed' => $failed,
                 'refused_unit' => $refusedUnit,
+                'repaired' => $repaired,
+                'incomplete' => $incomplete,
                 'reasons' => implode(',', array_unique(array_filter($reasons))),
             ]);
         }
@@ -203,9 +228,50 @@ final class CaptureOrder
             // capture that refused or failed is not a capture that worked.
             'failed' => $failed,
             'refused_unit' => $refusedUnit,
+            // A line that existed but was half-finished: repaired from its own
+            // ledger event, or still incomplete and NAMED rather than skipped.
+            'repaired' => $repaired,
+            'incomplete' => $incomplete,
             'reasons' => array_values(array_unique(array_filter($reasons))),
             'vendors' => $vendors,
         ];
+    }
+
+    /**
+     * Looks at a line that already exists, and finishes it if it is one of the
+     * half-written ones.
+     *
+     * Three answers, and the empty string is the ordinary one:
+     *
+     *  - `''` — the row is complete. A repeated callback has nothing to do,
+     *    which is the overwhelmingly common case and must stay free of noise.
+     *  - `line_repaired` — the row was missing its figures and the ledger holds
+     *    its event, so the figures were taken FROM THE EVENT. Not recomputed:
+     *    a rate resolved today would rewrite what was agreed at the time.
+     *  - `line_incomplete` — the row is missing its figures and there is no
+     *    event to recover them from, or the repair write did not take. Either
+     *    way a person has to decide, and saying so is the whole point: this is
+     *    the state `alpha.38` left silent.
+     */
+    private function repair(VendorOrderItem $item, int $orderId): string
+    {
+        if ($item->vendorShareMinor !== null && trim($item->ledgerEvent) !== '') {
+            return '';
+        }
+        $eventKey = $item->ledgerEvent !== '' ? $item->ledgerEvent : self::eventKey($orderId, $item->orderItemId);
+        $outcome = $this->commissions->recoverRecorded($eventKey);
+        if ($outcome === null || $outcome->commission === null || $outcome->vendorShare === null) {
+            return 'line_incomplete';
+        }
+        $repaired = $this->items->completeFinancials(
+            $item->id,
+            $outcome->commission->minor,
+            $outcome->vendorShare->minor,
+            $outcome->snapshot?->rateBasisPoints,
+            (string) ($outcome->snapshot?->rateSource ?? ''),
+            $eventKey
+        );
+        return $repaired ? 'line_repaired' : 'line_incomplete';
     }
 
     /**

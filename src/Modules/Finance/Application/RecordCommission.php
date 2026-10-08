@@ -112,6 +112,21 @@ final class RecordCommission
     }
 
     /**
+     * The figures of an event already in the ledger, for a caller that has not
+     * tried to write it.
+     *
+     * The same recovery `accrue()` falls back to, named and public, because a
+     * repair asks exactly this question: «آنچه ثبت شده چه بود؟». It resolves
+     * no rate and writes nothing — a rate resolved today would rewrite what
+     * was agreed at the time — and answers `null` when there is no such event,
+     * which is «there is nothing to recover from», not «zero».
+     */
+    public function recoverRecorded(string $eventKey): ?CommissionOutcome
+    {
+        return trim($eventKey) === '' ? null : $this->recover($eventKey);
+    }
+
+    /**
      * The figures of an event already in the ledger, read back off its rows.
      *
      * `item_paid` is base + tax, so the base is recovered by subtracting the

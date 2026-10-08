@@ -57,4 +57,31 @@ interface OrderItemRepositoryInterface
 
     /** ORDER-01: a manager (never a process of ours) calling a sale complete. */
     public function recordSettlementCompletion(int $id, ?string $completedAt, ?int $actorId): bool;
+
+    /**
+     * Fills in the financial half of a line stored without it, and ONLY while
+     * it is still missing — so a repair can never rewrite figures that are
+     * already recorded.
+     *
+     * Declared here because `CaptureOrder` calls it: a repeated WooCommerce
+     * callback is the natural place for the remedy, and `CaptureOrder` holds
+     * this interface rather than the concrete repository.
+     */
+    public function completeFinancials(
+        int $id,
+        int $commissionMinor,
+        int $vendorShareMinor,
+        ?int $rateBasisPoints,
+        string $rateSource,
+        string $ledgerEvent
+    ): bool;
+
+    /**
+     * Every line stored without its financial half.
+     *
+     * The detection half: a remedy nobody can find is not a remedy.
+     *
+     * @return list<array{id:int, wc_order_id:int, wc_order_item_id:int, vendor_user_id:int, ledger_event:string, has_share:bool}>
+     */
+    public function incompleteCaptures(int $limit = 200): array;
 }

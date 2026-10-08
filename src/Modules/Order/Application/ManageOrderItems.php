@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStateMachine;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
@@ -152,5 +153,56 @@ final class ManageOrderItems
             $complete ? 'settlement_recorded' : 'settlement_cleared',
             ['item_id' => $itemId]
         );
+    }
+
+    /**
+     * Order lines stored without their financial half — the ones a manager has
+     * to be able to find.
+     *
+     * **Why this is a read a manager needs.** `alpha.38` could store a line
+     * with a null share, a null rate and an empty `ledger_event`, and then
+     * skip it for ever because the row existed. `alpha.39` repairs such a line
+     * the next time WooCommerce fires the hook for its order, and that hook
+     * may never fire again. So the rows are also listed, with the one fact
+     * that decides what can be done about each: whether the ledger holds its
+     * event.
+     *
+     *  - `recoverable` — the figures are on the books and a repair will take
+     *    them from there. Firing the order's capture again is enough.
+     *  - `rate_unknown` — nothing was ever accrued for this line. That is a
+     *    decision (FIN-02 forbids a guessed rate), not a repair.
+     *
+     * Gated on the withdrawal-review capability rather than a new one: this is
+     * the same question as «آیا این فروشنده طلبی دارد که ثبت نشده» and the
+     * balance already reports its count.
+     *
+     * @return array{allowed:bool, lines:list<array{id:int, wc_order_id:int, wc_order_item_id:int, vendor_user_id:int, remedy:string}>}
+     */
+    public function incompleteCaptures(?RecordCommission $commissions = null, int $limit = 200): array
+    {
+        if ($this->capabilities === null || !$this->capabilities->can(Capabilities::REVIEW_WITHDRAWALS)) {
+            return ['allowed' => false, 'lines' => []];
+        }
+        $lines = [];
+        foreach ($this->items->incompleteCaptures($limit) as $row) {
+            $key = $row['ledger_event'] !== ''
+                ? $row['ledger_event']
+                : CaptureOrder::eventKey($row['wc_order_id'], $row['wc_order_item_id']);
+            // Without the finance service the remedy cannot be told apart from
+            // the decision, and `unknown` says that rather than guessing the
+            // kinder answer.
+            $remedy = 'unknown';
+            if ($commissions !== null) {
+                $remedy = $commissions->recoverRecorded($key) !== null ? 'recoverable' : 'rate_unknown';
+            }
+            $lines[] = [
+                'id' => $row['id'],
+                'wc_order_id' => $row['wc_order_id'],
+                'wc_order_item_id' => $row['wc_order_item_id'],
+                'vendor_user_id' => $row['vendor_user_id'],
+                'remedy' => $remedy,
+            ];
+        }
+        return ['allowed' => true, 'lines' => $lines];
     }
 }

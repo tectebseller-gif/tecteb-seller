@@ -79,10 +79,108 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
             $params
         );
         if ($written === null) {
-            return 0;
+            // A REFUSED INSERT IS NOT THE SAME AS NO ROW.
+            //
+            // `wc_order_item_id` is unique, and the read at the top of this
+            // method is a courtesy: two WooCommerce callbacks inside the
+            // capture at the same moment both get past it and the index
+            // decides. The loser's `execute()` says `null`, and until
+            // `alpha.39` it answered `0` — which `CaptureOrder` reports as
+            // `item_not_stored`, a storage failure, about a line that is
+            // stored and complete. «موفق شد» را از خودِ داده بپرسید
+            // (`alpha.28`): if the row is there now, the caller has what it
+            // asked for, whoever wrote it.
+            $winner = $this->findByOrderItem($item->orderItemId);
+            return $winner?->id ?? 0;
         }
         $this->figuresChanged($item->vendorUserId);
         return $this->findByOrderItem($item->orderItemId)?->id ?? 0;
+    }
+
+    /**
+     * Fills in the financial half of a line that was stored without it — and
+     * only while it is still missing.
+     *
+     * **The state this exists for.** `alpha.38` wrote the line before reading
+     * whether the ledger write had succeeded, and turned a refused write into
+     * `needsConfiguration('already_recorded')`. So a site could hold an order
+     * line with a null share, a null rate and an empty `ledger_event` beside a
+     * perfectly good ledger event — and every later callback SKIPPED it,
+     * because a row existed. `alpha.39` cannot produce that state any more,
+     * but it cannot un-produce the rows already on disk either, and a vendor
+     * is owed an answer about them.
+     *
+     * **Why the `WHERE` carries the incompleteness.** This is the one write in
+     * the module that fills in figures after the fact, and it must never be
+     * able to change figures that are already there: «نرخ تازه نباید تاریخ را
+     * بازنویسی کند». So the condition is the defect, and a row that somebody
+     * else completed in the meantime matches nothing and is reported as not
+     * repaired. Zero changed rows is `false` HERE — the operation expected to
+     * change exactly one row — which is the `alpha.8` rule read against what
+     * this statement wanted.
+     */
+    public function completeFinancials(
+        int $id,
+        int $commissionMinor,
+        int $vendorShareMinor,
+        ?int $rateBasisPoints,
+        string $rateSource,
+        string $ledgerEvent
+    ): bool {
+        if ($id <= 0 || trim($ledgerEvent) === '') {
+            return false;
+        }
+        $rate = $rateBasisPoints === null ? 'NULL' : '%d';
+        $params = [$commissionMinor, $vendorShareMinor];
+        if ($rateBasisPoints !== null) {
+            $params[] = $rateBasisPoints;
+        }
+        array_push($params, $rateSource, $ledgerEvent, $this->now(), $id);
+        $rows = $this->db->execute(
+            'UPDATE `' . $this->table() . "` SET commission_minor = %d, vendor_share_minor = %d,
+             rate_bp = {$rate}, rate_source = %s, ledger_event = %s, updated_at = %s
+             WHERE id = %d AND (vendor_share_minor IS NULL OR ledger_event = '')",
+            $params
+        );
+        if ($rows === null || $rows === 0) {
+            return false;
+        }
+        $this->figuresChanged((int) ($this->find($id)?->vendorUserId ?? 0));
+        return true;
+    }
+
+    /**
+     * Every line stored without its financial half — the detection half of
+     * the remedy above.
+     *
+     * Read by `ManageOrderItems::incompleteCaptures()` so a manager can see
+     * them, because «رکوردهای نیمه‌تمام موجود نباید بی‌صدا نادیده گرفته
+     * شوند» and a repair nobody can find is not a remedy. The `ledger_event`
+     * is returned as stored — empty for the rows this is about — alongside the
+     * key the capture WOULD have used, which is what a repair looks the event
+     * up by.
+     *
+     * @return list<array{id:int, wc_order_id:int, wc_order_item_id:int, vendor_user_id:int, ledger_event:string, has_share:bool}>
+     */
+    public function incompleteCaptures(int $limit = 200): array
+    {
+        $rows = $this->db->getResults(
+            'SELECT id, wc_order_id, wc_order_item_id, vendor_user_id, ledger_event, vendor_share_minor
+             FROM `' . $this->table() . "` WHERE vendor_share_minor IS NULL OR ledger_event = ''
+             ORDER BY id ASC LIMIT %d",
+            [max(1, min(1000, $limit))]
+        );
+        return array_map(
+            static fn (array $row): array => [
+                'id' => (int) $row['id'],
+                'wc_order_id' => (int) $row['wc_order_id'],
+                'wc_order_item_id' => (int) $row['wc_order_item_id'],
+                'vendor_user_id' => (int) $row['vendor_user_id'],
+                'ledger_event' => (string) $row['ledger_event'],
+                'has_share' => $row['vendor_share_minor'] !== null,
+            ],
+            $rows
+        );
     }
 
     public function find(int $id): ?VendorOrderItem

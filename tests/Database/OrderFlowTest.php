@@ -54,6 +54,7 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables;
 use Tecteb\Marketplace\Tests\Support\FailingDatabase;
+use Tecteb\Marketplace\Tests\Support\InterferingDatabase;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
 use Tecteb\Marketplace\Tests\Support\FakeProductImages;
@@ -85,6 +86,7 @@ final class OrderFlowTest extends DatabaseTestCase
     private ReviewProducts $review;
     private CaptureOrder $capture;
     private ManageOrderItems $orders;
+    private StaffAccess $access;
     private ShipItems $ship;
     private PurchasePolicy $purchase;
     private DbVendorRepository $vendors;
@@ -130,6 +132,7 @@ final class OrderFlowTest extends DatabaseTestCase
         $this->trial = new FakeTrialUnlock(true);
 
         $access = new StaffAccess($this->staff, $this->vendors);
+        $this->access = $access;
         $readiness = new ProductReadiness($templates, $variations);
         $catalog = new SyncCatalog($this->products, $variations, $this->storefront, $audit);
         $this->catalogService = $catalog;
@@ -613,6 +616,227 @@ final class OrderFlowTest extends DatabaseTestCase
      * not» is the state `alpha.38` could not recover from, and it cannot be
      * built by failing everything.
      */
+    /**
+     * The row `alpha.38` could leave on disk, and the remedy for it.
+     *
+     * A retry fixes the half-written case where the LINE was never stored
+     * (`testALedgerWriteThatSucceedsSurvivesAFailedLineWriteAndItsRetry`). It
+     * cannot fix the other half: a line that WAS stored, with a null share and
+     * an empty event reference, beside a perfectly good ledger event. Every
+     * later callback skipped it because the row existed — «رکوردهای نیمه‌تمام
+     * موجود نباید بی‌صدا نادیده گرفته شوند».
+     *
+     * This builds that row the way `alpha.38` built it — the ledger first, the
+     * line with its figures nulled — and then fires the hook again.
+     */
+    public function testAHalfWrittenLineIsRepairedFromItsOwnLedgerEventAndNotFromTodaysRate(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-7');
+        $lines = [$this->line(47, $a, 1, 500000)];
+        $eventKey = CaptureOrder::eventKey(5016, 47);
+
+        // The accrual lands.
+        self::assertSame(1, $this->capture->capture(5016, $lines)['captured']);
+        $stored = $this->orderItems->forVendor(self::VENDOR_A);
+        self::assertCount(1, $stored);
+        $itemId = $stored[0]->id;
+
+        // And then the row is damaged into exactly `alpha.38`'s end state.
+        // Written with SQL on purpose: this is MEETING a legacy state, not
+        // making one — no code in `alpha.39` can produce it any more, so there
+        // is no service path that would.
+        $this->wpdb->pdo()->exec(
+            'UPDATE `' . $this->wpdb->prefix . M0006CatalogAndOrders::ORDER_ITEMS . "`
+             SET commission_minor = NULL, vendor_share_minor = NULL, rate_bp = NULL,
+                 rate_source = '', ledger_event = '' WHERE id = {$itemId}"
+        );
+        self::assertNull($this->orderItems->find($itemId)?->vendorShareMinor, 'the legacy state is in place');
+
+        // The rate changes in between — so a repair that RESOLVED a rate would
+        // be visibly wrong, and a repair that READ the event would not.
+        $this->rules->setRate(RateScope::General, 'general', CommissionRate::ofBasisPoints(2500));
+
+        $again = $this->capture->capture(5016, $lines);
+        self::assertSame(0, $again['captured'], 'nothing new was captured');
+        self::assertSame(1, $again['repaired'], 'the existing line was finished');
+        self::assertSame(0, $again['incomplete']);
+        self::assertContains('line_repaired', $again['reasons']);
+
+        $fixed = $this->orderItems->find($itemId);
+        self::assertSame(450000, $fixed?->vendorShareMinor, 'the share recorded at the time');
+        self::assertSame(50000, $fixed?->commissionMinor);
+        self::assertSame(1000, $fixed?->rateBasisPoints, 'the OLD rate: history is not rewritten');
+        self::assertSame($eventKey, $fixed?->ledgerEvent);
+        self::assertTrue($fixed?->isRecorded());
+
+        // One event, nothing doubled, and the vendor's balance is the one
+        // figure the books hold.
+        self::assertCount(3, $this->ledger->forEvent($eventKey));
+        self::assertSame(-450000, $this->ledger->balances(self::VENDOR_A)[LedgerAccount::VendorEarning->value] ?? 0);
+
+        // A third callback has nothing left to do and says nothing.
+        $third = $this->capture->capture(5016, $lines);
+        self::assertSame(0, $third['repaired']);
+        self::assertSame(0, $third['incomplete']);
+        self::assertSame([], $third['reasons']);
+    }
+
+    public function testAHalfWrittenLineWithNoEventIsNamedRatherThanSkipped(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-8');
+        $lines = [$this->line(48, $a, 1, 500000)];
+
+        self::assertSame(1, $this->capture->capture(5017, $lines)['captured']);
+        $itemId = (int) $this->orderItems->forVendor(self::VENDOR_A)[0]->id;
+
+        // This time the LEDGER is emptied too: a line with nothing to recover
+        // from. That is a decision for a person (FIN-02 forbids a guessed
+        // rate), and the one thing it must not be is silence.
+        $this->wpdb->pdo()->exec(
+            'UPDATE `' . $this->wpdb->prefix . M0006CatalogAndOrders::ORDER_ITEMS . "`
+             SET commission_minor = NULL, vendor_share_minor = NULL, rate_bp = NULL,
+                 rate_source = '', ledger_event = '' WHERE id = {$itemId}"
+        );
+        $this->wpdb->pdo()->exec(
+            'DELETE FROM `' . $this->wpdb->prefix . M0004CreateFinanceTables::LEDGER . '`'
+        );
+
+        $again = $this->capture->capture(5017, $lines);
+        self::assertSame(0, $again['repaired']);
+        self::assertSame(1, $again['incomplete']);
+        self::assertContains('line_incomplete', $again['reasons']);
+        self::assertNull($this->orderItems->find($itemId)?->vendorShareMinor, 'and nothing was invented');
+    }
+
+    public function testEveryHalfWrittenLineIsListedForAManagerWithItsRemedy(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-9');
+        $recoverable = [$this->line(49, $a, 1, 500000)];
+        $hopeless = [$this->line(50, $a, 1, 300000)];
+        self::assertSame(1, $this->capture->capture(5018, $recoverable)['captured']);
+        self::assertSame(1, $this->capture->capture(5019, $hopeless)['captured']);
+
+        $ids = array_map(static fn ($i): int => $i->id, $this->orderItems->forVendor(self::VENDOR_A));
+        $table = $this->wpdb->prefix . M0006CatalogAndOrders::ORDER_ITEMS;
+        foreach ($ids as $id) {
+            $this->wpdb->pdo()->exec(
+                "UPDATE `{$table}` SET vendor_share_minor = NULL, ledger_event = '' WHERE id = {$id}"
+            );
+        }
+        // One of the two loses its event as well.
+        $this->wpdb->pdo()->exec(
+            'DELETE FROM `' . $this->wpdb->prefix . M0004CreateFinanceTables::LEDGER . "` WHERE event_key = '"
+            . CaptureOrder::eventKey(5019, 50) . "'"
+        );
+
+        $commissions = new RecordCommission(
+            $this->ledger,
+            new ResolveCommissionRate($this->rules),
+            new CommissionCalculator(),
+            $this->logger
+        );
+        // A manager's view of it: `$this->orders` is built without a
+        // capability checker, so the gate would refuse — which is itself the
+        // right answer and is asserted below.
+        $asManager = new ManageOrderItems(
+            $this->orderItems,
+            $this->access,
+            $this->logger,
+            new SystemClock(),
+            new OrderItemStateMachine(),
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS])
+        );
+        $report = $asManager->incompleteCaptures($commissions);
+        self::assertFalse($this->orders->incompleteCaptures($commissions)['allowed'], 'and not to anybody else');
+
+        self::assertTrue($report['allowed']);
+        self::assertCount(2, $report['lines']);
+        $byItem = [];
+        foreach ($report['lines'] as $line) {
+            $byItem[$line['wc_order_item_id']] = $line['remedy'];
+        }
+        self::assertSame('recoverable', $byItem[49] ?? '', 'its figures are on the books');
+        self::assertSame('rate_unknown', $byItem[50] ?? '', 'and this one needs a decision');
+    }
+
+    public function testARepairNeverOverwritesALineThatIsAlreadyComplete(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-10');
+        self::assertSame(1, $this->capture->capture(5020, [$this->line(51, $a, 1, 500000)])['captured']);
+        $item = $this->orderItems->forVendor(self::VENDOR_A)[0];
+
+        // The guard is the incompleteness itself, so a complete row refuses
+        // the write rather than taking the figures somebody passed in.
+        self::assertFalse($this->orderItems->completeFinancials(
+            $item->id,
+            999999,
+            1,
+            9999,
+            'invented',
+            'order:0:item:0'
+        ), 'a complete line is not repairable');
+        $after = $this->orderItems->find($item->id);
+        self::assertSame(450000, $after?->vendorShareMinor);
+        self::assertSame(50000, $after?->commissionMinor);
+        self::assertSame(1000, $after?->rateBasisPoints);
+    }
+
+    /**
+     * Two callbacks for the same order, interleaved at the line write.
+     *
+     * WooCommerce fires the same hooks more than once, and on a busy site two
+     * requests can be inside the capture at the same moment. The question is
+     * not whether one of them loses — it is whether losing leaves a duplicate
+     * document or a line with no figures.
+     *
+     * Scheduled rather than raced for: the second capture runs, in this
+     * process, immediately before the first one's `INSERT`. Its accrual and
+     * its line both land, so the first one's insert meets a unique index on
+     * `wc_order_item_id` — which is the guard being measured.
+     */
+    public function testTwoCallbacksForOneOrderLeaveOneDocumentAndOneCompleteLine(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-11');
+        $lines = [$this->line(52, $a, 1, 500000)];
+        $eventKey = CaptureOrder::eventKey(5021, 52);
+
+        $interfering = new InterferingDatabase(new WpDatabase($this->wpdb));
+        $interfering->before(['INSERT INTO', M0006CatalogAndOrders::ORDER_ITEMS], 1, function () use ($lines): void {
+            // The other request, all the way through, on the plain gateway.
+            self::assertSame(1, $this->capture->capture(5021, $lines)['captured']);
+        });
+
+        $mine = $this->captureThrough($interfering)->capture(5021, $lines);
+        self::assertNotSame([], $interfering->fired, 'the second callback has to have run');
+
+        // Exactly one of everything, and the line is complete.
+        self::assertCount(3, $this->ledger->forEvent($eventKey), 'one document');
+        $stored = $this->orderItems->forVendor(self::VENDOR_A);
+        self::assertCount(1, $stored, 'one line');
+        self::assertSame(450000, $stored[0]->vendorShareMinor);
+        self::assertSame($eventKey, $stored[0]->ledgerEvent);
+        self::assertSame(0, $mine['failed'], 'the loser did not report a storage failure');
+        self::assertSame(0, $mine['incomplete']);
+    }
+
+    private function captureThrough(InterferingDatabase $db): CaptureOrder
+    {
+        $clock = new SystemClock();
+        return new CaptureOrder(
+            new DbOrderItemRepository($db, $clock),
+            $this->products,
+            new RecordCommission(
+                new DbLedgerRepository($db, $clock),
+                new ResolveCommissionRate($this->rules),
+                new CommissionCalculator(),
+                $this->logger
+            ),
+            $this->catalogService,
+            $this->orderGate,
+            $this->logger
+        );
+    }
+
     private function captureOver(FailingDatabase $failing): CaptureOrder
     {
         $clock = new SystemClock();
