@@ -29,12 +29,12 @@
     {
       "name": "screenshot-written",
       "ok": true,
-      "detail": "docs/evidence/tooling/browser-toolchain-dashboard-with-wc-1440.png (101302 bytes)"
+      "detail": "docs/evidence/tooling/browser-toolchain-dashboard-with-wc-1440.png (128973 bytes)"
     },
     {
       "name": "axe-runs-in-the-page",
       "ok": true,
-      "detail": "axe engine 4.13.0: 20 passes, 0 violations, 0 incomplete"
+      "detail": "axe engine 4.13.0: 24 passes, 0 violations, 0 incomplete"
     }
   ],
   "versions": {
@@ -48,11 +48,11 @@
   },
   "screenshot": {
     "file": "docs/evidence/tooling/browser-toolchain-dashboard-with-wc-1440.png",
-    "bytes": 101302
+    "bytes": 128973
   },
   "axe": {
     "engine": "4.13.0",
-    "passes": 20,
+    "passes": 24,
     "violations": 0,
     "incomplete": 0,
     "note": "smoke check of the axe integration on an already-delivered harness page; NOT a new accessibility result for wp-admin"

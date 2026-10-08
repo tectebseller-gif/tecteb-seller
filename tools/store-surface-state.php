@@ -36,8 +36,13 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
 // be on a host nobody outside the container can reach. Deliberately NOT
 // wp_get_environment_type(), which reports `production` on the disposable
 // container itself because nobody set the constant.
-if (!defined('DB_NAME') || DB_NAME !== 'tmc_wp_test') {
-    fwrite(STDERR, "refused: DB_NAME is not the disposable tmc_wp_test. This tool writes test data and will not run here.\n");
+// Both disposable databases, because there are two of them: `tmc_wp_test` is
+// the acceptance install and `tmc_wp_demo` the clean-install demo. The newer
+// state tools accept both and this one accepted only the first, so half the
+// fixtures could not run on the demo site at all — and the one that approves a
+// vendor is the one every other fixture needs first.
+if (!defined('DB_NAME') || (DB_NAME !== 'tmc_wp_test' && DB_NAME !== 'tmc_wp_demo')) {
+    fwrite(STDERR, "refused: DB_NAME is neither disposable database (tmc_wp_test / tmc_wp_demo). This tool writes test data and will not run here.\n");
     echo "refused=1 reason=database_is_not_the_disposable_one\n";
     return;
 }

@@ -99,7 +99,18 @@ SQL
   # demo whose bugs nobody can see. (tools/demo-router.php, copied in so its
   # __DIR__ is the WordPress root.)
   cp "$(dirname "$0")/demo-router.php" "$ROOT/tmc-router.php"
-  cp -r "$SRC/wp-content/plugins/woocommerce" "$ROOT/wp-content/plugins/"
+  # WooCommerce, when the source install has it. It is NOT downloaded here:
+  # this container's network answers 403 for wordpress.org and
+  # downloads.wordpress.org, so a demo built here can be WordPress-only — and
+  # a WordPress-only demo must SAY so rather than quietly leaving the shop
+  # half-built. Everything WooCommerce-dependent is then `Not Run`, not
+  # «passed».
+  if [ -d "$SRC/wp-content/plugins/woocommerce" ]; then
+    cp -r "$SRC/wp-content/plugins/woocommerce" "$ROOT/wp-content/plugins/"
+  else
+    echo "demo site: NO WooCommerce in ${SRC} — building a WordPress-only demo."
+    echo "demo site: every shop, cart, order and my-account check is Not Run on it."
+  fi
   cp -r "$SRC/wp-content/themes/${THEME}" "$ROOT/wp-content/themes/"
   cp "$SRC/wp-content/index.php" "$ROOT/wp-content/" 2>/dev/null || true
 

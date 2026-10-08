@@ -64,16 +64,39 @@ done
 NESTED="$(find "${PAYLOAD}" -type f -name autoload.php -path '*/vendor/*' | head -1)"
 [ -z "${NESTED}" ] || { echo "refusing to package a nested Composer vendor directory: ${NESTED}" >&2; exit 1; }
 
-# Deterministic timestamps so two builds of the same source match byte for byte.
+# Deterministic timestamps so two builds of the same source match byte for byte
+# — and a DIFFERENT stamp for every release, because opcache validates by
+# timestamp and nothing else.
 #
 # A FIXED epoch, not the last commit's date. Deriving it from git made the
 # artefact hash change on every commit, so the SHA-256 recorded in
 # docs/phase-1-report.md could never survive the commit that recorded it: a
 # reviewer rebuilding from the delivered source got a different hash and had
-# no way to tell a timestamp difference from a content difference. Override
-# with SOURCE_DATE_EPOCH when a release needs its own stamp.
-SOURCE_DATE="${SOURCE_DATE_EPOCH:-1757203200}"
+# no way to tell a timestamp difference from a content difference.
+#
+# **But one epoch for every release was worse, and it took until `alpha.38` to
+# see it.** Every build from at least `alpha.35` to `alpha.37` stamped every
+# file `2025-09-07 00:00`, so two different builds produced the SAME path with
+# the SAME mtime and different content. PHP's opcache validates a cached file
+# by `mtime` (not by size, not by hash), with `validate_timestamps=1` and
+# `revalidate_freq=2` on a default host — so after the plugin's files are
+# replaced it keeps serving the PREVIOUS build's compiled code, and the
+# timestamp it is waiting on will never change.
+#
+# Measured here, on a real WordPress with the default opcache: with
+# `alpha.35`'s files on disk (8,877-byte `MenuRegistrar.php`, no reference to
+# `AdminNavigation`), wp-admin answered **500** with «Uncaught Error: Class
+# "…AdminNavigation" not found in MenuRegistrar.php:184» — the line number of
+# `alpha.38`'s copy. The back office was running a mixture of two builds, and
+# nothing on the site said so.
+#
+# So the stamp is derived from the RELEASE: one release, one timestamp;
+# the same release, always the same bytes. `SOURCE_DATE_EPOCH` still overrides
+# everything, for a reviewer reproducing an older package.
+RELEASE_SEQ="$(printf '%s' "${VERSION}" | sed -n 's/.*[^0-9]\([0-9]\{1,\}\)$/\1/p')"
+SOURCE_DATE="${SOURCE_DATE_EPOCH:-$(( 1757203200 + ${RELEASE_SEQ:-0} * 86400 ))}"
 find "${STAGE}" -exec touch -h -d "@${SOURCE_DATE}" {} +
+echo "timestamps: every file stamped @${SOURCE_DATE} ($(date -u -d "@${SOURCE_DATE}" '+%Y-%m-%d %H:%M')), derived from ${VERSION}"
 
 # Build to a temporary name first, so an existing package of this version is
 # never destroyed before we know whether the content even changed.

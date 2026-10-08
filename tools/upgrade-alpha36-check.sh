@@ -63,7 +63,28 @@ done
 
 wpx() { (cd "$WPROOT" && "$PHPBIN" "$WPCLI" --allow-root "$@"); }
 dbq() { wpx db query "$1" --skip-column-names 2>/dev/null; }
-install_zip() { rm -rf "$PLUGINS/tecteb-marketplace-core"; (cd "$PLUGINS" && unzip -q "$1" -d .); }
+# Replace the payload, then WAIT OUT the opcache revalidation window.
+#
+# **Why the wait is load-bearing.** The web server here is one long-lived PHP
+# process with opcache on and `opcache.revalidate_freq=2`, so for up to two
+# seconds after a swap it can serve cached opcodes for a file that has been
+# replaced while a file that file references no longer exists. Measured: an
+# `alpha.35` install answered wp-admin with
+# «Uncaught Error: Class "…AdminNavigation" not found in MenuRegistrar.php»,
+# and three checks reported a failure about a tree that was complete and
+# correct on disk.
+#
+# This is not only a test-harness quirk: a real site replacing plugin files
+# has the same window, which is why the upgrade order says to do it at a quiet
+# moment (docs/upgrade-and-rollback.md). Here it is simply waited out, so what
+# is measured afterwards is the build that is actually on disk.
+install_zip() {
+  rm -rf "$PLUGINS/tecteb-marketplace-core"
+  (cd "$PLUGINS" && unzip -q "$1" -d .)
+  local freq
+  freq="$("$PHPBIN" -r 'echo (int) ini_get("opcache.revalidate_freq");' 2>/dev/null || echo 2)"
+  sleep $(( freq + 1 ))
+}
 zip_version() {
   unzip -p "$1" 'tecteb-marketplace-core/tecteb-marketplace-core.php' \
     | sed -n 's/^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*\(.*\)[[:space:]]*$/\1/p' | head -1 | tr -d '\r'
@@ -71,6 +92,17 @@ zip_version() {
 # The schema number from the SOURCE, never written here.
 NEW_SCHEMA="$(sed -n 's/.*TARGET = \([0-9]*\).*/\1/p' "$REPO/src/Core/Migration/SchemaVersion.php" | head -1)"
 OLD_SCHEMA=$((NEW_SCHEMA - 1))
+# And each base's OWN target, read out of its own ZIP.
+#
+# `NEW_SCHEMA - 1` is a guess about the base, and for `alpha.37 -> alpha.38` it
+# is the wrong one: both builds target 21, so forcing the option to 20 and then
+# asking the old build to serve a page let the OLD build's gate migrate to 21,
+# and «replacing the files ran no migration» failed about a site that was
+# behaving exactly as designed. A base's schema is a property of that base.
+zip_schema() {
+  unzip -p "$1" 'tecteb-marketplace-core/src/Core/Migration/SchemaVersion.php' \
+    | sed -n 's/.*TARGET = \([0-9]*\).*/\1/p' | head -1
+}
 NEW_EXPECT="$(zip_version "$NEW_ZIP")"
 say "new package: $NEW_EXPECT (schema $OLD_SCHEMA -> $NEW_SCHEMA)"
 [ -n "$NEW_EXPECT" ] && [ -n "$NEW_SCHEMA" ] || { say "FAIL: could not read a version or a schema number"; exit 2; }
@@ -122,7 +154,26 @@ field() { printf '%s\n' "$1" | sed -n "s/.*\(^\|[[:space:]]\)$2=\([^[:space:]]*\
 
 # However this ends, the install goes back to the package under test: a check
 # script that leaves an old build on the disk breaks the next run.
-restore_new() { install_zip "$NEW_ZIP"; wpx option update tmc_schema_version "$NEW_SCHEMA" >/dev/null 2>&1; }
+# However this ends, the site is left CONSISTENT, not merely on the new files.
+#
+# The first version wrote the option to `$NEW_SCHEMA` and stopped there, and a
+# run that had dropped the marks table left «the schema says 21 and the table
+# is not there» behind — which is a state no upgrade produces, and the next run
+# measured six failures from it. A fixture that spends something gives it back:
+# when the table is missing, the option is put one BELOW the target so the
+# gate rebuilds it on the next admin request, rather than claiming work that
+# was not done.
+restore_new() {
+  install_zip "$NEW_ZIP"
+  if [ "$(has_table "$SEEN")" = "1" ]; then
+    wpx option update tmc_schema_version "$NEW_SCHEMA" >/dev/null 2>&1
+  else
+    wpx option update tmc_schema_version "$((NEW_SCHEMA - 1))" >/dev/null 2>&1
+    wpx option delete tmc_migration_last_error >/dev/null 2>&1
+    curl -s -o /dev/null -b "${JAR:-/dev/null}" --max-time 120 \
+      "$SITE/wp-admin/admin.php?page=tmc-dashboard" >/dev/null 2>&1 || true
+  fi
+}
 trap restore_new EXIT
 
 JAR="$(admin_session)"
@@ -132,19 +183,35 @@ check "the admin session really opened" \
 
 for BASE_ZIP in $BASES; do
   OLD_EXPECT="$(zip_version "$BASE_ZIP")"
+  BASE_SCHEMA="$(zip_schema "$BASE_ZIP")"
+  [ -n "$BASE_SCHEMA" ] || { say "FAIL: could not read the schema target out of $BASE_ZIP"; exit 2; }
+  # Does this round add structure for THIS base? The answer decides what
+  # stages 3 and 4 may claim, and it is read, not assumed.
+  if [ "$BASE_SCHEMA" -lt "$NEW_SCHEMA" ]; then STRUCTURAL=yes; else STRUCTURAL=no; fi
   say ""
   say "================================================================"
-  say "=== $OLD_EXPECT -> $NEW_EXPECT"
+  say "=== $OLD_EXPECT (schema $BASE_SCHEMA) -> $NEW_EXPECT (schema $NEW_SCHEMA) · structural=$STRUCTURAL"
   say "================================================================"
 
   # ---- stage 1: a site genuinely on the old build ------------------------
   install_zip "$BASE_ZIP"
   dbq "DROP TABLE IF EXISTS \`$SEEN\`" >/dev/null
-  wpx option update tmc_schema_version "$OLD_SCHEMA" >/dev/null
   wpx user meta delete 1 tmc_review_seen >/dev/null 2>&1
+  if [ "$STRUCTURAL" = "yes" ]; then
+    wpx option update tmc_schema_version "$BASE_SCHEMA" >/dev/null
+  else
+    # This base already targets the new schema, so «a site genuinely on it»
+    # means a site this base has MIGRATED ITSELF — built by its own gate, not
+    # by a table this script typed. Built from one below, with one admin
+    # request, which is exactly how a real install of it got there.
+    wpx option update tmc_schema_version "$((BASE_SCHEMA - 1))" >/dev/null
+    wpx option delete tmc_migration_last_error >/dev/null 2>&1
+    admin_request "$JAR" >/dev/null
+  fi
   check "1 the install is $OLD_EXPECT" "$(wpx plugin get tecteb-marketplace-core --field=version)" "$OLD_EXPECT"
-  check "1b on schema $OLD_SCHEMA" "$(wpx option get tmc_schema_version)" "$OLD_SCHEMA"
-  check "1c with no marks table" "$(has_table "$SEEN")" "0"
+  check "1b on schema $BASE_SCHEMA" "$(wpx option get tmc_schema_version)" "$BASE_SCHEMA"
+  check "1c the marks table is $([ "$STRUCTURAL" = "yes" ] && echo absent || echo present)" \
+    "$(has_table "$SEEN")" "$([ "$STRUCTURAL" = "yes" ] && echo 0 || echo 1)"
   check "1d and the old build serves wp-admin" "$(admin_request "$JAR")" "200"
 
   # ---- stage 2: marks written BY THE OLD BUILD, through its own code -----
@@ -163,12 +230,14 @@ for BASE_ZIP in $BASES; do
   install_zip "$NEW_ZIP"
   check "3 the files are $NEW_EXPECT" "$(wpx plugin get tecteb-marketplace-core --field=version)" "$NEW_EXPECT"
   check "3b and replacing files ran no migration at all" \
-    "$(wpx option get tmc_schema_version)" "$OLD_SCHEMA"
-  check "3c so the table is still absent" "$(has_table "$SEEN")" "0"
+    "$(wpx option get tmc_schema_version)" "$BASE_SCHEMA"
+  check "3c the table is $([ "$STRUCTURAL" = "yes" ] && echo still absent || echo untouched)" \
+    "$(has_table "$SEEN")" "$([ "$STRUCTURAL" = "yes" ] && echo 0 || echo 1)"
 
   # ---- stage 4: one admin request ---------------------------------------
   check "4 one wp-admin request is served" "$(admin_request "$JAR" "$OUT/after-upgrade-$OLD_EXPECT.html")" "200"
-  check "4b and the gate moved the schema" "$(wpx option get tmc_schema_version)" "$NEW_SCHEMA"
+  check "4b the schema is $NEW_SCHEMA$([ "$STRUCTURAL" = "yes" ] && echo " (the gate moved it)" || echo " (nothing to move)")" \
+    "$(wpx option get tmc_schema_version)" "$NEW_SCHEMA"
   check "4c the marks table exists" "$(has_table "$SEEN")" "1"
   check "4d keyed on (user_id, product_id)" \
     "$(dbq "SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$SEEN' AND INDEX_NAME = 'PRIMARY'")" \

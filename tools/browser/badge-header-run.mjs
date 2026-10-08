@@ -72,6 +72,11 @@ const T = {
   proposalNote: 'نسخهٔ فعلی فروشگاه است',
   notChangesPreview: 'پیش‌نمایش تغییرات',
   untitled: 'بدون عنوان — محصول #',
+  // What the review card says when WooCommerce is not active at all. A
+  // different branch of the same method, and until `alpha.38` nothing measured
+  // it — the run on a WordPress-only install reported three FAILURES about a
+  // site that was answering perfectly.
+  wooInactive: 'ووکامرس فعال نیست',
 };
 
 fs.mkdirSync(OUT, { recursive: true });
@@ -590,17 +595,38 @@ note(`unprojected: ${keepUnprojected} | to prepare: ${toPrepare} | published: ${
 
 const prepared = state(`prepare ${toPrepare}`);
 note(prepared.split('\n').find((l) => l.startsWith('prepared')) || '');
+// «کدام backend اجرا می‌شود» — asked FIRST, because every claim in this section
+// is about a WooCommerce post. `prepare` answering `woocommerce_missing` means
+// there is no WooCommerce on this install, and then the card takes a different
+// branch on purpose. Measuring that branch is a real answer; asserting the
+// other one against it is three failures about a correct site.
+const noWoo = prepared.includes('code=woocommerce_missing');
 const afterPrepare = inventory();
 const draftRow = afterPrepare.find((p) => p.id === toPrepare && p.shop === 'draft');
 const draftId = draftRow?.id ?? '';
-check('2-0 the prepared product now has a DRAFT post in WooCommerce', Boolean(draftId), true);
+if (noWoo) {
+  note('2-0 SKIPPED: WooCommerce is not active on this install — nothing can be prepared in it');
+} else {
+  check('2-0 the prepared product now has a DRAFT post in WooCommerce', Boolean(draftId), true);
+}
 const stillNoPost = afterPrepare.find((p) => p.id === keepUnprojected && p.wc === '-');
 check('2-0b and the other one still has no post at all', Boolean(stillNoPost), true);
 
 {
   const { ctx, page } = await session(ANA);
 
-  if (stillNoPost) {
+  if (noWoo && stillNoPost) {
+    // The WooCommerce-absent branch, measured rather than skipped: the manager
+    // is told why there is no shop page, and no «مشاهدهٔ محصول» button is drawn.
+    await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&product=${stillNoPost.id}`, { waitUntil: 'domcontentloaded' });
+    const text = await textOf(page);
+    check('2-1w with no WooCommerce, the card says so', text.includes(T.wooInactive), true);
+    check('2-2w and offers no «مشاهدهٔ محصول» button',
+      await page.locator('a[target="_blank"]', { hasText: T.viewProduct }).count(), 0);
+    check('2-3w and no preparation button either',
+      await page.locator('button[value="prepare"]').count(), 0);
+    note('2-1..2-3 SKIPPED: those are the WooCommerce-active wording; 2-1w..2-3w measured instead');
+  } else if (stillNoPost) {
     await page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&product=${stillNoPost.id}`, { waitUntil: 'domcontentloaded' });
     const text = await textOf(page);
     check('2-1 a product with no shop page says so', text.includes(T.noShopPage), true);

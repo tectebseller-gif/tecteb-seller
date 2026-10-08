@@ -1,0 +1,96 @@
+new package: 0.1.0-alpha.38 (schema 20 -> 21)
+ok:   the admin session really opened                              200
+
+================================================================
+=== 0.1.0-alpha.37 (schema 21) -> 0.1.0-alpha.38 (schema 21) · structural=no
+================================================================
+ok:   1 the install is 0.1.0-alpha.37                              0.1.0-alpha.37
+ok:   1b on schema 21                                              21
+ok:   1c the marks table is present                                1
+ok:   1d and the old build serves wp-admin                         200
+ok:   2 the old build starts with no marks                         0
+ok:   2b it serves its own review list                             200
+  the old build recorded 0 mark(s) in user meta, through its own code
+ok:   2c and recorded views, which is what the carry-over has to find no
+ok:   3 the files are 0.1.0-alpha.38                               0.1.0-alpha.38
+ok:   3b and replacing files ran no migration at all               21
+ok:   3c the table is untouched                                    1
+ok:   4 one wp-admin request is served                             200
+ok:   4b the schema is 21 (nothing to move)                        21
+ok:   4c the marks table exists                                    1
+ok:   4d keyed on (user_id, product_id)                            user_id,product_id
+ok:   4e with microsecond precision on seen_at                     datetime(6)
+ok:   4f no migration error was recorded                           
+  carried over: 0 mark(s) in meta -> 0 row(s) in wp_tmc_review_seen
+ok:   4g every mark the old build held is a row now                0
+ok:   4h and the user meta is LEFT in place, for the way back      kept
+ok:   5 the new build answers the count                            yes
+  5b not applicable on 0.1.0-alpha.37: it holds no marks to carry
+ok:   6 a malformed table of the same name is in the way           1
+ok:   6b the admin request is still served                         200
+ok:   6c the schema did NOT move                                   20
+ok:   6d and the reason was recorded, naming the step              yes
+ok:   6e the next request is served                                200
+ok:   6f and within the retry cooldown it does NOT retry           20
+ok:   6g with the failure still visible, not hidden                yes
+ok:   6h then one request finishes the job                         200
+ok:   6i and the schema is 21                                      21
+ok:   6j with every mark carried over, exactly once                0
+ok:   6k and nothing left recorded as failed                       0
+ok:   7 the old package is back                                    0.1.0-alpha.37
+ok:   7b it serves wp-admin against the NEW table, with no database work 200
+ok:   7c and left the schema where it was: nothing downgrades it   21
+ok:   7d the new table is untouched by the old build               0
+  after the rollback: 0 mark(s) in the old build's meta, 0 row(s) in the new table
+ok:   7e and it reads its own meta, which the upgrade left alone   0
+ok:   8 forward again, served                                      200
+ok:   8b the schema is still 21 and nothing ran twice              21
+ok:   8c the rows are the ones that were there                     0
+
+================================================================
+=== 0.1.0-alpha.35 (schema 20) -> 0.1.0-alpha.38 (schema 21) · structural=yes
+================================================================
+ok:   1 the install is 0.1.0-alpha.35                              0.1.0-alpha.35
+ok:   1b on schema 20                                              20
+ok:   1c the marks table is absent                                 0
+ok:   1d and the old build serves wp-admin                         200
+ok:   2 the old build starts with no marks                         0
+ok:   2b it serves its own review list                             200
+  the old build recorded 0 mark(s) in user meta, through its own code
+ok:   2c and recorded views, which is what the carry-over has to find no
+ok:   3 the files are 0.1.0-alpha.38                               0.1.0-alpha.38
+ok:   3b and replacing files ran no migration at all               20
+ok:   3c the table is still absent                                 0
+ok:   4 one wp-admin request is served                             200
+ok:   4b the schema is 21 (the gate moved it)                      21
+ok:   4c the marks table exists                                    1
+ok:   4d keyed on (user_id, product_id)                            user_id,product_id
+ok:   4e with microsecond precision on seen_at                     datetime(6)
+ok:   4f no migration error was recorded                           
+  carried over: 0 mark(s) in meta -> 0 row(s) in wp_tmc_review_seen
+ok:   4g every mark the old build held is a row now                0
+ok:   4h and the user meta is LEFT in place, for the way back      kept
+ok:   5 the new build answers the count                            yes
+  5b not applicable on 0.1.0-alpha.35: it holds no marks to carry
+ok:   6 a malformed table of the same name is in the way           1
+ok:   6b the admin request is still served                         200
+ok:   6c the schema did NOT move                                   20
+ok:   6d and the reason was recorded, naming the step              yes
+ok:   6e the next request is served                                200
+ok:   6f and within the retry cooldown it does NOT retry           20
+ok:   6g with the failure still visible, not hidden                yes
+ok:   6h then one request finishes the job                         200
+ok:   6i and the schema is 21                                      21
+ok:   6j with every mark carried over, exactly once                0
+ok:   6k and nothing left recorded as failed                       0
+ok:   7 the old package is back                                    0.1.0-alpha.35
+ok:   7b it serves wp-admin against the NEW table, with no database work 200
+ok:   7c and left the schema where it was: nothing downgrades it   21
+ok:   7d the new table is untouched by the old build               0
+  after the rollback: 0 mark(s) in the old build's meta, 0 row(s) in the new table
+ok:   7e and it reads its own meta, which the upgrade left alone   0
+ok:   8 forward again, served                                      200
+ok:   8b the schema is still 21 and nothing ran twice              21
+ok:   8c the rows are the ones that were there                     0
+
+checks: 77   passed: 77   failed: 0
