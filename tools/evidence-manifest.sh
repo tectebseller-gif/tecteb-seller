@@ -27,6 +27,21 @@ cd "${ROOT}"
 
 VERSION="$(grep -m1 '^ \* Version:' tecteb-marketplace-core.php | awk '{print $3}')"
 
+# How many files the index being replaced already names. Read BEFORE anything
+# is written, because this guard is about what would be lost.
+#
+# **Why a shrink is refused.** `alpha.38` was built in a container that is a
+# fresh clone, and the image evidence is deliberately not in git (`alpha.22`)
+# — so `find` matched three files instead of five hundred and twenty-nine and
+# this script cheerfully replaced the record of everything the owner already
+# holds with a three-line list. The existing guard only refused an EMPTY
+# index, and three is not empty. The index is the ONLY record of files that
+# are not in the repository; it may grow, and it may not quietly shrink.
+PREVIOUS=0
+if [ -f "${OUT}" ]; then
+  PREVIOUS=$(grep -cE '^[0-9a-f]{64}  [0-9]+  docs/evidence/' "${OUT}" || echo 0)
+fi
+
 {
   echo "# What lives in the release attachments rather than in git"
   echo "#"
@@ -71,12 +86,25 @@ VERSION="$(grep -m1 '^ \* Version:' tecteb-marketplace-core.php | awk '{print $3
     [ -f "$f" ] || continue
     printf '%s  %s  %s\n' "$(sha256sum "$f" | cut -c1-64)" "$(stat -c%s "$f")" "$f"
   done
-} > "${OUT}"
+} > "${OUT}.new"
 
-IMAGES=$(grep -cE '^[0-9a-f]{64}  [0-9]+  docs/evidence/' "${OUT}" || echo 0)
-ARCHIVES=$(grep -cE '^[0-9a-f]{64}  [0-9]+  dist/' "${OUT}" || echo 0)
-echo "manifest: ${IMAGES} evidence files, ${ARCHIVES} archives → ${OUT}"
+IMAGES=$(grep -cE '^[0-9a-f]{64}  [0-9]+  docs/evidence/' "${OUT}.new" || echo 0)
+ARCHIVES=$(grep -cE '^[0-9a-f]{64}  [0-9]+  dist/' "${OUT}.new" || echo 0)
 
 # An empty manifest means the find matched nothing, which on this repository
 # means something is wrong — not that there is no evidence.
-[ "${IMAGES}" -gt 0 ] || { echo "manifest: NO evidence files matched — refusing to write an empty index" >&2; exit 1; }
+if [ "${IMAGES}" -le 0 ]; then
+  rm -f "${OUT}.new"
+  echo "manifest: NO evidence files matched — refusing to write an empty index" >&2
+  exit 1
+fi
+if [ "${IMAGES}" -lt "${PREVIOUS}" ] && [ "${TMC_ALLOW_SHRINKING_MANIFEST:-0}" != "1" ]; then
+  rm -f "${OUT}.new"
+  echo "manifest: this tree has ${IMAGES} evidence files and the index already names ${PREVIOUS}." >&2
+  echo "manifest: refusing to replace it — the index is the only record of files that are" >&2
+  echo "manifest: NOT in git. Fetch the image evidence, or say so out loud with" >&2
+  echo "manifest: TMC_ALLOW_SHRINKING_MANIFEST=1 and report what was dropped." >&2
+  exit 1
+fi
+mv "${OUT}.new" "${OUT}"
+echo "manifest: ${IMAGES} evidence files (was ${PREVIOUS}), ${ARCHIVES} archives → ${OUT}"

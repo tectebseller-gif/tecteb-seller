@@ -154,8 +154,18 @@ final class ApplicationsPage
             . '<div class="tmc-field"><label class="tmc-field__label" for="tmc-review-note">' . esc_html__('یادداشت برای فروشنده', 'tecteb-marketplace-core') . '</label>'
             . '<textarea class="tmc-input" id="tmc-review-note" name="note" rows="3" style="inline-size:100%"></textarea>'
             . '<p class="tmc-field__desc">' . esc_html__('برای «درخواست اصلاح»، «رد» و «تعلیق» نوشتن یادداشت اجباری است؛ همین متن را فروشنده می‌بیند. تعلیق، دسترسی فروشنده و همه پرسنلش را همان لحظه قطع می‌کند و هیچ داده‌ای را پاک نمی‌کند.', 'tecteb-marketplace-core') . '</p></div>'
+            // The box records the manager's intention in the vendor's own row
+            // (`can_publish_directly`) and nothing operational reads that
+            // column: the gate every path actually asks is
+            // `ProductPublishPolicy`, the per-shop grant on the product review
+            // screen. Both answers have existed since `alpha.6` and `alpha.32`
+            // reported the disagreement. Unifying them would CHANGE who may
+            // publish without review, which is a business decision and not
+            // ours to take, so what changed here is the label: it now says
+            // what ticking it does and where the operational grant lives.
             . '<div class="tmc-field tmc-field--check"><label><input type="checkbox" name="can_publish" value="1"> '
-            . esc_html__('اجازه انتشار مستقیم محصول هم داده شود (اختیاری و جدا از اجازه فروش)', 'tecteb-marketplace-core') . '</label></div>'
+            . esc_html__('«اجازه انتشار مستقیم» در پرونده فروشنده ثبت شود (اختیاری و جدا از اجازه فروش)', 'tecteb-marketplace-core') . '</label>'
+            . '<p class="tmc-field__desc">' . esc_html__('این گزینه فقط در پرونده ثبت می‌شود و خودش انتشار مستقیم را باز نمی‌کند؛ اجازه عملیاتی هر فروشگاه در صفحه «بررسی محصول» داده و گرفته می‌شود.', 'tecteb-marketplace-core') . '</p></div>'
             . '<div class="tmc-actions">'
             . '<button type="submit" name="decision" value="approve" class="tmc-button tmc-button--primary">' . esc_html__('تأیید فروشنده', 'tecteb-marketplace-core') . '</button>'
             . '<button type="submit" name="decision" value="changes" class="tmc-button tmc-button--secondary">' . esc_html__('درخواست اصلاح', 'tecteb-marketplace-core') . '</button>'

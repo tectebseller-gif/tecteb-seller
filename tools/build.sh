@@ -239,9 +239,27 @@ while IFS= read -r -d '' f; do
 done < "${IMG_LIST}"
 IMG_COUNT=$(tr -cd '\0' < "${IMG_LIST_OK}" | wc -c)
 
+# How many image files the committed index already names. An image archive
+# built from fewer files than that is not «this release's evidence»: it is a
+# checkout that does not have the evidence. `alpha.38` was built in a fresh
+# container — where the images are deliberately absent (`alpha.22` moved them
+# out of git) — and this step produced a three-file tarball under a name that
+# promises hundreds. The hollow archive is worse than none, because
+# `SHA256SUMS` then advertises it.
+MANIFEST_IMAGES=0
+if [ -f "${ROOT}/docs/evidence-manifest.txt" ]; then
+  MANIFEST_IMAGES=$(grep -cE '^[0-9a-f]{64}  [0-9]+  docs/evidence/' "${ROOT}/docs/evidence-manifest.txt" || echo 0)
+fi
+
 EV_ARCHIVE="${DIST}/${SLUG}-evidence-${VERSION}.tar.gz"
 if delivered_already "$(basename "${EV_ARCHIVE}")"; then
   echo "evidence archive: already delivered, left untouched → $(basename "${EV_ARCHIVE}")"
+elif [ "${IMG_COUNT}" -lt "${MANIFEST_IMAGES}" ] && [ "${TMC_ALLOW_SHRINKING_MANIFEST:-0}" != "1" ]; then
+  rm -f "${EV_ARCHIVE}"
+  echo "evidence archive: NOT BUILT — this checkout has ${IMG_COUNT} image files and the"
+  echo "evidence archive: committed index names ${MANIFEST_IMAGES}. Shipping the smaller set under"
+  echo "evidence archive: this name would claim to be the release's evidence. Report it as"
+  echo "evidence archive: not rebuilt, or pass TMC_ALLOW_SHRINKING_MANIFEST=1 deliberately."
 elif [ "${IMG_COUNT}" -gt 0 ]; then
   LC_ALL=C sort -zu "${IMG_LIST_OK}" -o "${IMG_LIST_OK}"
   tar --null --files-from="${IMG_LIST_OK}" --owner=0 --group=0 --numeric-owner \
@@ -267,10 +285,15 @@ fi
 # packaging test uses to ask whether two builds are identical) must leave the
 # real dist/ alone — and the manifest, which lives in git, is written to the
 # throwaway directory instead of over the committed copy.
+# The manifest refuses to shrink (its own guard), and that refusal is not a
+# build failure: it means this checkout does not carry the images, which the
+# step above has already said in words. The committed index is left exactly as
+# it was, which is the point of the refusal.
 if [ -n "${TMC_DIST:-}" ]; then
-  TMC_DIST="${DIST}" bash "${ROOT}/tools/evidence-manifest.sh" "${DIST}/evidence-manifest.txt"
+  TMC_DIST="${DIST}" bash "${ROOT}/tools/evidence-manifest.sh" "${DIST}/evidence-manifest.txt" \
+    || echo "manifest: left as committed (see the refusal above)"
 else
-  bash "${ROOT}/tools/evidence-manifest.sh"
+  bash "${ROOT}/tools/evidence-manifest.sh" || echo "manifest: left as committed (see the refusal above)"
 fi
 
 REV_ARCHIVE="${DIST}/${SLUG}-reviewable-${VERSION}.tar.gz"
@@ -284,7 +307,32 @@ rm -rf "${STAGE}"
 
 # SHA256SUMS covers every package still in dist/, newest build included, so a
 # reviewer can identify any package they were sent, not only the latest.
-( cd "${DIST}" && ls -1 *.zip *.tar.gz 2>/dev/null | LC_ALL=C sort | xargs sha256sum > SHA256SUMS )
+#
+# **It MERGES rather than replaces.** Regenerating it purely from disk loses a
+# line for every delivered package this checkout does not hold — and since
+# `alpha.22` the companion archives are deliberately not in git, so a fresh
+# clone holds almost none of them. Measured on this very build: the rewritten
+# file dropped `…-source-0.1.0-alpha.14.tar.gz`, and the packaging suite said
+# exactly the right thing about it — «was delivered, is not in git, and has no
+# line in dist/SHA256SUMS — nothing vouches for it». A hash file is a record;
+# like the evidence index, it may grow and may not quietly shrink. So the
+# lines for files that are absent here are carried across unchanged, and only
+# what is on disk is re-hashed.
+( cd "${DIST}" && ls -1 *.zip *.tar.gz 2>/dev/null | LC_ALL=C sort | xargs sha256sum > SHA256SUMS.new )
+if [ -f "${DIST}/SHA256SUMS" ]; then
+  KEPT=0
+  while IFS= read -r line; do
+    name="${line#*  }"
+    [ -z "${name}" ] && continue
+    [ -e "${DIST}/${name}" ] && continue                       # re-hashed above
+    grep -Fq "  ${name}" "${DIST}/SHA256SUMS.new" && continue  # already there
+    printf '%s\n' "${line}" >> "${DIST}/SHA256SUMS.new"
+    KEPT=$((KEPT+1))
+  done < "${DIST}/SHA256SUMS"
+  [ "${KEPT}" -gt 0 ] && echo "SHA256SUMS: carried ${KEPT} line(s) for packages this checkout does not hold"
+  ( cd "${DIST}" && LC_ALL=C sort -k2 SHA256SUMS.new -o SHA256SUMS.new )
+fi
+mv "${DIST}/SHA256SUMS.new" "${DIST}/SHA256SUMS"
 
 cat > "${DIST}/READ-ME-BEFORE-INSTALL.txt" <<TXT
 بازارگاه تک‌طب — Tecteb Marketplace Core ${VERSION}

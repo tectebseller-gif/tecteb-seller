@@ -275,12 +275,38 @@ final class PackagingTest extends TestCase
             );
             [$hash, $name] = preg_split('/\s+/', $line);
             $path = self::root() . '/dist/' . $name;
-            self::assertFileExists($path, $name . ' was delivered and is no longer in dist/');
-            self::assertSame(
-                $hash,
-                hash_file('sha256', $path),
-                $name . ' no longer has the bytes it was delivered with. A delivered name never'
-                    . ' changes content — if the content must change, the version must.'
+            if (is_file($path)) {
+                self::assertSame(
+                    $hash,
+                    hash_file('sha256', $path),
+                    $name . ' no longer has the bytes it was delivered with. A delivered name never'
+                        . ' changes content — if the content must change, the version must.'
+                );
+                $checked++;
+                continue;
+            }
+            // Absent from THIS checkout, which is not the same as lost.
+            //
+            // Since `alpha.22` the companion archives (source, reviewable,
+            // evidence) are deliberately not committed, so a fresh clone holds
+            // the install ZIPs and nothing else — and this assertion used to
+            // demand the file be on disk, which made it pass only on a machine
+            // that had accumulated every artifact ever built. Measured: on a
+            // container built from a clean clone it failed about
+            // `…-source-0.1.0-alpha.14.tar.gz`, a file nothing had touched.
+            //
+            // The rule the repository already states (`alpha.23`) is «HEAD's
+            // bytes OR a line in `dist/SHA256SUMS`», and the ledger guard is
+            // not weakened by using it: `SHA256SUMS` is committed too, so two
+            // independent records in git must agree on the hash. What is
+            // refused is a delivered name with nothing vouching for it.
+            $sums = self::root() . '/dist/SHA256SUMS';
+            self::assertFileExists($sums, 'SHA256SUMS is the second record; it may not go missing');
+            self::assertMatchesRegularExpression(
+                '/^' . $hash . '\s+' . preg_quote($name, '/') . '$/m',
+                (string) file_get_contents($sums),
+                $name . ' was delivered, is not in this checkout, and dist/SHA256SUMS does not'
+                    . ' vouch for those exact bytes — nothing records what was handed over.'
             );
             $checked++;
         }
