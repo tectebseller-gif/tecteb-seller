@@ -48,12 +48,28 @@ interface WithdrawalRepositoryInterface
     /** @return list<int> the order-item ids this request holds */
     public function lineIds(int $withdrawalId): array;
 
+    /**
+     * Moves a request's status — and, when `$expected` is given, ONLY while it
+     * is still in that status.
+     *
+     * `$expected` is how a caller that validated a transition against a status
+     * it read earlier makes that validation hold at the moment of writing.
+     * Without it the stale-cancel race is open: a vendor's page reads
+     * «Approved», a manager moves the request on, and the vendor's click
+     * overwrites the newer status with a decision made about the older one.
+     *
+     * `false` means the row was NOT moved — the statement failed, or the
+     * status was no longer `$expected`. Zero changed rows is not success here,
+     * which is the other half of the `alpha.8` rule: zero means «nothing
+     * matched», and whether that is a success depends on what was expected.
+     */
     public function updateStatus(
         int $withdrawalId,
         WithdrawalStatus $status,
         ?int $reviewerId,
         string $note,
-        string $reference = ''
+        string $reference = '',
+        ?WithdrawalStatus $expected = null
     ): bool;
 
     /** Frees the lines of a request that ended without a payment. */

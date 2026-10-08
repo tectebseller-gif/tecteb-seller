@@ -85,6 +85,25 @@ final class CaptureOrder
             // exactly; nothing is written for such a line, and the count says
             // so instead of a silently rounded amount reaching the ledger.
             $unitError = (string) ($line['unit_error'] ?? '');
+            // And one more unit question the reader cannot answer: does this
+            // unit match the books this vendor ALREADY has?
+            //
+            // `DbLedgerRepository::balances()` sums `amount_minor` grouped by
+            // account and nothing else, while `Money::assertSameUnit()`
+            // refuses to combine two units one layer down. Until `alpha.39`
+            // the two could not disagree, because the capture forced
+            // `'IRR', 0` on every row — the books were uniform because the
+            // unit was ignored. Now that the order's real unit is recorded,
+            // «uniform» has to be checked, and a second unit is a refusal:
+            // a marketplace records in one kind of money, and adding two kinds
+            // together is not something to do quietly on a vendor's balance.
+            //
+            // Scoped per vendor and asked only once a unit is readable, so a
+            // single-currency site — every real one — behaves exactly as
+            // before and pays one indexed query per captured line.
+            if ($unitError === '' && !$this->unitMatchesTheBooks($product->vendorUserId, $lineCurrency, $lineExponent)) {
+                $unitError = 'unit_changed';
+            }
             if ($unitError !== '') {
                 $refusedUnit++;
                 $reasons[] = $unitError;
@@ -187,6 +206,29 @@ final class CaptureOrder
             'reasons' => array_values(array_unique(array_filter($reasons))),
             'vendors' => $vendors,
         ];
+    }
+
+    /**
+     * True when this unit is the one this vendor's ledger already uses — or
+     * when the ledger has nothing to disagree with yet.
+     *
+     * Deliberately not «the site's configured currency»: there is no such
+     * setting in this plugin, and inventing one would be a business decision.
+     * What exists is the record, and the record is what the next row has to
+     * agree with.
+     */
+    private function unitMatchesTheBooks(int $vendorUserId, string $currency, int $exponent): bool
+    {
+        $units = $this->commissions->unitsInUse($vendorUserId);
+        if ($units === []) {
+            return true;        // the first sale sets the unit
+        }
+        foreach ($units as $unit) {
+            if ($unit['currency'] === $currency && $unit['exponent'] === $exponent) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

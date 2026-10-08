@@ -99,6 +99,19 @@ final class RecordCommission
     }
 
     /**
+     * Every unit of money this vendor's books already hold.
+     *
+     * Passed through rather than handing `CaptureOrder` the whole ledger: the
+     * capture asks one question of the books and this is it.
+     *
+     * @return list<array{currency:string, exponent:int}>
+     */
+    public function unitsInUse(int $vendorUserId): array
+    {
+        return $this->ledger->unitsFor($vendorUserId);
+    }
+
+    /**
      * The figures of an event already in the ledger, read back off its rows.
      *
      * `item_paid` is base + tax, so the base is recovered by subtracting the

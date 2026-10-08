@@ -75,6 +75,22 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
         ) > 0;
     }
 
+    public function unitsFor(int $vendorUserId): array
+    {
+        $rows = $this->db->getResults(
+            'SELECT DISTINCT currency, exponent FROM `' . $this->table() . '`
+             WHERE vendor_user_id = %d ORDER BY currency ASC, exponent ASC',
+            [$vendorUserId]
+        );
+        return array_map(
+            static fn (array $row): array => [
+                'currency' => (string) $row['currency'],
+                'exponent' => (int) $row['exponent'],
+            ],
+            $rows
+        );
+    }
+
     public function coversOrder(int $wcOrderId): bool
     {
         if ($wcOrderId <= 0) {

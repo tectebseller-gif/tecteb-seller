@@ -18,6 +18,8 @@ use Tecteb\Marketplace\Modules\Finance\Application\ReviewWithdrawals;
 use Tecteb\Marketplace\Modules\Finance\Application\SettlementGate;
 use Tecteb\Marketplace\Modules\Finance\Application\VendorBalance;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
+use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
+use Tecteb\Marketplace\Modules\Finance\Domain\Money;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStateMachine;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStatus;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
@@ -116,7 +118,12 @@ final class SettlementFlowTest extends DatabaseTestCase
             $this->ledger,
             $states,
             $audit,
-            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS])
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS]),
+            // The payment document and the status are one unit of work since
+            // `alpha.39`; without it `recordPayment()` refuses rather than
+            // doing the pair unsafely, which a test would see as
+            // `payment_not_atomic`.
+            $db
         );
         $this->orders = new ManageOrderItems(
             $this->orderItems,
@@ -247,10 +254,22 @@ final class SettlementFlowTest extends DatabaseTestCase
         self::assertSame(WithdrawalStatus::Paid, $paid?->status);
         self::assertSame('TRACE-9', $paid?->reference);
 
+        // The sale put -۹۰۰٬۰۰۰ on `vendor_earning` and the payment puts
+        // +۹۰۰٬۰۰۰ back: the liability is discharged to exactly zero, which is
+        // what «discharged» means. The payout is the money that left.
         $balances = $this->ledger->balances(self::VENDOR);
-        self::assertSame(900000, $balances[LedgerAccount::VendorEarning->value] ?? 0, 'the liability is discharged');
+        self::assertSame(0, $balances[LedgerAccount::VendorEarning->value] ?? -1, 'the liability is discharged');
         self::assertSame(-900000, $balances[LedgerAccount::VendorPayout->value] ?? 0, 'and the payout is recorded');
-        self::assertSame(0, array_sum($balances), 'the pair is balanced');
+        self::assertSame(0, array_sum($balances), 'and the books still balance');
+
+        // §2: the payout carries the unit of the sale it discharges, read off
+        // the books rather than defaulted. A payout line stamped with another
+        // unit would be a second currency in one vendor's ledger.
+        $payout = $this->ledger->forEvent('withdrawal:' . $secondId . ':paid');
+        self::assertCount(2, $payout);
+        $sale = $this->ledger->forEvent('order:107');
+        self::assertSame($sale[0]->amount->currency, $payout[0]->amount->currency);
+        self::assertSame($sale[0]->amount->exponent, $payout[0]->amount->exponent);
 
         // A paid request keeps its lines: they are the record of what the
         // payment covered, and the money must not become eligible again.
@@ -334,8 +353,35 @@ final class SettlementFlowTest extends DatabaseTestCase
     // -------------------------------------------------------------- helpers
 
     /** One recorded sale for a vendor. A null share is one FIN-02 refused to record. */
+    /**
+     * One sold line, the way a capture leaves it: the order row AND the ledger
+     * event it points at.
+     *
+     * Until `alpha.39` this wrote only the order row, so the fixture produced
+     * a vendor with an eligible balance and empty books — a state a capture
+     * cannot produce, because `CaptureOrder` records the accrual first and
+     * stores the line's `ledger_event` from it. That mattered the moment the
+     * payout stopped assuming «IRR, 0»: the unit of a payout is read off the
+     * vendor's own books, and a fixture with no books has no unit to read.
+     *
+     * The accrual is written through the real repository with the four lines
+     * `RecordCommission` writes, so the unit on the payout line is the unit of
+     * the sale it discharges.
+     */
     private function sold(int $vendorUserId, int $orderItemId, int $baseMinor, ?int $shareMinor): int
     {
+        if ($shareMinor !== null) {
+            $base = Money::of($baseMinor);
+            $commission = Money::of($baseMinor - $shareMinor);
+            $share = Money::of($shareMinor);
+            self::assertTrue($this->ledger->record(
+                (new LedgerTransaction('order:' . $orderItemId, $vendorUserId, 'order:' . $orderItemId, (string) $orderItemId))
+                    ->add(LedgerAccount::CentralPayment, $base, 'item_paid')
+                    ->add(LedgerAccount::Commission, $commission->negate(), 'commission_due')
+                    ->add(LedgerAccount::VendorEarning, $share->negate(), 'vendor_earned')
+                    ->add(LedgerAccount::TaxCollected, $base->zero(), 'tax_collected')
+            ), 'the sale is on the books before anybody may withdraw it');
+        }
         return $this->orderItems->record(new VendorOrderItem(
             0,
             5000 + $orderItemId,

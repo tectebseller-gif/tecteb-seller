@@ -127,10 +127,43 @@ final class RequestWithdrawal
             // freeing a reservation, and the vendor is not the one who decides.
             return OperationResult::failure('invalid_transition', ['from' => $withdrawal->status->value]);
         }
-        if (!$this->withdrawals->updateStatus($withdrawalId, WithdrawalStatus::Cancelled, $actorId, '')) {
-            return OperationResult::failure('storage_failed');
+        // The status this cancel was DECIDED about goes into the write.
+        //
+        // The owner's scenario, and it was open until `alpha.39`: the vendor's
+        // page reads «Approved» and offers Cancel; a manager moves the request
+        // to «PaymentInProgress»; the vendor's click arrives, its `canMove()`
+        // answer is about the status it read, and the write had no condition
+        // on it — so the newer status was overwritten and its lines freed
+        // while a transfer was being prepared. Now the row must still be in
+        // the status this decision was made about, and when it is not the
+        // vendor is told to look again.
+        if (!$this->withdrawals->updateStatus(
+            $withdrawalId,
+            WithdrawalStatus::Cancelled,
+            $actorId,
+            '',
+            '',
+            $withdrawal->status
+        )) {
+            return OperationResult::failure('withdrawal_moved_on', [
+                'from' => $withdrawal->status->value,
+                // Read again, so the message names where it actually is now
+                // rather than where this request thought it was.
+                'now' => $this->withdrawals->find($withdrawalId)?->status->value ?? '',
+            ]);
         }
-        $this->withdrawals->release($withdrawalId);
+        // CHECKED. A cancel whose lines were not freed is a cancel that left
+        // the money inside a request nobody will finish — and the vendor would
+        // have been told it succeeded.
+        if (!$this->withdrawals->release($withdrawalId)) {
+            return OperationResult::failure('release_failed', [
+                'withdrawal_id' => $withdrawalId,
+                // Cancelled, and its lines still held: a person has to free
+                // them, and saying so is better than a success message that
+                // hides it.
+                'status' => WithdrawalStatus::Cancelled->value,
+            ]);
+        }
         $this->audit->log(AuditEventCatalog::WITHDRAWAL_REVIEWED, $actorId, 'withdrawal', (string) $withdrawalId, [
             'vendor_id' => $vendorUserId,
             'withdrawal_id' => $withdrawalId,

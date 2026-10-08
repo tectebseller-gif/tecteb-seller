@@ -350,6 +350,48 @@ final class OrderFlowTest extends DatabaseTestCase
         }
     }
 
+    /**
+     * WHAT THIS PROVES: a second unit of money is REFUSED, so a vendor's
+     * balance is never the sum of two kinds of money.
+     *
+     * `DbLedgerRepository::balances()` sums `amount_minor` grouped by account
+     * and nothing else, while `Money::assertSameUnit()` refuses to combine two
+     * units one layer down. Until `alpha.39` the two could not disagree —
+     * the capture forced `'IRR', 0` on every row, so the books were uniform
+     * because the unit was ignored rather than because it was checked. Now the
+     * order's real unit is recorded, and this is the check that keeps the
+     * books in one kind of money.
+     */
+    public function testASecondUnitOfMoneyIsRefusedRatherThanAddedToTheBooks(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-1');
+
+        // The first sale sets the unit.
+        self::assertSame(1, $this->capture->capture(5020, [$this->line(71, $a, 1, 500000)])['captured']);
+        self::assertSame(
+            [['currency' => 'IRR', 'exponent' => 0]],
+            $this->ledger->unitsFor(self::VENDOR_A)
+        );
+
+        // A second order in another unit — a currency switch, a multi-currency
+        // plugin — is named and nothing is written for it.
+        $other = $this->line(72, $a, 1, 1050);
+        $other['currency'] = 'USD';
+        $other['exponent'] = 2;
+        $report = $this->capture->capture(5021, [$other]);
+
+        self::assertSame(0, $report['captured']);
+        self::assertSame(1, $report['refused_unit']);
+        self::assertSame(['unit_changed'], $report['reasons']);
+        self::assertSame([], $this->ledger->forEvent(CaptureOrder::eventKey(5021, 72)));
+        self::assertCount(1, $this->orderItems->forVendor(self::VENDOR_A), 'and no second line');
+        // The books are still one unit, which is the whole point.
+        self::assertSame(
+            [['currency' => 'IRR', 'exponent' => 0]],
+            $this->ledger->unitsFor(self::VENDOR_A)
+        );
+    }
+
     public function testWithoutAResolvableRateTheLineIsRecordedAsUNRECORDEDRatherThanAsZero(): void
     {
         $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-1');

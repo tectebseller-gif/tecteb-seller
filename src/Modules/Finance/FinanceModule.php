@@ -120,7 +120,12 @@ final class FinanceModule implements ModuleInterface
             $c->get(LedgerRepositoryInterface::class),
             $c->get(WithdrawalStateMachine::class),
             $c->get(AuditLogger::class),
-            $c->get(CapabilityCheckerInterface::class)
+            $c->get(CapabilityCheckerInterface::class),
+            // The payment document and the request's status are one unit of
+            // work (`alpha.39`). The gateway satisfies `TransactionInterface`;
+            // asking for the narrow contract is what keeps this service unable
+            // to write SQL of its own.
+            $c->get(DatabaseInterface::class)
         ));
     }
 

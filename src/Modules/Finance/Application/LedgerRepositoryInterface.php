@@ -20,6 +20,23 @@ interface LedgerRepositoryInterface
 
     public function hasEvent(string $eventKey): bool;
 
+    /**
+     * Every distinct unit of money this vendor's ledger already holds.
+     *
+     * Exists because `balances()` sums `amount_minor` grouped by ACCOUNT and
+     * nothing else, while `Money::assertSameUnit()` refuses to combine two
+     * units one layer down. Before `alpha.39` the two could not disagree: the
+     * capture forced `'IRR', 0` on every row, so the books were uniform by
+     * accident. Now the order's real unit is recorded, and «uniform» has to be
+     * something the capture CHECKS rather than something it causes.
+     *
+     * A marketplace records in one unit. A second one appearing is a named
+     * refusal at capture, not an average of two kinds of money.
+     *
+     * @return list<array{currency:string, exponent:int}>
+     */
+    public function unitsFor(int $vendorUserId): array;
+
     /** @return list<LedgerEntry> */
     public function forVendor(int $vendorUserId, int $limit = 100): array;
 
