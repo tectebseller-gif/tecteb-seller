@@ -799,4 +799,96 @@ final class PackagingTest extends TestCase
         }
         return $out;
     }
+
+    /**
+     * WHAT THIS PROVES: the release timestamp is stable for the packages
+     * already delivered, and no two version strings can share one.
+     *
+     * opcache validates a cached file by `mtime` alone, so two different
+     * packages stamped the same minute is an upgrade that never invalidates —
+     * measured on a real WordPress in `alpha.38`, where wp-admin served a
+     * mixture of two builds. `alpha.38` fixed it by deriving the stamp from
+     * the release's trailing digits, which collides the moment a second
+     * version LINE exists: `0.1.0-alpha.39`, `0.1.1-alpha.39` and
+     * `0.2.0-beta.39` all end in 39.
+     *
+     * Both halves are asserted, because each alone is satisfiable by a wrong
+     * formula: a constant is stable and collides, and the clock never collides
+     * and is never stable.
+     */
+    public function testTheReleaseStampIsStableForDeliveredVersionsAndNeverCollides(): void
+    {
+        // The stamps the formula must keep answering. Pinned here so a later
+        // rewrite of the derivation cannot quietly move the packages that are
+        // already out.
+        $pinned = [
+            '0.1.0-alpha.35' => 1760227200,
+            '0.1.0-alpha.36' => 1760313600,
+            '0.1.0-alpha.37' => 1760400000,
+            '0.1.0-alpha.38' => 1760486400,
+        ];
+        // Only packages built from `alpha.38` onwards carry a DERIVED stamp.
+        // `alpha.35`, `.36` and `.37` shipped with the single fixed epoch
+        // `2025-09-07 00:00` — which is the defect itself: three different
+        // packages, one mtime, an upgrade opcache could never invalidate. So
+        // their ZIPs are deliberately not compared with the formula; they
+        // cannot agree with it, and rebuilding them to make them agree would
+        // replace a delivered package.
+        $derivedFrom = 38;
+        foreach ($pinned as $version => $epoch) {
+            self::assertSame($epoch, self::stampOf($version), $version . ' must keep the stamp the formula gave it');
+            $seq = (int) preg_replace('/^.*[^0-9]/', '', $version);
+            if ($seq < $derivedFrom) {
+                continue;
+            }
+            $zip = self::root() . '/dist/' . self::SLUG . '-' . $version . '.zip';
+            if (!is_file($zip)) {
+                continue;       // an older package absent from a clean clone
+            }
+            $archive = new \ZipArchive();
+            self::assertTrue($archive->open($zip) === true, 'cannot read ' . $zip);
+            $first = $archive->statIndex(0);
+            self::assertIsArray($first);
+            self::assertSame(
+                gmdate('Y-m-d H:i', $epoch),
+                gmdate('Y-m-d H:i', (int) $first['mtime']),
+                $version . ': the formula and the shipped ZIP disagree'
+            );
+            $archive->close();
+        }
+
+        // No two version strings share a stamp — including the three that
+        // `alpha.38`'s formula could not tell apart.
+        $versions = [
+            '0.1.0-alpha.38', '0.1.0-alpha.39', '0.1.0-alpha.40',
+            '0.1.1-alpha.39', '0.2.0-alpha.39', '0.2.0-beta.39',
+            '0.1.0-beta.1', '0.1.0-rc.1', '1.0.0', '1.0.1',
+            self::version(),
+        ];
+        $seen = [];
+        foreach (array_unique($versions) as $version) {
+            $stamp = self::stampOf($version);
+            self::assertArrayNotHasKey(
+                $stamp,
+                $seen,
+                $version . ' and ' . ($seen[$stamp] ?? '') . ' would be stamped the same minute'
+            );
+            $seen[$stamp] = $version;
+        }
+
+        // And it is a function of the version, not of the clock: the same
+        // input twice gives the same answer.
+        self::assertSame(self::stampOf('0.1.0-alpha.39'), self::stampOf('0.1.0-alpha.39'));
+    }
+
+    private static function stampOf(string $version): int
+    {
+        $script = self::root() . '/tools/release-stamp.sh';
+        self::assertFileExists($script);
+        $out = [];
+        $status = 0;
+        exec('bash ' . escapeshellarg($script) . ' ' . escapeshellarg($version) . ' 2>&1', $out, $status);
+        self::assertSame(0, $status, 'release-stamp.sh failed for ' . $version . ': ' . implode("\n", $out));
+        return (int) trim(implode('', $out));
+    }
 }

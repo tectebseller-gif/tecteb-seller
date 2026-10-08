@@ -49,6 +49,23 @@ fi
   echo "# Every line: <sha256>  <bytes>  <path>"
   echo "#"
   echo "plugin_version=${VERSION}"
+  # PROVENANCE, written in the same pass as the entries.
+  #
+  # The header and the entries are written into ONE temporary file and moved
+  # together, so there is no code path that relabels an existing index with a
+  # newer version while keeping the old rows — «شواهد تاریخی و اجرای این دور
+  # باید قابل تفکیک باشند» (§7 of the `alpha.39` order). If the images are not
+  # in this checkout the shrink guard below refuses to write anything at all,
+  # and the file on disk keeps BOTH the old rows and the old version line,
+  # which is the truthful pair.
+  echo "indexed_by=tools/evidence-manifest.sh"
+  echo "indexed_release=${VERSION}"
+  echo "# Every row below was hashed by the run that wrote this header. A"
+  echo "# release whose build could not see the image evidence does not"
+  echo "# rewrite this file, so plugin_version may name an EARLIER release"
+  echo "# than the package you are holding — and that is the honest answer:"
+  echo "# these are that release's files, not this one's."
+
   # Deliberately no timestamp. This file travels inside a HASHED archive, and
   # a clock reading would make every rebuild produce different bytes for an
   # unchanged tree — measured, and it did. The version identifies the release

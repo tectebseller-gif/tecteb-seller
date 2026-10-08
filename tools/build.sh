@@ -93,8 +93,15 @@ NESTED="$(find "${PAYLOAD}" -type f -name autoload.php -path '*/vendor/*' | head
 # So the stamp is derived from the RELEASE: one release, one timestamp;
 # the same release, always the same bytes. `SOURCE_DATE_EPOCH` still overrides
 # everything, for a reviewer reproducing an older package.
-RELEASE_SEQ="$(printf '%s' "${VERSION}" | sed -n 's/.*[^0-9]\([0-9]\{1,\}\)$/\1/p')"
-SOURCE_DATE="${SOURCE_DATE_EPOCH:-$(( 1757203200 + ${RELEASE_SEQ:-0} * 86400 ))}"
+#
+# The derivation itself lives in `tools/release-stamp.sh`, because `alpha.38`
+# derived it from the trailing digits alone — collision-free inside one version
+# line and nowhere else — and a formula that can hand two different packages
+# the same mtime is the un-invalidatable upgrade this whole section exists to
+# prevent. It is a separate script so the packaging suite can assert it
+# directly: that the stamps of the delivered versions are unchanged, and that
+# no two version strings share one.
+SOURCE_DATE="${SOURCE_DATE_EPOCH:-$(bash "$(dirname "$0")/release-stamp.sh" "${VERSION}")}"
 find "${STAGE}" -exec touch -h -d "@${SOURCE_DATE}" {} +
 echo "timestamps: every file stamped @${SOURCE_DATE} ($(date -u -d "@${SOURCE_DATE}" '+%Y-%m-%d %H:%M')), derived from ${VERSION}"
 
