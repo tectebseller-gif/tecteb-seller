@@ -1,0 +1,63 @@
+# The probes, run against the plugin source WordPress is actually serving.
+#
+# Installed with: wp plugin install dist/tecteb-marketplace-core-0.1.0-alpha.39.zip --force
+# on the disposable WordPress 7.1 at /home/user/wp-demo (no WooCommerce, no Dokan:
+# wordpress.org answers 403 from this environment, so both stay Not Run).
+#
+# Reported plugin version after install: 0.1.0-alpha.39
+# src/ of the installed copy is byte-identical to HEAD (diff -rq, no output).
+# Package SHA256: 31649f3f7bfae3f5652f252f2ed71e8361b133204c206d10fa2b98b3de662797
+
+--- refund-amount
+open_ok=yes
+refund_ok=yes
+wc_ok=yes
+recorded_amount=110000
+--- reserve-claim-failure
+request_ok=reservation_lost
+request_exists=no
+claimed_lines=0
+eligible_after=900000
+--- release-failure
+reject_ok=release_failed
+reserve_lines=1
+claimed_items=1
+eligible_after=0
+--- stale-cancel
+interference_fired=yes
+cancel_ok=withdrawal_moved_on
+status_after=payment_in_progress
+claimed_lines=1
+--- payment-pair
+payment_ok=withdrawal_moved_on
+document_lines=0
+status_after=payment_in_progress
+--- capture-retry
+first_captured=0
+first_failed=1
+retry_captured=1
+retry_unrecorded=0
+lines_stored=1
+share=450000
+rate_bp=1000
+event=set
+--- half-written-line
+repaired=1
+incomplete=0
+share=450000
+rate_bp=1000
+event=set
+--- control-zero-is-success
+zero_is_success=yes
+event_key=order:1:item:2
+--- control-settlement-rules
+eligible_before_completion=0
+eligible_after_completion=900000
+first_request=ok
+second_request=withdrawal_already_open
+--- control-unpaid-item-share
+earned=0
+unrecorded=1
+--- control-manager-gate
+settlement_without_capability=forbidden
+probes that ran: 11   broken: 0

@@ -208,6 +208,14 @@
 | lint `php -l` روی ۸٫۴٫۱۹ | ۴۹۸ فایل | ۰ |
 | PHPCompatibility `testVersion 8.1-` | ۴۹۸ فایل | ۰ |
 | `tools/alpha38-reproduction.sh` | **۴۹ بررسی** | ۰ |
+| probeها روی **سورسی که وردپرس سرو می‌کند**، نصب‌شده از خودِ `alpha.39.zip` | **۱۱ probe** | ۰ |
+
+**نصب از خودِ بسته، اندازه‌گیری‌شده:**
+`wp plugin install dist/tecteb-marketplace-core-0.1.0-alpha.39.zip --force` روی
+وردپرس ۷٫۱ یکبارمصرف. نسخهٔ گزارش‌شده پس از نصب `0.1.0-alpha.39`؛ `src/` نسخهٔ
+نصب‌شده با HEAD **بایت‌به‌بایت** یکی (`diff -rq`، بی‌خروجی)؛ ساختار داده ۲۱ و
+`tmc_migration_last_error` خالی؛ و هر یازده probe روی همان بایت‌ها جوابِ
+اصلاح‌شده را داد. خروجی خام: `docs/evidence/alpha39-from-zip/probes.txt`.
 
 **شواهد تاریخی (این دور اجرا نشدند و به‌عنوان اجرای این دور گزارش نمی‌شوند):**
 هر چیزی زیر `docs/evidence/` که نامش `alpha38-reproduction` نیست — از جمله
