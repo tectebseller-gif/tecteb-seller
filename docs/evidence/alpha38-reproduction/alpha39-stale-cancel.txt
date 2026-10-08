@@ -1,0 +1,5 @@
+interference_fired=yes
+cancel_ok=withdrawal_moved_on
+status_after=payment_in_progress
+claimed_lines=1
+probe=ran

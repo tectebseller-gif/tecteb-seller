@@ -1,0 +1,4 @@
+payment_ok=withdrawal_moved_on
+document_lines=0
+status_after=payment_in_progress
+probe=ran

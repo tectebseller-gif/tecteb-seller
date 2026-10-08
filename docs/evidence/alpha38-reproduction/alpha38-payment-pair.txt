@@ -1,0 +1,4 @@
+payment_ok=storage_failed
+document_lines=2
+status_after=payment_in_progress
+probe=ran

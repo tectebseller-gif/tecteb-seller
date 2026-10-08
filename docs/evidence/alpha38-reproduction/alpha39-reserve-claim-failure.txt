@@ -1,0 +1,5 @@
+request_ok=reservation_lost
+request_exists=no
+claimed_lines=0
+eligible_after=900000
+probe=ran

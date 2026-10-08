@@ -1,0 +1,5 @@
+reject_ok=yes
+reserve_lines=0
+claimed_items=1
+eligible_after=0
+probe=ran

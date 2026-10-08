@@ -1,0 +1,6 @@
+repaired=1
+incomplete=0
+share=450000
+rate_bp=1000
+event=set
+probe=ran

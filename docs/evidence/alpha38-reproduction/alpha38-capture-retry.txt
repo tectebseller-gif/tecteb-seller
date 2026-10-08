@@ -1,0 +1,9 @@
+first_captured=1
+first_failed=absent
+retry_captured=1
+retry_unrecorded=1
+lines_stored=1
+share=null
+rate_bp=null
+event=empty
+probe=ran

@@ -1,0 +1,5 @@
+reject_ok=release_failed
+reserve_lines=1
+claimed_items=1
+eligible_after=0
+probe=ran

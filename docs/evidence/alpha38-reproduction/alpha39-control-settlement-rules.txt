@@ -1,0 +1,5 @@
+eligible_before_completion=0
+eligible_after_completion=900000
+first_request=ok
+second_request=withdrawal_already_open
+probe=ran

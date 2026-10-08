@@ -1,0 +1,61 @@
+snapshot: 496 files under src/ hashed before any change
+
+=== 1. src/ reverted to 29eccbd (the delivered alpha.38) ===========
+PASS  the revert changed 21 files under src/ — the old tree is really on disk
+PASS  the reverted tree passes php -l, so a fatal below would be a real answer
+PASS  [alpha38] refund-amount: recorded_amount=1100 — the hundredth: 110000 minor units divided by 100
+PASS  [alpha38] reserve-claim-failure: request_exists=yes — a request with no lines behind it
+PASS  [alpha38] reserve-claim-failure: claimed_lines=0 — and it holds nothing
+PASS  [alpha38] reserve-claim-failure: eligible_after=900000 — while the money still counts as withdrawable
+PASS  [alpha38] release-failure: reject_ok=yes — a rejection reported as successful
+PASS  [alpha38] release-failure: reserve_lines=0 — its reserve lines deleted
+PASS  [alpha38] release-failure: claimed_items=1 — while the order item is still claimed
+PASS  [alpha38] release-failure: eligible_after=0 — so the money is stranded with no record of who holds it
+PASS  [alpha38] stale-cancel: cancel_ok=yes — the stale cancel won
+PASS  [alpha38] stale-cancel: status_after=cancelled — and overwrote the manager status
+PASS  [alpha38] stale-cancel: claimed_lines=0 — releasing money mid-transfer
+PASS  [alpha38] payment-pair: document_lines=2 — a payout on the books
+PASS  [alpha38] payment-pair: status_after=payment_in_progress — against a request that is payable again
+PASS  [alpha38] capture-retry: first_captured=1 — a storage failure counted as a captured sale
+PASS  [alpha38] capture-retry: share=null — and the retry stored no share
+PASS  [alpha38] capture-retry: event=empty — with no reference to the money that IS recorded
+PASS  [alpha38] half-written-line: repaired=absent — nothing looked at the half-written row
+PASS  [alpha38] half-written-line: share=null — so it stays unknown for ever
+
+=== 2. src/ restored to HEAD (alpha.39) ================================
+PASS  src/ is byte-identical to the hashes taken before anything was touched
+PASS  [alpha39] refund-amount: recorded_amount=110000 — the recorded amount, in the order own unit
+PASS  [alpha39] reserve-claim-failure: request_ok=reservation_lost — named, not silently half-done
+PASS  [alpha39] reserve-claim-failure: request_exists=no — nothing was created
+PASS  [alpha39] reserve-claim-failure: claimed_lines=0 — and nothing was claimed
+PASS  [alpha39] reserve-claim-failure: eligible_after=900000 — the vendor can still ask for the same money
+PASS  [alpha39] release-failure: reject_ok=release_failed — the caller is told the lines are still held
+PASS  [alpha39] release-failure: reserve_lines=1 — the request still records what it holds
+PASS  [alpha39] release-failure: claimed_items=1 — so a later release can find the money
+PASS  [alpha39] release-failure: eligible_after=0 — and nothing pretends it is available yet
+PASS  [alpha39] stale-cancel: interference_fired=yes — the interleaving really happened
+PASS  [alpha39] stale-cancel: cancel_ok=withdrawal_moved_on — the stale cancel is refused
+PASS  [alpha39] stale-cancel: status_after=payment_in_progress — the manager status stands
+PASS  [alpha39] stale-cancel: claimed_lines=1 — and the money stays reserved
+PASS  [alpha39] payment-pair: payment_ok=withdrawal_moved_on — the pair is one unit of work
+PASS  [alpha39] payment-pair: document_lines=0 — so no payout exists without its status
+PASS  [alpha39] payment-pair: status_after=payment_in_progress — and the request can still be paid properly
+PASS  [alpha39] capture-retry: first_captured=0 — a line that was not stored is not a captured sale
+PASS  [alpha39] capture-retry: first_failed=1 — and the count says which way it went
+PASS  [alpha39] capture-retry: share=450000 — the retry recovered the recorded figures
+PASS  [alpha39] capture-retry: rate_bp=1000 — at the rate recorded at the time
+PASS  [alpha39] capture-retry: event=set — and the line points at its own event
+PASS  [alpha39] half-written-line: repaired=1 — the existing half-written row was finished
+PASS  [alpha39] half-written-line: share=450000 — from its own ledger event
+
+=== 3. controls: the same answer on both trees ==========================
+PASS  control control-zero-is-success answers identically on alpha.38 and alpha.39
+PASS  control control-settlement-rules answers identically on alpha.38 and alpha.39
+PASS  control control-unpaid-item-share answers identically on alpha.38 and alpha.39
+PASS  control control-manager-gate answers identically on alpha.38 and alpha.39
+PASS  every control held, so the defect lines above are about alpha.38 and not about a broken checkout
+
+checks passed: 49
+checks failed: 0
+evidence: /home/user/tecteb-seller/docs/evidence/alpha38-reproduction
+PASS  src/ restored byte for byte (496 files)

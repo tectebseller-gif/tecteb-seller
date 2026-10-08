@@ -1,0 +1,5 @@
+open_ok=yes
+refund_ok=yes
+wc_ok=yes
+recorded_amount=1100
+probe=ran

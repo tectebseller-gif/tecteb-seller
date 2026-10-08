@@ -1,0 +1,9 @@
+first_captured=0
+first_failed=1
+retry_captured=1
+retry_unrecorded=0
+lines_stored=1
+share=450000
+rate_bp=1000
+event=set
+probe=ran

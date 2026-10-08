@@ -1,0 +1,5 @@
+interference_fired=yes
+cancel_ok=yes
+status_after=cancelled
+claimed_lines=0
+probe=ran

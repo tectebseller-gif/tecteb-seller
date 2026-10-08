@@ -1,0 +1,6 @@
+repaired=absent
+incomplete=absent
+share=null
+rate_bp=null
+event=empty
+probe=ran
