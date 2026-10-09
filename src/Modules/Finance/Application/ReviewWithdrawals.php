@@ -54,7 +54,15 @@ final class ReviewWithdrawals
          * and `move()` says so by refusing to record a payment it cannot make
          * atomic.
          */
-        private readonly ?TransactionInterface $tx = null
+        private readonly ?TransactionInterface $tx = null,
+        /**
+         * The vendor's recorded money unit — the same source the capture
+         * claims against, so a sale, a refund and a payout cannot disagree
+         * about what kind of money a vendor's books hold. Optional, and
+         * without it this falls back to asking the ledger, which is what
+         * `alpha.39` did.
+         */
+        private readonly ?VendorMoneyUnitRegistryInterface $units = null
     ) {
     }
 
@@ -323,6 +331,16 @@ final class ReviewWithdrawals
      */
     private function payoutUnit(int $vendorUserId): ?array
     {
+        // ONE CONTRACT with the sale and the refund, since `alpha.40`: the
+        // registry is what the capture claims against, so a payout asking it
+        // cannot answer a unit the capture would have refused. `unitsFor()`
+        // over the ledger — what `alpha.39` asked — returns an empty array for
+        // «no rows» and for «the read failed» alike, so a broken read here
+        // answered «no unit», which is at least a refusal, but it answered the
+        // mixed case the same way and said nothing about which.
+        if ($this->units !== null) {
+            return $this->units->unitOf($vendorUserId);
+        }
         $units = $this->ledger->unitsFor($vendorUserId);
         return count($units) === 1 ? $units[0] : null;
     }

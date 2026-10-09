@@ -37,6 +37,21 @@ interface LedgerRepositoryInterface
      */
     public function unitsFor(int $vendorUserId): array;
 
+    /**
+     * Vendors whose books already hold more than one unit of money, with the
+     * units named.
+     *
+     * The reporting half of the unit contract: `alpha.39`'s capture accepted a
+     * line in ANY unit the books already held, so a ledger that became mixed
+     * stayed mixed and nothing said so. `alpha.40` refuses new accruals for
+     * such a vendor — and refusing without reporting would leave a manager with
+     * a blocked order and no idea why. Nothing here converts anything:
+     * «دادهٔ ناسازگار موجود بدون تبدیل حدسی گزارش شود».
+     *
+     * @return list<array{vendor_user_id:int, units:string, entries:int}>
+     */
+    public function vendorsWithMixedUnits(int $limit = 200): array;
+
     /** @return list<LedgerEntry> */
     public function forVendor(int $vendorUserId, int $limit = 100): array;
 

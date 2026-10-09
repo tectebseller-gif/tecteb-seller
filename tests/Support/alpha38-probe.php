@@ -57,6 +57,7 @@ use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStateMachine;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStatus;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbCommissionRuleRepository;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbVendorMoneyUnitRegistry;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbWithdrawalRepository;
 use Tecteb\Marketplace\Modules\Order\Application\CaptureOrder;
 use Tecteb\Marketplace\Modules\Order\Application\ManageOrderItems;
@@ -336,7 +337,11 @@ final class ProbeWorld
                 $this->audit
             ),
             new OrderOperationsGate($rates, $this->ledger, new FakeTrialUnlock(true)),
-            $this->audit
+            $this->audit,
+            // The vendor money unit, recorded against a primary key: a capture
+            // without it refuses every line as `unit_unreadable` rather than
+            // assuming, which is the posture `alpha.40` chose.
+            new DbVendorMoneyUnitRegistry($this->db, $this->clock)
         );
     }
 

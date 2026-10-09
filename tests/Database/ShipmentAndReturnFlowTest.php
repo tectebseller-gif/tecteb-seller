@@ -21,6 +21,7 @@ use Tecteb\Marketplace\Modules\Finance\Domain\Money;
 use Tecteb\Marketplace\Modules\Finance\Domain\RateScope;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbCommissionRuleRepository;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbVendorMoneyUnitRegistry;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0004CreateFinanceTables;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables;
 use Tecteb\Marketplace\Modules\Order\Application\CaptureOrder;
@@ -162,7 +163,11 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             new RecordCommission($this->ledger, $rates, new CommissionCalculator(), $audit),
             $catalog,
             $gate,
-            $audit
+            $audit,
+            // The vendor money unit, recorded against a primary key: a capture
+            // without it refuses every line as `unit_unreadable` rather than
+            // assuming, which is the posture `alpha.40` chose.
+            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock())
         );
         $this->orders = new ManageOrderItems(
             $this->orderItems,

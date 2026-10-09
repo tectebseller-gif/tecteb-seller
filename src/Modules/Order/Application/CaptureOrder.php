@@ -6,7 +6,9 @@ namespace Tecteb\Marketplace\Modules\Order\Application;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
+use Tecteb\Marketplace\Modules\Finance\Application\VendorMoneyUnitRegistryInterface;
 use Tecteb\Marketplace\Modules\Finance\Domain\Money;
+use Tecteb\Marketplace\Modules\Finance\Domain\MoneyUnitClaim;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
@@ -40,7 +42,16 @@ final class CaptureOrder
         private readonly RecordCommission $commissions,
         private readonly SyncCatalog $catalog,
         private readonly OrderOperationsGate $gate,
-        private readonly AuditLogger $audit
+        private readonly AuditLogger $audit,
+        /**
+         * The vendor's money unit, recorded against a primary key.
+         *
+         * Optional so every existing construction site keeps working — but a
+         * capture WITHOUT it refuses every line as `unit_unreadable` rather
+         * than assuming, because a build that cannot establish the unit does
+         * not get to record money in it.
+         */
+        private readonly ?VendorMoneyUnitRegistryInterface $units = null
     ) {
     }
 
@@ -124,8 +135,15 @@ final class CaptureOrder
             // Scoped per vendor and asked only once a unit is readable, so a
             // single-currency site — every real one — behaves exactly as
             // before and pays one indexed query per captured line.
-            if ($unitError === '' && !$this->unitMatchesTheBooks($product->vendorUserId, $lineCurrency, $lineExponent)) {
-                $unitError = 'unit_changed';
+            if ($unitError === '') {
+                $claim = $this->claimUnit($product->vendorUserId, $lineCurrency, $lineExponent);
+                if (!$claim->isAgreed()) {
+                    // The claim's own word, not a single catch-all: «the books
+                    // hold another unit», «the books hold two», «the database
+                    // could not be asked» and «that is not a unit» are four
+                    // different pieces of work for a person.
+                    $unitError = $claim->state;
+                }
             }
             if ($unitError !== '') {
                 $refusedUnit++;
@@ -275,26 +293,30 @@ final class CaptureOrder
     }
 
     /**
-     * True when this unit is the one this vendor's ledger already uses — or
-     * when the ledger has nothing to disagree with yet.
+     * Claims this unit for the vendor's books, and says what the books said.
      *
-     * Deliberately not «the site's configured currency»: there is no such
-     * setting in this plugin, and inventing one would be a business decision.
-     * What exists is the record, and the record is what the next row has to
-     * agree with.
+     * **What this replaced, and why «any match» was not enough.** `alpha.39`
+     * asked `unitsInUse()` — `SELECT DISTINCT currency, exponent` over the
+     * ledger — and returned true if ANY of the answers matched. So a vendor
+     * whose books already held two units accepted a line in either of them and
+     * went on being mixed, which is the state a balance cannot be computed
+     * over. And `getResults()` answers an empty array both for «no rows» and
+     * for «the read failed», so a broken database read was indistinguishable
+     * from a first sale and silently fixed the unit of a whole ledger.
+     *
+     * The registry answers five ways instead of two, and its write collides on
+     * a primary key — so two first captures at the same moment cannot both fix
+     * a unit. `MIXED` and `UNREADABLE` are refusals in their own right, with
+     * their own names in `reasons`.
      */
-    private function unitMatchesTheBooks(int $vendorUserId, string $currency, int $exponent): bool
+    private function claimUnit(int $vendorUserId, string $currency, int $exponent): MoneyUnitClaim
     {
-        $units = $this->commissions->unitsInUse($vendorUserId);
-        if ($units === []) {
-            return true;        // the first sale sets the unit
-        }
-        foreach ($units as $unit) {
-            if ($unit['currency'] === $currency && $unit['exponent'] === $exponent) {
-                return true;
-            }
-        }
-        return false;
+        return $this->units === null
+            // No registry wired: `unit_unreadable` rather than «fine». A build
+            // that cannot establish the unit does not get to record money in
+            // it — the same posture as `payment_not_atomic`.
+            ? MoneyUnitClaim::refused(MoneyUnitClaim::UNREADABLE)
+            : $this->units->claim($vendorUserId, $currency, $exponent);
     }
 
     /**

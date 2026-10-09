@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Container;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0001CreateAuditTable;
+use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Core\Support\SystemClock;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpAuditRepository;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
@@ -20,6 +21,7 @@ use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Finance\Domain\RateScope;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbCommissionRuleRepository;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbVendorMoneyUnitRegistry;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0004CreateFinanceTables;
 use Tecteb\Marketplace\Modules\Order\Application\CaptureOrder;
 use Tecteb\Marketplace\Modules\Order\Application\ManageOrderItems;
@@ -171,7 +173,11 @@ final class OrderFlowTest extends DatabaseTestCase
             new RecordCommission($this->ledger, $rates, new CommissionCalculator(), $audit),
             $catalog,
             $gate,
-            $audit
+            $audit,
+            // The vendor money unit, recorded against a primary key: a capture
+            // without it refuses every line as `unit_unreadable` rather than
+            // assuming, which is the posture `alpha.40` chose.
+            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock())
         );
         $this->orders = new ManageOrderItems(
             $this->orderItems,
@@ -393,6 +399,94 @@ final class OrderFlowTest extends DatabaseTestCase
             [['currency' => 'IRR', 'exponent' => 0]],
             $this->ledger->unitsFor(self::VENDOR_A)
         );
+    }
+
+    /**
+     * WHAT THIS PROVES: a capture against books that already hold TWO units
+     * refuses — including in a unit they hold — and names the reason
+     * separately from «your books are in another unit».
+     *
+     * `alpha.39`'s check returned true if ANY stored unit matched, so a mixed
+     * ledger went on accepting writes in either of them for ever and nothing
+     * ever reported it. Two refusals with two names, because they are two
+     * pieces of work: a mixed ledger needs a person, and a changed unit needs
+     * the order looked at.
+     */
+    public function testACaptureAgainstMixedBooksIsRefusedWithItsOwnName(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-12');
+        self::assertSame(1, $this->capture->capture(5030, [$this->line(81, $a, 1, 500000)])['captured']);
+
+        // The mixed state, written straight to the ledger: `alpha.40` refuses
+        // to create it, so the test has to MEET it.
+        $ledgerTable = $this->wpdb->prefix . M0004CreateFinanceTables::LEDGER;
+        $this->wpdb->pdo()->exec(
+            "UPDATE `{$ledgerTable}` SET currency = 'USD', exponent = 2
+              WHERE vendor_user_id = " . self::VENDOR_A . " ORDER BY id ASC LIMIT 1"
+        );
+
+        // Even the unit the books hold is refused now.
+        $report = $this->capture->capture(5031, [$this->line(82, $a, 1, 300000)]);
+        self::assertSame(0, $report['captured']);
+        self::assertSame(1, $report['refused_unit']);
+        self::assertSame(['books_mixed'], $report['reasons'], 'its own name, not `unit_changed`');
+        self::assertSame([], $this->ledger->forEvent(CaptureOrder::eventKey(5031, 82)));
+        self::assertNull($this->orderItems->findByOrderItem(82), 'and no line was stored');
+
+        // Reported, with the units named, so a manager meeting a blocked order
+        // can see why. Nothing converts anything.
+        $mixed = $this->ledger->vendorsWithMixedUnits();
+        self::assertSame([self::VENDOR_A], array_column($mixed, 'vendor_user_id'));
+        self::assertSame('IRR/0,USD/2', $mixed[0]['units']);
+    }
+
+    /**
+     * WHAT THIS PROVES: a capture that cannot ASK about the unit refuses, and
+     * does not read the failure as «the books are empty».
+     */
+    public function testACaptureWhoseUnitReadFailsRefusesRatherThanAssuming(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-13');
+
+        $failing = new FailingDatabase(new WpDatabase($this->wpdb));
+        $failing->failReadWhen(['COUNT(DISTINCT CONCAT']);
+        $report = $this->captureOverUnits($failing)->capture(5032, [$this->line(83, $a, 1, 500000)]);
+
+        self::assertSame(0, $report['captured']);
+        self::assertSame(1, $report['refused_unit']);
+        self::assertSame(['unit_unreadable'], $report['reasons']);
+        self::assertNotSame([], $failing->refused, 'the injected failure has to have fired');
+        self::assertSame([], $this->ledger->forEvent(CaptureOrder::eventKey(5032, 83)));
+        self::assertNull($this->orderItems->findByOrderItem(83));
+        // And nothing was fixed as a side effect of the failed attempt.
+        self::assertSame([], $this->ledger->unitsFor(self::VENDOR_A));
+    }
+
+    /**
+     * WHAT THIS PROVES: repeated captures in the SAME unit are ordinary.
+     *
+     * The negative cases above all refuse; without this one, a claim that had
+     * become impossible would satisfy every one of them.
+     */
+    public function testRepeatedCapturesInTheSameUnitAreAllRecorded(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-14');
+        foreach ([84, 85, 86] as $seq => $orderItemId) {
+            $report = $this->capture->capture(5040 + $seq, [$this->line($orderItemId, $a, 1, 500000)]);
+            self::assertSame(1, $report['captured'], 'line ' . $orderItemId);
+            self::assertSame(0, $report['refused_unit']);
+        }
+        self::assertCount(3, $this->orderItems->forVendor(self::VENDOR_A));
+        self::assertSame([['currency' => 'IRR', 'exponent' => 0]], $this->ledger->unitsFor(self::VENDOR_A));
+        self::assertSame([], $this->ledger->vendorsWithMixedUnits());
+
+        // And the SAME order twice writes nothing new — the event key decides,
+        // and the unit claim does not turn a duplicate into a refusal.
+        $again = $this->capture->capture(5040, [$this->line(84, $a, 1, 500000)]);
+        self::assertSame(0, $again['captured']);
+        self::assertSame(0, $again['refused_unit']);
+        self::assertSame(0, $again['incomplete'], 'a duplicate callback is not an incomplete line');
+        self::assertCount(3, $this->orderItems->forVendor(self::VENDOR_A));
     }
 
     public function testWithoutAResolvableRateTheLineIsRecordedAsUNRECORDEDRatherThanAsZero(): void
@@ -819,6 +913,30 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertSame(0, $mine['incomplete']);
     }
 
+    /**
+     * A capture whose UNIT REGISTRY is on the given gateway and whose
+     * everything else is real — so a failed unit read can be injected without
+     * breaking the ledger or the order table.
+     */
+    private function captureOverUnits(DatabaseInterface $db): CaptureOrder
+    {
+        $clock = new SystemClock();
+        return new CaptureOrder(
+            $this->orderItems,
+            $this->products,
+            new RecordCommission(
+                $this->ledger,
+                new ResolveCommissionRate($this->rules),
+                new CommissionCalculator(),
+                $this->logger
+            ),
+            $this->catalogService,
+            $this->orderGate,
+            $this->logger,
+            new DbVendorMoneyUnitRegistry($db, $clock)
+        );
+    }
+
     private function captureThrough(InterferingDatabase $db): CaptureOrder
     {
         $clock = new SystemClock();
@@ -833,7 +951,11 @@ final class OrderFlowTest extends DatabaseTestCase
             ),
             $this->catalogService,
             $this->orderGate,
-            $this->logger
+            $this->logger,
+            // The vendor money unit, recorded against a primary key: a capture
+            // without it refuses every line as `unit_unreadable` rather than
+            // assuming, which is the posture `alpha.40` chose.
+            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock())
         );
     }
 
@@ -851,7 +973,11 @@ final class OrderFlowTest extends DatabaseTestCase
             ),
             $this->catalogService,
             $this->orderGate,
-            $this->logger
+            $this->logger,
+            // The vendor money unit, recorded against a primary key: a capture
+            // without it refuses every line as `unit_unreadable` rather than
+            // assuming, which is the posture `alpha.40` chose.
+            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock())
         );
     }
 

@@ -154,7 +154,7 @@ final class ReviewSeenCarryOverTest extends DatabaseTestCase
         $result = $this->runner($gate, 'owner-retry')->run();
 
         self::assertSame(MigrationStatus::Applied, $result->status, (string) $result->error);
-        self::assertSame(21, $this->storedSchemaVersion());
+        self::assertSame(SchemaVersion::TARGET, $this->storedSchemaVersion(), 'the gate reaches the target, whatever this round moved it to');
         self::assertSame(
             [[self::ANA, 11, 3, 0], [self::ANA, 12, 4, 7], [self::BABAK, 11, 3, 0]],
             $this->marks(),
@@ -220,7 +220,7 @@ final class ReviewSeenCarryOverTest extends DatabaseTestCase
         $result = $this->runner($this->db)->run();
 
         self::assertSame(MigrationStatus::Applied, $result->status, (string) $result->error);
-        self::assertSame(21, $this->storedSchemaVersion());
+        self::assertSame(SchemaVersion::TARGET, $this->storedSchemaVersion(), 'the gate reaches the target, whatever this round moved it to');
         self::assertSame(0, $this->seenRows());
     }
 
@@ -275,7 +275,7 @@ final class ReviewSeenCarryOverTest extends DatabaseTestCase
         $gate->stopFailing();
         delete_option(SchemaVersion::LAST_ERROR_OPTION);
         self::assertSame(MigrationStatus::Applied, $this->runner($gate, 'owner-finish')->run()->status);
-        self::assertSame(21, $this->storedSchemaVersion());
+        self::assertSame(SchemaVersion::TARGET, $this->storedSchemaVersion(), 'the gate reaches the target, whatever this round moved it to');
         self::assertSame(
             [[self::ANA, 11, 3, 0], [self::BABAK, 12, 4, 7]],
             $this->marks(),
@@ -321,7 +321,7 @@ final class ReviewSeenCarryOverTest extends DatabaseTestCase
         // One more second, and the next admin request finishes the job.
         $clock->advance(1);
         self::assertSame(MigrationStatus::Applied, $upgrade->runIfNeeded()?->status);
-        self::assertSame(21, $this->storedSchemaVersion());
+        self::assertSame(SchemaVersion::TARGET, $this->storedSchemaVersion(), 'the gate reaches the target, whatever this round moved it to');
         self::assertSame([[self::ANA, 11, 3, 0]], $this->marks(), 'the mark alpha.36 held was carried after all');
     }
 
@@ -340,7 +340,10 @@ final class ReviewSeenCarryOverTest extends DatabaseTestCase
             new MigrationLock(new WpLockStore($this->wpdb), $clock, $owner),
             Bootstrap::migrations(),
             $clock,
-            21
+            // Read, not written: a fixture that spells the target out breaks
+            // the first round that moves the schema, about a site that is
+            // perfectly correct (`alpha.33`'s rule, which this line was).
+            SchemaVersion::TARGET
         );
     }
 

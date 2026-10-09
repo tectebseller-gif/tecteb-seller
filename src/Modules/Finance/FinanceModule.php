@@ -23,7 +23,9 @@ use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStateMachine;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbCommissionRuleRepository;
+use Tecteb\Marketplace\Modules\Finance\Application\VendorMoneyUnitRegistryInterface;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbVendorMoneyUnitRegistry;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbWithdrawalRepository;
 use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\CommissionRulesPage;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\WordPress\FinanceArea;
@@ -99,6 +101,10 @@ final class FinanceModule implements ModuleInterface
         $c->bind(SettlementGate::class, static fn (ContainerInterface $c) => new SettlementGate(
             $c->get(TrialUnlock::class)
         ));
+        $c->bind(VendorMoneyUnitRegistryInterface::class, static fn (ContainerInterface $c) => new DbVendorMoneyUnitRegistry(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
         $c->bind(VendorBalance::class, static fn (ContainerInterface $c) => new VendorBalance(
             $c->get(OrderItemRepositoryInterface::class),
             $c->get(SettingsService::class),
@@ -128,7 +134,10 @@ final class FinanceModule implements ModuleInterface
             // work (`alpha.39`). The gateway satisfies `TransactionInterface`;
             // asking for the narrow contract is what keeps this service unable
             // to write SQL of its own.
-            $c->get(DatabaseInterface::class)
+            $c->get(DatabaseInterface::class),
+            // The same unit source the capture claims against, so a sale, a
+            // refund and a payout cannot disagree about a vendor's money.
+            $c->get(VendorMoneyUnitRegistryInterface::class)
         ));
     }
 

@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
+use Tecteb\Marketplace\Modules\Finance\Application\VendorMoneyUnitRegistryInterface;
 use Tecteb\Marketplace\Modules\Order\Application\CaptureOrder;
 use Tecteb\Marketplace\Modules\Order\Application\ManageOrderItems;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
@@ -40,7 +41,11 @@ final class OrderServices
             $c->get(RecordCommission::class),
             $c->get(SyncCatalog::class),
             $c->get(OrderOperationsGate::class),
-            $c->get(AuditLogger::class)
+            $c->get(AuditLogger::class),
+            // The vendor's money unit, recorded against a primary key — so two
+            // first captures at the same moment cannot fix two units, and a
+            // failed read cannot look like an empty ledger.
+            $c->get(VendorMoneyUnitRegistryInterface::class)
         ));
         $c->bind(ManageOrderItems::class, static fn (ContainerInterface $c) => new ManageOrderItems(
             $c->get(OrderItemRepositoryInterface::class),

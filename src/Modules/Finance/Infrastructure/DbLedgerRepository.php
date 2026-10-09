@@ -91,6 +91,29 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
         );
     }
 
+    public function vendorsWithMixedUnits(int $limit = 200): array
+    {
+        $rows = $this->db->getResults(
+            'SELECT vendor_user_id,
+                    GROUP_CONCAT(DISTINCT CONCAT(currency, \'/\', exponent) ORDER BY currency, exponent) AS units,
+                    COUNT(*) AS entries
+               FROM `' . $this->table() . '`
+              WHERE vendor_user_id > 0
+              GROUP BY vendor_user_id
+             HAVING COUNT(DISTINCT CONCAT(currency, \'/\', exponent)) > 1
+              ORDER BY vendor_user_id ASC LIMIT %d',
+            [max(1, min(1000, $limit))]
+        );
+        return array_map(
+            static fn (array $row): array => [
+                'vendor_user_id' => (int) $row['vendor_user_id'],
+                'units' => (string) $row['units'],
+                'entries' => (int) $row['entries'],
+            ],
+            $rows
+        );
+    }
+
     public function coversOrder(int $wcOrderId): bool
     {
         if ($wcOrderId <= 0) {
