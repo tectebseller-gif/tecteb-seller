@@ -166,22 +166,44 @@ for BASE_ZIP in $BASES; do
   OLD_EXPECT="$(zip_version "$BASE_ZIP")"
   BASE_SCHEMA="$(zip_schema "$BASE_ZIP")"
   [ -n "$BASE_SCHEMA" ] || { say "FAIL: could not read the schema target out of $BASE_ZIP"; exit 2; }
+  # Whether THIS base needs a migration at all. A base already on the target
+  # schema — `alpha.41 → alpha.42`, which adds none — has the columns and the
+  # index from the start, so the stages about building them have nothing to
+  # prove and are skipped by name rather than asserted into a false pass.
+  if [ "$BASE_SCHEMA" -lt "$NEW_SCHEMA" ]; then STRUCTURAL=yes; else STRUCTURAL=no; fi
   say ""
   say "================================================================"
-  say "=== $OLD_EXPECT (schema $BASE_SCHEMA) -> $NEW_EXPECT (schema $NEW_SCHEMA)"
+  say "=== $OLD_EXPECT (schema $BASE_SCHEMA) -> $NEW_EXPECT (schema $NEW_SCHEMA) · structural=$STRUCTURAL"
   say "================================================================"
 
   # ---- stage 1: a site genuinely on the old build ------------------------
   install_zip "$NEW_ZIP"; state reset >/dev/null 2>&1
   install_zip "$BASE_ZIP"
-  drop_new_shape
-  wpx option update tmc_schema_version "$BASE_SCHEMA" >/dev/null
-  wpx option delete tmc_migration_last_error >/dev/null 2>&1
+  if [ "$STRUCTURAL" = "yes" ]; then
+    drop_new_shape
+    wpx option update tmc_schema_version "$BASE_SCHEMA" >/dev/null
+    wpx option delete tmc_migration_last_error >/dev/null 2>&1
+  else
+    # The base's own schema IS the target, so the shape has to be THERE —
+    # and built by the gate, not by this script: the option goes one below
+    # and an admin request rebuilds it, which is also how a real site that
+    # had rolled back would come back (`alpha.38`'s rule about a fixture
+    # leaving the site in a state the gate can finish).
+    wpx option update tmc_schema_version "$((BASE_SCHEMA - 1))" >/dev/null
+    wpx option delete tmc_migration_last_error >/dev/null 2>&1
+    admin_request "$JAR" >/dev/null
+  fi
   check "1 the install is $OLD_EXPECT" "$(wpx plugin get tecteb-marketplace-core --field=version)" "$OLD_EXPECT"
   check "1b on schema $BASE_SCHEMA" "$(wpx option get tmc_schema_version)" "$BASE_SCHEMA"
-  check "1c the long-description column is absent" "$(has_column "$COL_DESC")" "0"
-  check "1d the create-token column is absent" "$(has_column "$COL_TOKEN")" "0"
-  check "1e no index of that name exists" "$(any_index)" "0"
+  if [ "$STRUCTURAL" = "yes" ]; then
+    check "1c the long-description column is absent" "$(has_column "$COL_DESC")" "0"
+    check "1d the create-token column is absent" "$(has_column "$COL_TOKEN")" "0"
+    check "1e no index of that name exists" "$(any_index)" "0"
+  else
+    check "1c the long-description column is already there" "$(has_column "$COL_DESC")" "1"
+    check "1d the create-token column is already there" "$(has_column "$COL_TOKEN")" "1"
+    check "1e and its index is already unique" "$(unique_index)" "1"
+  fi
   check "1f and the old build serves wp-admin" "$(admin_request "$JAR")" "200"
 
   # ---- stage 2: a product written BY THE OLD BUILD ----------------------
@@ -191,7 +213,16 @@ for BASE_ZIP in $BASES; do
     || { say "FAIL: the product fixture did not run on the old build — every later check would be void"; exit 2; }
   check "2 the old build wrote a product through its own repository" \
     "$(dbq "SELECT COUNT(*) FROM \`$PRODUCTS\` WHERE id = $PRODUCT")" "1"
-  check "2b and had nowhere to put a long description" "$(field_of "$SEED" long)" "no-field"
+  if [ "$STRUCTURAL" = "yes" ]; then
+    check "2b and had nowhere to put a long description" "$(field_of "$SEED" long)" "no-field"
+  else
+    # The base HAS the field, so the interesting fixture is a product with a
+    # long description already written by the OLD build — the thing the
+    # upgrade must not disturb.
+    WROTE_BEFORE="$(state write)"; say "  $WROTE_BEFORE"
+    check "2b the old build wrote a long description of its own" \
+      "$(field_of "$WROTE_BEFORE" long)" '<p>متن کاملِ فروشنده</p>'
+  fi
 
   # ---- stage 3: the upgrade, from the admin request ---------------------
   install_zip "$NEW_ZIP"
@@ -210,16 +241,25 @@ for BASE_ZIP in $BASES; do
   # فیلد جدید باید از درخواست پاک‌سازی صریح متمایز باشد». NULL is the row
   # saying nobody has ever asked for anything.
   REPORT="$(state report)"; say "  $REPORT"
-  check "4 the pre-upgrade product's long description is NULL, not ''" \
-    "$(dbq "SELECT IF(\`$COL_DESC\` IS NULL, 'null', CONCAT('value:', \`$COL_DESC\`)) FROM \`$PRODUCTS\` WHERE id = $PRODUCT")" "null"
-  check "4b which the plugin reads back as «never written»" "$(field_of "$REPORT" long)" "null"
-  check "4c its create token is NULL too, so it collides with nothing" \
-    "$(dbq "SELECT IF(\`$COL_TOKEN\` IS NULL, 'null', 'value') FROM \`$PRODUCTS\` WHERE id = $PRODUCT")" "null"
-  check "4d and NULL may repeat, which is what lets every legacy row keep one" \
-    "$(dbq "SELECT COUNT(*) >= 1 FROM \`$PRODUCTS\` WHERE \`$COL_TOKEN\` IS NULL")" "1"
-  WROTE="$(state write)"; say "  $WROTE"
-  check "4e a vendor writing the field stores exactly what they wrote" \
-    "$(field_of "$WROTE" long)" '<p>متن کاملِ فروشنده</p>'
+  if [ "$STRUCTURAL" = "yes" ]; then
+    check "4 the pre-upgrade product's long description is NULL, not ''" \
+      "$(dbq "SELECT IF(\`$COL_DESC\` IS NULL, 'null', CONCAT('value:', \`$COL_DESC\`)) FROM \`$PRODUCTS\` WHERE id = $PRODUCT")" "null"
+    check "4b which the plugin reads back as «never written»" "$(field_of "$REPORT" long)" "null"
+    check "4c its create token is NULL too, so it collides with nothing" \
+      "$(dbq "SELECT IF(\`$COL_TOKEN\` IS NULL, 'null', 'value') FROM \`$PRODUCTS\` WHERE id = $PRODUCT")" "null"
+    check "4d and NULL may repeat, which is what lets every legacy row keep one" \
+      "$(dbq "SELECT COUNT(*) >= 1 FROM \`$PRODUCTS\` WHERE \`$COL_TOKEN\` IS NULL")" "1"
+    WROTE="$(state write)"; say "  $WROTE"
+    check "4e a vendor writing the field stores exactly what they wrote" \
+      "$(field_of "$WROTE" long)" '<p>متن کاملِ فروشنده</p>'
+  else
+    # NOTHING MOVED. The only thing a schema-neutral upgrade may do to a
+    # vendor's long description is leave it alone, and §1 of this round is
+    # precisely a path on which an upgrade DID change one.
+    check "4 the long description written before the upgrade is untouched" \
+      "$(field_of "$REPORT" long)" '<p>متن کاملِ فروشنده</p>'
+    check "4b and the plugin still reads the field" "$(field_of "$REPORT" has_field)" "1"
+  fi
 
   # ---- stage 5: a migration that fails in the middle --------------------
   #
@@ -227,6 +267,7 @@ for BASE_ZIP in $BASES; do
   # table, so `ADD UNIQUE KEY` really is refused by MySQL. This is also the
   # `alpha.37` shape rule — a step whose columns are there and whose index is
   # the wrong KIND must not report «complete».
+  if [ "$STRUCTURAL" = "yes" ]; then
   install_zip "$BASE_ZIP"; drop_new_shape
   dbq "ALTER TABLE \`$PRODUCTS\` ADD COLUMN \`$COL_TOKEN\` VARCHAR(64) NULL" >/dev/null
   dbq "ALTER TABLE \`$PRODUCTS\` ADD INDEX \`$IDX\` (\`vendor_user_id\`)" >/dev/null
@@ -261,6 +302,9 @@ for BASE_ZIP in $BASES; do
   check "7b the column count did not move" \
     "$(dbq "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '$PRODUCTS'")" "$BEFORE_COLS"
   check "7c and the schema is still $NEW_SCHEMA" "$(wpx option get tmc_schema_version)" "$NEW_SCHEMA"
+  else
+    say "  stages 5-7 skipped: structural=$STRUCTURAL, so there is no migration step to fail, resume or re-run"
+  fi
 
   # ---- stage 8: back to the old build ----------------------------------
   #
@@ -274,7 +318,13 @@ for BASE_ZIP in $BASES; do
   check "8c the columns are still there — nothing is dropped on the way back" \
     "$(has_column "$COL_DESC")" "1"
   BACK="$(state report)"; say "  $BACK"
-  check "8d the old build cannot read the field at all" "$(field_of "$BACK" has_field)" "0"
+  if [ "$STRUCTURAL" = "yes" ]; then
+    check "8d the old build cannot read the field at all" "$(field_of "$BACK" has_field)" "0"
+  else
+    check "8d the old build reads the field, because it has always had it" "$(field_of "$BACK" has_field)" "1"
+    check "8d2 and reads the very text that was written" \
+      "$(field_of "$BACK" long)" '<p>متن کاملِ فروشنده</p>'
+  fi
   check "8e but the vendor's text is still ON DISK, not lost" \
     "$(dbq "SELECT IF(\`$COL_DESC\` IS NULL, 'null', 'kept') FROM \`$PRODUCTS\` WHERE id = $PRODUCT")" "kept"
 

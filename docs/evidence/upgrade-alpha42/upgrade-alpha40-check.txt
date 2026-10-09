@@ -1,0 +1,115 @@
+new package: 0.1.0-alpha.42 (target schema 23) · step 0023_product_description_and_create_token
+columns: description, create_token · index tmc_product_create_token on tmc_products
+ok:   the admin session really opened                                200
+
+================================================================
+=== 0.1.0-alpha.40 (schema 22) -> 0.1.0-alpha.42 (schema 23) · structural=yes
+================================================================
+ok:   1 the install is 0.1.0-alpha.40                                0.1.0-alpha.40
+ok:   1b on schema 22                                                22
+ok:   1c the long-description column is absent                       0
+ok:   1d the create-token column is absent                           0
+ok:   1e no index of that name exists                                0
+ok:   1f and the old build serves wp-admin                           200
+  product=1235
+reused=0
+long=no-field
+ok:   2 the old build wrote a product through its own repository     1
+ok:   2b and had nowhere to put a long description                   no-field
+ok:   3 the files are now 0.1.0-alpha.42                             0.1.0-alpha.42
+ok:   3b replacing files runs no migration by itself                 22
+ok:   3c the first admin request answers 200                         200
+ok:   3d and the gate has moved the schema to 23                     23
+ok:   3e the long-description column exists                          1
+ok:   3f the create-token column exists                              1
+ok:   3g and the index is UNIQUE, not merely present                 1
+ok:   3h no migration error was recorded                             
+  product=1235
+long=null
+has_field=1
+ok:   4 the pre-upgrade product's long description is NULL, not ''   null
+ok:   4b which the plugin reads back as «never written»            null
+ok:   4c its create token is NULL too, so it collides with nothing   null
+ok:   4d and NULL may repeat, which is what lets every legacy row keep one 1
+  product=1235
+wrote=1
+long=<p>متن کاملِ فروشنده</p>
+ok:   4e a vendor writing the field stores exactly what they wrote   <p>متن کاملِ فروشنده</p>
+ok:   5 a same-named NON-unique index is really in the way           1
+ok:   5b and it is not unique                                        0
+ok:   5c the admin request still answers 200                         200
+ok:   5d the site stays on schema 22, which is 0.1.0-alpha.40 and works 22
+  last_error={"step":"0023_product_description_and_create_token","message":"verify_failed","at":"2026-10-09T19:39:39+00:00"}
+ok:   5e the reason is recorded, naming the step                     1
+ok:   5f and the vendor's product is untouched                       1
+ok:   6 the next admin request answers 200                           200
+ok:   6b the schema reaches 23                                       23
+ok:   6c the index is unique this time                               1
+ok:   6d the column the failed run had already added is not duplicated 1
+ok:   6e and the error is cleared                                    
+ok:   7 a second admin request answers 200                           200
+ok:   7b the column count did not move                               37
+ok:   7c and the schema is still 23                                  23
+ok:   8 the old build serves wp-admin with the new schema recorded   200
+ok:   8b it does not take the schema back down                       23
+ok:   8c the columns are still there — nothing is dropped on the way back 1
+  product=1235
+long=no-field
+has_field=0
+ok:   8d the old build cannot read the field at all                  0
+ok:   8e but the vendor's text is still ON DISK, not lost            kept
+ok:   9 wp-admin answers 200                                         200
+  product=1235
+long=<p>متن کاملِ فروشنده</p>
+has_field=1
+ok:   9b and the text written before the rollback is read again      <p>متن کاملِ فروشنده</p>
+
+================================================================
+=== 0.1.0-alpha.41 (schema 23) -> 0.1.0-alpha.42 (schema 23) · structural=no
+================================================================
+ok:   1 the install is 0.1.0-alpha.41                                0.1.0-alpha.41
+ok:   1b on schema 23                                                23
+ok:   1c the long-description column is already there                1
+ok:   1d the create-token column is already there                    1
+ok:   1e and its index is already unique                             1
+ok:   1f and the old build serves wp-admin                           200
+  product=1236
+reused=0
+long=null
+ok:   2 the old build wrote a product through its own repository     1
+  product=1236
+wrote=1
+long=<p>متن کاملِ فروشنده</p>
+ok:   2b the old build wrote a long description of its own           <p>متن کاملِ فروشنده</p>
+ok:   3 the files are now 0.1.0-alpha.42                             0.1.0-alpha.42
+ok:   3b replacing files runs no migration by itself                 23
+ok:   3c the first admin request answers 200                         200
+ok:   3d and the gate has moved the schema to 23                     23
+ok:   3e the long-description column exists                          1
+ok:   3f the create-token column exists                              1
+ok:   3g and the index is UNIQUE, not merely present                 1
+ok:   3h no migration error was recorded                             
+  product=1236
+long=<p>متن کاملِ فروشنده</p>
+has_field=1
+ok:   4 the long description written before the upgrade is untouched <p>متن کاملِ فروشنده</p>
+ok:   4b and the plugin still reads the field                        1
+  stages 5-7 skipped: structural=no, so there is no migration step to fail, resume or re-run
+ok:   8 the old build serves wp-admin with the new schema recorded   200
+ok:   8b it does not take the schema back down                       23
+ok:   8c the columns are still there — nothing is dropped on the way back 1
+  product=1236
+long=<p>متن کاملِ فروشنده</p>
+has_field=1
+ok:   8d the old build reads the field, because it has always had it 1
+ok:   8d2 and reads the very text that was written                   <p>متن کاملِ فروشنده</p>
+ok:   8e but the vendor's text is still ON DISK, not lost            kept
+ok:   9 wp-admin answers 200                                         200
+  product=1236
+long=<p>متن کاملِ فروشنده</p>
+has_field=1
+ok:   9b and the text written before the rollback is read again      <p>متن کاملِ فروشنده</p>
+
+checks passed: 69
+checks failed: 0
+evidence: docs/evidence/upgrade-alpha42
