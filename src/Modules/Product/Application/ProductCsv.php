@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Contracts\Html\HtmlSanitizerInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
+use Tecteb\Marketplace\Modules\Product\Domain\LongDescription;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
@@ -290,10 +291,8 @@ final class ProductCsv
             return trim($values[$key]) === '' ? null : trim($values[$key]);
         };
 
-        // Three answers, the same three the form gives. Absent column → keep
-        // what is stored, so a file saved before `alpha.41` cannot empty a
-        // long description it never knew about. Present and empty → `''`, a
-        // deliberate clear, because naming the column IS the instruction.
+        // Absent column → keep what is stored, so a file saved before
+        // `alpha.41` cannot empty a long description it never knew about.
         // `$current->description` may itself be `null` (a row from before
         // migration 23) and that travels through untouched.
         //
@@ -305,12 +304,25 @@ final class ProductCsv
         // row did not. The fallback is NOT re-sanitised: it is already the
         // stored value, and running the filter again would rewrite a product
         // nobody edited.
+        //
+        // And an EMPTY cell is read by the same rule the form uses, from the
+        // one place that holds it. A file exported before `alpha.42` writes a
+        // legacy product's absent long description as an empty cell, so
+        // re-importing that very file would have turned `null` into `''` —
+        // «delete the shop's description» — about a product nobody edited.
+        // The stored value's own shape is the base: empty cell over a value
+        // is a clear, empty cell over nothing changes nothing.
         $sanitizer = $this->html;
         $html = static function (string $key, ?string $fallback) use ($values, $sanitizer): ?string {
             if (!array_key_exists($key, $values)) {
                 return $fallback;
             }
-            return $sanitizer->sanitize(trim($values[$key]));
+            return LongDescription::decide(
+                $sanitizer->sanitize(trim($values[$key])),
+                LongDescription::baseOf($fallback),
+                false,
+                $fallback
+            );
         };
 
         return new ProductDetails(

@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\PersianCollation;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductCreation;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
@@ -422,6 +423,45 @@ final class DbProductRepository implements ProductRepositoryInterface
         string $importRunId = '',
         string $createToken = ''
     ): int {
+        return $this->insertRow($vendorUserId, $details, $status, $ownership, $wcProductId, $importRunId, $createToken)
+            ->productId;
+    }
+
+    /**
+     * The same insert, for the ONE caller that needs to know who made the row.
+     *
+     * The form path cannot act on an id alone: a refused insert resolves to a
+     * row this request did not create, and writing the gallery and the
+     * specifications over it is writing over the winner's work — or, on a
+     * replay, over whatever the vendor has edited since. See
+     * `ProductCreation`.
+     */
+    public function createForForm(
+        int $vendorUserId,
+        ProductDetails $details,
+        ProductStatus $status,
+        string $createToken
+    ): ProductCreation {
+        return $this->insertRow(
+            $vendorUserId,
+            $details,
+            $status,
+            LinkOwnership::Marketplace,
+            null,
+            '',
+            $createToken
+        );
+    }
+
+    private function insertRow(
+        int $vendorUserId,
+        ProductDetails $details,
+        ProductStatus $status,
+        LinkOwnership $ownership,
+        ?int $wcProductId,
+        string $importRunId,
+        string $createToken
+    ): ProductCreation {
         $now = $this->now();
         [$columns, $placeholders, $params] = $this->detailColumns($details);
 
@@ -494,11 +534,18 @@ final class DbProductRepository implements ProductRepositoryInterface
             // product: the replay's answer is that product, not a failure
             // about a product that exists. Asked of the data rather than
             // inferred from the error string.
-            return $createToken === '' ? 0 : $this->findByCreateToken($vendorUserId, $createToken);
+            //
+            // And `resolved`, not `made`: the row is somebody else's write.
+            if ($createToken === '') {
+                return ProductCreation::failed();
+            }
+            $existing = $this->findByCreateToken($vendorUserId, $createToken);
+            return $existing > 0 ? ProductCreation::resolved($existing) : ProductCreation::failed();
         }
         // Connection-scoped, so two vendors inserting at the same moment
         // cannot be handed each other's id — which "ORDER BY id DESC" would.
-        return (int) $this->db->getVar('SELECT LAST_INSERT_ID()');
+        $made = (int) $this->db->getVar('SELECT LAST_INSERT_ID()');
+        return $made > 0 ? ProductCreation::made($made) : ProductCreation::failed();
     }
 
     /**

@@ -309,6 +309,20 @@ final class ProductMessages
                 self::parts((string) ($context['missing'] ?? '')),
                 PersianDigits::toPersian((string) ($context['product_id'] ?? 0))
             ),
+            // A REPLAY, and the sentence says so rather than «ساخته شد». The
+            // browser resent a submission that had already been processed, so
+            // nothing was created and — the part that matters — nothing was
+            // overwritten. What it cannot say is whether the first attempt
+            // finished, because a draft with no pictures is what a failed
+            // gallery write leaves AND what a vendor who emptied the gallery
+            // leaves. So it states the counts and asks them to look.
+            'product_created_replayed' => sprintf(
+                /* translators: 1: product id, 2: how many pictures, 3: how many specifications */
+                __('این فرم قبلاً همین محصول را ساخته بود، پس چیزی دوباره ساخته و چیزی بازنویسی نشد: پیش‌نویس #%1$s. همین حالا %2$s تصویر و %3$s مشخصهٔ ثبت‌شده دارد — بازش کنید و اگر چیزی جا مانده کاملش کنید.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($context['product_id'] ?? 0)),
+                PersianDigits::toPersian((string) ($context['images'] ?? 0)),
+                PersianDigits::toPersian((string) ($context['specs'] ?? 0))
+            ),
             'product_saved_incomplete' => sprintf(
                 /* translators: %s: which parts */
                 __('اطلاعات محصول ذخیره شد، ولی %s ذخیره نشد. همان بخش را دوباره ثبت کنید؛ چیز دیگری از بین نرفته است.', 'tecteb-marketplace-core'),
@@ -618,7 +632,7 @@ final class ProductMessages
     public static function successCodes(): array
     {
         return [
-            'product_created', 'product_saved', 'inventory_saved', 'product_submitted',
+            'product_created', 'product_created_replayed', 'product_saved', 'inventory_saved', 'product_submitted',
             'product_published', 'revision_requested', 'product_archived_ok', 'product_restored',
             'product_reviewed', 'revision_approved', 'revision_rejected',
             'direct_publish_granted', 'direct_publish_revoked',

@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Product\Presentation;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionOutcome;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
+use Tecteb\Marketplace\Modules\Product\Domain\LongDescription;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
@@ -323,11 +324,12 @@ final class ProductFormView
         // saved step 2 would have blanked the long description they wrote on
         // step 1. A product that has never had one carries NOTHING, which is
         // exactly how the write path reads «still never set»; one that has a
-        // value carries it together with the same `description_given` flag the
-        // step-1 panel sends, so the value makes the round trip unchanged.
+        // value carries it together with the same base marker the step-1
+        // panel sends, so the value makes the round trip unchanged.
         if ($step !== '1' && $d->description !== null) {
             $html .= '<input type="hidden" name="description" value="' . esc_attr($d->description) . '">'
-                . '<input type="hidden" name="description_given" value="1">';
+                . '<input type="hidden" name="' . esc_attr(LongDescription::BASE_FIELD) . '" value="'
+                . esc_attr(LongDescription::BASE_VALUE) . '">';
         }
         if ($step !== '3') {
             foreach ($template?->askedFields() ?? [] as $field) {
@@ -387,10 +389,18 @@ final class ProductFormView
     private static function descriptionTabs(ProductDetails $d): string
     {
         // `null` — a product from before the field existed — renders empty,
-        // and the hidden `description_given` field below is what tells the
-        // write path «this form showed the control» so that an empty box means
-        // «cleared» rather than «still never set».
+        // because there is nothing OF THE VENDOR'S to show. What the shop
+        // holds is deliberately not prefilled: copying WooCommerce's text
+        // into this box would file the manager's words as the vendor's own
+        // proposal the first time anybody pressed save.
+        //
+        // And an empty box therefore means two different things, so the form
+        // states which one it is showing. `description_given=1` — one flag on
+        // every render — could not: it made «nothing to show» and «cleared»
+        // the same submission, and saving the title asked for the shop's
+        // description to be deleted.
         $long = $d->description ?? '';
+        $base = LongDescription::baseOf($d->description);
         return '<fieldset class="tv-fieldset tv-desc"><legend>'
             . esc_html__('توضیحات محصول', 'tecteb-marketplace-core') . '</legend>'
             . '<p class="tv-hint">'
@@ -423,11 +433,38 @@ final class ProductFormView
                 true,
                 __('پاراگراف و فهرست مجاز است. متن در تب «توضیحات» صفحهٔ محصول دیده می‌شود.', 'tecteb-marketplace-core')
             )
-            // «This form showed the long-description control», so an empty box
-            // is a clear and a form that never had the field (an older build
-            // mid-upgrade) leaves the stored value alone.
-            . '<input type="hidden" name="description_given" value="1">'
+            // WHAT THIS FORM WAS SHOWING, which is what separates «cleared»
+            // from «there was nothing here». A form that never had the field
+            // sends neither and leaves the stored value alone.
+            . '<input type="hidden" name="' . esc_attr(LongDescription::BASE_FIELD) . '" value="'
+            . esc_attr($base) . '">'
+            . self::clearBox($d)
             . '</div></div></fieldset>';
+    }
+
+    /**
+     * The one case that needs a control of its own.
+     *
+     * With a value in the box, emptying it is the instruction — nothing extra
+     * is offered, because two ways to say one thing is how an accidental
+     * deletion gets a second chance. With NOTHING in the box, the vendor has
+     * no way to reach the description the shop already holds, so this is the
+     * only way to ask for it to go — unticked by default, because the default
+     * must be the answer that changes nothing.
+     *
+     * A plain checkbox, so it works with no JavaScript at all.
+     */
+    private static function clearBox(ProductDetails $d): string
+    {
+        if (!LongDescription::offersClear($d->description)) {
+            return '';
+        }
+        return '<p class="tv-desc__clear"><label><input type="checkbox" name="'
+            . esc_attr(LongDescription::CLEAR_FIELD) . '" value="1"> '
+            . esc_html__('توضیحات کاملی که از قبل در ووکامرس هست پاک شود', 'tecteb-marketplace-core')
+            . '</label><span class="tv-hint">'
+            . esc_html__('این محصول توضیحات کاملِ خودش را ندارد و آنچه روی صفحه دیده می‌شود نوشتهٔ مدیر یا متنِ قبلی ووکامرس است. تا این گزینه را نزنید، خالی گذاشتن جعبهٔ بالا آن متن را پاک نمی‌کند.', 'tecteb-marketplace-core')
+            . '</span></p>';
     }
 
     private static function stepPrice(ProductDetails $d): string

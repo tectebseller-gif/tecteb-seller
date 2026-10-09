@@ -6,8 +6,8 @@ namespace Tecteb\Marketplace\Modules\Product\Application;
 use Tecteb\Marketplace\Contracts\Files\UploadedFile;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
-use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductCreation;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
@@ -105,10 +105,12 @@ final class ManageProducts
         if ($productId <= 0 && $createToken !== '') {
             $already = $this->products->findByCreateToken($vendorUserId, $createToken);
             if ($already > 0) {
-                return OperationResult::success('product_created', [
-                    'product_id' => $already,
-                    'replayed' => 1,
-                ]);
+                // NOT `product_created`. Until `alpha.42` a replay answered
+                // with the code a first, complete create answers with — so a
+                // submission whose gallery or specifications had failed came
+                // back as an unqualified success about a product that is half
+                // written. It reports the row instead, and writes nothing.
+                return $this->replayed($vendorUserId, $already);
             }
         }
         $problem = $this->validate($vendorUserId, $details, $productId);
@@ -417,6 +419,91 @@ final class ManageProducts
      * @param array<string,string> $specs
      * @param list<int> $imageIds
      */
+    /**
+     * The long description a product currently holds.
+     *
+     * For the one caller that has to tell «this submission says nothing about
+     * the field» from «this submission says the field is null» — two
+     * instructions that `ProductDetails` cannot hold apart, because the
+     * column is written with whatever is in it. A form rendered by an older
+     * build names no base, and without this its save would write `null` over
+     * a long description the vendor had written.
+     *
+     * Reading it here is safe rather than a check-then-write race: the update
+     * that follows carries the row's version in its `WHERE`, so a concurrent
+     * edit refuses the save rather than being overwritten by it.
+     */
+    public function storedLongDescription(int $actorId, int $vendorUserId, int $productId): ?string
+    {
+        if ($productId <= 0) {
+            return null;
+        }
+        if (!$this->access->can($actorId, $vendorUserId, StaffArea::Product, StaffLevel::View)) {
+            return null;
+        }
+        return $this->products->findOwned($productId, $vendorUserId)?->details->description;
+    }
+
+    /**
+     * The product one submitted create form already made, or 0.
+     *
+     * Exists so a caller can ask BEFORE it does expensive or irreversible
+     * work. `ProductArea` takes the uploaded file off the wire and stores it
+     * as an attachment before it ever reaches `save()`, so a replayed POST
+     * carrying the same file used to create a SECOND attachment that the
+     * replay then discarded — an orphan in the media library, charged to the
+     * vendor's disk, referenced by nothing.
+     *
+     * Access-checked like every other read here, so it cannot be used to
+     * learn whether some other shop's token exists.
+     */
+    public function createdAlready(int $actorId, int $vendorUserId, string $createToken): int
+    {
+        if (trim($createToken) === '') {
+            return 0;
+        }
+        if (!$this->access->can($actorId, $vendorUserId, StaffArea::Product, StaffLevel::Edit)) {
+            return 0;
+        }
+        return $this->products->findByCreateToken($vendorUserId, $createToken);
+    }
+
+    /**
+     * One submitted create form, asked about twice: the row, and nothing else.
+     *
+     * Reached from the replay check in `save()` and from the losing half of
+     * two simultaneous submissions. Both mean the same thing — this form has
+     * already produced its product — and both are answered WITHOUT A SINGLE
+     * WRITE. That is the point: a replay arrives after a timeout, which can be
+     * minutes, and in those minutes the vendor may have edited the draft. A
+     * second `persistSpecsAndImages()` would put the stale submission's
+     * gallery and specifications over whatever is there now.
+     *
+     * The code is its own (`product_created_replayed`), never
+     * `product_created`, so no caller can report an unqualified success about
+     * a product it did not make and whose completeness it does not know.
+     *
+     * What it CAN say is what the row holds, so the context carries the
+     * counts and the message names them. **It does not claim to know why.** A
+     * draft with no pictures is what a create whose gallery write failed
+     * leaves behind, and it is also what a vendor who deliberately emptied the
+     * gallery afterwards leaves behind; nothing on the row distinguishes them,
+     * and inventing a sentence that did would be worse than the counts.
+     */
+    private function replayed(int $vendorUserId, int $productId): OperationResult
+    {
+        $product = $this->products->findOwned($productId, $vendorUserId);
+        return OperationResult::success('product_created_replayed', [
+            'product_id' => $productId,
+            'replayed' => 1,
+            'images' => $product === null ? 0 : count($product->imageIds),
+            'specs' => $product === null ? 0 : count(array_filter(
+                $product->specs,
+                static fn (string $value): bool => trim($value) !== ''
+            )),
+        ]);
+    }
+
     private function create(
         int $vendorUserId,
         ProductDetails $details,
@@ -431,18 +518,20 @@ final class ManageProducts
         // check because neither had committed yet. The unique key decides, and
         // the loser's insert resolves to the winner's row rather than to an
         // error about a product that exists.
-        $productId = $this->products->create(
-            $vendorUserId,
-            $details,
-            ProductStatus::Draft,
-            LinkOwnership::Marketplace,
-            null,
-            '',
-            $createToken
-        );
-        if ($productId <= 0) {
+        $creation = $createToken === ''
+            ? ProductCreation::made($this->products->create($vendorUserId, $details, ProductStatus::Draft))
+            : $this->products->createForForm($vendorUserId, $details, ProductStatus::Draft, $createToken);
+        if (!$creation->ok()) {
             return OperationResult::failure('storage_failed');
         }
+        if (!$creation->created) {
+            // The losing half of two simultaneous submissions of one form.
+            // The row is the WINNER'S, so nothing of this request's is written
+            // to it: carrying on from here is how a second POST used to put
+            // its gallery and its specifications over a row it had not made.
+            return $this->replayed($vendorUserId, $creation->productId);
+        }
+        $productId = $creation->productId;
         $missed = $this->persistSpecsAndImages($productId, $details->categoryKey, $specs, $imageIds, $mainImageId);
         $this->audit->log(AuditEventCatalog::PRODUCT_SAVED, $vendorUserId, 'product', (string) $productId, [
             'vendor_id' => $vendorUserId,

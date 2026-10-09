@@ -22,6 +22,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
+use Tecteb\Marketplace\Modules\Product\Domain\LongDescription;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductCategoryPickerView;
@@ -343,9 +344,28 @@ final class ProductArea
     {
         $productId = $request->postInt('product_id');
         $step = $request->postKey('step');
-        $details = $this->detailsFromPost($request);
+        $createToken = $request->postText('create_token');
+        // Read BEFORE the details are built, because «this form says nothing
+        // about the long description» has to be answered with the value that
+        // is there — see `LongDescription::decide()`.
+        $details = $this->detailsFromPost(
+            $request,
+            $this->manage()->storedLongDescription($userId, $vendorUserId, $productId)
+        );
         $specs = $request->postMap('spec');
-        [$imageIds, $mainImageId, $imageError] = $this->imagesFromPost($request, $userId, $vendorUserId);
+        // ASKED BEFORE THE FILE IS TAKEN OFF THE WIRE. A browser that resends
+        // a timed-out create resends its upload too, and `imagesFromPost()`
+        // stores whatever it is handed as an attachment — so the replay used
+        // to make a second copy of the same picture, on the vendor's disk,
+        // referenced by nothing, and then throw it away when `save()` found
+        // the token. The service refuses the replay either way; this is about
+        // not doing the work first.
+        $replay = $productId === 0
+            && $createToken !== ''
+            && $this->manage()->createdAlready($userId, $vendorUserId, $createToken) > 0;
+        [$imageIds, $mainImageId, $imageError] = $replay
+            ? [[], 0, '']
+            : $this->imagesFromPost($request, $userId, $vendorUserId);
         $imageIds = $this->reorder($imageIds, $request->postText('move_image'));
 
         $result = $this->manage()->save(
@@ -357,7 +377,7 @@ final class ProductArea
             $imageIds,
             $mainImageId,
             $request->postText('revision'),
-            $request->postText('create_token')
+            $createToken
         );
         if (!$result->ok) {
             // A refusal that nonetheless CREATED the row is a different
@@ -403,11 +423,24 @@ final class ProductArea
         // not to move on. Both save first, which is the whole reason the
         // search is a submit button rather than a link — a link would lose the
         // title and the brand they had just typed.
+        //
+        // AND A SUCCESSFUL CREATE GOES FORWARD. `$productId === 0 => '1'` sent
+        // every first save of a new product back to «معرفی» — the step it had
+        // just been submitted from — so «ذخیره و ادامه» did the saving and
+        // not the continuing, and the only way on was the step strip. It is
+        // not a guard for anything: this point is reached only after
+        // `$result->ok`, so the draft exists and steps 2–4 are reachable; the
+        // refusals that genuinely have to stay on step 1 (a validation
+        // problem, a failed upload, a half-written draft) all return above
+        // this line.
         $searching = $request->postText('search_category') !== '';
         $next = match (true) {
             $searching => self::GALLERY_STEP,
             $request->postText('move_image') !== '' => $step,
-            $productId === 0 => '1',
+            // A replay is not progress: the vendor is asked to look at the
+            // draft that already exists, and the gallery the message names is
+            // on the step the form was submitted from.
+            $replay => $step,
             default => $this->nextStep($step),
         };
         $url = $this->stepUrl($urls, $savedId, $next);
@@ -589,7 +622,7 @@ final class ProductArea
 
     // ------------------------------------------------------------- plumbing
 
-    private function detailsFromPost(Request $request): ProductDetails
+    private function detailsFromPost(Request $request, ?string $storedLong = null): ProductDetails
     {
         $number = fn (string $raw): int => $this->number($raw);
         $optional = fn (string $raw): ?int => $this->optionalNumber($raw);
@@ -614,24 +647,32 @@ final class ProductArea
             $number($request->postText('weight_grams')),
             $request->postText('dimensions'),
             $request->postText('tax_class'),
-            // THREE answers, not two, and the hidden `description_given` is
-            // what separates the middle one:
+            // FOUR answers, and `LongDescription` is the only place the rule
+            // lives — the CSV importer reads the same one. Until `alpha.42`
+            // this was three, decided here, from a flag the form set on every
+            // render: so a legacy product whose box renders empty posted an
+            // empty string, and saving the title asked for the shop's
+            // description to be deleted.
             //
-            //   field absent   → null  → «this form did not show the control»,
-            //                            so the stored value is left alone. A
-            //                            form rendered by an older build, and
-            //                            the CSV path, land here.
-            //   field present  → the text, sanitised. An empty box is a
-            //                    deliberate clear and is written as `''`.
+            // The base marker is what the form was SHOWING, so «cleared» and
+            // «there was nothing here» are no longer one submission. It is
+            // read from the POST rather than from the row, because comparing a
+            // read against a write is the check two concurrent editors both
+            // pass (`alpha.14`).
             //
             // `postHtml()` and not `postTextarea()`: the long description is
             // allowed paragraphs and lists, and that reader applies
             // `wp_kses_post()` — the same filter WooCommerce runs over its own
             // product description, so what the vendor may write here is
             // exactly what the storefront would accept.
-            $request->hasPost('description_given')
-                ? $request->postHtml('description')
-                : null
+            LongDescription::decide(
+                $request->hasPost(LongDescription::BASE_FIELD) ? $request->postHtml('description') : null,
+                $request->hasPost(LongDescription::BASE_FIELD)
+                    ? $request->postKey(LongDescription::BASE_FIELD)
+                    : null,
+                $request->hasPost(LongDescription::CLEAR_FIELD),
+                $storedLong
+            )
         );
     }
 

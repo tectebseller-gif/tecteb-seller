@@ -1240,6 +1240,137 @@ final class ProductFlowTest extends DatabaseTestCase
     }
 
     /**
+     * A REPLAY IS NEVER REPORTED AS A FRESH CREATE, and it reports the row.
+     *
+     * `alpha.41` answered every replay with `product_created` — the code a
+     * first, complete create answers with. So a submission whose gallery had
+     * failed came back, on the resend, as an unqualified success about a
+     * product that is half written. The code is its own now, and the counts
+     * it carries are facts about the row rather than a claim about history.
+     */
+    public function testAReplayOfAFailedCreateDoesNotReportAFullSuccess(): void
+    {
+        $this->images->give(4801, self::VENDOR);
+        $details = new ProductDetails(title: 'دستکش لاتکس', categoryKey: 'gloves', priceMinor: 200000, sku: 'TOK-FAIL', stock: 5);
+        $token = 'token-failed-hhhhhhhhhhhhhhhh';
+
+        $failing = new FailingDatabase(new WpDatabase($this->wpdb));
+        $failing->failWhen(['INSERT INTO', M0005CreateProductTables::PRODUCT_IMAGES]);
+        $first = $this->manageOver($failing)->save(self::VENDOR, self::VENDOR, 0, $details, [], [4801], 4801, '', $token);
+        self::assertFalse($first->ok, 'the first attempt is half written and says so');
+        self::assertSame('product_created_incomplete', $first->code);
+        $id = (int) $first->context['product_id'];
+
+        // The browser resends it.
+        $again = $this->manage->save(self::VENDOR, self::VENDOR, 0, $details, [], [4801], 4801, '', $token);
+
+        self::assertNotSame('product_created', $again->code, 'a replay is not a fresh create');
+        self::assertSame('product_created_replayed', $again->code);
+        self::assertSame($id, (int) $again->context['product_id']);
+        self::assertSame(0, (int) $again->context['images'], 'and it says the draft has no pictures');
+        self::assertSame([], $this->galleryOf($id), 'which is true: the first attempt never wrote them');
+        self::assertCount(1, $this->products->forVendor(self::VENDOR));
+    }
+
+    /**
+     * A replay that arrives AFTER the vendor has edited the draft must not
+     * write the stale submission over the edit.
+     *
+     * This is the case the timeout makes real: the resend can be minutes
+     * late. `alpha.41` ran `persistSpecsAndImages()` again in the
+     * simultaneous branch, so a second arrival could put its own gallery and
+     * specifications over whatever was there.
+     */
+    public function testAReplayAfterTheVendorEditedTheDraftOverwritesNothing(): void
+    {
+        $this->images->give(4811, self::VENDOR);
+        $this->images->give(4812, self::VENDOR);
+        $details = new ProductDetails(title: 'دستکش لاتکس', categoryKey: 'gloves', priceMinor: 200000, sku: 'TOK-EDIT', stock: 5);
+        $token = 'token-edited-iiiiiiiiiiiiiiii';
+
+        $first = $this->manage->save(self::VENDOR, self::VENDOR, 0, $details, ['material' => 'لاتکس'], [4811], 4811, '', $token);
+        self::assertTrue($first->ok, $first->code);
+        $id = (int) $first->context['product_id'];
+
+        // The vendor gets on with it: a different picture and a different answer.
+        $edited = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $details->with(['title' => 'عنوان ویرایش‌شده']),
+            ['material' => 'نیتریل'],
+            [4812],
+            4812,
+            $this->stampOf($id)
+        );
+        self::assertTrue($edited->ok, $edited->code);
+
+        // NOW the old POST arrives.
+        $again = $this->manage->save(self::VENDOR, self::VENDOR, 0, $details, ['material' => 'لاتکس'], [4811], 4811, '', $token);
+
+        self::assertSame('product_created_replayed', $again->code);
+        self::assertSame([4812], $this->galleryOf($id), "the vendor's picture stands");
+        self::assertSame('نیتریل', $this->products->find($id)?->specs['material'] ?? '', "and their answer stands");
+        self::assertSame('عنوان ویرایش‌شده', $this->products->find($id)?->details->title);
+    }
+
+    /**
+     * The losing half of two simultaneous creates writes NOTHING to the row.
+     *
+     * SCHEDULED, not raced, and named as such — the same honesty the
+     * neighbouring test keeps: the other request runs inside this process
+     * immediately before this one's `INSERT`, so the unique key is what
+     * decides. What is measured is not who wins but what the LOSER does
+     * afterwards, and until `alpha.42` it carried on and wrote its own
+     * specifications and gallery over the winner's row.
+     */
+    public function testTheLoserOfTwoSimultaneousCreatesWritesNothingToTheWinnersRow(): void
+    {
+        $this->images->give(4821, self::VENDOR);
+        $this->images->give(4822, self::VENDOR);
+        $details = new ProductDetails(title: 'دستکش لاتکس', categoryKey: 'gloves', priceMinor: 200000, stock: 5);
+        $token = 'token-loser-jjjjjjjjjjjjjjjj';
+
+        $interfering = new InterferingDatabase(new WpDatabase($this->wpdb));
+        $interfering->before(['INSERT INTO', M0005CreateProductTables::PRODUCTS], 1, function () use ($details, $token): void {
+            // The winner: its own picture and its own answer.
+            $won = $this->manage->save(
+                self::VENDOR,
+                self::VENDOR,
+                0,
+                $details,
+                ['material' => 'برندهٔ مسابقه'],
+                [4821],
+                4821,
+                '',
+                $token
+            );
+            self::assertTrue($won->ok, $won->code);
+        });
+
+        // The loser, with DIFFERENT specs and a different picture, so an
+        // overwrite would be unmistakable.
+        $lost = $this->manageOver($interfering)->save(
+            self::VENDOR,
+            self::VENDOR,
+            0,
+            $details,
+            ['material' => 'بازندهٔ مسابقه'],
+            [4822],
+            4822,
+            '',
+            $token
+        );
+        self::assertNotSame([], $interfering->fired, 'the interleaving has to have happened');
+
+        $id = (int) $lost->context['product_id'];
+        self::assertSame('product_created_replayed', $lost->code, 'the loser did not create anything');
+        self::assertCount(1, $this->products->forVendor(self::VENDOR), 'one row, whoever lost');
+        self::assertSame('برندهٔ مسابقه', $this->products->find($id)?->specs['material'] ?? '');
+        self::assertSame([4821], $this->galleryOf($id), "the winner's gallery, untouched");
+    }
+
+    /**
      * §4 ACCEPTANCE: the two descriptions are two independent values, and they
      * stay independent through every step a product goes through.
      *

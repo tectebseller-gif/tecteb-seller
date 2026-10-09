@@ -1353,3 +1353,22 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 .tv-desc__panel--long textarea {
   min-height: 14rem;
 }
+
+/* The explicit «delete the shop's own description» tick, offered only when
+   the vendor has no long description of their own. Set apart from the box it
+   qualifies, because it is the one control here that destroys something. */
+.tv-desc__clear {
+	margin: 0.75rem 0 0;
+	padding: 0.6rem 0.75rem;
+	border: 1px solid #d8dde3;
+	border-inline-start: 3px solid #c9892f;
+	border-radius: 4px;
+	background: #fdf8f0;
+}
+
+.tv-desc__clear label {
+	display: flex;
+	gap: 0.5rem;
+	align-items: flex-start;
+	font-weight: 600;
+}

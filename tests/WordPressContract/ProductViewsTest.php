@@ -386,9 +386,9 @@ final class ProductViewsTest extends ContractTestCase
                 "step {$step} carries the long description"
             );
             self::assertStringContainsString(
-                'name="description_given" value="1"',
+                'name="description_base" value="value"',
                 $html,
-                "step {$step} says the value it carries is an answer"
+                "step {$step} says the value it carries was on screen"
             );
 
             $blank = $this->renderStep($step, $legacy);
@@ -397,7 +397,7 @@ final class ProductViewsTest extends ContractTestCase
                 $blank,
                 "step {$step} sends nothing for a product that never had one"
             );
-            self::assertStringNotContainsString('name="description_given"', $blank);
+            self::assertStringNotContainsString('name="description_base"', $blank);
         }
     }
 
@@ -936,7 +936,16 @@ final class ProductViewsTest extends ContractTestCase
             substr_count($html, 'id="f-description" name="description"'),
             'one long box, and not a second short one'
         );
-        self::assertStringContainsString('name="description_given"', $html, 'the form says it showed the control');
+        self::assertStringContainsString(
+            'name="description_base" value="value"',
+            $html,
+            'the form states that it was SHOWING a value, so emptying the box is an instruction'
+        );
+        self::assertStringNotContainsString(
+            'name="description_clear"',
+            $html,
+            'and offers no second way to say it: the empty box IS the way'
+        );
         self::assertStringContainsString('یک جمله', $html);
         self::assertStringContainsString('&lt;p&gt;متن کامل&lt;/p&gt;', $html, 'the stored markup is shown as text to edit, not run');
 
@@ -970,6 +979,36 @@ final class ProductViewsTest extends ContractTestCase
         $box = substr($box, 0, (int) strpos($box, '</textarea>'));
         self::assertStringNotContainsString('یک جمله', $box, 'the short text is not copied into the long box');
         self::assertStringNotContainsString('null', $box);
+    }
+
+    /**
+     * §1 of `alpha.42`, on the form side: a legacy product's empty box is not
+     * an instruction, and the only way to make it one is in plain sight.
+     *
+     * `alpha.41` sent `description_given=1` on every render, so this form —
+     * which has nothing of the vendor's to show, because the row is `null` —
+     * posted an empty string. `''` is «delete it». Opening the form and
+     * saving the title asked for the shop's description to be deleted.
+     */
+    public function testALegacyProductSaysNothingWasOnScreenAndOffersTheClearInPlainSight(): void
+    {
+        $this->bootPlugin(false);
+        $html = $this->renderFormWithNotice('', new ProductDetails(shortDescription: 'یک جمله'), null);
+
+        self::assertStringContainsString(
+            'name="description_base" value="none"',
+            $html,
+            'the form states that it was showing NOTHING, so an empty box is not an instruction'
+        );
+        self::assertStringNotContainsString('name="description_given"', $html, 'the flag that could not tell them apart is gone');
+
+        // The one way to reach the shop's own text, and it is a plain
+        // checkbox: no JavaScript, and unticked, because the default has to
+        // be the answer that changes nothing.
+        self::assertStringContainsString('name="description_clear"', $html);
+        self::assertStringNotContainsString('name="description_clear" value="1" checked', $html);
+        self::assertStringContainsString('type="checkbox"', $html);
+        self::assertStringContainsString('خالی گذاشتن جعبهٔ بالا آن متن را پاک نمی‌کند', $html);
     }
 
     private function renderFormWithNotice(string $code, ProductDetails $typed, ?ProductDetails $stored): string

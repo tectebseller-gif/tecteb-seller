@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Product\Application;
 
 use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductCreation;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
@@ -192,6 +193,26 @@ interface ProductRepositoryInterface
         string $importRunId = '',
         string $createToken = ''
     ): int;
+
+    /**
+     * The same insert, for the form path, saying whether THIS call made the row.
+     *
+     * An id alone cannot carry it. Two requests holding one `create_token`
+     * both get past the «already made?» read, the unique key refuses one of
+     * them, and the loser resolves to the winner's row — holding the same
+     * integer the winner holds, with no way to tell that it did not create
+     * it. It then wrote the gallery and the specifications over that row,
+     * which on a replayed POST means over whatever has been edited since.
+     *
+     * `ProductCreation::$created` is what the caller hangs «write nothing to a
+     * row I did not create» on.
+     */
+    public function createForForm(
+        int $vendorUserId,
+        ProductDetails $details,
+        ProductStatus $status,
+        string $createToken
+    ): ProductCreation;
 
     /**
      * The id one submitted create form produced, or 0.
