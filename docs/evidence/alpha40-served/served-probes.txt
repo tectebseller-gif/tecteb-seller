@@ -1,0 +1,13 @@
+ok:   the plugin WordPress serves is the package under test      0.1.0-alpha.40
+ok:   on schema 22                                               22
+ok:   with no migration error recorded                           
+ok:   the served build targets 22, read from its own constant    22
+ok:   the money-unit registry exists in the served source        yes
+ok:   and migration 22 is wired into the chain the gate runs     0022_vendor_money_unit
+ok:   its verify() accepts the table that is actually on disk    yes
+ok:   a capture built without a unit of work REFUSES rather than assuming 8
+ok:   ManageReturns::refund() cannot be told which unit to use   actorId,returnId,wcRefundId,note
+ok:   the refusal reasons have Persian sentences, not bare codes yes
+ok:   and the mixed-unit report is reachable on the served build yes
+
+checks: 11   passed: 11   failed: 0
