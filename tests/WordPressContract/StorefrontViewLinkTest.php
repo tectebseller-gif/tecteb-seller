@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Tests\WordPressContract;
 
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceProjector;
+use Tecteb\Marketplace\Tests\Support\NoSpecTemplates;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceStorefrontFields;
 use TmcWpStubs\State;
 
@@ -30,15 +31,14 @@ final class StorefrontViewLinkTest extends ContractTestCase
      * The adapter under test.
      *
      * `viewLink()` asks WordPress about a post and nothing else — no category
-     * directory, no projection — so the projector is constructed with nothing
-     * at all. Until `alpha.41` it also took a spec-template repository, which
-     * this test had to write out in full to satisfy; the projector stopped
-     * reading it when «توضیحات کامل» became the vendor's own field, so the
-     * whole stand-in went with it.
+     * directory, no template, no projection — so the dependency is satisfied
+     * rather than exercised. `NoSpecTemplates` is shared with the other tests
+     * that need the same nothing, instead of an anonymous class written out
+     * in full in each of them.
      */
     private function fields(): WooCommerceStorefrontFields
     {
-        return new WooCommerceStorefrontFields(new WooCommerceProjector());
+        return new WooCommerceStorefrontFields(new WooCommerceProjector(new NoSpecTemplates()));
     }
 
     public function testAPublishedProductGivesItsPublicAddress(): void

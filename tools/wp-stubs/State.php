@@ -150,6 +150,19 @@ final class State
      * @var array<int,array{status:string,title?:string}>
      */
     public static array $posts = [];
+    /**
+     * Post meta, as `post id => [key => value]`.
+     *
+     * Added in `alpha.42`, with the product stubs, for the same reason: the
+     * projector's ownership stamps ARE post meta, so without this nothing in
+     * the stub environment could reach `writeOwned()` at all — and that is the
+     * method that decides whether the manager's text is overwritten.
+     *
+     * @var array<int,array<string,mixed>>
+     */
+    public static array $postMeta = [];
+    /** Which post the loop is on, for `get_the_ID()`. */
+    public static int $currentPostId = 0;
     /** Next id wp_insert_user() will hand out. */
     public static int $nextUserId = 500;
     public static ?string $uploadBaseDir = null;
@@ -198,6 +211,8 @@ final class State
         self::$users = [];
         self::$userMeta = [];
         self::$posts = [];
+        self::$postMeta = [];
+        self::$currentPostId = 0;
         self::$nextUserId = 500;
         self::$uploadBaseDir = null;
         self::$sentHeaders = [];

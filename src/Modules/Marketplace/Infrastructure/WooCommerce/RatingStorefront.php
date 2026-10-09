@@ -60,8 +60,26 @@ final class RatingStorefront
     public const NONCE_FIELD = 'tmc_rating_nonce';
     public const NOTICE_ARG = 'tmc_rating';
 
+    /**
+     * «This request has already printed the shop box.»
+     *
+     * An INSTANCE flag, not a static: `register()` hooks both callbacks onto
+     * one object, so per-request is exactly per-instance — and a static would
+     * leak from one test into the next, which is a bug that only shows up in
+     * the second test written (`VendorAccountLink` learned this in
+     * `alpha.37`).
+     *
+     * It exists because the hook and the shortcode are two ways to place ONE
+     * block. A theme that renders WooCommerce's product template fires the
+     * hook; the shortcode is for the themes that do not. An owner who adds
+     * the shortcode to a theme that DOES fire the hook would otherwise get the
+     * shop named twice on the same page.
+     */
+    private bool $printed = false;
+
     public static function register(ContainerInterface $container): void
     {
+        $box = new self();
         add_action('template_redirect', static function () use ($container): void {
             self::handle($container);
         }, 5);
@@ -70,12 +88,31 @@ final class RatingStorefront
             echo self::orderSection($container, $order);   // phpcs:ignore WordPress.Security.EscapeOutput
         }, 20);
 
-        add_action('woocommerce_single_product_summary', static function () use ($container): void {
-            echo self::vendorStanding($container);         // phpcs:ignore WordPress.Security.EscapeOutput
+        add_action('woocommerce_single_product_summary', static function () use ($container, $box): void {
+            echo $box->box($container);                    // phpcs:ignore WordPress.Security.EscapeOutput
         }, 26);
-        add_shortcode(self::SHORTCODE, static function () use ($container): string {
-            return self::vendorStanding($container);
+        add_shortcode(self::SHORTCODE, static function () use ($container, $box): string {
+            return $box->box($container);
         });
+    }
+
+    /**
+     * The shop box, once per request however many times it is asked for.
+     *
+     * The flag is set only when something was actually printed: off a
+     * marketplace product `vendorStanding()` returns an empty string, and a
+     * page that showed nothing has not used up its one block.
+     */
+    public function box(ContainerInterface $container): string
+    {
+        if ($this->printed) {
+            return '';
+        }
+        $html = self::vendorStanding($container);
+        if ($html !== '') {
+            $this->printed = true;
+        }
+        return $html;
     }
 
     private static function handle(ContainerInterface $container): void

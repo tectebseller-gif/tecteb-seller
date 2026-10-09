@@ -16,6 +16,11 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StoreSitemapProvi
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StoreThemeRenderer;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\StorePageView;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\WooCommerce\RatingStorefront;
+use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\Product;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use TmcWpStubs\RedirectedException;
 use TmcWpStubs\State;
 
@@ -377,6 +382,100 @@ final class StorePublicSurfaceTest extends ContractTestCase
         self::assertNotNull($shop);
         self::assertSame(StorePageView::name(new StoreSettings()), $shop['name']);
         self::assertNotSame('', $shop['name'], 'a link with no text is not a link');
+    }
+
+    /**
+     * §5: the hook and the shortcode are two ways to place ONE block.
+     *
+     * A theme that renders WooCommerce's product template fires the hook; the
+     * shortcode exists for the themes that do not. An owner who adds the
+     * shortcode to a theme that DOES fire the hook would otherwise have the
+     * shop named twice on the same page — which is why `[tmc_vendor_box]` on
+     * its own was never a fix, only a placement.
+     *
+     * The assertion is on ONE renderer called twice, which is exactly what a
+     * request where both fire looks like.
+     */
+    public function testTheShopBoxIsPrintedOnceHoweverManyTimesItIsAskedFor(): void
+    {
+        $this->bootWithVendor(ApplicationStatus::Approved, 'daroukhane');
+        $this->giveStore(new StoreSettings(storeName: 'داروخانهٔ مرکزی'));
+        $this->onProductPage(5501);
+
+        $box = new RatingStorefront();
+        $container = Bootstrap::container();
+
+        $first = $box->box($container);
+        self::assertStringContainsString('داروخانهٔ مرکزی', $first, 'the hook prints the shop');
+        self::assertStringContainsString(StorePage::QUERY_VAR . '=' . self::VENDOR_ID, $first);
+
+        self::assertSame(
+            '',
+            $box->box($container),
+            'and the shortcode on the same page adds nothing — one block, two placements'
+        );
+    }
+
+    /**
+     * Off a marketplace product the box prints nothing — and printing nothing
+     * does not use up the one block.
+     *
+     * Both halves matter: a Dokan product or the shop's own must get no extra
+     * output at all, and a page that showed nothing must still be able to
+     * show the box where it belongs.
+     */
+    public function testAProductThatIsNotOursGetsNoBoxAndConsumesNothing(): void
+    {
+        $this->bootWithVendor(ApplicationStatus::Approved, 'daroukhane');
+        $this->giveStore(new StoreSettings(storeName: 'داروخانهٔ مرکزی'));
+        $this->onProductPage(5501, ours: false);
+
+        $box = new RatingStorefront();
+        self::assertSame('', $box->box(Bootstrap::container()), "somebody else's product gets nothing");
+
+        $this->onProductPage(5501);
+        self::assertStringContainsString(
+            'داروخانهٔ مرکزی',
+            $box->box(Bootstrap::container()),
+            'and the block was not spent on the product that printed nothing'
+        );
+    }
+
+    /**
+     * Puts the loop on a product page, and says whether that product is ours.
+     *
+     * The repository is the seam the production code reads — `findByWcProduct`
+     * returning null is exactly how a Dokan product or the shop's own looks
+     * from here — so this exercises the real branch rather than a parallel one.
+     */
+    private function onProductPage(int $wcProductId, bool $ours = true): void
+    {
+        State::$currentPostId = $wcProductId;
+        $vendorId = self::VENDOR_ID;
+        $product = $ours
+            ? new Product(
+                71,
+                $vendorId,
+                new ProductDetails(title: 'دستکش', categoryKey: 'gloves', priceMinor: 200000, stock: 5),
+                ProductStatus::Published,
+                [],
+                [],
+                0,
+                '',
+                0,
+                null,
+                '',
+                $wcProductId
+            )
+            : null;
+        $products = $this->createStub(ProductRepositoryInterface::class);
+        $products->method('findByWcProduct')->willReturn($product);
+        Bootstrap::container()->bind(ProductRepositoryInterface::class, static fn () => $products);
+
+        // `ManageReviews` is final and is left to the container: what the box
+        // needs from it is a standing, and a shop with no ratings answers
+        // «none» — the branch that prints the shop's name with no score,
+        // which is the one this test is about.
     }
 
     /** Binds a store settings row for the one vendor, or none at all. */

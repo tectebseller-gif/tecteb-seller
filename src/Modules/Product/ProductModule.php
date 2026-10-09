@@ -189,7 +189,10 @@ final class ProductModule implements ModuleInterface
         $c->bind(CatalogProjectorInterface::class, static function (ContainerInterface $c) {
             $probe = $c->get(DependencyProbeInterface::class);
             return $probe->woocommerceAvailable()
-                ? new WooCommerceProjector($c->get(ProductCategoryDirectoryInterface::class))
+                ? new WooCommerceProjector(
+                    $c->get(SpecTemplateRepositoryInterface::class),
+                    $c->get(ProductCategoryDirectoryInterface::class)
+                )
                 : new NullCatalogProjector();
         });
         // The read side of the projection, and the two ways to settle a field

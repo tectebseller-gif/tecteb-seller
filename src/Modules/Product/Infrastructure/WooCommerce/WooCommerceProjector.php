@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
 use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute;
+use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductVariation;
@@ -59,15 +60,18 @@ final class WooCommerceProjector implements CatalogProjectorInterface
     public const CATEGORY_SLUG_PREFIX = 'tmc-';
 
     /**
-     * The spec-template repository used to be the first argument.
+     * The spec-template repository is back, for the labels and the units.
      *
-     * It was there for one caller: the description `project()` generated from
-     * the brand and the medical specification. Since `alpha.41` «توضیحات
-     * کامل» is the vendor's own field, nothing here renders a description any
-     * more, and a dependency with no reader is a dependency that lies about
-     * what this class reads.
+     * `alpha.41` removed it because the only thing reading it was the
+     * description `project()` used to GENERATE from the brand and the medical
+     * specification — and «توضیحات کامل» became the vendor's own field, so
+     * nothing generated a description any more. Removing the generator was
+     * right; letting the specification stop reaching the storefront with it
+     * was not. It is a separate block now (`factAttributes()`), and a block
+     * needs the labels and units that only the template knows.
      */
     public function __construct(
+        private readonly SpecTemplateRepositoryInterface $templates,
         private readonly ?ProductCategoryDirectoryInterface $categories = null
     )
     {
@@ -210,9 +214,29 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             $product->baseline
         );
 
+        // The brand and the medical specification, as a block of their own.
+        //
+        // Until `alpha.40` they were rendered INTO the description, which is
+        // why removing the generator in `alpha.41` took them off the product
+        // page altogether. They are structured data and they belong in
+        // WooCommerce's own «اطلاعات بیشتر» table, where every theme that
+        // renders WooCommerce's tabs already shows them and the vendor's own
+        // text is left alone — «آن‌ها را به‌صورت اجباری به متن فروشنده
+        // نچسبان».
+        //
+        // MERGED, never `set_attributes()` over the top: that call replaces
+        // the whole set, so an attribute a manager added by hand to one of
+        // our products would be deleted by the next projection. Only the keys
+        // THIS plugin owns are rewritten, and a retired specification
+        // disappears because its key is no longer among them.
+        $facts = $this->factAttributes($product);
         if ($details->type === ProductType::VARIABLE) {
-            $wcProduct->set_attributes($this->wcAttributes($attributes));
+            $wcProduct->set_attributes($this->mergeAttributes(
+                $wcProduct,
+                $this->wcAttributes($attributes) + $facts
+            ));
         } else {
+            $wcProduct->set_attributes($this->mergeAttributes($wcProduct, $facts));
             $wcProduct->set_regular_price((string) $details->priceMinor);
             $this->applySale($wcProduct, $product);
             $wcProduct->set_manage_stock(true);
@@ -824,6 +848,84 @@ final class WooCommerceProjector implements CatalogProjectorInterface
      * @param list<ProductAttribute> $attributes
      * @return array<string,\WC_Product_Attribute>
      */
+    /** Every attribute key this plugin writes starts here, and nothing else does. */
+    public const FACT_PREFIX = 'tmc-';
+
+    /**
+     * The brand and the answered specification fields, as WooCommerce attributes.
+     *
+     * Read from the rows the vendor already filled in on step 3 — «نیازی به
+     * ورود دوبارهٔ مشخصات توسط فروشنده نباشد». Empty answers are skipped
+     * (UX §6.2) and retired fields are not asked for, so a field the manager
+     * retires stops appearing without anybody editing a product.
+     *
+     * `set_variation(false)`: these describe the product, they do not generate
+     * variations. A visible, non-variation custom attribute is exactly what
+     * the «اطلاعات بیشتر» table is for.
+     *
+     * @return array<string,\WC_Product_Attribute>
+     */
+    private function factAttributes(Product $product): array
+    {
+        $out = [];
+        $position = 100;        // after the variation attributes, which start at 0
+        if (trim($product->details->brand) !== '') {
+            $out[self::FACT_PREFIX . 'brand'] = $this->attribute(
+                __('برند', 'tecteb-marketplace-core'),
+                $product->details->brand,
+                $position++
+            );
+        }
+        $template = $this->templates->findByCategory($product->details->categoryKey);
+        foreach ($template?->askedFields() ?? [] as $field) {
+            $value = trim($product->specs[$field->key] ?? '');
+            if ($value === '') {
+                continue;
+            }
+            $out[self::FACT_PREFIX . 'spec-' . sanitize_title($field->key)] = $this->attribute(
+                $field->label,
+                $field->unit !== '' ? $value . ' ' . $field->unit : $value,
+                $position++
+            );
+        }
+        return $out;
+    }
+
+    private function attribute(string $label, string $value, int $position): \WC_Product_Attribute
+    {
+        $attribute = new \WC_Product_Attribute();
+        $attribute->set_name($label);
+        $attribute->set_options([$value]);
+        $attribute->set_position($position);
+        $attribute->set_visible(true);
+        $attribute->set_variation(false);
+        return $attribute;
+    }
+
+    /**
+     * Ours, over whatever is there, keeping everything that is not ours.
+     *
+     * Two properties, and the second is the one that needed writing down: a
+     * key we no longer write is DROPPED (a retired specification goes away on
+     * its own), and a key we never wrote is KEPT (a manager's own attribute
+     * survives every projection). `set_attributes()` alone has neither — it
+     * replaces the set, so it would delete the manager's work and keep ours
+     * for ever.
+     *
+     * @param array<string,\WC_Product_Attribute> $ours
+     * @return array<string,\WC_Product_Attribute>
+     */
+    private function mergeAttributes(\WC_Product $wcProduct, array $ours): array
+    {
+        $kept = [];
+        foreach ($wcProduct->get_attributes() as $key => $attribute) {
+            if (!str_starts_with((string) $key, self::FACT_PREFIX)) {
+                $kept[(string) $key] = $attribute;
+            }
+        }
+        return $kept + $ours;
+    }
+
     private function wcAttributes(array $attributes): array
     {
         $out = [];

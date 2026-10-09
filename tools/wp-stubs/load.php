@@ -15,5 +15,6 @@ require_once __DIR__ . '/classes.php';
 require_once __DIR__ . '/RedirectedException.php';
 require_once __DIR__ . '/wpdb.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/woocommerce-product.php';
 
 \TmcWpStubs\State::reset();
