@@ -287,17 +287,32 @@ final class ProbeWorld
         return (int) ($this->orderItems->findByOrderItem(8400 + $seq)?->id ?? 0);
     }
 
+    /**
+     * The request service, built the way EVERY tree this script visits accepts.
+     *
+     * `alpha.40` added an optional eighth argument — the unit of work a cancel
+     * needs — and a build without it REFUSES with `cancel_not_atomic` rather
+     * than closing the status and freeing the lines as two separate writes. So
+     * the argument is appended when the constructor has room, by reflection,
+     * and seven arguments remains a legal call on `alpha.38` and `alpha.39`.
+     * Leaving it off would have measured the refusal instead of the fix.
+     */
     public function requestService(\Tecteb\Marketplace\Contracts\DatabaseInterface $db): RequestWithdrawal
     {
-        return new RequestWithdrawal(
+        $args = [
             new DbWithdrawalRepository($db, $this->clock),
             $this->balance,
             new SettlementGate(new FakeTrialUnlock(true)),
             $this->access,
             $this->stores,
             new WithdrawalStateMachine(),
-            $this->audit
-        );
+            $this->audit,
+        ];
+        $accepts = (new \ReflectionClass(RequestWithdrawal::class))->getConstructor()?->getNumberOfParameters() ?? 7;
+        if ($accepts >= 8) {
+            $args[] = $db;
+        }
+        return new RequestWithdrawal(...$args);
     }
 
     /**
@@ -317,16 +332,35 @@ final class ProbeWorld
             new FakeCapabilityChecker(MANAGER, [Capabilities::REVIEW_WITHDRAWALS]),
         ];
         $accepts = (new \ReflectionClass(ReviewWithdrawals::class))->getConstructor()?->getNumberOfParameters() ?? 5;
-        if ($withUnitOfWork && $accepts >= 6) {
+        // `$withUnitOfWork` existed because `alpha.39` needed the payment pair
+        // to be atomic and nothing else. From `alpha.40` a rejection releases
+        // in the same unit of work too, and a build without one refuses with
+        // `release_not_atomic` — so the argument is passed whenever the
+        // constructor has it, and the flag only decides it for `alpha.39`.
+        if ($accepts >= 7) {
+            $args[] = $db;
+        } elseif ($withUnitOfWork && $accepts >= 6) {
             $args[] = $db;
         }
         return new ReviewWithdrawals(...$args);
     }
 
+    /**
+     * The capture service, built the way EVERY tree this script visits accepts.
+     *
+     * `alpha.40` added a seventh and an eighth argument — the vendor money-unit
+     * registry and the unit of work the claim and the accrual share — and
+     * without them every line is refused as `unit_unreadable` rather than
+     * assumed. Six arguments is a legal call on `alpha.38` and `alpha.39`, and
+     * the extra two are appended only when the constructor has room for them,
+     * the same reflection trick `reviewService()` already uses. Hard-coding
+     * eight arguments made this file unable to run against the very bytes it
+     * exists to measure, which is the `alpha.32` trap wearing a new hat.
+     */
     public function captureService(\Tecteb\Marketplace\Contracts\DatabaseInterface $itemsDb): CaptureOrder
     {
         $rates = new ResolveCommissionRate($this->rules);
-        return new CaptureOrder(
+        $args = [
             new DbOrderItemRepository($itemsDb, $this->clock),
             $this->products,
             new RecordCommission($this->ledger, $rates, new CommissionCalculator(), $this->audit),
@@ -338,13 +372,13 @@ final class ProbeWorld
             ),
             new OrderOperationsGate($rates, $this->ledger, new FakeTrialUnlock(true)),
             $this->audit,
-            // The vendor money unit, recorded against a primary key: a capture
-            // without it refuses every line as `unit_unreadable` rather than
-            // assuming, which is the posture `alpha.40` chose.
-            new DbVendorMoneyUnitRegistry($this->db, $this->clock),
-            // The unit of work the claim and the accrual share.
-            $this->db
-        );
+        ];
+        $accepts = (new \ReflectionClass(CaptureOrder::class))->getConstructor()?->getNumberOfParameters() ?? 6;
+        if ($accepts >= 8 && class_exists(DbVendorMoneyUnitRegistry::class)) {
+            $args[] = new DbVendorMoneyUnitRegistry($this->db, $this->clock);
+            $args[] = $this->db;
+        }
+        return new CaptureOrder(...$args);
     }
 
     public function returnService(ProbeRefundSpy $spy): ManageReturns

@@ -221,7 +221,24 @@ expect alpha39 release-failure         'claimed_items=1'                 'so a l
 expect alpha39 release-failure         'eligible_after=0'                'and nothing pretends it is available yet'
 expect alpha39 stale-cancel            'interference_fired=yes'          'the interleaving really happened'
 expect alpha39 stale-cancel            'cancel_ok=withdrawal_moved_on'   'the stale cancel is refused'
-expect alpha39 stale-cancel            'status_after=payment_in_progress' 'the manager status stands'
+# MEASURED CHANGE, from `alpha.40` — and the reason is worth more than the line.
+#
+# `alpha.39` closed the status and released the lines as two separate writes, so
+# the manager's scheduled `startPayment()` was a committed fact by the time the
+# cancel's guarded `UPDATE` ran, and the status this verb read afterwards was
+# the manager's: `payment_in_progress`.
+#
+# From `alpha.40` the cancel is ONE transaction. The interference is scheduled
+# on the SAME CONNECTION, so the manager's write now lands INSIDE that
+# transaction and the rollback takes it away with everything else — «a third
+# party on your own connection is not a third party». The status therefore
+# reads `approved`, which is the state before either actor touched it: nothing
+# moved, which is the right outcome and a WEAKER measurement of the race.
+#
+# So this verb now measures the refusal and the rollback, and the race itself
+# is measured where it can be: two OS processes on two connections, in
+# `WithdrawalIntegrityTest` via `tests/Support/concurrent-withdrawal.php`.
+expect alpha39 stale-cancel            'status_after=approved'           'the transaction rolled the interference back with itself'
 expect alpha39 stale-cancel            'claimed_lines=1'                 'and the money stays reserved'
 expect alpha39 payment-pair            'payment_ok=withdrawal_moved_on'  'the pair is one unit of work'
 expect alpha39 payment-pair            'document_lines=0'                'so no payout exists without its status'
