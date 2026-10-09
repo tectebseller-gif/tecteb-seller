@@ -1,0 +1,4 @@
+first_code=product_created_incomplete
+replay_code=product_created
+claims_created=yes
+probe=ran

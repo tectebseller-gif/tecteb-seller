@@ -1,0 +1,5 @@
+interference_fired=yes
+loser_code=product_created_replayed
+products_after=1
+gallery=4301
+probe=ran

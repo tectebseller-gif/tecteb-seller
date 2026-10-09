@@ -1,0 +1,2 @@
+code=stale_revision
+probe=ran

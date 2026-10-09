@@ -1,5 +1,5 @@
 first_code=product_created
-second_code=product_created
+second_code=product_created_replayed
 second_replayed=yes
 products_after=1
 probe=ran

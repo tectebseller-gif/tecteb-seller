@@ -1,7 +1,7 @@
-snapshot: 503 files under src/ hashed before any change
+snapshot: 505 files under src/ hashed before any change
 
 === 1. src/ reverted to 3aa4677 (the delivered alpha.40) ===========
-PASS  the revert changed 33 files under src/ — the old tree is really on disk
+PASS  the revert changed 35 files under src/ — the old tree is really on disk
 PASS  the reverted tree passes php -l, so a fatal below would be a real answer
 PASS  [alpha40] tab-legacy-input: save_code=store_saved — the save the vendor route posted for ONE tab succeeded
 PASS  [alpha40] tab-legacy-input: city_after=empty — and emptied the city nobody edited
@@ -58,4 +58,4 @@ PASS  every control held, so the defect lines above are about alpha.40 and not a
 checks passed: 49
 checks failed: 0
 evidence: docs/evidence/alpha41-reproduction
-PASS  src/ restored byte for byte (503 files)
+PASS  src/ restored byte for byte (505 files)

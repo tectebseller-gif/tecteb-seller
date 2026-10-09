@@ -1,0 +1,3 @@
+code=not_a_vendor
+title_after=دستکش لاتکس
+probe=ran

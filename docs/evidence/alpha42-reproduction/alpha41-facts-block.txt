@@ -1,0 +1,4 @@
+has_facts_block=no
+merges_attributes=no
+reads_templates=no
+probe=ran

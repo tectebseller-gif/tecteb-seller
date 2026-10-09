@@ -1,0 +1,4 @@
+code=product_created
+lands_on_step=2
+products_after=1
+probe=ran
