@@ -94,6 +94,42 @@ if ! git -C "$REPO" diff --quiet -- src || ! git -C "$REPO" diff --cached --quie
     exit 2
 fi
 
+# ------------------------------------------- nobody else may be on this database
+#
+# MEASURED THIS ROUND, and it cost a run: this script and `phpunit --testsuite
+# database` were started at the same time against the same disposable database.
+# The suite's `TRUNCATE`/`DROP` landed in the middle of the probe's migration
+# chain, a migration threw, and `run.txt` ended in a stack trace about
+# `M0016VendorImportRun` — which is a report about two runners sharing a
+# database, dressed as a defect in the build under test.
+#
+# So the question is asked of MySQL itself rather than of a lockfile this script
+# keeps: a lockfile only serialises things that take it, and `phpunit` does not.
+# `information_schema.PROCESSLIST` sees every connection whatever started it.
+others_on_this_database() {
+    "$PHPBIN" -r '
+        $dsn = getenv("TMC_TEST_DB_DSN");
+        try { $pdo = new PDO($dsn, getenv("TMC_TEST_DB_USER"), getenv("TMC_TEST_DB_PASS"),
+              [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); }
+        catch (Throwable $e) { echo "unknown"; exit; }
+        $n = $pdo->query("SELECT COUNT(*) FROM information_schema.PROCESSLIST
+            WHERE DB = DATABASE() AND ID <> CONNECTION_ID()")->fetchColumn();
+        echo (string) (int) $n;
+    ' 2>/dev/null
+}
+busy="$(others_on_this_database)"
+if [ "$busy" = "unknown" ]; then
+    note "$(basename "$0"): cannot reach the disposable database to ask who else is on it."
+    exit 2
+fi
+if [ "${busy:-0}" -gt 0 ]; then
+    note "$(basename "$0"): $busy other connection(s) are using the disposable database."
+    note "  Refusing to start. Two runners on one database measure each other, not the build:"
+    note "  a TRUNCATE from phpunit inside this script's migration chain throws, and the"
+    note "  stack trace reads like a defect. Wait for the other run, then start this one."
+    exit 2
+fi
+
 # ------------------------------------------------- snapshot, and restore trap
 
 # Absolute paths, taken before anything is touched. `alpha.37`'s rule: a
