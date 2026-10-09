@@ -613,7 +613,25 @@ final class ProductArea
             $optional($request->postText('max_purchase')),
             $number($request->postText('weight_grams')),
             $request->postText('dimensions'),
-            $request->postText('tax_class')
+            $request->postText('tax_class'),
+            // THREE answers, not two, and the hidden `description_given` is
+            // what separates the middle one:
+            //
+            //   field absent   → null  → «this form did not show the control»,
+            //                            so the stored value is left alone. A
+            //                            form rendered by an older build, and
+            //                            the CSV path, land here.
+            //   field present  → the text, sanitised. An empty box is a
+            //                    deliberate clear and is written as `''`.
+            //
+            // `postHtml()` and not `postTextarea()`: the long description is
+            // allowed paragraphs and lists, and that reader applies
+            // `wp_kses_post()` — the same filter WooCommerce runs over its own
+            // product description, so what the vendor may write here is
+            // exactly what the storefront would accept.
+            $request->hasPost('description_given')
+                ? $request->postHtml('description')
+                : null
         );
     }
 
@@ -861,6 +879,7 @@ final class ProductArea
             'weightGrams' => $d->weightGrams,
             'dimensions' => $d->dimensions,
             'taxClass' => $d->taxClass,
+            'description' => $d->description,
         ];
     }
 

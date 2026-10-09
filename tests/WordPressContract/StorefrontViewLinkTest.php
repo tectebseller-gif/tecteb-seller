@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Tests\WordPressContract;
 
-use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
-use Tecteb\Marketplace\Modules\Product\Domain\SpecField;
-use Tecteb\Marketplace\Modules\Product\Domain\SpecTemplate;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceProjector;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceStorefrontFields;
 use TmcWpStubs\State;
@@ -30,70 +27,18 @@ final class StorefrontViewLinkTest extends ContractTestCase
     private const WC_ID = 804;
 
     /**
-     * The adapter under test, with a template repository that answers nothing.
+     * The adapter under test.
      *
-     * `viewLink()` asks WordPress about a post and nothing else — no template, no
-     * category, no projection — so the dependency is satisfied rather than
-     * exercised. Written out in full instead of mocked because a mock that
-     * "returns null for everything" is a mock somebody has to read the framework
-     * to understand.
+     * `viewLink()` asks WordPress about a post and nothing else — no category
+     * directory, no projection — so the projector is constructed with nothing
+     * at all. Until `alpha.41` it also took a spec-template repository, which
+     * this test had to write out in full to satisfy; the projector stopped
+     * reading it when «توضیحات کامل» became the vendor's own field, so the
+     * whole stand-in went with it.
      */
     private function fields(): WooCommerceStorefrontFields
     {
-        return new WooCommerceStorefrontFields(new WooCommerceProjector(
-            new class () implements SpecTemplateRepositoryInterface {
-                public function findByCategory(string $categoryKey): ?SpecTemplate
-                {
-                    return null;
-                }
-
-                public function find(int $templateId): ?SpecTemplate
-                {
-                    return null;
-                }
-
-                /** @return list<SpecTemplate> */
-                public function all(): array
-                {
-                    return [];
-                }
-
-                public function createTemplate(string $categoryKey, string $label): int
-                {
-                    return 0;
-                }
-
-                public function renameTemplate(int $templateId, string $label): bool
-                {
-                    return false;
-                }
-
-                public function addField(int $templateId, SpecField $field): int
-                {
-                    return 0;
-                }
-
-                public function updateField(int $fieldId, string $label, bool $required, string $unit, array $options, int $sort): bool
-                {
-                    return false;
-                }
-
-                public function deprecateField(int $fieldId): bool
-                {
-                    return false;
-                }
-
-                public function restoreField(int $fieldId): bool
-                {
-                    return false;
-                }
-
-                public function bumpVersion(int $templateId): int
-                {
-                    return 0;
-                }
-            }
-        ));
+        return new WooCommerceStorefrontFields(new WooCommerceProjector());
     }
 
     public function testAPublishedProductGivesItsPublicAddress(): void

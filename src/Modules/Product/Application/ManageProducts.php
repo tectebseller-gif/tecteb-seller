@@ -864,6 +864,13 @@ final class ManageProducts
             'weightGrams' => $d->weightGrams,
             'dimensions' => $d->dimensions,
             'taxClass' => $d->taxClass,
+            // The revision payload is a SNAPSHOT, so a field missing from it
+            // is a field the approval silently drops. `ProductDetails::with()`
+            // was written with a `$pick` helper for exactly this reason, and a
+            // hand-written array beside it is the place a field goes missing:
+            // without this line, approving a proposal set the long description
+            // back to `null`. Measured, by a test that walked the lifecycle.
+            'description' => $d->description,
         ];
     }
 }

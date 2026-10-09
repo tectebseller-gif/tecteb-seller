@@ -317,6 +317,18 @@ final class ProductFormView
                 $html .= '<input type="hidden" name="' . esc_attr($name) . '" value="' . esc_attr($value) . '">';
             }
         }
+        // `description` cannot ride in the map above, because every value
+        // there is a plain string and this one has three states. `null` would
+        // become `''`, and `''` is the instruction to CLEAR — so a vendor who
+        // saved step 2 would have blanked the long description they wrote on
+        // step 1. A product that has never had one carries NOTHING, which is
+        // exactly how the write path reads «still never set»; one that has a
+        // value carries it together with the same `description_given` flag the
+        // step-1 panel sends, so the value makes the round trip unchanged.
+        if ($step !== '1' && $d->description !== null) {
+            $html .= '<input type="hidden" name="description" value="' . esc_attr($d->description) . '">'
+                . '<input type="hidden" name="description_given" value="1">';
+        }
         if ($step !== '3') {
             foreach ($template?->askedFields() ?? [] as $field) {
                 $html .= '<input type="hidden" name="spec[' . esc_attr($field->key) . ']" value="'
@@ -346,8 +358,76 @@ final class ProductFormView
                 (string) ($categories['suggest_action'] ?? '')
             )
             . VendorUi::input('brand', __('برند', 'tecteb-marketplace-core'), $d->brand)
-            . VendorUi::textarea('short_description', __('توضیح کوتاه', 'tecteb-marketplace-core'), $d->shortDescription)
-            . '</fieldset>';
+            . '</fieldset>'
+            . self::descriptionTabs($d);
+    }
+
+    /**
+     * The two descriptions, as two tabs of one fieldset.
+     *
+     * **Two independent values, not one split in half.** «توضیح کوتاه» goes to
+     * WooCommerce's `short_description` and «توضیحات کامل» to its
+     * `description`. Until `alpha.41` there was only the short one and the
+     * long one was GENERATED from it plus the spec answers and the brand, so a
+     * vendor had no way to write the text buyers actually read.
+     *
+     * **Both are real textareas, both always in the document, and both always
+     * posted.** The tabs are a `<details>` pair and the panels are shown and
+     * hidden with CSS driven by a radio — no JavaScript decides what is
+     * submitted, so «تعویض تب متن واردشده را حفظ کند» is not a promise a
+     * script has to keep: the text never leaves the DOM, and «ذخیره و ادامه»
+     * posts both whichever tab is on top. With no JavaScript and no CSS at all
+     * the two textareas are simply stacked and labelled, which is a worse
+     * layout and a working form.
+     *
+     * The long one takes paragraphs and lists; `ProductArea` sanitises it
+     * through `wp_kses_post()` on the way in, which is the same filter
+     * WooCommerce applies to its own product description.
+     */
+    private static function descriptionTabs(ProductDetails $d): string
+    {
+        // `null` — a product from before the field existed — renders empty,
+        // and the hidden `description_given` field below is what tells the
+        // write path «this form showed the control» so that an empty box means
+        // «cleared» rather than «still never set».
+        $long = $d->description ?? '';
+        return '<fieldset class="tv-fieldset tv-desc"><legend>'
+            . esc_html__('توضیحات محصول', 'tecteb-marketplace-core') . '</legend>'
+            . '<p class="tv-hint">'
+            . esc_html__('هر دو ذخیره می‌شوند و جای هم را نمی‌گیرند: توضیح کوتاه زیر عنوان محصول دیده می‌شود و توضیحات کامل در تب توضیحات صفحهٔ محصول.', 'tecteb-marketplace-core')
+            . '</p>'
+            // A radio pair, so the panel on top is chosen without a script and
+            // the choice is not submitted as data anybody reads.
+            . '<div class="tv-desc__tabs" role="group" aria-label="'
+            . esc_attr__('کدام توضیح را می‌نویسید', 'tecteb-marketplace-core') . '">'
+            . '<input class="tv-desc__pick" type="radio" name="tmc_desc_tab" id="tmc-desc-short" value="short" checked>'
+            . '<label class="tv-desc__tab" for="tmc-desc-short">'
+            . esc_html__('توضیح کوتاه', 'tecteb-marketplace-core') . '</label>'
+            . '<input class="tv-desc__pick" type="radio" name="tmc_desc_tab" id="tmc-desc-long" value="long">'
+            . '<label class="tv-desc__tab" for="tmc-desc-long">'
+            . esc_html__('توضیحات کامل', 'tecteb-marketplace-core') . '</label>'
+            . '<div class="tv-desc__panel tv-desc__panel--short">'
+            . VendorUi::textarea(
+                'short_description',
+                __('توضیح کوتاه', 'tecteb-marketplace-core'),
+                $d->shortDescription,
+                true,
+                __('یک یا دو جمله. در فهرست محصولات و بالای صفحهٔ محصول دیده می‌شود.', 'tecteb-marketplace-core')
+            )
+            . '</div>'
+            . '<div class="tv-desc__panel tv-desc__panel--long">'
+            . VendorUi::textarea(
+                'description',
+                __('توضیحات کامل', 'tecteb-marketplace-core'),
+                $long,
+                true,
+                __('پاراگراف و فهرست مجاز است. متن در تب «توضیحات» صفحهٔ محصول دیده می‌شود.', 'tecteb-marketplace-core')
+            )
+            // «This form showed the long-description control», so an empty box
+            // is a clear and a form that never had the field (an older build
+            // mid-upgrade) leaves the stored value alone.
+            . '<input type="hidden" name="description_given" value="1">'
+            . '</div></div></fieldset>';
     }
 
     private static function stepPrice(ProductDetails $d): string

@@ -38,21 +38,6 @@ final class FakeProductImages implements ProductImageLibraryInterface
         return $newId;
     }
 
-    /**
-     * Declare that a vendor owns a media id, without an upload.
-     *
-     * `cleanImages()` drops any id the vendor does not own, so a test that
-     * hands `save()` a gallery has to say whose it is first. Before this, ids
-     * passed straight into `save()` were silently filtered out — and a test
-     * asserting «the gallery failed to write» would have passed because
-     * nothing was written for a completely different reason.
-     */
-    public function own(int $mediaId, int $vendorUserId): void
-    {
-        $this->owners[$mediaId] = $vendorUserId;
-        $this->nextId = max($this->nextId, $mediaId + 1);
-    }
-
     public function ownedBy(int $mediaId, int $vendorUserId): bool
     {
         return ($this->owners[$mediaId] ?? 0) === $vendorUserId;

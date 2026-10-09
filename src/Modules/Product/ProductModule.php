@@ -13,6 +13,7 @@ use Tecteb\Marketplace\Contracts\ModuleManifest;
 use Tecteb\Marketplace\Contracts\OptionStoreInterface;
 use Tecteb\Marketplace\Contracts\DependencyProbeInterface;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Contracts\Html\HtmlSanitizerInterface;
 use Tecteb\Marketplace\Core\Events\EventBus;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
@@ -188,10 +189,7 @@ final class ProductModule implements ModuleInterface
         $c->bind(CatalogProjectorInterface::class, static function (ContainerInterface $c) {
             $probe = $c->get(DependencyProbeInterface::class);
             return $probe->woocommerceAvailable()
-                ? new WooCommerceProjector(
-                    $c->get(SpecTemplateRepositoryInterface::class),
-                    $c->get(ProductCategoryDirectoryInterface::class)
-                )
+                ? new WooCommerceProjector($c->get(ProductCategoryDirectoryInterface::class))
                 : new NullCatalogProjector();
         });
         // The read side of the projection, and the two ways to settle a field
@@ -272,7 +270,8 @@ final class ProductModule implements ModuleInterface
             $c->get(SpecTemplateRepositoryInterface::class),
             $c->get(ManageProducts::class),
             $c->get(StaffAccess::class),
-            $c->get(AuditLogger::class)
+            $c->get(AuditLogger::class),
+            $c->get(HtmlSanitizerInterface::class)
         ));
         $c->bind(EstimateVendorShare::class, static fn (ContainerInterface $c) => new EstimateVendorShare(
             $c->get(ResolveCommissionRate::class),

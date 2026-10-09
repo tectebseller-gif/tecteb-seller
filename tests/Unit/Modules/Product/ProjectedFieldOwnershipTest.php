@@ -128,16 +128,38 @@ final class ProjectedFieldOwnershipTest extends TestCase
         );
     }
 
-    public function testTheDerivedDescriptionIsTheOneFieldThatCannotBeCopiedBack(): void
+    /**
+     * Every projected field can now be copied back — and that is the change,
+     * not a relaxation.
+     *
+     * Rewritten in `alpha.41`. This test pinned the rule «`description` is the
+     * one field that cannot round-trip», which was true for one reason: the
+     * projector BUILT that text from the short description, the brand and the
+     * specifications, so writing the shop's version into the marketplace row
+     * would have pasted a rendered result into the raw source. §4 gave the
+     * vendor the field itself, the projector copies it like any other, and the
+     * reason is gone with it.
+     *
+     * A test that writes a defective rule down fails when the rule changes —
+     * and should (`alpha.27`). What is kept is the invariant that actually
+     * matters: nothing may round-trip that is not projected in the first
+     * place.
+     */
+    public function testEveryRoundTrippingFieldIsAProjectedFieldAndNowThatIsAllOfThem(): void
     {
-        // Every other projected field is a value the marketplace row can
-        // hold. `description` is assembled from three of them, so copying the
-        // shop's version back would paste the rendered result into the raw
-        // text and render it twice on the next run.
         self::assertContains('description', ProjectedFieldOwnership::FIELDS);
-        self::assertNotContains('description', ProjectedFieldOwnership::ROUND_TRIP);
+        self::assertContains(
+            'description',
+            ProjectedFieldOwnership::ROUND_TRIP,
+            'the vendor writes it now, so «نسخهٔ من بماند» can write the manager version back'
+        );
         foreach (ProjectedFieldOwnership::ROUND_TRIP as $field) {
             self::assertContains($field, ProjectedFieldOwnership::FIELDS, $field . ' must be a projected field');
         }
+        self::assertSame(
+            ProjectedFieldOwnership::FIELDS,
+            ProjectedFieldOwnership::ROUND_TRIP,
+            'and with description joining, the two lists are the same — no field is left unrecoverable'
+        );
     }
 }

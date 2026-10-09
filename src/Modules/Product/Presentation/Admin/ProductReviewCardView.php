@@ -38,11 +38,10 @@ final class ProductReviewCardView
      * @param list<array{url:string,id:int,main:bool}> $images
      * @param list<StorefrontField> $storefront
      * @param array<string,string> $store  name, status, city
-     * @param string $fullDescription what the shop page shows — the projector
-     *        BUILDS it from the short description, the brand and the medical
-     *        specifications, so it is passed in rather than rebuilt here. A
-     *        second implementation of that string would differ the day
-     *        somebody changed one of them.
+     * @param string|null $fullDescription the vendor's own long description —
+     *        `''` when they cleared it, and `null` for a product from before
+     *        migration 23, which has none at all. Passed in rather than read
+     *        here because this view holds no repository.
      */
     public static function render(
         Product $product,
@@ -51,7 +50,7 @@ final class ProductReviewCardView
         ?SpecTemplate $template,
         array $store,
         array $storefront,
-        string $fullDescription,
+        ?string $fullDescription,
         string $editorUrl,
         string $seoPlugin,
         string $nonceField,
@@ -138,23 +137,42 @@ final class ProductReviewCardView
         return $html . '</ul>';
     }
 
-    private static function descriptions(string $short, string $full): string
+    /**
+     * The two descriptions, separately — because they are now two fields.
+     *
+     * Until `alpha.41` the second heading said «متن صفحهٔ محصول» and showed
+     * text the PROJECTOR assembled from the short description, the brand and
+     * the specifications; the vendor had one box and no way to write the long
+     * text at all. Now «توضیحات کامل» is the vendor's own field, and the
+     * manager has to be able to read each one as what it is — «مدیر هر دو
+     * مقدار را جداگانه ببیند».
+     *
+     * `$full` is `null` for a product from before migration 23: nobody has
+     * written a long description and the marketplace is not going to write
+     * one, so the heading says that rather than showing an empty box that
+     * looks like a vendor left it blank.
+     */
+    private static function descriptions(string $short, ?string $full): string
     {
         $html = '<div class="tmc-review__text">';
         $html .= '<h4>' . esc_html__('توضیح کوتاه', 'tecteb-marketplace-core') . '</h4>'
             . '<p>' . ($short !== '' ? esc_html($short) : '<em>' . esc_html__('ننوشته است', 'tecteb-marketplace-core') . '</em>') . '</p>';
-        // «توضیح کامل» is not a second field the vendor filled: the product
-        // form has one description box. This is the text the shop page will
-        // actually carry, assembled from the short description, the brand and
-        // the specifications — so the manager reviews what a buyer will read,
-        // not the raw parts.
-        $html .= '<h4>' . esc_html__('متن صفحهٔ محصول', 'tecteb-marketplace-core') . '</h4>'
-            . ($full !== ''
-                // Plain text, deliberately. The vendor's description is stored
-                // as text and rendering it as markup here would run whatever
-                // a vendor typed inside wp-admin.
-                ? '<p class="tmc-review__long">' . nl2br(esc_html($full)) . '</p>'
-                : '<p><em>' . esc_html__('ننوشته است', 'tecteb-marketplace-core') . '</em></p>');
+        $html .= '<h4>' . esc_html__('توضیحات کامل', 'tecteb-marketplace-core') . '</h4>';
+        if ($full === null) {
+            // Not «empty» — «this product has never had one», which is a
+            // different thing and the reason WooCommerce's own text is left
+            // untouched for it.
+            return $html . '<p><em>'
+                . esc_html__('این محصول پیش از افزودن این فیلد ساخته شده و توضیحات کاملِ خودش را ندارد؛ آنچه در ووکامرس است دست‌نخورده می‌ماند.', 'tecteb-marketplace-core')
+                . '</em></p></div>';
+        }
+        $html .= $full !== ''
+            // Plain text, deliberately, even though the field accepts markup:
+            // the stored value went through `wp_kses_post()` on the way in, and
+            // rendering it as markup HERE would run a vendor's tags inside
+            // wp-admin. The manager reads the text; the storefront renders it.
+            ? '<p class="tmc-review__long">' . nl2br(esc_html($full)) . '</p>'
+            : '<p><em>' . esc_html__('خالی گذاشته شده است', 'tecteb-marketplace-core') . '</em></p>';
         return $html . '</div>';
     }
 

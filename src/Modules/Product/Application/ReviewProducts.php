@@ -977,7 +977,18 @@ final class ReviewProducts
             $current->maxPurchase,
             $int('weightGrams', $current->weightGrams),
             $str('dimensions', $current->dimensions),
-            $str('taxClass', $current->taxClass)
+            $str('taxClass', $current->taxClass),
+            // Its own reader, because none of the three above has the right
+            // shape. `$nullableStr` turns `''` into `null`, which here would
+            // silently convert a vendor's deliberate clear into «this product
+            // never had a long description» — and that is exactly the
+            // distinction migration 23 exists to keep. Absent keeps the
+            // current value, so a revision proposed by an older build does not
+            // blank a column it never knew about (the rule this method's own
+            // docblock states).
+            array_key_exists('description', $d)
+                ? ($d['description'] === null ? null : (string) $d['description'])
+                : $current->description
         );
     }
 }

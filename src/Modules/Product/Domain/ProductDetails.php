@@ -31,7 +31,25 @@ final class ProductDetails
         // 3. technical
         public readonly int $weightGrams = 0,
         public readonly string $dimensions = '',
-        public readonly string $taxClass = ''
+        public readonly string $taxClass = '',
+        /**
+         * The vendor's long description — step 1's second tab, and WooCommerce's
+         * own `description`.
+         *
+         * **Why it is `?string` and not `string`.** `null` means this product
+         * predates the field: nobody has asked for anything, so the projector
+         * leaves WooCommerce's long description ALONE. `''` means the vendor
+         * cleared it on purpose, and that is written. A plain `string` would
+         * collapse those two into «empty», and the first one would then empty
+         * the long description of every product that already exists — a
+         * manager's text and their SEO with it.
+         *
+         * Last in the list rather than beside `shortDescription`, where it
+         * belongs by meaning: sixteen promoted parameters are addressed
+         * positionally in places, and inserting one in the middle would
+         * silently shift every argument after it. Appending cannot.
+         */
+        public readonly ?string $description = null
     ) {
     }
 
@@ -64,7 +82,12 @@ final class ProductDetails
             ($v = $pick('maxPurchase', $this->maxPurchase)) === null ? null : (int) $v,
             (int) $pick('weightGrams', $this->weightGrams),
             (string) $pick('dimensions', $this->dimensions),
-            (string) $pick('taxClass', $this->taxClass)
+            (string) $pick('taxClass', $this->taxClass),
+            // `null` is a VALUE here, not «unset»: a caller that asks for
+            // `description => null` is saying «this product has never had
+            // one», and `$pick` distinguishes that from not naming the key at
+            // all. The three nullable price fields above read the same way.
+            ($v = $pick('description', $this->description)) === null ? null : (string) $v
         );
     }
 

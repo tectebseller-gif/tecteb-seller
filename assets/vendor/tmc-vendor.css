@@ -1283,3 +1283,73 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
   background: var(--tv-surface-2);
 }
 .tv-bulk-csv__body > p:first-child { margin-block-start: 0; }
+
+/* ---------------------------------------------------------------------------
+ * The two description tabs of step 1 (§4).
+ *
+ * Driven by a radio pair, so which panel is on top is CSS rather than script:
+ * both textareas stay in the document and both are submitted whichever tab is
+ * showing. That is what makes «switching tab keeps what you typed» a property
+ * of the markup instead of a promise a script has to keep — and with CSS off
+ * the two fields simply stack, labelled, which is a working form.
+ *
+ * Every class here has a rule, because `StyledClassesHaveRulesTest` asks.
+ * ------------------------------------------------------------------------- */
+.tv-desc__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+/* Off-screen rather than display:none — a hidden radio is unreachable by
+ * keyboard, and the label is the only control a pointer user sees. */
+.tv-desc__pick {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.tv-desc__tab {
+  flex: 0 0 auto;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--tv-border, #c3c4c7);
+  border-bottom-color: transparent;
+  border-radius: 4px 4px 0 0;
+  background: var(--tv-surface-muted, #f0f0f1);
+  cursor: pointer;
+}
+
+/* The focus ring belongs on the label, since that is what the eye follows. */
+.tv-desc__pick:focus-visible + .tv-desc__tab {
+  outline: 2px solid var(--tv-focus, #2271b1);
+  outline-offset: 1px;
+}
+
+.tv-desc__pick:checked + .tv-desc__tab {
+  background: var(--tv-surface, #fff);
+  border-bottom-color: var(--tv-surface, #fff);
+  font-weight: 600;
+}
+
+.tv-desc__panel {
+  flex: 1 1 100%;
+  order: 9;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--tv-border, #c3c4c7);
+}
+
+#tmc-desc-short:checked ~ .tv-desc__panel--long,
+#tmc-desc-long:checked ~ .tv-desc__panel--short {
+  display: none;
+}
+
+.tv-desc__panel textarea {
+  min-height: 8rem;
+}
+
+.tv-desc__panel--long textarea {
+  min-height: 14rem;
+}

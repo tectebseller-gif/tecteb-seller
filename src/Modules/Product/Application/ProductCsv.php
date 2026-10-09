@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Product\Application;
 
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Contracts\Html\HtmlSanitizerInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
@@ -32,7 +33,12 @@ final class ProductCsv
 {
     /** @var list<string> the fixed columns, in file order */
     public const COLUMNS = [
-        'sku', 'title', 'type', 'category', 'brand', 'short_description',
+        // `description` is LAST among the text columns on purpose: a file an
+        // existing vendor saved does not have it, and `detailsFrom()` reads
+        // every column with `array_key_exists`, so an absent column keeps what
+        // is stored rather than clearing it. Adding it to the export is
+        // additive; no current file stops importing.
+        'sku', 'title', 'type', 'category', 'brand', 'short_description', 'description',
         'price', 'sale_price', 'sale_from', 'sale_to',
         'stock', 'min_purchase', 'max_purchase', 'weight_grams', 'dimensions', 'tax_class',
     ];
@@ -53,7 +59,8 @@ final class ProductCsv
         private readonly SpecTemplateRepositoryInterface $templates,
         private readonly ManageProducts $manage,
         private readonly StaffAccess $access,
-        private readonly AuditLogger $audit
+        private readonly AuditLogger $audit,
+        private readonly HtmlSanitizerInterface $html
     ) {
     }
 
@@ -283,6 +290,29 @@ final class ProductCsv
             return trim($values[$key]) === '' ? null : trim($values[$key]);
         };
 
+        // Three answers, the same three the form gives. Absent column → keep
+        // what is stored, so a file saved before `alpha.41` cannot empty a
+        // long description it never knew about. Present and empty → `''`, a
+        // deliberate clear, because naming the column IS the instruction.
+        // `$current->description` may itself be `null` (a row from before
+        // migration 23) and that travels through untouched.
+        //
+        // And a value that IS present goes through the sanitiser, the same
+        // filter `Request::postHtml()` applies to the form field. This is the
+        // one field in the plugin that keeps its tags, so it is the one field
+        // where the two write paths disagreeing would decide whether a
+        // `<script>` reaches the storefront — the form escaped it and a CSV
+        // row did not. The fallback is NOT re-sanitised: it is already the
+        // stored value, and running the filter again would rewrite a product
+        // nobody edited.
+        $sanitizer = $this->html;
+        $html = static function (string $key, ?string $fallback) use ($values, $sanitizer): ?string {
+            if (!array_key_exists($key, $values)) {
+                return $fallback;
+            }
+            return $sanitizer->sanitize(trim($values[$key]));
+        };
+
         return new ProductDetails(
             $text('title', $current->title),
             $text('type', $current->type !== '' ? $current->type : 'simple'),
@@ -299,7 +329,8 @@ final class ProductCsv
             $nullableInt('max_purchase', $current->maxPurchase),
             $int('weight_grams', $current->weightGrams),
             $text('dimensions', $current->dimensions),
-            $text('tax_class', $current->taxClass)
+            $text('tax_class', $current->taxClass),
+            $html('description', $current->description)
         );
     }
 
@@ -359,6 +390,11 @@ final class ProductCsv
             $d->categoryKey,
             $d->brand,
             $d->shortDescription,
+            // `null` exports as empty, and re-importing the file then reads
+            // «cleared» — which is correct: the column is present, so the
+            // file is making a statement about the field. A vendor who wants
+            // the storefront text left alone deletes the column.
+            $d->description ?? '',
             (string) $d->priceMinor,
             $d->salePriceMinor === null ? '' : (string) $d->salePriceMinor,
             $d->saleFrom ?? '',

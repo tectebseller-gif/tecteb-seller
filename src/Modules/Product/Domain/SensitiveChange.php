@@ -20,7 +20,15 @@ final class SensitiveChange
 {
     /** @var list<string> */
     public const SENSITIVE = [
-        'title', 'type', 'categoryKey', 'brand', 'shortDescription',
+        // `description` is here from `alpha.41`, beside `shortDescription`
+        // and for the identical reason: it is what the product CLAIMS to be,
+        // on a page buyers are already reading. Leaving it off the list would
+        // have let a live product's whole description change with nobody
+        // asked — and it would also have put the one new field of §4 outside
+        // the approval baseline and the manager-edit protection that every
+        // other text field has. No sales gate moves: a proposal still waits
+        // for the manager exactly as a short-description change does.
+        'title', 'type', 'categoryKey', 'brand', 'shortDescription', 'description',
         'priceMinor', 'salePriceMinor', 'saleFrom', 'saleTo',
         'weightGrams', 'dimensions', 'taxClass',
     ];

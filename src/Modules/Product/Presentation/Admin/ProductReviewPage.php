@@ -498,12 +498,13 @@ final class ProductReviewPage
         $storefront = $this->container->get(StorefrontFieldsInterface::class);
         $fields = $storefront?->compare($product) ?? [];
 
-        $description = '';
-        foreach ($fields as $field) {
-            if ($field->key === 'description') {
-                $description = $field->marketplace;
-            }
-        }
+        // The vendor's own long description, straight off the row — not out of
+        // the comparison. Until `alpha.41` it came from `$field->marketplace`,
+        // which was the text the PROJECTOR would have generated; now it is a
+        // field the vendor writes, and `null` (a product from before migration
+        // 23) has to survive the trip so the card can say «this one has none»
+        // rather than «this one is empty».
+        $description = $product->details->description;
 
         return ProductReviewCardView::render(
             $product,

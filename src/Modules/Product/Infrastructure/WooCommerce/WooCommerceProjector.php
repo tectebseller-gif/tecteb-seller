@@ -5,7 +5,6 @@ namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
-use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
 use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
@@ -59,8 +58,16 @@ final class WooCommerceProjector implements CatalogProjectorInterface
     /** Marketplace categories live under their own slugs, so no shop term is renamed. */
     public const CATEGORY_SLUG_PREFIX = 'tmc-';
 
+    /**
+     * The spec-template repository used to be the first argument.
+     *
+     * It was there for one caller: the description `project()` generated from
+     * the brand and the medical specification. Since `alpha.41` «توضیحات
+     * کامل» is the vendor's own field, nothing here renders a description any
+     * more, and a dependency with no reader is a dependency that lies about
+     * what this class reads.
+     */
     public function __construct(
-        private readonly SpecTemplateRepositoryInterface $templates,
         private readonly ?ProductCategoryDirectoryInterface $categories = null
     )
     {
@@ -115,16 +122,30 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             $isNew,
             $product->baseline
         );
-        $this->writeOwned(
-            $wcProduct,
-            'description',
-            $this->storefrontDescription($product),
-            static fn (\WC_Product $p): string => (string) $p->get_description(),
-            static fn (\WC_Product $p, string $v): mixed => $p->set_description($v),
-            $outcome,
-            $isNew,
-            $product->baseline
-        );
+        // The long description, and ONLY when there is one to write.
+        //
+        // `null` means this product predates the field (migration 23 adds the
+        // column with no backfill), so nobody has asked for anything and
+        // WooCommerce's own text is left exactly as it is — along with the
+        // manager's edits to it and their SEO. That is «توضیحات کامل موجود در
+        // ووکامرس را با متن کوتاه یا متن تولیدی جایگزین نکن», and skipping
+        // the field entirely is the only way to honour it: `writeOwned()` with
+        // an empty string would EMPTY the storefront text, and with the
+        // generated text would put words nobody wrote under the vendor's name.
+        //
+        // `''` is a vendor's deliberate clear and is written like any value.
+        if ($details->description !== null) {
+            $this->writeOwned(
+                $wcProduct,
+                'description',
+                $details->description,
+                static fn (\WC_Product $p): string => (string) $p->get_description(),
+                static fn (\WC_Product $p, string $v): mixed => $p->set_description($v),
+                $outcome,
+                $isNew,
+                $product->baseline
+            );
+        }
         $wcProduct->set_status($product->status === ProductStatus::Published ? 'publish' : 'draft');
         $wcProduct->set_catalog_visibility($product->status === ProductStatus::Published ? 'visible' : 'hidden');
         $this->applySku($wcProduct, $details->sku);
@@ -586,54 +607,12 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         );
     }
 
-    /**
-     * The medical specification, rendered as the product description.
-     *
-     * Empty fields are skipped (UX §6.2), retired ones are not asked for, and
-     * the whole thing is plain paragraphs rather than markup a theme has to
-     * cooperate with.
-     */
-    /**
-     * What `project()` WOULD write as the description, for a caller that has
-     * to compare it against what WooCommerce has.
-     *
-     * Public because the review screen must not build its own version of this
-     * string: a comparison against a second implementation reports a
-     * difference on the day the two drift, not on the day somebody edited
-     * anything.
-     */
-    public function storefrontDescriptionFor(Product $product): string
-    {
-        return $this->storefrontDescription($product);
-    }
-
-    /** The same, for the category: the ids `project()` would write. */
+    /** The ids `project()` would write for the category, for a caller that compares. */
     public function storefrontCategoryFor(Product $product, array $current = []): string
     {
         return ProjectedFieldOwnership::idsToValue(
             $this->categoryIds($product->details->categoryKey, array_map('intval', $current))
         );
-    }
-
-    private function storefrontDescription(Product $product): string
-    {
-        $parts = [];
-        if (trim($product->details->shortDescription) !== '') {
-            $parts[] = $product->details->shortDescription;
-        }
-        $template = $this->templates->findByCategory($product->details->categoryKey);
-        foreach ($template?->askedFields() ?? [] as $field) {
-            $value = trim($product->specs[$field->key] ?? '');
-            if ($value === '') {
-                continue;
-            }
-            $unit = $field->unit !== '' ? ' ' . $field->unit : '';
-            $parts[] = $field->label . ': ' . $value . $unit;
-        }
-        if ($product->details->brand !== '') {
-            array_unshift($parts, __('برند', 'tecteb-marketplace-core') . ': ' . $product->details->brand);
-        }
-        return implode("\n\n", $parts);
     }
 
     /**

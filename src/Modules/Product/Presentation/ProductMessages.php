@@ -222,6 +222,7 @@ final class ProductMessages
             'image' => __('تصویر', 'tecteb-marketplace-core'),
             'brand' => __('برند', 'tecteb-marketplace-core'),
             'shortDescription' => __('توضیح کوتاه', 'tecteb-marketplace-core'),
+            'description' => __('توضیحات کامل', 'tecteb-marketplace-core'),
             'salePriceMinor' => __('قیمت با تخفیف', 'tecteb-marketplace-core'),
             'saleFrom' => __('شروع تخفیف', 'tecteb-marketplace-core'),
             'saleTo' => __('پایان تخفیف', 'tecteb-marketplace-core'),

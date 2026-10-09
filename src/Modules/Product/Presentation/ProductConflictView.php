@@ -82,6 +82,10 @@ final class ProductConflictView
             'sku' => [$stored->sku, $typed->sku],
             'stock' => [$number($stored->stock), $number($typed->stock)],
             'shortDescription' => [$stored->shortDescription, $typed->shortDescription],
+            // `null` renders as empty here: this view is «yours versus theirs»
+            // for a refused save, and «never had one» and «empty» look the
+            // same to a person comparing two boxes of text.
+            'description' => [$stored->description ?? '', $typed->description ?? ''],
         ];
 
         $out = [];

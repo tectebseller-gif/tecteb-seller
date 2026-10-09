@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Contracts\FlashStoreInterface;
+use Tecteb\Marketplace\Contracts\Html\HtmlSanitizerInterface;
 use Tecteb\Marketplace\Contracts\GuardedOptionStoreInterface;
 use Tecteb\Marketplace\Contracts\DependencyProbeInterface;
 use Tecteb\Marketplace\Contracts\EnvironmentProbeInterface;
@@ -300,6 +301,7 @@ final class Bootstrap
         $c->bind(EventBus::class, static fn () => new EventBus());
         $c->bind(OptionStoreInterface::class, static fn () => new WpOptionStore());
         $c->bind(CacheInterface::class, static fn () => new WpCache());
+        $c->bind(HtmlSanitizerInterface::class, static fn () => new WpHtmlSanitizer());
         $c->bind(FlashStoreInterface::class, static fn () => new TransientFlashStore());
         $c->bind(LockStoreInterface::class, static fn () => new WpLockStore($GLOBALS['wpdb']));
         // Same adapter: the guarded writes act on the same options table and

@@ -126,6 +126,24 @@ final class Request
         return isset($this->post[$key]) ? sanitize_textarea_field(wp_unslash((string) $this->post[$key])) : '';
     }
 
+    /**
+     * Rich text a person is allowed to format — paragraphs, lists, links.
+     *
+     * `postTextarea()` is the wrong reader for it: `sanitize_textarea_field()`
+     * strips every tag, so a vendor's long description would come back as one
+     * run-on block. `wp_kses_post()` is the filter WooCommerce itself applies
+     * to a product description, so what this accepts is exactly what the
+     * storefront would accept — one rule, decided once.
+     *
+     * NOT `postRaw()` with a filter at the call site: that method is the one
+     * place in this class that deliberately sanitises nothing, and borrowing
+     * it would make its docblock false the first time somebody read it.
+     */
+    public function postHtml(string $key): string
+    {
+        return isset($this->post[$key]) ? wp_kses_post(wp_unslash((string) $this->post[$key])) : '';
+    }
+
     public function postInt(string $key): int
     {
         return isset($this->post[$key]) ? (int) $this->post[$key] : 0;

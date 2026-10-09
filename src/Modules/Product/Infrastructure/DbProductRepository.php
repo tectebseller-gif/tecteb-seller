@@ -1001,6 +1001,11 @@ final class DbProductRepository implements ProductRepositoryInterface
             ['sale_price_minor', '%d', $d->salePriceMinor],
             ['sale_from', '%s', $d->saleFrom],
             ['sale_to', '%s', $d->saleTo],
+            // `description` joins these three because it shares their shape:
+            // NULL is a meaning, not an absence. NULL says this product has
+            // never had a long description and the storefront's own text must
+            // be left alone; `''` says the vendor cleared it.
+            [M0023ProductDescriptionAndCreateToken::DESCRIPTION, '%s', $d->description],
         ] as [$column, $placeholder, $value]) {
             $columns[] = $column;
             if ($value === null) {
@@ -1045,7 +1050,15 @@ final class DbProductRepository implements ProductRepositoryInterface
             $row['max_purchase'] === null ? null : (int) $row['max_purchase'],
             (int) $row['weight_grams'],
             (string) $row['dimensions'],
-            (string) $row['tax_class']
+            (string) $row['tax_class'],
+            // `??` and not `?? ''`: a row from before migration 23, and a row
+            // whose column is genuinely NULL, must both arrive as `null` so
+            // the projector knows nobody has asked for anything. Casting here
+            // would turn «never set» into «set to empty» and empty a
+            // manager's long description on the next approval.
+            ($row[M0023ProductDescriptionAndCreateToken::DESCRIPTION] ?? null) === null
+                ? null
+                : (string) $row[M0023ProductDescriptionAndCreateToken::DESCRIPTION]
         );
         $id = (int) $row['id'];
         return new Product(

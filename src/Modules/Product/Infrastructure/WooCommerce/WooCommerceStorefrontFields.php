@@ -461,10 +461,17 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
         return match ($field) {
             'title' => $product->details->title,
             'short_description' => $product->details->shortDescription,
-            // What the projector WOULD write, not the raw column: comparing a
-            // rendered description against a raw one reports every product as
-            // manager-edited.
-            'description' => $this->projector->storefrontDescriptionFor($product),
+            // The vendor's own long description since `alpha.41`. It used to
+            // be «what the projector WOULD generate», which was right while
+            // the projector generated it — it does not any more.
+            //
+            // `null` (a row from before migration 23) becomes the STOREFRONT's
+            // own text, so the two sides read as equal and nothing is reported
+            // as a difference. That is the honest answer: the marketplace has
+            // no long description for this product and is not going to write
+            // one, so there is nothing to decide.
+            'description' => $product->details->description
+                ?? (string) ($this->storefrontProduct($product)?->get_description() ?? ''),
             'category' => $this->projector->storefrontCategoryFor($product, $currentCategoryIds),
             'images' => ProjectedFieldOwnership::imagesToValue($product->mainImageId, $product->imageIds),
             default => '',

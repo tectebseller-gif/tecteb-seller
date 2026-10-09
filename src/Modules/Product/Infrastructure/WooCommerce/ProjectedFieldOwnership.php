@@ -63,14 +63,18 @@ final class ProjectedFieldOwnership
      * Fields whose storefront value can be written back into the marketplace
      * row without inventing anything.
      *
-     * `description` is the one that cannot: the projector BUILDS it out of
-     * the short description, the brand and the medical specification fields,
-     * so copying it back would paste the rendered table into the raw text and
-     * the next projection would render it again. For that one field, the
-     * manager keeping their version is a permanent split — which is stated on
-     * the review screen rather than papered over.
+     * **`description` joined this list in `alpha.41`, and it is the same
+     * change as everything else in §4.** It was excluded for one reason: the
+     * projector BUILT that text out of the short description, the brand and
+     * the medical specifications, so copying the storefront's version back
+     * would have pasted a rendered table into the raw source and the next
+     * projection would have rendered it again. The vendor now writes the long
+     * description themselves and the projector copies it like any other
+     * field — so «نسخهٔ من بماند» can write the manager's text back into the
+     * marketplace row, and the permanent split that had to be explained on
+     * the review screen is simply gone.
      */
-    public const ROUND_TRIP = ['title', 'short_description', 'category', 'images'];
+    public const ROUND_TRIP = ['title', 'short_description', 'description', 'category', 'images'];
 
     public static function fingerprint(string $value): string
     {

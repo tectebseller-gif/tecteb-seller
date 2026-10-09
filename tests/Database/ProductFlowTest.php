@@ -48,6 +48,7 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendo
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
+use Tecteb\Marketplace\Tests\Support\FakeHtmlSanitizer;
 use Tecteb\Marketplace\Tests\Support\FakeProductImages;
 
 /**
@@ -143,7 +144,14 @@ final class ProductFlowTest extends DatabaseTestCase
             $this->capabilities
         );
         $this->configure = new ConfigureSpecTemplates($this->templates, $audit, $this->capabilities);
-        $this->csv = new ProductCsv($this->products, $this->templates, $this->manage, $access, $audit);
+        $this->csv = new ProductCsv(
+            $this->products,
+            $this->templates,
+            $this->manage,
+            $access,
+            $audit,
+            new FakeHtmlSanitizer()
+        );
 
         $this->vendors->upsertProfile(self::VENDOR, 'داروخانه یک', true, false);
         $this->vendors->upsertProfile(self::OTHER_VENDOR, 'داروخانه دو', true, false);
@@ -661,6 +669,78 @@ final class ProductFlowTest extends DatabaseTestCase
         self::assertCount(1, $this->products->forVendor(self::VENDOR));
     }
 
+    /**
+     * The compatibility half of §4: a file an existing vendor exported before
+     * `alpha.41` has no `description` column at all, and importing it must not
+     * read that absence as «clear the long description».
+     *
+     * Both halves are in one test on purpose. An importer that ignored the
+     * column entirely would pass the first assertion, so the second one —
+     * naming the column with an empty value DOES clear it — is what tells the
+     * two apart. This is the same «absence is not an answer» rule §1 needed
+     * one layer up, in the one place where the file, not a form, is the input.
+     */
+    public function testAnOldCsvWithoutTheColumnKeepsTheLongDescriptionAndNamingItEmptyClearsIt(): void
+    {
+        $productId = $this->createProduct(self::VENDOR, 'دستکش', 'SKU-D');
+        $details = $this->products->find($productId)->details->with(['description' => '<p>متن کامل</p>']);
+        $saved = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            $details,
+            [],
+            [],
+            0,
+            $this->stampOf($productId)
+        );
+        self::assertTrue($saved->ok, $saved->code);
+        self::assertSame('<p>متن کامل</p>', $this->products->find($productId)?->details->description);
+
+        $old = "sku,title,price,stock\nSKU-D,دستکش,150000,5\n";
+        $report = $this->csv->import(self::VENDOR, self::VENDOR, $old, true);
+        self::assertSame(1, $report['updated'], $report['code']);
+        self::assertSame(
+            '<p>متن کامل</p>',
+            $this->products->find($productId)?->details->description,
+            'a file from before the column cannot empty a field it never knew about'
+        );
+
+        $explicit = "sku,title,price,stock,description\nSKU-D,دستکش,150000,5,\n";
+        $report = $this->csv->import(self::VENDOR, self::VENDOR, $explicit, true);
+        self::assertSame(1, $report['updated'], $report['code']);
+        self::assertSame(
+            '',
+            $this->products->find($productId)?->details->description,
+            'naming the column with an empty value IS the instruction to clear it'
+        );
+    }
+
+    /**
+     * The long description is the one field in this plugin that keeps its
+     * tags, so it is the one field where «which path did the value arrive by»
+     * decides whether a `<script>` reaches the storefront. The form filters
+     * through `Request::postHtml()`; until this round the importer did not,
+     * and the two write paths disagreed about the same column.
+     *
+     * The sanitiser here is a test double, so this measures that the importer
+     * PUTS the value through the filter it was given — not what WordPress's
+     * allowed-tag list contains. The paragraph surviving is half the test: a
+     * filter that stripped everything would answer the first assertion and
+     * make the field useless.
+     */
+    public function testTheImporterPutsTheLongDescriptionThroughTheSameFilterTheFormUses(): void
+    {
+        $csv = "sku,title,price,stock,description\n"
+            . 'SKU-X,محصول,150000,3,"<p>سلام</p><script>alert(1)</script>"' . "\n";
+        $report = $this->csv->import(self::VENDOR, self::VENDOR, $csv, true);
+        self::assertSame(1, $report['created'], $report['code']);
+
+        $stored = (string) $this->products->forVendor(self::VENDOR)[0]->details->description;
+        self::assertStringNotContainsString('<script', $stored, 'a CSV row is not a way around the filter');
+        self::assertStringContainsString('<p>سلام</p>', $stored, 'and the markup the field exists for survives');
+    }
+
     public function testAStaffMemberWithoutProductRightsCannotExport(): void
     {
         $export = $this->csv->export(self::STAFF, self::VENDOR);
@@ -1074,8 +1154,9 @@ final class ProductFlowTest extends DatabaseTestCase
         // `cleanImages()` drops any id the vendor does not own, so saying
         // whose they are comes first — otherwise nothing would be written and
         // for a reason that has nothing to do with the failure being injected.
-        $this->images->own(4101, self::VENDOR);
-        $this->images->own(4102, self::VENDOR);
+        // `give()` is the fixture's existing verb for exactly this.
+        $this->images->give(4101, self::VENDOR);
+        $this->images->give(4102, self::VENDOR);
         $failing = new FailingDatabase(new WpDatabase($this->wpdb));
         $failing->failWhen(['INSERT INTO', M0005CreateProductTables::PRODUCT_IMAGES]);
         $manage = $this->manageOver($failing);
@@ -1106,7 +1187,7 @@ final class ProductFlowTest extends DatabaseTestCase
         $made = $this->configure->createTemplate('gloves', 'دستکش');
         self::assertTrue($made->ok, $made->code);
         $this->configure->addField((int) $made->context['template_id'], 'material', 'جنس', 'text', true);
-        $this->images->own(4201, self::VENDOR);
+        $this->images->give(4201, self::VENDOR);
         $failing = new FailingDatabase(new WpDatabase($this->wpdb));
         $failing->failWhen(['INSERT INTO', M0005CreateProductTables::PRODUCT_SPECS]);
         $manage = $this->manageOver($failing);
@@ -1156,6 +1237,207 @@ final class ProductFlowTest extends DatabaseTestCase
             $this->products->forVendor(self::VENDOR)[0]->id,
             'and the loser was handed the row that exists'
         );
+    }
+
+    /**
+     * §4 ACCEPTANCE: the two descriptions are two independent values, and they
+     * stay independent through every step a product goes through.
+     *
+     * Draft, changes-requested, resubmit, a proposal against a published
+     * product, and approval — the brief names all of them, so all of them are
+     * walked here and both fields are read back from MariaDB at each one.
+     */
+    public function testTheShortAndLongDescriptionsAreIndependentThroughTheWholeLifecycle(): void
+    {
+        $details = new ProductDetails(
+            title: 'دستکش لاتکس',
+            categoryKey: 'gloves',
+            shortDescription: 'یک جمله',
+            priceMinor: 200000,
+            sku: 'DESC-1',
+            stock: 5,
+            description: "<p>پاراگراف اول</p>\n<ul><li>بند یک</li></ul>"
+        );
+
+        // 1. created as a draft
+        $created = $this->manage->save(self::VENDOR, self::VENDOR, 0, $details);
+        self::assertTrue($created->ok, $created->code);
+        $id = (int) $created->context['product_id'];
+        $stored = $this->products->find($id);
+        self::assertSame('یک جمله', $stored?->details->shortDescription);
+        self::assertSame("<p>پاراگراف اول</p>\n<ul><li>بند یک</li></ul>", $stored?->details->description);
+
+        // 2. one changed without touching the other
+        $edited = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $details->with(['shortDescription' => 'جملهٔ تازه']),
+            [],
+            [],
+            0,
+            $this->stampOf($id)
+        );
+        self::assertTrue($edited->ok, $edited->code);
+        $after = $this->products->find($id);
+        self::assertSame('جملهٔ تازه', $after?->details->shortDescription);
+        self::assertSame(
+            "<p>پاراگراف اول</p>\n<ul><li>بند یک</li></ul>",
+            $after?->details->description,
+            'editing the short one must not touch the long one'
+        );
+
+        // …and the other way round.
+        self::assertTrue($this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $after->details->with(['description' => '<p>پاراگراف تازه</p>']),
+            [],
+            [],
+            0,
+            $this->stampOf($id)
+        )->ok);
+        $swapped = $this->products->find($id);
+        self::assertSame('جملهٔ تازه', $swapped?->details->shortDescription);
+        self::assertSame('<p>پاراگراف تازه</p>', $swapped?->details->description);
+
+        // 3. clearing the long one on purpose is NOT the same as never having
+        // had one: it is written, and it comes back as the empty string.
+        self::assertTrue($this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $swapped->details->with(['description' => '']),
+            [],
+            [],
+            0,
+            $this->stampOf($id)
+        )->ok);
+        self::assertSame('', $this->products->find($id)?->details->description, 'cleared, not null');
+
+        // 4. submitted, sent back for changes, resubmitted — both carried.
+        //
+        // A picture first: `ProductReadiness` requires one, so a submit
+        // without it is refused for a reason that has nothing to do with the
+        // descriptions.
+        // The picture goes in the SAME save as the text: a later save that
+        // passes an empty gallery clears it, and the submit would then be
+        // refused for a missing image rather than for anything this test is
+        // about. (Which is itself the §1 lesson in another place: a write that
+        // names every field writes every field.)
+        $this->images->give(4301, self::VENDOR);
+        self::assertTrue($this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $this->products->find($id)->details->with(['description' => '<p>متن نهایی</p>']),
+            [],
+            [4301],
+            4301,
+            $this->stampOf($id)
+        )->ok);
+        self::assertTrue($this->manage->submit(self::VENDOR, self::VENDOR, $id)->ok);
+        self::assertTrue($this->review->requestChanges($id, 'توضیحات را کامل کنید')->ok);
+        $sentBack = $this->products->find($id);
+        self::assertSame('<p>متن نهایی</p>', $sentBack?->details->description, 'the decision did not eat it');
+        self::assertSame('جملهٔ تازه', $sentBack?->details->shortDescription);
+
+        self::assertTrue($this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $sentBack->details->with(['description' => '<p>متن اصلاح‌شده</p>']),
+            [],
+            [4301],
+            4301,
+            $this->stampOf($id)
+        )->ok);
+        self::assertTrue($this->manage->submit(self::VENDOR, self::VENDOR, $id)->ok);
+        self::assertSame('<p>متن اصلاح‌شده</p>', $this->products->find($id)?->details->description);
+
+        // 5. approved, then a PROPOSAL against the published product — the
+        // published row keeps its text until the proposal is approved.
+        self::assertTrue($this->review->approve($id)->ok, 'approval');
+        self::assertSame(ProductStatus::Published, $this->products->find($id)?->status);
+        self::assertSame('<p>متن اصلاح‌شده</p>', $this->products->find($id)?->details->description);
+
+        $proposed = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $this->products->find($id)->details->with(['description' => '<p>پیشنهاد تازه</p>']),
+            [],
+            [4301],
+            4301,
+            $this->stampOf($id)
+        );
+        self::assertTrue($proposed->ok, $proposed->code);
+        self::assertSame(
+            '<p>متن اصلاح‌شده</p>',
+            $this->products->find($id)?->details->description,
+            'a proposal does not change the live product'
+        );
+
+        // The REVISION's id, not the product's: a proposal against a published
+        // product is its own row (`alpha.6`), and that is what gets approved.
+        $pending = $this->revisions->pendingFor($id);
+        self::assertNotNull($pending, 'the save against a published product made a proposal');
+        self::assertTrue($this->review->approveRevision($pending->id)->ok, 'the proposal is approved');
+        self::assertSame('<p>پیشنهاد تازه</p>', $this->products->find($id)?->details->description);
+        self::assertSame('جملهٔ تازه', $this->products->find($id)?->details->shortDescription);
+    }
+
+    /**
+     * §4, legacy data: a row with NO long description is not a row with an
+     * empty one.
+     *
+     * Migration 23 adds the column with no backfill, so every product that
+     * already exists reads `null` — and `null` is what tells the projector to
+     * leave WooCommerce's own long description, and the manager's edits to it,
+     * completely alone. A save that does not mention the field keeps it
+     * `null`; only a form that showed the control can turn it into `''`.
+     */
+    public function testAProductFromBeforeTheFieldHasNullAndKeepsItUntilSomebodyWrites(): void
+    {
+        $legacy = new ProductDetails(
+            title: 'محصول قدیمی',
+            categoryKey: 'gloves',
+            shortDescription: 'کوتاه',
+            priceMinor: 100000,
+            sku: 'LEG-1',
+            stock: 2
+        );
+        $created = $this->manage->save(self::VENDOR, self::VENDOR, 0, $legacy);
+        $id = (int) $created->context['product_id'];
+        self::assertNull($this->products->find($id)?->details->description, 'never set, so null');
+
+        // A save that changes something else leaves it null — this is the CSV
+        // path and any older form, and it must not invent an empty string.
+        self::assertTrue($this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $this->products->find($id)->details->with(['brand' => 'برند']),
+            [],
+            [],
+            0,
+            $this->stampOf($id)
+        )->ok);
+        self::assertNull($this->products->find($id)?->details->description, 'still null, not cleared');
+
+        // And the moment somebody does write one, it stays written.
+        self::assertTrue($this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $this->products->find($id)->details->with(['description' => '<p>تازه</p>']),
+            [],
+            [],
+            0,
+            $this->stampOf($id)
+        )->ok);
+        self::assertSame('<p>تازه</p>', $this->products->find($id)?->details->description);
     }
 
     /**

@@ -359,6 +359,65 @@ final class ProductViewsTest extends ContractTestCase
         }
     }
 
+    /**
+     * The long description has to make the same round trip the other fields
+     * make — and it is the one field where the carry cannot be a plain string,
+     * because `null` («never written») and `''` («cleared») are two different
+     * instructions and a hidden input can only send one of them.
+     *
+     * So the test is in two halves, and the second is what makes the first
+     * mean anything: a value travels WITH the flag that says the control was
+     * shown, and `null` travels as nothing at all. A form that always sent an
+     * empty box would pass the first half and silently clear every legacy
+     * product the moment its owner saved the price step.
+     */
+    public function testTheLongDescriptionTravelsWithEveryStepAndNullTravelsAsNothing(): void
+    {
+        $this->bootPlugin(false);
+        $written = $this->product()->details->with(['description' => '<p>متن کامل</p>']);
+        $legacy = $this->product()->details;
+        self::assertNull($legacy->description, 'the fixture is a product from before migration 23');
+
+        foreach (['2', '3', '4'] as $step) {
+            $html = $this->renderStep($step, $written);
+            self::assertStringContainsString(
+                'name="description" value="&lt;p&gt;متن کامل&lt;/p&gt;"',
+                $html,
+                "step {$step} carries the long description"
+            );
+            self::assertStringContainsString(
+                'name="description_given" value="1"',
+                $html,
+                "step {$step} says the value it carries is an answer"
+            );
+
+            $blank = $this->renderStep($step, $legacy);
+            self::assertStringNotContainsString(
+                'name="description"',
+                $blank,
+                "step {$step} sends nothing for a product that never had one"
+            );
+            self::assertStringNotContainsString('name="description_given"', $blank);
+        }
+    }
+
+    private function renderStep(string $step, ProductDetails $details): string
+    {
+        return ProductFormView::render(
+            5,
+            $details,
+            [],
+            [],
+            0,
+            null,
+            $step,
+            ProductStatus::Draft,
+            ['gloves' => 'دستکش'],
+            $this->urls(),
+            ''
+        );
+    }
+
     public function testANewProductCanReachStepOneAndOnlyStepOne(): void
     {
         $this->bootPlugin(false);
@@ -843,6 +902,74 @@ final class ProductViewsTest extends ContractTestCase
         // and rendering a diff table under it would be noise.
         $without = $this->renderFormWithNotice('bad_price', $typed, null);
         self::assertStringNotContainsString('tv-conflict', $without);
+    }
+
+    /**
+     * The acceptance test for §4: two independent boxes, both usable with no
+     * JavaScript at all.
+     *
+     * «بدون جاوااسکریپت هم هر دو قابل استفاده باشند» is not answered by «the
+     * markup is there»: a tab strip built from a script would render both
+     * boxes too and then hide one with `display:none`, and a hidden textarea
+     * still posts. What makes this work without a script is that the panel on
+     * top is chosen by a RADIO the browser itself toggles — so the assertions
+     * are that both controls exist, that they are in the same form, that the
+     * switch is markup and not a handler, and that this fieldset contains no
+     * script at all.
+     */
+    public function testBothDescriptionBoxesAreInTheFormAndTheTabSwitchNeedsNoScript(): void
+    {
+        $this->bootPlugin(false);
+        $html = $this->renderFormWithNotice(
+            '',
+            new ProductDetails(shortDescription: 'یک جمله', description: '<p>متن کامل</p>'),
+            null
+        );
+
+        self::assertSame(
+            1,
+            substr_count($html, 'id="f-short_description" name="short_description"'),
+            'one short box'
+        );
+        self::assertSame(
+            1,
+            substr_count($html, 'id="f-description" name="description"'),
+            'one long box, and not a second short one'
+        );
+        self::assertStringContainsString('name="description_given"', $html, 'the form says it showed the control');
+        self::assertStringContainsString('یک جمله', $html);
+        self::assertStringContainsString('&lt;p&gt;متن کامل&lt;/p&gt;', $html, 'the stored markup is shown as text to edit, not run');
+
+        // The switch: two radios of one name and two labels pointing at them.
+        self::assertSame(2, substr_count($html, 'name="tmc_desc_tab"'));
+        self::assertStringContainsString('for="tmc-desc-short"', $html);
+        self::assertStringContainsString('for="tmc-desc-long"', $html);
+        self::assertStringNotContainsString('<script', $html, 'nothing on this page is a script');
+        self::assertStringNotContainsString('onclick', $html, 'and the tabs are not handlers');
+
+        // Both boxes are inside the one form that «ذخیره و ادامه» posts, so a
+        // browser with scripting off still sends both values in one request.
+        $form = substr($html, (int) strpos($html, '<form'));
+        $form = substr($form, 0, (int) strpos($form, '</form>'));
+        self::assertStringContainsString('name="short_description"', $form);
+        self::assertStringContainsString('name="description"', $form);
+    }
+
+    /**
+     * A product from before migration 23 has `null`, and the box has to be
+     * empty rather than carrying the word «null» or the projector's generated
+     * text — which would make the vendor's first save overwrite WooCommerce's
+     * own description with something nobody typed.
+     */
+    public function testALegacyProductGetsAnEmptyLongBoxAndNotAGeneratedOne(): void
+    {
+        $this->bootPlugin(false);
+        $html = $this->renderFormWithNotice('', new ProductDetails(shortDescription: 'یک جمله'), null);
+
+        $box = substr($html, (int) strpos($html, 'name="description"'));
+        $box = substr($box, 0, (int) strpos($box, '</textarea>'));
+        self::assertStringNotContainsString('یک جمله', $box, 'the short text is not copied into the long box');
+        self::assertStringNotContainsString('null', $box);
     }
 
     private function renderFormWithNotice(string $code, ProductDetails $typed, ?ProductDetails $stored): string
