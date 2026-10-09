@@ -51,7 +51,8 @@ final class VendorBalance
      * @return array{
      *   earned:int, pending:int, eligible:int, reserved:int, paid:int,
      *   unrecorded:int, eligible_line_ids:list<int>, delay_days:int,
-     *   awaiting_completion:int, awaiting_delay:int, awaiting_return:int
+     *   awaiting_completion:int, awaiting_delay:int, awaiting_return:int,
+     *   eligible_until:string
      * }
      */
     public function of(int $vendorUserId): array
@@ -122,6 +123,17 @@ final class VendorBalance
             'awaiting_completion' => $awaitingCompletion,
             'awaiting_delay' => $awaitingDelay,
             'awaiting_return' => $awaitingReturn,
+            // THE CUTOFF THIS ANSWER USED, so the reservation can enforce the
+            // same one in its own `WHERE`.
+            //
+            // Returned rather than recomputed by the caller on purpose: the
+            // waiting period is a setting and `now` moves, so two
+            // computations of «the latest completion that still qualifies» are
+            // two rules that agree until the second one is a millisecond
+            // later. `alpha.39`'s claim had no cutoff at all and leaned on the
+            // amount comparison, which cannot see it — a line whose period has
+            // not elapsed carries exactly the share it carried a moment ago.
+            'eligible_until' => $cutoff->format('Y-m-d H:i:s'),
         ];
     }
 }

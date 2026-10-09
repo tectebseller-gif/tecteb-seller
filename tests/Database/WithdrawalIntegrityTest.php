@@ -26,8 +26,11 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbWithdrawalRepository;
 use Tecteb\Marketplace\Modules\Order\Application\ManageOrderItems;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStateMachine;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
+use Tecteb\Marketplace\Modules\Order\Domain\ReturnRequest;
+use Tecteb\Marketplace\Modules\Order\Domain\ReturnStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\DbOrderItemRepository;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\DbShipmentRepository;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbStaffRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbStoreRepository;
@@ -68,6 +71,7 @@ final class WithdrawalIntegrityTest extends DatabaseTestCase
     private DbStoreRepository $stores;
     private DbVendorRepository $vendors;
     private VendorBalance $balance;
+    private DbShipmentRepository $returns;
     private RequestWithdrawal $request;
     private ReviewWithdrawals $review;
     private ManageOrderItems $orders;
@@ -93,7 +97,11 @@ final class WithdrawalIntegrityTest extends DatabaseTestCase
         $this->vendors = new DbVendorRepository($this->db, $this->clock);
         $this->access = new StaffAccess(new DbStaffRepository($this->db, $this->clock), $this->vendors);
 
-        $this->balance = new VendorBalance($this->orderItems, $this->settings, $this->clock);
+        $this->returns = new DbShipmentRepository($this->db, $this->clock);
+        // WITH the returns repository, the way `FinanceModule` wires it: a
+        // balance that cannot see returns reports money the claim will refuse,
+        // and then the two tests disagree about which one is wrong.
+        $this->balance = new VendorBalance($this->orderItems, $this->settings, $this->clock, $this->returns);
         $this->request = $this->requestOver($this->db);
         $this->review = $this->reviewOver($this->db);
         $this->orders = new ManageOrderItems(
@@ -359,6 +367,176 @@ final class WithdrawalIntegrityTest extends DatabaseTestCase
         self::assertSame('release_not_atomic', $refused->code);
         self::assertSame(WithdrawalStatus::Reviewing, $this->withdrawals->find($withdrawalId)?->status);
         self::assertSame([$itemId], $this->withdrawals->lineIds($withdrawalId));
+    }
+
+    // -------------- §3: every eligibility condition, enforced at claim time
+
+    /**
+     * WHAT THIS PROVES: a condition that changes between the balance and the
+     * reservation refuses the reservation — for each of the three conditions
+     * `alpha.39`'s claim did not carry.
+     *
+     * **Why the amount comparison was not enough.** `alpha.39` put four of
+     * `VendorBalance`'s six conditions in the claim's `WHERE` and leaned on
+     * «the sum of the claimed shares equals the amount asked for» for the
+     * rest. That proves a SUM, which is a different claim: a line that has
+     * been cancelled, or whose waiting period has not elapsed, or that has
+     * picked up a blocking return, carries exactly the `vendor_share_minor` it
+     * carried a moment earlier. The sum matches and the reservation is
+     * invalid.
+     *
+     * Each case changes the state AFTER the balance is read — with SQL where
+     * no service produces it — and then asks the repository to reserve the
+     * figure the balance gave. All three must refuse with nothing written.
+     *
+     * @dataProvider conditionsThatCanChange
+     */
+    public function testAConditionThatChangesAfterTheBalanceRefusesTheReservation(string $case): void
+    {
+        $itemId = $this->sold(240, 1000000, 900000);
+        $this->orders->recordSettlementCompletion($itemId, true);
+
+        $balance = $this->balance->of(self::VENDOR);
+        self::assertSame(900000, $balance['eligible'], 'the line is eligible when the balance is read');
+        self::assertSame([$itemId], $balance['eligible_line_ids']);
+        // The WRITE side only. `eligible` is expected to change in every one
+        // of these cases — that is the scenario — so comparing the whole
+        // census would be comparing the thing under test with itself.
+        $before = $this->writeCensus();
+
+        // …and then the world moves.
+        $items = $this->wpdb->prefix . 'tmc_order_items';
+        switch ($case) {
+            case 'cancelled':
+                // `settlementView()` filters `status <> 'cancelled'`, so the
+                // balance never sees such a line — and the claim must not
+                // take one.
+                $this->wpdb->pdo()->exec("UPDATE `{$items}` SET status = 'cancelled' WHERE id = {$itemId}");
+                break;
+            case 'waiting_period':
+                // The completion moves forward, past the cutoff the balance
+                // used. On the real site this is a manager re-recording it.
+                $this->wpdb->pdo()->exec(
+                    "UPDATE `{$items}` SET settlement_completed_at = '2099-01-01 00:00:00' WHERE id = {$itemId}"
+                );
+                break;
+            case 'blocking_return':
+                // UX §10.2: a return still being decided takes the share out
+                // of what may be asked for. Opened through the real
+                // repository, so the status list this claim derives from
+                // `ReturnStatus::reservesQuantity()` is the one being measured.
+                $returnId = $this->returns->openReturn(new ReturnRequest(
+                    0,
+                    $itemId,
+                    self::VENDOR,
+                    1,
+                    ReturnStatus::Requested,
+                    'آزمون',
+                    '',
+                    requestedBy: self::MANAGER,
+                    requestedAt: '2030-06-01 09:00:00'
+                ));
+                self::assertGreaterThan(0, $returnId);
+                self::assertSame(1, $this->returns->returnedQuantity($itemId), 'the return really holds the line');
+                break;
+            default:
+                self::fail('unknown case ' . $case);
+        }
+
+        $reserved = $this->withdrawals->reserve(
+            self::VENDOR,
+            $balance['eligible_line_ids'],
+            $balance['eligible'],
+            'IR000000000000000000000000',
+            'دارندهٔ حساب',
+            $balance['eligible_until']
+        );
+
+        self::assertSame(0, $reserved, 'the reservation must be refused: ' . $case);
+        self::assertSame($before, $this->writeCensus(), 'and nothing at all was written');
+        self::assertNull($this->itemRow($itemId)['withdrawal_id']);
+        self::assertNull($this->withdrawals->openFor(self::VENDOR), 'no half-made request is left behind');
+        // And the balance agrees the line stopped qualifying, so the refusal
+        // and the read tell one story rather than two.
+        self::assertSame(0, $this->balance->of(self::VENDOR)['eligible']);
+    }
+
+    /** @return array<string,array{0:string}> */
+    public static function conditionsThatCanChange(): array
+    {
+        return [
+            'the line is cancelled' => ['cancelled'],
+            'the waiting period has not elapsed' => ['waiting_period'],
+            'a return is still counted against it' => ['blocking_return'],
+        ];
+    }
+
+    /**
+     * The positive half, which the three refusals above need: on an unchanged
+     * eligible line the same call reserves. Without this, a claim whose
+     * `WHERE` had become impossible would pass all three.
+     */
+    public function testAnUnchangedEligibleLineIsStillReserved(): void
+    {
+        $itemId = $this->sold(241, 1000000, 900000);
+        $this->orders->recordSettlementCompletion($itemId, true);
+        $balance = $this->balance->of(self::VENDOR);
+
+        $withdrawalId = $this->withdrawals->reserve(
+            self::VENDOR,
+            $balance['eligible_line_ids'],
+            $balance['eligible'],
+            'IR000000000000000000000000',
+            'دارندهٔ حساب',
+            $balance['eligible_until']
+        );
+
+        self::assertGreaterThan(0, $withdrawalId);
+        self::assertSame($withdrawalId, $this->itemRow($itemId)['withdrawal_id']);
+        self::assertSame([$itemId], $this->withdrawals->lineIds($withdrawalId));
+        self::assertSame(0, $this->balance->of(self::VENDOR)['eligible']);
+        self::assertSame(900000, $this->balance->of(self::VENDOR)['reserved']);
+    }
+
+    /**
+     * WHAT THIS PROVES: a rejected return puts the line straight back, with no
+     * further action — so the claim's new condition blocks the right set and
+     * not a wider one.
+     *
+     * `VendorBalance` says exactly this («a rejected return puts the line
+     * straight back into `eligible`»), and a `NOT EXISTS` over the wrong
+     * status list would quietly keep the money unaskable for ever.
+     */
+    public function testAReturnThatWasRejectedStopsBlockingTheLine(): void
+    {
+        $itemId = $this->sold(242, 1000000, 900000);
+        $this->orders->recordSettlementCompletion($itemId, true);
+        $returnId = $this->returns->openReturn(new ReturnRequest(
+            0,
+            $itemId,
+            self::VENDOR,
+            1,
+            ReturnStatus::Requested,
+            'آزمون',
+            '',
+            requestedBy: self::MANAGER,
+            requestedAt: '2030-06-01 09:00:00'
+        ));
+        self::assertSame(0, $this->balance->of(self::VENDOR)['eligible'], 'blocked while undecided');
+
+        self::assertTrue($this->returns->updateReturnStatus($returnId, ReturnStatus::Rejected, self::MANAGER, 'رد شد', null, null));
+        self::assertSame(0, $this->returns->returnedQuantity($itemId), 'a rejected return holds nothing');
+
+        $balance = $this->balance->of(self::VENDOR);
+        self::assertSame(900000, $balance['eligible'], 'and the money is askable again');
+        self::assertGreaterThan(0, $this->withdrawals->reserve(
+            self::VENDOR,
+            $balance['eligible_line_ids'],
+            $balance['eligible'],
+            'IR000000000000000000000000',
+            'دارندهٔ حساب',
+            $balance['eligible_until']
+        ));
     }
 
     // ---------------------------------------------------------------- §4
@@ -842,6 +1020,22 @@ final class WithdrawalIntegrityTest extends DatabaseTestCase
             'reserved' => $balance['reserved'],
             'paid' => $balance['paid'],
         ];
+    }
+
+    /**
+     * The four write-side facts, without the balance.
+     *
+     * `census()` includes `eligible`, which is right for an injected-failure
+     * test — nothing should move — and wrong for an eligibility test, where
+     * the balance changing IS the premise.
+     *
+     * @return array<string,mixed>
+     */
+    private function writeCensus(): array
+    {
+        $census = $this->census();
+        unset($census['eligible']);
+        return $census;
     }
 
     /** @return array<string,mixed> */

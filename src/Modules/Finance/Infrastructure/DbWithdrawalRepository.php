@@ -9,6 +9,9 @@ use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface
 use Tecteb\Marketplace\Modules\Finance\Domain\Withdrawal;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStatus;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables as T;
+use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
+use Tecteb\Marketplace\Modules\Order\Domain\ReturnStatus;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0008ShipmentsAndReturns as ReturnTables;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as OrderTables;
 
 /**
@@ -133,7 +136,8 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         array $orderItemIds,
         int $amountMinor,
         string $iban,
-        string $accountHolder
+        string $accountHolder,
+        string $eligibleUntil = '9999-12-31 23:59:59'
     ): int {
         $ids = array_values(array_unique(array_map('intval', $orderItemIds)));
         $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
@@ -175,21 +179,55 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
             return 0;
         }
 
-        // THE CLAIM IS THE GUARD. Every condition a line must still satisfy is
-        // in the `WHERE`, so «was it free when we wrote» is answered by the
-        // write rather than by a read taken earlier — and the number of rows
-        // it changed is compared with the number asked for. Zero changed rows
-        // is neither success nor failure by itself; it is measured against
-        // what this operation expected, which is the `alpha.8` rule this
-        // method used to ignore entirely.
+        // THE CLAIM IS THE GUARD, AND IT CARRIES EVERY CONDITION — which
+        // `alpha.39` did not.
+        //
+        // `alpha.39` put four of `VendorBalance`'s six conditions in this
+        // `WHERE` and leaned on the amount comparison below for the rest. That
+        // comparison proves the SUM of the claimed shares, which is not the
+        // same claim at all: a line that was cancelled, or whose waiting
+        // period had not elapsed, or that had picked up a blocking return
+        // since the balance was read, has exactly the same `vendor_share_minor`
+        // as it did a moment earlier. The sum matches and the reservation is
+        // invalid.
+        //
+        // So the rule is restated here in full, derived from the same code
+        // `VendorBalance` reads rather than written again:
+        //
+        //  - a share was recorded (FIN-02: unset is not zero);
+        //  - nobody else holds the line — which also covers «already paid»,
+        //    because a paid request keeps its lines for ever;
+        //  - a manager called the sale complete (ORDER-01);
+        //  - the approved waiting period has elapsed since that moment;
+        //  - the line is not CANCELLED. `settlementView()` filters it out with
+        //    `status <> 'cancelled'`, so the balance never saw such a line and
+        //    this must not claim one;
+        //  - and no return is still counted against it (UX §10.2). The status
+        //    list comes from `ReturnStatus::reservesQuantity()`, the same
+        //    predicate `DbShipmentRepository::returnedQuantity()` asks — one
+        //    rule read twice, not two lists.
+        //
+        // All of it inside the transaction and inside the write: «یک SELECT
+        // دیگر خارج از تراکنش کافی نیست», and a read is not a lock.
         $claimed = $this->db->execute(
             'UPDATE `' . $this->orderItems() . '` SET withdrawal_id = %d, updated_at = %s
              WHERE id IN (' . $this->placeholders($ids) . ')
                AND vendor_user_id = %d
                AND withdrawal_id IS NULL
                AND vendor_share_minor IS NOT NULL
-               AND settlement_completed_at IS NOT NULL',
-            array_merge([$withdrawalId, $now], $ids, [$vendorUserId])
+               AND settlement_completed_at IS NOT NULL
+               AND settlement_completed_at <= %s
+               AND status <> %s
+               AND NOT EXISTS (
+                     SELECT 1 FROM `' . $this->returns() . '` tmc_r
+                      WHERE tmc_r.order_item_id = `' . $this->orderItems() . '`.id
+                        AND tmc_r.status IN (' . self::reservingReturnStatuses() . ')
+                   )',
+            array_merge(
+                [$withdrawalId, $now],
+                $ids,
+                [$vendorUserId, $eligibleUntil, OrderItemStatus::Cancelled->value]
+            )
         );
         if ($claimed === null || $claimed !== count($ids)) {
             // Either the statement failed, or somebody else holds a line, or a
@@ -199,10 +237,9 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         }
 
         // The figure, recomputed from what was actually claimed and read
-        // inside the transaction. «اگر بین محاسبهٔ مانده و رزرو، مرجوعی یا
-        // تغییر مؤثر دیگری رخ دهد، مبلغ کهنه رزرو نشود» — a caller's amount
-        // that no longer matches the lines is refused, and asking again sees
-        // the new balance.
+        // inside the transaction. Still here, and still necessary — it catches
+        // a share that CHANGED rather than a line that stopped qualifying —
+        // but it is no longer carrying the conditions above on its own.
         $sum = $this->db->getVar(
             'SELECT COALESCE(SUM(vendor_share_minor), 0) FROM `' . $this->orderItems() . '`
              WHERE withdrawal_id = %d',
@@ -418,6 +455,31 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
             ],
             $rows
         );
+    }
+
+    /**
+     * The return statuses that still hold a line's money, as an SQL list.
+     *
+     * Derived from `ReturnStatus::reservesQuantity()` — the same predicate
+     * `DbShipmentRepository::returnedQuantity()` asks, which is what
+     * `VendorBalance` reads. Two hand-written lists would be two rules, and
+     * the one that drifted would be this one, because nothing here renders a
+     * return.
+     */
+    private static function reservingReturnStatuses(): string
+    {
+        $quoted = [];
+        foreach (ReturnStatus::all() as $status) {
+            if ($status->reservesQuantity()) {
+                $quoted[] = "'" . $status->value . "'";
+            }
+        }
+        return implode(', ', $quoted);
+    }
+
+    private function returns(): string
+    {
+        return ReturnTables::table($this->db, ReturnTables::RETURNS);
     }
 
     /** @param list<int> $ids */

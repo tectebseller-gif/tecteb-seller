@@ -37,12 +37,23 @@ interface WithdrawalRepositoryInterface
      * @param list<int> $orderItemIds
      * @return int the new withdrawal id, or 0 when any line was already claimed
      */
+    /**
+     * @param list<int> $orderItemIds
+     * @param string $eligibleUntil the latest `settlement_completed_at` a line
+     *        may carry and still be withdrawable — the approved waiting period
+     *        applied to now, computed by the caller from the same setting
+     *        `VendorBalance` reads. It belongs in the claim's `WHERE` rather
+     *        than in a read beforehand: a line whose period had not elapsed
+     *        has the same share it had a moment ago, so the amount comparison
+     *        cannot tell the difference.
+     */
     public function reserve(
         int $vendorUserId,
         array $orderItemIds,
         int $amountMinor,
         string $iban,
-        string $accountHolder
+        string $accountHolder,
+        string $eligibleUntil = '9999-12-31 23:59:59'
     ): int;
 
     /** @return list<int> the order-item ids this request holds */

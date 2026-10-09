@@ -105,7 +105,11 @@ final class RequestWithdrawal
             $balance['eligible_line_ids'],
             $balance['eligible'],
             (string) $bank['iban'],
-            (string) $bank['holder']
+            (string) $bank['holder'],
+            // The cutoff THIS answer used, handed to the claim so the write
+            // enforces the same waiting period the read applied — rather than
+            // recomputing it a millisecond later and calling that the rule.
+            $balance['eligible_until']
         );
         if ($withdrawalId <= 0) {
             // Another request took at least one of these lines between the
