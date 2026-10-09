@@ -1,5 +1,0 @@
-sale_units=USD/2
-open_ok=yes
-refund_ok=yes
-reversal_units=IRR/0
-probe=ran

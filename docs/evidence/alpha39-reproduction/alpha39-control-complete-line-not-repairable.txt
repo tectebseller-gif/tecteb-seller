@@ -1,3 +1,0 @@
-repair_of_complete_line=refused
-share_after=900000
-probe=ran

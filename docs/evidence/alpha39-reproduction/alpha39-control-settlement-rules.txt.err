@@ -1,0 +1,5 @@
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: migration 0016_vendor_import_run failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'import_run_id'
+#0 /home/user/tecteb-seller/src/Core/Migration/Migrations/M0016VendorImportRun.php(48): Tecteb\Marketplace\Core\Migration\Migrations\M0016VendorImportRun->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Core\Migration\Migrations\M0016VendorImportRun->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}

@@ -1,3 +1,0 @@
-zero_is_success=yes
-event_key=order:1:item:2
-probe=ran

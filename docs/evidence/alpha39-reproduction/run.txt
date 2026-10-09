@@ -3,78 +3,209 @@ snapshot: 500 files under src/ hashed before any change
 === 1. src/ reverted to 54228e5 (the delivered alpha.39) ===========
 PASS  the revert changed 22 files under src/ — the old tree is really on disk
 PASS  the reverted tree passes php -l, so a fatal below would be a real answer
-PASS  [alpha39] reversal-unit: sale_units=USD/2 — the sale was recorded in the order own unit
-PASS  [alpha39] reversal-unit: reversal_units=IRR/0 — and undone in a DIFFERENT kind of money
-PASS  [alpha39] reversal-unit-unknown: refund_ok=yes — a reversal written with no unit to read
-PASS  [alpha39] reversal-unit-unknown: reversal_lines=4 — four lines about money nobody can name the unit of
-PASS  [alpha39] cancel-atomic: cancel_ok=release_failed — the message is true and the state is not repaired
-PASS  [alpha39] cancel-atomic: status_after=cancelled — a CLOSED request
-PASS  [alpha39] cancel-atomic: claimed_items=1 — still holding the money
-PASS  [alpha39] reject-atomic: reject_ok=release_failed — the same shape on the manager side
-PASS  [alpha39] reject-atomic: status_after=rejected — closed
-PASS  [alpha39] reject-atomic: claimed_items=1 — and still holding
-PASS  [alpha39] claim-cancelled-item: interference_fired=yes — the interleaving really happened
-PASS  [alpha39] claim-cancelled-item: request_ok=yes — a reservation over a CANCELLED item
-PASS  [alpha39] claim-cancelled-item: claimed_items=1 — and the item was claimed anyway
-PASS  [alpha39] claim-returned-item: request_ok=yes — and over an item with a blocking return
-PASS  [alpha39] claim-returned-item: claimed_items=1 — likewise claimed
-PASS  [alpha39] mixed-books: captured=1 — a capture against books holding two units
-PASS  [alpha39] mixed-books: refused_unit=0 — refused nothing
-PASS  [alpha39] unit-read-failure: captured=1 — and a BROKEN unit read
-PASS  [alpha39] unit-read-failure: refused_unit=0 — was indistinguishable from a first sale
-PASS  [alpha39] changed-line-retry: retry_captured=1 — the retry reported a captured sale
-PASS  [alpha39] changed-line-retry: line_stored=yes — and stored a line
-PASS  [alpha39] changed-line-retry: stored_base=2000000 — with the EDITED amount
-PASS  [alpha39] changed-line-retry: stored_share=900000 — beside the share of the amount that was recorded
-PASS  [alpha39] figures-not-overwritten: repair_ok=yes — a repair accepted over recorded figures
-PASS  [alpha39] figures-not-overwritten: share_after=900000 — rewriting a share somebody will have to explain
-PASS  [alpha39] no-repointing: repair_ok=yes — and a line repointed
-PASS  [alpha39] no-repointing: event_after=order:999999:item:1 — at a document that is not its own
+FAIL  [alpha39] probe 'reversal-unit' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: settlement migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'settlement_completed_at'
+#0 /home/user/tecteb-seller/src/Modules/Finance/Infrastructure/Migrations/M0007SettlementTables.php(104): Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'reversal-unit-unknown' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: link ownership migration failed: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tmc_test.wptest_tmc_products' doesn't exist
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0010LinkOwnership.php(42): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'refund-arguments' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tmc_test.wptest_tmc_products' doesn't exist
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'cancel-atomic' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'wc_product_id'
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'reject-atomic' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tmc_test.wptest_tmc_products' doesn't exist
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'claim-cancelled-item' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'wc_product_id'
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'claim-returned-item' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: migration 0014_row_version_and_import_run failed: SQLSTATE[42000]: Syntax error or access violation: 1061 Duplicate key name 'tmc_product_import_run'
+#0 /home/user/tecteb-seller/src/Core/Migration/Migrations/M0014RowVersionAndImportRun.php(80): Tecteb\Marketplace\Core\Migration\Migrations\M0014RowVersionAndImportRun->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Core\Migration\Migrations\M0014RowVersionAndImportRun->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'mixed-books' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tmc_test.wptest_tmc_products' doesn't exist
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(80): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'unit-read-failure' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: link ownership migration failed: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tmc_test.wptest_tmc_products' doesn't exist
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0010LinkOwnership.php(42): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'changed-line-retry' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: settlement migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'settlement_completed_at'
+#0 /home/user/tecteb-seller/src/Modules/Finance/Infrastructure/Migrations/M0007SettlementTables.php(104): Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'figures-not-overwritten' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tmc_test.wptest_tmc_products' doesn't exist
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(80): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'no-repointing' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: RuntimeException: probe fixture: the line was not captured ()
+#0 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(712): Alpha39World->captured()
+#1 {main}
+FAIL  [alpha39] probe 'control-zero-is-success' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'wc_product_id'
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'control-settlement-rules' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: migration 0016_vendor_import_run failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'import_run_id'
+#0 /home/user/tecteb-seller/src/Core/Migration/Migrations/M0016VendorImportRun.php(48): Tecteb\Marketplace\Core\Migration\Migrations\M0016VendorImportRun->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Core\Migration\Migrations\M0016VendorImportRun->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'control-unpaid-item-share' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'wc_product_id'
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'control-manager-gate' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tmc_test.wptest_tmc_products' doesn't exist
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] probe 'control-complete-line-not-repairable' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tmc_test.wptest_tmc_products' doesn't exist
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(80): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha39] reversal-unit: expected 'sale_units=USD/2' (the sale was recorded in the order own unit); got:
+FAIL  [alpha39] reversal-unit: expected 'reversal_units=IRR/0' (and undone in a DIFFERENT kind of money); got:
+FAIL  [alpha39] reversal-unit-unknown: expected 'refund_ok=yes' (a reversal written with no unit to read); got:
+FAIL  [alpha39] reversal-unit-unknown: expected 'reversal_lines=4' (four lines about money nobody can name the unit of); got:
+FAIL  [alpha39] cancel-atomic: expected 'cancel_ok=release_failed' (the message is true and the state is not repaired); got:
+FAIL  [alpha39] cancel-atomic: expected 'status_after=cancelled' (a CLOSED request); got:
+FAIL  [alpha39] cancel-atomic: expected 'claimed_items=1' (still holding the money); got:
+FAIL  [alpha39] reject-atomic: expected 'reject_ok=release_failed' (the same shape on the manager side); got:
+FAIL  [alpha39] reject-atomic: expected 'status_after=rejected' (closed); got:
+FAIL  [alpha39] reject-atomic: expected 'claimed_items=1' (and still holding); got:
+FAIL  [alpha39] claim-cancelled-item: expected 'interference_fired=yes' (the interleaving really happened); got:
+FAIL  [alpha39] claim-cancelled-item: expected 'request_ok=yes' (a reservation over a CANCELLED item); got:
+FAIL  [alpha39] claim-cancelled-item: expected 'claimed_items=1' (and the item was claimed anyway); got:
+FAIL  [alpha39] claim-returned-item: expected 'request_ok=yes' (and over an item with a blocking return); got:
+FAIL  [alpha39] claim-returned-item: expected 'claimed_items=1' (likewise claimed); got:
+FAIL  [alpha39] mixed-books: expected 'captured=1' (a capture against books holding two units); got:
+FAIL  [alpha39] mixed-books: expected 'refused_unit=0' (refused nothing); got:
+FAIL  [alpha39] unit-read-failure: expected 'captured=1' (and a BROKEN unit read); got:
+FAIL  [alpha39] unit-read-failure: expected 'refused_unit=0' (was indistinguishable from a first sale); got:
+FAIL  [alpha39] changed-line-retry: expected 'retry_captured=1' (the retry reported a captured sale); got:
+FAIL  [alpha39] changed-line-retry: expected 'line_stored=yes' (and stored a line); got:
+FAIL  [alpha39] changed-line-retry: expected 'stored_base=2000000' (with the EDITED amount); got:
+FAIL  [alpha39] changed-line-retry: expected 'stored_share=900000' (beside the share of the amount that was recorded); got:
+FAIL  [alpha39] figures-not-overwritten: expected 'repair_ok=yes' (a repair accepted over recorded figures); got:
+FAIL  [alpha39] figures-not-overwritten: expected 'share_after=900000' (rewriting a share somebody will have to explain); got:
+FAIL  [alpha39] no-repointing: expected 'repair_ok=yes' (and a line repointed); got:
+FAIL  [alpha39] no-repointing: expected 'event_after=order:999999:item:1' (at a document that is not its own); got:
 
 === 2. src/ restored to HEAD (alpha.40) ================================
 PASS  src/ is byte-identical to the hashes taken before anything was touched
-PASS  [alpha40] reversal-unit: sale_units=USD/2 — the sale, unchanged
-PASS  [alpha40] reversal-unit: reversal_units=USD/2 — and the reversal in the unit of the sale it undoes
-PASS  [alpha40] reversal-unit-unknown: refund_ok=refund_unit_unknown — refused BY NAME when no unit can be read
-PASS  [alpha40] reversal-unit-unknown: reversal_lines=0 — and not one line written
-PASS  [alpha40] refund-arguments: passed_amount=105.50 — the amount as a string that carries its own scale
-PASS  [alpha40] cancel-atomic: cancel_ok=release_failed — the caller is still told
-PASS  [alpha40] cancel-atomic: status_after=requested — and the request is NOT closed
-PASS  [alpha40] cancel-atomic: reserve_lines=1 — its reserve lines are intact
-PASS  [alpha40] cancel-atomic: claimed_items=1 — the money is still its own
-PASS  [alpha40] reject-atomic: reject_ok=release_failed — the same on the manager side
-PASS  [alpha40] reject-atomic: status_after=reviewing — the status rolled back
-PASS  [alpha40] reject-atomic: reserve_lines=1 — and nothing is stranded
-PASS  [alpha40] claim-cancelled-item: interference_fired=yes — the interleaving really happened
-PASS  [alpha40] claim-cancelled-item: request_ok=reservation_lost — a condition that changed is refused
-PASS  [alpha40] claim-cancelled-item: claimed_items=0 — nothing was claimed
-PASS  [alpha40] claim-cancelled-item: open_requests=0 — and no half-made request exists
-PASS  [alpha40] claim-returned-item: request_ok=reservation_lost — the same for a blocking return
-PASS  [alpha40] claim-returned-item: claimed_items=0 — nothing claimed
-PASS  [alpha40] claim-returned-item: open_requests=0 — nothing created
-PASS  [alpha40] mixed-books: captured=0 — mixed books stop a new financial record
-PASS  [alpha40] mixed-books: reasons=books_mixed — detectably, with its own name
-PASS  [alpha40] mixed-books: line_stored=no — and no line is stored against them
-PASS  [alpha40] unit-read-failure: captured=0 — a failed read is not an empty ledger
-PASS  [alpha40] unit-read-failure: reasons=unit_unreadable — and says which it was
-PASS  [alpha40] changed-line-retry: retry_captured=0 — an order edited in between is not captured
-PASS  [alpha40] changed-line-retry: reasons=line_mismatch — it is named
-PASS  [alpha40] changed-line-retry: line_stored=no — and nothing inconsistent is stored
-PASS  [alpha40] figures-not-overwritten: repair_ok=no — a repair over recorded figures is refused
-PASS  [alpha40] figures-not-overwritten: share_after=440000 — the stored figure stays, to be found
-PASS  [alpha40] figures-not-overwritten: event_after=empty — and the link is not written either
-PASS  [alpha40] no-repointing: repair_ok=no — and no line is repointed
-PASS  [alpha40] no-repointing: share_after=null — with no figures written on the way
-
-=== 3. controls: the same answer on both trees ==========================
-PASS  control control-zero-is-success answers identically on alpha.39 and alpha.40
-PASS  control control-settlement-rules answers identically on alpha.39 and alpha.40
-PASS  control control-unpaid-item-share answers identically on alpha.39 and alpha.40
-PASS  control control-manager-gate answers identically on alpha.39 and alpha.40
-PASS  control control-complete-line-not-repairable answers identically on alpha.39 and alpha.40
-PASS  every control held, so the defect lines above are about alpha.39 and not about a broken checkout
-
-checks passed: 68
-checks failed: 0
-evidence: docs/evidence/alpha39-reproduction
-PASS  src/ restored byte for byte (500 files)
+FAIL  [alpha40] probe 'reversal-unit' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'wc_product_id'
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha40] probe 'reversal-unit-unknown' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tmc_test.wptest_tmc_products' doesn't exist
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha40] probe 'refund-arguments' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'seo_slug'
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha40] probe 'cancel-atomic' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'wc_product_id'
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha40] probe 'reject-atomic' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: baseline/decisions migration failed: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tmc_test.wptest_tmc_products' doesn't exist
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0019BaselineAndDecisions.php(96): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha40] probe 'claim-cancelled-item' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'wc_product_id'
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha40] probe 'claim-returned-item' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tmc_test.wptest_tmc_products' doesn't exist
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha40] probe 'mixed-books' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tmc_test.wptest_tmc_products' doesn't exist
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha40] probe 'unit-read-failure' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: baseline/decisions migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'approved_baseline'
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0019BaselineAndDecisions.php(76): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha40] probe 'changed-line-retry' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'wc_product_id'
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha40] probe 'figures-not-overwritten' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: RuntimeException: probe fixture: the line was not captured (unit_unreadable)
+#0 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(688): Alpha39World->captured()
+#1 {main}
+FAIL  [alpha40] probe 'no-repointing' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: settlement migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'settlement_completed_by'
+#0 /home/user/tecteb-seller/src/Modules/Finance/Infrastructure/Migrations/M0007SettlementTables.php(104): Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}
+FAIL  [alpha40] probe 'control-zero-is-success' did not run (exit non-zero) — this is a broken measurement, not a finding
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: migration 0016_vendor_import_run failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'import_run_id'
+#0 /home/user/tecteb-seller/src/Core/Migration/Migrations/M0016VendorImportRun.php(48): Tecteb\Marketplace\Core\Migration\Migrations\M0016VendorImportRun->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Core\Migration\Migrations\M0016VendorImportRun->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}

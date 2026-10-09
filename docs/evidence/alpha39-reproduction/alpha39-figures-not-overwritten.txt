@@ -1,4 +1,0 @@
-repair_ok=yes
-share_after=900000
-event_after=set
-probe=ran

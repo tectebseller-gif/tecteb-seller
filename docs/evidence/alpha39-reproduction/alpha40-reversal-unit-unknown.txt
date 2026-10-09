@@ -1,3 +1,0 @@
-refund_ok=refund_unit_unknown
-reversal_lines=0
-probe=ran

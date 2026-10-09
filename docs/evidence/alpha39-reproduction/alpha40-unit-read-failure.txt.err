@@ -1,0 +1,5 @@
+alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: baseline/decisions migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'approved_baseline'
+#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0019BaselineAndDecisions.php(76): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions->run()
+#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions->up()
+#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
+#3 {main}

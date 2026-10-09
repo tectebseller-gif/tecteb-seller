@@ -1,7 +1,0 @@
-first_captured=0
-first_failed=1
-retry_captured=0
-retry_incomplete=1
-reasons=line_mismatch
-line_stored=no
-probe=ran

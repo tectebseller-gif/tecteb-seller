@@ -1,4 +1,0 @@
-repair_ok=yes
-event_after=order:999999:item:1
-share_after=900000
-probe=ran
