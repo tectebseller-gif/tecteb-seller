@@ -82,6 +82,46 @@ final class StorePage
         return $page > 1 ? add_query_arg(self::PAGE_VAR, (string) $page, $url) : $url;
     }
 
+    /**
+     * The shop's public name and URL, or `null` when it has no public page.
+     *
+     * This exists because `url()` on its own is a link builder with no opinion
+     * about whether anything is there: it will happily address a pending
+     * applicant, a suspended shop or a made-up id, and `render()` answers all
+     * three with the theme's 404. A caller that wants to PRINT a link needs
+     * the same two conditions `render()` applies — an approved application AND
+     * a settings row — and the `alpha.17` finding was exactly this: three
+     * addresses were listed and two of them were 404s.
+     *
+     * So the pair is returned together. A caller cannot end up with a URL it
+     * has not earned, or with a name it read from somewhere else: the name is
+     * `StorePageView::name()`, the same string the page titles itself with,
+     * rather than the WordPress account's `display_name` — which is the
+     * person's name, is set at registration, and is not the shop's.
+     *
+     * Nothing private is read. The settings row is fetched for one field.
+     *
+     * @return array{name:string,url:string}|null
+     */
+    public static function publicShop(ContainerInterface $container, int $vendorUserId): ?array
+    {
+        if ($vendorUserId <= 0) {
+            return null;
+        }
+        $application = $container->get(VendorRepositoryInterface::class)
+            ->findApplicationByUser($vendorUserId);
+        if ($application === null || $application->status !== ApplicationStatus::Approved) {
+            return null;
+        }
+        $store = $container->get(StoreRepositoryInterface::class)->find($vendorUserId);
+        if ($store === null) {
+            // Approved but never seeded — the `alpha.23` case. The page is a
+            // 404, so there is no link to offer and no name to print.
+            return null;
+        }
+        return ['name' => StorePageView::name($store), 'url' => self::url($vendorUserId)];
+    }
+
     private static function render(ContainerInterface $container): void
     {
         $vendorUserId = (int) get_query_var(self::QUERY_VAR);

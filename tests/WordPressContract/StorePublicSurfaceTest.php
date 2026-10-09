@@ -3,14 +3,18 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Tests\WordPressContract;
 
+use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicantDetails;
 use Tecteb\Marketplace\Modules\Vendor\Domain\ApplicationStatus;
+use Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings;
 use Tecteb\Marketplace\Modules\Vendor\Domain\VendorApplication;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\DokanUrlRedirects;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StorePage;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StorePageCache;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StoreSitemapProvider;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StoreThemeRenderer;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\StorePageView;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use TmcWpStubs\RedirectedException;
 use TmcWpStubs\State;
@@ -291,6 +295,98 @@ final class StorePublicSurfaceTest extends ContractTestCase
         $this->bootWithVendor(ApplicationStatus::Approved, 'daroukhane');
         $this->request404('/store/somebody-elses-shop/');
         self::assertSame([], State::$redirects);
+    }
+
+    // ------------------------------------------- the shop a shopper is shown
+
+    /**
+     * §5: the shop's name on a product page is the APPROVED shop name, and it
+     * comes with a URL that is not a 404.
+     *
+     * `publicShop()` returns the pair together on purpose. Until `alpha.41`
+     * the product page printed `get_userdata()->display_name` — the person's
+     * WordPress account name, set at registration and nothing to do with the
+     * shop — and linked unconditionally, so the two halves could each be
+     * wrong on their own.
+     */
+    public function testAnApprovedShopIsNamedByItsShopNameAndLinkedToItsOwnPage(): void
+    {
+        $this->bootWithVendor(ApplicationStatus::Approved, 'daroukhane');
+        $this->giveStore(new StoreSettings(storeName: 'داروخانهٔ مرکزی'));
+
+        $shop = StorePage::publicShop(Bootstrap::container(), self::VENDOR_ID);
+
+        self::assertNotNull($shop);
+        self::assertSame('داروخانهٔ مرکزی', $shop['name'], 'the shop name, not the account name');
+        self::assertStringContainsString(StorePage::QUERY_VAR . '=' . self::VENDOR_ID, $shop['url']);
+        self::assertSame(StorePage::url(self::VENDOR_ID), $shop['url'], 'built by the one URL builder');
+    }
+
+    /**
+     * The two states `render()` answers with a 404, asked of the thing that
+     * decides whether to print a link.
+     *
+     * The second one is the `alpha.17` finding: approved is necessary and not
+     * sufficient — a shop with no settings row has no page either, and that is
+     * what put two 404s in the sitemap.
+     */
+    public function testAShopWithNoPublicPageOffersNoLinkAndNoName(): void
+    {
+        foreach ([ApplicationStatus::Submitted, ApplicationStatus::ChangesRequested, ApplicationStatus::InReview, ApplicationStatus::Rejected, ApplicationStatus::Suspended] as $status) {
+            $this->bootWithVendor($status, 'daroukhane');
+            $this->giveStore(new StoreSettings(storeName: 'داروخانهٔ مرکزی'));
+            self::assertNull(
+                StorePage::publicShop(Bootstrap::container(), self::VENDOR_ID),
+                $status->value . ' has no public page, so it has no link'
+            );
+        }
+
+        $this->bootWithVendor(ApplicationStatus::Approved, 'daroukhane');
+        $this->giveStore(null);
+        self::assertNull(
+            StorePage::publicShop(Bootstrap::container(), self::VENDOR_ID),
+            'approved is necessary and not sufficient: no settings row is a 404 too'
+        );
+    }
+
+    /** A made-up id, and the zero a missing product would hand over. */
+    public function testAnIdNobodyOwnsIsNotLookedUpAndGetsNothing(): void
+    {
+        $this->bootWithVendor(ApplicationStatus::Approved, 'daroukhane');
+        $this->giveStore(new StoreSettings(storeName: 'داروخانهٔ مرکزی'));
+
+        self::assertNull(StorePage::publicShop(Bootstrap::container(), 999999));
+        self::assertNull(StorePage::publicShop(Bootstrap::container(), 0));
+    }
+
+    /**
+     * An approved shop whose name was never seeded still gets a link, with the
+     * same fallback the page titles itself with.
+     *
+     * «نبود دادهٔ فروشگاه نباید لینک شکسته بسازد» cuts both ways: the page is
+     * there, so withholding the link would hide a real page — and inventing a
+     * name would be worse than the generic one the page itself uses.
+     */
+    public function testAShopWithNoNameYetIsStillLinkedUnderThePagesOwnFallback(): void
+    {
+        $this->bootWithVendor(ApplicationStatus::Approved, 'daroukhane');
+        $this->giveStore(new StoreSettings());
+
+        $shop = StorePage::publicShop(Bootstrap::container(), self::VENDOR_ID);
+
+        self::assertNotNull($shop);
+        self::assertSame(StorePageView::name(new StoreSettings()), $shop['name']);
+        self::assertNotSame('', $shop['name'], 'a link with no text is not a link');
+    }
+
+    /** Binds a store settings row for the one vendor, or none at all. */
+    private function giveStore(?StoreSettings $settings): void
+    {
+        $stores = $this->createStub(StoreRepositoryInterface::class);
+        $stores->method('find')->willReturnCallback(
+            static fn (int $userId): ?StoreSettings => $userId === self::VENDOR_ID ? $settings : null
+        );
+        Bootstrap::container()->bind(StoreRepositoryInterface::class, static fn () => $stores);
     }
 
     /** Boots the plugin with exactly one vendor, in the status given. */

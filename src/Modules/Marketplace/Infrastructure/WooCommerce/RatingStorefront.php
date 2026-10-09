@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Modules\Marketplace\Domain\VendorRating;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\ReviewMessages;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StorePage;
 
 /**
@@ -39,6 +40,23 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\StorePage;
 final class RatingStorefront
 {
     public const ACTION = 'tmc_rate_vendor';
+
+    /**
+     * The shop box, for a product page this plugin cannot hook into.
+     *
+     * `woocommerce_single_product_summary` is a WooCommerce TEMPLATE hook: it
+     * fires from `content-single-product.php`. A theme that builds its product
+     * page out of widgets — Elementor, JetWooBuilder — renders its own layout
+     * and never calls it, so the hook below runs on no such site and the shop
+     * box is simply absent. That is a placement problem, not a missing
+     * feature, and the owner cannot fix a placement from PHP.
+     *
+     * So the same markup is also a shortcode, to drop into a widget. One
+     * renderer, so the hooked and the placed version cannot disagree. It
+     * prints nothing at all off a marketplace product, exactly as the hook
+     * does.
+     */
+    public const SHORTCODE = 'tmc_vendor_box';
     public const NONCE_FIELD = 'tmc_rating_nonce';
     public const NOTICE_ARG = 'tmc_rating';
 
@@ -55,6 +73,9 @@ final class RatingStorefront
         add_action('woocommerce_single_product_summary', static function () use ($container): void {
             echo self::vendorStanding($container);         // phpcs:ignore WordPress.Security.EscapeOutput
         }, 26);
+        add_shortcode(self::SHORTCODE, static function () use ($container): string {
+            return self::vendorStanding($container);
+        });
     }
 
     private static function handle(ContainerInterface $container): void
@@ -115,7 +136,7 @@ final class RatingStorefront
                 continue;
             }
             $anything = true;
-            $html .= self::form($line->id, (string) $line->title, self::shopName($line->vendorUserId));
+            $html .= self::form($line->id, (string) $line->title, self::shopName($container, $line->vendorUserId));
         }
         if (!$anything) {
             $html .= '<p>' . esc_html__('برای کالاهای این سفارش امتیاز ثبت شده است. امتیاز هر خرید یک‌بار ثبت می‌شود.', 'tecteb-marketplace-core') . '</p>';
@@ -166,46 +187,74 @@ final class RatingStorefront
         }
         $product = $container->get(ProductRepositoryInterface::class)->findByWcProduct($productId);
         if ($product === null) {
-            // Somebody else's product. Nothing is added, nothing is read.
+            // Somebody else's product — the shop's own, or a Dokan vendor's.
+            // Nothing is added, nothing is read, nothing of theirs is touched.
             return '';
         }
+        // The shop's name and its page, from the one place that knows whether
+        // there IS a page. Until `alpha.41` this printed `display_name` — the
+        // WordPress account's name, not the shop's — and linked
+        // unconditionally, so a suspended or unseeded shop got a line with the
+        // wrong name pointing at a 404.
+        $shop = StorePage::publicShop($container, $product->vendorUserId);
         $standing = $container->get(ManageReviews::class)->standing($product->vendorUserId);
-        if ($standing['vendor']['count'] <= 0) {
-            // No score yet — but the shop still has a page, and a shopper
-            // still wants to see who they are buying from.
-            return '<p class="tmc-vendor-standing"><a href="'
-                . esc_url(StorePage::url($product->vendorUserId)) . '">'
-                . esc_html(sprintf(
-                    /* translators: %s: the shop's name */
-                    __('صفحهٔ فروشگاه %s', 'tecteb-marketplace-core'),
-                    self::shopName($product->vendorUserId)
-                ))
-                . '</a></p>';
-        }
-        // The shop's name links to its public page. Without this the page
-        // built for A.5 would exist and be reachable by nobody: a shopper has
-        // no way to guess a query var, and there is no menu on a storefront.
-        return '<p class="tmc-vendor-standing">'
-            . esc_html(sprintf(
+        $score = $standing['vendor']['count'] > 0
+            ? esc_html(sprintf(
                 /* translators: 1: the shop's star average, 2: how many ratings */
                 __('امتیاز فروشگاه: %1$s از ۵ (%2$s)', 'tecteb-marketplace-core'),
                 ReviewMessages::stars($standing['vendor']['average_hundredths']),
                 ReviewMessages::count($standing['vendor']['count'])
             ))
-            . ' <a class="tmc-vendor-standing__link" href="'
-            . esc_url(StorePage::url($product->vendorUserId)) . '">'
+            : '';
+
+        if ($shop === null) {
+            // No public page. The score, if there is one, is still true and is
+            // still shown — but no link is printed, because a link to a 404 is
+            // worse than no link, and no name is invented.
+            return $score === '' ? '' : '<p class="tmc-vendor-standing">' . $score
+                . ' <span class="tmc-vendor-standing__note">'
+                . esc_html__('(جدا از امتیاز خود کالا)', 'tecteb-marketplace-core')
+                . '</span></p>';
+        }
+
+        // The shop's name links to its public page. Without this the page
+        // built for A.5 would exist and be reachable by nobody: a shopper has
+        // no way to guess a query var, and there is no menu on a storefront.
+        $link = '<a class="tmc-vendor-standing__link" href="' . esc_url($shop['url']) . '">'
             . esc_html(sprintf(
                 /* translators: %s: the shop's name */
                 __('صفحهٔ فروشگاه %s', 'tecteb-marketplace-core'),
-                self::shopName($product->vendorUserId)
+                $shop['name']
             ))
-            . '</a> <span class="tmc-vendor-standing__note">'
+            . '</a>';
+        if ($score === '') {
+            // No score yet — but the shop still has a page, and a shopper
+            // still wants to see who they are buying from.
+            return '<p class="tmc-vendor-standing">' . $link . '</p>';
+        }
+        return '<p class="tmc-vendor-standing">' . $score . ' ' . $link
+            . ' <span class="tmc-vendor-standing__note">'
             . esc_html__('(جدا از امتیاز خود کالا)', 'tecteb-marketplace-core')
             . '</span></p>';
     }
 
-    private static function shopName(int $vendorUserId): string
+    /**
+     * The shop's name for the «حساب من» form, which is about a purchase that
+     * already happened.
+     *
+     * `publicShop()` is not the right question here: a shopper who bought from
+     * a shop that has since been suspended still rates that purchase, and
+     * refusing to name it would make the form unanswerable. So the settings
+     * row is read directly and the account's `display_name` is the LAST
+     * resort — it is the person's name, not the shop's, and until `alpha.41`
+     * it was the only thing printed.
+     */
+    private static function shopName(ContainerInterface $container, int $vendorUserId): string
     {
+        $store = $container->get(StoreRepositoryInterface::class)->find($vendorUserId);
+        if ($store !== null && $store->storeName !== '') {
+            return $store->storeName;
+        }
         $user = get_userdata($vendorUserId);
         return $user ? (string) $user->display_name : (string) $vendorUserId;
     }
