@@ -1,0 +1,3 @@
+earned=0
+unrecorded=1
+probe=ran

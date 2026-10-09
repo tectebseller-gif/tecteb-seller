@@ -1,0 +1,4 @@
+repair_ok=no
+share_after=440000
+event_after=empty
+probe=ran

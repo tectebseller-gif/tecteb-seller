@@ -1,0 +1,66 @@
+new package: 0.1.0-alpha.40 (target schema 22) · step 0022_vendor_money_unit · table tmc_vendor_money_unit
+ok:   the admin session really opened                                200
+
+================================================================
+=== 0.1.0-alpha.39 (schema 21) -> 0.1.0-alpha.40 (schema 22) · structural=yes
+================================================================
+ok:   1 the install is 0.1.0-alpha.39                                0.1.0-alpha.39
+ok:   1b on schema 21                                                21
+ok:   1c the units table is absent                                   0
+ok:   1d and the old build serves wp-admin                           200
+  WordPress database error Duplicate entry 'unitfix:single:1-central_payment' for key 'tmc_ledger_event' for query INSERT INTO `wp_tmc_ledger_entries`
+                (event_key, vendor_user_id, account, amount_minor, currency, exponent, order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
+                VALUES ('unitfix:single:1', 7701, 'central_payment', 1000000, 'IRT', 0, 'order:7701', '7701', 'item_paid', NULL, '', '2026-10-09 10:54:50'), ('unitfix:single:1', 7701, 'vendor_earning', -1000000, 'IRT', 0, 'order:7701', '7701', 'vendor_earned', NULL, '', '2026-10-09 10:54:50') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, EvalFile_Command::{closure:phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code:65}, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+WordPress database error Duplicate entry 'unitfix:single:2-central_payment' for key 'tmc_ledger_event' for query INSERT INTO `wp_tmc_ledger_entries`
+                (event_key, vendor_user_id, account, amount_minor, currency, exponent, order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
+                VALUES ('unitfix:single:2', 7701, 'central_payment', 2000000, 'IRT', 0, 'order:7701', '7701', 'item_paid', NULL, '', '2026-10-09 10:54:50'), ('unitfix:single:2', 7701, 'vendor_earning', -2000000, 'IRT', 0, 'order:7701', '7701', 'vendor_earned', NULL, '', '2026-10-09 10:54:50') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, EvalFile_Command::{closure:phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code:65}, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+WordPress database error Duplicate entry 'unitfix:mixed:1-central_payment' for key 'tmc_ledger_event' for query INSERT INTO `wp_tmc_ledger_entries`
+                (event_key, vendor_user_id, account, amount_minor, currency, exponent, order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
+                VALUES ('unitfix:mixed:1', 7702, 'central_payment', 1000000, 'IRT', 0, 'order:7702', '7702', 'item_paid', NULL, '', '2026-10-09 10:54:50'), ('unitfix:mixed:1', 7702, 'vendor_earning', -1000000, 'IRT', 0, 'order:7702', '7702', 'vendor_earned', NULL, '', '2026-10-09 10:54:50') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, EvalFile_Command::{closure:phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code:65}, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+WordPress database error Duplicate entry 'unitfix:mixed:2-central_payment' for key 'tmc_ledger_event' for query INSERT INTO `wp_tmc_ledger_entries`
+                (event_key, vendor_user_id, account, amount_minor, currency, exponent, order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
+                VALUES ('unitfix:mixed:2', 7702, 'central_payment', 5000, 'USD', 2, 'order:7702', '7702', 'item_paid', NULL, '', '2026-10-09 10:54:50'), ('unitfix:mixed:2', 7702, 'vendor_earning', -5000, 'USD', 2, 'order:7702', '7702', 'vendor_earned', NULL, '', '2026-10-09 10:54:50') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, EvalFile_Command::{closure:phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code:65}, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+seeded single=7701 mixed=7702 single_units=1 mixed_units=2
+ok:   2 the old build wrote one vendor with ONE unit                 1
+ok:   2b and one vendor whose books already hold TWO                 2
+ok:   2c the old build has nowhere to record a unit                  0
+ok:   3 the files are 0.1.0-alpha.40                                 0.1.0-alpha.40
+ok:   3b and replacing files ran no migration at all                 21
+ok:   3c the table is still absent                                   0
+ok:   4 one wp-admin request is served                               200
+ok:   4b the schema is 22 (the gate moved it)                        22
+ok:   4c the units table exists                                      1
+ok:   4d keyed on the vendor, so two first writers cannot both win   vendor_user_id
+ok:   4e with the five columns verify() names                        created_at,currency,exponent,source_event,vendor_user_id
+ok:   4f no migration error was recorded                             
+ok:   4g the single-unit vendor got the unit their books prove       IRT/0
+ok:   4h stamped as coming from the backfill, not from a sale        migration:0022
+ok:   4i and the MIXED vendor got NO row: no winner was picked       0
+  seeded 1 row(s) from a ledger holding 2 vendor(s)
+  mixed_listed=7702 single_claim=agreed mixed_claim=books_mixed rows=1
+ok:   5 the mixed vendor is named in the report a manager reads      1
+ok:   5b and a new accrual for them is refused by name               books_mixed
+ok:   5c while the single-unit vendor can still record               agreed
+ok:   6 a malformed table of the same name is in the way             1
+ok:   6b the admin request is still served                           200
+ok:   6c the schema did NOT move                                     21
+ok:   6d and the reason was recorded, naming the step                yes
+ok:   6e the next request is served                                  200
+ok:   6f and within the retry cooldown it does NOT retry             21
+ok:   6g with the failure still visible, not hidden                  yes
+ok:   6h then one request finishes the job                           200
+ok:   6i and the schema is 22                                        22
+ok:   6j with the single-unit vendor seeded exactly once             1
+ok:   6k the mixed vendor still has no row                           0
+ok:   6l and nothing left recorded as failed                         0
+ok:   7 the old package is back                                      0.1.0-alpha.39
+ok:   7b it serves wp-admin against the NEW table, with no database work 200
+ok:   7c and left the schema where it was: nothing downgrades it     22
+ok:   7d the new table is untouched by the old build                 1
+ok:   7e the old build does not read the table it cannot know about  1
+ok:   8 forward again, served                                        200
+ok:   8b the schema is still 22 and nothing ran twice                22
+ok:   8c the rows are the ones that were there                       1
+ok:   8d and the mixed vendor was not quietly decided in the meantime 0
+
+checks: 44   passed: 44   failed: 0

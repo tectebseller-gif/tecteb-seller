@@ -1,0 +1,9 @@
+first_captured=0
+first_failed=1
+retry_captured=1
+retry_incomplete=0
+reasons=
+line_stored=yes
+stored_base=2000000
+stored_share=900000
+probe=ran
