@@ -63,6 +63,14 @@ final class DisposableOnlyToolsTest extends TestCase
         'get_users(', 'get_user_by(', 'get_post(', 'get_posts(',
         'wc_get_', 'wc_create_', 'wc_update_',
         '$wpdb', 'add_action(', 'do_action(', 'apply_filters(',
+        // `$GLOBALS['wpdb']` does NOT contain `$wpdb`, and that is not a
+        // nitpick: `description-state.php` reaches the database through
+        // exactly that spelling, and this list waved it through as «touches no
+        // WordPress» — which would have put a tool that WRITES product rows on
+        // the exemption list, under a reason that was false. `home_url(` is
+        // here for the same reason: a tool can read the site without naming
+        // `$wpdb` at all.
+        "\$GLOBALS['wpdb']", 'home_url(', 'current_time(',
     ];
 
     /**
