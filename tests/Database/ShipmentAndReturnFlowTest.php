@@ -672,6 +672,223 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
     // --- helpers ------------------------------------------------------------
 
     /** Publishes a product, sells `$quantity` of it, returns our line id. */
+    /**
+     * WHAT THIS PROVES: the LEDGER reversal is written in the unit the sale
+     * was recorded in — for every unit, and without the caller saying so.
+     *
+     * **The defect.** `alpha.39` read the unit off the accrual for the
+     * WooCommerce record and left `refund()` itself with
+     * `string $currency = 'IRR', int $exponent = 0` as DEFAULT PARAMETERS
+     * which `ReturnsPage` — its only caller — never passed. So on a site whose
+     * orders are `IRT` or `USD`, every reversal line went into the books as
+     * `IRR`/0: a reversal that balances arithmetically and describes a
+     * different currency from the sale it undoes. `balances()` could not catch
+     * it, because all four reversal lines shared the wrong unit.
+     *
+     * Three units, one per run of this data provider, each asserted against
+     * the accrual's own unit rather than against a constant — so the test
+     * cannot drift to agreeing with a new wrong default.
+     *
+     * @dataProvider recordedUnits
+     */
+    public function testTheLedgerReversalCarriesTheUnitOfTheSaleItUndoes(
+        string $currency,
+        int $exponent,
+        int $totalMinor,
+        int $taxMinor
+    ): void {
+        $sold = $this->sellIn($currency, $exponent, 1, $totalMinor, $taxMinor);
+        $item = $this->orderItems->find($sold['item']);
+        self::assertNotNull($item);
+        self::assertSame(
+            [$currency . '/' . $exponent],
+            $this->unitsOfEvent($item->ledgerEvent),
+            'the fixture must have recorded the sale in exactly this unit'
+        );
+
+        $returnId = $this->receivedReturn($sold['item'], 1);
+        self::assertTrue($this->returns->refund(self::MANAGER, $returnId)->ok);
+
+        // The reversal, asked of the ledger itself.
+        $reversal = $this->ledger->forEvent('return:' . $sold['item'] . ':' . $returnId);
+        self::assertCount(4, $reversal, 'four lines reverse four lines');
+        self::assertSame(
+            [$currency . '/' . $exponent],
+            $this->unitsOfEvent('return:' . $sold['item'] . ':' . $returnId),
+            'and every one of them is in the unit of the sale'
+        );
+
+        // And the vendor's books hold ONE unit afterwards, which is the point:
+        // a mixed ledger is a balance nobody can add up.
+        $booked = [];
+        foreach ($this->ledger->forVendor(self::VENDOR, 500) as $entry) {
+            $booked[$entry->amount->currency . '/' . $entry->amount->exponent] = true;
+        }
+        self::assertSame([$currency . '/' . $exponent], array_keys($booked));
+    }
+
+    /** @return array<string,array{0:string,1:int,2:int,3:int}> */
+    public static function recordedUnits(): array
+    {
+        return [
+            // تومان: no minor unit, so 110,000 IS one hundred and ten thousand.
+            'IRT/0' => ['IRT', 0, 100000, 10000],
+            // ریال: the same scale, a different code, and neither is ten or a
+            // hundred times the other as far as this plugin is concerned.
+            'IRR/0' => ['IRR', 0, 100000, 10000],
+            // A decimal currency, which is the case the IRR/0 default could
+            // never have been right for.
+            'USD/2' => ['USD', 2, 10050, 500],
+        ];
+    }
+
+    /**
+     * WHAT THIS PROVES: an accrual whose own lines disagree about the unit is
+     * refused by name, with NOTHING written.
+     *
+     * `alpha.39`'s `refundUnit()` read `forEvent()[0]` and stopped, so an
+     * event like this one answered «USD/2» and the other three lines were
+     * reversed in it. The read now covers every line, and this is the one
+     * state where no answer is the right answer: converting would need an
+     * exchange rate nobody recorded.
+     *
+     * The mixed row is written with SQL on purpose — no service produces this
+     * state, and the point is to MEET it rather than make it.
+     */
+    public function testAnAccrualWhoseLinesDisagreeAboutTheUnitIsRefused(): void
+    {
+        $sold = $this->sellIn('IRT', 0, 1, 100000, 10000);
+        $item = $this->orderItems->find($sold['item']);
+        self::assertNotNull($item);
+        $returnId = $this->receivedReturn($sold['item'], 1);
+
+        $ledgerTable = $this->wpdb->prefix . M0004CreateFinanceTables::LEDGER;
+        $one = (int) $this->wpdb->pdo()
+            ->query("SELECT MIN(id) FROM `{$ledgerTable}` WHERE event_key = '" . $item->ledgerEvent . "'")
+            ->fetchColumn();
+        $this->wpdb->pdo()->exec(
+            "UPDATE `{$ledgerTable}` SET currency = 'USD', exponent = 2 WHERE id = {$one}"
+        );
+        self::assertCount(2, $this->unitsOfEvent($item->ledgerEvent), 'the event is really mixed now');
+
+        $before = $this->shipments->findReturn($returnId);
+        $result = $this->returns->refund(self::MANAGER, $returnId);
+
+        self::assertFalse($result->ok);
+        self::assertSame('refund_unit_inconsistent', $result->code);
+        self::assertSame($sold['item'], (int) $result->context['item_id']);
+        self::assertSame($item->ledgerEvent, (string) $result->context['event_key']);
+
+        // NOTHING written: no reversal event, and the return exactly where it
+        // was. The unit is read before `recordReversal()` for this reason —
+        // a row with no ledger entry behind it is the state FIN-03 exists to
+        // prevent.
+        self::assertSame([], $this->ledger->forEvent('return:' . $sold['item'] . ':' . $returnId));
+        $after = $this->shipments->findReturn($returnId);
+        self::assertSame($before?->status, $after?->status);
+        self::assertSame($before?->reversalEventKey, $after?->reversalEventKey);
+    }
+
+    /**
+     * WHAT THIS PROVES: the amount AND the tax split handed to WooCommerce are
+     * the recorded figures in the recorded unit — for a decimal currency,
+     * where a wrong scale is visible in the string itself.
+     */
+    public function testTheWooCommerceArgumentsCarryTheAmountAndTheTaxInTheRecordedUnit(): void
+    {
+        // 100.50 of goods and 5.00 of tax, at exponent 2.
+        $sold = $this->sellIn('USD', 2, 1, 10050, 500);
+        $returnId = $this->receivedReturn($sold['item'], 1);
+        self::assertTrue($this->returns->refund(self::MANAGER, $returnId)->ok);
+
+        $request = $this->shipments->findReturn($returnId);
+        self::assertSame(10050, (int) $request?->refundMinor, 'the goods, in minor units');
+        self::assertSame(500, (int) $request?->taxRefundMinor, 'and the tax, separately');
+
+        $spy = new SpyRefundRecorder();
+        $result = $this->refundServiceWith($spy)->recordWooCommerceRefund(self::MANAGER, $returnId);
+
+        self::assertTrue($result->ok, $result->code);
+        self::assertCount(1, $spy->calls);
+        // 10050 + 500 = 10550 minor units at exponent 2 → «105.50».
+        self::assertSame('105.50', $spy->lastAmount(), 'goods plus tax, at the recorded scale');
+        self::assertNotSame('10550', $spy->lastAmount(), 'not the minor units as if they were major');
+        self::assertNotSame('105.5', $spy->lastAmount(), 'and the scale is carried, not trimmed');
+        self::assertSame($sold['order'], $spy->calls[0]['order']);
+        self::assertSame($sold['order_item'], $spy->calls[0]['item']);
+        self::assertSame(1, $spy->calls[0]['quantity']);
+        self::assertSame($returnId, $spy->calls[0]['return']);
+    }
+
+    /**
+     * WHAT THIS PROVES: `refund()` has no unit to pass, so no caller can
+     * change the historical unit from a form.
+     *
+     * «تنظیم فعلی فروشگاه یا ورودی caller نباید واحد تاریخی را عوض کند» — the
+     * strongest form of that is a method that cannot be told. Asserted by
+     * reflection rather than by reading the file, so a parameter added back
+     * with any name or default fails here.
+     */
+    public function testRefundCannotBeToldWhichUnitToUse(): void
+    {
+        $parameters = (new \ReflectionMethod(ManageReturns::class, 'refund'))->getParameters();
+        $names = array_map(static fn (\ReflectionParameter $p): string => $p->getName(), $parameters);
+        self::assertSame(['actorId', 'returnId', 'wcRefundId', 'note'], $names);
+        foreach ($parameters as $parameter) {
+            $type = (string) $parameter->getType();
+            self::assertStringNotContainsStringIgnoringCase(
+                'Money',
+                $type,
+                'the unit is read off the accrual, never handed in'
+            );
+        }
+    }
+
+    /**
+     * The same sale, in a unit this test chooses.
+     *
+     * `capture()` has taken the order's currency and exponent since
+     * `alpha.39`; this hands them over so a test can ask what a reversal of a
+     * `USD`/2 or `IRT`/0 sale is written in. One unit per test method, because
+     * `CaptureOrder` refuses a second unit in one vendor's books on purpose
+     * and each method gets a fresh schema.
+     *
+     * @return array{item:int, order:int, order_item:int}
+     */
+    private function sellIn(string $currency, int $exponent, int $quantity, int $totalMinor, int $taxMinor): array
+    {
+        static $seq = 0;
+        $seq++;
+        $productId = $this->publish('کالای واحد ' . $seq, 'UNIT-' . $seq);
+        $product = $this->products->find($productId);
+        $orderId = 7500 + $seq;
+        $orderItemId = 8500 + $seq;
+        $report = $this->capture->capture($orderId, [[
+            'order_item_id' => $orderItemId,
+            'wc_product_id' => (int) $product?->wcProductId,
+            'variation_id' => null,
+            'title' => (string) $product?->details->title,
+            'sku' => (string) $product?->details->sku,
+            'quantity' => $quantity,
+            'line_total_minor' => $totalMinor,
+            'line_tax_minor' => $taxMinor,
+        ]], $currency, $exponent);
+        self::assertSame(1, $report['captured'], 'reasons: ' . implode(',', $report['reasons']));
+        $line = $this->orderItems->findByOrderItem($orderItemId);
+        self::assertNotNull($line);
+        return ['item' => $line->id, 'order' => $orderId, 'order_item' => $orderItemId];
+    }
+
+    /** Every distinct unit the ledger holds for this event, as `CUR/exp`. */
+    private function unitsOfEvent(string $eventKey): array
+    {
+        $units = [];
+        foreach ($this->ledger->forEvent($eventKey) as $entry) {
+            $units[$entry->amount->currency . '/' . $entry->amount->exponent] = true;
+        }
+        return array_keys($units);
+    }
+
     private function sell(int $quantity, int $totalMinor, bool $expectRecorded = true): int
     {
         static $seq = 0;

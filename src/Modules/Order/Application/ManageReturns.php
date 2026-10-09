@@ -75,26 +75,75 @@ final class ManageReturns
     }
 
     /**
-     * The currency and exponent this line's money was RECORDED in.
+     * The accrual this reversal undoes: its line ids, and the unit its money
+     * was RECORDED in — from one read, and with every line required to agree.
      *
      * One source, and it is the ledger: `tmc_ledger` carries `currency` and
      * `exponent` on every row (migration 4), so the unit of an amount is
-     * stored beside the amount rather than inferred. A line with no ledger
-     * event — captured while no rate resolved, or imported — has no recorded
-     * unit, and this answers `null` so the caller refuses by name instead of
-     * assuming one.
+     * stored beside the amount rather than inferred.
      *
-     * @return array{currency:string, exponent:int}|null
+     * **Why every line, not the first.** `alpha.39` read the unit off
+     * `forEvent()[0]` for the WooCommerce record and left `refund()` itself on
+     * an `'IRR', 0` DEFAULT PARAMETER that `ReturnsPage` never passed. So the
+     * reversal written into the LEDGER — the half that decides what a vendor
+     * is owed — was in `IRR`/0 whatever the sale was in, and a first-line read
+     * would not have noticed an event whose own lines disagreed either. Both
+     * are closed here: `unit` is `null` when there is no event and `mixed` is
+     * true when the event's own lines do not agree, and the caller refuses by
+     * name before anything is written.
+     *
+     * @return array{lines:array<string,int>, unit:array{currency:string, exponent:int}|null, mixed:bool}
      */
-    private function refundUnit(VendorOrderItem $item): ?array
+    private function accrual(VendorOrderItem $item): array
     {
+        $lines = [];
+        $unit = null;
+        $mixed = false;
         if ($item->ledgerEvent === '') {
-            return null;
+            return ['lines' => $lines, 'unit' => null, 'mixed' => false];
         }
         foreach ($this->ledger->forEvent($item->ledgerEvent) as $entry) {
-            return ['currency' => $entry->amount->currency, 'exponent' => $entry->amount->exponent];
+            $lines[$entry->account->value] = $entry->id;
+            $here = ['currency' => $entry->amount->currency, 'exponent' => $entry->amount->exponent];
+            if ($unit === null) {
+                $unit = $here;
+                continue;
+            }
+            if ($unit !== $here) {
+                $mixed = true;
+            }
         }
-        return null;
+        return ['lines' => $lines, 'unit' => $unit, 'mixed' => $mixed];
+    }
+
+    /**
+     * The refusal an unusable accrual unit earns, or null when it is usable.
+     *
+     * Shared by both halves of a refund — the ledger reversal and the
+     * WooCommerce record — so the two cannot disagree about whether this
+     * line's unit is known. «دادهٔ قدیمی با حدس دوباره تفسیر نشود»: neither
+     * branch converts, defaults or falls back; they refuse and name the line.
+     *
+     * One context shape for both halves, so the two refusals a manager can
+     * meet do not name the same facts with different keys.
+     *
+     * @param array{lines:array<string,int>, unit:array{currency:string, exponent:int}|null, mixed:bool} $accrual
+     * @param array<string,mixed> $extra what the caller knows and this does not
+     */
+    private function unitRefusal(array $accrual, VendorOrderItem $item, array $extra = []): ?OperationResult
+    {
+        if ($accrual['unit'] !== null && !$accrual['mixed']) {
+            return null;
+        }
+        return OperationResult::failure(
+            $accrual['mixed'] ? 'refund_unit_inconsistent' : 'refund_unit_unknown',
+            array_merge([
+                'item_id' => $item->id,
+                'order_item_id' => $item->id,
+                'event_key' => $item->ledgerEvent,
+                'ledger_event' => $item->ledgerEvent,
+            ], $extra)
+        );
     }
 
     /** What is still returnable on this line: quantity − already claimed. */
@@ -229,13 +278,29 @@ final class ManageReturns
      *                             this column means one WooCommerce refund
      *                             cannot be recorded against two returns.
      */
+    /**
+     * Reverses the accrual in the ledger — in the unit the accrual was
+     * recorded in, which this method READS rather than takes.
+     *
+     * **What it used to take.** `alpha.39` gave this method
+     * `string $currency = 'IRR', int $exponent = 0`, and `ReturnsPage` — the
+     * only caller in the plugin — passed neither. So every reversal line this
+     * marketplace has ever written went into the books as `IRR`/0 regardless
+     * of what the sale was in, and a caller COULD have passed something else
+     * and overwritten the historical unit from a form. Both halves of that are
+     * gone: there is no parameter to pass, and the answer comes off the event
+     * being reversed.
+     *
+     * «پیش از هر نوشتن، وجود و سازگاری واحد خطوط اصلی بررسی شود»: the read and
+     * both checks happen BEFORE `recordReversal()`, so a line whose unit
+     * cannot be established leaves the return exactly as it was rather than
+     * stranded with a row and no ledger entry.
+     */
     public function refund(
         int $actorId,
         int $returnId,
         ?int $wcRefundId = null,
-        string $note = '',
-        string $currency = 'IRR',
-        int $exponent = 0
+        string $note = ''
     ): OperationResult {
         if ($this->capabilities === null || !$this->capabilities->can(Capabilities::REVIEW_WITHDRAWALS)) {
             return OperationResult::failure('forbidden');
@@ -270,6 +335,18 @@ final class ManageReturns
             return OperationResult::failure('nothing_recorded', ['item_id' => $item->id]);
         }
 
+        // THE UNIT, BEFORE ANY WRITE. One read of the accrual gives both the
+        // line ids this reversal will point at and the unit it must be
+        // written in; a missing or self-inconsistent event is refused here,
+        // with nothing written and the return left where it was.
+        $accrual = $this->accrual($item);
+        $refusal = $this->unitRefusal($accrual, $item, ['return_id' => $returnId]);
+        if ($refusal !== null) {
+            return $refusal;
+        }
+        /** @var array{currency:string, exponent:int} $unit */
+        $unit = $accrual['unit'];
+
         $share = $this->shareOf($item, $request);
         $eventKey = 'return:' . $item->id . ':' . $returnId;
         $now = $this->clock->now()->format('Y-m-d H:i:s');
@@ -291,15 +368,17 @@ final class ManageReturns
         }
 
         $account = $this->vendorSideAccount($item);
-        // The same currency and exponent the sale was recorded in: a reversal
-        // in a different unit would balance arithmetically and mean nothing.
-        $money = fn (int $minor): Money => Money::of($minor, $currency, $exponent);
+        // The same currency and exponent the sale was recorded in — read off
+        // the accrual above, not taken from a caller and not defaulted. A
+        // reversal in a different unit would balance arithmetically and mean
+        // nothing.
+        $money = fn (int $minor): Money => Money::of($minor, $unit['currency'], $unit['exponent']);
         // …and each line points at the accrual line it undoes, so the ledger
         // itself says «this reverses that» rather than leaving a reader to
         // match event keys by eye. The vendor-side line is the exception when
         // the share was already paid out: the debt it creates reverses
         // nothing that exists, it is a new obligation.
-        $original = $this->accrualLines($item);
+        $original = $accrual['lines'];
         $transaction = (new LedgerTransaction($eventKey, $item->vendorUserId, (string) $item->orderId, (string) $item->id))
             ->add(
                 LedgerAccount::CentralPayment,
@@ -452,18 +531,18 @@ final class ManageReturns
         // so the unit of a recorded amount is a fact on disk. A row whose unit
         // cannot be established is refused by name — «با واحد حدسی ثبت
         // نشود» — rather than converted on a hunch.
-        $unit = $this->refundUnit($item);
-        if ($unit === null) {
-            return OperationResult::failure('refund_unit_unknown', [
-                'return_id' => $returnId,
-                'order_item_id' => $item->id,
-                // What a person has to look at: the item carries no ledger
-                // event, so no recorded unit exists for it. Recording a refund
-                // for it needs the order re-captured, or the amount entered in
-                // WooCommerce by hand.
-                'ledger_event' => $item->ledgerEvent,
-            ]);
+        $accrual = $this->accrual($item);
+        $refusal = $this->unitRefusal($accrual, $item, ['return_id' => $returnId]);
+        if ($refusal !== null) {
+            // What a person has to look at is in the context: either the item
+            // carries no ledger event (so no recorded unit exists for it) or
+            // the event's own lines disagree about the unit. Recording a
+            // refund for it needs the order re-captured, or the amount
+            // entered in WooCommerce by hand.
+            return $refusal;
         }
+        /** @var array{currency:string, exponent:int} $unit */
+        $unit = $accrual['unit'];
         // Nullable on the row and non-null once refunded; coalesced anyway,
         // because a null here would silently become a zero-amount refund that
         // WooCommerce refuses with an exception instead of a sentence.
@@ -601,20 +680,6 @@ final class ManageReturns
             // zero, and B = C + V is the identity the sale was recorded with.
             'vendor_share' => $refund - $commissionBack,
         ];
-    }
-
-    /**
-     * The accrual's own lines, by account, so a reversal can name them.
-     *
-     * @return array<string,int> account value => ledger entry id
-     */
-    private function accrualLines(VendorOrderItem $item): array
-    {
-        $byAccount = [];
-        foreach ($this->ledger->forEvent($item->ledgerEvent) as $entry) {
-            $byAccount[$entry->account->value] = $entry->id;
-        }
-        return $byAccount;
     }
 
     /**

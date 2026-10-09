@@ -107,6 +107,19 @@ final class OrderMessages
             'nothing_recorded' => __('برای این قلم هیچ سهم مالی ثبت نشده بود (نرخ کمیسیون تعیین‌نشده)، پس چیزی برای معکوس‌کردن وجود ندارد.', 'tecteb-marketplace-core'),
             'ledger_already_recorded' => __('ردیف مرجوعی ثبت شد ولی دفترکل این رویداد را از قبل داشت. مرجوعی به وضعیت «نیازمند تطبیق» رفت و خودکار تکرار نمی‌شود؛ یک نفر باید این دو را بررسی کند.', 'tecteb-marketplace-core'),
             'unbalanced_reversal' => __('خطوط معکوس متوازن نشدند؛ چیزی در دفترکل ثبت نشد.', 'tecteb-marketplace-core'),
+            // The two unit refusals. Both are read BEFORE anything is written,
+            // so «چیزی ثبت نشد» is a statement of fact in each.
+            'refund_unit_unknown' => sprintf(
+                /* translators: 1: order item id */
+                __('واحد پولِ این قلم ثبت نشده است (قلم #%1$s هیچ رویداد مالی ندارد)، پس بازگشت با واحد حدسی ثبت نمی‌شود. چیزی ثبت نشد. برای رفعش سفارش باید دوباره ثبت شود، یا مبلغ در ووکامرس دستی وارد شود.', 'tecteb-marketplace-core'),
+                $fa((int) ($context['item_id'] ?? $context['order_item_id'] ?? 0))
+            ),
+            'refund_unit_inconsistent' => sprintf(
+                /* translators: 1: order item id, 2: ledger event key */
+                __('خطوط رویداد مالی این قلم (#%1$s، رویداد %2$s) واحد پول یکسانی ندارند، پس واحدِ بازگشت قابل تعیین نیست. چیزی ثبت نشد و هیچ تبدیلی انجام نمی‌شود؛ این ردیف‌ها باید دستی تطبیق شوند.', 'tecteb-marketplace-core'),
+                $fa((int) ($context['item_id'] ?? $context['order_item_id'] ?? 0)),
+                (string) ($context['event_key'] ?? '')
+            ),
             'order_item_cancelled_return' => __('روی قلمی که لغو شده، ارسال ثبت نمی‌شود.', 'tecteb-marketplace-core'),
             'order_item_delivered' => __('تحویل ثبت شد.', 'tecteb-marketplace-core'),
             'order_item_cancelled' => __('این قلم لغو شد. سهم مالی ثبت‌شده در دفترکل پاک نمی‌شود و تسویه‌اش جداگانه تعیین تکلیف می‌شود.', 'tecteb-marketplace-core'),
