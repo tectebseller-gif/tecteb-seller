@@ -1,0 +1,3 @@
+save_code=bad_tab
+city_after=تهران
+probe=ran

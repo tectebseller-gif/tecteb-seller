@@ -1,0 +1,4 @@
+field_exists=yes
+create_code=product_created
+stored_long=<p>متن کامل</p>
+probe=ran

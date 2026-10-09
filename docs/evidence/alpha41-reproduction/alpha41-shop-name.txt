@@ -1,0 +1,3 @@
+shop_name=داروخانهٔ probe
+reads_account_name=no
+probe=ran

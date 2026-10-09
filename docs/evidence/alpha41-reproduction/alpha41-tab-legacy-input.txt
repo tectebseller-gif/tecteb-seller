@@ -1,0 +1,5 @@
+save_code=bad_tab
+city_after=تهران
+intro_after=kept
+days_after=4
+probe=ran

@@ -1,0 +1,4 @@
+field_exists=no
+create_code=product_created
+stored_long=no-field
+probe=ran

@@ -1,0 +1,3 @@
+shop_name=رضا الف
+reads_account_name=yes
+probe=ran

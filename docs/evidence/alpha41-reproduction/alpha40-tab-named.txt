@@ -1,0 +1,6 @@
+save_code=store_saved
+days_after=9
+carriers_after=tipax
+social_after=empty
+city_after=تهران
+probe=ran

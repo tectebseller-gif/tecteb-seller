@@ -1,0 +1,4 @@
+code=product_created
+names_draft=yes
+products_after=1
+probe=ran
