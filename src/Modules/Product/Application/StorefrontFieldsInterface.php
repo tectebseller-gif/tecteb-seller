@@ -29,6 +29,16 @@ interface StorefrontFieldsInterface
     public function compare(Product $product): array;
 
     /**
+     * Why `compare()` answered with an empty list — or that it did not.
+     *
+     * One of `compared`, `not_projected`, `woocommerce_missing`, `not_ours`,
+     * `unreadable`. An empty comparison has four different causes and a screen
+     * that cannot tell them apart says «the two sides are identical» about all
+     * of them, which is what the review card did.
+     */
+    public function comparisonState(Product $product): string;
+
+    /**
      * The manager's WooCommerce value wins, permanently.
      *
      * @return string the value now on the storefront, so the caller can write

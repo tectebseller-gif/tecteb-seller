@@ -23,8 +23,43 @@ use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
  */
 final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
 {
+    public const STATE_COMPARED = 'compared';
+    public const STATE_NOT_PROJECTED = 'not_projected';
+    public const STATE_WOOCOMMERCE_MISSING = 'woocommerce_missing';
+    public const STATE_NOT_OURS = 'not_ours';
+    public const STATE_UNREADABLE = 'unreadable';
+
     public function __construct(private readonly WooCommerceProjector $projector)
     {
+    }
+
+    /**
+     * WHY the comparison came back empty — or that it did not.
+     *
+     * `compare()` answers `[]` for four situations that are not the same
+     * thing, and the review card read all four as «the two sides are
+     * identical»: there is no storefront product at all, WooCommerce is not
+     * loaded so the read cannot be done, the post belongs to somebody else,
+     * and the post is gone or unreadable. The owner saw the third sentence of
+     * the set — «اطلاعات بازارگاه و ووکامرس برای این محصول یکی است» — about a
+     * product whose WooCommerce copy still held the OLD short description.
+     *
+     * A screen cannot tell those apart from an empty list, so it asks.
+     */
+    public function comparisonState(Product $product): string
+    {
+        if (!$product->isProjected()) {
+            return self::STATE_NOT_PROJECTED;
+        }
+        if (!function_exists('wc_get_product')) {
+            return self::STATE_WOOCOMMERCE_MISSING;
+        }
+        if (!$this->projector->owns((int) $product->wcProductId, $product->id)) {
+            return self::STATE_NOT_OURS;
+        }
+        return wc_get_product((int) $product->wcProductId) instanceof \WC_Product
+            ? self::STATE_COMPARED
+            : self::STATE_UNREADABLE;
     }
 
     public function compare(Product $product): array

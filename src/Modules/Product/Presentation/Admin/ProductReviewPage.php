@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Product\Presentation\Admin;
 
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceStorefrontFields;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
@@ -526,7 +527,15 @@ final class ProductReviewPage
             $product->isProjected() && $storefront !== null
                 ? $storefront->viewLink((int) $product->wcProductId)
                 : ['url' => '', 'public' => false, 'reason' => 'missing'],
-            $hasPendingRevision
+            $hasPendingRevision,
+            // WHY the comparison is empty, when it is. An empty list has four
+            // causes and the card used to read all four as «the two sides are
+            // identical»; asked here because the view calls no adapter.
+            //
+            // With no reader at all the answer is `unreadable` rather than
+            // `compared`: a card that cannot ask has not established that the
+            // two sides agree.
+            $storefront?->comparisonState($product) ?? WooCommerceStorefrontFields::STATE_UNREADABLE
         );
     }
 

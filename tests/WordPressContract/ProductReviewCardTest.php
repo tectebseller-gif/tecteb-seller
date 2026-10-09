@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecField;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecFieldType;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecTemplate;
+use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontField;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\ProductReviewCardView;
 
@@ -454,6 +455,16 @@ final class ProductReviewCardTest extends TestCase
         self::assertSame(2, substr_count($html, 'name="field" value="'), 'and one pair per field as well');
     }
 
+    /**
+     * A settled product asks nothing — and is not described as identical.
+     *
+     * Rewritten in `alpha.41`. The old version asserted «یکی است» for a field
+     * set whose `description` holds «الف» on one side and «ب» on the other,
+     * which is the false claim §3 is about: the manager had SETTLED that
+     * difference, which is a third thing from «there is no difference» and
+     * from «there is a question». All three now have their own sentence, and
+     * the subject of this test — no table, no buttons — is unchanged.
+     */
     public function testASettledProductShowsNoOwnershipTableAtAll(): void
     {
         $settled = [
@@ -473,8 +484,122 @@ final class ProductReviewCardTest extends TestCase
             '',
             true
         );
-        self::assertStringContainsString('یکی است', $html);
+        self::assertStringContainsString('تعیین تکلیف کرده‌اید', $html, 'the settled difference is named as settled');
+        self::assertStringNotContainsString(
+            'اطلاعات بازارگاه و ووکامرس برای این محصول یکی است',
+            $html,
+            'and NOT as identical: «الف» and «ب» are not the same text'
+        );
         self::assertStringNotContainsString('فیلدهای بدون سابقه', $html);
         self::assertStringNotContainsString('value="keep"', $html, 'a decided field is not asked about again');
+    }
+
+    /** And when the two sides really do match, the claim is finally earned. */
+    public function testAProductWhoseFieldsAllMatchIsCalledIdentical(): void
+    {
+        $same = [
+            new StorefrontField('title', 'یکی', 'یکی', '', StorefrontField::OWNER_MARKETPLACE),
+            new StorefrontField('short_description', 'متن', 'متن', '', StorefrontField::OWNER_MARKETPLACE),
+        ];
+        $html = ProductReviewCardView::render(
+            $this->product(1234),
+            $this->images(),
+            'تجهیزات پزشکی',
+            null,
+            [],
+            $same,
+            '',
+            '',
+            '',
+            '',
+            true
+        );
+        self::assertStringContainsString('اطلاعات بازارگاه و ووکامرس برای این محصول یکی است', $html);
+    }
+
+    /**
+     * §3, the owner's own case: a vendor's edit waiting for approval.
+     *
+     * The marketplace record holds the new short description, WooCommerce
+     * still holds the old one, the verdict is `write` — it will be applied on
+     * approval — so there is nothing to DECIDE, and that is what the card
+     * used to read as «the two sides are identical».
+     */
+    public function testAnEditWaitingForApprovalIsNotReportedAsIdentical(): void
+    {
+        $pendingWrite = [
+            new StorefrontField('title', 'یکی', 'یکی', '', StorefrontField::OWNER_MARKETPLACE, true, false, false, FieldMerge::WRITE),
+            new StorefrontField(
+                'short_description',
+                'توضیح کوتاه تازه',
+                'توضیح کوتاه قبلی',
+                '',
+                StorefrontField::OWNER_MARKETPLACE,
+                true,
+                false,
+                false,
+                FieldMerge::WRITE
+            ),
+        ];
+        $html = ProductReviewCardView::render(
+            $this->product(12107),
+            $this->images(),
+            'تجهیزات پزشکی',
+            null,
+            [],
+            $pendingWrite,
+            '',
+            '',
+            '',
+            '',
+            true
+        );
+        self::assertStringNotContainsString(
+            'اطلاعات بازارگاه و ووکامرس برای این محصول یکی است',
+            $html,
+            'they are not identical; the shop still holds the previous text'
+        );
+        self::assertStringContainsString('منتظر تأیید است', $html);
+        self::assertStringContainsString('هنوز در ووکامرس اعمال نشده', $html);
+        self::assertStringContainsString('توضیح کوتاه', $html, 'and the field is named');
+    }
+
+    /**
+     * An empty comparison is «we do not know», and each reason says which.
+     *
+     * `compare()` answers `[]` for four different situations and the card read
+     * all four as «identical» — including a product with no WooCommerce post
+     * at all, and a read that failed.
+     */
+    public function testAnEmptyComparisonIsNeverReportedAsIdentical(): void
+    {
+        foreach ([
+            'woocommerce_missing' => 'ووکامرس در دسترس نیست',
+            'not_ours' => 'مال بازارگاه نیست',
+            'unreadable' => 'خوانده نشد',
+        ] as $state => $needle) {
+            $html = ProductReviewCardView::render(
+                $this->product(12107),
+                $this->images(),
+                'تجهیزات پزشکی',
+                null,
+                [],
+                [],
+                '',
+                '',
+                '',
+                '',
+                true,
+                ['url' => '', 'public' => false, 'reason' => 'missing'],
+                false,
+                $state
+            );
+            self::assertStringNotContainsString(
+                'اطلاعات بازارگاه و ووکامرس برای این محصول یکی است',
+                $html,
+                $state . ' must not claim the two sides are the same'
+            );
+            self::assertStringContainsString($needle, $html, $state . ' says which reason it was');
+        }
     }
 }

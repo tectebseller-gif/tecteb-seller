@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Tests\Support;
 
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceStorefrontFields;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
@@ -40,6 +41,21 @@ final class FakeStorefrontFields implements StorefrontFieldsInterface
 
     public function __construct(private readonly ProductRepositoryInterface $products)
     {
+    }
+
+    /**
+     * The same four answers the real reader gives, from the same source it
+     * reads: this fake's storefront map. A fake that always said «compared»
+     * would let the view's «no WooCommerce product» branch go untested.
+     */
+    public function comparisonState(Product $product): string
+    {
+        if (!$product->isProjected()) {
+            return WooCommerceStorefrontFields::STATE_NOT_PROJECTED;
+        }
+        return $this->storefrontValues($product) === []
+            ? WooCommerceStorefrontFields::STATE_UNREADABLE
+            : WooCommerceStorefrontFields::STATE_COMPARED;
     }
 
     public function compare(Product $product): array

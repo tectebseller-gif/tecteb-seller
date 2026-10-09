@@ -501,6 +501,37 @@ final class ProductAdminPagesTest extends DatabaseTestCase
      *
      * @param array<string,string> $query
      */
+    /**
+     * §3 at the PAGE level: a product with no readable WooCommerce copy is
+     * never described as identical to it.
+     *
+     * The view's own cases live in `ProductReviewCardTest`; this one proves the
+     * wiring — that `ProductReviewPage` asks `comparisonState()` and hands the
+     * answer down.
+     *
+     * **A CONTROL, not a reproduction, and it says so.** In this environment
+     * WooCommerce is absent, so the product is not projected and `alpha.40`
+     * already returned its «not in WooCommerce yet» branch before reaching the
+     * parity claim. This passes on both trees. The three empty-comparison
+     * cases that `alpha.40` really did get wrong need a PROJECTED product
+     * whose read fails, and those are measured in `ProductReviewCardTest`.
+     */
+    public function testAProductsPageNeverClaimsParityItCouldNotCheck(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+        $ids = $this->seedProducts(1, ProductStatus::Submitted);
+
+        $out = $this->render(['product' => (string) $ids[0]]);
+
+        self::assertStringContainsString('tmc-review--full', $out, 'the card really rendered');
+        self::assertStringNotContainsString(
+            'اطلاعات بازارگاه و ووکامرس برای این محصول یکی است',
+            $out,
+            'nothing compared the two sides, so nothing may claim they match'
+        );
+    }
+
     private function render(array $query = []): string
     {
         $_GET = ['page' => ProductReviewPage::SLUG, ...$query];

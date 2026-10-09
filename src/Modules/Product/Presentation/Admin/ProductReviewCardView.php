@@ -7,7 +7,9 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecTemplate;
+use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontField;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceStorefrontFields as Reader;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
 
 /**
@@ -65,7 +67,17 @@ final class ProductReviewCardView
          */
         array $viewLink = ['url' => '', 'public' => false, 'reason' => 'missing'],
         /** An unanswered proposal: what the shop shows is NOT what is proposed. */
-        bool $hasPendingRevision = false
+        bool $hasPendingRevision = false,
+        /**
+         * Why the comparison is empty, when it is — from
+         * `StorefrontFieldsInterface::comparisonState()`.
+         *
+         * The default is `compared`, which is the only value that lets the
+         * «the two sides are identical» sentence be printed at all; a caller
+         * that has not been told about this therefore cannot accidentally get
+         * a stronger claim than it has evidence for.
+         */
+        string $comparisonState = Reader::STATE_COMPARED
     ): string {
         $d = $product->details;
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
@@ -77,7 +89,7 @@ final class ProductReviewCardView
             . self::descriptions($d->shortDescription, $fullDescription)
             . self::facts($product, $categoryPath, $fa)
             . self::specs($product, $template)
-            . self::storefrontBlock($product, $storefront, $editorUrl, $seoPlugin, $nonceField, $woocommerceAvailable, $viewLink, $hasPendingRevision)
+            . self::storefrontBlock($product, $storefront, $editorUrl, $seoPlugin, $nonceField, $woocommerceAvailable, $viewLink, $hasPendingRevision, $comparisonState)
             . self::correctionForm($product, $categoryPath, $nonceField);
 
         return $html . '</article>';
@@ -217,7 +229,8 @@ final class ProductReviewCardView
         string $nonceField,
         bool $woocommerceAvailable,
         array $viewLink,
-        bool $hasPendingRevision
+        bool $hasPendingRevision,
+        string $comparisonState = Reader::STATE_COMPARED
     ): string {
         $html = '<div class="tmc-review__storefront"><h4>'
             . esc_html__('صفحهٔ محصول در ووکامرس', 'tecteb-marketplace-core') . '</h4>';
@@ -286,7 +299,7 @@ final class ProductReviewCardView
             static fn (StorefrontField $f): bool => !$f->isUnsettled() && $f->needsDecision()
         ));
         if ($unsettled === [] && $conflicts === []) {
-            return $html . '<p class="tmc-card__note">' . esc_html__('اطلاعات بازارگاه و ووکامرس برای این محصول یکی است.', 'tecteb-marketplace-core') . '</p></div>';
+            return $html . self::sameOrNot($fields, $comparisonState) . '</div>';
         }
         if ($unsettled !== []) {
             $html .= self::unsettledBlock($product, $unsettled, $nonceField);
@@ -360,7 +373,115 @@ final class ProductReviewCardView
      * The marketplace does not know whether the text in WooCommerce is its
      * own work or the manager's, because the version that projected this
      * product recorded nothing either way. It writes nothing until somebody
-     * says — and this block is where they say it, per field or in one go.
+    /**
+     * «The two sides are identical» — but only when they are.
+     *
+     * **The defect this replaces.** The sentence was printed whenever there
+     * was nothing for a manager to DECIDE, and those are two different
+     * questions. A vendor's edit that sits on the agreed baseline gets the
+     * verdict `write`: it will be applied when the manager approves, there is
+     * nothing to ask about, and until then the marketplace record holds the
+     * new text while WooCommerce still holds the old one. The owner read
+     * «یکی است» about exactly that — product 7, WooCommerce 12107, a new short
+     * description on the review page and the previous text in the shop — and
+     * after «تأیید و انتشار» the new text appeared, which is the proof it had
+     * never been applied.
+     *
+     * So the claim is made from an actual value comparison, and the four
+     * answers are kept apart:
+     *
+     *  - the comparison could not be made → say which reason, never «same»;
+     *  - every field's two sides match → «same», and now it is earned;
+     *  - they differ and every difference is queued → say it is WAITING for
+     *    approval and has not been applied;
+     *  - they differ for any other reason → name the fields, and do not
+     *    pretend the queue explains it.
+     *
+     * @param list<StorefrontField> $fields
+     */
+    private static function sameOrNot(array $fields, string $comparisonState): string
+    {
+        if ($comparisonState !== Reader::STATE_COMPARED || $fields === []) {
+            return Components::notice('warning', match ($comparisonState) {
+                Reader::STATE_NOT_PROJECTED => __('این محصول هنوز در ووکامرس ساخته نشده، پس مقایسه‌ای وجود ندارد.', 'tecteb-marketplace-core'),
+                Reader::STATE_WOOCOMMERCE_MISSING => __('ووکامرس در دسترس نیست، پس مقایسهٔ این محصول انجام نشد. این یعنی «نمی‌دانیم»، نه «یکی است».', 'tecteb-marketplace-core'),
+                Reader::STATE_NOT_OURS => __('نوشتهٔ ووکامرسی که به این محصول وصل است مال بازارگاه نیست، پس خوانده نشد و مقایسه‌ای انجام نشد.', 'tecteb-marketplace-core'),
+                default => __('نوشتهٔ این محصول در ووکامرس خوانده نشد، پس مقایسه انجام نشد. این یعنی «نمی‌دانیم»، نه «یکی است».', 'tecteb-marketplace-core'),
+            });
+        }
+
+        $differing = array_values(array_filter($fields, static fn (StorefrontField $f): bool => $f->differs()));
+        if ($differing === []) {
+            return '<p class="tmc-card__note">'
+                . esc_html__('اطلاعات بازارگاه و ووکامرس برای این محصول یکی است.', 'tecteb-marketplace-core')
+                . '</p>';
+        }
+
+        // A difference the manager has already SETTLED is not a new question
+        // and not identity either. `description` is the standing case: the
+        // projector builds that text, so the two sides go on differing after
+        // «نسخهٔ من بماند» for ever — and `alpha.27` added `decided` precisely
+        // so the screen would stop asking. Saying «یکی است» about it was the
+        // other error, in the opposite direction.
+        $live = array_values(array_filter($differing, static fn (StorefrontField $f): bool => !$f->decided));
+        if ($live === []) {
+            return '<p class="tmc-card__note">' . esc_html(sprintf(
+                /* translators: %s: field names */
+                __('در این فیلدها دو طرف یکی نیست و شما تعیین تکلیف کرده‌اید، پس بازارگاه رویشان نمی‌نویسد: %s. بقیهٔ فیلدها یکی‌اند.', 'tecteb-marketplace-core'),
+                self::fieldNames($differing)
+            )) . '</p>';
+        }
+
+        // Named, because «something differs» sends a manager hunting through
+        // five fields. `ProductMessages::storefrontField()` is the same label
+        // the ownership table uses, so the two blocks cannot disagree about
+        // what a field is called.
+        $names = self::fieldNames($live);
+        // Every differing field is queued to be written — which is the
+        // ordinary state of a submitted edit, so the sentence says so plainly
+        // rather than implying a problem.
+        $allQueued = array_reduce(
+            $live,
+            static fn (bool $carry, StorefrontField $f): bool => $carry && $f->verdict === FieldMerge::WRITE,
+            true
+        );
+        return Components::notice('info', $allQueued
+            ? sprintf(
+                /* translators: %s: field names */
+                __('تغییرات فروشنده در این فیلدها منتظر تأیید است و هنوز در ووکامرس اعمال نشده‌اند: %s. با «تأیید و انتشار» اعمال می‌شوند.', 'tecteb-marketplace-core'),
+                $names
+            )
+            : sprintf(
+                /* translators: %s: field names */
+                __('اطلاعات بازارگاه و ووکامرس در این فیلدها یکی نیست: %s. تا تأیید، آنچه خریدار می‌بیند نسخهٔ ووکامرس است.', 'tecteb-marketplace-core'),
+                $names
+            ));
+    }
+
+    /**
+     * Field keys as the Persian names the rest of the card uses.
+     *
+     * `ProductMessages::storefrontField()` and nothing local, so this block
+     * and the ownership table cannot come to disagree about what a field is
+     * called.
+     *
+     * @param list<StorefrontField> $fields
+     */
+    private static function fieldNames(array $fields): string
+    {
+        return implode('، ', array_map(
+            static fn (StorefrontField $f): string => ProductMessages::storefrontField($f->key),
+            $fields
+        ));
+    }
+
+    /**
+     * The fields nobody has claimed yet, and the two buttons that claim them.
+     *
+     * A product older than the ownership stamps has no history saying whether
+     * the marketplace wrote its current WooCommerce text or the manager did.
+     * Only a person can say — and this block is where they say it, per field
+     * or in one go.
      *
      * @param list<StorefrontField> $fields
      */
