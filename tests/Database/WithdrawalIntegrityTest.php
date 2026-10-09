@@ -253,18 +253,36 @@ final class WithdrawalIntegrityTest extends DatabaseTestCase
         self::assertSame('release_failed', $rejected->code);
         self::assertSame($withdrawalId, $rejected->context['withdrawal_id']);
 
-        // The status DID move — that write succeeded — and the lines are still
-        // held, which is exactly why the caller has to be told. A success
-        // message here would have hidden money inside a closed request.
-        self::assertSame(WithdrawalStatus::Rejected, $this->withdrawals->find($withdrawalId)?->status);
-        self::assertSame($withdrawalId, $this->itemRow($itemId)['withdrawal_id']);
-        self::assertSame(0, $this->balance->of(self::VENDOR)['eligible']);
+        // THE WHOLE THING WENT BACK, and this is what `alpha.40` changed.
+        //
+        // `alpha.39` let the status write stand and reported `release_failed`:
+        // a REJECTED request still holding the vendor's money, which is
+        // invisible to their eligible balance and invisible to any later
+        // release, because the next one looks for `withdrawal_id = <id>` and
+        // nothing else ever does. A true message about that state is not a
+        // fix. Now the status change and the release are one unit of work, so
+        // the request is still exactly where it was.
+        self::assertSame(
+            WithdrawalStatus::Reviewing,
+            $this->withdrawals->find($withdrawalId)?->status,
+            'the status change went back with the release'
+        );
+        self::assertSame($withdrawalId, $this->itemRow($itemId)['withdrawal_id'], 'the lines are still reserved');
+        self::assertSame([$itemId], $this->withdrawals->lineIds($withdrawalId));
+        self::assertSame(0, $this->balance->of(self::VENDOR)['eligible'], 'and still not askable');
+        self::assertNotNull($this->withdrawals->openFor(self::VENDOR), 'the request is still OPEN');
 
-        // And a person can finish it: the second release, on a working
-        // database, frees them.
-        self::assertTrue($this->withdrawals->release($withdrawalId));
+        // So the retry is a plain retry, on the real service and a working
+        // database — not a repair somebody has to know to perform.
+        $again = $this->review->reject($withdrawalId, 'مدارک ناقص');
+        self::assertTrue($again->ok, $again->code);
+        self::assertSame(WithdrawalStatus::Rejected, $this->withdrawals->find($withdrawalId)?->status);
         self::assertNull($this->itemRow($itemId)['withdrawal_id']);
+        self::assertSame([], $this->withdrawals->lineIds($withdrawalId));
         self::assertSame(900000, $this->balance->of(self::VENDOR)['eligible']);
+
+        // And nothing was left for the stranded-reservation report to find.
+        self::assertSame([], $this->withdrawals->strandedReservations());
     }
 
     public function testAFailedCancelReleaseIsReportedToTheVendor(): void
@@ -279,12 +297,89 @@ final class WithdrawalIntegrityTest extends DatabaseTestCase
 
         self::assertFalse($cancelled->ok);
         self::assertSame('release_failed', $cancelled->code);
-        self::assertSame(WithdrawalStatus::Cancelled->value, $cancelled->context['status']);
+        // The status it reports is where the request STILL IS, not where the
+        // cancel wanted to put it: nothing was committed.
+        self::assertSame(WithdrawalStatus::Requested->value, $cancelled->context['status']);
+        self::assertSame(
+            WithdrawalStatus::Requested,
+            $this->withdrawals->find($withdrawalId)?->status,
+            'the cancel went back whole'
+        );
         self::assertSame([$itemId], $this->withdrawals->lineIds($withdrawalId), 'the lines are still on the request');
+        self::assertNotNull($this->withdrawals->openFor(self::VENDOR), 'and the request is still open');
+        self::assertSame([], $this->withdrawals->strandedReservations(), 'nothing was stranded');
+
+        // The vendor tries again on a working database and it just works.
+        $retry = $this->request->cancel(self::VENDOR, self::VENDOR, $withdrawalId);
+        self::assertTrue($retry->ok, $retry->code);
+        self::assertSame(WithdrawalStatus::Cancelled, $this->withdrawals->find($withdrawalId)?->status);
+        self::assertNull($this->itemRow($itemId)['withdrawal_id']);
+        self::assertSame(900000, $this->balance->of(self::VENDOR)['eligible']);
+    }
+
+    public function testACancelWithNoUnitOfWorkIsRefusedRatherThanDoneInTwoHalves(): void
+    {
+        $itemId = $this->sold(220, 1000000, 900000);
+        $this->orders->recordSettlementCompletion($itemId, true);
+        $withdrawalId = (int) $this->request->handle(self::VENDOR, self::VENDOR)->context['withdrawal_id'];
+
+        // Constructed the way every caller before `alpha.40` constructed it.
+        $without = new RequestWithdrawal(
+            $this->withdrawals,
+            $this->balance,
+            new SettlementGate(new FakeTrialUnlock(true)),
+            $this->access,
+            $this->stores,
+            new WithdrawalStateMachine(),
+            $this->logger
+        );
+        $refused = $without->cancel(self::VENDOR, self::VENDOR, $withdrawalId);
+        self::assertFalse($refused->ok);
+        self::assertSame('cancel_not_atomic', $refused->code);
+        self::assertSame(WithdrawalStatus::Requested, $this->withdrawals->find($withdrawalId)?->status);
+        self::assertSame([$itemId], $this->withdrawals->lineIds($withdrawalId));
+    }
+
+    public function testARejectionWithNoUnitOfWorkIsRefusedRatherThanDoneInTwoHalves(): void
+    {
+        $itemId = $this->sold(221, 1000000, 900000);
+        $this->orders->recordSettlementCompletion($itemId, true);
+        $withdrawalId = (int) $this->request->handle(self::VENDOR, self::VENDOR)->context['withdrawal_id'];
+
+        $without = new ReviewWithdrawals(
+            $this->withdrawals,
+            $this->ledger,
+            new WithdrawalStateMachine(),
+            $this->logger,
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS])
+        );
+        self::assertTrue($without->startReview($withdrawalId)->ok, 'a one-row transition needs no unit of work');
+        $refused = $without->reject($withdrawalId, 'مدارک ناقص');
+        self::assertFalse($refused->ok);
+        self::assertSame('release_not_atomic', $refused->code);
+        self::assertSame(WithdrawalStatus::Reviewing, $this->withdrawals->find($withdrawalId)?->status);
+        self::assertSame([$itemId], $this->withdrawals->lineIds($withdrawalId));
     }
 
     // ---------------------------------------------------------------- §4
 
+    /**
+     * The owner's scenario, and it needs a SECOND CONNECTION now.
+     *
+     * `alpha.39` scheduled the manager's move with `InterferingDatabase`, in
+     * one process, on one connection — fine then, because the vendor's cancel
+     * was not transactional. It is one unit of work in `alpha.40`, and that
+     * changes what a same-connection interleaving can model: the manager's
+     * write would land INSIDE the vendor's open transaction, and the vendor's
+     * rollback would take it with it. A third party on your own connection is
+     * not a third party.
+     *
+     * So the manager moves the request from a process of its own
+     * (`tests/Support/concurrent-withdrawal.php`), launched at the named point
+     * and waited for, so its work is COMMITTED before the statement under
+     * test runs. Nothing sleeps. This is a scheduled two-connection
+     * interleaving and is not presented as two statements in one instant.
+     */
     public function testAVendorsStaleCancelCannotOverwriteAManagersNewerStatus(): void
     {
         $itemId = $this->sold(211, 1000000, 900000);
@@ -293,18 +388,22 @@ final class WithdrawalIntegrityTest extends DatabaseTestCase
         self::assertTrue($this->review->startReview($withdrawalId)->ok);
         self::assertTrue($this->review->approve($withdrawalId)->ok);
 
-        // The owner's scenario, scheduled rather than raced for: the vendor's
-        // cancel has read «Approved» and validated against it; the manager's
-        // move to «PaymentInProgress» lands in the gap before the vendor's
-        // UPDATE. The manager goes through a service on the plain gateway, so
-        // it cannot re-trigger the rule.
+        // The vendor's cancel has read «Approved» and validated against it.
+        // The manager's move to «PaymentInProgress» lands in the gap before
+        // the vendor's own UPDATE.
+        $child = null;
         $interfering = new InterferingDatabase($this->db);
-        $interfering->before(['UPDATE', 'tmc_withdrawals', 'SET status = %s'], 1, function (): void {
-            self::assertTrue($this->review->startPayment($this->openId())->ok);
+        $interfering->before(['UPDATE', 'tmc_withdrawals', 'SET status = %s'], 1, function () use (&$child, $withdrawalId): void {
+            $child = $this->secondConnection(
+                'move',
+                (string) $withdrawalId,
+                WithdrawalStatus::PaymentInProgress->value,
+                WithdrawalStatus::Approved->value
+            );
         });
 
         $cancelled = $this->requestOver($interfering)->cancel(self::VENDOR, self::VENDOR, $withdrawalId);
-        self::assertNotSame([], $interfering->fired, 'the interference has to have run');
+        self::assertSame('moved', $child, 'the other connection has to have moved it');
 
         self::assertFalse($cancelled->ok, 'the stale cancel must not win');
         self::assertSame('withdrawal_moved_on', $cancelled->code);
@@ -316,6 +415,43 @@ final class WithdrawalIntegrityTest extends DatabaseTestCase
         self::assertSame(WithdrawalStatus::PaymentInProgress, $this->withdrawals->find($withdrawalId)?->status);
         self::assertSame($withdrawalId, $this->itemRow($itemId)['withdrawal_id']);
         self::assertSame(0, $this->balance->of(self::VENDOR)['eligible']);
+        self::assertSame([], $this->withdrawals->strandedReservations(), 'and nothing was stranded');
+    }
+
+    public function testAStaleCancelCannotOverwriteAPaidRequestOrFreeItsLines(): void
+    {
+        $itemId = $this->sold(222, 1000000, 900000);
+        $this->orders->recordSettlementCompletion($itemId, true);
+        $withdrawalId = (int) $this->request->handle(self::VENDOR, self::VENDOR)->context['withdrawal_id'];
+        $this->review->startReview($withdrawalId);
+        $this->review->approve($withdrawalId);
+
+        // The vendor's page still reads «Approved». The transfer happens — on
+        // ANOTHER CONNECTION, because a payment is a status and a ledger
+        // document in one transaction, and doing it on this connection would
+        // put it inside the vendor's own unit of work for the vendor's
+        // rollback to undo. The first version of this test did exactly that
+        // and reported «Approved» for a request that had been paid.
+        $child = null;
+        $interfering = new InterferingDatabase($this->db);
+        $interfering->before(['UPDATE', 'tmc_withdrawals', 'SET status = %s'], 1, function () use (&$child, $withdrawalId): void {
+            $child = $this->secondConnection('pay', (string) $withdrawalId, 'TRACE-STALE');
+        });
+
+        $cancelled = $this->requestOver($interfering)->cancel(self::VENDOR, self::VENDOR, $withdrawalId);
+        self::assertSame('paid', $child, 'the payment has to have happened');
+
+        self::assertFalse($cancelled->ok, 'a paid request is not cancellable by a stale click');
+        self::assertSame('withdrawal_moved_on', $cancelled->code);
+        self::assertSame(WithdrawalStatus::Paid, $this->withdrawals->find($withdrawalId)?->status);
+        // Paid keeps its lines for ever: they are the record of what the
+        // payment covered, and «freed» would mean paying for them twice.
+        self::assertSame([$itemId], $this->withdrawals->lineIds($withdrawalId));
+        self::assertSame($withdrawalId, $this->itemRow($itemId)['withdrawal_id']);
+        self::assertSame(900000, $this->balance->of(self::VENDOR)['paid']);
+        self::assertSame(0, $this->balance->of(self::VENDOR)['eligible']);
+        // And a paid request is NOT a stranded reservation, by design.
+        self::assertSame([], $this->withdrawals->strandedReservations());
     }
 
     public function testTwoManagersCannotBothDecideTheSameRequest(): void
@@ -464,6 +600,114 @@ final class WithdrawalIntegrityTest extends DatabaseTestCase
         self::assertSame(WithdrawalStatus::PaymentInProgress, $this->withdrawals->find($withdrawalId)?->status);
     }
 
+    // -------------------------------- §2: the rows alpha.39 may have stranded
+
+    /**
+     * WHAT THIS PROVES: a closed request that still holds money is findable,
+     * and freeing it is a named act with three refusals in front of it.
+     *
+     * The state is built the way `alpha.39` built it — the status write
+     * standing while the release lost — which `alpha.40` cannot produce any
+     * more, so it is written with SQL. The point is to MEET it.
+     */
+    public function testAClosedRequestStillHoldingMoneyIsListedAndCanBeFreedOnPurpose(): void
+    {
+        $itemId = $this->sold(230, 1000000, 900000);
+        $this->orders->recordSettlementCompletion($itemId, true);
+        $withdrawalId = (int) $this->request->handle(self::VENDOR, self::VENDOR)->context['withdrawal_id'];
+        self::assertSame([], $this->withdrawals->strandedReservations(), 'an OPEN request is not stranded');
+
+        // `alpha.39`'s end state: rejected on paper, still holding the lines.
+        $table = $this->wpdb->prefix . 'tmc_withdrawals';
+        $this->wpdb->pdo()->exec(
+            "UPDATE `{$table}` SET status = 'rejected', open_marker = NULL WHERE id = {$withdrawalId}"
+        );
+
+        $stranded = $this->withdrawals->strandedReservations();
+        self::assertCount(1, $stranded);
+        self::assertSame($withdrawalId, $stranded[0]['withdrawal_id']);
+        self::assertSame(self::VENDOR, $stranded[0]['vendor_user_id']);
+        self::assertSame('rejected', $stranded[0]['status']);
+        self::assertSame(1, $stranded[0]['claimed_items']);
+        self::assertSame(1, $stranded[0]['reserve_lines']);
+        // The money really is invisible: not eligible, and not reported as
+        // reserved against anything a vendor can see finishing.
+        self::assertSame(0, $this->balance->of(self::VENDOR)['eligible']);
+
+        // A manager sees it, and somebody without the capability does not.
+        $report = $this->review->strandedReservations();
+        self::assertTrue($report['allowed']);
+        self::assertCount(1, $report['rows']);
+        self::assertFalse($this->reviewAs(0, [])->strandedReservations()['allowed']);
+
+        // Freed on purpose, by id.
+        $freed = $this->review->releaseStranded($withdrawalId);
+        self::assertTrue($freed->ok, $freed->code);
+        self::assertSame([], $this->withdrawals->strandedReservations());
+        self::assertNull($this->itemRow($itemId)['withdrawal_id']);
+        self::assertSame(900000, $this->balance->of(self::VENDOR)['eligible']);
+        // The DECISION is untouched: this repairs a reservation, it does not
+        // reopen a rejection.
+        self::assertSame(WithdrawalStatus::Rejected, $this->withdrawals->find($withdrawalId)?->status);
+    }
+
+    public function testTheOtherHalfOfTheStrandedShapeIsFoundToo(): void
+    {
+        // `alpha.39`'s `release()` had no transaction: the `DELETE` on the
+        // reserve lines could succeed while the `UPDATE` that unclaims the
+        // items failed. That leaves the money held with NO record of which
+        // request holds it — measured in `tools/alpha38-reproduction.sh` as
+        // `reserve_lines=0 claimed_items=1`. The report has to see that too.
+        $itemId = $this->sold(231, 1000000, 900000);
+        $this->orders->recordSettlementCompletion($itemId, true);
+        $withdrawalId = (int) $this->request->handle(self::VENDOR, self::VENDOR)->context['withdrawal_id'];
+
+        $requests = $this->wpdb->prefix . 'tmc_withdrawals';
+        $lines = $this->wpdb->prefix . 'tmc_withdrawal_lines';
+        $this->wpdb->pdo()->exec("UPDATE `{$requests}` SET status = 'cancelled', open_marker = NULL WHERE id = {$withdrawalId}");
+        $this->wpdb->pdo()->exec("DELETE FROM `{$lines}` WHERE withdrawal_id = {$withdrawalId}");
+
+        $stranded = $this->withdrawals->strandedReservations();
+        self::assertCount(1, $stranded);
+        self::assertSame(1, $stranded[0]['claimed_items']);
+        self::assertSame(0, $stranded[0]['reserve_lines'], 'the record of who holds it is gone');
+
+        self::assertTrue($this->review->releaseStranded($withdrawalId)->ok);
+        self::assertNull($this->itemRow($itemId)['withdrawal_id']);
+        self::assertSame(900000, $this->balance->of(self::VENDOR)['eligible']);
+    }
+
+    public function testFreeingAStrandedReservationRefusesAnOpenOrPaidRequest(): void
+    {
+        $itemId = $this->sold(232, 1000000, 900000);
+        $this->orders->recordSettlementCompletion($itemId, true);
+        $withdrawalId = (int) $this->request->handle(self::VENDOR, self::VENDOR)->context['withdrawal_id'];
+
+        // OPEN: its lines are reserved on purpose. Freeing them would leave an
+        // open request backed by nothing.
+        $open = $this->review->releaseStranded($withdrawalId);
+        self::assertFalse($open->ok);
+        self::assertSame('withdrawal_still_open', $open->code);
+        self::assertSame($withdrawalId, $this->itemRow($itemId)['withdrawal_id']);
+
+        // PAID: the lines are the record of what the payment covered, and
+        // freeing them would make the same money askable twice.
+        $this->review->startReview($withdrawalId);
+        $this->review->approve($withdrawalId);
+        $this->review->startPayment($withdrawalId);
+        self::assertTrue($this->review->recordPayment($withdrawalId, 'TRACE-S')->ok);
+
+        $paid = $this->review->releaseStranded($withdrawalId);
+        self::assertFalse($paid->ok);
+        self::assertSame('withdrawal_paid', $paid->code);
+        self::assertSame($withdrawalId, $this->itemRow($itemId)['withdrawal_id']);
+        self::assertSame(900000, $this->balance->of(self::VENDOR)['paid']);
+        self::assertSame(0, $this->balance->of(self::VENDOR)['eligible']);
+
+        // And a request nobody has is not freed either.
+        self::assertSame('not_found', $this->review->releaseStranded(999999)->code);
+    }
+
     // ------------------------------------------- two independent connections
 
     public function testASecondConnectionTakingTheRequestFirstGetsTheOnlyOne(): void
@@ -541,7 +785,24 @@ final class WithdrawalIntegrityTest extends DatabaseTestCase
             $this->access,
             $this->stores,
             new WithdrawalStateMachine(),
-            $this->logger
+            $this->logger,
+            // The same gateway as the unit of work: a cancel is the status
+            // change and the release together or neither, and a build without
+            // one refuses by name (`cancel_not_atomic`).
+            $db
+        );
+    }
+
+    /** @param list<string> $caps */
+    private function reviewAs(int $userId, array $caps): ReviewWithdrawals
+    {
+        return new ReviewWithdrawals(
+            $this->withdrawals,
+            $this->ledger,
+            new WithdrawalStateMachine(),
+            $this->logger,
+            new FakeCapabilityChecker($userId, $caps),
+            $this->db
         );
     }
 

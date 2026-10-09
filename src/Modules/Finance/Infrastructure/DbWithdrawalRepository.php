@@ -306,7 +306,11 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         if ($rows === null || $rows === 0) {
             return false;
         }
-        $this->figuresChanged((int) ($this->find($withdrawalId)?->vendorUserId ?? 0));
+        // Nested, the caller fires the hook after its own commit — the same
+        // rule as `release()`, and for the same reason.
+        if (!$this->db->inTransaction()) {
+            $this->figuresChanged((int) ($this->find($withdrawalId)?->vendorUserId ?? 0));
+        }
         return true;
     }
 
@@ -330,6 +334,15 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
             return false;
         }
         $vendorUserId = (int) ($this->find($withdrawalId)?->vendorUserId ?? 0);
+        // WHO FIRES THE CACHE HOOK depends on who owns the transaction.
+        //
+        // `alpha.39` let this method invalidate the report cache after its own
+        // `commit()`. Nested inside a caller's transaction that commit is a
+        // no-op — the gateway counts depth rather than saving savepoints — so
+        // the hook fired while the outer unit of work could still roll back,
+        // advertising a release that never happened. Nested, the caller fires
+        // it after ITS commit; standalone, this still does.
+        $nested = $this->db->inTransaction();
         if (!$this->db->begin()) {
             return false;
         }
@@ -353,10 +366,58 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
             $this->db->rollback();
             return false;
         }
-        if ($vendorUserId > 0) {
+        if (!$nested && $vendorUserId > 0) {
             $this->figuresChanged($vendorUserId);
         }
         return true;
+    }
+
+    /**
+     * Closed requests that still hold money — the detection half of §2's
+     * «درخواست‌های بسته با رزرو باقی‌ماندهٔ قدیمی قابل‌شناسایی باشند».
+     *
+     * `alpha.39` closed the status and released the lines as two separate
+     * writes, so a failed release left a request that is finished on paper
+     * with order items still pointing at it: invisible to the vendor's
+     * eligible balance, and invisible to any later release, because the next
+     * one looks for `withdrawal_id = <id>` and nothing else ever does.
+     * `alpha.40` cannot produce that state any more and cannot un-produce the
+     * rows already on disk either.
+     *
+     * A PAID request is deliberately NOT stranded: it keeps its lines for
+     * ever, because they are the record of what that payment covered. So the
+     * query asks for requests that are closed, not paid, and still hold
+     * something — and reports both halves separately, because the two tables
+     * can disagree (`alpha.39`'s `DELETE` succeeded while its `UPDATE`
+     * failed, which took the record of WHICH request holds the money and left
+     * the money held).
+     *
+     * @return list<array{withdrawal_id:int, vendor_user_id:int, status:string, amount_minor:int, claimed_items:int, reserve_lines:int}>
+     */
+    public function strandedReservations(int $limit = 200): array
+    {
+        $rows = $this->db->getResults(
+            'SELECT w.id, w.vendor_user_id, w.status, w.amount_minor,
+                    (SELECT COUNT(*) FROM `' . $this->orderItems() . '` i WHERE i.withdrawal_id = w.id) AS claimed_items,
+                    (SELECT COUNT(*) FROM `' . $this->lines() . '` l WHERE l.withdrawal_id = w.id) AS reserve_lines
+             FROM `' . $this->table() . '` w
+             WHERE w.open_marker IS NULL AND w.status <> %s
+               AND ((SELECT COUNT(*) FROM `' . $this->orderItems() . '` i2 WHERE i2.withdrawal_id = w.id) > 0
+                 OR (SELECT COUNT(*) FROM `' . $this->lines() . '` l2 WHERE l2.withdrawal_id = w.id) > 0)
+             ORDER BY w.id ASC LIMIT %d',
+            [WithdrawalStatus::Paid->value, max(1, min(1000, $limit))]
+        );
+        return array_map(
+            static fn (array $row): array => [
+                'withdrawal_id' => (int) $row['id'],
+                'vendor_user_id' => (int) $row['vendor_user_id'],
+                'status' => (string) $row['status'],
+                'amount_minor' => (int) $row['amount_minor'],
+                'claimed_items' => (int) $row['claimed_items'],
+                'reserve_lines' => (int) $row['reserve_lines'],
+            ],
+            $rows
+        );
     }
 
     /** @param list<int> $ids */
@@ -414,8 +475,16 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
      * rather than from the caller, which is the mistake `alpha.16` made with
      * the store page: forgetting before the save let a read land in between
      * and re-cache the stale answer under the new version.
+     *
+     * PUBLIC since `alpha.40`, for the one case the write cannot answer for
+     * itself: a service that wraps several writes in one transaction. There
+     * the inner commits are no-ops, so a write that invalidated the cache
+     * from inside would advertise an outcome the outer unit of work can still
+     * roll back. Those writes stay silent while nested and the service calls
+     * this once, after its own commit. Still not WordPress in Application:
+     * the hook is fired here, which is where it has always been.
      */
-    private function figuresChanged(int $vendorUserId): void
+    public function figuresChanged(int $vendorUserId): void
     {
         if ($vendorUserId > 0 && function_exists('do_action')) {
             do_action('tmc_vendor_figures_changed', $vendorUserId);

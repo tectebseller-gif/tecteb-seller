@@ -113,7 +113,10 @@ final class FinanceModule implements ModuleInterface
             $c->get(StaffAccess::class),
             $c->get(StoreRepositoryInterface::class),
             $c->get(WithdrawalStateMachine::class),
-            $c->get(AuditLogger::class)
+            $c->get(AuditLogger::class),
+            // The unit of work a cancel needs: the status change and the
+            // release of the reserved lines are one operation or neither.
+            $c->get(DatabaseInterface::class)
         ));
         $c->bind(ReviewWithdrawals::class, static fn (ContainerInterface $c) => new ReviewWithdrawals(
             $c->get(WithdrawalRepositoryInterface::class),

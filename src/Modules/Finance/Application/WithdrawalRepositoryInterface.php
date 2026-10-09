@@ -74,4 +74,31 @@ interface WithdrawalRepositoryInterface
 
     /** Frees the lines of a request that ended without a payment. */
     public function release(int $withdrawalId): bool;
+
+    /**
+     * Closed, unpaid requests that still hold money.
+     *
+     * The detection half of the atomic cancel: `alpha.39` wrote the status and
+     * the release separately, so a failed release left a finished request with
+     * order items still pointing at it — money invisible to the vendor's
+     * balance and to every later release. A remedy nobody can find is not a
+     * remedy, so the rows are listed with both counts, because the two tables
+     * can disagree.
+     *
+     * A Paid request is never stranded: it keeps its lines as the record of
+     * what the payment covered.
+     *
+     * @return list<array{withdrawal_id:int, vendor_user_id:int, status:string, amount_minor:int, claimed_items:int, reserve_lines:int}>
+     */
+    public function strandedReservations(int $limit = 200): array;
+
+    /**
+     * Tells a report cache this vendor's figures moved.
+     *
+     * Declared because a service that wraps several writes in one transaction
+     * has to fire it ONCE, after its own commit: the inner writes stay silent
+     * while nested, since their commits are no-ops and the outer unit of work
+     * can still roll back.
+     */
+    public function figuresChanged(int $vendorUserId): void;
 }

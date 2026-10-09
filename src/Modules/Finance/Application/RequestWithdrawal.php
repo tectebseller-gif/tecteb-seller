@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Finance\Application;
 
+use Tecteb\Marketplace\Contracts\TransactionInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStateMachine;
@@ -43,7 +44,20 @@ final class RequestWithdrawal
         private readonly StaffAccess $access,
         private readonly StoreRepositoryInterface $stores,
         private readonly WithdrawalStateMachine $states,
-        private readonly AuditLogger $audit
+        private readonly AuditLogger $audit,
+        /**
+         * The unit of work a cancel needs.
+         *
+         * `alpha.39` closed the status and released the lines as two separate
+         * writes and reported `release_failed` when the second one lost. That
+         * is a true sentence about money that is still reserved against a
+         * request nobody will finish — and a true sentence is not a fix. Both
+         * writes are one transaction now, and a build without a unit of work
+         * refuses rather than doing the pair unsafely, the same way
+         * `ReviewWithdrawals` refuses to record a payment it cannot make
+         * atomic. Optional so every existing construction site keeps working.
+         */
+        private readonly ?TransactionInterface $tx = null
     ) {
     }
 
@@ -127,6 +141,19 @@ final class RequestWithdrawal
             // freeing a reservation, and the vendor is not the one who decides.
             return OperationResult::failure('invalid_transition', ['from' => $withdrawal->status->value]);
         }
+        // ONE UNIT OF WORK: the status, the unclaim and the reserve lines.
+        //
+        // `alpha.39` did these as two independent writes and said
+        // `release_failed` when the second lost. True, and not a fix: the
+        // request was closed and the money still reserved against it, which is
+        // the exact shape «درخواست بسته با اقلام رزروشده» names. A build with
+        // no transaction available refuses instead of trying.
+        if ($this->tx === null) {
+            return OperationResult::failure('cancel_not_atomic', ['withdrawal_id' => $withdrawalId]);
+        }
+        if (!$this->tx->begin()) {
+            return OperationResult::failure('storage_failed', ['withdrawal_id' => $withdrawalId]);
+        }
         // The status this cancel was DECIDED about goes into the write.
         //
         // The owner's scenario, and it was open until `alpha.39`: the vendor's
@@ -136,7 +163,8 @@ final class RequestWithdrawal
         // on it — so the newer status was overwritten and its lines freed
         // while a transfer was being prepared. Now the row must still be in
         // the status this decision was made about, and when it is not the
-        // vendor is told to look again.
+        // vendor is told to look again. The guard survives the transaction:
+        // it is in the `WHERE`, not in a read beforehand.
         if (!$this->withdrawals->updateStatus(
             $withdrawalId,
             WithdrawalStatus::Cancelled,
@@ -145,25 +173,35 @@ final class RequestWithdrawal
             '',
             $withdrawal->status
         )) {
+            $this->tx->rollback();
             return OperationResult::failure('withdrawal_moved_on', [
                 'from' => $withdrawal->status->value,
                 // Read again, so the message names where it actually is now
-                // rather than where this request thought it was.
+                // rather than where this request thought it was. Read AFTER
+                // the rollback, so it reports the committed row.
                 'now' => $this->withdrawals->find($withdrawalId)?->status->value ?? '',
             ]);
         }
-        // CHECKED. A cancel whose lines were not freed is a cancel that left
-        // the money inside a request nobody will finish — and the vendor would
-        // have been told it succeeded.
+        // CHECKED, and inside the same unit of work: a release that fails now
+        // takes the status change with it, so there is no closed request
+        // holding money for anybody to find later.
         if (!$this->withdrawals->release($withdrawalId)) {
+            $this->tx->rollback();
             return OperationResult::failure('release_failed', [
                 'withdrawal_id' => $withdrawalId,
-                // Cancelled, and its lines still held: a person has to free
-                // them, and saying so is better than a success message that
-                // hides it.
-                'status' => WithdrawalStatus::Cancelled->value,
+                // Nothing changed: the request is still open and the vendor
+                // can try again once whatever failed is fixed.
+                'status' => $withdrawal->status->value,
             ]);
         }
+        if (!$this->tx->commit()) {
+            $this->tx->rollback();
+            return OperationResult::failure('storage_failed', ['withdrawal_id' => $withdrawalId]);
+        }
+        // AFTER the commit, both of them: an audit line about a rolled-back
+        // cancel is a false record, and a cache invalidated for one would
+        // advertise money that is still reserved.
+        $this->withdrawals->figuresChanged($vendorUserId);
         $this->audit->log(AuditEventCatalog::WITHDRAWAL_REVIEWED, $actorId, 'withdrawal', (string) $withdrawalId, [
             'vendor_id' => $vendorUserId,
             'withdrawal_id' => $withdrawalId,

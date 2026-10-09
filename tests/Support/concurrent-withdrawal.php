@@ -31,16 +31,30 @@ declare(strict_types=1);
  * Usage (from a database test):
  *   php tests/Support/concurrent-withdrawal.php reserve <vendor-id> <amount-minor> <item-id,...>
  *   php tests/Support/concurrent-withdrawal.php move <withdrawal-id> <to-status> <expected-status>
+ *   php tests/Support/concurrent-withdrawal.php pay <withdrawal-id> <reference>
  *
  * `reserve` prints the new withdrawal id, or `0` when it got nothing.
  * `move` prints `moved` or `refused`.
+ * `pay` walks the request to Paid through the REAL service — review, approve,
+ * start payment, record — and prints `paid` or the refusal code. It exists
+ * because `move` writes a status and a payment is a status AND a ledger
+ * document in one transaction; a test about a stale cancel meeting a PAID
+ * request needs the real pair, on a connection of its own.
  */
 
 require dirname(__DIR__) . '/bootstrap-contract.php';
 
+use Tecteb\Marketplace\Core\Audit\AuditEventSanitizer;
+use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\SystemClock;
+use Tecteb\Marketplace\Infrastructure\WordPress\WpAuditRepository;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
+use Tecteb\Marketplace\Modules\Finance\Application\ReviewWithdrawals;
+use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStateMachine;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStatus;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
+use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbWithdrawalRepository;
 use TmcWpStubs\State;
 
@@ -72,6 +86,35 @@ try {
             exit(1);
         }
         echo $withdrawals->reserve($vendorId, $ids, $amount, 'IR000000000000000000000000', 'دارندهٔ حساب');
+        exit(0);
+    }
+
+    if ($verb === 'pay') {
+        $withdrawalId = (int) ($argv[2] ?? 0);
+        $reference = (string) ($argv[3] ?? '');
+        if ($withdrawalId <= 0 || $reference === '') {
+            fwrite(STDERR, "usage: concurrent-withdrawal.php pay <withdrawal-id> <reference>\n");
+            exit(1);
+        }
+        $db = new WpDatabase($GLOBALS['wpdb']);
+        $clock = new SystemClock();
+        $review = new ReviewWithdrawals(
+            $withdrawals,
+            new DbLedgerRepository($db, $clock),
+            new WithdrawalStateMachine(),
+            new AuditLogger(new WpAuditRepository($GLOBALS['wpdb']), new AuditEventSanitizer(), $clock),
+            new FakeCapabilityChecker(9, [Capabilities::REVIEW_WITHDRAWALS]),
+            $db
+        );
+        foreach (['startReview', 'approve', 'startPayment'] as $step) {
+            $result = $review->{$step}($withdrawalId);
+            if (!$result->ok && $result->code !== 'invalid_transition') {
+                echo $result->code;
+                exit(0);
+            }
+        }
+        $paid = $review->recordPayment($withdrawalId, $reference);
+        echo $paid->ok ? 'paid' : $paid->code;
         exit(0);
     }
 

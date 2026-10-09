@@ -59,10 +59,26 @@ final class ReportInvalidationTest extends TestCase
         // Fired through the helper, not scattered: the helper is where the
         // «only when the write succeeded» and «only for a real shop» rules
         // live, and a raw `do_action` beside it would skip both.
-        self::assertStringContainsString(
-            'private function figuresChanged(int $vendorUserId): void',
-            $source,
-            $file . ' must fire the hook through figuresChanged(), not inline'
+        //
+        // **Asserted as «once», not as «private».** Until `alpha.40` this
+        // pinned the declaration to `private function figuresChanged(...)`,
+        // which measured visibility and only incidentally measured the thing
+        // it is about. `DbWithdrawalRepository`'s helper is public now, for
+        // one reason: a service that wraps several writes in ONE transaction
+        // cannot let the inner writes invalidate anything, because their
+        // commits are no-ops and the outer unit of work can still roll back —
+        // so those writes stay silent while nested and the service fires it
+        // once, after its own commit. The helper is still the only place the
+        // hook name appears, and that is what this now checks.
+        self::assertSame(
+            1,
+            preg_match_all('/function figuresChanged\(int \$vendorUserId\): void/', $source),
+            $file . ' must declare exactly one figuresChanged() helper'
+        );
+        self::assertSame(
+            1,
+            substr_count($source, "do_action('" . self::HOOK . "'"),
+            $file . ' must fire the hook in exactly one place — the helper, never inline'
         );
     }
 
