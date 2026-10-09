@@ -41,7 +41,34 @@ final class DbStoreRepository implements StoreRepositoryInterface
         );
     }
 
-    public function save(int $vendorUserId, StoreSettings $settings): bool
+    /**
+     * The shop's settings — and, when a scope is given, ONLY those fields.
+     *
+     * **Why the scope exists.** The row is written with `INSERT … ON DUPLICATE
+     * KEY UPDATE`, and until `alpha.41` the update half named all twelve
+     * settings columns. So a save of the shipping tab rewrote the city and the
+     * introduction too, from the `$current` the caller had read moments
+     * earlier. Filtering the posted input (`StoreSettings::fieldsOfTab()`)
+     * stops that save from carrying an EMPTY city — it does not stop it from
+     * writing a city it read before somebody else changed it, and two browser
+     * tabs open on two sections would each put the other's fields back.
+     *
+     * Naming only the columns in play removes the window rather than narrowing
+     * it: a shipping save does not mention `city` in the SQL at all, so no
+     * ordering of two saves can revert it. `saveBank()` below has worked this
+     * way since `alpha.5`; this is the same shape, not a new idea.
+     *
+     * An empty scope writes no settings column — which is `bank`'s real
+     * answer, and `INSERT` still creates the row for a shop that has none so
+     * that «approved with no settings row» (the `alpha.23` 404) cannot happen
+     * through this path.
+     *
+     * @param list<string>|null $fields field keys of `StoreSettings::TAB_FIELDS`;
+     *                                  null writes every settings column, which
+     *                                  is what the seed and the manager's own
+     *                                  paths want.
+     */
+    public function save(int $vendorUserId, StoreSettings $settings, ?array $fields = null): bool
     {
         $now = $this->now();
         // The two DATE columns are the only nullable ones here, and a
@@ -51,35 +78,77 @@ final class DbStoreRepository implements StoreRepositoryInterface
         // whenever there IS one.
         $from = $settings->closedFrom === null ? 'NULL' : '%s';
         $to = $settings->closedTo === null ? 'NULL' : '%s';
-        $sql = 'INSERT INTO `' . $this->table() . '`
-                (user_id, store_name, city, intro, logo_id, banner_id, preparation_days, origin_warehouse,
-                 carriers, closed, closed_from, closed_to, reopen_message, social, created_at, updated_at)
-                VALUES (%d, %s, %s, %s, %d, %d, %d, %s, %s, %d, ' . $from . ', ' . $to . ', %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE
-                 city = VALUES(city), intro = VALUES(intro), logo_id = VALUES(logo_id),
-                 banner_id = VALUES(banner_id), preparation_days = VALUES(preparation_days),
-                 origin_warehouse = VALUES(origin_warehouse), carriers = VALUES(carriers),
-                 closed = VALUES(closed), closed_from = VALUES(closed_from), closed_to = VALUES(closed_to),
-                 reopen_message = VALUES(reopen_message), social = VALUES(social), updated_at = VALUES(updated_at)';
-        $params = [
-            $vendorUserId,
-            $settings->storeName,
-            $settings->city,
-            $settings->intro,
-            $settings->logoId,
-            $settings->bannerId,
-            $settings->preparationDays,
-            $settings->originWarehouse,
-            json_encode(array_values($settings->carriers), JSON_UNESCAPED_UNICODE),
-            $settings->closed ? 1 : 0,
+        // column => [placeholder, value|null]. `null` means the literal is
+        // already in the placeholder (the two dates), so nothing is bound.
+        $columns = [
+            'city' => ['%s', $settings->city],
+            'intro' => ['%s', $settings->intro],
+            'logo_id' => ['%d', $settings->logoId],
+            'banner_id' => ['%d', $settings->bannerId],
+            'preparation_days' => ['%d', $settings->preparationDays],
+            'origin_warehouse' => ['%s', $settings->originWarehouse],
+            'carriers' => ['%s', json_encode(array_values($settings->carriers), JSON_UNESCAPED_UNICODE)],
+            'closed' => ['%d', $settings->closed ? 1 : 0],
+            'closed_from' => [$from, $settings->closedFrom],
+            'closed_to' => [$to, $settings->closedTo],
+            'reopen_message' => ['%s', $settings->reopenMessage],
+            'social' => ['%s', json_encode($settings->social, JSON_UNESCAPED_UNICODE)],
         ];
-        if ($settings->closedFrom !== null) {
-            $params[] = $settings->closedFrom;
+        // Which COLUMNS a field owns. Only `general`'s two pictures and
+        // `closure`'s tick-plus-dates are more than one column each, and the
+        // map is here rather than in the Domain because a column name is this
+        // class's business.
+        $owned = [
+            'city' => ['city'],
+            'intro' => ['intro'],
+            'logo_id' => ['logo_id'],
+            'banner_id' => ['banner_id'],
+            'preparation_days' => ['preparation_days'],
+            'origin_warehouse' => ['origin_warehouse'],
+            'carriers' => ['carriers'],
+            'closed' => ['closed'],
+            'closed_from' => ['closed_from'],
+            'closed_to' => ['closed_to'],
+            'reopen_message' => ['reopen_message'],
+            'social' => ['social'],
+        ];
+        $write = [];
+        if ($fields === null) {
+            $write = array_keys($columns);
+        } else {
+            foreach ($fields as $field) {
+                foreach ($owned[$field] ?? [] as $column) {
+                    $write[] = $column;
+                }
+            }
         }
-        if ($settings->closedTo !== null) {
-            $params[] = $settings->closedTo;
+
+        // The INSERT always carries every column — a new row needs values for
+        // all of them, and for the ones out of scope those values are the
+        // defaults a fresh shop gets. The UPDATE half is what the scope
+        // narrows, and that is the half an existing row takes.
+        $insertColumns = ['user_id', 'store_name'];
+        $insertPlaceholders = ['%d', '%s'];
+        $params = [$vendorUserId, $settings->storeName];
+        foreach ($columns as $column => [$placeholder, $value]) {
+            $insertColumns[] = $column;
+            $insertPlaceholders[] = $placeholder;
+            if ($placeholder !== 'NULL') {
+                $params[] = $value;
+            }
         }
-        array_push($params, $settings->reopenMessage, json_encode($settings->social, JSON_UNESCAPED_UNICODE), $now, $now);
+        array_push($insertColumns, 'created_at', 'updated_at');
+        array_push($insertPlaceholders, '%s', '%s');
+        array_push($params, $now, $now);
+
+        $updates = ['updated_at = VALUES(updated_at)'];
+        foreach ($write as $column) {
+            $updates[] = '`' . $column . '` = VALUES(`' . $column . '`)';
+        }
+
+        $sql = 'INSERT INTO `' . $this->table() . '` (' . implode(', ', $insertColumns) . ')
+                VALUES (' . implode(', ', $insertPlaceholders) . ')
+                ON DUPLICATE KEY UPDATE ' . implode(', ', $updates);
 
         $saved = $this->db->execute($sql, $params) !== null;
         if ($saved) {

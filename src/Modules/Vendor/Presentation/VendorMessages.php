@@ -182,6 +182,11 @@ final class VendorMessages
                 ? sprintf(__('این مدارک اجباری هنوز بارگذاری نشده‌اند: %s', 'tecteb-marketplace-core'), (string) $context['types'])
                 : __('هنوز همه مدارک اجباری بارگذاری نشده‌اند. مدارکی که نشان «اجباری» دارند در همین صفحه مشخص‌اند.', 'tecteb-marketplace-core'),
             'incomplete_form' => __('چند فیلد اجباری خالی است. آن‌ها را پر کنید و دوباره ذخیره کنید.', 'tecteb-marketplace-core'),
+            // A `save_store` naming a tab the page does not have. A browser
+            // cannot send one, so this is for a stale bookmark or a hand-made
+            // request — and the important half of the sentence is that nothing
+            // was written.
+            'bad_tab' => __('بخش تنظیماتی با این نام وجود ندارد، پس چیزی ذخیره نشد. صفحهٔ تنظیمات را از نو باز کنید و دوباره ذخیره کنید.', 'tecteb-marketplace-core'),
             'not_editable' => __('این درخواست در وضعیتی است که دیگر ویرایش نمی‌شود.', 'tecteb-marketplace-core'),
             'no_application' => __('هنوز درخواستی ثبت نشده است.', 'tecteb-marketplace-core'),
             'not_submittable' => __('این درخواست در وضعیت فعلی ارسال‌شدنی نیست.', 'tecteb-marketplace-core'),

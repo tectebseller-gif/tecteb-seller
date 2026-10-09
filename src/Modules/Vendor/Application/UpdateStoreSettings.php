@@ -41,14 +41,36 @@ final class UpdateStoreSettings
         if (!$this->access->canManageStore($actorId, $vendorUserId)) {
             return OperationResult::failure('forbidden');
         }
+        // A tab the page does not have is refused rather than treated as
+        // «general». A save whose tab is unknown has no allowed field set, so
+        // guessing one would either write nothing while reporting success or
+        // write somebody's general fields from a form that never showed them.
+        $tab = (string) ($input['tab'] ?? '');
+        if (!StoreSettings::isTab($tab)) {
+            return OperationResult::failure('bad_tab', ['tab' => $tab]);
+        }
+        // Normalised HERE, so no caller can get the scope wrong: whatever was
+        // handed in, only the tab's own fields reach the Domain. The route
+        // filters too, but for a different reason — it must not read an image
+        // upload for a tab that has no file input — and a rule enforced in one
+        // place is a rule, while a rule enforced only at the edge is a habit.
+        $scoped = StoreSettings::fieldsOfTab($tab, $input);
         $current = $this->stores->find($vendorUserId) ?? new StoreSettings();
-        ['settings' => $settings, 'problems' => $problems] = StoreSettings::fromInput($input, $allowedNetworks, $allowedCarriers, $current);
-        if (!$this->stores->save($vendorUserId, $settings)) {
+        ['settings' => $settings, 'problems' => $problems] = StoreSettings::fromInput($scoped, $allowedNetworks, $allowedCarriers, $current);
+        // Only the columns this tab owns are written, which is the other half
+        // of the fix and the half that survives two browser tabs. Filtering
+        // the INPUT stops a shipping save from carrying an empty city; it does
+        // not stop it from writing the city it read a moment earlier, and two
+        // tabs open on two different sections would then each write the
+        // other's fields back from their own stale read. The repository is
+        // told which fields are in play and names only those columns — the
+        // shape `saveBank()` has used in this same class since `alpha.5`.
+        if (!$this->stores->save($vendorUserId, $settings, StoreSettings::TAB_FIELDS[$tab])) {
             return OperationResult::failure('storage_failed');
         }
         $this->audit->log(AuditEventCatalog::VENDOR_STORE_UPDATED, $actorId, 'vendor_store', (string) $vendorUserId, [
             'vendor_id' => $vendorUserId,
-            'tab' => (string) ($input['tab'] ?? 'general'),
+            'tab' => $tab,
             'problems' => implode(',', $problems),
         ]);
         return $problems === []

@@ -9,7 +9,19 @@ interface StoreRepositoryInterface
 {
     public function find(int $vendorUserId): ?StoreSettings;
 
-    public function save(int $vendorUserId, StoreSettings $settings): bool;
+    /**
+     * The shop's settings, or only the fields named.
+     *
+     * `$fields` carries the keys of `StoreSettings::TAB_FIELDS` for the tab
+     * being saved, so an implementation writes only those columns. That is
+     * what stops a save of one tab from putting another tab's values back
+     * from a read taken moments earlier — the defect the owner measured, where
+     * saving «ارسال» emptied the city and the introduction. `null` means every
+     * settings column, which is what a seed or a manager's own path wants.
+     *
+     * @param list<string>|null $fields
+     */
+    public function save(int $vendorUserId, StoreSettings $settings, ?array $fields = null): bool;
 
     /** Renaming goes through the manager, so this is called only on approval. */
     public function renameStore(int $vendorUserId, string $storeName): bool;

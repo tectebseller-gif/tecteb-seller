@@ -49,9 +49,62 @@
     }
   }
 
+  /**
+   * Leaving a settings tab with something typed and not saved.
+   *
+   * The five tabs are ordinary links, so switching tab is a navigation and the
+   * browser throws away whatever was typed — silently, which is what the
+   * owner's brief says must stop. This asks first, and it asks only when
+   * something really changed: the dirty flag is set by an actual `input` or
+   * `change` event, never by rendering.
+   *
+   * Progressive enhancement, deliberately. Without JavaScript the links still
+   * work and nothing is blocked — a tab switch then loses unsaved typing
+   * exactly as any plain HTML form does, and the form carries a written hint
+   * saying so, because a warning that only exists in a script must not be the
+   * only place the rule is stated.
+   */
+  function guardUnsaved() {
+    var forms = document.querySelectorAll('form[data-tmc-dirty-guard]');
+    if (!forms.length) {
+      return;
+    }
+    var dirty = false;
+    // The sentence comes from the markup, so it is translated once, in PHP,
+    // where every other string on the page is.
+    var message = forms[0].getAttribute('data-tmc-dirty-guard') || '';
+    var i;
+    function markDirty() {
+      dirty = true;
+    }
+    for (i = 0; i < forms.length; i++) {
+      forms[i].addEventListener('input', markDirty);
+      forms[i].addEventListener('change', markDirty);
+      // A submit is how the work gets saved, so it is never a loss.
+      forms[i].addEventListener('submit', function () {
+        dirty = false;
+      });
+    }
+    var tabs = document.querySelectorAll('.tv-tabs a');
+    for (i = 0; i < tabs.length; i++) {
+      tabs[i].addEventListener('click', function (event) {
+        if (!dirty) {
+          return;
+        }
+        if (message === '') {
+          return;                      // nothing to say, so nothing is blocked
+        }
+        if (!window.confirm(message)) {
+          event.preventDefault();
+        }
+      });
+    }
+  }
+
   function init() {
     bind(document.getElementById('tv-nav'));
     bind(document.getElementById('tmc-nav'));
+    guardUnsaved();
   }
 
   if (document.readyState === 'loading') {

@@ -330,24 +330,41 @@ final class VendorRoutes
         // `DbStoreRepository::save()` now announces the write once it has
         // succeeded, and `StoreCacheInvalidation` listens.
         $this->imageRefusal = '';
+        $tab = $request->postKey('tab');
+        // ONLY the fields of the tab that was submitted.
+        //
+        // The page is five separate `<form>`s and a browser posts one of them,
+        // so a shipping save carries no `city`. `postText()` answers `''` for
+        // a field that is not there — never null — so reading all twelve here
+        // turned «not submitted» into «submitted empty», and the owner watched
+        // the city and the introduction disappear when the shipping tab was
+        // saved. The allowed set comes from `StoreSettings::TAB_FIELDS`, the
+        // same map the view renders from.
+        //
+        // The two image fields are read ONLY for the tab that owns them: each
+        // `pickedImage()` call can consume an upload and record a refusal, and
+        // doing that on a tab with no file inputs is work for a field nobody
+        // sent.
+        $posted = [
+            'city' => $request->postText('city'),
+            'intro' => $request->postTextarea('intro'),
+            'preparation_days' => $request->postInt('preparation_days'),
+            'origin_warehouse' => $request->postText('origin_warehouse'),
+            'carriers' => $request->postTextList('carriers'),
+            'closed' => $request->postChecked('closed'),
+            'closed_from' => $request->postText('closed_from'),
+            'closed_to' => $request->postText('closed_to'),
+            'reopen_message' => $request->postText('reopen_message'),
+            'social' => $request->postMap('social'),
+        ];
+        if (in_array('logo_id', StoreSettings::TAB_FIELDS[$tab] ?? [], true)) {
+            $posted['logo_id'] = $this->pickedImage($request, $userId, 'logo');
+            $posted['banner_id'] = $this->pickedImage($request, $userId, 'banner');
+        }
         $result = $this->container->get(UpdateStoreSettings::class)->save(
             $userId,
             $userId,
-            [
-                'tab' => $request->postKey('tab'),
-                'city' => $request->postText('city'),
-                'intro' => $request->postTextarea('intro'),
-                'logo_id' => $this->pickedImage($request, $userId, 'logo'),
-                'banner_id' => $this->pickedImage($request, $userId, 'banner'),
-                'preparation_days' => $request->postInt('preparation_days'),
-                'origin_warehouse' => $request->postText('origin_warehouse'),
-                'carriers' => $request->postTextList('carriers'),
-                'closed' => $request->postChecked('closed'),
-                'closed_from' => $request->postText('closed_from'),
-                'closed_to' => $request->postText('closed_to'),
-                'reopen_message' => $request->postText('reopen_message'),
-                'social' => $request->postMap('social'),
-            ],
+            ['tab' => $tab] + StoreSettings::fieldsOfTab($tab, $posted),
             array_keys($lists->networks()),
             array_keys($lists->carriers())
         );

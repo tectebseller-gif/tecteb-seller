@@ -33,6 +33,7 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStore
 use Tecteb\Marketplace\Infrastructure\Otp\NullOtpProvider;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeStaffUserDirectory;
+use Tecteb\Marketplace\Tests\Support\InterferingDatabase;
 
 /**
  * Store settings, the manager's change queue, and staff — on real MariaDB.
@@ -94,21 +95,246 @@ final class StoreAndStaffFlowTest extends DatabaseTestCase
         $this->vendors->upsertProfile(self::OTHER_VENDOR, 'داروخانه دو', true, false);
     }
 
+    /**
+     * A vendor saves their own settings, one tab at a time, and the name is
+     * still not theirs to change.
+     *
+     * Rewritten in `alpha.41`, and the rewrite is the point. The old version
+     * put `city` and `preparation_days` in ONE save with no tab — which is the
+     * very shape that cannot happen through the page (five separate `<form>`s,
+     * one posted) and the shape whose acceptance let the defect live. Each tab
+     * is saved on its own now, and the second save is checked for not having
+     * eaten the first.
+     */
     public function testAVendorSavesTheirOwnSettingsButCannotRenameTheShop(): void
     {
         $this->stores->save(self::VENDOR, new \Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings('داروخانه یک'));
 
         $saved = $this->storeSettings->save(self::VENDOR, self::VENDOR, [
+            'tab' => 'general',
             'city' => 'تهران',
-            'preparation_days' => 2,
             'store_name' => 'نام دزدیده‌شده',
+        ], [], []);
+        self::assertTrue($saved->ok, $saved->code);
+
+        $shipping = $this->storeSettings->save(self::VENDOR, self::VENDOR, [
+            'tab' => 'shipping',
+            'preparation_days' => 2,
+        ], [], []);
+        self::assertTrue($shipping->ok, $shipping->code);
+
+        $settings = $this->stores->find(self::VENDOR);
+        self::assertSame('تهران', $settings?->city, 'the shipping save must not have emptied it');
+        self::assertSame(2, $settings?->preparationDays);
+        self::assertSame('داروخانه یک', $settings?->storeName, 'a save must never move the name');
+    }
+
+    /**
+     * THE ACCEPTANCE TEST for §1: every tab filled with something distinct,
+     * each tab saved on its own, and the row read back from MariaDB after
+     * each one.
+     *
+     * The owner's reproduction, in one method: general saved, then shipping
+     * saved, and the city and the introduction gone. On the `alpha.40` bytes
+     * this fails at the first assertion after the shipping save.
+     */
+    public function testSavingOneTabLeavesEveryOtherTabExactlyWhereItWas(): void
+    {
+        $networks = ['instagram', 'telegram'];
+        $carriers = ['post', 'tipax'];
+        $this->stores->save(self::VENDOR, new \Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings('داروخانه یک'));
+
+        // Four savable tabs, each with values nothing else would produce.
+        $tabs = [
+            ['tab' => 'general', 'city' => 'اصفهان', 'intro' => 'معرفی فروشگاه ما', 'logo_id' => 811, 'banner_id' => 812],
+            ['tab' => 'shipping', 'preparation_days' => 4, 'origin_warehouse' => 'انبار مرکزی', 'carriers' => ['post']],
+            ['tab' => 'closure', 'closed' => true, 'closed_from' => '2026-11-01', 'closed_to' => '2026-11-05',
+             'reopen_message' => 'پنجم آبان باز می‌شویم'],
+            ['tab' => 'social', 'social' => ['instagram' => 'https://instagram.test/shop']],
+        ];
+        foreach ($tabs as $input) {
+            $saved = $this->storeSettings->save(self::VENDOR, self::VENDOR, $input, $networks, $carriers);
+            self::assertTrue($saved->ok, $input['tab'] . ': ' . $saved->code);
+        }
+
+        // Read from the database, not from anything this test is holding.
+        $s = $this->stores->find(self::VENDOR);
+        self::assertSame('اصفهان', $s?->city, 'general survived three later saves');
+        self::assertSame('معرفی فروشگاه ما', $s?->intro);
+        self::assertSame(811, $s?->logoId, 'the logo is not cleared by another tab');
+        self::assertSame(812, $s?->bannerId);
+        self::assertSame(4, $s?->preparationDays, 'four, not back to nought');
+        self::assertSame('انبار مرکزی', $s?->originWarehouse);
+        self::assertSame(['post'], $s?->carriers, 'the carrier list is not emptied');
+        self::assertTrue($s?->closed, 'the closure tick is not unticked by another tab');
+        self::assertSame('2026-11-01', $s?->closedFrom);
+        self::assertSame('2026-11-05', $s?->closedTo);
+        self::assertSame('پنجم آبان باز می‌شویم', $s?->reopenMessage);
+        self::assertSame(['instagram' => 'https://instagram.test/shop'], $s?->social, 'the social map is not emptied');
+        self::assertSame('داروخانه یک', $s?->storeName);
+
+        // And saving each tab AGAIN, in a different order, still changes only
+        // its own fields — the state a vendor who revisits the page is in.
+        foreach (array_reverse($tabs) as $input) {
+            self::assertTrue($this->storeSettings->save(self::VENDOR, self::VENDOR, $input, $networks, $carriers)->ok);
+        }
+        $again = $this->stores->find(self::VENDOR);
+        self::assertSame('اصفهان', $again?->city);
+        self::assertSame(4, $again?->preparationDays);
+        self::assertSame(['post'], $again?->carriers);
+        self::assertSame(['instagram' => 'https://instagram.test/shop'], $again?->social);
+    }
+
+    /**
+     * Clearing on purpose still clears — within the tab that owns the field.
+     *
+     * This is the half a «just keep everything that is missing» fix would
+     * break, and it is why the tab has to be the discriminator: an unticked
+     * checkbox and an empty text input send NOTHING, exactly like a field
+     * belonging to another tab. Only the tab tells those two apart.
+     */
+    public function testClearingAFieldOnItsOwnTabStillClearsIt(): void
+    {
+        $networks = ['instagram', 'telegram'];
+        $carriers = ['post', 'tipax'];
+        $this->stores->save(self::VENDOR, new \Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings(
+            'داروخانه یک',
+            'اصفهان',
+            'معرفی',
+            0,
+            0,
+            4,
+            'انبار مرکزی',
+            ['post', 'tipax'],
+            true,
+            '2026-11-01',
+            '2026-11-05',
+            'پیام',
+            ['instagram' => 'https://instagram.test/shop']
+        ));
+
+        // An empty text field on its own tab is a clear.
+        self::assertTrue($this->storeSettings->save(self::VENDOR, self::VENDOR, [
+            'tab' => 'general', 'city' => '', 'intro' => '',
+        ], $networks, $carriers)->ok);
+        self::assertSame('', $this->stores->find(self::VENDOR)?->city);
+        self::assertSame('', $this->stores->find(self::VENDOR)?->intro);
+
+        // Every carrier unticked sends no `carriers` key at all, and on the
+        // shipping tab that means none — not «leave them».
+        self::assertTrue($this->storeSettings->save(self::VENDOR, self::VENDOR, [
+            'tab' => 'shipping', 'preparation_days' => 4, 'origin_warehouse' => 'انبار مرکزی',
+        ], $networks, $carriers)->ok);
+        self::assertSame([], $this->stores->find(self::VENDOR)?->carriers, 'unticking every box empties the list');
+
+        // The closure tick, likewise — it is simply absent when unticked. The
+        // two dates are text controls, so an emptied one arrives as `''`,
+        // which is exactly what the route posts and what a clear means.
+        self::assertTrue($this->storeSettings->save(self::VENDOR, self::VENDOR, [
+            'tab' => 'closure', 'closed_from' => '', 'closed_to' => '', 'reopen_message' => 'پیام',
+        ], $networks, $carriers)->ok);
+        $after = $this->stores->find(self::VENDOR);
+        self::assertFalse($after?->closed, 'unticking «تعطیل است» reopens the shop');
+        self::assertNull($after?->closedFrom);
+        self::assertNull($after?->closedTo);
+
+        // And an emptied URL on the social tab.
+        self::assertTrue($this->storeSettings->save(self::VENDOR, self::VENDOR, [
+            'tab' => 'social', 'social' => ['instagram' => ''],
+        ], $networks, $carriers)->ok);
+        self::assertSame([], $this->stores->find(self::VENDOR)?->social);
+    }
+
+    /**
+     * A field belonging to another tab is dropped even when it IS posted.
+     *
+     * The request is hand-made — a browser cannot produce it — and that is the
+     * case worth refusing: the vendor's own page never showed `city` on the
+     * shipping form, so a shipping save may not write it.
+     */
+    public function testAFieldInjectedFromAnotherTabIsIgnored(): void
+    {
+        $this->stores->save(self::VENDOR, new \Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings(
+            'داروخانه یک', 'اصفهان', 'معرفی', 0, 0, 4
+        ));
+
+        $saved = $this->storeSettings->save(self::VENDOR, self::VENDOR, [
+            'tab' => 'shipping',
+            'preparation_days' => 6,
+            'origin_warehouse' => 'انبار دو',
+            // Not on this tab's form. Posted anyway, and dropped by the
+            // service rather than by the route — so the guard holds for any
+            // caller, not only for the one that remembers to filter.
+            'city' => 'شهر تزریقی',
+            'intro' => '',
         ], [], []);
 
         self::assertTrue($saved->ok, $saved->code);
-        $settings = $this->stores->find(self::VENDOR);
-        self::assertSame('تهران', $settings?->city);
-        self::assertSame(2, $settings?->preparationDays);
-        self::assertSame('داروخانه یک', $settings?->storeName, 'a save must never move the name');
+        $s = $this->stores->find(self::VENDOR);
+        self::assertSame(6, $s?->preparationDays, 'its own field changed');
+        self::assertSame('اصفهان', $s?->city, 'and the injected one did not');
+        self::assertSame('معرفی', $s?->intro);
+    }
+
+    /**
+     * Two browser tabs, each on a different section, saving one after the
+     * other — and neither puts the other's fields back.
+     *
+     * This is the case input filtering alone does NOT fix. Both saves read the
+     * row first; the second one holds a `$current` from before the first one
+     * landed. While the write named all twelve columns, its own stale general
+     * values went back on disk. It names only its own columns now, so the
+     * ordering cannot matter.
+     */
+    public function testTwoTabsOpenAtOnceDoNotPutEachOthersFieldsBack(): void
+    {
+        $this->stores->save(self::VENDOR, new \Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings(
+            'داروخانه یک', 'شهر قدیمی', 'معرفی قدیمی', 0, 0, 1
+        ));
+
+        // SCHEDULED, not raced, and named as such: the general save runs
+        // immediately before the shipping save's own write, on the same
+        // connection, so the shipping save is holding a `$current` from before
+        // it — which is precisely what two browser tabs produce and what a
+        // sequential pair of calls cannot.
+        $interfering = new InterferingDatabase(new WpDatabase($this->wpdb));
+        $shipping = new UpdateStoreSettings(
+            new DbStoreRepository($interfering, new SystemClock()),
+            $this->changes,
+            $this->access,
+            $this->auditLoggerFor(),
+            new MobileVerification(new NullOtpProvider())
+        );
+        $interfering->before(['INSERT INTO', 'tmc_vendor_stores'], 1, function (): void {
+            self::assertTrue($this->storeSettings->save(self::VENDOR, self::VENDOR, [
+                'tab' => 'general', 'city' => 'شهر تازه', 'intro' => 'معرفی تازه',
+            ], [], [])->ok);
+        });
+
+        self::assertTrue($shipping->save(self::VENDOR, self::VENDOR, [
+            'tab' => 'shipping', 'preparation_days' => 7, 'origin_warehouse' => 'انبار',
+        ], [], [])->ok);
+        self::assertNotSame([], $interfering->fired, 'the interleaving has to have happened');
+
+        $s = $this->stores->find(self::VENDOR);
+        self::assertSame('شهر تازه', $s?->city, 'the shipping save did not restore the old city');
+        self::assertSame('معرفی تازه', $s?->intro);
+        self::assertSame(7, $s?->preparationDays);
+    }
+
+    /** A tab the page does not have writes nothing and says so. */
+    public function testASaveNamingATabThatDoesNotExistIsRefused(): void
+    {
+        $this->stores->save(self::VENDOR, new \Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings('داروخانه یک', 'تهران'));
+
+        $refused = $this->storeSettings->save(self::VENDOR, self::VENDOR, [
+            'tab' => 'invented',
+            'city' => '',
+        ], [], []);
+
+        self::assertFalse($refused->ok);
+        self::assertSame('bad_tab', $refused->code);
+        self::assertSame('تهران', $this->stores->find(self::VENDOR)?->city, 'and nothing was written');
     }
 
     public function testRenamingGoesThroughTheManagerAndOnlyThenTakesEffect(): void

@@ -45,6 +45,14 @@ final class StoreView
             );
         }
         $html .= VendorUi::tabs(self::tabs(), $tab, $urls->store());
+        // Said in the page, not only in the script. Each tab is its own form
+        // and switching tab is a navigation, so unsaved typing is lost — and
+        // a browser with no JavaScript gets no confirmation dialogue at all.
+        // A rule that exists only inside an enhancement is a rule half the
+        // visitors never learn.
+        $html .= '<p class="tv-hint">'
+            . esc_html__('هر بخش جداگانه ذخیره می‌شود. پیش از رفتن به بخش دیگر، «ذخیره» را بزنید؛ وگرنه آنچه در این بخش نوشته‌اید ذخیره نمی‌شود. ذخیرهٔ هر بخش به بخش‌های دیگر دست نمی‌زند.', 'tecteb-marketplace-core')
+            . '</p>';
 
         $html .= match ($tab) {
             'shipping' => self::shipping($settings, $urls, $nonceField, $carriers),
@@ -244,7 +252,13 @@ final class StoreView
      */
     private static function formOpen(VendorUrls $urls, string $nonce, string $action, string $tab, bool $card = true): string
     {
+        // `data-tmc-dirty-guard` is what the vendor script watches so that
+        // switching tab with something typed and unsaved asks first. It is an
+        // attribute and not a class because it is a behaviour hook, and
+        // `StyledClassesHaveRulesTest` would rightly ask which stylesheet rule
+        // a class here belongs to.
         return '<form class="' . ($card ? 'tv-card' : 'tv-subform') . '" method="post" enctype="multipart/form-data"'
+            . ' data-tmc-dirty-guard="' . esc_attr__('این بخش ذخیره نشده است. اگر بخش را عوض کنید، آنچه نوشته‌اید از بین می‌رود. ادامه می‌دهید؟', 'tecteb-marketplace-core') . '"'
             . ' action="' . esc_url(add_query_arg('tab', $tab, $urls->store())) . '">'
             . $nonce
             . '<input type="hidden" name="tmc_vendor_action" value="' . esc_attr($action) . '">'
