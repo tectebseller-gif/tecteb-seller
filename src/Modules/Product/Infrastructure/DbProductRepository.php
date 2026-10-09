@@ -18,6 +18,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0023ProductDescriptionAndCreateToken;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
 
 /**
@@ -418,7 +419,8 @@ final class DbProductRepository implements ProductRepositoryInterface
         ProductStatus $status,
         LinkOwnership $ownership = LinkOwnership::Marketplace,
         ?int $wcProductId = null,
-        string $importRunId = ''
+        string $importRunId = '',
+        string $createToken = ''
     ): int {
         $now = $this->now();
         [$columns, $placeholders, $params] = $this->detailColumns($details);
@@ -454,6 +456,18 @@ final class DbProductRepository implements ProductRepositoryInterface
             $extraPlaceholders[] = '%s';
             $extraParams[] = mb_substr($importRunId, 0, 64);
         }
+        // The one-create-per-form token. Written in THIS insert and nowhere
+        // else, so the unique key on `(vendor_user_id, create_token)` is what
+        // decides — a replayed POST loses at the index rather than at a check
+        // between a read and a write, which is a check two simultaneous
+        // requests both pass. Left out when there is no token, so the column
+        // stays NULL and cannot collide with any other row (the property
+        // `wc_product_id` above relies on for exactly the same reason).
+        if ($createToken !== '') {
+            $extraColumns[] = M0023ProductDescriptionAndCreateToken::CREATE_TOKEN;
+            $extraPlaceholders[] = '%s';
+            $extraParams[] = mb_substr($createToken, 0, 64);
+        }
 
         $sql = 'INSERT INTO `' . $this->products() . '` (vendor_user_id, ' . implode(', ', $columns)
             . ', status, ' . M0010LinkOwnership::COLUMN
@@ -473,11 +487,37 @@ final class DbProductRepository implements ProductRepositoryInterface
             )
         );
         if ($ok === null) {
-            return 0;
+            // A REFUSED INSERT IS NOT THE SAME AS NO ROW — the `alpha.28`
+            // rule, and `alpha.39` paid for the other half of it. When a
+            // token was given, the one thing that refuses this insert is its
+            // unique key, which means THIS form has already created its
+            // product: the replay's answer is that product, not a failure
+            // about a product that exists. Asked of the data rather than
+            // inferred from the error string.
+            return $createToken === '' ? 0 : $this->findByCreateToken($vendorUserId, $createToken);
         }
         // Connection-scoped, so two vendors inserting at the same moment
         // cannot be handed each other's id — which "ORDER BY id DESC" would.
         return (int) $this->db->getVar('SELECT LAST_INSERT_ID()');
+    }
+
+    /**
+     * The product one submitted create form made, if it made one.
+     *
+     * Scoped to the vendor as well as the token: a token is a random string
+     * from one vendor's form and has no business reaching another shop's row,
+     * and the unique key is over both columns for the same reason.
+     */
+    public function findByCreateToken(int $vendorUserId, string $createToken): int
+    {
+        if (trim($createToken) === '') {
+            return 0;
+        }
+        return (int) $this->db->getVar(
+            'SELECT id FROM `' . $this->products() . '` WHERE vendor_user_id = %d AND `'
+            . M0023ProductDescriptionAndCreateToken::CREATE_TOKEN . '` = %s',
+            [$vendorUserId, mb_substr($createToken, 0, 64)]
+        );
     }
 
     /**

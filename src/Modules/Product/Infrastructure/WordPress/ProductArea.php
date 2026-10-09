@@ -250,7 +250,13 @@ final class ProductArea
             // shop finds nothing rather than somebody else's correspondence.
             $product === null
                 ? null
-                : $this->decisions()->latestForVendor($product->id, $vendorUserId)
+                : $this->decisions()->latestForVendor($product->id, $vendorUserId),
+            // One token per rendered create form. `wp_generate_password()`
+            // with no special characters is WordPress's own random string and
+            // is already used for the staff invite hash; nothing here needs it
+            // to be unguessable, only unique per rendering, and the unique key
+            // it lands on is scoped to this vendor anyway.
+            $productId === 0 && $mayEdit ? wp_generate_password(32, false, false) : ''
         );
     }
 
@@ -350,17 +356,27 @@ final class ProductArea
             $specs,
             $imageIds,
             $mainImageId,
-            $request->postText('revision')
+            $request->postText('revision'),
+            $request->postText('create_token')
         );
         if (!$result->ok) {
+            // A refusal that nonetheless CREATED the row is a different
+            // situation from a refusal that wrote nothing, and sending the
+            // vendor back to an empty create form would hide a product that
+            // exists and lose the half that saved. So when the result carries
+            // an id, the vendor lands on that draft — the continuation path
+            // §2 asks to be made explicit — and the flash keeps their values
+            // against THAT id so the returned form is still the form they had.
+            $madeId = (int) ($result->context['product_id'] ?? 0);
+            $landOn = $madeId > 0 ? $madeId : $productId;
             $this->flash()->put($this->formKey($userId), [
-                'product_id' => $productId,
+                'product_id' => $landOn,
                 'details' => $this->detailsToArray($details),
                 'specs' => $specs,
                 'images' => $imageIds,
                 'main_image_id' => $mainImageId,
             ], self::FORM_TTL);
-            return new VendorAreaOutcome($result->code, $this->stepUrl($urls, $productId, $step), $result->context);
+            return new VendorAreaOutcome($result->code, $this->stepUrl($urls, $landOn, $step), $result->context);
         }
         $savedId = (int) ($result->context['product_id'] ?? $productId);
 

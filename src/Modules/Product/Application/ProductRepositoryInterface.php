@@ -189,8 +189,21 @@ interface ProductRepositoryInterface
         ProductStatus $status,
         LinkOwnership $ownership = LinkOwnership::Marketplace,
         ?int $wcProductId = null,
-        string $importRunId = ''
+        string $importRunId = '',
+        string $createToken = ''
     ): int;
+
+    /**
+     * The id one submitted create form produced, or 0.
+     *
+     * `$createToken` is the one-time value a rendered create form carries, and
+     * the products table has a unique key over `(vendor_user_id, create_token)`
+     * so one form can only ever have made one product. A replayed POST — what
+     * a browser sends after a request times out — therefore asks this instead
+     * of creating a second row, and a deliberately-identical second product
+     * comes from a freshly rendered form with a fresh token.
+     */
+    public function findByCreateToken(int $vendorUserId, string $createToken): int;
 
     /**
      * Write the details, refusing when `$expectedVersion` no longer matches.

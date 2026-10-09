@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Tests\Database;
 
+use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Tests\Support\FailingDatabase;
+use Tecteb\Marketplace\Tests\Support\InterferingDatabase;
 use Tecteb\Marketplace\Core\Audit\AuditEventSanitizer;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
@@ -963,6 +966,225 @@ final class ProductFlowTest extends DatabaseTestCase
         $result = $this->configure->createTemplate('gloves', 'دستکش');
         self::assertTrue($result->ok, $result->code);
         return (int) $result->context['template_id'];
+    }
+
+    /**
+     * §2: one submitted create form makes ONE product, however many times the
+     * request arrives.
+     *
+     * The owner's reproduction: «Request Timeout» on «ذخیره و ادامه», a draft
+     * created anyway, and retrying produced several products with the same
+     * name. A browser that shows a timeout has usually already sent the
+     * request, so the replay is the ordinary case rather than the exotic one.
+     */
+    public function testOneCreateFormMakesOneProductHoweverManyTimesItIsPosted(): void
+    {
+        $details = new ProductDetails(title: 'دستکش لاتکس', categoryKey: 'gloves', priceMinor: 200000, sku: 'TOK-1', stock: 5);
+        $token = 'form-token-aaaaaaaaaaaaaaaaaaaa';
+
+        $first = $this->manage->save(self::VENDOR, self::VENDOR, 0, $details, [], [], 0, '', $token);
+        self::assertTrue($first->ok, $first->code);
+        $id = (int) $first->context['product_id'];
+        self::assertGreaterThan(0, $id);
+        self::assertArrayNotHasKey('replayed', $first->context, 'the first one really created it');
+
+        // The same POST again — and again, because a replay that is only
+        // idempotent once is not idempotent.
+        foreach ([2, 3] as $attempt) {
+            $again = $this->manage->save(self::VENDOR, self::VENDOR, 0, $details, [], [], 0, '', $token);
+            self::assertTrue($again->ok, 'attempt ' . $attempt . ': ' . $again->code);
+            self::assertSame($id, (int) $again->context['product_id'], 'the same product comes back');
+            self::assertSame(1, (int) ($again->context['replayed'] ?? 0), 'and it says it is a replay');
+        }
+        self::assertCount(1, $this->products->forVendor(self::VENDOR), 'one row, not three');
+    }
+
+    /**
+     * And a vendor who really wants two products of the same name still gets
+     * two — because the token identifies the submission, not the content.
+     *
+     * Without this the «fix» would be a new defect: a shop with two sizes of
+     * the same glove would be unable to list the second.
+     */
+    public function testTwoProductsOfTheSameNameAreStillAllowedFromTwoForms(): void
+    {
+        $details = new ProductDetails(title: 'دستکش لاتکس', categoryKey: 'gloves', priceMinor: 200000, stock: 5);
+
+        $one = $this->manage->save(self::VENDOR, self::VENDOR, 0, $details, [], [], 0, '', 'token-one-bbbbbbbbbbbbbbbb');
+        $two = $this->manage->save(self::VENDOR, self::VENDOR, 0, $details, [], [], 0, '', 'token-two-cccccccccccccccc');
+
+        self::assertTrue($one->ok, $one->code);
+        self::assertTrue($two->ok, $two->code);
+        self::assertNotSame((int) $one->context['product_id'], (int) $two->context['product_id']);
+        self::assertCount(2, $this->products->forVendor(self::VENDOR));
+    }
+
+    /**
+     * A create with no token behaves exactly as `alpha.40` did.
+     *
+     * The column is nullable precisely so that this keeps working: the CSV
+     * import, the Dokan migration and any build mid-upgrade create without a
+     * token, and NULL repeats freely in a unique index. If this failed, the
+     * guard would have become a wall.
+     */
+    public function testACreateWithNoTokenIsUnaffectedAndCanRepeat(): void
+    {
+        $details = new ProductDetails(title: 'بدون توکن', categoryKey: 'gloves', priceMinor: 100000, stock: 1);
+
+        $one = $this->manage->save(self::VENDOR, self::VENDOR, 0, $details);
+        $two = $this->manage->save(self::VENDOR, self::VENDOR, 0, $details);
+
+        self::assertTrue($one->ok, $one->code);
+        self::assertTrue($two->ok, $two->code);
+        self::assertNotSame((int) $one->context['product_id'], (int) $two->context['product_id']);
+        self::assertCount(2, $this->products->forVendor(self::VENDOR));
+    }
+
+    /**
+     * One token cannot reach another shop's row.
+     *
+     * The unique key is over `(vendor_user_id, create_token)` and the lookup
+     * is scoped the same way, so two vendors whose forms happened to produce
+     * the same string each get their own product.
+     */
+    public function testTheSameTokenFromAnotherShopIsItsOwnProduct(): void
+    {
+        $details = new ProductDetails(title: 'دستکش', categoryKey: 'gloves', priceMinor: 100000, stock: 1);
+        $token = 'shared-token-dddddddddddddddd';
+
+        $mine = $this->manage->save(self::VENDOR, self::VENDOR, 0, $details, [], [], 0, '', $token);
+        $theirs = $this->manage->save(self::OTHER_VENDOR, self::OTHER_VENDOR, 0, $details, [], [], 0, '', $token);
+
+        self::assertTrue($mine->ok, $mine->code);
+        self::assertTrue($theirs->ok, $theirs->code);
+        self::assertNotSame((int) $mine->context['product_id'], (int) $theirs->context['product_id']);
+    }
+
+    /**
+     * §2: a create whose GALLERY did not save is not reported as «ذخیره شد».
+     *
+     * `alpha.31` made `saveImages()` transactional and made it report; the
+     * vendor's own save path then threw the answer away, so a product could be
+     * created with its pictures missing and the vendor was told it had saved.
+     * The row still exists and the id is still returned — that draft is where
+     * they continue from — but the sentence names what did not land.
+     */
+    public function testACreateWhoseGalleryFailsSaysSoAndStillNamesTheDraft(): void
+    {
+        // `cleanImages()` drops any id the vendor does not own, so saying
+        // whose they are comes first — otherwise nothing would be written and
+        // for a reason that has nothing to do with the failure being injected.
+        $this->images->own(4101, self::VENDOR);
+        $this->images->own(4102, self::VENDOR);
+        $failing = new FailingDatabase(new WpDatabase($this->wpdb));
+        $failing->failWhen(['INSERT INTO', M0005CreateProductTables::PRODUCT_IMAGES]);
+        $manage = $this->manageOver($failing);
+
+        $result = $manage->save(self::VENDOR, self::VENDOR, 0, new ProductDetails(
+            title: 'دستکش لاتکس',
+            categoryKey: 'gloves',
+            priceMinor: 200000,
+            stock: 5
+        ), [], [4101, 4102], 4101, '', 'token-img-eeeeeeeeeeeeeeee');
+
+        self::assertFalse($result->ok, 'a half-written draft is not a success');
+        self::assertSame('product_created_incomplete', $result->code);
+        self::assertSame('images', $result->context['missing']);
+        $id = (int) $result->context['product_id'];
+        self::assertGreaterThan(0, $id, 'the draft is named, so the vendor can continue from it');
+
+        // The row and its details ARE there — this is a partial save, and
+        // telling the vendor to start over would throw away what landed.
+        $stored = $this->products->find($id);
+        self::assertSame('دستکش لاتکس', $stored?->details->title);
+        self::assertSame([], $stored?->imageIds, 'and the gallery really is empty');
+    }
+
+    /** The same for the specs, measured separately: two writes, two answers. */
+    public function testACreateWhoseSpecsFailNamesTheSpecsAndNotTheImages(): void
+    {
+        $made = $this->configure->createTemplate('gloves', 'دستکش');
+        self::assertTrue($made->ok, $made->code);
+        $this->configure->addField((int) $made->context['template_id'], 'material', 'جنس', 'text', true);
+        $this->images->own(4201, self::VENDOR);
+        $failing = new FailingDatabase(new WpDatabase($this->wpdb));
+        $failing->failWhen(['INSERT INTO', M0005CreateProductTables::PRODUCT_SPECS]);
+        $manage = $this->manageOver($failing);
+
+        $result = $manage->save(self::VENDOR, self::VENDOR, 0, new ProductDetails(
+            title: 'دستکش لاتکس',
+            categoryKey: 'gloves',
+            priceMinor: 200000,
+            stock: 5
+        ), ['material' => 'لاتکس'], [4201], 4201, '', 'token-spec-ffffffffffffffff');
+
+        self::assertFalse($result->ok);
+        self::assertSame('product_created_incomplete', $result->code);
+        self::assertSame('specs', $result->context['missing'], 'the gallery landed, so it is not named');
+        $id = (int) $result->context['product_id'];
+        self::assertSame([4201], $this->galleryOf($id), 'and the pictures that DID save are there');
+    }
+
+    /**
+     * Two simultaneous creates from ONE form produce one product.
+     *
+     * SCHEDULED, not raced, and named as such: the second create runs inside
+     * this process immediately before the first one's `INSERT`, so the first
+     * meets the unique key — which is the guard being measured. The two-OS-
+     * process version of a race belongs where there is a transaction to get
+     * past; here the index decides and the index does not care which request
+     * arrives first.
+     */
+    public function testTwoSimultaneousCreatesFromOneFormLeaveOneProduct(): void
+    {
+        $details = new ProductDetails(title: 'دستکش لاتکس', categoryKey: 'gloves', priceMinor: 200000, stock: 5);
+        $token = 'token-race-gggggggggggggggg';
+
+        $interfering = new InterferingDatabase(new WpDatabase($this->wpdb));
+        $interfering->before(['INSERT INTO', M0005CreateProductTables::PRODUCTS], 1, function () use ($details, $token): void {
+            // The other request, all the way through, on the plain gateway.
+            self::assertTrue($this->manage->save(self::VENDOR, self::VENDOR, 0, $details, [], [], 0, '', $token)->ok);
+        });
+
+        $mine = $this->manageOver($interfering)->save(self::VENDOR, self::VENDOR, 0, $details, [], [], 0, '', $token);
+        self::assertNotSame([], $interfering->fired, 'the interleaving has to have happened');
+
+        self::assertTrue($mine->ok, $mine->code);
+        self::assertCount(1, $this->products->forVendor(self::VENDOR), 'one row, whoever lost');
+        self::assertSame(
+            (int) $mine->context['product_id'],
+            $this->products->forVendor(self::VENDOR)[0]->id,
+            'and the loser was handed the row that exists'
+        );
+    }
+
+    /**
+     * `ManageProducts` over a given gateway, with everything else real.
+     *
+     * Only the PRODUCTS repository moves: the templates, revisions and the
+     * projector stay on the working connection, so a failure injected into one
+     * table does not take the fixture down with it.
+     */
+    private function manageOver(DatabaseInterface $db): ManageProducts
+    {
+        $clock = new SystemClock();
+        return new ManageProducts(
+            new DbProductRepository($db, $clock),
+            $this->templates,
+            $this->revisions,
+            new ProductReadiness($this->templates, $this->variations),
+            new SyncCatalog(
+                $this->products,
+                $this->variations,
+                $this->projector,
+                new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock)
+            ),
+            $this->images,
+            new StaffAccess($this->staff, $this->vendors),
+            $this->publishing,
+            new ProductStateMachine(),
+            new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock)
+        );
     }
 
     /** @return list<int> */

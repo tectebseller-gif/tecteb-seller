@@ -298,6 +298,21 @@ final class ProductMessages
         };
         return match ($code) {
             'product_created' => __('محصول به‌عنوان پیش‌نویس ساخته شد. مرحله‌های بعد را کامل کنید.', 'tecteb-marketplace-core'),
+            // The specs or the gallery did not land, and the row did. Both
+            // halves are said, because «ذخیره شد» about a half-written draft
+            // is what `alpha.40` and earlier told the vendor — and the id is
+            // in the sentence so they know which draft to go back into.
+            'product_created_incomplete' => sprintf(
+                /* translators: 1: which parts, 2: product id */
+                __('محصول به‌عنوان پیش‌نویس ساخته شد، ولی %1$s ذخیره نشد. پیش‌نویس #%2$s را باز کنید و همان بخش را دوباره ثبت کنید؛ بقیهٔ اطلاعات سر جایش است.', 'tecteb-marketplace-core'),
+                self::parts((string) ($context['missing'] ?? '')),
+                PersianDigits::toPersian((string) ($context['product_id'] ?? 0))
+            ),
+            'product_saved_incomplete' => sprintf(
+                /* translators: %s: which parts */
+                __('اطلاعات محصول ذخیره شد، ولی %s ذخیره نشد. همان بخش را دوباره ثبت کنید؛ چیز دیگری از بین نرفته است.', 'tecteb-marketplace-core'),
+                self::parts((string) ($context['missing'] ?? ''))
+            ),
             'product_saved' => __('تغییرات محصول ذخیره شد.', 'tecteb-marketplace-core'),
             'inventory_saved' => __('موجودی و مشخصات فروش همین حالا ذخیره شد.', 'tecteb-marketplace-core'),
             'product_submitted' => __('محصول برای بررسی مدیر فرستاده شد. تا تعیین تکلیف، نسخه فعلی تغییر نمی‌کند.', 'tecteb-marketplace-core'),
@@ -636,6 +651,28 @@ final class ProductMessages
      *
      * @param array<string,scalar|null> $context
      */
+    /**
+     * «مشخصات» and «تصویرها», named in Persian rather than printed as keys.
+     *
+     * The caller hands a comma list because `OperationResult` context travels
+     * through a redirect as scalars (`alpha.29`: an array was silently
+     * dropped), and an unknown part is passed through rather than hidden — a
+     * sentence naming something nobody recognises is still better than a
+     * sentence that quietly says less than it knows.
+     */
+    private static function parts(string $missing): string
+    {
+        $names = [
+            'specs' => __('مشخصات', 'tecteb-marketplace-core'),
+            'images' => __('تصویرها', 'tecteb-marketplace-core'),
+        ];
+        $out = [];
+        foreach (array_filter(explode(',', $missing)) as $part) {
+            $out[] = $names[$part] ?? $part;
+        }
+        return $out === [] ? __('بخشی از اطلاعات', 'tecteb-marketplace-core') : implode(' و ', $out);
+    }
+
     private static function uploadRefusal(string $why, string $whatToDo, array $context): string
     {
         $parts = [];

@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Product\Application;
 use Tecteb\Marketplace\Contracts\Files\UploadedFile;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
@@ -89,10 +90,26 @@ final class ManageProducts
         array $specs = [],
         array $imageIds = [],
         int $mainImageId = 0,
-        string $revision = ''
+        string $revision = '',
+        string $createToken = ''
     ): OperationResult {
         if (!$this->access->can($actorId, $vendorUserId, StaffArea::Product, StaffLevel::Edit)) {
             return OperationResult::failure('forbidden');
+        }
+        // BEFORE validation, and that placement is the point. A replay carries
+        // the same SKU as the submission that already succeeded, so validating
+        // first answers `sku_taken` — a true sentence about the product this
+        // very form made, and useless to the vendor whose browser resent the
+        // request after a timeout. The submission has already been processed;
+        // its answer is the product it produced.
+        if ($productId <= 0 && $createToken !== '') {
+            $already = $this->products->findByCreateToken($vendorUserId, $createToken);
+            if ($already > 0) {
+                return OperationResult::success('product_created', [
+                    'product_id' => $already,
+                    'replayed' => 1,
+                ]);
+            }
         }
         $problem = $this->validate($vendorUserId, $details, $productId);
         if ($problem !== null) {
@@ -105,7 +122,7 @@ final class ManageProducts
         [$imageIds, $mainImageId] = $this->cleanImages($imageIds, $mainImageId, $vendorUserId);
 
         if ($productId <= 0) {
-            return $this->create($vendorUserId, $details, $specs, $imageIds, $mainImageId);
+            return $this->create($vendorUserId, $details, $specs, $imageIds, $mainImageId, $createToken);
         }
 
         $product = $this->products->findOwned($productId, $vendorUserId);
@@ -383,20 +400,66 @@ final class ManageProducts
     // ------------------------------------------------------------- internals
 
     /** @param array<string,string> $specs @param list<int> $imageIds */
-    private function create(int $vendorUserId, ProductDetails $details, array $specs, array $imageIds, int $mainImageId): OperationResult
-    {
-        $productId = $this->products->create($vendorUserId, $details, ProductStatus::Draft);
+    /**
+     * A new draft — and one per submitted form, not one per request.
+     *
+     * **§2's reproducible half.** A create had no idempotency at all, so a
+     * replayed POST made a second product. That replay is not hypothetical: a
+     * browser showing «Request Timeout» has usually already sent the request,
+     * and the owner's own retry produced several products with the same name.
+     *
+     * The guard is the unique key on `(vendor_user_id, create_token)`, and the
+     * resolution is a re-read rather than an error: the token's product IS the
+     * answer the replay wanted. A deliberate second product of the same name
+     * is still allowed, because it comes from a freshly rendered form carrying
+     * a fresh token — the token identifies the SUBMISSION, never the content.
+     *
+     * @param array<string,string> $specs
+     * @param list<int> $imageIds
+     */
+    private function create(
+        int $vendorUserId,
+        ProductDetails $details,
+        array $specs,
+        array $imageIds,
+        int $mainImageId,
+        string $createToken = ''
+    ): OperationResult {
+        // The replay is answered in `save()`, before validation, because a
+        // replay's SKU is the SKU of the product it already made. What is left
+        // here is the SIMULTANEOUS case: two requests that both got past that
+        // check because neither had committed yet. The unique key decides, and
+        // the loser's insert resolves to the winner's row rather than to an
+        // error about a product that exists.
+        $productId = $this->products->create(
+            $vendorUserId,
+            $details,
+            ProductStatus::Draft,
+            LinkOwnership::Marketplace,
+            null,
+            '',
+            $createToken
+        );
         if ($productId <= 0) {
             return OperationResult::failure('storage_failed');
         }
-        $this->persistSpecsAndImages($productId, $details->categoryKey, $specs, $imageIds, $mainImageId);
+        $missed = $this->persistSpecsAndImages($productId, $details->categoryKey, $specs, $imageIds, $mainImageId);
         $this->audit->log(AuditEventCatalog::PRODUCT_SAVED, $vendorUserId, 'product', (string) $productId, [
             'vendor_id' => $vendorUserId,
             'product_id' => $productId,
             'status' => ProductStatus::Draft->value,
             'created' => true,
+            'incomplete' => implode(',', $missed),
         ]);
-        return OperationResult::success('product_created', ['product_id' => $productId]);
+        // The row exists, so the id travels either way — the draft is where
+        // the vendor continues from, and sending them back to an empty form
+        // would lose the work that DID save. What changes is the sentence.
+        return $missed === []
+            ? OperationResult::success('product_created', ['product_id' => $productId])
+            : OperationResult::failure('product_created_incomplete', [
+                'product_id' => $productId,
+                'missing' => implode(',', $missed),
+            ]);
     }
 
     /** @param array<string,string> $specs @param list<int> $imageIds */
@@ -411,14 +474,20 @@ final class ManageProducts
         if (!$this->products->updateDetails($product->id, $details, $expectedVersion)) {
             return $this->refusedOrFailed($product, $expectedVersion);
         }
-        $this->persistSpecsAndImages($product->id, $details->categoryKey, $specs, $imageIds, $mainImageId);
+        $missed = $this->persistSpecsAndImages($product->id, $details->categoryKey, $specs, $imageIds, $mainImageId);
         $this->audit->log(AuditEventCatalog::PRODUCT_SAVED, $product->vendorUserId, 'product', (string) $product->id, [
             'vendor_id' => $product->vendorUserId,
             'product_id' => $product->id,
             'status' => $product->status->value,
             'created' => false,
+            'incomplete' => implode(',', $missed),
         ]);
-        return OperationResult::success('product_saved', ['product_id' => $product->id]);
+        return $missed === []
+            ? OperationResult::success('product_saved', ['product_id' => $product->id])
+            : OperationResult::failure('product_saved_incomplete', [
+                'product_id' => $product->id,
+                'missing' => implode(',', $missed),
+            ]);
     }
 
     /**
@@ -646,13 +715,39 @@ final class ManageProducts
     }
 
     /** @param array<string,string> $specs @param list<int> $imageIds */
-    private function persistSpecsAndImages(int $productId, string $categoryKey, array $specs, array $imageIds, int $mainImageId): void
+    /**
+     * The specs and the gallery, and WHICH of them did not land.
+     *
+     * **It returned `void` until `alpha.41`, and that is §2's provable half.**
+     * `alpha.31` made both writes transactional and made them report — and
+     * then checked the answer in `approveRevision()` only. The vendor's own
+     * save path, the one every draft goes through, threw both results away:
+     * a product could be created with its specs or its pictures missing and
+     * the vendor was told «ذخیره شد». The owner's timeout is not explained by
+     * this (see the delivery note), but «ذخیرهٔ ناقص را موفقیت کامل اعلام
+     * نکن» is, and a half-written draft is exactly what they were left with.
+     *
+     * @param array<string,string> $specs
+     * @param list<int> $imageIds
+     * @return list<string> the parts that did NOT save; empty when all did
+     */
+    private function persistSpecsAndImages(int $productId, string $categoryKey, array $specs, array $imageIds, int $mainImageId): array
     {
         $template = $this->templates->findByCategory($categoryKey);
+        $missed = [];
         // The version a product was filled against, recorded with the answers
         // (MED-01): tightening a rule later must not silently re-judge it.
-        $this->products->saveSpecs($productId, $specs, $template?->schemaVersion ?? 0);
-        $this->products->saveImages($productId, $imageIds, $mainImageId);
+        if (!$this->products->saveSpecs($productId, $specs, $template?->schemaVersion ?? 0)) {
+            $missed[] = 'specs';
+        }
+        // Attempted even when the specs failed, and deliberately: the two are
+        // separate transactions, one failing says nothing about the other, and
+        // a vendor whose pictures DID land should not be told to upload them
+        // again.
+        if (!$this->products->saveImages($productId, $imageIds, $mainImageId)) {
+            $missed[] = 'images';
+        }
+        return $missed;
     }
 
     private function validate(int $vendorUserId, ProductDetails $details, int $productId): ?OperationResult

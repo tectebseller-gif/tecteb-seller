@@ -92,7 +92,23 @@ final class ProductFormView
          * manager, having typed it, had every reason to think it had been
          * delivered.
          */
-        ?ProductDecision $managerMessage = null
+        ?ProductDecision $managerMessage = null,
+        /**
+         * The one-time value that makes ONE submitted create form produce one
+         * product.
+         *
+         * A replayed POST — which is what a browser sends after a request
+         * times out, and what a double click sends — carried nothing to tell
+         * it apart from a vendor who genuinely wants a second product, so it
+         * made one. The token identifies the SUBMISSION: a freshly rendered
+         * form gets a fresh one, so two products of the same name are still
+         * perfectly possible on purpose.
+         *
+         * Only rendered while creating. An edit already has a product id,
+         * which is a better identity than any token, and `revision` is what
+         * guards that path.
+         */
+        string $createToken = ''
     ): string {
         $step = array_key_exists($step, self::steps()) ? $step : '1';
         $html = '';
@@ -159,6 +175,9 @@ final class ProductFormView
             . '<input type="hidden" name="tmc_vendor_action" value="save_product">'
             . '<input type="hidden" name="product_id" value="' . esc_attr((string) $productId) . '">'
             . '<input type="hidden" name="step" value="' . esc_attr($step) . '">'
+            . ($productId === 0 && $createToken !== ''
+                ? '<input type="hidden" name="create_token" value="' . esc_attr($createToken) . '">'
+                : '')
             // The stamp this form was rendered from. A save whose stamp no
             // longer matches the row is refused rather than overwriting
             // somebody else's newer work — and it is a hidden field rather than
