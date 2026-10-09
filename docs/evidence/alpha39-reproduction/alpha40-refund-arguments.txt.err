@@ -1,5 +1,0 @@
-alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: catalog migration failed: SQLSTATE[42S21]: Column already exists: 1060 Duplicate column name 'seo_slug'
-#0 /home/user/tecteb-seller/src/Modules/Product/Infrastructure/Migrations/M0006CatalogAndOrders.php(70): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->run()
-#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders->up()
-#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
-#3 {main}

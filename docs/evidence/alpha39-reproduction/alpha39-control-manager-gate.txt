@@ -1,0 +1,2 @@
+settlement_without_capability=forbidden
+probe=ran

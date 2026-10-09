@@ -1,3 +1,0 @@
-alpha39-probe: RuntimeException: probe fixture: the line was not captured ()
-#0 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(712): Alpha39World->captured()
-#1 {main}

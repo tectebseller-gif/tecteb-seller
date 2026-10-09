@@ -1,5 +1,0 @@
-alpha39-probe: Tecteb\Marketplace\Core\Exceptions\MigrationException: migration 0014_row_version_and_import_run failed: SQLSTATE[42000]: Syntax error or access violation: 1061 Duplicate key name 'tmc_product_import_run'
-#0 /home/user/tecteb-seller/src/Core/Migration/Migrations/M0014RowVersionAndImportRun.php(80): Tecteb\Marketplace\Core\Migration\Migrations\M0014RowVersionAndImportRun->run()
-#1 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(201): Tecteb\Marketplace\Core\Migration\Migrations\M0014RowVersionAndImportRun->up()
-#2 /home/user/tecteb-seller/tests/Support/alpha39-probe.php(454): Alpha39World->__construct()
-#3 {main}

@@ -1,0 +1,3 @@
+wc_ok=yes
+passed_amount=105.50
+probe=ran

@@ -1,0 +1,5 @@
+interference_fired=yes
+request_ok=reservation_lost
+claimed_items=0
+open_requests=0
+probe=ran

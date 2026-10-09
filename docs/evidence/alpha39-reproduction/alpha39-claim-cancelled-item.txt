@@ -1,0 +1,5 @@
+interference_fired=yes
+request_ok=yes
+claimed_items=1
+open_requests=1
+probe=ran
