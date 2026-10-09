@@ -167,7 +167,9 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             // The vendor money unit, recorded against a primary key: a capture
             // without it refuses every line as `unit_unreadable` rather than
             // assuming, which is the posture `alpha.40` chose.
-            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock())
+            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock()),
+            // The unit of work the claim and the accrual share.
+            new WpDatabase($this->wpdb)
         );
         $this->orders = new ManageOrderItems(
             $this->orderItems,

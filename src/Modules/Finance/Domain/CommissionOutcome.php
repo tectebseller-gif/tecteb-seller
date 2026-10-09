@@ -25,7 +25,19 @@ final class CommissionOutcome
         public readonly ?Money $commission,
         public readonly ?Money $vendorShare,
         public readonly ?CommissionSnapshot $snapshot,
-        public readonly string $reason = ''
+        public readonly string $reason = '',
+        /**
+         * The tax the RECORDED event carried, on a recovered outcome only.
+         *
+         * Carried because a caller recovering a line has to write the line's
+         * own figures, and `alpha.39` wrote the share and the commission from
+         * the event while taking `base_minor`, `tax_minor` and `quantity` from
+         * the fresh input — so an order edited between the failed write and
+         * the retry produced a line that disagreed with its own ledger entry.
+         * Null on a freshly calculated outcome, where the caller's input IS
+         * the record.
+         */
+        public readonly ?Money $recoveredTax = null
     ) {
     }
 
@@ -54,9 +66,18 @@ final class CommissionOutcome
         Money $base,
         Money $commission,
         Money $vendorShare,
-        ?CommissionSnapshot $snapshot
+        ?CommissionSnapshot $snapshot,
+        ?Money $recoveredTax = null
     ): self {
-        return new self(self::CALCULATED, $base, $commission, $vendorShare, $snapshot, self::ALREADY_RECORDED);
+        return new self(
+            self::CALCULATED,
+            $base,
+            $commission,
+            $vendorShare,
+            $snapshot,
+            self::ALREADY_RECORDED,
+            $recoveredTax
+        );
     }
 
     public static function needsConfiguration(string $reason): self

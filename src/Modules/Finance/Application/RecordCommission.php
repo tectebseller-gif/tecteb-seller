@@ -53,6 +53,24 @@ final class RecordCommission
         if (trim($eventKey) === '') {
             return CommissionOutcome::needsConfiguration('event_key_required');
         }
+
+        // THE EXISTING EVENT FIRST, BEFORE THE RATE.
+        //
+        // `alpha.39` resolved the rate, calculated, attempted the write, and
+        // recovered only when the unique index refused it. So a sound document
+        // already on the books became unrecoverable the moment its rate was
+        // changed or removed: `calculate()` answered `needsConfiguration` and
+        // this method returned there, never reaching the recovery. A retry of
+        // a line whose money was correctly recorded then reported «rate
+        // unknown» — about figures sitting in the ledger.
+        //
+        // Asked first, and nothing about today's configuration is consulted on
+        // the way: «رویداد موجود پیش از وابستگی به نرخ فعلی بررسی شود».
+        $recovered = $this->recover($eventKey);
+        if ($recovered !== null) {
+            return $recovered;
+        }
+
         ['rate' => $rate, 'source' => $source] = $this->rates->forItem($rateReferences);
 
         $outcome = $this->calculator->calculate($baseAfterDiscountBeforeTax, $rate, $source, $vendorUserId, $discountAllocation);
@@ -85,6 +103,10 @@ final class RecordCommission
             // figures and they are recovered FROM IT, not recomputed at
             // today's rate. If it is not, the write genuinely failed and that
             // is a different word.
+            // Asked again, and this is no longer the only place it is asked:
+            // the read at the top covers a retry, and this covers the race —
+            // two callbacks whose reads both missed and whose writes collided
+            // on the unique index. One of them lands, the other recovers.
             $recovered = $this->recover($eventKey);
             return $recovered ?? CommissionOutcome::needsConfiguration('ledger_unwritable');
         }
@@ -165,7 +187,12 @@ final class RecordCommission
             $base,
             $commission,
             $vendorShare,
-            is_array($decoded) ? CommissionSnapshot::fromArray($decoded) : null
+            is_array($decoded) ? CommissionSnapshot::fromArray($decoded) : null,
+            // The tax the EVENT carried, so the caller can write the line's own
+            // figures rather than mixing recovered money with fresh input.
+            // `null` when the event has no tax line, which is a real state: a
+            // zero tax adds no row (`LedgerTransaction::add()` drops zeroes).
+            $tax ?? $base->zero()
         );
     }
 }

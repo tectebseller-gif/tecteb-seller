@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Order\Application;
 
+use Tecteb\Marketplace\Contracts\TransactionInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
@@ -51,7 +52,18 @@ final class CaptureOrder
          * than assuming, because a build that cannot establish the unit does
          * not get to record money in it.
          */
-        private readonly ?VendorMoneyUnitRegistryInterface $units = null
+        private readonly ?VendorMoneyUnitRegistryInterface $units = null,
+        /**
+         * The unit of work the unit claim and the accrual share.
+         *
+         * Fixing a vendor's money unit is a write, and this hook runs at
+         * checkout — before anything is paid. A claim that outlived a line
+         * whose rate could not be resolved would fix a currency from an order
+         * that recorded nothing, with no way back. Optional so every existing
+         * construction site keeps working; without it a line is refused as
+         * `capture_not_atomic` rather than claimed unsafely.
+         */
+        private readonly ?TransactionInterface $tx = null
     ) {
     }
 
@@ -135,16 +147,6 @@ final class CaptureOrder
             // Scoped per vendor and asked only once a unit is readable, so a
             // single-currency site — every real one — behaves exactly as
             // before and pays one indexed query per captured line.
-            if ($unitError === '') {
-                $claim = $this->claimUnit($product->vendorUserId, $lineCurrency, $lineExponent);
-                if (!$claim->isAgreed()) {
-                    // The claim's own word, not a single catch-all: «the books
-                    // hold another unit», «the books hold two», «the database
-                    // could not be asked» and «that is not a unit» are four
-                    // different pieces of work for a person.
-                    $unitError = $claim->state;
-                }
-            }
             if ($unitError !== '') {
                 $refusedUnit++;
                 $reasons[] = $unitError;
@@ -156,6 +158,45 @@ final class CaptureOrder
             $tax = Money::of((int) ($line['line_tax_minor'] ?? 0), $lineCurrency, $lineExponent);
             $eventKey = self::eventKey($orderId, (int) $line['order_item_id']);
 
+            // THE UNIT CLAIM AND THE ACCRUAL ARE ONE UNIT OF WORK.
+            //
+            // Fixing the unit is a WRITE, and a write that outlives the thing
+            // it was made for is a trap: this hook runs at checkout, before
+            // anything is paid, and a line whose rate cannot be resolved —
+            // or whose ledger write fails — records no money at all. The first
+            // version of this claimed the unit before the accrual and left the
+            // row behind, so an order that recorded nothing could still fix a
+            // vendor's currency for ever, and the vendor's first real sale in
+            // another unit would be refused with no way back. Found by the
+            // automated review of §4's commit, not by a test.
+            //
+            // So both go in one transaction. The claim still comes FIRST,
+            // because that is the whole point of the keyed row: two concurrent
+            // first captures must not both reach the ledger. The loser rolls
+            // back before writing a single ledger line.
+            if ($this->tx === null) {
+                // A build that cannot make the pair atomic does not get to fix
+                // a vendor's unit — the same posture as `payment_not_atomic`.
+                $refusedUnit++;
+                $reasons[] = 'capture_not_atomic';
+                continue;
+            }
+            if (!$this->tx->begin()) {
+                $failed++;
+                $reasons[] = 'storage_failed';
+                continue;
+            }
+            $claim = $this->claimUnit($product->vendorUserId, $lineCurrency, $lineExponent);
+            if (!$claim->isAgreed()) {
+                // The claim's own word, not a single catch-all: «the books
+                // hold another unit», «the books hold two», «the database
+                // could not be asked» and «that is not a unit» are four
+                // different pieces of work for a person.
+                $this->tx->rollback();
+                $refusedUnit++;
+                $reasons[] = $claim->state;
+                continue;
+            }
             $outcome = $this->commissions->accrue(
                 $eventKey,
                 $product->vendorUserId,
@@ -169,11 +210,52 @@ final class CaptureOrder
                 ],
                 $tax
             );
-
             $recorded = $outcome->isCalculated();
             if (!$recorded) {
+                // Nothing reached the ledger, so nothing claims this vendor's
+                // unit: the claim goes back with the accrual. The LINE is
+                // still stored below, with null figures and counted
+                // `unrecorded` — exactly as before. FIN-02's rule is that a
+                // vendor whose sale produced no share is owed an answer rather
+                // than a silent omission, and `VendorBalance` reports that
+                // count from stored rows. Dropping the line would hide it.
+                $this->tx->rollback();
                 $unrecorded++;
                 $reasons[] = $outcome->reason;
+            } elseif (!$this->tx->commit()) {
+                $this->tx->rollback();
+                $failed++;
+                $reasons[] = 'storage_failed';
+                continue;
+            }
+
+            // A RECOVERED outcome writes the EVENT's figures, not this
+            // callback's input — and refuses when the two disagree.
+            //
+            // `alpha.39` took the share and the commission off the recovered
+            // event and `base_minor`, `tax_minor` and `quantity` from the
+            // fresh line. An order edited between the failed line write and
+            // the retry — a quantity corrected, a discount applied — then
+            // produced a line whose base disagreed with the ledger entry it
+            // pointed at, and every total built from the two disagreed with
+            // itself. Nothing reported it: `captured` counted 1.
+            //
+            // So: base and tax come from the event, and a line whose input no
+            // longer matches what was recorded is NOT stored. The quantity is
+            // not in the ledger and is not guessed — it is trusted only while
+            // the money agrees, which is the evidence that this is the same
+            // line. A mismatch needs a person, and `line_mismatch` says so.
+            $storedBase = $base;
+            $storedTax = $tax;
+            if ($outcome->isRecovered() && $outcome->base !== null) {
+                $recoveredTax = $outcome->recoveredTax ?? $outcome->base->zero();
+                if ($outcome->base->minor !== $base->minor || $recoveredTax->minor !== $tax->minor) {
+                    $incomplete++;
+                    $reasons[] = 'line_mismatch';
+                    continue;
+                }
+                $storedBase = $outcome->base;
+                $storedTax = $recoveredTax;
             }
             $stored = $this->items->record(new VendorOrderItem(
                 0,
@@ -184,9 +266,9 @@ final class CaptureOrder
                 (string) ($line['title'] ?? $product->details->title),
                 (string) ($line['sku'] ?? $product->details->sku),
                 $quantity,
-                (int) round($base->minor / $quantity),
-                $base->minor,
-                $tax->minor,
+                (int) round($storedBase->minor / $quantity),
+                $storedBase->minor,
+                $storedTax->minor,
                 $recorded ? $outcome->commission?->minor : null,
                 $recorded ? $outcome->vendorShare?->minor : null,
                 $recorded ? $outcome->snapshot?->rateBasisPoints : null,

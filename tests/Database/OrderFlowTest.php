@@ -177,7 +177,9 @@ final class OrderFlowTest extends DatabaseTestCase
             // The vendor money unit, recorded against a primary key: a capture
             // without it refuses every line as `unit_unreadable` rather than
             // assuming, which is the posture `alpha.40` chose.
-            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock())
+            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock()),
+            // The unit of work the claim and the accrual share.
+            new WpDatabase($this->wpdb)
         );
         $this->orders = new ManageOrderItems(
             $this->orderItems,
@@ -487,6 +489,174 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertSame(0, $again['refused_unit']);
         self::assertSame(0, $again['incomplete'], 'a duplicate callback is not an incomplete line');
         self::assertCount(3, $this->orderItems->forVendor(self::VENDOR_A));
+    }
+
+    /**
+     * WHAT THIS PROVES: a capture that records NO money does not fix the
+     * vendor's currency — found by the automated security review of §4's
+     * commit, not by a test.
+     *
+     * The claim is a write, and this hook runs at CHECKOUT, before anything is
+     * paid. §4's first version claimed the unit before the accrual, so a line
+     * whose rate cannot be resolved still fixed the vendor's unit for ever —
+     * from an order that recorded nothing — and the vendor's first real sale
+     * in another unit would then be refused with no way back. The claim and
+     * the accrual are one unit of work now, so the claim goes back with it.
+     */
+    public function testALineThatRecordsNoMoneyDoesNotFixTheVendorsUnit(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-15');
+        // No rate resolves, so nothing can be accrued (FIN-02).
+        $this->rules->clearRate(RateScope::General, 'general');
+
+        $report = $this->capture->capture(5050, [$this->line(91, $a, 1, 500000)]);
+        self::assertSame(1, $report['unrecorded'], 'the line is reported, not dropped');
+        self::assertSame([], $this->ledger->forEvent(CaptureOrder::eventKey(5050, 91)));
+
+        // The LINE is still stored — FIN-02: a vendor whose sale produced no
+        // share is owed an answer, and the balance counts it.
+        $line = $this->orderItems->findByOrderItem(91);
+        self::assertNotNull($line, 'an unrecorded line is still a line');
+        self::assertNull($line->vendorShareMinor);
+
+        // And the unit is NOT claimed, so a later real sale in another unit is
+        // free to set it.
+        $units = new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock());
+        self::assertNull($units->unitOf(self::VENDOR_A), 'nothing recorded, nothing claimed');
+
+        $this->rules->setRate(RateScope::General, 'general', CommissionRate::ofBasisPoints(1000));
+        $other = $this->line(92, $a, 1, 10050);
+        $other['currency'] = 'USD';
+        $other['exponent'] = 2;
+        self::assertSame(1, $this->capture->capture(5051, [$other])['captured'], 'the first REAL sale sets it');
+        self::assertSame(['currency' => 'USD', 'exponent' => 2], $units->unitOf(self::VENDOR_A));
+    }
+
+    /**
+     * WHAT THIS PROVES: a sound document stays recoverable when the rate that
+     * produced it is changed or REMOVED.
+     *
+     * `alpha.39` resolved the rate, calculated, attempted the write and
+     * recovered only when the unique index refused it — so a retry of a line
+     * whose money was correctly recorded reported «rate unknown» the moment
+     * somebody cleared the rate, about figures sitting in the ledger. The
+     * existing event is asked FIRST now, before anything about today's
+     * configuration is consulted.
+     */
+    public function testARecordedEventIsRecoverableAfterItsRateIsRemoved(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-16');
+        $lines = [$this->line(93, $a, 1, 500000)];
+        $eventKey = CaptureOrder::eventKey(5052, 93);
+
+        // The ledger takes it; the line write fails.
+        $gate = new FailingDatabase(new WpDatabase($this->wpdb));
+        $gate->failWhen(['INSERT INTO', M0006CatalogAndOrders::ORDER_ITEMS]);
+        self::assertSame(1, $this->captureOver($gate)->capture(5052, $lines)['failed']);
+        self::assertCount(3, $this->ledger->forEvent($eventKey), 'the money IS recorded');
+        self::assertSame([], $this->orderItems->forVendor(self::VENDOR_A));
+
+        // And THEN the rate is cleared — a manager revisiting the commission
+        // rules, with no idea a line is half-written.
+        $this->rules->clearRate(RateScope::General, 'general');
+
+        $retry = $this->capture->capture(5052, $lines);
+        self::assertSame(1, $retry['captured'], 'the retry still works: reasons ' . implode(',', $retry['reasons']));
+        self::assertSame(0, $retry['unrecorded'], 'and does not report «rate unknown» about recorded money');
+
+        $stored = $this->orderItems->forVendor(self::VENDOR_A);
+        self::assertCount(1, $stored);
+        self::assertSame(450000, $stored[0]->vendorShareMinor);
+        self::assertSame(50000, $stored[0]->commissionMinor);
+        self::assertSame(1000, $stored[0]->rateBasisPoints, 'the rate recorded at the time, not today(none)');
+        self::assertSame($eventKey, $stored[0]->ledgerEvent);
+        self::assertCount(3, $this->ledger->forEvent($eventKey), 'nothing doubled');
+    }
+
+    /**
+     * WHAT THIS PROVES: a retry whose ORDER has changed is refused rather than
+     * stored inconsistent with its own ledger entry.
+     *
+     * `alpha.39` took the share and the commission off the recovered event and
+     * `base_minor`, `tax_minor` and `quantity` from the fresh callback. An
+     * order edited between the failed line write and the retry — a quantity
+     * corrected, a discount applied — produced a line whose base disagreed
+     * with the entry it pointed at, and every total built from the two
+     * disagreed with itself. `captured` counted 1 and nothing said a word.
+     *
+     * @dataProvider editsBetweenTheFailureAndTheRetry
+     */
+    public function testARetryWhoseOrderChangedIsRefusedRatherThanStoredInconsistent(
+        int $quantity,
+        int $totalMinor,
+        int $taxMinor
+    ): void {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-17');
+        $original = $this->line(94, $a, 1, 500000);
+        $original['line_tax_minor'] = 50000;
+        $eventKey = CaptureOrder::eventKey(5053, 94);
+
+        $gate = new FailingDatabase(new WpDatabase($this->wpdb));
+        $gate->failWhen(['INSERT INTO', M0006CatalogAndOrders::ORDER_ITEMS]);
+        self::assertSame(1, $this->captureOver($gate)->capture(5053, [$original])['failed']);
+        self::assertCount(4, $this->ledger->forEvent($eventKey), 'base, commission, share and tax');
+
+        // The order is edited, and the retry carries the NEW figures.
+        $edited = $original;
+        $edited['quantity'] = $quantity;
+        $edited['line_total_minor'] = $totalMinor;
+        $edited['line_tax_minor'] = $taxMinor;
+
+        $retry = $this->capture->capture(5053, [$edited]);
+        self::assertSame(0, $retry['captured'], 'an inconsistent line is not a captured sale');
+        self::assertSame(1, $retry['incomplete']);
+        self::assertContains('line_mismatch', $retry['reasons']);
+        self::assertSame([], $this->orderItems->forVendor(self::VENDOR_A), 'and nothing was stored');
+        self::assertCount(4, $this->ledger->forEvent($eventKey), 'the document is untouched');
+    }
+
+    /** @return array<string,array{0:int,1:int,2:int}> */
+    public static function editsBetweenTheFailureAndTheRetry(): array
+    {
+        return [
+            'the amount changed' => [1, 400000, 50000],
+            'the tax changed' => [1, 500000, 40000],
+            'the quantity changed with the amount' => [2, 1000000, 100000],
+        ];
+    }
+
+    /**
+     * The positive half: a retry carrying the SAME figures stores the line
+     * from the event, and the line agrees with the ledger figure by figure.
+     *
+     * «خودِ ارقام قلم نهایی با دفترکل مقایسه شوند، نه فقط شمارندهٔ repaired».
+     */
+    public function testARetryCarryingTheSameFiguresStoresALineThatAgreesWithTheLedger(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-18');
+        $lines = [$this->line(95, $a, 1, 500000)];
+        $lines[0]['line_tax_minor'] = 50000;
+        $eventKey = CaptureOrder::eventKey(5054, 95);
+
+        $gate = new FailingDatabase(new WpDatabase($this->wpdb));
+        $gate->failWhen(['INSERT INTO', M0006CatalogAndOrders::ORDER_ITEMS]);
+        self::assertSame(1, $this->captureOver($gate)->capture(5054, $lines)['failed']);
+
+        self::assertSame(1, $this->capture->capture(5054, $lines)['captured']);
+        $line = $this->orderItems->findByOrderItem(95);
+        self::assertNotNull($line);
+
+        // Figure by figure against the ledger, not against the input.
+        $byReason = [];
+        foreach ($this->ledger->forEvent($eventKey) as $entry) {
+            $byReason[$entry->reason] = $entry->amount->minor;
+        }
+        self::assertSame($byReason['item_paid'], $line->baseMinor + $line->taxMinor, 'base + tax is what was paid');
+        self::assertSame(-$byReason['commission_due'], $line->commissionMinor);
+        self::assertSame(-$byReason['vendor_earned'], $line->vendorShareMinor);
+        self::assertSame(-$byReason['tax_collected'], $line->taxMinor);
+        self::assertSame($eventKey, $line->ledgerEvent);
+        self::assertSame(1, $line->quantity);
     }
 
     public function testWithoutAResolvableRateTheLineIsRecordedAsUNRECORDEDRatherThanAsZero(): void
@@ -933,7 +1103,9 @@ final class OrderFlowTest extends DatabaseTestCase
             $this->catalogService,
             $this->orderGate,
             $this->logger,
-            new DbVendorMoneyUnitRegistry($db, $clock)
+            new DbVendorMoneyUnitRegistry($db, $clock),
+            // The unit of work the claim and the accrual share.
+            new WpDatabase($this->wpdb)
         );
     }
 
@@ -955,7 +1127,9 @@ final class OrderFlowTest extends DatabaseTestCase
             // The vendor money unit, recorded against a primary key: a capture
             // without it refuses every line as `unit_unreadable` rather than
             // assuming, which is the posture `alpha.40` chose.
-            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock())
+            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock()),
+            // The unit of work the claim and the accrual share.
+            new WpDatabase($this->wpdb)
         );
     }
 
@@ -977,7 +1151,9 @@ final class OrderFlowTest extends DatabaseTestCase
             // The vendor money unit, recorded against a primary key: a capture
             // without it refuses every line as `unit_unreadable` rather than
             // assuming, which is the posture `alpha.40` chose.
-            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock())
+            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), new SystemClock()),
+            // The unit of work the claim and the accrual share.
+            new WpDatabase($this->wpdb)
         );
     }
 

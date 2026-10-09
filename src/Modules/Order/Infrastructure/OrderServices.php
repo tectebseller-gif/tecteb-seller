@@ -45,7 +45,9 @@ final class OrderServices
             // The vendor's money unit, recorded against a primary key — so two
             // first captures at the same moment cannot fix two units, and a
             // failed read cannot look like an empty ledger.
-            $c->get(VendorMoneyUnitRegistryInterface::class)
+            $c->get(VendorMoneyUnitRegistryInterface::class),
+            // The unit of work the claim and the accrual share.
+            $c->get(DatabaseInterface::class)
         ));
         $c->bind(ManageOrderItems::class, static fn (ContainerInterface $c) => new ManageOrderItems(
             $c->get(OrderItemRepositoryInterface::class),
