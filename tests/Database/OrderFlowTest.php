@@ -1046,6 +1046,150 @@ final class OrderFlowTest extends DatabaseTestCase
     }
 
     /**
+     * The OTHER legacy shape, and the one `alpha.39` wrote over.
+     *
+     * `alpha.38` could also leave a row holding its figures and its rate with
+     * an EMPTY `ledger_event` — the link to the document was the half that did
+     * not land. Until `alpha.40` the repair's guard was
+     * `vendor_share_minor IS NULL OR ledger_event = ''`, so this row matched on
+     * its second half and had its FIGURES overwritten on the way to writing the
+     * link. That is recorded money being rewritten by a later pass, which is
+     * exactly what «completeFinancials() دادهٔ معتبر موجود را بی‌قیدوشرط
+     * بازنویسی نکند» forbids.
+     *
+     * Here the figures AGREE with the event, so both trees end up correct and
+     * this is the control of the pair — stated rather than implied, because a
+     * test that passes on `alpha.39` and on `alpha.40` is only useful when it
+     * says which it is. The falsifier is the test below it, where the figures
+     * disagree and the old guard rewrote recorded money.
+     */
+    public function testALineThatHasItsFiguresAndNotItsEventKeepsTheFigures(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-12');
+        $lines = [$this->line(53, $a, 1, 500000)];
+        $eventKey = CaptureOrder::eventKey(5022, 53);
+        self::assertSame(1, $this->capture->capture(5022, $lines)['captured']);
+        $itemId = (int) $this->orderItems->forVendor(self::VENDOR_A)[0]->id;
+
+        // The link is removed and the rate is left as something the event does
+        // NOT say, so an unconditional write would be visible.
+        $table = $this->wpdb->prefix . M0006CatalogAndOrders::ORDER_ITEMS;
+        $this->wpdb->pdo()->exec(
+            "UPDATE `{$table}` SET ledger_event = '', rate_bp = 1234 WHERE id = {$itemId}"
+        );
+
+        $again = $this->capture->capture(5022, $lines);
+        self::assertSame(1, $again['repaired'], 'the link was written');
+        self::assertSame(0, $again['incomplete']);
+        self::assertContains('line_repaired', $again['reasons']);
+
+        $fixed = $this->orderItems->find($itemId);
+        self::assertSame($eventKey, $fixed?->ledgerEvent, 'the link now points at its own document');
+        self::assertSame(450000, $fixed?->vendorShareMinor, 'and the recorded share is untouched');
+        self::assertSame(50000, $fixed?->commissionMinor);
+        self::assertCount(3, $this->ledger->forEvent($eventKey), 'no second document');
+    }
+
+    /**
+     * And when the two disagree, nobody here is allowed to pick a winner.
+     *
+     * A row carrying a share that the ledger does not say is not a row that
+     * can be «repaired»: writing the event's figures over it discards recorded
+     * money, and writing the link without them stores a line that contradicts
+     * the document it points at. Both are the «successful but inconsistent
+     * record» §5 forbids, so the capture names the case and changes nothing.
+     */
+    public function testALineWhoseFiguresContradictItsEventIsNamedForReconciliation(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-13');
+        $lines = [$this->line(54, $a, 1, 500000)];
+        self::assertSame(1, $this->capture->capture(5023, $lines)['captured']);
+        $itemId = (int) $this->orderItems->forVendor(self::VENDOR_A)[0]->id;
+
+        $table = $this->wpdb->prefix . M0006CatalogAndOrders::ORDER_ITEMS;
+        $this->wpdb->pdo()->exec(
+            "UPDATE `{$table}` SET ledger_event = '', vendor_share_minor = 440000 WHERE id = {$itemId}"
+        );
+
+        $again = $this->capture->capture(5023, $lines);
+        self::assertSame(0, $again['repaired'], 'this is not repairable');
+        self::assertSame(1, $again['incomplete']);
+        self::assertContains('line_reconcile_required', $again['reasons']);
+        self::assertNotContains('line_repaired', $again['reasons']);
+
+        // Nothing moved: not the share somebody will have to explain, and not
+        // the link that would have made the line look settled.
+        $after = $this->orderItems->find($itemId);
+        self::assertSame(440000, $after?->vendorShareMinor, 'the stored figure is still there to be found');
+        self::assertSame('', $after?->ledgerEvent);
+        self::assertCount(3, $this->ledger->forEvent(CaptureOrder::eventKey(5023, 54)), 'and one document');
+    }
+
+    /**
+     * The same guard at the repository, called directly: a figure that
+     * disagrees is refused even when the row IS missing its link.
+     */
+    public function testCompleteFinancialsRefusesToChangeAFigureThatIsAlreadyThere(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-14');
+        self::assertSame(1, $this->capture->capture(5024, [$this->line(55, $a, 1, 500000)])['captured']);
+        $itemId = (int) $this->orderItems->forVendor(self::VENDOR_A)[0]->id;
+        $table = $this->wpdb->prefix . M0006CatalogAndOrders::ORDER_ITEMS;
+        $this->wpdb->pdo()->exec("UPDATE `{$table}` SET ledger_event = '' WHERE id = {$itemId}");
+
+        self::assertFalse($this->orderItems->completeFinancials(
+            $itemId,
+            60000,
+            440000,
+            1200,
+            'invented',
+            CaptureOrder::eventKey(5024, 55)
+        ), 'a different share is not a repair');
+        $after = $this->orderItems->find($itemId);
+        self::assertSame(450000, $after?->vendorShareMinor);
+        self::assertSame(50000, $after?->commissionMinor);
+        self::assertSame('', $after?->ledgerEvent, 'and the link was not written either');
+
+        // The same call with the figures the row holds writes only the link.
+        self::assertTrue($this->orderItems->completeFinancials(
+            $itemId,
+            50000,
+            450000,
+            1000,
+            'general',
+            CaptureOrder::eventKey(5024, 55)
+        ));
+        self::assertSame(CaptureOrder::eventKey(5024, 55), $this->orderItems->find($itemId)?->ledgerEvent);
+    }
+
+    /**
+     * And a line may never be repointed at a different document.
+     */
+    public function testARepairCannotRepointALineAtAnotherEvent(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-15');
+        self::assertSame(1, $this->capture->capture(5025, [$this->line(56, $a, 1, 500000)])['captured']);
+        $itemId = (int) $this->orderItems->forVendor(self::VENDOR_A)[0]->id;
+        $table = $this->wpdb->prefix . M0006CatalogAndOrders::ORDER_ITEMS;
+        // Its figures are cleared, so the row is «incomplete» by the old
+        // condition — but its link is intact and names a real document.
+        $this->wpdb->pdo()->exec(
+            "UPDATE `{$table}` SET vendor_share_minor = NULL, commission_minor = NULL WHERE id = {$itemId}"
+        );
+
+        self::assertFalse($this->orderItems->completeFinancials(
+            $itemId,
+            50000,
+            450000,
+            1000,
+            'general',
+            CaptureOrder::eventKey(9999, 1)
+        ), 'another event is not this line\'s event');
+        self::assertSame(CaptureOrder::eventKey(5025, 56), $this->orderItems->find($itemId)?->ledgerEvent);
+        self::assertNull($this->orderItems->find($itemId)?->vendorShareMinor, 'and no figures were written');
+    }
+
+    /**
      * Two callbacks for the same order, interleaved at the line write.
      *
      * WooCommerce fires the same hooks more than once, and on a busy site two

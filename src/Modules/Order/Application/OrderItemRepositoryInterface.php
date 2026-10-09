@@ -59,9 +59,12 @@ interface OrderItemRepositoryInterface
     public function recordSettlementCompletion(int $id, ?string $completedAt, ?int $actorId): bool;
 
     /**
-     * Fills in the financial half of a line stored without it, and ONLY while
-     * it is still missing — so a repair can never rewrite figures that are
-     * already recorded.
+     * Fills in the financial half of a line stored without it, and ONLY what
+     * is still missing — so a repair can never rewrite figures that are
+     * already recorded, nor repoint a line at a different document. A figure
+     * already present must equal the one being written or the write matches
+     * nothing and this answers `false`; the caller then names it as needing
+     * reconciliation rather than picking a winner.
      *
      * Declared here because `CaptureOrder` calls it: a repeated WooCommerce
      * callback is the natural place for the remedy, and `CaptureOrder` holds

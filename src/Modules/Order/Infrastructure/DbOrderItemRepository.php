@@ -118,6 +118,28 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
      * repaired. Zero changed rows is `false` HERE — the operation expected to
      * change exactly one row — which is the `alpha.8` rule read against what
      * this statement wanted.
+     *
+     * **And «incomplete» was too wide a condition to write under.** Until
+     * `alpha.40` it was `vendor_share_minor IS NULL OR ledger_event = ''`, so a
+     * row holding a share and a rate but no event link — the second shape
+     * `alpha.38` could leave behind — had its FIGURES overwritten on the way to
+     * writing the link. Those figures are recorded money: if they agree with
+     * the event there is nothing to change about them, and if they disagree
+     * then no write here is correct, because one of the two is wrong and a
+     * person has to say which. So the guard is now three conditions, each
+     * naming a thing this write may not do:
+     *
+     *  - `ledger_event = '' OR ledger_event = %s` — never repoint a line at a
+     *    different event than the one it already names.
+     *  - `vendor_share_minor IS NULL OR vendor_share_minor = %d` and the same
+     *    for `commission_minor` — fill them when they are missing, and
+     *    otherwise only proceed when what is there is what the event says.
+     *
+     * A row that fails the figure half matches nothing, this returns `false`,
+     * and `CaptureOrder::repair()` reads the row back and calls it
+     * `line_reconcile_required` rather than `line_incomplete` — «ناسازگاری
+     * غیرقابل‌بازیابی باید نام‌گذاری شود» and the two are different jobs for
+     * whoever picks them up.
      */
     public function completeFinancials(
         int $id,
@@ -135,11 +157,24 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
         if ($rateBasisPoints !== null) {
             $params[] = $rateBasisPoints;
         }
-        array_push($params, $rateSource, $ledgerEvent, $this->now(), $id);
+        array_push(
+            $params,
+            $rateSource,
+            $ledgerEvent,
+            $this->now(),
+            $id,
+            // The three guards, in the order the docblock states them.
+            $ledgerEvent,
+            $vendorShareMinor,
+            $commissionMinor
+        );
         $rows = $this->db->execute(
             'UPDATE `' . $this->table() . "` SET commission_minor = %d, vendor_share_minor = %d,
              rate_bp = {$rate}, rate_source = %s, ledger_event = %s, updated_at = %s
-             WHERE id = %d AND (vendor_share_minor IS NULL OR ledger_event = '')",
+             WHERE id = %d
+               AND (ledger_event = '' OR ledger_event = %s)
+               AND (vendor_share_minor IS NULL OR vendor_share_minor = %d)
+               AND (commission_minor IS NULL OR commission_minor = %d)",
             $params
         );
         if ($rows === null || $rows === 0) {

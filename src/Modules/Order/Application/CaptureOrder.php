@@ -112,6 +112,11 @@ final class CaptureOrder
                     if ($repair === 'line_repaired') {
                         $repaired++;
                     } else {
+                        // `line_incomplete` and `line_reconcile_required` are
+                        // both «not finished, a person decides» — the count is
+                        // the same and the NAME is the difference, because one
+                        // is a line missing its figures and the other is a line
+                        // whose figures contradict its event.
                         $incomplete++;
                     }
                 }
@@ -349,13 +354,22 @@ final class CaptureOrder
      *    its event, so the figures were taken FROM THE EVENT. Not recomputed:
      *    a rate resolved today would rewrite what was agreed at the time.
      *  - `line_incomplete` — the row is missing its figures and there is no
-     *    event to recover them from, or the repair write did not take. Either
-     *    way a person has to decide, and saying so is the whole point: this is
-     *    the state `alpha.38` left silent.
+     *    event to recover them from. A person has to decide, and saying so is
+     *    the whole point: this is the state `alpha.38` left silent.
+     *  - `line_reconcile_required` — the row HOLDS figures and the event holds
+     *    different ones. Nothing here can fix that: one of the two is wrong and
+     *    only a person can say which, so this names it instead of overwriting
+     *    recorded money with the other answer. «ناسازگاری غیرقابل‌بازیابی
+     *    به‌عنوان نیازمند تطبیق نام‌گذاری شود.»
+     *
+     * The repair never recomputes: the figures come from the event, and a rate
+     * resolved today would rewrite what was agreed at the time.
      */
     private function repair(VendorOrderItem $item, int $orderId): string
     {
         if ($item->vendorShareMinor !== null && trim($item->ledgerEvent) !== '') {
+            // A repeated callback on a complete line. No second document, no
+            // second ledger entry, and no noise in `reasons`.
             return '';
         }
         $eventKey = $item->ledgerEvent !== '' ? $item->ledgerEvent : self::eventKey($orderId, $item->orderItemId);
@@ -363,15 +377,44 @@ final class CaptureOrder
         if ($outcome === null || $outcome->commission === null || $outcome->vendorShare === null) {
             return 'line_incomplete';
         }
-        $repaired = $this->items->completeFinancials(
+        // CHECKED BEFORE THE WRITE, because the write's own guard refuses
+        // silently and the two refusals mean different things. A row that holds
+        // a share is a row whose money is already recorded; this pass is only
+        // allowed to add the link to the event it was recorded under, and only
+        // when the two agree.
+        if ($item->vendorShareMinor !== null && $item->vendorShareMinor !== $outcome->vendorShare->minor) {
+            return 'line_reconcile_required';
+        }
+        if ($item->commissionMinor !== null && $item->commissionMinor !== $outcome->commission->minor) {
+            return 'line_reconcile_required';
+        }
+        if ($this->items->completeFinancials(
             $item->id,
             $outcome->commission->minor,
             $outcome->vendorShare->minor,
             $outcome->snapshot?->rateBasisPoints,
             (string) ($outcome->snapshot?->rateSource ?? ''),
             $eventKey
-        );
-        return $repaired ? 'line_repaired' : 'line_incomplete';
+        )) {
+            return 'line_repaired';
+        }
+        // The write did not take. Read the row back rather than guessing why:
+        // another pass finishing it first is not a finding, and a row that now
+        // disagrees with the event is the reconciliation case above.
+        $now = $this->items->find($item->id);
+        if ($now === null) {
+            return 'line_incomplete';
+        }
+        if ($now->vendorShareMinor === $outcome->vendorShare->minor
+            && $now->commissionMinor === $outcome->commission->minor
+            && trim($now->ledgerEvent) !== ''
+        ) {
+            return '';
+        }
+        if ($now->vendorShareMinor !== null || $now->commissionMinor !== null) {
+            return 'line_reconcile_required';
+        }
+        return 'line_incomplete';
     }
 
     /**
