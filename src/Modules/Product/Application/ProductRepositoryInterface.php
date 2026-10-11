@@ -312,6 +312,23 @@ interface ProductRepositoryInterface
     public function brandTermIdOf(int $productId): ?int;
 
     /**
+     * Columns of `tmc_products` whose SHAPE would make a write store wrong
+     * data. Empty when the table is sound.
+     *
+     * Asked at the WRITE rather than at the migration, and asked about the
+     * shape rather than about the schema version — «شمارهٔ ساختار به‌تنهایی
+     * کافی نیست». A column that is missing and a column that is present with
+     * the wrong nullability or default both come back here, so «the structure
+     * is behind» needs no second question.
+     *
+     * One memoised read per request; see `ProductTableShape` for why an
+     * unreadable `information_schema` answers empty rather than refusing.
+     *
+     * @return list<string>
+     */
+    public function unsoundColumns(): array;
+
+    /**
      * The brand name AND the approved brand it is, written together.
      *
      * Together because they are one fact. A name without its id would leave

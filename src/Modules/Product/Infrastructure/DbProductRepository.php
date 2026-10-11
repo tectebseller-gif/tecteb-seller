@@ -44,6 +44,9 @@ final class DbProductRepository implements ProductRepositoryInterface
     private const OWNED = M0010LinkOwnership::COLUMN . " = '" . 'marketplace' . "'";
     private const OBSERVED = M0010LinkOwnership::COLUMN . " = '" . 'observed' . "'";
 
+    /** One `information_schema` read for the whole request. */
+    private ?ProductTableShape $shape = null;
+
     public function __construct(
         private readonly DatabaseInterface $db,
         private readonly ClockInterface $clock
@@ -472,6 +475,12 @@ final class DbProductRepository implements ProductRepositoryInterface
         string $importRunId,
         string $createToken
     ): ProductCreation {
+        if (!$this->mayWrite()) {
+            // NOT an id, and not a half-written row. The columns that are
+            // wrong are named by `unsoundColumns()`; this is the floor under
+            // every caller (`mayWrite()`).
+            return ProductCreation::failed();
+        }
         $now = $this->now();
         [$columns, $placeholders, $params] = $this->detailColumns($details);
 
@@ -592,6 +601,38 @@ final class DbProductRepository implements ProductRepositoryInterface
      * build carries no version, and refusing those would break saving for
      * anybody mid-edit across an upgrade.
      */
+    public function unsoundColumns(): array
+    {
+        return $this->shape()->unsoundColumns();
+    }
+
+    /**
+     * The shape guard, built once and kept.
+     *
+     * Lazily, and on this object, so the one `information_schema` read is
+     * shared by every write of the request — and so that a repository
+     * constructed by a test that never writes costs nothing.
+     */
+    private function shape(): ProductTableShape
+    {
+        return $this->shape ??= new ProductTableShape($this->db, $this->products());
+    }
+
+    /**
+     * The guard every write goes through, and the reason it is HERE.
+     *
+     * `ManageProducts` asks `unsoundColumns()` first and refuses with a
+     * message that names the columns — which is where a person finds out. This
+     * is the second half: a path that forgot to ask must still not be able to
+     * store wrong data. The `alpha.45` finding is exactly that shape — the
+     * migration's `verify()` refused the mis-shaped column and the product
+     * write landed anyway, because nothing on the write path was asking.
+     */
+    private function mayWrite(): bool
+    {
+        return $this->shape()->isSound();
+    }
+
     public function brandTermIdOf(int $productId): ?int
     {
         $value = $this->db->getVar(
@@ -619,6 +660,9 @@ final class DbProductRepository implements ProductRepositoryInterface
 
     public function updateDetails(int $productId, ProductDetails $details, string $expectedVersion = ''): bool
     {
+        if (!$this->mayWrite()) {
+            return false;
+        }
         [$columns, $placeholders, $params] = $this->detailColumns($details);
         $assignments = [];
         foreach ($columns as $i => $column) {
@@ -758,6 +802,9 @@ final class DbProductRepository implements ProductRepositoryInterface
         ?int $maxPurchase,
         int $purchaseStep = 1
     ): bool {
+        if (!$this->mayWrite()) {
+            return false;
+        }
         $max = $maxPurchase === null ? 'NULL' : '%d';
         $params = [$stock, $sku, $minPurchase];
         if ($maxPurchase !== null) {

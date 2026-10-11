@@ -424,6 +424,14 @@ final class ProductMessages
             ),
             'brand_applied_not_recorded' => __('برند روی محصول اعمال شد و بسته‌شدن درخواست ثبت نشد. صفحه را تازه کنید؛ اگر درخواست باز مانده، «تلاش دوباره برای اعمال» بی‌خطر است و چیزی را دو بار نمی‌نویسد.', 'tecteb-marketplace-core'),
             'brand_not_in_list' => __('برندی که این درخواست به آن اشاره می‌کند در فهرست ووکامرس نیست — ممکن است با دست حذف شده باشد. درخواست را رد کنید و از فروشنده بخواهید دوباره ثبت کند.', 'tecteb-marketplace-core'),
+            // The structure is not the shape a write needs, so nothing was
+            // written. Named columns, because «خطای ذخیره» sends somebody to
+            // support and this sends them to the health page.
+            'schema_unsound' => sprintf(
+                /* translators: %s: the columns whose shape is wrong */
+                __('ذخیره انجام نشد چون ساختار جدول محصول‌ها آن چیزی نیست که این نسخه لازم دارد: %s. هیچ دادهٔ غلطی نوشته نشد. صفحهٔ «سلامت» را باز کنید و ارتقای ساختار را کامل کنید؛ تا آن موقع محصولی ذخیره نکنید.', 'tecteb-marketplace-core'),
+                (string) ($context['columns'] ?? '')
+            ),
             'nothing_to_finish' => __('این درخواست چیزی برای کامل‌کردن ندارد.', 'tecteb-marketplace-core'),
             'product_submitted' => __('محصول برای بررسی مدیر فرستاده شد. تا تعیین تکلیف، نسخه فعلی تغییر نمی‌کند.', 'tecteb-marketplace-core'),
             'product_published' => __('محصول منتشر شد؛ فروشگاه شما مجوز انتشار مستقیم دارد.', 'tecteb-marketplace-core'),

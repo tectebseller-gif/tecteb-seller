@@ -84,6 +84,37 @@ final class ManageProducts
      * touched or declared approved, and refusing their every save would be
      * both.
      */
+    /**
+     * «ساختار سالم نیست» — asked BEFORE anything is written, and named.
+     *
+     * THE FINDING THIS CLOSES, carried open through three rounds: a column of
+     * the right name and the wrong shape makes a migration's `verify()` refuse
+     * — correctly — and does nothing at all to the write. Measured on
+     * `alpha.45`: with `purchase_step` nullable and defaulting to nought, the
+     * schema version stayed at 23 and saving a product still landed, carrying
+     * the wrong default into a row that `PurchaseQuantity::of()` then read as
+     * 1. Nothing looked wrong anywhere. The protection was an ORDER — confirm
+     * the structure, then save — and an order is not a guard.
+     *
+     * The repository refuses the write as well (`mayWrite()`), because a path
+     * that forgot to ask must still not store wrong data. This exists so that
+     * the refusal has a SENTENCE: «ذخیره نشد، چون این ستون‌ها…» is something a
+     * person can act on, and a bare `storage_failed` is not.
+     *
+     * The shape is read, not the version — «شمارهٔ ساختار به‌تنهایی کافی نیست»
+     * — and a column that is MISSING comes back here too, so «the structure is
+     * behind» is covered by the same question. One memoised query per request,
+     * so the healthy path is not stopped and barely notices.
+     */
+    private function structureRefusal(): ?OperationResult
+    {
+        $unsound = $this->products->unsoundColumns();
+        if ($unsound === []) {
+            return null;
+        }
+        return OperationResult::failure('schema_unsound', ['columns' => implode(',', $unsound)]);
+    }
+
     private function brandRefusal(ProductDetails $details, string $currentBrand): ?OperationResult
     {
         return $this->brands?->refusalFor($details->brand, $currentBrand);
@@ -139,6 +170,10 @@ final class ManageProducts
     ): OperationResult {
         if (!$this->access->can($actorId, $vendorUserId, StaffArea::Product, StaffLevel::Edit)) {
             return OperationResult::failure('forbidden');
+        }
+        $unsound = $this->structureRefusal();
+        if ($unsound !== null) {
+            return $unsound;
         }
         // BEFORE validation, and that placement is the point. A replay carries
         // the same SKU as the submission that already succeeded, so validating
@@ -250,6 +285,10 @@ final class ManageProducts
     ): OperationResult {
         if (!$this->access->can($actorId, $vendorUserId, StaffArea::Inventory, StaffLevel::Edit)) {
             return OperationResult::failure('forbidden');
+        }
+        $unsound = $this->structureRefusal();
+        if ($unsound !== null) {
+            return $unsound;
         }
         $product = $this->products->findOwned($productId, $vendorUserId);
         if ($product === null) {
