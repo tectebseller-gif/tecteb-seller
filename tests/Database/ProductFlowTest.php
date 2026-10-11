@@ -455,7 +455,21 @@ final class ProductFlowTest extends DatabaseTestCase
         $this->createProduct(self::VENDOR, 'محصول دو', 'SKU-B');
 
         self::assertSame('bad_stock', $this->manage->updateInventory(self::VENDOR, self::VENDOR, $first, -1, 'SKU-A', 1, null)->code);
-        self::assertSame('bad_quantity', $this->manage->updateInventory(self::VENDOR, self::VENDOR, $first, 1, 'SKU-A', 3, 2)->code);
+        // `bad_quantity_max_below_min` since `alpha.45`, and the context
+        // carries both numbers: «مقدار خرید نامعتبر است» was true of four
+        // different mistakes and sent a vendor to check four fields.
+        $belowMin = $this->manage->updateInventory(self::VENDOR, self::VENDOR, $first, 1, 'SKU-A', 3, 2);
+        self::assertSame('bad_quantity_max_below_min', $belowMin->code);
+        self::assertSame(3, $belowMin->context['min'] ?? null);
+        self::assertSame(2, $belowMin->context['max'] ?? null);
+        // …and the step has its own refusal, with nothing written by either.
+        self::assertSame(
+            'bad_quantity_step',
+            $this->manage->updateInventory(self::VENDOR, self::VENDOR, $first, 1, 'SKU-A', 1, null, 0)->code
+        );
+        $untouched = $this->products->find($first);
+        self::assertSame(1, $untouched?->details->minPurchase, 'a refusal writes nothing');
+        self::assertSame(1, $untouched?->details->purchaseStep);
 
         $clash = $this->manage->updateInventory(self::VENDOR, self::VENDOR, $first, 1, 'SKU-B', 1, null);
         self::assertFalse($clash->ok);

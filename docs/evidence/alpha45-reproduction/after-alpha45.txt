@@ -1,0 +1,184 @@
+# alpha.45 — the same verbs on the FIXED tree
+# commit: 2b4d0688dc4f3cf8ed33e2705fd4a921927a6e18 (+ uncommitted work in progress)
+# wp: 7.1 · wc: 11.0.1 · schema: 24
+#
+# The cart and sold-individually verbs are run with the box declaring itself
+# local, which is what lets the plugin's own tmc_order_trial_mode switch be
+# honoured. NO SALE GATE WAS CHANGED: the gate as shipped refuses everything
+# (decisions_open), and each verb prints that and puts the switch back.
+
+## published-brand
+probe=ran
+status_before=published
+row_brand_before=empty
+code=revision_requested
+revision_brand=برندی_که_فروشنده_نوشته
+row_brand_after=empty
+form_brand_after=برندی_که_فروشنده_نوشته
+form_mentions_pending=yes
+
+## carry-over
+probe=ran
+brand_inputs_on_step1=برندی_که_فروشنده_نوشته|برندی_که_فروشنده_نوشته
+brand_inputs_on_step2=برندی_که_فروشنده_نوشته
+
+## last-step
+probe=ran
+nothing_pending_has_button=no
+nothing_pending_answer=published/no
+nothing_pending_notice=present
+pending_has_button=no
+pending_answer=published/yes
+pending_notice=present
+
+## last-step-statuses
+probe=ran
+answer_submitted=submitted/no
+button_submitted=no
+answer_suspended=suspended/no
+button_suspended=no
+answer_archived=archived/no
+button_archived=no
+
+## no-change-save
+probe=ran
+first_revision=18
+second_code=revision_unchanged
+second_revision=18
+
+## failed-save-description
+probe=ran
+row_description=متن_کامل_فروشنده
+code=stale_revision
+form_description_after_refusal=متن_بلند_فروشنده_که_نباید_گم_شود
+form_description_base=value
+
+## price-to-shop
+probe=ran
+wc_version=11.0.1
+publish_code=projected
+wc_product_id=145
+row_price=450000
+shop_regular_price=450000
+shop_price=450000
+shop_stock=22
+
+## quantities
+probe=ran
+row_min=2
+row_max=10
+row_step=3
+meta__tmc_min_purchase=3
+meta__tmc_max_purchase=9
+meta__tmc_purchase_step=3
+meta_min_allowed_quantity=__absent__
+meta_max_allowed_quantity=__absent__
+meta_group_of_quantity=__absent__
+meta__wc_min_qty_product=__absent__
+meta__wc_max_qty_product=__absent__
+min_max_control_active=no
+record_keys=_tmc_min_purchase,_tmc_max_purchase,_tmc_purchase_step
+conflicts=
+
+## quantity-manager-edit
+probe=ran
+shop_max_after_projection=9
+shop_max_after_manager=4
+shop_max_after_reprojection=4
+conflicts=_tmc_max_purchase
+shop_min=3
+shop_step=3
+
+## quantity-parity
+probe=ran
+wc_version=11.0.1
+pair_1_null_1=1/-/1_vs_1/9999/1_same
+pair_2_10_1=2/10/1_vs_2/10/1_same
+pair_1_5_1=1/5/1_vs_1/5/1_same
+pair_2_null_3=3/-/3_vs_3/9999/3_same
+pair_3_10_3=3/9/3_vs_3/9/3_same
+pair_10_11_4=12/12/4_vs_12/12/4_same
+pair_1_null_2=2/-/2_vs_2/9998/2_same
+pair_5_20_5=5/20/5_vs_5/20/5_same
+pair_7_7_7=7/7/7_vs_7/7/7_same
+pair_4_9_2=4/8/2_vs_4/8/2_same
+mismatches=0
+
+## cart-enforcement
+probe=ran
+wc_version=11.0.1
+gate_for_measurement=ready_on_trial
+wc_product_id=145
+rule=2/6/2
+qty_1=refused_(said)
+qty_2=allowed
+qty_3=refused_(said)
+qty_4=allowed
+qty_6=allowed
+qty_8=refused_(said)
+basket_before_repeat=4
+repeat_add_4=refused_(said)
+repeat_add_2=allowed
+change_to_5=refused_(said)
+change_to_6=allowed
+change_to_9=refused_(said)
+till_on_99=named
+till_on_6=__silent__
+cart_count=6
+cart_subtotal=2700000
+expected_subtotal=2700000
+store_api_on_99=refused
+trial_after=off
+gate_memo_in_this_process=ready_on_trial
+
+## sold-individually
+probe=ran
+gate=ready_on_trial
+shop_rule=2/6/2
+input_min=1
+input_max=1
+input_step=1
+one_unit_allowed=yes
+two_units_allowed=yes
+contradiction_recorded=sold_individually
+
+## stock-ceiling
+probe=ran
+stock=3
+vendor_max=6
+input_max=3
+input_min=2
+input_step=2
+
+## variable-quantities
+probe=ran
+parent_wc=146
+variation_wc=148
+parent_rule=2/6/2
+variation_has_own_rows=no
+variation_input=2/6/2
+variation_price=210000
+variation_stock=7
+variation_sku=V45-SMALL
+cart_check=see_verb_variable_cart
+
+## variable-cart
+probe=ran
+parent_wc=146
+variation_wc=148
+gate=ready_on_trial
+variation_qty_1=refused
+variation_qty_2=allowed
+variation_qty_3=refused
+variation_qty_6=allowed
+variation_qty_8=refused
+
+## control-draft-brand
+probe=ran
+row_brand=برند_پیش‌نویس
+form_brand=برند_پیش‌نویس
+
+## control-stock-immediate
+probe=ran
+code=inventory_saved
+row_stock=7

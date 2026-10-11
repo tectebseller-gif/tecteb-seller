@@ -1372,3 +1372,19 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 	align-items: flex-start;
 	font-weight: 600;
 }
+
+/*
+ * The last step's «what happens next» block.
+ *
+ * A wrapper, not a decoration: the sentence inside is a `.tv-notice` and
+ * carries its own colours. What this adds is the separation from the readiness
+ * panel above it, so the answer does not read as the last line of the verdict.
+ *
+ * It exists as a class at all because the evidence reads its data attributes
+ * rather than its Persian text — and a class written by a view with no rule
+ * behind it is `alpha.32`'s root cause, whether or not a test covers this file
+ * yet.
+ */
+.tv-next-action {
+  margin-block-start: var(--tv-s4);
+}

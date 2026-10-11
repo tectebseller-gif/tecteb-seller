@@ -186,11 +186,50 @@ final class ProductArea
         $specs = $product?->specs ?? [];
         $imageIds = $product?->imageIds ?? [];
         $mainImageId = $product?->mainImageId ?? 0;
+
+        // THE VENDOR'S OWN PENDING PROPOSAL IS WHAT THE FORM SHOWS.
+        //
+        // The owner's report: a vendor typed a brand on a PUBLISHED product,
+        // «ذخیره و ادامه» advanced, and coming back the brand box was empty.
+        // Measured on `alpha.44`, the save had answered `revision_requested`
+        // and the proposal held the brand — the input was never lost. The form
+        // simply rendered `$product->details`, the PUBLISHED row, and the one
+        // use this page made of the proposal was a boolean «one is waiting».
+        // So the page said a proposal existed and showed none of it, which is
+        // the worst of the three readings to leave a vendor with: their work
+        // is safe and every screen tells them it is gone.
+        //
+        // Only where the vendor cannot edit in place. A draft and a
+        // changes-requested product are written straight through, so the row
+        // IS their last save and a stale proposal must not speak over it.
+        // That boundary is pinned by `control-draft-brand`.
+        //
+        // NOTHING ABOUT APPROVAL MOVES HERE. This is which values a form
+        // renders; the proposal is still the manager's to approve, the
+        // published row is untouched until they do, and no gate is widened.
+        $pending = $product === null ? null : $this->revisions()->pendingFor($product->id);
+        $showingProposal = false;
+        $proposedAt = '';
+        if ($pending !== null && $product !== null && !$product->status->isEditableByVendor()) {
+            $payload = $pending->payload;
+            $details = $this->detailsFromArray(is_array($payload['details'] ?? null) ? $payload['details'] : []);
+            $specs = is_array($payload['specs'] ?? null) ? array_map('strval', $payload['specs']) : $specs;
+            $imageIds = is_array($payload['images'] ?? null) ? array_map('intval', $payload['images']) : $imageIds;
+            $mainImageId = (int) ($payload['main_image_id'] ?? $mainImageId);
+            $showingProposal = true;
+            $proposedAt = $pending->createdAt;
+        }
+
         if (is_array($carried) && (int) ($carried['product_id'] ?? -1) === $productId) {
             $details = $this->detailsFromArray(is_array($carried['details'] ?? null) ? $carried['details'] : []);
             $specs = is_array($carried['specs'] ?? null) ? array_map('strval', $carried['specs']) : $specs;
             $imageIds = is_array($carried['images'] ?? null) ? array_map('intval', $carried['images']) : $imageIds;
             $mainImageId = (int) ($carried['main_image_id'] ?? $mainImageId);
+            // A refused save wins over the proposal for the same reason it
+            // wins over the row: these are the values of the submission being
+            // corrected. And then the form is NOT showing the proposal, so it
+            // must not claim to be.
+            $showingProposal = false;
         }
 
         // An autosaved draft is OFFERED, never applied: what somebody typed
@@ -232,7 +271,7 @@ final class ProductArea
             $readiness,
             $share,
             $this->publishing()->mayPublishDirectly($vendorUserId),
-            $product !== null && $this->revisions()->pendingFor($product->id) !== null,
+            $pending !== null,
             $this->variableData($productId, $details->type),
             $product?->rowVersion ?? '',
             $draftSavedAt,
@@ -257,7 +296,18 @@ final class ProductArea
             // is already used for the staff invite hash; nothing here needs it
             // to be unguessable, only unique per rendering, and the unique key
             // it lands on is scoped to this vendor anyway.
-            $productId === 0 && $mayEdit ? wp_generate_password(32, false, false) : ''
+            $productId === 0 && $mayEdit ? wp_generate_password(32, false, false) : '',
+            // Whether the values above are the vendor's PENDING PROPOSAL, and
+            // when they proposed it. The form has to say which version it is
+            // showing: «برند شما» and «برندی که روی سایت است» are different
+            // answers and a box cannot carry both.
+            $showingProposal,
+            $proposedAt,
+            // The PUBLISHED row, so the proposal can be shown beside what
+            // buyers see. Passed only when the form is showing a proposal —
+            // a page that always rendered a comparison would be a page that
+            // never had a reason to.
+            $showingProposal ? $product?->details : null
         );
     }
 
@@ -689,7 +739,14 @@ final class ProductArea
                     : null,
                 $request->hasPost(LongDescription::CLEAR_FIELD),
                 $storedLong
-            )
+            ),
+            // The step. `max(1, …)` exactly as the minimum does, because an
+            // empty box and a zero both mean «no stepping» — the semantics
+            // `PurchaseQuantity` writes down. A value of nought reaching the
+            // service would be refused as `bad_quantity_step`, which is the
+            // right answer for a hand-built request and the wrong one for a
+            // vendor who simply left the field alone.
+            max(1, $number($request->postText('purchase_step')))
         );
     }
 
@@ -918,7 +975,33 @@ final class ProductArea
             $nullableInt('maxPurchase'),
             $int('weightGrams'),
             $str('dimensions'),
-            $str('taxClass')
+            $str('taxClass'),
+            // THE SEVENTEENTH ARGUMENT, which this method used to leave off.
+            //
+            // `detailsToArray()` has always written `description`, so the
+            // array that comes back here carries it — and dropping it on the
+            // way in turned every round trip through this pair into «this
+            // product has never had a long description». Two paths use the
+            // pair: the flash of a REFUSED save, and (from this round) the
+            // payload of a pending proposal. Measured on `alpha.44`: a save
+            // refused with `stale_revision` came back with an empty box and
+            // `description_base=none`, so the vendor's text was gone from the
+            // form AND a second save would not have put it back.
+            //
+            // Three states, kept three. The key missing altogether is `null`
+            // — that is flash written by an older build, and «nothing was
+            // asked» is the answer that changes nothing. A stored `null` is
+            // `null`. `''` is the deliberate clear and stays `''`, which is
+            // why this cannot use `$nullableStr()`: that one folds `''` into
+            // `null` and would turn a clear into a no-op.
+            array_key_exists('description', $raw) && $raw['description'] !== null
+                ? (string) $raw['description']
+                : null,
+            // `?: 1` and not `$int()`: a flash or a proposal payload written
+            // before this round has no key, and «no step» is 1. Reading it as
+            // nought would make a refused save come back with a step the
+            // vendor never typed, and `max(1, …)` further in would hide it.
+            max(1, isset($raw['purchaseStep']) ? (int) $raw['purchaseStep'] : 1)
         );
     }
 
@@ -939,6 +1022,7 @@ final class ProductArea
             'stock' => $d->stock,
             'minPurchase' => $d->minPurchase,
             'maxPurchase' => $d->maxPurchase,
+            'purchaseStep' => $d->purchaseStep,
             'weightGrams' => $d->weightGrams,
             'dimensions' => $d->dimensions,
             'taxClass' => $d->taxClass,

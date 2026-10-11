@@ -49,8 +49,27 @@ final class ProductDetails
          * positionally in places, and inserting one in the middle would
          * silently shift every argument after it. Appending cannot.
          */
-        public readonly ?string $description = null
+        public readonly ?string $description = null,
+        /**
+         * The purchase step — new in `alpha.45`, and LAST for the same reason
+         * `description` is: seventeen promoted parameters are addressed
+         * positionally in places, and inserting one beside `maxPurchase`
+         * where it belongs by meaning would silently shift every argument
+         * after it. Appending cannot.
+         *
+         * `1` means no stepping and is the column default, so every row that
+         * existed before this field reads as «any quantity». The full
+         * semantics — and why the step counts from the MINIMUM rather than
+         * from zero — are written in `PurchaseQuantity`.
+         */
+        public readonly int $purchaseStep = 1
     ) {
+    }
+
+    /** The purchase-quantity rule these details express. */
+    public function purchaseQuantity(): PurchaseQuantity
+    {
+        return PurchaseQuantity::of($this->minPurchase, $this->maxPurchase, $this->purchaseStep);
     }
 
     /**
@@ -87,7 +106,8 @@ final class ProductDetails
             // `description => null` is saying «this product has never had
             // one», and `$pick` distinguishes that from not naming the key at
             // all. The three nullable price fields above read the same way.
-            ($v = $pick('description', $this->description)) === null ? null : (string) $v
+            ($v = $pick('description', $this->description)) === null ? null : (string) $v,
+            (int) $pick('purchaseStep', $this->purchaseStep)
         );
     }
 

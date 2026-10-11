@@ -171,7 +171,11 @@ final class ManageProducts
         int $stock,
         string $sku,
         int $minPurchase,
-        ?int $maxPurchase
+        ?int $maxPurchase,
+        // Appended with a default, so every existing caller — the tests of
+        // three previous rounds among them — keeps compiling and keeps
+        // meaning «no stepping», which is what those products do today.
+        int $purchaseStep = 1
     ): OperationResult {
         if (!$this->access->can($actorId, $vendorUserId, StaffArea::Inventory, StaffLevel::Edit)) {
             return OperationResult::failure('forbidden');
@@ -186,14 +190,14 @@ final class ManageProducts
         if ($stock < 0) {
             return OperationResult::failure('bad_stock');
         }
-        $quantities = $this->validateQuantities($minPurchase, $maxPurchase);
+        $quantities = $this->validateQuantities($minPurchase, $maxPurchase, $purchaseStep);
         if ($quantities !== null) {
             return $quantities;
         }
         if ($sku !== '' && $this->products->skuTaken($vendorUserId, $sku, $productId)) {
             return OperationResult::failure('sku_taken', ['sku' => $sku]);
         }
-        if (!$this->products->updateInventory($productId, $stock, $sku, $minPurchase, $maxPurchase)) {
+        if (!$this->products->updateInventory($productId, $stock, $sku, $minPurchase, $maxPurchase, $purchaseStep)) {
             return OperationResult::failure('storage_failed');
         }
         // Write-through, not a mirror write: this is the one direction stock
@@ -677,7 +681,8 @@ final class ManageProducts
             $details->stock,
             $details->sku,
             $details->minPurchase,
-            $details->maxPurchase
+            $details->maxPurchase,
+            $details->purchaseStep
         );
         if (!$inventoryWritten) {
             return OperationResult::failure('storage_failed');
@@ -694,6 +699,38 @@ final class ManageProducts
             return OperationResult::success('inventory_saved', ['product_id' => $product->id]);
         }
 
+        $payload = [
+            'details' => $this->detailsToArray($details),
+            'specs' => $specs,
+            'images' => $imageIds,
+            'main_image_id' => $mainImageId,
+        ];
+
+        // READ BEFORE THE VERSION IS BUMPED, because a proposal that asks for
+        // exactly what the pending one already asks for is not a change and
+        // must not touch the row at all.
+        //
+        // This became reachable the moment the form started rendering the
+        // pending proposal. Before that, coming back to a published product
+        // re-posted the PUBLISHED values, so `$changed` was empty and the
+        // early return above caught it. Now the form re-posts the PROPOSAL's
+        // values, which differ from the published row by construction — so
+        // every visit-and-save would have superseded the proposal and written
+        // a new one, and the manager would have found a fresh «پیشنهاد تازه»
+        // in the queue for a product nobody had touched. «بازدید یا ذخیرهٔ
+        // بدون تغییر نباید نسخهٔ پیشنهادی یا اعلان تکراری بسازد.»
+        //
+        // Two requests that race here can both answer «unchanged» and both
+        // write nothing, which is the right answer twice. Two that genuinely
+        // differ both reach `bumpVersion()` and one loses, as before.
+        $existing = $this->revisions->pendingFor($product->id);
+        if ($existing !== null && self::samePayload($existing->payload, $payload)) {
+            return OperationResult::success('revision_unchanged', [
+                'product_id' => $product->id,
+                'revision_id' => $existing->id,
+            ]);
+        }
+
         // The PROPOSAL is guarded. Proposing an edit built on a view somebody
         // else has already replaced would queue a change that silently undoes
         // theirs the moment a manager approves it.
@@ -705,16 +742,10 @@ final class ManageProducts
         // rather than queueing behind it, so the manager reviews what the
         // vendor actually wants — and the older proposal stays on record as
         // superseded instead of vanishing.
-        $existing = $this->revisions->pendingFor($product->id);
         if ($existing !== null) {
             $this->revisions->decide($existing->id, ProductRevision::SUPERSEDED, 0, '');
         }
-        $revisionId = $this->revisions->create($product->id, $product->vendorUserId, [
-            'details' => $this->detailsToArray($details),
-            'specs' => $specs,
-            'images' => $imageIds,
-            'main_image_id' => $mainImageId,
-        ]);
+        $revisionId = $this->revisions->create($product->id, $product->vendorUserId, $payload);
         if ($revisionId <= 0) {
             return OperationResult::failure('storage_failed');
         }
@@ -728,6 +759,61 @@ final class ManageProducts
             'product_id' => $product->id,
             'revision_id' => $revisionId,
         ]);
+    }
+
+    /**
+     * Whether a proposal asks for exactly what the pending one already asks.
+     *
+     * The stored side has been through `json_encode`/`json_decode`, so it
+     * cannot be compared with `===` against a freshly built array: that round
+     * trip is where this would silently answer «different» for ever and the
+     * guard above would do nothing.
+     *
+     *  - Keys are sorted on both sides. JSON preserves object order, but the
+     *    order a payload was written in is not a fact about the payload, and a
+     *    future change to `detailsToArray()`'s order must not make every
+     *    pending proposal look stale.
+     *  - Scalars are compared as STRINGS. `450000` and `"450000"` are the
+     *    same price; `null` is compared as `null` and never as `''`, because
+     *    the long description's three states are the one place where that
+     *    distinction is the whole meaning (`alpha.41`).
+     *  - `images` is a LIST and its order is compared, because gallery order
+     *    is a value a vendor sets on purpose (`alpha.27`).
+     *
+     * @param array<string,mixed> $stored
+     * @param array<string,mixed> $proposed
+     */
+    private static function samePayload(array $stored, array $proposed): bool
+    {
+        return self::canonicalPayload($stored) === self::canonicalPayload($proposed);
+    }
+
+    /** @param array<array-key,mixed> $value */
+    private static function canonicalPayload(array $value): string
+    {
+        return (string) json_encode(self::canonicalise($value), JSON_UNESCAPED_UNICODE);
+    }
+
+    private static function canonicalise(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            // A list keeps its order; a map is sorted by key. `array_is_list`
+            // is the only honest test here: `images` arrives as a list and
+            // `details` as a map, and sorting the first would call two
+            // different galleries equal.
+            if (array_is_list($value)) {
+                return array_map([self::class, 'canonicalise'], $value);
+            }
+            ksort($value);
+            return array_map([self::class, 'canonicalise'], $value);
+        }
+        if ($value === null) {
+            return null;
+        }
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+        return (string) $value;
     }
 
     /**
@@ -905,7 +991,7 @@ final class ManageProducts
         if ($details->stock < 0) {
             return OperationResult::failure('bad_stock');
         }
-        $quantities = $this->validateQuantities($details->minPurchase, $details->maxPurchase);
+        $quantities = $this->validateQuantities($details->minPurchase, $details->maxPurchase, $details->purchaseStep);
         if ($quantities !== null) {
             return $quantities;
         }
@@ -915,13 +1001,28 @@ final class ManageProducts
         return null;
     }
 
-    private function validateQuantities(int $minPurchase, ?int $maxPurchase): ?OperationResult
+    private function validateQuantities(int $minPurchase, ?int $maxPurchase, int $purchaseStep = 1): ?OperationResult
     {
         if ($minPurchase < 1) {
             return OperationResult::failure('bad_quantity');
         }
+        // A maximum below the minimum. `0` lands here too and that is
+        // deliberate: a maximum of nought would take the product off sale,
+        // and «unlimited» is an EMPTY box, never a zero.
+        //
+        // The context names both numbers. «مقدار خرید نامعتبر است» with
+        // nothing else sends a vendor to check four fields; this round's §4
+        // asks for a refusal that says what is wrong — and the refusal
+        // happens BEFORE any write, so neither these fields nor any other
+        // are damaged by it.
         if ($maxPurchase !== null && $maxPurchase < $minPurchase) {
-            return OperationResult::failure('bad_quantity');
+            return OperationResult::failure('bad_quantity_max_below_min', [
+                'min' => $minPurchase,
+                'max' => $maxPurchase,
+            ]);
+        }
+        if ($purchaseStep < 1) {
+            return OperationResult::failure('bad_quantity_step', ['step' => $purchaseStep]);
         }
         return null;
     }
@@ -997,6 +1098,7 @@ final class ManageProducts
             'stock' => $d->stock,
             'minPurchase' => $d->minPurchase,
             'maxPurchase' => $d->maxPurchase,
+            'purchaseStep' => $d->purchaseStep,
             'weightGrams' => $d->weightGrams,
             'dimensions' => $d->dimensions,
             'taxClass' => $d->taxClass,

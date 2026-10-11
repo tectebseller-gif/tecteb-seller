@@ -20,14 +20,42 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
  */
 final class ProductConflictView
 {
+    /** A refused save: «these are the values you are about to overwrite». */
+    public const PURPOSE_REFUSAL = 'refusal';
+
     /**
-     * @param ProductDetails $typed what the vendor submitted
+     * A pending proposal: «this is what you asked for, this is what buyers
+     * still see».
+     *
+     * One renderer with one branch rather than a second table, because two
+     * renderers of one list are two lists — and the day they disagree is the
+     * day nobody can tell which is right (`alpha.26`). The branch covers the
+     * heading and the empty sentence only; the difference logic is shared
+     * exactly as it stands.
+     */
+    public const PURPOSE_PROPOSAL = 'proposal';
+
+    /**
+     * @param ProductDetails $typed what the vendor submitted, or proposed
      * @param ProductDetails $stored what the row holds right now
      */
-    public static function render(ProductDetails $typed, ProductDetails $stored): string
-    {
+    public static function render(
+        ProductDetails $typed,
+        ProductDetails $stored,
+        string $purpose = self::PURPOSE_REFUSAL
+    ): string {
+        $proposal = $purpose === self::PURPOSE_PROPOSAL;
         $rows = self::differences($typed, $stored);
         if ($rows === []) {
+            if ($proposal) {
+                // A proposal whose every field now matches the published row.
+                // It happens: a manager can make the same change by hand
+                // while the proposal waits. Saying «just save again» here
+                // would be advice about somebody else's screen.
+                return '<p class="tv-hint">'
+                    . esc_html__('نسخه پیشنهادی شما با نسخه منتشرشده هیچ تفاوتی ندارد؛ تا تصمیم مدیر همین‌طور می‌ماند.', 'tecteb-marketplace-core')
+                    . '</p>';
+            }
             // Refused on the stamp, but the values match: nothing to weigh up,
             // and saying «compare these» over an empty table would be absurd.
             return '<p class="tv-hint">'
@@ -38,7 +66,9 @@ final class ProductConflictView
         $html = '<div class="tv-conflict">'
             . '<h3 class="tv-conflict__title">' . esc_html(sprintf(
                 /* translators: %s: how many fields differ */
-                __('%s فیلد با آنچه الان روی محصول ثبت است فرق دارد', 'tecteb-marketplace-core'),
+                $proposal
+                    ? __('%s فیلد در نسخه پیشنهادی شما با نسخه منتشرشده فرق دارد', 'tecteb-marketplace-core')
+                    : __('%s فیلد با آنچه الان روی محصول ثبت است فرق دارد', 'tecteb-marketplace-core'),
                 PersianDigits::toPersian((string) count($rows))
             )) . '</h3>'
             . '<div class="tv-scroll" tabindex="0" role="region" aria-label="'
@@ -47,8 +77,12 @@ final class ProductConflictView
             . esc_html__('برای هر فیلد، مقدار ثبت‌شده و مقداری که شما نوشته‌اید', 'tecteb-marketplace-core')
             . '</caption><thead><tr>'
             . '<th scope="col">' . esc_html__('فیلد', 'tecteb-marketplace-core') . '</th>'
-            . '<th scope="col">' . esc_html__('الان روی محصول', 'tecteb-marketplace-core') . '</th>'
-            . '<th scope="col">' . esc_html__('آنچه شما نوشته‌اید', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html($proposal
+                ? __('نسخه منتشرشده (آنچه خریدار می‌بیند)', 'tecteb-marketplace-core')
+                : __('الان روی محصول', 'tecteb-marketplace-core')) . '</th>'
+            . '<th scope="col">' . esc_html($proposal
+                ? __('نسخه پیشنهادی شما', 'tecteb-marketplace-core')
+                : __('آنچه شما نوشته‌اید', 'tecteb-marketplace-core')) . '</th>'
             . '</tr></thead><tbody>';
         foreach ($rows as $field => [$storedValue, $typedValue]) {
             $html .= '<tr>'

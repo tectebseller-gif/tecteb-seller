@@ -253,6 +253,44 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             )
         );
         $wcProduct->set_attributes($merged['attributes']);
+
+        // THE PURCHASE-QUANTITY RULE, on the shop's own product.
+        //
+        // Until `alpha.45` nothing wrote this anywhere: `min_purchase` and
+        // `max_purchase` were stored, formed, validated and exported, and no
+        // projection, filter or check ever read them. Measured on `alpha.44`
+        // with real WooCommerce — `row_min=2 row_max=10` and every candidate
+        // meta key on the shop product `__absent__`.
+        //
+        // Staged through `update_meta_data()` rather than `update_post_meta()`
+        // so it rides the ONE save below: a new product has no post id yet,
+        // and two writes where one would do is a second thing that can half
+        // happen.
+        $quantityRule = $details->purchaseQuantity();
+        $quantityOurs = ProjectedQuantity::values($quantityRule);
+        $quantityCurrent = [];
+        foreach (ProjectedQuantity::keys() as $metaKey) {
+            // ABSENT and «present but empty» are different answers and
+            // `get_meta()` gives `''` for both — the `alpha.28` rule. The
+            // product's own meta-data list is the only place that can tell
+            // them apart before a save.
+            if ($wcProduct->meta_exists($metaKey)) {
+                $quantityCurrent[$metaKey] = (string) $wcProduct->get_meta($metaKey, true);
+            }
+        }
+        $quantityMerged = ProjectedQuantity::merge(
+            $quantityCurrent,
+            $quantityOurs,
+            ProjectedQuantity::normalise(
+                (int) $wcProduct->get_id() > 0
+                    ? get_post_meta((int) $wcProduct->get_id(), ProjectedQuantity::OWNED_META, true)
+                    : []
+            )
+        );
+        foreach ($quantityMerged['values'] as $metaKey => $metaValue) {
+            $wcProduct->update_meta_data($metaKey, $metaValue);
+        }
+
         if ($details->type !== ProductType::VARIABLE) {
             $wcProduct->set_regular_price((string) $details->priceMinor);
             $this->applySale($wcProduct, $product);
@@ -280,6 +318,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         // fingerprint of our own input would call the stored value edited on
         // the very next run (the `alpha.26` rule).
         $this->recordAttributeKeys($wcProductId, $merged['wrote'], $merged['held']);
+        $this->recordQuantityKeys($wcProductId, $quantityMerged['wrote'], $quantityMerged['held']);
         // Stamp AFTER the save and from a fresh read: WooCommerce runs its own
         // filters on the way in, so the value that comes back is routinely not
         // the one that went out. Stamping what we *sent* would mark every
@@ -981,6 +1020,63 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             delete_post_meta($wcProductId, ProjectedAttributes::CONFLICT_META);
         } else {
             update_post_meta($wcProductId, ProjectedAttributes::CONFLICT_META, $report);
+        }
+    }
+
+    /**
+     * What the shop HOLDS for each quantity row we wrote, fingerprinted.
+     *
+     * The same four rules as `recordAttributeKeys()`, and the same reasons:
+     *
+     *  - read from a FRESH product, because WooCommerce filters on the way in
+     *    and a fingerprint of our own input would call the stored value edited
+     *    on the very next run (`alpha.26`);
+     *  - a key the shop does not hold after the save is NOT recorded, because
+     *    recording it would be a licence to overwrite whatever is there next
+     *    time;
+     *  - the record is READ BACK and compared, because `update_post_meta()`
+     *    answers `false` both for a failure and for «it was already this»
+     *    (`alpha.44`), and a record that did not store is DELETED rather than
+     *    left stale — an absent record is decided conservatively, a stale one
+     *    is believed;
+     *  - the conflict list is written on every run, so a conflict that has
+     *    gone away stops being reported.
+     *
+     * @param list<string> $wrote
+     * @param list<string> $held
+     */
+    private function recordQuantityKeys(int $wcProductId, array $wrote, array $held): void
+    {
+        $stored = [];
+        $fresh = wc_get_product($wcProductId);
+        if ($fresh instanceof \WC_Product) {
+            foreach ($wrote as $key) {
+                if (!$fresh->meta_exists($key)) {
+                    continue;
+                }
+                $stored[$key] = ProjectedQuantity::fingerprint((string) $fresh->get_meta($key, true));
+            }
+        }
+
+        $problem = [];
+        if ($stored === []) {
+            delete_post_meta($wcProductId, ProjectedQuantity::OWNED_META);
+        } else {
+            update_post_meta($wcProductId, ProjectedQuantity::OWNED_META, $stored);
+            $readBack = ProjectedQuantity::normalise(
+                get_post_meta($wcProductId, ProjectedQuantity::OWNED_META, true)
+            );
+            if ($readBack !== $stored) {
+                delete_post_meta($wcProductId, ProjectedQuantity::OWNED_META);
+                $problem[] = ProjectedQuantity::RECORD_NOT_STORED;
+            }
+        }
+
+        $report = array_values(array_unique([...$held, ...$problem]));
+        if ($report === []) {
+            delete_post_meta($wcProductId, ProjectedQuantity::CONFLICT_META);
+        } else {
+            update_post_meta($wcProductId, ProjectedQuantity::CONFLICT_META, $report);
         }
     }
 

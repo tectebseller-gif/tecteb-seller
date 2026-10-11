@@ -20,6 +20,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0023ProductDescriptionAndCreateToken;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0024PurchaseStep;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as C;
 
@@ -716,18 +717,30 @@ final class DbProductRepository implements ProductRepositoryInterface
         ) !== null;
     }
 
-    public function updateInventory(int $productId, int $stock, string $sku, int $minPurchase, ?int $maxPurchase): bool
-    {
+    public function updateInventory(
+        int $productId,
+        int $stock,
+        string $sku,
+        int $minPurchase,
+        ?int $maxPurchase,
+        int $purchaseStep = 1
+    ): bool {
         $max = $maxPurchase === null ? 'NULL' : '%d';
         $params = [$stock, $sku, $minPurchase];
         if ($maxPurchase !== null) {
             $params[] = $maxPurchase;
         }
+        // The step is on the IMMEDIATE side with the two numbers it works
+        // with. Writing the minimum and the maximum now and queueing the step
+        // for approval would leave the three in a combination the vendor never
+        // asked for — «between 2 and 10, in threes» becoming «between 2 and
+        // 10, any quantity» until a manager got to it.
+        $params[] = max(1, $purchaseStep);
         $params[] = $this->now();
         $params[] = $productId;
         return $this->db->execute(
             'UPDATE `' . $this->products() . '` SET stock = %d, sku = %s, min_purchase = %d, max_purchase = ' . $max
-            . ', updated_at = %s WHERE id = %d',
+            . ', `' . M0024PurchaseStep::STEP . '` = %d, updated_at = %s WHERE id = %d',
             $params
         ) !== null;
     }
@@ -1103,6 +1116,17 @@ final class DbProductRepository implements ProductRepositoryInterface
             $params[] = $d->maxPurchase;
         }
 
+        // The step travels with the two numbers it works with, so `create()`,
+        // `updateDetails()`, a CSV import, a manager's correction and an
+        // approved proposal all maintain it without any of them knowing it
+        // exists — the same reason `title_sort` is written here and nowhere
+        // else. A rule written on some paths and not others is worse than no
+        // rule: most products would step correctly and the ones last touched
+        // by the path that forgot would quietly stop.
+        $columns[] = M0024PurchaseStep::STEP;
+        $placeholders[] = '%d';
+        $params[] = max(1, $d->purchaseStep);
+
         return [$columns, $placeholders, $params];
     }
 
@@ -1133,7 +1157,14 @@ final class DbProductRepository implements ProductRepositoryInterface
             // manager's long description on the next approval.
             ($row[M0023ProductDescriptionAndCreateToken::DESCRIPTION] ?? null) === null
                 ? null
-                : (string) $row[M0023ProductDescriptionAndCreateToken::DESCRIPTION]
+                : (string) $row[M0023ProductDescriptionAndCreateToken::DESCRIPTION],
+            // `?? 1` rather than `?? 0`: a row read by a build mid-upgrade —
+            // or by a query written before migration 24 — has no step, and
+            // «no step» is 1. Nought would be coerced back to 1 by
+            // `PurchaseQuantity::of()` anyway, which is precisely why it must
+            // not be written here: the coercion is a safety net, not the
+            // meaning.
+            (int) ($row[M0024PurchaseStep::STEP] ?? 1)
         );
         $id = (int) $row['id'];
         return new Product(

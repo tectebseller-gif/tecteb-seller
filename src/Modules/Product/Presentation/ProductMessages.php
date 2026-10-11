@@ -134,6 +134,7 @@ final class ProductMessages
             'stock' => __('موجودی', 'tecteb-marketplace-core'),
             'min_purchase' => __('حداقل خرید', 'tecteb-marketplace-core'),
             'max_purchase' => __('حداکثر خرید', 'tecteb-marketplace-core'),
+            'purchase_step' => __('گام تعداد', 'tecteb-marketplace-core'),
             'weight_grams' => __('وزن (گرم)', 'tecteb-marketplace-core'),
             'dimensions' => __('ابعاد', 'tecteb-marketplace-core'),
             'tax_class' => __('گروه مالیاتی', 'tecteb-marketplace-core'),
@@ -233,6 +234,7 @@ final class ProductMessages
             'stock' => __('موجودی', 'tecteb-marketplace-core'),
             'minPurchase' => __('حداقل خرید', 'tecteb-marketplace-core'),
             'maxPurchase' => __('حداکثر خرید', 'tecteb-marketplace-core'),
+            'purchaseStep' => __('گام تعداد', 'tecteb-marketplace-core'),
             default => $key,
         };
     }
@@ -333,6 +335,11 @@ final class ProductMessages
             'product_submitted' => __('محصول برای بررسی مدیر فرستاده شد. تا تعیین تکلیف، نسخه فعلی تغییر نمی‌کند.', 'tecteb-marketplace-core'),
             'product_published' => __('محصول منتشر شد؛ فروشگاه شما مجوز انتشار مستقیم دارد.', 'tecteb-marketplace-core'),
             'revision_requested' => __('تغییرهای حساس به‌صورت «نسخه پیشنهادی» ثبت شد. نسخه منتشرشده تا تأیید مدیر دست‌نخورده می‌ماند و موجودی همین حالا اعمال شد.', 'tecteb-marketplace-core'),
+            // Nothing happened, and that is the message. A second «ثبت شد»
+            // over an untouched proposal would tell the vendor they had just
+            // changed something, and would have the manager looking for a new
+            // request that does not exist.
+            'revision_unchanged' => __('چیزی برای تغییر نبود: نسخه پیشنهادی شما همان است که بود و هنوز در صف بررسی مدیر است. موجودی و کد SKU در صورت تغییر، اعمال شدند.', 'tecteb-marketplace-core'),
             'product_archived_ok' => __('محصول بایگانی شد. سابقه و سفارش‌های قبلی آن پاک نشده است.', 'tecteb-marketplace-core'),
             'product_restored' => __('محصول از بایگانی به پیش‌نویس بازگشت.', 'tecteb-marketplace-core'),
 
@@ -490,6 +497,19 @@ final class ProductMessages
             'bad_sale_window' => __('تاریخ پایان تخفیف نباید پیش از تاریخ شروع باشد.', 'tecteb-marketplace-core'),
             'bad_stock' => __('موجودی نمی‌تواند منفی باشد. موجودی صفر یعنی «ناموجود» و فروش را متوقف می‌کند.', 'tecteb-marketplace-core'),
             'bad_quantity' => __('حداقل خرید دست‌کم ۱ است و حداکثر خرید نباید از آن کمتر باشد.', 'tecteb-marketplace-core'),
+            // Named refusals, with the numbers in them. «مقدار خرید نامعتبر
+            // است» is true of four different mistakes, and a vendor reading
+            // it has to check four fields. Nothing is written before these
+            // are returned, so no stored value is damaged by the refusal.
+            'bad_quantity_max_below_min' => isset($context['min'], $context['max'])
+                ? sprintf(
+                    /* translators: 1: maximum purchase entered, 2: minimum purchase entered */
+                    __('حداکثر خرید (%1$s) از حداقل خرید (%2$s) کمتر است. برای «بدون سقف» کادر حداکثر را خالی بگذارید؛ ۰ پذیرفته نمی‌شود. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $context['max']),
+                    PersianDigits::toPersian((string) $context['min'])
+                )
+                : __('حداکثر خرید از حداقل خرید کمتر است. برای «بدون سقف» کادر حداکثر را خالی بگذارید. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+            'bad_quantity_step' => __('گام تعداد دست‌کم ۱ است. برای «هر تعدادی» عدد ۱ را بگذارید یا کادر را خالی بگذارید. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
             'sku_taken' => ($context['sku'] ?? '') !== ''
                 ? sprintf(__('کد SKU «%s» روی محصول دیگری از همین فروشگاه ثبت شده است.', 'tecteb-marketplace-core'), (string) $context['sku'])
                 : __('این کد SKU روی محصول دیگری از همین فروشگاه ثبت شده است.', 'tecteb-marketplace-core'),
@@ -633,7 +653,8 @@ final class ProductMessages
     {
         return [
             'product_created', 'product_created_replayed', 'product_saved', 'inventory_saved', 'product_submitted',
-            'product_published', 'revision_requested', 'product_archived_ok', 'product_restored',
+            'product_published', 'revision_requested', 'revision_unchanged',
+            'product_archived_ok', 'product_restored',
             'product_reviewed', 'revision_approved', 'revision_rejected',
             'direct_publish_granted', 'direct_publish_revoked',
             'template_created', 'template_saved', 'field_added', 'field_saved',

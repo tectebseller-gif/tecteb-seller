@@ -47,6 +47,31 @@ final class DisposableOnlyToolsTest extends TestCase
         'demo-router.php' => 'web-server router, copied into the demo root; has no CLI entry point to guard',
     ];
 
+    /**
+     * Tools that DO read WordPress and still need no disposable refusal,
+     * because they cannot change anything.
+     *
+     * A third case, and it needed its own list. The two above are «touches no
+     * WordPress» and «touches WordPress, so it must refuse off the disposable
+     * install» — and between them sits the one tool that is meant to be run
+     * on the owner's own site. §5 and §6 of the `alpha.45` instruction need
+     * facts about `staging.tecteb.com` that this repository does not have:
+     * which plugin «Min Max Control» actually is, what meta keys it uses,
+     * what Dokan still holds. The alternative to asking the site is guessing,
+     * which the instruction forbids twice.
+     *
+     * A disposable-database refusal would make such a tool useless for the
+     * one job it exists for, so the guard is a different kind — and it is a
+     * TEST, not a sentence here: `ReadOnlyInventoryTest` reads the file and
+     * fails if it gains any writer, WordPress function, wpdb method or
+     * writing SQL. An entry added here without that cover would be an
+     * exemption with no guard behind it, so the assertion below checks the
+     * test exists and names the file.
+     */
+    private const READ_ONLY = [
+        'plugin-exit-inventory.php' => 'read-only by construction; ReadOnlyInventoryTest fails if it gains any writer',
+    ];
+
     /** The refusal, verbatim enough that a rewrite has to be deliberate. */
     private const DB_CHECK = "DB_NAME !== 'tmc_wp_test'";
 
@@ -138,6 +163,18 @@ final class DisposableOnlyToolsTest extends TestCase
             }
 
             self::assertArrayNotHasKey($name, self::NO_WORDPRESS, $name . ' is exempted but does touch WordPress');
+
+            // A read-only tool needs no refusal — but only while something
+            // else proves it is read-only.
+            if (isset(self::READ_ONLY[$name])) {
+                $readOnlyTest = (string) file_get_contents(__DIR__ . '/../ReadOnlyInventoryTest.php');
+                self::assertStringContainsString(
+                    $name,
+                    $readOnlyTest,
+                    $name . ' is on the read-only list but ReadOnlyInventoryTest does not name it'
+                );
+                continue;
+            }
 
             if (!str_contains($src, self::DB_CHECK) || !preg_match('~' . self::HOST_CHECK . '~', $src)) {
                 $missing[] = $name;

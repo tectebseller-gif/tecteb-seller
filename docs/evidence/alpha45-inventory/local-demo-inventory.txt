@@ -1,0 +1,172 @@
+
+## platform
+php=8.4.19
+wordpress=7.1
+woocommerce=11.0.1
+hpos=yes
+table_prefix=wp_
+marketplace_schema=24
+marketplace_version=0.1.0-alpha.44
+environment_type=production
+
+## active plugins
+plugin=tecteb-marketplace-core/tecteb-marketplace-core.php | Tecteb Marketplace Core | 0.1.0-alpha.44
+plugin=woocommerce/woocommerce.php | WooCommerce | 11.0.1
+
+## product and variation meta keys in use
+# Every meta KEY on a product or variation, with how many rows carry
+# it. This is how the retiring plugin's own keys are IDENTIFIED rather
+# than guessed: whatever it stores its rules under will appear here.
+# Keys only — no values.
+meta=_backorders | 4
+meta=_download_expiry | 4
+meta=_download_limit | 4
+meta=_downloadable | 4
+meta=_manage_stock | 4
+meta=_price | 4
+meta=_product_attributes | 2
+meta=_product_version | 4
+meta=_regular_price | 3
+meta=_sku | 4
+meta=_sold_individually | 4
+meta=_stock | 4
+meta=_stock_status | 4
+meta=_tax_class | 4
+meta=_tax_status | 4
+meta=_thumbnail_id | 3
+meta=_tmc_attribute_conflicts | 1
+meta=_tmc_attribute_keys | 2
+meta=_tmc_max_purchase | 1
+meta=_tmc_min_purchase | 1
+meta=_tmc_product_id | 4
+meta=_tmc_projected_category | 3
+meta=_tmc_projected_description | 2
+meta=_tmc_projected_images | 3
+meta=_tmc_projected_short_description | 3
+meta=_tmc_projected_title | 3
+meta=_tmc_purchase_step | 1
+meta=_tmc_quantity_written | 1
+meta=_tmc_variation_id | 1
+meta=_tmc_vendor_id | 3
+meta=_variation_description | 1
+meta=_virtual | 4
+meta=_wc_average_rating | 4
+meta=_wc_review_count | 4
+meta=attribute_%d8%a7%d9%86%d8%af%d8%a7%d8%b2%d9%87 | 1
+meta=total_sales | 4
+
+## term meta keys in use
+# A category-level or global rule usually lives in term meta or an
+# option, so both are listed: a product-only inventory would report a
+# plugin as unused while every rule it enforces sat on a category.
+term_meta=product_count_product_cat | 1
+
+## option names that look like a quantity rule
+# Names only, never values: an option can hold a licence key.
+option_name=woocommerce_maxmind_geolocation_settings
+
+## dokan
+dokan_class=absent
+dokan_pro=absent
+dokan_version=unknown
+# Every table whose name mentions dokan, with its row count. A table
+# that exists and is empty is a different fact from one that is not
+# there, and «مانع خروج» depends on telling them apart.
+dokan_table=wp_tmc_dokan_balance_history | 0
+dokan_table=wp_tmc_dokan_handover | 0
+dokan_table=wp_tmc_dokan_order_history | 0
+dokan_table=wp_tmc_dokan_shop_version | 0
+dokan_table=wp_tmc_dokan_staff_history | 0
+dokan_table=wp_tmc_dokan_withdraw_history | 0
+# Dokan's own roles and how many accounts hold each.
+role_seller=0
+role_vendor_staff=0
+role_dokandar=0
+# Products by their author's role, which is how a Dokan product is
+# distinguished from the shop's own.
+products_total=3
+product_variations_total=1
+products_linked_to_marketplace=4
+
+## marketplace tables
+# For the count reconciliation §6 asks for: the source's numbers and
+# the target's, side by side, so a difference is a number rather than
+# an impression.
+tmc_table=wp_tmc_audit_events | 369
+tmc_table=wp_tmc_b2b_accounts | 0
+tmc_table=wp_tmc_commission_rules | 1
+tmc_table=wp_tmc_coupons | 0
+tmc_table=wp_tmc_coupon_uses | 0
+tmc_table=wp_tmc_dokan_balance_history | 0
+tmc_table=wp_tmc_dokan_handover | 0
+tmc_table=wp_tmc_dokan_order_history | 0
+tmc_table=wp_tmc_dokan_shop_version | 0
+tmc_table=wp_tmc_dokan_staff_history | 0
+tmc_table=wp_tmc_dokan_withdraw_history | 0
+tmc_table=wp_tmc_event_outbox | 0
+tmc_table=wp_tmc_jobs | 0
+tmc_table=wp_tmc_ledger_entries | 10
+tmc_table=wp_tmc_notifications | 0
+tmc_table=wp_tmc_order_items | 0
+tmc_table=wp_tmc_price_tiers | 0
+tmc_table=wp_tmc_products | 64
+tmc_table=wp_tmc_product_attributes | 2
+tmc_table=wp_tmc_product_decisions | 1234
+tmc_table=wp_tmc_product_images | 0
+tmc_table=wp_tmc_product_revisions | 18
+tmc_table=wp_tmc_product_specs | 8
+tmc_table=wp_tmc_product_variations | 3
+tmc_table=wp_tmc_returns | 0
+tmc_table=wp_tmc_review_seen | 0
+tmc_table=wp_tmc_shipments | 0
+tmc_table=wp_tmc_spec_fields | 4
+tmc_table=wp_tmc_spec_templates | 2
+tmc_table=wp_tmc_tickets | 0
+tmc_table=wp_tmc_ticket_attachments | 0
+tmc_table=wp_tmc_ticket_messages | 0
+tmc_table=wp_tmc_vendor_applications | 1
+tmc_table=wp_tmc_vendor_change_requests | 0
+tmc_table=wp_tmc_vendor_documents | 0
+tmc_table=wp_tmc_vendor_document_types | 0
+tmc_table=wp_tmc_vendor_money_unit | 1
+tmc_table=wp_tmc_vendor_profiles | 3
+tmc_table=wp_tmc_vendor_ratings | 0
+tmc_table=wp_tmc_vendor_staff | 0
+tmc_table=wp_tmc_vendor_stores | 1
+tmc_table=wp_tmc_withdrawals | 0
+tmc_table=wp_tmc_withdrawal_lines | 0
+
+## marketplace quantity rules
+# What this plugin has written, and where a manager has taken over.
+rows__tmc_min_purchase=1
+rows__tmc_max_purchase=1
+rows__tmc_purchase_step=1
+rows__tmc_quantity_written=1
+rows__tmc_quantity_conflicts=0
+rows__tmc_quantity_contradiction=0
+
+## scheduled work
+# §6 asks about cron and Action Scheduler, and about the risk of two
+# plugins processing the same thing twice. Hooks only.
+action_scheduler=present
+cron_hook=action_scheduler_run_queue
+cron_hook=tmc_run_jobs
+cron_hook=wc_admin_unsnooze_admin_notes
+cron_hook=jetpack_clean_nonces
+cron_hook=wc_admin_process_orders_milestone
+cron_hook=wp_privacy_delete_old_export_files
+cron_hook=woocommerce_marketplace_cron_fetch_promotions
+cron_hook=wp_update_user_counts
+cron_hook=wp_version_check
+cron_hook=wp_update_plugins
+cron_hook=wp_update_themes
+cron_hook=jetpack_v2_heartbeat
+cron_hook=recovery_mode_clean_expired_keys
+cron_hook=wp_privacy_personal_data_cleanup_requests
+cron_hook=wp_scheduled_delete
+cron_hook=delete_expired_transients
+cron_hook=wp_scheduled_auto_draft_delete
+cron_hook=wp_delete_temp_updater_backups
+cron_hook=wp_site_health_scheduled_check
+
+# end of inventory. Nothing was written.

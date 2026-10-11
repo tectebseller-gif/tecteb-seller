@@ -34,7 +34,7 @@ final class SensitiveChange
     ];
 
     /** @var list<string> fields a vendor may change on a live product */
-    public const IMMEDIATE = ['stock', 'sku', 'minPurchase', 'maxPurchase'];
+    public const IMMEDIATE = ['stock', 'sku', 'minPurchase', 'maxPurchase', 'purchaseStep'];
 
     /**
      * @return list<string> the sensitive fields that actually differ

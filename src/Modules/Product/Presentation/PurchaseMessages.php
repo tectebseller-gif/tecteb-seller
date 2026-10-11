@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Product\Presentation;
 
+use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
+use Tecteb\Marketplace\Modules\Product\Domain\PurchaseQuantity;
 
 /**
  * What a shopper is told when a purchase is refused — and what they are not.
@@ -63,6 +65,45 @@ final class PurchaseMessages
     }
 
     /** …and for an unpaid order whose link was opened later. */
+    /**
+     * Why this quantity is refused, with a quantity the buyer can use.
+     *
+     * Every sentence names a number. «تعداد انتخابی مجاز نیست» is true of
+     * three different mistakes and leaves a shopper guessing which, and the
+     * ceiling named is the one the rule actually allows — not the raw maximum,
+     * which a step can put out of reach.
+     */
+    public static function quantity(string $reason, PurchaseQuantity $rule, string $productName = ''): string
+    {
+        $fa = static fn (int|string $v): string => PersianDigits::toPersian((string) $v);
+        $named = $productName === ''
+            ? ''
+            : sprintf(
+                /* translators: %s: product name */
+                __('«%s»: ', 'tecteb-marketplace-core'),
+                $productName
+            );
+        return $named . match ($reason) {
+            PurchaseQuantity::BELOW_MIN => sprintf(
+                /* translators: %s: the smallest allowed quantity */
+                __('کمترین تعداد قابل خرید %s عدد است.', 'tecteb-marketplace-core'),
+                $fa($rule->min)
+            ),
+            PurchaseQuantity::ABOVE_MAX => sprintf(
+                /* translators: %s: the largest allowed quantity */
+                __('بیشترین تعداد قابل خرید %s عدد است — روی مجموع همین کالا در سبد.', 'tecteb-marketplace-core'),
+                $fa($rule->largestAllowed() ?? $rule->min)
+            ),
+            PurchaseQuantity::OFF_STEP => sprintf(
+                /* translators: 1: the step, 2: the nearest allowed quantity */
+                __('تعداد باید مضربی از %1$s باشد. نزدیک‌ترین تعداد مجاز: %2$s', 'tecteb-marketplace-core'),
+                $fa($rule->step),
+                $fa($rule->min)
+            ),
+            default => __('تعداد انتخابی برای این کالا مجاز نیست.', 'tecteb-marketplace-core'),
+        };
+    }
+
     public static function orderNotPayable(): string
     {
         return __('پرداخت این سفارش فعلاً ممکن نیست، چون یکی از کالاهای آن برای فروش در دسترس نیست. با پشتیبانی تماس بگیرید.', 'tecteb-marketplace-core');

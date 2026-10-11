@@ -128,6 +128,7 @@ namespace {
                 $this->data['id'] = $id;
                 if ($id > 0 && isset(self::$saved[$id])) {
                     $this->data = self::$saved[$id]->data;
+                    $this->meta = self::$saved[$id]->meta;
                 }
             }
 
@@ -342,6 +343,54 @@ namespace {
                 $this->put('weight', $v);
             }
 
+            /**
+             * The product's own meta, as `WC_Data` holds it.
+             *
+             * Three methods, because WooCommerce has three and they answer
+             * three different questions — and the distinction is the whole
+             * reason the quantity projection can tell «no row» from «a row
+             * holding nothing» before a save (the `alpha.28` rule):
+             *
+             *   meta_exists()      is there a row for this key at all
+             *   get_meta()         its value, or `''` when there is none
+             *   update_meta_data() stage a value, persisted by save()
+             *
+             * `delete_meta_data()` is here too, because a stub that can add
+             * but not remove would make «the manager deleted the row» a state
+             * no test could set up.
+             *
+             * @var array<string,string>
+             */
+            private array $meta = [];
+
+            public function meta_exists(string $key): bool
+            {
+                return array_key_exists($key, $this->meta);
+            }
+
+            public function get_meta(string $key = '', bool $single = true, string $context = 'view'): mixed
+            {
+                return $this->meta[$key] ?? '';
+            }
+
+            public function update_meta_data(string $key, mixed $value, int $metaId = 0): void
+            {
+                $this->meta[$key] = (string) $value;
+            }
+
+            public function add_meta_data(string $key, mixed $value, bool $unique = false): void
+            {
+                if ($unique && array_key_exists($key, $this->meta)) {
+                    return;
+                }
+                $this->meta[$key] = (string) $value;
+            }
+
+            public function delete_meta_data(string $key): void
+            {
+                unset($this->meta[$key]);
+            }
+
             public function save(): int
             {
                 if (self::$saveFails) {
@@ -361,6 +410,14 @@ namespace {
                     static fn ($a): bool => $a instanceof WC_Product_Attribute
                 );
                 self::$saved[$id] = $this;
+                // …and the meta lands where `get_post_meta()` will find it,
+                // because that is what `WC_Data::save_meta_data()` does. A
+                // stub that kept meta only on the object would make the
+                // projector's own read-back-after-save — the one thing the
+                // ownership record depends on — answer about nothing.
+                foreach ($this->meta as $metaKey => $metaValue) {
+                    \TmcWpStubs\State::$postMeta[$id][$metaKey] = $metaValue;
+                }
                 // A saved product is also a POST, because that is what it is
                 // in WordPress and because `owns()` asks `get_post()` for its
                 // `post_type` before the projector will touch it. A stub that

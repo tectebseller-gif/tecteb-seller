@@ -63,6 +63,8 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullCatalogPro
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullProductCategoryDirectory;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WpProductCategoryDirectory;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\CartGuard;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\QuantityGuard;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\QuantityPanel;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\PurchaseGuard;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullUnpaidOrderGuard;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WcUnpaidOrderGuard;
@@ -314,6 +316,20 @@ final class ProductModule implements ModuleInterface
             // the stop, the block checkout's Store API, and the pay link of
             // an order that was never paid.
             CartGuard::register($container);
+            // «How many», which is a different question from «at all» and has
+            // different hooks, different messages and a different scope. One
+            // filter carries the numbers to the classic page AND — through
+            // `QuantityLimits`, which reads it — to the blocks; the
+            // validators behind it catch the hand-built request that never
+            // saw an input box.
+            QuantityGuard::register($container);
+            // …and the same three numbers in WooCommerce's own editor, where
+            // §4 asks for them to be visible AND editable. Only in wp-admin:
+            // the panel registers metabox hooks, and a front-end request has
+            // no editor to put them in.
+            if (is_admin()) {
+                QuantityPanel::register($container);
+            }
         }
     }
 

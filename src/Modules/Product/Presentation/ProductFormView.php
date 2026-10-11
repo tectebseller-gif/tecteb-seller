@@ -109,7 +109,27 @@ final class ProductFormView
          * which is a better identity than any token, and `revision` is what
          * guards that path.
          */
-        string $createToken = ''
+        string $createToken = '',
+        /**
+         * Whether the values on this form are the vendor's PENDING PROPOSAL
+         * rather than the published row.
+         *
+         * Until `alpha.45` the page knew only that a proposal existed, and
+         * rendered the published row beside a notice saying one was waiting.
+         * A vendor who had just typed a brand therefore read «your proposal
+         * is with the manager» above an empty brand box — and every reading
+         * of that screen says the typing was lost. It was not: it was in the
+         * proposal, which nothing on the page showed.
+         */
+        bool $showingProposal = false,
+        /** When the proposal was recorded — «زمان و وضعیت آن را صریح نشان بده». */
+        string $proposedAt = '',
+        /**
+         * The published row, to put beside the proposal. Null unless the form
+         * is showing a proposal, which is the only time there are two
+         * versions to tell apart.
+         */
+        ?ProductDetails $publishedForComparison = null
     ): string {
         $step = array_key_exists($step, self::steps()) ? $step : '1';
         $html = '';
@@ -139,7 +159,30 @@ final class ProductFormView
                 : __('این محصول منتشر شده است. تغییر عنوان، قیمت، دسته و مشخصات به‌صورت «نسخه پیشنهادی» ثبت می‌شود و نسخه فعلی روی سایت می‌ماند؛ موجودی فوری اعمال می‌شود.', 'tecteb-marketplace-core'));
         }
         if ($hasPendingRevision) {
-            $html .= VendorUi::notice('info', __('یک نسخه پیشنهادی برای این محصول در انتظار بررسی مدیر است. ذخیره دوباره، همان نسخه را با مقادیر تازه جایگزین می‌کند.', 'tecteb-marketplace-core'));
+            // Which version is in the boxes, said out loud. The old sentence
+            // was true and useless: it announced a proposal and left the
+            // vendor looking at the published values, with no way to tell
+            // that their own were safe.
+            $html .= VendorUi::notice('info', $showingProposal
+                ? ($proposedAt === ''
+                    ? __('آنچه در این فرم می‌بینید «نسخه پیشنهادی» خودتان است و در انتظار بررسی مدیر. نسخه منتشرشده تا تأیید مدیر تغییر نمی‌کند. ذخیره دوباره، همین نسخه پیشنهادی را با مقادیر تازه جایگزین می‌کند.', 'tecteb-marketplace-core')
+                    : sprintf(
+                        /* translators: %s: when the proposal was recorded */
+                        __('آنچه در این فرم می‌بینید «نسخه پیشنهادی» خودتان است که در %s ثبت شده و در انتظار بررسی مدیر است. نسخه منتشرشده تا تأیید مدیر تغییر نمی‌کند. ذخیره دوباره، همین نسخه پیشنهادی را با مقادیر تازه جایگزین می‌کند.', 'tecteb-marketplace-core'),
+                        PersianDigits::toPersian(substr($proposedAt, 0, 16))
+                    ))
+                : __('یک نسخه پیشنهادی برای این محصول در انتظار بررسی مدیر است. ذخیره دوباره، همان نسخه را با مقادیر تازه جایگزین می‌کند.', 'tecteb-marketplace-core'));
+            // Only the fields that DIFFER, and only on the first step, where
+            // the vendor lands. Repeating the whole table on every step would
+            // push the form itself off the screen — the `alpha.34` lesson
+            // about what belongs at the top of a page somebody works in.
+            if ($showingProposal && $publishedForComparison !== null && $step === '1') {
+                $html .= ProductConflictView::render(
+                    $details,
+                    $publishedForComparison,
+                    ProductConflictView::PURPOSE_PROPOSAL
+                );
+            }
         }
 
         $base = $urls->product($productId);
@@ -216,8 +259,25 @@ final class ProductFormView
             );
         }
 
-        if ($step === '4' && $productId > 0 && $status->isEditableByVendor()) {
-            $html .= self::submitForm($urls, $nonceField, $productId, $readiness, $mayPublishDirectly);
+        // THE LAST STEP ALWAYS ENDS IN AN ANSWER.
+        //
+        // Until `alpha.45` this said `&& $status->isEditableByVendor()`, so on
+        // a published product step 4 rendered the readiness panel and then
+        // simply stopped: no button, and — measured — no sentence either. The
+        // owner read that as a missing button. The button is genuinely absent
+        // on purpose, because the save has ALREADY submitted the change: a
+        // sensitive edit to a live product becomes a proposal the moment it is
+        // saved, and a second «ارسال برای بررسی» would be a second submission
+        // of something already submitted.
+        //
+        // So the fix is the sentence, not the button. «فقط برای نمایش دکمه،
+        // منطق تأیید را تغییر نده» — nothing about who may publish, or when,
+        // moves here; every word below is derived from state this page was
+        // already handed.
+        if ($step === '4' && $productId > 0) {
+            $html .= $status->isEditableByVendor()
+                ? self::submitForm($urls, $nonceField, $productId, $readiness, $mayPublishDirectly)
+                : self::nextActionFor($status, $hasPendingRevision, $proposedAt);
         }
         return $html . '</section>';
     }
@@ -306,6 +366,11 @@ final class ProductFormView
                 'stock' => (string) $d->stock,
                 'min_purchase' => (string) $d->minPurchase,
                 'max_purchase' => $d->maxPurchase === null ? '' : (string) $d->maxPurchase,
+                // Carried like the other two. Left out, a vendor who saved
+                // step 1 would have reset the step to 1 — «ذخیرهٔ هر مرحله
+                // نباید تغییر مراحل دیگر را از بین ببرد», and the whole
+                // reason this map exists.
+                'purchase_step' => (string) $d->purchaseStep,
             ],
             '3' => ['weight_grams' => (string) $d->weightGrams, 'dimensions' => $d->dimensions, 'tax_class' => $d->taxClass],
         ];
@@ -476,8 +541,45 @@ final class ProductFormView
             . VendorUi::input('sale_to', __('پایان تخفیف', 'tecteb-marketplace-core'), $d->saleTo ?? '', true, 'date', 'ltr')
             . VendorUi::input('sku', __('کد SKU', 'tecteb-marketplace-core'), $d->sku, true, 'text', 'ltr', __('در همین فروشگاه یکتا است.', 'tecteb-marketplace-core'))
             . VendorUi::input('stock', __('موجودی', 'tecteb-marketplace-core'), (string) $d->stock, true, 'text', 'ltr', __('صفر یعنی ناموجود؛ فروش متوقف می‌شود. پیش‌فروش و فروش با کمبود موجودی در این نسخه وجود ندارد.', 'tecteb-marketplace-core'))
-            . VendorUi::input('min_purchase', __('حداقل خرید', 'tecteb-marketplace-core'), (string) $d->minPurchase, true, 'text', 'ltr')
-            . VendorUi::input('max_purchase', __('حداکثر خرید (اختیاری)', 'tecteb-marketplace-core'), $d->maxPurchase === null ? '' : (string) $d->maxPurchase, true, 'text', 'ltr')
+            // The three purchase-quantity rules, each with the sentence that
+            // says what empty means. Until `alpha.45` the first two were
+            // stored and read by nothing at all, and there was no third —
+            // measured on real WooCommerce, every candidate meta key on the
+            // shop product absent. A field whose empty state is not explained
+            // is a field a vendor fills in defensively.
+            . VendorUi::input(
+                'min_purchase',
+                __('حداقل خرید', 'tecteb-marketplace-core'),
+                (string) $d->minPurchase,
+                true,
+                'text',
+                'ltr',
+                __('کمترین تعداد در هر خرید. خالی یا ۰ یعنی ۱ — بدون حداقل.', 'tecteb-marketplace-core')
+            )
+            . VendorUi::input(
+                'max_purchase',
+                __('حداکثر خرید (اختیاری)', 'tecteb-marketplace-core'),
+                $d->maxPurchase === null ? '' : (string) $d->maxPurchase,
+                true,
+                'text',
+                'ltr',
+                __('بیشترین تعداد در هر خرید، روی مجموع سبد. خالی بگذارید تا سقفی نباشد؛ ۰ پذیرفته نمی‌شود.', 'tecteb-marketplace-core')
+            )
+            . VendorUi::input(
+                'purchase_step',
+                __('گام تعداد', 'tecteb-marketplace-core'),
+                (string) $d->purchaseStep,
+                true,
+                'text',
+                'ltr',
+                sprintf(
+                    /* translators: 1: minimum purchase, 2: an example quantity, 3: the next allowed quantity */
+                    __('تعداد مجاز از حداقل خرید شروع می‌شود و با این گام بالا می‌رود: %1$s، %2$s، %3$s و … . خالی یا ۱ یعنی هر تعدادی.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $d->minPurchase),
+                    PersianDigits::toPersian((string) ($d->minPurchase + max(1, $d->purchaseStep))),
+                    PersianDigits::toPersian((string) ($d->minPurchase + 2 * max(1, $d->purchaseStep)))
+                )
+            )
             . '</fieldset>';
     }
 
@@ -685,6 +787,55 @@ final class ProductFormView
         return '<button type="submit" class="tv-btn tv-btn--secondary tv-gallery__btn" name="move_image" value="'
             . esc_attr($direction . ':' . $imageId) . '"' . ($enabled ? '' : ' disabled')
             . '>' . esc_html($label) . '</button>';
+    }
+
+    /**
+     * What happens next, for a product the vendor cannot submit by hand.
+     *
+     * Four states, four sentences. One condition answering for all of them is
+     * exactly the defect `alpha.33` wrote up about the application page («در
+     * حال بررسی است» said about a closed file), and the silence this replaces
+     * was the same shape one step worse: no sentence at all.
+     */
+    private static function nextActionFor(ProductStatus $status, bool $hasPendingRevision, string $proposedAt): string
+    {
+        // Wrapped in a marker the evidence can read.
+        //
+        // The first version of the step-4 check looked for the Persian words
+        // and reported «no sentence» about a page that had one, because the
+        // probe spelled «نسخهٔ پیشنهادی» and the view spells «نسخه پیشنهادی».
+        // That is the `alpha.23` rule — «needle فارسی را دوبار ننویسید» — and
+        // the answer is not to copy the string more carefully but to stop
+        // asserting on prose: the attributes below say WHICH sentence this is
+        // without anybody retyping it.
+        return '<div class="tv-next-action" data-status="' . esc_attr($status->value) . '"'
+            . ' data-pending="' . ($hasPendingRevision ? 'yes' : 'no') . '"'
+            . ' data-submit="manual-not-available">'
+            . self::nextActionNotice($status, $hasPendingRevision, $proposedAt)
+            . '</div>';
+    }
+
+    private static function nextActionNotice(ProductStatus $status, bool $hasPendingRevision, string $proposedAt): string
+    {
+        if ($status === ProductStatus::Submitted) {
+            return VendorUi::notice('info', __('این محصول برای بررسی ارسال شده و در انتظار تصمیم مدیر است. اقدام دیگری لازم نیست؛ نتیجه را در همین صفحه و در فهرست محصولات می‌بینید.', 'tecteb-marketplace-core'));
+        }
+        if ($status === ProductStatus::Published) {
+            if ($hasPendingRevision) {
+                return VendorUi::notice('info', $proposedAt === ''
+                    ? __('تغییرات شما به‌صورت «نسخه پیشنهادی» ثبت شده و در صف بررسی مدیر است. ارسال دستی لازم نیست — ذخیره کردن، خودِ ارسال است. نسخه منتشرشده تا تأیید مدیر تغییر نمی‌کند.', 'tecteb-marketplace-core')
+                    : sprintf(
+                        /* translators: %s: when the proposal was recorded */
+                        __('تغییرات شما در %s به‌صورت «نسخه پیشنهادی» ثبت شده و در صف بررسی مدیر است. ارسال دستی لازم نیست — ذخیره کردن، خودِ ارسال است. نسخه منتشرشده تا تأیید مدیر تغییر نمی‌کند.', 'tecteb-marketplace-core'),
+                        PersianDigits::toPersian(substr($proposedAt, 0, 16))
+                    ));
+            }
+            return VendorUi::notice('info', __('این محصول منتشر شده و چیزی برای ارسال نیست. موجودی و کد SKU فوری اعمال می‌شوند؛ تغییر عنوان، قیمت، دسته، برند و مشخصات با همان دکمه «ذخیره و ادامه» به‌صورت «نسخه پیشنهادی» ثبت می‌شود و به صف بررسی مدیر می‌رود.', 'tecteb-marketplace-core'));
+        }
+        if ($status === ProductStatus::Suspended) {
+            return VendorUi::notice('warning', __('این محصول به‌دست مدیر تعلیق شده است. تا زمانی که مدیر آن را برنگرداند، ارسال و انتشار از این صفحه ممکن نیست؛ دلیل تعلیق بالای همین صفحه آمده است.', 'tecteb-marketplace-core'));
+        }
+        return VendorUi::notice('info', __('این محصول بایگانی شده است و ارسال نمی‌شود. برای بازگرداندن آن با مدیر بازارگاه تماس بگیرید.', 'tecteb-marketplace-core'));
     }
 
     private static function submitForm(VendorUrls $urls, string $nonce, int $productId, ?OperationResult $readiness, bool $direct): string

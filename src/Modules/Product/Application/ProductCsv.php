@@ -41,7 +41,12 @@ final class ProductCsv
         // additive; no current file stops importing.
         'sku', 'title', 'type', 'category', 'brand', 'short_description', 'description',
         'price', 'sale_price', 'sale_from', 'sale_to',
-        'stock', 'min_purchase', 'max_purchase', 'weight_grams', 'dimensions', 'tax_class',
+        // `purchase_step` is appended for the same reason `description` was:
+        // `detailsFrom()` reads every column with `array_key_exists`, so a
+        // file an existing vendor saved — which has no such column — keeps the
+        // stored step rather than resetting it to 1.
+        'stock', 'min_purchase', 'max_purchase', 'purchase_step',
+        'weight_grams', 'dimensions', 'tax_class',
     ];
 
     /** Columns the file shows but the importer never reads back. */
@@ -246,8 +251,20 @@ final class ProductCsv
         if ($details->stock < 0) {
             return OperationResult::failure('bad_stock');
         }
-        if ($details->minPurchase < 1 || ($details->maxPurchase !== null && $details->maxPurchase < $details->minPurchase)) {
+        if ($details->minPurchase < 1) {
             return OperationResult::failure('bad_quantity');
+        }
+        // Named, as the form's refusal is. A CSV row refused with
+        // «مقدار خرید نامعتبر است» and nothing else sends a vendor hunting
+        // through a spreadsheet; the report prints the two numbers.
+        if ($details->maxPurchase !== null && $details->maxPurchase < $details->minPurchase) {
+            return OperationResult::failure('bad_quantity_max_below_min', [
+                'min' => $details->minPurchase,
+                'max' => $details->maxPurchase,
+            ]);
+        }
+        if ($details->purchaseStep < 1) {
+            return OperationResult::failure('bad_quantity_step', ['step' => $details->purchaseStep]);
         }
         if ($details->sku !== '' && $this->products->skuTaken($vendorUserId, $details->sku, $existing?->id ?? 0)) {
             return OperationResult::failure('sku_taken', ['sku' => $details->sku]);
@@ -342,7 +359,8 @@ final class ProductCsv
             $int('weight_grams', $current->weightGrams),
             $text('dimensions', $current->dimensions),
             $text('tax_class', $current->taxClass),
-            $html('description', $current->description)
+            $html('description', $current->description),
+            $int('purchase_step', $current->purchaseStep > 0 ? $current->purchaseStep : 1)
         );
     }
 
@@ -414,6 +432,7 @@ final class ProductCsv
             (string) $d->stock,
             (string) $d->minPurchase,
             $d->maxPurchase === null ? '' : (string) $d->maxPurchase,
+            (string) $d->purchaseStep,
             (string) $d->weightGrams,
             $d->dimensions,
             $d->taxClass,

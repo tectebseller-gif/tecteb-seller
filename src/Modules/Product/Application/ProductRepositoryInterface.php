@@ -300,7 +300,14 @@ interface ProductRepositoryInterface
     public function saveBaseline(int $productId, ?ApprovedBaseline $baseline): bool;
 
     /** Stock and the other immediate fields, which never wait for a review. */
-    public function updateInventory(int $productId, int $stock, string $sku, int $minPurchase, ?int $maxPurchase): bool;
+    public function updateInventory(
+        int $productId,
+        int $stock,
+        string $sku,
+        int $minPurchase,
+        ?int $maxPurchase,
+        int $purchaseStep = 1
+    ): bool;
 
     /** @param array<string,string> $values */
     public function saveSpecs(int $productId, array $values, int $schemaVersion): bool;

@@ -988,7 +988,15 @@ final class ReviewProducts
             // docblock states).
             array_key_exists('description', $d)
                 ? ($d['description'] === null ? null : (string) $d['description'])
-                : $current->description
+                : $current->description,
+            // From the LIVE product, with the two numbers it works with. The
+            // step is an IMMEDIATE field (`SensitiveChange::IMMEDIATE`), so it
+            // has already been written straight through; taking it from the
+            // proposal would restore the value that was true when the vendor
+            // proposed and silently undo a later change — the same reason
+            // stock, SKU and the two purchase limits above come from
+            // `$current`.
+            $current->purchaseStep
         );
     }
 }

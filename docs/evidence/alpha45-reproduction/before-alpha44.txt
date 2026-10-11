@@ -1,0 +1,72 @@
+# alpha.44 bytes — the owner's staging report, measured
+# commit: 2b4d0688dc4f3cf8ed33e2705fd4a921927a6e18
+# wp: 7.1 · wc: 11.0.1
+
+## published-brand
+probe=ran
+status_before=published
+row_brand_before=empty
+code=revision_requested
+revision_brand=برندی_که_فروشنده_نوشته
+row_brand_after=empty
+form_brand_after=
+form_mentions_pending=yes
+
+## carry-over
+probe=ran
+brand_inputs_on_step1=|
+brand_inputs_on_step2=
+
+## last-step
+probe=ran
+has_submit_button=no
+says_awaiting=no
+says_auto_proposal=no
+status=published
+
+## no-change-save
+probe=ran
+first_revision=8
+second_code=inventory_saved
+second_revision=8
+
+## failed-save-description
+probe=ran
+row_description=متن_کامل_فروشنده
+code=stale_revision
+form_description_after_refusal=__empty__
+form_description_base=none
+
+## price-to-shop
+probe=ran
+wc_version=11.0.1
+publish_code=projected
+wc_product_id=145
+row_price=450000
+shop_regular_price=450000
+shop_price=450000
+shop_stock=22
+
+## quantities
+probe=ran
+row_min=2
+row_max=10
+meta__tmc_min_purchase=__absent__
+meta__tmc_max_purchase=__absent__
+meta__tmc_purchase_step=__absent__
+meta_min_allowed_quantity=__absent__
+meta_max_allowed_quantity=__absent__
+meta_group_of_quantity=__absent__
+meta__wc_min_qty_product=__absent__
+meta__wc_max_qty_product=__absent__
+min_max_control_active=no
+
+## control-draft-brand
+probe=ran
+row_brand=برند_پیش‌نویس
+form_brand=برند_پیش‌نویس
+
+## control-stock-immediate
+probe=ran
+code=inventory_saved
+row_stock=7
