@@ -1,7 +1,7 @@
-snapshot: 506 files under src/ hashed before any change
+snapshot: 523 files under src/ hashed before any change
 
 === 1. src/ reverted to 457ea88 (the delivered alpha.41) ===========
-PASS  the revert changed 15 files under src/ — the old tree is really on disk
+PASS  the revert changed 48 files under src/ — the old tree is really on disk
 PASS  the reverted tree passes php -l, so a fatal below would be a real answer
 PASS  [alpha41] legacy-title-save: before=null — a product from before the field, as the owner has on staging
 PASS  [alpha41] legacy-title-save: code=product_saved — the save succeeded
@@ -51,4 +51,4 @@ PASS  every control held, so the defect lines above are about alpha.41 and not a
 checks passed: 42
 checks failed: 0
 evidence: docs/evidence/alpha42-reproduction
-PASS  src/ restored byte for byte (506 files)
+PASS  src/ restored byte for byte (523 files)

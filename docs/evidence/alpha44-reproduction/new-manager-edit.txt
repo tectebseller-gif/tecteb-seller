@@ -1,6 +1,6 @@
 wc_version=11.0.1
 probe=ran
-wc=225
+wc=237
 brand_projected=آریا_طب
 record_shape=map
 brand_after_manager=برندی_که_مدیر_نوشته

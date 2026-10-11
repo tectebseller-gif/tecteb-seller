@@ -327,6 +327,63 @@ final class ProductAdminPagesTest extends DatabaseTestCase
     }
 
     /**
+     * WHAT THIS PROVES: every decision this page offers can be SUBMITTED.
+     *
+     * Not that it decides correctly — `ProductFlowTest` and
+     * `BrandRegistryTest` do that against the services. What this asks is the
+     * question `alpha.13` wrote down: does the branch RUN. A dispatch arm that
+     * names a method the request object does not have is a 500 for the manager
+     * and a green suite for us, and that is exactly what `alpha.48` shipped
+     * into its own browser run before this existed.
+     */
+    public function testEveryDecisionThisPageOffersCanActuallyBeSubmitted(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+        $ids = $this->seedProducts(2, ProductStatus::Published);
+        $product = $ids[0];
+        $revisions = new DbProductRevisionRepository(new WpDatabase($this->wpdb), new SystemClock());
+        $revisionId = $revisions->create($product, 7, [
+            'details' => ['title' => 'عنوان تازه'],
+            'stock_proposal' => ['value' => 3, 'baseline' => 5],
+        ]);
+        self::assertGreaterThan(0, $revisionId);
+
+        // Each arm is submitted and the page must come back. A throw inside
+        // `render()` fails the test, which is the whole point — and the
+        // ACCEPTED/REFUSED outcome is not asserted here, because the nonce
+        // check is the stub's and the services have their own tests.
+        $arms = [
+            ['subject' => 'revision', 'decision' => 'approve', 'subject_id' => (string) $revisionId],
+            ['subject' => 'revision', 'decision' => 'approve', 'subject_id' => (string) $revisionId, 'accept_stock_conflict' => '1'],
+            ['subject' => 'revision', 'decision' => 'reject', 'subject_id' => (string) $revisionId, 'note' => 'نه'],
+            ['subject' => 'product', 'decision' => 'approve', 'subject_id' => (string) $product],
+            ['subject' => 'product', 'decision' => 'changes', 'subject_id' => (string) $product, 'note' => 'اصلاح'],
+            ['subject' => 'product', 'decision' => 'reject', 'subject_id' => (string) $product, 'note' => 'رد'],
+            ['subject' => 'brand', 'decision' => 'approve', 'subject_id' => '1'],
+            ['subject' => 'brand', 'decision' => 'finish', 'subject_id' => '1'],
+            ['subject' => 'brand', 'decision' => 'reject', 'subject_id' => '1', 'note' => 'نه'],
+            ['subject' => 'seo', 'decision' => 'save', 'subject_id' => (string) $product],
+            ['subject' => 'publishing', 'decision' => 'grant', 'subject_id' => '7'],
+            ['subject' => 'publishing', 'decision' => 'revoke', 'subject_id' => '7'],
+            ['subject' => 'storefront', 'decision' => 'prepare', 'subject_id' => (string) $product],
+            ['subject' => 'correct', 'decision' => 'save', 'subject_id' => (string) $product],
+            ['subject' => 'field', 'decision' => 'keep', 'subject_id' => (string) $product, 'field' => 'title'],
+            ['subject' => 'field', 'decision' => 'accept', 'subject_id' => (string) $product, 'field' => 'title'],
+            ['subject' => 'product_fields', 'decision' => 'keep', 'subject_id' => (string) $product],
+            ['subject' => 'product_fields', 'decision' => 'accept', 'subject_id' => (string) $product],
+        ];
+        foreach ($arms as $fields) {
+            $html = $this->submit($fields, ['product' => (string) $product]);
+            self::assertNotSame(
+                '',
+                $html,
+                $fields['subject'] . ':' . $fields['decision'] . ' rendered nothing'
+            );
+        }
+    }
+
+    /**
      * WHAT THIS PROVES: «عنوان (الفبایی فارسی)» is the Persian alphabet, read
      * by the query over the whole catalogue and not by the page.
      *
@@ -548,6 +605,43 @@ final class ProductAdminPagesTest extends DatabaseTestCase
             return $this->capture(fn () => (new ProductReviewPage(Bootstrap::container()))->render());
         } finally {
             $_GET = [];
+        }
+    }
+
+    /**
+     * The same page, submitted to — because rendering it proves nothing about
+     * its decisions.
+     *
+     * `alpha.13`'s rule, earned again in `alpha.48`: four pages were
+     * registered with the right slug and the right capability and every one of
+     * them threw the moment it was OPENED, and the only test that touched them
+     * asked whether they were registered. This round's version of the same
+     * mistake was `$request->post()` — a method `Request` does not have — on
+     * the one branch no test POSTed to. The browser run found it; this is where
+     * it would have been found a day earlier.
+     *
+     * @param array<string,string> $fields
+     */
+    private function submit(array $fields, array $query = []): string
+    {
+        $_GET = ['page' => ProductReviewPage::SLUG, ...$query];
+        // A nonce the stub will VERIFY, from the stub's own generator. The
+        // first version of this helper sent the string `test-nonce`, which
+        // `wp_verify_nonce()` refuses — so `handleAction()` returned
+        // `forbidden` before the dispatch and every arm below passed with the
+        // bug still in place. A check that cannot fail is not a check
+        // (`alpha.26`), and this one was falsified by putting the bug back.
+        $_POST = [
+            'tmc_review_nonce' => wp_create_nonce('tmc_product_review'),
+            ...$fields,
+        ];
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        try {
+            return $this->capture(fn () => (new ProductReviewPage(Bootstrap::container()))->render());
+        } finally {
+            $_GET = [];
+            $_POST = [];
+            $_SERVER['REQUEST_METHOD'] = 'GET';
         }
     }
 

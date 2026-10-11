@@ -1,8 +1,7 @@
 wc_version=11.0.1
 probe=ran
-WordPress database error Duplicate entry '8803-race-1791738258820982520-4' for key 'tmc_product_create_token' for query INSERT INTO `wp_tmc_products` (vendor_user_id, title, title_sort, type, category_key, brand, short_description, price_minor, sale_price_minor, sale_from, sale_to, description, sku, stock, min_purchase, weight_grams, dimensions, tax_class, max_purchase, purchase_step, status, link_ownership, create_token, created_at, updated_at) VALUES (8803, 'محصول رقابت race-1791738258820982520-4', '1bcaiarbebb amayabacae crcaccced02d0191791738258820982520d02d0014', 'simple', 'tmc-probe-gloves', 'آریا طب', 'یک جمله', 200000, NULL, NULL, NULL, 'متن کامل', '', 5, 1, 0, '', '', NULL, 1, 'draft', 'marketplace', 'race-1791738258820982520-4', '2026-10-11 17:04:19', '2026-10-11 17:04:19') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductArea->handle, Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductArea->save, Tecteb\Marketplace\Modules\Product\Application\ManageProducts->save, Tecteb\Marketplace\Modules\Product\Application\ManageProducts->create, Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository->createForForm, Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository->insertRow, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
-pid=8529
+pid=15652
 code=product_created_replayed
-uploaded_now=212
-discarded=1
-path=simultaneous_lost_after_upload
+uploaded_now=
+discarded=0
+path=sequential_replay_no_upload

@@ -1,5 +1,5 @@
 woocommerce: 11.0.1 on WordPress 7.1
-snapshot: 511 files under src/ hashed before any change
+snapshot: 523 files under src/ hashed before any change
 
 === the alpha.43 bytes (06e63d1), on WooCommerce 11.0.1 ===
 PASS  [old] manager-edit: brand_after_manager=برندی_که_مدیر_نوشته — the fixture really did change the attribute — without this the next line proves nothing
@@ -53,4 +53,4 @@ PASS  control control-manager-independent answers identically on alpha.43 and al
 PASS  control control-not-ours answers identically on alpha.43 and alpha.44
 
 checks: 45   pass: 45   fail: 0
-PASS  src/ restored byte for byte (511 files)
+PASS  src/ restored byte for byte (523 files)

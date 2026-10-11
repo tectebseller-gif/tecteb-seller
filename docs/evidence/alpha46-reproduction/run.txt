@@ -1,5 +1,5 @@
 woocommerce: 11.0.1 on WordPress 7.1
-snapshot: 511 files under src/ hashed before any change
+snapshot: 523 files under src/ hashed before any change
 
 === the alpha.45 bytes (bee5f17), on WooCommerce 11.0.1 ===
 PASS  [old] rule-ceiling: stated_10_11_4=effective=12/12/4_raised_ceiling=YES_satisfiable=n/a — DEFECT: a stated ceiling of eleven came out twelve
@@ -27,10 +27,11 @@ PASS  [new] rule-ceiling: stated_5_7_5=effective=5/5/5_raised_ceiling=no_satisfi
 PASS  [new] rule-invalid-max: stated_5_2_1=max=2_allows_9999=no_satisfiable=no — an invalid maximum is kept for the message and allows nothing
 PASS  [new] rule-invalid-max: stated_3_0_1=max=0_allows_9999=no_satisfiable=no — a maximum of zero is not «unlimited» either
 PASS  [new] rule-one-answer: service_10_11_4=bad_quantity_unreachable — the service refuses it, by name
-PASS  [new] rule-one-answer: service_3_10_3=inventory_saved — and still accepts a workable one
+PASS  [new] rule-one-answer: service_3_10_3=stock_revision_requested — and still accepts a workable one — now answering with the stock request it also made
 PASS  [new] rule-one-answer: csv_10_11_4=bad_quantity_unreachable — the importer gives the SAME code — one rule, four doors
 PASS  [new] rule-one-answer: csv_3_10_3=csv_row_ok — and still accepts a workable one
-PASS  [new] rule-one-answer: panel_10_11_4_rows_after=2/6/2 — and the panel wrote nothing at all
+PASS  [new] rule-one-answer: panel_10_11_4_rows_before=3/9/3 — the shop now carries the workable window, because the vendor's save reached it (alpha.48)
+PASS  [new] rule-one-answer: panel_10_11_4_rows_after=3/9/3 — and the panel wrote nothing at all
 PASS  [new] panel-invalid: rows_after=2/6/2 — «min 5, max 2» changed not one of the three rules
 PASS  [new] panel-invalid: record_after=max,min,purchase_step — and the ownership record is intact
 PASS  [new] panel-invalid: other_product_data_unchanged=yes — nor did it touch the title, the price, the stock or the SKU
@@ -78,5 +79,5 @@ PASS  [new] workable-cart: qty_2=refused — and nothing else is
 PASS  [new] workable-cart: qty_4=refused — and nothing else is
 PASS  [new] workable-cart: qty_10=refused — and nothing else is
 
-checks: 71   pass: 71   fail: 0
-PASS  src/ restored byte for byte (511 files)
+checks: 72   pass: 72   fail: 0
+PASS  src/ restored byte for byte (523 files)

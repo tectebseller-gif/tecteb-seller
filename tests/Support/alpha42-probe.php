@@ -398,6 +398,16 @@ switch ($verb) {
             ->upsertProfile(TMC_P43_VENDOR, 'داروخانهٔ رقابت', true, false);
         wp_set_current_user(TMC_P43_VENDOR);
         $template();
+        // THE BRAND IS SEEDED INTO WOOCOMMERCE'S OWN LIST, from `alpha.48`.
+        // §4 stopped free text from naming a brand, and the form this verb
+        // posts carries one — so without this the create is refused
+        // (`brand_not_approved`), no product is made, and the race measures
+        // nothing. Seeding the term makes it an APPROVED brand, which the
+        // `alpha.42` bytes neither know nor care about; so the verb measures
+        // the same race on both trees, which is what it is for.
+        if (taxonomy_exists('product_brand') && !get_term_by('name', 'آریا طب', 'product_brand')) {
+            wp_insert_term('آریا طب', 'product_brand');
+        }
 
         $tempFile = (string) tempnam(sys_get_temp_dir(), 'tmc-race-');
         file_put_contents($tempFile, base64_decode(

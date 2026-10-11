@@ -248,13 +248,28 @@ fi
 if run_probe new rule-one-answer; then
     expect new rule-one-answer 'service_10_11_4=bad_quantity_unreachable' \
         "the service refuses it, by name"
-    expect new rule-one-answer 'service_3_10_3=inventory_saved' \
-        "and still accepts a workable one"
+    # UPDATED IN `alpha.48`, and the reason is a behaviour change rather than a
+    # regression: the fixture is a PUBLISHED product, and from `alpha.48` a
+    # live product's stock edit is a proposal (the owner's decision of 11
+    # October). `updateInventory()` is called here with a stock, so the answer
+    # is the stock request's code. What this check is ABOUT — that a workable
+    # window is accepted rather than refused — is unchanged, and the two
+    # refusals above it still say `bad_quantity_unreachable`.
+    expect new rule-one-answer 'service_3_10_3=stock_revision_requested' \
+        "and still accepts a workable one — now answering with the stock request it also made"
     expect new rule-one-answer 'csv_10_11_4=bad_quantity_unreachable' \
         "the importer gives the SAME code — one rule, four doors"
     expect new rule-one-answer 'csv_3_10_3=csv_row_ok' \
         "and still accepts a workable one"
-    expect new rule-one-answer 'panel_10_11_4_rows_after=2/6/2' \
+    # Also updated, and also not a regression: the rows now hold `3/9/3`
+    # because the service call above WROTE THEM THROUGH to the shop. On
+    # `alpha.47` it wrote the marketplace row and nothing carried the three
+    # meta rows outward — which is the defect `alpha.48` fixes. The assertion's
+    # subject is that `rows_before` and `rows_after` are the SAME, which is
+    # what «the panel wrote nothing at all» means.
+    expect new rule-one-answer 'panel_10_11_4_rows_before=3/9/3' \
+        "the shop now carries the workable window, because the vendor's save reached it (alpha.48)"
+    expect new rule-one-answer 'panel_10_11_4_rows_after=3/9/3' \
         "and the panel wrote nothing at all"
 fi
 

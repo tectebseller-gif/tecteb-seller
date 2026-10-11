@@ -435,12 +435,16 @@ final class ProductMessages
             'nothing_to_finish' => __('این درخواست چیزی برای کامل‌کردن ندارد.', 'tecteb-marketplace-core'),
             'product_submitted' => __('محصول برای بررسی مدیر فرستاده شد. تا تعیین تکلیف، نسخه فعلی تغییر نمی‌کند.', 'tecteb-marketplace-core'),
             'product_published' => __('محصول منتشر شد؛ فروشگاه شما مجوز انتشار مستقیم دارد.', 'tecteb-marketplace-core'),
-            'revision_requested' => __('تغییرهای حساس به‌صورت «نسخه پیشنهادی» ثبت شد. نسخه منتشرشده تا تأیید مدیر دست‌نخورده می‌ماند و موجودی همین حالا اعمال شد.', 'tecteb-marketplace-core'),
+            // «و موجودی همین حالا اعمال شد» was removed in `alpha.48`: on a
+            // published product the stock is part of the proposal now, and a
+            // vendor told it applied at once would believe they had taken a
+            // sold-out product down. What IS immediate is named instead.
+            'revision_requested' => __('تغییرهای حساس به‌صورت «نسخه پیشنهادی» ثبت شد و نسخه منتشرشده تا تأیید مدیر دست‌نخورده می‌ماند. کد SKU و حدود خرید همین حالا اعمال شدند؛ تغییر موجودی هم با همین پیشنهاد در صف بررسی است.', 'tecteb-marketplace-core'),
             // Nothing happened, and that is the message. A second «ثبت شد»
             // over an untouched proposal would tell the vendor they had just
             // changed something, and would have the manager looking for a new
             // request that does not exist.
-            'revision_unchanged' => __('چیزی برای تغییر نبود: نسخه پیشنهادی شما همان است که بود و هنوز در صف بررسی مدیر است. موجودی و کد SKU در صورت تغییر، اعمال شدند.', 'tecteb-marketplace-core'),
+            'revision_unchanged' => __('چیزی برای تغییر نبود: نسخه پیشنهادی شما همان است که بود و هنوز در صف بررسی مدیر است. کد SKU و حدود خرید در صورت تغییر، اعمال شدند.', 'tecteb-marketplace-core'),
             'product_archived_ok' => __('محصول بایگانی شد. سابقه و سفارش‌های قبلی آن پاک نشده است.', 'tecteb-marketplace-core'),
             'product_restored' => __('محصول از بایگانی به پیش‌نویس بازگشت.', 'tecteb-marketplace-core'),
 

@@ -381,6 +381,16 @@ function formFields(int $productId, string $revision, array $override = []): arr
         'type' => 'simple',
         'category' => 'gloves',
         'brand' => 'آریا طب',
+        // THE PICKER'S OWN FIELD, from `alpha.48`: `keep` means «leave the
+        // brand alone». Posted alongside the old `brand` text so this
+        // hand-built form means the same thing on BOTH trees — `alpha.42`
+        // reads the text and ignores this, `alpha.48` reads this and ignores
+        // the text. Without it the new build read the text as a brand CHANGE,
+        // found no approved list (this probe runs with no WooCommerce at all)
+        // and refused the save: a correct answer about a form a browser would
+        // never send, because the real picker renders the `keep` radio in
+        // exactly that case.
+        'brand_term' => 'keep',
         'short_description' => 'یک جمله',
         'price' => '200000',
         'sale_price' => '',

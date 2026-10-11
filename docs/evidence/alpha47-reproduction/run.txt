@@ -1,5 +1,5 @@
 woocommerce: 11.0.1 on WordPress 7.1
-snapshot: 511 files under src/ hashed before any change
+snapshot: 523 files under src/ hashed before any change
 
 === the alpha.46 bytes (2676ae3), on WooCommerce 11.0.1 ===
 PASS  [old] gap-arrange: rows_after_reset=__absent__/__absent__/__absent__ — DEFECT: the reset removed the three rows and left the restoring to a later save
@@ -70,4 +70,4 @@ PASS  [new] control-manager-edit: manager_max_survived=yes — a real manager ed
 PASS  [new] control-manager-edit: vendor_min_applied=yes — and the two rules they did not touch still track the vendor
 
 checks: 62   pass: 62   fail: 0
-PASS  src/ restored byte for byte (511 files)
+PASS  src/ restored byte for byte (523 files)

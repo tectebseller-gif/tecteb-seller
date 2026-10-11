@@ -483,6 +483,17 @@ switch ($verb) {
     /** §3 The proposed brand survives a real edit, a round trip and a refresh. */
     case 'brand-persists':
         [$id, $wcId] = $published();
+        // THE BRAND IS SEEDED INTO WOOCOMMERCE'S OWN LIST FIRST, from
+        // `alpha.48`. This verb is a CONTROL — it must answer identically on
+        // both trees — and §4 stopped free text from naming a brand, so a
+        // typed name that is in no list is now refused. Seeding the term makes
+        // the brand an APPROVED one, which the older build neither knows nor
+        // cares about; so both trees accept it and the control is a control
+        // again. Without this it measured a feature that was deliberately
+        // removed and reported a difference that is the fix.
+        if (taxonomy_exists('product_brand') && !get_term_by('name', 'برندی که فروشنده نوشته', 'product_brand')) {
+            wp_insert_term('برندی که فروشنده نوشته', 'product_brand');
+        }
         $urls = new \Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls(
             'https://example.test/vendor/',
             'https://example.test/vendor/application/',

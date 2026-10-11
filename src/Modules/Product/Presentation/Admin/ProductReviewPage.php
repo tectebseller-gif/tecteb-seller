@@ -947,7 +947,7 @@ final class ProductReviewPage
                 self::seenFingerprints($request),
                 // An unticked checkbox is not sent, so absence IS the
                 // conservative answer and nothing has to default it.
-                $request->post('accept_stock_conflict') === '1'
+                $request->postChecked('accept_stock_conflict')
             ),
             'revision:reject' => $review->rejectRevision($id, $note),
             'seo:save' => $review->setSeo(

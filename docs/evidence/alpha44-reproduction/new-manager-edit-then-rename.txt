@@ -1,6 +1,6 @@
 wc_version=11.0.1
 probe=ran
-wc=225
+wc=237
 old_label_value=جنسی_که_مدیر_نوشته
 old_label_present=yes
 new_label_value=لاتکس

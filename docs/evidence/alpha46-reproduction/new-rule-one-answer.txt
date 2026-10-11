@@ -1,7 +1,7 @@
 probe=ran
 service_10_11_4=bad_quantity_unreachable
-service_3_10_3=inventory_saved
+service_3_10_3=stock_revision_requested
 csv_10_11_4=bad_quantity_unreachable
 csv_3_10_3=csv_row_ok
-panel_10_11_4_rows_before=2/6/2
-panel_10_11_4_rows_after=2/6/2
+panel_10_11_4_rows_before=3/9/3
+panel_10_11_4_rows_after=3/9/3

@@ -1,6 +1,6 @@
 probe=ran
 parent_wc=217
-variation_wc=221
+variation_wc=233
 gate=ready_on_trial
 classic_qty_1=allowed
 classic_qty_3=allowed
