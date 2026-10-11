@@ -226,6 +226,14 @@ if run_scenario old stock-arrange stock-page; then
         "the shop moved in the same request"
 fi
 
+# The brand registry does not exist on `alpha.47`, and the probe says so
+# rather than throwing — which is what keeps every other verb above
+# measurable on these bytes (the `alpha.32` trap).
+if run_probe old brand-list; then
+    expect old brand-list 'brand_registry=absent_in_this_build' \
+        "BASELINE: alpha.47 has no brand list, so free text was the only way to name a brand"
+fi
+
 for verb in $CONTROLS; do
     run_probe old "$verb" || true
 done
@@ -344,6 +352,93 @@ if run_probe new keeps-proposal; then
         "and adds the stock request to it rather than replacing it"
     expect new keeps-proposal 'badge_token_moved=yes' \
         "with a new proposal id, so the unseen badge comes back (alpha.36)"
+fi
+
+# ======================= §4: brands, on the real taxonomy =================
+if run_probe new brand-list; then
+    expect new brand-list 'taxonomy_exists=yes' \
+        "the approved list is WooCommerce's OWN product_brand — measured, not read off a changelog"
+    expect new brand-list 'directory_available=yes' \
+        "and the directory reads it"
+    expect new brand-list 'found_by_key=برند_آزمون_۴۸' \
+        "a brand is found by its name"
+    expect new brand-list 'found_by_variant=برند_آزمون_۴۸' \
+        "and by a spelling that differs only in a space — on the real list"
+fi
+
+if run_probe new brand-free-text; then
+    expect new brand-free-text 'save_code=brand_not_approved' \
+        "free text cannot become an official brand"
+    expect new brand-free-text 'brand_after=__empty__' \
+        "and nothing of the product changed"
+fi
+
+if run_scenario new brand-request brand-approve; then
+    expect new brand-request 'ask_code=brand_requested' \
+        "a vendor may ASK for a brand that is not in the list"
+    expect new brand-request 'brand_after_ask=__empty__' \
+        "and until a manager agrees the product's brand does not move"
+    expect new brand-request 'term_exists_yet=no' \
+        "nor does the list"
+    expect new brand-request 'in_needs_review=yes' \
+        "the request is in the ONE «needs review» set (§5)"
+    expect new brand-approve 'approve_code=brand_approved' \
+        "the manager approves"
+    expect new brand-approve 'row_brand=سینا_طب_۴۸' \
+        "the brand is written on the product"
+    expect new brand-approve 'shop_attribute_brand=سینا_طب_۴۸' \
+        "AND on WooCommerce → Product data → Attributes → برند, the path the owner measured working"
+    expect new brand-approve 'request_closed=yes' \
+        "the request is closed"
+    expect new brand-approve 'in_needs_review=no' \
+        "and the product leaves the queue"
+fi
+
+if run_probe new brand-duplicate; then
+    expect new brand-duplicate 'ask_code=brand_already_approved' \
+        "a name that differs only in a space is the SAME brand"
+    expect new brand-duplicate 'named_real_brand=آمبو_بگ_۴۸' \
+        "and the vendor is told which brand to pick"
+    expect new brand-duplicate 'no_second_term=yes' \
+        "with no second term made on the real taxonomy"
+fi
+
+if run_probe new brand-register-twice; then
+    expect new brand-register-twice 'same_term=yes' \
+        "registering one brand twice, spelled two ways, is one term"
+    expect new brand-register-twice 'term_count_for_name=1' \
+        "measured on the taxonomy itself"
+fi
+
+# ---- a REAL race: two processes, two spellings, one brand ----------------
+#
+# `alpha.40`'s rule: a third actor on your own connection is not a third
+# actor. Two calls in one request share the directory's memo, WordPress's term
+# cache and the connection, so the only honest form of «two managers approve
+# the same name at the same moment» is two processes.
+note ""
+note "=== two processes registering one brand, two spellings ==="
+RACE_NAME_A='برند رقابت ۴۸'
+RACE_NAME_B='برندرقابت ۴۸'
+WP eval 'foreach (get_terms(["taxonomy"=>"product_brand","hide_empty"=>false,"search"=>"رقابت","fields"=>"ids"]) as $id) { wp_delete_term((int) $id, "product_brand"); }' >/dev/null 2>&1
+(
+    WP eval-file "$REPO/tests/Support/concurrent-brand-register.php" "$RACE_NAME_A" > "$OUT/race-a.txt" 2>&1 &
+    WP eval-file "$REPO/tests/Support/concurrent-brand-register.php" "$RACE_NAME_B" > "$OUT/race-b.txt" 2>&1 &
+    wait
+)
+RACE_A="$(sed -n 's/^term=//p' "$OUT/race-a.txt" | head -1)"
+RACE_B="$(sed -n 's/^term=//p' "$OUT/race-b.txt" | head -1)"
+RACE_TERMS="$(WP eval 'echo count(get_terms(["taxonomy"=>"product_brand","hide_empty"=>false,"search"=>"رقابت","fields"=>"ids"]));' 2>/dev/null)"
+note "race: a=$RACE_A b=$RACE_B terms=$RACE_TERMS"
+if [ "$RACE_A" != "" ] && [ "$RACE_A" = "$RACE_B" ]; then
+    ok "both processes came back with the SAME term — the loser gets the winner's brand, not a failure"
+else
+    bad "the two processes disagreed about the term (a=$RACE_A b=$RACE_B)"
+fi
+if [ "$RACE_TERMS" = "1" ]; then
+    ok "and the taxonomy holds ONE term for the two spellings"
+else
+    bad "the taxonomy holds $RACE_TERMS terms for one brand"
 fi
 
 for verb in $CONTROLS; do

@@ -51,10 +51,14 @@ use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\SystemClock;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
+use Tecteb\Marketplace\Modules\Product\Application\BrandDirectoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\BrandProposalRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ManageBrands;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
+use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
@@ -104,6 +108,32 @@ $catalog = $c->get(SyncCatalog::class);
 $manage = $c->get(ManageProducts::class);
 /** @var ReviewProducts $review */
 $review = $c->get(ReviewProducts::class);
+/**
+ * THE BRAND SERVICES ARE RESOLVED LAZILY, and that is not tidiness.
+ *
+ * This probe runs on the `alpha.47` bytes too — that is what it is for — and
+ * `alpha.47` has no brand registry at all. Resolving them at the top would
+ * throw before the first verb, every verb would print nothing, and the script
+ * would report «reproduced» about a probe that never ran: the `alpha.32` trap
+ * in a new coat. So the brand verbs ask for them, and say so when the build
+ * does not have them.
+ *
+ * @return array{0:?ManageBrands,1:?BrandDirectoryInterface,2:?BrandProposalRepositoryInterface}
+ */
+$brandServices = static function () use ($c): array {
+    if (!interface_exists(BrandDirectoryInterface::class) || !class_exists(ManageBrands::class)) {
+        return [null, null, null];
+    }
+    try {
+        return [
+            $c->get(ManageBrands::class),
+            $c->get(BrandDirectoryInterface::class),
+            $c->get(BrandProposalRepositoryInterface::class),
+        ];
+    } catch (\Throwable) {
+        return [null, null, null];
+    }
+};
 
 $say = static function (string $key, mixed $value): void {
     echo $key . '=' . str_replace(["\n", ' '], ['', '_'], (string) $value) . "\n";
@@ -632,6 +662,194 @@ switch ($verb) {
         $after = (array) (get_post_meta($wcId, ProjectedQuantity::OWNED_META, true) ?: []);
         $say('record_unchanged', $before === $after ? 'yes' : 'NO');
         $say('pending_revision', $revisions->pendingFor($id) === null ? 'none' : 'yes');
+        break;
+
+    /**
+     * THE BRAND LIST IS WOOCOMMERCE'S OWN — measured, not read off a
+     * changelog.
+     *
+     * The whole of §4 rests on `product_brand` existing in WooCommerce 11.0.1,
+     * because the alternative was a table of ours and the owner asked for no
+     * parallel source. So the first thing this says is whether the taxonomy is
+     * there.
+     */
+    case 'brand-list':
+        [$brandService, $brandDirectory, $brandRequests] = $brandServices();
+        if ($brandService === null || $brandDirectory === null || $brandRequests === null) {
+            $say('brand_registry', 'absent_in_this_build');
+            break;
+        }
+        $say('taxonomy_exists', taxonomy_exists('product_brand') ? 'yes' : 'NO');
+        $say('directory_available', $brandDirectory->isAvailable() ? 'yes' : 'NO');
+        // A clean list for the verbs below: the terms this probe made, and
+        // nothing else. Other brands a manager may have added are left alone.
+        foreach (['برند آزمون ۴۸', 'سینا طب ۴۸', 'آمبو بگ ۴۸'] as $name) {
+            $term = get_term_by('name', $name, 'product_brand');
+            if ($term instanceof \WP_Term) {
+                wp_delete_term($term->term_id, 'product_brand');
+            }
+        }
+        $seed = wp_insert_term('برند آزمون ۴۸', 'product_brand');
+        $say('seeded_term', is_array($seed) ? (string) ($seed['term_id'] ?? 0) : 'failed');
+        $say('found_by_key', $brandDirectory->findByKey(BrandName::key('برند آزمون ۴۸'))?->name ?? '__none__');
+        // The normalised key, on the real list: a space and an Arabic yeh are
+        // not a different brand.
+        $say('found_by_variant', $brandDirectory->findByKey(BrandName::key('برندآزمون ۴۸'))?->name ?? '__none__');
+        $say('count', (string) $brandDirectory->count());
+        break;
+
+    /** Free text cannot become an official brand. */
+    case 'brand-free-text':
+        [$brandService, $brandDirectory, $brandRequests] = $brandServices();
+        if ($brandService === null || $brandDirectory === null || $brandRequests === null) {
+            $say('brand_registry', 'absent_in_this_build');
+            break;
+        }
+        [$id, $wcId] = $published(20, 1, 20, 1);
+        $before = (string) ($products->find($id)?->details->brand ?? '');
+        $say('brand_before', $before === '' ? '__empty__' : $before);
+        $details = $detailsOf('برندی که کسی تأیید نکرده ۴۸', 20, 1, 20, 1);
+        $result = $manage->save(TMC_P48_VENDOR, TMC_P48_VENDOR, $id, $details, [], [], 0, (string) ($products->find($id)?->rowVersion ?? ''));
+        $say('save', $result->ok ? 'ok' : 'failed');
+        $say('save_code', $result->code);
+        $after = (string) ($products->find($id)?->details->brand ?? '');
+        $say('brand_after', $after === '' ? '__empty__' : $after);
+        break;
+
+    /** The vendor asks, and the product's brand does not move. */
+    case 'brand-request':
+        [$brandService, $brandDirectory, $brandRequests] = $brandServices();
+        if ($brandService === null || $brandDirectory === null || $brandRequests === null) {
+            $say('brand_registry', 'absent_in_this_build');
+            break;
+        }
+        [$id, $wcId] = $published(20, 1, 20, 1);
+        $say('product_id', $id);
+        $open = $brandRequests->openFor($id);
+        if ($open !== null) {
+            $brandRequests->decide($open->id, \Tecteb\Marketplace\Modules\Product\Domain\BrandProposal::REJECTED, $adminId, 'reset', 0, $open->status);
+        }
+        $asked = $brandService->propose(TMC_P48_VENDOR, TMC_P48_VENDOR, $id, 'سینا طب ۴۸');
+        $say('ask', $asked->ok ? 'ok' : 'failed');
+        $say('ask_code', $asked->code);
+        $brandNow = (string) ($products->find($id)?->details->brand ?? '');
+        $say('brand_after_ask', $brandNow === '' ? '__empty__' : $brandNow);
+        $say('term_exists_yet', get_term_by('name', 'سینا طب ۴۸', 'product_brand') instanceof \WP_Term ? 'YES' : 'no');
+        $say('in_needs_review', in_array($id, array_map(
+            static fn (object $p): int => $p->id,
+            $products->forManager(null, '', 100, 0, 0, null, true)
+        ), true) ? 'yes' : 'NO');
+        break;
+
+    /**
+     * The manager approves: the term appears in WooCommerce's own list AND
+     * the brand reaches the attribute the owner measured working.
+     */
+    case 'brand-approve':
+        [$brandService, $brandDirectory, $brandRequests] = $brandServices();
+        if ($brandService === null || $brandDirectory === null || $brandRequests === null) {
+            $say('brand_registry', 'absent_in_this_build');
+            break;
+        }
+        $id = $findBySku(TMC_P48_SKU);
+        $wcId = (int) ($products->find($id)?->wcProductId ?? 0);
+        $open = $brandRequests->openFor($id);
+        if ($id === 0 || $open === null) {
+            $say('fixture', 'run_brand-request_first');
+            break;
+        }
+        $approved = $brandService->approve($open->id);
+        $say('approve', $approved->ok ? 'ok' : 'failed');
+        $say('approve_code', $approved->code);
+        $term = get_term_by('name', 'سینا طب ۴۸', 'product_brand');
+        $say('term_in_list', $term instanceof \WP_Term ? (string) $term->term_id : '__none__');
+        $rowBrand = (string) ($products->find($id)?->details->brand ?? '');
+        $say('row_brand', $rowBrand === '' ? '__empty__' : $rowBrand);
+        $say('row_brand_term', (string) ($products->brandTermIdOf($id) ?? '__null__'));
+        // THE DISPLAY PATH THE OWNER MEASURED WORKING: WooCommerce → Product
+        // data → Attributes → «برند». Read from the shop product itself.
+        $shopProduct = wc_get_product($wcId);
+        $attributeValue = '__unreadable__';
+        if ($shopProduct instanceof \WC_Product) {
+            $attributeValue = '__absent__';
+            foreach ($shopProduct->get_attributes() as $attribute) {
+                if ($attribute->get_name() === 'برند') {
+                    $attributeValue = implode('|', $attribute->get_options());
+                }
+            }
+        }
+        $say('shop_attribute_brand', $attributeValue);
+        $say('request_closed', $brandRequests->openFor($id) === null ? 'yes' : 'NO');
+        $say('in_needs_review', in_array($id, array_map(
+            static fn (object $p): int => $p->id,
+            $products->forManager(null, '', 100, 0, 0, null, true)
+        ), true) ? 'YES' : 'no');
+        break;
+
+    /**
+     * A name that differs only in a space is the SAME brand — on the real
+     * taxonomy, where the duplicate would otherwise be a second term.
+     */
+    case 'brand-duplicate':
+        [$brandService, $brandDirectory, $brandRequests] = $brandServices();
+        if ($brandService === null || $brandDirectory === null || $brandRequests === null) {
+            $say('brand_registry', 'absent_in_this_build');
+            break;
+        }
+        [$id, $wcId] = $published(20, 1, 20, 1);
+        $open = $brandRequests->openFor($id);
+        if ($open !== null) {
+            $brandRequests->decide($open->id, \Tecteb\Marketplace\Modules\Product\Domain\BrandProposal::REJECTED, $adminId, 'reset', 0, $open->status);
+        }
+        $term = get_term_by('name', 'آمبو بگ ۴۸', 'product_brand');
+        if (!$term instanceof \WP_Term) {
+            $made = wp_insert_term('آمبو بگ ۴۸', 'product_brand');
+            $say('seeded', is_array($made) ? (string) ($made['term_id'] ?? 0) : 'failed');
+        } else {
+            $say('seeded', (string) $term->term_id);
+        }
+        $before = count(get_terms(['taxonomy' => 'product_brand', 'hide_empty' => false, 'fields' => 'ids']));
+        // Asked for without the space — the same brand.
+        $asked = $brandService->propose(TMC_P48_VENDOR, TMC_P48_VENDOR, $id, 'آمبوبگ ۴۸');
+        $say('ask_code', $asked->code);
+        $say('named_real_brand', (string) ($asked->context['brand'] ?? '__none__'));
+        $after = count(get_terms(['taxonomy' => 'product_brand', 'hide_empty' => false, 'fields' => 'ids']));
+        $say('terms_before', (string) $before);
+        $say('terms_after', (string) $after);
+        $say('no_second_term', $before === $after ? 'yes' : 'NO');
+        break;
+
+    /**
+     * REGISTER TWICE, as the race resolves it.
+     *
+     * Not two processes here — this is the directory's own guard, asked twice
+     * in one request with the memo cleared between, which is what a loser of a
+     * real race sees: `wp_insert_term()` refuses it and `findByKey()` hands
+     * back the winner's term. The two-process form is run by
+     * `alpha48-reproduction.sh`, which is the only place it can be.
+     */
+    case 'brand-register-twice':
+        [$brandService, $brandDirectory, $brandRequests] = $brandServices();
+        if ($brandService === null || $brandDirectory === null || $brandRequests === null) {
+            $say('brand_registry', 'absent_in_this_build');
+            break;
+        }
+        $term = get_term_by('name', 'سینا طب ۴۸', 'product_brand');
+        if ($term instanceof \WP_Term) {
+            wp_delete_term($term->term_id, 'product_brand');
+        }
+        $first = $brandDirectory->register('سینا طب ۴۸');
+        $say('first', $first === null ? '__null__' : (string) $first->termId);
+        // Spelled differently, and the same brand.
+        $second = $brandDirectory->register('سیناطب ۴۸');
+        $say('second', $second === null ? '__null__' : (string) $second->termId);
+        $say('same_term', $first !== null && $second !== null && $first->termId === $second->termId ? 'yes' : 'NO');
+        $say('term_count_for_name', (string) count(get_terms([
+            'taxonomy' => 'product_brand',
+            'hide_empty' => false,
+            'search' => 'سینا',
+            'fields' => 'ids',
+        ])));
         break;
 
     case 'reset':
