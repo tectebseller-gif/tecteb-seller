@@ -1,0 +1,10 @@
+wc_version=11.0.1
+probe=ran
+product=1265
+wc=144
+shape_before=map
+brand_before=برندی_که_مدیر_نوشته
+facts_before=اندازه:7_اینچ|برند:برندی_که_مدیر_نوشته|جنس:لاتکس
+brand_after=برندی_که_مدیر_نوشته
+facts_after=اندازه:7_اینچ|برند:برندی_که_مدیر_نوشته|جنس:لاتکس
+shape_after=list
