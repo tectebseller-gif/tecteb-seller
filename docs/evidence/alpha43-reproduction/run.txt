@@ -55,15 +55,15 @@ PASS  [new] SimultaneousCreateMediaTest passes: the loser discards its own uploa
 --- §3: a real two-process race (reported, not claimed) ---
   run 1: sequential_replay_no_upload / created
 PASS  race 1: one token, one product
-  run 2: sequential_replay_no_upload / created
+  run 2: created / simultaneous_lost_after_upload
 PASS  race 2: one token, one product
-  run 3: created / simultaneous_lost_after_upload
+  run 3: created / sequential_replay_no_upload
 PASS  race 3: one token, one product
   run 4: sequential_replay_no_upload / created
 PASS  race 4: one token, one product
-  run 5: created / sequential_replay_no_upload
+  run 5: sequential_replay_no_upload / created
 PASS  race 5: one token, one product
-  run 6: created / sequential_replay_no_upload
+  run 6: sequential_replay_no_upload / created
 PASS  race 6: one token, one product
 PASS  and after six real races the shop owns ZERO attachment that nothing uses
   simultaneous window entered on 1 of 6 real races.

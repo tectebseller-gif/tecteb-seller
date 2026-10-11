@@ -1,7 +1,7 @@
 wc_version=11.0.1
 probe=ran
-pid=12971
-code=product_created
-uploaded_now=93
-discarded=0
-path=created
+pid=9347
+code=product_created_replayed
+uploaded_now=138
+discarded=1
+path=simultaneous_lost_after_upload

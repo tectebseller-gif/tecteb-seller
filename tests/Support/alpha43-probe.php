@@ -514,6 +514,30 @@ switch ($verb) {
         $say('size_after_projection', isset($shopAttributes($wcId)[sanitize_title('اندازه')]) ? 'present' : 'absent');
         break;
 
+    // What the PREVIOUS build does with the record this one writes.
+    //
+    // Deliberately does NOT rebuild the fixture: it is meant to run straight
+    // after another verb, on a reverted tree, so the rollback direction is
+    // measured rather than reasoned about. `alpha.43` reads the record with
+    // `array_values()`, which hands it the FINGERPRINTS as if they were keys
+    // — so the question «what does it then do» has to be asked of the build,
+    // not of the diff.
+    case 'rollback-read':
+        $id = $findBySku(TMC_P44_SKU);
+        $wcId = (int) ($products->find($id)?->wcProductId ?? 0);
+        $say('product', $id);
+        $say('wc', $wcId);
+        $say('shape_before', $recordShape($wcId));
+        $before = $shopAttributes($wcId);
+        $say('brand_before', $valueOf($before, 'برند'));
+        $say('facts_before', $describe($before));
+        $catalog->publish($id);
+        $after = $shopAttributes($wcId);
+        $say('brand_after', $valueOf($after, 'برند'));
+        $say('facts_after', $describe($after));
+        $say('shape_after', $recordShape($wcId));
+        break;
+
     case 'reset':
         foreach ([TMC_P44_SKU, TMC_P44_SKU_VAR] as $sku) {
             $id = $findBySku($sku);

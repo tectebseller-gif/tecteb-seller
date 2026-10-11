@@ -2,5 +2,5 @@ wc_version=11.0.1
 probe=ran
 brand_value=چیزی_که_مدیر_نوشته
 conflicts=%d8%a8%d8%b1%d9%86%d8%af
-owned=%d8%ac%d9%86%d8%b3|%d8%a7%d9%86%d8%af%d8%a7%d8%b2%d9%87
+owned=077e696385845a192c67cc2a0f422b361c37bc774dda7bcda57ed67a991845ea|3fe255db500fa789d148d1ae37574f492c7ee1ec86b2b4ccfba1a1cacb9d5f9a
 material_still_there=yes

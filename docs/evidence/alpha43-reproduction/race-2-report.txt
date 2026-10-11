@@ -1,6 +1,6 @@
 wc_version=11.0.1
 probe=ran
-products=1260
+products=1270
 product_count=1
 attachments=2
 used=2
