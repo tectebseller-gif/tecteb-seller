@@ -1,10 +1,10 @@
 wc_version=11.0.1
 probe=ran
 product=1238
-wc=130
+wc=167
 colour_before=آبی/سبز
-wc_variation_blue=131
-wc_variation_green=132
+wc_variation_blue=168
+wc_variation_green=169
 colour_after=آبی/زرد/قرمز
 theirs_after=present
 brand_after=آریا_طب

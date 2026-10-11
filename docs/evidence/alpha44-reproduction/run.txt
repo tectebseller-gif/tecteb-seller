@@ -1,2 +1,56 @@
 woocommerce: 11.0.1 on WordPress 7.1
-alpha44-reproduction: src/ has uncommitted changes. Commit or stash them first.
+snapshot: 511 files under src/ hashed before any change
+
+=== the alpha.43 bytes (06e63d1), on WooCommerce 11.0.1 ===
+PASS  [old] manager-edit: brand_after_manager=برندی_که_مدیر_نوشته — the fixture really did change the attribute — without this the next line proves nothing
+PASS  [old] manager-edit: brand_after_projection=آریا_طب — DEFECT: an ordinary projection put the plugin's value back over the manager's
+PASS  [old] manager-edit: conflicts= — DEFECT: and said nothing about it
+PASS  [old] manager-edit: record_shape=list — the alpha.43 record is a list of keys, with no values
+PASS  [old] manager-edit-then-vendor-change: material_after=نیتریل — DEFECT: the vendor's value won over an edit the manager had made
+PASS  [old] manager-edit-then-retire: size_after_manager=اندازه‌ای_که_مدیر_نوشته — the manager edited it
+PASS  [old] manager-edit-then-retire: size_present=no — DEFECT: retiring the specification DELETED the row the manager had written
+PASS  [old] manager-edit-then-rename: old_label_present=no — DEFECT: renaming the label deleted the manager-edited row with the old key
+PASS  [old] legacy-record: brand_after_projection=آریا_طب — DEFECT: a key list was read as a licence over whatever is in the key
+
+=== the fix (HEAD), on WooCommerce 11.0.1 ===
+PASS  [new] manager-edit: record_shape=map — the record is key => fingerprint now
+PASS  [new] manager-edit: brand_after_manager=برندی_که_مدیر_نوشته — the manager edited it
+PASS  [new] manager-edit: brand_after_projection=برندی_که_مدیر_نوشته — and the projection left it alone
+PASS  [new] manager-edit: conflicts=%d8%a8%d8%b1%d9%86%d8%af — and reported the disagreement
+PASS  [new] manager-edit-then-vendor-change: material_after=جنسی_که_مدیر_نوشته — the vendor's own change is no licence either
+PASS  [new] manager-edit-then-vendor-change: size_after=7_اینچ — and the specification beside it is unaffected by the disagreement
+PASS  [new] manager-edit-then-retire: size_present=yes — a retired row the manager edited is not ours to delete
+PASS  [new] manager-edit-then-retire: size_after_retire=اندازه‌ای_که_مدیر_نوشته — with their value
+PASS  [new] manager-edit-then-rename: old_label_present=yes — a renamed label does not delete the manager-edited row
+PASS  [new] manager-edit-then-rename: old_label_value=جنسی_که_مدیر_نوشته — with their value
+PASS  [new] manager-edit-then-rename: new_label_value=لاتکس — and the new label is written
+PASS  [new] legacy-record: brand_after_projection=برندی_که_مدیر_نوشته — an alpha.43 key list says nothing about what is in the key
+PASS  [new] legacy-record: conflicts=%d8%a8%d8%b1%d9%86%d8%af — and the key is reported
+PASS  [new] legacy-record-upgrades: shape_before=list — the alpha.43 shape
+PASS  [new] legacy-record-upgrades: shape_after=map — a product nobody touched upgrades its own record on the first projection
+PASS  [new] legacy-record-upgrades: conflicts_after_upgrade= — with nothing held
+PASS  [new] legacy-record-upgrades: material_after_vendor_edit=نیتریل — and from then on the vendor's edit lands normally
+PASS  [new] manager-deleted-ours: size_after_delete=absent — the manager deleted one of ours
+PASS  [new] manager-deleted-ours: size_after_projection=present — DECISION, not a surprise: an absent attribute has no value to preserve, so it is written again
+PASS  [new] variable-manager-edit: colour_after_manager=آبی/زرد — the manager edited the axis
+PASS  [new] variable-manager-edit: colour_after_projection=آبی/زرد — and the projection kept it
+PASS  [new] variable-manager-edit: theirs_after=ایران — the manager's own attribute survives
+PASS  [new] variable-manager-edit: variation_blue_same=yes — the variation keeps its id
+PASS  [new] variable-manager-edit: blue_price=210000 — its price
+PASS  [new] variable-manager-edit: blue_stock=3 — its stock
+PASS  [new] variable-manager-edit: blue_sku=V44-BLUE — and its SKU
+PASS  [new] variable-manager-edit: conflicts=%d8%b1%d9%86%da%af — with the axis reported
+PASS  [new] variable-vendor-change: colour_after_projection=آبی/قرمز — CONTROL: with nobody interfering the vendor's new axis is written
+PASS  [new] variable-vendor-change: theirs_after=ایران — and the manager's own attribute survives
+PASS  [new] variable-vendor-change: variation_blue_same=yes — the variation keeps its id
+PASS  [new] variable-vendor-change: blue_sku=V44-BLUE — and its SKU
+PASS  [new] variable-vendor-change: conflicts= — with nothing held
+
+=== controls: the same answer on both trees ===
+PASS  control control-vendor-change answers identically on alpha.43 and alpha.44
+PASS  control control-retire-untouched answers identically on alpha.43 and alpha.44
+PASS  control control-manager-independent answers identically on alpha.43 and alpha.44
+PASS  control control-not-ours answers identically on alpha.43 and alpha.44
+
+checks: 45   pass: 45   fail: 0
+PASS  src/ restored byte for byte (511 files)

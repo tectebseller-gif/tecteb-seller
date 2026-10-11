@@ -1,7 +1,7 @@
 wc_version=11.0.1
 probe=ran
-pid=9365
-code=product_created_replayed
-uploaded_now=
+pid=19181
+code=product_created
+uploaded_now=177/178
 discarded=0
-path=sequential_replay_no_upload
+path=created

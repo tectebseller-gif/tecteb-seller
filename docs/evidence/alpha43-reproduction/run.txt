@@ -1,5 +1,5 @@
 woocommerce: 11.0.1 on WordPress 7.1
-snapshot: 506 files under src/ hashed before any change
+snapshot: 511 files under src/ hashed before any change
 
 === the alpha.42 bytes (3070781), on WooCommerce 11.0.1 ===
 PASS  [old] attr-keys: prefixed_keys=0 — WooCommerce keeps NO key the plugin passed in — the `tmc-` scheme has no input on which it works
@@ -55,18 +55,18 @@ PASS  [new] SimultaneousCreateMediaTest passes: the loser discards its own uploa
 --- §3: a real two-process race (reported, not claimed) ---
   run 1: sequential_replay_no_upload / created
 PASS  race 1: one token, one product
-  run 2: created / simultaneous_lost_after_upload
+  run 2: simultaneous_lost_after_upload / created
 PASS  race 2: one token, one product
-  run 3: created / sequential_replay_no_upload
+  run 3: simultaneous_lost_after_upload / created
 PASS  race 3: one token, one product
-  run 4: sequential_replay_no_upload / created
+  run 4: created / sequential_replay_no_upload
 PASS  race 4: one token, one product
-  run 5: sequential_replay_no_upload / created
+  run 5: created / sequential_replay_no_upload
 PASS  race 5: one token, one product
   run 6: sequential_replay_no_upload / created
 PASS  race 6: one token, one product
 PASS  and after six real races the shop owns ZERO attachment that nothing uses
-  simultaneous window entered on 1 of 6 real races.
+  simultaneous window entered on 2 of 6 real races.
   STATED PLAINLY: two WP-CLI processes almost always serialise — the second
   one's token read happens after the first one's insert, which is the
   SEQUENTIAL replay path and uploads nothing. The simultaneous window is
@@ -75,4 +75,4 @@ PASS  and after six real races the shop owns ZERO attachment that nothing uses
   the race reached the window.
 
 checks: 48   pass: 48   fail: 0
-PASS  src/ restored byte for byte (506 files)
+PASS  src/ restored byte for byte (511 files)
