@@ -363,8 +363,8 @@ final class ProductArea
         $replay = $productId === 0
             && $createToken !== ''
             && $this->manage()->createdAlready($userId, $vendorUserId, $createToken) > 0;
-        [$imageIds, $mainImageId, $imageError] = $replay
-            ? [[], 0, '']
+        [$imageIds, $mainImageId, $imageError, $uploaded] = $replay
+            ? [[], 0, '', []]
             : $this->imagesFromPost($request, $userId, $vendorUserId);
         $imageIds = $this->reorder($imageIds, $request->postText('move_image'));
 
@@ -399,6 +399,19 @@ final class ProductArea
             return new VendorAreaOutcome($result->code, $this->stepUrl($urls, $landOn, $step), $result->context);
         }
         $savedId = (int) ($result->context['product_id'] ?? $productId);
+
+        // The simultaneous half of §3. The ask above cannot catch two
+        // requests that arrive together — both read «no product yet» before
+        // either had inserted — so the loser gets here holding an attachment
+        // it created and a result saying NOTHING WAS WRITTEN. Only what this
+        // request itself uploaded is offered, and only on the one code that
+        // means «your write lost»: a save that stored the picture is not
+        // reached by this line, and the gallery the form carried is never in
+        // `$uploaded`.
+        $discarded = 0;
+        if ($result->code === 'product_created_replayed' && $uploaded !== []) {
+            $discarded = $this->manage()->discardUnusedUploads($userId, $vendorUserId, $uploaded);
+        }
 
         // The text saved and the picture did not. Reporting the SAVE as a
         // failure would be a lie and would throw away work that is safely
@@ -447,7 +460,11 @@ final class ProductArea
         if ($searching) {
             $url = add_query_arg('cat_q', rawurlencode($request->postText('category_q')), $url);
         }
-        return new VendorAreaOutcome($result->code, $url, $result->context);
+        return new VendorAreaOutcome(
+            $result->code,
+            $url,
+            $discarded > 0 ? $result->context + ['discarded_uploads' => $discarded] : $result->context
+        );
     }
 
     /**
@@ -681,12 +698,11 @@ final class ProductArea
      * was ticked for removal. Ownership is re-checked in ManageProducts, so a
      * posted id that is not this shop's never reaches the row.
      *
-     * @return array{0:list<int>,1:int}
-     */
-    /**
-     * @return array{0:list<int>, 1:int, 2:string} ids, main id, and the code of
-     *         an upload that failed — empty when nothing was uploaded or it
-     *         worked
+     * @return array{0:list<int>, 1:int, 2:string, 3:list<int>} the gallery, the
+     *         featured id, the code of an upload that failed (empty when
+     *         nothing was uploaded or it worked), and the attachments THIS
+     *         request created — the last one kept separate because it is the
+     *         only list a discard may be given
      */
     private function imagesFromPost(Request $request, int $userId, int $vendorUserId): array
     {
@@ -699,11 +715,17 @@ final class ProductArea
         // succeed — and found no picture, with nothing anywhere saying why.
         // Silence is the worst of the three possible answers.
         $imageError = '';
+        $created = [];
         $file = $request->file('product_image');
         if ($file->tempPath !== '' && $file->errorCode !== UPLOAD_ERR_NO_FILE) {
             $uploaded = $this->manage()->uploadImage($userId, $vendorUserId, $file, $request->postText('title'));
             if ($uploaded->ok) {
                 $ids[] = (int) $uploaded->context['media_id'];
+                // Kept APART from `$ids`, which also holds the gallery the
+                // form carried. Those are pictures that already belong to a
+                // product; this is the one the request has just made, and it
+                // is the only thing any discard is ever allowed to see.
+                $created[] = (int) $uploaded->context['media_id'];
             } else {
                 $imageError = $uploaded->code;
             }
@@ -718,7 +740,7 @@ final class ProductArea
             $imageError = $this->imagePolicy()->refuse($file);
         }
         $main = $request->postInt('main_image_id');
-        return [$ids, in_array($main, $ids, true) ? $main : ($ids[0] ?? 0), $imageError];
+        return [$ids, in_array($main, $ids, true) ? $main : ($ids[0] ?? 0), $imageError, $created];
     }
 
     /**

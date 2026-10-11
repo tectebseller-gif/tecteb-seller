@@ -469,6 +469,53 @@ final class ManageProducts
     }
 
     /**
+     * Media this request uploaded and nothing uses, discarded.
+     *
+     * **§3's other half.** The `alpha.42` guard asks `createdAlready()`
+     * BEFORE the file is taken off the wire, which closes the SEQUENTIAL
+     * replay — the browser resending a timed-out POST minutes later. It
+     * cannot close two requests that arrive together: both ask before either
+     * has inserted, both get 0, both upload, and then the unique key on
+     * `(vendor_user_id, create_token)` picks one. The loser writes nothing,
+     * which is right, and until now left its attachment on the vendor's disk
+     * referenced by nothing.
+     *
+     * Three conditions, and every one of them is required:
+     *
+     *  - the id was MINTED BY THIS REQUEST. The caller passes only what its
+     *    own upload created, never the gallery the form carried — those are
+     *    somebody's pictures.
+     *  - `mediaInUse()` says nothing points at it. Not an argument that
+     *    nothing can: a query.
+     *  - `discard()` checks the attachment is this shop's before deleting.
+     *
+     * «پاک‌سازی عمومی ممنوع»: there is no sweep here, no age cutoff, and no
+     * way to reach this with an id the same request did not create.
+     *
+     * @param list<int> $mediaIds
+     * @return int how many were deleted
+     */
+    public function discardUnusedUploads(int $actorId, int $vendorUserId, array $mediaIds): int
+    {
+        if ($mediaIds === []) {
+            return 0;
+        }
+        if (!$this->access->can($actorId, $vendorUserId, StaffArea::Product, StaffLevel::Edit)) {
+            return 0;
+        }
+        $discarded = 0;
+        foreach (array_unique(array_map('intval', $mediaIds)) as $mediaId) {
+            if ($mediaId <= 0 || $this->products->mediaInUse($mediaId)) {
+                continue;
+            }
+            if ($this->images->discard($mediaId, $vendorUserId)) {
+                $discarded++;
+            }
+        }
+        return $discarded;
+    }
+
+    /**
      * One submitted create form, asked about twice: the row, and nothing else.
      *
      * Reached from the replay check in `save()` and from the losing half of

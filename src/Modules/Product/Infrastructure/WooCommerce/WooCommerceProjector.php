@@ -229,14 +229,29 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         // our products would be deleted by the next projection. Only the keys
         // THIS plugin owns are rewritten, and a retired specification
         // disappears because its key is no longer among them.
-        $facts = $this->factAttributes($product);
-        if ($details->type === ProductType::VARIABLE) {
-            $wcProduct->set_attributes($this->mergeAttributes(
-                $wcProduct,
-                $this->wcAttributes($attributes) + $facts
-            ));
-        } else {
-            $wcProduct->set_attributes($this->mergeAttributes($wcProduct, $facts));
+        //
+        // `alpha.42` recognised its own attributes by a `tmc-` key prefix and
+        // could not: `set_attributes()` files every attribute under
+        // `sanitize_title($attribute->get_name())` and discards the keys it
+        // was given, so the prefix was gone before the call returned. The
+        // record is `ProjectedAttributes::OWNED_META` now, and the SAME
+        // record answers both questions the owner asked — which attributes
+        // this plugin may rewrite or drop, and which belong to a manager and
+        // are never touched — for a simple product and a variable one alike.
+        $ours = $details->type === ProductType::VARIABLE
+            // A variation attribute and a fact under one name is one
+            // attribute, and the variation attribute wins: it is the one the
+            // shop needs in order to build variations at all. Both are ours
+            // either way, so this is an internal precedence, not a conflict.
+            ? $this->wcAttributes($attributes) + $this->factAttributes($product)
+            : $this->factAttributes($product);
+        $merged = ProjectedAttributes::merge(
+            $wcProduct->get_attributes(),
+            $ours,
+            $this->ownedAttributeKeys((int) $wcProduct->get_id())
+        );
+        $wcProduct->set_attributes($merged['attributes']);
+        if ($details->type !== ProductType::VARIABLE) {
             $wcProduct->set_regular_price((string) $details->priceMinor);
             $this->applySale($wcProduct, $product);
             $wcProduct->set_manage_stock(true);
@@ -258,6 +273,10 @@ final class WooCommerceProjector implements CatalogProjectorInterface
 
         update_post_meta($wcProductId, self::PRODUCT_META, $product->id);
         update_post_meta($wcProductId, self::VENDOR_META, $product->vendorUserId);
+        // Written AFTER the save, from what the merge decided — so a save
+        // that failed leaves the previous record in place and the next run
+        // still knows which keys are ours.
+        $this->recordAttributeKeys($wcProductId, $merged['owned'], $merged['conflicts']);
         // Stamp AFTER the save and from a fresh read: WooCommerce runs its own
         // filters on the way in, so the value that comes back is routinely not
         // the one that went out. Stamping what we *sent* would mark every
@@ -848,8 +867,6 @@ final class WooCommerceProjector implements CatalogProjectorInterface
      * @param list<ProductAttribute> $attributes
      * @return array<string,\WC_Product_Attribute>
      */
-    /** Every attribute key this plugin writes starts here, and nothing else does. */
-    public const FACT_PREFIX = 'tmc-';
 
     /**
      * The brand and the answered specification fields, as WooCommerce attributes.
@@ -870,7 +887,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         $out = [];
         $position = 100;        // after the variation attributes, which start at 0
         if (trim($product->details->brand) !== '') {
-            $out[self::FACT_PREFIX . 'brand'] = $this->attribute(
+            $out += $this->attribute(
                 __('برند', 'tecteb-marketplace-core'),
                 $product->details->brand,
                 $position++
@@ -882,7 +899,11 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             if ($value === '') {
                 continue;
             }
-            $out[self::FACT_PREFIX . 'spec-' . sanitize_title($field->key)] = $this->attribute(
+            // Keyed by the LABEL, because that is the key WooCommerce will
+            // use. Two asked fields that happen to share a label are one
+            // attribute on the shop whatever we do here, so the first one
+            // keeps the key rather than the last one silently replacing it.
+            $out += $this->attribute(
                 $field->label,
                 $field->unit !== '' ? $value . ' ' . $field->unit : $value,
                 $position++
@@ -891,7 +912,50 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         return $out;
     }
 
-    private function attribute(string $label, string $value, int $position): \WC_Product_Attribute
+    /** The keys the last projection wrote on this product. @return list<string> */
+    private function ownedAttributeKeys(int $wcProductId): array
+    {
+        if ($wcProductId <= 0) {
+            return [];
+        }
+        $stored = get_post_meta($wcProductId, ProjectedAttributes::OWNED_META, true);
+        if (!is_array($stored)) {
+            return [];
+        }
+        return array_values(array_map('strval', $stored));
+    }
+
+    /**
+     * @param list<string> $owned
+     * @param list<string> $conflicts
+     */
+    private function recordAttributeKeys(int $wcProductId, array $owned, array $conflicts): void
+    {
+        if ($owned === []) {
+            delete_post_meta($wcProductId, ProjectedAttributes::OWNED_META);
+        } else {
+            update_post_meta($wcProductId, ProjectedAttributes::OWNED_META, $owned);
+        }
+        // A conflict that has gone away must stop being reported, so this is
+        // written on every run rather than only when there is one.
+        if ($conflicts === []) {
+            delete_post_meta($wcProductId, ProjectedAttributes::CONFLICT_META);
+        } else {
+            update_post_meta($wcProductId, ProjectedAttributes::CONFLICT_META, $conflicts);
+        }
+    }
+
+    /**
+     * One fact, under the key WooCommerce would give it.
+     *
+     * Returns a single-entry map rather than the object, so no caller can
+     * compute the key a second way. `+=` on the caller's side then makes «a
+     * label already used» keep the first answer instead of losing one
+     * silently to an overwrite.
+     *
+     * @return array<string,\WC_Product_Attribute>
+     */
+    private function attribute(string $label, string $value, int $position): array
     {
         $attribute = new \WC_Product_Attribute();
         $attribute->set_name($label);
@@ -899,31 +963,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         $attribute->set_position($position);
         $attribute->set_visible(true);
         $attribute->set_variation(false);
-        return $attribute;
-    }
-
-    /**
-     * Ours, over whatever is there, keeping everything that is not ours.
-     *
-     * Two properties, and the second is the one that needed writing down: a
-     * key we no longer write is DROPPED (a retired specification goes away on
-     * its own), and a key we never wrote is KEPT (a manager's own attribute
-     * survives every projection). `set_attributes()` alone has neither — it
-     * replaces the set, so it would delete the manager's work and keep ours
-     * for ever.
-     *
-     * @param array<string,\WC_Product_Attribute> $ours
-     * @return array<string,\WC_Product_Attribute>
-     */
-    private function mergeAttributes(\WC_Product $wcProduct, array $ours): array
-    {
-        $kept = [];
-        foreach ($wcProduct->get_attributes() as $key => $attribute) {
-            if (!str_starts_with((string) $key, self::FACT_PREFIX)) {
-                $kept[(string) $key] = $attribute;
-            }
-        }
-        return $kept + $ours;
+        return [ProjectedAttributes::keyFor($label) => $attribute];
     }
 
     private function wcAttributes(array $attributes): array
@@ -939,7 +979,12 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             $wcAttribute->set_position($index);
             $wcAttribute->set_visible(true);
             $wcAttribute->set_variation(true);
-            $out[sanitize_title($attribute->label)] = $wcAttribute;
+            // `+` on the caller's side gives the FIRST writer the key, and
+            // `alpha.42` used it with the stored set on the left — so an old
+            // attribute beat the new options and a removed one survived. The
+            // left side here is this plugin's own data; the record in
+            // `ProjectedAttributes` is what decides against the shop's.
+            $out[ProjectedAttributes::keyFor($attribute->label)] = $wcAttribute;
         }
         return $out;
     }

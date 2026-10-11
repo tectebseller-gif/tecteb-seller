@@ -21,6 +21,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwners
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0023ProductDescriptionAndCreateToken;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as C;
 
 /**
  * Products on the plugin's own tables.
@@ -844,6 +845,33 @@ final class DbProductRepository implements ProductRepositoryInterface
             [$productId]
         );
         return array_map(static fn (array $row): int => (int) $row['media_id'], $rows);
+    }
+
+    public function mediaInUse(int $mediaId): bool
+    {
+        if ($mediaId <= 0) {
+            return false;
+        }
+        // Three places an attachment is referenced, and all three are asked.
+        // Two of them would be easy to forget: a product's FEATURED picture
+        // is a column on the product row, not a gallery row, and a
+        // variation's picture is a column on the variation.
+        $counts = [
+            'SELECT COUNT(*) FROM `' . $this->imagesTable() . '` WHERE media_id = %d',
+            'SELECT COUNT(*) FROM `' . $this->products() . '` WHERE main_image_id = %d',
+            'SELECT COUNT(*) FROM `' . C::table($this->db, C::VARIATIONS) . '` WHERE media_id = %d',
+        ];
+        foreach ($counts as $sql) {
+            $found = $this->db->getVar($sql, [$mediaId]);
+            // A read that FAILED is not «nobody uses it». `null` here would
+            // become a deletion, so it is treated as a use: the cost of
+            // keeping an unused file is a file, and the cost of the other
+            // answer is somebody's photograph.
+            if ($found === null || (int) $found > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function skuTaken(int $vendorUserId, string $sku, int $exceptProductId = 0): bool

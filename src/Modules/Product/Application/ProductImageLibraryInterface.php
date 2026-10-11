@@ -41,4 +41,14 @@ interface ProductImageLibraryInterface
 
     /** A thumbnail URL, or '' when the attachment is gone. */
     public function thumbnailUrl(int $mediaId): string;
+
+    /**
+     * Deletes one attachment, and only one this shop uploaded.
+     *
+     * `ownedBy()` again, for the same reason it guards a gallery: an id is
+     * just a number, and a delete is worse than a read. Whether anything
+     * USES the attachment is not asked here — the caller has to have
+     * established that, because this layer cannot see a product row.
+     */
+    public function discard(int $mediaId, int $vendorUserId): bool;
 }

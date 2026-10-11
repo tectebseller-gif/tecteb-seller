@@ -25,6 +25,7 @@ namespace {
     if (!class_exists('WC_Product_Attribute')) {
         class WC_Product_Attribute
         {
+            private int $id = 0;
             private string $name = '';
             /** @var list<string> */
             private array $options = [];
@@ -82,6 +83,22 @@ namespace {
             public function get_variation(): bool
             {
                 return $this->variation;
+            }
+
+            public function set_id(int $id): void
+            {
+                $this->id = $id;
+            }
+
+            public function get_id(): int
+            {
+                return $this->id;
+            }
+
+            /** WooCommerce's own definition: a global attribute has an id. */
+            public function is_taxonomy(): bool
+            {
+                return $this->id > 0;
             }
         }
     }
@@ -189,13 +206,47 @@ namespace {
                 return (array) ($this->data['categories'] ?? []);
             }
 
-            /** @param array<string,WC_Product_Attribute> $v */
+            /**
+             * WooCommerce's real contract, which is not what this stub used
+             * to do — and the difference is the whole of the `alpha.42`
+             * defect.
+             *
+             * `abstract-wc-product.php:1227` on WooCommerce 11.0.1:
+             *
+             *   $attributes = array_fill_keys( array_keys( $this->get_attributes( 'edit' ) ), null );
+             *   foreach ( $raw_attributes as $attribute ) {
+             *       if ( is_a( $attribute, 'WC_Product_Attribute' ) ) {
+             *           $attributes[ sanitize_title( $attribute->get_name() ) ] = $attribute;
+             *       }
+             *   }
+             *   uasort( $attributes, 'wc_product_attribute_uasort_comparison' );
+             *
+             * So THE KEYS PASSED IN ARE DISCARDED and an existing key that
+             * is not passed back becomes `null`, which the data store reads
+             * as «unset this one». The stub that simply stored the array it
+             * was handed let a test confirm the plugin's own assumption
+             * instead of WooCommerce's behaviour.
+             *
+             * @param array<array-key,WC_Product_Attribute|null> $v
+             */
             public function set_attributes(array $v): void
             {
-                $this->put('attributes', $v);
+                $attributes = array_fill_keys(array_keys($this->get_attributes()), null);
+                foreach ($v as $attribute) {
+                    if ($attribute instanceof WC_Product_Attribute) {
+                        $attributes[sanitize_title($attribute->get_name())] = $attribute;
+                    }
+                }
+                uasort($attributes, static function ($a, $b): int {
+                    if (!$a instanceof WC_Product_Attribute || !$b instanceof WC_Product_Attribute) {
+                        return $a === $b ? 0 : ($a instanceof WC_Product_Attribute ? -1 : 1);
+                    }
+                    return $a->get_position() <=> $b->get_position();
+                });
+                $this->put('attributes', $attributes);
             }
 
-            /** @return array<string,WC_Product_Attribute> */
+            /** @return array<string,WC_Product_Attribute|null> */
             public function get_attributes(): array
             {
                 return (array) ($this->data['attributes'] ?? []);
@@ -301,6 +352,14 @@ namespace {
                     $id = self::$nextId++;
                     $this->data['id'] = $id;
                 }
+                // The data store's own behaviour: a `null` entry is an
+                // attribute that has been unset, so it is not persisted and
+                // a later read does not see the key at all
+                // (`class-wc-product-data-store-cpt.php:1053`).
+                $this->data['attributes'] = array_filter(
+                    (array) ($this->data['attributes'] ?? []),
+                    static fn ($a): bool => $a instanceof WC_Product_Attribute
+                );
                 self::$saved[$id] = $this;
                 // A saved product is also a POST, because that is what it is
                 // in WordPress and because `owns()` asks `get_post()` for its

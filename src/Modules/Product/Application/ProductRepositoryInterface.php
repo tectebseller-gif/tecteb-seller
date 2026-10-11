@@ -314,6 +314,18 @@ interface ProductRepositoryInterface
     /** @return list<int> */
     public function images(int $productId): array;
 
+    /**
+     * Whether ANY product, gallery or variation names this attachment.
+     *
+     * Asked before an upload is discarded, and it is the whole licence for
+     * that discard: «پاک‌سازی عمومی ممنوع», so the only media this plugin
+     * ever deletes is media it just created AND that this query says nothing
+     * points at. Scoped to no vendor on purpose — a reference belonging to
+     * somebody else is still a reference, and the safe answer to «is anyone
+     * using this» is never «not in your shop».
+     */
+    public function mediaInUse(int $mediaId): bool;
+
     /** Whether this vendor already used this SKU on a different product. */
     public function skuTaken(int $vendorUserId, string $sku, int $exceptProductId = 0): bool;
 

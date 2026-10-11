@@ -20,10 +20,17 @@ final class FakeProductImages implements ProductImageLibraryInterface
     private array $owners = [];
     private int $nextId = 500;
 
+    /** @var list<int> every attachment a discard removed, in order */
+    private array $discarded = [];
+
+    /** @var list<int> every attachment `store()` minted, in order */
+    private array $stored = [];
+
     public function store(UploadedFile $file, int $vendorUserId, string $title): array
     {
         $id = $this->nextId++;
         $this->owners[$id] = $vendorUserId;
+        $this->stored[] = $id;
         return ['ok' => true, 'code' => 'image_uploaded', 'media_id' => $id];
     }
 
@@ -43,9 +50,31 @@ final class FakeProductImages implements ProductImageLibraryInterface
         return ($this->owners[$mediaId] ?? 0) === $vendorUserId;
     }
 
+    public function discard(int $mediaId, int $vendorUserId): bool
+    {
+        if (!$this->ownedBy($mediaId, $vendorUserId)) {
+            return false;
+        }
+        unset($this->owners[$mediaId]);
+        $this->discarded[] = $mediaId;
+        return true;
+    }
+
+    /** @return list<int> what `discard()` was actually allowed to delete */
+    public function discarded(): array
+    {
+        return $this->discarded;
+    }
+
     public function thumbnailUrl(int $mediaId): string
     {
         return 'https://example.test/wp-content/uploads/' . $mediaId . '.jpg';
+    }
+
+    /** @return list<int> every attachment this library minted, in order */
+    public function stored(): array
+    {
+        return $this->stored;
     }
 
     /** Test helper: pretend this shop already uploaded this attachment. */

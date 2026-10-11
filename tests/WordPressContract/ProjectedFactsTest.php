@@ -11,6 +11,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecField;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecFieldType;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecTemplate;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\ProjectedAttributes;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\ProjectedFieldOwnership;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceProjector;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
@@ -58,28 +59,48 @@ final class ProjectedFactsTest extends ContractTestCase
         // The vendor's own text, unchanged and not padded with anything.
         self::assertSame('<p>متن فروشنده</p>', $saved->get_description());
 
-        $attributes = $saved->get_attributes();
-        self::assertArrayHasKey('tmc-brand', $attributes);
-        self::assertSame('برند', $attributes['tmc-brand']->get_name());
-        self::assertSame(['آریا طب'], $attributes['tmc-brand']->get_options());
+        // Read back from storage, not from the object that was handed over:
+        // the keys this asserts on are the ones WooCommerce chose, and
+        // `alpha.42` asserted on the ones it passed in.
+        $attributes = $this->reload($result['wc_product_id']);
+        $brand = ProjectedAttributes::keyFor('برند');
+        self::assertArrayHasKey($brand, $attributes);
+        self::assertSame('برند', $attributes[$brand]->get_name());
+        self::assertSame(['آریا طب'], $attributes[$brand]->get_options());
+
+        // And the key is NOT the one the plugin used to look for. This is the
+        // §1 defect in one line: `set_attributes()` files the attribute under
+        // `sanitize_title(get_name())` and discards the key it was given.
+        self::assertArrayNotHasKey('tmc-brand', $attributes);
+        self::assertSame([], array_filter(
+            array_keys($attributes),
+            static fn (string $key): bool => str_starts_with($key, 'tmc-')
+        ), 'no key the plugin passed in survives, so no prefix can identify ours');
 
         // The specification: the manager's LABEL, and the unit appended, both
         // from the template — a vendor who typed «7» sees «۷ اینچ» and does
         // not have to type the unit.
-        self::assertArrayHasKey('tmc-spec-material', $attributes);
-        self::assertSame('جنس', $attributes['tmc-spec-material']->get_name());
-        self::assertSame(['لاتکس'], $attributes['tmc-spec-material']->get_options());
-        self::assertSame(['7 اینچ'], $attributes['tmc-spec-size']->get_options());
+        $material = ProjectedAttributes::keyFor('جنس');
+        self::assertArrayHasKey($material, $attributes);
+        self::assertSame('جنس', $attributes[$material]->get_name());
+        self::assertSame(['لاتکس'], $attributes[$material]->get_options());
+        self::assertSame(['7 اینچ'], $attributes[ProjectedAttributes::keyFor('اندازه')]->get_options());
 
         // Empty answers are skipped (UX §6.2) rather than shown as a blank row.
-        self::assertArrayNotHasKey('tmc-spec-nothing', $attributes);
+        self::assertArrayNotHasKey(ProjectedAttributes::keyFor('بی‌جواب'), $attributes);
 
         // Visible, and NOT a variation attribute: these describe the product,
         // they do not generate anything to buy.
-        foreach (['tmc-brand', 'tmc-spec-material'] as $key) {
+        foreach ([$brand, $material] as $key) {
             self::assertTrue($attributes[$key]->get_visible(), $key . ' must be shown');
             self::assertFalse($attributes[$key]->get_variation(), $key . ' is not a variation axis');
         }
+
+        // And the record that makes all of this possible on the NEXT run.
+        self::assertSame(
+            [$brand, $material, ProjectedAttributes::keyFor('اندازه')],
+            get_post_meta($result['wc_product_id'], ProjectedAttributes::OWNED_META, true)
+        );
     }
 
     /**
@@ -113,7 +134,7 @@ final class ProjectedFactsTest extends ContractTestCase
 
         // And the block still arrives, so the specification is not the price
         // of leaving the manager's text alone.
-        self::assertArrayHasKey('tmc-brand', $saved->get_attributes());
+        self::assertArrayHasKey(ProjectedAttributes::keyFor('برند'), $this->reload($wcId));
     }
 
     /**
@@ -180,40 +201,198 @@ final class ProjectedFactsTest extends ContractTestCase
     }
 
     /**
-     * An attribute a manager added by hand survives; one of ours that is no
-     * longer current goes away.
+     * Ownership, through save → reload → change → save → reload.
      *
-     * `set_attributes()` replaces the whole set, so writing ours over the top
-     * would delete the manager's work — and keeping the old set would leave a
-     * retired specification on the page for ever. Both halves in one test,
-     * because either alone is satisfied by the wrong implementation.
+     * The shape matters as much as the cases. Everything `alpha.42` measured
+     * was the array it had just built, which is a measurement of this
+     * plugin's intention; the question is what survives WooCommerce's own
+     * keying, and only a reload can answer it.
+     *
+     * (a) a changed value is written, (b) a retired specification goes away,
+     * (c) a renamed label does not leave the old attribute behind, (d) a
+     * manager's own attribute under another name is kept, (f) a second
+     * identical projection changes nothing. The collision case (e) has a test
+     * of its own, because it is the one with a policy rather than an outcome.
      */
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
-    public function testOursIsRewrittenAndTheManagersOwnAttributeIsKept(): void
+    public function testOwnershipSurvivesASaveAndAReload(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        // (d) the manager's own attribute, in place before anything of ours.
+        $theirs = new \WC_Product_Attribute();
+        $theirs->set_name('ساخت');
+        $theirs->set_options(['ایران']);
+        $theirs->set_visible(true);
+        $wcId = $this->existingProduct(static function (\WC_Product $p) use ($theirs): void {
+            $p->set_attributes([$theirs]);
+        });
+        $madeIn = ProjectedAttributes::keyFor('ساخت');
+
+        $product = $this->product(description: 'x', wcProductId: $wcId, specs: [
+            'material' => 'لاتکس',
+            'size' => '7',
+        ]);
+        self::assertTrue($this->projector()->project($product)['ok']);
+
+        $first = $this->reload($wcId);
+        self::assertArrayHasKey($madeIn, $first, "the manager's own attribute must survive the projection");
+        self::assertSame(['ایران'], $first[$madeIn]->get_options());
+        self::assertSame(['لاتکس'], $first[ProjectedAttributes::keyFor('جنس')]->get_options());
+        self::assertSame(['7 اینچ'], $first[ProjectedAttributes::keyFor('اندازه')]->get_options());
+        self::assertNotContains($madeIn, get_post_meta($wcId, ProjectedAttributes::OWNED_META, true));
+
+        // (a) the vendor changes an answer.
+        $changed = $this->product(description: 'x', wcProductId: $wcId, specs: [
+            'material' => 'نیتریل',
+            'size' => '7',
+        ]);
+        self::assertTrue($this->projector()->project($changed)['ok']);
+        $second = $this->reload($wcId);
+        self::assertSame(['نیتریل'], $second[ProjectedAttributes::keyFor('جنس')]->get_options());
+        self::assertArrayHasKey($madeIn, $second);
+
+        // (f) and again, with nothing changed: no second copy of anything.
+        self::assertTrue($this->projector()->project($changed)['ok']);
+        self::assertSame(array_keys($second), array_keys($this->reload($wcId)));
+
+        // (b) the manager retires a field. Nobody edits the product.
+        $retired = new NoSpecTemplates(new SpecTemplate(1, 'gloves', 'دستکش', 4, [
+            new SpecField(1, 'material', 'جنس', SpecFieldType::Text, true),
+            new SpecField(2, 'size', 'اندازه', SpecFieldType::Text, false, 'اینچ', [], 0, true),
+        ]));
+        self::assertTrue((new WooCommerceProjector($retired))->project($changed)['ok']);
+        $third = $this->reload($wcId);
+        self::assertArrayNotHasKey(
+            ProjectedAttributes::keyFor('اندازه'),
+            $third,
+            'a retired specification must stop being shown'
+        );
+        self::assertArrayHasKey($madeIn, $third, "and retiring ours must not take the manager's with it");
+        self::assertArrayHasKey(ProjectedAttributes::keyFor('جنس'), $third);
+
+        // (c) the manager renames a label. The OLD key must not be orphaned.
+        $renamed = new NoSpecTemplates(new SpecTemplate(1, 'gloves', 'دستکش', 5, [
+            new SpecField(1, 'material', 'جنس سازنده', SpecFieldType::Text, true),
+        ]));
+        self::assertTrue((new WooCommerceProjector($renamed))->project($changed)['ok']);
+        $fourth = $this->reload($wcId);
+        self::assertArrayNotHasKey(
+            ProjectedAttributes::keyFor('جنس'),
+            $fourth,
+            'the old label must not be left behind as a second attribute'
+        );
+        self::assertSame(['نیتریل'], $fourth[ProjectedAttributes::keyFor('جنس سازنده')]->get_options());
+        self::assertArrayHasKey($madeIn, $fourth);
+    }
+
+    /**
+     * (e) A manager's attribute under OUR name: theirs stays, ours is not written.
+     *
+     * «نام مشابه اثبات مالکیت نیست» — so the policy cannot be «the name
+     * matches, take it». The record says this key was never ours, and the
+     * safe direction when ownership is unknown is the one that deletes
+     * nothing. The key is written to `CONFLICT_META` so it is a visible fact
+     * rather than a silence.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAManagersAttributeUnderOurOwnNameIsNeverOverwritten(): void
     {
         $this->bootPlugin(true);
         $this->declareWooCommerce();
 
         $theirs = new \WC_Product_Attribute();
-        $theirs->set_name('ساخت');
-        $theirs->set_options(['ایران']);
-        $stale = new \WC_Product_Attribute();
-        $stale->set_name('مشخصهٔ بازنشسته');
-        $stale->set_options(['قدیمی']);
-
-        $wcId = $this->existingProduct(static function (\WC_Product $p) use ($theirs, $stale): void {
-            $p->set_attributes(['made-in' => $theirs, 'tmc-spec-retired' => $stale]);
+        $theirs->set_name('برند');
+        $theirs->set_options(['چیزی که مدیر نوشته']);
+        $theirs->set_visible(true);
+        $wcId = $this->existingProduct(static function (\WC_Product $p) use ($theirs): void {
+            $p->set_attributes([$theirs]);
         });
 
-        $product = $this->product(description: 'x', wcProductId: $wcId, specs: ['material' => 'لاتکس']);
-        $this->projector()->project($product);
+        $product = $this->product(description: 'x', wcProductId: $wcId);
+        self::assertTrue($this->projector()->project($product)['ok']);
 
-        $attributes = \WC_Product::$saved[$wcId]->get_attributes();
-        self::assertArrayHasKey('made-in', $attributes, "the manager's own attribute must survive the projection");
-        self::assertSame(['ایران'], $attributes['made-in']->get_options());
-        self::assertArrayNotHasKey('tmc-spec-retired', $attributes, 'one of ours that we no longer write must go');
-        self::assertArrayHasKey('tmc-spec-material', $attributes);
+        $brand = ProjectedAttributes::keyFor('برند');
+        $attributes = $this->reload($wcId);
+        self::assertSame(
+            ['چیزی که مدیر نوشته'],
+            $attributes[$brand]->get_options(),
+            "a name this plugin also uses is not a licence to overwrite somebody's work"
+        );
+        self::assertSame([$brand], get_post_meta($wcId, ProjectedAttributes::CONFLICT_META, true));
+        self::assertNotContains($brand, get_post_meta($wcId, ProjectedAttributes::OWNED_META, true));
+
+        // The specification next to it is unaffected: one collision does not
+        // stop the rest of the block.
+        self::assertSame(['لاتکس'], $attributes[ProjectedAttributes::keyFor('جنس')]->get_options());
+    }
+
+    /**
+     * The product `alpha.42` projected, with no record of what it wrote.
+     *
+     * An unrecorded key holding an attribute IDENTICAL to the one we are
+     * about to write is adopted, because writing ours over it provably
+     * changes nothing. That is the one place where «we have no record» is
+     * answered with «ours» — and it is answered on evidence, not on the name.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAnIdenticalUnrecordedAttributeIsAdoptedRatherThanFoughtOver(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        // Exactly what `factAttributes()` produces for this product, written
+        // by a build that kept no record.
+        $asAlpha42Wrote = new \WC_Product_Attribute();
+        $asAlpha42Wrote->set_name('برند');
+        $asAlpha42Wrote->set_options(['آریا طب']);
+        $asAlpha42Wrote->set_position(100);
+        $asAlpha42Wrote->set_visible(true);
+        $asAlpha42Wrote->set_variation(false);
+        $wcId = $this->existingProduct(static function (\WC_Product $p) use ($asAlpha42Wrote): void {
+            $p->set_attributes([$asAlpha42Wrote]);
+        });
+
+        $product = $this->product(description: 'x', wcProductId: $wcId, specs: []);
+        self::assertTrue($this->projector()->project($product)['ok']);
+
+        $brand = ProjectedAttributes::keyFor('برند');
+        self::assertSame([$brand], get_post_meta($wcId, ProjectedAttributes::OWNED_META, true));
+        self::assertSame('', (string) get_post_meta($wcId, ProjectedAttributes::CONFLICT_META, true));
+
+        // And from the next run on it behaves like any other owned key: the
+        // vendor's new brand is written.
+        $rebranded = new Product(
+            41,
+            self::VENDOR,
+            new ProductDetails(
+                title: 'دستکش لاتکس',
+                categoryKey: 'gloves',
+                brand: 'آریا طب نوین',
+                shortDescription: 'یک جمله',
+                priceMinor: 200000,
+                sku: 'SKU-FACT',
+                stock: 5,
+                description: 'x'
+            ),
+            ProductStatus::Published,
+            [],
+            [],
+            0,
+            '',
+            0,
+            null,
+            '',
+            $wcId
+        );
+        self::assertTrue($this->projector()->project($rebranded)['ok']);
+        $after = $this->reload($wcId);
+        self::assertSame(['آریا طب نوین'], $after[ProjectedAttributes::keyFor('برند')]->get_options());
+        self::assertCount(1, $after, 'and no second brand attribute next to it');
     }
 
     // ----------------------------------------------------------------- setup
@@ -236,6 +415,24 @@ final class ProjectedFactsTest extends ContractTestCase
         update_post_meta($wcId, WooCommerceProjector::VENDOR_META, self::VENDOR);
         $existing->wrote = [];
         return $wcId;
+    }
+
+    /**
+     * The product's attributes as STORAGE holds them.
+     *
+     * A fresh object built from the saved row, because the object handed to
+     * `set_attributes()` is not evidence about anything: the keys it carries
+     * are the ones this plugin chose, and the question is which keys
+     * WooCommerce chose.
+     *
+     * @return array<string,\WC_Product_Attribute>
+     */
+    private function reload(int $wcId): array
+    {
+        return array_filter(
+            (new \WC_Product_Simple($wcId))->get_attributes(),
+            static fn ($a): bool => $a instanceof \WC_Product_Attribute
+        );
     }
 
     private function declareWooCommerce(): void

@@ -133,6 +133,14 @@ final class WpProductImages implements ProductImageLibraryInterface
             && (int) get_post_meta($mediaId, self::OWNER_META, true) === $vendorUserId;
     }
 
+    public function discard(int $mediaId, int $vendorUserId): bool
+    {
+        if ($mediaId <= 0 || !$this->ownedBy($mediaId, $vendorUserId)) {
+            return false;
+        }
+        return wp_delete_attachment($mediaId, true) !== false;
+    }
+
     public function thumbnailUrl(int $mediaId): string
     {
         $src = wp_get_attachment_image_src($mediaId, 'thumbnail');

@@ -885,10 +885,113 @@ function get_user_by(string $field, string|int $value): object|false
     }
     return false;
 }
+/**
+ * `remove_accents()`, close enough and pinned by a test.
+ *
+ * WordPress carries a ~200-entry table; this decomposes instead and drops the
+ * combining marks, which gives the same answer for every accented Latin
+ * letter that HAS a decomposition, and then names the handful that do not.
+ * Persian and Arabic text is left untouched by both.
+ */
+function tmc_stub_remove_accents(string $text): string
+{
+    $text = strtr($text, [
+        'ß' => 's', 'Æ' => 'AE', 'æ' => 'ae', 'Ø' => 'O', 'ø' => 'o',
+        'Þ' => 'TH', 'þ' => 'th', 'Ð' => 'D', 'ð' => 'd', 'Đ' => 'D',
+        'đ' => 'd', 'Ł' => 'L', 'ł' => 'l', 'Œ' => 'OE', 'œ' => 'oe',
+        'ı' => 'i', 'ſ' => 's',
+    ]);
+    if (!class_exists('\\Normalizer')) {
+        return $text;
+    }
+    // LATIN ONLY. Decomposing everything stripped U+0654 (the hamza in
+    // «دستهٔ»), which WordPress keeps — and that one character is the
+    // difference between two attribute keys, so a stub that drops it answers
+    // a question about a product nobody has.
+    $out = '';
+    foreach (preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $char) {
+        $code = (int) mb_ord($char, 'UTF-8');
+        $latin = ($code >= 0x00C0 && $code <= 0x024F) || ($code >= 0x1E00 && $code <= 0x1EFF);
+        if (!$latin) {
+            $out .= $char;
+            continue;
+        }
+        $decomposed = \Normalizer::normalize($char, \Normalizer::FORM_D);
+        $out .= is_string($decomposed) ? (preg_replace('/\p{Mn}+/u', '', $decomposed) ?? $char) : $char;
+    }
+    return $out;
+}
+
+/**
+ * WordPress's own, including the two parts that matter.
+ *
+ * The version this replaces kept `\p{L}`, so `sanitize_title('برند')` came
+ * back as «برند» — and `WooCommerceProjector` keys every attribute with this
+ * function, which is why no stub test could see the `alpha.42` defect. Two
+ * behaviours decide every attribute key this plugin writes:
+ *
+ *  - **non-ASCII is percent-encoded.** Measured on WordPress 7.1,
+ *    `sanitize_title('برند')` is `%d8%a8%d8%b1%d9%86%d8%af`.
+ *  - **zero-width characters are stripped.** A نیم‌فاصله inside a label is
+ *    not part of the key, so «رنگ‌ها» and «رنگها» are ONE key.
+ *
+ * Ported from `sanitize_title_with_dashes()` with context `save`
+ * (`wp-includes/formatting.php`), with `remove_accents()` approximated by
+ * Unicode decomposition plus the letters that do not decompose. Every pair
+ * this plugin depends on is pinned in `tests/WordPressContract/SanitizeTitleTest`
+ * against values read out of a real WordPress, so a drift is a failure rather
+ * than a surprise.
+ */
 function sanitize_title(string $title): string
 {
-    $title = strtolower(trim($title));
-    $title = preg_replace('/[^a-z0-9\p{L}\p{N}_-]+/u', '-', $title) ?? '';
+    $title = strip_tags($title);
+    $title = tmc_stub_remove_accents($title);
+    // Preserve escaped octets, drop stray percent signs, restore the octets.
+    $title = preg_replace('|%([a-fA-F0-9][a-fA-F0-9])|', '---$1---', $title) ?? '';
+    $title = str_replace('%', '', $title);
+    $title = preg_replace('|---([a-fA-F0-9][a-fA-F0-9])---|', '%$1', $title) ?? '';
+
+    $title = mb_strtolower($title, 'UTF-8');
+    $encoded = '';
+    foreach (preg_split('//u', $title, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $char) {
+        if (strlen($char) === 1) {
+            $encoded .= $char;
+            continue;
+        }
+        foreach (str_split($char) as $byte) {
+            $encoded .= '%' . strtolower(bin2hex($byte));
+        }
+        if (strlen($encoded) >= 200) {
+            break;
+        }
+    }
+    $title = strtolower($encoded);
+
+    $title = str_replace(['%c2%a0', '%e2%80%91', '%e2%80%93', '%e2%80%94'], '-', $title);
+    $title = str_replace(['&nbsp;', '&#8209;', '&#160;', '&ndash;', '&#8211;', '&mdash;', '&#8212;'], '-', $title);
+    $title = str_replace('/', '-', $title);
+    $title = str_replace([
+        '%c2%ad', '%c2%a1', '%c2%bf', '%c2%ab', '%c2%bb', '%e2%80%b9', '%e2%80%ba',
+        '%e2%80%98', '%e2%80%99', '%e2%80%9c', '%e2%80%9d', '%e2%80%9a', '%e2%80%9b',
+        '%e2%80%9e', '%e2%80%9f', '%e2%80%a2', '%c2%a9', '%c2%ae', '%c2%b0',
+        '%e2%80%a6', '%e2%84%a2', '%c2%b4', '%cb%8a', '%cc%81', '%cd%81',
+        '%cc%80', '%cc%84', '%cc%8c',
+        '%e2%80%8b', '%e2%80%8c', '%e2%80%8d', '%e2%80%8e', '%e2%80%8f',
+        '%e2%80%aa', '%e2%80%ab', '%e2%80%ac', '%e2%80%ad', '%e2%80%ae',
+        '%ef%bb%bf', '%ef%bf%bc',
+    ], '', $title);
+    $title = str_replace([
+        '%e2%80%80', '%e2%80%81', '%e2%80%82', '%e2%80%83', '%e2%80%84',
+        '%e2%80%85', '%e2%80%86', '%e2%80%87', '%e2%80%88', '%e2%80%89',
+        '%e2%80%8a', '%e2%80%a8', '%e2%80%a9', '%e2%80%af',
+    ], '-', $title);
+    $title = str_replace('%c3%97', 'x', $title);
+
+    $title = preg_replace('/&.+?;/', '', $title) ?? '';
+    $title = str_replace('.', '-', $title);
+    $title = preg_replace('/[^%a-z0-9 _-]/', '', $title) ?? '';
+    $title = preg_replace('/\s+/', '-', $title) ?? '';
+    $title = preg_replace('|-+|', '-', $title) ?? '';
     return trim($title, '-');
 }
 
