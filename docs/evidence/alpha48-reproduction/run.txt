@@ -1,0 +1,87 @@
+woocommerce: 11.0.1 on WordPress 7.1
+snapshot: 511 files under src/ hashed before any change
+
+=== the alpha.47 bytes (21b6b18), on WooCommerce 11.0.1 ===
+PASS  [old] limits-arrange: rows_at_start=1/20/1 — the shop starts with the rule the last projection wrote
+PASS  [old] limits-arrange: row_max_after_save=18 — the vendor's save DID reach the marketplace row
+PASS  [old] limits-page: rows_now=1/20/1 — DEFECT: and never reached the shop — the owner's 20 that stayed 20
+PASS  [old] limits-page: input_args=1/20/1 — DEFECT: so WooCommerce's own numbers still carry the old ceiling
+PASS  [old] limits-page: classic_qty_19=allowed — DEFECT: nineteen is bought, over a ceiling the vendor set to eighteen
+PASS  [old] limits-page: classic_qty_20=allowed — DEFECT: and twenty
+PASS  [old] limits-page: store_api_qty_19=allowed — DEFECT: the block cart's own validator agrees
+PASS  [old] empty-tab-arrange: rows_before_save=__absent__/__absent__/__absent__ — a product projected by a build that had no quantity rows — the staging shape
+PASS  [old] empty-tab-page: tab_empty=YES — DEFECT: the vendor saved 1/20/1 and the WooCommerce tab is still empty
+PASS  [old] empty-tab-page: input_args=1/20/1 — alpha.47's absent-rows fallback did enforce the rule — so this half was invisibility, not a hole
+PASS  [old] manager-owned: rows_after_manager_edit=1/7/1 — the manager's own edit is on the shop row
+PASS  [old] manager-owned: manager_value_kept=yes — and nothing of the vendor's save touches it — because nothing was written at all
+PASS  [old] manager-owned: held=__none__ — DEFECT: so the vendor is told nothing about a limit that did not move
+PASS  [old] write-failure: save_code=inventory_saved — DEFECT: a refused shop write cannot be reported, because there was no shop write
+PASS  [old] write-failure: rows_after_refused_write=1/20/1 — the rows are untouched — for the wrong reason
+PASS  [old] stock-arrange: save_code=inventory_saved — BASELINE: on alpha.47 a live product's stock edit applied at once
+PASS  [old] stock-arrange: row_stock_after_save=4 — the row took the vendor's number
+PASS  [old] stock-arrange: pending_revision=none — and no manager was asked
+PASS  [old] stock-page: shop_stock_now=4 — the shop moved in the same request
+
+=== the fix (HEAD) ===
+PASS  [new] limits-arrange: rows_at_start=1/20/1 — the same starting point
+PASS  [new] limits-arrange: save_code=inventory_saved — the vendor's save succeeds
+PASS  [new] limits-arrange: save_limits=limits_written — and says what happened to the selling rule
+PASS  [new] limits-arrange: row_max_after_save=18 — the row holds eighteen
+PASS  [new] limits-arrange: pending_revision=none — with NOTHING proposed and NOTHING approved — the limits need no manager
+PASS  [new] limits-page: rows_now=1/18/1 — and in a FRESH request the shop holds eighteen too
+PASS  [new] limits-page: input_args=1/18/1 — WooCommerce's own numbers carry it — the classic page AND the blocks
+PASS  [new] limits-page: classic_qty_18=allowed — eighteen is allowed
+PASS  [new] limits-page: classic_qty_19=refused — nineteen is refused
+PASS  [new] limits-page: classic_qty_20=refused — and so is the twenty the shop used to allow
+PASS  [new] limits-page: store_api_qty_19=refused — the Store API refuses it as well
+PASS  [new] empty-tab-page: tab_empty=no — the vendor's save fills the tab — no approval of anything else needed
+PASS  [new] empty-tab-page: rows_now=1/20/1 — with the rule the vendor typed
+PASS  [new] empty-tab-page: input_args=1/20/1 — and the shop enforces it
+PASS  [new] manager-owned: manager_value_kept=yes — a row the manager owns is NOT overwritten (the alpha.44 rule, at a new door)
+PASS  [new] manager-owned: rows_after_save=1/7/1 — so the shop keeps their seven
+PASS  [new] manager-owned: held=_tmc_max_purchase — and the vendor is told WHICH limit did not move, by name
+PASS  [new] manager-owned: conflicts=_tmc_max_purchase — with the key recorded for the review screen
+PASS  [new] write-failure: save=failed — a refused shop write is NOT reported as success
+PASS  [new] write-failure: save_code=inventory_saved_limits_not_written — and the code says which half failed
+PASS  [new] write-failure: failed=_tmc_max_purchase — naming the row
+PASS  [new] write-failure: ceiling_kept=yes — the previous ceiling is still in force
+PASS  [new] write-failure: max_row_absent=no — and no row became absent — there is no unlimited middle state (alpha.47)
+PASS  [new] write-failure-page: rows_now=1/20/1 — in a FRESH request the restriction that was already there is still there
+PASS  [new] write-failure-page: input_args=1/20/1 — and WooCommerce enforces it
+PASS  [new] stock-arrange: save_code=stock_revision_requested — a live product's stock edit is a proposal (the owner's decision)
+PASS  [new] stock-arrange: row_stock_after_save=20 — the row keeps the effective number
+PASS  [new] stock-arrange: proposed_stock=4 — the proposal carries the number the vendor wants
+PASS  [new] stock-arrange: baseline_stock=20 — and the number it was measured against
+PASS  [new] stock-page: shop_stock_now=20 — in a FRESH request the shop still holds what a shopper met
+PASS  [new] stock-approve: approve_code=revision_approved — the manager agrees
+PASS  [new] stock-approve: row_stock_after_approval=4 — and the row takes it
+PASS  [new] stock-approve: shop_stock_after_approval=4 — and so does WooCommerce
+PASS  [new] stock-conflict: shop_stock_before_approval=3 — the shop's own number moved between proposing and approving
+PASS  [new] stock-conflict: approve_code=stock_moved — so the approval REFUSES rather than inventing stock
+PASS  [new] stock-conflict: named_numbers=20/3/12 — naming all three: when proposed, now, and proposed value
+PASS  [new] stock-conflict: shop_stock_after_refusal=3 — nothing was written
+PASS  [new] stock-conflict: revision_still_pending=yes — and the proposal is still there to decide
+PASS  [new] stock-conflict: override_code=revision_approved — the manager's explicit «apply it anyway» goes through
+PASS  [new] stock-conflict: shop_stock_after_override=12 — and only then does the shop take the proposed number
+PASS  [new] keeps-proposal: brand_in_proposal_after=برند_پیشنهادی_۴۸ — saving the inventory tab KEEPS the pending brand proposal
+PASS  [new] keeps-proposal: stock_in_proposal_after=6 — and adds the stock request to it rather than replacing it
+PASS  [new] keeps-proposal: badge_token_moved=yes — with a new proposal id, so the unseen badge comes back (alpha.36)
+
+=== controls: the same answer on both trees, or the revert broke something ===
+PASS  control control-no-change answers identically on alpha.47 and the fix
+PASS  control control-draft answers identically on alpha.47 and the fix
+PASS  [old] control-no-change: rows_after_save=1/20/1 — a save that moves no value moves no row
+PASS  [old] control-no-change: record_unchanged=yes — and leaves the ownership record whole
+PASS  [old] control-no-change: pending_revision=none — and proposes nothing
+PASS  [old] control-draft: save_code=inventory_saved — a DRAFT's stock still applies at once
+PASS  [old] control-draft: shop_stock=7 — reaching the shop in the same request
+PASS  [old] control-draft: pending_revision=none — and asking nobody — the owner's decision is about LIVE products
+PASS  [new] control-no-change: rows_after_save=1/20/1 — a save that moves no value moves no row
+PASS  [new] control-no-change: record_unchanged=yes — and leaves the ownership record whole
+PASS  [new] control-no-change: pending_revision=none — and proposes nothing
+PASS  [new] control-draft: save_code=inventory_saved — a DRAFT's stock still applies at once
+PASS  [new] control-draft: shop_stock=7 — reaching the shop in the same request
+PASS  [new] control-draft: pending_revision=none — and asking nobody — the owner's decision is about LIVE products
+
+checks: 76   pass: 76   fail: 0
+PASS  src/ restored byte for byte (511 files)

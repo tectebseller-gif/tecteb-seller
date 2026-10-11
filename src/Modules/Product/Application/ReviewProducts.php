@@ -53,7 +53,18 @@ final class ReviewProducts
          * caller here treats a missing trail as «record nothing», never as
          * «there is nothing to record».
          */
-        private readonly ?ProductDecisionRepositoryInterface $decisions = null
+        private readonly ?ProductDecisionRepositoryInterface $decisions = null,
+        /**
+         * The brand registry, appended with a default, and used for ONE thing
+         * here: recording which approved brand an approved proposal's brand is.
+         *
+         * The gate itself is not re-run on this path. A proposal's brand has
+         * already been through it on the way in, and the manager approving it
+         * is the authority the gate defers to anyway — re-judging it would
+         * mean an approval could be refused for a list that changed after the
+         * vendor asked.
+         */
+        private readonly ?ManageBrands $brands = null
     ) {
     }
 
@@ -184,6 +195,16 @@ final class ReviewProducts
         // carry. Every other write in this codebase names its version.
         if (!$this->products->updateDetails($product->id, $details, ProductRowVersion::UNGUARDED)) {
             return OperationResult::failure('storage_failed');
+        }
+        // Which approved brand the written name IS. Best effort: the name is
+        // on the row and is what a shopper sees, so a failure here loses the
+        // identity and nothing else — and `brandTermIdOf()` answering null
+        // means «not known», never «no brand».
+        if ($details->brand !== '' && $this->brands !== null) {
+            $termId = $this->brands->approvedTermFor($details->brand);
+            if ($termId !== null) {
+                $this->products->setBrandTerm($product->id, $details->brand, $termId);
+            }
         }
         // Both of these answer, and until `alpha.31` neither was asked. A
         // failed spec write is the quiet one: the product keeps its OLD medical

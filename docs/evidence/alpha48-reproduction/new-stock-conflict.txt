@@ -1,0 +1,12 @@
+probe=ran
+wc_id=232
+save_code=stock_revision_requested
+shop_stock_before_approval=3
+approve=failed
+approve_code=stock_moved
+named_numbers=20/3/12
+shop_stock_after_refusal=3
+revision_still_pending=yes
+override=ok
+override_code=revision_approved
+shop_stock_after_override=12

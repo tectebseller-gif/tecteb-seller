@@ -55,6 +55,7 @@ use Tecteb\Marketplace\Modules\Order\OrderModule;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0023ProductDescriptionAndCreateToken;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0024PurchaseStep;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0025BrandRegistry;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables;
 use Tecteb\Marketplace\Modules\Order\Application\ManageReturns;
 use Tecteb\Marketplace\Modules\Order\Application\RefundRecorderInterface;
@@ -454,6 +455,7 @@ final class Bootstrap
             new M0022VendorMoneyUnit(),
             new M0023ProductDescriptionAndCreateToken(),
             new M0024PurchaseStep(),
+            new M0025BrandRegistry(),
         ];
     }
 

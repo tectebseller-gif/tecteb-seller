@@ -48,7 +48,13 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductDecisionRepositor
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbReviewSeenStore;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\TitleSortRepair;
+use Tecteb\Marketplace\Modules\Product\Application\BrandDirectoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\BrandProposalRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ManageBrands;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\DbBrandProposalRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullBrandDirectory;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceBrandDirectory;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\AliasingSpecTemplateRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbVariationRepository;
@@ -166,6 +172,20 @@ final class ProductModule implements ModuleInterface
                 ))
                 : new NullProductCategoryDirectory();
         });
+        // Brands are WooCommerce's too: `product_brand` is a taxonomy it
+        // registers itself (measured on 11.0.1), so the approved list is a
+        // screen the manager already has. Off a storefront the directory says
+        // «there is no list», which is what makes the brand gate stand down
+        // rather than guess (`NullBrandDirectory`).
+        $c->bind(BrandDirectoryInterface::class, static function (ContainerInterface $c) {
+            return $c->get(DependencyProbeInterface::class)->woocommerceAvailable()
+                ? new WooCommerceBrandDirectory()
+                : new NullBrandDirectory();
+        });
+        $c->bind(BrandProposalRepositoryInterface::class, static fn (ContainerInterface $c) => new DbBrandProposalRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
         $c->bind(ProductRevisionRepositoryInterface::class, static fn (ContainerInterface $c) => new DbProductRevisionRepository(
             $c->get(DatabaseInterface::class),
             $c->get(ClockInterface::class)
@@ -250,7 +270,17 @@ final class ProductModule implements ModuleInterface
             $c->get(ProductPublishPolicy::class),
             $c->get(ProductStateMachine::class),
             $c->get(AuditLogger::class),
-            $c->get(ProductDecisionRepositoryInterface::class)
+            $c->get(ProductDecisionRepositoryInterface::class),
+            $c->get(ManageBrands::class)
+        ));
+        $c->bind(ManageBrands::class, static fn (ContainerInterface $c) => new ManageBrands(
+            $c->get(BrandDirectoryInterface::class),
+            $c->get(BrandProposalRepositoryInterface::class),
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(SyncCatalog::class),
+            $c->get(StaffAccess::class),
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(AuditLogger::class)
         ));
         $c->bind(ReviewProducts::class, static fn (ContainerInterface $c) => new ReviewProducts(
             $c->get(ProductRepositoryInterface::class),
@@ -263,7 +293,8 @@ final class ProductModule implements ModuleInterface
             $c->get(AuditLogger::class),
             $c->get(CapabilityCheckerInterface::class),
             $c->get(StorefrontFieldsInterface::class),
-            $c->get(ProductDecisionRepositoryInterface::class)
+            $c->get(ProductDecisionRepositoryInterface::class),
+            $c->get(ManageBrands::class)
         ));
         $c->bind(ConfigureSpecTemplates::class, static fn (ContainerInterface $c) => new ConfigureSpecTemplates(
             $c->get(SpecTemplateRepositoryInterface::class),

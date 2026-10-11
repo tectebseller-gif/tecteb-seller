@@ -1,0 +1,10 @@
+probe=ran
+wc_id=232
+rows_at_start=1/20/1
+rows_after_manager_edit=1/7/1
+save=ok
+save_code=inventory_saved
+held=__none__
+manager_value_kept=yes
+rows_after_save=1/7/1
+conflicts=

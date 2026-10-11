@@ -1,0 +1,9 @@
+probe=ran
+product_id=1295
+wc_id=232
+rows_at_start=1/20/1
+save=ok
+save_code=inventory_saved
+save_limits=limits_written
+row_max_after_save=18
+pending_revision=none

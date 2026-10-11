@@ -1,0 +1,5 @@
+probe=ran
+approve=ok
+approve_code=revision_approved
+row_stock_after_approval=4
+shop_stock_after_approval=4

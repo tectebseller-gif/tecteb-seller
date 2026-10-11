@@ -1,0 +1,5 @@
+probe=ran
+wc_id=232
+rows_now=__absent__/__absent__/__absent__
+tab_empty=YES
+input_args=1/20/1

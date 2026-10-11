@@ -185,8 +185,18 @@ if run_scenario old empty-tab-arrange empty-tab-page; then
         "a product projected by a build that had no quantity rows — the staging shape"
     expect old empty-tab-page 'tab_empty=YES' \
         "DEFECT: the vendor saved 1/20/1 and the WooCommerce tab is still empty"
-    expect old empty-tab-page 'input_args=1/0/1' \
-        "DEFECT: and the shop enforces nothing of the vendor's rule"
+    # AND THE MEASUREMENT CORRECTED THE EXPECTATION. The first run of this
+    # script expected the shop to enforce nothing here, and it enforced
+    # 1/20/1: `alpha.47`'s own fallback — `QuantityGuard::storedRule()` asks
+    # the marketplace row when ALL THREE rows are absent on a product of ours
+    # — already covered this one case. So the empty tab on `alpha.47` was not
+    # an enforcement hole; it was INVISIBILITY: the rule was enforced and no
+    # screen in WooCommerce said what it was, so neither the manager nor the
+    # vendor could see or edit it. The 20 → 18 case above is the enforcement
+    # hole, because there the rows EXIST and say twenty, so the fallback never
+    # runs. Both are the same missing write, met from two sides.
+    expect old empty-tab-page 'input_args=1/20/1' \
+        "alpha.47's absent-rows fallback did enforce the rule — so this half was invisibility, not a hole"
 fi
 
 if run_probe old manager-owned; then

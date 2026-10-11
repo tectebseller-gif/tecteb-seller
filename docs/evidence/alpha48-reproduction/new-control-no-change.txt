@@ -1,0 +1,8 @@
+probe=ran
+wc_id=232
+rows_at_start=1/20/1
+save=ok
+save_code=inventory_saved
+rows_after_save=1/20/1
+record_unchanged=yes
+pending_revision=none

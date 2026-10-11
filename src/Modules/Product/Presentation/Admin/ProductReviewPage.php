@@ -13,6 +13,8 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInter
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductDecisionRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\BrandProposalRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ManageBrands;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
@@ -450,6 +452,7 @@ final class ProductReviewPage
         if ($revision !== null) {
             echo $this->revisionPanel($product, $revision, $storefront);
         }
+        echo $this->brandPanel($product);
         $this->seoPanel($product);
 
         echo '<section class="tmc-card">' . ProductDecisionHistoryView::render($history) . '</section>';
@@ -582,6 +585,54 @@ final class ProductReviewPage
      * PUBLISHED product, so it is the one where a manager's edit made between
      * drawing the page and pressing the button costs the most.
      */
+    /**
+     * A vendor asking for a brand that is not in the manager's list.
+     *
+     * Two halves, two buttons, and the second one exists because the first can
+     * finish without it: registering the name adds it to the list for every
+     * shop, applying it changes this product. A request that got through the
+     * first and not the second says so, and «تلاش دوباره برای اعمال» is the
+     * one action left — not a second approval, which would try to register a
+     * brand that is already there.
+     */
+    private function brandPanel(Product $product): string
+    {
+        $open = $this->container->get(BrandProposalRepositoryInterface::class)->openFor($product->id);
+        if ($open === null) {
+            return '';
+        }
+        $registered = $open->outstanding() === 'apply_to_product';
+        $html = '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('درخواست برند تازه', 'tecteb-marketplace-core') . '</h2>'
+            . '<p class="tmc-hint">' . esc_html(sprintf(
+                /* translators: %s: the vendor's user id */
+                __('فروشنده #%s نامی خواسته که در فهرست برندها نیست. فقط شما می‌توانید آن را به فهرست اضافه کنید؛ تا آن موقع برند فعلی این محصول دست‌نخورده است.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) $open->vendorUserId)
+            )) . '</p>'
+            . Components::dataList([
+                ['label' => __('نام درخواستی', 'tecteb-marketplace-core'), 'value' => $open->name],
+                [
+                    'label' => __('برند فعلی محصول', 'tecteb-marketplace-core'),
+                    'value' => $product->details->brand !== '' ? $product->details->brand : '—',
+                ],
+                [
+                    'label' => __('وضعیت', 'tecteb-marketplace-core'),
+                    'value' => $registered
+                        ? __('به فهرست اضافه شده؛ اعمال روی این محصول کامل نشده است.', 'tecteb-marketplace-core')
+                        : __('در انتظار تصمیم شما.', 'tecteb-marketplace-core'),
+                ],
+            ]);
+        if ($registered) {
+            return $html . $this->decisionForm('brand', $open->id, [
+                'finish' => __('تلاش دوباره برای اعمال روی محصول', 'tecteb-marketplace-core'),
+            ]) . '</section>';
+        }
+        return $html . $this->decisionForm('brand', $open->id, [
+            'approve' => __('افزودن به فهرست و اعمال روی محصول', 'tecteb-marketplace-core'),
+            'reject' => __('رد درخواست', 'tecteb-marketplace-core'),
+        ]) . '</section>';
+    }
+
     private function revisionPanel(
         Product $product,
         ProductRevision $revision,
@@ -911,6 +962,15 @@ final class ProductReviewPage
                 $id,
                 $request->postKey('decision')
             ),
+            // THE TWO HALVES OF A BRAND REQUEST, as two verbs.
+            //
+            // `approve` registers the name and then applies it; `finish` does
+            // only the second half, which is what makes a half-finished
+            // approval retryable instead of stuck — «ثبت برند و اعمال آن روی
+            // محصول باید قابل تفکیک و تلاش دوباره باشد».
+            'brand:approve' => $this->container->get(ManageBrands::class)->approve($id),
+            'brand:finish' => $this->container->get(ManageBrands::class)->finish($id),
+            'brand:reject' => $this->container->get(ManageBrands::class)->reject($id, $note),
             default => null,
         };
         return $result === null ? null : ['code' => $result->code, 'context' => $result->context];

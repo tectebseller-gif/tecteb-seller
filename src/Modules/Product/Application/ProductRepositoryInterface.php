@@ -289,6 +289,37 @@ interface ProductRepositoryInterface
     public function updateStatus(int $productId, ProductStatus $status, string $reviewNote = ''): bool;
 
     /**
+     * Which APPROVED brand this product's brand is, or null.
+     *
+     * Its own column and its own pair of methods, deliberately NOT a field on
+     * `ProductDetails`. The brand a shopper sees is the NAME, which every
+     * form, payload, CSV column, diff and projection already carries; the term
+     * id is identity, and adding it to the details object would put a second
+     * value into every one of those places for one question nothing else asks.
+     *
+     * Null has a meaning and it is not «no brand»: it says this row's brand
+     * predates the registry (migration 25 adds the column with no backfill),
+     * or that nobody has picked from the list since. A legacy free-text brand
+     * therefore keeps working and is never silently declared approved — the
+     * owner asked for exactly that restraint.
+     */
+    public function brandTermIdOf(int $productId): ?int;
+
+    /**
+     * The brand name AND the approved brand it is, written together.
+     *
+     * Together because they are one fact. A name without its id would leave
+     * the next reader unable to tell a picked brand from free text, and an id
+     * without its name would show a shopper nothing.
+     *
+     * Unguarded by design: this is the manager applying a decision they have
+     * just made, which is the same reason `approveRevision()` writes the
+     * details unguarded. The vendor's own brand change travels on
+     * `updateDetails()` and keeps its version guard.
+     */
+    public function setBrandTerm(int $productId, string $brand, ?int $termId): bool;
+
+    /**
      * Record the values both sides agreed on, so the NEXT vendor edit can be
      * measured against something.
      *

@@ -353,6 +353,69 @@ final class ProductMessages
                 PersianDigits::toPersian((string) ($context['proposed_stock'] ?? ''))
             ),
             'stock_revision_unchanged' => __('چیزی برای تغییر نبود: همین درخواست موجودی از قبل در صف بررسی مدیر است. حدود خرید و کد SKU در صورت تغییر، اعمال شدند.', 'tecteb-marketplace-core'),
+
+            // ---- brands (§4) ------------------------------------------------
+            // Each refusal says what to do next, because «برند تأیید نشده» on
+            // its own leaves a vendor with a box they cannot satisfy.
+            'brand_not_approved' => sprintf(
+                /* translators: %s: the brand the vendor named */
+                __('برند «%s» در فهرست برندهای تأییدشده نیست، پس ذخیره نشد و چیزی از محصول تغییر نکرد. برند را از فهرست انتخاب کنید، یا در همان بخش «برند من در فهرست نیست» افزودنش را درخواست کنید.', 'tecteb-marketplace-core'),
+                (string) ($context['brand'] ?? '')
+            ),
+            'brand_list_unavailable' => __('فهرست برندها از ووکامرس خوانده می‌شود و ووکامرس در دسترس نیست، پس تغییر برند انجام نشد. برند فعلی محصول دست‌نخورده است؛ بقیهٔ فرم را می‌توانید ذخیره کنید.', 'tecteb-marketplace-core'),
+            'brand_name_invalid' => __('نام برند خالی یا بیش از حد بلند است. یک نام کوتاه و خوانا بنویسید.', 'tecteb-marketplace-core'),
+            'brand_already_approved' => sprintf(
+                /* translators: %s: the brand as the list holds it */
+                __('این نام از قبل در فهرست است: «%s». درخواستی لازم نیست؛ همان را از فهرست انتخاب کنید. (تفاوت فاصله، نیم‌فاصله و ی/ک عربی و فارسی نادیده گرفته می‌شود.)', 'tecteb-marketplace-core'),
+                (string) ($context['brand'] ?? '')
+            ),
+            'brand_request_open' => sprintf(
+                /* translators: %s: the brand already requested */
+                __('برای این محصول از قبل درخواست برند «%s» ثبت شده و در انتظار بررسی مدیر است. تا تعیین تکلیف آن، درخواست تازه‌ای ثبت نمی‌شود.', 'tecteb-marketplace-core'),
+                (string) ($context['brand'] ?? '')
+            ),
+            'brand_request_elsewhere' => sprintf(
+                /* translators: %s: the brand somebody else requested */
+                __('درخواست افزودن «%s» از قبل ثبت شده است — ممکن است فروشندهٔ دیگری آن را خواسته باشد. به‌محض تأیید مدیر، در فهرست شما هم دیده می‌شود.', 'tecteb-marketplace-core'),
+                (string) ($context['brand'] ?? '')
+            ),
+            'brand_requested' => sprintf(
+                /* translators: %s: the requested brand */
+                __('درخواست افزودن برند «%s» ثبت شد و در انتظار بررسی مدیر است. تا تأیید، برند فعلی این محصول تغییر نمی‌کند.', 'tecteb-marketplace-core'),
+                (string) ($context['brand'] ?? '')
+            ),
+            'brand_approved' => sprintf(
+                /* translators: %s: the approved brand */
+                __('برند «%s» به فهرست اضافه شد و روی همین محصول اعمال شد.', 'tecteb-marketplace-core'),
+                (string) ($context['brand'] ?? '')
+            ),
+            'brand_rejected' => __('درخواست برند رد شد. برند فعلی محصول تغییر نکرده است و دلیل شما برای فروشنده ثبت شد.', 'tecteb-marketplace-core'),
+            // The three half-finished states, each naming WHICH half, because
+            // «انجام نشد» would send the manager to add a brand that is
+            // already in the list.
+            'brand_not_registered' => sprintf(
+                /* translators: %s: the brand */
+                __('افزودن «%s» به فهرست انجام نشد و هیچ‌چیز ثبت نشد. درخواست باز است؛ دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+                (string) ($context['brand'] ?? '')
+            ),
+            'brand_registered_not_recorded' => sprintf(
+                /* translators: %s: the brand */
+                __('برند «%s» به فهرست ووکامرس اضافه شد، ولی ثبت این تصمیم در بازارگاه انجام نشد. برند را دوباره اضافه نکنید؛ صفحه را تازه کنید و وضعیت درخواست را ببینید.', 'tecteb-marketplace-core'),
+                (string) ($context['brand'] ?? '')
+            ),
+            'brand_not_applied' => sprintf(
+                /* translators: %s: the brand */
+                __('برند «%s» در فهرست هست و نوشتن آن روی این محصول انجام نشد. با «تلاش دوباره برای اعمال» ادامه دهید.', 'tecteb-marketplace-core'),
+                (string) ($context['brand'] ?? '')
+            ),
+            'brand_not_synced' => sprintf(
+                /* translators: %s: the brand */
+                __('برند «%s» روی ردیف بازارگاه نوشته شد و به ووکامرس نرسید. درخواست باز مانده است؛ با «تلاش دوباره برای اعمال» ادامه دهید.', 'tecteb-marketplace-core'),
+                (string) ($context['brand'] ?? '')
+            ),
+            'brand_applied_not_recorded' => __('برند روی محصول اعمال شد و بسته‌شدن درخواست ثبت نشد. صفحه را تازه کنید؛ اگر درخواست باز مانده، «تلاش دوباره برای اعمال» بی‌خطر است و چیزی را دو بار نمی‌نویسد.', 'tecteb-marketplace-core'),
+            'brand_not_in_list' => __('برندی که این درخواست به آن اشاره می‌کند در فهرست ووکامرس نیست — ممکن است با دست حذف شده باشد. درخواست را رد کنید و از فروشنده بخواهید دوباره ثبت کند.', 'tecteb-marketplace-core'),
+            'nothing_to_finish' => __('این درخواست چیزی برای کامل‌کردن ندارد.', 'tecteb-marketplace-core'),
             'product_submitted' => __('محصول برای بررسی مدیر فرستاده شد. تا تعیین تکلیف، نسخه فعلی تغییر نمی‌کند.', 'tecteb-marketplace-core'),
             'product_published' => __('محصول منتشر شد؛ فروشگاه شما مجوز انتشار مستقیم دارد.', 'tecteb-marketplace-core'),
             'revision_requested' => __('تغییرهای حساس به‌صورت «نسخه پیشنهادی» ثبت شد. نسخه منتشرشده تا تأیید مدیر دست‌نخورده می‌ماند و موجودی همین حالا اعمال شد.', 'tecteb-marketplace-core'),
@@ -698,6 +761,7 @@ final class ProductMessages
             'product_created', 'product_created_replayed', 'product_saved', 'inventory_saved', 'product_submitted',
             'product_published', 'revision_requested', 'revision_unchanged',
             'stock_revision_requested', 'stock_revision_unchanged',
+            'brand_requested', 'brand_approved', 'brand_rejected',
             'product_archived_ok', 'product_restored',
             'product_reviewed', 'revision_approved', 'revision_rejected',
             'direct_publish_granted', 'direct_publish_revoked',

@@ -21,6 +21,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwners
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0023ProductDescriptionAndCreateToken;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0024PurchaseStep;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0025BrandRegistry;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as C;
 
@@ -584,6 +585,31 @@ final class DbProductRepository implements ProductRepositoryInterface
      * build carries no version, and refusing those would break saving for
      * anybody mid-edit across an upgrade.
      */
+    public function brandTermIdOf(int $productId): ?int
+    {
+        $value = $this->db->getVar(
+            'SELECT `' . M0025BrandRegistry::BRAND_TERM . '` FROM `' . $this->products() . '` WHERE id = %d',
+            [$productId]
+        );
+        return $value === null ? null : (int) $value;
+    }
+
+    public function setBrandTerm(int $productId, string $brand, ?int $termId): bool
+    {
+        $written = $this->db->execute(
+            'UPDATE `' . $this->products() . '`
+                SET brand = %s, `' . M0025BrandRegistry::BRAND_TERM . '` = ' . ($termId === null ? 'NULL' : '%d') . ',
+                    updated_at = %s, row_version = row_version + 1
+              WHERE id = %d',
+            $termId === null
+                ? [$brand, $this->now(), $productId]
+                : [$brand, $termId, $this->now(), $productId]
+        );
+        // `row_version = row_version + 1` changes a column on every write, so
+        // zero rows means the id matched nothing — not «it already said that».
+        return $written !== null && $written > 0;
+    }
+
     public function updateDetails(int $productId, ProductDetails $details, string $expectedVersion = ''): bool
     {
         [$columns, $placeholders, $params] = $this->detailColumns($details);

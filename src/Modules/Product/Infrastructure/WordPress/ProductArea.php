@@ -19,15 +19,21 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductDraftStoreInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductDecisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
+use Tecteb\Marketplace\Modules\Product\Application\BrandDirectoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\BrandProposalRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ManageBrands;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\LongDescription;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductCategoryPickerView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductBulkPreviewView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductCsvView;
+use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
+use Tecteb\Marketplace\Modules\Product\Presentation\ProductBrandPickerView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductFormView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductListView;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
@@ -307,8 +313,74 @@ final class ProductArea
             // buyers see. Passed only when the form is showing a proposal —
             // a page that always rendered a comparison would be a page that
             // never had a reason to.
-            $showingProposal ? $product?->details : null
+            $showingProposal ? $product?->details : null,
+            // The stock the pending proposal asks for, and the number the shop
+            // holds. Read from the marketplace row rather than from WooCommerce
+            // because the row IS the mirror (ADR-008) and is brought up to date
+            // on every inventory save; a shop read on every form render would
+            // cost a query per page for a number that cannot have moved
+            // without `pullStock()` noticing.
+            self::proposedStockOf($pending),
+            $product?->details->stock,
+            $this->brandPicker($product?->details->brand ?? '', $productId, $view->request->queryText('brand_q'))
         );
+    }
+
+    /**
+     * The brand picker's data: the approved list, the selection, any request.
+     *
+     * The selection is resolved from the stored TERM ID first and from the
+     * name only as a fallback, because the id is identity: a manager who
+     * renames a brand in WooCommerce should leave the product pointing at the
+     * same brand, and a name lookup would lose it.
+     *
+     * @return array<string,mixed>
+     */
+    private function brandPicker(string $currentBrand, int $productId, string $query): array
+    {
+        $brands = $this->container->get(ManageBrands::class);
+        $picked = $brands->pick($query, ProductBrandPickerView::SHOW);
+        $directory = $this->container->get(BrandDirectoryInterface::class);
+        $selected = null;
+        if ($productId > 0) {
+            $termId = $this->products()->brandTermIdOf($productId);
+            if ($termId !== null) {
+                $selected = $directory->find($termId);
+            }
+        }
+        if ($selected === null && $currentBrand !== '') {
+            // No stored id — a row from before the registry. It is still shown
+            // as the selection when the name happens to BE an approved brand,
+            // which is the one case where showing it as «from before the list»
+            // would be wrong.
+            $selected = $directory->findByKey(BrandName::key($currentBrand));
+        }
+        return [
+            'selected' => $selected,
+            'results' => $picked['brands'],
+            'query' => $query,
+            'total' => $picked['total'],
+            'missing' => !$picked['available'],
+            'open_request' => $productId > 0
+                ? $this->container->get(BrandProposalRepositoryInterface::class)->openFor($productId)
+                : null,
+        ];
+    }
+
+    /**
+     * The stock a pending proposal asks for, or null when it asks for none.
+     *
+     * `details.stock` has been in every payload since `alpha.6` and was never
+     * applied; only `stock_proposal` is a request (the same reader the
+     * approval path uses).
+     */
+    private static function proposedStockOf(?ProductRevision $pending): ?int
+    {
+        $proposal = $pending?->payload['stock_proposal'] ?? null;
+        if (!is_array($proposal) || !array_key_exists('value', $proposal)) {
+            return null;
+        }
+        return (int) $proposal['value'];
     }
 
     private function decisions(): ProductDecisionRepositoryInterface
@@ -400,7 +472,14 @@ final class ProductArea
         // is there — see `LongDescription::decide()`.
         $details = $this->detailsFromPost(
             $request,
-            $this->manage()->storedLongDescription($userId, $vendorUserId, $productId)
+            $this->manage()->storedLongDescription($userId, $vendorUserId, $productId),
+            // The brand the ROW holds, so `brand_term=keep` can mean «leave it
+            // alone» — which is the only honest instruction about a free-text
+            // brand from before the registry. Read here rather than in the
+            // reader, because the reader has no product.
+            $productId > 0
+                ? ($this->products()->findOwned($productId, $vendorUserId)?->details->brand ?? '')
+                : ''
         );
         $specs = $request->postMap('spec');
         // ASKED BEFORE THE FILE IS TAKEN OFF THE WIRE. A browser that resends
@@ -497,8 +576,15 @@ final class ProductArea
         // problem, a failed upload, a half-written draft) all return above
         // this line.
         $searching = $request->postText('search_category') !== '';
+        // The brand search is the same trick as the category search: the
+        // button is a SUBMIT, so everything the vendor has typed is saved
+        // first and the query travels in the redirect. It lands back on step 1
+        // rather than on the gallery step, because that is where the brand
+        // picker is.
+        $brandSearching = $request->postText('search_brand') !== '';
         $next = match (true) {
             $searching => self::GALLERY_STEP,
+            $brandSearching => $step,
             $request->postText('move_image') !== '' => $step,
             // A replay is not progress: the vendor is asked to look at the
             // draft that already exists, and the gallery the message names is
@@ -509,6 +595,31 @@ final class ProductArea
         $url = $this->stepUrl($urls, $savedId, $next);
         if ($searching) {
             $url = add_query_arg('cat_q', rawurlencode($request->postText('category_q')), $url);
+        }
+        if ($brandSearching) {
+            $url = add_query_arg('brand_q', rawurlencode($request->postText('brand_q')), $url);
+        }
+        // ASKING FOR A BRAND, on the same submit.
+        //
+        // Not its own form, because the box sits inside the product form and a
+        // form inside a form is not markup a browser will send. Not its own
+        // action either: the button is a submit, so the vendor's typing is
+        // SAVED first — the `alpha.14` trick the image-move and the two
+        // searches all use — and the request is recorded after the save
+        // succeeded. A request recorded beside a refused save would be a
+        // request for a product that did not take the rest of the form.
+        //
+        // The product's own brand is not touched by any of this: step 1 posts
+        // `brand_term=keep` unless the vendor picked something, and «تا تأیید،
+        // برند فعلی محصول حفظ شود» is that line and nothing else.
+        if ($request->postText('request_brand') !== '' && $request->postText('brand_request') !== '') {
+            $asked = $this->container->get(ManageBrands::class)->propose(
+                $userId,
+                $vendorUserId,
+                $savedId,
+                $request->postText('brand_request')
+            );
+            return new VendorAreaOutcome($asked->code, $this->stepUrl($urls, $savedId, $step), $asked->context);
         }
         return new VendorAreaOutcome(
             $result->code,
@@ -689,8 +800,11 @@ final class ProductArea
 
     // ------------------------------------------------------------- plumbing
 
-    private function detailsFromPost(Request $request, ?string $storedLong = null): ProductDetails
-    {
+    private function detailsFromPost(
+        Request $request,
+        ?string $storedLong = null,
+        string $currentBrand = ''
+    ): ProductDetails {
         $number = fn (string $raw): int => $this->number($raw);
         $optional = fn (string $raw): ?int => $this->optionalNumber($raw);
         $date = static function (string $raw): ?string {
@@ -701,7 +815,15 @@ final class ProductArea
             $request->postText('title'),
             $request->postKey('type') !== '' ? $request->postKey('type') : 'simple',
             $request->postKey('category'),
-            $request->postText('brand'),
+            // THE BRAND COMES FROM THE PICKER, not from a text box.
+            //
+            // §4: «متن آزاد نباید برند رسمی تکراری بسازد». So step 1 posts
+            // `brand_term` — a term id, `keep`, or `0` — and the NAME is
+            // looked up from the manager's list rather than typed. The other
+            // steps post no picker at all: their hidden `brand` field carries
+            // the value forward (`carryOver()`), which is why the fallback has
+            // to stay and why it cannot be a refusal.
+            $this->brandFromPost($request, $currentBrand),
             $request->postTextarea('short_description'),
             $number($request->postText('price')),
             $optional($request->postText('sale_price')),
@@ -948,6 +1070,37 @@ final class ProductArea
             '3' => '4',
             default => '4',
         };
+    }
+
+    /**
+     * What the brand picker chose, as a name.
+     *
+     * Four answers, and each one is a different instruction:
+     *
+     *  - **a term id** — this approved brand, by its name as the list holds
+     *    it. Looked up rather than taken from the request, so a posted name
+     *    cannot differ from the approved one by a character.
+     *  - **`keep`** — leave the brand alone. The only honest answer for a
+     *    free-text brand from before the registry, and the reason the picker
+     *    does not quietly drop one.
+     *  - **`0`** — no brand. A real choice, so it is written.
+     *  - **nothing posted** — this form has no picker (steps 2 to 4 carry the
+     *    brand as a hidden field), so the carried value stands.
+     */
+    private function brandFromPost(Request $request, string $currentBrand): string
+    {
+        $choice = $request->postKey('brand_term');
+        if ($choice === '') {
+            return $request->postText('brand');
+        }
+        if ($choice === 'keep') {
+            return $currentBrand;
+        }
+        $termId = (int) $choice;
+        if ($termId <= 0) {
+            return '';
+        }
+        return $this->container->get(BrandDirectoryInterface::class)->find($termId)?->name ?? $currentBrand;
     }
 
     /** @param array<string,mixed> $raw */

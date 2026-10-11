@@ -1,0 +1,7 @@
+probe=ran
+status=draft
+save=ok
+save_code=inventory_saved
+row_stock=7
+shop_stock=7
+pending_revision=none

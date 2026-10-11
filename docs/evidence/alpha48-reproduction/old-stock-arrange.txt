@@ -1,0 +1,10 @@
+probe=ran
+product_id=1295
+wc_id=232
+shop_stock_at_start=20
+save=ok
+save_code=inventory_saved
+row_stock_after_save=4
+pending_revision=none
+proposed_stock=__none__
+baseline_stock=__none__

@@ -60,8 +60,51 @@ final class ManageProducts
          * it the manager reads «نیازمند اصلاح» and «ارسال شد» as one event
          * and cannot tell which version their own note was about.
          */
-        private readonly ?ProductDecisionRepositoryInterface $decisions = null
+        private readonly ?ProductDecisionRepositoryInterface $decisions = null,
+        /**
+         * The brand registry, appended with a default.
+         *
+         * Null means «no registry in this build», and the gate then stands
+         * down — which is the same thing `NullBrandDirectory` says and for the
+         * same reason. Appended rather than inserted so every existing caller
+         * and every test of the four previous rounds keeps compiling
+         * (`alpha.45`'s convention).
+         */
+        private readonly ?ManageBrands $brands = null
     ) {
+    }
+
+    /**
+     * The brand gate, asked by every path that writes a brand.
+     *
+     * One place, because §4 asks for one rule and three sentences that happen
+     * to agree today are three rules tomorrow (`alpha.46`). An unchanged brand
+     * is never re-judged, which is what lets a product whose brand is legacy
+     * free text go on being saved: the owner asked that old brands not be
+     * touched or declared approved, and refusing their every save would be
+     * both.
+     */
+    private function brandRefusal(ProductDetails $details, string $currentBrand): ?OperationResult
+    {
+        return $this->brands?->refusalFor($details->brand, $currentBrand);
+    }
+
+    /**
+     * Store which approved brand this product's brand IS, once it is written.
+     *
+     * Best effort and said so: the name is already on the row and is what a
+     * shopper sees, so a failure here loses only the identity — which is why
+     * `brandTermIdOf()` returning null means «not known», never «no brand».
+     */
+    private function rememberBrandTerm(int $productId, ProductDetails $details): void
+    {
+        if ($this->brands === null || $details->brand === '') {
+            return;
+        }
+        $termId = $this->brands->approvedTermFor($details->brand);
+        if ($termId !== null) {
+            $this->products->setBrandTerm($productId, $details->brand, $termId);
+        }
     }
 
     /**
@@ -125,12 +168,25 @@ final class ManageProducts
         [$imageIds, $mainImageId] = $this->cleanImages($imageIds, $mainImageId, $vendorUserId);
 
         if ($productId <= 0) {
+            // A new product has no brand to be unchanged, so anything it names
+            // has to come from the manager's list.
+            $brandProblem = $this->brandRefusal($details, '');
+            if ($brandProblem !== null) {
+                return $brandProblem;
+            }
             return $this->create($vendorUserId, $details, $specs, $imageIds, $mainImageId, $createToken);
         }
 
         $product = $this->products->findOwned($productId, $vendorUserId);
         if ($product === null) {
             return OperationResult::failure('not_found');
+        }
+        // Before any write, and against what the row HOLDS. A brand that has
+        // not changed is never judged — the legacy free-text brands on the
+        // owner's shop would otherwise make every save of those products fail.
+        $brandProblem = $this->brandRefusal($details, $product->details->brand);
+        if ($brandProblem !== null) {
+            return $brandProblem;
         }
         // The version's VALUE is still not compared here — that belongs in the
         // UPDATE's WHERE clause, because a comparison between a read and a
@@ -719,6 +775,7 @@ final class ManageProducts
             return $this->replayed($vendorUserId, $creation->productId);
         }
         $productId = $creation->productId;
+        $this->rememberBrandTerm($productId, $details);
         $missed = $this->persistSpecsAndImages($productId, $details->categoryKey, $specs, $imageIds, $mainImageId);
         $this->audit->log(AuditEventCatalog::PRODUCT_SAVED, $vendorUserId, 'product', (string) $productId, [
             'vendor_id' => $vendorUserId,
@@ -750,6 +807,7 @@ final class ManageProducts
         if (!$this->products->updateDetails($product->id, $details, $expectedVersion)) {
             return $this->refusedOrFailed($product, $expectedVersion);
         }
+        $this->rememberBrandTerm($product->id, $details);
         // A draft can already have a storefront row — `SyncCatalog::prepare()`
         // makes one so the manager can use WooCommerce's own editor — and a
         // row that exists is a row whose limits must agree with the save.

@@ -1,0 +1,4 @@
+probe=ran
+wc_id=232
+shop_stock_now=4
+row_stock_now=4

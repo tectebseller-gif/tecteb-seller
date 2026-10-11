@@ -1,0 +1,6 @@
+probe=ran
+product_id=1295
+wc_id=232
+rows_before_save=__absent__/__absent__/__absent__
+save=ok
+save_code=inventory_saved

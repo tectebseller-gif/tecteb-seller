@@ -1,0 +1,9 @@
+probe=ran
+wc_id=232
+rows_now=1/18/1
+gate=open
+input_args=1/18/1
+classic_qty_18=allowed
+classic_qty_19=refused
+classic_qty_20=refused
+store_api_qty_19=refused

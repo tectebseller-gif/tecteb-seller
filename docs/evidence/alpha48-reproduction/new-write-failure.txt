@@ -1,0 +1,9 @@
+probe=ran
+wc_id=232
+rows_at_start=1/20/1
+save=failed
+save_code=inventory_saved_limits_not_written
+failed=_tmc_max_purchase
+rows_after_refused_write=1/20/1
+ceiling_kept=yes
+max_row_absent=no

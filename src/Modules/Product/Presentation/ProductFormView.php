@@ -7,6 +7,8 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionOutcome;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
 use Tecteb\Marketplace\Modules\Product\Domain\LongDescription;
+use Tecteb\Marketplace\Modules\Product\Domain\Brand;
+use Tecteb\Marketplace\Modules\Product\Domain\BrandProposal;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
@@ -129,7 +131,31 @@ final class ProductFormView
          * is showing a proposal, which is the only time there are two
          * versions to tell apart.
          */
-        ?ProductDetails $publishedForComparison = null
+        ?ProductDetails $publishedForComparison = null,
+        /**
+         * The stock the pending proposal asks for, and the one the shop holds.
+         *
+         * Both or neither. From `alpha.48` a live product's stock edit is a
+         * proposal (the owner's decision), and a single box cannot say «this
+         * is what you asked for» and «this is what buyers see» at the same
+         * time — the same reason the brand needed `$showingProposal`. So the
+         * two numbers are named beside the field, and nothing is inferred
+         * from the box's own value.
+         */
+        ?int $proposedStock = null,
+        ?int $effectiveStock = null,
+        /**
+         * The brand picker's own data: the approved list, what is selected,
+         * the search query, and any open request.
+         *
+         * An array rather than four parameters, in the shape `$categories`
+         * already uses — the view is at eleven arguments already and a
+         * twelfth, thirteenth and fourteenth for one control is where a
+         * signature stops being readable.
+         *
+         * @var array<string,mixed>
+         */
+        array $brands = []
     ): string {
         $step = array_key_exists($step, self::steps()) ? $step : '1';
         $html = '';
@@ -231,10 +257,10 @@ final class ProductFormView
             . self::carryOver($step, $details, $specs, $template)
             . self::gallery($images, $mainImageId, $step, $maxImageBytes)
             . match ($step) {
-                '2' => self::stepPrice($details),
+                '2' => self::stepPrice($details, $status, $proposedStock, $effectiveStock),
                 '3' => self::stepTechnical($details, $specs, $template),
                 '4' => self::stepReview($details, $readiness, $share, $mayPublishDirectly, $status, $categories),
-                default => self::stepIntro($details, $categories),
+                default => self::stepIntro($details, $categories, $brands),
             }
             . '<p class="tv-form__actions">'
             . VendorUi::submit(__('ذخیره و ادامه', 'tecteb-marketplace-core'))
@@ -406,7 +432,7 @@ final class ProductFormView
     }
 
     /** @param array<string,mixed> $categories the picker's state */
-    private static function stepIntro(ProductDetails $d, array $categories): string
+    private static function stepIntro(ProductDetails $d, array $categories, array $brands = []): string
     {
         /** @var list<\Tecteb\Marketplace\Modules\Product\Domain\ProductCategory> $results */
         $results = is_array($categories['results'] ?? null) ? $categories['results'] : [];
@@ -424,7 +450,25 @@ final class ProductFormView
                 (string) ($categories['suggest_nonce'] ?? ''),
                 (string) ($categories['suggest_action'] ?? '')
             )
-            . VendorUi::input('brand', __('برند', 'tecteb-marketplace-core'), $d->brand)
+            // THE BRAND IS PICKED, NOT TYPED, from `alpha.48`.
+            //
+            // It was a free-text box from `alpha.6`, which is how the owner's
+            // shop ended up with brands spelled several ways and no list to
+            // check them against. §4 asks for the manager's list to be the
+            // only source — and for a vendor whose brand is missing to be able
+            // to ASK rather than to type it anyway.
+            . ProductBrandPickerView::render(
+                $d->brand,
+                ($brands['selected'] ?? null) instanceof Brand ? $brands['selected'] : null,
+                array_values(array_filter(
+                    (array) ($brands['results'] ?? []),
+                    static fn (mixed $row): bool => $row instanceof Brand
+                )),
+                (string) ($brands['query'] ?? ''),
+                (int) ($brands['total'] ?? 0),
+                (bool) ($brands['missing'] ?? false),
+                ($brands['open_request'] ?? null) instanceof BrandProposal ? $brands['open_request'] : null
+            )
             . '</fieldset>'
             . self::descriptionTabs($d);
     }
@@ -532,7 +576,12 @@ final class ProductFormView
             . '</span></p>';
     }
 
-    private static function stepPrice(ProductDetails $d): string
+    private static function stepPrice(
+        ProductDetails $d,
+        ProductStatus $status = ProductStatus::Draft,
+        ?int $proposedStock = null,
+        ?int $effectiveStock = null
+    ): string
     {
         return '<fieldset class="tv-fieldset"><legend>' . esc_html__('قیمت و موجودی', 'tecteb-marketplace-core') . '</legend>'
             . VendorUi::input('price', __('قیمت (تومان)', 'tecteb-marketplace-core'), (string) $d->priceMinor, true, 'text', 'ltr')
@@ -540,7 +589,8 @@ final class ProductFormView
             . VendorUi::input('sale_from', __('شروع تخفیف', 'tecteb-marketplace-core'), $d->saleFrom ?? '', true, 'date', 'ltr')
             . VendorUi::input('sale_to', __('پایان تخفیف', 'tecteb-marketplace-core'), $d->saleTo ?? '', true, 'date', 'ltr')
             . VendorUi::input('sku', __('کد SKU', 'tecteb-marketplace-core'), $d->sku, true, 'text', 'ltr', __('در همین فروشگاه یکتا است.', 'tecteb-marketplace-core'))
-            . VendorUi::input('stock', __('موجودی', 'tecteb-marketplace-core'), (string) $d->stock, true, 'text', 'ltr', __('صفر یعنی ناموجود؛ فروش متوقف می‌شود. پیش‌فروش و فروش با کمبود موجودی در این نسخه وجود ندارد.', 'tecteb-marketplace-core'))
+            . VendorUi::input('stock', __('موجودی', 'tecteb-marketplace-core'), (string) $d->stock, true, 'text', 'ltr', self::stockHint($status))
+            . self::stockProposalNotice($proposedStock, $effectiveStock)
             // The three purchase-quantity rules, each with the sentence that
             // says what empty means. Until `alpha.45` the first two were
             // stored and read by nothing at all, and there was no third —
@@ -584,6 +634,44 @@ final class ProductFormView
     }
 
     /** @param array<string,string> $specs */
+    /**
+     * What «موجودی» means on THIS product, which depends on its status.
+     *
+     * A draft's stock is the vendor's own; a live product's is a request. A
+     * single sentence for both would be wrong for one of them, and the wrong
+     * one is the live product — where a vendor who believes they have just
+     * taken a sold-out item down will not come back to check.
+     */
+    private static function stockHint(ProductStatus $status): string
+    {
+        $base = __('صفر یعنی ناموجود؛ فروش متوقف می‌شود. پیش‌فروش و فروش با کمبود موجودی در این نسخه وجود ندارد.', 'tecteb-marketplace-core');
+        if ($status !== ProductStatus::Published) {
+            return $base;
+        }
+        return $base . ' ' . __('روی محصول منتشرشده، تغییر موجودی به‌صورت درخواست ثبت می‌شود و تا تأیید مدیر، موجودی روی فروشگاه عوض نمی‌شود. کاهش موجودی به‌دنبال فروش و بازگشت آن پس از مرجوعی، کار خودِ ووکامرس است و منتظر تأیید نمی‌ماند.', 'tecteb-marketplace-core');
+    }
+
+    /**
+     * The two numbers, named, when a stock request is waiting.
+     *
+     * Rendered only when there IS one and the two differ: a notice that
+     * appears on every save would stop being read, and a box that says «۴»
+     * with nothing beside it cannot tell the vendor whether four is what
+     * buyers see or what they asked for.
+     */
+    private static function stockProposalNotice(?int $proposedStock, ?int $effectiveStock): string
+    {
+        if ($proposedStock === null || $effectiveStock === null || $proposedStock === $effectiveStock) {
+            return '';
+        }
+        return VendorUi::notice('info', sprintf(
+            /* translators: 1: the stock on the storefront, 2: the proposed stock */
+            __('درخواست تغییر موجودی شما در انتظار بررسی مدیر است: موجودی فعلی روی فروشگاه %1$s و موجودی درخواستی شما %2$s. تا تأیید مدیر، عدد روی فروشگاه همین %1$s می‌ماند.', 'tecteb-marketplace-core'),
+            PersianDigits::toPersian((string) $effectiveStock),
+            PersianDigits::toPersian((string) $proposedStock)
+        ));
+    }
+
     private static function stepTechnical(ProductDetails $d, array $specs, ?SpecTemplate $template): string
     {
         $html = '<fieldset class="tv-fieldset"><legend>' . esc_html__('فنی و حمل', 'tecteb-marketplace-core') . '</legend>'
