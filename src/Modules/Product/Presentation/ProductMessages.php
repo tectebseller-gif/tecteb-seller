@@ -513,17 +513,13 @@ final class ProductMessages
             // The window with no multiple in it. Refused rather than widened,
             // and the message names two maxima that WOULD work — a refusal
             // that cannot be acted on is a refusal that gets pressed through.
-            'bad_quantity_unreachable' => isset($context['min'], $context['max'], $context['step'])
-                ? sprintf(
-                    /* translators: 1: step, 2: minimum, 3: maximum, 4: a workable maximum below, 5: one above */
-                    __('با گام %1$s، بین حداقل خرید %2$s و حداکثر خرید %3$s هیچ تعداد مجازی وجود ندارد. حداکثر %4$s یا %5$s کار می‌کند. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
-                    PersianDigits::toPersian((string) $context['step']),
-                    PersianDigits::toPersian((string) $context['min']),
-                    PersianDigits::toPersian((string) $context['max']),
-                    PersianDigits::toPersian((string) ($context['workable_below'] ?? '')),
-                    PersianDigits::toPersian((string) ($context['workable_above'] ?? ''))
-                )
-                : __('حداقل، حداکثر و گام تعداد با هم ناسازگارند: هیچ تعداد مجازی بین آن دو نیست. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+            //
+            // In a METHOD, not a ternary arm: PHPCompatibility reads two
+            // ternary arms of one `match` as a left-associative chain, which
+            // PHP 8 removed, and parenthesising the arms does not quiet it
+            // because the arms are one expression to the sniff. A named
+            // method says the same thing with no `?` at all.
+            'bad_quantity_unreachable' => self::unreachableQuantity($context),
             'sku_taken' => ($context['sku'] ?? '') !== ''
                 ? sprintf(__('کد SKU «%s» روی محصول دیگری از همین فروشگاه ثبت شده است.', 'tecteb-marketplace-core'), (string) $context['sku'])
                 : __('این کد SKU روی محصول دیگری از همین فروشگاه ثبت شده است.', 'tecteb-marketplace-core'),
@@ -710,6 +706,35 @@ final class ProductMessages
      * sentence naming something nobody recognises is still better than a
      * sentence that quietly says less than it knows.
      */
+    /**
+     * «No allowed quantity between the two» — with the step, both ends and
+     * two maxima that WOULD work. Named so that a vendor can act on it; a
+     * refusal that cannot be acted on is a refusal that gets pressed through.
+     *
+     * @param array<string,mixed> $context
+     */
+    private static function unreachableQuantity(array $context): string
+    {
+        if (!isset(
+            $context['min'],
+            $context['max'],
+            $context['step'],
+            $context['workable_below'],
+            $context['workable_above']
+        )) {
+            return __('حداقل، حداکثر و گام تعداد با هم ناسازگارند: هیچ تعداد مجازی بین آن دو نیست. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core');
+        }
+        return sprintf(
+            /* translators: 1: step, 2: minimum, 3: maximum, 4: a workable maximum below, 5: one above */
+            __('با گام %1$s، بین حداقل خرید %2$s و حداکثر خرید %3$s هیچ تعداد مجازی وجود ندارد. حداکثر %4$s یا %5$s کار می‌کند. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+            PersianDigits::toPersian((string) $context['step']),
+            PersianDigits::toPersian((string) $context['min']),
+            PersianDigits::toPersian((string) $context['max']),
+            PersianDigits::toPersian((string) $context['workable_below']),
+            PersianDigits::toPersian((string) $context['workable_above'])
+        );
+    }
+
     private static function parts(string $missing): string
     {
         $names = [

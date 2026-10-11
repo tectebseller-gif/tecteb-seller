@@ -142,9 +142,21 @@ expect() {
     fi
 }
 
-# Controls: answers this round must NOT have changed. The brand one is last
-# round's whole §3 and is here because the form path was touched again.
-CONTROLS="brand-persists"
+# Controls: answers this round must NOT have changed.
+#
+#  - `brand-persists` is last round's whole §3, here because the form path was
+#    touched again;
+#  - `workable-cart` is the other half of §3's demand: `min 3, max 10, step 3`
+#    must still accept three, six and nine, in the REAL basket, through the
+#    filter WooCommerce actually fires. It is a control rather than a finding
+#    precisely because `alpha.45` got this case right — the refusal added this
+#    round must narrow nothing that was working. Both trees must print the
+#    same bytes, down to `input_args=3/9/3`.
+#
+# Both run after every verb above, so the product exists; `workable-cart`
+# writes its own three rows and projects nothing (the sale gate memoises per
+# request, so a verb that publishes cannot also measure a basket).
+CONTROLS="brand-persists workable-cart"
 
 # =========================================================================
 note ""

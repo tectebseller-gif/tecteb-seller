@@ -610,6 +610,68 @@ switch ($verb) {
         $restoreGate();
         break;
 
+    /**
+     * CONTROL, §3: a window that DOES have multiples in it still works, end
+     * to end, in the real basket. `min 3, max 10, step 3` accepts three, six
+     * and nine and nothing else — and it answered the same on `alpha.45`,
+     * which is the point: the refusal added this round narrows nothing that
+     * was working. Run `unsatisfiable-stored` first for the fixture; this
+     * verb rewrites the rows itself and projects nothing.
+     */
+    case 'workable-cart':
+        $id = $findBySku(TMC_P46_SKU);
+        $wcId = (int) ($products->find($id)?->wcProductId ?? 0);
+        if ($wcId <= 0) {
+            $say('fixture', 'run_unsatisfiable-stored_first');
+            break;
+        }
+        $fresh = wc_get_product($wcId);
+        $fresh->set_manage_stock(true);
+        $fresh->set_stock_quantity(500);
+        $fresh->set_sold_individually(false);
+        $fresh->save();
+        update_post_meta($wcId, '_tmc_min_purchase', '3');
+        update_post_meta($wcId, '_tmc_max_purchase', '10');
+        update_post_meta($wcId, '_tmc_purchase_step', '3');
+        delete_post_meta($wcId, '_tmc_quantity_contradiction');
+        $say('stored_rows', $shopRows($wcId));
+
+        // The classic filter, which is also where the block cart's limits
+        // come from (`QuantityLimits.php:52`). The ceiling is FLOORED to nine.
+        $args = wc_get_quantity_input_args([], wc_get_product($wcId));
+        $say('input_args', $args['min_value'] . '/' . $args['max_value'] . '/' . $args['step']);
+        $say('contradiction_recorded', (string) get_post_meta($wcId, '_tmc_quantity_contradiction', true));
+
+        [$gateOpen, $gateWhy, $restoreGate] = $openGateForMeasurement();
+        $say('gate', $gateOpen ? $gateWhy : 'not_open:' . $gateWhy);
+        if (!$gateOpen) {
+            $say('measurement', 'not_run');
+            break;
+        }
+        if (function_exists('wc_load_cart')) {
+            wc_load_cart();
+        }
+        if (function_exists('wc_clear_notices')) {
+            wc_clear_notices();
+        }
+        $allow = static fn (int $q): string => apply_filters(
+            'woocommerce_add_to_cart_validation',
+            true,
+            $wcId,
+            $q,
+            0,
+            [],
+            []
+        ) === true ? 'allowed' : 'refused';
+        foreach ([1, 2, 3, 4, 6, 9, 10, 11] as $q) {
+            $say('qty_' . $q, $allow($q));
+        }
+        if (function_exists('wc_clear_notices')) {
+            wc_clear_notices();
+        }
+        $restoreGate();
+        break;
+
     case 'reset':
         $id = $findBySku(TMC_P46_SKU);
         if ($id > 0) {
