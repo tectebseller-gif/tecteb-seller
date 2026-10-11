@@ -216,7 +216,7 @@ probe تازه و یک اسکریپت بازتولید تازه. قاعدهٔ `P
 | `alpha47-reproduction.sh` روی ووکامرس ۱۱٫۰٫۱ واقعی | **۶۲** | نقص روی بایت‌های `alpha.46`، بعد اصلاح، بعد دو کنترل؛ هر اندازه‌گیری در درخواست خودش؛ `src/` بایت‌به‌بایت برگشت (۵۱۱ فایل) |
 | `alpha46-reproduction.sh` (رگرسیون) | **۷۱** | ۰ شکست |
 | `alpha44-reproduction.sh` (رگرسیون) | **۴۵** | ۰ شکست |
-| `upgrade-alpha44-check.sh` با **هر دو** مبنا | **۸۸ دو بار** | `alpha.44` ⇒ ۵۵ (`structural=yes`، migration ۲۴ — مسیر واقعی staging) · `alpha.46` ⇒ ۳۳ (`structural=no`) |
+| `upgrade-alpha44-check.sh` با **هر دو** مبنا | **۸۸ دو بار** | `alpha.44` ⇒ ۵۵ (`structural=yes`، migration ۲۴ — مسیر واقعی staging) · `alpha.46` ⇒ ۳۲ (`structural=no`) |
 | `diff -rq` سه‌طرفه | — | `src/` داخل ZIP، این چک‌اوت و نصب‌شده **یک چیزند** |
 
 ### `Not Run` — **نه «قبول»**

@@ -1,0 +1,203 @@
+new package: 0.1.0-alpha.47 (target schema 24) · step 0024_purchase_step
+column: purchase_step on tmc_products
+ok:   the admin session really opened                                200
+
+================================================================
+=== 0.1.0-alpha.44 (schema 23) -> 0.1.0-alpha.47 (schema 24) · structural=yes
+================================================================
+ok:   1 the install is 0.1.0-alpha.44                                0.1.0-alpha.44
+ok:   1b on schema 23                                                23
+ok:   1c the step column is absent                                   0
+ok:   1e and the old build serves wp-admin                           200
+  reused=1
+product=1277
+found=1
+min=1
+max=null
+has_field=0
+step=no-field
+ok:   2 the old build wrote a product through its own repository     1
+  reset=1
+product=1277
+found=1
+min=1
+max=null
+has_field=0
+step=no-field
+ok:   2a the fixture was returned to its pre-upgrade rule            1
+ok:   2a2 which is «no minimum, no maximum»                        1/null
+ok:   2b and had nowhere to put a step                               no-field
+ok:   2c nor any field to read                                       0
+ok:   3 the files are now 0.1.0-alpha.47                             0.1.0-alpha.47
+ok:   3b replacing files runs no migration by itself                 23
+ok:   3c the first admin request answers 200                         200
+ok:   3d and the gate has moved the schema to 24                     24
+ok:   3e the step column exists                                      1
+ok:   3f with default 1 and NOT NULL, which is the shape verify() demands 1/NO
+ok:   3g no migration error was recorded                             
+  product=1277
+found=1
+min=1
+max=null
+has_field=1
+step=1
+ok:   4 the pre-upgrade product's step is 1 in the column            1
+ok:   4b which the plugin reads back as «no stepping»              1
+ok:   4e the two numbers it works with are untouched by the upgrade  1/null
+ok:   4c and the field is readable at all now                        1
+ok:   4d no row anywhere was left at zero                            0
+  wrote=1
+product=1277
+found=1
+min=2
+max=6
+has_field=1
+step=2
+ok:   4f a vendor writing the rule stores exactly what they wrote    2
+ok:   4g with its minimum and maximum                                2/6
+ok:   4h with the new files on disk, the column really is absent     0
+ok:   4i and the schema is still the old one                         23
+  absent_column: WordPress database error Unknown column 'purchase_step' in 'SET' for query UPDATE `wp_tmc_products` SET stock = 20, sku = 'SKU-STEP-STATE', min_purchase = 2, max_purchase = 6, `purchase_step` = 2, updated_at = '2026-10-11 17:58:17' WHERE id = 1277 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, EvalFile_Command::{closure:phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code:103}, ReflectionMethod->invokeArgs, Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository->updateInventory, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+wrote=0
+product=1277
+found=1
+min=2
+max=6
+has_field=1
+step=1
+ok:   4j a product save is REFUSED against the missing column        0
+ok:   4k and the version on disk is the NEW one, not the base        0.1.0-alpha.47
+ok:   5 a same-named column of the wrong shape is really in the way  1
+ok:   5b and its shape is not the one verify() demands               0/YES
+ok:   5c the admin request still answers 200                         200
+ok:   5d the site stays on schema 23, which is 0.1.0-alpha.44 and works 23
+  last_error={"step":"0024_purchase_step","message":"verify_failed","at":"2026-10-11T17:58:27+00:00"}
+ok:   5e the reason is recorded, naming the step                     1
+ok:   5f and the vendor's product is untouched                       1
+  wrote=1
+product=1277
+found=1
+min=2
+max=6
+has_field=1
+step=2
+ok:   5g against a same-named column of the wrong shape the save LANDS 1
+ok:   5g2 and the value it wrote is readable, so nothing warns       2
+ok:   5h and the version on disk is still the new one                0.1.0-alpha.47
+ok:   5i so what is behind is the schema, not the code               23
+  retry_cooldown_seconds=300
+ok:   5j the cooldown is a real number read from UpgradeGate         yes
+ok:   5k an admin request inside the cooldown does not retry         same
+ok:   6 the next admin request answers 200                           200
+ok:   6b the schema reaches 24                                       24
+ok:   6c the column is the right shape this time                     1/NO
+ok:   6d and the error is cleared                                    
+ok:   7 a second admin request answers 200                           200
+ok:   7b the column count did not move                               38
+ok:   7c and the schema is still 24                                  24
+ok:   8 the old build serves wp-admin with the new schema recorded   200
+ok:   8b it does not take the schema back down                       24
+ok:   8c the column is still there — nothing is dropped on the way back 1
+  product=1277
+found=1
+min=2
+max=6
+has_field=0
+step=no-field
+ok:   8d the old build cannot read the field at all                  0
+ok:   8e but the step is still ON DISK, not lost                     2
+ok:   8f and so are the two numbers it works with                    2/6
+ok:   9 forward again answers 200                                    200
+ok:   9b the schema is 24                                            24
+  product=1277
+found=1
+min=2
+max=6
+has_field=1
+step=2
+ok:   9c and the rule the vendor wrote is read again, unchanged      2/6/2
+
+================================================================
+=== 0.1.0-alpha.46 (schema 24) -> 0.1.0-alpha.47 (schema 24) · structural=no
+================================================================
+ok:   1 the install is 0.1.0-alpha.46                                0.1.0-alpha.46
+ok:   1b on schema 24                                                24
+ok:   1c the step column is already there                            1
+ok:   1d and already the right shape                                 1/NO
+ok:   1e and the old build serves wp-admin                           200
+  reused=1
+product=1277
+found=1
+min=1
+max=null
+has_field=1
+step=1
+ok:   2 the old build wrote a product through its own repository     1
+  reset=1
+product=1277
+found=1
+min=1
+max=null
+has_field=1
+step=1
+ok:   2a the fixture was returned to its pre-upgrade rule            1
+ok:   2a2 which is «no minimum, no maximum»                        1/null
+  wrote=1
+product=1277
+found=1
+min=2
+max=6
+has_field=1
+step=2
+ok:   2b the old build wrote a step of its own                       2
+ok:   3 the files are now 0.1.0-alpha.47                             0.1.0-alpha.47
+ok:   3b replacing files runs no migration by itself                 24
+ok:   3c the first admin request answers 200                         200
+ok:   3d and the gate has moved the schema to 24                     24
+ok:   3e the step column exists                                      1
+ok:   3f with default 1 and NOT NULL, which is the shape verify() demands 1/NO
+ok:   3g no migration error was recorded                             
+  product=1277
+found=1
+min=2
+max=6
+has_field=1
+step=2
+ok:   4 there was no migration, so what the old build wrote stands   2
+ok:   4b and the plugin reads the same step back                     2
+ok:   4e with the two numbers it works with                          2/6
+ok:   4c and the field is readable at all now                        1
+ok:   4d no row anywhere was left at zero                            0
+  wrote=1
+product=1277
+found=1
+min=2
+max=6
+has_field=1
+step=2
+ok:   4f a vendor writing the rule stores exactly what they wrote    2
+ok:   4g with its minimum and maximum                                2/6
+  stages 5-7 skipped: structural=no, so there is no migration step to fail, resume or re-run
+ok:   8 the old build serves wp-admin with the new schema recorded   200
+ok:   8b it does not take the schema back down                       24
+ok:   8c the column is still there — nothing is dropped on the way back 1
+  product=1277
+found=1
+min=2
+max=6
+has_field=1
+step=2
+ok:   8d the old build reads the field, because it has always had it 1
+ok:   8e but the step is still ON DISK, not lost                     2
+ok:   8f and so are the two numbers it works with                    2/6
+ok:   9 forward again answers 200                                    200
+ok:   9b the schema is 24                                            24
+  product=1277
+found=1
+min=2
+max=6
+has_field=1
+step=2
+ok:   9c and the rule the vendor wrote is read again, unchanged      2/6/2
+
+checks=88 pass=88 fail=0
