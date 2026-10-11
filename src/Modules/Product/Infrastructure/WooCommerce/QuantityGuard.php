@@ -95,6 +95,16 @@ final class QuantityGuard
             if ($rule === null) {
                 return $args;           // not ours, or nothing to say
             }
+            // AN IMPOSSIBLE RULE WIDENS NOTHING. There is no min/max/step
+            // triple that expresses «no quantity at all» through this filter —
+            // `wc_get_quantity_input_args()` reads a `max_value` of 0 as «no
+            // maximum» — so the numbers are left exactly as WooCommerce
+            // computed them and every validator below refuses instead. Writing
+            // our own numbers here would be the one thing contradictory data
+            // must not do: change what may be bought.
+            if (!$rule->isSatisfiable()) {
+                return $args;
+            }
             $args['min_value'] = $rule->min;
             $args['step'] = $rule->step;
             $ceiling = $rule->largestAllowed();
@@ -226,6 +236,14 @@ final class QuantityGuard
         if (method_exists($product, 'is_sold_individually') && $product->is_sold_individually() === true) {
             self::recordContradiction($product);
             return null;
+        }
+        // An UNSATISFIABLE rule is returned, not dropped: dropping it would
+        // let the product be bought under WooCommerce's own defaults, which is
+        // exactly the increase in purchase permission that contradictory data
+        // must not produce. It is recorded too, so the manager's screens can
+        // say why the product cannot be bought.
+        if (!$rule->isSatisfiable()) {
+            self::recordContradiction($product, 'unsatisfiable');
         }
         return $rule;
     }
@@ -360,7 +378,7 @@ final class QuantityGuard
      * Written only when it changes, so a product in this state does not take
      * a database write on every page view.
      */
-    private static function recordContradiction(mixed $product): void
+    private static function recordContradiction(mixed $product, string $kind = 'sold_individually'): void
     {
         if (!method_exists($product, 'get_id') || !function_exists('update_post_meta')) {
             return;
@@ -369,8 +387,8 @@ final class QuantityGuard
         if ($id <= 0) {
             return;
         }
-        if ((string) get_post_meta($id, self::CONTRADICTION_META, true) !== 'sold_individually') {
-            update_post_meta($id, self::CONTRADICTION_META, 'sold_individually');
+        if ((string) get_post_meta($id, self::CONTRADICTION_META, true) !== $kind) {
+            update_post_meta($id, self::CONTRADICTION_META, $kind);
         }
     }
 

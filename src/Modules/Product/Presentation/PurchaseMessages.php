@@ -100,6 +100,7 @@ final class PurchaseMessages
                 $fa($rule->step),
                 $fa($rule->min)
             ),
+            PurchaseQuantity::UNSATISFIABLE => __('قاعدهٔ تعداد خرید این کالا ناسازگار است و تا اصلاح آن، خرید این کالا ممکن نیست. لطفاً با فروشنده یا مدیر بازارگاه تماس بگیرید.', 'tecteb-marketplace-core'),
             default => __('تعداد انتخابی برای این کالا مجاز نیست.', 'tecteb-marketplace-core'),
         };
     }

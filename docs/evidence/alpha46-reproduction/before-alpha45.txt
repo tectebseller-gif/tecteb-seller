@@ -1,0 +1,72 @@
+# alpha.45 bytes — the five findings, measured before any change
+# commit: bee5f170c008ce8fd3fb9e5f86706a9242d559aa
+# wp 7.1 · wc 11.0.1 · schema 24
+
+## rule-ceiling
+probe=ran
+stated_10_11_4=effective=12/12/4_raised_ceiling=YES_satisfiable=n/a
+stated_3_10_3=effective=3/9/3_raised_ceiling=no_satisfiable=n/a
+stated_5_7_5=effective=5/5/5_raised_ceiling=no_satisfiable=n/a
+stated_2_6_2=effective=2/6/2_raised_ceiling=no_satisfiable=n/a
+stated_1_100_7=effective=7/98/7_raised_ceiling=no_satisfiable=n/a
+
+## rule-invalid-max
+probe=ran
+stated_5_2_1=max=UNLIMITED_allows_9999=YES_satisfiable=n/a
+stated_3_0_1=max=UNLIMITED_allows_9999=YES_satisfiable=n/a
+stated_10_1_1=max=UNLIMITED_allows_9999=YES_satisfiable=n/a
+
+## rule-one-answer
+probe=ran
+service_10_11_4=inventory_saved
+service_3_10_3=inventory_saved
+csv_10_11_4=csv_row_ok
+csv_3_10_3=csv_row_ok
+panel_10_11_4_rows_before=2/6/2
+panel_10_11_4_rows_after=12/12/4
+
+## panel-invalid
+probe=ran
+rows_before=2/6/2
+record_before=max,min,purchase_step
+form_fields=tmc_min_purchase,tmc_max_purchase,tmc_purchase_step,tmc_quantity_panel
+rows_after=6/empty/2
+record_after=__none__
+
+## panel-title-only
+probe=ran
+rows_before=2/6/2
+record_before=max,min,purchase_step
+rows_after=2/6/2
+record_after=__none__
+vendor_change_code=inventory_saved
+rows_after_vendor_change=2/6/2
+vendor_change_applied=NO
+conflicts=_tmc_max_purchase
+
+## panel-one-rule
+probe=ran
+rows_after=2/4/2
+record_after=__none__
+record_keeps_min_and_step=NO
+rows_after_vendor_min=2/4/2
+manager_max_survived=yes
+vendor_min_applied=NO
+
+## panel-return-auto
+probe=ran
+after_manager_edit=2/4/2
+record_after_manager_edit=__none__
+panel_offers_a_reset_control=no
+rows_after_reset=1/empty/1
+record_after_reset=__none__
+rows_after_reprojection=1/empty/1
+back_to_automatic=NO
+
+## brand-persists
+probe=ran
+save_code=revision_requested
+brand_on_step1=برندی_که_فروشنده_نوشته
+brand_on_step1_again=برندی_که_فروشنده_نوشته
+brand_after_step2_visit=carried
+row_brand_untouched=yes

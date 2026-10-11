@@ -250,6 +250,39 @@ for BASE_ZIP in $BASES; do
     check "5f and the vendor's product is untouched" \
       "$(dbq "SELECT COUNT(*) FROM \`$PRODUCTS\` WHERE id = $PRODUCT")" "1"
 
+    # ---- stage 5g: WHAT A FAILED UPGRADE ACTUALLY LEAVES RUNNING ---------
+    #
+    # Measured because the checklist used to say the wrong thing: «the site
+    # keeps working on the previous package». It does NOT. The NEW files are
+    # on disk and active; what is behind is the DATABASE. So this build runs
+    # against a schema that has no `purchase_step` column, and a product save
+    # — which writes that column — is what pays for it.
+    #
+    # Reported rather than guessed: the fixture's own write is attempted and
+    # its answer printed.
+    WROTE_ON_OLD_SCHEMA="$(state write)"; say "  $WROTE_ON_OLD_SCHEMA"
+    check "5g a product save is REFUSED while the schema is behind" \
+      "$(field_of "$WROTE_ON_OLD_SCHEMA" wrote)" "0"
+    check "5h and the version on disk is still the new one" \
+      "$(wpx plugin get tecteb-marketplace-core --field=version)" "$NEW_EXPECT"
+    check "5i so what is behind is the schema, not the code" \
+      "$(wpx option get tmc_schema_version)" "$BASE_SCHEMA"
+    # And the retry is automatic but THROTTLED — read from the class, never
+    # typed here (`alpha.33`: a number written by hand breaks the next round).
+    COOLDOWN="$(sed -n 's/.*RETRY_COOLDOWN_SECONDS = \([0-9]*\).*/\1/p' \
+      "$REPO/src/Core/Migration/UpgradeGate.php" | head -1)"
+    say "  retry_cooldown_seconds=$COOLDOWN"
+    check "5j the cooldown is a real number read from UpgradeGate" \
+      "$([ -n "$COOLDOWN" ] && [ "$COOLDOWN" -gt 0 ] && echo yes || echo no)" "yes"
+    # An admin request INSIDE the cooldown must not retry, so the schema stays
+    # put and the error is not rewritten.
+    ERROR_AT_BEFORE="$(printf '%s' "$LAST_ERROR" | sed -n 's/.*"at":"\([^"]*\)".*/\1/p')"
+    admin_request "$JAR" >/dev/null
+    ERROR_AT_AFTER="$(wpx option get tmc_migration_last_error --format=json 2>/dev/null \
+      | sed -n 's/.*"at":"\([^"]*\)".*/\1/p')"
+    check "5k an admin request inside the cooldown does not retry" \
+      "$([ "$ERROR_AT_BEFORE" = "$ERROR_AT_AFTER" ] && echo same || echo retried)" "same"
+
     # ---- stage 6: the resume finishes the job ---------------------------
     dbq "ALTER TABLE \`$PRODUCTS\` DROP COLUMN \`$COL_STEP\`" >/dev/null
     wpx option delete tmc_migration_last_error >/dev/null 2>&1

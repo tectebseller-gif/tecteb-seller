@@ -50,18 +50,123 @@ final class PurchaseQuantityTest extends TestCase
     }
 
     /**
-     * A maximum below the minimum is dropped rather than honoured.
+     * A maximum below the minimum is NOT «no maximum».
      *
-     * It is refused on the way in, so a rule object only ever sees one if a
-     * row was written before this round or by a hand that bypassed the form —
-     * and «no maximum» sells while «a maximum of nought» would take the
-     * product off sale without a word.
+     * `alpha.45` dropped it to `null`, and `null` is unlimited — so a vendor
+     * who typed «at most 2» got a rule allowing 9,999. The question is never
+     * which reading sells; it is which reading can only ever sell LESS than
+     * the vendor asked for.
      */
-    public function testAMaximumBelowTheMinimumIsDroppedNotHonoured(): void
+    public function testAMaximumBelowTheMinimumIsRefusedNotTurnedIntoUnlimited(): void
     {
-        self::assertNull(PurchaseQuantity::of(3, 2)->max);
-        self::assertNull(PurchaseQuantity::of(1, 0)->max);
-        self::assertTrue(PurchaseQuantity::of(3, 2)->allows(3));
+        foreach ([[3, 2], [1, 0], [10, 1]] as [$min, $max]) {
+            $rule = PurchaseQuantity::of($min, $max);
+            self::assertFalse($rule->isSatisfiable(), "{$min}/{$max} cannot be satisfied");
+            self::assertNotNull($rule->max, 'the stated maximum is kept for the message, not dropped');
+            self::assertFalse($rule->allows(9999), 'an invalid maximum must never become unlimited');
+            self::assertFalse($rule->allows($min));
+            self::assertSame(PurchaseQuantity::UNSATISFIABLE, $rule->check($min));
+        }
+    }
+
+    /**
+     * THE CEILING IS NEVER RAISED — the whole of §1, as its own test.
+     *
+     * Deliberately NOT the parity measurement against WooCommerce's
+     * `QuantityLimits`: that compares two implementations and both of them
+     * raise, so it cannot see this. WooCommerce's
+     * `$maximum = max( $minimum, … )` is the one line this object does not
+     * follow, and the property has to be asserted directly.
+     */
+    public function testTheStatedCeilingIsNeverExceeded(): void
+    {
+        foreach (range(1, 14) as $min) {
+            foreach (range(1, 14) as $max) {
+                foreach (range(1, 6) as $step) {
+                    $rule = PurchaseQuantity::of($min, $max, $step);
+                    if (!$rule->isSatisfiable()) {
+                        // Nothing is allowed, so nothing can exceed anything.
+                        self::assertFalse($rule->allows($max + 1));
+                        continue;
+                    }
+                    self::assertNotNull($rule->largestAllowed());
+                    self::assertLessThanOrEqual(
+                        $max,
+                        $rule->largestAllowed(),
+                        "of({$min}, {$max}, {$step}) raised the vendor's ceiling"
+                    );
+                    // …and nothing above the stated maximum is ever allowed.
+                    foreach (range($max + 1, $max + 8) as $over) {
+                        self::assertFalse(
+                            $rule->allows($over),
+                            "of({$min}, {$max}, {$step}) allows {$over}, above the stated maximum"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * A window with no multiple in it is refused, not widened.
+     *
+     * `min = 10, max = 11, step = 4`: `alpha.45` answered `12/12` — eleven
+     * became twelve. There is no fourth multiple between ten and eleven, so
+     * the only honest answers are «refuse» or «raise», and raising is the one
+     * thing a ceiling must not do.
+     */
+    public function testAWindowWithNoMultipleInItIsUnsatisfiable(): void
+    {
+        $rule = PurchaseQuantity::of(10, 11, 4);
+        self::assertFalse($rule->isSatisfiable());
+        self::assertFalse($rule->allows(12), 'twelve is above the stated maximum of eleven');
+        self::assertFalse($rule->allows(11));
+        self::assertFalse($rule->allows(8), 'eight is below the stated minimum of ten');
+        self::assertFalse($rule->isUnrestricted());
+        self::assertNull($rule->largestAllowed());
+    }
+
+    /**
+     * `validate()` is the one rule all four doors ask, and it names what is
+     * wrong.
+     */
+    public function testValidateNamesEachRefusalAndPassesWhatIsWorkable(): void
+    {
+        self::assertNull(PurchaseQuantity::validate(1, null, 1));
+        self::assertNull(PurchaseQuantity::validate(3, 10, 3));
+        self::assertNull(PurchaseQuantity::validate(2, 6, 2));
+        self::assertNull(PurchaseQuantity::validate(5, 5, 5));
+
+        self::assertSame(PurchaseQuantity::INVALID_MIN, PurchaseQuantity::validate(0, null, 1));
+        self::assertSame(PurchaseQuantity::INVALID_STEP, PurchaseQuantity::validate(1, null, 0));
+        self::assertSame(PurchaseQuantity::INVALID_MAX, PurchaseQuantity::validate(5, 2, 1));
+        self::assertSame(PurchaseQuantity::INVALID_MAX, PurchaseQuantity::validate(1, 0, 1));
+        self::assertSame(PurchaseQuantity::NO_MULTIPLE, PurchaseQuantity::validate(10, 11, 4));
+
+        // Every combination `validate()` passes must produce a satisfiable
+        // rule, and every one it refuses must not. Two statements about the
+        // same pair of methods that would otherwise be free to drift.
+        foreach (range(1, 14) as $min) {
+            foreach (range(1, 14) as $max) {
+                foreach (range(1, 6) as $step) {
+                    self::assertSame(
+                        PurchaseQuantity::validate($min, $max, $step) === null,
+                        PurchaseQuantity::of($min, $max, $step)->isSatisfiable(),
+                        "validate() and of() disagree about {$min}/{$max}/{$step}"
+                    );
+                }
+            }
+        }
+    }
+
+    /** A refusal names two maxima that would work, so it can be acted on. */
+    public function testWorkableAroundNamesValuesTheRuleWouldAccept(): void
+    {
+        [$below, $above] = PurchaseQuantity::workableAround(11, 4);
+        self::assertSame(8, $below);
+        self::assertSame(12, $above);
+        self::assertNull(PurchaseQuantity::validate(8, $above, 4), 'the value named above must work');
+        self::assertNull(PurchaseQuantity::validate(4, $below, 4), 'the value named below must work');
     }
 
     /**
@@ -94,20 +199,23 @@ final class PurchaseQuantityTest extends TestCase
     }
 
     /**
-     * A maximum that floors below the minimum is raised to it, never left
-     * below — WooCommerce's `max( $minimum, … )`.
+     * A maximum that floors to exactly the raised minimum is fine.
      *
-     * Without that line `min = 5, step = 5, max = 7` would floor the maximum
-     * to 5 and… happen to agree. `min = 6, step = 6, max = 7` floors to 6 and
-     * agrees too. The case that needs the line is one where flooring lands
-     * under the raised minimum, and this is it.
+     * The boundary worth pinning: `min = 5, step = 5, max = 7` floors to 5,
+     * which IS the effective minimum, so the rule is satisfiable and allows
+     * exactly one quantity. One step further out — `min = 10, max = 11,
+     * step = 4` — and there is nothing in the window at all, which the test
+     * above covers.
      */
-    public function testAMaximumThatFloorsBelowTheMinimumIsRaisedToIt(): void
+    public function testAMaximumThatFloorsToExactlyTheMinimumAllowsThatOneQuantity(): void
     {
-        $rule = PurchaseQuantity::of(10, 11, 4);
-        self::assertSame(12, $rule->min, 'ceil(10/4)*4');
-        self::assertSame(12, $rule->max, 'floor(11/4)*4 = 8, raised to the minimum');
-        self::assertTrue($rule->allows(12));
+        $rule = PurchaseQuantity::of(5, 7, 5);
+        self::assertTrue($rule->isSatisfiable());
+        self::assertSame(5, $rule->min);
+        self::assertSame(5, $rule->max, 'floored to 5, never raised to 7');
+        self::assertTrue($rule->allows(5));
+        self::assertFalse($rule->allows(7), 'seven is not a multiple of five');
+        self::assertFalse($rule->allows(10), 'ten is above the stated maximum of seven');
     }
 
     /** The reasons are named, and the minimum outranks the step. */
@@ -135,8 +243,10 @@ final class PurchaseQuantityTest extends TestCase
             PurchaseQuantity::of(2, 10),
             PurchaseQuantity::of(2, null, 3),
             PurchaseQuantity::of(3, 10, 3),
-            PurchaseQuantity::of(10, 11, 4),
+            PurchaseQuantity::of(5, 7, 5),
+            PurchaseQuantity::of(12, 20, 4),
         ] as $rule) {
+            self::assertTrue($rule->isSatisfiable(), 'this test is about rules that allow something');
             foreach (range(0, 20) as $wanted) {
                 $near = $rule->nearestAllowed($wanted);
                 self::assertTrue(
@@ -153,5 +263,8 @@ final class PurchaseQuantityTest extends TestCase
         self::assertFalse(PurchaseQuantity::of(2, null)->isUnrestricted());
         self::assertFalse(PurchaseQuantity::of(1, 5)->isUnrestricted());
         self::assertFalse(PurchaseQuantity::of(1, null, 2)->isUnrestricted());
+        // An unsatisfiable rule is not «unrestricted» either, however the
+        // numbers read: nothing is allowed under it.
+        self::assertFalse(PurchaseQuantity::of(10, 11, 4)->isUnrestricted());
     }
 }

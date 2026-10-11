@@ -510,6 +510,20 @@ final class ProductMessages
                 )
                 : __('حداکثر خرید از حداقل خرید کمتر است. برای «بدون سقف» کادر حداکثر را خالی بگذارید. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
             'bad_quantity_step' => __('گام تعداد دست‌کم ۱ است. برای «هر تعدادی» عدد ۱ را بگذارید یا کادر را خالی بگذارید. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+            // The window with no multiple in it. Refused rather than widened,
+            // and the message names two maxima that WOULD work — a refusal
+            // that cannot be acted on is a refusal that gets pressed through.
+            'bad_quantity_unreachable' => isset($context['min'], $context['max'], $context['step'])
+                ? sprintf(
+                    /* translators: 1: step, 2: minimum, 3: maximum, 4: a workable maximum below, 5: one above */
+                    __('با گام %1$s، بین حداقل خرید %2$s و حداکثر خرید %3$s هیچ تعداد مجازی وجود ندارد. حداکثر %4$s یا %5$s کار می‌کند. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $context['step']),
+                    PersianDigits::toPersian((string) $context['min']),
+                    PersianDigits::toPersian((string) $context['max']),
+                    PersianDigits::toPersian((string) ($context['workable_below'] ?? '')),
+                    PersianDigits::toPersian((string) ($context['workable_above'] ?? ''))
+                )
+                : __('حداقل، حداکثر و گام تعداد با هم ناسازگارند: هیچ تعداد مجازی بین آن دو نیست. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
             'sku_taken' => ($context['sku'] ?? '') !== ''
                 ? sprintf(__('کد SKU «%s» روی محصول دیگری از همین فروشگاه ثبت شده است.', 'tecteb-marketplace-core'), (string) $context['sku'])
                 : __('این کد SKU روی محصول دیگری از همین فروشگاه ثبت شده است.', 'tecteb-marketplace-core'),

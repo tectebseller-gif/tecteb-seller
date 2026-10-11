@@ -62,15 +62,41 @@ namespace Tecteb\Marketplace\Modules\Product\Domain;
  *    effective minimum is the minimum and the effective maximum is the
  *    maximum. Nothing about an existing product changes.
  *
+ *    **One of WooCommerce's two lines is NOT followed, deliberately.** Its
+ *    `$maximum = max( $minimum, … )` raises a ceiling that floors below the
+ *    minimum; this object refuses instead. So parity with `QuantityLimits`
+ *    holds for every SATISFIABLE rule and is measured that way — and parity
+ *    is not, and was never, evidence that the declared ceiling is kept. That
+ *    needs its own test, and has one.
+ *
  *    Whether the plugin being retired counted its «group of» the same way is
  *    a question about that plugin, and it is **not answered here**: it needs
  *    the real file, and if it differs, re-reading old rules is the owner's
  *    decision. See `docs/phase-43-purchase-quantity-and-plugin-exit.md` §3.
- *  - **a maximum need not be reachable.** With `min = 3, step = 3, max = 10`
- *    the largest allowed quantity is 9. The combination is accepted rather
- *    than refused, because refusing it would reject a perfectly sensible
- *    «up to ten, in threes», and `largestAllowed()` names the real ceiling
- *    wherever one is shown.
+ *  - **a maximum need not be reachable EXACTLY, but it is never raised.**
+ *    With `min = 3, step = 3, max = 10` the largest allowed quantity is 9:
+ *    the ceiling is floored to a multiple, which lowers it. «Up to ten, in
+ *    threes» is a sensible rule and is accepted.
+ *  - **and a window with NO multiple in it is REFUSED, not widened.** With
+ *    `min = 10, max = 11, step = 4` there is no multiple of four between ten
+ *    and eleven. `alpha.45` answered `12/12` here — it applied WooCommerce's
+ *    `max( $minimum, … )` line and so handed a vendor who had said «at most
+ *    eleven» a rule allowing twelve. A ceiling is a ceiling; raising one is
+ *    the one thing this object must never do, and a unit test asserting
+ *    `12/12` was the defect written down as an expectation.
+ *
+ *    So that combination is `UNSATISFIABLE`: `validate()` refuses it on the
+ *    way in at all four doors, and a rule object that nonetheless holds it —
+ *    a row written before this round, or by a hand that bypassed the form —
+ *    allows NOTHING and says so. Refusing is the only reading that cannot
+ *    increase what may be bought, which is what «بدون افزایش مجوز خرید»
+ *    requires of inconsistent data that already exists.
+ *  - **an invalid maximum is not «no maximum».** `alpha.45` turned `max < min`
+ *    into `null`, and `null` means unlimited — measured: `min=5 max=2` allowed
+ *    9,999. That is the largest possible increase in purchase permission, and
+ *    the comment defending it («no maximum sells») had the test backwards: the
+ *    question is not which reading sells, it is which reading can only ever
+ *    sell LESS than the vendor asked for.
  *  - **the rule is per SELLABLE ITEM.** For a simple product that is the
  *    product; for a variable one it is each VARIATION, which is what a buyer
  *    actually chooses and what holds the stock. A variable product has no
@@ -94,11 +120,99 @@ final class PurchaseQuantity
     public const ABOVE_MAX = 'above_max';
     public const OFF_STEP = 'off_step';
 
+    /**
+     * No quantity at all satisfies this rule, so nothing may be bought under
+     * it. Only reachable from data written before `alpha.46` or around the
+     * form, because `validate()` refuses it at every door.
+     */
+    public const UNSATISFIABLE = 'unsatisfiable';
+
+    /**
+     * Why an incoming combination is refused, or `null`.
+     *
+     * These are the refusal CODES the whole plugin uses, and they live here
+     * rather than in each caller because «قاعده در فرم فروشنده، پنل مدیر،
+     * واردکننده و مسیر تأیید یکسان باشد»: four doors, one rule. Before this
+     * round the vendor form, the CSV importer and the admin panel each had
+     * their own copy of the comparison, and the panel's copy did not refuse at
+     * all — it coerced.
+     */
+    public const INVALID_MIN = 'bad_quantity';
+    public const INVALID_MAX = 'bad_quantity_max_below_min';
+    public const INVALID_STEP = 'bad_quantity_step';
+    public const NO_MULTIPLE = 'bad_quantity_unreachable';
+
     private function __construct(
+        /** The effective minimum: the stated one, raised to a multiple. */
         public readonly int $min,
+        /**
+         * The ceiling.
+         *
+         * `null` means NO MAXIMUM. When `$satisfiable` is false this holds the
+         * STATED maximum instead, so a message can name the impossible window
+         * — and `allows()` answers false for every quantity, so no caller can
+         * read it as permission. Permission is `allows()`; this is for text.
+         */
         public readonly ?int $max,
-        public readonly int $step
+        public readonly int $step,
+        public readonly bool $satisfiable = true
     ) {
+    }
+
+    /** Whether any quantity at all satisfies this rule. */
+    public function isSatisfiable(): bool
+    {
+        return $this->satisfiable;
+    }
+
+    /**
+     * Why this combination may not be stored, or `null` when it may.
+     *
+     * Called BEFORE any write by every door. A refusal therefore leaves the
+     * three stored values, and everything else on the product, exactly as
+     * they were.
+     */
+    public static function validate(int $min, ?int $max, int $step): ?string
+    {
+        if ($min < 1) {
+            return self::INVALID_MIN;
+        }
+        if ($step < 1) {
+            return self::INVALID_STEP;
+        }
+        if ($max === null) {
+            return null;                // no maximum: nothing to contradict
+        }
+        // Zero lands here and that is deliberate: «unlimited» is an EMPTY box,
+        // never a zero, and a maximum of nought would take the product off
+        // sale.
+        if ($max < $min) {
+            return self::INVALID_MAX;
+        }
+        if (self::toMultiple($max, $step, 'floor') < self::effectiveMinimum($min, $step)) {
+            return self::NO_MULTIPLE;
+        }
+        return null;
+    }
+
+    /**
+     * The two multiples of the step that bracket an impossible window, so a
+     * refusal can name values that would work.
+     *
+     * @return array{0:int,1:int} the largest allowed at or below, then the
+     *                            smallest at or above
+     */
+    public static function workableAround(int $max, int $step): array
+    {
+        $step = max(1, $step);
+        $below = max($step, self::toMultiple(max(1, $max), $step, 'floor'));
+        $above = self::toMultiple(max(1, $max), $step, 'ceil');
+        return [$below, max($above, $below)];
+    }
+
+    private static function effectiveMinimum(int $min, int $step): int
+    {
+        return max($step, self::toMultiple(max(1, $min), $step, 'ceil'));
     }
 
     /**
@@ -112,26 +226,28 @@ final class PurchaseQuantity
     public static function of(int $min, ?int $max, int $step = 1): self
     {
         $step = max(1, $step);
-        // A maximum below the minimum cannot be honoured and must not be
-        // invented away either: it is refused on the way IN
-        // (`bad_quantity_max_below_min`), so reaching here means a row written
-        // before this round or by a hand that bypassed the form. Dropping it
-        // is the conservative reading — «no maximum» sells, «a maximum of
-        // zero» sells nothing and would take a vendor's whole catalogue off
-        // sale without a word.
-        if ($max !== null && $max < max(1, $min)) {
-            $max = null;
+        $statedMin = max(1, $min);
+        // Raising the MINIMUM to a multiple is safe in the one direction that
+        // matters: it can only narrow what may be bought.
+        $effectiveMin = self::effectiveMinimum($statedMin, $step);
+
+        if ($max === null) {
+            return new self($effectiveMin, null, $step);
         }
-        // WooCommerce's own two lines, in WooCommerce's own order. Stored
-        // here rather than recomputed by each reader, so «what does this rule
-        // allow» has one answer: the vendor's form, the product page, the
-        // classic cart, the block cart and the final order check all read
-        // these three numbers.
-        $min = max($step, self::toMultiple(max(1, $min), $step, 'ceil'));
-        if ($max !== null) {
-            $max = max($min, self::toMultiple($max, $step, 'floor'));
+        // An invalid maximum is NOT «no maximum». `alpha.45` dropped it to
+        // `null` here and so allowed 9,999 units for a vendor who had typed
+        // «at most 2».
+        if ($max < $statedMin) {
+            return new self($effectiveMin, $max, $step, false);
         }
-        return new self($min, $max, $step);
+        // FLOORED, never raised. This is the line WooCommerce would follow
+        // with `max( $minimum, … )` and this object does not: a window with no
+        // multiple in it is impossible, not twelve.
+        $effectiveMax = self::toMultiple($max, $step, 'floor');
+        if ($effectiveMax < $effectiveMin) {
+            return new self($effectiveMin, $max, $step, false);
+        }
+        return new self($effectiveMin, $effectiveMax, $step);
     }
 
     /**
@@ -161,7 +277,7 @@ final class PurchaseQuantity
     /** True when this rule allows anything a plain shop would. */
     public function isUnrestricted(): bool
     {
-        return $this->min === 1 && $this->max === null && $this->step === 1;
+        return $this->satisfiable && $this->min === 1 && $this->max === null && $this->step === 1;
     }
 
     /**
@@ -173,6 +289,10 @@ final class PurchaseQuantity
      */
     public function check(int $wanted): string
     {
+        // First, because nothing else about the rule can be acted on.
+        if (!$this->satisfiable) {
+            return self::UNSATISFIABLE;
+        }
         if ($wanted < $this->min) {
             return self::BELOW_MIN;
         }
@@ -199,12 +319,12 @@ final class PurchaseQuantity
      */
     public function largestAllowed(): ?int
     {
-        // `of()` has already floored the maximum to a multiple and raised it
-        // to at least the minimum, so the stored value IS the ceiling. Kept as
-        // a method rather than inlined at the call sites: «the largest allowed
-        // quantity» is a question the messages ask, and the day the arithmetic
-        // moves it must move in one place.
-        return $this->max;
+        // `of()` has already floored the maximum to a multiple, so the stored
+        // value IS the ceiling — and it is never above the one the vendor
+        // stated. `null` for an unsatisfiable rule because there is no largest
+        // allowed quantity when none is allowed; callers decide permission
+        // with `allows()`, never by reading this.
+        return $this->satisfiable ? $this->max : null;
     }
 
     /**
@@ -217,6 +337,12 @@ final class PurchaseQuantity
      */
     public function nearestAllowed(int $wanted): int
     {
+        if (!$this->satisfiable) {
+            // There is no allowed quantity to name. The minimum is returned so
+            // the type holds, and every message about an unsatisfiable rule
+            // goes through its own sentence rather than through this.
+            return $this->min;
+        }
         if ($wanted <= $this->min) {
             return $this->min;
         }

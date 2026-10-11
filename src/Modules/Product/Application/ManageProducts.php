@@ -13,6 +13,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\PurchaseQuantity;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\SensitiveChange;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
@@ -1003,28 +1004,40 @@ final class ManageProducts
 
     private function validateQuantities(int $minPurchase, ?int $maxPurchase, int $purchaseStep = 1): ?OperationResult
     {
-        if ($minPurchase < 1) {
-            return OperationResult::failure('bad_quantity');
-        }
-        // A maximum below the minimum. `0` lands here too and that is
-        // deliberate: a maximum of nought would take the product off sale,
-        // and «unlimited» is an EMPTY box, never a zero.
+        // ONE RULE, FOUR DOORS. The comparison lives in the domain
+        // (`PurchaseQuantity::validate()`) and the vendor form, this service
+        // (which the approval path also goes through), the CSV importer and
+        // the admin panel all ask it. Before `alpha.46` three of them had
+        // their own copy and the fourth — the panel — had none: it coerced
+        // instead of refusing, so «min 5, max 2» became «min 6, no maximum».
         //
-        // The context names both numbers. «مقدار خرید نامعتبر است» with
-        // nothing else sends a vendor to check four fields; this round's §4
-        // asks for a refusal that says what is wrong — and the refusal
-        // happens BEFORE any write, so neither these fields nor any other
-        // are damaged by it.
-        if ($maxPurchase !== null && $maxPurchase < $minPurchase) {
-            return OperationResult::failure('bad_quantity_max_below_min', [
-                'min' => $minPurchase,
-                'max' => $maxPurchase,
-            ]);
+        // The refusal happens BEFORE any write, so neither these three fields
+        // nor anything else on the product is damaged by it, and the context
+        // names the numbers: «مقدار خرید نامعتبر است» with nothing else sends
+        // a vendor to check four boxes.
+        return self::quantityRefusal($minPurchase, $maxPurchase, $purchaseStep);
+    }
+
+    /**
+     * The domain's refusal, as an `OperationResult` with the numbers in it.
+     *
+     * Static and public so the CSV importer reports the same code with the
+     * same context rather than building its own.
+     */
+    public static function quantityRefusal(int $min, ?int $max, int $step): ?OperationResult
+    {
+        $reason = PurchaseQuantity::validate($min, $max, $step);
+        if ($reason === null) {
+            return null;
         }
-        if ($purchaseStep < 1) {
-            return OperationResult::failure('bad_quantity_step', ['step' => $purchaseStep]);
+        $context = ['min' => $min, 'max' => $max, 'step' => $step];
+        if ($reason === PurchaseQuantity::NO_MULTIPLE && $max !== null) {
+            // Two numbers that WOULD work, so the refusal can be acted on.
+            [$below, $above] = PurchaseQuantity::workableAround($max, $step);
+            $context['workable_below'] = $below;
+            $context['workable_above'] = $above;
         }
-        return null;
+        return OperationResult::failure($reason, $context);
     }
 
     /**

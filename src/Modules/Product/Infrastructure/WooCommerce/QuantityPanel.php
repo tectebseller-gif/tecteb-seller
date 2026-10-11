@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 
 use Tecteb\Marketplace\Contracts\ContainerInterface;
+use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\PurchaseQuantity;
@@ -36,6 +37,12 @@ use Tecteb\Marketplace\Modules\Product\Domain\PurchaseQuantity;
 final class QuantityPanel
 {
     public const NONCE = 'tmc_quantity_panel';
+
+    /** The named «hand these rules back» control. */
+    public const RESET = 'tmc_quantity_reset';
+
+    /** Where the outcome of the last panel save waits for its own author. */
+    private const NOTICE_PREFIX = 'tmc_quantity_notice_';
 
     public static function register(ContainerInterface $container): void
     {
@@ -77,8 +84,6 @@ final class QuantityPanel
             // means this save did not come from the panel — a bulk edit, a
             // REST write, another plugin — and then the rows are left exactly
             // as they are rather than reset to the defaults of an empty form.
-            // That is the `alpha.41` lesson about scope: a request that says
-            // nothing about a field must not be read as saying «empty».
             if (!$request->hasPost(self::NONCE)
                 || !wp_verify_nonce($request->postText(self::NONCE), self::NONCE)) {
                 return;
@@ -86,29 +91,246 @@ final class QuantityPanel
             if (!current_user_can('edit_post', $id)) {
                 return;
             }
+
+            // ------------------------------------------------ back to automatic
+            //
+            // A NAMED CONTROL, because the promise needs one. `alpha.45` told
+            // the manager to «leave the fields empty» and emptying them wrote
+            // `1 / no maximum / 1` and left the record deleted — so the
+            // product became permanently manager-owned at an UNLIMITED
+            // ceiling, which is the opposite of handing it back. Measured:
+            // `rows_after_reset=1/empty/1`, `back_to_automatic=NO`.
+            //
+            // Handing back means removing the rows AND the record: the next
+            // projection then finds nothing, writes the marketplace's values
+            // and records them as ours again.
+            if ($request->postChecked(self::RESET)) {
+                self::handBack($id);
+                return;
+            }
+
             $min = trim($request->postText('tmc_min_purchase'));
             $max = trim($request->postText('tmc_max_purchase'));
             $step = trim($request->postText('tmc_purchase_step'));
 
-            // Coerced through the DOMAIN, never written raw. A manager who
-            // types «max 2, min 5» here gets the same answer the vendor form
-            // gives — `of()` drops an unhonourable maximum — rather than a
-            // third interpretation living in an admin screen.
-            $rule = PurchaseQuantity::of(
-                $min === '' ? 1 : (int) $min,
-                $max === '' ? null : (int) $max,
-                $step === '' ? 1 : (int) $step
-            );
-            foreach (ProjectedQuantity::values($rule) as $key => $value) {
-                update_post_meta($id, $key, $value);
+            // ------------------------------------------------------ refuse first
+            //
+            // THE SAME RULE the vendor form and the importer ask. `alpha.45`
+            // coerced here instead of refusing: `min 5, max 2` came out
+            // `min 6, no maximum` — all three rows rewritten, the ceiling
+            // removed and the ownership record deleted, from a request that
+            // should have changed nothing.
+            $wantMin = $min === '' ? 1 : (int) $min;
+            $wantMax = $max === '' ? null : (int) $max;
+            $wantStep = $step === '' ? 1 : (int) $step;
+            $reason = PurchaseQuantity::validate($wantMin, $wantMax, $wantStep);
+            if ($reason !== null) {
+                self::remember($id, 'refused', $reason, [
+                    'min' => $min,
+                    'max' => $max,
+                    'step' => $step,
+                ]);
+                return;                 // NOTHING is written. Not one row.
             }
-            // The manager has taken these rows. Their record is dropped, so
-            // the next projection finds «a row with no record», sees values
-            // that differ from the marketplace's, and leaves them alone —
-            // instead of this panel having to write a second ownership flag
-            // that could disagree with the first.
-            delete_post_meta($id, ProjectedQuantity::OWNED_META);
+
+            // ------------------------------------------- only what really moved
+            //
+            // Written per key, and the ownership record loses ONLY the keys
+            // that moved. Two separate failures of `alpha.45` live here:
+            //
+            //  - it rewrote all three rows on every save, so a manager who
+            //    changed the maximum froze the minimum and the step too;
+            //  - it deleted the whole record UNCONDITIONALLY — and its nonce
+            //    is in the editor on every render, so saving only the title
+            //    handed all three rules to the manager for ever. Measured on
+            //    `alpha.45`: after a title-only save the vendor's legitimate
+            //    change to the maximum stopped applying
+            //    (`vendor_change_applied=NO`, `conflicts=_tmc_max_purchase`).
+            $wanted = ProjectedQuantity::values(
+                PurchaseQuantity::of($wantMin, $wantMax, $wantStep)
+            );
+            $moved = [];
+            foreach ($wanted as $key => $value) {
+                $current = metadata_exists('post', $id, $key)
+                    ? (string) get_post_meta($id, $key, true)
+                    : null;
+                if ($current === $value) {
+                    continue;           // this rule did not move
+                }
+                $moved[$key] = $value;
+            }
+            if ($moved === []) {
+                return;                 // nothing changed; the record stands
+            }
+
+            // --------------------------------------------- write, then re-read
+            //
+            // `update_post_meta()` answers `false` both for a failure and for
+            // «it was already this» (`alpha.44`), so the answer it gives is
+            // not read at all: the row is read BACK and compared. A row that
+            // did not store is reported rather than counted as success, and
+            // its key is NOT removed from the ownership record — because the
+            // manager's value is not there, so the marketplace's is still the
+            // one in force.
+            $stored = [];
+            $failed = [];
+            foreach ($moved as $key => $value) {
+                update_post_meta($id, $key, $value);
+                if ((string) get_post_meta($id, $key, true) === $value) {
+                    $stored[] = $key;
+                    continue;
+                }
+                $failed[] = $key;
+            }
+            if ($stored !== []) {
+                self::releaseKeys($id, $stored);
+            }
+            self::remember(
+                $id,
+                $failed === [] ? 'saved' : 'partly_saved',
+                '',
+                ['stored' => implode(',', $stored), 'failed' => implode(',', $failed)]
+            );
         }, 20, 1);
+
+        // The outcome of the last panel save, once, to the manager who made
+        // it. A refusal that is silent is a refusal the manager reads as a
+        // save.
+        add_action('admin_notices', static function (): void {
+            $notice = get_transient(self::noticeKey());
+            if (!is_array($notice)) {
+                return;
+            }
+            delete_transient(self::noticeKey());
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from esc_html below
+            echo self::notice($notice);
+        }, 20);
+    }
+
+    /**
+     * Hand the three rules back to the marketplace.
+     *
+     * The rows AND the record go, so the next projection finds «no row at
+     * all» — the one state `ProjectedQuantity::merge()` writes into without
+     * asking — and records what it wrote. The conflict list goes too, because
+     * a conflict about a row that no longer exists is a conflict nobody can
+     * act on.
+     */
+    private static function handBack(int $id): void
+    {
+        $left = [];
+        foreach (ProjectedQuantity::keys() as $key) {
+            delete_post_meta($id, $key);
+            if (metadata_exists('post', $id, $key)) {
+                $left[] = $key;         // asked, not assumed
+            }
+        }
+        delete_post_meta($id, ProjectedQuantity::OWNED_META);
+        delete_post_meta($id, ProjectedQuantity::CONFLICT_META);
+        delete_post_meta($id, QuantityGuard::CONTRADICTION_META);
+        self::remember(
+            $id,
+            $left === [] && !metadata_exists('post', $id, ProjectedQuantity::OWNED_META)
+                ? 'handed_back'
+                : 'hand_back_failed',
+            '',
+            ['left' => implode(',', $left)]
+        );
+    }
+
+    /**
+     * Drop only these keys from the ownership record.
+     *
+     * The record is `key => fingerprint`; removing one key hands that rule to
+     * the manager and leaves the others tracking the vendor. A record that
+     * empties out is deleted rather than stored as `[]`, so
+     * `ProjectedQuantity::normalise()` reads «no record» the same way either
+     * way — and the write is READ BACK, because `update_post_meta()` cannot
+     * tell a failure from a no-op.
+     *
+     * @param list<string> $keys
+     */
+    private static function releaseKeys(int $id, array $keys): void
+    {
+        $record = ProjectedQuantity::normalise(get_post_meta($id, ProjectedQuantity::OWNED_META, true));
+        if ($record === []) {
+            return;                     // nothing recorded; nothing to release
+        }
+        foreach ($keys as $key) {
+            unset($record[$key]);
+        }
+        if ($record === []) {
+            delete_post_meta($id, ProjectedQuantity::OWNED_META);
+            return;
+        }
+        update_post_meta($id, ProjectedQuantity::OWNED_META, $record);
+        if (ProjectedQuantity::normalise(get_post_meta($id, ProjectedQuantity::OWNED_META, true)) !== $record) {
+            // The record did not store. Deleted rather than left stale: an
+            // absent record is decided conservatively, a stale one is
+            // believed (`alpha.44`).
+            delete_post_meta($id, ProjectedQuantity::OWNED_META);
+        }
+    }
+
+    private static function noticeKey(): string
+    {
+        return self::NOTICE_PREFIX . (int) get_current_user_id();
+    }
+
+    /** @param array<string,string|int> $context */
+    private static function remember(int $id, string $outcome, string $reason, array $context): void
+    {
+        set_transient(self::noticeKey(), [
+            'product' => $id,
+            'outcome' => $outcome,
+            'reason' => $reason,
+            'context' => $context,
+        ], 60);
+    }
+
+    /** @param array<string,mixed> $notice */
+    private static function notice(array $notice): string
+    {
+        $outcome = (string) ($notice['outcome'] ?? '');
+        $context = is_array($notice['context'] ?? null) ? $notice['context'] : [];
+        $fa = static fn (mixed $v): string => PersianDigits::toPersian((string) $v);
+
+        if ($outcome === 'refused') {
+            $reason = (string) ($notice['reason'] ?? '');
+            $text = match ($reason) {
+                PurchaseQuantity::NO_MULTIPLE => sprintf(
+                    /* translators: 1: step, 2: minimum, 3: maximum, 4: a workable maximum below, 5: one above */
+                    __('با گام %1$s، بین حداقل %2$s و حداکثر %3$s هیچ تعداد مجازی وجود ندارد. حداکثر %4$s یا %5$s کار می‌کند. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+                    $fa($context['step'] ?? ''),
+                    $fa($context['min'] ?? ''),
+                    $fa($context['max'] ?? ''),
+                    $fa(PurchaseQuantity::workableAround((int) ($context['max'] ?? 0), (int) ($context['step'] ?? 1))[0]),
+                    $fa(PurchaseQuantity::workableAround((int) ($context['max'] ?? 0), (int) ($context['step'] ?? 1))[1])
+                ),
+                PurchaseQuantity::INVALID_MAX => sprintf(
+                    /* translators: 1: maximum, 2: minimum */
+                    __('حداکثر خرید (%1$s) از حداقل خرید (%2$s) کمتر است. برای «بدون سقف» کادر حداکثر را خالی بگذارید؛ ۰ پذیرفته نمی‌شود. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+                    $fa($context['max'] ?? ''),
+                    $fa($context['min'] ?? '')
+                ),
+                PurchaseQuantity::INVALID_STEP => __('گام تعداد دست‌کم ۱ است. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+                default => __('حداقل خرید دست‌کم ۱ است. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+            };
+            return '<div class="notice notice-error"><p>' . esc_html($text) . '</p></div>';
+        }
+
+        $text = match ($outcome) {
+            'handed_back' => __('قواعد تعداد خرید به حالت خودکار برگشت: مقدارها و سابقهٔ مالکیت حذف شدند و همگام‌سازی بعدی مقدارهای بازارگاه را می‌نویسد.', 'tecteb-marketplace-core'),
+            'hand_back_failed' => __('بازگرداندن به حالت خودکار کامل نشد؛ دست‌کم یک مقدار روی محصول باقی مانده است. دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+            'partly_saved' => __('بخشی از قواعد تعداد خرید ذخیره نشد. آنچه ذخیره نشده همچنان از بازارگاه می‌آید؛ دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+            'saved' => __('قواعد تعداد خرید ذخیره شد. از این پس همین مقدارها مال شماست و همگام‌سازی دستشان نمی‌زند.', 'tecteb-marketplace-core'),
+            default => '',
+        };
+        if ($text === '') {
+            return '';
+        }
+        $class = in_array($outcome, ['hand_back_failed', 'partly_saved'], true) ? 'notice-warning' : 'notice-success';
+        return '<div class="notice ' . esc_attr($class) . '"><p>' . esc_html($text) . '</p></div>';
     }
 
     /** Whether the editor currently open is one of ours. */
@@ -145,10 +367,19 @@ final class QuantityPanel
 
     private static function panel(int $postId): string
     {
+        // THE STORED VALUES, raw. `alpha.45` rendered the COERCED rule, so a
+        // product holding an impossible `10 / 11 / 4` showed the manager
+        // `12 / 12 / 4` — the one screen that could have let them see and fix
+        // the contradiction hid it, and showed a ceiling the vendor never set.
         $meta = [];
         foreach (ProjectedQuantity::keys() as $key) {
-            $meta[$key] = (string) get_post_meta($postId, $key, true);
+            $meta[$key] = metadata_exists('post', $postId, $key)
+                ? (string) get_post_meta($postId, $key, true)
+                : '';
         }
+        $storedMin = $meta[ProjectedQuantity::META_MIN];
+        $storedMax = $meta[ProjectedQuantity::META_MAX];
+        $storedStep = $meta[ProjectedQuantity::META_STEP];
         $rule = ProjectedQuantity::ruleFrom($meta);
         $held = get_post_meta($postId, ProjectedQuantity::CONFLICT_META, true);
         $heldKeys = is_array($held) ? $held : [];
@@ -184,24 +415,57 @@ final class QuantityPanel
             ) . '</strong></p>';
         }
 
+        // An impossible combination already on the row: named, with two
+        // maxima that would work, and NOT quietly reinterpreted. Until it is
+        // fixed the product cannot be bought — the only reading of
+        // contradictory data that cannot increase what may be bought.
+        if (!$rule->isSatisfiable()) {
+            [$below, $above] = PurchaseQuantity::workableAround(
+                (int) $storedMax,
+                (int) ($storedStep === '' ? 1 : $storedStep)
+            );
+            $html .= '<p style="padding:0 12px;"><strong>' . esc_html(sprintf(
+                /* translators: 1: a workable maximum below, 2: one above */
+                __('هشدار: این سه مقدار با هم ناسازگارند — با این گام هیچ تعداد مجازی بین حداقل و حداکثر نیست، پس تا اصلاح، خرید این کالا ممکن نیست. حداکثر %1$s یا %2$s کار می‌کند.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) $below),
+                PersianDigits::toPersian((string) $above)
+            )) . '</strong></p>';
+        }
+
         $html .= $field(
             'tmc_min_purchase',
             __('حداقل خرید', 'tecteb-marketplace-core'),
-            (string) $rule->min,
+            $storedMin,
             __('خالی یا ۰ یعنی ۱.', 'tecteb-marketplace-core')
         );
         $html .= $field(
             'tmc_max_purchase',
             __('حداکثر خرید', 'tecteb-marketplace-core'),
-            $rule->max === null ? '' : (string) $rule->max,
-            __('خالی یعنی بدون سقف. روی مجموع همین کالا در سبد اعمال می‌شود.', 'tecteb-marketplace-core')
+            $storedMax,
+            __('خالی یعنی بدون سقف. روی مجموع همین کالا در سبد اعمال می‌شود. سقف شما هرگز بالا برده نمی‌شود.', 'tecteb-marketplace-core')
         );
         $html .= $field(
             'tmc_purchase_step',
             __('گام تعداد', 'tecteb-marketplace-core'),
-            (string) $rule->step,
+            $storedStep,
             __('تعداد باید مضربی از این عدد باشد. ۱ یعنی هر تعدادی.', 'tecteb-marketplace-core')
         );
+
+        // THE NAMED CONTROL. Emptying the boxes is not «hand it back» and
+        // never was: it is «no minimum, no maximum, no step», which is a rule
+        // of its own and a wider one. This removes the three rows and the
+        // ownership record, so the next synchronisation writes the
+        // marketplace's values again and owns them.
+        $html .= '<p class="form-field tmc_quantity_reset_field">'
+            . '<label for="tmc-quantity-reset">'
+            . esc_html__('بازگرداندن به حالت خودکار', 'tecteb-marketplace-core') . '</label>'
+            . '<input type="checkbox" class="checkbox" id="tmc-quantity-reset"'
+            . ' name="' . esc_attr(self::RESET) . '" value="1">'
+            . '<span class="description">' . esc_html__(
+                'با ذخیره، این سه مقدار و سابقهٔ مالکیتشان حذف می‌شوند و از همگام‌سازی بعدی، مقدارهای پنل فروشنده برمی‌گردند. مقدارهای بالا نادیده گرفته می‌شوند.',
+                'tecteb-marketplace-core'
+            ) . '</span>'
+            . '</p>';
 
         return $html . wp_nonce_field(self::NONCE, self::NONCE, true, false) . '</div></div>';
     }

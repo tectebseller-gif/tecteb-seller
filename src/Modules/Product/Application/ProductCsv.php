@@ -251,20 +251,18 @@ final class ProductCsv
         if ($details->stock < 0) {
             return OperationResult::failure('bad_stock');
         }
-        if ($details->minPurchase < 1) {
-            return OperationResult::failure('bad_quantity');
-        }
-        // Named, as the form's refusal is. A CSV row refused with
-        // «مقدار خرید نامعتبر است» and nothing else sends a vendor hunting
-        // through a spreadsheet; the report prints the two numbers.
-        if ($details->maxPurchase !== null && $details->maxPurchase < $details->minPurchase) {
-            return OperationResult::failure('bad_quantity_max_below_min', [
-                'min' => $details->minPurchase,
-                'max' => $details->maxPurchase,
-            ]);
-        }
-        if ($details->purchaseStep < 1) {
-            return OperationResult::failure('bad_quantity_step', ['step' => $details->purchaseStep]);
+        // THE SAME RULE the vendor form and the admin panel ask, from the
+        // domain. A CSV row refused with «مقدار خرید نامعتبر است» and nothing
+        // else sends a vendor hunting through a spreadsheet; the report prints
+        // the numbers, and an impossible window is refused here exactly as it
+        // is everywhere else — `alpha.45` accepted `10,11,4` from this door.
+        $quantities = ManageProducts::quantityRefusal(
+            $details->minPurchase,
+            $details->maxPurchase,
+            $details->purchaseStep
+        );
+        if ($quantities !== null) {
+            return $quantities;
         }
         if ($details->sku !== '' && $this->products->skuTaken($vendorUserId, $details->sku, $existing?->id ?? 0)) {
             return OperationResult::failure('sku_taken', ['sku' => $details->sku]);
