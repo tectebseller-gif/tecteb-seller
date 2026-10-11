@@ -1,0 +1,4 @@
+wc_version=11.0.1
+probe=ran
+foreign_brand=برند_فروشگاه
+foreign_owned_meta=

@@ -1,0 +1,6 @@
+wc_version=11.0.1
+probe=ran
+wc=112
+material_after=نیتریل
+size_after=7_اینچ
+conflicts=

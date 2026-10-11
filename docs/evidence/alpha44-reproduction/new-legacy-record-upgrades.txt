@@ -1,0 +1,8 @@
+wc_version=11.0.1
+probe=ran
+wc=114
+shape_before=list
+shape_after=map
+conflicts_after_upgrade=
+material_after_vendor_edit=نیتریل
+conflicts_after_edit=

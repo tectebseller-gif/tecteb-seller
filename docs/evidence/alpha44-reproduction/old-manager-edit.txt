@@ -1,0 +1,9 @@
+wc_version=11.0.1
+probe=ran
+wc=112
+brand_projected=آریا_طب
+record_shape=list
+brand_after_manager=برندی_که_مدیر_نوشته
+brand_after_projection=آریا_طب
+conflicts=
+facts=اندازه:7_اینچ|برند:آریا_طب|جنس:لاتکس

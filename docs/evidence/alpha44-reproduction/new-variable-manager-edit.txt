@@ -1,0 +1,15 @@
+wc_version=11.0.1
+probe=ran
+product=1266
+wc=115
+colour_projected=آبی/سبز
+wc_variation_blue=116
+colour_after_manager=آبی/زرد
+colour_after_projection=آبی/زرد
+theirs_after=ایران
+brand_after=آریا_طب
+variation_blue_same=yes
+blue_price=210000
+blue_stock=3
+blue_sku=V44-BLUE
+conflicts=%d8%b1%d9%86%da%af
