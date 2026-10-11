@@ -179,7 +179,7 @@ final class ProductModule implements ModuleInterface
         // rather than guess (`NullBrandDirectory`).
         $c->bind(BrandDirectoryInterface::class, static function (ContainerInterface $c) {
             return $c->get(DependencyProbeInterface::class)->woocommerceAvailable()
-                ? new WooCommerceBrandDirectory()
+                ? new WooCommerceBrandDirectory($c->get(DatabaseInterface::class))
                 : new NullBrandDirectory();
         });
         $c->bind(BrandProposalRepositoryInterface::class, static fn (ContainerInterface $c) => new DbBrandProposalRepository(

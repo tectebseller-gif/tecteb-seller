@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 
+use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Modules\Product\Application\BrandDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Brand;
 use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
@@ -32,6 +33,27 @@ final class WooCommerceBrandDirectory implements BrandDirectoryInterface
 
     /** @var array<string,int>|null BrandName key => term id */
     private ?array $byKey = null;
+
+    /**
+     * How long `register()` waits for another process's lock.
+     *
+     * Five seconds, because the work inside it is one `INSERT` and a read: a
+     * wait that times out means something is badly wrong, and the answer then
+     * is to refuse rather than to make a second brand.
+     */
+    private const LOCK_SECONDS = 5;
+
+    /**
+     * The database, for the ONE thing WordPress cannot do here: serialise two
+     * processes registering two SPELLINGS of one brand.
+     *
+     * Nullable, and when it is null `register()` says so by behaving as it did
+     * before — WordPress's own duplicate check on the exact NAME, and nothing
+     * for the normalised one.
+     */
+    public function __construct(private readonly ?DatabaseInterface $db = null)
+    {
+    }
 
     public function isAvailable(): bool
     {
@@ -99,22 +121,114 @@ final class WooCommerceBrandDirectory implements BrandDirectoryInterface
         if (!BrandName::isValid($display)) {
             return null;
         }
-        $existing = $this->findByKey(BrandName::key($display));
+        $key = BrandName::key($display);
+        $existing = $this->findByKey($key);
         if ($existing !== null) {
             return $existing;
         }
-        $inserted = wp_insert_term($display, self::TAXONOMY);
-        $this->terms = null;
-        $this->byKey = null;
-        if (is_array($inserted) && (int) ($inserted['term_id'] ?? 0) > 0) {
-            // Read back rather than trusted: the term is the list's answer,
-            // and a name WordPress filtered on the way in is the name the
-            // list now holds (the `alpha.26` rule).
-            return $this->find((int) $inserted['term_id']);
+        // THE LOCK, and the measurement that earned it. The first version of
+        // this method relied on `wp_insert_term()` refusing a duplicate, which
+        // it does — for the SAME NAME. Two processes registering «آمبو بگ» and
+        // «آمبوبگ» at the same moment are registering two different names, so
+        // both inserts succeed and the list ends with two terms for one brand.
+        // Measured with two real processes: `a=37 b=36`, two terms. A
+        // same-name race was already safe; this one was not, and the only
+        // thing that can serialise it is a lock outside PHP.
+        $lock = $this->takeLock($key);
+        try {
+            if ($lock === false) {
+                // Somebody else is registering this brand and did not finish
+                // in five seconds. Refuse rather than make a second term: a
+                // manager can press the button again, and a duplicate brand is
+                // what everything above exists to prevent.
+                return $this->freshByKey($key);
+            }
+            // ASKED AGAIN, inside the lock, FROM THE DATABASE. The winner may
+            // have inserted between the two questions, and this process's term
+            // cache cannot see another process's commit.
+            $already = $this->freshByKey($key);
+            if ($already !== null) {
+                return $already;
+            }
+            $inserted = wp_insert_term($display, self::TAXONOMY);
+            $this->terms = null;
+            $this->byKey = null;
+            if (is_array($inserted) && (int) ($inserted['term_id'] ?? 0) > 0) {
+                // Read back rather than trusted: the term is the list's
+                // answer, and a name WordPress filtered on the way in is the
+                // name the list now holds (the `alpha.26` rule).
+                return $this->find((int) $inserted['term_id']);
+            }
+            // A name WordPress refuses, or an exact-name duplicate it caught.
+            // Either way the question is the same: is it there NOW?
+            return $this->freshByKey($key);
+        } finally {
+            if ($lock === true) {
+                $this->releaseLock($key);
+            }
         }
-        // The loser of a race, or a name WordPress refuses. Either way the
-        // question is the same: is it there NOW?
-        return $this->findByKey(BrandName::key($display));
+    }
+
+    /**
+     * The lock's name: short, deterministic, and never the brand itself.
+     *
+     * MySQL lock names are limited and are global to the server, so the key is
+     * hashed and prefixed with the table prefix — two WordPress installs on one
+     * database server must not block each other over a brand.
+     */
+    private function lockName(string $key): string
+    {
+        return 'tmc_brand_' . ($this->db?->prefix() ?? '') . substr(hash('sha256', $key), 0, 24);
+    }
+
+    /** True when held, false when another process holds it, null when there is no database. */
+    private function takeLock(string $key): ?bool
+    {
+        if ($this->db === null) {
+            return null;
+        }
+        $got = $this->db->getVar('SELECT GET_LOCK(%s, %d)', [$this->lockName($key), self::LOCK_SECONDS]);
+        // `null` is a read that failed and `0` is «somebody else has it». Only
+        // `1` is the lock; a failed read is treated as «not held», so the
+        // caller falls back to the fresh read rather than inserting blind.
+        return (int) $got === 1;
+    }
+
+    private function releaseLock(string $key): void
+    {
+        $this->db?->getVar('SELECT RELEASE_LOCK(%s)', [$this->lockName($key)]);
+    }
+
+    /**
+     * The approved brand this key is, read from the DATABASE rather than from
+     * the cache.
+     *
+     * `get_terms()` is cached per request and per process, so inside the lock
+     * it would answer with what this process knew BEFORE the other one
+     * committed — which is the whole window the lock exists to close. Falls
+     * back to the cached reader when there is no database to ask.
+     */
+    private function freshByKey(string $key): ?Brand
+    {
+        if ($this->db === null) {
+            $this->terms = null;
+            $this->byKey = null;
+            return $this->findByKey($key);
+        }
+        $prefix = $this->db->prefix();
+        $rows = $this->db->getResults(
+            'SELECT t.term_id AS term_id, t.name AS name
+               FROM `' . $prefix . 'terms` t
+               INNER JOIN `' . $prefix . 'term_taxonomy` tt ON tt.term_id = t.term_id
+              WHERE tt.taxonomy = %s',
+            [self::TAXONOMY]
+        );
+        foreach ($rows as $row) {
+            if (BrandName::key((string) ($row['name'] ?? '')) === $key) {
+                return new Brand((int) $row['term_id'], (string) $row['name']);
+            }
+        }
+        return null;
     }
 
     public function count(): int

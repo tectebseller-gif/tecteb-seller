@@ -1,7 +1,7 @@
 probe=ran
 taxonomy_exists=yes
 directory_available=yes
-seeded_term=22
+seeded_term=32
 found_by_key=برند_آزمون_۴۸
 found_by_variant=برند_آزمون_۴۸
-count=2
+count=5

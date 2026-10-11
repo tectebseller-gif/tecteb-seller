@@ -1,5 +1,5 @@
 probe=ran
-first=25
-second=25
+first=35
+second=35
 same_term=yes
 term_count_for_name=1

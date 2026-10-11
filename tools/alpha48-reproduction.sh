@@ -420,26 +420,38 @@ note ""
 note "=== two processes registering one brand, two spellings ==="
 RACE_NAME_A='برند رقابت ۴۸'
 RACE_NAME_B='برندرقابت ۴۸'
-WP eval 'foreach (get_terms(["taxonomy"=>"product_brand","hide_empty"=>false,"search"=>"رقابت","fields"=>"ids"]) as $id) { wp_delete_term((int) $id, "product_brand"); }' >/dev/null 2>&1
-(
-    WP eval-file "$REPO/tests/Support/concurrent-brand-register.php" "$RACE_NAME_A" > "$OUT/race-a.txt" 2>&1 &
-    WP eval-file "$REPO/tests/Support/concurrent-brand-register.php" "$RACE_NAME_B" > "$OUT/race-b.txt" 2>&1 &
-    wait
-)
-RACE_A="$(sed -n 's/^term=//p' "$OUT/race-a.txt" | head -1)"
-RACE_B="$(sed -n 's/^term=//p' "$OUT/race-b.txt" | head -1)"
-RACE_TERMS="$(WP eval 'echo count(get_terms(["taxonomy"=>"product_brand","hide_empty"=>false,"search"=>"رقابت","fields"=>"ids"]));' 2>/dev/null)"
-note "race: a=$RACE_A b=$RACE_B terms=$RACE_TERMS"
-if [ "$RACE_A" != "" ] && [ "$RACE_A" = "$RACE_B" ]; then
-    ok "both processes came back with the SAME term — the loser gets the winner's brand, not a failure"
-else
-    bad "the two processes disagreed about the term (a=$RACE_A b=$RACE_B)"
-fi
-if [ "$RACE_TERMS" = "1" ]; then
-    ok "and the taxonomy holds ONE term for the two spellings"
-else
-    bad "the taxonomy holds $RACE_TERMS terms for one brand"
-fi
+# THREE TIMES, because one pass is a coin flip. The first run of this section
+# passed and the SECOND failed with `a=37 b=36` and two terms — both processes
+# got past `findByKey()` before either had inserted, and `wp_insert_term()`
+# refuses a duplicate NAME, which two spellings of one brand are not. That is
+# what the advisory lock in `WooCommerceBrandDirectory::register()` is for, and
+# a guard measured once is a guard measured by luck.
+clear_race_terms() {
+    WP eval 'foreach (get_terms(["taxonomy"=>"product_brand","hide_empty"=>false,"search"=>"رقابت","fields"=>"ids"]) as $id) { wp_delete_term((int) $id, "product_brand"); }' >/dev/null 2>&1
+}
+for attempt in 1 2 3; do
+    clear_race_terms
+    (
+        WP eval-file "$REPO/tests/Support/concurrent-brand-register.php" "$RACE_NAME_A" > "$OUT/race-$attempt-a.txt" 2>&1 &
+        WP eval-file "$REPO/tests/Support/concurrent-brand-register.php" "$RACE_NAME_B" > "$OUT/race-$attempt-b.txt" 2>&1 &
+        wait
+    )
+    RACE_A="$(sed -n 's/^term=//p' "$OUT/race-$attempt-a.txt" | head -1)"
+    RACE_B="$(sed -n 's/^term=//p' "$OUT/race-$attempt-b.txt" | head -1)"
+    RACE_TERMS="$(WP eval 'echo count(get_terms(["taxonomy"=>"product_brand","hide_empty"=>false,"search"=>"رقابت","fields"=>"ids"]));' 2>/dev/null)"
+    note "race $attempt: a=$RACE_A b=$RACE_B terms=$RACE_TERMS"
+    if [ "$RACE_A" != "" ] && [ "$RACE_A" = "$RACE_B" ]; then
+        ok "race $attempt: both processes came back with the SAME term — the loser gets the winner's brand"
+    else
+        bad "race $attempt: the two processes disagreed about the term (a=$RACE_A b=$RACE_B)"
+    fi
+    if [ "$RACE_TERMS" = "1" ]; then
+        ok "race $attempt: and the taxonomy holds ONE term for the two spellings"
+    else
+        bad "race $attempt: the taxonomy holds $RACE_TERMS terms for one brand"
+    fi
+done
+clear_race_terms
 
 for verb in $CONTROLS; do
     run_probe new "$verb" || true
