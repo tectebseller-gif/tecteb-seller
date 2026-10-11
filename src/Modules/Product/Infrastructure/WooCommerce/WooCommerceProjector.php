@@ -266,27 +266,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         // so it rides the ONE save below: a new product has no post id yet,
         // and two writes where one would do is a second thing that can half
         // happen.
-        $quantityRule = $details->purchaseQuantity();
-        $quantityOurs = ProjectedQuantity::values($quantityRule);
-        $quantityCurrent = [];
-        foreach (ProjectedQuantity::keys() as $metaKey) {
-            // ABSENT and «present but empty» are different answers and
-            // `get_meta()` gives `''` for both — the `alpha.28` rule. The
-            // product's own meta-data list is the only place that can tell
-            // them apart before a save.
-            if ($wcProduct->meta_exists($metaKey)) {
-                $quantityCurrent[$metaKey] = (string) $wcProduct->get_meta($metaKey, true);
-            }
-        }
-        $quantityMerged = ProjectedQuantity::merge(
-            $quantityCurrent,
-            $quantityOurs,
-            ProjectedQuantity::normalise(
-                (int) $wcProduct->get_id() > 0
-                    ? get_post_meta((int) $wcProduct->get_id(), ProjectedQuantity::OWNED_META, true)
-                    : []
-            )
-        );
+        $quantityMerged = self::mergeQuantities($wcProduct, $product);
         foreach ($quantityMerged['values'] as $metaKey => $metaValue) {
             $wcProduct->update_meta_data($metaKey, $metaValue);
         }
@@ -1024,6 +1004,105 @@ final class WooCommerceProjector implements CatalogProjectorInterface
     }
 
     /**
+     * Which of the three quantity rows this write may touch — one answer, two
+     * callers.
+     *
+     * `project()` stages the result through `update_meta_data()` so it rides
+     * the one save (a new product has no post id yet), and `writeQuantities()`
+     * writes it straight onto a product that already exists. Both ask THIS,
+     * because two places computing «may I write this row» is two rules about
+     * one thing, and the day they disagree the disagreement is about whether a
+     * manager's edit survives.
+     *
+     * @return array{values:array<string,string>, wrote:list<string>, held:list<string>}
+     */
+    private static function mergeQuantities(mixed $wcProduct, Product $product): array
+    {
+        $current = [];
+        foreach (ProjectedQuantity::keys() as $metaKey) {
+            // ABSENT and «present but empty» are different answers and
+            // `get_meta()` gives `''` for both — the `alpha.28` rule. The
+            // product's own meta-data list is the only place that can tell
+            // them apart before a save.
+            if ($wcProduct->meta_exists($metaKey)) {
+                $current[$metaKey] = (string) $wcProduct->get_meta($metaKey, true);
+            }
+        }
+        return ProjectedQuantity::merge(
+            $current,
+            ProjectedQuantity::values($product->details->purchaseQuantity()),
+            ProjectedQuantity::normalise(
+                (int) $wcProduct->get_id() > 0
+                    ? get_post_meta((int) $wcProduct->get_id(), ProjectedQuantity::OWNED_META, true)
+                    : []
+            )
+        );
+    }
+
+    /**
+     * The three quantity rows, written at once and nothing else with them.
+     *
+     * Read back per row rather than trusted: `update_post_meta()` answers
+     * `false` both for «it failed» and for «it already said that» (the
+     * `alpha.44` rule), so the only honest question is what the shop holds
+     * afterwards. A row that would not store is named in `failed` and keeps
+     * its PREVIOUS value — which is the conservative direction, because the
+     * previous value is a restriction that exists and absence would be a
+     * licence that nobody granted (`alpha.47`).
+     *
+     * @return array{ok:bool, code:string, wrote:list<string>, held:list<string>, failed:list<string>}
+     */
+    public function writeQuantities(Product $product): array
+    {
+        $blank = ['wrote' => [], 'held' => [], 'failed' => []];
+        if (!$this->isAvailable()) {
+            return ['ok' => false, 'code' => 'woocommerce_missing', ...$blank];
+        }
+        if (!$product->isProjected() || !$this->owns((int) $product->wcProductId, $product->id)) {
+            return ['ok' => false, 'code' => 'not_ours', ...$blank];
+        }
+        $wcProduct = $this->linkedProduct($product);
+        if (!$wcProduct instanceof \WC_Product) {
+            // A read that failed is not «no rule is stored». Saying so is what
+            // keeps the caller from reporting a success it did not get.
+            return ['ok' => false, 'code' => 'storefront_unreadable', ...$blank];
+        }
+        $wcProductId = (int) $product->wcProductId;
+        $merged = self::mergeQuantities($wcProduct, $product);
+
+        $wrote = [];
+        $failed = [];
+        foreach ($merged['values'] as $metaKey => $metaValue) {
+            update_post_meta($wcProductId, $metaKey, $metaValue);
+            if (metadata_exists('post', $wcProductId, $metaKey)
+                && (string) get_post_meta($wcProductId, $metaKey, true) === $metaValue) {
+                $wrote[] = $metaKey;
+                continue;
+            }
+            $failed[] = $metaKey;
+        }
+        // The record is taken from what the SHOP HOLDS, by the same method
+        // `project()` uses, so a row written here is owned on exactly the
+        // terms a projected row is owned.
+        $record = ProjectedQuantity::normalise(get_post_meta($wcProductId, ProjectedQuantity::OWNED_META, true));
+        $retain = [];
+        foreach ($failed as $metaKey) {
+            if (isset($record[$metaKey])) {
+                $retain[$metaKey] = $record[$metaKey];
+            }
+        }
+        $this->recordQuantityKeys($wcProductId, $wrote, $merged['held'], $retain);
+
+        return [
+            'ok' => $failed === [],
+            'code' => $failed === [] ? ($merged['held'] === [] ? 'limits_written' : 'limits_partly_held') : 'limits_not_written',
+            'wrote' => $wrote,
+            'held' => $merged['held'],
+            'failed' => $failed,
+        ];
+    }
+
+    /**
      * What the shop HOLDS for each quantity row we wrote, fingerprinted.
      *
      * The same four rules as `recordAttributeKeys()`, and the same reasons:
@@ -1042,10 +1121,20 @@ final class WooCommerceProjector implements CatalogProjectorInterface
      *  - the conflict list is written on every run, so a conflict that has
      *    gone away stops being reported.
      *
+     * `$retain` is the fifth rule, and it exists because a row that would not
+     * store must not change hands. A key whose write FAILED is not in `$wrote`,
+     * so without this its fingerprint would be dropped — and the next run would
+     * find a row with no record holding a value that differs from the one it
+     * wants, read that as somebody else's, and hand a transient write failure
+     * the manager's veto for ever. So a failed key keeps the fingerprint it
+     * already had, and only while the shop still holds exactly that value.
+     *
      * @param list<string> $wrote
      * @param list<string> $held
+     * @param array<string,string> $retain `key => fingerprint` to keep for keys
+     *                                     this run did not write
      */
-    private function recordQuantityKeys(int $wcProductId, array $wrote, array $held): void
+    private function recordQuantityKeys(int $wcProductId, array $wrote, array $held, array $retain = []): void
     {
         $stored = [];
         $fresh = wc_get_product($wcProductId);
@@ -1055,6 +1144,17 @@ final class WooCommerceProjector implements CatalogProjectorInterface
                     continue;
                 }
                 $stored[$key] = ProjectedQuantity::fingerprint((string) $fresh->get_meta($key, true));
+            }
+            foreach ($retain as $key => $fingerprint) {
+                if (isset($stored[$key]) || !in_array($key, ProjectedQuantity::keys(), true)) {
+                    continue;
+                }
+                if (!$fresh->meta_exists($key)) {
+                    continue;
+                }
+                if (hash_equals($fingerprint, ProjectedQuantity::fingerprint((string) $fresh->get_meta($key, true)))) {
+                    $stored[$key] = $fingerprint;
+                }
             }
         }
 

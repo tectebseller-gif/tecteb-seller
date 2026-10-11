@@ -42,6 +42,11 @@ final class NullCatalogProjector implements CatalogProjectorInterface
         return false;
     }
 
+    public function writeQuantities(Product $product): array
+    {
+        return ['ok' => false, 'code' => 'woocommerce_missing', 'wrote' => [], 'held' => [], 'failed' => []];
+    }
+
     public function claimStorefrontPost(Product $product, int $wcProductId): bool
     {
         return false;

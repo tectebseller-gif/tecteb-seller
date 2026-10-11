@@ -118,8 +118,13 @@ final class ReviewProducts
      * screen able to say so.
      *
      * @param array<string,string> $seenFingerprints see `approve()`
+     * @param bool $acceptStockConflict the manager's explicit «apply it anyway»
+     *                                  for a stock proposal whose baseline has
+     *                                  moved. A checkbox, so an unticked one is
+     *                                  not sent and the default is the
+     *                                  conservative answer (`alpha.46`).
      */
-    public function approveRevision(int $revisionId, array $seenFingerprints = []): OperationResult
+    public function approveRevision(int $revisionId, array $seenFingerprints = [], bool $acceptStockConflict = false): OperationResult
     {
         if (!$this->capabilities->can(Capabilities::REVIEW_PRODUCTS)) {
             return OperationResult::failure('forbidden');
@@ -146,6 +151,30 @@ final class ReviewProducts
                     'product_id' => $product->id,
                     'revision_id' => $revisionId,
                     'fields' => implode(',', $moved),
+                ]);
+            }
+        }
+        // THE STOCK BASELINE, and the one conflict a stock proposal can have.
+        //
+        // A proposal recorded «make it 5, and there were 9 when I asked». If
+        // there are 2 now — two sales, or a manager's own correction — writing
+        // 5 would put four units back on the shelf that nobody has. So the
+        // numbers are named and the approval REFUSES, and the manager has a
+        // control that says apply it anyway. Silence in either direction would
+        // be wrong: applying it quietly invents stock, and refusing it for ever
+        // leaves the vendor's request stuck with nothing to do about it.
+        $proposedStock = self::proposedStock($revision->payload);
+        $stockBaseline = self::proposedStockBaseline($revision->payload);
+        $effectiveStock = null;
+        if ($proposedStock !== null && $stockBaseline !== null) {
+            $effectiveStock = $this->catalog->pullStock($product->id) ?? $product->details->stock;
+            if ($effectiveStock !== $stockBaseline && !$acceptStockConflict) {
+                return OperationResult::failure('stock_moved', [
+                    'product_id' => $product->id,
+                    'revision_id' => $revisionId,
+                    'baseline_stock' => $stockBaseline,
+                    'current_stock' => $effectiveStock,
+                    'proposed_stock' => $proposedStock,
                 ]);
             }
         }
@@ -223,6 +252,22 @@ final class ReviewProducts
                     'reason' => $sync->code,
                     'restored' => $failed === [] ? 'yes' : 'no',
                     'restore_failed' => implode(',', $failed),
+                ]);
+            }
+            // The approved stock, written THROUGH to the shop.
+            //
+            // `project()` writes stock only for a product it has just created
+            // (ADR-008: afterwards WooCommerce's number is the true one), so a
+            // publish alone would leave the shop on the old number and every
+            // screen saying the proposal was applied. This is the vendor's
+            // edit, a manager having agreed to it — the same write
+            // `pushStock()` has always been, now at the moment it is allowed.
+            if ($proposedStock !== null && !$this->catalog->pushStock($product->id, $proposedStock)) {
+                return OperationResult::failure('stock_not_written', [
+                    'product_id' => $product->id,
+                    'revision_id' => $revisionId,
+                    'proposed_stock' => $proposedStock,
+                    'applied' => 'row_only',
                 ]);
             }
             // The agreement moves with the product. Without this the NEXT
@@ -936,6 +981,39 @@ final class ReviewProducts
     }
 
     /**
+     * The stock a proposal is actually asking for, or null when it asks for
+     * none.
+     *
+     * Two readers depend on this answering the same way — the one that writes
+     * the details and the one that checks the baseline — so there is one.
+     *
+     * @param array<string,mixed> $payload
+     */
+    private static function proposedStock(array $payload): ?int
+    {
+        $proposal = $payload['stock_proposal'] ?? null;
+        if (!is_array($proposal) || !array_key_exists('value', $proposal)) {
+            return null;
+        }
+        return (int) $proposal['value'];
+    }
+
+    /**
+     * The number the proposal was measured against, or null when it recorded
+     * none (a proposal from `alpha.47` or earlier).
+     *
+     * @param array<string,mixed> $payload
+     */
+    private static function proposedStockBaseline(array $payload): ?int
+    {
+        $proposal = $payload['stock_proposal'] ?? null;
+        if (!is_array($proposal) || !array_key_exists('baseline', $proposal)) {
+            return null;
+        }
+        return (int) $proposal['baseline'];
+    }
+
+    /**
      * A payload field that is absent keeps the product's current value, so an
      * older revision written by an older build can still be approved without
      * blanking a column that did not exist when it was proposed.
@@ -968,11 +1046,18 @@ final class ReviewProducts
             $nullableStr('saleFrom', $current->saleFrom),
             $nullableStr('saleTo', $current->saleTo),
             // The immediate fields are taken from the LIVE product, never from
-            // the proposal: stock moves with every sale, and writing back the
-            // number that was true when the revision was written would undo
-            // days of selling the moment a manager clicks approve.
+            // the proposal: SKU and the purchase limits are written straight
+            // through on the vendor's own save, so a proposal's copy of them
+            // is the value that was true when it was written.
             $current->sku,
-            $current->stock,
+            // STOCK IS THE ONE EXCEPTION, and only when the proposal says so.
+            // From `alpha.48` a live product's stock change IS the proposal
+            // (the owner's decision), and it is read from `stock_proposal`
+            // rather than from `details.stock` so that a revision written by
+            // `alpha.47` or earlier — which carries a `details.stock` nobody
+            // ever meant to apply — keeps the old behaviour exactly: the live
+            // number. A payload is not a request until it says it is.
+            self::proposedStock($payload) ?? $current->stock,
             $current->minPurchase,
             $current->maxPurchase,
             $int('weightGrams', $current->weightGrams),

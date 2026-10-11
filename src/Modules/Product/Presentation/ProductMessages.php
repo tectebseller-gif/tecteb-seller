@@ -331,7 +331,28 @@ final class ProductMessages
                 self::parts((string) ($context['missing'] ?? ''))
             ),
             'product_saved' => __('تغییرات محصول ذخیره شد.', 'tecteb-marketplace-core'),
-            'inventory_saved' => __('موجودی و مشخصات فروش همین حالا ذخیره شد.', 'tecteb-marketplace-core'),
+            // Three sentences, because three things can happen to the selling
+            // rule and «ذخیره شد» is only one of them. A limit a manager owns
+            // did NOT move, and a vendor who is told it did will go on
+            // believing the shop enforces a number it does not have.
+            'inventory_saved' => ((string) ($context['limits_held'] ?? '')) !== ''
+                ? sprintf(
+                    /* translators: %s: which limits */
+                    __('موجودی و مشخصات فروش ذخیره شد. ولی %s روی محصول در ووکامرس به‌دست مدیر تغییر کرده است، پس از پیشخوان شما بازنویسی نمی‌شود؛ برای تغییر آن از مدیر بخواهید.', 'tecteb-marketplace-core'),
+                    self::limitNames((string) $context['limits_held'])
+                )
+                : __('موجودی و مشخصات فروش همین حالا ذخیره شد و حدود خرید روی فروشگاه هم اعمال شد.', 'tecteb-marketplace-core'),
+            'inventory_saved_limits_not_written' => sprintf(
+                /* translators: %s: which limits */
+                __('موجودی و کد SKU ذخیره شد، ولی %s روی فروشگاه نوشته نشد و محدودیت قبلی سر جایش مانده است. دوباره ذخیره کنید؛ اگر تکرار شد به مدیر اطلاع دهید.', 'tecteb-marketplace-core'),
+                self::limitNames((string) ($context['limits_failed'] ?? ''))
+            ),
+            'stock_revision_requested' => sprintf(
+                /* translators: 1: the proposed stock */
+                __('درخواست تغییر موجودی به %1$s ثبت شد و در صف بررسی مدیر است. تا تأیید، موجودی فعلی روی فروشگاه تغییر نمی‌کند. حدود خرید و کد SKU همین حالا اعمال شدند.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($context['proposed_stock'] ?? ''))
+            ),
+            'stock_revision_unchanged' => __('چیزی برای تغییر نبود: همین درخواست موجودی از قبل در صف بررسی مدیر است. حدود خرید و کد SKU در صورت تغییر، اعمال شدند.', 'tecteb-marketplace-core'),
             'product_submitted' => __('محصول برای بررسی مدیر فرستاده شد. تا تعیین تکلیف، نسخه فعلی تغییر نمی‌کند.', 'tecteb-marketplace-core'),
             'product_published' => __('محصول منتشر شد؛ فروشگاه شما مجوز انتشار مستقیم دارد.', 'tecteb-marketplace-core'),
             'revision_requested' => __('تغییرهای حساس به‌صورت «نسخه پیشنهادی» ثبت شد. نسخه منتشرشده تا تأیید مدیر دست‌نخورده می‌ماند و موجودی همین حالا اعمال شد.', 'tecteb-marketplace-core'),
@@ -366,6 +387,18 @@ final class ProductMessages
                 /* translators: %s: how many rows were refused */
                 __('هیچ‌کدام از %s مورد انجام نشد. دلیل هرکدام در جدول زیر آمده است.', 'tecteb-marketplace-core'),
                 $fa((string) ($context['failed'] ?? 0))
+            ),
+            'stock_moved' => sprintf(
+                /* translators: 1: stock when proposed, 2: stock now, 3: proposed stock */
+                __('موجودی مؤثر از زمان ثبت این پیشنهاد تغییر کرده است: هنگام پیشنهاد %1$s، اکنون %2$s، پیشنهاد %3$s. برای اینکه عدد تازه بی‌صدا بازنویسی نشود، تأیید انجام نشد؛ اگر مقدار پیشنهادی را می‌خواهید، گزینهٔ «با وجود این تغییر اعمال کن» را انتخاب و دوباره تأیید کنید.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($context['baseline_stock'] ?? '')),
+                PersianDigits::toPersian((string) ($context['current_stock'] ?? '')),
+                PersianDigits::toPersian((string) ($context['proposed_stock'] ?? ''))
+            ),
+            'stock_not_written' => sprintf(
+                /* translators: %s: the proposed stock */
+                __('بقیهٔ پیشنهاد اعمال شد، ولی موجودی %s روی ووکامرس نوشته نشد؛ پیشنهاد باز مانده است تا دوباره تأیید کنید. موجودی فعلی فروشگاه دست‌نخورده است.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($context['proposed_stock'] ?? ''))
             ),
             'storefront_moved' => __('یکی از فیلدهای این محصول در ووکامرس عوض شد در فاصله‌ای که این صفحه باز بود. برای اینکه ویرایش تازه پاک نشود، تأیید انجام نشد: صفحه را تازه کنید، مقدارهای تازه را ببینید و دوباره تصمیم بگیرید.', 'tecteb-marketplace-core'),
             // Three sentences for three things that used to be silent. The
@@ -664,6 +697,7 @@ final class ProductMessages
         return [
             'product_created', 'product_created_replayed', 'product_saved', 'inventory_saved', 'product_submitted',
             'product_published', 'revision_requested', 'revision_unchanged',
+            'stock_revision_requested', 'stock_revision_unchanged',
             'product_archived_ok', 'product_restored',
             'product_reviewed', 'revision_approved', 'revision_rejected',
             'direct_publish_granted', 'direct_publish_revoked',
@@ -754,6 +788,27 @@ final class ProductMessages
             $out[] = $names[$part] ?? $part;
         }
         return $out === [] ? __('بخشی از اطلاعات', 'tecteb-marketplace-core') : implode(' و ', $out);
+    }
+
+    /**
+     * The three quantity rows, named the way the form names them.
+     *
+     * A list of meta keys is a message for a developer. «حداکثر خرید» is a
+     * message for the person who typed the number — and naming WHICH limit is
+     * the difference between a sentence they can act on and one they cannot.
+     */
+    private static function limitNames(string $keys): string
+    {
+        $names = [
+            '_tmc_min_purchase' => __('حداقل خرید', 'tecteb-marketplace-core'),
+            '_tmc_max_purchase' => __('حداکثر خرید', 'tecteb-marketplace-core'),
+            '_tmc_purchase_step' => __('گام تعداد', 'tecteb-marketplace-core'),
+        ];
+        $out = [];
+        foreach (array_filter(array_map('trim', explode(',', $keys))) as $key) {
+            $out[] = $names[$key] ?? $key;
+        }
+        return $out === [] ? __('حدود خرید', 'tecteb-marketplace-core') : implode(' و ', $out);
     }
 
     private static function uploadRefusal(string $why, string $whatToDo, array $context): string

@@ -19,6 +19,7 @@ use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
  *   publish()      marketplace → storefront (title, price, status, media)
  *   withdraw()     marketplace → storefront (out of the shop, never deleted)
  *   pushStock()    marketplace → storefront, and ONLY as a vendor's edit
+ *   pushQuantities() marketplace → storefront, the vendor's selling rule
  *   pullStock()    storefront  → marketplace, which is how a sale gets home
  *
  * There is deliberately no `syncEverything()` that would push stock: a bulk
@@ -229,6 +230,61 @@ final class SyncCatalog
             $this->products->mirrorStock($productId, $actual);
         }
         return true;
+    }
+
+    /**
+     * The vendor's purchase-limit edit, written through to the storefront.
+     *
+     * `pushStock()`'s sibling, and new in `alpha.48` because the owner's own
+     * test found there was nothing of the kind: min, max and step were stored
+     * on the marketplace row and reached the shop only when `project()` ran.
+     * On a published product that is an approval away, so the maximum went
+     * 20 → 18, the vendor saw their save succeed, and WooCommerce went on
+     * refusing anything above 20 — a limit nobody had asked for, outliving the
+     * person entitled to change it.
+     *
+     * It reports rather than claims. Three answers matter to the vendor and
+     * each has its own name: `limits_written` (the shop holds the new rule),
+     * `limits_partly_held` (a manager owns one of the rows and it is named, so
+     * «ذخیره شد» is not said about a row that did not move), and
+     * `limits_not_written` (the shop refused a row; the previous restriction
+     * stays and the product is NEVER left less restricted than it was).
+     *
+     * `nothing_to_push` is a success on purpose: a draft the vendor is still
+     * writing has no storefront row, and that is not a failure of their save.
+     */
+    public function pushQuantities(int $productId): OperationResult
+    {
+        $product = $this->products->find($productId);
+        if ($product === null) {
+            return OperationResult::failure('not_found');
+        }
+        if (!$product->isProjected() || !$this->projector->isAvailable()) {
+            return OperationResult::success('nothing_to_push');
+        }
+        $result = $this->projector->writeQuantities($product);
+        $context = [
+            'product_id' => $productId,
+            'wrote' => implode(',', $result['wrote']),
+            'held' => implode(',', $result['held']),
+            'failed' => implode(',', $result['failed']),
+        ];
+        if ($result['code'] === 'not_ours') {
+            // A product whose storefront row is not ours is not a product
+            // whose limits we may write, and saying it out loud is the whole
+            // of ADR-008.
+            return OperationResult::success('nothing_to_push', $context);
+        }
+        if (!$result['ok']) {
+            return OperationResult::failure($result['code'], $context);
+        }
+        $this->audit->log(AuditEventCatalog::PRODUCT_SYNCED, 0, 'product', (string) $productId, [
+            'vendor_id' => $product->vendorUserId,
+            'product_id' => $productId,
+            'wc_product_id' => (int) $product->wcProductId,
+            'action' => 'limits',
+        ]);
+        return OperationResult::success($result['code'], $context);
     }
 
     /**

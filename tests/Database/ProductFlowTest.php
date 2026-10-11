@@ -355,7 +355,16 @@ final class ProductFlowTest extends DatabaseTestCase
 
     // ------------------------------------------------- live product and revision
 
-    public function testASensitiveChangeToALiveProductBecomesARevisionAndStockStillMoves(): void
+    /**
+     * A live product's stock now waits WITH the proposal, not beside it.
+     *
+     * Until `alpha.48` this test asserted `inventory applies at once (A.1)`
+     * and that was the rule. The owner decided on 11 October 2026 that a live
+     * product's stock needs the manager too, so the assertion is rewritten:
+     * the row keeps the effective number and the proposal carries both the
+     * wanted number and the one it was measured against.
+     */
+    public function testASensitiveChangeToALiveProductBecomesARevisionAndStockWaitsWithIt(): void
     {
         $productId = $this->publish(self::VENDOR);
 
@@ -372,12 +381,14 @@ final class ProductFlowTest extends DatabaseTestCase
         $live = $this->products->find($productId);
         self::assertSame('دستکش لاتکس', $live?->details->title, 'the live product is untouched');
         self::assertSame(200000, $live?->details->priceMinor);
-        self::assertSame(3, $live?->details->stock, 'inventory applies at once (A.1)');
+        self::assertSame(5, $live?->details->stock, 'the effective stock stays until a manager agrees');
         self::assertSame(ProductStatus::Published, $live?->status);
 
         $pending = $this->revisions->pendingFor($productId);
         self::assertNotNull($pending);
         self::assertSame('عنوان تازه', $pending->payload['details']['title']);
+        self::assertSame(3, (int) $pending->payload['stock_proposal']['value']);
+        self::assertSame(5, (int) $pending->payload['stock_proposal']['baseline']);
     }
 
     public function testRejectingARevisionLeavesThePublishedProductOnTheSite(): void
@@ -396,7 +407,22 @@ final class ProductFlowTest extends DatabaseTestCase
         self::assertNull($this->revisions->pendingFor($productId));
     }
 
-    public function testApprovingARevisionWritesTheProposalButNotItsStaleStock(): void
+    /**
+     * A stock proposal whose ground has moved is REFUSED, and the manager is
+     * given the one control that overrides it.
+     *
+     * The shape is the owner's: «اگر موجودی مؤثر بین ثبت پیشنهاد و تأیید تغییر
+     * کرد، پیشنهاد کهنه نباید بی‌صدا مقدار تازه را بازنویسی کند؛ تعارض را نشان
+     * بده و قابل اقدام کن.» Until `alpha.48` the proposal's stock was simply
+     * ignored, which was one way of not overwriting it and also a way of never
+     * applying it; now it is applied, and the one case where applying it would
+     * invent stock is named instead.
+     *
+     * The shop is drained through the SHOP, because WooCommerce's own cycle is
+     * what moves the ground — a vendor's own second edit would just replace
+     * the proposal.
+     */
+    public function testAStockProposalWhoseBaselineHasMovedIsRefusedUntilTheManagerSaysOtherwise(): void
     {
         $productId = $this->publish(self::VENDOR);
         $this->manage->save(
@@ -408,15 +434,47 @@ final class ProductFlowTest extends DatabaseTestCase
             $this->galleryOf($productId),
             $this->mainOf($productId), $this->stampOf($productId));
         $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
+        self::assertSame(9, (int) ($this->revisions->find($revisionId)?->payload['stock_proposal']['value'] ?? 0));
+        self::assertSame(5, (int) ($this->revisions->find($revisionId)?->payload['stock_proposal']['baseline'] ?? 0));
 
-        // Days pass and the shop sells: stock is now 2, not the 9 in the payload.
-        $this->manage->updateInventory(self::VENDOR, self::VENDOR, $productId, 2, 'SKU-1', 1, null);
+        // Days pass and the shop sells: there are 2 left, not the 5 the
+        // proposal was measured against.
+        $this->projector->restock($productId, 2);
 
-        self::assertTrue($this->review->approveRevision($revisionId)->ok);
+        $refused = $this->review->approveRevision($revisionId);
+        self::assertFalse($refused->ok);
+        self::assertSame('stock_moved', $refused->code);
+        self::assertSame(5, $refused->context['baseline_stock']);
+        self::assertSame(2, $refused->context['current_stock']);
+        self::assertSame(9, $refused->context['proposed_stock']);
+        $held = $this->products->find($productId);
+        self::assertSame('دستکش لاتکس', $held?->details->title, 'nothing of the proposal was written');
+        self::assertSame(2, $held?->details->stock);
+        self::assertSame(ProductRevision::PENDING, $this->revisions->find($revisionId)?->status);
+
+        // The manager's explicit «apply it anyway» — a checkbox, so this third
+        // argument is the one a ticked box sends.
+        self::assertTrue($this->review->approveRevision($revisionId, [], true)->ok);
         $live = $this->products->find($productId);
         self::assertSame('دستکش نیتریل', $live?->details->title);
         self::assertSame(260000, $live?->details->priceMinor);
-        self::assertSame(2, $live?->details->stock, 'approval must not roll inventory back');
+        self::assertSame(9, $live?->details->stock, 'the approved stock is the proposal');
+        self::assertSame(9, $this->projector->stock[(int) $live?->wcProductId], 'and it reached the shop');
+    }
+
+    /** An approved stock proposal whose ground has not moved just applies. */
+    public function testApprovingAStockProposalWritesItToTheShop(): void
+    {
+        $productId = $this->publish(self::VENDOR);
+        $saved = $this->manage->updateInventory(self::VENDOR, self::VENDOR, $productId, 12, 'SKU-1', 1, null);
+        self::assertSame('stock_revision_requested', $saved->code);
+        $wcId = (int) $this->products->find($productId)?->wcProductId;
+        self::assertSame(5, $this->projector->stock[$wcId], 'the shop has not moved yet');
+
+        $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
+        self::assertTrue($this->review->approveRevision($revisionId)->ok);
+        self::assertSame(12, $this->products->find($productId)?->details->stock);
+        self::assertSame(12, $this->projector->stock[$wcId]);
     }
 
     public function testASecondProposalSupersedesTheFirstRatherThanQueueingBehindIt(): void
@@ -667,8 +725,13 @@ final class ProductFlowTest extends DatabaseTestCase
 
         $live = $this->products->find($productId);
         self::assertSame('دستکش لاتکس', $live?->details->title);
-        self::assertSame(6, $live?->details->stock, 'the inventory column still applies at once');
-        self::assertNotNull($this->revisions->pendingFor($productId));
+        // The stock column of a CSV row is a proposal on a live product, by
+        // the same rule as the form — one rule, every door that accepts a
+        // value (`alpha.46`).
+        self::assertSame(5, $live?->details->stock, 'the effective stock waits for the manager');
+        $pending = $this->revisions->pendingFor($productId);
+        self::assertNotNull($pending);
+        self::assertSame(6, (int) $pending->payload['stock_proposal']['value']);
     }
 
     public function testImportReportsABadRowWithoutStoppingTheGoodOnes(): void

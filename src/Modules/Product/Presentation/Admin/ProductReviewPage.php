@@ -598,7 +598,7 @@ final class ProductReviewPage
             . $this->decisionForm('revision', $revision->id, [
                 'approve' => __('تأیید تغییر', 'tecteb-marketplace-core'),
                 'reject' => __('رد تغییر', 'tecteb-marketplace-core'),
-            ], $storefront?->fingerprints($product) ?? [])
+            ], $storefront?->fingerprints($product) ?? [], $this->stockConflict($product, $revision))
             . '</section>';
     }
 
@@ -617,6 +617,17 @@ final class ProductReviewPage
                 : $field) . '</th>'
                 . '<td>' . esc_html((string) $current !== '' ? (string) $current : '—') . '</td>'
                 . '<td><strong>' . esc_html((string) $next !== '' ? (string) $next : '—') . '</strong></td></tr>';
+        }
+        // STOCK, and only when the payload is actually asking for it.
+        // `details.stock` has been in every payload since `alpha.6` and was
+        // never applied; reading THAT as a proposal would show a change on
+        // every revision ever written. `stock_proposal` is the request.
+        $stockProposal = $revision->payload['stock_proposal'] ?? null;
+        if (is_array($stockProposal) && array_key_exists('value', $stockProposal)) {
+            $rows .= '<tr><th scope="row">' . esc_html__('موجودی', 'tecteb-marketplace-core') . '</th>'
+                . '<td>' . esc_html(PersianDigits::toPersian((string) $product->details->stock)) . '</td>'
+                . '<td><strong>' . esc_html(PersianDigits::toPersian((string) (int) $stockProposal['value']))
+                . '</strong></td></tr>';
         }
         $proposedSpecs = is_array($revision->payload['specs'] ?? null) ? array_map('strval', $revision->payload['specs']) : [];
         if (SensitiveChange::specsChanged($product->specs, $proposedSpecs)) {
@@ -640,6 +651,46 @@ final class ProductReviewPage
             . '</tr></thead><tbody>' . $rows . '</tbody></table>';
     }
 
+    /**
+     * The extra control a stock proposal needs, or '' when it needs none.
+     *
+     * The conflict is between PROPOSING and APPROVING: the vendor asked for 5
+     * when the shop held 9, and the shop holds 2 now. `approveRevision()`
+     * refuses that by default; this is where the manager is told the three
+     * numbers and given the one control that says apply it anyway.
+     *
+     * A checkbox, and deliberately: a browser does not send an unticked one, so
+     * the default travelling with every ordinary approval is «do not»
+     * (`alpha.46`). And it is only rendered when the numbers actually disagree,
+     * so an approval that has nothing to decide has nothing to tick.
+     */
+    private function stockConflict(Product $product, ProductRevision $revision): string
+    {
+        $proposal = $revision->payload['stock_proposal'] ?? null;
+        if (!is_array($proposal) || !array_key_exists('baseline', $proposal) || !array_key_exists('value', $proposal)) {
+            return '';
+        }
+        $baseline = (int) $proposal['baseline'];
+        // Read from the shop, because that is the number a shopper meets and
+        // the number `approveRevision()` will compare against.
+        $current = $this->container->get(SyncCatalog::class)->pullStock($product->id) ?? $product->details->stock;
+        if ($current === $baseline) {
+            return '';
+        }
+        $id = 'stock-conflict-' . $revision->id;
+        return '<div class="tmc-notice tmc-notice--warning"><p>' . esc_html(sprintf(
+            /* translators: 1: stock when proposed, 2: stock now, 3: proposed stock */
+            __('موجودی از زمان ثبت این پیشنهاد تغییر کرده است: هنگام پیشنهاد %1$s بود، اکنون %2$s است، و پیشنهاد فروشنده %3$s است. تأیید بدون انتخاب گزینهٔ زیر انجام نمی‌شود.', 'tecteb-marketplace-core'),
+            PersianDigits::toPersian((string) $baseline),
+            PersianDigits::toPersian((string) $current),
+            PersianDigits::toPersian((string) (int) $proposal['value'])
+        )) . '</p>'
+            . '<p><label for="' . esc_attr($id) . '">'
+            . '<input type="checkbox" id="' . esc_attr($id) . '" name="accept_stock_conflict" value="1"> '
+            . esc_html__('موجودی پیشنهادی را با وجود این تغییر اعمال کن', 'tecteb-marketplace-core')
+            . '</label></p></div>';
+    }
+
     /** @param array<string,string> $values */
     private static function flatten(array $values): string
     {
@@ -654,7 +705,7 @@ final class ProductReviewPage
 
     /** @param array<string,string> $decisions */
     /** @param array<string,string> $seen the shop's fingerprints as this page read them */
-    private function decisionForm(string $subject, int $id, array $decisions, array $seen = []): string
+    private function decisionForm(string $subject, int $id, array $decisions, array $seen = [], string $extra = ''): string
     {
         $html = '<form method="post" class="tmc-review__form">'
             . wp_nonce_field(self::NONCE, 'tmc_review_nonce', true, false)
@@ -666,7 +717,7 @@ final class ProductReviewPage
             $html .= '<input type="hidden" name="seen_' . esc_attr((string) $field)
                 . '" value="' . esc_attr((string) $fingerprint) . '">';
         }
-        $html .= ''
+        $html .= $extra
             . '<div class="tmc-field"><label class="tmc-field__label" for="note-' . esc_attr($subject . '-' . $id) . '">'
             . esc_html__('دلیل تصمیم (برای اصلاح و رد اجباری است)', 'tecteb-marketplace-core') . '</label>'
             . '<textarea class="tmc-input" id="note-' . esc_attr($subject . '-' . $id) . '" name="note" rows="2"></textarea></div><p>';
@@ -829,7 +880,13 @@ final class ProductReviewPage
             'product:approve' => $review->approve($id, self::seenFingerprints($request)),
             'product:changes' => $review->requestChanges($id, $note),
             'product:reject' => $review->reject($id, $note),
-            'revision:approve' => $review->approveRevision($id, self::seenFingerprints($request)),
+            'revision:approve' => $review->approveRevision(
+                $id,
+                self::seenFingerprints($request),
+                // An unticked checkbox is not sent, so absence IS the
+                // conservative answer and nothing has to default it.
+                $request->post('accept_stock_conflict') === '1'
+            ),
             'revision:reject' => $review->rejectRevision($id, $note),
             'seo:save' => $review->setSeo(
                 $id,

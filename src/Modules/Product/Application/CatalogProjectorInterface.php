@@ -70,6 +70,33 @@ interface CatalogProjectorInterface
     public function writeStock(Product $product, int $stock): bool;
 
     /**
+     * The vendor's purchase-limit edit, written through to WooCommerce.
+     *
+     * Separate from `project()` for the reason `writeStock()` is separate: a
+     * vendor saving min, max and step is an edit of the shop's own selling
+     * rule and must land AT ONCE, and until `alpha.48` nothing carried it.
+     * Measured on `alpha.47` with real WooCommerce: the three rows reached the
+     * shop only when `project()` ran — on a publish or an approval — so a
+     * published product kept the limits of its last approval and the vendor's
+     * save changed nothing a shopper could meet. The owner's own test said it
+     * in one line: the maximum went 20 → 18, was saved, and WooCommerce still
+     * said 20.
+     *
+     * It is NOT a projection: it writes the three quantity rows and nothing
+     * else, so it cannot move a title, a price or a stock on its way past, and
+     * it obeys the same ownership record `project()` obeys — a row a manager
+     * has edited is held, named and left alone (the `alpha.44` rule).
+     *
+     * `wrote` are the rows this call now owns, `held` the ones a manager owns,
+     * `failed` the ones that would not store. A `failed` row is NEVER reported
+     * as success and never leaves the product less restricted than it was: the
+     * previous value stays.
+     *
+     * @return array{ok:bool, code:string, wrote:list<string>, held:list<string>, failed:list<string>}
+     */
+    public function writeQuantities(Product $product): array;
+
+    /**
      * Puts returned goods back on the shelf, atomically.
      *
      * A read-then-write would lose a concurrent sale between the two steps;

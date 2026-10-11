@@ -756,7 +756,14 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertTrue($this->purchase->allows($wcId), 'a live product of a trading shop sells');
 
         // Zero stock: not «موجودی کم», not a warning — it stops the purchase.
-        $this->manage->updateInventory(self::VENDOR_A, self::VENDOR_A, $a, 0, 'A-1', 1, null);
+        //
+        // Drained through the SHOP rather than through the vendor's form. From
+        // `alpha.48` a live product's stock edit is a proposal the manager
+        // approves, and the thing under test here is the purchase policy, not
+        // who may change a number: the shelf emptying because the last units
+        // sold is WooCommerce's own cycle, which never waits for anybody.
+        $this->storefront->restock($a, 0);
+        self::assertSame(0, $this->catalogService->pullStock($a));
         $fresh = new PurchasePolicy($this->products, new StaffAccess($this->staff, $this->vendors), new OrderOperationsGate(
             new ResolveCommissionRate($this->rules),
             $this->ledger,
@@ -764,8 +771,10 @@ final class OrderFlowTest extends DatabaseTestCase
         ));
         self::assertSame(PurchasePolicy::OUT_OF_STOCK, $fresh->decide($wcId)['decision']);
 
-        // Suspending the shop stops everything it sells, at once.
-        $this->manage->updateInventory(self::VENDOR_A, self::VENDOR_A, $a, 9, 'A-1', 1, null);
+        // Suspending the shop stops everything it sells, at once. (Restocked
+        // the same way it was drained, and for the same reason.)
+        $this->storefront->restock($a, 9);
+        self::assertSame(9, $this->catalogService->pullStock($a));
         $this->vendors->upsertProfile(self::VENDOR_A, 'داروخانه یک', false, false);
         $afterSuspension = new PurchasePolicy($this->products, new StaffAccess($this->staff, $this->vendors), new OrderOperationsGate(
             new ResolveCommissionRate($this->rules),

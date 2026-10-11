@@ -71,6 +71,7 @@ final class CatalogProjectionTest extends DatabaseTestCase
     private StorefrontStop $stop;
     private StorefrontSwitch $switch;
     private FakeUnpaidOrderGuard $unpaidOrders;
+    private DbProductRevisionRepository $revisions;
 
     protected function setUp(): void
     {
@@ -94,6 +95,7 @@ final class CatalogProjectionTest extends DatabaseTestCase
         $variations = new DbVariationRepository($db, $clock);
         $templates = new DbSpecTemplateRepository($db, $clock);
         $revisions = new DbProductRevisionRepository($db, $clock);
+        $this->revisions = $revisions;
         $this->vendors = new DbVendorRepository($db, $clock);
         $staff = new DbStaffRepository($db, $clock);
         $this->images = new FakeProductImages();
@@ -195,7 +197,17 @@ final class CatalogProjectionTest extends DatabaseTestCase
         self::assertSame(1, $this->products->find($productId)?->details->stock);
     }
 
-    public function testTheVendorsOwnInventoryEditIsTheOneThingThatWritesOutward(): void
+    /**
+     * On a LIVE product the vendor's restock is a request, not a write.
+     *
+     * This test asserted the opposite until `alpha.48`, and it was right to:
+     * `SensitiveChange::IMMEDIATE` carried `stock` and an explicit restock
+     * went straight out. The owner decided on 11 October 2026 that a live
+     * product's stock needs the manager, so the assertion is rewritten rather
+     * than softened — and what it now pins is the pair that matters: the shop
+     * does NOT move, and the request exists.
+     */
+    public function testTheVendorsOwnRestockOfALiveProductIsAProposal(): void
     {
         $productId = $this->publish();
         $wcId = (int) $this->products->find($productId)?->wcProductId;
@@ -204,6 +216,29 @@ final class CatalogProjectionTest extends DatabaseTestCase
 
         $result = $this->manage->updateInventory(self::VENDOR, self::VENDOR, $productId, 30, 'SKU-1', 1, null);
         self::assertTrue($result->ok, $result->code);
+        self::assertSame('stock_revision_requested', $result->code);
+        self::assertSame(2, $this->storefront->stock[$wcId], 'the shop keeps the number a shopper meets');
+        self::assertSame(2, $this->products->find($productId)?->details->stock, 'and so does our mirror');
+
+        $pending = $this->revisions->pendingFor($productId);
+        self::assertNotNull($pending);
+        self::assertSame(30, (int) $pending->payload['stock_proposal']['value']);
+        self::assertSame(2, (int) $pending->payload['stock_proposal']['baseline'], 'measured against the shop');
+    }
+
+    /** A draft is the vendor's own, so there is nobody to ask. */
+    public function testTheVendorsOwnInventoryEditOnADraftWritesOutwardAtOnce(): void
+    {
+        // A DRAFT with a storefront row — the shape `SyncCatalog::prepare()`
+        // makes so the manager can use WooCommerce's own editor before
+        // approval. It is the one state where the vendor owns both sides.
+        $productId = $this->readyProduct('SKU-DRAFT');
+        self::assertTrue($this->catalog->prepare($productId)->ok);
+        $wcId = (int) $this->products->find($productId)?->wcProductId;
+
+        $result = $this->manage->updateInventory(self::VENDOR, self::VENDOR, $productId, 30, 'SKU-DRAFT', 1, null);
+        self::assertTrue($result->ok, $result->code);
+        self::assertSame('inventory_saved', $result->code);
         self::assertSame(30, $this->storefront->stock[$wcId], 'an explicit restock does reach the storefront');
     }
 

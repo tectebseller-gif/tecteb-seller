@@ -158,12 +158,26 @@ final class ManageProducts
     }
 
     /**
-     * Stock, SKU and purchase limits: applied at once, at every status.
+     * SKU and purchase limits at once; stock at once until the product is live.
      *
-     * A.1 puts inventory on the immediate side deliberately — a vendor who
-     * has just sold their last unit must be able to say so without waiting
-     * for a manager, and a queue between a sale and its stock is how a shop
-     * oversells.
+     * A.1 put the whole of inventory on the immediate side, and the OWNER'S
+     * DECISION of 11 October splits it: on a PUBLISHED product a vendor's
+     * stock edit becomes a proposal the manager approves, while the SKU and
+     * the three purchase limits keep going straight through. The cost is
+     * stated rather than hidden — a vendor who has just sold their last unit
+     * can no longer take the product down themselves, which is the queue
+     * between a sale and its stock A.1 warned about — and the decision is the
+     * owner's to make.
+     *
+     * What does NOT wait is WooCommerce's own cycle. A sale reducing stock and
+     * a refund putting it back are not a vendor's proposal: they run through
+     * `pullStock()` and `increaseStock()`, neither of which this method
+     * touches. Only the vendor saying a number is a proposal.
+     *
+     * And the limits are written THROUGH to the shop here. Until `alpha.48`
+     * they were not written anywhere: the row was updated and the three meta
+     * rows on the shop product arrived only with the next `project()`, which
+     * on a published product is an approval away.
      */
     public function updateInventory(
         int $actorId,
@@ -198,19 +212,140 @@ final class ManageProducts
         if ($sku !== '' && $this->products->skuTaken($vendorUserId, $sku, $productId)) {
             return OperationResult::failure('sku_taken', ['sku' => $sku]);
         }
-        if (!$this->products->updateInventory($productId, $stock, $sku, $minPurchase, $maxPurchase, $purchaseStep)) {
+        // Read BEFORE anything is written, and from the shop when there is
+        // one: the number a shopper meets is WooCommerce's, and a proposal
+        // measured against our own mirror would be measured against a copy.
+        $stockNeedsApproval = $product->status === ProductStatus::Published;
+        $effectiveStock = $stockNeedsApproval ? $this->effectiveStock($product) : $product->details->stock;
+        $stockProposed = $stockNeedsApproval && $stock !== $effectiveStock;
+
+        if (!$this->products->updateInventory(
+            $productId,
+            // The row keeps the EFFECTIVE number while a proposal waits. Not
+            // the proposed one: every screen, every guard and every report
+            // reads this column, and a column holding a number nobody has
+            // approved is two versions of one stock.
+            $stockProposed ? $effectiveStock : $stock,
+            $sku,
+            $minPurchase,
+            $maxPurchase,
+            $purchaseStep
+        )) {
             return OperationResult::failure('storage_failed');
         }
-        // Write-through, not a mirror write: this is the one direction stock
-        // is allowed to travel outward, because it is the vendor saying so
-        // rather than a sync remembering (ADR-008).
-        $this->catalog->pushStock($productId, $stock);
+        if (!$stockProposed) {
+            // Write-through, not a mirror write: this is the one direction
+            // stock is allowed to travel outward, because it is the vendor
+            // saying so rather than a sync remembering (ADR-008).
+            $this->catalog->pushStock($productId, $stock);
+        }
+        // The selling rule, written through on the SAME save. Reported, not
+        // assumed: a row a manager owns is held and named, and a row the shop
+        // refused keeps its previous value — so the answer is never «ذخیره
+        // شد» about a limit the shop does not have.
+        $limits = $this->catalog->pushQuantities($productId);
         $this->audit->log(AuditEventCatalog::PRODUCT_INVENTORY_CHANGED, $actorId, 'product', (string) $productId, [
             'vendor_id' => $vendorUserId,
             'product_id' => $productId,
             'stock' => $stock,
         ]);
-        return OperationResult::success('inventory_saved', ['product_id' => $productId, 'stock' => $stock]);
+        $context = [
+            'product_id' => $productId,
+            'stock' => $stockProposed ? $effectiveStock : $stock,
+            'limits' => $limits->code,
+            'limits_held' => (string) ($limits->context['held'] ?? ''),
+            'limits_failed' => (string) ($limits->context['failed'] ?? ''),
+        ];
+        if ($stockProposed) {
+            $proposal = $this->proposeStock($product, $stock, $effectiveStock);
+            return $proposal->ok
+                ? OperationResult::success($proposal->code, [...$context, ...$proposal->context])
+                : OperationResult::failure($proposal->code, [...$context, ...$proposal->context]);
+        }
+        if (!$limits->ok) {
+            return OperationResult::failure('inventory_saved_limits_not_written', $context);
+        }
+        return OperationResult::success('inventory_saved', $context);
+    }
+
+    /**
+     * The number a shopper meets, read from the shop when there is a shop.
+     *
+     * Our own column is a mirror (ADR-008) and a mirror can lag, so a baseline
+     * taken from it would record «the stock when we last looked» and call it
+     * «the stock when the vendor proposed». `pullStock()` is the verb that
+     * brings it home, and its side effect — the mirror becoming current — is
+     * wanted here rather than tolerated.
+     */
+    private function effectiveStock(Product $product): int
+    {
+        $shop = $this->catalog->pullStock($product->id);
+        if ($shop !== null) {
+            return $shop;
+        }
+        $fresh = $this->products->find($product->id);
+        return $fresh?->details->stock ?? $product->details->stock;
+    }
+
+    /**
+     * A live product's stock edit, recorded as a proposal — and the pending
+     * proposal it joins rather than replaces.
+     *
+     * «ذخیرهٔ یک زبانه نباید دادهٔ زبانهٔ دیگر یا پیشنهاد موجود را پاک کند.»
+     * One pending proposal per product is the invariant every screen rests
+     * on, so a stock proposal that simply superseded the pending one would
+     * throw away a title or a brand the vendor is still waiting on. It carries
+     * the pending payload FORWARD and changes the stock in it.
+     *
+     * A new row rather than a mutated one, because the unseen badge is keyed
+     * on the pending proposal's id (`alpha.36`): editing the payload in place
+     * would add a change the manager has already «seen» and no badge would
+     * come back. The superseded row stays on record.
+     */
+    private function proposeStock(Product $product, int $stock, int $baseline): OperationResult
+    {
+        $existing = $this->revisions->pendingFor($product->id);
+        $payload = $existing?->payload ?? [
+            'details' => $this->detailsToArray($product->details),
+            'specs' => $product->specs,
+            'images' => $product->imageIds,
+            'main_image_id' => $product->mainImageId,
+        ];
+        if (!isset($payload['details']) || !is_array($payload['details'])) {
+            $payload['details'] = $this->detailsToArray($product->details);
+        }
+        $payload['details']['stock'] = $stock;
+        // The baseline travels WITH the proposal, because the conflict the
+        // owner named is between proposing and approving: «اگر موجودی مؤثر بین
+        // ثبت پیشنهاد و تأیید تغییر کرد، پیشنهاد کهنه نباید بی‌صدا مقدار تازه
+        // را بازنویسی کند.» Without a number recorded at proposal time there
+        // is nothing to notice the change against.
+        $payload['stock_proposal'] = ['value' => $stock, 'baseline' => $baseline];
+
+        if ($existing !== null && self::samePayload($existing->payload, $payload)) {
+            return OperationResult::success('stock_revision_unchanged', [
+                'revision_id' => $existing->id,
+                'proposed_stock' => $stock,
+            ]);
+        }
+        if ($existing !== null) {
+            $this->revisions->decide($existing->id, ProductRevision::SUPERSEDED, 0, '');
+        }
+        $revisionId = $this->revisions->create($product->id, $product->vendorUserId, $payload);
+        if ($revisionId <= 0) {
+            return OperationResult::failure('storage_failed');
+        }
+        $this->audit->log(AuditEventCatalog::PRODUCT_REVISION_REQUESTED, $product->vendorUserId, 'product', (string) $product->id, [
+            'vendor_id' => $product->vendorUserId,
+            'product_id' => $product->id,
+            'revision_id' => $revisionId,
+            'fields' => 1,
+        ]);
+        return OperationResult::success('stock_revision_requested', [
+            'revision_id' => $revisionId,
+            'proposed_stock' => $stock,
+            'baseline_stock' => $baseline,
+        ]);
     }
 
     /**
@@ -615,6 +750,11 @@ final class ManageProducts
         if (!$this->products->updateDetails($product->id, $details, $expectedVersion)) {
             return $this->refusedOrFailed($product, $expectedVersion);
         }
+        // A draft can already have a storefront row — `SyncCatalog::prepare()`
+        // makes one so the manager can use WooCommerce's own editor — and a
+        // row that exists is a row whose limits must agree with the save.
+        // `pushQuantities()` answers `nothing_to_push` when there is none.
+        $this->catalog->pushQuantities($product->id);
         $missed = $this->persistSpecsAndImages($product->id, $details->categoryKey, $specs, $imageIds, $mainImageId);
         $this->audit->log(AuditEventCatalog::PRODUCT_SAVED, $product->vendorUserId, 'product', (string) $product->id, [
             'vendor_id' => $product->vendorUserId,
@@ -677,9 +817,14 @@ final class ManageProducts
         $specsDiffer = SensitiveChange::specsChanged($product->specs, $specs);
         $imagesDiffer = $product->imageIds !== $imageIds || $product->mainImageId !== $mainImageId;
 
+        // Read before anything is written — see `effectiveStock()`.
+        $stockNeedsApproval = $product->status === ProductStatus::Published;
+        $effectiveStock = $stockNeedsApproval ? $this->effectiveStock($product) : $product->details->stock;
+        $stockProposed = $stockNeedsApproval && $details->stock !== $effectiveStock;
+
         $inventoryWritten = $this->products->updateInventory(
             $product->id,
-            $details->stock,
+            $stockProposed ? $effectiveStock : $details->stock,
             $details->sku,
             $details->minPurchase,
             $details->maxPurchase,
@@ -688,7 +833,12 @@ final class ManageProducts
         if (!$inventoryWritten) {
             return OperationResult::failure('storage_failed');
         }
-        $this->catalog->pushStock($product->id, $details->stock);
+        if (!$stockProposed) {
+            $this->catalog->pushStock($product->id, $details->stock);
+        }
+        // The selling rule goes out with this save, on a published product
+        // too — it is an immediate field and nothing carried it before.
+        $limits = $this->catalog->pushQuantities($product->id);
 
         // Inventory is deliberately NOT version-guarded, and that is not an
         // oversight. A.1 puts stock on the immediate side: a vendor who has
@@ -696,8 +846,16 @@ final class ManageProducts
         // because a colleague renamed the product two minutes ago is exactly
         // the queue between a sale and its inventory that A.1 forbids. Last
         // write wins on a number whose latest value is the true one.
-        if ($changed === [] && !$specsDiffer && !$imagesDiffer) {
-            return OperationResult::success('inventory_saved', ['product_id' => $product->id]);
+        $inventoryContext = [
+            'product_id' => $product->id,
+            'limits' => $limits->code,
+            'limits_held' => (string) ($limits->context['held'] ?? ''),
+            'limits_failed' => (string) ($limits->context['failed'] ?? ''),
+        ];
+        if ($changed === [] && !$specsDiffer && !$imagesDiffer && !$stockProposed) {
+            return $limits->ok
+                ? OperationResult::success('inventory_saved', $inventoryContext)
+                : OperationResult::failure('inventory_saved_limits_not_written', $inventoryContext);
         }
 
         $payload = [
@@ -706,6 +864,17 @@ final class ManageProducts
             'images' => $imageIds,
             'main_image_id' => $mainImageId,
         ];
+        if ($stockProposed) {
+            // The proposal carries the stock AND the number it was measured
+            // against, so the approval can tell «the vendor wants 5» from «the
+            // vendor wanted 5 when there were 9, and there are 2 now».
+            $payload['stock_proposal'] = ['value' => $details->stock, 'baseline' => $effectiveStock];
+        } else {
+            // The payload's own `details.stock` is read only through
+            // `stock_proposal`, but leaving the proposed number in a payload
+            // that is NOT proposing it invites the next reader to apply it.
+            $payload['details']['stock'] = $effectiveStock;
+        }
 
         // READ BEFORE THE VERSION IS BUMPED, because a proposal that asks for
         // exactly what the pending one already asks for is not a change and

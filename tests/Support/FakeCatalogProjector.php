@@ -22,6 +22,12 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
 
     public bool $available = true;
 
+    /** @var array<int,string> wc product id => `min/max/step` as the shop holds it */
+    public array $quantities = [];
+
+    /** @var list<int> tmc product ids whose purchase-limit write will refuse */
+    public array $quantityWriteFails = [];
+
     /** @var list<int> tmc product ids whose withdrawal will fail */
     public array $refusesToWithdraw = [];
 
@@ -143,6 +149,44 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
         return true;
     }
 
+    /**
+     * The three quantity rows, as a shop that cannot be edited by hand.
+     *
+     * There is no manager here to hold a row, so `held` is always empty and
+     * `failed` is driven by `$quantityWriteFails` — the one thing an
+     * Application-level test needs to ask: does the caller report a refusal
+     * instead of a success.
+     */
+    public function writeQuantities(Product $product): array
+    {
+        $blank = ['wrote' => [], 'held' => [], 'failed' => []];
+        if (!$this->available) {
+            return ['ok' => false, 'code' => 'woocommerce_missing', ...$blank];
+        }
+        $id = $this->links[$product->id] ?? 0;
+        if ($id <= 0) {
+            return ['ok' => false, 'code' => 'not_ours', ...$blank];
+        }
+        $rule = $product->details->purchaseQuantity();
+        if (in_array($product->id, $this->quantityWriteFails, true)) {
+            return [
+                'ok' => false,
+                'code' => 'limits_not_written',
+                'wrote' => [],
+                'held' => [],
+                'failed' => ['_tmc_max_purchase'],
+            ];
+        }
+        $this->quantities[$id] = $rule->min . '/' . ($rule->max === null ? '' : $rule->max) . '/' . $rule->step;
+        return [
+            'ok' => true,
+            'code' => 'limits_written',
+            'wrote' => ['_tmc_min_purchase', '_tmc_max_purchase', '_tmc_purchase_step'],
+            'held' => [],
+            'failed' => [],
+        ];
+    }
+
     public function readVariationStock(Product $product): array
     {
         return [];
@@ -171,6 +215,23 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
         $id = $this->links[$productId] ?? 0;
         if ($id > 0) {
             $this->stock[$id] = max(0, ($this->stock[$id] ?? 0) - $quantity);
+        }
+    }
+
+    /**
+     * The shop's own stock moving upward — a refund, or a manager typing a
+     * number into WooCommerce.
+     *
+     * The counterpart of `sell()`, and it exists for the same reason: from
+     * `alpha.48` a vendor's stock edit on a live product is a proposal, so a
+     * test that needs the SHOP to hold a different number has to say so on the
+     * shop's side rather than through the vendor's form.
+     */
+    public function restock(int $productId, int $quantity): void
+    {
+        $id = $this->links[$productId] ?? 0;
+        if ($id > 0) {
+            $this->stock[$id] = max(0, $quantity);
         }
     }
 }

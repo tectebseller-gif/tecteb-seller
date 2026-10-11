@@ -54,15 +54,30 @@ final class ProductDomainTest extends TestCase
 
     public function testStockAndPriceAreOnOppositeSidesOfTheReviewLine(): void
     {
-        // A.1: inventory is immediate; anything that changes what the product
-        // claims to be — price included — waits for the manager.
+        // Price waits for the manager; the selling rule does not.
+        //
+        // This test used to assert `stock` was in `IMMEDIATE`, and it was
+        // right to until the owner decided otherwise on 11 October 2026. An
+        // assertion that writes down a rule fails when the rule changes, and
+        // that failure is the news (`alpha.27`) — so it is rewritten rather
+        // than relaxed: stock is now in NEITHER list, because its answer
+        // depends on the status, and `liveStockChanged()` is where the
+        // question is asked.
         self::assertContains('priceMinor', SensitiveChange::SENSITIVE);
-        self::assertContains('stock', SensitiveChange::IMMEDIATE);
+        self::assertSame(['sku', 'minPurchase', 'maxPurchase', 'purchaseStep'], SensitiveChange::IMMEDIATE);
+        self::assertSame(['stock'], SensitiveChange::IMMEDIATE_UNTIL_LIVE);
         self::assertNotContains('stock', SensitiveChange::SENSITIVE);
+        self::assertNotContains('stock', SensitiveChange::IMMEDIATE);
 
         $current = new ProductDetails(title: 'دستکش', priceMinor: 100000, stock: 5);
         $sameClaimNewStock = new ProductDetails(title: 'دستکش', priceMinor: 100000, stock: 2);
+        // `between()` still says nothing about stock: it answers «which fields
+        // need the manager whatever the status is», and stock is not one.
         self::assertSame([], SensitiveChange::between($current, $sameClaimNewStock));
+        // The status-aware question, against the EFFECTIVE number rather than
+        // the row's own, is a separate verb with a separate answer.
+        self::assertTrue(SensitiveChange::liveStockChanged(5, $sameClaimNewStock));
+        self::assertFalse(SensitiveChange::liveStockChanged(2, $sameClaimNewStock));
 
         $newPrice = new ProductDetails(title: 'دستکش', priceMinor: 120000, stock: 5);
         self::assertSame(['priceMinor'], SensitiveChange::between($current, $newPrice));

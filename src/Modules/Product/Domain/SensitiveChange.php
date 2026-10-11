@@ -33,8 +33,46 @@ final class SensitiveChange
         'weightGrams', 'dimensions', 'taxClass',
     ];
 
-    /** @var list<string> fields a vendor may change on a live product */
-    public const IMMEDIATE = ['stock', 'sku', 'minPurchase', 'maxPurchase', 'purchaseStep'];
+    /**
+     * @var list<string> fields a vendor may change on a live product, applied
+     *                   at once at every status
+     */
+    public const IMMEDIATE = ['sku', 'minPurchase', 'maxPurchase', 'purchaseStep'];
+
+    /**
+     * Immediate while the vendor may still edit in place, a PROPOSAL once the
+     * product is live — the owner's decision of 11 October 2026.
+     *
+     * `stock` sat in `IMMEDIATE` from `alpha.6` with the reason written above:
+     * a queue between a sale and its stock is how a shop oversells. The owner
+     * decided the other way, and the trade is named rather than buried — a
+     * vendor can no longer take a sold-out product down themselves on a live
+     * listing; they say so and a manager agrees.
+     *
+     * What stays immediate is WooCommerce's OWN cycle. A sale reducing stock
+     * and a refund restoring it never come through here: they are
+     * `pullStock()` and `increaseStock()`, and neither asks anybody.
+     *
+     * It is NOT in `SENSITIVE`, because `between()` answers «which fields need
+     * the manager REGARDLESS of status» and this one depends on the status. The
+     * caller that knows the status asks `liveStockChanged()`.
+     *
+     * @var list<string>
+     */
+    public const IMMEDIATE_UNTIL_LIVE = ['stock'];
+
+    /**
+     * Whether a live product's stock is being changed, measured against the
+     * number that is EFFECTIVE rather than the one the row remembers.
+     *
+     * The effective number is WooCommerce's when there is a storefront row
+     * (ADR-008 makes ours the mirror), which is why it is passed in: this is a
+     * domain rule and the domain does not read the shop.
+     */
+    public static function liveStockChanged(int $effectiveStock, ProductDetails $proposed): bool
+    {
+        return $effectiveStock !== $proposed->stock;
+    }
 
     /**
      * @return list<string> the sensitive fields that actually differ
