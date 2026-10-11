@@ -96,11 +96,21 @@ final class ProjectedFactsTest extends ContractTestCase
             self::assertFalse($attributes[$key]->get_variation(), $key . ' is not a variation axis');
         }
 
-        // And the record that makes all of this possible on the NEXT run.
+        // And the record that makes all of this possible on the NEXT run —
+        // key => fingerprint, and each fingerprint taken from the attribute
+        // STORAGE holds rather than from the one that was handed over.
+        $record = get_post_meta($result['wc_product_id'], ProjectedAttributes::OWNED_META, true);
         self::assertSame(
             [$brand, $material, ProjectedAttributes::keyFor('اندازه')],
-            get_post_meta($result['wc_product_id'], ProjectedAttributes::OWNED_META, true)
+            array_keys((array) $record)
         );
+        foreach ($record as $key => $fingerprint) {
+            self::assertSame(
+                ProjectedAttributes::fingerprint($attributes[$key]),
+                $fingerprint,
+                $key . ': the record must be of what the shop holds'
+            );
+        }
     }
 
     /**
@@ -361,7 +371,7 @@ final class ProjectedFactsTest extends ContractTestCase
         self::assertTrue($this->projector()->project($product)['ok']);
 
         $brand = ProjectedAttributes::keyFor('برند');
-        self::assertSame([$brand], get_post_meta($wcId, ProjectedAttributes::OWNED_META, true));
+        self::assertSame([$brand], array_keys((array) get_post_meta($wcId, ProjectedAttributes::OWNED_META, true)));
         self::assertSame('', (string) get_post_meta($wcId, ProjectedAttributes::CONFLICT_META, true));
 
         // And from the next run on it behaves like any other owned key: the
@@ -393,6 +403,271 @@ final class ProjectedFactsTest extends ContractTestCase
         $after = $this->reload($wcId);
         self::assertSame(['آریا طب نوین'], $after[ProjectedAttributes::keyFor('برند')]->get_options());
         self::assertCount(1, $after, 'and no second brand attribute next to it');
+    }
+
+    /**
+     * A manager's edit to one of OUR attributes is not overwritten.
+     *
+     * **The whole of this round.** `alpha.43` recorded which keys it wrote
+     * and read that record as a licence to rewrite them, so an ordinary
+     * projection — nothing changed on the vendor's side — put the plugin's
+     * value back over the manager's. MEASURED on real WooCommerce 11.0.1
+     * before the fix: `brand_after_manager=برندی که مدیر نوشته`, then
+     * `brand_after_projection=آریا طب`, and `conflicts=` — silent.
+     *
+     * The record now carries the fingerprint of what the shop HELD, so
+     * «recorded» and «unchanged since» are two questions again.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAManagersEditToOneOfOursIsNotOverwritten(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $wcId = $this->existingProduct(static function (\WC_Product $p): void {
+        });
+        $product = $this->product(description: 'x', wcProductId: $wcId, specs: ['material' => 'لاتکس']);
+        self::assertTrue($this->projector()->project($product)['ok']);
+
+        $brand = ProjectedAttributes::keyFor('برند');
+        self::assertSame(['آریا طب'], $this->reload($wcId)[$brand]->get_options());
+        self::assertArrayHasKey($brand, (array) get_post_meta($wcId, ProjectedAttributes::OWNED_META, true));
+
+        // The manager changes it in the editor. Nothing else moves.
+        $this->managerEdits($wcId, 'برند', 'برندی که مدیر نوشته');
+
+        self::assertTrue($this->projector()->project($product)['ok']);
+        $after = $this->reload($wcId);
+        self::assertSame(
+            ['برندی که مدیر نوشته'],
+            $after[$brand]->get_options(),
+            "a key in the record is not a licence to overwrite what is in it"
+        );
+        self::assertSame([$brand], get_post_meta($wcId, ProjectedAttributes::CONFLICT_META, true));
+        self::assertArrayNotHasKey(
+            $brand,
+            (array) get_post_meta($wcId, ProjectedAttributes::OWNED_META, true),
+            'and the plugin stops claiming it'
+        );
+        // The specification beside it is untouched by the disagreement.
+        self::assertSame(['لاتکس'], $after[ProjectedAttributes::keyFor('جنس')]->get_options());
+    }
+
+    /**
+     * …and the vendor changing their value at the same time does not help.
+     *
+     * The test exists because the opposite implementation passes the one
+     * above: a rule of «rewrite only when the vendor's value changed» would
+     * leave the manager's edit alone in that test and destroy it here.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAVendorsOwnChangeDoesNotOverrideAManagersEdit(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $wcId = $this->existingProduct(static function (\WC_Product $p): void {
+        });
+        self::assertTrue($this->projector()->project(
+            $this->product(description: 'x', wcProductId: $wcId, specs: ['material' => 'لاتکس'])
+        )['ok']);
+        $this->managerEdits($wcId, 'جنس', 'جنسی که مدیر نوشته');
+
+        // The vendor now edits that very specification.
+        self::assertTrue($this->projector()->project(
+            $this->product(description: 'x', wcProductId: $wcId, specs: ['material' => 'نیتریل'])
+        )['ok']);
+
+        $material = ProjectedAttributes::keyFor('جنس');
+        self::assertSame(['جنسی که مدیر نوشته'], $this->reload($wcId)[$material]->get_options());
+        self::assertSame([$material], get_post_meta($wcId, ProjectedAttributes::CONFLICT_META, true));
+    }
+
+    /**
+     * A retired specification a manager had edited is NOT deleted.
+     *
+     * Retiring is how this plugin drops its own rows, and `alpha.43` dropped
+     * the row whatever was in it: measured, `size_present=no` after a manager
+     * had written their own value there. Deleting somebody's work is worse
+     * than overwriting it, because there is nothing left to compare.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testARetiredSpecificationAManagerEditedIsKept(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $wcId = $this->existingProduct(static function (\WC_Product $p): void {
+        });
+        $product = $this->product(description: 'x', wcProductId: $wcId, specs: [
+            'material' => 'لاتکس',
+            'size' => '7',
+        ]);
+        self::assertTrue($this->projector()->project($product)['ok']);
+        $size = ProjectedAttributes::keyFor('اندازه');
+        self::assertSame(['7 اینچ'], $this->reload($wcId)[$size]->get_options());
+
+        $this->managerEdits($wcId, 'اندازه', 'اندازه‌ای که مدیر نوشته');
+
+        // The manager retires the field. The attribute they EDITED stays.
+        $retired = new NoSpecTemplates(new SpecTemplate(1, 'gloves', 'دستکش', 4, [
+            new SpecField(1, 'material', 'جنس', SpecFieldType::Text, true),
+            new SpecField(2, 'size', 'اندازه', SpecFieldType::Text, false, 'اینچ', [], 0, true),
+        ]));
+        self::assertTrue((new WooCommerceProjector($retired))->project($product)['ok']);
+
+        $after = $this->reload($wcId);
+        self::assertArrayHasKey($size, $after, 'a retired row a manager edited is not ours to delete');
+        self::assertSame(['اندازه‌ای که مدیر نوشته'], $after[$size]->get_options());
+        self::assertContains($size, get_post_meta($wcId, ProjectedAttributes::CONFLICT_META, true));
+    }
+
+    /**
+     * And the control, which is the only reason the one above means anything:
+     * a retired specification NOBODY touched is still removed.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testARetiredSpecificationNobodyTouchedIsStillRemoved(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $wcId = $this->existingProduct(static function (\WC_Product $p): void {
+        });
+        $product = $this->product(description: 'x', wcProductId: $wcId, specs: [
+            'material' => 'لاتکس',
+            'size' => '7',
+        ]);
+        self::assertTrue($this->projector()->project($product)['ok']);
+
+        $retired = new NoSpecTemplates(new SpecTemplate(1, 'gloves', 'دستکش', 4, [
+            new SpecField(1, 'material', 'جنس', SpecFieldType::Text, true),
+            new SpecField(2, 'size', 'اندازه', SpecFieldType::Text, false, 'اینچ', [], 0, true),
+        ]));
+        self::assertTrue((new WooCommerceProjector($retired))->project($product)['ok']);
+
+        $after = $this->reload($wcId);
+        self::assertArrayNotHasKey(ProjectedAttributes::keyFor('اندازه'), $after);
+        self::assertArrayHasKey(ProjectedAttributes::keyFor('جنس'), $after);
+        self::assertSame('', (string) get_post_meta($wcId, ProjectedAttributes::CONFLICT_META, true));
+    }
+
+    /**
+     * The `alpha.43` record: a list of keys, with no record of their values.
+     *
+     * The policy is conservative and is stated rather than inferred. Such a
+     * key is decided by whether writing ours would change ANYTHING: if the
+     * stored attribute is identical in every persisted field the write is a
+     * no-op, so taking the key risks nothing — and that is the argument, not
+     * a claim that the match proves this plugin wrote it. Anything else is
+     * held, and the way out is the manager's own: delete the attribute and
+     * the next projection writes a fresh one it owns.
+     *
+     * Both halves here, because either alone is satisfied by a wrong rule.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAnAlpha43KeyListIsNoLicenceToOverwriteButUpgradesItselfWhenNothingMoved(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $wcId = $this->existingProduct(static function (\WC_Product $p): void {
+        });
+        $product = $this->product(description: 'x', wcProductId: $wcId, specs: ['material' => 'لاتکس']);
+        self::assertTrue($this->projector()->project($product)['ok']);
+
+        $brand = ProjectedAttributes::keyFor('برند');
+        $material = ProjectedAttributes::keyFor('جنس');
+
+        // Put the product back into exactly the state `alpha.43` left: the
+        // keys, and nothing about what is in them.
+        update_post_meta($wcId, ProjectedAttributes::OWNED_META, [$brand, $material]);
+        $this->managerEdits($wcId, 'برند', 'برندی که مدیر نوشته');
+
+        self::assertTrue($this->projector()->project($product)['ok']);
+        $after = $this->reload($wcId);
+        self::assertSame(
+            ['برندی که مدیر نوشته'],
+            $after[$brand]->get_options(),
+            'a list of keys says nothing about what is in them'
+        );
+        self::assertContains($brand, get_post_meta($wcId, ProjectedAttributes::CONFLICT_META, true));
+
+        // The other half: the untouched key passed the no-op test, so it was
+        // adopted WITH a fingerprint — and the vendor's next edit lands.
+        $record = (array) get_post_meta($wcId, ProjectedAttributes::OWNED_META, true);
+        self::assertArrayHasKey($material, $record);
+        self::assertNotSame('', $record[$material], 'the legacy key upgraded to a fingerprint');
+
+        self::assertTrue($this->projector()->project(
+            $this->product(description: 'x', wcProductId: $wcId, specs: ['material' => 'نیتریل'])
+        )['ok']);
+        self::assertSame(['نیتریل'], $this->reload($wcId)[$material]->get_options());
+    }
+
+    /**
+     * A write that did not land is not recorded as ours.
+     *
+     * `update_post_meta()` answers `false` for a failure AND for «the value
+     * is already this», which are opposite facts, so the record is read back
+     * and compared instead of trusted. And a key the shop does not hold
+     * afterwards is not written down at all — recording it would license
+     * overwriting whatever IS there on the next run.
+     *
+     * Here the projection has nothing of its own to write (no brand, no
+     * answered specification), so the record must come away EMPTY rather
+     * than keep what an earlier run put in it.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testTheRecordOnlyEverHoldsKeysTheShopActuallyHolds(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $wcId = $this->existingProduct(static function (\WC_Product $p): void {
+        });
+        self::assertTrue($this->projector()->project(
+            $this->product(description: 'x', wcProductId: $wcId, specs: ['material' => 'لاتکس'])
+        )['ok']);
+        self::assertNotSame([], (array) get_post_meta($wcId, ProjectedAttributes::OWNED_META, true));
+
+        // A product with no brand and no answered specification: there is
+        // nothing of ours on it any more.
+        $bare = new Product(
+            41,
+            self::VENDOR,
+            new ProductDetails(
+                title: 'دستکش لاتکس',
+                categoryKey: 'gloves',
+                brand: '',
+                shortDescription: 'یک جمله',
+                priceMinor: 200000,
+                sku: 'SKU-FACT',
+                stock: 5,
+                description: 'x'
+            ),
+            ProductStatus::Published,
+            [],
+            [],
+            0,
+            '',
+            0,
+            null,
+            '',
+            $wcId
+        );
+        self::assertTrue($this->projector()->project($bare)['ok']);
+        self::assertSame(
+            '',
+            (string) get_post_meta($wcId, ProjectedAttributes::OWNED_META, true),
+            'a record of keys nothing holds is a licence nobody should have'
+        );
     }
 
     // ----------------------------------------------------------------- setup
@@ -432,6 +707,42 @@ final class ProjectedFactsTest extends ContractTestCase
         return array_filter(
             (new \WC_Product_Simple($wcId))->get_attributes(),
             static fn ($a): bool => $a instanceof \WC_Product_Attribute
+        );
+    }
+
+    /**
+     * What a manager does in the WooCommerce editor: change one value, save.
+     *
+     * FRESH attribute objects, every one. Mutating the objects the product
+     * already holds and handing the same array back registers NO change —
+     * `set_prop()` compares against what is there, and what is there is the
+     * object that was just edited. The probe's first version did exactly that
+     * and reported «the manager's edit did not happen» on a product the
+     * manager had edited.
+     */
+    private function managerEdits(int $wcId, string $label, string $value): void
+    {
+        $product = \wc_get_product($wcId);
+        self::assertInstanceOf(\WC_Product::class, $product);
+        $rewritten = [];
+        foreach ($this->reload($wcId) as $attribute) {
+            $copy = new \WC_Product_Attribute();
+            $copy->set_id((int) $attribute->get_id());
+            $copy->set_name((string) $attribute->get_name());
+            $copy->set_options(
+                $attribute->get_name() === $label ? [$value] : (array) $attribute->get_options()
+            );
+            $copy->set_position((int) $attribute->get_position());
+            $copy->set_visible((bool) $attribute->get_visible());
+            $copy->set_variation((bool) $attribute->get_variation());
+            $rewritten[] = $copy;
+        }
+        $product->set_attributes($rewritten);
+        $product->save();
+        self::assertSame(
+            [$value],
+            $this->reload($wcId)[ProjectedAttributes::keyFor($label)]->get_options(),
+            'the fixture must really have changed the attribute'
         );
     }
 

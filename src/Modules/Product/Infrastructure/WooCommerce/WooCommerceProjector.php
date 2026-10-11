@@ -248,7 +248,9 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         $merged = ProjectedAttributes::merge(
             $wcProduct->get_attributes(),
             $ours,
-            $this->ownedAttributeKeys((int) $wcProduct->get_id())
+            ProjectedAttributes::normalise(
+                $this->storedAttributeRecord((int) $wcProduct->get_id())
+            )
         );
         $wcProduct->set_attributes($merged['attributes']);
         if ($details->type !== ProductType::VARIABLE) {
@@ -273,10 +275,11 @@ final class WooCommerceProjector implements CatalogProjectorInterface
 
         update_post_meta($wcProductId, self::PRODUCT_META, $product->id);
         update_post_meta($wcProductId, self::VENDOR_META, $product->vendorUserId);
-        // Written AFTER the save, from what the merge decided — so a save
-        // that failed leaves the previous record in place and the next run
-        // still knows which keys are ours.
-        $this->recordAttributeKeys($wcProductId, $merged['owned'], $merged['conflicts']);
+        // Written AFTER the save, and from what the SHOP HOLDS rather than
+        // from what was sent — WooCommerce filters on the way in, and a
+        // fingerprint of our own input would call the stored value edited on
+        // the very next run (the `alpha.26` rule).
+        $this->recordAttributeKeys($wcProductId, $merged['wrote'], $merged['held']);
         // Stamp AFTER the save and from a fresh read: WooCommerce runs its own
         // filters on the way in, so the value that comes back is routinely not
         // the one that went out. Stamping what we *sent* would mark every
@@ -912,36 +915,72 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         return $out;
     }
 
-    /** The keys the last projection wrote on this product. @return list<string> */
-    private function ownedAttributeKeys(int $wcProductId): array
+    /** Whatever is on disk, in whatever shape; `normalise()` reads it. */
+    private function storedAttributeRecord(int $wcProductId): mixed
     {
-        if ($wcProductId <= 0) {
-            return [];
-        }
-        $stored = get_post_meta($wcProductId, ProjectedAttributes::OWNED_META, true);
-        if (!is_array($stored)) {
-            return [];
-        }
-        return array_values(array_map('strval', $stored));
+        return $wcProductId <= 0
+            ? null
+            : get_post_meta($wcProductId, ProjectedAttributes::OWNED_META, true);
     }
 
     /**
-     * @param list<string> $owned
-     * @param list<string> $conflicts
+     * Record what the shop ACTUALLY holds for the keys we just wrote.
+     *
+     * Three things this will not do, and each of them was a way to claim
+     * ownership of something we do not own:
+     *
+     *  - it does not fingerprint the attribute we SENT. WooCommerce filters
+     *    input, so the stored value can differ from the submitted one, and a
+     *    record of the submitted one would read as «the manager edited this»
+     *    forever after.
+     *  - it does not record a key the save did not land. A key we asked for
+     *    and the shop does not hold is a write that failed; recording it
+     *    would license overwriting whatever IS there next time.
+     *  - it does not trust `update_post_meta()`'s return value. That function
+     *    answers `false` both for a failure and for «the value is already
+     *    this», which are opposite facts. The record is READ BACK and
+     *    compared; if it did not store, the record is REMOVED rather than
+     *    left stale — an absent record is decided by the no-op test, and a
+     *    stale one would be believed.
+     *
+     * @param list<string> $wrote keys this projection put into the set
+     * @param list<string> $held  keys somebody else holds
      */
-    private function recordAttributeKeys(int $wcProductId, array $owned, array $conflicts): void
+    private function recordAttributeKeys(int $wcProductId, array $wrote, array $held): void
     {
-        if ($owned === []) {
+        $stored = [];
+        $fresh = wc_get_product($wcProductId);
+        if ($fresh instanceof \WC_Product) {
+            $now = $fresh->get_attributes();
+            foreach ($wrote as $key) {
+                $attribute = $now[$key] ?? null;
+                if ($attribute instanceof \WC_Product_Attribute) {
+                    $stored[$key] = ProjectedAttributes::fingerprint($attribute);
+                }
+            }
+        }
+
+        $problem = [];
+        if ($stored === []) {
             delete_post_meta($wcProductId, ProjectedAttributes::OWNED_META);
         } else {
-            update_post_meta($wcProductId, ProjectedAttributes::OWNED_META, $owned);
+            update_post_meta($wcProductId, ProjectedAttributes::OWNED_META, $stored);
+            $readBack = ProjectedAttributes::normalise(
+                get_post_meta($wcProductId, ProjectedAttributes::OWNED_META, true)
+            );
+            if ($readBack !== $stored) {
+                delete_post_meta($wcProductId, ProjectedAttributes::OWNED_META);
+                $problem[] = ProjectedAttributes::RECORD_NOT_STORED;
+            }
         }
+
         // A conflict that has gone away must stop being reported, so this is
         // written on every run rather than only when there is one.
-        if ($conflicts === []) {
+        $report = array_values(array_unique([...$held, ...$problem]));
+        if ($report === []) {
             delete_post_meta($wcProductId, ProjectedAttributes::CONFLICT_META);
         } else {
-            update_post_meta($wcProductId, ProjectedAttributes::CONFLICT_META, $conflicts);
+            update_post_meta($wcProductId, ProjectedAttributes::CONFLICT_META, $report);
         }
     }
 
