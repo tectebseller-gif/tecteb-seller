@@ -337,12 +337,35 @@ for verb in $CONTROLS; do
         bad "control $verb did not produce output on both trees"
         continue
     fi
+    # A control that declined to measure is not a control. `workable-cart`
+    # needs the sale gate open on the plugin's own local switch; without it
+    # both trees print `measurement=not_run` and the diff passes about
+    # nothing.
+    if grep -q '^measurement=not_run$' "$OUT/old-$verb.txt" \
+        || grep -q '^measurement=not_run$' "$OUT/new-$verb.txt"; then
+        bad "control $verb declined to measure (measurement=not_run) — its precondition did not hold"
+        continue
+    fi
     if diff -q "$OUT/old-$verb.txt" "$OUT/new-$verb.txt" >/dev/null; then
         ok "control $verb answers identically on alpha.45 and the fix"
     else
         bad "control $verb DIFFERS between the trees:"
         diff "$OUT/old-$verb.txt" "$OUT/new-$verb.txt" | sed 's/^/        /' | tee -a "$LOG"
     fi
+done
+
+# …and said out loud, on both trees, because «identical» alone does not say
+# WHAT they agreed on. §3 names these quantities.
+for tree in old new; do
+    [ -s "$OUT/$tree-workable-cart.txt" ] || continue
+    expect "$tree" workable-cart 'input_args=3/9/3' \
+        "the ceiling is floored to nine, never raised to twelve"
+    for q in 3 6 9; do
+        expect "$tree" workable-cart "qty_$q=allowed" "a multiple of the step inside the window is bought"
+    done
+    for q in 1 2 4 10; do
+        expect "$tree" workable-cart "qty_$q=refused" "and nothing else is"
+    done
 done
 
 note ""

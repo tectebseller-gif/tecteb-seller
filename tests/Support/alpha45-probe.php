@@ -625,6 +625,19 @@ switch ($verb) {
             $say('fixture', 'run_unsatisfiable-stored_first');
             break;
         }
+        // THE GATE FIRST, before anything that could ask it. `WC_Product::
+        // save()` runs our own hooks, and one of them asks the sale gate —
+        // which memoises per request, so the first version of this verb saved
+        // the product, then requested the trial switch, then got
+        // `decisions_open` back and reported `measurement=not_run`. A control
+        // whose precondition never held would have passed on both trees
+        // while measuring nothing at all.
+        [$gateOpen, $gateWhy, $restoreGate] = $openGateForMeasurement();
+        $say('gate', $gateOpen ? $gateWhy : 'not_open:' . $gateWhy);
+        if (!$gateOpen) {
+            $say('measurement', 'not_run');
+            break;
+        }
         $fresh = wc_get_product($wcId);
         $fresh->set_manage_stock(true);
         $fresh->set_stock_quantity(500);
@@ -641,13 +654,6 @@ switch ($verb) {
         $args = wc_get_quantity_input_args([], wc_get_product($wcId));
         $say('input_args', $args['min_value'] . '/' . $args['max_value'] . '/' . $args['step']);
         $say('contradiction_recorded', (string) get_post_meta($wcId, '_tmc_quantity_contradiction', true));
-
-        [$gateOpen, $gateWhy, $restoreGate] = $openGateForMeasurement();
-        $say('gate', $gateOpen ? $gateWhy : 'not_open:' . $gateWhy);
-        if (!$gateOpen) {
-            $say('measurement', 'not_run');
-            break;
-        }
         if (function_exists('wc_load_cart')) {
             wc_load_cart();
         }
