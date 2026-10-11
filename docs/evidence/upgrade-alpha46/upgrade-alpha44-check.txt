@@ -57,7 +57,7 @@ ok:   4f a vendor writing the rule stores exactly what they wrote    2
 ok:   4g with its minimum and maximum                                2/6
 ok:   4h with the new files on disk, the column really is absent     0
 ok:   4i and the schema is still the old one                         23
-  absent_column: WordPress database error Unknown column 'purchase_step' in 'SET' for query UPDATE `wp_tmc_products` SET stock = 20, sku = 'SKU-STEP-STATE', min_purchase = 2, max_purchase = 6, `purchase_step` = 2, updated_at = '2026-10-11 16:57:51' WHERE id = 1277 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, EvalFile_Command::{closure:phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code:103}, ReflectionMethod->invokeArgs, Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository->updateInventory, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+  absent_column: WordPress database error Unknown column 'purchase_step' in 'SET' for query UPDATE `wp_tmc_products` SET stock = 20, sku = 'SKU-STEP-STATE', min_purchase = 2, max_purchase = 6, `purchase_step` = 2, updated_at = '2026-10-11 17:14:01' WHERE id = 1277 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, EvalFile_Command::{closure:phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code:103}, ReflectionMethod->invokeArgs, Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository->updateInventory, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
 wrote=0
 product=1277
 found=1
@@ -71,7 +71,7 @@ ok:   5 a same-named column of the wrong shape is really in the way  1
 ok:   5b and its shape is not the one verify() demands               0/YES
 ok:   5c the admin request still answers 200                         200
 ok:   5d the site stays on schema 23, which is 0.1.0-alpha.44 and works 23
-  last_error={"step":"0024_purchase_step","message":"verify_failed","at":"2026-10-11T16:58:00+00:00"}
+  last_error={"step":"0024_purchase_step","message":"verify_failed","at":"2026-10-11T17:14:11+00:00"}
 ok:   5e the reason is recorded, naming the step                     1
 ok:   5f and the vendor's product is untouched                       1
   wrote=1
