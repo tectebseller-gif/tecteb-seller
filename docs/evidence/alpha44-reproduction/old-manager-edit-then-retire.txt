@@ -1,6 +1,6 @@
 wc_version=11.0.1
 probe=ran
-wc=149
+wc=183
 size_after_manager=اندازه‌ای_که_مدیر_نوشته
 size_after_retire=
 size_present=no

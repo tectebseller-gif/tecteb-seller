@@ -1,0 +1,13 @@
+probe=ran
+gate=ready_on_trial
+stored_rows=3/10/3
+input_args=3/9/3
+contradiction_recorded=
+qty_1=refused
+qty_2=refused
+qty_3=allowed
+qty_4=refused
+qty_6=allowed
+qty_9=allowed
+qty_10=refused
+qty_11=refused

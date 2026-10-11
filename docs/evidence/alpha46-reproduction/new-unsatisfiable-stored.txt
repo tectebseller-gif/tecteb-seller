@@ -1,0 +1,7 @@
+probe=ran
+stored_rows=10/11/4
+input_args=1/500/1
+args_not_widened=yes
+contradiction_recorded=unsatisfiable
+panel_warns=yes
+panel_shows_stored_max=yes

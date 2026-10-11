@@ -1,0 +1,4 @@
+probe=ran
+stated_5_2_1=max=UNLIMITED_allows_9999=YES_satisfiable=n/a
+stated_3_0_1=max=UNLIMITED_allows_9999=YES_satisfiable=n/a
+stated_10_1_1=max=UNLIMITED_allows_9999=YES_satisfiable=n/a

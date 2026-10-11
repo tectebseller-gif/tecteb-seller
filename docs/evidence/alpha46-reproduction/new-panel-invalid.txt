@@ -1,0 +1,9 @@
+probe=ran
+rows_before=2/6/2
+record_before=max,min,purchase_step
+form_fields=tmc_min_purchase,tmc_max_purchase,tmc_purchase_step,tmc_quantity_panel
+rows_after=2/6/2
+record_after=max,min,purchase_step
+other_product_data_unchanged=yes
+rows_after_unreachable=2/6/2
+record_after_unreachable=max,min,purchase_step

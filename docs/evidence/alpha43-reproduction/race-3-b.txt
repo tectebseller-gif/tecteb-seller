@@ -1,7 +1,7 @@
 wc_version=11.0.1
 probe=ran
-pid=19181
+pid=8510
 code=product_created
-uploaded_now=177/178
+uploaded_now=211
 discarded=0
 path=created

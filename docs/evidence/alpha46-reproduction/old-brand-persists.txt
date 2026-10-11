@@ -1,0 +1,6 @@
+probe=ran
+save_code=revision_requested
+brand_on_step1=برندی_که_فروشنده_نوشته
+brand_on_step1_again=برندی_که_فروشنده_نوشته
+brand_after_step2_visit=carried
+row_brand_untouched=yes

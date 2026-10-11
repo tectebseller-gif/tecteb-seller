@@ -1032,10 +1032,15 @@ final class ManageProducts
         }
         $context = ['min' => $min, 'max' => $max, 'step' => $step];
         if ($reason === PurchaseQuantity::NO_MULTIPLE && $max !== null) {
-            // Two numbers that WOULD work, so the refusal can be acted on.
-            [$below, $above] = PurchaseQuantity::workableAround($max, $step);
-            $context['workable_below'] = $below;
-            $context['workable_above'] = $above;
+            // Two ways out, each the smallest change to ONE field — and the
+            // second may not exist, so it is only put in the context when it
+            // does. A message that names a value which is itself refused is
+            // worse than one that names nothing.
+            [$workableMax, $workableMin] = PurchaseQuantity::workableWindow($min, $max, $step);
+            $context['workable_max'] = $workableMax;
+            if ($workableMin !== null) {
+                $context['workable_min'] = $workableMin;
+            }
         }
         return OperationResult::failure($reason, $context);
     }

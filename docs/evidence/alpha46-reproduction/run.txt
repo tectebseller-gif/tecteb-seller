@@ -1,0 +1,82 @@
+woocommerce: 11.0.1 on WordPress 7.1
+snapshot: 511 files under src/ hashed before any change
+
+=== the alpha.45 bytes (bee5f17), on WooCommerce 11.0.1 ===
+PASS  [old] rule-ceiling: stated_10_11_4=effective=12/12/4_raised_ceiling=YES_satisfiable=n/a — DEFECT: a stated ceiling of eleven came out twelve
+PASS  [old] rule-ceiling: stated_3_10_3=effective=3/9/3_raised_ceiling=no_satisfiable=n/a — and a workable window was already right, so the defect is narrow
+PASS  [old] rule-invalid-max: stated_5_2_1=max=UNLIMITED_allows_9999=YES_satisfiable=n/a — DEFECT: «at most two» became no maximum at all
+PASS  [old] rule-invalid-max: stated_3_0_1=max=UNLIMITED_allows_9999=YES_satisfiable=n/a — DEFECT: and so did a maximum of zero
+PASS  [old] rule-one-answer: service_10_11_4=inventory_saved — DEFECT: the service accepted an impossible window
+PASS  [old] rule-one-answer: csv_10_11_4=csv_row_ok — DEFECT: so did the CSV importer
+PASS  [old] rule-one-answer: panel_10_11_4_rows_after=12/12/4 — DEFECT: and the panel wrote the raised ceiling onto the shop
+PASS  [old] panel-invalid: rows_after=6/empty/2 — DEFECT: «min 5, max 2» rewrote all three rows and removed the ceiling
+PASS  [old] panel-invalid: record_after=__none__ — DEFECT: and deleted the ownership record
+PASS  [old] panel-title-only: record_after=__none__ — DEFECT: saving only the title deleted the ownership record
+PASS  [old] panel-title-only: vendor_change_applied=NO — DEFECT: so the vendor's legitimate change stopped applying
+PASS  [old] panel-title-only: conflicts=_tmc_max_purchase — and was reported as a manager conflict nobody had made
+PASS  [old] panel-one-rule: record_keeps_min_and_step=NO — DEFECT: changing the maximum froze the minimum and the step too
+PASS  [old] panel-one-rule: vendor_min_applied=NO — DEFECT: so a rule the manager never touched stopped tracking the vendor
+PASS  [old] panel-return-auto: panel_offers_a_reset_control=no — DEFECT: the panel promised «leave the fields empty» and offered no control
+PASS  [old] panel-return-auto: rows_after_reset=1/empty/1 — DEFECT: and emptying them wrote «no minimum, NO MAXIMUM, no step»
+PASS  [old] panel-return-auto: back_to_automatic=NO — DEFECT: so the product stayed manager-owned, at an unlimited ceiling
+
+=== the fix (HEAD) ===
+PASS  [new] rule-ceiling: stated_10_11_4=effective=12/none/4_raised_ceiling=no_satisfiable=no — the window is impossible, so it is refused rather than widened
+PASS  [new] rule-ceiling: stated_3_10_3=effective=3/9/3_raised_ceiling=no_satisfiable=yes — and a workable window still works, floored not raised
+PASS  [new] rule-ceiling: stated_5_7_5=effective=5/5/5_raised_ceiling=no_satisfiable=yes — the boundary case: flooring to exactly the minimum is fine
+PASS  [new] rule-invalid-max: stated_5_2_1=max=2_allows_9999=no_satisfiable=no — an invalid maximum is kept for the message and allows nothing
+PASS  [new] rule-invalid-max: stated_3_0_1=max=0_allows_9999=no_satisfiable=no — a maximum of zero is not «unlimited» either
+PASS  [new] rule-one-answer: service_10_11_4=bad_quantity_unreachable — the service refuses it, by name
+PASS  [new] rule-one-answer: service_3_10_3=inventory_saved — and still accepts a workable one
+PASS  [new] rule-one-answer: csv_10_11_4=bad_quantity_unreachable — the importer gives the SAME code — one rule, four doors
+PASS  [new] rule-one-answer: csv_3_10_3=csv_row_ok — and still accepts a workable one
+PASS  [new] rule-one-answer: panel_10_11_4_rows_after=2/6/2 — and the panel wrote nothing at all
+PASS  [new] panel-invalid: rows_after=2/6/2 — «min 5, max 2» changed not one of the three rules
+PASS  [new] panel-invalid: record_after=max,min,purchase_step — and the ownership record is intact
+PASS  [new] panel-invalid: other_product_data_unchanged=yes — nor did it touch the title, the price, the stock or the SKU
+PASS  [new] panel-invalid: rows_after_unreachable=2/6/2 — and the impossible window is refused from this door too
+PASS  [new] panel-invalid: record_after_unreachable=max,min,purchase_step — with the record still intact
+PASS  [new] panel-title-only: record_after=max,min,purchase_step — a title-only save leaves the ownership record alone
+PASS  [new] panel-title-only: vendor_change_applied=yes — so the vendor's legitimate change still applies
+PASS  [new] panel-title-only: conflicts= — and nothing is reported as a conflict nobody made
+PASS  [new] panel-one-rule: record_after=min,purchase_step — only the rule the manager changed leaves the record
+PASS  [new] panel-one-rule: record_keeps_min_and_step=yes — the other two keep tracking the vendor
+PASS  [new] panel-one-rule: manager_max_survived=yes — the manager's maximum survives the next projection
+PASS  [new] panel-one-rule: vendor_min_applied=yes — and the vendor's minimum still lands
+PASS  [new] panel-return-auto: panel_offers_a_reset_control=yes — the promise has a named control now
+PASS  [new] panel-return-auto: rows_after_reset=__absent__/__absent__/__absent__ — which removes the rows
+PASS  [new] panel-return-auto: record_after_reset=__none__ — and the ownership record with them
+PASS  [new] panel-return-auto: rows_after_reprojection=2/6/2 — so the next synchronisation writes the marketplace's values again
+PASS  [new] panel-return-auto: back_to_automatic=yes — which is what «back to automatic» has to mean
+PASS  [new] unsatisfiable-stored: stored_rows=10/11/4 — a row that is already inconsistent, as only a pre-alpha.46 write could leave it
+PASS  [new] unsatisfiable-stored: args_not_widened=yes — the product page's own numbers are NOT widened by it
+PASS  [new] unsatisfiable-stored: contradiction_recorded=unsatisfiable — it is recorded rather than reinterpreted
+PASS  [new] unsatisfiable-stored: panel_warns=yes — the panel says so
+PASS  [new] unsatisfiable-stored: panel_shows_stored_max=yes — and shows the STORED eleven rather than a coerced twelve
+PASS  [new] unsatisfiable-cart: qty_1=refused — nothing may be bought under it
+PASS  [new] unsatisfiable-cart: qty_11=refused — not the stated maximum
+PASS  [new] unsatisfiable-cart: qty_12=refused — and certainly not above it
+PASS  [new] unsatisfiable-cart: shopper_told=named — and the shopper is told what is wrong, not given a quantity to retry
+
+=== controls: the same answer on both trees, or the revert broke something ===
+PASS  control brand-persists answers identically on alpha.45 and the fix
+PASS  control workable-cart answers identically on alpha.45 and the fix
+PASS  [old] workable-cart: input_args=3/9/3 — the ceiling is floored to nine, never raised to twelve
+PASS  [old] workable-cart: qty_3=allowed — a multiple of the step inside the window is bought
+PASS  [old] workable-cart: qty_6=allowed — a multiple of the step inside the window is bought
+PASS  [old] workable-cart: qty_9=allowed — a multiple of the step inside the window is bought
+PASS  [old] workable-cart: qty_1=refused — and nothing else is
+PASS  [old] workable-cart: qty_2=refused — and nothing else is
+PASS  [old] workable-cart: qty_4=refused — and nothing else is
+PASS  [old] workable-cart: qty_10=refused — and nothing else is
+PASS  [new] workable-cart: input_args=3/9/3 — the ceiling is floored to nine, never raised to twelve
+PASS  [new] workable-cart: qty_3=allowed — a multiple of the step inside the window is bought
+PASS  [new] workable-cart: qty_6=allowed — a multiple of the step inside the window is bought
+PASS  [new] workable-cart: qty_9=allowed — a multiple of the step inside the window is bought
+PASS  [new] workable-cart: qty_1=refused — and nothing else is
+PASS  [new] workable-cart: qty_2=refused — and nothing else is
+PASS  [new] workable-cart: qty_4=refused — and nothing else is
+PASS  [new] workable-cart: qty_10=refused — and nothing else is
+
+checks: 71   pass: 71   fail: 0
+PASS  src/ restored byte for byte (511 files)

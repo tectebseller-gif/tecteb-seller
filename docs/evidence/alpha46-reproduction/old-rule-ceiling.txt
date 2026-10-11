@@ -1,0 +1,6 @@
+probe=ran
+stated_10_11_4=effective=12/12/4_raised_ceiling=YES_satisfiable=n/a
+stated_3_10_3=effective=3/9/3_raised_ceiling=no_satisfiable=n/a
+stated_5_7_5=effective=5/5/5_raised_ceiling=no_satisfiable=n/a
+stated_2_6_2=effective=2/6/2_raised_ceiling=no_satisfiable=n/a
+stated_1_100_7=effective=7/98/7_raised_ceiling=no_satisfiable=n/a

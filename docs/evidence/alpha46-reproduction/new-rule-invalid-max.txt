@@ -1,0 +1,4 @@
+probe=ran
+stated_5_2_1=max=2_allows_9999=no_satisfiable=no
+stated_3_0_1=max=0_allows_9999=no_satisfiable=no
+stated_10_1_1=max=1_allows_9999=no_satisfiable=no

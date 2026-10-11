@@ -1,0 +1,7 @@
+probe=ran
+rows_after=2/4/2
+record_after=__none__
+record_keeps_min_and_step=NO
+rows_after_vendor_min=2/4/2
+manager_max_survived=yes
+vendor_min_applied=NO

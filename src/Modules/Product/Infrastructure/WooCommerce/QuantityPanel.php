@@ -216,6 +216,43 @@ final class QuantityPanel
      * a conflict about a row that no longer exists is a conflict nobody can
      * act on.
      */
+    /**
+     * The refusal a manager sees for an impossible window, with the two ways
+     * out — the second only when it exists. Separate from the vendor's own
+     * message because this one reads the numbers back out of the transient
+     * the save left, not out of an `OperationResult`.
+     *
+     * @param array<string,mixed> $context
+     * @param callable(mixed):string $fa
+     */
+    private static function unreachableNotice(array $context, callable $fa): string
+    {
+        [$workableMax, $workableMin] = PurchaseQuantity::workableWindow(
+            (int) ($context['min'] ?? 1),
+            (int) ($context['max'] ?? 0),
+            (int) ($context['step'] ?? 1)
+        );
+        if ($workableMin !== null) {
+            return sprintf(
+                /* translators: 1: step, 2: minimum, 3: maximum, 4: a maximum that works, 5: a minimum that works */
+                __('با گام %1$s، بین حداقل %2$s و حداکثر %3$s هیچ تعداد مجازی وجود ندارد. حداکثر را %4$s بگذارید، یا حداقل را %5$s. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+                $fa($context['step'] ?? ''),
+                $fa($context['min'] ?? ''),
+                $fa($context['max'] ?? ''),
+                $fa($workableMax),
+                $fa($workableMin)
+            );
+        }
+        return sprintf(
+            /* translators: 1: step, 2: minimum, 3: maximum, 4: a maximum that works */
+            __('با گام %1$s، بین حداقل %2$s و حداکثر %3$s هیچ تعداد مجازی وجود ندارد. حداکثر را %4$s بگذارید. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+            $fa($context['step'] ?? ''),
+            $fa($context['min'] ?? ''),
+            $fa($context['max'] ?? ''),
+            $fa($workableMax)
+        );
+    }
+
     private static function handBack(int $id): void
     {
         $left = [];
@@ -298,15 +335,7 @@ final class QuantityPanel
         if ($outcome === 'refused') {
             $reason = (string) ($notice['reason'] ?? '');
             $text = match ($reason) {
-                PurchaseQuantity::NO_MULTIPLE => sprintf(
-                    /* translators: 1: step, 2: minimum, 3: maximum, 4: a workable maximum below, 5: one above */
-                    __('با گام %1$s، بین حداقل %2$s و حداکثر %3$s هیچ تعداد مجازی وجود ندارد. حداکثر %4$s یا %5$s کار می‌کند. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
-                    $fa($context['step'] ?? ''),
-                    $fa($context['min'] ?? ''),
-                    $fa($context['max'] ?? ''),
-                    $fa(PurchaseQuantity::workableAround((int) ($context['max'] ?? 0), (int) ($context['step'] ?? 1))[0]),
-                    $fa(PurchaseQuantity::workableAround((int) ($context['max'] ?? 0), (int) ($context['step'] ?? 1))[1])
-                ),
+                PurchaseQuantity::NO_MULTIPLE => self::unreachableNotice($context, $fa),
                 PurchaseQuantity::INVALID_MAX => sprintf(
                     /* translators: 1: maximum, 2: minimum */
                     __('حداکثر خرید (%1$s) از حداقل خرید (%2$s) کمتر است. برای «بدون سقف» کادر حداکثر را خالی بگذارید؛ ۰ پذیرفته نمی‌شود. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
@@ -420,16 +449,28 @@ final class QuantityPanel
         // fixed the product cannot be bought — the only reading of
         // contradictory data that cannot increase what may be bought.
         if (!$rule->isSatisfiable()) {
-            [$below, $above] = PurchaseQuantity::workableAround(
+            [$workableMax, $workableMin] = PurchaseQuantity::workableWindow(
+                (int) ($storedMin === '' ? 1 : $storedMin),
                 (int) $storedMax,
                 (int) ($storedStep === '' ? 1 : $storedStep)
             );
-            $html .= '<p style="padding:0 12px;"><strong>' . esc_html(sprintf(
-                /* translators: 1: a workable maximum below, 2: one above */
-                __('هشدار: این سه مقدار با هم ناسازگارند — با این گام هیچ تعداد مجازی بین حداقل و حداکثر نیست، پس تا اصلاح، خرید این کالا ممکن نیست. حداکثر %1$s یا %2$s کار می‌کند.', 'tecteb-marketplace-core'),
-                PersianDigits::toPersian((string) $below),
-                PersianDigits::toPersian((string) $above)
-            )) . '</strong></p>';
+            // Each number is the smallest change to ONE field that makes the
+            // other field's STORED value work, and the second is printed only
+            // when it exists — naming a value that is itself refused would be
+            // worse than naming none.
+            $warning = $workableMin !== null
+                ? sprintf(
+                    /* translators: 1: a maximum that works, 2: a minimum that works */
+                    __('هشدار: این سه مقدار با هم ناسازگارند — با این گام هیچ تعداد مجازی بین حداقل و حداکثر نیست، پس تا اصلاح، خرید این کالا ممکن نیست. حداکثر را %1$s بگذارید، یا حداقل را %2$s.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $workableMax),
+                    PersianDigits::toPersian((string) $workableMin)
+                )
+                : sprintf(
+                    /* translators: 1: a maximum that works */
+                    __('هشدار: این سه مقدار با هم ناسازگارند — با این گام هیچ تعداد مجازی بین حداقل و حداکثر نیست، پس تا اصلاح، خرید این کالا ممکن نیست. حداکثر را %1$s بگذارید.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $workableMax)
+                );
+            $html .= '<p style="padding:0 12px;"><strong>' . esc_html($warning) . '</strong></p>';
         }
 
         $html .= $field(

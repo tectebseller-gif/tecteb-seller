@@ -707,31 +707,39 @@ final class ProductMessages
      * sentence that quietly says less than it knows.
      */
     /**
-     * «No allowed quantity between the two» — with the step, both ends and
-     * two maxima that WOULD work. Named so that a vendor can act on it; a
-     * refusal that cannot be acted on is a refusal that gets pressed through.
+     * «No allowed quantity between the two» — with the step, both ends, and
+     * the smallest change to ONE field that makes the other one's stated
+     * value work. Named so that a vendor can act on it; a refusal that cannot
+     * be acted on is a refusal that gets pressed through — and a refusal that
+     * names a value which is itself refused is worse than one that names
+     * nothing, which is why the second way out is printed only when it
+     * exists.
      *
      * @param array<string,mixed> $context
      */
     private static function unreachableQuantity(array $context): string
     {
-        if (!isset(
-            $context['min'],
-            $context['max'],
-            $context['step'],
-            $context['workable_below'],
-            $context['workable_above']
-        )) {
+        if (!isset($context['min'], $context['max'], $context['step'], $context['workable_max'])) {
             return __('حداقل، حداکثر و گام تعداد با هم ناسازگارند: هیچ تعداد مجازی بین آن دو نیست. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core');
         }
+        if (isset($context['workable_min'])) {
+            return sprintf(
+                /* translators: 1: step, 2: minimum, 3: maximum, 4: a maximum that works, 5: a minimum that works */
+                __('با گام %1$s، بین حداقل خرید %2$s و حداکثر خرید %3$s هیچ تعداد مجازی وجود ندارد. حداکثر را %4$s بگذارید، یا حداقل را %5$s. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) $context['step']),
+                PersianDigits::toPersian((string) $context['min']),
+                PersianDigits::toPersian((string) $context['max']),
+                PersianDigits::toPersian((string) $context['workable_max']),
+                PersianDigits::toPersian((string) $context['workable_min'])
+            );
+        }
         return sprintf(
-            /* translators: 1: step, 2: minimum, 3: maximum, 4: a workable maximum below, 5: one above */
-            __('با گام %1$s، بین حداقل خرید %2$s و حداکثر خرید %3$s هیچ تعداد مجازی وجود ندارد. حداکثر %4$s یا %5$s کار می‌کند. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
+            /* translators: 1: step, 2: minimum, 3: maximum, 4: a maximum that works */
+            __('با گام %1$s، بین حداقل خرید %2$s و حداکثر خرید %3$s هیچ تعداد مجازی وجود ندارد. حداکثر را %4$s بگذارید. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
             PersianDigits::toPersian((string) $context['step']),
             PersianDigits::toPersian((string) $context['min']),
             PersianDigits::toPersian((string) $context['max']),
-            PersianDigits::toPersian((string) $context['workable_below']),
-            PersianDigits::toPersian((string) $context['workable_above'])
+            PersianDigits::toPersian((string) $context['workable_max'])
         );
     }
 

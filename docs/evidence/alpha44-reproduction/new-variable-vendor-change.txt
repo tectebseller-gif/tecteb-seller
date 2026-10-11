@@ -1,9 +1,9 @@
 wc_version=11.0.1
 probe=ran
 product=1266
-wc=152
+wc=186
 colour_projected=آبی/سبز
-wc_variation_blue=155
+wc_variation_blue=189
 colour_after_projection=آبی/قرمز
 theirs_after=ایران
 brand_after=آریا_طب

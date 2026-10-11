@@ -196,18 +196,33 @@ final class PurchaseQuantity
     }
 
     /**
-     * The two multiples of the step that bracket an impossible window, so a
-     * refusal can name values that would work.
+     * Two ways out of an impossible window, so a refusal can be acted on.
      *
-     * @return array{0:int,1:int} the largest allowed at or below, then the
-     *                            smallest at or above
+     * ONE OF THEM MAY NOT EXIST, and that is the whole reason this takes the
+     * minimum. The first version bracketed the MAXIMUM alone and named the
+     * multiple below it — for `min 10, max 11, step 4` it said «8 works»,
+     * and 8 does not work: the minimum raises to 12, so a maximum of 8 is
+     * still below it. Its own test agreed with it only because the test
+     * quietly changed the minimum to 4 as well. A refusal that names a value
+     * which is refused in turn is worse than a refusal that names nothing.
+     *
+     * So each answer is the smallest change to ONE field that makes the
+     * OTHER field's stated value work:
+     *
+     *  - raise the maximum to the effective minimum — always possible;
+     *  - or lower the minimum to the largest multiple at or below the stated
+     *    maximum — possible only when that multiple is a legal quantity, so
+     *    `null` when the step itself is larger than the maximum.
+     *
+     * @return array{0:int,1:?int} the smallest workable maximum, then the
+     *                             largest workable minimum or null
      */
-    public static function workableAround(int $max, int $step): array
+    public static function workableWindow(int $min, int $max, int $step): array
     {
         $step = max(1, $step);
-        $below = max($step, self::toMultiple(max(1, $max), $step, 'floor'));
-        $above = self::toMultiple(max(1, $max), $step, 'ceil');
-        return [$below, max($above, $below)];
+        $workableMax = self::effectiveMinimum(max(1, $min), $step);
+        $floor = self::toMultiple(max(1, $max), $step, 'floor');
+        return [$workableMax, $floor >= $step ? $floor : null];
     }
 
     private static function effectiveMinimum(int $min, int $step): int

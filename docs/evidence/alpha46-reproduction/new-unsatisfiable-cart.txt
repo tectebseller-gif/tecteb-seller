@@ -1,0 +1,9 @@
+probe=ran
+stored_rows=10/11/4
+gate=ready_on_trial
+qty_1=refused
+qty_8=refused
+qty_10=refused
+qty_11=refused
+qty_12=refused
+shopper_told=named

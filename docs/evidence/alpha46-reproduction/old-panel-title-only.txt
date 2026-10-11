@@ -1,0 +1,9 @@
+probe=ran
+rows_before=2/6/2
+record_before=max,min,purchase_step
+rows_after=2/6/2
+record_after=__none__
+vendor_change_code=inventory_saved
+rows_after_vendor_change=2/6/2
+vendor_change_applied=NO
+conflicts=_tmc_max_purchase

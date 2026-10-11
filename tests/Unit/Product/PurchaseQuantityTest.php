@@ -159,14 +159,66 @@ final class PurchaseQuantityTest extends TestCase
         }
     }
 
-    /** A refusal names two maxima that would work, so it can be acted on. */
-    public function testWorkableAroundNamesValuesTheRuleWouldAccept(): void
+    /**
+     * A refusal names a way out that WORKS — checked against the stated
+     * values, not against values the test moved to suit it.
+     *
+     * The first version of this asserted `workableAround(11, 4) === [8, 12]`
+     * and then validated 8 with a minimum of FOUR. With the stated minimum of
+     * ten, a maximum of 8 is still refused: the minimum raises to twelve. So
+     * the oracle agreed with a message that gave unusable advice — the
+     * `alpha.43` rule, in a new place.
+     */
+    public function testEachWayOutOfAnImpossibleWindowIsItselfAccepted(): void
     {
-        [$below, $above] = PurchaseQuantity::workableAround(11, 4);
-        self::assertSame(8, $below);
-        self::assertSame(12, $above);
-        self::assertNull(PurchaseQuantity::validate(8, $above, 4), 'the value named above must work');
-        self::assertNull(PurchaseQuantity::validate(4, $below, 4), 'the value named below must work');
+        foreach (range(1, 20) as $min) {
+            foreach (range(1, 20) as $max) {
+                foreach (range(1, 7) as $step) {
+                    if (PurchaseQuantity::validate($min, $max, $step) !== PurchaseQuantity::NO_MULTIPLE) {
+                        continue;
+                    }
+                    [$workableMax, $workableMin] = PurchaseQuantity::workableWindow($min, $max, $step);
+                    // Change ONLY the maximum, keeping the stated minimum.
+                    self::assertNull(
+                        PurchaseQuantity::validate($min, $workableMax, $step),
+                        "the maximum named for {$min}/{$max}/{$step} is itself refused"
+                    );
+                    if ($workableMin === null) {
+                        continue;
+                    }
+                    // Change ONLY the minimum, keeping the stated maximum.
+                    self::assertNull(
+                        PurchaseQuantity::validate($workableMin, $max, $step),
+                        "the minimum named for {$min}/{$max}/{$step} is itself refused"
+                    );
+                }
+            }
+        }
+    }
+
+    /** The worked example from the owner's own report. */
+    public function testTheWayOutOfTenElevenFour(): void
+    {
+        self::assertSame(
+            PurchaseQuantity::NO_MULTIPLE,
+            PurchaseQuantity::validate(10, 11, 4)
+        );
+        self::assertSame([12, 8], PurchaseQuantity::workableWindow(10, 11, 4));
+        self::assertNull(PurchaseQuantity::validate(10, 12, 4), 'max 12 with the stated minimum');
+        self::assertNull(PurchaseQuantity::validate(8, 11, 4), 'min 8 with the stated maximum');
+    }
+
+    /** And when only one way out exists, the other is `null`, not a guess. */
+    public function testAStepLargerThanTheMaximumLeavesOnlyOneWayOut(): void
+    {
+        self::assertSame(
+            PurchaseQuantity::NO_MULTIPLE,
+            PurchaseQuantity::validate(2, 3, 5)
+        );
+        [$workableMax, $workableMin] = PurchaseQuantity::workableWindow(2, 3, 5);
+        self::assertSame(5, $workableMax);
+        self::assertNull($workableMin, 'no minimum can rescue a maximum below the step');
+        self::assertNull(PurchaseQuantity::validate(2, $workableMax, 5));
     }
 
     /**
