@@ -1,5 +1,5 @@
 woocommerce: 11.0.1 on WordPress 7.1
-snapshot: 511 files under src/ hashed before any change
+snapshot: 523 files under src/ hashed before any change
 
 === the alpha.47 bytes (21b6b18), on WooCommerce 11.0.1 ===
 PASS  [old] limits-arrange: rows_at_start=1/20/1 — the shop starts with the rule the last projection wrote
@@ -21,6 +21,7 @@ PASS  [old] stock-arrange: save_code=inventory_saved — BASELINE: on alpha.47 a
 PASS  [old] stock-arrange: row_stock_after_save=4 — the row took the vendor's number
 PASS  [old] stock-arrange: pending_revision=none — and no manager was asked
 PASS  [old] stock-page: shop_stock_now=4 — the shop moved in the same request
+PASS  [old] brand-list: brand_registry=absent_in_this_build — BASELINE: alpha.47 has no brand list, so free text was the only way to name a brand
 
 === the fix (HEAD) ===
 PASS  [new] limits-arrange: rows_at_start=1/20/1 — the same starting point
@@ -66,6 +67,31 @@ PASS  [new] stock-conflict: shop_stock_after_override=12 — and only then does 
 PASS  [new] keeps-proposal: brand_in_proposal_after=برند_پیشنهادی_۴۸ — saving the inventory tab KEEPS the pending brand proposal
 PASS  [new] keeps-proposal: stock_in_proposal_after=6 — and adds the stock request to it rather than replacing it
 PASS  [new] keeps-proposal: badge_token_moved=yes — with a new proposal id, so the unseen badge comes back (alpha.36)
+PASS  [new] brand-list: taxonomy_exists=yes — the approved list is WooCommerce's OWN product_brand — measured, not read off a changelog
+PASS  [new] brand-list: directory_available=yes — and the directory reads it
+PASS  [new] brand-list: found_by_key=برند_آزمون_۴۸ — a brand is found by its name
+PASS  [new] brand-list: found_by_variant=برند_آزمون_۴۸ — and by a spelling that differs only in a space — on the real list
+PASS  [new] brand-free-text: save_code=brand_not_approved — free text cannot become an official brand
+PASS  [new] brand-free-text: brand_after=__empty__ — and nothing of the product changed
+PASS  [new] brand-request: ask_code=brand_requested — a vendor may ASK for a brand that is not in the list
+PASS  [new] brand-request: brand_after_ask=__empty__ — and until a manager agrees the product's brand does not move
+PASS  [new] brand-request: term_exists_yet=no — nor does the list
+PASS  [new] brand-request: in_needs_review=yes — the request is in the ONE «needs review» set (§5)
+PASS  [new] brand-approve: approve_code=brand_approved — the manager approves
+PASS  [new] brand-approve: row_brand=سینا_طب_۴۸ — the brand is written on the product
+PASS  [new] brand-approve: shop_attribute_brand=سینا_طب_۴۸ — AND on WooCommerce → Product data → Attributes → برند, the path the owner measured working
+PASS  [new] brand-approve: request_closed=yes — the request is closed
+PASS  [new] brand-approve: in_needs_review=no — and the product leaves the queue
+PASS  [new] brand-duplicate: ask_code=brand_already_approved — a name that differs only in a space is the SAME brand
+PASS  [new] brand-duplicate: named_real_brand=آمبو_بگ_۴۸ — and the vendor is told which brand to pick
+PASS  [new] brand-duplicate: no_second_term=yes — with no second term made on the real taxonomy
+PASS  [new] brand-register-twice: same_term=yes — registering one brand twice, spelled two ways, is one term
+PASS  [new] brand-register-twice: term_count_for_name=1 — measured on the taxonomy itself
+
+=== two processes registering one brand, two spellings ===
+race: a=26 b=26 terms=1
+PASS  both processes came back with the SAME term — the loser gets the winner's brand, not a failure
+PASS  and the taxonomy holds ONE term for the two spellings
 
 === controls: the same answer on both trees, or the revert broke something ===
 PASS  control control-no-change answers identically on alpha.47 and the fix
@@ -83,5 +109,5 @@ PASS  [new] control-draft: save_code=inventory_saved — a DRAFT's stock still a
 PASS  [new] control-draft: shop_stock=7 — reaching the shop in the same request
 PASS  [new] control-draft: pending_revision=none — and asking nobody — the owner's decision is about LIVE products
 
-checks: 76   pass: 76   fail: 0
-PASS  src/ restored byte for byte (511 files)
+checks: 99   pass: 99   fail: 0
+PASS  src/ restored byte for byte (523 files)

@@ -1,0 +1,2 @@
+probe=ran
+brand_registry=absent_in_this_build

@@ -1,0 +1,7 @@
+probe=ran
+product_id=1295
+ask=ok
+ask_code=brand_requested
+brand_after_ask=__empty__
+term_exists_yet=no
+in_needs_review=yes

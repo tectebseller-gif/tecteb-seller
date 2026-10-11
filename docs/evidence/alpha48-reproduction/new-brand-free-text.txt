@@ -1,0 +1,5 @@
+probe=ran
+brand_before=__empty__
+save=failed
+save_code=brand_not_approved
+brand_after=__empty__
