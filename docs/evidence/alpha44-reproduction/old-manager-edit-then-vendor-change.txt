@@ -1,6 +1,6 @@
 wc_version=11.0.1
 probe=ran
-wc=183
+wc=223
 material_after=نیتریل
 size_after=7_اینچ
 conflicts=

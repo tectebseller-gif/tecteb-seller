@@ -1,0 +1,7 @@
+probe=ran
+parent_wc=217
+variation_wc=221
+rows_after_projection=2/6/2
+rows_after_manager_edit=2/4/2
+rows_after_reset=__absent__/__absent__/__absent__
+outcome=handed_back

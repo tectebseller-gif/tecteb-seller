@@ -1,0 +1,5 @@
+probe=ran
+rows_before=2/6/2
+record_before=max,min,purchase_step
+rows_after=2/6/2
+record_after=max,min,purchase_step

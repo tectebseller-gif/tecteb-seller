@@ -1,6 +1,6 @@
 wc_version=11.0.1
 probe=ran
-wc=185
+wc=225
 record_shape=list
 brand_after_projection=برندی_که_مدیر_نوشته
 conflicts=%d8%a8%d8%b1%d9%86%d8%af

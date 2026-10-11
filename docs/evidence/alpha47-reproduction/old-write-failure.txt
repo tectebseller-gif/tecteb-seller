@@ -1,0 +1,8 @@
+probe=ran
+wc_id=216
+rows_after_manager_edit=2/4/2
+rows_after_refused_reset=__absent__/__absent__/__absent__
+ceiling_kept=NO
+max_row_absent=YES
+outcome=handed_back
+named_the_key=no

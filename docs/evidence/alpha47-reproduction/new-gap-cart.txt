@@ -1,0 +1,10 @@
+probe=ran
+wc_id=216
+rows_now=2/6/2
+gate=ready_on_trial
+classic_qty_1=refused
+classic_qty_3=refused
+classic_qty_8=refused
+classic_qty_4=allowed
+store_api_qty_8=refused
+store_api_qty_4=allowed

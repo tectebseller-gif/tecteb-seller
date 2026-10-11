@@ -1,0 +1,10 @@
+probe=ran
+wc_id=216
+rows_after_manager_edit=2/4/2
+record_after_manager_edit=min,purchase_step
+wc_get_product_now=false
+rows_after_unreadable_reset=2/4/2
+restriction_kept=yes
+any_row_absent=no
+record_after=min,purchase_step
+outcome=hand_back_unavailable

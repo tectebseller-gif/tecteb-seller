@@ -1,0 +1,73 @@
+woocommerce: 11.0.1 on WordPress 7.1
+snapshot: 511 files under src/ hashed before any change
+
+=== the alpha.46 bytes (2676ae3), on WooCommerce 11.0.1 ===
+PASS  [old] gap-arrange: rows_after_reset=__absent__/__absent__/__absent__ — DEFECT: the reset removed the three rows and left the restoring to a later save
+PASS  [old] gap-arrange: outcome=handed_back — and reported plain success for it
+PASS  [old] gap-page: rows_read_as_unrestricted=YES — DEFECT: in a FRESH request the absent rows read as «no minimum, no maximum, no step»
+PASS  [old] gap-page: input_args=1/40/1 — so WooCommerce's own numbers lost the rule — the ceiling is stock, not the vendor's six
+PASS  [old] gap-page: enforced_matches_marketplace=NO — while the marketplace row still said 2/6/2
+PASS  [old] gap-cart: classic_qty_1=allowed — DEFECT: one unit, under a minimum of two
+PASS  [old] gap-cart: classic_qty_3=allowed — DEFECT: three units, off a step of two
+PASS  [old] gap-cart: classic_qty_8=allowed — DEFECT: eight units, over a ceiling of six — the reset RAISED what could be bought
+PASS  [old] gap-cart: store_api_qty_8=allowed — and the block cart's own validator agreed
+PASS  [old] gap-variable-arrange: rows_after_reset=__absent__/__absent__/__absent__ — DEFECT: the same on a variable product's parent
+PASS  [old] gap-variable-page: variation_input_args=1/7/1 — DEFECT: so the variation lost it too — its ceiling is its own stock
+PASS  [old] gap-variable-page: variation_enforced_matches_marketplace=NO — while the marketplace row said 2/6/2
+PASS  [old] gap-variable-cart: classic_qty_8=allowed — DEFECT: eight of a variation whose rule says at most six
+PASS  [old] gap-variable-cart: store_api_qty_8=allowed — through the Store API as well
+PASS  [old] write-failure: rows_after_refused_reset=__absent__/__absent__/__absent__ — DEFECT: a REFUSED write still left no rows — nothing was written, so nothing could fail
+PASS  [old] write-failure: ceiling_kept=NO — DEFECT: the manager's ceiling went anyway
+PASS  [old] write-failure: outcome=handed_back — DEFECT: and success was reported with a write refused
+PASS  [old] read-failure: rows_after_unreadable_reset=__absent__/__absent__/__absent__ — DEFECT: the rule could not be read AND the rows went anyway
+PASS  [old] read-failure: restriction_kept=NO — DEFECT: so an unreadable rule produced no rule at all
+PASS  [old] read-failure: outcome=handed_back — DEFECT: reported as a success
+
+=== the fix (HEAD) ===
+PASS  [new] gap-arrange: rows_after_reset=2/6/2 — the approved marketplace rule is written in the SAME request
+PASS  [new] gap-arrange: record_after_reset=max,min,purchase_step — and all three rows are the marketplace's again, so the vendor's changes apply
+PASS  [new] gap-arrange: outcome=handed_back — with the outcome reported to the manager who clicked it
+PASS  [new] gap-page: rows_read_as_unrestricted=no — in a FRESH request there is no window: the rows are there
+PASS  [new] gap-page: input_args=2/6/2 — WooCommerce's own numbers carry the rule — the classic page AND the blocks
+PASS  [new] gap-page: enforced_matches_marketplace=yes — which is what «back to automatic» has to mean
+PASS  [new] gap-cart: classic_qty_1=refused — one unit is under the minimum
+PASS  [new] gap-cart: classic_qty_3=refused — three is off the step
+PASS  [new] gap-cart: classic_qty_8=refused — eight is over the ceiling
+PASS  [new] gap-cart: classic_qty_4=allowed — and four, which the rule allows, still goes through
+PASS  [new] gap-cart: store_api_qty_8=refused — the Store API refuses it too
+PASS  [new] gap-cart: store_api_qty_4=allowed — and allows what the rule allows
+PASS  [new] gap-variable-arrange: rows_after_reset=2/6/2 — the same on a variable product's parent
+PASS  [new] gap-variable-page: variation_has_own_rows=no — the variation holds no rows of its own — the rule is the product's
+PASS  [new] gap-variable-page: variation_input_args=2/6/2 — and it is governed by it in a FRESH request
+PASS  [new] gap-variable-page: variation_enforced_matches_marketplace=yes — matching the marketplace row
+PASS  [new] gap-variable-cart: classic_qty_8=refused — eight of the variation is refused
+PASS  [new] gap-variable-cart: classic_qty_4=allowed — four is allowed
+PASS  [new] gap-variable-cart: store_api_qty_8=refused — and the Store API agrees
+PASS  [new] write-failure: rows_after_refused_reset=2/4/2 — a refused write leaves the row exactly as it was
+PASS  [new] write-failure: ceiling_kept=yes — so the manager's ceiling of four is still in force
+PASS  [new] write-failure: max_row_absent=no — and no row became absent — there is no unlimited middle state
+PASS  [new] write-failure: outcome=hand_back_failed — the manager is told it did not finish
+PASS  [new] write-failure: named_the_key=yes — and which rule it was
+PASS  [new] write-failure-page: rows_read_as_unrestricted=no — and a FRESH request after the refused restore still has a rule
+PASS  [new] write-failure-page: input_args=2/4/2 — the restriction that was already there
+PASS  [new] read-failure: wc_get_product_now=false — the shop product really cannot be resolved — injected at WooCommerce's own filter
+PASS  [new] read-failure: rows_after_unreadable_reset=2/4/2 — nothing is written and nothing is DELETED
+PASS  [new] read-failure: restriction_kept=yes — so the restriction the shop had is still there
+PASS  [new] read-failure: any_row_absent=no — and no row became absent
+PASS  [new] read-failure: record_after=min,purchase_step — the ownership record is untouched too
+PASS  [new] read-failure: outcome=hand_back_unavailable — and the manager is told why, by name
+
+=== controls: the same answer on both trees, or the revert broke something ===
+PASS  control control-no-change answers identically on alpha.46 and the fix
+PASS  control control-manager-edit answers identically on alpha.46 and the fix
+PASS  [old] control-no-change: rows_after=2/6/2 — a save that moves no rule moves no row
+PASS  [old] control-no-change: record_after=max,min,purchase_step — and leaves the ownership record whole
+PASS  [old] control-manager-edit: manager_max_survived=yes — a real manager edit survives the next projection
+PASS  [old] control-manager-edit: vendor_min_applied=yes — and the two rules they did not touch still track the vendor
+PASS  [new] control-no-change: rows_after=2/6/2 — a save that moves no rule moves no row
+PASS  [new] control-no-change: record_after=max,min,purchase_step — and leaves the ownership record whole
+PASS  [new] control-manager-edit: manager_max_survived=yes — a real manager edit survives the next projection
+PASS  [new] control-manager-edit: vendor_min_applied=yes — and the two rules they did not touch still track the vendor
+
+checks: 62   pass: 62   fail: 0
+PASS  src/ restored byte for byte (511 files)

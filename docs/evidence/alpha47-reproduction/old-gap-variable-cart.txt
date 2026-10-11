@@ -1,0 +1,9 @@
+probe=ran
+parent_wc=217
+variation_wc=221
+gate=ready_on_trial
+classic_qty_1=allowed
+classic_qty_3=allowed
+classic_qty_8=allowed
+classic_qty_4=allowed
+store_api_qty_8=allowed

@@ -1,0 +1,8 @@
+probe=ran
+wc_id=216
+rows_now=__absent__/__absent__/__absent__
+rule_the_rows_express=1/none/1
+rows_read_as_unrestricted=YES
+input_args=1/40/1
+marketplace_rule_now=2/6/2
+enforced_matches_marketplace=NO

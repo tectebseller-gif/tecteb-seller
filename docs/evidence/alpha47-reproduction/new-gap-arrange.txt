@@ -1,0 +1,11 @@
+probe=ran
+product_id=1293
+wc_id=216
+marketplace_rule=2/6/2
+rows_after_projection=2/6/2
+record_after_projection=max,min,purchase_step
+rows_after_manager_edit=2/4/2
+record_after_manager_edit=min,purchase_step
+rows_after_reset=2/6/2
+record_after_reset=max,min,purchase_step
+outcome=handed_back

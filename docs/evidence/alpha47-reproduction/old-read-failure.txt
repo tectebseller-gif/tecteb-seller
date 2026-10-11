@@ -1,0 +1,10 @@
+probe=ran
+wc_id=216
+rows_after_manager_edit=2/4/2
+record_after_manager_edit=min,purchase_step
+wc_get_product_now=false
+rows_after_unreadable_reset=__absent__/__absent__/__absent__
+restriction_kept=NO
+any_row_absent=YES
+record_after=__none__
+outcome=handed_back
