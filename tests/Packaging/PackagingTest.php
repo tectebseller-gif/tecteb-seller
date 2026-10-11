@@ -784,6 +784,183 @@ final class PackagingTest extends TestCase
         self::assertContains('tools/browser/package-lock.json', $entries);
     }
 
+    /**
+     * WHAT THIS PROVES: the reviewable archive really carries the whole source.
+     *
+     * **§5, and it is a guard against the exact thing that happened.** The
+     * `alpha.42` bundle was handed over as «سورس کامل» and held 49 PHP files
+     * out of 505, because `reviewable-bundle.sh` copied five chosen
+     * directories. Nobody could have noticed from the outside: the archive is
+     * 11 MB either way and its own `SHA256SUMS` covered every file that WAS
+     * in it.
+     *
+     * So the comparison is against the INSTALLABLE PACKAGE: every runtime
+     * file the ZIP ships must be in the reviewable archive, with the same
+     * bytes. A subset cannot satisfy that, and neither can a copy that has
+     * drifted.
+     */
+    public function testTheReviewableArchiveCarriesEveryRuntimeFileTheZipShips(): void
+    {
+        $bundle = self::newestReviewableArchive();
+        if ($bundle === null) {
+            self::markTestSkipped('no reviewable archive in dist/ — run tools/reviewable-bundle.sh');
+        }
+        $zip = self::newestInstallZip();
+        self::assertNotNull($zip, 'the installable package must exist to compare against');
+
+        $inZip = self::zipRuntimeHashes($zip);
+        self::assertNotSame([], $inZip, 'the ZIP carried no runtime files, which cannot be right');
+        $inBundle = self::tarHashes($bundle);
+
+        $missing = [];
+        $different = [];
+        foreach ($inZip as $path => $hash) {
+            if (!isset($inBundle[$path])) {
+                $missing[] = $path;
+                continue;
+            }
+            if ($inBundle[$path] !== $hash) {
+                $different[] = $path;
+            }
+        }
+        self::assertSame([], array_slice($missing, 0, 12), count($missing)
+            . ' runtime file(s) the ZIP ships are not in the reviewable archive');
+        self::assertSame([], array_slice($different, 0, 12), count($different)
+            . ' runtime file(s) differ between the ZIP and the reviewable archive');
+    }
+
+    /**
+     * WHAT THIS PROVES: a reviewer can actually RUN what the archive contains.
+     *
+     * Also §5. The previous bundle was missing `composer.json`, the lockfile,
+     * and `tools/wp-stubs/woocommerce-product.php` — the stub this round's
+     * report leans on — so «run the tests yourself» was not an instruction
+     * anybody could follow. Each name here is something a suite needs in
+     * order to boot, so a bundle that drops one fails by name rather than at
+     * the reviewer's terminal.
+     */
+    public function testTheReviewableArchiveCarriesEverythingNeededToBootTheSuites(): void
+    {
+        $bundle = self::newestReviewableArchive();
+        if ($bundle === null) {
+            self::markTestSkipped('no reviewable archive in dist/ — run tools/reviewable-bundle.sh');
+        }
+        $entries = array_keys(self::tarHashes($bundle));
+        foreach ([
+            'composer.json',
+            'composer.lock',
+            'phpunit.xml.dist',
+            'tests/bootstrap-unit.php',
+            'tests/bootstrap-contract.php',
+            'tests/bootstrap-database.php',
+            'tools/wp-stubs/load.php',
+            'tools/wp-stubs/functions.php',
+            'tools/wp-stubs/woocommerce-product.php',
+            'tools/wp-stubs/State.php',
+            'tools/wp-stubs/wpdb.php',
+            'tools/build.sh',
+            'tools/reviewable-bundle.sh',
+            'docs/upgrade-and-rollback.md',
+            'REPRODUCE.txt',
+            '.env.testing.example',
+        ] as $needed) {
+            self::assertContains($needed, $entries, 'the reviewable archive must carry ' . $needed);
+        }
+        // And the one thing that must NOT be there, however convenient.
+        foreach ($entries as $entry) {
+            self::assertDoesNotMatchRegularExpression(
+                '#(^|/)\.env\.testing$#',
+                $entry,
+                'the live test configuration is never shipped: ' . $entry
+            );
+            self::assertDoesNotMatchRegularExpression(
+                '#(^|/)(wp-config\.php|.*\.sql|.*\.pem|.*\.key|id_rsa.*)$#',
+                $entry,
+                'no credential, key or database dump may be shipped: ' . $entry
+            );
+            self::assertDoesNotMatchRegularExpression(
+                '#(^|/)node_modules/#',
+                $entry,
+                'the reviewable archive must not carry npm packages: ' . $entry
+            );
+        }
+    }
+
+    /** @return array<string,string> path inside the plugin => sha256 */
+    private static function zipRuntimeHashes(string $zipPath): array
+    {
+        $zip = new \ZipArchive();
+        if ($zip->open($zipPath) !== true) {
+            return [];
+        }
+        $out = [];
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+            if (str_ends_with($name, '/')) {
+                continue;
+            }
+            // The ZIP has one top-level directory (asserted elsewhere); the
+            // reviewable archive is the repository root, so the prefix goes.
+            $relative = preg_replace('#^[^/]+/#', '', $name) ?? $name;
+            if (!str_ends_with($relative, '.php')) {
+                continue;       // runtime CODE: assets are compared by the asset test
+            }
+            $out[$relative] = hash('sha256', (string) $zip->getFromIndex($i));
+        }
+        $zip->close();
+        return $out;
+    }
+
+    /** @return array<string,string> path inside the bundle => sha256 */
+    private static function tarHashes(string $tarPath): array
+    {
+        $dir = sys_get_temp_dir() . '/tmc-reviewable-' . hash('crc32b', $tarPath . (string) filemtime($tarPath));
+        if (!is_dir($dir)) {
+            mkdir($dir, 0o777, true);
+            exec('tar -xzf ' . escapeshellarg($tarPath) . ' -C ' . escapeshellarg($dir), $ignored, $code);
+            if ($code !== 0) {
+                return [];
+            }
+        }
+        $roots = glob($dir . '/*', GLOB_ONLYDIR);
+        if ($roots === false || $roots === []) {
+            return [];
+        }
+        $root = $roots[0];
+        $out = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)
+        );
+        foreach ($iterator as $file) {
+            if (!$file->isFile()) {
+                continue;
+            }
+            $relative = ltrim(str_replace($root, '', $file->getPathname()), '/');
+            $out[$relative] = hash_file('sha256', $file->getPathname());
+        }
+        return $out;
+    }
+
+    private static function newestReviewableArchive(): ?string
+    {
+        $matches = glob(self::root() . '/dist/' . self::SLUG . '-reviewable-*.tar.gz');
+        if ($matches === false || $matches === []) {
+            return null;
+        }
+        usort($matches, static fn (string $a, string $b): int => filemtime($b) <=> filemtime($a));
+        return $matches[0];
+    }
+
+    private static function newestInstallZip(): ?string
+    {
+        $matches = glob(self::root() . '/dist/' . self::SLUG . '-0.1.0-*.zip');
+        if ($matches === false || $matches === []) {
+            return null;
+        }
+        usort($matches, static fn (string $a, string $b): int => filemtime($b) <=> filemtime($a));
+        return $matches[0];
+    }
+
     /** @return list<string> */
     private static function sourceArchiveEntries(): array
     {

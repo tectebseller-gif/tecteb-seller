@@ -1,0 +1,8 @@
+wc_version=11.0.1
+probe=ran
+products=
+product_count=0
+attachments=6
+used=6
+orphans=
+orphan_count=0

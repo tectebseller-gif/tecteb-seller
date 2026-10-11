@@ -1,0 +1,35 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+FE                                                                  2 / 2 (100%)
+
+Time: 00:01.152, Memory: 27.00 MB
+
+There was 1 error:
+
+1) Tecteb\Marketplace\Tests\Database\SimultaneousCreateMediaTest::testMediaAProductUsesIsNeverDiscarded
+Error: Call to undefined method Tecteb\Marketplace\Modules\Product\Application\ManageProducts::discardUnusedUploads()
+
+/home/user/tecteb-seller/tests/Database/SimultaneousCreateMediaTest.php:189
+
+--
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Database\SimultaneousCreateMediaTest::testTheLoserOfTwoSimultaneousCreatesLeavesNoOrphanedMedia
+the loser discarded exactly its own upload — and nothing else
+Failed asserting that two arrays are identical.
+--- Expected
++++ Actual
+@@ @@
+-Array &0 [
+-    0 => 500,
+-]
++Array &0 []
+
+/home/user/tecteb-seller/tests/Database/SimultaneousCreateMediaTest.php:158
+
+ERRORS!
+Tests: 2, Assertions: 13, Errors: 1, Failures: 1.

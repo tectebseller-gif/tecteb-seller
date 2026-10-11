@@ -1,0 +1,6 @@
+wc_version=11.0.1
+probe=ran
+theirs_before=present
+theirs_after=present
+theirs_value=ایران
+facts=اندازه:7_اینچ|برند:آریا_طب|جنس_سازنده:لاتکس|جنس:لاتکس|کشور_سازنده:ایران

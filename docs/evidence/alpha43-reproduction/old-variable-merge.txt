@@ -1,0 +1,15 @@
+wc_version=11.0.1
+probe=ran
+product=1238
+wc=77
+colour_before=آبی/سبز
+wc_variation_blue=78
+wc_variation_green=79
+colour_after=آبی/سبز
+theirs_after=present
+brand_after=آریا_طب
+variation_blue_same=yes
+variation_green_same=yes
+blue_price=210000
+blue_stock=3
+blue_sku=V-BLUE

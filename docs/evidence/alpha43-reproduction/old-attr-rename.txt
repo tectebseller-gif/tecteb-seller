@@ -1,0 +1,5 @@
+wc_version=11.0.1
+probe=ran
+old_label_key=present
+new_label_key=present
+facts=اندازه:7_اینچ|برند:آریا_طب|جنس_سازنده:لاتکس|جنس:لاتکس

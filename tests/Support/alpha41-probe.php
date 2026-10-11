@@ -545,7 +545,17 @@ switch ($verb) {
             \Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceProjector::class
         );
         say('has_facts_block', $projector->hasMethod('factAttributes'));
-        say('merges_attributes', $projector->hasMethod('mergeAttributes'));
+        // Asked of the BEHAVIOUR's prerequisite, not of a method name.
+        // `alpha.43` replaced `mergeAttributes()` with `ProjectedAttributes`,
+        // so a check on that name reported a regression about a correct build
+        // — the `alpha.40` trap in a new coat. What «merges» means is that the
+        // projector READS what the product already holds before it writes; a
+        // build that only writes cannot merge, whatever its methods are
+        // called. (`class_exists()` would be no good here: the new class is
+        // untracked at the base commit and stays on disk through the revert.)
+        $source = (string) file_get_contents((string) $projector->getFileName());
+        say('merges_attributes', str_contains($source, '->get_attributes()')
+            && str_contains($source, '->set_attributes('));
         say('reads_templates', $projector->getConstructor()?->getNumberOfParameters() === 2);
         say('probe', 'ran');
         break;

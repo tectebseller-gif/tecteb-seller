@@ -6,7 +6,7 @@
  * because wordpress.org answers 403 from this environment. This round the
  * built plugin was obtained from the project's own release
  * (`github.com/woocommerce/woocommerce/releases/download/11.0.1/woocommerce.zip`,
- * sha256 88df…494c, recorded in the delivery) and installed on the disposable
+ * sha256 8883…494c, recorded in the delivery) and installed on the disposable
  * WordPress, so these numbers come from `WC_Product`, its data store and its
  * post meta — not from a stub.
  *
@@ -416,7 +416,7 @@ switch ($verb) {
             'step' => '1',
             'revision' => '',
             'create_token' => $token,
-            'title' => 'محصول رقابت ' . getmypid(),
+            'title' => 'محصول رقابت ' . $token,
             'type' => 'simple',
             'category' => TMC_P43_CATEGORY,
             'brand' => 'آریا طب',
@@ -474,28 +474,31 @@ switch ($verb) {
         break;
 
     case 'race-report':
-        // What the site holds after a race: the products the token made, the
-        // attachments the vendor owns, and whether any of them is used by
-        // nothing. The question the owner asked, answered from the data.
+        // What the site holds after a race: how many products THIS token made,
+        // and whether the vendor owns any attachment that nothing uses.
+        //
+        // The token is part of the title, so a leftover product from an
+        // earlier run cannot be counted as this one's — the first version of
+        // this verb counted every race ever run and reported «12 products for
+        // one token» about a correct site. The orphan question is asked of the
+        // WHOLE shop, because an attachment used by any product of this vendor
+        // is used.
         $token = (string) ($args[1] ?? '');
         $rows = [];
+        $used = [];
         foreach ($products->forVendor(TMC_P43_VENDOR) as $product) {
-            if (str_starts_with($product->details->title, 'محصول رقابت')) {
+            foreach ($products->images($product->id) as $mediaId) {
+                $used[(int) $mediaId] = true;
+            }
+            if ($product->mainImageId > 0) {
+                $used[$product->mainImageId] = true;
+            }
+            if ($token !== '' && str_contains($product->details->title, $token)) {
                 $rows[] = $product->id;
             }
         }
         $say('products', implode('/', $rows));
         $say('product_count', count($rows));
-        $used = [];
-        foreach ($rows as $productId) {
-            foreach ($products->images($productId) as $mediaId) {
-                $used[(int) $mediaId] = true;
-            }
-            $main = (int) ($products->find($productId)?->mainImageId ?? 0);
-            if ($main > 0) {
-                $used[$main] = true;
-            }
-        }
         $owned = array_map('intval', get_posts([
             'post_type' => 'attachment',
             'numberposts' => -1,
@@ -503,28 +506,32 @@ switch ($verb) {
             'author' => TMC_P43_VENDOR,
         ]));
         $orphans = array_values(array_filter($owned, static fn (int $id): bool => !isset($used[$id])));
-        $say('attachments', implode('/', $owned));
-        $say('used', implode('/', array_keys($used)));
+        $say('attachments', count($owned));
+        $say('used', count($used));
         $say('orphans', implode('/', $orphans));
         $say('orphan_count', count($orphans));
         break;
 
     case 'race-reset':
+        // Gives back everything the race spent: the gallery rows first (so
+        // nothing points at an attachment about to go), then the attachments,
+        // then the rows. A fixture that leaves work behind makes the next run
+        // a measurement of the last one.
         foreach ($products->forVendor(TMC_P43_VENDOR) as $product) {
-            if (str_starts_with($product->details->title, 'محصول رقابت')) {
-                $products->saveImages($product->id, [], 0);
-                $products->updateStatus($product->id, ProductStatus::Archived);
-                $products->updateDetails($product->id, $product->details->with(['title' => 'بازنشسته ' . $product->id]));
-            }
+            $products->saveImages($product->id, [], 0);
         }
+        $removed = 0;
         foreach (array_map('intval', get_posts([
             'post_type' => 'attachment',
             'numberposts' => -1,
             'fields' => 'ids',
             'author' => TMC_P43_VENDOR,
         ])) as $mediaId) {
-            wp_delete_attachment($mediaId, true);
+            if (wp_delete_attachment($mediaId, true) !== false) {
+                $removed++;
+            }
         }
+        $say('attachments_removed', $removed);
         $say('race_reset', 'done');
         break;
 

@@ -227,9 +227,28 @@ if run_probe old control-description; then
 fi
 
 # §4 — the stub's oracle, on the old bytes.
-old_stub="$("$PHPBIN" -r 'require "'"$REPO"'/tools/wp-stubs/load.php"; echo sanitize_title("برند");' 2>/dev/null)"
+#
+# `src/` is what gets reverted, and the stub lives under `tools/` — so asking
+# the loaded stub here would ask the NEW one and report that the old oracle
+# was already right. The old function is taken OUT OF THE BASE COMMIT and run
+# on its own, under another name, so the answer comes from those bytes.
+OLD_FN="$SNAPSHOT/old-sanitize.php"
+{
+    echo '<?php'
+    git -C "$REPO" show "$BASE_COMMIT:tools/wp-stubs/functions.php" \
+        | awk '/^function sanitize_title\(/,/^}/' \
+        | sed '1s/function sanitize_title(/function tmc_old_sanitize_title(/'
+    echo 'echo tmc_old_sanitize_title("برند");'
+} > "$OLD_FN"
+if ! grep -q 'function tmc_old_sanitize_title' "$OLD_FN"; then
+    bad "§4: could not extract sanitize_title() from $BASE_COMMIT — the comparison below would be empty"
+    old_stub=''
+else
+    ok "§4: the alpha.42 sanitize_title() was extracted from $BASE_COMMIT ($(wc -l < "$OLD_FN") lines)"
+    old_stub="$("$PHPBIN" "$OLD_FN" 2>/dev/null)"
+fi
 real_stub="$(WP eval 'echo sanitize_title("برند");' 2>/dev/null)"
-note "stub sanitize_title('برند') on this tree: $old_stub"
+note "alpha.42 stub sanitize_title('برند'): $old_stub"
 note "real WordPress  sanitize_title('برند'): $real_stub"
 
 # §3 — the scheduled interleaving, against the old ProductArea.
@@ -339,18 +358,21 @@ for i in 1 2 3 4 5 6; do
     pb="$(grep -m1 '^path=' "$OUT/race-$i-b.txt" | cut -d= -f2)"
     note "  run $i: $pa / $pb"
     case "$pa$pb" in *simultaneous_lost_after_upload*) hit=$((hit + 1)) ;; esac
+    # Asked PER TOKEN: the token is in the product's title, so a leftover row
+    # from an earlier run cannot be counted as this race's.
+    WP eval-file "$PROBE" race-report "$tok" > "$OUT/race-$i-report.txt" 2>&1
+    if grep -qx 'product_count=1' "$OUT/race-$i-report.txt"; then
+        ok "race $i: one token, one product"
+    else
+        bad "race $i: the token did not give exactly one product:"
+        sed 's/^/        /' "$OUT/race-$i-report.txt" | tee -a "$LOG"
+    fi
 done
 WP eval-file "$PROBE" race-report > "$OUT/race-report.txt" 2>&1
 if grep -qx 'orphan_count=0' "$OUT/race-report.txt"; then
-    ok 'six real two-process races left ZERO attachment that nothing uses'
+    ok 'and after six real races the shop owns ZERO attachment that nothing uses'
 else
     bad 'a real race left an attachment nothing uses:'
-    sed 's/^/        /' "$OUT/race-report.txt" | tee -a "$LOG"
-fi
-if grep -qx 'product_count=6' "$OUT/race-report.txt"; then
-    ok 'and exactly one product per token, six tokens, six products'
-else
-    bad 'the token did not give exactly one product per race:'
     sed 's/^/        /' "$OUT/race-report.txt" | tee -a "$LOG"
 fi
 note "  simultaneous window entered on $hit of 6 real races."

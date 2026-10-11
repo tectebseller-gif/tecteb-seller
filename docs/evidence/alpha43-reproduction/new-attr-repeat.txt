@@ -1,0 +1,6 @@
+wc_version=11.0.1
+probe=ran
+count_first=4
+count_second=4
+same_keys=yes
+facts=اندازه:7_اینچ|برند:چیزی_که_مدیر_نوشته|جنس:لاتکس|کشور_سازنده:ایران

@@ -1,0 +1,78 @@
+woocommerce: 11.0.1 on WordPress 7.1
+snapshot: 506 files under src/ hashed before any change
+
+=== the alpha.42 bytes (3070781), on WooCommerce 11.0.1 ===
+PASS  [old] attr-keys: prefixed_keys=0 — WooCommerce keeps NO key the plugin passed in — the `tmc-` scheme has no input on which it works
+PASS  [old] attr-keys: brand_key_is_sanitized_name=yes — the key is sanitize_title() of the display name, measured not argued
+PASS  [old] attr-retire: size_before=present — the fixture really had the attribute
+PASS  [old] attr-retire: size_after=present — DEFECT: a retired specification stays on the product for ever
+PASS  [old] attr-rename: old_label_key=present — DEFECT: the old label is orphaned next to the new one
+PASS  [old] attr-rename: new_label_key=present — and the new one arrives, so the product shows both
+PASS  [old] attr-collision: brand_value=آریا_طب — DEFECT: the manager's own value is replaced by ours
+PASS  [old] variable-merge: colour_before=آبی/سبز — the axis the vendor first offered
+PASS  [old] variable-merge: colour_after=آبی/سبز — DEFECT: the vendor added and changed options and the shop kept the old set
+PASS  [old] variable-remove: colour_after=present — DEFECT: an axis the vendor removed survives
+PASS  [old] attr-manager: theirs_after=present — CONTROL: the manager's own attribute survives on both trees
+PASS  [old] control-not-ours: foreign_brand=برند_فروشگاه — CONTROL: a product that is not ours is untouched
+PASS  [old] control-description: description_has_brand=no — CONTROL: the facts are not glued into the vendor's text
+PASS  §4: the alpha.42 sanitize_title() was extracted from 3070781 (8 lines)
+alpha.42 stub sanitize_title('برند'): برند
+real WordPress  sanitize_title('برند'): %d8%a8%d8%b1%d9%86%d8%af
+
+--- §3: the loser of two simultaneous creates, on the alpha.42 bytes ---
+PASS  [old] SimultaneousCreateMediaTest fails on the alpha.42 bytes — the orphan is real
+
+=== the fix (HEAD), on WooCommerce 11.0.1 ===
+PASS  [new] attr-keys: prefixed_keys=0 — unchanged, because this is WooCommerce behaviour — the fix stops DEPENDING on it
+PASS  [new] attr-keys: brand_key_is_sanitized_name=yes — and the plugin now computes that same key
+PASS  [new] attr-change: material_after=نیتریل — (a) a changed answer is written
+PASS  [new] attr-retire: size_after=absent — (b) a retired specification is removed
+PASS  [new] attr-retire: material_after=present — and the one still asked for stays
+PASS  [new] attr-rename: old_label_key=absent — (c) a renamed label leaves no orphan
+PASS  [new] attr-rename: new_label_key=present — and the new label is there
+PASS  [new] attr-manager: theirs_after=present — (d) the manager's own attribute survives
+PASS  [new] attr-manager: theirs_value=ایران — with its own value
+PASS  [new] attr-collision: brand_value=چیزی_که_مدیر_نوشته — (e) a name collision leaves the manager's value alone
+PASS  [new] attr-collision: material_still_there=yes — and one collision does not stop the rest of the block
+PASS  [new] attr-repeat: same_keys=yes — (f) a second projection adds nothing
+PASS  [new] variable-merge: colour_after=آبی/زرد/قرمز — §2: the new option set wins
+PASS  [new] variable-merge: theirs_after=present — and the manager's attribute comes through
+PASS  [new] variable-merge: variation_blue_same=yes — the existing variation keeps its id
+PASS  [new] variable-merge: blue_price=210000 — its price
+PASS  [new] variable-merge: blue_stock=3 — its stock
+PASS  [new] variable-merge: blue_sku=V-BLUE — and its SKU
+PASS  [new] variable-remove: colour_after=absent — §2: a removed axis goes away
+PASS  [new] variable-remove: theirs_after=present — and the manager's attribute still does not
+PASS  [new] control-not-ours: foreign_brand=برند_فروشگاه — CONTROL: still untouched
+PASS  [new] control-not-ours: foreign_owned_meta= — and no ownership record is written onto it
+PASS  [new] control-description: description_has_brand=no — CONTROL: still not glued into the vendor's text
+PASS  §4: the stub's sanitize_title now answers what WordPress answers (%d8%a8%d8%b1%d9%86%d8%af)
+PASS  §4: and on the alpha.42 bytes it did not ('برند' vs '%d8%a8%d8%b1%d9%86%d8%af') — the oracle was wrong
+
+--- §3: the same test on the fix ---
+PASS  [new] SimultaneousCreateMediaTest passes: the loser discards its own upload and only its own
+
+--- §3: a real two-process race (reported, not claimed) ---
+  run 1: sequential_replay_no_upload / created
+PASS  race 1: one token, one product
+  run 2: sequential_replay_no_upload / created
+PASS  race 2: one token, one product
+  run 3: created / simultaneous_lost_after_upload
+PASS  race 3: one token, one product
+  run 4: sequential_replay_no_upload / created
+PASS  race 4: one token, one product
+  run 5: created / sequential_replay_no_upload
+PASS  race 5: one token, one product
+  run 6: created / sequential_replay_no_upload
+PASS  race 6: one token, one product
+PASS  and after six real races the shop owns ZERO attachment that nothing uses
+  simultaneous window entered on 1 of 6 real races.
+  STATED PLAINLY: two WP-CLI processes almost always serialise — the second
+  one's token read happens after the first one's insert, which is the
+  SEQUENTIAL replay path and uploads nothing. The simultaneous window is
+  demonstrated by the scheduled interleaving above, which is labelled as
+  such; this loop proves the property holds under a real race, not that
+  the race reached the window.
+
+checks: 48   pass: 48   fail: 0
+PASS  src/ restored byte for byte (506 files)

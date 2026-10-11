@@ -1,0 +1,7 @@
+wc_version=11.0.1
+probe=ran
+pid=13048
+code=product_created
+uploaded_now=98
+discarded=0
+path=created

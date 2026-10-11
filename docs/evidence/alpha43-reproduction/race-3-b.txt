@@ -1,0 +1,7 @@
+wc_version=11.0.1
+probe=ran
+pid=12989
+code=product_created_replayed
+uploaded_now=94
+discarded=1
+path=simultaneous_lost_after_upload

@@ -1,0 +1,6 @@
+wc_version=11.0.1
+probe=ran
+brand_value=چیزی_که_مدیر_نوشته
+conflicts=%d8%a8%d8%b1%d9%86%d8%af
+owned=%d8%ac%d9%86%d8%b3|%d8%a7%d9%86%d8%af%d8%a7%d8%b2%d9%87
+material_still_there=yes
