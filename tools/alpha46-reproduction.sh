@@ -294,10 +294,26 @@ fi
 if run_probe new panel-return-auto; then
     expect new panel-return-auto 'panel_offers_a_reset_control=yes' \
         "the promise has a named control now"
-    expect new panel-return-auto 'rows_after_reset=__absent__/__absent__/__absent__' \
-        "which removes the rows"
-    expect new panel-return-auto 'record_after_reset=__none__' \
-        "and the ownership record with them"
+    # UPDATED IN `alpha.47`, and the old lines are the reason.
+    #
+    # This script asserted `__absent__/__absent__/__absent__` and
+    # `record=__none__` here, because that is what `alpha.46`'s reset did:
+    # remove the rows and wait for the next projection. It was a defect, and
+    # these two expectations had written it down as correct — the `alpha.27`
+    # rule, that a test stating a defect explicitly fails when the defect is
+    # fixed, and should. Between the removal and the next save the product had
+    # no rule at all: measured in a fresh request, `input_args=1/40/1` and
+    # quantities 1, 3 and 8 all allowed (`tools/alpha47-reproduction.sh`).
+    #
+    # The reset now restores the marketplace's approved rule in the SAME
+    # request and deletes nothing, so the rows read `2/6/2` and the record is
+    # whole again. Everything else in this verb is unchanged, including the
+    # two lines below: `back_to_automatic=yes` is still the question, and the
+    # answer is still yes.
+    expect new panel-return-auto 'rows_after_reset=2/6/2' \
+        "which restores the marketplace's rule in the same request (`alpha.47`)"
+    expect new panel-return-auto 'record_after_reset=max,min,purchase_step' \
+        "with the ownership record whole again, so the vendor's changes apply"
     expect new panel-return-auto 'rows_after_reprojection=2/6/2' \
         "so the next synchronisation writes the marketplace's values again"
     expect new panel-return-auto 'back_to_automatic=yes' \
