@@ -4,7 +4,7 @@
 # way back.
 #
 # Schema 23 → 24 adds ONE column to `tmc_products`, `purchase_step INT NOT NULL
-# DEFAULT 1`, and seeds nothing. Seven things this measures that an assertion
+# DEFAULT 1`, and seeds nothing. Eight things this measures that an assertion
 # in PHP cannot:
 #
 #  - the gate runs on an ADMIN REQUEST, not on an activation hook. Replacing
@@ -15,8 +15,15 @@
 #  - `verify()` checks the SHAPE: a column of the right NAME with the wrong
 #    default is not «complete» (the `alpha.37` rule), and that is the failure
 #    stage 5 injects — a real refusal, not a simulated one;
-#  - a migration that fails leaves the site on schema 23, which is `alpha.44`
-#    and works, records WHY, and the next admin request finishes the job;
+#  - a migration that fails leaves the site on schema 23 and records WHY — but
+#    it does NOT leave `alpha.44` running. The new files are on disk and
+#    active; what is behind is the DATABASE, so this build runs against a
+#    structure it does not have. Measured in stages 5g–5i: the product save
+#    that needs the new column is REFUSED while the version on disk is still
+#    the new one;
+#  - and the retry is automatic but THROTTLED, by a cooldown read out of
+#    `UpgradeGate` rather than typed here (stages 5j–5k);
+#  - the next admin request after the cooldown finishes the job;
 #  - forward again runs nothing twice;
 #  - going BACK to `alpha.44` needs no database work, and what it COSTS is
 #    measured: the column keeps its value and stops being read;
@@ -186,6 +193,17 @@ for BASE_ZIP in $BASES; do
     || { say "FAIL: the product fixture did not run on the old build — every later check would be void"; exit 2; }
   check "2 the old build wrote a product through its own repository" \
     "$(dbq "SELECT COUNT(*) FROM \`$PRODUCTS\` WHERE id = $PRODUCT")" "1"
+  # GIVE THE FIXTURE BACK. `seed` reuses an existing product, so the second
+  # base in one invocation would otherwise inherit the first base's rule —
+  # `2/6` instead of the pre-upgrade `1/null` — and stage 4 would report a
+  # failure about a site that is entirely correct, depending on the ORDER the
+  # bases were listed in. `reset` writes the pre-upgrade shape through the
+  # OLD build's own repository, arity-safe.
+  RESET="$(state reset)"; say "  $RESET"
+  check "2a the fixture was returned to its pre-upgrade rule" \
+    "$(field_of "$RESET" reset)" "1"
+  check "2a2 which is «no minimum, no maximum»" \
+    "$(field_of "$RESET" min)/$(field_of "$RESET" max)" "1/null"
   if [ "$STRUCTURAL" = "yes" ]; then
     check "2b and had nowhere to put a step" "$(field_of "$SEED" step)" "no-field"
     check "2c nor any field to read" "$(field_of "$SEED" has_field)" "0"
@@ -210,15 +228,31 @@ for BASE_ZIP in $BASES; do
   # stepping», which is what every pre-upgrade row already does. So the row the
   # old build wrote must read 1 — not 0, which `PurchaseQuantity::of()` would
   # coerce back to 1 and thereby hide a wrong column.
+  #
+  # BRANCHED, because «the default is the backfill» is a statement about a
+  # migration and there is no migration on a non-structural base. The first
+  # version of this stage asserted `1 / 1 / null` for both, and on the
+  # `alpha.45` base — where the old build has the field and stage 2b already
+  # wrote `2/6/2` through it — reported three failures about a site that was
+  # entirely correct. The same trap as `alpha.34`: a check that assumes the
+  # shape of today's fixture.
   REPORT="$(state report)"; say "  $REPORT"
-  check "4 the pre-upgrade product's step is 1 in the column" \
-    "$(dbq "SELECT \`$COL_STEP\` FROM \`$PRODUCTS\` WHERE id = $PRODUCT")" "1"
-  check "4b which the plugin reads back as «no stepping»" "$(field_of "$REPORT" step)" "1"
+  if [ "$STRUCTURAL" = "yes" ]; then
+    check "4 the pre-upgrade product's step is 1 in the column" \
+      "$(dbq "SELECT \`$COL_STEP\` FROM \`$PRODUCTS\` WHERE id = $PRODUCT")" "1"
+    check "4b which the plugin reads back as «no stepping»" "$(field_of "$REPORT" step)" "1"
+    check "4e the two numbers it works with are untouched by the upgrade" \
+      "$(field_of "$REPORT" min)/$(field_of "$REPORT" max)" "1/null"
+  else
+    check "4 there was no migration, so what the old build wrote stands" \
+      "$(dbq "SELECT \`$COL_STEP\` FROM \`$PRODUCTS\` WHERE id = $PRODUCT")" "2"
+    check "4b and the plugin reads the same step back" "$(field_of "$REPORT" step)" "2"
+    check "4e with the two numbers it works with" \
+      "$(field_of "$REPORT" min)/$(field_of "$REPORT" max)" "2/6"
+  fi
   check "4c and the field is readable at all now" "$(field_of "$REPORT" has_field)" "1"
   check "4d no row anywhere was left at zero" \
     "$(dbq "SELECT COUNT(*) FROM \`$PRODUCTS\` WHERE \`$COL_STEP\` < 1")" "0"
-  check "4e the two numbers it works with are untouched by the upgrade" \
-    "$(field_of "$REPORT" min)/$(field_of "$REPORT" max)" "1/null"
   WROTE="$(state write)"; say "  $WROTE"
   check "4f a vendor writing the rule stores exactly what they wrote" \
     "$(field_of "$WROTE" step)" "2"
@@ -233,6 +267,30 @@ for BASE_ZIP in $BASES; do
   # name. That is the `alpha.37` rule, and this is the one shape that can
   # reach it.
   if [ "$STRUCTURAL" = "yes" ]; then
+    install_zip "$BASE_ZIP"; drop_new_shape
+    wpx option update tmc_schema_version "$BASE_SCHEMA" >/dev/null
+    wpx option delete tmc_migration_last_error >/dev/null 2>&1
+
+    # ---- stage 4h: NEW CODE, OLD STRUCTURE, COLUMN ABSENT ---------------
+    #
+    # Measured HERE, before the obstacle is planted, because this is the
+    # shape the checklist's wrong sentence was about. The new files are on
+    # disk and active and `tmc_products` has no step column at all, and no
+    # admin request has run yet (WP-CLI does not fire `admin_init`), so the
+    # gate has had no chance to migrate.
+    #
+    # What it costs is reported rather than guessed: the write is attempted
+    # and its answer printed.
+    install_zip "$NEW_ZIP"
+    check "4h with the new files on disk, the column really is absent" "$(has_column)" "0"
+    check "4i and the schema is still the old one" \
+      "$(wpx option get tmc_schema_version)" "$BASE_SCHEMA"
+    ABSENT_WRITE="$(state write)"; say "  absent_column: $ABSENT_WRITE"
+    check "4j a product save is REFUSED against the missing column" \
+      "$(field_of "$ABSENT_WRITE" wrote)" "0"
+    check "4k and the version on disk is the NEW one, not the base" \
+      "$(wpx plugin get tecteb-marketplace-core --field=version)" "$NEW_EXPECT"
+
     install_zip "$BASE_ZIP"; drop_new_shape
     dbq "ALTER TABLE \`$PRODUCTS\` ADD COLUMN \`$COL_STEP\` INT NULL DEFAULT 0" >/dev/null
     wpx option update tmc_schema_version "$BASE_SCHEMA" >/dev/null
@@ -254,15 +312,30 @@ for BASE_ZIP in $BASES; do
     #
     # Measured because the checklist used to say the wrong thing: «the site
     # keeps working on the previous package». It does NOT. The NEW files are
-    # on disk and active; what is behind is the DATABASE. So this build runs
-    # against a schema that has no `purchase_step` column, and a product save
-    # — which writes that column — is what pays for it.
+    # on disk and active; what is behind is the DATABASE.
     #
-    # Reported rather than guessed: the fixture's own write is attempted and
-    # its answer printed.
+    # And the first version of this stage got the cost wrong in the other
+    # direction: it expected the save to be refused, and the measurement said
+    # `wrote=1`. The reason is the shape of THIS failure — a column of the
+    # right NAME and the wrong shape, which is the only shape that can make
+    # `verify()` refuse (stage 5b). SQL does not mind: the write lands.
+    #
+    # So the cost depends on the failure's shape, and both shapes are
+    # measured rather than argued:
+    #
+    #  - column ABSENT (stage 4j): the save is REFUSED;
+    #  - column PRESENT, wrong shape (here): the save LANDS, into a column
+    #    that is nullable with default 0 — and `PurchaseQuantity::of()`
+    #    coerces 0 back to 1, so a row that never got an explicit step reads
+    #    as «no stepping» and the wrong column stays invisible. That is
+    #    exactly why `verify()` checks the shape and not the name.
+    #
+    # Neither shape is «the previous package is running».
     WROTE_ON_OLD_SCHEMA="$(state write)"; say "  $WROTE_ON_OLD_SCHEMA"
-    check "5g a product save is REFUSED while the schema is behind" \
-      "$(field_of "$WROTE_ON_OLD_SCHEMA" wrote)" "0"
+    check "5g against a same-named column of the wrong shape the save LANDS" \
+      "$(field_of "$WROTE_ON_OLD_SCHEMA" wrote)" "1"
+    check "5g2 and the value it wrote is readable, so nothing warns" \
+      "$(field_of "$WROTE_ON_OLD_SCHEMA" step)" "2"
     check "5h and the version on disk is still the new one" \
       "$(wpx plugin get tecteb-marketplace-core --field=version)" "$NEW_EXPECT"
     check "5i so what is behind is the schema, not the code" \
