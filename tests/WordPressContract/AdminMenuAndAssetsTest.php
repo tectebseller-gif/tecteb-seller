@@ -9,6 +9,12 @@ use TmcWpStubs\State;
 /** CORE-03/05: four capability-gated pages; assets only on the plugin's own screens. */
 final class AdminMenuAndAssetsTest extends ContractTestCase
 {
+    /** A menu label with the red count stripped, if WordPress drew one. */
+    private static function withoutBubble(string $title): string
+    {
+        return trim((string) preg_replace('~<span class="update-plugins.*$~s', '', $title));
+    }
+
     public function testMenuHasExactlyTheCapabilityGatedPagesOfTheLoadedModules(): void
     {
         $this->bootPlugin(false);
@@ -17,7 +23,14 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
 
         $top = array_values(array_filter(State::$menus, static fn ($m) => $m['parent'] === null));
         self::assertCount(1, $top);
-        self::assertSame('بازارگاه تک‌طب', $top[0]['menuTitle']);
+        // THE NAME, with any bubble stripped. The red count belongs to
+        // `MenuBadgeRefreshTest`; this test is about which pages exist and who
+        // may open them. The stub `wpdb` of this suite is a real PDO on the
+        // same disposable database as the database suite (the `alpha.36`
+        // rule), so a product another suite left behind can legitimately put a
+        // number on this menu — and a test about capabilities failing for that
+        // reason is a broken measurement, not a finding.
+        self::assertSame('بازارگاه تک‌طب', self::withoutBubble((string) $top[0]['menuTitle']));
         self::assertSame('tmc_view_dashboard', $top[0]['capability']);
         self::assertSame('tmc-dashboard', $top[0]['slug']);
 
@@ -93,7 +106,7 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
         foreach ($expected as $i => [$slug, $cap, $label]) {
             self::assertSame($slug, $subs[$i]['slug']);
             self::assertSame($cap, $subs[$i]['capability']);
-            self::assertSame($label, $subs[$i]['menuTitle']);
+            self::assertSame($label, self::withoutBubble((string) $subs[$i]['menuTitle']));
         }
         foreach (State::$menus as $m) {
             self::assertStringNotContainsString('dokan', strtolower($m['slug']));

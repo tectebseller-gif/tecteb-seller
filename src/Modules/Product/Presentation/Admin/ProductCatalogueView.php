@@ -46,7 +46,7 @@ final class ProductCatalogueView
 
         $html .= self::search($state)
             . self::filters($state)
-            . self::revisionFilter($state)
+            . self::reviewFilter($state)
             // The controls and the count are ONE row, not two stacked blocks.
             // Measured on the real install: as separate blocks they put 168px
             // of furniture between the filters and the first row, which is the
@@ -100,6 +100,13 @@ final class ProductCatalogueView
             . ($row->hasPendingRevision
                 ? '<span class="tmc-catalogue__badge">'
                     . esc_html__('نسخهٔ پیشنهادی در انتظار', 'tecteb-marketplace-core') . '</span>'
+                : '')
+            // A second badge rather than a combined one: a row can be waiting
+            // on a change proposal AND on a brand request, and they are two
+            // decisions on two screens' worth of context.
+            . ($row->hasBrandRequest
+                ? '<span class="tmc-catalogue__badge">'
+                    . esc_html__('درخواست برند در انتظار', 'tecteb-marketplace-core') . '</span>'
                 : '')
             . '</span></span></th>'
             . '<td data-label="' . esc_attr__('فروشگاه', 'tecteb-marketplace-core') . '">'
@@ -241,32 +248,43 @@ final class ProductCatalogueView
     }
 
     /**
-     * The one queue that is not a status: a published product with an
-     * unanswered proposal.
+     * «نیازمند بررسی» — the one queue, and the one number.
      *
      * It is not an eighth chip, because the seven are the product's own
-     * statuses and a proposal is a different question about the same product.
-     * It is offered only when there is one — or when it is on, so there is a
-     * way back off it.
+     * STATUS and this is a different question about the same product: a
+     * published product carrying a proposal needs review and is still
+     * published, and «وضعیت منتشرشدهٔ محصول را صرفاً برای نمایش در صف تغییر
+     * نده» is exactly that distinction.
+     *
+     * The number and the link both come from `ReviewQueueSql::waiting()`, so
+     * what the sentence counts is what the filter shows and what the red badge
+     * counts. Until `alpha.48` the sentence counted pending REVISIONS and the
+     * `submitted` chip counted submitted products, and the owner read the two
+     * side by side: «در انتظار بررسی ۰» above a product whose own card said a
+     * proposal was waiting. Both numbers were right about their own question;
+     * there were two questions and the page did not say so.
+     *
+     * Rendered whenever there is something waiting — or when the filter is on,
+     * so there is a way back off it.
      */
-    private static function revisionFilter(ProductCatalogueState $state): string
+    private static function reviewFilter(ProductCatalogueState $state): string
     {
-        if ($state->pendingRevisions === 0 && !$state->onlyRevisions) {
+        if ($state->needsReview === 0 && !$state->onlyNeedsReview) {
             return '';
         }
-        if ($state->onlyRevisions) {
+        if ($state->onlyNeedsReview) {
             return '<p class="tmc-catalogue__scope">'
-                . esc_html__('فهرست به محصول‌هایی محدود شده که نسخهٔ پیشنهادی بی‌پاسخ دارند.', 'tecteb-marketplace-core')
-                . ' <a href="' . esc_url($state->link(['revisions' => null])) . '">'
+                . esc_html__('فهرست به محصول‌هایی محدود شده که نیازمند بررسی‌اند: ارسال‌شده برای بررسی، یا نسخهٔ پیشنهادی بی‌پاسخ، یا درخواست برند باز.', 'tecteb-marketplace-core')
+                . ' <a href="' . esc_url($state->link(['review' => null, 'revisions' => null])) . '">'
                 . esc_html__('برداشتن این محدودیت', 'tecteb-marketplace-core') . '</a></p>';
         }
         return '<p class="tmc-catalogue__scope">'
             . esc_html(sprintf(
-                /* translators: %s: how many published products have an unanswered proposal */
-                __('%s محصول منتشرشده نسخهٔ پیشنهادی بی‌پاسخ دارد.', 'tecteb-marketplace-core'),
-                self::fa($state->pendingRevisions)
+                /* translators: %s: how many products need a decision */
+                __('%s محصول نیازمند بررسی است — ارسال‌شده، نسخهٔ پیشنهادی بی‌پاسخ (شامل درخواست موجودی) یا درخواست برند باز. هر محصول یک‌بار شمرده می‌شود.', 'tecteb-marketplace-core'),
+                self::fa($state->needsReview)
             ))
-            . ' <a href="' . esc_url($state->link(['revisions' => ProductCatalogueState::REVISIONS_PENDING])) . '">'
+            . ' <a href="' . esc_url($state->link(['review' => ProductCatalogueState::REVIEW_PENDING])) . '">'
             . esc_html__('فقط همان‌ها را نشان بده', 'tecteb-marketplace-core') . '</a></p>';
     }
 
@@ -350,7 +368,7 @@ final class ProductCatalogueView
     {
         $message = match (true) {
             $state->search !== '' => __('چیزی با این عبارت پیدا نشد.', 'tecteb-marketplace-core'),
-            $state->onlyRevisions => __('نسخهٔ پیشنهادی بی‌پاسخی وجود ندارد.', 'tecteb-marketplace-core'),
+            $state->onlyNeedsReview => __('هیچ محصولی نیازمند بررسی نیست.', 'tecteb-marketplace-core'),
             $state->status !== '' => __('در این وضعیت محصولی نیست.', 'tecteb-marketplace-core'),
             default => __('هنوز محصولی در بازارگاه ثبت نشده است.', 'tecteb-marketplace-core'),
         };
@@ -434,7 +452,7 @@ final class ProductCatalogueView
             'q' => $state->search,
             'per_page' => $state->perPage === ProductCatalogueState::PER_PAGE ? '' : (string) $state->perPage,
             'orderby' => $state->sort->isDefault() ? '' : $state->sort->value,
-            'revisions' => $state->onlyRevisions ? ProductCatalogueState::REVISIONS_PENDING : '',
+            'review' => $state->onlyNeedsReview ? ProductCatalogueState::REVIEW_PENDING : '',
         ];
         $html = '';
         foreach ($keys as $key) {

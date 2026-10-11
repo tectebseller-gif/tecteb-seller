@@ -86,7 +86,7 @@ final class ProductViewsTest extends ContractTestCase
             true,
             false
         );
-        foreach (['پیش‌نویس', 'در انتظار بررسی', 'نیازمند اصلاح', 'منتشرشده', 'تعلیق‌شده', 'بایگانی', 'همه'] as $label) {
+        foreach (['پیش‌نویس', 'ارسال‌شده برای بررسی', 'نیازمند اصلاح', 'منتشرشده', 'تعلیق‌شده', 'بایگانی', 'همه'] as $label) {
             self::assertStringContainsString($label, $html, "status tab «{$label}»");
         }
         self::assertStringContainsString('افزودن محصول', $html);
@@ -541,8 +541,16 @@ final class ProductViewsTest extends ContractTestCase
             false,
             true
         );
-        self::assertStringContainsString('نسخه فعلی روی سایت می‌ماند', $html);
-        self::assertStringContainsString('موجودی فوری اعمال می‌شود', $html);
+        self::assertStringContainsString('نسخه فعلی روی سایت تا تأیید مدیر تغییر نمی‌کند', $html);
+        // CORRECTED IN `alpha.48`, and the assertion with it. The sentence
+        // said «موجودی فوری اعمال می‌شود», which stopped being true the day
+        // the owner decided a live product's stock needs the manager — and a
+        // vendor told it applies at once would believe they had taken a
+        // sold-out item down. What is immediate is now named, and so is what
+        // is not.
+        self::assertStringContainsString('کد SKU و حدود خرید', $html);
+        self::assertStringContainsString('و موجودی به‌صورت «نسخه پیشنهادی» ثبت می‌شود', $html);
+        self::assertStringNotContainsString('موجودی فوری اعمال می‌شود', $html);
         self::assertStringContainsString('در انتظار بررسی مدیر است', $html, 'the pending proposal is announced');
     }
 

@@ -101,7 +101,7 @@ final class ProductCatalogueStateTest extends ContractTestCase
         self::assertFalse($this->state()->isFiltered());
         self::assertTrue($this->state(status: 'draft')->isFiltered());
         self::assertTrue($this->state(search: 'x')->isFiltered());
-        self::assertTrue($this->state(onlyRevisions: true)->isFiltered());
+        self::assertTrue($this->state(onlyNeedsReview: true)->isFiltered());
     }
 
     /**
@@ -123,7 +123,14 @@ final class ProductCatalogueStateTest extends ContractTestCase
         self::assertStringContainsString('مشاهده و بررسی', $html);
         self::assertStringContainsString('SKU: AMB-1', $html);
         self::assertStringContainsString('نسخهٔ پیشنهادی در انتظار', $html);
-        self::assertStringContainsString('۲ محصول منتشرشده نسخهٔ پیشنهادی بی‌پاسخ دارد.', $html);
+        // ONE sentence, ONE number, and it says what it counts. It counted
+        // pending REVISIONS until `alpha.48`, beside a `submitted` chip that
+        // counted submitted products — two questions on one page, which is how
+        // the owner came to read «در انتظار بررسی ۰» above a product whose own
+        // card said a proposal was waiting.
+        self::assertStringContainsString('۲ محصول نیازمند بررسی است', $html);
+        self::assertStringContainsString('هر محصول یک‌بار شمرده می‌شود.', $html);
+        self::assertStringContainsString('review=pending', $html, 'and the filter shows exactly that set');
         // …and nothing a decision needs.
         self::assertStringNotContainsString('name="decision"', $html);
         self::assertStringNotContainsString('tmc-review__gallery', $html);
@@ -162,7 +169,7 @@ final class ProductCatalogueStateTest extends ContractTestCase
         int $page = 1,
         int $perPage = ProductCatalogueState::PER_PAGE,
         ProductSort $sort = ProductSort::LastChanged,
-        bool $onlyRevisions = false
+        bool $onlyNeedsReview = false
     ): ProductCatalogueState {
         return new ProductCatalogueState(
             $status,
@@ -170,7 +177,7 @@ final class ProductCatalogueStateTest extends ContractTestCase
             $page,
             $perPage,
             $sort,
-            $onlyRevisions,
+            $onlyNeedsReview,
             0,
             [],
             0,

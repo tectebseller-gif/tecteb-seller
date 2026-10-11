@@ -104,10 +104,10 @@ final class DbProductRepository implements ProductRepositoryInterface
         int $offset = 0,
         int $vendorUserId = 0,
         ?ProductSort $sort = null,
-        bool $onlyPendingRevision = false
+        bool $onlyNeedsReview = false
     ): array {
         return array_column(
-            $this->forManagerWithSubmission($status, $search, $limit, $offset, $vendorUserId, $sort, $onlyPendingRevision),
+            $this->forManagerWithSubmission($status, $search, $limit, $offset, $vendorUserId, $sort, $onlyNeedsReview),
             'product'
         );
     }
@@ -140,9 +140,9 @@ final class DbProductRepository implements ProductRepositoryInterface
         int $offset = 0,
         int $vendorUserId = 0,
         ?ProductSort $sort = null,
-        bool $onlyPendingRevision = false
+        bool $onlyNeedsReview = false
     ): array {
-        [$where, $params] = $this->managerScope($status, $search, $vendorUserId, $onlyPendingRevision);
+        [$where, $params] = $this->managerScope($status, $search, $vendorUserId, $onlyNeedsReview);
         [$columns, $columnParams] = ReviewQueueSql::submissionColumns($this->db);
         $params = array_merge($columnParams, $params);
         $params[] = max(1, $limit);
@@ -253,9 +253,9 @@ final class DbProductRepository implements ProductRepositoryInterface
         ?ProductStatus $status = null,
         string $search = '',
         int $vendorUserId = 0,
-        bool $onlyPendingRevision = false
+        bool $onlyNeedsReview = false
     ): int {
-        [$where, $params] = $this->managerScope($status, $search, $vendorUserId, $onlyPendingRevision);
+        [$where, $params] = $this->managerScope($status, $search, $vendorUserId, $onlyNeedsReview);
         return (int) $this->db->getVar('SELECT COUNT(*) FROM `' . $this->products() . '`' . $where, $params);
     }
 
@@ -307,9 +307,9 @@ final class DbProductRepository implements ProductRepositoryInterface
     public function countsByStatusForManager(
         string $search = '',
         int $vendorUserId = 0,
-        bool $onlyPendingRevision = false
+        bool $onlyNeedsReview = false
     ): array {
-        [$where, $params] = $this->managerScope(null, $search, $vendorUserId, $onlyPendingRevision);
+        [$where, $params] = $this->managerScope(null, $search, $vendorUserId, $onlyNeedsReview);
         $rows = $this->db->getResults(
             'SELECT status, COUNT(*) AS n FROM `' . $this->products() . '`' . $where . ' GROUP BY status',
             $params
@@ -326,7 +326,7 @@ final class DbProductRepository implements ProductRepositoryInterface
         ?ProductStatus $status,
         string $search,
         int $vendorUserId = 0,
-        bool $onlyPendingRevision = false
+        bool $onlyNeedsReview = false
     ): array {
         // `1 = 1` so every branch below can append with AND and the clause is
         // never empty — a `WHERE` with nothing after it is a syntax error and
@@ -347,16 +347,23 @@ final class DbProductRepository implements ProductRepositoryInterface
             $where .= ' AND (title LIKE %s OR sku LIKE %s OR brand LIKE %s)';
             array_push($params, $like, $like, $like);
         }
-        if ($onlyPendingRevision) {
-            // The same WHERE as the list, so the chips, the total and the
-            // pager are answers about one set of rows. A second query that
-            // collected ids and handed them to an `IN (…)` would be a second
-            // moment, and the number under the pager would disagree with the
-            // rows above it the first time a vendor proposed a change between
-            // the two.
-            $where .= ' AND EXISTS (SELECT 1 FROM `' . T::table($this->db, T::REVISIONS)
-                . '` r WHERE r.product_id = `' . $this->products() . '`.id AND r.status = %s)';
-            $params[] = ProductRevision::PENDING;
+        if ($onlyNeedsReview) {
+            // THE SAME FRAGMENT THE BADGE AND THE COUNTER USE, from
+            // `alpha.48`. It was a hand-written `EXISTS` on pending revisions
+            // alone, which made this filter one definition of «needs review»
+            // and `countAwaitingReview()` another — and the owner's screen
+            // showed both at once: «در انتظار بررسی ۰» above a published
+            // product whose card said a proposal was waiting.
+            //
+            // The clause is the same WHERE as the list, so the chips, the
+            // total and the pager are answers about one set of rows. A second
+            // query that collected ids and handed them to an `IN (…)` would be
+            // a second moment, and the number under the pager would disagree
+            // with the rows above it the first time a vendor proposed a change
+            // between the two.
+            [$waiting, $waitingParams] = ReviewQueueSql::waiting($this->db, '`' . $this->products() . '`');
+            $where .= ' AND ' . $waiting;
+            array_push($params, ...$waitingParams);
         }
         return [$where, $params];
     }

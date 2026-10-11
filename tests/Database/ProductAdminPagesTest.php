@@ -118,7 +118,7 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         self::assertStringContainsString('<a class="tmc-filter is-current" aria-current="page"', $out);
         self::assertStringNotContainsString('class="tmc-tab', $out, 'the class with no stylesheet rule is gone');
 
-        $order = ['همه', 'پیش‌نویس', 'در انتظار بررسی', 'نیازمند اصلاح', 'منتشرشده', 'تعلیق‌شده', 'بایگانی'];
+        $order = ['همه', 'پیش‌نویس', 'ارسال‌شده برای بررسی', 'نیازمند اصلاح', 'منتشرشده', 'تعلیق‌شده', 'بایگانی'];
         $at = -1;
         foreach ($order as $label) {
             $found = strpos($out, '<span class="tmc-filter__label">' . $label . '</span>');
@@ -306,12 +306,21 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         $all = $this->render();
         self::assertStringContainsString('نسخهٔ پیشنهادی در انتظار', $all);
         self::assertSame(1, substr_count($all, 'tmc-catalogue__badge'), 'only the row that has one is marked');
-        self::assertStringContainsString('۱ محصول منتشرشده نسخهٔ پیشنهادی بی‌پاسخ دارد.', $all);
+        // ONE sentence about «needs review», by the one definition
+        // `ReviewQueueSql::waiting()` holds. It said «نسخهٔ پیشنهادی بی‌پاسخ»
+        // until `alpha.48` and counted revisions; the `submitted` chip counted
+        // submitted products; and the owner read both at once.
+        self::assertStringContainsString('۱ محصول نیازمند بررسی است', $all);
 
+        // The OLD query key still works, because a manager may have bookmarked
+        // it — and the new one is what the page writes.
         $only = $this->render(['revisions' => 'pending']);
+        self::assertSame([$withProposal], $this->productIds($only));
+        $only = $this->render(['review' => 'pending']);
         self::assertSame([$withProposal], $this->productIds($only));
         self::assertStringContainsString('نمایش ۱ تا ۱ از ۱ محصول', $only);
         self::assertStringContainsString('برداشتن این محدودیت', $only);
+        self::assertStringContainsString('نیازمند بررسی', $only);
         // The chips count inside the same filter, so «همه» still equals the sum
         // of its parts.
         self::assertStringContainsString('<span class="tmc-filter__label">همه</span><span class="tmc-filter__count">۱</span>', $only);

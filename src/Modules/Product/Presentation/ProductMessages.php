@@ -55,7 +55,16 @@ final class ProductMessages
     {
         return match ($status) {
             ProductStatus::Draft => __('پیش‌نویس', 'tecteb-marketplace-core'),
-            ProductStatus::Submitted => __('در انتظار بررسی', 'tecteb-marketplace-core'),
+            // «ارسال‌شده برای بررسی» rather than «در انتظار بررسی», from
+            // `alpha.48`. This is the product's own STATUS and the chip that
+            // shows it counts products in that status — but the page also has
+            // a «نیازمند بررسی» count, which is a different set: a published
+            // product carrying a proposal needs review and is not submitted.
+            // Two numbers under one phrase is how the owner came to read «در
+            // انتظار بررسی ۰» above a product whose card said a proposal was
+            // waiting. Naming the status after the EVENT — the vendor sent it
+            // — leaves «نیازمند بررسی» free to mean the queue.
+            ProductStatus::Submitted => __('ارسال‌شده برای بررسی', 'tecteb-marketplace-core'),
             ProductStatus::ChangesRequested => __('نیازمند اصلاح', 'tecteb-marketplace-core'),
             ProductStatus::Published => __('منتشرشده', 'tecteb-marketplace-core'),
             ProductStatus::Suspended => __('تعلیق‌شده', 'tecteb-marketplace-core'),

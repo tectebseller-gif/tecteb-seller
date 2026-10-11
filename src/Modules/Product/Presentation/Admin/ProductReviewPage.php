@@ -218,7 +218,7 @@ final class ProductReviewPage
         Request $request,
         int $total = 0,
         array $counts = [],
-        int $pendingRevisions = 0
+        int $needsReview = 0
     ): ProductCatalogueState {
         return new ProductCatalogueState(
             ProductStatus::tryFrom($request->queryKey('status'))?->value ?? '',
@@ -226,10 +226,14 @@ final class ProductReviewPage
             max(1, $request->queryInt('paged')),
             ProductCatalogueState::perPage($request->queryInt('per_page')),
             ProductSort::fromKey($request->queryKey('orderby')),
-            $request->queryKey('revisions') === ProductCatalogueState::REVISIONS_PENDING,
+            // Both keys read, one written. `review` is this round's name for
+            // the scope; `revisions` was its name until `alpha.48` and a link
+            // somebody bookmarked must keep working.
+            $request->queryKey('review') === ProductCatalogueState::REVIEW_PENDING
+                || $request->queryKey('revisions') === ProductCatalogueState::REVIEW_PENDING,
             $total,
             $counts,
-            $pendingRevisions,
+            $needsReview,
             admin_url('admin.php?page=' . self::SLUG)
         );
     }
@@ -265,9 +269,14 @@ final class ProductReviewPage
         // answers that question with an empty screen instead of with the last
         // page there is.
         $state = $state->withCounts(
-            $products->countForManager($status, $state->search, 0, $state->onlyRevisions),
-            $products->countsByStatusForManager($state->search, 0, $state->onlyRevisions),
-            $revisions->countPending()
+            $products->countForManager($status, $state->search, 0, $state->onlyNeedsReview),
+            $products->countsByStatusForManager($state->search, 0, $state->onlyNeedsReview),
+            // THE ONE NUMBER, by the one definition: products that need a
+            // decision, each counted once. It was `countPending()` — a count
+            // of REVISIONS — and that is a different question from «how many
+            // products are waiting», which is the question the sentence above
+            // the table asks and the red badge answers.
+            $products->countAwaitingReview()
         );
         // Rows and the identity of the submission on each of them, in ONE
         // statement. The list marks what it SHOWS as seen, so the token has to
@@ -281,7 +290,7 @@ final class ProductReviewPage
             ($state->page - 1) * $state->perPage,
             0,
             $state->sort,
-            $state->onlyRevisions
+            $state->onlyNeedsReview
         );
         $found = array_column($page, 'product');
         $shown = [];
@@ -290,11 +299,12 @@ final class ProductReviewPage
         }
 
         // One query for the whole page rather than `pendingFor()` per row.
-        $proposed = array_fill_keys(
-            $revisions->pendingProductIds(array_map(
-                static fn (Product $product): int => $product->id,
-                $found
-            )),
+        $ids = array_map(static fn (Product $product): int => $product->id, $found);
+        $proposed = array_fill_keys($revisions->pendingProductIds($ids), true);
+        // …and one more for the brand requests, for the same reason. Two
+        // queries for a page of twenty rows rather than forty.
+        $brandRequested = array_fill_keys(
+            $this->container->get(BrandProposalRepositoryInterface::class)->openProductIds($ids),
             true
         );
 
@@ -318,7 +328,8 @@ final class ProductReviewPage
                 $product->isProjected() ? (string) (get_post_status((int) $product->wcProductId) ?: '') : '',
                 $product->updatedAt,
                 self::thumbnailOf($product, $library),
-                isset($proposed[$product->id])
+                isset($proposed[$product->id]),
+                isset($brandRequested[$product->id])
             );
         }
 

@@ -182,7 +182,12 @@ final class ProductFormView
         if ($productId > 0 && !$status->isEditableByVendor()) {
             $html .= VendorUi::notice('info', $status === ProductStatus::Submitted
                 ? __('این محصول در صف بررسی است. تا تعیین تکلیف، فقط موجودی و کد SKU تغییر می‌کنند.', 'tecteb-marketplace-core')
-                : __('این محصول منتشر شده است. تغییر عنوان، قیمت، دسته و مشخصات به‌صورت «نسخه پیشنهادی» ثبت می‌شود و نسخه فعلی روی سایت می‌ماند؛ موجودی فوری اعمال می‌شود.', 'tecteb-marketplace-core'));
+                // Corrected in `alpha.48`, because it had become untrue in the
+                // one place it mattered: stock on a LIVE product is now a
+                // request (the owner's decision), and a vendor told it applies
+                // at once would believe they had taken a sold-out item down.
+                // What IS immediate is said by name, and so is what is not.
+                : __('این محصول منتشر شده است. کد SKU و حدود خرید (حداقل، حداکثر و گام) فوری اعمال می‌شوند. تغییر عنوان، قیمت، دسته، برند، مشخصات و موجودی به‌صورت «نسخه پیشنهادی» ثبت می‌شود و نسخه فعلی روی سایت تا تأیید مدیر تغییر نمی‌کند.', 'tecteb-marketplace-core'));
         }
         if ($hasPendingRevision) {
             // Which version is in the boxes, said out loud. The old sentence
@@ -918,7 +923,7 @@ final class ProductFormView
                         PersianDigits::toPersian(substr($proposedAt, 0, 16))
                     ));
             }
-            return VendorUi::notice('info', __('این محصول منتشر شده و چیزی برای ارسال نیست. موجودی و کد SKU فوری اعمال می‌شوند؛ تغییر عنوان، قیمت، دسته، برند و مشخصات با همان دکمه «ذخیره و ادامه» به‌صورت «نسخه پیشنهادی» ثبت می‌شود و به صف بررسی مدیر می‌رود.', 'tecteb-marketplace-core'));
+            return VendorUi::notice('info', __('این محصول منتشر شده و چیزی برای ارسال نیست — ذخیره کردن، خودِ ارسال است. کد SKU و حدود خرید (حداقل، حداکثر و گام) فوری اعمال می‌شوند؛ تغییر عنوان، قیمت، دسته، برند، مشخصات و موجودی با همان دکمه «ذخیره و ادامه» به‌صورت «نسخه پیشنهادی» ثبت می‌شود و به صف بررسی مدیر می‌رود.', 'tecteb-marketplace-core'));
         }
         if ($status === ProductStatus::Suspended) {
             return VendorUi::notice('warning', __('این محصول به‌دست مدیر تعلیق شده است. تا زمانی که مدیر آن را برنگرداند، ارسال و انتشار از این صفحه ممکن نیست؛ دلیل تعلیق بالای همین صفحه آمده است.', 'tecteb-marketplace-core'));

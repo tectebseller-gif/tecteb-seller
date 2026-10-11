@@ -31,7 +31,16 @@ final class ProductCatalogueRow
         public readonly string $updatedAt,
         public readonly string $thumbnailUrl,
         /** An unanswered proposal on a published product: the row a manager is looking for. */
-        public readonly bool $hasPendingRevision
+        public readonly bool $hasPendingRevision,
+        /**
+         * An open brand request on this product.
+         *
+         * Its own flag rather than folded into the one above, because a row
+         * with both is waiting on two different decisions and the badge should
+         * say so. Appended with a default so every existing construction keeps
+         * compiling (`alpha.45`'s convention).
+         */
+        public readonly bool $hasBrandRequest = false
     ) {
     }
 }

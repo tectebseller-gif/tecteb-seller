@@ -63,11 +63,17 @@ interface ProductRepositoryInterface
      * still cost every row, every image lookup and every store name.
      *
      * @param ?ProductSort $sort                null means the default order
-     * @param bool         $onlyPendingRevision only products whose published
-     *                                          version has an unanswered
-     *                                          proposal — the same WHERE, so
-     *                                          the counts and the pager below
-     *                                          it stay this list's own
+     * @param bool         $onlyNeedsReview narrow the list to products that
+     *                                      NEED REVIEW, by the one definition
+     *                                      `ReviewQueueSql::waiting()` holds:
+     *                                      submitted, or carrying an
+     *                                      unanswered change proposal, or
+     *                                      carrying an open brand request.
+     *                                      The badge, the counter, this filter
+     *                                      and its pager all read that one
+     *                                      fragment, so they cannot describe
+     *                                      different sets — which is exactly
+     *                                      what they did until `alpha.48`.
      * @return list<Product>
      */
     public function forManager(
@@ -77,14 +83,14 @@ interface ProductRepositoryInterface
         int $offset = 0,
         int $vendorUserId = 0,
         ?ProductSort $sort = null,
-        bool $onlyPendingRevision = false
+        bool $onlyNeedsReview = false
     ): array;
 
     public function countForManager(
         ?ProductStatus $status = null,
         string $search = '',
         int $vendorUserId = 0,
-        bool $onlyPendingRevision = false
+        bool $onlyNeedsReview = false
     ): int;
 
     /**
@@ -112,7 +118,7 @@ interface ProductRepositoryInterface
         int $offset = 0,
         int $vendorUserId = 0,
         ?ProductSort $sort = null,
-        bool $onlyPendingRevision = false
+        bool $onlyNeedsReview = false
     ): array;
 
     /**
@@ -166,7 +172,7 @@ interface ProductRepositoryInterface
     public function countsByStatusForManager(
         string $search = '',
         int $vendorUserId = 0,
-        bool $onlyPendingRevision = false
+        bool $onlyNeedsReview = false
     ): array;
 
     public function countInStatus(ProductStatus $status): int;

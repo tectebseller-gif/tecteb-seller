@@ -124,6 +124,23 @@ final class BrandRegistryTest extends DatabaseTestCase
         $vendors->upsertProfile(self::OTHER_VENDOR, 'داروخانه دو', true, false);
     }
 
+    /**
+     * Gives the tables back empty — the `alpha.36` rule, and it earned itself
+     * here within the hour.
+     *
+     * The CONTRACT suite's stub `wpdb` is a real PDO on this same disposable
+     * database, and from `alpha.48` an open BRAND REQUEST puts a product in the
+     * «needs review» set. So a request left behind by the last test of this
+     * class put a red bubble on the marketplace menu and failed
+     * `AdminMenuAndAssetsTest`, which is about capabilities and was perfectly
+     * correct.
+     */
+    protected function tearDown(): void
+    {
+        $this->resetSchema(new WpDatabase($this->wpdb));
+        parent::tearDown();
+    }
+
     // ----------------------------------------------------------- the gate
 
     public function testFreeTextCannotBecomeABrand(): void

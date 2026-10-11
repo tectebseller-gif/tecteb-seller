@@ -4,11 +4,13 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Product\Infrastructure;
 
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\BrandProposal;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0025BrandRegistry;
 
 /**
  * The two SQL fragments that define «what is waiting» and «which submission».
@@ -30,13 +32,29 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAn
 final class ReviewQueueSql
 {
     /**
-     * «این محصول منتظر تصمیم است» — submitted, or carrying an unanswered
-     * proposal.
+     * «این محصول منتظر تصمیم است» — THE one definition of «needs review».
      *
-     * `OR EXISTS` rather than a union of two counts: a product that is both
-     * submitted and carries a proposal is still ONE thing to look at, and
-     * counting it twice would send the manager looking for a decision that
-     * does not exist.
+     * Three things put a product here, and from `alpha.48` all three are in
+     * this one fragment:
+     *
+     *  - its status is `submitted`;
+     *  - it carries an unanswered change proposal — which from `alpha.48`
+     *    includes a stock request, because that rides the same revision;
+     *  - it carries an open BRAND request, whether nobody has decided it yet
+     *    or the brand was registered and applying it did not finish. Both
+     *    still need the manager, and a screen that showed only the first would
+     *    hide the half-done one.
+     *
+     * **`OR EXISTS` rather than a union of counts, and that is the whole
+     * point.** A product that is submitted AND carries a proposal AND has a
+     * brand request is still ONE thing to look at: «یک محصول دوبار شمرده
+     * نشود». Counting the proposals instead of the products is what made the
+     * owner's screen say «در انتظار بررسی ۰» above a published product whose
+     * own card said a proposal was waiting — two definitions, one page.
+     *
+     * Everything that asks «is this waiting?» comes here: the red badge, the
+     * manager's counter, the list's filter, its pager and its search. One
+     * fragment is the only way they cannot drift apart.
      *
      * @return array{0:string,1:list<string>} fragment (parenthesised), params
      */
@@ -45,8 +63,15 @@ final class ReviewQueueSql
         return [
             '(' . $alias . '.status = %s'
                 . ' OR EXISTS (SELECT 1 FROM `' . T::table($db, T::REVISIONS) . '` tmc_q'
-                . ' WHERE tmc_q.product_id = ' . $alias . '.id AND tmc_q.status = %s))',
-            [ProductStatus::Submitted->value, ProductRevision::PENDING],
+                . ' WHERE tmc_q.product_id = ' . $alias . '.id AND tmc_q.status = %s)'
+                . ' OR EXISTS (SELECT 1 FROM `' . M0025BrandRegistry::table($db, M0025BrandRegistry::PROPOSALS) . '` tmc_b'
+                . ' WHERE tmc_b.product_id = ' . $alias . '.id AND tmc_b.status IN (%s, %s)))',
+            [
+                ProductStatus::Submitted->value,
+                ProductRevision::PENDING,
+                BrandProposal::PENDING,
+                BrandProposal::REGISTERED,
+            ],
         ];
     }
 

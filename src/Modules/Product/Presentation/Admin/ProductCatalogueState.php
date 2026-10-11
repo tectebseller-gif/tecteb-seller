@@ -48,8 +48,21 @@ final class ProductCatalogueState
      */
     public const PER_PAGE_CHOICES = [20, 50, 100];
 
-    /** The value of `revisions` that means «only unanswered proposals». */
-    public const REVISIONS_PENDING = 'pending';
+    /**
+     * The value of `review` (and of the older `revisions`) that means «only
+     * the things waiting for a decision».
+     *
+     * The query key was `revisions` until `alpha.48`, when the scope stopped
+     * being about revisions alone: it is now the one «needs review» set —
+     * submitted products, unanswered change proposals and open brand requests
+     * — defined once in `ReviewQueueSql::waiting()`. The old key is still
+     * read, so a link a manager bookmarked keeps working, and `review` is what
+     * this page now writes.
+     */
+    public const REVIEW_PENDING = 'pending';
+
+    /** @deprecated since `alpha.48`; read for old links, never written. */
+    public const REVISIONS_PENDING = self::REVIEW_PENDING;
 
     /** @param array<string,int> $counts status value => how many, under this search */
     public function __construct(
@@ -58,10 +71,10 @@ final class ProductCatalogueState
         public readonly int $page,
         public readonly int $perPage,
         public readonly ProductSort $sort,
-        public readonly bool $onlyRevisions,
+        public readonly bool $onlyNeedsReview,
         public readonly int $total,
         public readonly array $counts,
-        public readonly int $pendingRevisions,
+        public readonly int $needsReview,
         public readonly string $baseUrl,
         /**
          * The page that was ASKED for, when it no longer exists.
@@ -98,7 +111,7 @@ final class ProductCatalogueState
      *
      * @param array<string,int> $counts
      */
-    public function withCounts(int $total, array $counts, int $pendingRevisions): self
+    public function withCounts(int $total, array $counts, int $needsReview): self
     {
         // The page is clamped HERE, before the rows are read, so the query
         // asks for a page that exists rather than for an offset past the end
@@ -114,10 +127,10 @@ final class ProductCatalogueState
             $outOfRange === null ? $this->page : $pages,
             $this->perPage,
             $this->sort,
-            $this->onlyRevisions,
+            $this->onlyNeedsReview,
             $total,
             $counts,
-            $pendingRevisions,
+            $needsReview,
             $this->baseUrl,
             $outOfRange
         );
@@ -147,8 +160,8 @@ final class ProductCatalogueState
         if (!$this->sort->isDefault()) {
             $args['orderby'] = $this->sort->value;
         }
-        if ($this->onlyRevisions) {
-            $args['revisions'] = self::REVISIONS_PENDING;
+        if ($this->onlyNeedsReview) {
+            $args['review'] = self::REVIEW_PENDING;
         }
         foreach ($overrides as $key => $value) {
             if ($value === null || $value === '') {
@@ -189,6 +202,6 @@ final class ProductCatalogueState
     /** Whether anything is narrowing the list, which decides whether «پاک‌کردن فیلترها» is offered. */
     public function isFiltered(): bool
     {
-        return $this->status !== '' || $this->search !== '' || $this->onlyRevisions;
+        return $this->status !== '' || $this->search !== '' || $this->onlyNeedsReview;
     }
 }
