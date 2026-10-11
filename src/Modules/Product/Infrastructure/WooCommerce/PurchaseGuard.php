@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
+use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Presentation\PurchaseMessages;
 
 /**
@@ -151,6 +152,40 @@ final class PurchaseGuard
         }
         $parent = $policy->decide($parentId);
         return $parent['decision'] === PurchasePolicy::NOT_OURS ? null : $parent['decision'];
+    }
+
+    /**
+     * The marketplace row behind a WooCommerce product, or null.
+     *
+     * Same shape and same parent fallback as `ask()`, and it costs nothing
+     * extra: `PurchasePolicy::decide()` already loaded this row to answer
+     * «may it be bought», and memoises it per request.
+     *
+     * WHY THE ROW IS THE APPROVED ANSWER, and not a proposal waiting for the
+     * manager: the three purchase-quantity fields are on
+     * `SensitiveChange::IMMEDIATE`, so a vendor's edit to them is written
+     * STRAIGHT INTO THIS ROW and never sits in `tmc_product_revisions`. A
+     * pending revision cannot carry them — `ReviewProducts::
+     * detailsFromPayload()` takes all three from the live row for the same
+     * reason it takes stock and SKU from there — so reading the row is
+     * reading what is in force, and there is no unapproved version of these
+     * numbers to read by mistake.
+     */
+    public static function marketplaceProduct(PurchasePolicy $policy, mixed $product): ?Product
+    {
+        if (!is_object($product) || !method_exists($product, 'get_id')) {
+            return null;
+        }
+        $row = $policy->decide((int) $product->get_id())['product'] ?? null;
+        if ($row instanceof Product) {
+            return $row;
+        }
+        $parentId = method_exists($product, 'get_parent_id') ? (int) $product->get_parent_id() : 0;
+        if ($parentId <= 0) {
+            return null;
+        }
+        $parent = $policy->decide($parentId)['product'] ?? null;
+        return $parent instanceof Product ? $parent : null;
     }
 
     /** @return mixed the untouched default for anything that is not ours */

@@ -101,11 +101,16 @@ final class QuantityPanel
             // ceiling, which is the opposite of handing it back. Measured:
             // `rows_after_reset=1/empty/1`, `back_to_automatic=NO`.
             //
-            // Handing back means removing the rows AND the record: the next
-            // projection then finds nothing, writes the marketplace's values
-            // and records them as ours again.
+            // AND IT HANDS BACK BY WRITING, not by deleting. `alpha.46`
+            // removed the three rows and waited for the next projection, and
+            // between the two there was no rule at all: absence reads as
+            // «minimum 1, no maximum, step 1», so the reset RAISED what could
+            // be bought until somebody saved the product again. Measured on
+            // `alpha.46` in a fresh request, marketplace rule `2/6/2`:
+            // `input_args=1/40/1`, and 1, 3 and 8 all `allowed` in the
+            // classic cart and through the Store API.
             if ($request->postChecked(self::RESET)) {
-                self::handBack($id);
+                self::handBack($id, $policy());
                 return;
             }
 
@@ -208,15 +213,6 @@ final class QuantityPanel
     }
 
     /**
-     * Hand the three rules back to the marketplace.
-     *
-     * The rows AND the record go, so the next projection finds «no row at
-     * all» — the one state `ProjectedQuantity::merge()` writes into without
-     * asking — and records what it wrote. The conflict list goes too, because
-     * a conflict about a row that no longer exists is a conflict nobody can
-     * act on.
-     */
-    /**
      * The refusal a manager sees for an impossible window, with the two ways
      * out — the second only when it exists. Separate from the vendor's own
      * message because this one reads the numbers back out of the transient
@@ -253,26 +249,145 @@ final class QuantityPanel
         );
     }
 
-    private static function handBack(int $id): void
+    /**
+     * Hand the three rules back to the marketplace — IN THIS REQUEST.
+     *
+     * The rule is read first and written second, and nothing is ever deleted.
+     * That order is the whole fix: `alpha.46` deleted the rows and left the
+     * restoring to the next projection, so between the manager's click and
+     * the next save of that product there was no rule on the shop at all.
+     *
+     * What is written is the MARKETPLACE ROW's rule, which is the approved
+     * one and cannot be a proposal: the three fields are on
+     * `SensitiveChange::IMMEDIATE`, so a vendor's change to them goes straight
+     * into that row and never waits in `tmc_product_revisions` (the reasoning
+     * is written out in `PurchaseGuard::marketplaceProduct()`).
+     *
+     * Three refusals, each stated rather than emergent:
+     *
+     *  - **the rule cannot be read** — nothing is written and nothing is
+     *    deleted, so the shop keeps exactly the restriction it had, and the
+     *    manager is told. A reset that cannot find the rule it is restoring
+     *    must not fall back to «no rule»; that is the one answer that sells
+     *    more than before.
+     *  - **a row will not store** — the row keeps its old value, which is a
+     *    restriction rather than an absence, and the failing key is NAMED.
+     *    `update_post_meta()` answers `false` both for a failure and for «it
+     *    was already this» (the `alpha.44` rule), so its answer is not read:
+     *    every row is read BACK and compared.
+     *  - **the ownership record** gets a fingerprint only for a row that
+     *    really stored. A key whose write failed keeps whatever the record
+     *    already said about it, because the manager's value is still the one
+     *    in force there.
+     *
+     * The one thing this does widen, said out loud: if the marketplace's own
+     * rule has no maximum, restoring it removes a ceiling the manager had
+     * typed. That is not a gap — it is the marketplace's declared rule, which
+     * is exactly what the manager asked to go back to.
+     */
+    private static function handBack(int $id, PurchasePolicy $policy): void
     {
-        $left = [];
-        foreach (ProjectedQuantity::keys() as $key) {
-            delete_post_meta($id, $key);
-            if (metadata_exists('post', $id, $key)) {
-                $left[] = $key;         // asked, not assumed
-            }
+        $rule = self::marketplaceRule($policy, $id);
+        if ($rule === null) {
+            // Read nothing, so write nothing and delete nothing.
+            self::remember($id, 'hand_back_unavailable', '', []);
+            return;
         }
-        delete_post_meta($id, ProjectedQuantity::OWNED_META);
-        delete_post_meta($id, ProjectedQuantity::CONFLICT_META);
+        $record = ProjectedQuantity::normalise(get_post_meta($id, ProjectedQuantity::OWNED_META, true));
+        $conflicts = get_post_meta($id, ProjectedQuantity::CONFLICT_META, true);
+        $conflicts = is_array($conflicts) ? array_values(array_filter($conflicts, 'is_string')) : [];
+
+        $restored = [];
+        $failed = [];
+        foreach (ProjectedQuantity::values($rule) as $key => $value) {
+            update_post_meta($id, $key, $value);
+            if (metadata_exists('post', $id, $key) && (string) get_post_meta($id, $key, true) === $value) {
+                $restored[] = $key;
+                $record[$key] = ProjectedQuantity::fingerprint($value);
+                continue;
+            }
+            $failed[] = $key;
+        }
+
+        // A conflict about a row we just took back is a conflict nobody can
+        // act on; one about a row that would not store is still real.
+        $stillConflicting = array_values(array_diff($conflicts, $restored));
+        if ($stillConflicting === []) {
+            delete_post_meta($id, ProjectedQuantity::CONFLICT_META);
+        } else {
+            update_post_meta($id, ProjectedQuantity::CONFLICT_META, $stillConflicting);
+        }
+        // The contradiction flag is a cache of «WooCommerce's own setting
+        // disagrees with this rule», and `QuantityGuard` rewrites it on the
+        // next read if it still does. Dropping it here costs nothing and
+        // stops a stale sentence being shown about a rule that just changed.
         delete_post_meta($id, QuantityGuard::CONTRADICTION_META);
+
+        $recordProblem = '';
+        if ($restored !== []) {
+            $recordProblem = self::storeRecord($id, $record);
+        }
+
         self::remember(
             $id,
-            $left === [] && !metadata_exists('post', $id, ProjectedQuantity::OWNED_META)
-                ? 'handed_back'
-                : 'hand_back_failed',
+            $failed === [] && $recordProblem === '' ? 'handed_back' : 'hand_back_failed',
             '',
-            ['left' => implode(',', $left)]
+            [
+                'restored' => implode(',', $restored),
+                'failed' => implode(',', $failed),
+                'record' => $recordProblem,
+            ]
         );
+    }
+
+    /**
+     * The marketplace row's rule for this shop product, or null when it
+     * cannot be read.
+     *
+     * `null` is deliberately the answer for every unreadable case — the
+     * product is not the marketplace's, the row is gone, the read threw —
+     * because the caller does the same thing in all of them: nothing.
+     */
+    private static function marketplaceRule(PurchasePolicy $policy, int $id): ?PurchaseQuantity
+    {
+        if (!function_exists('wc_get_product')) {
+            return null;
+        }
+        try {
+            $product = wc_get_product($id);
+            if (!is_object($product)) {
+                return null;
+            }
+            $row = PurchaseGuard::marketplaceProduct($policy, $product);
+        } catch (\Throwable) {
+            return null;
+        }
+        return $row?->details->purchaseQuantity();
+    }
+
+    /**
+     * Store the ownership record and say what went wrong, or `''`.
+     *
+     * Read back and compared, because `update_post_meta()` cannot tell a
+     * failure from a no-op — and a record that did not store is DELETED
+     * rather than left stale: an absent record makes every row fall to
+     * `ProjectedQuantity::merge()`'s conservative test, while a stale one is
+     * believed (the `alpha.44` rule).
+     *
+     * @param array<string,string> $record
+     */
+    private static function storeRecord(int $id, array $record): string
+    {
+        if ($record === []) {
+            delete_post_meta($id, ProjectedQuantity::OWNED_META);
+            return '';
+        }
+        update_post_meta($id, ProjectedQuantity::OWNED_META, $record);
+        if (ProjectedQuantity::normalise(get_post_meta($id, ProjectedQuantity::OWNED_META, true)) === $record) {
+            return '';
+        }
+        delete_post_meta($id, ProjectedQuantity::OWNED_META);
+        return ProjectedQuantity::RECORD_NOT_STORED;
     }
 
     /**
@@ -349,8 +464,11 @@ final class QuantityPanel
         }
 
         $text = match ($outcome) {
-            'handed_back' => __('قواعد تعداد خرید به حالت خودکار برگشت: مقدارها و سابقهٔ مالکیت حذف شدند و همگام‌سازی بعدی مقدارهای بازارگاه را می‌نویسد.', 'tecteb-marketplace-core'),
-            'hand_back_failed' => __('بازگرداندن به حالت خودکار کامل نشد؛ دست‌کم یک مقدار روی محصول باقی مانده است. دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+            // Says what IS in force now, not what will be after some later
+            // save: the rule was restored in the same request.
+            'handed_back' => __('قواعد تعداد خرید به حالت خودکار برگشت و همین حالا مقدارهای بازارگاه روی محصول نوشته شدند. از این پس تغییر فروشنده دوباره اعمال می‌شود.', 'tecteb-marketplace-core'),
+            'hand_back_failed' => __('بازگرداندن به حالت خودکار کامل نشد. مقدارهایی که نوشته نشدند همان قاعدهٔ قبلی را نگه داشته‌اند — محصول بی‌سقف نشده — ولی هنوز مال شماست. دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+            'hand_back_unavailable' => __('بازگرداندن به حالت خودکار انجام نشد: قاعدهٔ بازارگاه برای این محصول خوانده نشد. هیچ مقداری عوض نشد و محدودیت فعلی سر جایش است. دوباره تلاش کنید.', 'tecteb-marketplace-core'),
             'partly_saved' => __('بخشی از قواعد تعداد خرید ذخیره نشد. آنچه ذخیره نشده همچنان از بازارگاه می‌آید؛ دوباره تلاش کنید.', 'tecteb-marketplace-core'),
             'saved' => __('قواعد تعداد خرید ذخیره شد. از این پس همین مقدارها مال شماست و همگام‌سازی دستشان نمی‌زند.', 'tecteb-marketplace-core'),
             default => '',
@@ -358,7 +476,9 @@ final class QuantityPanel
         if ($text === '') {
             return '';
         }
-        $class = in_array($outcome, ['hand_back_failed', 'partly_saved'], true) ? 'notice-warning' : 'notice-success';
+        $class = in_array($outcome, ['hand_back_failed', 'hand_back_unavailable', 'partly_saved'], true)
+            ? 'notice-warning'
+            : 'notice-success';
         return '<div class="notice ' . esc_attr($class) . '"><p>' . esc_html($text) . '</p></div>';
     }
 
@@ -425,7 +545,7 @@ final class QuantityPanel
 
         $html = '<div id="tmc_quantity_panel" class="panel woocommerce_options_panel"><div class="options_group">'
             . '<p style="padding:0 12px;">' . esc_html__(
-                'این سه مقدار از پنل فروشنده در بازارگاه می‌آیند. اگر همین‌جا تغییرشان بدهید، از آن پس مال شماست: همگام‌سازی بعدی دستشان نمی‌زند و تغییر فروشنده روی آن‌ها اعمال نمی‌شود. برای برگرداندن به حالت خودکار، مقدارها را در بازارگاه عوض کنید و این فیلدها را خالی بگذارید.',
+                'این سه مقدار از پنل فروشنده در بازارگاه می‌آیند. اگر همین‌جا تغییرشان بدهید، از آن پس مال شماست: همگام‌سازی بعدی دستشان نمی‌زند و تغییر فروشنده روی آن‌ها اعمال نمی‌شود. برای برگرداندن، چک‌باکس «بازگرداندن به حالت خودکار» را در پایین همین تب بزنید — خالی‌گذاشتن این فیلدها قاعده را برنمی‌گرداند، بلکه «بدون سقف» می‌نویسد.',
                 'tecteb-marketplace-core'
             ) . '</p>';
 
@@ -503,7 +623,7 @@ final class QuantityPanel
             . '<input type="checkbox" class="checkbox" id="tmc-quantity-reset"'
             . ' name="' . esc_attr(self::RESET) . '" value="1">'
             . '<span class="description">' . esc_html__(
-                'با ذخیره، این سه مقدار و سابقهٔ مالکیتشان حذف می‌شوند و از همگام‌سازی بعدی، مقدارهای پنل فروشنده برمی‌گردند. مقدارهای بالا نادیده گرفته می‌شوند.',
+                'با ذخیره، همین حالا مقدارهای پنل فروشنده روی محصول نوشته می‌شوند و سابقهٔ مالکیت شما برداشته می‌شود؛ از آن پس تغییر فروشنده دوباره اعمال می‌شود. مقدارهای بالا نادیده گرفته می‌شوند.',
                 'tecteb-marketplace-core'
             ) . '</span>'
             . '</p>';

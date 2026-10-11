@@ -1,0 +1,101 @@
+# alpha.46 bytes — the reset gap, measured before any change
+# commit: 2676ae367858c9d49f77f74091b58e2274087f95
+# wp 7.1 · wc 11.0.1 · schema 24
+# each measuring verb is its OWN wp invocation — the gap is the subject
+
+## gap-arrange
+probe=ran
+product_id=1293
+wc_id=216
+marketplace_rule=2/6/2
+rows_after_projection=2/6/2
+record_after_projection=max,min,purchase_step
+rows_after_manager_edit=2/4/2
+record_after_manager_edit=min,purchase_step
+rows_after_reset=__absent__/__absent__/__absent__
+record_after_reset=__none__
+outcome=handed_back
+
+## gap-page
+probe=ran
+wc_id=216
+rows_now=__absent__/__absent__/__absent__
+rule_the_rows_express=1/none/1
+rows_read_as_unrestricted=YES
+input_args=1/40/1
+marketplace_rule_now=2/6/2
+enforced_matches_marketplace=NO
+
+## gap-cart
+probe=ran
+wc_id=216
+rows_now=__absent__/__absent__/__absent__
+gate=ready_on_trial
+classic_qty_1=allowed
+classic_qty_3=allowed
+classic_qty_8=allowed
+classic_qty_4=allowed
+store_api_qty_8=allowed
+store_api_qty_4=allowed
+
+## gap-variable-arrange
+probe=ran
+parent_wc=217
+variation_wc=219
+rows_after_projection=2/6/2
+rows_after_manager_edit=2/4/2
+rows_after_reset=__absent__/__absent__/__absent__
+outcome=handed_back
+
+## gap-variable-page
+probe=ran
+parent_wc=217
+variation_wc=219
+parent_rows_now=__absent__/__absent__/__absent__
+variation_has_own_rows=no
+variation_input_args=1/7/1
+variation_enforced_matches_marketplace=NO
+
+## gap-variable-cart
+probe=ran
+parent_wc=217
+variation_wc=219
+gate=ready_on_trial
+classic_qty_1=allowed
+classic_qty_3=allowed
+classic_qty_8=allowed
+classic_qty_4=allowed
+store_api_qty_8=allowed
+
+## write-failure
+probe=ran
+wc_id=216
+rows_after_manager_edit=2/4/2
+rows_after_refused_reset=__absent__/__absent__/__absent__
+ceiling_kept=NO
+max_row_absent=YES
+outcome=handed_back
+named_the_key=no
+
+## write-failure-page
+probe=ran
+wc_id=216
+rows_now=__absent__/__absent__/__absent__
+rows_read_as_unrestricted=YES
+input_args=1/40/1
+
+## control-no-change
+probe=ran
+rows_before=2/6/2
+record_before=max,min,purchase_step
+rows_after=2/6/2
+record_after=max,min,purchase_step
+
+## control-manager-edit
+probe=ran
+rows_after=2/4/2
+record_after=min,purchase_step
+rows_after_vendor_min=4/4/2
+manager_max_survived=yes
+vendor_min_applied=yes
+

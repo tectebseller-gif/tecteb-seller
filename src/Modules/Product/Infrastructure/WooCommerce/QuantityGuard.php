@@ -229,7 +229,7 @@ final class QuantityGuard
         if (PurchaseGuard::ask($policy, $product) === null) {
             return null;
         }
-        $rule = self::storedRule($product);
+        $rule = self::storedRule($policy, $product);
         if ($rule->isUnrestricted()) {
             return null;
         }
@@ -249,14 +249,46 @@ final class QuantityGuard
     }
 
     /**
-     * The rule the shop's own meta rows express.
+     * The rule in force for one shop product.
      *
      * Read from the PRODUCT the hook was handed, not re-fetched: a variation
      * carries its parent's rows through `get_meta()`'s parent fallback, and a
      * second fetch would be a second read of the same thing with one more way
      * to disagree.
+     *
+     * ---------------------------------------------------------------------
+     * AND WHEN THERE ARE NO ROWS AT ALL, THE MARKETPLACE ROW ANSWERS
+     * ---------------------------------------------------------------------
+     *
+     * `ProjectedQuantity::ruleFrom()` reads an absent row as the semantics
+     * `PurchaseQuantity` writes down — minimum 1, no maximum, step 1 — which
+     * is right for a product this plugin has never projected: WooCommerce's
+     * own defaults are the answer there, and nothing downstream has to
+     * re-check. It is WRONG for a product that HAS a rule and whose rows are
+     * momentarily gone, and `alpha.46` built exactly that: the panel's «back
+     * to automatic» deleted the three rows and waited for the next
+     * projection. Measured on `alpha.46` in a fresh request, with the
+     * marketplace rule reading `2/6/2`: `input_args=1/40/1` and quantities
+     * 1, 3 and 8 all `allowed`, in the classic cart and through the Store
+     * API alike. A reset increased what could be bought.
+     *
+     * So absence on OUR OWN product asks the marketplace row — the source of
+     * truth these three rows are a projection of (ADR-008) — and only falls
+     * back to «unrestricted» when there is no row to ask. Three things make
+     * that safe rather than clever:
+     *
+     *  - it costs no query. `ruleFor()` has already asked
+     *    `PurchaseGuard::ask()`, so the row is in `PurchasePolicy`'s
+     *    per-request memo;
+     *  - it can only ever narrow. The marketplace rule is the declared
+     *    rule; reading it instead of WooCommerce's defaults removes no
+     *    restriction and adds no permission;
+     *  - and it is the same answer for every cause of absence — this
+     *    plugin's reset, a manager deleting the rows by hand, a projection
+     *    that half failed. A fix that only closed the reset path would leave
+     *    the other two open.
      */
-    private static function storedRule(mixed $product): PurchaseQuantity
+    private static function storedRule(PurchasePolicy $policy, mixed $product): PurchaseQuantity
     {
         if (!method_exists($product, 'get_meta')) {
             return PurchaseQuantity::unrestricted();
@@ -280,6 +312,12 @@ final class QuantityGuard
                         $meta[$key] = (string) $parent->get_meta($key, true);
                     }
                 }
+            }
+        }
+        if (self::allEmpty($meta)) {
+            $row = PurchaseGuard::marketplaceProduct($policy, $product);
+            if ($row !== null) {
+                return $row->details->purchaseQuantity();
             }
         }
         return ProjectedQuantity::ruleFrom($meta);
