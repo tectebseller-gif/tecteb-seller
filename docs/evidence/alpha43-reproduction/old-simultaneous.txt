@@ -5,7 +5,7 @@ Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
 FE                                                                  2 / 2 (100%)
 
-Time: 00:00.693, Memory: 27.00 MB
+Time: 00:00.647, Memory: 27.00 MB
 
 There was 1 error:
 

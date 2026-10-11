@@ -1,6 +1,6 @@
 wc_version=11.0.1
 probe=ran
-foreign_wc=287
+foreign_wc=323
 foreign_brand=برند_فروشگاه
 foreign_owned_meta=
 foreign_count=1

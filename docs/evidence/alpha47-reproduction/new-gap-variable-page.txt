@@ -1,6 +1,6 @@
 probe=ran
 parent_wc=217
-variation_wc=234
+variation_wc=298
 parent_rows_now=2/6/2
 variation_has_own_rows=no
 variation_input_args=2/6/2

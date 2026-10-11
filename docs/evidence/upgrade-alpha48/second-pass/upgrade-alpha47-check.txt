@@ -78,7 +78,7 @@ ok:   5 a same-named table of the wrong shape is really in the way   1
 ok:   5b and its shape is not the one verify() demands               1/0
 ok:   5c the admin request still answers 200                         200
 ok:   5d the site stays on schema 24                                 24
-  last_error={"step":"0025_brand_registry","message":"verify_failed","at":"2026-10-11T21:03:21+00:00"}
+  last_error={"step":"0025_brand_registry","message":"verify_failed","at":"2026-10-11T21:38:07+00:00"}
 ok:   5e the reason is recorded, naming the step                     1
 ok:   5f and the vendor's product is untouched                       1
   wrote=1

@@ -1,7 +1,7 @@
 probe=ran
-seeded=34
+seeded=43
 ask_code=brand_already_approved
 named_real_brand=آمبو_بگ_۴۸
-terms_before=7
-terms_after=7
+terms_before=6
+terms_after=6
 no_second_term=yes

@@ -1,9 +1,9 @@
 wc_version=11.0.1
 probe=ran
 product=1266
-wc=238
+wc=302
 colour_projected=آبی/سبز
-wc_variation_blue=239
+wc_variation_blue=303
 colour_after_manager=آبی/زرد
 colour_after_projection=آبی/زرد
 theirs_after=ایران

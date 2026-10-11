@@ -89,9 +89,15 @@ PASS  [new] brand-register-twice: same_term=yes — registering one brand twice,
 PASS  [new] brand-register-twice: term_count_for_name=1 — measured on the taxonomy itself
 
 === two processes registering one brand, two spellings ===
-race: a=37 b=36 terms=2
-FAIL  the two processes disagreed about the term (a=37 b=36)
-FAIL  the taxonomy holds 2 terms for one brand
+race 1: a=45 b=45 terms=1
+PASS  race 1: both processes came back with the SAME term — the loser gets the winner's brand
+PASS  race 1: and the taxonomy holds ONE term for the two spellings
+race 2: a=46 b=46 terms=1
+PASS  race 2: both processes came back with the SAME term — the loser gets the winner's brand
+PASS  race 2: and the taxonomy holds ONE term for the two spellings
+race 3: a=47 b=47 terms=1
+PASS  race 3: both processes came back with the SAME term — the loser gets the winner's brand
+PASS  race 3: and the taxonomy holds ONE term for the two spellings
 
 === controls: the same answer on both trees, or the revert broke something ===
 PASS  control control-no-change answers identically on alpha.47 and the fix
@@ -109,5 +115,5 @@ PASS  [new] control-draft: save_code=inventory_saved — a DRAFT's stock still a
 PASS  [new] control-draft: shop_stock=7 — reaching the shop in the same request
 PASS  [new] control-draft: pending_revision=none — and asking nobody — the owner's decision is about LIVE products
 
-checks: 99   pass: 97   fail: 2
+checks: 103   pass: 103   fail: 0
 PASS  src/ restored byte for byte (523 files)

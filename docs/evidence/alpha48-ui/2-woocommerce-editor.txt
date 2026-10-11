@@ -163,7 +163,7 @@ Product description
 Visual
 Code
 Paragraph
-Word count: 6	  Last edited on October 11, 2026 at 9:24 pm
+Word count: 6	  Last edited on October 11, 2026 at 9:38 pm
 Publish
 Move up
 Move down
@@ -222,7 +222,6 @@ All Brands Most Used
  آریا طب
  آمبو بگ ۴۸
  برند آزمون ۴۸
- برند رقابت ۴۸
  برندی که فروشنده نوشته
  سینا طب ۴۸
 + Add New Brand

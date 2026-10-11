@@ -18,7 +18,7 @@ ok:   2g the WooCommerce editor has the marketplace quantity panel       true
 ok:   2h and its maximum box carries the eighteen the vendor saved       18
 ok:   3 the stock field says what a change to it does now                true
 ok:   3b the vendor is told a request was recorded                       true
-      product=1303 · wc_product=296 · status=published · row_brand=آریا طب · row_stock=20 · row_limits=1/18/1 · shop_tmc_min_purchase=1 · shop_tmc_max_purchase=18 · shop_tmc_purchase_step=1 · shop_stock=20 · shop_attribute_brand=آریا طب · pending_revision=63 · proposed_stock=7 · open_brand_request=none · needs_review=2
+      product=1303 · wc_product=296 · status=published · row_brand=آریا طب · row_stock=20 · row_limits=1/18/1 · shop_tmc_min_purchase=1 · shop_tmc_max_purchase=18 · shop_tmc_purchase_step=1 · shop_stock=20 · shop_attribute_brand=آریا طب · pending_revision=72 · proposed_stock=7 · open_brand_request=none · needs_review=2
 ok:   3c the proposal carries the seven                                  7
 ok:   3d the marketplace row still holds twenty                          20
 ok:   3e and WooCommerce's own stock has not moved                       20
