@@ -339,8 +339,13 @@ if run_probe new stock-conflict; then
         "nothing was written"
     expect new stock-conflict 'revision_still_pending=yes' \
         "and the proposal is still there to decide"
+    # `alpha.49` BOUND THE OVERRIDE TO THE NUMBER THE PAGE SHOWED, so the probe
+    # now sends that number with the ticked box and these two sentences say so.
+    # The rule being measured is unchanged — «apply it anyway» goes through —
+    # but a blanket permission no longer exists, because a change arriving
+    # between the render and the submit was being applied over unseen.
     expect new stock-conflict 'override_code=revision_approved' \
-        "the manager's explicit «apply it anyway» goes through"
+        "the manager's «apply it anyway», over the number they were shown, goes through"
     expect new stock-conflict 'shop_stock_after_override=12' \
         "and only then does the shop take the proposed number"
 fi

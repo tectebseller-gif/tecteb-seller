@@ -335,14 +335,31 @@ $vendorSave = static function (int $id, int $stock, int $min, ?int $max, int $st
     return [$result->ok ? 'ok' : 'failed', $result->code, $result->context];
 };
 
-/** Whether this build's approval takes the manager's «apply it anyway». */
-$approve = static function (int $revisionId, bool $acceptStockConflict = false) use ($review): array {
+/**
+ * Whether this build's approval takes the manager's «apply it anyway» — and,
+ * from `alpha.49`, the number the page showed when it offered it.
+ *
+ * The fourth parameter is asked for rather than assumed, for the reason this
+ * helper exists at all: the probe runs on older bytes too, and a call with an
+ * argument the build does not take would be a fatal rather than a measurement
+ * (`alpha.40`). On a build that HAS it, the override must carry the number —
+ * `alpha.49` refuses a blanket permission, because a change arriving between
+ * the render and the submit was being applied over unseen.
+ */
+$approve = static function (
+    int $revisionId,
+    bool $acceptStockConflict = false,
+    ?int $seenStock = null
+) use ($review): array {
     $method = new \ReflectionMethod(ReviewProducts::class, 'approveRevision');
     $arguments = [$revisionId, []];
     if ($method->getNumberOfParameters() >= 3) {
         $arguments[] = $acceptStockConflict;
     } elseif ($acceptStockConflict) {
         return ['failed', 'build_has_no_override', []];
+    }
+    if ($method->getNumberOfParameters() >= 4) {
+        $arguments[] = $seenStock;
     }
     $result = $review->approveRevision(...$arguments);
     return [$result->ok ? 'ok' : 'failed', $result->code, $result->context];
@@ -592,7 +609,11 @@ switch ($verb) {
         $say('shop_stock_after_refusal', $shopStock($wcId));
         $say('revision_still_pending', $revisions->pendingFor($id) === null ? 'NO' : 'yes');
 
-        [$ok2, $code2] = $approve($pending->id, true);
+        // WITH THE NUMBER THE PAGE SHOWED. On `alpha.48` the fourth argument is
+        // not taken and the ticked box alone was enough; from `alpha.49` the
+        // permission is for the 3 the manager read, and this control says so
+        // rather than measuring a blanket override that no longer exists.
+        [$ok2, $code2] = $approve($pending->id, true, 3);
         $say('override', $ok2);
         $say('override_code', $code2);
         $say('shop_stock_after_override', $shopStock($wcId));
