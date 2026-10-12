@@ -42,6 +42,14 @@ final class NullCatalogProjector implements CatalogProjectorInterface
         return false;
     }
 
+    public function writeStockIfUnchanged(Product $product, int $stock, int $expected): array
+    {
+        // There is no shop, so there is no row to guard — and «not_linked» is
+        // the honest answer rather than «moved», which would tell a manager
+        // somebody else had changed a number that does not exist.
+        return ['outcome' => 'not_linked', 'found' => null];
+    }
+
     public function writeQuantities(Product $product): array
     {
         return ['ok' => false, 'code' => 'woocommerce_missing', 'wrote' => [], 'held' => [], 'failed' => []];

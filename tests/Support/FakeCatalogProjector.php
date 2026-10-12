@@ -146,13 +146,67 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
     /** Whether reading the stock back answers «I cannot tell you». */
     public bool $stockUnreadable = false;
 
+    /**
+     * Make the Nth `readStock()` onward answer «I cannot tell you».
+     *
+     * One flag was enough while the approval read the stock once. From
+     * `alpha.50` it reads BEFORE the write (to guard it) and AFTER (to verify
+     * it), so a test about a failed read-back has to be able to let the first
+     * read succeed — otherwise it measures the new refusal instead of the old
+     * one. Zero means «never».
+     */
+    public int $stockUnreadableFromRead = 0;
+
+    /** How many times `readStock()` has been asked. */
+    public int $stockReads = 0;
+
+    /**
+     * A second writer, run between the guard's comparison and the write.
+     *
+     * Named for what it is: a SIMULATION of another actor, not a race. A
+     * closure on this object cannot model two connections (`alpha.40`), and
+     * the two-process form of this is the only place the real thing can be
+     * measured — `alpha50-reproduction.sh`, against WooCommerce's own
+     * `decrease` statement. What this models deterministically is the
+     * DECISION: given that the number moved in that window, does the approval
+     * refuse, keep the other writer's number and leave the proposal pending?
+     *
+     * @var ?\Closure(): void
+     */
+    public ?\Closure $secondWriterBeforeStockWrite = null;
+
+    /** Stock writes that went through the UNGUARDED verb. */
+    public array $unguardedStockWrites = [];
+
     public function readStock(Product $product): ?int
     {
-        if ($this->stockUnreadable) {
+        $this->stockReads++;
+        if ($this->stockUnreadable
+            || ($this->stockUnreadableFromRead > 0 && $this->stockReads >= $this->stockUnreadableFromRead)) {
             return null;
         }
         $id = $this->links[$product->id] ?? 0;
         return $id > 0 ? ($this->stock[$id] ?? null) : null;
+    }
+
+    public function writeStockIfUnchanged(Product $product, int $stock, int $expected): array
+    {
+        $id = $this->links[$product->id] ?? 0;
+        if ($id <= 0) {
+            return ['outcome' => 'not_linked', 'found' => null];
+        }
+        if ($this->secondWriterBeforeStockWrite !== null) {
+            ($this->secondWriterBeforeStockWrite)();
+        }
+        $found = $this->stock[$id] ?? null;
+        if ($found === null || (int) $found !== $expected) {
+            return ['outcome' => 'moved', 'found' => $found === null ? null : (int) $found];
+        }
+        $wanted = max(0, $stock);
+        // The ceiling is the shop's own rule and applies to the guarded write
+        // too, so the read-back can still find a clamped number.
+        $this->stock[$id] = $this->stockCeiling === null ? $wanted : min($this->stockCeiling, $wanted);
+        return ['outcome' => 'written', 'found' => $this->stock[$id]];
     }
 
     public function writeStock(Product $product, int $stock): bool
@@ -161,6 +215,7 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
         if ($id <= 0) {
             return false;
         }
+        $this->unguardedStockWrites[] = $stock;
         $wanted = max(0, $stock);
         $this->stock[$id] = $this->stockCeiling === null ? $wanted : min($this->stockCeiling, $wanted);
         return true;

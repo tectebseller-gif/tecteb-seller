@@ -1,0 +1,250 @@
+fixed bytes recorded: 6 files
+putting six files back to 3e9d251 (the delivered alpha.49)
+PASS  the six files really are other bytes now  (6)
+
+=================== before ===================
+PASS  before/sale-between-order  the probe ran
+--- before sale-between-order ---
+probe=ran
+product_id=1313
+wc_id=334
+shop_at_start=9
+propose_code=stock_revision_requested
+revision_id=155
+second_writer_ran=yes
+second_writer_mode=order
+second_writer_before=9
+second_writer_after=7
+approve=ok
+approve_code=revision_approved
+expected_stock=__none__
+shop_after=5
+row_after=5
+mirror_after=5
+revision_status=approved
+second_writer_kept=NO
+overwritten_invalidly=YES
+PASS  before/sale-between-order the second writer ran, in its own process  (yes)
+PASS  before/sale-between-order and it really reduced the shop  (9)
+PASS  before/sale-between-order from nine to seven  (7)
+PASS  before/sale-between-order the approval reports success  (revision_approved)
+PASS  before/sale-between-order the approved number is written over theirs  (5)
+PASS  before/sale-between-order so two sold units are gone  (YES)
+PASS  before/sale-between-order their change did not survive  (NO)
+PASS  before/sale-between-order and the proposal is closed  (approved)
+PASS  before/sale-between-decrease  the probe ran
+--- before sale-between-decrease ---
+probe=ran
+product_id=1313
+wc_id=334
+shop_at_start=9
+propose_code=stock_revision_requested
+revision_id=156
+second_writer_ran=yes
+second_writer_mode=decrease
+second_writer_before=9
+second_writer_after=7
+approve=ok
+approve_code=revision_approved
+expected_stock=__none__
+shop_after=5
+row_after=5
+mirror_after=5
+revision_status=approved
+second_writer_kept=NO
+overwritten_invalidly=YES
+PASS  before/sale-between-decrease the second writer ran, in its own process  (yes)
+PASS  before/sale-between-decrease and it really reduced the shop  (9)
+PASS  before/sale-between-decrease from nine to seven  (7)
+PASS  before/sale-between-decrease the approval reports success  (revision_approved)
+PASS  before/sale-between-decrease the approved number is written over theirs  (5)
+PASS  before/sale-between-decrease so two sold units are gone  (YES)
+PASS  before/sale-between-decrease their change did not survive  (NO)
+PASS  before/sale-between-decrease and the proposal is closed  (approved)
+PASS  before/dialects  the probe ran
+--- before dialects ---
+probe=ran
+guarded_write=absent_in_this_build
+PASS  before/dialects there is no guarded write to ask  (absent_in_this_build)
+PASS  before/control-approve  the probe ran
+--- before control-approve ---
+probe=ran
+propose_code=stock_revision_requested
+approve=ok
+approve_code=revision_approved
+shop_after=5
+mirror_after=5
+revision_status=approved
+PASS  before/C1 an undisturbed approval succeeds  (revision_approved)
+PASS  before/C1 the shop takes the approved number  (5)
+PASS  before/C1 the mirror agrees  (5)
+PASS  before/C1 the proposal is closed  (approved)
+PASS  before/control-override  the probe ran
+--- before control-override ---
+probe=ran
+propose_code=stock_revision_requested
+shop_when_page_rendered=6
+approve=ok
+approve_code=revision_approved
+shop_after=5
+revision_status=approved
+PASS  before/C2 the page showed six  (6)
+PASS  before/C2 «apply it anyway» over it works  (revision_approved)
+PASS  before/C2 the shop takes the proposal  (5)
+PASS  before/C2 the proposal is closed  (approved)
+PASS  before/control-order-reduces  the probe ran
+--- before control-order-reduces ---
+probe=ran
+shop_at_start=9
+writer_ran=ran
+order_stock_reduced=yes
+writer_before=9
+writer_after=7
+row_after=7
+shop_after=7
+mirror_after=9
+PASS  before/C3 WooCommerce's own order still reduces stock  (yes)
+PASS  before/C3 from nine  (9)
+PASS  before/C3 to seven  (7)
+PASS  before/control-draft  the probe ran
+--- before control-draft ---
+probe=ran
+draft_id=1314
+save_code=inventory_saved
+row_stock=31
+PASS  before/C4 a draft's stock still applies at once  (inventory_saved)
+PASS  before/C4 and the row takes it  (31)
+
+putting the fix back
+PASS  the fixed bytes came back, byte for byte  (ok)
+
+=================== after ===================
+PASS  after/sale-between-order  the probe ran
+--- after sale-between-order ---
+probe=ran
+product_id=1313
+wc_id=334
+shop_at_start=9
+propose_code=stock_revision_requested
+revision_id=159
+second_writer_ran=yes
+second_writer_mode=order
+second_writer_before=9
+second_writer_after=7
+approve=failed
+approve_code=stock_moved_during_write
+expected_stock=9
+shop_after=7
+row_after=7
+mirror_after=7
+revision_status=pending
+second_writer_kept=yes
+overwritten_invalidly=no
+PASS  after/sale-between-order the second writer ran, in its own process  (yes)
+PASS  after/sale-between-order and it really reduced the shop  (9)
+PASS  after/sale-between-order from nine to seven  (7)
+PASS  after/sale-between-order the approval is refused  (stock_moved_during_write)
+PASS  after/sale-between-order naming the number it was checked against  (9)
+PASS  after/sale-between-order their change survives  (7)
+PASS  after/sale-between-order said so  (yes)
+PASS  after/sale-between-order nothing was overwritten  (no)
+PASS  after/sale-between-order the mirror shows the shop's number  (7)
+PASS  after/sale-between-order the proposal stays open  (pending)
+PASS  after/sale-between-decrease  the probe ran
+--- after sale-between-decrease ---
+probe=ran
+product_id=1313
+wc_id=334
+shop_at_start=9
+propose_code=stock_revision_requested
+revision_id=160
+second_writer_ran=yes
+second_writer_mode=decrease
+second_writer_before=9
+second_writer_after=7
+approve=failed
+approve_code=stock_moved_during_write
+expected_stock=9
+shop_after=7
+row_after=7
+mirror_after=7
+revision_status=pending
+second_writer_kept=yes
+overwritten_invalidly=no
+PASS  after/sale-between-decrease the second writer ran, in its own process  (yes)
+PASS  after/sale-between-decrease and it really reduced the shop  (9)
+PASS  after/sale-between-decrease from nine to seven  (7)
+PASS  after/sale-between-decrease the approval is refused  (stock_moved_during_write)
+PASS  after/sale-between-decrease naming the number it was checked against  (9)
+PASS  after/sale-between-decrease their change survives  (7)
+PASS  after/sale-between-decrease said so  (yes)
+PASS  after/sale-between-decrease nothing was overwritten  (no)
+PASS  after/sale-between-decrease the mirror shows the shop's number  (7)
+PASS  after/sale-between-decrease the proposal stays open  (pending)
+PASS  after/dialects  the probe ran
+--- after dialects ---
+probe=ran
+dialect_object=7
+guard_on_object_dialect=written
+row_after_object_dialect=4.000000
+dialect_direct=7.000000
+guard_on_direct_dialect=written
+row_after_direct_dialect=4.000000
+guard_on_stale_expectation=moved
+row_after_stale=4.000000
+PASS  after/dialects the row can say «7»  (7)
+PASS  after/dialects the guard accepts it  (written)
+PASS  after/dialects and it can say «7.000000»  (7.000000)
+PASS  after/dialects the guard accepts that too  (written)
+PASS  after/dialects a stale expectation is refused  (moved)
+PASS  after/dialects and the row is untouched  (4.000000)
+PASS  after/control-approve  the probe ran
+--- after control-approve ---
+probe=ran
+propose_code=stock_revision_requested
+approve=ok
+approve_code=revision_approved
+shop_after=5
+mirror_after=5
+revision_status=approved
+PASS  after/C1 an undisturbed approval succeeds  (revision_approved)
+PASS  after/C1 the shop takes the approved number  (5)
+PASS  after/C1 the mirror agrees  (5)
+PASS  after/C1 the proposal is closed  (approved)
+PASS  after/control-override  the probe ran
+--- after control-override ---
+probe=ran
+propose_code=stock_revision_requested
+shop_when_page_rendered=6
+approve=ok
+approve_code=revision_approved
+shop_after=5
+revision_status=approved
+PASS  after/C2 the page showed six  (6)
+PASS  after/C2 «apply it anyway» over it works  (revision_approved)
+PASS  after/C2 the shop takes the proposal  (5)
+PASS  after/C2 the proposal is closed  (approved)
+PASS  after/control-order-reduces  the probe ran
+--- after control-order-reduces ---
+probe=ran
+shop_at_start=9
+writer_ran=ran
+order_stock_reduced=yes
+writer_before=9
+writer_after=7
+row_after=7
+shop_after=7
+mirror_after=9
+PASS  after/C3 WooCommerce's own order still reduces stock  (yes)
+PASS  after/C3 from nine  (9)
+PASS  after/C3 to seven  (7)
+PASS  after/control-draft  the probe ran
+--- after control-draft ---
+probe=ran
+draft_id=1314
+save_code=inventory_saved
+row_stock=31
+PASS  after/C4 a draft's stock still applies at once  (inventory_saved)
+PASS  after/C4 and the row takes it  (31)
+
+PASS=85 FAIL=0

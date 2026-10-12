@@ -499,6 +499,26 @@ final class ProductMessages
                 PersianDigits::toPersian((string) ($context['current_stock'] ?? '')),
                 PersianDigits::toPersian((string) ($context['proposed_stock'] ?? ''))
             ),
+            // SOMEBODY ELSE MOVED IT between the check and the write, so
+            // nothing was written and their change survives. Three numbers,
+            // because «دوباره تأیید کنید» is only honest if the manager can see
+            // what happened under their decision — and the page they go back to
+            // now shows the shop's own number.
+            'stock_moved_during_write' => sprintf(
+                /* translators: 1: the approved stock, 2: the stock this approval was checked against, 3: what the shop holds now */
+                __('موجودی تأییدشده %1$s نوشته نشد، چون در همان لحظه کسِ دیگری آن را عوض کرد: این تأیید روی %2$s بررسی شده بود و فروشگاه اکنون %3$s دارد. تغییر او دست‌نخورده ماند و هیچ عددی بازنویسی نشد؛ پیشنهاد باز است. صفحه را تازه کنید، عدد تازه را ببینید و اگر باز هم موافقید دوباره تأیید کنید.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($context['proposed_stock'] ?? '')),
+                PersianDigits::toPersian((string) ($context['expected_stock'] ?? '')),
+                PersianDigits::toPersian((string) ($context['shop_stock'] ?? ''))
+            ),
+            // The shop would not say what it holds, so there is nothing to
+            // guard the write against — and an unguarded write is the defect
+            // this round removed. Nothing was written.
+            'stock_unreadable' => sprintf(
+                /* translators: %s: the proposed stock */
+                __('موجودی فعلی این محصول از ووکامرس خوانده نشد، پس موجودی پیشنهادی %s نوشته نشد و پیشنهاد باز مانده است. نوشتن بدون دانستن عدد فعلی می‌تواند فروش یا مرجوعیِ همین لحظه را بازنویسی کند. وضعیت موجودی محصول را در ووکامرس ببینید (مدیریت موجودی روشن باشد) و بعد دوباره تأیید کنید.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($context['proposed_stock'] ?? ''))
+            ),
             // The shop took the write and kept another number. Both numbers,
             // and the proposal stays open: closing it would have been
             // `alpha.48`'s answer, and it closed on a number nobody approved.

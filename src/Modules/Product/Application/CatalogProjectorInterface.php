@@ -70,6 +70,52 @@ interface CatalogProjectorInterface
     public function writeStock(Product $product, int $stock): bool;
 
     /**
+     * The approved stock, written ONLY IF the shop still holds `$expected`.
+     *
+     * **The finding this closes, and `alpha.49` did not.** That round made the
+     * approval verify its write by reading it back, and the delivery document
+     * said that covered the window between the check and the write. It does
+     * not, and the owner was right to reject it: `writeStock()` writes the
+     * approved number unconditionally, so a read-back that finds exactly the
+     * number we just asked for proves the write landed and says NOTHING about
+     * what it replaced. A sale of two units between the check and the write
+     * leaves 7 on the shelf; the write puts 5 there; the read-back sees 5,
+     * agrees with itself, and the two sold units are gone.
+     *
+     * **Why a compare-and-set, and why in ONE statement.** Read from the
+     * source rather than from memory — WooCommerce's real reduction path is
+     * `wc_reduce_stock_levels()` → `wc_update_product_stock($p, $qty,
+     * 'decrease')` → `WC_Product_Data_Store_CPT::update_product_stock()`, and
+     * that method's `decrease` branch is a single relative statement,
+     * `UPDATE wp_postmeta SET meta_value = meta_value %+f WHERE post_id = %d
+     * AND meta_key = '_stock'` (lines 1820-1829 of
+     * `class-wc-product-data-store-cpt.php` in WooCommerce 11.0.1). There is
+     * no transaction around it and no `SELECT … FOR UPDATE`: the only thing
+     * serialising two writers is InnoDB's row lock for the duration of each
+     * statement.
+     *
+     * So the guard has to live INSIDE one statement on that same row. An
+     * advisory lock would be worthless — nothing in WooCommerce takes it — and
+     * «read it again just before writing» only narrows the window instead of
+     * closing it. With the condition in the statement, the two orders are both
+     * sound: the sale lands first and our `WHERE` matches nothing, so we
+     * refuse and the sale survives; or we land first and the sale's relative
+     * `decrease` applies to the number the manager approved.
+     *
+     * @param int $expected the stock the decision was made on — the number the
+     *                      baseline was compared against and the number the
+     *                      manager was shown. Not a hint: the write does not
+     *                      happen unless the shop still holds it.
+     * @return array{outcome:string, found:?int} `outcome` is `written` when the
+     *         shop now holds the approved number, `moved` when it holds
+     *         something else (and `found` says what, or null when the row has
+     *         gone), `not_managed` when WooCommerce is not managing this
+     *         product's stock at all, and `not_linked`/`not_written` when there
+     *         was nothing to write to or the write itself was refused.
+     */
+    public function writeStockIfUnchanged(Product $product, int $stock, int $expected): array;
+
+    /**
      * The vendor's purchase-limit edit, written through to WooCommerce.
      *
      * Separate from `project()` for the reason `writeStock()` is separate: a

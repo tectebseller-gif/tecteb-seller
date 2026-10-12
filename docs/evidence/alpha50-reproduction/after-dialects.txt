@@ -1,0 +1,9 @@
+probe=ran
+dialect_object=7
+guard_on_object_dialect=written
+row_after_object_dialect=4.000000
+dialect_direct=7.000000
+guard_on_direct_dialect=written
+row_after_direct_dialect=4.000000
+guard_on_stale_expectation=moved
+row_after_stale=4.000000

@@ -1,0 +1,4 @@
+probe=ran
+draft_id=1314
+save_code=inventory_saved
+row_stock=31

@@ -561,13 +561,181 @@ final class ProductFlowTest extends DatabaseTestCase
         );
         $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
 
-        $this->projector->stockUnreadable = true;
+        // THE SECOND read fails, not the first. From `alpha.50` the approval
+        // reads the stock twice — once to guard the write and once to verify it
+        // — and a flag that failed both would measure the new refusal
+        // (`stock_unreadable`, the test below) instead of this one.
+        $this->projector->stockReads = 0;
+        $this->projector->stockUnreadableFromRead = 2;
         $refused = $this->review->approveRevision($revisionId);
 
         self::assertFalse($refused->ok);
         self::assertSame('stock_unverified', $refused->code);
         self::assertSame(12, $refused->context['proposed_stock']);
         self::assertSame(ProductRevision::PENDING, $this->revisions->find($revisionId)?->status);
+    }
+
+    /**
+     * A SHOP THAT WILL NOT SAY WHAT IT HOLDS gets nothing written to it.
+     *
+     * Until `alpha.50` this fell back to our own mirror and wrote anyway. From
+     * this round the number the shop holds is what the write is guarded ON, so
+     * a number taken from a copy would guard it against the wrong thing — and
+     * a guard that passes for the wrong reason is worse than no guard, because
+     * it is believed.
+     */
+    public function testAnUnreadableShopStockWritesNothingAtAll(): void
+    {
+        $productId = $this->publish(self::VENDOR);
+        self::assertSame(
+            'stock_revision_requested',
+            $this->manage->updateInventory(self::VENDOR, self::VENDOR, $productId, 12, 'SKU-1', 1, null)->code
+        );
+        $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
+        $wcId = (int) $this->products->find($productId)?->wcProductId;
+
+        $this->projector->stockUnreadable = true;
+        $refused = $this->review->approveRevision($revisionId);
+
+        self::assertFalse($refused->ok);
+        self::assertSame('stock_unreadable', $refused->code);
+        self::assertSame(12, $refused->context['proposed_stock']);
+        self::assertSame(5, $this->projector->stock[$wcId], 'the shop was not touched');
+        self::assertSame([], $this->projector->unguardedStockWrites);
+        self::assertSame(ProductRevision::PENDING, $this->revisions->find($revisionId)?->status);
+    }
+
+    /**
+     * THE FINDING THIS ROUND CLOSES: a second writer between the check and the
+     * write.
+     *
+     * `alpha.49` read the stock, wrote the approved number unconditionally, and
+     * read it back — and reported that as covering this window. It does not. A
+     * read-back that finds the number we just asked for agrees with itself
+     * whatever it replaced, so two units sold in between were overwritten and
+     * every check in the path said yes. Measured on the `alpha.49` bytes
+     * against WooCommerce's own `decrease` statement:
+     * `approve_code=revision_approved shop_after=5 lost_units=2`.
+     *
+     * What is deterministic here is the DECISION. The closure runs between the
+     * guard's comparison and the write, which is the window, and it is a
+     * SIMULATION of another actor rather than a race — a closure on this object
+     * cannot model two connections (`alpha.40`). The real two-process form,
+     * against WooCommerce's own reduction path, is in
+     * `tools/alpha50-reproduction.sh`.
+     */
+    public function testASecondWriterBetweenTheCheckAndTheWriteKeepsItsOwnNumber(): void
+    {
+        $productId = $this->publish(self::VENDOR);
+        self::assertSame(
+            'stock_revision_requested',
+            $this->manage->updateInventory(self::VENDOR, self::VENDOR, $productId, 12, 'SKU-1', 1, null)->code
+        );
+        $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
+        $wcId = (int) $this->products->find($productId)?->wcProductId;
+        self::assertSame(5, $this->projector->stock[$wcId], 'the shop has not moved yet');
+
+        // Two units sold AFTER the approval read the stock and BEFORE it wrote.
+        $this->projector->secondWriterBeforeStockWrite = function () use ($wcId): void {
+            $this->projector->stock[$wcId] = 3;
+        };
+        $refused = $this->review->approveRevision($revisionId);
+
+        self::assertFalse($refused->ok);
+        self::assertSame('stock_moved_during_write', $refused->code);
+        self::assertSame(12, $refused->context['proposed_stock']);
+        self::assertSame('5', $refused->context['expected_stock'], 'the number the decision was made on');
+        self::assertSame('3', $refused->context['shop_stock'], 'and the number somebody else put there');
+        self::assertSame(3, $this->projector->stock[$wcId], 'THEIR change survives');
+        self::assertSame(3, $this->products->find($productId)?->details->stock, 'and the mirror shows it');
+        self::assertSame([], $this->projector->unguardedStockWrites, 'nothing went through the unguarded verb');
+        self::assertSame(
+            ProductRevision::PENDING,
+            $this->revisions->find($revisionId)?->status,
+            'the proposal stays open, which is the only state a manager can retry from'
+        );
+    }
+
+    /**
+     * AND THE FORCED APPLY IS NOT A LICENCE EITHER.
+     *
+     * «مجوز اعمال اجباری نیز فقط برای مقدار دیده‌شدهٔ مدیر معتبر باشد.» The
+     * manager agreed to overwrite the 2 they were shown. A sale that lands
+     * after they pressed the button is not the 2 they were shown, so the write
+     * does not happen — the ticked box gets them past the BASELINE comparison
+     * and no further.
+     */
+    public function testTheForcedApplyStillWritesOnlyOverTheNumberTheManagerSaw(): void
+    {
+        $productId = $this->publish(self::VENDOR);
+        self::assertSame(
+            'stock_revision_requested',
+            $this->manage->updateInventory(self::VENDOR, self::VENDOR, $productId, 12, 'SKU-1', 1, null)->code
+        );
+        $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
+        $wcId = (int) $this->products->find($productId)?->wcProductId;
+
+        // The page showed a conflict: proposed against 5, the shop says 2 now.
+        $this->projector->restock($productId, 2);
+        self::assertSame(2, $this->projector->stock[$wcId]);
+        // Then another sale, after the manager pressed the button.
+        $this->projector->secondWriterBeforeStockWrite = function () use ($wcId): void {
+            $this->projector->stock[$wcId] = 1;
+        };
+
+        $refused = $this->review->approveRevision($revisionId, [], true, 2);
+
+        self::assertFalse($refused->ok);
+        self::assertSame('stock_moved_during_write', $refused->code);
+        self::assertSame('2', $refused->context['expected_stock']);
+        self::assertSame('1', $refused->context['shop_stock']);
+        self::assertSame(1, $this->projector->stock[$wcId]);
+        self::assertSame(ProductRevision::PENDING, $this->revisions->find($revisionId)?->status);
+    }
+
+    /**
+     * And the guard lets the ordinary approval through — the regression that
+     * matters most, because a guard nobody can get past is not a guard either.
+     */
+    public function testTheGuardLetsAnUndisturbedApprovalThrough(): void
+    {
+        $productId = $this->publish(self::VENDOR);
+        self::assertSame(
+            'stock_revision_requested',
+            $this->manage->updateInventory(self::VENDOR, self::VENDOR, $productId, 12, 'SKU-1', 1, null)->code
+        );
+        $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
+        $wcId = (int) $this->products->find($productId)?->wcProductId;
+
+        $approved = $this->review->approveRevision($revisionId);
+
+        self::assertTrue($approved->ok, $approved->code);
+        self::assertSame('revision_approved', $approved->code);
+        self::assertSame(12, $this->projector->stock[$wcId]);
+        self::assertSame(12, $this->products->find($productId)?->details->stock);
+        self::assertSame(ProductRevision::APPROVED, $this->revisions->find($revisionId)?->status);
+    }
+
+    /**
+     * And the forced apply over the number the manager DID see still works, all
+     * the way to the shop.
+     */
+    public function testTheForcedApplyOverTheSeenNumberStillReachesTheShop(): void
+    {
+        $productId = $this->publish(self::VENDOR);
+        self::assertSame(
+            'stock_revision_requested',
+            $this->manage->updateInventory(self::VENDOR, self::VENDOR, $productId, 12, 'SKU-1', 1, null)->code
+        );
+        $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
+        $wcId = (int) $this->products->find($productId)?->wcProductId;
+        $this->projector->restock($productId, 2);
+
+        $approved = $this->review->approveRevision($revisionId, [], true, 2);
+
+        self::assertTrue($approved->ok, $approved->code);
+        self::assertSame(12, $this->projector->stock[$wcId]);
+        self::assertSame(ProductRevision::APPROVED, $this->revisions->find($revisionId)?->status);
     }
 
     /**
@@ -590,21 +758,32 @@ final class ProductFlowTest extends DatabaseTestCase
             $this->catalog->pushStock($productId, 12),
             'the plain write-through reports the write, not the number'
         );
-        $verified = $this->catalog->pushApprovedStock($productId, 12);
+        // The shop now holds 3 (the ceiling clamped the line above), so THAT
+        // is what the guarded write has to be told to expect. Passing 5 here
+        // would be the defect this round closes, and the test below says so.
+        $verified = $this->catalog->pushApprovedStock($productId, 12, 3);
         self::assertFalse($verified->ok);
         self::assertSame('stock_mirrored_different', $verified->code);
         self::assertSame('12', $verified->context['asked']);
         self::assertSame('3', $verified->context['shop']);
 
-        // And a write the shop refuses outright is a third answer, not the
-        // same one: nothing reached the shop at all. The link is taken away
-        // from the SHOP rather than from our row, because `isProjected()` asks
-        // our row — so this is the shop saying «I have no such product»,
-        // which is the case `writeStock()` returns false for.
+        // And the same call with a stale expectation writes NOTHING.
+        $stale = $this->catalog->pushApprovedStock($productId, 12, 5);
+        self::assertSame('stock_moved_during_write', $stale->code);
+        self::assertSame('5', $stale->context['expected']);
+        self::assertSame('3', $stale->context['shop']);
+
+        // And a shop with no such product is a third answer, not the same
+        // one: nothing reached it at all. The link is taken away from the SHOP
+        // rather than from our row, because `isProjected()` asks our row — so
+        // this is the shop saying «I have no such product». The guarded verb
+        // names that as `not_linked` rather than `refused`, and the difference
+        // is worth keeping: «there is no row to guard» and «the write was
+        // turned down» send a manager to two different places.
         $this->projector->links = [];
-        $refused = $this->catalog->pushApprovedStock($productId, 12);
+        $refused = $this->catalog->pushApprovedStock($productId, 12, 3);
         self::assertSame('stock_not_written', $refused->code);
-        self::assertSame('refused', $refused->context['reason']);
+        self::assertSame('not_linked', $refused->context['reason']);
     }
 
     public function testASecondProposalSupersedesTheFirstRatherThanQueueingBehindIt(): void

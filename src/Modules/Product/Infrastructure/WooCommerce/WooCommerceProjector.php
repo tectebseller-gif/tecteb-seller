@@ -390,11 +390,38 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         return (string) get_post_status($wcProductId);
     }
 
+    /**
+     * The stock WooCommerce holds — from the ROW when there is one.
+     *
+     * **`wc_get_product()` is an instance cache, and that was measured, not
+     * assumed.** WooCommerce 11.0.1 ships the `product_instance_caching`
+     * feature ENABLED (`WC_Product_Factory::get_product()` lines 35-63), so a
+     * second call inside one request can hand back the object built by the
+     * first one. Measured here: another process reduced the row from 9 to 7,
+     * a direct read of the row in this process said 7, and
+     * `wc_get_product()->get_stock_quantity()` in the same breath still said
+     * 9.
+     *
+     * That matters because this number is what the approval guards its write
+     * ON (`writeStockIfUnchanged()`), and a guard that expects a number read
+     * from a cached object is a guard about the past. The row is the thing a
+     * shopper is held to, so the row is what this answers — and it is read
+     * numerically, because the same stock reaches that row as «7» or as
+     * «7.000000» depending on which code last wrote it.
+     *
+     * The object is still the fallback, and deliberately: a product whose
+     * stock is managed elsewhere (a variation under its parent) has no row of
+     * its own, and for one of those the object's answer is the right one.
+     */
     public function readStock(Product $product): ?int
     {
         $wcProduct = $this->linkedProduct($product);
         if ($wcProduct === null) {
             return null;
+        }
+        $fromRow = self::storedStock((int) $wcProduct->get_stock_managed_by_id());
+        if ($fromRow !== null) {
+            return $fromRow;
         }
         $stock = $wcProduct->get_stock_quantity();
         return $stock === null ? null : (int) $stock;
@@ -415,6 +442,150 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             return false;
         }
         return true;
+    }
+
+    /**
+     * The approved stock, written only if the shop still holds `$expected`.
+     *
+     * See `CatalogProjectorInterface::writeStockIfUnchanged()` for WHY this is
+     * one statement. Here is HOW, and every part of it is WooCommerce's own:
+     *
+     *  - the statement is the one `update_product_stock()` builds for `set`,
+     *    so the value lands in the dialect WooCommerce writes
+     *    (`number_format($n, WC_ROUNDING_PRECISION)` — «7.000000», not «7»),
+     *    the `_stock` row is ensured to exist by its own `add_post_meta()`,
+     *    and the post-meta cache, the `wc_product_meta_lookup` table and the
+     *    `woocommerce_product_before_set_stock` / `_set_stock` /
+     *    `woocommerce_updated_product_stock` hooks all run as they always do;
+     *  - the GUARD rides in on `woocommerce_update_product_stock_query`, the
+     *    filter that method passes its SQL through
+     *    (`class-wc-product-data-store-cpt.php:1827`). One statement, one row,
+     *    one lock. Nothing here re-implements what WooCommerce does with the
+     *    number afterwards;
+     *  - `$updating` is TRUE so WooCommerce does not `save()` the product
+     *    object for us. It would do that from the number it was ASKED for, and
+     *    on a refusal that number is not the number on the row: the status
+     *    would be synced to a quantity nobody wrote. The status is synced below
+     *    instead, from what the row actually says.
+     *
+     * The comparison is NUMERIC, and that is not tidiness: the same stock
+     * reaches that row in two spellings. `WC_Product::save()` stores the prop
+     * through `update_post_meta()` as «7», and the direct path stores
+     * «7.000000». A string comparison would be a guard that passes or fails on
+     * which code last touched the product (the `alpha.42` lesson, on a new
+     * row).
+     *
+     * @return array{outcome:string, found:?int}
+     */
+    public function writeStockIfUnchanged(Product $product, int $stock, int $expected): array
+    {
+        $wcProduct = $this->linkedProduct($product);
+        if ($wcProduct === null) {
+            return ['outcome' => 'not_linked', 'found' => null];
+        }
+        if (!$wcProduct->managing_stock()) {
+            // WooCommerce is not keeping a number for this product, so there
+            // is no row to guard and `wc_update_product_stock()` would do
+            // nothing at all — silently. Named instead.
+            return ['outcome' => 'not_managed', 'found' => null];
+        }
+        // Stock can be managed by the parent (a variation), and that is the row
+        // the guard has to be about — the same id WooCommerce itself writes.
+        $stockId = (int) $wcProduct->get_stock_managed_by_id();
+        $amount = (int) wc_stock_amount(max(0, $stock));
+
+        // AN EARLY ANSWER, AND NOT THE GUARD. The distinction matters enough to
+        // write down, because `alpha.49`'s whole defect was mistaking one for
+        // the other: reading the row here cannot make the write safe — anything
+        // can happen between this line and the next — and the condition inside
+        // the statement below is what does. This is here for a different
+        // reason: it is the only way to tell «the statement was blocked» from
+        // «the statement wrote a number the row already had». Both leave the row
+        // equal to `$amount`, so the read-back after the write cannot separate
+        // them, and a blocked write would be reported as a successful one.
+        // Measured on this round's own first build: expecting 9 over a row of 4
+        // answered `written`.
+        $before = self::storedStock($stockId);
+        if ($before === null || $before !== $expected) {
+            return ['outcome' => 'moved', 'found' => $before];
+        }
+        // An integer cast is the whole sanitisation an integer needs, so this
+        // class stays off `$wpdb` entirely.
+        $condition = ' AND meta_value + 0 = ' . $expected;
+        $guard = static function (
+            string $sql,
+            int $id,
+            mixed $newStock,
+            string $operation
+        ) use ($stockId, $condition): string {
+            return $operation === 'set' && $id === $stockId ? $sql . $condition : $sql;
+        };
+        add_filter('woocommerce_update_product_stock_query', $guard, 10, 4);
+        try {
+            wc_update_product_stock($wcProduct, $amount, 'set', true);
+        } catch (\Throwable) {
+            remove_filter('woocommerce_update_product_stock_query', $guard, 10);
+            return ['outcome' => 'not_written', 'found' => null];
+        }
+        remove_filter('woocommerce_update_product_stock_query', $guard, 10);
+
+        // What the ROW says now — not what the object thinks. WooCommerce has
+        // just dropped this post's meta cache, so this read is fresh, and the
+        // function's own return value is no use here: it reports the number it
+        // COMPUTED, not the number it stored.
+        //
+        // Reached only when the row still held `$expected` a moment ago, so a
+        // row that no longer holds `$amount` means the statement's condition
+        // held and somebody else's number is there. The one case this still
+        // calls `written` is a competing write that set the row to exactly the
+        // approved number — the shop holds what was approved and nothing was
+        // lost, which is the truth `written` tells.
+        $found = self::storedStock($stockId);
+        if ($found === null || $found !== $amount) {
+            return ['outcome' => 'moved', 'found' => $found];
+        }
+        $this->syncStockStatus($stockId, $amount);
+        return ['outcome' => 'written', 'found' => $amount];
+    }
+
+    /** The `_stock` row, read numerically so either spelling answers the same. */
+    private static function storedStock(int $stockId): ?int
+    {
+        if (!metadata_exists('post', $stockId, '_stock')) {
+            return null;
+        }
+        $raw = get_post_meta($stockId, '_stock', true);
+        if ($raw === '' || $raw === null) {
+            return null;
+        }
+        return (int) round((float) $raw);
+    }
+
+    /**
+     * The stock status, brought in line with the number that is on the row.
+     *
+     * WooCommerce does this inside `wc_update_product_stock()` when it is not
+     * «updating»; this round asks it not to (see above), so the same job is
+     * done here and only when it has something to change. The rule is the one
+     * `writeStock()` has always used, so the two paths cannot disagree.
+     */
+    private function syncStockStatus(int $stockId, int $amount): void
+    {
+        wc_delete_product_transients($stockId);
+        $fresh = wc_get_product($stockId);
+        if (!$fresh instanceof \WC_Product) {
+            return;
+        }
+        $wanted = $amount > 0 ? 'instock' : 'outofstock';
+        if ($fresh->get_stock_status() === $wanted) {
+            return;
+        }
+        try {
+            wc_update_product_stock_status($stockId, $wanted);
+        } catch (\Throwable) {
+            // The number is on the row, which is what a shopper is held to.
+            // A status that lags is visible and fixable; a wrong number is not.
+        }
     }
 
     public function claimStorefrontPost(Product $product, int $wcProductId): bool

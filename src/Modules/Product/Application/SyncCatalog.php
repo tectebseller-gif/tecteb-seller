@@ -228,35 +228,81 @@ final class SyncCatalog
     }
 
     /**
-     * The APPROVED stock, written through and verified — new in `alpha.49`.
+     * The APPROVED stock — written only over the number the decision was made
+     * on, and then verified.
      *
-     * **The finding this closes.** `approveRevision()` called `pushStock()`
-     * and read its boolean, and that boolean is true when the read-back
-     * differs and true when the read-back fails. So the proposal was marked
-     * APPROVED about a shop holding another number, and nobody would ever look
-     * at it again. Measured on the `alpha.48` bytes, with WooCommerce's own
-     * `woocommerce_stock_amount` filter clamping to 3: `proposed_stock=4
-     * shop_after=3 revision_status=approved`. And with
-     * `woocommerce_product_get_stock_quantity` answering null:
-     * `revision_status=approved` on a write nothing confirmed.
+     * **`alpha.49` got half of this and reported the whole of it, and the
+     * correction belongs here.** That round stopped the approval being recorded
+     * on a result nobody had checked: a clamped write and an unreadable
+     * read-back each got their own refusal, and the proposal stayed pending.
+     * All of that stands. What that round ALSO claimed — in
+     * `docs/phase-47-…` §4.1 — was that the read-back covered the window
+     * between reading the stock and writing it. **It did not, and saying so
+     * was wrong.** `writeStock()` writes the approved number unconditionally,
+     * so a read-back that finds that very number proves only that the write
+     * landed. Two units sold in between were overwritten and every check
+     * agreed with itself.
      *
-     * «تأیید موجودی فقط با نتیجهٔ معتبر ثبت شود.» So there are four answers and
-     * exactly one of them is a success:
+     * So from `alpha.50` the check and the write are ONE protected operation:
+     * `writeStockIfUnchanged()` carries `$expected` into the single statement
+     * that competes with WooCommerce's own `decrease`. See the interface for
+     * why that is the only primitive the real reduction path respects.
+     *
+     * «تأیید موجودی فقط با نتیجهٔ معتبر ثبت شود.» Five answers, one success:
      *
      *  - `stock_written` — the shop holds the number that was approved.
-     *  - `stock_mirrored_different` — it holds another one. The mirror is
-     *    corrected so no screen shows a number the shop does not have, and the
-     *    caller is told both numbers.
+     *  - `stock_moved_during_write` — somebody changed it between the check and
+     *    the write, so NOTHING was written. Their change survives, the mirror
+     *    is corrected to it, and the three numbers are named.
+     *  - `stock_mirrored_different` — the write landed and the shop kept
+     *    another number (a site filter clamping it). The mirror is corrected so
+     *    no screen shows a number the shop does not have.
      *  - `stock_unverified` — the read-back did not come back. Nothing is
      *    mirrored, because a value that could not be read is not a value.
-     *  - `stock_not_written` — the write was refused, with the reason.
+     *  - `stock_not_written` — there was nothing to write to, or the write was
+     *    refused, with the reason.
      *
-     * One read-back rule in one place, two verdicts on it: `pushStock()` above
-     * keeps the looser one and says why.
+     * `pushStock()` above keeps the unguarded write on purpose and says why.
      */
-    public function pushApprovedStock(int $productId, int $stock): OperationResult
+    public function pushApprovedStock(int $productId, int $stock, int $expected): OperationResult
     {
-        return $this->writeAndVerifyStock($productId, $stock);
+        $product = $this->products->find($productId);
+        if ($product === null || !$product->isProjected() || !$this->projector->isAvailable()) {
+            return OperationResult::failure('stock_not_written', [
+                'reason' => 'not_projected',
+                'asked' => (string) $stock,
+            ]);
+        }
+        // ONE PROTECTED OPERATION, not a read followed by a write.
+        //
+        // `alpha.49` wrote the approved number unconditionally and then read it
+        // back, and reported that as the guard. It is not one: a read-back that
+        // finds the number we just asked for agrees with itself whatever it
+        // replaced. Two units sold between the check and the write were
+        // overwritten and nothing could tell.
+        $write = $this->projector->writeStockIfUnchanged($product, $stock, $expected);
+        $outcome = (string) ($write['outcome'] ?? 'not_written');
+        if ($outcome === 'moved') {
+            $found = $write['found'] ?? null;
+            // The shop's number is the true one (ADR-008), so the mirror shows
+            // it at once — otherwise the manager re-reads the page and decides
+            // again on the number that has just been refused.
+            if ($found !== null) {
+                $this->products->mirrorStock($productId, (int) $found);
+            }
+            return OperationResult::failure('stock_moved_during_write', [
+                'asked' => (string) $stock,
+                'expected' => (string) $expected,
+                'shop' => $found === null ? '__unknown__' : (string) $found,
+            ]);
+        }
+        if ($outcome !== 'written') {
+            return OperationResult::failure('stock_not_written', [
+                'reason' => $outcome,
+                'asked' => (string) $stock,
+            ]);
+        }
+        return $this->verifyStock($product, $productId, $stock);
     }
 
     private function writeAndVerifyStock(int $productId, int $stock): OperationResult
@@ -274,6 +320,19 @@ final class SyncCatalog
                 'asked' => (string) $stock,
             ]);
         }
+        return $this->verifyStock($product, $productId, $stock);
+    }
+
+    /**
+     * The read-back, which is still worth doing and is NOT the guard.
+     *
+     * It catches what the shop decided about a write that did land — a site
+     * filter clamping the amount, a number that cannot be read afterwards.
+     * What it cannot see is what the write replaced, which is why
+     * `pushApprovedStock()` above does not rely on it alone.
+     */
+    private function verifyStock(Product $product, int $productId, int $stock): OperationResult
+    {
         // Read back rather than assume: WooCommerce may clamp or refuse, and
         // the mirror must show what the storefront actually holds.
         $actual = $this->projector->readStock($product);

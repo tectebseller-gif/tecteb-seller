@@ -188,8 +188,26 @@ final class ReviewProducts
         $proposedStock = self::proposedStock($revision->payload);
         $stockBaseline = self::proposedStockBaseline($revision->payload);
         $effectiveStock = null;
-        if ($proposedStock !== null && $stockBaseline !== null) {
-            $effectiveStock = $this->catalog->pullStock($product->id) ?? $product->details->stock;
+        if ($proposedStock !== null) {
+            // READ FROM THE SHOP, AND REFUSE WHEN IT CANNOT BE READ.
+            //
+            // Until `alpha.50` this fell back to our own mirror
+            // (`?? $product->details->stock`), and from this round that would
+            // be worse than nothing: this number is what the guarded write is
+            // guarded ON, so a number taken from a copy would guard the write
+            // against the wrong thing — and a guard that passes for the wrong
+            // reason is the defect, not the protection. If the shop will not
+            // say what it holds, nothing is written at all.
+            $effectiveStock = $this->catalog->pullStock($product->id);
+            if ($effectiveStock === null) {
+                return OperationResult::failure('stock_unreadable', [
+                    'product_id' => $product->id,
+                    'revision_id' => $revisionId,
+                    'proposed_stock' => $proposedStock,
+                ]);
+            }
+        }
+        if ($proposedStock !== null && $stockBaseline !== null && $effectiveStock !== null) {
             if ($effectiveStock !== $stockBaseline) {
                 if (!$acceptStockConflict) {
                     return OperationResult::failure('stock_moved', [
@@ -329,13 +347,22 @@ final class ReviewProducts
             // success and three named failures, and on any of them the
             // revision stays PENDING — the only state a manager can try again
             // from — with both numbers in the message.
-            if ($proposedStock !== null) {
-                $written = $this->catalog->pushApprovedStock($product->id, $proposedStock);
+            if ($proposedStock !== null && $effectiveStock !== null) {
+                // THE NUMBER THE DECISION WAS MADE ON travels with the write.
+                //
+                // `alpha.49` did not pass it, so the write was unconditional
+                // and its read-back could only confirm itself. A sale landing
+                // between the two was overwritten in silence; now the write
+                // does not happen unless the shop still holds `$effectiveStock`
+                // — the same number the baseline was compared against and the
+                // same number the manager was shown.
+                $written = $this->catalog->pushApprovedStock($product->id, $proposedStock, $effectiveStock);
                 if (!$written->ok) {
                     return OperationResult::failure($written->code, [
                         'product_id' => $product->id,
                         'revision_id' => $revisionId,
                         'proposed_stock' => $proposedStock,
+                        'expected_stock' => (string) $effectiveStock,
                         'shop_stock' => (string) ($written->context['shop'] ?? '__unknown__'),
                         'reason' => (string) ($written->context['reason'] ?? ''),
                         'applied' => 'row_only',

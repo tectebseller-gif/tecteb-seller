@@ -1,0 +1,9 @@
+probe=ran
+shop_at_start=9
+writer_ran=ran
+order_stock_reduced=yes
+writer_before=9
+writer_after=7
+row_after=7
+shop_after=7
+mirror_after=9
