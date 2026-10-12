@@ -53,10 +53,13 @@ const MANAGER = { login: 'tmcowner', pass: 'demo-owner-2026' };
 // ZWNJ), and that has already cost this repository three false failures.
 const T = {
   brandLabel: 'برند',
-  brandPickerHint: 'برند را از فهرست مدیر انتخاب کنید',
-  brandRequestLabel: 'برند من در فهرست نیست',
-  brandRequestButton: 'ثبت درخواست برند',
-  brandRequested: 'در انتظار بررسی مدیر است',
+  // `alpha.51`: one field, with the existing names suggested. The picker's
+  // hint, its second label and its second button are gone, and these needles
+  // are what proves they are gone rather than merely unused.
+  brandFieldHint: 'نام‌های موجود هنگام تایپ پیشنهاد می‌شوند',
+  brandRequested: 'برای تأیید مدیر ثبت شد',
+  brandWaiting: 'در انتظار تأیید مدیر است',
+  brandPanelTitle: 'برند پیشنهادی فروشنده',
   maxPurchase: 'حداکثر خرید',
   stockLabel: 'موجودی',
   stockIsARequest: 'روی محصول منتشرشده، تغییر موجودی به‌صورت درخواست ثبت می‌شود',
@@ -68,7 +71,7 @@ const T = {
   needsReview: 'نیازمند بررسی',
   reviewButton: 'مشاهده و بررسی',
   approveChange: 'تأیید تغییر',
-  addBrandAndApply: 'افزودن به فهرست و اعمال روی محصول',
+  approveBrand: 'تأیید برند و اعمال روی محصول',
   quantityPanel: 'تعداد خرید (بازارگاه)',
   save: 'ذخیره و ادامه',
 };
@@ -141,16 +144,30 @@ async function session(who) {
 }
 const textOf = async (page) => (await page.locator('body').innerText()).replace(/ /g, ' ');
 
-// =========================================================== 1. the picker
+// ======================================================== 1. the ONE field
 const vendor = await session(VENDOR);
 await vendor.page.goto(`${SITE}/vendor/products/?product=${PRODUCT}&step=1`, { waitUntil: 'domcontentloaded' });
 let body = await textOf(vendor.page);
 fs.writeFileSync(`${OUT}/1-vendor-step1.txt`, body);
 check('1 the vendor opens their own published product', await vendor.page.locator('input[name="product_id"]').first().getAttribute('value'), PRODUCT);
-check('1b the brand is a PICKER, with the manager\'s list named', body.includes(T.brandPickerHint), true);
-check('1c there is no free-text brand box left', await vendor.page.locator('input[name="brand"]:not([type=hidden])').count(), 0);
-check('1d the chosen brand is a radio the form will post', await vendor.page.locator('input[name="brand_term"]:checked').count(), 1);
-check('1e and the request box is there for a brand that is missing', body.includes(T.brandRequestLabel), true);
+// ONE visible brand control, and the picker's parts are GONE — asserted as
+// absence, because «the new field is there» would pass with both on screen,
+// which is the shape the owner rejected.
+check('1b there is exactly ONE visible brand input',
+  await vendor.page.locator('input[name="brand"]:not([type=hidden])').count(), 1);
+check('1c it is a text box the vendor can type in',
+  await vendor.page.locator('#f-brand').getAttribute('type'), 'text');
+check('1d with the existing names suggested', await vendor.page.locator('#tv-brand-names option').count() > 0, true);
+check('1e and its datalist is the one the box names',
+  await vendor.page.locator('#f-brand').getAttribute('list'), 'tv-brand-names');
+check('1f the radio list is gone', await vendor.page.locator('input[name="brand_term"]').count(), 0);
+check('1g the second «my brand is missing» box is gone',
+  await vendor.page.locator('input[name="brand_request"]').count(), 0);
+check('1h and so is its button', await vendor.page.locator('[name="request_brand"]').count(), 0);
+check('1i the brand search button is gone too', await vendor.page.locator('[name="search_brand"]').count(), 0);
+check('1j one short sentence, not four paragraphs', body.includes(T.brandFieldHint), true);
+check('1k the box shows the brand the product has',
+  await vendor.page.locator('#f-brand').inputValue(), 'آریا طب');
 
 // ============================== 2. the owner's 20 → 18, in the browser ====
 await vendor.page.goto(`${SITE}/vendor/products/?product=${PRODUCT}&step=2`, { waitUntil: 'domcontentloaded' });
@@ -232,14 +249,16 @@ check('4f nothing is left pending', field(report, 'pending_revision'), 'none');
 
 // ============================ 5. a brand, end to end =====================
 await vendor.page.goto(`${SITE}/vendor/products/?product=${PRODUCT}&step=1`, { waitUntil: 'domcontentloaded' });
-await vendor.page.fill('#f-brand_request', 'برند مرورگر ۴۸');
+// ONE field, and the ORDINARY save. No second box, no second button.
+await vendor.page.fill('#f-brand', 'برند مرورگر ۴۸');
 await Promise.all([
   vendor.page.waitForNavigation({ timeout: 30000 }).catch(() => null),
-  vendor.page.getByRole('button', { name: T.brandRequestButton }).first().click(),
+  vendor.page.getByRole('button', { name: T.save }).first().click(),
 ]);
 body = await textOf(vendor.page);
 fs.writeFileSync(`${OUT}/5-after-brand-request.txt`, body);
-check('5 the vendor is told the request is with the manager', body.includes(T.brandRequested), true);
+check('5 the vendor is told the product saved AND the brand is with the manager',
+  body.includes(T.brandRequested), true);
 report = state('report');
 check('5b the request is recorded, undecided', field(report, 'open_brand_request'), 'برند مرورگر ۴۸:pending');
 check('5c the product keeps the brand it had', field(report, 'row_brand'), 'آریا طب');
@@ -249,10 +268,14 @@ check('5d and the list does not have the new name yet',
 await manager.page.goto(`${SITE}/wp-admin/admin.php?page=tmc-product-review&product=${PRODUCT}`, { waitUntil: 'domcontentloaded' });
 body = await textOf(manager.page);
 fs.writeFileSync(`${OUT}/5-manager-brand-panel.txt`, body);
-check('5e the manager sees the brand request on the product', body.includes('درخواست برند تازه'), true);
+check('5e the manager sees the brand on the product', body.includes(T.brandPanelTitle), true);
+check('5e2 in ONE field, pre-filled with the name that was asked',
+  await manager.page.locator('#tmc-brand-name').inputValue(), 'برند مرورگر ۴۸');
+check('5e3 with the existing names suggested there too',
+  await manager.page.locator('#tmc-brand-names option').count() > 0, true);
 await Promise.all([
   manager.page.waitForNavigation({ timeout: 30000 }).catch(() => null),
-  manager.page.getByRole('button', { name: T.addBrandAndApply }).first().click(),
+  manager.page.getByRole('button', { name: T.approveBrand }).first().click(),
 ]);
 body = await textOf(manager.page);
 fs.writeFileSync(`${OUT}/5-after-brand-approval.txt`, body);
@@ -271,6 +294,74 @@ const attributes = await manager.page.content();
 fs.writeFileSync(`${OUT}/5-woocommerce-attributes.html`, attributes);
 await manager.page.screenshot({ path: `${OUT}/5-woocommerce-editor.png`, fullPage: false });
 check('5j the editor\'s own markup carries the brand value', attributes.includes('برند مرورگر ۴۸'), true);
+
+// ============ 6. what the vendor sees next, on mobile, and with no JS =====
+//
+// Three separate questions the owner's §2 and §4 both ask, and each needs the
+// browser: the box has to show the name that was ASKED (the `alpha.45`
+// finding — a form that knows a proposal exists and shows none of it), the one
+// field has to be usable at phone width, and the whole path has to work with
+// scripts off, because the suggestions are the browser's and the script only
+// widens them.
+await vendor.page.goto(`${SITE}/vendor/products/?product=${PRODUCT}&step=1`, { waitUntil: 'domcontentloaded' });
+body = await textOf(vendor.page);
+fs.writeFileSync(`${OUT}/6-vendor-after-approval.txt`, body);
+check('6 the box shows the brand that is now on the product',
+  await vendor.page.locator('#f-brand').inputValue(), 'برند مرورگر ۴۸');
+
+// A request still open: the box shows what was ASKED, not what the row holds.
+await vendor.page.fill('#f-brand', 'برند دوم مرورگر');
+await Promise.all([
+  vendor.page.waitForNavigation({ timeout: 30000 }).catch(() => null),
+  vendor.page.getByRole('button', { name: T.save }).first().click(),
+]);
+await vendor.page.goto(`${SITE}/vendor/products/?product=${PRODUCT}&step=1`, { waitUntil: 'domcontentloaded' });
+body = await textOf(vendor.page);
+fs.writeFileSync(`${OUT}/6-vendor-pending-request.txt`, body);
+check('6b the box shows the name that was asked for',
+  await vendor.page.locator('#f-brand').inputValue(), 'برند دوم مرورگر');
+check('6c and one sentence says it is waiting', body.includes(T.brandWaiting), true);
+check('6d while the product keeps the brand it has', field(state('report'), 'row_brand'), 'برند مرورگر ۴۸');
+
+// MOBILE. The field must be reachable and not pushed off the page.
+await vendor.page.setViewportSize({ width: 390, height: 844 });
+await vendor.page.goto(`${SITE}/vendor/products/?product=${PRODUCT}&step=1`, { waitUntil: 'domcontentloaded' });
+await vendor.page.screenshot({ path: `${OUT}/6-mobile-brand-field.png`, fullPage: false });
+const box = await vendor.page.locator('#f-brand').boundingBox();
+check('6e the field is on the page at 390px', box !== null && box.width > 120, true);
+check('6f and it does not overflow it', box !== null && box.x >= 0 && box.x + box.width <= 390, true);
+check('6g no horizontal page scroll',
+  await vendor.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true);
+await vendor.page.setViewportSize({ width: 1280, height: 900 });
+
+// NO JAVASCRIPT. The datalist is the browser's own; the endpoint only widens
+// it. So the same path must work with scripts off — measured, not asserted.
+const noJs = await browser.newContext({ javaScriptEnabled: false, ignoreHTTPSErrors: true });
+const noJsPage = await noJs.newPage();
+await (async () => {
+  await noJsPage.goto(`${SITE}/wp-login.php`, { waitUntil: 'domcontentloaded' });
+  await noJsPage.fill('#user_login', VENDOR.login);
+  await noJsPage.fill('#user_pass', VENDOR.pass);
+  await Promise.all([
+    noJsPage.waitForNavigation({ timeout: 30000 }).catch(() => null),
+    noJsPage.click('#wp-submit'),
+  ]);
+})();
+await noJsPage.goto(`${SITE}/vendor/products/?product=${PRODUCT}&step=1`, { waitUntil: 'domcontentloaded' });
+check('6h with scripts off the one field is still there',
+  await noJsPage.locator('#f-brand').count(), 1);
+check('6i and the names are still suggested, by the browser',
+  await noJsPage.locator('#tv-brand-names option').count() > 0, true);
+await noJsPage.fill('#f-brand', 'برند بی‌اسکریپت');
+await Promise.all([
+  noJsPage.waitForNavigation({ timeout: 30000 }).catch(() => null),
+  noJsPage.getByRole('button', { name: T.save }).first().click(),
+]);
+body = await textOf(noJsPage);
+fs.writeFileSync(`${OUT}/6-no-js-after-save.txt`, body);
+check('6j and the save records the request with no script at all',
+  field(state('report'), 'open_brand_request'), 'برند بی‌اسکریپت:pending');
+await noJs.close();
 
 await browser.close();
 state('reset');

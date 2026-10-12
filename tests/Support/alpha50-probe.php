@@ -525,6 +525,40 @@ switch ($verb) {
         $say('no_request', $openOf($id) === null);
         break;
 
+    /**
+     * WORK IN FLIGHT, made through services BOTH builds have.
+     *
+     * For the upgrade check: an open brand request and an open stock proposal
+     * on one published product, created by whichever build is on disk rather
+     * than inserted around it. `propose()` and `updateInventory()` are on
+     * `alpha.50` too, so the rows the upgrade has to carry are rows the OLD
+     * build really wrote (`alpha.45`: a fixture that writes past the guard
+     * leaves a state the service never agreed to).
+     */
+    case 'arrange-in-flight':
+        $ensureApproved();
+        $id = $arrange('');
+        /** @var \Tecteb\Marketplace\Modules\Product\Application\ManageProducts $manage */
+        $manage = $c->get(\Tecteb\Marketplace\Modules\Product\Application\ManageProducts::class);
+        // A stock change on a published product is a proposal, not a write.
+        $inventory = $manage->updateInventory(
+            TMC_P51_VENDOR,
+            TMC_P51_VENDOR,
+            $id,
+            7,
+            TMC_P51_SKU,
+            1,
+            20,
+            1
+        );
+        $asked = $brands->propose(TMC_P51_VENDOR, TMC_P51_VENDOR, $id, TMC_P51_WANTED);
+        $say('product_id', $id);
+        $say('inventory_code', $inventory->code);
+        $say('request_code', $asked->code);
+        $say('open_request', $openOf($id) !== null);
+        $say('open_revision', $revisions->pendingFor($id) !== null);
+        break;
+
     case 'reset':
         $id = $findBySku(TMC_P51_SKU);
         $say('product_id', $id);

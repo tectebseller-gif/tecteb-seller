@@ -1,0 +1,7 @@
+probe=ran
+product_id=1315
+unseen_before_request=2
+in_queue=no
+unseen_after_request=2
+unseen_delta=0
+badge_saw_it=no

@@ -1,0 +1,11 @@
+probe=ran
+product_id=1315
+asked=سینا_طب_۵۱
+approve_code=brand_approved
+approve_ok=yes
+row_brand=آریا_طب_۵۱
+row_term=78
+attached_to_existing=yes
+list_grew=0
+shop_attribute_brand=آریا_طب_۵۱
+nothing_left_open=yes

@@ -1,10 +1,10 @@
 probe=ran
 product_id=1311
-pending_before=219
+pending_before=257
 save=failed
 save_code=revision_not_atomic
 reason=not_atomic
-context_proposal_kept=219
-pending_after=219
+context_proposal_kept=257
+pending_after=257
 proposal_kept=yes
 in_needs_review_after=yes

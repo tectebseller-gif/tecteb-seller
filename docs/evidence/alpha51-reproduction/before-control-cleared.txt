@@ -1,0 +1,4 @@
+probe=ran
+product_id=1315
+save_code=product_saved
+brand_after=__empty__

@@ -1,0 +1,8 @@
+probe=ran
+product_id=1315
+save_code=brand_request_replaced
+request_name=آمبو_بگ_۵۱
+is_a_new_request=yes
+earlier_status=superseded
+exactly_one_open=1
+brand_after=__empty__

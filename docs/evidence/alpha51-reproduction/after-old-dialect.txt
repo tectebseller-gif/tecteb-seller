@@ -1,0 +1,5 @@
+probe=ran
+product_id=1315
+save_code=inventory_saved
+request_recorded=no
+request_name=__none__

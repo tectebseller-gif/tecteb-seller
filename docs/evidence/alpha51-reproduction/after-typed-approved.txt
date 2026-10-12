@@ -1,0 +1,7 @@
+probe=ran
+product_id=1315
+term_in_list=78
+save_code=revision_requested
+request_recorded=no
+revision_brand=آریا_طب_۵۱
+row_brand_now=__empty__

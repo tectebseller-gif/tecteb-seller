@@ -1,0 +1,6 @@
+probe=ran
+product_id=1315
+save_code=inventory_saved
+same_request=no
+rows_unchanged=yes
+rows_now=24

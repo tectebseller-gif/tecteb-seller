@@ -1,0 +1,11 @@
+probe=ran
+product_id=1315
+asked=__none__
+approve_code=__not_run__
+approve_ok=no
+row_brand=__empty__
+row_term=__null__
+attached_to_existing=no
+list_grew=0
+shop_attribute_brand=__absent__
+nothing_left_open=yes

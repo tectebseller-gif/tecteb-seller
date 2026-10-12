@@ -1,0 +1,4 @@
+probe=ran
+product_id=1315
+propose_code=forbidden
+no_request=yes

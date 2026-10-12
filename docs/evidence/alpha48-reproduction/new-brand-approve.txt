@@ -1,9 +1,9 @@
 probe=ran
 approve=ok
 approve_code=brand_approved
-term_in_list=72
+term_in_list=81
 row_brand=سینا_طب_۴۸
-row_brand_term=72
+row_brand_term=81
 shop_attribute_brand=سینا_طب_۴۸
 request_closed=yes
 in_needs_review=no

@@ -1,0 +1,8 @@
+probe=ran
+product_id=1315
+save_code=inventory_saved
+request_name=__none__
+is_a_new_request=no
+earlier_status=__none__
+exactly_one_open=0
+brand_after=__empty__

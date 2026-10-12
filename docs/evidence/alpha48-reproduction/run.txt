@@ -1,5 +1,5 @@
 woocommerce: 11.0.1 on WordPress 7.1
-snapshot: 523 files under src/ hashed before any change
+snapshot: 525 files under src/ hashed before any change
 
 === the alpha.47 bytes (21b6b18), on WooCommerce 11.0.1 ===
 PASS  [old] limits-arrange: rows_at_start=1/20/1 — the shop starts with the rule the last projection wrote
@@ -89,13 +89,13 @@ PASS  [new] brand-register-twice: same_term=yes — registering one brand twice,
 PASS  [new] brand-register-twice: term_count_for_name=1 — measured on the taxonomy itself
 
 === two processes registering one brand, two spellings ===
-race 1: a=75 b=75 terms=1
+race 1: a=84 b=84 terms=1
 PASS  race 1: both processes came back with the SAME term — the loser gets the winner's brand
 PASS  race 1: and the taxonomy holds ONE term for the two spellings
-race 2: a=76 b=76 terms=1
+race 2: a=85 b=85 terms=1
 PASS  race 2: both processes came back with the SAME term — the loser gets the winner's brand
 PASS  race 2: and the taxonomy holds ONE term for the two spellings
-race 3: a=77 b=77 terms=1
+race 3: a=86 b=86 terms=1
 PASS  race 3: both processes came back with the SAME term — the loser gets the winner's brand
 PASS  race 3: and the taxonomy holds ONE term for the two spellings
 
@@ -116,4 +116,4 @@ PASS  [new] control-draft: shop_stock=7 — reaching the shop in the same reques
 PASS  [new] control-draft: pending_revision=none — and asking nobody — the owner's decision is about LIVE products
 
 checks: 103   pass: 103   fail: 0
-PASS  src/ restored byte for byte (523 files)
+PASS  src/ restored byte for byte (525 files)

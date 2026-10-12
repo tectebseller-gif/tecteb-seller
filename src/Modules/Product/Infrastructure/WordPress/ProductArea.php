@@ -348,9 +348,15 @@ final class ProductArea
      *     gone;
      *  3. the brand on the row, which is the ordinary case.
      *
-     * The suggestions are seeded with the names matching whatever the box
-     * shows, so a vendor returning to a product sees their own brand's
-     * neighbours rather than the alphabet's first forty.
+     * **The suggestions are seeded with the LIST, not with a search for the
+     * value.** The first version searched for whatever the box showed, which
+     * is empty exactly when it matters: the box shows a name that is NOT in
+     * the list — a brand being asked for — so the vendor got a field with no
+     * suggestions at the one moment they wanted to check whether the brand
+     * already existed under another spelling. Measured in the browser, with
+     * scripts off: `option` count nought. So the seed is the list's own first
+     * `SUGGEST` names, the browser narrows them as you type, and `BrandSuggest`
+     * widens past the cap when scripts are on.
      *
      * @param array<string,mixed>|null $carried the refused save's own values
      * @return array<string,mixed>
@@ -384,7 +390,7 @@ final class ProductArea
         if (is_array($carried) && array_key_exists('brand_typed', $carried)) {
             $value = (string) $carried['brand_typed'];
         }
-        $picked = $this->container->get(ManageBrands::class)->pick($value, ProductBrandFieldView::SUGGEST);
+        $picked = $this->container->get(ManageBrands::class)->pick('', ProductBrandFieldView::SUGGEST);
         return [
             'value' => $value,
             'suggestions' => $picked['brands'],

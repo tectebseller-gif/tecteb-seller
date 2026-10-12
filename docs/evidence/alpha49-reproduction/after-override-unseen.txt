@@ -1,7 +1,7 @@
 probe=ran
 propose=ok
 propose_code=stock_revision_requested
-revision_id=220
+revision_id=258
 shop_when_page_rendered=2
 shop_when_submitted=7
 build_carries_seen_stock=yes

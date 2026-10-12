@@ -1,0 +1,292 @@
+old bytes read from dd30281: 523 php files
+this checkout:                    525 php files
+installed: the dd30281 bytes
+
+=================== before ===================
+PASS  before/typed-unapproved  the probe ran
+--- before typed-unapproved ---
+probe=ran
+product_id=1315
+save_code=inventory_saved
+brand_after=__empty__
+request_recorded=no
+request_name=__none__
+rows_before=24
+rows_after=24
+lands_on=step_2
+PASS  before/1 the typed name reaches nobody  (inventory_saved)
+PASS  before/1 so nothing is recorded  (no)
+PASS  before/1 and no row is written  (24)
+PASS  before/1 the product's brand does not move  (__empty__)
+PASS  before/typed-unapproved-twice  the probe ran
+--- before typed-unapproved-twice ---
+probe=ran
+product_id=1315
+save_code=inventory_saved
+same_request=no
+rows_unchanged=yes
+rows_now=24
+PASS  before/2 the typed name still reaches nobody  (inventory_saved)
+PASS  before/typed-retyped  the probe ran
+--- before typed-retyped ---
+probe=ran
+product_id=1315
+save_code=inventory_saved
+request_name=__none__
+is_a_new_request=no
+earlier_status=__none__
+exactly_one_open=0
+brand_after=__empty__
+PASS  before/3 nothing to replace: nothing was ever asked  (inventory_saved)
+PASS  before/old-dialect  the probe ran
+--- before old-dialect ---
+probe=ran
+product_id=1315
+save_code=brand_requested
+request_recorded=yes
+request_name=سینا_طب_۵۱
+PASS  before/1b the second button was the only way  (yes)
+PASS  before/1b and it worked  (سینا_طب_۵۱)
+PASS  before/typed-approved  the probe ran
+--- before typed-approved ---
+probe=ran
+product_id=1315
+term_in_list=78
+save_code=inventory_saved
+request_recorded=no
+revision_brand=__none__
+row_brand_now=__empty__
+PASS  before/4 the brand really is in WooCommerce's list  (yes)
+PASS  before/4 the typed name is not read  (inventory_saved)
+PASS  before/4 so the brand stays empty  (__empty__)
+PASS  before/manager-attach  the probe ran
+--- before manager-attach ---
+probe=ran
+product_id=1315
+asked=__none__
+approve_code=__not_run__
+approve_ok=no
+row_brand=__empty__
+row_term=__null__
+attached_to_existing=no
+list_grew=0
+shop_attribute_brand=__absent__
+nothing_left_open=yes
+PASS  before/5 there is nothing to attach  (__none__)
+PASS  before/manager-correct  the probe ran
+--- before manager-correct ---
+probe=ran
+product_id=1315
+asked=__none__
+approve_code=__not_run__
+row_brand=__empty__
+managers_spelling_in_list=yes
+vendors_spelling_in_list=no
+shop_attribute_brand=__absent__
+PASS  before/6 there is nothing to correct  (__none__)
+PASS  before/manager-reject  the probe ran
+--- before manager-reject ---
+probe=ran
+product_id=1315
+reject_code=__not_run__
+row_brand=آریا_طب_۵۱
+brand_untouched=yes
+not_in_list=yes
+nothing_left_open=yes
+PASS  before/7 there is nothing to reject  (__not_run__)
+PASS  before/badge  the probe ran
+--- before badge ---
+probe=ran
+product_id=1315
+unseen_before_request=2
+in_queue=no
+unseen_after_request=2
+unseen_delta=0
+badge_saw_it=no
+PASS  before/8 nothing was asked, so nothing is waiting  (no)
+PASS  before/8 and the count does not move  (0)
+PASS  before/control-unchanged  the probe ran
+--- before control-unchanged ---
+probe=ran
+product_id=1315
+save_code=inventory_saved
+brand_after=آریا_طب_۵۱
+no_request=yes
+no_revision=yes
+PASS  before/C1 saving an unchanged brand succeeds  (inventory_saved)
+PASS  before/C1 the brand is still there  (آریا_طب_۵۱)
+PASS  before/C1 nothing is asked for  (yes)
+PASS  before/C1 and no proposal is made  (yes)
+PASS  before/control-cleared  the probe ran
+--- before control-cleared ---
+probe=ran
+product_id=1315
+save_code=product_saved
+brand_after=__empty__
+PASS  before/C2 an empty box clears the brand  (__empty__)
+PASS  before/control-not-ours  the probe ran
+--- before control-not-ours ---
+probe=ran
+product_id=1315
+propose_code=forbidden
+no_request=yes
+PASS  before/C3 another shop may not ask for this product  (forbidden)
+PASS  before/C3 and nothing is recorded  (yes)
+
+installed: this checkout
+PASS  the install is this checkout again, byte for byte
+
+=================== after ===================
+PASS  after/typed-unapproved  the probe ran
+--- after typed-unapproved ---
+probe=ran
+product_id=1315
+save_code=brand_requested
+brand_after=__empty__
+request_recorded=yes
+request_name=سینا_طب_۵۱
+rows_before=25
+rows_after=26
+lands_on=step_2
+PASS  after/1 the product saves  (brand_requested)
+PASS  after/1 the name is recorded for the manager  (yes)
+PASS  after/1 under the name that was typed  (سینا_طب_۵۱)
+PASS  after/1 the product's brand does not move  (__empty__)
+PASS  after/1 and «ذخیره و ادامه» continues  (step_2)
+PASS  after/typed-unapproved-twice  the probe ran
+--- after typed-unapproved-twice ---
+probe=ran
+product_id=1315
+save_code=brand_request_unchanged
+same_request=yes
+rows_unchanged=yes
+rows_now=26
+PASS  after/2 a re-save is not an error  (brand_request_unchanged)
+PASS  after/2 it is the same request  (yes)
+PASS  after/2 and no second row was written  (yes)
+PASS  after/typed-retyped  the probe ran
+--- after typed-retyped ---
+probe=ran
+product_id=1315
+save_code=brand_request_replaced
+request_name=آمبو_بگ_۵۱
+is_a_new_request=yes
+earlier_status=superseded
+exactly_one_open=1
+brand_after=__empty__
+PASS  after/3 the request is replaced  (brand_request_replaced)
+PASS  after/3 under the new name  (آمبو_بگ_۵۱)
+PASS  after/3 as a new request  (yes)
+PASS  after/3 the earlier one is superseded, not deleted  (superseded)
+PASS  after/3 and the manager has exactly one to decide  (1)
+PASS  after/old-dialect  the probe ran
+--- after old-dialect ---
+probe=ran
+product_id=1315
+save_code=inventory_saved
+request_recorded=no
+request_name=__none__
+PASS  after/1b the second field and button are gone  (no)
+PASS  after/1b and the save is an ordinary one  (inventory_saved)
+PASS  after/typed-approved  the probe ran
+--- after typed-approved ---
+probe=ran
+product_id=1315
+term_in_list=78
+save_code=revision_requested
+request_recorded=no
+revision_brand=آریا_طب_۵۱
+row_brand_now=__empty__
+PASS  after/4 the brand really is in WooCommerce's list  (yes)
+PASS  after/4 it becomes a proposal on a live product  (revision_requested)
+PASS  after/4 under THE LIST's spelling  (آریا_طب_۵۱)
+PASS  after/4 not as a request  (no)
+PASS  after/4 and the live brand waits for approval  (__empty__)
+PASS  after/manager-attach  the probe ran
+--- after manager-attach ---
+probe=ran
+product_id=1315
+asked=سینا_طب_۵۱
+approve_code=brand_approved
+approve_ok=yes
+row_brand=آریا_طب_۵۱
+row_term=78
+attached_to_existing=yes
+list_grew=0
+shop_attribute_brand=آریا_طب_۵۱
+nothing_left_open=yes
+PASS  after/5 the manager attaches it  (brand_approved)
+PASS  after/5 to the brand that exists  (yes)
+PASS  after/5 the list did not grow  (0)
+PASS  after/5 under the list's name  (آریا_طب_۵۱)
+PASS  after/5 and WooCommerce has it  (آریا_طب_۵۱)
+PASS  after/5 nothing is left open  (yes)
+PASS  after/manager-correct  the probe ran
+--- after manager-correct ---
+probe=ran
+product_id=1315
+asked=مدلاين_تجهيز_۵۱
+approve_code=brand_approved
+row_brand=مدلاین_۵۱
+managers_spelling_in_list=yes
+vendors_spelling_in_list=no
+shop_attribute_brand=مدلاین_۵۱
+PASS  after/6 the corrected name is approved  (brand_approved)
+PASS  after/6 the manager's spelling is in the list  (yes)
+PASS  after/6 the vendor's is NOT  (no)
+PASS  after/6 the product carries the manager's  (مدلاین_۵۱)
+PASS  after/6 and so does WooCommerce  (مدلاین_۵۱)
+PASS  after/manager-reject  the probe ran
+--- after manager-reject ---
+probe=ran
+product_id=1315
+reject_code=brand_rejected
+row_brand=آریا_طب_۵۱
+brand_untouched=yes
+not_in_list=yes
+nothing_left_open=yes
+PASS  after/7 the request is rejected  (brand_rejected)
+PASS  after/7 the product's brand is untouched  (yes)
+PASS  after/7 and the name did not reach the list  (yes)
+PASS  after/7 nothing is left open  (yes)
+PASS  after/badge  the probe ran
+--- after badge ---
+probe=ran
+product_id=1315
+unseen_before_request=2
+in_queue=yes
+unseen_after_request=3
+unseen_delta=1
+badge_saw_it=yes
+PASS  after/8 the request is in the review queue  (yes)
+PASS  after/8 the badge sees it  (yes)
+PASS  after/8 by exactly one  (1)
+PASS  after/control-unchanged  the probe ran
+--- after control-unchanged ---
+probe=ran
+product_id=1315
+save_code=inventory_saved
+brand_after=آریا_طب_۵۱
+no_request=yes
+no_revision=yes
+PASS  after/C1 saving an unchanged brand succeeds  (inventory_saved)
+PASS  after/C1 the brand is still there  (آریا_طب_۵۱)
+PASS  after/C1 nothing is asked for  (yes)
+PASS  after/C1 and no proposal is made  (yes)
+PASS  after/control-cleared  the probe ran
+--- after control-cleared ---
+probe=ran
+product_id=1315
+save_code=product_saved
+brand_after=__empty__
+PASS  after/C2 an empty box clears the brand  (__empty__)
+PASS  after/control-not-ours  the probe ran
+--- after control-not-ours ---
+probe=ran
+product_id=1315
+propose_code=forbidden
+no_request=yes
+PASS  after/C3 another shop may not ask for this product  (forbidden)
+PASS  after/C3 and nothing is recorded  (yes)
+
+PASS=93 FAIL=0

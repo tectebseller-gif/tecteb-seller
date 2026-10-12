@@ -1,0 +1,6 @@
+probe=ran
+product_id=1315
+save_code=inventory_saved
+brand_after=آریا_طب_۵۱
+no_request=yes
+no_revision=yes

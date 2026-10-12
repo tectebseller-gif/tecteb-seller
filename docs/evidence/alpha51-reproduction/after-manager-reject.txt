@@ -1,0 +1,7 @@
+probe=ran
+product_id=1315
+reject_code=brand_rejected
+row_brand=آریا_طب_۵۱
+brand_untouched=yes
+not_in_list=yes
+nothing_left_open=yes

@@ -1,0 +1,8 @@
+probe=ran
+product_id=1315
+asked=مدلاين_تجهيز_۵۱
+approve_code=brand_approved
+row_brand=مدلاین_۵۱
+managers_spelling_in_list=yes
+vendors_spelling_in_list=no
+shop_attribute_brand=مدلاین_۵۱

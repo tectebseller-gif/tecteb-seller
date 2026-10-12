@@ -660,9 +660,14 @@ final class ProductReviewPage
      * The manager's own brand box: the asked name, editable, with suggestions.
      *
      * Pre-filled rather than empty, so the common case — «yes, that name» — is
-     * one click and nothing has to be retyped. The datalist is seeded with the
-     * names matching what was asked, which is exactly where a manager looking
-     * for «did we already have this under another spelling?» wants to look.
+     * one click and nothing has to be retyped.
+     *
+     * **The datalist is seeded with the LIST, not with a search for the asked
+     * name.** The first version searched for what was asked — and what was
+     * asked is by definition NOT in the list, so the manager got an empty
+     * datalist at the one moment the question «do we already have this under
+     * another spelling?» is being decided. Measured in the browser: `option`
+     * count nought.
      */
     private function brandNameField(string $asked): string
     {
@@ -681,7 +686,7 @@ final class ProductReviewPage
             . ' data-suggest-nonce="' . esc_attr(wp_create_nonce(BrandSuggest::NONCE)) . '"'
             . ' data-suggest-action="' . esc_attr(BrandSuggest::ACTION) . '">'
             . '<datalist id="tmc-brand-names" data-tmc-brand-list="1">';
-        foreach ($directory->search($asked, ProductBrandFieldView::SUGGEST) as $brand) {
+        foreach ($directory->search('', ProductBrandFieldView::SUGGEST) as $brand) {
             $html .= '<option value="' . esc_attr($brand->name) . '"></option>';
         }
         return $html . '</datalist></div>';
