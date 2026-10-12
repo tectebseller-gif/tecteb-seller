@@ -15,16 +15,19 @@
 هیچ sender/gateway واقعی وجود ندارد؛ خروجی‌های افزونه در Alpha همیشه بسته‌اند و
 **تأیید موبایل انجام نمی‌شود** تا وقتی Adapter واقعی و مستند وجود داشته باشد.
 
-**بستهٔ جاری:** `0.1.0-alpha.48` ·
-`c13b7db02db39226c6f5c9a31dd450d63c61a2b37e76f7f7edb1b8e9b7cf2b3f` ·
+**بستهٔ جاری:** `0.1.0-alpha.49` ·
+`33d1850feed955fe4f2601c3479ab2c2947db096a52639f35c409abb352a9b15` ·
 ساختار داده **۲۵** · شاخهٔ `claude/new-session-z1vafy`.
-**آماده آزمایش روی staging** — نصب کار مالک است. **دکان و Min Max Control
-آمادهٔ کنار گذاشتن نیستند** و نسخه‌هایشان **شناسایی نشده‌اند** (بند ۹ـب
+**آماده آزمایش روی staging** — نصب کار مالک است. **`alpha.48` نصب نشد**: مالک
+آن را خواند، سه مورد پیدا کرد، و خواست پیش از نصب در نسخهٔ مستقل بعدی اصلاح
+شوند — پس مسیر واقعی ارتقا `alpha.47 → alpha.49` است و **ساختاری** است (۲۴ →
+۲۵)؛ هر دو مبنا اندازه‌گیری شد. **دکان و Min Max Control آمادهٔ کنار گذاشتن
+نیستند** و نسخه‌هایشان **شناسایی نشده‌اند** (بند ۹ـب
 `docs/phase-46-limits-stock-brands-and-the-queue.md`).
 **یافتهٔ بازِ ستونِ بدشکل بسته شد:** از `alpha.48` نوشتنِ محصول **شکلِ** ستون‌هایی
 را که به آن‌ها وابسته است می‌خواند و روی شکل غلط یا ستون غایب **رد می‌کند** با
-`schema_unsound` که ستون‌ها را نام می‌برد (`ProductTableShape`،
-`docs/phase-46-…` بند ۶). ترتیب دیگر تنها محافظت نیست.
+`schema_unsound` که ستون‌ها را نام می‌برد — و از `alpha.49` **نوع و طول** هم
+بخشی از شکل‌اند و **ساختار نامعلوم با سالم یکی نیست** (`schema_unknown`).
 **سه تصمیم انتقال، هر سه مسدود، با دلیل دقیق:** نصب روی سایت اصلی (اجرای واقعی
 PHP 8.1 انجام نشده)، غیرفعال‌کردن دکان و Min Max (نسخه و کلیدها از سایت مالک
 شناسایی نشده‌اند)، و باز کردن فروش واقعی (تصمیم‌های DEC و درگاه) — بند ۹.
@@ -51,6 +54,77 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 سفارش‌های نیازمند بررسی تعیین تکلیف شده باشند — ترتیب پنج‌گامی در
 `docs/upgrade-and-rollback.md` بند ۵٫۲-ب (`docs/upgrade-and-rollback.md` ·
 `docs/evidence/upgrade-alpha1/` · `docs/evidence/upgrade/`).
+
+**`0.1.0-alpha.49` (۱۲ اکتبر):** جایگزینیِ اتمیک، ساختارِ نامعلوم، و موجودی‌ای
+که با نتیجهٔ معتبر ثبت می‌شود. ساختار داده همچنان **۲۵**، **هیچ migration ای** —
+سنجیده‌شده. مبنا: سه موردِ گزارش مالک روی `alpha.48` **پیش از نصبش**، هر سه
+واقعی. دامنه عمداً باریک: ده فایل کد، همه زیر `src/Modules/Product/`.
+تحویل: `docs/phase-47-atomic-replacement-unknown-structure-and-verified-stock.md` ·
+ارتقا: `docs/upgrade-and-rollback.md` بند ۳۲ ·
+چک‌لیست staging: `docs/staging-checklist-alpha49-fa.md`.
+
+- **سه مورد، یک شکل: نیمهٔ اولِ یک کار انجام می‌شد و نتیجه موفقیت یا سلامت
+  گزارش می‌شد.**
+- **پیشنهاد بسته می‌شد و جایگزینش ساخته نمی‌شد.** `proposeStock()` و
+  `saveAsRevision()` هر دو supersede و بعد create می‌کردند — دو statement.
+  اندازه‌گیری‌شده روی بایت‌های `alpha.48`: `pending_after=0`،
+  `earlier_status=superseded`، `in_needs_review_after=no` — درخواستِ بی‌پاسخِ
+  فروشنده نابود و محصول از صف بررسی بیرون، و تنها جمله «ذخیره نشد». حالا
+  `replacePending()` **یک واحد کار** است با پنج جواب، و **تراکنشی که باز نشود
+  یک رد است** (`revision_not_atomic`) نه دلیلی برای اجرای نیمهٔ اول:
+  `proposal_kept=yes`، `earlier_status=pending`.
+- **و صفر سطر از supersede یک رقابتِ باخته‌شده است، نه «از قبل همین بود».**
+  `decide()` این دو را تشخیص نمی‌دهد، پس `replacePending()` `UPDATE` خودش را
+  می‌نویسد و تعداد سطر را می‌سنجد — `superseded_elsewhere`، بی پیشنهاد دومِ باز.
+- **ساختار نامعلوم با سالم یکی گرفته می‌شد — و `alpha.48` استدلال هم داشت.**
+  بهای آن استدلال روی بایت‌های خودش: `reads_as_sound=yes`،
+  `problem=product_table_unreadable`، `wrote=1`. کلاس **می‌دانست** خواندن شکست
+  خورده. حالا سه جواب: sound / unsound (با نام ستون‌ها) / **unknown** با کد
+  خودش (`schema_unknown`)، و شکستِ خواندن **memoise نمی‌شود**.
+- **و نوع ستون پرسیده نمی‌شد.** `stock` ِ باریک‌شده به `tinyint` اسم و
+  nullability و پیش‌فرضش را نگه می‌داشت و ۵۰۰ را **۱۲۷** ذخیره می‌کرد با
+  `save_code=inventory_saved` — چون `sql_mode` این سرور `STRICT_TRANS_TABLES`
+  ندارد و این پیکربندی **عادیِ وردپرس** است (`wpdb` خودش strict را برمی‌دارد).
+  حالا `types` **فهرست** است چون **باریک‌تر از دست رفتن است و پهن‌تر نیست**
+  (`bigint` سالم، `varchar` برای عدد نه)، و `min_length` همان پرسش برای متن.
+- **تأیید موجودی با نتیجهٔ نامعتبر ثبت می‌شد.** `pushStock()` روی کلمپ‌شدن
+  `true` می‌دهد و روی بازخوانیِ ناموفق هم: `proposed_stock=4 shop_after=3
+  revision_status=approved`. حالا `pushApprovedStock()` یک موفقیت و سه شکستِ
+  نام‌دار دارد (`stock_mirrored_different` · `stock_unverified` ·
+  `stock_not_written`) و پیشنهاد **باز** می‌ماند. `pushStock()` عوض نشد و
+  دلیلش نوشته شد: **یک قاعدهٔ بازخوانی، دو حکم**.
+- **و مجوز اعمال اجباری مقایسه را کامل دور می‌زد.** تغییری که **بعد از رندر
+  صفحه** می‌رسید بی‌آنکه دیده شود بازنویسی می‌شد:
+  `shop_when_page_rendered=2 shop_when_submitted=7 shop_after=4` — مدیر موافقت
+  کرده بود **۲** را بازنویسی کند. حالا صفحه عددی را که چاپ می‌کند حمل می‌کند
+  (`seen_stock`) و `stock_moved_again` با **چهار عدد** رد می‌کند؛ فرمی که آن
+  عدد را حمل نکند **رد** می‌شود نه مورد اعتماد.
+- **و یک آزمون که قاعدهٔ غلط را نوشته بود حذف شد، نه شل.**
+  `testATableThatCannotBeReadDoesNotStopTheWrite` دقیقاً خلاف این دور را assert
+  می‌کرد و یک دور کامل سبز ماند.
+
+اجرا: unit ۴۴۹ · architecture ۳۱ · contract ۲۸۳ · database **۴۹۸** ·
+packaging ۲۲ · `php -l` روی **۵۲۵** فایل روی ۸٫۴ تنها · PHPCompatibility با
+`testVersion 8.1-` روی همان فایل‌ها — همه ۰ شکست.
+`alpha49-reproduction.sh` **۱۱۶ بررسی روی ووکامرس ۱۱٫۰٫۱ واقعی** (هر سه مورد
+روی بایت‌های `19d735f`، بعد اصلاح، بعد **۵ control** که روی هر دو درخت یک جواب
+می‌دهند)، و رگرسیون‌ها روی همین درخت: `alpha48-reproduction.sh` ۱۰۳ ·
+`alpha47-reproduction.sh` ۶۲ — همه ۰ شکست.
+**PHP 8.1، دکان، Min Max Control، قالب واقعی سایت و غیرفعال‌کردن افزونهٔ فعالِ
+دارای داده `Not Run` اند — نه «قبول».**
+
+**پنج قاعدهٔ تازه:**
+- **نیمهٔ اولِ یک کار که تنها انجام شود، از انجام‌نشدن هر دو نیمه بدتر است.**
+  واحد کار را **پیش از** نوشتن اول بپرسید؛ نبود، **هیچ‌کدام** را ننویسید.
+- **«نمی‌دانم» یک جواب است و با «سالم» یکی نیست.** گاردی که روی یک خواندن
+  بنشیند سه حالت می‌خواهد؛ دو حالت یعنی یکی از آن دو شکستِ خواندن را می‌بلعد.
+- **ستونی با نام و nullability و پیش‌فرضِ درست می‌تواند نوعش غلط باشد** — و بی
+  `STRICT_TRANS_TABLES` بی‌صدا عدد دیگری ذخیره می‌کند. بپرسید SQL **کدام**
+  نیمه را به شما نمی‌گوید.
+- **boolean ای که «نوشتم» و «همان را نوشتم» را یکی کند، هر تصمیمی را که به آن
+  آویزان شود خراب می‌کند** — دو فراخوان با دو حکم بهتر از یک حکمِ اشتباه.
+- **مجوزی که مدیر دربارهٔ یک عدد می‌دهد، مجوزِ «هر عددی که وقت رسیدن فرم آنجا
+  باشد» نیست.** هر override باید **چیزی را که نشان داده شد** حمل کند.
 
 **`0.1.0-alpha.48` (۱۱ اکتبر):** حدود خرید که به فروشگاه می‌رسد، موجودیِ
 محصول منتشرشده که منتظر می‌ماند، برندی که از فهرست مدیر می‌آید، و یک صف با یک
@@ -2980,6 +3054,23 @@ vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php
   --filter 'MenuBadgeRefreshTest|ReviewDetailSnapshotTest|ReviewSeenTest'
 vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php \
   --filter VendorAccountLinkTest
+
+# فاز ۴۷: جایگزینیِ اتمیک، ساختارِ نامعلوم، و موجودی با نتیجهٔ معتبر
+# ۱۱۶ بررسی: هر سه مورد روی بایت‌های 19d735f (alpha.48)، بعد اصلاح، بعد ۵ control
+WP_PATH=/home/user/wp-demo WPCLI=/usr/local/bin/wp \
+  bash tools/alpha49-reproduction.sh docs/evidence/alpha49-reproduction
+wp --exec='define("WP_ADMIN", true); define("WP_ENVIRONMENT_TYPE","local");' \
+  eval-file tests/Support/alpha48-probe.php <verb>
+#   proposal-lost | proposal-not-atomic        ← هر دو نیمهٔ جایگزینی
+#   structure-unreadable | wrong-type          ← نامعلوم، و نوع غلط
+#   override-unseen | readback-differs | readback-failed
+#   control-proposal-replaced | control-sound | control-approve
+#   control-override-seen | control-refuses-moved | reset
+# هر دو مسیر ارتقا از خودِ ZIP نهایی — alpha.47 مسیر واقعی مالک است (۲۴ → ۲۵)
+TMC_BASES="$PWD/dist/tecteb-marketplace-core-0.1.0-alpha.48.zip $PWD/dist/tecteb-marketplace-core-0.1.0-alpha.47.zip" \
+  PHPBIN=php WPCLI=/usr/local/bin/wp bash tools/upgrade-alpha47-check.sh docs/evidence/upgrade-alpha49
+vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php \
+  --filter 'AtomicProposalReplacementTest|MalformedColumnGuardTest|ProductFlowTest|ProductAdminPagesTest'
 
 # فاز ۴۶: حدود خرید که به فروشگاه می‌رسد، موجودیِ منتظر، برند از فهرست مدیر، و یک صف
 # ۱۰۳ بررسی روی ووکامرس ۱۱٫۰٫۱ واقعی — هر اندازه‌گیری در درخواست خودش

@@ -1,0 +1,269 @@
+Skip to main content
+Skip to toolbar
+
+
+Dashboard
+Home
+Updates
+
+
+Posts
+All Posts
+Add Post
+Categories
+Tags
+
+
+Media
+Library
+Add Media File
+
+
+Pages
+All Pages
+Add Page
+
+
+Comments
+
+
+WooCommerce
+Home 3
+Orders
+Customers
+Coupons
+Reports
+Settings
+Status
+Extensions
+
+
+Products
+All Products
+Add new product
+Brands
+Categories
+Tags
+Attributes
+Reviews
+
+
+Payments
+
+
+بازارگاه تک‌طب ۲
+۲ مورد در انتظار بررسی
+پیشخوان
+بررسی محصولات ۲
+۲ مورد در انتظار بررسی
+درخواست‌های فروشندگان
+مدارک فروشندگان
+تیکت فروشندگان
+وضعیت فروش بازارگاه
+قواعد کمیسیون
+تسویه و برداشت
+مرجوعی و بازپرداخت
+خریداران عمده
+الگوهای مشخصات
+نظرات
+گزارش‌ها
+تنظیمات
+ماژول‌ها
+سلامت
+صف و سلامت اجرا
+رویدادها و API
+ممیزی
+راه‌اندازی
+مهاجرت از دکان
+تحویل مهاجرت
+
+
+Analytics
+Overview
+Products
+Revenue
+Orders
+Variations
+Categories
+Coupons
+Taxes
+Downloads
+Stock
+Settings
+
+
+Marketing
+Overview
+Coupons
+
+
+Appearance
+Themes
+Design
+Customize
+Widgets
+Fonts
+Menus
+Background
+Theme File Editor
+
+
+Plugins
+Installed Plugins
+Add Plugin
+Plugin File Editor
+
+
+Users
+All Users
+Add User
+Profile
+
+
+Tools
+Available Tools
+Import
+Export
+Site Health 4
+Export Personal Data
+Erase Personal Data
+Scheduled Actions
+
+
+Settings
+General
+Connectors
+Writing
+Reading
+Discussion
+Media
+Permalinks
+Privacy
+Collapse Menu
+About WordPress
+بازارگاه تک‌طب
+Store coming soon
+Ctrl+K
+Open command palette
+0
+0 Comments in moderation
+New
+View product
+Howdy, tmcowner
+Store Activity
+unread activity
+Screen Options
+Help
+Edit product Add new product
+Product name
+Skip to Editor
+Permalink: http://127.0.0.1:8081/product/دستکش-آزمون-چهلوهشت/ ‎Edit
+Product description
+ Add Media
+Visual
+Code
+Paragraph
+Word count: 6	  Last edited on October 12, 2026 at 8:31 am
+Publish
+Move up
+Move down
+Show or hide panel
+Preview Changes
+(opens in a new tab)
+ Status: Published Edit
+Edit status
+ Visibility: Public Edit
+Edit visibility
+ Published on: Oct 11, 2026 at 21:17 Edit
+Edit date and time
+Catalog visibility: Shop and search results Edit
+Copy to a new draft
+Move to Trash
+ 
+Product image
+Move up
+Move down
+Show or hide panel
+
+Click the image to edit or update
+
+Remove product image
+
+Product gallery
+Move up
+Move down
+Show or hide panel
+
+Add product gallery images
+
+Product categories
+Move up
+Move down
+Show or hide panel
+All categories Most Used
+ Uncategorized
+ دستکش آزمون ۴۸
++ Add new category
+Product tags
+Move up
+Move down
+Show or hide panel
+Add new tag
+
+Separate tags with commas
+
+Choose from the most used tags
+
+Brands
+Move up
+Move down
+Show or hide panel
+All Brands Most Used
+ آریا طب
+ آمبو بگ ۴۸
+ برند آزمون ۴۸
+ برندی که فروشنده نوشته
+ سینا طب ۴۸
++ Add New Brand
+Product data — 
+Simple product
+Grouped product
+External/Affiliate product
+Variable product
+   Virtual  Downloadable
+Move up
+Move down
+Show or hide panel
+General
+Inventory
+Shipping
+Linked Products
+Attributes
+تعداد خرید (بازارگاه)
+Advanced
+Get more options
+
+Regular price (تومان)
+
+Sale price (تومان)
+Schedule
+
+Product short description
+Move up
+Move down
+Show or hide panel
+ Add Media
+Visual
+Code
+Paragraph
+ 
+Reviews
+Move up
+Move down
+Show or hide panel
+
+Add Comment
+
+No comments yet.
+
+

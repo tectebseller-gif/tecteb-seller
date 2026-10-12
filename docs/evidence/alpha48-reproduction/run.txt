@@ -62,7 +62,7 @@ PASS  [new] stock-conflict: approve_code=stock_moved — so the approval REFUSES
 PASS  [new] stock-conflict: named_numbers=20/3/12 — naming all three: when proposed, now, and proposed value
 PASS  [new] stock-conflict: shop_stock_after_refusal=3 — nothing was written
 PASS  [new] stock-conflict: revision_still_pending=yes — and the proposal is still there to decide
-PASS  [new] stock-conflict: override_code=revision_approved — the manager's explicit «apply it anyway» goes through
+PASS  [new] stock-conflict: override_code=revision_approved — the manager's «apply it anyway», over the number they were shown, goes through
 PASS  [new] stock-conflict: shop_stock_after_override=12 — and only then does the shop take the proposed number
 PASS  [new] keeps-proposal: brand_in_proposal_after=برند_پیشنهادی_۴۸ — saving the inventory tab KEEPS the pending brand proposal
 PASS  [new] keeps-proposal: stock_in_proposal_after=6 — and adds the stock request to it rather than replacing it
@@ -89,13 +89,13 @@ PASS  [new] brand-register-twice: same_term=yes — registering one brand twice,
 PASS  [new] brand-register-twice: term_count_for_name=1 — measured on the taxonomy itself
 
 === two processes registering one brand, two spellings ===
-race 1: a=45 b=45 terms=1
+race 1: a=60 b=60 terms=1
 PASS  race 1: both processes came back with the SAME term — the loser gets the winner's brand
 PASS  race 1: and the taxonomy holds ONE term for the two spellings
-race 2: a=46 b=46 terms=1
+race 2: a=61 b=61 terms=1
 PASS  race 2: both processes came back with the SAME term — the loser gets the winner's brand
 PASS  race 2: and the taxonomy holds ONE term for the two spellings
-race 3: a=47 b=47 terms=1
+race 3: a=62 b=62 terms=1
 PASS  race 3: both processes came back with the SAME term — the loser gets the winner's brand
 PASS  race 3: and the taxonomy holds ONE term for the two spellings
 
