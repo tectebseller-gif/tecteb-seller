@@ -1,7 +1,7 @@
 probe=ran
 product_id=1311
-earlier_revision=245
-pending_before=245
+earlier_revision=388
+pending_before=388
 in_needs_review_before=yes
 save=failed
 save_code=storage_failed

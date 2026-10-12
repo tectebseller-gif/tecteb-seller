@@ -18,6 +18,24 @@ final class ProductRevision
     /** Replaced by a newer proposal before anybody reviewed it. */
     public const SUPERSEDED = 'superseded';
 
+    /**
+     * The payload key holding the values this proposal was MEASURED FROM.
+     *
+     * One map, `field => value`. It lives here rather than on either service
+     * because the writer (`ManageProducts`) and the reader (`ReviewProducts`)
+     * have to agree about it, and two lists mean two rules — the `alpha.28`
+     * reason `StorefrontField::REQUIRED` sits in the domain too.
+     *
+     * Today it carries exactly one field: the brand, which is the only one
+     * with a second decision path of its own
+     * ({@see ProposedBrand}). A map rather than a scalar so a second such
+     * field needs no new key — not because a second one is planned.
+     *
+     * A payload written by `alpha.51` or earlier has no such key, and that
+     * absence is meaningful: «I do not know what this was measured from».
+     */
+    public const BASELINE = 'field_baseline';
+
     /** @param array<string,mixed> $payload */
     public function __construct(
         public readonly int $id,

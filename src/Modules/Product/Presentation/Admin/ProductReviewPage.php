@@ -27,6 +27,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\ProposedBrand;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Domain\SensitiveChange;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\ProjectedFieldOwnership;
@@ -708,7 +709,8 @@ final class ProductReviewPage
             . $this->decisionForm('revision', $revision->id, [
                 'approve' => __('تأیید تغییر', 'tecteb-marketplace-core'),
                 'reject' => __('رد تغییر', 'tecteb-marketplace-core'),
-            ], $storefront?->fingerprints($product) ?? [], $this->stockConflict($product, $revision))
+            ], $storefront?->fingerprints($product) ?? [],
+                $this->stockConflict($product, $revision) . $this->brandConflict($product, $revision))
             . '</section>';
     }
 
@@ -720,6 +722,21 @@ final class ProductReviewPage
             $current = $product->details->{$field};
             $next = $proposed[$field] ?? $current;
             if ((string) $current === (string) $next) {
+                continue;
+            }
+            // THE BRAND, AND ONLY WHEN THE PAYLOAD IS ACTUALLY ASKING FOR IT —
+            // the same rule the stock row below has carried since `alpha.48`,
+            // and for a reason one step along: the payload holds a brand
+            // whether the vendor asked about it or not, so once the approval
+            // started KEEPING the live brand this row was printing «B → A»
+            // about a change that will not be made. A page that shows a
+            // proposal it is not going to apply is the `alpha.13` fault in
+            // review clothing, and it would send a manager to reject a
+            // perfectly good stock proposal.
+            //
+            // A real conflict KEEPS its row: there the question is genuine,
+            // and `brandConflict()` prints the three values beneath this table.
+            if ($field === 'brand' && $this->proposedBrandVerdict($product, $revision) === ProposedBrand::KEEP) {
                 continue;
             }
             $rows .= '<tr><th scope="row">' . esc_html(ProductMessages::field($field) !== $field
@@ -806,6 +823,76 @@ final class ProductReviewPage
             . '<p><label for="' . esc_attr($id) . '">'
             . '<input type="checkbox" id="' . esc_attr($id) . '" name="accept_stock_conflict" value="1"> '
             . esc_html__('موجودی پیشنهادی را با وجود این تغییر اعمال کن', 'tecteb-marketplace-core')
+            . '</label></p>' . $seen . '</div>';
+    }
+
+    /**
+     * The brand moved after this proposal was written — named, with one control.
+     *
+     * The same shape as `stockConflict()` above and for the same reason, one
+     * field over: the brand has a decision path of its own
+     * (`tmc_brand_proposals`), so approving a proposal can replay a snapshot
+     * over a brand a manager approved afterwards. `ProposedBrand` decides
+     * whether there is anything to ask; this renders the question when there
+     * is.
+     *
+     * Rendered ONLY when the answer is `MOVED`, so an approval with nothing to
+     * decide has nothing to tick — and the unticked checkbox is not sent, which
+     * makes «do not» the default that travels with every ordinary approval
+     * (`alpha.46`).
+     */
+    /**
+     * `ProposedBrand`'s answer for this proposal, asked in ONE place.
+     *
+     * The diff table and the conflict control both need it, and two readers
+     * deriving it separately are two rules — the day they disagree the manager
+     * sees a row the approval will not apply, or a warning about a field the
+     * table says nothing about. Returns `APPLY` when the payload says nothing
+     * about the brand at all, which is «there is nothing to decide».
+     */
+    private function proposedBrandVerdict(Product $product, ProductRevision $revision): string
+    {
+        $details = $revision->payload['details'] ?? null;
+        if (!is_array($details) || !array_key_exists('brand', $details)) {
+            return ProposedBrand::APPLY;
+        }
+        $map = $revision->payload[ProductRevision::BASELINE] ?? null;
+        $hasBaseline = is_array($map) && array_key_exists('brand', $map);
+        return ProposedBrand::decide(
+            $hasBaseline,
+            $hasBaseline ? (string) $map['brand'] : '',
+            (string) $details['brand'],
+            $product->details->brand
+        );
+    }
+
+    private function brandConflict(Product $product, ProductRevision $revision): string
+    {
+        if ($this->proposedBrandVerdict($product, $revision) !== ProposedBrand::MOVED) {
+            return '';
+        }
+        $details = $revision->payload['details'] ?? [];
+        $proposed = (string) (is_array($details) ? ($details['brand'] ?? '') : '');
+        $map = $revision->payload[ProductRevision::BASELINE] ?? null;
+        $hasBaseline = is_array($map) && array_key_exists('brand', $map);
+        $baseline = $hasBaseline ? (string) $map['brand'] : '';
+        $id = 'brand-conflict-' . $revision->id;
+        $blank = __('بدون برند', 'tecteb-marketplace-core');
+        // THE BRAND THIS PAGE IS SHOWING, carried with the permission —
+        // `alpha.49`'s rule beside the number it was written for. A brand
+        // approved between this render and the submit must not be overwritten
+        // by a tick that was never aimed at it.
+        $seen = '<input type="hidden" name="seen_brand" value="' . esc_attr($product->details->brand) . '">';
+        return '<div class="tmc-notice tmc-notice--warning"><p>' . esc_html(sprintf(
+            /* translators: 1: brand when proposed, 2: brand now, 3: proposed brand */
+            __('برند این محصول از زمان ثبت این پیشنهاد تغییر کرده است: هنگام پیشنهاد «%1$s» بود، اکنون «%2$s» است، و این پیشنهاد «%3$s» را دارد. تأیید بدون انتخاب گزینهٔ زیر انجام نمی‌شود.', 'tecteb-marketplace-core'),
+            $hasBaseline ? ($baseline === '' ? $blank : $baseline) : __('نامعلوم', 'tecteb-marketplace-core'),
+            $product->details->brand === '' ? $blank : $product->details->brand,
+            $proposed === '' ? $blank : $proposed
+        )) . '</p>'
+            . '<p><label for="' . esc_attr($id) . '">'
+            . '<input type="checkbox" id="' . esc_attr($id) . '" name="accept_brand_conflict" value="1"> '
+            . esc_html__('برند این پیشنهاد را با وجود این تغییر اعمال کن', 'tecteb-marketplace-core')
             . '</label></p>' . $seen . '</div>';
     }
 
@@ -1008,7 +1095,17 @@ final class ProductReviewPage
                 // the form actually carried it: a missing field is a refusal
                 // on the override path, never a zero — existence and value are
                 // two questions (`alpha.28`).
-                $request->hasPost('seen_stock') ? $request->postInt('seen_stock') : null
+                ($request->hasPost('seen_stock') ? $request->postInt('seen_stock') : null),
+                // The brand's half of the same question, and the brand the
+                // page printed beside it. Existence and value stay two
+                // questions here too: a form that carries no `seen_brand` is
+                // refused on the override path rather than read as «no brand».
+                $request->postChecked('accept_brand_conflict'),
+                // Parenthesised, because PHPCompatibility is right: two
+                // ternaries as consecutive arguments read as nested ones to a
+                // human even though PHP parses them apart, and this round's
+                // run flagged exactly that at this line.
+                ($request->hasPost('seen_brand') ? $request->postText('seen_brand') : null)
             ),
             'revision:reject' => $review->rejectRevision($id, $note),
             'seo:save' => $review->setSeo(

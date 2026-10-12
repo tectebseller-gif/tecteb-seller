@@ -227,7 +227,22 @@ final class ProductArea
         }
 
         if (is_array($carried) && (int) ($carried['product_id'] ?? -1) === $productId) {
-            $details = $this->detailsFromArray(is_array($carried['details'] ?? null) ? $carried['details'] : []);
+            // AN ABSENT KEY IS «NOT CARRIED», NOT «BLANK» — and the old line
+            // read it as blank. `detailsFromArray([])` is an EMPTY product, so
+            // a flash that carried anything less than the whole form rendered
+            // a form with no title, no category and no price, and the next
+            // save proposed exactly that: measured as
+            // `approve_code=incomplete_product` about a product that was fine.
+            //
+            // It was unreachable until this round, because the only writer
+            // always wrote every key. Then the brand's failed-request flash
+            // became a second writer with two keys, and the defect was a
+            // partial flash away. The same «وجود و مقدار دو پرسش‌اند» rule as
+            // `alpha.28`, one layer up: the fallback is what the form would
+            // have shown, not nothing.
+            if (is_array($carried['details'] ?? null)) {
+                $details = $this->detailsFromArray($carried['details']);
+            }
             $specs = is_array($carried['specs'] ?? null) ? array_map('strval', $carried['specs']) : $specs;
             $imageIds = is_array($carried['images'] ?? null) ? array_map('intval', $carried['images']) : $imageIds;
             $mainImageId = (int) ($carried['main_image_id'] ?? $mainImageId);
@@ -661,13 +676,45 @@ final class ProductArea
                 $savedId,
                 $brand['request']
             );
-            // NO FLASH IS NEEDED for the name. A recorded request IS the
-            // record of what was typed, and `brandField()` reads it back — so
-            // the box shows the requested name for as long as the request is
-            // open, which survives a refresh, a new session and a different
-            // browser in a way a flash never could. The `alpha.45` finding was
-            // a form that knew a proposal existed and showed none of it; this
-            // shows it.
+            // NO FLASH IS NEEDED for the name — WHEN THE REQUEST WAS RECORDED.
+            // A recorded request IS the record of what was typed, and
+            // `brandField()` reads it back, so the box shows the requested name
+            // for as long as the request is open: that survives a refresh, a
+            // new session and a different browser in a way a flash never
+            // could. The `alpha.45` finding was a form that knew a proposal
+            // existed and showed none of it; this shows it.
+            //
+            // AND WHEN IT WAS NOT, there is no record, so the typing has to be
+            // carried. That sentence above was written as if the record were
+            // certain, and it is not: `propose()` has five named refusals and
+            // this path walked past all of them to a forward redirect with the
+            // box empty — measured on the `alpha.51` bytes with the proposals
+            // table taken away for one save, `product_saved=yes
+            // typed_kept=__absent__`. The vendor's save is safely stored and
+            // their word is gone, which is the shape this repository calls
+            // worse than a refusal: «ورودی پس از خطای اعتبارسنجی حفظ شود».
+            //
+            // The redirect still goes FORWARD, because the save did happen.
+            // What changes is that the name travels with it, against the id it
+            // belongs to, so the box is filled when the vendor returns to
+            // step 1 and can press save again without retyping.
+            if (!$asked->ok) {
+                // THE WHOLE FORM, the same set the refused-save path above
+                // carries. A flash with two keys in it was the first version
+                // of this, and the reader blanked every field it was not given
+                // — so the brand came back and the title did not. Written out
+                // rather than relying on the reader's new fallback, because
+                // «the form they had» is the promise and a form rebuilt from
+                // the row is not quite it.
+                $this->flash()->put($this->formKey($userId), [
+                    'product_id' => $savedId,
+                    'details' => $this->detailsToArray($details),
+                    'specs' => $specs,
+                    'images' => $imageIds,
+                    'main_image_id' => $mainImageId,
+                    'brand_typed' => $brand['request'],
+                ], self::FORM_TTL);
+            }
             // Discarded uploads are carried here too. A message about the
             // brand that quietly dropped «و ۲ تصویر نرفت» would hide
             // something that happened, which is the same fault as reporting

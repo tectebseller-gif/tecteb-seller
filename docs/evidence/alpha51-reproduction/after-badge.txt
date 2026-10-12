@@ -1,7 +1,7 @@
 probe=ran
 product_id=1315
-unseen_before_request=2
+unseen_before_request=5
 in_queue=yes
-unseen_after_request=3
+unseen_after_request=6
 unseen_delta=1
 badge_saw_it=yes

@@ -498,6 +498,27 @@ final class ProductMessages
                 PersianDigits::toPersian((string) ($context['current_stock'] ?? '')),
                 PersianDigits::toPersian((string) ($context['proposed_stock'] ?? ''))
             ),
+            // THE BRAND'S HALF OF THE SAME QUESTION, and three values rather
+            // than numbers. «نامعلوم» is a real answer here: a proposal written
+            // by `alpha.51` recorded nothing to measure from, so this cannot
+            // say whether the vendor asked — and the manager is told that
+            // rather than given a guess.
+            'brand_moved' => sprintf(
+                /* translators: 1: brand when proposed, 2: brand now, 3: proposed brand */
+                __('برند این محصول از زمان ثبت این پیشنهاد تغییر کرده است: هنگام پیشنهاد «%1$s»، اکنون «%2$s»، و این پیشنهاد «%3$s» را دارد. برای اینکه تصمیم تازه‌تر دربارهٔ برند بی‌صدا برگردانده نشود، تأیید انجام نشد؛ اگر برند پیشنهادی را می‌خواهید، گزینهٔ «با وجود این تغییر اعمال کن» را انتخاب و دوباره تأیید کنید.', 'tecteb-marketplace-core'),
+                self::brandOrBlank($context['baseline_brand'] ?? ''),
+                self::brandOrBlank($context['current_brand'] ?? ''),
+                self::brandOrBlank($context['proposed_brand'] ?? '')
+            ),
+            // The box was ticked about a brand that is no longer the brand.
+            'brand_moved_again' => sprintf(
+                /* translators: 1: brand when proposed, 2: brand the page showed, 3: brand now, 4: proposed brand */
+                __('برند بعد از باز شدن این صفحه هم تغییر کرد: هنگام پیشنهاد «%1$s»، آنچه به شما نشان داده شد «%2$s»، اکنون «%3$s»، و این پیشنهاد «%4$s» را دارد. گزینهٔ «با وجود این تغییر اعمال کن» برای همان برندی است که دیده‌اید، پس تأیید انجام نشد. صفحه را تازه کنید و اگر باز هم موافقید دوباره تأیید کنید.', 'tecteb-marketplace-core'),
+                self::brandOrBlank($context['baseline_brand'] ?? ''),
+                self::brandOrBlank($context['seen_brand'] ?? ''),
+                self::brandOrBlank($context['current_brand'] ?? ''),
+                self::brandOrBlank($context['proposed_brand'] ?? '')
+            ),
             // The box was ticked about a number that is no longer the number.
             // Four of them, because the manager has to see what changed under
             // their decision — and «دوباره تأیید کنید» is only honest if the
@@ -660,7 +681,16 @@ final class ProductMessages
             ),
             'nothing_unsettled' => __('فیلد بدون تکلیفی روی این محصول نبود.', 'tecteb-marketplace-core'),
             'unknown_decision' => __('این تصمیم شناخته نشد.', 'tecteb-marketplace-core'),
-            'revision_approved' => __('نسخه پیشنهادی تأیید و روی محصول اعمال شد.', 'tecteb-marketplace-core'),
+            // ONE CODE, TWO SENTENCES — the second only when the approval
+            // left the brand alone, so a manager who has just decided the
+            // brand is told that this decision did not touch it.
+            'revision_approved' => isset($context['brand_kept'])
+                ? sprintf(
+                    /* translators: %s: the brand the product keeps */
+                    __('نسخه پیشنهادی تأیید و روی محصول اعمال شد. برند محصول «%s» ماند، چون این پیشنهاد دربارهٔ برند چیزی نخواسته بود.', 'tecteb-marketplace-core'),
+                    self::brandOrBlank($context['brand_kept'])
+                )
+                : __('نسخه پیشنهادی تأیید و روی محصول اعمال شد.', 'tecteb-marketplace-core'),
             'revision_rejected' => __('نسخه پیشنهادی رد شد. نسخه منتشرشده همچنان روی سایت است.', 'tecteb-marketplace-core'),
             'direct_publish_granted' => __('مجوز انتشار مستقیم برای این فروشنده صادر شد.', 'tecteb-marketplace-core'),
             'direct_publish_revoked' => __('مجوز انتشار مستقیم این فروشنده برداشته شد؛ محصول‌های بعدی از مسیر بررسی می‌گذرند.', 'tecteb-marketplace-core'),
@@ -983,6 +1013,26 @@ final class ProductMessages
      *
      * @param array<string,scalar|null> $context
      */
+    /**
+     * A brand for a sentence, with the two non-names said in words.
+     *
+     * `''` and `__unknown__` are both real answers and they are different
+     * ones: the first is «no brand», the second is «this proposal recorded
+     * nothing to measure from». Printing either as an empty pair of quotes
+     * would make the message say less than the context knows.
+     */
+    private static function brandOrBlank(mixed $brand): string
+    {
+        $value = (string) $brand;
+        if ($value === '__unknown__') {
+            return __('نامعلوم', 'tecteb-marketplace-core');
+        }
+        if ($value === '__none__') {
+            return __('فرستاده نشد', 'tecteb-marketplace-core');
+        }
+        return $value === '' ? __('بدون برند', 'tecteb-marketplace-core') : $value;
+    }
+
     private static function maxMb(array $context): int
     {
         $given = (int) ($context['max_mb'] ?? 0);

@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
+use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
@@ -16,6 +17,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\ProposedBrand;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontField;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
@@ -146,7 +148,9 @@ final class ReviewProducts
         int $revisionId,
         array $seenFingerprints = [],
         bool $acceptStockConflict = false,
-        ?int $seenStock = null
+        ?int $seenStock = null,
+        bool $acceptBrandConflict = false,
+        ?string $seenBrand = null
     ): OperationResult {
         if (!$this->capabilities->can(Capabilities::REVIEW_PRODUCTS)) {
             return OperationResult::failure('forbidden');
@@ -245,7 +249,59 @@ final class ReviewProducts
                 }
             }
         }
-        $details = $this->detailsFromPayload($revision->payload, $product->details);
+        // THE BRAND, AND WHOSE DECISION ABOUT IT IS NEWER.
+        //
+        // The payload carries a brand whether the vendor asked about it or
+        // not, and `ManageBrands::finish()` writes the product's brand on a
+        // path of its own. So approving this proposal could replay a snapshot
+        // over a decision a manager made afterwards — measured, and in all
+        // three places at once: the row, the term id and the shop's attribute.
+        // {@see ProposedBrand} is the rule; this is the one place that asks it.
+        $baselineBrand = self::proposedBrandBaseline($revision->payload);
+        $proposedBrand = self::proposedBrand($revision->payload);
+        $keptBrand = null;
+        if ($proposedBrand !== null) {
+            $verdict = ProposedBrand::decide(
+                $baselineBrand !== null,
+                $baselineBrand ?? '',
+                $proposedBrand,
+                $product->details->brand
+            );
+            if ($verdict === ProposedBrand::KEEP) {
+                // The vendor asked nothing about the brand. The live value
+                // stays and the result SAYS so, because a manager who has
+                // just approved a brand should be told that this approval did
+                // not touch it rather than left to wonder.
+                $keptBrand = $product->details->brand;
+            }
+            if ($verdict === ProposedBrand::MOVED && !$acceptBrandConflict) {
+                return OperationResult::failure('brand_moved', [
+                    'product_id' => $product->id,
+                    'revision_id' => $revisionId,
+                    'baseline_brand' => $baselineBrand ?? '__unknown__',
+                    'current_brand' => $product->details->brand,
+                    'proposed_brand' => $proposedBrand,
+                ]);
+            }
+            if ($verdict === ProposedBrand::MOVED) {
+                // AND THE PERMISSION IS FOR THE BRAND THEY SAW — `alpha.49`'s
+                // rule, one field over. A brand approved between rendering the
+                // page and submitting the form would otherwise be overwritten
+                // by a tick nobody aimed at it, and a form that carries no
+                // such value is refused rather than trusted.
+                if ($seenBrand === null || BrandName::key($seenBrand) !== BrandName::key($product->details->brand)) {
+                    return OperationResult::failure('brand_moved_again', [
+                        'product_id' => $product->id,
+                        'revision_id' => $revisionId,
+                        'baseline_brand' => $baselineBrand ?? '__unknown__',
+                        'seen_brand' => $seenBrand ?? '__none__',
+                        'current_brand' => $product->details->brand,
+                        'proposed_brand' => $proposedBrand,
+                    ]);
+                }
+            }
+        }
+        $details = $this->detailsFromPayload($revision->payload, $product->details, $keptBrand);
         // UNGUARDED, and said so. The manager is applying a revision they
         // have already approved: one actor, no competing form, and no stamp to
         // carry. Every other write in this codebase names its version.
@@ -256,7 +312,12 @@ final class ReviewProducts
         // on the row and is what a shopper sees, so a failure here loses the
         // identity and nothing else — and `brandTermIdOf()` answering null
         // means «not known», never «no brand».
-        if ($details->brand !== '' && $this->brands !== null) {
+        //
+        // NOT WHEN THE BRAND WAS KEPT. The identity on the row already belongs
+        // to the decision that set it, and re-deriving it from a name would
+        // put this approval's signature on somebody else's decision — the
+        // `alpha.29` mistake («مهر فقط برای چیزی که همین اجرا نوشته»).
+        if ($keptBrand === null && $details->brand !== '' && $this->brands !== null) {
             $termId = $this->brands->approvedTermFor($details->brand);
             if ($termId !== null) {
                 $this->products->setBrandTerm($product->id, $details->brand, $termId);
@@ -399,7 +460,14 @@ final class ReviewProducts
             'decision' => ProductRevision::APPROVED,
             'has_note' => false,
         ]);
-        return OperationResult::success('revision_approved', ['product_id' => $product->id]);
+        // AND IF THE BRAND WAS KEPT, THE RESULT SAYS SO. A manager who has
+        // just approved a brand and then approves this proposal should be told
+        // that the brand was not part of it, rather than left to check. The
+        // code stays `revision_approved`, because that is what happened; the
+        // sentence gains a clause.
+        return OperationResult::success('revision_approved', $keptBrand === null
+            ? ['product_id' => $product->id]
+            : ['product_id' => $product->id, 'brand_kept' => $keptBrand === '' ? '__none__' : $keptBrand]);
     }
 
     /** Refusing a change leaves the published product exactly as it is. */
@@ -1113,14 +1181,51 @@ final class ReviewProducts
     }
 
     /**
+     * The brand the payload holds, or null when it names none at all.
+     *
+     * Null is «this payload says nothing about the brand» and is not the same
+     * as `''`, which is a vendor asking for no brand. A payload written before
+     * the brand existed as a field would answer null, and nothing about the
+     * brand is then decided or refused.
+     *
+     * @param array<string,mixed> $payload
+     */
+    private static function proposedBrand(array $payload): ?string
+    {
+        $details = $payload['details'] ?? null;
+        if (!is_array($details) || !array_key_exists('brand', $details)) {
+            return null;
+        }
+        return (string) $details['brand'];
+    }
+
+    /**
+     * The brand this proposal was measured from, or null when none was
+     * recorded (a payload from `alpha.51` or earlier).
+     *
+     * @param array<string,mixed> $payload
+     */
+    private static function proposedBrandBaseline(array $payload): ?string
+    {
+        $map = $payload[ProductRevision::BASELINE] ?? null;
+        if (!is_array($map) || !array_key_exists('brand', $map)) {
+            return null;
+        }
+        return (string) $map['brand'];
+    }
+
+    /**
      * A payload field that is absent keeps the product's current value, so an
      * older revision written by an older build can still be approved without
      * blanking a column that did not exist when it was proposed.
      *
      * @param array<string,mixed> $payload
      */
-    private function detailsFromPayload(array $payload, ProductDetails $current): ProductDetails
-    {
+    private function detailsFromPayload(
+        array $payload,
+        ProductDetails $current,
+        ?string $keptBrand = null
+    ): ProductDetails {
         $d = $payload['details'] ?? [];
         if (!is_array($d)) {
             return $current;
@@ -1138,7 +1243,10 @@ final class ReviewProducts
             $str('title', $current->title),
             $str('type', $current->type),
             $str('categoryKey', $current->categoryKey),
-            $str('brand', $current->brand),
+            // THE BRAND, unless this approval was told to keep the live one.
+            // `$keptBrand` is `ProposedBrand`'s answer, decided above; absent,
+            // the payload's value is the vendor's request exactly as before.
+            $keptBrand ?? $str('brand', $current->brand),
             $str('shortDescription', $current->shortDescription),
             $int('priceMinor', $current->priceMinor),
             $nullableInt('salePriceMinor', $current->salePriceMinor),

@@ -1,5 +1,5 @@
 old bytes read from dd30281: 523 php files
-this checkout:                    525 php files
+this checkout:                    526 php files
 installed: the dd30281 bytes
 
 =================== before ===================
@@ -11,12 +11,12 @@ save_code=inventory_saved
 brand_after=__empty__
 request_recorded=no
 request_name=__none__
-rows_before=24
-rows_after=24
+rows_before=35
+rows_after=35
 lands_on=step_2
 PASS  before/1 the typed name reaches nobody  (inventory_saved)
 PASS  before/1 so nothing is recorded  (no)
-PASS  before/1 and no row is written  (24)
+PASS  before/1 and no row is written  (35)
 PASS  before/1 the product's brand does not move  (__empty__)
 PASS  before/typed-unapproved-twice  the probe ran
 --- before typed-unapproved-twice ---
@@ -25,7 +25,7 @@ product_id=1315
 save_code=inventory_saved
 same_request=no
 rows_unchanged=yes
-rows_now=24
+rows_now=35
 PASS  before/2 the typed name still reaches nobody  (inventory_saved)
 PASS  before/typed-retyped  the probe ran
 --- before typed-retyped ---
@@ -98,9 +98,9 @@ PASS  before/badge  the probe ran
 --- before badge ---
 probe=ran
 product_id=1315
-unseen_before_request=2
+unseen_before_request=5
 in_queue=no
-unseen_after_request=2
+unseen_after_request=5
 unseen_delta=0
 badge_saw_it=no
 PASS  before/8 nothing was asked, so nothing is waiting  (no)
@@ -145,8 +145,8 @@ save_code=brand_requested
 brand_after=__empty__
 request_recorded=yes
 request_name=سینا_طب_۵۱
-rows_before=25
-rows_after=26
+rows_before=36
+rows_after=37
 lands_on=step_2
 PASS  after/1 the product saves  (brand_requested)
 PASS  after/1 the name is recorded for the manager  (yes)
@@ -160,7 +160,7 @@ product_id=1315
 save_code=brand_request_unchanged
 same_request=yes
 rows_unchanged=yes
-rows_now=26
+rows_now=37
 PASS  after/2 a re-save is not an error  (brand_request_unchanged)
 PASS  after/2 it is the same request  (yes)
 PASS  after/2 and no second row was written  (yes)
@@ -253,9 +253,9 @@ PASS  after/badge  the probe ran
 --- after badge ---
 probe=ran
 product_id=1315
-unseen_before_request=2
+unseen_before_request=5
 in_queue=yes
-unseen_after_request=3
+unseen_after_request=6
 unseen_delta=1
 badge_saw_it=yes
 PASS  after/8 the request is in the review queue  (yes)

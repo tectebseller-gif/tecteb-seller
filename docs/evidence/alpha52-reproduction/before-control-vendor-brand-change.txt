@@ -1,0 +1,13 @@
+probe=ran
+revision_code=revision_requested
+approve_code=revision_approved
+after_row_brand=مدلاین_۵۲
+after_row_term=95
+after_shop_brand=مدلاین_۵۲
+after_row_description=متن_کامل_اول
+after_row_stock=12
+after_open_revision=no
+after_open_brand_request=no
+brand_is_c=yes
+term_is_c=yes
+shop_is_c=yes

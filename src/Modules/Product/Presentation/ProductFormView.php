@@ -259,7 +259,15 @@ final class ProductFormView
             // something computed at submit time, because the whole point is
             // that it is the value as it WAS when this page loaded.
             . '<input type="hidden" name="revision" value="' . esc_attr($revision) . '">'
-            . self::carryOver($step, $details, $specs, $template)
+            // THE BRAND IS CARRIED AS THE BOX SHOWS IT, not as the payload
+            // holds it — passed in rather than read off `$details`, because
+            // `$details` on a published product with a pending proposal IS the
+            // payload, and the box is deliberately rendered from the live row.
+            // A form holding two different brands sends the one the vendor
+            // cannot see, and that is how a step-2 save of the PRICE re-asked
+            // for a brand a manager had already replaced. Measured:
+            // `box_shows=سینا طب ۵۲ hidden_carries=آریا طب ۵۲`.
+            . self::carryOver($step, $details, $specs, $template, (string) ($brands['value'] ?? $details->brand))
             . self::gallery($images, $mainImageId, $step, $maxImageBytes)
             . match ($step) {
                 '2' => self::stepPrice($details, $status, $proposedStock, $effectiveStock),
@@ -384,10 +392,25 @@ final class ProductFormView
      *
      * @param array<string,string> $specs
      */
-    private static function carryOver(string $step, ProductDetails $d, array $specs, ?SpecTemplate $template): string
-    {
+    private static function carryOver(
+        string $step,
+        ProductDetails $d,
+        array $specs,
+        ?SpecTemplate $template,
+        ?string $shownBrand = null
+    ): string {
         $fields = [
-            '1' => ['title' => $d->title, 'type' => $d->type, 'category' => $d->categoryKey, 'brand' => $d->brand, 'short_description' => $d->shortDescription],
+            '1' => [
+                'title' => $d->title,
+                'type' => $d->type,
+                'category' => $d->categoryKey,
+                // The brand the step-1 box SHOWS. See the call site: on a
+                // published product `$d` is the pending proposal and the box
+                // is the live row, so taking it from `$d` here would make the
+                // form disagree with itself.
+                'brand' => $shownBrand ?? $d->brand,
+                'short_description' => $d->shortDescription,
+            ],
             '2' => [
                 'price' => (string) $d->priceMinor,
                 'sale_price' => $d->salePriceMinor === null ? '' : (string) $d->salePriceMinor,

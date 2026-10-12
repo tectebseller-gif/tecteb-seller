@@ -1,0 +1,55 @@
+new package: 0.1.0-alpha.52 (target schema 26) · step 0026_review_seen_brand
+column: brand_proposal_id on tmc_review_seen
+retry cooldown, read from UpgradeGate: 300s
+
+==============================================================
+base: 0.1.0-alpha.50 (its own target schema 25) · structural=yes
+==============================================================
+ok:   1a the base answers an admin request                           200
+ok:   1b and leaves the database on ITS target                       25
+ok:   1c the new column is not there                                 0
+probe=ran
+product_id=1315
+inventory_code=stock_revision_requested
+request_code=brand_requested
+open_request=yes
+open_revision=yes
+ok:   1d the base recorded an open brand request                     yes
+ok:   1e and an open stock proposal                                  yes
+in flight on the base: 1 open brand request(s), 6 open proposal(s)
+ok:   2a the new files are on disk                                   0.1.0-alpha.52
+ok:   2b and the database is still behind                            25
+ok:   3a an admin request succeeds                                   200
+ok:   3b the schema is at the new target                             26
+ok:   3c the column is there                                         1
+ok:   3d with the shape verify() requires                            0/NO
+ok:   3e the open brand request survived                             1
+ok:   3f the open proposal survived                                  6
+ok:   4a a second admin request also succeeds                        200
+ok:   4b the schema has not moved                                    26
+ok:   4c and the work in flight is still in flight                   1
+ok:   5a an obstacle is in place: right name, wrong shape            NULL/YES
+ok:   5b the admin page still answers                                200
+ok:   5c the schema stays behind                                     25
+ok:   5d the NEW files are what is running                           0.1.0-alpha.52
+  last_error={"step":"0026_review_seen_brand","message":"verify_failed","at":"2026-10-12T17:23:44+00:00"}
+ok:   5e the reason is recorded, naming the step                     1
+ok:   5f the work in flight is untouched by the failure              1
+ok:   5g the throttle holds: still behind                            25
+ok:   6a the next admin request succeeds                             200
+ok:   6b and the job is finished                                     26
+ok:   6c with the right shape                                        0/NO
+ok:   6d the work in flight is STILL in flight                       1
+ok:   6e and so is the proposal                                      6
+ok:   7a the base answers after going back                           200
+ok:   7b the column stays — nothing older names it                 1
+ok:   7c the schema is NOT pushed back down                          26
+ok:   7d and the open brand request is still there                   1
+ok:   7e and the open proposal too                                   6
+cost of going back: the column is ignored, so a brand request stops
+lighting the badge — the behaviour 0.1.0-alpha.50 shipped with.
+
+==============================================================
+checks: 33   pass: 33   fail: 0
+
+left on: 0.1.0-alpha.52 · schema 26 · column 1

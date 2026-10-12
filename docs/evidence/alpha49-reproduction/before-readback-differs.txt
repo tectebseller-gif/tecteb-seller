@@ -1,6 +1,6 @@
 probe=ran
 propose_code=stock_revision_requested
-revision_id=249
+revision_id=392
 approve=ok
 approve_code=revision_approved
 proposed_stock=4

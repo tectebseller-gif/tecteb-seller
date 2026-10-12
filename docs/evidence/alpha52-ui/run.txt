@@ -1,0 +1,62 @@
+ok:   the installed package is the one under test                        0.1.0-alpha.52
+ok:   and the structure is the one it targets                            26
+ok:   WooCommerce is really active                                       active
+      vendor=3 · category_term=29 · brand_term=28 · product=1303 · images=295 · pending_revision=none · open_brand_request=none · sync=projected · wc_product=296 · shop_stock=20
+      product=1303 wc_product=296
+ok:   1 the vendor opens their own published product                     1303
+ok:   1b there is exactly ONE visible brand input                        1
+ok:   1c it is a text box the vendor can type in                         text
+ok:   1d with the existing names suggested                               true
+ok:   1e and its datalist is the one the box names                       tv-brand-names
+ok:   1f the radio list is gone                                          0
+ok:   1g the second «my brand is missing» box is gone                    0
+ok:   1h and so is its button                                            0
+ok:   1i the brand search button is gone too                             0
+ok:   1j one short sentence, not four paragraphs                         true
+ok:   1k the box shows the brand the product has                         آریا طب
+ok:   2 the maximum field is on the price and stock step                 1
+ok:   2b and it shows the twenty the shop is enforcing                   20
+ok:   2c the save says the limits reached the shop                       true
+ok:   2d the marketplace row holds eighteen                              18
+ok:   2e and so does the SHOP, with nothing approved in between          18
+ok:   2f no proposal was created for it                                  none
+ok:   2g the WooCommerce editor has the marketplace quantity panel       true
+ok:   2h and its maximum box carries the eighteen the vendor saved       18
+ok:   3 the stock field says what a change to it does now                true
+ok:   3b the vendor is told a request was recorded                       true
+      product=1303 · wc_product=296 · status=published · row_brand=آریا طب · row_stock=20 · row_limits=1/18/1 · shop_tmc_min_purchase=1 · shop_tmc_max_purchase=18 · shop_tmc_purchase_step=1 · shop_stock=20 · shop_attribute_brand=آریا طب · pending_revision=376 · proposed_stock=7 · open_brand_request=none · needs_review=7
+ok:   3c the proposal carries the seven                                  7
+ok:   3d the marketplace row still holds twenty                          20
+ok:   3e and WooCommerce's own stock has not moved                       20
+ok:   4 the list says how many products need review                      true
+ok:   4b and the number agrees with the database                         7
+ok:   4c the proposal is shown with the stock row                        true
+      product=1303 · wc_product=296 · status=published · row_brand=آریا طب · row_stock=7 · row_limits=1/18/1 · shop_tmc_min_purchase=1 · shop_tmc_max_purchase=18 · shop_tmc_purchase_step=1 · shop_stock=7 · shop_attribute_brand=آریا طب · pending_revision=none · proposed_stock=__none__ · open_brand_request=none · needs_review=6
+ok:   4d the row takes the approved stock                                7
+ok:   4e and WooCommerce takes it too                                    7
+ok:   4f nothing is left pending                                         none
+ok:   5 the vendor is told the product saved AND the brand is with the manager true
+ok:   5b the request is recorded, undecided                              برند مرورگر ۴۸:pending
+ok:   5c the product keeps the brand it had                              آریا طب
+ok:   5d and the list does not have the new name yet                     false
+ok:   5e the manager sees the brand on the product                       true
+ok:   5e2 in ONE field, pre-filled with the name that was asked          برند مرورگر ۴۸
+ok:   5e3 with the existing names suggested there too                    true
+      product=1303 · wc_product=296 · status=published · row_brand=برند مرورگر ۴۸ · row_stock=7 · row_limits=1/18/1 · shop_tmc_min_purchase=1 · shop_tmc_max_purchase=18 · shop_tmc_purchase_step=1 · shop_stock=7 · shop_attribute_brand=برند مرورگر ۴۸ · pending_revision=none · proposed_stock=__none__ · open_brand_request=none · needs_review=6
+ok:   5f the brand is now in WooCommerce's own list                      true
+ok:   5g the product carries it                                          برند مرورگر ۴۸
+ok:   5h and so does WooCommerce → Attributes → برند                     برند مرورگر ۴۸
+ok:   5i nothing is left open                                            none
+ok:   5j the editor's own markup carries the brand value                 true
+ok:   6 the box shows the brand that is now on the product               برند مرورگر ۴۸
+ok:   6b the box shows the name that was asked for                       برند دوم مرورگر
+ok:   6c and one sentence says it is waiting                             true
+ok:   6d while the product keeps the brand it has                        برند مرورگر ۴۸
+ok:   6e the field is on the page at 390px                               true
+ok:   6f and it does not overflow it                                     true
+ok:   6g no horizontal page scroll                                       true
+ok:   6h with scripts off the one field is still there                   1
+ok:   6i and the names are still suggested, by the browser               true
+ok:   6j and the save records the request with no script at all          برند بی‌اسکریپت:pending
+
+checks: 55   pass: 55   fail: 0

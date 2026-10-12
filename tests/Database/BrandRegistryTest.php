@@ -19,6 +19,7 @@ use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
 use Tecteb\Marketplace\Modules\Product\Domain\BrandProposal;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbBrandProposalRepository;
@@ -654,6 +655,204 @@ final class BrandRegistryTest extends DatabaseTestCase
             $this->products->brandTermIdOf($id),
             'and the approval records which approved brand it is'
         );
+    }
+
+    // ------------------------------------- two decisions about one product
+
+    /**
+     * THE FINDING of `alpha.52`, in the owner's own order.
+     *
+     * A stock proposal carries the whole payload forward, brand and all; a
+     * brand request is approved on its own table; and approving the stock then
+     * replayed the payload's brand over it. Three places went back — the row,
+     * the term id and the shop — and the result said «approved».
+     */
+    public function testApprovingAProposalDoesNotRevertABrandDecidedAfterIt(): void
+    {
+        $id = $this->publishedProduct('آریا طب');
+        // A stock proposal: the vendor says 2, the shop holds 5.
+        self::assertSame('stock_revision_requested', $this->manage->updateInventory(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            2,
+            $this->products->find($id)?->details->sku ?? '',
+            1,
+            20,
+            1
+        )->code);
+        // …and a brand request for a name the list does not hold.
+        self::assertTrue($this->brands->propose(self::VENDOR, self::VENDOR, $id, 'سینا طب')->ok);
+        $proposalId = $this->proposals->openFor($id)?->id ?? 0;
+        self::assertTrue($this->brands->approve($proposalId)->ok);
+        self::assertSame('سینا طب', $this->products->find($id)?->details->brand);
+        $termB = $this->directory->findByKey('سیناطب')?->termId;
+        self::assertSame($termB, $this->products->brandTermIdOf($id));
+
+        $revision = $this->revisions->pendingFor($id);
+        self::assertSame('آریا طب', (string) ($revision->payload['details']['brand'] ?? ''), 'the snapshot');
+        self::assertSame('آریا طب', (string) ($revision->payload[ProductRevision::BASELINE]['brand'] ?? ''));
+
+        $approved = $this->review->approveRevision($revision->id ?? 0);
+        self::assertTrue($approved->ok, $approved->code);
+        self::assertSame('سینا طب', $this->products->find($id)?->details->brand, 'the brand is not reverted');
+        self::assertSame($termB, $this->products->brandTermIdOf($id), 'nor is its identity');
+        self::assertSame('سینا طب', $approved->context['brand_kept'] ?? '', 'and the result says so');
+        self::assertSame(2, $this->products->find($id)?->details->stock, 'the stock still moved');
+    }
+
+    /**
+     * A REAL conflict: two vendor requests about the brand, one approved on
+     * each path. Named and refused rather than settled by whichever ran last.
+     */
+    public function testTwoDecisionsAboutTheBrandAreRefusedByName(): void
+    {
+        $id = $this->publishedProduct('آریا طب');
+        // A revision asking for a brand that IS in the list.
+        self::assertSame('revision_requested', $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $this->details('دستکش لاتکس', 'مدلاین'),
+            [],
+            $this->products->find($id)?->imageIds ?? [],
+            $this->products->find($id)?->mainImageId ?? 0,
+            $this->products->find($id)?->rowVersion ?? ''
+        )->code);
+        // …and a request for one that is not, approved first.
+        self::assertTrue($this->brands->propose(self::VENDOR, self::VENDOR, $id, 'سینا طب')->ok);
+        self::assertTrue($this->brands->approve($this->proposals->openFor($id)?->id ?? 0)->ok);
+
+        $revisionId = $this->revisions->pendingFor($id)?->id ?? 0;
+        $refused = $this->review->approveRevision($revisionId);
+        self::assertFalse($refused->ok);
+        self::assertSame('brand_moved', $refused->code);
+        self::assertSame('آریا طب', $refused->context['baseline_brand'] ?? '');
+        self::assertSame('سینا طب', $refused->context['current_brand'] ?? '');
+        self::assertSame('مدلاین', $refused->context['proposed_brand'] ?? '');
+        self::assertSame('سینا طب', $this->products->find($id)?->details->brand, 'nothing was written');
+        self::assertTrue($this->revisions->pendingFor($id) !== null, 'and the proposal is still open');
+
+        // THE OVERRIDE IS FOR THE BRAND THAT WAS SHOWN — `alpha.49`'s rule.
+        $blind = $this->review->approveRevision($revisionId, [], false, null, true);
+        self::assertFalse($blind->ok);
+        self::assertSame('brand_moved_again', $blind->code);
+        self::assertSame('سینا طب', $this->products->find($id)?->details->brand);
+
+        $forced = $this->review->approveRevision($revisionId, [], false, null, true, 'سینا طب');
+        self::assertTrue($forced->ok, $forced->code);
+        self::assertSame('مدلاین', $this->products->find($id)?->details->brand);
+    }
+
+    /**
+     * A proposal written before the baseline existed — every pending row on
+     * the owner's site today. «I do not know» is a question, not a default.
+     */
+    public function testAProposalWithNoRecordedBaselineIsAQuestionNotAGuess(): void
+    {
+        $id = $this->publishedProduct('آریا طب');
+        self::assertSame('stock_revision_requested', $this->manage->updateInventory(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            2,
+            $this->products->find($id)?->details->sku ?? '',
+            1,
+            20,
+            1
+        )->code);
+        $revisionId = $this->revisions->pendingFor($id)?->id ?? 0;
+        // The shape `alpha.51` wrote: the baseline map taken back out.
+        $payload = $this->revisions->pendingFor($id)?->payload ?? [];
+        unset($payload[ProductRevision::BASELINE]);
+        $db = new WpDatabase($this->wpdb);
+        $db->execute(
+            'UPDATE `' . $db->prefix() . 'tmc_product_revisions` SET payload = %s WHERE id = %d',
+            [(string) json_encode($payload, JSON_UNESCAPED_UNICODE), $revisionId]
+        );
+        self::assertTrue($this->brands->propose(self::VENDOR, self::VENDOR, $id, 'سینا طب')->ok);
+        self::assertTrue($this->brands->approve($this->proposals->openFor($id)?->id ?? 0)->ok);
+
+        $refused = $this->review->approveRevision($revisionId);
+        self::assertSame('brand_moved', $refused->code);
+        self::assertSame('__unknown__', $refused->context['baseline_brand'] ?? '');
+        self::assertSame('سینا طب', $this->products->find($id)?->details->brand);
+    }
+
+    /**
+     * AND THE ORDINARY CASE IS NOT A QUESTION. A proposal whose brand equals
+     * the product's — which is every proposal about anything else — goes
+     * through with no baseline recorded at all.
+     */
+    public function testAProposalWithNoBaselineAndAnUnchangedBrandIsNotAQuestion(): void
+    {
+        $id = $this->publishedProduct('آریا طب');
+        self::assertSame('stock_revision_requested', $this->manage->updateInventory(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            2,
+            $this->products->find($id)?->details->sku ?? '',
+            1,
+            20,
+            1
+        )->code);
+        $revisionId = $this->revisions->pendingFor($id)?->id ?? 0;
+        $payload = $this->revisions->pendingFor($id)?->payload ?? [];
+        unset($payload[ProductRevision::BASELINE]);
+        $db = new WpDatabase($this->wpdb);
+        $db->execute(
+            'UPDATE `' . $db->prefix() . 'tmc_product_revisions` SET payload = %s WHERE id = %d',
+            [(string) json_encode($payload, JSON_UNESCAPED_UNICODE), $revisionId]
+        );
+        $approved = $this->review->approveRevision($revisionId);
+        self::assertTrue($approved->ok, $approved->code);
+        self::assertSame('آریا طب', $this->products->find($id)?->details->brand);
+        self::assertSame(2, $this->products->find($id)?->details->stock);
+    }
+
+    /**
+     * A re-save that asks for what the pending proposal already asks for is
+     * still «unchanged» AFTER the baseline map was added to the payload.
+     *
+     * Without `samePayload()` ignoring it, the first save after the upgrade
+     * would supersede every pending `alpha.51` proposal and bring back a badge
+     * for a product nobody had touched.
+     */
+    public function testTheBaselineMapDoesNotMakeAnUnchangedSaveLookLikeAChange(): void
+    {
+        $id = $this->publishedProduct('آریا طب');
+        self::assertSame('revision_requested', $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $this->details('دستکش نیتریل', 'آریا طب'),
+            [],
+            $this->products->find($id)?->imageIds ?? [],
+            $this->products->find($id)?->mainImageId ?? 0,
+            $this->products->find($id)?->rowVersion ?? ''
+        )->code);
+        $first = $this->revisions->pendingFor($id);
+        // The `alpha.51` shape: no baseline map at all.
+        $payload = $first?->payload ?? [];
+        unset($payload[ProductRevision::BASELINE]);
+        $db = new WpDatabase($this->wpdb);
+        $db->execute(
+            'UPDATE `' . $db->prefix() . 'tmc_product_revisions` SET payload = %s WHERE id = %d',
+            [(string) json_encode($payload, JSON_UNESCAPED_UNICODE), $first?->id ?? 0]
+        );
+        $again = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $this->details('دستکش نیتریل', 'آریا طب'),
+            [],
+            $this->products->find($id)?->imageIds ?? [],
+            $this->products->find($id)?->mainImageId ?? 0,
+            $this->products->find($id)?->rowVersion ?? ''
+        );
+        self::assertSame('revision_unchanged', $again->code);
+        self::assertSame($first?->id, $this->revisions->pendingFor($id)?->id, 'the same proposal, not a new one');
     }
 
     // ---------------------------------------------------------------- helpers

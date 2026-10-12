@@ -428,6 +428,20 @@ final class ManageProducts
         if (!isset($payload['details']) || !is_array($payload['details'])) {
             $payload['details'] = $this->detailsToArray($product->details);
         }
+        // THE EARLIER PROPOSAL'S BASELINE IS THE EARLIER PROPOSAL'S, and it is
+        // carried forward untouched. This payload inherits that request, so
+        // overwriting the baseline with today's brand would turn «the vendor
+        // asked for this brand» into «the vendor asked for nothing» — the
+        // opposite mistake to the one this round is about, and just as silent.
+        //
+        // When there is no earlier proposal the baseline is the live brand,
+        // because that is what this stock proposal is being measured from. And
+        // when the earlier payload has NO baseline (written by `alpha.51`),
+        // none is invented: `ProposedBrand` has an answer for «I do not know»
+        // and it is not «assume the vendor asked».
+        if ($existing === null) {
+            $payload[ProductRevision::BASELINE] = ['brand' => $product->details->brand];
+        }
         $payload['details']['stock'] = $stock;
         // The baseline travels WITH the proposal, because the conflict the
         // owner named is between proposing and approving: «اگر موجودی مؤثر بین
@@ -990,6 +1004,14 @@ final class ManageProducts
             'specs' => $specs,
             'images' => $imageIds,
             'main_image_id' => $mainImageId,
+            // WHAT THIS PROPOSAL WAS MEASURED FROM, recorded beside what it
+            // asks for — the same two-numbers-not-one shape as
+            // `stock_proposal` below, for the same reason and one field over.
+            // Without it the approval cannot tell «the vendor wants this
+            // brand» from «this brand was what the product had when the
+            // vendor changed the title», and the brand has a second decision
+            // path that moves it in between.
+            ProductRevision::BASELINE => ['brand' => $product->details->brand],
         ];
         if ($stockProposed) {
             // The proposal carries the stock AND the number it was measured
@@ -1118,6 +1140,22 @@ final class ManageProducts
      */
     private static function samePayload(array $stored, array $proposed): bool
     {
+        // PROVENANCE IS NOT A REQUEST, so it is not part of «is this the same
+        // thing the vendor already asked for».
+        //
+        // `field_baseline` records what a proposal was BUILT ON, which is how
+        // `ProposedBrand` tells a request from a value carried forward. A
+        // payload written by `alpha.51` has none, and comparing it with the map
+        // included would call every such pending proposal different from the
+        // one the same form re-posts — so the first save after the upgrade
+        // would supersede it, write a new row and bring back a badge for a
+        // product nobody had touched. «بازدید یا ذخیرهٔ بدون تغییر نباید نسخهٔ
+        // پیشنهادی یا اعلان تکراری بسازد» is the rule, and it is the one
+        // `alpha.45` paid for once already.
+        //
+        // The older payload therefore KEEPS its missing baseline, which is the
+        // honest answer: nobody knows what that request was measured from.
+        unset($stored[ProductRevision::BASELINE], $proposed[ProductRevision::BASELINE]);
         return self::canonicalPayload($stored) === self::canonicalPayload($proposed);
     }
 
