@@ -134,10 +134,21 @@ final class ManageProducts
      * Best effort and said so: the name is already on the row and is what a
      * shopper sees, so a failure here loses only the identity — which is why
      * `brandTermIdOf()` returning null means «not known», never «no brand».
+     *
+     * **AN EMPTY BRAND CLEARS THE TERM.** Found by reviewing the one-field
+     * path: this method used to return early on an empty name, so a product
+     * whose brand had just been REMOVED kept a `brand_term_id` pointing at the
+     * brand it used to have. The form resolves that id to survive a rename, so
+     * a stale one would show the removed brand in the box and the next save
+     * would put it back — a field undoing the vendor's own deletion.
      */
     private function rememberBrandTerm(int $productId, ProductDetails $details): void
     {
-        if ($this->brands === null || $details->brand === '') {
+        if ($this->brands === null) {
+            return;
+        }
+        if ($details->brand === '') {
+            $this->products->setBrandTerm($productId, '', null);
             return;
         }
         $termId = $this->brands->approvedTermFor($details->brand);

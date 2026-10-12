@@ -141,14 +141,18 @@ final class ReviewSeenLateWriteTest extends DatabaseTestCase
         $first = $this->propose($id, 'ترازوی دیجیتال نسخهٔ دو');
 
         $displayedByA = $this->products->submissionsOf([$id]);
-        self::assertStringEndsWith('.r' . $first, $displayedByA[$id], 'the token names the open proposal');
+        self::assertStringContainsString(
+            '.r' . $first . '.',
+            $displayedByA[$id],
+            'the token names the open proposal'
+        );
 
         // The vendor replaces the proposal: the old one is superseded and a new
         // one is open, so the `r` half moves while the `s` half stands still.
         self::assertTrue($this->revisions->decide($first, ProductRevision::SUPERSEDED, 0, ''));
         $second = $this->propose($id, 'ترازوی دیجیتال نسخهٔ سه');
         $current = $this->products->submissionsOf([$id]);
-        self::assertStringEndsWith('.r' . $second, $current[$id]);
+        self::assertStringContainsString('.r' . $second . '.', $current[$id]);
 
         self::assertTrue($this->storeAt(self::MIDDLE)->markSeen(self::ANA, $current));
         self::assertSame(0, $this->seen->unseenCount(self::ANA));
@@ -225,7 +229,7 @@ final class ReviewSeenLateWriteTest extends DatabaseTestCase
 
         $revision = $this->propose($id, 'دستگاه فشارسنج بازویی');
         $withProposal = $this->products->submissionsOf([$id]);
-        self::assertStringEndsWith('.r' . $revision, $withProposal[$id]);
+        self::assertStringContainsString('.r' . $revision . '.', $withProposal[$id]);
 
         // The manager answers it. Nothing is appended to the decision trail by
         // that answer — this is the line the design depended on, so it is read

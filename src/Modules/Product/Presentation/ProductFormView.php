@@ -145,13 +145,13 @@ final class ProductFormView
         ?int $proposedStock = null,
         ?int $effectiveStock = null,
         /**
-         * The brand picker's own data: the approved list, what is selected,
-         * the search query, and any open request.
+         * The brand field's own data: the value to show, the names to suggest,
+         * any open request, and where the suggestions come from.
          *
-         * An array rather than four parameters, in the shape `$categories`
+         * An array rather than seven parameters, in the shape `$categories`
          * already uses — the view is at eleven arguments already and a
-         * twelfth, thirteenth and fourteenth for one control is where a
-         * signature stops being readable.
+         * twelfth through eighteenth for one control is where a signature
+         * stops being readable.
          *
          * @var array<string,mixed>
          */
@@ -455,24 +455,25 @@ final class ProductFormView
                 (string) ($categories['suggest_nonce'] ?? ''),
                 (string) ($categories['suggest_action'] ?? '')
             )
-            // THE BRAND IS PICKED, NOT TYPED, from `alpha.48`.
+            // ONE FIELD, TYPED, WITH THE EXISTING NAMES SUGGESTED.
             //
-            // It was a free-text box from `alpha.6`, which is how the owner's
-            // shop ended up with brands spelled several ways and no list to
-            // check them against. §4 asks for the manager's list to be the
-            // only source — and for a vendor whose brand is missing to be able
-            // to ASK rather than to type it anyway.
-            . ProductBrandPickerView::render(
-                $d->brand,
-                ($brands['selected'] ?? null) instanceof Brand ? $brands['selected'] : null,
+            // `alpha.48` made it a picker: a radio list, a search box with its
+            // own submit, a separate «my brand is missing» box with its own
+            // submit, and three paragraphs of prose. Each piece answered a
+            // real question and the whole was what the owner rejected. Typing
+            // an approved name chooses that brand; typing anything else asks
+            // for it; the ordinary save does both and says which happened.
+            . ProductBrandFieldView::render(
+                (string) ($brands['value'] ?? $d->brand),
                 array_values(array_filter(
-                    (array) ($brands['results'] ?? []),
+                    (array) ($brands['suggestions'] ?? []),
                     static fn (mixed $row): bool => $row instanceof Brand
                 )),
-                (string) ($brands['query'] ?? ''),
-                (int) ($brands['total'] ?? 0),
                 (bool) ($brands['missing'] ?? false),
-                ($brands['open_request'] ?? null) instanceof BrandProposal ? $brands['open_request'] : null
+                ($brands['open_request'] ?? null) instanceof BrandProposal ? $brands['open_request'] : null,
+                (string) ($brands['suggest_url'] ?? ''),
+                (string) ($brands['suggest_nonce'] ?? ''),
+                (string) ($brands['suggest_action'] ?? '')
             )
             . '</fieldset>'
             . self::descriptionTabs($d);

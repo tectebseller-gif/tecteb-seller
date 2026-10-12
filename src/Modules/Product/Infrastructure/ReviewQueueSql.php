@@ -93,8 +93,14 @@ final class ReviewQueueSql
     {
         return [
             self::submissionSubquery($db, $alias) . ' AS tmc_submission_id,'
-                . ' ' . self::revisionSubquery($db, $alias) . ' AS tmc_revision_id',
-            [ProductDecision::SUBMITTED, ProductRevision::PENDING],
+                . ' ' . self::revisionSubquery($db, $alias) . ' AS tmc_revision_id,'
+                . ' ' . self::brandSubquery($db, $alias) . ' AS tmc_brand_id',
+            [
+                ProductDecision::SUBMITTED,
+                ProductRevision::PENDING,
+                BrandProposal::PENDING,
+                BrandProposal::REGISTERED,
+            ],
         ];
     }
 
@@ -122,12 +128,18 @@ final class ReviewQueueSql
         DatabaseInterface $db,
         int $submission,
         int $revision,
+        int $brand = 0,
         string $alias = 'p'
     ): array {
         return [
             '(COALESCE(' . self::submissionSubquery($db, $alias) . ', 0) = %d'
-                . ' AND COALESCE(' . self::revisionSubquery($db, $alias) . ', 0) = %d)',
-            [ProductDecision::SUBMITTED, $submission, ProductRevision::PENDING, $revision],
+                . ' AND COALESCE(' . self::revisionSubquery($db, $alias) . ', 0) = %d'
+                . ' AND COALESCE(' . self::brandSubquery($db, $alias) . ', 0) = %d)',
+            [
+                ProductDecision::SUBMITTED, $submission,
+                ProductRevision::PENDING, $revision,
+                BrandProposal::PENDING, BrandProposal::REGISTERED, $brand,
+            ],
         ];
     }
 
@@ -147,6 +159,25 @@ final class ReviewQueueSql
     }
 
     /**
+     * The id of the open BRAND request, if there is one. Two `%s`.
+     *
+     * The third part of the identity, from `alpha.51`. Without it a brand
+     * request — which from this round is what typing an unapproved name into
+     * the one field records — moved nothing a mark compares against, so a
+     * product already reviewed stayed «seen» while sitting in the queue.
+     *
+     * «Open» is the same two statuses `waiting()` names, so the thing that
+     * puts a product in the queue is the thing that moves its identity. A
+     * superseded request is in neither.
+     */
+    private static function brandSubquery(DatabaseInterface $db, string $alias): string
+    {
+        return '(SELECT MAX(tmc_bp.id) FROM `'
+            . M0025BrandRegistry::table($db, M0025BrandRegistry::PROPOSALS) . '` tmc_bp'
+            . ' WHERE tmc_bp.product_id = ' . $alias . '.id AND tmc_bp.status IN (%s, %s))';
+    }
+
+    /**
      * The token, from a row that selected `submissionColumns()`.
      *
      * `s0.r0` is a real answer, not a missing one — a product submitted before
@@ -159,19 +190,30 @@ final class ReviewQueueSql
      */
     public static function token(array $row): string
     {
-        return 's' . (int) ($row['tmc_submission_id'] ?? 0) . '.r' . (int) ($row['tmc_revision_id'] ?? 0);
+        return 's' . (int) ($row['tmc_submission_id'] ?? 0)
+            . '.r' . (int) ($row['tmc_revision_id'] ?? 0)
+            . '.b' . (int) ($row['tmc_brand_id'] ?? 0);
     }
 
     /**
-     * `s12.r34` back into its two integers, or null when it is not a token.
+     * `s12.r34.b56` back into its three integers, or null when it is not a
+     * token.
      *
-     * @return array{0:int|null,1:int}
+     * **The two-part form is still read, and that is deliberate.** A page
+     * rendered by `alpha.50` and submitted after the upgrade carries `s12.r34`,
+     * and refusing it would throw away a manager's reading of the queue for no
+     * gain. Its missing third part reads as nought — «there was no open brand
+     * request when I looked» — which is exactly what the stored default means,
+     * so an old form marks what it really saw and a product that has since
+     * acquired a request stays unseen.
+     *
+     * @return array{0:int|null,1:int,2:int}
      */
     public static function split(string $token): array
     {
-        if (preg_match('/^s(\d+)\.r(\d+)$/', $token, $m) !== 1) {
-            return [null, 0];
+        if (preg_match('/^s(\d+)\.r(\d+)(?:\.b(\d+))?$/', $token, $m) !== 1) {
+            return [null, 0, 0];
         }
-        return [(int) $m[1], (int) $m[2]];
+        return [(int) $m[1], (int) $m[2], (int) ($m[3] ?? 0)];
     }
 }

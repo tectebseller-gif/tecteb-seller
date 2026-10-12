@@ -104,12 +104,32 @@ final class ManageBrands
     }
 
     /**
-     * A vendor asking for a name that is not in the list.
+     * The vendor's typed name, when it is not a brand in the list.
      *
-     * The product's own brand is NOT touched: «تا تأیید، برند فعلی محصول حفظ
-     * شود». What is recorded is the request, and the uniqueness of «one open
-     * request per name» is the index's answer, so two vendors asking for
-     * «آمبو بگ» and «آمبوبگ» at the same moment cannot both open one.
+     * **This is no longer its own button.** `alpha.48` gave it a field and a
+     * submit of its own and the owner rejected that shape: one box, one save.
+     * So this is called from the ordinary «ذخیره و ادامه», after the product
+     * itself has been stored, and the product's own brand is NOT touched —
+     * «تا تأیید، برند فعلی محصول حفظ شود» is that line and nothing else.
+     *
+     * **Pressing save twice must not ask twice.** The owner asked for exactly
+     * that: «ذخیرهٔ تکراری، دوبار کلیک یا تلاش مجدد پس از خطا نباید درخواست یا
+     * برند تکراری بسازد». So the open request is read first and three things
+     * can be true of it:
+     *
+     *  - it asks for this same normalised name — nothing is written, and the
+     *    answer says the request is still waiting rather than reporting an
+     *    error about a save that worked;
+     *  - it asks for something else — it is SUPERSEDED and the new one opened,
+     *    as one unit of work, because the vendor retyping is the vendor
+     *    changing their mind and the latest typing is what they asked for;
+     *  - there is none — one is opened.
+     *
+     * A request that was already REGISTERED can be superseded too, and the
+     * cost is stated: the brand stays in the manager's list, because that half
+     * was asked for and granted and nothing here removes an approved brand;
+     * what stops is applying it to this product, which is what the vendor just
+     * said they did not want.
      */
     public function propose(int $actorId, int $vendorUserId, int $productId, string $name): OperationResult
     {
@@ -129,7 +149,9 @@ final class ManageBrands
         }
         // Asked before anything is recorded: a name that IS already a brand
         // needs no request, and recording one would put a decision in front of
-        // a manager that has nothing to decide.
+        // a manager that has nothing to decide. The form resolves this case
+        // before calling, so reaching it means a brand was approved between
+        // the render and the save — which is a reason to use it, not to ask.
         $existing = $this->brands->findByKey(BrandName::key($display));
         if ($existing !== null) {
             return OperationResult::failure('brand_already_approved', [
@@ -138,40 +160,69 @@ final class ManageBrands
             ]);
         }
         $open = $this->proposals->openFor($productId);
-        if ($open !== null) {
-            return OperationResult::failure('brand_request_open', [
-                'brand' => $open->name,
-                'proposal_id' => $open->id,
+        $replaced = $this->proposals->replaceOpen(
+            $productId,
+            $vendorUserId,
+            $display,
+            BrandName::key($display),
+            $open?->id ?? 0
+        );
+        if ($replaced['code'] === 'unchanged') {
+            // ZERO WRITES, and said as the saving it is: the product was
+            // stored, and the request the vendor already made is still waiting.
+            return OperationResult::success('brand_request_unchanged', [
+                'brand' => $display,
+                'proposal_id' => $replaced['id'],
             ]);
         }
-        $proposalId = $this->proposals->open($productId, $vendorUserId, $display, BrandName::key($display));
-        if ($proposalId === 0) {
-            // The index refused it: somebody is already asking for this brand.
-            // Said as itself rather than as a storage error — the table is
-            // working exactly as designed (`alpha.39`).
-            return OperationResult::failure('brand_request_elsewhere', ['brand' => $display]);
+        if ($replaced['code'] !== 'replaced') {
+            // Each of these has written nothing. `taken` is the unique index
+            // answering that somebody else is asking for this brand — an
+            // answer, not a storage error (`alpha.39`) — and the vendor's
+            // earlier request, if they had one, is untouched.
+            return OperationResult::failure(match ($replaced['code']) {
+                'taken' => 'brand_request_elsewhere',
+                'not_atomic' => 'brand_request_not_atomic',
+                'superseded_elsewhere' => 'brand_request_decided',
+                default => 'storage_failed',
+            }, ['brand' => $display]);
         }
         $this->audit->log(AuditEventCatalog::PRODUCT_SAVED, $actorId, 'product', (string) $productId, [
             'vendor_id' => $vendorUserId,
             'product_id' => $productId,
-            'brand_proposal_id' => $proposalId,
+            'brand_proposal_id' => $replaced['id'],
         ]);
-        return OperationResult::success('brand_requested', [
-            'proposal_id' => $proposalId,
-            'brand' => $display,
-        ]);
+        return OperationResult::success(
+            $open === null ? 'brand_requested' : 'brand_request_replaced',
+            ['proposal_id' => $replaced['id'], 'brand' => $display]
+        );
     }
 
     /**
-     * The manager approving a requested brand: register it, then apply it.
+     * The manager's decision, from ONE field: attach, or correct and add.
      *
-     * In that order, and recorded between the two. Registering first means a
-     * failure to apply still leaves the brand in the list for every shop —
-     * which is the half that was asked for and granted — and the request says
-     * `apply_to_product` is outstanding so `finish()` can try again. Applying
-     * first would be a product pointing at a brand that is in no list.
+     * The owner asked for three things to be possible in the product's own
+     * review path — «آن را به یک برند موجود متصل کند»، «نام پیشنهادی را اصلاح
+     * و برند جدید را تأیید کند»، «پیشنهاد را رد کند» — and the first two are
+     * the same gesture with a different answer, so they are one box and one
+     * button rather than two of each. Whatever name is in the box is resolved
+     * against the list exactly as the vendor's typing is:
+     *
+     *  - **it IS an approved brand** → that term is used and NOTHING is
+     *    registered. This is «connect it to an existing brand», and it is also
+     *    what makes correcting a misspelling of a brand that already exists do
+     *    the right thing instead of creating its twin.
+     *  - **it is not** → it is registered, under the manager's spelling.
+     *
+     * An empty box means «the name as asked», so the common case is one click.
+     *
+     * Then the two halves, in that order, recorded between them. Registering
+     * first means a failure to apply still leaves the brand in the list for
+     * every shop — the half that was asked for and granted — and the request
+     * says `apply_to_product` is outstanding so `finish()` can try again.
+     * Applying first would be a product pointing at a brand in no list.
      */
-    public function approve(int $proposalId): OperationResult
+    public function approve(int $proposalId, string $name = ''): OperationResult
     {
         if (!$this->capabilities->can(Capabilities::REVIEW_PRODUCTS)) {
             return OperationResult::failure('forbidden');
@@ -183,11 +234,23 @@ final class ManageBrands
         if (!$proposal->isPending()) {
             return OperationResult::failure('already_decided');
         }
-        $brand = $this->brands->register($proposal->name);
+        $chosen = BrandName::display($name);
+        if ($chosen === '') {
+            $chosen = $proposal->name;
+        }
+        if (!BrandName::isValid($chosen)) {
+            return OperationResult::failure('brand_name_invalid', ['brand' => $chosen]);
+        }
+        // ATTACH OR REGISTER, decided by the list rather than by which button
+        // was pressed. `register()` adopts an existing term for the same key
+        // anyway, so this is not about avoiding a duplicate — it is about the
+        // audit record saying which of the two a manager actually did.
+        $attached = $this->brands->findByKey(BrandName::key($chosen));
+        $brand = $attached ?? $this->brands->register($chosen);
         if ($brand === null) {
             // NOT recorded as anything. A refused write is not an absence, and
             // marking the request decided here would lose it.
-            return OperationResult::failure('brand_not_registered', ['brand' => $proposal->name]);
+            return OperationResult::failure('brand_not_registered', ['brand' => $chosen]);
         }
         $reviewer = $this->capabilities->currentUserId() ?? 0;
         if (!$this->proposals->decide($proposalId, BrandProposal::REGISTERED, $reviewer, '', $brand->termId, BrandProposal::PENDING)) {
@@ -204,9 +267,18 @@ final class ManageBrands
             'product_id' => $proposal->productId,
             'brand_proposal_id' => $proposalId,
             'decision' => BrandProposal::REGISTERED,
+            'attached' => $attached !== null,
+            'renamed' => !BrandName::same($brand->name, $proposal->name),
             'has_note' => false,
         ]);
-        return $this->finish($proposalId);
+        $done = $this->finish($proposalId);
+        if (!$done->ok) {
+            return $done;
+        }
+        return OperationResult::success($done->code, $done->context + [
+            'attached' => $attached !== null ? '1' : '',
+            'asked' => $proposal->name,
+        ]);
     }
 
     /**

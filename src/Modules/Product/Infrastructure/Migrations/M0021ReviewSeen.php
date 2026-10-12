@@ -260,12 +260,27 @@ final class M0021ReviewSeen implements MigrationInterface
     public function verify(DatabaseInterface $db): bool
     {
         $table = self::table($db, self::SEEN);
-        $columns = $db->getVar(
-            'SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY COLUMN_NAME) FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
-            [$table]
+        // THE COLUMNS THIS STEP NEEDS, NOT «THE TABLE HAS NEVER CHANGED».
+        //
+        // This was an exact-string match on the whole column set, and
+        // `alpha.51` paid for it: adding `brand_proposal_id` in migration 26
+        // made THIS step's `verify()` answer false for ever, so the runner
+        // stopped at version 20 and the upgrade gate had nothing it could
+        // finish — on a real site the plugin would simply refuse to move.
+        //
+        // The guard's purpose (`alpha.37`) is to catch a same-named table that
+        // accepts no write, and asking for the required columns to be PRESENT
+        // catches that just as well. Asking for them to be the only ones ever
+        // present forbids every later migration from touching this table,
+        // which is not a property any of them agreed to.
+        $needed = ['user_id', 'product_id', 'submission_id', 'revision_id', 'seen_at'];
+        $found = $db->getVar(
+            'SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
+               AND COLUMN_NAME IN (%s, %s, %s, %s, %s)',
+            [$table, ...$needed]
         );
-        if ($columns !== 'product_id,revision_id,seen_at,submission_id,user_id') {
+        if ($found === null || (int) $found !== count($needed)) {
             return false;
         }
         return $db->getVar(

@@ -33,7 +33,7 @@ use Tecteb\Marketplace\Modules\Product\Presentation\ProductCategoryPickerView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductBulkPreviewView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductCsvView;
 use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
-use Tecteb\Marketplace\Modules\Product\Presentation\ProductBrandPickerView;
+use Tecteb\Marketplace\Modules\Product\Presentation\ProductBrandFieldView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductFormView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductListView;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
@@ -322,48 +322,81 @@ final class ProductArea
             // without `pullStock()` noticing.
             self::proposedStockOf($pending),
             $product?->details->stock,
-            $this->brandPicker($product?->details->brand ?? '', $productId, $view->request->queryText('brand_q'))
+            $this->brandField(
+                $product?->details->brand ?? '',
+                $productId,
+                $mayEdit,
+                is_array($carried) && (int) ($carried['product_id'] ?? -1) === $productId ? $carried : null
+            )
         );
     }
 
     /**
-     * The brand picker's data: the approved list, the selection, any request.
+     * The brand field's data: what the box shows, and the names to suggest.
      *
-     * The selection is resolved from the stored TERM ID first and from the
-     * name only as a fallback, because the id is identity: a manager who
-     * renames a brand in WooCommerce should leave the product pointing at the
-     * same brand, and a name lookup would lose it.
+     * **Three readings for the value, in this order, and the order is the
+     * point.** What the vendor typed and could not save beats what they have
+     * asked for, which beats what the product holds:
      *
+     *  1. the typing carried back from a refused save — «ورودی پس از خطای
+     *     اعتبارسنجی حفظ شود»;
+     *  2. the name of the open request, so a vendor who asked for a brand
+     *     reads the name they asked for rather than the one the product still
+     *     has. `alpha.45`'s finding was a form that knew a proposal existed
+     *     and showed none of it, which is the worst of the three readings to
+     *     leave somebody with: their work is safe and the screen says it is
+     *     gone;
+     *  3. the brand on the row, which is the ordinary case.
+     *
+     * The suggestions are seeded with the names matching whatever the box
+     * shows, so a vendor returning to a product sees their own brand's
+     * neighbours rather than the alphabet's first forty.
+     *
+     * @param array<string,mixed>|null $carried the refused save's own values
      * @return array<string,mixed>
      */
-    private function brandPicker(string $currentBrand, int $productId, string $query): array
+    private function brandField(string $currentBrand, int $productId, bool $mayEdit, ?array $carried): array
     {
-        $brands = $this->container->get(ManageBrands::class);
-        $picked = $brands->pick($query, ProductBrandPickerView::SHOW);
-        $directory = $this->container->get(BrandDirectoryInterface::class);
-        $selected = null;
-        if ($productId > 0) {
+        $open = $productId > 0
+            ? $this->container->get(BrandProposalRepositoryInterface::class)->openFor($productId)
+            : null;
+        $value = $currentBrand;
+        // THE STORED TERM ID IS IDENTITY; THE ROW'S NAME IS A LABEL.
+        //
+        // A manager who renames a brand in WooCommerce's own screen leaves
+        // every product row holding the old spelling — which is no longer in
+        // the list. Resolved by name alone, the vendor's next save would read
+        // their own unchanged brand as an unapproved name and open a REQUEST
+        // for a brand that already exists. So the box shows the term's current
+        // name, and the save carries the row up to the rename.
+        if ($productId > 0 && $currentBrand !== '') {
             $termId = $this->products()->brandTermIdOf($productId);
-            if ($termId !== null) {
-                $selected = $directory->find($termId);
+            $named = $termId === null
+                ? null
+                : $this->container->get(BrandDirectoryInterface::class)->find($termId);
+            if ($named !== null) {
+                $value = $named->name;
             }
         }
-        if ($selected === null && $currentBrand !== '') {
-            // No stored id — a row from before the registry. It is still shown
-            // as the selection when the name happens to BE an approved brand,
-            // which is the one case where showing it as «from before the list»
-            // would be wrong.
-            $selected = $directory->findByKey(BrandName::key($currentBrand));
+        if ($open !== null) {
+            $value = $open->name;
         }
+        if (is_array($carried) && array_key_exists('brand_typed', $carried)) {
+            $value = (string) $carried['brand_typed'];
+        }
+        $picked = $this->container->get(ManageBrands::class)->pick($value, ProductBrandFieldView::SUGGEST);
         return [
-            'selected' => $selected,
-            'results' => $picked['brands'],
-            'query' => $query,
-            'total' => $picked['total'],
+            'value' => $value,
+            'suggestions' => $picked['brands'],
             'missing' => !$picked['available'],
-            'open_request' => $productId > 0
-                ? $this->container->get(BrandProposalRepositoryInterface::class)->openFor($productId)
-                : null,
+            'open_request' => $open,
+            // Empty for a reader with no edit rights: the seeded datalist is
+            // still filtered by the browser, and an endpoint handed to
+            // somebody who may not edit is an endpoint whose limits nobody
+            // checks the day it answers something else.
+            'suggest_url' => $mayEdit ? admin_url('admin-ajax.php') : '',
+            'suggest_nonce' => $mayEdit ? wp_create_nonce(BrandSuggest::NONCE) : '',
+            'suggest_action' => BrandSuggest::ACTION,
         ];
     }
 
@@ -470,16 +503,17 @@ final class ProductArea
         // Read BEFORE the details are built, because «this form says nothing
         // about the long description» has to be answered with the value that
         // is there — see `LongDescription::decide()`.
+        // The brand the ROW holds. Read here rather than in the reader,
+        // because the reader has no product — and read BEFORE the details are
+        // built, because what one typed name means depends on it.
+        $currentBrand = $productId > 0
+            ? ($this->products()->findOwned($productId, $vendorUserId)?->details->brand ?? '')
+            : '';
+        $brand = $this->brandDecision($request, $currentBrand);
         $details = $this->detailsFromPost(
             $request,
             $this->manage()->storedLongDescription($userId, $vendorUserId, $productId),
-            // The brand the ROW holds, so `brand_term=keep` can mean «leave it
-            // alone» — which is the only honest instruction about a free-text
-            // brand from before the registry. Read here rather than in the
-            // reader, because the reader has no product.
-            $productId > 0
-                ? ($this->products()->findOwned($productId, $vendorUserId)?->details->brand ?? '')
-                : ''
+            $brand['name']
         );
         $specs = $request->postMap('spec');
         // ASKED BEFORE THE FILE IS TAKEN OFF THE WIRE. A browser that resends
@@ -524,6 +558,13 @@ final class ProductArea
                 'specs' => $specs,
                 'images' => $imageIds,
                 'main_image_id' => $mainImageId,
+                // THE TYPED BRAND, not the resolved one. `details.brand` holds
+                // the value the field would take, which for an unapproved name
+                // is the brand the product already has — so carrying only that
+                // would hand the vendor back a box with somebody else's name
+                // in it and their own typing gone. «ورودی پس از خطای
+                // اعتبارسنجی حفظ شود» is about what they typed.
+                'brand_typed' => $brand['request'] !== '' ? $brand['request'] : $brand['name'],
             ], self::FORM_TTL);
             return new VendorAreaOutcome($result->code, $this->stepUrl($urls, $landOn, $step), $result->context);
         }
@@ -576,15 +617,8 @@ final class ProductArea
         // problem, a failed upload, a half-written draft) all return above
         // this line.
         $searching = $request->postText('search_category') !== '';
-        // The brand search is the same trick as the category search: the
-        // button is a SUBMIT, so everything the vendor has typed is saved
-        // first and the query travels in the redirect. It lands back on step 1
-        // rather than on the gallery step, because that is where the brand
-        // picker is.
-        $brandSearching = $request->postText('search_brand') !== '';
         $next = match (true) {
             $searching => self::GALLERY_STEP,
-            $brandSearching => $step,
             $request->postText('move_image') !== '' => $step,
             // A replay is not progress: the vendor is asked to look at the
             // draft that already exists, and the gallery the message names is
@@ -596,30 +630,48 @@ final class ProductArea
         if ($searching) {
             $url = add_query_arg('cat_q', rawurlencode($request->postText('category_q')), $url);
         }
-        if ($brandSearching) {
-            $url = add_query_arg('brand_q', rawurlencode($request->postText('brand_q')), $url);
-        }
-        // ASKING FOR A BRAND, on the same submit.
+        // A BRAND NAME NOBODY HAS APPROVED, recorded on the ordinary save.
         //
-        // Not its own form, because the box sits inside the product form and a
-        // form inside a form is not markup a browser will send. Not its own
-        // action either: the button is a submit, so the vendor's typing is
-        // SAVED first — the `alpha.14` trick the image-move and the two
-        // searches all use — and the request is recorded after the save
-        // succeeded. A request recorded beside a refused save would be a
-        // request for a product that did not take the rest of the form.
+        // No second field and no second button — the shape the owner asked
+        // for. It runs AFTER the save succeeded, deliberately: a request
+        // recorded beside a refused save would be a request for a product
+        // that did not take the rest of the form. And after the save means
+        // after the CREATE too, so a name typed while making a new product is
+        // attached to the product that save just made (`$savedId`), which is
+        // «نام پیشنهادی در جریان عادی ایجاد محصول حفظ و پس از ایجاد به همان
+        // محصول متصل شود».
         //
-        // The product's own brand is not touched by any of this: step 1 posts
-        // `brand_term=keep` unless the vendor picked something, and «تا تأیید،
-        // برند فعلی محصول حفظ شود» is that line and nothing else.
-        if ($request->postText('request_brand') !== '' && $request->postText('brand_request') !== '') {
+        // The product's own brand is not touched by any of this: `brandDecision()`
+        // kept the stored value, and «تا تأیید، برند فعلی محصول حفظ شود» is
+        // that line and nothing else.
+        //
+        // The redirect still goes FORWARD. Asking for a brand is not a reason
+        // to stay on step 1: the vendor pressed «ذخیره و ادامه», the save
+        // happened, and the news about the brand travels as the outcome.
+        if ($brand['request'] !== '') {
             $asked = $this->container->get(ManageBrands::class)->propose(
                 $userId,
                 $vendorUserId,
                 $savedId,
-                $request->postText('brand_request')
+                $brand['request']
             );
-            return new VendorAreaOutcome($asked->code, $this->stepUrl($urls, $savedId, $step), $asked->context);
+            // NO FLASH IS NEEDED for the name. A recorded request IS the
+            // record of what was typed, and `brandField()` reads it back — so
+            // the box shows the requested name for as long as the request is
+            // open, which survives a refresh, a new session and a different
+            // browser in a way a flash never could. The `alpha.45` finding was
+            // a form that knew a proposal existed and showed none of it; this
+            // shows it.
+            // Discarded uploads are carried here too. A message about the
+            // brand that quietly dropped «و ۲ تصویر نرفت» would hide
+            // something that happened, which is the same fault as reporting
+            // a half as a whole.
+            $context = $asked->context + ['product_id' => $savedId];
+            return new VendorAreaOutcome(
+                $asked->code,
+                $url,
+                $discarded > 0 ? $context + ['discarded_uploads' => $discarded] : $context
+            );
         }
         return new VendorAreaOutcome(
             $result->code,
@@ -803,7 +855,7 @@ final class ProductArea
     private function detailsFromPost(
         Request $request,
         ?string $storedLong = null,
-        string $currentBrand = ''
+        string $brand = ''
     ): ProductDetails {
         $number = fn (string $raw): int => $this->number($raw);
         $optional = fn (string $raw): ?int => $this->optionalNumber($raw);
@@ -815,15 +867,14 @@ final class ProductArea
             $request->postText('title'),
             $request->postKey('type') !== '' ? $request->postKey('type') : 'simple',
             $request->postKey('category'),
-            // THE BRAND COMES FROM THE PICKER, not from a text box.
+            // ALREADY DECIDED, by `brandDecision()`, before this was called.
             //
-            // §4: «متن آزاد نباید برند رسمی تکراری بسازد». So step 1 posts
-            // `brand_term` — a term id, `keep`, or `0` — and the NAME is
-            // looked up from the manager's list rather than typed. The other
-            // steps post no picker at all: their hidden `brand` field carries
-            // the value forward (`carryOver()`), which is why the fallback has
-            // to stay and why it cannot be a refusal.
-            $this->brandFromPost($request, $currentBrand),
+            // One typed name can mean three things — this approved brand, no
+            // brand, or a request for a name nobody has approved — and only
+            // one of them is a value for this field. Resolving it here would
+            // put that decision inside a reader that cannot report the third
+            // case to anybody.
+            $brand,
             $request->postTextarea('short_description'),
             $number($request->postText('price')),
             $optional($request->postText('sale_price')),
@@ -1073,34 +1124,47 @@ final class ProductArea
     }
 
     /**
-     * What the brand picker chose, as a name.
+     * What ONE typed brand name means: a value for the field, or a request.
      *
-     * Four answers, and each one is a different instruction:
+     * `alpha.48` answered this with a radio list — a term id, `keep` or `0` —
+     * and the owner rejected the shape that needed. One box has to carry all
+     * of it, so the save decides, and these are the five readings:
      *
-     *  - **a term id** — this approved brand, by its name as the list holds
-     *    it. Looked up rather than taken from the request, so a posted name
-     *    cannot differ from the approved one by a character.
-     *  - **`keep`** — leave the brand alone. The only honest answer for a
-     *    free-text brand from before the registry, and the reason the picker
-     *    does not quietly drop one.
-     *  - **`0`** — no brand. A real choice, so it is written.
-     *  - **nothing posted** — this form has no picker (steps 2 to 4 carry the
-     *    brand as a hidden field), so the carried value stands.
+     *  - **the field is not in the POST at all** → nothing is being asked, so
+     *    the stored brand stands. That is the `alpha.42` rule («an absent box
+     *    is not an instruction to delete»), and it is also what makes a stale
+     *    `alpha.50` form — whose picker posted `brand_term` and no `brand` —
+     *    arrive harmlessly during an upgrade instead of clearing the brand.
+     *  - **empty** → no brand. A real choice, written as one.
+     *  - **the stored value, however it is spelled** → unchanged. The stored
+     *    spelling stands and nothing is re-judged, which is how a legacy
+     *    free-text brand goes on being saved without being called approved.
+     *  - **an approved brand** → that brand, under THE LIST'S spelling rather
+     *    than the typing, so a posted name cannot differ from the approved one
+     *    by a character.
+     *  - **anything else** → a REQUEST. The field keeps the brand the product
+     *    has — «تا تأیید، برند فعلی محصول حفظ شود» — and the name travels in
+     *    `request` for the save to record once the product itself is stored.
+     *
+     * @return array{name:string, request:string}
      */
-    private function brandFromPost(Request $request, string $currentBrand): string
+    private function brandDecision(Request $request, string $currentBrand): array
     {
-        $choice = $request->postKey('brand_term');
-        if ($choice === '') {
-            return $request->postText('brand');
+        if (!$request->hasPost('brand')) {
+            return ['name' => $currentBrand, 'request' => ''];
         }
-        if ($choice === 'keep') {
-            return $currentBrand;
+        $typed = BrandName::display($request->postText('brand'));
+        if ($typed === '') {
+            return ['name' => '', 'request' => ''];
         }
-        $termId = (int) $choice;
-        if ($termId <= 0) {
-            return '';
+        if (BrandName::same($typed, $currentBrand)) {
+            return ['name' => $currentBrand, 'request' => ''];
         }
-        return $this->container->get(BrandDirectoryInterface::class)->find($termId)?->name ?? $currentBrand;
+        $approved = $this->container->get(BrandDirectoryInterface::class)->findByKey(BrandName::key($typed));
+        if ($approved !== null) {
+            return ['name' => $approved->name, 'request' => ''];
+        }
+        return ['name' => $currentBrand, 'request' => $typed];
     }
 
     /** @param array<string,mixed> $raw */

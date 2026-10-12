@@ -74,17 +74,19 @@ final class ReviewSeenConcurrencyTest extends DatabaseTestCase
     public function testALateWriteFromAnotherConnectionCannotPullTheMarkBackwards(): void
     {
         $productId = $this->submit('دستکش');
-        self::assertSame('s1.r0', $this->identity($productId), 'the first submission');
+        // Three parts since `alpha.51`: a brand request is the third thing a
+        // manager can be waiting to decide, and `b0` says there is none.
+        self::assertSame('s1.r0.b0', $this->identity($productId), 'the first submission');
 
         // The vendor resubmits, so the identity moves. Committed on THIS
         // connection before the other process starts, which is the state a
         // slow request finds.
         $this->resubmit($productId);
-        self::assertSame('s2.r0', $this->identity($productId));
+        self::assertSame('s2.r0.b0', $this->identity($productId));
 
         // The fast request records the NEW view.
-        self::assertTrue($this->storeAt(self::MIDDLE)->markSeen(self::ANA, [$productId => 's2.r0']));
-        self::assertSame('s2.r0', $this->mark($productId));
+        self::assertTrue($this->storeAt(self::MIDDLE)->markSeen(self::ANA, [$productId => 's2.r0.b0']));
+        self::assertSame('s2.r0.b0', $this->mark($productId));
         self::assertSame(0, $this->seen->unseenCount(self::ANA), 'nothing is waiting on Ana');
 
         // And now the slow request finishes — another process, its own
@@ -92,10 +94,10 @@ final class ReviewSeenConcurrencyTest extends DatabaseTestCase
         // `seen_at` guard this won, because it wrote last.
         self::assertSame(
             'declined',
-            $this->secondConnection(self::ANA, $productId, 's1.r0', self::LATE),
+            $this->secondConnection(self::ANA, $productId, 's1.r0.b0', self::LATE),
             'the older view must not be recorded'
         );
-        self::assertSame('s2.r0', $this->mark($productId), 'the mark did not move backwards');
+        self::assertSame('s2.r0.b0', $this->mark($productId), 'the mark did not move backwards');
         self::assertSame(0, $this->seen->unseenCount(self::ANA), 'and no notification came back');
     }
 
@@ -109,10 +111,10 @@ final class ReviewSeenConcurrencyTest extends DatabaseTestCase
 
         self::assertSame(
             'wrote',
-            $this->secondConnection(self::ANA, $productId, 's1.r0', self::EARLY),
+            $this->secondConnection(self::ANA, $productId, 's1.r0.b0', self::EARLY),
             'the current identity, from the other connection, is recorded'
         );
-        self::assertSame('s1.r0', $this->mark($productId));
+        self::assertSame('s1.r0.b0', $this->mark($productId));
         self::assertSame(0, $this->seen->unseenCount(self::ANA));
     }
 
@@ -124,19 +126,19 @@ final class ReviewSeenConcurrencyTest extends DatabaseTestCase
         $productId = $this->submit('گاز استریل');
         self::assertSame(
             'wrote',
-            $this->secondConnection(self::ANA, $productId, 's1.r0', self::EARLY)
+            $this->secondConnection(self::ANA, $productId, 's1.r0.b0', self::EARLY)
         );
 
         $this->resubmit($productId);
-        self::assertSame('s2.r0', $this->identity($productId));
+        self::assertSame('s2.r0.b0', $this->identity($productId));
         self::assertSame(1, $this->seen->unseenCount(self::ANA), 'the resubmission is unseen again');
 
         // The other connection writes the stale token once more, later.
         self::assertSame(
             'declined',
-            $this->secondConnection(self::ANA, $productId, 's1.r0', self::LATE)
+            $this->secondConnection(self::ANA, $productId, 's1.r0.b0', self::LATE)
         );
-        self::assertSame('s1.r0', $this->mark($productId), 'unchanged, not advanced');
+        self::assertSame('s1.r0.b0', $this->mark($productId), 'unchanged, not advanced');
         self::assertSame(1, $this->seen->unseenCount(self::ANA), 'and it is still waiting');
     }
 

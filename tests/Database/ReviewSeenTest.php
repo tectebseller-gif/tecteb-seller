@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\DbBrandProposalRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductDecisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
@@ -46,6 +47,7 @@ final class ReviewSeenTest extends DatabaseTestCase
     private DbProductDecisionRepository $decisions;
     private ReviewSeen $seen;
     private DbReviewSeenStore $store;
+    private DbBrandProposalRepository $proposals;
 
     protected function setUp(): void
     {
@@ -58,6 +60,7 @@ final class ReviewSeenTest extends DatabaseTestCase
         $this->revisions = new DbProductRevisionRepository($this->db, $clock);
         $this->decisions = new DbProductDecisionRepository($this->db, $clock);
         $this->store = new DbReviewSeenStore($this->db, $clock);
+        $this->proposals = new DbBrandProposalRepository($this->db, $clock);
         $this->seen = new ReviewSeen($this->store);
     }
 
@@ -220,6 +223,80 @@ final class ReviewSeenTest extends DatabaseTestCase
     }
 
     /**
+     * WHAT THIS PROVES: a BRAND REQUEST is a notification too.
+     *
+     * Found by reviewing `alpha.51`'s own change rather than by a report, and
+     * it was silent. The identity a mark compares against was
+     * `(last submitted decision, open revision)`. A brand request writes
+     * neither, so a published product a manager had already reviewed kept its
+     * mark, matched, and read as SEEN — while `ReviewQueueSql::waiting()`
+     * correctly counted it as waiting for a decision. A product in the queue
+     * that the notification cannot see is the one outcome worth a migration:
+     * `M0026ReviewSeenBrand` adds the third part.
+     *
+     * The whole cycle is asserted, not just the rise: it goes dark when the
+     * manager looks, the request STAYS in the queue until they decide —
+     * «اعلان قرمز مربوط به دیده‌نشده باشد؛ با مشاهده پاک شود، اما پیشنهاد تا
+     * تصمیم مدیر در صف بماند» — and a request REPLACED by the vendor rises
+     * again, which is what proves the third part is really being compared
+     * rather than merely written.
+     */
+    public function testABrandRequestOnALiveProductIsANewNotification(): void
+    {
+        $id = $this->create('آمبوبگ');
+        $this->products->updateStatus($id, ProductStatus::Published, '');
+        self::assertSame(
+            0,
+            $this->seen->unseenCount(self::ANA),
+            'a published product with nothing waiting is in no count at all'
+        );
+
+        $first = $this->proposals->open($id, self::VENDOR, 'سینا طب', 'سیناطب');
+        self::assertGreaterThan(0, $first);
+        self::assertSame(1, $this->seen->unseenCount(self::ANA), 'the request is a notification');
+
+        $this->view(self::ANA, [$id]);
+        self::assertSame(0, $this->seen->unseenCount(self::ANA), 'and looking clears it');
+        self::assertNotNull(
+            $this->proposals->openFor($id),
+            'but the request is still there to decide — looking is not deciding'
+        );
+
+        // The vendor retypes. The old request is superseded and a new one is
+        // open, so the third part moves and the notification comes back.
+        $replaced = $this->proposals->replaceOpen($id, self::VENDOR, 'آمبو بگ', 'آمبوبگ', $first);
+        self::assertSame('replaced', $replaced['code']);
+        self::assertSame(1, $this->seen->unseenCount(self::ANA), 'a different request is a new notification');
+    }
+
+    /**
+     * WHAT THIS PROVES: a token from a page rendered BEFORE the upgrade marks
+     * what it really saw, and nothing more.
+     *
+     * An `alpha.50` form posts `s12.r34` with no third part. Refusing it would
+     * throw away a manager's reading for no gain; reading its missing part as
+     * «whatever is there now» would mark a request they were never shown. It
+     * reads as nought — «there was no open request when I looked» — so a
+     * product that has since acquired one stays unseen.
+     */
+    public function testATwoPartTokenFromBeforeTheUpgradeIsStillRead(): void
+    {
+        $id = $this->submit('ساکشن');
+        $current = $this->products->submissionsOf([$id])[$id] ?? '';
+        self::assertMatchesRegularExpression('/^s\d+\.r0\.b0$/', $current, 'the identity now has three parts');
+
+        // The old dialect: the same identity, written the way `alpha.50` wrote
+        // it, with no brand part at all.
+        $old = substr($current, 0, strrpos($current, '.b') ?: 0);
+        self::assertTrue($this->store->markSeen(self::ANA, [$id => $old]));
+        self::assertSame(0, $this->seen->unseenCount(self::ANA), 'the old token was accepted');
+
+        // And a request arriving after it is unseen, not swallowed.
+        self::assertGreaterThan(0, $this->proposals->open($id, self::VENDOR, 'سینا طب', 'سیناطب'));
+        self::assertSame(1, $this->seen->unseenCount(self::ANA));
+    }
+
+    /**
      * WHAT THIS PROVES: a submission that lands between the read and the record
      * keeps its notification.
      *
@@ -349,7 +426,11 @@ final class ReviewSeenTest extends DatabaseTestCase
         // site's queue looks like after the upgrade.
         $id = $this->create('ترازوی دیجیتال');
         $this->products->updateStatus($id, ProductStatus::Submitted, '');
-        self::assertSame(['s0.r0'], array_values($this->products->submissionsOf([$id])));
+        self::assertSame(
+            ['s0.r0.b0'],
+            array_values($this->products->submissionsOf([$id])),
+            'a real identity with no submission, no proposal and no brand request'
+        );
 
         self::assertSame(1, $this->seen->unseenCount(self::ANA), 'unseen on the first request after the upgrade');
         $this->view(self::ANA, [$id]);

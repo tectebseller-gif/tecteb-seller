@@ -1019,6 +1019,13 @@ final class VendorRoutes
             // off, and the draft has to keep working on a shop with no
             // WooCommerce to have categories.
             $scripts[] = $this->assetsBaseUrl . 'assets/vendor/tmc-category-picker.js';
+            // And the brand suggestions, for the same reason and with the same
+            // separation: the one brand field works with the datalist the
+            // server seeded, and this only widens it past that cap. It lives
+            // under `assets/shared/` because the manager's review screen has
+            // the same one field and asks the same endpoint — two copies of it
+            // would be two behaviours the day one was edited.
+            $scripts[] = $this->assetsBaseUrl . 'assets/shared/tmc-brand-field.js';
         }
         status_header(200);
         nocache_headers();

@@ -59,6 +59,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\AliasingSpecTemplateReposi
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbVariationRepository;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\BrandSuggest;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\CategorySuggest;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductAutosave;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductHooks;
@@ -325,6 +326,10 @@ final class ProductModule implements ModuleInterface
         // And the category suggestions the picker asks for while somebody
         // types. Same door, same rule, and it writes nothing at all.
         (new CategorySuggest($container))->register();
+        // The brand field's suggestions. Its own endpoint rather than a mode of
+        // the category one: two lists, two capability questions, and a
+        // parameter that chose between them would be one gate for both.
+        (new BrandSuggest($container))->register();
         $storefront = new StorefrontPage($container);
         add_filter(AdminExtensions::FILTER, static function (array $pages) use ($storefront): array {
             $pages[] = [

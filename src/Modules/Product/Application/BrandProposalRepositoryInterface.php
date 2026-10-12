@@ -30,6 +30,35 @@ interface BrandProposalRepositoryInterface
      */
     public function open(int $productId, int $vendorUserId, string $name, string $normalised): int;
 
+    /**
+     * Replaces the open request on a product with one for a different name,
+     * as ONE unit of work.
+     *
+     * The `alpha.49` finding, at a second table. Closing the old request and
+     * opening the new one as two statements means a refused insert leaves the
+     * vendor with NO request at all — the first half of the job done and the
+     * result reported as a failure of the save, while what actually happened
+     * is that their earlier ask was destroyed. So a build that cannot open a
+     * transaction is a REFUSAL (`not_atomic`), not a reason to run the first
+     * half.
+     *
+     * Five answers, and only one of them has written anything:
+     *
+     *  - `replaced` — the old one is superseded and `id` is the new request.
+     *  - `unchanged` — the open request already asks for this normalised name,
+     *    so nothing is written at all and `id` is the request that was already
+     *    there. This is what makes a re-save, a double click and a retry after
+     *    an error idempotent.
+     *  - `taken` — another product's open request holds this name. The unique
+     *    index said so; nothing is written and the old request still stands.
+     *  - `superseded_elsewhere` — zero rows from the guarded `UPDATE`, which
+     *    is a lost race rather than «it already said that» (`alpha.49`).
+     *  - `not_atomic` / `storage_failed` — nothing was written.
+     *
+     * @return array{id:int, code:string}
+     */
+    public function replaceOpen(int $productId, int $vendorUserId, string $name, string $normalised, int $supersedeId): array;
+
     /** @return list<BrandProposal> oldest first, for the manager's queue */
     public function pending(int $limit = 200): array;
 

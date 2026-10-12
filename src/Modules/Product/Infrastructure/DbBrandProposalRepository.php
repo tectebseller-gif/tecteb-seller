@@ -71,6 +71,67 @@ final class DbBrandProposalRepository implements BrandProposalRepositoryInterfac
         return (int) $this->db->getVar('SELECT LAST_INSERT_ID()');
     }
 
+    public function replaceOpen(int $productId, int $vendorUserId, string $name, string $normalised, int $supersedeId): array
+    {
+        if ($supersedeId <= 0) {
+            $id = $this->open($productId, $vendorUserId, $name, $normalised);
+            return ['id' => $id, 'code' => $id > 0 ? 'replaced' : 'taken'];
+        }
+        // ASKED BEFORE ANYTHING IS WRITTEN, and asked of the stored row rather
+        // than of the caller's memory of it: «the open request already asks
+        // for this name» means there is nothing to replace, and writing
+        // anything here would turn a plain re-save into a new request.
+        $open = $this->find($supersedeId);
+        if ($open !== null && $open->normalised === $normalised) {
+            return ['id' => $open->id, 'code' => 'unchanged'];
+        }
+        if (!$this->db->begin()) {
+            // `alpha.49`: a build that cannot open a transaction must not
+            // close the old request on the hope that the insert lands. The
+            // first half alone is worse than neither half.
+            return ['id' => 0, 'code' => 'not_atomic'];
+        }
+        try {
+            $superseded = $this->db->execute(
+                'UPDATE `' . $this->table() . '`
+                    SET status = %s, open_key = %s, decided_at = %s
+                  WHERE id = %d AND status IN (%s, %s)',
+                [
+                    BrandProposal::SUPERSEDED,
+                    '#' . $supersedeId,
+                    $this->clock->now()->format('Y-m-d H:i:s'),
+                    $supersedeId,
+                    BrandProposal::PENDING,
+                    BrandProposal::REGISTERED,
+                ]
+            );
+            // Zero rows is a LOST RACE: the `WHERE` carries the two open
+            // statuses, so nothing changing means a manager decided this
+            // request between our read and this statement. `decide()` cannot
+            // tell that from «it already said that», which is why this writes
+            // its own `UPDATE` (`alpha.49`).
+            if ($superseded === null || $superseded < 1) {
+                $this->db->rollback();
+                return ['id' => 0, 'code' => $superseded === null ? 'storage_failed' : 'superseded_elsewhere'];
+            }
+            $id = $this->open($productId, $vendorUserId, $name, $normalised);
+            if ($id <= 0) {
+                // The unique index refused it: some other product has this
+                // name open. Rolled back, so the vendor's earlier request is
+                // still theirs rather than destroyed on the way to a refusal.
+                $this->db->rollback();
+                return ['id' => 0, 'code' => 'taken'];
+            }
+        } catch (\Throwable) {
+            $this->db->rollback();
+            return ['id' => 0, 'code' => 'storage_failed'];
+        }
+        if (!$this->db->commit()) {
+            return ['id' => 0, 'code' => 'storage_failed'];
+        }
+        return ['id' => $id, 'code' => 'replaced'];
+    }
+
     public function pending(int $limit = 200): array
     {
         $rows = $this->db->getResults(

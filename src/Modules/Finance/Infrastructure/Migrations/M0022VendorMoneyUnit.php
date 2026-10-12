@@ -156,7 +156,19 @@ final class M0022VendorMoneyUnit implements MigrationInterface
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
             [$table]
         );
-        if ($columns !== 'created_at,currency,exponent,source_event,vendor_user_id') {
+        // THE SAME LATENT FAULT AS `M0021ReviewSeen`, fixed in `alpha.51` for
+        // the same reason rather than left armed for whichever round next
+        // needs a column on this table: an exact match on the whole column set
+        // turns any later addition into a permanent `verify()` failure, which
+        // stops the runner at this version and leaves the upgrade gate with
+        // nothing it can finish. Nothing has been added to this table — this
+        // is the trap being disarmed, not a defect being repaired.
+        $needed = ['vendor_user_id', 'currency', 'exponent', 'source_event', 'created_at'];
+        if ($columns === null) {
+            return false;
+        }
+        $present = array_filter(explode(',', (string) $columns), static fn (string $c): bool => $c !== '');
+        if (array_diff($needed, $present) !== []) {
             return false;
         }
         return $db->getVar(

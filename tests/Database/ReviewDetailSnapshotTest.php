@@ -198,7 +198,9 @@ final class ReviewDetailSnapshotTest extends DatabaseTestCase
         $id = $this->publish('ترازوی دیجیتال');
         $first = $this->propose($id, 'ترازوی دیجیتال نسخهٔ دو');
         $before = $this->tokenOf($id);
-        self::assertStringEndsWith('.r' . $first, $before, 'the token names the open proposal');
+        // `.r<id>.b0` since `alpha.51`: the third part is the open brand
+        // request, and there is none here.
+        self::assertStringContainsString('.r' . $first . '.', $before, 'the token names the open proposal');
         self::assertSame(1, $this->unseen());
 
         $second = 0;

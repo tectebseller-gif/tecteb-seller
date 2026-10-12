@@ -16,6 +16,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
 use Tecteb\Marketplace\Modules\Product\Application\ReviewProducts;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
+use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
 use Tecteb\Marketplace\Modules\Product\Domain\BrandProposal;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
@@ -240,6 +241,173 @@ final class BrandRegistryTest extends DatabaseTestCase
         self::assertNull($this->proposals->openFor($id), 'and no request was recorded');
     }
 
+    /**
+     * PRESSING SAVE TWICE DOES NOT ASK TWICE — and writes nothing the second
+     * time.
+     *
+     * The owner's own words: «ذخیرهٔ تکراری، دوبار کلیک یا تلاش مجدد پس از
+     * خطا نباید درخواست یا برند تکراری بسازد». Until `alpha.51` the second
+     * call answered `brand_request_open` as a FAILURE, so an ordinary re-save
+     * of step 1 painted the page red about a save that had worked.
+     *
+     * Asserted on the row count, not just on `openFor()`: a second row with a
+     * superseded first would satisfy «one open request» and would still be a
+     * duplicate.
+     */
+    public function testAskingTwiceForTheSameNameKeepsOneRequestAndWritesNothing(): void
+    {
+        $id = $this->legacyProduct('برند قدیمی');
+        self::assertSame('brand_requested', $this->brands->propose(self::VENDOR, self::VENDOR, $id, 'سینا طب')->code);
+        $first = $this->proposals->openFor($id)?->id ?? 0;
+        $rows = $this->countProposals();
+
+        // The same name, spelled with an Arabic yeh and no space — the same
+        // brand, so the same request.
+        $again = $this->brands->propose(self::VENDOR, self::VENDOR, $id, 'سيناطب');
+
+        self::assertTrue($again->ok, 'a re-save is not an error: ' . $again->code);
+        self::assertSame('brand_request_unchanged', $again->code);
+        self::assertSame($first, (int) $again->context['proposal_id']);
+        self::assertSame($rows, $this->countProposals(), 'and no second row was written');
+        self::assertSame('سینا طب', $this->proposals->openFor($id)?->name, 'the first spelling stands');
+    }
+
+    /**
+     * RETYPING A DIFFERENT NAME REPLACES THE REQUEST, as one unit of work.
+     *
+     * With one field and one button, the vendor changing their mind IS the
+     * save, and the latest typing is what they asked for. The old request is
+     * superseded rather than deleted — a manager may have the queue open — and
+     * exactly one is left to decide.
+     */
+    public function testRetypingADifferentNameReplacesTheOpenRequest(): void
+    {
+        $id = $this->legacyProduct('برند قدیمی');
+        self::assertTrue($this->brands->propose(self::VENDOR, self::VENDOR, $id, 'سینا طب')->ok);
+        $first = $this->proposals->openFor($id)?->id ?? 0;
+
+        $second = $this->brands->propose(self::VENDOR, self::VENDOR, $id, 'آمبو بگ');
+
+        self::assertTrue($second->ok, $second->code);
+        self::assertSame('brand_request_replaced', $second->code);
+        $open = $this->proposals->openFor($id);
+        self::assertNotNull($open);
+        self::assertSame('آمبو بگ', $open->name);
+        self::assertNotSame($first, $open->id);
+        self::assertSame(BrandProposal::SUPERSEDED, $this->proposals->find($first)?->status);
+        self::assertSame(
+            [$open->id],
+            array_map(static fn (BrandProposal $p): int => $p->id, $this->proposals->pending()),
+            'the manager has exactly one to decide'
+        );
+        self::assertSame('برند قدیمی', $this->products->find($id)?->details->brand, 'and the brand still has not moved');
+    }
+
+    /**
+     * A SUPERSEDED REQUEST FREES ITS NAME, so the vendor can go back to it.
+     *
+     * `open_key` is what makes «one open request per name» an index rather
+     * than a check, and superseding has to release it or a vendor who typed
+     * «سینا طب», changed their mind and changed it back would be told their
+     * own earlier ask belongs to somebody else.
+     */
+    public function testASupersededNameCanBeAskedForAgain(): void
+    {
+        $id = $this->legacyProduct('برند قدیمی');
+        self::assertTrue($this->brands->propose(self::VENDOR, self::VENDOR, $id, 'سینا طب')->ok);
+        self::assertTrue($this->brands->propose(self::VENDOR, self::VENDOR, $id, 'آمبو بگ')->ok);
+
+        $back = $this->brands->propose(self::VENDOR, self::VENDOR, $id, 'سینا طب');
+
+        self::assertTrue($back->ok, $back->code);
+        self::assertSame('سینا طب', $this->proposals->openFor($id)?->name);
+        self::assertCount(1, $this->proposals->pending());
+    }
+
+    /**
+     * NO UNIT OF WORK, SO NOTHING IS ATTEMPTED — `alpha.49`, at this table.
+     *
+     * The first half alone is the worst outcome: the vendor's open request
+     * destroyed and the save reported as a failure. So a build that cannot
+     * open a transaction refuses, and the earlier request is still theirs.
+     */
+    public function testAReplacementThatCannotBeAtomicKeepsTheOldRequest(): void
+    {
+        $id = $this->legacyProduct('برند قدیمی');
+        self::assertTrue($this->brands->propose(self::VENDOR, self::VENDOR, $id, 'سینا طب')->ok);
+        $first = $this->proposals->openFor($id)?->id ?? 0;
+        $rows = $this->countProposals();
+
+        $failing = new \Tecteb\Marketplace\Tests\Support\FailingDatabase(new WpDatabase($this->wpdb));
+        $failing->refuseTransactions();
+        $outcome = (new DbBrandProposalRepository($failing, new SystemClock()))
+            ->replaceOpen($id, self::VENDOR, 'آمبو بگ', 'آمبوبگ', $first);
+
+        self::assertSame('not_atomic', $outcome['code']);
+        self::assertSame($first, $this->proposals->openFor($id)?->id, 'the vendor still has their request');
+        self::assertSame(BrandProposal::PENDING, $this->proposals->find($first)?->status);
+        self::assertSame($rows, $this->countProposals(), 'and no second row was inserted either');
+    }
+
+    /**
+     * CLEARING THE BRAND CLEARS WHICH BRAND IT WAS.
+     *
+     * Found by reviewing the changed path rather than by a report, and it is
+     * reachable from the one field: `rememberBrandTerm()` returns early on an
+     * empty name, so the product ends with no brand and a `brand_term_id`
+     * still pointing at the brand it used to have. The form reads that id to
+     * survive a rename (below), so a stale one would show the removed brand in
+     * the box — and the next save would put it back.
+     */
+    public function testClearingTheBrandAlsoClearsTheRecordedTerm(): void
+    {
+        $id = $this->legacyProduct('');
+        $this->saveBrand($id, 'آریا طب');
+        self::assertNotNull($this->products->brandTermIdOf($id), 'the fixture must start with a term');
+
+        $this->saveBrand($id, '');
+
+        self::assertSame('', $this->products->find($id)?->details->brand);
+        self::assertNull(
+            $this->products->brandTermIdOf($id),
+            'a product with no brand is not a product whose brand is term 500'
+        );
+    }
+
+    /**
+     * A BRAND THE MANAGER RENAMED IN WOOCOMMERCE IS STILL THE SAME BRAND.
+     *
+     * The term id is identity; the name is a label. When a manager renames
+     * term 500 from «آریا طب» to «آریا طب تجهیزات», the product row still
+     * holds the old label — which is no longer in the list. Resolved by name
+     * alone, the vendor's next save would read their own unchanged brand as an
+     * unapproved name and open a REQUEST for a brand that already exists
+     * under its new spelling.
+     *
+     * So the field resolves through the stored id first, and the save carries
+     * the row up to the rename.
+     */
+    public function testARenamedBrandIsStillTheSameBrandAndNotANewRequest(): void
+    {
+        $id = $this->legacyProduct('');
+        $this->saveBrand($id, 'آریا طب');
+        $termId = $this->products->brandTermIdOf($id);
+        self::assertNotNull($termId);
+
+        // The manager renames it in WooCommerce's own screen.
+        $this->directory->terms[$termId] = 'آریا طب تجهیزات';
+
+        // What the form would now show in the box.
+        self::assertSame('آریا طب تجهیزات', $this->directory->find($termId)?->name);
+
+        // And saving that is an ordinary save, not a request.
+        $saved = $this->saveBrand($id, 'آریا طب تجهیزات');
+        self::assertSame('product_saved', $saved->code, 'a rename is not a new brand');
+        self::assertSame('آریا طب تجهیزات', $this->products->find($id)?->details->brand);
+        self::assertSame($termId, $this->products->brandTermIdOf($id), 'and it is the same brand');
+        self::assertNull($this->proposals->openFor($id), 'nothing was asked for');
+    }
+
     public function testTwoShopsCannotBothHaveTheSameNameOpen(): void
     {
         $mine = $this->legacyProduct('الف');
@@ -290,6 +458,84 @@ final class BrandRegistryTest extends DatabaseTestCase
         self::assertNotNull($this->directory->findByKey('سیناطب'), 'and it is in the picker for every shop');
         self::assertSame(BrandProposal::APPROVED, $this->proposals->find($proposalId)?->status);
         self::assertNull($this->proposals->openFor($id), 'nothing is left open');
+    }
+
+    /**
+     * THE MANAGER ATTACHES THE REQUEST TO A BRAND THAT ALREADY EXISTS.
+     *
+     * §2(الف). The vendor typed something the list did not have; the manager
+     * recognises it as a brand that IS there under another spelling, puts that
+     * name in the box and approves. No second term is created — which is the
+     * whole point, because the duplicate official brand is what the approval
+     * exists to prevent.
+     */
+    public function testTheManagerCanAttachTheRequestToAnExistingBrand(): void
+    {
+        $id = $this->legacyProduct('برند قدیمی');
+        self::assertTrue($this->brands->propose(self::VENDOR, self::VENDOR, $id, 'آریا تب')->ok);
+        $proposalId = $this->proposals->openFor($id)?->id ?? 0;
+        $terms = count($this->directory->terms);
+
+        // «آریا طب» is already in the list; the vendor's «آریا تب» is not.
+        $approved = $this->brands->approve($proposalId, 'آریا طب');
+
+        self::assertTrue($approved->ok, $approved->code);
+        self::assertSame('brand_approved', $approved->code);
+        self::assertSame('1', $approved->context['attached'], 'attached, not registered');
+        self::assertSame('آریا تب', $approved->context['asked'], 'and what was asked is still on the record');
+        self::assertSame('آریا طب', $this->products->find($id)?->details->brand);
+        // The key comes from `BrandName`, not from a hand-written string. The
+        // first version of this test wrote «آریاطب» and the real key is
+        // «اریاطب» — the alef-with-hamza folds — so it reported a failure
+        // about a build that was perfectly right. Ask the function.
+        self::assertSame(
+            $this->directory->findByKey(BrandName::key('آریا طب'))?->termId,
+            $this->products->brandTermIdOf($id)
+        );
+        self::assertCount($terms, $this->directory->terms, 'no new brand was created');
+        self::assertNull($this->proposals->openFor($id));
+    }
+
+    /**
+     * THE MANAGER CORRECTS THE SPELLING AND APPROVES IT AS A NEW BRAND.
+     *
+     * §2(ب). The brand really is new, the vendor's spelling is not the one the
+     * catalogue should carry, and the name that goes in the list is the
+     * manager's — on the product too, because the two must not disagree.
+     */
+    public function testTheManagerCanCorrectTheNameAndApproveItAsANewBrand(): void
+    {
+        $id = $this->legacyProduct('برند قدیمی');
+        self::assertTrue($this->brands->propose(self::VENDOR, self::VENDOR, $id, 'سینا طب تجهیز')->ok);
+        $proposalId = $this->proposals->openFor($id)?->id ?? 0;
+
+        $approved = $this->brands->approve($proposalId, 'سینا طب');
+
+        self::assertTrue($approved->ok, $approved->code);
+        self::assertSame('سینا طب', $approved->context['brand']);
+        self::assertSame('', $approved->context['attached'], 'registered, not attached');
+        self::assertSame('سینا طب', $this->products->find($id)?->details->brand);
+        self::assertNotNull($this->directory->findByKey(BrandName::key('سینا طب')), 'the manager\'s spelling is in the list');
+        self::assertNull($this->directory->findByKey(BrandName::key('سینا طب تجهیز')), 'and the vendor\'s is not');
+    }
+
+    /**
+     * AN EMPTY BOX MEANS «THE NAME AS ASKED», so the common case is one click.
+     *
+     * The field is pre-filled, but a manager who clears it has not asked for a
+     * brand with no name — and reading it that way would refuse every approval
+     * made from a page whose box was emptied by a browser restoring the form.
+     */
+    public function testAnEmptyBoxApprovesTheNameTheVendorAskedFor(): void
+    {
+        $id = $this->legacyProduct('برند قدیمی');
+        self::assertTrue($this->brands->propose(self::VENDOR, self::VENDOR, $id, 'سینا طب')->ok);
+        $proposalId = $this->proposals->openFor($id)?->id ?? 0;
+
+        $approved = $this->brands->approve($proposalId, '');
+
+        self::assertTrue($approved->ok, $approved->code);
+        self::assertSame('سینا طب', $this->products->find($id)?->details->brand);
     }
 
     public function testRejectingLeavesTheBrandAloneAndKeepsTheReason(): void
@@ -411,6 +657,37 @@ final class BrandRegistryTest extends DatabaseTestCase
     }
 
     // ---------------------------------------------------------------- helpers
+
+    /**
+     * Every row in the requests table, open or not.
+     *
+     * Asked rather than `openFor()` in the idempotency tests: «one open
+     * request» is satisfied by a second row with the first superseded, and
+     * that is still a duplicate.
+     */
+    private function countProposals(): int
+    {
+        return (int) $this->wpdb->get_var(
+            'SELECT COUNT(*) FROM `' . $this->wpdb->prefix . 'tmc_brand_proposals`'
+        );
+    }
+
+    /** One save of a draft that changes only the brand. */
+    private function saveBrand(int $id, string $brand): \Tecteb\Marketplace\Modules\Vendor\Application\OperationResult
+    {
+        $product = $this->products->find($id);
+        self::assertNotNull($product);
+        return $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $id,
+            $this->details($product->details->title, $brand),
+            [],
+            $product->imageIds,
+            $product->mainImageId,
+            $product->rowVersion
+        );
+    }
 
     private function brandsWith(FakeCapabilityChecker $capabilities): ManageBrands
     {

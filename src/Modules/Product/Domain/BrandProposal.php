@@ -26,6 +26,21 @@ final class BrandProposal
     /** The name was registered, and writing it onto the product did not finish. */
     public const REGISTERED = 'registered';
 
+    /**
+     * The vendor asked for a different name before anybody decided this one.
+     *
+     * Its own status rather than a deletion, for the reason every ledger in
+     * this plugin is append-only: the manager may be looking at the queue
+     * while the vendor retypes, and a request that vanished would leave them
+     * deciding about nothing. A superseded request is out of every open query
+     * — `openFor()`, `pending()`, `unfinished()`, `countPending()` and
+     * `openProductIds()` all name the statuses they want — and its `open_key`
+     * is freed, so the name can be asked for again.
+     *
+     * No migration: `status` is a `VARCHAR(20)` and this is a value in it.
+     */
+    public const SUPERSEDED = 'superseded';
+
     public function __construct(
         public readonly int $id,
         public readonly int $productId,

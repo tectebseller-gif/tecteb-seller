@@ -368,7 +368,7 @@ final class ProductMessages
             // its own leaves a vendor with a box they cannot satisfy.
             'brand_not_approved' => sprintf(
                 /* translators: %s: the brand the vendor named */
-                __('برند «%s» در فهرست برندهای تأییدشده نیست، پس ذخیره نشد و چیزی از محصول تغییر نکرد. برند را از فهرست انتخاب کنید، یا در همان بخش «برند من در فهرست نیست» افزودنش را درخواست کنید.', 'tecteb-marketplace-core'),
+                __('برند «%s» در فهرست برندهای تأییدشده نیست، پس ذخیره نشد و چیزی از محصول تغییر نکرد. نام را در فیلد برند بنویسید تا با ذخیرهٔ معمول برای تأیید مدیر ثبت شود.', 'tecteb-marketplace-core'),
                 (string) ($context['brand'] ?? '')
             ),
             'brand_list_unavailable' => __('فهرست برندها از ووکامرس خوانده می‌شود و ووکامرس در دسترس نیست، پس تغییر برند انجام نشد. برند فعلی محصول دست‌نخورده است؛ بقیهٔ فرم را می‌توانید ذخیره کنید.', 'tecteb-marketplace-core'),
@@ -378,21 +378,32 @@ final class ProductMessages
                 __('این نام از قبل در فهرست است: «%s». درخواستی لازم نیست؛ همان را از فهرست انتخاب کنید. (تفاوت فاصله، نیم‌فاصله و ی/ک عربی و فارسی نادیده گرفته می‌شود.)', 'tecteb-marketplace-core'),
                 (string) ($context['brand'] ?? '')
             ),
-            'brand_request_open' => sprintf(
-                /* translators: %s: the brand already requested */
-                __('برای این محصول از قبل درخواست برند «%s» ثبت شده و در انتظار بررسی مدیر است. تا تعیین تکلیف آن، درخواست تازه‌ای ثبت نمی‌شود.', 'tecteb-marketplace-core'),
-                (string) ($context['brand'] ?? '')
-            ),
+            // EVERY ONE OF THESE SAYS WHETHER THE PRODUCT SAVED, because by
+            // `alpha.51` the brand travels on the ordinary save: the product
+            // is already stored when these are decided, and a sentence about
+            // the brand alone would read as «nothing happened».
             'brand_request_elsewhere' => sprintf(
                 /* translators: %s: the brand somebody else requested */
-                __('درخواست افزودن «%s» از قبل ثبت شده است — ممکن است فروشندهٔ دیگری آن را خواسته باشد. به‌محض تأیید مدیر، در فهرست شما هم دیده می‌شود.', 'tecteb-marketplace-core'),
+                __('محصول ذخیره شد. درخواست افزودن «%s» از قبل ثبت شده است — ممکن است فروشندهٔ دیگری آن را خواسته باشد — پس درخواست تازه‌ای ثبت نشد و برند فعلی این محصول تغییر نکرد. به‌محض تأیید مدیر، در فهرست دیده می‌شود.', 'tecteb-marketplace-core'),
                 (string) ($context['brand'] ?? '')
             ),
             'brand_requested' => sprintf(
                 /* translators: %s: the requested brand */
-                __('درخواست افزودن برند «%s» ثبت شد و در انتظار بررسی مدیر است. تا تأیید، برند فعلی این محصول تغییر نمی‌کند.', 'tecteb-marketplace-core'),
+                __('محصول ذخیره شد و برند «%s» برای تأیید مدیر ثبت شد. تا تأیید، برند فعلی این محصول تغییر نمی‌کند.', 'tecteb-marketplace-core'),
                 (string) ($context['brand'] ?? '')
             ),
+            'brand_request_replaced' => sprintf(
+                /* translators: %s: the brand now requested */
+                __('محصول ذخیره شد و درخواست برند شما به «%s» تغییر کرد. تا تأیید مدیر، برند فعلی این محصول تغییر نمی‌کند.', 'tecteb-marketplace-core'),
+                (string) ($context['brand'] ?? '')
+            ),
+            'brand_request_unchanged' => sprintf(
+                /* translators: %s: the brand still requested */
+                __('محصول ذخیره شد. درخواست برند «%s» از قبل ثبت شده بود و همان‌طور در انتظار تأیید مدیر است؛ درخواست تکراری ساخته نشد.', 'tecteb-marketplace-core'),
+                (string) ($context['brand'] ?? '')
+            ),
+            'brand_request_not_atomic' => __('محصول ذخیره شد، ولی ثبت درخواست برند انجام نشد چون نمی‌شد آن را یک‌جا و بی‌نیمه‌کاره‌ماندن نوشت. درخواست قبلی شما — اگر داشتید — دست‌نخورده است و برند فعلی محصول تغییر نکرده. دوباره ذخیره کنید.', 'tecteb-marketplace-core'),
+            'brand_request_decided' => __('محصول ذخیره شد، ولی درخواست برند قبلی شما همین حالا توسط مدیر تعیین تکلیف شد، پس جایگزین نشد. صفحه را تازه کنید تا نتیجهٔ تصمیم مدیر را ببینید.', 'tecteb-marketplace-core'),
             'brand_approved' => sprintf(
                 /* translators: %s: the approved brand */
                 __('برند «%s» به فهرست اضافه شد و روی همین محصول اعمال شد.', 'tecteb-marketplace-core'),
@@ -838,7 +849,8 @@ final class ProductMessages
             'product_created', 'product_created_replayed', 'product_saved', 'inventory_saved', 'product_submitted',
             'product_published', 'revision_requested', 'revision_unchanged',
             'stock_revision_requested', 'stock_revision_unchanged',
-            'brand_requested', 'brand_approved', 'brand_rejected',
+            'brand_requested', 'brand_request_replaced', 'brand_request_unchanged',
+            'brand_approved', 'brand_rejected',
             'product_archived_ok', 'product_restored',
             'product_reviewed', 'revision_approved', 'revision_rejected',
             'direct_publish_granted', 'direct_publish_revoked',

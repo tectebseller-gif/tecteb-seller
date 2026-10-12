@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ReviewSeenStoreInterface;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0021ReviewSeen;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0026ReviewSeenBrand;
 
 /**
  * One row per (manager, product), and a count that never leaves the database.
@@ -31,10 +32,12 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0021ReviewSeen
  *    still the product's current one, asked in the same statement that writes,
  *    so «which request finished last» stops being part of the answer.
  *
- * **The token is stored as two integers, not as the string.** `s<n>.r<n>` is
+ * **The token is stored as integers, not as the string.** `s<n>.r<n>.b<n>` is
  * built for comparison by the caller; splitting it here is what lets the SQL
  * compare without string concatenation on the indexed side, and what makes the
- * two halves readable in a report.
+ * parts readable in a report. The third part arrived in `alpha.51` with
+ * `M0026ReviewSeenBrand`, because a brand request moves nothing the first two
+ * can see.
  */
 final class DbReviewSeenStore implements ReviewSeenStoreInterface
 {
@@ -70,7 +73,12 @@ final class DbReviewSeenStore implements ReviewSeenStoreInterface
                 . '   ON s.user_id = %d AND s.product_id = q.id'
                 . ' WHERE s.user_id IS NULL'
                 . '    OR s.submission_id <> COALESCE(q.tmc_submission_id, 0)'
-                . '    OR s.revision_id <> COALESCE(q.tmc_revision_id, 0)',
+                . '    OR s.revision_id <> COALESCE(q.tmc_revision_id, 0)'
+                // The third part, from `alpha.51`. A brand request writes no
+                // decision row and no revision, so without this a product
+                // that `waiting()` correctly counts as in the queue stayed
+                // «seen» — waiting for a decision with the badge dark.
+                . '    OR s.`' . M0026ReviewSeenBrand::BRAND_PROPOSAL . '` <> COALESCE(q.tmc_brand_id, 0)',
             array_merge($columnParams, $waitingParams, [$userId])
         );
         // A `COUNT(*)` always has a row, so `null` is a FAILED read — and
@@ -135,28 +143,31 @@ final class DbReviewSeenStore implements ReviewSeenStoreInterface
             if ($productId <= 0 || !is_string($token)) {
                 continue;
             }
-            [$submission, $revision] = ReviewQueueSql::split($token);
+            [$submission, $revision, $brand] = ReviewQueueSql::split($token);
             if ($submission === null) {
                 continue;
             }
             [$identity, $identityParams] = ReviewQueueSql::identityIs(
                 $this->db,
                 $submission,
-                $revision
+                $revision,
+                $brand
             );
+            $column = M0026ReviewSeenBrand::BRAND_PROPOSAL;
             $rows = $this->db->execute(
                 'INSERT INTO `' . $this->seen() . '`'
-                    . ' (`user_id`, `product_id`, `submission_id`, `revision_id`, `seen_at`)'
-                    . ' SELECT %d, p.id, %d, %d, %s FROM `' . $this->products() . '` p'
+                    . ' (`user_id`, `product_id`, `submission_id`, `revision_id`, `' . $column . '`, `seen_at`)'
+                    . ' SELECT %d, p.id, %d, %d, %d, %s FROM `' . $this->products() . '` p'
                     . ' WHERE p.id = %d AND ' . $identity
                     . ' ON DUPLICATE KEY UPDATE'
                     . ' `submission_id` = %d,'
                     . ' `revision_id` = %d,'
+                    . ' `' . $column . '` = %d,'
                     . ' `seen_at` = GREATEST(`seen_at`, %s)',
                 array_merge(
-                    [$userId, $submission, $revision, $at, $productId],
+                    [$userId, $submission, $revision, $brand, $at, $productId],
                     $identityParams,
-                    [$submission, $revision, $at]
+                    [$submission, $revision, $brand, $at]
                 )
             );
             // Three answers, and only one of them is a failure. `null` is the
@@ -178,14 +189,17 @@ final class DbReviewSeenStore implements ReviewSeenStoreInterface
         if ($userId <= 0 || $ids === []) {
             return [];
         }
+        $column = M0026ReviewSeenBrand::BRAND_PROPOSAL;
         $rows = $this->db->getResults(
-            'SELECT `product_id`, `submission_id`, `revision_id` FROM `' . $this->seen() . '`'
+            'SELECT `product_id`, `submission_id`, `revision_id`, `' . $column . '` FROM `' . $this->seen() . '`'
                 . ' WHERE `user_id` = %d AND `product_id` IN (' . implode(',', array_map('intval', $ids)) . ')',
             [$userId]
         );
         $out = [];
         foreach ($rows as $row) {
-            $out[(int) $row['product_id']] = 's' . (int) $row['submission_id'] . '.r' . (int) $row['revision_id'];
+            $out[(int) $row['product_id']] = 's' . (int) $row['submission_id']
+                . '.r' . (int) $row['revision_id']
+                . '.b' . (int) ($row[$column] ?? 0);
         }
         return $out;
     }
