@@ -103,13 +103,16 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
   `testATableThatCannotBeReadDoesNotStopTheWrite` دقیقاً خلاف این دور را assert
   می‌کرد و یک دور کامل سبز ماند.
 
-اجرا: unit ۴۴۹ · architecture ۳۱ · contract ۲۸۳ · database **۴۹۸** ·
+اجرا: unit ۴۴۹ · architecture ۳۱ · contract ۲۸۳ · database **۴۹۵** (+۱۷) ·
 packaging ۲۲ · `php -l` روی **۵۲۵** فایل روی ۸٫۴ تنها · PHPCompatibility با
 `testVersion 8.1-` روی همان فایل‌ها — همه ۰ شکست.
 `alpha49-reproduction.sh` **۱۱۶ بررسی روی ووکامرس ۱۱٫۰٫۱ واقعی** (هر سه مورد
 روی بایت‌های `19d735f`، بعد اصلاح، بعد **۵ control** که روی هر دو درخت یک جواب
 می‌دهند)، و رگرسیون‌ها روی همین درخت: `alpha48-reproduction.sh` ۱۰۳ ·
-`alpha47-reproduction.sh` ۶۲ — همه ۰ شکست.
+`alpha47-reproduction.sh` ۶۲ · `upgrade-alpha47-check.sh` **۹۸ با هر دو مبنا**
+(`alpha.48` بی گام، و `alpha.47` ساختاری — مسیر واقعی مالک) ·
+`alpha48-run.mjs` **۳۷ بررسی مرورگری** — همه ۰ شکست. و `diff -rq` می‌گوید
+`src/` داخل ZIP، آرشیو قابل‌بررسی، این چک‌اوت و نصب‌شده **یک چیزند** (۵۲۳ فایل).
 **PHP 8.1، دکان، Min Max Control، قالب واقعی سایت و غیرفعال‌کردن افزونهٔ فعالِ
 دارای داده `Not Run` اند — نه «قبول».**
 

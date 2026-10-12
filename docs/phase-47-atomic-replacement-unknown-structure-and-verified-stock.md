@@ -380,7 +380,7 @@ revision_status=pending
 | unit | **۴۴۹** | ۰ |
 | architecture | **۳۱** | ۰ |
 | contract | **۲۸۳** | ۰ |
-| database | **۴۹۸** (۴۹۳ + ۵ تازه، و ۶ تای `AtomicProposalReplacementTest`) | ۰ |
+| database | **۴۹۵** (۴۷۸ ِ `alpha.48` + **۱۷ آزمون تازه**: ۶ `AtomicProposalReplacementTest`، ۶ `MalformedColumnGuardTest`، ۳ `ProductFlowTest`، ۲ `ProductAdminPagesTest`) | ۰ |
 | packaging | **۲۲** | ۰ |
 | `php -l` روی ۵۲۵ فایل، PHP ۸٫۴٫۱۹ | ۵۲۵ | ۰ |
 | PHPCompatibility، `testVersion 8.1-` | ۵۲۵ | ۰ |
