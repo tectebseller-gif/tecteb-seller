@@ -356,6 +356,14 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         $arms = [
             ['subject' => 'revision', 'decision' => 'approve', 'subject_id' => (string) $revisionId],
             ['subject' => 'revision', 'decision' => 'approve', 'subject_id' => (string) $revisionId, 'accept_stock_conflict' => '1'],
+            // The override WITH the number the page showed — a separate arm
+            // because `alpha.49` made the hidden field part of the request and
+            // a dispatch that cannot read it would 500 on exactly this POST
+            // (which is how `$request->post()` reached a delivered package).
+            [
+                'subject' => 'revision', 'decision' => 'approve', 'subject_id' => (string) $revisionId,
+                'accept_stock_conflict' => '1', 'seen_stock' => '2',
+            ],
             ['subject' => 'revision', 'decision' => 'reject', 'subject_id' => (string) $revisionId, 'note' => 'نه'],
             ['subject' => 'product', 'decision' => 'approve', 'subject_id' => (string) $product],
             ['subject' => 'product', 'decision' => 'changes', 'subject_id' => (string) $product, 'note' => 'اصلاح'],
@@ -596,6 +604,55 @@ final class ProductAdminPagesTest extends DatabaseTestCase
             $out,
             'nothing compared the two sides, so nothing may claim they match'
         );
+    }
+
+    /**
+     * THE PAGE CARRIES THE NUMBER IT SHOWED — `alpha.49`.
+     *
+     * A rendered page says nothing about its decisions (`alpha.13`, and the
+     * browser's version of it in `alpha.48`), so the half that has to be
+     * asserted HERE is the markup: the checkbox is worth nothing unless the
+     * form also carries the stock the sentence above it quoted. Without the
+     * hidden field the override is a blanket permission and the approval
+     * cannot tell «I agree to overwrite 3» from «I agree to overwrite
+     * whatever is there when this arrives».
+     */
+    public function testTheStockConflictNoticeCarriesTheNumberItShowed(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+        $product = $this->seedProducts(1, ProductStatus::Published)[0];
+        $revisions = new DbProductRevisionRepository(new WpDatabase($this->wpdb), new SystemClock());
+        // The row says 3; the proposal was measured against 5. That is the
+        // conflict, and 3 is the number this page is about to print.
+        self::assertGreaterThan(0, $revisions->create($product, 7, [
+            'details' => ['title' => 'کالای شمارهٔ 1'],
+            'stock_proposal' => ['value' => 9, 'baseline' => 5],
+        ]));
+
+        $html = $this->render(['product' => (string) $product]);
+
+        self::assertStringContainsString('name="accept_stock_conflict"', $html);
+        self::assertStringContainsString('<input type="hidden" name="seen_stock" value="3">', $html);
+        self::assertStringContainsString('اکنون ۳', $html, 'and the sentence quotes the same number');
+    }
+
+    /** No disagreement, no control and no hidden field to carry. */
+    public function testWithoutAConflictTheOverrideIsNotOfferedAtAll(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+        $product = $this->seedProducts(1, ProductStatus::Published)[0];
+        $revisions = new DbProductRevisionRepository(new WpDatabase($this->wpdb), new SystemClock());
+        self::assertGreaterThan(0, $revisions->create($product, 7, [
+            'details' => ['title' => 'کالای شمارهٔ 1'],
+            'stock_proposal' => ['value' => 9, 'baseline' => 3],
+        ]));
+
+        $html = $this->render(['product' => (string) $product]);
+
+        self::assertStringNotContainsString('accept_stock_conflict', $html);
+        self::assertStringNotContainsString('seen_stock', $html);
     }
 
     private function render(array $query = []): string

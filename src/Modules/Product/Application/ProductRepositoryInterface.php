@@ -313,20 +313,32 @@ interface ProductRepositoryInterface
 
     /**
      * Columns of `tmc_products` whose SHAPE would make a write store wrong
-     * data. Empty when the table is sound.
+     * data. Empty when nothing is wrong with the columns that could be read.
      *
      * Asked at the WRITE rather than at the migration, and asked about the
      * shape rather than about the schema version — «شمارهٔ ساختار به‌تنهایی
-     * کافی نیست». A column that is missing and a column that is present with
-     * the wrong nullability or default both come back here, so «the structure
-     * is behind» needs no second question.
+     * کافی نیست». A column that is missing, and a column present with the
+     * wrong nullability, type, length or default, all come back here, so «the
+     * structure is behind» needs no second question.
      *
-     * One memoised read per request; see `ProductTableShape` for why an
-     * unreadable `information_schema` answers empty rather than refusing.
+     * EMPTY IS NOT A CLEAN BILL OF HEALTH: an unreadable `information_schema`
+     * answers empty as well, and `structureKnown()` is the question that tells
+     * them apart. A caller that refuses on this list alone would let the
+     * unknown case through, which is precisely what `alpha.48` did.
      *
      * @return list<string>
      */
     public function unsoundColumns(): array;
+
+    /**
+     * Whether the shape of `tmc_products` could be READ at all.
+     *
+     * False means there is no answer to the question above — never that the
+     * answer is «sound». Measured on the `alpha.48` bytes, where this question
+     * did not exist: `reads_as_sound=yes problem=product_table_unreadable
+     * wrote=1`. Every write refuses while this is false, under its own name.
+     */
+    public function structureKnown(): bool;
 
     /**
      * The brand name AND the approved brand it is, written together.

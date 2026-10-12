@@ -1,0 +1,9 @@
+probe=ran
+draft_id=1312
+unsound_columns=__none__
+reads_as_sound=no
+problem=product_table_unreadable
+save=failed
+save_code=schema_unknown
+row_stock=31
+wrote=0

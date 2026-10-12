@@ -1,0 +1,7 @@
+probe=ran
+propose_code=stock_revision_requested
+revision_id=133
+approve=failed
+approve_code=stock_unverified
+revision_status=pending
+closed_unverified=no

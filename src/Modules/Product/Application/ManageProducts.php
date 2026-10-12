@@ -109,10 +109,18 @@ final class ManageProducts
     private function structureRefusal(): ?OperationResult
     {
         $unsound = $this->products->unsoundColumns();
-        if ($unsound === []) {
-            return null;
+        if ($unsound !== []) {
+            return OperationResult::failure('schema_unsound', ['columns' => implode(',', $unsound)]);
         }
-        return OperationResult::failure('schema_unsound', ['columns' => implode(',', $unsound)]);
+        // UNKNOWN IS NOT SOUND. `alpha.48` read an empty list as a clean bill
+        // of health, so a failed `information_schema` read allowed the write:
+        // measured, `reads_as_sound=yes problem=product_table_unreadable
+        // wrote=1`. It has its own code because «این ستون‌ها غلط‌اند» must
+        // never be said about a question that could not be asked.
+        if (!$this->products->structureKnown()) {
+            return OperationResult::failure('schema_unknown', []);
+        }
+        return null;
     }
 
     private function brandRefusal(ProductDetails $details, string $currentBrand): ?OperationResult
@@ -423,13 +431,24 @@ final class ManageProducts
                 'proposed_stock' => $stock,
             ]);
         }
-        if ($existing !== null) {
-            $this->revisions->decide($existing->id, ProductRevision::SUPERSEDED, 0, '');
+        // ONE UNIT OF WORK, and the reason is `alpha.49`'s first finding:
+        // superseding and then inserting was two statements, and a refused
+        // insert left the product with no pending proposal at all — the
+        // vendor's earlier, unanswered request destroyed by a save that only
+        // said «ذخیره نشد».
+        $replaced = $this->revisions->replacePending(
+            $product->id,
+            $product->vendorUserId,
+            $payload,
+            $existing?->id ?? 0
+        );
+        if ($replaced['id'] <= 0) {
+            return OperationResult::failure(
+                $replaced['code'] === 'not_atomic' ? 'revision_not_atomic' : 'storage_failed',
+                $this->keptProposal($product->id, $existing, $replaced['code'])
+            );
         }
-        $revisionId = $this->revisions->create($product->id, $product->vendorUserId, $payload);
-        if ($revisionId <= 0) {
-            return OperationResult::failure('storage_failed');
-        }
+        $revisionId = $replaced['id'];
         $this->audit->log(AuditEventCatalog::PRODUCT_REVISION_REQUESTED, $product->vendorUserId, 'product', (string) $product->id, [
             'vendor_id' => $product->vendorUserId,
             'product_id' => $product->id,
@@ -1009,13 +1028,23 @@ final class ManageProducts
         // rather than queueing behind it, so the manager reviews what the
         // vendor actually wants — and the older proposal stays on record as
         // superseded instead of vanishing.
-        if ($existing !== null) {
-            $this->revisions->decide($existing->id, ProductRevision::SUPERSEDED, 0, '');
+        // ONE UNIT OF WORK — the same replacement, the same finding. The row
+        // version has already moved by this point, which only makes another
+        // open form re-read; what must not happen is a closed proposal with
+        // nothing in its place.
+        $replaced = $this->revisions->replacePending(
+            $product->id,
+            $product->vendorUserId,
+            $payload,
+            $existing?->id ?? 0
+        );
+        if ($replaced['id'] <= 0) {
+            return OperationResult::failure(
+                $replaced['code'] === 'not_atomic' ? 'revision_not_atomic' : 'storage_failed',
+                $this->keptProposal($product->id, $existing, $replaced['code'])
+            );
         }
-        $revisionId = $this->revisions->create($product->id, $product->vendorUserId, $payload);
-        if ($revisionId <= 0) {
-            return OperationResult::failure('storage_failed');
-        }
+        $revisionId = $replaced['id'];
         $this->audit->log(AuditEventCatalog::PRODUCT_REVISION_REQUESTED, $product->vendorUserId, 'product', (string) $product->id, [
             'vendor_id' => $product->vendorUserId,
             'product_id' => $product->id,
@@ -1026,6 +1055,32 @@ final class ManageProducts
             'product_id' => $product->id,
             'revision_id' => $revisionId,
         ]);
+    }
+
+    /**
+     * What is still pending after a replacement was refused — READ, not claimed.
+     *
+     * The rollback is the guarantee, and a guarantee is exactly the kind of
+     * sentence this repository has learned not to print without asking
+     * (`alpha.44`: `update_post_meta()` answers the same for «failed» and «it
+     * already said that»). So the row is read back and the answer names the
+     * proposal that survived, or says `lost` — and if it ever says `lost`,
+     * that is a defect with a number attached rather than a silence.
+     *
+     * @return array<string,string>
+     */
+    private function keptProposal(int $productId, ?ProductRevision $existing, string $code): array
+    {
+        $now = $this->revisions->pendingFor($productId);
+        return [
+            'product_id' => (string) $productId,
+            'reason' => $code,
+            'proposal_kept' => match (true) {
+                $existing === null => 'none',
+                $now !== null && $now->id === $existing->id => (string) $existing->id,
+                default => 'lost',
+            },
+        ];
     }
 
     /**

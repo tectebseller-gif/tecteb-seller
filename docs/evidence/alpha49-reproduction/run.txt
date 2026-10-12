@@ -1,0 +1,368 @@
+fixed bytes recorded: 10 files
+putting ten files back to 19d735f (the delivered alpha.48)
+PASS  the ten files really are other bytes now  (10)
+PASS  and the old tree still parses  (ok)
+
+=================== before ===================
+PASS  before/proposal-lost  the probe ran
+--- before proposal-lost ---
+probe=ran
+product_id=1311
+earlier_revision=118
+pending_before=118
+in_needs_review_before=yes
+save=failed
+save_code=storage_failed
+pending_after=0
+proposal_kept=NO
+earlier_status=superseded
+earlier_title_still_asked=no
+in_needs_review_after=no
+PASS  before/1 the refused insert leaves no pending proposal  (0)
+PASS  before/1 the earlier request was closed  (superseded)
+PASS  before/1 the product left the review queue  (no)
+PASS  before/1 the save does not report success  (failed)
+PASS  before/proposal-not-atomic  the probe ran
+--- before proposal-not-atomic ---
+probe=ran
+product_id=1311
+pending_before=119
+save=ok
+save_code=stock_revision_requested
+reason=__none__
+context_proposal_kept=__none__
+pending_after=120
+proposal_kept=NO
+in_needs_review_after=yes
+PASS  before/1b the question is not asked at all  (stock_revision_requested)
+PASS  before/1b so the earlier proposal is gone  (NO)
+PASS  before/structure-unreadable  the probe ran
+--- before structure-unreadable ---
+probe=ran
+draft_id=1312
+unsound_columns=__none__
+reads_as_sound=yes
+problem=product_table_unreadable
+save=ok
+save_code=inventory_saved
+row_stock=77
+wrote=1
+PASS  before/2a the failed read is known to the class  (product_table_unreadable)
+PASS  before/2a unknown reads as sound  (yes)
+PASS  before/2a and the write lands  (1)
+PASS  before/wrong-type  the probe ran
+--- before wrong-type ---
+probe=ran
+draft_id=1312
+column_now=tinyint(4)
+unsound_columns=__none__
+reads_as_sound=yes
+problem=__none__
+save=ok
+save_code=inventory_saved
+asked_stock=500
+row_stock=127
+column_restored=int(11)
+PASS  before/2b the column really is narrowed  (tinyint(4))
+PASS  before/2b and it is put back  (int(11))
+PASS  before/2b the wrong type reads as sound  (yes)
+PASS  before/2b the save reports success  (inventory_saved)
+PASS  before/2b and stores 127 for 500  (127)
+PASS  before/override-unseen  the probe ran
+--- before override-unseen ---
+probe=ran
+propose=ok
+propose_code=stock_revision_requested
+revision_id=121
+shop_when_page_rendered=2
+shop_when_submitted=7
+build_carries_seen_stock=no
+approve=ok
+approve_code=revision_approved
+shop_after=4
+revision_status=approved
+applied_over_unseen=YES
+PASS  before/3a the shop moved after the page was rendered  (7)
+PASS  before/3a the form cannot carry what was shown  (no)
+PASS  before/3a and it is applied over  (YES)
+PASS  before/3a the shop takes the proposal  (4)
+PASS  before/readback-differs  the probe ran
+--- before readback-differs ---
+probe=ran
+propose_code=stock_revision_requested
+revision_id=122
+approve=ok
+approve_code=revision_approved
+proposed_stock=4
+shop_after=3
+row_after=3
+revision_status=approved
+closed_on_a_different_number=YES
+PASS  before/3b the shop clamped it to 3  (3)
+PASS  before/3b the proposal is closed anyway  (approved)
+PASS  before/3b on a number nobody approved  (YES)
+PASS  before/readback-failed  the probe ran
+--- before readback-failed ---
+probe=ran
+propose_code=stock_revision_requested
+revision_id=123
+approve=ok
+approve_code=revision_approved
+revision_status=approved
+closed_unverified=YES
+PASS  before/3c closed without verification  (approved)
+PASS  before/control-proposal-replaced  the probe ran
+--- before control-proposal-replaced ---
+probe=ran
+save=ok
+save_code=stock_revision_requested
+pending_count=1
+pending_is_new=yes
+earlier_superseded=superseded
+carries_title_forward=yes
+PASS  before/C1 a replacement that is not refused still replaces  (stock_revision_requested)
+PASS  before/C1 exactly one pending proposal  (1)
+PASS  before/C1 and it is the new one  (yes)
+PASS  before/C1 the old one is on record  (superseded)
+PASS  before/C1 carrying the earlier request forward  (yes)
+PASS  before/control-sound  the probe ran
+--- before control-sound ---
+probe=ran
+draft_id=1312
+unsound_columns=__none__
+reads_as_sound=yes
+problem=__none__
+save=ok
+save_code=inventory_saved
+row_stock=31
+PASS  before/C2 an untouched table is sound  (yes)
+PASS  before/C2 with no columns named  (__none__)
+PASS  before/C2 and the write lands  (31)
+PASS  before/control-approve  the probe ran
+--- before control-approve ---
+probe=ran
+propose_code=stock_revision_requested
+approve=ok
+approve_code=revision_approved
+shop_after=4
+row_after=4
+revision_status=approved
+PASS  before/C3 a clean approval succeeds  (revision_approved)
+PASS  before/C3 the shop moves  (4)
+PASS  before/C3 the row agrees  (4)
+PASS  before/C3 the proposal is closed  (approved)
+PASS  before/control-override-seen  the probe ran
+--- before control-override-seen ---
+probe=ran
+propose_code=stock_revision_requested
+shop_when_page_rendered=2
+build_carries_seen_stock=no
+approve=ok
+approve_code=revision_approved
+shop_after=4
+revision_status=approved
+PASS  before/C4 the override over the seen number works  (revision_approved)
+PASS  before/C4 the shop takes the proposal  (4)
+PASS  before/C4 the proposal is closed  (approved)
+PASS  before/control-refuses-moved  the probe ran
+--- before control-refuses-moved ---
+probe=ran
+propose_code=stock_revision_requested
+approve=failed
+approve_code=stock_moved
+baseline_stock=9
+current_stock=2
+shop_after=2
+revision_status=pending
+PASS  before/C5 a moved baseline without the box is refused  (stock_moved)
+PASS  before/C5 naming the baseline  (9)
+PASS  before/C5 and the number now  (2)
+PASS  before/C5 the shop is untouched  (2)
+PASS  before/C5 the proposal stays open  (pending)
+
+putting the fix back
+PASS  the fixed bytes came back, byte for byte  (ok)
+
+=================== after ===================
+PASS  after/proposal-lost  the probe ran
+--- after proposal-lost ---
+probe=ran
+product_id=1311
+earlier_revision=129
+pending_before=129
+in_needs_review_before=yes
+save=failed
+save_code=storage_failed
+pending_after=129
+proposal_kept=yes
+earlier_status=pending
+earlier_title_still_asked=yes
+in_needs_review_after=yes
+PASS  after/1 the pending proposal is still pending  (yes)
+PASS  after/1 its status is untouched  (pending)
+PASS  after/1 the vendor's title is still asked  (yes)
+PASS  after/1 the product is still in the review queue  (yes)
+PASS  after/1 the save does not report success  (failed)
+PASS  after/proposal-not-atomic  the probe ran
+--- after proposal-not-atomic ---
+probe=ran
+product_id=1311
+pending_before=130
+save=failed
+save_code=revision_not_atomic
+reason=not_atomic
+context_proposal_kept=130
+pending_after=130
+proposal_kept=yes
+in_needs_review_after=yes
+PASS  after/1b the refusal is named  (revision_not_atomic)
+PASS  after/1b and nothing was attempted  (yes)
+PASS  after/structure-unreadable  the probe ran
+--- after structure-unreadable ---
+probe=ran
+draft_id=1312
+unsound_columns=__none__
+reads_as_sound=no
+problem=product_table_unreadable
+save=failed
+save_code=schema_unknown
+row_stock=31
+wrote=0
+PASS  after/2a the failed read is known to the class  (product_table_unreadable)
+PASS  after/2a unknown is not sound  (no)
+PASS  after/2a the write is refused  (0)
+PASS  after/2a under its own name  (schema_unknown)
+PASS  after/wrong-type  the probe ran
+--- after wrong-type ---
+probe=ran
+draft_id=1312
+column_now=tinyint(4)
+unsound_columns=stock
+reads_as_sound=no
+problem=__none__
+save=failed
+save_code=schema_unsound
+asked_stock=500
+row_stock=31
+column_restored=int(11)
+PASS  after/2b the column really is narrowed  (tinyint(4))
+PASS  after/2b and it is put back  (int(11))
+PASS  after/2b the type is part of the shape  (no)
+PASS  after/2b the column is named  (stock)
+PASS  after/2b the save is refused  (schema_unsound)
+PASS  after/override-unseen  the probe ran
+--- after override-unseen ---
+probe=ran
+propose=ok
+propose_code=stock_revision_requested
+revision_id=131
+shop_when_page_rendered=2
+shop_when_submitted=7
+build_carries_seen_stock=yes
+approve=failed
+approve_code=stock_moved_again
+shop_after=7
+revision_status=pending
+applied_over_unseen=no
+PASS  after/3a the shop moved after the page was rendered  (7)
+PASS  after/3a the form carries what was shown  (yes)
+PASS  after/3a the approval is refused  (stock_moved_again)
+PASS  after/3a the shop is untouched  (7)
+PASS  after/3a the proposal stays open  (pending)
+PASS  after/readback-differs  the probe ran
+--- after readback-differs ---
+probe=ran
+propose_code=stock_revision_requested
+revision_id=132
+approve=failed
+approve_code=stock_mirrored_different
+proposed_stock=4
+shop_after=3
+row_after=3
+revision_status=pending
+closed_on_a_different_number=no
+PASS  after/3b the shop clamped it to 3  (3)
+PASS  after/3b the refusal names both numbers  (stock_mirrored_different)
+PASS  after/3b the proposal stays open  (pending)
+PASS  after/3b and the mirror shows the shop's number  (3)
+PASS  after/readback-failed  the probe ran
+--- after readback-failed ---
+probe=ran
+propose_code=stock_revision_requested
+revision_id=133
+approve=failed
+approve_code=stock_unverified
+revision_status=pending
+closed_unverified=no
+PASS  after/3c the refusal is named  (stock_unverified)
+PASS  after/3c the proposal stays open  (pending)
+PASS  after/control-proposal-replaced  the probe ran
+--- after control-proposal-replaced ---
+probe=ran
+save=ok
+save_code=stock_revision_requested
+pending_count=1
+pending_is_new=yes
+earlier_superseded=superseded
+carries_title_forward=yes
+PASS  after/C1 a replacement that is not refused still replaces  (stock_revision_requested)
+PASS  after/C1 exactly one pending proposal  (1)
+PASS  after/C1 and it is the new one  (yes)
+PASS  after/C1 the old one is on record  (superseded)
+PASS  after/C1 carrying the earlier request forward  (yes)
+PASS  after/control-sound  the probe ran
+--- after control-sound ---
+probe=ran
+draft_id=1312
+unsound_columns=__none__
+reads_as_sound=yes
+problem=__none__
+save=ok
+save_code=inventory_saved
+row_stock=31
+PASS  after/C2 an untouched table is sound  (yes)
+PASS  after/C2 with no columns named  (__none__)
+PASS  after/C2 and the write lands  (31)
+PASS  after/control-approve  the probe ran
+--- after control-approve ---
+probe=ran
+propose_code=stock_revision_requested
+approve=ok
+approve_code=revision_approved
+shop_after=4
+row_after=4
+revision_status=approved
+PASS  after/C3 a clean approval succeeds  (revision_approved)
+PASS  after/C3 the shop moves  (4)
+PASS  after/C3 the row agrees  (4)
+PASS  after/C3 the proposal is closed  (approved)
+PASS  after/control-override-seen  the probe ran
+--- after control-override-seen ---
+probe=ran
+propose_code=stock_revision_requested
+shop_when_page_rendered=2
+build_carries_seen_stock=yes
+approve=ok
+approve_code=revision_approved
+shop_after=4
+revision_status=approved
+PASS  after/C4 the override over the seen number works  (revision_approved)
+PASS  after/C4 the shop takes the proposal  (4)
+PASS  after/C4 the proposal is closed  (approved)
+PASS  after/control-refuses-moved  the probe ran
+--- after control-refuses-moved ---
+probe=ran
+propose_code=stock_revision_requested
+approve=failed
+approve_code=stock_moved
+baseline_stock=9
+current_stock=2
+shop_after=2
+revision_status=pending
+PASS  after/C5 a moved baseline without the box is refused  (stock_moved)
+PASS  after/C5 naming the baseline  (9)
+PASS  after/C5 and the number now  (2)
+PASS  after/C5 the shop is untouched  (2)
+PASS  after/C5 the proposal stays open  (pending)
+
+PASS=116 FAIL=0

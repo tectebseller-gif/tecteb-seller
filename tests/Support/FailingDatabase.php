@@ -174,9 +174,25 @@ final class FailingDatabase implements DatabaseInterface
         return $this->refusesRead($sql, $params) ? [] : $this->inner->getResults($sql, $params);
     }
 
+    /**
+     * Refuse to open a unit of work — a build or a connection that cannot hold
+     * two statements together.
+     *
+     * Its own switch rather than a needle, because `START TRANSACTION` is not
+     * a statement this gateway sends through `execute()`: it goes through
+     * `begin()`, and a test that wants «no transaction» has to be able to say
+     * so without also refusing the writes it is watching.
+     */
+    public function refuseTransactions(): void
+    {
+        $this->noTransactions = true;
+    }
+
+    private bool $noTransactions = false;
+
     public function begin(): bool
     {
-        return $this->inner->begin();
+        return $this->noTransactions ? false : $this->inner->begin();
     }
 
     public function commit(): bool

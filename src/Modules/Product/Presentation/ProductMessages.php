@@ -432,6 +432,14 @@ final class ProductMessages
                 __('ذخیره انجام نشد چون ساختار جدول محصول‌ها آن چیزی نیست که این نسخه لازم دارد: %s. هیچ دادهٔ غلطی نوشته نشد. صفحهٔ «سلامت» را باز کنید و ارتقای ساختار را کامل کنید؛ تا آن موقع محصولی ذخیره نکنید.', 'tecteb-marketplace-core'),
                 (string) ($context['columns'] ?? '')
             ),
+            // The structure could not be READ. Its own sentence, because
+            // naming columns here would be naming an answer nobody has: this
+            // is «پرسیده نشد», not «غلط است» (`alpha.49`).
+            'schema_unknown' => __('ذخیره انجام نشد چون ساختار جدول محصول‌ها خوانده نشد، و ساختار نامعلوم با ساختار سالم یکی گرفته نمی‌شود. هیچ دادهٔ غلطی نوشته نشد. صفحهٔ «سلامت» را باز کنید؛ اگر ارتقای ساختار ناتمام است کاملش کنید و بعد دوباره ذخیره کنید.', 'tecteb-marketplace-core'),
+            // The replacement could not be held together, so NOTHING was
+            // closed. The sentence says that, because the whole finding was a
+            // vendor told «ذخیره نشد» about a request that had been destroyed.
+            'revision_not_atomic' => __('این ذخیره نسخهٔ پیشنهادی تازه‌ای نساخت، چون جایگزینی پیشنهاد باید یکجا انجام شود و اینجا نشد. پیشنهاد قبلی شما سر جایش و در صف بررسی مدیر است؛ هیچ‌چیز حذف نشد. چند لحظه بعد دوباره ذخیره کنید.', 'tecteb-marketplace-core'),
             'nothing_to_finish' => __('این درخواست چیزی برای کامل‌کردن ندارد.', 'tecteb-marketplace-core'),
             'product_submitted' => __('محصول برای بررسی مدیر فرستاده شد. تا تعیین تکلیف، نسخه فعلی تغییر نمی‌کند.', 'tecteb-marketplace-core'),
             'product_published' => __('محصول منتشر شد؛ فروشگاه شما مجوز انتشار مستقیم دارد.', 'tecteb-marketplace-core'),
@@ -477,6 +485,34 @@ final class ProductMessages
                 __('موجودی مؤثر از زمان ثبت این پیشنهاد تغییر کرده است: هنگام پیشنهاد %1$s، اکنون %2$s، پیشنهاد %3$s. برای اینکه عدد تازه بی‌صدا بازنویسی نشود، تأیید انجام نشد؛ اگر مقدار پیشنهادی را می‌خواهید، گزینهٔ «با وجود این تغییر اعمال کن» را انتخاب و دوباره تأیید کنید.', 'tecteb-marketplace-core'),
                 PersianDigits::toPersian((string) ($context['baseline_stock'] ?? '')),
                 PersianDigits::toPersian((string) ($context['current_stock'] ?? '')),
+                PersianDigits::toPersian((string) ($context['proposed_stock'] ?? ''))
+            ),
+            // The box was ticked about a number that is no longer the number.
+            // Four of them, because the manager has to see what changed under
+            // their decision — and «دوباره تأیید کنید» is only honest if the
+            // page they go back to shows the new one.
+            'stock_moved_again' => sprintf(
+                /* translators: 1: stock when proposed, 2: stock the page showed, 3: stock now, 4: proposed stock */
+                __('موجودی بعد از باز شدن این صفحه هم تغییر کرد: هنگام پیشنهاد %1$s، آنچه به شما نشان داده شد %2$s، اکنون %3$s، پیشنهاد %4$s. گزینهٔ «با وجود این تغییر اعمال کن» برای همان عددی است که دیده‌اید، پس تأیید انجام نشد. صفحه را تازه کنید، عدد تازه را ببینید و اگر باز هم موافقید دوباره تأیید کنید.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($context['baseline_stock'] ?? '')),
+                PersianDigits::toPersian((string) ($context['seen_stock'] ?? '')),
+                PersianDigits::toPersian((string) ($context['current_stock'] ?? '')),
+                PersianDigits::toPersian((string) ($context['proposed_stock'] ?? ''))
+            ),
+            // The shop took the write and kept another number. Both numbers,
+            // and the proposal stays open: closing it would have been
+            // `alpha.48`'s answer, and it closed on a number nobody approved.
+            'stock_mirrored_different' => sprintf(
+                /* translators: 1: the approved stock, 2: what the shop holds */
+                __('موجودی تأییدشده %1$s بود و ووکامرس %2$s را نگه داشت، پس تأیید ثبت نشد و پیشنهاد باز مانده است. عدد فروشگاه در پروندهٔ بازارگاه هم به همان %2$s اصلاح شد تا دو عدد در دو صفحه نباشد. اگر محدودیتی در ووکامرس این عدد را پایین می‌آورد، اول آن را بردارید.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($context['proposed_stock'] ?? '')),
+                PersianDigits::toPersian((string) ($context['shop_stock'] ?? ''))
+            ),
+            // Written, and not confirmed. Not reported as applied, because a
+            // number that could not be read back is not a number.
+            'stock_unverified' => sprintf(
+                /* translators: %s: the approved stock */
+                __('موجودی %s روی ووکامرس نوشته شد ولی خوانده نشد، پس تأیید ثبت نشد و پیشنهاد باز مانده است. وضعیت موجودی این محصول را در ووکامرس ببینید و بعد دوباره تأیید کنید؛ تأیید دوباره چیزی را دو بار کم نمی‌کند.', 'tecteb-marketplace-core'),
                 PersianDigits::toPersian((string) ($context['proposed_stock'] ?? ''))
             ),
             'stock_not_written' => sprintf(

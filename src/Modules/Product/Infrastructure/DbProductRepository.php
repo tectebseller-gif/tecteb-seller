@@ -606,6 +606,11 @@ final class DbProductRepository implements ProductRepositoryInterface
         return $this->shape()->unsoundColumns();
     }
 
+    public function structureKnown(): bool
+    {
+        return $this->shape()->isKnown();
+    }
+
     /**
      * The shape guard, built once and kept.
      *
@@ -630,6 +635,9 @@ final class DbProductRepository implements ProductRepositoryInterface
      */
     private function mayWrite(): bool
     {
+        // `isSound()` is KNOWN and nothing wrong in it. Until `alpha.49` the
+        // unknown case answered true here and every write went through on a
+        // question nobody could answer.
         return $this->shape()->isSound();
     }
 

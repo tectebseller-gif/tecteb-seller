@@ -80,6 +80,7 @@ final class ProductFlowTest extends DatabaseTestCase
     private ProductPublishPolicy $publishing;
     private FakeProductImages $images;
     private FakeCatalogProjector $projector;
+    private SyncCatalog $catalog;
     private FakeCapabilityChecker $capabilities;
 
     protected function setUp(): void
@@ -118,7 +119,7 @@ final class ProductFlowTest extends DatabaseTestCase
         $this->variations = new DbVariationRepository($db, $clock);
         $readiness = new ProductReadiness($this->templates, $this->variations);
         $this->projector = new FakeCatalogProjector();
-        $catalog = new SyncCatalog($this->products, $this->variations, $this->projector, $audit);
+        $catalog = $this->catalog = new SyncCatalog($this->products, $this->variations, $this->projector, $audit);
 
         $this->manage = new ManageProducts(
             $this->products,
@@ -452,9 +453,35 @@ final class ProductFlowTest extends DatabaseTestCase
         self::assertSame(2, $held?->details->stock);
         self::assertSame(ProductRevision::PENDING, $this->revisions->find($revisionId)?->status);
 
-        // The manager's explicit «apply it anyway» — a checkbox, so this third
-        // argument is the one a ticked box sends.
-        self::assertTrue($this->review->approveRevision($revisionId, [], true)->ok);
+        // THE PERMISSION IS FOR THE NUMBER THEY SAW, and this assertion is new
+        // in `alpha.49`. The ticked box alone used to skip the comparison
+        // outright, so a sale between rendering the page and sending the form
+        // was applied over without ever appearing on a screen — measured on
+        // the `alpha.48` bytes: `shop_when_page_rendered=2
+        // shop_when_submitted=7 approve_code=revision_approved shop_after=4`.
+        // A box with no number behind it is refused rather than trusted, the
+        // same rule the row version has followed since `alpha.15`.
+        $blind = $this->review->approveRevision($revisionId, [], true);
+        self::assertFalse($blind->ok, 'the override needs the number the page showed');
+        self::assertSame('stock_moved_again', $blind->code);
+        self::assertSame('__none__', $blind->context['seen_stock']);
+        self::assertSame(ProductRevision::PENDING, $this->revisions->find($revisionId)?->status);
+
+        // And ticking it about a number that has since changed again is
+        // refused too, with all four numbers named.
+        $this->projector->restock($productId, 7);
+        $stale = $this->review->approveRevision($revisionId, [], true, 2);
+        self::assertSame('stock_moved_again', $stale->code);
+        self::assertSame(5, $stale->context['baseline_stock']);
+        self::assertSame('2', $stale->context['seen_stock']);
+        self::assertSame(7, $stale->context['current_stock']);
+        self::assertSame(9, $stale->context['proposed_stock']);
+        self::assertSame(7, $this->projector->stock[(int) $this->products->find($productId)?->wcProductId]);
+
+        // The manager's explicit «apply it anyway» over the number the page
+        // actually showed them — a checkbox and a hidden field, which is what
+        // the review page now sends together.
+        self::assertTrue($this->review->approveRevision($revisionId, [], true, 7)->ok);
         $live = $this->products->find($productId);
         self::assertSame('دستکش نیتریل', $live?->details->title);
         self::assertSame(260000, $live?->details->priceMinor);
@@ -475,6 +502,109 @@ final class ProductFlowTest extends DatabaseTestCase
         self::assertTrue($this->review->approveRevision($revisionId)->ok);
         self::assertSame(12, $this->products->find($productId)?->details->stock);
         self::assertSame(12, $this->projector->stock[$wcId]);
+    }
+
+    /**
+     * THE SHOP TOOK THE WRITE AND KEPT ANOTHER NUMBER — `alpha.49`'s third
+     * finding.
+     *
+     * `approveRevision()` used to read `pushStock()`'s boolean, and that
+     * boolean is true when the read-back differs: the write succeeded, the
+     * mirror was corrected, and nobody was told. So the proposal was closed as
+     * APPROVED about a shop holding something else, and a closed proposal is
+     * one nobody looks at again. Measured on the `alpha.48` bytes with
+     * WooCommerce's own `woocommerce_stock_amount` filter clamping to 3:
+     * `proposed_stock=4 shop_after=3 revision_status=approved`.
+     *
+     * «تأیید موجودی فقط با نتیجهٔ معتبر ثبت شود.»
+     */
+    public function testAnApprovalTheShopClampedIsNotRecordedAsApproved(): void
+    {
+        $productId = $this->publish(self::VENDOR);
+        $saved = $this->manage->updateInventory(self::VENDOR, self::VENDOR, $productId, 12, 'SKU-1', 1, null);
+        self::assertSame('stock_revision_requested', $saved->code);
+        $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
+        $wcId = (int) $this->products->find($productId)?->wcProductId;
+
+        // A ceiling the shop imposes on every write, which is what a
+        // stock-management plugin is.
+        $this->projector->stockCeiling = 3;
+        $refused = $this->review->approveRevision($revisionId);
+
+        self::assertFalse($refused->ok);
+        self::assertSame('stock_mirrored_different', $refused->code);
+        self::assertSame(12, $refused->context['proposed_stock']);
+        self::assertSame('3', $refused->context['shop_stock']);
+        self::assertSame('row_only', $refused->context['applied']);
+        self::assertSame(3, $this->projector->stock[$wcId], 'the shop holds its own number');
+        self::assertSame(3, $this->products->find($productId)?->details->stock, 'and the mirror shows it');
+        self::assertSame(
+            ProductRevision::PENDING,
+            $this->revisions->find($revisionId)?->status,
+            'the proposal stays open, which is the only state a manager can retry from'
+        );
+    }
+
+    /**
+     * THE READ-BACK DID NOT COME BACK, and that is not a result either.
+     *
+     * Nothing is mirrored, because a value that could not be read is not a
+     * value — the `alpha.37` collision in a new place: null means «refused»
+     * and null means «no such row», and a decision must not hang on either.
+     */
+    public function testAnApprovalWhoseStockCannotBeReadBackIsNotRecordedAsApproved(): void
+    {
+        $productId = $this->publish(self::VENDOR);
+        self::assertSame(
+            'stock_revision_requested',
+            $this->manage->updateInventory(self::VENDOR, self::VENDOR, $productId, 12, 'SKU-1', 1, null)->code
+        );
+        $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
+
+        $this->projector->stockUnreadable = true;
+        $refused = $this->review->approveRevision($revisionId);
+
+        self::assertFalse($refused->ok);
+        self::assertSame('stock_unverified', $refused->code);
+        self::assertSame(12, $refused->context['proposed_stock']);
+        self::assertSame(ProductRevision::PENDING, $this->revisions->find($revisionId)?->status);
+    }
+
+    /**
+     * ONE READ-BACK RULE, TWO VERDICTS ON IT — and both are asserted, because
+     * a reader of the fix will ask why `pushStock()` was left alone.
+     *
+     * `pushStock()` still answers true when the shop clamped the number. That
+     * is deliberate: its caller is a vendor's own save on a product that is
+     * not live, where the mirror catching up to whatever the shop decided IS
+     * the right answer and there is no decision hanging on it. The verdict
+     * that had to get stricter is the approval's, which closes a request on
+     * the strength of its answer.
+     */
+    public function testTheApprovalsVerdictIsStricterThanThePlainWriteThrough(): void
+    {
+        $productId = $this->publish(self::VENDOR);
+        $this->projector->stockCeiling = 3;
+
+        self::assertTrue(
+            $this->catalog->pushStock($productId, 12),
+            'the plain write-through reports the write, not the number'
+        );
+        $verified = $this->catalog->pushApprovedStock($productId, 12);
+        self::assertFalse($verified->ok);
+        self::assertSame('stock_mirrored_different', $verified->code);
+        self::assertSame('12', $verified->context['asked']);
+        self::assertSame('3', $verified->context['shop']);
+
+        // And a write the shop refuses outright is a third answer, not the
+        // same one: nothing reached the shop at all. The link is taken away
+        // from the SHOP rather than from our row, because `isProjected()` asks
+        // our row — so this is the shop saying «I have no such product»,
+        // which is the case `writeStock()` returns false for.
+        $this->projector->links = [];
+        $refused = $this->catalog->pushApprovedStock($productId, 12);
+        self::assertSame('stock_not_written', $refused->code);
+        self::assertSame('refused', $refused->context['reason']);
     }
 
     public function testASecondProposalSupersedesTheFirstRatherThanQueueingBehindIt(): void

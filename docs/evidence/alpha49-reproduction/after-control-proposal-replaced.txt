@@ -1,0 +1,7 @@
+probe=ran
+save=ok
+save_code=stock_revision_requested
+pending_count=1
+pending_is_new=yes
+earlier_superseded=superseded
+carries_title_forward=yes

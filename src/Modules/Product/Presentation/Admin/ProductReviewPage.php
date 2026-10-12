@@ -740,6 +740,14 @@ final class ProductReviewPage
             return '';
         }
         $id = 'stock-conflict-' . $revision->id;
+        // THE NUMBER THIS PAGE IS SHOWING, carried with the permission.
+        //
+        // `alpha.49`: the checkbox used to be a blanket «apply it anyway», so
+        // a sale between this render and the submit was overwritten without
+        // ever appearing on a screen. The hidden field makes the permission
+        // specific to the sentence above it, and `approveRevision()` refuses
+        // when the shop has moved again — naming all four numbers.
+        $seen = '<input type="hidden" name="seen_stock" value="' . esc_attr((string) $current) . '">';
         return '<div class="tmc-notice tmc-notice--warning"><p>' . esc_html(sprintf(
             /* translators: 1: stock when proposed, 2: stock now, 3: proposed stock */
             __('موجودی از زمان ثبت این پیشنهاد تغییر کرده است: هنگام پیشنهاد %1$s بود، اکنون %2$s است، و پیشنهاد فروشنده %3$s است. تأیید بدون انتخاب گزینهٔ زیر انجام نمی‌شود.', 'tecteb-marketplace-core'),
@@ -750,7 +758,7 @@ final class ProductReviewPage
             . '<p><label for="' . esc_attr($id) . '">'
             . '<input type="checkbox" id="' . esc_attr($id) . '" name="accept_stock_conflict" value="1"> '
             . esc_html__('موجودی پیشنهادی را با وجود این تغییر اعمال کن', 'tecteb-marketplace-core')
-            . '</label></p></div>';
+            . '</label></p>' . $seen . '</div>';
     }
 
     /** @param array<string,string> $values */
@@ -947,7 +955,12 @@ final class ProductReviewPage
                 self::seenFingerprints($request),
                 // An unticked checkbox is not sent, so absence IS the
                 // conservative answer and nothing has to default it.
-                $request->postChecked('accept_stock_conflict')
+                $request->postChecked('accept_stock_conflict'),
+                // The number the page printed beside that checkbox. Only when
+                // the form actually carried it: a missing field is a refusal
+                // on the override path, never a zero — existence and value are
+                // two questions (`alpha.28`).
+                $request->hasPost('seen_stock') ? $request->postInt('seen_stock') : null
             ),
             'revision:reject' => $review->rejectRevision($id, $note),
             'seo:save' => $review->setSeo(

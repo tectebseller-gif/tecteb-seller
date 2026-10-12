@@ -134,9 +134,20 @@ final class ReviewProducts
      *                                  moved. A checkbox, so an unticked one is
      *                                  not sent and the default is the
      *                                  conservative answer (`alpha.46`).
+     * @param ?int $seenStock the stock the review page SHOWED when it offered
+     *                        that checkbox. New in `alpha.49`: the permission
+     *                        is for the change the manager read, not for
+     *                        whatever has happened since. Null means the form
+     *                        carried no such number, which is a refusal rather
+     *                        than a waiver — the same rule the row version
+     *                        has followed since `alpha.15`.
      */
-    public function approveRevision(int $revisionId, array $seenFingerprints = [], bool $acceptStockConflict = false): OperationResult
-    {
+    public function approveRevision(
+        int $revisionId,
+        array $seenFingerprints = [],
+        bool $acceptStockConflict = false,
+        ?int $seenStock = null
+    ): OperationResult {
         if (!$this->capabilities->can(Capabilities::REVIEW_PRODUCTS)) {
             return OperationResult::failure('forbidden');
         }
@@ -179,14 +190,41 @@ final class ReviewProducts
         $effectiveStock = null;
         if ($proposedStock !== null && $stockBaseline !== null) {
             $effectiveStock = $this->catalog->pullStock($product->id) ?? $product->details->stock;
-            if ($effectiveStock !== $stockBaseline && !$acceptStockConflict) {
-                return OperationResult::failure('stock_moved', [
-                    'product_id' => $product->id,
-                    'revision_id' => $revisionId,
-                    'baseline_stock' => $stockBaseline,
-                    'current_stock' => $effectiveStock,
-                    'proposed_stock' => $proposedStock,
-                ]);
+            if ($effectiveStock !== $stockBaseline) {
+                if (!$acceptStockConflict) {
+                    return OperationResult::failure('stock_moved', [
+                        'product_id' => $product->id,
+                        'revision_id' => $revisionId,
+                        'baseline_stock' => $stockBaseline,
+                        'current_stock' => $effectiveStock,
+                        'proposed_stock' => $proposedStock,
+                    ]);
+                }
+                // AND THE PERMISSION IS FOR THE NUMBER THEY SAW.
+                //
+                // `alpha.48` let the checkbox skip the comparison outright, so
+                // a change that arrived between rendering the page and sending
+                // the form was applied over without ever being shown: measured,
+                // `shop_when_page_rendered=2 shop_when_submitted=7
+                // approve_code=revision_approved shop_after=4`. The manager
+                // agreed to overwrite a 2. Nobody agreed to overwrite the 7.
+                //
+                // «مجوز اعمال اجباری نیز نباید تغییر تازه‌ای را که مدیر ندیده
+                // دور بزند.» So the ticked box carries the number the page
+                // printed, and a form that carries none is refused rather than
+                // trusted — a hidden field proves which page it came from, and
+                // the `alpha.46` lesson is that a nonce alone proves nothing
+                // about what that page said.
+                if ($seenStock === null || $seenStock !== $effectiveStock) {
+                    return OperationResult::failure('stock_moved_again', [
+                        'product_id' => $product->id,
+                        'revision_id' => $revisionId,
+                        'baseline_stock' => $stockBaseline,
+                        'seen_stock' => $seenStock === null ? '__none__' : (string) $seenStock,
+                        'current_stock' => $effectiveStock,
+                        'proposed_stock' => $proposedStock,
+                    ]);
+                }
             }
         }
         $details = $this->detailsFromPayload($revision->payload, $product->details);
@@ -283,13 +321,26 @@ final class ReviewProducts
             // screen saying the proposal was applied. This is the vendor's
             // edit, a manager having agreed to it — the same write
             // `pushStock()` has always been, now at the moment it is allowed.
-            if ($proposedStock !== null && !$this->catalog->pushStock($product->id, $proposedStock)) {
-                return OperationResult::failure('stock_not_written', [
-                    'product_id' => $product->id,
-                    'revision_id' => $revisionId,
-                    'proposed_stock' => $proposedStock,
-                    'applied' => 'row_only',
-                ]);
+            //
+            // VERIFIED, and that is `alpha.49`'s third finding. `pushStock()`
+            // answers true when the shop clamped the number and true when the
+            // read-back failed, so the proposal was closed as approved about a
+            // shop holding something else. `pushApprovedStock()` has one
+            // success and three named failures, and on any of them the
+            // revision stays PENDING — the only state a manager can try again
+            // from — with both numbers in the message.
+            if ($proposedStock !== null) {
+                $written = $this->catalog->pushApprovedStock($product->id, $proposedStock);
+                if (!$written->ok) {
+                    return OperationResult::failure($written->code, [
+                        'product_id' => $product->id,
+                        'revision_id' => $revisionId,
+                        'proposed_stock' => $proposedStock,
+                        'shop_stock' => (string) ($written->context['shop'] ?? '__unknown__'),
+                        'reason' => (string) ($written->context['reason'] ?? ''),
+                        'applied' => 'row_only',
+                    ]);
+                }
             }
             // The agreement moves with the product. Without this the NEXT
             // revision is measured against the values of two agreements ago,

@@ -1,0 +1,11 @@
+probe=ran
+draft_id=1312
+column_now=tinyint(4)
+unsound_columns=stock
+reads_as_sound=no
+problem=__none__
+save=failed
+save_code=schema_unsound
+asked_stock=500
+row_stock=31
+column_restored=int(11)

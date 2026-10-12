@@ -213,23 +213,81 @@ final class SyncCatalog
         return $published;
     }
 
-    /** The vendor's explicit inventory edit, written through to the storefront. */
+    /**
+     * The vendor's explicit inventory edit, written through to the storefront.
+     *
+     * TRUE unless the write itself was refused — deliberately, and unchanged
+     * in `alpha.49`. This is a draft or an unpublished product, where the
+     * marketplace row is the one that matters and the mirror catching up to
+     * whatever the shop decided IS the right answer. The verdict that must be
+     * stricter is the approval's, and it has its own verb below.
+     */
     public function pushStock(int $productId, int $stock): bool
+    {
+        return $this->writeAndVerifyStock($productId, $stock)->code !== 'stock_not_written';
+    }
+
+    /**
+     * The APPROVED stock, written through and verified — new in `alpha.49`.
+     *
+     * **The finding this closes.** `approveRevision()` called `pushStock()`
+     * and read its boolean, and that boolean is true when the read-back
+     * differs and true when the read-back fails. So the proposal was marked
+     * APPROVED about a shop holding another number, and nobody would ever look
+     * at it again. Measured on the `alpha.48` bytes, with WooCommerce's own
+     * `woocommerce_stock_amount` filter clamping to 3: `proposed_stock=4
+     * shop_after=3 revision_status=approved`. And with
+     * `woocommerce_product_get_stock_quantity` answering null:
+     * `revision_status=approved` on a write nothing confirmed.
+     *
+     * «تأیید موجودی فقط با نتیجهٔ معتبر ثبت شود.» So there are four answers and
+     * exactly one of them is a success:
+     *
+     *  - `stock_written` — the shop holds the number that was approved.
+     *  - `stock_mirrored_different` — it holds another one. The mirror is
+     *    corrected so no screen shows a number the shop does not have, and the
+     *    caller is told both numbers.
+     *  - `stock_unverified` — the read-back did not come back. Nothing is
+     *    mirrored, because a value that could not be read is not a value.
+     *  - `stock_not_written` — the write was refused, with the reason.
+     *
+     * One read-back rule in one place, two verdicts on it: `pushStock()` above
+     * keeps the looser one and says why.
+     */
+    public function pushApprovedStock(int $productId, int $stock): OperationResult
+    {
+        return $this->writeAndVerifyStock($productId, $stock);
+    }
+
+    private function writeAndVerifyStock(int $productId, int $stock): OperationResult
     {
         $product = $this->products->find($productId);
         if ($product === null || !$product->isProjected() || !$this->projector->isAvailable()) {
-            return false;
+            return OperationResult::failure('stock_not_written', [
+                'reason' => 'not_projected',
+                'asked' => (string) $stock,
+            ]);
         }
         if (!$this->projector->writeStock($product, $stock)) {
-            return false;
+            return OperationResult::failure('stock_not_written', [
+                'reason' => 'refused',
+                'asked' => (string) $stock,
+            ]);
         }
         // Read back rather than assume: WooCommerce may clamp or refuse, and
         // the mirror must show what the storefront actually holds.
         $actual = $this->projector->readStock($product);
-        if ($actual !== null && $actual !== $stock) {
-            $this->products->mirrorStock($productId, $actual);
+        if ($actual === null) {
+            return OperationResult::failure('stock_unverified', ['asked' => (string) $stock]);
         }
-        return true;
+        if ($actual !== $stock) {
+            $this->products->mirrorStock($productId, $actual);
+            return OperationResult::failure('stock_mirrored_different', [
+                'asked' => (string) $stock,
+                'shop' => (string) $actual,
+            ]);
+        }
+        return OperationResult::success('stock_written', ['stock' => (string) $stock]);
     }
 
     /**

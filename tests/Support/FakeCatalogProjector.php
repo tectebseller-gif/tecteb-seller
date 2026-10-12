@@ -133,8 +133,24 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
         return $this->stock[$id] = ($this->stock[$id] ?? 0) + $by;
     }
 
+    /**
+     * A ceiling the shop imposes on every stock write, as WooCommerce's own
+     * `woocommerce_stock_amount` filter does.
+     *
+     * Needed from `alpha.49`: the approval's write-through is now verified by
+     * its read-back, and a shop that takes the write and keeps another number
+     * is the case that used to be reported as success. Null means no ceiling.
+     */
+    public ?int $stockCeiling = null;
+
+    /** Whether reading the stock back answers «I cannot tell you». */
+    public bool $stockUnreadable = false;
+
     public function readStock(Product $product): ?int
     {
+        if ($this->stockUnreadable) {
+            return null;
+        }
         $id = $this->links[$product->id] ?? 0;
         return $id > 0 ? ($this->stock[$id] ?? null) : null;
     }
@@ -145,7 +161,8 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
         if ($id <= 0) {
             return false;
         }
-        $this->stock[$id] = max(0, $stock);
+        $wanted = max(0, $stock);
+        $this->stock[$id] = $this->stockCeiling === null ? $wanted : min($this->stockCeiling, $wanted);
         return true;
     }
 

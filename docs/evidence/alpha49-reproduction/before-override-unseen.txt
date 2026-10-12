@@ -1,0 +1,12 @@
+probe=ran
+propose=ok
+propose_code=stock_revision_requested
+revision_id=121
+shop_when_page_rendered=2
+shop_when_submitted=7
+build_carries_seen_stock=no
+approve=ok
+approve_code=revision_approved
+shop_after=4
+revision_status=approved
+applied_over_unseen=YES

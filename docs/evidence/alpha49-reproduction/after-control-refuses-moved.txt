@@ -1,0 +1,8 @@
+probe=ran
+propose_code=stock_revision_requested
+approve=failed
+approve_code=stock_moved
+baseline_stock=9
+current_stock=2
+shop_after=2
+revision_status=pending

@@ -1,0 +1,8 @@
+probe=ran
+draft_id=1312
+unsound_columns=__none__
+reads_as_sound=yes
+problem=__none__
+save=ok
+save_code=inventory_saved
+row_stock=31

@@ -1,0 +1,12 @@
+probe=ran
+product_id=1311
+earlier_revision=118
+pending_before=118
+in_needs_review_before=yes
+save=failed
+save_code=storage_failed
+pending_after=0
+proposal_kept=NO
+earlier_status=superseded
+earlier_title_still_asked=no
+in_needs_review_after=no

@@ -1,0 +1,9 @@
+probe=ran
+draft_id=1312
+unsound_columns=__none__
+reads_as_sound=yes
+problem=product_table_unreadable
+save=ok
+save_code=inventory_saved
+row_stock=77
+wrote=1

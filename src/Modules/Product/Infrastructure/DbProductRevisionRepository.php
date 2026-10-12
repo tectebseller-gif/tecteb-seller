@@ -82,6 +82,55 @@ final class DbProductRevisionRepository implements ProductRevisionRepositoryInte
         return (int) $this->db->getVar('SELECT LAST_INSERT_ID()');
     }
 
+    public function replacePending(int $productId, int $vendorUserId, array $payload, int $supersedeId): array
+    {
+        if ($supersedeId <= 0) {
+            // Nothing to close, so nothing to hold together. One statement is
+            // already a unit of work and wrapping it would only add a way for
+            // it to fail.
+            $id = $this->create($productId, $vendorUserId, $payload);
+            return ['id' => $id, 'code' => $id > 0 ? 'created' : 'storage_failed'];
+        }
+        if (!$this->db->begin()) {
+            // ASKED BEFORE ANYTHING IS WRITTEN. A build or a connection that
+            // cannot open a transaction must not close the pending proposal on
+            // the hope that the insert lands — the whole finding is that the
+            // first half succeeding alone is worse than neither half running.
+            return ['id' => 0, 'code' => 'not_atomic'];
+        }
+        try {
+            $superseded = $this->db->execute(
+                'UPDATE `' . $this->table() . '` SET status = %s, note = %s, reviewed_by = %d, reviewed_at = %s
+                  WHERE id = %d AND status = %s',
+                [ProductRevision::SUPERSEDED, '', 0, $this->now(), $supersedeId, ProductRevision::PENDING]
+            );
+            // Zero rows is a LOST RACE, not «it already said that»: the
+            // `WHERE` carries `status = pending`, so zero means somebody else
+            // decided this proposal between our read and this statement.
+            // `decide()` cannot tell the two apart, which is why this writes
+            // its own `UPDATE` rather than calling it.
+            if ($superseded === null || $superseded < 1) {
+                $this->db->rollback();
+                return ['id' => 0, 'code' => $superseded === null ? 'storage_failed' : 'superseded_elsewhere'];
+            }
+            $id = $this->create($productId, $vendorUserId, $payload);
+            if ($id <= 0) {
+                $this->db->rollback();
+                return ['id' => 0, 'code' => 'storage_failed'];
+            }
+        } catch (\Throwable) {
+            $this->db->rollback();
+            return ['id' => 0, 'code' => 'storage_failed'];
+        }
+        if (!$this->db->commit()) {
+            // Nothing is on the disk, so the pending proposal is still
+            // pending — and saying `replaced` here would name a row that does
+            // not exist.
+            return ['id' => 0, 'code' => 'storage_failed'];
+        }
+        return ['id' => $id, 'code' => 'replaced'];
+    }
+
     public function decide(int $revisionId, string $status, int $reviewerId, string $note): bool
     {
         return $this->db->execute(

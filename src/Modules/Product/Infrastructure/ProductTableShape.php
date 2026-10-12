@@ -40,42 +40,89 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0025BrandRegis
  * request, over `information_schema` for one table — the same read every
  * migration's `verify()` already does, once instead of twenty-five times.
  *
- * **A read that fails is NOT a refusal.** `unknown` is its own answer and it
- * ALLOWS the write, which is deliberate and is the narrower risk: the finding
- * is about a column whose shape is positively wrong, and refusing every
- * product save because `information_schema` could not be read would stop a
- * working site over a failure that is not evidence of anything. The failure is
- * reported by `lastProblem()` instead, and the health page already shows a
- * migration that did not finish.
+ * **A read that fails is NOT «sound», and `alpha.49` corrected that.**
+ * `alpha.48` let an unreadable `information_schema` through on the argument
+ * that refusing every product save over a failed read is the narrower risk.
+ * Measured on its own bytes, the price of that argument was
+ * `reads_as_sound=yes problem=product_table_unreadable wrote=1`: the class
+ * KNEW the read had failed, said «sound» anyway, and the write landed. The
+ * owner's instruction is the correction — «ساختار نامعلوم با سالم یکی نباشد»
+ * — and it is the right one, because the whole point of asking at the write is
+ * that the write must not proceed on an assumption.
+ *
+ * So there are now THREE answers, and `isSound()` is true for one of them:
+ *
+ *  - **sound** — every column is the shape a write needs.
+ *  - **unsound** — one or more columns are not, and they are named.
+ *  - **unknown** — the read failed. `isKnown()` is false, `isSound()` is
+ *    false, and the refusal has its own code (`schema_unknown`) so that
+ *    «ستونی غلط است» is never said about a question nobody could answer.
+ *
+ * A failed read is NOT memoised, so the next write of the same request asks
+ * again: a transient failure must not freeze a working site for the rest of a
+ * page load, and a persistent one costs one query per write on a site that is
+ * refusing writes anyway.
  */
 final class ProductTableShape
 {
     /**
      * What a write needs each column to be.
      *
-     * `nullable` is the question that matters, because it is the one SQL will
-     * not raise: a NOT NULL column with no default refuses a write that omits
-     * it, while a NULLable column accepts it and stores nothing. `default` is
-     * checked where the default IS the meaning — `purchase_step`'s 1 is
-     * migration 24's whole backfill, and a 0 there would read as «no quantity
-     * may be bought» to anything that did not coerce it.
+     * `nullable` is the question SQL will not raise: a NOT NULL column with no
+     * default refuses a write that omits it, while a NULLable column accepts
+     * it and stores nothing. `default` is checked where the default IS the
+     * meaning — `purchase_step`'s 1 is migration 24's whole backfill, and a 0
+     * there would read as «no quantity may be bought» to anything that did not
+     * coerce it.
      *
-     * @var array<string,array{nullable:bool, default:?string}>
+     * **`types` is new in `alpha.49`, and the measurement is why.** `alpha.48`
+     * asked about nullability and default and not about the type, so narrowing
+     * `stock` from `int` to `tinyint` kept its name, its nullability and its
+     * default — every question that was being asked — and the vendor's 500
+     * was stored as 127. Measured on the `alpha.48` bytes:
+     * `column_now=tinyint(4) reads_as_sound=yes save_code=inventory_saved
+     * asked_stock=500 row_stock=127`. Nothing raised an error because this
+     * server's `sql_mode` has no `STRICT_TRANS_TABLES` (measured:
+     * `ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION`),
+     * which is the ordinary WordPress configuration — `wpdb` strips the strict
+     * modes itself.
+     *
+     * A LIST of types rather than one, because **narrower is a loss and wider
+     * is not**: a `bigint` where the migration declares `int` holds everything
+     * an `int` holds, so refusing it would stop a site somebody had widened on
+     * purpose. Within a family only, which is why `varchar` is not in the list
+     * for `stock`: a number stored as text is not «more room», it is a
+     * different column.
+     *
+     * `min_length` is the same question for the text columns, where the loss is
+     * truncation rather than clamping: a `varchar(5)` title holds its name, its
+     * NOT NULL and its empty default, and silently keeps five characters.
+     *
+     * @var array<string,array{nullable:bool, default:?string, types:list<string>, min_length:?int}>
      */
     private const REQUIRED = [
-        'title' => ['nullable' => false, 'default' => null],
-        'brand' => ['nullable' => false, 'default' => null],
-        'sku' => ['nullable' => false, 'default' => null],
-        'stock' => ['nullable' => false, 'default' => null],
-        'min_purchase' => ['nullable' => false, 'default' => '1'],
-        'max_purchase' => ['nullable' => true, 'default' => null],
-        M0024PurchaseStep::STEP => ['nullable' => false, 'default' => '1'],
-        M0023ProductDescriptionAndCreateToken::DESCRIPTION => ['nullable' => true, 'default' => null],
-        M0025BrandRegistry::BRAND_TERM => ['nullable' => true, 'default' => null],
+        'title' => ['nullable' => false, 'default' => null, 'types' => ['varchar'], 'min_length' => 190],
+        'brand' => ['nullable' => false, 'default' => null, 'types' => ['varchar'], 'min_length' => 120],
+        'sku' => ['nullable' => false, 'default' => null, 'types' => ['varchar'], 'min_length' => 64],
+        'stock' => ['nullable' => false, 'default' => null, 'types' => ['int', 'bigint'], 'min_length' => null],
+        'min_purchase' => ['nullable' => false, 'default' => '1', 'types' => ['int', 'bigint'], 'min_length' => null],
+        'max_purchase' => ['nullable' => true, 'default' => null, 'types' => ['int', 'bigint'], 'min_length' => null],
+        M0024PurchaseStep::STEP => [
+            'nullable' => false, 'default' => '1', 'types' => ['int', 'bigint'], 'min_length' => null,
+        ],
+        M0023ProductDescriptionAndCreateToken::DESCRIPTION => [
+            'nullable' => true, 'default' => null, 'types' => ['longtext'], 'min_length' => null,
+        ],
+        M0025BrandRegistry::BRAND_TERM => [
+            'nullable' => true, 'default' => null, 'types' => ['bigint'], 'min_length' => null,
+        ],
     ];
 
     /** @var list<string>|null the unsound columns, or null until asked */
     private ?array $unsound = null;
+
+    /** False only after a read that did not come back (see `isKnown()`). */
+    private bool $known = true;
 
     private string $problem = '';
 
@@ -88,9 +135,10 @@ final class ProductTableShape
     /**
      * Columns whose shape would make a write store wrong data.
      *
-     * Empty means sound, and empty is ALSO what an unreadable
-     * `information_schema` answers — see the class docblock. `lastProblem()`
-     * tells the two apart for anything that wants to say so.
+     * Empty means «nothing is wrong with the columns I could see», which is
+     * NOT the same as sound: an unreadable `information_schema` answers empty
+     * too. `isKnown()` tells the two apart and `isSound()` requires both, so
+     * no caller can read this as a clean bill of health by accident.
      *
      * @return list<string>
      */
@@ -99,11 +147,12 @@ final class ProductTableShape
         if ($this->unsound !== null) {
             return $this->unsound;
         }
-        $this->unsound = [];
+        $unsound = [];
         $names = array_keys(self::REQUIRED);
         $placeholders = implode(', ', array_fill(0, count($names), '%s'));
         $rows = $this->db->getResults(
-            'SELECT COLUMN_NAME AS name, IS_NULLABLE AS nullable, COLUMN_DEFAULT AS col_default
+            'SELECT COLUMN_NAME AS name, IS_NULLABLE AS nullable, COLUMN_DEFAULT AS col_default,
+                    DATA_TYPE AS data_type, CHARACTER_MAXIMUM_LENGTH AS max_length
                FROM information_schema.COLUMNS
               WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
                 AND COLUMN_NAME IN (' . $placeholders . ')',
@@ -111,13 +160,15 @@ final class ProductTableShape
         );
         if ($rows === []) {
             // Either the table is not there at all or the read failed, and
-            // this cannot tell which. Activation and the upgrade gate both
-            // answer the first; neither is this method's business, and
-            // refusing every write here would stop a site whose only problem
-            // is that something could not be read.
+            // this cannot tell which — so it says UNKNOWN and stops the write
+            // under its own name. Nothing is memoised: the next write of this
+            // request asks again, because a transient failure must not freeze
+            // a working site for a whole page load.
             $this->problem = 'product_table_unreadable';
-            return $this->unsound;
+            $this->known = false;
+            return [];
         }
+        $this->known = true;
         $found = [];
         foreach ($rows as $row) {
             $found[(string) ($row['name'] ?? '')] = $row;
@@ -128,12 +179,23 @@ final class ProductTableShape
                 // A column the write names and the table does not have. This
                 // is «the structure is behind» arriving as a fact rather than
                 // as a version number.
-                $this->unsound[] = $column;
+                $unsound[] = $column;
                 continue;
             }
             $nullable = strtoupper((string) ($row['nullable'] ?? 'YES')) === 'YES';
             if ($nullable !== $wanted['nullable']) {
-                $this->unsound[] = $column;
+                $unsound[] = $column;
+                continue;
+            }
+            // THE TYPE, asked before the default, because a column of another
+            // type makes the default's spelling meaningless.
+            if (!in_array(strtolower((string) ($row['data_type'] ?? '')), $wanted['types'], true)) {
+                $unsound[] = $column;
+                continue;
+            }
+            if ($wanted['min_length'] !== null
+                && (int) ($row['max_length'] ?? 0) < $wanted['min_length']) {
+                $unsound[] = $column;
                 continue;
             }
             if ($wanted['default'] === null) {
@@ -143,15 +205,28 @@ final class ProductTableShape
             // `NULL` on a nullable column (measured on 10.11), so the
             // comparison is on the string either way.
             if ((string) ($row['col_default'] ?? '') !== $wanted['default']) {
-                $this->unsound[] = $column;
+                $unsound[] = $column;
             }
         }
-        return $this->unsound;
+        return $this->unsound = $unsound;
     }
 
+    /**
+     * Whether the shape could be read at all.
+     *
+     * The third answer, and the one `alpha.48` did not have. False means the
+     * question has no answer — never «the answer is yes».
+     */
+    public function isKnown(): bool
+    {
+        $this->unsoundColumns();
+        return $this->known;
+    }
+
+    /** Sound means KNOWN and with nothing wrong in it. Unknown is not sound. */
     public function isSound(): bool
     {
-        return $this->unsoundColumns() === [];
+        return $this->unsoundColumns() === [] && $this->known;
     }
 
     /** Why the answer may be empty without being a clean bill of health. */
@@ -166,5 +241,6 @@ final class ProductTableShape
     {
         $this->unsound = null;
         $this->problem = '';
+        $this->known = true;
     }
 }
