@@ -159,6 +159,19 @@ run_tree() { # run_tree <label>
     check "$tree/dialects and the row is untouched"     "4.000000" "$(value "$f" row_after_stale)"
   fi
 
+  # ---- an unconfirmed write is still not recorded ------------------------
+  probe readback-row-blinded "$tree"; f="$PROBE_FILE"
+  say "--- $tree readback-row-blinded ---"; cat "$f" >>"$RUN"
+  if [[ "$tree" == before ]]; then
+    # On `alpha.49` the read-back reads the OBJECT, so blinding the row does
+    # not reach it: the approval goes through. That is not a defect of that
+    # round — it is the reason the read-back could not see a lost value either.
+    check "$tree/4 blinding the row does not reach an object read" "revision_approved" "$(value "$f" approve_code)"
+  else
+    check "$tree/4 a write it cannot confirm is refused" "stock_moved_during_write" "$(value "$f" approve_code)"
+    check "$tree/4 and the proposal stays open"                       "pending" "$(value "$f" revision_status)"
+  fi
+
   # ---- the controls: identical on both trees -----------------------------
   probe control-approve "$tree"; f="$PROBE_FILE"
   say "--- $tree control-approve ---"; cat "$f" >>"$RUN"

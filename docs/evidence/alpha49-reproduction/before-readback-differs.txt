@@ -1,10 +1,10 @@
 probe=ran
 propose_code=stock_revision_requested
-revision_id=122
+revision_id=175
 approve=ok
 approve_code=revision_approved
 proposed_stock=4
 shop_after=3
-row_after=3
+row_after=9
 revision_status=approved
 closed_on_a_different_number=YES

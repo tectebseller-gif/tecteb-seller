@@ -89,13 +89,13 @@ PASS  [new] brand-register-twice: same_term=yes — registering one brand twice,
 PASS  [new] brand-register-twice: term_count_for_name=1 — measured on the taxonomy itself
 
 === two processes registering one brand, two spellings ===
-race 1: a=60 b=60 terms=1
+race 1: a=68 b=68 terms=1
 PASS  race 1: both processes came back with the SAME term — the loser gets the winner's brand
 PASS  race 1: and the taxonomy holds ONE term for the two spellings
-race 2: a=61 b=61 terms=1
+race 2: a=69 b=69 terms=1
 PASS  race 2: both processes came back with the SAME term — the loser gets the winner's brand
 PASS  race 2: and the taxonomy holds ONE term for the two spellings
-race 3: a=62 b=62 terms=1
+race 3: a=70 b=70 terms=1
 PASS  race 3: both processes came back with the SAME term — the loser gets the winner's brand
 PASS  race 3: and the taxonomy holds ONE term for the two spellings
 

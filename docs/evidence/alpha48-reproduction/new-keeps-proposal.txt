@@ -1,9 +1,9 @@
 probe=ran
 wc_id=232
-brand_revision=145
+brand_revision=194
 brand_in_proposal_before=برند_پیشنهادی_۴۸
 save_code=stock_revision_requested
 brand_in_proposal_after=برند_پیشنهادی_۴۸
 stock_in_proposal_after=6
-new_revision_id=146
+new_revision_id=195
 badge_token_moved=yes

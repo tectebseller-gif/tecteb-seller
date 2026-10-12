@@ -441,6 +441,42 @@ switch ($verb) {
         $say('row_after_stale', $storedRow($wcId));
         break;
 
+    /**
+     * THE READ-BACK, BLINDED AT THE ROW — what `alpha.49`'s own probe could no
+     * longer reach.
+     *
+     * That round's `readback-failed` verb blinded
+     * `woocommerce_product_get_stock_quantity`, the OBJECT's prop filter. From
+     * `alpha.50` the read-back reads the `_stock` row (because
+     * `wc_get_product()` is an instance cache — see the delivery document), so
+     * an object-level blind does not reach it any more and that verb now ends
+     * in an ordinary approval. This verb blinds the thing that IS read, from
+     * WooCommerce's own `woocommerce_updated_product_stock` — after the guarded
+     * statement, so the guard's own reads are not what is being measured.
+     */
+    case 'readback-row-blinded':
+        [$id, $wcId] = $published(9);
+        [$ok, $code] = $vendorSave($id, 5);
+        $say('propose_code', $code);
+        $revisionId = (int) ($revisions->pendingFor($id)?->id ?? 0);
+        $blind = static function (mixed $value, int $objectId, string $metaKey) use ($wcId): mixed {
+            return $metaKey === '_stock' && $objectId === $wcId ? false : $value;
+        };
+        $arm = static function () use ($blind): void {
+            add_filter('get_post_metadata', $blind, 10, 3);
+            add_filter('woocommerce_product_get_stock_quantity', '__return_null', 10, 0);
+        };
+        add_action('woocommerce_updated_product_stock', $arm, 10, 0);
+        [$ok, $code, $context] = $approve($revisionId);
+        remove_action('woocommerce_updated_product_stock', $arm, 10);
+        remove_filter('get_post_metadata', $blind, 10);
+        remove_filter('woocommerce_product_get_stock_quantity', '__return_null', 10);
+        $say('approve', $ok);
+        $say('approve_code', $code);
+        $say('revision_status', (string) ($revisions->find($revisionId)?->status ?? '__gone__'));
+        $say('row_after', $storedRow($wcId));
+        break;
+
     case 'reset':
         [$id, $wcId] = $published(9);
         $say('product_id', $id);

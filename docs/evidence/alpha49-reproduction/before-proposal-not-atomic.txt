@@ -1,10 +1,10 @@
 probe=ran
 product_id=1311
-pending_before=119
+pending_before=172
 save=ok
 save_code=stock_revision_requested
 reason=__none__
 context_proposal_kept=__none__
-pending_after=120
+pending_after=173
 proposal_kept=NO
 in_needs_review_after=yes

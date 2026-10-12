@@ -1,5 +1,5 @@
 probe=ran
-seeded=58
+seeded=66
 ask_code=brand_already_approved
 named_real_brand=آمبو_بگ_۴۸
 terms_before=6

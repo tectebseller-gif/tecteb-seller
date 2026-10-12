@@ -202,8 +202,21 @@ run_tree() { # run_tree <label>
   if [[ "$tree" == before ]]; then
     check "$tree/3c closed without verification" "approved" "$(value "$f" revision_status)"
   else
-    check "$tree/3c the refusal is named"  "stock_unverified" "$(value "$f" approve_code)"
-    check "$tree/3c the proposal stays open"       "pending" "$(value "$f" revision_status)"
+    # `alpha.50` CHANGED WHAT THIS VERB REACHES, and the expectation says so
+    # rather than being quietly loosened. The verb blinds
+    # `woocommerce_product_get_stock_quantity` — the OBJECT's prop filter — and
+    # from `alpha.50` the read-back reads the `_stock` ROW instead, because
+    # `wc_get_product()` is an instance cache in WooCommerce 11 and an object
+    # read can be about an earlier moment in the same request. So an
+    # object-level blind no longer reaches the read-back and the approval is an
+    # ordinary one.
+    #
+    # The question this verb used to ask — «an unconfirmed write is not
+    # recorded» — is still asked, against the thing that IS read:
+    # `alpha50-reproduction.sh`'s `readback-row-blinded`, where blinding the row
+    # answers `stock_moved_during_write` and leaves the proposal pending.
+    check "$tree/3c an object-level blind no longer reaches the read-back" "revision_approved" "$(value "$f" approve_code)"
+    check "$tree/3c so this is an ordinary approval"                            "approved" "$(value "$f" revision_status)"
   fi
 
   # ---- the controls: identical on both trees -----------------------------
