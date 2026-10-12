@@ -10,7 +10,7 @@ product_id=1313
 wc_id=334
 shop_at_start=9
 propose_code=stock_revision_requested
-revision_id=163
+revision_id=197
 second_writer_ran=yes
 second_writer_mode=order
 second_writer_before=9
@@ -39,7 +39,7 @@ product_id=1313
 wc_id=334
 shop_at_start=9
 propose_code=stock_revision_requested
-revision_id=164
+revision_id=198
 second_writer_ran=yes
 second_writer_mode=decrease
 second_writer_before=9
@@ -66,6 +66,15 @@ PASS  before/dialects  the probe ran
 probe=ran
 guarded_write=absent_in_this_build
 PASS  before/dialects there is no guarded write to ask  (absent_in_this_build)
+PASS  before/readback-row-blinded  the probe ran
+--- before readback-row-blinded ---
+probe=ran
+propose_code=stock_revision_requested
+approve=ok
+approve_code=revision_approved
+revision_status=approved
+row_after=5
+PASS  before/4 blinding the row does not reach an object read  (revision_approved)
 PASS  before/control-approve  the probe ran
 --- before control-approve ---
 probe=ran
@@ -126,7 +135,7 @@ product_id=1313
 wc_id=334
 shop_at_start=9
 propose_code=stock_revision_requested
-revision_id=167
+revision_id=202
 second_writer_ran=yes
 second_writer_mode=order
 second_writer_before=9
@@ -157,7 +166,7 @@ product_id=1313
 wc_id=334
 shop_at_start=9
 propose_code=stock_revision_requested
-revision_id=168
+revision_id=203
 second_writer_ran=yes
 second_writer_mode=decrease
 second_writer_before=9
@@ -198,6 +207,16 @@ PASS  after/dialects and it can say «7.000000»  (7.000000)
 PASS  after/dialects the guard accepts that too  (written)
 PASS  after/dialects a stale expectation is refused  (moved)
 PASS  after/dialects and the row is untouched  (4.000000)
+PASS  after/readback-row-blinded  the probe ran
+--- after readback-row-blinded ---
+probe=ran
+propose_code=stock_revision_requested
+approve=failed
+approve_code=stock_moved_during_write
+revision_status=pending
+row_after=5.000000
+PASS  after/4 a write it cannot confirm is refused  (stock_moved_during_write)
+PASS  after/4 and the proposal stays open  (pending)
 PASS  after/control-approve  the probe ran
 --- after control-approve ---
 probe=ran
@@ -247,4 +266,4 @@ row_stock=31
 PASS  after/C4 a draft's stock still applies at once  (inventory_saved)
 PASS  after/C4 and the row takes it  (31)
 
-PASS=85 FAIL=0
+PASS=90 FAIL=0

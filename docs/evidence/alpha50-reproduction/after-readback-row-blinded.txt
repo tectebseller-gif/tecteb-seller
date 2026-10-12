@@ -1,0 +1,6 @@
+probe=ran
+propose_code=stock_revision_requested
+approve=failed
+approve_code=stock_moved_during_write
+revision_status=pending
+row_after=5.000000

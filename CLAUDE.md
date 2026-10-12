@@ -15,8 +15,8 @@
 هیچ sender/gateway واقعی وجود ندارد؛ خروجی‌های افزونه در Alpha همیشه بسته‌اند و
 **تأیید موبایل انجام نمی‌شود** تا وقتی Adapter واقعی و مستند وجود داشته باشد.
 
-**بستهٔ جاری:** `0.1.0-alpha.49` ·
-`33d1850feed955fe4f2601c3479ab2c2947db096a52639f35c409abb352a9b15` ·
+**بستهٔ جاری:** `0.1.0-alpha.50` ·
+`56baa2b59728e4ccc4df9791864337e1e2e6d0b03f15cd931ce85f48cae4dccd` ·
 ساختار داده **۲۵** · شاخهٔ `claude/new-session-z1vafy`.
 **آماده آزمایش روی staging** — نصب کار مالک است. **`alpha.48` نصب نشد**: مالک
 آن را خواند، سه مورد پیدا کرد، و خواست پیش از نصب در نسخهٔ مستقل بعدی اصلاح
@@ -54,6 +54,79 @@ PHP 8.1.34 خودِ سایت، سرور وب واقعی، تداخل با افز
 سفارش‌های نیازمند بررسی تعیین تکلیف شده باشند — ترتیب پنج‌گامی در
 `docs/upgrade-and-rollback.md` بند ۵٫۲-ب (`docs/upgrade-and-rollback.md` ·
 `docs/evidence/upgrade-alpha1/` · `docs/evidence/upgrade/`).
+
+**`0.1.0-alpha.50` (۱۲ اکتبر):** بررسی و نوشتنِ موجودی، **یک عملیات
+محافظت‌شده**. ساختار داده همچنان **۲۵**، **هیچ migration ای**. دامنه عمداً
+باریک: شش فایل کد، همه زیر `src/Modules/Product/`.
+تحویل: `docs/phase-48-one-protected-stock-write.md` ·
+ارتقا: `docs/upgrade-and-rollback.md` بند ۳۳ ·
+چک‌لیست staging: `docs/staging-checklist-alpha50-fa.md`.
+
+- **و اول یک تصحیح:** `alpha.49` در بند ۴٫۱ سندش نوشت بازخوانیِ پس از نوشتن
+  پنجرهٔ میان **بررسی** و **نوشتن** را می‌پوشاند. **غلط بود، و مالک درست رد
+  کرد.** `writeStock()` بی‌قیدوشرط می‌نویسد، پس بازخوانی‌ای که همان عددِ
+  خواسته‌شده را پیدا کند تنها ثابت می‌کند **نوشتن انجام شد** و دربارهٔ **چه
+  چیزی را جایگزین کرد** هیچ نمی‌گوید. بند ۴٫۱ آن سند با یک بلوک ⛔ در خودش
+  تصحیح شد.
+- **و استدلال دومش هم غلط بود:** نوشته بود رقابتِ دو پروسه «شیر یا خط» است.
+  روی `woocommerce_update_product` — قلاب خودِ ووکامرس که `project()` به آن
+  می‌رسد — پروسهٔ دوم **هر بار و قطعی** داخل پنجره می‌نشیند. جای درست را پیدا
+  نکرده بودم.
+- **بازتولید با نویسندهٔ دومِ واقعی:** پروسهٔ `wp` جدا، اتصال جدا، و کاهش
+  موجودی از **مسیر خودِ ووکامرس** (سفارشی که به `processing` می‌رود ⇒
+  `wc_maybe_reduce_stock_levels`). روی بایت‌های `alpha.49`:
+  `second_writer_before=9 after=7`، `approve_code=revision_approved`،
+  `shop_after=5`، `revision_status=approved` — **دو عددِ فروخته‌شده رفت**. روی
+  این درخت: `stock_moved_during_write`، `expected_stock=9`، `shop_after=7`،
+  `mirror_after=7`، `pending`. **هیچ `sleep` ای در اسکریپت نیست.**
+- **compare-and-set داخل یک statement، چون مسیر واقعی همین است.** از سورس:
+  `update_product_stock()` برای `decrease` یک statement **نسبی** روی ردیف
+  `_stock` می‌زند، **بی تراکنش و بی `FOR UPDATE`**
+  (`class-wc-product-data-store-cpt.php:1820-1829`). پس قفل اختصاصی بی‌فایده
+  است (هیچ‌چیز در ووکامرس نمی‌گیردش) و «دوباره بخوان بعد بنویس» فقط پنجره را
+  باریک می‌کند. شرط باید **داخل خودِ statement** باشد.
+- **و statement، statementِ ووکامرس است.** شرط روی فیلتر خودش سوار می‌شود
+  (`woocommerce_update_product_stock_query`)، پس دیالکت مقدار، تضمین وجود
+  ردیف، ابطال کش، جدول `wc_product_meta_lookup` و سه قلاب همه مال ووکامرس
+  می‌مانند. `$updating = true` تا `save()` ِ آن از عددِ **خواسته‌شده** وضعیت را
+  هم‌تراز نکند.
+- **مقایسه عددی است:** یک موجودی با دو هجی به آن ردیف می‌رسد — «۷» از
+  `update_post_meta()` و «۷٫۰۰۰۰۰۰» از مسیر مستقیم. سنجیده‌شده: گارد به هر دو
+  `written` می‌دهد و به انتظارِ کهنه `moved`.
+- **و اندازه‌گیری یک نقص خودم را گرفت:** نسخهٔ اول **بلوکه‌شدن** statement را از
+  **نوشتنِ عددی که ردیف از قبل داشت** تشخیص نمی‌داد (انتظار ۹ روی ردیف ۴ ⇒
+  `written`) — همان شکلِ ضعفی که این دور برای برداشتنش است، یک لایه پایین‌تر.
+  یک خواندنِ ردیف **پیش از** statement اضافه شد و در کد نوشته شده که آن
+  **گارد نیست**.
+- **و یک کشف دربارهٔ ووکامرس:** `wc_get_product()` در ۱۱٫۰٫۱ یک **instance
+  cache** است (`product_instance_caching` پیش‌فرض **روشن**، اندازه‌گیری‌شده).
+  در یک درخواست: ردیف ۷ و شیء ۹، همان لحظه. پس `readStock()` از این دور
+  **ردیف** را می‌خواند و شیء تنها fallback است (تنوعی که موجودی‌اش را والد
+  نگه می‌دارد).
+- **مجوز اعمال اجباری مدیر را از مقایسهٔ مبنا رد می‌کند و نه بیشتر:** فروشی که
+  پس از زدن دکمه برسد هم رد می‌شود، چون گارد روی **عددِ دیده‌شده** است.
+- **و کاهش موجودی خودِ ووکامرس دست‌نخورده است** — control: سفارش ۹ → ۷، یکسان
+  روی هر دو درخت. گاردی که سرِ راه فروشگاه بایستد از خودِ نقص بدتر است.
+
+اجرا: unit ۴۴۹ · architecture ۳۱ · contract ۲۸۳ · database **۵۰۰** (+۵) ·
+packaging ۲۲ · `php -l` روی ۵۲۵ فایل روی ۸٫۴ تنها · PHPCompatibility با
+`testVersion 8.1-` — همه ۰ شکست.
+`alpha50-reproduction.sh` **روی ووکامرس ۱۱٫۰٫۱ واقعی** (قبل/بعد روی بایت‌های
+`3e9d251` + ۴ control)، و رگرسیون‌ها: `alpha49-reproduction.sh` ·
+`alpha48-reproduction.sh` — همه ۰ شکست.
+**تست دستی تکراری این دور انجام نشد (درخواست مالک) و سوییت مرورگری اجرا نشد؛
+«قبول» اعلام نمی‌شود. PHP 8.1، دکان، Min Max Control و قالب واقعی `Not Run`
+اند.**
+
+**سه قاعدهٔ تازه:**
+- **بازخوانیِ پس از نوشتن، «نوشتن انجام شد» را ثابت می‌کند و «چه چیزی را
+  جایگزین کرد» را نه.** هر نوشتنِ بی‌قیدوشرطی که بعدش خوانده شود با خودش موافق
+  است؛ شرط باید **داخل خودِ نوشتن** باشد.
+- **قفل یا تراکنشی که طرفِ دیگر نمی‌گیرد گارد نیست — و این را از سورسِ طرفِ
+  دیگر بپرسید.**
+- **کشِ شیء، خواندنِ تازه نیست — و یک پرچم پیش‌فرضِ پلتفرم می‌تواند روشنش
+  کند.** پیش از گارد کردنِ نوشتن بر عددی که از یک شیء آمده، بپرسید آن شیء کِی
+  ساخته شده.
 
 **`0.1.0-alpha.49` (۱۲ اکتبر):** جایگزینیِ اتمیک، ساختارِ نامعلوم، و موجودی‌ای
 که با نتیجهٔ معتبر ثبت می‌شود. ساختار داده همچنان **۲۵**، **هیچ migration ای** —
@@ -3057,6 +3130,23 @@ vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php
   --filter 'MenuBadgeRefreshTest|ReviewDetailSnapshotTest|ReviewSeenTest'
 vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php \
   --filter VendorAccountLinkTest
+
+# فاز ۴۸: بررسی و نوشتنِ موجودی، یک عملیات محافظت‌شده
+# ۸۵+ بررسی: بازتولید روی بایت‌های 3e9d251 (alpha.49) با نویسندهٔ دومِ واقعی
+WP_PATH=/home/user/wp-demo WPCLI=/usr/local/bin/wp \
+  bash tools/alpha50-reproduction.sh docs/evidence/alpha50-reproduction
+# probe باید مسیر پروسهٔ دوم را بداند، وگرنه نویسندهٔ دوم اجرا نمی‌شود:
+TMC_WP_PATH=/home/user/wp-demo TMC_WPCLI=/usr/local/bin/wp TMC_REPO=$PWD \
+  wp --exec='define("WP_ADMIN", true); define("WP_ENVIRONMENT_TYPE","local");' \
+  eval-file tests/Support/alpha49-probe.php <verb>
+#   sale-between-order | sale-between-decrease   ← نویسندهٔ دوم داخل پنجره
+#   dialects            ← «۷» و «۷٫۰۰۰۰۰۰» و انتظارِ کهنه
+#   readback-row-blinded ← نوشتنی که تأییدش نشود ثبت نمی‌شود
+#   control-approve | control-override | control-order-reduces | control-draft
+# نویسندهٔ دوم، به‌تنهایی (پروسهٔ جدا، اتصال جدا، مسیر خودِ ووکامرس):
+wp eval-file tests/Support/concurrent-stock-sale.php order|decrease <wc_id> <qty>
+vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php \
+  --filter ProductFlowTest     # ۶۱ آزمون، ۵ تازه
 
 # فاز ۴۷: جایگزینیِ اتمیک، ساختارِ نامعلوم، و موجودی با نتیجهٔ معتبر
 # ۱۱۶ بررسی: هر سه مورد روی بایت‌های 19d735f (alpha.48)، بعد اصلاح، بعد ۵ control

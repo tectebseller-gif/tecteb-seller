@@ -1,11 +1,11 @@
 probe=ran
 product_id=1311
-earlier_revision=182
-pending_before=182
+earlier_revision=218
+pending_before=218
 in_needs_review_before=yes
 save=failed
 save_code=storage_failed
-pending_after=182
+pending_after=218
 proposal_kept=yes
 earlier_status=pending
 earlier_title_still_asked=yes
