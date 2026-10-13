@@ -442,6 +442,14 @@ switch ($verb) {
             ProjectedQuantity::keys()
         )));
         $say('ledger_after_rollback', (string) ($ledger->find($wcId)['status'] ?? '__none__'));
+        // From `alpha.54` the ledger keeps the rolled-back row as HISTORY and
+        // `find()` means «the LIVE decision», which a rolled-back product no
+        // longer has — that is what lets it be migrated again. Read through
+        // `method_exists` so this probe still loads on the bytes it was
+        // written for (`alpha.32`).
+        $say('history_after_rollback', method_exists($ledger, 'history')
+            ? (string) ($ledger->history($wcId)[0]['status'] ?? '__none__')
+            : '__no_history_method__');
         break;
 
     case 'rollback-after-change':

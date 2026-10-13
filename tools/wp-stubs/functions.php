@@ -27,6 +27,29 @@ function do_shortcode_tag(string $tag, mixed ...$args): string
 {
     return isset(State::$shortcodes[$tag]) ? (string) (State::$shortcodes[$tag])(...$args) : '';
 }
+/**
+ * One callback off one hook, the way core does it.
+ *
+ * Needed because a test that injects a refusal through
+ * `update_post_metadata` has to take it back off: a filter that outlives its
+ * test refuses a write in a class that never asked for one, and the symptom
+ * looks like a defect in whatever runs next.
+ */
+function remove_filter(string $tag, callable $cb, int $priority = 10): bool
+{
+    foreach (State::$hooks[$tag][$priority] ?? [] as $index => $registered) {
+        if ($registered === $cb) {
+            unset(State::$hooks[$tag][$priority][$index]);
+            State::$hooks[$tag][$priority] = array_values(State::$hooks[$tag][$priority]);
+            return true;
+        }
+    }
+    return false;
+}
+function remove_action(string $tag, callable $cb, int $priority = 10): bool
+{
+    return remove_filter($tag, $cb, $priority);
+}
 function remove_all_actions(string $tag, int|false $priority = false): bool
 {
     if ($priority === false) {

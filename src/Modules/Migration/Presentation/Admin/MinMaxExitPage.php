@@ -77,7 +77,7 @@ final class MinMaxExitPage
         $this->renderMode($preview, $fa);
         $this->renderPreview($preview, $fa);
         $this->renderBlockers($preview, $fa);
-        $this->renderLedger($ledger, $fa);
+        $this->renderLedger($ledger, $service, $fa);
         echo Components::shellClose();
     }
 
@@ -228,7 +228,7 @@ final class MinMaxExitPage
         echo '</ul></section>';
     }
 
-    private function renderLedger(MinMaxHandoverRepositoryInterface $ledger, callable $fa): void
+    private function renderLedger(MinMaxHandoverRepositoryInterface $ledger, MigrateMinMax $service, callable $fa): void
     {
         $tally = $ledger->tally();
         echo '<section class="tmc-card"><h2 class="tmc-card__title">'
@@ -257,18 +257,68 @@ final class MinMaxExitPage
                 . '<th scope="col">' . esc_html__('منبع', 'tecteb-marketplace-core') . '</th>'
                 . '<th scope="col">' . esc_html__('نوشته شد', 'tecteb-marketplace-core') . '</th>'
                 . '<th scope="col">' . esc_html__('قبلاً', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('سابقه', 'tecteb-marketplace-core') . '</th>'
                 . '<th scope="col">' . esc_html__('بازگشت', 'tecteb-marketplace-core') . '</th>'
                 . '</tr></thead><tbody>';
             foreach ($rows as $row) {
+                // Earlier decisions about the SAME product — a rolled-back or
+                // released row stays on record, so «this one has been through
+                // this before» is a thing the page can say. One is this row
+                // itself, so only a second one is history.
+                $earlier = max(0, count($service->historyFor((int) $row['post_id'], 20)) - 1);
                 echo '<tr><td>' . Components::code((string) $row['post_id']) . '</td>'
                     . '<td>' . esc_html(sprintf('%s / %s / %s', (string) $row['source_min'], (string) $row['source_max'], (string) $row['source_step'])) . '</td>'
                     . '<td>' . esc_html(sprintf('%s / %s / %s', (string) $row['written_min'], (string) $row['written_max'], (string) $row['written_step'])) . '</td>'
                     . '<td>' . esc_html($this->beforeLabel($row)) . '</td>'
+                    . '<td>' . esc_html($earlier === 0
+                        ? __('اولین تصمیم', 'tecteb-marketplace-core')
+                        : sprintf(
+                            /* translators: 1: how many earlier decisions */
+                            __('%1$s تصمیم قبلی', 'tecteb-marketplace-core'),
+                            PersianDigits::toPersian((string) $earlier)
+                        )) . '</td>'
                     . '<td><form method="post" class="tmc-inline-form">'
                     . wp_nonce_field(self::NONCE, 'tmc_minmax_nonce', true, false)
                     . '<input type="hidden" name="post_id" value="' . esc_attr((string) $row['post_id']) . '">'
                     . '<button type="submit" class="tmc-button tmc-button--quiet" name="minmax_action" value="rollback">'
                     . esc_html__('بازگشت', 'tecteb-marketplace-core') . '</button></form></td></tr>';
+            }
+            echo '</tbody></table></div>';
+        }
+
+        // The products that got an answer but no write, with the one button
+        // that sends them back for another decision. Without it, a refused or
+        // held product is decided about for ever: `find()` returns its live
+        // row and the next batch answers `already_decided` — measured on
+        // `alpha.53`, `retry_migrated=0 retry_already_decided=1` after the
+        // cause had been removed.
+        $open = $ledger->withStatus([
+            MinMaxHandoverRepositoryInterface::REFUSED,
+            MinMaxHandoverRepositoryInterface::HELD,
+        ], 50);
+        $open = array_values(array_filter($open, static fn (array $r): bool => ($r['live_key'] ?? null) !== null));
+        if ($open !== []) {
+            echo '<h3 class="tmc-card__title">' . esc_html__('تلاش دوباره، محصول به محصول', 'tecteb-marketplace-core') . '</h3>';
+            echo '<p>' . esc_html__('این محصول‌ها تصمیم گرفته شده‌اند و چیزی برایشان نوشته نشده. علتشان با دست رفع می‌شود — قاعدهٔ گام در Min Max، یا مقداری که مدیر در ووکامرس نگه داشته — و این افزونه نمی‌تواند بفهمد که رفع شده. «آزاد کردن» محصول را به صف تصمیم برمی‌گرداند و سابقهٔ تصمیم قبلی را نگه می‌دارد.', 'tecteb-marketplace-core') . '</p>';
+            echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="' . esc_attr__('تلاش دوباره', 'tecteb-marketplace-core') . '">';
+            echo '<table class="tmc-table"><thead><tr>'
+                . '<th scope="col">' . esc_html__('شناسه', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('منبع', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('وضعیت', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('تلاش دوباره', 'tecteb-marketplace-core') . '</th>'
+                . '</tr></thead><tbody>';
+            foreach ($open as $row) {
+                $problems = (string) ($row['problems'] ?? '') === ''
+                    ? []
+                    : explode(',', (string) $row['problems']);
+                echo '<tr><td>' . Components::code((string) $row['post_id']) . '</td>'
+                    . '<td>' . esc_html(sprintf('%s / %s / %s', (string) $row['source_min'], (string) $row['source_max'], (string) $row['source_step'])) . '</td>'
+                    . '<td>' . esc_html($this->statusLabel((string) $row['status'], $problems)) . '</td>'
+                    . '<td><form method="post" class="tmc-inline-form">'
+                    . wp_nonce_field(self::NONCE, 'tmc_minmax_nonce', true, false)
+                    . '<input type="hidden" name="post_id" value="' . esc_attr((string) $row['post_id']) . '">'
+                    . '<button type="submit" class="tmc-button tmc-button--quiet" name="minmax_action" value="release">'
+                    . esc_html__('آزاد کردن برای تصمیم دوباره', 'tecteb-marketplace-core') . '</button></form></td></tr>';
             }
             echo '</tbody></table></div>';
         }
@@ -300,6 +350,11 @@ final class MinMaxExitPage
             MinMaxHandoverRepositoryInterface::HELD => __('قاعدهٔ مدیر — دست نخورد', 'tecteb-marketplace-core'),
             MinMaxHandoverRepositoryInterface::UNENFORCED => __('نوشته شد ولی اعمال نمی‌شود', 'tecteb-marketplace-core'),
             MinMaxHandoverRepositoryInterface::ROLLED_BACK => __('بازگردانده شد', 'tecteb-marketplace-core'),
+            // A released row is history, counted apart from the live ones: a
+            // refusal the manager has already sent back for a retry must not
+            // make the exit report say a rule is still blocking.
+            MinMaxHandoverRepositoryInterface::REFUSED . '_released' => __('رد شد — برای تصمیم دوباره آزاد شده', 'tecteb-marketplace-core'),
+            MinMaxHandoverRepositoryInterface::HELD . '_released' => __('قاعدهٔ مدیر — برای تصمیم دوباره آزاد شده', 'tecteb-marketplace-core'),
             default => $status,
         };
         if ($problems === []) {
@@ -335,30 +390,81 @@ final class MinMaxExitPage
                 $cursor,
                 $allow
             );
-            if (($batch['ok'] ?? false) !== true) {
+            if (($batch['code'] ?? '') === 'minmax_absent') {
                 return 'err:' . __('Min Max روی این سایت خوانده نشد، پس چیزی منتقل نشد.', 'tecteb-marketplace-core');
             }
+            // The cursor is stored whether the batch finished or stopped,
+            // because in BOTH cases it is the last product that got an answer
+            // — and when it stopped, it stops BEFORE the failed product, so
+            // the next continuation looks at that product again. `alpha.53`
+            // stored a cursor past the failure and the product was never seen
+            // again by any later pass.
             update_option('tmc_minmax_cursor', (int) $batch['cursor'], false);
             update_option('tmc_minmax_run', (int) get_option('tmc_minmax_run', 0) + 1, false);
             $counts = $batch['counts'];
-            return 'ok:' . sprintf(
+            $done = sprintf(
                 /* translators: 1: migrated, 2: refused, 3: held, 4: unenforced, 5: cursor */
-                __('دسته انجام شد: %1$s منتقل، %2$s رد، %3$s قاعدهٔ مدیر، %4$s نوشته‌شدهٔ اعمال‌نشدنی. ادامه از شناسهٔ %5$s.', 'tecteb-marketplace-core'),
+                __('%1$s منتقل، %2$s رد، %3$s قاعدهٔ مدیر، %4$s نوشته‌شدهٔ اعمال‌نشدنی. ادامه از شناسهٔ %5$s.', 'tecteb-marketplace-core'),
                 PersianDigits::toPersian((string) ($counts[MinMaxHandoverRepositoryInterface::MIGRATED] ?? 0)),
                 PersianDigits::toPersian((string) ($counts[MinMaxHandoverRepositoryInterface::REFUSED] ?? 0)),
                 PersianDigits::toPersian((string) ($counts[MinMaxHandoverRepositoryInterface::HELD] ?? 0)),
                 PersianDigits::toPersian((string) ($counts[MinMaxHandoverRepositoryInterface::UNENFORCED] ?? 0)),
                 PersianDigits::toPersian((string) ($batch['cursor'] ?? 0))
-            ) . ($batch['done'] === true ? ' ' . __('به آخر رسید.', 'tecteb-marketplace-core') : '');
+            );
+            $stoppedAt = (int) ($batch['stopped_at'] ?? 0);
+            if ($stoppedAt > 0) {
+                // The product is NAMED. «خطا با شناسهٔ محصول نمایش داده شود» —
+                // and a count on its own would leave the manager scanning a
+                // catalogue for the one product that did not move.
+                $failed = $batch['failed'][0]['outcome'] ?? '';
+                return 'err:' . sprintf(
+                    /* translators: 1: product id, 2: reason, 3: the batch counts so far */
+                    __('دسته روی محصول #%1$s ایستاد و جلوتر نرفت: %2$s. تا پیش از آن: %3$s همان محصول در ادامهٔ بعدی دوباره بررسی می‌شود و محصول‌های پیش از آن دوباره نوشته نمی‌شوند.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $stoppedAt),
+                    $this->outcomeMessage((string) $failed),
+                    $done
+                );
+            }
+            return 'ok:' . __('دسته انجام شد: ', 'tecteb-marketplace-core') . $done
+                . (($batch['done'] ?? false) === true ? ' ' . __('به آخر رسید.', 'tecteb-marketplace-core') : '');
         }
         if ($action === 'rollback') {
             $result = $service->rollback((int) $request->postKey('post_id'));
             if ($result->ok) {
-                return 'ok:' . __('سه ردیف به مقدار قبلِ انتقال برگشت.', 'tecteb-marketplace-core');
+                return 'ok:' . __('سه ردیف، دفتر مالکیت و وضعیت سابقه با هم به حالت پیش از انتقال برگشتند.', 'tecteb-marketplace-core');
+            }
+            return 'err:' . $this->rollbackMessage($result->code, $result->context);
+        }
+        if ($action === 'release') {
+            $result = $service->release((int) $request->postKey('post_id'));
+            if ($result->ok) {
+                return 'ok:' . __('این محصول برای تصمیم دوباره آزاد شد. سابقهٔ تصمیم قبلی سر جایش است و دستهٔ بعدی دوباره دربارهٔ آن می‌پرسد.', 'tecteb-marketplace-core');
             }
             return 'err:' . $this->rollbackMessage($result->code, $result->context);
         }
         return 'err:' . __('اقدام ناشناخته بود.', 'tecteb-marketplace-core');
+    }
+
+    /**
+     * Why one product got no answer, in a sentence.
+     *
+     * Each of these is a REFUSAL BEFORE ANY WRITE or a transaction that went
+     * back, so in every case the product's destination is exactly as it was —
+     * which is the thing the manager needs to know before deciding whether to
+     * press continue again.
+     */
+    private function outcomeMessage(string $outcome): string
+    {
+        return match ($outcome) {
+            'not_written' => __('نوشتن سه ردیف مقصد تأیید نشد، پس هیچ‌چیز ثبت نشد.', 'tecteb-marketplace-core'),
+            'history_not_written' => __('ردیف سابقه ثبت نشد، پس کل انتقال این محصول برگشت — مقصد دست‌نخورده است.', 'tecteb-marketplace-core'),
+            'not_committed' => __('تراکنش نهایی نشد، پس هیچ‌چیز ذخیره نشد.', 'tecteb-marketplace-core'),
+            'no_transaction', 'not_atomic' => __('تراکنش باز نشد. انتقال بی تراکنش انجام نمی‌شود، چون نیمهٔ انجام‌شده از هیچ بدتر است.', 'tecteb-marketplace-core'),
+            'caller_transaction' => __('تراکنش از قبل باز بود و این انتقال تراکنش دیگری را commit نمی‌کند.', 'tecteb-marketplace-core'),
+            'claim_refused' => __('ثبت اولیهٔ تصمیم انجام نشد؛ احتمالاً اجرای دیگری همین لحظه روی همین محصول کار می‌کند.', 'tecteb-marketplace-core'),
+            'no_status' => __('وضعیت این محصول تعیین نشد، پس هیچ‌چیز ثبت نشد. این را گزارش کنید.', 'tecteb-marketplace-core'),
+            default => $outcome,
+        };
     }
 
     /** @param array<string,mixed> $context */
@@ -375,8 +481,19 @@ final class MinMaxExitPage
             'minmax_rollback_nothing' => __('برای این محصول تصمیمی ثبت نشده، پس چیزی برای بازگشت نیست.', 'tecteb-marketplace-core'),
             'minmax_rollback_already' => __('این محصول قبلاً برگردانده شده.', 'tecteb-marketplace-core'),
             'minmax_rollback_not_written' => __('برای این محصول چیزی نوشته نشده بود (رد یا قاعدهٔ مدیر)، پس بازگشتی هم ندارد.', 'tecteb-marketplace-core'),
-            'minmax_rollback_not_stored' => __('بازگشت ذخیره نشد. سه ردیف ممکن است نیمه برگشته باشند؛ همین محصول را دوباره بررسی کنید.', 'tecteb-marketplace-core'),
-            'minmax_rollback_unrecorded' => __('ردیف‌ها برگشتند ولی دفتر ثبت نشد. دوباره تلاش نکنید تا دفتر بررسی شود.', 'tecteb-marketplace-core'),
+            'minmax_rollback_not_stored' => sprintf(
+                /* translators: 1: the meta key that would not store */
+                __('بازگشت ذخیره نشد («%1$s»)، پس کل بازگشت برگشت و مقصد همان مقدارِ پس از انتقال است — نیمه‌برگشته نیست. دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+                (string) ($context['part'] ?? '')
+            ),
+            'minmax_rollback_unrecorded' => __('دفتر سابقه ثبت نشد، پس کل بازگشت برگشت و مقصد همان مقدارِ پس از انتقال است. دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+            'minmax_rollback_not_committed' => __('تراکنش بازگشت نهایی نشد، پس هیچ‌چیز عوض نشد.', 'tecteb-marketplace-core'),
+            'minmax_rollback_no_transaction', 'minmax_rollback_not_atomic' => __('تراکنش باز نشد. بازگشت بی تراکنش انجام نمی‌شود، چون مقصدِ نیمه‌برگشته از نبودِ بازگشت بدتر است.', 'tecteb-marketplace-core'),
+            'minmax_rollback_caller_transaction' => __('تراکنش از قبل باز بود و این بازگشت تراکنش دیگری را commit نمی‌کند.', 'tecteb-marketplace-core'),
+            'minmax_rollback_not_locked' => __('قفل ردیف‌های مقصد گرفته نشد، پس مقایسه و نوشتن محافظت‌شده نبود و بازگشت انجام نشد.', 'tecteb-marketplace-core'),
+            'minmax_release_nothing' => __('برای این محصول تصمیم زنده‌ای ثبت نشده، پس چیزی برای آزاد کردن نیست.', 'tecteb-marketplace-core'),
+            'minmax_release_not_allowed' => __('فقط محصولی که «رد» یا «قاعدهٔ مدیر» شده آزاد می‌شود. محصولی که منتقل شده را باید برگرداند، نه آزاد کرد.', 'tecteb-marketplace-core'),
+            'minmax_release_unrecorded' => __('آزادسازی ثبت نشد؛ احتمالاً همین لحظه جای دیگری تغییر کرده. صفحه را تازه کنید.', 'tecteb-marketplace-core'),
             default => $code,
         };
     }

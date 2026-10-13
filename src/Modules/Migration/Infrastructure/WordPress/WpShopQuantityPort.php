@@ -121,47 +121,171 @@ final class WpShopQuantityPort implements ShopQuantityPortInterface
         update_post_meta($postId, ProjectedQuantity::OWNED_META, $record);
         $storedRecord = ProjectedQuantity::normalise(get_post_meta($postId, ProjectedQuantity::OWNED_META, true));
         // «Stored» means the three values are what was asked for AND the
-        // record for them is on disk. A write with no usable record would be a
-        // rule nothing can roll back, which is worse than no write at all.
+        // record on disk is EXACTLY the one just built for them. A write with
+        // no usable record would be a rule nothing can roll back, which is
+        // worse than no write at all.
+        //
+        // **Counting the entries is not that test, and `alpha.53` shipped the
+        // count.** A product projected earlier already carries a three-entry
+        // record; refuse only the record write and the OLD one survives, three
+        // keys and all, pointing at values that are no longer there. Measured
+        // on `alpha.53`'s bytes: `port_says_stored=yes record_entries=3
+        // record_entries_matching_shop=1 held_elsewhere_now=yes` — the
+        // migration reported success and, from the very next read, the
+        // marketplace believed a manager owned two of the three rows. A
+        // vendor's purchase-limit edit stops being applied on a product this
+        // plugin wrote itself, silently. So the comparison is key-for-key and
+        // fingerprint-for-fingerprint, with `hash_equals`.
         $out['stored'] = $out['min'] === $min
             && $out['max'] === $max
             && $out['step'] === $step
-            && count($storedRecord) === 3;
+            && $this->recordIs($storedRecord, $record);
         return $out;
     }
 
-    public function restore(int $postId, ?string $min, ?string $max, ?string $step, ?string $record): bool
+    /**
+     * Whether the record on disk is exactly the expected `key => fingerprint`
+     * map — same keys, same fingerprints, nothing extra.
+     *
+     * @param array<string,string> $stored
+     * @param array<string,string> $expected
+     */
+    private function recordIs(array $stored, array $expected): bool
     {
-        if ($postId <= 0 || !function_exists('update_post_meta')) {
+        if (count($stored) !== count($expected)) {
             return false;
         }
-        $ok = true;
-        foreach ([
+        foreach ($expected as $key => $fingerprint) {
+            if (!isset($stored[$key]) || !hash_equals($stored[$key], $fingerprint)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public function restore(int $postId, ?string $min, ?string $max, ?string $step, ?string $record): string
+    {
+        if ($postId <= 0 || !function_exists('update_post_meta')) {
+            return 'unavailable';
+        }
+        $wanted = [
             ProjectedQuantity::META_MIN => $min,
             ProjectedQuantity::META_MAX => $max,
             ProjectedQuantity::META_STEP => $step,
-        ] as $key => $value) {
+        ];
+        foreach ($wanted as $key => $value) {
             if ($value === null) {
                 // There was no row. Deleting is the restore — writing `''`
                 // would leave a row that reads as a rule for ever.
                 delete_post_meta($postId, $key);
                 if (metadata_exists('post', $postId, $key)) {
-                    $ok = false;
+                    return $key;
                 }
                 continue;
             }
             update_post_meta($postId, $key, $value);
             if ((string) get_post_meta($postId, $key, true) !== $value) {
-                $ok = false;
+                return $key;
             }
         }
+        // The record is the fourth value and it is verified like the other
+        // three. `alpha.53` wrote it and never looked: a restore whose record
+        // did not land reported success and left the destination owned by a
+        // map describing values that are no longer there — the same hole the
+        // count in `write()` left, at the other end of the round trip.
         if ($record === null) {
             delete_post_meta($postId, ProjectedQuantity::OWNED_META);
-        } else {
-            $decoded = json_decode($record, true);
-            update_post_meta($postId, ProjectedQuantity::OWNED_META, $decoded);
+            if (metadata_exists('post', $postId, ProjectedQuantity::OWNED_META)) {
+                return ProjectedQuantity::OWNED_META;
+            }
+            return '';
         }
-        return $ok;
+        $decoded = json_decode($record, true);
+        if (!is_array($decoded)) {
+            // The stored record is not a map. Restoring it would put a value
+            // nothing can read back where ownership is decided, so this is a
+            // refusal rather than a best effort.
+            return ProjectedQuantity::OWNED_META;
+        }
+        update_post_meta($postId, ProjectedQuantity::OWNED_META, $decoded);
+        if (!$this->recordIs(
+            ProjectedQuantity::normalise(get_post_meta($postId, ProjectedQuantity::OWNED_META, true)),
+            ProjectedQuantity::normalise($decoded)
+        )) {
+            return ProjectedQuantity::OWNED_META;
+        }
+        return '';
+    }
+
+    /**
+     * Take the row locks the compare-and-restore needs, inside the caller's
+     * transaction.
+     *
+     * The three meta rows plus the ownership record, `FOR UPDATE`, so a second
+     * writer landing between «the shop still holds what we wrote» and the
+     * restore itself is serialised behind this request rather than silently
+     * overwritten. Measured on `alpha.53`'s bytes with a second writer on its
+     * own statement inside that window: `injected_inside_window=yes
+     * rollback_code=minmax_rolled_back max_now=__absent__` — the manager's
+     * brand-new value was deleted and the rollback reported success.
+     *
+     * A lock without a transaction is nothing (`alpha.50`), so this answers
+     * false when there is none and the caller refuses rather than pretending.
+     */
+    public function lockQuantityRows(int $postId): bool
+    {
+        if ($postId <= 0) {
+            return false;
+        }
+        $keys = array_merge(ProjectedQuantity::keys(), [ProjectedQuantity::OWNED_META]);
+        $placeholders = implode(', ', array_fill(0, count($keys), '%s'));
+        // **`execute()`, NOT `getResults()`, and that is the whole point of
+        // this line.** `getResults()` answers `[]` both for «no rows» and for
+        // «the statement failed», so a lock that TIMED OUT behind another
+        // writer would read as a lock taken — and the first version of this
+        // method did exactly that, which would have made the guard decorative
+        // on the one path it exists for. `execute()` keeps the two apart:
+        // `null` is a refusal and an integer is a result, `0` included
+        // (`alpha.8`).
+        //
+        // Zero rows IS success here: there is nothing to lock because there is
+        // no row yet, and a concurrent INSERT of the same `(post_id,
+        // meta_key)` collides on `postmeta`'s own unique index instead.
+        $locked = $this->db->execute(
+            'SELECT meta_id FROM `' . $this->db->prefix() . 'postmeta`
+              WHERE post_id = %d AND meta_key IN (' . $placeholders . ') FOR UPDATE',
+            array_merge([$postId], $keys)
+        );
+        return $locked !== null;
+    }
+
+    /**
+     * Drop WordPress's cached copy of this post's meta.
+     *
+     * **The object cache is not transactional.** `update_post_meta()` writes
+     * through `$wpdb` — the same connection `WpDatabase::begin()` started the
+     * transaction on, so the WRITES do take part in it — and then updates the
+     * cache, which a `ROLLBACK` cannot undo. So a restore that fails half way
+     * leaves the database correct and the cache holding values that were never
+     * committed, and every read in the rest of that request answers from the
+     * cache.
+     *
+     * Measured both ways on `alpha.53`: after a SUCCESSFUL rollback the app
+     * read and a raw `SELECT` already agreed, in the same request and in a
+     * fresh one (`agree_same_request=yes agree_fresh=yes`), because
+     * `update_post_meta`/`delete_post_meta` invalidate the cache themselves.
+     * It is the FAILURE path that needs this, and that path is the one the
+     * instruction asks about.
+     */
+    public function forgetCachedQuantities(int $postId): void
+    {
+        if ($postId > 0 && function_exists('wp_cache_delete')) {
+            // Cast because this repository's WordPress stub types the key as
+            // `string` while core leaves it untyped and passes the int id.
+            // The two reach the same entry either way: PHP normalises a
+            // numeric string array key to an integer.
+            wp_cache_delete((string) $postId, 'post_meta');
+        }
     }
 
     public function exists(int $postId): bool

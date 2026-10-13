@@ -64,6 +64,27 @@ final class MigrateMinMax
     /** How many source products one batch looks at. */
     public const BATCH = 100;
 
+    /**
+     * Outcomes that are NOT a decision — nothing was recorded and nothing was
+     * written, so the product is still to do and the batch stops.
+     *
+     * Named in one place because the batch, the admin page and the evidence
+     * script all have to agree on «did this product get an answer», and three
+     * lists of strings would be three answers.
+     *
+     * @var list<string>
+     */
+    public const UNFINISHED = [
+        'not_written',
+        'no_status',
+        'history_not_written',
+        'not_committed',
+        'no_transaction',
+        'caller_transaction',
+        'not_atomic',
+        'claim_refused',
+    ];
+
     /** Up to which quantity the preview compares the two rules' answers. */
     private const COMPARE_TO = 60;
 
@@ -185,12 +206,31 @@ final class MigrateMinMax
      * recorded in the ledger as the state it produced — not a flag somebody
      * turned on three months ago.
      *
+     * **It STOPS at the first product that would not write, and the cursor it
+     * returns does not pass that product.** `alpha.53` advanced the cursor to
+     * the end of the page whatever happened, so a product whose write failed
+     * in the middle of a page was never looked at again by any later
+     * continuation — measured on its own bytes: `middle_id=374
+     * cursor_after=375 cursor_past_failure=yes ledger_middle=__none__`, with
+     * no key naming the failure. That is `alpha.35`'s rule in a new place: a
+     * cursor that steps over an unwritten row makes a promise no later pass
+     * can contradict.
+     *
+     * So the cursor is the last product this batch actually FINISHED, which
+     * means a continuation re-reads the failed one and nothing before it, and
+     * `stopped_at`/`failed` name it. Continuing is the manager's click, so a
+     * product that keeps failing stops the walk in the same place and says so
+     * rather than looping.
+     *
      * @return array<string,mixed>
      */
     public function migrateBatch(int $runId, int $cursor, bool $allowOverwrite = false, int $limit = self::BATCH): array
     {
         if (!$this->reader->isAvailable()) {
-            return ['ok' => false, 'code' => 'minmax_absent', 'cursor' => $cursor, 'done' => true, 'counts' => []];
+            return [
+                'ok' => false, 'code' => 'minmax_absent', 'cursor' => $cursor, 'done' => true,
+                'counts' => [], 'stopped_at' => 0, 'failed' => [],
+            ];
         }
         $page = $this->reader->productRulesAfter($cursor, $limit);
         $counts = [
@@ -202,39 +242,88 @@ final class MigrateMinMax
             'not_written' => 0,
             'absent_product' => 0,
         ];
+        // Where the walk has got to, as a FINISHED position. It starts where
+        // the caller was, not where the page ends.
+        $reached = $cursor;
+        $stoppedAt = 0;
+        $failed = [];
         foreach ($page['rows'] as $row) {
             $postId = (int) $row['product_id'];
             /** @var MinMaxRule $rule */
             $rule = $row['rule'];
             if ($this->ledger->find($postId) !== null) {
                 $counts['already_decided']++;
-                continue;               // repeatable: one decision per product
+                $reached = max($reached, $postId);
+                continue;               // repeatable: one LIVE decision each
             }
             if (!$this->shop->exists($postId)) {
                 $counts['absent_product']++;
+                $reached = max($reached, $postId);
                 continue;
             }
             $outcome = $this->decide($runId, $postId, (string) $row['type'], $rule, $allowOverwrite);
             $counts[$outcome] = ($counts[$outcome] ?? 0) + 1;
+            if (in_array($outcome, self::UNFINISHED, true)) {
+                // Stop here. Everything before this product is finished and
+                // the cursor says so; this product and everything after it is
+                // still to do.
+                $stoppedAt = $postId;
+                $failed[] = ['post_id' => $postId, 'outcome' => $outcome];
+                return [
+                    'ok' => false,
+                    'code' => 'batch_stopped',
+                    'cursor' => $reached,
+                    'done' => false,
+                    'counts' => $counts,
+                    'stopped_at' => $stoppedAt,
+                    'failed' => $failed,
+                ];
+            }
+            $reached = max($reached, $postId);
         }
         return [
             'ok' => true,
             'code' => 'batch_done',
-            'cursor' => $page['cursor'],
+            // The reader's own cursor, which is where the PAGE ends and can be
+            // past the last row it returned (a product whose every row is
+            // blank is read and dropped). Safe only because nothing in this
+            // page is unfinished.
+            'cursor' => max($reached, (int) $page['cursor']),
             'done' => $page['done'],
             'counts' => $counts,
+            'stopped_at' => 0,
+            'failed' => [],
         ];
     }
 
     /**
-     * One product: decide, write if allowed, and record what the destination
-     * held before.
+     * One product: claim it, write, record what the destination held, and
+     * commit — or write nothing at all.
      *
-     * The ledger row is written in the SAME unit of work as the meta rows when
-     * a transaction is available, because the half that only records would
-     * leave a rule applied with no rollback target and the half that only
-     * writes would leave a product migrated twice. `alpha.49`'s rule: the
-     * first half of a job done alone is worse than neither half.
+     * **The claim comes first, and that is the round's central change.** The
+     * ledger row carries the destination's pre-migration values, so it is the
+     * only record of what a rollback would put back; `alpha.53` wrote it after
+     * the meta rows, which bought two measured defects at once:
+     *
+     *  - a refused ledger write left the destination migrated with NO record
+     *    of what was there before (`rows_after=4/10/2 ledger_after=__none__
+     *    migrated_count=1`) — rollback impossible, reported as success;
+     *  - the unique key could only arbitrate the race AFTER both runs had
+     *    already written the three rows.
+     *
+     * Now the claim is an `INSERT` on a unique key taken BEFORE the first
+     * write, inside the transaction, so the loser of a race blocks on the key
+     * and then finds the decision taken — without ever reaching the shop.
+     *
+     * **No transaction is a refusal, not a reason to do the first half.**
+     * `alpha.49`'s rule, and `alpha.53` did the opposite: a refused `begin()`
+     * left `$opened` false and the write ran anyway. Measured:
+     * `begin_called=1 rows_after=4/10/2 refused_for_atomicity=0`.
+     *
+     * And the caller's own transaction is refused rather than joined: this
+     * method cannot promise a unit of work it does not own, and committing
+     * somebody else's transaction to keep that promise is exactly what the
+     * instruction forbids — «تراکنش متعلق به caller را بی‌اجازه commit نکن».
      */
     private function decide(
         int $runId,
@@ -243,9 +332,19 @@ final class MigrateMinMax
         MinMaxRule $rule,
         bool $allowOverwrite
     ): string {
+        if ($this->transaction === null) {
+            return 'no_transaction';
+        }
+        if ($this->transaction->inTransaction()) {
+            return 'caller_transaction';
+        }
+        if (!$this->transaction->begin()) {
+            return 'not_atomic';
+        }
+
         $problems = $rule->problems();
         $before = $this->shop->read($postId);
-        $base = [
+        $claim = $this->ledger->claim([
             'post_id' => $postId,
             'post_type' => $postType,
             'level' => $rule->level,
@@ -258,69 +357,82 @@ final class MigrateMinMax
             'dest_step_before' => $before['step'],
             'dest_record_before' => $before['record'],
             'run_id' => (string) $runId,
-        ];
+        ]);
+        if (!$claim['claimed']) {
+            $this->transaction->rollback();
+            // Either another run holds it or a decision already stands. Both
+            // are «somebody else answered this», and the status says which.
+            return $claim['taken_by'] === '' ? 'claim_refused' : 'already_decided';
+        }
+
+        // Not nullable: every branch below assigns it or returns, and leaving
+        // it nullable would let a later edit reach `finish()` with `null` —
+        // which `declare(strict_types=1)` turns into a loud TypeError rather
+        // than a silent empty status, but loud in production is still in
+        // production.
+        $status = '';
+        $written = ['written_min' => null, 'written_max' => null, 'written_step' => null];
 
         if ($problems !== []) {
             // Nothing is written, and the names of the problems are what the
             // exit report prints. «اگر قاعده‌ای جایگزین ندارد … دقیقاً همان
             // قاعده نام برده شود».
-            $this->ledger->record($base + [
-                'status' => MinMaxHandoverRepositoryInterface::REFUSED,
-                'problems' => implode(',', $problems),
-                'written_min' => null,
-                'written_max' => null,
-                'written_step' => null,
-            ]);
-            return MinMaxHandoverRepositoryInterface::REFUSED;
-        }
-
-        if (!$allowOverwrite && $this->destinationHeldElsewhere($postId, $before)) {
-            $this->ledger->record($base + [
-                'status' => MinMaxHandoverRepositoryInterface::HELD,
-                'problems' => '',
-                'written_min' => null,
-                'written_max' => null,
-                'written_step' => null,
-            ]);
-            return MinMaxHandoverRepositoryInterface::HELD;
-        }
-
-        $target = $rule->converted();
-        $owns = $this->shop->marketplaceOwns($postId);
-        $opened = $this->transaction !== null && !$this->transaction->inTransaction()
-            && $this->transaction->begin();
-        $written = $this->shop->write(
-            $postId,
-            (string) $target->min,
-            $target->max === null ? '' : (string) $target->max,
-            (string) $target->step
-        );
-        if (!$written['stored']) {
-            if ($opened) {
-                $this->transaction?->rollback();
+            $status = MinMaxHandoverRepositoryInterface::REFUSED;
+        } elseif (!$allowOverwrite && (bool) ($before['held'] ?? false)) {
+            $status = MinMaxHandoverRepositoryInterface::HELD;
+        } else {
+            $target = $rule->converted();
+            $owns = $this->shop->marketplaceOwns($postId);
+            $landed = $this->shop->write(
+                $postId,
+                (string) $target->min,
+                $target->max === null ? '' : (string) $target->max,
+                (string) $target->step
+            );
+            if (!($landed['stored'] ?? false)) {
+                $this->transaction->rollback();
+                // The claim goes with the transaction, so the product is
+                // claimable again and a retry asks the same question. The
+                // object cache does not roll back, though, so the half-written
+                // values would be read for the rest of this request.
+                $this->shop->forgetCachedQuantities($postId);
+                return 'not_written';
             }
-            // Nothing recorded as migrated, so a retry asks again. A ledger row
-            // claiming a write that did not land would make that retry
-            // impossible, which is the `alpha.44` rule about an unstored
-            // record: delete it rather than leave it stale.
-            return 'not_written';
-        }
-        $status = $owns
-            ? MinMaxHandoverRepositoryInterface::MIGRATED
-            : MinMaxHandoverRepositoryInterface::UNENFORCED;
-        $this->ledger->record($base + [
-            'status' => $status,
-            'problems' => '',
+            $status = $owns
+                ? MinMaxHandoverRepositoryInterface::MIGRATED
+                : MinMaxHandoverRepositoryInterface::UNENFORCED;
             // The fingerprint is what the shop holds AFTER the write, read
             // back rather than what was sent (`alpha.26`): a rollback guard
             // built on what we sent would refuse every product WooCommerce
             // filtered on the way in.
-            'written_min' => $written['min'],
-            'written_max' => $written['max'],
-            'written_step' => $written['step'],
-        ]);
-        if ($opened) {
-            $this->transaction?->commit();
+            $written = [
+                'written_min' => $landed['min'],
+                'written_max' => $landed['max'],
+                'written_step' => $landed['step'],
+            ];
+        }
+
+        if ($status === '') {
+            // Unreachable today — the three branches above are exhaustive —
+            // and it is here because the alternative is a `null` reaching the
+            // ledger. A refusal that writes nothing is the safe answer to «I
+            // do not know what this is».
+            $this->transaction->rollback();
+            return 'no_status';
+        }
+        if (!$this->ledger->finish($claim['id'], $status, implode(',', $problems), $written)) {
+            $this->transaction->rollback();
+            $this->shop->forgetCachedQuantities($postId);
+            // `alpha.53` discarded this result and committed. The product then
+            // carried the migrated rule with no record of its earlier values.
+            return 'history_not_written';
+        }
+        if (!$this->transaction->commit()) {
+            $this->shop->forgetCachedQuantities($postId);
+            // Nothing persisted — which is the right data outcome — but
+            // `alpha.53` still answered «migrated» here, so the page counted a
+            // success and stepped past a product whose rule never moved.
+            return 'not_committed';
         }
         return $status;
     }
@@ -350,22 +462,53 @@ final class MigrateMinMax
     }
 
     /**
-     * Put one product's destination back to what it held before the migration.
+     * Put one product's destination back to what it held before the migration
+     * — the three values, the ownership record and the ledger status, as ONE
+     * unit of work.
      *
-     * Refuses when the shop no longer holds what the migration wrote: that is
-     * a decision made after this one, and a rollback is not a licence to undo
-     * it. Three named answers rather than a boolean, because «there is nothing
-     * to roll back» and «somebody changed it» want different sentences in
-     * front of a manager.
+     * **Every step is verified and a failure at any of them leaves nothing
+     * half-done.** `alpha.53` did four separate writes, checked three of them
+     * and never looked at the record; measured on its own bytes, refusing the
+     * second value write left the destination carrying `4/__absent__/2` — a
+     * rule nobody had ever written — with the ledger still saying `migrated`,
+     * and refusing the record write reported success.
+     *
+     * **The compare and the write are locked together.** The guard against «a
+     * manager edited this after the migration» is a comparison, and a
+     * comparison followed by a separate write has a window: measured with a
+     * second writer on its own statement inside it, `alpha.53` answered
+     * `minmax_rolled_back` and deleted the manager's brand-new value. So the
+     * three meta rows are taken `FOR UPDATE` first, inside the transaction,
+     * and a second writer serialises behind this request instead of being
+     * overwritten — the `alpha.50` shape, one object down.
+     *
+     * Named answers rather than a boolean, because «there is nothing to roll
+     * back», «somebody changed it» and «the restore would not store» want
+     * different sentences in front of a manager.
      */
     public function rollback(int $postId): OperationResult
     {
+        if ($this->transaction === null) {
+            return OperationResult::failure('minmax_rollback_no_transaction', ['post_id' => $postId]);
+        }
+        if ($this->transaction->inTransaction()) {
+            // The same refusal `decide()` makes, for the same reason: this
+            // cannot promise a unit of work it does not own, and committing
+            // the caller's transaction to keep the promise is forbidden.
+            return OperationResult::failure('minmax_rollback_caller_transaction', ['post_id' => $postId]);
+        }
+        if (!$this->transaction->begin()) {
+            return OperationResult::failure('minmax_rollback_not_atomic', ['post_id' => $postId]);
+        }
+
         $row = $this->ledger->find($postId);
         if ($row === null) {
+            $this->transaction->rollback();
             return OperationResult::failure('minmax_rollback_nothing', ['post_id' => $postId]);
         }
         $status = (string) ($row['status'] ?? '');
         if ($status === MinMaxHandoverRepositoryInterface::ROLLED_BACK) {
+            $this->transaction->rollback();
             return OperationResult::failure('minmax_rollback_already', ['post_id' => $postId]);
         }
         if (!in_array($status, [
@@ -374,12 +517,23 @@ final class MigrateMinMax
         ], true)) {
             // A refused or held product was never written to, so there is
             // nothing to put back — and saying «rolled back» about it would
-            // be a sentence nobody can act on.
+            // be a sentence nobody can act on. The way to try it again is
+            // `release()`, which is a different button.
+            $this->transaction->rollback();
             return OperationResult::failure('minmax_rollback_not_written', [
                 'post_id' => $postId,
                 'status' => $status,
             ]);
         }
+
+        if (!$this->shop->lockQuantityRows($postId)) {
+            $this->transaction->rollback();
+            return OperationResult::failure('minmax_rollback_not_locked', ['post_id' => $postId]);
+        }
+
+        // Read AFTER the lock. Reading before it would compare against a value
+        // another writer is free to replace between the two statements, which
+        // is the window this whole arrangement exists to close.
         $now = $this->shop->read($postId);
         foreach (['min', 'max', 'step'] as $part) {
             $wrote = $row['written_' . $part];
@@ -387,6 +541,7 @@ final class MigrateMinMax
                 continue;
             }
             if ((string) ($now[$part] ?? '') !== (string) $wrote) {
+                $this->transaction->rollback();
                 return OperationResult::failure('minmax_rollback_changed', [
                     'post_id' => $postId,
                     'field' => $part,
@@ -395,26 +550,98 @@ final class MigrateMinMax
                 ]);
             }
         }
+
         $stored = $row['dest_record_before'] ?? null;
         $record = is_string($stored) && $stored !== '' ? $stored : null;
-        $ok = $this->shop->restore(
+        $problem = $this->shop->restore(
             $postId,
             $row['dest_min_before'] === null ? null : (string) $row['dest_min_before'],
             $row['dest_max_before'] === null ? null : (string) $row['dest_max_before'],
             $row['dest_step_before'] === null ? null : (string) $row['dest_step_before'],
             $record
         );
-        if (!$ok) {
-            return OperationResult::failure('minmax_rollback_not_stored', ['post_id' => $postId]);
+        if ($problem !== '') {
+            $this->transaction->rollback();
+            // The database is back where it was; the object cache is not,
+            // because it never took part in the transaction.
+            $this->shop->forgetCachedQuantities($postId);
+            return OperationResult::failure('minmax_rollback_not_stored', [
+                'post_id' => $postId,
+                'part' => $problem,
+            ]);
         }
+
         if (!$this->ledger->markRolledBack($postId)) {
-            // The rows are back and the ledger did not move. Reported rather
-            // than swallowed: a ledger that still says «migrated» would offer
-            // the same rollback again, and the second one would restore over
-            // a destination that is already restored.
+            $this->transaction->rollback();
+            $this->shop->forgetCachedQuantities($postId);
+            // A ledger that still said «migrated» would offer the same
+            // rollback again, and the second one would restore over a
+            // destination that is already restored. `alpha.53` named this and
+            // left the values restored anyway; now the whole unit goes back.
             return OperationResult::failure('minmax_rollback_unrecorded', ['post_id' => $postId]);
         }
+        if (!$this->transaction->commit()) {
+            $this->shop->forgetCachedQuantities($postId);
+            return OperationResult::failure('minmax_rollback_not_committed', ['post_id' => $postId]);
+        }
         return OperationResult::success('minmax_rolled_back', ['post_id' => $postId]);
+    }
+
+    /**
+     * Send a refused or held product back for another decision, keeping the
+     * record of why it was refused.
+     *
+     * The explicit retry path: a `STEP_BASE_DIFFERS` rule has no equivalent
+     * here until somebody changes the rule in Min Max, and a `held_by_manager`
+     * product stays held until the manager clears their own value — neither of
+     * which this code can detect, so neither can be retried automatically.
+     * What it CAN do is make the retry one click that leaves the history
+     * intact: «سوابق را کورکورانه حذف نکن».
+     *
+     * Nothing was written in either state, so there is nothing to put back and
+     * no transaction is needed — the single `UPDATE` carries its own guard,
+     * and `migrated` is deliberately not releasable: that transition is a
+     * rollback.
+     */
+    public function release(int $postId): OperationResult
+    {
+        $row = $this->ledger->find($postId);
+        if ($row === null) {
+            return OperationResult::failure('minmax_release_nothing', ['post_id' => $postId]);
+        }
+        $status = (string) ($row['status'] ?? '');
+        if (!in_array($status, [
+            MinMaxHandoverRepositoryInterface::REFUSED,
+            MinMaxHandoverRepositoryInterface::HELD,
+        ], true)) {
+            return OperationResult::failure('minmax_release_not_allowed', [
+                'post_id' => $postId,
+                'status' => $status,
+            ]);
+        }
+        if (!$this->ledger->release($postId)) {
+            // Zero rows is a lost race, not «already released» (`alpha.49`).
+            return OperationResult::failure('minmax_release_unrecorded', ['post_id' => $postId]);
+        }
+        return OperationResult::success('minmax_released', [
+            'post_id' => $postId,
+            'was' => $status,
+        ]);
+    }
+
+    /**
+     * Every decision ever made about one product, newest first.
+     *
+     * A rolled-back or released row stays, which is what makes «this product
+     * was migrated, put back, and migrated again» a readable sentence instead
+     * of an absence. «سوابق را کورکورانه حذف نکن» is only meaningful if
+     * something reads them.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function historyFor(int $postId, int $limit = 20): array
+    {
+        return $this->ledger->history($postId, $limit);
     }
 
     /** @return array<string,mixed> */

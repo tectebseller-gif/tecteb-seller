@@ -17,9 +17,12 @@ use Tecteb\Marketplace\Core\Exceptions\MigrationException;
  * کورکورانه پاک نکند». Every clause of that is a thing that has to be WRITTEN
  * DOWN per product at the moment of the write:
  *
- *  - «repeatable without duplication» is a UNIQUE KEY on the post id, so a
+ *  - «repeatable without duplication» is a UNIQUE KEY the claim takes, so a
  *    second run is refused by the database rather than by a read followed by
- *    a write — the `alpha.39` rule;
+ *    a write — the `alpha.39` rule. This step put it on `post_id`; step 28
+ *    moved it onto a nullable `live_key` so that a ROLLED-BACK product can be
+ *    migrated again without its history being deleted, and so that the claim
+ *    can be taken BEFORE the destination write rather than after it;
  *  - «reversible, knowing the destination's earlier values» is three nullable
  *    columns holding what the three meta rows held, with NULL meaning THE ROW
  *    WAS NOT THERE. Absent and empty are different states and `alpha.28`
@@ -145,15 +148,22 @@ final class M0027MinMaxHandover implements MigrationInterface
         if ($columns === null || (int) $columns !== count($needed)) {
             return false;
         }
-        // `COUNT(*)` on STATISTICS counts COLUMNS, not indexes (`alpha.41`),
-        // so this one-column unique key is one row.
+        // The GUARANTEE, not the index's name. This step needs «two runs on
+        // one product cannot both be allowed», which it bought with
+        // `UNIQUE (post_id)`; step 28 buys a strictly stronger one with
+        // `UNIQUE (live_key)` and drops the old key. Asserting the old NAME
+        // here would freeze the chain at 27 on the owner's real site the
+        // moment 28 ran — which is `alpha.51`'s trap, and `M0021ReviewSeen`
+        // paid for it once already. So: a unique key, not the PRIMARY, on
+        // either column that can carry the claim.
         $unique = $db->getVar(
-            'SELECT COUNT(*) FROM information_schema.STATISTICS
+            'SELECT COUNT(DISTINCT INDEX_NAME) FROM information_schema.STATISTICS
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
-               AND INDEX_NAME = %s AND NON_UNIQUE = 0',
-            [self::table($db), 'one_per_post']
+               AND NON_UNIQUE = 0 AND INDEX_NAME <> %s
+               AND COLUMN_NAME IN (%s, %s)',
+            [self::table($db), 'PRIMARY', 'post_id', 'live_key']
         );
-        if ($unique === null || (int) $unique !== 1) {
+        if ($unique === null || (int) $unique < 1) {
             return false;
         }
         // The three «before» columns must be NULLABLE, because a rollback

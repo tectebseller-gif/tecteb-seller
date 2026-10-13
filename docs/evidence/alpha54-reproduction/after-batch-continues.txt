@@ -1,0 +1,13 @@
+probe=ran
+first_id=373
+middle_id=374
+last_id=375
+cursor_after=373
+cursor_past_failure=no
+migrated_count=1
+not_written_count=1
+stopped_at=374
+failed_ids=374:not_written
+ledger_first=migrated_before=__absent___wrote=4
+ledger_middle=__none__
+ledger_last=__none__

@@ -1,0 +1,5 @@
+probe=ran
+rollback_code=minmax_rollback_unrecorded
+rows_after=4/10/2
+db_rows_after=4/10/2
+ledger_after=migrated_before=__absent___wrote=4

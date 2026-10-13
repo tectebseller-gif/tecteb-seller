@@ -162,9 +162,12 @@ final class MigrationModule implements ModuleInterface
         // Leaving «Min Max Control». Three pieces, each replaceable on its
         // own: a reader that never writes, a ledger that remembers what the
         // destination held before, and the service that decides. The
-        // transaction is OPTIONAL — `MigrateMinMax` refuses to do half a job
-        // without one and says so, rather than silently doing the first half
-        // (`alpha.49`).
+        // transaction is the one piece that is NOT optional in practice:
+        // `MigrateMinMax` refuses before the first write without it and says
+        // so, rather than silently doing the first half (`alpha.49`). The
+        // parameter stays nullable so a build without a transaction gets a
+        // named refusal on the page instead of a container error on every
+        // admin request — the refusal is visible, the error is not.
         $c->bind(MinMaxReaderInterface::class, static fn (ContainerInterface $c) => new WpMinMaxReader(
             $c->get(DatabaseInterface::class)
         ));

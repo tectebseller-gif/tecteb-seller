@@ -1,0 +1,14 @@
+probe=ran
+held_count=1
+ledger_held=held_by_manager_before=6_wrote=__null__
+retry_migrated=0
+retry_already_decided=1
+rows_after_retry=__absent__/__absent__/__absent__
+release_available=yes
+released_code=minmax_released
+released_was=held_by_manager
+ledger_after_release=__none__
+history_rows_after_release=1
+after_release_migrated=1
+after_release_already_decided=0
+rows_after_release=4/10/2

@@ -1,0 +1,462 @@
+old bytes read from 8b49faf: 536 php files
+this checkout:                    537 php files
+schema: 27 (base) -> 28 (this tree)
+PASS  0a the installed tree is the base's bytes  (5e35667e836ba1aeb3d2400fa5576738bd634a77ef4a668fdea00ac853b81c5c)
+PASS  0b the ledger is in the 27 shape: no live_key  (0)
+PASS  0c with the old unique key  (1)
+
+=================== before ===================
+PASS  before/reset  the probe ran
+PASS  before/begin-failure  the probe ran
+--- before begin-failure ---
+probe=ran
+begin_called=1
+rows_after=4/10/2
+db_rows_after=4/10/2
+ledger_after=migrated_before=__absent___wrote=4
+migrated_count=1
+refused_for_atomicity=0
+outcome=migrated
+PASS  before/1a begin() was asked  (1)
+PASS  before/1a THE DEFECT: it wrote anyway  (4/10/2)
+PASS  before/1a and in the database too  (4/10/2)
+PASS  before/1a and called it migrated  (1)
+PASS  before/1a and refused nothing  (0)
+PASS  before/no-transaction  the probe ran
+--- before no-transaction ---
+probe=ran
+rows_after=4/10/2
+ledger_after=migrated_before=__absent___wrote=4
+migrated_count=1
+refused_for_atomicity=0
+outcome=migrated
+PASS  before/1b THE DEFECT: no transaction, still wrote  (4/10/2)
+PASS  before/1b and called it migrated  (1)
+PASS  before/caller-transaction  the probe ran
+--- before caller-transaction ---
+probe=ran
+still_in_transaction_after=yes
+caller_row_visible_elsewhere=no
+migrated_count=1
+PASS  before/1c the caller still owns its transaction  (yes)
+PASS  before/1c and nothing of its was committed  (no)
+PASS  before/record-failure  the probe ran
+--- before record-failure ---
+probe=ran
+record_called=1
+committed=1
+rolled_back=0
+rows_after=4/10/2
+db_rows_after=4/10/2
+ledger_after=__none__
+migrated_count=1
+outcome=migrated
+PASS  before/1d the history write was attempted  (1)
+PASS  before/1d THE WORST: it committed anyway  (1)
+PASS  before/1d the rule is applied  (4/10/2)
+PASS  before/1d with NO record of what was there  (__none__)
+PASS  before/1d reported as a migration  (1)
+PASS  before/commit-failure  the probe ran
+--- before commit-failure ---
+probe=ran
+commit_called=1
+migrated_count=1
+reported_not_committed=0
+db_rows_after=__absent__/__absent__/__absent__
+ledger_after=__none__
+outcome=migrated
+PASS  before/1e nothing persisted  (__absent__/__absent__/__absent__)
+PASS  before/1e THE DEFECT: reported as migrated  (1)
+PASS  before/1e and not as a failed commit  (0)
+PASS  before/batch-continues  the probe ran
+--- before batch-continues ---
+probe=ran
+first_id=373
+middle_id=374
+last_id=375
+cursor_after=375
+cursor_past_failure=yes
+migrated_count=2
+not_written_count=1
+stopped_at=0
+failed_ids=__none__
+ledger_first=migrated_before=__absent___wrote=4
+ledger_middle=__none__
+ledger_last=migrated_before=__absent___wrote=4
+PASS  before/2 the middle product failed  (1)
+PASS  before/2 it carried on and migrated the one after it  (2)
+PASS  before/2 THE DEFECT: the cursor passed it  (yes)
+PASS  before/2 nothing stopped  (0)
+PASS  before/2 and no product was named  (__none__)
+PASS  before/rollback-steps  the probe ran
+--- before rollback-steps ---
+probe=ran
+before_migration=2/__absent__/2
+migrated=1
+rows_after_migration=4/10/2
+rollback_code=minmax_rollback_not_stored
+rollback_ok=no
+rows_after_failed_rollback=4/__absent__/2
+db_rows_after_failed_rollback=4/__absent__/2
+ledger_after_failed_rollback=migrated_before=2_wrote=4
+PASS  before/3a the destination was absent before  (2/__absent__/2)
+PASS  before/3a and migrated  (4/10/2)
+PASS  before/3a the restore refused  (no)
+PASS  before/3a THE DEFECT: a rule nobody wrote  (4/__absent__/2)
+PASS  before/3a in the database too  (4/__absent__/2)
+PASS  before/rollback-mark-failure  the probe ran
+--- before rollback-mark-failure ---
+probe=ran
+rollback_code=minmax_rollback_unrecorded
+rows_after=__absent__/__absent__/__absent__
+db_rows_after=__absent__/__absent__/__absent__
+ledger_after=migrated_before=__absent___wrote=4
+PASS  before/3b named  (minmax_rollback_unrecorded)
+PASS  before/3b THE DEFECT: restored with the ledger saying migrated  (__absent__/__absent__/__absent__)
+PASS  before/record-stale  the probe ran
+--- before record-stale ---
+probe=ran
+record_before=3:max_purchase,min_purchase,purchase_step
+port_says_stored=yes
+values_after=4/10/2
+record_after=3:max_purchase,min_purchase,purchase_step
+record_entries=3
+record_entries_matching_shop=1
+held_elsewhere_now=yes
+PASS  before/3c the surviving record still has three entries  (3)
+PASS  before/3c of which one matches the shop  (1)
+PASS  before/3c THE DEFECT: counted, so «stored»  (yes)
+PASS  before/manager-edit-locked  the probe ran
+--- before manager-edit-locked ---
+probe=ran
+rows_after_migration=4/10/2
+holder_holding=yes
+rollback_code=minmax_rollback_not_stored
+rollback_ok=no
+max_now=4/8/2
+manager_value_kept=yes
+ledger_after=migrated_before=__absent___wrote=4
+PASS  before/3d the manager's value stands on BOTH trees  (yes)
+PASS  before/3d and the ledger did not move  (migrated_before=__absent___wrote=4)
+PASS  before/3d it stops PART WAY THROUGH the restore  (minmax_rollback_not_stored)
+PASS  before/remigrate  the probe ran
+--- before remigrate ---
+probe=ran
+first_migrated=1
+rows_after_first=4/10/2
+rollback_code=minmax_rolled_back
+rows_after_rollback=__absent__/__absent__/__absent__
+second_migrated=0
+second_already_decided=1
+rows_after_second=__absent__/__absent__/__absent__
+ledger_after_second=rolled_back_before=__absent___wrote=4
+history_rows=1
+PASS  before/4a the first migration  (1)
+PASS  before/4a the rollback  (minmax_rolled_back)
+PASS  before/4a put the values back  (__absent__/__absent__/__absent__)
+PASS  before/4a THE DEFECT: already decided for ever  (1)
+PASS  before/4a so it cannot be migrated again  (0)
+PASS  before/4a and the destination stays empty  (__absent__/__absent__/__absent__)
+PASS  before/4a with one row of history  (1)
+PASS  before/retry-held  the probe ran
+--- before retry-held ---
+probe=ran
+held_count=1
+ledger_held=held_by_manager_before=6_wrote=__null__
+retry_migrated=0
+retry_already_decided=1
+rows_after_retry=__absent__/__absent__/__absent__
+release_available=no
+released_code=__no_such_method__
+PASS  before/4b the manager's rule holds it  (1)
+PASS  before/4b and removing it is not enough on its own  (1)
+PASS  before/4b THE DEFECT: there is no way out  (__no_such_method__)
+PASS  before/control-convertible  the probe ran
+--- before control-convertible ---
+probe=ran
+migrated=1
+rows=4/10/2
+db_rows=4/10/2
+record=3:max_purchase,min_purchase,purchase_step
+PASS  before/C1 a convertible rule still migrates  (1)
+PASS  before/C1 to the same three values  (4/10/2)
+PASS  before/C1 read past every cache  (4/10/2)
+PASS  before/C1 owning all three rows  (3:max_purchase,min_purchase,purchase_step)
+PASS  before/control-refused  the probe ran
+--- before control-refused ---
+probe=ran
+refused=1
+migrated=0
+rows=__absent__/__absent__/__absent__
+problems=step_base_differs
+PASS  before/C2 a step-base rule is still refused  (1)
+PASS  before/C2 nothing migrated  (0)
+PASS  before/C2 nothing written  (__absent__/__absent__/__absent__)
+PASS  before/C2 and the rule is named  (step_base_differs)
+PASS  before/manager-edit-race  the probe ran
+--- before manager-edit-race ---
+probe=ran
+rows_after_migration=4/10/2
+rollback_code=minmax_rollback_changed
+manager_value_kept=8
+rows_after=4/8/2
+PASS  before/C3 a value changed BEFORE the rollback refuses it  (minmax_rollback_changed)
+PASS  before/C3 and is kept  (8)
+PASS  before/rollback-cache  the probe ran
+--- before rollback-cache ---
+probe=ran
+rollback_code=minmax_rolled_back
+app_rows_same_request=__absent__/__absent__/__absent__
+db_rows_same_request=__absent__/__absent__/__absent__
+record_same_request=__absent__
+agree_same_request=yes
+PASS  before/C4 after a successful rollback the app and the database agree  (yes)
+PASS  before/fresh-read  the probe ran
+--- before fresh-read ---
+probe=ran
+app_rows_fresh=__absent__/__absent__/__absent__
+db_rows_fresh=__absent__/__absent__/__absent__
+agree_fresh=yes
+record_fresh=__absent__
+ledger_fresh=rolled_back_before=__absent___wrote=4
+PASS  before/C5 and they still agree in a FRESH request  (yes)
+PASS  0d the installed tree is this checkout  (3983699a1ffa6b5fc49a066978e5dab56efc5f95c3a4052d800aa69a07e97d88)
+PASS  0e replacing the files runs no migration by itself  (27)
+PASS  0f the first admin request answers 200  (200)
+PASS  0g and the gate has moved the schema to 28  (28)
+PASS  0h live_key is there  (1)
+PASS  0i with the unique key on it  (1)
+PASS  0j and the old key is gone  (0)
+
+=================== after ===================
+PASS  after/reset  the probe ran
+PASS  after/begin-failure  the probe ran
+--- after begin-failure ---
+probe=ran
+begin_called=1
+rows_after=__absent__/__absent__/__absent__
+db_rows_after=__absent__/__absent__/__absent__
+ledger_after=__none__
+migrated_count=0
+refused_for_atomicity=1
+outcome=not_atomic
+PASS  after/1a begin() was asked  (1)
+PASS  after/1a nothing was written  (__absent__/__absent__/__absent__)
+PASS  after/1a nor in the database  (__absent__/__absent__/__absent__)
+PASS  after/1a no decision recorded  (__none__)
+PASS  after/1a and it is a named refusal  (not_atomic)
+PASS  after/no-transaction  the probe ran
+--- after no-transaction ---
+probe=ran
+rows_after=__absent__/__absent__/__absent__
+ledger_after=__none__
+migrated_count=0
+refused_for_atomicity=0
+outcome=no_transaction
+PASS  after/1b nothing written  (__absent__/__absent__/__absent__)
+PASS  after/1b named refusal  (no_transaction)
+PASS  after/caller-transaction  the probe ran
+--- after caller-transaction ---
+probe=ran
+still_in_transaction_after=yes
+caller_row_visible_elsewhere=no
+migrated_count=0
+PASS  after/1c the caller still owns its transaction  (yes)
+PASS  after/1c and nothing of its was committed  (no)
+PASS  after/record-failure  the probe ran
+--- after record-failure ---
+probe=ran
+record_called=1
+committed=0
+rolled_back=1
+rows_after=__absent__/__absent__/__absent__
+db_rows_after=__absent__/__absent__/__absent__
+ledger_after=__none__
+migrated_count=0
+outcome=history_not_written
+PASS  after/1d the history write was attempted  (1)
+PASS  after/1d it did not commit  (0)
+PASS  after/1d it went back  (1)
+PASS  after/1d the destination is untouched  (__absent__/__absent__/__absent__)
+PASS  after/1d and nothing claims it  (__none__)
+PASS  after/1d named  (history_not_written)
+PASS  after/commit-failure  the probe ran
+--- after commit-failure ---
+probe=ran
+commit_called=1
+migrated_count=0
+reported_not_committed=1
+db_rows_after=__absent__/__absent__/__absent__
+ledger_after=__none__
+outcome=not_committed
+PASS  after/1e nothing persisted  (__absent__/__absent__/__absent__)
+PASS  after/1e not reported as migrated  (0)
+PASS  after/1e reported as a failed commit  (1)
+PASS  after/batch-continues  the probe ran
+--- after batch-continues ---
+probe=ran
+first_id=373
+middle_id=374
+last_id=375
+cursor_after=373
+cursor_past_failure=no
+migrated_count=1
+not_written_count=1
+stopped_at=374
+failed_ids=374:not_written
+ledger_first=migrated_before=__absent___wrote=4
+ledger_middle=__none__
+ledger_last=__none__
+PASS  after/2 the middle product failed  (1)
+PASS  after/2 only the one before it went through  (1)
+PASS  after/2 the cursor stops before it  (no)
+PASS  after/2 the cursor is the last FINISHED id  (373)
+PASS  after/2 the failed product is named  (374)
+PASS  after/2 with its reason  (374:not_written)
+PASS  after/2 and the walk did not run past it  (__none__)
+PASS  after/rollback-steps  the probe ran
+--- after rollback-steps ---
+probe=ran
+before_migration=2/__absent__/2
+migrated=1
+rows_after_migration=4/10/2
+rollback_code=minmax_rollback_not_stored
+rollback_ok=no
+rows_after_failed_rollback=4/10/2
+db_rows_after_failed_rollback=4/10/2
+ledger_after_failed_rollback=migrated_before=2_wrote=4
+PASS  after/3a the destination was absent before  (2/__absent__/2)
+PASS  after/3a and migrated  (4/10/2)
+PASS  after/3a the restore refused  (no)
+PASS  after/3a nothing half-done  (4/10/2)
+PASS  after/3a in the database too  (4/10/2)
+PASS  after/rollback-mark-failure  the probe ran
+--- after rollback-mark-failure ---
+probe=ran
+rollback_code=minmax_rollback_unrecorded
+rows_after=4/10/2
+db_rows_after=4/10/2
+ledger_after=migrated_before=__absent___wrote=4
+PASS  after/3b named  (minmax_rollback_unrecorded)
+PASS  after/3b the whole unit went back  (4/10/2)
+PASS  after/record-stale  the probe ran
+--- after record-stale ---
+probe=ran
+record_before=3:max_purchase,min_purchase,purchase_step
+port_says_stored=no
+values_after=4/10/2
+record_after=3:max_purchase,min_purchase,purchase_step
+record_entries=3
+record_entries_matching_shop=1
+held_elsewhere_now=yes
+PASS  after/3c the surviving record still has three entries  (3)
+PASS  after/3c of which one matches the shop  (1)
+PASS  after/3c compared, so not stored  (no)
+PASS  after/manager-edit-locked  the probe ran
+--- after manager-edit-locked ---
+probe=ran
+rows_after_migration=4/10/2
+holder_holding=yes
+rollback_code=minmax_rollback_not_locked
+rollback_ok=no
+max_now=4/8/2
+manager_value_kept=yes
+ledger_after=migrated_before=__absent___wrote=4
+PASS  after/3d the manager's value stands on BOTH trees  (yes)
+PASS  after/3d and the ledger did not move  (migrated_before=__absent___wrote=4)
+PASS  after/3d it refuses BEFORE the first write  (minmax_rollback_not_locked)
+PASS  after/remigrate  the probe ran
+--- after remigrate ---
+probe=ran
+first_migrated=1
+rows_after_first=4/10/2
+rollback_code=minmax_rolled_back
+rows_after_rollback=__absent__/__absent__/__absent__
+second_migrated=1
+second_already_decided=0
+rows_after_second=4/10/2
+ledger_after_second=migrated_before=__absent___wrote=4
+history_rows=2
+PASS  after/4a the first migration  (1)
+PASS  after/4a the rollback  (minmax_rolled_back)
+PASS  after/4a put the values back  (__absent__/__absent__/__absent__)
+PASS  after/4a it migrates again  (1)
+PASS  after/4a not «already decided»  (0)
+PASS  after/4a the rule is applied  (4/10/2)
+PASS  after/4a and BOTH decisions are on record  (2)
+PASS  after/retry-held  the probe ran
+--- after retry-held ---
+probe=ran
+held_count=1
+ledger_held=held_by_manager_before=6_wrote=__null__
+retry_migrated=0
+retry_already_decided=1
+rows_after_retry=__absent__/__absent__/__absent__
+release_available=yes
+released_code=minmax_released
+released_was=held_by_manager
+ledger_after_release=__none__
+history_rows_after_release=1
+after_release_migrated=1
+after_release_already_decided=0
+rows_after_release=4/10/2
+PASS  after/4b the manager's rule holds it  (1)
+PASS  after/4b and removing it is not enough on its own  (1)
+PASS  after/4b the explicit path exists  (minmax_released)
+PASS  after/4b from the held state  (held_by_manager)
+PASS  after/4b the refusal stays on record  (1)
+PASS  after/4b and the next batch decides again  (1)
+PASS  after/4b writing the rule  (4/10/2)
+PASS  after/control-convertible  the probe ran
+--- after control-convertible ---
+probe=ran
+migrated=1
+rows=4/10/2
+db_rows=4/10/2
+record=3:max_purchase,min_purchase,purchase_step
+PASS  after/C1 a convertible rule still migrates  (1)
+PASS  after/C1 to the same three values  (4/10/2)
+PASS  after/C1 read past every cache  (4/10/2)
+PASS  after/C1 owning all three rows  (3:max_purchase,min_purchase,purchase_step)
+PASS  after/control-refused  the probe ran
+--- after control-refused ---
+probe=ran
+refused=1
+migrated=0
+rows=__absent__/__absent__/__absent__
+problems=step_base_differs
+PASS  after/C2 a step-base rule is still refused  (1)
+PASS  after/C2 nothing migrated  (0)
+PASS  after/C2 nothing written  (__absent__/__absent__/__absent__)
+PASS  after/C2 and the rule is named  (step_base_differs)
+PASS  after/manager-edit-race  the probe ran
+--- after manager-edit-race ---
+probe=ran
+rows_after_migration=4/10/2
+rollback_code=minmax_rollback_changed
+manager_value_kept=8
+rows_after=4/8/2
+PASS  after/C3 a value changed BEFORE the rollback refuses it  (minmax_rollback_changed)
+PASS  after/C3 and is kept  (8)
+PASS  after/rollback-cache  the probe ran
+--- after rollback-cache ---
+probe=ran
+rollback_code=minmax_rolled_back
+app_rows_same_request=__absent__/__absent__/__absent__
+db_rows_same_request=__absent__/__absent__/__absent__
+record_same_request=__absent__
+agree_same_request=yes
+PASS  after/C4 after a successful rollback the app and the database agree  (yes)
+PASS  after/fresh-read  the probe ran
+--- after fresh-read ---
+probe=ran
+app_rows_fresh=__absent__/__absent__/__absent__
+db_rows_fresh=__absent__/__absent__/__absent__
+agree_fresh=yes
+record_fresh=__absent__
+ledger_fresh=__none__
+PASS  after/C5 and they still agree in a FRESH request  (yes)
+PASS  after/hand-back  the probe ran
+PASS  Z the fixture handed its Min Max rows back  (yes)
+
+PASS=169 FAIL=0

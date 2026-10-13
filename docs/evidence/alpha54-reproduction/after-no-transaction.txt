@@ -1,0 +1,6 @@
+probe=ran
+rows_after=__absent__/__absent__/__absent__
+ledger_after=__none__
+migrated_count=0
+refused_for_atomicity=0
+outcome=no_transaction

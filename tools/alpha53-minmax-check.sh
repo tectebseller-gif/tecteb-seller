@@ -130,7 +130,13 @@ RB="$(probe rollback)"; printf '%s\n' "$RB" >>"$LOG"
 check "5a the rollback succeeded" "$(val "$RB" rollback_code)" "minmax_rolled_back"
 check "5b and the rows are ABSENT again, not empty" \
       "$(val "$RB" rows_after_rollback)" "__absent__/__absent__/__absent__"
-check "5c the ledger records it"  "$(val "$RB" ledger_after_rollback)" "rolled_back"
+# CHANGED BY `alpha.54`, and the change is the point rather than a stale
+# expectation. `find()` now means «the LIVE decision», and a rolled-back
+# product has none — which is exactly what lets it be migrated again, instead
+# of answering `already_decided` for ever. The ROW is still there, and 5c2
+# reads it: «سوابق را کورکورانه حذف نکن».
+check "5c no live decision stands afterwards" "$(val "$RB" ledger_after_rollback)" "__none__"
+check "5c2 and the row is kept, as history"  "$(val "$RB" history_after_rollback)" "rolled_back"
 
 RC="$(probe rollback-after-change)"; printf '%s\n' "$RC" >>"$LOG"
 check "5d the precondition holds: the product was migrated" \

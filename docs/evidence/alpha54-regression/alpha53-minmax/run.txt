@@ -1,0 +1,165 @@
+# Min Max exit — 2026-10-13T11:27:13Z
+plugin under test: 8.1.0
+woocommerce:       11.0.1
+marketplace:       0.1.0-alpha.54
+schema:            28
+
+probe=ran
+minmax_active=yes
+minmax_version=8.1.0.0
+wc_SKU-A53-OK=369
+wc_SKU-A53-STEP=370
+wc_SKU-A53-HELD=371
+wc_native=372
+arranged=yes
+PASS 1a the probe ran → ran
+PASS 1b Min Max is active → yes
+PASS 1c and it is 8.1.0.0 → 8.1.0.0
+PASS 1d the fixture is arranged → yes
+probe=ran
+minmax_active=yes
+minmax_version=8.1.0.0
+gate=open
+minmax_SKU-A53-OK_input=4/10/2
+minmax_SKU-A53-OK_allowed=4|6|8|10
+minmax_SKU-A53-STEP_input=2/11/3
+minmax_SKU-A53-STEP_allowed=2|5|8|11
+minmax_SKU-A53-HELD_input=4/10/2
+minmax_SKU-A53-HELD_allowed=6|8|10
+minmax_native_input=4/10/2
+minmax_native_allowed=4|6|8|10
+PASS 1e the sale gate opened for the measurement → open
+PASS 1f a convertible rule is enforced as 4,6,8,10 → 4|6|8|10
+PASS 1g and a step-from-the-minimum rule as 2,5,8,11 → 2|5|8|11
+PASS 1h a plain WooCommerce product is enforced too → 4|6|8|10
+probe=ran
+minmax_active=yes
+minmax_version=8.1.0.0
+available=yes
+mode=plain
+prefix=__empty__
+option_key=wcmmq_minmaxstep
+premium=no
+count_product=4
+count_variation=0
+count_term=0
+count_global=0
+count_default_quantity=0
+preview_convertible=1
+preview_refused=1
+preview_held_by_manager=1
+preview_unenforced=1
+preview_already_decided=0
+preview_scanned=4
+problem_step_base_differs=1
+wrote_nothing=yes
+PASS 2a the mode is read the plugin's way → plain
+PASS 2b with no meta prefix → __empty__
+PASS 2c and the plugin's own option key → wcmmq_minmaxstep
+PASS 2d premium is not active, so variation rules do not fire → no
+PASS 2e four products carry a rule → 4
+PASS 2f one converts → 1
+PASS 2g one is refused → 1
+PASS 2h one is the manager's → 1
+PASS 2i one would not be enforced → 1
+PASS 2j and the refusal is named → 1
+PASS 2k the preview wrote nothing → yes
+probe=ran
+minmax_active=yes
+minmax_version=8.1.0.0
+batch_ok=yes
+batch_done=yes
+batch_cursor=372
+migrated_migrated=1
+migrated_refused=1
+migrated_held_by_manager=1
+migrated_written_unenforced=1
+migrated_already_decided=0
+migrated_not_written=0
+migrated_absent_product=0
+ledger_SKU-A53-OK=migrated
+ledger_SKU-A53-OK_problems=__none__
+rows_SKU-A53-OK=4/10/2
+ledger_SKU-A53-STEP=refused
+ledger_SKU-A53-STEP_problems=step_base_differs
+rows_SKU-A53-STEP=__empty__/__empty__/__empty__
+ledger_SKU-A53-HELD=held_by_manager
+ledger_SKU-A53-HELD_problems=__none__
+rows_SKU-A53-HELD=6/12/1
+PASS 3a the batch ran to the end → yes
+PASS 3b one product migrated → 1
+PASS 3c one refused → 1
+PASS 3d one held → 1
+PASS 3e one written-but-unenforced → 1
+PASS 3f the convertible rule's rows carry the SOURCE values → 4/10/2
+PASS 3g the refused rule wrote NOTHING → __empty__/__empty__/__empty__
+PASS 3h and its refusal is recorded by name → step_base_differs
+PASS 3i the manager's rule is untouched → 6/12/1
+probe=ran
+minmax_active=yes
+minmax_version=8.1.0.0
+again_migrated=0
+again_refused=0
+again_held_by_manager=0
+again_written_unenforced=0
+again_already_decided=4
+again_not_written=0
+again_absent_product=0
+PASS 3j a second run writes nothing new → 0
+PASS 3k and finds every product already decided → 4
+probe=ran
+minmax_active=no
+minmax_version=__absent__
+gate=open
+exit_SKU-A53-OK_input=4/10/2
+exit_SKU-A53-OK_allowed=4|6|8|10
+exit_SKU-A53-STEP_input=1/-1/1
+exit_SKU-A53-STEP_allowed=1|2|3|4|5|6|8|10|11|12
+exit_SKU-A53-HELD_input=6/12/1
+exit_SKU-A53-HELD_allowed=6|8|10|11|12
+exit_native_input=1/-1/1
+exit_native_allowed=1|2|3|4|5|6|8|10|11|12
+PASS 4a Min Max is off → no
+PASS 4b the converted rule still allows 4,6,8,10 → 4|6|8|10
+PASS 4c the refused rule is GONE — every quantity passes → 1|2|3|4|5|6|8|10|11|12
+PASS 4d and the non-marketplace product's rule is GONE too → 1|2|3|4|5|6|8|10|11|12
+probe=ran
+minmax_active=no
+minmax_version=__absent__
+rollback_code=minmax_rolled_back
+rows_after_rollback=__absent__/__absent__/__absent__
+ledger_after_rollback=__none__
+history_after_rollback=rolled_back
+PASS 5a the rollback succeeded → minmax_rolled_back
+PASS 5b and the rows are ABSENT again, not empty → __absent__/__absent__/__absent__
+PASS 5c no live decision stands afterwards → __none__
+PASS 5c2 and the row is kept, as history → rolled_back
+probe=ran
+minmax_active=no
+minmax_version=__absent__
+arranged_status=migrated
+arranged_rows=4/10/2
+changed_rollback_code=minmax_rollback_changed
+changed_rollback_field=max
+changed_rollback_wrote=10
+changed_rollback_now=8
+manager_value_kept=8
+PASS 5d the precondition holds: the product was migrated → migrated
+PASS 5e a later change makes the rollback REFUSE → minmax_rollback_changed
+PASS 5f and it names the field → max
+PASS 5g with both numbers → 10/8
+PASS 5h the newer value is KEPT → 8
+probe=ran
+minmax_active=no
+minmax_version=__absent__
+absent_reads=__null__
+empty_reads=string:__empty__
+owns_marketplace_product=yes
+owns_native_product=no
+PASS 6a an absent row reads as null → __null__
+PASS 6b an empty row reads as empty → string:__empty__
+PASS 6c a marketplace product is ours → yes
+PASS 6d a plain WooCommerce product is not → no
+
+checks: 47 passed, 0 failed
+Min Max left: active

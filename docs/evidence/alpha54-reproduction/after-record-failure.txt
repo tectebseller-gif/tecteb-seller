@@ -1,0 +1,9 @@
+probe=ran
+record_called=1
+committed=0
+rolled_back=1
+rows_after=__absent__/__absent__/__absent__
+db_rows_after=__absent__/__absent__/__absent__
+ledger_after=__none__
+migrated_count=0
+outcome=history_not_written

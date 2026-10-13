@@ -51,11 +51,40 @@ interface ShopQuantityPortInterface
 
     /**
      * Put the destination back to the three values given, where `null` means
-     * «delete the row, there was none».
+     * «delete the row, there was none», and the ownership record with them.
      *
-     * @return bool false when any part of it would not store
+     * The record is the FOURTH value and is verified like the other three: a
+     * restore whose record did not land leaves the destination owned by a map
+     * describing values that are no longer there, and `alpha.53` reported that
+     * as a success.
+     *
+     * @return string `''` when every part stored; otherwise the meta key that
+     *                would not, so the manager is told WHICH half is undone
+     *                rather than «it failed» (`alpha.35`: a result that cannot
+     *                carry where it stopped is not resumable)
      */
-    public function restore(int $postId, ?string $min, ?string $max, ?string $step, ?string $record): bool;
+    public function restore(int $postId, ?string $min, ?string $max, ?string $step, ?string $record): string;
+
+    /**
+     * Take the row locks a compare-and-restore needs, inside the caller's
+     * transaction, and answer whether they were taken.
+     *
+     * A lock the other side does not take is not a guard (`alpha.50`), and the
+     * other side here is `update_post_meta()` on the same `$wpdb` connection —
+     * which does take row locks, because it is ordinary SQL on `postmeta`. So
+     * this one works, and a caller without a transaction must refuse rather
+     * than carry on unprotected.
+     */
+    public function lockQuantityRows(int $postId): bool;
+
+    /**
+     * Drop WordPress's cached copy of this post's meta.
+     *
+     * The writes take part in the database transaction; the object cache does
+     * not. A rolled-back restore therefore leaves the cache holding values
+     * that were never committed, and the rest of that request reads them.
+     */
+    public function forgetCachedQuantities(int $postId): void;
 
     /** Whether this post id is a product or variation the shop actually has. */
     public function exists(int $postId): bool;

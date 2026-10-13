@@ -510,9 +510,20 @@ namespace {
         }
     }
 
+    // Both of these run WordPress's own SHORT-CIRCUIT FILTER first, because
+    // that filter is the only way a test can make one named meta write fail
+    // the way a storage failure fails — the `alpha.47` method. Core:
+    // `update_metadata()` applies `update_{$type}_metadata` and returns
+    // `(bool) $check` when it is not null, and `delete_metadata()` does the
+    // same with `delete_{$type}_metadata`. Without it, a refusal injected in
+    // a suite is silently ignored and the test passes about nothing.
     if (!function_exists('update_post_meta')) {
         function update_post_meta(int $postId, string $key, mixed $value): bool
         {
+            $check = apply_filters('update_post_metadata', null, $postId, $key, $value);
+            if ($check !== null) {
+                return (bool) $check;
+            }
             \TmcWpStubs\State::$postMeta[$postId][$key] = $value;
             return true;
         }
@@ -521,6 +532,10 @@ namespace {
     if (!function_exists('delete_post_meta')) {
         function delete_post_meta(int $postId, string $key): bool
         {
+            $check = apply_filters('delete_post_metadata', null, $postId, $key, '');
+            if ($check !== null) {
+                return (bool) $check;
+            }
             unset(\TmcWpStubs\State::$postMeta[$postId][$key]);
             return true;
         }

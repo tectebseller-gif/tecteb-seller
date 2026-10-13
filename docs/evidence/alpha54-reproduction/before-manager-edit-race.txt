@@ -1,0 +1,5 @@
+probe=ran
+rows_after_migration=4/10/2
+rollback_code=minmax_rollback_changed
+manager_value_kept=8
+rows_after=4/8/2

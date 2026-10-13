@@ -1,0 +1,8 @@
+probe=ran
+held_count=1
+ledger_held=held_by_manager_before=6_wrote=__null__
+retry_migrated=0
+retry_already_decided=1
+rows_after_retry=__absent__/__absent__/__absent__
+release_available=no
+released_code=__no_such_method__

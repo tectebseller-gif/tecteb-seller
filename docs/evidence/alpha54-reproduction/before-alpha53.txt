@@ -1,0 +1,140 @@
+# The four findings, measured on alpha.53's own bytes (commit 8b49faf)
+# plugin:  * Version: 0.1.0-alpha.53
+# date: 2026-10-13T10:45:25Z
+
+== reset
+reset=yes
+
+== begin-failure
+begin_called=1
+rows_after=4/10/2
+db_rows_after=4/10/2
+ledger_after=migrated_before=__absent___wrote=4
+migrated_count=1
+refused_for_atomicity=0
+
+== no-transaction
+rows_after=4/10/2
+ledger_after=migrated_before=__absent___wrote=4
+migrated_count=1
+refused_for_atomicity=0
+
+== caller-transaction
+still_in_transaction_after=yes
+caller_row_visible_elsewhere=no
+migrated_count=1
+
+== record-failure
+record_called=1
+committed=1
+rolled_back=0
+rows_after=4/10/2
+db_rows_after=4/10/2
+ledger_after=__none__
+migrated_count=1
+
+== commit-failure
+commit_called=1
+migrated_count=1
+reported_not_committed=0
+db_rows_after=__absent__/__absent__/__absent__
+ledger_after=__none__
+
+== batch-continues
+first_id=373
+middle_id=374
+last_id=375
+cursor_after=375
+cursor_past_failure=yes
+migrated_count=2
+not_written_count=1
+stopped_at=0
+failed_ids=__none__
+ledger_first=migrated_before=__absent___wrote=4
+ledger_middle=__none__
+ledger_last=migrated_before=__absent___wrote=4
+
+== rollback-steps
+before_migration=2/__absent__/2
+migrated=1
+rows_after_migration=4/10/2
+rollback_code=minmax_rollback_not_stored
+rollback_ok=no
+rows_after_failed_rollback=4/__absent__/2
+db_rows_after_failed_rollback=4/__absent__/2
+ledger_after_failed_rollback=migrated_before=2_wrote=4
+
+== rollback-mark-failure
+rollback_code=minmax_rollback_unrecorded
+rows_after=__absent__/__absent__/__absent__
+db_rows_after=__absent__/__absent__/__absent__
+ledger_after=migrated_before=__absent___wrote=4
+
+== record-stale
+record_before=3:max_purchase,min_purchase,purchase_step
+port_says_stored=yes
+values_after=4/10/2
+record_after=3:max_purchase,min_purchase,purchase_step
+record_entries=3
+record_entries_matching_shop=1
+held_elsewhere_now=yes
+
+== manager-edit-inside
+rows_after_migration=4/10/2
+injected_inside_window=yes
+rollback_code=minmax_rolled_back
+max_now=__absent__
+manager_value_lost=yes
+rows_after=__absent__/__absent__/__absent__
+db_rows_after=__absent__/__absent__/__absent__
+
+== manager-edit-race
+rows_after_migration=4/10/2
+rollback_code=minmax_rollback_changed
+manager_value_kept=8
+rows_after=4/8/2
+
+== rollback-cache
+rollback_code=minmax_rolled_back
+app_rows_same_request=__absent__/__absent__/__absent__
+db_rows_same_request=__absent__/__absent__/__absent__
+record_same_request=__absent__
+agree_same_request=yes
+
+== fresh-read
+app_rows_fresh=__absent__/__absent__/__absent__
+db_rows_fresh=__absent__/__absent__/__absent__
+agree_fresh=yes
+record_fresh=__absent__
+ledger_fresh=rolled_back_before=__absent___wrote=4
+
+== remigrate
+first_migrated=1
+rows_after_first=4/10/2
+rollback_code=minmax_rolled_back
+rows_after_rollback=__absent__/__absent__/__absent__
+second_migrated=0
+second_already_decided=1
+rows_after_second=__absent__/__absent__/__absent__
+ledger_after_second=rolled_back_before=__absent___wrote=4
+history_rows=1
+
+== retry-held
+held_count=1
+ledger_held=held_by_manager_before=6_wrote=__null__
+retry_migrated=0
+retry_already_decided=1
+rows_after_retry=__absent__/__absent__/__absent__
+
+== control-convertible
+migrated=1
+rows=4/10/2
+db_rows=4/10/2
+record=3:max_purchase,min_purchase,purchase_step
+
+== control-refused
+refused=1
+migrated=0
+rows=__absent__/__absent__/__absent__
+problems=step_base_differs
+
