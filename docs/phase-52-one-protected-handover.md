@@ -209,8 +209,17 @@ backfill خودِ ارتقا است: هر ردیفی که `rolled_back` نیست
 | `php -l` | **۵۳۹** فایل روی ۸٫۴٫۱۹ تنها |
 | PHPCompatibility `testVersion 8.1-` | ۰ شکست |
 
-- `tools/alpha54-reproduction.sh` — **قبل/بعد روی بایت‌های `8b49faf`**، با
-  جابه‌جایی شکل جدول بین دو درخت و ارتقای واقعی از **درخواست مدیر**.
+- `tools/alpha54-reproduction.sh` — **۱۶۹ بررسی، قبل/بعد روی بایت‌های
+  `8b49faf`**، با جابه‌جایی شکل جدول بین دو درخت و ارتقای واقعی از **درخواست
+  مدیر**: `0e replacing the files runs no migration by itself (27)`،
+  `0f the first admin request answers 200`، `0g and the gate has moved the
+  schema to 28`، `0h live_key is there`، `0j and the old key is gone (0)`.
+- **و مسیر «آزاد کردن» از یک POST واقعی هم سنجیده شد**، چون رندر شدن یک صفحه
+  دربارهٔ تصمیم‌هایش هیچ نمی‌گوید (`alpha.48`): روی محصولِ **منتقل‌شده** گارد
+  رد می‌کند («فقط محصولی که «رد» یا «قاعدهٔ مدیر» شده آزاد می‌شود»)، و روی
+  محصولِ **ردشده** جواب «این محصول برای تصمیم دوباره آزاد شد» است و ردیف
+  `refused` با `live_key = NULL` می‌مانَد — سابقه سر جایش، محصول آزاد.
+- `tools/alpha53-minmax-check.sh` — **۴۷** روی همین درخت، به‌عنوان رگرسیون.
 - `tests/Database/MinMaxHandoverUnitOfWorkTest.php` — ۲۰ آزمون روی MariaDB
   واقعی: شکست هر گام، رقابت ادعا، ایستادن دسته، ادامه، بازگشت و انتقال
   دوباره.
