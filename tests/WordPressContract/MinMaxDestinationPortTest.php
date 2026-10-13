@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Tests\WordPressContract;
 use PHPUnit\Framework\TestCase;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpShopQuantityPort;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\ProjectedQuantity;
+use Tecteb\Marketplace\Tests\Support\CannedPostMetaDatabase;
 use Tecteb\Marketplace\Tests\Support\FakeDatabase;
 use TmcWpStubs\State;
 
@@ -171,6 +172,120 @@ final class MinMaxDestinationPortTest extends TestCase
         self::assertSame('', $problem);
         self::assertSame('2', (string) get_post_meta(self::PRODUCT, ProjectedQuantity::META_MIN, true));
         self::assertFalse($this->port()->read(self::PRODUCT)['held'], 'and they are still ours');
+    }
+
+    // ================================ §6-ب the read under the lock
+
+    /**
+     * THE FINDING: `readRows()` reports THE ROW, and `read()` reports what the
+     * meta API has cached — so the two are asked to disagree here on purpose.
+     *
+     * `alpha.54` locked the three rows and then compared `get_post_meta()`,
+     * which never looks at the row: `get_metadata_raw()` calls
+     * `wp_cache_get($id, 'post_meta')` and only fills that cache when it is
+     * cold. A copy warmed earlier in the request — by `wc_get_product()`, by
+     * an admin screen, by this plugin's own preview — is what the guard
+     * compared, and with a persistent object cache it can predate another
+     * process's committed write.
+     */
+    public function testTheRowReadReportsTheRowAndNotTheCachedCopy(): void
+    {
+        // What the meta API will answer: the stale value.
+        update_post_meta(self::PRODUCT, ProjectedQuantity::META_MAX, '10');
+        // What the table actually holds, which is what a lock protects.
+        $db = $this->canned();
+        $db->addRow(self::PRODUCT, ProjectedQuantity::META_MAX, '7');
+        $port = new WpShopQuantityPort($db);
+
+        self::assertSame('10', (string) $port->read(self::PRODUCT)['max'], 'the cached copy');
+        $rows = $port->readRows(self::PRODUCT);
+        self::assertTrue($rows['read']);
+        self::assertSame('7', (string) $rows['max'], 'and the row itself');
+    }
+
+    /** Absent and empty stay two answers when the rows are read directly too. */
+    public function testTheRowReadKeepsAbsentAndEmptyApart(): void
+    {
+        $db = $this->canned();
+        $db->addRow(self::PRODUCT, ProjectedQuantity::META_MIN, '');
+        $db->addRow(self::PRODUCT, ProjectedQuantity::META_STEP, '2');
+
+        $rows = (new WpShopQuantityPort($db))->readRows(self::PRODUCT);
+
+        self::assertSame('', $rows['min'], 'a row holding an empty string');
+        self::assertNull($rows['max'], 'no row at all');
+        self::assertSame('2', $rows['step']);
+    }
+
+    /**
+     * A read that failed is not a destination that is empty.
+     *
+     * Taken for absence, a rollback would delete three rows that are there —
+     * which is why the count is asked with `COUNT(*)`, where `null` can only
+     * mean failure.
+     */
+    public function testAFailedReadSaysSoRatherThanAnsweringAbsent(): void
+    {
+        $db = $this->canned();
+        $db->addRow(self::PRODUCT, ProjectedQuantity::META_MIN, '4');
+        $db->failReads = true;
+
+        $rows = (new WpShopQuantityPort($db))->readRows(self::PRODUCT);
+
+        self::assertFalse($rows['read']);
+        self::assertNull($rows['min'], 'and it does not pretend to have a value');
+    }
+
+    /**
+     * Two rows for one key: the LOWEST `meta_id` is used — the one WordPress
+     * itself would read — and the extra is counted rather than hidden.
+     *
+     * `wp_postmeta` has no unique index on `(post_id, meta_key)`:
+     * `PRIMARY(meta_id)`, `KEY post_id`, `KEY meta_key`, read off WordPress
+     * 7.1's own table. `update_meta_cache()` orders by `meta_id ASC` and
+     * `get_metadata_raw()` takes `[0]`, so that is the value in force.
+     */
+    public function testADuplicateRowIsCountedAndTheFirstOneIsUsed(): void
+    {
+        $db = $this->canned();
+        $db->addRow(self::PRODUCT, ProjectedQuantity::META_MAX, '10');
+        $db->addRow(self::PRODUCT, ProjectedQuantity::META_MAX, '99');
+
+        $rows = (new WpShopQuantityPort($db))->readRows(self::PRODUCT);
+
+        self::assertSame('10', (string) $rows['max'], 'the lowest meta_id wins');
+        self::assertSame([ProjectedQuantity::META_MAX => 1], $rows['duplicates']);
+    }
+
+    /** The ownership record comes off the row, unserialised as WordPress would. */
+    public function testTheOwnershipRecordIsReadFromTheRowAndStillDecidesOwnership(): void
+    {
+        $db = $this->canned();
+        $db->addRow(self::PRODUCT, ProjectedQuantity::META_MIN, '4');
+        $db->addRow(
+            self::PRODUCT,
+            ProjectedQuantity::OWNED_META,
+            serialize([ProjectedQuantity::META_MIN => ProjectedQuantity::fingerprint('4')])
+        );
+
+        $rows = (new WpShopQuantityPort($db))->readRows(self::PRODUCT);
+
+        self::assertFalse($rows['held'], 'recorded, and unchanged since: ours');
+        self::assertIsString($rows['record']);
+
+        $db->rows = [];
+        $db->addRow(self::PRODUCT, ProjectedQuantity::META_MIN, '9');
+        self::assertTrue(
+            (new WpShopQuantityPort($db))->readRows(self::PRODUCT)['held'],
+            'a present row with no record is somebody else\'s'
+        );
+    }
+
+    private function canned(): CannedPostMetaDatabase
+    {
+        $db = new CannedPostMetaDatabase();
+        $db->posts[self::PRODUCT] = 'product';
+        return $db;
     }
 
     private function port(): WpShopQuantityPort

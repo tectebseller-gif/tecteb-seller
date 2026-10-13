@@ -1,0 +1,6 @@
+probe=ran
+rollback_code=intake_rolled_back
+removed=1
+observed_row=__none__
+wc_product_still_there=yes
+wc_status=publish

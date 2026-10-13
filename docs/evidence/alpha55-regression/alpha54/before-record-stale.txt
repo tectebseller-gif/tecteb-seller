@@ -1,0 +1,8 @@
+probe=ran
+record_before=3:max_purchase,min_purchase,purchase_step
+port_says_stored=yes
+values_after=4/10/2
+record_after=3:max_purchase,min_purchase,purchase_step
+record_entries=3
+record_entries_matching_shop=1
+held_elsewhere_now=yes

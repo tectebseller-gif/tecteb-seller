@@ -235,6 +235,30 @@ final class TmcP54Ledger implements MinMaxHandoverRepositoryInterface
     {
         return method_exists($this->inner, 'release') ? $this->inner->release($postId) : false;
     }
+
+    /**
+     * ADDED IN `alpha.55`, and the reason is a rule this repository already
+     * owns: «رابطی که پارامتر می‌گیرد، اسکریپت بازتولید را بی‌صدا از کار
+     * می‌اندازد» (`alpha.32`). `alpha.55` gave
+     * `MinMaxHandoverRepositoryInterface` two more methods, and PHP requires
+     * an implementing class to declare every one — so without these two this
+     * probe stopped LOADING on the newer tree, and
+     * `tools/alpha54-reproduction.sh` reported sixty-one failures about a
+     * build that was working.
+     *
+     * Forwarded through `method_exists()` like the two above, so the file
+     * still loads on `alpha.53`'s bytes, where neither method exists. The
+     * probe's own answers are unchanged: no verb of its calls these.
+     */
+    public function markEnforced(int $postId): bool
+    {
+        return method_exists($this->inner, 'markEnforced') ? $this->inner->markEnforced($postId) : false;
+    }
+
+    public function markUnenforced(int $postId): bool
+    {
+        return method_exists($this->inner, 'markUnenforced') ? $this->inner->markUnenforced($postId) : false;
+    }
 }
 
 /**

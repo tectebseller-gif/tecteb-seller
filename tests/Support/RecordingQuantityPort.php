@@ -49,6 +49,22 @@ class RecordingQuantityPort implements ShopQuantityPortInterface
 
     public bool $refuseLock = false;
 
+    /** Whether `readRows()` should answer «the read itself failed». */
+    public bool $refuseRowRead = false;
+
+    /**
+     * Duplicate rows `readRows()` should report, as `meta_key => extras`.
+     *
+     * `wp_postmeta` has no unique index on `(post_id, meta_key)`, so this is a
+     * state the real table can be in and the double has to be able to be in.
+     *
+     * @var array<int,array<string,int>>
+     */
+    public array $duplicates = [];
+
+    /** Every call that locked rows, in order — the lock ORDER is a guarantee. */
+    public array $locks = [];
+
     public int $forgotten = 0;
 
     /** @var array<int,bool> post id => whether the marketplace owns it */
@@ -77,6 +93,31 @@ class RecordingQuantityPort implements ShopQuantityPortInterface
             'held' => $this->held[$postId] ?? false,
             'record' => $row['record'],
             'exists' => $this->present[$postId] ?? false,
+        ];
+    }
+
+    /**
+     * The same answer as `read()`, plus the two things only a row read can
+     * say: whether the read worked at all, and how many duplicate rows there
+     * are.
+     *
+     * The double cannot model the thing that makes the real one necessary —
+     * there is no object cache here to be stale — so what it models is the
+     * CALLER's side: a refused read and a duplicated key each have to produce
+     * their own named outcome. The cache half is the probe's question, on real
+     * WordPress, with the cache deliberately warmed first.
+     */
+    public function readRows(int $postId): array
+    {
+        if ($this->refuseRowRead) {
+            return [
+                'min' => null, 'max' => null, 'step' => null, 'held' => false,
+                'record' => null, 'exists' => false, 'read' => false, 'duplicates' => [],
+            ];
+        }
+        return $this->read($postId) + [
+            'read' => true,
+            'duplicates' => $this->duplicates[$postId] ?? [],
         ];
     }
 
@@ -120,12 +161,47 @@ class RecordingQuantityPort implements ShopQuantityPortInterface
 
     public function lockQuantityRows(int $postId): bool
     {
-        return !$this->refuseLock;
+        if ($this->refuseLock) {
+            return false;
+        }
+        $this->locks[] = 'lock:' . $postId;
+        return true;
     }
 
     public function forgetCachedQuantities(int $postId): void
     {
         $this->forgotten++;
+    }
+
+    /** Post id => whether the enforcement grant is on it. */
+    public array $granted = [];
+
+    /** The grant write refuses when this is true. */
+    public bool $refuseGrant = false;
+
+    public function grantEnforcement(int $postId): bool
+    {
+        if ($this->refuseGrant) {
+            return false;
+        }
+        $this->writes[] = 'grant:' . $postId;
+        $this->granted[$postId] = true;
+        return true;
+    }
+
+    public function revokeEnforcement(int $postId): bool
+    {
+        if ($this->refuseGrant) {
+            return false;
+        }
+        $this->writes[] = 'revoke:' . $postId;
+        unset($this->granted[$postId]);
+        return true;
+    }
+
+    public function enforcementGranted(int $postId): bool
+    {
+        return $this->granted[$postId] ?? false;
     }
 
     public function exists(int $postId): bool

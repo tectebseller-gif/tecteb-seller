@@ -1,0 +1,4 @@
+probe=ran
+still_in_transaction_after=yes
+caller_row_visible_elsewhere=no
+migrated_count=1

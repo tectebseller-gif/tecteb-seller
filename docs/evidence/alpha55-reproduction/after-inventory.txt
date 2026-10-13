@@ -1,0 +1,13 @@
+probe=ran
+available=yes
+total=28
+variations=2
+unsupported_types=
+bucket_marketplace=21
+bucket_observed=1
+bucket_dokan=0
+bucket_shop=2
+bucket_vendor=0
+bucket_ambiguous=4
+duplicate_links=0
+rows_in_products=111

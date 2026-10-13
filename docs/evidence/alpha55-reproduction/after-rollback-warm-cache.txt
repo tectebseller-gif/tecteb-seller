@@ -1,0 +1,14 @@
+probe=ran
+migrated=migrated
+rows_after_migration=4/10/2
+cache_warmed_max=10
+second_writer=yes
+row_now=4/8/2
+app_reads=4/10/2
+cache_is_stale=yes
+rollback_code=minmax_rollback_changed
+rollback_field=max
+rollback_now=8
+db_rows_after_rollback=4/8/2
+manager_value_kept=yes
+ledger_after=migrated_before=__absent___wrote=10

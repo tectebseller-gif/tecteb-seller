@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 
 use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontField;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
 
 /**
@@ -167,9 +168,11 @@ final class ProjectedFieldOwnership
      */
     public static function idsToValue(array $ids): string
     {
-        $ids = array_values(array_unique(array_map('intval', $ids)));
-        sort($ids);
-        return implode(',', $ids);
+        // Delegated to the Domain since `alpha.55`, because the intake of an
+        // existing product builds a baseline with the same encoding and
+        // Application may not reach into Infrastructure. One implementation,
+        // so a stamp and a baseline cannot disagree about the same two ids.
+        return StorefrontField::idsToValue($ids);
     }
 
     /**

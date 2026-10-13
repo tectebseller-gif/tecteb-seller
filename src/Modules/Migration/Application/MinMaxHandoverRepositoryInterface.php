@@ -46,6 +46,19 @@ interface MinMaxHandoverRepositoryInterface
      */
     public const UNENFORCED = 'written_unenforced';
 
+    /**
+     * Written onto a product the marketplace does not own, AND the manager
+     * has explicitly accepted that this plugin enforces that product's
+     * purchase-quantity rule.
+     *
+     * The grant is about ONE rule and nothing else — not the vendor, not the
+     * product's ownership, not its approval cycle, which all stay exactly as
+     * they were. It is a status rather than a column because `status` is
+     * `VARCHAR(24)` and every «which rows are live» query names its statuses
+     * (the `alpha.51` rule), so a new value needs no migration.
+     */
+    public const ENFORCED = 'rule_enforced';
+
     /** Rolled back: the destination was put back to what it held before. */
     public const ROLLED_BACK = 'rolled_back';
 
@@ -100,6 +113,27 @@ interface MinMaxHandoverRepositoryInterface
      * so, not a second restore over an already-restored destination.
      */
     public function markRolledBack(int $postId): bool;
+
+    /**
+     * Record the manager's grant: this marketplace enforces this product's
+     * quantity rule from now on.
+     *
+     * Only from `written_unenforced`, and the state is in the `WHERE` so zero
+     * rows is a lost race rather than «it was already granted». A `migrated`
+     * product needs no grant — the marketplace owns it, so its own guard
+     * already reads the rule — and granting one would suggest otherwise.
+     */
+    public function markEnforced(int $postId): bool;
+
+    /**
+     * Withdraw the grant, leaving the three rows exactly where they are.
+     *
+     * The product goes back to `written_unenforced`: the rule is still
+     * written, and nothing reads it again. A grant that cannot be withdrawn
+     * is a decision the manager cannot revisit, and this one is about what
+     * shoppers may buy.
+     */
+    public function markUnenforced(int $postId): bool;
 
     /**
      * Release a `refused` or `held_by_manager` row so the product can be

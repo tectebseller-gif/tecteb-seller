@@ -1,0 +1,9 @@
+probe=ran
+before_migration=2/__absent__/2
+migrated=1
+rows_after_migration=4/10/2
+rollback_code=minmax_rollback_not_stored
+rollback_ok=no
+rows_after_failed_rollback=4/__absent__/2
+db_rows_after_failed_rollback=4/__absent__/2
+ledger_after_failed_rollback=migrated_before=2_wrote=4

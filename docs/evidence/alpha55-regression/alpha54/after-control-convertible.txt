@@ -1,0 +1,5 @@
+probe=ran
+migrated=1
+rows=4/10/2
+db_rows=4/10/2
+record=3:max_purchase,min_purchase,purchase_step

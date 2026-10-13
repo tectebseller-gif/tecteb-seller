@@ -1,0 +1,10 @@
+probe=ran
+first_migrated=1
+rows_after_first=4/10/2
+rollback_code=minmax_rolled_back
+rows_after_rollback=__absent__/__absent__/__absent__
+second_migrated=0
+second_already_decided=1
+rows_after_second=__absent__/__absent__/__absent__
+ledger_after_second=rolled_back_before=__absent___wrote=4
+history_rows=1

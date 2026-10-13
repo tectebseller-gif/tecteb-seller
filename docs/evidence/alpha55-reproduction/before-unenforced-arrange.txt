@@ -1,0 +1,6 @@
+probe=ran
+wc_id=377
+outcome=written_unenforced
+rows_after=4/10/2
+marketplace_owns=no
+granted=absent

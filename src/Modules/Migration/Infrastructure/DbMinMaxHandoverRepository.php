@@ -232,13 +232,37 @@ final class DbMinMaxHandoverRepository implements MinMaxHandoverRepositoryInterf
         $affected = $this->db->execute(
             'UPDATE `' . $this->table() . '`
                 SET status = %s, live_key = NULL, rolled_back_at = UTC_TIMESTAMP()
-              WHERE live_key = %d AND status IN (%s, %s)',
+              WHERE live_key = %d AND status IN (%s, %s, %s)',
             [
                 self::ROLLED_BACK,
                 $postId,
                 self::MIGRATED,
                 self::UNENFORCED,
+                // A granted product is rollable back too, and it has to be:
+                // the grant was given about a rule this migration wrote, so
+                // putting the rule back means the grant goes with it.
+                self::ENFORCED,
             ]
+        );
+        return $affected !== null && $affected > 0;
+    }
+
+    public function markEnforced(int $postId): bool
+    {
+        $affected = $this->db->execute(
+            'UPDATE `' . $this->table() . '` SET status = %s
+              WHERE live_key = %d AND status = %s',
+            [self::ENFORCED, $postId, self::UNENFORCED]
+        );
+        return $affected !== null && $affected > 0;
+    }
+
+    public function markUnenforced(int $postId): bool
+    {
+        $affected = $this->db->execute(
+            'UPDATE `' . $this->table() . '` SET status = %s
+              WHERE live_key = %d AND status = %s',
+            [self::UNENFORCED, $postId, self::ENFORCED]
         );
         return $affected !== null && $affected > 0;
     }

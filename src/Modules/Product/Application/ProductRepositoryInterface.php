@@ -270,6 +270,31 @@ interface ProductRepositoryInterface
     public function stampImportRun(int $productId, string $runId): bool;
 
     /**
+     * Remove one OBSERVED row that a named intake run created — and only such
+     * a row.
+     *
+     * Every condition is in the `WHERE`, so this cannot be talked into
+     * deleting anything else: the id, the run that stamped it, and
+     * `link_ownership = observed`. A row somebody has since accepted into
+     * marketplace management is not an intake's any more and is left standing
+     * (the caller reports it); a row from another run is another run's to
+     * undo.
+     *
+     * It deletes the marketplace row and the specification and image rows
+     * that belong to it, and NOTHING in WooCommerce: not the product, not an
+     * attachment, not an order line. It could not — this repository's only
+     * tables are the marketplace's own, which is what makes «بازگشت نباید
+     * محصول ووکامرس، رسانه یا سفارش را حذف کند» a property rather than a
+     * promise.
+     *
+     * Unlike `deleteDraft()` it does not require the row to be a draft: an
+     * intake mirrors WooCommerce's publish state, so most intaken rows are
+     * `published` and a draft-only delete would leave every one of them
+     * behind.
+     */
+    public function deleteObservedFromRun(int $productId, string $runId): bool;
+
+    /**
      * @return list<string> every import run the catalogue remembers, newest first
      *
      * Read from the rows, so a run whose process died before it could write a

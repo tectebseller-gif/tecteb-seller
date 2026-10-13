@@ -38,8 +38,33 @@ final class Product
          * `alpha.28` rules (see `FieldMerge`), so an upgrade changes nothing
          * until the first approval records it.
          */
-        public readonly ?ApprovedBaseline $baseline = null
+        public readonly ?ApprovedBaseline $baseline = null,
+        /**
+         * Whether this row OWNS its WooCommerce product or merely points at
+         * it — the `link_ownership` column, carried on the object since
+         * `alpha.55`.
+         *
+         * It is here so that a list of rows can say which is which without a
+         * query per row: an intake of existing products creates `observed`
+         * rows, they appear in the manager's list beside owned ones, and a
+         * manager who cannot tell them apart would read «this product is in
+         * the marketplace» off a row that decides nothing about it.
+         *
+         * A string rather than the enum, and last with a default, for the
+         * reason the three parameters above are: these are addressed
+         * positionally in places, so appending is the only safe direction,
+         * and an unrecognised value from a future column reads as the
+         * conservative `marketplace` through `LinkOwnership::tryFrom()` at
+         * the one place that asks.
+         */
+        public readonly string $linkOwnership = LinkOwnership::MARKETPLACE_VALUE
     ) {
+    }
+
+    /** Whether this plugin may decide anything about the linked product. */
+    public function ownsItsStorefrontProduct(): bool
+    {
+        return (LinkOwnership::tryFrom($this->linkOwnership) ?? LinkOwnership::Marketplace)->isOperational();
     }
 
     /** Whether this row has a WooCommerce product behind it (ADR-008). */

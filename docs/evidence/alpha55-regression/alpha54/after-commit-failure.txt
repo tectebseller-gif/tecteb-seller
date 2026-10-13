@@ -1,0 +1,7 @@
+probe=ran
+commit_called=1
+migrated_count=0
+reported_not_committed=1
+db_rows_after=__absent__/__absent__/__absent__
+ledger_after=__none__
+outcome=not_committed

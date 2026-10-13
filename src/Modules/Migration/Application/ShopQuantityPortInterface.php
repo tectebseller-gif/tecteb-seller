@@ -38,6 +38,48 @@ interface ShopQuantityPortInterface
     public function read(int $postId): array;
 
     /**
+     * The same answer as `read()`, taken from THE ROWS THEMSELVES.
+     *
+     * `read()` goes through `get_post_meta()`, and `get_metadata_raw()` always
+     * answers from the object cache — read from core: it calls
+     * `wp_cache_get($id, 'post_meta')` first and only fills the cache when it
+     * is cold. So a value another request, or an earlier call in THIS request,
+     * put in the cache is what a comparison gets, however carefully the rows
+     * were locked a statement earlier. With a persistent object cache that
+     * stale copy can even predate another process's committed write.
+     *
+     * That is why a compare-and-write asks this instead: one statement on the
+     * same connection as the lock, inside the same transaction, so what is
+     * compared is what is locked.
+     *
+     * Three things it must answer and `read()` cannot:
+     *
+     *  - **`read`** — whether the READ ITSELF worked. `getResults()` answers
+     *    `[]` both for «no rows» and for «the statement failed» (`alpha.8`,
+     *    `alpha.54`), and here the two are opposites: a failed read taken for
+     *    «absent» would make a rollback DELETE three rows that are there. So
+     *    the count is asked separately — `COUNT(*)` always returns a row, so
+     *    `null` from it is a failure and `'0'` is an absence — and the caller
+     *    refuses by name when this is false.
+     *  - **`duplicates`** — how many extra rows each key has. `wp_postmeta`
+     *    has NO unique index on `(post_id, meta_key)`: measured on WordPress
+     *    7.1, its indexes are `PRIMARY(meta_id)`, `KEY post_id` and
+     *    `KEY meta_key`. Two rows for one key are therefore possible, core
+     *    reads the LOWEST `meta_id` (`update_meta_cache()` orders by
+     *    `meta_id ASC` and `get_metadata_raw()` takes `[0]`), and this reads
+     *    the same one so that the comparison is about the value WordPress
+     *    would use. The extras are reported rather than silently collapsed,
+     *    because a restore's `update_post_meta()` rewrites every duplicate
+     *    and a delete removes all of them.
+     *  - and it reads the ownership record from the row too, unserialised the
+     *    way WordPress would, so the blob a rollback puts back is the blob the
+     *    migration recorded.
+     *
+     * @return array{min:?string, max:?string, step:?string, held:bool, record:?string, exists:bool, read:bool, duplicates:array<string,int>}
+     */
+    public function readRows(int $postId): array;
+
+    /**
      * Write the three rows and take ownership of what was written.
      *
      * Returns what the shop holds AFTER the write, read back rather than
@@ -85,6 +127,27 @@ interface ShopQuantityPortInterface
      * that were never committed, and the rest of that request reads them.
      */
     public function forgetCachedQuantities(int $postId): void;
+
+    /**
+     * Write — or remove — the manager's grant that this marketplace enforces
+     * this product's purchase-quantity rule.
+     *
+     * One meta key, read back and compared, because `update_post_meta()`
+     * answers the same thing for «failed» and «was already that»
+     * (`alpha.44`). A grant that did not land would be a sentence on a screen
+     * and nothing in the cart.
+     *
+     * It changes NOTHING else about the product: not its vendor, not its
+     * ownership, not its approval cycle. `PurchasePolicy` still answers
+     * `NOT_OURS` about it, which is what keeps the storefront stop, the
+     * projector and the vendor's catalogue out of somebody else's product.
+     */
+    public function grantEnforcement(int $postId): bool;
+
+    public function revokeEnforcement(int $postId): bool;
+
+    /** Whether the grant is on this post — asked for reports, not for hooks. */
+    public function enforcementGranted(int $postId): bool;
 
     /** Whether this post id is a product or variation the shop actually has. */
     public function exists(int $postId): bool;

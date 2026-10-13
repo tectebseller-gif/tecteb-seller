@@ -142,7 +142,14 @@ final class MinMaxExitPage
             'convertible' => __('قابل انتقال، با همان مجموعهٔ تعدادهای مجاز', 'tecteb-marketplace-core'),
             'refused' => __('غیرقابل انتقال (دلیل‌ها پایین‌تر)', 'tecteb-marketplace-core'),
             'held_by_manager' => __('در بازارگاه قاعدهٔ مدیر دارد — بی‌اجازه بازنویسی نمی‌شود', 'tecteb-marketplace-core'),
-            'unenforced' => __('محصولِ غیرِبازارگاه — نوشتن ممکن است ولی چیزی آن را اعمال نمی‌کند', 'tecteb-marketplace-core'),
+            // FORWARD-LOOKING, because this table is a prediction. The
+            // earlier wording («نوشته شد ولی اعمال نمی‌شود») described a
+            // write that has not happened: the preview writes nothing at all,
+            // and a manager reading a past tense here would believe the
+            // migration had already run — «پیش‌نمایش را عملیات انجام‌شده نشان
+            // نده». The ledger's own status keeps the past tense, because
+            // there it IS the past.
+            'unenforced' => __('محصولِ غیرِبازارگاه — قاعده نوشته می‌شود، ولی تا صدور «مجوز اعمال» چیزی آن را اعمال نمی‌کند', 'tecteb-marketplace-core'),
             'already_decided' => __('قبلاً تصمیم گرفته شده', 'tecteb-marketplace-core'),
             'scanned' => __('بررسی‌شده', 'tecteb-marketplace-core'),
         ] as $key => $label) {
@@ -154,7 +161,7 @@ final class MinMaxExitPage
             echo Components::notice('warning', __('پیش‌نمایش به سقف بررسی رسید، پس این اعداد کف‌اند نه کل. انتقال دسته‌ای خودش تا آخر می‌رود.', 'tecteb-marketplace-core'));
         }
         if ((int) ($preview['unenforced'] ?? 0) > 0) {
-            echo Components::notice('warning', __('مهم‌ترین عدد این صفحه همین است: روی محصولی که بازارگاه مالکش نیست، گاردِ تعداد خریدِ بازارگاه اصلاً اجرا نمی‌شود. پس انتقال قاعده برای این محصول‌ها ردیف می‌نویسد که هیچ‌کس نمی‌خواندش، و غیرفعال‌کردن Min Max قاعده‌شان را از بین می‌برد. این یک تصمیم مالک است، نه یک اصلاح کد.', 'tecteb-marketplace-core'));
+            echo Components::notice('warning', __('مهم‌ترین عدد این صفحه همین است: روی محصولی که بازارگاه مالکش نیست، گاردِ تعداد خریدِ بازارگاه به‌خودیِ‌خود اجرا نمی‌شود. پس انتقالِ قاعده برای این محصول‌ها ردیفی می‌نویسد که تا صدور مجوز، کسی نمی‌خواندش — و غیرفعال‌کردن Min Max بی آن مجوز، قاعده‌شان را از بین می‌برد. از این نسخه راهی برای همین حالت هست: پس از انتقال، در بخش «مجوز اعمال قاعده» می‌توانید محصول‌به‌محصول اجازه دهید بازارگاه فقط همان قاعدهٔ تعداد خرید را اعمال کند. این مجوز نه فروشنده را عوض می‌کند، نه مالکیت محصول را، نه چرخهٔ تأییدش را.', 'tecteb-marketplace-core'));
         }
 
         $examples = $preview['examples'] ?? [];
@@ -247,6 +254,10 @@ final class MinMaxExitPage
         $rows = $ledger->withStatus([
             MinMaxHandoverRepositoryInterface::MIGRATED,
             MinMaxHandoverRepositoryInterface::UNENFORCED,
+            // A granted product is rollable back too: the rollback takes the
+            // grant with it, because the grant was about the rule this
+            // migration wrote.
+            MinMaxHandoverRepositoryInterface::ENFORCED,
         ], 50);
         if ($rows !== []) {
             echo '<h3 class="tmc-card__title">' . esc_html__('بازگشت، محصول به محصول', 'tecteb-marketplace-core') . '</h3>';
@@ -282,6 +293,49 @@ final class MinMaxExitPage
                     . '<input type="hidden" name="post_id" value="' . esc_attr((string) $row['post_id']) . '">'
                     . '<button type="submit" class="tmc-button tmc-button--quiet" name="minmax_action" value="rollback">'
                     . esc_html__('بازگشت', 'tecteb-marketplace-core') . '</button></form></td></tr>';
+            }
+            echo '</tbody></table></div>';
+        }
+
+        // The products whose rule is written and NOT APPLIED, with the one
+        // button that changes that — and the granted ones, with the button
+        // that takes it back.
+        //
+        // This is the `written_unenforced` state given somewhere to go. Until
+        // `alpha.55` it was a number on a page with no action beside it: the
+        // rule was on the product, correct, and read by nothing, because
+        // `QuantityGuard::ruleFor()` returns before reading it when the
+        // product is not the marketplace's. The owner's own site has twelve
+        // products in exactly that state.
+        $unenforced = $this->liveRows($ledger, MinMaxHandoverRepositoryInterface::UNENFORCED);
+        $enforced = $this->liveRows($ledger, MinMaxHandoverRepositoryInterface::ENFORCED);
+        if ($unenforced !== [] || $enforced !== []) {
+            echo '<h3 class="tmc-card__title">' . esc_html__('مجوز اعمال قاعده', 'tecteb-marketplace-core') . '</h3>';
+            echo '<p>' . esc_html__('این محصول‌ها قاعدهٔ تعداد خرید را دارند ولی بازارگاه مالکشان نیست، پس به‌خودیِ‌خود قاعده اعمال نمی‌شود. «اعمال شود» فقط و فقط همین یک قاعده را روشن می‌کند: فروشنده، مالکیت محصول، وضعیت انتشار و چرخهٔ تأیید دست‌نخورده می‌مانند و هیچ صفحهٔ دیگری دربارهٔ این محصول نظر نمی‌دهد. اگر پس از انتقال کسی قاعده را عوض کرده باشد، مجوز رد می‌شود و می‌گوید کدام فیلد عوض شده.', 'tecteb-marketplace-core') . '</p>';
+            echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="' . esc_attr__('مجوز اعمال قاعده', 'tecteb-marketplace-core') . '">';
+            echo '<table class="tmc-table"><thead><tr>'
+                . '<th scope="col">' . esc_html__('شناسه', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('قاعدهٔ نوشته‌شده', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('وضعیت', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('اقدام', 'tecteb-marketplace-core') . '</th>'
+                . '</tr></thead><tbody>';
+            foreach ([[$unenforced, 'enforce', __('اعمال شود', 'tecteb-marketplace-core')],
+                      [$enforced, 'unenforce', __('مجوز برداشته شود', 'tecteb-marketplace-core')]] as [$set, $verb, $label]) {
+                foreach ($set as $row) {
+                    echo '<tr><td>' . Components::code((string) $row['post_id']) . '</td>'
+                        . '<td>' . esc_html(sprintf(
+                            '%s / %s / %s',
+                            (string) $row['written_min'],
+                            (string) $row['written_max'] === '' ? '∞' : (string) $row['written_max'],
+                            (string) $row['written_step']
+                        )) . '</td>'
+                        . '<td>' . esc_html($this->statusLabel((string) $row['status'], [])) . '</td>'
+                        . '<td><form method="post" class="tmc-inline-form">'
+                        . wp_nonce_field(self::NONCE, 'tmc_minmax_nonce', true, false)
+                        . '<input type="hidden" name="post_id" value="' . esc_attr((string) $row['post_id']) . '">'
+                        . '<button type="submit" class="tmc-button tmc-button--quiet" name="minmax_action" value="' . esc_attr($verb) . '">'
+                        . esc_html($label) . '</button></form></td></tr>';
+                }
             }
             echo '</tbody></table></div>';
         }
@@ -325,6 +379,23 @@ final class MinMaxExitPage
         echo '</section>';
     }
 
+    /**
+     * The LIVE rows in one status — the ones a button may act on.
+     *
+     * A released or rolled-back row keeps its status and loses its
+     * `live_key`, which is what makes it history; offering an action on it
+     * would be offering to decide a product twice.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function liveRows(MinMaxHandoverRepositoryInterface $ledger, string $status): array
+    {
+        return array_values(array_filter(
+            $ledger->withStatus([$status], 50),
+            static fn (array $r): bool => ($r['live_key'] ?? null) !== null
+        ));
+    }
+
     /** @param array<string,mixed> $row */
     private function beforeLabel(array $row): string
     {
@@ -348,7 +419,8 @@ final class MinMaxExitPage
             MinMaxHandoverRepositoryInterface::MIGRATED => __('منتقل شد', 'tecteb-marketplace-core'),
             MinMaxHandoverRepositoryInterface::REFUSED => __('رد شد', 'tecteb-marketplace-core'),
             MinMaxHandoverRepositoryInterface::HELD => __('قاعدهٔ مدیر — دست نخورد', 'tecteb-marketplace-core'),
-            MinMaxHandoverRepositoryInterface::UNENFORCED => __('نوشته شد ولی اعمال نمی‌شود', 'tecteb-marketplace-core'),
+            MinMaxHandoverRepositoryInterface::UNENFORCED => __('نوشته شد — مجوز اعمال صادر نشده، پس اعمال نمی‌شود', 'tecteb-marketplace-core'),
+            MinMaxHandoverRepositoryInterface::ENFORCED => __('نوشته شد و با مجوز مدیر اعمال می‌شود', 'tecteb-marketplace-core'),
             MinMaxHandoverRepositoryInterface::ROLLED_BACK => __('بازگردانده شد', 'tecteb-marketplace-core'),
             // A released row is history, counted apart from the live ones: a
             // refusal the manager has already sent back for a retry must not
@@ -435,6 +507,18 @@ final class MinMaxExitPage
             }
             return 'err:' . $this->rollbackMessage($result->code, $result->context);
         }
+        if ($action === 'enforce' || $action === 'unenforce') {
+            $postId = (int) $request->postKey('post_id');
+            $result = $action === 'enforce'
+                ? $service->enforce($postId)
+                : $service->stopEnforcing($postId);
+            if ($result->ok) {
+                return 'ok:' . ($action === 'enforce'
+                    ? __('از این لحظه بازارگاه فقط قاعدهٔ تعداد خریدِ همین محصول را اعمال می‌کند — در سبد کلاسیک و از Store API. فروشنده، مالکیت محصول و چرخهٔ تأییدش عوض نشدند.', 'tecteb-marketplace-core')
+                    : __('مجوز برداشته شد. سه ردیف قاعده سر جایشان هستند و دیگر اعمال نمی‌شوند؛ این بازگشت نیست و مقصد دست‌نخورده است.', 'tecteb-marketplace-core'));
+            }
+            return 'err:' . $this->rollbackMessage($result->code, $result->context);
+        }
         if ($action === 'release') {
             $result = $service->release((int) $request->postKey('post_id'));
             if ($result->ok) {
@@ -463,6 +547,8 @@ final class MinMaxExitPage
             'caller_transaction' => __('تراکنش از قبل باز بود و این انتقال تراکنش دیگری را commit نمی‌کند.', 'tecteb-marketplace-core'),
             'claim_refused' => __('ثبت اولیهٔ تصمیم انجام نشد؛ احتمالاً اجرای دیگری همین لحظه روی همین محصول کار می‌کند.', 'tecteb-marketplace-core'),
             'no_status' => __('وضعیت این محصول تعیین نشد، پس هیچ‌چیز ثبت نشد. این را گزارش کنید.', 'tecteb-marketplace-core'),
+            'not_locked' => __('قفل ردیف‌های مقصد گرفته نشد، پس مقصد پیش از خواندن محافظت‌شده نبود و چیزی نوشته نشد.', 'tecteb-marketplace-core'),
+            'destination_unreadable' => __('ردیف‌های مقصد خوانده نشدند. «خوانده نشد» با «ردیفی نیست» یکی گرفته نمی‌شود، پس هیچ‌چیز نوشته نشد.', 'tecteb-marketplace-core'),
             default => $outcome,
         };
     }
@@ -491,6 +577,24 @@ final class MinMaxExitPage
             'minmax_rollback_no_transaction', 'minmax_rollback_not_atomic' => __('تراکنش باز نشد. بازگشت بی تراکنش انجام نمی‌شود، چون مقصدِ نیمه‌برگشته از نبودِ بازگشت بدتر است.', 'tecteb-marketplace-core'),
             'minmax_rollback_caller_transaction' => __('تراکنش از قبل باز بود و این بازگشت تراکنش دیگری را commit نمی‌کند.', 'tecteb-marketplace-core'),
             'minmax_rollback_not_locked' => __('قفل ردیف‌های مقصد گرفته نشد، پس مقایسه و نوشتن محافظت‌شده نبود و بازگشت انجام نشد.', 'tecteb-marketplace-core'),
+            'minmax_rollback_unreadable', 'minmax_enforce_unreadable', 'minmax_unenforce_unreadable' => __('خواندن ردیف‌های مقصد انجام نشد. «خوانده نشد» با «ردیفی نیست» یکی گرفته نمی‌شود، پس هیچ‌چیز نوشته نشد. دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+            'minmax_enforce_changed', 'minmax_unenforce_changed' => sprintf(
+                /* translators: 1: field, 2: what we wrote, 3: what is there now */
+                __('مجوز صادر نشد: «%1$s» پس از انتقال عوض شده. ما %2$s نوشته بودیم و الان %3$s است. مجوز دربارهٔ قاعده‌ای است که مدیر خوانده، و این دیگر همان قاعده نیست.', 'tecteb-marketplace-core'),
+                (string) ($context['field'] ?? ''),
+                PersianDigits::toPersian((string) ($context['wrote'] ?? '')),
+                PersianDigits::toPersian((string) ($context['now'] ?? ''))
+            ),
+            'minmax_enforce_nothing', 'minmax_unenforce_nothing' => __('برای این محصول تصمیم زنده‌ای ثبت نشده، پس مجوزی هم ندارد.', 'tecteb-marketplace-core'),
+            'minmax_enforce_not_allowed' => __('مجوز فقط برای محصولی معنا دارد که قاعده‌اش نوشته شده و بازارگاه مالکش نیست. محصولی که بازارگاه مالکش است از قبل قاعده‌اش اعمال می‌شود.', 'tecteb-marketplace-core'),
+            'minmax_unenforce_not_allowed' => __('این محصول مجوز اعمال ندارد، پس چیزی برای برداشتن نیست.', 'tecteb-marketplace-core'),
+            'minmax_enforce_not_locked', 'minmax_unenforce_not_locked' => __('قفل ردیف‌های مقصد گرفته نشد، پس مقایسه محافظت‌شده نبود و مجوز صادر نشد.', 'tecteb-marketplace-core'),
+            'minmax_enforce_not_stored', 'minmax_unenforce_not_stored' => __('مجوز ذخیره نشد، پس هیچ‌چیز عوض نشد. دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+            'minmax_enforce_unrecorded', 'minmax_unenforce_unrecorded' => __('دفتر سابقه ثبت نشد، پس کل اقدام برگشت. احتمالاً همین لحظه جای دیگری تغییر کرده؛ صفحه را تازه کنید.', 'tecteb-marketplace-core'),
+            'minmax_enforce_not_committed', 'minmax_unenforce_not_committed' => __('تراکنش نهایی نشد، پس هیچ‌چیز ذخیره نشد.', 'tecteb-marketplace-core'),
+            'minmax_enforce_no_transaction', 'minmax_enforce_not_atomic',
+            'minmax_unenforce_no_transaction', 'minmax_unenforce_not_atomic' => __('تراکنش باز نشد. مجوز و دفتر سابقه با هم نوشته می‌شوند یا هیچ‌کدام.', 'tecteb-marketplace-core'),
+            'minmax_enforce_caller_transaction', 'minmax_unenforce_caller_transaction' => __('تراکنش از قبل باز بود و این اقدام تراکنش دیگری را commit نمی‌کند.', 'tecteb-marketplace-core'),
             'minmax_release_nothing' => __('برای این محصول تصمیم زنده‌ای ثبت نشده، پس چیزی برای آزاد کردن نیست.', 'tecteb-marketplace-core'),
             'minmax_release_not_allowed' => __('فقط محصولی که «رد» یا «قاعدهٔ مدیر» شده آزاد می‌شود. محصولی که منتقل شده را باید برگرداند، نه آزاد کرد.', 'tecteb-marketplace-core'),
             'minmax_release_unrecorded' => __('آزادسازی ثبت نشد؛ احتمالاً همین لحظه جای دیگری تغییر کرده. صفحه را تازه کنید.', 'tecteb-marketplace-core'),

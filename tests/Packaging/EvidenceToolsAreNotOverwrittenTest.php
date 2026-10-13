@@ -114,6 +114,75 @@ final class EvidenceToolsAreNotOverwrittenTest extends TestCase
         self::assertSame([], $unknown);
     }
 
+    /**
+     * An interface that grows must not stop an earlier round's probe LOADING.
+     *
+     * **`alpha.55` paid for this one.** It added two methods to
+     * `MinMaxHandoverRepositoryInterface`; `alpha.54`'s probe has a decorator
+     * that implements that interface; PHP requires every method to be
+     * declared, so the file stopped loading and
+     * `tools/alpha54-reproduction.sh` reported SIXTY-ONE failures about a
+     * build that was working. Exactly `alpha.32`'s rule — «رابطی که پارامتر
+     * می‌گیرد، اسکریپت بازتولید را بی‌صدا از کار می‌اندازد» — one shape
+     * further on: there it was a changed signature, here a new method.
+     *
+     * The check is static on purpose: a probe cannot be LOADED here (it needs
+     * WordPress), so its class bodies are parsed and the method names it
+     * declares are compared against the interface's own, read by reflection.
+     * That is enough to catch the mistake, and it catches it in a suite
+     * rather than on a live site.
+     */
+    public function testEveryProbesDecoratorStillDeclaresItsWholeInterface(): void
+    {
+        $missing = [];
+        foreach (glob(self::ROOT . '/tests/Support/alpha*-probe.php') ?: [] as $probe) {
+            $body = (string) file_get_contents($probe);
+            // `final class X implements Y` — the shape every probe decorator
+            // uses. The interface is named with its short name and imported at
+            // the top of the file, so the `use` lines resolve it.
+            if (preg_match_all('~class\s+(\w+)\s+implements\s+([\w\\\\]+)~', $body, $classes, PREG_SET_ORDER) === 0) {
+                continue;
+            }
+            foreach ($classes as [$whole, $class, $shortName]) {
+                $fqn = $this->resolve($body, $shortName);
+                if ($fqn === '' || !interface_exists($fqn)) {
+                    continue;           // not one of ours, or not an interface
+                }
+                $declared = [];
+                // Only the methods of THIS class: the body from its opening
+                // brace to the matching one is more machinery than this needs,
+                // so every `public function` in the file counts — a probe that
+                // declares a method anywhere is a probe that has it.
+                preg_match_all('~public function (\w+)\s*\(~', $body, $found);
+                $declared = $found[1];
+                foreach ((new \ReflectionClass($fqn))->getMethods() as $method) {
+                    if (!in_array($method->getName(), $declared, true)) {
+                        $missing[] = basename($probe) . ': ' . $class . ' has no ' . $method->getName() . '()';
+                    }
+                }
+            }
+        }
+        self::assertSame(
+            [],
+            $missing,
+            "an interface grew and an earlier round's evidence tool can no longer load:\n"
+                . implode("\n", $missing)
+        );
+    }
+
+    /** The fully-qualified name of a short class name, from the file's `use`. */
+    private function resolve(string $body, string $shortName): string
+    {
+        if (str_contains($shortName, '\\')) {
+            return ltrim($shortName, '\\');
+        }
+        $pattern = '~^use ([\\w\\\\]+\\\\' . preg_quote($shortName, '~') . ');~m';
+        if (preg_match($pattern, $body, $m) === 1) {
+            return $m[1];
+        }
+        return '';
+    }
+
     /** @return list<string> */
     private function scripts(): array
     {

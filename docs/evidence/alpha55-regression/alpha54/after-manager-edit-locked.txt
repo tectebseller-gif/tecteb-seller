@@ -1,0 +1,8 @@
+probe=ran
+rows_after_migration=4/10/2
+holder_holding=yes
+rollback_code=minmax_rollback_not_locked
+rollback_ok=no
+max_now=4/8/2
+manager_value_kept=yes
+ledger_after=migrated_before=__absent___wrote=4

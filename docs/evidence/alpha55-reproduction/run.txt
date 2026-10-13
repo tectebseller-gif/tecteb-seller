@@ -1,0 +1,263 @@
+old bytes read from 51f65e4: 537 php files
+this checkout:                    542 php files
+schema: 28 (base) -> 28 (this tree)
+PASS  0a this round adds no migration  (28)
+installed: 51f65e4
+
+=================== before ===================
+PASS  before/reset  the probe ran
+PASS  before/rollback-warm-cache  the probe ran
+--- before rollback-warm-cache ---
+probe=ran
+migrated=migrated
+rows_after_migration=4/10/2
+cache_warmed_max=10
+second_writer=yes
+row_now=4/8/2
+app_reads=4/10/2
+cache_is_stale=yes
+rollback_code=minmax_rolled_back
+rollback_field=__none__
+rollback_now=__none__
+db_rows_after_rollback=__absent__/__absent__/__absent__
+manager_value_kept=no
+ledger_after=__none__
+PASS  before/6b the product was migrated  (migrated)
+PASS  before/6b and the rule is on it  (4/10/2)
+PASS  before/6b a second process changed the row  (yes)
+PASS  before/6b the row now holds the manager's value  (4/8/2)
+PASS  before/6b the warm cache IS stale  (yes)
+PASS  before/6b THE DEFECT: it rolled back anyway  (minmax_rolled_back)
+PASS  before/6b DELETED the manager's value  (__absent__/__absent__/__absent__)
+PASS  before/6b so it is gone  (no)
+PASS  before/decide-window  the probe ran
+--- before decide-window ---
+probe=ran
+destination_before=__absent__/6/__absent__
+outcome=migrated
+second_writer_landed=yes
+second_writer_waited_ms=10
+db_rows_after=4/10/2
+ledger_after=migrated_before=6_wrote=10
+PASS  before/6a the destination had a value  (__absent__/6/__absent__)
+PASS  before/6a THE DEFECT: the edit landed mid-migration  (yes)
+PASS  before/6a and was written over  (4/10/2)
+PASS  before/unenforced-arrange  the probe ran
+--- before unenforced-arrange ---
+probe=ran
+wc_id=377
+outcome=written_unenforced
+rows_after=4/10/2
+marketplace_owns=no
+granted=absent
+PASS  before/5a written onto a product we do not own  (written_unenforced)
+PASS  before/5a the rule is on it  (4/10/2)
+PASS  before/5a and the marketplace does not own it  (no)
+PASS  before/enforce  the probe ran
+--- before enforce ---
+probe=ran
+absent=1
+PASS  before/5b there was no way to enforce it  (1)
+installed: this checkout
+
+=================== after ===================
+PASS  after/reset  the probe ran
+PASS  after/rollback-warm-cache  the probe ran
+--- after rollback-warm-cache ---
+probe=ran
+migrated=migrated
+rows_after_migration=4/10/2
+cache_warmed_max=10
+second_writer=yes
+row_now=4/8/2
+app_reads=4/10/2
+cache_is_stale=yes
+rollback_code=minmax_rollback_changed
+rollback_field=max
+rollback_now=8
+db_rows_after_rollback=4/8/2
+manager_value_kept=yes
+ledger_after=migrated_before=__absent___wrote=10
+PASS  after/6b the product was migrated  (migrated)
+PASS  after/6b and the rule is on it  (4/10/2)
+PASS  after/6b a second process changed the row  (yes)
+PASS  after/6b the row now holds the manager's value  (4/8/2)
+PASS  after/6b the warm cache IS stale  (yes)
+PASS  after/6b it refuses and names the field  (minmax_rollback_changed)
+PASS  after/6b the field  (max)
+PASS  after/6b and what is really there  (8)
+PASS  after/6b the manager's value is untouched  (4/8/2)
+PASS  after/6b kept  (yes)
+PASS  after/decide-window  the probe ran
+--- after decide-window ---
+probe=ran
+destination_before=__absent__/6/__absent__
+outcome=migrated
+second_writer_landed=no
+second_writer_waited_ms=3003
+db_rows_after=4/10/2
+ledger_after=migrated_before=6_wrote=10
+PASS  after/6a the destination had a value  (__absent__/6/__absent__)
+PASS  after/6a the edit could not land in the window  (no)
+PASS  after/6a the migration completed  (migrated)
+PASS  after/6a and the rollback target is the real value  (migrated_before=6_wrote=10)
+PASS  after/unenforced-arrange  the probe ran
+--- after unenforced-arrange ---
+probe=ran
+wc_id=377
+outcome=written_unenforced
+rows_after=4/10/2
+marketplace_owns=no
+granted=no
+PASS  after/5a written onto a product we do not own  (written_unenforced)
+PASS  after/5a the rule is on it  (4/10/2)
+PASS  after/5a and the marketplace does not own it  (no)
+PASS  after/enforce  the probe ran
+--- after enforce ---
+probe=ran
+enforce_code=minmax_rule_enforced
+granted=yes
+ledger_after=rule_enforced_before=__absent___wrote=10
+rows_after=4/10/2
+marketplace_owns=no
+wc_status=publish
+wc_author=9150
+PASS  after/5b the grant is recorded  (minmax_rule_enforced)
+PASS  after/5b the product carries it  (yes)
+PASS  after/5b ownership did not move  (no)
+PASS  after/5b the publish status did not move  (publish)
+PASS  after/5b the rule itself did not move  (4/10/2)
+
+=================== Min Max off and on ===================
+PASS  after/cart  the probe ran
+--- after cart, Min Max ON, granted ---
+probe=ran
+input_args=4/10/2
+qty_1=refused
+qty_3=refused
+qty_4=allowed
+qty_8=allowed
+qty_11=refused
+store_api_qty_3=refused
+store_api_qty_4=allowed
+gate_restored=yes
+PASS  5c with Min Max ON, the quantities are the rule's  (refused)
+PASS  5c and a multiple is allowed  (allowed)
+Min Max deactivated
+PASS  after/cart  the probe ran
+--- after cart, Min Max OFF, granted ---
+probe=ran
+input_args=4/10/2
+qty_1=refused
+qty_3=refused
+qty_4=allowed
+qty_8=allowed
+qty_11=refused
+store_api_qty_3=refused
+store_api_qty_4=allowed
+gate_restored=yes
+PASS  5d Min Max off, granted: qty 1  (refused)
+PASS  5d Min Max off, granted: qty 3  (refused)
+PASS  5d Min Max off, granted: qty 4  (allowed)
+PASS  5d Min Max off, granted: qty 8  (allowed)
+PASS  5d Min Max off, granted: qty 11  (refused)
+PASS  5d and the Store API agrees  (refused)
+PASS  after/unenforce  the probe ran
+PASS  after/cart  the probe ran
+--- after cart, Min Max OFF, grant withdrawn ---
+probe=ran
+input_args=1/90/1
+qty_1=allowed
+qty_3=allowed
+qty_4=allowed
+qty_8=allowed
+qty_11=allowed
+store_api_qty_3=allowed
+store_api_qty_4=allowed
+gate_restored=yes
+PASS  5e without the grant the rule is gone: qty 1  (allowed)
+PASS  5e qty 3  (allowed)
+PASS  5e qty 11  (allowed)
+Min Max reactivated
+
+=================== the intake ===================
+PASS  after/intake-arrange  the probe ran
+--- after intake-arrange ---
+probe=ran
+wc_id=378
+status=publish
+author=2
+marketplace_rows=0
+PASS  1a the fixture is the shop's own product  (2)
+PASS  1a and the marketplace has no row for it  (0)
+PASS  after/inventory  the probe ran
+--- after inventory ---
+probe=ran
+available=yes
+total=28
+variations=2
+unsupported_types=
+bucket_marketplace=21
+bucket_observed=1
+bucket_dokan=0
+bucket_shop=2
+bucket_vendor=0
+bucket_ambiguous=4
+duplicate_links=0
+rows_in_products=111
+PASS  1b the inventory reads the catalogue  (yes)
+PASS  1b the shop's own products are their own bucket  (2)
+PASS  1b no duplicate links  (0)
+PASS  after/intake  the probe ran
+--- after intake ---
+probe=ran
+code=intake_done
+imported=1
+reason=
+observed_row=1332
+same_wc_id=yes
+url_unchanged=yes
+status_unchanged=yes
+author_unchanged=yes
+order_lines_unchanged=yes
+row_title=کالای_فروشگاه_اصلی_۵۵
+row_price=450000
+row_has_baseline=yes
+owns_storefront=no
+PASS  3a it needs a named vendor and got one  (intake_done)
+PASS  3a one row created  (1)
+PASS  3a the SAME WooCommerce id  (yes)
+PASS  3a the URL is unchanged  (yes)
+PASS  3a the publish status is unchanged  (yes)
+PASS  3a the author is unchanged  (yes)
+PASS  3a earlier order lines are unchanged  (yes)
+PASS  3a the row carries WooCommerce's price  (450000)
+PASS  3a and an agreement baseline  (yes)
+PASS  3a and it owns nothing yet  (no)
+PASS  after/intake-twice  the probe ran
+--- after intake-twice ---
+probe=ran
+imported=0
+reason=already_linked_observed
+rows_for_this_product=1
+PASS  4a the second run imports nothing  (0)
+PASS  4a and says why  (already_linked_observed)
+PASS  4a one row for the product  (1)
+PASS  after/intake-rollback  the probe ran
+--- after intake-rollback ---
+probe=ran
+rollback_code=intake_rolled_back
+removed=1
+observed_row=__none__
+wc_product_still_there=yes
+wc_status=publish
+PASS  4b the rollback removed its own row  (intake_rolled_back)
+PASS  4b exactly one  (1)
+PASS  4b and the WooCommerce product is still there  (yes)
+PASS  4b still published  (publish)
+PASS  after/inventory  the probe ran
+PASS  4c the catalogue is back where it started  (111)
+PASS  after/reset  the probe ran
+
+PASS=93 FAIL=0
+PASS=93 FAIL=0

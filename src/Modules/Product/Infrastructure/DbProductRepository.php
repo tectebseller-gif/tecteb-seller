@@ -1284,7 +1284,14 @@ final class DbProductRepository implements ProductRepositoryInterface
                 isset($row[M0019BaselineAndDecisions::BASELINE_COLUMN])
                     ? (string) $row[M0019BaselineAndDecisions::BASELINE_COLUMN]
                     : null
-            )
+            ),
+            // A query that does not select the column reads as `marketplace`,
+            // matching `ownershipTallyForVendor()`'s rule for an
+            // unrecognised value. It is a DISPLAY fallback and nothing more:
+            // every path that decides whether this plugin may act on a
+            // storefront product — the purchase policy, the stop, the
+            // projector — asks its own scoped query and does not read this.
+            (string) ($row[M0010LinkOwnership::COLUMN] ?? LinkOwnership::MARKETPLACE_VALUE)
         );
     }
 
@@ -1320,6 +1327,30 @@ final class DbProductRepository implements ProductRepositoryInterface
             ProductStatus::Draft->value,
         ]);
         return $removed !== null && $removed > 0;
+    }
+
+    public function deleteObservedFromRun(int $productId, string $runId): bool
+    {
+        if ($productId <= 0 || $runId === '') {
+            return false;
+        }
+        // The guard is the `WHERE`, not a read-then-write: between a read and
+        // a delete somebody can accept the product into marketplace
+        // management, and this must not remove a row the marketplace now runs.
+        $removed = $this->db->execute(
+            'DELETE FROM `' . $this->products() . '`
+              WHERE id = %d AND import_run_id = %s AND `' . M0010LinkOwnership::COLUMN . '` = %s',
+            [$productId, $runId, LinkOwnership::Observed->value]
+        );
+        if ($removed === null || $removed < 1) {
+            return false;
+        }
+        // Rows OF the deleted row, after it rather than before: if the delete
+        // above had been refused, clearing these would have emptied a product
+        // that is still there.
+        $this->db->execute('DELETE FROM `' . $this->specsTable() . '` WHERE product_id = %d', [$productId]);
+        $this->db->execute('DELETE FROM `' . $this->imagesTable() . '` WHERE product_id = %d', [$productId]);
+        return true;
     }
 
     private function products(): string

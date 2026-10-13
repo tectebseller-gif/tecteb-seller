@@ -507,6 +507,265 @@ final class MinMaxHandoverUnitOfWorkTest extends DatabaseTestCase
         self::assertSame(1, $tally[MinMaxHandoverRepositoryInterface::REFUSED . '_released'] ?? 0);
     }
 
+    // ============================ §5 the grant that makes a rule apply
+
+    /**
+     * A rule written onto a product the marketplace does not own can be
+     * GRANTED, and the grant moves the meta key and the ledger status
+     * together.
+     *
+     * The state it fixes was measured twice: `alpha.53` found that
+     * `QuantityGuard::ruleFor()` returns before reading anything when the
+     * product is not ours, so a non-marketplace product's `4|6|8|10` became
+     * «any quantity allowed» the moment Min Max was switched off. The owner's
+     * own preview reports twelve products in exactly that state.
+     */
+    public function testAnUnenforcedRuleCanBeGrantedAndTheGrantIsRecorded(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $port->owned[self::FIRST] = false;      // not the marketplace's
+        self::assertSame(
+            MinMaxHandoverRepositoryInterface::UNENFORCED,
+            $this->migrate($this->service($port, $ledger, $this->db))
+        );
+
+        $result = $this->service($port, $ledger, $this->db)->enforce(self::FIRST);
+
+        self::assertTrue($result->ok, $result->code);
+        self::assertSame('minmax_rule_enforced', $result->code);
+        self::assertTrue($port->enforcementGranted(self::FIRST), 'the product carries the grant');
+        self::assertSame(
+            MinMaxHandoverRepositoryInterface::ENFORCED,
+            (string) ($ledger->find(self::FIRST)['status'] ?? '')
+        );
+        self::assertSame('4/10/2', $port->describe(self::FIRST), 'and the rule itself did not move');
+    }
+
+    /** The grant can be withdrawn, and withdrawing it is not a rollback. */
+    public function testTheGrantCanBeWithdrawnWithoutTouchingTheRule(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $port->owned[self::FIRST] = false;
+        $this->migrate($this->service($port, $ledger, $this->db));
+        $this->service($port, $ledger, $this->db)->enforce(self::FIRST);
+
+        $result = $this->service($port, $ledger, $this->db)->stopEnforcing(self::FIRST);
+
+        self::assertTrue($result->ok, $result->code);
+        self::assertFalse($port->enforcementGranted(self::FIRST));
+        self::assertSame(
+            MinMaxHandoverRepositoryInterface::UNENFORCED,
+            (string) ($ledger->find(self::FIRST)['status'] ?? '')
+        );
+        self::assertSame('4/10/2', $port->describe(self::FIRST), 'the three rows are untouched');
+    }
+
+    /**
+     * A product the marketplace DOES own cannot be granted, because its rule
+     * is already applied — and offering the grant would imply it was not.
+     */
+    public function testAMigratedProductIsNotGrantable(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();                  // owned by default
+        self::assertSame(
+            MinMaxHandoverRepositoryInterface::MIGRATED,
+            $this->migrate($this->service($port, $ledger, $this->db))
+        );
+
+        $result = $this->service($port, $ledger, $this->db)->enforce(self::FIRST);
+
+        self::assertFalse($result->ok);
+        self::assertSame('minmax_enforce_not_allowed', $result->code);
+        self::assertSame(MinMaxHandoverRepositoryInterface::MIGRATED, $result->context['status']);
+        self::assertFalse($port->enforcementGranted(self::FIRST));
+    }
+
+    /**
+     * A rule somebody changed after the migration is not the rule the manager
+     * is granting, so the grant is refused and names the field.
+     */
+    public function testTheGrantIsRefusedWhenTheRuleHasMovedSinceTheMigration(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $port->owned[self::FIRST] = false;
+        $this->migrate($this->service($port, $ledger, $this->db));
+
+        $port->rows[self::FIRST]['max'] = '8';  // somebody else's newer value
+
+        $result = $this->service($port, $ledger, $this->db)->enforce(self::FIRST);
+
+        self::assertFalse($result->ok);
+        self::assertSame('minmax_enforce_changed', $result->code);
+        self::assertSame('max', $result->context['field']);
+        self::assertSame('10', $result->context['wrote']);
+        self::assertSame('8', $result->context['now']);
+        self::assertFalse($port->enforcementGranted(self::FIRST));
+        self::assertSame(
+            MinMaxHandoverRepositoryInterface::UNENFORCED,
+            (string) ($ledger->find(self::FIRST)['status'] ?? ''),
+            'and the ledger did not move either'
+        );
+    }
+
+    /** The grant and the ledger status are one unit: refuse one, get neither. */
+    public function testAGrantThatCannotBeStoredRecordsNothing(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $port->owned[self::FIRST] = false;
+        $this->migrate($this->service($port, $ledger, $this->db));
+
+        $port->refuseGrant = true;
+        $result = $this->service($port, $ledger, $this->db)->enforce(self::FIRST);
+
+        self::assertFalse($result->ok);
+        self::assertSame('minmax_enforce_not_stored', $result->code);
+        self::assertSame(
+            MinMaxHandoverRepositoryInterface::UNENFORCED,
+            (string) ($ledger->find(self::FIRST)['status'] ?? '')
+        );
+    }
+
+    /** Rolling a granted product back takes the grant with it. */
+    public function testRollingBackAGrantedProductRemovesTheGrantToo(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $port->owned[self::FIRST] = false;
+        $port->seed(self::FIRST, '2', null, '2');
+        $port->owned[self::FIRST] = false;      // `seed()` defaults it to owned
+        $this->migrate($this->service($port, $ledger, $this->db));
+        $this->service($port, $ledger, $this->db)->enforce(self::FIRST);
+        self::assertTrue($port->enforcementGranted(self::FIRST));
+
+        $result = $this->service($port, $ledger, $this->db)->rollback(self::FIRST);
+
+        self::assertTrue($result->ok, $result->code);
+        self::assertFalse($port->enforcementGranted(self::FIRST), 'the grant went with the rule');
+        self::assertSame('2/__absent__/2', $port->describe(self::FIRST));
+        self::assertNull($ledger->find(self::FIRST));
+    }
+
+    // =============================== §6 the lock and the read under it
+
+    /**
+     * THE FINDING (§6-الف): the destination is LOCKED BEFORE IT IS READ.
+     *
+     * `alpha.54` read the baseline, judged ownership and wrote, with the row
+     * lock taken only on the rollback path. The ledger claim arbitrates two
+     * migrations racing — that is the unique key — and has nothing to say
+     * about a manager editing the purchase limits in wp-admin in between.
+     *
+     * Falsifiable in the one way that matters: with the lock refused, nothing
+     * at all may happen. On `alpha.54`'s order this test cannot even run —
+     * `decide()` never asked for a lock, so a refusal was unreachable.
+     */
+    public function testWithoutTheRowLockTheMigrationRefusesBeforeReadingAnything(): void
+    {
+        $port = $this->port();
+        $port->seed(self::FIRST, '2', null, '2');
+        $port->refuseLock = true;
+
+        $outcome = $this->migrate($this->service($port, $this->ledger(), $this->db));
+
+        self::assertSame('not_locked', $outcome);
+        self::assertSame([], $port->writes, 'the destination was never touched');
+        self::assertSame('2/__absent__/2', $port->describe(self::FIRST));
+        self::assertSame(0, $this->countRows(), 'and nothing was claimed');
+    }
+
+    /** The lock is taken, and it is taken before the write. */
+    public function testTheLockComesBeforeTheWrite(): void
+    {
+        $port = $this->port();
+        $this->migrate($this->service($port, $this->ledger(), $this->db));
+
+        self::assertSame(['lock:' . self::FIRST], $port->locks);
+        self::assertSame(['write:' . self::FIRST], $port->writes);
+    }
+
+    /**
+     * A destination read that FAILED is not a destination that is empty.
+     *
+     * Taken for absence it would record `null/null/null` as «what was there
+     * before», and the first rollback would delete three rows the migration
+     * never wrote.
+     */
+    public function testAFailedDestinationReadRefusesInsteadOfReadingItAsAbsent(): void
+    {
+        $port = $this->port();
+        $port->seed(self::FIRST, '2', '8', '2');
+        $port->refuseRowRead = true;
+
+        $outcome = $this->migrate($this->service($port, $this->ledger(), $this->db));
+
+        self::assertSame('destination_unreadable', $outcome);
+        self::assertSame([], $port->writes);
+        self::assertSame(0, $this->countRows());
+    }
+
+    /**
+     * Two rows for one meta key: refused by name, nothing written.
+     *
+     * `wp_postmeta` has no unique index on `(post_id, meta_key)` — measured
+     * on WordPress 7.1 — so this is a state the real table can be in. A
+     * restore's `update_post_meta()` rewrites every duplicate, so migrating
+     * such a product would make its own rollback erase the duplicate's value.
+     */
+    public function testADuplicatedDestinationRowIsRefusedByName(): void
+    {
+        $port = $this->port();
+        $port->seed(self::FIRST, '2', '8', '2');
+        $port->duplicates[self::FIRST] = ['_tmc_max_purchase' => 1];
+
+        $outcome = $this->migrate($this->service($port, $this->ledger(), $this->db));
+
+        self::assertSame(MinMaxHandoverRepositoryInterface::REFUSED, $outcome);
+        self::assertSame([], $port->writes, 'a refusal writes nothing');
+        self::assertStringContainsString(
+            'destination_duplicated',
+            (string) ($this->ledger()->find(self::FIRST)['problems'] ?? ''),
+            'and the reason is named in the ledger'
+        );
+    }
+
+    /**
+     * THE FINDING (§6-ب): the rollback compares what it LOCKED, so a read it
+     * could not do is a refusal rather than «the rows are gone».
+     *
+     * On real WordPress the stale half comes from the object cache:
+     * `get_metadata_raw()` answers from `wp_cache_get($id, 'post_meta')` and
+     * only fills it when cold, so a copy warmed earlier in the request is
+     * what `alpha.54` compared, lock or no lock. The double has no cache to
+     * be stale, so what it checks is the caller's side — and the cache half
+     * is measured on real WordPress by the probe, with the cache warmed on
+     * purpose first.
+     */
+    public function testARollbackWhoseReadFailedRefusesRatherThanRestoring(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $port->seed(self::FIRST, '2', null, '2');
+        $this->migrate($this->service($port, $ledger, $this->db));
+        self::assertSame('4/10/2', $port->describe(self::FIRST));
+
+        $port->refuseRowRead = true;
+        $result = $this->service($port, $ledger, $this->db)->rollback(self::FIRST);
+
+        self::assertFalse($result->ok);
+        self::assertSame('minmax_rollback_unreadable', $result->code);
+        self::assertSame('4/10/2', $port->describe(self::FIRST), 'nothing was restored');
+        self::assertSame(
+            MinMaxHandoverRepositoryInterface::MIGRATED,
+            (string) ($ledger->find(self::FIRST)['status'] ?? ''),
+            'so the rollback can be tried again once the read works'
+        );
+    }
+
     // ===================================================== helpers
 
     private function ledger(): DbMinMaxHandoverRepository

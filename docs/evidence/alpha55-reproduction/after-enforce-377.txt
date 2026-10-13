@@ -1,0 +1,8 @@
+probe=ran
+enforce_code=minmax_rule_enforced
+granted=yes
+ledger_after=rule_enforced_before=__absent___wrote=10
+rows_after=4/10/2
+marketplace_owns=no
+wc_status=publish
+wc_author=9150

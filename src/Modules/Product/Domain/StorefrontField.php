@@ -160,4 +160,29 @@ final class StorefrontField
     {
         return FieldMerge::fingerprint($value);
     }
+
+    /**
+     * A SET of ids as one field value — the `category` encoding.
+     *
+     * It lives in the Domain because two layers need it and they must agree
+     * byte for byte: the projection's ownership stamp
+     * (`ProjectedFieldOwnership::idsToValue()`, which now delegates here) and
+     * the intake of an existing product, which builds an agreement baseline
+     * from WooCommerce's current values. Two implementations of «sorted,
+     * unique, comma-joined» would be one stamp that never matched its own
+     * baseline, and the symptom would be a review screen asking about a
+     * category nobody had touched.
+     *
+     * Order carries no meaning here, so the ids are sorted. Pictures are the
+     * opposite case and have their own encoder (`StorefrontImages`): sorting
+     * them hid the two edits a manager most often makes.
+     *
+     * @param list<int>|array<int|string,int|string> $ids
+     */
+    public static function idsToValue(array $ids): string
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        sort($ids);
+        return implode(',', $ids);
+    }
 }

@@ -1,0 +1,6 @@
+probe=ran
+rollback_code=minmax_rolled_back
+app_rows_same_request=__absent__/__absent__/__absent__
+db_rows_same_request=__absent__/__absent__/__absent__
+record_same_request=__absent__
+agree_same_request=yes

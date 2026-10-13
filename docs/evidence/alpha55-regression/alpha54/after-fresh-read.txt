@@ -1,0 +1,6 @@
+probe=ran
+app_rows_fresh=__absent__/__absent__/__absent__
+db_rows_fresh=__absent__/__absent__/__absent__
+agree_fresh=yes
+record_fresh=__absent__
+ledger_fresh=__none__

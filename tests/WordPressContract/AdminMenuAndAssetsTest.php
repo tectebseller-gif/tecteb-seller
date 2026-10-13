@@ -93,6 +93,12 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             // may touch orders and who owes money.
             ['tmc-handover', 'tmc_review_vendor', 'تحویل مهاجرت'],
             ['tmc-minmax-exit', 'tmc_review_vendor', 'خروج از Min Max'],
+            // The products the shop already has. A fourth screen, because
+            // looking at the existing catalogue is not the same act as
+            // accepting one of its products into marketplace management —
+            // and the second act is on the migration page, with its own
+            // warning.
+            ['tmc-product-intake', 'tmc_review_vendor', 'ورود محصولات موجود'],
         ];
         // And the definition agrees with the list above. Without this, a group
         // edited in `AdminNavigation` and not reflected here would be caught

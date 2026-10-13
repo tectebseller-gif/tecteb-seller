@@ -1,0 +1,10 @@
+probe=ran
+input_args=1/90/1
+qty_1=allowed
+qty_3=allowed
+qty_4=allowed
+qty_8=allowed
+qty_11=allowed
+store_api_qty_3=allowed
+store_api_qty_4=allowed
+gate_restored=yes

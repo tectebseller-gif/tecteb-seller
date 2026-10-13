@@ -1,0 +1,8 @@
+probe=ran
+begin_called=1
+rows_after=4/10/2
+db_rows_after=4/10/2
+ledger_after=migrated_before=__absent___wrote=4
+migrated_count=1
+refused_for_atomicity=0
+outcome=migrated

@@ -35,6 +35,17 @@ enum LinkOwnership: string
     case Marketplace = 'marketplace';
     case Observed = 'observed';
 
+    /**
+     * The same string as `Marketplace->value`, usable as a DEFAULT PARAMETER.
+     *
+     * An enum case cannot be a constant expression in a promoted property
+     * default on PHP 8.1 — `EnumCase->value` inside a `const` is 8.2 and
+     * fatals at COMPILE time on 8.1, which takes the whole site down rather
+     * than one page (`alpha.7`, F-11). So `Product` defaults its ownership to
+     * this literal instead.
+     */
+    public const MARKETPLACE_VALUE = 'marketplace';
+
     /** Whether this plugin may decide anything about the linked product. */
     public function isOperational(): bool
     {

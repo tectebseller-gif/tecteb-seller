@@ -61,6 +61,101 @@ final class WpShopQuantityPort implements ShopQuantityPortInterface
     }
 
     /**
+     * `read()`'s answer, taken from the rows instead of the object cache.
+     *
+     * One statement on the same connection as `lockQuantityRows()`, so the
+     * value compared is the value locked. See the interface for why the cache
+     * cannot be used here, why `read` is a separate field, and why duplicates
+     * are counted rather than collapsed.
+     */
+    public function readRows(int $postId): array
+    {
+        $out = [
+            'min' => null, 'max' => null, 'step' => null, 'held' => false,
+            'record' => null, 'exists' => false, 'read' => false, 'duplicates' => [],
+        ];
+        if ($postId <= 0) {
+            return $out;
+        }
+        $parts = [
+            ProjectedQuantity::META_MIN => 'min',
+            ProjectedQuantity::META_MAX => 'max',
+            ProjectedQuantity::META_STEP => 'step',
+        ];
+        $keys = array_merge(array_keys($parts), [ProjectedQuantity::OWNED_META]);
+        $placeholders = implode(', ', array_fill(0, count($keys), '%s'));
+        $table = '`' . $this->db->prefix() . 'postmeta`';
+        $params = array_merge([$postId], $keys);
+
+        // The count first, and on its own: `COUNT(*)` always returns a row, so
+        // `null` here is «the statement failed» and `'0'` is «there are no
+        // rows». `getResults()` cannot tell those apart, and this is the one
+        // place where mistaking one for the other deletes data.
+        $counted = $this->db->getVar(
+            'SELECT COUNT(*) FROM ' . $table . '
+              WHERE post_id = %d AND meta_key IN (' . $placeholders . ')',
+            $params
+        );
+        if ($counted === null) {
+            return $out;
+        }
+        $rows = $this->db->getResults(
+            'SELECT meta_id, meta_key, meta_value FROM ' . $table . '
+              WHERE post_id = %d AND meta_key IN (' . $placeholders . ')
+              ORDER BY meta_id ASC',
+            $params
+        );
+        if (count($rows) !== (int) $counted) {
+            // Inside the transaction both statements read one snapshot, so a
+            // disagreement is the second read failing — not a race.
+            return $out;
+        }
+        $out['read'] = true;
+        $out['exists'] = $this->exists($postId);
+
+        $first = [];
+        foreach ($rows as $row) {
+            $key = (string) ($row['meta_key'] ?? '');
+            if ($key === '') {
+                continue;
+            }
+            if (array_key_exists($key, $first)) {
+                // A second row for the same key. WordPress reads the lowest
+                // `meta_id`, which is the one already kept, so this is
+                // counted and not used.
+                $out['duplicates'][$key] = ($out['duplicates'][$key] ?? 0) + 1;
+                continue;
+            }
+            $first[$key] = (string) ($row['meta_value'] ?? '');
+        }
+
+        $present = [];
+        foreach ($parts as $key => $part) {
+            if (!array_key_exists($key, $first)) {
+                continue;               // absent stays null
+            }
+            $out[$part] = $first[$key];
+            if (trim($first[$key]) !== '') {
+                $present[$key] = $first[$key];
+            }
+        }
+        if (array_key_exists(ProjectedQuantity::OWNED_META, $first)) {
+            // Unserialised the way WordPress would, so the blob matches the
+            // one `read()` recorded at migration time byte for byte.
+            $raw = function_exists('maybe_unserialize')
+                ? maybe_unserialize($first[ProjectedQuantity::OWNED_META])
+                : $first[ProjectedQuantity::OWNED_META];
+            $out['record'] = $raw === '' || $raw === null
+                ? null
+                : (string) json_encode($raw);
+            $out['held'] = $this->heldElsewhere($present, ProjectedQuantity::normalise($raw));
+        } else {
+            $out['held'] = $this->heldElsewhere($present, []);
+        }
+        return $out;
+    }
+
+    /**
      * @param array<string,string> $present key => value, absent keys left out
      * @param array<string,string> $record  key => fingerprint
      */
@@ -248,9 +343,23 @@ final class WpShopQuantityPort implements ShopQuantityPortInterface
         // `null` is a refusal and an integer is a result, `0` included
         // (`alpha.8`).
         //
-        // Zero rows IS success here: there is nothing to lock because there is
-        // no row yet, and a concurrent INSERT of the same `(post_id,
-        // meta_key)` collides on `postmeta`'s own unique index instead.
+        // Zero rows IS success here, and «why» had to be measured rather
+        // than reasoned about. An earlier version of this comment said a
+        // concurrent INSERT of the same `(post_id, meta_key)` would collide
+        // on `postmeta`'s own unique index — THERE IS NO SUCH INDEX. Read off
+        // WordPress 7.1's own table: `PRIMARY(meta_id)`, `KEY post_id`,
+        // `KEY meta_key`, and nothing unique about the pair.
+        //
+        // What does protect an absent row is the next-key gap lock this
+        // statement takes. Measured with two independent connections on
+        // MariaDB 10.11 under REPEATABLE READ: with `locked_rows=0`, a second
+        // connection's INSERT of that very `(post_id, meta_key)` answered
+        // `blocked` (lock wait timeout) rather than landing. The cost, also
+        // measured, is that the gap is wider than the one key — an insert of
+        // a NEIGHBOURING key, and of the same key on another post, blocked
+        // too. That is contention during a migration batch, not a
+        // correctness problem, and it is written down so the next reader does
+        // not mistake the breadth for a bug.
         $locked = $this->db->execute(
             'SELECT meta_id FROM `' . $this->db->prefix() . 'postmeta`
               WHERE post_id = %d AND meta_key IN (' . $placeholders . ') FOR UPDATE',
@@ -286,6 +395,47 @@ final class WpShopQuantityPort implements ShopQuantityPortInterface
             // numeric string array key to an integer.
             wp_cache_delete((string) $postId, 'post_meta');
         }
+    }
+
+    public function grantEnforcement(int $postId): bool
+    {
+        return $this->setEnforcement($postId, true);
+    }
+
+    public function revokeEnforcement(int $postId): bool
+    {
+        return $this->setEnforcement($postId, false);
+    }
+
+    public function enforcementGranted(int $postId): bool
+    {
+        if ($postId <= 0 || !function_exists('get_post_meta')) {
+            return false;
+        }
+        return (string) get_post_meta($postId, ProjectedQuantity::ENFORCE_META, true) === '1';
+    }
+
+    /**
+     * The grant written and READ BACK, because `update_post_meta()` cannot
+     * tell «it failed» from «it was already that» (`alpha.44`), and this one
+     * decides what a shopper may put in a basket.
+     *
+     * Removing it DELETES the row rather than writing `'0'`: a row holding
+     * zero is a row every later reader has to interpret, and absence is the
+     * state the rest of the catalogue is already in.
+     */
+    private function setEnforcement(int $postId, bool $granted): bool
+    {
+        if ($postId <= 0 || !function_exists('update_post_meta')) {
+            return false;
+        }
+        if ($granted) {
+            update_post_meta($postId, ProjectedQuantity::ENFORCE_META, '1');
+            return (string) get_post_meta($postId, ProjectedQuantity::ENFORCE_META, true) === '1';
+        }
+        delete_post_meta($postId, ProjectedQuantity::ENFORCE_META);
+        return !function_exists('metadata_exists')
+            || !metadata_exists('post', $postId, ProjectedQuantity::ENFORCE_META);
     }
 
     public function exists(int $postId): bool

@@ -1,0 +1,5 @@
+probe=ran
+refused=1
+migrated=0
+rows=__absent__/__absent__/__absent__
+problems=step_base_differs

@@ -51,14 +51,79 @@ final class TransferOwnership
         // Optional, so every existing construction site keeps working. Its
         // absence means a long-lived process may keep a stale «is this ours»
         // answer after a transfer — see `PurchasePolicy::forget()`.
-        private readonly ?PurchasePolicy $purchases = null
+        private readonly ?PurchasePolicy $purchases = null,
+        /**
+         * What a projection would overwrite or cannot express for this
+         * product — asked at the moment somebody accepts management, because
+         * that is the moment it starts to matter.
+         *
+         * Optional so a build without the catalogue reader keeps working. Its
+         * absence means no risks are named and the transfer behaves exactly as
+         * it did before `alpha.55` — the old behaviour rather than a wrong
+         * new one — and the page says the check did not run.
+         */
+        private readonly ?CatalogueReaderInterface $catalogue = null
     ) {
     }
 
-    /** Observed → marketplace: this plugin now decides about the product. */
-    public function take(int $productId): OperationResult
+    /**
+     * Observed → marketplace: this plugin now decides about the product.
+     *
+     * **And from `alpha.55` it refuses first, when the product is in a state
+     * this marketplace cannot preserve.** An intake copies every field the
+     * four-step form can express, so the first projection writes the same
+     * values back — but a WooCommerce product can be in states that form has
+     * no field for at all: a catalogue visibility other than `visible`, stock
+     * management switched off, backorders allowed, a grouped or external
+     * type. The projector writes status and visibility unconditionally and
+     * forces `manage_stock` on, so accepting such a product means losing
+     * those settings at the next save.
+     *
+     * «حذف یا تبدیل ضمنی نکن» — so they are named and the transfer stops
+     * until the manager acknowledges each one BY KEY. `$acknowledged` is the
+     * list of risk keys the screen printed, and a tick that does not carry
+     * them is refused rather than trusted: the `alpha.49` rule, that an
+     * override must carry what was shown.
+     *
+     * @param list<string> $acknowledged risk keys the manager has read
+     */
+    public function take(int $productId, array $acknowledged = []): OperationResult
     {
+        $risks = $this->risksFor($productId);
+        $unacknowledged = array_values(array_diff(array_keys($risks), $acknowledged));
+        if ($unacknowledged !== []) {
+            return OperationResult::failure('ownership_risks_unacknowledged', [
+                'product_id' => $productId,
+                'risks' => $unacknowledged,
+                'sentences' => array_values(array_intersect_key($risks, array_flip($unacknowledged))),
+            ]);
+        }
         return $this->move($productId, LinkOwnership::Observed, LinkOwnership::Marketplace, 'ownership_taken');
+    }
+
+    /**
+     * The fields accepting this product would put at risk, each named.
+     *
+     * Read-only, and offered to the screen so the warning and the refusal are
+     * built from ONE answer: a page that listed different risks from the ones
+     * the guard checks would let a manager acknowledge the wrong thing.
+     *
+     * @return array<string,string>
+     */
+    public function risksFor(int $productId): array
+    {
+        if ($this->catalogue === null) {
+            return [];
+        }
+        $product = $this->products->find($productId);
+        if ($product === null) {
+            return [];
+        }
+        $wcProductId = (int) ($product->wcProductId ?? 0);
+        if ($wcProductId <= 0) {
+            return [];
+        }
+        return $this->catalogue->preservationRisks($wcProductId);
     }
 
     /** Marketplace → observed: it goes back to being a note in a ledger. */

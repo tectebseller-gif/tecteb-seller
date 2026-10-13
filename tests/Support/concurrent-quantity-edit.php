@@ -100,8 +100,17 @@ if ($mode === 'hold') {
 
 // `write`: the ordinary second writer. It may block behind a lock; whether it
 // does is the measurement the caller is after.
+//
+// `TMC_LOCK_TIMEOUT` bounds the wait, because the two trees want opposite
+// answers from the same verb: where the rows are NOT locked the write lands at
+// once, and where they are it is supposed to be refused — and a twenty-second
+// default would make every run of that second case take twenty seconds to say
+// so. The default is still twenty, so no existing caller changes behaviour.
 $started = microtime(true);
-$wpdb->query('SET SESSION innodb_lock_wait_timeout = 20');
+$wpdb->query($wpdb->prepare(
+    'SET SESSION innodb_lock_wait_timeout = %d',
+    max(1, (int) (getenv('TMC_LOCK_TIMEOUT') ?: 20))
+));
 $ok = update_post_meta($postId, $key, $value);
 $say('write_ok', $ok ? 'yes' : 'no');
 $say('waited_ms', (int) round((microtime(true) - $started) * 1000));

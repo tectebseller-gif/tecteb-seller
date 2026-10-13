@@ -87,6 +87,7 @@ final class AdminNavigation
             'tmc-import',
             'tmc-handover',
             'tmc-minmax-exit',
+            'tmc-product-intake',
         ],
     ];
 

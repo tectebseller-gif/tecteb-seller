@@ -83,6 +83,8 @@ final class MigrateMinMax
         'caller_transaction',
         'not_atomic',
         'claim_refused',
+        'not_locked',
+        'destination_unreadable',
     ];
 
     /** Up to which quantity the preview compares the two rules' answers. */
@@ -343,7 +345,46 @@ final class MigrateMinMax
         }
 
         $problems = $rule->problems();
-        $before = $this->shop->read($postId);
+
+        // **THE LOCK COMES BEFORE THE READ, and that is this round's change
+        // to `decide()`.** `alpha.54` read the destination first and locked
+        // nothing, so three things were decided on a value another writer was
+        // free to replace a statement later: what the ledger records as «what
+        // was there before», whether the rows are the manager's (`held`), and
+        // whether the write is about to overwrite a brand-new value. The
+        // ledger claim arbitrates two MIGRATIONS racing — that is what the
+        // unique key is for — and says nothing at all about a manager editing
+        // the purchase limits in wp-admin at the same moment.
+        //
+        // Same lock, same order as `rollback()`: postmeta rows first, the
+        // ledger row second. Two paths that take the same locks in the same
+        // order cannot deadlock against each other, and the order is this way
+        // round because the ledger claim needs the pre-write values to carry.
+        if (!$this->shop->lockQuantityRows($postId)) {
+            $this->transaction->rollback();
+            return 'not_locked';
+        }
+        $before = $this->shop->readRows($postId);
+        if (!($before['read'] ?? false)) {
+            // A read that failed is not «there is nothing there». Taking it
+            // for absence would record `null/null/null` as the destination's
+            // earlier state and make a later rollback delete three rows that
+            // were never ours to delete.
+            $this->transaction->rollback();
+            return 'destination_unreadable';
+        }
+        if (($before['duplicates'] ?? []) !== []) {
+            // Two rows for one meta key, which `wp_postmeta` permits: it has
+            // no unique index on `(post_id, meta_key)` — measured, see
+            // `WpShopQuantityPort::lockQuantityRows()`. WordPress reads the
+            // lowest `meta_id`, but a restore's `update_post_meta()` rewrites
+            // EVERY row with that key, so rolling this product back would
+            // overwrite the duplicate's own value with the one WordPress
+            // happened to be reading. That is «silently erasing a newer
+            // change» by another route, so the product is REFUSED by name and
+            // the manager can clean the rows and `release()` it.
+            $problems = array_values(array_unique(array_merge($problems, ['destination_duplicated'])));
+        }
         $claim = $this->ledger->claim([
             'post_id' => $postId,
             'post_type' => $postType,
@@ -514,6 +555,12 @@ final class MigrateMinMax
         if (!in_array($status, [
             MinMaxHandoverRepositoryInterface::MIGRATED,
             MinMaxHandoverRepositoryInterface::UNENFORCED,
+            // A granted product too: the grant was given about the rule this
+            // migration wrote, so putting the rule back takes the grant with
+            // it. Leaving the grant behind would enforce whatever the
+            // destination held BEFORE the migration — a rule the manager
+            // granted nothing about.
+            MinMaxHandoverRepositoryInterface::ENFORCED,
         ], true)) {
             // A refused or held product was never written to, so there is
             // nothing to put back — and saying «rolled back» about it would
@@ -531,10 +578,29 @@ final class MigrateMinMax
             return OperationResult::failure('minmax_rollback_not_locked', ['post_id' => $postId]);
         }
 
-        // Read AFTER the lock. Reading before it would compare against a value
-        // another writer is free to replace between the two statements, which
-        // is the window this whole arrangement exists to close.
-        $now = $this->shop->read($postId);
+        // Read AFTER the lock — AND FROM THE ROWS, not from `get_post_meta()`.
+        //
+        // `alpha.54` did the first half and not the second, and the second is
+        // where the guard actually lived. Read off core: `get_metadata_raw()`
+        // answers from `wp_cache_get($id, 'post_meta')` and only fills that
+        // cache when it is cold, so a copy warmed earlier in this request —
+        // by `wc_get_product()`, by an admin screen rendering the product, by
+        // this plugin's own preview — is what the comparison got, however
+        // carefully the rows had just been locked. With a persistent object
+        // cache the stale copy can predate another process's committed write
+        // altogether.
+        //
+        // `readRows()` is one statement on the same connection as the lock,
+        // inside the same transaction: what is compared is what is locked.
+        $now = $this->shop->readRows($postId);
+        if (!($now['read'] ?? false)) {
+            $this->transaction->rollback();
+            // «The read failed» and «the rows are gone» are opposite
+            // sentences and `getResults()` gives them the same shape. Taken
+            // for «gone», this would restore over a destination nobody had
+            // looked at.
+            return OperationResult::failure('minmax_rollback_unreadable', ['post_id' => $postId]);
+        }
         foreach (['min', 'max', 'step'] as $part) {
             $wrote = $row['written_' . $part];
             if ($wrote === null) {
@@ -571,6 +637,16 @@ final class MigrateMinMax
             ]);
         }
 
+        if ($status === MinMaxHandoverRepositoryInterface::ENFORCED
+            && !$this->shop->revokeEnforcement($postId)) {
+            $this->transaction->rollback();
+            $this->shop->forgetCachedQuantities($postId);
+            return OperationResult::failure('minmax_rollback_not_stored', [
+                'post_id' => $postId,
+                'part' => '_tmc_quantity_enforced',
+            ]);
+        }
+
         if (!$this->ledger->markRolledBack($postId)) {
             $this->transaction->rollback();
             $this->shop->forgetCachedQuantities($postId);
@@ -585,6 +661,153 @@ final class MigrateMinMax
             return OperationResult::failure('minmax_rollback_not_committed', ['post_id' => $postId]);
         }
         return OperationResult::success('minmax_rolled_back', ['post_id' => $postId]);
+    }
+
+    /**
+     * The manager's grant: this marketplace enforces THIS PRODUCT'S
+     * purchase-quantity rule from now on — and nothing else changes.
+     *
+     * ---------------------------------------------------------------------
+     * WHAT THIS IS FOR
+     * ---------------------------------------------------------------------
+     *
+     * `alpha.53` measured the gap and `alpha.54` reported it unchanged: a
+     * converted rule written onto a product the marketplace does not own is
+     * three rows nothing reads, because `QuantityGuard::ruleFor()` returns
+     * before reading them when `PurchaseGuard::ask()` says the product is
+     * somebody else's. Measured with Min Max on and then off: a marketplace
+     * product's `4|6|8|10` stayed `4|6|8|10`; a NON-marketplace product's
+     * `4|6|8|10` became «any quantity allowed». That is the
+     * `written_unenforced` state, and the owner's twelve products are all in
+     * it.
+     *
+     * The grant closes it for exactly one thing. «این مجوز نباید خودبه‌خود
+     * فروشنده، مالکیت محصول یا چرخهٔ تأیید آن را تغییر دهد» — so it is a meta
+     * key of its own (`ProjectedQuantity::ENFORCE_META`) and NOT a change of
+     * `link_ownership`: `PurchasePolicy` still answers `NOT_OURS`, so the
+     * purchase guard, the storefront stop, the projector, the vendor's
+     * catalogue and the approval cycle go on ignoring the product exactly as
+     * they did. The one difference is that the quantity rule already written
+     * on it is applied.
+     *
+     * ---------------------------------------------------------------------
+     * AND IT IS REFUSED UNLESS THE RULE IS STILL THE ONE THAT WAS MIGRATED
+     * ---------------------------------------------------------------------
+     *
+     * Same lock and same comparison as `rollback()`, for the same reason: a
+     * grant is a decision about a specific rule, and a rule somebody has
+     * changed since the migration is a different rule. Granting over it would
+     * enforce numbers no manager has read — which is the shape of every
+     * finding in the last three rounds.
+     *
+     * One unit of work: the meta key and the ledger status, or neither.
+     */
+    public function enforce(int $postId): OperationResult
+    {
+        return $this->changeGrant($postId, true);
+    }
+
+    /**
+     * Withdraw the grant, leaving the three rows exactly where they are.
+     *
+     * The product goes back to `written_unenforced` — the rule is still
+     * written and nothing reads it again — which is where it was before the
+     * grant, and is NOT a rollback: the destination is untouched.
+     */
+    public function stopEnforcing(int $postId): OperationResult
+    {
+        return $this->changeGrant($postId, false);
+    }
+
+    private function changeGrant(int $postId, bool $grant): OperationResult
+    {
+        $verb = $grant ? 'enforce' : 'unenforce';
+        if ($this->transaction === null) {
+            return OperationResult::failure('minmax_' . $verb . '_no_transaction', ['post_id' => $postId]);
+        }
+        if ($this->transaction->inTransaction()) {
+            return OperationResult::failure('minmax_' . $verb . '_caller_transaction', ['post_id' => $postId]);
+        }
+        if (!$this->transaction->begin()) {
+            return OperationResult::failure('minmax_' . $verb . '_not_atomic', ['post_id' => $postId]);
+        }
+
+        $row = $this->ledger->find($postId);
+        if ($row === null) {
+            $this->transaction->rollback();
+            return OperationResult::failure('minmax_' . $verb . '_nothing', ['post_id' => $postId]);
+        }
+        $status = (string) ($row['status'] ?? '');
+        $wanted = $grant
+            ? MinMaxHandoverRepositoryInterface::UNENFORCED
+            : MinMaxHandoverRepositoryInterface::ENFORCED;
+        if ($status !== $wanted) {
+            // A `migrated` product needs no grant: the marketplace owns it,
+            // so its own guard already reads the rule, and offering a grant
+            // would suggest the rule was not being applied. Everything else
+            // wrote nothing, so there is no rule to enforce.
+            $this->transaction->rollback();
+            return OperationResult::failure('minmax_' . $verb . '_not_allowed', [
+                'post_id' => $postId,
+                'status' => $status,
+            ]);
+        }
+
+        if (!$this->shop->lockQuantityRows($postId)) {
+            $this->transaction->rollback();
+            return OperationResult::failure('minmax_' . $verb . '_not_locked', ['post_id' => $postId]);
+        }
+        $now = $this->shop->readRows($postId);
+        if (!($now['read'] ?? false)) {
+            $this->transaction->rollback();
+            return OperationResult::failure('minmax_' . $verb . '_unreadable', ['post_id' => $postId]);
+        }
+        foreach (['min', 'max', 'step'] as $part) {
+            $wrote = $row['written_' . $part];
+            if ($wrote === null) {
+                continue;
+            }
+            if ((string) ($now[$part] ?? '') !== (string) $wrote) {
+                $this->transaction->rollback();
+                // The rule on the product is not the rule that was migrated,
+                // so there is nothing here the manager has read.
+                return OperationResult::failure('minmax_' . $verb . '_changed', [
+                    'post_id' => $postId,
+                    'field' => $part,
+                    'wrote' => (string) $wrote,
+                    'now' => $now[$part] === null ? '__absent__' : (string) $now[$part],
+                ]);
+            }
+        }
+
+        $stored = $grant
+            ? $this->shop->grantEnforcement($postId)
+            : $this->shop->revokeEnforcement($postId);
+        if (!$stored) {
+            $this->transaction->rollback();
+            $this->shop->forgetCachedQuantities($postId);
+            return OperationResult::failure('minmax_' . $verb . '_not_stored', ['post_id' => $postId]);
+        }
+        $recorded = $grant
+            ? $this->ledger->markEnforced($postId)
+            : $this->ledger->markUnenforced($postId);
+        if (!$recorded) {
+            $this->transaction->rollback();
+            $this->shop->forgetCachedQuantities($postId);
+            // Zero rows is a lost race, not «already in that state»
+            // (`alpha.49`): some other request moved this row, and writing
+            // the meta key without the ledger would leave a rule enforced
+            // with no record that anybody granted it.
+            return OperationResult::failure('minmax_' . $verb . '_unrecorded', ['post_id' => $postId]);
+        }
+        if (!$this->transaction->commit()) {
+            $this->shop->forgetCachedQuantities($postId);
+            return OperationResult::failure('minmax_' . $verb . '_not_committed', ['post_id' => $postId]);
+        }
+        return OperationResult::success(
+            $grant ? 'minmax_rule_enforced' : 'minmax_rule_unenforced',
+            ['post_id' => $postId]
+        );
     }
 
     /**
@@ -734,6 +957,9 @@ final class MigrateMinMax
             MinMaxRule::MAX_BELOW_MIN => 'حداکثر کمتر از حداقل است',
             MinMaxRule::DEFAULT_QUANTITY_UNSUPPORTED => 'تعداد پیش‌فرض معادلی ندارد',
             MinMaxRule::MIN_ZERO_FLOORED => 'حداقل صفر به یک تبدیل می‌شود',
+            'destination_duplicated' =>
+                'مقصد برای یک کلید بیش از یک ردیف دارد (postmeta ایندکس یکتا ندارد) — '
+                . 'پیش از انتقال باید ردیف تکراری پاک شود',
         ];
     }
 

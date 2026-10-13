@@ -189,16 +189,36 @@ final class MigrationPage
             . '<th scope="col">' . esc_html__('محصول ووکامرس', 'tecteb-marketplace-core') . '</th>'
             . '<th scope="col">' . esc_html__('اقدام', 'tecteb-marketplace-core') . '</th>'
             . '</tr></thead><tbody>';
+        $transfer = $this->container->get(TransferOwnership::class);
         foreach ($observed as $product) {
-            echo '<tr><td>' . Components::code((string) $product->id) . '</td>'
-                . '<td>' . esc_html($product->details->title) . '</td>'
-                . '<td>' . Components::code((string) ($product->wcProductId ?? 0)) . '</td>'
-                . '<td><form method="post" class="tmc-inline-form">'
+            // What accepting THIS product would overwrite or cannot express,
+            // asked of the same method the guard asks. One answer, so the
+            // warning a manager reads and the keys the refusal demands cannot
+            // drift apart.
+            $risks = $transfer->risksFor($product->id);
+            $form = '<form method="post" class="tmc-inline-form">'
                 . wp_nonce_field(self::NONCE, 'tmc_migration_nonce', true, false)
-                . '<input type="hidden" name="product_id" value="' . esc_attr((string) $product->id) . '">'
-                . '<button type="submit" class="tmc-button" name="migration_action" value="take_ownership">'
-                . esc_html__('انتقال مالکیت عملیاتی', 'tecteb-marketplace-core') . '</button>'
-                . '</form></td></tr>';
+                . '<input type="hidden" name="product_id" value="' . esc_attr((string) $product->id) . '">';
+            foreach (array_keys($risks) as $key) {
+                // The key travels with the tick, so a form that did not print
+                // this risk cannot acknowledge it (`alpha.49`).
+                $form .= '<input type="hidden" name="acknowledged[]" value="' . esc_attr((string) $key) . '">';
+            }
+            $form .= '<button type="submit" class="tmc-button" name="migration_action" value="take_ownership">'
+                . ($risks === []
+                    ? esc_html__('انتقال مالکیت عملیاتی', 'tecteb-marketplace-core')
+                    : esc_html__('با وجود این موارد، مالکیت را بپذیر', 'tecteb-marketplace-core'))
+                . '</button></form>';
+            echo '<tr><td>' . Components::code((string) $product->id) . '</td>'
+                . '<td>' . esc_html($product->details->title)
+                . ($risks === []
+                    ? ''
+                    : '<br><span class="tmc-card__note">'
+                        . esc_html__('پذیرش مدیریت این فیلدها را عوض می‌کند یا نمی‌تواند نگه دارد: ', 'tecteb-marketplace-core')
+                        . esc_html(implode(' ', $risks)) . '</span>')
+                . '</td>'
+                . '<td>' . Components::code((string) ($product->wcProductId ?? 0)) . '</td>'
+                . '<td>' . $form . '</td></tr>';
         }
         unset($fa);
         echo '</tbody></table></div></section>';
@@ -327,9 +347,16 @@ final class MigrationPage
             $transfer = $this->container->get(TransferOwnership::class);
             $productId = $request->postInt('product_id');
             $result = $action === 'take_ownership'
-                ? $transfer->take($productId)
+                ? $transfer->take($productId, $request->postTextList('acknowledged'))
                 : $transfer->giveBack($productId);
             if (!$result->ok) {
+                if ($result->code === 'ownership_risks_unacknowledged') {
+                    return 'err:' . sprintf(
+                        /* translators: %s: the sentences for the fields at risk */
+                        __('پذیرش انجام نشد، چون این موارد تأیید نشده بودند: %s صفحه را تازه کنید و دکمهٔ «با وجود این موارد» را بزنید.', 'tecteb-marketplace-core'),
+                        implode(' ', array_map('strval', (array) ($result->context['sentences'] ?? [])))
+                    );
+                }
                 return 'err:' . __('این تغییر مالکیت انجام نشد.', 'tecteb-marketplace-core');
             }
             return 'ok:' . ($action === 'take_ownership'

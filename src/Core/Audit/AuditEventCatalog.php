@@ -110,6 +110,19 @@ final class AuditEventCatalog
     public const DOKAN_OWNERSHIP_CHANGED = 'migration.ownership_changed';
 
     /**
+     * Bringing products this shop already has into the marketplace as
+     * OBSERVED rows — and undoing that.
+     *
+     * Its own event rather than the Dokan one, because the two read different
+     * sources and a manager looking at the log has to be able to tell which
+     * import a row came from. The intake itself grants nothing: the moment
+     * something becomes operational is `DOKAN_OWNERSHIP_CHANGED`, which is
+     * audited separately for exactly that reason.
+     */
+    public const CATALOGUE_INTAKE = 'migration.catalogue_intake';
+    public const CATALOGUE_INTAKE_ROLLED_BACK = 'migration.catalogue_intake_rolled_back';
+
+    /**
      * The two explicit acts that turn an imported RECORD into something
      * operational — and they are audited precisely because the record itself
      * is not. Importing a staff row grants nothing and importing a balance
@@ -209,6 +222,8 @@ final class AuditEventCatalog
             self::DOKAN_IMPORTED => ['vendors', 'products', 'run_id', 'mode'],
             self::DOKAN_ROLLED_BACK => ['vendors', 'products', 'run_id'],
             self::DOKAN_OWNERSHIP_CHANGED => ['product_id', 'wc_product_id', 'from', 'to'],
+            self::CATALOGUE_INTAKE => ['run_id', 'imported', 'skipped', 'failed'],
+            self::CATALOGUE_INTAKE_ROLLED_BACK => ['run_id', 'removed', 'kept'],
             self::DOKAN_STAFF_GRANTED => ['vendor_id', 'staff_user_id', 'dokan_role', 'preset', 'status'],
             self::DOKAN_FINANCE_HANDOVER => ['vendor_id', 'closing', 'paid_by_dokan', 'pending_requests', 'pending_total', 'decision'],
         ];

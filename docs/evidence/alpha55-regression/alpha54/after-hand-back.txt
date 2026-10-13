@@ -1,0 +1,4 @@
+probe=ran
+source_rows_removed=9
+products=373,374,375
+hand_back=yes

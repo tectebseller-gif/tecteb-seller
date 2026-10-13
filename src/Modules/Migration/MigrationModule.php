@@ -15,7 +15,10 @@ use Tecteb\Marketplace\Contracts\OptionStoreInterface;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
+use Tecteb\Marketplace\Modules\Migration\Application\CatalogueInventory;
+use Tecteb\Marketplace\Modules\Migration\Application\CatalogueReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
+use Tecteb\Marketplace\Modules\Migration\Application\ImportExistingProducts;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\GrantImportedStaff;
@@ -36,14 +39,17 @@ use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbFinanceHandoverRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbMinMaxHandoverRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbShopRecordRepository;
+use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpCatalogueReader;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpDokanReader;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpMinMaxReader;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpShopQuantityPort;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\HandoverPage;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MigrationPage;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MinMaxExitPage;
+use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\ProductIntakePage;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffUserDirectoryInterface;
@@ -88,7 +94,12 @@ final class MigrationModule implements ModuleInterface
             // answer to forget either.
             $c->has(\Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy::class)
                 ? $c->get(\Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy::class)
-                : null
+                : null,
+            // What accepting this product would overwrite or cannot express.
+            // Bound below, so this closure resolves it lazily — and if it is
+            // absent the transfer behaves as it did before `alpha.55` and the
+            // page says the check did not run.
+            $c->has(CatalogueReaderInterface::class) ? $c->get(CatalogueReaderInterface::class) : null
         ));
         $c->bind(OrderHistoryRepositoryInterface::class, static fn (ContainerInterface $c) => new DbOrderHistoryRepository(
             $c->get(DatabaseInterface::class),
@@ -159,6 +170,38 @@ final class MigrationModule implements ModuleInterface
             $c->get(CategoryMap::class)
         ));
 
+        // Products this shop already has. The reader has no write method, so
+        // «ورود بدون ساخت محصول جدید ووکامرس» is a property of the
+        // dependency rather than a rule somebody has to remember.
+        $c->bind(CatalogueReaderInterface::class, static fn (ContainerInterface $c) => new WpCatalogueReader(
+            $c->get(DatabaseInterface::class),
+            // For the author's vendor paperwork. Optional: without it the
+            // status reads as unknown, which pushes a product towards
+            // «ambiguous» — the safe direction.
+            $c->has(VendorRepositoryInterface::class) ? $c->get(VendorRepositoryInterface::class) : null
+        ));
+        $c->bind(CatalogueInventory::class, static fn (ContainerInterface $c) => new CatalogueInventory(
+            $c->get(CatalogueReaderInterface::class)
+        ));
+        $c->bind(ImportExistingProducts::class, static fn (ContainerInterface $c) => new ImportExistingProducts(
+            $c->get(CatalogueReaderInterface::class),
+            $c->get(CatalogueInventory::class),
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(VendorRepositoryInterface::class),
+            $c->get(OptionStoreInterface::class),
+            $c->get(AuditLogger::class),
+            $c->get(ClockInterface::class),
+            $c->get(CapabilityCheckerInterface::class),
+            // Asked one question: does this product carry an unanswered
+            // proposal? Optional so a build without the revision store still
+            // constructs — and then nothing is reported as having one, which
+            // makes the rollback keep fewer rows, so the absence is stated
+            // rather than relied on.
+            $c->has(ProductRevisionRepositoryInterface::class)
+                ? $c->get(ProductRevisionRepositoryInterface::class)
+                : null
+        ));
+
         // Leaving «Min Max Control». Three pieces, each replaceable on its
         // own: a reader that never writes, a ledger that remembers what the
         // destination held before, and the service that decides. The
@@ -202,7 +245,11 @@ final class MigrationModule implements ModuleInterface
         // page it would sit under decisions about money and access, which are
         // not the same kind of decision as a purchase-quantity rule.
         $minmax = new MinMaxExitPage($c);
-        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($page, $handover, $minmax): array {
+        // And a fourth, for the products that are already in the shop. On the
+        // migration page it would sit under Dokan's own tables, and most of
+        // this shop's products are not Dokan's.
+        $intake = new ProductIntakePage($c);
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($page, $handover, $minmax, $intake): array {
             $pages[] = [
                 'slug' => MigrationPage::SLUG,
                 'page_title' => MigrationPage::menuLabel(),
@@ -223,6 +270,13 @@ final class MigrationModule implements ModuleInterface
                 'menu_label' => MinMaxExitPage::menuLabel(),
                 'capability' => MinMaxExitPage::CAPABILITY,
                 'render' => [$minmax, 'render'],
+            ];
+            $pages[] = [
+                'slug' => ProductIntakePage::SLUG,
+                'page_title' => ProductIntakePage::menuLabel(),
+                'menu_label' => ProductIntakePage::menuLabel(),
+                'capability' => ProductIntakePage::CAPABILITY,
+                'render' => [$intake, 'render'],
             ];
             return $pages;
         });

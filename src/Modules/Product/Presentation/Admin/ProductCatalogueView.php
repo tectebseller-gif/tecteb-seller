@@ -108,6 +108,18 @@ final class ProductCatalogueView
                 ? '<span class="tmc-catalogue__badge">'
                     . esc_html__('درخواست برند در انتظار', 'tecteb-marketplace-core') . '</span>'
                 : '')
+            // A third badge, and the one that answers «is this product
+            // actually ours». An observed row is a note that says which
+            // WooCommerce product corresponds to this one and nothing
+            // follows from it: the purchase guard, the storefront stop, the
+            // projector and the vendor's catalogue all ignore it. Without
+            // the badge a manager reads a list in which an imported product
+            // and a managed one look identical.
+            . ($row->ownsStorefrontProduct
+                ? ''
+                : '<span class="tmc-catalogue__badge">'
+                    . esc_html__('فقط مشاهده‌شده — مدیریت بازارگاه پذیرفته نشده', 'tecteb-marketplace-core')
+                    . '</span>')
             . '</span></span></th>'
             . '<td data-label="' . esc_attr__('فروشگاه', 'tecteb-marketplace-core') . '">'
             . esc_html($row->storeName !== '' ? $row->storeName : '—') . '</td>'

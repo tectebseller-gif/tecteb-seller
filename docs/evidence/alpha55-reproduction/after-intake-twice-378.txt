@@ -1,0 +1,4 @@
+probe=ran
+imported=0
+reason=already_linked_observed
+rows_for_this_product=1

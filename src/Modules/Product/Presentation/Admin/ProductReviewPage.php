@@ -334,7 +334,11 @@ final class ProductReviewPage
                 $product->updatedAt,
                 self::thumbnailOf($product, $library),
                 isset($proposed[$product->id]),
-                isset($brandRequested[$product->id])
+                isset($brandRequested[$product->id]),
+                // Read off the row rather than asked per product: the column
+                // travels on `Product` since `alpha.55`, so a list of a
+                // hundred rows costs no extra query to label.
+                $product->ownsItsStorefrontProduct()
             );
         }
 

@@ -40,7 +40,20 @@ final class ProductCatalogueRow
          * say so. Appended with a default so every existing construction keeps
          * compiling (`alpha.45`'s convention).
          */
-        public readonly bool $hasBrandRequest = false
+        public readonly bool $hasBrandRequest = false,
+        /**
+         * Whether this row OWNS its WooCommerce product, or merely points at
+         * it.
+         *
+         * An intake of existing products creates `observed` rows, and they
+         * appear in this list beside owned ones — which is exactly what §2 of
+         * `alpha.55` asks for: «محصولات فعلی ابتدا بدون تغییر وضعیت انتشار و
+         * مالکیت در فهرست مدیر دیده شوند». A manager who cannot tell the two
+         * apart would read «this product is in the marketplace» off a row
+         * that decides nothing about it, so the row carries the answer and
+         * the view prints a badge for the observed case.
+         */
+        public readonly bool $ownsStorefrontProduct = true
     ) {
     }
 }

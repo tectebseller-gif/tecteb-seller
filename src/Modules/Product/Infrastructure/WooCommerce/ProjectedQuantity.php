@@ -53,6 +53,31 @@ final class ProjectedQuantity
     /** Keys a manager holds, so the review screen can say so rather than guess. */
     public const CONFLICT_META = '_tmc_quantity_conflicts';
 
+    /**
+     * The manager's explicit grant that THIS MARKETPLACE ENFORCES THIS
+     * PRODUCT'S PURCHASE-QUANTITY RULE — and nothing else about the product.
+     *
+     * Written only by the Min Max handover's `enforce()` action, on a product
+     * whose rule this plugin wrote but does not enforce, because
+     * `QuantityGuard::ruleFor()` returns before reading anything when
+     * `PurchaseGuard::ask()` says the product is not ours. Those three rows
+     * are the `written_unenforced` state: present, correct, and read by
+     * nothing.
+     *
+     * It is a key of its own rather than a widening of ownership, and the
+     * difference is the whole point: «این مجوز نباید خودبه‌خود فروشنده،
+     * مالکیت محصول یا چرخهٔ تأیید آن را تغییر دهد». A granted product stays
+     * `NOT_OURS` to `PurchasePolicy`, so the purchase guard, the storefront
+     * stop, the projector, the vendor's catalogue and the approval cycle all
+     * go on ignoring it exactly as before. The ONE thing that changes is that
+     * the quantity rule written on it is now applied.
+     *
+     * Read by `QuantityGuard` straight off the product object it was handed,
+     * so it costs no query; a variation with no grant of its own takes its
+     * parent's, because a parent-level Min Max rule is granted on the parent.
+     */
+    public const ENFORCE_META = '_tmc_quantity_enforced';
+
     /** The record itself would not store — reported, never left stale. */
     public const RECORD_NOT_STORED = '_record_not_stored';
 

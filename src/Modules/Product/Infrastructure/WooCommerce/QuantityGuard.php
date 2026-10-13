@@ -226,7 +226,27 @@ final class QuantityGuard
         // Ours? Asked with the same question `CartGuard` asks, so a variation
         // is answered by its parent's marketplace link rather than called
         // somebody else's.
-        if (PurchaseGuard::ask($policy, $product) === null) {
+        //
+        // AND, SINCE `alpha.55`, ONE NARROWER QUESTION AFTER IT. A product
+        // the marketplace does not own can still carry a quantity rule this
+        // plugin wrote — that is the Min Max handover's `written_unenforced`
+        // state, and until now those three rows were read by nothing:
+        // measured with Min Max switched off, a non-marketplace product's
+        // `4|6|8|10` became «any quantity allowed». A manager may now GRANT
+        // that this marketplace enforces that one rule
+        // (`MigrateMinMax::enforce()`), and the grant is read here and
+        // nowhere else.
+        //
+        // What it deliberately does not do: `PurchasePolicy` still answers
+        // `NOT_OURS` about the product, so the purchase guard, the
+        // storefront stop, the projector, the vendor's catalogue and the
+        // approval cycle all go on ignoring it. «این مجوز نباید خودبه‌خود
+        // فروشنده، مالکیت محصول یا چرخهٔ تأیید آن را تغییر دهد.» And a
+        // product with no grant behaves exactly as it did before this
+        // existed — the grant is written by one explicit action on one
+        // migrated product, so «no new behaviour for a product that was not
+        // migrated» is a property of where the key comes from, not a check.
+        if (PurchaseGuard::ask($policy, $product) === null && !self::ruleIsGranted($product)) {
             return null;
         }
         $rule = self::storedRule($policy, $product);
@@ -246,6 +266,37 @@ final class QuantityGuard
             self::recordContradiction($product, 'unsatisfiable');
         }
         return $rule;
+    }
+
+    /**
+     * Whether the manager has granted that this marketplace enforces this
+     * product's quantity rule.
+     *
+     * Read off the product object the hook was handed, so it costs no query:
+     * `WC_Product` already has its meta loaded. A variation with no grant of
+     * its own takes its parent's, because a parent-level Min Max rule is
+     * granted on the parent — and the parent has to be fetched to ask,
+     * because `WC_Data::get_meta()` does NOT fall back to the parent for an
+     * arbitrary key (read from `abstract-wc-data.php`: it reads this
+     * object's own `meta_data` and nothing else; the variation's parent
+     * fallbacks are per-property getters, not meta).
+     */
+    private static function ruleIsGranted(mixed $product): bool
+    {
+        if (!is_object($product) || !method_exists($product, 'get_meta')) {
+            return false;
+        }
+        if ((string) $product->get_meta(ProjectedQuantity::ENFORCE_META, true) === '1') {
+            return true;
+        }
+        $parentId = method_exists($product, 'get_parent_id') ? (int) $product->get_parent_id() : 0;
+        if ($parentId <= 0 || !function_exists('wc_get_product')) {
+            return false;
+        }
+        $parent = wc_get_product($parentId);
+        return is_object($parent)
+            && method_exists($parent, 'get_meta')
+            && (string) $parent->get_meta(ProjectedQuantity::ENFORCE_META, true) === '1';
     }
 
     /**
@@ -299,10 +350,15 @@ final class QuantityGuard
         }
         // A variation with no rows of its own takes the parent's: the rule is
         // the product's and applies to each variation alike, which is the
-        // stated semantics (`PurchaseQuantity`). `get_meta()` on a variation
-        // already falls back to the parent in WooCommerce, but a variation
-        // object built another way may not, so this is asked rather than
-        // assumed.
+        // stated semantics (`PurchaseQuantity`). This asks the parent
+        // EXPLICITLY, and an earlier version of this comment gave the wrong
+        // reason for that — it said `get_meta()` on a variation already falls
+        // back to the parent. It does not: read from
+        // `abstract-wc-data.php`, `get_meta()` looks at this object's own
+        // `meta_data` and nothing else, and `WC_Product_Variation`'s parent
+        // fallbacks are per-property getters (sku, weight, stock…), not meta.
+        // The code was right; the comment would have talked the next reader
+        // out of it.
         if (self::allEmpty($meta) && method_exists($product, 'get_parent_id')) {
             $parentId = (int) $product->get_parent_id();
             if ($parentId > 0 && function_exists('wc_get_product')) {
