@@ -234,12 +234,20 @@ final class ImportFromDokan
             $orderRows[] = [
                 'dokan_id' => $order['wc_order_id'],
                 'title' => (string) $order['wc_order_id'],
-                'verdict' => $this->history === null
+                // A figure Dokan stored with more precision than this shop's
+                // currency can express is SKIPPED and named, never rounded.
+                // Dokan's columns are `decimal(19,4)`; a shop with two
+                // decimals cannot hold `10.0050` and a rounded import would
+                // be this plugin changing somebody's recorded share by a
+                // hundredth and reporting success.
+                'verdict' => $this->history === null || ($order['amount_not_exact'] ?? false)
                     ? DokanMigrationPlan::SKIP
                     : DokanMigrationPlan::IMPORT,
-                'reason' => $this->history === null
-                    ? 'history_storage_unavailable'
-                    : 'history_recorded_without_recomputing',
+                'reason' => ($order['amount_not_exact'] ?? false)
+                    ? 'amount_not_exact_for_this_currency'
+                    : ($this->history === null
+                        ? 'history_storage_unavailable'
+                        : 'history_recorded_without_recomputing'),
                 'target' => 'wc_order:' . $order['wc_order_id'],
             ];
         }
@@ -412,6 +420,10 @@ final class ImportFromDokan
                 if ($this->orderIsAlreadyOurs((int) $order['wc_order_id'])) {
                     $historyRefused++;
                     continue;
+                }
+                if (($order['amount_not_exact'] ?? false) === true) {
+                    $historyRefused++;
+                    continue;           // named in the plan, never rounded in
                 }
                 match ($this->history->record($plan->runId, $order)) {
                     OrderHistoryRepositoryInterface::RECORDED => $historyRecorded++,
@@ -857,6 +869,10 @@ final class ImportFromDokan
             if ($this->orderIsAlreadyOurs((int) $order['wc_order_id'])) {
                 $ours++;
                 continue;
+            }
+            if (($order['amount_not_exact'] ?? false) === true) {
+                $skipped++;
+                continue;               // the figure cannot be held exactly
             }
             match ($this->history->record($runId, $order)) {
                 OrderHistoryRepositoryInterface::RECORDED => $done++,

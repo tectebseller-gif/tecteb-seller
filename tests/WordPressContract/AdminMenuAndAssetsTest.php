@@ -92,6 +92,7 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             // is reversible bookkeeping, the second is a person deciding who
             // may touch orders and who owes money.
             ['tmc-handover', 'tmc_review_vendor', 'تحویل مهاجرت'],
+            ['tmc-minmax-exit', 'tmc_review_vendor', 'خروج از Min Max'],
         ];
         // And the definition agrees with the list above. Without this, a group
         // edited in `AdminNavigation` and not reflected here would be caught

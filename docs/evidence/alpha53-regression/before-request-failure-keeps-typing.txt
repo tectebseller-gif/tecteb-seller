@@ -1,0 +1,6 @@
+probe=ran
+outcome_code=brand_request_elsewhere
+typed_kept=__absent__
+typing_survived=no
+product_saved=yes
+table_restored=yes

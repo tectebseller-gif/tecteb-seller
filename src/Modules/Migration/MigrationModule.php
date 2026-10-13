@@ -20,7 +20,11 @@ use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\GrantImportedStaff;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrateMinMax;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationCompleteness;
+use Tecteb\Marketplace\Modules\Migration\Application\MinMaxHandoverRepositoryInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\MinMaxReaderInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\ShopQuantityPortInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ReconcileDokanFinance;
 use Tecteb\Marketplace\Modules\Migration\Application\StaffRoleMap;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
@@ -30,10 +34,14 @@ use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterfa
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbFinanceHandoverRepository;
+use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbMinMaxHandoverRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbShopRecordRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpDokanReader;
+use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpMinMaxReader;
+use Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress\WpShopQuantityPort;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\HandoverPage;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MigrationPage;
+use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MinMaxExitPage;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface;
@@ -150,6 +158,28 @@ final class MigrationModule implements ModuleInterface
             $c->get(DokanReaderInterface::class),
             $c->get(CategoryMap::class)
         ));
+
+        // Leaving «Min Max Control». Three pieces, each replaceable on its
+        // own: a reader that never writes, a ledger that remembers what the
+        // destination held before, and the service that decides. The
+        // transaction is OPTIONAL — `MigrateMinMax` refuses to do half a job
+        // without one and says so, rather than silently doing the first half
+        // (`alpha.49`).
+        $c->bind(MinMaxReaderInterface::class, static fn (ContainerInterface $c) => new WpMinMaxReader(
+            $c->get(DatabaseInterface::class)
+        ));
+        $c->bind(ShopQuantityPortInterface::class, static fn (ContainerInterface $c) => new WpShopQuantityPort(
+            $c->get(DatabaseInterface::class)
+        ));
+        $c->bind(MinMaxHandoverRepositoryInterface::class, static fn (ContainerInterface $c) => new DbMinMaxHandoverRepository(
+            $c->get(DatabaseInterface::class)
+        ));
+        $c->bind(MigrateMinMax::class, static fn (ContainerInterface $c) => new MigrateMinMax(
+            $c->get(MinMaxReaderInterface::class),
+            $c->get(MinMaxHandoverRepositoryInterface::class),
+            $c->get(ShopQuantityPortInterface::class),
+            $c->has(TransactionInterface::class) ? $c->get(TransactionInterface::class) : null
+        ));
     }
 
     public function boot(ContainerInterface $c): void
@@ -165,7 +195,11 @@ final class MigrationModule implements ModuleInterface
         // touch orders and who owes money. On one screen, the second gets
         // clicked through on the way to the first.
         $handover = new HandoverPage($c);
-        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($page, $handover): array {
+        // And a third, for the other plugin being left behind. On the handover
+        // page it would sit under decisions about money and access, which are
+        // not the same kind of decision as a purchase-quantity rule.
+        $minmax = new MinMaxExitPage($c);
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($page, $handover, $minmax): array {
             $pages[] = [
                 'slug' => MigrationPage::SLUG,
                 'page_title' => MigrationPage::menuLabel(),
@@ -179,6 +213,13 @@ final class MigrationModule implements ModuleInterface
                 'menu_label' => HandoverPage::menuLabel(),
                 'capability' => HandoverPage::CAPABILITY,
                 'render' => [$handover, 'render'],
+            ];
+            $pages[] = [
+                'slug' => MinMaxExitPage::SLUG,
+                'page_title' => MinMaxExitPage::menuLabel(),
+                'menu_label' => MinMaxExitPage::menuLabel(),
+                'capability' => MinMaxExitPage::CAPABILITY,
+                'render' => [$minmax, 'render'],
             ];
             return $pages;
         });

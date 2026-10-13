@@ -1,0 +1,12 @@
+probe=ran
+stock_proposal_code=stock_revision_requested
+approve_code=revision_approved
+after_row_brand=آریا_طب_۵۲
+after_row_term=89
+after_shop_brand=آریا_طب_۵۲
+after_row_description=متن_کامل_اول
+after_row_stock=7
+after_open_revision=no
+after_open_brand_request=no
+brand_is_a=yes
+stock_applied=yes

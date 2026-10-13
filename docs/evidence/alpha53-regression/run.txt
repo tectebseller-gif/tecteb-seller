@@ -1,0 +1,542 @@
+old bytes read from 5985957: 525 php files
+this checkout:                    536 php files
+### installing the 5985957 bytes into /home/user/wp-demo/wp-content/plugins/tecteb-marketplace-core
+
+=================== before ===================
+PASS  before/brand-then-stock  the probe ran
+--- before brand-then-stock ---
+probe=ran
+stock_proposal_code=stock_revision_requested
+brand_request_code=brand_requested
+brand_approve_code=brand_approved
+after_brand_row_brand=سینا_طب_۵۲
+after_brand_row_term=142
+after_brand_shop_brand=سینا_طب_۵۲
+after_brand_row_description=متن_کامل_اول
+after_brand_row_stock=12
+after_brand_open_revision=yes
+after_brand_open_brand_request=no
+revision_id=409
+payload_brand=آریا_طب_۵۲
+payload_brand_baseline=__not_recorded__
+stock_approve_code=revision_approved
+stock_approve_ok=yes
+brand_kept=__absent__
+after_stock_row_brand=آریا_طب_۵۲
+after_stock_row_term=89
+after_stock_shop_brand=آریا_طب_۵۲
+after_stock_row_description=متن_کامل_اول
+after_stock_row_stock=7
+after_stock_open_revision=no
+after_stock_open_brand_request=no
+brand_survived=no
+term_survived=no
+shop_survived=no
+stock_applied=yes
+PASS  before/1 the brand request is recorded  (brand_requested)
+PASS  before/1 the stock is a proposal  (stock_revision_requested)
+PASS  before/1 the brand is approved  (brand_approved)
+PASS  before/1 and the shop holds it  (سینا_طب_۵۲)
+PASS  before/1 the payload still holds the old brand  (آریا_طب_۵۲)
+PASS  before/1 no baseline is recorded  (__not_recorded__)
+PASS  before/1 the stock approval succeeds  (revision_approved)
+PASS  before/1 THE ROW's brand goes back  (آریا_طب_۵۲)
+PASS  before/1 THE TERM ID goes back  (no)
+PASS  before/1 THE SHOP's attribute goes back  (آریا_طب_۵۲)
+PASS  before/1 and nothing says so  (__absent__)
+PASS  before/1 the stock still moves  (yes)
+PASS  before/stock-then-brand  the probe ran
+--- before stock-then-brand ---
+probe=ran
+stock_proposal_code=stock_revision_requested
+brand_request_code=brand_requested
+stock_approve_code=revision_approved
+after_stock_row_brand=آریا_طب_۵۲
+after_stock_row_term=89
+after_stock_shop_brand=آریا_طب_۵۲
+after_stock_row_description=متن_کامل_اول
+after_stock_row_stock=7
+after_stock_open_revision=no
+after_stock_open_brand_request=yes
+request_still_open=yes
+brand_approve_code=brand_approved
+after_brand_row_brand=سینا_طب_۵۲
+after_brand_row_term=143
+after_brand_shop_brand=سینا_طب_۵۲
+after_brand_row_description=متن_کامل_اول
+after_brand_row_stock=7
+after_brand_open_revision=no
+after_brand_open_brand_request=no
+brand_is_b=yes
+shop_is_b=yes
+stock_applied=yes
+PASS  before/2 the stock is approved first  (revision_approved)
+PASS  before/2 the request is still open  (yes)
+PASS  before/2 then the brand  (brand_approved)
+PASS  before/2 the row holds the brand  (yes)
+PASS  before/2 the shop holds it  (yes)
+PASS  before/2 and the stock stayed applied  (yes)
+PASS  before/description-and-brand  the probe ran
+--- before description-and-brand ---
+probe=ran
+description_proposal_code=revision_requested
+brand_request_code=brand_requested
+brand_approve_code=brand_approved
+after_brand_row_brand=سینا_طب_۵۲
+after_brand_row_term=144
+after_brand_shop_brand=سینا_طب_۵۲
+after_brand_row_description=متن_کامل_اول
+after_brand_row_stock=12
+after_brand_open_revision=yes
+after_brand_open_brand_request=no
+description_still_proposed=yes
+revision_approve_code=revision_approved
+after_revision_row_brand=آریا_طب_۵۲
+after_revision_row_term=89
+after_revision_shop_brand=آریا_طب_۵۲
+after_revision_row_description=متن_کامل_دوم
+after_revision_row_stock=12
+after_revision_open_revision=no
+after_revision_open_brand_request=no
+description_applied=yes
+brand_survived=no
+shop_survived=no
+PASS  before/3 the description is a proposal  (revision_requested)
+PASS  before/3 approving the brand leaves it proposed  (yes)
+PASS  before/3 the description is applied  (yes)
+PASS  before/3 and it takes the brand with it  (no)
+PASS  before/3 in the shop too  (no)
+PASS  before/real-conflict  the probe ran
+--- before real-conflict ---
+probe=ran
+revision_code=revision_requested
+payload_brand=مدلاین_۵۲
+payload_brand_baseline=__not_recorded__
+brand_request_code=brand_requested
+brand_approve_code=brand_approved
+after_brand_row_brand=سینا_طب_۵۲
+after_brand_row_term=145
+after_brand_shop_brand=سینا_طب_۵۲
+after_brand_row_description=متن_کامل_اول
+after_brand_row_stock=12
+after_brand_open_revision=yes
+after_brand_open_brand_request=no
+revision_approve_code=revision_approved
+revision_approve_ok=yes
+named_baseline=__absent__
+named_current=__absent__
+named_proposed=__absent__
+after_refusal_row_brand=مدلاین_۵۲
+after_refusal_row_term=95
+after_refusal_shop_brand=مدلاین_۵۲
+after_refusal_row_description=متن_کامل_اول
+after_refusal_row_stock=12
+after_refusal_open_revision=no
+after_refusal_open_brand_request=no
+still_pending=no
+blind_override_code=__not_run__
+blind_override_ok=no
+after_blind_row_brand=مدلاین_۵۲
+after_blind_row_term=95
+after_blind_shop_brand=مدلاین_۵۲
+after_blind_row_description=متن_کامل_اول
+after_blind_row_stock=12
+after_blind_open_revision=no
+after_blind_open_brand_request=no
+override_code=__not_run__
+override_ok=no
+after_override_row_brand=مدلاین_۵۲
+after_override_row_term=95
+after_override_shop_brand=مدلاین_۵۲
+after_override_row_description=متن_کامل_اول
+after_override_row_stock=12
+after_override_open_revision=no
+after_override_open_brand_request=no
+override_applied_proposal=yes
+PASS  before/4 the revision asks for a third brand  (مدلاین_۵۲)
+PASS  before/4 and a request for another is approved  (brand_approved)
+PASS  before/4 whichever ran last wins, silently  (revision_approved)
+PASS  before/4 nothing is named  (__absent__)
+PASS  before/4 and the proposal is closed  (no)
+PASS  before/request-failure-keeps-typing  the probe ran
+--- before request-failure-keeps-typing ---
+probe=ran
+outcome_code=brand_request_elsewhere
+typed_kept=__absent__
+typing_survived=no
+product_saved=yes
+table_restored=yes
+PASS  before/5 the product saves  (yes)
+PASS  before/5 and the typing is gone  (__absent__)
+PASS  before/carry-over-brand  the probe ran
+--- before carry-over-brand ---
+probe=ran
+stock_proposal_code=stock_revision_requested
+brand_request_code=brand_requested
+brand_approve_code=brand_approved
+row_brand_now=سینا_طب_۵۲
+payload_brand=آریا_طب_۵۲
+rendered=yes
+box_shows=__empty__
+hidden_tag=<input_type="hidden"_name="brand"_value="آریا_طب_۵۲">
+hidden_present=yes
+hidden_carries=آریا_طب_۵۲
+form_agrees_with_row=no
+form_carries_payload_brand=yes
+step2_save_code=revision_unchanged
+revision_payload_brand=آریا_طب_۵۲
+approve_code=revision_approved
+after_row_brand=آریا_طب_۵۲
+after_row_term=89
+after_shop_brand=آریا_طب_۵۲
+after_row_description=متن_کامل_اول
+after_row_stock=7
+after_open_revision=no
+after_open_brand_request=no
+brand_survived=no
+shop_survived=no
+PASS  before/6 the form renders  (yes)
+PASS  before/6 the row holds the approved brand  (سینا_طب_۵۲)
+PASS  before/6 the payload still holds the old one  (آریا_طب_۵۲)
+PASS  before/6 and the hidden field is there  (yes)
+PASS  before/6 it carries the payload's brand  (آریا_طب_۵۲)
+PASS  before/6 not the row's  (no)
+PASS  before/6 so a step-2 save re-asks for it  (آریا_طب_۵۲)
+PASS  before/control-vendor-brand-change  the probe ran
+--- before control-vendor-brand-change ---
+probe=ran
+revision_code=revision_requested
+approve_code=revision_approved
+after_row_brand=مدلاین_۵۲
+after_row_term=95
+after_shop_brand=مدلاین_۵۲
+after_row_description=متن_کامل_اول
+after_row_stock=12
+after_open_revision=no
+after_open_brand_request=no
+brand_is_c=yes
+term_is_c=yes
+shop_is_c=yes
+PASS  before/C1 a real brand request is applied  (yes)
+PASS  before/C1 with its term id  (yes)
+PASS  before/C1 and in the shop  (yes)
+PASS  before/control-stock-only  the probe ran
+--- before control-stock-only ---
+probe=ran
+stock_proposal_code=stock_revision_requested
+approve_code=revision_approved
+after_row_brand=آریا_طب_۵۲
+after_row_term=89
+after_shop_brand=آریا_طب_۵۲
+after_row_description=متن_کامل_اول
+after_row_stock=7
+after_open_revision=no
+after_open_brand_request=no
+brand_is_a=yes
+stock_applied=yes
+PASS  before/C2 a stock-only proposal applies  (yes)
+PASS  before/C2 and the brand is untouched  (yes)
+PASS  before/control-reject-keeps-revision  the probe ran
+--- before control-reject-keeps-revision ---
+probe=ran
+stock_proposal_code=stock_revision_requested
+brand_request_code=brand_requested
+reject_code=brand_rejected
+after_reject_row_brand=آریا_طب_۵۲
+after_reject_row_term=89
+after_reject_shop_brand=آریا_طب_۵۲
+after_reject_row_description=متن_کامل_اول
+after_reject_row_stock=12
+after_reject_open_revision=yes
+after_reject_open_brand_request=no
+approve_code=revision_approved
+after_stock_row_brand=آریا_طب_۵۲
+after_stock_row_term=89
+after_stock_shop_brand=آریا_طب_۵۲
+after_stock_row_description=متن_کامل_اول
+after_stock_row_stock=7
+after_stock_open_revision=no
+after_stock_open_brand_request=no
+brand_is_a=yes
+stock_applied=yes
+PASS  before/C3 rejecting the brand keeps the revision  (yes)
+PASS  before/C3 the product's brand does not move  (yes)
+PASS  before/C3 and the stock still applies  (yes)
+
+### installing this checkout
+
+=================== after ===================
+PASS  after/brand-then-stock  the probe ran
+--- after brand-then-stock ---
+probe=ran
+stock_proposal_code=stock_revision_requested
+brand_request_code=brand_requested
+brand_approve_code=brand_approved
+after_brand_row_brand=سینا_طب_۵۲
+after_brand_row_term=147
+after_brand_shop_brand=سینا_طب_۵۲
+after_brand_row_description=متن_کامل_اول
+after_brand_row_stock=12
+after_brand_open_revision=yes
+after_brand_open_brand_request=no
+revision_id=418
+payload_brand=آریا_طب_۵۲
+payload_brand_baseline=آریا_طب_۵۲
+stock_approve_code=revision_approved
+stock_approve_ok=yes
+brand_kept=سینا_طب_۵۲
+after_stock_row_brand=سینا_طب_۵۲
+after_stock_row_term=147
+after_stock_shop_brand=سینا_طب_۵۲
+after_stock_row_description=متن_کامل_اول
+after_stock_row_stock=7
+after_stock_open_revision=no
+after_stock_open_brand_request=no
+brand_survived=yes
+term_survived=yes
+shop_survived=yes
+stock_applied=yes
+PASS  after/1 the brand request is recorded  (brand_requested)
+PASS  after/1 the stock is a proposal  (stock_revision_requested)
+PASS  after/1 the brand is approved  (brand_approved)
+PASS  after/1 and the shop holds it  (سینا_طب_۵۲)
+PASS  after/1 the payload still holds the old brand  (آریا_طب_۵۲)
+PASS  after/1 the baseline is recorded  (آریا_طب_۵۲)
+PASS  after/1 the stock approval succeeds  (revision_approved)
+PASS  after/1 THE ROW keeps the brand  (سینا_طب_۵۲)
+PASS  after/1 THE TERM ID keeps it  (yes)
+PASS  after/1 THE SHOP keeps it  (سینا_طب_۵۲)
+PASS  after/1 and the result says so  (سینا_طب_۵۲)
+PASS  after/1 the stock still moves  (yes)
+PASS  after/stock-then-brand  the probe ran
+--- after stock-then-brand ---
+probe=ran
+stock_proposal_code=stock_revision_requested
+brand_request_code=brand_requested
+stock_approve_code=revision_approved
+after_stock_row_brand=آریا_طب_۵۲
+after_stock_row_term=89
+after_stock_shop_brand=آریا_طب_۵۲
+after_stock_row_description=متن_کامل_اول
+after_stock_row_stock=7
+after_stock_open_revision=no
+after_stock_open_brand_request=yes
+request_still_open=yes
+brand_approve_code=brand_approved
+after_brand_row_brand=سینا_طب_۵۲
+after_brand_row_term=148
+after_brand_shop_brand=سینا_طب_۵۲
+after_brand_row_description=متن_کامل_اول
+after_brand_row_stock=7
+after_brand_open_revision=no
+after_brand_open_brand_request=no
+brand_is_b=yes
+shop_is_b=yes
+stock_applied=yes
+PASS  after/2 the stock is approved first  (revision_approved)
+PASS  after/2 the request is still open  (yes)
+PASS  after/2 then the brand  (brand_approved)
+PASS  after/2 the row holds the brand  (yes)
+PASS  after/2 the shop holds it  (yes)
+PASS  after/2 and the stock stayed applied  (yes)
+PASS  after/description-and-brand  the probe ran
+--- after description-and-brand ---
+probe=ran
+description_proposal_code=revision_requested
+brand_request_code=brand_requested
+brand_approve_code=brand_approved
+after_brand_row_brand=سینا_طب_۵۲
+after_brand_row_term=149
+after_brand_shop_brand=سینا_طب_۵۲
+after_brand_row_description=متن_کامل_اول
+after_brand_row_stock=12
+after_brand_open_revision=yes
+after_brand_open_brand_request=no
+description_still_proposed=yes
+revision_approve_code=revision_approved
+after_revision_row_brand=سینا_طب_۵۲
+after_revision_row_term=149
+after_revision_shop_brand=سینا_طب_۵۲
+after_revision_row_description=متن_کامل_دوم
+after_revision_row_stock=12
+after_revision_open_revision=no
+after_revision_open_brand_request=no
+description_applied=yes
+brand_survived=yes
+shop_survived=yes
+PASS  after/3 the description is a proposal  (revision_requested)
+PASS  after/3 approving the brand leaves it proposed  (yes)
+PASS  after/3 the description is applied  (yes)
+PASS  after/3 and the brand survives  (yes)
+PASS  after/3 in the shop too  (yes)
+PASS  after/real-conflict  the probe ran
+--- after real-conflict ---
+probe=ran
+revision_code=revision_requested
+payload_brand=مدلاین_۵۲
+payload_brand_baseline=آریا_طب_۵۲
+brand_request_code=brand_requested
+brand_approve_code=brand_approved
+after_brand_row_brand=سینا_طب_۵۲
+after_brand_row_term=150
+after_brand_shop_brand=سینا_طب_۵۲
+after_brand_row_description=متن_کامل_اول
+after_brand_row_stock=12
+after_brand_open_revision=yes
+after_brand_open_brand_request=no
+revision_approve_code=brand_moved
+revision_approve_ok=no
+named_baseline=آریا_طب_۵۲
+named_current=سینا_طب_۵۲
+named_proposed=مدلاین_۵۲
+after_refusal_row_brand=سینا_طب_۵۲
+after_refusal_row_term=150
+after_refusal_shop_brand=سینا_طب_۵۲
+after_refusal_row_description=متن_کامل_اول
+after_refusal_row_stock=12
+after_refusal_open_revision=yes
+after_refusal_open_brand_request=no
+still_pending=yes
+blind_override_code=brand_moved_again
+blind_override_ok=no
+after_blind_row_brand=سینا_طب_۵۲
+after_blind_row_term=150
+after_blind_shop_brand=سینا_طب_۵۲
+after_blind_row_description=متن_کامل_اول
+after_blind_row_stock=12
+after_blind_open_revision=yes
+after_blind_open_brand_request=no
+override_code=revision_approved
+override_ok=yes
+after_override_row_brand=مدلاین_۵۲
+after_override_row_term=95
+after_override_shop_brand=مدلاین_۵۲
+after_override_row_description=متن_کامل_اول
+after_override_row_stock=12
+after_override_open_revision=no
+after_override_open_brand_request=no
+override_applied_proposal=yes
+PASS  after/4 the revision asks for a third brand  (مدلاین_۵۲)
+PASS  after/4 and a request for another is approved  (brand_approved)
+PASS  after/4 it is REFUSED by name  (brand_moved)
+PASS  after/4 the baseline is named  (آریا_طب_۵۲)
+PASS  after/4 what is there now is named  (سینا_طب_۵۲)
+PASS  after/4 what is asked for is named  (مدلاین_۵۲)
+PASS  after/4 nothing is written  (سینا_طب_۵۲)
+PASS  after/4 and the proposal stays open  (yes)
+PASS  after/4 a blind override is refused too  (brand_moved_again)
+PASS  after/4 still writing nothing  (سینا_طب_۵۲)
+PASS  after/4 the honest override applies it  (revision_approved)
+PASS  after/4 to the brand the proposal asked for  (yes)
+PASS  after/request-failure-keeps-typing  the probe ran
+--- after request-failure-keeps-typing ---
+probe=ran
+outcome_code=brand_request_elsewhere
+typed_kept=سینا_طب_۵۲
+typing_survived=yes
+product_saved=yes
+table_restored=yes
+PASS  after/5 the product saves  (yes)
+PASS  after/5 and the typing is kept  (سینا_طب_۵۲)
+PASS  after/5 so the box is filled again  (yes)
+PASS  after/carry-over-brand  the probe ran
+--- after carry-over-brand ---
+probe=ran
+stock_proposal_code=stock_revision_requested
+brand_request_code=brand_requested
+brand_approve_code=brand_approved
+row_brand_now=سینا_طب_۵۲
+payload_brand=آریا_طب_۵۲
+rendered=yes
+box_shows=__empty__
+hidden_tag=<input_type="hidden"_name="brand"_value="سینا_طب_۵۲">
+hidden_present=yes
+hidden_carries=سینا_طب_۵۲
+form_agrees_with_row=yes
+form_carries_payload_brand=no
+step2_save_code=revision_requested
+revision_payload_brand=سینا_طب_۵۲
+approve_code=revision_approved
+after_row_brand=سینا_طب_۵۲
+after_row_term=151
+after_shop_brand=سینا_طب_۵۲
+after_row_description=متن_کامل_اول
+after_row_stock=7
+after_open_revision=no
+after_open_brand_request=no
+brand_survived=yes
+shop_survived=yes
+PASS  after/6 the form renders  (yes)
+PASS  after/6 the row holds the approved brand  (سینا_طب_۵۲)
+PASS  after/6 the payload still holds the old one  (آریا_طب_۵۲)
+PASS  after/6 and the hidden field is there  (yes)
+PASS  after/6 it carries the brand the box shows  (سینا_طب_۵۲)
+PASS  after/6 which is the row's  (yes)
+PASS  after/6 and not the payload's  (no)
+PASS  after/6 so a step-2 save asks for nothing new  (سینا_طب_۵۲)
+PASS  after/6 the approval goes through  (revision_approved)
+PASS  after/6 and the brand survives it  (yes)
+PASS  after/6 in the shop too  (yes)
+PASS  after/control-vendor-brand-change  the probe ran
+--- after control-vendor-brand-change ---
+probe=ran
+revision_code=revision_requested
+approve_code=revision_approved
+after_row_brand=مدلاین_۵۲
+after_row_term=95
+after_shop_brand=مدلاین_۵۲
+after_row_description=متن_کامل_اول
+after_row_stock=12
+after_open_revision=no
+after_open_brand_request=no
+brand_is_c=yes
+term_is_c=yes
+shop_is_c=yes
+PASS  after/C1 a real brand request is applied  (yes)
+PASS  after/C1 with its term id  (yes)
+PASS  after/C1 and in the shop  (yes)
+PASS  after/control-stock-only  the probe ran
+--- after control-stock-only ---
+probe=ran
+stock_proposal_code=stock_revision_requested
+approve_code=revision_approved
+after_row_brand=آریا_طب_۵۲
+after_row_term=89
+after_shop_brand=آریا_طب_۵۲
+after_row_description=متن_کامل_اول
+after_row_stock=7
+after_open_revision=no
+after_open_brand_request=no
+brand_is_a=yes
+stock_applied=yes
+PASS  after/C2 a stock-only proposal applies  (yes)
+PASS  after/C2 and the brand is untouched  (yes)
+PASS  after/control-reject-keeps-revision  the probe ran
+--- after control-reject-keeps-revision ---
+probe=ran
+stock_proposal_code=stock_revision_requested
+brand_request_code=brand_requested
+reject_code=brand_rejected
+after_reject_row_brand=آریا_طب_۵۲
+after_reject_row_term=89
+after_reject_shop_brand=آریا_طب_۵۲
+after_reject_row_description=متن_کامل_اول
+after_reject_row_stock=12
+after_reject_open_revision=yes
+after_reject_open_brand_request=no
+approve_code=revision_approved
+after_stock_row_brand=آریا_طب_۵۲
+after_stock_row_term=89
+after_stock_shop_brand=آریا_طب_۵۲
+after_stock_row_description=متن_کامل_اول
+after_stock_row_stock=7
+after_stock_open_revision=no
+after_stock_open_brand_request=no
+brand_is_a=yes
+stock_applied=yes
+PASS  after/C3 rejecting the brand keeps the revision  (yes)
+PASS  after/C3 the product's brand does not move  (yes)
+PASS  after/C3 and the stock still applies  (yes)
+PASS  the installed src/ is this checkout again
+
+PASS=121 FAIL=0

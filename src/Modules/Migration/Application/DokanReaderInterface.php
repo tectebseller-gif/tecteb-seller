@@ -69,14 +69,19 @@ interface DokanReaderInterface
      * difference it recorded — no rate from this marketplace is ever applied to
      * a historical order.
      *
-     * @return list<array{wc_order_id:int, vendor_user_id:int, status:string, total_minor:int, net_minor:int, commission_minor:int, refunded:bool}>
+     * `amount_not_exact` is true when Dokan's stored figure has more
+     * precision than the shop's currency can express — the row is handed back
+     * with zeroes and that flag, never with a rounded number, because a
+     * rounded share is a changed share.
+     *
+     * @return list<array{wc_order_id:int, vendor_user_id:int, status:string, total_minor:int, net_minor:int, commission_minor:int, refunded:bool, amount_not_exact:bool}>
      */
     public function orders(): array;
 
     /**
      * One page of order rows, strictly after `$afterId`, ascending.
      *
-     * @return list<array{wc_order_id:int, vendor_user_id:int, status:string, total_minor:int, net_minor:int, commission_minor:int, refunded:bool}>
+     * @return list<array{wc_order_id:int, vendor_user_id:int, status:string, total_minor:int, net_minor:int, commission_minor:int, refunded:bool, amount_not_exact:bool}>
      */
     public function ordersAfter(int $afterId, int $limit = self::PAGE): array;
 

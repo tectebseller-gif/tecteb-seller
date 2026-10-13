@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress;
 
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 
 /**
@@ -212,8 +213,21 @@ final class WpDokanReader implements DokanReaderInterface
         // run.
         $hasNet = $this->columnExists($table, 'net_amount');
         $hasRefunded = $this->columnExists($table, 'is_refunded');
-        $columns = 'order_id, seller_id, order_status, order_total'
-            . ($hasNet ? ', net_amount' : '')
+        // `CAST(... AS CHAR)` on the two money columns, for the same reason
+        // `balanceRowsAfter()` has always done it and this method did not.
+        //
+        // MEASURED AGAINST THE REAL SCHEMA: Dokan 5.1.1 declares
+        // `order_total` and `net_amount` as `decimal(19,4)`
+        // (`includes/Install/Installer.php:370-381`). The previous version
+        // read them with `(int) round((float) …)`, which is the one thing
+        // `alpha.39` wrote down as forbidden — «تقسیم و ضرب روی پول با float
+        // انجام نمی‌شود» — and it was wrong in two ways at once: a float
+        // round can move a figure, and treating `1500000.0000` as 1,500,000
+        // minor units is only right when the shop's exponent is nought. On a
+        // two-decimal currency it would have multiplied every seller's share
+        // by a hundred.
+        $columns = 'order_id, seller_id, order_status, CAST(order_total AS CHAR) AS order_total'
+            . ($hasNet ? ', CAST(net_amount AS CHAR) AS net_amount' : '')
             . ($hasRefunded ? ', is_refunded' : '');
 
         $rows = $this->db->getResults(
@@ -221,15 +235,34 @@ final class WpDokanReader implements DokanReaderInterface
              WHERE order_id > %d ORDER BY order_id ASC LIMIT %d',
             [max(0, $afterId), $this->page($limit)]
         );
-        return array_map(static function (array $row): array {
-            $total = (int) round((float) $row['order_total']);
+        $exponent = $this->exponent();
+        return array_map(static function (array $row) use ($exponent): array {
+            // `toMinor()` refuses a value with more precision than the
+            // exponent allows and answers null. Null is carried as a REFUSAL
+            // rather than as zero: a historical order whose figure cannot be
+            // expressed exactly is one a human has to look at, and «۰» would
+            // be a silent write-off of somebody's share.
+            $total = DecimalAmount::toMinor((string) $row['order_total'], $exponent);
+            $net = array_key_exists('net_amount', $row) && $row['net_amount'] !== null
+                ? DecimalAmount::toMinor((string) $row['net_amount'], $exponent)
+                : $total;
+            if ($total === null) {
+                return [
+                    'wc_order_id' => (int) $row['order_id'],
+                    'vendor_user_id' => (int) $row['seller_id'],
+                    'status' => (string) $row['order_status'],
+                    'total_minor' => 0,
+                    'net_minor' => 0,
+                    'commission_minor' => 0,
+                    'refunded' => false,
+                    'amount_not_exact' => true,
+                ];
+            }
             // Absent net means unknown, NOT zero — and unknown is carried as
             // the total rather than as a figure this plugin worked out. A
             // computed commission here would be exactly the recalculation the
             // whole design refuses.
-            $net = array_key_exists('net_amount', $row) && $row['net_amount'] !== null
-                ? (int) round((float) $row['net_amount'])
-                : $total;
+            $net ??= $total;
             return [
                 'wc_order_id' => (int) $row['order_id'],
                 'vendor_user_id' => (int) $row['seller_id'],
@@ -239,6 +272,7 @@ final class WpDokanReader implements DokanReaderInterface
                 // The difference Dokan itself recorded, not a rate applied.
                 'commission_minor' => max(0, $total - $net),
                 'refunded' => array_key_exists('is_refunded', $row) && (int) $row['is_refunded'] === 1,
+                'amount_not_exact' => false,
             ];
         }, $rows);
     }
@@ -447,6 +481,24 @@ final class WpDokanReader implements DokanReaderInterface
     private function page(int $limit): int
     {
         return max(1, min(1000, $limit));
+    }
+
+    /**
+     * The shop's price exponent, asked of WooCommerce rather than assumed.
+     *
+     * `wc_get_price_decimals()` is the same source `WcOrderReader::unit()`
+     * uses (`alpha.39`), so a Dokan order and a WooCommerce order are read
+     * with ONE answer about what a stored figure means. Two readings of that
+     * would be two currencies in one ledger, which `VendorBalance` refuses a
+     * layer down.
+     */
+    private function exponent(): int
+    {
+        if (!function_exists('wc_get_price_decimals')) {
+            return 0;
+        }
+        $decimals = (int) wc_get_price_decimals();
+        return $decimals >= 0 && $decimals <= DecimalAmount::MAX_EXPONENT ? $decimals : 0;
     }
 
     private function ordersTable(): string

@@ -1,0 +1,6 @@
+probe=ran
+outcome_code=brand_request_elsewhere
+typed_kept=سینا_طب_۵۲
+typing_survived=yes
+product_saved=yes
+table_restored=yes

@@ -24,6 +24,27 @@
  *   wp eval-file tools/plugin-exit-inventory.php            # everything
  *   wp eval-file tools/plugin-exit-inventory.php meta       # product meta keys only
  *   wp eval-file tools/plugin-exit-inventory.php dokan      # Dokan only
+ *   wp eval-file tools/plugin-exit-inventory.php minmax     # Min Max mode and rule counts
+ *   wp eval-file tools/plugin-exit-inventory.php files      # path, header and hash of the active files
+ *
+ * **The honest limit of the static «read only» test.** What
+ * `tests/Unit/ReadOnlyInventoryTest.php` proves is that THIS FILE contains no
+ * writer: not one of the WordPress write functions, not one of wpdb's, and no
+ * SQL verb that changes anything, with comments blanked first so the prose
+ * explaining the rule cannot satisfy it. What it does NOT prove, and is not
+ * claimed:
+ *
+ *  - that no PLUGIN writes while this runs. Loading WordPress fires
+ *    `plugins_loaded`, `init` and `admin_init`, and some plugins migrate their
+ *    own data on those hooks. That is true of any WP-CLI command — including
+ *    `wp plugin list` — and it is not caused by this script, but «read only»
+ *    should not be heard as «the site is frozen while it runs».
+ *  - that WordPress itself writes nothing. Loading a site can refresh a
+ *    transient or an object-cache row.
+ *  - anything about a database user's permissions.
+ *
+ * It is safe to run in the sense that matters — it issues no write of its own
+ * and asks for nothing privileged — and that is the whole of the claim.
  *
  * Nothing it prints is a secret: plugin names and versions, table names, row
  * counts, meta KEYS and how many products carry each. No meta values, no user
@@ -210,6 +231,249 @@ if ($section === 'all') {
                 $seen[$hook] = true;
                 $line('cron_hook', (string) $hook);
             }
+        }
+    }
+}
+
+// ------------------------------------------ the files that are actually live
+
+if ($section === 'all' || $section === 'files') {
+    $head('active plugin files: path, header version and hash');
+    echo "# §5 asks for this because a header and a dashboard can disagree, and\n";
+    echo "# the owner has seen them disagree: the submitted Dokan files say\n";
+    echo "# 5.1.1 while the dashboard showed 5.0.1 and 5.0.12. The cause is NOT\n";
+    echo "# guessed at here. What is printed is only what can be read: the file\n";
+    echo "# WordPress is loading, the version in its header, the version a\n";
+    echo "# constant holds, and the sha256 of the file. Whoever compares those\n";
+    echo "# four has the evidence; this script does not draw the conclusion.\n";
+    foreach ((array) get_option('active_plugins', []) as $plugin) {
+        $path = WP_PLUGIN_DIR . '/' . $plugin;
+        $data = function_exists('get_plugin_data') ? get_plugin_data($path, false, false) : [];
+        $hash = is_readable($path) ? hash_file('sha256', $path) : 'unreadable';
+        $line('file', $plugin
+            . ' | header=' . (string) ($data['Version'] ?? '?')
+            . ' | bytes=' . (is_readable($path) ? (string) filesize($path) : '?')
+            . ' | sha256=' . (string) $hash);
+    }
+    echo "# And the version CONSTANTS, which is the other half of the comparison:\n";
+    echo "# a constant and a header that differ mean two sets of files have been\n";
+    echo "# mixed, which a hash of one file alone cannot show.\n";
+    foreach ([
+        'DOKAN_PLUGIN_VERSION', 'DOKAN_PRO_PLUGIN_VERSION', 'DOKAN_PRO_VERSION',
+        'WC_MMQ_VERSION', 'WC_MMQ_PRO_VERSION', 'WC_VERSION', 'TMC_PLUGIN_VERSION',
+    ] as $constant) {
+        $line('constant_' . $constant, defined($constant) ? (string) constant($constant) : 'absent');
+    }
+    echo "# A plugin folder that carries a directory no upstream release has is a\n";
+    echo "# modification, and it is named rather than summarised. Listed because\n";
+    echo "# the submitted Dokan Lite and Pro both require `abzarwp/abzarwp.php`\n";
+    echo "# from the FIRST LINE of their main file, and all 37 and 46 PHP files\n";
+    echo "# under those directories are SourceGuardian-encrypted — so they run\n";
+    echo "# before Dokan on every request and cannot be read by anybody.\n";
+    foreach ((array) get_option('active_plugins', []) as $plugin) {
+        $dir = dirname(WP_PLUGIN_DIR . '/' . $plugin);
+        foreach (['abzarwp', 'license', 'licence', 'activation'] as $suspect) {
+            if (is_dir($dir . '/' . $suspect)) {
+                $files = glob($dir . '/' . $suspect . '/**/*.php', GLOB_BRACE) ?: [];
+                $top = glob($dir . '/' . $suspect . '/*.php') ?: [];
+                $line('extra_dir', dirname($plugin) . '/' . $suspect
+                    . ' | php_files_at_top=' . (string) count($top)
+                    . ' | php_files_nested=' . (string) count($files));
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------- min max
+
+if ($section === 'all' || $section === 'minmax') {
+    $head('min max control: the effective mode');
+    echo "# The mode is derived the PLUGIN'S way and in the plugin's order,\n";
+    echo "# read out of wcmmq.php:49-61. The test there is TRUTHINESS, not\n";
+    echo "# existence: an option row that exists and holds '', 0 or array() is\n";
+    echo "# falsy and the plugin falls through to the next branch. And the PRO\n";
+    echo "# key wins even though it is read second.\n";
+    $truthy = static function (mixed $value): bool {
+        if ($value === false || $value === null) {
+            return false;
+        }
+        if (is_array($value)) {
+            return $value !== [];
+        }
+        if (is_string($value)) {
+            return $value !== '' && $value !== '0';
+        }
+        return (bool) $value;
+    };
+    $universal = get_option('wcmmq_universal_minmaxstep');
+    $single = get_option('wcmmq_s_universal_minmaxstep');
+    $line('wcmmq_universal_minmaxstep_present', $universal === false ? 'no' : 'yes');
+    $line('wcmmq_universal_minmaxstep_truthy', $truthy($universal) ? 'yes' : 'no');
+    $line('wcmmq_s_universal_minmaxstep_present', $single === false ? 'no' : 'yes');
+    $line('wcmmq_s_universal_minmaxstep_truthy', $truthy($single) ? 'yes' : 'no');
+    if ($truthy($universal)) {
+        $prefix = '_wcmmq_';
+        $optionKey = 'wcmmq_universal_minmaxstep';
+        $mode = 'universal';
+    } elseif ($truthy($single)) {
+        $prefix = '_wcmmq_s_';
+        $optionKey = 'wcmmq_s_universal_minmaxstep';
+        $mode = 'single';
+    } else {
+        $prefix = '';
+        $optionKey = 'wcmmq_minmaxstep';
+        $mode = 'plain';
+    }
+    $line('effective_mode', $mode);
+    $line('effective_prefix', $prefix === '' ? '(none)' : $prefix);
+    $line('effective_option_key', $optionKey);
+    $line('live_constant_prefix', defined('WC_MMQ_PREFIX')
+        ? (WC_MMQ_PREFIX === '' ? '(none)' : WC_MMQ_PREFIX)
+        : 'absent');
+    $line('premium_active', defined('WC_MMQ_PRO_VERSION') ? 'yes' : 'no');
+    echo "# When premium is absent the per-VARIATION level never fires: the\n";
+    echo "# plugin returns before reading it and nulls the variation id. Rows\n";
+    echo "# may still exist from an earlier premium install and are counted,\n";
+    echo "# because installing premium would wake them up.\n";
+
+    $head('min max control: rules per level');
+    foreach (['min_quantity', 'max_quantity', 'product_step', 'default_quantity'] as $field) {
+        foreach (['product', 'product_variation'] as $postType) {
+            $line('rows_' . $postType . '_' . $prefix . $field, (string) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->postmeta} m
+                   JOIN {$wpdb->posts} p ON p.ID = m.post_id
+                  WHERE m.meta_key = %s AND p.post_type = %s
+                    AND TRIM(COALESCE(m.meta_value, '')) <> ''",
+                $prefix . $field,
+                $postType
+            )));
+        }
+    }
+    $options = get_option($optionKey);
+    $options = is_array($options) ? $options : [];
+    $line('global_option_present', $options === [] ? 'no' : 'yes');
+    foreach (['min_quantity', 'max_quantity', 'product_step', 'default_quantity'] as $field) {
+        // The global rule is a LIMIT, not personal data, so the value is
+        // printed: the exit decision is impossible without it.
+        $line('global_' . $field, array_key_exists($prefix . $field, $options)
+            ? (string) $options[$prefix . $field]
+            : '(absent, plugin default applies)');
+    }
+    $terms = $options['terms'] ?? null;
+    $termCount = 0;
+    if (is_array($terms)) {
+        foreach ($terms as $taxonomy => $byTerm) {
+            if (is_array($byTerm)) {
+                $termCount += count($byTerm);
+                $line('term_rules_in_' . (string) $taxonomy, (string) count($byTerm));
+            }
+        }
+    }
+    $line('term_rules_total', (string) $termCount);
+    echo "# A term rule's MAXIMUM defaults to 1, not «unlimited»\n";
+    echo "# (setTermwiseArgs()), so a term rule configured with only a minimum\n";
+    echo "# enforces a maximum of ONE on every product in that term.\n";
+    $line('cat_ids_set', array_key_exists('_cat_ids', $options) && is_array($options['_cat_ids'])
+        ? (string) count($options['_cat_ids'])
+        : 'no');
+    $line('quantity_box_in_archive', (string) ($options['quantiy_box_archive'] ?? '(absent)'));
+}
+
+// ------------------------------------------- the handover state, per plugin
+
+if ($section === 'all' || $section === 'dokan' || $section === 'minmax') {
+    $head('handover state');
+    echo "# What this marketplace has already decided about each plugin's data.\n";
+    $handover = $wpdb->prefix . 'tmc_minmax_handover';
+    $exists = (int) $wpdb->get_var($wpdb->prepare(
+        'SELECT COUNT(*) FROM information_schema.TABLES
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+        $handover
+    ));
+    $line('minmax_handover_table', $exists === 1 ? 'present' : 'absent');
+    if ($exists === 1) {
+        foreach ((array) $wpdb->get_results(
+            'SELECT status, COUNT(*) AS n FROM `' . $handover . '` GROUP BY status',
+            ARRAY_A
+        ) as $row) {
+            $line('minmax_handover_' . (string) $row['status'], (string) $row['n']);
+        }
+        foreach ((array) $wpdb->get_results(
+            $wpdb->prepare(
+                'SELECT problems, COUNT(*) AS n FROM `' . $handover . '`
+                  WHERE problems <> %s GROUP BY problems',
+                ''
+            ),
+            ARRAY_A
+        ) as $row) {
+            $line('minmax_blocked_by_' . (string) $row['problems'], (string) $row['n']);
+        }
+    }
+    $line('dokan_import_runs', (string) count((array) get_option('tmc_dokan_import_runs', [])));
+    $handoverRows = $wpdb->prefix . 'tmc_dokan_handover';
+    $hasHandover = (int) $wpdb->get_var($wpdb->prepare(
+        'SELECT COUNT(*) FROM information_schema.TABLES
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+        $handoverRows
+    ));
+    $line('dokan_handover_table', $hasHandover === 1 ? 'present' : 'absent');
+    if ($hasHandover === 1) {
+        $line('dokan_handover_rows', (string) $wpdb->get_var(
+            'SELECT COUNT(*) FROM `' . $handoverRows . '`'
+        ));
+    }
+    echo "# Dokan's purge-on-uninstall setting. THE SETTING, not an action:\n";
+    echo "# dokan's own uninstall.php drops its tables, user metas, roles and\n";
+    echo "# pages when dokan_general[data_clear_on_uninstall] is 'on'. No\n";
+    echo "# uninstall is run by anything in this repository, and deactivating a\n";
+    echo "# plugin does not run it either — but a manager who DELETES the plugin\n";
+    echo "# with this setting on loses the data this migration reads.\n";
+    $general = get_option('dokan_general');
+    $general = is_array($general) ? $general : [];
+    $line('dokan_data_clear_on_uninstall', array_key_exists('data_clear_on_uninstall', $general)
+        ? (string) $general['data_clear_on_uninstall']
+        : '(absent — Dokan treats this as off)');
+
+    echo "# Dokan Pro's ACTIVE modules, and whether their directory is on disk.
+";
+    echo "# Asked because the Pro package submitted for review ships 10 module
+";
+    echo "# directories while its own loader knows 41 — vendor-staff among the
+";
+    echo "# absent ones. A module that is marked active with no directory is a
+";
+    echo "# feature the site believes it has; a directory with no mark is one it
+";
+    echo "# could turn on. Neither can be inferred from the files alone.
+";
+    $activeModules = get_option('dokan_pro_active_modules');
+    $line('dokan_pro_active_modules_option', $activeModules === false ? 'absent' : 'present');
+    $moduleDir = defined('DOKAN_PRO_MODULE_DIR') ? DOKAN_PRO_MODULE_DIR : '';
+    foreach ((array) (is_array($activeModules) ? $activeModules : []) as $module) {
+        $slug = str_replace('_', '-', (string) $module);
+        $onDisk = $moduleDir !== '' && is_dir($moduleDir . '/' . $slug) ? 'yes' : 'no';
+        $line('dokan_module_active', (string) $module . ' | directory_present=' . $onDisk);
+    }
+    if ($moduleDir !== '' && is_dir($moduleDir)) {
+        $dirs = glob($moduleDir . '/*', GLOB_ONLYDIR) ?: [];
+        $line('dokan_module_dirs_on_disk', (string) count($dirs));
+        foreach ($dirs as $dir) {
+            $line('dokan_module_dir', basename((string) $dir));
+        }
+    }
+}
+
+// -------------------------------------------------- this plugin's own modules
+
+if ($section === 'all') {
+    $head('marketplace modules');
+    echo "# Which of this plugin's modules are loaded, so a report about a\n";
+    echo "# migration path can say whether the module that owns it is even on.\n";
+    $enabled = get_option('tmc_enabled_modules');
+    $line('module_option_present', $enabled === false ? 'no' : 'yes');
+    if (is_array($enabled)) {
+        foreach ($enabled as $slug => $on) {
+            $line('module_' . (string) $slug, $on ? 'on' : 'off');
         }
     }
 }

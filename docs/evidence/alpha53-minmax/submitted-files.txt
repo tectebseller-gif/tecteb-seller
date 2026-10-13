@@ -1,0 +1,20 @@
+# Read-only inventory of the three files the owner submitted (2026-10-13)
+# Measured in the disposable environment. Nothing was read from tecteb.com or staging.tecteb.com.
+
+## archives as received
+4aa05319-dokan.lit         15595200 bytes  sha256=e2809ba7599bac8675c1f05922b36f5c10aa8e5c1ec8fa4bd7b37ec03e120c4f
+8430fba6-dokan.pro         16254318 bytes  sha256=b46229c17f1aef052c25bc7234fa67a4d6e6f72783250f3232bb8ece18f2a6f0
+6b56085f-min.max            1097962 bytes  sha256=31a88df16bb1a6550c4ba6a34e02508d3db435e8591e56d42f70dad57b606fba
+
+## main file header vs constant
+plugin                   header Version:                sha256 of main file
+dokan-lite               5.1.1                          8925ed8950fd0ff2852c503c06ac15554c00ebe414906dba1698eb1f938266ff
+dokan-pro                5.1.1                          8d4d23e48a46c82afd9fc35b3da444113dbf4f04c363c5b413352ff99a69fa47
+woo-min-max-quantity-step-control-single 8.1.0                          1e5aa797b8da1b8ac12f6c9adf8c967e4a9c3fc36e893ae4c29d690a84f125fa
+
+WC_MMQ_VERSION = '8.1.0.0'
+
+## file counts
+dokan-lite                                         files=1253   php=794
+dokan-pro                                          files=5983   php=5313
+woo-min-max-quantity-step-control-single           files=168    php=54
