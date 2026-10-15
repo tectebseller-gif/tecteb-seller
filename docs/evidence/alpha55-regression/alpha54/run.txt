@@ -220,7 +220,7 @@ agree_fresh=yes
 record_fresh=__absent__
 ledger_fresh=rolled_back_before=__absent___wrote=4
 PASS  before/C5 and they still agree in a FRESH request  (yes)
-PASS  0d the installed tree is this checkout  (ecdff9de00225684ff39a3ac0d190160ad307b6450cc5c6d0716aa8d088b8026)
+PASS  0d the installed tree is this checkout  (40821484edcc5957c3322637ebeb7d8c414feb904777c878ca5e5023b630fdf0)
 PASS  0e replacing the files runs no migration by itself  (27)
 PASS  0f the first admin request answers 200  (200)
 PASS  0g and the gate has moved the schema to 28  (28)

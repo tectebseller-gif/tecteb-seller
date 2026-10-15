@@ -141,12 +141,26 @@ interface ShopQuantityPortInterface
      * ownership, not its approval cycle. `PurchasePolicy` still answers
      * `NOT_OURS` about it, which is what keeps the storefront stop, the
      * projector and the vendor's catalogue out of somebody else's product.
+     *
+     * `$rule` is the three values the caller read UNDER THE LOCK, keyed
+     * `min`/`max`/`step` as `readRows()` returns them. The grant is stored as
+     * a fingerprint of them, not as a flag, so it says «enforce 4/10/2» and
+     * not «enforce whatever these rows hold next week» — `alpha.49`'s rule,
+     * one object down. A rule that drifts afterwards is simply not enforced,
+     * which is where such a product was before any grant existed.
+     *
+     * @param array{min:?string, max:?string, step:?string} $rule
      */
-    public function grantEnforcement(int $postId): bool;
+    public function grantEnforcement(int $postId, array $rule): bool;
 
     public function revokeEnforcement(int $postId): bool;
 
-    /** Whether the grant is on this post — asked for reports, not for hooks. */
+    /**
+     * Whether the grant on this post is LIVE — present and still describing
+     * the rule the rows now hold. Asked for reports, not for hooks; the cart
+     * asks `QuantityGuard` the same question off the product object it was
+     * handed.
+     */
     public function enforcementGranted(int $postId): bool;
 
     /** Whether this post id is a product or variation the shop actually has. */

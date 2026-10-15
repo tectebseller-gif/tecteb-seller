@@ -131,6 +131,30 @@ final class ProjectedQuantity
     }
 
     /**
+     * The fingerprint of a WHOLE RULE — the three values together.
+     *
+     * The enforcement grant is stored as this rather than as `'1'`, and that
+     * is the difference between «the manager allowed this marketplace to
+     * enforce 4/10/2» and «the manager allowed it to enforce whatever these
+     * rows say next week». `alpha.49`'s rule, one object down: an override is
+     * about the values that were shown, and anything else is a permission
+     * nobody gave.
+     *
+     * A separator that cannot occur in a quantity value, so `1|12|1` and
+     * `11|2|1` cannot collide.
+     *
+     * @param array<string,string> $meta the three rows, keyed by meta key
+     */
+    public static function ruleFingerprint(array $meta): string
+    {
+        $parts = [];
+        foreach (self::keys() as $key) {
+            $parts[] = trim((string) ($meta[$key] ?? ''));
+        }
+        return self::fingerprint(implode('|', $parts));
+    }
+
+    /**
      * The record as it is stored, in the one shape the readers expect.
      *
      * A value that is not a map of `key => fingerprint` — anything a hand or

@@ -506,6 +506,34 @@ switch ($verb) {
     }
 
     /**
+     * THE GRANT IS ABOUT ONE RULE. Change the rule by hand and the grant
+     * stops being live.
+     *
+     * The grant is stored as a fingerprint of the three values it was given
+     * for, so this measures the thing a flag could not express: the row is
+     * still on the product, and the cart no longer enforces it. Not enforcing
+     * is where such a product was before any grant existed; enforcing numbers
+     * nobody approved would be new.
+     *
+     * Run `cart` after this to read what the basket now allows.
+     */
+    case 'drift': {
+        $wcId = (int) ($args[1] ?? 0);
+        $say('grant_row_before', (string) get_post_meta($wcId, ProjectedQuantity::ENFORCE_META, true));
+        $say('granted_before', $port->enforcementGranted($wcId));
+        // A hand in Min Max, a hand in the WooCommerce panel — written
+        // straight onto the row, which is what either of them does.
+        update_post_meta($wcId, ProjectedQuantity::META_MAX, '8');
+        wp_cache_delete((string) $wcId, 'post_meta');
+        $say('rows_after', $dbRows($wcId));
+        $say('grant_row_after', (string) get_post_meta($wcId, ProjectedQuantity::ENFORCE_META, true));
+        $say('grant_row_unchanged', (string) get_post_meta($wcId, ProjectedQuantity::ENFORCE_META, true) !== '');
+        $say('granted_after', $port->enforcementGranted($wcId));
+        $say('ledger_after', $ledgerRow($wcId));
+        break;
+    }
+
+    /**
      * What the cart allows for one product — classic validation and the
      * Store API's own limits, read from WooCommerce itself.
      *

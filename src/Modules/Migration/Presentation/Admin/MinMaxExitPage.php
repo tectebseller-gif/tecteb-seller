@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrateMinMax;
 use Tecteb\Marketplace\Modules\Migration\Application\MinMaxHandoverRepositoryInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\ShopQuantityPortInterface;
 use Tecteb\Marketplace\Modules\Migration\Domain\MinMaxRule;
 
 /**
@@ -309,6 +310,8 @@ final class MinMaxExitPage
         // products in exactly that state.
         $unenforced = $this->liveRows($ledger, MinMaxHandoverRepositoryInterface::UNENFORCED);
         $enforced = $this->liveRows($ledger, MinMaxHandoverRepositoryInterface::ENFORCED);
+        /** @var ShopQuantityPortInterface $port */
+        $port = $this->container->get(ShopQuantityPortInterface::class);
         if ($unenforced !== [] || $enforced !== []) {
             echo '<h3 class="tmc-card__title">' . esc_html__('مجوز اعمال قاعده', 'tecteb-marketplace-core') . '</h3>';
             echo '<p>' . esc_html__('این محصول‌ها قاعدهٔ تعداد خرید را دارند ولی بازارگاه مالکشان نیست، پس به‌خودیِ‌خود قاعده اعمال نمی‌شود. «اعمال شود» فقط و فقط همین یک قاعده را روشن می‌کند: فروشنده، مالکیت محصول، وضعیت انتشار و چرخهٔ تأیید دست‌نخورده می‌مانند و هیچ صفحهٔ دیگری دربارهٔ این محصول نظر نمی‌دهد. اگر پس از انتقال کسی قاعده را عوض کرده باشد، مجوز رد می‌شود و می‌گوید کدام فیلد عوض شده.', 'tecteb-marketplace-core') . '</p>';
@@ -317,6 +320,7 @@ final class MinMaxExitPage
                 . '<th scope="col">' . esc_html__('شناسه', 'tecteb-marketplace-core') . '</th>'
                 . '<th scope="col">' . esc_html__('قاعدهٔ نوشته‌شده', 'tecteb-marketplace-core') . '</th>'
                 . '<th scope="col">' . esc_html__('وضعیت', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('الان اعمال می‌شود؟', 'tecteb-marketplace-core') . '</th>'
                 . '<th scope="col">' . esc_html__('اقدام', 'tecteb-marketplace-core') . '</th>'
                 . '</tr></thead><tbody>';
             foreach ([[$unenforced, 'enforce', __('اعمال شود', 'tecteb-marketplace-core')],
@@ -330,6 +334,7 @@ final class MinMaxExitPage
                             (string) $row['written_step']
                         )) . '</td>'
                         . '<td>' . esc_html($this->statusLabel((string) $row['status'], [])) . '</td>'
+                        . '<td>' . esc_html($this->liveAnswer($port, $row, $verb)) . '</td>'
                         . '<td><form method="post" class="tmc-inline-form">'
                         . wp_nonce_field(self::NONCE, 'tmc_minmax_nonce', true, false)
                         . '<input type="hidden" name="post_id" value="' . esc_attr((string) $row['post_id']) . '">'
@@ -377,6 +382,35 @@ final class MinMaxExitPage
             echo '</tbody></table></div>';
         }
         echo '</section>';
+    }
+
+    /**
+     * Whether the grant is enforcing ANYTHING RIGHT NOW.
+     *
+     * The ledger status says what was decided; this says what the cart does,
+     * and after `alpha.55` the two can disagree in one direction: the grant is
+     * stored as a fingerprint of the rule it was given for, so a rule somebody
+     * changed afterwards is not enforced. A page that printed only
+     * `rule_enforced` would be a row shown and not applied — the failure this
+     * repository has found in four rounds — so the live answer is asked HERE,
+     * once, and the table prints it beside the status.
+     *
+     * It costs two statements per GRANTED row and none for the rest, because
+     * only a granted row can be in that disagreement. This page lists at most
+     * fifty of each, is opened by hand during a migration, and is the one
+     * place where «what does the cart do» has to be right rather than cheap.
+     *
+     * @param array<string,mixed> $row
+     */
+    private function liveAnswer(ShopQuantityPortInterface $port, array $row, string $verb): string
+    {
+        if ($verb !== 'unenforce') {
+            return __('نه — مجوز صادر نشده', 'tecteb-marketplace-core');
+        }
+        if ($port->enforcementGranted((int) $row['post_id'])) {
+            return __('بله', 'tecteb-marketplace-core');
+        }
+        return __('نه — قاعده پس از صدور مجوز عوض شده؛ مجوز را دوباره صادر کنید', 'tecteb-marketplace-core');
     }
 
     /**

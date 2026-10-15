@@ -173,19 +173,27 @@ class RecordingQuantityPort implements ShopQuantityPortInterface
         $this->forgotten++;
     }
 
-    /** Post id => whether the enforcement grant is on it. */
+    /** Post id => the rule the enforcement grant was given for, as `min/max/step`. */
     public array $granted = [];
 
     /** The grant write refuses when this is true. */
     public bool $refuseGrant = false;
 
-    public function grantEnforcement(int $postId): bool
+    /** @param array{min:?string, max:?string, step:?string} $rule */
+    public function grantEnforcement(int $postId, array $rule): bool
     {
         if ($this->refuseGrant) {
             return false;
         }
-        $this->writes[] = 'grant:' . $postId;
-        $this->granted[$postId] = true;
+        // The rule is recorded, not a `true`: a test that only asked «is it
+        // granted» could not tell a grant for the rule that was shown from a
+        // grant for whatever the rows hold now.
+        $this->granted[$postId] = implode('/', [
+            $rule['min'] ?? '__absent__',
+            $rule['max'] ?? '__absent__',
+            $rule['step'] ?? '__absent__',
+        ]);
+        $this->writes[] = 'grant:' . $postId . ':' . $this->granted[$postId];
         return true;
     }
 
@@ -201,7 +209,7 @@ class RecordingQuantityPort implements ShopQuantityPortInterface
 
     public function enforcementGranted(int $postId): bool
     {
-        return $this->granted[$postId] ?? false;
+        return isset($this->granted[$postId]);
     }
 
     public function exists(int $postId): bool

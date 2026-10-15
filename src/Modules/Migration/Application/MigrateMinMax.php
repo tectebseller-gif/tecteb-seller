@@ -762,26 +762,42 @@ final class MigrateMinMax
             $this->transaction->rollback();
             return OperationResult::failure('minmax_' . $verb . '_unreadable', ['post_id' => $postId]);
         }
-        foreach (['min', 'max', 'step'] as $part) {
-            $wrote = $row['written_' . $part];
-            if ($wrote === null) {
-                continue;
-            }
-            if ((string) ($now[$part] ?? '') !== (string) $wrote) {
-                $this->transaction->rollback();
-                // The rule on the product is not the rule that was migrated,
-                // so there is nothing here the manager has read.
-                return OperationResult::failure('minmax_' . $verb . '_changed', [
-                    'post_id' => $postId,
-                    'field' => $part,
-                    'wrote' => (string) $wrote,
-                    'now' => $now[$part] === null ? '__absent__' : (string) $now[$part],
-                ]);
+        // ONLY WHEN GRANTING. A permission must always be withdrawable: if
+        // the drift check ran on the way out too, a rule that changed after
+        // the grant would leave the grant STUCK ON — the manager would be
+        // told «the rule changed» and the marketplace would go on enforcing
+        // it. Refusing to grant on drift is conservative; refusing to revoke
+        // on drift is a lock on the wrong door.
+        if ($grant) {
+            foreach (['min', 'max', 'step'] as $part) {
+                $wrote = $row['written_' . $part];
+                if ($wrote === null) {
+                    continue;
+                }
+                if ((string) ($now[$part] ?? '') !== (string) $wrote) {
+                    $this->transaction->rollback();
+                    // The rule on the product is not the rule that was
+                    // migrated, so there is nothing here the manager has read.
+                    return OperationResult::failure('minmax_' . $verb . '_changed', [
+                        'post_id' => $postId,
+                        'field' => $part,
+                        'wrote' => (string) $wrote,
+                        'now' => $now[$part] === null ? '__absent__' : (string) $now[$part],
+                    ]);
+                }
             }
         }
 
+        // The grant is stored AS THE RULE IT WAS GRANTED FOR, from the rows
+        // just read under the lock — not as a bare `'1'`. `alpha.49`, one
+        // object down: an override is about the values that were shown, and a
+        // flag would say «enforce whatever these rows hold next week».
         $stored = $grant
-            ? $this->shop->grantEnforcement($postId)
+            ? $this->shop->grantEnforcement($postId, [
+                'min' => $now['min'],
+                'max' => $now['max'],
+                'step' => $now['step'],
+            ])
             : $this->shop->revokeEnforcement($postId);
         if (!$stored) {
             $this->transaction->rollback();

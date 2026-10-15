@@ -36,7 +36,7 @@ probe=ran
 destination_before=__absent__/6/__absent__
 outcome=migrated
 second_writer_landed=yes
-second_writer_waited_ms=10
+second_writer_waited_ms=5
 db_rows_after=4/10/2
 ledger_after=migrated_before=6_wrote=10
 PASS  before/6a the destination had a value  (__absent__/6/__absent__)
@@ -94,7 +94,7 @@ probe=ran
 destination_before=__absent__/6/__absent__
 outcome=migrated
 second_writer_landed=no
-second_writer_waited_ms=3003
+second_writer_waited_ms=3004
 db_rows_after=4/10/2
 ledger_after=migrated_before=6_wrote=10
 PASS  after/6a the destination had a value  (__absent__/6/__absent__)
@@ -178,6 +178,44 @@ gate_restored=yes
 PASS  5e without the grant the rule is gone: qty 1  (allowed)
 PASS  5e qty 3  (allowed)
 PASS  5e qty 11  (allowed)
+PASS  after/enforce  the probe ran
+PASS  after/drift  the probe ran
+--- after drift, Min Max OFF ---
+probe=ran
+grant_row_before=ca768f86fb278e699f7f3613f72670147cb130e9d80f65ea7eac9e57043a4f26
+granted_before=yes
+rows_after=4/8/2
+grant_row_after=ca768f86fb278e699f7f3613f72670147cb130e9d80f65ea7eac9e57043a4f26
+grant_row_unchanged=yes
+granted_after=no
+ledger_after=rule_enforced_before=__absent___wrote=10
+PASS  5f the grant was a fingerprint, not a flag  (yes)
+PASS  5f the grant row is still on the product  (yes)
+PASS  5f and it is no longer live  (no)
+PASS  5f the rule on the product moved  (4/8/2)
+PASS  after/cart  the probe ran
+--- after cart, Min Max OFF, rule drifted ---
+probe=ran
+input_args=1/90/1
+qty_1=allowed
+qty_3=allowed
+qty_4=allowed
+qty_8=allowed
+qty_11=allowed
+store_api_qty_3=allowed
+store_api_qty_4=allowed
+gate_restored=yes
+PASS  5f a drifted rule is not enforced: qty 1  (allowed)
+PASS  5f a drifted rule is not enforced: qty 3  (allowed)
+PASS  5f a drifted rule is not enforced: qty 11  (allowed)
+PASS  after/unenforce  the probe ran
+--- after unenforce, rule drifted ---
+probe=ran
+unenforce_code=minmax_rule_unenforced
+granted=no
+rows_after=4/8/2
+PASS  5g the grant comes back even after the rule moved  (minmax_rule_unenforced)
+PASS  5g and the newer value is untouched  (4/8/2)
 Min Max reactivated
 
 =================== the intake ===================
@@ -214,7 +252,7 @@ probe=ran
 code=intake_done
 imported=1
 reason=
-observed_row=1332
+observed_row=1334
 same_wc_id=yes
 url_unchanged=yes
 status_unchanged=yes
@@ -259,5 +297,5 @@ PASS  after/inventory  the probe ran
 PASS  4c the catalogue is back where it started  (111)
 PASS  after/reset  the probe ran
 
-PASS=93 FAIL=0
-PASS=93 FAIL=0
+PASS=106 FAIL=0
+PASS=106 FAIL=0

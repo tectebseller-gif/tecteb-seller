@@ -246,10 +246,20 @@ final class QuantityGuard
         // existed — the grant is written by one explicit action on one
         // migrated product, so «no new behaviour for a product that was not
         // migrated» is a property of where the key comes from, not a check.
-        if (PurchaseGuard::ask($policy, $product) === null && !self::ruleIsGranted($product)) {
+        //
+        // AND THE GRANT IS THE RULE, NOT A FLAG. It is stored as a
+        // fingerprint of the three values it was granted for, so a rule that
+        // drifts afterwards — a hand in Min Max, a hand in the WooCommerce
+        // panel — is not enforced: the grant describes numbers that are no
+        // longer there, and acting on it would be enforcing a rule nobody
+        // approved. Such a product then behaves exactly as it did before any
+        // grant existed, which is the state the exit report calls
+        // `written_unenforced`.
+        $rows = self::quantityRows($product);
+        if (PurchaseGuard::ask($policy, $product) === null && !self::ruleIsGranted($rows)) {
             return null;
         }
-        $rule = self::storedRule($policy, $product);
+        $rule = self::storedRule($policy, $product, $rows['meta']);
         if ($rule->isUnrestricted()) {
             return null;
         }
@@ -269,43 +279,85 @@ final class QuantityGuard
     }
 
     /**
-     * Whether the manager has granted that this marketplace enforces this
-     * product's quantity rule.
+     * The three rows and the grant written beside them, AS ONE PAIR.
      *
-     * Read off the product object the hook was handed, so it costs no query:
-     * `WC_Product` already has its meta loaded. A variation with no grant of
-     * its own takes its parent's, because a parent-level Min Max rule is
-     * granted on the parent — and the parent has to be fetched to ask,
-     * because `WC_Data::get_meta()` does NOT fall back to the parent for an
-     * arbitrary key (read from `abstract-wc-data.php`: it reads this
-     * object's own `meta_data` and nothing else; the variation's parent
-     * fallbacks are per-property getters, not meta).
+     * Read off the product object the hook was handed, so the common case
+     * costs no query: `WC_Product` already has its meta loaded.
+     *
+     * The pairing is the point. A variation-level Min Max rule is migrated on
+     * the variation and granted on the variation; a parent-level rule is
+     * migrated and granted on the parent. So when this object has no rows of
+     * its own, the parent's rows AND the parent's grant are taken together —
+     * never one without the other, which would be a grant checked against
+     * somebody else's numbers. The parent has to be FETCHED to ask, because
+     * `WC_Data::get_meta()` does not fall back to the parent for an arbitrary
+     * key (read from `abstract-wc-data.php`: it reads this object's own
+     * `meta_data` and nothing else; `WC_Product_Variation`'s parent fallbacks
+     * are per-property getters — sku, weight, stock — not meta).
+     *
+     * @return array{meta: array<string,string>, grant: string}
      */
-    private static function ruleIsGranted(mixed $product): bool
+    private static function quantityRows(mixed $product): array
     {
-        if (!is_object($product) || !method_exists($product, 'get_meta')) {
-            return false;
+        $meta = [];
+        foreach (ProjectedQuantity::keys() as $key) {
+            $meta[$key] = '';
         }
-        if ((string) $product->get_meta(ProjectedQuantity::ENFORCE_META, true) === '1') {
-            return true;
+        if (!is_object($product) || !method_exists($product, 'get_meta')) {
+            return ['meta' => $meta, 'grant' => ''];
+        }
+        foreach (ProjectedQuantity::keys() as $key) {
+            $meta[$key] = (string) $product->get_meta($key, true);
+        }
+        $grant = (string) $product->get_meta(ProjectedQuantity::ENFORCE_META, true);
+        if (!self::allEmpty($meta)) {
+            return ['meta' => $meta, 'grant' => $grant];
         }
         $parentId = method_exists($product, 'get_parent_id') ? (int) $product->get_parent_id() : 0;
         if ($parentId <= 0 || !function_exists('wc_get_product')) {
-            return false;
+            return ['meta' => $meta, 'grant' => $grant];
         }
         $parent = wc_get_product($parentId);
-        return is_object($parent)
-            && method_exists($parent, 'get_meta')
-            && (string) $parent->get_meta(ProjectedQuantity::ENFORCE_META, true) === '1';
+        if (!is_object($parent) || !method_exists($parent, 'get_meta')) {
+            return ['meta' => $meta, 'grant' => $grant];
+        }
+        foreach (ProjectedQuantity::keys() as $key) {
+            $meta[$key] = (string) $parent->get_meta($key, true);
+        }
+        return [
+            'meta' => $meta,
+            'grant' => (string) $parent->get_meta(ProjectedQuantity::ENFORCE_META, true),
+        ];
+    }
+
+    /**
+     * Whether the manager has granted that this marketplace enforces THE RULE
+     * THESE ROWS NOW HOLD.
+     *
+     * The stored grant is a fingerprint of the three values it was granted
+     * for (`ProjectedQuantity::ruleFingerprint()`), so this is an equality,
+     * not a truthiness test: a rule that changed after the grant does not
+     * match and is not enforced. `hash_equals` because the two sides are
+     * hashes and this is the comparison a permission hangs on.
+     *
+     * @param array{meta: array<string,string>, grant: string} $rows
+     */
+    private static function ruleIsGranted(array $rows): bool
+    {
+        if ($rows['grant'] === '') {
+            return false;
+        }
+        return hash_equals($rows['grant'], ProjectedQuantity::ruleFingerprint($rows['meta']));
     }
 
     /**
      * The rule in force for one shop product.
      *
-     * Read from the PRODUCT the hook was handed, not re-fetched: a variation
-     * carries its parent's rows through `get_meta()`'s parent fallback, and a
-     * second fetch would be a second read of the same thing with one more way
-     * to disagree.
+     * `$meta` is the three rows `quantityRows()` already resolved — read from
+     * the PRODUCT the hook was handed, with the parent's rows substituted when
+     * this object has none. It is passed in rather than read again because the
+     * grant check needs exactly the same three values: two reads of one thing
+     * are one more way to disagree.
      *
      * ---------------------------------------------------------------------
      * AND WHEN THERE ARE NO ROWS AT ALL, THE MARKETPLACE ROW ANSWERS
@@ -338,38 +390,14 @@ final class QuantityGuard
      *    plugin's reset, a manager deleting the rows by hand, a projection
      *    that half failed. A fix that only closed the reset path would leave
      *    the other two open.
+     *
+     * @param array<string,string> $meta
      */
-    private static function storedRule(PurchasePolicy $policy, mixed $product): PurchaseQuantity
-    {
-        if (!method_exists($product, 'get_meta')) {
-            return PurchaseQuantity::unrestricted();
-        }
-        $meta = [];
-        foreach (ProjectedQuantity::keys() as $key) {
-            $meta[$key] = (string) $product->get_meta($key, true);
-        }
-        // A variation with no rows of its own takes the parent's: the rule is
-        // the product's and applies to each variation alike, which is the
-        // stated semantics (`PurchaseQuantity`). This asks the parent
-        // EXPLICITLY, and an earlier version of this comment gave the wrong
-        // reason for that — it said `get_meta()` on a variation already falls
-        // back to the parent. It does not: read from
-        // `abstract-wc-data.php`, `get_meta()` looks at this object's own
-        // `meta_data` and nothing else, and `WC_Product_Variation`'s parent
-        // fallbacks are per-property getters (sku, weight, stock…), not meta.
-        // The code was right; the comment would have talked the next reader
-        // out of it.
-        if (self::allEmpty($meta) && method_exists($product, 'get_parent_id')) {
-            $parentId = (int) $product->get_parent_id();
-            if ($parentId > 0 && function_exists('wc_get_product')) {
-                $parent = wc_get_product($parentId);
-                if (is_object($parent) && method_exists($parent, 'get_meta')) {
-                    foreach (ProjectedQuantity::keys() as $key) {
-                        $meta[$key] = (string) $parent->get_meta($key, true);
-                    }
-                }
-            }
-        }
+    private static function storedRule(
+        PurchasePolicy $policy,
+        mixed $product,
+        array $meta
+    ): PurchaseQuantity {
         if (self::allEmpty($meta)) {
             $row = PurchaseGuard::marketplaceProduct($policy, $product);
             if ($row !== null) {

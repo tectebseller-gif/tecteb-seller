@@ -206,6 +206,35 @@ dump "after cart, Min Max OFF, grant withdrawn" "$CART_NONE"
 check "5e without the grant the rule is gone: qty 1"  "allowed" "$(value "$CART_NONE" qty_1)"
 check "5e qty 3"                                       "allowed" "$(value "$CART_NONE" qty_3)"
 check "5e qty 11"                                      "allowed" "$(value "$CART_NONE" qty_11)"
+
+# ---------------- §5 THE GRANT IS ABOUT ONE RULE, NOT ABOUT THESE THREE ROWS
+# The first cut of this round stored the grant as `'1'`, which says «enforce
+# whatever these rows hold next week» — a permission nobody gave, and this
+# repository's own `alpha.49` rule broken one object down. It is stored as a
+# fingerprint of the rule it was granted for, so a rule somebody changes
+# afterwards is simply not enforced: back to where the product was before any
+# grant existed, rather than enforcing numbers no manager read.
+probe enforce after "$MM_WC" >/dev/null
+probe drift after "$MM_WC"; f="$PROBE_FILE"; dump "after drift, Min Max OFF" "$f"
+check "5f the grant was a fingerprint, not a flag" "yes" "$(value "$f" granted_before)"
+check "5f the grant row is still on the product"   "yes" "$(value "$f" grant_row_unchanged)"
+check "5f and it is no longer live"                 "no" "$(value "$f" granted_after)"
+check "5f the rule on the product moved"         "4/8/2" "$(value "$f" rows_after)"
+probe cart after "$MM_WC"
+CART_DRIFT="$OUT/after-cart-minmax-off-drifted.txt"; cp "$PROBE_FILE" "$CART_DRIFT"
+dump "after cart, Min Max OFF, rule drifted" "$CART_DRIFT"
+for q in 1 3 11; do
+  check "5f a drifted rule is not enforced: qty $q" "allowed" "$(value "$CART_DRIFT" "qty_$q")"
+done
+
+# ---------------- §5 AND A PERMISSION CAN ALWAYS BE GIVEN BACK
+# The same first cut ran the drift check on the way OUT too, so a rule changed
+# after the grant left the grant stuck on: `minmax_unenforce_changed`, and the
+# manager had no way to withdraw it.
+probe unenforce after "$MM_WC"; f="$PROBE_FILE"; dump "after unenforce, rule drifted" "$f"
+check "5g the grant comes back even after the rule moved"       "minmax_rule_unenforced" "$(value "$f" unenforce_code)"
+check "5g and the newer value is untouched" "4/8/2" "$(value "$f" rows_after)"
+
 wpx plugin activate "$MINMAX" >/dev/null 2>&1
 say "Min Max reactivated"
 

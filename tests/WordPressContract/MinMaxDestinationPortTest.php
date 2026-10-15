@@ -281,6 +281,75 @@ final class MinMaxDestinationPortTest extends TestCase
         );
     }
 
+    /**
+     * THE GRANT IS THE RULE, NOT A FLAG.
+     *
+     * `alpha.55`'s first cut stored `'1'`, which says «this marketplace may
+     * enforce whatever these three rows hold» — a permission nobody gave, and
+     * this repository's own `alpha.49` rule broken one object down: an
+     * override must carry the values that were shown. So the grant is stored
+     * as a fingerprint of the rule it was granted for, and a rule that drifts
+     * afterwards stops being live. Not enforcing it is where such a product
+     * was before any grant existed (`written_unenforced`); enforcing numbers
+     * the manager never read is new.
+     */
+    public function testTheGrantIsStoredAsTheRuleAndStopsBeingLiveWhenTheRuleMoves(): void
+    {
+        $db = $this->canned();
+        $port = new WpShopQuantityPort($db);
+        $this->placeRow($db, ProjectedQuantity::META_MIN, '4');
+        $this->placeRow($db, ProjectedQuantity::META_MAX, '10');
+        $this->placeRow($db, ProjectedQuantity::META_STEP, '2');
+
+        self::assertTrue($port->grantEnforcement(self::PRODUCT, ['min' => '4', 'max' => '10', 'step' => '2']));
+        $stored = (string) get_post_meta(self::PRODUCT, ProjectedQuantity::ENFORCE_META, true);
+        self::assertNotSame('1', $stored, 'a flag would be a grant for next week\'s rule');
+        self::assertSame(
+            ProjectedQuantity::ruleFingerprint([
+                ProjectedQuantity::META_MIN => '4',
+                ProjectedQuantity::META_MAX => '10',
+                ProjectedQuantity::META_STEP => '2',
+            ]),
+            $stored
+        );
+        self::assertTrue($port->enforcementGranted(self::PRODUCT), 'live while the rule stands');
+
+        // Somebody changes the maximum — in Min Max, in the WooCommerce
+        // panel, by hand. The grant is still on the row and no longer
+        // describes the rule.
+        $db->rows = array_values(array_filter(
+            $db->rows,
+            static fn (array $row): bool => $row['meta_key'] !== ProjectedQuantity::META_MAX
+        ));
+        $this->placeRow($db, ProjectedQuantity::META_MAX, '8');
+
+        self::assertSame($stored, (string) get_post_meta(self::PRODUCT, ProjectedQuantity::ENFORCE_META, true));
+        self::assertFalse($port->enforcementGranted(self::PRODUCT), 'and not live once it moved');
+    }
+
+    /** A grant can always be given back, whatever the rows now say. */
+    public function testTheGrantIsRemovedByDeletingTheRowRatherThanWritingZero(): void
+    {
+        $db = $this->canned();
+        $port = new WpShopQuantityPort($db);
+        $this->placeRow($db, ProjectedQuantity::META_MIN, '4');
+        $port->grantEnforcement(self::PRODUCT, ['min' => '4', 'max' => null, 'step' => null]);
+
+        self::assertTrue($port->revokeEnforcement(self::PRODUCT));
+        self::assertFalse(metadata_exists('post', self::PRODUCT, ProjectedQuantity::ENFORCE_META));
+        self::assertFalse($port->enforcementGranted(self::PRODUCT));
+    }
+
+    /**
+     * A row in both stores at once, because the port reads the ROW and the
+     * grant is written through the meta API.
+     */
+    private function placeRow(CannedPostMetaDatabase $db, string $key, string $value): void
+    {
+        $db->addRow(self::PRODUCT, $key, $value);
+        update_post_meta(self::PRODUCT, $key, $value);
+    }
+
     private function canned(): CannedPostMetaDatabase
     {
         $db = new CannedPostMetaDatabase();

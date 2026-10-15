@@ -1,0 +1,8 @@
+probe=ran
+grant_row_before=ca768f86fb278e699f7f3613f72670147cb130e9d80f65ea7eac9e57043a4f26
+granted_before=yes
+rows_after=4/8/2
+grant_row_after=ca768f86fb278e699f7f3613f72670147cb130e9d80f65ea7eac9e57043a4f26
+grant_row_unchanged=yes
+granted_after=no
+ledger_after=rule_enforced_before=__absent___wrote=10

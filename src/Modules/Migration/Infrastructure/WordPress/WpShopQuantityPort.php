@@ -397,14 +397,15 @@ final class WpShopQuantityPort implements ShopQuantityPortInterface
         }
     }
 
-    public function grantEnforcement(int $postId): bool
+    /** @param array{min:?string, max:?string, step:?string} $rule */
+    public function grantEnforcement(int $postId, array $rule): bool
     {
-        return $this->setEnforcement($postId, true);
+        return $this->setEnforcement($postId, self::fingerprintOf($rule));
     }
 
     public function revokeEnforcement(int $postId): bool
     {
-        return $this->setEnforcement($postId, false);
+        return $this->setEnforcement($postId, '');
     }
 
     public function enforcementGranted(int $postId): bool
@@ -412,7 +413,36 @@ final class WpShopQuantityPort implements ShopQuantityPortInterface
         if ($postId <= 0 || !function_exists('get_post_meta')) {
             return false;
         }
-        return (string) get_post_meta($postId, ProjectedQuantity::ENFORCE_META, true) === '1';
+        $stored = (string) get_post_meta($postId, ProjectedQuantity::ENFORCE_META, true);
+        if ($stored === '') {
+            return false;
+        }
+        // Live, not merely present: the grant is about the rule it was
+        // granted for, so a report that read it as a flag would print
+        // «enforced» about numbers the cart is ignoring.
+        $now = $this->readRows($postId);
+        if (!$now['read']) {
+            return false;
+        }
+        return hash_equals($stored, self::fingerprintOf($now));
+    }
+
+    /**
+     * The fingerprint of a rule as `readRows()` returns it.
+     *
+     * `null` and `''` fold to the same input, because an absent row and an
+     * empty row are the same rule — and because that is what the cart sees:
+     * `WC_Data::get_meta()` answers `''` for a key that has no row.
+     *
+     * @param array{min:?string, max:?string, step:?string} $rule
+     */
+    private static function fingerprintOf(array $rule): string
+    {
+        return ProjectedQuantity::ruleFingerprint([
+            ProjectedQuantity::META_MIN => (string) ($rule['min'] ?? ''),
+            ProjectedQuantity::META_MAX => (string) ($rule['max'] ?? ''),
+            ProjectedQuantity::META_STEP => (string) ($rule['step'] ?? ''),
+        ]);
     }
 
     /**
@@ -423,15 +453,20 @@ final class WpShopQuantityPort implements ShopQuantityPortInterface
      * Removing it DELETES the row rather than writing `'0'`: a row holding
      * zero is a row every later reader has to interpret, and absence is the
      * state the rest of the catalogue is already in.
+     *
+     * `$fingerprint` empty means revoke.
      */
-    private function setEnforcement(int $postId, bool $granted): bool
+    private function setEnforcement(int $postId, string $fingerprint): bool
     {
         if ($postId <= 0 || !function_exists('update_post_meta')) {
             return false;
         }
-        if ($granted) {
-            update_post_meta($postId, ProjectedQuantity::ENFORCE_META, '1');
-            return (string) get_post_meta($postId, ProjectedQuantity::ENFORCE_META, true) === '1';
+        if ($fingerprint !== '') {
+            update_post_meta($postId, ProjectedQuantity::ENFORCE_META, $fingerprint);
+            return hash_equals(
+                $fingerprint,
+                (string) get_post_meta($postId, ProjectedQuantity::ENFORCE_META, true)
+            );
         }
         delete_post_meta($postId, ProjectedQuantity::ENFORCE_META);
         return !function_exists('metadata_exists')

@@ -630,6 +630,59 @@ final class MinMaxHandoverUnitOfWorkTest extends DatabaseTestCase
         );
     }
 
+    /**
+     * The grant records the rule it was granted FOR.
+     *
+     * Stored as `'1'` it would mean «enforce whatever these rows hold next
+     * week», which is the `alpha.49` rule broken one object down. The port
+     * turns these three values into the fingerprint the cart compares
+     * against; this double records them as they came, so the test can see
+     * WHICH rule was granted rather than only that something was.
+     */
+    public function testTheGrantCarriesTheRuleItWasGrantedFor(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $port->owned[self::FIRST] = false;
+        $this->migrate($this->service($port, $ledger, $this->db));
+
+        $this->service($port, $ledger, $this->db)->enforce(self::FIRST);
+
+        self::assertSame('4/10/2', $port->granted[self::FIRST] ?? '__none__');
+        self::assertContains('grant:' . self::FIRST . ':4/10/2', $port->writes);
+    }
+
+    /**
+     * AND IT CAN ALWAYS BE WITHDRAWN — including after the rule moved.
+     *
+     * The first cut of this round ran the drift check on both directions, so a
+     * rule changed after the grant left the grant STUCK ON: the manager was
+     * told «the rule changed» and the marketplace went on enforcing it.
+     * Refusing to GIVE a permission on drift is conservative; refusing to TAKE
+     * IT BACK is a lock on the wrong door.
+     */
+    public function testTheGrantCanBeWithdrawnEvenAfterTheRuleMoved(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $port->owned[self::FIRST] = false;
+        $this->migrate($this->service($port, $ledger, $this->db));
+        self::assertTrue($this->service($port, $ledger, $this->db)->enforce(self::FIRST)->ok);
+
+        $port->rows[self::FIRST]['max'] = '8';  // somebody else's newer value
+
+        $result = $this->service($port, $ledger, $this->db)->stopEnforcing(self::FIRST);
+
+        self::assertTrue($result->ok, $result->code);
+        self::assertSame('minmax_rule_unenforced', $result->code);
+        self::assertFalse($port->enforcementGranted(self::FIRST), 'the grant came back');
+        self::assertSame(
+            MinMaxHandoverRepositoryInterface::UNENFORCED,
+            (string) ($ledger->find(self::FIRST)['status'] ?? '')
+        );
+        self::assertSame('4/8/2', $port->describe(self::FIRST), 'and the newer value is untouched');
+    }
+
     /** Rolling a granted product back takes the grant with it. */
     public function testRollingBackAGrantedProductRemovesTheGrantToo(): void
     {

@@ -2,6 +2,6 @@ probe=ran
 destination_before=__absent__/6/__absent__
 outcome=migrated
 second_writer_landed=yes
-second_writer_waited_ms=10
+second_writer_waited_ms=5
 db_rows_after=4/10/2
 ledger_after=migrated_before=6_wrote=10
