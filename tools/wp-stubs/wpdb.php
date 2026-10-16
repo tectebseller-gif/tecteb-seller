@@ -10,6 +10,13 @@ class wpdb
 {
     public string $prefix = 'wptest_';
     public string $options;
+    /**
+     * `wp_postmeta`'s name, because one guard asks the DATABASE whether a
+     * meta key collates equal to one of its own — `strtolower(rtrim())` is
+     * an imitation of a Unicode collation and `alpha.59` shipped that
+     * imitation. The table itself is created by whichever test needs it.
+     */
+    public string $postmeta;
     public string $last_error = '';
     public int $num_queries = 0;
     /** @var list<string> */
@@ -19,6 +26,7 @@ class wpdb
     public function __construct()
     {
         $this->options = $this->prefix . 'options';
+        $this->postmeta = $this->prefix . 'postmeta';
         // Connect lazily: the contract suite loads these stubs but never
         // touches the database, and an unreachable server must not stop it.
         // The database suite gets its connection on the first pdo() call.

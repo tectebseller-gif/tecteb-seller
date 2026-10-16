@@ -228,8 +228,45 @@ final class CommissionMetaGuardTest extends TestCase
         }
 
         // A key that merely STARTS the same is somebody else's and untouched.
+        // Plain ASCII, so PHP answers it with no lookup at all — measured:
+        // within `[A-Za-z0-9_-]` the collation equates only case and
+        // trailing padding, so an ASCII key that is not ours cannot become
+        // one.
         self::assertTrue(update_post_meta(self::PRODUCT, '_tmc_commission_value_note', 'x'));
-        self::assertTrue(update_post_meta(self::PRODUCT, ' _tmc_commission_value', 'x'));
+        self::assertTrue(update_post_meta(self::PRODUCT, '_tmc_commission_valu', 'x'));
+        self::assertTrue(update_post_meta(self::PRODUCT, 'tmc_commission_value', 'x'));
+    }
+
+    /**
+     * ⛔ THE THIRD HOLE, and the shape of the conservative fallback.
+     *
+     * `alpha.59` answered the key question with `strtolower(rtrim($key))` —
+     * **a Unicode collation imitated in PHP**. It covered the two spellings
+     * that had been measured (case, trailing space) and missed the ones that
+     * had not: a zero-width space is IGNORABLE in a UCA collation and a
+     * full-width letter folds to its ASCII form, both measured `= 1` against
+     * `utf8mb4_unicode_520_ci`. The guard now asks the DATABASE for any key
+     * outside plain ASCII.
+     *
+     * HERE there is no readable `meta_key` column — these are the stubs — so
+     * this test pins the FALLBACK rather than the comparison: when the
+     * question cannot be asked, the answer is «ours», and the write is
+     * refused. «نمی‌دانم» is not «مال ما نیست» (`alpha.49`). The
+     * comparison itself is measured against real MariaDB in
+     * `CommissionMetaKeyCollationTest`, and the cost of this fallback — one
+     * unusual key a non-privileged actor cannot write — is stated in the
+     * guard's own docblock rather than discovered later.
+     */
+    public function testWithNoReadableCollationAnUnusualKeyIsRefusedRatherThanAssumedSafe(): void
+    {
+        State::loginAs(31, ['read', 'edit_products', 'manage_woocommerce']);
+
+        self::assertFalse(update_post_meta(self::PRODUCT, '_tmc_commission' . "\u{200B}" . '_type', 'fixed'));
+        self::assertFalse(update_post_meta(self::PRODUCT, ' _tmc_commission_value', 'x'));
+
+        // …and the manager is still not refused, whatever the key looks like.
+        State::loginAs(7, ['read', Capabilities::REVIEW_WITHDRAWALS]);
+        self::assertTrue(update_post_meta(self::PRODUCT, '_tmc_commission' . "\u{200B}" . '_type', 'fixed'));
     }
 
     /**

@@ -1,0 +1,10 @@
+product=427
+baseline=percent/12.50
+manager_has_financial_cap=no
+collation_calls_zwsp_ours=1
+collation_calls_wide_ours=1
+zwsp_write=landed
+wide_write=landed
+type_after=fixed
+value_after=999999
+variation_key_write=landed

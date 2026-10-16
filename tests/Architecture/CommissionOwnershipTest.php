@@ -51,10 +51,18 @@ final class CommissionOwnershipTest extends TestCase
                 && !str_contains($code, 'WpTectebCommissionSource::VALUE_META')) {
                 continue;
             }
-            // `update_post_meta`, `add_post_meta`, `delete_post_meta` and
-            // `$wpdb`: the four ways a post meta row changes. A file that
-            // mentions a key and none of these is reading.
-            if (preg_match('/\b(update_post_meta|add_post_meta|delete_post_meta|update_metadata|wpdb)\b/', $code) !== 1) {
+            // `update_post_meta`, `add_post_meta`, `delete_post_meta`,
+            // `update_metadata`: the ways a post meta row changes through
+            // WordPress. A file that mentions a key and none of these is
+            // reading.
+            //
+            // `$wpdb` used to be on that list, and it had to come off: the
+            // guard asks `$wpdb` which keys the DATABASE calls its own,
+            // because `strtolower(rtrim())` is a Unicode collation imitated
+            // in PHP. So raw SQL is judged by its VERB instead, and the
+            // guard is held to reading in the test below.
+            $throughWordPress = preg_match('/\b(update_post_meta|add_post_meta|delete_post_meta|update_metadata)\b/', $code) === 1;
+            if (!$throughWordPress && preg_match('/\b(INSERT\s+INTO|UPDATE\s+`?\w|DELETE\s+FROM|->(query|insert|update|replace|delete)\s*\()/i', $code) !== 1) {
                 continue;
             }
             $writers[] = $relative;
@@ -100,6 +108,38 @@ final class CommissionOwnershipTest extends TestCase
             }
         }
         self::assertSame([], $seen, "a vendor-facing file names the commission meta:\n" . implode("\n", $seen));
+    }
+
+    /**
+     * WHAT THIS PROVES: the guard only ever READS from the database.
+     *
+     * It asks `$wpdb` one question — whether this key collates equal to one
+     * of ours — so it is the one file here allowed to name the keys beside
+     * `$wpdb`. That permission is narrow and this is what keeps it narrow: a
+     * guard that could write would be a second writer of the thing it
+     * guards, which is the shape of defect this whole file exists to
+     * prevent.
+     */
+    public function testTheGuardOnlyReadsFromTheDatabase(): void
+    {
+        $guard = self::code(self::GUARD);
+
+        self::assertMatchesRegularExpression('/\bSELECT\b/', $guard, 'it does ask the database something');
+        foreach (['INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'TRUNCATE', 'ALTER', 'DROP'] as $verb) {
+            self::assertDoesNotMatchRegularExpression(
+                '/\b' . $verb . '\b/i',
+                $guard,
+                'the guard must not be able to write: ' . $verb
+            );
+        }
+        // The needles carry their opening parenthesis, because
+        // `update_post_meta` is a SUBSTRING of `update_post_metadata` — the
+        // filter this guard registers — and a needle that is part of another
+        // word answers about that word (`alpha.33`). The first version of
+        // this test failed on exactly that and was right to.
+        foreach (['update_post_meta(', 'add_post_meta(', 'delete_post_meta(', '->query(', '->insert(', '->update('] as $writer) {
+            self::assertStringNotContainsString($writer, $guard, 'the guard must not write: ' . $writer);
+        }
     }
 
     /**

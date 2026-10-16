@@ -52,7 +52,17 @@ namespace Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce;
  *     '999999'); $product->save();` as a `shop_manager` ⇒
  *     `after_wc_object_save=999999`, and `delete_meta_data()` emptied the
  *     type. The fix that closed one door had left the door next to it open.
- *  2. **`===` is not how the database compares a key.**
+ *  2. **`===` is not how the database compares a key** — and `alpha.59`'s
+ *     first answer to that, `strtolower(rtrim(…))`, was an **imitation of a
+ *     Unicode collation written in PHP**, which is not a thing one does. It
+ *     covered the two spellings that had been measured and missed the ones
+ *     that had not: a zero-width space is IGNORABLE in a UCA collation and a
+ *     full-width letter folds to its ASCII form, both measured `= 1` against
+ *     `utf8mb4_unicode_520_ci` on this MariaDB. So the key now goes to the
+ *     DATABASE whenever PHP cannot answer, and PHP only answers where
+ *     measurement says it may: inside plain ASCII `[A-Za-z0-9_-]`, where
+ *     case and trailing padding are the only ways two keys collate equal.
+ *     The original form of the finding stands too:
  *     `wp_postmeta.meta_key` is `utf8mb4_unicode_520_ci` — case-insensitive
  *     and PAD SPACE — so `WHERE meta_key = '_TMC_COMMISSION_VALUE'` finds
  *     the lower-case row and overwrites it. Measured:
@@ -100,11 +110,14 @@ final class TectebCommissionMetaGuard
         if ($check !== null) {
             return $check;
         }
-        if (!self::ours((string) $metaKey)) {
+        // The permission is asked FIRST, before the key is analysed at all:
+        // an administrator saving a product writes dozens of meta rows and
+        // must not pay for one lookup each.
+        if (self::mayWrite()) {
             return $check;
         }
 
-        return self::mayWrite() ? $check : false;
+        return self::ours((string) $metaKey) ? false : $check;
     }
 
     /**
@@ -133,6 +146,9 @@ final class TectebCommissionMetaGuard
         if ($check !== null) {
             return $check;
         }
+        if (self::mayWrite()) {
+            return $check;
+        }
 
         $row = function_exists('get_metadata_by_mid')
             ? get_metadata_by_mid('post', (int) $metaId)
@@ -144,7 +160,7 @@ final class TectebCommissionMetaGuard
             return $check;
         }
 
-        return self::mayWrite() ? $check : false;
+        return false;
     }
 
     /**
@@ -170,9 +186,126 @@ final class TectebCommissionMetaGuard
     private static function ours(string $metaKey): bool
     {
         $normalised = strtolower(rtrim($metaKey));
+        if ($normalised === strtolower(WpTectebCommissionSource::TYPE_META)
+            || $normalised === strtolower(WpTectebCommissionSource::VALUE_META)) {
+            return true;
+        }
 
-        return $normalised === strtolower(WpTectebCommissionSource::TYPE_META)
-            || $normalised === strtolower(WpTectebCommissionSource::VALUE_META);
+        // Within plain ASCII `[A-Za-z0-9_-]`, the two checks above are
+        // EXACTLY the collation — measured on this MariaDB with the column's
+        // own collation rather than reasoned about:
+        //
+        //   '_TMC_COMMISSION_TYPE'  = '_tmc_commission_type'  → 1  (case)
+        //   '_tmc_commission_type ' = '_tmc_commission_type'  → 1  (padding)
+        //   '_tmccommission_type'   = '_tmc_commission_type'  → 0
+        //   '-tmc-commission-type'  = '_tmc_commission_type'  → 0
+        //   '_tmc_commission_type\t'= '_tmc_commission_type'  → 0
+        //
+        // so an ASCII key that is not one of ours cannot become one.
+        if (preg_match('/^[A-Za-z0-9_-]*$/', $metaKey) === 1) {
+            return false;
+        }
+
+        // Outside that set, PHP cannot answer. SAME measurement:
+        //
+        //   '_tmc_commission' + U+200B + '_type' = '_tmc_commission_type' → 1
+        //   '_ＴMC_COMMISSION_TYPE'                                      → 1
+        //
+        // A zero-width space is IGNORABLE in a UCA collation and a full-width
+        // letter folds to its ASCII form, so MySQL calls those the same key
+        // and would overwrite the real row — while `===`, `strtolower()` and
+        // `rtrim()` all call them different. Imitating a Unicode collation in
+        // PHP is not a thing one does; so the question goes to the database
+        // that will answer it when the write runs.
+        return self::databaseCallsItOurs($metaKey);
+    }
+
+    /**
+     * Does the DATABASE call this key one of ours, with its own collation?
+     *
+     * Asked only for a key with a character outside plain ASCII and only for
+     * an actor who may not write ours, so the ordinary path costs nothing:
+     * measured on this catalogue, **one** distinct key out of 972 rows is
+     * outside that set (`attribute_%d8%a7…`, a WooCommerce variation key),
+     * which is also why refusing every such key outright was the wrong fix —
+     * it would stop variations saving.
+     *
+     * Memoised per key per request. A failure to ask is answered **ours**:
+     * «نمی‌دانم» is not «مال ما نیست» (`alpha.49`), and for a key that
+     * already looks like an attempt at ours the safe direction is to refuse.
+     * The cost of being wrong that way is one unusual meta key a
+     * non-privileged actor cannot write while this plugin is active.
+     */
+    private static function databaseCallsItOurs(string $metaKey): bool
+    {
+        /** @var array<string,bool> $answered */
+        static $answered = [];
+        if (array_key_exists($metaKey, $answered)) {
+            return $answered[$metaKey];
+        }
+
+        $wpdb = $GLOBALS['wpdb'] ?? null;
+        if (!is_object($wpdb) || !method_exists($wpdb, 'prepare') || !method_exists($wpdb, 'get_var')) {
+            return $answered[$metaKey] = true;
+        }
+
+        [$charset, $collation] = self::metaKeyCollation($wpdb);
+        if ($charset === '' || $collation === '') {
+            return $answered[$metaKey] = true;
+        }
+
+        // Charset and collation are names, not values, so they cannot be
+        // placeholders — hence the pattern check above before they are put
+        // into SQL. The three keys ARE values and go through `prepare()`.
+        $sql = $wpdb->prepare(
+            'SELECT CONVERT(%s USING ' . $charset . ') COLLATE ' . $collation
+            . ' IN (CONVERT(%s USING ' . $charset . ') COLLATE ' . $collation
+            . ', CONVERT(%s USING ' . $charset . ') COLLATE ' . $collation . ')',
+            $metaKey,
+            WpTectebCommissionSource::TYPE_META,
+            WpTectebCommissionSource::VALUE_META
+        );
+        $answer = is_string($sql) ? $wpdb->get_var($sql) : null;
+
+        return $answered[$metaKey] = $answer === null ? true : (string) $answer === '1';
+    }
+
+    /**
+     * The charset and collation of `wp_postmeta.meta_key`, asked of the table
+     * rather than assumed — «ایندکس‌های یک جدول را از خودِ جدول بپرسید»
+     * (`alpha.55`), and the same goes for its collation. Both are validated
+     * against `[a-z0-9_]` before they reach SQL, since a name cannot be a
+     * placeholder.
+     *
+     * @return array{0:string,1:string}
+     */
+    private static function metaKeyCollation(object $wpdb): array
+    {
+        /** @var array{0:string,1:string}|null $known */
+        static $known = null;
+        if ($known !== null) {
+            return $known;
+        }
+
+        $table = isset($wpdb->postmeta) ? (string) $wpdb->postmeta : '';
+        if ($table === '' || preg_match('/^[A-Za-z0-9_]+$/', $table) !== 1) {
+            return $known = ['', ''];
+        }
+
+        $sql = $wpdb->prepare(
+            'SELECT CHARACTER_SET_NAME, COLLATION_NAME FROM information_schema.COLUMNS'
+            . ' WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s',
+            $table,
+            'meta_key'
+        );
+        $row = is_string($sql) && method_exists($wpdb, 'get_row') ? $wpdb->get_row($sql, ARRAY_A) : null;
+        $charset = is_array($row) ? (string) ($row['CHARACTER_SET_NAME'] ?? '') : '';
+        $collation = is_array($row) ? (string) ($row['COLLATION_NAME'] ?? '') : '';
+        if (preg_match('/^[a-z0-9_]+$/', $charset) !== 1 || preg_match('/^[a-z0-9_]+$/', $collation) !== 1) {
+            return $known = ['', ''];
+        }
+
+        return $known = [$charset, $collation];
     }
 
     private static function mayWrite(): bool

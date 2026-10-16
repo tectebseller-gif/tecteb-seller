@@ -1,0 +1,10 @@
+product=427
+baseline=percent/12.50
+manager_has_financial_cap=no
+collation_calls_zwsp_ours=1
+collation_calls_wide_ours=1
+zwsp_write=refused
+wide_write=refused
+type_after=percent
+value_after=12.50
+variation_key_write=landed
