@@ -9,6 +9,6 @@ Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 ..............................................................<p class="tmc-account-vendor"><a class="button" href="https://example.test/?tmc_vendor=dashboard">ورود به پنل فروشنده</a> مدیریت محصول‌ها، سفارش‌ها و تنظیمات فروشگاه شما.</p>. 252 / 304 ( 82%)
 ....................................................            304 / 304 (100%)
 
-Time: 00:04.119, Memory: 30.00 MB
+Time: 00:03.781, Memory: 30.00 MB
 
 OK (304 tests, 1704 assertions)

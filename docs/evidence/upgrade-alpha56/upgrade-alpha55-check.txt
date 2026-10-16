@@ -1,0 +1,80 @@
+new package: 0.1.0-alpha.56 (target schema 28) · NO migration this round
+pages: tmc-product-review (the one list) · tmc-product-intake (retired)
+ok:   the admin session really opened                                200
+
+================================================================
+=== 0.1.0-alpha.55 (schema 28) -> 0.1.0-alpha.56 (schema 28) · structural=no
+================================================================
+ok:   0 the two packages hold the same number of migration steps     28
+ok:   0b and the same schema target, so the upgrade is not structural 28
+ok:   1 the install is 0.1.0-alpha.55                                0.1.0-alpha.55
+ok:   1b and the gate finishes it on one admin request               200
+ok:   1c leaving the old build on schema 28                          28
+ok:   1d with nothing recorded as failed                             
+  wc=407 variations=2 wc_simple=411 author=2 vendor=9556 order=410 
+ok:   2 the old build sees a variable product with its two variations 2
+ok:   2b and an earlier order pointing at it                         yes
+  run=upgrade-a55-146948 batch=intake_done verdict=imported reason=__empty__ product=1414 imported=2 
+ok:   2c the OLD build's own importBatch() took both products in     2
+ok:   2d which created a marketplace row                             yes
+ok:   2e observed, not managed — being listed is not being run     observed
+ok:   2f stamped with the run that created it                        upgrade-a55-146948
+  wc=407 slug=%d9%85%d8%ad%d8%b5%d9%88%d9%84-%d8%b3%d9%86%d8%af%d9%90-%d8%a7%d8%b1%d8%aa%d9%82%d8%a7-%db%b5%db%b5 status=publish author=2 price=450000 stock=30 thumb=405 gallery=406 variations=408,409 order=410 order_items_linked=1 identity=982ed469393ac969 
+ok:   2g and the WooCommerce product is readable in full             yes
+ok:   2h with the earlier order's item still pointing at it          1
+ok:   3 the files are now 0.1.0-alpha.56                             0.1.0-alpha.56
+ok:   3b replacing files runs nothing by itself                      28
+ok:   3c the first admin request answers 200                         200
+ok:   3d and the schema is STILL 28 — no step ran                  28
+ok:   3e with nothing recorded as failed                             
+ok:   3f the WooCommerce product is byte-for-byte the one the old build had 982ed469393ac969
+ok:   3g wc survived the swap                                        407
+ok:   3g slug survived the swap                                      %d9%85%d8%ad%d8%b5%d9%88%d9%84-%d8%b3%d9%86%d8%af%d9%90-%d8%a7%d8%b1%d8%aa%d9%82%d8%a7-%db%b5%db%b5
+ok:   3g status survived the swap                                    publish
+ok:   3g author survived the swap                                    2
+ok:   3g price survived the swap                                     450000
+ok:   3g stock survived the swap                                     30
+ok:   3g thumb survived the swap                                     405
+ok:   3g gallery survived the swap                                   406
+ok:   3g variations survived the swap                                408,409
+ok:   3g order survived the swap                                     410
+ok:   3g order_items_linked survived the swap                        1
+ok:   3h the marketplace row is the same row                         1414
+ok:   3i still carrying the old build's run id                       upgrade-a55-146948
+ok:   3j and still observed — the upgrade took nothing over        observed
+ok:   4 the one product list answers                                 200
+ok:   4b and carries the source facet                                yes
+ok:   4c and the management facet, which is not the publish status   yes
+ok:   4d the retired intake address redirects rather than refusing   302
+ok:   4e and the health page still answers                           200
+ok:   4f as does the handover page                                   200
+  wc=411 take_arity=3 seen_shop_parameter=present shop_price_now=470000 risks=__none__ stale_code=storefront_moved stale_field=__none__ stale_fields=قیمت ownership_after_refusal=observed refresh_code=intake_refreshed fields_shown=__none__ fresh_code=ownership_taken ownership_after=marketplace 
+ok:   5 the acceptance call carries «what the page showed»         present
+ok:   5b a form without it is REFUSED, not trusted                   storefront_moved
+ok:   5c and the refusal names the field                             قیمت
+ok:   5d ownership did not move                                      observed
+ok:   5e refreshing the snapshot is a named success                  intake_refreshed
+ok:   5f after which the explicit confirm goes through               ownership_taken
+ok:   5g and the product is managed here                             marketplace
+ok:   5h the row adopted the SHOP's newer price rather than overwriting it 470000
+ok:   5i and the variable product beside it was not touched          observed
+ok:   5j with the WooCommerce side still identical                   982ed469393ac969
+ok:   6 the files are 0.1.0-alpha.55 again                           0.1.0-alpha.55
+ok:   6b the old build serves wp-admin                               200
+ok:   6c the schema is untouched at 28 — going back needs no database work 28
+ok:   6d with nothing recorded as failed                             
+ok:   6e and the WooCommerce product is still the same one           982ed469393ac969
+ok:   6f the row is still there, with its run id                     upgrade-a55-146948
+ok:   6g and the product accepted on the new build stays accepted    marketplace
+ok:   6h the one list still answers on the old build                 200
+ok:   6i but without the source facet — the capability went back, not the data no
+ok:   6j and the retired screen is a screen again                    200
+ok:   7 forward again answers 200                                    200
+ok:   7b the schema is still 28                                      28
+ok:   7c nothing was recorded as failed                              
+ok:   7d exactly one marketplace row still points at the variable product 1
+ok:   7e and one at the simple product                               1
+ok:   7f the WooCommerce product is unchanged after all seven stages 982ed469393ac969
+ok:   7g and the retired address redirects again                     302
+
+PASS=68 FAIL=0

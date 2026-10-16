@@ -1,0 +1,221 @@
+Skip to main content
+Skip to toolbar
+
+
+Dashboard
+Home
+Updates
+
+
+Posts
+All Posts
+Add Post
+Categories
+Tags
+
+
+Media
+Library
+Add Media File
+
+
+Pages
+All Pages
+Add Page
+
+
+Comments
+
+
+WooCommerce
+Home 3
+Orders 25
+Customers
+Coupons
+Reports
+Settings
+Status
+Extensions
+
+
+Products
+All Products
+Add new product
+Brands
+Categories
+Tags
+Attributes
+Reviews
+Min Max Control
+Min Max Control
+Module On/Off
+Browse Plugins
+Hire an Expert
+
+
+Payments
+
+
+بازارگاه تک‌طب
+پیشخوان
+بررسی محصولات
+درخواست‌های فروشندگان
+مدارک فروشندگان
+تیکت فروشندگان
+وضعیت فروش بازارگاه
+قواعد کمیسیون
+تسویه و برداشت
+مرجوعی و بازپرداخت
+خریداران عمده
+الگوهای مشخصات
+نظرات
+گزارش‌ها
+تنظیمات
+ماژول‌ها
+سلامت
+صف و سلامت اجرا
+رویدادها و API
+ممیزی
+راه‌اندازی
+مهاجرت از دکان
+تحویل مهاجرت
+خروج از Min Max
+
+
+Analytics
+Overview
+Products
+Revenue
+Orders
+Variations
+Categories
+Coupons
+Taxes
+Downloads
+Stock
+Settings
+
+
+Marketing
+Overview
+Coupons
+
+
+Appearance
+Themes
+Design
+Customize
+Widgets
+Fonts
+Menus
+Background
+Theme File Editor
+
+
+Plugins
+Installed Plugins
+Add Plugin
+Plugin File Editor
+
+
+Users
+All Users
+Add User
+Profile
+
+
+Tools
+Available Tools
+Import
+Export
+Site Health 4
+Export Personal Data
+Erase Personal Data
+Scheduled Actions
+
+
+Settings
+General
+Connectors
+Writing
+Reading
+Discussion
+Media
+Permalinks
+Privacy
+Collapse Menu
+About WordPress
+بازارگاه تک‌طب
+Store coming soon
+Ctrl+K
+Open command palette
+0
+0 Comments in moderation
+New
+Howdy, tmcowner
+پرش به محتوای اصلی
+بازارگاه تک‌طب
+نسخه آزمایشی
+0.1.0-alpha.56
+روزمره
+فروش و مالی
+محتوا و گزارش
+تنظیمات و ابزارها
+راه‌اندازی و مهاجرت
+پیشخوان
+بررسی محصولات
+درخواست‌های فروشندگان
+مدارک فروشندگان
+تیکت فروشندگان
+بررسی محصولات
+
+Help us improve Min Max Control even more awesome? By allowing us to collect usage and diagnostic data, you'll help us make the plugin faster, identify bugs, improve performance and better suited to your needs (what we collect)
+
+ Allow No thanks
+
+بازگشت به فهرست
+
+کالای ورود ۵۶
+
+این محصول ردیفی در بازارگاه ندارد. هیچ گاردی از این افزونه دربارهٔ آن نظر نمی‌دهد و باز کردن این صفحه هیچ‌چیزی را عوض نکرد.
+
+شناسهٔ ووکامرس
+۳۸۳
+نوع / وضعیت انتشار
+simple / منتشرشده
+SKU
+WC-A56-SHOP
+قیمت
+۴۵۰۰۰۰
+موجودی
+۲۲
+دسته‌بندی مالکیت
+فروشگاه اصلی
+شواهد فروشنده‌بودن
+نویسندهٔ پست
+۲
+نقش‌ها
+administrator
+پروندهٔ فروشندگی
+ندارد
+فروشندهٔ دکان
+نیست
+نویسنده مدیر یا مدیر فروشگاه است، پس این محصول خودِ فروشگاه اصلی است. این بازارگاه فروشنده‌ای برایش حدس نمی‌زند.
+آنچه ورود و پذیرش مدیریت نمی‌تواند نگه دارد
+
+هیچ فیلدی در این محصول نیست که فرم این بازارگاه نتواند بیانش کند.
+
+افزونه‌های دیگری که روی این محصول داده نوشته‌اند
+
+فقط پیشوند کلیدها و تعدادشان — مقدارها خوانده نمی‌شوند.
+
+افزونه / پیشوند	تعداد کلید
+این افزونه	۴
+
+این محصول با این شواهد وارد نمی‌شود. دلیلش بالا گفته شده و تا تصمیم مالک، این افزونه فروشنده‌ای برایش حدس نمی‌زند.
+
+تمام ارسال‌های خود افزونه در نسخه آزمایشی مسدود است. وضعیت سایر افزونه‌ها بررسی‌نشده است.
+
+Thank you for creating with WordPress.
+
+Version 7.1

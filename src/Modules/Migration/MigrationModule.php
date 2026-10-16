@@ -259,7 +259,25 @@ final class MigrationModule implements ModuleInterface
         // and a product on both sides appeared on both screens with nothing
         // saying it was one product. Its capability and its old address live
         // on in `ProductIntakePage`, which now only redirects.
-        add_action('admin_init', static function (): void {
+        // On `admin_page_access_denied`, and that is a MEASUREMENT rather
+        // than a preference. The first version of this hooked `admin_init`,
+        // which reads correctly — `wp-admin/admin.php` fires it at line 180
+        // and looks the page hook up at 189 — and never ran: line 163 of the
+        // same file requires `wp-admin/menu.php` FIRST, and
+        // `wp-admin/includes/menu.php:375` ends with
+        // `if (!user_can_access_admin_page()) { do_action(
+        // 'admin_page_access_denied'); wp_die(…, 403); }`. So a `page=` slug
+        // nothing registered is dead before `admin_init` exists, and the old
+        // address answered 403 «Sorry, you are not allowed to access this
+        // page» — the exact sentence `RetiredIntakeAddressTest` was written
+        // to prevent, with that test passing all the while because it calls
+        // the redirect directly. Only the upgrade run in a browser found it.
+        //
+        // `admin_page_access_denied` is WordPress's own hook for this, fired
+        // immediately before the refusal; the callback answers for ONE slug
+        // and only for somebody who may do intakes, so every other denied
+        // page still gets core's refusal.
+        add_action('admin_page_access_denied', static function (): void {
             ProductIntakePage::redirectOldAddress('tmc-product-review');
         }, 1);
         add_filter(AdminExtensions::FILTER, static function (array $pages) use ($page, $handover, $minmax): array {

@@ -1,0 +1,7 @@
+repo files:      545
+zip files:       545
+archive files:   545
+installed files: 545
+ok:   repo src == zip src
+ok:   repo src == archive src
+ok:   repo src == installed src

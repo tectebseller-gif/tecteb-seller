@@ -427,6 +427,14 @@ for tree in before after; do
 done
 
 probe reset after >/dev/null
+# And the Min Max rows the variable fixture spent, which `reset` does not
+# cover: without this `alpha53-minmax-check.sh` asks the SITE how many
+# products carry a rule, counts SEVEN where it expects four, and reports three
+# failures about a build that is entirely correct (`alpha.33`).
+probe minmax-hand-back after
+dump "after minmax-hand-back" "$OUT/after-minmax-hand-back.txt"
+check "after/hand-back the Min Max rows were given back" \
+      "1" "$(value "$OUT/after-minmax-hand-back.txt" handed_back)"
 say ""
 say "PASS=$PASS FAIL=$FAIL"
 echo "PASS=$PASS FAIL=$FAIL"

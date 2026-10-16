@@ -1417,6 +1417,82 @@ switch ($verb) {
         break;
     }
 
+    /**
+     * GIVE BACK the Min Max rows this round's variable fixture spent.
+     *
+     * `alpha.33`'s rule, and it cost three checks before it was written: the
+     * variable fixture leaves a parent and two variations carrying the rule
+     * `4/10/2`, so `alpha53-minmax-check.sh` — which asks the SITE how many
+     * products carry a rule — counted **seven** where it expects four and
+     * reported a failure about a build that was entirely correct. The number
+     * was true; it was about the leftovers.
+     *
+     * The WooCommerce products stay (they are cheap and `arrange` reuses
+     * them); what goes is the Min Max rule, the enforcement grant and the
+     * handover row, which is exactly what another script can see.
+     */
+    case 'minmax-hand-back': {
+        // Swept by TITLE, not by SKU — and that is the second half of the
+        // same lesson. `arrange` looks its product up by SKU, so an earlier
+        // run whose SKU was cleared leaves a parent behind that the next run
+        // cannot find: the site ended with THREE parents called «کالای متنوع
+        // ۵۶», each carrying `4/10/2`, and `alpha53-minmax-check.sh` counted
+        // seven products with a rule where it expects four. The number was
+        // true; it was about the pile.
+        $swept = 0;
+        $removed = 0;
+        $pfx = defined('WC_MMQ_PREFIX') ? WC_MMQ_PREFIX : '';
+        foreach ((array) $db->getResults(
+            'SELECT ID FROM `' . $db->prefix() . 'posts` WHERE post_type = %s AND post_title = %s',
+            ['product', 'کالای متنوع ۵۶']
+        ) as $post) {
+            $parentId = (int) $post['ID'];
+            $ids = [$parentId];
+            foreach ((array) (wc_get_product($parentId)?->get_children() ?? []) as $child) {
+                $ids[] = (int) $child;
+            }
+            foreach ($ids as $id) {
+                foreach (['min_quantity', 'max_quantity', 'product_step'] as $f) {
+                    if (metadata_exists('post', $id, $pfx . $f)) {
+                        delete_post_meta($id, $pfx . $f);
+                        $removed++;
+                    }
+                }
+                wc_delete_product_transients($id);
+                wp_cache_delete((string) $id, 'post_meta');
+            }
+            $db->execute(
+                'DELETE FROM `' . $db->prefix() . 'tmc_minmax_handover` WHERE post_id = %d',
+                [$parentId]
+            );
+            // The row that points at it goes with it, or the next run reads a
+            // marketplace row whose product is gone — an orphan link, which
+            // is a real state this plugin reports and NOT one a fixture
+            // should be manufacturing.
+            foreach ((array) $db->getResults(
+                'SELECT id FROM `' . $db->prefix() . 'tmc_products` WHERE wc_product_id = %d',
+                [$parentId]
+            ) as $row) {
+                $db->execute('DELETE FROM `' . $db->prefix() . 'tmc_products` WHERE id = %d', [(int) $row['id']]);
+            }
+            // And the product itself: `arrange` builds it again on demand,
+            // and a fixture that leaves a growing pile measures the pile
+            // (`alpha.55`, where five products appeared where four were
+            // expected).
+            wp_delete_post($parentId, true);
+            $swept++;
+        }
+        $say('parents_swept', (string) $swept);
+        $say('rule_rows_removed', (string) $removed);
+        $say('rules_left_on_site', (string) ($db->getVar(
+            'SELECT COUNT(DISTINCT m.post_id) FROM `' . $db->prefix() . 'postmeta` m
+               WHERE m.meta_key = %s AND m.meta_value <> %s',
+            [$pfx . 'min_quantity', '']
+        ) ?? -1));
+        $say('handed_back', 1);
+        break;
+    }
+
     default: {
         $say('verb', 'unknown');
         break;

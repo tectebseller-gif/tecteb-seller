@@ -27,7 +27,7 @@ verdict=imported
 reason=partly_written:baseline
 refused_statements=1
 row_exists=yes
-row_id=1394
+row_id=1434
 baseline=__empty__
 import_run=intake-a56
 PASS  before/2a the baseline write was refused once  (1)
@@ -56,18 +56,18 @@ PASS  before/2a there was no way to even LIST them  (1)
 PASS  before/rollback-delete-fails  the probe ran
 --- before rollback-delete-fails ---
 probe=ran
-row_before=1394
+row_before=1434
 stamp_before=intake-a56
 manifest_before=present
 rollback_code=intake_rollback_kept
 rollback_ok=no
-kept=1394:not_removed
-row_after=1394
+kept=1434:not_removed
+row_after=1434
 stamp_after=__empty__
 manifest_after=__absent__
 PASS  before/2b the run was named in the manifest  (present)
 PASS  before/2b the rollback did not finish  (no)
-PASS  before/2b and the row is still there  (1394)
+PASS  before/2b and the row is still there  (1434)
 PASS  before/2b THE DEFECT: the stamp was cleared  (__empty__)
 PASS  before/2b and the manifest deleted  (__absent__)
 PASS  before/rollback-retry  the probe ran
@@ -119,23 +119,23 @@ PASS  before/arrange  the probe ran
 PASS  before/project-observed  the probe ran
 --- before project-observed ---
 probe=ran
-row=1396
+row=1436
 ownership=observed
 sync_code=projected
-row_points_at=404
+row_points_at=418
 still_points_at_the_observed_product=no
-wc_products_before=32
-wc_products_after=33
+wc_products_before=31
+wc_products_after=32
 PASS  before/2d the row only watches  (observed)
 PASS  before/2d THE DEFECT: the sync went ahead  (projected)
 PASS  before/counts-scope  the probe ran
 --- before counts-scope ---
 probe=ran
-before_total=33
-before_by_type=simple:28,variable:5
-planted=148,3,405
-after_total=33
-after_by_type=simple:31,variable:5
+before_total=32
+before_by_type=simple:29,variable:3
+planted=408,3,419
+after_total=32
+after_by_type=simple:32,variable:3
 type_total_moved=yes
 status_total_moved=no
 types_add_up_to_statuses=no
@@ -230,21 +230,21 @@ PASS  after/2a nothing is incomplete after a clean intake  (0)
 PASS  after/rollback-delete-fails  the probe ran
 --- after rollback-delete-fails ---
 probe=ran
-row_before=1398
+row_before=1438
 stamp_before=intake-a56-retry
 manifest_before=present
 rollback_code=intake_rollback_kept
 rollback_ok=no
-kept=1398:not_removed:product_row
-row_after=1398
+kept=1438:not_removed:product_row
+row_after=1438
 stamp_after=intake-a56-retry
 manifest_after=present
 PASS  after/2b the run was named in the manifest  (present)
 PASS  after/2b the rollback did not finish  (no)
-PASS  after/2b and the row is still there  (1398)
+PASS  after/2b and the row is still there  (1438)
 PASS  after/2b the stamp is kept  (intake-a56-retry)
 PASS  after/2b the manifest is kept  (present)
-PASS  after/2b and the refusal names the part  (1398:not_removed:product_row)
+PASS  after/2b and the refusal names the part  (1438:not_removed:product_row)
 PASS  after/rollback-retry  the probe ran
 --- after rollback-retry ---
 probe=ran
@@ -308,25 +308,25 @@ PASS  after/arrange  the probe ran
 PASS  after/project-observed  the probe ran
 --- after project-observed ---
 probe=ran
-row=1400
+row=1440
 ownership=observed
 sync_code=not_our_product
 row_points_at=383
 still_points_at_the_observed_product=yes
-wc_products_before=32
-wc_products_after=32
+wc_products_before=31
+wc_products_after=31
 PASS  after/2d the row only watches  (observed)
 PASS  after/2d the sync refuses by name  (not_our_product)
 PASS  after/2d the row still points at the same product  (yes)
-PASS  after/2d and no WooCommerce product was created  (32)
+PASS  after/2d and no WooCommerce product was created  (31)
 PASS  after/counts-scope  the probe ran
 --- after counts-scope ---
 probe=ran
-before_total=32
-before_by_type=simple:27,variable:5
-planted=148,3,403
-after_total=32
-after_by_type=simple:27,variable:5
+before_total=31
+before_by_type=simple:28,variable:3
+planted=408,3,413
+after_total=31
+after_by_type=simple:28,variable:3
 type_total_moved=no
 status_total_moved=no
 types_add_up_to_statuses=yes
@@ -362,12 +362,12 @@ PASS  after/list-draft-only  the probe ran
 probe=ran
 rows=1
 wc_product_id=0
-product_id=1401
+product_id=1441
 source=draft
 wc_status=__absent__
 bucket=draft_only
 vendor=9156
-created_id=1401
+created_id=1441
 PASS  after/3b a marketplace row with no product is in the list  (0)
 PASS  after/3b named as its own source  (draft)
 PASS  after/3b with no WooCommerce status to show  (__absent__)
@@ -375,15 +375,15 @@ PASS  after/3b and its own bucket  (draft_only)
 PASS  after/facets  the probe ran
 --- after facets ---
 probe=ran
-total=122
-source_sum=122
+total=121
+source_sum=121
 source_values=draft,marketplace,woocommerce
-management_sum=122
+management_sum=121
 management_values=ours,none
-wc_status_sum=122
+wc_status_sum=121
 wc_status_values=__absent__,publish
 sums_agree=yes
-published_total=32
+published_total=31
 observed_total=0
 published_and_observed=0
 PASS  after/3c every row is counted once per facet  (yes)
@@ -391,7 +391,7 @@ PASS  after/3c published AND observed is its own question  (0)
 PASS  after/paging  the probe ran
 --- after paging ---
 probe=ran
-total=122
+total=121
 first_rows=5
 second_rows=5
 overlap=0
@@ -442,7 +442,7 @@ PASS  after/minmax-variable-arrange  the probe ran
 --- after minmax-variable-arrange ---
 probe=ran
 intake_verdict=imported
-wc_id=400
+wc_id=419
 variations=2
 migrate_outcome=batch_done
 marketplace_owns=no
@@ -461,7 +461,7 @@ PASS  after/minmax-variable-cart  the probe ran
 --- after cart (Min Max ON) ---
 probe=ran
 parent_input_args=4/10/2
-variation_id=401
+variation_id=420
 variation_input_args=4/10/2
 qty_1=refused
 qty_3=refused
@@ -498,7 +498,7 @@ PASS  after/minmax-variable-cart  the probe ran
 --- after cart (Min Max OFF) ---
 probe=ran
 parent_input_args=4/10/2
-variation_id=401
+variation_id=420
 variation_input_args=4/10/2
 qty_1=refused
 qty_3=refused
@@ -523,11 +523,11 @@ probe=ran
 granted_before=yes
 stale_before=__none__
 granted_after=no
-stale_after=400
+stale_after=419
 this_product_listed=yes
 reissue_code=minmax_enforce_not_allowed
 granted_again=no
-stale_at_end=400
+stale_at_end=419
 granted_after_putting_it_back=yes
 stale_after_putting_it_back=__none__
 PASS  5d the grant was live  (yes)
@@ -559,5 +559,13 @@ PASS  control/after its gallery is untouched  (384,385)
 PASS  control/after an intake records what it saw  (450000)
 PASS  control/after and the risk list is the same  (__none__)
 PASS  after/reset  the probe ran
+PASS  after/minmax-hand-back  the probe ran
+--- after minmax-hand-back ---
+probe=ran
+parents_swept=1
+rule_rows_removed=3
+rules_left_on_site=2
+handed_back=1
+PASS  after/hand-back the Min Max rows were given back  (1)
 
-PASS=193 FAIL=0
+PASS=195 FAIL=0

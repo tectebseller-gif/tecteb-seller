@@ -1,8 +1,8 @@
-# Min Max exit — 2026-10-13T10:18:11Z
+# Min Max exit — 2026-10-16T10:56:50Z
 plugin under test: 8.1.0
 woocommerce:       11.0.1
-marketplace:       0.1.0-alpha.53
-schema:            27
+marketplace:       0.1.0-alpha.56
+schema:            28
 
 probe=ran
 minmax_active=yes
@@ -128,10 +128,12 @@ minmax_active=no
 minmax_version=__absent__
 rollback_code=minmax_rolled_back
 rows_after_rollback=__absent__/__absent__/__absent__
-ledger_after_rollback=rolled_back
+ledger_after_rollback=__none__
+history_after_rollback=rolled_back
 PASS 5a the rollback succeeded → minmax_rolled_back
 PASS 5b and the rows are ABSENT again, not empty → __absent__/__absent__/__absent__
-PASS 5c the ledger records it → rolled_back
+PASS 5c no live decision stands afterwards → __none__
+PASS 5c2 and the row is kept, as history → rolled_back
 probe=ran
 minmax_active=no
 minmax_version=__absent__
@@ -159,5 +161,5 @@ PASS 6b an empty row reads as empty → string:__empty__
 PASS 6c a marketplace product is ours → yes
 PASS 6d a plain WooCommerce product is not → no
 
-checks: 46 passed, 0 failed
+checks: 47 passed, 0 failed
 Min Max left: active

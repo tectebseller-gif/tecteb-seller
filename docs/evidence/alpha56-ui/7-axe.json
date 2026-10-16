@@ -1,0 +1,345 @@
+[
+  {
+    "id": "aria-allowed-role",
+    "impact": "minor",
+    "tags": [
+      "cat.aria",
+      "best-practice"
+    ],
+    "description": "Ensure role attribute has an appropriate value for the element",
+    "help": "ARIA role should be appropriate for the element",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/aria-allowed-role?application=axeAPI",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "aria-allowed-role",
+            "data": [
+              "group"
+            ],
+            "relatedNodes": [],
+            "impact": "minor",
+            "message": "ARIA role group is not allowed for given element"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "minor",
+        "html": "<li role=\"group\" id=\"wp-admin-bar-wp-logo\" class=\"menupop\">",
+        "target": [
+          "#wp-admin-bar-wp-logo"
+        ],
+        "failureSummary": "Fix any of the following:\n  ARIA role group is not allowed for given element"
+      },
+      {
+        "any": [
+          {
+            "id": "aria-allowed-role",
+            "data": [
+              "group"
+            ],
+            "relatedNodes": [],
+            "impact": "minor",
+            "message": "ARIA role group is not allowed for given element"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "minor",
+        "html": "<li role=\"group\" id=\"wp-admin-bar-site-name\" class=\"menupop\">",
+        "target": [
+          "#wp-admin-bar-site-name"
+        ],
+        "failureSummary": "Fix any of the following:\n  ARIA role group is not allowed for given element"
+      },
+      {
+        "any": [
+          {
+            "id": "aria-allowed-role",
+            "data": [
+              "group"
+            ],
+            "relatedNodes": [],
+            "impact": "minor",
+            "message": "ARIA role group is not allowed for given element"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "minor",
+        "html": "<li role=\"group\" id=\"wp-admin-bar-woocommerce-site-visibility-badge\" class=\"woocommerce-site-status-badge-store-coming-soon\"><a class=\"ab-item\" role=\"menuitem\" href=\"http://127.0.0.1:8081/wp-admin/admin.php?page=wc-settings&amp;tab=site-visibility\">Store coming soon</a></li>",
+        "target": [
+          "#wp-admin-bar-woocommerce-site-visibility-badge"
+        ],
+        "failureSummary": "Fix any of the following:\n  ARIA role group is not allowed for given element"
+      },
+      {
+        "any": [
+          {
+            "id": "aria-allowed-role",
+            "data": [
+              "group"
+            ],
+            "relatedNodes": [],
+            "impact": "minor",
+            "message": "ARIA role group is not allowed for given element"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "minor",
+        "html": "<li role=\"group\" id=\"wp-admin-bar-command-palette\" class=\"hide-if-no-js\">",
+        "target": [
+          "#wp-admin-bar-command-palette"
+        ],
+        "failureSummary": "Fix any of the following:\n  ARIA role group is not allowed for given element"
+      },
+      {
+        "any": [
+          {
+            "id": "aria-allowed-role",
+            "data": [
+              "group"
+            ],
+            "relatedNodes": [],
+            "impact": "minor",
+            "message": "ARIA role group is not allowed for given element"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "minor",
+        "html": "<li role=\"group\" id=\"wp-admin-bar-comments\">",
+        "target": [
+          "#wp-admin-bar-comments"
+        ],
+        "failureSummary": "Fix any of the following:\n  ARIA role group is not allowed for given element"
+      },
+      {
+        "any": [
+          {
+            "id": "aria-allowed-role",
+            "data": [
+              "group"
+            ],
+            "relatedNodes": [],
+            "impact": "minor",
+            "message": "ARIA role group is not allowed for given element"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "minor",
+        "html": "<li role=\"group\" id=\"wp-admin-bar-new-content\" class=\"menupop\">",
+        "target": [
+          "#wp-admin-bar-new-content"
+        ],
+        "failureSummary": "Fix any of the following:\n  ARIA role group is not allowed for given element"
+      },
+      {
+        "any": [
+          {
+            "id": "aria-allowed-role",
+            "data": [
+              "group"
+            ],
+            "relatedNodes": [],
+            "impact": "minor",
+            "message": "ARIA role group is not allowed for given element"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "minor",
+        "html": "<li role=\"group\" id=\"wp-admin-bar-my-account\" class=\"menupop with-avatar\">",
+        "target": [
+          "#wp-admin-bar-my-account"
+        ],
+        "failureSummary": "Fix any of the following:\n  ARIA role group is not allowed for given element"
+      }
+    ]
+  },
+  {
+    "id": "landmark-banner-is-top-level",
+    "impact": "moderate",
+    "tags": [
+      "cat.semantics",
+      "best-practice"
+    ],
+    "description": "Ensure the banner landmark is at top level",
+    "help": "Banner landmark should not be contained in another landmark",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/landmark-banner-is-top-level?application=axeAPI",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "landmark-is-top-level",
+            "data": {
+              "role": null
+            },
+            "relatedNodes": [],
+            "impact": "moderate",
+            "message": "The null landmark is contained in another landmark."
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "moderate",
+        "html": "<header class=\"tmc-header\">",
+        "target": [
+          "header"
+        ],
+        "failureSummary": "Fix any of the following:\n  The null landmark is contained in another landmark."
+      }
+    ]
+  },
+  {
+    "id": "landmark-contentinfo-is-top-level",
+    "impact": "moderate",
+    "tags": [
+      "cat.semantics",
+      "best-practice"
+    ],
+    "description": "Ensure the contentinfo landmark is at top level",
+    "help": "Contentinfo landmark should not be contained in another landmark",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/landmark-contentinfo-is-top-level?application=axeAPI",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "landmark-is-top-level",
+            "data": {
+              "role": null
+            },
+            "relatedNodes": [],
+            "impact": "moderate",
+            "message": "The null landmark is contained in another landmark."
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "moderate",
+        "html": "<footer class=\"tmc-footer\"><p>تمام ارسال‌های خود افزونه در نسخه آزمایشی مسدود است. وضعیت سایر افزونه‌ها بررسی‌نشده است.</p></footer>",
+        "target": [
+          "footer"
+        ],
+        "failureSummary": "Fix any of the following:\n  The null landmark is contained in another landmark."
+      }
+    ]
+  },
+  {
+    "id": "landmark-main-is-top-level",
+    "impact": "moderate",
+    "tags": [
+      "cat.semantics",
+      "best-practice"
+    ],
+    "description": "Ensure the main landmark is at top level",
+    "help": "Main landmark should not be contained in another landmark",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/landmark-main-is-top-level?application=axeAPI",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "landmark-is-top-level",
+            "data": {
+              "role": "main"
+            },
+            "relatedNodes": [],
+            "impact": "moderate",
+            "message": "The main landmark is contained in another landmark."
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "moderate",
+        "html": "<main id=\"tmc-main\" class=\"tmc-main\" tabindex=\"-1\">",
+        "target": [
+          "#tmc-main"
+        ],
+        "failureSummary": "Fix any of the following:\n  The main landmark is contained in another landmark."
+      }
+    ]
+  },
+  {
+    "id": "landmark-no-duplicate-main",
+    "impact": "moderate",
+    "tags": [
+      "cat.semantics",
+      "best-practice"
+    ],
+    "description": "Ensure the document has at most one main landmark",
+    "help": "Document should not have more than one main landmark",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/landmark-no-duplicate-main?application=axeAPI",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "page-no-duplicate-main",
+            "data": null,
+            "relatedNodes": [
+              {
+                "html": "<main id=\"tmc-main\" class=\"tmc-main\" tabindex=\"-1\">",
+                "target": [
+                  "#tmc-main"
+                ]
+              }
+            ],
+            "impact": "moderate",
+            "message": "Document has more than one main landmark"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "moderate",
+        "html": "<div id=\"wpbody\" role=\"main\">",
+        "target": [
+          "#wpbody"
+        ],
+        "failureSummary": "Fix any of the following:\n  Document has more than one main landmark"
+      }
+    ]
+  },
+  {
+    "id": "landmark-unique",
+    "impact": "moderate",
+    "tags": [
+      "cat.semantics",
+      "best-practice"
+    ],
+    "description": "Ensure landmarks are unique",
+    "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/landmark-unique?application=axeAPI",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "landmark-is-unique",
+            "data": {
+              "role": "main",
+              "accessibleText": null
+            },
+            "relatedNodes": [
+              {
+                "html": "<main id=\"tmc-main\" class=\"tmc-main\" tabindex=\"-1\">",
+                "target": [
+                  "#tmc-main"
+                ]
+              }
+            ],
+            "impact": "moderate",
+            "message": "The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "moderate",
+        "html": "<div id=\"wpbody\" role=\"main\">",
+        "target": [
+          "#wpbody"
+        ],
+        "failureSummary": "Fix any of the following:\n  The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+      }
+    ]
+  }
+]

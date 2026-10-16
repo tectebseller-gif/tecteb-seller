@@ -1,0 +1,32 @@
+ok:   the installed package is the one under test                        0.1.0-alpha.56
+ok:   and the structure is the one it targets                            28
+ok:   WooCommerce is really active                                       active
+      probe=ran · wc_id=383 · status=publish · price=450000 · stock=22 · gallery=384,385 · marketplace_rows=0
+ok:   1 the list page opens for the manager                              1
+ok:   1b with the source facet                                           true
+ok:   1c and the management facet, which is not the publish status       true
+ok:   1d the rows are in one scrollable region with a name               1
+      links on the page: 89
+ok:   1e the arranged product has exactly one row                        1
+      after the first source chip: http://127.0.0.1:8081/wp-admin/admin.php?page=tmc-product-review&per_page=100&source=woocommerce
+ok:   2 a facet click lands on the same page                             true
+ok:   2a and carries the facet in the address, so a bookmark keeps it    true
+ok:   2b and a new filter starts at the first page — no stale «paged»    false
+ok:   3 the WooCommerce product has a screen of its own                  true
+ok:   3b which says that opening it decided nothing                      true
+ok:   3c and this is where the ownership evidence is readable, not in the list true
+ok:   4 the intake box is drawn where a row could be taken in            true
+ok:   4b the vendor is chosen by searching the shop NAME, not by id      search
+ok:   4c there is a preview that writes nothing                          1
+ok:   4d and no «select all» — the intake takes an explicit list         0
+ok:   4e a shop name nothing matches is said out loud                    true
+ok:   4f and what was typed survives the round trip                      فروشگاهی-که-وجود-ندارد
+ok:   5 the retired intake address does not refuse                       200
+ok:   5b it lands on the one list                                        true
+ok:   5c narrowed to what that screen used to show                       true
+      horizontal overflow at 390px: 0px
+ok:   6 the list does not drag the whole page sideways on a phone        true
+      axe: 52 passes, 6 violations, 0 serious or critical
+ok:   7 no serious or critical accessibility violation on the one list   0
+
+PASS=25 FAIL=0
