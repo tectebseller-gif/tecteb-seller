@@ -541,6 +541,66 @@ namespace {
         }
     }
 
+    // The ROW-addressed meta verbs, modelled on core because
+    // `WC_Data_Store_WP::update_meta()` and `delete_meta()` call exactly
+    // these — so a guard that only sits on the key-addressed filters is
+    // invisible from here, which is the hole `alpha.58` shipped. Core:
+    // `update_metadata_by_mid()` applies `update_{$type}_metadata_by_mid`
+    // with ($check, $meta_id, $meta_value, $meta_key) and
+    // `delete_metadata_by_mid()` applies `delete_{$type}_metadata_by_mid`
+    // with ($check, $meta_id); both return `(bool) $check` when it is not
+    // null. The stub keeps a flat row table beside `State::$postMeta` so a
+    // meta id means something.
+    if (!function_exists('get_metadata_by_mid')) {
+        function get_metadata_by_mid(string $type, int $metaId): object|false
+        {
+            $row = \TmcWpStubs\State::$metaRows[$metaId] ?? null;
+            return $row === null ? false : (object) $row;
+        }
+    }
+
+    if (!function_exists('update_metadata_by_mid')) {
+        function update_metadata_by_mid(string $type, int $metaId, mixed $value, string|false $key = false): bool
+        {
+            $check = apply_filters('update_post_metadata_by_mid', null, $metaId, $value, $key);
+            if ($check !== null) {
+                return (bool) $check;
+            }
+            $row = \TmcWpStubs\State::$metaRows[$metaId] ?? null;
+            if ($row === null) {
+                return false;
+            }
+            $postId = (int) $row['post_id'];
+            if ($key !== false && $key !== $row['meta_key']) {
+                unset(\TmcWpStubs\State::$postMeta[$postId][$row['meta_key']]);
+                \TmcWpStubs\State::$metaRows[$metaId]['meta_key'] = $key;
+                $row['meta_key'] = $key;
+            }
+            \TmcWpStubs\State::$metaRows[$metaId]['meta_value'] = $value;
+            \TmcWpStubs\State::$postMeta[$postId][$row['meta_key']] = $value;
+            return true;
+        }
+    }
+
+    if (!function_exists('delete_metadata_by_mid')) {
+        function delete_metadata_by_mid(string $type, int $metaId): bool
+        {
+            $check = apply_filters('delete_post_metadata_by_mid', null, $metaId);
+            if ($check !== null) {
+                return (bool) $check;
+            }
+            $row = \TmcWpStubs\State::$metaRows[$metaId] ?? null;
+            if ($row === null) {
+                return false;
+            }
+            unset(
+                \TmcWpStubs\State::$postMeta[(int) $row['post_id']][$row['meta_key']],
+                \TmcWpStubs\State::$metaRows[$metaId]
+            );
+            return true;
+        }
+    }
+
     if (!function_exists('metadata_exists')) {
         function metadata_exists(string $type, int $objectId, string $key): bool
         {

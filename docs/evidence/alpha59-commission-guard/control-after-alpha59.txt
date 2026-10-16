@@ -1,0 +1,12 @@
+stage=add product=427
+manager_has_financial_cap=no
+control_note=[first]
+commission_untouched=12.50
+stage=update product=427
+manager_has_financial_cap=no
+control_note=[second]
+commission_untouched=12.50
+stage=delete product=427
+manager_has_financial_cap=no
+control_note=[]
+commission_untouched=12.50

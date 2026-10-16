@@ -1,0 +1,17 @@
+product=427
+meta_key_collation=utf8mb4_unicode_520_ci
+baseline_type=percent
+baseline_value=12.50
+manager_has_financial_cap=no
+after_wc_object_save=12.50
+row_value=12.50
+type_after_wc_object_delete=[percent]
+re_baseline_value=12.50
+uppercase_write=refused
+value_after_uppercase=12.50
+rows_for_value=1
+trailing_space_write=refused
+value_after_trailing_space=12.50
+control_note=control-note
+control_price=450000
+control_note_after_delete=[control-note]

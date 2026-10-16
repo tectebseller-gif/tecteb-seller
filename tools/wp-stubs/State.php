@@ -161,6 +161,19 @@ final class State
      * @var array<int,array<string,mixed>>
      */
     public static array $postMeta = [];
+    /**
+     * The same meta, addressed by ROW id — `meta_id => {meta_id, post_id,
+     * meta_key, meta_value}`.
+     *
+     * WordPress has two ways to change a meta row and WooCommerce uses both:
+     * `update_post_meta()` by key, and `update_metadata_by_mid()` by row,
+     * which is what `WC_Data_Store_WP::update_meta()` calls. Without a row
+     * table a stub cannot model the second, and a guard that misses it looks
+     * complete — which is how `alpha.58` shipped with that door open.
+     *
+     * @var array<int,array{meta_id:int,post_id:int,meta_key:string,meta_value:mixed}>
+     */
+    public static array $metaRows = [];
     /** Which post the loop is on, for `get_the_ID()`. */
     public static int $currentPostId = 0;
     /** Next id wp_insert_user() will hand out. */
@@ -212,6 +225,7 @@ final class State
         self::$userMeta = [];
         self::$posts = [];
         self::$postMeta = [];
+        self::$metaRows = [];
         self::$currentPostId = 0;
         self::$nextUserId = 500;
         self::$uploadBaseDir = null;
