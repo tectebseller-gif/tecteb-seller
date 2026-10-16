@@ -1,0 +1,11 @@
+probe=ran
+granted_before=yes
+stale_before=__none__
+granted_after=no
+stale_after=400
+this_product_listed=yes
+reissue_code=minmax_enforce_not_allowed
+granted_again=no
+stale_at_end=400
+granted_after_putting_it_back=yes
+stale_after_putting_it_back=__none__

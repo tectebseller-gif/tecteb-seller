@@ -1,9 +1,9 @@
 probe=ran
-before_total=30
-before_by_type=simple:28,variable:2
-planted=148,3,394
-after_total=30
-after_by_type=simple:31,variable:2
+before_total=33
+before_by_type=simple:28,variable:5
+planted=148,3,405
+after_total=33
+after_by_type=simple:31,variable:5
 type_total_moved=yes
 status_total_moved=no
 types_add_up_to_statuses=no

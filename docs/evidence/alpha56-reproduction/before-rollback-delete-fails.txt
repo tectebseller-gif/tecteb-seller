@@ -1,10 +1,10 @@
 probe=ran
-row_before=1374
+row_before=1394
 stamp_before=intake-a56
 manifest_before=present
 rollback_code=intake_rollback_kept
 rollback_ok=no
-kept=1374:not_removed
-row_after=1374
+kept=1394:not_removed
+row_after=1394
 stamp_after=__empty__
 manifest_after=__absent__

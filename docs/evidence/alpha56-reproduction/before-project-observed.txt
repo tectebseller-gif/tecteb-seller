@@ -1,8 +1,8 @@
 probe=ran
-row=1376
+row=1396
 ownership=observed
 sync_code=projected
-row_points_at=393
+row_points_at=404
 still_points_at_the_observed_product=no
-wc_products_before=29
-wc_products_after=30
+wc_products_before=32
+wc_products_after=33

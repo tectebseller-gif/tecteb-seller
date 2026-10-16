@@ -89,7 +89,10 @@ say "old bytes read from $BASE_COMMIT: $(find "$OLD_TREE/src" -name '*.php' | wc
 say "this checkout:                    $(find "$REPO/src" -name '*.php' | wc -l) php files"
 
 install_tree() { rsync -a --delete "$1/" "$INSTALLED/src/"; }
-trap 'install_tree "$REPO/src"; rm -rf "$OLD_TREE"' EXIT
+# Whatever happens, this checkout goes back on disk and Min Max goes back on:
+# a script that left the shop's own plugin deactivated would be a change to
+# the site, not a measurement of it.
+trap 'install_tree "$REPO/src"; wpx plugin activate "${MINMAX:-woo-min-max-quantity-step-control-single}" >/dev/null 2>&1; rm -rf "$OLD_TREE"' EXIT
 
 NEW_SCHEMA="$(sed -n 's/.*TARGET = \([0-9]*\).*/\1/p' "$REPO/src/Core/Migration/SchemaVersion.php" | head -1)"
 OLD_SCHEMA="$(sed -n 's/.*TARGET = \([0-9]*\).*/\1/p' "$OLD_TREE/src/Core/Migration/SchemaVersion.php" | head -1)"
@@ -329,6 +332,82 @@ run_tree before
 install_tree "$REPO/src"
 say "installed: this checkout"
 run_tree after
+
+# ============================== §5 the Min Max exit, Min Max off and on
+#
+# `alpha.55` measured the grant on a SIMPLE product. §5 asks for the parent,
+# the variation, a repeated add and a change of quantity as well, because
+# those are four different code paths in WooCommerce and a rule that held on
+# one of them says nothing about the other three. And the measurement that
+# matters is the PAIR: the allowed set with Min Max on, and the same set with
+# Min Max switched off, on a product this marketplace does not own.
+say ""
+say "=================== §5 Min Max: a variable, non-marketplace product ==================="
+MINMAX="${MINMAX:-woo-min-max-quantity-step-control-single}"
+probe minmax-variable-arrange after; f="$PROBE_FILE"; dump "after minmax-variable-arrange" "$f"
+MM_WC="$(value "$f" wc_id)"
+check "5a the fixture is a variable product with two variations" "2" "$(value "$f" variations)"
+check "5a the marketplace does NOT own it"                      "no" "$(value "$f" marketplace_owns)"
+check "5a no grant before"                                      "no" "$(value "$f" granted_before)"
+check "5a the grant is recorded" "minmax_rule_enforced" "$(value "$f" enforce_code)"
+check "5a and the product carries it"                          "yes" "$(value "$f" granted_after)"
+# The grant is about ONE rule: nothing else moved.
+check "5a the publish status did not move"                 "publish" "$(value "$f" wc_status)"
+
+probe minmax-variable-cart after "$MM_WC"; f="$PROBE_FILE"; dump "after cart (Min Max ON)" "$f"
+cp "$f" "$OUT/after-minmax-variable-cart-on.txt"
+check "5b the parent's own control"   "4/10/2" "$(value "$f" parent_input_args)"
+check "5b the VARIATION's control"    "4/10/2" "$(value "$f" variation_input_args)"
+check "5b one is refused"            "refused" "$(value "$f" qty_1)"
+check "5b three is refused"          "refused" "$(value "$f" qty_3)"
+check "5b four is allowed"           "allowed" "$(value "$f" qty_4)"
+check "5b eight is allowed"          "allowed" "$(value "$f" qty_8)"
+check "5b eleven is refused"         "refused" "$(value "$f" qty_11)"
+check "5b four really lands in the cart" "in_cart" "$(value "$f" first_add_4)"
+check "5b a repeated add to six is allowed" "allowed" "$(value "$f" repeat_add_2)"
+check "5b a repeated add to seven is not"   "refused" "$(value "$f" repeat_add_1)"
+check "5b changing the cart to five is refused" "refused" "$(value "$f" change_to_5)"
+check "5b changing it to six is allowed"        "allowed" "$(value "$f" change_to_6)"
+check "5b the Store API refuses three"          "refused" "$(value "$f" store_api_qty_3)"
+check "5b and allows four"                      "allowed" "$(value "$f" store_api_qty_4)"
+check "5b the sales gate was put back"              "yes" "$(value "$f" gate_restored)"
+
+# AND THE SAME SET WITH MIN MAX SWITCHED OFF. This is the exit's whole claim.
+wpx plugin deactivate "$MINMAX" >/dev/null 2>&1
+say "Min Max deactivated"
+probe minmax-variable-cart after "$MM_WC"; f="$PROBE_FILE"; dump "after cart (Min Max OFF)" "$f"
+cp "$f" "$OUT/after-minmax-variable-cart-off.txt"
+wpx plugin activate "$MINMAX" >/dev/null 2>&1
+say "Min Max reactivated"
+# Compared LINE BY LINE rather than key by key: the claim is that the allowed
+# set does not change, and a key-by-key list would let a new key appear on one
+# side unnoticed.
+if diff -q <(grep -v '^probe=' "$OUT/after-minmax-variable-cart-on.txt") \
+           <(grep -v '^probe=' "$OUT/after-minmax-variable-cart-off.txt") >/dev/null; then
+  PASS=$((PASS + 1)); say "PASS  5c the allowed set is IDENTICAL with Min Max off  (byte for byte)"
+else
+  FAIL=$((FAIL + 1)); say "FAIL  5c the allowed set changed when Min Max was switched off"
+  diff "$OUT/after-minmax-variable-cart-on.txt" "$OUT/after-minmax-variable-cart-off.txt" >>"$RUN" 2>&1 || true
+fi
+
+# A rule edited AFTER the grant: the limit goes away, and that is said out
+# loud rather than left in a cell.
+probe minmax-stale-grant after "$MM_WC"; f="$PROBE_FILE"; dump "after minmax-stale-grant" "$f"
+check "5d the grant was live"                         "yes" "$(value "$f" granted_before)"
+check "5d and nothing was stale"                 "__none__" "$(value "$f" stale_before)"
+check "5d after the edit it is not live"               "no" "$(value "$f" granted_after)"
+check "5d and the product is LISTED as stale"         "yes" "$(value "$f" this_product_listed)"
+check "5d re-issuing on the changed rule is refused" "minmax_enforce_not_allowed" "$(value "$f" reissue_code)"
+check "5d putting the rule back revives it"           "yes" "$(value "$f" granted_after_putting_it_back)"
+check "5d and clears the warning"                "__none__" "$(value "$f" stale_after_putting_it_back)"
+
+# And the rollback of a GRANTED product takes the grant with it.
+probe minmax-rollback-granted after "$MM_WC"; f="$PROBE_FILE"; dump "after minmax-rollback-granted" "$f"
+check "5e the grant was live"                  "yes" "$(value "$f" granted_before)"
+check "5e the rollback completes" "minmax_rolled_back" "$(value "$f" rollback_code)"
+check "5e the grant is gone with it"            "no" "$(value "$f" granted_after)"
+# REMOVED, not emptied — `alpha.28`'s rule, three nullable columns.
+check "5e and the three rows are removed" "__absent__/__absent__/__absent__" "$(value "$f" rows_after_rollback)"
 
 # ===================================================== controls on BOTH trees
 #

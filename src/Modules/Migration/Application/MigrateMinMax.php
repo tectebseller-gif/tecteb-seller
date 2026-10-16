@@ -878,6 +878,48 @@ final class MigrateMinMax
      *
      * @return list<array<string,mixed>>
      */
+    /**
+     * The products whose GRANT no longer describes the rule on them — a
+     * purchase limit that has silently stopped applying.
+     *
+     * **Why this is a list and not a cell in a table.** The grant is stored
+     * as the fingerprint of the three values it was given for (`alpha.55`),
+     * so a rule edited afterwards leaves the grant alive but dead: the guard
+     * asks `hash_equals` and answers «not granted», and from that moment the
+     * product allows ANY quantity. That is correct — a permission is about
+     * the values it was given for, and re-using it for whatever is there now
+     * would be the mistake `alpha.49` named — but it is also a limit that has
+     * gone away, and «هیچ حد خریدی بی هشدار از بین نرود» is this round's
+     * instruction about exactly that.
+     *
+     * So the state has a count of its own, the exit page says it above the
+     * table rather than only inside it, and the health screen says it to
+     * somebody who has not opened the exit page at all.
+     *
+     * Bounded, and the bound is honest: this is a warning, and a warning that
+     * reads the whole ledger to say «more than fifty» would cost more than
+     * the sentence is worth.
+     *
+     * @return list<int> post ids, in ledger order
+     */
+    public function staleGrants(int $limit = 50): array
+    {
+        $out = [];
+        foreach ($this->ledger->withStatus([MinMaxHandoverRepositoryInterface::ENFORCED], $limit) as $row) {
+            // Only LIVE rows: a released or rolled-back one has no grant left
+            // to be stale, and offering a warning about it would be a warning
+            // about a decision somebody already took back.
+            if (($row['live_key'] ?? null) === null) {
+                continue;
+            }
+            $postId = (int) $row['post_id'];
+            if (!$this->shop->enforcementGranted($postId)) {
+                $out[] = $postId;
+            }
+        }
+        return $out;
+    }
+
     public function historyFor(int $postId, int $limit = 20): array
     {
         return $this->ledger->history($postId, $limit);

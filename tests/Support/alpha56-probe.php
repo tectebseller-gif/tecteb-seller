@@ -963,6 +963,307 @@ switch ($verb) {
         break;
     }
 
+    // ===================== §5 the Min Max exit on a VARIABLE product
+
+    /**
+     * A variable, NON-MARKETPLACE product with a Min Max rule — migrated and
+     * granted.
+     *
+     * `alpha.55` measured the grant on a simple product. §5 asks for the
+     * parent, the variation, a repeated add and a cart change as well,
+     * because those are four different code paths in WooCommerce and a rule
+     * that held on one of them says nothing about the other three.
+     *
+     * «Non-marketplace» is made the way a real one is: an OBSERVED row, which
+     * answers no to `marketplaceOwns()` while the link still exists. Nulling
+     * `wc_product_id` is a state nothing produces and it made the previous
+     * round's fixture unable to find its own product (`alpha.55`).
+     */
+    case 'minmax-variable-arrange': {
+        if (!function_exists('wc_get_product_id_by_sku')) {
+            $say('refused', 'no_woocommerce');
+            break;
+        }
+        $mm = $c->get(\Tecteb\Marketplace\Modules\Migration\Application\MigrateMinMax::class);
+        if (!method_exists($mm, 'enforce')) {
+            $say('absent', 1);
+            break;
+        }
+        $sku = 'WC-A56-VAR3';
+        $wcId = (int) wc_get_product_id_by_sku($sku);
+        if ($wcId <= 0) {
+            $parent = new WC_Product_Variable();
+            $parent->set_name('کالای متنوع ۵۶');
+            $parent->set_status('publish');
+            $parent->set_catalog_visibility('visible');
+            $parent->set_sku($sku);
+            $attribute = new WC_Product_Attribute();
+            // A LATIN attribute name, on purpose and for a reason that is not
+            // about this round: `sanitize_title('رنگ')` is percent-encoded
+            // (`alpha.43` measured it), so `WC_Cart::add_to_cart()` cannot
+            // match the chosen option and refuses with «رنگ is a required
+            // field» — a true sentence about WooCommerce's attribute keys
+            // which the first version of this verb read as the purchase
+            // rule's refusal. The quantity rule does not care what the
+            // attribute is called, so the fixture stops asking.
+            $attribute->set_name('Color');
+            $attribute->set_options(['Blue', 'Red']);
+            $attribute->set_visible(true);
+            $attribute->set_variation(true);
+            $parent->set_attributes([$attribute]);
+            $wcId = (int) $parent->save();
+            foreach (['Blue' => '210000', 'Red' => '220000'] as $option => $price) {
+                $variation = new WC_Product_Variation();
+                $variation->set_parent_id($wcId);
+                // The SANITIZED name as the key — `attribute_color`, which is
+                // what `WC_Cart::add_to_cart()` looks the valid value up by
+                // (`class-wc-cart.php:1243`). Keyed `'Color'` the meta row is
+                // never written and the cart answers «Color is a required
+                // field», which the first version of this verb read as the
+                // purchase rule's refusal.
+                $variation->set_attributes(['color' => $option]);
+                $variation->set_regular_price($price);
+                $variation->set_manage_stock(true);
+                $variation->set_stock_quantity(40);
+                $variation->save();
+            }
+        }
+        $db->execute('UPDATE `' . $db->prefix() . 'posts` SET post_author = %d WHERE ID = %d', [$adminId, $wcId]);
+        // The Min Max rule on the PARENT, under the prefix the installed
+        // plugin actually uses — read from its own constant, never guessed.
+        $pfx = defined('WC_MMQ_PREFIX') ? WC_MMQ_PREFIX : '';
+        foreach (['min_quantity' => '4', 'max_quantity' => '10', 'product_step' => '2'] as $field => $value) {
+            update_post_meta($wcId, $pfx . $field, $value);
+        }
+        // An observed marketplace row pointing at it, so «not ours» is the
+        // real state and not an invented one. Built through the intake, which
+        // is the thing that makes observed rows.
+        $db->execute('DELETE FROM `' . $db->prefix() . 'tmc_minmax_handover` WHERE post_id = %d', [$wcId]);
+        $existing = $products->findByWcProduct($wcId);
+        if ($existing === null) {
+            $batch = $c->get(ImportExistingProducts::class)
+                ->importBatch(TMC_P56_RUN . '-var', [$wcId], TMC_P56_VENDOR);
+            $say('intake_verdict', (string) ($batch['results'][0]['verdict'] ?? '?'));
+        } else {
+            $say('intake_verdict', 'already');
+        }
+        wc_delete_product_transients($wcId);
+        wp_cache_delete((string) $wcId, 'post_meta');
+
+        $migrated = $mm->migrateBatch(1, $wcId - 1, false, 1);
+        $say('wc_id', $wcId);
+        $say('variations', (string) count((array) wc_get_product($wcId)?->get_children()));
+        $say('migrate_outcome', (string) (($migrated['results'][0]['outcome'] ?? ($migrated['code'] ?? '?'))));
+        $port = $c->get(\Tecteb\Marketplace\Modules\Migration\Application\ShopQuantityPortInterface::class);
+        $say('marketplace_owns', $port->marketplaceOwns($wcId));
+        $say('granted_before', $port->enforcementGranted($wcId));
+        $enforce = $mm->enforce($wcId);
+        $say('enforce_code', $enforce->code);
+        $say('granted_after', $port->enforcementGranted($wcId));
+        // And nothing else moved: the grant is about one rule.
+        $say('wc_status', (string) get_post_status($wcId));
+        $say('wc_author', (string) ($db->getVar(
+            'SELECT post_author FROM `' . $db->prefix() . 'posts` WHERE ID = %d',
+            [$wcId]
+        ) ?? 0));
+        break;
+    }
+
+    /**
+     * What the cart does about that product — parent, variation, a repeated
+     * add and a change of quantity, in the classic cart and through the Store
+     * API.
+     *
+     * The gate is opened with the plugin's OWN local key and closed again:
+     * without it every quantity is refused, which is a true sentence about
+     * the sales gate and says nothing about the purchase rule (`alpha.53`).
+     */
+    case 'minmax-variable-cart': {
+        $wcId = (int) ($args[1] ?? 0);
+        $product = $wcId > 0 && function_exists('wc_get_product') ? wc_get_product($wcId) : null;
+        if (!is_object($product)) {
+            $say('refused', 'no_product');
+            break;
+        }
+        $children = array_map('intval', (array) $product->get_children());
+        $variationId = (int) ($children[0] ?? 0);
+        $gateWas = get_option('tmc_order_trial_mode');
+        update_option('tmc_order_trial_mode', '1');
+        if (function_exists('wc_load_cart')) {
+            wc_load_cart();
+        }
+        // Min Max's own validator calls `wc_add_notice()` from inside its
+        // namespace and fatals without it under WP-CLI — its bug, not this
+        // plugin's, and a probe that dies on it measures nothing.
+        if (!function_exists('wc_add_notice') && defined('WC_ABSPATH')) {
+            require_once WC_ABSPATH . 'includes/wc-notice-functions.php';
+        }
+        $clear = static function (): void {
+            if (function_exists('wc_clear_notices')) {
+                wc_clear_notices();
+            }
+            if (function_exists('WC') && WC()->cart !== null) {
+                WC()->cart->empty_cart();
+            }
+        };
+        $clear();
+        $args9 = function_exists('wc_get_quantity_input_args') ? wc_get_quantity_input_args([], $product) : [];
+        $say('parent_input_args', implode('/', [
+            (string) ($args9['min_value'] ?? '?'),
+            (string) ($args9['max_value'] ?? '?'),
+            (string) ($args9['step'] ?? '?'),
+        ]));
+        $say('variation_id', $variationId);
+        if ($variationId > 0) {
+            $variation = wc_get_product($variationId);
+            $vargs = is_object($variation) && function_exists('wc_get_quantity_input_args')
+                ? wc_get_quantity_input_args([], $variation)
+                : [];
+            $say('variation_input_args', implode('/', [
+                (string) ($vargs['min_value'] ?? '?'),
+                (string) ($vargs['max_value'] ?? '?'),
+                (string) ($vargs['step'] ?? '?'),
+            ]));
+        }
+        // THE PARENT, through the filter every classic add-to-cart path runs
+        // (`alpha.45`: `WC_Cart::add_to_cart()` is not the validation point).
+        foreach ([1, 3, 4, 8, 11] as $quantity) {
+            $clear();
+            $passed = apply_filters('woocommerce_add_to_cart_validation', true, $wcId, $quantity, $variationId);
+            $say('qty_' . $quantity, $passed === true ? 'allowed' : 'refused');
+        }
+        // A REPEATED ADD, starting from a quantity the rule ALLOWS.
+        //
+        // The first version started from 2, which both validators refuse on a
+        // `4/10/2` rule — so the cart stayed empty, there was nothing to
+        // repeat, and the cart-change filter was handed an empty item and
+        // answered «allowed» about nothing. A measurement whose precondition
+        // failed reads exactly like a passing one (`alpha.46`).
+        //
+        // So: add 4 (allowed), then 2 more (total 6, allowed), then 1 more
+        // (total 7, refused). The rule counts the cart's TOTAL for the item,
+        // not one row, which is why the second add of 2 is a different
+        // question from an add of 2 into an empty cart.
+        $clear();
+        if (function_exists('WC') && WC()->cart !== null) {
+            // The variation's ATTRIBUTES too: `add_to_cart()` refuses a
+            // variable product without them («Please choose product
+            // options»), and the first version read that refusal as the
+            // purchase rule's — a true sentence about the wrong guard.
+            $chosen = $variationId > 0 && is_object(wc_get_product($variationId))
+                ? (array) wc_get_product($variationId)->get_variation_attributes()
+                : [];
+            $added = WC()->cart->add_to_cart($wcId, 4, $variationId, $chosen);
+            $say('first_add_4', $added === false ? 'refused' : 'in_cart');
+            // WHY it was refused, when it was: `add_to_cart()` runs a dozen
+            // checks of WooCommerce's own and reports them as notices. A
+            // probe that printed only «refused» would attribute every one of
+            // them to the purchase rule.
+            if ($added === false && function_exists('wc_get_notices')) {
+                $notices = (array) (wc_get_notices('error') ?: []);
+                $first = $notices[0] ?? [];
+                $say('first_add_refusal', mb_substr(wp_strip_all_tags((string) (is_array($first) ? ($first['notice'] ?? '') : $first)), 0, 80));
+            }
+            $say('cart_has', (string) WC()->cart->get_cart_contents_count());
+            $say('repeat_add_2', apply_filters('woocommerce_add_to_cart_validation', true, $wcId, 2, $variationId) === true ? 'allowed' : 'refused');
+            $say('repeat_add_1', apply_filters('woocommerce_add_to_cart_validation', true, $wcId, 1, $variationId) === true ? 'allowed' : 'refused');
+            // A CHANGE of quantity in the cart, which is a different filter
+            // again — and only answerable when there IS an item.
+            $items = WC()->cart->get_cart();
+            $key = (string) array_key_first($items);
+            $say('cart_key', $key === '' ? '__empty_cart__' : 'present');
+            if ($key !== '') {
+                $say('change_to_5', apply_filters('woocommerce_update_cart_validation', true, $key, $items[$key], 5) === true ? 'allowed' : 'refused');
+                $say('change_to_6', apply_filters('woocommerce_update_cart_validation', true, $key, $items[$key], 6) === true ? 'allowed' : 'refused');
+            }
+        }
+        // And the Store API's own per-item validator, which the block cart
+        // runs — the half a hand-built request cannot route around.
+        foreach ([3, 4] as $quantity) {
+            try {
+                do_action('woocommerce_store_api_validate_cart_item', $product, ['quantity' => $quantity]);
+                $say('store_api_qty_' . $quantity, 'allowed');
+            } catch (\Throwable) {
+                $say('store_api_qty_' . $quantity, 'refused');
+            }
+        }
+        $clear();
+        if ($gateWas === false) {
+            delete_option('tmc_order_trial_mode');
+        } else {
+            update_option('tmc_order_trial_mode', $gateWas);
+        }
+        $say('gate_restored', 'yes');
+        break;
+    }
+
+    /**
+     * A grant that no longer describes its rule — and the page that says so.
+     *
+     * The grant is the fingerprint of the three values it was given for, so
+     * editing the rule afterwards leaves it alive and dead: the product
+     * allows any quantity from that moment. Correct, and also a purchase
+     * limit that has gone away, which is why it has a count of its own.
+     */
+    case 'minmax-stale-grant': {
+        $wcId = (int) ($args[1] ?? 0);
+        $mm = $c->get(\Tecteb\Marketplace\Modules\Migration\Application\MigrateMinMax::class);
+        if (!method_exists($mm, 'staleGrants')) {
+            $say('absent', 1);
+            break;
+        }
+        $port = $c->get(\Tecteb\Marketplace\Modules\Migration\Application\ShopQuantityPortInterface::class);
+        $say('granted_before', $port->enforcementGranted($wcId));
+        // `__none__` and not an empty string: the reader of these files turns
+        // an empty value into `__missing__`, so «nothing is stale» and «the
+        // key was never printed» would read the same — the conflation this
+        // repository refuses everywhere else (`alpha.8`).
+        $stale = static fn (array $ids): string => $ids === [] ? '__none__' : implode(',', $ids);
+        $say('stale_before', $stale($mm->staleGrants()));
+        // A manager edits the ceiling by hand, through WooCommerce's own meta.
+        update_post_meta($wcId, '_tmc_max_purchase', '8');
+        wp_cache_delete((string) $wcId, 'post_meta');
+        $say('granted_after', $port->enforcementGranted($wcId));
+        $say('stale_after', $stale($mm->staleGrants()));
+        $say('this_product_listed', in_array($wcId, $mm->staleGrants(), true));
+        // Re-issued, and it is live again — the way back that the warning
+        // names.
+        $again = $mm->enforce($wcId);
+        // And re-issuing on the CHANGED rule is refused, which is
+        // `alpha.55`'s rule and the reason the warning does not advise it:
+        // the grant is about the rule that was migrated, and a rule nobody
+        // migrated is not a rule this plugin may grant.
+        $say('reissue_code', $again->code);
+        $say('granted_again', $port->enforcementGranted($wcId));
+        $say('stale_at_end', $stale($mm->staleGrants()));
+        // The way out that DOES work: put the rule back where the migration
+        // left it, and the grant is live again with no new decision.
+        update_post_meta($wcId, '_tmc_max_purchase', '10');
+        wp_cache_delete((string) $wcId, 'post_meta');
+        $say('granted_after_putting_it_back', $port->enforcementGranted($wcId));
+        $say('stale_after_putting_it_back', $stale($mm->staleGrants()));
+        break;
+    }
+
+    /** The rollback of a granted product takes the grant with it. */
+    case 'minmax-rollback-granted': {
+        $wcId = (int) ($args[1] ?? 0);
+        $mm = $c->get(\Tecteb\Marketplace\Modules\Migration\Application\MigrateMinMax::class);
+        $port = $c->get(\Tecteb\Marketplace\Modules\Migration\Application\ShopQuantityPortInterface::class);
+        $say('granted_before', $port->enforcementGranted($wcId));
+        $result = $mm->rollback($wcId);
+        $say('rollback_code', $result->code);
+        $say('granted_after', $port->enforcementGranted($wcId));
+        $rows = [];
+        foreach (\Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\ProjectedQuantity::keys() as $key) {
+            $rows[] = metadata_exists('post', $wcId, $key)
+                ? (string) get_post_meta($wcId, $key, true)
+                : '__absent__';
+        }
+        $say('rows_after_rollback', implode('/', $rows));
+        break;
+    }
+
     case 'reset': {
         $wcId = (int) wc_get_product_id_by_sku(TMC_P56_SKU);
         $ids = array_map('intval', array_column((array) $db->getResults(

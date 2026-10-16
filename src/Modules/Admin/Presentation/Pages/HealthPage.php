@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Core\Modules\ModuleLoader;
 use Tecteb\Marketplace\Modules\Admin\Presentation\View;
 use Tecteb\Marketplace\Modules\Health\Application\HealthReportBuilder;
 use Tecteb\Marketplace\Modules\Health\Infrastructure\Rest\HealthController;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrateMinMax;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\VendorAccountLink;
 
 final class HealthPage extends AbstractPage
@@ -25,6 +26,34 @@ final class HealthPage extends AbstractPage
         return __('سلامت بازارگاه', 'tecteb-marketplace-core');
     }
 
+    /**
+     * Purchase limits that have silently stopped applying.
+     *
+     * A Min Max grant is the fingerprint of the three values it was given
+     * for, so a rule edited afterwards leaves the grant alive and dead and
+     * the product allows any quantity. The exit page says so above its own
+     * table; this is the same sentence for somebody who has not opened that
+     * page — «هیچ حد خریدی بی هشدار از بین نرود».
+     *
+     * Wrapped: the Migration module may not be loaded at all, and a health
+     * screen must not go blank because a module it is reporting on is
+     * absent. An unavailable answer is `null`, which the view says in words
+     * rather than drawing as zero.
+     *
+     * @return ?list<int>
+     */
+    private function staleGrants(): ?array
+    {
+        if (!$this->container->has(MigrateMinMax::class)) {
+            return null;
+        }
+        try {
+            return $this->container->get(MigrateMinMax::class)->staleGrants();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     protected function renderAuthorized(): void
     {
         /** @var ModuleLoader $loader */
@@ -39,6 +68,7 @@ final class HealthPage extends AbstractPage
                 'load_report' => $loadReport,
                 'rest_path' => '/wp-json/' . HealthController::NAMESPACE . HealthController::ROUTE,
                 'account_hooks' => VendorAccountLink::lastSeen(),
+                'stale_grants' => $this->staleGrants(),
             ]);
             return;
         }
@@ -57,6 +87,7 @@ final class HealthPage extends AbstractPage
             // account page, and «the hooks never ran» and «they ran and we
             // correctly drew nothing» are opposite problems.
             'account_hooks' => VendorAccountLink::lastSeen(),
+            'stale_grants' => $this->staleGrants(),
         ]);
     }
 }

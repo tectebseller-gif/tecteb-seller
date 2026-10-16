@@ -1,0 +1,5 @@
+probe=ran
+granted_before=yes
+rollback_code=minmax_rolled_back
+granted_after=no
+rows_after_rollback=__absent__/__absent__/__absent__

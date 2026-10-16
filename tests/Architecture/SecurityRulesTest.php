@@ -125,9 +125,10 @@ final class SecurityRulesTest extends TestCase
                 // $accountHooks() is a closure in `health.php` that builds its
                 // whole section from `esc_html__()` and `Components::*` and is
                 // called twice because the answer does not depend on the health
-                // module being up. Each exemption is named, with its reason,
-                // rather than the rule being loosened.
-                $residue = str_replace(['$badge', '$invalid', '$accountHooks'], 'SAFE', $residue);
+                // module being up; `$staleGrants()` is the same shape, for
+                // the Min Max grant warning. Each exemption is named, with
+                // its reason, rather than the rule being loosened.
+                $residue = str_replace(['$badge', '$invalid', '$accountHooks', '$staleGrants'], 'SAFE', $residue);
                 if (str_contains($residue, '$')) {
                     $offenders[] = self::rel($view) . ":{$line}: " . trim(preg_replace('/\s+/', ' ', $expr) ?? '');
                 }

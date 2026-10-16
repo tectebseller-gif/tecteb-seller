@@ -314,6 +314,21 @@ final class MinMaxExitPage
         $port = $this->container->get(ShopQuantityPortInterface::class);
         if ($unenforced !== [] || $enforced !== []) {
             echo '<h3 class="tmc-card__title">' . esc_html__('مجوز اعمال قاعده', 'tecteb-marketplace-core') . '</h3>';
+            // ABOVE the table, not only inside it. A grant is the fingerprint
+            // of the three values it was given for, so a rule edited
+            // afterwards leaves the grant alive and dead: from that moment
+            // the product allows any quantity. The per-row cell says so, but
+            // a manager who does not scan every row would not see it, and
+            // «هیچ حد خریدی بی هشدار از بین نرود» is about this exact state.
+            $stale = $service->staleGrants();
+            if ($stale !== []) {
+                echo Components::notice('warning', sprintf(
+                    /* translators: 1: how many products, 2: their ids */
+                    __('%1$s محصول مجوز دارند ولی قاعده‌شان پس از صدور مجوز عوض شده، پس همین حالا هیچ حد خریدی روی آن‌ها اعمال نمی‌شود: %2$s. قاعده را به همان مقداری برگردانید که منتقل شده بود، یا بازگشت بزنید و دوباره منتقل و مجوز کنید. صدور دوبارهٔ مجوز روی قاعدهٔ عوض‌شده رد می‌شود.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) count($stale)),
+                    PersianDigits::toPersian(implode('، ', array_map('strval', $stale)))
+                ));
+            }
             echo '<p>' . esc_html__('این محصول‌ها قاعدهٔ تعداد خرید را دارند ولی بازارگاه مالکشان نیست، پس به‌خودیِ‌خود قاعده اعمال نمی‌شود. «اعمال شود» فقط و فقط همین یک قاعده را روشن می‌کند: فروشنده، مالکیت محصول، وضعیت انتشار و چرخهٔ تأیید دست‌نخورده می‌مانند و هیچ صفحهٔ دیگری دربارهٔ این محصول نظر نمی‌دهد. اگر پس از انتقال کسی قاعده را عوض کرده باشد، مجوز رد می‌شود و می‌گوید کدام فیلد عوض شده.', 'tecteb-marketplace-core') . '</p>';
             echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="' . esc_attr__('مجوز اعمال قاعده', 'tecteb-marketplace-core') . '">';
             echo '<table class="tmc-table"><thead><tr>'

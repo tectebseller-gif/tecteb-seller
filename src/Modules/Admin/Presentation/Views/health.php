@@ -20,6 +20,41 @@ echo Components::shellOpen(__('سلامت بازارگاه', 'tecteb-marketplace
  * health module at all, and an owner whose health module is off is exactly
  * the owner who needs to know why a button is missing.
  */
+/**
+ * «حد خریدی که بی‌صدا از بین رفته» — a Min Max grant that no longer
+ * describes the rule on its product.
+ *
+ * The grant is the fingerprint of the three values it was given for, so a
+ * rule edited afterwards leaves it alive and dead and the product allows any
+ * quantity. The Min Max exit page says this above its own table; this is the
+ * same sentence for a manager who has not opened that page.
+ *
+ * `null` means the Migration module is not loaded, which is a different
+ * answer from «none» and is said as one.
+ */
+$staleGrants = static function () use ($vm): string {
+    $ids = $vm['stale_grants'] ?? null;
+    $html = '<section class="tmc-card" aria-labelledby="tmc-stale-grants-title">'
+        . '<h2 id="tmc-stale-grants-title" class="tmc-card__title">'
+        . esc_html__('حدهای خرید منتقل‌شده از Min Max', 'tecteb-marketplace-core') . '</h2>';
+    if ($ids === null) {
+        return $html . '<p>'
+            . esc_html__('ماژول مهاجرت بارگذاری نشده، پس این وضعیت خوانده نشد. این «هیچ موردی نیست» نیست.', 'tecteb-marketplace-core')
+            . '</p></section>';
+    }
+    if ($ids === []) {
+        return $html . '<p>'
+            . esc_html__('هر مجوزی که صادر شده هنوز دربارهٔ همان قاعده‌ای است که برایش صادر شد.', 'tecteb-marketplace-core')
+            . '</p></section>';
+    }
+    return $html . Components::notice('warning', sprintf(
+        /* translators: 1: how many products, 2: their ids */
+        __('%1$s محصول مجوز اعمال قاعده دارند ولی قاعده‌شان پس از صدور مجوز عوض شده، پس همین حالا هیچ حد خریدی روی آن‌ها اعمال نمی‌شود: %2$s. در صفحهٔ «خروج از Min Max» قاعده را به همان مقداری برگردانید که منتقل شده بود، یا بازگشت بزنید و دوباره منتقل و مجوز کنید. صدور دوبارهٔ مجوز روی قاعدهٔ عوض‌شده رد می‌شود.', 'tecteb-marketplace-core'),
+        PersianDigits::toPersian((string) count($ids)),
+        PersianDigits::toPersian(implode('، ', array_map('strval', $ids)))
+    )) . '</section>';
+};
+
 $accountHooks = static function () use ($vm): string {
     $seen = $vm['account_hooks'] ?? [];
     $answer = static fn (string $value): string => match ($value) {
@@ -78,6 +113,7 @@ if (!$vm['available']) {
     $reason = $state ? Messages::moduleReason($state->reasonCode, $state->reasonDetail, $state->phase) : '';
     echo Components::notice('warning', __('ماژول سلامت فعال نیست، بنابراین گزارش کامل در دسترس نیست.', 'tecteb-marketplace-core') . ($reason !== '' ? ' ' . $reason : ''));
     echo $accountHooks();
+    echo $staleGrants();
     echo Components::shellClose();
     return;
 }
@@ -146,6 +182,8 @@ $jalali = JalaliDate::format($checkedAt);
 </section>
 
 <?php echo $accountHooks(); ?>
+
+<?php echo $staleGrants(); ?>
 
 <section class="tmc-card tmc-card--muted" aria-labelledby="tmc-rest-title">
     <h2 id="tmc-rest-title" class="tmc-card__title"><?php esc_html_e('دسترسی برنامه‌نویسی به همین گزارش', 'tecteb-marketplace-core'); ?></h2>
