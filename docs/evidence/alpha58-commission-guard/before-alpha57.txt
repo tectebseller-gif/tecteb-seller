@@ -1,0 +1,15 @@
+product=427
+guard_registered=no
+admin_has_cap=yes
+admin_write=refused
+stored_type=percent
+stored_value=12.50
+manager_can_edit_products=yes
+manager_can_manage_woo=yes
+manager_has_financial_cap=no
+manager_update=landed
+manager_update_value=landed
+manager_delete=landed
+type_after_manager=
+value_after_manager=999999
+manager_other_meta=landed

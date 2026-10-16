@@ -26,6 +26,7 @@ use Tecteb\Marketplace\Modules\Finance\Application\TectebCommissionSourceInterfa
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
 use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommissionCalculator;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStateMachine;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\TectebCommissionMetaGuard;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\TectebCommissionPanel;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\WpTectebCommissionSource;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbCommissionRuleRepository;
@@ -239,6 +240,13 @@ final class FinanceModule implements ModuleInterface
         if (class_exists(\WooCommerce::class, false) || did_action('woocommerce_init') > 0) {
             TectebCommissionPanel::register($c);
         }
+
+        // …and the two meta keys it writes are guarded on EVERY write path,
+        // not only on the panel's. Registered unconditionally and outside the
+        // WooCommerce check above: a REST write or a CSV import arrives on a
+        // request where WooCommerce is loaded, but a guard that depends on
+        // being loaded in the right order is a guard waiting to be bypassed.
+        TectebCommissionMetaGuard::register();
 
         // …and the vendor's own side of the same money.
         $area = new FinanceArea($c);

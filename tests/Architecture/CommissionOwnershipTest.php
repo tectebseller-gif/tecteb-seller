@@ -38,6 +38,9 @@ final class CommissionOwnershipTest extends TestCase
     /** The one file allowed to read them. */
     private const READER = 'src/Modules/Finance/Infrastructure/WooCommerce/WpTectebCommissionSource.php';
 
+    /** And the one that refuses everybody else's write to them. */
+    private const GUARD = 'src/Modules/Finance/Infrastructure/WooCommerce/TectebCommissionMetaGuard.php';
+
     public function testOnlyThePanelWritesTheCommissionMeta(): void
     {
         $writers = [];
@@ -80,9 +83,11 @@ final class CommissionOwnershipTest extends TestCase
             if ($relative === self::WRITER || $relative === self::READER) {
                 continue;
             }
-            // The vendor's form and its CSV importer, the vendor area, and the
-            // REST surface. Three of the four doors §5-هـ names; the fourth,
-            // a crafted request, is the panel's nonce and capability.
+            // The vendor's form and its CSV importer, the vendor area, and
+            // the REST surface. This test says those files have never heard
+            // of the keys — it does NOT say the keys cannot be written from
+            // elsewhere, which is a different claim and belongs to
+            // `testTheKeysAreGuardedOnEveryWritePathAndNotOnlyOurs()` below.
             $vendorFacing = str_contains($relative, '/Modules/Product/Application/')
                 || str_contains($relative, '/Modules/Vendor/')
                 || str_contains($relative, '/Modules/Api/')
@@ -95,6 +100,55 @@ final class CommissionOwnershipTest extends TestCase
             }
         }
         self::assertSame([], $seen, "a vendor-facing file names the commission meta:\n" . implode("\n", $seen));
+    }
+
+    /**
+     * WHAT THIS PROVES: the keys are guarded where WooCommerce writes them
+     * too, and the guard cannot be quietly dropped.
+     *
+     * The test above proves nothing about WooCommerce's own writers, and a
+     * security review of the pushed `alpha.57` commit was right about it:
+     * `WC_REST_Products_Controller` hands a request's `meta_data` to
+     * `update_meta_data()` and `WC_Product_CSV_Importer` turns a `meta:<key>`
+     * column into the same call — both permitted by `edit_products` /
+     * `manage_woocommerce`, which a `shop_manager` holds and which is NOT the
+     * marketplace's financial permission. «فقط پنل می‌نویسد» was true of
+     * our code and false of the two keys, which is the `alpha.48` rule in new
+     * clothes: a write that happens «somewhere else» does not pass a guard
+     * that is not on that path.
+     *
+     * So the guard is asserted to be registered UNCONDITIONALLY — not inside
+     * the `class_exists(\WooCommerce::class)` branch the panel sits in, since
+     * a guard that depends on load order is a guard waiting to be bypassed.
+     */
+    public function testTheKeysAreGuardedOnEveryWritePathAndNotOnlyOurs(): void
+    {
+        $guard = self::code(self::GUARD);
+        foreach (['add_post_metadata', 'update_post_metadata', 'delete_post_metadata'] as $filter) {
+            self::assertStringContainsString(
+                "'" . $filter . "'",
+                $guard,
+                $filter . ' must be guarded'
+            );
+        }
+        self::assertStringContainsString('TectebCommissionPanel::CAPABILITY', $guard, 'the guard must ask the financial permission, not `edit_post`');
+
+        $module = self::code('src/Modules/Finance/FinanceModule.php');
+        self::assertStringContainsString('TectebCommissionMetaGuard::register();', $module);
+
+        // …and outside the WooCommerce branch: everything between that `if`
+        // and its closing brace is conditional, so the guard must not be in
+        // it. Measured from the bytes rather than trusted to a sentence.
+        $branch = strpos($module, 'TectebCommissionPanel::register($c);');
+        $registered = strpos($module, 'TectebCommissionMetaGuard::register();');
+        self::assertIsInt($branch);
+        self::assertIsInt($registered);
+        $between = substr($module, $branch, $registered - $branch);
+        self::assertSame(
+            1,
+            substr_count($between, '}'),
+            'the guard is inside the WooCommerce conditional; it must be registered unconditionally'
+        );
     }
 
     /**

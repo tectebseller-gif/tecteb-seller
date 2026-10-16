@@ -16,12 +16,22 @@ use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommission;
  * pointed at the original. It also means this round changes no data structure
  * — «تغییر ساختار داده فقط با ضرورت اثبات‌شده».
  *
- * **Reading is all this class can do.** There is no setter: the ONE writer is
- * `TectebCommissionPanel`, behind the financial-management capability and its
- * own nonce, and «فروشنده یا پرسنل بدون مجوز مدیریت مالی نباید بتواند کمیسیون
- * مدیر را … تغییر دهد» is enforced here by the absence of a method rather than
- * by a guard somebody can forget to call — the shape `alpha.55` used for the
- * catalogue reader and `alpha.9` for the Dokan reader.
+ * **Reading is all this class can do.** There is no setter: the only writer in
+ * this plugin is `TectebCommissionPanel`, behind the financial-management
+ * capability and its own nonce — the shape `alpha.55` used for the catalogue
+ * reader and `alpha.9` for the Dokan reader.
+ *
+ * ⛔ **And that sentence was once asked to carry more than it can.** An
+ * earlier version of this docblock said the absence of a setter *enforced*
+ * «فروشنده یا پرسنل بدون مجوز مدیریت مالی نباید بتواند کمیسیون مدیر را تغییر
+ * دهد» (بند ۵-هـ). It does not. These are **WooCommerce's** product meta
+ * keys, and WooCommerce writes whatever product meta it is handed: a REST
+ * request's `meta_data` array and a `meta:<key>` column in its own CSV
+ * importer both reach `update_meta_data()` with nothing but `edit_products` /
+ * `manage_woocommerce` — which a `shop_manager` has and which is not the
+ * financial permission. The missing method keeps OUR code honest and says
+ * nothing about theirs. `TectebCommissionMetaGuard` is what actually refuses
+ * those writes, at the one layer all of them end in.
  */
 final class WpTectebCommissionSource implements TectebCommissionSourceInterface
 {

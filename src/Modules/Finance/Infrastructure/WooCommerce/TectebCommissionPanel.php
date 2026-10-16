@@ -36,6 +36,10 @@ use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommission;
  *    role and by nobody this plugin creates; and no other writer of these two
  *    meta keys exists anywhere in the plugin, which `CommissionOwnershipTest`
  *    proves by searching for one rather than by trusting this sentence.
+ *    ⛔ That is a fact about THIS plugin and not about the two keys:
+ *    WooCommerce's REST API and CSV importer write arbitrary product meta on
+ *    `edit_products`. `TectebCommissionMetaGuard` refuses those; this panel
+ *    is one door of the four بند ۵-هـ names, not all four.
  */
 final class TectebCommissionPanel
 {
