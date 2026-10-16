@@ -1,0 +1,13 @@
+probe=ran
+before_total=29
+before_by_type=simple:27,variable:2
+planted=148,3,386
+after_total=29
+after_by_type=simple:27,variable:2
+type_total_moved=no
+status_total_moved=no
+types_add_up_to_statuses=yes
+strays_reported=on_variations:1,on_other_post_types:1,no_post_at_all:1
+without_type=0
+with_two_types=0
+planted_removed=yes

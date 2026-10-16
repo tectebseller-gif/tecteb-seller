@@ -68,6 +68,24 @@ final class DbProductRepository implements ProductRepositoryInterface
         return $row === null ? null : $this->hydrate($row);
     }
 
+    public function findMany(array $productIds): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $productIds), static fn (int $id): bool => $id > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
+        $out = [];
+        foreach ($this->db->getResults(
+            'SELECT * FROM `' . $this->products() . '` WHERE id IN (' . $placeholders . ')',
+            $ids
+        ) as $row) {
+            $product = $this->hydrate($row);
+            $out[$product->id] = $product;
+        }
+        return $out;
+    }
+
     public function forVendor(
         int $vendorUserId,
         ?ProductStatus $status = null,
@@ -774,6 +792,19 @@ final class DbProductRepository implements ProductRepositoryInterface
         );
     }
 
+    public function observedFromImportRuns(int $limit = 200): array
+    {
+        return array_map(
+            static fn (array $row): int => (int) $row['id'],
+            $this->db->getResults(
+                'SELECT id FROM `' . $this->products() . '`
+                  WHERE import_run_id <> %s AND `' . M0010LinkOwnership::COLUMN . '` = %s
+                  ORDER BY id ASC LIMIT ' . max(1, min(500, $limit)),
+                ['', LinkOwnership::Observed->value]
+            )
+        );
+    }
+
     public function vendorsFromImportRuns(): array
     {
         return array_map(
@@ -1329,10 +1360,10 @@ final class DbProductRepository implements ProductRepositoryInterface
         return $removed !== null && $removed > 0;
     }
 
-    public function deleteObservedFromRun(int $productId, string $runId): bool
+    public function deleteObservedFromRun(int $productId, string $runId): string
     {
         if ($productId <= 0 || $runId === '') {
-            return false;
+            return 'bad_arguments';
         }
         // The guard is the `WHERE`, not a read-then-write: between a read and
         // a delete somebody can accept the product into marketplace
@@ -1342,15 +1373,39 @@ final class DbProductRepository implements ProductRepositoryInterface
               WHERE id = %d AND import_run_id = %s AND `' . M0010LinkOwnership::COLUMN . '` = %s',
             [$productId, $runId, LinkOwnership::Observed->value]
         );
-        if ($removed === null || $removed < 1) {
-            return false;
+        if ($removed === null) {
+            return 'product_row';
+        }
+        if ($removed < 1) {
+            // Zero rows here is NOT the `alpha.8` success: this statement
+            // deletes or it does not, so zero means the guard did not match —
+            // another run's row, or one already accepted.
+            return 'not_this_run';
         }
         // Rows OF the deleted row, after it rather than before: if the delete
         // above had been refused, clearing these would have emptied a product
-        // that is still there.
-        $this->db->execute('DELETE FROM `' . $this->specsTable() . '` WHERE product_id = %d', [$productId]);
-        $this->db->execute('DELETE FROM `' . $this->imagesTable() . '` WHERE product_id = %d', [$productId]);
-        return true;
+        // that is still there. And EVERY result is read — `alpha.31`'s rule,
+        // which this method was breaking: specs and images were deleted with
+        // their answers thrown away, so a half-emptied row reported success.
+        //
+        // The caller wraps this in a transaction, so naming the part that
+        // would not go is what lets the whole unit be undone rather than
+        // leaving a deleted product with its images still in the table.
+        foreach ([
+            // The two append-only ledgers first, then the rows OF the row.
+            // Their names come from the migrations that made them, because a
+            // hand-written table name is a `DELETE` that silently removes
+            // nothing (`alpha.10`).
+            'revisions' => T::table($this->db, T::REVISIONS),
+            'decisions' => M0019BaselineAndDecisions::table($this->db, M0019BaselineAndDecisions::DECISIONS),
+            'specs' => $this->specsTable(),
+            'images' => $this->imagesTable(),
+        ] as $part => $table) {
+            if ($this->db->execute('DELETE FROM `' . $table . '` WHERE product_id = %d', [$productId]) === null) {
+                return (string) $part;
+            }
+        }
+        return '';
     }
 
     private function products(): string

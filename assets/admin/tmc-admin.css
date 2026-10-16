@@ -884,6 +884,67 @@
 }
 .tmc-admin .tmc-filter.is-current .tmc-filter__count { background: #fff; color: var(--tmc-primary); }
 
+/* the three facet rows, and the intake under the table (`alpha.56`) --------- */
+/* Each chip row says WHICH question it is. Three unlabelled rows of chips are
+   three rows a manager has to decode by reading the words inside them, and two
+   of these («منبع», «وضعیت مدیریت») use words that look like statuses. */
+.tmc-filters__legend {
+  display: block;
+  margin-block-end: var(--tmc-space-1);
+  color: var(--tmc-muted);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+/* The one reason a row cannot simply be taken in — quiet, because it is a
+   question and not an error, and the rest of the account is on the product's
+   own page. */
+.tmc-catalogue__blocker {
+  display: block;
+  max-inline-size: 40ch;
+  color: var(--tmc-muted);
+}
+/* The intake form wraps the table, so it must add no box of its own: the
+   checkboxes are inside the table and the controls are in the panel below. */
+.tmc-catalogue__intake { margin: 0; }
+/* …and the controls ARE a box, because they are a different act from reading
+   the list. Separated and tinted, so «ورود» cannot be clicked while a manager
+   thinks they are still filtering. */
+.tmc-catalogue__intakebox {
+  margin-block-start: var(--tmc-space-4);
+  padding: var(--tmc-space-4);
+  border: 1px solid var(--tmc-border);
+  border-radius: var(--tmc-radius);
+  background: var(--tmc-surface-2);
+}
+.tmc-admin .tmc-fieldset {
+  margin-block: var(--tmc-space-3);
+  padding: var(--tmc-space-3);
+  border: 1px solid var(--tmc-border);
+  border-radius: var(--tmc-radius);
+}
+/* One shop per line with a real touch target: a radio list whose rows are a
+   line of text tall is a list that cannot be used on a phone. */
+.tmc-admin .tmc-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--tmc-space-2);
+  min-block-size: var(--tmc-touch);
+}
+/* A label beside its value, wrapping on a narrow screen rather than squeezing
+   the value into a column of two characters. */
+.tmc-admin .tmc-data {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--tmc-space-1) var(--tmc-space-3);
+  margin-block: var(--tmc-space-3);
+}
+.tmc-admin .tmc-data dt { color: var(--tmc-muted); font-weight: 600; }
+.tmc-admin .tmc-data dd { margin: 0; }
+@media (max-width: 480px) {
+  .tmc-admin .tmc-data { grid-template-columns: 1fr; }
+  .tmc-admin .tmc-data dd { margin-block-end: var(--tmc-space-2); }
+}
+
 /* rows per page, sort, and how many rows of how many ------------------------ */
 /* One bar, so the filters are followed by the table rather than by a stack of
    controls. Measured before and after on the real install: 168px of furniture

@@ -9,6 +9,13 @@ use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
+use Tecteb\Marketplace\Modules\Migration\Application\CatalogueInventory;
+use Tecteb\Marketplace\Modules\Migration\Application\ImportExistingProducts;
+use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
+use Tecteb\Marketplace\Modules\Migration\Domain\CatalogueBucket;
+use Tecteb\Marketplace\Modules\Migration\Domain\CatalogueFacets;
+use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MigrationPage;
+use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\ProductIntakePage;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
@@ -27,10 +34,12 @@ use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\ProposedBrand;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Domain\SensitiveChange;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\ProjectedFieldOwnership;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceProjector;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\BrandSuggest;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductBrandFieldView;
 use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
@@ -66,6 +75,15 @@ final class ProductReviewPage
     public const SLUG = 'tmc-product-review';
     public const CAPABILITY = Capabilities::REVIEW_PRODUCTS;
     private const NONCE = 'tmc_product_review';
+
+    /**
+     * How many shops a name search may offer.
+     *
+     * The bound is the point: a term matching three hundred shops is not a
+     * choice, it is a different search — and the page says so rather than
+     * truncating in silence.
+     */
+    private const SHOP_MATCHES = 20;
 
     /**
      * The whole page, built on `load-{hook}` and echoed by the render callback.
@@ -170,8 +188,24 @@ final class ProductReviewPage
         // and the state decides where the manager lands afterwards.
         $request = Request::capture();
         $notice = $this->handleAction($request);
+        // The intake's own actions, answered separately. Their results are
+        // per-product sentences rather than one message code — «جزئیات هر
+        // ردیف» — so they do not go through `ProductMessages::notice()`,
+        // which maps one code to one sentence.
+        $intakeNotice = $this->handleIntake($request);
+        if ($intakeNotice === '') {
+            // Its own handler, its own nonce. Asked second because the two
+            // never arrive together: a form posts one `*_action` or the other.
+            $intakeNotice = $this->handleOwnership($request);
+        }
 
         echo Components::shellOpen(self::menuLabel(), self::SLUG, __('نسخه آزمایشی', 'tecteb-marketplace-core'));
+        if ($intakeNotice !== '') {
+            echo Components::notice(
+                str_starts_with($intakeNotice, 'ok:') ? 'success' : 'error',
+                substr($intakeNotice, strpos($intakeNotice, ':') + 1)
+            );
+        }
         if ($notice !== null) {
             echo Components::notice(
                 ProductMessages::isErrorNotice($notice['code']) ? 'error' : 'success',
@@ -190,8 +224,16 @@ final class ProductReviewPage
         // WooCommerce; and the row the manager came for was somewhere below
         // all of it.
         $productId = $request->queryInt('product');
+        // A WooCommerce product with no marketplace row has no `product` id to
+        // be opened by, and from `alpha.56` it is in this list too. Its own
+        // page is where the evidence, the other plugins' meta keys and
+        // everything an intake could not carry are read — «توضیح فنی و
+        // تکراری به نمای جزئیات منتقل شود».
+        $wcId = $request->queryInt('wc');
         if ($productId > 0) {
             $this->renderDetail($request, $productId);
+        } elseif ($wcId > 0) {
+            $this->renderWooCommerceDetail($request, $wcId);
         } else {
             $this->renderCatalogue($request);
             // Stays on the list: a permission belongs to a VENDOR, not to any
@@ -239,7 +281,14 @@ final class ProductReviewPage
             $total,
             $counts,
             $needsReview,
-            admin_url('admin.php?page=' . self::SLUG)
+            admin_url('admin.php?page=' . self::SLUG),
+            null,
+            // The three facets of the one list, each validated by the class
+            // that owns its values. An unknown value is «همه» rather than an
+            // error: a URL somebody typed by hand should show the list.
+            CatalogueFacets::source($request->queryKey('source')),
+            CatalogueFacets::wcStatus($request->queryKey('wc_status')),
+            CatalogueFacets::management($request->queryKey('management'))
         );
     }
 
@@ -265,29 +314,159 @@ final class ProductReviewPage
         $vendors = $this->container->get(VendorRepositoryInterface::class);
         $stores = $this->container->get(StoreRepositoryInterface::class);
         $library = $this->container->get(ProductImageLibraryInterface::class);
+        $inventory = $this->container->get(CatalogueInventory::class);
 
         $state = $this->catalogueState($request);
         $status = ProductStatus::tryFrom($state->status);
+
+        // THE ONE READ, and the `available` answer decides which list this is.
+        // Without WooCommerce there is no post table to union with, so the
+        // page falls back to the marketplace's own rows rather than drawing
+        // half a catalogue and calling it the catalogue.
+        $unified = $inventory->unified(
+            $state->readerFilters() + [
+                'marketplace_status' => $state->status,
+                'needs_review' => $state->onlyNeedsReview,
+            ],
+            $state->perPage,
+            ($state->page - 1) * $state->perPage,
+            $state->sort->value
+        );
+        if (($unified['available'] ?? false) !== true) {
+            $this->renderMarketplaceOnlyCatalogue($request, $state, $status);
+            return;
+        }
+
         // Counted BEFORE the rows are read, because the count is what decides
         // which page exists. A decision that empties the last page leaves the
         // browser asking for a page that is gone, and reading the rows first
         // answers that question with an empty screen instead of with the last
         // page there is.
         $state = $state->withCounts(
-            $products->countForManager($status, $state->search, 0, $state->onlyNeedsReview),
+            (int) $unified['total'],
             $products->countsByStatusForManager($state->search, 0, $state->onlyNeedsReview),
             // THE ONE NUMBER, by the one definition: products that need a
-            // decision, each counted once. It was `countPending()` — a count
-            // of REVISIONS — and that is a different question from «how many
-            // products are waiting», which is the question the sentence above
-            // the table asks and the red badge answers.
+            // decision, each counted once.
+            $products->countAwaitingReview(),
+            (array) $unified['facets']
+        );
+        // Re-read once the page has been clamped: asking for page 7 of a
+        // six-page list and then drawing page 6's furniture around page 7's
+        // (empty) rows is the mismatch `withCounts()` exists to prevent.
+        if ($state->outOfRangePage !== null) {
+            $unified = $inventory->unified(
+                $state->readerFilters() + [
+                'marketplace_status' => $state->status,
+                'needs_review' => $state->onlyNeedsReview,
+            ],
+                $state->perPage,
+                ($state->page - 1) * $state->perPage,
+                $state->sort->value
+            );
+        }
+
+        // The marketplace side of the rows on this page, in a handful of
+        // reads rather than one per row. The ids come from the list, so a
+        // product on page two costs nothing here.
+        $productIds = [];
+        foreach ($unified['rows'] as $row) {
+            if ((int) $row['product_id'] > 0) {
+                $productIds[] = (int) $row['product_id'];
+            }
+        }
+        $marketplace = $products->findMany($productIds);
+        $proposed = array_fill_keys($revisions->pendingProductIds($productIds), true);
+        $brandRequested = array_fill_keys(
+            $this->container->get(BrandProposalRepositoryInterface::class)->openProductIds($productIds),
+            true
+        );
+
+        $rows = [];
+        $shown = [];
+        foreach ($unified['rows'] as $row) {
+            $id = (int) $row['product_id'];
+            $product = $marketplace[$id] ?? null;
+            if ($product !== null) {
+                // The token came down WITH the row, out of the same statement
+                // (`alpha.37`). Read in a second query it could be newer than
+                // the row above it, and a vendor submitting in between would
+                // have their submission recorded as seen by a manager who was
+                // looking at the previous one.
+                $shown[$id] = (string) $row['submission'];
+            }
+            $vendorId = $product?->vendorUserId ?? (int) $row['vendor_user_id'];
+            $rows[] = new ProductCatalogueRow(
+                $id,
+                (string) $row['title'],
+                (string) $row['sku'],
+                // The settings row first, then the application: a shop that
+                // has been approved has a name in the first and a shop
+                // mid-review only has one in the second.
+                $vendorId > 0
+                    ? ($stores->find($vendorId)?->storeName
+                        ?: ($vendors->findApplicationByUser($vendorId)?->details->storeName ?? ''))
+                    : '',
+                $product?->status,
+                $product !== null ? $product->isProjected() : (int) $row['wc_product_id'] > 0,
+                (string) $row['wc_status'] === CatalogueFacets::STATUS_ABSENT
+                    ? ''
+                    : (string) $row['wc_status'],
+                (string) $row['changed_at'],
+                $this->thumbnailFor($row, $product, $library),
+                isset($proposed[$id]),
+                isset($brandRequested[$id]),
+                $product?->ownsItsStorefrontProduct() ?? true,
+                (int) $row['wc_product_id'],
+                (string) $row['source'],
+                (string) $row['management'],
+                (string) $row['bucket_label'],
+                (string) $row['bucket'],
+                (bool) $row['intake_ready'],
+                $this->blockerSentences((array) $row['reasons']),
+                (int) $row['variations']
+            );
+        }
+
+        echo ProductCatalogueView::render($rows, $state, $this->intakeControls($request));
+
+        // **Only what this page actually drew.** «فقط نسخه‌هایی که در آن صفحه
+        // و با آن فیلتر نمایش داده شده‌اند»: the ids come from the rows above,
+        // so a product on page two, or outside the current filter, is
+        // untouched.
+        //
+        // Handed to `prepare()` rather than written here: the view is recorded
+        // once the WHOLE page is in the buffer, so a throw further down this
+        // method marks nothing.
+        $this->seen += $shown;
+    }
+
+    /**
+     * The list when there is no WooCommerce to union with.
+     *
+     * Not a smaller version of the one above: a different list, drawn from the
+     * marketplace's own rows, which is all this site has. Saying that plainly
+     * beats a unified screen with one half silently missing — the manager
+     * would read «فقط ردیف بازارگاه» off every row and conclude the shop had
+     * lost its products.
+     */
+    private function renderMarketplaceOnlyCatalogue(
+        Request $request,
+        ProductCatalogueState $state,
+        ?ProductStatus $status
+    ): void {
+        $products = $this->container->get(ProductRepositoryInterface::class);
+        $revisions = $this->container->get(ProductRevisionRepositoryInterface::class);
+        $vendors = $this->container->get(VendorRepositoryInterface::class);
+        $stores = $this->container->get(StoreRepositoryInterface::class);
+        $library = $this->container->get(ProductImageLibraryInterface::class);
+
+        echo Components::notice('warning', __('ووکامرس روی این سایت پیدا نشد، پس محصول‌های فروشگاه خوانده نمی‌شوند. آنچه پایین می‌بینید فقط ردیف‌های خودِ بازارگاه است.', 'tecteb-marketplace-core'));
+
+        $state = $state->withCounts(
+            $products->countForManager($status, $state->search, 0, $state->onlyNeedsReview),
+            $products->countsByStatusForManager($state->search, 0, $state->onlyNeedsReview),
             $products->countAwaitingReview()
         );
-        // Rows and the identity of the submission on each of them, in ONE
-        // statement. The list marks what it SHOWS as seen, so the token has to
-        // be the one belonging to the row above it: read separately, a vendor
-        // submitting between the two reads would have their submission recorded
-        // as seen by a manager who was looking at the previous one.
         $page = $products->forManagerWithSubmission(
             $status,
             $state->search,
@@ -302,12 +481,8 @@ final class ProductReviewPage
         foreach ($page as $row) {
             $shown[$row['product']->id] = $row['submission'];
         }
-
-        // One query for the whole page rather than `pendingFor()` per row.
         $ids = array_map(static fn (Product $product): int => $product->id, $found);
         $proposed = array_fill_keys($revisions->pendingProductIds($ids), true);
-        // …and one more for the brand requests, for the same reason. Two
-        // queries for a page of twenty rows rather than forty.
         $brandRequested = array_fill_keys(
             $this->container->get(BrandProposalRepositoryInterface::class)->openProductIds($ids),
             true
@@ -319,43 +494,105 @@ final class ProductReviewPage
                 $product->id,
                 $product->details->title,
                 $product->details->sku,
-                // The settings row first, then the application: a shop that has
-                // been approved has a name in the first and a shop mid-review
-                // only has one in the second. `find()` does not exist on the
-                // vendor repository and never did — the page threw on its first
-                // render, which is precisely what `AdminPagesRenderTest` is for.
                 $stores->find($product->vendorUserId)?->storeName
                     ?: ($vendors->findApplicationByUser($product->vendorUserId)?->details->storeName ?? ''),
                 $product->status,
                 $product->isProjected(),
-                // '' when the post is gone — which the view says in words
-                // rather than drawing as an empty cell.
                 $product->isProjected() ? (string) (get_post_status((int) $product->wcProductId) ?: '') : '',
                 $product->updatedAt,
                 self::thumbnailOf($product, $library),
                 isset($proposed[$product->id]),
                 isset($brandRequested[$product->id]),
-                // Read off the row rather than asked per product: the column
-                // travels on `Product` since `alpha.55`, so a list of a
-                // hundred rows costs no extra query to label.
-                $product->ownsItsStorefrontProduct()
+                $product->ownsItsStorefrontProduct(),
+                (int) ($product->wcProductId ?? 0),
+                CatalogueFacets::SOURCE_MARKETPLACE
             );
         }
-
         echo ProductCatalogueView::render($rows, $state);
-
-        // **Only what this page actually drew.** «فقط نسخه‌هایی که در آن صفحه و
-        // با آن فیلتر نمایش داده شده‌اند»: the ids come from the rows above, so a
-        // product on page two, or outside the current filter, is untouched.
-        //
-        // Handed to `prepare()` rather than written here: the view is recorded
-        // once the WHOLE page is in the buffer, so a throw further down this
-        // method marks nothing.
-        //
-        // Nothing about the product changes: no status, no decision, no
-        // baseline, no proposal. The product stays in the review queue until
-        // somebody decides about it.
         $this->seen += $shown;
+    }
+
+    /**
+     * The picture: WooCommerce's featured image when there is one, the
+     * marketplace row's own otherwise.
+     *
+     * That order and not the other: a managed product's thumbnail should be
+     * what a shopper sees, and a row that has never been projected has only
+     * its own.
+     *
+     * @param array<string,mixed> $row
+     */
+    private function thumbnailFor(array $row, ?Product $product, ProductImageLibraryInterface $library): string
+    {
+        $id = (int) ($row['thumbnail_id'] ?? 0);
+        if ($id <= 0 && $product !== null) {
+            $id = $product->mainImageId > 0 ? $product->mainImageId : (int) ($product->imageIds[0] ?? 0);
+        }
+        return $id > 0 ? $library->thumbnailUrl($id) : '';
+    }
+
+    /**
+     * The reasons a row carries, as sentences — one list, from the service
+     * that names them.
+     *
+     * @param list<string> $reasons
+     * @return list<string>
+     */
+    private function blockerSentences(array $reasons): array
+    {
+        $sentences = CatalogueInventory::reasonSentences();
+        $out = [];
+        foreach ($reasons as $reason) {
+            $out[] = (string) ($sentences[(string) $reason] ?? $reason);
+        }
+        return $out;
+    }
+
+    /**
+     * The intake half of the list — or `null`, which means «not this
+     * manager».
+     *
+     * `null` rather than disabled controls: a button that posts nothing looks
+     * like a permission somebody could get by clicking harder. The capability
+     * is the intake's own (`REVIEW_VENDOR`), not this page's, because taking
+     * a product into the marketplace is a vendor decision rather than a
+     * product review.
+     */
+    private function intakeControls(Request $request): ?CatalogueIntakeControls
+    {
+        if (!current_user_can(ProductIntakePage::CAPABILITY)) {
+            return null;
+        }
+        $query = $request->postText('shop_q');
+        $assignTo = $request->postInt('assign_to');
+        $matches = [];
+        $tooMany = false;
+        if ($query !== '') {
+            $stores = $this->container->get(StoreRepositoryInterface::class);
+            $matches = $stores->searchByShopName($query, self::SHOP_MATCHES);
+            $tooMany = count($matches) >= self::SHOP_MATCHES;
+        }
+        $name = '';
+        if ($assignTo > 0) {
+            foreach ($matches as $match) {
+                if ((int) $match['vendor_user_id'] === $assignTo) {
+                    $name = (string) $match['store_name'];
+                }
+            }
+            if ($name === '') {
+                $name = $this->container->get(StoreRepositoryInterface::class)
+                    ->find($assignTo)?->storeName ?? '';
+            }
+        }
+        return new CatalogueIntakeControls(
+            wp_nonce_field(self::NONCE, '_wpnonce', true, false),
+            $query,
+            $matches,
+            $assignTo,
+            $name,
+            admin_url('admin.php?page=' . MigrationPage::SLUG),
+            $tooMany
+        );
     }
 
     /** The picture a row shows: the main one, or the first of the gallery. */
@@ -457,6 +694,14 @@ final class ProductReviewPage
                 ],
             ])
             . '</section>';
+
+        // Accepting marketplace management, on the product's own page.
+        // `alpha.55` put it on the migration screen, beside Dokan's tables —
+        // and most of this shop's products are not Dokan's, so a manager who
+        // had just imported a product from the review list had to find an
+        // unrelated page to do the next step on it. «تا کاربر بین صفحه‌های
+        // نامربوط سرگردان نشود.»
+        echo $this->ownershipPanel($product);
 
         echo '<section class="tmc-card">' . $this->card($product, $revision !== null);
         if ($product->status === ProductStatus::Submitted) {
@@ -1070,6 +1315,511 @@ final class ProductReviewPage
     }
 
     /** @return array{code:string,context:array<string,scalar|null>}|null */
+    /**
+     * One WooCommerce product that has no marketplace row — on its own page.
+     *
+     * This is where the technical account lives: who the evidence says sells
+     * it, what every other plugin has written on it, what an intake could not
+     * carry, and the purchase rule its own meta rows already express. The list
+     * says ONE sentence per row and sends the manager here for the rest —
+     * «توضیح فنی و تکراری به نمای جزئیات منتقل شود».
+     *
+     * Nothing on this page writes unless a button is pressed, and the only
+     * button is the intake's. Opening a product does not import it and does
+     * not change its ownership.
+     */
+    private function renderWooCommerceDetail(Request $request, int $wcId): void
+    {
+        $state = $this->catalogueState($request);
+        $inventory = $this->container->get(CatalogueInventory::class);
+        $products = $this->container->get(ProductRepositoryInterface::class);
+
+        echo '<p><a class="tmc-button tmc-button--ghost" href="' . esc_url($state->selfLink()) . '">'
+            . esc_html__('بازگشت به فهرست', 'tecteb-marketplace-core') . '</a></p>';
+
+        // A product that HAS a marketplace row is that row's product, and its
+        // own page is the review page. Sending the manager there rather than
+        // drawing a second, thinner version of it is what keeps «هر محصول
+        // مرتبط فقط یک بار» true of the detail view as well as of the list.
+        $existing = $products->findByWcProduct($wcId);
+        if ($existing !== null) {
+            echo Components::notice('info', __('این محصول ردیف بازارگاه دارد و صفحهٔ بررسی‌اش همان است.', 'tecteb-marketplace-core'));
+            $this->renderDetail($request, $existing->id);
+            return;
+        }
+
+        $preview = $inventory->preview($wcId);
+        $detail = (array) $preview['detail'];
+        if ($detail === []) {
+            echo Components::state(
+                'empty',
+                __('محصولی با این شناسه در ووکامرس نیست.', 'tecteb-marketplace-core'),
+                __('ممکن است حذف شده باشد یا این نشانی دستی ساخته شده باشد.', 'tecteb-marketplace-core')
+            );
+            return;
+        }
+        $signals = (array) $preview['signals'];
+        $decided = CatalogueBucket::decide(
+            $signals,
+            in_array((string) $detail['type'], [ProductType::SIMPLE, ProductType::VARIABLE], true)
+        );
+        $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
+
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html(ProductMessages::displayTitle((string) $detail['title'], $wcId)) . '</h2>';
+        echo '<p class="tmc-hint">' . esc_html__('این محصول ردیفی در بازارگاه ندارد. هیچ گاردی از این افزونه دربارهٔ آن نظر نمی‌دهد و باز کردن این صفحه هیچ‌چیزی را عوض نکرد.', 'tecteb-marketplace-core') . '</p>';
+        echo '<dl class="tmc-data">'
+            . '<dt>' . esc_html__('شناسهٔ ووکامرس', 'tecteb-marketplace-core') . '</dt><dd>'
+            . esc_html($fa($wcId)) . '</dd>'
+            . '<dt>' . esc_html__('نوع / وضعیت انتشار', 'tecteb-marketplace-core') . '</dt><dd>'
+            . esc_html((string) $detail['type']) . ' / '
+            . esc_html(ProductMessages::shopStatus((string) $detail['status'])) . '</dd>'
+            . '<dt>SKU</dt><dd>' . esc_html((string) $detail['sku'] !== '' ? (string) $detail['sku'] : '—') . '</dd>'
+            . '<dt>' . esc_html__('قیمت', 'tecteb-marketplace-core') . '</dt><dd>'
+            . esc_html($fa((string) $detail['regular_price'])) . '</dd>'
+            . '<dt>' . esc_html__('موجودی', 'tecteb-marketplace-core') . '</dt><dd>'
+            . esc_html((string) ($detail['manage_stock'] === true
+                ? $fa((string) $detail['stock_quantity'])
+                : __('مدیریت موجودی خاموش است', 'tecteb-marketplace-core'))) . '</dd>'
+            . '<dt>' . esc_html__('دسته‌بندی مالکیت', 'tecteb-marketplace-core') . '</dt><dd>'
+            . esc_html(CatalogueBucket::label((string) $decided['bucket'])) . '</dd>'
+            . '</dl>';
+
+        // The evidence, in full. The list prints the author's id and leaves
+        // it there; this is where «نویسندهٔ وردپرس به‌تنهایی اثبات
+        // فروشنده‌بودن نیست» is actually readable.
+        echo '<h3 class="tmc-card__subtitle">'
+            . esc_html__('شواهد فروشنده‌بودن', 'tecteb-marketplace-core') . '</h3>';
+        echo '<dl class="tmc-data">'
+            . '<dt>' . esc_html__('نویسندهٔ پست', 'tecteb-marketplace-core') . '</dt><dd>'
+            . esc_html($fa((int) $signals['author_id']))
+            . ($signals['author_exists'] === true
+                ? ''
+                : ' — ' . esc_html__('این کاربر وجود ندارد', 'tecteb-marketplace-core')) . '</dd>'
+            . '<dt>' . esc_html__('نقش‌ها', 'tecteb-marketplace-core') . '</dt><dd>'
+            . esc_html(implode('، ', array_map('strval', (array) $signals['author_roles'])) ?: '—') . '</dd>'
+            . '<dt>' . esc_html__('پروندهٔ فروشندگی', 'tecteb-marketplace-core') . '</dt><dd>'
+            . esc_html((string) $signals['vendor_profile'] !== ''
+                ? (string) $signals['vendor_profile']
+                : __('ندارد', 'tecteb-marketplace-core')) . '</dd>'
+            . '<dt>' . esc_html__('فروشندهٔ دکان', 'tecteb-marketplace-core') . '</dt><dd>'
+            . esc_html($signals['dokan_seller'] === true
+                ? __('هست', 'tecteb-marketplace-core')
+                : __('نیست', 'tecteb-marketplace-core')) . '</dd>'
+            . '</dl>';
+
+        if ((array) $decided['reasons'] !== []) {
+            echo '<ul class="tmc-list">';
+            foreach ($this->blockerSentences((array) $decided['reasons']) as $sentence) {
+                echo '<li>' . esc_html($sentence) . '</li>';
+            }
+            echo '</ul>';
+            if ((string) $decided['bucket'] === CatalogueBucket::DOKAN) {
+                echo '<p><a class="tmc-button" href="'
+                    . esc_url(admin_url('admin.php?page=' . MigrationPage::SLUG)) . '">'
+                    . esc_html__('مسیر انتقال از دکان', 'tecteb-marketplace-core') . '</a></p>';
+            }
+        }
+
+        $risks = (array) $preview['risks'];
+        echo '<h3 class="tmc-card__subtitle">'
+            . esc_html__('آنچه ورود و پذیرش مدیریت نمی‌تواند نگه دارد', 'tecteb-marketplace-core') . '</h3>';
+        if ($risks === []) {
+            echo '<p>' . esc_html__('هیچ فیلدی در این محصول نیست که فرم این بازارگاه نتواند بیانش کند.', 'tecteb-marketplace-core') . '</p>';
+        } else {
+            echo '<p>' . esc_html__('ورود هیچ‌کدام از این‌ها را عوض نمی‌کند — ورود فقط یک ردیف «مشاهده‌شده» می‌سازد. این فهرست دربارهٔ پذیرش مدیریت است، که اقدام جداگانه‌ای است و تا تأیید صریح هر مورد انجام نمی‌شود.', 'tecteb-marketplace-core') . '</p>';
+            echo '<ul class="tmc-list">';
+            foreach ($risks as $sentence) {
+                echo '<li>' . esc_html((string) $sentence) . '</li>';
+            }
+            echo '</ul>';
+        }
+
+        $plugins = (array) $preview['plugins'];
+        if ($plugins !== []) {
+            echo '<h3 class="tmc-card__subtitle">'
+                . esc_html__('افزونه‌های دیگری که روی این محصول داده نوشته‌اند', 'tecteb-marketplace-core') . '</h3>';
+            echo '<p>' . esc_html__('فقط پیشوند کلیدها و تعدادشان — مقدارها خوانده نمی‌شوند.', 'tecteb-marketplace-core') . '</p>';
+            echo '<table class="tmc-table"><thead><tr>'
+                . '<th scope="col">' . esc_html__('افزونه / پیشوند', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('تعداد کلید', 'tecteb-marketplace-core') . '</th>'
+                . '</tr></thead><tbody>';
+            foreach ($plugins as $prefix => $count) {
+                echo '<tr><td>' . Components::code((string) $prefix) . '</td><td>'
+                    . esc_html($fa((int) $count)) . '</td></tr>';
+            }
+            echo '</tbody></table>';
+        }
+
+        if (current_user_can(ProductIntakePage::CAPABILITY)) {
+            echo $this->oneProductIntakeForm($wcId, $decided, $request);
+        }
+        echo '</section>';
+    }
+
+    /**
+     * The intake, for this one product.
+     *
+     * The same two verbs as the list — preview and import — on an explicit
+     * list of exactly one id. A page that offered «import everything that
+     * scanned clean» would be the sweep the instruction forbids.
+     *
+     * @param array{bucket:string, vendor_user_id:int, reasons:list<string>} $decided
+     */
+    private function oneProductIntakeForm(int $wcId, array $decided, Request $request): string
+    {
+        $ready = $decided['reasons'] === []
+            && in_array($decided['bucket'], [CatalogueBucket::VENDOR, CatalogueBucket::SHOP], true);
+        if (!$ready) {
+            return '<p class="tmc-card__note">'
+                . esc_html__('این محصول با این شواهد وارد نمی‌شود. دلیلش بالا گفته شده و تا تصمیم مالک، این افزونه فروشنده‌ای برایش حدس نمی‌زند.', 'tecteb-marketplace-core')
+                . '</p>';
+        }
+        $controls = $this->intakeControls($request);
+        if ($controls === null) {
+            return '';
+        }
+        return '<form method="post" class="tmc-catalogue__intake">'
+            . $controls->nonceField
+            . '<input type="hidden" name="wc_ids[]" value="' . esc_attr((string) $wcId) . '">'
+            . '<h3 class="tmc-card__subtitle">'
+            . esc_html__('ورود این محصول به بازارگاه', 'tecteb-marketplace-core') . '</h3>'
+            . '<p class="tmc-hint">' . esc_html__('«ورود» یک ردیف بازارگاه می‌سازد که به همین محصول اشاره می‌کند، با مالکیت «مشاهده‌شده». شناسه، نشانی، وضعیت انتشار، نویسنده، قیمت، موجودی، تصویرها و سفارش‌های قبلی دست‌نخورده می‌مانند.', 'tecteb-marketplace-core') . '</p>'
+            . '<div class="tmc-field">'
+            . '<label class="tmc-field__label" for="tmc-one-shop">'
+            . esc_html__('فروشگاهی که این محصول به آن تعلق دارد — با نام جست‌وجو کنید:', 'tecteb-marketplace-core')
+            . '</label>'
+            . '<input class="tmc-input" type="search" id="tmc-one-shop" name="shop_q"'
+            . ' value="' . esc_attr($controls->shopQuery) . '">'
+            . ' <button type="submit" class="tmc-button" name="intake_action" value="find_shop">'
+            . esc_html__('جست‌وجوی فروشگاه', 'tecteb-marketplace-core') . '</button></div>'
+            . self::shopChoices($controls)
+            . '<p><button type="submit" class="tmc-button" name="intake_action" value="preview">'
+            . esc_html__('پیش‌نمایش (هیچ نوشتنی)', 'tecteb-marketplace-core') . '</button> '
+            . '<button type="submit" class="tmc-button tmc-button--primary" name="intake_action" value="import">'
+            . esc_html__('ورود این محصول', 'tecteb-marketplace-core') . '</button></p>'
+            . '</form>';
+    }
+
+    /** The shop radios, drawn the same way here and in the list. */
+    private static function shopChoices(CatalogueIntakeControls $controls): string
+    {
+        if ($controls->shopMatches === []) {
+            return $controls->shopQuery === ''
+                ? ''
+                : '<p class="tmc-card__note">'
+                    . esc_html__('فروشگاهی با این نام پیدا نشد.', 'tecteb-marketplace-core') . '</p>';
+        }
+        $html = '<fieldset class="tmc-fieldset"><legend>'
+            . esc_html__('کدام فروشگاه؟', 'tecteb-marketplace-core') . '</legend>';
+        foreach ($controls->shopMatches as $shop) {
+            $id = (int) $shop['vendor_user_id'];
+            $html .= '<label class="tmc-choice"><input type="radio" name="assign_to"'
+                . ' value="' . esc_attr((string) $id) . '"'
+                . ($id === $controls->assignTo ? ' checked' : '') . '> '
+                . esc_html((string) $shop['store_name']) . '</label>';
+        }
+        return $html . '</fieldset>';
+    }
+
+    /**
+     * «پذیرش مدیریت بازارگاه» for an observed row — the explicit second act.
+     *
+     * An intake makes a row that only WATCHES: nothing of this plugin's
+     * decides anything about the product, which is why it is safe to do in
+     * batches. Accepting management is the moment that changes, so it is a
+     * separate button with its own preview — and from `alpha.56` three things
+     * stand between the button and the write:
+     *
+     *   1. the risks: fields this marketplace's form cannot express, each
+     *      named, each acknowledged by key («حذف یا تبدیل ضمنی نکن»);
+     *   2. the drift: what has changed in WooCommerce SINCE the intake, with
+     *      the fingerprint of each shown value travelling back, so the
+     *      permission is about the numbers that were printed and not about
+     *      whatever is there when the form arrives (`alpha.49`, `alpha.55`);
+     *   3. a read that failed is neither of those and is not «they agree»: it
+     *      is said out loud and acceptance refuses.
+     *
+     * Rendered only for an observed row. An owned one has nothing to accept
+     * and a product with no link has nothing to accept it for.
+     */
+    private function ownershipPanel(Product $product): string
+    {
+        $wcId = (int) ($product->wcProductId ?? 0);
+        if ($wcId <= 0) {
+            return '';
+        }
+        if ($product->ownsItsStorefrontProduct()) {
+            // The other direction, and only for a product this plugin
+            // CLAIMED rather than created. `_tmc_claimed_from_status` is
+            // written by `claimStorefrontPost()` alone and holds the status
+            // the post had before, so it is the one honest marker of «this
+            // was somebody else's product and can be handed back». Offering
+            // it for a product the marketplace created would be offering to
+            // make a vendor's own listing inert.
+            if ((string) get_post_meta($wcId, WooCommerceProjector::CLAIMED_FROM_STATUS_META, true) === '') {
+                return '';
+            }
+            return '<section class="tmc-card"><h2 class="tmc-card__title">'
+                . esc_html__('پس‌گرفتن مدیریت بازارگاه', 'tecteb-marketplace-core') . '</h2>'
+                . '<p class="tmc-hint">' . esc_html__('این محصول پیش از ورود مال فروشگاه بود و مدیریتش به بازارگاه منتقل شده. پس‌گرفتن، ردیف را به «فقط مشاهده‌شده» برمی‌گرداند: از آن لحظه هیچ گاردی از این افزونه دربارهٔ آن نظر نمی‌دهد. محصول ووکامرس، قیمت، موجودی و سفارش‌های قبلی دست نمی‌خورند.', 'tecteb-marketplace-core') . '</p>'
+                . '<p><form method="post" class="tmc-inline-form">'
+                . wp_nonce_field(self::NONCE, 'tmc_ownership_nonce', true, false)
+                . '<input type="hidden" name="product_id" value="' . esc_attr((string) $product->id) . '">'
+                . '<button type="submit" class="tmc-button" name="ownership_action" value="give_back">'
+                . esc_html__('پس‌گرفتن مدیریت', 'tecteb-marketplace-core')
+                . '</button></form></p></section>';
+        }
+        $transfer = $this->container->get(TransferOwnership::class);
+        $risks = $transfer->risksFor($product->id);
+        $readable = $transfer->storefrontReadable($product->id);
+        $drift = $readable ? $transfer->storefrontDrift($product->id) : [];
+
+        $html = '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('پذیرش مدیریت بازارگاه', 'tecteb-marketplace-core') . '</h2>'
+            . '<p class="tmc-hint">' . esc_html__('این ردیف فقط به محصول ووکامرس اشاره می‌کند و هیچ گاردی از این افزونه دربارهٔ آن نظر نمی‌دهد. پذیرش مدیریت یعنی از آن لحظه بازارگاه تصمیم می‌گیرد این محصول فروخته شود یا نه؛ توقف فروش آن را به پیش‌نویس می‌برد و گارد خرید دربارهٔ آن نظر می‌دهد. محصول ووکامرس با این کار بازنویسی نمی‌شود و همین دکمه در جهت عکس هم کار می‌کند.', 'tecteb-marketplace-core') . '</p>';
+
+        if (!$readable) {
+            $html .= Components::notice('warning', __('مقدارهای فعلی این محصول در ووکامرس خوانده نشد، پس معلوم نیست مبنای ورود از آن موقع کهنه شده یا نه. تا خوانده نشود پذیرش انجام نمی‌شود — «نمی‌دانم» با «یکی‌اند» یکی نیست.', 'tecteb-marketplace-core'));
+        }
+        if ($risks !== []) {
+            $html .= '<h3 class="tmc-card__subtitle">'
+                . esc_html__('آنچه پذیرش عوض می‌کند یا نمی‌تواند نگه دارد', 'tecteb-marketplace-core')
+                . '</h3><ul class="tmc-list">';
+            foreach ($risks as $sentence) {
+                $html .= '<li>' . esc_html((string) $sentence) . '</li>';
+            }
+            $html .= '</ul>';
+        }
+        if ($drift !== []) {
+            $html .= '<h3 class="tmc-card__subtitle">'
+                . esc_html__('از زمان ورود، این مقدارها در ووکامرس عوض شده‌اند', 'tecteb-marketplace-core')
+                . '</h3><table class="tmc-table"><thead><tr>'
+                . '<th scope="col">' . esc_html__('فیلد', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('مبنای ورود', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('مقدار فعلی فروشگاه', 'tecteb-marketplace-core') . '</th>'
+                . '</tr></thead><tbody>';
+            foreach ($drift as $pair) {
+                $html .= '<tr><td>' . esc_html((string) $pair['label']) . '</td>'
+                    . '<td>' . esc_html((string) $pair['row'] !== '' ? (string) $pair['row'] : '—') . '</td>'
+                    . '<td>' . esc_html((string) $pair['shop'] !== '' ? (string) $pair['shop'] : '—') . '</td></tr>';
+            }
+            $html .= '</tbody></table>'
+                . '<p>' . esc_html__('پذیرش با وجود این تفاوت‌ها، مقدار مبنای ورود را مرجع می‌کند و اولین همگام‌سازی مقدار فعلی فروشگاه را بازنویسی می‌کند. اگر مقدار فعلی درست است، اول مبنا را تازه کنید.', 'tecteb-marketplace-core') . '</p>';
+        }
+
+        $accept = '<form method="post" class="tmc-inline-form">'
+            . wp_nonce_field(self::NONCE, 'tmc_ownership_nonce', true, false)
+            . '<input type="hidden" name="product_id" value="' . esc_attr((string) $product->id) . '">';
+        foreach (array_keys($risks) as $key) {
+            // The key travels with the tick, so a form that did not print
+            // this risk cannot acknowledge it.
+            $accept .= '<input type="hidden" name="acknowledged[]" value="' . esc_attr((string) $key) . '">';
+        }
+        foreach ($drift as $field => $pair) {
+            // And the VALUE travels with it, as the fingerprint the drift
+            // itself handed us: a permission about «whatever is there when
+            // the form arrives» is not a permission.
+            $accept .= '<input type="hidden" name="seen_shop[' . esc_attr((string) $field) . ']"'
+                . ' value="' . esc_attr((string) $pair['fingerprint']) . '">';
+        }
+        $accept .= '<button type="submit" class="tmc-button tmc-button--primary"'
+            . ' name="ownership_action" value="take"' . ($readable ? '' : ' disabled') . '>'
+            . ($risks === [] && $drift === []
+                ? esc_html__('پذیرش مدیریت بازارگاه', 'tecteb-marketplace-core')
+                : esc_html__('با وجود این موارد، مدیریت را بپذیر', 'tecteb-marketplace-core'))
+            . '</button></form>';
+
+        if ($drift !== []) {
+            // The other way out, and the one that loses nothing: take the
+            // snapshot again and there is no difference left to accept.
+            $accept .= '<form method="post" class="tmc-inline-form">'
+                . wp_nonce_field(self::NONCE, 'tmc_ownership_nonce', true, false)
+                . '<input type="hidden" name="product_id" value="' . esc_attr((string) $product->id) . '">'
+                . '<button type="submit" class="tmc-button" name="ownership_action" value="refresh">'
+                . esc_html__('مبنا را از فروشگاه تازه کن', 'tecteb-marketplace-core')
+                . '</button></form>';
+        }
+        return $html . '<p>' . $accept . '</p></section>';
+    }
+
+    /**
+     * The ownership buttons, answered.
+     *
+     * Its own handler and its own nonce, because it is its own decision: a
+     * review verb and «this product is ours now» are not the same kind of
+     * act, and a page where one form's nonce authorises the other is a page
+     * where a rendered review form carries a permission nobody asked for
+     * (`alpha.46` measured exactly that on the WooCommerce panel).
+     *
+     * @return string `''`, or `ok:`/`err:` and a sentence
+     */
+    private function handleOwnership(Request $request): string
+    {
+        if (!$request->isPost() || !$request->hasPost('ownership_action')) {
+            return '';
+        }
+        if (!current_user_can(ProductIntakePage::CAPABILITY)) {
+            return 'err:' . __('دسترسی لازم برای پذیرش مدیریت را ندارید.', 'tecteb-marketplace-core');
+        }
+        if (!$request->nonceOk('tmc_ownership_nonce', self::NONCE)) {
+            return 'err:' . __('درخواست معتبر نبود. صفحه را تازه کنید و دوباره تلاش کنید.', 'tecteb-marketplace-core');
+        }
+        $transfer = $this->container->get(TransferOwnership::class);
+        $productId = $request->postInt('product_id');
+        $action = $request->postKey('ownership_action');
+
+        if ($action === 'refresh') {
+            $result = $transfer->refreshFromStorefront($productId);
+            return $result->ok
+                ? 'ok:' . sprintf(
+                    /* translators: %s: how many fields were brought up to date */
+                    __('مبنای توافق از مقدارهای فعلی ووکامرس تازه شد (%s فیلد). محصول ووکامرس عوض نشد.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) ($result->context['refreshed'] ?? 0))
+                )
+                : 'err:' . __('تازه‌کردن مبنا انجام نشد: ', 'tecteb-marketplace-core') . $result->code;
+        }
+        if ($action === 'give_back') {
+            $result = $transfer->giveBack($productId);
+            return $result->ok
+                ? 'ok:' . __('مالکیت عملیاتی پس گرفته شد و این ردیف دوباره فقط نگاشت است.', 'tecteb-marketplace-core')
+                : 'err:' . __('پس‌گرفتن مالکیت انجام نشد: ', 'tecteb-marketplace-core') . $result->code;
+        }
+        if ($action !== 'take') {
+            return 'err:' . __('اقدام ناشناخته بود.', 'tecteb-marketplace-core');
+        }
+
+        $result = $transfer->take(
+            $productId,
+            $request->postTextList('acknowledged'),
+            $request->postMap('seen_shop')
+        );
+        if ($result->ok) {
+            return 'ok:' . __('مدیریت این محصول به بازارگاه منتقل شد. از این پس توقف فروش و گارد خرید دربارهٔ آن تصمیم می‌گیرند و محصول ووکامرس بازنویسی نشد.', 'tecteb-marketplace-core');
+        }
+        // Four refusals, four next steps. One sentence for all of them would
+        // send three of the four readers to the wrong place.
+        return 'err:' . match ($result->code) {
+            'ownership_risks_unacknowledged' => sprintf(
+                /* translators: %s: the sentences for the fields at risk */
+                __('پذیرش انجام نشد، چون این موارد تأیید نشده بودند: %s صفحه را تازه کنید و دکمهٔ «با وجود این موارد» را بزنید.', 'tecteb-marketplace-core'),
+                implode(' ', array_map('strval', (array) ($result->context['sentences'] ?? [])))
+            ),
+            'storefront_moved' => sprintf(
+                /* translators: %s: the names of the fields that moved */
+                __('پذیرش انجام نشد: از زمان ورود این مقدارها در ووکامرس عوض شده‌اند و این فرم آن‌ها را حمل نمی‌کرد: %s. صفحه را تازه کنید تا مقدارهای فعلی را ببینید.', 'tecteb-marketplace-core'),
+                (string) ($result->context['fields'] ?? '')
+            ),
+            'storefront_moved_again' => sprintf(
+                /* translators: 1: field, 2: the value the shop holds now */
+                __('پذیرش انجام نشد: «%1$s» بین نمایش صفحه و زدن دکمه عوض شد — مقدار فعلی فروشگاه %2$s است. آن مقدار بازنویسی نشد؛ صفحه را تازه کنید.', 'tecteb-marketplace-core'),
+                (string) ($result->context['field'] ?? ''),
+                PersianDigits::toPersian((string) ($result->context['now'] ?? ''))
+            ),
+            'storefront_unreadable' => __('پذیرش انجام نشد: مقدارهای فعلی این محصول در ووکامرس خوانده نشد، پس معلوم نیست مبنای ورود کهنه است یا نه.', 'tecteb-marketplace-core'),
+            default => __('این تغییر مالکیت انجام نشد: ', 'tecteb-marketplace-core') . $result->code,
+        };
+    }
+
+    /**
+     * The intake's three buttons: find a shop, preview, import.
+     *
+     * **Separate from `handleAction()` on purpose.** That one maps a subject
+     * and a decision onto a review verb and returns ONE code, which
+     * `ProductMessages` turns into one sentence. An intake of twelve products
+     * has twelve answers, and a count on its own would leave a manager hunting
+     * for the ones that did not go — so this returns the sentences, product by
+     * product, the way the intake screen has since `alpha.55`.
+     *
+     * **«find a shop» writes nothing and must not look like it did.** It is a
+     * submit because the search has to work with JavaScript off, and the whole
+     * form is posted so what was already ticked stays ticked — the trick the
+     * category picker has used since `alpha.25`. It returns no notice at all:
+     * the results appear in the form, and a success message about a search
+     * would read like a success message about an import.
+     *
+     * @return string `''`, or `ok:`/`err:` and a sentence
+     */
+    private function handleIntake(Request $request): string
+    {
+        if (!$request->isPost() || !$request->hasPost('intake_action')) {
+            return '';
+        }
+        $action = $request->postKey('intake_action');
+        if ($action === 'find_shop') {
+            return '';
+        }
+        // The capability is the intake's own, checked here and not only in
+        // the view: a page that drew no button would still have accepted the
+        // POST. «ورود و پذیرش صریح و مجاز» is about permission, not markup.
+        if (!current_user_can(ProductIntakePage::CAPABILITY)) {
+            return 'err:' . __('دسترسی لازم برای ورود محصول را ندارید.', 'tecteb-marketplace-core');
+        }
+        if (!$request->nonceOk('_wpnonce', self::NONCE)) {
+            return 'err:' . __('درخواست معتبر نبود. صفحه را تازه کنید و دوباره تلاش کنید.', 'tecteb-marketplace-core');
+        }
+
+        $intake = $this->container->get(ImportExistingProducts::class);
+        $ids = [];
+        foreach ($request->postTextList('wc_ids') as $raw) {
+            $id = (int) $raw;
+            if ($id > 0 && !in_array($id, $ids, true)) {
+                $ids[] = $id;
+            }
+        }
+        if ($ids === []) {
+            return 'err:' . __('هیچ محصولی انتخاب نشده بود.', 'tecteb-marketplace-core');
+        }
+        $assignTo = $request->postInt('assign_to');
+
+        if ($action === 'preview') {
+            return 'ok:' . __('پیش‌نمایش (هیچ نوشتنی انجام نشد): ', 'tecteb-marketplace-core')
+                . self::intakeSentences($intake->preview($ids, $assignTo));
+        }
+        if ($action !== 'import') {
+            return 'err:' . __('اقدام ناشناخته بود.', 'tecteb-marketplace-core');
+        }
+
+        $batch = $intake->importBatch($intake->newRunId(), $ids, $assignTo);
+        if (($batch['code'] ?? '') === 'forbidden') {
+            return 'err:' . __('دسترسی لازم را ندارید.', 'tecteb-marketplace-core');
+        }
+        $counts = $batch['counts'] ?? ['imported' => 0, 'skipped' => 0, 'failed' => 0];
+        return (($batch['ok'] ?? false) ? 'ok:' : 'err:') . sprintf(
+            /* translators: 1: imported, 2: skipped, 3: failed, 4: run id */
+            __('%1$s وارد شد، %2$s رد شد، %3$s انجام نشد. شناسهٔ اجرا: %4$s. ', 'tecteb-marketplace-core'),
+            PersianDigits::toPersian((string) $counts['imported']),
+            PersianDigits::toPersian((string) $counts['skipped']),
+            PersianDigits::toPersian((string) $counts['failed']),
+            (string) ($batch['run_id'] ?? '')
+        ) . self::intakeSentences($batch['results'] ?? []);
+    }
+
+    /**
+     * Each product's verdict, named.
+     *
+     * A count on its own would leave a manager hunting for the ones that did
+     * not go, which is the whole reason the intake answers per product.
+     *
+     * @param list<array<string,mixed>> $rows
+     */
+    private static function intakeSentences(array $rows): string
+    {
+        $sentences = ImportExistingProducts::reasonSentences();
+        $parts = [];
+        foreach ($rows as $row) {
+            $reason = (string) ($row['reason'] ?? '');
+            $parts[] = sprintf(
+                '#%s: %s',
+                PersianDigits::toPersian((string) ($row['wc_product_id'] ?? 0)),
+                $reason === ''
+                    ? (string) ($row['verdict'] ?? '')
+                    : ($sentences[$reason] ?? $reason)
+            );
+        }
+        return implode(' | ', array_slice($parts, 0, 25));
+    }
+
     private function handleAction(Request $request): ?array
     {
         if (!$request->isPost() || !$request->hasPost('decision')) {

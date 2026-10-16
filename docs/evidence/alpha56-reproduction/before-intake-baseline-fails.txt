@@ -1,0 +1,11 @@
+probe=ran
+batch_code=intake_done
+imported=1
+failed=0
+verdict=imported
+reason=partly_written:baseline
+refused_statements=1
+row_exists=yes
+row_id=1374
+baseline=__empty__
+import_run=intake-a56

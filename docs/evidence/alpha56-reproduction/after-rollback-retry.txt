@@ -1,0 +1,5 @@
+probe=ran
+rollback_code=intake_rolled_back
+rollback_ok=yes
+removed=1
+rows_for_product=0

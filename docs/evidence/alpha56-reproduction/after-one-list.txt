@@ -1,0 +1,10 @@
+probe=ran
+available=yes
+rows=1
+this_product_appears=1
+source=woocommerce
+management=none
+wc_status=publish
+bucket=shop
+sku=WC-A56-SHOP
+submission=s0.r0.b0

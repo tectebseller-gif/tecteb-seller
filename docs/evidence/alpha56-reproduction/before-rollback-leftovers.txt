@@ -1,0 +1,4 @@
+probe=ran
+product_row=present
+image_rows=2
+spec_rows=0

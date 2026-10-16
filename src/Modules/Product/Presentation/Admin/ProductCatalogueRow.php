@@ -24,7 +24,16 @@ final class ProductCatalogueRow
         public readonly string $title,
         public readonly string $sku,
         public readonly string $storeName,
-        public readonly ProductStatus $status,
+        /**
+         * The marketplace state machine's own status — `null` when there is
+         * no marketplace row at all.
+         *
+         * Nullable from `alpha.56`, and the null is a real state rather than
+         * a missing value: a WooCommerce product nobody has imported has no
+         * marketplace status, and inventing one («draft»? «published»?) would
+         * put a decision of this plugin's on a product it does not run.
+         */
+        public readonly ?ProductStatus $status,
         public readonly bool $projected,
         /** WooCommerce's own status, read on the spot; '' when the post is gone. */
         public readonly string $shopStatus,
@@ -53,7 +62,46 @@ final class ProductCatalogueRow
          * that decides nothing about it, so the row carries the answer and
          * the view prints a badge for the observed case.
          */
-        public readonly bool $ownsStorefrontProduct = true
+        public readonly bool $ownsStorefrontProduct = true,
+        /**
+         * The WooCommerce product this row is about, when there is one.
+         *
+         * From `alpha.56` this list holds BOTH halves of the catalogue, so a
+         * row can have a WooCommerce product and no marketplace row (`id` is
+         * zero) or a marketplace row and no product (`wcProductId` is zero).
+         * One of the two is always set; neither is optional in the sense of
+         * «unknown».
+         */
+        public readonly int $wcProductId = 0,
+        /** `CatalogueFacets::SOURCE_*` — which half of the catalogue this row is. */
+        public readonly string $source = '',
+        /** `CatalogueFacets::MANAGED_*` — whether this plugin runs the product. */
+        public readonly string $management = '',
+        /** The bucket's Persian name: «دکان», «فروشگاه اصلی», «مبهم»… */
+        public readonly string $bucketLabel = '',
+        /** `CatalogueBucket::*`, so the view can route a Dokan row to the Dokan path. */
+        public readonly string $bucket = '',
+        /**
+         * Whether an intake could run on this row AS IT STANDS, with no
+         * decision from anybody.
+         *
+         * `false` is never a failure — it is a question, and `$blockers`
+         * holds the sentence.
+         */
+        public readonly bool $intakeReady = false,
+        /**
+         * Why not, in sentences a manager reads.
+         *
+         * On the list this is one short line; the full technical account —
+         * the author's roles, the vendor paperwork, the other plugins' meta
+         * keys, what an intake could not carry — is on the product's own
+         * page. «توضیح فنی و تکراری به نمای جزئیات منتقل شود.»
+         *
+         * @var list<string>
+         */
+        public readonly array $blockers = [],
+        /** How many variations a variable product has; 0 for everything else. */
+        public readonly int $variations = 0
     ) {
     }
 }

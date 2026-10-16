@@ -1,0 +1,10 @@
+probe=ran
+row_before=1337
+stamp_before=intake-a56
+manifest_before=present
+rollback_code=intake_rollback_kept
+rollback_ok=no
+kept=1337:not_removed
+row_after=1337
+stamp_after=__empty__
+manifest_after=__absent__

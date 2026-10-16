@@ -1,0 +1,7 @@
+probe=ran
+matches=1
+first_vendor=9156
+first_name=تجهیزات_آزمون_۵۶
+first_source=profile
+nothing_matches=0
+percent_is_literal=0

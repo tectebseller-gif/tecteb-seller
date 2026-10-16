@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables as V;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables as T;
 
 /** Store settings on the plugin's own table; every value is a parameter. */
@@ -241,6 +242,49 @@ final class DbStoreRepository implements StoreRepositoryInterface
         return $this->db->execute($sql, [
             $vendorUserId, $iban, $holder, $documentId, $status, $onHold ? 1 : 0, $now, $now,
         ]) !== null;
+    }
+
+    public function searchByShopName(string $term, int $limit = 20): array
+    {
+        $term = trim($term);
+        if ($term === '') {
+            return [];
+        }
+        $limit = max(1, min(100, $limit));
+        // Escaped before it becomes a parameter: a `%` somebody typed is a
+        // percent sign in a shop name, not a wildcard that matches every shop
+        // on the site (`DbProductRepository::scope()`, `alpha.32`).
+        $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
+        // Ordered so the preferred name wins the dedupe below: settings,
+        // then application, then profile.
+        $rows = $this->db->getResults(
+            'SELECT user_id, store_name, 1 AS rank_order FROM `' . $this->table() . '`
+              WHERE store_name LIKE %s
+             UNION ALL
+             SELECT user_id, store_name, 2 AS rank_order FROM `' . V::table($this->db, V::APPLICATIONS) . '`
+              WHERE store_name LIKE %s
+             UNION ALL
+             SELECT user_id, store_name, 3 AS rank_order FROM `' . V::table($this->db, V::PROFILES) . '`
+              WHERE store_name LIKE %s
+             ORDER BY rank_order ASC, user_id ASC
+             LIMIT %d',
+            [$like, $like, $like, $limit * 3]
+        );
+        $sources = [1 => 'settings', 2 => 'application', 3 => 'profile'];
+        $out = [];
+        foreach ($rows as $row) {
+            $id = (int) $row['user_id'];
+            $name = trim((string) $row['store_name']);
+            if ($id <= 0 || $name === '' || isset($out[$id])) {
+                continue;
+            }
+            $out[$id] = [
+                'vendor_user_id' => $id,
+                'store_name' => $name,
+                'source' => $sources[(int) $row['rank_order']] ?? '',
+            ];
+        }
+        return array_values(array_slice($out, 0, $limit));
     }
 
     private function table(): string

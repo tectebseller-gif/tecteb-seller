@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Tests\WordPressContract;
 
 use Tecteb\Marketplace\Core\Container;
+use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
@@ -104,6 +105,102 @@ final class VendorAccountLinkTest extends ContractTestCase
 
         self::assertArrayHasKey(VendorAccountLink::MENU_KEY, $link->addMenuItem($this->menu()));
         self::assertNotSame('', $link->shortcode());
+    }
+
+    /**
+     * WHAT THIS PROVES: a manager gets an ADMINISTRATIVE route, not a vendor
+     * one — and gets one at all.
+     *
+     * The owner reported seeing only Dokan's red button on the real theme's
+     * account page. The account in the screenshots is a manager, and a
+     * manager has no vendor profile, no place on a roster and no application:
+     * this plugin answered `''` and was right to. «مدیر را خودکار فروشنده
+     * نکن» — so the answer is not a vendor panel, it is a link into the
+     * marketplace's own admin screen, labelled as that.
+     */
+    public function testAManagerGetsAnAdministrativeRouteAndNotAVendorOne(): void
+    {
+        State::$currentUserCaps = ['read', Capabilities::REVIEW_PRODUCTS];
+        $link = $this->link(profile: null, application: null);
+
+        $items = $link->addMenuItem($this->menu());
+        $panel = $link->shortcode();
+
+        self::assertSame(VendorAccountLink::managerLabel(), $items[VendorAccountLink::MENU_KEY] ?? '');
+        self::assertSame('مدیریت بازارگاه', VendorAccountLink::managerLabel());
+        self::assertStringContainsString('page=tmc-product-review', $panel, 'into wp-admin, not into /vendor/');
+        self::assertStringNotContainsString(
+            'ورود به پنل فروشنده',
+            $panel,
+            'a manager pressing that would land on a page about a shop they do not have'
+        );
+        // And the menu row goes to the same place as the button: two answers
+        // to one question on one page is the `alpha.52` form mistake.
+        self::assertStringContainsString(
+            'page=tmc-product-review',
+            $link->endpointUrl('ignored', VendorAccountLink::MENU_KEY, '', '')
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: being a manager does not outrank being a vendor.
+     *
+     * A person who is both came to `/my-account/` for their shop. The manager
+     * branch is deliberately last.
+     */
+    public function testAVendorWhoIsAlsoAManagerIsSentToTheirShop(): void
+    {
+        State::$currentUserCaps = ['read', Capabilities::REVIEW_PRODUCTS];
+        $link = $this->link(profile: $this->profile());
+
+        self::assertSame(
+            VendorAccountLink::panelLabel(),
+            $link->addMenuItem($this->menu())[VendorAccountLink::MENU_KEY] ?? ''
+        );
+    }
+
+    /** And a plain customer is still nobody, manager capability or not. */
+    public function testACustomerWithoutThatCapabilityStillGetsNothing(): void
+    {
+        State::$currentUserCaps = ['read'];
+        $link = $this->link(profile: null, application: null);
+
+        self::assertSame('', $link->shortcode());
+    }
+
+    /**
+     * WHAT THIS PROVES: the site records which of WooCommerce's account hooks
+     * its theme actually calls.
+     *
+     * This plugin cannot read the owner's theme, and «the hooks never ran» and
+     * «they ran and we correctly drew nothing» are opposite problems with
+     * opposite fixes. So the site measures it and the health screen reads it:
+     * «بدون مشاهدهٔ قالب واقعی، سازگاری با آن را «تأییدشده» اعلام نکن».
+     */
+    public function testTheSiteRecordsWhichAccountHooksItsThemeCalls(): void
+    {
+        delete_option(VendorAccountLink::SEEN_OPTION);
+        self::assertSame(
+            ['menu' => '', 'dashboard' => '', 'shortcode' => '', 'printed' => '', 'label' => ''],
+            VendorAccountLink::lastSeen(),
+            'nothing is claimed before anything has run'
+        );
+
+        // A buyer on a theme that renders the stock dashboard: the hook ran
+        // and nothing was printed, which is an answer and not a failure.
+        $buyer = $this->link(profile: null, application: null);
+        $buyer->renderPanel();
+        $seen = VendorAccountLink::lastSeen();
+        self::assertSame('yes', $seen['dashboard']);
+        self::assertSame('no', $seen['printed']);
+        self::assertSame('', $seen['menu'], 'and the menu filter did not run on this theme');
+
+        // A vendor on the same theme: printed, with the label that was drawn.
+        $vendor = $this->link(profile: $this->profile());
+        $vendor->renderPanel();
+        $seen = VendorAccountLink::lastSeen();
+        self::assertSame('yes', $seen['printed']);
+        self::assertSame(VendorAccountLink::panelLabel(), $seen['label']);
     }
 
     public function testTheLinkIsBuiltFromTheRouteAndNotFromAStringInThisPlugin(): void

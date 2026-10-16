@@ -1,0 +1,1041 @@
+<?php
+/**
+ * `alpha.56` on real WooCommerce: the three intake defects of `alpha.55`.
+ *
+ * **Its own file, named for its round** — the rule `alpha.54` paid for, and
+ * `EvidenceToolsAreNotOverwrittenTest` is its guard. It loads on BOTH trees
+ * (`alpha.32`'s rule): everything this round adds is reached through
+ * `method_exists()` / `class_exists()`, so a verb about a capability
+ * `alpha.55` does not have answers `absent=1` instead of dying at load — and
+ * «absent» is itself a measurement.
+ *
+ * **The failures are injected into the DATABASE, by statement name**
+ * (`FailingDatabase`, which the database suite already uses). Every other
+ * statement runs against the real MariaDB on the same connection, so what is
+ * measured afterwards is the rows that are really in the table — not a mock's
+ * opinion. These are injected failures of a collaborator, not spontaneous
+ * ones, and they are reported as such.
+ *
+ * Its fixture is its OWN (`WC-A56-*`), because a fixture shared with the
+ * previous round's script is a fixture one of them spends (`alpha.33`).
+ *
+ * Prints ONE key per line (the `alpha.41` rule).
+ *
+ *   wp eval-file tests/Support/alpha56-probe.php <verb> [args]
+ */
+
+use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
+use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
+use Tecteb\Marketplace\Core\Support\SystemClock;
+use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
+use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
+use Tecteb\Marketplace\Modules\Migration\Application\CatalogueInventory;
+use Tecteb\Marketplace\Modules\Migration\Application\CatalogueReaderInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\ImportExistingProducts;
+use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
+use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
+use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
+use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
+use Tecteb\Marketplace\Tests\Support\FailingDatabase;
+
+if (!defined('DB_NAME') || (DB_NAME !== 'tmc_wp_test' && DB_NAME !== 'tmc_wp_demo')) {
+    fwrite(STDERR, "refused: DB_NAME is not one of the disposable databases.\n");
+    echo "refused=1\n";
+    return;
+}
+if (!preg_match('~^https?://(127\.0\.0\.1|localhost)(:\d+)?~', (string) home_url())) {
+    fwrite(STDERR, "refused: home_url() is not local.\n");
+    echo "refused=1\n";
+    return;
+}
+
+require_once __DIR__ . '/FailingDatabase.php';
+
+/** The marketplace vendor this round's fixtures are assigned to. */
+const TMC_P56_VENDOR = 9156;
+const TMC_P56_SKU = 'WC-A56-SHOP';
+const TMC_P56_RUN = 'intake-a56';
+
+$verb = (string) ($args[0] ?? 'report');
+$c = Bootstrap::container();
+$adminId = (int) (get_users(['role' => 'administrator', 'number' => 1, 'fields' => 'ID'])[0] ?? 1);
+wp_set_current_user($adminId);
+$c->bind(CapabilityCheckerInterface::class, static fn () => new class implements CapabilityCheckerInterface {
+    public function can(string $capability): bool
+    {
+        return in_array($capability, Capabilities::all(), true);
+    }
+
+    public function currentUserId(): ?int
+    {
+        return (int) get_current_user_id();
+    }
+});
+
+$db = new WpDatabase($GLOBALS['wpdb']);
+$clock = new SystemClock();
+$products = new DbProductRepository($db, $clock);
+
+$say = static function (string $key, mixed $value): void {
+    if (is_bool($value)) {
+        $value = $value ? 'yes' : 'no';
+    }
+    if (is_array($value)) {
+        $value = implode('|', array_map('strval', $value));
+    }
+    echo $key . '=' . str_replace(["\n", ' '], ['', '_'], (string) ($value ?? '__null__')) . "\n";
+};
+$say('probe', 'ran');
+
+(new DbVendorRepository($db, $clock))->upsertProfile(TMC_P56_VENDOR, 'تجهیزات آزمون ۵۶', true, false);
+
+// ------------------------------------------------------------------ helpers
+
+/**
+ * An intake service whose DATABASE can be made to refuse named statements.
+ *
+ * Everything but the repository comes from the container, so what runs is the
+ * real wiring; only the gateway underneath the repository is wrapped.
+ */
+$intakeWith = static function (?FailingDatabase $failing) use ($c, $clock): ImportExistingProducts {
+    // The CONTAINER's gateway, wrapped — not a second `WpDatabase` over the
+    // same `$wpdb`. Measured: with two objects the depth counter is per
+    // object, so `saveImages()`'s own `begin()` (one unit of work since
+    // `alpha.31`) issued a REAL `START TRANSACTION`, which MySQL answers by
+    // committing the one the intake had already opened. The row then survived
+    // a rolled-back intake and the probe reported a defect in a build that
+    // was right. Nesting lives in the object, so the decorator must wrap the
+    // object the transaction comes from.
+    $gateway = $failing ?? $c->get(DatabaseInterface::class);
+    return new ImportExistingProducts(
+        $c->get(CatalogueReaderInterface::class),
+        $c->get(CatalogueInventory::class),
+        new DbProductRepository($gateway, $clock),
+        $c->get(VendorRepositoryInterface::class),
+        $c->get(\Tecteb\Marketplace\Contracts\OptionStoreInterface::class),
+        $c->get(\Tecteb\Marketplace\Core\Audit\AuditLogger::class),
+        $clock,
+        $c->get(CapabilityCheckerInterface::class),
+        $c->get(ProductRevisionRepositoryInterface::class),
+        // The transaction comes from the container and the statements from the
+        // wrapper: two objects, ONE `$wpdb` and so one MySQL connection, which
+        // is what makes a rolled-back unit really roll the injected failure's
+        // siblings back. Passed through `method_exists` on the constructor so
+        // this file still loads on `alpha.55`, whose constructor has no tenth
+        // argument (`alpha.32`'s rule).
+        ...((new ReflectionClass(ImportExistingProducts::class))->getConstructor()->getNumberOfParameters() >= 10
+            ? [$c->get(\Tecteb\Marketplace\Contracts\TransactionInterface::class)]
+            : [])
+    );
+};
+
+/** The marketplace row for one WooCommerce product, read with raw SQL. */
+$rawRow = static function (int $wcId) use ($db): array {
+    $rows = $db->getResults(
+        'SELECT id, status, link_ownership, import_run_id, approved_baseline, brand, price_minor, stock
+           FROM `' . $db->prefix() . 'tmc_products` WHERE wc_product_id = %d ORDER BY id ASC',
+        [$wcId]
+    );
+    return $rows[0] ?? [];
+};
+
+$imageCount = static fn (int $productId): int => (int) ($db->getVar(
+    'SELECT COUNT(*) FROM `' . $db->prefix() . 'tmc_product_images` WHERE product_id = %d',
+    [$productId]
+) ?? -1);
+
+$runManifest = static function () use ($db): array {
+    $raw = get_option('tmc_catalogue_intake_runs', []);
+    return is_array($raw) ? $raw : [];
+};
+
+switch ($verb) {
+    // ============================================ the fixture of this round
+
+    /**
+     * A plain WooCommerce product with a brand, a gallery and a price — the
+     * shop's own, authored by the administrator, which is the state most of a
+     * live catalogue is in. Idempotent by SKU.
+     */
+    case 'arrange': {
+        if (!function_exists('wc_get_product_id_by_sku')) {
+            $say('refused', 'no_woocommerce');
+            break;
+        }
+        $wcId = (int) wc_get_product_id_by_sku(TMC_P56_SKU);
+        if ($wcId <= 0) {
+            $product = new WC_Product_Simple();
+            $product->set_name('کالای ورود ۵۶');
+            $product->set_status('publish');
+            $product->set_catalog_visibility('visible');
+            $product->set_short_description('خلاصهٔ ورود ۵۶');
+            $product->set_description('متن کامل ورود ۵۶');
+            $product->set_sku(TMC_P56_SKU);
+            $product->set_regular_price('450000');
+            $product->set_manage_stock(true);
+            $product->set_stock_quantity(22);
+            $product->set_weight('1.5');
+            $wcId = (int) $product->save();
+        }
+        // Two attachments so the gallery write has something to write, and a
+        // brand term so `setBrandTerm()` is reached.
+        $gallery = [];
+        foreach (['a56-one', 'a56-two'] as $slug) {
+            $existing = get_posts([
+                'post_type' => 'attachment',
+                'name' => $slug,
+                'numberposts' => 1,
+                'fields' => 'ids',
+                'post_status' => 'inherit',
+            ]);
+            $gallery[] = (int) ($existing[0] ?? wp_insert_post([
+                'post_title' => $slug,
+                'post_name' => $slug,
+                'post_type' => 'attachment',
+                'post_status' => 'inherit',
+                'post_mime_type' => 'image/png',
+            ]));
+        }
+        update_post_meta($wcId, '_thumbnail_id', $gallery[0]);
+        update_post_meta($wcId, '_product_image_gallery', implode(',', array_slice($gallery, 1)));
+        if (taxonomy_exists('product_brand')) {
+            wp_set_object_terms($wcId, ['سینا طب ۵۶'], 'product_brand', false);
+        }
+        $db->execute(
+            'UPDATE `' . $db->prefix() . 'posts` SET post_author = %d WHERE ID = %d',
+            [$adminId, $wcId]
+        );
+        clean_post_cache($wcId);
+        $say('wc_id', $wcId);
+        $say('status', (string) get_post_status($wcId));
+        $say('price', (string) get_post_meta($wcId, '_regular_price', true));
+        $say('stock', (string) get_post_meta($wcId, '_stock', true));
+        $say('gallery', implode(',', $gallery));
+        $say('marketplace_rows', (string) ($db->getVar(
+            'SELECT COUNT(*) FROM `' . $db->prefix() . 'tmc_products` WHERE wc_product_id = %d',
+            [$wcId]
+        ) ?? -1));
+        break;
+    }
+
+    // ===================== §2-الف an intake whose parts did not all land
+
+    /**
+     * THE FINDING: `intake()` writes the row, then the baseline, the brand and
+     * the gallery — and reports `imported` whichever of the three failed.
+     *
+     * The baseline is the one that matters most: it is the agreement baseline
+     * the approval path compares against, so a row with an empty one makes
+     * every field look like somebody else's change for ever.
+     */
+    case 'intake-baseline-fails': {
+        if (!class_exists(ImportExistingProducts::class)) {
+            $say('absent', 1);
+            break;
+        }
+        $wcId = (int) ($args[1] ?? 0);
+        $failing = new FailingDatabase($c->get(DatabaseInterface::class));
+        $failing->failWhen(['UPDATE', 'tmc_products', 'approved_baseline']);
+        $batch = $intakeWith($failing)->importBatch(TMC_P56_RUN, [$wcId], TMC_P56_VENDOR);
+        $say('batch_code', (string) ($batch['code'] ?? '?'));
+        $say('imported', (string) (($batch['counts']['imported'] ?? 0)));
+        $say('failed', (string) (($batch['counts']['failed'] ?? 0)));
+        $say('verdict', (string) ($batch['results'][0]['verdict'] ?? '?'));
+        $say('reason', (string) ($batch['results'][0]['reason'] ?? ''));
+        $say('refused_statements', (string) count($failing->refused));
+        $row = $rawRow($wcId);
+        $say('row_exists', $row !== []);
+        $say('row_id', (string) ($row['id'] ?? 0));
+        $say('baseline', ((string) ($row['approved_baseline'] ?? '')) === '' ? '__empty__' : 'present');
+        $say('import_run', (string) ($row['import_run_id'] ?? ''));
+        break;
+    }
+
+    /** The same for the gallery: a row with no images where the shop has two. */
+    case 'intake-images-fail': {
+        if (!class_exists(ImportExistingProducts::class)) {
+            $say('absent', 1);
+            break;
+        }
+        $wcId = (int) ($args[1] ?? 0);
+        $failing = new FailingDatabase($c->get(DatabaseInterface::class));
+        $failing->failWhen(['tmc_product_images']);
+        $batch = $intakeWith($failing)->importBatch(TMC_P56_RUN, [$wcId], TMC_P56_VENDOR);
+        $say('verdict', (string) ($batch['results'][0]['verdict'] ?? '?'));
+        $say('reason', (string) ($batch['results'][0]['reason'] ?? ''));
+        $say('imported', (string) (($batch['counts']['imported'] ?? 0)));
+        $row = $rawRow($wcId);
+        $say('row_exists', $row !== []);
+        $say('images_in_row', (string) $imageCount((int) ($row['id'] ?? 0)));
+        break;
+    }
+
+    /**
+     * And the second run, with nothing failing: on `alpha.55` the product is
+     * `already_linked_observed`, so the half-written row is abandoned for
+     * ever — the retry cannot reach it and no page says it is half written.
+     */
+    case 'intake-retry': {
+        if (!class_exists(ImportExistingProducts::class)) {
+            $say('absent', 1);
+            break;
+        }
+        $wcId = (int) ($args[1] ?? 0);
+        $batch = $intakeWith(null)->importBatch(TMC_P56_RUN . '-retry', [$wcId], TMC_P56_VENDOR);
+        $say('verdict', (string) ($batch['results'][0]['verdict'] ?? '?'));
+        $say('reason', (string) ($batch['results'][0]['reason'] ?? ''));
+        $say('imported', (string) (($batch['counts']['imported'] ?? 0)));
+        $row = $rawRow($wcId);
+        $say('rows_for_product', (string) ($db->getVar(
+            'SELECT COUNT(*) FROM `' . $db->prefix() . 'tmc_products` WHERE wc_product_id = %d',
+            [$wcId]
+        ) ?? -1));
+        $say('baseline_after_retry', ((string) ($row['approved_baseline'] ?? '')) === '' ? '__empty__' : 'present');
+        $say('images_after_retry', (string) $imageCount((int) ($row['id'] ?? 0)));
+        // WHICH run the row ends up stamped with — the retry's on a tree that
+        // retried, the first attempt's on a tree that skipped. The rollback
+        // verbs are given this rather than a constant, because a script that
+        // named the run itself would roll back a run one of the two trees
+        // never created and report a defect about the wrong thing.
+        $say('row_run', ((string) ($row['import_run_id'] ?? '')) === ''
+            ? '__empty__'
+            : (string) $row['import_run_id']);
+        break;
+    }
+
+    /** The named repair path — `alpha.56` only. */
+    case 'intake-repair': {
+        $intake = $intakeWith(null);
+        if (!method_exists($intake, 'repair')) {
+            $say('absent', 1);
+            break;
+        }
+        $wcId = (int) ($args[1] ?? 0);
+        $row = $rawRow($wcId);
+        $result = $intake->repair((int) ($row['id'] ?? 0));
+        $say('repair_code', $result->code);
+        $say('repair_ok', $result->ok);
+        $after = $rawRow($wcId);
+        $say('baseline_after_repair', ((string) ($after['approved_baseline'] ?? '')) === '' ? '__empty__' : 'present');
+        $say('images_after_repair', (string) $imageCount((int) ($after['id'] ?? 0)));
+        break;
+    }
+
+    /** What a page can say about half-written intakes — `alpha.56` only. */
+    case 'intake-incomplete': {
+        $intake = $intakeWith(null);
+        if (!method_exists($intake, 'incomplete')) {
+            $say('absent', 1);
+            break;
+        }
+        $rows = $intake->incomplete();
+        $say('incomplete_count', (string) count($rows));
+        $say('incomplete_ids', implode(',', array_map(static fn (array $r): string => (string) $r['product_id'], $rows)));
+        $say('incomplete_parts', implode(',', array_map(static fn (array $r): string => implode('+', $r['missing']), $rows)));
+        break;
+    }
+
+    // ======================== §2-ب a rollback whose delete did not happen
+
+    /**
+     * THE FINDING: when `deleteObservedFromRun()` refuses, `alpha.55` clears
+     * the import stamp AND deletes the run manifest — so the two things a
+     * retry needs are both gone, and the next attempt answers
+     * `intake_run_unknown` about a row that is still there.
+     */
+    case 'rollback-delete-fails': {
+        if (!class_exists(ImportExistingProducts::class)) {
+            $say('absent', 1);
+            break;
+        }
+        $wcId = (int) ($args[1] ?? 0);
+        $runId = (string) ($args[2] ?? TMC_P56_RUN);
+        $failing = new FailingDatabase($c->get(DatabaseInterface::class));
+        $failing->failWhen(['DELETE', 'tmc_products']);
+        $before = $rawRow($wcId);
+        $say('row_before', (string) ($before['id'] ?? 0));
+        $say('stamp_before', (string) ($before['import_run_id'] ?? ''));
+        $say('manifest_before', array_key_exists($runId, $runManifest()) ? 'present' : '__absent__');
+        $result = $intakeWith($failing)->rollback($runId);
+        $say('rollback_code', $result->code);
+        $say('rollback_ok', $result->ok);
+        $say('kept', (string) ($result->context['kept'] ?? ''));
+        $after = $rawRow($wcId);
+        $say('row_after', (string) ($after['id'] ?? 0));
+        $say('stamp_after', ((string) ($after['import_run_id'] ?? '')) === '' ? '__empty__' : (string) $after['import_run_id']);
+        $say('manifest_after', array_key_exists($runId, $runManifest()) ? 'present' : '__absent__');
+        break;
+    }
+
+    /** And the retry: can the same run be rolled back once the fault is gone? */
+    case 'rollback-retry': {
+        if (!class_exists(ImportExistingProducts::class)) {
+            $say('absent', 1);
+            break;
+        }
+        $wcId = (int) ($args[1] ?? 0);
+        $runId = (string) ($args[2] ?? TMC_P56_RUN);
+        $result = $intakeWith(null)->rollback($runId);
+        $say('rollback_code', $result->code);
+        $say('rollback_ok', $result->ok);
+        $say('removed', (string) ($result->context['removed'] ?? ''));
+        $say('rows_for_product', (string) ($db->getVar(
+            'SELECT COUNT(*) FROM `' . $db->prefix() . 'tmc_products` WHERE wc_product_id = %d',
+            [$wcId]
+        ) ?? -1));
+        break;
+    }
+
+    /**
+     * A rollback must not take the dependent rows and leave the product — nor
+     * leave the dependent rows behind after it took the product.
+     */
+    case 'rollback-leftovers': {
+        $wcId = (int) ($args[1] ?? 0);
+        $row = $rawRow($wcId);
+        $productId = (int) ($row['id'] ?? 0);
+        $say('product_row', $productId > 0 ? 'present' : '__absent__');
+        $say('image_rows', (string) $imageCount($productId));
+        $say('spec_rows', (string) ($db->getVar(
+            'SELECT COUNT(*) FROM `' . $db->prefix() . 'tmc_product_specs` WHERE product_id = %d',
+            [$productId]
+        ) ?? -1));
+        break;
+    }
+
+    // ===================== §2-ج acceptance that carries a stale snapshot
+
+    /**
+     * THE FINDING: the intake snapshots WooCommerce; acceptance does not ask
+     * whether that snapshot is still true. A price the manager changes between
+     * the intake and the acceptance is overwritten by the intake's number the
+     * first time the product is projected — and the manager is not told.
+     *
+     * The risk acknowledgement does not cover this: it is about fields this
+     * marketplace cannot express, not about a value that MOVED.
+     */
+    case 'accept-stale': {
+        if (!class_exists(ImportExistingProducts::class)) {
+            $say('absent', 1);
+            break;
+        }
+        $wcId = (int) ($args[1] ?? 0);
+        // 1. a clean intake
+        $intakeWith(null)->importBatch(TMC_P56_RUN . '-accept', [$wcId], TMC_P56_VENDOR);
+        $row = $rawRow($wcId);
+        $productId = (int) ($row['id'] ?? 0);
+        $say('row_price_at_intake', (string) ($row['price_minor'] ?? '?'));
+        $say('row_stock_at_intake', (string) ($row['stock'] ?? '?'));
+
+        // 2. somebody changes the shop AFTER the intake — the ordinary case,
+        //    because an intake is a preview step a manager sleeps on.
+        $product = wc_get_product($wcId);
+        $product->set_regular_price('480000');
+        $product->set_price('480000');
+        $product->set_stock_quantity(30);
+        $product->save();
+        wp_cache_delete((string) $wcId, 'post_meta');
+        $say('shop_price_before_accept', (string) get_post_meta($wcId, '_regular_price', true));
+        $say('shop_stock_before_accept', (string) get_post_meta($wcId, '_stock', true));
+
+        // 3. acceptance, with every named risk acknowledged
+        $transfer = $c->get(TransferOwnership::class);
+        $risks = array_keys($transfer->risksFor($productId));
+        $say('risks', implode(',', $risks) === '' ? '__none__' : implode(',', $risks));
+        $taken = $transfer->take($productId, $risks);
+        $say('take_code', $taken->code);
+        $say('take_ok', $taken->ok);
+        $say('ownership_after', $products->linkOwnership($productId)->value);
+
+        // 4. the next sync — which is what a save, an approval or the
+        //    manager's own «sync» button all reach.
+        $synced = $c->get(SyncCatalog::class)->publish($productId);
+        $say('sync_code', $synced->code);
+        wp_cache_delete((string) $wcId, 'post_meta');
+        $say('shop_price_after_sync', (string) get_post_meta($wcId, '_regular_price', true));
+        $say('shop_stock_after_sync', (string) get_post_meta($wcId, '_stock', true));
+        $say('manager_price_kept', ((string) get_post_meta($wcId, '_regular_price', true)) === '480000');
+        // Said out loud, because the first version of this verb left the row
+        // behind in one tree and not in the other and the difference looked
+        // like a finding: how many marketplace rows point at this product
+        // when the verb ends, and what the sync did to the catalogue.
+        $say('rows_at_end', (string) ($db->getVar(
+            'SELECT COUNT(*) FROM `' . $db->prefix() . 'tmc_products` WHERE wc_product_id = %d',
+            [$wcId]
+        ) ?? -1));
+        $say('rows_for_vendor_at_end', (string) ($db->getVar(
+            'SELECT COUNT(*) FROM `' . $db->prefix() . 'tmc_products` WHERE vendor_user_id = %d',
+            [TMC_P56_VENDOR]
+        ) ?? -1));
+        break;
+    }
+
+    /**
+     * A FOURTH FINDING, found while measuring the third: projecting an
+     * observed row DUPLICATES the product.
+     *
+     * `publish()` asks the projector «do you own this post?». An intake
+     * writes no ownership stamp on purpose, so the answer is no, so the link
+     * was dropped and a brand-new WooCommerce product was built and the row
+     * pointed at it. Nobody asked for a product; the one being observed was
+     * left behind with nothing pointing at it.
+     *
+     * It is reachable from any manager action that syncs a row, which is why
+     * it is worth a verb of its own rather than a footnote.
+     */
+    case 'project-observed': {
+        if (!class_exists(ImportExistingProducts::class)) {
+            $say('absent', 1);
+            break;
+        }
+        $wcId = (int) ($args[1] ?? 0);
+        $productsBefore = (int) ($db->getVar(
+            'SELECT COUNT(*) FROM `' . $db->prefix() . 'posts` WHERE post_type = %s AND post_status <> %s',
+            ['product', 'trash']
+        ) ?? -1);
+        $intakeWith(null)->importBatch(TMC_P56_RUN . '-proj', [$wcId], TMC_P56_VENDOR);
+        $row = $rawRow($wcId);
+        $productId = (int) ($row['id'] ?? 0);
+        $say('row', (string) $productId);
+        $say('ownership', $products->linkOwnership($productId)->value);
+        $synced = $c->get(SyncCatalog::class)->publish($productId);
+        $say('sync_code', $synced->code);
+        $after = $products->find($productId);
+        $say('row_points_at', (string) ($after?->wcProductId ?? 0));
+        $say('still_points_at_the_observed_product', ((int) ($after?->wcProductId ?? 0)) === $wcId);
+        $say('wc_products_before', (string) $productsBefore);
+        $say('wc_products_after', (string) ($db->getVar(
+            'SELECT COUNT(*) FROM `' . $db->prefix() . 'posts` WHERE post_type = %s AND post_status <> %s',
+            ['product', 'trash']
+        ) ?? -1));
+        break;
+    }
+
+    /**
+     * The control: an acceptance with NOTHING changed in between must still
+     * work, on both trees. A guard that stood in the way of the ordinary case
+     * would be worse than the defect.
+     */
+    case 'accept-fresh': {
+        if (!class_exists(ImportExistingProducts::class)) {
+            $say('absent', 1);
+            break;
+        }
+        $wcId = (int) ($args[1] ?? 0);
+        $intakeWith(null)->importBatch(TMC_P56_RUN . '-fresh', [$wcId], TMC_P56_VENDOR);
+        $row = $rawRow($wcId);
+        $productId = (int) ($row['id'] ?? 0);
+        $transfer = $c->get(TransferOwnership::class);
+        $taken = $transfer->take($productId, array_keys($transfer->risksFor($productId)));
+        $say('take_code', $taken->code);
+        $say('take_ok', $taken->ok);
+        $say('ownership_after', $products->linkOwnership($productId)->value);
+        $synced = $c->get(SyncCatalog::class)->publish($productId);
+        $say('sync_code', $synced->code);
+        wp_cache_delete((string) $wcId, 'post_meta');
+        $say('shop_price_after_sync', (string) get_post_meta($wcId, '_regular_price', true));
+        break;
+    }
+
+    /** The refreshed-then-accepted path — `alpha.56` only. */
+    case 'accept-refresh': {
+        $transfer = $c->get(TransferOwnership::class);
+        if (!method_exists($transfer, 'refreshFromStorefront')) {
+            $say('absent', 1);
+            break;
+        }
+        $wcId = (int) ($args[1] ?? 0);
+        $row = $rawRow($wcId);
+        $productId = (int) ($row['id'] ?? 0);
+        $refreshed = $transfer->refreshFromStorefront($productId);
+        $say('refresh_code', $refreshed->code);
+        $say('refresh_ok', $refreshed->ok);
+        $after = $rawRow($wcId);
+        $say('row_price_after_refresh', (string) ($after['price_minor'] ?? '?'));
+        $say('row_stock_after_refresh', (string) ($after['stock'] ?? '?'));
+        $taken = $transfer->take($productId, array_keys($transfer->risksFor($productId)));
+        $say('take_code', $taken->code);
+        $synced = $c->get(SyncCatalog::class)->publish($productId);
+        $say('sync_code', $synced->code);
+        wp_cache_delete((string) $wcId, 'post_meta');
+        $say('shop_price_after_sync', (string) get_post_meta($wcId, '_regular_price', true));
+        $say('manager_price_kept', ((string) get_post_meta($wcId, '_regular_price', true)) === '480000');
+        break;
+    }
+
+    // ============ §3 why 189 products and 262 simple are the same table
+
+    /**
+     * THE MECHANISM, PLANTED AND MEASURED.
+     *
+     * The owner read 189 products across four statuses beside `simple=262
+     * variable=32` on staging. The cause is in the query rather than on the
+     * site: `alpha.55` counted `product_type` term relationships with NO
+     * join to `posts`, while the status count was scoped to
+     * `post_type = 'product'`.
+     *
+     * A clean demo site cannot show it — there is nothing stray to count, and
+     * both numbers agree, which is exactly why every suite passed. So the
+     * three stray shapes are PLANTED, measured, and removed again: a type
+     * term on a variation, one on another post type, and one pointing at no
+     * post at all. On `alpha.55` the unscoped count rises by three and the
+     * status total does not move; on this tree the two stay equal and the
+     * strays are reported by name.
+     */
+    case 'counts-scope': {
+        $reader = $c->get(CatalogueReaderInterface::class);
+        $pfx = $db->prefix();
+        $typeTax = (int) ($db->getVar(
+            'SELECT tt.term_taxonomy_id FROM `' . $pfx . 'term_taxonomy` tt
+             INNER JOIN `' . $pfx . 'terms` t ON t.term_id = tt.term_id
+              WHERE tt.taxonomy = %s AND t.name = %s LIMIT 1',
+            ['product_type', 'simple']
+        ) ?? 0);
+        if ($typeTax <= 0) {
+            $say('refused', 'no_simple_type_term');
+            break;
+        }
+        $before = $reader->counts();
+        $say('before_total', (string) ($before['total'] ?? 0));
+        $say('before_by_type', implode(',', array_map(
+            static fn (string $k, int $v): string => $k . ':' . $v,
+            array_keys($before['by_type'] ?? []),
+            array_values($before['by_type'] ?? [])
+        )));
+
+        // 1. a variation with a type term — some importers write one
+        $variation = (int) ($db->getVar(
+            'SELECT ID FROM `' . $pfx . 'posts` WHERE post_type = %s LIMIT 1',
+            ['product_variation']
+        ) ?? 0);
+        // 2. another post type entirely
+        $page = (int) ($db->getVar(
+            'SELECT ID FROM `' . $pfx . 'posts` WHERE post_type = %s LIMIT 1',
+            ['page']
+        ) ?? 0);
+        // 3. an id with no post behind it at all, which is what a deleted
+        //    product can leave behind
+        $ghost = 1 + (int) ($db->getVar('SELECT MAX(ID) FROM `' . $pfx . 'posts`') ?? 0);
+        $planted = [];
+        foreach ([$variation, $page, $ghost] as $objectId) {
+            if ($objectId <= 0) {
+                continue;
+            }
+            if ($db->execute(
+                'INSERT IGNORE INTO `' . $pfx . 'term_relationships` (object_id, term_taxonomy_id, term_order)
+                 VALUES (%d, %d, 0)',
+                [$objectId, $typeTax]
+            ) !== null) {
+                $planted[] = $objectId;
+            }
+        }
+        $say('planted', implode(',', $planted));
+
+        $after = $reader->counts();
+        $say('after_total', (string) ($after['total'] ?? 0));
+        $say('after_by_type', implode(',', array_map(
+            static fn (string $k, int $v): string => $k . ':' . $v,
+            array_keys($after['by_type'] ?? []),
+            array_values($after['by_type'] ?? [])
+        )));
+        $say('type_total_moved', array_sum($after['by_type'] ?? []) !== array_sum($before['by_type'] ?? []));
+        $say('status_total_moved', (int) ($after['total'] ?? 0) !== (int) ($before['total'] ?? 0));
+        $say('types_add_up_to_statuses', array_sum($after['by_type'] ?? []) === (int) ($after['total'] ?? -1));
+        $say('strays_reported', array_key_exists('strays', $after)
+            ? implode(',', array_map(
+                static fn (string $k, int $v): string => $k . ':' . $v,
+                array_keys($after['strays']),
+                array_values($after['strays'])
+            ))
+            : '__absent__');
+        $say('without_type', (string) ($after['without_type'] ?? '__absent__'));
+        $say('with_two_types', (string) ($after['with_two_types'] ?? '__absent__'));
+
+        foreach ($planted as $objectId) {
+            $db->execute(
+                'DELETE FROM `' . $pfx . 'term_relationships`
+                  WHERE object_id = %d AND term_taxonomy_id = %d',
+                [$objectId, $typeTax]
+            );
+        }
+        $say('planted_removed', 'yes');
+        break;
+    }
+
+    // ------------------------------------------------------------------ reset
+
+    /**
+     * Hand the fixture back (`alpha.33`): the marketplace rows go, the
+     * WooCommerce product and its attachments STAY — they were never ours to
+     * remove — and the shop's price goes back to what `arrange` writes.
+     */
+    // ========================== §3 ONE LIST: both halves, each product once
+
+    /**
+     * The whole catalogue, one page of it, with all three kinds of row in
+     * view: a WooCommerce product nobody has imported, one a marketplace row
+     * points at, and a marketplace row with no WooCommerce product at all.
+     *
+     * What this measures that no double can: that the UNION really returns
+     * each related product once on a real `wp_posts` with real duplicate
+     * `_sku` rows — the LEFT JOIN this list deliberately does not make.
+     */
+    case 'one-list': {
+        if (!method_exists(CatalogueInventory::class, 'unified')) {
+            $say('absent', 1);
+            break;
+        }
+        $wcId = (int) wc_get_product_id_by_sku(TMC_P56_SKU);
+        // A second `_sku` row on the same product: `wp_postmeta` has no unique
+        // index on `(post_id, meta_key)` — measured on WordPress 7.1 in
+        // `alpha.55` — so a list that joined it would show this product twice.
+        $db->execute(
+            'INSERT INTO `' . $db->prefix() . 'postmeta` (post_id, meta_key, meta_value) VALUES (%d, %s, %s)',
+            [$wcId, '_sku', TMC_P56_SKU . '-DUP']
+        );
+        wp_cache_delete($wcId, 'post_meta');
+        $inventory = $c->get(CatalogueInventory::class);
+        $page = $inventory->unified(['search' => 'ورود ۵۶'], 100, 0);
+        $ids = array_map(static fn (array $r): int => (int) $r['wc_product_id'], $page['rows']);
+        $say('available', (bool) $page['available']);
+        $say('rows', count($page['rows']));
+        $say('this_product_appears', count(array_filter($ids, static fn (int $id): bool => $id === $wcId)));
+        $row = null;
+        foreach ($page['rows'] as $candidate) {
+            if ((int) $candidate['wc_product_id'] === $wcId) {
+                $row = $candidate;
+            }
+        }
+        $say('source', (string) ($row['source'] ?? '__absent__'));
+        $say('management', (string) ($row['management'] ?? '__absent__'));
+        $say('wc_status', (string) ($row['wc_status'] ?? '__absent__'));
+        $say('bucket', (string) ($row['bucket'] ?? '__absent__'));
+        $say('sku', (string) ($row['sku'] ?? '__absent__'));
+        $say('submission', (string) ($row['submission'] ?? '__absent__'));
+        $db->execute(
+            'DELETE FROM `' . $db->prefix() . 'postmeta` WHERE post_id = %d AND meta_key = %s AND meta_value = %s',
+            [$wcId, '_sku', TMC_P56_SKU . '-DUP']
+        );
+        wp_cache_delete($wcId, 'post_meta');
+        break;
+    }
+
+    /**
+     * A marketplace row with NO WooCommerce product — the half of the
+     * catalogue the old intake screen could not show at all, and the half the
+     * review list could not show either once it was filtered by WooCommerce
+     * status.
+     */
+    case 'list-draft-only': {
+        if (!method_exists(CatalogueInventory::class, 'unified')) {
+            $say('absent', 1);
+            break;
+        }
+        // Named arguments, because `ProductDetails` has sixteen promoted
+        // properties and a positional call here would be a silent reshuffle
+        // the day one of them moves.
+        $created = $products->create(
+            TMC_P56_VENDOR,
+            new \Tecteb\Marketplace\Modules\Product\Domain\ProductDetails(
+                title: 'پیش‌نویس بی محصول ۵۶',
+                priceMinor: 1000,
+                sku: 'A56-DRAFT',
+                stock: 3
+            ),
+            \Tecteb\Marketplace\Modules\Product\Domain\ProductStatus::Draft
+        );
+        $page = $c->get(CatalogueInventory::class)->unified(['search' => 'بی محصول ۵۶'], 50, 0);
+        $row = $page['rows'][0] ?? [];
+        $say('rows', count($page['rows']));
+        $say('wc_product_id', (int) ($row['wc_product_id'] ?? -1));
+        $say('product_id', (int) ($row['product_id'] ?? -1));
+        $say('source', (string) ($row['source'] ?? '__absent__'));
+        $say('wc_status', (string) ($row['wc_status'] ?? '__absent__'));
+        $say('bucket', (string) ($row['bucket'] ?? '__absent__'));
+        $say('vendor', (int) ($row['vendor_user_id'] ?? -1));
+        $say('created_id', (int) $created);
+        break;
+    }
+
+    /**
+     * The three facets are three questions.
+     *
+     * The pair that matters: a WooCommerce DRAFT that is managed by this
+     * marketplace, and a PUBLISHED product that is only observed. Either
+     * filter alone finds both of its own kind; mixing them the way a single
+     * column would is what the instruction forbids.
+     */
+    case 'facets': {
+        if (!method_exists(CatalogueInventory::class, 'unified')) {
+            $say('absent', 1);
+            break;
+        }
+        $inventory = $c->get(CatalogueInventory::class);
+        $all = $inventory->unified([], 1, 0);
+        $say('total', (int) $all['total']);
+        foreach (['source', 'management', 'wc_status'] as $facet) {
+            $tally = (array) ($all['facets'][$facet] ?? []);
+            $say($facet . '_sum', array_sum($tally));
+            $say($facet . '_values', implode(',', array_keys($tally)));
+        }
+        // Every row is in exactly one bucket of each facet, so each tally sums
+        // to the same total. A sum that disagrees means a row was counted
+        // twice — which is what a LEFT JOIN on a duplicated column does.
+        $say('sums_agree', array_sum((array) $all['facets']['source'])
+            === array_sum((array) $all['facets']['management']));
+        $published = $inventory->unified(['wc_status' => 'publish'], 1, 0);
+        $observed = $inventory->unified(['management' => 'observed'], 1, 0);
+        $both = $inventory->unified(['wc_status' => 'publish', 'management' => 'observed'], 1, 0);
+        $say('published_total', (int) $published['total']);
+        $say('observed_total', (int) $observed['total']);
+        $say('published_and_observed', (int) $both['total']);
+        break;
+    }
+
+    /**
+     * Paging is the query's job.
+     *
+     * Two pages of five, and the ids must not overlap: «همهٔ محصولات برای
+     * صفحه‌بندی در PHP خوانده نشوند» is only true if the `LIMIT`/`OFFSET` is
+     * real, and an overlap is what an unstable sort looks like from outside.
+     */
+    case 'paging': {
+        if (!method_exists(CatalogueInventory::class, 'unified')) {
+            $say('absent', 1);
+            break;
+        }
+        $inventory = $c->get(CatalogueInventory::class);
+        $first = $inventory->unified([], 5, 0);
+        $second = $inventory->unified([], 5, 5);
+        $key = static fn (array $rows): array => array_map(
+            static fn (array $r): string => $r['wc_product_id'] . ':' . $r['product_id'],
+            $rows
+        );
+        $say('total', (int) $first['total']);
+        $say('first_rows', count($first['rows']));
+        $say('second_rows', count($second['rows']));
+        $say('overlap', count(array_intersect($key($first['rows']), $key($second['rows']))));
+        // And the bound is real: asking for a thousand gets the ceiling, not a
+        // thousand. `per_page=100000` is the same request as «everything».
+        $say('ceiling', count($inventory->unified([], 100000, 0)['rows']));
+        break;
+    }
+
+    /**
+     * What one page of the list COSTS, in statements and in milliseconds.
+     *
+     * §9 asks for this and asks for it honestly: «بدون اندازه‌گیری «سبک‌تر»
+     * نگو». Read from `Com_select` and `Handler_read_*` in this session, the
+     * way `alpha.37` measured the badge, rather than from the shape of the
+     * query.
+     */
+    case 'list-cost': {
+        if (!method_exists(CatalogueInventory::class, 'unified')) {
+            $say('absent', 1);
+            break;
+        }
+        $before = [];
+        foreach ($db->getResults("SHOW SESSION STATUS WHERE Variable_name IN ('Com_select','Handler_read_rnd_next','Handler_read_key','Handler_read_next')") as $row) {
+            $before[(string) $row['Variable_name']] = (int) $row['Value'];
+        }
+        $started = microtime(true);
+        $page = $c->get(CatalogueInventory::class)->unified([], 20, 0);
+        $elapsed = (microtime(true) - $started) * 1000;
+        $after = [];
+        foreach ($db->getResults("SHOW SESSION STATUS WHERE Variable_name IN ('Com_select','Handler_read_rnd_next','Handler_read_key','Handler_read_next')") as $row) {
+            $after[(string) $row['Variable_name']] = (int) $row['Value'];
+        }
+        $say('rows', count($page['rows']));
+        $say('total', (int) $page['total']);
+        // Minus one: the `SHOW SESSION STATUS` that read the «after» numbers
+        // is itself a select, and counting it would be this measurement
+        // measuring itself.
+        $say('selects', max(0, ($after['Com_select'] ?? 0) - ($before['Com_select'] ?? 0) - 1));
+        $say('rows_touched', ($after['Handler_read_rnd_next'] ?? 0) - ($before['Handler_read_rnd_next'] ?? 0)
+            + ($after['Handler_read_key'] ?? 0) - ($before['Handler_read_key'] ?? 0)
+            + ($after['Handler_read_next'] ?? 0) - ($before['Handler_read_next'] ?? 0));
+        $say('elapsed_ms', round($elapsed, 2));
+        break;
+    }
+
+    /**
+     * A shop is chosen by NAME, not by a user id somebody has to know.
+     *
+     * Three places a shop can be named, and the one answer each: the settings
+     * row, the application and the profile.
+     */
+    case 'shop-search': {
+        $stores = $c->get(\Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface::class);
+        if (!method_exists($stores, 'searchByShopName')) {
+            $say('absent', 1);
+            break;
+        }
+        $matches = $stores->searchByShopName('آزمون ۵۶');
+        $say('matches', count($matches));
+        $say('first_vendor', (int) ($matches[0]['vendor_user_id'] ?? -1));
+        $say('first_name', (string) ($matches[0]['store_name'] ?? '__absent__'));
+        $say('first_source', (string) ($matches[0]['source'] ?? '__absent__'));
+        $say('nothing_matches', count($stores->searchByShopName('فروشگاهی که نیست ۵۶')));
+        // A `%` somebody types is a percent sign in a shop name, not a
+        // wildcard that matches every shop on the site.
+        $say('percent_is_literal', count($stores->searchByShopName('%')));
+        break;
+    }
+
+    // ============== §4 the marketplace button on the account dashboard
+
+    /**
+     * What `/my-account/`'s dashboard hook actually prints, for each kind of
+     * person — on real WooCommerce, through the real hook.
+     *
+     * The owner reported seeing only Dokan's red button. This separates the
+     * two possible causes: whether the hook runs at all (it does here, and
+     * `lastSeen()` is how the owner's own site answers it for their theme),
+     * and whether this plugin draws anything for the person looking (a
+     * manager got nothing until this round, and that was correct — what was
+     * missing was an ADMINISTRATIVE link, not a vendor one).
+     */
+    case 'account-button': {
+        if (!class_exists(\Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\VendorAccountLink::class)) {
+            $say('absent', 1);
+            break;
+        }
+        $link = \Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\VendorAccountLink::class;
+        if (!method_exists($link, 'managerLabel')) {
+            $say('manager_route', '__absent__');
+            break;
+        }
+        delete_option($link::SEEN_OPTION);
+        $render = static function (int $userId) use ($link, $c): string {
+            wp_set_current_user($userId);
+            // A FRESH instance per person: `$printed` is per-request and a
+            // shared one would make the second answer «nothing», which is
+            // the `alpha.37` mistake in a measurement.
+            $instance = new $link($c);
+            ob_start();
+            $instance->renderPanel();
+            return (string) ob_get_clean();
+        };
+        // The manager: an administrator with no vendor profile and no roster
+        // place, which is the account in the owner's screenshots.
+        $managerHtml = $render($adminId);
+        $say('manager_printed', $managerHtml !== '');
+        $say('manager_is_admin_route', str_contains($managerHtml, 'page=tmc-product-review'));
+        // Compared against the route's OWN address, not against a query
+        // string: this site has pretty permalinks, so `?tmc_vendor=dashboard`
+        // never appears and the first version of this check reported `no`
+        // about a build that was right.
+        $panelUrl = \Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\VendorRoutes::dashboardUrl();
+        $say('panel_url', $panelUrl);
+        $say('manager_not_vendor_panel', !str_contains($managerHtml, $panelUrl));
+        $say('manager_label', $link::managerLabel());
+        // …and the manager is STILL not a vendor afterwards: no profile was
+        // created, no roster touched. Drawing a link must change nothing.
+        $say('manager_profile_after', $c->get(VendorRepositoryInterface::class)
+            ->findProfileByUser($adminId) === null ? '__none__' : 'created');
+
+        // The vendor this round's fixtures belong to.
+        $vendorUser = (int) (get_users(['number' => 1, 'fields' => 'ID', 'exclude' => [$adminId]])[0] ?? 0);
+        if ($vendorUser > 0) {
+            (new DbVendorRepository($db, $clock))->upsertProfile($vendorUser, 'فروشگاه دکمه ۵۶', true, false);
+            $vendorHtml = $render($vendorUser);
+            $say('vendor_printed', $vendorHtml !== '');
+            $say('vendor_is_panel', str_contains($vendorHtml, $panelUrl));
+            $say('vendor_not_admin_route', !str_contains($vendorHtml, 'page=tmc-product-review'));
+        } else {
+            $say('vendor_printed', '__no_second_user__');
+        }
+
+        wp_set_current_user($adminId);
+        $seen = $link::lastSeen();
+        $say('seen_dashboard', (string) $seen['dashboard']);
+        $say('seen_printed', (string) $seen['printed']);
+        $say('seen_label', (string) $seen['label']);
+        // And the shortcode is the answer for a theme that calls neither
+        // hook. Measured here as «the same block», not as a claim about the
+        // owner's theme — which this environment cannot see.
+        $instance = new $link($c);
+        $say('shortcode_same_block', $instance->shortcode() !== '');
+        break;
+    }
+
+    case 'reset': {
+        $wcId = (int) wc_get_product_id_by_sku(TMC_P56_SKU);
+        $ids = array_map('intval', array_column((array) $db->getResults(
+            'SELECT id FROM `' . $db->prefix() . 'tmc_products` WHERE wc_product_id = %d OR vendor_user_id = %d',
+            [$wcId, TMC_P56_VENDOR]
+        ), 'id'));
+        foreach ($ids as $id) {
+            $db->execute('DELETE FROM `' . $db->prefix() . 'tmc_product_images` WHERE product_id = %d', [$id]);
+            $db->execute('DELETE FROM `' . $db->prefix() . 'tmc_product_specs` WHERE product_id = %d', [$id]);
+            $db->execute('DELETE FROM `' . $db->prefix() . 'tmc_product_revisions` WHERE product_id = %d', [$id]);
+            $db->execute('DELETE FROM `' . $db->prefix() . 'tmc_product_decisions` WHERE product_id = %d', [$id]);
+            $db->execute('DELETE FROM `' . $db->prefix() . 'tmc_products` WHERE id = %d', [$id]);
+        }
+        delete_option('tmc_catalogue_intake_runs');
+        if ($wcId > 0) {
+            // The ownership stamps this plugin may have written on the post,
+            // so the next run starts where `arrange` leaves it.
+            // `_tmc_product_id` matters most: it is the post's link to a
+            // marketplace row, and leaving a dead one behind makes the next
+            // run's `claimStorefrontPost()` refuse with `storefront_refused`
+            // — a true sentence about a stale fixture, printed as if it were
+            // a finding about the build.
+            foreach ([
+                '_tmc_product_id',
+                '_tmc_vendor_id',
+                '_tmc_claimed_from_status',
+                '_tmc_projected_owned',
+                '_tmc_projected_conflicts',
+                '_tmc_quantity_written',
+                '_tmc_quantity_conflicts',
+            ] as $key) {
+                delete_post_meta($wcId, $key);
+            }
+            // Through WooCommerce's OWN API, not `update_post_meta()`: the
+            // price also lives in `wc_product_meta_lookup` and in the
+            // product instance cache (`alpha.50`), so a meta-only restore
+            // leaves `wc_get_product()` answering the old number — and then
+            // the next run's intake reads 480000, «changes» it to 480000,
+            // and the measurement has nothing to lose. That is how the first
+            // version of this verb printed `manager_price_kept=yes` about a
+            // tree that loses the price.
+            $product = wc_get_product($wcId);
+            if (is_object($product)) {
+                $product->set_regular_price('450000');
+                $product->set_price('450000');
+                $product->set_manage_stock(true);
+                $product->set_stock_quantity(22);
+                $product->save();
+            }
+            wp_cache_delete((string) $wcId, 'post_meta');
+            clean_post_cache($wcId);
+        }
+        // Any WooCommerce product a run CREATED by projecting an observed row
+        // (the fourth finding) — swept by this fixture's own title so the
+        // next run starts from one product rather than a growing pile.
+        $extra = 0;
+        foreach ((array) $db->getResults(
+            'SELECT ID FROM `' . $db->prefix() . 'posts`
+              WHERE post_type = %s AND post_title = %s AND ID <> %d',
+            ['product', 'کالای ورود ۵۶', $wcId]
+        ) as $post) {
+            wp_delete_post((int) $post['ID'], true);
+            $extra++;
+        }
+        $say('extra_products_swept', (string) $extra);
+        $say('rows_removed', (string) count($ids));
+        $say('wc_product_kept', $wcId > 0 && get_post_status($wcId) !== false);
+        $say('reset', 'done');
+        break;
+    }
+
+    default: {
+        $say('verb', 'unknown');
+        break;
+    }
+}

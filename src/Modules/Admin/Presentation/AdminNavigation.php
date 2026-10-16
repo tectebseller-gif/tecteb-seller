@@ -87,7 +87,9 @@ final class AdminNavigation
             'tmc-import',
             'tmc-handover',
             'tmc-minmax-exit',
-            'tmc-product-intake',
+            // `tmc-product-intake` was here in `alpha.55` and is gone: the
+            // intake is part of «بررسی محصولات» now, and the old address
+            // redirects there (`ProductIntakePage`).
         ],
     ];
 

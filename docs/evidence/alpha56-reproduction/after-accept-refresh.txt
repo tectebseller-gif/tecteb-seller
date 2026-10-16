@@ -1,0 +1,9 @@
+probe=ran
+refresh_code=intake_refreshed
+refresh_ok=yes
+row_price_after_refresh=480000
+row_stock_after_refresh=30
+take_code=ownership_taken
+sync_code=projected
+shop_price_after_sync=480000
+manager_price_kept=yes

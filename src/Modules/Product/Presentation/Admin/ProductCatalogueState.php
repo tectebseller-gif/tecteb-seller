@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Product\Presentation\Admin;
 
+use Tecteb\Marketplace\Modules\Migration\Domain\CatalogueFacets;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
 
 /**
@@ -85,7 +86,27 @@ final class ProductCatalogueState
          * screen with no way back, after an action that worked. Null means the
          * page asked for is the page shown.
          */
-        public readonly ?int $outOfRangePage = null
+        public readonly ?int $outOfRangePage = null,
+        /**
+         * Where the row comes from: a WooCommerce product with a marketplace
+         * row, one without, or a marketplace row with no product.
+         *
+         * Appended with a default, like every field added to this class since
+         * `alpha.45`, so nothing that builds a state positionally has to be
+         * rewritten to keep compiling.
+         */
+        public readonly string $source = '',
+        /** WooCommerce's own `post_status` — never our status, never derived from it. */
+        public readonly string $wcStatus = '',
+        /** Whether this plugin runs the product, only watches it, or has no row. */
+        public readonly string $management = '',
+        /**
+         * How many rows each facet value would show, under the current
+         * search.
+         *
+         * @var array{source?:array<string,int>, wc_status?:array<string,int>, management?:array<string,int>}
+         */
+        public readonly array $facets = []
     ) {
     }
 
@@ -110,8 +131,9 @@ final class ProductCatalogueState
      * page builds the state once and fills the numbers in here.
      *
      * @param array<string,int> $counts
+     * @param array<string,array<string,int>> $facets empty keeps the ones already held
      */
-    public function withCounts(int $total, array $counts, int $needsReview): self
+    public function withCounts(int $total, array $counts, int $needsReview, array $facets = []): self
     {
         // The page is clamped HERE, before the rows are read, so the query
         // asks for a page that exists rather than for an offset past the end
@@ -132,7 +154,11 @@ final class ProductCatalogueState
             $counts,
             $needsReview,
             $this->baseUrl,
-            $outOfRange
+            $outOfRange,
+            $this->source,
+            $this->wcStatus,
+            $this->management,
+            $facets === [] ? $this->facets : $facets
         );
     }
 
@@ -162,6 +188,19 @@ final class ProductCatalogueState
         }
         if ($this->onlyNeedsReview) {
             $args['review'] = self::REVIEW_PENDING;
+        }
+        // The three facets of `alpha.56`'s one list. Each is carried
+        // independently, because each answers a different question and a
+        // chip that silently dropped one of the others would reset a filter
+        // the manager is still standing in.
+        if ($this->source !== '') {
+            $args['source'] = $this->source;
+        }
+        if ($this->wcStatus !== '') {
+            $args['wc_status'] = $this->wcStatus;
+        }
+        if ($this->management !== '') {
+            $args['management'] = $this->management;
         }
         foreach ($overrides as $key => $value) {
             if ($value === null || $value === '') {
@@ -199,9 +238,30 @@ final class ProductCatalogueState
         return min($this->total, $this->page * $this->perPage);
     }
 
+    /**
+     * The filters as the catalogue reader wants them — one translation, here.
+     *
+     * The page reads the URL, this object validates it, and the reader is
+     * handed the result. Written at the call site it would be a second place
+     * that decides what `source` may be, and the control that offers the
+     * choice would eventually offer one the query does not honour.
+     *
+     * @return array{search:string, source:string, wc_status:string, management:string}
+     */
+    public function readerFilters(): array
+    {
+        return [
+            'search' => $this->search,
+            'source' => CatalogueFacets::source($this->source),
+            'wc_status' => CatalogueFacets::wcStatus($this->wcStatus),
+            'management' => CatalogueFacets::management($this->management),
+        ];
+    }
+
     /** Whether anything is narrowing the list, which decides whether «پاک‌کردن فیلترها» is offered. */
     public function isFiltered(): bool
     {
-        return $this->status !== '' || $this->search !== '' || $this->onlyNeedsReview;
+        return $this->status !== '' || $this->search !== '' || $this->onlyNeedsReview
+            || $this->source !== '' || $this->wcStatus !== '' || $this->management !== '';
     }
 }

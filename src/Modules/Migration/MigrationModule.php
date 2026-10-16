@@ -99,7 +99,11 @@ final class MigrationModule implements ModuleInterface
             // Bound below, so this closure resolves it lazily — and if it is
             // absent the transfer behaves as it did before `alpha.55` and the
             // page says the check did not run.
-            $c->has(CatalogueReaderInterface::class) ? $c->get(CatalogueReaderInterface::class) : null
+            $c->has(CatalogueReaderInterface::class) ? $c->get(CatalogueReaderInterface::class) : null,
+            // «Does this row still agree with the shop?» and «make it agree».
+            // Bound below, resolved lazily here; absent means no drift is
+            // reported and the page says the check did not run.
+            $c->has(CatalogueReaderInterface::class) ? $c->get(ImportExistingProducts::class) : null
         ));
         $c->bind(OrderHistoryRepositoryInterface::class, static fn (ContainerInterface $c) => new DbOrderHistoryRepository(
             $c->get(DatabaseInterface::class),
@@ -199,7 +203,11 @@ final class MigrationModule implements ModuleInterface
             // rather than relied on.
             $c->has(ProductRevisionRepositoryInterface::class)
                 ? $c->get(ProductRevisionRepositoryInterface::class)
-                : null
+                : null,
+            // The unit of work an intake, a repair and a rollback each are.
+            // Optional in the constructor and REFUSED when absent, so a build
+            // without one does nothing rather than half of something.
+            $c->has(TransactionInterface::class) ? $c->get(TransactionInterface::class) : null
         ));
 
         // Leaving «Min Max Control». Three pieces, each replaceable on its
@@ -245,11 +253,16 @@ final class MigrationModule implements ModuleInterface
         // page it would sit under decisions about money and access, which are
         // not the same kind of decision as a purchase-quantity rule.
         $minmax = new MinMaxExitPage($c);
-        // And a fourth, for the products that are already in the shop. On the
-        // migration page it would sit under Dokan's own tables, and most of
-        // this shop's products are not Dokan's.
-        $intake = new ProductIntakePage($c);
-        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($page, $handover, $minmax, $intake): array {
+        // There is no fourth. «ورود محصولات موجود» had a menu entry of its
+        // own in `alpha.55` and it is gone from `alpha.56`: it listed
+        // WooCommerce posts while the review page listed marketplace rows,
+        // and a product on both sides appeared on both screens with nothing
+        // saying it was one product. Its capability and its old address live
+        // on in `ProductIntakePage`, which now only redirects.
+        add_action('admin_init', static function (): void {
+            ProductIntakePage::redirectOldAddress('tmc-product-review');
+        }, 1);
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($page, $handover, $minmax): array {
             $pages[] = [
                 'slug' => MigrationPage::SLUG,
                 'page_title' => MigrationPage::menuLabel(),
@@ -270,13 +283,6 @@ final class MigrationModule implements ModuleInterface
                 'menu_label' => MinMaxExitPage::menuLabel(),
                 'capability' => MinMaxExitPage::CAPABILITY,
                 'render' => [$minmax, 'render'],
-            ];
-            $pages[] = [
-                'slug' => ProductIntakePage::SLUG,
-                'page_title' => ProductIntakePage::menuLabel(),
-                'menu_label' => ProductIntakePage::menuLabel(),
-                'capability' => ProductIntakePage::CAPABILITY,
-                'render' => [$intake, 'render'],
             ];
             return $pages;
         });

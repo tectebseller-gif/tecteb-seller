@@ -62,7 +62,19 @@ final class TransferOwnership
          * it did before `alpha.55` — the old behaviour rather than a wrong
          * new one — and the page says the check did not run.
          */
-        private readonly ?CatalogueReaderInterface $catalogue = null
+        private readonly ?CatalogueReaderInterface $catalogue = null,
+        /**
+         * Asked two questions about an intaken row and nothing else: «does it
+         * still agree with the shop?» and «make it agree again». The
+         * translation from a WooCommerce product to this marketplace's fields
+         * lives there and must live in ONE place — two of them would agree
+         * until the day they did not (`alpha.14`).
+         *
+         * Optional: without it no drift is reported and the transfer behaves
+         * as it did in `alpha.55`, and the page says the check did not run
+         * rather than implying it passed.
+         */
+        private readonly ?ImportExistingProducts $intake = null
     ) {
     }
 
@@ -85,9 +97,30 @@ final class TransferOwnership
      * them is refused rather than trusted: the `alpha.49` rule, that an
      * override must carry what was shown.
      *
+     * **And from `alpha.56` it also refuses a SNAPSHOT THAT HAS GONE STALE.**
+     * An intake records WooCommerce's values; acceptance is a step a manager
+     * sleeps on; and `alpha.55` never asked whether the shop had moved in
+     * between. Measured on its own bytes: a price changed from 450000 to
+     * 480000 after the intake was back at 450000 after the first projection,
+     * and no screen said a word. The risk list could not have caught it — it
+     * is about fields this marketplace has no shape for, not about a value
+     * that moved.
+     *
+     * `$seenShop` is `field => the FINGERPRINT of the shop value this page
+     * printed` — `storefrontDrift()` hands the screen the exact string to put
+     * in the hidden field, so the two halves cannot compute it differently
+     * (`alpha.55`'s own mistake, one object out). A drift is
+     * refused unless the tick carries those values, which is the `alpha.49`
+     * rule once more: an override is permission about the numbers that were
+     * shown, never about whatever is there when the form arrives. The other
+     * way out is `refreshFromStorefront()`, one click, after which there is
+     * no drift to acknowledge.
+     *
      * @param list<string> $acknowledged risk keys the manager has read
+     * @param array<string,string> $seenShop field => fingerprint of the shop
+     *        value the page showed, from `storefrontDrift()`
      */
-    public function take(int $productId, array $acknowledged = []): OperationResult
+    public function take(int $productId, array $acknowledged = [], array $seenShop = []): OperationResult
     {
         $risks = $this->risksFor($productId);
         $unacknowledged = array_values(array_diff(array_keys($risks), $acknowledged));
@@ -98,7 +131,66 @@ final class TransferOwnership
                 'sentences' => array_values(array_intersect_key($risks, array_flip($unacknowledged))),
             ]);
         }
+        if ($this->intake !== null && $this->products->linkOwnership($productId) === LinkOwnership::Observed) {
+            if (!$this->intake->driftReadable($productId)) {
+                // «نمی‌دانم» is an answer and it is not «they agree»
+                // (`alpha.49`): a read that failed must not become a licence.
+                return OperationResult::failure('storefront_unreadable', ['product_id' => $productId]);
+            }
+            $drift = $this->intake->driftOf($productId);
+            foreach ($drift as $field => $pair) {
+                if (!array_key_exists($field, $seenShop)) {
+                    return OperationResult::failure('storefront_moved', [
+                        'product_id' => $productId,
+                        'fields' => implode('، ', array_column($drift, 'label')),
+                        'drift' => $drift,
+                    ]);
+                }
+                if (!hash_equals((string) $pair['fingerprint'], trim((string) $seenShop[$field]))) {
+                    // The page showed one number and the shop now holds
+                    // another: the change arrived between the render and the
+                    // click, so the tick is about a value nobody read.
+                    return OperationResult::failure('storefront_moved_again', [
+                        'product_id' => $productId,
+                        'field' => (string) $pair['label'],
+                        // The value is reported, not the fingerprint the form
+                        // carried: a hex string tells a manager nothing, and
+                        // what they need to know is what the shop holds now.
+                        'now' => (string) $pair['shop'],
+                    ]);
+                }
+            }
+        }
         return $this->move($productId, LinkOwnership::Observed, LinkOwnership::Marketplace, 'ownership_taken');
+    }
+
+    /**
+     * Where this row and the shop now disagree — for the screen and for the
+     * guard, from ONE answer.
+     *
+     * A page that listed different differences from the ones `take()` checks
+     * would let a manager acknowledge the wrong thing, which is the mistake
+     * `risksFor()` exists to avoid and the same one twice over.
+     *
+     * @return array<string,array{row:string, shop:string, label:string, fingerprint:string}>
+     */
+    public function storefrontDrift(int $productId): array
+    {
+        return $this->intake?->driftOf($productId) ?? [];
+    }
+
+    public function storefrontReadable(int $productId): bool
+    {
+        return $this->intake?->driftReadable($productId) ?? false;
+    }
+
+    /** Take the snapshot again, so there is no drift left to acknowledge. */
+    public function refreshFromStorefront(int $productId): OperationResult
+    {
+        if ($this->intake === null) {
+            return OperationResult::failure('storefront_refresh_unavailable', ['product_id' => $productId]);
+        }
+        return $this->intake->refreshFrom($productId);
     }
 
     /**

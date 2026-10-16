@@ -1,0 +1,4 @@
+probe=ran
+product_row=__absent__
+image_rows=0
+spec_rows=0

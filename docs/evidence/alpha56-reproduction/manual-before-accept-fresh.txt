@@ -1,0 +1,6 @@
+probe=ran
+take_code=ownership_taken
+take_ok=yes
+ownership_after=marketplace
+sync_code=projected
+shop_price_after_sync=450000

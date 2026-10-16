@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Core\Modules\ModuleLoader;
 use Tecteb\Marketplace\Modules\Admin\Presentation\View;
 use Tecteb\Marketplace\Modules\Health\Application\HealthReportBuilder;
 use Tecteb\Marketplace\Modules\Health\Infrastructure\Rest\HealthController;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\VendorAccountLink;
 
 final class HealthPage extends AbstractPage
 {
@@ -37,6 +38,7 @@ final class HealthPage extends AbstractPage
                 'module_state' => $healthState,
                 'load_report' => $loadReport,
                 'rest_path' => '/wp-json/' . HealthController::NAMESPACE . HealthController::ROUTE,
+                'account_hooks' => VendorAccountLink::lastSeen(),
             ]);
             return;
         }
@@ -50,6 +52,11 @@ final class HealthPage extends AbstractPage
             'load_report' => $loadReport,
             'rest_path' => '/wp-json/' . HealthController::NAMESPACE . HealthController::ROUTE,
             'modules_url' => admin_url('admin.php?page=' . ModulesPage::SLUG),
+            // What the SITE measured about its own theme. Read here rather
+            // than claimed anywhere: this plugin cannot see the owner's
+            // account page, and «the hooks never ran» and «they ran and we
+            // correctly drew nothing» are opposite problems.
+            'account_hooks' => VendorAccountLink::lastSeen(),
         ]);
     }
 }

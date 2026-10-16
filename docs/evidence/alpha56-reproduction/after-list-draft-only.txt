@@ -1,0 +1,9 @@
+probe=ran
+rows=1
+wc_product_id=0
+product_id=1381
+source=draft
+wc_status=__absent__
+bucket=draft_only
+vendor=9156
+created_id=1381

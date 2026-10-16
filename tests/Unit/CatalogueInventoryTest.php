@@ -5,6 +5,8 @@ namespace Tecteb\Marketplace\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Tecteb\Marketplace\Modules\Migration\Application\CatalogueInventory;
+use Tecteb\Marketplace\Modules\Migration\Domain\CatalogueBucket;
+use Tecteb\Marketplace\Modules\Migration\Domain\CatalogueFacets;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogueReader;
 
@@ -235,6 +237,169 @@ final class CatalogueInventoryTest extends TestCase
 
         self::assertFalse($page['available']);
         self::assertSame([], $page['rows']);
+    }
+
+    // -----------------------------------------------------------------
+    // THE ONE LIST (`alpha.56`, §3)
+    //
+    // Two screens became one, so what these prove is that the one list
+    // contains BOTH halves and each related product exactly once — and that
+    // the three facets stay three separate questions.
+    // -----------------------------------------------------------------
+
+    public function testTheOneListHoldsBothHalvesOfTheCatalogue(): void
+    {
+        $reader = new FakeCatalogueReader();
+        // A product nobody here has a row for…
+        $reader->add(201, ['title' => 'بی ردیف'], ['author_id' => 7, 'vendor_profile' => 'approved']);
+        // …one a marketplace row runs…
+        $reader->add(202, ['title' => 'مال ما'], ['author_id' => 7, 'vendor_profile' => 'approved']);
+        $reader->link(202, [[
+            'product_id' => 31,
+            'vendor_user_id' => 7,
+            'ownership' => LinkOwnership::Marketplace->value,
+            'status' => 'published',
+        ]]);
+        // …and a marketplace draft with no product at all.
+        $reader->addMarketplaceOnly(32, 7, 'پیش‌نویس فروشنده');
+
+        $page = (new CatalogueInventory($reader))->unified([], 20, 0);
+
+        self::assertTrue($page['available']);
+        self::assertSame(3, $page['total'], 'both halves, in one list');
+        $byTitle = [];
+        foreach ($page['rows'] as $row) {
+            $byTitle[$row['title']] = $row;
+        }
+        self::assertCount(3, $byTitle, 'each related product exactly once');
+        self::assertSame(CatalogueFacets::SOURCE_WOOCOMMERCE, $byTitle['بی ردیف']['source']);
+        self::assertSame(CatalogueFacets::SOURCE_MARKETPLACE, $byTitle['مال ما']['source']);
+        self::assertSame(CatalogueFacets::SOURCE_DRAFT, $byTitle['پیش‌نویس فروشنده']['source']);
+        self::assertSame(CatalogueBucket::DRAFT_ONLY, $byTitle['پیش‌نویس فروشنده']['bucket']);
+        self::assertSame(7, $byTitle['پیش‌نویس فروشنده']['vendor_user_id_decided']);
+    }
+
+    /**
+     * A marketplace draft is ordinary; a row pointing at a product that is
+     * gone is not. Both have no WooCommerce product, and only the second is a
+     * problem — so only the second says anything.
+     */
+    public function testARowPointingAtAMissingProductSaysSoAndADraftDoesNot(): void
+    {
+        $reader = new FakeCatalogueReader();
+        $reader->addMarketplaceOnly(41, 7, 'پیش‌نویس');
+        $reader->addMarketplaceOnly(42, 7, 'ردیف بی محصول', 'published', 'marketplace', true);
+
+        $rows = (new CatalogueInventory($reader))->unified([], 20, 0)['rows'];
+        $byId = [];
+        foreach ($rows as $row) {
+            $byId[$row['product_id']] = $row;
+        }
+
+        self::assertSame([], $byId[41]['reasons'], 'a draft with no product yet is normal');
+        self::assertSame(['storefront_post_missing'], $byId[42]['reasons']);
+        self::assertArrayHasKey(
+            'storefront_post_missing',
+            CatalogueInventory::reasonSentences(),
+            'every reason a row can carry has a sentence a manager reads'
+        );
+    }
+
+    /**
+     * Publish status and management status are two questions, and the list
+     * must not answer one with the other — «وضعیت انتشار با وضعیت
+     * ورود/مالکیت قاتی نشود».
+     */
+    public function testPublishStatusAndManagementStatusFilterIndependently(): void
+    {
+        $reader = new FakeCatalogueReader();
+        $reader->add(211, ['status' => 'draft'], ['author_id' => 7, 'vendor_profile' => 'approved']);
+        $reader->add(212, ['status' => 'publish'], ['author_id' => 7, 'vendor_profile' => 'approved']);
+        $reader->link(212, [[
+            'product_id' => 51,
+            'vendor_user_id' => 7,
+            'ownership' => LinkOwnership::Observed->value,
+            'status' => 'draft',
+        ]]);
+        $inventory = new CatalogueInventory($reader);
+
+        $drafts = $inventory->unified(['wc_status' => 'draft'], 20, 0);
+        self::assertSame(1, $drafts['total']);
+        self::assertSame(211, $drafts['rows'][0]['wc_product_id']);
+        self::assertSame(
+            CatalogueFacets::MANAGED_NONE,
+            $drafts['rows'][0]['management'],
+            'a WooCommerce draft is not «imported»'
+        );
+
+        $observed = $inventory->unified(['management' => CatalogueFacets::MANAGED_OBSERVED], 20, 0);
+        self::assertSame(1, $observed['total']);
+        self::assertSame(212, $observed['rows'][0]['wc_product_id']);
+        self::assertSame('publish', $observed['rows'][0]['wc_status'], 'and an observed product can be published');
+
+        // A combination that cannot exist is an empty list, not an error.
+        self::assertSame(0, $inventory->unified(
+            ['wc_status' => 'draft', 'management' => CatalogueFacets::MANAGED_OBSERVED],
+            20,
+            0
+        )['total']);
+    }
+
+    /** The chips count what is there, so a manager can see where the rows are. */
+    public function testTheFacetsCountEveryRowOnce(): void
+    {
+        $reader = new FakeCatalogueReader();
+        $reader->add(221, [], ['author_id' => 7, 'vendor_profile' => 'approved']);
+        $reader->add(222, [], ['author_id' => 7, 'vendor_profile' => 'approved']);
+        $reader->addMarketplaceOnly(61, 7);
+
+        $facets = (new CatalogueInventory($reader))->unified([], 20, 0)['facets'];
+
+        self::assertSame(2, $facets['source'][CatalogueFacets::SOURCE_WOOCOMMERCE]);
+        self::assertSame(1, $facets['source'][CatalogueFacets::SOURCE_DRAFT]);
+        self::assertSame(
+            3,
+            array_sum($facets['management']),
+            'every row is in exactly one management bucket'
+        );
+    }
+
+    /** Paging is the query\'s job, and the total is the whole result. */
+    public function testThePagerAsksForAPageAndTheTotalIsTheWholeResult(): void
+    {
+        $reader = new FakeCatalogueReader();
+        foreach ([231, 232, 233, 234, 235] as $id) {
+            $reader->add($id, [], ['author_id' => 7, 'vendor_profile' => 'approved']);
+        }
+        $inventory = new CatalogueInventory($reader);
+
+        $first = $inventory->unified([], 2, 0);
+        $second = $inventory->unified([], 2, 2);
+
+        self::assertSame(5, $first['total']);
+        self::assertCount(2, $first['rows']);
+        self::assertCount(2, $second['rows']);
+        self::assertSame(
+            [],
+            array_intersect(
+                array_column($first['rows'], 'wc_product_id'),
+                array_column($second['rows'], 'wc_product_id')
+            ),
+            'no product appears on two pages'
+        );
+    }
+
+    /** Without WooCommerce there is no post table to union with, and it says so. */
+    public function testWithoutWooCommerceTheOneListSaysSoRatherThanShowingHalfOfIt(): void
+    {
+        $reader = new FakeCatalogueReader();
+        $reader->available = false;
+        $reader->addMarketplaceOnly(71, 7);
+
+        $page = (new CatalogueInventory($reader))->unified([], 20, 0);
+
+        self::assertFalse($page['available']);
+        self::assertSame([], $page['rows'], 'the marketplace half alone is not the catalogue');
     }
 
     /** @return array<string,mixed> */

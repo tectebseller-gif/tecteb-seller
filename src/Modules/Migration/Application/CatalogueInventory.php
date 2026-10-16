@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Migration\Application;
 
-use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
+use Tecteb\Marketplace\Modules\Migration\Domain\CatalogueBucket;
+use Tecteb\Marketplace\Modules\Migration\Domain\CatalogueFacets;
 
 /**
  * What is already in this shop, and who — if anybody — sells it.
@@ -52,10 +53,13 @@ use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
  */
 final class CatalogueInventory
 {
-    public const BUCKET_MARKETPLACE = 'marketplace';
-    public const BUCKET_OBSERVED = 'observed';
-    public const BUCKET_DOKAN = 'dokan';
-    public const BUCKET_SHOP = 'shop';
+    // The names are `CatalogueBucket`'s, aliased here because this class's
+    // callers have used them since `alpha.55`. One source of truth, two
+    // spellings — and `CatalogueBucket` is the one that decides.
+    public const BUCKET_MARKETPLACE = CatalogueBucket::MARKETPLACE;
+    public const BUCKET_OBSERVED = CatalogueBucket::OBSERVED;
+    public const BUCKET_DOKAN = CatalogueBucket::DOKAN;
+    public const BUCKET_SHOP = CatalogueBucket::SHOP;
 
     /**
      * An approved marketplace vendor's product with no marketplace row.
@@ -68,9 +72,9 @@ final class CatalogueInventory
      * name of its own rather than being filed under «ambiguous», which would
      * make the only workable case look like a problem.
      */
-    public const BUCKET_VENDOR = 'vendor';
+    public const BUCKET_VENDOR = CatalogueBucket::VENDOR;
 
-    public const BUCKET_AMBIGUOUS = 'ambiguous';
+    public const BUCKET_AMBIGUOUS = CatalogueBucket::AMBIGUOUS;
 
     /** How many products one page of the inventory looks at. */
     public const PAGE = 50;
@@ -121,6 +125,118 @@ final class CatalogueInventory
     }
 
     /**
+     * THE ONE LIST: one page of every product this site has, classified.
+     *
+     * **Why this replaced two screens.** Until this round a manager had
+     * «بررسی محصولات», which listed marketplace rows, and «ورود محصولات
+     * موجود», which listed WooCommerce posts. A product on both sides was on
+     * both screens with nothing on either saying it was one product, and the
+     * only way to find out was to open it. The instruction is one list, «هر
+     * محصول مرتبط فقط یک بار», and the intake folded into it.
+     *
+     * **Showing is not importing.** Every row here is drawn from a read.
+     * Nothing about any product changes by looking at this page: no row is
+     * created, no author moved, no ownership taken. «نمایش خودکار باشد و
+     * ورود یا تغییر مالکیت خودکار انجام نشود» — the intake is a named button
+     * on an explicit list of ids, further down the same page.
+     *
+     * **The bucket of a row with no product is its own.** A marketplace row
+     * with no WooCommerce product behind it is either a vendor's draft, which
+     * is ordinary, or a row pointing at a post somebody deleted, which is
+     * not. Both are `draft_only` and the second says so — `orphan_link` —
+     * because no other screen in this plugin can show either.
+     *
+     * @param array{search?:string, source?:string, wc_status?:string, management?:string} $filters
+     * @return array<string,mixed>
+     */
+    public function unified(array $filters, int $limit, int $offset, string $sort = 'updated'): array
+    {
+        if (!$this->reader->isAvailable()) {
+            // Without WooCommerce there is no post table to union with, so
+            // this list cannot be drawn at all — and saying so is better than
+            // drawing the marketplace half and calling it the catalogue.
+            return ['available' => false, 'rows' => [], 'total' => 0, 'facets' => [], 'buckets' => []];
+        }
+        $page = $this->reader->unifiedPage($filters, $limit, $offset, $sort);
+        $authors = $this->reader->authorSignals(array_map(
+            static fn (array $row): int => (int) $row['author_id'],
+            $page['rows']
+        ));
+
+        $rows = [];
+        $buckets = array_fill_keys(CatalogueBucket::ALL, 0);
+        foreach ($page['rows'] as $row) {
+            $rows[] = $classified = $this->classifyUnified($row, $authors);
+            $buckets[$classified['bucket']] = ($buckets[$classified['bucket']] ?? 0) + 1;
+        }
+
+        return [
+            'available' => true,
+            'rows' => $rows,
+            'total' => (int) $page['total'],
+            'facets' => $page['facets'],
+            'buckets' => $buckets,
+        ];
+    }
+
+    /**
+     * One row of the unified list, classified from facts already read.
+     *
+     * The same `CatalogueBucket::decide()` the detail path calls, fed from the
+     * page's batched reads instead of a per-product query. That is the whole
+     * reason the decision was lifted out of this class: two gatherings, one
+     * rule, so a list saying `dokan` beside a detail page saying `shop` is
+     * impossible rather than unlikely.
+     *
+     * @param array<string,mixed> $row from `unifiedPage()`
+     * @param array<int,array<string,mixed>> $authors from `authorSignals()`
+     * @return array<string,mixed>
+     */
+    private function classifyUnified(array $row, array $authors): array
+    {
+        $wcId = (int) $row['wc_product_id'];
+        $author = (int) $row['author_id'];
+        $signals = $authors[$author] ?? [
+            'author_id' => $author,
+            'author_exists' => false,
+            'author_roles' => [],
+            'author_is_admin' => false,
+            'dokan_seller' => false,
+            'vendor_profile' => '',
+        ];
+        $signals['marketplace_rows'] = (array) ($row['marketplace_rows'] ?? []);
+
+        if ($wcId === 0) {
+            // A marketplace row with no product behind it. There is no author
+            // to read and no WooCommerce state to classify: the row itself
+            // says whose it is.
+            $bucket = CatalogueBucket::DRAFT_ONLY;
+            $vendor = (int) $row['vendor_user_id'];
+            $reasons = ($row['orphan_link'] ?? false) === true ? ['storefront_post_missing'] : [];
+        } else {
+            $decided = CatalogueBucket::decide($signals, ($row['type_supported'] ?? false) === true);
+            $bucket = $decided['bucket'];
+            $vendor = $decided['vendor_user_id'];
+            $reasons = $decided['reasons'];
+        }
+
+        return $row + [
+            'bucket' => $bucket,
+            'bucket_label' => CatalogueBucket::label($bucket),
+            'source_label' => CatalogueFacets::sourceLabel((string) $row['source']),
+            'management_label' => CatalogueFacets::managementLabel((string) $row['management']),
+            'vendor_user_id_decided' => $vendor,
+            'author_roles' => $signals['author_roles'],
+            'vendor_profile' => (string) $signals['vendor_profile'],
+            'dokan_seller' => (bool) $signals['dokan_seller'],
+            'reasons' => $reasons,
+            // The same narrow rule `classify()` states: exactly one bucket
+            // may be taken with no decision from anybody.
+            'intake_ready' => $bucket === self::BUCKET_VENDOR && $reasons === [],
+        ];
+    }
+
+    /**
      * One product, classified, with its evidence and its blockers.
      *
      * @param array<string,mixed> $row from `productsAfter()`
@@ -131,60 +247,16 @@ final class CatalogueInventory
         $wcId = (int) ($row['wc_product_id'] ?? 0);
         $signals = $this->reader->vendorSignals($wcId);
         $links = $signals['marketplace_rows'];
-        $reasons = [];
-        $vendor = 0;
-        $bucket = self::BUCKET_AMBIGUOUS;
-
-        if (count($links) > 1) {
-            // Two rows for one product: which is the real one is a decision
-            // about somebody's catalogue, so it is reported and nothing else.
-            $reasons[] = 'duplicate_marketplace_link';
-        } elseif (count($links) === 1) {
-            $vendor = (int) $links[0]['vendor_user_id'];
-            $bucket = $links[0]['ownership'] === LinkOwnership::Marketplace->value
-                ? self::BUCKET_MARKETPLACE
-                : self::BUCKET_OBSERVED;
-        } elseif ($signals['dokan_seller'] === true && $signals['vendor_profile'] !== '') {
-            // Both a Dokan seller AND marketplace paperwork. Which system
-            // should own the product is exactly the decision this round must
-            // not take.
-            $reasons[] = 'seller_in_both_systems';
-            $vendor = (int) $signals['author_id'];
-        } elseif ($signals['dokan_seller'] === true) {
-            $bucket = self::BUCKET_DOKAN;
-            $vendor = (int) $signals['author_id'];
-            // Dokan's products already have a path — `ImportFromDokan`, which
-            // reads Dokan's own tables and records the shop's past with them.
-            // A second road into the same table would be the parallel path
-            // the instruction forbids, so this one names the other.
-            $reasons[] = 'dokan_product_has_its_own_path';
-        } elseif ($signals['author_exists'] !== true) {
-            $reasons[] = 'author_missing';
-        } elseif ($signals['vendor_profile'] === 'approved') {
-            // The clean case: an approved vendor's product with no row yet.
-            $bucket = self::BUCKET_VENDOR;
-            $vendor = (int) $signals['author_id'];
-        } elseif ($signals['vendor_profile'] !== '') {
-            // Paperwork that is not an approval: submitted, rejected,
-            // suspended. None of those is permission to sell.
-            $reasons[] = 'vendor_application_' . $signals['vendor_profile'];
-            $vendor = (int) $signals['author_id'];
-        } elseif ($signals['author_is_admin'] === true) {
-            $bucket = self::BUCKET_SHOP;
-            // Deliberately NOT the author: an administrator is not a vendor,
-            // and making them one would put the shop's own catalogue under
-            // somebody's vendor account. «محصول فروشگاه اصلی را به فروشندهٔ
-            // تصادفی یا مدیر واردشده نسبت نده.»
-            $vendor = 0;
-            $reasons[] = 'shop_product_needs_owner_decision';
-        } else {
-            $reasons[] = 'author_is_not_a_vendor';
-            $vendor = 0;
-        }
-
-        if (($row['type_supported'] ?? false) !== true) {
-            $reasons[] = 'type_not_supported';
-        }
+        // ONE decision, asked two ways. This path reads everything about one
+        // product; the manager's list gathers the same facts for a whole page
+        // in a handful of statements. The ORDER OF THE RULES is the decision
+        // and it lives in `CatalogueBucket` so the two cannot drift apart —
+        // a list saying `dokan` beside a detail page saying `shop` would be
+        // the `alpha.14` mistake in a place a manager acts on.
+        $decided = CatalogueBucket::decide($signals, ($row['type_supported'] ?? false) === true);
+        $bucket = $decided['bucket'];
+        $vendor = $decided['vendor_user_id'];
+        $reasons = $decided['reasons'];
 
         return [
             'wc_product_id' => $wcId,
@@ -263,6 +335,8 @@ final class CatalogueInventory
                 'فروشندهٔ این محصول تعلیق شده است.',
             'vendor_application_draft' =>
                 'پروندهٔ فروشندگی نویسنده پیش‌نویس است و ارسال نشده.',
+            'storefront_post_missing' =>
+                'این ردیف بازارگاه به محصولی اشاره می‌کند که در ووکامرس نیست. ردیف دست نمی‌خورد و این صفحه فقط نشانش می‌دهد.',
             'vendor_application_profile_without_application' =>
                 'نویسنده پروفایل فروشگاه دارد ولی پروندهٔ درخواستی ندارد (فروشگاه واردشده یا دستی).',
         ];

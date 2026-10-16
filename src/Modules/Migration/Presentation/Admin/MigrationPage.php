@@ -196,6 +196,13 @@ final class MigrationPage
             // warning a manager reads and the keys the refusal demands cannot
             // drift apart.
             $risks = $transfer->risksFor($product->id);
+            // Where the shop has moved SINCE the intake — `alpha.56`'s third
+            // finding. Read once and used twice: the sentence a manager reads
+            // and the values the tick carries come from the same answer, so a
+            // page cannot let somebody acknowledge a difference the guard is
+            // not checking.
+            $readable = $transfer->storefrontReadable($product->id);
+            $drift = $readable ? $transfer->storefrontDrift($product->id) : [];
             $form = '<form method="post" class="tmc-inline-form">'
                 . wp_nonce_field(self::NONCE, 'tmc_migration_nonce', true, false)
                 . '<input type="hidden" name="product_id" value="' . esc_attr((string) $product->id) . '">';
@@ -204,11 +211,30 @@ final class MigrationPage
                 // this risk cannot acknowledge it (`alpha.49`).
                 $form .= '<input type="hidden" name="acknowledged[]" value="' . esc_attr((string) $key) . '">';
             }
+            foreach ($drift as $field => $pair) {
+                // And the VALUE travels with it, not just the field name: a
+                // permission is about the number that was shown, never about
+                // whatever is there when the form arrives (`alpha.49`, one
+                // object further out).
+                $form .= '<input type="hidden" name="seen_shop[' . esc_attr((string) $field) . ']"'
+                    . ' value="' . esc_attr((string) $pair['fingerprint']) . '">';
+            }
             $form .= '<button type="submit" class="tmc-button" name="migration_action" value="take_ownership">'
-                . ($risks === []
+                . ($risks === [] && $drift === []
                     ? esc_html__('انتقال مالکیت عملیاتی', 'tecteb-marketplace-core')
                     : esc_html__('با وجود این موارد، مالکیت را بپذیر', 'tecteb-marketplace-core'))
                 . '</button></form>';
+            if ($drift !== []) {
+                // The other way out, and the one that loses nothing: take the
+                // snapshot again and there is no difference left to accept.
+                $form .= '<form method="post" class="tmc-inline-form">'
+                    . wp_nonce_field(self::NONCE, 'tmc_migration_nonce', true, false)
+                    . '<input type="hidden" name="product_id" value="' . esc_attr((string) $product->id) . '">'
+                    . '<button type="submit" class="tmc-button tmc-button--quiet"'
+                    . ' name="migration_action" value="refresh_snapshot">'
+                    . esc_html__('مبنا را از فروشگاه تازه کن', 'tecteb-marketplace-core')
+                    . '</button></form>';
+            }
             echo '<tr><td>' . Components::code((string) $product->id) . '</td>'
                 . '<td>' . esc_html($product->details->title)
                 . ($risks === []
@@ -216,6 +242,24 @@ final class MigrationPage
                     : '<br><span class="tmc-card__note">'
                         . esc_html__('پذیرش مدیریت این فیلدها را عوض می‌کند یا نمی‌تواند نگه دارد: ', 'tecteb-marketplace-core')
                         . esc_html(implode(' ', $risks)) . '</span>')
+                . (!$readable
+                    ? '<br><span class="tmc-card__note">'
+                        . esc_html__('مقدارهای فعلی این محصول در ووکامرس خوانده نشد، پس معلوم نیست از زمان ورود عوض شده‌اند یا نه. تا خوانده نشود پذیرش انجام نمی‌شود.', 'tecteb-marketplace-core')
+                        . '</span>'
+                    : '')
+                . ($drift === []
+                    ? ''
+                    : '<br><span class="tmc-card__note">'
+                        . esc_html__('از زمان ورود، این مقدارها در ووکامرس عوض شده‌اند (مبنای ورود ← مقدار فعلی فروشگاه): ', 'tecteb-marketplace-core')
+                        . esc_html(implode('، ', array_map(
+                            static fn (array $pair): string => sprintf(
+                                '%s: %s ← %s',
+                                (string) $pair['label'],
+                                (string) $pair['row'] === '' ? '—' : (string) $pair['row'],
+                                (string) $pair['shop'] === '' ? '—' : (string) $pair['shop']
+                            ),
+                            $drift
+                        ))) . '</span>')
                 . '</td>'
                 . '<td>' . Components::code((string) ($product->wcProductId ?? 0)) . '</td>'
                 . '<td>' . $form . '</td></tr>';
@@ -347,7 +391,11 @@ final class MigrationPage
             $transfer = $this->container->get(TransferOwnership::class);
             $productId = $request->postInt('product_id');
             $result = $action === 'take_ownership'
-                ? $transfer->take($productId, $request->postTextList('acknowledged'))
+                ? $transfer->take(
+                    $productId,
+                    $request->postTextList('acknowledged'),
+                    $request->postMap('seen_shop')
+                )
                 : $transfer->giveBack($productId);
             if (!$result->ok) {
                 if ($result->code === 'ownership_risks_unacknowledged') {
@@ -356,6 +404,28 @@ final class MigrationPage
                         __('پذیرش انجام نشد، چون این موارد تأیید نشده بودند: %s صفحه را تازه کنید و دکمهٔ «با وجود این موارد» را بزنید.', 'tecteb-marketplace-core'),
                         implode(' ', array_map('strval', (array) ($result->context['sentences'] ?? [])))
                     );
+                }
+                // Each refusal says which one it is, because they send the
+                // manager to three different places: refresh the page, take
+                // the snapshot again, or find out why WooCommerce cannot be
+                // read.
+                if ($result->code === 'storefront_moved') {
+                    return 'err:' . sprintf(
+                        /* translators: %s: the names of the fields that moved */
+                        __('پذیرش انجام نشد: از زمان ورود، این مقدارها در ووکامرس عوض شده‌اند و این فرم آن‌ها را حمل نمی‌کرد: %s. صفحه را تازه کنید تا مقدارهای فعلی را ببینید.', 'tecteb-marketplace-core'),
+                        (string) ($result->context['fields'] ?? '')
+                    );
+                }
+                if ($result->code === 'storefront_moved_again') {
+                    return 'err:' . sprintf(
+                        /* translators: 1: field, 2: the value the shop holds now */
+                        __('پذیرش انجام نشد: «%1$s» بین نمایش صفحه و زدن دکمه عوض شد — مقدار فعلی فروشگاه %2$s است. آن مقدار بازنویسی نشد؛ صفحه را تازه کنید.', 'tecteb-marketplace-core'),
+                        (string) ($result->context['field'] ?? ''),
+                        PersianDigits::toPersian((string) ($result->context['now'] ?? ''))
+                    );
+                }
+                if ($result->code === 'storefront_unreadable') {
+                    return 'err:' . __('پذیرش انجام نشد: مقدارهای فعلی این محصول در ووکامرس خوانده نشد، پس معلوم نیست مبنای ورود کهنه است یا نه.', 'tecteb-marketplace-core');
                 }
                 return 'err:' . __('این تغییر مالکیت انجام نشد.', 'tecteb-marketplace-core');
             }
@@ -370,6 +440,23 @@ final class MigrationPage
                     __('مالکیت عملیاتی محصول ووکامرس %s پس گرفته شد و دوباره فقط نگاشت است.', 'tecteb-marketplace-core'),
                     PersianDigits::toPersian((string) $result->context['wc_product_id'])
                 ));
+        }
+
+        if ($action === 'refresh_snapshot') {
+            $result = $this->container->get(TransferOwnership::class)
+                ->refreshFromStorefront($request->postInt('product_id'));
+            if ($result->ok) {
+                return 'ok:' . sprintf(
+                    /* translators: %s: how many fields were brought up to date */
+                    __('مبنای توافق از مقدارهای فعلی ووکامرس تازه شد (%s فیلد). محصول ووکامرس عوض نشد.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) ($result->context['refreshed'] ?? 0))
+                );
+            }
+            return 'err:' . sprintf(
+                /* translators: %s: the refusal's code */
+                __('تازه‌کردن مبنا انجام نشد: %s', 'tecteb-marketplace-core'),
+                $result->code
+            );
         }
 
         if ($action === 'rollback') {

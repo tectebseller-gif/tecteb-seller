@@ -1,0 +1,8 @@
+probe=ran
+verdict=imported
+reason=
+imported=1
+rows_for_product=1
+baseline_after_retry=present
+images_after_retry=2
+row_run=intake-a56-retry

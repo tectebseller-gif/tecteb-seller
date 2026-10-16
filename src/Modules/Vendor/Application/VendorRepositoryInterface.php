@@ -12,6 +12,28 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\VendorProfile;
 interface VendorRepositoryInterface
 {
     public function findApplicationByUser(int $userId): ?VendorApplication;
+    /**
+     * The vendor paperwork for a set of users, in ONE read each table.
+     *
+     * The unified product list decides which bucket a row is in from its
+     * AUTHOR's paperwork, and a page of twenty products has up to twenty
+     * authors. Asked one at a time that is forty statements for one screen —
+     * measured at twenty-four selects for a page of twenty on the disposable
+     * site before this method existed. Asked here it is two, whatever the
+     * page size.
+     *
+     * The answer is the status STRING rather than the objects, because that
+     * is all a bucket decision uses, and `profile_without_application` is a
+     * real value: a shop that arrived through an import has a profile and no
+     * application, and reading that as «not a vendor» would file somebody's
+     * live shop under «مبهم». A user with neither is absent from the answer.
+     *
+     * @param list<int> $userIds
+     * @return array<int,string> user id => application status, or
+     *         `profile_without_application`
+     */
+    public function profileStatusesFor(array $userIds): array;
+
 
     public function findApplication(int $applicationId): ?VendorApplication;
 

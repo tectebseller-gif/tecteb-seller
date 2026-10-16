@@ -1,0 +1,15 @@
+probe=ran
+row_price_at_intake=450000
+row_stock_at_intake=22
+shop_price_before_accept=480000
+shop_stock_before_accept=30
+risks=__none__
+take_code=storefront_moved
+take_ok=no
+ownership_after=observed
+sync_code=not_our_product
+shop_price_after_sync=480000
+shop_stock_after_sync=30
+manager_price_kept=yes
+rows_at_end=1
+rows_for_vendor_at_end=1

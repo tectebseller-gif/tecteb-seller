@@ -25,6 +25,23 @@ interface ProductRepositoryInterface
 
     /** The same row, but only if it belongs to this vendor. */
     public function findOwned(int $productId, int $vendorUserId): ?Product;
+    /**
+     * These products, in ONE read, keyed by id.
+     *
+     * For a page whose row identities came from somewhere else — from
+     * `alpha.56` the unified catalogue list is a union over WooCommerce posts
+     * and marketplace rows, so the marketplace half of a page arrives as a
+     * list of ids. `find()` per row would be twenty statements for one
+     * screen, which is the cost this list was rebuilt to put a ceiling on.
+     *
+     * An id with no row is simply absent from the answer: a row that is not
+     * there is not an error here, it is half of a pair.
+     *
+     * @param list<int> $productIds
+     * @return array<int,Product>
+     */
+    public function findMany(array $productIds): array;
+
 
     /**
      * @param string $search matched against title and SKU; empty means no filter
@@ -291,8 +308,31 @@ interface ProductRepositoryInterface
      * intake mirrors WooCommerce's publish state, so most intaken rows are
      * `published` and a draft-only delete would leave every one of them
      * behind.
+     *
+     * @return string `''` when the row and every row of it went; otherwise
+     *                the part that would not — `product_row`, `not_this_run`,
+     *                `revisions`, `decisions`, `specs` or `images`. A `bool`
+     *                could not say that, and `alpha.55` proved the cost:
+     *                specs and images were deleted with their answers thrown
+     *                away, so a half-emptied row reported success and a
+     *                rollback that had kept a product reported it removed.
+     *                The caller wraps the call in a transaction, so a named
+     *                part is a whole unit undone rather than a deleted
+     *                product with its images still in the table.
      */
-    public function deleteObservedFromRun(int $productId, string $runId): bool;
+    public function deleteObservedFromRun(int $productId, string $runId): string;
+
+    /**
+     * The OBSERVED rows an intake made, bounded — so «which intakes are half
+     * written» is one statement rather than a walk over every run.
+     *
+     * Observed only, because a row somebody has accepted is not an intake's
+     * any more; and stamped only, because a row with no run behind it was
+     * not made by an intake at all.
+     *
+     * @return list<int>
+     */
+    public function observedFromImportRuns(int $limit = 200): array;
 
     /**
      * @return list<string> every import run the catalogue remembers, newest first

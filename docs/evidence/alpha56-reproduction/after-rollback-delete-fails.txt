@@ -1,0 +1,10 @@
+probe=ran
+row_before=1378
+stamp_before=intake-a56-retry
+manifest_before=present
+rollback_code=intake_rollback_kept
+rollback_ok=no
+kept=1378:not_removed:product_row
+row_after=1378
+stamp_after=intake-a56-retry
+manifest_after=present

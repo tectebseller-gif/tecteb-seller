@@ -1,0 +1,451 @@
+old bytes read from fd008a0: 542 php files
+this checkout:                    545 php files
+schema: 28 (base) -> 28 (this tree)
+PASS  0a this round adds no migration  (28)
+installed: fd008a0
+
+=================== before ===================
+PASS  before/reset  the probe ran
+PASS  before/arrange  the probe ran
+--- before arrange ---
+probe=ran
+wc_id=383
+status=publish
+price=450000
+stock=22
+gallery=384,385
+marketplace_rows=0
+PASS  before/0b the fixture is one published product  (publish)
+PASS  before/0c with no marketplace row yet  (0)
+PASS  before/intake-baseline-fails  the probe ran
+--- before intake-baseline-fails ---
+probe=ran
+batch_code=intake_done
+imported=1
+failed=0
+verdict=imported
+reason=partly_written:baseline
+refused_statements=1
+row_exists=yes
+row_id=1374
+baseline=__empty__
+import_run=intake-a56
+PASS  before/2a the baseline write was refused once  (1)
+PASS  before/2a THE DEFECT: it reported success  (imported)
+PASS  before/2a with half of itself written  (partly_written:baseline)
+PASS  before/2a the row is there  (yes)
+PASS  before/2a and its baseline is empty  (__empty__)
+PASS  before/intake-retry  the probe ran
+--- before intake-retry ---
+probe=ran
+verdict=skip
+reason=already_linked_observed
+imported=0
+rows_for_product=1
+baseline_after_retry=__empty__
+images_after_retry=2
+row_run=intake-a56
+PASS  before/2a THE DEFECT: the retry skips it  (skip)
+PASS  before/2a because the link exists  (already_linked_observed)
+PASS  before/2a so the baseline stays empty FOR EVER  (__empty__)
+PASS  before/intake-incomplete  the probe ran
+--- before intake-incomplete ---
+probe=ran
+absent=1
+PASS  before/2a there was no way to even LIST them  (1)
+PASS  before/rollback-delete-fails  the probe ran
+--- before rollback-delete-fails ---
+probe=ran
+row_before=1374
+stamp_before=intake-a56
+manifest_before=present
+rollback_code=intake_rollback_kept
+rollback_ok=no
+kept=1374:not_removed
+row_after=1374
+stamp_after=__empty__
+manifest_after=__absent__
+PASS  before/2b the run was named in the manifest  (present)
+PASS  before/2b the rollback did not finish  (no)
+PASS  before/2b and the row is still there  (1374)
+PASS  before/2b THE DEFECT: the stamp was cleared  (__empty__)
+PASS  before/2b and the manifest deleted  (__absent__)
+PASS  before/rollback-retry  the probe ran
+--- before rollback-retry ---
+probe=ran
+rollback_code=intake_run_unknown
+rollback_ok=no
+removed=
+rows_for_product=1
+PASS  before/2b THE DEFECT: the run cannot be named again  (intake_run_unknown)
+PASS  before/2b so the row is stranded  (1)
+PASS  before/rollback-leftovers  the probe ran
+--- before rollback-leftovers ---
+probe=ran
+product_row=present
+image_rows=2
+spec_rows=0
+PASS  before/reset  the probe ran
+PASS  before/arrange  the probe ran
+PASS  before/accept-stale  the probe ran
+--- before accept-stale ---
+probe=ran
+row_price_at_intake=450000
+row_stock_at_intake=22
+shop_price_before_accept=480000
+shop_stock_before_accept=30
+risks=__none__
+take_code=ownership_taken
+take_ok=yes
+ownership_after=marketplace
+sync_code=projected
+shop_price_after_sync=450000
+shop_stock_after_sync=30
+manager_price_kept=no
+rows_at_end=1
+rows_for_vendor_at_end=1
+PASS  before/2c the intake recorded the price it saw  (450000)
+PASS  before/2c and the shop has moved since  (480000)
+PASS  before/2c THE DEFECT: acceptance went through  (ownership_taken)
+PASS  before/2c and the first sync wrote the old price  (450000)
+PASS  before/2c the manager's price is gone  (no)
+PASS  before/accept-refresh  the probe ran
+--- before accept-refresh ---
+probe=ran
+absent=1
+PASS  before/2c there was no way to refresh the baseline  (1)
+PASS  before/reset  the probe ran
+PASS  before/arrange  the probe ran
+PASS  before/project-observed  the probe ran
+--- before project-observed ---
+probe=ran
+row=1376
+ownership=observed
+sync_code=projected
+row_points_at=393
+still_points_at_the_observed_product=no
+wc_products_before=29
+wc_products_after=30
+PASS  before/2d the row only watches  (observed)
+PASS  before/2d THE DEFECT: the sync went ahead  (projected)
+PASS  before/counts-scope  the probe ran
+--- before counts-scope ---
+probe=ran
+before_total=30
+before_by_type=simple:28,variable:2
+planted=148,3,394
+after_total=30
+after_by_type=simple:31,variable:2
+type_total_moved=yes
+status_total_moved=no
+types_add_up_to_statuses=no
+strays_reported=__absent__
+without_type=__absent__
+with_two_types=__absent__
+planted_removed=yes
+PASS  before/3e three stray rows were planted  (yes)
+PASS  before/3e THE DEFECT: the type total moved  (yes)
+PASS  before/3e while the status total did not  (no)
+PASS  before/reset  the probe ran
+PASS  before/arrange  the probe ran
+PASS  before/one-list  the probe ran
+--- before one-list ---
+probe=ran
+absent=1
+PASS  before/3a there was no one list  (1)
+PASS  before/list-draft-only  the probe ran
+--- before list-draft-only ---
+probe=ran
+absent=1
+PASS  before/facets  the probe ran
+--- before facets ---
+probe=ran
+absent=1
+PASS  before/paging  the probe ran
+--- before paging ---
+probe=ran
+absent=1
+PASS  before/shop-search  the probe ran
+--- before shop-search ---
+probe=ran
+absent=1
+PASS  before/3f a vendor could only be named by user id  (1)
+PASS  before/account-button  the probe ran
+--- before account-button ---
+probe=ran
+manager_route=__absent__
+PASS  before/4a THE DEFECT: a manager got nothing  (__absent__)
+installed: this checkout
+
+=================== after ===================
+PASS  after/reset  the probe ran
+PASS  after/arrange  the probe ran
+--- after arrange ---
+probe=ran
+wc_id=383
+status=publish
+price=450000
+stock=22
+gallery=384,385
+marketplace_rows=0
+PASS  after/0b the fixture is one published product  (publish)
+PASS  after/0c with no marketplace row yet  (0)
+PASS  after/intake-baseline-fails  the probe ran
+--- after intake-baseline-fails ---
+probe=ran
+batch_code=intake_partly_done
+imported=0
+failed=1
+verdict=failed
+reason=intake_not_stored
+refused_statements=1
+row_exists=no
+row_id=0
+baseline=__empty__
+import_run=
+PASS  after/2a the baseline write was refused once  (1)
+PASS  after/2a it refuses  (failed)
+PASS  after/2a by name  (intake_not_stored)
+PASS  after/2a and NOTHING was left behind  (no)
+PASS  after/intake-retry  the probe ran
+--- after intake-retry ---
+probe=ran
+verdict=imported
+reason=
+imported=1
+rows_for_product=1
+baseline_after_retry=present
+images_after_retry=2
+row_run=intake-a56-retry
+PASS  after/2a the retry imports it  (imported)
+PASS  after/2a with its baseline  (present)
+PASS  after/2a and its gallery  (2)
+PASS  after/intake-incomplete  the probe ran
+--- after intake-incomplete ---
+probe=ran
+incomplete_count=0
+incomplete_ids=
+incomplete_parts=
+PASS  after/2a nothing is incomplete after a clean intake  (0)
+PASS  after/rollback-delete-fails  the probe ran
+--- after rollback-delete-fails ---
+probe=ran
+row_before=1378
+stamp_before=intake-a56-retry
+manifest_before=present
+rollback_code=intake_rollback_kept
+rollback_ok=no
+kept=1378:not_removed:product_row
+row_after=1378
+stamp_after=intake-a56-retry
+manifest_after=present
+PASS  after/2b the run was named in the manifest  (present)
+PASS  after/2b the rollback did not finish  (no)
+PASS  after/2b and the row is still there  (1378)
+PASS  after/2b the stamp is kept  (intake-a56-retry)
+PASS  after/2b the manifest is kept  (present)
+PASS  after/2b and the refusal names the part  (1378:not_removed:product_row)
+PASS  after/rollback-retry  the probe ran
+--- after rollback-retry ---
+probe=ran
+rollback_code=intake_rolled_back
+rollback_ok=yes
+removed=1
+rows_for_product=0
+PASS  after/2b the retry completes it  (intake_rolled_back)
+PASS  after/2b and the row is gone  (0)
+PASS  after/rollback-leftovers  the probe ran
+--- after rollback-leftovers ---
+probe=ran
+product_row=__absent__
+image_rows=0
+spec_rows=0
+PASS  after/2b no product row left  (__absent__)
+PASS  after/2b no image rows left  (0)
+PASS  after/2b no spec rows left  (0)
+PASS  after/reset  the probe ran
+PASS  after/arrange  the probe ran
+PASS  after/accept-stale  the probe ran
+--- after accept-stale ---
+probe=ran
+row_price_at_intake=450000
+row_stock_at_intake=22
+shop_price_before_accept=480000
+shop_stock_before_accept=30
+risks=__none__
+take_code=storefront_moved
+take_ok=no
+ownership_after=observed
+sync_code=not_our_product
+shop_price_after_sync=480000
+shop_stock_after_sync=30
+manager_price_kept=yes
+rows_at_end=1
+rows_for_vendor_at_end=1
+PASS  after/2c the intake recorded the price it saw  (450000)
+PASS  after/2c and the shop has moved since  (480000)
+PASS  after/2c it refuses and names the drift  (storefront_moved)
+PASS  after/2c the row is still only observed  (observed)
+PASS  after/2c the shop keeps its price  (480000)
+PASS  after/2c kept  (yes)
+PASS  after/accept-refresh  the probe ran
+--- after accept-refresh ---
+probe=ran
+refresh_code=intake_refreshed
+refresh_ok=yes
+row_price_after_refresh=480000
+row_stock_after_refresh=30
+take_code=ownership_taken
+sync_code=projected
+shop_price_after_sync=480000
+manager_price_kept=yes
+PASS  after/2c the baseline can be taken again  (intake_refreshed)
+PASS  after/2c it holds the shop's value now  (480000)
+PASS  after/2c and then acceptance works  (ownership_taken)
+PASS  after/2c with the shop's value intact  (480000)
+PASS  after/reset  the probe ran
+PASS  after/arrange  the probe ran
+PASS  after/project-observed  the probe ran
+--- after project-observed ---
+probe=ran
+row=1380
+ownership=observed
+sync_code=not_our_product
+row_points_at=383
+still_points_at_the_observed_product=yes
+wc_products_before=29
+wc_products_after=29
+PASS  after/2d the row only watches  (observed)
+PASS  after/2d the sync refuses by name  (not_our_product)
+PASS  after/2d the row still points at the same product  (yes)
+PASS  after/2d and no WooCommerce product was created  (29)
+PASS  after/counts-scope  the probe ran
+--- after counts-scope ---
+probe=ran
+before_total=29
+before_by_type=simple:27,variable:2
+planted=148,3,386
+after_total=29
+after_by_type=simple:27,variable:2
+type_total_moved=no
+status_total_moved=no
+types_add_up_to_statuses=yes
+strays_reported=on_variations:1,on_other_post_types:1,no_post_at_all:1
+without_type=0
+with_two_types=0
+planted_removed=yes
+PASS  after/3e three stray rows were planted  (yes)
+PASS  after/3e the type total does not move  (no)
+PASS  after/3e nor the status total  (no)
+PASS  after/3e and they add up  (yes)
+PASS  after/3e the strays are reported, not hidden  (on_variations:1,on_other_post_types:1,no_post_at_all:1)
+PASS  after/reset  the probe ran
+PASS  after/arrange  the probe ran
+PASS  after/one-list  the probe ran
+--- after one-list ---
+probe=ran
+available=yes
+rows=1
+this_product_appears=1
+source=woocommerce
+management=none
+wc_status=publish
+bucket=shop
+sku=WC-A56-SHOP
+submission=s0.r0.b0
+PASS  after/3a the list is available  (yes)
+PASS  after/3a and the product appears exactly once  (1)
+PASS  after/3a with its WooCommerce status  (publish)
+PASS  after/3a and the token came with the row  (s0.r0.b0)
+PASS  after/list-draft-only  the probe ran
+--- after list-draft-only ---
+probe=ran
+rows=1
+wc_product_id=0
+product_id=1381
+source=draft
+wc_status=__absent__
+bucket=draft_only
+vendor=9156
+created_id=1381
+PASS  after/3b a marketplace row with no product is in the list  (0)
+PASS  after/3b named as its own source  (draft)
+PASS  after/3b with no WooCommerce status to show  (__absent__)
+PASS  after/3b and its own bucket  (draft_only)
+PASS  after/facets  the probe ran
+--- after facets ---
+probe=ran
+total=119
+source_sum=119
+source_values=draft,marketplace,woocommerce
+management_sum=119
+management_values=ours,none
+wc_status_sum=119
+wc_status_values=__absent__,publish
+sums_agree=yes
+published_total=29
+observed_total=0
+published_and_observed=0
+PASS  after/3c every row is counted once per facet  (yes)
+PASS  after/3c published AND observed is its own question  (0)
+PASS  after/paging  the probe ran
+--- after paging ---
+probe=ran
+total=119
+first_rows=5
+second_rows=5
+overlap=0
+ceiling=100
+PASS  after/3d a page is a page  (5)
+PASS  after/3d and the next one too  (5)
+PASS  after/3d with no product twice  (0)
+PASS  after/3d and «everything» is refused  (100)
+PASS  after/shop-search  the probe ran
+--- after shop-search ---
+probe=ran
+matches=1
+first_vendor=9156
+first_name=تجهیزات_آزمون_۵۶
+first_source=profile
+nothing_matches=0
+percent_is_literal=0
+PASS  after/3f a shop is found by name  (1)
+PASS  after/3f a name nothing has finds nothing  (0)
+PASS  after/3f and a percent sign is a percent sign  (0)
+PASS  after/account-button  the probe ran
+--- after account-button ---
+probe=ran
+manager_printed=yes
+manager_is_admin_route=yes
+panel_url=http://127.0.0.1:8081/vendor/
+manager_not_vendor_panel=yes
+manager_label=مدیریت_بازارگاه
+manager_profile_after=__none__
+vendor_printed=yes
+vendor_is_panel=yes
+vendor_not_admin_route=yes
+seen_dashboard=yes
+seen_printed=yes
+seen_label=ورود_به_پنل_فروشنده
+shortcode_same_block=yes
+PASS  after/4a a manager gets a button  (yes)
+PASS  after/4a into wp-admin  (yes)
+PASS  after/4a not the vendor panel  (yes)
+PASS  after/4a and the manager is STILL not a vendor  (__none__)
+PASS  after/4a a vendor still gets the panel  (yes)
+PASS  after/4a and not the admin route  (yes)
+PASS  after/4a the site recorded that the hook ran  (yes)
+PASS  after/4a and the shortcode is the same block  (yes)
+
+=================== controls ===================
+PASS  control/before the fixture product is the same one  (383)
+PASS  control/before its gallery is untouched  (384,385)
+PASS  control/before an intake records what it saw  (450000)
+PASS  control/before and the risk list is the same  (__none__)
+PASS  control/after the fixture product is the same one  (383)
+PASS  control/after its gallery is untouched  (384,385)
+PASS  control/after an intake records what it saw  (450000)
+PASS  control/after and the risk list is the same  (__none__)
+PASS  after/reset  the probe ran
+
+PASS=155 FAIL=0

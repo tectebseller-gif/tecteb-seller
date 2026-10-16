@@ -53,6 +53,12 @@ final class SyncCatalog
         if ($product === null) {
             return OperationResult::failure('not_found');
         }
+        if (!$this->mayWriteToStorefront($product)) {
+            return OperationResult::failure('not_our_product', [
+                'product_id' => $productId,
+                'ownership' => $product->linkOwnership,
+            ]);
+        }
         if (!$this->projector->isAvailable()) {
             return OperationResult::failure('woocommerce_missing');
         }
@@ -94,6 +100,31 @@ final class SyncCatalog
     }
 
     /**
+     * WHETHER THIS ROW MAY BE WRITTEN TO THE SHOP AT ALL.
+     *
+     * An `observed` row is a note in a ledger: it points at somebody else's
+     * WooCommerce product — the main shop's, a Dokan vendor's — and nothing
+     * follows from it until a manager accepts management explicitly
+     * (`LinkOwnership`). Every verb in this class writes to the storefront,
+     * so every one of them has to ask.
+     *
+     * **It was measured missing, and the damage was a DUPLICATE PRODUCT.**
+     * `publish()` asks the projector whether it owns the post; an intaken
+     * post deliberately carries no ownership stamp, so the answer is no, so
+     * the link was dropped and `project()` built a NEW WooCommerce product
+     * and pointed the row at it. Measured while fixing `alpha.55`'s stale
+     * snapshot: after one `publish()` on an observed row,
+     * `rows_at_end=0` for the product being observed and
+     * `rows_for_vendor_at_end=1` for a product nobody asked to create. On a
+     * live catalogue that is the one outcome this whole module exists to
+     * avoid — «ورود بدون ساخت محصول جدید ووکامرس».
+     */
+    private function mayWriteToStorefront(Product $product): bool
+    {
+        return $product->ownsItsStorefrontProduct();
+    }
+
+    /**
      * The manager's address decision, applied once and stamped.
      *
      * Deliberately not part of `publish()`: a projection must not move an
@@ -103,7 +134,9 @@ final class SyncCatalog
     public function applySlug(int $productId, string $slug): bool
     {
         $product = $this->products->find($productId);
-        return $product !== null && $this->projector->applySlug($product, $slug);
+        return $product !== null
+            && $this->mayWriteToStorefront($product)
+            && $this->projector->applySlug($product, $slug);
     }
 
     /**
@@ -127,6 +160,9 @@ final class SyncCatalog
         $product = $this->products->find($productId);
         if ($product === null) {
             return OperationResult::failure('not_found');
+        }
+        if (!$this->mayWriteToStorefront($product)) {
+            return OperationResult::failure('not_our_product', ['product_id' => $productId, 'ownership' => $product->linkOwnership]);
         }
         if ($product->status === ProductStatus::Published) {
             return OperationResult::failure('already_published');
@@ -158,6 +194,9 @@ final class SyncCatalog
         $product = $this->products->find($productId);
         if ($product === null) {
             return OperationResult::failure('not_found');
+        }
+        if (!$this->mayWriteToStorefront($product)) {
+            return OperationResult::failure('not_our_product', ['product_id' => $productId, 'ownership' => $product->linkOwnership]);
         }
         if (!$product->isProjected() || !$this->projector->isAvailable()) {
             return OperationResult::success('nothing_to_withdraw');
@@ -308,6 +347,15 @@ final class SyncCatalog
     private function writeAndVerifyStock(int $productId, int $stock): OperationResult
     {
         $product = $this->products->find($productId);
+        if ($product !== null && !$this->mayWriteToStorefront($product)) {
+            // Somebody else's product. An observed row's stock is a note, and
+            // writing it would move a number on a product this marketplace
+            // does not run.
+            return OperationResult::failure('stock_not_written', [
+                'reason' => 'not_our_product',
+                'asked' => (string) $stock,
+            ]);
+        }
         if ($product === null || !$product->isProjected() || !$this->projector->isAvailable()) {
             return OperationResult::failure('stock_not_written', [
                 'reason' => 'not_projected',
@@ -375,6 +423,9 @@ final class SyncCatalog
         $product = $this->products->find($productId);
         if ($product === null) {
             return OperationResult::failure('not_found');
+        }
+        if (!$this->mayWriteToStorefront($product)) {
+            return OperationResult::failure('not_our_product', ['product_id' => $productId, 'ownership' => $product->linkOwnership]);
         }
         if (!$product->isProjected() || !$this->projector->isAvailable()) {
             return OperationResult::success('nothing_to_push');

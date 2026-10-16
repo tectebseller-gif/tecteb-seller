@@ -823,6 +823,26 @@ function nocache_headers(): void
     TmcWpStubs\State::$sentHeaders[] = 'Cache-Control: no-cache';
 }
 
+/**
+ * WordPress's own «what time is it HERE».
+ *
+ * Added in `alpha.56`, and its absence was itself a finding: three files in
+ * `src/` called it and no contract test had ever reached any of them —
+ * `StorePage`'s holiday check, the product autosave's timestamp and the
+ * account-hook record. A function nothing stubs is a line nothing runs.
+ *
+ * UTC, because a disposable test site has no interesting timezone and a test
+ * that depended on one would be a test that failed in April.
+ */
+function current_time(string $type = 'mysql', bool $gmt = false): string|int
+{
+    return match ($type) {
+        'timestamp', 'U' => time(),
+        'mysql' => gmdate('Y-m-d H:i:s'),
+        default => gmdate($type),
+    };
+}
+
 function status_header(int $code): void
 {
     TmcWpStubs\State::$statusHeader = $code;

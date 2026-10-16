@@ -1,0 +1,8 @@
+probe=ran
+verdict=skip
+reason=already_linked_observed
+imported=0
+rows_for_product=1
+baseline_after_retry=__empty__
+images_after_retry=2
+row_run=intake-a56

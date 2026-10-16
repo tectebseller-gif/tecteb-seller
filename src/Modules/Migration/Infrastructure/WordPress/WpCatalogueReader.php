@@ -5,8 +5,12 @@ namespace Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress;
 
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\CatalogueReaderInterface;
+use Tecteb\Marketplace\Modules\Migration\Domain\CatalogueFacets;
+use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\ReviewQueueSql;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\ProjectedQuantity;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceBrandDirectory;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceProjector;
@@ -102,14 +106,38 @@ final class WpCatalogueReader implements CatalogueReaderInterface
 
         // WooCommerce's own `product_type` taxonomy, which is where a
         // product's type actually lives — not a meta key and not a column.
+        //
+        // ------------------------------------------------------------------
+        // SCOPED TO PRODUCTS, AND `alpha.55` WAS NOT
+        // ------------------------------------------------------------------
+        //
+        // The owner read this table on staging and the numbers did not add
+        // up: 189 products across four statuses, and `simple=262
+        // variable=32` — 294 — in the same report. The cause is in this
+        // query rather than in the site: `alpha.55` counted
+        // `term_relationships` rows for the `product_type` taxonomy and
+        // NEVER JOINED `posts`. So anything that has such a row was counted,
+        // whether or not it is a product in this catalogue: a relationship
+        // left behind by a deleted post, a variation an importer gave a type
+        // term, a row pointing at another post type. The status query above
+        // IS scoped (`post_type = 'product'`), so one half of the table was
+        // answering a narrower question than the other half, and the two
+        // halves were printed side by side as if they were the same count.
+        //
+        // The scope is now the same on both sides, so «the types add up to
+        // the statuses» is a property rather than a coincidence — and where
+        // it still does not, `without_type` and `with_two_types` say why
+        // instead of leaving a difference for somebody to guess at.
         foreach ($this->db->getResults(
             'SELECT t.name AS type, COUNT(*) AS total
-               FROM `' . $this->db->prefix() . 'term_relationships` r
+               FROM `' . $this->db->prefix() . 'posts` p
+         INNER JOIN `' . $this->db->prefix() . 'term_relationships` r ON r.object_id = p.ID
          INNER JOIN `' . $this->db->prefix() . 'term_taxonomy` tt
                  ON tt.term_taxonomy_id = r.term_taxonomy_id AND tt.taxonomy = %s
          INNER JOIN `' . $this->db->prefix() . 'terms` t ON t.term_id = tt.term_id
+              WHERE p.post_type = %s
               GROUP BY t.name',
-            ['product_type']
+            ['product_type', 'product']
         ) as $row) {
             $type = (string) $row['type'];
             $out['by_type'][$type] = (int) $row['total'];
@@ -117,7 +145,70 @@ final class WpCatalogueReader implements CatalogueReaderInterface
                 $out['unsupported'][$type] = (int) $row['total'];
             }
         }
+        $out += $this->typeScopeNotes();
         return $out;
+    }
+
+    /**
+     * The two reasons the type counts can still not add up to the statuses,
+     * each counted rather than left as a difference.
+     *
+     * A product with NO `product_type` term is read as simple by WooCommerce
+     * but appears in no row of the table; a product with TWO is counted
+     * twice. Both are real states a long-lived catalogue reaches, and both
+     * are the manager's to look at — this plugin does not write term
+     * relationships, so neither is ours to repair.
+     *
+     * `strays` is the shape `alpha.55` was counting: `product_type` rows that
+     * belong to no product at all. It is reported because that is where the
+     * difference the owner saw came from, and because a number nobody can see
+     * is a number nobody can act on.
+     *
+     * @return array<string,mixed>
+     */
+    private function typeScopeNotes(): array
+    {
+        $posts = '`' . $this->db->prefix() . 'posts`';
+        $rel = '`' . $this->db->prefix() . 'term_relationships`';
+        $tax = '`' . $this->db->prefix() . 'term_taxonomy`';
+        $isType = $tax . ' tt ON tt.term_taxonomy_id = r.term_taxonomy_id AND tt.taxonomy = %s';
+        return [
+            'without_type' => (int) ($this->db->getVar(
+                'SELECT COUNT(*) FROM ' . $posts . ' p
+                  WHERE p.post_type = %s AND NOT EXISTS (
+                        SELECT 1 FROM ' . $rel . ' r INNER JOIN ' . $isType . '
+                         WHERE r.object_id = p.ID)',
+                ['product', 'product_type']
+            ) ?? 0),
+            'with_two_types' => (int) ($this->db->getVar(
+                'SELECT COUNT(*) FROM (
+                     SELECT r.object_id FROM ' . $rel . ' r
+                     INNER JOIN ' . $isType . '
+                     INNER JOIN ' . $posts . ' p ON p.ID = r.object_id AND p.post_type = %s
+                      GROUP BY r.object_id HAVING COUNT(*) > 1) x',
+                ['product_type', 'product']
+            ) ?? 0),
+            'strays' => [
+                'on_variations' => (int) ($this->db->getVar(
+                    'SELECT COUNT(*) FROM ' . $rel . ' r INNER JOIN ' . $isType . '
+                     INNER JOIN ' . $posts . ' p ON p.ID = r.object_id
+                      WHERE p.post_type = %s',
+                    ['product_type', 'product_variation']
+                ) ?? 0),
+                'on_other_post_types' => (int) ($this->db->getVar(
+                    'SELECT COUNT(*) FROM ' . $rel . ' r INNER JOIN ' . $isType . '
+                     INNER JOIN ' . $posts . ' p ON p.ID = r.object_id
+                      WHERE p.post_type NOT IN (%s, %s)',
+                    ['product_type', 'product', 'product_variation']
+                ) ?? 0),
+                'no_post_at_all' => (int) ($this->db->getVar(
+                    'SELECT COUNT(*) FROM ' . $rel . ' r INNER JOIN ' . $isType . '
+                      LEFT JOIN ' . $posts . ' p ON p.ID = r.object_id
+                      WHERE p.ID IS NULL',
+                    ['product_type']
+                ) ?? 0),
+            ],
+        ];
     }
 
     public function productsAfter(int $afterId, int $limit): array
@@ -163,6 +254,413 @@ final class WpCatalogueReader implements CatalogueReaderInterface
             'cursor' => (int) end($ids),
             'done' => count($rows) < $limit,
         ];
+    }
+
+    /**
+     * ONE page of the WHOLE catalogue: WooCommerce products and marketplace
+     * rows together, each related product exactly once.
+     *
+     * **Why a UNION and not two lists.** Until this round a manager had two
+     * screens — «بررسی محصولات», which listed marketplace rows, and «ورود
+     * محصولات موجود», which listed WooCommerce posts — and a product that
+     * existed on both sides appeared on both, with no way to tell from either
+     * screen that it was one product. The instruction is one list in which
+     * «هر محصول مرتبط فقط یک بار» appears, so the pair is joined in SQL and
+     * the two halves that have no partner are unioned in: a WooCommerce
+     * product with no row, and a marketplace row whose product is not there.
+     *
+     * **Each related product exactly once, even when two rows point at it.**
+     * `wp_postmeta` has no unique index on `(post_id, meta_key)` and
+     * `tmc_products` has none on `wc_product_id` — this repository measured
+     * both (`alpha.55`). So the join is to `MIN(id)` per `wc_product_id`,
+     * never to the table directly: a LEFT JOIN on a column with duplicates
+     * multiplies the page, and a pager over a multiplied result shows one
+     * product twice and hides another entirely. `rows_seen` carries the
+     * duplicate so the row can SAY it is ambiguous instead of hiding it.
+     *
+     * **The bound is in the query.** `LIMIT`/`OFFSET` on the union, a
+     * `COUNT(*)` for the total and ONE `GROUP BY` for all three facet
+     * tallies: «همهٔ محصولات برای صفحه‌بندی در PHP خوانده نشوند». The cost
+     * that does grow with the catalogue is the aggregate over
+     * `tmc_products` — one grouped scan of our own table, which the
+     * `(link_ownership, wc_product_id)` key from migration 10 covers — and
+     * that is stated rather than hidden.
+     *
+     * **No LEFT JOIN to `postmeta`, deliberately.** The SKU would be the
+     * obvious thing to join, and a product with two `_sku` rows would then
+     * appear twice. It is searched with `EXISTS` and displayed from a batched
+     * read per page.
+     *
+     * @param array{search?:string, source?:string, wc_status?:string, management?:string} $filters
+     * @return array{
+     *     rows: list<array<string,mixed>>,
+     *     total: int,
+     *     facets: array{source:array<string,int>, wc_status:array<string,int>, management:array<string,int>}
+     * }
+     */
+    public function unifiedPage(array $filters, int $limit, int $offset, string $sort = 'updated'): array
+    {
+        $limit = max(1, min(100, $limit));
+        $offset = max(0, $offset);
+        [$union, $unionParams] = $this->unionSql($filters);
+        [$where, $whereParams] = $this->unifiedWhere($filters);
+
+        $total = (int) ($this->db->getVar(
+            'SELECT COUNT(*) FROM (' . $union . ') u' . $where,
+            array_merge($unionParams, $whereParams)
+        ) ?? 0);
+
+        $rows = $this->db->getResults(
+            'SELECT * FROM (' . $union . ') u' . $where
+            . ' ORDER BY ' . $this->unifiedOrder($sort) . ' LIMIT %d OFFSET %d',
+            array_merge($unionParams, $whereParams, [$limit, $offset])
+        );
+
+        // One grouped read for all three tallies. The search narrows it — a
+        // chip has to count what the current search would show — and the
+        // facets themselves do not, so each chip says how many rows choosing
+        // it would give.
+        $facetRows = $this->db->getResults(
+            'SELECT source, management, wc_status, COUNT(*) AS n FROM (' . $union . ') u
+              GROUP BY source, management, wc_status',
+            $unionParams
+        );
+        $facets = ['source' => [], 'wc_status' => [], 'management' => []];
+        foreach ($facetRows as $row) {
+            $n = (int) $row['n'];
+            foreach (['source', 'management', 'wc_status'] as $key) {
+                $value = (string) $row[$key];
+                $facets[$key][$value] = ($facets[$key][$value] ?? 0) + $n;
+            }
+        }
+
+        return [
+            'rows' => $this->decorateUnified($rows),
+            'total' => $total,
+            'facets' => $facets,
+        ];
+    }
+
+    /**
+     * The page's rows with the per-page batched facts added.
+     *
+     * Four reads for the whole page — type, SKU, variation count and every
+     * marketplace row — so the cost of a page does not grow with its size and
+     * a row never asks a question of its own. `productsAfter()` has done it
+     * this way since `alpha.55`; this is the same four, over the ids of a
+     * page that may also contain rows with no WooCommerce product at all.
+     *
+     * @param list<array<string,mixed>> $rows
+     * @return list<array<string,mixed>>
+     */
+    private function decorateUnified(array $rows): array
+    {
+        $ids = [];
+        foreach ($rows as $row) {
+            $id = (int) $row['wc_product_id'];
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+        $types = $this->typesOf($ids);
+        $skus = $this->metaOf($ids, '_sku');
+        $children = $this->childCounts($ids);
+        $links = $this->marketplaceRowsFor($ids);
+        // The post's own featured image, because that is the picture the shop
+        // shows. Batched like the rest: `get_the_post_thumbnail_url()` per row
+        // would be a page of twenty products asking twenty questions.
+        $thumbs = $this->metaOf($ids, '_thumbnail_id');
+
+        $out = [];
+        foreach ($rows as $row) {
+            $wcId = (int) $row['wc_product_id'];
+            $type = $wcId > 0 ? (string) ($types[$wcId] ?? '') : (string) $row['row_type'];
+            // A WooCommerce product with no `product_type` term is a simple
+            // product as far as WooCommerce is concerned, and the count query
+            // says so too (`without_type`). Reading it as «unsupported» here
+            // would refuse an intake WooCommerce itself is happy with.
+            $effective = $type === '' ? ProductType::SIMPLE : $type;
+            $out[] = [
+                'wc_product_id' => $wcId,
+                'product_id' => (int) $row['product_id'],
+                'title' => (string) $row['title'],
+                // The post's SKU when there is a post, the row's own when
+                // there is not. Two sources for one column, each authoritative
+                // for its own half.
+                'sku' => $wcId > 0 ? (string) ($skus[$wcId] ?? '') : (string) $row['row_sku'],
+                'wc_status' => (string) $row['wc_status'],
+                'author_id' => (int) $row['author_id'],
+                'ownership' => (string) $row['ownership'],
+                'marketplace_status' => (string) $row['m_status'],
+                'vendor_user_id' => (int) $row['vendor_user_id'],
+                'rows_seen' => (int) $row['rows_seen'],
+                'changed_at' => (string) $row['changed_at'],
+                'source' => (string) $row['source'],
+                'management' => (string) $row['management'],
+                'type' => $effective,
+                'type_supported' => in_array($effective, self::SUPPORTED_TYPES, true),
+                'variations' => $wcId > 0 ? (int) ($children[$wcId] ?? 0) : 0,
+                'marketplace_rows' => $wcId > 0 ? ($links[$wcId] ?? []) : [],
+                // The shop's picture first, the row's own second: a managed
+                // product's thumbnail should be what a shopper sees.
+                'thumbnail_id' => (int) ($thumbs[$wcId] ?? 0) > 0
+                    ? (int) $thumbs[$wcId]
+                    : (int) $row['row_main_image'],
+                // A marketplace row whose `wc_product_id` points at a post
+                // that is not there. Not the same as a row that never had one
+                // — one is a draft and the other is a broken link, and only
+                // this screen can show either.
+                'orphan_link' => (int) $row['orphan_link'] === 1,
+                // Read off the row this list drew, never asked again: the
+                // whole reason the columns are in the union's SELECT.
+                'submission' => ReviewQueueSql::token($row),
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * The union both halves of the list are read from, written once.
+     *
+     * Written twice — once for the rows and once for the count — it would be
+     * two definitions of the list, and the number under the pager would
+     * disagree with the rows above it the first time one was edited
+     * (`DbProductRepository::managerScope()` learned this in `alpha.48`).
+     *
+     * The search is applied INSIDE each branch rather than outside the union:
+     * `LIKE '%x%'` uses no index either way, but filtering before the union
+     * is materialised is the difference between a temporary table of the
+     * matches and one of the whole catalogue.
+     *
+     * @param array<string,mixed> $filters
+     * @return array{0:string, 1:list<mixed>}
+     */
+    private function unionSql(array $filters): array
+    {
+        $posts = '`' . $this->db->prefix() . 'posts`';
+        $products = '`' . $this->db->prefix() . 'tmc_products`';
+        $meta = '`' . $this->db->prefix() . 'postmeta`';
+        $own = '`' . M0010LinkOwnership::COLUMN . '`';
+
+        $ownership = 'CASE WHEN m.' . $own . ' = %s THEN %s WHEN m.' . $own . ' = %s THEN %s ELSE %s END';
+        $ownershipParams = [
+            LinkOwnership::Marketplace->value, CatalogueFacets::MANAGED_OURS,
+            LinkOwnership::Observed->value, CatalogueFacets::MANAGED_OBSERVED,
+            CatalogueFacets::MANAGED_NONE,
+        ];
+        // The identity of the submission on the row, IN THE SAME STATEMENT as
+        // the row. This list marks what it SHOWS as seen, and `alpha.37`
+        // measured what a second read costs: a vendor submitting between the
+        // two would have their submission recorded as seen by a manager who
+        // was looking at the previous one. Three correlated, indexed lookups
+        // per row of an already limited result.
+        [$submissionA, $submissionParams] = ReviewQueueSql::submissionColumns($this->db, 'm');
+        [$submissionB] = ReviewQueueSql::submissionColumns($this->db, 'r');
+
+        // Branch A: a WooCommerce product, with the FIRST marketplace row
+        // pointing at it if there is one.
+        $a = 'SELECT p.ID AS wc_product_id, COALESCE(m.id, 0) AS product_id,
+                     p.post_title AS title, p.post_status AS wc_status,
+                     p.post_author AS author_id,
+                     COALESCE(m.' . $own . ', %s) AS ownership,
+                     COALESCE(m.status, %s) AS m_status,
+                     COALESCE(m.vendor_user_id, 0) AS vendor_user_id,
+                     COALESCE(g.rows_seen, 0) AS rows_seen,
+                     COALESCE(m.updated_at, p.post_modified) AS changed_at,
+                     COALESCE(m.sku, %s) AS row_sku,
+                     COALESCE(m.type, %s) AS row_type,
+                     COALESCE(m.main_image_id, 0) AS row_main_image,
+                     0 AS orphan_link,
+                     CASE WHEN m.id IS NULL THEN %s ELSE %s END AS source,
+                     ' . $ownership . ' AS management,
+                     ' . $submissionA . '
+                FROM ' . $posts . ' p
+                LEFT JOIN (SELECT wc_product_id, MIN(id) AS first_id, COUNT(*) AS rows_seen
+                             FROM ' . $products . '
+                            WHERE wc_product_id IS NOT NULL
+                            GROUP BY wc_product_id) g ON g.wc_product_id = p.ID
+                LEFT JOIN ' . $products . ' m ON m.id = g.first_id
+               WHERE p.post_type = %s';
+        $aParams = array_merge(
+            ['', '', '', ''],
+            [CatalogueFacets::SOURCE_WOOCOMMERCE, CatalogueFacets::SOURCE_MARKETPLACE],
+            $ownershipParams,
+            $submissionParams,
+            ['product']
+        );
+
+        // Branch B: a marketplace row with no WooCommerce product behind it.
+        // `NOT EXISTS` rather than `wc_product_id IS NULL`, so a row pointing
+        // at a post somebody deleted is in the list too — it is a real state
+        // and the only screen that could show it is this one.
+        $b = 'SELECT 0 AS wc_product_id, r.id AS product_id,
+                     r.title AS title, %s AS wc_status, 0 AS author_id,
+                     r.' . $own . ' AS ownership, r.status AS m_status,
+                     r.vendor_user_id AS vendor_user_id, 1 AS rows_seen,
+                     r.updated_at AS changed_at, r.sku AS row_sku, r.type AS row_type,
+                     r.main_image_id AS row_main_image,
+                     CASE WHEN r.wc_product_id IS NULL OR r.wc_product_id = 0 THEN 0 ELSE 1 END AS orphan_link,
+                     %s AS source,
+                     ' . str_replace('m.', 'r.', $ownership) . ' AS management,
+                     ' . $submissionB . '
+                FROM ' . $products . ' r
+               WHERE NOT EXISTS (SELECT 1 FROM ' . $posts . ' p2
+                                  WHERE p2.ID = r.wc_product_id AND p2.post_type = %s)';
+        $bParams = array_merge(
+            [CatalogueFacets::STATUS_ABSENT, CatalogueFacets::SOURCE_DRAFT],
+            $ownershipParams,
+            $submissionParams,
+            ['product']
+        );
+
+        // The marketplace state machine's own status — the chips this list has
+        // had since `alpha.32`. Applied per branch because the column lives
+        // on a different alias in each, and a row with no marketplace row has
+        // no status to match, so asking for one excludes it: correct, and the
+        // reason the facets are separate questions.
+        $status = trim((string) ($filters['marketplace_status'] ?? ''));
+        if ($status !== '') {
+            $a .= ' AND m.status = %s';
+            $aParams[] = $status;
+            $b .= ' AND r.status = %s';
+            $bParams[] = $status;
+        }
+
+        // «نیازمند بررسی» — THE one definition, from the one fragment
+        // (`ReviewQueueSql::waiting()`). Written out here instead it would be
+        // a second definition of the queue, and the badge and this list would
+        // stop describing the same set the day one of them learned about a
+        // new waiting state («دو فهرست یعنی دو قاعده»).
+        if (($filters['needs_review'] ?? false) === true) {
+            [$waitingA, $waitingParams] = ReviewQueueSql::waiting($this->db, 'm');
+            [$waitingB] = ReviewQueueSql::waiting($this->db, 'r');
+            $a .= ' AND m.id IS NOT NULL AND ' . $waitingA;
+            array_push($aParams, ...$waitingParams);
+            $b .= ' AND ' . $waitingB;
+            array_push($bParams, ...$waitingParams);
+        }
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        if ($search !== '') {
+            $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
+            $exact = (int) $search;
+            // The SKU is asked with `EXISTS` and not joined: a product with
+            // two `_sku` rows would otherwise appear twice.
+            $a .= ' AND (p.post_title LIKE %s OR p.ID = %d OR m.title LIKE %s OR m.sku LIKE %s
+                         OR EXISTS (SELECT 1 FROM ' . $meta . ' sk
+                                     WHERE sk.post_id = p.ID AND sk.meta_key = %s AND sk.meta_value LIKE %s))';
+            array_push($aParams, $like, $exact, $like, $like, '_sku', $like);
+            $b .= ' AND (r.title LIKE %s OR r.sku LIKE %s OR r.id = %d)';
+            array_push($bParams, $like, $like, $exact);
+        }
+
+        return [$a . ' UNION ALL ' . $b, array_merge($aParams, $bParams)];
+    }
+
+    /**
+     * The facet filters, applied to the union's own derived columns.
+     *
+     * Three independent conditions, because they are three independent facts
+     * — «وضعیت انتشار با وضعیت ورود/مالکیت قاتی نشود». A combination that
+     * cannot exist is an empty list rather than an error: it is a truthful
+     * answer about a question somebody asked.
+     *
+     * @param array<string,mixed> $filters
+     * @return array{0:string, 1:list<mixed>}
+     */
+    private function unifiedWhere(array $filters): array
+    {
+        $where = ' WHERE 1 = 1';
+        $params = [];
+        $source = CatalogueFacets::source((string) ($filters['source'] ?? ''));
+        if ($source !== '') {
+            $where .= ' AND u.source = %s';
+            $params[] = $source;
+        }
+        $management = CatalogueFacets::management((string) ($filters['management'] ?? ''));
+        if ($management !== '') {
+            $where .= ' AND u.management = %s';
+            $params[] = $management;
+        }
+        $status = CatalogueFacets::wcStatus((string) ($filters['wc_status'] ?? ''));
+        if ($status !== '') {
+            $where .= ' AND u.wc_status = %s';
+            $params[] = $status;
+        }
+        return [$where, $params];
+    }
+
+    /**
+     * **Every order ends in an id**, for the reason `ProductSort` states:
+     * `changed_at` has second precision, so an import written in one second
+     * has no order of its own and a pager that re-sorts those seconds
+     * differently on page two shows one product twice.
+     *
+     * The tiebreaker is the WooCommerce id and then the row id, which
+     * together are unique across both branches of the union — the row id
+     * alone is not, because branch A's products carry whatever row id their
+     * marketplace row has, and zero when they have none.
+     */
+    private function unifiedOrder(string $sort): string
+    {
+        $tail = ', u.wc_product_id DESC, u.product_id DESC';
+        return match (ProductSort::fromKey($sort)) {
+            ProductSort::Title => 'u.title ASC' . $tail,
+            ProductSort::OldestChanged => 'u.changed_at ASC' . $tail,
+            ProductSort::LastChanged => 'u.changed_at DESC' . $tail,
+        };
+    }
+
+    /**
+     * What the evidence says about each of these users, asked once per user.
+     *
+     * The bucket a row is in is decided from the AUTHOR's evidence, and a page
+     * of twenty products has at most twenty distinct authors — usually two or
+     * three. Asked per row it would be twenty `get_userdata()` calls and
+     * twenty application lookups; asked per author it is as many as there are
+     * authors, which is what makes the unified list affordable.
+     *
+     * The definitions are the ones `vendorSignals()` already uses, so the list
+     * and a product's own page cannot disagree about who a Dokan seller is.
+     *
+     * @param list<int> $authorIds
+     * @return array<int,array{author_id:int, author_exists:bool, author_roles:list<string>, author_is_admin:bool, dokan_seller:bool, vendor_profile:string}>
+     */
+    public function authorSignals(array $authorIds): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $authorIds)));
+        // The paperwork for the whole page in two statements rather than two
+        // per author. Measured on the disposable site before this: a page of
+        // twenty cost twenty-four selects, almost all of them these.
+        $paperwork = $this->vendors !== null && method_exists($this->vendors, 'profileStatusesFor')
+            ? $this->vendors->profileStatusesFor($ids)
+            : [];
+        $out = [];
+        foreach ($ids as $id) {
+            $signals = [
+                'author_id' => $id,
+                'author_exists' => false,
+                'author_roles' => [],
+                'author_is_admin' => false,
+                'dokan_seller' => false,
+                'vendor_profile' => '',
+            ];
+            if ($id <= 0) {
+                $out[$id] = $signals;
+                continue;
+            }
+            $user = function_exists('get_userdata') ? get_userdata($id) : false;
+            if ($user !== false && is_object($user)) {
+                $signals['author_exists'] = true;
+                $signals['author_roles'] = array_values(array_map('strval', (array) ($user->roles ?? [])));
+                $signals['author_is_admin'] = in_array('administrator', $signals['author_roles'], true)
+                    || in_array('shop_manager', $signals['author_roles'], true);
+                $signals['dokan_seller'] = in_array('seller', $signals['author_roles'], true);
+            }
+            $signals['vendor_profile'] = (string) ($paperwork[$id] ?? '');
+            $out[$id] = $signals;
+        }
+        return $out;
     }
 
     public function detail(int $wcProductId): array

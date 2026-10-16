@@ -1,0 +1,8 @@
+probe=ran
+row=1380
+ownership=observed
+sync_code=not_our_product
+row_points_at=383
+still_points_at_the_observed_product=yes
+wc_products_before=29
+wc_products_after=29

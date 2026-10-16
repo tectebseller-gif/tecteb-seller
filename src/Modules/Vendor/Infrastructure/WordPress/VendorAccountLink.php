@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress;
 
 use Tecteb\Marketplace\Contracts\ContainerInterface;
+use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 
@@ -79,6 +80,39 @@ use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
  * One of each is not a duplicate. What must not happen is the same block
  * printed twice in one request, and that is what `$printed` is for — a flag
  * about this plugin's own output, not about somebody else's menu.
+ *
+ * ### The manager, and why they saw nothing (`alpha.56`)
+ *
+ * The owner reported that on the real theme's account page they could see
+ * only Dokan's red button. The first thing to establish is which of two
+ * different things that is, because the fix for each is the opposite of the
+ * fix for the other:
+ *
+ *  1. **the hooks did not run.** A theme that renders its own account page,
+ *     or overrides `myaccount/dashboard.php` without
+ *     `do_action('woocommerce_account_dashboard')`, never calls us — the same
+ *     class of problem `alpha.41` found on `woocommerce_single_product_summary`.
+ *     Nothing in this file can fix that; the shortcode is the answer, and
+ *     `lastSeen()` is how the owner finds out that this is the case.
+ *  2. **the hooks ran and we drew nothing, correctly.** The account in the
+ *     screenshots is a MANAGER. A manager has no vendor profile, no place on
+ *     any shop's roster and no application, so `label()` answered `''` — and
+ *     it was right to: «مدیر را خودکار فروشنده نکن». What was missing was not
+ *     a vendor link, it was an ADMINISTRATIVE one.
+ *
+ * So from `alpha.56` there is a fourth answer: a manager with
+ * `tmc_review_products` gets a link into the marketplace's own admin screen,
+ * labelled as what it is. It grants nothing — the admin page checks its own
+ * capability — and it does not make the manager a vendor: no profile is
+ * created, no roster touched, no role changed.
+ *
+ * ### The measurement, because a theme cannot be read from here
+ *
+ * `register()` records, per request that reaches an account page, WHICH of
+ * the two hooks fired and whether the block was printed. The health screen
+ * reads it. That is deliberately a measurement and not a claim:
+ * «بدون مشاهدهٔ قالب واقعی، سازگاری با آن را «تأییدشده» اعلام نکن» — this
+ * plugin cannot see the owner's theme, so it asks the owner's own site.
  */
 final class VendorAccountLink
 {
@@ -124,6 +158,28 @@ final class VendorAccountLink
         return __('ورود به پنل فروشنده', 'tecteb-marketplace-core');
     }
 
+    /**
+     * The manager's label, and it says where it goes.
+     *
+     * Not «ورود به پنل فروشنده»: a manager pressing that would land on a page
+     * about a shop they do not have, which is the shape of mistake
+     * `alpha.33` paid for when a shop's staff were shown «شروع درخواست
+     * فروشندگی».
+     */
+    public static function managerLabel(): string
+    {
+        return __('مدیریت بازارگاه', 'tecteb-marketplace-core');
+    }
+
+    /**
+     * Where the last account page's hooks got to, per site.
+     *
+     * An option and not a transient: the question «does this theme call
+     * WooCommerce's account hooks» is answered once and stays true until the
+     * theme changes, and a transient that expired would read as «never ran».
+     */
+    public const SEEN_OPTION = 'tmc_account_hooks_seen';
+
     public static function register(ContainerInterface $container): void
     {
         $link = new self($container);
@@ -134,11 +190,56 @@ final class VendorAccountLink
     }
 
     /**
+     * What the last account-page render actually did, for the health screen.
+     *
+     * Four facts, and each sends the reader somewhere different: the menu
+     * filter ran, the dashboard hook ran, the shortcode ran, and our block was
+     * printed. «menu yes / dashboard no» is a theme that renders WooCommerce's
+     * navigation and its own dashboard; «both no» is a theme that renders
+     * neither, where the shortcode is the only way; «ran but printed nothing»
+     * is this plugin answering correctly about somebody who is not a vendor.
+     *
+     * @return array{menu:string, dashboard:string, shortcode:string, printed:string, label:string}
+     */
+    public static function lastSeen(): array
+    {
+        $raw = get_option(self::SEEN_OPTION, []);
+        $raw = is_array($raw) ? $raw : [];
+        return [
+            'menu' => (string) ($raw['menu'] ?? ''),
+            'dashboard' => (string) ($raw['dashboard'] ?? ''),
+            'shortcode' => (string) ($raw['shortcode'] ?? ''),
+            'printed' => (string) ($raw['printed'] ?? ''),
+            'label' => (string) ($raw['label'] ?? ''),
+        ];
+    }
+
+    /**
+     * Note that one of them ran, with the time.
+     *
+     * Written only when the value CHANGES — the same page is loaded all day
+     * and a write per view would be a row rewritten for nothing. The time is
+     * the site's own, through `current_time()`, because this is read by a
+     * person on a screen.
+     */
+    private function note(string $key, string $value): void
+    {
+        $seen = self::lastSeen();
+        if (($seen[$key] ?? '') === $value) {
+            return;
+        }
+        $seen[$key] = $value;
+        $seen['at'] = (string) current_time('mysql');
+        update_option(self::SEEN_OPTION, $seen, false);
+    }
+
+    /**
      * @param array<string,string> $items
      * @return array<string,string>
      */
     public function addMenuItem(array $items): array
     {
+        $this->note('menu', 'yes');
         $label = $this->label();
         if ($label === '') {
             return $items;
@@ -160,7 +261,10 @@ final class VendorAccountLink
      */
     public function endpointUrl(string $url, string $endpoint, string $value, string $permalink): string
     {
-        return $endpoint === self::MENU_KEY ? $this->dashboardUrl() : $url;
+        // The SAME destination the button uses, from the same decision: a
+        // menu row that went to `/vendor/` while the button beside it went to
+        // wp-admin would be two answers to one question on one page.
+        return $endpoint === self::MENU_KEY ? $this->destinationFor($this->label()) : $url;
     }
 
     /**
@@ -173,6 +277,7 @@ final class VendorAccountLink
      */
     public function renderPanel(): void
     {
+        $this->note('dashboard', 'yes');
         echo $this->panel();
     }
 
@@ -187,6 +292,7 @@ final class VendorAccountLink
      */
     public function shortcode(): string
     {
+        $this->note('shortcode', 'yes');
         // Not gated on the MENU — somebody who pastes the shortcode has asked
         // for the block to be in that spot, and a shortcode that renders
         // nothing because a menu elsewhere has a row is a shortcode that looks
@@ -214,11 +320,17 @@ final class VendorAccountLink
         }
         $label = $this->label();
         if ($label === '') {
+            $this->note('printed', 'no');
             return '';
         }
         $this->printed = true;
+        // Which block was drawn, for the health screen. «ran and printed
+        // nothing» and «never ran» are different problems with opposite
+        // fixes, and only the site can tell them apart.
+        $this->note('printed', 'yes');
+        $this->note('label', $label);
         return '<p class="tmc-account-vendor"><a class="button" href="'
-            . esc_url($this->dashboardUrl()) . '">' . esc_html($label) . '</a> '
+            . esc_url($this->destinationFor($label)) . '">' . esc_html($label) . '</a> '
             . esc_html(self::blurb($label))
             . '</p>';
     }
@@ -232,6 +344,25 @@ final class VendorAccountLink
     private function dashboardUrl(): string
     {
         return VendorRoutes::dashboardUrl();
+    }
+
+    /**
+     * Where this label's button goes.
+     *
+     * Two destinations, because there are two kinds of reader: a vendor, an
+     * applicant or a shop's staff go to `/vendor/`, and a manager goes to
+     * wp-admin. One destination for both would be a button that lied about
+     * where it went for one of them.
+     *
+     * The admin address is built from `admin_url()`, so it is right on any
+     * domain, and the page behind it checks its own capability: this decides
+     * what is drawn and nothing else.
+     */
+    private function destinationFor(string $label): string
+    {
+        return $label === self::managerLabel()
+            ? admin_url('admin.php?page=tmc-product-review')
+            : $this->dashboardUrl();
     }
 
     /**
@@ -271,9 +402,19 @@ final class VendorAccountLink
             // review, or somebody who was refused. The LABEL differs because
             // sending them to «ورود به پنل فروشنده» and showing them a review
             // status is a link that lied about where it went.
-            return $vendors->findApplicationByUser($userId) === null
-                ? ''
-                : __('درخواست فروشندگی من', 'tecteb-marketplace-core');
+            if ($vendors->findApplicationByUser($userId) !== null) {
+                return __('درخواست فروشندگی من', 'tecteb-marketplace-core');
+            }
+            // And a MANAGER. Fourth and last, deliberately: a person who is
+            // both a vendor and a manager is sent to their shop, because that
+            // is the thing they came to `/my-account/` for. Nothing here
+            // makes a manager a vendor — no profile is created, no roster
+            // touched, no role changed — and the capability it reads is the
+            // one the admin screen checks for itself, so this is wayfinding
+            // and not access.
+            return current_user_can(Capabilities::REVIEW_PRODUCTS)
+                ? self::managerLabel()
+                : '';
         } catch (\Throwable) {
             return '';
         }
@@ -287,8 +428,10 @@ final class VendorAccountLink
      */
     private static function blurb(string $label): string
     {
-        return $label === self::panelLabel()
-            ? __('مدیریت محصول‌ها، سفارش‌ها و تنظیمات فروشگاه شما.', 'tecteb-marketplace-core')
-            : __('وضعیت درخواست فروشندگی و مدارک شما.', 'tecteb-marketplace-core');
+        return match ($label) {
+            self::panelLabel() => __('مدیریت محصول‌ها، سفارش‌ها و تنظیمات فروشگاه شما.', 'tecteb-marketplace-core'),
+            self::managerLabel() => __('بررسی محصول‌ها و فروشندگان بازارگاه در پیشخوان وردپرس.', 'tecteb-marketplace-core'),
+            default => __('وضعیت درخواست فروشندگی و مدارک شما.', 'tecteb-marketplace-core'),
+        };
     }
 }

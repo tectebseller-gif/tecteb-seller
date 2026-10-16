@@ -11,10 +11,73 @@ use Tecteb\Marketplace\Modules\Health\Application\HealthStatus;
 /** @var array<string,mixed> $vm */
 echo Components::shellOpen(__('سلامت بازارگاه', 'tecteb-marketplace-core'), 'tmc-health', __('نسخه آزمایشی', 'tecteb-marketplace-core'));
 
+/**
+ * «دکمهٔ بازارگاه در صفحهٔ حساب کاربری» — drawn whether or not the health
+ * module is up.
+ *
+ * A closure rather than two copies of the markup, and defined before the
+ * early return rather than after it: this answer does not come from the
+ * health module at all, and an owner whose health module is off is exactly
+ * the owner who needs to know why a button is missing.
+ */
+$accountHooks = static function () use ($vm): string {
+    $seen = $vm['account_hooks'] ?? [];
+    $answer = static fn (string $value): string => match ($value) {
+        'yes' => __('اجرا شد', 'tecteb-marketplace-core'),
+        'no' => __('اجرا شد و چیزی چاپ نشد', 'tecteb-marketplace-core'),
+        default => __('تا حالا اجرا نشده', 'tecteb-marketplace-core'),
+    };
+    $html = '<section class="tmc-card" aria-labelledby="tmc-account-hooks-title">'
+        . '<h2 id="tmc-account-hooks-title" class="tmc-card__title">'
+        . esc_html__('دکمهٔ بازارگاه در صفحهٔ حساب کاربری', 'tecteb-marketplace-core') . '</h2>'
+        . '<p>' . esc_html__('این افزونه نمی‌تواند قالب سایت شما را بخواند، پس این را خودِ سایت اندازه می‌گیرد: آخرین بار که یک صفحهٔ حساب کاربری باز شد، کدام قلاب‌های ووکامرس اجرا شدند و آیا دکمهٔ ما چاپ شد.', 'tecteb-marketplace-core') . '</p>'
+        . Components::dataList([
+            [
+                'label' => __('منوی حساب کاربری ووکامرس', 'tecteb-marketplace-core'),
+                'value' => $answer((string) ($seen['menu'] ?? '')),
+            ],
+            [
+                'label' => __('پیشخوان حساب کاربری ووکامرس', 'tecteb-marketplace-core'),
+                'value' => $answer((string) ($seen['dashboard'] ?? '')),
+            ],
+            [
+                'label' => __('کد کوتاه [tmc_vendor_dashboard]', 'tecteb-marketplace-core'),
+                'value' => $answer((string) ($seen['shortcode'] ?? '')),
+            ],
+            [
+                'label' => __('دکمه چاپ شد؟', 'tecteb-marketplace-core'),
+                'value' => match ((string) ($seen['printed'] ?? '')) {
+                    'yes' => sprintf(
+                        /* translators: %s: the label that was printed */
+                        __('بله — «%s»', 'tecteb-marketplace-core'),
+                        (string) ($seen['label'] ?? '')
+                    ),
+                    'no' => __('نه، چون آن کاربر نه فروشنده است، نه پرسنل، نه متقاضی و نه مدیر بازارگاه. این یک جواب است، نه خطا.', 'tecteb-marketplace-core'),
+                    default => __('تا حالا به این نقطه نرسیده', 'tecteb-marketplace-core'),
+                },
+            ],
+            [
+                'label' => __('آخرین تغییر', 'tecteb-marketplace-core'),
+                'value' => (string) ($seen['at'] ?? '') !== ''
+                    ? PersianDigits::toPersian(substr((string) $seen['at'], 0, 16))
+                    : '—',
+            ],
+        ]);
+    if ((string) ($seen['menu'] ?? '') === '' && (string) ($seen['dashboard'] ?? '') === '') {
+        $html .= Components::notice('warning', __('هیچ‌کدام از دو قلاب ووکامرس تا حالا اجرا نشده‌اند. یا کسی صفحهٔ حساب کاربری را باز نکرده، یا قالب سایت آن صفحه را خودش می‌سازد و این قلاب‌ها را صدا نمی‌زند. در حالت دوم، کد کوتاه [tmc_vendor_dashboard] را در محتوای همان صفحه بگذارید — همان دکمه، همان مقصد.', 'tecteb-marketplace-core'));
+    }
+    // Deliberately not a verdict: «بدون مشاهدهٔ قالب واقعی، سازگاری با آن را
+    // «تأییدشده» اعلام نکن».
+    return $html . '<p>'
+        . esc_html__('این جدول دربارهٔ سازگاری با قالب شما ادعایی نمی‌کند؛ فقط می‌گوید آخرین بار چه شد.', 'tecteb-marketplace-core')
+        . '</p></section>';
+};
+
 if (!$vm['available']) {
     $state = $vm['module_state'];
     $reason = $state ? Messages::moduleReason($state->reasonCode, $state->reasonDetail, $state->phase) : '';
     echo Components::notice('warning', __('ماژول سلامت فعال نیست، بنابراین گزارش کامل در دسترس نیست.', 'tecteb-marketplace-core') . ($reason !== '' ? ' ' . $reason : ''));
+    echo $accountHooks();
     echo Components::shellClose();
     return;
 }
@@ -81,6 +144,8 @@ $jalali = JalaliDate::format($checkedAt);
         <p><a href="<?php echo esc_url($vm['modules_url']); ?>"><?php esc_html_e('جزئیات در صفحه ماژول‌ها', 'tecteb-marketplace-core'); ?></a></p>
     <?php endif; ?>
 </section>
+
+<?php echo $accountHooks(); ?>
 
 <section class="tmc-card tmc-card--muted" aria-labelledby="tmc-rest-title">
     <h2 id="tmc-rest-title" class="tmc-card__title"><?php esc_html_e('دسترسی برنامه‌نویسی به همین گزارش', 'tecteb-marketplace-core'); ?></h2>

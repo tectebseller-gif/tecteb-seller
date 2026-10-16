@@ -1,0 +1,5 @@
+probe=ran
+extra_products_swept=1
+rows_removed=1
+wc_product_kept=yes
+reset=done

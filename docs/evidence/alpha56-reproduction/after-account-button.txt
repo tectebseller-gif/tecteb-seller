@@ -1,0 +1,14 @@
+probe=ran
+manager_printed=yes
+manager_is_admin_route=yes
+panel_url=http://127.0.0.1:8081/vendor/
+manager_not_vendor_panel=yes
+manager_label=مدیریت_بازارگاه
+manager_profile_after=__none__
+vendor_printed=yes
+vendor_is_panel=yes
+vendor_not_admin_route=yes
+seen_dashboard=yes
+seen_printed=yes
+seen_label=ورود_به_پنل_فروشنده
+shortcode_same_block=yes

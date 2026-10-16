@@ -1,0 +1,12 @@
+probe=ran
+total=119
+source_sum=119
+source_values=draft,marketplace,woocommerce
+management_sum=119
+management_values=ours,none
+wc_status_sum=119
+wc_status_values=__absent__,publish
+sums_agree=yes
+published_total=29
+observed_total=0
+published_and_observed=0

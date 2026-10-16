@@ -63,7 +63,10 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         State::loginAs(9, ['read', 'tmc_review_products']);
         $out = $this->render();
 
-        self::assertStringContainsString('همهٔ محصولات بازارگاه', $out);
+        // The title changed in `alpha.56`: the list is no longer only the
+        // marketplace's own rows. It holds every WooCommerce product too, so
+        // «همهٔ محصولات بازارگاه» would now be a false name for it.
+        self::assertStringContainsString('همهٔ محصولات این فروشگاه', $out);
         self::assertStringContainsString('مجوز انتشار مستقیم', $out, 'a vendor-level permission stays on the list');
         self::assertStringContainsString('dir="rtl"', $out);
 
@@ -99,12 +102,19 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         State::loginAs(9, ['read', 'tmc_review_products']);
         $out = $this->render();
 
+        // ONLY the status row. From `alpha.56` this page has three more chip
+        // rows — source, management, WooCommerce status — and they are three
+        // separate questions, so counting every `.tmc-filter` on the page
+        // would be counting four lists at once. The row is found by the
+        // `aria-label` that says which question it asks, which is the same
+        // label a screen reader uses to tell them apart.
+        $statusRow = self::chipRow($out, 'وضعیت محصول');
         // The class itself, not its children: `tmc-filter__label` and
         // `tmc-filter__count` share the prefix, and counting those instead
         // would report 23 filters and call it a pass.
         self::assertSame(
             7,
-            preg_match_all('/class="tmc-filter[ "]/', $out),
+            preg_match_all('/class="tmc-filter[ "]/', $statusRow),
             'seven filters, no more and no fewer'
         );
         // Counted on the chip itself: the shell's own menu link also carries
@@ -112,7 +122,7 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         // counting the navigation.
         self::assertSame(
             1,
-            substr_count($out, 'class="tmc-filter is-current"'),
+            substr_count($statusRow, 'class="tmc-filter is-current"'),
             'exactly one filter is the current one'
         );
         self::assertStringContainsString('<a class="tmc-filter is-current" aria-current="page"', $out);
@@ -121,16 +131,44 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         $order = ['همه', 'پیش‌نویس', 'ارسال‌شده برای بررسی', 'نیازمند اصلاح', 'منتشرشده', 'تعلیق‌شده', 'بایگانی'];
         $at = -1;
         foreach ($order as $label) {
-            $found = strpos($out, '<span class="tmc-filter__label">' . $label . '</span>');
+            $found = strpos($statusRow, '<span class="tmc-filter__label">' . $label . '</span>');
             self::assertNotFalse($found, 'filter missing: ' . $label);
             self::assertGreaterThan($at, $found, 'the agreed order changed at: ' . $label);
             $at = $found;
         }
         // Zero is dimmer and still a link — a filter nobody can press is a
         // filter with no way back once the last row leaves a status.
-        self::assertStringContainsString('<a class="tmc-filter is-empty" href=', $out);
-        self::assertStringContainsString('<span class="tmc-filter__count">۰</span>', $out, 'counts are in Persian digits');
+        self::assertStringContainsString('<a class="tmc-filter is-empty" href=', $statusRow);
+        self::assertStringContainsString('<span class="tmc-filter__count">۰</span>', $statusRow, 'counts are in Persian digits');
         self::assertStringContainsString('placeholder="جست‌وجوی عنوان، SKU یا برند…"', $out);
+
+        // And the three facet rows of `alpha.56` are there, each saying which
+        // question it asks. «وضعیت انتشار با وضعیت ورود/مالکیت قاتی نشود» is
+        // a rule about the screen, so the screen is where it is checked.
+        foreach (['منبع محصول', 'وضعیت مدیریت بازارگاه'] as $legend) {
+            self::assertStringContainsString(
+                '<span class="tmc-filters__legend">' . $legend . '</span>',
+                $out,
+                'the facet row must say which question it asks: ' . $legend
+            );
+        }
+    }
+
+    /**
+     * One chip row, found by the `aria-label` that names its question.
+     *
+     * A test that counted chips across the whole page would be counting four
+     * independent filters as one, and would pass for a page that had merged
+     * them — which is the one thing this round's instruction forbids about
+     * this screen.
+     */
+    private static function chipRow(string $html, string $label): string
+    {
+        $start = strpos($html, '<nav class="tmc-filters" aria-label="' . $label . '"');
+        self::assertNotFalse($start, 'no chip row labelled: ' . $label);
+        $end = strpos($html, '</nav>', $start);
+        self::assertNotFalse($end);
+        return substr($html, $start, $end - $start);
     }
 
     /**
@@ -653,6 +691,85 @@ final class ProductAdminPagesTest extends DatabaseTestCase
 
         self::assertStringNotContainsString('accept_stock_conflict', $html);
         self::assertStringNotContainsString('seen_stock', $html);
+    }
+
+    /**
+     * The intake's POST arms, on the page they now live on.
+     *
+     * `alpha.48`'s rule, in a new place: four pages were registered with the
+     * right slug and threw the moment they were opened, and the only test
+     * that touched them asked whether they were registered. The intake moved
+     * screens this round, so its three buttons are three dispatch arms nobody
+     * had POSTed to on THIS page.
+     *
+     * What they must do without WooCommerce is still well defined: refuse,
+     * and say which refusal it is. A capability check that answered «no
+     * products selected» would be telling somebody who may not do intakes
+     * that they picked nothing.
+     */
+    public function testTheIntakeRefusesByNameAndNeverOnTheWrongGround(): void
+    {
+        $this->bootPlugin(false);
+
+        // No intake capability: refused on PERMISSION, whatever was selected.
+        State::loginAs(9, ['read', 'tmc_review_products']);
+        $out = $this->submit([
+            'intake_action' => 'import',
+            'wc_ids' => ['1229'],
+            '_wpnonce' => wp_create_nonce('tmc_product_review'),
+        ]);
+        self::assertStringContainsString('دسترسی لازم برای ورود محصول را ندارید.', $out);
+
+        // With it, and nothing ticked: refused on the SELECTION, which is a
+        // different sentence and a different next step.
+        State::loginAs(9, ['read', 'tmc_review_products', 'tmc_review_vendor']);
+        $out = $this->submit([
+            'intake_action' => 'import',
+            '_wpnonce' => wp_create_nonce('tmc_product_review'),
+        ]);
+        self::assertStringContainsString('هیچ محصولی انتخاب نشده بود.', $out);
+
+        // A bad nonce is refused before anything else is considered.
+        $_GET = ['page' => ProductReviewPage::SLUG];
+        $_POST = ['intake_action' => 'import', 'wc_ids' => ['1229'], '_wpnonce' => 'not-a-nonce'];
+        $_SERVER['REQUEST_METHOD'] = 'POST';
+        try {
+            $out = $this->capture(fn () => (new ProductReviewPage(Bootstrap::container()))->render());
+        } finally {
+            $_GET = [];
+            $_POST = [];
+            $_SERVER['REQUEST_METHOD'] = 'GET';
+        }
+        self::assertStringContainsString('درخواست معتبر نبود.', $out);
+
+        // And «find a shop» says nothing at all: it is a search, and a
+        // success message about a search reads like one about an import.
+        State::loginAs(9, ['read', 'tmc_review_products', 'tmc_review_vendor']);
+        $out = $this->submit([
+            'intake_action' => 'find_shop',
+            'shop_q' => 'فروشگاهی که نیست',
+            '_wpnonce' => wp_create_nonce('tmc_product_review'),
+        ]);
+        self::assertStringNotContainsString('وارد شد', $out);
+        self::assertStringNotContainsString('هیچ محصولی انتخاب نشده بود.', $out);
+    }
+
+    /**
+     * An unknown `wc=` id is a named emptiness, not a blank page or a throw.
+     *
+     * The address is reachable by hand and by a stale link, and «محصولی با
+     * این شناسه در ووکامرس نیست» is the answer that sends a manager back to
+     * the list instead of to a support thread.
+     */
+    public function testAnUnknownWooCommerceIdSaysSoRatherThanRenderingNothing(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+
+        $out = $this->render(['wc' => '99999']);
+
+        self::assertStringContainsString('محصولی با این شناسه در ووکامرس نیست', $out);
+        self::assertStringContainsString('بازگشت به فهرست', $out, 'and there is a way back');
     }
 
     private function render(array $query = []): string

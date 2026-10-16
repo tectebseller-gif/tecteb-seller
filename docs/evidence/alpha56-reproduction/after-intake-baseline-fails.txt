@@ -1,0 +1,11 @@
+probe=ran
+batch_code=intake_partly_done
+imported=0
+failed=1
+verdict=failed
+reason=intake_not_stored
+refused_statements=1
+row_exists=no
+row_id=0
+baseline=__empty__
+import_run=

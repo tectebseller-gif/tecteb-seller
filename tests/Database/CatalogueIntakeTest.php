@@ -13,16 +13,19 @@ use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
 use Tecteb\Marketplace\Modules\Migration\Application\CatalogueInventory;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportExistingProducts;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
+use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontField;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\DbVariationRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogueReader;
+use Tecteb\Marketplace\Tests\Support\FailingDatabase;
 
 /**
  * Bringing products the shop already has into the marketplace — on real
@@ -421,8 +424,402 @@ final class CatalogueIntakeTest extends DatabaseTestCase
         self::assertTrue($this->transfer()->take((int) $product?->id)->ok);
     }
 
-    private function service(?FakeCapabilityChecker $capabilities = null): ImportExistingProducts
+    // ===================== `alpha.56` §2-الف an intake is one unit of work
+
+    /**
+     * A PART THAT WOULD NOT STORE LEAVES NOTHING BEHIND.
+     *
+     * `alpha.55` wrote the row, then the baseline, the brand and the gallery,
+     * and answered `imported` whichever of the three failed — measured on its
+     * own bytes with the baseline write refused: `imported=1 failed=0
+     * reason=partly_written:baseline`, with an empty baseline on a row that
+     * stayed. The baseline is what the approval path compares against, so
+     * from that moment every field on that product read as somebody else's
+     * change, and no page said so.
+     */
+    public function testAnIntakeWhoseBaselineWillNotStoreWritesNothingAtAll(): void
     {
+        $failing = new FailingDatabase($this->db);
+        $failing->failWhen(['UPDATE', 'tmc_products', 'approved_baseline']);
+
+        $batch = $this->serviceOver($failing)->importBatch('intake-1', [self::WC_READY]);
+
+        self::assertSame(0, $batch['counts']['imported']);
+        self::assertSame(1, $batch['counts']['failed']);
+        self::assertSame('intake_not_stored', $batch['results'][0]['reason']);
+        self::assertSame('baseline', $batch['results'][0]['part']);
+        self::assertNull(
+            $this->products->findObservedByWcProduct(self::WC_READY),
+            'no half-written row survived the refusal'
+        );
+    }
+
+    /** And the next run can still take it: nothing was abandoned. */
+    public function testAProductWhoseIntakeFailedCanBeTakenOnTheNextRun(): void
+    {
+        $failing = new FailingDatabase($this->db);
+        $failing->failWhen(['UPDATE', 'tmc_products', 'approved_baseline']);
+        $this->serviceOver($failing)->importBatch('intake-1', [self::WC_READY]);
+
+        $batch = $this->intake->importBatch('intake-2', [self::WC_READY]);
+
+        self::assertSame(1, $batch['counts']['imported']);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        self::assertNotNull($product?->baseline, 'and the baseline is there this time');
+    }
+
+    /** Without a unit of work it refuses rather than writing the first half. */
+    public function testAnIntakeWithNoTransactionRefusesBeforeTheFirstWrite(): void
+    {
+        $batch = $this->service(null, false)->importBatch('intake-1', [self::WC_READY]);
+
+        self::assertSame('intake_no_transaction', $batch['results'][0]['reason']);
+        self::assertNull($this->products->findObservedByWcProduct(self::WC_READY));
+    }
+
+    /**
+     * A row an `alpha.55` intake left half written is NAMED and FINISHED.
+     *
+     * The state is made by hand because this tree cannot produce it any more
+     * — which is the point of the fix — and it is exactly the state an
+     * upgraded site can be carrying: an observed row with an import stamp and
+     * an empty baseline.
+     */
+    public function testAHalfWrittenIntakeIsListedAndCanBeRepaired(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        self::assertNotNull($this->db->execute(
+            'UPDATE `' . $this->wpdb->prefix . 'tmc_products` SET approved_baseline = %s WHERE id = %d',
+            ['', (int) $product?->id]
+        ));
+
+        $incomplete = $this->intake->incomplete();
+        self::assertCount(1, $incomplete);
+        self::assertSame((int) $product->id, $incomplete[0]['product_id']);
+        self::assertSame(['baseline'], $incomplete[0]['missing']);
+
+        $repaired = $this->intake->repair((int) $product->id);
+
+        self::assertTrue($repaired->ok, $repaired->code);
+        self::assertSame('intake_repaired', $repaired->code);
+        self::assertNotNull($this->products->find((int) $product->id)?->baseline);
+        self::assertSame([], $this->intake->incomplete(), 'and it is off the list');
+    }
+
+    /** A row the manager has accepted is not an intake's to repair. */
+    public function testAnAcceptedRowIsNotRepaired(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        $this->products->setLinkOwnership((int) $product?->id, LinkOwnership::Marketplace);
+
+        $result = $this->intake->repair((int) $product->id);
+
+        self::assertFalse($result->ok);
+        self::assertSame('intake_repair_not_observed', $result->code);
+    }
+
+    // ================== `alpha.56` §2-ب a rollback keeps what a retry needs
+
+    /**
+     * A DELETE THAT WOULD NOT RUN LEAVES THE STAMP AND THE MANIFEST.
+     *
+     * `alpha.55` cleared the import stamp on this path and deleted the run
+     * manifest, so both things a retry needs were gone: measured on its own
+     * bytes, `stamp_after=__empty__ manifest_after=__absent__`, and the next
+     * attempt answered `intake_run_unknown` about a row that was still there.
+     */
+    public function testARollbackWhoseDeleteFailsKeepsTheStampAndTheManifest(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        $failing = new FailingDatabase($this->db);
+        $failing->failWhen(['DELETE', 'tmc_products']);
+
+        $result = $this->serviceOver($failing)->rollback('intake-1');
+
+        self::assertFalse($result->ok);
+        self::assertStringContainsString(':not_removed:', (string) $result->context['kept']);
+        self::assertNotNull($this->products->find((int) $product?->id), 'the row is still there');
+        self::assertSame('intake-1', (string) $this->db->getVar(
+            'SELECT import_run_id FROM `' . $this->wpdb->prefix . 'tmc_products` WHERE id = %d',
+            [(int) $product->id]
+        ), 'and still stamped with its run');
+        self::assertArrayHasKey('intake-1', $this->intake->runs(), 'and the manifest is still there');
+
+        // And the retry, with nothing failing, finishes the job.
+        $again = $this->intake->rollback('intake-1');
+        self::assertTrue($again->ok, $again->code);
+        self::assertNull($this->products->find((int) $product->id));
+    }
+
+    /**
+     * A ROW EDITED SINCE THE INTAKE IS KEPT.
+     *
+     * «ویرایش جدید ... نباید با بازگشت از بین برود». The version the intake
+     * finished with is recorded, so «nobody has touched this» is an answer
+     * rather than an assumption.
+     */
+    public function testARollbackKeepsARowEditedSinceTheIntake(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        self::assertTrue($this->products->setBrandTerm((int) $product?->id, 'برند تازه', null));
+
+        $result = $this->intake->rollback('intake-1');
+
+        self::assertFalse($result->ok);
+        self::assertStringContainsString(':changed_since_intake', (string) $result->context['kept']);
+        self::assertNotNull($this->products->find((int) $product->id));
+        self::assertSame('برند تازه', $this->products->find((int) $product->id)?->details->brand);
+    }
+
+    /**
+     * A row with NO recorded version — every row an `alpha.55` intake made —
+     * is kept and named, and the explicit per-product discard is the way out.
+     */
+    public function testARowWithNoRecordedVersionIsKeptAndCanBeDiscarded(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        // The manifest shape `alpha.55` wrote: ids only.
+        $this->options->set('tmc_catalogue_intake_runs', [
+            'intake-1' => ['products' => [(int) $product?->id], 'at' => '2026-01-01 00:00:00'],
+        ]);
+
+        $result = $this->intake->rollback('intake-1');
+
+        self::assertFalse($result->ok);
+        self::assertStringContainsString(':version_unknown', (string) $result->context['kept']);
+        self::assertNotNull($this->products->find((int) $product->id));
+
+        $discarded = $this->intake->discard((int) $product->id, 'intake-1');
+
+        self::assertTrue($discarded->ok, $discarded->code);
+        self::assertNull($this->products->find((int) $product->id));
+    }
+
+    /** The discard still refuses the two cases no acknowledgement can cover. */
+    public function testADiscardRefusesAnAcceptedRow(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        $this->products->setLinkOwnership((int) $product?->id, LinkOwnership::Marketplace);
+
+        $result = $this->intake->discard((int) $product->id, 'intake-1');
+
+        self::assertFalse($result->ok);
+        self::assertSame('intake_discard_accepted', $result->code);
+        self::assertNotNull($this->products->find((int) $product->id));
+    }
+
+    /** Nothing of the row is left behind when it does go. */
+    public function testARollbackLeavesNoRowsOfTheRowBehind(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        $productId = (int) $product?->id;
+        self::assertTrue($this->intake->rollback('intake-1')->ok);
+
+        foreach (['tmc_product_images', 'tmc_product_specs', 'tmc_product_revisions'] as $table) {
+            self::assertSame(
+                '0',
+                (string) $this->db->getVar(
+                    'SELECT COUNT(*) FROM `' . $this->wpdb->prefix . $table . '` WHERE product_id = %d',
+                    [$productId]
+                ),
+                $table . ' kept a row of a product that is gone'
+            );
+        }
+    }
+
+    // ============== `alpha.56` §2-ج acceptance refuses a stale snapshot
+
+    /**
+     * THE SHOP MOVED BETWEEN THE INTAKE AND THE ACCEPTANCE.
+     *
+     * `alpha.55` accepted it and the next projection wrote the snapshot's
+     * price back over the manager's: measured on real WooCommerce, 480000
+     * before the acceptance and 450000 after the first sync. The risk
+     * acknowledgement could not have caught it — that list is about fields
+     * this marketplace has no shape for, not about a value that moved.
+     */
+    public function testAcceptanceIsRefusedWhenTheShopMovedSinceTheIntake(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        $this->reader->details[self::WC_READY]['regular_price'] = '480000';
+
+        $result = $this->transfer()->take((int) $product?->id);
+
+        self::assertFalse($result->ok);
+        self::assertSame('storefront_moved', $result->code);
+        self::assertStringContainsString('قیمت', (string) $result->context['fields']);
+        self::assertSame(
+            LinkOwnership::Observed,
+            $this->products->linkOwnership((int) $product->id),
+            'and it is still only observed'
+        );
+    }
+
+    /**
+     * The override has to carry the VALUE the page printed, not merely the
+     * name of the field (`alpha.49`) — and it carries it as the fingerprint
+     * `storefrontDrift()` handed the screen, so the two halves cannot compute
+     * it differently (`alpha.55`).
+     */
+    public function testAnOverrideMustCarryTheShopValueThePageShowed(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        $this->reader->details[self::WC_READY]['regular_price'] = '480000';
+        $transfer = $this->transfer();
+
+        // A tick about some other number — the shape of a form that was
+        // rendered when the price was 470000.
+        $blind = $transfer->take(
+            (int) $product?->id,
+            [],
+            ['price' => ImportExistingProducts::fingerprint('470000')]
+        );
+        self::assertSame('storefront_moved_again', $blind->code);
+        self::assertSame('480000', (string) $blind->context['now'], 'and it says what the shop holds');
+
+        $drift = $transfer->storefrontDrift((int) $product->id);
+        self::assertSame(
+            ImportExistingProducts::fingerprint('480000'),
+            (string) $drift['price']['fingerprint'],
+            'the screen is handed the exact string to carry back'
+        );
+
+        $seen = $transfer->take((int) $product->id, [], ['price' => $drift['price']['fingerprint']]);
+        self::assertTrue($seen->ok, $seen->code);
+    }
+
+    /** Or refresh, and then there is no drift left to acknowledge. */
+    public function testARefreshTakesTheSnapshotAgainAndThenAcceptanceWorks(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        $this->reader->details[self::WC_READY]['regular_price'] = '480000';
+        $transfer = $this->transfer();
+
+        $refreshed = $transfer->refreshFromStorefront((int) $product?->id);
+
+        self::assertTrue($refreshed->ok, $refreshed->code);
+        self::assertSame(480000, $this->products->find((int) $product->id)?->details->priceMinor);
+        self::assertSame([], $transfer->storefrontDrift((int) $product->id));
+        self::assertTrue($transfer->take((int) $product->id)->ok);
+    }
+
+    /**
+     * The control: with NOTHING changed, acceptance is untouched. A guard that
+     * stood in the way of the ordinary case would be worse than the defect.
+     */
+    public function testAcceptanceWithNoDriftIsUnchanged(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+
+        self::assertSame([], $this->transfer()->storefrontDrift((int) $product?->id));
+        self::assertTrue($this->transfer()->take((int) $product->id)->ok);
+    }
+
+    /** A read that failed is not «they agree» (`alpha.49`). */
+    public function testAcceptanceIsRefusedWhenTheShopCannotBeRead(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        unset($this->reader->details[self::WC_READY]);
+
+        $result = $this->transfer()->take((int) $product?->id);
+
+        self::assertFalse($result->ok);
+        self::assertSame('storefront_unreadable', $result->code);
+    }
+
+    /**
+     * A FOURTH FINDING, found while measuring the third: projecting an
+     * observed row DUPLICATED the product.
+     *
+     * `publish()` asks the projector «do you own this post?». An intake
+     * writes no ownership stamp on purpose, so the answer is no, so
+     * `alpha.55` dropped the link and built a NEW WooCommerce product and
+     * pointed the row at it. Measured on real WooCommerce while fixing the
+     * stale snapshot: the row stopped pointing at the product it was
+     * observing and the catalogue gained one nobody asked for.
+     *
+     * An observed row is a note in a ledger. Nothing in this class may write
+     * to the shop on its behalf.
+     */
+    public function testProjectingAnObservedRowIsRefusedAndMakesNoProduct(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        $projector = new FakeCatalogProjector();
+        $sync = new SyncCatalog(
+            $this->products,
+            new DbVariationRepository($this->db, new SystemClock()),
+            $projector,
+            $this->audit()
+        );
+
+        $result = $sync->publish((int) $product?->id);
+
+        self::assertFalse($result->ok);
+        self::assertSame('not_our_product', $result->code);
+        self::assertSame(LinkOwnership::Observed->value, $result->context['ownership']);
+        self::assertSame(
+            self::WC_READY,
+            (int) ($this->products->find((int) $product->id)?->wcProductId ?? 0),
+            'and the row still points at the product it was observing'
+        );
+    }
+
+    /** The same for the other verbs that write to somebody else's product. */
+    public function testTheOtherStorefrontWritersRefuseAnObservedRow(): void
+    {
+        $this->intake->importBatch('intake-1', [self::WC_READY]);
+        $product = $this->products->findObservedByWcProduct(self::WC_READY);
+        $sync = new SyncCatalog(
+            $this->products,
+            new DbVariationRepository($this->db, new SystemClock()),
+            new FakeCatalogProjector(),
+            $this->audit()
+        );
+        $productId = (int) $product?->id;
+
+        self::assertSame('not_our_product', $sync->prepare($productId)->code);
+        self::assertSame('not_our_product', $sync->withdraw($productId)->code);
+        self::assertSame('not_our_product', $sync->pushQuantities($productId)->code);
+        self::assertFalse($sync->pushStock($productId, 5));
+        self::assertFalse($sync->applySlug($productId, 'anything'));
+    }
+
+    private function serviceOver(FailingDatabase $gateway): ImportExistingProducts
+    {
+        return new ImportExistingProducts(
+            $this->reader,
+            new CatalogueInventory($this->reader),
+            new DbProductRepository($gateway, new SystemClock()),
+            $this->vendors,
+            $this->options,
+            $this->audit(),
+            new SystemClock(),
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR]),
+            $this->revisions,
+            // The transaction is the real gateway and the statements go
+            // through the wrapper: two objects, ONE connection, so a refused
+            // part really does undo its siblings.
+            $this->db
+        );
+    }
+
+    private function service(
+        ?FakeCapabilityChecker $capabilities = null,
+        bool $withTransaction = true
+    ): ImportExistingProducts {
         return new ImportExistingProducts(
             $this->reader,
             new CatalogueInventory($this->reader),
@@ -432,7 +829,13 @@ final class CatalogueIntakeTest extends DatabaseTestCase
             $this->audit(),
             new SystemClock(),
             $capabilities ?? new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR]),
-            $this->revisions
+            $this->revisions,
+            // The real gateway, because an intake is one unit of work from
+            // `alpha.56` and refuses without one. `WpDatabase` is both the
+            // `DatabaseInterface` the repository writes through and the
+            // `TransactionInterface` the service opens, so the rollback a
+            // refused part triggers really does undo the row.
+            $withTransaction ? $this->db : null
         );
     }
 
@@ -444,7 +847,11 @@ final class CatalogueIntakeTest extends DatabaseTestCase
             $this->audit(),
             new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR]),
             null,
-            $this->reader
+            $this->reader,
+            // So acceptance can ask whether the snapshot is still true — the
+            // `alpha.56` guard. The same intake service, so the page, the
+            // guard and the refresh all get ONE answer.
+            $this->service()
         );
     }
 

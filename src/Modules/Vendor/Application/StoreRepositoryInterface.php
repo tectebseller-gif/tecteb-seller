@@ -24,6 +24,30 @@ interface StoreRepositoryInterface
     public function save(int $vendorUserId, StoreSettings $settings, ?array $fields = null): bool;
 
     /** Renaming goes through the manager, so this is called only on approval. */
+    /**
+     * Shops whose name matches what somebody typed.
+     *
+     * **Because a manager knows a shop by its name, not by a user id.** The
+     * intake form asked for «شناسهٔ کاربر» until this round, which is a number
+     * nobody has at hand and the wrong number is somebody else's catalogue.
+     * The instruction is explicit: «انتخاب فروشنده با جست‌وجوی نام فروشگاه
+     * باشد، نه نیاز به دانستن شناسهٔ کاربر».
+     *
+     * All three places a shop can be named are searched, because they answer
+     * at different points in a shop's life: the settings row (an approved shop
+     * that has saved its settings), the application (a shop still in review,
+     * which has a name nowhere else) and the profile (a shop that arrived
+     * through an import and never filled a form). A shop named in more than
+     * one is returned ONCE, with the settings name preferred — the same
+     * precedence the review list already uses for its «فروشگاه» column.
+     *
+     * Bounded by `$limit`, and the bound is the point: a term that matches
+     * three hundred shops is not a choice, it is a different search.
+     *
+     * @return list<array{vendor_user_id:int, store_name:string, source:string}>
+     */
+    public function searchByShopName(string $term, int $limit = 20): array;
+
     public function renameStore(int $vendorUserId, string $storeName): bool;
 
     /**

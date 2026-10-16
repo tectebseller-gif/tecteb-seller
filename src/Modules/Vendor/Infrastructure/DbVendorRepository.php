@@ -35,6 +35,37 @@ final class DbVendorRepository implements VendorRepositoryInterface
         return $row === null ? null : $this->hydrate($row);
     }
 
+    public function profileStatusesFor(array $userIds): array
+    {
+        $ids = array_values(array_unique(array_filter(
+            array_map('intval', $userIds),
+            static fn (int $id): bool => $id > 0
+        )));
+        if ($ids === []) {
+            return [];
+        }
+        $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
+        $out = [];
+        // The application first, then the profile, and the profile only fills
+        // a gap: an approved shop has both, and the application is the one
+        // that carries a STATUS. The order is the same precedence
+        // `vendorSignals()` uses one user at a time, so the batched answer and
+        // the single one cannot differ.
+        foreach ($this->db->getResults(
+            'SELECT user_id, status FROM `' . $this->applications() . '` WHERE user_id IN (' . $placeholders . ')',
+            $ids
+        ) as $row) {
+            $out[(int) $row['user_id']] = (string) $row['status'];
+        }
+        foreach ($this->db->getResults(
+            'SELECT user_id FROM `' . $this->profiles() . '` WHERE user_id IN (' . $placeholders . ')',
+            $ids
+        ) as $row) {
+            $out[(int) $row['user_id']] ??= 'profile_without_application';
+        }
+        return $out;
+    }
+
     public function findApplication(int $applicationId): ?VendorApplication
     {
         $row = $this->db->getRow('SELECT * FROM `' . $this->applications() . '` WHERE id = %d', [$applicationId]);
