@@ -12,6 +12,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007Settlement
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\ReturnStatus;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0008ShipmentsAndReturns as ReturnTables;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0029SupplierPayments as SupplierTables;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as OrderTables;
 
 /**
@@ -35,6 +36,13 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAnd
  */
 final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
 {
+    /**
+     * The `WHERE` fragment that excludes a line a manual supplier payment
+     * covers, asked once per request. `null` means «not asked yet»; `''` means
+     * «asked, and the table is definitely not there».
+     */
+    private ?string $supplierClaimClause = null;
+
     public function __construct(
         private readonly DatabaseInterface $db,
         private readonly ClockInterface $clock
@@ -209,6 +217,23 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         //
         // All of it inside the transaction and inside the write: «یک SELECT
         // دیگر خارج از تراکنش کافی نیست», and a read is not a lock.
+        // …and one more, added this round: no manual supplier payment already
+        // covers the line. The withdrawal cycle and `RecordSupplierPayment`
+        // are two paths to settling ONE obligation, and until now neither
+        // could see the other's claim — measured on `alpha.60`, where a line
+        // paid by hand was still `eligible` and this statement claimed it
+        // (`reserve_result=6`). `VendorBalance` now leaves such a line out,
+        // but a balance read is not a lock: the payment can land between that
+        // read and this write, so the condition belongs HERE.
+        $supplierClaim = $this->supplierPaymentClause();
+        if ($supplierClaim === null) {
+            // The question could not be answered. Refusing a withdrawal is
+            // recoverable and paying twice is not, so the conservative
+            // direction is never «more» (`alpha.46`).
+            $this->db->rollback();
+            return 0;
+        }
+
         $claimed = $this->db->execute(
             'UPDATE `' . $this->orderItems() . '` SET withdrawal_id = %d, updated_at = %s
              WHERE id IN (' . $this->placeholders($ids) . ')
@@ -222,7 +247,7 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
                      SELECT 1 FROM `' . $this->returns() . '` tmc_r
                       WHERE tmc_r.order_item_id = `' . $this->orderItems() . '`.id
                         AND tmc_r.status IN (' . self::reservingReturnStatuses() . ')
-                   )',
+                   )' . $supplierClaim,
             array_merge(
                 [$withdrawalId, $now],
                 $ids,
@@ -475,6 +500,45 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
             }
         }
         return implode(', ', $quoted);
+    }
+
+    /**
+     * The `WHERE` fragment that keeps this claim off a line a manual supplier
+     * payment already covers — or `null` when that cannot be determined.
+     *
+     * THREE answers, not two (`alpha.49`). The table arrives with migration
+     * 29, and on a site whose schema has not reached it there can be no
+     * supplier payment at all, so «absent» is a definite answer and the
+     * fragment is empty — a clause naming a missing table would fail the
+     * statement and stop every withdrawal on exactly the sites that have no
+     * reason to be stopped. «Unknown» is not the same thing and is not
+     * treated as absent: the caller refuses.
+     *
+     * Asked from the structure rather than from the recorded schema number,
+     * because «شمارهٔ ساختار به‌تنهایی کافی نیست» (`alpha.48`), and memoised per
+     * request so a batch of reservations costs one question.
+     */
+    private function supplierPaymentClause(): ?string
+    {
+        if ($this->supplierClaimClause === null) {
+            $table = SupplierTables::table($this->db, SupplierTables::PAYMENT_ITEMS);
+            $found = $this->db->getVar(
+                'SELECT COUNT(*) FROM information_schema.TABLES
+                  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+                [$table]
+            );
+            if ($found === null) {
+                return null;            // not memoised: a failed read is not an answer
+            }
+            $this->supplierClaimClause = (int) $found > 0
+                ? '
+               AND NOT EXISTS (
+                     SELECT 1 FROM `' . $table . '` tmc_sp
+                      WHERE tmc_sp.order_item_id = `' . $this->orderItems() . '`.id
+                   )'
+                : '';
+        }
+        return $this->supplierClaimClause;
     }
 
     private function returns(): string

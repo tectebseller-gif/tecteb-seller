@@ -1,0 +1,77 @@
+# AFTER — §2/§3 on the delivered alpha.61 ZIP
+## reset+arrange, then withdraw-and-pay
+share_a=900000
+share_b=__null__
+share_c=450000
+unit=IRR/0
+probe=ran
+withdrawal=15
+withdrawal_status=paid
+item_withdrawal_id=15
+manual_code=supplier_item_held_by_withdrawal
+manual_ok=no
+manual_context=order_item_id:57|withdrawal_id:15|withdrawal_paid:1
+payment_rows_for_item=0
+
+## reset+arrange, then reserve-and-pay
+share_a=900000
+share_b=__null__
+share_c=450000
+unit=IRR/0
+probe=ran
+withdrawal=16
+withdrawal_status=requested
+item_withdrawal_id=16
+manual_code=supplier_item_held_by_withdrawal
+manual_ok=no
+manual_context=order_item_id:60|withdrawal_id:16|withdrawal_paid:0
+payment_rows_for_item=0
+
+## reset+arrange, then pay-then-withdraw
+share_a=900000
+share_b=__null__
+share_c=450000
+unit=IRR/0
+probe=ran
+manual_code=supplier_payment_recorded
+manual_payment_id=3
+manual_posting=posted
+balance_eligible=900000
+balance_paid=450000
+balance_eligible_has_c=no
+reserve_result=0
+item_withdrawal_id=__null__
+
+## reset+arrange, then pay-null-share
+share_a=900000
+share_b=__null__
+share_c=450000
+unit=IRR/0
+probe=ran
+share_a=900000
+share_b=__null__
+code=supplier_payment_recorded_share_unknown
+ok=yes
+payment_id=4
+share_minor_recorded=900000
+ledger_event=__none__
+db_posting=share_unknown
+db_ledger_event=__none__
+ledger_lines=0
+item_shares_stored=66:900000|67:__null__
+
+## pay-concurrent (two processes, one line)
+probe=ran
+child_holding=yes
+WordPress database error Lock wait timeout exceeded; try restarting transaction for query INSERT IGNORE INTO `wp_tmc_supplier_payment_items`
+                 (payment_id, order_item_id, supplier_user_id, share_minor, created_at)
+                 SELECT 5, oi.id, 9611, 900000, '2026-10-16 19:11:12'
+                   FROM `wp_tmc_order_items` oi
+                  WHERE oi.id = 69
+                    AND oi.vendor_user_id = 9611
+                    AND oi.withdrawal_id IS NULL made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Finance\Application\RecordSupplierPayment->record, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbSupplierPaymentRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+waited_ms=50012
+code=storage_failed
+ok=no
+child=actor=ran|holding=69|released=69
+payment_rows_for_item=0

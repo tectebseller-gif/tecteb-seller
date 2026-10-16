@@ -190,6 +190,22 @@ final class FailingDatabase implements DatabaseInterface
 
     private bool $noTransactions = false;
 
+    /**
+     * Make `rollback()` answer `false` without rolling anything back.
+     *
+     * A rollback can fail, and when it does the half-write is still on disk —
+     * so a caller that reports «the previous value is back» because it CALLED
+     * rollback is making a claim it has not checked. `alpha.31` paid for the
+     * same lesson about restore paths; this is the switch that proves it for
+     * the commission pair.
+     */
+    public function failRollback(): void
+    {
+        $this->noRollback = true;
+    }
+
+    private bool $noRollback = false;
+
     public function begin(): bool
     {
         return $this->noTransactions ? false : $this->inner->begin();
@@ -202,6 +218,12 @@ final class FailingDatabase implements DatabaseInterface
 
     public function rollback(): bool
     {
+        if ($this->noRollback) {
+            // The transaction is COMMITTED instead, so what is on disk is the
+            // half-write — which is what a failed rollback really leaves.
+            $this->inner->commit();
+            return false;
+        }
         return $this->inner->rollback();
     }
 

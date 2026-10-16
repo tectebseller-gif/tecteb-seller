@@ -99,20 +99,25 @@ mkdir -p "${BUNDLE}/tools"
         cp "$f" "${BUNDLE}/tools/$f"
       done )
 
-# --- 4. the documents a reviewer needs next to the transcripts --------------
+# --- 4. the documents, ALL of them, not a hand-picked list ------------------
+#
+# «آرشیوی که از دایرکتوری‌های دست‌چین ساخته شود، روزی ناقص تحویل می‌رود و از
+# بیرون دیده نمی‌شود» — the rule `alpha.43` paid for when section 2 shipped 49
+# of 505 source files under the title «سورس کامل». Section 4 kept the habit
+# for one more year's worth of rounds, and it cost exactly what the rule says:
+# the owner found that `docs/open-decisions-alpha57.md`, which the delivery
+# note and the staging checklist both point at, was in none of the four
+# reviewable archives of `alpha.57`–`alpha.60`. It was never excluded on
+# purpose; it simply was not on the list.
+#
+# So the list is gone. Every document at the top of `docs/` travels — 106
+# files, 2.6 MB of Markdown, which compresses to a fraction of one screenshot
+# — plus the ADRs. `docs/generated/` stays out: it is a mechanical rendering
+# of the two reference DOCX files, and `docs/reference-checksums.txt` (which
+# DOES travel) is how a reader checks those.
 mkdir -p "${BUNDLE}/docs"
-# The delivery note for THIS release travels with it: a reader holding the
-# transcripts should not have to go and find what they were supposed to show.
-# `upgrade-and-rollback.md` is here IN FULL for the same reason — the previous
-# bundle referred to it and did not carry it.
-LATEST_NOTE="$(ls -1 docs/phase-*.md | sed 's/.*phase-\([0-9]*\)-.*/\1 &/' | sort -n | tail -1 | cut -d' ' -f2)"
-LATEST_CHECKLIST="$(ls -1 docs/staging-checklist-*.md 2>/dev/null | sort -V | tail -1)"
-for d in docs/evidence-manifest.txt docs/owner-guide-fa.md docs/acceptance-walkthrough-fa.md \
-         docs/feature-inventory.md docs/open-decisions.md docs/upgrade-and-rollback.md \
-         docs/compatibility-matrix.md docs/decision-log.md docs/staging-test-checklist-fa.md \
-         "${LATEST_NOTE}" "${LATEST_CHECKLIST}"; do
-  [ -f "$d" ] && cp "$d" "${BUNDLE}/docs/"
-done
+find docs -maxdepth 1 -type f \( -name '*.md' -o -name '*.txt' \) -print0 \
+  | while IFS= read -r -d '' d; do cp "$d" "${BUNDLE}/docs/"; done
 [ -d docs/adr ] && cp -r docs/adr "${BUNDLE}/docs/adr"
 [ -f CLAUDE.md ] && cp CLAUDE.md "${BUNDLE}/"
 

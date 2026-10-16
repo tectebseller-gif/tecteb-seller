@@ -75,6 +75,15 @@ final class CommissionMetaKeyCollationTest extends DatabaseTestCase
         self::assertSame('1', $this->collationSays(self::FULLWIDTH_T, 'fullwidth'), 'a full-width letter folds to its ASCII form');
         self::assertSame('0', $this->collationSays('', 'no_underscore'));
         self::assertSame('0', $this->collationSays('', 'hyphens'));
+        // A LEADING space is not ignorable — only a trailing one is, because
+        // the collation is PAD SPACE. So ` _tmc_commission_value` really is a
+        // different key, and the guard that asks the database lets an
+        // unprivileged actor write it. That is the COST of asking instead of
+        // guessing, and it is measured here rather than argued: the key is
+        // not one anything of ours reads, and refusing every unusual key was
+        // the wrong fix (`alpha.60`: one real variation key out of 972 rows
+        // would have been refused with it).
+        self::assertSame('0', $this->collationSays('', 'leading_space'));
     }
 
     /** And so the guard refuses them, for an actor who may not write ours. */
@@ -131,6 +140,7 @@ final class CommissionMetaKeyCollationTest extends DatabaseTestCase
             'fullwidth' => '_' . self::FULLWIDTH_T . 'MC_COMMISSION_TYPE',
             'no_underscore' => '_tmccommission_type',
             'hyphens' => '-tmc-commission-type',
+            'leading_space' => ' _tmc_commission_type',
         };
 
         return (string) $wpdb->get_var($wpdb->prepare(

@@ -119,6 +119,7 @@ final class SupplierPaymentsPage
             . '<th scope="col">' . esc_html__('تاریخ', 'tecteb-marketplace-core') . '</th>'
             . '<th scope="col">' . esc_html__('مبلغ پرداخت‌شده', 'tecteb-marketplace-core') . '</th>'
             . '<th scope="col">' . esc_html__('سهم ثبت‌شدهٔ اقلام', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('چرا ثبت نشده', 'tecteb-marketplace-core') . '</th>'
             . '<th scope="col">' . esc_html__('قلم‌ها', 'tecteb-marketplace-core') . '</th>'
             . '<th scope="col">' . esc_html__('شمارهٔ پیگیری', 'tecteb-marketplace-core') . '</th>'
             . '</tr></thead><tbody>';
@@ -127,8 +128,21 @@ final class SupplierPaymentsPage
                 . '<td>' . esc_html($fa($row->paidOn)) . '</td>'
                 . '<td>' . esc_html($fa((string) DecimalAmount::toDecimal($row->amount->minor, $row->amount->exponent)))
                 . ' ' . esc_html($row->amount->currency) . '</td>'
-                . '<td>' . esc_html($fa((string) DecimalAmount::toDecimal($row->share->minor, $row->share->exponent)))
-                . ' ' . esc_html($row->share->currency) . '</td>'
+                // «نامعلوم» rather than the arithmetic of the known items: a
+                // sum that leaves an item out is not this payment's share, and
+                // printing it under that heading is how `alpha.60` came to
+                // declare a match (§3).
+                . '<td>' . ($row->shareIsKnown()
+                    ? esc_html($fa((string) DecimalAmount::toDecimal($row->share->minor, $row->share->exponent))
+                        . ' ' . $row->share->currency)
+                    : esc_html__('نامعلوم', 'tecteb-marketplace-core')) . '</td>'
+                . '<td>' . esc_html($row->shareIsKnown()
+                    ? __('مبلغ پرداختی با سهم ثبت‌شده فرق دارد.', 'tecteb-marketplace-core')
+                    : sprintf(
+                        /* translators: %s: the order items whose share is not recorded */
+                        __('سهم قلم %s ثبت نشده، پس مقایسه‌ای انجام نشد.', 'tecteb-marketplace-core'),
+                        $fa(implode('، ', array_map('strval', $row->unknownShareItemIds)))
+                    )) . '</td>'
                 . '<td>' . esc_html($fa(implode('، ', array_map('strval', $row->orderItemIds)))) . '</td>'
                 . '<td>' . Components::code($row->reference) . '</td></tr>';
         }

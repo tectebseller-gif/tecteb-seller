@@ -15,6 +15,7 @@ use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
 use Tecteb\Marketplace\Modules\Finance\Domain\Money;
 use Tecteb\Marketplace\Modules\Finance\Domain\SupplierPayment;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0029SupplierPayments as T;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0030SupplierPaymentShareUnknown as U;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 
 /**
@@ -63,6 +64,16 @@ final class RecordSupplierPayment
 
     public const RECORDED = 'supplier_payment_recorded';
     public const RECORDED_UNPOSTED = 'supplier_payment_recorded_unposted';
+    /**
+     * Recorded, and the comparison with the computed share COULD NOT BE MADE
+     * because at least one item's share is not on record.
+     *
+     * A third answer rather than a shade of the second: `RECORDED_UNPOSTED`
+     * means both numbers were known and differed — the owner's open question —
+     * and this one means there was no second number to compare with. Telling
+     * them apart is the whole of §3.
+     */
+    public const RECORDED_SHARE_UNKNOWN = 'supplier_payment_recorded_share_unknown';
 
     public const FORBIDDEN = 'forbidden';
     public const NO_ITEMS = 'supplier_payment_no_items';
@@ -73,6 +84,17 @@ final class RecordSupplierPayment
     public const WRONG_SUPPLIER = 'supplier_items_not_theirs';
     public const ITEM_UNKNOWN = 'supplier_item_unknown';
     public const ITEM_ALREADY_PAID = 'supplier_item_already_paid';
+    /**
+     * The item is claimed by the vendor's own withdrawal cycle.
+     *
+     * Reserved in an open request, in payment, or kept by a paid one — a paid
+     * request holds its lines for ever as the record of what it covered. The
+     * refusal names the item and the request so the manager can look at the
+     * one that already exists; it never releases anything, because releasing
+     * somebody's reservation to make room for a payment is a decision, not a
+     * repair («رزرو را خودکار آزاد نکن»).
+     */
+    public const ITEM_HELD_BY_WITHDRAWAL = 'supplier_item_held_by_withdrawal';
     public const ALREADY_RECORDED = 'supplier_payment_already_recorded';
     public const NOT_ATOMIC = 'supplier_payment_not_atomic';
     public const STORAGE_FAILED = 'storage_failed';
@@ -164,12 +186,28 @@ final class RecordSupplierPayment
             return OperationResult::failure(self::ALREADY_RECORDED, ['payment_id' => $sameSubmission->id]);
         }
 
-        // THE ITEMS, each checked and each already paid or not. Read before
-        // anything is written so the refusal can name the item, and checked
-        // for OWNER as well as existence: an item of another supplier in this
-        // list would make one supplier's payment cover another's sale.
+        // THE ITEMS, each checked against both paths that can already have
+        // settled it. Read before anything is written so the refusal can name
+        // the item and point at what holds it — the guard itself is inside the
+        // write, in `record()`, because the two paths are two requests.
+        // Checked for OWNER as well as existence: an item of another supplier
+        // in this list would make one supplier's payment cover another's sale.
         // «سفارش چندتأمین‌کننده‌ای اقلام و دسترسی جدا دارد.»
+        //
+        // One read for the whole set, because `settlementView()` is the one
+        // place the three facts a settlement reasons about are read together —
+        // the same view `VendorBalance` uses, so the two cannot disagree about
+        // whether a line is claimed.
+        $claims = [];
+        foreach ($this->items->settlementView($supplierUserId) as $line) {
+            $claims[(int) $line['id']] = $line;
+        }
+
         $shareMinor = 0;
+        /** @var array<int,?int> $shares */
+        $shares = [];
+        /** @var list<int> $unknown */
+        $unknown = [];
         foreach ($ids as $itemId) {
             $item = $this->items->find($itemId);
             if ($item === null) {
@@ -186,21 +224,56 @@ final class RecordSupplierPayment
                 return OperationResult::failure(self::ITEM_ALREADY_PAID, [
                     'order_item_id' => $itemId,
                     'payment_id' => $already->id,
+                    'paid_on' => $already->paidOn,
+                    'reference' => $already->reference,
                 ]);
             }
-            // A line with no recorded share contributes NOTHING rather than
-            // nought: `null` means the sale recorded no money (an unreadable
-            // unit, a refused ledger write, a commission bigger than the line)
-            // and it is a real state. The comparison below then differs, which
-            // is the honest answer — not a match with a share of zero.
-            $shareMinor += (int) ($item->vendorShareMinor ?? 0);
+            $heldBy = (int) ($claims[$itemId]['withdrawal_id'] ?? 0);
+            if ($heldBy > 0) {
+                // ONE OBLIGATION, ONE SETTLEMENT. The vendor's own cycle has
+                // this line — reserved, in payment, or paid — and recording a
+                // purchase for it as well would settle the same sale twice
+                // from two paths. Nothing is released and nothing is erased;
+                // the manager is told which request to look at.
+                return OperationResult::failure(self::ITEM_HELD_BY_WITHDRAWAL, [
+                    'order_item_id' => $itemId,
+                    'withdrawal_id' => $heldBy,
+                    'withdrawal_paid' => ($claims[$itemId]['paid'] ?? false) ? 1 : 0,
+                ]);
+            }
+            // AN UNKNOWN SHARE IS NOT A SHARE OF NOUGHT. `null` means this sale
+            // recorded no money — an unreadable unit, a refused ledger write, a
+            // commission bigger than the line — and `incompleteCaptures()`
+            // lists exactly these. `alpha.60` added `(int) (null ?? 0)` into
+            // the sum and then compared, so one unknown item hid inside the
+            // arithmetic of the rest: measured, a payment equal to the FIRST
+            // item's share alone was declared to settle both and posted.
+            //
+            // `isRecorded()` is the bar, and it is the domain's own: a share
+            // AND the ledger event it was written under. A figure sitting in a
+            // row with no money on the books is not a number this service may
+            // declare a match against.
+            if (!$item->isRecorded()) {
+                $unknown[] = $itemId;
+                $shares[$itemId] = null;
+                continue;
+            }
+            $shares[$itemId] = (int) $item->vendorShareMinor;
+            $shareMinor += (int) $item->vendorShareMinor;
         }
 
         $paid = Money::of($minor, $currency, $exponent);
+        // The share carried on the row is the sum of the KNOWN items, which is
+        // a true statement about those items and not a total; `posting` is
+        // what says whether it may be read as one.
         $share = Money::of($shareMinor, $currency, $exponent);
-        $posting = $paid->minor === $share->minor
-            ? T::POSTING_POSTED
-            : T::POSTING_NEEDS_DEFINITION;
+        $posting = match (true) {
+            // The comparison could not be made at all. Not a difference — an
+            // absence — and never posted, whatever the arithmetic says.
+            $unknown !== [] => U::POSTING_SHARE_UNKNOWN,
+            $paid->minor === $share->minor => T::POSTING_POSTED,
+            default => T::POSTING_NEEDS_DEFINITION,
+        };
 
         if ($this->tx === null) {
             // A build that cannot make the record and its money line one unit
@@ -225,10 +298,14 @@ final class RecordSupplierPayment
             (int) $this->capabilities->currentUserId(),
             $key,
             '',
-            T::POSTING_NEEDS_DEFINITION,
+            // Written UNPOSTED whatever the comparison said, and moved to
+            // `posted` only once the money line is really in the ledger:
+            // `markPosted()` is guarded on this state, so a row that says
+            // «posted» with no entry behind it cannot exist (FIN-03).
+            $posting === T::POSTING_POSTED ? T::POSTING_NEEDS_DEFINITION : $posting,
             ''
         );
-        $written = $this->payments->record($record, $ids);
+        $written = $this->payments->record($record, $shares);
         if ($written['outcome'] !== SupplierPaymentRepositoryInterface::RECORDED) {
             $this->tx->rollback();
             return match ($written['outcome']) {
@@ -239,6 +316,15 @@ final class RecordSupplierPayment
                 SupplierPaymentRepositoryInterface::ITEM_ALREADY_PAID => OperationResult::failure(
                     self::ITEM_ALREADY_PAID,
                     ['order_item_id' => $written['conflicting_item']]
+                ),
+                // The claim the STATEMENT refused — the race the read above
+                // cannot see, because the withdrawal landed after it.
+                SupplierPaymentRepositoryInterface::ITEM_HELD_BY_WITHDRAWAL => OperationResult::failure(
+                    self::ITEM_HELD_BY_WITHDRAWAL,
+                    [
+                        'order_item_id' => $written['conflicting_item'],
+                        'withdrawal_id' => $written['conflicting_withdrawal'] ?? 0,
+                    ]
                 ),
                 default => OperationResult::failure(self::STORAGE_FAILED),
             };
@@ -268,16 +354,25 @@ final class RecordSupplierPayment
             'share_minor' => $share->minor,
             'items' => count($ids),
             'posting' => $posting,
+            'unknown_share_items' => count($unknown),
             'has_receipt' => $receiptPath !== '' ? 1 : 0,
         ]);
 
         return OperationResult::success(
-            $posting === T::POSTING_POSTED ? self::RECORDED : self::RECORDED_UNPOSTED,
+            match ($posting) {
+                T::POSTING_POSTED => self::RECORDED,
+                U::POSTING_SHARE_UNKNOWN => self::RECORDED_SHARE_UNKNOWN,
+                default => self::RECORDED_UNPOSTED,
+            },
             [
                 'payment_id' => $paymentId,
                 'amount_minor' => $paid->minor,
                 'share_minor' => $share->minor,
                 'ledger_event' => $event,
+                // The items whose share was not on record, BY NUMBER, because
+                // «۱۲ قلم، یکی‌شان نامعلوم» is not something a person can act
+                // on. Stored too, as `NULL` on each item's own row.
+                'unknown_share_items' => $unknown,
             ]
         );
     }

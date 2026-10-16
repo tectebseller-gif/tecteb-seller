@@ -1,0 +1,204 @@
+new package: 0.1.0-alpha.61 (target schema 30) · STRUCTURAL this round
+pages: tmc-supplier-payments · tmc-product-review
+ok:   the admin session really opened                                200
+
+================================================================
+=== 0.1.0-alpha.60 (schema 29) -> 0.1.0-alpha.61 (schema 30)
+================================================================
+ok:   0 the packages differ by as many steps as schema numbers       1
+ok:   0b and the gap is at least one, so this upgrade is structural  yes
+ok:   1 the install is 0.1.0-alpha.60                                0.1.0-alpha.60
+ok:   1b and an admin request answers on the old build               200
+ok:   1c leaving the old build on schema 29                          29
+ok:   1d with nothing recorded as failed                             
+  wc=446 line=49 line_noshare=50 vendor=9606 share=450000 share_noshare=__null__ line_third=51 line_fourth=52 
+ok:   2 the old build recorded the sale's share                      450000
+  before: wc_id=446 url=http://127.0.0.1:8081/product/%da%a9%d8%a7%d9%84%d8%a7%db%8c-%d8%a7%d8%b1%d8%aa%d9%82%d8%a7%db%8c-%db%b6%db%b1/ status=publish author=1 price=500000 stock=12 line_id=49 line_base=500000 line_commission=50000 line_share=450000 line_event=order:96061 identity=102385ee83933245c156fcc2706bf0d2ff846a98f719e9f3fef831bda23d6f71 
+ok:   2b the old build already has the commission panel              
+ok:   2c and the payments table                                      present
+ok:   2d but its item share cannot be NULL yet — this round's one step no
+ok:   2e the site is still on 29 with the window drained             29
+ok:   3 the files are now 0.1.0-alpha.61                             0.1.0-alpha.61
+ok:   3b and replacing files alone ran NO step                       29
+ok:   3c the first admin request answers                             200
+ok:   3d and the gate has taken the schema to 30                     30
+ok:   3e with nothing recorded as failed                             
+  tmc_supplier_payments=present tmc_supplier_payments_unique_over_idempotency_key=yes tmc_supplier_payment_items=present tmc_supplier_payment_items_unique_over_order_item_id=yes share_minor_nullable=yes 
+ok:   3f the payments table is on disk                               present
+ok:   3g with a unique key over its idempotency key                  yes
+ok:   3h the items table is on disk                                  present
+ok:   3i with a unique key over the order item                       yes
+ok:   3j and the item share really takes NULL now                    yes
+  after:  wc_id=446 url=http://127.0.0.1:8081/product/%da%a9%d8%a7%d9%84%d8%a7%db%8c-%d8%a7%d8%b1%d8%aa%d9%82%d8%a7%db%8c-%db%b6%db%b1/ status=publish author=1 price=500000 stock=12 line_id=49 line_base=500000 line_commission=50000 line_share=450000 line_event=order:96061 identity=102385ee83933245c156fcc2706bf0d2ff846a98f719e9f3fef831bda23d6f71 
+ok:   4 every field of the product and its order line is identical   102385ee83933245c156fcc2706bf0d2ff846a98f719e9f3fef831bda23d6f71
+ok:   4-wc_id unchanged                                              446
+ok:   4-url unchanged                                                http://127.0.0.1:8081/product/%da%a9%d8%a7%d9%84%d8%a7%db%8c-%d8%a7%d8%b1%d8%aa%d9%82%d8%a7%db%8c-%db%b6%db%b1/
+ok:   4-status unchanged                                             publish
+ok:   4-author unchanged                                             1
+ok:   4-price unchanged                                              500000
+ok:   4-stock unchanged                                              12
+ok:   4-line_id unchanged                                            49
+ok:   4-line_base unchanged                                          500000
+ok:   4-line_commission unchanged                                    50000
+ok:   4-line_share unchanged                                         450000
+ok:   4-line_event unchanged                                         order:96061
+ok:   5 the supplier payments page answers                           200
+ok:   5b and says what it is                                         yes
+ok:   5c and promises no transfer happens                            yes
+ok:   5d with exactly one submit button on it                        1
+ok:   5e the one product list still answers                          200
+ok:   5f with no active filter named when none is on                 no
+ok:   5g and names the active one when there is one                  yes
+ok:   5h the commission tab is on the product editor                 200
+ok:   5i and says so by name                                         yes
+  type=percent value=12.50 from=product 
+ok:   6 a percentage saves through the panel's own nonce             percent
+ok:   6b and comes back as the manager's own number                  12.50
+ok:   6c from the product rather than inherited                      product
+ok:   6d an impossible value writes nothing and the earlier rule stands 12.50
+ok:   6e and the order recorded earlier has not moved                102385ee83933245c156fcc2706bf0d2ff846a98f719e9f3fef831bda23d6f71
+  ok=yes code=supplier_payment_recorded payment=3 
+ok:   7 the payment is recorded                                      yes
+ok:   7b and matched the recorded share, so it posted                supplier_payment_recorded
+ok:   7c the same submission again is refused                        no
+ok:   7d by name                                                     supplier_payment_already_recorded
+  awaiting=0 rows=1 payout_lines=2 
+ok:   7e and there is ONE payment row                                1
+ok:   7f with exactly one payout line behind it                      2
+  before=percent/12.50 after=percent/12.50 outcome=not_stored_restored 
+ok:   7g the baseline is written the ordinary way                    percent/12.50
+ok:   7h and with the AMOUNT write refused, the rows are the previous pair percent/12.50
+ok:   7i and the answer says it was restored, not that it was saved  not_stored_restored
+  ok=yes code=supplier_payment_recorded_share_unknown payment=4 posting=share_unknown payout_lines=0 known_line=51 unknown_line=50 item_shares=50:__null__|51:300000 
+ok:   7j the payment is recorded                                     yes
+ok:   7k and says the comparison could not be made                   supplier_payment_recorded_share_unknown
+ok:   7l with the row marked so                                      share_unknown
+ok:   7m and NOTHING posted to the ledger                            0
+ok:   7n the known item carries its share and the unknown one carries NULL 50:__null__|51:300000
+  row0=share_unknown/unknown:50 awaiting=1 
+ok:   7o and the waiting list says WHICH item it could not compute   share_unknown/unknown:50
+  withdrawal=13 ok=no code=supplier_item_held_by_withdrawal named_withdrawal=13 payment_rows_for_line=0 still_claimed=13 fixture_released=yes 
+ok:   7p the vendor's own cycle claims the line                      yes
+ok:   7q and a manual payment for it is refused                      no
+ok:   7r by name                                                     supplier_item_held_by_withdrawal
+ok:   7s naming the request that holds it                            13
+ok:   7t with no payment row written                                 0
+ok:   7u and the reservation NOT released by the code                13
+ok:   8 the files are 0.1.0-alpha.60 again                           0.1.0-alpha.60
+ok:   8b and the schema is NOT taken down                            30
+ok:   8c an admin request still answers                              200
+ok:   8d and the schema is still 30                                  30
+ok:   8e the supplier payments page still answers on 0.1.0-alpha.60  200
+ok:   8e2 and so does the commission panel                           
+ok:   8e3 and the older build still records a payment                yes
+ok:   8f but the payment row is still there                          present
+ok:   8f2 the column is still nullable, because nothing walks it back yes
+ok:   8h with the product's two meta rows left on disk               1
+ok:   8i and the order recorded earlier still has not moved          102385ee83933245c156fcc2706bf0d2ff846a98f719e9f3fef831bda23d6f71
+  payment rows before going forward: 3
+ok:   9 an admin request answers                                     200
+ok:   9b the schema is 30                                            30
+ok:   9c with nothing recorded as failed                             
+ok:   9d and the payment rows are the ones stage 8 left — nothing ran twice 3
+ok:   9e the supplier payments page answers again                    200
+
+================================================================
+=== 0.1.0-alpha.56 (schema 28) -> 0.1.0-alpha.61 (schema 30)
+================================================================
+ok:   0 the packages differ by as many steps as schema numbers       2
+ok:   0b and the gap is at least one, so this upgrade is structural  yes
+ok:   1 the install is 0.1.0-alpha.56                                0.1.0-alpha.56
+ok:   1b and an admin request answers on the old build               200
+ok:   1c leaving the old build on schema 28                          28
+ok:   1d with nothing recorded as failed                             
+  wc=447 line=53 line_noshare=54 vendor=9606 share=450000 share_noshare=__null__ line_third=55 line_fourth=56 
+ok:   2 the old build recorded the sale's share                      450000
+  before: wc_id=447 url=http://127.0.0.1:8081/product/%da%a9%d8%a7%d9%84%d8%a7%db%8c-%d8%a7%d8%b1%d8%aa%d9%82%d8%a7%db%8c-%db%b6%db%b1/ status=publish author=1 price=500000 stock=12 line_id=53 line_base=500000 line_commission=50000 line_share=450000 line_event=order:96061 identity=6ec9b3b11db4b9490a9b5bc328250d7372e6de903277fb36e538a0182075807f 
+ok:   2b the old build has no commission panel                       1
+ok:   2c and no supplier payment service                             1
+ok:   2d and neither table on disk                                   __absent__
+ok:   2e the site is still on 28 with the window drained             28
+ok:   3 the files are now 0.1.0-alpha.61                             0.1.0-alpha.61
+ok:   3b and replacing files alone ran NO step                       28
+ok:   3c the first admin request answers                             200
+ok:   3d and the gate has taken the schema to 30                     30
+ok:   3e with nothing recorded as failed                             
+  tmc_supplier_payments=present tmc_supplier_payments_unique_over_idempotency_key=yes tmc_supplier_payment_items=present tmc_supplier_payment_items_unique_over_order_item_id=yes share_minor_nullable=yes 
+ok:   3f the payments table is on disk                               present
+ok:   3g with a unique key over its idempotency key                  yes
+ok:   3h the items table is on disk                                  present
+ok:   3i with a unique key over the order item                       yes
+ok:   3j and the item share really takes NULL now                    yes
+  after:  wc_id=447 url=http://127.0.0.1:8081/product/%da%a9%d8%a7%d9%84%d8%a7%db%8c-%d8%a7%d8%b1%d8%aa%d9%82%d8%a7%db%8c-%db%b6%db%b1/ status=publish author=1 price=500000 stock=12 line_id=53 line_base=500000 line_commission=50000 line_share=450000 line_event=order:96061 identity=6ec9b3b11db4b9490a9b5bc328250d7372e6de903277fb36e538a0182075807f 
+ok:   4 every field of the product and its order line is identical   6ec9b3b11db4b9490a9b5bc328250d7372e6de903277fb36e538a0182075807f
+ok:   4-wc_id unchanged                                              447
+ok:   4-url unchanged                                                http://127.0.0.1:8081/product/%da%a9%d8%a7%d9%84%d8%a7%db%8c-%d8%a7%d8%b1%d8%aa%d9%82%d8%a7%db%8c-%db%b6%db%b1/
+ok:   4-status unchanged                                             publish
+ok:   4-author unchanged                                             1
+ok:   4-price unchanged                                              500000
+ok:   4-stock unchanged                                              12
+ok:   4-line_id unchanged                                            53
+ok:   4-line_base unchanged                                          500000
+ok:   4-line_commission unchanged                                    50000
+ok:   4-line_share unchanged                                         450000
+ok:   4-line_event unchanged                                         order:96061
+ok:   5 the supplier payments page answers                           200
+ok:   5b and says what it is                                         yes
+ok:   5c and promises no transfer happens                            yes
+ok:   5d with exactly one submit button on it                        1
+ok:   5e the one product list still answers                          200
+ok:   5f with no active filter named when none is on                 no
+ok:   5g and names the active one when there is one                  yes
+ok:   5h the commission tab is on the product editor                 200
+ok:   5i and says so by name                                         yes
+  type=percent value=12.50 from=product 
+ok:   6 a percentage saves through the panel's own nonce             percent
+ok:   6b and comes back as the manager's own number                  12.50
+ok:   6c from the product rather than inherited                      product
+ok:   6d an impossible value writes nothing and the earlier rule stands 12.50
+ok:   6e and the order recorded earlier has not moved                6ec9b3b11db4b9490a9b5bc328250d7372e6de903277fb36e538a0182075807f
+  ok=yes code=supplier_payment_recorded payment=1 
+ok:   7 the payment is recorded                                      yes
+ok:   7b and matched the recorded share, so it posted                supplier_payment_recorded
+ok:   7c the same submission again is refused                        no
+ok:   7d by name                                                     supplier_payment_already_recorded
+  awaiting=0 rows=1 payout_lines=2 
+ok:   7e and there is ONE payment row                                1
+ok:   7f with exactly one payout line behind it                      2
+  before=percent/12.50 after=percent/12.50 outcome=not_stored_restored 
+ok:   7g the baseline is written the ordinary way                    percent/12.50
+ok:   7h and with the AMOUNT write refused, the rows are the previous pair percent/12.50
+ok:   7i and the answer says it was restored, not that it was saved  not_stored_restored
+  ok=yes code=supplier_payment_recorded_share_unknown payment=2 posting=share_unknown payout_lines=0 known_line=55 unknown_line=54 item_shares=54:__null__|55:300000 
+ok:   7j the payment is recorded                                     yes
+ok:   7k and says the comparison could not be made                   supplier_payment_recorded_share_unknown
+ok:   7l with the row marked so                                      share_unknown
+ok:   7m and NOTHING posted to the ledger                            0
+ok:   7n the known item carries its share and the unknown one carries NULL 54:__null__|55:300000
+  row0=share_unknown/unknown:54 awaiting=1 
+ok:   7o and the waiting list says WHICH item it could not compute   share_unknown/unknown:54
+  withdrawal=14 ok=no code=supplier_item_held_by_withdrawal named_withdrawal=14 payment_rows_for_line=0 still_claimed=14 fixture_released=yes 
+ok:   7p the vendor's own cycle claims the line                      yes
+ok:   7q and a manual payment for it is refused                      no
+ok:   7r by name                                                     supplier_item_held_by_withdrawal
+ok:   7s naming the request that holds it                            14
+ok:   7t with no payment row written                                 0
+ok:   7u and the reservation NOT released by the code                14
+ok:   8 the files are 0.1.0-alpha.56 again                           0.1.0-alpha.56
+ok:   8b and the schema is NOT taken down                            30
+ok:   8c an admin request still answers                              200
+ok:   8d and the schema is still 30                                  30
+ok:   8e the supplier payments page is gone                          403
+ok:   8e2 and the commission panel with it                           1
+ok:   8f but the payment row is still there                          present
+ok:   8f2 the column is still nullable, because nothing walks it back yes
+ok:   8h with the product's two meta rows left on disk               1
+ok:   8i and the order recorded earlier still has not moved          6ec9b3b11db4b9490a9b5bc328250d7372e6de903277fb36e538a0182075807f
+  payment rows before going forward: 2
+ok:   9 an admin request answers                                     200
+ok:   9b the schema is 30                                            30
+ok:   9c with nothing recorded as failed                             
+ok:   9d and the payment rows are the ones stage 8 left — nothing ran twice 2
+ok:   9e the supplier payments page answers again                    200
+
+checks: 168 passed, 0 failed

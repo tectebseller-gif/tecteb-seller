@@ -54,14 +54,41 @@ final class SupplierPayment
         public readonly string $posting,
         public readonly string $createdAt,
         /** @var list<int> the order items this payment says it covers */
-        public readonly array $orderItemIds = []
+        public readonly array $orderItemIds = [],
+        /**
+         * @var list<int> the items whose vendor share was NOT on record when
+         *      this payment was written down.
+         *
+         * Snapshotted rather than re-derived, for the same reason `$share` is:
+         * a later repair can fill such a share in, and a record that then
+         * stopped saying «this was indeterminate when the money was handed
+         * over» would be rewriting what a person actually decided.
+         *
+         * An unknown share is not a share of nought — `alpha.60` added them as
+         * zeros and then declared the payment matched (measured: a payment
+         * equal to the first item's share alone was posted for two items).
+         */
+        public readonly array $unknownShareItemIds = []
     ) {
     }
 
-    /** Whether the amount paid and the computed share are the same money. */
+    /** Whether every item's share was on record, so the amounts were comparable. */
+    public function shareIsKnown(): bool
+    {
+        return $this->unknownShareItemIds === [];
+    }
+
+    /**
+     * Whether the amount paid and the computed share are the same money.
+     *
+     * `false` when a share is unknown, because there is nothing to agree with
+     * — asked first, so the arithmetic of the known items cannot stand in for
+     * a total that was never computed.
+     */
     public function agreesWithShare(): bool
     {
-        return $this->amount->currency === $this->share->currency
+        return $this->shareIsKnown()
+            && $this->amount->currency === $this->share->currency
             && $this->amount->exponent === $this->share->exponent
             && $this->amount->minor === $this->share->minor;
     }

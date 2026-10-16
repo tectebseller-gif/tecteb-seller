@@ -38,6 +38,10 @@ abstract class DatabaseTestCase extends ContractTestCase
         $this->wpdb->ensureOptionsTable();
         $this->wpdb->pdo()->exec("TRUNCATE TABLE `{$this->wpdb->options}`");
         $this->wpdb->dropTable($this->auditTable());
+        // A real, empty `postmeta` — for every test in this suite, not only
+        // the ones that reset the plugin's own schema, because the code that
+        // reads meta ROWS does not know which test it is in.
+        $this->resetPostMeta();
         // In WordPress the lock, the schema version and the guarded writes all
         // live in ONE options table. Point the option functions at the real
         // table so this suite exercises that single storage layer; an
@@ -113,6 +117,36 @@ abstract class DatabaseTestCase extends ContractTestCase
             $this->wpdb->dropTable((string) $table);
         }
         $this->migrateAll($db);
+    }
+
+    /**
+     * A real `postmeta` table, empty, with the column this plugin actually
+     * meets on WordPress 7.1.
+     *
+     * The stubs keep post meta in an array, and that is enough for everything
+     * that reads it through `get_post_meta()`. It is NOT enough for code that
+     * reads the rows — `CommissionRuleWriter` locks and verifies the two
+     * commission rows with SQL on purpose — and a stub that cannot show a row
+     * makes such a writer look broken. So the stub mirrors every meta write
+     * here (see `TmcWpStubs\State::mirrorMeta()`), and the collation is the
+     * real one: `utf8mb4_unicode_520_ci`, case-insensitive and PAD SPACE,
+     * which is what `TectebCommissionMetaGuard` asks the database about.
+     */
+    protected function resetPostMeta(): void
+    {
+        $table = $this->wpdb->postmeta;
+        $this->wpdb->pdo()->exec('DROP TABLE IF EXISTS `' . $table . '`');
+        $this->wpdb->pdo()->exec(
+            'CREATE TABLE `' . $table . '` (
+                meta_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                post_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+                meta_key VARCHAR(255) DEFAULT NULL,
+                meta_value LONGTEXT,
+                PRIMARY KEY (meta_id),
+                KEY post_id (post_id),
+                KEY meta_key (meta_key(191))
+            ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci'
+        );
     }
 
     protected function auditTable(): string

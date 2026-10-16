@@ -886,6 +886,65 @@ final class PackagingTest extends TestCase
         }
     }
 
+    /**
+     * WHAT THIS PROVES: every document the shipped documents POINT AT is in
+     * the archive with them.
+     *
+     * The owner found `docs/open-decisions-alpha57.md` missing from all four
+     * reviewable archives of `alpha.57`–`alpha.60` while the delivery note and
+     * the staging checklist both named it — and the finding needed one
+     * correction, which this test encodes: the file WAS in every one of those
+     * rounds' `…-source-…tar.gz` and is tracked in git. What it was missing
+     * from is the reviewable archive, because section 4 of
+     * `tools/reviewable-bundle.sh` copied a hand-written list of documents.
+     *
+     * A reference is a promise. So rather than asserting one filename, this
+     * reads every `docs/*.md|txt` path MENTIONED by the documents the archive
+     * carries and requires each of them to be there too — which is a rule a
+     * future round cannot forget, and which would have failed on `alpha.57`.
+     */
+    public function testEveryDocumentTheArchivesDocumentsPointAtTravelsWithThem(): void
+    {
+        $bundle = self::newestReviewableArchive();
+        if ($bundle === null) {
+            self::markTestSkipped('no reviewable archive in dist/ — run tools/reviewable-bundle.sh');
+        }
+        $entries = array_keys(self::tarHashes($bundle));
+        $docs = array_values(array_filter(
+            $entries,
+            static fn (string $e): bool => preg_match('~^docs/[^/]+\\.(md|txt)$~', $e) === 1
+        ));
+        self::assertNotSame([], $docs, 'the archive carries no documents at all, which cannot be right');
+
+        $root = dirname(__DIR__, 2);
+        $missing = [];
+        foreach ($docs as $doc) {
+            $text = (string) @file_get_contents($root . '/' . $doc);
+            if ($text === '') {
+                continue;
+            }
+            if (preg_match_all('~docs/[A-Za-z0-9_.-]+\\.(?:md|txt)~', $text, $hits) === 0) {
+                continue;
+            }
+            foreach (array_unique($hits[0]) as $referenced) {
+                // Only references to documents that EXIST in the repository:
+                // a path named in prose that nobody ever wrote is a different
+                // defect, and this test is about delivery, not spelling.
+                if (!is_file($root . '/' . $referenced)) {
+                    continue;
+                }
+                if (!in_array($referenced, $entries, true)) {
+                    $missing[] = $referenced . ' (named by ' . $doc . ')';
+                }
+            }
+        }
+        self::assertSame(
+            [],
+            array_values(array_unique($missing)),
+            'these documents are referenced by documents in the archive and are not in it'
+        );
+    }
+
     /** @return array<string,string> path inside the plugin => sha256 */
     private static function zipRuntimeHashes(string $zipPath): array
     {

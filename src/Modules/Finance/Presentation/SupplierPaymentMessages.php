@@ -35,6 +35,18 @@ final class SupplierPaymentMessages
                 $fa((string) ($context['amount_minor'] ?? '')),
                 $fa((string) ($context['share_minor'] ?? ''))
             ),
+            RecordSupplierPayment::RECORDED_SHARE_UNKNOWN => sprintf(
+                /* translators: 1: the order items whose share is unknown, 2: the amount paid */
+                __('پرداخت ثبت شد، ولی در دفترکل ثبت نشد و «تسویه‌شده» هم اعلام نمی‌شود: سهم قلم سفارش %1$s ثبت نشده است، پس مقایسهٔ مبلغ %2$s با سهم این اقلام انجام‌دادنی نبود. این پرداخت در فهرست «پرداخت‌هایی که در دفترکل ثبت نشده‌اند» می‌آید و هیچ عددی به‌جای سهم نامعلوم گذاشته نمی‌شود.', 'tecteb-marketplace-core'),
+                $fa(implode('، ', array_map('strval', (array) ($context['unknown_share_items'] ?? [])))),
+                $fa((string) ($context['amount_minor'] ?? ''))
+            ),
+            RecordSupplierPayment::ITEM_HELD_BY_WITHDRAWAL => sprintf(
+                /* translators: 1: the order item id, 2: the withdrawal request id */
+                __('قلم سفارش %1$s در چرخهٔ برداشت فروشنده است (درخواست برداشت %2$s)، پس پرداخت دستی برای آن ثبت نمی‌شود — یک قلم دو بار تسویه نمی‌شود. هیچ‌چیز ثبت نشد و هیچ رزروی آزاد نشد؛ اگر آن درخواست را اشتباه می‌دانید، اول خودش را تعیین تکلیف کنید.', 'tecteb-marketplace-core'),
+                $fa((string) ($context['order_item_id'] ?? '')),
+                $fa((string) ($context['withdrawal_id'] ?? ''))
+            ),
             RecordSupplierPayment::FORBIDDEN =>
                 __('ثبت پرداخت به تأمین‌کننده نیازمند مجوز مدیریت مالی است.', 'tecteb-marketplace-core'),
             RecordSupplierPayment::NO_ITEMS =>
@@ -58,9 +70,12 @@ final class SupplierPaymentMessages
                 $fa((string) ($context['order_item_id'] ?? ''))
             ),
             RecordSupplierPayment::ITEM_ALREADY_PAID => sprintf(
-                /* translators: %s: the order item id */
-                __('قلم سفارش %s قبلاً در یک پرداخت دیگر ثبت شده است. هیچ‌چیز ثبت نشد.', 'tecteb-marketplace-core'),
-                $fa((string) ($context['order_item_id'] ?? ''))
+                /* translators: 1: the order item id, 2: the existing payment id, 3: its date, 4: its reference */
+                __('قلم سفارش %1$s قبلاً در پرداخت %2$s ثبت شده است (تاریخ %3$s، شمارهٔ پیگیری %4$s). هیچ‌چیز ثبت نشد و آن پرداخت دست نخورد.', 'tecteb-marketplace-core'),
+                $fa((string) ($context['order_item_id'] ?? '')),
+                $fa((string) ($context['payment_id'] ?? '—')),
+                $fa((string) ($context['paid_on'] ?? '—')),
+                (string) ($context['reference'] ?? '—')
             ),
             RecordSupplierPayment::ALREADY_RECORDED =>
                 __('همین پرداخت از قبل ثبت شده بود؛ پرداخت دومی ساخته نشد.', 'tecteb-marketplace-core'),
@@ -81,6 +96,6 @@ final class SupplierPaymentMessages
      */
     public static function conflictExplanation(): string
     {
-        return __('این‌ها پرداخت‌هایی هستند که انجام و ثبت شده‌اند، ولی مبلغشان با سهم ثبت‌شدهٔ همان اقلام فرق دارد. سهم، از فروش ثبت‌شده و کمیسیون همان لحظه حساب شده است؛ مبلغ پرداختی، قیمتی است که تک‌طب توافق کرده. تا وقتی تعیین نشده که اختلاف این دو چه معنایی دارد، بازارگاه خطی در دفترکل نمی‌نویسد — چون خط دفترکل می‌گوید «این، طلب تأمین‌کننده را تسویه کرد» و درباره مبلغی که با آن طلب فرق دارد، این جمله تصمیمی است که کسی نگرفته.', 'tecteb-marketplace-core');
+        return __('این‌ها پرداخت‌هایی هستند که انجام و ثبت شده‌اند، ولی مبلغشان با سهم ثبت‌شدهٔ همان اقلام فرق دارد. سهم، از فروش ثبت‌شده و کمیسیون همان لحظه حساب شده است؛ مبلغ پرداختی، قیمتی است که تک‌طب توافق کرده. تا وقتی تعیین نشده که اختلاف این دو چه معنایی دارد، بازارگاه خطی در دفترکل نمی‌نویسد — چون خط دفترکل می‌گوید «این، طلب تأمین‌کننده را تسویه کرد» و درباره مبلغی که با آن طلب فرق دارد، این جمله تصمیمی است که کسی نگرفته. و دستهٔ دوم اصلاً مقایسه‌شدنی نبوده: سهم دست‌کم یکی از اقلامشان ثبت نشده است، و سهمِ نامعلوم با سهمِ صفر یکی گرفته نمی‌شود — ستون «چرا ثبت نشده» می‌گوید هر ردیف کدام است.', 'tecteb-marketplace-core');
     }
 }

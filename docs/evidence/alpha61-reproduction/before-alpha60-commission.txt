@@ -1,0 +1,58 @@
+# §1 on the DELIVERED alpha.60 bytes (installed plugin, version 0.1.0-alpha.60)
+## commission-arrange
+probe=ran
+product=438
+cap_financial=yes
+row_type=percent
+row_value=12.50
+## commission-value-fails
+probe=ran
+before_type=percent
+before_value=12.50
+failing_write=_tmc_commission_value
+db_type=fixed
+db_value=12.50
+db_type_rows=1
+db_value_rows=1
+rule_type=fixed
+rule_value=12.50
+notice_outcome=not_stored
+notice_reason=__none__
+notice_text=کمیسیون_تک‌طب_ذخیره_نشد._مقدار_قبلی_سر_جایش_است؛_دوباره_تلاش_کنید.
+## commission-arrange (reset baseline)
+cap_financial=yes
+row_type=percent
+row_value=12.50
+## commission-type-fails
+probe=ran
+before_type=percent
+before_value=12.50
+failing_write=_tmc_commission_type
+db_type=percent
+db_value=20000
+db_type_rows=1
+db_value_rows=1
+rule_type=none
+rule_value=
+notice_outcome=not_stored
+notice_reason=__none__
+notice_text=کمیسیون_تک‌طب_ذخیره_نشد._مقدار_قبلی_سر_جایش_است؛_دوباره_تلاش_کنید.
+## commission-arrange
+row_type=percent
+row_value=12.50
+## commission-regression (control: must behave the same on both trees)
+probe=ran
+save0_asked=percent/12.50
+save0_outcome=saved
+save0_db=percent/12.50
+save1_asked=percent/12.50
+save1_outcome=saved
+save1_db=percent/12.50
+save2_asked=fixed/20000
+save2_outcome=saved
+save2_db=fixed/20000
+save3_asked=none/__empty__
+save3_outcome=saved
+save3_db=none/
+title_only_db=percent/12.50
+title_only_notice=__none__

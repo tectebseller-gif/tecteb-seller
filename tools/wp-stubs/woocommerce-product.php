@@ -525,6 +525,9 @@ namespace {
                 return (bool) $check;
             }
             \TmcWpStubs\State::$postMeta[$postId][$key] = $value;
+            // …and into the real `postmeta` table when the suite has one, so
+            // code that reads the ROWS sees what this wrote.
+            \TmcWpStubs\State::mirrorMeta($postId, $key, $value);
             return true;
         }
     }
@@ -537,6 +540,7 @@ namespace {
                 return (bool) $check;
             }
             unset(\TmcWpStubs\State::$postMeta[$postId][$key]);
+            \TmcWpStubs\State::mirrorMeta($postId, $key, null);
             return true;
         }
     }

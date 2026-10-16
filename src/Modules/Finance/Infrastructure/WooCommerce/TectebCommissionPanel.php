@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce;
 
 use Tecteb\Marketplace\Contracts\ContainerInterface;
+use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
@@ -128,28 +129,53 @@ final class TectebCommissionPanel
             return;     // NOTHING is written. Not one row.
         }
 
-        // Written, then READ BACK. `update_post_meta()` answers `false` both
-        // for a failure and for «it was already this» (`alpha.44`), so its
-        // answer is not read at all: the rows decide.
-        update_post_meta($postId, WpTectebCommissionSource::TYPE_META, $rule->type);
-        update_post_meta($postId, WpTectebCommissionSource::VALUE_META, $rule->displayValue());
-
-        $stored = (new WpTectebCommissionSource())->forItem($postId, 0)['rule'];
-        if ($stored->type !== $rule->type || $stored->displayValue() !== $rule->displayValue()) {
-            self::remember($postId, 'not_stored', '', []);
-            self::audit($container, $postId, 'not_stored', '', ['type' => $rule->type]);
+        // ONE UNIT OF WORK, because the type and the amount are a pair.
+        // `alpha.60` wrote them with two `update_post_meta()` calls and
+        // compared afterwards; a failure on the second left `fixed/12.50`
+        // stored — neither rule — under a message saying the previous value
+        // was intact. `CommissionRuleWriter` locks the two rows, writes them
+        // inside one transaction, verifies from the ROWS rather than the
+        // cache, and reports only what it measured.
+        $writer = self::writer($container);
+        if ($writer === null) {
+            self::remember($postId, CommissionRuleWriter::NOT_ATOMIC, '', []);
+            self::audit($container, $postId, CommissionRuleWriter::NOT_ATOMIC, '', ['type' => $rule->type]);
             return;
         }
 
-        self::remember($postId, 'saved', '', [
+        $written = $writer->write($postId, $rule);
+        $context = [
             'type' => $rule->type,
             'value' => $rule->displayValue(),
-        ]);
-        // Every financial change is in the trail: «تغییرات مالی ممیزی شود».
-        self::audit($container, $postId, 'saved', '', [
-            'type' => $rule->type,
-            'value' => $rule->displayValue(),
-        ]);
+            'previous_type' => (string) $written['previous_type'],
+            'previous_value' => (string) $written['previous_value'],
+            'stored_type' => (string) $written['stored_type'],
+            'stored_value' => (string) $written['stored_value'],
+            'rolled_back' => $written['rolled_back'] ? '1' : '0',
+        ];
+        self::remember($postId, (string) $written['outcome'], '', $context);
+        // Every financial change is in the trail: «تغییرات مالی ممیزی شود» —
+        // and so is every financial change that did NOT happen, with what is
+        // stored instead, because that is the row somebody has to go and fix.
+        self::audit($container, $postId, (string) $written['outcome'], '', $context);
+    }
+
+    /**
+     * The writer, or `null` when this build cannot make the pair one unit.
+     *
+     * Asked from the container rather than constructed, so the gateway is the
+     * one every other write in the request uses — a second object over the
+     * same connection counts its own nesting and would turn an inner `begin()`
+     * into a real transaction (`alpha.56`).
+     */
+    private static function writer(ContainerInterface $container): ?CommissionRuleWriter
+    {
+        try {
+            $db = $container->get(DatabaseInterface::class);
+        } catch (\Throwable) {
+            return null;
+        }
+        return $db instanceof DatabaseInterface ? new CommissionRuleWriter($db) : null;
     }
 
     /**
@@ -274,6 +300,45 @@ final class TectebCommissionPanel
         ] + $context);
     }
 
+    /**
+     * One stored pair, in words a manager can act on.
+     *
+     * «تعیین‌نشده» and «بدون کمیسیون» are deliberately different sentences:
+     * the first is a product nobody has decided about and the second is a
+     * decision somebody made, and the money is the same either way
+     * (`TectebCommission` reads both as no commission) while what to tell a
+     * person is not.
+     */
+    private static function describePair(string $type, string $value): string
+    {
+        if ($type === '__absent__' && $value === '__absent__') {
+            return __('تعیین‌نشده', 'tecteb-marketplace-core');
+        }
+        if ($type === '__unknown__' || $value === '__unknown__') {
+            return __('نامعلوم', 'tecteb-marketplace-core');
+        }
+        $shown = $value === '__absent__' ? '' : $value;
+        return match ($type) {
+            TectebCommission::PERCENT => sprintf(
+                /* translators: %s: a percentage, as stored. */
+                __('درصدی %s٪', 'tecteb-marketplace-core'),
+                $shown
+            ),
+            TectebCommission::FIXED => sprintf(
+                /* translators: %s: a fixed amount per unit, as stored. */
+                __('مبلغ ثابت %s به ازای هر عدد', 'tecteb-marketplace-core'),
+                $shown
+            ),
+            TectebCommission::NONE => __('بدون کمیسیون', 'tecteb-marketplace-core'),
+            default => sprintf(
+                /* translators: 1: the stored type, 2: the stored value. */
+                __('نوع ناشناختهٔ «%1$s» با مقدار «%2$s»', 'tecteb-marketplace-core'),
+                $type,
+                $shown
+            ),
+        };
+    }
+
     /** @param array<string,mixed> $notice */
     private static function notice(array $notice): string
     {
@@ -290,9 +355,54 @@ final class TectebCommissionPanel
             };
             return '<div class="notice notice-error"><p>' . esc_html($text) . '</p></div>';
         }
+        // The two halves of «ذخیره نشد», and the difference between them is
+        // whether the previous pair was found back IN THE ROWS. The first
+        // sentence is the one `alpha.60` printed unconditionally and it was
+        // false exactly when it mattered most.
+        if ($outcome === CommissionRuleWriter::RESTORED) {
+            return '<div class="notice notice-warning"><p>' . esc_html(sprintf(
+                /* translators: %s: the commission that is still stored. */
+                __(
+                    'کمیسیون تک‌طب ذخیره نشد و هیچ تغییری اعمال نشد. کمیسیون این محصول همان قبلی است (%s)؛ دوباره تلاش کنید.',
+                    'tecteb-marketplace-core'
+                ),
+                self::describePair((string) ($context['previous_type'] ?? ''), (string) ($context['previous_value'] ?? ''))
+            )) . '</p></div>';
+        }
+        if ($outcome === CommissionRuleWriter::UNRESTORED) {
+            return '<div class="notice notice-error"><p>' . esc_html(sprintf(
+                /* translators: 1: what is stored now, 2: what was stored before. */
+                __(
+                    'کمیسیون تک‌طب ذخیره نشد و بازگرداندن مقدار قبلی هم انجام نشد. آنچه الان روی این محصول است «%1$s» است و پیش از این «%2$s» بود. تا این را درست نکنید، کمیسیون سفارش‌های تازهٔ این محصول از همین مقدار حساب می‌شود.',
+                    'tecteb-marketplace-core'
+                ),
+                self::describePair((string) ($context['stored_type'] ?? ''), (string) ($context['stored_value'] ?? '')),
+                self::describePair((string) ($context['previous_type'] ?? ''), (string) ($context['previous_value'] ?? ''))
+            )) . '</p></div>';
+        }
+        if ($outcome === CommissionRuleWriter::ROWS_DUPLICATED) {
+            return '<div class="notice notice-error"><p>' . esc_html__(
+                'کمیسیون تک‌طب ذخیره نشد، چون این محصول در دیتابیس بیش از یک ردیف کمیسیون دارد و معلوم نیست کدام معتبر است. هیچ چیزی نوشته نشد؛ این مورد را به توسعه‌دهنده بگویید.',
+                'tecteb-marketplace-core'
+            ) . '</p></div>';
+        }
+        if ($outcome === CommissionRuleWriter::NOT_ATOMIC) {
+            return '<div class="notice notice-error"><p>' . esc_html__(
+                'کمیسیون تک‌طب ذخیره نشد، چون این نصب نمی‌تواند نوع و مقدار را با هم بنویسد و نوشتن یکی بدون دیگری قاعده‌ای می‌سازد که کسی نخواسته. هیچ چیزی نوشته نشد و کمیسیون قبلی دست نخورد.',
+                'tecteb-marketplace-core'
+            ) . '</p></div>';
+        }
+        if ($outcome === CommissionRuleWriter::STORAGE_FAILED) {
+            return '<div class="notice notice-error"><p>' . esc_html__(
+                'کمیسیون تک‌طب ذخیره نشد و خواندن وضعیت فعلی هم ممکن نبود، پس گفته نمی‌شود چه چیزی روی این محصول است. صفحه را تازه کنید و زبانهٔ کمیسیون را ببینید.',
+                'tecteb-marketplace-core'
+            ) . '</p></div>';
+        }
+        // `alpha.60`'s own outcome name, kept only because its transient can
+        // still be waiting when this build takes over mid-minute.
         if ($outcome === 'not_stored') {
             return '<div class="notice notice-warning"><p>' . esc_html__(
-                'کمیسیون تک‌طب ذخیره نشد. مقدار قبلی سر جایش است؛ دوباره تلاش کنید.',
+                'کمیسیون تک‌طب ذخیره نشد؛ زبانهٔ کمیسیون را ببینید و دوباره تلاش کنید.',
                 'tecteb-marketplace-core'
             ) . '</p></div>';
         }

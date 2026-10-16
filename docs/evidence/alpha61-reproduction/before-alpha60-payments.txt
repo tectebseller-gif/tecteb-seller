@@ -1,0 +1,62 @@
+# §2/§3 on the DELIVERED alpha.60 bytes (plugin 0.1.0-alpha.60, schema 29)
+## reset+arrange, then withdraw-and-pay
+share_a=900000
+share_b=__null__
+share_c=450000
+unit=IRR/0
+probe=ran
+withdrawal=4
+withdrawal_status=paid
+item_withdrawal_id=4
+manual_code=supplier_payment_recorded
+manual_ok=yes
+manual_context=payment_id:5|amount_minor:900000|share_minor:900000|ledger_event:supplier-payment:5
+payment_rows_for_item=1
+
+## reset+arrange, then reserve-and-pay
+share_a=900000
+share_b=__null__
+share_c=450000
+unit=IRR/0
+probe=ran
+withdrawal=5
+withdrawal_status=requested
+item_withdrawal_id=5
+manual_code=supplier_payment_recorded
+manual_ok=yes
+manual_context=payment_id:6|amount_minor:900000|share_minor:900000|ledger_event:supplier-payment:6
+payment_rows_for_item=1
+
+## reset+arrange, then pay-then-withdraw
+share_a=900000
+share_b=__null__
+share_c=450000
+unit=IRR/0
+probe=ran
+manual_code=supplier_payment_recorded
+manual_payment_id=7
+manual_posting=posted
+balance_eligible=1350000
+balance_paid=0
+balance_eligible_has_c=yes
+reserve_result=6
+item_withdrawal_id=6
+
+## reset+arrange, then pay-null-share
+share_a=900000
+share_b=__null__
+share_c=450000
+unit=IRR/0
+probe=ran
+share_a=900000
+share_b=__null__
+code=supplier_payment_recorded
+ok=yes
+payment_id=8
+share_minor_recorded=900000
+ledger_event=supplier-payment:8
+db_posting=posted
+db_ledger_event=supplier-payment:8
+ledger_lines=2
+item_shares_stored=18:0|19:0
+

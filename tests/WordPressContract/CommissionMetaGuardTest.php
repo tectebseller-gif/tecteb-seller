@@ -248,21 +248,29 @@ final class CommissionMetaGuardTest extends TestCase
      * `utf8mb4_unicode_520_ci`. The guard now asks the DATABASE for any key
      * outside plain ASCII.
      *
-     * HERE there is no readable `meta_key` column — these are the stubs — so
-     * this test pins the FALLBACK rather than the comparison: when the
-     * question cannot be asked, the answer is «ours», and the write is
-     * refused. «نمی‌دانم» is not «مال ما نیست» (`alpha.49`). The
-     * comparison itself is measured against real MariaDB in
-     * `CommissionMetaKeyCollationTest`, and the cost of this fallback — one
-     * unusual key a non-privileged actor cannot write — is stated in the
-     * guard's own docblock rather than discovered later.
+     * This test pins the answer that is the SAME whichever way the question
+     * is reached: a zero-width space inside the key is ours — the real
+     * collation says so (measured in `CommissionMetaKeyCollationTest`) and so
+     * does the fallback when no `meta_key` column can be read. «نمی‌دانم» is
+     * not «مال ما نیست» (`alpha.49`).
+     *
+     * ⛔ A LEADING SPACE used to be asserted here as refused, and that
+     * assertion was about the FALLBACK rather than about the key: a leading
+     * space is NOT ignorable in `utf8mb4_unicode_520_ci` (only a trailing one
+     * is — PAD SPACE), so that really is a different key and the database
+     * says so. It stopped being refused here the moment this suite gained a
+     * readable `postmeta` column, which is the honest answer arriving rather
+     * than a regression. The two answers — the column's and the fallback's —
+     * and the cost of the wider one are measured in
+     * `CommissionMetaKeyCollationTest` against real MariaDB, where the
+     * premise can be asked instead of assumed.
      */
-    public function testWithNoReadableCollationAnUnusualKeyIsRefusedRatherThanAssumedSafe(): void
+    public function testAnUnusualKeyIsRefusedForAnActorWithoutTheFinancialPermission(): void
     {
         State::loginAs(31, ['read', 'edit_products', 'manage_woocommerce']);
 
         self::assertFalse(update_post_meta(self::PRODUCT, '_tmc_commission' . "\u{200B}" . '_type', 'fixed'));
-        self::assertFalse(update_post_meta(self::PRODUCT, ' _tmc_commission_value', 'x'));
+        self::assertFalse(update_post_meta(self::PRODUCT, '_TMC_COMMISSION_VALUE', 'x'));
 
         // …and the manager is still not refused, whatever the key looks like.
         State::loginAs(7, ['read', Capabilities::REVIEW_WITHDRAWALS]);

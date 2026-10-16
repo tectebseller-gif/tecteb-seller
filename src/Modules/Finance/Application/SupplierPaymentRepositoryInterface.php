@@ -23,7 +23,18 @@ interface SupplierPaymentRepositoryInterface
     public const ALREADY_RECORDED = 'already_recorded';
     /** One of the named order items is already covered by another payment. */
     public const ITEM_ALREADY_PAID = 'item_already_paid';
-    /** The statement failed. Not the same as either refusal above. */
+    /**
+     * One of the named order items is claimed by the vendor's own withdrawal
+     * cycle — reserved in an open request, or kept by a paid one.
+     *
+     * A DIFFERENT refusal from `ITEM_ALREADY_PAID`, because it points at a
+     * different place: that one sends the manager to another supplier payment,
+     * this one to a withdrawal. One obligation for one item must not be
+     * settled from two paths, and the two paths leave their claims in two
+     * tables, so the answer has to name which.
+     */
+    public const ITEM_HELD_BY_WITHDRAWAL = 'item_held_by_withdrawal';
+    /** The statement failed. Not the same as any refusal above. */
     public const FAILED = 'failed';
 
     /**
@@ -35,10 +46,21 @@ interface SupplierPaymentRepositoryInterface
      * second into the third — a duplicate callback reported a storage failure
      * about money that was correctly on the books.
      *
-     * @param list<int> $orderItemIds
-     * @return array{outcome:string, payment_id:int, conflicting_item:int}
+     * **The claim on each item is made INSIDE the write**, against both
+     * tables that can hold one: the unique key on `order_item_id` refuses a
+     * second supplier payment, and the insert reads the order line itself so
+     * an item the withdrawal cycle holds cannot be taken. A check beforehand
+     * cannot do it — «یک SELECT دیگر خارج از تراکنش کافی نیست» — and the two
+     * paths run in two requests.
+     *
+     * @param array<int,?int> $itemShares order-item id => the vendor share
+     *        recorded for that item at this moment, or `null` when the sale
+     *        recorded no money. `null` is STORED as `NULL`, not as nought:
+     *        a payment whose match could not be computed has to still say
+     *        which item it could not be computed for.
+     * @return array{outcome:string, payment_id:int, conflicting_item:int, conflicting_withdrawal:int}
      */
-    public function record(SupplierPayment $payment, array $orderItemIds): array;
+    public function record(SupplierPayment $payment, array $itemShares): array;
 
     public function find(int $paymentId): ?SupplierPayment;
 
@@ -57,12 +79,32 @@ interface SupplierPaymentRepositoryInterface
     /** The payment that already covers this order item, if one does. */
     public function forOrderItem(int $orderItemId): ?SupplierPayment;
 
+    /**
+     * The order-item ids this supplier has already been paid for by hand.
+     *
+     * So the vendor's own balance can stop offering money that has already
+     * been handed over: without this, a manually paid line stayed «قابل
+     * درخواست» and the withdrawal cycle would settle it a second time —
+     * measured on `alpha.60` (`balance_eligible_has_c=yes`,
+     * `reserve_result=6`).
+     *
+     * Reads nothing but this module's own tables, and answers `[]` when they
+     * are not there: on a site whose schema has not reached 29 there can be no
+     * supplier payment, so there is nothing to exclude. That is a definite
+     * answer rather than a guess, and it is what keeps a Finance read from
+     * being able to empty the Order module's balance.
+     *
+     * @return list<int>
+     */
+    public function paidOrderItemIds(int $supplierUserId): array;
+
     /** @return list<SupplierPayment> newest first */
     public function forSupplier(int $supplierUserId, int $limit = 50): array;
 
     /**
-     * Payments recorded but NOT posted to the ledger, because posting them
-     * would state something nobody has defined.
+     * Payments recorded but NOT posted to the ledger — because posting them
+     * would state something nobody has defined, or because the comparison
+     * could not be made at all.
      *
      * The detection half of the conflict §6 asks to be identified: a remedy
      * nobody can find is not a remedy (`alpha.39`), so the rows that are

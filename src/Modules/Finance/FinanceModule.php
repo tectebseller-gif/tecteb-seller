@@ -127,7 +127,11 @@ final class FinanceModule implements ModuleInterface
             $c->get(SettingsService::class),
             $c->get(ClockInterface::class),
             // So an open return holds its own share back (UX §10.2).
-            $c->get(ShipmentRepositoryInterface::class)
+            $c->get(ShipmentRepositoryInterface::class),
+            // So a line Tecteb already paid for by hand is not offered to the
+            // vendor a second time. ONE obligation, ONE settlement — and the
+            // lock for it is in `reserve()`'s own statement, not here.
+            $c->get(SupplierPaymentRepositoryInterface::class)
         ));
         $c->bind(RequestWithdrawal::class, static fn (ContainerInterface $c) => new RequestWithdrawal(
             $c->get(WithdrawalRepositoryInterface::class),

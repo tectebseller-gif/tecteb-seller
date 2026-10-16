@@ -43,14 +43,29 @@ final class VendorBalance
         private readonly OrderItemRepositoryInterface $orderItems,
         private readonly SettingsService $settings,
         private readonly ClockInterface $clock,
-        private readonly ?ShipmentRepositoryInterface $returns = null
+        private readonly ?ShipmentRepositoryInterface $returns = null,
+        /**
+         * The manual supplier payments, so money already handed over is not
+         * offered again.
+         *
+         * Optional for the same reason `$returns` is: a build that does not
+         * wire it answers exactly as before. But when it IS wired, a line Tecteb
+         * has already paid for by hand counts as `paid` rather than `eligible`
+         * — one obligation, one settlement. Measured on `alpha.60`, where such
+         * a line stayed `eligible` and the withdrawal cycle claimed it.
+         *
+         * This is a READ for the answer, not the guard: the guard is in
+         * `reserve()`'s own statement, because a payment can land between this
+         * read and that write.
+         */
+        private readonly ?SupplierPaymentRepositoryInterface $supplierPayments = null
     ) {
     }
 
     /**
      * @return array{
      *   earned:int, pending:int, eligible:int, reserved:int, paid:int,
-     *   unrecorded:int, eligible_line_ids:list<int>, delay_days:int,
+     *   paid_direct:int, unrecorded:int, eligible_line_ids:list<int>, delay_days:int,
      *   awaiting_completion:int, awaiting_delay:int, awaiting_return:int,
      *   eligible_until:string
      * }
@@ -69,7 +84,13 @@ final class VendorBalance
         $awaitingCompletion = 0;
         $awaitingDelay = 0;
         $awaitingReturn = 0;
+        $paidDirect = 0;
         $eligibleIds = [];
+
+        $paidByHand = [];
+        foreach ($this->supplierPayments?->paidOrderItemIds($vendorUserId) ?? [] as $id) {
+            $paidByHand[(int) $id] = true;
+        }
 
         foreach ($this->orderItems->settlementView($vendorUserId) as $line) {
             $share = $line['vendor_share_minor'];
@@ -80,6 +101,18 @@ final class VendorBalance
             $earned += $share;
             if ($line['paid']) {
                 $paid += $share;
+                continue;
+            }
+            // ALREADY HANDED OVER, by the other path. Counted in `paid`
+            // because that is what `paid` means — money that has left — and
+            // reported separately as well, so «کدام مسیر» is answerable
+            // without reading two screens. A recorded-but-unposted payment
+            // counts too: the obligation was settled whether or not the ledger
+            // line could be written, and a payment waiting on the owner's
+            // definition must not make the line payable again.
+            if (isset($paidByHand[$line['id']])) {
+                $paid += $share;
+                $paidDirect += $share;
                 continue;
             }
             if ($line['withdrawal_id'] !== null) {
@@ -117,6 +150,7 @@ final class VendorBalance
             'eligible' => $eligible,
             'reserved' => $reserved,
             'paid' => $paid,
+            'paid_direct' => $paidDirect,
             'unrecorded' => $unrecorded,
             'eligible_line_ids' => $eligibleIds,
             'delay_days' => $delayDays,

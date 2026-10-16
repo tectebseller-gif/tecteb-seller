@@ -392,9 +392,20 @@ function wp_cache_set(string $key, mixed $data, string $group = '', int $expire 
     State::$cache[$group][$key] = $data;
     return true;
 }
-function wp_cache_delete(string $key, string $group = ''): bool
+function wp_cache_delete(int|string $key, string $group = ''): bool
 {
     unset(State::$cache[$group][$key]);
+    // `int|string` because that is core's own signature, and post meta is
+    // cached under a post ID.
+    // Dropping the `post_meta` cache in WordPress means the next read comes
+    // from the ROWS. The stubs keep meta in an array, so unless that array is
+    // re-loaded from the mirror the drop would change nothing — and a test
+    // about a rolled-back write would see the value the rollback threw away,
+    // which is the very confusion `CommissionRuleWriter` purges the cache to
+    // avoid.
+    if ($group === 'post_meta') {
+        State::reloadMetaFromMirror((int) $key);
+    }
     return true;
 }
 function wp_clear_scheduled_hook(string $hook, array $args = []): int

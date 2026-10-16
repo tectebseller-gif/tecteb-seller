@@ -32,8 +32,18 @@ final class CommissionOwnershipTest extends TestCase
     private const TYPE_META = '_tmc_commission_type';
     private const VALUE_META = '_tmc_commission_value';
 
-    /** The one file allowed to put either key into a write. */
-    private const WRITER = 'src/Modules/Finance/Infrastructure/WooCommerce/TectebCommissionPanel.php';
+    /**
+     * The one file allowed to put either key into a write.
+     *
+     * It moved in `alpha.61`, and the move is the point: the panel used to
+     * write the two keys with two `update_post_meta()` calls, and a failure on
+     * the second left a pair nobody asked for. The two calls now live in
+     * `CommissionRuleWriter`, which locks the rows, writes them inside one
+     * transaction and verifies from the rows — so this assertion ALSO says the
+     * panel can no longer write a half of the rule, because the panel is not
+     * in the list.
+     */
+    private const WRITER = 'src/Modules/Finance/Infrastructure/WooCommerce/CommissionRuleWriter.php';
 
     /** The one file allowed to read them. */
     private const READER = 'src/Modules/Finance/Infrastructure/WooCommerce/WpTectebCommissionSource.php';
@@ -41,7 +51,7 @@ final class CommissionOwnershipTest extends TestCase
     /** And the one that refuses everybody else's write to them. */
     private const GUARD = 'src/Modules/Finance/Infrastructure/WooCommerce/TectebCommissionMetaGuard.php';
 
-    public function testOnlyThePanelWritesTheCommissionMeta(): void
+    public function testOnlyOneFileWritesTheCommissionMeta(): void
     {
         $writers = [];
         foreach (self::sourceFiles() as $relative => $code) {
@@ -70,7 +80,7 @@ final class CommissionOwnershipTest extends TestCase
         self::assertSame(
             [self::WRITER],
             $writers,
-            "these files can write the commission meta; only the panel may:\n" . implode("\n", $writers)
+            "these files can write the commission meta; only the one-unit writer may:\n" . implode("\n", $writers)
         );
     }
 

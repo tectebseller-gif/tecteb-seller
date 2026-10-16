@@ -183,8 +183,121 @@ final class State
     public static array $sentHeaders = [];
     public static ?int $statusHeader = null;
 
+    /**
+     * The real `postmeta` table to MIRROR meta writes into, or `null`.
+     *
+     * The stubs keep post meta in `self::$postMeta`, which is right for the
+     * code that reads it through `get_post_meta()` — and wrong for code that
+     * reads the ROWS. `CommissionRuleWriter` locks and verifies the two
+     * commission rows with SQL, on purpose (`alpha.55`: `get_post_meta()` is
+     * not a row read), so against an array it sees nothing and reports that
+     * nothing was stored.
+     *
+     * A stub that cannot show a row makes a correct writer look broken, which
+     * is the mirror image of `alpha.59`, where a stub that did not model the
+     * row-addressed verbs made an incomplete guard look complete. So when the
+     * suite has a real `postmeta` table, every write goes to both — and when
+     * it has none (the unit and contract suites), the answer is `null` and
+     * nothing changes.
+     *
+     * Asked once per test: `reset()` clears it, because a suite that creates
+     * or drops the table between tests would otherwise be answered from a
+     * cache about a table that is no longer the one on disk.
+     */
+    /** `null` = not asked, `''` = asked and absent, otherwise the table name. */
+    private static ?string $metaMirror = null;
+
+    public static function metaMirror(): ?string
+    {
+        if (self::$metaMirror !== null) {
+            return self::$metaMirror === '' ? null : self::$metaMirror;
+        }
+        self::$metaMirror = '';
+        $wpdb = $GLOBALS['wpdb'] ?? null;
+        if (!is_object($wpdb) || !property_exists($wpdb, 'postmeta') || !method_exists($wpdb, 'pdo')) {
+            return null;
+        }
+        try {
+            $stmt = $wpdb->pdo()->prepare(
+                'SELECT COUNT(*) FROM information_schema.TABLES
+                  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
+            );
+            $stmt->execute([$wpdb->postmeta]);
+            if ((int) $stmt->fetchColumn() > 0) {
+                self::$metaMirror = (string) $wpdb->postmeta;
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+        return self::$metaMirror === '' ? null : self::$metaMirror;
+    }
+
+    /**
+     * One meta key written to the mirror the way `update_post_meta()` writes
+     * it: every row of the key replaced by one, or removed when `$value` is
+     * `null`.
+     */
+    public static function mirrorMeta(int $postId, string $key, mixed $value): void
+    {
+        $table = self::metaMirror();
+        if ($table === null) {
+            return;
+        }
+        try {
+            $pdo = $GLOBALS['wpdb']->pdo();
+            $delete = $pdo->prepare('DELETE FROM `' . $table . '` WHERE post_id = ? AND meta_key = ?');
+            $delete->execute([$postId, $key]);
+            if ($value === null) {
+                return;
+            }
+            $insert = $pdo->prepare(
+                'INSERT INTO `' . $table . '` (post_id, meta_key, meta_value) VALUES (?, ?, ?)'
+            );
+            $insert->execute([$postId, $key, is_scalar($value) ? (string) $value : (string) maybe_serialize($value)]);
+        } catch (\Throwable) {
+            // The table went away under us — a suite that drops it between
+            // tests. Forget the answer so the next write asks again; the
+            // in-memory half above has already happened either way.
+            self::$metaMirror = null;
+        }
+    }
+
+    /**
+     * One post's meta re-read from the mirror table, replacing whatever the
+     * in-memory copy held.
+     *
+     * What `wp_cache_delete($id, 'post_meta')` means when there are real rows
+     * to go back to: the cached copy is gone and the next read is the row.
+     * With no mirror there is nothing to go back to, and the array is left
+     * exactly as it was — which is how every suite without a `postmeta` table
+     * behaved before.
+     */
+    public static function reloadMetaFromMirror(int $postId): void
+    {
+        $table = self::metaMirror();
+        if ($table === null || $postId <= 0) {
+            return;
+        }
+        try {
+            $stmt = $GLOBALS['wpdb']->pdo()->prepare(
+                'SELECT meta_key, meta_value FROM `' . $table . '` WHERE post_id = ?'
+            );
+            $stmt->execute([$postId]);
+            $fresh = [];
+            foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+                $fresh[(string) $row['meta_key']] = $row['meta_value'];
+            }
+            self::$postMeta[$postId] = $fresh;
+        } catch (\Throwable) {
+            self::$metaMirror = null;
+        }
+    }
+
     public static function reset(): void
     {
+        // The mirror's answer, so a suite that creates or drops the real
+        // `postmeta` table between tests is not answered from a stale cache.
+        self::$metaMirror = null;
         self::$options = [];
         self::$transients = [];
         self::$cache = [];
