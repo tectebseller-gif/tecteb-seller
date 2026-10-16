@@ -267,6 +267,33 @@ final class HandoverPage
     }
 
     /** @param list<int> $shops */
+    /**
+     * The sentence for one reconciliation difference.
+     *
+     * The codes come from `ReconcileDokanFinance::differencesFor()` and the
+     * sentences live here, because Application does not get to call `__()`
+     * (`alpha.9`). A code with no sentence is printed as itself rather than
+     * swallowed: an unexplained difference must still be visible.
+     */
+    private function differenceSentence(string $code): string
+    {
+        return match ($code) {
+            'marketplace_ledger_unavailable' =>
+                __('ماژول مالی این بازارگاه بارگذاری نشده، پس ستون دوم خوانده نشد. این «صفر» نیست.', 'tecteb-marketplace-core'),
+            'nothing_traded_here_yet' =>
+                __('این فروشگاه هنوز در این بازارگاه نفروخته، پس ستون دوم واقعاً خالی است — و این تنها دلیل درستِ صفر بودنش است.', 'tecteb-marketplace-core'),
+            'handover_decision_open' =>
+                __('هنوز کسی تصمیم نگرفته با این سابقه چه شود، پس قرار نیست ستون دوم شاملش باشد.', 'tecteb-marketplace-core'),
+            'dokan_records_paid_withdrawals_twice' =>
+                __('دکان برداشتِ پرداخت‌شده را دوبار ثبت می‌کند: یک ردیف برداشت و یک بدهکار در جدول مانده. ماندهٔ پایانی از قبل کسرش کرده، پس این دو را جمع نکنید.', 'tecteb-marketplace-core'),
+            'dokan_money_columns_carry_no_unit' =>
+                __('ستون‌های پول دکان عدد خالی‌اند، بی ارز و بی مقیاس؛ هر رقم این طرف ارز و مقیاس خودش را دارد. مقایسه فقط پس از آن ممکن است که کسی بگوید عددهای دکان به کدام واحد بوده‌اند.', 'tecteb-marketplace-core'),
+            'order_totals_read_from_dokan_orders' =>
+                __('جمع سفارش‌ها از جدول قدیمی خوانده شده. مرجع ۵٫x جدول دیگری است که والد و زیرسفارش را جدا می‌کند، و عوض‌کردن مرجع تصمیم مالک است.', 'tecteb-marketplace-core'),
+            default => $code,
+        };
+    }
+
     private function renderFinance(array $shops, callable $fa): void
     {
         $finance = $this->container->get(ReconcileDokanFinance::class);
@@ -292,6 +319,24 @@ final class HandoverPage
                 ['label' => __('از این بدهکار، برداشتِ قبلاً پرداخت‌شده', 'tecteb-marketplace-core'), 'value' => $fa((string) $report['already_counted_once']['debit'])],
                 ['label' => __('خط دفترکل این بازارگاه برای این سابقه', 'tecteb-marketplace-core'), 'value' => $fa('0')],
             ]);
+
+            // WHY the two sides differ, each reason named. Two columns of
+            // different numbers with no explanation is the shape that makes
+            // somebody add them up — and the first one of these, «this shop
+            // has not traded here yet», is the honest reason for the zero
+            // above.
+            $differences = (array) ($report['differences'] ?? []);
+            if ($differences !== []) {
+                echo '<p class="tmc-field__desc">'
+                    . esc_html__('این دو ستون جمع نمی‌شوند، و دلیل هر اختلافشان این‌هاست:', 'tecteb-marketplace-core')
+                    . '</p><ul class="tmc-list">';
+                foreach ($differences as $difference) {
+                    echo '<li>' . esc_html($this->differenceSentence((string) ($difference['code'] ?? '')))
+                        . ' <span class="tmc-card__note">' . Components::code((string) ($difference['detail'] ?? ''))
+                        . '</span></li>';
+                }
+                echo '</ul>';
+            }
 
             $statuses = $report['dokan']['withdrawals_by_status'];
             if ($statuses !== []) {

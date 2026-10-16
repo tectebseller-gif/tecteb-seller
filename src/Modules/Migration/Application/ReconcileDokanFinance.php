@@ -140,6 +140,81 @@ final class ReconcileDokanFinance
      *
      * @return array<string,mixed>
      */
+    /**
+     * Every reason the two columns can differ, named — and nothing
+     * reconciled.
+     *
+     * The report has always shown Dokan's figures beside this marketplace's
+     * and refused to add them. What it did not do was say WHY they differ,
+     * and a difference with no name is a difference somebody explains to
+     * themselves. Each entry below is a fact that was read, not a judgement:
+     *
+     *  - `nothing_traded_here_yet` — the only honest reason for a zero in
+     *    column two, and the common one: a shop that was imported and has
+     *    not sold through this marketplace has no ledger rows at all.
+     *  - `handover_decision_open` — nobody has said what to do with the
+     *    imported past, so column two is not supposed to contain it.
+     *  - `dokan_records_paid_withdrawals_twice` — Dokan writes a withdraw
+     *    row AND a debit in the balance table for the same payment, so
+     *    `closing` has already subtracted it. This is the one difference
+     *    that looks like money going missing and is not.
+     *  - `dokan_money_columns_carry_no_unit` — Dokan's columns are numbers
+     *    with no currency and no scale; every figure in column two carries
+     *    both (`tmc_ledger`, migration 4). Comparing them is only safe once
+     *    somebody says what Dokan's numbers were denominated in.
+     *  - `order_totals_read_from_dokan_orders` — a standing limitation,
+     *    named since `alpha.53`: the 5.x reference is `dokan_order_stats`,
+     *    whose `order_type` separates a parent from a sub-order, so a total
+     *    taken from `dokan_orders` counts both. Changing the reference is an
+     *    owner decision (`docs/open-decisions-alpha56.md` §10), so until
+     *    then every order-derived figure here says where it came from.
+     *
+     * @param array{count:int, debit:string} $overlap
+     * @param array<string,mixed> $decision
+     * @return list<array{code:string, detail:string}>
+     */
+    private function differencesFor(
+        DokanFinanceSnapshot $snapshot,
+        array $overlap,
+        array $decision
+    ): array {
+        $out = [];
+        $balances = $this->ledger?->balances($snapshot->vendorUserId) ?? [];
+        if ($this->ledger === null) {
+            $out[] = ['code' => 'marketplace_ledger_unavailable', 'detail' => 'the finance module is not loaded'];
+        } elseif ($balances === []) {
+            $out[] = [
+                'code' => 'nothing_traded_here_yet',
+                'detail' => 'this shop has no ledger rows in this marketplace',
+            ];
+        }
+        if (($decision['decision'] ?? self::OPEN) === self::OPEN) {
+            $out[] = [
+                'code' => 'handover_decision_open',
+                'detail' => 'nobody has decided what happens to the imported past',
+            ];
+        }
+        if ((int) $overlap['count'] > 0) {
+            $out[] = [
+                'code' => 'dokan_records_paid_withdrawals_twice',
+                'detail' => $overlap['count'] . ' withdraw row(s) are also debits inside closing: ' . $overlap['debit'],
+            ];
+        }
+        if ((int) $snapshot->summary['balance_rows'] > 0) {
+            $out[] = [
+                'code' => 'dokan_money_columns_carry_no_unit',
+                'detail' => 'dokan stores bare numbers; every figure on this side carries currency and scale',
+            ];
+        }
+        // Always named, because it is true of every figure in column one that
+        // came from an order — including when the two columns happen to agree.
+        $out[] = [
+            'code' => 'order_totals_read_from_dokan_orders',
+            'detail' => 'the 5.x reference is dokan_order_stats; changing it is an owner decision',
+        ];
+        return $out;
+    }
+
     public function reportFrom(DokanFinanceSnapshot $snapshot): array
     {
         $overlap = $snapshot->withdrawOverlap(self::WITHDRAW_TYPE);
@@ -177,6 +252,12 @@ final class ReconcileDokanFinance
                 'ledger_balances' => $this->ledger?->balances($snapshot->vendorUserId) ?? [],
                 'open_withdrawal' => $this->withdrawals?->openFor($snapshot->vendorUserId) !== null,
             ],
+
+            // WHY the two columns differ, each reason named. §7 of
+            // `alpha.56`: «هر اختلاف تطبیق باید قابل توضیح باشد». Two
+            // columns side by side with different numbers and no explanation
+            // is the shape that makes somebody add them up.
+            'differences' => $this->differencesFor($snapshot, $overlap, $decision),
 
             'handover' => $decision,
             'complete' => $decision['decision'] !== self::OPEN,

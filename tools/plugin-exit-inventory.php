@@ -154,6 +154,20 @@ if ($section === 'all' || $section === 'dokan') {
     $line('dokan_pro', class_exists('Dokan_Pro') ? 'present' : 'absent');
     $line('dokan_version', defined('DOKAN_PLUGIN_VERSION') ? DOKAN_PLUGIN_VERSION : 'unknown');
 
+    echo "# THE THIRD NUMBER, and the one the first two cannot explain. Dokan\n";
+    echo "# keeps its own DATABASE version in an option (`dokan_theme_version`,\n";
+    echo "# read from dokan-class.php:62) and bumps it when its own upgrade\n";
+    echo "# routine finishes. So there are three numbers, not two: the header\n";
+    echo "# WordPress prints in the plugin list, the constant the running code\n";
+    echo "# holds, and the option the database holds. A dashboard showing an\n";
+    echo "# older number than the files is what a LAGGING OPTION looks like,\n";
+    echo "# and it is neither cache nor licensing — but this script does not\n";
+    echo "# decide which it is. It prints all three and lets them be compared.\n";
+    foreach (['dokan_theme_version', 'dokan_pro_version', 'dokan_version', 'dokan_pro_active'] as $key) {
+        $stored = get_option($key, null);
+        $line('db_option_' . $key, $stored === null ? 'absent' : (is_scalar($stored) ? (string) $stored : gettype($stored)));
+    }
+
     echo "# Every table whose name mentions dokan, with its row count. A table\n";
     echo "# that exists and is empty is a different fact from one that is not\n";
     echo "# there, and «مانع خروج» depends on telling them apart.\n";
@@ -282,6 +296,100 @@ if ($section === 'all' || $section === 'files') {
             }
         }
     }
+}
+
+// --------------------------------------------- what deactivation takes away
+
+if ($section === 'all' || $section === 'deactivation') {
+    $head('what stops working when dokan is deactivated');
+    echo "# §7 asks for this list by name: shop URL, dashboard pages, rewrite\n";
+    echo "# rules, cron, hooks and the notices that depend on them. Everything\n";
+    echo "# below is READ. Nothing is deactivated, nothing is flushed, and no\n";
+    echo "# Dokan data is removed.\n";
+
+    // The rewrite rules currently in the database, and which are the store's.
+    // `alpha.16` measured that deactivating Dokan does NOT remove them: they
+    // stay until something flushes, and a leftover `store/…` rule answers 200
+    // with the site's front page — duplicate content on dozens of addresses.
+    $rules = get_option('rewrite_rules', []);
+    $rules = is_array($rules) ? $rules : [];
+    $line('rewrite_rules_total', (string) count($rules));
+    $general = get_option('dokan_general', []);
+    $general = is_array($general) ? $general : [];
+    $storeSlug = (string) ($general['custom_store_url'] ?? '');
+    $line('dokan_store_slug', $storeSlug === '' ? 'absent' : $storeSlug);
+    $matched = 0;
+    foreach (array_keys($rules) as $pattern) {
+        if ($storeSlug !== '' && str_contains((string) $pattern, $storeSlug)) {
+            $matched++;
+            $line('rewrite_rule_for_store', (string) $pattern);
+        }
+    }
+    $line('rewrite_rules_mentioning_the_store_slug', (string) $matched);
+
+    // The pages Dokan's settings point at. A page id that no longer resolves
+    // is a 404 a vendor will meet, and that is a fact about the SITE.
+    foreach (['dashboard', 'my_orders', 'store_listing', 'reg_tc_page'] as $key) {
+        $pageId = (int) ($general[$key] ?? 0);
+        if ($pageId <= 0) {
+            $line('dokan_page_' . $key, 'not set');
+            continue;
+        }
+        $post = get_post($pageId);
+        $line('dokan_page_' . $key, $pageId . ' | '
+            . ($post === null ? 'MISSING' : (string) $post->post_status)
+            . ' | ' . (string) get_permalink($pageId));
+    }
+
+    // Dokan's own scheduled events. A cron entry whose callback is gone after
+    // deactivation is a row WordPress keeps trying to run, and it is
+    // invisible unless somebody reads this option.
+    $cron = get_option('cron', []);
+    $cron = is_array($cron) ? $cron : [];
+    $events = 0;
+    foreach ($cron as $timestamp => $hooks) {
+        if (!is_array($hooks)) {
+            continue;
+        }
+        foreach (array_keys($hooks) as $hook) {
+            if (str_contains((string) $hook, 'dokan')) {
+                $events++;
+                $line('dokan_cron_event', (string) $hook . ' | next=' . (string) $timestamp);
+            }
+        }
+    }
+    $line('dokan_cron_events', (string) $events);
+
+    // How much of the SITE points at Dokan today — the «real dependency» §7
+    // asks to determine, COUNTED rather than inferred from a folder listing.
+    $caps = $wpdb->prefix . 'capabilities';
+    $counts = [
+        'products_authored_by_a_seller' =>
+            "SELECT COUNT(*) FROM {$wpdb->posts} p
+               INNER JOIN {$wpdb->usermeta} um ON um.user_id = p.post_author
+                      AND um.meta_key = '{$caps}' AND um.meta_value LIKE '%\"seller\"%'
+              WHERE p.post_type = 'product'",
+        'order_items_with_a_dokan_vendor_meta' =>
+            "SELECT COUNT(*) FROM {$wpdb->prefix}woocommerce_order_itemmeta
+              WHERE meta_key = '_dokan_vendor_id'",
+        'posts_with_dokan_meta' =>
+            "SELECT COUNT(DISTINCT post_id) FROM {$wpdb->postmeta}
+              WHERE meta_key LIKE '_dokan%' OR meta_key LIKE 'dokan%'",
+        'users_with_dokan_meta' =>
+            "SELECT COUNT(DISTINCT user_id) FROM {$wpdb->usermeta}
+              WHERE meta_key LIKE 'dokan%' OR meta_key LIKE '_dokan%'",
+    ];
+    foreach ($counts as $label => $sql) {
+        $value = $wpdb->get_var($sql);
+        $line('depends_' . $label, $value === null ? 'unreadable' : (string) $value);
+    }
+
+    echo "# And what this section deliberately does NOT answer: whether any of\n";
+    echo "# the above is safe to lose. That is the owner's decision, and the\n";
+    echo "# only honest input to it is the list above plus the module listing\n";
+    echo "# in the `dokan` section — a module whose folder is absent is not\n";
+    echo "# running on this site at all, and one whose folder is present may\n";
+    echo "# still be switched off.\n";
 }
 
 // ------------------------------------------------------------------- min max

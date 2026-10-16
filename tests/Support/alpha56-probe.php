@@ -1264,6 +1264,88 @@ switch ($verb) {
         break;
     }
 
+    // ============================ §10 WHAT ACTIVATION ACTUALLY SPENDS
+
+    /**
+     * Each step of activation, timed, on a site that already has the schema.
+     *
+     * §10 asks why `alpha.55` installed slowly and says not to name a cause
+     * without evidence. So this names no cause: it measures the four things
+     * `Activator::activate()` does and reports each one's milliseconds and
+     * statement count, so a slow step on the owner's site can be compared
+     * against a fast one here.
+     *
+     * It does NOT deactivate the plugin. Deactivation takes marketplace
+     * products off sale (`alpha.8`) and that is a change to a shop, not a
+     * measurement of one — and the steps below are the same calls whether
+     * they run from the activation hook or from here.
+     */
+    case 'install-timing': {
+        $selects = static function () use ($db): int {
+            foreach ($db->getResults("SHOW SESSION STATUS WHERE Variable_name = 'Questions'") as $row) {
+                return (int) $row['Value'];
+            }
+            return 0;
+        };
+        $time = static function (string $label, callable $work) use ($say, $selects): void {
+            $before = $selects();
+            $started = microtime(true);
+            try {
+                $work();
+                $outcome = 'ok';
+            } catch (\Throwable $e) {
+                $outcome = 'threw:' . substr($e->getMessage(), 0, 40);
+            }
+            // Minus two: the two `SHOW SESSION STATUS` reads are themselves
+            // statements, and counting them would be the measurement
+            // measuring itself.
+            $say($label . '_ms', round((microtime(true) - $started) * 1000, 2));
+            $say($label . '_statements', max(0, $selects() - $before - 2));
+            $say($label . '_outcome', $outcome);
+        };
+
+        $say('schema_target', (string) \Tecteb\Marketplace\Core\Migration\SchemaVersion::TARGET);
+        $say('schema_now', (string) ($db->getVar(
+            'SELECT option_value FROM `' . $db->prefix() . 'options` WHERE option_name = %s',
+            ['tmc_schema_version']
+        ) ?? '__absent__'));
+        $say('products_on_this_site', (string) ($db->getVar(
+            'SELECT COUNT(*) FROM `' . $db->prefix() . 'posts` WHERE post_type = %s',
+            ['product']
+        ) ?? -1));
+        $say('active_plugins', (string) count((array) get_option('active_plugins', [])));
+
+        $time('capabilities', static function () use ($c): void {
+            \Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\CapabilityInstaller::install();
+        });
+        $time('settings', static function () use ($c): void {
+            $c->get(\Tecteb\Marketplace\Core\Config\SettingsService::class)->ensureStored();
+        });
+        // The migration chain on a site that is ALREADY at the target: this is
+        // the «nothing to do» cost, which is what a re-activation pays.
+        $time('migrations_at_target', static function () use ($c): void {
+            $c->get(\Tecteb\Marketplace\Core\Migration\MigrationRunner::class)->run();
+        });
+        $time('legacy_documents', static function (): void {
+            Bootstrap::relocateLegacyPrivateDocuments();
+        });
+        // The one step whose cost grows with the SITE rather than with this
+        // plugin: every post type and taxonomy on the install contributes
+        // rules, and the result is one option row.
+        $time('flush_rewrite_rules', static function (): void {
+            \Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\VendorRoutes::addRewriteRules();
+            flush_rewrite_rules(false);
+        });
+        $rules = get_option('rewrite_rules', []);
+        $say('rewrite_rules_count', (string) (is_array($rules) ? count($rules) : -1));
+        $say('rewrite_rules_bytes', (string) strlen((string) maybe_serialize($rules)));
+        // And what the plugin does NOT do, said as a measurement rather than
+        // as a promise: `grep` proves there is no outbound call in `src/`,
+        // and this proves none happened during the steps above.
+        $say('http_calls_during_activation', (string) count((array) ($GLOBALS['tmc_probe_http'] ?? [])));
+        break;
+    }
+
     case 'reset': {
         $wcId = (int) wc_get_product_id_by_sku(TMC_P56_SKU);
         $ids = array_map('intval', array_column((array) $db->getResults(
