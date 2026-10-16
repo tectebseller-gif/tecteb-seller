@@ -14,21 +14,29 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Finance\Application\CommissionRuleRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
+use Tecteb\Marketplace\Modules\Finance\Application\RecordSupplierPayment;
 use Tecteb\Marketplace\Modules\Finance\Application\RequestWithdrawal;
+use Tecteb\Marketplace\Modules\Finance\Application\SupplierPaymentRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Application\ReviewWithdrawals;
 use Tecteb\Marketplace\Modules\Finance\Application\SettlementGate;
 use Tecteb\Marketplace\Modules\Finance\Application\VendorBalance;
 use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface;
+use Tecteb\Marketplace\Modules\Finance\Application\TectebCommissionSourceInterface;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
+use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommissionCalculator;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStateMachine;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\TectebCommissionPanel;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\WpTectebCommissionSource;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbCommissionRuleRepository;
 use Tecteb\Marketplace\Modules\Finance\Application\VendorMoneyUnitRegistryInterface;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbSupplierPaymentRepository;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbVendorMoneyUnitRegistry;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbWithdrawalRepository;
 use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\CommissionRulesPage;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\WordPress\FinanceArea;
+use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\SupplierPaymentsPage;
 use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\WithdrawalsPage;
 use Tecteb\Marketplace\Modules\Order\Application\ShipmentRepositoryInterface;
 use Tecteb\Marketplace\Modules\Order\Presentation\Admin\ReturnsPage;
@@ -80,6 +88,8 @@ final class FinanceModule implements ModuleInterface
             $c->get(ClockInterface::class)
         ));
         $c->bind(CommissionCalculator::class, static fn () => new CommissionCalculator());
+        $c->bind(TectebCommissionCalculator::class, static fn () => new TectebCommissionCalculator());
+        $c->bind(TectebCommissionSourceInterface::class, static fn () => new WpTectebCommissionSource());
         $c->bind(ResolveCommissionRate::class, static fn (ContainerInterface $c) => new ResolveCommissionRate(
             $c->get(CommissionRuleRepositoryInterface::class)
         ));
@@ -87,7 +97,13 @@ final class FinanceModule implements ModuleInterface
             $c->get(LedgerRepositoryInterface::class),
             $c->get(ResolveCommissionRate::class),
             $c->get(CommissionCalculator::class),
-            $c->get(AuditLogger::class)
+            $c->get(AuditLogger::class),
+            // THE OWNER'S MODEL, always wired in a real install. Which one
+            // decides a new sale is a decision and not a configuration, so
+            // these two are not conditional on anything —
+            // `CommissionModelWiringTest` asserts that they are here.
+            $c->get(TectebCommissionSourceInterface::class),
+            $c->get(TectebCommissionCalculator::class)
         ));
 
         // Settlement. Bound unconditionally, like the order gate: the screens
@@ -124,6 +140,28 @@ final class FinanceModule implements ModuleInterface
             // release of the reserved lines are one operation or neither.
             $c->get(DatabaseInterface::class)
         ));
+        // Supplier payments: a RECORD of money already paid by hand, kept
+        // apart from the vendor withdrawal cycle on purpose (§4). Bound
+        // unconditionally, like the gates, so a screen can always say why
+        // something cannot be recorded.
+        $c->bind(SupplierPaymentRepositoryInterface::class, static fn (ContainerInterface $c) => new DbSupplierPaymentRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(RecordSupplierPayment::class, static fn (ContainerInterface $c) => new RecordSupplierPayment(
+            $c->get(SupplierPaymentRepositoryInterface::class),
+            $c->get(OrderItemRepositoryInterface::class),
+            $c->get(LedgerRepositoryInterface::class),
+            $c->get(VendorMoneyUnitRegistryInterface::class),
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(AuditLogger::class),
+            $c->get(ClockInterface::class),
+            // THE SAME gateway object the repository holds, not a second one
+            // over the same connection: nesting is counted in the object
+            // (`alpha.56`).
+            $c->get(DatabaseInterface::class)
+        ));
+
         $c->bind(ReviewWithdrawals::class, static fn (ContainerInterface $c) => new ReviewWithdrawals(
             $c->get(WithdrawalRepositoryInterface::class),
             $c->get(LedgerRepositoryInterface::class),
@@ -151,13 +189,14 @@ final class FinanceModule implements ModuleInterface
     {
         $rules = new CommissionRulesPage($c);
         $withdrawals = new WithdrawalsPage($c);
+        $supplierPayments = new SupplierPaymentsPage($c);
         // The returns queue is an Order module screen, registered from here on
         // purpose: OrderModule is self-gated and does not load at all while the
         // gate is shut, and a return that is already open must still be
         // decidable on such a day. Its services are bound in Bootstrap for the
         // same reason (F-15).
         $returns = new ReturnsPage($c);
-        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($rules, $withdrawals, $returns): array {
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($rules, $withdrawals, $returns, $supplierPayments): array {
             $pages[] = [
                 'slug' => CommissionRulesPage::SLUG,
                 'page_title' => CommissionRulesPage::menuLabel(),
@@ -172,6 +211,16 @@ final class FinanceModule implements ModuleInterface
                 'capability' => WithdrawalsPage::CAPABILITY,
                 'render' => [$withdrawals, 'render'],
             ];
+            // Its own page, next to the settlement queue and NOT inside it:
+            // «نام‌های مشابه نباید باعث شود چرخهٔ برداشت فروشنده برای خرید
+            // نقدی از تأمین‌کننده استفاده شود» (§4).
+            $pages[] = [
+                'slug' => SupplierPaymentsPage::SLUG,
+                'page_title' => SupplierPaymentsPage::menuLabel(),
+                'menu_label' => SupplierPaymentsPage::menuLabel(),
+                'capability' => SupplierPaymentsPage::CAPABILITY,
+                'render' => [$supplierPayments, 'render'],
+            ];
             $pages[] = [
                 'slug' => ReturnsPage::SLUG,
                 'page_title' => ReturnsPage::menuLabel(),
@@ -181,6 +230,15 @@ final class FinanceModule implements ModuleInterface
             ];
             return $pages;
         });
+
+        // «کمیسیون تک‌طب» on WooCommerce's own product editor. Registered
+        // here rather than in the Product module because the field is money:
+        // its capability is the financial-management one, its writes are
+        // audited as financial changes, and the rule it stores is read by
+        // this module at capture.
+        if (class_exists(\WooCommerce::class, false) || did_action('woocommerce_init') > 0) {
+            TectebCommissionPanel::register($c);
+        }
 
         // …and the vendor's own side of the same money.
         $area = new FinanceArea($c);

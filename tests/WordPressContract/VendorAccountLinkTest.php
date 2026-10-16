@@ -17,10 +17,11 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\StaffRolePreset;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffStatus;
 use Tecteb\Marketplace\Modules\Vendor\Domain\VendorProfile;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\VendorAccountLink;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\VendorRoutes;
 use TmcWpStubs\State;
 
 /**
- * WHAT THIS PROVES: «ورود به پنل فروشنده» is on the account dashboard, for the
+ * WHAT THIS PROVES: «ورود به داشبورد فروشنده» is on the account dashboard, for the
  * people who have a vendor path, and it is printed once.
  *
  * `alpha.29` added it and asked one question — «does this person act in a shop
@@ -70,13 +71,16 @@ final class VendorAccountLinkTest extends ContractTestCase
             'the row goes before «خروج», not after it'
         );
         self::assertSame(VendorAccountLink::panelLabel(), $items[VendorAccountLink::MENU_KEY]);
-        self::assertSame('ورود به پنل فروشنده', VendorAccountLink::panelLabel(), 'the owner\'s words');
+        // The owner's exact words for this round, pinned deliberately: this
+        // is the one place a literal belongs, because the string IS the
+        // requirement («عنوان دکمهٔ اصلی بازارگاه دقیقاً باشد»).
+        self::assertSame('ورود به داشبورد فروشنده', VendorAccountLink::panelLabel(), 'the owner\'s words');
     }
 
     /**
      * WHAT THIS PROVES: an applicant keeps their own route, under its own name.
      *
-     * They have no shop, so «ورود به پنل فروشنده» would be a link that lied
+     * They have no shop, so «ورود به داشبورد فروشنده» would be a link that lied
      * about where it goes — and hiding it altogether leaves the one page that
      * shows their review status unreachable from the account they signed in to.
      */
@@ -127,10 +131,16 @@ final class VendorAccountLinkTest extends ContractTestCase
         $panel = $link->shortcode();
 
         self::assertSame(VendorAccountLink::managerLabel(), $items[VendorAccountLink::MENU_KEY] ?? '');
-        self::assertSame('مدیریت بازارگاه', VendorAccountLink::managerLabel());
+        // And it says wp-admin out loud, because that is where it goes.
+        self::assertSame('بررسی محصول‌ها در پیشخوان مدیریت', VendorAccountLink::managerLabel());
+        self::assertNotSame(
+            VendorAccountLink::panelLabel(),
+            VendorAccountLink::managerLabel(),
+            'the administrative link must not borrow the vendor button\'s words'
+        );
         self::assertStringContainsString('page=tmc-product-review', $panel, 'into wp-admin, not into /vendor/');
         self::assertStringNotContainsString(
-            'ورود به پنل فروشنده',
+            VendorAccountLink::panelLabel(),
             $panel,
             'a manager pressing that would land on a page about a shop they do not have'
         );
@@ -157,6 +167,44 @@ final class VendorAccountLinkTest extends ContractTestCase
             VendorAccountLink::panelLabel(),
             $link->addMenuItem($this->menu())[VendorAccountLink::MENU_KEY] ?? ''
         );
+        // The LABEL was all this asserted until `alpha.57`, and the label is
+        // not where the owner's complaint lived: «نقش مدیر نباید کاربر دارای
+        // فروشگاه را از داشبورد فروشنده به wp-admin بفرستد». So the
+        // destination is asserted too, on the button AND on the menu row.
+        $panel = $link->shortcode();
+        self::assertStringNotContainsString('wp-admin', $panel, 'a manager with a shop is not sent to wp-admin');
+        self::assertStringNotContainsString('page=tmc-product-review', $panel, 'nor to the review screen');
+        self::assertStringContainsString('tmc_vendor=dashboard', $panel, 'they go to their own dashboard');
+        self::assertStringNotContainsString(
+            'wp-admin',
+            $link->endpointUrl('ignored', VendorAccountLink::MENU_KEY, '', ''),
+            'and the menu row agrees with the button'
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: the vendor button goes to THIS plugin's front-end
+     * dashboard — not wp-admin, not the manager's review screen, and not
+     * another plugin's dashboard.
+     *
+     * Four destinations were on the table in the owner's report and only one
+     * of them is right, so each wrong one is named. The right one is read
+     * from `VendorRoutes` rather than typed here: the address is built from
+     * `home_url()` and the permalink setting, and a literal in a test would
+     * be a second opinion about it.
+     */
+    public function testTheVendorButtonLandsOnThisPluginsOwnDashboard(): void
+    {
+        $html = $this->link(profile: $this->profile())->shortcode();
+
+        self::assertStringContainsString(
+            'href="' . VendorRoutes::dashboardUrl() . '"',
+            $html,
+            'the one address the plugin itself builds'
+        );
+        foreach (['wp-admin', 'page=tmc-product-review', 'dokan', 'dashboard/'] as $wrong) {
+            self::assertStringNotContainsString($wrong, $html, "not {$wrong}");
+        }
     }
 
     /** And a plain customer is still nobody, manager capability or not. */
@@ -181,7 +229,7 @@ final class VendorAccountLinkTest extends ContractTestCase
     {
         delete_option(VendorAccountLink::SEEN_OPTION);
         self::assertSame(
-            ['menu' => '', 'dashboard' => '', 'shortcode' => '', 'printed' => '', 'label' => ''],
+            ['menu' => '', 'dashboard' => '', 'shortcode' => '', 'printed' => '', 'label' => '', 'kind' => ''],
             VendorAccountLink::lastSeen(),
             'nothing is claimed before anything has run'
         );
@@ -194,6 +242,7 @@ final class VendorAccountLinkTest extends ContractTestCase
         self::assertSame('yes', $seen['dashboard']);
         self::assertSame('no', $seen['printed']);
         self::assertSame('', $seen['menu'], 'and the menu filter did not run on this theme');
+        self::assertSame('', $seen['kind'], 'nothing was drawn, so there is no kind to report');
 
         // A vendor on the same theme: printed, with the label that was drawn.
         $vendor = $this->link(profile: $this->profile());
@@ -248,7 +297,7 @@ final class VendorAccountLinkTest extends ContractTestCase
         $printed = (string) ob_get_clean();
 
         self::assertSame($this->link(profile: $this->profile())->shortcode(), $printed);
-        self::assertSame(1, substr_count($printed, '<a class="button"'), 'one link, not two');
+        self::assertSame(1, substr_count($printed, '<a class="button tmc-account-vendor__link"'), 'one link, not two');
     }
 
     /**
@@ -272,8 +321,8 @@ final class VendorAccountLinkTest extends ContractTestCase
         $link->renderPanel();
         $printed = (string) ob_get_clean();
 
-        self::assertStringContainsString('ورود به پنل فروشنده', $printed, 'and so is the button');
-        self::assertSame(1, substr_count($printed, '<a class="button"'), 'one button, not two');
+        self::assertStringContainsString(VendorAccountLink::panelLabel(), $printed, 'and so is the button');
+        self::assertSame(1, substr_count($printed, '<a class="button tmc-account-vendor__link"'), 'one button, not two');
     }
 
     /**
@@ -295,13 +344,13 @@ final class VendorAccountLinkTest extends ContractTestCase
         $link->renderPanel();
         $second = (string) ob_get_clean();
 
-        self::assertStringContainsString('<a class="button"', $first);
+        self::assertStringContainsString('<a class="button tmc-account-vendor__link"', $first);
         self::assertSame('', $second, 'the second call prints nothing');
         self::assertSame('', $link->shortcode(), 'and neither does a shortcode after it');
 
         // The other order: a shortcode first, then the hook.
         $other = $this->link(profile: $this->profile());
-        self::assertStringContainsString('<a class="button"', $other->shortcode());
+        self::assertStringContainsString('<a class="button tmc-account-vendor__link"', $other->shortcode());
         ob_start();
         $other->renderPanel();
         self::assertSame('', (string) ob_get_clean());
@@ -357,7 +406,7 @@ final class VendorAccountLinkTest extends ContractTestCase
         State::$currentUserId = 9;
         $link = new VendorAccountLink($container);
 
-        self::assertStringContainsString('ورود به پنل فروشنده', $link->shortcode(), 'they have a route');
+        self::assertStringContainsString(VendorAccountLink::panelLabel(), $link->shortcode(), 'they have a route');
         self::assertNull($access->storeFor(9), 'and no shop they may act in');
     }
 
@@ -385,7 +434,7 @@ final class VendorAccountLinkTest extends ContractTestCase
         $container->instance(VendorRepositoryInterface::class, $vendors);
         State::$currentUserId = 9;
 
-        self::assertStringContainsString('ورود به پنل فروشنده', (new VendorAccountLink($container))->shortcode());
+        self::assertStringContainsString(VendorAccountLink::panelLabel(), (new VendorAccountLink($container))->shortcode());
     }
 
     /**
@@ -414,7 +463,7 @@ final class VendorAccountLinkTest extends ContractTestCase
         $container->instance(VendorRepositoryInterface::class, $vendors);
         State::$currentUserId = 9;
 
-        self::assertStringContainsString('ورود به پنل فروشنده', (new VendorAccountLink($container))->shortcode());
+        self::assertStringContainsString(VendorAccountLink::panelLabel(), (new VendorAccountLink($container))->shortcode());
         self::assertNull($access->storeFor(9));
     }
 

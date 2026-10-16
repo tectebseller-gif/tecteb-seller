@@ -26,7 +26,7 @@ final class SetupMessages
     {
         return match ($step) {
             SetupChecklist::STEP_WOOCOMMERCE => __('بدون ووکامرس، ماژول‌های سفارش و محصول اصلاً بارگذاری نمی‌شوند و افزونه فقط صفحه‌های مدیریتی‌اش را نشان می‌دهد.', 'tecteb-marketplace-core'),
-            SetupChecklist::STEP_COMMISSION => __('تا وقتی نرخی — سراسری یا برای یک فروشنده — ثبت نشده باشد، دروازهٔ عملیات سفارش بسته می‌ماند. این افزونه هیچ نرخی حدس نمی‌زند.', 'tecteb-marketplace-core'),
+            SetupChecklist::STEP_COMMISSION => __('کمیسیون تک‌طب روی صفحهٔ ویرایش هر محصول در ووکامرس تعیین می‌شود، در زبانهٔ «کمیسیون تک‌طب». نیازی به نرخ سراسری نیست و محصولی که کمیسیون نداشته باشد بدون کمیسیون فروخته می‌شود؛ تعیین‌نشدن آن مانع تأیید، انتشار یا فروش نیست.', 'tecteb-marketplace-core'),
             SetupChecklist::STEP_DOCUMENTS => __('فهرست مدارکی که متقاضی فروشندگی باید بفرستد. اگر عمداً مدرکی نمی‌خواهید، همان را هم صریح ثبت کنید تا با «تنظیم‌نشده» اشتباه نشود.', 'tecteb-marketplace-core'),
             SetupChecklist::STEP_SETTLEMENT => __('چند روز پس از تکمیل سفارش، سهم فروشنده قابل درخواست می‌شود.', 'tecteb-marketplace-core'),
             SetupChecklist::STEP_STAFF_LIMIT => __('بیشترین تعداد کاربری که یک فروشنده می‌تواند به فروشگاهش دعوت کند.', 'tecteb-marketplace-core'),

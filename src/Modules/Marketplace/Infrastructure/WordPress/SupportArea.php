@@ -63,7 +63,12 @@ final class SupportArea
                     ?? $view->notice->code
             );
         }
-        $html .= VendorUi::notice('info', MarketplaceMessages::openTermsWarning());
+        // ONE line, and only the fact a vendor can act on: every tier is
+        // theirs to write. The decision codes, the minimum order and the
+        // ticket retention period are the owner's business and are on the
+        // manager's own page — «در … پیشخوان، کدهایی مثل DEC-04/DEC-05 …
+        // نمایش داده نشود» (§3). Nothing was decided and no gate was opened.
+        $html .= VendorUi::notice('info', MarketplaceMessages::vendorTierHint());
         return $html
             . $this->couponSection($view, $vendorUserId, $fa)
             . $this->tierSection($view, $vendorUserId, $fa)

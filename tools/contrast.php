@@ -65,6 +65,14 @@ $pairs = [
     // black, so this red is ours and this row is the reason it is this red.
     // The number is 11px bold — small text, so the bar is 4.5:1, not 3:1.
     ['شمارندهٔ «در انتظار بررسی» روی نشان قرمز منو', '#FFFFFF', '#D63638', 4.5],
+    // `alpha.57`: the «فیلترهای فعال» bar and the bucket tag that replaced the
+    // repeated Dokan paragraph. Both put MUTED text on the muted surface,
+    // which is the pair this table did not have — it listed navy on that
+    // surface and muted on white, and neither of those is this one.
+    ['برچسب فیلتر فعال و برچسب «دکان» روی کارت muted', '#4F6570', '#F1F5F7', 4.5],
+    // The × that removes one filter, while the pointer or the keyboard is on
+    // it. Small text, so 4.5:1 and not 3:1.
+    ['× برداشتن فیلتر (hover/focus) روی خاکستری خنثی', '#B3261E', '#E4EAEE', 4.5],
 ];
 
 $fail = 0;

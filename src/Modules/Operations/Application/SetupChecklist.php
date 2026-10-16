@@ -19,10 +19,11 @@ namespace Tecteb\Marketplace\Modules\Operations\Application;
  * later cleared makes its step incomplete again. Progress that can only move
  * forwards is progress that lies eventually.
  *
- * **Blocked is a third answer, and it is not «incomplete».** The commission
- * rate depends on DEC-01 and the document list on the owner's decision; those
- * steps say what they are waiting for and on whom, rather than nagging a
- * manager to supply a number nobody has approved.
+ * **Blocked is a third answer, and it is not «incomplete».** It is also, from
+ * `alpha.57`, unreachable for the commission step: that one waited on DEC-01,
+ * and the owner has decided — commission is set per product and a product
+ * with none sells, so there is no site-wide number left to wait for. The
+ * answer kept its name because other steps may need it.
  *
  * Pure: no WordPress. The state arrives as a snapshot and the Persian wording
  * is chosen in Presentation.
@@ -125,29 +126,39 @@ final class SetupChecklist
     }
 
     /**
-     * The rate is the one step that can be BLOCKED rather than merely undone.
+     * NOTHING TO CONFIGURE HERE ANY MORE — and that is the answer, not a
+     * blank.
      *
-     * A per-vendor rule counts as configured even with no global rate, because
-     * that is a real and complete way to run a marketplace. What is never
-     * counted is a rate this plugin invented: FIN-02 forbids guessing one, so
-     * with neither a rule nor an approved global value the step reports the
-     * decision it is waiting on instead of asking the manager to make it up.
+     * This was the one step that could be BLOCKED: with neither a rule nor an
+     * approved global rate it reported DEC-01 and the order gate stayed shut,
+     * because FIN-02 said an unset rate was not zero and the plugin must not
+     * invent one. The owner has now decided it, and the decision removes the
+     * step's reason to exist rather than answering it:
+     *
+     *   * commission is Tecteb's share, set **per product** on the WooCommerce
+     *     product editor — so there is no site-wide value for a checklist to
+     *     wait on;
+     *   * **a product with none sells**: «تعیین‌نشده یا صفر یعنی بدون کمیسیون»
+     *     and «نبود نرخ مانع تأیید، انتشار یا فروش نیست».
+     *
+     * So the step is `DONE` unconditionally and its sentence says where the
+     * field is. It is not deleted, because a checklist that silently loses a
+     * row makes «۶ از ۶» mean something different from last week without
+     * saying so, and because the manager still wants to know where commission
+     * lives. `$state`'s commission keys are left in place and unread for the
+     * same reason the scoped rules are: they are what explains lines recorded
+     * before this round.
+     *
+     * The OTHER gates are untouched: DEC-02 and DEC-04 still close the order
+     * gate and the ledger probe still runs — «سایر دروازه‌های مستقل … را
+     * خودکار باز نکن» (§7).
      *
      * @param array<string,mixed> $state
      * @return array{0:string, 1:string, 2:string}
      */
     private static function commission(array $state): array
     {
-        if ((int) ($state['commission_rules'] ?? 0) > 0) {
-            return [self::DONE, '', 'tmc-commissions'];
-        }
-        if (($state['commission_rate_bp'] ?? null) !== null) {
-            return [self::DONE, '', 'tmc-settings'];
-        }
-        if ((bool) ($state['decision_open'] ?? true)) {
-            return [self::BLOCKED, 'DEC-01', 'tmc-commissions'];
-        }
-        return [self::TODO, '', 'tmc-commissions'];
+        return [self::DONE, '', 'tmc-commissions'];
     }
 
     /**

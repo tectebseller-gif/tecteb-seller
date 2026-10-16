@@ -142,7 +142,56 @@ final class MarketplaceMessages
         };
     }
 
-    /** The two sentences these screens must carry about what is NOT decided. */
+    /**
+     * THE BUYER'S OWN SENTENCE — short, about their own standing, no codes.
+     *
+     * `openTermsWarning()` below is what the account page used to print, and
+     * the owner read it there: two decision codes, a tariff, a minimum and a
+     * ticket retention period, in one paragraph, to somebody who wanted to
+     * know whether they could buy wholesale. §3 is explicit — «در ناحیهٔ حساب
+     * کاربری و پیشخوان، کدهایی مثل DEC-04/DEC-05 … نمایش داده نشود» and
+     * «پیام‌های کاربر کوتاه باشد و وضعیت و اقدام بعدی را بگوید».
+     *
+     * Nothing was decided to make this shorter and no gate was opened: the
+     * tariff is still the owner's, the vendor still writes every tier by
+     * hand, and the manager's own page still says so in full. What changed is
+     * who reads it.
+     *
+     * `null` is «no request on file», which is a state and not an absence of
+     * one: it is the sentence that tells a buyer the next step.
+     */
+    public static function wholesaleStanding(?WholesaleStatus $status): string
+    {
+        return match ($status) {
+            WholesaleStatus::Requested => __('درخواست شما ثبت شده و در انتظار بررسی مدیر است. تا تأیید، قیمت‌ها همان قیمت خرده‌فروشی است.', 'tecteb-marketplace-core'),
+            WholesaleStatus::Approved => __('قیمت عمده برای شما فعال است. روی صفحهٔ محصول‌هایی که قیمت عمده دارند، پلکان قیمت نمایش داده می‌شود.', 'tecteb-marketplace-core'),
+            WholesaleStatus::Rejected => __('درخواست شما پذیرفته نشد. برای پیگیری با پشتیبانی بازارگاه تماس بگیرید.', 'tecteb-marketplace-core'),
+            WholesaleStatus::Suspended => __('خرید عمدهٔ شما فعلاً معلق است. برای پیگیری با پشتیبانی بازارگاه تماس بگیرید.', 'tecteb-marketplace-core'),
+            default => __('برای خرید عمده، مشخصات کسب‌وکارتان را ثبت کنید. تأیید با مدیر بازارگاه است و تا تأیید، قیمت‌ها همان قیمت خرده‌فروشی می‌ماند.', 'tecteb-marketplace-core'),
+        };
+    }
+
+    /**
+     * The vendor's own sentence about the tiers — one line, no codes.
+     *
+     * The vendor needs ONE fact from the undecided tariff: that each step is
+     * theirs to write, because nothing fills it in for them. The decision
+     * codes, the minimum order and the ticket retention period are the
+     * owner's business and are on the manager's page.
+     */
+    public static function vendorTierHint(): string
+    {
+        return __('پله‌های قیمت عمده را خودتان تعیین می‌کنید؛ بازارگاه هیچ پله‌ای را خودکار نمی‌سازد.', 'tecteb-marketplace-core');
+    }
+
+    /**
+     * The two sentences the MANAGER'S screens carry about what is NOT decided.
+     *
+     * Only the manager's: this is the text §3 asked to be kept out of the
+     * account area and the vendor's dashboard, and it is kept here because the
+     * person who talks to the owner about DEC-04 and DEC-05 is the one who
+     * needs their names.
+     */
     public static function openTermsWarning(): string
     {
         return sprintf(

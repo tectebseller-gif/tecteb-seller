@@ -16,6 +16,9 @@ use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
+use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommission;
+use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommissionCalculator;
+use Tecteb\Marketplace\Tests\Support\FakeTectebCommissionSource;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Finance\Domain\RateScope;
@@ -1234,6 +1237,205 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertSame($eventKey, $stored[0]->ledgerEvent);
         self::assertSame(0, $mine['failed'], 'the loser did not report a storage failure');
         self::assertSame(0, $mine['incomplete']);
+    }
+
+    /**
+     * WHAT THIS PROVES: a line captures the OWNER'S per-product commission,
+     * records everything needed to explain it, and is not rewritten when the
+     * product's rule changes afterwards (§5-ز).
+     *
+     * The fixed case is the one that needs the quantity: ۲۰٬۰۰۰ per unit over
+     * three units is ۶۰٬۰۰۰, and ۶۰٬۰۰۰ alone cannot say whether it was that
+     * or ۶۰٬۰۰۰ × ۱.
+     */
+    public function testAFixedCommissionIsCapturedPerUnitAndSurvivesALaterRuleChange(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'دستکش معاینه', 'SKU-COMM-1');
+        $wcId = (int) $this->products->find($product)?->wcProductId;
+        $rules = new FakeTectebCommissionSource();
+        $rules->set($wcId, TectebCommission::fixed('20000'));
+
+        $report = $this->captureWithCommission($rules)->capture(
+            6101,
+            [$this->line(601, $product, 3, 300000)]
+        );
+        self::assertSame(1, $report['captured']);
+
+        $line = $this->orderItems->forVendor(self::VENDOR_A)[0];
+        self::assertSame(300000, $line->baseMinor);
+        self::assertSame(60000, $line->commissionMinor, '۲۰٬۰۰۰ × ۳');
+        self::assertSame(240000, $line->vendorShareMinor);
+
+        // The snapshot beside the ledger event carries the type, the quantity
+        // and the per-unit amount, so the line is explainable a year later.
+        $snapshot = $this->snapshotFor(CaptureOrder::eventKey(6101, 601));
+        self::assertSame(TectebCommission::FIXED, $snapshot['type'] ?? null);
+        self::assertSame(3, $snapshot['quantity'] ?? null);
+        self::assertSame(20000, $snapshot['unit_minor'] ?? null);
+        self::assertSame('product', $snapshot['rate_source'] ?? null);
+
+        // THE PAST IS NOT REWRITTEN. The rule changes, and the recorded line
+        // does not move: «تغییر بعدی محصول نباید سفارش‌های گذشته را عوض کند».
+        $rules->set($wcId, TectebCommission::percent(5000));
+        $again = $this->orderItems->forVendor(self::VENDOR_A)[0];
+        self::assertSame(60000, $again->commissionMinor);
+        self::assertSame(240000, $again->vendorShareMinor);
+    }
+
+    /**
+     * WHAT THIS PROVES: a product with NO commission still sells, and its line
+     * is recorded as a sale the vendor is owed the whole of.
+     *
+     * This is the half that used to be impossible. Until `alpha.57` an unset
+     * rate was `rate_unset` — the order gate refused to operate and the line
+     * was counted `unrecorded` with a null share — so «نبود نرخ مانع فروش
+     * نیست» had to be measured here rather than argued.
+     */
+    public function testAProductWithNoCommissionIsCapturedWithTheWholeLineAsTheVendorsShare(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'باند کشی', 'SKU-COMM-2');
+        $report = $this->captureWithCommission(new FakeTectebCommissionSource())->capture(
+            6102,
+            [$this->line(602, $product, 2, 450000)]
+        );
+
+        self::assertSame(1, $report['captured']);
+        self::assertSame(0, $report['unrecorded'], 'no commission is not an unrecorded sale');
+
+        $line = $this->orderItems->forVendor(self::VENDOR_A)[0];
+        self::assertSame(0, $line->commissionMinor);
+        self::assertSame(450000, $line->vendorShareMinor);
+        self::assertSame(0, $line->rateBasisPoints);
+        self::assertSame('none', $line->rateSource, 'and the line says it came from nowhere');
+    }
+
+    /**
+     * WHAT THIS PROVES: a percentage is taken on the amount WooCommerce says
+     * the line was paid, with no second subtraction of the discount.
+     *
+     * §5-ط asks for the after-discount amount to come from real WooCommerce
+     * data and for the discount not to be subtracted twice. `line_total_minor`
+     * IS WooCommerce's after-discount total, so the proof is that the
+     * commission is ten percent of THAT and the sum of the two halves is
+     * exactly it — not ten percent of an undiscounted price.
+     */
+    public function testAPercentageIsTakenOnWooCommercesOwnAfterDiscountTotal(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'ماسک سه لایه', 'SKU-COMM-3');
+        $wcId = (int) $this->products->find($product)?->wcProductId;
+        $rules = new FakeTectebCommissionSource();
+        $rules->set($wcId, TectebCommission::percent(1000));
+
+        // 500,000 before a 50,000 discount: WooCommerce hands over 450,000.
+        $line = $this->line(603, $product, 1, 450000) + [];
+        $this->captureWithCommission($rules)->capture(6103, [$line]);
+
+        $stored = $this->orderItems->forVendor(self::VENDOR_A)[0];
+        self::assertSame(450000, $stored->baseMinor);
+        self::assertSame(45000, $stored->commissionMinor);
+        self::assertSame(405000, $stored->vendorShareMinor);
+        self::assertSame(
+            $stored->baseMinor,
+            $stored->commissionMinor + $stored->vendorShareMinor,
+            'the share and the commission must add up to what was paid'
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: a fixed commission bigger than the line records
+     * NOTHING and says so by name.
+     *
+     * The open question, measured rather than capped. A cap would invent a
+     * rate the owner never set and a negative share would make a vendor owe
+     * money for selling something, so the line is refused, counted, and
+     * reported — and the question is in the delivery document.
+     */
+    public function testAFixedCommissionLargerThanTheLineRecordsNothing(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'چسب زخم', 'SKU-COMM-4');
+        $wcId = (int) $this->products->find($product)?->wcProductId;
+        $rules = new FakeTectebCommissionSource();
+        $rules->set($wcId, TectebCommission::fixed('900000'));
+
+        $report = $this->captureWithCommission($rules)->capture(
+            6104,
+            [$this->line(604, $product, 1, 450000)]
+        );
+
+        self::assertSame(1, $report['unrecorded']);
+        self::assertContains(TectebCommissionCalculator::EXCEEDS_LINE, $report['reasons']);
+
+        // The line is still STORED, with null figures, because FIN-02's rule
+        // is that a sale which produced no share is owed an answer rather than
+        // a silent omission.
+        $line = $this->orderItems->forVendor(self::VENDOR_A)[0];
+        self::assertNull($line->commissionMinor);
+        self::assertNull($line->vendorShareMinor);
+        self::assertSame('', $line->ledgerEvent);
+    }
+
+    /**
+     * WHAT THIS PROVES: the scoped rules of FIN-02 no longer decide a sale.
+     *
+     * A general rate is set — which this site has had since `alpha.6` — and a
+     * product with no commission of its own is still captured with none:
+     * «نرخ عمومی یا سطح فروشنده نباید بی‌صدا جای کمیسیون خالی محصول را بگیرد».
+     */
+    public function testAGeneralRateDoesNotStandInForAProductWithNoCommission(): void
+    {
+        $this->rules->setRate(RateScope::General, 'general', CommissionRate::ofBasisPoints(2500));
+        $product = $this->publish(self::VENDOR_A, 'سرنگ ۵ سی‌سی', 'SKU-COMM-5');
+
+        $this->captureWithCommission(new FakeTectebCommissionSource())->capture(
+            6105,
+            [$this->line(605, $product, 1, 400000)]
+        );
+
+        $line = $this->orderItems->forVendor(self::VENDOR_A)[0];
+        self::assertSame(0, $line->commissionMinor, 'the general 25% must not reach this line');
+        self::assertSame(400000, $line->vendorShareMinor);
+    }
+
+    /** The capture wired with the owner's per-product model. */
+    private function captureWithCommission(FakeTectebCommissionSource $rules): CaptureOrder
+    {
+        $clock = new SystemClock();
+        return new CaptureOrder(
+            $this->orderItems,
+            $this->products,
+            new RecordCommission(
+                $this->ledger,
+                new ResolveCommissionRate($this->rules),
+                new CommissionCalculator(),
+                $this->logger,
+                $rules,
+                new TectebCommissionCalculator()
+            ),
+            $this->catalogService,
+            $this->orderGate,
+            $this->logger,
+            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), $clock),
+            new WpDatabase($this->wpdb)
+        );
+    }
+
+    /**
+     * The snapshot stored beside one ledger event, decoded.
+     *
+     * @return array<string,mixed>
+     */
+    private function snapshotFor(string $eventKey): array
+    {
+        foreach ($this->ledger->forEvent($eventKey) as $entry) {
+            if ($entry->snapshotJson === '') {
+                continue;
+            }
+            $decoded = json_decode($entry->snapshotJson, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+        return [];
     }
 
     /**

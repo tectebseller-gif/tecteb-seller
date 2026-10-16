@@ -1,0 +1,1635 @@
+[
+  {
+    "id": "aria-prohibited-attr",
+    "impact": "serious",
+    "tags": [
+      "cat.aria",
+      "wcag2a",
+      "wcag412",
+      "EN-301-549",
+      "EN-9.4.1.2",
+      "RGAAv4",
+      "RGAA-7.1.1"
+    ],
+    "description": "Ensure ARIA attributes are not prohibited for an element's role",
+    "help": "Elements must only use permitted ARIA attributes",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/aria-prohibited-attr?application=axeAPI",
+    "nodes": [
+      {
+        "any": [],
+        "all": [],
+        "none": [
+          {
+            "id": "aria-prohibited-attr",
+            "data": {
+              "role": null,
+              "nodeName": "span",
+              "messageKey": "noRoleSingular",
+              "prohibited": [
+                "aria-label"
+              ]
+            },
+            "relatedNodes": [],
+            "impact": "serious",
+            "message": "aria-label attribute cannot be used on a span with no valid role attribute."
+          }
+        ],
+        "impact": "serious",
+        "html": "<span class=\"woocommerce-help-tip\" tabindex=\"0\" for=\"content\" aria-label=\"Describe this product. What makes it unique? What are its most important features?\"></span>",
+        "target": [
+          "span[for=\"content\"]"
+        ],
+        "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a span with no valid role attribute."
+      },
+      {
+        "any": [],
+        "all": [],
+        "none": [
+          {
+            "id": "aria-prohibited-attr",
+            "data": {
+              "role": null,
+              "nodeName": "span",
+              "messageKey": "noRoleSingular",
+              "prohibited": [
+                "aria-label"
+              ]
+            },
+            "relatedNodes": [],
+            "impact": "serious",
+            "message": "aria-label attribute cannot be used on a span with no valid role attribute."
+          }
+        ],
+        "impact": "serious",
+        "html": "<span class=\"woocommerce-help-tip\" tabindex=\"0\" aria-label=\"For best results, upload JPEG or PNG files that are 1000 by 1000 pixels or larger. Maximum upload file size: 2 MB.\"></span>",
+        "target": [
+          "#postimagediv > .inside > .hide-if-no-js > .woocommerce-help-tip"
+        ],
+        "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a span with no valid role attribute."
+      },
+      {
+        "any": [],
+        "all": [],
+        "none": [
+          {
+            "id": "aria-prohibited-attr",
+            "data": {
+              "role": null,
+              "nodeName": "span",
+              "messageKey": "noRoleSingular",
+              "prohibited": [
+                "aria-label"
+              ]
+            },
+            "relatedNodes": [],
+            "impact": "serious",
+            "message": "aria-label attribute cannot be used on a span with no valid role attribute."
+          }
+        ],
+        "impact": "serious",
+        "html": "<span class=\"woocommerce-help-tip\" tabindex=\"0\" aria-label=\"For best results, upload JPEG or PNG files that are 1000 by 1000 pixels or larger. Maximum upload file size: 2 MB.\"></span>",
+        "target": [
+          ".add_product_images > .woocommerce-help-tip"
+        ],
+        "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a span with no valid role attribute."
+      },
+      {
+        "any": [],
+        "all": [],
+        "none": [
+          {
+            "id": "aria-prohibited-attr",
+            "data": {
+              "role": null,
+              "nodeName": "span",
+              "messageKey": "noRoleSingular",
+              "prohibited": [
+                "aria-label"
+              ]
+            },
+            "relatedNodes": [],
+            "impact": "serious",
+            "message": "aria-label attribute cannot be used on a span with no valid role attribute."
+          }
+        ],
+        "impact": "serious",
+        "html": "<span class=\"woocommerce-product-type-tip\" tabindex=\"0\" aria-label=\"Simple – covers the vast majority of any products you may sell. Simple products are shipped and have no options. For example, a book.\"></span>",
+        "target": [
+          ".woocommerce-product-type-tip"
+        ],
+        "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a span with no valid role attribute."
+      },
+      {
+        "any": [],
+        "all": [],
+        "none": [
+          {
+            "id": "aria-prohibited-attr",
+            "data": {
+              "role": null,
+              "nodeName": "span",
+              "messageKey": "noRoleSingular",
+              "prohibited": [
+                "aria-label"
+              ]
+            },
+            "relatedNodes": [],
+            "impact": "serious",
+            "message": "aria-label attribute cannot be used on a span with no valid role attribute."
+          }
+        ],
+        "impact": "serious",
+        "html": "<span class=\"woocommerce-help-tip\" tabindex=\"0\" aria-label=\"Summarize this product in 1-2 short sentences. We’ll show it at the top of the page.\"></span>",
+        "target": [
+          "#postexcerpt-title > .woocommerce-help-tip"
+        ],
+        "failureSummary": "Fix all of the following:\n  aria-label attribute cannot be used on a span with no valid role attribute."
+      }
+    ]
+  },
+  {
+    "id": "aria-required-children",
+    "impact": "critical",
+    "tags": [
+      "cat.aria",
+      "wcag2a",
+      "wcag131",
+      "EN-301-549",
+      "EN-9.1.3.1",
+      "RGAAv4",
+      "RGAA-9.3.1"
+    ],
+    "description": "Ensure elements with an ARIA role that require child roles contain them",
+    "help": "Certain ARIA roles must contain particular children",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/aria-required-children?application=axeAPI",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "aria-required-children",
+            "data": {
+              "messageKey": "unallowed",
+              "values": "li"
+            },
+            "relatedNodes": [
+              {
+                "html": "<li class=\"tabs\"><a href=\"#product_cat-all\" role=\"tab\" aria-selected=\"true\" aria-controls=\"product_cat-all\">All categories</a></li>",
+                "target": [
+                  "#product_cat-tabs > .tabs"
+                ]
+              },
+              {
+                "html": "<li class=\"hide-if-no-js\"><a href=\"#product_cat-pop\" role=\"tab\" aria-controls=\"product_cat-pop\">Most Used</a></li>",
+                "target": [
+                  "#product_cat-tabs > .hide-if-no-js"
+                ]
+              }
+            ],
+            "impact": "critical",
+            "message": "Element has children which are not allowed: li"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<ul id=\"product_cat-tabs\" class=\"category-tabs\" role=\"tablist\">",
+        "target": [
+          "#product_cat-tabs"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element has children which are not allowed: li"
+      },
+      {
+        "any": [
+          {
+            "id": "aria-required-children",
+            "data": {
+              "messageKey": "unallowed",
+              "values": "li"
+            },
+            "relatedNodes": [
+              {
+                "html": "<li class=\"tabs\"><a href=\"#product_brand-all\" role=\"tab\" aria-selected=\"true\" aria-controls=\"product_brand-all\">All Brands</a></li>",
+                "target": [
+                  "#product_brand-tabs > .tabs"
+                ]
+              },
+              {
+                "html": "<li class=\"hide-if-no-js\"><a href=\"#product_brand-pop\" role=\"tab\" aria-controls=\"product_brand-pop\">Most Used</a></li>",
+                "target": [
+                  "#product_brand-tabs > .hide-if-no-js"
+                ]
+              }
+            ],
+            "impact": "critical",
+            "message": "Element has children which are not allowed: li"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<ul id=\"product_brand-tabs\" class=\"category-tabs\" role=\"tablist\">",
+        "target": [
+          "#product_brand-tabs"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element has children which are not allowed: li"
+      }
+    ]
+  },
+  {
+    "id": "aria-required-parent",
+    "impact": "critical",
+    "tags": [
+      "cat.aria",
+      "wcag2a",
+      "wcag131",
+      "EN-301-549",
+      "EN-9.1.3.1",
+      "RGAAv4",
+      "RGAA-9.3.1"
+    ],
+    "description": "Ensure elements with an ARIA role that require parent roles are contained by them",
+    "help": "Certain ARIA roles must be contained by particular parents",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/aria-required-parent?application=axeAPI",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "aria-required-parent",
+            "data": [
+              "tablist"
+            ],
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Required ARIA parent role not present: tablist"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<a href=\"#product_cat-all\" role=\"tab\" aria-selected=\"true\" aria-controls=\"product_cat-all\">All categories</a>",
+        "target": [
+          "a[href$=\"#product_cat-all\"]"
+        ],
+        "failureSummary": "Fix any of the following:\n  Required ARIA parent role not present: tablist"
+      },
+      {
+        "any": [
+          {
+            "id": "aria-required-parent",
+            "data": [
+              "tablist"
+            ],
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Required ARIA parent role not present: tablist"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<a href=\"#product_cat-pop\" role=\"tab\" aria-controls=\"product_cat-pop\">Most Used</a>",
+        "target": [
+          "a[href$=\"#product_cat-pop\"]"
+        ],
+        "failureSummary": "Fix any of the following:\n  Required ARIA parent role not present: tablist"
+      },
+      {
+        "any": [
+          {
+            "id": "aria-required-parent",
+            "data": [
+              "tablist"
+            ],
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Required ARIA parent role not present: tablist"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<a href=\"#product_brand-all\" role=\"tab\" aria-selected=\"true\" aria-controls=\"product_brand-all\">All Brands</a>",
+        "target": [
+          "a[href$=\"#product_brand-all\"]"
+        ],
+        "failureSummary": "Fix any of the following:\n  Required ARIA parent role not present: tablist"
+      },
+      {
+        "any": [
+          {
+            "id": "aria-required-parent",
+            "data": [
+              "tablist"
+            ],
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Required ARIA parent role not present: tablist"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<a href=\"#product_brand-pop\" role=\"tab\" aria-controls=\"product_brand-pop\">Most Used</a>",
+        "target": [
+          "a[href$=\"#product_brand-pop\"]"
+        ],
+        "failureSummary": "Fix any of the following:\n  Required ARIA parent role not present: tablist"
+      }
+    ]
+  },
+  {
+    "id": "button-name",
+    "impact": "critical",
+    "tags": [
+      "cat.name-role-value",
+      "wcag2a",
+      "wcag412",
+      "section508",
+      "section508.22.a",
+      "TTv5",
+      "TT6.a",
+      "EN-301-549",
+      "EN-9.4.1.2",
+      "ACT",
+      "RGAAv4",
+      "RGAA-11.9.1"
+    ],
+    "description": "Ensure buttons have discernible text",
+    "help": "Buttons must have discernible text",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/button-name?application=axeAPI",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "button-has-visible-text",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have inner text that is visible to screen readers"
+          },
+          {
+            "id": "aria-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-label attribute does not exist or is empty"
+          },
+          {
+            "id": "aria-labelledby",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+          },
+          {
+            "id": "non-empty-title",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no title attribute"
+          },
+          {
+            "id": "implicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an implicit (wrapped) <label>"
+          },
+          {
+            "id": "explicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an explicit <label>"
+          },
+          {
+            "id": "presentational-role",
+            "data": {
+              "messageKey": "focusable",
+              "role": "button"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element's role is not presentational because it is focusable"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<button id=\"mceu_1-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-bold\"></i></button>",
+        "target": [
+          "#mceu_1-button"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+      },
+      {
+        "any": [
+          {
+            "id": "button-has-visible-text",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have inner text that is visible to screen readers"
+          },
+          {
+            "id": "aria-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-label attribute does not exist or is empty"
+          },
+          {
+            "id": "aria-labelledby",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+          },
+          {
+            "id": "non-empty-title",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no title attribute"
+          },
+          {
+            "id": "implicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an implicit (wrapped) <label>"
+          },
+          {
+            "id": "explicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an explicit <label>"
+          },
+          {
+            "id": "presentational-role",
+            "data": {
+              "messageKey": "focusable",
+              "role": "button"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element's role is not presentational because it is focusable"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<button id=\"mceu_2-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-italic\"></i></button>",
+        "target": [
+          "#mceu_2-button"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+      },
+      {
+        "any": [
+          {
+            "id": "button-has-visible-text",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have inner text that is visible to screen readers"
+          },
+          {
+            "id": "aria-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-label attribute does not exist or is empty"
+          },
+          {
+            "id": "aria-labelledby",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+          },
+          {
+            "id": "non-empty-title",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no title attribute"
+          },
+          {
+            "id": "implicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an implicit (wrapped) <label>"
+          },
+          {
+            "id": "explicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an explicit <label>"
+          },
+          {
+            "id": "presentational-role",
+            "data": {
+              "messageKey": "focusable",
+              "role": "button"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element's role is not presentational because it is focusable"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<button id=\"mceu_3-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-bullist\"></i></button>",
+        "target": [
+          "#mceu_3-button"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+      },
+      {
+        "any": [
+          {
+            "id": "button-has-visible-text",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have inner text that is visible to screen readers"
+          },
+          {
+            "id": "aria-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-label attribute does not exist or is empty"
+          },
+          {
+            "id": "aria-labelledby",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+          },
+          {
+            "id": "non-empty-title",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no title attribute"
+          },
+          {
+            "id": "implicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an implicit (wrapped) <label>"
+          },
+          {
+            "id": "explicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an explicit <label>"
+          },
+          {
+            "id": "presentational-role",
+            "data": {
+              "messageKey": "focusable",
+              "role": "button"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element's role is not presentational because it is focusable"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<button id=\"mceu_4-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-numlist\"></i></button>",
+        "target": [
+          "#mceu_4-button"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+      },
+      {
+        "any": [
+          {
+            "id": "button-has-visible-text",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have inner text that is visible to screen readers"
+          },
+          {
+            "id": "aria-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-label attribute does not exist or is empty"
+          },
+          {
+            "id": "aria-labelledby",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+          },
+          {
+            "id": "non-empty-title",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no title attribute"
+          },
+          {
+            "id": "implicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an implicit (wrapped) <label>"
+          },
+          {
+            "id": "explicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an explicit <label>"
+          },
+          {
+            "id": "presentational-role",
+            "data": {
+              "messageKey": "focusable",
+              "role": "button"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element's role is not presentational because it is focusable"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<button id=\"mceu_5-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-blockquote\"></i></button>",
+        "target": [
+          "#mceu_5-button"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+      },
+      {
+        "any": [
+          {
+            "id": "button-has-visible-text",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have inner text that is visible to screen readers"
+          },
+          {
+            "id": "aria-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-label attribute does not exist or is empty"
+          },
+          {
+            "id": "aria-labelledby",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+          },
+          {
+            "id": "non-empty-title",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no title attribute"
+          },
+          {
+            "id": "implicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an implicit (wrapped) <label>"
+          },
+          {
+            "id": "explicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an explicit <label>"
+          },
+          {
+            "id": "presentational-role",
+            "data": {
+              "messageKey": "focusable",
+              "role": "button"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element's role is not presentational because it is focusable"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<button id=\"mceu_6-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-alignleft\"></i></button>",
+        "target": [
+          "#mceu_6-button"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+      },
+      {
+        "any": [
+          {
+            "id": "button-has-visible-text",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have inner text that is visible to screen readers"
+          },
+          {
+            "id": "aria-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-label attribute does not exist or is empty"
+          },
+          {
+            "id": "aria-labelledby",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+          },
+          {
+            "id": "non-empty-title",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no title attribute"
+          },
+          {
+            "id": "implicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an implicit (wrapped) <label>"
+          },
+          {
+            "id": "explicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an explicit <label>"
+          },
+          {
+            "id": "presentational-role",
+            "data": {
+              "messageKey": "focusable",
+              "role": "button"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element's role is not presentational because it is focusable"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<button id=\"mceu_7-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-aligncenter\"></i></button>",
+        "target": [
+          "#mceu_7-button"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+      },
+      {
+        "any": [
+          {
+            "id": "button-has-visible-text",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have inner text that is visible to screen readers"
+          },
+          {
+            "id": "aria-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-label attribute does not exist or is empty"
+          },
+          {
+            "id": "aria-labelledby",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+          },
+          {
+            "id": "non-empty-title",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no title attribute"
+          },
+          {
+            "id": "implicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an implicit (wrapped) <label>"
+          },
+          {
+            "id": "explicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an explicit <label>"
+          },
+          {
+            "id": "presentational-role",
+            "data": {
+              "messageKey": "focusable",
+              "role": "button"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element's role is not presentational because it is focusable"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<button id=\"mceu_8-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-alignright\"></i></button>",
+        "target": [
+          "#mceu_8-button"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+      },
+      {
+        "any": [
+          {
+            "id": "button-has-visible-text",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have inner text that is visible to screen readers"
+          },
+          {
+            "id": "aria-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-label attribute does not exist or is empty"
+          },
+          {
+            "id": "aria-labelledby",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+          },
+          {
+            "id": "non-empty-title",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no title attribute"
+          },
+          {
+            "id": "implicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an implicit (wrapped) <label>"
+          },
+          {
+            "id": "explicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an explicit <label>"
+          },
+          {
+            "id": "presentational-role",
+            "data": {
+              "messageKey": "focusable",
+              "role": "button"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element's role is not presentational because it is focusable"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<button id=\"mceu_9-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-link\"></i></button>",
+        "target": [
+          "#mceu_9-button"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+      },
+      {
+        "any": [
+          {
+            "id": "button-has-visible-text",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have inner text that is visible to screen readers"
+          },
+          {
+            "id": "aria-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-label attribute does not exist or is empty"
+          },
+          {
+            "id": "aria-labelledby",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+          },
+          {
+            "id": "non-empty-title",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no title attribute"
+          },
+          {
+            "id": "implicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an implicit (wrapped) <label>"
+          },
+          {
+            "id": "explicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an explicit <label>"
+          },
+          {
+            "id": "presentational-role",
+            "data": {
+              "messageKey": "focusable",
+              "role": "button"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element's role is not presentational because it is focusable"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<button id=\"mceu_10-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-wp_more\"></i></button>",
+        "target": [
+          "#mceu_10-button"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+      },
+      {
+        "any": [
+          {
+            "id": "button-has-visible-text",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have inner text that is visible to screen readers"
+          },
+          {
+            "id": "aria-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-label attribute does not exist or is empty"
+          },
+          {
+            "id": "aria-labelledby",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+          },
+          {
+            "id": "non-empty-title",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no title attribute"
+          },
+          {
+            "id": "implicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an implicit (wrapped) <label>"
+          },
+          {
+            "id": "explicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an explicit <label>"
+          },
+          {
+            "id": "presentational-role",
+            "data": {
+              "messageKey": "focusable",
+              "role": "button"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element's role is not presentational because it is focusable"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<button id=\"mceu_11-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-wp_adv\"></i></button>",
+        "target": [
+          "#mceu_11-button"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's role is not presentational because it is focusable"
+      }
+    ]
+  },
+  {
+    "id": "label",
+    "impact": "critical",
+    "tags": [
+      "cat.forms",
+      "wcag2a",
+      "wcag412",
+      "section508",
+      "section508.22.n",
+      "TTv5",
+      "TT5.c",
+      "EN-301-549",
+      "EN-9.4.1.2",
+      "ACT",
+      "RGAAv4",
+      "RGAA-11.1.1"
+    ],
+    "description": "Ensure every form element has a label",
+    "help": "Form elements must have labels",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/label?application=axeAPI",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "implicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an implicit (wrapped) <label>"
+          },
+          {
+            "id": "explicit-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element does not have an explicit <label>"
+          },
+          {
+            "id": "aria-label",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-label attribute does not exist or is empty"
+          },
+          {
+            "id": "aria-labelledby",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty"
+          },
+          {
+            "id": "non-empty-title",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no title attribute"
+          },
+          {
+            "id": "non-empty-placeholder",
+            "data": {
+              "messageKey": "noAttr"
+            },
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element has no placeholder attribute"
+          },
+          {
+            "id": "presentational-role",
+            "data": null,
+            "relatedNodes": [],
+            "impact": "critical",
+            "message": "Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "critical",
+        "html": "<textarea class=\"wp-editor-area\" rows=\"20\" autocomplete=\"off\" cols=\"40\" name=\"excerpt\" id=\"excerpt\"></textarea>",
+        "target": [
+          "#excerpt"
+        ],
+        "failureSummary": "Fix any of the following:\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element has no placeholder attribute\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+      }
+    ]
+  },
+  {
+    "id": "listitem",
+    "impact": "serious",
+    "tags": [
+      "cat.structure",
+      "wcag2a",
+      "wcag131",
+      "EN-301-549",
+      "EN-9.1.3.1",
+      "RGAAv4",
+      "RGAA-9.3.1"
+    ],
+    "description": "Ensure <li> elements are used semantically",
+    "help": "<li> elements must be contained in a <ul> or <ol>",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/listitem?application=axeAPI",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "listitem",
+            "data": {
+              "messageKey": "roleNotValid"
+            },
+            "relatedNodes": [],
+            "impact": "serious",
+            "message": "List item parent element has a role that is not role=\"list\""
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<li class=\"tabs\"><a href=\"#product_cat-all\" role=\"tab\" aria-selected=\"true\" aria-controls=\"product_cat-all\">All categories</a></li>",
+        "target": [
+          "#product_cat-tabs > .tabs"
+        ],
+        "failureSummary": "Fix any of the following:\n  List item parent element has a role that is not role=\"list\""
+      },
+      {
+        "any": [
+          {
+            "id": "listitem",
+            "data": {
+              "messageKey": "roleNotValid"
+            },
+            "relatedNodes": [],
+            "impact": "serious",
+            "message": "List item parent element has a role that is not role=\"list\""
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<li class=\"hide-if-no-js\"><a href=\"#product_cat-pop\" role=\"tab\" aria-controls=\"product_cat-pop\">Most Used</a></li>",
+        "target": [
+          "#product_cat-tabs > .hide-if-no-js"
+        ],
+        "failureSummary": "Fix any of the following:\n  List item parent element has a role that is not role=\"list\""
+      },
+      {
+        "any": [
+          {
+            "id": "listitem",
+            "data": {
+              "messageKey": "roleNotValid"
+            },
+            "relatedNodes": [],
+            "impact": "serious",
+            "message": "List item parent element has a role that is not role=\"list\""
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<li class=\"tabs\"><a href=\"#product_brand-all\" role=\"tab\" aria-selected=\"true\" aria-controls=\"product_brand-all\">All Brands</a></li>",
+        "target": [
+          "#product_brand-tabs > .tabs"
+        ],
+        "failureSummary": "Fix any of the following:\n  List item parent element has a role that is not role=\"list\""
+      },
+      {
+        "any": [
+          {
+            "id": "listitem",
+            "data": {
+              "messageKey": "roleNotValid"
+            },
+            "relatedNodes": [],
+            "impact": "serious",
+            "message": "List item parent element has a role that is not role=\"list\""
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<li class=\"hide-if-no-js\"><a href=\"#product_brand-pop\" role=\"tab\" aria-controls=\"product_brand-pop\">Most Used</a></li>",
+        "target": [
+          "#product_brand-tabs > .hide-if-no-js"
+        ],
+        "failureSummary": "Fix any of the following:\n  List item parent element has a role that is not role=\"list\""
+      }
+    ]
+  },
+  {
+    "id": "nested-interactive",
+    "impact": "serious",
+    "tags": [
+      "cat.keyboard",
+      "wcag2a",
+      "wcag412",
+      "TTv5",
+      "TT6.a",
+      "EN-301-549",
+      "EN-9.4.1.2",
+      "RGAAv4",
+      "RGAA-7.1.1"
+    ],
+    "description": "Ensure interactive controls are not nested as they are not always announced by screen readers or can cause focus problems for assistive technologies",
+    "help": "Interactive controls must not be nested",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.13/nested-interactive?application=axeAPI",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "no-focusable-content",
+            "data": {
+              "messageKey": "notHidden"
+            },
+            "relatedNodes": [
+              {
+                "html": "<button id=\"mceu_0-open\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><span class=\"mce-txt\">Paragraph</span> <i class=\"mce-caret\"></i></button>",
+                "target": [
+                  "#mceu_0-open"
+                ]
+              }
+            ],
+            "impact": "serious",
+            "message": "Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<div id=\"mceu_0\" class=\"mce-widget mce-btn mce-menubtn mce-fixed-width mce-listbox mce-first mce-btn-has-text\" tabindex=\"-1\" aria-labelledby=\"mceu_0\" role=\"button\" aria-haspopup=\"true\">",
+        "target": [
+          "#mceu_0"
+        ],
+        "failureSummary": "Fix any of the following:\n  Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+      },
+      {
+        "any": [
+          {
+            "id": "no-focusable-content",
+            "data": {
+              "messageKey": "notHidden"
+            },
+            "relatedNodes": [
+              {
+                "html": "<button id=\"mceu_1-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-bold\"></i></button>",
+                "target": [
+                  "#mceu_1-button"
+                ]
+              }
+            ],
+            "impact": "serious",
+            "message": "Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<div id=\"mceu_1\" class=\"mce-widget mce-btn\" tabindex=\"-1\" aria-pressed=\"false\" role=\"button\" aria-label=\"Bold (Ctrl+B)\"><button id=\"mceu_1-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-bold\"></i></button></div>",
+        "target": [
+          "#mceu_1"
+        ],
+        "failureSummary": "Fix any of the following:\n  Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+      },
+      {
+        "any": [
+          {
+            "id": "no-focusable-content",
+            "data": {
+              "messageKey": "notHidden"
+            },
+            "relatedNodes": [
+              {
+                "html": "<button id=\"mceu_2-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-italic\"></i></button>",
+                "target": [
+                  "#mceu_2-button"
+                ]
+              }
+            ],
+            "impact": "serious",
+            "message": "Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<div id=\"mceu_2\" class=\"mce-widget mce-btn\" tabindex=\"-1\" aria-pressed=\"false\" role=\"button\" aria-label=\"Italic (Ctrl+I)\"><button id=\"mceu_2-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-italic\"></i></button></div>",
+        "target": [
+          "#mceu_2"
+        ],
+        "failureSummary": "Fix any of the following:\n  Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+      },
+      {
+        "any": [
+          {
+            "id": "no-focusable-content",
+            "data": {
+              "messageKey": "notHidden"
+            },
+            "relatedNodes": [
+              {
+                "html": "<button id=\"mceu_3-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-bullist\"></i></button>",
+                "target": [
+                  "#mceu_3-button"
+                ]
+              }
+            ],
+            "impact": "serious",
+            "message": "Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<div id=\"mceu_3\" class=\"mce-widget mce-btn\" tabindex=\"-1\" aria-pressed=\"false\" role=\"button\" aria-label=\"Bulleted list (Shift+Alt+U)\"><button id=\"mceu_3-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-bullist\"></i></button></div>",
+        "target": [
+          "#mceu_3"
+        ],
+        "failureSummary": "Fix any of the following:\n  Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+      },
+      {
+        "any": [
+          {
+            "id": "no-focusable-content",
+            "data": {
+              "messageKey": "notHidden"
+            },
+            "relatedNodes": [
+              {
+                "html": "<button id=\"mceu_4-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-numlist\"></i></button>",
+                "target": [
+                  "#mceu_4-button"
+                ]
+              }
+            ],
+            "impact": "serious",
+            "message": "Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<div id=\"mceu_4\" class=\"mce-widget mce-btn\" tabindex=\"-1\" aria-pressed=\"false\" role=\"button\" aria-label=\"Numbered list (Shift+Alt+O)\"><button id=\"mceu_4-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-numlist\"></i></button></div>",
+        "target": [
+          "#mceu_4"
+        ],
+        "failureSummary": "Fix any of the following:\n  Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+      },
+      {
+        "any": [
+          {
+            "id": "no-focusable-content",
+            "data": {
+              "messageKey": "notHidden"
+            },
+            "relatedNodes": [
+              {
+                "html": "<button id=\"mceu_5-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-blockquote\"></i></button>",
+                "target": [
+                  "#mceu_5-button"
+                ]
+              }
+            ],
+            "impact": "serious",
+            "message": "Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<div id=\"mceu_5\" class=\"mce-widget mce-btn\" tabindex=\"-1\" aria-pressed=\"false\" role=\"button\" aria-label=\"Blockquote (Shift+Alt+Q)\"><button id=\"mceu_5-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-blockquote\"></i></button></div>",
+        "target": [
+          "#mceu_5"
+        ],
+        "failureSummary": "Fix any of the following:\n  Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+      },
+      {
+        "any": [
+          {
+            "id": "no-focusable-content",
+            "data": {
+              "messageKey": "notHidden"
+            },
+            "relatedNodes": [
+              {
+                "html": "<button id=\"mceu_6-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-alignleft\"></i></button>",
+                "target": [
+                  "#mceu_6-button"
+                ]
+              }
+            ],
+            "impact": "serious",
+            "message": "Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<div id=\"mceu_6\" class=\"mce-widget mce-btn\" tabindex=\"-1\" aria-pressed=\"false\" role=\"button\" aria-label=\"Align left (Shift+Alt+L)\"><button id=\"mceu_6-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-alignleft\"></i></button></div>",
+        "target": [
+          "#mceu_6"
+        ],
+        "failureSummary": "Fix any of the following:\n  Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+      },
+      {
+        "any": [
+          {
+            "id": "no-focusable-content",
+            "data": {
+              "messageKey": "notHidden"
+            },
+            "relatedNodes": [
+              {
+                "html": "<button id=\"mceu_7-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-aligncenter\"></i></button>",
+                "target": [
+                  "#mceu_7-button"
+                ]
+              }
+            ],
+            "impact": "serious",
+            "message": "Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<div id=\"mceu_7\" class=\"mce-widget mce-btn\" tabindex=\"-1\" aria-pressed=\"false\" role=\"button\" aria-label=\"Align center (Shift+Alt+C)\"><button id=\"mceu_7-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-aligncenter\"></i></button></div>",
+        "target": [
+          "#mceu_7"
+        ],
+        "failureSummary": "Fix any of the following:\n  Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+      },
+      {
+        "any": [
+          {
+            "id": "no-focusable-content",
+            "data": {
+              "messageKey": "notHidden"
+            },
+            "relatedNodes": [
+              {
+                "html": "<button id=\"mceu_8-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-alignright\"></i></button>",
+                "target": [
+                  "#mceu_8-button"
+                ]
+              }
+            ],
+            "impact": "serious",
+            "message": "Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<div id=\"mceu_8\" class=\"mce-widget mce-btn\" tabindex=\"-1\" aria-pressed=\"false\" role=\"button\" aria-label=\"Align right (Shift+Alt+R)\"><button id=\"mceu_8-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-alignright\"></i></button></div>",
+        "target": [
+          "#mceu_8"
+        ],
+        "failureSummary": "Fix any of the following:\n  Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+      },
+      {
+        "any": [
+          {
+            "id": "no-focusable-content",
+            "data": {
+              "messageKey": "notHidden"
+            },
+            "relatedNodes": [
+              {
+                "html": "<button id=\"mceu_9-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-link\"></i></button>",
+                "target": [
+                  "#mceu_9-button"
+                ]
+              }
+            ],
+            "impact": "serious",
+            "message": "Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<div id=\"mceu_9\" class=\"mce-widget mce-btn\" tabindex=\"-1\" aria-pressed=\"false\" role=\"button\" aria-label=\"Insert/edit link (Ctrl+K)\"><button id=\"mceu_9-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-link\"></i></button></div>",
+        "target": [
+          "#mceu_9"
+        ],
+        "failureSummary": "Fix any of the following:\n  Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+      },
+      {
+        "any": [
+          {
+            "id": "no-focusable-content",
+            "data": {
+              "messageKey": "notHidden"
+            },
+            "relatedNodes": [
+              {
+                "html": "<button id=\"mceu_10-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-wp_more\"></i></button>",
+                "target": [
+                  "#mceu_10-button"
+                ]
+              }
+            ],
+            "impact": "serious",
+            "message": "Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<div id=\"mceu_10\" class=\"mce-widget mce-btn\" tabindex=\"-1\" role=\"button\" aria-label=\"Insert Read More tag (Shift+Alt+T)\"><button id=\"mceu_10-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-wp_more\"></i></button></div>",
+        "target": [
+          "#mceu_10"
+        ],
+        "failureSummary": "Fix any of the following:\n  Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+      },
+      {
+        "any": [
+          {
+            "id": "no-focusable-content",
+            "data": {
+              "messageKey": "notHidden"
+            },
+            "relatedNodes": [
+              {
+                "html": "<button id=\"mceu_11-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-wp_adv\"></i></button>",
+                "target": [
+                  "#mceu_11-button"
+                ]
+              }
+            ],
+            "impact": "serious",
+            "message": "Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "serious",
+        "html": "<div id=\"mceu_11\" class=\"mce-widget mce-btn mce-last\" tabindex=\"-1\" role=\"button\" aria-label=\"Extended Toolbar (Shift+Alt+Z)\"><button id=\"mceu_11-button\" role=\"presentation\" type=\"button\" tabindex=\"-1\"><i class=\"mce-ico mce-i-wp_adv\"></i></button></div>",
+        "target": [
+          "#mceu_11"
+        ],
+        "failureSummary": "Fix any of the following:\n  Using a negative tabindex on an element inside an interactive control does not prevent assistive technologies from focusing the element (even with aria-hidden=\"true\")"
+      }
+    ]
+  }
+]

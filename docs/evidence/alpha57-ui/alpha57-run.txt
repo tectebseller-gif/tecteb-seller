@@ -1,0 +1,74 @@
+ok:   the installed package is the one under test                        0.1.0-alpha.57
+ok:   and the structure is the one it targets                            29
+ok:   WooCommerce is really active                                       active
+      vendor=5 · manager_with_shop=6 · manager_without_shop=7 · customer=8 · wc_product=427
+      vendor: buttons=1 title=ورود به داشبورد فروشنده landed=http://127.0.0.1:8081/vendor/
+ok:   1 the vendor sees exactly one marketplace button                   1
+ok:   1b with the title the owner asked for, exactly                     ورود به داشبورد فروشنده
+ok:   1c and it lands on this plugin's own vendor dashboard              true
+ok:   1d not in wp-admin                                                 false
+ok:   1e not on the manager review page                                  false
+ok:   1f and not on Dokan's dashboard                                    false
+      manager with a shop: buttons=1 title=ورود به داشبورد فروشنده landed=http://127.0.0.1:8081/vendor/
+ok:   2 a manager who ALSO has a shop sees one button                    1
+ok:   2b titled for the vendor dashboard                                 ورود به داشبورد فروشنده
+ok:   2c and lands on their OWN vendor dashboard                         true
+ok:   2d never in wp-admin — the defect the owner reported               false
+      manager without a shop: buttons=1 title=بررسی محصول‌ها در پیشخوان مدیریت landed=http://127.0.0.1:8081/wp-admin/admin.php?page=tmc-product-review
+ok:   3 a manager with NO shop sees one link                             1
+ok:   3b titled for the admin dashboard, not the vendor one              بررسی محصول‌ها در پیشخوان مدیریت
+ok:   3c which says why                                                  true
+ok:   3d and lands in wp-admin                                           true
+ok:   3e no shop was created for them                                    0
+      ordinary customer: buttons=0 title=__none__ landed=__none__
+ok:   4 an ordinary customer sees no marketplace button at all           0
+ok:   4b and no vendor title anywhere on the page                        false
+ok:   4c the wholesale section is one short sentence                     true
+ok:   4d with no DEC code on the account page                            false
+ok:   5 the list opens                                                   1
+ok:   5b the repeated Dokan paragraph is gone from under the rows        false
+ok:   5c the specialist facets are folded away                           1
+ok:   5d and closed when none of them is active                          0
+ok:   5e the sentence telling the two «وضعیت» apart is inside that box   true
+ok:   5f no active-filter bar when nothing is filtering                  0
+ok:   5g the row-count form is folded and last                           1
+ok:   5h no chip is called just «همه»                                    0
+ok:   5i the marketplace status row names its own universe               true
+ok:   5j and the row-count box comes after the table                     after
+ok:   6 a specialist facet opens its own box                             1
+ok:   6b and the active filter is named above the rows                   true
+      remove link: http://127.0.0.1:8081/wp-admin/admin.php?page=tmc-product-review
+ok:   6c with a × whose own address drops only that filter               false
+ok:   7 two active filters are named separately                          2
+ok:   7b and a «clear all» appears only then                             1
+      first remove: http://127.0.0.1:8081/wp-admin/admin.php?page=tmc-product-review&source=woocommerce
+ok:   7c the first filter's × drops itself                               false
+ok:   7d and keeps the other                                             true
+ok:   7e while «clear all» drops both                                    false
+ok:   8 the commission tab is on the WooCommerce product editor          true
+ok:   8b the panel says a missing commission blocks nothing              true
+ok:   8c the panel id is not shared with a hidden input                  1
+ok:   8d with a type control and a value control                         2
+ok:   8e and three choices, no more                                      3
+ok:   9 the supplier payments page opens for the manager                 true
+ok:   9b and says it is not the settlement queue                         true
+ok:   9c and promises no transfer happens                                true
+ok:   9d with exactly one submit button — the one that writes a record   1
+ok:   10 list: no horizontal overflow at 390px                           0
+ok:   10 payments: no horizontal overflow at 390px                       0
+      axe list: 0 violations, 0 serious/critical
+ok:   11 axe on the list: no serious or critical violation               0
+      axe payments: 0 violations, 0 serious/critical
+ok:   11 axe on the payments: no serious or critical violation           0
+      axe editor (whole page, WooCommerce's own chrome): 7 serious/critical
+        aria-prohibited-attr: 5 node(s) — not ours, not touched this round
+        aria-required-children: 2 node(s) — not ours, not touched this round
+        aria-required-parent: 4 node(s) — not ours, not touched this round
+        button-name: 11 node(s) — not ours, not touched this round
+        label: 1 node(s) — not ours, not touched this round
+        listitem: 4 node(s) — not ours, not touched this round
+        nested-interactive: 12 node(s) — not ours, not touched this round
+      axe editor (our panel only): 0 violations, 0 serious/critical
+ok:   11 axe on OUR commission panel: no serious or critical violation   0
+
+checks: 54 passed, 0 failed

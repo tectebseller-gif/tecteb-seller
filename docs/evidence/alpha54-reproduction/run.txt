@@ -1,6 +1,6 @@
 old bytes read from 8b49faf: 536 php files
-this checkout:                    545 php files
-schema: 27 (base) -> 28 (this tree)
+this checkout:                    557 php files
+schema: 27 (base) -> 29 (this tree)
 PASS  0a the installed tree is the base's bytes  (5e35667e836ba1aeb3d2400fa5576738bd634a77ef4a668fdea00ac853b81c5c)
 PASS  0b the ledger is in the 27 shape: no live_key  (0)
 PASS  0c with the old unique key  (1)
@@ -74,7 +74,7 @@ probe=ran
 first_id=373
 middle_id=374
 last_id=375
-cursor_after=400
+cursor_after=375
 cursor_past_failure=yes
 migrated_count=2
 not_written_count=1
@@ -220,10 +220,10 @@ agree_fresh=yes
 record_fresh=__absent__
 ledger_fresh=rolled_back_before=__absent___wrote=4
 PASS  before/C5 and they still agree in a FRESH request  (yes)
-PASS  0d the installed tree is this checkout  (8131620fd6650136d36db303688dd424602e87f32ebd730ac7dfd558159c8b59)
+PASS  0d the installed tree is this checkout  (3737ada51a7fdb5492a1319851e90d1b7865a2baced1456c1c60b7cd9096bdc9)
 PASS  0e replacing the files runs no migration by itself  (27)
 PASS  0f the first admin request answers 200  (200)
-PASS  0g and the gate has moved the schema to 28  (28)
+PASS  0g and the gate has moved the schema to 29  (29)
 PASS  0h live_key is there  (1)
 PASS  0i with the unique key on it  (1)
 PASS  0j and the old key is gone  (0)

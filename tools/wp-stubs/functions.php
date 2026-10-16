@@ -499,6 +499,43 @@ function wp_create_nonce(string $action): string
 {
     return substr(md5('stub-nonce|' . $action . '|' . State::$currentUserId), 0, 10);
 }
+/**
+ * The escaper for a value that lands inside a JavaScript string.
+ *
+ * Modelled because the commission panel prints a three-line script that shows
+ * and hides one row, and a stub set that lacked this function would fail the
+ * panel for a reason that has nothing to do with the panel. Not WordPress's
+ * implementation — enough of it that a value which would break out of a JS
+ * string literal in the real thing breaks out of nothing here either.
+ */
+function esc_js(string $text): string
+{
+    $out = str_replace('\\', '\\\\', $text);
+    $out = str_replace(["\r", "\n"], ['', '\\n'], $out);
+    $out = str_replace(["'", '"'], ["\\'", '\\"'], $out);
+    return str_replace(['<', '>', '&'], ['\\u003C', '\\u003E', '\\u0026'], $out);
+}
+
+/**
+ * A version-4 UUID, modelled because the supplier-payment form carries one as
+ * its own submission token: the same submission can never write twice, and two
+ * deliberate identical payments on one day still can.
+ */
+function wp_generate_uuid4(): string
+{
+    return sprintf(
+        '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+        random_int(0, 0xffff),
+        random_int(0, 0xffff),
+        random_int(0, 0xffff),
+        random_int(0, 0x0fff) | 0x4000,
+        random_int(0, 0x3fff) | 0x8000,
+        random_int(0, 0xffff),
+        random_int(0, 0xffff),
+        random_int(0, 0xffff)
+    );
+}
+
 function wp_verify_nonce(string $nonce, string $action): int|false
 {
     return hash_equals(wp_create_nonce($action), $nonce) ? 1 : false;

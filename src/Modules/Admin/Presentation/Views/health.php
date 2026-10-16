@@ -92,6 +92,19 @@ $accountHooks = static function () use ($vm): string {
                 },
             ],
             [
+                // The question the owner's report was actually about: the
+                // button was there and went to the WRONG PLACE. «پنل
+                // فروشنده» is this plugin's own front-end dashboard;
+                // «پیشخوان مدیریت» is wp-admin, and an account sees that
+                // one only when it has no shop in this marketplace.
+                'label' => __('مقصد دکمه', 'tecteb-marketplace-core'),
+                'value' => match ((string) ($seen['kind'] ?? '')) {
+                    'vendor' => __('داشبورد فروشندهٔ همین افزونه', 'tecteb-marketplace-core'),
+                    'admin' => __('پیشخوان مدیریت وردپرس — این حساب فروشگاهی در بازارگاه ندارد', 'tecteb-marketplace-core'),
+                    default => '—',
+                },
+            ],
+            [
                 'label' => __('آخرین تغییر', 'tecteb-marketplace-core'),
                 'value' => (string) ($seen['at'] ?? '') !== ''
                     ? PersianDigits::toPersian(substr((string) $seen['at'], 0, 16))

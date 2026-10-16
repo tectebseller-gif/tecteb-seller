@@ -63,10 +63,17 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         State::loginAs(9, ['read', 'tmc_review_products']);
         $out = $this->render();
 
-        // The title changed in `alpha.56`: the list is no longer only the
-        // marketplace's own rows. It holds every WooCommerce product too, so
-        // «همهٔ محصولات بازارگاه» would now be a false name for it.
-        self::assertStringContainsString('همهٔ محصولات این فروشگاه', $out);
+        // `alpha.57` shortened the title to one word and moved what the list
+        // holds into a single sentence under it: «عنوان کوتاه». The SENTENCE
+        // is what this checks, because it is the part that has to stay true —
+        // the list holds every WooCommerce product as well as our own rows,
+        // and opening it imports nothing.
+        self::assertStringContainsString(
+            '<h2 class="tmc-card__title">محصولات</h2>',
+            $out,
+            'a short title, not a sentence'
+        );
+        self::assertStringContainsString('هم محصول‌های ووکامرس و هم ردیف‌های بازارگاه، هر محصول یک بار', $out);
         self::assertStringContainsString('مجوز انتشار مستقیم', $out, 'a vendor-level permission stays on the list');
         self::assertStringContainsString('dir="rtl"', $out);
 
@@ -108,7 +115,7 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         // would be counting four lists at once. The row is found by the
         // `aria-label` that says which question it asks, which is the same
         // label a screen reader uses to tell them apart.
-        $statusRow = self::chipRow($out, 'وضعیت محصول');
+        $statusRow = self::chipRow($out, 'وضعیت بازارگاه');
         // The class itself, not its children: `tmc-filter__label` and
         // `tmc-filter__count` share the prefix, and counting those instead
         // would report 23 filters and call it a pass.
@@ -128,7 +135,7 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         self::assertStringContainsString('<a class="tmc-filter is-current" aria-current="page"', $out);
         self::assertStringNotContainsString('class="tmc-tab', $out, 'the class with no stylesheet rule is gone');
 
-        $order = ['همه', 'پیش‌نویس', 'ارسال‌شده برای بررسی', 'نیازمند اصلاح', 'منتشرشده', 'تعلیق‌شده', 'بایگانی'];
+        $order = ['همهٔ ردیف‌های بازارگاه', 'پیش‌نویس', 'ارسال‌شده برای بررسی', 'نیازمند اصلاح', 'منتشرشده', 'تعلیق‌شده', 'بایگانی'];
         $at = -1;
         foreach ($order as $label) {
             $found = strpos($statusRow, '<span class="tmc-filter__label">' . $label . '</span>');
@@ -152,6 +159,154 @@ final class ProductAdminPagesTest extends DatabaseTestCase
                 'the facet row must say which question it asks: ' . $legend
             );
         }
+        // …and from `alpha.57` they are INSIDE «فیلترهای بیشتر», which is the
+        // part of the instruction that is about where they sit rather than
+        // what they say: «فیلترهای تخصصی منبع، مدیریت و وضعیت ووکامرس در
+        // «فیلترهای بیشتر» قرار گیرند». Measured by position, because a page
+        // that merely printed the word somewhere would pass a needle check.
+        $more = strpos($out, '<details class="tmc-catalogue__more"');
+        self::assertNotFalse($more, 'the specialist facets have no «فیلترهای بیشتر» box');
+        $closed = strpos($out, '</details>', $more);
+        self::assertNotFalse($closed);
+        $inside = substr($out, $more, $closed - $more);
+        foreach (['منبع محصول', 'وضعیت مدیریت بازارگاه'] as $legend) {
+            self::assertStringContainsString(
+                '<span class="tmc-filters__legend">' . $legend . '</span>',
+                $inside,
+                $legend . ' is still printed above the rows rather than folded away'
+            );
+        }
+        // The marketplace status row is NOT in there: it is the filter the
+        // manager uses every day, and «فیلترهای اصلی در دسترس بمانند».
+        self::assertStringNotContainsString('aria-label="وضعیت بازارگاه"', $inside);
+        // The sentence that tells the two «وضعیت» facets apart moved in beside
+        // them, out of the page header where it was four rows away from either.
+        self::assertStringContainsString('این دو یکی نیستند', $inside);
+    }
+
+    /**
+     * WHAT THIS PROVES: whatever is narrowing the list is NAMED above the rows
+     * and can be removed, one filter at a time or all at once.
+     *
+     * Two of the four chip rows now live inside a closed `<details>`, so «the
+     * current chip is marked» is no longer enough on its own: a manager
+     * looking at four rows of a catalogue of hundreds would see a short list
+     * and no reason for it. «فیلتر فعال مشخص و قابل پاک‌کردن باشد.»
+     *
+     * The removal links are checked by ADDRESS rather than by their presence,
+     * because a × that carried the filter it is meant to clear would look
+     * identical and do nothing.
+     */
+    public function testEveryActiveFilterIsNamedAboveTheRowsAndCanBeRemoved(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+
+        // Nothing is filtering: no bar at all. A row of furniture that says
+        // «فیلترهای فعال: —» is the empty height this screen was rebuilt to
+        // remove.
+        self::assertStringNotContainsString(
+            'class="tmc-catalogue__active"',
+            $this->render(),
+            'an unfiltered list must not draw an active-filter bar'
+        );
+
+        $out = $this->render(['q' => 'آمبو', 'status' => 'published', 'source' => 'woocommerce']);
+        $bar = strpos($out, '<div class="tmc-catalogue__active">');
+        self::assertNotFalse($bar, 'three filters are on and nothing says so');
+        $end = strpos($out, '</div>', $bar);
+        self::assertNotFalse($end);
+        $bar = substr($out, $bar, $end - $bar);
+
+        foreach ([
+            'جست‌وجو: آمبو',
+            'وضعیت بازارگاه: منتشرشده',
+            'منبع: فقط در ووکامرس',
+        ] as $named) {
+            self::assertStringContainsString($named, $bar, 'an active filter is not named: ' . $named);
+        }
+
+        // Each × removes ITS OWN filter and keeps the other two. The pair of
+        // assertions is the point: a link that dropped everything would pass
+        // the first half.
+        $removeSearch = strpos($bar, 'aria-label="برداشتن فیلتر جست‌وجو: آمبو"');
+        self::assertNotFalse($removeSearch);
+        $href = substr($bar, 0, $removeSearch);
+        $href = substr($href, (int) strrpos($href, 'href="') + 6);
+        $href = substr($href, 0, (int) strpos($href, '"'));
+        self::assertStringNotContainsString('q=', $href, 'the × does not remove the search it names');
+        self::assertStringContainsString('status=published', $href, 'removing the search dropped the status too');
+        self::assertStringContainsString('source=woocommerce', $href, 'removing the search dropped the source too');
+
+        // …and one link that removes all three, offered only when there is
+        // more than one to remove.
+        self::assertStringContainsString('برداشتن همهٔ فیلترها', $bar);
+        $one = $this->render(['status' => 'published']);
+        self::assertStringContainsString('وضعیت بازارگاه: منتشرشده', $one);
+        self::assertStringNotContainsString(
+            'برداشتن همهٔ فیلترها',
+            $one,
+            'a «clear all» beside a single filter that already has its own × is two buttons for one act'
+        );
+
+        // A facet inside the folded box opens the box, because a filter that
+        // narrows the list from behind a closed `<summary>` is the worst of
+        // both.
+        self::assertStringContainsString('<details class="tmc-catalogue__more" open>', $out);
+        self::assertStringContainsString(
+            '<details class="tmc-catalogue__more">',
+            $this->render(),
+            'with no specialist facet on, the box stays closed'
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: the scope of each counter is on the screen, and the
+     * low-use controls are folded away.
+     *
+     * The owner read «همه ۸» on one chip row and «همه ۱۹۳» on another, side by
+     * side, and nothing on screen said the first counts marketplace rows and
+     * the second counts the whole catalogue: «دامنهٔ شمارنده‌ها روشن باشد».
+     * `aria-label` said it to a screen reader and to nobody else.
+     */
+    public function testEachCounterSaysWhatItCountsAndTheRareControlsAreFolded(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+        $out = $this->render();
+
+        // No two «all» chips share a name any more.
+        self::assertSame(
+            0,
+            substr_count($out, '<span class="tmc-filter__label">همه</span>'),
+            'a chip called «همه» says nothing about which universe it counts'
+        );
+        foreach ([
+            'همهٔ ردیف‌های بازارگاه',
+            'هر منبعی',
+            'هر وضعیت مدیریتی',
+        ] as $allChip) {
+            self::assertStringContainsString(
+                '<span class="tmc-filter__label">' . $allChip . '</span>',
+                $out,
+                'the «all» chip of one facet is unnamed: ' . $allChip
+            );
+        }
+        // And the marketplace status row says out loud, in text, that its
+        // numbers are about our own rows only.
+        self::assertStringContainsString(
+            '<span class="tmc-filters__legend">وضعیت بازارگاه (فقط ردیف‌های بازارگاه)</span>',
+            $out
+        );
+
+        // Rows-per-page and sort: folded, last, and open only when either is
+        // away from its default.
+        self::assertStringContainsString('<details class="tmc-catalogue__settings">', $out);
+        self::assertStringContainsString(
+            '<details class="tmc-catalogue__settings" open>',
+            $this->render(['per_page' => '50']),
+            'a page size the manager chose has to be visible, not hidden behind a summary'
+        );
     }
 
     /**
@@ -361,7 +516,10 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         self::assertStringContainsString('نیازمند بررسی', $only);
         // The chips count inside the same filter, so «همه» still equals the sum
         // of its parts.
-        self::assertStringContainsString('<span class="tmc-filter__label">همه</span><span class="tmc-filter__count">۱</span>', $only);
+        self::assertStringContainsString(
+            '<span class="tmc-filter__label">همهٔ ردیف‌های بازارگاه</span><span class="tmc-filter__count">۱</span>',
+            $only
+        );
     }
 
     /**

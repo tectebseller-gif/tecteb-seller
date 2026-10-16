@@ -45,40 +45,38 @@ final class ProductCatalogueView
         ProductCatalogueState $state,
         ?CatalogueIntakeControls $intake = null
     ): string {
+        // A SHORT title and one sentence. `alpha.56` printed two paragraphs
+        // here, and the second — what «وضعیت ووکامرس» means next to «وضعیت
+        // مدیریت» — explains two facets that now live inside «فیلترهای
+        // بیشتر», so it moved there, beside the thing it explains.
         $html = '<section class="tmc-card tmc-catalogue"><h2 class="tmc-card__title">'
-            . esc_html__('همهٔ محصولات این فروشگاه', 'tecteb-marketplace-core') . '</h2>'
-            // Three sentences, and no more. The long version — what an
-            // «observed» row does and does not decide, what an intake copies,
-            // which plugins have written meta on a product — is on the
-            // product's own page: «توضیح فنی و تکراری به نمای جزئیات منتقل
-            // شود».
-            . '<p class="tmc-hint">' . esc_html__('این فهرست هم محصول‌های ووکامرس را نشان می‌دهد و هم ردیف‌های بازارگاه را، و هر محصول مرتبط یک بار. باز کردن این صفحه هیچ محصولی را وارد نمی‌کند و مالکیت هیچ محصولی را عوض نمی‌کند.', 'tecteb-marketplace-core') . '</p>'
-            . '<p class="tmc-hint">' . esc_html__('«وضعیت ووکامرس» همان چیزی است که وردپرس همین حالا دربارهٔ پست محصول می‌گوید و «وضعیت مدیریت» می‌گوید این افزونه آن محصول را می‌گرداند یا نه. این دو یک چیز نیستند.', 'tecteb-marketplace-core') . '</p>';
+            . esc_html__('محصولات', 'tecteb-marketplace-core') . '</h2>'
+            . '<p class="tmc-hint">' . esc_html__('هم محصول‌های ووکامرس و هم ردیف‌های بازارگاه، هر محصول یک بار. باز کردن این صفحه هیچ محصولی را وارد نمی‌کند و مالکیت هیچ محصولی را عوض نمی‌کند.', 'tecteb-marketplace-core') . '</p>';
 
+        // The order the owner asked for: «عنوان کوتاه → جست‌وجو و اقدام اصلی →
+        // فیلترهای ضروری → محصولات → صفحه‌بندی → ابزارهای کم‌مصرف جمع‌شونده».
+        // Everything that used to sit between the filters and the first row —
+        // three more chip rows, the row-count form, the sort form — is either
+        // inside a `<details>` or below the pager now.
         $html .= self::search($state)
             . self::filters($state)
-            . self::sourceFilters($state)
-            . self::managementFilters($state)
-            . self::shopStatusFilters($state)
+            . self::activeFilters($state)
+            . self::moreFilters($state)
             . self::reviewFilter($state)
-            // The controls and the count are ONE row, not two stacked blocks.
-            // Measured on the real install: as separate blocks they put 168px
-            // of furniture between the filters and the first row, which is the
-            // «فضای خالی بلند» this round was asked to remove — in a new shape.
-            . '<div class="tmc-catalogue__bar">'
-            . self::tools($state)
-            . ($rows === [] ? '' : self::summary($state))
-            . '</div>';
+            . ($rows === [] ? '' : '<div class="tmc-catalogue__bar">' . self::summary($state) . '</div>');
 
         if ($rows === []) {
-            return $html . self::emptyState($state) . '</section>';
+            return $html . self::emptyState($state) . self::tools($state) . '</section>';
         }
 
         $selectable = $intake !== null && self::anySelectable($rows);
         $html .= self::outOfRange($state);
         // The form wraps the TABLE, so the checkbox that selects a product and
         // the button that imports it are one submission. Two forms would be
-        // two reads of one choice.
+        // two reads of one choice. From `alpha.57` it wraps the PAGER too,
+        // because the pager belongs directly under the rows and the intake
+        // controls belong below it, collapsed — and a `<a>` inside a form is
+        // still a link.
         if ($selectable) {
             $html .= '<form method="post" class="tmc-catalogue__intake">' . $intake->nonceField;
         }
@@ -101,11 +99,22 @@ final class ProductCatalogueView
             $html .= self::row($row, $state, $selectable, $intake?->dokanUrl ?? '');
         }
         $html .= '</tbody></table></div>';
+        // Pagination immediately after the list, inside the form when there
+        // is one: «صفحه‌بندی بلافاصله پس از فهرست باشد».
+        $html .= self::pager($state);
         if ($selectable) {
-            $html .= self::intakeControls($intake) . '</form>';
+            // Collapsed, and closed by default on a page where nothing has
+            // been selected yet: «ابزار ورود محصولات و پذیرش مدیریت در بخش
+            // جمع‌شونده». Open when the manager has already chosen a shop, so
+            // a round trip through the shop search does not fold the box they
+            // were working in.
+            $open = ($intake->shopQuery !== '' || $intake->assignTo > 0) ? ' open' : '';
+            $html .= '<details class="tmc-catalogue__drawer"' . $open . '><summary>'
+                . esc_html__('ورود محصول‌های انتخاب‌شده به بازارگاه', 'tecteb-marketplace-core')
+                . '</summary>' . self::intakeControls($intake) . '</details></form>';
         }
 
-        return $html . self::pager($state) . '</section>';
+        return $html . self::tools($state) . '</section>';
     }
 
     /**
@@ -186,7 +195,11 @@ final class ProductCatalogueView
                             __('انتخاب %s برای ورود', 'tecteb-marketplace-core'),
                             $title
                         )) . '">'
-                    : '<span aria-hidden="true">—</span>')
+                    : '<span class="tmc-catalogue__nopick">'
+                        . '<span aria-hidden="true">—</span>'
+                        . '<span class="screen-reader-text">'
+                        . esc_html__('از این صفحه قابل ورود نیست — دلیلش در صفحهٔ محصول است', 'tecteb-marketplace-core')
+                        . '</span></span>')
                 . '</td>';
         }
 
@@ -226,12 +239,19 @@ final class ProductCatalogueView
                     . esc_html__('فقط مشاهده‌شده — مدیریت بازارگاه پذیرفته نشده', 'tecteb-marketplace-core')
                     . '</span>'
                 : '')
-            . self::blockerNote($row)
+            // `alpha.56` printed the FIRST blocker sentence here, on every
+            // row it applied to — which on this owner's catalogue meant the
+            // same forty-word paragraph about Dokan's own transfer path under
+            // product after product: «جملهٔ تکراری … از زیر هر محصول حذف
+            // شود. یک برچسب کوتاه «دکان» و جزئیات در صورت نیاز کافی است.»
+            // The short tag is in the shop cell, the sentences are on the
+            // product's own page in full, and the checkbox column already
+            // says this row cannot be taken in from here.
             . '</span></span></th>'
             . '<td data-label="' . esc_attr__('فروشگاه', 'tecteb-marketplace-core') . '">'
             . esc_html($row->storeName !== '' ? $row->storeName : '—')
             . ($row->bucketLabel !== ''
-                ? '<br><span class="tmc-card__note">' . esc_html($row->bucketLabel) . '</span>'
+                ? '<span class="tmc-catalogue__bucket">' . esc_html($row->bucketLabel) . '</span>'
                 : '')
             . '</td>'
             . '<td data-label="' . esc_attr__('وضعیت بازارگاه', 'tecteb-marketplace-core') . '">'
@@ -245,6 +265,7 @@ final class ProductCatalogueView
             . '<td data-label="' . esc_attr__('آخرین تغییر', 'tecteb-marketplace-core') . '">'
             . '<span class="tmc-catalogue__when">' . esc_html(self::fa(substr($row->updatedAt, 0, 16))) . '</span></td>'
             . '<td data-label="' . esc_attr__('بررسی', 'tecteb-marketplace-core') . '">'
+            . '<span class="tmc-catalogue__actions">'
             . '<a class="tmc-button tmc-button--primary tmc-catalogue__action" href="' . esc_url($detail) . '">'
             . esc_html__('مشاهده و بررسی', 'tecteb-marketplace-core') . '</a>'
             // A Dokan product's road out is Dokan's own transfer path, which
@@ -253,11 +274,11 @@ final class ProductCatalogueView
             // instruction forbids, so this row points AT the other one
             // instead of offering an intake that would be the wrong import.
             . ($dokanUrl !== '' && $row->bucket === CatalogueBucket::DOKAN
-                ? '<br><a class="tmc-button tmc-button--ghost tmc-catalogue__action" href="'
+                ? '<a class="tmc-button tmc-button--ghost tmc-catalogue__action" href="'
                     . esc_url($dokanUrl) . '">'
                     . esc_html__('مسیر انتقال از دکان', 'tecteb-marketplace-core') . '</a>'
                 : '')
-            . '</td>'
+            . '</span></td>'
             . '</tr>';
     }
 
@@ -310,32 +331,6 @@ final class ProductCatalogueView
         return '<span class="tmc-catalogue__status tmc-catalogue__status--'
             . esc_attr(ProductMessages::statusTone($row->status)) . '">'
             . esc_html(ProductMessages::status($row->status)) . '</span>';
-    }
-
-    /**
-     * Why this row cannot simply be taken in — ONE short line.
-     *
-     * The list says the one sentence that decides what a manager does next;
-     * the author's roles, the vendor paperwork's state, the other plugins'
-     * meta keys and everything an intake could not carry are on the
-     * product's own page. A list that printed all of it would be the page
-     * `alpha.32` took apart, in a new shape.
-     */
-    private static function blockerNote(ProductCatalogueRow $row): string
-    {
-        if ($row->blockers === []) {
-            return '';
-        }
-        return '<span class="tmc-card__note tmc-catalogue__blocker">'
-            . esc_html((string) $row->blockers[0])
-            . (count($row->blockers) > 1
-                ? ' ' . esc_html(sprintf(
-                    /* translators: %s: how many further reasons there are */
-                    __('(و %s دلیل دیگر، در صفحهٔ محصول)', 'tecteb-marketplace-core'),
-                    self::fa(count($row->blockers) - 1)
-                ))
-                : '')
-            . '</span>';
     }
 
     /**
@@ -420,7 +415,9 @@ final class ProductCatalogueView
     private static function filters(ProductCatalogueState $state): string
     {
         $all = array_sum($state->counts);
-        $tabs = ['' => __('همه', 'tecteb-marketplace-core')];
+        // «همهٔ ردیف‌های بازارگاه», not «همه»: two rows of chips each with a
+        // chip called «همه» is the pair the owner could not read.
+        $tabs = ['' => __('همهٔ ردیف‌های بازارگاه', 'tecteb-marketplace-core')];
         foreach (ProductStatus::cases() as $status) {
             $tabs[$status->value] = ProductMessages::status($status);
         }
@@ -435,7 +432,14 @@ final class ProductCatalogueView
         }
         $unknown = $all - $known;
 
-        $html = '<nav class="tmc-filters" aria-label="' . esc_attr__('وضعیت محصول', 'tecteb-marketplace-core') . '">'
+        // A VISIBLE legend, because this row and the source row sat side by
+        // side with «همه ۸» on one and «همه ۱۹۳» on the other and nothing on
+        // screen said the first counts marketplace rows and the second counts
+        // the whole catalogue: «دامنهٔ شمارنده‌ها روشن باشد». `aria-label`
+        // said it to a screen reader and to nobody else.
+        $html = '<nav class="tmc-filters" aria-label="' . esc_attr__('وضعیت بازارگاه', 'tecteb-marketplace-core') . '">'
+            . '<span class="tmc-filters__legend">'
+            . esc_html__('وضعیت بازارگاه (فقط ردیف‌های بازارگاه)', 'tecteb-marketplace-core') . '</span>'
             . '<ul class="tmc-filters__list">';
         foreach ($tabs as $value => $label) {
             $n = $value === '' ? $all : ($state->counts[$value] ?? 0);
@@ -462,6 +466,167 @@ final class ProductCatalogueView
     }
 
     /**
+     * WHAT IS NARROWING THE LIST RIGHT NOW, named once, with the way out.
+     *
+     * The chip rows say which value of ONE facet is active. They cannot say
+     * that a search, a marketplace status and a WooCommerce publish status are
+     * all narrowing the list at the same time — and from this round two of the
+     * three facet rows live inside a collapsed «فیلترهای بیشتر», so a manager
+     * looking at four rows of a catalogue of hundreds has nothing on screen
+     * that tells an empty result from a filter they forgot. That is the shape
+     * of the confusion this round was asked to remove, one step further on
+     * than the counters: «فیلتر فعال مشخص و قابل پاک‌کردن باشد».
+     *
+     * Each entry is a real link, built by `ProductCatalogueState::link()` like
+     * every other control here, so removing one filter keeps the others —
+     * including the page size and the sort — and sends the manager to page one
+     * of the wider list rather than to page seven of a list that no longer has
+     * seven pages.
+     */
+    private static function activeFilters(ProductCatalogueState $state): string
+    {
+        /** @var list<array{label:string, remove:string}> $active */
+        $active = [];
+
+        if ($state->search !== '') {
+            $active[] = [
+                'label' => sprintf(
+                    /* translators: %s: what the manager typed in the search box */
+                    __('جست‌وجو: %s', 'tecteb-marketplace-core'),
+                    $state->search
+                ),
+                'remove' => $state->link(['q' => null]),
+            ];
+        }
+        if ($state->status !== '') {
+            // A status the enum does not know is still printed, by its raw
+            // value: a stale bookmark that narrows the list has to be
+            // removable, and a filter this file cannot name is exactly the one
+            // a manager most needs a way out of.
+            $known = ProductStatus::tryFrom($state->status);
+            $active[] = [
+                'label' => sprintf(
+                    /* translators: %s: a marketplace status, e.g. «منتشرشده» */
+                    __('وضعیت بازارگاه: %s', 'tecteb-marketplace-core'),
+                    $known === null ? $state->status : ProductMessages::status($known)
+                ),
+                'remove' => $state->link(['status' => null]),
+            ];
+        }
+        if ($state->source !== '') {
+            $active[] = [
+                'label' => sprintf(
+                    /* translators: %s: where the row comes from, e.g. «فقط در ووکامرس» */
+                    __('منبع: %s', 'tecteb-marketplace-core'),
+                    CatalogueFacets::sourceLabel($state->source)
+                ),
+                'remove' => $state->link(['source' => null]),
+            ];
+        }
+        if ($state->management !== '') {
+            $active[] = [
+                'label' => sprintf(
+                    /* translators: %s: whether this plugin runs the product */
+                    __('وضعیت مدیریت: %s', 'tecteb-marketplace-core'),
+                    CatalogueFacets::managementLabel($state->management)
+                ),
+                'remove' => $state->link(['management' => null]),
+            ];
+        }
+        if ($state->wcStatus !== '') {
+            $active[] = [
+                'label' => sprintf(
+                    /* translators: %s: WooCommerce's own publish status */
+                    __('وضعیت ووکامرس: %s', 'tecteb-marketplace-core'),
+                    $state->wcStatus === CatalogueFacets::STATUS_ABSENT
+                        ? __('بدون محصول ووکامرس', 'tecteb-marketplace-core')
+                        : ProductMessages::shopStatus($state->wcStatus)
+                ),
+                'remove' => $state->link(['wc_status' => null]),
+            ];
+        }
+        if ($state->onlyNeedsReview) {
+            // `revisions` is the key this scope had until `alpha.48`. It is
+            // never written any more, so clearing it is defensive — and it
+            // costs nothing, where a bookmark that keeps re-applying a scope
+            // the manager just removed costs a round of confusion.
+            $active[] = [
+                'label' => __('فقط نیازمند بررسی', 'tecteb-marketplace-core'),
+                'remove' => $state->link(['review' => null, 'revisions' => null]),
+            ];
+        }
+
+        if ($active === []) {
+            return '';
+        }
+
+        $html = '<div class="tmc-catalogue__active"><span class="tmc-catalogue__activelabel">'
+            . esc_html__('فیلترهای فعال:', 'tecteb-marketplace-core') . '</span>'
+            . '<ul class="tmc-catalogue__activelist">';
+        foreach ($active as $filter) {
+            $html .= '<li><span class="tmc-activefilter">'
+                . '<span class="tmc-activefilter__label">' . esc_html($filter['label']) . '</span>'
+                . '<a class="tmc-activefilter__remove" href="' . esc_url($filter['remove']) . '"'
+                . ' aria-label="' . esc_attr(sprintf(
+                    /* translators: %s: the filter being removed */
+                    __('برداشتن فیلتر %s', 'tecteb-marketplace-core'),
+                    $filter['label']
+                )) . '">' . esc_html__('×', 'tecteb-marketplace-core') . '</a>'
+                . '</span></li>';
+        }
+        $html .= '</ul>';
+        if (count($active) > 1) {
+            // Only when there is more than one: a «clear all» beside a single
+            // filter that already has its own × is two buttons for one act.
+            $html .= '<a class="tmc-catalogue__clearall" href="' . esc_url($state->link([
+                'q' => null,
+                'status' => null,
+                'source' => null,
+                'management' => null,
+                'wc_status' => null,
+                'review' => null,
+                'revisions' => null,
+            ])) . '">' . esc_html__('برداشتن همهٔ فیلترها', 'tecteb-marketplace-core') . '</a>';
+        }
+        return $html . '</div>';
+    }
+
+    /**
+     * THE THREE SPECIALIST FACETS, folded away — and the sentence that explains
+     * them, moved in beside them.
+     *
+     * «فیلترهای تخصصی منبع، مدیریت و وضعیت ووکامرس در «فیلترهای بیشتر» قرار
+     * گیرند.» Until this round all four chip rows were printed one under the
+     * other above the first product, which is twenty-odd chips and three
+     * counters between the search box and the work; and the paragraph that
+     * told «وضعیت ووکامرس» apart from «وضعیت مدیریت» sat in the page header,
+     * four rows away from either of them.
+     *
+     * `<details>` and not a script, like every other control on this page. It
+     * opens by itself when one of the three is active, because a filter that
+     * narrows the list from inside a closed box is the worst of both: the
+     * manager sees few rows and no reason. The row of active filters above
+     * says so too — two witnesses, because this one disappears the moment
+     * somebody collapses the box again.
+     */
+    private static function moreFilters(ProductCatalogueState $state): string
+    {
+        $rows = self::sourceFilters($state)
+            . self::managementFilters($state)
+            . self::shopStatusFilters($state);
+        if (trim($rows) === '') {
+            return '';
+        }
+        $open = ($state->source !== '' || $state->management !== '' || $state->wcStatus !== '')
+            ? ' open'
+            : '';
+        return '<details class="tmc-catalogue__more"' . $open . '><summary>'
+            . esc_html__('فیلترهای بیشتر', 'tecteb-marketplace-core') . '</summary>'
+            . '<p class="tmc-hint">' . esc_html__('«وضعیت انتشار در ووکامرس» وضعیت خودِ محصول در فروشگاه است و «وضعیت مدیریت بازارگاه» می‌گوید این افزونه آن محصول را مدیریت می‌کند یا فقط می‌بیند. این دو یکی نیستند.', 'tecteb-marketplace-core') . '</p>'
+            . $rows . '</details>';
+    }
+
+    /**
      * منبع — which half of the catalogue a row is.
      *
      * Its own chip row rather than three more status chips, because it is a
@@ -477,7 +642,8 @@ final class ProductCatalogueView
             $state->source,
             __('منبع محصول', 'tecteb-marketplace-core'),
             CatalogueFacets::SOURCES,
-            (array) ($state->facets['source'] ?? [])
+            (array) ($state->facets['source'] ?? []),
+            __('هر منبعی', 'tecteb-marketplace-core')
         );
     }
 
@@ -490,7 +656,8 @@ final class ProductCatalogueView
             $state->management,
             __('وضعیت مدیریت بازارگاه', 'tecteb-marketplace-core'),
             CatalogueFacets::MANAGEMENT,
-            (array) ($state->facets['management'] ?? [])
+            (array) ($state->facets['management'] ?? []),
+            __('هر وضعیت مدیریتی', 'tecteb-marketplace-core')
         );
     }
 
@@ -524,7 +691,8 @@ final class ProductCatalogueView
             $state->wcStatus,
             __('وضعیت انتشار در ووکامرس', 'tecteb-marketplace-core'),
             $labels,
-            $counts
+            $counts,
+            __('هر وضعیت انتشاری', 'tecteb-marketplace-core')
         );
     }
 
@@ -545,12 +713,16 @@ final class ProductCatalogueView
         string $current,
         string $legend,
         array $labels,
-        array $counts
+        array $counts,
+        string $allLabel = ''
     ): string {
         $html = '<nav class="tmc-filters" aria-label="' . esc_attr($legend) . '">'
             . '<span class="tmc-filters__legend">' . esc_html($legend) . '</span>'
             . '<ul class="tmc-filters__list">';
-        $all = ['' => __('همه', 'tecteb-marketplace-core')] + $labels;
+        // The «all» chip names its own universe. Three facet rows whose
+        // first chip all read «همه» with three different numbers beside them
+        // is the confusion this round was asked to remove.
+        $all = ['' => ($allLabel !== '' ? $allLabel : __('همه', 'tecteb-marketplace-core'))] + $labels;
         foreach ($all as $value => $label) {
             $value = (string) $value;
             $n = $value === '' ? array_sum($counts) : (int) ($counts[$value] ?? 0);
@@ -711,7 +883,16 @@ final class ProductCatalogueView
      */
     private static function tools(ProductCatalogueState $state): string
     {
-        $html = '<form method="get" class="tmc-catalogue__tools">'
+        // Collapsed and LAST, because it is the control a manager touches
+        // once a session: «ابزارهای کم‌مصرف در پایان و جمع‌شونده». Open when
+        // either control is away from its default, so a manager who did
+        // choose 100 rows or a different order can see that they did — a
+        // setting that silently narrows a screen from inside a closed box is
+        // the same defect as a filter that does.
+        $touched = $state->perPage !== ProductCatalogueState::PER_PAGE || !$state->sort->isDefault();
+        $html = '<details class="tmc-catalogue__settings"' . ($touched ? ' open' : '') . '><summary>'
+            . esc_html__('تعداد ردیف و مرتب‌سازی', 'tecteb-marketplace-core') . '</summary>'
+            . '<form method="get" class="tmc-catalogue__tools">'
             . '<input type="hidden" name="page" value="' . esc_attr(ProductReviewPage::SLUG) . '">'
             . self::carried($state, ['status', 'q', 'revisions', 'source', 'wc_status', 'management'])
             . '<span class="tmc-catalogue__tool">'
@@ -735,7 +916,7 @@ final class ProductCatalogueView
         }
         return $html . '</select></span>'
             . '<button type="submit" class="tmc-button">' . esc_html__('اعمال', 'tecteb-marketplace-core') . '</button>'
-            . '</form>';
+            . '</form></details>';
     }
 
     /**

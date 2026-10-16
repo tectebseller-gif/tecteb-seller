@@ -24,17 +24,24 @@ use Tecteb\Marketplace\Modules\Finance\Domain\Money;
  * would be owed something with no ledger line behind it, and no later
  * process could reconstruct what.
  *
- * So the gate asks two questions that have to be answered in the world, not
- * in a setting:
+ * So the gate asks a question that has to be answered in the world rather
+ * than in a setting: **can a balanced ledger transaction actually be
+ * WRITTEN?** (FIN-03/§4.4 — a ledger that refuses inserts means nothing can
+ * be recorded.) The probe writes and then leaves nothing behind: it uses a
+ * reserved event key and a zero-sum pair, so asking the question never
+ * invents money.
  *
- *   1. does a commission rate actually RESOLVE for this sale? (FIN-02 —
- *      unset is not zero, so an unconfigured marketplace cannot sell)
- *   2. can a balanced ledger transaction actually be WRITTEN? (FIN-03/§4.4 —
- *      a ledger that refuses inserts means nothing can be recorded)
+ * **It used to ask a second one, and `alpha.57` removed it.** The first
+ * question was «does a commission rate actually resolve for this sale?»,
+ * because FIN-02 said an unset rate was not zero and an unconfigured
+ * marketplace must not sell. The owner has now decided the opposite, per
+ * product: a commission is Tecteb's share, it is set on the product, and
+ * «تعیین‌نشده یا صفر یعنی بدون کمیسیون» — a product with no commission is
+ * approvable, publishable and sellable. So `rate_unset` is no longer produced
+ * anywhere, which is the one blocker §7 asked to clear.
  *
- * Only when both are true may order operations run. The probe writes and then
- * leaves nothing behind: it uses a reserved event key and a zero-sum pair, so
- * asking the question never invents money.
+ * Nothing else moved. DEC-02 and DEC-04 are still the owner's and still close
+ * this gate, and the ledger probe still runs.
  */
 final class OrderOperationsGate
 {
@@ -42,6 +49,22 @@ final class OrderOperationsGate
 
     public const READY = 'ready';
     public const READY_ON_TRIAL = 'ready_on_trial';
+    /**
+     * @deprecated since `alpha.57` — kept as a NAME, never produced.
+     *
+     * This gate's first question used to be «does a commission rate actually
+     * resolve for this sale?», because FIN-02 said an unset rate was not zero
+     * and an unconfigured marketplace must not sell. The owner has now decided
+     * the opposite, per product: «تعیین‌نشده یا صفر یعنی بدون کمیسیون» and
+     * «نبود نرخ مانع تأیید، انتشار یا فروش نیست». So the check is gone — the
+     * ONE blocker §7 asked to clear — and the constant stays so that a stored
+     * reason, a log line or a screen written against the old name still reads
+     * as what it was rather than as an unknown string.
+     *
+     * Nothing else was opened. DEC-02 and DEC-04 are still the owner's and
+     * still close this gate, and the ledger probe still runs: «سایر دروازه‌های
+     * مستقل فروش، پرداخت، مهاجرت یا تسویه را خودکار باز نکن».
+     */
     public const RATE_UNSET = 'rate_unset';
     public const LEDGER_UNWRITABLE = 'ledger_unwritable';
     public const DECISIONS_OPEN = 'decisions_open';
@@ -60,6 +83,16 @@ final class OrderOperationsGate
     private array $memo = [];
 
     public function __construct(
+        /**
+         * NO LONGER CONSULTED, and kept rather than removed.
+         *
+         * Two reasons, both deliberate. The evidence probes of `alpha.38` and
+         * `alpha.39` build this gate positionally and a dropped parameter
+         * would stop them loading — the `alpha.32` trap, which this repository
+         * has paid for twice. And the scoped rules are still real data that
+         * explains lines recorded before this round; what changed is that they
+         * no longer decide whether a sale may happen.
+         */
         private readonly ResolveCommissionRate $rates,
         private readonly LedgerRepositoryInterface $ledger,
         private readonly ?OrderTrialInterface $trial = null
@@ -99,14 +132,6 @@ final class OrderOperationsGate
                     : 'awaiting ' . implode(', ', self::OPEN_DECISIONS),
             ];
         }
-        ['rate' => $rate, 'source' => $source] = $this->rates->forItem($rateReferences);
-        if (!$rate->isSet()) {
-            return [
-                'ready' => false,
-                'reason' => self::RATE_UNSET,
-                'detail' => 'no commission rate resolves for this sale; an unset rate is not zero',
-            ];
-        }
         if (!$this->ledgerAcceptsWrites()) {
             return [
                 'ready' => false,
@@ -124,7 +149,10 @@ final class OrderOperationsGate
                     . '; sample rules; still awaiting ' . implode(', ', self::OPEN_DECISIONS),
             ];
         }
-        return ['ready' => true, 'reason' => self::READY, 'detail' => 'rate source: ' . $source];
+        // No rate in the detail any more: there is no single rate for a sale
+        // under the per-product model, and printing the one a legacy scope
+        // rule happens to hold would describe a rule nothing consults.
+        return ['ready' => true, 'reason' => self::READY, 'detail' => 'ledger accepts writes'];
     }
 
     /**
@@ -132,10 +160,10 @@ final class OrderOperationsGate
      * work while the answer cannot change.
      *
      * While DEC-02 and DEC-04 are open and trial mode is off, the module is
-     * blocked whatever the rates say, so asking the ledger would cost a query
+     * blocked whatever else is true, so asking the ledger would cost a query
      * on every request to learn something already known. Once that is settled
-     * (or waived for a trial), the rate and the ledger are both reported, so
-     * clearing one does not reveal the next as a surprise.
+     * (or waived for a trial), the ledger is asked — and the commission is
+     * not: a product with none is not a blocked sale any more.
      *
      * @param array<string,string> $rateReferences
      * @return list<string> empty when the module may operate
@@ -151,10 +179,6 @@ final class OrderOperationsGate
             ];
         }
         $blockers = [];
-        ['rate' => $rate] = $this->rates->forItem($rateReferences);
-        if (!$rate->isSet()) {
-            $blockers[] = self::RATE_UNSET;
-        }
         if (!$this->ledgerAcceptsWrites()) {
             $blockers[] = self::LEDGER_UNWRITABLE;
         }

@@ -1,0 +1,81 @@
+new package: 0.1.0-alpha.57 (target schema 29) · STRUCTURAL this round
+pages: tmc-supplier-payments · tmc-product-review
+ok:   the admin session really opened                                200
+
+================================================================
+=== 0.1.0-alpha.56 (schema 28) -> 0.1.0-alpha.57 (schema 29)
+================================================================
+ok:   0 the new package holds exactly one more migration step        1
+ok:   0b and one more schema number, so this upgrade is structural   1
+ok:   1 the install is 0.1.0-alpha.56                                0.1.0-alpha.56
+ok:   1b and the gate finishes it on one admin request               200
+ok:   1c leaving the old build on schema 28                          28
+ok:   1d with nothing recorded as failed                             
+  wc=426 line=5 vendor=9566 share=450000 
+ok:   2 the old build recorded the sale's share                      450000
+  before: wc_id=426 url=http://127.0.0.1:8081/product/%da%a9%d8%a7%d9%84%d8%a7%db%8c-%d8%a7%d8%b1%d8%aa%d9%82%d8%a7%db%8c-%db%b5%db%b7/ status=publish author=1 price=500000 stock=12 line_id=5 line_base=500000 line_commission=50000 line_share=450000 line_event=order:95661 identity=419fe52584aa7238496d043651e478348063638abcbf2418a0c15b07f3b7dbc9 
+ok:   2b the old build has no commission panel                       1
+ok:   2c and no supplier payment service                             1
+ok:   2d and neither table on disk                                   __absent__
+ok:   3 the files are now 0.1.0-alpha.57                             0.1.0-alpha.57
+ok:   3b and replacing files alone ran NO step                       28
+ok:   3c the first admin request answers                             200
+ok:   3d and the gate has taken the schema to 29                     29
+ok:   3e with nothing recorded as failed                             
+  tmc_supplier_payments=present tmc_supplier_payments_unique_over_idempotency_key=yes tmc_supplier_payment_items=present tmc_supplier_payment_items_unique_over_order_item_id=yes 
+ok:   3f the payments table is on disk                               present
+ok:   3g with a unique key over its idempotency key                  yes
+ok:   3h the items table is on disk                                  present
+ok:   3i with a unique key over the order item                       yes
+  after:  wc_id=426 url=http://127.0.0.1:8081/product/%da%a9%d8%a7%d9%84%d8%a7%db%8c-%d8%a7%d8%b1%d8%aa%d9%82%d8%a7%db%8c-%db%b5%db%b7/ status=publish author=1 price=500000 stock=12 line_id=5 line_base=500000 line_commission=50000 line_share=450000 line_event=order:95661 identity=419fe52584aa7238496d043651e478348063638abcbf2418a0c15b07f3b7dbc9 
+ok:   4 every field of the product and its order line is identical   419fe52584aa7238496d043651e478348063638abcbf2418a0c15b07f3b7dbc9
+ok:   4-wc_id unchanged                                              426
+ok:   4-url unchanged                                                http://127.0.0.1:8081/product/%da%a9%d8%a7%d9%84%d8%a7%db%8c-%d8%a7%d8%b1%d8%aa%d9%82%d8%a7%db%8c-%db%b5%db%b7/
+ok:   4-status unchanged                                             publish
+ok:   4-author unchanged                                             1
+ok:   4-price unchanged                                              500000
+ok:   4-stock unchanged                                              12
+ok:   4-line_id unchanged                                            5
+ok:   4-line_base unchanged                                          500000
+ok:   4-line_commission unchanged                                    50000
+ok:   4-line_share unchanged                                         450000
+ok:   4-line_event unchanged                                         order:95661
+ok:   5 the supplier payments page answers                           200
+ok:   5b and says what it is                                         yes
+ok:   5c and promises no transfer happens                            yes
+ok:   5d with exactly one submit button on it                        1
+ok:   5e the one product list still answers                          200
+ok:   5f with no active filter named when none is on                 no
+ok:   5g and names the active one when there is one                  yes
+ok:   5h the commission tab is on the product editor                 200
+ok:   5i and says so by name                                         yes
+  type=percent value=12.50 from=product 
+ok:   6 a percentage saves through the panel's own nonce             percent
+ok:   6b and comes back as the manager's own number                  12.50
+ok:   6c from the product rather than inherited                      product
+ok:   6d an impossible value writes nothing and the earlier rule stands 12.50
+ok:   6e and the order recorded earlier has not moved                419fe52584aa7238496d043651e478348063638abcbf2418a0c15b07f3b7dbc9
+  ok=yes code=supplier_payment_recorded payment=1 
+ok:   7 the payment is recorded                                      yes
+ok:   7b and matched the recorded share, so it posted                supplier_payment_recorded
+ok:   7c the same submission again is refused                        no
+ok:   7d by name                                                     supplier_payment_already_recorded
+  awaiting=0 rows=1 payout_lines=2 
+ok:   7e and there is ONE payment row                                1
+ok:   7f with exactly one payout line behind it                      2
+ok:   8 the files are 0.1.0-alpha.56 again                           0.1.0-alpha.56
+ok:   8b and the schema is NOT taken down                            29
+ok:   8c an admin request still answers                              200
+ok:   8d and the schema is still 29                                  29
+ok:   8e the supplier payments page is gone                          403
+ok:   8f but the payment row is still there                          present
+ok:   8g and the commission panel is gone                            1
+ok:   8h with the product's two meta rows left on disk               1
+ok:   8i and the order recorded earlier still has not moved          419fe52584aa7238496d043651e478348063638abcbf2418a0c15b07f3b7dbc9
+ok:   9 an admin request answers                                     200
+ok:   9b the schema is 29                                            29
+ok:   9c with nothing recorded as failed                             
+ok:   9d and still ONE payment row — nothing ran twice             1
+ok:   9e the supplier payments page answers again                    200
+
+checks: 66 passed, 0 failed

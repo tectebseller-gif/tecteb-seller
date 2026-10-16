@@ -1,8 +1,8 @@
-# Min Max exit — 2026-10-16T10:56:50Z
+# Min Max exit — 2026-10-16T13:48:00Z
 plugin under test: 8.1.0
 woocommerce:       11.0.1
-marketplace:       0.1.0-alpha.56
-schema:            28
+marketplace:       0.1.0-alpha.57
+schema:            29
 
 probe=ran
 minmax_active=yes

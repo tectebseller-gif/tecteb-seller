@@ -11,6 +11,8 @@ use Tecteb\Marketplace\Modules\Finance\Domain\CommissionSnapshot;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
 use Tecteb\Marketplace\Modules\Finance\Domain\Money;
+use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommission;
+use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommissionCalculator;
 
 /**
  * Turns one paid item into four balanced ledger lines — once.
@@ -31,7 +33,30 @@ final class RecordCommission
         private readonly LedgerRepositoryInterface $ledger,
         private readonly ResolveCommissionRate $rates,
         private readonly CommissionCalculator $calculator,
-        private readonly AuditLogger $audit
+        private readonly AuditLogger $audit,
+        /**
+         * THE OWNER'S PER-PRODUCT COMMISSION — the model a new sale uses.
+         *
+         * When this is present, `accrue()` asks it and `ResolveCommissionRate`
+         * is not consulted at all. That is the decision, not an option: a
+         * general or vendor-level percentage standing in for a product with no
+         * commission is the silent substitution §5-و forbids, and on this site
+         * there has been a default rate since `alpha.6`, so every product
+         * would inherit one.
+         *
+         * The scoped rules are NOT deleted and `calculate()` is NOT changed:
+         * lines already recorded are explained by the snapshot they were
+         * written with, and «اطلاعات مالی قبلی پاک یا بازنویسی نشود» is about
+         * exactly that. What changes is which model decides the NEXT sale.
+         *
+         * Optional, and the reason is narrow: the evidence probes of
+         * `alpha.38` and `alpha.39` build this service by reflection and a
+         * required argument would stop them loading — the `alpha.32` trap. The
+         * real container always provides it, and
+         * `CommissionModelWiringTest` is the proof rather than this sentence.
+         */
+        private readonly ?TectebCommissionSourceInterface $tectebRules = null,
+        private readonly ?TectebCommissionCalculator $tectebCalculator = null
     ) {
     }
 
@@ -48,7 +73,16 @@ final class RecordCommission
         Money $baseAfterDiscountBeforeTax,
         array $rateReferences,
         ?Money $taxCollected = null,
-        string $discountAllocation = ''
+        string $discountAllocation = '',
+        /**
+         * How many units the line carried — the multiplier a fixed commission
+         * needs. `۲۰٬۰۰۰ × ۳ = ۶۰٬۰۰۰` is not recoverable from the line total
+         * alone, so it travels and it is recorded in the snapshot.
+         */
+        int $quantity = 1,
+        /** The product the rule is read off, and the variation that was sold. */
+        int $wcProductId = 0,
+        int $variationId = 0
     ): CommissionOutcome {
         if (trim($eventKey) === '') {
             return CommissionOutcome::needsConfiguration('event_key_required');
@@ -71,9 +105,25 @@ final class RecordCommission
             return $recovered;
         }
 
-        ['rate' => $rate, 'source' => $source] = $this->rates->forItem($rateReferences);
-
-        $outcome = $this->calculator->calculate($baseAfterDiscountBeforeTax, $rate, $source, $vendorUserId, $discountAllocation);
+        if ($this->tectebRules !== null && $this->tectebCalculator !== null) {
+            // The owner's model: this product's own rule, or none, and «none»
+            // is a result rather than a refusal — a product with no commission
+            // still sells («نبود نرخ مانع … فروش نیست»).
+            ['rule' => $rule, 'source' => $source] = $this->tectebRules->forItem($wcProductId, $variationId);
+            $outcome = $this->tectebCalculator->calculate(
+                $baseAfterDiscountBeforeTax,
+                $quantity,
+                $rule,
+                $source,
+                $vendorUserId,
+                $discountAllocation
+            );
+            $rateBp = $rule->type === TectebCommission::PERCENT ? (int) $rule->percentBasisPoints : 0;
+        } else {
+            ['rate' => $rate, 'source' => $source] = $this->rates->forItem($rateReferences);
+            $outcome = $this->calculator->calculate($baseAfterDiscountBeforeTax, $rate, $source, $vendorUserId, $discountAllocation);
+            $rateBp = (int) $rate->basisPoints;
+        }
         if (!$outcome->isCalculated()) {
             return $outcome;
         }
@@ -113,7 +163,7 @@ final class RecordCommission
 
         $this->audit->log(AuditEventCatalog::FINANCE_ACCRUED, 0, 'ledger', $eventKey, [
             'vendor_id' => $vendorUserId,
-            'rate_bp' => (int) $rate->basisPoints,
+            'rate_bp' => $rateBp,
             'rate_source' => $source,
             'base_minor' => $base->minor,
         ]);

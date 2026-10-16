@@ -201,6 +201,22 @@
             "ratio": 4.73,
             "required": 4.5,
             "pass": true
+        },
+        {
+            "pair": "برچسب فیلتر فعال و برچسب «دکان» روی کارت muted",
+            "fg": "#4F6570",
+            "bg": "#F1F5F7",
+            "ratio": 5.58,
+            "required": 4.5,
+            "pass": true
+        },
+        {
+            "pair": "× برداشتن فیلتر (hover\/focus) روی خاکستری خنثی",
+            "fg": "#B3261E",
+            "bg": "#E4EAEE",
+            "ratio": 5.39,
+            "required": 4.5,
+            "pass": true
         }
     ],
     "failures": 0

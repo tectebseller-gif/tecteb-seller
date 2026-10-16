@@ -52,13 +52,36 @@ final class CommissionRulesPage
             echo Components::notice(str_starts_with($notice, 'ok:') ? 'success' : 'error', substr($notice, strpos($notice, ':') + 1));
         }
 
-        $general = $rules->rate(RateScope::General, 'general');
+        // THE BEHAVIOUR CHANGE, SAID ON THE SCREEN THAT HOLDS THE OLD DATA.
+        //
+        // «تغییر رفتار برای دادهٔ قدیمی شناسایی و مستند شود» (§5-و). Every
+        // sentence this page used to print was about inheritance — a product
+        // with no rate of its own took its vendor's, then its category's, then
+        // the general one, and a sale with no rate anywhere did not happen. The
+        // owner has decided the opposite: commission is set per product, and
+        // «تعیین‌نشده یا صفر یعنی بدون کمیسیون».
+        //
+        // So the rules below are history rather than configuration. They are
+        // NOT deleted — «اطلاعات مالی قبلی پاک یا بازنویسی نشود», and they are
+        // what explains every line recorded before this round — and the notice
+        // says plainly that they no longer decide a new sale, which is the one
+        // thing a manager reading a 25% general rate would otherwise get wrong.
         echo Components::notice(
-            $general->isSet() ? 'info' : 'warning',
-            $general->isSet()
-                ? sprintf(__('نرخ عمومی بازارگاه: %s درصد. هر محصول یا فروشنده‌ای که نرخ خودش را نداشته باشد از همین ارث می‌برد.', 'tecteb-marketplace-core'), $fa((string) $general->percent()))
-                : __('نرخ عمومی هنوز تعیین نشده است. این «صفر» نیست: تا وقتی نرخی تعیین نشود، هیچ فروشی در ماژول مالی ثبت نمی‌شود و سفارش‌ها عملیاتی نمی‌شوند. نرخ صفر اگر واقعاً منظورتان است، باید صریح ثبت شود.', 'tecteb-marketplace-core')
+            'warning',
+            __('این قواعد دیگر روی فروش‌های تازه اعمال نمی‌شوند. کمیسیون تک‌طب از این پس روی صفحهٔ ویرایش هر محصول در ووکامرس تعیین می‌شود (زبانهٔ «کمیسیون تک‌طب») و محصولی که کمیسیون نداشته باشد بدون کمیسیون فروخته می‌شود — تعیین‌نشدن کمیسیون مانع تأیید، انتشار یا فروش نیست. ردیف‌های زیر پاک نشده‌اند چون سفارش‌های ثبت‌شدهٔ قبلی با همین نرخ‌ها توضیح داده می‌شوند.', 'tecteb-marketplace-core')
         );
+
+        $general = $rules->rate(RateScope::General, 'general');
+        if ($general->isSet()) {
+            echo Components::notice(
+                'info',
+                sprintf(
+                    /* translators: %s: the general rate, as a percentage */
+                    __('نرخ عمومی ثبت‌شدهٔ قبلی: %s درصد. این نرخ روی هیچ فروش تازه‌ای اعمال نمی‌شود و جای کمیسیون خالی هیچ محصولی را نمی‌گیرد.', 'tecteb-marketplace-core'),
+                    $fa((string) $general->percent())
+                )
+            );
+        }
 
         echo '<section class="tmc-card"><h2 class="tmc-card__title">' . esc_html__('قواعد ثبت‌شده', 'tecteb-marketplace-core') . '</h2>';
         $all = $rules->all();

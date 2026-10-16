@@ -92,10 +92,20 @@ final class ProductCatalogueRow
         /**
          * Why not, in sentences a manager reads.
          *
-         * On the list this is one short line; the full technical account —
-         * the author's roles, the vendor paperwork, the other plugins' meta
-         * keys, what an intake could not carry — is on the product's own
-         * page. «توضیح فنی و تکراری به نمای جزئیات منتقل شود.»
+         * **The LIST no longer prints any of them.** Until `alpha.56` it
+         * printed the first one under every row it applied to, which on this
+         * owner's catalogue was the same forty-word paragraph about Dokan's
+         * transfer path repeated down the page: «جملهٔ تکراری … از زیر هر
+         * محصول حذف شود. یک برچسب کوتاه «دکان» و جزئیات در صورت نیاز کافی
+         * است.» The short tag is `bucketLabel`, the sentences are on the
+         * product's own page in full, and the select column already says a
+         * row cannot be taken in from here.
+         *
+         * The field stays because it is a FACT about the row that the page
+         * already has in hand, and the next screen to need it — a bulk
+         * preview, an export — should not have to recompute it. Nothing in
+         * this plugin reads it today, and that is written down rather than
+         * hidden.
          *
          * @var list<string>
          */

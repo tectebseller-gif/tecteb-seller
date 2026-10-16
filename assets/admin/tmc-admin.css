@@ -895,13 +895,102 @@
   font-size: 0.9375rem;
   font-weight: 600;
 }
-/* The one reason a row cannot simply be taken in — quiet, because it is a
-   question and not an error, and the rest of the account is on the product's
-   own page. */
-.tmc-catalogue__blocker {
-  display: block;
-  max-inline-size: 40ch;
+/* the active filters, and the two folded boxes (`alpha.57`) ----------------- */
+/* WHAT IS NARROWING THE LIST, on one line above the rows.
+   Two of the four chip rows now live inside a closed `<details>`, so a chip
+   that is current is a chip nobody can see; and a search, a marketplace status
+   and a publish status can all be on at once, which no single chip row could
+   ever say. Tinted, because it is state and not a control. */
+.tmc-catalogue__active {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tmc-space-2);
+  margin-block-end: var(--tmc-space-3);
+  padding: var(--tmc-space-2) var(--tmc-space-3);
+  border: 1px solid var(--tmc-border);
+  border-radius: var(--tmc-radius);
+  background: var(--tmc-surface-2);
+}
+.tmc-catalogue__activelabel { color: var(--tmc-muted); font-weight: 600; }
+.tmc-catalogue__activelist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tmc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Label and × in one pill, so the × can never wrap onto its own line and be
+   read as removing the filter beside it. */
+.tmc-activefilter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tmc-space-1);
+  padding-inline: var(--tmc-space-2);
+  border: 1px solid var(--tmc-border);
+  border-radius: 999px;
+  background: var(--tmc-surface);
+  min-block-size: var(--tmc-touch);
+}
+.tmc-activefilter__label { font-size: 0.9375rem; }
+/* A real touch target rather than a 12px glyph: this is the control that
+   undoes a filter on a phone. */
+.tmc-admin .tmc-activefilter__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 1.75rem;
+  min-block-size: 1.75rem;
+  border-radius: 999px;
   color: var(--tmc-muted);
+  font-size: 1.125rem;
+  line-height: 1;
+  text-decoration: none;
+}
+.tmc-admin .tmc-activefilter__remove:hover,
+.tmc-admin .tmc-activefilter__remove:focus {
+  background: var(--tmc-neutral);
+  color: var(--tmc-error);
+}
+.tmc-admin .tmc-catalogue__clearall { font-size: 0.9375rem; }
+/* The specialist facets and the page-size form: both folded, both ordinary
+   `<details>` — a disclosure that needs JavaScript is a disclosure that is
+   missing on the day JavaScript fails, and this page is where a shop's
+   catalogue is decided. */
+.tmc-catalogue__more,
+.tmc-catalogue__drawer,
+.tmc-catalogue__settings {
+  margin-block: var(--tmc-space-3);
+  border: 1px solid var(--tmc-border);
+  border-radius: var(--tmc-radius);
+  background: var(--tmc-surface-2);
+}
+.tmc-catalogue__more > summary,
+.tmc-catalogue__drawer > summary,
+.tmc-catalogue__settings > summary {
+  padding: var(--tmc-space-2) var(--tmc-space-3);
+  min-block-size: var(--tmc-touch);
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tmc-catalogue__more > *:not(summary),
+.tmc-catalogue__settings > *:not(summary) {
+  margin-inline: var(--tmc-space-3);
+}
+.tmc-catalogue__more > *:last-child,
+.tmc-catalogue__settings > *:last-child {
+  margin-block-end: var(--tmc-space-3);
+}
+/* The intake box already draws its own frame, so the drawer around it must
+   not draw a second one. */
+.tmc-catalogue__drawer > .tmc-catalogue__intakebox {
+  margin: 0;
+  border: 0;
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
 }
 /* The intake form wraps the table, so it must add no box of its own: the
    checkboxes are inside the table and the controls are in the panel below. */
@@ -973,6 +1062,31 @@
 
 /* summary rows ------------------------------------------------------------- */
 .tmc-catalogue__product { display: flex; align-items: flex-start; gap: var(--tmc-space-3); min-inline-size: 0; }
+/* «دکان» and the other bucket names: a short tag, which is what replaced the
+   forty-word paragraph that used to be repeated under every row. */
+.tmc-catalogue__bucket {
+  display: inline-block;
+  margin-block-start: var(--tmc-space-1);
+  padding-inline: var(--tmc-space-2);
+  border: 1px solid var(--tmc-border);
+  border-radius: 999px;
+  background: var(--tmc-surface-2);
+  color: var(--tmc-muted);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+/* Both actions on one line. Until this round the second button followed a
+   `<br>`, which on a narrow column produced a two-line ragged button —
+   «دکمه‌های چندخطی و نامرتب نباشند». */
+.tmc-catalogue__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tmc-space-2);
+  align-items: center;
+}
+/* «—» plus a sentence only a screen reader hears: the dash alone says a row
+   cannot be selected and not why. */
+.tmc-catalogue__nopick { color: var(--tmc-muted); }
 .tmc-catalogue__name { display: grid; gap: 2px; min-inline-size: 0; }
 /* The title is a link into the product's own page, and it stays underlined:
    it is the row's second way in (the button is the first), and a link that

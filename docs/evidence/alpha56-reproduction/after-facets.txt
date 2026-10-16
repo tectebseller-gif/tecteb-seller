@@ -1,12 +1,12 @@
 probe=ran
-total=121
-source_sum=121
+total=122
+source_sum=122
 source_values=draft,marketplace,woocommerce
-management_sum=121
+management_sum=122
 management_values=ours,none
-wc_status_sum=121
+wc_status_sum=122
 wc_status_values=__absent__,publish
 sums_agree=yes
-published_total=31
+published_total=32
 observed_total=0
 published_and_observed=0

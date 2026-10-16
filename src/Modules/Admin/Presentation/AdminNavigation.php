@@ -66,6 +66,7 @@ final class AdminNavigation
             'tmc-storefront',
             'tmc-commission-rules',
             'tmc-withdrawals',
+            'tmc-supplier-payments',
             'tmc-returns',
             'tmc-wholesale',
         ],

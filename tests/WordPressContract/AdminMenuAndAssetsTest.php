@@ -58,6 +58,11 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             ['tmc-storefront', 'tmc_manage_storefront', 'وضعیت فروش بازارگاه'],
             ['tmc-commission-rules', 'tmc_manage_settings', 'قواعد کمیسیون'],
             ['tmc-withdrawals', 'tmc_review_withdrawals', 'تسویه و برداشت'],
+            // `alpha.57`: a RECORD of money already paid to a supplier, on the
+            // same capability and deliberately NOT inside the settlement queue
+            // (§4). Listed here because this test is the one place that says
+            // which pages exist and who may open them.
+            ['tmc-supplier-payments', 'tmc_review_withdrawals', 'پرداخت به تأمین‌کننده'],
             // Registered by the finance module although it is an order screen:
             // OrderModule is self-gated, and an open return has to stay
             // decidable on a day the order gate is shut (F-15).

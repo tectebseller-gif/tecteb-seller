@@ -213,7 +213,19 @@ final class CaptureOrder
                     'vendor' => (string) $product->vendorUserId,
                     'category' => $product->details->categoryKey,
                 ],
-                $tax
+                $tax,
+                '',
+                // The quantity and the two ids the owner's per-product model
+                // needs: a fixed commission is per UNIT, and the rule is read
+                // off the variation that was sold or, when it has none of its
+                // own, off its parent — «تنظیم محصول والد مبناست و snapshot
+                // باید بگوید از کجا آمده». The scoped references above are
+                // still passed and are simply not consulted while the Tecteb
+                // model is wired; they are what explains a line recorded
+                // before this round.
+                $quantity,
+                (int) $line['wc_product_id'],
+                ($line['variation_id'] ?? null) === null ? 0 : (int) $line['variation_id']
             );
             $recorded = $outcome->isCalculated();
             if (!$recorded) {

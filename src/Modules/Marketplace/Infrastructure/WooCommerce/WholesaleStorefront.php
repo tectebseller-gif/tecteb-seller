@@ -7,7 +7,6 @@ use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageWholesale;
-use Tecteb\Marketplace\Modules\Marketplace\Domain\WholesaleStatus;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\MarketplaceMessages;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 
@@ -113,17 +112,24 @@ final class WholesaleStorefront
                 . esc_html(MarketplaceMessages::notice($notice) ?? $notice) . '</p>';
         }
 
+        // ONE short sentence about this buyer's own standing, and the next
+        // step. `alpha.56` printed the status, then a second paragraph about
+        // where the ladder appears, then the MANAGER'S whole undecided-terms
+        // warning with DEC-04 and DEC-05 in it — a wall of prose on the page
+        // where somebody wanted to know whether they could buy wholesale.
+        // «پیام‌های کاربر کوتاه باشد و وضعیت و اقدام بعدی را بگوید» (§3).
+        //
+        // Nothing was decided to make it shorter and no gate was opened: the
+        // tariff is still the owner's, the vendor still writes every tier by
+        // hand, and the manager's own page still says all of it.
         if ($account !== null) {
-            $html .= '<p>' . esc_html(self::statusSentence($account->status)) . '</p>';
-            if ($account->status === WholesaleStatus::Approved) {
-                $html .= '<p>' . esc_html__('قیمت پلکانی روی صفحهٔ هر محصولی که پلکان دارد نمایش داده می‌شود و در سبد خرید هم همان قیمت حساب می‌شود.', 'tecteb-marketplace-core') . '</p>';
-            }
-            return $html . self::openTerms() . '</section>';
+            return $html
+                . '<p>' . esc_html(MarketplaceMessages::wholesaleStanding($account->status)) . '</p>'
+                . '</section>';
         }
 
         return $html
-            . '<p>' . esc_html__('برای خرید عمده، مشخصات کسب‌وکارتان را ثبت کنید. تأیید با مدیر بازارگاه است و تا تأیید، قیمت‌ها همان قیمت خرده‌فروشی می‌ماند.', 'tecteb-marketplace-core') . '</p>'
-            . self::openTerms()
+            . '<p>' . esc_html(MarketplaceMessages::wholesaleStanding(null)) . '</p>'
             . '<form method="post" class="woocommerce-form">'
             . wp_nonce_field(self::ACTION, self::NONCE_FIELD, true, false)
             . '<input type="hidden" name="tmc_action" value="' . esc_attr(self::ACTION) . '">'
@@ -193,21 +199,9 @@ final class WholesaleStorefront
             . '</p></div>';
     }
 
-    /** What has not been decided yet, said once rather than guessed at. */
-    private static function openTerms(): string
-    {
-        return '<p class="tmc-wholesale-hint">'
-            . esc_html(MarketplaceMessages::openTermsWarning())
-            . '</p>';
-    }
-
-    private static function statusSentence(WholesaleStatus $status): string
-    {
-        return match ($status) {
-            WholesaleStatus::Requested => __('درخواست خرید عمدهٔ شما ثبت شده و در انتظار بررسی مدیر است.', 'tecteb-marketplace-core'),
-            WholesaleStatus::Approved => __('خرید عمدهٔ شما تأیید شده است.', 'tecteb-marketplace-core'),
-            WholesaleStatus::Rejected => __('درخواست خرید عمدهٔ شما پذیرفته نشد. برای پیگیری با پشتیبانی بازارگاه تماس بگیرید.', 'tecteb-marketplace-core'),
-            WholesaleStatus::Suspended => __('خرید عمدهٔ شما فعلاً معلق است. برای پیگیری با پشتیبانی بازارگاه تماس بگیرید.', 'tecteb-marketplace-core'),
-        };
-    }
+    // `openTerms()` and `statusSentence()` were here until `alpha.57`. Both
+    // moved into `MarketplaceMessages::wholesaleStanding()`, which answers
+    // the buyer's question in one line for every state including «no request
+    // yet» — a state the old pair could not express, which is why the page
+    // needed a second paragraph beside them.
 }

@@ -24,7 +24,38 @@ final class CommissionSnapshot
         public readonly int $baseMinor,
         public readonly int $commissionMinor,
         public readonly int $vendorShareMinor,
-        public readonly string $discountAllocation = ''
+        public readonly string $discountAllocation = '',
+        /**
+         * Which of the owner's three kinds of rule produced this line
+         * (`TectebCommission::NONE`/`PERCENT`/`FIXED`), when the line was
+         * captured under the per-product model.
+         *
+         * Appended with a default, like every field added to a value object
+         * here since `alpha.45`, so nothing that builds a snapshot
+         * positionally has to be rewritten to keep compiling — and so a row
+         * written by an older build reads back as what it is rather than as a
+         * type it never had.
+         *
+         * `''` means «recorded before this field existed». It is NOT read as
+         * `percent`: the rate and its source are in their own columns and say
+         * what that line was, and inventing a type for an old row would
+         * rewrite history exactly where this class exists to preserve it.
+         */
+        public readonly string $commissionType = '',
+        /**
+         * How many units the line carried.
+         *
+         * Only a fixed rule needs it to be explainable — ۲۰٬۰۰۰ × ۳ is not
+         * recoverable from ۶۰٬۰۰۰ alone — but it is recorded for every kind,
+         * because «۱۰٪ of what, exactly» is the same question with a longer
+         * answer. `0` means the quantity was not recorded.
+         */
+        public readonly int $quantity = 0,
+        /**
+         * The fixed amount PER UNIT, in the same minor units as everything
+         * else in this snapshot; `0` for a percentage or an unrecorded line.
+         */
+        public readonly int $unitAmountMinor = 0
     ) {
     }
 
@@ -61,7 +92,10 @@ final class CommissionSnapshot
             (int) $row['base_minor'],
             (int) $row['commission_minor'],
             (int) $row['vendor_minor'],
-            (string) ($row['discount_allocation'] ?? '')
+            (string) ($row['discount_allocation'] ?? ''),
+            (string) ($row['type'] ?? ''),
+            (int) ($row['quantity'] ?? 0),
+            (int) ($row['unit_minor'] ?? 0)
         );
     }
 
@@ -79,6 +113,9 @@ final class CommissionSnapshot
             'commission_minor' => $this->commissionMinor,
             'vendor_minor' => $this->vendorShareMinor,
             'discount_allocation' => $this->discountAllocation,
+            'type' => $this->commissionType,
+            'quantity' => $this->quantity,
+            'unit_minor' => $this->unitAmountMinor,
         ];
     }
 }

@@ -104,7 +104,14 @@ final class OrderMessages
             'reconciliation_required' => __('این مرجوعی نیمه‌کاره ماند: ردیف مرجوعی ثبت شد ولی دفترکل خطوط معکوس را نپذیرفت. هیچ تلاش خودکاری دوباره انجام نمی‌شود؛ یک نفر باید تصمیم بگیرد کدام درست است.', 'tecteb-marketplace-core'),
             'already_refunded' => __('این مرجوعی قبلاً بازپرداخت شده است. بازپرداخت دوم ثبت نمی‌شود.', 'tecteb-marketplace-core'),
             'use_refund' => __('برای ثبت بازگشت مالی از دکمهٔ بازپرداخت استفاده کنید؛ این مسیر پول جابه‌جا نمی‌کند.', 'tecteb-marketplace-core'),
-            'nothing_recorded' => __('برای این قلم هیچ سهم مالی ثبت نشده بود (نرخ کمیسیون تعیین‌نشده)، پس چیزی برای معکوس‌کردن وجود ندارد.', 'tecteb-marketplace-core'),
+            // The parenthesis used to name the cause — «نرخ کمیسیون
+            // تعیین‌نشده» — which was the only cause when it was written and
+            // is no longer one of them: a line can have no recorded share
+            // because its unit was unreadable, because the ledger refused it,
+            // or because a fixed commission exceeded it. A named cause that is
+            // sometimes wrong is worse than none, and the screen that lists
+            // incomplete lines gives the real reason per line.
+            'nothing_recorded' => __('برای این قلم هیچ سهم مالی ثبت نشده بود، پس چیزی برای معکوس‌کردن وجود ندارد.', 'tecteb-marketplace-core'),
             'ledger_already_recorded' => __('ردیف مرجوعی ثبت شد ولی دفترکل این رویداد را از قبل داشت. مرجوعی به وضعیت «نیازمند تطبیق» رفت و خودکار تکرار نمی‌شود؛ یک نفر باید این دو را بررسی کند.', 'tecteb-marketplace-core'),
             'unbalanced_reversal' => __('خطوط معکوس متوازن نشدند؛ چیزی در دفترکل ثبت نشد.', 'tecteb-marketplace-core'),
             // The two unit refusals. Both are read BEFORE anything is written,
@@ -125,7 +132,14 @@ final class OrderMessages
             'order_item_cancelled' => __('این قلم لغو شد. سهم مالی ثبت‌شده در دفترکل پاک نمی‌شود و تسویه‌اش جداگانه تعیین تکلیف می‌شود.', 'tecteb-marketplace-core'),
             'carrier_required' => __('برای ثبت ارسال، انتخاب شرکت حمل لازم است.', 'tecteb-marketplace-core'),
             'invalid_transition' => __('این تغییر وضعیت از وضعیت فعلی ممکن نیست.', 'tecteb-marketplace-core'),
-            'orders_blocked' => __('ماژول سفارش بازارگاه هنوز عملیاتی نیست. تا تعیین نرخ کمیسیون و بسته‌شدن تصمیم‌های مالی، محصولات بازارگاه فروخته نمی‌شوند.', 'tecteb-marketplace-core'),
+            // The commission rate is NOT in this sentence any more. It was
+            // until `alpha.57`, and it was true then: an unset rate closed the
+            // order gate. The owner has decided otherwise — a product with no
+            // commission sells — so naming it here would send a manager to
+            // set a number that changes nothing. What still closes the gate is
+            // the owner's own open decisions, and the sentence says that and
+            // only that.
+            'orders_blocked' => __('ماژول سفارش بازارگاه هنوز عملیاتی نیست. تا بسته‌شدن تصمیم‌های مالی مالک، محصولات بازارگاه فروخته نمی‌شوند.', 'tecteb-marketplace-core'),
             'order_trial_mode' => sprintf(
                 __('حالت آزمایشی سفارش روشن است (محیط: %s). قواعد مالی نمونه‌اند و این حالت روی سایت اصلی پذیرفته نمی‌شود.', 'tecteb-marketplace-core'),
                 (string) ($context['environment'] ?? '')

@@ -80,6 +80,28 @@ final class AuditEventCatalog
     public const FINANCE_REVERSED = 'finance.reversed';
     public const WITHDRAWAL_REQUESTED = 'finance.withdrawal_requested';
     public const WITHDRAWAL_REVIEWED = 'finance.withdrawal_reviewed';
+    /**
+     * «کمیسیون تک‌طب» set, removed, or refused on one product.
+     *
+     * Its own event and not `FINANCE_RATE_CHANGED`: that one is about the
+     * scoped percentage rules of FIN-02, which a later sale no longer
+     * consults, and a manager reading the trail has to be able to tell a row
+     * about the owner's per-product share from a row about the rule that was
+     * replaced. A REFUSED attempt is logged too — «تغییرات مالی ممیزی شود»,
+     * and somebody trying to change a commission without the permission is
+     * the row most worth having.
+     */
+    public const COMMISSION_RULE_SET = 'finance.commission_rule_set';
+    /**
+     * A payment Tecteb made to a supplier by hand, written down.
+     *
+     * Its own event and not `WITHDRAWAL_REVIEWED`, because it is not a
+     * withdrawal: nobody requested it, its amount came from a person rather
+     * than from the ledger, and it may differ from the share the commission
+     * model computed. A trail that mixed the two would answer «how much have
+     * we paid this supplier» with a number about two different things.
+     */
+    public const SUPPLIER_PAYMENT_RECORDED = 'finance.supplier_payment_recorded';
     /** Phase-7 items: a shop's own codes, wholesale buyers and the ticket thread. */
     public const COUPON_CREATED = 'marketplace.coupon_created';
     public const COUPON_DISABLED = 'marketplace.coupon_disabled';
@@ -196,6 +218,10 @@ final class AuditEventCatalog
             self::FINANCE_RATE_CHANGED => ['scope', 'reference', 'rate_bp', 'cleared'],
             self::FINANCE_ACCRUED => ['vendor_id', 'rate_bp', 'rate_source', 'base_minor'],
             self::FINANCE_REVERSED => ['vendor_id', 'reverses', 'amount_minor'],
+            self::COMMISSION_RULE_SET => ['outcome', 'reason', 'type', 'value'],
+            self::SUPPLIER_PAYMENT_RECORDED => [
+                'supplier_id', 'amount_minor', 'share_minor', 'items', 'posting', 'has_receipt',
+            ],
             self::WITHDRAWAL_REQUESTED => ['vendor_id', 'withdrawal_id', 'amount_minor', 'lines'],
             self::WITHDRAWAL_REVIEWED => ['vendor_id', 'withdrawal_id', 'from', 'to', 'has_note'],
             self::COUPON_CREATED => ['vendor_id', 'coupon_id', 'kind', 'value'],

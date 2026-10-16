@@ -1,0 +1,210 @@
+Skip to main content
+Skip to toolbar
+
+
+Dashboard
+Home
+Updates
+
+
+Posts
+All Posts
+Add Post
+Categories
+Tags
+
+
+Media
+Library
+Add Media File
+
+
+Pages
+All Pages
+Add Page
+
+
+Comments
+
+
+WooCommerce
+Home 3
+Orders 25
+Customers
+Coupons
+Reports
+Settings
+Status
+Extensions
+
+
+Products
+All Products
+Add new product
+Brands
+Categories
+Tags
+Attributes
+Reviews
+Min Max Control
+Min Max Control
+Module On/Off
+Browse Plugins
+Hire an Expert
+
+
+Payments
+
+
+بازارگاه تک‌طب
+پیشخوان
+بررسی محصولات
+درخواست‌های فروشندگان
+مدارک فروشندگان
+تیکت فروشندگان
+وضعیت فروش بازارگاه
+قواعد کمیسیون
+تسویه و برداشت
+پرداخت به تأمین‌کننده
+مرجوعی و بازپرداخت
+خریداران عمده
+الگوهای مشخصات
+نظرات
+گزارش‌ها
+تنظیمات
+ماژول‌ها
+سلامت
+صف و سلامت اجرا
+رویدادها و API
+ممیزی
+راه‌اندازی
+مهاجرت از دکان
+تحویل مهاجرت
+خروج از Min Max
+
+
+Analytics
+Overview
+Products
+Revenue
+Orders
+Variations
+Categories
+Coupons
+Taxes
+Downloads
+Stock
+Settings
+
+
+Marketing
+Overview
+Coupons
+
+
+Appearance
+Themes
+Design
+Customize
+Widgets
+Fonts
+Menus
+Background
+Theme File Editor
+
+
+Plugins
+Installed Plugins
+Add Plugin
+Plugin File Editor
+
+
+Users
+All Users
+Add User
+Profile
+
+
+Tools
+Available Tools
+Import
+Export
+Site Health 4
+Export Personal Data
+Erase Personal Data
+Scheduled Actions
+
+
+Settings
+General
+Connectors
+Writing
+Reading
+Discussion
+Media
+Permalinks
+Privacy
+Collapse Menu
+About WordPress
+بازارگاه تک‌طب
+Store coming soon
+Ctrl+K
+Open command palette
+0
+0 Comments in moderation
+New
+Howdy, tmcowner
+پرش به محتوای اصلی
+بازارگاه تک‌طب
+نسخه آزمایشی
+0.1.0-alpha.57
+روزمره
+فروش و مالی
+محتوا و گزارش
+تنظیمات و ابزارها
+راه‌اندازی و مهاجرت
+وضعیت فروش بازارگاه
+قواعد کمیسیون
+تسویه و برداشت
+پرداخت به تأمین‌کننده
+مرجوعی و بازپرداخت
+خریداران عمده
+پرداخت به تأمین‌کننده
+
+Help us improve Min Max Control even more awesome? By allowing us to collect usage and diagnostic data, you'll help us make the plugin faster, identify bugs, improve performance and better suited to your needs (what we collect)
+
+ Allow No thanks
+
+i
+
+این صفحه پرداختی را ثبت می‌کند که قبلاً انجام شده است. هیچ انتقال وجهی از اینجا انجام نمی‌شود و این صفحه چرخهٔ «تسویه و برداشت» فروشنده نیست؛ آن یکی درخواست فروشنده است و این یکی خرید تک‌طب.
+
+ثبت پرداخت انجام‌شده
+
+مبلغ را خودتان می‌نویسید؛ بازارگاه آن را از سهم محاسبه‌شده نمی‌سازد. اگر مبلغ پرداختی با سهم ثبت‌شدهٔ همان اقلام فرق داشته باشد، پرداخت ثبت می‌شود ولی در دفترکل ثبت نمی‌شود و در فهرست پایین همین صفحه می‌آید.
+
+شناسهٔ کاربری تأمین‌کننده
+شناسهٔ قلم‌های سفارش (با کاما)
+مثلاً: ۱۲،۱۳،۱۴ — هر قلم فقط یک بار پرداخت می‌شود.
+مبلغ پرداخت‌شده
+به واحد پول دفتر همین تأمین‌کننده.
+تاریخ پرداخت (۱۴۰۴-۰۱-۰۱ میلادی: YYYY-MM-DD)
+شمارهٔ پیگیری
+بدون شمارهٔ پیگیری ثبت نمی‌شود.
+توضیح (اختیاری)
+
+پیوست رسید در این نسخه ساخته نشده است؛ شمارهٔ پیگیری و توضیح، ردیف را قابل تطبیق می‌کنند.
+
+ثبت پرداخت انجام‌شده
+
+پرداخت‌هایی که در دفترکل ثبت نشده‌اند
+
+این‌ها پرداخت‌هایی هستند که انجام و ثبت شده‌اند، ولی مبلغشان با سهم ثبت‌شدهٔ همان اقلام فرق دارد. سهم، از فروش ثبت‌شده و کمیسیون همان لحظه حساب شده است؛ مبلغ پرداختی، قیمتی است که تک‌طب توافق کرده. تا وقتی تعیین نشده که اختلاف این دو چه معنایی دارد، بازارگاه خطی در دفترکل نمی‌نویسد — چون خط دفترکل می‌گوید «این، طلب تأمین‌کننده را تسویه کرد» و درباره مبلغی که با آن طلب فرق دارد، این جمله تصمیمی است که کسی نگرفته.
+
+هیچ پرداختی در این وضعیت نیست.
+
+تمام ارسال‌های خود افزونه در نسخه آزمایشی مسدود است. وضعیت سایر افزونه‌ها بررسی‌نشده است.
+
+Thank you for creating with WordPress.
+
+Version 7.1

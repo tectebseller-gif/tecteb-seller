@@ -96,8 +96,23 @@ trap 'install_tree "$REPO/src"; wpx plugin activate "${MINMAX:-woo-min-max-quant
 
 NEW_SCHEMA="$(sed -n 's/.*TARGET = \([0-9]*\).*/\1/p' "$REPO/src/Core/Migration/SchemaVersion.php" | head -1)"
 OLD_SCHEMA="$(sed -n 's/.*TARGET = \([0-9]*\).*/\1/p' "$OLD_TREE/src/Core/Migration/SchemaVersion.php" | head -1)"
-say "schema: $OLD_SCHEMA (base) -> $NEW_SCHEMA (this tree)"
-check "0a this round adds no migration" "$OLD_SCHEMA" "$NEW_SCHEMA"
+# `alpha.56` added no migration — and that is a sentence about `alpha.56`,
+# not about whatever this checkout later becomes. Reading the number from the
+# live tree quietly turned it into the second thing, so the first structural
+# round after it reported a failure about a correct build. The `alpha.34` rule
+# one step further on: derive the number, and derive it from the thing the
+# sentence is about — here the delivered ZIP, which cannot drift. This
+# checkout's own number is printed as a measurement, not asserted.
+ROUND_ZIP="$REPO/dist/tecteb-marketplace-core-0.1.0-alpha.56.zip"
+ROUND_SCHEMA="$(unzip -p "$ROUND_ZIP" '*/src/Core/Migration/SchemaVersion.php' 2>/dev/null \
+  | sed -n 's/.*TARGET = \([0-9]*\).*/\1/p' | head -1)"
+say "schema: $OLD_SCHEMA (base) -> ${ROUND_SCHEMA:-__unreadable__} (alpha.56) · this checkout: $NEW_SCHEMA"
+check "0a alpha.56 adds no migration" "$OLD_SCHEMA" "${ROUND_SCHEMA:-__unreadable__}"
+if [[ "$NEW_SCHEMA" != "$OLD_SCHEMA" ]]; then
+  say "note: this checkout is on schema $NEW_SCHEMA, ahead of alpha.56 — a later"
+  say "      round is structural. That is not a finding about alpha.56, and the"
+  say "      probes below run on this checkout either way."
+fi
 
 PROBE_FILE=""
 probe() { # probe <verb> <tree> [args...]

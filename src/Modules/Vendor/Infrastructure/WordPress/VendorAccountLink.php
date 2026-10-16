@@ -149,26 +149,39 @@ final class VendorAccountLink
      * The owner's words, and a method rather than a `const` because `__()`
      * cannot run at class-definition time.
      *
-     * «دکمهٔ ورود به پنل فروشنده» — one string, used by the menu row, the
-     * dashboard button and the shortcode, so the three cannot disagree about
-     * where they go.
+     * «ورود به داشبورد فروشنده» — the owner's exact words, one string, used
+     * by the menu row, the dashboard button and the shortcode, so the three
+     * cannot disagree about where they go. It was «ورود به پنل فروشنده»
+     * until `alpha.57`; the destination did not change with the wording, and
+     * the test that pins the destination is what says so.
      */
     public static function panelLabel(): string
     {
-        return __('ورود به پنل فروشنده', 'tecteb-marketplace-core');
+        return __('ورود به داشبورد فروشنده', 'tecteb-marketplace-core');
     }
 
     /**
      * The manager's label, and it says where it goes.
      *
-     * Not «ورود به پنل فروشنده»: a manager pressing that would land on a page
-     * about a shop they do not have, which is the shape of mistake
-     * `alpha.33` paid for when a shop's staff were shown «شروع درخواست
-     * فروشندگی».
+     * Not «ورود به داشبورد فروشنده», and the wording now says wp-admin out
+     * loud. A manager who has no shop pressing a button called «داشبورد
+     * فروشنده» would land on the page that invites them to APPLY to be a
+     * vendor — the shape of mistake `alpha.33` paid for when a shop's staff
+     * were shown «شروع درخواست فروشندگی». `alpha.56` labelled it «مدیریت
+     * بازارگاه», which the owner read as this plugin's vendor button and is
+     * the report this round answers: the vendor button is the one above, and
+     * this is a different link to a different place.
+     *
+     * **What is NOT decided here**: whether a manager should be able to open
+     * a particular vendor's dashboard. There is no mechanism for it —
+     * `VendorRoutes::renderPage()` builds every page from the SIGNED-IN user
+     * id and takes no shop parameter — and building one means deciding who
+     * may read whose shop, which is the owner's call. So nothing is invented:
+     * no shop is created, no vendor is picked, no capability is granted.
      */
     public static function managerLabel(): string
     {
-        return __('مدیریت بازارگاه', 'tecteb-marketplace-core');
+        return __('بررسی محصول‌ها در پیشخوان مدیریت', 'tecteb-marketplace-core');
     }
 
     /**
@@ -199,7 +212,12 @@ final class VendorAccountLink
      * neither, where the shortcode is the only way; «ran but printed nothing»
      * is this plugin answering correctly about somebody who is not a vendor.
      *
-     * @return array{menu:string, dashboard:string, shortcode:string, printed:string, label:string}
+     * `kind` separates the two destinations, which is the question this
+     * round was asked: «vendor» is the front-end dashboard and «admin» is
+     * wp-admin. A site reporting `printed=yes kind=admin` has an account with
+     * no shop in this marketplace — not a broken button.
+     *
+     * @return array{menu:string, dashboard:string, shortcode:string, printed:string, label:string, kind:string}
      */
     public static function lastSeen(): array
     {
@@ -211,6 +229,7 @@ final class VendorAccountLink
             'shortcode' => (string) ($raw['shortcode'] ?? ''),
             'printed' => (string) ($raw['printed'] ?? ''),
             'label' => (string) ($raw['label'] ?? ''),
+            'kind' => (string) ($raw['kind'] ?? ''),
         ];
     }
 
@@ -329,9 +348,22 @@ final class VendorAccountLink
         // fixes, and only the site can tell them apart.
         $this->note('printed', 'yes');
         $this->note('label', $label);
-        return '<p class="tmc-account-vendor"><a class="button" href="'
-            . esc_url($this->destinationFor($label)) . '">' . esc_html($label) . '</a> '
-            . esc_html(self::blurb($label))
+        $this->note('kind', $label === self::managerLabel() ? 'admin' : 'vendor');
+        // `class="button"` is WooCommerce's own so the button matches the
+        // store's; `tmc-account-vendor__link` is ours, and the few rules
+        // below are the only thing this plugin ever puts on a storefront
+        // page. They exist because `.woocommerce a.button` inherits the
+        // theme's font size: on a 390px screen the owner's theme rendered it
+        // at a size that wrapped mid-word. Printed INSIDE the block, so a
+        // page that draws no button gets no stylesheet either.
+        return '<style>.tmc-account-vendor{margin:0 0 1.5em}'
+            . '.tmc-account-vendor__link{display:inline-block;font-size:1rem;line-height:1.6;'
+            . 'padding:.7em 1.4em;max-width:100%;white-space:normal;text-align:center}'
+            . '.tmc-account-vendor__note{display:block;margin-top:.6em;font-size:.9rem;opacity:.85}'
+            . '</style>'
+            . '<p class="tmc-account-vendor"><a class="button tmc-account-vendor__link" href="'
+            . esc_url($this->destinationFor($label)) . '">' . esc_html($label) . '</a>'
+            . '<span class="tmc-account-vendor__note">' . esc_html(self::blurb($label)) . '</span>'
             . '</p>';
     }
 
@@ -430,7 +462,10 @@ final class VendorAccountLink
     {
         return match ($label) {
             self::panelLabel() => __('مدیریت محصول‌ها، سفارش‌ها و تنظیمات فروشگاه شما.', 'tecteb-marketplace-core'),
-            self::managerLabel() => __('بررسی محصول‌ها و فروشندگان بازارگاه در پیشخوان وردپرس.', 'tecteb-marketplace-core'),
+            // Says where it goes, because it does not go to a dashboard.
+            // A manager with a shop never sees this line: the vendor branch
+            // is first, so their button is the one above.
+            self::managerLabel() => __('این حساب فروشگاهی در بازارگاه ندارد؛ این پیوند به پیشخوان مدیریت وردپرس می‌رود.', 'tecteb-marketplace-core'),
             default => __('وضعیت درخواست فروشندگی و مدارک شما.', 'tecteb-marketplace-core'),
         };
     }

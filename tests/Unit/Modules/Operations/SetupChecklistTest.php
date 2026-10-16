@@ -21,17 +21,43 @@ final class SetupChecklistTest extends TestCase
         self::assertSame($summary['total'], $summary['done']);
     }
 
-    public function testTheRateWaitsOnTheOwnerRatherThanNaggingTheManager(): void
+    /**
+     * WHAT THIS PROVES: a site with no commission rate anywhere has nothing
+     * left to do about commission.
+     *
+     * This test used to assert the opposite — `BLOCKED` on DEC-01 — and the
+     * owner has decided: commission is Tecteb's share, set per product on the
+     * WooCommerce product editor, and «تعیین‌نشده یا صفر یعنی بدون کمیسیون».
+     * A checklist that still waited for a site-wide number would be waiting
+     * for something that no longer exists, and §7 asked for exactly this
+     * blocker to be cleared.
+     *
+     * The old assertion is REPLACED rather than loosened, which is the
+     * `alpha.49` rule: a test that writes down a rule the product no longer
+     * has is deleted, not weakened.
+     */
+    public function testWithNoRateAnywhereThereIsNothingLeftToDoAboutCommission(): void
     {
         $steps = $this->byKey(SetupChecklist::steps($this->state(['commission_rate_bp' => null, 'commission_rules' => 0])));
-        self::assertSame(SetupChecklist::BLOCKED, $steps[SetupChecklist::STEP_COMMISSION]['status']);
-        self::assertSame('DEC-01', $steps[SetupChecklist::STEP_COMMISSION]['blocker']);
+        self::assertSame(SetupChecklist::DONE, $steps[SetupChecklist::STEP_COMMISSION]['status']);
+        self::assertSame('', $steps[SetupChecklist::STEP_COMMISSION]['blocker'], 'no decision is being waited on');
+
+        // …and no OTHER step was opened by that change: the ones that depend
+        // on a real value still report it («سایر دروازه‌های مستقل … را خودکار
+        // باز نکن»).
+        $opened = $this->byKey(SetupChecklist::steps($this->state([
+            'commission_rate_bp' => null,
+            'commission_rules' => 0,
+            'document_types' => 0,
+            'woocommerce_active' => false,
+        ])));
+        self::assertSame(SetupChecklist::TODO, $opened[SetupChecklist::STEP_DOCUMENTS]['status']);
+        self::assertSame(SetupChecklist::TODO, $opened[SetupChecklist::STEP_WOOCOMMERCE]['status']);
     }
 
-    public function testAPerVendorRuleCountsAsConfiguredWithNoGlobalRate(): void
+    /** A site that still holds the old scoped rules reads the same way. */
+    public function testTheOldScopedRulesNeitherCompleteNorBlockTheStep(): void
     {
-        // A marketplace running entirely on per-shop rates is a real one, and
-        // telling its manager the setup is incomplete would be wrong.
         $steps = $this->byKey(SetupChecklist::steps($this->state(['commission_rate_bp' => null, 'commission_rules' => 3])));
         self::assertSame(SetupChecklist::DONE, $steps[SetupChecklist::STEP_COMMISSION]['status']);
     }
