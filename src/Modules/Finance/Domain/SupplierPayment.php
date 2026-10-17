@@ -68,8 +68,45 @@ final class SupplierPayment
          * zeros and then declared the payment matched (measured: a payment
          * equal to the first item's share alone was posted for two items).
          */
-        public readonly array $unknownShareItemIds = []
+        public readonly array $unknownShareItemIds = [],
+        /**
+         * When this record was VOIDED, or null while it stands.
+         *
+         * «ابطال ثبت» is a state of the document rather than a deletion: the
+         * row, its items and its allocations all stay where they are, and
+         * every reader that decides something — whether a line is still held,
+         * what has been paid against an obligation — asks this field. A
+         * reader that forgets it sees a payment that was corrected months ago.
+         */
+        public readonly ?string $voidedAt = null,
+        public readonly int $voidedBy = 0,
+        /** Why — mandatory when voiding, and never blank on a voided row. */
+        public readonly string $voidReason = '',
+        /** The compensating ledger event, when this payment had a money line. */
+        public readonly string $voidEvent = '',
+        /**
+         * The share as it was known AFTER a later reconciliation.
+         *
+         * Beside `$share` and never instead of it: «snapshot اولیه پاک نشود»
+         * means the figure recorded when the money changed hands keeps its
+         * column, and what a later review established gets its own.
+         */
+        public readonly ?int $shareMinorFinal = null,
+        public readonly ?string $reconciledAt = null,
+        public readonly int $reconciledBy = 0
     ) {
+    }
+
+    /** Whether this record has been voided — asked by everything that decides. */
+    public function isVoid(): bool
+    {
+        return $this->voidedAt !== null && $this->voidedAt !== '';
+    }
+
+    /** Whether a later review has been recorded against this same payment. */
+    public function isReconciled(): bool
+    {
+        return $this->reconciledAt !== null && $this->reconciledAt !== '';
     }
 
     /** Whether every item's share was on record, so the amounts were comparable. */

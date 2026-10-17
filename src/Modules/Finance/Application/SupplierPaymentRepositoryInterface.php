@@ -59,8 +59,65 @@ interface SupplierPaymentRepositoryInterface
      *        a payment whose match could not be computed has to still say
      *        which item it could not be computed for.
      * @return array{outcome:string, payment_id:int, conflicting_item:int, conflicting_withdrawal:int}
+     * @param list<int> $partialItemIds items whose CLAIM row may already
+     *        exist because an earlier payment of this supplier's made it.
+     *        `UNIQUE (order_item_id)` on the claim table is NOT removed —
+     *        «کلید یکتای «هر قلم فقط یک پرداخت» را کورکورانه حذف نکن» — it is
+     *        read for what it always guaranteed: one claim per item. The
+     *        money of a second, third and fourth payment lives on an
+     *        allocation against the obligation instead, and the balance guard
+     *        there is what keeps those from adding up to more than was agreed.
+     *        An item not in this list keeps the old refusal exactly.
      */
-    public function record(SupplierPayment $payment, array $itemShares): array;
+    public function record(SupplierPayment $payment, array $itemShares, array $partialItemIds = []): array;
+
+    /** A void with no reason is not a correction, it is an erasure. */
+    public const REASON_REQUIRED = 'void_reason_required';
+    /** Already void — nothing written, and no second financial effect. */
+    public const ALREADY_VOID = 'already_void';
+    public const VOIDED = 'voided';
+    /** The payment is not there. */
+    public const NOT_FOUND = 'not_found';
+
+    /**
+     * Mark one payment VOID — the record stays, the money stops counting.
+     *
+     * One statement, guarded on `voided_at IS NULL`, so «درخواست تکراری ابطال
+     * نباید اثر مالی دوم بسازد» is the row count rather than a check the
+     * caller does first. The compensating ledger entry is the CALLER's, in
+     * the caller's transaction: this method only records that the document
+     * was voided, and `$compensatingEvent` is written beside the reason so a
+     * reader can find the entry that undid the money.
+     *
+     * Nothing is deleted — not the payment, not its items, not its
+     * allocations. Every reader that decides something asks `voided_at`.
+     *
+     * @return array{outcome:string, payment_id:int}
+     */
+    public function void(
+        int $paymentId,
+        string $reason,
+        int $actorId,
+        string $compensatingEvent,
+        string $when
+    ): array;
+
+    /**
+     * Record what a later review established about this SAME payment.
+     *
+     * `share_minor` is not touched: the figure recorded when the money
+     * changed hands keeps its column and this writes beside it, which is the
+     * whole of «snapshot اولیهٔ پرداخت پاک نشود». Guarded on
+     * `reconciled_at IS NULL` so a repeated submission writes once.
+     */
+    public function markReconciled(
+        int $paymentId,
+        ?int $shareMinorFinal,
+        string $posting,
+        string $ledgerEvent,
+        int $actorId,
+        string $when
+    ): bool;
 
     public function find(int $paymentId): ?SupplierPayment;
 

@@ -36,7 +36,18 @@ final class VendorFinanceView
         ?VendorNotice $notice,
         bool $mayRequest,
         bool $settlementReady,
-        string $blockedDetail
+        string $blockedDetail,
+        /**
+         * Whether the owner's own decision leaves this path open.
+         *
+         * Separate from `$settlementReady`, and the sentence differs because
+         * the FACT differs: one is «the financial decisions are not closed
+         * yet» and this one is «the marketplace is not taking withdrawal
+         * requests at the moment». Hiding the button is not the policy —
+         * `RequestWithdrawal` refuses the POST on its own — this is only so
+         * the page does not offer something that will be refused.
+         */
+        bool $requestsOpen = true
     ): string {
         $fa = static fn (int|string $v): string => PersianDigits::toPersian((string) $v);
         $html = $notice === null ? '' : VendorUi::notice(
@@ -76,7 +87,26 @@ final class VendorFinanceView
 
         $html .= '<section class="tv-card"><h2 class="tv-card__title">'
             . esc_html__('درخواست برداشت', 'tecteb-marketplace-core') . '</h2>';
-        if (!$settlementReady) {
+        if (!$requestsOpen) {
+            // SAID FIRST, because it is the operative reason. Everything
+            // readable stays readable — the balance above, the history below,
+            // and the payments — «گزارش‌های مالی، سوابق و پرداخت‌های فروشنده
+            // قابل مشاهده بماند»; what is gone is the button, and the page
+            // says why rather than leaving a vendor to wonder.
+            $html .= VendorUi::notice('info', __('در حال حاضر ثبت درخواست برداشت تازه باز نیست. مانده و سوابق شما محفوظ است و پرداخت‌ها طبق توافق انجام می‌شود؛ برای هر مورد با پشتیبانی تماس بگیرید.', 'tecteb-marketplace-core'));
+            unset($blockedDetail);
+            if ($open !== null) {
+                // A request made before this was closed. Shown, with its
+                // status, and with no Cancel: «درخواست‌های قبلی حذف، لغو یا
+                // آزاد نشوند؛ مدیر بررسی کند.»
+                $html .= VendorUi::notice('info', sprintf(
+                    /* translators: 1: amount, 2: status */
+                    __('یک درخواست قبلی به مبلغ %1$s دارید؛ وضعیت: %2$s. تعیین تکلیف آن با مدیر است.', 'tecteb-marketplace-core'),
+                    $fa($open->amountMinor),
+                    WithdrawalMessages::status($open->status)
+                ));
+            }
+        } elseif (!$settlementReady) {
             $html .= VendorUi::notice('info', __('برداشت هنوز فعال نشده است. مانده شما محفوظ است و به محض فعال‌شدن قابل درخواست می‌شود.', 'tecteb-marketplace-core'));
             unset($blockedDetail);      // the vendor is not told which decision is open
         } elseif ($open !== null) {

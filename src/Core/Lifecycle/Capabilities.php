@@ -46,6 +46,19 @@ final class Capabilities
     public const MANAGE_JOBS = 'tmc_manage_jobs';
     /** Issuing API keys and naming event endpoints. Not the same as using them. */
     public const MANAGE_API = 'tmc_manage_api';
+    /**
+     * READING ONE SHOP'S OWN FIGURES, as a manager, after choosing it.
+     *
+     * Its own permission and deliberately not part of any other, for the same
+     * reason `VIEW_AUDIT` is: «دسترسی مشاهده با مجوز مشخص مدیریت … باشد»
+     * (§4), and a site owner may well want the list of people who can read
+     * inside a particular shop to be shorter than the list who can approve
+     * products. It grants READING and nothing else — a manager who chooses a
+     * shop cannot edit it, cannot act as the vendor and does not become one:
+     * «انتخاب فروشگاه به‌تنهایی نباید اجازهٔ ویرایش یا اقدام به‌جای فروشنده
+     * بدهد» و «هویت حساب مدیر تغییر نکند».
+     */
+    public const VIEW_VENDOR_SHOPS = 'tmc_view_vendor_shops';
 
     /** @return list<string> */
     public static function all(): array
@@ -65,6 +78,7 @@ final class Capabilities
             self::VIEW_AUDIT,
             self::MANAGE_JOBS,
             self::MANAGE_API,
+            self::VIEW_VENDOR_SHOPS,
         ];
     }
 

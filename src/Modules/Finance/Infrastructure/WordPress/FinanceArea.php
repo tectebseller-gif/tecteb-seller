@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Finance\Application\RequestWithdrawal;
 use Tecteb\Marketplace\Modules\Finance\Application\SettlementGate;
+use Tecteb\Marketplace\Modules\Finance\Application\VendorWithdrawalPolicy;
 use Tecteb\Marketplace\Modules\Finance\Application\VendorBalance;
 use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Presentation\VendorFinanceView;
@@ -52,7 +53,8 @@ final class FinanceArea
             $view->notice,
             $access->can($view->userId, $vendorUserId, StaffArea::Finance, StaffLevel::Edit),
             (bool) $gate['ready'],
-            (string) $gate['detail']
+            (string) $gate['detail'],
+            $this->container->get(VendorWithdrawalPolicy::class)->requestsAreOpen()
         );
     }
 

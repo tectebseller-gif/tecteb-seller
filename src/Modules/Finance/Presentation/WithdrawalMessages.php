@@ -50,6 +50,12 @@ final class WithdrawalMessages
             'withdrawal_already_open' => __('یک درخواست باز دارید. تا تعیین تکلیف آن، درخواست تازه ثبت نمی‌شود.', 'tecteb-marketplace-core'),
             'nothing_eligible' => __('در این لحظه مبلغ قابل برداشتی ندارید.', 'tecteb-marketplace-core'),
             'settlement_blocked' => __('برداشت هنوز فعال نشده است؛ تصمیم‌های مالی باز است.', 'tecteb-marketplace-core'),
+            // The owner's own decision, and a different sentence from the one
+            // above: «تصمیم‌ها باز است» and «این مسیر فعلاً باز نیست» are two
+            // facts, and a vendor given the wrong one goes looking for the
+            // wrong thing.
+            'withdrawal_requests_closed' => __('در حال حاضر ثبت درخواست برداشت تازه باز نیست. مانده و سوابق شما محفوظ است؛ برای هر مورد با پشتیبانی تماس بگیرید.', 'tecteb-marketplace-core'),
+            'withdrawal_cancel_closed' => __('لغو درخواست در حال حاضر از این صفحه انجام نمی‌شود. تعیین تکلیف درخواست‌های باز با مدیر است.', 'tecteb-marketplace-core'),
             'bank_account_missing' => __('اول شماره شبا و صاحب حساب را در تنظیمات فروشگاه ثبت کنید.', 'tecteb-marketplace-core'),
             'bank_account_on_hold' => __('حساب بانکی پس از تغییر شبا در انتظار تأیید مدیر است و تسویه موقتاً متوقف می‌ماند.', 'tecteb-marketplace-core'),
             'reservation_lost' => __('بخشی از مبلغ هم‌زمان در درخواست دیگری قفل شد. دوباره تلاش کنید.', 'tecteb-marketplace-core'),

@@ -50,6 +50,11 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             ['tmc-dashboard', 'tmc_view_dashboard', 'پیشخوان'],
             ['tmc-product-review', 'tmc_review_products', 'بررسی محصولات'],
             ['tmc-vendor-applications', 'tmc_review_vendor', 'درخواست‌های فروشندگان'],
+            // `alpha.62`: «انتخاب فروشگاه» — a manager's read-only view of one
+            // shop, behind its OWN capability rather than the review one, so
+            // the list of people who may read inside a shop can be shorter
+            // than the list who may approve its products (§4).
+            ['tmc-vendor-shops', 'tmc_view_vendor_shops', 'فروشگاه‌ها (مشاهده)'],
             ['tmc-vendor-documents', 'tmc_manage_vendor_documents', 'مدارک فروشندگان'],
             // The phase-7 module: a shop's own codes are not here (they are on
             // the vendor's own page); what a MANAGER decides is.

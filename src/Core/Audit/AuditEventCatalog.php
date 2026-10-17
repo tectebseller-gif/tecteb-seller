@@ -102,6 +102,25 @@ final class AuditEventCatalog
      * we paid this supplier» with a number about two different things.
      */
     public const SUPPLIER_PAYMENT_RECORDED = 'finance.supplier_payment_recorded';
+    /**
+     * A recorded payment VOIDED, with the reason the person gave.
+     *
+     * Its own event because it is its own act: «ابطال ثبت … دلیل اجباری، نام
+     * اقدام‌کننده، زمان و ارجاع به سند اولیه». The payment row keeps all four
+     * as well — this is the trail a manager reads without opening the
+     * document, and the one that cannot be edited.
+     */
+    public const SUPPLIER_PAYMENT_VOIDED = 'finance.supplier_payment_voided';
+    /** A later review of the SAME payment, once its figures were knowable. */
+    public const SUPPLIER_PAYMENT_RECONCILED = 'finance.supplier_payment_reconciled';
+    /** The agreed purchase amount for one order item, set or changed. */
+    public const SUPPLIER_AMOUNT_AGREED = 'finance.supplier_amount_agreed';
+    /** Money a supplier owes back after a return — recorded, not collected. */
+    public const SUPPLIER_RECEIVABLE_RECORDED = 'finance.supplier_receivable_recorded';
+    /** A real collection, or an offset against what is owed next. */
+    public const SUPPLIER_RECEIVABLE_SETTLED = 'finance.supplier_receivable_settled';
+    /** A manager opened one shop's read-only view from the picker. */
+    public const VENDOR_SHOP_VIEWED = 'vendor.shop_viewed';
     /** Phase-7 items: a shop's own codes, wholesale buyers and the ticket thread. */
     public const COUPON_CREATED = 'marketplace.coupon_created';
     public const COUPON_DISABLED = 'marketplace.coupon_disabled';
@@ -221,7 +240,24 @@ final class AuditEventCatalog
             self::COMMISSION_RULE_SET => ['outcome', 'reason', 'type', 'value'],
             self::SUPPLIER_PAYMENT_RECORDED => [
                 'supplier_id', 'amount_minor', 'share_minor', 'items', 'posting', 'has_receipt',
+                'unknown_share_items', 'obligation_id', 'balance_minor',
             ],
+            self::SUPPLIER_PAYMENT_VOIDED => [
+                'supplier_id', 'payment_id', 'amount_minor', 'has_reason', 'compensated',
+            ],
+            self::SUPPLIER_PAYMENT_RECONCILED => [
+                'supplier_id', 'payment_id', 'share_minor', 'share_minor_final', 'posting',
+            ],
+            self::SUPPLIER_AMOUNT_AGREED => [
+                'supplier_id', 'order_item_id', 'previous_minor', 'new_minor', 'has_reason',
+            ],
+            self::SUPPLIER_RECEIVABLE_RECORDED => [
+                'supplier_id', 'order_item_id', 'return_id', 'amount_minor', 'quantity',
+            ],
+            self::SUPPLIER_RECEIVABLE_SETTLED => [
+                'supplier_id', 'receivable_id', 'kind', 'amount_minor', 'balance_minor',
+            ],
+            self::VENDOR_SHOP_VIEWED => ['vendor_id', 'actor_id'],
             self::WITHDRAWAL_REQUESTED => ['vendor_id', 'withdrawal_id', 'amount_minor', 'lines'],
             self::WITHDRAWAL_REVIEWED => ['vendor_id', 'withdrawal_id', 'from', 'to', 'has_note'],
             self::COUPON_CREATED => ['vendor_id', 'coupon_id', 'kind', 'value'],

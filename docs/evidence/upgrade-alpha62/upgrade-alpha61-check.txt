@@ -1,0 +1,114 @@
+new_package=0.1.0-alpha.62 new_schema=31
+
+================ base 0.1.0-alpha.61 (schema 30) ================
+PASS  0a the two packages differ by 1 step(s), read from the ZIPs  (yes)
+PASS  1a the base is installed  (0.1.0-alpha.61)
+PASS  1b the newer columns are gone  (no)
+PASS  1c the live claim key is gone  (no)
+PASS  1d the old claim key is back  (yes)
+PASS  1e the site reports the base schema  (30)
+PASS  1f the gate finishes it  (200)
+PASS  1g …and the base is complete  (30)
+PASS  2a a sale with a share exists  (900000)
+PASS  2b the OLD build records a payment  (supplier_payment_recorded)
+PASS  2c …and knows nothing about an agreed amount  (1)
+PASS  2d …nor about voiding one  (1)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+identity_before=e5904fc7b6659e53fb244f1db558e248e1992f90c6f3c3cb6cd9b72429837a28
+PASS  3a the new files are on disk  (0.1.0-alpha.62)
+PASS  3b …and swapping them ran NO step  (30)
+PASS  3c the first admin request answers  (200)
+PASS  3d …and finishes the upgrade  (31)
+PASS  4a the payment table still exists  (1)
+PASS  4b voided_at is there  (yes)
+PASS  4c void_reason is there  (yes)
+PASS  4d share_minor_final is there  (yes)
+PASS  4e reconciled_at is there  (yes)
+PASS  4f the claim table carries live_item_id  (yes)
+PASS  4g …with its own unique key  (yes)
+PASS  4h …and the old single-column key is gone  (no)
+PASS  4i the obligations table exists  (1)
+PASS  4j its history table exists  (1)
+PASS  4k the allocations table exists  (1)
+PASS  4l the receivables table exists  (1)
+PASS  4m its settlements table exists  (1)
+PASS  4n step 29 STILL verifies  (yes)
+PASS  4o step 30 still verifies  (yes)
+PASS  4p step 31 verifies  (yes)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+PASS  5a the recorded payment is byte-identical  (e5904fc7b6659e53fb244f1db558e248e1992f90c6f3c3cb6cd9b72429837a28)
+PASS  5b …one payment row, still  (1)
+PASS  5c …one claim row, still  (1)
+PASS  6a an agreed amount can be recorded  (supplier_amount_agreed)
+PASS  6b a partial payment is recorded as one  (supplier_payment_recorded_partial)
+PASS  6c …with the right balance  (400000)
+PASS  6d it can be voided  (supplier_payment_voided)
+PASS  6e …and reads as void  (yes)
+PASS  6f …and the item is free for a correction  (supplier_payment_recorded_partial)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+PASS  7a the base is back on disk  (0.1.0-alpha.61)
+PASS  7b …with NO database work, and the structure is not pulled back  (31)
+PASS  7c the older build still answers  (200)
+PASS  7d on the older build a voided claim still holds the item  (supplier_item_already_paid)
+PASS  7e …and the agreed amount is invisible to it  (1)
+PASS  8a forward again  (200)
+PASS  8b …the structure is unchanged  (31)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+PASS  8c …and nothing was rewritten  (9ef79e1ca3e705be81cb1056d84191f748389796f67285a854bf5f5e7ab35c0a)
+
+================ base 0.1.0-alpha.56 (schema 28) ================
+PASS  0a the two packages differ by 3 step(s), read from the ZIPs  (yes)
+PASS  1a the base is installed  (0.1.0-alpha.56)
+PASS  1b-d this base has no supplier payments to un-migrate  (1)
+PASS  1e the site reports the base schema  (28)
+PASS  1f the gate finishes it  (200)
+PASS  1g …and the base is complete  (28)
+PASS  2a a sale with a share exists  (900000)
+PASS  2b-d this base cannot record a supplier payment at all  (1)
+identity_before=
+PASS  3a the new files are on disk  (0.1.0-alpha.62)
+PASS  3b …and swapping them ran NO step  (28)
+PASS  3c the first admin request answers  (200)
+PASS  3d …and finishes the upgrade  (31)
+PASS  4a the payment table still exists  (1)
+PASS  4b voided_at is there  (yes)
+PASS  4c void_reason is there  (yes)
+PASS  4d share_minor_final is there  (yes)
+PASS  4e reconciled_at is there  (yes)
+PASS  4f the claim table carries live_item_id  (yes)
+PASS  4g …with its own unique key  (yes)
+PASS  4h …and the old single-column key is gone  (no)
+PASS  4i the obligations table exists  (1)
+PASS  4j its history table exists  (1)
+PASS  4k the allocations table exists  (1)
+PASS  4l the receivables table exists  (1)
+PASS  4m its settlements table exists  (1)
+PASS  4n step 29 STILL verifies  (yes)
+PASS  4o step 30 still verifies  (yes)
+PASS  4p step 31 verifies  (yes)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+PASS  5a-c there was no payment on this base to preserve  (0)
+PASS  6a an agreed amount can be recorded  (supplier_amount_agreed)
+PASS  6b a partial payment is recorded as one  (supplier_payment_recorded_partial)
+PASS  6c …with the right balance  (400000)
+PASS  6d it can be voided  (supplier_payment_voided)
+PASS  6e …and reads as void  (yes)
+PASS  6f …and the item is free for a correction  (supplier_payment_recorded_partial)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+PASS  7a the base is back on disk  (0.1.0-alpha.56)
+PASS  7b …with NO database work, and the structure is not pulled back  (31)
+PASS  7c the older build still answers  (200)
+PASS  7d-e this base has no supplier payment path at all  (1)
+PASS  8a forward again  (200)
+PASS  8b …the structure is unchanged  (31)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 263
+PASS  8c …and nothing was rewritten  (b623f1fd27461c19f7256f848af4d4ec8f6fe9cf069a3e361c9f973a943f0d18)
+
+PASS=91 FAIL=0

@@ -59,6 +59,7 @@ final class AdminNavigation
             'tmc-dashboard',
             'tmc-product-review',
             'tmc-vendor-applications',
+            'tmc-vendor-shops',
             'tmc-vendor-documents',
             'tmc-tickets',
         ],

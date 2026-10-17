@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\Admin\VendorShopsPage;
 
 /**
  * «ورود به پنل فروشنده» where a vendor actually goes looking for it: /my-account/.
@@ -172,16 +173,25 @@ final class VendorAccountLink
      * the report this round answers: the vendor button is the one above, and
      * this is a different link to a different place.
      *
-     * **What is NOT decided here**: whether a manager should be able to open
-     * a particular vendor's dashboard. There is no mechanism for it —
-     * `VendorRoutes::renderPage()` builds every page from the SIGNED-IN user
-     * id and takes no shop parameter — and building one means deciding who
-     * may read whose shop, which is the owner's call. So nothing is invented:
-     * no shop is created, no vendor is picked, no capability is granted.
+     * **And from `alpha.62` it goes to an explicit CHOICE.** The owner
+     * answered the question `alpha.57` left open: «دکمهٔ «ورود به داشبورد
+     * فروشنده» برای مدیر فاقد فروشگاه، انتخاب صریح فروشگاه را باز کند. هیچ
+     * فروشگاهی ساخته نشود و فروشنده‌ای تصادفی انتخاب نشود.» So the
+     * destination is `VendorShopsPage` — a list, with nothing preselected —
+     * and the label says what pressing it does rather than where it lands.
+     *
+     * What that page does and does not allow is its own docblock's business,
+     * and the short version is that it reads: its own capability
+     * (`VIEW_VENDOR_SHOPS`), an audit row per shop opened, no form anywhere
+     * on it, no shop created, no vendor picked for anybody, and the
+     * manager's own account untouched. `VendorRoutes::renderPage()` still
+     * builds every `/vendor/` page from the SIGNED-IN user and still takes no
+     * shop parameter, which is why choosing a shop cannot become acting as
+     * one.
      */
     public static function managerLabel(): string
     {
-        return __('بررسی محصول‌ها در پیشخوان مدیریت', 'tecteb-marketplace-core');
+        return __('انتخاب فروشگاه برای مشاهده', 'tecteb-marketplace-core');
     }
 
     /**
@@ -393,7 +403,7 @@ final class VendorAccountLink
     private function destinationFor(string $label): string
     {
         return $label === self::managerLabel()
-            ? admin_url('admin.php?page=tmc-product-review')
+            ? VendorShopsPage::url()
             : $this->dashboardUrl();
     }
 
@@ -444,7 +454,13 @@ final class VendorAccountLink
             // touched, no role changed — and the capability it reads is the
             // one the admin screen checks for itself, so this is wayfinding
             // and not access.
-            return current_user_can(Capabilities::REVIEW_PRODUCTS)
+            // THE CAPABILITY THE DESTINATION CHECKS, which from `alpha.62` is
+            // the shop-viewing one rather than product review: a button whose
+            // page would answer 403 is worse than no button, and these are
+            // two different permissions on purpose (§4 asked for «مجوز مشخص
+            // مدیریت»). A manager who can review products but has not been
+            // given this one sees nothing here, which is correct.
+            return current_user_can(Capabilities::VIEW_VENDOR_SHOPS)
                 ? self::managerLabel()
                 : '';
         } catch (\Throwable) {
@@ -465,7 +481,7 @@ final class VendorAccountLink
             // Says where it goes, because it does not go to a dashboard.
             // A manager with a shop never sees this line: the vendor branch
             // is first, so their button is the one above.
-            self::managerLabel() => __('این حساب فروشگاهی در بازارگاه ندارد؛ این پیوند به پیشخوان مدیریت وردپرس می‌رود.', 'tecteb-marketplace-core'),
+            self::managerLabel() => __('این حساب فروشگاهی در بازارگاه ندارد. این پیوند فهرست فروشگاه‌ها را باز می‌کند تا یکی را برای مشاهده انتخاب کنید؛ مشاهده است و اجازهٔ ویرایش یا اقدام به‌جای فروشنده نمی‌دهد.', 'tecteb-marketplace-core'),
             default => __('وضعیت درخواست فروشندگی و مدارک شما.', 'tecteb-marketplace-core'),
         };
     }

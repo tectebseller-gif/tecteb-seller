@@ -124,32 +124,55 @@ final class VendorAccountLinkTest extends ContractTestCase
      */
     public function testAManagerGetsAnAdministrativeRouteAndNotAVendorOne(): void
     {
-        State::$currentUserCaps = ['read', Capabilities::REVIEW_PRODUCTS];
+        State::$currentUserCaps = ['read', Capabilities::VIEW_VENDOR_SHOPS];
         $link = $this->link(profile: null, application: null);
 
         $items = $link->addMenuItem($this->menu());
         $panel = $link->shortcode();
 
         self::assertSame(VendorAccountLink::managerLabel(), $items[VendorAccountLink::MENU_KEY] ?? '');
-        // And it says wp-admin out loud, because that is where it goes.
-        self::assertSame('بررسی محصول‌ها در پیشخوان مدیریت', VendorAccountLink::managerLabel());
+        // From `alpha.62` it says what pressing it DOES, because what it does
+        // changed: the owner asked for «انتخاب صریح فروشگاه» rather than a
+        // landing on the product-review screen (§4).
+        self::assertSame('انتخاب فروشگاه برای مشاهده', VendorAccountLink::managerLabel());
         self::assertNotSame(
             VendorAccountLink::panelLabel(),
             VendorAccountLink::managerLabel(),
             'the administrative link must not borrow the vendor button\'s words'
         );
-        self::assertStringContainsString('page=tmc-product-review', $panel, 'into wp-admin, not into /vendor/');
+        self::assertStringContainsString('page=tmc-vendor-shops', $panel, 'the explicit picker, not a shop');
         self::assertStringNotContainsString(
             VendorAccountLink::panelLabel(),
             $panel,
             'a manager pressing that would land on a page about a shop they do not have'
         );
+        // AND NO SHOP IS IN THE ADDRESS. «فروشنده‌ای تصادفی انتخاب نشود» — a
+        // link that arrived with `&shop=<something>` would be this plugin
+        // choosing for them, which is the thing §4 forbids.
+        self::assertStringNotContainsString('shop=', $panel);
         // And the menu row goes to the same place as the button: two answers
         // to one question on one page is the `alpha.52` form mistake.
         self::assertStringContainsString(
-            'page=tmc-product-review',
+            'page=tmc-vendor-shops',
             $link->endpointUrl('ignored', VendorAccountLink::MENU_KEY, '', '')
         );
+    }
+
+    /**
+     * WHAT THIS PROVES: the picker's capability is its own, not the review one.
+     *
+     * §4 asked for «دسترسی مشاهده با مجوز مشخص مدیریت». A manager who can
+     * approve products but has not been given the shop-viewing permission
+     * sees NO button — which is correct and is the point of a separate
+     * capability: a button whose page answers 403 is worse than no button.
+     */
+    public function testAManagerWithoutTheShopViewingPermissionGetsNoButton(): void
+    {
+        State::$currentUserCaps = ['read', Capabilities::REVIEW_PRODUCTS];
+        $link = $this->link(profile: null, application: null);
+
+        self::assertArrayNotHasKey(VendorAccountLink::MENU_KEY, $link->addMenuItem($this->menu()));
+        self::assertSame('', $link->shortcode());
     }
 
     /**
@@ -160,7 +183,11 @@ final class VendorAccountLinkTest extends ContractTestCase
      */
     public function testAVendorWhoIsAlsoAManagerIsSentToTheirShop(): void
     {
-        State::$currentUserCaps = ['read', Capabilities::REVIEW_PRODUCTS];
+        // BOTH permissions, so what is measured is the ORDER of the branches
+        // rather than the absence of one of them. From `alpha.62` the manager
+        // branch reads `VIEW_VENDOR_SHOPS`, and a person holding it who also
+        // owns a shop must still be sent to their shop.
+        State::$currentUserCaps = ['read', Capabilities::REVIEW_PRODUCTS, Capabilities::VIEW_VENDOR_SHOPS];
         $link = $this->link(profile: $this->profile());
 
         self::assertSame(

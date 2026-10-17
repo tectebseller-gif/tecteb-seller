@@ -60,6 +60,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0026ReviewSeen
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0027MinMaxHandover;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0029SupplierPayments;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0030SupplierPaymentShareUnknown;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0031SupplierObligations;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0028MinMaxHandoverLiveKey;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables;
 use Tecteb\Marketplace\Modules\Order\Application\ManageReturns;
@@ -466,6 +467,7 @@ final class Bootstrap
             new M0028MinMaxHandoverLiveKey(),
             new M0029SupplierPayments(),
             new M0030SupplierPaymentShareUnknown(),
+            new M0031SupplierObligations(),
         ];
     }
 

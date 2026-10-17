@@ -14,6 +14,7 @@ use Tecteb\Marketplace\Infrastructure\WordPress\WpAuditRepository;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
 use Tecteb\Marketplace\Modules\Finance\Application\RequestWithdrawal;
+use Tecteb\Marketplace\Modules\Finance\Application\VendorWithdrawalPolicy;
 use Tecteb\Marketplace\Modules\Finance\Application\ReviewWithdrawals;
 use Tecteb\Marketplace\Modules\Finance\Application\SettlementGate;
 use Tecteb\Marketplace\Modules\Finance\Application\VendorBalance;
@@ -69,6 +70,16 @@ final class SettlementFlowTest extends DatabaseTestCase
     private ManageOrderItems $orders;
     private SettingsService $settings;
     private FakeTrialUnlock $trial;
+    /** Kept so `closedRequest()` can build the same service with the policy. */
+    private StaffAccess $access;
+    /**
+     * The logger this fixture built.
+     *
+     * Named apart from the base class's own `$audit` (which is the audit
+     * REPOSITORY, and `protected`): two fields called the same thing in a
+     * hierarchy is how a test ends up asserting about the wrong object.
+     */
+    private AuditLogger $auditLog;
 
     protected function setUp(): void
     {
@@ -100,6 +111,8 @@ final class SettlementFlowTest extends DatabaseTestCase
         $this->trial = new FakeTrialUnlock(true);
 
         $access = new StaffAccess($staff, $this->vendors);
+        $this->access = $access;
+        $this->auditLog = $audit;
         $this->balance = new VendorBalance($this->orderItems, $this->settings, $clock);
         $gate = new SettlementGate($this->trial);
         $states = new WithdrawalStateMachine();
@@ -323,6 +336,73 @@ final class SettlementFlowTest extends DatabaseTestCase
         self::assertSame(900000, $this->balance->of(self::VENDOR)['eligible']);
     }
 
+    /**
+     * WHAT THIS PROVES: with the owner's closure in force, no new request is
+     * created — and the closure is NOT the open-decisions gate.
+     *
+     * §7: «فعلاً درخواست برداشت جدید برای فروشنده بسته شود. فقط مخفی‌کردن
+     * دکمه کافی نیست و مسیرهای POST/API نیز باید همین سیاست را اعمال کنند.»
+     * The trial switch is deliberately left ON here, so what is measured is
+     * the closure rather than `settlement_blocked`: on a disposable site the
+     * gate steps aside and every evidence run would otherwise be creating
+     * requests the owner has forbidden.
+     *
+     * And the numbers stay readable — «گزارش‌های مالی، سوابق و پرداخت‌های
+     * فروشنده قابل مشاهده بماند» — which is why the balance is asserted after
+     * the refusal rather than before it.
+     */
+    public function testWithTheOwnersClosureInForceNoNewRequestIsCreated(): void
+    {
+        $itemId = $this->sold(self::VENDOR, 112, 1000000, 900000);
+        $this->orders->recordSettlementCompletion($itemId, true);
+        $this->trial->active = true;        // the open-decisions gate is OPEN
+
+        $closed = $this->closedRequest()->handle(self::VENDOR, self::VENDOR);
+
+        self::assertFalse($closed->ok);
+        self::assertSame(VendorWithdrawalPolicy::REQUESTS_CLOSED, $closed->code);
+        self::assertNull($this->withdrawals->openFor(self::VENDOR), 'nothing was created');
+        self::assertSame(900000, $this->balance->of(self::VENDOR)['eligible'], 'the number is still readable');
+        // …and the line is NOT claimed, so nothing has been quietly reserved.
+        self::assertSame([$itemId], $this->balance->of(self::VENDOR)['eligible_line_ids']);
+    }
+
+    /**
+     * WHAT THIS PROVES: a request made before the closure is neither
+     * cancelled nor released by the vendor.
+     *
+     * «درخواست‌های قبلی حذف، لغو یا آزاد نشوند؛ مدیر بررسی کند.» Cancelling
+     * frees the reserved lines, so the vendor's cancel is closed with the
+     * requests; the MANAGER's path is untouched and the last assertion is
+     * what says so.
+     */
+    public function testAnEarlierRequestIsNeitherCancelledNorReleasedByTheVendor(): void
+    {
+        $itemId = $this->sold(self::VENDOR, 113, 1000000, 900000);
+        $this->orders->recordSettlementCompletion($itemId, true);
+        $this->trial->active = true;
+        // Made on a build before the closure — which is what the owner's
+        // «درخواست‌های قبلی» are.
+        $created = $this->request->handle(self::VENDOR, self::VENDOR);
+        self::assertTrue($created->ok);
+        $withdrawalId = (int) $created->context['withdrawal_id'];
+
+        $refused = $this->closedRequest()->cancel(self::VENDOR, self::VENDOR, $withdrawalId);
+
+        self::assertFalse($refused->ok);
+        self::assertSame(VendorWithdrawalPolicy::CANCEL_CLOSED, $refused->code);
+        $open = $this->withdrawals->openFor(self::VENDOR);
+        self::assertNotNull($open, 'the request is still there');
+        self::assertSame(WithdrawalStatus::Requested, $open->status);
+        self::assertSame([$itemId], $this->withdrawals->lineIds($withdrawalId), 'and still holds its line');
+
+        // THE MANAGER'S PATH IS NOT CLOSED, which is the other half of «مدیر
+        // بررسی کند»: a closure that stopped the review as well would leave
+        // every earlier request stranded for ever.
+        self::assertTrue($this->review->startReview($withdrawalId)->ok);
+        self::assertTrue($this->review->approve($withdrawalId, 'بررسی مدیر')->ok);
+    }
+
     public function testOneShopNeverSeesAnotherShopsMoney(): void
     {
         $mine = $this->sold(self::VENDOR, 110, 1000000, 900000);
@@ -368,6 +448,29 @@ final class SettlementFlowTest extends DatabaseTestCase
      * `RecordCommission` writes, so the unit on the payout line is the unit of
      * the sale it discharges.
      */
+    /**
+     * The same service, with the owner's closure policy wired in.
+     *
+     * A second instance rather than a flag on the first, because the point is
+     * that a build WITHOUT the policy behaves exactly as `alpha.61` did —
+     * which is what every other test in this file measures, and what the
+     * evidence probes of earlier rounds rely on (`alpha.32`).
+     */
+    private function closedRequest(): RequestWithdrawal
+    {
+        return new RequestWithdrawal(
+            $this->withdrawals,
+            $this->balance,
+            new SettlementGate($this->trial),
+            $this->access,
+            $this->stores,
+            new WithdrawalStateMachine(),
+            $this->auditLog,
+            null,
+            new VendorWithdrawalPolicy()
+        );
+    }
+
     private function sold(int $vendorUserId, int $orderItemId, int $baseMinor, ?int $shareMinor): int
     {
         if ($shareMinor !== null) {

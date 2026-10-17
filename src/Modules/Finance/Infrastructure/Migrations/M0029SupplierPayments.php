@@ -156,8 +156,19 @@ final class M0029SupplierPayments implements MigrationInterface
         ])) {
             return false;
         }
+        // THE GUARANTEE, NOT THE COLUMN IT SITS ON.
+        //
+        // «One claim per order item» is what this step promises, and from
+        // `alpha.62` the column carrying it is `live_item_id` — a nullable
+        // key, so a voided payment's claim row can stop being a claim without
+        // being deleted (migration 31 explains why that was necessary). Both
+        // spellings are accepted here for the same reason `alpha.54` stopped
+        // matching a key by name: a `verify()` that insists on yesterday's
+        // shape freezes the chain on a real site, and it is the NEXT step
+        // that pays for it.
         return $this->hasUniqueOver($db, $payments, 'idempotency_key')
-            && $this->hasUniqueOver($db, $items, 'order_item_id');
+            && ($this->hasUniqueOver($db, $items, 'order_item_id')
+                || $this->hasUniqueOver($db, $items, 'live_item_id'));
     }
 
     /** @param list<string> $needed */

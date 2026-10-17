@@ -530,13 +530,44 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
             if ($found === null) {
                 return null;            // not memoised: a failed read is not an answer
             }
-            $this->supplierClaimClause = (int) $found > 0
+            if ((int) $found === 0) {
+                $this->supplierClaimClause = '';
+                return $this->supplierClaimClause;
+            }
+            // VOIDED PAYMENTS DO NOT HOLD A LINE — and that is a property of
+            // ONE COLUMN rather than of a join somebody could forget.
+            //
+            // `live_item_id` is the item id while the payment stands and NULL
+            // once it is voided, so this fragment is the same shape it had in
+            // `alpha.61` and the release costs nothing to read. «آزادسازی
+            // مانده یا اقلام فقط پس از موفقیت کامل عملیات انجام شود» holds
+            // because the void is one transaction: it commits and the line is
+            // free, it rolls back and the line is still held. The claim rows
+            // themselves are never deleted («سابقه حذف نشود»).
+            //
+            // Asked for by column, with the same three answers as the table
+            // itself: present ⇒ the live key, absent ⇒ the pre-31 fragment,
+            // unknown ⇒ `null`, because refusing a withdrawal is recoverable
+            // and paying twice is not (`alpha.46`).
+            $live = $this->db->getVar(
+                'SELECT COUNT(*) FROM information_schema.COLUMNS
+                  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s',
+                [$table, 'live_item_id']
+            );
+            if ($live === null) {
+                return null;            // not memoised: a failed read is not an answer
+            }
+            $this->supplierClaimClause = (int) $live > 0
                 ? '
                AND NOT EXISTS (
                      SELECT 1 FROM `' . $table . '` tmc_sp
-                      WHERE tmc_sp.order_item_id = `' . $this->orderItems() . '`.id
+                      WHERE tmc_sp.live_item_id = `' . $this->orderItems() . '`.id
                    )'
-                : '';
+                : '
+               AND NOT EXISTS (
+                     SELECT 1 FROM `' . $table . '` tmc_sp
+                      WHERE tmc_sp.order_item_id = `' . $this->orderItems() . '`.id
+                   )';
         }
         return $this->supplierClaimClause;
     }

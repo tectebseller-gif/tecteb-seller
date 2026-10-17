@@ -57,7 +57,18 @@ final class RequestWithdrawal
          * `ReviewWithdrawals` refuses to record a payment it cannot make
          * atomic. Optional so every existing construction site keeps working.
          */
-        private readonly ?TransactionInterface $tx = null
+        private readonly ?TransactionInterface $tx = null,
+        /**
+         * The owner's standing decision about whether this path is open.
+         *
+         * Separate from `SettlementGate` on purpose, and the docblock there
+         * says why: that gate is about missing definitions and a trial site
+         * may waive it; this is the owner's operating decision and a trial
+         * site may not. Optional for the `alpha.32` reason — the evidence
+         * probes of earlier rounds build this service by reflection — and a
+         * build without it behaves as `alpha.61` did.
+         */
+        private readonly ?VendorWithdrawalPolicy $policy = null
     ) {
     }
 
@@ -66,6 +77,20 @@ final class RequestWithdrawal
         // Money is the accountant's area; the owner has it by being the owner.
         if (!$this->access->can($actorId, $vendorUserId, StaffArea::Finance, StaffLevel::Edit)) {
             return OperationResult::failure('forbidden');
+        }
+        // THE OWNER'S DECISION FIRST, and it is not waivable.
+        //
+        // «فعلاً درخواست برداشت جدید برای فروشنده بسته شود … مسیرهای POST/API
+        // نیز باید همین سیاست را اعمال کنند.» Asked here rather than in the
+        // view, because this method is what every POST, every API route and
+        // every CLI call reaches, and hiding a button is not a policy.
+        //
+        // Asked BEFORE the settlement gate so the sentence the vendor gets is
+        // the true one: a trial site waives the gate, and a vendor told
+        // «awaiting DEC-02» about a path the owner has closed would be given
+        // a reason that is not the reason.
+        if ($this->policy !== null && !$this->policy->requestsAreOpen()) {
+            return OperationResult::failure(VendorWithdrawalPolicy::REQUESTS_CLOSED);
         }
         $gate = $this->gate->check();
         if (!$gate['ready']) {
@@ -135,6 +160,15 @@ final class RequestWithdrawal
     {
         if (!$this->access->can($actorId, $vendorUserId, StaffArea::Finance, StaffLevel::Edit)) {
             return OperationResult::failure('forbidden');
+        }
+        // AND THE SAME DECISION ON THE WAY OUT. Cancelling releases the
+        // reserved lines, and «درخواست‌های قبلی … آزاد نشوند؛ مدیر بررسی
+        // کند» puts that release in the manager's hands. The manager's own
+        // path (`ReviewWithdrawals`) does not consult this policy at all.
+        if ($this->policy !== null && !$this->policy->cancelIsOpen()) {
+            return OperationResult::failure(VendorWithdrawalPolicy::CANCEL_CLOSED, [
+                'withdrawal_id' => $withdrawalId,
+            ]);
         }
         $withdrawal = $this->withdrawals->find($withdrawalId);
         if ($withdrawal === null || $withdrawal->vendorUserId !== $vendorUserId) {

@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\Admin\ApplicationsPage;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\Admin\VendorShopsPage;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\Admin\DocumentTypesPage;
 
 /** Everything the vendor module hangs on WordPress, in one readable place. */
@@ -32,6 +33,19 @@ final class VendorHooks
                 'menu_label' => ApplicationsPage::menuLabel(),
                 'capability' => ApplicationsPage::CAPABILITY,
                 'render' => [$applications, 'render'],
+                'nav' => true,
+            ];
+            // «انتخاب فروشگاه» — a manager's read-only view, with its own
+            // capability. Registered here rather than in the Finance module
+            // because the thing being read is a SHOP, and the money on it is
+            // one of several facts about it.
+            $shops = new VendorShopsPage($container);
+            $pages[] = [
+                'slug' => VendorShopsPage::SLUG,
+                'page_title' => VendorShopsPage::menuLabel(),
+                'menu_label' => VendorShopsPage::menuLabel(),
+                'capability' => VendorShopsPage::CAPABILITY,
+                'render' => [$shops, 'render'],
                 'nav' => true,
             ];
             $pages[] = [

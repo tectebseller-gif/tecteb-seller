@@ -16,7 +16,14 @@ use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordSupplierPayment;
 use Tecteb\Marketplace\Modules\Finance\Application\RequestWithdrawal;
+use Tecteb\Marketplace\Modules\Finance\Application\VendorWithdrawalPolicy;
 use Tecteb\Marketplace\Modules\Finance\Application\SupplierPaymentRepositoryInterface;
+use Tecteb\Marketplace\Modules\Finance\Application\SupplierObligationRepositoryInterface;
+use Tecteb\Marketplace\Modules\Finance\Application\SupplierReceivableRepositoryInterface;
+use Tecteb\Marketplace\Modules\Finance\Application\ManageSupplierObligations;
+use Tecteb\Marketplace\Modules\Finance\Application\ManageSupplierReceivables;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbSupplierObligationRepository;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbSupplierReceivableRepository;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Application\ReviewWithdrawals;
 use Tecteb\Marketplace\Modules\Finance\Application\SettlementGate;
@@ -26,6 +33,8 @@ use Tecteb\Marketplace\Modules\Finance\Application\TectebCommissionSourceInterfa
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
 use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommissionCalculator;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStateMachine;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\CommissionCartGuard;
+use Tecteb\Marketplace\Modules\Finance\Application\CommissionLineCheck;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\TectebCommissionMetaGuard;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\TectebCommissionPanel;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\WpTectebCommissionSource;
@@ -143,8 +152,10 @@ final class FinanceModule implements ModuleInterface
             $c->get(AuditLogger::class),
             // The unit of work a cancel needs: the status change and the
             // release of the reserved lines are one operation or neither.
-            $c->get(DatabaseInterface::class)
+            $c->get(DatabaseInterface::class),
+            $c->get(VendorWithdrawalPolicy::class)
         ));
+        $c->bind(VendorWithdrawalPolicy::class, static fn (ContainerInterface $c) => new VendorWithdrawalPolicy());
         // Supplier payments: a RECORD of money already paid by hand, kept
         // apart from the vendor withdrawal cycle on purpose (§4). Bound
         // unconditionally, like the gates, so a screen can always say why
@@ -164,7 +175,37 @@ final class FinanceModule implements ModuleInterface
             // THE SAME gateway object the repository holds, not a second one
             // over the same connection: nesting is counted in the object
             // (`alpha.56`).
-            $c->get(DatabaseInterface::class)
+            $c->get(DatabaseInterface::class),
+            // The agreed amounts and the allocations against them. Same
+            // gateway object again, for the same reason.
+            $c->get(SupplierObligationRepositoryInterface::class)
+        ));
+        $c->bind(SupplierObligationRepositoryInterface::class, static fn (ContainerInterface $c) => new DbSupplierObligationRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(SupplierReceivableRepositoryInterface::class, static fn (ContainerInterface $c) => new DbSupplierReceivableRepository(
+            $c->get(DatabaseInterface::class),
+            $c->get(ClockInterface::class)
+        ));
+        $c->bind(CommissionLineCheck::class, static fn (ContainerInterface $c) => new CommissionLineCheck(
+            $c->get(TectebCommissionSourceInterface::class),
+            $c->get(TectebCommissionCalculator::class)
+        ));
+        $c->bind(ManageSupplierObligations::class, static fn (ContainerInterface $c) => new ManageSupplierObligations(
+            $c->get(SupplierObligationRepositoryInterface::class),
+            $c->get(OrderItemRepositoryInterface::class),
+            $c->get(VendorMoneyUnitRegistryInterface::class),
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(AuditLogger::class)
+        ));
+        $c->bind(ManageSupplierReceivables::class, static fn (ContainerInterface $c) => new ManageSupplierReceivables(
+            $c->get(SupplierReceivableRepositoryInterface::class),
+            $c->get(SupplierPaymentRepositoryInterface::class),
+            $c->get(OrderItemRepositoryInterface::class),
+            $c->get(VendorMoneyUnitRegistryInterface::class),
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(AuditLogger::class)
         ));
 
         $c->bind(ReviewWithdrawals::class, static fn (ContainerInterface $c) => new ReviewWithdrawals(
@@ -251,6 +292,16 @@ final class FinanceModule implements ModuleInterface
         // request where WooCommerce is loaded, but a guard that depends on
         // being loaded in the right order is a guard waiting to be bypassed.
         TectebCommissionMetaGuard::register();
+
+        // …and the rule is asked about EVERY BASKET before the money is
+        // taken, not only about every save.
+        //
+        // Registered unconditionally for the same reason the guard above is:
+        // the hooks it uses only fire on a request where WooCommerce is
+        // running, and a registration that depends on load order is a guard
+        // waiting to be bypassed. On a site with no WooCommerce the actions
+        // simply never run.
+        CommissionCartGuard::register($c);
 
         // …and the vendor's own side of the same money.
         $area = new FinanceArea($c);

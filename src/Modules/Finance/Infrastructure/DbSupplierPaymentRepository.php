@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Modules\Finance\Domain\Money;
 use Tecteb\Marketplace\Modules\Finance\Domain\SupplierPayment;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0029SupplierPayments as T;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0030SupplierPaymentShareUnknown as U;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0031SupplierObligations as V;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as OrderTables;
 
 /**
@@ -34,8 +35,15 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
     ) {
     }
 
-    public function record(SupplierPayment $payment, array $itemShares): array
+    public function record(SupplierPayment $payment, array $itemShares, array $partialItemIds = []): array
     {
+        $partial = [];
+        foreach ($partialItemIds as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $partial[$id] = true;
+            }
+        }
         $shares = [];
         foreach ($itemShares as $id => $share) {
             $id = (int) $id;
@@ -111,8 +119,8 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
         foreach ($shares as $itemId => $share) {
             $line = $this->db->execute(
                 'INSERT IGNORE INTO `' . $this->items() . '`
-                 (payment_id, order_item_id, supplier_user_id, share_minor, created_at)
-                 SELECT %d, oi.id, %d, ' . ($share === null ? 'NULL' : '%d') . ', %s
+                 (payment_id, order_item_id, live_item_id, supplier_user_id, share_minor, created_at)
+                 SELECT %d, oi.id, oi.id, %d, ' . ($share === null ? 'NULL' : '%d') . ', %s
                    FROM `' . $this->orderItems() . '` oi
                   WHERE oi.id = %d
                     AND oi.vendor_user_id = %d
@@ -129,7 +137,7 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
                 return $this->refusal(self::FAILED, 0, $itemId);
             }
             // Nought has THREE causes here and they are three different
-            // sentences: the unique key refused (another payment holds the
+            // sentences: the unique key refused (a payment already claimed the
             // item), the `SELECT` found nothing (a withdrawal holds it, or the
             // line is not this supplier's), or the line is gone. Asked while
             // the transaction is still open, so the answer is about the rows
@@ -139,10 +147,28 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
                 'SELECT COALESCE(withdrawal_id, 0) FROM `' . $this->orderItems() . '` WHERE id = %d',
                 [$itemId]
             ) ?? 0);
+            if ($held > 0) {
+                $this->db->rollback();
+                return $this->refusal(self::ITEM_HELD_BY_WITHDRAWAL, 0, $itemId, $held);
+            }
+            // A SECOND PAYMENT AGAINST THE SAME ITEM — which is now an
+            // ordinary thing and not a mistake («پرداخت کمتر از تعهد، پرداخت
+            // جزئی با باقی‌ماندهٔ مانده است»). The claim row is already there
+            // because an earlier payment of this supplier's made it, so there
+            // is nothing to write here: the money goes on an allocation and
+            // the balance guard over there decides whether it may.
+            //
+            // Narrow on purpose. The caller has to have NAMED this item, and
+            // the existing claim has to be a LIVE payment OF THIS SUPPLIER's;
+            // anything else keeps the refusal it had before. A voided claim
+            // is not a claim at all, so the insert is retried without the
+            // `IGNORE`-shaped ambiguity by removing nothing — the row is
+            // simply reported as free and the allocation decides.
+            if (isset($partial[$itemId]) && $this->claimedBySupplier($itemId, $payment->supplierUserId)) {
+                continue;
+            }
             $this->db->rollback();
-            return $held > 0
-                ? $this->refusal(self::ITEM_HELD_BY_WITHDRAWAL, 0, $itemId, $held)
-                : $this->refusal(self::ITEM_ALREADY_PAID, 0, $itemId);
+            return $this->refusal(self::ITEM_ALREADY_PAID, 0, $itemId);
         }
 
         if (!$this->db->commit()) {
@@ -179,7 +205,7 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
         $row = $this->db->getRow(
             'SELECT p.* FROM `' . $this->payments() . '` p
              INNER JOIN `' . $this->items() . '` i ON i.payment_id = p.id
-             WHERE i.order_item_id = %d',
+             WHERE i.live_item_id = %d',
             [$orderItemId]
         );
         return $row === null ? null : $this->hydrate($row);
@@ -199,8 +225,10 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
         // the owner's definition of «مبلغ و سهم فرق دارند» and one on the
         // share of an item that recorded no money at all.
         return array_map([$this, 'hydrate'], $this->db->getResults(
-            'SELECT * FROM `' . $this->payments() . '` WHERE posting IN (%s, %s) ORDER BY id DESC LIMIT %d',
-            [T::POSTING_NEEDS_DEFINITION, U::POSTING_SHARE_UNKNOWN, max(1, $limit)]
+            'SELECT * FROM `' . $this->payments() . '`
+              WHERE posting IN (%s, %s, %s) AND voided_at IS NULL
+              ORDER BY id DESC LIMIT %d',
+            [T::POSTING_NEEDS_DEFINITION, U::POSTING_SHARE_UNKNOWN, V::POSTING_AGREED_UNKNOWN, max(1, $limit)]
         ));
     }
 
@@ -258,7 +286,14 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
             (string) ($row['posting'] ?? T::POSTING_NEEDS_DEFINITION),
             (string) ($row['created_at'] ?? ''),
             $items['ids'],
-            $items['unknown']
+            $items['unknown'],
+            ($row['voided_at'] ?? null) === null ? null : (string) $row['voided_at'],
+            (int) ($row['voided_by'] ?? 0),
+            (string) ($row['void_reason'] ?? ''),
+            (string) ($row['void_event'] ?? ''),
+            ($row['share_minor_final'] ?? null) === null ? null : (int) $row['share_minor_final'],
+            ($row['reconciled_at'] ?? null) === null ? null : (string) $row['reconciled_at'],
+            (int) ($row['reconciled_by'] ?? 0)
         );
     }
 
@@ -300,10 +335,133 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
         return array_map(
             static fn (array $r): int => (int) $r['order_item_id'],
             $this->db->getResults(
-                'SELECT order_item_id FROM `' . $this->items() . '` WHERE supplier_user_id = %d',
+                'SELECT order_item_id FROM `' . $this->items() . '`
+                  WHERE supplier_user_id = %d AND live_item_id IS NOT NULL',
                 [$supplierUserId]
             )
         );
+    }
+
+    public function void(
+        int $paymentId,
+        string $reason,
+        int $actorId,
+        string $compensatingEvent,
+        string $when
+    ): array {
+        if ($paymentId <= 0) {
+            return ['outcome' => self::NOT_FOUND, 'payment_id' => 0];
+        }
+        if (trim($reason) === '') {
+            // A void with no reason is an erasure with a timestamp.
+            return ['outcome' => self::REASON_REQUIRED, 'payment_id' => $paymentId];
+        }
+        // ONE GUARDED STATEMENT. `voided_at IS NULL` in the `WHERE` is the
+        // whole of the idempotency: the second request matches no row and is
+        // told so, rather than overwriting the first void's reason, actor and
+        // time — and rather than letting the caller write a second
+        // compensating entry («اثر مالی دوم»). Zero rows is NOT success here
+        // (the other half of the `alpha.8` rule).
+        $moved = $this->db->execute(
+            'UPDATE `' . $this->payments() . '`
+                SET voided_at = %s, voided_by = %d, void_reason = %s, void_event = %s
+              WHERE id = %d AND voided_at IS NULL',
+            [$when, $actorId, self::shorten($reason), $compensatingEvent, $paymentId]
+        );
+        if ($moved === null) {
+            return ['outcome' => self::FAILED, 'payment_id' => $paymentId];
+        }
+        if ($moved > 0) {
+            // AND THE CLAIMS ARE RELEASED — in the caller's unit of work, so
+            // «آزادسازی … فقط پس از موفقیت کامل عملیات» is the transaction
+            // rather than an ordering somebody has to get right. The rows
+            // stay; only the live key goes.
+            $released = $this->db->execute(
+                'UPDATE `' . $this->items() . '` SET live_item_id = NULL WHERE payment_id = %d',
+                [$paymentId]
+            );
+            if ($released === null) {
+                return ['outcome' => self::FAILED, 'payment_id' => $paymentId];
+            }
+            return ['outcome' => self::VOIDED, 'payment_id' => $paymentId];
+        }
+        // Nought: already void, or no such payment. Two different sentences,
+        // and only a read can tell them apart.
+        $exists = (int) ($this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->payments() . '` WHERE id = %d',
+            [$paymentId]
+        ) ?? 0);
+        return [
+            'outcome' => $exists > 0 ? self::ALREADY_VOID : self::NOT_FOUND,
+            'payment_id' => $paymentId,
+        ];
+    }
+
+    public function markReconciled(
+        int $paymentId,
+        ?int $shareMinorFinal,
+        string $posting,
+        string $ledgerEvent,
+        int $actorId,
+        string $when
+    ): bool {
+        if ($paymentId <= 0 || trim($posting) === '') {
+            return false;
+        }
+        $params = [$when, $actorId];
+        if ($shareMinorFinal !== null) {
+            $params[] = $shareMinorFinal;
+        }
+        $params[] = $posting;
+        if ($ledgerEvent !== '') {
+            $params[] = $ledgerEvent;
+        }
+        $params[] = $paymentId;
+        // `share_minor` is deliberately absent from the SET list: the figure
+        // recorded when the money changed hands keeps its column, and what
+        // the review established goes in `share_minor_final` beside it.
+        //
+        // `reconciled_at IS NULL` is the idempotency and `ledger_event = ''`
+        // is the second half of it: a review that posts a money line can only
+        // do so onto a payment that has none, so a repeat writes no second
+        // entry and is told that nothing moved.
+        $moved = $this->db->execute(
+            'UPDATE `' . $this->payments() . '`
+                SET reconciled_at = %s, reconciled_by = %d,
+                    share_minor_final = ' . ($shareMinorFinal === null ? 'NULL' : '%d') . ',
+                    posting = %s'
+                . ($ledgerEvent !== '' ? ', ledger_event = %s' : '') . '
+              WHERE id = %d AND reconciled_at IS NULL AND voided_at IS NULL'
+                . ($ledgerEvent !== '' ? " AND ledger_event = ''" : ''),
+            $params
+        );
+        return $moved !== null && $moved > 0;
+    }
+
+    /**
+     * Is this item's one claim row held by a LIVE payment of this supplier's?
+     *
+     * Two facts in one question, and each matters: a claim by another
+     * supplier's payment is a mistake in the submission, and no live claim at
+     * all means the `SELECT` inside the insert found nothing (a withdrawal, a
+     * wrong supplier, a missing line) rather than the unique key refusing. A
+     * voided payment's row has `live_item_id IS NULL` and so is not a claim,
+     * which is the whole reason that column exists.
+     */
+    private function claimedBySupplier(int $orderItemId, int $supplierUserId): bool
+    {
+        $found = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->items() . '`
+              WHERE live_item_id = %d AND supplier_user_id = %d',
+            [$orderItemId, $supplierUserId]
+        );
+        return $found !== null && (int) $found > 0;
+    }
+
+    private static function shorten(string $text): string
+    {
+        $text = trim($text);
+        return function_exists('mb_substr') ? mb_substr($text, 0, 255) : substr($text, 0, 255);
     }
 
     private function payments(): string

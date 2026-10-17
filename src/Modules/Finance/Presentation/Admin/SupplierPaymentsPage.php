@@ -8,6 +8,8 @@ use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
+use Tecteb\Marketplace\Modules\Finance\Application\ManageSupplierObligations;
+use Tecteb\Marketplace\Modules\Finance\Application\ManageSupplierReceivables;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordSupplierPayment;
 use Tecteb\Marketplace\Modules\Finance\Application\SupplierPaymentRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
@@ -59,7 +61,9 @@ final class SupplierPaymentsPage
         echo Components::notice('info', __('این صفحه پرداختی را ثبت می‌کند که قبلاً انجام شده است. هیچ انتقال وجهی از اینجا انجام نمی‌شود و این صفحه چرخهٔ «تسویه و برداشت» فروشنده نیست؛ آن یکی درخواست فروشنده است و این یکی خرید تک‌طب.', 'tecteb-marketplace-core'));
 
         $this->form();
+        $this->agreedAmounts();
         $this->awaiting($fa);
+        $this->receivables($fa);
         echo Components::shellClose();
     }
 
@@ -122,6 +126,7 @@ final class SupplierPaymentsPage
             . '<th scope="col">' . esc_html__('چرا ثبت نشده', 'tecteb-marketplace-core') . '</th>'
             . '<th scope="col">' . esc_html__('قلم‌ها', 'tecteb-marketplace-core') . '</th>'
             . '<th scope="col">' . esc_html__('شمارهٔ پیگیری', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('اقدام', 'tecteb-marketplace-core') . '</th>'
             . '</tr></thead><tbody>';
         foreach ($rows as $row) {
             echo '<tr><td>' . esc_html($fa($row->supplierUserId)) . '</td>'
@@ -144,9 +149,139 @@ final class SupplierPaymentsPage
                         $fa(implode('، ', array_map('strval', $row->unknownShareItemIds)))
                     )) . '</td>'
                 . '<td>' . esc_html($fa(implode('، ', array_map('strval', $row->orderItemIds)))) . '</td>'
-                . '<td>' . Components::code($row->reference) . '</td></tr>';
+                . '<td>' . Components::code($row->reference) . '</td>'
+                // TWO ACTIONS, AND THEY ARE DIFFERENT ACTS.
+                //
+                // «بررسی و تطبیق» re-reads this payment's own items and, if
+                // the figures are now knowable and agree, posts the money
+                // line under the SAME payment — no second payment, and the
+                // first figure stays in its own column.
+                //
+                // «ابطال ثبت» says the record was wrong. The reason is
+                // required by the service, not by this markup, and the text
+                // beside the button says what a void is and is not: it does
+                // not mean the money came back.
+                . '<td><form method="post">'
+                . wp_nonce_field(self::NONCE, 'tmc_supplier_nonce', true, false)
+                . '<input type="hidden" name="payment_id" value="' . esc_attr((string) $row->id) . '">'
+                . '<button type="submit" class="tmc-button" name="supplier_action" value="reconcile">'
+                . esc_html__('بررسی و تطبیق همین پرداخت', 'tecteb-marketplace-core') . '</button>'
+                . '<label class="tmc-field__label" for="void-' . esc_attr((string) $row->id) . '">'
+                . esc_html__('دلیل ابطال', 'tecteb-marketplace-core') . '</label>'
+                . '<textarea class="tmc-input" id="void-' . esc_attr((string) $row->id) . '"'
+                . ' name="void_reason" rows="2"></textarea>'
+                . '<button type="submit" class="tmc-button" name="supplier_action" value="void">'
+                . esc_html__('ابطال ثبت', 'tecteb-marketplace-core') . '</button>'
+                . '<span class="tmc-hint">'
+                . esc_html__('ابطال، سابقه را حذف نمی‌کند و به‌معنای بازگشت واقعی پول نیست؛ اگر این پرداخت در دفترکل ثبت شده باشد، سند معکوس در همان لحظه نوشته می‌شود.', 'tecteb-marketplace-core')
+                . '</span>'
+                . '</form></td></tr>';
         }
         echo '</tbody></table></section>';
+    }
+
+    /** @return list<int> the positive integers in a comma-separated field */
+    private static function idList(string $typed): array
+    {
+        $ids = [];
+        foreach (preg_split('/[^0-9]+/', $typed) ?: [] as $piece) {
+            if ($piece !== '') {
+                $ids[] = (int) $piece;
+            }
+        }
+        return $ids;
+    }
+
+    /**
+     * «مبلغ توافق‌شده» — the number people agreed, and its history.
+     *
+     * Its own section and above the unposted list on purpose: it is the thing
+     * that has to exist before a partial payment means anything, and a
+     * manager who records payments without ever coming here gets exactly the
+     * `alpha.61` behaviour, which is documented rather than broken.
+     */
+    private function agreedAmounts(): void
+    {
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('مبلغ توافق‌شدهٔ خرید', 'tecteb-marketplace-core') . '</h2>'
+            . '<p class="tmc-hint">' . esc_html__('این مبلغ همان سهم محاسبه‌شدهٔ کمیسیون نیست و از آن ساخته نمی‌شود؛ عددی است که با تأمین‌کننده توافق شده. تا وقتی ثبت نشود، مانده‌ای برای محاسبهٔ پرداخت جزئی وجود ندارد. هر تغییر با دلیل در سابقهٔ همان قلم می‌مانَد و هیچ پرداخت یا سفارش ثبت‌شده‌ای بازنویسی نمی‌شود.', 'tecteb-marketplace-core') . '</p>'
+            . '<form method="post">'
+            . wp_nonce_field(self::NONCE, 'tmc_supplier_nonce', true, false)
+            . '<input type="hidden" name="supplier_action" value="agree">'
+            . $this->field('obligation_item', __('شناسهٔ قلم سفارش', 'tecteb-marketplace-core'), '', 'numeric')
+            . $this->field('agreed_amount', __('مبلغ توافق‌شده', 'tecteb-marketplace-core'), __('خالی بگذارید تا «توافقی ثبت نشده» شود. صفر یک توافق واقعی است و با خالی یکی نیست.', 'tecteb-marketplace-core'), 'decimal')
+            . '<div class="tmc-field"><label class="tmc-field__label" for="supplier-agreed_reason">'
+            . esc_html__('دلیل (برای سابقه)', 'tecteb-marketplace-core') . '</label>'
+            . '<textarea class="tmc-input" id="supplier-agreed_reason" name="agreed_reason" rows="2"></textarea></div>'
+            . '<p><button type="submit" class="tmc-button">'
+            . esc_html__('ثبت مبلغ توافق‌شده', 'tecteb-marketplace-core') . '</button></p>'
+            . '</form></section>';
+    }
+
+    /**
+     * «طلب از تأمین‌کننده» — the three events of §2, each with its own form.
+     *
+     * One form records the debt; two record what happened to it. There is no
+     * button that moves money and no button that subtracts anything from a
+     * future payment: «انتقال بانکی و کسر خودکار انجام نشود». An offset is a
+     * RECORD that the manager intends to set an amount against what Tecteb
+     * owes next, and the payment id on it is a reference.
+     *
+     * @param callable(string|int):string $fa
+     */
+    private function receivables(callable $fa): void
+    {
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('طلب از تأمین‌کننده پس از مرجوعی', 'tecteb-marketplace-core') . '</h2>'
+            . '<p class="tmc-hint">' . esc_html__('اگر کالایی پس از پرداخت به تأمین‌کننده مرجوع شود، مبلغ مربوط به همان قلم و همان تعداد اینجا به‌عنوان «طلب» ثبت می‌شود. ثبت طلب، وصول واقعی و تهاتر سه رویداد جدا هستند و یک مبلغ دو بار وصول یا کسر نمی‌شود. هیچ انتقال بانکی و هیچ کسر خودکاری از اینجا انجام نمی‌شود.', 'tecteb-marketplace-core') . '</p>'
+            . '<form method="post">'
+            . wp_nonce_field(self::NONCE, 'tmc_supplier_nonce', true, false)
+            . '<input type="hidden" name="supplier_action" value="receivable">'
+            . $this->field('receivable_item', __('شناسهٔ قلم سفارش', 'tecteb-marketplace-core'), __('قلمی که پرداختش ثبت شده است.', 'tecteb-marketplace-core'), 'numeric')
+            . $this->field('receivable_amount', __('مبلغ طلب', 'tecteb-marketplace-core'), __('بیشتر از مبلغ پرداخت‌شدهٔ همان قلم پذیرفته نمی‌شود.', 'tecteb-marketplace-core'), 'decimal')
+            . $this->field('receivable_quantity', __('تعداد مرجوعی', 'tecteb-marketplace-core'), '', 'numeric')
+            . $this->field('receivable_return', __('شناسهٔ مرجوعی (اختیاری)', 'tecteb-marketplace-core'), '', 'numeric')
+            . '<div class="tmc-field"><label class="tmc-field__label" for="supplier-receivable_reason">'
+            . esc_html__('دلیل', 'tecteb-marketplace-core') . '</label>'
+            . '<textarea class="tmc-input" id="supplier-receivable_reason" name="receivable_reason" rows="2"></textarea></div>'
+            . '<p><button type="submit" class="tmc-button">'
+            . esc_html__('ثبت طلب', 'tecteb-marketplace-core') . '</button></p>'
+            . '</form>';
+
+        $open = $this->container->get(ManageSupplierReceivables::class)->allOpen(100);
+        if ($open === []) {
+            echo '<p>' . esc_html__('طلب بازی ثبت نشده است.', 'tecteb-marketplace-core') . '</p></section>';
+            return;
+        }
+        echo '<h3>' . esc_html__('طلب‌های باز', 'tecteb-marketplace-core') . '</h3>';
+        foreach ($open as $receivable) {
+            echo '<div class="tmc-field"><p>' . esc_html(sprintf(
+                /* translators: 1: receivable id, 2: order item, 3: owed, 4: remaining */
+                __('طلب #%1$s — قلم %2$s — مبلغ %3$s — ماندهٔ %4$s', 'tecteb-marketplace-core'),
+                $fa($receivable->id),
+                $fa($receivable->orderItemId),
+                $fa((string) DecimalAmount::toDecimal($receivable->amount->minor, $receivable->amount->exponent)),
+                $fa((string) DecimalAmount::toDecimal($receivable->balanceMinor(), $receivable->amount->exponent))
+            )) . '</p>'
+                . '<form method="post">'
+                . wp_nonce_field(self::NONCE, 'tmc_supplier_nonce', true, false)
+                . '<input type="hidden" name="receivable_id" value="' . esc_attr((string) $receivable->id) . '">'
+                . '<input type="hidden" name="form_token" value="' . esc_attr(wp_generate_uuid4()) . '">'
+                . '<label for="settle-' . esc_attr((string) $receivable->id) . '">'
+                . esc_html__('مبلغ', 'tecteb-marketplace-core') . '</label> '
+                . '<input class="tmc-input" type="text" dir="ltr" inputmode="decimal"'
+                . ' id="settle-' . esc_attr((string) $receivable->id) . '" name="settle_amount"> '
+                . '<label for="settle-ref-' . esc_attr((string) $receivable->id) . '">'
+                . esc_html__('شمارهٔ پیگیری وصول', 'tecteb-marketplace-core') . '</label> '
+                . '<input class="tmc-input" type="text" dir="ltr"'
+                . ' id="settle-ref-' . esc_attr((string) $receivable->id) . '" name="settle_reference"> '
+                . '<button type="submit" class="tmc-button" name="supplier_action" value="collect">'
+                . esc_html__('ثبت وصول واقعی', 'tecteb-marketplace-core') . '</button> '
+                . '<button type="submit" class="tmc-button" name="supplier_action" value="offset">'
+                . esc_html__('ثبت تهاتر با پرداخت بعدی', 'tecteb-marketplace-core') . '</button>'
+                . '</form></div>';
+        }
+        echo '</section>';
     }
 
     private function field(string $name, string $label, string $hint = '', string $mode = ''): string
@@ -168,22 +303,70 @@ final class SupplierPaymentsPage
         if (!$request->nonceOk('tmc_supplier_nonce', self::NONCE)) {
             return 'err:' . __('درخواست معتبر نبود. صفحه را تازه کنید و دوباره تلاش کنید.', 'tecteb-marketplace-core');
         }
-        $ids = [];
-        foreach (preg_split('/[^0-9]+/', $request->postText('order_items')) ?: [] as $piece) {
-            if ($piece !== '') {
-                $ids[] = (int) $piece;
-            }
+        // SIX ACTIONS, ONE NONCE, AND A `match` RATHER THAN A CHAIN OF `if`s.
+        //
+        // The `default` is a refusal: a verb this page does not know is not
+        // silently ignored, which is the trap `alpha.23` paid for when a word
+        // that was in `handle()` and not in `ACTIONS` sent a user to an
+        // unrelated page. Every branch returns the service's own code through
+        // `SupplierPaymentMessages`, so the sentence and the decision cannot
+        // drift apart.
+        $payments = $this->container->get(RecordSupplierPayment::class);
+        $obligations = $this->container->get(ManageSupplierObligations::class);
+        $receivables = $this->container->get(ManageSupplierReceivables::class);
+        $action = $request->postText('supplier_action');
+
+        $result = match ($action) {
+            'record' => $payments->record(
+                (int) $request->postText('supplier_id'),
+                self::idList($request->postText('order_items')),
+                $request->postText('amount'),
+                $request->postText('paid_on'),
+                $request->postText('reference'),
+                $request->postTextarea('note'),
+                '',
+                $request->postText('form_token')
+            ),
+            // «ابطال ثبت» — the reason travels with it and the service
+            // refuses without one.
+            'void' => $payments->void(
+                $request->postInt('payment_id'),
+                $request->postTextarea('void_reason')
+            ),
+            // «بررسی و تطبیق همان پرداخت» — no payment id is created here and
+            // none can be: the service takes an existing one.
+            'reconcile' => $payments->reconcile($request->postInt('payment_id')),
+            'agree' => $obligations->agree(
+                $request->postInt('obligation_item'),
+                $request->postText('agreed_amount'),
+                $request->postTextarea('agreed_reason')
+            ),
+            'receivable' => $receivables->record(
+                $request->postInt('receivable_item'),
+                $request->postText('receivable_amount'),
+                $request->postInt('receivable_return'),
+                $request->postInt('receivable_quantity'),
+                $request->postTextarea('receivable_reason')
+            ),
+            'collect' => $receivables->collect(
+                $request->postInt('receivable_id'),
+                $request->postText('settle_amount'),
+                $request->postText('settle_reference'),
+                $request->postTextarea('settle_note'),
+                $request->postText('form_token')
+            ),
+            'offset' => $receivables->offset(
+                $request->postInt('receivable_id'),
+                $request->postText('settle_amount'),
+                $request->postInt('settle_payment'),
+                $request->postTextarea('settle_note'),
+                $request->postText('form_token')
+            ),
+            default => null,
+        };
+        if ($result === null) {
+            return 'err:' . __('این درخواست شناخته نشد.', 'tecteb-marketplace-core');
         }
-        $result = $this->container->get(RecordSupplierPayment::class)->record(
-            (int) $request->postText('supplier_id'),
-            $ids,
-            $request->postText('amount'),
-            $request->postText('paid_on'),
-            $request->postText('reference'),
-            $request->postTextarea('note'),
-            '',
-            $request->postText('form_token')
-        );
         return ($result->ok ? 'ok:' : 'err:')
             . (SupplierPaymentMessages::notice($result->code, $result->context) ?? $result->code);
     }

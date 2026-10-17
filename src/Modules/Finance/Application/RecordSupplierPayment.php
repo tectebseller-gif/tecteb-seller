@@ -16,6 +16,7 @@ use Tecteb\Marketplace\Modules\Finance\Domain\Money;
 use Tecteb\Marketplace\Modules\Finance\Domain\SupplierPayment;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0029SupplierPayments as T;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0030SupplierPaymentShareUnknown as U;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0031SupplierObligations as V;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 
 /**
@@ -99,6 +100,56 @@ final class RecordSupplierPayment
     public const NOT_ATOMIC = 'supplier_payment_not_atomic';
     public const STORAGE_FAILED = 'storage_failed';
 
+    /**
+     * Recorded, and the agreed amount is not covered yet.
+     *
+     * «پرداخت کمتر از تعهد، پرداخت جزئی با باقی‌ماندهٔ مانده است، نه تسویهٔ
+     * کامل» — so this is a SUCCESS with a balance, and not one of the three
+     * «waiting on a person» states. The remaining balance travels in the
+     * result so the screen can say it.
+     */
+    public const RECORDED_PARTIAL = 'supplier_payment_recorded_partial';
+    /**
+     * Recorded, and there is an obligation with no agreed amount on it.
+     *
+     * The manager said this item has an agreed purchase price and has not yet
+     * written the number down. Different from `RECORDED_SHARE_UNKNOWN`, which
+     * is about the COMPUTED share, and different again from no obligation at
+     * all — which is the ordinary case and behaves exactly as it did before.
+     */
+    public const RECORDED_AGREED_UNKNOWN = 'supplier_payment_recorded_agreed_unknown';
+
+    /** More than the balance. Refused by name, never turned into a credit. */
+    public const ABOVE_BALANCE = 'supplier_payment_above_balance';
+    /** The obligation is already covered in full. */
+    public const OBLIGATION_SETTLED = 'supplier_obligation_settled';
+    /**
+     * Several items, and at least one of them has an agreed amount.
+     *
+     * How one payment should be split across several agreed amounts is not
+     * something this build will guess: an automatic split would be a decision
+     * nobody made, about money. One payment per item, and the refusal says so.
+     * Asked as an open question with a worked example in
+     * `docs/open-decisions-alpha62.md`.
+     */
+    public const ALLOCATION_AMBIGUOUS = 'supplier_payment_allocation_ambiguous';
+
+    /** The void needs a reason, an actor and a time — all three. */
+    public const VOID_REASON_REQUIRED = 'supplier_void_reason_required';
+    public const VOIDED = 'supplier_payment_voided';
+    /** Already void. Nothing written, and no second financial effect. */
+    public const ALREADY_VOID = 'supplier_payment_already_void';
+    public const NOT_FOUND = 'supplier_payment_not_found';
+    /** A voided record is not reviewed; it is replaced by a correct one. */
+    public const IS_VOID = 'supplier_payment_is_void';
+    /** Reviewed already — the figures of the first review stand. */
+    public const ALREADY_RECONCILED = 'supplier_payment_already_reconciled';
+    /** There is nothing waiting on a person about this payment. */
+    public const NOTHING_TO_RECONCILE = 'supplier_payment_nothing_to_reconcile';
+    /** Reviewed, and at least one share is STILL not on record. */
+    public const STILL_UNKNOWN = 'supplier_payment_still_unknown';
+    public const RECONCILED = 'supplier_payment_reconciled';
+
     public function __construct(
         private readonly SupplierPaymentRepositoryInterface $payments,
         private readonly OrderItemRepositoryInterface $items,
@@ -117,7 +168,19 @@ final class RecordSupplierPayment
          * this one — measured in `alpha.56`, where a rolled-back intake left
          * its row behind.
          */
-        private readonly ?TransactionInterface $tx = null
+        private readonly ?TransactionInterface $tx = null,
+        /**
+         * The agreed amounts, and the allocations against them.
+         *
+         * Optional, and the reason is the `alpha.32` trap rather than a
+         * preference: the evidence probes of earlier rounds build this
+         * service by reflection and a required argument would stop them
+         * loading. A build without it behaves exactly as `alpha.61` did —
+         * every payment is weighed against the computed share — which is a
+         * documented older behaviour and not a wrong new one. The real
+         * container always provides it.
+         */
+        private readonly ?SupplierObligationRepositoryInterface $obligations = null
     ) {
     }
 
@@ -203,6 +266,44 @@ final class RecordSupplierPayment
             $claims[(int) $line['id']] = $line;
         }
 
+        // THE AGREED AMOUNT, WHICH IS NOT THE COMPUTED SHARE.
+        //
+        // «فرض نکن قیمت خرید نقدی با سهم محاسبه‌شده برابر است» — so when an
+        // obligation has been recorded, IT is what the payment is measured
+        // against, and the share comparison below is not consulted at all.
+        // When none has been recorded the behaviour is unchanged from
+        // `alpha.61`, which matters: there are no obligation rows on any
+        // existing site, and a build that suddenly measured every payment
+        // against a number nobody had entered would stop recording payments
+        // that are being recorded today.
+        $obligation = null;
+        /** @var array<int,\Tecteb\Marketplace\Modules\Finance\Domain\SupplierObligation> $obligations */
+        $obligations = [];
+        $agreedElsewhere = 0;
+        if ($this->obligations !== null) {
+            foreach ($ids as $itemId) {
+                $row = $this->obligations->forOrderItem($itemId);
+                if ($row === null) {
+                    continue;
+                }
+                $obligations[$itemId] = $row;
+                if ($row->isAgreed()) {
+                    $agreedElsewhere++;
+                }
+                if (count($ids) === 1) {
+                    $obligation = $row;
+                }
+            }
+            if ($agreedElsewhere > 0 && count($ids) > 1) {
+                // No automatic split, about money. One payment per item.
+                return OperationResult::failure(self::ALLOCATION_AMBIGUOUS, [
+                    'items' => count($ids),
+                    'agreed_items' => $agreedElsewhere,
+                ]);
+            }
+        }
+
+
         $shareMinor = 0;
         /** @var array<int,?int> $shares */
         $shares = [];
@@ -220,7 +321,38 @@ final class RecordSupplierPayment
                 ]);
             }
             $already = $this->payments->forOrderItem($itemId);
-            if ($already !== null) {
+            // A SECOND PAYMENT IS ORDINARY WHEN A BALANCE REMAINS.
+            //
+            // Until `alpha.61` one payment settled an item outright, so an
+            // item with a live claim was simply refused. §3 changed what a
+            // payment means, not what a claim means: the claim still says
+            // «this item is being settled by hand rather than through the
+            // vendor's own cycle», and a further payment against a balance
+            // the manager recorded is the thing the owner asked for.
+            //
+            // Narrow on purpose. A balance has to EXIST — an agreed amount,
+            // with something still owed on it — for this to open at all;
+            // without one the old refusal is unchanged, which is what every
+            // existing site gets.
+            $obligationHere = $obligations[$itemId] ?? null;
+            $hasBalance = $obligationHere !== null
+                && $obligationHere->isAgreed()
+                && ($obligationHere->balanceMinor() ?? 0) > 0;
+            // AND WHEN THE OBLIGATION IS COVERED, SAY THAT RATHER THAN
+            // «ALREADY PAID». Both are refusals and the difference is the
+            // sentence a person reads: «این قلم قبلاً پرداخت شده» sends them
+            // looking for one payment, and «مبلغ توافق‌شده کامل پرداخت شده»
+            // tells them the agreed amount is covered — which it might be by
+            // three payments. Measured on the disposable site in the
+            // two-process race, where the first answer was the vaguer one.
+            if ($obligationHere !== null && $obligationHere->isAgreed() && !$hasBalance) {
+                return OperationResult::failure(self::OBLIGATION_SETTLED, [
+                    'order_item_id' => $itemId,
+                    'agreed_minor' => $obligationHere->agreed?->minor ?? 0,
+                    'paid_minor' => $obligationHere->paidMinor,
+                ]);
+            }
+            if ($already !== null && !$hasBalance) {
                 return OperationResult::failure(self::ITEM_ALREADY_PAID, [
                     'order_item_id' => $itemId,
                     'payment_id' => $already->id,
@@ -267,7 +399,61 @@ final class RecordSupplierPayment
         // a true statement about those items and not a total; `posting` is
         // what says whether it may be read as one.
         $share = Money::of($shareMinor, $currency, $exponent);
+
+        $balanceBefore = null;
+        if ($obligation !== null && $obligation->isAgreed()) {
+            $balanceBefore = (int) $obligation->balanceMinor();
+            if ($obligation->currency !== $currency || $obligation->exponent !== $exponent) {
+                // Two units for one obligation is the `alpha.40` refusal in a
+                // new place: never averaged, never converted.
+                return OperationResult::failure(self::UNIT_UNKNOWN, [
+                    'supplier_id' => $supplierUserId,
+                    'obligation_currency' => $obligation->currency,
+                ]);
+            }
+            if ($balanceBefore <= 0) {
+                return OperationResult::failure(self::OBLIGATION_SETTLED, [
+                    'order_item_id' => $obligation->orderItemId,
+                    'agreed_minor' => $obligation->agreed?->minor ?? 0,
+                    'paid_minor' => $obligation->paidMinor,
+                ]);
+            }
+            if ($minor > $balanceBefore) {
+                // «پرداخت بیش از مانده نباید خودکار بدهکاری یا پیش‌پرداخت
+                // شود؛ تا تعیین‌نشدن، با پیام مشخص رد شود.»
+                return OperationResult::failure(self::ABOVE_BALANCE, [
+                    'order_item_id' => $obligation->orderItemId,
+                    'amount_minor' => $minor,
+                    'balance_minor' => $balanceBefore,
+                    'agreed_minor' => $obligation->agreed?->minor ?? 0,
+                    'paid_minor' => $obligation->paidMinor,
+                ]);
+            }
+        }
+
+        // TWO QUESTIONS, NOT ONE — and conflating them would undo `alpha.61`.
+        //
+        //   «is the obligation covered?»  → the agreed amount decides
+        //   «may a payout line be written?» → the computed share decides
+        //
+        // The second is the open question the owner has NOT answered
+        // («معنای اختلاف مبلغ و سهم»), and it is still open with an agreed
+        // amount in the picture: a payout line asserts «this settles what
+        // they had earned», and a purchase price that equals the agreed price
+        // but differs from the earned share does not say that. So covering
+        // the obligation in full ends the PARTIAL state and nothing more; the
+        // money line still waits on the share agreeing, exactly as before.
+        $covered = $balanceBefore !== null && $minor === $balanceBefore;
+        $postable = $unknown === [] && $paid->minor === $share->minor;
         $posting = match (true) {
+            $balanceBefore !== null && !$covered => V::POSTING_PARTIAL,
+            $covered && $postable => T::POSTING_POSTED,
+            $covered && $unknown !== [] => U::POSTING_SHARE_UNKNOWN,
+            $covered => T::POSTING_NEEDS_DEFINITION,
+            // An obligation with NO amount: the manager said there is an
+            // agreed price and has not written it. «نامعلوم» again, about a
+            // different number, and kept apart from the one below.
+            $obligation !== null => V::POSTING_AGREED_UNKNOWN,
             // The comparison could not be made at all. Not a difference — an
             // absence — and never posted, whatever the arithmetic says.
             $unknown !== [] => U::POSTING_SHARE_UNKNOWN,
@@ -305,7 +491,15 @@ final class RecordSupplierPayment
             $posting === T::POSTING_POSTED ? T::POSTING_NEEDS_DEFINITION : $posting,
             ''
         );
-        $written = $this->payments->record($record, $shares);
+        // The one item whose CLAIM row may already exist, because an earlier
+        // payment of this supplier's made it. Named rather than inferred: the
+        // repository keeps the old refusal for every item the caller did not
+        // name, so the unique key still protects everything it protected
+        // before (see the parameter's docblock).
+        $partialItems = $obligation !== null && $obligation->paidMinor > 0
+            ? [$obligation->orderItemId]
+            : [];
+        $written = $this->payments->record($record, $shares, $partialItems);
         if ($written['outcome'] !== SupplierPaymentRepositoryInterface::RECORDED) {
             $this->tx->rollback();
             return match ($written['outcome']) {
@@ -330,6 +524,52 @@ final class RecordSupplierPayment
             };
         }
         $paymentId = (int) $written['payment_id'];
+
+        // THE MONEY AGAINST THE OBLIGATION, in the same unit of work.
+        //
+        // The guard is inside `allocate()`'s own statement — the obligation
+        // row is locked and `paid_so_far + amount <= agreed` is evaluated by
+        // the database — so this call is not a second check of what was
+        // checked above: it is the check. The one above exists to give the
+        // manager a sentence with numbers in it; this one is what two
+        // concurrent records both have to pass.
+        $balanceAfter = null;
+        if ($obligation !== null && $obligation->isAgreed() && $this->obligations !== null) {
+            $allocated = $this->obligations->allocate(
+                $paymentId,
+                $obligation->id,
+                $obligation->orderItemId,
+                $supplierUserId,
+                $minor,
+                $currency,
+                $exponent
+            );
+            if ($allocated['outcome'] !== SupplierObligationRepositoryInterface::ALLOCATED) {
+                $this->tx->rollback();
+                return $allocated['outcome'] === SupplierObligationRepositoryInterface::ABOVE_BALANCE
+                    ? OperationResult::failure(self::ABOVE_BALANCE, [
+                        'order_item_id' => $obligation->orderItemId,
+                        'amount_minor' => $minor,
+                        'balance_minor' => (int) ($allocated['balance_minor'] ?? 0),
+                        'agreed_minor' => $obligation->agreed?->minor ?? 0,
+                        'paid_minor' => $obligation->paidMinor,
+                    ])
+                    : OperationResult::failure(self::STORAGE_FAILED, ['payment_id' => $paymentId]);
+            }
+            $balanceAfter = (int) ($allocated['balance_minor'] ?? 0);
+            if ($balanceAfter !== 0 && $covered) {
+                // The balance moved between the read and the write — another
+                // record of a partial payment landed first, so this one no
+                // longer covers the obligation and must not be recorded as
+                // though it did.
+                $this->tx->rollback();
+                return OperationResult::failure(self::ABOVE_BALANCE, [
+                    'order_item_id' => $obligation->orderItemId,
+                    'amount_minor' => $minor,
+                    'balance_minor' => $balanceAfter,
+                ]);
+            }
+        }
 
         $event = '';
         if ($posting === T::POSTING_POSTED) {
@@ -356,12 +596,16 @@ final class RecordSupplierPayment
             'posting' => $posting,
             'unknown_share_items' => count($unknown),
             'has_receipt' => $receiptPath !== '' ? 1 : 0,
+            'obligation_id' => $obligation?->id ?? 0,
+            'balance_minor' => $balanceAfter,
         ]);
 
         return OperationResult::success(
             match ($posting) {
                 T::POSTING_POSTED => self::RECORDED,
                 U::POSTING_SHARE_UNKNOWN => self::RECORDED_SHARE_UNKNOWN,
+                V::POSTING_PARTIAL => self::RECORDED_PARTIAL,
+                V::POSTING_AGREED_UNKNOWN => self::RECORDED_AGREED_UNKNOWN,
                 default => self::RECORDED_UNPOSTED,
             },
             [
@@ -369,12 +613,294 @@ final class RecordSupplierPayment
                 'amount_minor' => $paid->minor,
                 'share_minor' => $share->minor,
                 'ledger_event' => $event,
+                'obligation_id' => $obligation?->id ?? 0,
+                'agreed_minor' => $obligation?->agreed?->minor,
+                'balance_minor' => $balanceAfter,
                 // The items whose share was not on record, BY NUMBER, because
                 // «۱۲ قلم، یکی‌شان نامعلوم» is not something a person can act
                 // on. Stored too, as `NULL` on each item's own row.
                 'unknown_share_items' => $unknown,
             ]
         );
+    }
+
+    /**
+     * VOIDING A RECORD THAT WAS WRONG — and nothing else.
+     *
+     * The owner's §5, point by point, and each point is a line of code below
+     * rather than a sentence in a document:
+     *
+     *  - **a reason, the actor, the time and a reference to the original.**
+     *    The reason is mandatory and the other three are the row's own; the
+     *    reference is the payment itself, because a void is a state OF that
+     *    document rather than a second document pointing at it.
+     *  - **history is never deleted.** Nothing is removed — not the payment,
+     *    not its claim rows, not its allocations. What changes is
+     *    `voided_at`, and every reader that decides something asks it.
+     *  - **a compensating entry, in the same unit of work.** When the payment
+     *    had a money line, a label change would leave the ledger saying money
+     *    left the marketplace. So the reverse entry is written here, inside
+     *    the transaction, and a failure to write it takes the void with it.
+     *  - **a void is not a refund.** Nothing here moves money and there is no
+     *    method that could: «ابطال سند به‌معنای بازگشت واقعی پول نیست» و
+     *    «بازپرداخت واقعی تأمین‌کننده از اصلاح ثبت اشتباه جدا است» — the
+     *    second is `ManageSupplierReceivables`, which is a different class
+     *    with a different table.
+     *  - **a repeated request makes no second financial effect.** The guard
+     *    is `voided_at IS NULL` inside the `UPDATE`, so the second request
+     *    changes no row and is told so; and the ledger's own event key would
+     *    refuse the entry as well. Two independent refusals, deliberately.
+     *  - **items are freed only on full success.** The claim rows lose their
+     *    live key in the same transaction, so a rollback leaves the line held.
+     */
+    public function void(int $paymentId, string $reason): OperationResult
+    {
+        if (!$this->capabilities->can(self::CAPABILITY)) {
+            return OperationResult::failure(self::FORBIDDEN);
+        }
+        if (trim($reason) === '') {
+            return OperationResult::failure(self::VOID_REASON_REQUIRED, ['payment_id' => $paymentId]);
+        }
+        $payment = $this->payments->find($paymentId);
+        if ($payment === null) {
+            return OperationResult::failure(self::NOT_FOUND, ['payment_id' => $paymentId]);
+        }
+        if ($payment->isVoid()) {
+            // Idempotent, and said as a fact rather than as an error: the
+            // first void stands with its own reason, actor and time.
+            return OperationResult::failure(self::ALREADY_VOID, [
+                'payment_id' => $paymentId,
+                'voided_at' => (string) $payment->voidedAt,
+                'void_reason' => $payment->voidReason,
+            ]);
+        }
+        if ($this->tx === null) {
+            return OperationResult::failure(self::NOT_ATOMIC, ['payment_id' => $paymentId]);
+        }
+        if (!$this->tx->begin()) {
+            return OperationResult::failure(self::STORAGE_FAILED, ['payment_id' => $paymentId]);
+        }
+
+        $compensating = $payment->ledgerEvent !== '' ? self::voidEventKey($paymentId) : '';
+        $voided = $this->payments->void(
+            $paymentId,
+            $reason,
+            (int) $this->capabilities->currentUserId(),
+            $compensating,
+            $this->clock->now()->format('Y-m-d H:i:s')
+        );
+        if ($voided['outcome'] !== SupplierPaymentRepositoryInterface::VOIDED) {
+            $this->tx->rollback();
+            return match ($voided['outcome']) {
+                SupplierPaymentRepositoryInterface::ALREADY_VOID => OperationResult::failure(
+                    self::ALREADY_VOID,
+                    ['payment_id' => $paymentId]
+                ),
+                SupplierPaymentRepositoryInterface::NOT_FOUND => OperationResult::failure(
+                    self::NOT_FOUND,
+                    ['payment_id' => $paymentId]
+                ),
+                SupplierPaymentRepositoryInterface::REASON_REQUIRED => OperationResult::failure(
+                    self::VOID_REASON_REQUIRED,
+                    ['payment_id' => $paymentId]
+                ),
+                default => OperationResult::failure(self::STORAGE_FAILED, ['payment_id' => $paymentId]),
+            };
+        }
+        if ($compensating !== '' && !$this->postReversal($payment, $compensating)) {
+            // «اصلاح آن با سند معکوس در همان واحد کار انجام شود» — so a
+            // reverse entry that cannot be written takes the void with it,
+            // rather than leaving a document labelled void beside a ledger
+            // that still says the money left.
+            $this->tx->rollback();
+            return OperationResult::failure(self::STORAGE_FAILED, ['payment_id' => $paymentId]);
+        }
+        if (!$this->tx->commit()) {
+            $this->tx->rollback();
+            return OperationResult::failure(self::STORAGE_FAILED, ['payment_id' => $paymentId]);
+        }
+
+        $this->audit->log(AuditEventCatalog::SUPPLIER_PAYMENT_VOIDED, 0, 'supplier_payment', (string) $paymentId, [
+            'supplier_id' => $payment->supplierUserId,
+            'payment_id' => $paymentId,
+            'amount_minor' => $payment->amount->minor,
+            'has_reason' => 1,
+            'compensated' => $compensating !== '' ? 1 : 0,
+        ]);
+        return OperationResult::success(self::VOIDED, [
+            'payment_id' => $paymentId,
+            'amount_minor' => $payment->amount->minor,
+            'compensating_event' => $compensating,
+            'items_released' => count($payment->orderItemIds),
+        ]);
+    }
+
+    /**
+     * REVIEWING THE SAME PAYMENT ONCE ITS FIGURES ARE KNOWABLE — §6.
+     *
+     * «پس از تکمیل اطلاعات، مسیر بررسی و تطبیق همان پرداخت وجود داشته باشد؛
+     * پرداخت تازه ساخته نشود و snapshot اولیهٔ پرداخت پاک نشود.» All three
+     * are structural here rather than remembered:
+     *
+     *  - the same payment, because this method takes an id and has no way to
+     *    create one — there is no call to `record()` anywhere in it;
+     *  - no second payment, for the same reason;
+     *  - the initial snapshot intact, because `share_minor` is not in the
+     *    `SET` list of `markReconciled()`. What the review established goes
+     *    into `share_minor_final` beside it.
+     *
+     * Idempotent on `reconciled_at IS NULL`, and auditable through its own
+     * event. An item whose share is STILL not recorded is a named answer and
+     * not a silent no-op: «نامعلوم با صفرِ معتبر یکی نیست» — a share of zero
+     * that was actually recorded reconciles, and a missing one does not.
+     */
+    public function reconcile(int $paymentId): OperationResult
+    {
+        if (!$this->capabilities->can(self::CAPABILITY)) {
+            return OperationResult::failure(self::FORBIDDEN);
+        }
+        $payment = $this->payments->find($paymentId);
+        if ($payment === null) {
+            return OperationResult::failure(self::NOT_FOUND, ['payment_id' => $paymentId]);
+        }
+        if ($payment->isVoid()) {
+            return OperationResult::failure(self::IS_VOID, ['payment_id' => $paymentId]);
+        }
+        if ($payment->isReconciled()) {
+            return OperationResult::failure(self::ALREADY_RECONCILED, [
+                'payment_id' => $paymentId,
+                'reconciled_at' => (string) $payment->reconciledAt,
+                'share_minor_final' => $payment->shareMinorFinal,
+            ]);
+        }
+        if (!in_array($payment->posting, [
+            U::POSTING_SHARE_UNKNOWN,
+            V::POSTING_AGREED_UNKNOWN,
+            T::POSTING_NEEDS_DEFINITION,
+        ], true)) {
+            return OperationResult::failure(self::NOTHING_TO_RECONCILE, [
+                'payment_id' => $paymentId,
+                'posting' => $payment->posting,
+            ]);
+        }
+        if ($this->tx === null) {
+            return OperationResult::failure(self::NOT_ATOMIC, ['payment_id' => $paymentId]);
+        }
+
+        // THE SHARES AS THEY ARE NOW, read item by item and never summed over
+        // an absence. `isRecorded()` is the bar — a share AND the ledger event
+        // it was written under — which is the same bar `record()` used, so the
+        // two cannot disagree about what «known» means.
+        $shareMinor = 0;
+        $stillUnknown = [];
+        foreach ($payment->orderItemIds as $itemId) {
+            $item = $this->items->find((int) $itemId);
+            if ($item === null || !$item->isRecorded()) {
+                $stillUnknown[] = (int) $itemId;
+                continue;
+            }
+            $shareMinor += (int) $item->vendorShareMinor;
+        }
+        if ($stillUnknown !== []) {
+            return OperationResult::failure(self::STILL_UNKNOWN, [
+                'payment_id' => $paymentId,
+                'unknown_share_items' => $stillUnknown,
+            ]);
+        }
+
+        $postable = $shareMinor === $payment->amount->minor;
+        $posting = $postable ? T::POSTING_POSTED : T::POSTING_NEEDS_DEFINITION;
+
+        if (!$this->tx->begin()) {
+            return OperationResult::failure(self::STORAGE_FAILED, ['payment_id' => $paymentId]);
+        }
+        $event = '';
+        if ($postable && $payment->ledgerEvent === '') {
+            $event = self::eventKey($paymentId);
+            if (!$this->postPayout($payment->supplierUserId, $event, $paymentId, $payment->amount)) {
+                $this->tx->rollback();
+                return OperationResult::failure(self::STORAGE_FAILED, ['payment_id' => $paymentId]);
+            }
+        }
+        if (!$this->payments->markReconciled(
+            $paymentId,
+            $shareMinor,
+            $posting,
+            $event,
+            (int) $this->capabilities->currentUserId(),
+            $this->clock->now()->format('Y-m-d H:i:s')
+        )) {
+            // A row that says «posted» with no entry behind it, or an entry
+            // with no row, is the pair FIN-03 exists to prevent.
+            $this->tx->rollback();
+            return OperationResult::failure(self::STORAGE_FAILED, ['payment_id' => $paymentId]);
+        }
+        if (!$this->tx->commit()) {
+            $this->tx->rollback();
+            return OperationResult::failure(self::STORAGE_FAILED, ['payment_id' => $paymentId]);
+        }
+
+        $this->audit->log(
+            AuditEventCatalog::SUPPLIER_PAYMENT_RECONCILED,
+            0,
+            'supplier_payment',
+            (string) $paymentId,
+            [
+                'supplier_id' => $payment->supplierUserId,
+                'payment_id' => $paymentId,
+                'share_minor' => $payment->share->minor,
+                'share_minor_final' => $shareMinor,
+                'posting' => $posting,
+            ]
+        );
+        return OperationResult::success(self::RECONCILED, [
+            'payment_id' => $paymentId,
+            // BOTH figures, because the whole point is that the first one is
+            // still there to be compared with.
+            'share_minor' => $payment->share->minor,
+            'share_minor_final' => $shareMinor,
+            'posting' => $posting,
+            'ledger_event' => $event,
+        ]);
+    }
+
+    /** One reserved event key per void, so a retry writes nothing twice. */
+    public static function voidEventKey(int $paymentId): string
+    {
+        return 'supplier-payment-void:' . $paymentId;
+    }
+
+    /**
+     * The exact reverse of `postPayout()`, under its own event key.
+     *
+     * A reversal and not a deletion: `tmc_ledger` is append-only by design
+     * (FIN-03), so «اصلاح» means a second, opposite entry. The accounts are
+     * the same two and the signs are swapped, so the pair sums to nought and
+     * the supplier's balance reads as though the payment had never been
+     * recorded — which is what a void of a MIS-RECORD means, and is why it
+     * says nothing about where the money physically is.
+     */
+    private function postReversal(SupplierPayment $payment, string $event): bool
+    {
+        $amount = $payment->amount;
+        $transaction = (new LedgerTransaction(
+            $event,
+            $payment->supplierUserId,
+            'supplier-payment-void',
+            (string) $payment->id
+        ))
+            ->snapshot([
+                'kind' => 'supplier_payment_void',
+                'payment_id' => $payment->id,
+                'reverses' => $payment->ledgerEvent,
+                'amount_minor' => $amount->minor,
+                'currency' => $amount->currency,
+                'exponent' => $amount->exponent,
+            ])
+            ->add(LedgerAccount::VendorEarning, $amount->negate(), 'supplier_payment_voided')
+            ->add(LedgerAccount::CentralPayment, $amount, 'supplier_payment_voided');
+
+        return $transaction->balances() && $this->ledger->record($transaction);
     }
 
     /**
