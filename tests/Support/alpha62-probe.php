@@ -272,11 +272,21 @@ if ($verb === 'pay') {
         $say('db_paid_minor', $obligation?->paidMinor ?? '__null__');
         $say('db_balance_minor', $obligation?->balanceMinor() ?? '__null__');
     }
-    // THE CLAIM ROW, which is the thing the owner told us not to drop: one
-    // per item, however many payments stand against it.
+    // THE CLAIM, which is the thing the owner told us not to drop. ⛔ From
+    // `alpha.63` the number to read is `live_claims`, not `claim_rows`: a
+    // second partial payment now writes its own row with a NULL live key, so
+    // that voiding the FIRST payment can hand the claim on instead of
+    // freeing an item the second one paid for. One LIVE claim per item is
+    // the invariant; the row count is however many payments stand against
+    // it. `alpha.62` wrote one row and that was the defect.
     $say('claim_rows', (int) ($db->getVar(
         'SELECT COUNT(*) FROM `' . M0029SupplierPayments::table($db, M0029SupplierPayments::PAYMENT_ITEMS)
         . '` WHERE order_item_id = %d',
+        [$line]
+    ) ?? 0));
+    $say('live_claims', (int) ($db->getVar(
+        'SELECT COUNT(*) FROM `' . M0029SupplierPayments::table($db, M0029SupplierPayments::PAYMENT_ITEMS)
+        . '` WHERE live_item_id = %d',
         [$line]
     ) ?? 0));
     return;

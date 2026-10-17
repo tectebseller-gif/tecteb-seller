@@ -165,6 +165,34 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
             // `IGNORE`-shaped ambiguity by removing nothing — the row is
             // simply reported as free and the allocation decides.
             if (isset($partial[$itemId]) && $this->claimedBySupplier($itemId, $payment->supplierUserId)) {
+                // AND THE COVERAGE IS STILL WRITTEN, with a NULL live key.
+                //
+                // `alpha.62` wrote nothing here, which left the second
+                // payment with no row on the item at all — so when the FIRST
+                // payment was voided and gave the live key up, nothing was
+                // left to say the item was still covered, and the withdrawal
+                // cycle could reserve and pay it a second time. The row is
+                // not a claim (one live key per item is the unique index);
+                // it is the record `void()` reads to find a survivor.
+                $covered = $this->db->execute(
+                    'INSERT INTO `' . $this->items() . '`
+                     (payment_id, order_item_id, live_item_id, supplier_user_id, share_minor, created_at)
+                     SELECT %d, oi.id, NULL, %d, ' . ($share === null ? 'NULL' : '%d') . ', %s
+                       FROM `' . $this->orderItems() . '` oi
+                      WHERE oi.id = %d
+                        AND oi.vendor_user_id = %d
+                        AND oi.withdrawal_id IS NULL',
+                    $share === null
+                        ? [$paymentId, $payment->supplierUserId, $now, $itemId, $payment->supplierUserId]
+                        : [$paymentId, $payment->supplierUserId, $share, $now, $itemId, $payment->supplierUserId]
+                );
+                if ($covered !== 1) {
+                    // Nought means the line moved between the two statements;
+                    // null means the write failed. Either way this payment
+                    // would be invisible to `void()`, which is the defect.
+                    $this->db->rollback();
+                    return $this->refusal(self::FAILED, 0, $itemId);
+                }
                 continue;
             }
             $this->db->rollback();
@@ -372,7 +400,36 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
             return ['outcome' => self::FAILED, 'payment_id' => $paymentId];
         }
         if ($moved > 0) {
-            // AND THE CLAIMS ARE RELEASED — in the caller's unit of work, so
+            // WHICH ITEMS THIS PAYMENT HELD, read BEFORE the release and with
+            // its own count, because `getResults()` gives one answer for «no
+            // rows» and «the read failed» (`alpha.54`) and here those are
+            // opposites: a failed read looks like «nothing to hand over».
+            $counted = $this->db->getVar(
+                'SELECT COUNT(*) FROM `' . $this->items() . '`
+                  WHERE payment_id = %d AND live_item_id IS NOT NULL',
+                [$paymentId]
+            );
+            if ($counted === null) {
+                return ['outcome' => self::FAILED, 'payment_id' => $paymentId];
+            }
+            $items = [];
+            if ((int) $counted > 0) {
+                $items = array_map(
+                    static fn (array $r): int => (int) $r['order_item_id'],
+                    $this->db->getResults(
+                        'SELECT order_item_id FROM `' . $this->items() . '`
+                          WHERE payment_id = %d AND live_item_id IS NOT NULL',
+                        [$paymentId]
+                    )
+                );
+                // The count is what makes the list trustworthy: short means
+                // the second read failed or lost a row, and acting on a short
+                // list is exactly how an item gets handed to nobody.
+                if (count($items) !== (int) $counted) {
+                    return ['outcome' => self::FAILED, 'payment_id' => $paymentId];
+                }
+            }
+            // THE CLAIMS ARE RELEASED — in the caller's unit of work, so
             // «آزادسازی … فقط پس از موفقیت کامل عملیات» is the transaction
             // rather than an ordering somebody has to get right. The rows
             // stay; only the live key goes.
@@ -382,6 +439,18 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
             );
             if ($released === null) {
                 return ['outcome' => self::FAILED, 'payment_id' => $paymentId];
+            }
+            // AND THE LIVE KEY IS HANDED ON, not dropped. Voiding one payment
+            // of several partial ones says nothing about the others: while any
+            // non-voided payment still covers the item, the item is still
+            // claimed, so the withdrawal cycle cannot take it. The oldest
+            // surviving row gets the key — oldest because it is the one whose
+            // money went first, and because `MIN(id)` is a decision rather
+            // than whatever order the rows come back in.
+            foreach ($items as $itemId) {
+                if (!$this->handOverClaim($itemId, $paymentId)) {
+                    return ['outcome' => self::FAILED, 'payment_id' => $paymentId];
+                }
             }
             return ['outcome' => self::VOIDED, 'payment_id' => $paymentId];
         }
@@ -448,6 +517,45 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
      * voided payment's row has `live_item_id IS NULL` and so is not a claim,
      * which is the whole reason that column exists.
      */
+    /**
+     * Give this item's live key to the oldest surviving payment, if any.
+     *
+     * Three states and they are kept apart: the read failed (refuse — the
+     * whole void goes back), nobody else covers the item (nothing to do: the
+     * release stands and the item is genuinely free), or a non-voided payment
+     * does (it becomes the claim). `live_item_id IS NULL` in the `WHERE` of
+     * the promotion means a second void in the same transaction cannot move
+     * the key twice, and the unique index is what stops two live rows.
+     */
+    private function handOverClaim(int $orderItemId, int $voidedPaymentId): bool
+    {
+        $row = $this->db->getRow(
+            'SELECT COUNT(*) AS n, COALESCE(MIN(i.id), 0) AS pick
+               FROM `' . $this->items() . '` i
+               INNER JOIN `' . $this->payments() . '` p ON p.id = i.payment_id
+              WHERE i.order_item_id = %d
+                AND i.payment_id <> %d
+                AND p.voided_at IS NULL',
+            [$orderItemId, $voidedPaymentId]
+        );
+        if ($row === null) {
+            return false;
+        }
+        if ((int) $row['n'] === 0) {
+            return true;            // nobody else paid for it; it is free
+        }
+        $pick = (int) $row['pick'];
+        if ($pick <= 0) {
+            return false;
+        }
+        return $this->db->execute(
+            'UPDATE `' . $this->items() . '`
+                SET live_item_id = order_item_id
+              WHERE id = %d AND live_item_id IS NULL',
+            [$pick]
+        ) !== null;
+    }
+
     private function claimedBySupplier(int $orderItemId, int $supplierUserId): bool
     {
         $found = $this->db->getVar(

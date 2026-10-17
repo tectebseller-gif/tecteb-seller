@@ -1,0 +1,156 @@
+=== the trees ===
+base_version=0.1.0-alpha.62
+base_src_digest=458ca8db1883864b
+PASS  0a the installed tree is the delivered alpha.62  (0.1.0-alpha.62)
+probe=ran
+marketplace_row=1468
+publish_code=projected
+product=457
+is_ours=yes
+commission_type=none
+commission_value=0
+
+=== BEFORE · §1 the free order, on the delivered bytes ===
+verb=pay-paths
+commission=fixed/150000
+sale_gate_open=allowed
+order=462
+line_total=100000
+needs_payment=no
+classic_branch=without_payment
+store_api_branch=without_payment
+pay_action_errors=0
+pay_action_would_charge=yes
+pay_notice=__none__
+store_api_order_processed=passed
+status_after=pending
+date_paid=__none__
+PASS  1a the sale gate is open, so this is about the rule  (allowed)
+PASS  1b the order carries the figure the basket would make  (100000)
+PASS  1c needs_payment is answered NO  (no)
+PASS  1d …so the CLASSIC checkout would take the free branch  (without_payment)
+PASS  1e …and the BLOCK checkout would too  (without_payment)
+PASS  1f the pay link would hand the order to a gateway  (yes)
+PASS  1g and nothing refuses the Store API  (passed)
+
+=== BEFORE · §2 the item nobody holds ===
+WordPress database error Duplicate entry 'a63:96311-central_payment' for key 'tmc_ledger_event' for query INSERT INTO `wp_tmc_ledger_entries`
+                (event_key, vendor_user_id, account, amount_minor, currency, exponent, order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
+                VALUES ('a63:96311', 9631, 'central_payment', 1000000, 'IRR', 0, 'a63:96311', '96311', 'item_paid', NULL, '', '2026-10-17 10:52:45'), ('a63:96311', 9631, 'commission', -100000, 'IRR', 0, 'a63:96311', '96311', 'commission_due', NULL, '', '2026-10-17 10:52:45'), ('a63:96311', 9631, 'vendor_earning', -900000, 'IRR', 0, 'a63:96311', '96311', 'vendor_earned', NULL, '', '2026-10-17 10:52:45') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+line=140
+agree=supplier_amount_agreed
+first=supplier_payment_recorded_partial
+second=supplier_payment_recorded_unposted
+rows_for_item=1
+void_first=supplier_payment_voided
+live_claims=0
+holder=__none__
+rows_still_on_disk=1
+withdrawal_reserved=TAKEN:23
+PASS  2a the second partial payment wrote NO row  (1)
+PASS  2b the void succeeds  (supplier_payment_voided)
+PASS  2c …and the item is claimed by nobody  (0)
+PASS  2d …with no holder at all  (__none__)
+reserved_before=TAKEN:23
+PASS  2e …and the withdrawal cycle TAKES the line  (TAKEN:23)
+
+=== swapping in this checkout's src/ ===
+after_src_digest=49c08deb3746a172
+PASS  0b the tree under test is a different one  (49c08deb3746a172)
+
+=== AFTER · §1 the order pays or it does not sell ===
+verb=pay-paths
+commission=fixed/150000
+sale_gate_open=allowed
+order=463
+line_total=100000
+needs_payment=yes
+classic_branch=payment
+store_api_branch=payment
+pay_action_errors=1
+pay_action_would_charge=no
+pay_notice=خرید_«کالای_سبد_۶۲»_در_حال_حاضر_امکان‌پذیر_نیست؛_تنظیمات_فروش_این_کالا_نیاز_به_بازبینی_دارد._لطفاً_با_پشتیبانی_تماس_بگیرید.
+store_api_order_processed=threw:RouteException
+status_after=pending
+date_paid=__none__
+PASS  3a the sale gate is still open  (allowed)
+PASS  3b needs_payment is left ALONE  (yes)
+PASS  3c …so the classic checkout stays on the paying branch  (payment)
+PASS  3d …and so does the block checkout  (payment)
+PASS  3e the pay link is refused before any gateway  (no)
+PASS  3f …with a sentence the shopper can act on  (خرید_«کالای_سبد_۶۲»_در_حال_حاضر_امکان‌پذیر_نیست؛_تنظیمات_فروش_این_کالا_نیاز_به_بازبینی_دارد._لطفاً_با_پشتیبانی_تماس_بگیرید.)
+PASS  3g and both Store API routes throw before the branch  (threw:RouteException)
+PASS  3h the order itself is untouched  (pending)
+PASS  3i …and unpaid  (__none__)
+
+=== AFTER · §1 control: a rule the line satisfies still sells ===
+verb=pay-control
+commission=fixed/10000
+sale_gate_open=allowed
+order=464
+line_total=100000
+needs_payment=yes
+classic_branch=payment
+store_api_branch=payment
+pay_action_errors=0
+pay_action_would_charge=yes
+pay_notice=__none__
+store_api_order_processed=passed
+status_after=pending
+date_paid=__none__
+PASS  4a needs_payment is true  (yes)
+PASS  4b the classic checkout pays  (payment)
+PASS  4c the pay link WOULD charge  (yes)
+PASS  4d nothing is said to the shopper  (__none__)
+PASS  4e and the Store API passes  (passed)
+
+=== AFTER · §2 the live claim is handed on, not dropped ===
+WordPress database error Duplicate entry 'a63:96311-central_payment' for key 'tmc_ledger_event' for query INSERT INTO `wp_tmc_ledger_entries`
+                (event_key, vendor_user_id, account, amount_minor, currency, exponent, order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
+                VALUES ('a63:96311', 9631, 'central_payment', 1000000, 'IRR', 0, 'a63:96311', '96311', 'item_paid', NULL, '', '2026-10-17 10:52:50'), ('a63:96311', 9631, 'commission', -100000, 'IRR', 0, 'a63:96311', '96311', 'commission_due', NULL, '', '2026-10-17 10:52:50'), ('a63:96311', 9631, 'vendor_earning', -900000, 'IRR', 0, 'a63:96311', '96311', 'vendor_earned', NULL, '', '2026-10-17 10:52:50') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+line=141
+agree=supplier_amount_agreed
+first=supplier_payment_recorded_partial
+second=supplier_payment_recorded_unposted
+rows_for_item=2
+void_first=supplier_payment_voided
+live_claims=1
+holder=surviving_payment
+rows_still_on_disk=2
+withdrawal_reserved=refused
+PASS  5a both payments wrote a row  (2)
+PASS  5b the void still succeeds  (supplier_payment_voided)
+PASS  5c the item is still claimed  (1)
+PASS  5d …by the payment that survived  (surviving_payment)
+PASS  5e both rows are still on disk  (2)
+PASS  5f and the withdrawal cycle is REFUSED  (refused)
+
+=== AFTER · §2 control: with every payment voided, the item is free ===
+WordPress database error Duplicate entry 'a63:96311-central_payment' for key 'tmc_ledger_event' for query INSERT INTO `wp_tmc_ledger_entries`
+                (event_key, vendor_user_id, account, amount_minor, currency, exponent, order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
+                VALUES ('a63:96311', 9631, 'central_payment', 1000000, 'IRR', 0, 'a63:96311', '96311', 'item_paid', NULL, '', '2026-10-17 10:52:52'), ('a63:96311', 9631, 'commission', -100000, 'IRR', 0, 'a63:96311', '96311', 'commission_due', NULL, '', '2026-10-17 10:52:52'), ('a63:96311', 9631, 'vendor_earning', -900000, 'IRR', 0, 'a63:96311', '96311', 'vendor_earned', NULL, '', '2026-10-17 10:52:52') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+line=142
+agree=supplier_amount_agreed
+first=supplier_payment_recorded_partial
+second=supplier_payment_recorded_unposted
+rows_for_item=2
+void_first=supplier_payment_voided
+void_second=supplier_payment_voided
+live_claims=0
+holder=__none__
+rows_still_on_disk=2
+withdrawal_reserved=TAKEN:25
+PASS  6a the second void succeeds too  (supplier_payment_voided)
+PASS  6b nothing covers the line now  (0)
+PASS  6c no holder  (__none__)
+PASS  6d both rows are kept  (2)
+PASS  6e …and a fully voided line CAN be reserved  (TAKEN:25)
+
+=== giving back what this run spent ===
+line=__none__
+order=0
+cart_product=457
+PASS  9a the fixture's order line is gone  (__none__)
+PASS  9b the installed bytes are back  (458ca8db1883864b)
+
+PASS=41 FAIL=0

@@ -101,7 +101,7 @@ P1="$(probe pay 96211 500000 TRK-62-A)"
 check "3k a payment under the agreed amount is PARTIAL" "supplier_payment_recorded_partial" "$(val "$P1" pay_code)"
 check "3l …and names the remaining balance" "400000" "$(val "$P1" balance_after)"
 check "3m …read back from the rows" "400000" "$(val "$P1" db_balance_minor)"
-check "3n …with one claim row, not two" "1" "$(val "$P1" claim_rows)"
+check "3n …with one live claim, not two" "1" "$(val "$P1" live_claims)"
 OVER="$(probe pay 96211 400001 TRK-62-OVER)"
 check "3o one unit over the balance is refused BY NAME" "supplier_payment_above_balance" "$(val "$OVER" pay_code)"
 check "3p …and nothing is written" "1" "$(val "$OVER" db_payments)"
@@ -109,7 +109,12 @@ check "3q …the balance is untouched" "400000" "$(val "$OVER" db_balance_minor)
 P2="$(probe pay 96211 400000 TRK-62-B tok-62)"
 check "3r the rest of the balance is paid" "0" "$(val "$P2" db_balance_minor)"
 check "3s …by a second payment" "2" "$(val "$P2" db_payments)"
-check "3t …and still one claim row" "1" "$(val "$P2" claim_rows)"
+# ⛔ `alpha.63`: this asked for ONE ROW and one row was the defect — the
+# second partial payment wrote none, so voiding the first freed an item it
+# had not paid for. The invariant is one LIVE claim; the rows are one per
+# payment.
+check "3t …and still exactly one LIVE claim" "1" "$(val "$P2" live_claims)"
+check "3u …with a row for each payment" "2" "$(val "$P2" claim_rows)"
 REP="$(probe pay 96211 400000 TRK-62-B tok-62)"
 check "3u the same submission again writes nothing" "supplier_payment_already_recorded" "$(val "$REP" pay_code)"
 check "3v …and no third payment exists" "2" "$(val "$REP" db_payments)"

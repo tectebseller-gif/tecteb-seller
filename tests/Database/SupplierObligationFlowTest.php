@@ -211,10 +211,14 @@ final class SupplierObligationFlowTest extends DatabaseTestCase
         self::assertSame(900000, $obligation->paidMinor);
         self::assertTrue($obligation->isSettled());
 
-        // TWO payments, TWO allocations, ONE claim row. The claim is what the
-        // withdrawal cycle arbitrates on, and it was never duplicated.
+        // TWO payments, TWO allocations, TWO rows — and exactly ONE LIVE
+        // claim. The live key is what the withdrawal cycle arbitrates on and
+        // it was never duplicated; the second row is the coverage record that
+        // lets `void()` find a survivor (without it, voiding the first
+        // payment freed an item the second one had paid for).
         self::assertCount(2, $this->payments->forSupplier(self::SUPPLIER, 10));
-        self::assertSame(1, $this->claimRowsFor($item));
+        self::assertSame(2, $this->claimRowsFor($item));
+        self::assertSame(1, $this->liveClaimRowsFor($item));
     }
 
     /**
@@ -497,6 +501,119 @@ final class SupplierObligationFlowTest extends DatabaseTestCase
             $withdrawals->reserve(self::SUPPLIER, [$item], 900000, 'IR1', 'x'),
             'a voided claim holds nothing'
         );
+    }
+
+    /**
+     * WHAT THIS PROVES: voiding ONE of two partial payments does not free an
+     * item the other one still paid for.
+     *
+     * The shape `alpha.62` shipped, and the reason the owner's warning about
+     * the moved unique key was right. The second partial payment wrote NO row
+     * at all — the insert collided with the live key and the code said
+     * `continue` — so when the first payment was voided and gave the key up,
+     * nothing on disk said the item was still covered. From that moment the
+     * withdrawal cycle could reserve the line and pay the vendor a second
+     * time for a line Tecteb had already paid the supplier for.
+     *
+     * Measured on the figures rather than on the outcome code: the balance
+     * after the void, the live claim, and whether `reserve()` can take it.
+     */
+    public function testVoidingOneOfTwoPartialPaymentsKeepsTheItemClaimed(): void
+    {
+        $item = $this->completedSale(630, 1000000, 900000);
+        self::assertTrue($this->agreements->agree($item, '900000', 'توافق')->ok);
+
+        $first = $this->service->record(self::SUPPLIER, [$item], '500000', '2026-10-17', 'TRK-P1');
+        self::assertTrue($first->ok);
+        $second = $this->service->record(self::SUPPLIER, [$item], '400000', '2026-10-18', 'TRK-P2');
+        self::assertTrue($second->ok);
+        $firstId = (int) $first->context['payment_id'];
+        $secondId = (int) $second->context['payment_id'];
+
+        self::assertTrue($this->service->void($firstId, 'حوالهٔ اول اشتباه ثبت شد')->ok);
+
+        // The surviving payment now HOLDS the item, so nothing else can.
+        self::assertSame(1, $this->liveClaimRowsFor($item), 'the item is still claimed');
+        self::assertSame($secondId, $this->payments->forOrderItem($item)?->id);
+        self::assertContains($item, $this->payments->paidOrderItemIds(self::SUPPLIER));
+
+        // And the withdrawal cycle is refused — which is the whole point.
+        $withdrawals = new DbWithdrawalRepository($this->db, new SystemClock());
+        self::assertSame(
+            0,
+            $withdrawals->reserve(self::SUPPLIER, [$item], 900000, 'IR1', 'still-paid'),
+            'an item a surviving payment covers may not be reserved'
+        );
+
+        // The void did what it was asked, too: the obligation is down to the
+        // surviving payment's 400,000, not settled.
+        $obligation = $this->obligations->forOrderItem($item);
+        self::assertNotNull($obligation);
+        self::assertSame(400000, $obligation->paidMinor);
+        self::assertFalse($obligation->isSettled());
+    }
+
+    /**
+     * WHAT THIS PROVES: with every payment voided, the item really is free.
+     *
+     * The other side of the same rule. A hand-over that never let go would be
+     * as wrong in the other direction — an item nobody has paid for and that
+     * no withdrawal can ever claim — and «مانده و اقلام فقط پس از موفقیت کامل
+     * عملیات آزاد شوند» is about release happening, not about never happening.
+     */
+    public function testVoidingBothPartialPaymentsFreesTheItem(): void
+    {
+        $item = $this->completedSale(631, 1000000, 900000);
+        self::assertTrue($this->agreements->agree($item, '900000', 'توافق')->ok);
+        $first = $this->service->record(self::SUPPLIER, [$item], '500000', '2026-10-17', 'TRK-Q1');
+        $second = $this->service->record(self::SUPPLIER, [$item], '400000', '2026-10-18', 'TRK-Q2');
+        self::assertTrue($first->ok);
+        self::assertTrue($second->ok);
+
+        self::assertTrue($this->service->void((int) $second->context['payment_id'], 'دومی اشتباه')->ok);
+        self::assertSame(1, $this->liveClaimRowsFor($item), 'the first still holds it');
+        self::assertTrue($this->service->void((int) $first->context['payment_id'], 'اولی هم اشتباه')->ok);
+
+        self::assertSame(0, $this->liveClaimRowsFor($item), 'nothing covers it now');
+        self::assertSame(2, $this->claimRowsFor($item), 'and both rows are still on disk');
+        self::assertNull($this->payments->forOrderItem($item));
+        $withdrawals = new DbWithdrawalRepository($this->db, new SystemClock());
+        self::assertGreaterThan(
+            0,
+            $withdrawals->reserve(self::SUPPLIER, [$item], 900000, 'IR1', 'free-again'),
+            'a fully voided item is claimed by nobody'
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: the hand-over is part of the unit of work.
+     *
+     * If the promotion cannot be written, the void does not happen either —
+     * otherwise the failure mode is precisely the defect: a voided payment,
+     * an uncovered item and a surviving payment that paid for it. The
+     * injection names the promotion's own statement, so the status write and
+     * the release have already succeeded when it fires.
+     */
+    public function testAFailedHandOverLeavesTheVoidUndone(): void
+    {
+        $item = $this->completedSale(632, 1000000, 900000);
+        self::assertTrue($this->agreements->agree($item, '900000', 'توافق')->ok);
+        $first = $this->service->record(self::SUPPLIER, [$item], '500000', '2026-10-17', 'TRK-R1');
+        $second = $this->service->record(self::SUPPLIER, [$item], '400000', '2026-10-18', 'TRK-R2');
+        self::assertTrue($first->ok);
+        self::assertTrue($second->ok);
+        $firstId = (int) $first->context['payment_id'];
+
+        $failing = new FailingDatabase($this->db);
+        $failing->failWhen(['SET live_item_id = order_item_id']);
+        $outcome = $this->serviceOn($failing)->void($firstId, 'شکست تزریقی');
+        self::assertFalse($outcome->ok);
+
+        // Nothing half-done: the payment is NOT void and the item is still
+        // held by the row that held it before.
+        self::assertFalse((bool) $this->payments->find($firstId)?->isVoid());
+        self::assertSame(1, $this->liveClaimRowsFor($item));
+        self::assertSame($firstId, $this->payments->forOrderItem($item)?->id);
     }
 
     // ------------------------------------------------- §6 the reconciliation

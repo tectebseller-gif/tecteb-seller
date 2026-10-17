@@ -1,5 +1,5 @@
 === the tree under test ===
-installed_version=0.1.0-alpha.62
+installed_version=0.1.0-alpha.63
 PASS  1a the installed src/ is this checkout's  ()
 PASS  1b the schema target is 31  (31)
 PASS  1c the recorded schema is 31  (31)
@@ -18,13 +18,14 @@ PASS  3j …and no history row  (2)
 PASS  3k a payment under the agreed amount is PARTIAL  (supplier_payment_recorded_partial)
 PASS  3l …and names the remaining balance  (400000)
 PASS  3m …read back from the rows  (400000)
-PASS  3n …with one claim row, not two  (1)
+PASS  3n …with one live claim, not two  (1)
 PASS  3o one unit over the balance is refused BY NAME  (supplier_payment_above_balance)
 PASS  3p …and nothing is written  (1)
 PASS  3q …the balance is untouched  (400000)
 PASS  3r the rest of the balance is paid  (0)
 PASS  3s …by a second payment  (2)
-PASS  3t …and still one claim row  (1)
+PASS  3t …and still exactly one LIVE claim  (1)
+PASS  3u …with a row for each payment  (2)
 PASS  3u the same submission again writes nothing  (supplier_payment_already_recorded)
 PASS  3v …and no third payment exists  (2)
 PASS  3w a covered obligation says so  (supplier_obligation_settled)
@@ -47,7 +48,7 @@ PASS  5h …and no reversal was left behind  (29)
 PASS  5i the void succeeds  (supplier_payment_voided)
 PASS  5j …the record is NOT deleted  (yes)
 PASS  5k …the reason is on it  (شمارهٔ_پیگیری_اشتباه_بود)
-PASS  5l …with a compensating event  (supplier-payment-void:35)
+PASS  5l …with a compensating event  (supplier-payment-void:83)
 PASS  5m …two ledger rows for the reversal  (31)
 PASS  5n …the claim row stays on disk  (1)
 PASS  5o …and is no longer live  (0)
@@ -59,7 +60,7 @@ PASS  5s the correct payment can then be recorded  (supplier_payment_recorded_un
 === §6 reviewing the same payment ===
 PASS  6a a payment whose share is unknown says so  (supplier_payment_recorded_share_unknown)
 PASS  6b reviewing while unknown changes nothing  (supplier_payment_still_unknown)
-PASS  6c …and names the item  (124)
+PASS  6c …and names the item  (181)
 PASS  6d the share is filled in by the repair path  (630000)
 PASS  6e the SAME payment is reviewed  (supplier_payment_reconciled)
 PASS  6f …the figure recorded at the time is kept  (0)
@@ -70,7 +71,7 @@ PASS  6i reviewing twice keeps the first review  (supplier_payment_already_recon
 === §2 the debt, the collection and the offset ===
 PASS  2a the debt is recorded  (supplier_receivable_recorded)
 PASS  2b the same return again records nothing  (supplier_receivable_already_recorded)
-PASS  2c …and points at the first one  (7)
+PASS  2c …and points at the first one  (3)
 PASS  2d a real collection is recorded  (supplier_receivable_collected)
 PASS  2e …and the balance comes down  (200000)
 PASS  2f an offset is a DIFFERENT event  (supplier_receivable_offset)
@@ -86,7 +87,7 @@ PASS  7a the request is refused by the owner's closure  (withdrawal_requests_clo
 PASS  7b …and the policy says why  (no)
 PASS  7c …with nothing created  (__none__)
 PASS  7d …while the figures stay readable  (1440000)
-PASS  7e an earlier request is still there  (21)
+PASS  7e an earlier request is still there  (27)
 PASS  7f …and in the history  (1)
 PASS  7g …and a new one is still refused  (withdrawal_requests_closed)
 
@@ -97,7 +98,7 @@ PASS  4c the list renders  (yes)
 PASS  4d …and says it is read-only  (yes)
 PASS  4e …with a link per shop  (yes)
 PASS  4f one shop renders  (yes)
-PASS  4g …and writes exactly one audit row  (7)
+PASS  4g …and writes exactly one audit row  (9)
 PASS  4h the shop HAS an IBAN on record  (yes)
 PASS  4i …and the page does not print it  (no)
 PASS  4j …there is no form on it  (no)
@@ -127,4 +128,4 @@ PASS  1u …with the same comprehensible sentence  (خرید_«کالای_سبد
 === giving back what this run spent ===
 PASS  9a the fixture's order lines are gone  (0)
 
-PASS=108 FAIL=0
+PASS=109 FAIL=0
