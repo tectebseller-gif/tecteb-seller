@@ -91,6 +91,31 @@ final class CommissionGuardRefusesRatherThanWaivesTest extends TestCase
         // Both Store API routes, before the payment branch.
         self::assertStringContainsString("'woocommerce_store_api_checkout_order_processed'", $source);
         self::assertStringContainsString('throw', $source);
+        // …and the CLASSIC checkout at the same point in its own flow.
+        self::assertStringContainsString("'woocommerce_checkout_order_processed'", $source);
+    }
+
+    /**
+     * WHAT THIS PROVES: the basket measures the figure the ORDER will carry.
+     *
+     * The gap a security review found on `alpha.63`: the Store API had an
+     * order-level refusal and the classic checkout had only the cart one, and
+     * the cart one read a DIFFERENT number. Core writes the order line as
+     * `'total' => $values['line_total']` (`class-wc-checkout.php:571`) and
+     * `WC_Order_Item_Product::set_total()` normalises it with
+     * `wc_format_decimal($value)` and **no** dp
+     * (`class-wc-order-item-product.php:136`). Passing the currency's
+     * exponent here rounds, so `49999.6` was compared as `50000`.
+     *
+     * Rounding to the exponent is right for a figure shown to a shopper and
+     * wrong for one compared against a rule, so the needle is the call —
+     * there must be no dp argument on the line-total reading.
+     */
+    public function testTheCartReadsTheSameFigureTheOrderCarries(): void
+    {
+        $source = self::code();
+        self::assertStringContainsString("wc_format_decimal(\$item['line_total'] ?? 0)", $source);
+        self::assertStringNotContainsString("wc_format_decimal(\$item['line_total'] ?? 0, \$exponent)", $source);
     }
 
     /**

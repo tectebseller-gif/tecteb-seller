@@ -60,12 +60,35 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\PurchaseGuard;
  *    `false` calls `process_without_payment()`, and that is
  *    `$order->payment_complete()` (`StoreApi/Utilities/CheckoutTrait.php:73`).
  *
- * So the answer meant to stop a sale completed it for nothing. The cart guard
- * below does refuse first on both of those paths, but it is not the same
- * reading: it measures `wc_format_decimal($item['line_total'], $exponent)`
- * while the order carries `$item->get_total()`, so a line total that rounds UP
- * to a figure the rule allows passes the cart and is refused on the order —
- * and that is the request that ended in a free order.
+ * So the answer meant to stop a sale was the answer core reads as a licence to
+ * finish it for nothing.
+ *
+ * ⛔ **How far that got, stated accurately** — because the first report of
+ * this was overstated. Reaching either branch needs the cart guard below NOT
+ * to refuse in the same request, and it refuses the same lines: measured on
+ * `alpha.62`'s own bytes, a refused line in a real cart raises one error
+ * notice, and `process_checkout()` throws on that before it reaches line
+ * 1444 (the Store API turns it into a 409 the same way). The divergence
+ * between the two readings was offered as the way through and it is NOT:
+ * a line total that differs from its rounding is fractional, a fractional
+ * amount is not an exact minor amount, and `CommissionLineCheck` ABSTAINS on
+ * one rather than refusing — measured on four pairs, `verdicts_agree=yes`
+ * every time. **No end-to-end free order was demonstrated.**
+ *
+ * What was: with `needs_payment()` false, the pay link and the order-pay page
+ * refused with WooCommerce's own «this order's status is …» instead of this
+ * rule's sentence, so the shopper was told nothing they could act on; and
+ * `pay_action()`'s own `else` branch is `$order->payment_complete()`
+ * (`class-wc-form-handler.php:560`), which is one per-call third-party filter
+ * away from being reached. A guard that says «no money is due» about an order
+ * that owes money is wrong in kind, whatever today's call graph does with it.
+ *
+ * **And the two readings are equal now anyway** (`alpha.64`): the cart uses
+ * the same call the order item's setter uses, and the classic checkout has
+ * the order-level refusal the Store API routes have. The second one is not
+ * redundant: a plugin on `woocommerce_checkout_create_order_line_item` can
+ * change a line total after the cart was checked, and an order's stored
+ * currency need not be the shop's current one.
  *
  * The rule the repository already had, three times over: **در یک ورودی
  * نامعتبر، جهتِ محافظه‌کارانه هیچ‌وقت «بیشتر» نیست** (`alpha.46`), and «قفل یا
@@ -141,6 +164,25 @@ final class CommissionCartGuard
             }
         }, 25);
 
+        // THE CLASSIC CHECKOUT, at the same point in its flow as the Store
+        // API hook below: after the order is written and before the payment
+        // branch (`class-wc-checkout.php:1427`, then `:1444`). The whole of
+        // `process_checkout()` is inside a `try` whose `catch` turns the
+        // message into an error notice, so throwing here refuses the
+        // checkout without one byte reaching a gateway.
+        //
+        // Belt as well as braces: with the cart reading above now identical
+        // to the figure the order carries, the basket already refuses every
+        // line this would. It is here because «the two cannot disagree» is a
+        // claim about two call sites in somebody else's code, and the cost of
+        // being wrong about it was measured once already.
+        add_action('woocommerce_checkout_order_processed', static function (mixed $orderId, mixed $data, mixed $order) use ($policy, $check): void {
+            $name = self::refusedLineOf($policy(), $check(), $order);
+            if ($name !== '') {
+                throw new \Exception(self::message($name));
+            }
+        }, 25, 3);
+
         // BOTH STORE API ROUTES, after the order is written and before the
         // payment branch. Throwing here is the only answer that cannot be
         // read as «پولی لازم نیست»: the route turns it into a status code and
@@ -191,13 +233,22 @@ final class CommissionCartGuard
             $productId = (int) ($item['product_id'] ?? 0);
             $variationId = (int) ($item['variation_id'] ?? 0);
             $quantity = (int) ($item['quantity'] ?? 0);
-            // FORMATTED THE WAY WOOCOMMERCE FORMATS IT when it writes the
-            // order line (`WC_Checkout::create_order_line_items()` calls
-            // `wc_format_decimal()` on this same value), so the answer here
-            // is about the figure the order would carry rather than about a
-            // float this plugin rounded its own way.
+            // THE SAME CALL THE ORDER ITEM'S SETTER MAKES, so the two
+            // readings cannot disagree.
+            //
+            // ⛔ `alpha.62`/`alpha.63` passed `$exponent` here and the order
+            // does not: `create_order_line_items()` sets `'total' =>
+            // $values['line_total']` (`class-wc-checkout.php:571`) and
+            // `WC_Order_Item_Product::set_total()` runs
+            // `wc_format_decimal($value)` with NO dp
+            // (`class-wc-order-item-product.php:136`) — which normalises and
+            // does not round. So a line total of `49999.6` was measured here
+            // as `50000` and carried as `49999.6`, and a fixed commission of
+            // `50000` passed the basket and failed on the order. Rounding to
+            // the currency's exponent is the right thing to SHOW a shopper
+            // and the wrong thing to compare a rule against.
             $total = function_exists('wc_format_decimal')
-                ? (string) wc_format_decimal($item['line_total'] ?? 0, $exponent)
+                ? (string) wc_format_decimal($item['line_total'] ?? 0)
                 : '';
             $answer = $check->check($productId, $variationId, $total, $quantity, $currency, $exponent);
             if ($answer['ok']) {

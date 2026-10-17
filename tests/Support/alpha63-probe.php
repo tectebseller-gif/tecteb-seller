@@ -206,6 +206,55 @@ if ($verb === 'pay-paths' || $verb === 'pay-control') {
     return;
 }
 
+// ============================================ §1b the two readings of a line
+
+if ($verb === 'rounding') {
+    // THE DIVERGENCE ITSELF, measured rather than argued.
+    //
+    // The basket read `wc_format_decimal($line_total, $exponent)` and the
+    // order carries what `WC_Order_Item_Product::set_total()` stores, which
+    // is `wc_format_decimal($value)` with NO dp. On a currency with nought
+    // decimals those are different strings for any fractional line total,
+    // and a fixed commission between them passes one reading and fails the
+    // other — which on `alpha.62` was a free order and on `alpha.63` a line
+    // that gets PAID for although §1 says it must not sell.
+    $raw = (string) ($args[1] ?? '49999.6');
+    $exponent = function_exists('wc_get_price_decimals') ? (int) wc_get_price_decimals() : 0;
+    $say('currency_exponent', $exponent);
+    $say('raw_line_total', $raw);
+    $rounded = (string) wc_format_decimal($raw, $exponent);
+    $asOrdered = (string) wc_format_decimal($raw);
+    $say('cart_read_alpha63', $rounded);
+    $say('order_carries', $asOrdered);
+    $say('readings_agree', $rounded === $asOrdered);
+
+    // And what the rule answers about each — the whole point of the pair.
+    $checkClass = 'Tecteb\\Marketplace\\Modules\\Finance\\Application\\CommissionLineCheck';
+    if (!class_exists($checkClass)) {
+        $say('absent', 1);
+        return;
+    }
+    $wcId = $cartProduct();
+    if ($wcId <= 0) {
+        $say('fixture', '__missing__');
+        return;
+    }
+    update_post_meta($wcId, '_tmc_commission_type', 'fixed');
+    update_post_meta($wcId, '_tmc_commission_value', (string) ($args[2] ?? '50000'));
+    wp_cache_delete($wcId, 'post_meta');
+    $check = $c->get($checkClass);
+    $currency = (string) get_woocommerce_currency();
+    $onRounded = $check->check($wcId, 0, $rounded, 1, $currency, $exponent);
+    $onOrdered = $check->check($wcId, 0, $asOrdered, 1, $currency, $exponent);
+    $say('rule_on_rounded', ($onRounded['ok'] ?? false) ? 'sells' : 'refused');
+    $say('rule_on_ordered', ($onOrdered['ok'] ?? false) ? 'sells' : 'refused');
+    $say('verdicts_agree', (bool) ($onRounded['ok'] ?? false) === (bool) ($onOrdered['ok'] ?? false));
+    update_post_meta($wcId, '_tmc_commission_type', 'none');
+    update_post_meta($wcId, '_tmc_commission_value', '0');
+    wp_cache_delete($wcId, 'post_meta');
+    return;
+}
+
 // ====================================================== §2 the partial void
 
 if ($verb === 'partial-void' || $verb === 'partial-void-both') {
@@ -358,4 +407,4 @@ if ($verb === 'reset') {
     return;
 }
 
-$say('usage', 'pay-paths|pay-control|partial-void|partial-void-both|report|reset');
+$say('usage', 'pay-paths|pay-control|rounding|partial-void|partial-void-both|report|reset');
