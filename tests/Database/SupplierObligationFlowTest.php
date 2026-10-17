@@ -12,6 +12,7 @@ use Tecteb\Marketplace\Modules\Finance\Application\ManageSupplierObligations;
 use Tecteb\Marketplace\Modules\Finance\Application\ManageSupplierReceivables;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordSupplierPayment;
 use Tecteb\Marketplace\Modules\Finance\Application\SupplierObligationRepositoryInterface;
+use Tecteb\Marketplace\Modules\Finance\Application\SupplierPaymentRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
 use Tecteb\Marketplace\Modules\Finance\Domain\Money;
@@ -28,6 +29,7 @@ use Tecteb\Marketplace\Modules\Order\Infrastructure\DbOrderItemRepository;
 use Tecteb\Marketplace\Tests\Support\FailingDatabase;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\InterferingDatabase;
+use Tecteb\Marketplace\Tests\Support\StaleReadSupplierPaymentRepository;
 
 /**
  * WHAT THIS PROVES: the agreed purchase amount is a number people recorded,
@@ -684,6 +686,139 @@ final class SupplierObligationFlowTest extends DatabaseTestCase
         self::assertSame(RecordSupplierPayment::IS_VOID, $result->code);
     }
 
+    // ------------------------- the state a financial decision is taken from
+
+    /**
+     * WHAT THIS PROVES: whether a compensating entry is owed is decided from
+     * the row read UNDER THE LOCK, not from the one read before it.
+     *
+     * The shape of the defect, measured on the delivered `alpha.64` with two
+     * real requests (`tools/alpha64-reproduction.sh`, checks 2a–2l): a
+     * payment with no money line was read by `void()`, an independent
+     * `reconcile()` gave it one and committed, and the void then succeeded
+     * with `compensating_event=__none__` — the document marked void, the
+     * items released, and the ledger still saying the money had left.
+     *
+     * Here the same divergence is produced without a clock: the unlocked read
+     * keeps answering from a frozen snapshot while the locked one tells the
+     * truth. Reverting the fix makes this fail on the assertion about the
+     * reversal entry, which is the point of writing it this way round.
+     */
+    public function testTheCompensationDecisionComesFromTheLockedRow(): void
+    {
+        $item = $this->saleWithNoRecordedShare(630, 1000000);
+        $paymentId = (int) $this->service
+            ->record(self::SUPPLIER, [$item], '900000', '2026-10-17', 'TRK-L1')
+            ->context['payment_id'];
+        self::assertTrue($this->orderItems->completeFinancials($item, 100000, 900000, 1000, 'product', 'order:630'));
+
+        // The snapshot the voiding request would have taken: no money line.
+        $stale = new StaleReadSupplierPaymentRepository($this->payments);
+        $stale->freeze($paymentId);
+        self::assertSame('', $stale->find($paymentId)?->ledgerEvent, 'the frozen read has no money line');
+
+        // THE OTHER REQUEST, in full, exactly as the admin screen posts it.
+        self::assertTrue($this->service->reconcile($paymentId)->ok);
+        $payout = $this->payments->find($paymentId)?->ledgerEvent ?? '';
+        self::assertNotSame('', $payout, 'the other request wrote the money line');
+        self::assertSame('', $stale->find($paymentId)?->ledgerEvent, 'and the unlocked read still does not see it');
+
+        $result = $this->serviceWithPayments($stale)->void($paymentId, 'شمارهٔ حواله اشتباه بود');
+        self::assertTrue($result->ok);
+        self::assertSame(RecordSupplierPayment::VOIDED, $result->code);
+        self::assertSame(
+            RecordSupplierPayment::voidEventKey($paymentId),
+            $result->context['compensating_event'],
+            'the compensating entry is owed and the answer says so'
+        );
+        self::assertTrue(
+            $this->ledger->hasEvent(RecordSupplierPayment::voidEventKey($paymentId)),
+            'and it is really in the ledger'
+        );
+        self::assertSame(
+            RecordSupplierPayment::voidEventKey($paymentId),
+            $this->payments->find($paymentId)?->voidEvent,
+            'the row records which document reverses it'
+        );
+        // The pair sums to nought, so the supplier is owed again rather than
+        // settled — which is what a void of a mis-record means.
+        $balances = $this->ledger->balances(self::SUPPLIER);
+        self::assertSame(-900000, (int) ($balances[LedgerAccount::VendorEarning->value] ?? 0));
+    }
+
+    /**
+     * WHAT THIS PROVES: the mirror ordering is refused BY NAME, and writes
+     * nothing on the way to the refusal.
+     *
+     * `markReconciled()` already carried `voided_at IS NULL`, so a void
+     * committing inside a `reconcile()`'s gap was refused on `alpha.64` too —
+     * but as `storage_failed`, and only after a payout entry had been written
+     * and rolled back. Under the lock the answer is the fact, and no ledger
+     * statement runs at all.
+     */
+    public function testAReconcileWhoseRowWasVoidedInTheGapIsRefusedByName(): void
+    {
+        $item = $this->saleWithNoRecordedShare(631, 1000000);
+        $paymentId = (int) $this->service
+            ->record(self::SUPPLIER, [$item], '900000', '2026-10-17', 'TRK-L2')
+            ->context['payment_id'];
+        self::assertTrue($this->orderItems->completeFinancials($item, 100000, 900000, 1000, 'product', 'order:631'));
+
+        $stale = new StaleReadSupplierPaymentRepository($this->payments);
+        $stale->freeze($paymentId);
+        self::assertFalse($stale->find($paymentId)?->isVoid(), 'the frozen read says it is live');
+
+        self::assertTrue($this->service->void($paymentId, 'سند اشتباه بود')->ok);
+        $entries = $this->ledgerEntryCount();
+
+        $result = $this->serviceWithPayments($stale)->reconcile($paymentId);
+        self::assertFalse($result->ok);
+        self::assertSame(RecordSupplierPayment::IS_VOID, $result->code);
+        self::assertSame($entries, $this->ledgerEntryCount(), 'no money line was written on the way');
+        self::assertSame('', $this->payments->find($paymentId)?->ledgerEvent);
+        self::assertFalse($this->payments->find($paymentId)?->isReconciled());
+    }
+
+    /**
+     * WHAT THIS PROVES: the locked read tells «there is no such payment»
+     * apart from «the read failed».
+     *
+     * `getRow()` gives one answer for both (`alpha.54`), and here they are
+     * opposites: a failed read reported as `NOT_FOUND` would tell a manager
+     * that the payment on their screen does not exist — and would let the
+     * void be refused for the wrong reason.
+     */
+    public function testTheLockedReadSeparatesAbsenceFromFailure(): void
+    {
+        $item = $this->completedSale(632, 1000000, 900000);
+        $paymentId = (int) $this->service
+            ->record(self::SUPPLIER, [$item], '900000', '2026-10-17', 'TRK-L3')
+            ->context['payment_id'];
+
+        self::assertSame(
+            SupplierPaymentRepositoryInterface::NOT_FOUND,
+            $this->payments->findForUpdate($paymentId + 9999)['outcome']
+        );
+        self::assertSame(
+            SupplierPaymentRepositoryInterface::LOCKED,
+            $this->payments->findForUpdate($paymentId)['outcome']
+        );
+
+        $failing = new FailingDatabase($this->db);
+        $failing->failReadWhen(['FOR UPDATE']);
+        $held = (new DbSupplierPaymentRepository($failing, new SystemClock()))->findForUpdate($paymentId);
+        self::assertSame(SupplierPaymentRepositoryInterface::FAILED, $held['outcome']);
+        self::assertNull($held['payment']);
+
+        // …and the service turns that into a storage failure rather than
+        // into «no such payment», with nothing written.
+        $service = $this->serviceOn($failing);
+        $result = $service->void($paymentId, 'اشتباه');
+        self::assertFalse($result->ok);
+        self::assertSame(RecordSupplierPayment::STORAGE_FAILED, $result->code);
+        self::assertFalse($this->payments->find($paymentId)?->isVoid());
+    }
+
     // ------------------------------------------------- §2 the receivable
 
     /**
@@ -775,6 +910,26 @@ final class SupplierObligationFlowTest extends DatabaseTestCase
     }
 
     // ------------------------------------------------------------- fixtures
+
+    /**
+     * The same service, with a named payment repository in place of the real
+     * one — so a test can make the unlocked and the locked read disagree.
+     */
+    private function serviceWithPayments(SupplierPaymentRepositoryInterface $payments): RecordSupplierPayment
+    {
+        $clock = new SystemClock();
+        return new RecordSupplierPayment(
+            $payments,
+            new DbOrderItemRepository($this->db, $clock),
+            new DbLedgerRepository($this->db, $clock),
+            new DbVendorMoneyUnitRegistry($this->db, $clock),
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS]),
+            new AuditLogger($this->audit, new AuditEventSanitizer(), $clock),
+            $clock,
+            $this->db,
+            new DbSupplierObligationRepository($this->db, $clock)
+        );
+    }
 
     private function serviceOn(\Tecteb\Marketplace\Contracts\DatabaseInterface $gateway): RecordSupplierPayment
     {

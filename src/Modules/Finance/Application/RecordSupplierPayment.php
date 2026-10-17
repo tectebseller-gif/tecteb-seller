@@ -641,6 +641,14 @@ final class RecordSupplierPayment
      *    had a money line, a label change would leave the ledger saying money
      *    left the marketplace. So the reverse entry is written here, inside
      *    the transaction, and a failure to write it takes the void with it.
+     *  - **and «had a money line» is asked UNDER THE LOCK.** Until
+     *    `alpha.65` that question was answered from a read taken before
+     *    `begin()`, and a `reconcile()` request committing in the gap gave
+     *    the payment its money line after the answer was already «no». The
+     *    void then succeeded with `compensating_event=__none__`. The row is
+     *    now re-read with `findForUpdate()` as the first statement of the
+     *    transaction and every figure below comes from that read: «اطلاعات
+     *    پیش از قفل مبنای تصمیم مالی نیست».
      *  - **a void is not a refund.** Nothing here moves money and there is no
      *    method that could: «ابطال سند به‌معنای بازگشت واقعی پول نیست» و
      *    «بازپرداخت واقعی تأمین‌کننده از اصلاح ثبت اشتباه جدا است» — the
@@ -679,6 +687,43 @@ final class RecordSupplierPayment
         }
         if (!$this->tx->begin()) {
             return OperationResult::failure(self::STORAGE_FAILED, ['payment_id' => $paymentId]);
+        }
+
+        // ⛔ THE ROW IS READ AGAIN HERE, UNDER A LOCK, and the read above is
+        // kept only for the two cheap answers it can give before a
+        // transaction is worth opening. The difference was measured on
+        // `alpha.64`: a payment recorded with an unknown agreed amount
+        // carries no money line, `reconcile()` is the documented path that
+        // gives it one, and both are POST actions on the same admin screen.
+        // With the decision taken from the unlocked snapshot, an independent
+        // reconcile landing in this gap produced
+        // `void_code=supplier_payment_voided compensating_event=__none__
+        // reversal_entry_exists=no` — the document marked void, the items
+        // released, and the supplier's books still saying the money left.
+        //
+        // So everything below that decides or records money — whether a
+        // reversal is owed, what it reverses, the amount, and the item count
+        // in the answer — comes from `$locked` and never from `$payment`.
+        $held = $this->payments->findForUpdate($paymentId);
+        $payment = $held['payment'];
+        if ($held['outcome'] !== SupplierPaymentRepositoryInterface::LOCKED || $payment === null) {
+            $this->tx->rollback();
+            return OperationResult::failure(
+                $held['outcome'] === SupplierPaymentRepositoryInterface::NOT_FOUND
+                    ? self::NOT_FOUND
+                    : self::STORAGE_FAILED,
+                ['payment_id' => $paymentId]
+            );
+        }
+        if ($payment->isVoid()) {
+            // The other request won. Said as the same fact as above rather
+            // than as a storage failure, because that is what happened.
+            $this->tx->rollback();
+            return OperationResult::failure(self::ALREADY_VOID, [
+                'payment_id' => $paymentId,
+                'voided_at' => (string) $payment->voidedAt,
+                'void_reason' => $payment->voidReason,
+            ]);
         }
 
         $compensating = $payment->ledgerEvent !== '' ? self::voidEventKey($paymentId) : '';
@@ -753,6 +798,13 @@ final class RecordSupplierPayment
      * event. An item whose share is STILL not recorded is a named answer and
      * not a silent no-op: «نامعلوم با صفرِ معتبر یکی نیست» — a share of zero
      * that was actually recorded reconciles, and a missing one does not.
+     *
+     * The state it decides from is read under a lock inside its own
+     * transaction, for the same reason `void()` does: these two are the two
+     * buttons of one screen and either can land in the other's gap. The
+     * checks before `begin()` are kept because they let a plainly impossible
+     * request be answered without opening a transaction, and they are
+     * repeated afterwards because only the second reading is binding.
      */
     public function reconcile(int $paymentId): OperationResult
     {
@@ -787,10 +839,59 @@ final class RecordSupplierPayment
             return OperationResult::failure(self::NOT_ATOMIC, ['payment_id' => $paymentId]);
         }
 
+        if (!$this->tx->begin()) {
+            return OperationResult::failure(self::STORAGE_FAILED, ['payment_id' => $paymentId]);
+        }
+
+        // ⛔ THE SAME CORRECTION AS IN `void()`, FROM THE OTHER SIDE. The
+        // checks above are cheap answers given before a transaction is worth
+        // opening; they are not the basis of the write. Whether a money line
+        // may be posted depends on this payment having none and not being
+        // void, and a void committed in that gap would otherwise be found
+        // only by `markReconciled()`'s own `voided_at IS NULL` — which does
+        // refuse, but as `storage_failed` and after a ledger entry had
+        // already been written and had to be rolled back. Under the lock the
+        // answer is named and nothing is written at all.
+        $held = $this->payments->findForUpdate($paymentId);
+        $payment = $held['payment'];
+        if ($held['outcome'] !== SupplierPaymentRepositoryInterface::LOCKED || $payment === null) {
+            $this->tx->rollback();
+            return OperationResult::failure(
+                $held['outcome'] === SupplierPaymentRepositoryInterface::NOT_FOUND
+                    ? self::NOT_FOUND
+                    : self::STORAGE_FAILED,
+                ['payment_id' => $paymentId]
+            );
+        }
+        if ($payment->isVoid()) {
+            $this->tx->rollback();
+            return OperationResult::failure(self::IS_VOID, ['payment_id' => $paymentId]);
+        }
+        if ($payment->isReconciled()) {
+            $this->tx->rollback();
+            return OperationResult::failure(self::ALREADY_RECONCILED, [
+                'payment_id' => $paymentId,
+                'reconciled_at' => (string) $payment->reconciledAt,
+                'share_minor_final' => $payment->shareMinorFinal,
+            ]);
+        }
+        if (!in_array($payment->posting, [
+            U::POSTING_SHARE_UNKNOWN,
+            V::POSTING_AGREED_UNKNOWN,
+            T::POSTING_NEEDS_DEFINITION,
+        ], true)) {
+            $this->tx->rollback();
+            return OperationResult::failure(self::NOTHING_TO_RECONCILE, [
+                'payment_id' => $paymentId,
+                'posting' => $payment->posting,
+            ]);
+        }
+
         // THE SHARES AS THEY ARE NOW, read item by item and never summed over
         // an absence. `isRecorded()` is the bar — a share AND the ledger event
         // it was written under — which is the same bar `record()` used, so the
-        // two cannot disagree about what «known» means.
+        // two cannot disagree about what «known» means. Read inside the unit
+        // of work, so the figure written down is the figure that was compared.
         $shareMinor = 0;
         $stillUnknown = [];
         foreach ($payment->orderItemIds as $itemId) {
@@ -802,6 +903,7 @@ final class RecordSupplierPayment
             $shareMinor += (int) $item->vendorShareMinor;
         }
         if ($stillUnknown !== []) {
+            $this->tx->rollback();
             return OperationResult::failure(self::STILL_UNKNOWN, [
                 'payment_id' => $paymentId,
                 'unknown_share_items' => $stillUnknown,
@@ -810,10 +912,6 @@ final class RecordSupplierPayment
 
         $postable = $shareMinor === $payment->amount->minor;
         $posting = $postable ? T::POSTING_POSTED : T::POSTING_NEEDS_DEFINITION;
-
-        if (!$this->tx->begin()) {
-            return OperationResult::failure(self::STORAGE_FAILED, ['payment_id' => $paymentId]);
-        }
         $event = '';
         if ($postable && $payment->ledgerEvent === '') {
             $event = self::eventKey($paymentId);

@@ -1,0 +1,149 @@
+=== the two packages, read from the ZIPs ===
+base_package=0.1.0-alpha.64 base_schema=31
+new_package=0.1.0-alpha.65 new_schema=31
+PASS  1a the base declares a schema  (31)
+PASS  1b the new package declares the SAME one  (31)
+PASS  1c so this round has no migration  (0)
+
+=== on the base package: something worth keeping ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Activating 'tecteb-marketplace-core'...
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Installed 1 of 1 plugins.
+PASS  2a the base is installed  (0.1.0-alpha.64)
+line=206
+share=900000
+PASS  2b the fixture is arranged  (yes)
+pay_code=supplier_payment_recorded
+payment_id=104
+balance_after=__null__
+PASS  2c the base records a payment  (supplier_payment_recorded)
+payment_id=104
+agree_code=supplier_amount_agreed
+agreed_minor=900000
+PASS  2d …and an agreed amount  (supplier_amount_agreed)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 272
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 272
+payment_rows=1
+item_rows=1
+identity=e8a1481c3d1d8c3bb5f83ceff9c00e1a277ec60dc0b555ccdb701f3f715565c7
+ledger_rows=5
+identity_before=e8a1481c3d1d8c3bb5f83ceff9c00e1a277ec60dc0b555ccdb701f3f715565c7
+payment_rows_before=1
+PASS  2e the recorded structure is 31  (31)
+
+=== swapping the files for 0.1.0-alpha.65 ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Activating 'tecteb-marketplace-core'...
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Installed 1 of 1 plugins.
+PASS  3a the new files are on disk  (0.1.0-alpha.65)
+PASS  3b the structure number did not move  (31)
+PHP Fatal error:  Uncaught Error: Call to undefined function Automattic\WooCommerce\Internal\Orders\wc_get_page_screen_id() in /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php:546
+Stack trace:
+#0 /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php(557): Automattic\WooCommerce\Internal\Orders\OrderAttributionController->get_order_screen_id()
+#1 /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php(210): Automattic\WooCommerce\Internal\Orders\OrderAttributionController->register_order_origin_column()
+#2 /home/user/wp-demo/wp-includes/class-wp-hook.php(353): Automattic\WooCommerce\Internal\Orders\OrderAttributionController->{closure:Automattic\WooCommerce\Internal\Orders\OrderAttributionController::on_init():209}()
+#3 /home/user/wp-demo/wp-includes/class-wp-hook.php(377): WP_Hook->apply_filters()
+#4 /home/user/wp-demo/wp-includes/plugin.php(523): WP_Hook->do_action()
+#5 phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/Eval_Command.php(39) : eval()'d code(1): do_action()
+#6 phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/Eval_Command.php(39): eval()
+#7 [internal function]: Eval_Command->__invoke()
+#8 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Dispatcher/CommandFactory.php(100): call_user_func()
+#9 [internal function]: WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}()
+#10 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Dispatcher/Subcommand.php(497): call_user_func()
+#11 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(470): WP_CLI\Dispatcher\Subcommand->invoke()
+#12 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(493): WP_CLI\Runner->run_command()
+#13 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(136): WP_CLI\Runner->run_command_and_exit()
+#14 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(1228): WP_CLI\Runner->do_early_invoke()
+#15 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Bootstrap/LaunchRunner.php(28): WP_CLI\Runner->start()
+#16 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/bootstrap.php(84): WP_CLI\Bootstrap\LaunchRunner->process()
+#17 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php(35): WP_CLI\bootstrap()
+#18 phar:///usr/local/bin/wp/php/boot-phar.php(20): include('...')
+#19 /usr/local/bin/wp(4): include('...')
+#20 {main}
+  thrown in /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php on line 546
+Fatal error: Uncaught Error: Call to undefined function Automattic\WooCommerce\Internal\Orders\wc_get_page_screen_id() in /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php:546
+Stack trace:
+#0 /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php(557): Automattic\WooCommerce\Internal\Orders\OrderAttributionController->get_order_screen_id()
+#1 /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php(210): Automattic\WooCommerce\Internal\Orders\OrderAttributionController->register_order_origin_column()
+#2 /home/user/wp-demo/wp-includes/class-wp-hook.php(353): Automattic\WooCommerce\Internal\Orders\OrderAttributionController->{closure:Automattic\WooCommerce\Internal\Orders\OrderAttributionController::on_init():209}()
+#3 /home/user/wp-demo/wp-includes/class-wp-hook.php(377): WP_Hook->apply_filters()
+#4 /home/user/wp-demo/wp-includes/plugin.php(523): WP_Hook->do_action()
+#5 phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/Eval_Command.php(39) : eval()'d code(1): do_action()
+#6 phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/Eval_Command.php(39): eval()
+#7 [internal function]: Eval_Command->__invoke()
+#8 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Dispatcher/CommandFactory.php(100): call_user_func()
+#9 [internal function]: WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}()
+#10 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Dispatcher/Subcommand.php(497): call_user_func()
+#11 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(470): WP_CLI\Dispatcher\Subcommand->invoke()
+#12 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(493): WP_CLI\Runner->run_command()
+#13 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(136): WP_CLI\Runner->run_command_and_exit()
+#14 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(1228): WP_CLI\Runner->do_early_invoke()
+#15 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Bootstrap/LaunchRunner.php(28): WP_CLI\Runner->start()
+#16 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/bootstrap.php(84): WP_CLI\Bootstrap\LaunchRunner->process()
+#17 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php(35): WP_CLI\bootstrap()
+#18 phar:///usr/local/bin/wp/php/boot-phar.php(20): include('...')
+#19 /usr/local/bin/wp(4): include('...')
+#20 {main}
+  thrown in /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php on line 546
+Error: There has been a critical error on this website.Learn more about troubleshooting WordPress. There has been a critical error on this website.
+PASS  3c …and an admin request leaves it there  (31)
+SKIP  3d the failure and resume stages  — there is no step to fail (`alpha.42`)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 272
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 272
+payment_rows=1
+item_rows=1
+identity=e8a1481c3d1d8c3bb5f83ceff9c00e1a277ec60dc0b555ccdb701f3f715565c7
+ledger_rows=5
+identity_after=e8a1481c3d1d8c3bb5f83ceff9c00e1a277ec60dc0b555ccdb701f3f715565c7
+PASS  3e the product, its order line and the payments hash the same  (e8a1481c3d1d8c3bb5f83ceff9c00e1a277ec60dc0b555ccdb701f3f715565c7)
+PASS  3f the payment rows are untouched  (1)
+void_code=supplier_payment_voided
+is_void=yes
+PASS  3g a void still works on the carried-over payment  (supplier_payment_voided)
+PASS  3h …and the record is kept, marked void  (yes)
+
+=== and back to 0.1.0-alpha.64 ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Activating 'tecteb-marketplace-core'...
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Installed 1 of 1 plugins.
+PASS  4a the old files are on disk  (0.1.0-alpha.64)
+PASS  4b the structure is still 31  (31)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 272
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 272
+payment_rows=1
+item_rows=1
+identity=e8a1481c3d1d8c3bb5f83ceff9c00e1a277ec60dc0b555ccdb701f3f715565c7
+ledger_rows=7
+PASS  4c no database work is needed  (e8a1481c3d1d8c3bb5f83ceff9c00e1a277ec60dc0b555ccdb701f3f715565c7)
+PASS  4d and the rows are all still there  (1)
+note=rolling back restores the defect this round closed: voiding a payment
+note=that was reconciled between the read and the write writes no
+note=compensating entry, so the ledger keeps saying the money left.
+
+=== forward again, because a rollback is not a decision ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Activating 'tecteb-marketplace-core'...
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Installed 1 of 1 plugins.
+PASS  5a the new package is installed  (0.1.0-alpha.65)
+PASS  5b the structure is 31  (31)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 272
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 272
+PASS  5c and the data is the same  (e8a1481c3d1d8c3bb5f83ceff9c00e1a277ec60dc0b555ccdb701f3f715565c7)
+
+PASS=22 FAIL=0

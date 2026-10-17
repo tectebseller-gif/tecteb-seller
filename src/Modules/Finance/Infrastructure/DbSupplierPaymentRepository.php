@@ -228,6 +228,37 @@ final class DbSupplierPaymentRepository implements SupplierPaymentRepositoryInte
         return $row === null ? null : $this->hydrate($row);
     }
 
+    public function findForUpdate(int $paymentId): array
+    {
+        if ($paymentId <= 0) {
+            return ['outcome' => self::NOT_FOUND, 'payment' => null];
+        }
+        // THE COUNT TAKES THE LOCK, and it is asked separately on purpose:
+        // `getVar()` answers `null` when the statement failed and `'0'` when
+        // the row is not there, and those two have to stay apart here
+        // (`alpha.54`). From this statement onwards the row is held, so the
+        // read below cannot find it changed or gone — which is what lets a
+        // `null` there be reported as a failure rather than as absence.
+        $counted = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->payments() . '` WHERE id = %d FOR UPDATE',
+            [$paymentId]
+        );
+        if ($counted === null) {
+            return ['outcome' => self::FAILED, 'payment' => null];
+        }
+        if ((int) $counted === 0) {
+            return ['outcome' => self::NOT_FOUND, 'payment' => null];
+        }
+        $row = $this->db->getRow(
+            'SELECT * FROM `' . $this->payments() . '` WHERE id = %d FOR UPDATE',
+            [$paymentId]
+        );
+        if ($row === null) {
+            return ['outcome' => self::FAILED, 'payment' => null];
+        }
+        return ['outcome' => self::LOCKED, 'payment' => $this->hydrate($row)];
+    }
+
     public function forOrderItem(int $orderItemId): ?SupplierPayment
     {
         $row = $this->db->getRow(

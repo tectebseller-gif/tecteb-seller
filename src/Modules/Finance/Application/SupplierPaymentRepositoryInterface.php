@@ -36,6 +36,8 @@ interface SupplierPaymentRepositoryInterface
     public const ITEM_HELD_BY_WITHDRAWAL = 'item_held_by_withdrawal';
     /** The statement failed. Not the same as any refusal above. */
     public const FAILED = 'failed';
+    /** The row is read and HELD for the rest of this unit of work. */
+    public const LOCKED = 'locked';
 
     /**
      * Writes the payment and its items as ONE unit of work, or writes neither.
@@ -118,6 +120,32 @@ interface SupplierPaymentRepositoryInterface
         int $actorId,
         string $when
     ): bool;
+
+    /**
+     * THE SAME ROW, READ UNDER A LOCK — for a decision that then writes it.
+     *
+     * `find()` is a plain read and is right for a screen. It is wrong as the
+     * basis of a financial decision, and the shape of that wrongness was
+     * measured on `alpha.64`: `void()` read the payment, decided from it that
+     * no compensating entry was owed, and an independent `reconcile()`
+     * request gave the payment a money line in the gap. The void then
+     * succeeded, released the items, and wrote no reverse entry — so the
+     * supplier's books said the money had left for a document marked void.
+     * Both verbs are POST actions on the same admin screen, so «two
+     * requests» is the ordinary case rather than a contrived one.
+     *
+     * MUST be called with a transaction already open, because a lock taken
+     * outside one is released by the statement that took it. The caller's
+     * `begin()` is what makes this method mean anything.
+     *
+     * Three answers rather than a nullable row, because `getRow()` gives one
+     * answer for «no row» and «the read failed» (`alpha.54`) and here those
+     * are opposites: a failed read reported as `NOT_FOUND` would tell a
+     * manager that a payment they are looking at does not exist.
+     *
+     * @return array{outcome:string, payment:?SupplierPayment}
+     */
+    public function findForUpdate(int $paymentId): array;
 
     public function find(int $paymentId): ?SupplierPayment;
 
