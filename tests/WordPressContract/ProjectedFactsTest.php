@@ -770,8 +770,76 @@ final class ProjectedFactsTest extends ContractTestCase
     }
 
     /** @param array<string,string> $specs */
-    private function product(?string $description, ?int $wcProductId = null, array $specs = ['material' => 'لاتکس']): Product
+    /**
+     * §1-ب/ج: THE SHOP'S PRICE IS LEFT ALONE WHEN THIS MARKETPLACE HAS NONE.
+     *
+     * ⛔ `alpha.65` called `set_regular_price((string) $details->priceMinor)`
+     * unconditionally, and `ProductDetails::missingFields()` has named `price`
+     * for `<= 0` since the four-step form existed — so the model already said
+     * nought is «قیمتی ثبت نشده» and the projector wrote it out as a price.
+     * Measured on the installed bytes with the intake of an existing product:
+     * a PUBLISHED WooCommerce product whose `_regular_price` row did not exist
+     * came out of one projection with `_regular_price = '0'` and a price of
+     * «۰ تومان» where there had been nothing.
+     *
+     * The field is HELD rather than written, the `writeOwned()` shape one
+     * property down, and the holding is recorded under its own key so the
+     * screens that have to act on it can read it on a later request.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAProductWithNoPriceDoesNotGetANoughtWrittenToTheShop(): void
     {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $result = $this->projector()->project($this->product(description: null, priceMinor: 0));
+
+        self::assertTrue($result['ok'], (string) $result['code']);
+        self::assertTrue($result['price_held'], 'the projection must say it held the price');
+        $saved = \WC_Product::$saved[$result['wc_product_id']];
+        // NOT `'0'`: the setter was never called, so the stub holds whatever
+        // it started with — which is what «WooCommerce keeps its own» means.
+        self::assertNotSame('0', (string) $saved->get_regular_price());
+        self::assertSame(
+            '1',
+            (string) get_post_meta($result['wc_product_id'], WooCommerceProjector::PRICE_HELD_META, true)
+        );
+    }
+
+    /**
+     * The control: a product that HAS a price still gets it, and the holding
+     * record is cleared.
+     *
+     * A measurement that only ever looks at the broken case cannot tell a fix
+     * from a feature that stopped working (`alpha.46`) — and «cleared» rather
+     * than «left behind» is what makes the record mean «right now».
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAPricedProductStillHasItsPriceWrittenAndNothingHeld(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $result = $this->projector()->project($this->product(description: null));
+
+        self::assertTrue($result['ok'], (string) $result['code']);
+        self::assertFalse($result['price_held']);
+        $saved = \WC_Product::$saved[$result['wc_product_id']];
+        self::assertSame('200000', (string) $saved->get_regular_price());
+        self::assertSame(
+            '',
+            (string) get_post_meta($result['wc_product_id'], WooCommerceProjector::PRICE_HELD_META, true)
+        );
+    }
+
+    private function product(
+        ?string $description,
+        ?int $wcProductId = null,
+        array $specs = ['material' => 'لاتکس'],
+        int $priceMinor = 200000
+    ): Product {
         return new Product(
             41,
             self::VENDOR,
@@ -780,7 +848,7 @@ final class ProjectedFactsTest extends ContractTestCase
                 categoryKey: 'gloves',
                 brand: 'آریا طب',
                 shortDescription: 'یک جمله',
-                priceMinor: 200000,
+                priceMinor: $priceMinor,
                 sku: 'SKU-FACT',
                 stock: 5,
                 description: $description

@@ -127,10 +127,33 @@ final class ProductDetails
         if (trim($this->categoryKey) === '') {
             $missing[] = 'category';
         }
-        if ($this->priceMinor <= 0) {
+        if (!$this->hasPrice()) {
             $missing[] = 'price';
         }
         return $missing;
+    }
+
+    /**
+     * WHETHER THIS PRODUCT HAS A PRICE AT ALL — the one definition.
+     *
+     * `0` is not a price in this marketplace, and that was already true
+     * before this method existed: `missingFields()` has named `price` for
+     * `<= 0` since the four-step form was built, so a product carrying nought
+     * can never be approved or published here. What it means is «قیمتی ثبت
+     * نشده», not «رایگان».
+     *
+     * It is a method rather than a comparison repeated at each site because
+     * the projector read it the other way and wrote the nought out to the
+     * shop. Measured on the installed `alpha.65` bytes: a published
+     * WooCommerce product with no `_regular_price` row came out of one
+     * projection with `_regular_price = '0'` and a price of «۰ تومان» where
+     * there had been nothing at all. Two readings of one fact is the shape
+     * this repository keeps paying for (`alpha.46`, `alpha.52`), so there is
+     * now one.
+     */
+    public function hasPrice(): bool
+    {
+        return $this->priceMinor > 0;
     }
 
     public function isComplete(): bool

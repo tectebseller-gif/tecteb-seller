@@ -53,7 +53,8 @@ final class RecordCommission
          * `alpha.38` and `alpha.39` build this service by reflection and a
          * required argument would stop them loading — the `alpha.32` trap. The
          * real container always provides it, and
-         * `CommissionModelWiringTest` is the proof rather than this sentence.
+         * `CommissionOwnershipTest::testTheContainerWiresTheOwnersCommissionModel()`
+         * is the proof rather than this sentence.
          */
         private readonly ?TectebCommissionSourceInterface $tectebRules = null,
         private readonly ?TectebCommissionCalculator $tectebCalculator = null

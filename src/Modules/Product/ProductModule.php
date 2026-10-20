@@ -18,6 +18,8 @@ use Tecteb\Marketplace\Core\Events\EventBus;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
 use Tecteb\Marketplace\Modules\Product\Application\ConfigureSpecTemplates;
+use Tecteb\Marketplace\Modules\Finance\Application\TectebCommissionSourceInterface;
+use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommissionCalculator;
 use Tecteb\Marketplace\Modules\Product\Application\EstimateVendorShare;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\ManageVariations;
@@ -312,7 +314,12 @@ final class ProductModule implements ModuleInterface
         ));
         $c->bind(EstimateVendorShare::class, static fn (ContainerInterface $c) => new EstimateVendorShare(
             $c->get(ResolveCommissionRate::class),
-            $c->get(CommissionCalculator::class)
+            $c->get(CommissionCalculator::class),
+            // The per-product model, asked for the same way `RecordCommission`
+            // is wired: present on the real container, so the number step 4
+            // shows and the number the ledger records come from ONE rule.
+            $c->get(TectebCommissionSourceInterface::class),
+            $c->get(TectebCommissionCalculator::class)
         ));
     }
 

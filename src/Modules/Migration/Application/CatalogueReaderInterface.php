@@ -216,4 +216,23 @@ interface CatalogueReaderInterface
      * @return array<string,string> field key => what would happen to it
      */
     public function preservationRisks(int $wcProductId): array;
+
+    /**
+     * Products that are PUBLISHED in WooCommerce and whose marketplace row
+     * carries no price — reported, and nothing else.
+     *
+     * §1-هـ asks for exactly this and for exactly nothing more: «محصول
+     * منتشرشدهٔ بی‌قیمت را جداگانه گزارش کن، بدون تغییر وضعیت عمومی یا
+     * قابلیت خریدش». So this is a SELECT and there is no companion that
+     * repairs, hides or unpublishes anything — the state is a question for a
+     * person, and the two halves of it are genuinely different facts: the
+     * shop may have a price the marketplace row does not (an intake of a
+     * product priced after the row was made) or neither may have one.
+     *
+     * `shop_price` is the row the shop holds, told apart from emptiness, so
+     * the screen can say which of the two cases each product is.
+     *
+     * @return list<array{wc_product_id:int, product_id:int, title:string, shop_price:string, ownership:string}>
+     */
+    public function publishedWithoutPrice(int $limit = 100): array;
 }

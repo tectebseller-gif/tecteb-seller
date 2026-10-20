@@ -120,3 +120,4 @@ f15fea400dfc2f04089d3c8c67b9a8ef6fe6e7493f4167b228d835b398d0143c  tecteb-marketp
 5b97b33c7cdb38ba6610a97fbff2395fba59ff168da658a07a83eea744592951  tecteb-marketplace-core-0.1.0-alpha.63.zip  2026-10-17
 593e30d5d429ddc683839ad3a269b3993c6d3d7c3ea5bd1e1030859cd7a224d0  tecteb-marketplace-core-0.1.0-alpha.64.zip  2026-10-17
 0c27eb74c354f7e53a7efe385263bb4ca8b83752bb43773fbaa4d3448bc295da  tecteb-marketplace-core-0.1.0-alpha.65.zip  2026-10-17
+ce0c8937cb9dc01d8515d028130b301831d0f4d86d015dba6ccc84e37b1bf9d4  tecteb-marketplace-core-0.1.0-alpha.66.zip  2026-10-20

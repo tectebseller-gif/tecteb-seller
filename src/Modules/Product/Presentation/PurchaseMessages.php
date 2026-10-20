@@ -120,7 +120,14 @@ final class PurchaseMessages
     {
         return match ($decision) {
             PurchasePolicy::STOREFRONT_STOPPED => __('فروش بازارگاه متوقف شده است (کلید توقف روشن است).', 'tecteb-marketplace-core'),
-            PurchasePolicy::ORDERS_BLOCKED => __('دروازهٔ عملیات سفارش اجازه نمی‌دهد: نرخ کمیسیون یا تصمیم‌های مالی باز است.', 'tecteb-marketplace-core'),
+            // ⛔ «نرخ کمیسیون» was in this sentence and is no longer a cause.
+            // `alpha.57` removed the rate check from `OrderOperationsGate`
+            // (`RATE_UNSET` survives as a name and is never produced), so the
+            // only two things that shut this gate are the open decisions and
+            // an unwritable ledger. A manager who read the old sentence went
+            // looking for a commission rate to set, which is the one thing
+            // that would not have helped.
+            PurchasePolicy::ORDERS_BLOCKED => __('دروازهٔ عملیات سفارش اجازه نمی‌دهد: تصمیم‌های مالی باز است یا دفترکل نوشتنی نیست. کمیسیون این محصول در این تصمیم نقشی ندارد.', 'tecteb-marketplace-core'),
             PurchasePolicy::VENDOR_STOPPED => __('فروشنده تعلیق است، پس هیچ‌کدام از کالاهایش فروخته نمی‌شوند.', 'tecteb-marketplace-core'),
             PurchasePolicy::VENDOR_CLOSED => __('فروشنده خودش فروشگاه را موقتاً تعطیل کرده است. این تعلیق نیست: سفارش‌های قبلی‌اش عادی ادامه دارند و فقط سفارش تازه گرفته نمی‌شود.', 'tecteb-marketplace-core'),
             PurchasePolicy::NOT_PUBLISHED => __('محصول در گردش کار بازارگاه منتشر نیست.', 'tecteb-marketplace-core'),

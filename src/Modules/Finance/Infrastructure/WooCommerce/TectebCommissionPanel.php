@@ -244,7 +244,7 @@ final class TectebCommissionPanel
             . '<input type="text" class="short" id="tmc-commission-value" dir="ltr" inputmode="decimal"'
             . ' name="' . esc_attr(self::VALUE_FIELD) . '" value="' . esc_attr($rule->displayValue()) . '">'
             . '<span class="description">' . esc_html__(
-                'برای «درصدی» عددی بین ۰ تا ۱۰۰ بنویسید (مثلاً ۱۲٫۵) و برای «مبلغ ثابت» مبلغ هر عدد را به واحد پول فروشگاه. در «بدون کمیسیون» این کادر نادیده گرفته می‌شود. صفر یعنی بدون کمیسیون و با خالی‌بودن فرقی در نتیجه ندارد.',
+                'برای «درصدی» عددی بین ۰ تا ۱۰۰ بنویسید (مثلاً ۱۲٫۵) و برای «مبلغ ثابت» مبلغ هر عدد را به واحد پول فروشگاه. ارقام فارسی و عربی و جداکنندهٔ اعشار «٫» پذیرفته‌اند؛ جداکنندهٔ هزارگان (مثل ۲۰٬۰۰۰) پذیرفته نمی‌شود. در «بدون کمیسیون» این کادر نادیده گرفته می‌شود. صفر یعنی بدون کمیسیون و با خالی‌بودن فرقی در نتیجه ندارد.',
                 'tecteb-marketplace-core'
             ) . '</span></p>';
 
@@ -347,12 +347,29 @@ final class TectebCommissionPanel
         $context = is_array($notice['context'] ?? null) ? $notice['context'] : [];
 
         if ($outcome === 'refused') {
+            // THE TEXT THAT WAS REFUSED, quoted back.
+            //
+            // A message that only states the rule leaves a manager guessing
+            // which character broke it, and the two refusals that matter here
+            // look identical from the outside: «۱۲۰» is out of range and
+            // «۲۰٬۰۰۰» carries a grouping separator. Persian and Arabic
+            // digits are accepted from this round, so what is left is
+            // genuinely about the value — and naming it is the difference
+            // between stating the rule and answering about this one input.
+            $typed = trim((string) ($context['value'] ?? ''));
             $text = match ($reason) {
-                TectebCommission::BAD_PERCENT => __('درصد کمیسیون باید عددی بین ۰ تا ۱۰۰ باشد (حداکثر دو رقم اعشار). هیچ مقداری ذخیره نشد و کمیسیون قبلی سر جایش است.', 'tecteb-marketplace-core'),
-                TectebCommission::BAD_FIXED => __('مبلغ ثابت کمیسیون باید عددی غیرمنفی باشد. هیچ مقداری ذخیره نشد و کمیسیون قبلی سر جایش است.', 'tecteb-marketplace-core'),
+                TectebCommission::BAD_PERCENT => __('درصد کمیسیون باید عددی بین ۰ تا ۱۰۰ باشد (حداکثر دو رقم اعشار). ارقام فارسی و عربی و جداکنندهٔ اعشار «٫» پذیرفته‌اند، ولی جداکنندهٔ هزارگان نه. هیچ مقداری ذخیره نشد و کمیسیون قبلی سر جایش است.', 'tecteb-marketplace-core'),
+                TectebCommission::BAD_FIXED => __('مبلغ ثابت کمیسیون باید عددی غیرمنفی باشد. ارقام فارسی و عربی و جداکنندهٔ اعشار «٫» پذیرفته‌اند، ولی جداکنندهٔ هزارگان نه. هیچ مقداری ذخیره نشد و کمیسیون قبلی سر جایش است.', 'tecteb-marketplace-core'),
                 'not_permitted' => __('تغییر کمیسیون تک‌طب نیازمند مجوز مدیریت مالی است. هیچ مقداری ذخیره نشد.', 'tecteb-marketplace-core'),
                 default => __('نوع کمیسیون شناخته نشد. هیچ مقداری ذخیره نشد و کمیسیون قبلی سر جایش است.', 'tecteb-marketplace-core'),
             };
+            if ($typed !== '' && $reason !== 'not_permitted') {
+                $text .= ' ' . sprintf(
+                    /* translators: %s: exactly what the manager typed. */
+                    __('آنچه نوشته شده بود: «%s».', 'tecteb-marketplace-core'),
+                    $typed
+                );
+            }
             return '<div class="notice notice-error"><p>' . esc_html($text) . '</p></div>';
         }
         // The two halves of «ذخیره نشد», and the difference between them is

@@ -1,0 +1,196 @@
+# measured on the INSTALLED bytes of 0.1.0-alpha.65 (commit bb02a96)
+# installed plugin: Version:0.1.0-alpha.65
+# WooCommerce 11.0.1 active · Min Max 8.1.0 active · Dokan Lite INACTIVE (Not Run)
+
+== §2 commission input, nine spellings ==
+percent_ascii=percent/12.50
+percent_persian=refused:commission_percent_invalid
+percent_arabic=refused:commission_percent_invalid
+percent_mixed=refused:commission_percent_invalid
+percent_persian_whole=refused:commission_percent_invalid
+percent_over=refused:commission_percent_invalid
+percent_grouped=refused:commission_percent_invalid
+fixed_ascii=fixed/20000
+fixed_persian=refused:commission_fixed_invalid
+fixed_grouped=refused:commission_fixed_invalid
+none_with_text=none/
+
+== §1-و unified-list decomposition ==
+posts_draft=2
+posts_pending=2
+posts_publish=39
+posts_total=43
+posts_in_wc_all_tab=43
+posts_hidden_from_wc_all_tab=0
+branch_b_rows=89
+branch_b_ids=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,621,622,623,624,625,626,627,628,1237,1238,1239,1240,1241,1242,1243,1244,1245,1246,1247,1248,1249,1250,1251,1252,1253,1254,1255,1256,1259,1260,1261,1262,1263,1264,1265,1266,1269,1270,1271,1272,1273,1274,1277,1278,1279,1280,1282,1283,1284,1286,1287,1288,1289,1291,1292,1296,1297,1299,1300,1301,1302,1304,1305,1306,1308,1309,1310,1312,1314
+branch_b_statuses=archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,archived,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,archived,archived,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft,draft
+marketplace_rows_total=116
+unified_total=132
+unified_equals_posts_plus_branch_b=yes
+facet_wc_status___absent__=89
+facet_wc_status_draft=2
+facet_wc_status_pending=2
+facet_wc_status_publish=39
+facet_source_draft=89
+facet_source_marketplace=27
+facet_source_woocommerce=16
+facet_management_ours=113
+facet_management_observed=3
+facet_management_none=16
+
+== §1-ب dokan reader and plan ==
+dokan_reader_available=yes
+seller_user_id=11
+products_read=4
+read_dk-publish-nopr=yes
+read_price_minor_dk-publish-nopr=0
+read_dk-draft-nopr=yes
+read_price_minor_dk-draft-nopr=0
+read_dk-pending-nopr=no
+read_dk-publish-frac=yes
+read_price_minor_dk-publish-frac=450001
+read_dk-publish-priced=yes
+read_price_minor_dk-publish-priced=450000
+plan_products=4
+plan_486=conflict:no_price_recorded
+plan_487=conflict:no_price_recorded
+plan_489=import:
+plan_490=import:
+plan_count_conflict:no_price_recorded=2
+plan_count_import:=2
+
+== §3 gate chain ==
+open_decisions=DEC-02,DEC-04
+gate_ready=no
+gate_reason=decisions_open
+gate_detail=awaiting DEC-02, DEC-04
+gate_blockers=decisions_open:DEC-02,DEC-04
+general_rate_source=general
+general_rate_bp=1000
+general_rate_is_set=yes
+probe_product=485
+gate_reason_scoped=decisions_open
+gate_reason_is_rate_unset=no
+trial_requested=no
+trial_permitted=no
+trial_active=no
+trial_refusal=__none__
+trial_environment=production
+trial_option=tmc_order_trial_mode
+
+== §3 the one screen ==
+html_bytes=18440
+says_sales_active=yes
+says_order_gate=yes
+says_general_commission_rate=yes
+says_decisions_open=yes
+buyer_row_blames_rate=yes
+
+== §3-ب step 4 share estimate ==
+estimate_is_calculated=yes
+estimate_reason=__none__
+estimate_rate_source=general
+estimate_rate_bp=1000
+estimate_commission_minor=45000
+estimate_vendor_share_minor=405000
+shop_commission_type=__absent__
+shop_commission_value=__absent__
+
+== §1-ب/ج/د intake of products with no price ==
+vendor_user_id=3
+product_draft-nopr=491
+status_draft-nopr=draft
+regular_price_draft-nopr=__absent__
+price_draft-nopr=__absent__
+product_pending-nopr=492
+status_pending-nopr=pending
+regular_price_pending-nopr=__absent__
+price_pending-nopr=__absent__
+product_publish-nopr=493
+status_publish-nopr=publish
+regular_price_publish-nopr=__absent__
+price_publish-nopr=__absent__
+product_publish-priced=494
+status_publish-priced=publish
+regular_price_publish-priced=450000
+price_publish-priced=450000
+--- judge ---
+judge_draft-nopr=import:
+judge_pending-nopr=import:
+judge_publish-nopr=import:
+judge_publish-priced=import:
+--- intake ---
+run_id=intake-20261020-142105
+intake_491=imported:
+intake_492=imported:
+intake_493=imported:
+intake_494=imported:
+row_draft-nopr=1479
+row_status_draft-nopr=draft
+row_price_minor_draft-nopr=0
+row_ownership_draft-nopr=observed
+row_pending-nopr=1480
+row_status_pending-nopr=draft
+row_price_minor_pending-nopr=0
+row_ownership_pending-nopr=observed
+row_publish-nopr=1481
+row_status_publish-nopr=published
+row_price_minor_publish-nopr=0
+row_ownership_publish-nopr=observed
+row_publish-priced=1482
+row_status_publish-priced=published
+row_price_minor_publish-priced=450000
+row_ownership_publish-priced=observed
+--- accept management and project ---
+product_id=1481
+wc_product_id=493
+shop_regular_price_before=__absent__
+shop_price_before=__absent__
+shop_status_before=publish
+price_html_before=__none__
+risks=__none__
+drift_fields=__none__
+take_code=ownership_taken
+project_ok=yes
+project_code=projected
+shop_regular_price_after=0
+shop_price_after=0
+shop_status_after=publish
+price_html_after=0&nbsp;&#x062A;&#x0648;&#x0645;&#x0627;&#x0646;
+wc_is_purchasable=no
+
+== §2 the real panel path, on a real product ==
+--- ascii 12.5 first, so there IS a previous pair to keep ---
+wc_product_id=494
+typed=12.5
+typed_type=percent
+before_type=__absent__
+before_value=__absent__
+outcome=saved
+reason=__none__
+after_type=percent
+after_value=12.50
+reads_back_as=percent/12.50
+--- then the panel's own example, in Persian digits ---
+wc_product_id=494
+typed=۱۲٫۵
+typed_type=percent
+before_type=percent
+before_value=12.50
+outcome=refused
+reason=commission_percent_invalid
+after_type=percent
+after_value=12.50
+reads_back_as=percent/12.50
+--- and a fixed amount in Persian digits ---
+wc_product_id=494
+typed=۲۰۰۰۰
+typed_type=fixed
+before_type=percent
+before_value=12.50
+outcome=refused
+reason=commission_fixed_invalid
+after_type=percent
+after_value=12.50
+reads_back_as=percent/12.50

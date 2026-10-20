@@ -123,6 +123,68 @@ final class TectebCommissionTest extends TestCase
         }
     }
 
+    /**
+     * «۱۲٫۵»، «١٢٫٥» و «12.5» یک نتیجه می‌دهند — و بیشتر از آن پذیرفته نمی‌شود.
+     *
+     * The owner's manual staging test found this: the box's own hint gives
+     * «مثلاً ۱۲٫۵» as the example, and typing exactly that saved nothing. The
+     * conversion is at the FORM boundary (`fromInput()`), so `DecimalAmount`
+     * stays as strict as WooCommerce's own `wc_format_decimal()` output.
+     *
+     * The second half of the test is the part that matters as much: a
+     * GROUPING separator is refused by name. Reading one wrong moves an
+     * amount by a factor of a thousand, and the conservative direction on
+     * somebody's share of a sale is not to guess.
+     */
+    public function testPersianAndArabicDigitsReachTheSameRuleAsAsciiOnes(): void
+    {
+        $expected = ['percent', 1250, '12.50'];
+        foreach ([
+            'ascii' => '12.5',
+            'persian' => "\u{06F1}\u{06F2}\u{066B}\u{06F5}",
+            'arabic' => "\u{0661}\u{0662}\u{066B}\u{0665}",
+            'mixed' => "12\u{066B}5",
+            'padded' => " \u{06F1}\u{06F2}\u{066B}\u{06F5}\u{200C} ",
+        ] as $name => $typed) {
+            $answer = TectebCommission::fromInput('percent', $typed);
+            self::assertSame('', $answer['reason'], $name . ' must be accepted');
+            self::assertSame($expected[0], $answer['rule']?->type, $name);
+            self::assertSame($expected[1], $answer['rule']?->percentBasisPoints, $name);
+            self::assertSame($expected[2], $answer['rule']?->displayValue(), $name);
+        }
+
+        $fixed = TectebCommission::fromInput('fixed', "\u{06F2}\u{06F0}\u{06F0}\u{06F0}\u{06F0}");
+        self::assertSame('', $fixed['reason']);
+        self::assertSame('20000', $fixed['rule']?->fixedPerUnit);
+
+        // Still out of range, and now for the RIGHT reason: before this round
+        // «۱۲۰» and «۱۲٫۵» answered the same thing, so the message could not
+        // tell a manager which of the two problems they had.
+        self::assertSame(
+            TectebCommission::BAD_PERCENT,
+            TectebCommission::fromInput('percent', "\u{06F1}\u{06F2}\u{06F0}")['reason']
+        );
+        // A grouping separator is NOT a digit and is not translated.
+        foreach (["\u{06F2}\u{06F0}\u{066C}\u{06F0}\u{06F0}\u{06F0}", '20,000'] as $grouped) {
+            $answer = TectebCommission::fromInput('fixed', $grouped);
+            self::assertNull($answer['rule'], $grouped . ' must be refused');
+            self::assertSame(TectebCommission::BAD_FIXED, $answer['reason'], $grouped);
+        }
+    }
+
+    /**
+     * `fromStored()` stays ASCII-strict, and that is deliberate.
+     *
+     * A row can only hold what `fromInput()` let through, so a non-ASCII
+     * stored value is somebody else's data — and «no commission» is the
+     * documented safe reading of a row this model did not write.
+     */
+    public function testAStoredValueInPersianDigitsIsReadAsNoCommission(): void
+    {
+        $stored = TectebCommission::fromStored('percent', "\u{06F1}\u{06F2}\u{066B}\u{06F5}");
+        self::assertTrue($stored->isNone());
+    }
+
     /** Two decimal places of a percentage survive the round trip, as text. */
     public function testAPercentageKeepsItsTwoDecimalPlacesWithoutBecomingAFloat(): void
     {

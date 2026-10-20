@@ -18,7 +18,7 @@ final class FakeDokanReader implements DokanReaderInterface
     /** @var list<array{user_id:int, store_name:string, email:string, enabled:bool}> */
     public array $vendorRows = [];
 
-    /** @var list<array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int}> */
+    /** @var list<array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int, post_status?:string, price_recorded?:bool, price_not_exact?:bool}> */
     public array $productRows = [];
 
     /**

@@ -402,4 +402,12 @@ final class FakeCatalogueReader implements CatalogueReaderInterface
     {
         return $this->risks[$wcProductId] ?? [];
     }
+
+    /** @var list<array{wc_product_id:int, product_id:int, title:string, shop_price:string, ownership:string}> */
+    public array $pricelessPublished = [];
+
+    public function publishedWithoutPrice(int $limit = 100): array
+    {
+        return array_slice($this->pricelessPublished, 0, max(1, $limit));
+    }
 }

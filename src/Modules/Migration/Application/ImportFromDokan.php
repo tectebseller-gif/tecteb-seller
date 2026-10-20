@@ -628,7 +628,7 @@ final class ImportFromDokan
     }
 
     /**
-     * @param array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int} $product
+     * @param array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int, post_status?:string, price_recorded?:bool, price_not_exact?:bool} $product
      * @return array{0:string, 1:string}
      */
     private function judgeProduct(array $product): array
@@ -645,8 +645,49 @@ final class ImportFromDokan
             // one, and nobody here can make it.
             return [DokanMigrationPlan::CONFLICT, 'sku_already_used_in_this_shop'];
         }
-        if ($product['price_minor'] <= 0) {
-            return [DokanMigrationPlan::CONFLICT, 'no_price_recorded'];
+        if (array_key_exists('post_status', $product)
+            && ProductStatus::forIntakeOf((string) $product['post_status']) === null) {
+            // A status this marketplace has no field for. Named rather than
+            // mapped to the nearest one: collapsing `private` into
+            // «پیش‌نویس» means the first projection turns a published-private
+            // product into a draft, and `future` loses its schedule the same
+            // way — a public change from an intake.
+            //
+            // `array_key_exists` and not `??`, because «the reader did not
+            // tell me the status» and «the status is one I cannot express»
+            // are different problems and only the second is this product's.
+            // A reader that supplies no status at all is a shape mismatch,
+            // and answering it by putting every product in conflict is a
+            // guard wider than the defect (`alpha.60`).
+            return [DokanMigrationPlan::CONFLICT, 'status_not_expressible'];
+        }
+        if (($product['price_not_exact'] ?? false) === true) {
+            // The same answer `plan()` already gives a Dokan ORDER whose
+            // figure carries more precision than this shop's currency can
+            // hold — «never rounded», one row type over. A price moved by half
+            // a unit is this plugin changing somebody's catalogue and
+            // reporting success.
+            return [DokanMigrationPlan::CONFLICT, 'price_not_exact_for_this_currency'];
+        }
+        if ($product['price_minor'] < 0) {
+            return [DokanMigrationPlan::CONFLICT, 'price_is_negative'];
+        }
+        if (($product['price_recorded'] ?? true) !== true || $product['price_minor'] === 0) {
+            // ⛔ NOT A CONFLICT ANY MORE, and this was the owner's thirty-four.
+            //
+            // `alpha.65` returned `CONFLICT/no_price_recorded` here, so a
+            // `draft` or `pending` product nobody had priced yet could not be
+            // taken in at all — «محصول draft یا pending نباید فقط به‌دلیل
+            // نداشتن قیمت از ورود مسدود شود». It comes in, the row says it has
+            // no price (`ProductDetails::hasPrice()` reads nought that way),
+            // and three separate things keep that honest without blocking it:
+            // `ProductReadiness` refuses to approve or publish it and names
+            // `price`, the projector leaves the shop's own price alone from
+            // `alpha.66`, and the review page reports it.
+            //
+            // The verdict carries the reason so the plan can SAY so: an import
+            // a manager has to finish is not the same as one they do not.
+            return [DokanMigrationPlan::IMPORT, 'imported_without_a_price'];
         }
         return [DokanMigrationPlan::IMPORT, ''];
     }

@@ -46,6 +46,16 @@ final class WooCommerceProjector implements CatalogProjectorInterface
 
     public const PRODUCT_META = '_tmc_product_id';
     public const VENDOR_META = '_tmc_vendor_id';
+    /**
+     * Set when the last projection LEFT THE SHOP'S PRICE ALONE because this
+     * marketplace has none for the product.
+     *
+     * Its own key rather than a flag inside another record: the question «is
+     * this product unsellable because nobody has priced it?» is asked by the
+     * review list and by the health page, on requests that are nowhere near
+     * the projection that answered it.
+     */
+    public const PRICE_HELD_META = '_tmc_price_not_projected';
 
     /**
      * The status a claimed post had before this plugin took it over.
@@ -271,9 +281,33 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             $wcProduct->update_meta_data($metaKey, $metaValue);
         }
 
+        // THE PRICE IS WRITTEN ONLY WHEN THERE IS ONE.
+        //
+        // ⛔ Until `alpha.66` this call was unconditional, and
+        // `ProductDetails::missingFields()` has named `price` for `<= 0`
+        // since the four-step form existed — so the model already said nought
+        // is «قیمتی ثبت نشده» and the projector wrote it to the shop as a
+        // price anyway. Measured on the installed `alpha.65` bytes with the
+        // intake of an existing product: a PUBLISHED WooCommerce product with
+        // no `_regular_price` row at all came out of one projection with
+        // `_regular_price = '0'`, `_price = '0'` and a price of «۰ تومان»
+        // where there had been nothing. An intake must not change the public
+        // product (§1-ج) and must not write a value nobody recorded (§1-ب).
+        //
+        // Held rather than written, the `writeOwned()` shape one property
+        // down: WooCommerce keeps whatever it has, the field is reported, and
+        // the product stays unapprovable until somebody sets a price —
+        // `ProductReadiness` already refuses it by name.
+        $priceHeld = false;
         if ($details->type !== ProductType::VARIABLE) {
-            $wcProduct->set_regular_price((string) $details->priceMinor);
-            $this->applySale($wcProduct, $product);
+            if ($details->hasPrice()) {
+                $wcProduct->set_regular_price((string) $details->priceMinor);
+                $this->applySale($wcProduct, $product);
+            } else {
+                // The sale price is held with it: a sale off a price that does
+                // not exist is a second invented number.
+                $priceHeld = true;
+            }
             $wcProduct->set_manage_stock(true);
             if ($isNew) {
                 // Only here: afterwards WooCommerce's number is the true one.
@@ -319,11 +353,15 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         $variationLinks = $details->type === ProductType::VARIABLE
             ? $this->projectVariations($wcProductId, $product, $attributes, $variations)
             : [];
+        $this->recordHeldPrice($wcProductId, $priceHeld);
         return [
             'ok' => true,
             'code' => 'projected',
             'wc_product_id' => $wcProductId,
             'variation_links' => $variationLinks,
+            // Additive, so every existing caller keeps working: the two that
+            // care read it, the rest ignore it (`alpha.32`).
+            'price_held' => $priceHeld,
         ];
     }
 
@@ -1349,6 +1387,24 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         } else {
             update_post_meta($wcProductId, ProjectedQuantity::CONFLICT_META, $report);
         }
+    }
+
+    /**
+     * Writes down that the shop's own price was left alone, or clears it.
+     *
+     * A meta row and not only a return value, because the person who has to
+     * act on it arrives on a later request: the review list and the health
+     * page read it, and a value that lived only in one projection's return
+     * would be gone by then. Cleared on the first projection that does carry
+     * a price, so the row means «right now», never «once».
+     */
+    private function recordHeldPrice(int $wcProductId, bool $held): void
+    {
+        if ($held) {
+            update_post_meta($wcProductId, self::PRICE_HELD_META, '1');
+            return;
+        }
+        delete_post_meta($wcProductId, self::PRICE_HELD_META);
     }
 
     /**

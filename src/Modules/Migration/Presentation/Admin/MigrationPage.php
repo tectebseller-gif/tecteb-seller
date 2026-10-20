@@ -505,7 +505,16 @@ final class MigrationPage
             'already_owned_by_the_marketplace' => __('از قبل مال بازارگاه است', 'tecteb-marketplace-core'),
             'already_mapped_by_an_earlier_run' => __('اجرای قبلی نگاشتش کرده است', 'tecteb-marketplace-core'),
             'sku_already_used_in_this_shop' => __('این SKU در همین فروشگاه استفاده شده؛ کدام اصل است؟', 'tecteb-marketplace-core'),
+            // `no_price_recorded` is kept as a NAME and is no longer produced:
+            // a stored plan or a log line written before `alpha.66` still
+            // reads as what it was rather than as an unknown string. From
+            // `alpha.66` a product with no price is IMPORTED and this sentence
+            // is the one that explains what the manager still has to do.
             'no_price_recorded' => __('قیمتی ثبت نشده است', 'tecteb-marketplace-core'),
+            'imported_without_a_price' => __('وارد می‌شود، ولی قیمت ندارد — تا تعیین قیمت، تأیید و انتشارش رد می‌شود و قیمت فروشگاه هم دست‌نخورده می‌ماند', 'tecteb-marketplace-core'),
+            'price_not_exact_for_this_currency' => __('قیمت این محصول رقمی دارد که واحد پول فروشگاه نمی‌تواند نگه دارد؛ گرد نمی‌شود', 'tecteb-marketplace-core'),
+            'price_is_negative' => __('قیمت منفی است', 'tecteb-marketplace-core'),
+            'status_not_expressible' => __('وضعیت انتشار این محصول در بازارگاه معادلی ندارد (مثل «خصوصی» یا «زمان‌بندی‌شده»)', 'tecteb-marketplace-core'),
             'historic_commission_not_recomputed' => __('کمیسیون این سفارش با قواعد دکان حساب شده و دوباره ثبت نمی‌شود', 'tecteb-marketplace-core'),
             default => $reason,
         };

@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Modules\Migration\Domain\CatalogueFacets;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\ReviewQueueSql;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\ProjectedQuantity;
@@ -438,7 +439,7 @@ final class WpCatalogueReader implements CatalogueReaderInterface
     private function unionSql(array $filters): array
     {
         $posts = '`' . $this->db->prefix() . 'posts`';
-        $products = '`' . $this->db->prefix() . 'tmc_products`';
+        $products = '`' . $this->db->prefix() . M0005CreateProductTables::PRODUCTS . '`';
         $meta = '`' . $this->db->prefix() . 'postmeta`';
         $own = '`' . M0010LinkOwnership::COLUMN . '`';
 
@@ -783,6 +784,51 @@ final class WpCatalogueReader implements CatalogueReaderInterface
             // Named rather than read as «no vendor», because it is one.
             $out['vendor_profile'] = 'profile_without_application';
             $out['vendor_profile_user'] = $author;
+        }
+        return $out;
+    }
+
+    public function publishedWithoutPrice(int $limit = 100): array
+    {
+        $posts = '`' . $this->db->prefix() . 'posts`';
+        $products = '`' . $this->db->prefix() . M0005CreateProductTables::PRODUCTS . '`';
+        $meta = '`' . $this->db->prefix() . 'postmeta`';
+        // `MIN(id)` for the same reason `unionSql()` uses it: `tmc_products`
+        // has no unique index on `wc_product_id`, so a plain join multiplies
+        // the product by however many rows point at it (`alpha.56`).
+        //
+        // The shop's own price comes from a correlated subquery rather than a
+        // join, because `wp_postmeta` is not unique on `(post_id, meta_key)`
+        // either — measured on WordPress 7.1 in `alpha.54`.
+        $rows = $this->db->getResults(
+            'SELECT p.ID AS wc_product_id, m.id AS product_id, p.post_title AS title,
+                    m.' . '`' . M0010LinkOwnership::COLUMN . '`' . ' AS ownership,
+                    (SELECT mm.meta_value FROM ' . $meta . ' mm
+                      WHERE mm.post_id = p.ID AND mm.meta_key = %s
+                      ORDER BY mm.meta_id ASC LIMIT 1) AS shop_price
+               FROM ' . $posts . ' p
+               INNER JOIN (SELECT wc_product_id, MIN(id) AS first_id
+                             FROM ' . $products . '
+                            WHERE wc_product_id IS NOT NULL
+                            GROUP BY wc_product_id) g ON g.wc_product_id = p.ID
+               INNER JOIN ' . $products . ' m ON m.id = g.first_id
+              WHERE p.post_type = %s AND p.post_status = %s AND m.price_minor <= 0
+              ORDER BY p.ID ASC LIMIT %d',
+            ['_regular_price', 'product', 'publish', max(1, min(500, $limit))]
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $price = $row['shop_price'];
+            $out[] = [
+                'wc_product_id' => (int) $row['wc_product_id'],
+                'product_id' => (int) $row['product_id'],
+                'title' => (string) $row['title'],
+                // Absence told apart from emptiness, because they are two
+                // different things to do next: one needs a price typed in,
+                // the other needs the shop's own number brought across.
+                'shop_price' => $price === null ? '__absent__' : ((string) $price === '' ? '__empty__' : (string) $price),
+                'ownership' => (string) $row['ownership'],
+            ];
         }
         return $out;
     }

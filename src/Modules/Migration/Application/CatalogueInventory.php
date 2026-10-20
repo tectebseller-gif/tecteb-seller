@@ -242,6 +242,21 @@ final class CatalogueInventory
      * @param array<string,mixed> $row from `productsAfter()`
      * @return array<string,mixed>
      */
+    /**
+     * Published in WooCommerce, priced nowhere — reported and nothing else.
+     *
+     * A passthrough and not a decision, because §1-هـ is explicit that the
+     * public product must not change: «محصول منتشرشدهٔ بی‌قیمت را جداگانه
+     * گزارش کن، بدون تغییر وضعیت عمومی یا قابلیت خریدش». There is deliberately
+     * no companion that fixes one.
+     *
+     * @return list<array{wc_product_id:int, product_id:int, title:string, shop_price:string, ownership:string}>
+     */
+    public function pricelessPublished(int $limit = 100): array
+    {
+        return $this->reader->isAvailable() ? $this->reader->publishedWithoutPrice($limit) : [];
+    }
+
     public function classify(array $row): array
     {
         $wcId = (int) ($row['wc_product_id'] ?? 0);

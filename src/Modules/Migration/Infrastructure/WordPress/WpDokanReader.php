@@ -46,6 +46,28 @@ final class WpDokanReader implements DokanReaderInterface
     private const MAX_PAGES = 1000;
 
     /**
+     * The post statuses a migration plan reads.
+     *
+     * ⛔ `pending` was missing until `alpha.66`, and it is not a small gap: the
+     * owner's own dry run reported «۲ فروشنده، ۱۳۷ محصول» over a catalogue
+     * whose WooCommerce screen counts 146 publish + 29 draft + **13 pending**,
+     * and the thirteen were never read at all — not skipped with a reason,
+     * not conflicted, absent. Measured on the installed `alpha.65` bytes with
+     * a `pending` fixture: `read_dk-pending-nopr=no`.
+     *
+     * `trash` and `auto-draft` are deliberately NOT here: a deleted product
+     * and a row WordPress left behind when somebody opened «افزودن محصول» and
+     * walked away are not catalogue entries, and putting them in a migration
+     * plan would ask a manager to decide about rows they never made.
+     * `private` and `future` are not here either, and that is the same answer
+     * `ProductStatus::forIntakeOf()` gives: this marketplace has no field for
+     * either state, so reading them would only produce a refusal further down.
+     *
+     * @var list<string>
+     */
+    private const READ_STATUSES = ['publish', 'draft', 'pending'];
+
+    /**
      * Sellers, read once per request.
      *
      * Every product page needs the seller list to scope its query, and without
@@ -142,22 +164,61 @@ final class WpDokanReader implements DokanReaderInterface
             return [];
         }
         $placeholders = implode(', ', array_fill(0, count($sellerIds), '%d'));
+        $statuses = implode(', ', array_fill(0, count(self::READ_STATUSES), '%s'));
         $rows = $this->db->getResults(
-            'SELECT p.ID, p.post_author, p.post_title FROM `' . $this->posts() . '` p
-             WHERE p.post_type = %s AND p.post_status IN (%s, %s) AND p.post_author IN (' . $placeholders . ')
+            'SELECT p.ID, p.post_author, p.post_title, p.post_status FROM `' . $this->posts() . '` p
+             WHERE p.post_type = %s AND p.post_status IN (' . $statuses . ')
+               AND p.post_author IN (' . $placeholders . ')
                AND p.ID > %d
              ORDER BY p.ID ASC LIMIT %d',
-            array_merge(['product', 'publish', 'draft'], $sellerIds, [max(0, $afterId), $this->page($limit)])
+            array_merge(['product'], self::READ_STATUSES, $sellerIds, [max(0, $afterId), $this->page($limit)])
         );
+        $exponent = $this->exponent();
         $products = [];
         foreach ($rows as $row) {
             $id = (int) $row['ID'];
+            // THE PRICE, EXACTLY OR NOT AT ALL — and absence told apart from
+            // nought.
+            //
+            // ⛔ This line was `(int) round((float) get_post_meta($id, '_price',
+            // true))` and it was wrong three ways, all measured on the
+            // installed `alpha.65` bytes with a seller's real products:
+            //
+            //   * a product with NO price row came out as `0`, so «قیمتی ثبت
+            //     نشده» and «قیمت صفر» became one number and the plan could
+            //     only call it a conflict;
+            //   * `450000.50` came out as `450001` — a float round on money,
+            //     forbidden since `alpha.39` and `alpha.53` — and was then
+            //     planned as `import`, which is worse than the refusal: a
+            //     fabricated price that passes;
+            //   * and the key read was `_price`, which on a product that is on
+            //     sale is the SALE price. Migrating that as the product's price
+            //     would make a temporary discount permanent.
+            //
+            // `_regular_price` is what the vendor set and what
+            // `ImportExistingProducts` already reads, so the two intake paths
+            // now ask one question. `DecimalAmount` converts against the
+            // shop's own exponent and answers null rather than rounding —
+            // which `ordersAfter()` in this same class has done since
+            // `alpha.53`, so the pattern was already here.
+            $priceText = $this->metaRow($id, '_regular_price');
+            $priceMinor = $priceText === null ? null : DecimalAmount::toMinor($priceText, $exponent);
             $products[] = [
                 'wc_product_id' => $id,
                 'vendor_user_id' => (int) $row['post_author'],
                 'title' => (string) $row['post_title'],
+                // Carried so the plan can PRINT it. A product whose status the
+                // marketplace cannot express is refused by name, and a manager
+                // reading «رد شد» needs to know which status it was.
+                'post_status' => (string) $row['post_status'],
                 'sku' => (string) get_post_meta($id, '_sku', true),
-                'price_minor' => (int) round((float) get_post_meta($id, '_price', true)),
+                // Nought when there is no price, which is this model's own
+                // reading of «no price» (`ProductDetails::hasPrice()`) — and
+                // the two flags below say WHICH of the three cases it is, so
+                // no consumer has to infer it from the number.
+                'price_minor' => (int) ($priceMinor ?? 0),
+                'price_recorded' => $priceText !== null && $priceText !== '',
+                'price_not_exact' => $priceText !== null && $priceText !== '' && $priceMinor === null,
                 'stock' => (int) get_post_meta($id, '_stock', true),
                 // The category AS THE SOURCE HAS IT. Not this marketplace's
                 // category — those are two different vocabularies, and
@@ -173,6 +234,27 @@ final class WpDokanReader implements DokanReaderInterface
             ];
         }
         return $products;
+    }
+
+    /**
+     * One meta value READ FROM THE ROW, with `null` for «there is no row».
+     *
+     * `get_post_meta()` answers `''` for both a missing row and an empty one
+     * (`alpha.28`), and here the two are the whole question: an absent price
+     * is «قیمتی ثبت نشده» and an empty one is the same, but neither is the
+     * nought that `(int)` would make of them. Read with `COUNT`-free SQL
+     * because `wp_postmeta` has no unique index on `(post_id, meta_key)` —
+     * measured on WordPress 7.1 in `alpha.54` — so the first row by
+     * `meta_id` is named rather than assumed to be the only one.
+     */
+    private function metaRow(int $postId, string $key): ?string
+    {
+        $rows = $this->db->getResults(
+            'SELECT meta_value FROM `' . $this->db->prefix() . 'postmeta`
+              WHERE post_id = %d AND meta_key = %s ORDER BY meta_id ASC LIMIT 1',
+            [$postId, $key]
+        );
+        return $rows === [] ? null : (string) $rows[0]['meta_value'];
     }
 
     /** The product's first `product_cat` slug, or '' when it has none. */

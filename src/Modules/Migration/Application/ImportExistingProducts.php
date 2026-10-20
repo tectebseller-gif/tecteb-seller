@@ -281,6 +281,19 @@ final class ImportExistingProducts
         if ($detail === []) {
             return ['verdict' => 'skip', 'reason' => 'product_unreadable', 'vendor_user_id' => $vendor, 'risks' => []];
         }
+        // A STATUS THIS MARKETPLACE CANNOT HOLD is refused here, by name,
+        // before the price is even looked at — because the alternative is to
+        // pick the nearest status, and for `private` and `future` the nearest
+        // one is «منتشرشده», which the first projection would act on.
+        if (ProductStatus::forIntakeOf((string) $detail['status']) === null) {
+            return [
+                'verdict' => 'skip',
+                'reason' => 'status_not_expressible',
+                'status' => (string) $detail['status'],
+                'vendor_user_id' => $vendor,
+                'risks' => [],
+            ];
+        }
         $price = $this->exactInteger((string) $detail['regular_price']);
         if ($price === null) {
             // A price with a fraction in a marketplace that holds integer
@@ -318,6 +331,18 @@ final class ImportExistingProducts
         if ($details === null) {
             return ['verdict' => 'failed', 'reason' => 'price_not_an_integer'];
         }
+        // THE STATUS, through the one total mapping — and a refusal for every
+        // WooCommerce status this marketplace has no field for. `judge()` asks
+        // the same question first, so reaching this is a state that arrived
+        // between the two reads.
+        $mirrored = ProductStatus::forIntakeOf((string) $detail['status']);
+        if ($mirrored === null) {
+            return [
+                'verdict' => 'failed',
+                'reason' => 'status_not_expressible',
+                'status' => (string) $detail['status'],
+            ];
+        }
         // THREE REFUSALS BEFORE THE FIRST WRITE (`alpha.54`'s shape): no unit
         // of work, a caller who already opened one, or one that will not
         // open. Each is a refusal rather than a reason to do the first half.
@@ -339,7 +364,11 @@ final class ImportExistingProducts
             // as a draft would take a live product off sale the first time
             // anybody projected it. Mirroring means the first projection
             // writes the status the product already has.
-            (string) $detail['status'] === 'publish' ? ProductStatus::Published : ProductStatus::Draft,
+            //
+            // Through `ProductStatus::forIntakeOf()` rather than a ternary —
+            // see its docblock for why five statuses collapsing into one, and
+            // two of them collapsing the wrong way, was the §1-د finding.
+            $mirrored,
             // OBSERVED. Nothing follows from this row until somebody accepts
             // management explicitly.
             LinkOwnership::Observed,
@@ -1190,7 +1219,19 @@ final class ImportExistingProducts
         return (int) round(((float) $weight) * 1000);
     }
 
-    /** An exact integer, or null — never a round. */
+    /**
+     * An exact integer, or null — never a round.
+     *
+     * An EMPTY price answers `0`, and that is a decision rather than a
+     * shortcut: `price_minor` is `BIGINT NOT NULL DEFAULT 0` and
+     * `ProductDetails::hasPrice()` reads nought as «قیمتی ثبت نشده», so
+     * nought is this model's own representation of absence — not an invented
+     * price. What `alpha.65` got wrong was downstream: the projector wrote
+     * that nought out to the shop as if it were a price, and from this round
+     * it holds the field instead. «قیمت خالی با صفر متفاوت است» is honoured by
+     * the two of them together: the row says «no price» and nothing turns it
+     * into a number on somebody's product.
+     */
     private function exactInteger(string $value): ?int
     {
         $value = trim($value);

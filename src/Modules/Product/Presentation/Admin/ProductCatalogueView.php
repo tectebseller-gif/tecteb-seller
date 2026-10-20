@@ -623,7 +623,53 @@ final class ProductCatalogueView
         return '<details class="tmc-catalogue__more"' . $open . '><summary>'
             . esc_html__('فیلترهای بیشتر', 'tecteb-marketplace-core') . '</summary>'
             . '<p class="tmc-hint">' . esc_html__('«وضعیت انتشار در ووکامرس» وضعیت خودِ محصول در فروشگاه است و «وضعیت مدیریت بازارگاه» می‌گوید این افزونه آن محصول را مدیریت می‌کند یا فقط می‌بیند. این دو یکی نیستند.', 'tecteb-marketplace-core') . '</p>'
-            . $rows . '</details>';
+            . $rows . self::countArithmetic($state) . '</details>';
+    }
+
+    /**
+     * WHY THIS NUMBER IS NOT WOOCOMMERCE'S NUMBER — the decomposition, written
+     * out.
+     *
+     * The owner read 193 here against 188 on WooCommerce's own product screen
+     * and asked which is right. Both are, about different questions, and the
+     * honest answer is arithmetic rather than a changed total («عددها را برای
+     * برابرشدن دستکاری نکن»). This list is the union of
+     *
+     *   * every `post_type='product'` post, at ANY status — including the
+     *     `auto-draft` rows WordPress leaves behind when somebody opens «افزودن
+     *     محصول» and walks away, and the ones in the trash, neither of which
+     *     WooCommerce's «همه» tab counts; and
+     *   * every marketplace row with no WooCommerce product behind it — a
+     *     product entered here and never projected, which no WooCommerce
+     *     screen can show because there is nothing there to show.
+     *
+     * Built from the facet counts this page already has, so it cannot
+     * disagree with the chips beside it, and printed inside the same folded
+     * box so it changes nothing above the first product (`alpha.34`).
+     */
+    private static function countArithmetic(ProductCatalogueState $state): string
+    {
+        $byStatus = (array) ($state->facets['wc_status'] ?? []);
+        if ($byStatus === []) {
+            return '';
+        }
+        $absent = (int) ($byStatus[CatalogueFacets::STATUS_ABSENT] ?? 0);
+        $hidden = (int) ($byStatus['auto-draft'] ?? 0) + (int) ($byStatus['trash'] ?? 0);
+        $posts = 0;
+        foreach ($byStatus as $status => $n) {
+            if ((string) $status !== CatalogueFacets::STATUS_ABSENT) {
+                $posts += (int) $n;
+            }
+        }
+        $inWcTab = $posts - $hidden;
+        return '<p class="tmc-hint">' . esc_html(sprintf(
+            /* translators: 1: this list's total, 2: products WooCommerce's own «all» tab counts, 3: auto-draft and trashed products, 4: marketplace rows with no WooCommerce product */
+            __('این فهرست %1$s ردیف دارد: %2$s محصولی که در فهرست «همه»ی ووکامرس هم شمرده می‌شوند، به‌علاوهٔ %3$s محصول پیش‌نویس خودکار یا در زباله‌دان که آن فهرست نشانشان نمی‌دهد، به‌علاوهٔ %4$s ردیف بازارگاه که هنوز محصول ووکامرسی ندارند. اگر عدد این صفحه با عدد صفحهٔ محصولات ووکامرس فرق دارد، تفاوت همین دو دستهٔ آخر است.', 'tecteb-marketplace-core'),
+            self::fa($state->total),
+            self::fa($inWcTab),
+            self::fa($hidden),
+            self::fa($absent)
+        )) . '</p>';
     }
 
     /**

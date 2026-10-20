@@ -8,7 +8,6 @@ use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
-use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\RateScope;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
@@ -66,20 +65,38 @@ final class StorefrontPage
             echo Components::notice(str_starts_with($notice, 'ok:') ? 'success' : 'error', substr($notice, strpos($notice, ':') + 1));
         }
 
-        $this->renderSwitchPanel($switch, $fa);
-        $this->renderGatePanel($fa);
+        // ONE answer, asked once and handed to both panels.
+        //
+        // Until `alpha.66` the green banner came from `isStopped()` alone and
+        // the gate's answer came from a table two sections below it, so the
+        // owner's own screen said «فروش بازارگاه فعال است. محصولات تأییدشده در
+        // فروشگاه قابل خریدند.» above «دروازهٔ سفارش: بسته — decisions_open».
+        // Both sentences were true about their own question and the screen as
+        // a whole was not: «روشن‌بودن کلید فروش با بازبودن دروازهٔ سفارش یکی
+        // نیست». Asked once so the two halves cannot disagree.
+        $gateAnswer = $this->container->get(OrderOperationsGate::class)->check();
+
+        $this->renderSwitchPanel($switch, $fa, $gateAnswer);
+        $this->renderGatePanel($fa, $gateAnswer);
         $this->renderProductPanel($fa);
 
         echo Components::shellClose();
     }
 
-    private function renderSwitchPanel(StorefrontSwitch $switch, callable $fa): void
+    /**
+     * @param array{ready:bool, reason:string, detail:string} $gateAnswer the
+     *        order gate's answer, so the banner can describe the EFFECTIVE
+     *        purchase state rather than only the switch's position
+     */
+    private function renderSwitchPanel(StorefrontSwitch $switch, callable $fa, array $gateAnswer): void
     {
         $stopped = $switch->isStopped();
         echo '<section class="tmc-card"><h2 class="tmc-card__title">'
             . esc_html__('کلید فروش', 'tecteb-marketplace-core') . '</h2>';
         echo Components::notice(
-            $stopped ? 'warning' : 'success',
+            // Severity from the EFFECTIVE state, not from the switch: a green
+            // tick above a shut gate is the part a person reads and remembers.
+            $stopped || !$gateAnswer['ready'] ? 'warning' : 'success',
             $stopped
                 ? sprintf(
                     /* translators: 1: reason, 2: date */
@@ -87,7 +104,13 @@ final class StorefrontPage
                     esc_html(self::reasonLabel($switch->reason())),
                     esc_html($fa($switch->stoppedAt()))
                 )
-                : __('فروش بازارگاه فعال است. محصولات تأییدشده در فروشگاه قابل خریدند.', 'tecteb-marketplace-core')
+                : ($gateAnswer['ready']
+                    ? __('فروش بازارگاه فعال است. محصولات تأییدشده در فروشگاه قابل خریدند.', 'tecteb-marketplace-core')
+                    : sprintf(
+                        /* translators: %s: the gate's machine reason, e.g. decisions_open */
+                        __('کلید فروش روشن است، ولی هیچ محصول بازارگاهی قابل خرید نیست: دروازهٔ سفارش بسته است (%s). خریدار قیمت و موجودی را می‌بیند و دکمهٔ خرید ندارد. جدول «دلیل‌های داخلی» پایین همین صفحه می‌گوید چه چیزی باز است.', 'tecteb-marketplace-core'),
+                        $gateAnswer['reason']
+                    ))
         );
         echo '<p class="tmc-field__desc">'
             . esc_html__('توقف فروش هیچ داده‌ای را پاک نمی‌کند: محصول‌های بازارگاه به «پیش‌نویس» می‌روند و از دید خریدار خارج می‌شوند، درست مثل تعلیق فروشنده. محصولات خود فروشگاه و دکان اصلاً لمس نمی‌شوند.', 'tecteb-marketplace-core')
@@ -240,12 +263,10 @@ final class StorefrontPage
     }
 
     /** The gate's reasons, in full — the half PurchaseMessages keeps back. */
-    private function renderGatePanel(callable $fa): void
+    /** @param array{ready:bool, reason:string, detail:string} $gateAnswer */
+    private function renderGatePanel(callable $fa, array $gateAnswer): void
     {
-        $gate = $this->container->get(OrderOperationsGate::class);
-        $answer = $gate->check();
-        $rates = $this->container->get(ResolveCommissionRate::class);
-        $general = $rates->forItem([]);
+        $answer = $gateAnswer;
 
         echo '<section class="tmc-card"><h2 class="tmc-card__title">'
             . esc_html__('دلیل‌های داخلی (فقط برای مدیر)', 'tecteb-marketplace-core') . '</h2>';
@@ -260,11 +281,21 @@ final class StorefrontPage
             . ' — ' . Components::code($answer['reason']) . '</td></tr>';
         echo '<tr><th scope="row">' . esc_html__('جزئیات دروازه', 'tecteb-marketplace-core') . '</th><td>'
             . esc_html($answer['detail']) . '</td></tr>';
-        echo '<tr><th scope="row">' . esc_html__('نرخ کمیسیون عمومی', 'tecteb-marketplace-core') . '</th><td>'
-            . ($general['rate']->isSet()
-                ? esc_html(sprintf(__('%s درصد', 'tecteb-marketplace-core'), $fa((string) $general['rate']->percent())))
-                    . ' — ' . Components::code($general['source'])
-                : '<strong>' . esc_html__('تعیین‌نشده (صفر نیست)', 'tecteb-marketplace-core') . '</strong>')
+        // ⛔ WHAT USED TO BE HERE: «نرخ کمیسیون عمومی — تعیین‌نشده (صفر نیست)».
+        //
+        // It described a rule nothing consults. `alpha.57` moved commission to
+        // the product and removed `RATE_UNSET` from this gate; `evaluate()`
+        // and `blockers()` have not asked a rate since, and `RecordCommission`
+        // asks the product's own. So a manager reading this screen saw a
+        // «تعیین‌نشده» that looked like the reason the gate was shut, next to
+        // a gate whose reason was DEC-02 and DEC-04 — and the owner read it
+        // exactly that way. Measured on the installed `alpha.65` bytes:
+        // `gate_reason=decisions_open` whether the general rate is set or not.
+        //
+        // The row says what the model IS instead, because the question the
+        // manager was asking is a real one.
+        echo '<tr><th scope="row">' . esc_html__('مدل کمیسیون', 'tecteb-marketplace-core') . '</th><td>'
+            . esc_html__('به ازای هر محصول، در زبانهٔ «کمیسیون تک‌طب» روی صفحهٔ ویرایش همان محصول در ووکامرس. تعیین‌نکردنش مانع تأیید، انتشار یا فروش نیست و یعنی آن محصول کمیسیون ندارد. نرخ عمومی در این دروازه نقشی ندارد.', 'tecteb-marketplace-core')
             . '</td></tr>';
         echo '<tr><th scope="row">' . esc_html__('تصمیم‌های باز', 'tecteb-marketplace-core') . '</th><td>'
             . esc_html(implode('، ', OrderOperationsGate::OPEN_DECISIONS)) . '</td></tr>';

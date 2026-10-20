@@ -107,8 +107,24 @@ final class DokanMigrationTest extends DatabaseTestCase
         $this->dokan->vendorRows = [
             ['user_id' => self::SELLER, 'store_name' => 'داروخانه دکان', 'email' => 's@example.test', 'enabled' => true],
         ];
+        // The three keys `alpha.66` added to the reader's shape travel with the
+        // row, because a double that does not model them tells a guard it
+        // cannot be wrong: a reader that supplies no `post_status` is answered
+        // as «not asked», which is right for a shape mismatch and useless as
+        // a test of the status guard. The refusals themselves are exercised in the four methods at the end of
+        // this class.
         $this->dokan->productRows = [
-            ['wc_product_id' => 991, 'vendor_user_id' => self::SELLER, 'title' => 'باند کشی', 'sku' => 'DK-1', 'price_minor' => 120000, 'stock' => 7],
+            [
+                'wc_product_id' => 991,
+                'vendor_user_id' => self::SELLER,
+                'title' => 'باند کشی',
+                'sku' => 'DK-1',
+                'post_status' => 'publish',
+                'price_minor' => 120000,
+                'price_recorded' => true,
+                'price_not_exact' => false,
+                'stock' => 7,
+            ],
         ];
         // Total and net stated separately, because the point of the history is
         // that BOTH are Dokan's and neither is worked out here. The 200,000
@@ -142,6 +158,124 @@ final class DokanMigrationTest extends DatabaseTestCase
             $this->shopRecords,
             $this->ledger
         );
+    }
+
+    /**
+     * §1-ب: A PRODUCT WITH NO PRICE IS TAKEN IN, with the reason said.
+     *
+     * `alpha.65` answered `CONFLICT/no_price_recorded` for `price_minor <= 0`,
+     * and that is the owner's thirty-four conflicts: a `draft` or `pending`
+     * product nobody had priced yet could not be migrated at all. It comes in
+     * now, and three separate things keep that honest — `ProductReadiness`
+     * refuses to approve or publish it and names `price`, the projector leaves
+     * the shop's own price alone, and the review page reports it.
+     */
+    public function testAProductWithNoPriceIsImportedWithTheReasonNamed(): void
+    {
+        foreach ([
+            'absent' => ['price_minor' => 0, 'price_recorded' => false],
+            // An explicit nought is the same answer: `hasPrice()` reads it as
+            // «no price», so it cannot be approved either way. The two cases
+            // are kept apart in the READER and deliberately share a verdict.
+            'explicit nought' => ['price_minor' => 0, 'price_recorded' => true],
+        ] as $name => $price) {
+            $this->dokan->productRows = [$this->dokanProduct($price)];
+            $products = $this->migration->plan()->products;
+
+            self::assertCount(1, $products, $name);
+            self::assertSame(DokanMigrationPlan::IMPORT, $products[0]['verdict'], $name);
+            self::assertSame('imported_without_a_price', $products[0]['reason'], $name);
+        }
+    }
+
+    /**
+     * §1-ب: a price with more precision than the currency can hold is REFUSED,
+     * never rounded.
+     *
+     * The reader answers `price_not_exact` rather than a number, because
+     * `alpha.65` turned `450000.50` into `450001` with
+     * `(int) round((float) …)` and then planned it as a clean import — a
+     * fabricated price that passes, which is worse than the refusal it
+     * replaced. The same answer `plan()` has given a Dokan ORDER since
+     * `alpha.53`.
+     */
+    public function testAnInexactPriceIsRefusedRatherThanRounded(): void
+    {
+        $this->dokan->productRows = [
+            $this->dokanProduct(['price_minor' => 0, 'price_recorded' => true, 'price_not_exact' => true]),
+        ];
+        $products = $this->migration->plan()->products;
+
+        self::assertSame(DokanMigrationPlan::CONFLICT, $products[0]['verdict']);
+        self::assertSame('price_not_exact_for_this_currency', $products[0]['reason']);
+    }
+
+    /**
+     * §1-د: a status this marketplace cannot express is refused BY NAME.
+     *
+     * Not mapped to the nearest one: `project()` writes our status to the shop
+     * unconditionally, so `private` taken in as «پیش‌نویس» becomes `draft` at
+     * the first projection and `future` loses its schedule — a public change
+     * from an intake, which §1-ج forbids.
+     */
+    public function testAStatusTheMarketplaceCannotExpressIsRefusedByName(): void
+    {
+        foreach (['private', 'future', 'trash', 'auto-draft', 'what-plugin-is-this'] as $status) {
+            $this->dokan->productRows = [$this->dokanProduct(['post_status' => $status])];
+            $products = $this->migration->plan()->products;
+
+            self::assertSame(DokanMigrationPlan::CONFLICT, $products[0]['verdict'], $status);
+            self::assertSame('status_not_expressible', $products[0]['reason'], $status);
+        }
+        // The control: the three statuses it CAN hold still import cleanly, so
+        // the guard is not simply refusing everything.
+        foreach (['publish', 'draft', 'pending'] as $status) {
+            $this->dokan->productRows = [$this->dokanProduct(['post_status' => $status])];
+            $products = $this->migration->plan()->products;
+
+            self::assertSame(DokanMigrationPlan::IMPORT, $products[0]['verdict'], $status);
+            self::assertSame('', $products[0]['reason'], $status);
+        }
+    }
+
+    /**
+     * A reader that supplies no status at all is a SHAPE MISMATCH, not a
+     * product in conflict.
+     *
+     * `array_key_exists` and not `??` in `judgeProduct()`, because answering a
+     * missing key by putting every product in conflict is a guard wider than
+     * the defect (`alpha.60`) — and it is the failure mode that broke six
+     * tests in this very class the first time the guard was written.
+     */
+    public function testAReaderThatNamesNoStatusIsNotTreatedAsAConflict(): void
+    {
+        $row = $this->dokanProduct([]);
+        unset($row['post_status']);
+        $this->dokan->productRows = [$row];
+
+        self::assertSame(DokanMigrationPlan::IMPORT, $this->migration->plan()->products[0]['verdict']);
+    }
+
+    /**
+     * One Dokan product row, with this round's three keys and whatever the
+     * test overrides.
+     *
+     * @param array<string,mixed> $overrides
+     * @return array<string,mixed>
+     */
+    private function dokanProduct(array $overrides): array
+    {
+        return $overrides + [
+            'wc_product_id' => 991,
+            'vendor_user_id' => self::SELLER,
+            'title' => 'باند کشی',
+            'sku' => 'DK-1',
+            'post_status' => 'publish',
+            'price_minor' => 120000,
+            'price_recorded' => true,
+            'price_not_exact' => false,
+            'stock' => 7,
+        ];
     }
 
     public function testTheDryRunMapsEveryRowAndWritesNothing(): void

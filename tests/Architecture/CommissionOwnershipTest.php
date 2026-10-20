@@ -231,6 +231,44 @@ final class CommissionOwnershipTest extends TestCase
     }
 
     /**
+     * WHAT THIS PROVES: the number step 4 shows a vendor comes from the SAME
+     * rule the ledger will record.
+     *
+     * `alpha.57` moved commission to the product and `RecordCommission` has
+     * consulted nothing else since — but `EstimateVendorShare` went on
+     * resolving the scoped general rate, so the form promised a share the
+     * sale would not produce. Measured on the installed `alpha.65` bytes:
+     * `rate_source=general`, `rate_bp=1000`, commission 45,000 on a 450,000
+     * product whose own commission meta was `__absent__`.
+     *
+     * Asserted from the module's BYTES and inside the binding, for the reason
+     * the test above gives: an optional dependency the container forgets is a
+     * silent fall back to the model the owner replaced.
+     */
+    public function testTheContainerWiresTheOwnersModelIntoTheShareEstimateToo(): void
+    {
+        $module = self::code('src/Modules/Product/ProductModule.php');
+        $at = strpos($module, 'new EstimateVendorShare(');
+        self::assertNotFalse($at, 'EstimateVendorShare is not constructed here any more');
+        $binding = substr($module, $at, 600);
+        self::assertStringContainsString(
+            'TectebCommissionSourceInterface::class',
+            $binding,
+            'step 4 would estimate from the legacy scoped rate'
+        );
+        self::assertStringContainsString('TectebCommissionCalculator::class', $binding);
+
+        // And the service itself asks the per-product source FIRST, so the
+        // scoped rate is reachable only on a build that has no source at all.
+        $service = self::code('src/Modules/Product/Application/EstimateVendorShare.php');
+        $tecteb = strpos($service, 'tectebRules !== null');
+        $scoped = strpos($service, 'rates->forItem(');
+        self::assertNotFalse($tecteb, 'the per-product branch is gone');
+        self::assertNotFalse($scoped, 'the legacy branch was deleted rather than kept as a fallback');
+        self::assertLessThan($scoped, $tecteb, 'the scoped rate is asked before the product rule');
+    }
+
+    /**
      * WHAT THIS PROVES: a missing commission is no longer a reason the order
      * gate refuses to operate.
      *

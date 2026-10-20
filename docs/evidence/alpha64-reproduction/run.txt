@@ -4,10 +4,10 @@ base_src_digest=4f4186c4c6eba969
 PASS  0a the installed tree is the delivered alpha.64  (0.1.0-alpha.64)
 
 === BEFORE · the fixture: a payment with no money line ===
-line=207
+line=292
 agree=supplier_amount_unchanged
 record=supplier_payment_recorded_agreed_unknown
-payment_id=105
+payment_id=161
 posting=agreed_unknown
 ledger_event_before=__none__
 reconcilable=yes
@@ -16,18 +16,18 @@ PASS  1b …and carries no ledger event  (__none__)
 PASS  1c …and is on the reconcile path  (yes)
 
 === BEFORE · a reconcile commits inside the void's gap ===
-line=208
+line=293
 agree=supplier_amount_unchanged
 record=supplier_payment_recorded_agreed_unknown
-payment_id=106
+payment_id=162
 posting=agreed_unknown
 ledger_event_before=__none__
 reconcilable=yes
 child_actor=ran
 child_reconcile_code=supplier_payment_reconciled
-child_reconcile_event=supplier-payment:106
+child_reconcile_event=supplier-payment:162
 child_reconcile_posting=posted
-child_row_ledger_event=supplier-payment:106
+child_row_ledger_event=supplier-payment:162
 child_row_reconciled=yes
 child_row_void=no
 interleaved=yes
@@ -35,14 +35,14 @@ void_code=supplier_payment_voided
 compensating_event=__none__
 items_released_reported=1
 row_is_void=yes
-row_ledger_event=supplier-payment:106
+row_ledger_event=supplier-payment:162
 row_void_event=__none__
 payout_entry_exists=yes
 reversal_entry_exists=no
 vendor_earning_balance=0
 live_claims=0
 claim_rows=1
-withdrawal_reserved=TAKEN:42
+withdrawal_reserved=TAKEN:67
 PASS  2a the gap was really used  (yes)
 PASS  2b the other request reconciled the payment  (supplier_payment_reconciled)
 PASS  2c …and gave it a money line  (posted)
@@ -54,13 +54,13 @@ PASS  2h …with nothing reversing it  (no)
 PASS  2i so the books still say the supplier was paid  (0)
 PASS  2j and the items are released  (1)
 PASS  2k …with no live claim left  (0)
-PASS  2l …so the withdrawal cycle takes the line  (TAKEN:42)
+PASS  2l …so the withdrawal cycle takes the line  (TAKEN:67)
 
 === BEFORE · the mirror: a void commits inside the reconcile's gap ===
-line=209
+line=294
 agree=supplier_amount_unchanged
 record=supplier_payment_recorded_agreed_unknown
-payment_id=107
+payment_id=163
 posting=agreed_unknown
 ledger_event_before=__none__
 reconcilable=yes
@@ -81,33 +81,33 @@ reversal_entry_exists=no
 vendor_earning_balance=-900000
 live_claims=0
 claim_rows=1
-withdrawal_reserved=TAKEN:43
+withdrawal_reserved=TAKEN:68
 PASS  3a the gap was used  (yes)
 PASS  3b the other request voided the payment  (supplier_payment_voided)
 before_mirror_code=storage_failed
 PASS  3c no payout entry survives either way  (no)
 
 === BEFORE · the control: the same two requests, in sequence ===
-line=210
+line=295
 agree=supplier_amount_unchanged
 record=supplier_payment_recorded_agreed_unknown
-payment_id=108
+payment_id=164
 posting=agreed_unknown
 ledger_event_before=__none__
 reconcilable=yes
 reconcile_code=supplier_payment_reconciled
-reconcile_event=supplier-payment:108
+reconcile_event=supplier-payment:164
 void_code=supplier_payment_voided
-compensating_event=supplier-payment-void:108
+compensating_event=supplier-payment-void:164
 row_is_void=yes
-row_ledger_event=supplier-payment:108
-row_void_event=supplier-payment-void:108
+row_ledger_event=supplier-payment:164
+row_void_event=supplier-payment-void:164
 payout_entry_exists=yes
 reversal_entry_exists=yes
 vendor_earning_balance=-900000
 live_claims=0
 claim_rows=1
-withdrawal_reserved=TAKEN:44
+withdrawal_reserved=TAKEN:69
 PASS  4a the sequential reconcile works  (supplier_payment_reconciled)
 PASS  4b the sequential void works  (supplier_payment_voided)
 PASS  4c …and DOES write the compensating document  (yes)
@@ -115,37 +115,37 @@ PASS  4d …which reverses the payout  (yes)
 PASS  4e so the supplier is owed again  (-900000)
 
 === swapping in this checkout's src/ ===
-after_src_digest=c696104758e8d7ee
-PASS  0b the tree under test is a different one  (c696104758e8d7ee)
+after_src_digest=9b9c6788b063855a
+PASS  0b the tree under test is a different one  (9b9c6788b063855a)
 
 === AFTER · the decision is taken from the locked row ===
-line=211
+line=296
 agree=supplier_amount_unchanged
 record=supplier_payment_recorded_agreed_unknown
-payment_id=109
+payment_id=165
 posting=agreed_unknown
 ledger_event_before=__none__
 reconcilable=yes
 child_actor=ran
 child_reconcile_code=supplier_payment_reconciled
-child_reconcile_event=supplier-payment:109
+child_reconcile_event=supplier-payment:165
 child_reconcile_posting=posted
-child_row_ledger_event=supplier-payment:109
+child_row_ledger_event=supplier-payment:165
 child_row_reconciled=yes
 child_row_void=no
 interleaved=yes
 void_code=supplier_payment_voided
-compensating_event=supplier-payment-void:109
+compensating_event=supplier-payment-void:165
 items_released_reported=1
 row_is_void=yes
-row_ledger_event=supplier-payment:109
-row_void_event=supplier-payment-void:109
+row_ledger_event=supplier-payment:165
+row_void_event=supplier-payment-void:165
 payout_entry_exists=yes
 reversal_entry_exists=yes
 vendor_earning_balance=-900000
 live_claims=0
 claim_rows=1
-withdrawal_reserved=TAKEN:45
+withdrawal_reserved=TAKEN:70
 PASS  5a the gap is still used  (yes)
 PASS  5b the other request still reconciles  (supplier_payment_reconciled)
 PASS  5c the void succeeds  (supplier_payment_voided)
@@ -156,10 +156,10 @@ PASS  5g so the supplier is owed again  (-900000)
 PASS  5h and the items are still released  (1)
 
 === AFTER · the mirror ordering is REFUSED BY NAME ===
-line=212
+line=297
 agree=supplier_amount_unchanged
 record=supplier_payment_recorded_agreed_unknown
-payment_id=110
+payment_id=166
 posting=agreed_unknown
 ledger_event_before=__none__
 reconcilable=yes
@@ -180,7 +180,7 @@ reversal_entry_exists=no
 vendor_earning_balance=-900000
 live_claims=0
 claim_rows=1
-withdrawal_reserved=TAKEN:46
+withdrawal_reserved=TAKEN:71
 PASS  6a the other request voided first  (supplier_payment_voided)
 PASS  6b the reconcile says what happened  (supplier_payment_is_void)
 PASS  6c …and writes no money line at all  (__none__)
@@ -188,36 +188,36 @@ PASS  6d no payout entry exists  (no)
 PASS  6e the row keeps no ledger event  (__none__)
 
 === AFTER · the sequential control still behaves ===
-line=213
+line=298
 agree=supplier_amount_unchanged
 record=supplier_payment_recorded_agreed_unknown
-payment_id=111
+payment_id=167
 posting=agreed_unknown
 ledger_event_before=__none__
 reconcilable=yes
 reconcile_code=supplier_payment_reconciled
-reconcile_event=supplier-payment:111
+reconcile_event=supplier-payment:167
 void_code=supplier_payment_voided
-compensating_event=supplier-payment-void:111
+compensating_event=supplier-payment-void:167
 row_is_void=yes
-row_ledger_event=supplier-payment:111
-row_void_event=supplier-payment-void:111
+row_ledger_event=supplier-payment:167
+row_void_event=supplier-payment-void:167
 payout_entry_exists=yes
 reversal_entry_exists=yes
 vendor_earning_balance=-900000
 live_claims=0
 claim_rows=1
-withdrawal_reserved=TAKEN:47
+withdrawal_reserved=TAKEN:72
 PASS  7a the reconcile works  (supplier_payment_reconciled)
 PASS  7b the void works  (supplier_payment_voided)
 PASS  7c with its compensating document  (yes)
 PASS  7d and the supplier owed again  (-900000)
 
 === AFTER · a repeated void makes no second financial effect ===
-line=214
+line=299
 agree=supplier_amount_unchanged
 record=supplier_payment_recorded_agreed_unknown
-payment_id=112
+payment_id=168
 posting=agreed_unknown
 ledger_event_before=__none__
 reconcilable=yes
@@ -232,7 +232,7 @@ reversal_entry_exists=no
 vendor_earning_balance=-900000
 live_claims=0
 claim_rows=1
-withdrawal_reserved=TAKEN:48
+withdrawal_reserved=TAKEN:73
 PASS  8a the first void succeeds  (supplier_payment_voided)
 PASS  8b the second is told it is already void  (supplier_payment_already_void)
 PASS  8c …and claims no compensating document  (__none__)
@@ -240,13 +240,13 @@ PASS  8d the row is void once  (yes)
 PASS  8e the claim row is kept  (1)
 
 === AFTER · a compensating write that fails takes the void with it ===
-WordPress database error Duplicate entry 'supplier-payment-void:113-vendor_earning' for key 'tmc_ledger_event' for query INSERT INTO `wp_tmc_ledger_entries`
+WordPress database error Duplicate entry 'supplier-payment-void:169-vendor_earning' for key 'tmc_ledger_event' for query INSERT INTO `wp_tmc_ledger_entries`
                 (event_key, vendor_user_id, account, amount_minor, currency, exponent, order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
-                VALUES ('supplier-payment-void:113', 9641, 'vendor_earning', -900000, 'IRR', 0, 'supplier-payment-void', '113', 'supplier_payment_voided', NULL, '{\"kind\":\"supplier_payment_void\",\"payment_id\":113,\"reverses\":\"supplier-payment:113\",\"amount_minor\":900000,\"currency\":\"IRR\",\"exponent\":0}', '2026-10-17 14:15:35'), ('supplier-payment-void:113', 9641, 'central_payment', 900000, 'IRR', 0, 'supplier-payment-void', '113', 'supplier_payment_voided', NULL, '{\"kind\":\"supplier_payment_void\",\"payment_id\":113,\"reverses\":\"supplier-payment:113\",\"amount_minor\":900000,\"currency\":\"IRR\",\"exponent\":0}', '2026-10-17 14:15:35') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Finance\Application\RecordSupplierPayment->void, Tecteb\Marketplace\Modules\Finance\Application\RecordSupplierPayment->postReversal, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
-line=215
+                VALUES ('supplier-payment-void:169', 9641, 'vendor_earning', -900000, 'IRR', 0, 'supplier-payment-void', '169', 'supplier_payment_voided', NULL, '{\"kind\":\"supplier_payment_void\",\"payment_id\":169,\"reverses\":\"supplier-payment:169\",\"amount_minor\":900000,\"currency\":\"IRR\",\"exponent\":0}', '2026-10-20 15:06:50'), ('supplier-payment-void:169', 9641, 'central_payment', 900000, 'IRR', 0, 'supplier-payment-void', '169', 'supplier_payment_voided', NULL, '{\"kind\":\"supplier_payment_void\",\"payment_id\":169,\"reverses\":\"supplier-payment:169\",\"amount_minor\":900000,\"currency\":\"IRR\",\"exponent\":0}', '2026-10-20 15:06:50') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Finance\Application\RecordSupplierPayment->void, Tecteb\Marketplace\Modules\Finance\Application\RecordSupplierPayment->postReversal, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+line=300
 agree=supplier_amount_unchanged
 record=supplier_payment_recorded_agreed_unknown
-payment_id=113
+payment_id=169
 posting=agreed_unknown
 ledger_event_before=__none__
 reconcilable=yes
@@ -254,7 +254,7 @@ reconcile_code=supplier_payment_reconciled
 key_taken=yes
 void_code=storage_failed
 row_is_void=no
-row_ledger_event=supplier-payment:113
+row_ledger_event=supplier-payment:169
 row_void_event=__none__
 payout_entry_exists=yes
 reversal_entry_exists=yes

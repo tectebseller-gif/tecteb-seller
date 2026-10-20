@@ -32,7 +32,7 @@ interface DokanReaderInterface
     /**
      * The products Dokan attributes to a seller.
      *
-     * @return list<array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int, source_category_key?:string, source_category_label?:string, source_image_id?:int}>
+     * @return list<array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int, post_status?:string, price_recorded?:bool, price_not_exact?:bool, source_category_key?:string, source_category_label?:string, source_image_id?:int}>
      */
     public function products(): array;
 
@@ -57,7 +57,26 @@ interface DokanReaderInterface
      * a seller publishing a product mid-import — and a skipped row would be a
      * product that never arrived, with nothing anywhere saying so.
      *
-     * @return list<array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int, source_category_key?:string, source_category_label?:string, source_image_id?:int}>
+     * @return list<array{wc_product_id:int, vendor_user_id:int, title:string, sku:string, price_minor:int, stock:int, post_status?:string, price_recorded?:bool, price_not_exact?:bool, source_category_key?:string, source_category_label?:string, source_image_id?:int}>
+     */
+    /**
+     * The three keys `alpha.66` added, and why `price_minor` alone was not
+     * enough.
+     *
+     *  * `post_status` — WooCommerce's own status, carried so a plan can SAY
+     *    which one it refused. Until this round the reader did not read
+     *    `pending` at all, so the owner's thirteen pending products were
+     *    absent from a plan that reported itself complete.
+     *  * `price_recorded` — whether the shop holds a price AT ALL. «قیمت خالی
+     *    با صفر متفاوت است», and `(int)` makes them one number.
+     *  * `price_not_exact` — the price carries more precision than this shop's
+     *    currency can hold. `alpha.65` rounded it (`450000.50` → `450001`),
+     *    which is the one thing `ordersAfter()` in the same class has refused
+     *    to do since `alpha.53`.
+     *
+     * Optional in the shape, deliberately: a reader that supplies no status is
+     * a shape mismatch rather than a product in conflict, and
+     * `judgeProduct()` tells those two apart with `array_key_exists`.
      */
     public function productsAfter(int $afterId, int $limit = self::PAGE): array;
 

@@ -184,6 +184,82 @@ final class CatalogueIntakeTest extends DatabaseTestCase
      * THE RULE: the shop's own product is not given to anybody, and the
      * refusal names the decision.
      */
+    /**
+     * §1-ب: A PRODUCT WITH NO PRICE IS STILL TAKEN IN, and the row says so.
+     *
+     * The existing-products path never BLOCKED on an absent price — it wrote
+     * nought and moved on — so what is asserted is the other half: the row is
+     * created, it reads as having no price, and that is what keeps a manager
+     * from publishing it. «قیمت خالی با صفر متفاوت است» is honoured by this
+     * row saying «no price» and by nothing turning that into a number on
+     * somebody's product (`ProjectedFactsTest`).
+     */
+    public function testAProductWithNoPriceIsTakenInAndReadsAsHavingNone(): void
+    {
+        $this->reader->add(9311, ['title' => 'بی قیمت', 'regular_price' => ''], [
+            'author_id' => self::VENDOR,
+            'vendor_profile' => 'approved',
+        ]);
+
+        self::assertSame('import', $this->intake->judge(9311)['verdict']);
+        $this->intake->importBatch($this->intake->newRunId(), [9311]);
+        $row = $this->products->findObservedByWcProduct(9311);
+
+        self::assertNotNull($row);
+        self::assertFalse($row->details->hasPrice(), 'the row must read as having no price');
+        // `missingFields()` is the one definition the approval path reads
+        // (`ProductReadiness::check()` → `incomplete_product` naming `price`),
+        // and `IntakeStatusMapTest` pins that end of it.
+        self::assertContains('price', $row->details->missingFields());
+    }
+
+    /**
+     * §1-د: a WooCommerce status this marketplace cannot express is refused by
+     * name, before anything is written.
+     *
+     * `alpha.65` mapped every status but `publish` to «پیش‌نویس», so a
+     * `private` product would become a plain `draft` at the first projection —
+     * removed even from the roles that could see it — and a `future` one would
+     * lose its schedule. Measured on the installed bytes:
+     * `shop_status_before=private` → `shop_status_after=draft`.
+     */
+    public function testAStatusTheMarketplaceCannotExpressIsRefusedBeforeAnyWrite(): void
+    {
+        // Distinct ids spelled out: deriving one from `strlen($status)` gave
+        // `publish` and `pending` the same number, and the second `add()`
+        // overwrote the first — a fixture that measures one product twice.
+        foreach (['private' => 9401, 'future' => 9402, 'trash' => 9403, 'auto-draft' => 9404] as $status => $wcId) {
+            $this->reader->add($wcId, ['title' => 'وضعیت ' . $status, 'status' => $status], [
+                'author_id' => self::VENDOR,
+                'vendor_profile' => 'approved',
+            ]);
+            $verdict = $this->intake->judge($wcId);
+
+            self::assertSame('skip', $verdict['verdict'], $status);
+            self::assertSame('status_not_expressible', $verdict['reason'], $status);
+            self::assertSame($status, $verdict['status'], $status);
+            $this->intake->importBatch($this->intake->newRunId(), [$wcId]);
+            self::assertNull($this->products->findObservedByWcProduct($wcId), $status);
+        }
+        // The control: the three it CAN hold are still taken in, and `pending`
+        // becomes a plain draft row by the one named mapping.
+        foreach ([
+            ['publish', 'published', 9501],
+            ['draft', 'draft', 9502],
+            ['pending', 'draft', 9503],
+        ] as [$status, $expected, $wcId]) {
+            $this->reader->add($wcId, ['title' => 'وضعیت ' . $status, 'status' => $status], [
+                'author_id' => self::VENDOR,
+                'vendor_profile' => 'approved',
+            ]);
+            self::assertSame('import', $this->intake->judge($wcId)['verdict'], $status);
+            $this->intake->importBatch($this->intake->newRunId(), [$wcId]);
+            $row = $this->products->findObservedByWcProduct($wcId);
+            self::assertNotNull($row, $status);
+            self::assertSame($expected, $row->status->value, $status);
+        }
+    }
+
     public function testTheShopsOwnProductIsNotImportedWithoutAnOwnerDecision(): void
     {
         $batch = $this->intake->importBatch('intake-1', [self::WC_SHOP]);

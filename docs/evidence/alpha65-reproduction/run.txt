@@ -1,0 +1,718 @@
+=== the trees ===
+base_ref=bb02a96562623aef8dbd1b3f16d7fd39cfafb984
+this_tree_src_digest=9b9c6788b063855a
+base_src_digest=c696104758e8d7ee
+PASS  0a the two trees differ  (differ)
+PASS  0b the installed tree is now alpha.65's  (c696104758e8d7ee)
+
+=== BEFORE · §2 the commission box, nine spellings ===
+percent_ascii=percent/12.50
+percent_persian=refused:commission_percent_invalid
+percent_arabic=refused:commission_percent_invalid
+percent_mixed=refused:commission_percent_invalid
+percent_persian_whole=refused:commission_percent_invalid
+percent_over=refused:commission_percent_invalid
+percent_grouped=refused:commission_percent_invalid
+fixed_ascii=fixed/20000
+fixed_persian=refused:commission_fixed_invalid
+fixed_grouped=refused:commission_fixed_invalid
+none_with_text=none/
+PASS  1a ascii 12.5 is accepted  (percent/12.50)
+PASS  1b the panel's OWN example is refused  (refused:commission_percent_invalid)
+PASS  1c …and so is the Arabic-Indic spelling  (refused:commission_percent_invalid)
+PASS  1d …and a fixed amount in Persian digits  (refused:commission_fixed_invalid)
+
+=== BEFORE · §2 through the real panel, on a real product ===
+vendor_user_id=3
+product_draft-nopr=640
+status_draft-nopr=draft
+regular_price_draft-nopr=__absent__
+price_draft-nopr=__absent__
+product_pending-nopr=641
+status_pending-nopr=pending
+regular_price_pending-nopr=__absent__
+price_pending-nopr=__absent__
+product_publish-nopr=642
+status_publish-nopr=publish
+regular_price_publish-nopr=__absent__
+price_publish-nopr=__absent__
+product_publish-priced=643
+status_publish-priced=publish
+regular_price_publish-priced=450000
+price_publish-priced=450000
+product_private-priced=644
+status_private-priced=private
+regular_price_private-priced=450000
+price_private-priced=450000
+product_future-priced=645
+status_future-priced=future
+regular_price_future-priced=450000
+price_future-priced=450000
+wc_product_id=643
+typed=12.5
+typed_type=percent
+before_type=__absent__
+before_value=__absent__
+outcome=saved
+reason=__none__
+after_type=percent
+after_value=12.50
+reads_back_as=percent/12.50
+PASS  2a an ascii value lands  (saved)
+PASS  2b …and reads back  (percent/12.50)
+wc_product_id=643
+typed=۱۲٫۵
+typed_type=percent
+before_type=percent
+before_value=12.50
+outcome=refused
+reason=commission_percent_invalid
+after_type=percent
+after_value=12.50
+reads_back_as=percent/12.50
+PASS  2c the same number in Persian digits is refused  (refused)
+PASS  2d …by name  (commission_percent_invalid)
+PASS  2e …and the previous pair is kept  (12.50)
+
+=== BEFORE · §1 the Dokan reader and the plan ===
+dokan_orders_table=ready
+dokan_plugin_active=no
+seller_user_id=19
+product_dk-publish-nopr=646
+status_dk-publish-nopr=publish
+price_dk-publish-nopr=__absent__
+product_dk-draft-nopr=647
+status_dk-draft-nopr=draft
+price_dk-draft-nopr=__absent__
+product_dk-pending-nopr=648
+status_dk-pending-nopr=pending
+price_dk-pending-nopr=__absent__
+product_dk-publish-frac=649
+status_dk-publish-frac=publish
+price_dk-publish-frac=450000.50
+product_dk-publish-priced=650
+status_dk-publish-priced=publish
+price_dk-publish-priced=450000
+dokan_reader_available=yes
+seller_user_id=19
+products_read=4
+read_dk-publish-nopr=yes
+read_price_minor_dk-publish-nopr=0
+read_price_recorded_dk-publish-nopr=__absent__
+read_price_not_exact_dk-publish-nopr=__absent__
+read_status_dk-publish-nopr=__absent__
+read_dk-draft-nopr=yes
+read_price_minor_dk-draft-nopr=0
+read_price_recorded_dk-draft-nopr=__absent__
+read_price_not_exact_dk-draft-nopr=__absent__
+read_status_dk-draft-nopr=__absent__
+read_dk-pending-nopr=no
+read_dk-publish-frac=yes
+read_price_minor_dk-publish-frac=450001
+read_price_recorded_dk-publish-frac=__absent__
+read_price_not_exact_dk-publish-frac=__absent__
+read_status_dk-publish-frac=__absent__
+read_dk-publish-priced=yes
+read_price_minor_dk-publish-priced=450000
+read_price_recorded_dk-publish-priced=__absent__
+read_price_not_exact_dk-publish-priced=__absent__
+read_status_dk-publish-priced=__absent__
+plan_products=4
+plan_646=conflict:no_price_recorded
+plan_647=conflict:no_price_recorded
+plan_649=import:
+plan_650=import:
+plan_count_conflict:no_price_recorded=2
+plan_count_import:=2
+PASS  3a the reader is available without Dokan running  (yes)
+PASS  3b Dokan itself is NOT active  (no)
+PASS  3c a PENDING product is never read  (no)
+PASS  3d an ABSENT price reads as nought  (0)
+PASS  3e …with no way to tell absent from nought  (__absent__)
+PASS  3f 450000.50 is ROUNDED to 450001  (450001)
+PASS  3g a product with no price is a CONFLICT  (conflict:no_price_recorded)
+PASS  3h …and so is every one of them  (2)
+PASS  3i the rounded one is planned as a clean IMPORT, beside the priced one  (2)
+
+=== BEFORE · §1 a published product with no price, projected ===
+vendor_user_id=3
+product_draft-nopr=651
+status_draft-nopr=draft
+regular_price_draft-nopr=__absent__
+price_draft-nopr=__absent__
+product_pending-nopr=652
+status_pending-nopr=pending
+regular_price_pending-nopr=__absent__
+price_pending-nopr=__absent__
+product_publish-nopr=653
+status_publish-nopr=publish
+regular_price_publish-nopr=__absent__
+price_publish-nopr=__absent__
+product_publish-priced=654
+status_publish-priced=publish
+regular_price_publish-priced=450000
+price_publish-priced=450000
+product_private-priced=655
+status_private-priced=private
+regular_price_private-priced=450000
+price_private-priced=450000
+product_future-priced=656
+status_future-priced=future
+regular_price_future-priced=450000
+price_future-priced=450000
+judge_draft-nopr=import:
+judge_pending-nopr=import:
+judge_publish-nopr=import:
+judge_publish-priced=import:
+judge_private-priced=import:
+judge_future-priced=import:
+PASS  4a a PRIVATE product is taken in  (import:)
+PASS  4b …and so is a SCHEDULED one  (import:)
+run_id=intake-20261020-150353
+intake_651=imported:
+intake_652=imported:
+intake_653=imported:
+intake_654=imported:
+intake_655=imported:
+intake_656=imported:
+row_draft-nopr=1529
+row_status_draft-nopr=draft
+row_price_minor_draft-nopr=0
+row_ownership_draft-nopr=observed
+row_pending-nopr=1530
+row_status_pending-nopr=draft
+row_price_minor_pending-nopr=0
+row_ownership_pending-nopr=observed
+row_publish-nopr=1531
+row_status_publish-nopr=published
+row_price_minor_publish-nopr=0
+row_ownership_publish-nopr=observed
+row_publish-priced=1532
+row_status_publish-priced=published
+row_price_minor_publish-priced=450000
+row_ownership_publish-priced=observed
+row_private-priced=1533
+row_status_private-priced=draft
+row_price_minor_private-priced=450000
+row_ownership_private-priced=observed
+row_future-priced=1534
+row_status_future-priced=draft
+row_price_minor_future-priced=450000
+row_ownership_future-priced=observed
+PASS  4c a PENDING product becomes a plain draft row  (draft)
+PASS  4d a PRIVATE product becomes a plain draft row too  (draft)
+PASS  4e the no-price row carries nought  (0)
+suffix=publish-nopr
+product_id=1531
+wc_product_id=653
+shop_regular_price_before=__absent__
+shop_price_before=__absent__
+shop_status_before=publish
+price_html_before=__none__
+risks=__none__
+drift_fields=__none__
+take_code=ownership_taken
+project_ok=yes
+project_code=projected
+shop_regular_price_after=0
+shop_price_after=0
+shop_status_after=publish
+price_html_after=0&nbsp;&#x062A;&#x0648;&#x0645;&#x0627;&#x0646;
+wc_is_purchasable=no
+PASS  4f the shop had no price at all  (__absent__)
+PASS  4g …and the buyer saw nothing  (__none__)
+PASS  4h acceptance is not refused  (ownership_taken)
+PASS  4i ONE projection writes a nought  (0)
+PASS  4j …and the buyer now sees «۰ تومان»  (0&nbsp;&#x062A;&#x0648;&#x0645;&#x0627;&#x0646;)
+suffix=private-priced
+product_id=1533
+wc_product_id=655
+shop_regular_price_before=450000
+shop_price_before=450000
+shop_status_before=private
+price_html_before=450,000&nbsp;&#x062A;&#x0648;&#x0645;&#x0627;&#x0646;
+risks=__none__
+drift_fields=__none__
+take_code=ownership_taken
+project_ok=yes
+project_code=projected
+shop_regular_price_after=450000
+shop_price_after=450000
+shop_status_after=draft
+price_html_after=450,000&nbsp;&#x062A;&#x0648;&#x0645;&#x0627;&#x0646;
+wc_is_purchasable=no
+PASS  4k a PRIVATE product's own status is published-private  (private)
+PASS  4l …and one projection makes it a draft  (draft)
+
+=== BEFORE · §3 the two sentences on one screen ===
+reported=__absent__
+PASS  4m …and nothing reports it  (__absent__)
+open_decisions=DEC-02,DEC-04
+gate_ready=no
+gate_reason=decisions_open
+gate_detail=awaiting DEC-02, DEC-04
+gate_blockers=decisions_open:DEC-02,DEC-04
+general_rate_source=general
+general_rate_bp=1000
+general_rate_is_set=yes
+probe_product=654
+gate_reason_scoped=decisions_open
+gate_reason_is_rate_unset=no
+trial_requested=no
+trial_permitted=no
+trial_active=no
+trial_refusal=__none__
+trial_environment=production
+trial_option=tmc_order_trial_mode
+PASS  5a the gate is shut on the owner's two decisions  (decisions_open)
+PASS  5b …and names them  (awaiting DEC-02, DEC-04)
+PASS  5c the general rate IS set on this site  (yes)
+PASS  5d …and the gate's answer does not move for it  (no)
+html_bytes=18814
+says_sales_active=yes
+says_order_gate=yes
+says_general_commission_rate=yes
+says_decisions_open=yes
+buyer_row_blames_rate=yes
+says_switch_on_gate_shut=no
+says_commission_model=no
+banner_is_warning=yes
+banner_is_success=yes
+PASS  6a the banner says sales are active  (yes)
+PASS  6b …four sections above «دروازهٔ سفارش»  (yes)
+PASS  6c …which is shut  (yes)
+PASS  6d and the banner is a green tick  (yes)
+PASS  6e the table prints a general commission rate  (yes)
+PASS  6f …and the purchase table blames the rate  (yes)
+estimate_is_calculated=yes
+estimate_reason=__none__
+estimate_rate_source=general
+estimate_rate_bp=1000
+estimate_commission_minor=45000
+estimate_vendor_share_minor=405000
+shop_commission_type=__absent__
+shop_commission_value=__absent__
+PASS  7a step 4 estimates from the SCOPED general rate  (general)
+PASS  7b …on a product whose own commission is absent  (__absent__)
+
+=== the fix is installed ===
+PASS  8a the installed tree is this checkout's  (9b9c6788b063855a)
+
+=== AFTER · §2 one result for three spellings ===
+percent_ascii=percent/12.50
+percent_persian=percent/12.50
+percent_arabic=percent/12.50
+percent_mixed=percent/12.50
+percent_persian_whole=percent/12.00
+percent_over=refused:commission_percent_invalid
+percent_grouped=refused:commission_percent_invalid
+fixed_ascii=fixed/20000
+fixed_persian=fixed/20000
+fixed_grouped=refused:commission_fixed_invalid
+none_with_text=none/
+PASS  9a ascii  (percent/12.50)
+PASS  9b Persian digits  (percent/12.50)
+PASS  9c Arabic-Indic digits  (percent/12.50)
+PASS  9d a mixed spelling  (percent/12.50)
+PASS  9e a fixed amount in Persian digits  (fixed/20000)
+PASS  9f out of range is STILL refused, now for the right reason  (refused:commission_percent_invalid)
+PASS  9g a grouping separator is refused, not guessed  (refused:commission_fixed_invalid)
+
+=== AFTER · §2 through the real panel ===
+WordPress database error Table 'tmc_wp_demo.wp_tmc_brand_requests' doesn't exist for query DELETE FROM `wp_tmc_brand_requests` WHERE product_id = 1529 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+WordPress database error Table 'tmc_wp_demo.wp_tmc_brand_requests' doesn't exist for query DELETE FROM `wp_tmc_brand_requests` WHERE product_id = 1530 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+WordPress database error Table 'tmc_wp_demo.wp_tmc_brand_requests' doesn't exist for query DELETE FROM `wp_tmc_brand_requests` WHERE product_id = 1531 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+WordPress database error Table 'tmc_wp_demo.wp_tmc_brand_requests' doesn't exist for query DELETE FROM `wp_tmc_brand_requests` WHERE product_id = 1532 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+WordPress database error Table 'tmc_wp_demo.wp_tmc_brand_requests' doesn't exist for query DELETE FROM `wp_tmc_brand_requests` WHERE product_id = 1533 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+WordPress database error Table 'tmc_wp_demo.wp_tmc_brand_requests' doesn't exist for query DELETE FROM `wp_tmc_brand_requests` WHERE product_id = 1534 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+vendor_user_id=3
+product_draft-nopr=657
+status_draft-nopr=draft
+regular_price_draft-nopr=__absent__
+price_draft-nopr=__absent__
+product_pending-nopr=658
+status_pending-nopr=pending
+regular_price_pending-nopr=__absent__
+price_pending-nopr=__absent__
+product_publish-nopr=659
+status_publish-nopr=publish
+regular_price_publish-nopr=__absent__
+price_publish-nopr=__absent__
+product_publish-priced=660
+status_publish-priced=publish
+regular_price_publish-priced=450000
+price_publish-priced=450000
+product_private-priced=661
+status_private-priced=private
+regular_price_private-priced=450000
+price_private-priced=450000
+product_future-priced=662
+status_future-priced=future
+regular_price_future-priced=450000
+price_future-priced=450000
+wc_product_id=660
+typed=12.5
+typed_type=percent
+before_type=__absent__
+before_value=__absent__
+outcome=saved
+reason=__none__
+after_type=percent
+after_value=12.50
+reads_back_as=percent/12.50
+PASS  10a the control: ascii still lands  (saved)
+wc_product_id=660
+typed=۱۲٫۵
+typed_type=percent
+before_type=percent
+before_value=12.50
+outcome=saved
+reason=__none__
+after_type=percent
+after_value=12.50
+reads_back_as=percent/12.50
+PASS  10b the panel's own example lands  (saved)
+PASS  10c …and reads back as the same rule  (percent/12.50)
+wc_product_id=660
+typed=۲۰٬۰۰۰
+typed_type=fixed
+before_type=percent
+before_value=12.50
+outcome=refused
+reason=commission_fixed_invalid
+after_type=percent
+after_value=12.50
+reads_back_as=percent/12.50
+PASS  10d a grouped amount is refused  (refused)
+PASS  10e …and the previous pair is kept  (12.50)
+
+=== AFTER · §1 the Dokan reader and the plan ===
+dokan_orders_table=ready
+dokan_plugin_active=no
+seller_user_id=20
+product_dk-publish-nopr=663
+status_dk-publish-nopr=publish
+price_dk-publish-nopr=__absent__
+product_dk-draft-nopr=664
+status_dk-draft-nopr=draft
+price_dk-draft-nopr=__absent__
+product_dk-pending-nopr=665
+status_dk-pending-nopr=pending
+price_dk-pending-nopr=__absent__
+product_dk-publish-frac=666
+status_dk-publish-frac=publish
+price_dk-publish-frac=450000.50
+product_dk-publish-priced=667
+status_dk-publish-priced=publish
+price_dk-publish-priced=450000
+dokan_reader_available=yes
+seller_user_id=20
+products_read=5
+read_dk-publish-nopr=yes
+read_price_minor_dk-publish-nopr=0
+read_price_recorded_dk-publish-nopr=no
+read_price_not_exact_dk-publish-nopr=no
+read_status_dk-publish-nopr=publish
+read_dk-draft-nopr=yes
+read_price_minor_dk-draft-nopr=0
+read_price_recorded_dk-draft-nopr=no
+read_price_not_exact_dk-draft-nopr=no
+read_status_dk-draft-nopr=draft
+read_dk-pending-nopr=yes
+read_price_minor_dk-pending-nopr=0
+read_price_recorded_dk-pending-nopr=no
+read_price_not_exact_dk-pending-nopr=no
+read_status_dk-pending-nopr=pending
+read_dk-publish-frac=yes
+read_price_minor_dk-publish-frac=0
+read_price_recorded_dk-publish-frac=yes
+read_price_not_exact_dk-publish-frac=yes
+read_status_dk-publish-frac=publish
+read_dk-publish-priced=yes
+read_price_minor_dk-publish-priced=450000
+read_price_recorded_dk-publish-priced=yes
+read_price_not_exact_dk-publish-priced=no
+read_status_dk-publish-priced=publish
+plan_products=5
+plan_663=import:imported_without_a_price
+plan_664=import:imported_without_a_price
+plan_665=import:imported_without_a_price
+plan_666=conflict:price_not_exact_for_this_currency
+plan_667=import:
+plan_count_import:imported_without_a_price=3
+plan_count_conflict:price_not_exact_for_this_currency=1
+plan_count_import:=1
+PASS  11a the PENDING product is read  (yes)
+PASS  11b …and says which status it is  (pending)
+PASS  11c an absent price is named as absent  (no)
+PASS  11d …and is not called inexact either  (no)
+PASS  11e 450000.50 is NOT rounded  (yes)
+PASS  11f …and is refused by name  (1)
+PASS  11g a product with no price is IMPORTED, with the reason said  (3)
+PASS  11h …and no product is blocked for want of a price  ()
+PASS  11i the control: a priced product still imports cleanly  (1)
+
+=== AFTER · §1 a published product with no price ===
+vendor_user_id=3
+product_draft-nopr=668
+status_draft-nopr=draft
+regular_price_draft-nopr=__absent__
+price_draft-nopr=__absent__
+product_pending-nopr=669
+status_pending-nopr=pending
+regular_price_pending-nopr=__absent__
+price_pending-nopr=__absent__
+product_publish-nopr=670
+status_publish-nopr=publish
+regular_price_publish-nopr=__absent__
+price_publish-nopr=__absent__
+product_publish-priced=671
+status_publish-priced=publish
+regular_price_publish-priced=450000
+price_publish-priced=450000
+product_private-priced=672
+status_private-priced=private
+regular_price_private-priced=450000
+price_private-priced=450000
+product_future-priced=673
+status_future-priced=future
+regular_price_future-priced=450000
+price_future-priced=450000
+judge_draft-nopr=import:
+judge_pending-nopr=import:
+judge_publish-nopr=import:
+judge_publish-priced=import:
+judge_private-priced=skip:status_not_expressible
+judge_future-priced=skip:status_not_expressible
+PASS  12a a PRIVATE product is refused by name  (skip:status_not_expressible)
+PASS  12b …and so is a SCHEDULED one  (skip:status_not_expressible)
+PASS  12c the control: a draft with no price is still taken in  (import:)
+PASS  12d …and so is a pending one  (import:)
+run_id=intake-20261020-150411
+intake_668=imported:
+intake_669=imported:
+intake_670=imported:
+intake_671=imported:
+intake_672=skip:status_not_expressible
+intake_673=skip:status_not_expressible
+row_draft-nopr=1535
+row_status_draft-nopr=draft
+row_price_minor_draft-nopr=0
+row_ownership_draft-nopr=observed
+row_pending-nopr=1536
+row_status_pending-nopr=draft
+row_price_minor_pending-nopr=0
+row_ownership_pending-nopr=observed
+row_publish-nopr=1537
+row_status_publish-nopr=published
+row_price_minor_publish-nopr=0
+row_ownership_publish-nopr=observed
+row_publish-priced=1538
+row_status_publish-priced=published
+row_price_minor_publish-priced=450000
+row_ownership_publish-priced=observed
+row_private-priced=__none__
+row_future-priced=__none__
+PASS  12e the private product has no row at all now  (__none__)
+PASS  12f …nor the scheduled one  (__none__)
+suffix=publish-nopr
+product_id=1537
+wc_product_id=670
+shop_regular_price_before=__absent__
+shop_price_before=__absent__
+shop_status_before=publish
+price_html_before=__none__
+risks=__none__
+drift_fields=__none__
+take_code=ownership_taken
+project_ok=yes
+project_code=projected
+shop_regular_price_after=__absent__
+shop_price_after=__absent__
+shop_status_after=publish
+price_html_after=__none__
+wc_is_purchasable=no
+PASS  13a the shop still has no price  (__absent__)
+PASS  13b …and the buyer still sees nothing  (__none__)
+PASS  13c …and the product is still published  (publish)
+reported=1
+priceless_670=__absent__/marketplace
+listed_publish-nopr=yes
+listed_publish-priced=no
+PASS  13d §1-هـ the published priceless product is REPORTED  (yes)
+PASS  13e …and the priced one is not  (no)
+PASS  13f …and the report says the shop has no price either  (__absent__/marketplace)
+suffix=publish-priced
+product_id=1538
+wc_product_id=671
+shop_regular_price_before=450000
+shop_price_before=450000
+shop_status_before=publish
+price_html_before=450,000&nbsp;&#x062A;&#x0648;&#x0645;&#x0627;&#x0646;
+risks=__none__
+drift_fields=__none__
+take_code=ownership_taken
+project_ok=yes
+project_code=projected
+shop_regular_price_after=450000
+shop_price_after=450000
+shop_status_after=publish
+price_html_after=450,000&nbsp;&#x062A;&#x0648;&#x0645;&#x0627;&#x0646;
+wc_is_purchasable=no
+PASS  14a the control: a priced product keeps its price  (450000)
+PASS  14b …and the buyer still sees it  (450,000&nbsp;&#x062A;&#x0648;&#x0645;&#x0627;&#x0646;)
+
+=== AFTER · §3 the share estimate, on a product that HAS a commission ===
+wc_product_id=671
+typed=۱۲٫۵
+typed_type=percent
+before_type=__absent__
+before_value=__absent__
+outcome=saved
+reason=__none__
+after_type=percent
+after_value=12.50
+reads_back_as=percent/12.50
+PASS  14c the Persian-typed rule is what the product carries  (percent/12.50)
+
+=== AFTER · §3 one screen, one story ===
+open_decisions=DEC-02,DEC-04
+gate_ready=no
+gate_reason=decisions_open
+gate_detail=awaiting DEC-02, DEC-04
+gate_blockers=decisions_open:DEC-02,DEC-04
+general_rate_source=general
+general_rate_bp=1000
+general_rate_is_set=yes
+probe_product=671
+gate_reason_scoped=decisions_open
+gate_reason_is_rate_unset=no
+trial_requested=no
+trial_permitted=no
+trial_active=no
+trial_refusal=__none__
+trial_environment=production
+trial_option=tmc_order_trial_mode
+PASS  15a the control: the gate is still shut on the owner's decisions  (decisions_open)
+PASS  15b …and still names them  (awaiting DEC-02, DEC-04)
+PASS  15c the control: the general rate is still set and still irrelevant  (no)
+html_bytes=21972
+says_sales_active=no
+says_order_gate=yes
+says_general_commission_rate=no
+says_decisions_open=yes
+buyer_row_blames_rate=no
+says_switch_on_gate_shut=yes
+says_commission_model=yes
+banner_is_warning=yes
+banner_is_success=no
+PASS  16a the green «فروش فعال است» banner is gone  (no)
+PASS  16b …replaced by the effective state  (yes)
+PASS  16c …as a warning rather than a tick  (yes)
+PASS  16d the stale general-rate row is gone  (no)
+PASS  16e …and says what the model IS instead  (yes)
+PASS  16f the purchase table no longer blames the rate  (no)
+estimate_is_calculated=yes
+estimate_reason=__none__
+estimate_rate_source=product
+estimate_rate_bp=1250
+estimate_commission_minor=56250
+estimate_vendor_share_minor=393750
+shop_commission_type=percent
+shop_commission_value=12.50
+PASS  17a step 4 estimates from the PRODUCT's own rule  (product)
+PASS  17b …at the rate the panel stored  (1250)
+PASS  17c …which is 12.5% of 450,000  (56250)
+
+=== AFTER · §3-و one WooCommerce order, no payment gateway ===
+requested=yes
+permitted=yes
+active=yes
+environment=local
+gate_ready=yes
+gate_reason=ready_on_trial
+gate_detail=trial mode on local; sample rules; still awaiting DEC-02, DEC-04
+PASS  18a the trial switch is honoured on a declared non-production site  (yes)
+PASS  18b …and says the decisions are still open  (ready_on_trial)
+html_bytes=13968
+says_sales_active=yes
+says_order_gate=yes
+says_general_commission_rate=no
+says_decisions_open=no
+buyer_row_blames_rate=no
+says_switch_on_gate_shut=no
+says_commission_model=yes
+banner_is_warning=no
+banner_is_success=yes
+PASS  18c the control: with the gate OPEN the banner is a tick again  (yes)
+sh: 1: /usr/sbin/sendmail: not found
+sh: 1: /usr/sbin/sendmail: not found
+sh: 1: /usr/sbin/sendmail: not found
+gate_ready=yes
+gate_reason=ready_on_trial
+wc_product_id=671
+unit_price=450000
+commission_type=percent
+commission_value=12.50
+order_id=674
+order_total=1350000
+order_currency=IRT
+payment_method=__none__
+available_gateways=1
+order_status_after_payment_complete=processing
+marketplace_lines=1
+line_vendor=3
+line_quantity=3
+line_unit_price_minor=450000
+line_base_minor=1350000
+line_commission_minor=168750
+line_vendor_share_minor=1181250
+line_rate_bp=1250
+line_rate_source=product
+line_ledger_event=order:674:item:43
+line_status=placed
+ledger_item_paid=1350000/IRT/0
+ledger_commission_due=-168750/IRT/0
+ledger_vendor_earned=-1181250/IRT/0
+ledger_balances={"central_payment":6750000,"commission":-675000,"vendor_earning":-6075000}
+PASS  19a the order carries no payment method  (__none__)
+PASS  19b three units of a 450,000 product  (1350000)
+PASS  19c ONE marketplace line was recorded  (1)
+PASS  19d …with the quantity  (3)
+PASS  19e …the base  (1350000)
+PASS  19f …the commission the Persian-typed rule gives  (168750)
+PASS  19g …the vendor's share  (1181250)
+PASS  19h …read off the PRODUCT's rule  (product)
+PASS  19i and the ledger carries the money in  (1350000/IRT/0)
+PASS  19j …the commission out  (-168750/IRT/0)
+PASS  19k …and the vendor's share out  (-1181250/IRT/0)
+requested=no
+permitted=yes
+active=no
+environment=local
+gate_ready=no
+gate_reason=decisions_open
+gate_detail=awaiting DEC-02, DEC-04
+PASS  20a the trial switch is given back  (no)
+PASS  20b …and the gate is shut again  (decisions_open)
+
+=== giving back what this run spent ===
+WordPress database error Table 'tmc_wp_demo.wp_tmc_brand_requests' doesn't exist for query DELETE FROM `wp_tmc_brand_requests` WHERE product_id = 1535 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+WordPress database error Table 'tmc_wp_demo.wp_tmc_brand_requests' doesn't exist for query DELETE FROM `wp_tmc_brand_requests` WHERE product_id = 1536 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+WordPress database error Table 'tmc_wp_demo.wp_tmc_brand_requests' doesn't exist for query DELETE FROM `wp_tmc_brand_requests` WHERE product_id = 1537 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+WordPress database error Table 'tmc_wp_demo.wp_tmc_brand_requests' doesn't exist for query DELETE FROM `wp_tmc_brand_requests` WHERE product_id = 1538 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+product_draft-nopr=0
+product_pending-nopr=0
+product_publish-nopr=0
+product_publish-priced=0
+product_private-priced=0
+product_future-priced=0
+marketplace_rows_for_fixture=0
+PASS  21a the fixture's products are gone  (0)
+PASS  21b …including the published one  (0)
+PASS  21c the installed bytes are back  (9b9c6788b063855a)
+NOTE  dokan  Dokan Lite 5.1.1 was NOT activated — Not Run, not «passed»
+NOTE  browser  no browser checkout was run — Not Run
+NOTE  php81  PHP 8.1 was not available in this environment — Not Run
+
+PASS=113 FAIL=0

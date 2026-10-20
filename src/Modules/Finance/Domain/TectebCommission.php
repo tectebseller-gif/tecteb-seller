@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Finance\Domain;
 
+use Tecteb\Marketplace\Core\Config\Sanitizer\DigitNormalizer;
+
 /**
  * THE OWNER'S COMMISSION RULE FOR ONE PRODUCT — «نوع کمیسیون تک‌طب» and
  * «مقدار», and nothing else.
@@ -104,7 +106,37 @@ final class TectebCommission
     public static function fromInput(string $type, string $value): array
     {
         $type = trim($type);
-        $value = trim($value);
+        // THE FORM BOUNDARY, and the one place digits are translated.
+        //
+        // A manager types «۱۲٫۵» — the spelling this panel's own hint gives
+        // as the example — and `alpha.65` refused it: `readPercent()` ends in
+        // `DecimalAmount::toMinor()`, whose pattern is ASCII, and
+        // `readFixed()`'s is too. Measured on the installed bytes: `12.5`
+        // saved and survived a reload, `۱۲٫۵` and `١٢٫٥` both answered
+        // `commission_percent_invalid` with nothing written.
+        //
+        // Translated HERE and not one floor down. `DecimalAmount` is the
+        // conversion WooCommerce hands `wc_format_decimal()` output to, and
+        // its own docblock says anything else is a caller mistake worth
+        // seeing; loosening it would make every money path in the plugin
+        // accept digits no storefront produces. `fromStored()` stays strict
+        // for the same reason: a row can only hold what `fromInput()` let
+        // through, so a non-ASCII stored value is somebody else's data and
+        // «no commission» is the documented safe reading of it.
+        //
+        // `DigitNormalizer` was already here — `PercentToBasisPoints` and
+        // `BoundedInteger` have used it since the settings page existed, and
+        // it maps U+06F0–9, U+0660–9 and the Arabic decimal separator U+066B
+        // and trims NBSP/ZWNJ/ZWSP. The `alpha.57` panel simply never asked
+        // it («پیش از ساختن مکانیزمِ تازه، بپرسید همین مخزن قبلاً کدام را دارد»).
+        //
+        // What it deliberately does NOT translate is a GROUPING separator —
+        // neither `٬` (U+066C) nor a comma. «۲۰٬۰۰۰» is refused by name, and
+        // that is the conservative direction: a separator is positional and
+        // reading one wrong changes the amount by a factor of a thousand,
+        // which on somebody's share of a sale is not a thing to guess
+        // («تبدیل … یا پذیرش مبهم و حدسی اضافه نکن»).
+        $value = DigitNormalizer::normalize($value);
 
         if ($type === '' || $type === self::NONE) {
             // The amount is ignored on purpose: a manager who switches a

@@ -427,6 +427,20 @@ final class ProductReviewPage
             );
         }
 
+        // §1-هـ: PUBLISHED on the shop, priced nowhere — said out loud, and
+        // nothing done about it.
+        //
+        // The two halves of this state are different jobs: a product the shop
+        // has a price for and the marketplace row does not needs the shop's
+        // own number brought across (one click, `refreshFromStorefront()`),
+        // and one neither side has priced needs a person to decide a price.
+        // Both are unapprovable until then — `ProductReadiness` names `price`
+        // — and neither is touched here: no status change, no price written,
+        // nothing unpublished. From this round the projector also leaves the
+        // shop's price alone rather than writing a nought over it, so this
+        // notice is the only thing that happens to such a product.
+        $this->renderPricelessPublished($inventory);
+
         echo ProductCatalogueView::render($rows, $state, $this->intakeControls($request));
 
         // **Only what this page actually drew.** «فقط نسخه‌هایی که در آن صفحه
@@ -438,6 +452,30 @@ final class ProductReviewPage
         // once the WHOLE page is in the buffer, so a throw further down this
         // method marks nothing.
         $this->seen += $shown;
+    }
+
+    /** @see renderCatalogue() for why this reports and never repairs. */
+    private function renderPricelessPublished(CatalogueInventory $inventory): void
+    {
+        $rows = $inventory->pricelessPublished(100);
+        if ($rows === []) {
+            return;
+        }
+        $ids = [];
+        $shopHasOne = 0;
+        foreach ($rows as $row) {
+            $ids[] = (string) $row['wc_product_id'];
+            if ($row['shop_price'] !== '__absent__' && $row['shop_price'] !== '__empty__') {
+                $shopHasOne++;
+            }
+        }
+        echo Components::notice('warning', sprintf(
+            /* translators: 1: how many, 2: WooCommerce ids, 3: how many of them the shop does have a price for */
+            __('%1$s محصول در ووکامرس منتشر شده‌اند و ردیف بازارگاهشان قیمتی ندارد (شناسهٔ ووکامرس: %2$s). وضعیت عمومی و قابلیت خریدشان عوض نشده و هیچ قیمتی برایشان نوشته نشده است؛ تا قیمت تعیین نشود تأیید و انتشارشان از این صفحه رد می‌شود. از این میان %3$s مورد در خودِ فروشگاه قیمت دارند، که با «به‌روزکردن از فروشگاه» روی صفحهٔ همان محصول حل می‌شود؛ بقیه قیمت لازم دارند.', 'tecteb-marketplace-core'),
+            esc_html(PersianDigits::toPersian((string) count($rows))),
+            esc_html(PersianDigits::toPersian(implode('، ', $ids))),
+            esc_html(PersianDigits::toPersian((string) $shopHasOne))
+        ));
     }
 
     /**
