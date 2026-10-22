@@ -1,0 +1,208 @@
+Skip to main content
+Skip to toolbar
+
+
+Dashboard
+Home
+Updates
+
+
+Posts
+All Posts
+Add Post
+Categories
+Tags
+
+
+Media
+Library
+Add Media File
+
+
+Pages
+All Pages
+Add Page
+
+
+Comments
+
+
+WooCommerce
+Home 3
+Orders 86
+Customers
+Coupons
+Reports
+Settings
+Status
+Extensions
+
+
+Products
+All Products
+Add new product
+Brands
+Categories
+Tags
+Attributes
+Reviews
+Min Max Control
+Min Max Control
+Module On/Off
+Browse Plugins
+Hire an Expert
+
+
+Payments
+
+
+بازارگاه تک‌طب
+پیشخوان
+بررسی محصولات
+درخواست‌های فروشندگان
+فروشگاه‌ها (مشاهده)
+مدارک فروشندگان
+تیکت فروشندگان
+وضعیت فروش بازارگاه
+قواعد کمیسیون
+تسویه و برداشت
+پرداخت به تأمین‌کننده
+مرجوعی و بازپرداخت
+خریداران عمده
+الگوهای مشخصات
+نظرات
+گزارش‌ها
+تنظیمات
+ماژول‌ها
+سلامت
+صف و سلامت اجرا
+رویدادها و API
+ممیزی
+راه‌اندازی
+مهاجرت از دکان
+تحویل مهاجرت
+خروج از Min Max
+
+
+Analytics
+Overview
+Products
+Revenue
+Orders
+Variations
+Categories
+Coupons
+Taxes
+Downloads
+Stock
+Settings
+
+
+Marketing
+Overview
+Coupons
+
+
+Appearance
+Themes
+Design
+Customize
+Widgets
+Fonts
+Menus
+Background
+Theme File Editor
+
+
+Plugins
+Installed Plugins
+Add Plugin
+Plugin File Editor
+
+
+Users
+All Users
+Add User
+Profile
+
+
+Tools
+Available Tools
+Import
+Export
+Site Health 4
+Export Personal Data
+Erase Personal Data
+Scheduled Actions
+
+
+Settings
+General
+Connectors
+Writing
+Reading
+Discussion
+Media
+Permalinks
+Privacy
+Collapse Menu
+About WordPress
+بازارگاه تک‌طب
+Store coming soon
+Ctrl+K
+Open command palette
+0
+0 Comments in moderation
+New
+Howdy, tmcowner
+پرش به محتوای اصلی
+بازارگاه تک‌طب
+نسخه آزمایشی
+0.1.0-alpha.69
+روزمره
+فروش و مالی
+محتوا و گزارش
+تنظیمات و ابزارها
+راه‌اندازی و مهاجرت
+وضعیت فروش بازارگاه
+قواعد کمیسیون
+تسویه و برداشت
+پرداخت به تأمین‌کننده
+مرجوعی و بازپرداخت
+خریداران عمده
+مرجوعی و بازپرداخت
+
+Help us improve Min Max Control even more awesome? By allowing us to collect usage and diagnostic data, you'll help us make the plugin faster, identify bugs, improve performance and better suited to your needs (what we collect)
+
+ Allow No thanks
+
+!
+
+شرایط تجاری مرجوعی (مهلت، کرایهٔ برگشت و کسورات) هنوز در DEC-03 تعیین نشده است. بازارگاه هیچ‌کدام را حدس نمی‌زند: هیچ درخواستی خودکار رد یا تأیید نمی‌شود و مبلغ بازگشتی فقط بهای همان کالا و مالیات همان تعداد است.
+
+!
+
+«بازپرداخت» در این بازارگاه یعنی دو کار: معکوس‌کردن خطوط دفترکل، و در صورت درخواست، بازگرداندن کالا به موجودی ووکامرس. دو کار دیگر انجام نمی‌شود: ساختن رکورد refund در ووکامرس، و انتقال واقعی وجه به مشتری. در این نسخه هیچ درگاه پرداخت واقعی وصل نیست، پس پول را باید خودتان از مسیر درگاه یا بانک برگردانید و بعد شمارهٔ refund ووکامرس را اینجا ثبت کنید.
+
+موارد تعیین‌نشده: return_window_undecided، return_shipping_refund_undecided، return_fee_undecided. تا تصمیم مالک، هر درخواست را همین‌جا و دستی تعیین تکلیف کنید.
+
+درخواست‌های مرجوعی
+شناسه	قلم سفارش	فروشنده	تعداد	وضعیت	بازگشت مالی	اقدام
+69	آزمون tmc-p68-split 496	3	۱ از ۳	تأییدشده	هنوز ثبت نشده	
+
+ ۱ عدد از ۳ عددِ قلمی به مبلغ کل ۱۰۱ دقیق تقسیم نمی‌شود. سهم این مرجوعی **به پایین** و در ریزترین واحدِ همین قلم حساب می‌شود، و باقیماندهٔ هر جزء به **آخرین** مرجوعیِ این قلم می‌رسد تا جمع کل دقیقاً برابر مبلغ قلم بماند. هیچ مبلغی بخشیده یا حذف نمی‌شود؛ این مرجوعی رد نمی‌شود.
+
+ برگرداندن به موجودی ووکامرس
+ثبت تحویل کالا
+لغو درخواست
+
+67	— 494	3	۱	تأییدشده	هنوز ثبت نشده	
+ برگرداندن به موجودی ووکامرس
+ثبت تحویل کالا
+لغو درخواست
+
+تمام ارسال‌های خود افزونه در نسخه آزمایشی مسدود است. وضعیت سایر افزونه‌ها بررسی‌نشده است.
+
+Thank you for creating with WordPress.
+
+Version 7.1

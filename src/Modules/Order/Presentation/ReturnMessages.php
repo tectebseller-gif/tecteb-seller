@@ -98,7 +98,7 @@ final class ReturnMessages
             : (MoneyText::format($baseMinor, $scale) ?? PersianDigits::toPersian((string) $baseMinor));
         return sprintf(
             /* translators: 1: requested quantity, 2: line quantity, 3: line total */
-            __('⛔ %1$s عدد از %2$s عددِ قلمی به مبلغ کل %3$s دقیق تقسیم نمی‌شود و این افزونه گرد نمی‌کند، پس «دریافت‌شده» رد خواهد شد. این درخواست را لغو کنید و مرجوعیِ کاملِ باقیماندهٔ قلم را ثبت کنید، یا تا تصمیم مالک دربارهٔ قاعدهٔ تخصیص صبر کنید.', 'tecteb-marketplace-core'),
+            __('ℹ️ %1$s عدد از %2$s عددِ قلمی به مبلغ کل %3$s دقیق تقسیم نمی‌شود. سهم این مرجوعی **به پایین** و در ریزترین واحدِ همین قلم حساب می‌شود، و باقیماندهٔ هر جزء به **آخرین** مرجوعیِ این قلم می‌رسد تا جمع کل دقیقاً برابر مبلغ قلم بماند. هیچ مبلغی بخشیده یا حذف نمی‌شود؛ این مرجوعی رد نمی‌شود.', 'tecteb-marketplace-core'),
             PersianDigits::toPersian((string) $quantity),
             PersianDigits::toPersian((string) $lineQuantity),
             $total

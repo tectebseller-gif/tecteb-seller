@@ -1,0 +1,7 @@
+=== upgrade alpha.68 → alpha.69: no structural work ===
+installed_version=0.1.0-alpha.69
+schema_before_admin_request=34
+admin_request=ran
+schema_after_admin_request=34
+target_in_code=34
+migration_files_changed_since_alpha68=0

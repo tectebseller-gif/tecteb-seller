@@ -1,0 +1,148 @@
+=== from the INSTALLED alpha.69 package ===
+0.1.0-alpha.69
+
+## min max control: the effective mode
+# The mode is derived the PLUGIN'S way and in the plugin's order,
+# read out of wcmmq.php:49-61. The test there is TRUTHINESS, not
+# existence: an option row that exists and holds '', 0 or array() is
+# falsy and the plugin falls through to the next branch. And the PRO
+# key wins even though it is read second.
+wcmmq_universal_minmaxstep_present=no
+wcmmq_universal_minmaxstep_truthy=no
+wcmmq_s_universal_minmaxstep_present=no
+wcmmq_s_universal_minmaxstep_truthy=no
+effective_mode=plain
+effective_prefix=(none)
+effective_option_key=wcmmq_minmaxstep
+live_constant_prefix=(none)
+premium_active=no
+# When premium is absent the per-VARIATION level never fires: the
+# plugin returns before reading it and nulls the variation id. Rows
+# may still exist from an earlier premium install and are counted,
+# because installing premium would wake them up.
+
+## min max control: rules per level
+rows_product_min_quantity=2
+rows_product_variation_min_quantity=0
+rows_product_max_quantity=2
+rows_product_variation_max_quantity=0
+rows_product_product_step=2
+rows_product_variation_product_step=0
+rows_product_default_quantity=0
+rows_product_variation_default_quantity=0
+global_option_present=no
+global_min_quantity=(absent, plugin default applies)
+global_max_quantity=(absent, plugin default applies)
+global_product_step=(absent, plugin default applies)
+global_default_quantity=(absent, plugin default applies)
+term_rules_total=0
+# A term rule's MAXIMUM defaults to 1, not «unlimited»
+# (setTermwiseArgs()), so a term rule configured with only a minimum
+# enforces a maximum of ONE on every product in that term.
+cat_ids_set=no
+quantity_box_in_archive=(absent)
+
+## handover state
+# What this marketplace has already decided about each plugin's data.
+minmax_handover_table=present
+minmax_handover_migrated=1
+dokan_import_runs=0
+dokan_handover_table=present
+dokan_handover_rows=0
+# Dokan's purge-on-uninstall setting. THE SETTING, not an action:
+# dokan's own uninstall.php drops its tables, user metas, roles and
+# pages when dokan_general[data_clear_on_uninstall] is 'on'. No
+# uninstall is run by anything in this repository, and deactivating a
+# plugin does not run it either — but a manager who DELETES the plugin
+# with this setting on loses the data this migration reads.
+dokan_data_clear_on_uninstall=(absent — Dokan treats this as off)
+# Dokan Pro's ACTIVE modules, and whether their directory is on disk.
+# Asked because the Pro package submitted for review ships 10 module
+# directories while its own loader knows 41 — vendor-staff among the
+# absent ones. A module that is marked active with no directory is a
+# feature the site believes it has; a directory with no mark is one it
+# could turn on. Neither can be inferred from the files alone.
+dokan_pro_active_modules_option=absent
+
+# end of inventory. Nothing was written.
+
+## min max exit: the verdict
+# The judgement the owner's §5 asks for, taken from the plugin's own
+# `MigrateMinMax::exitVerdict()` so this tool and the admin page
+# cannot disagree. Three answers: permitted / blocked /
+# not_installed — and «not_installed» is NOT «permitted».
+verdict=blocked
+permitted=no
+count_convertible=0
+count_incompatible=0
+count_migrated_unenforceable=0
+count_would_be_unenforceable=1
+count_unknown=0
+count_held_by_manager=0
+count_already_decided=1
+count_rolled_back=0
+count_source_rows=2
+count_scanned=2
+level_product=2
+level_variation=0
+blocker=rule_would_not_be_enforced | 1 | this product is not the marketplace's, so taking its rule would write where nothing reads
+stale_grants=0
+ledger_migrated=1
+# ⛔ A blocked verdict is not cleared by changing a Min Max rule to
+# make it convertible. Either the rule changes at the source because
+# somebody decided it should, or the loss is accepted. Nothing in
+# this repository loosens a rule to finish a migration.
+
+# end of inventory. Nothing was written.
+
+## dokan exit: the rest of the list §5 names
+# Everything below is READ. These are the items the owner's §5 asks
+# for by name and that no earlier section answered: sub-orders, the
+# shop's own e-mail rows, the theme's dependency, and how many
+# accounts are a Dokan seller AND a marketplace shop at once.
+orders_parent_posts=0
+orders_child_posts=0
+hpos_order_table=present
+orders_hpos_parents=90
+orders_hpos_children=0
+# Which shape is AUTHORITATIVE is a WooCommerce setting, not a
+# count: both tables can hold rows during a migration. Ask
+# `wp option get woocommerce_custom_orders_table_enabled`.
+dokan_email_option_rows=0
+dokan_option_rows_total=0
+active_theme=Twenty Twenty-One 2.9
+active_theme_template=twentytwentyone
+active_theme_is_child=no
+theme_php_files=twentytwentyone | 48
+theme_php_files_naming_dokan=twentytwentyone | 0
+dokan_sellers=0
+accounts_that_are_both_a_dokan_seller_and_a_marketplace_shop=0
+# ⛔ No account is merged, renamed or removed by anything in this
+# repository, and nothing here prints an e-mail or a login.
+
+## min max exit: the verdict
+# The judgement the owner's §5 asks for, taken from the plugin's own
+# `MigrateMinMax::exitVerdict()` so this tool and the admin page
+# cannot disagree. Three answers: permitted / blocked /
+# not_installed — and «not_installed» is NOT «permitted».
+verdict=blocked
+permitted=no
+count_convertible=0
+count_incompatible=0
+count_migrated_unenforceable=0
+count_would_be_unenforceable=1
+count_unknown=0
+count_held_by_manager=0
+count_already_decided=1
+count_rolled_back=0
+count_source_rows=2
+count_scanned=2
+level_product=2
+level_variation=0
+blocker=rule_would_not_be_enforced | 1 | this product is not the marketplace's, so taking its rule would write where nothing reads
+stale_grants=0
+ledger_migrated=1
+# ⛔ A blocked verdict is not cleared by changing a Min Max rule to
+# make it convertible. Either the rule changes at the source because
+# somebody decided it should, or the loss is accepted. Nothing in
+# this repository loosens a rule to finish a migration.

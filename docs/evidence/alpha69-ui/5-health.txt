@@ -1,0 +1,323 @@
+Skip to main content
+Skip to toolbar
+
+
+Dashboard
+Home
+Updates
+
+
+Posts
+All Posts
+Add Post
+Categories
+Tags
+
+
+Media
+Library
+Add Media File
+
+
+Pages
+All Pages
+Add Page
+
+
+Comments
+
+
+WooCommerce
+Home 3
+Orders 86
+Customers
+Coupons
+Reports
+Settings
+Status
+Extensions
+
+
+Products
+All Products
+Add new product
+Brands
+Categories
+Tags
+Attributes
+Reviews
+Min Max Control
+Min Max Control
+Module On/Off
+Browse Plugins
+Hire an Expert
+
+
+Payments
+
+
+بازارگاه تک‌طب
+پیشخوان
+بررسی محصولات
+درخواست‌های فروشندگان
+فروشگاه‌ها (مشاهده)
+مدارک فروشندگان
+تیکت فروشندگان
+وضعیت فروش بازارگاه
+قواعد کمیسیون
+تسویه و برداشت
+پرداخت به تأمین‌کننده
+مرجوعی و بازپرداخت
+خریداران عمده
+الگوهای مشخصات
+نظرات
+گزارش‌ها
+تنظیمات
+ماژول‌ها
+سلامت
+صف و سلامت اجرا
+رویدادها و API
+ممیزی
+راه‌اندازی
+مهاجرت از دکان
+تحویل مهاجرت
+خروج از Min Max
+
+
+Analytics
+Overview
+Products
+Revenue
+Orders
+Variations
+Categories
+Coupons
+Taxes
+Downloads
+Stock
+Settings
+
+
+Marketing
+Overview
+Coupons
+
+
+Appearance
+Themes
+Design
+Customize
+Widgets
+Fonts
+Menus
+Background
+Theme File Editor
+
+
+Plugins
+Installed Plugins
+Add Plugin
+Plugin File Editor
+
+
+Users
+All Users
+Add User
+Profile
+
+
+Tools
+Available Tools
+Import
+Export
+Site Health 4
+Export Personal Data
+Erase Personal Data
+Scheduled Actions
+
+
+Settings
+General
+Connectors
+Writing
+Reading
+Discussion
+Media
+Permalinks
+Privacy
+Collapse Menu
+About WordPress
+بازارگاه تک‌طب
+Store coming soon
+Ctrl+K
+Open command palette
+0
+0 Comments in moderation
+New
+Howdy, tmcowner
+پرش به محتوای اصلی
+بازارگاه تک‌طب
+نسخه آزمایشی
+0.1.0-alpha.69
+روزمره
+فروش و مالی
+محتوا و گزارش
+تنظیمات و ابزارها
+راه‌اندازی و مهاجرت
+تنظیمات
+ماژول‌ها
+سلامت
+صف و سلامت اجرا
+رویدادها و API
+ممیزی
+سلامت بازارگاه
+
+Help us improve Min Max Control even more awesome? By allowing us to collect usage and diagnostic data, you'll help us make the plugin faster, identify bugs, improve performance and better suited to your needs (what we collect)
+
+ Allow No thanks
+
+وضعیت کلی:
+!
+نیازمند اقدام
+آخرین بررسی: ۱۴۰۵/۰۷/۳۰ ۱۶:۳۴ (UTC)
+بررسی‌ها
+فهرست بررسی‌های سلامت با وضعیت و توضیح
+بررسی	وضعیت	توضیح
+نسخه PHP	
+✓
+سالم
+	نسخه ۸.۴.۱۹؛ حداقل لازم ۸.۱.۰.
+نسخه WordPress	
+✓
+سالم
+	نسخه ۷.۱. سازگاری با این نسخه آزموده نشده است.
+WooCommerce	
+✓
+سالم
+	فعال است (نسخه ۱۱.۰.۱). سازگاری با این نسخه آزموده نشده است.
+HPOS فعال است؟	
+✓
+سالم
+	ذخیره‌سازی HPOS فعال است.
+HPOS آزموده شده؟	
+?
+نامشخص
+	هیچ آزمون سازگاری HPOS اجرا نشده است. «فعال بودن» با «آزموده بودن» یکی نیست.
+ساختار داده (schema)	
+✓
+سالم
+	نسخه ذخیره‌شده ۳۴ از ۳۴.
+محیط اجرا	
+✓
+سالم
+	تشخیص: اصلی (production) (منبع: تشخیص WordPress).
+ارسال‌های خود افزونه (TMC)	
+✓
+سالم
+	مسدود. در نسخه آزمایشی هیچ ایمیل، پیامک یا پرداختی از خود افزونه ارسال نمی‌شود؛ هیچ گزینه‌ای این قفل را باز نمی‌کند.
+ارسال‌های سایر افزونه‌ها	
+?
+نامشخص
+	بررسی‌نشده. ایمنی ارسال پیامک/ایمیل/پرداخت سایر افزونه‌ها باید جداگانه آزموده شود؛ این افزونه درباره آن ادعایی نمی‌کند.
+ماژول‌ها	
+!
+نیازمند اقدام
+	فعال ۱۰، ناقص ۰، متوقف ۱، برنامه‌ریزی‌شده ۱، خطای ثبت ۰. جزئیات در صفحه ماژول‌ها.
+نرخ کمیسیون عمومی	
+!
+نیازمند اقدام
+	هنوز تعیین نشده. این فقط یک پیام است و مانع فعال بودن افزونه نیست؛ در صفحه تنظیمات قابل تعیین است.
+ماژول‌ها
+هسته
+core
+✓
+فعال
+نگهبان محیط
+environment-guard
+✓
+فعال
+مدیریت
+admin
+✓
+فعال
+سلامت
+health
+✓
+فعال
+عملیات و ممیزی
+operations
+✓
+فعال
+فروشندگان
+vendor
+✓
+فعال
+مالی
+finance
+✓
+فعال
+محصولات
+product
+✓
+فعال
+کوپن، عمده‌فروشی و پشتیبانی
+marketplace
+✓
+فعال
+مهاجرت از دکان
+migration
+✓
+فعال
+سفارش‌ها و ارسال
+order
+!
+متوقف (وابستگی)
+self_gated — مرحله register — trial_refused:environment_production
+تسویه و برداشت
+settlement
+…
+برنامه‌ریزی‌شده
+
+جزئیات در صفحه ماژول‌ها
+
+دکمهٔ بازارگاه در صفحهٔ حساب کاربری
+
+این افزونه نمی‌تواند قالب سایت شما را بخواند، پس این را خودِ سایت اندازه می‌گیرد: آخرین بار که یک صفحهٔ حساب کاربری باز شد، کدام قلاب‌های ووکامرس اجرا شدند و آیا دکمهٔ ما چاپ شد.
+
+منوی حساب کاربری ووکامرس
+تا حالا اجرا نشده
+پیشخوان حساب کاربری ووکامرس
+اجرا شد
+کد کوتاه [tmc_vendor_dashboard]
+اجرا شد
+دکمه چاپ شد؟
+بله — «بررسی محصول‌ها در پیشخوان مدیریت»
+مقصد دکمه
+پیشخوان مدیریت وردپرس — این حساب فروشگاهی در بازارگاه ندارد
+آخرین تغییر
+—
+
+این جدول دربارهٔ سازگاری با قالب شما ادعایی نمی‌کند؛ فقط می‌گوید آخرین بار چه شد.
+
+حدهای خرید منتقل‌شده از Min Max
+
+هر مجوزی که صادر شده هنوز دربارهٔ همان قاعده‌ای است که برایش صادر شد.
+
+بازگشت به نسخهٔ پیش از alpha.67
+!
+
+ بازگشت سادهٔ بسته ممنوع است: ۸ ردیف در واحدی ریزتر از واحد ثبت‌شدهٔ فروشنده‌اش ثبت شده‌اند و بستهٔ قبلی هر کدام را ده‌هزار برابر می‌خواند. تنها مسیر سازگار، بازگرداندن پشتیبان پیش از ارتقاست — و بازگرداندن پشتیبان کل دیتابیس را برمی‌گرداند: سفارش‌ها، کاربران، محصولات و هر ویرایشِ پس از پشتیبان هم از بین می‌روند. بند ۴۹ سند ارتقا می‌گوید چه چیزی شمرده می‌شود و چه چیزی شمرده نمی‌شود.
+
+ledger_entries: ۶ · order_items: ۱ · withdrawals: ۰ · withdrawal_lines: ۰ · returns: ۱
+
+دسترسی برنامه‌نویسی به همین گزارش
+
+همان چیزی که در این صفحه می‌بینید، از یک مسیر خصوصی REST هم خواندنی است. برای کار روزمره لازمش ندارید.
+
+جزئیات فنی
+
+تمام ارسال‌های خود افزونه در نسخه آزمایشی مسدود است. وضعیت سایر افزونه‌ها بررسی‌نشده است.
+
+Thank you for creating with WordPress.
+
+Version 7.1

@@ -1,6 +1,6 @@
 === the trees ===
 base_ref=5a29cdf38d79dda2936212bdfd9e8c4af16857b2
-this_checkout_src_digest=d07c9ee6822b020b
+this_checkout_src_digest=721ce2d88f839a85
 installed_src_digest=9b9c6788b063855a
 base_src_digest=9b9c6788b063855a
 PASS  0a the installed package is this round's base (alpha.66)  (9b9c6788b063855a)
@@ -9,15 +9,15 @@ PASS  0c the installed tree is now alpha.66's  (9b9c6788b063855a)
 
 === BEFORE · §1 the five statuses, through the whole path ===
 vendor_user_id=3
-product_draft=759
+product_draft=853
 shop_status_draft=draft
-product_pending=760
+product_pending=854
 shop_status_pending=pending
-product_publish=761
+product_publish=855
 shop_status_publish=publish
-product_private=762
+product_private=856
 shop_status_private=private
-product_future=763
+product_future=857
 shop_status_future=future
 PASS  1a woocommerce holds a pending product  (pending)
 judge_draft=import:
@@ -37,12 +37,12 @@ PASS  1b pending is taken in  (import:)
 PASS  1c private is refused BY NAME  (skip:status_not_expressible)
 PASS  1d future is refused BY NAME  (skip:status_not_expressible)
 PASS  1e the map collapses pending into draft  (draft)
-run_id=intake-20261022-113845
-intake_759=imported:
-intake_760=imported:
-intake_761=imported:
-intake_762=skip:status_not_expressible
-intake_763=skip:status_not_expressible
+run_id=intake-20261022-163041
+intake_853=imported:
+intake_854=imported:
+intake_855=imported:
+intake_856=skip:status_not_expressible
+intake_857=skip:status_not_expressible
 shop_status_draft=draft
 row_status_draft=draft
 facet_draft=draft|mgmt:observed
@@ -62,7 +62,7 @@ PASS  1f the intake leaves the shop alone  (pending)
 PASS  1g …and the row says draft  (draft)
 PASS  1h …and the filter still shows the shop's own status  (pending|mgmt:observed)
 suffix=pending
-product_id=1586
+product_id=1632
 shop_status_before=pending
 row_status_before=draft
 risks=__none__
@@ -83,7 +83,7 @@ facet_after=pending|mgmt:ours
 PASS  1j an ordinary save succeeds  (product_saved)
 PASS  1k …and leaves the shop alone  (pending)
 suffix=pending
-product_id=1586
+product_id=1632
 shop_status_before=pending
 row_status_before=draft
 visibility_before=visible
@@ -95,8 +95,8 @@ facet_after=draft|mgmt:ours
 catalog_visibility_after=exclude-from-catalog,exclude-from-search
 status_held_meta=__no_such_key__
 project_status_held=__no_key__
-id=760
-url=http://127.0.0.1:8081/?post_type=product&p=760
+id=854
+url=http://127.0.0.1:8081/?post_type=product&p=854
 author=3
 shop_status=draft
 regular_price=450000
@@ -106,13 +106,13 @@ PASS  1m THE DEFECT: pending became draft  (draft)
 PASS  1n …and the filter says draft too  (draft|mgmt:ours)
 PASS  1o …and it left the catalogue and search  (exclude-from-catalog,exclude-from-search)
 PASS  1p nothing records that the status was held  (__no_such_key__)
-PASS  1q the id did not move  (760)
+PASS  1q the id did not move  (854)
 PASS  1r the author did not move  (3)
 PASS  1s the price did not move  (450000)
 
 === BEFORE · §1 controls — draft and publish ===
 suffix=draft
-product_id=1585
+product_id=1631
 shop_status_before=draft
 row_status_before=draft
 visibility_before=visible
@@ -124,15 +124,15 @@ facet_after=draft|mgmt:ours
 catalog_visibility_after=exclude-from-catalog,exclude-from-search
 status_held_meta=__no_such_key__
 project_status_held=__no_key__
-id=759
-url=http://127.0.0.1:8081/?post_type=product&p=759
+id=853
+url=http://127.0.0.1:8081/?post_type=product&p=853
 author=3
 shop_status=draft
 regular_price=450000
 price=450000
 PASS  2a a draft stays a draft  (draft)
 suffix=publish
-product_id=1587
+product_id=1633
 shop_status_before=publish
 row_status_before=published
 visibility_before=visible
@@ -144,7 +144,7 @@ facet_after=publish|mgmt:ours
 catalog_visibility_after=__none__
 status_held_meta=__no_such_key__
 project_status_held=__no_key__
-id=761
+id=855
 url=http://127.0.0.1:8081/product/tmc-p66-publish/
 author=3
 shop_status=publish
@@ -173,8 +173,8 @@ Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrder
 gate_ready=yes
 gate_reason=ready_on_trial
 take_code=ownership_taken
-marketplace_row=1588
-order_id=765
+marketplace_row=1634
+order_id=859
 order_total=303
 order_currency=IRT
 wc_price_decimals=0
@@ -206,19 +206,19 @@ lines_without_a_unit=6
 lines_with_a_unit=0
 PASS  3g the balance does not say what unit it is in  (__no_key__)
 
-PASS  0d the installed tree is this checkout's  (d07c9ee6822b020b)
+PASS  0d the installed tree is this checkout's  (721ce2d88f839a85)
 
 === AFTER · §1 the same path, the same five statuses ===
 vendor_user_id=3
-product_draft=766
+product_draft=860
 shop_status_draft=draft
-product_pending=767
+product_pending=861
 shop_status_pending=pending
-product_publish=768
+product_publish=862
 shop_status_publish=publish
-product_private=769
+product_private=863
 shop_status_private=private
-product_future=770
+product_future=864
 shop_status_future=future
 judge_draft=import:
 judge_pending=import:
@@ -237,12 +237,12 @@ PASS  4a pending is still taken in  (import:)
 PASS  4b private is still refused BY NAME  (skip:status_not_expressible)
 PASS  4c future is still refused BY NAME  (skip:status_not_expressible)
 PASS  4d the lifecycle value is still draft  (draft)
-run_id=intake-20261022-113902
-intake_766=imported:
-intake_767=imported:
-intake_768=imported:
-intake_769=skip:status_not_expressible
-intake_770=skip:status_not_expressible
+run_id=intake-20261022-163057
+intake_860=imported:
+intake_861=imported:
+intake_862=imported:
+intake_863=skip:status_not_expressible
+intake_864=skip:status_not_expressible
 shop_status_draft=draft
 row_status_draft=draft
 facet_draft=draft|mgmt:observed
@@ -261,7 +261,7 @@ facet_future=future|mgmt:none
 PASS  4e the intake leaves the shop alone  (pending)
 PASS  4f the filter shows the shop's own status  (pending|mgmt:observed)
 suffix=pending
-product_id=1590
+product_id=1636
 shop_status_before=pending
 row_status_before=draft
 risks=__none__
@@ -282,7 +282,7 @@ facet_after=pending|mgmt:ours
 PASS  4h an ordinary save succeeds  (product_saved)
 PASS  4i …and leaves the shop alone  (pending)
 suffix=pending
-product_id=1590
+product_id=1636
 shop_status_before=pending
 row_status_before=draft
 visibility_before=visible
@@ -294,8 +294,8 @@ facet_after=pending|mgmt:ours
 catalog_visibility_after=__none__
 status_held_meta=1
 project_status_held=yes
-id=767
-url=http://127.0.0.1:8081/?post_type=product&p=767
+id=861
+url=http://127.0.0.1:8081/?post_type=product&p=861
 author=3
 shop_status=pending
 regular_price=450000
@@ -306,13 +306,13 @@ PASS  4l …and the filter says so  (pending|mgmt:ours)
 PASS  4m …and it is still in the catalogue and in search  (__none__)
 PASS  4n …and the hold is a fact on disk  (1)
 PASS  4o …and the projection reports it  (yes)
-PASS  4p the id did not move  (767)
+PASS  4p the id did not move  (861)
 PASS  4q the author did not move  (3)
 PASS  4r the price did not move  (450000)
 
 === AFTER · §1 controls — draft, publish, and an EXPLICIT decision ===
 suffix=draft
-product_id=1589
+product_id=1635
 shop_status_before=draft
 row_status_before=draft
 visibility_before=visible
@@ -324,15 +324,15 @@ facet_after=draft|mgmt:ours
 catalog_visibility_after=__none__
 status_held_meta=1
 project_status_held=yes
-id=766
-url=http://127.0.0.1:8081/?post_type=product&p=766
+id=860
+url=http://127.0.0.1:8081/?post_type=product&p=860
 author=3
 shop_status=draft
 regular_price=450000
 price=450000
 PASS  5a a draft is still a draft  (draft)
 suffix=publish
-product_id=1591
+product_id=1637
 shop_status_before=publish
 row_status_before=published
 visibility_before=visible
@@ -344,7 +344,7 @@ facet_after=publish|mgmt:ours
 catalog_visibility_after=__none__
 status_held_meta=1
 project_status_held=yes
-id=768
+id=862
 url=http://127.0.0.1:8081/product/tmc-p66-publish/
 author=3
 shop_status=publish
@@ -428,8 +428,8 @@ sh: 1: /usr/sbin/sendmail: not found
 gate_ready=yes
 gate_reason=ready_on_trial
 take_code=ownership_taken
-marketplace_row=1592
-order_id=772
+marketplace_row=1638
+order_id=866
 order_total=303
 order_currency=IRT
 wc_price_decimals=0
@@ -479,7 +479,7 @@ PASS  9b every line of it in ONE unit  (4)
 NOTE  9c the units this vendor's ledger holds  0,4
 
 === AFTER · §2 the balance, and a legacy row beside a new one ===
-legacy_row=319
+legacy_row=489
 legacy_share_minor=90000
 legacy_exponent=__none__
 earned_before=60752651250
@@ -516,6 +516,6 @@ NOTE  10k the balance of this borrowed shop, in its own unit  61652651250 e4 = �
 pass=97 fail=0
 base_ref=5a29cdf38d79dda2936212bdfd9e8c4af16857b2
 base_src_digest=9b9c6788b063855a
-this_tree_src_digest=d07c9ee6822b020b
+this_tree_src_digest=721ce2d88f839a85
 PASS  11a the installed bytes are back to what was there  (9b9c6788b063855a)
 pass=98 fail=0

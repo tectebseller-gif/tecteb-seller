@@ -91,15 +91,24 @@ interface LedgerRepositoryInterface
      * per-unit `groups` behind it. Two CURRENCIES are not combined at all:
      * `refused` is `mixed_currencies`, `minor` is `null`, and `currencies`
      * names them — because the honest answer to «what is the total» across
-     * two kinds of money is that there is not one. `refused` is
-     * `scale_exceeds_integer_range` for the other impossibility: a figure
-     * whose rescaling would overflow an `int`, which in PHP silently becomes
-     * a float and would answer something that is not a total.
+     * two kinds of money is that there is not one.
+     *
+     * **Three refusals, and `exact` is `false` for every one of them.** A
+     * refused answer never carries a `minor` that could be read as a total:
+     *
+     *   * `mixed_currencies` — two kinds of money in one account;
+     *   * `scale_exceeds_integer_range` — rescaling one group to the finest
+     *     exponent would leave the integer range;
+     *   * `total_exceeds_integer_range` — one group's own `SUM()` is wider
+     *     than a PHP integer, or the combined total would be. Both halves
+     *     matter and `alpha.68` had neither: it cast the SUM text to `int`
+     *     (which SATURATES rather than fails) and guarded only the
+     *     multiplication, not the addition of the products.
      *
      * @return array<string, array{
      *   minor:int|null, currency:string, exponent:int|null,
      *   exact:bool, refused:string, currencies:string,
-     *   groups:list<array{currency:string, exponent:int, minor:int}>
+     *   groups:list<array{currency:string, exponent:int, minor:int|null, total:string}>
      * }>
      */
     public function balances(int $vendorUserId): array;

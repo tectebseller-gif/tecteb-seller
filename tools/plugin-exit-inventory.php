@@ -587,3 +587,162 @@ if ($section === 'all') {
 }
 
 echo "\n# end of inventory. Nothing was written.\n";
+
+// ----------------------------------------- what else the exit has to answer
+
+if ($section === 'all' || $section === 'exit') {
+    $head('dokan exit: the rest of the list §5 names');
+    echo "# Everything below is READ. These are the items the owner's §5 asks\n";
+    echo "# for by name and that no earlier section answered: sub-orders, the\n";
+    echo "# shop's own e-mail rows, the theme's dependency, and how many\n";
+    echo "# accounts are a Dokan seller AND a marketplace shop at once.\n";
+
+    // SUB-ORDERS, both storage shapes. Dokan splits a multi-vendor order into
+    // children, and «historical orders» is not one count: a parent and its
+    // children are different rows and summing the two double-counts the
+    // money (`alpha.53`'s own lesson on `dokan_orders`).
+    $line('orders_parent_posts', (string) ($wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->posts}
+          WHERE post_type = 'shop_order' AND post_parent = 0"
+    ) ?? 'unreadable'));
+    $line('orders_child_posts', (string) ($wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->posts}
+          WHERE post_type = 'shop_order' AND post_parent <> 0"
+    ) ?? 'unreadable'));
+    $hpos = $wpdb->prefix . 'wc_orders';
+    $hasHpos = (int) $wpdb->get_var($wpdb->prepare(
+        'SELECT COUNT(*) FROM information_schema.TABLES
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+        $hpos
+    ));
+    $line('hpos_order_table', $hasHpos === 1 ? 'present' : 'absent');
+    if ($hasHpos === 1) {
+        $line('orders_hpos_parents', (string) ($wpdb->get_var(
+            "SELECT COUNT(*) FROM `{$hpos}` WHERE parent_order_id = 0"
+        ) ?? 'unreadable'));
+        $line('orders_hpos_children', (string) ($wpdb->get_var(
+            "SELECT COUNT(*) FROM `{$hpos}` WHERE parent_order_id <> 0"
+        ) ?? 'unreadable'));
+    }
+    echo "# Which shape is AUTHORITATIVE is a WooCommerce setting, not a\n";
+    echo "# count: both tables can hold rows during a migration. Ask\n";
+    echo "# `wp option get woocommerce_custom_orders_table_enabled`.\n";
+
+    // THE SHOP'S OWN E-MAIL ROWS. Deactivating Dokan removes the classes
+    // these settings belong to; the rows stay, and a row whose class is gone
+    // is a setting nobody can reach from any screen.
+    $line('dokan_email_option_rows', (string) ($wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->options}
+          WHERE option_name LIKE 'woocommerce_dokan%'"
+    ) ?? 'unreadable'));
+    $line('dokan_option_rows_total', (string) ($wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->options}
+          WHERE option_name LIKE 'dokan%' OR option_name LIKE '_dokan%'"
+    ) ?? 'unreadable'));
+
+    // THE THEME. «وابستگی قالب» is answerable without guessing: count the
+    // theme's own files that name the plugin. A theme that never mentions it
+    // cannot lose a template to its deactivation; one that does, can.
+    $theme = wp_get_theme();
+    $line('active_theme', (string) $theme->get('Name') . ' ' . (string) $theme->get('Version'));
+    $line('active_theme_template', (string) $theme->get_template());
+    $line('active_theme_is_child', get_template_directory() === get_stylesheet_directory() ? 'no' : 'yes');
+    foreach (array_unique([get_template_directory(), get_stylesheet_directory()]) as $dir) {
+        $hits = 0;
+        $files = 0;
+        if (is_dir($dir)) {
+            $walker = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($walker as $file) {
+                if (!$file->isFile() || $file->getExtension() !== 'php') {
+                    continue;
+                }
+                $files++;
+                $body = (string) @file_get_contents((string) $file);
+                if (stripos($body, 'dokan') !== false) {
+                    $hits++;
+                }
+            }
+        }
+        $line('theme_php_files', basename($dir) . ' | ' . (string) $files);
+        $line('theme_php_files_naming_dokan', basename($dir) . ' | ' . (string) $hits);
+    }
+
+    // TWO ACCOUNTS FOR ONE PERSON — counted, never named and never touched.
+    // The owner's constraint is that nothing of theirs is merged or removed;
+    // the only thing this tool owes is the NUMBER, because the catalogue
+    // intake reports exactly this overlap as `ambiguous` (`alpha.55`) and a
+    // manager needs to know how many rows will come back that way.
+    $caps = $wpdb->prefix . 'capabilities';
+    $profiles = $wpdb->prefix . 'tmc_vendor_profiles';
+    $hasProfiles = (int) $wpdb->get_var($wpdb->prepare(
+        'SELECT COUNT(*) FROM information_schema.TABLES
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+        $profiles
+    ));
+    $line('dokan_sellers', (string) ($wpdb->get_var(
+        "SELECT COUNT(*) FROM {$wpdb->usermeta}
+          WHERE meta_key = '{$caps}' AND meta_value LIKE '%\"seller\"%'"
+    ) ?? 'unreadable'));
+    if ($hasProfiles === 1) {
+        $line('accounts_that_are_both_a_dokan_seller_and_a_marketplace_shop', (string) ($wpdb->get_var(
+            "SELECT COUNT(*) FROM `{$profiles}` v
+               INNER JOIN {$wpdb->usermeta} um ON um.user_id = v.user_id
+              WHERE um.meta_key = '{$caps}' AND um.meta_value LIKE '%\"seller\"%'"
+        ) ?? 'unreadable'));
+    } else {
+        $line('accounts_that_are_both_a_dokan_seller_and_a_marketplace_shop', 'marketplace table absent');
+    }
+    echo "# ⛔ No account is merged, renamed or removed by anything in this\n";
+    echo "# repository, and nothing here prints an e-mail or a login.\n";
+}
+
+// --------------------------------------------- the min max exit, as a verdict
+
+if ($section === 'all' || $section === 'minmax' || $section === 'exit') {
+    $head('min max exit: the verdict');
+    echo "# The judgement the owner's §5 asks for, taken from the plugin's own\n";
+    echo "# `MigrateMinMax::exitVerdict()` so this tool and the admin page\n";
+    echo "# cannot disagree. Three answers: permitted / blocked /\n";
+    echo "# not_installed — and «not_installed» is NOT «permitted».\n";
+    $service = null;
+    if (class_exists(\Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap::class)) {
+        try {
+            $service = \Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap::container()
+                ->get(\Tecteb\Marketplace\Modules\Migration\Application\MigrateMinMax::class);
+        } catch (\Throwable $e) {
+            $line('verdict', 'unreadable: ' . $e->getMessage());
+        }
+    }
+    if ($service === null) {
+        $line('verdict', 'the marketplace plugin is not loaded here');
+    } elseif (!method_exists($service, 'exitVerdict')) {
+        $line('verdict', 'this build has no exit verdict (pre-alpha.69)');
+    } else {
+        $answer = $service->exitVerdict();
+        $line('verdict', (string) ($answer['verdict'] ?? '?'));
+        $line('permitted', ($answer['permitted'] ?? false) ? 'yes' : 'no');
+        foreach ((array) ($answer['counts'] ?? []) as $key => $value) {
+            $line('count_' . (string) $key, (string) $value);
+        }
+        foreach ((array) ($answer['levels'] ?? []) as $key => $value) {
+            $line('level_' . (string) $key, (string) $value);
+        }
+        foreach ((array) ($answer['problems'] ?? []) as $key => $value) {
+            $line('problem_' . (string) $key, (string) $value);
+        }
+        foreach ((array) ($answer['blockers'] ?? []) as $item) {
+            $line('blocker', (string) ($item['code'] ?? '?') . ' | '
+                . (string) ($item['count'] ?? 0) . ' | ' . (string) ($item['detail'] ?? ''));
+        }
+        $line('stale_grants', (string) count((array) ($answer['stale_grants'] ?? [])));
+        foreach ((array) ($answer['tally'] ?? []) as $key => $value) {
+            $line('ledger_' . (string) $key, (string) $value);
+        }
+    }
+    echo "# ⛔ A blocked verdict is not cleared by changing a Min Max rule to\n";
+    echo "# make it convertible. Either the rule changes at the source because\n";
+    echo "# somebody decided it should, or the loss is accepted. Nothing in\n";
+    echo "# this repository loosens a rule to finish a migration.\n";
+}

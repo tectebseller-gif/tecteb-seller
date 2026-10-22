@@ -1,6 +1,6 @@
 === the trees ===
 base_ref=6884d4d724cd9e2149fea0b2e9a275b2b7abc850
-this_checkout_src_digest=650da04699fb378d
+this_checkout_src_digest=721ce2d88f839a85
 installed_src_digest=d07c9ee6822b020b
 base_src_digest=d07c9ee6822b020b
 PASS  0a the installed package is this round's base (alpha.67)  (d07c9ee6822b020b)
@@ -13,9 +13,9 @@ PASS  0c the installed tree is now alpha.67's  (d07c9ee6822b020b)
 === BEFORE · §1 a failed catalogue read becomes «the columns are absent» ===
 registry_currency=IRT
 registry_exponent=0
-row_legacy=393
+row_legacy=477
 row_legacy_exponent=__null__
-row_exact=394
+row_exact=478
 row_exact_exponent=4
 ledger_exponents=0,4
 arranged=yes
@@ -101,13 +101,13 @@ sh: 1: /usr/sbin/sendmail: not found
 gate_ready=yes
 gate_reason=ready_on_trial
 take_code=ownership_taken
-marketplace_row=1603
-order_id=796
+marketplace_row=1628
+order_id=848
 order_total=101
 order_currency=IRT
 line_total_on_order=101
 line_quantity=3
-item_id=395
+item_id=479
 item_quantity=3
 item_base_minor=1010000
 item_commission_minor=126250
@@ -131,7 +131,7 @@ PASS  3g …and does not reconstruct its own line  (1009998)
 PASS  3h …which the line itself contradicts  (1010000)
 PASS  3i …so it is not exact  (no)
 open_code=return_opened
-return_id=17
+return_id=54
 approve_code=return_approved
 receive_code=return_received
 refusal_step=__none__
@@ -178,14 +178,14 @@ PASS  4b …and nothing answers the question  (__nothing_answers_this__)
 NOTE  4c rows a release before alpha.67 would misread  2
 NOTE  4d ledger entries it would misread  11
 
-PASS  0d the installed tree is now this checkout's  (650da04699fb378d)
+PASS  0d the installed tree is now this checkout's  (721ce2d88f839a85)
 
 === AFTER · §1 three answers, and a second way to ask ===
 registry_currency=IRT
 registry_exponent=0
-row_legacy=396
+row_legacy=480
 row_legacy_exponent=__null__
-row_exact=397
+row_exact=481
 row_exact_exponent=4
 ledger_exponents=0,4
 arranged=yes
@@ -239,7 +239,7 @@ view_exact_share=883750
 view_exact_unreadable=no
 PASS  5m a healthy read is unchanged  (4)
 PASS  5n …and says so rather than guessing  (no)
-write_result=398
+write_result=482
 row_landed=1
 PASS  5o a unit-bearing write now lands while the read is blinded  (1)
 PASS  5p …with a real row id  (yes)
@@ -274,13 +274,13 @@ sh: 1: /usr/sbin/sendmail: not found
 gate_ready=yes
 gate_reason=ready_on_trial
 take_code=ownership_taken
-marketplace_row=1604
-order_id=798
+marketplace_row=1629
+order_id=850
 order_total=101
 order_currency=IRT
 line_total_on_order=101
 line_quantity=3
-item_id=399
+item_id=483
 item_quantity=3
 item_base_minor=1010000
 item_commission_minor=126250
@@ -301,48 +301,56 @@ division_is_exact=no
 PASS  7e …read back from the row  (__null__)
 PASS  7f …and the line's own total is untouched  (1010000)
 open_code=return_opened
-return_id=19
+return_id=56
 approve_code=return_approved
-receive_code=return_share_not_exact
-refusal_quantity=1
-refusal_line_quantity=3
-refusal_base_minor=1010000
-refusal_commission_minor=126250
-refusal_parts=base,commission
-refund_code=__not_attempted__
-refusal_step=received
-return_status=approved
-return_row=__absent__
-PASS  7g the refusal happens when the goods are accepted  (received)
-PASS  7h …by name  (return_share_not_exact)
-PASS  7i …with the line's own total stated  (1010000)
-PASS  7j …and which parts do not divide  (base,commission)
-PASS  7k the money step is not even attempted  (__not_attempted__)
-PASS  7l nothing was written  (__absent__)
-PASS  7m …and the return is still cancellable  (approved)
-cancelled_open_returns=1
-already_refunded_quantity=0
-remaining_quantity=3
+receive_code=return_received
+refusal_step=__none__
+refund_code=return_refunded
+declared_refund_minor=336666
+declared_tax_minor=0
+declared_currency=IRT
+declared_exponent=4
+return_status=refunded
+stored_exponent=4
+stored_refund_minor=336666
+stored_tax_refund_minor=0
+stored_commission_reversed_minor=42083
+stored_vendor_share_reversed_minor=294583
+exact_third_of_base=336666.66666667
+exact_third_of_commission=42083.333333333
+base_divides_exactly=no
+commission_divides_exactly=no
+stored_refund_is_exact=no
+PASS  7g accepting the goods goes through  (return_received)
+PASS  7h …and the money is recorded  (return_refunded)
+PASS  7i …floored in the line's own smallest unit  (336666)
+PASS  7j …with the commission floored the same way  (42083)
+PASS  7k …and the share derived from the two  (294583)
+PASS  7l the row carries the line's own unit  (4)
+PASS  7m …and the return is settled, not stranded  (refunded)
+cancelled_open_returns=0
+already_refunded_quantity=1
+remaining_quantity=2
 open_code=return_opened
 refund_code=return_refunded
 refunded_quantity_total=3
 refunded_base_total=1010000
 line_base_minor=1010000
 whole_line_given_back=yes
-PASS  7n the stranded request can be cancelled  (yes)
-PASS  7o the whole line then comes back, exactly  (yes)
+PASS  7n nothing had to be cancelled to finish the line  (0)
+PASS  7o the whole line comes back, exactly  (yes)
 PASS  7p …all three units of it  (3)
 
 === AFTER · §4 the gate is a count, in three states ===
 has_rollback_gate=yes
 gate_safe=no
 gate_verdict=blocked
-gate_reason=11 row(s) are recorded at an exponent finer than their vendor's registry unit; alpha.66 would read each of them as a figure 10,000 times too large
-finer_rows_ledger_entries=8
+gate_reason=15 row(s) are recorded at an exponent finer than their vendor's registry unit; alpha.66 would read each of them as a figure 10,000 times too large
+finer_rows_ledger_entries=11
 finer_rows_order_items=2
 finer_rows_withdrawals=0
 finer_rows_withdrawal_lines=0
-finer_rows_returns=1
+finer_rows_returns=2
 gate_readable=yes
 PASS  8a there is a rollback gate  (yes)
 PASS  8b …and it read the tables  (yes)
@@ -353,9 +361,9 @@ NOTE  8e the counts it reported  5 tables
 === CONTROLS — the same answer on both trees, or in a named direction ===
 registry_currency=IRT
 registry_exponent=0
-row_legacy=400
+row_legacy=484
 row_legacy_exponent=__null__
-row_exact=401
+row_exact=485
 row_exact_exponent=4
 ledger_exponents=0,4
 arranged=yes
@@ -371,13 +379,13 @@ sh: 1: /usr/sbin/sendmail: not found
 gate_ready=yes
 gate_reason=ready_on_trial
 take_code=ownership_taken
-marketplace_row=1605
-order_id=800
+marketplace_row=1630
+order_id=852
 order_total=101
 order_currency=IRT
 line_total_on_order=101
 line_quantity=3
-item_id=402
+item_id=486
 item_quantity=3
 item_base_minor=1010000
 item_commission_minor=126250

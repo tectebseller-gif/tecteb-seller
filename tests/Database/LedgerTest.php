@@ -117,6 +117,119 @@ final class LedgerTest extends DatabaseTestCase
         self::assertCount(2, $figure['groups']);
     }
 
+    /**
+     * ⛔ A SUM WIDER THAN A PHP INTEGER IS REFUSED, not saturated.
+     *
+     * `SUM()` over a `BIGINT` column is an exact DECIMAL and can be wider
+     * than `PHP_INT_MAX`. `alpha.68` read it with `(int) $row['total']`, and
+     * that is not a cast that fails: PHP SATURATES an over-long numeric
+     * string to `PHP_INT_MAX`, so the answer was a plausible-looking figure
+     * that was not the total — with `exact => true` on it. Measured here with
+     * two rows the database adds to `18446744073709551614`.
+     */
+    public function testASumWiderThanAPhpIntegerIsRefusedRatherThanSaturated(): void
+    {
+        $this->writeEntry('alpha69:big-a', LedgerAccount::VendorEarning, PHP_INT_MAX, 'IRT', 0);
+        $this->writeEntry('alpha69:big-b', LedgerAccount::VendorEarning, PHP_INT_MAX, 'IRT', 0);
+
+        $figure = $this->ledger->balances(self::VENDOR)[LedgerAccount::VendorEarning->value];
+
+        self::assertSame('total_exceeds_integer_range', $figure['refused']);
+        self::assertNull($figure['minor'], 'no figure that could be read as a total');
+        self::assertFalse($figure['exact'], 'and never exact');
+        self::assertNull($figure['exponent']);
+        // The saturated answer `alpha.68` would have given, named so this
+        // test cannot quietly start passing for the wrong reason.
+        self::assertNotSame(PHP_INT_MAX, $figure['minor']);
+    }
+
+    /**
+     * ⛔ THE PRODUCTS EACH FIT AND THEIR SUM DOES NOT — the half of the guard
+     * `alpha.68` did not have.
+     *
+     * One group at the finest exponent needs no rescaling at all, so the
+     * multiplication guard has nothing to say about it; a second group one
+     * exponent coarser scales by ten, fits, and pushes the running total past
+     * the end of the range. Half a guard reads exactly like a guard.
+     */
+    public function testProductsThatEachFitButDoNotAddUpAreRefused(): void
+    {
+        $this->writeEntry('alpha69:add-a', LedgerAccount::VendorEarning, PHP_INT_MAX - 10, 'IRT', 4);
+        $this->writeEntry('alpha69:add-b', LedgerAccount::VendorEarning, 5, 'IRT', 3);
+
+        $figure = $this->ledger->balances(self::VENDOR)[LedgerAccount::VendorEarning->value];
+
+        self::assertSame('total_exceeds_integer_range', $figure['refused']);
+        self::assertNull($figure['minor']);
+        self::assertFalse($figure['exact']);
+    }
+
+    /** And the same in the other direction, which is a separate branch. */
+    public function testATotalBelowTheRangeIsRefusedToo(): void
+    {
+        $this->writeEntry('alpha69:neg-a', LedgerAccount::VendorEarning, PHP_INT_MIN + 10, 'IRT', 4);
+        $this->writeEntry('alpha69:neg-b', LedgerAccount::VendorEarning, -5, 'IRT', 3);
+
+        $figure = $this->ledger->balances(self::VENDOR)[LedgerAccount::VendorEarning->value];
+
+        self::assertSame('total_exceeds_integer_range', $figure['refused']);
+        self::assertNull($figure['minor']);
+        self::assertFalse($figure['exact']);
+    }
+
+    /**
+     * A LARGE NEGATIVE GROUP IS REFUSED BY NAME — and this one is a CONTROL.
+     *
+     * Measured, not assumed: `alpha.68` answers this case correctly too,
+     * because `abs(PHP_INT_MIN + 1)` is an ordinary integer. The run proved
+     * it — this test passed on both trees while three others failed — so it
+     * is named a control rather than left looking like a fix. What `alpha.68`
+     * could not survive is `PHP_INT_MIN` itself, which the next test
+     * measures.
+     */
+    public function testTheMostNegativeAmountIsRefusedByNameRatherThanThrowing(): void
+    {
+        // `PHP_INT_MIN + 1` is representable both ways, so this really does
+        // reach the lower-bound comparison rather than being turned away by
+        // the text conversion.
+        $this->writeEntry('alpha69:min-a', LedgerAccount::VendorEarning, PHP_INT_MIN + 1, 'IRT', 0);
+        $this->writeEntry('alpha69:min-b', LedgerAccount::VendorEarning, 1, 'IRT', 4);
+
+        $figure = $this->ledger->balances(self::VENDOR)[LedgerAccount::VendorEarning->value];
+
+        self::assertSame('scale_exceeds_integer_range', $figure['refused']);
+        self::assertNull($figure['minor']);
+        self::assertFalse($figure['exact']);
+    }
+
+    /**
+     * ⛔ AND `PHP_INT_MIN` ITSELF CRASHED THE OLD GUARD — measured.
+     *
+     * `alpha.68` asked `intdiv(PHP_INT_MAX, abs($minor))`, and
+     * `abs(PHP_INT_MIN)` has no integer answer: PHP returns a FLOAT, and
+     * `intdiv()` with a float argument is a `TypeError`. Run against
+     * `alpha.68`'s bytes this test ERRORS — the guard written to prevent a
+     * wrong figure took the page down instead, on a value the column can
+     * hold. Comparing against the two bounds needs no negation at all.
+     *
+     * Here it is refused by name: the digit round-trip
+     * `DecimalAmount::toMinor()` uses cannot confirm a magnitude with no
+     * positive counterpart, so it answers `null` and the group is reported
+     * out of range instead of summed. One representable value refused is the
+     * conservative direction — a refusal is recoverable, a wrong total is
+     * not — and no row this plugin writes can hold it.
+     */
+    public function testTheExtremeNegativeValueIsReportedOutOfRangeNotSummed(): void
+    {
+        $this->writeEntry('alpha69:floor', LedgerAccount::VendorEarning, PHP_INT_MIN, 'IRT', 0);
+
+        $figure = $this->ledger->balances(self::VENDOR)[LedgerAccount::VendorEarning->value];
+
+        self::assertSame('total_exceeds_integer_range', $figure['refused']);
+        self::assertNull($figure['minor']);
+        self::assertFalse($figure['exact']);
+    }
+
     /** One ledger row, in a named unit. */
     private function writeEntry(
         string $eventKey,

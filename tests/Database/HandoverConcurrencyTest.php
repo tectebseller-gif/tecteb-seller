@@ -10,6 +10,8 @@ use Tecteb\Marketplace\Core\Support\SystemClock;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpAuditRepository;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanFinanceSnapshot;
+use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
+use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Migration\Application\ReconcileDokanFinance;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbFinanceHandoverRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbShopRecordRepository;
@@ -518,8 +520,54 @@ final class HandoverConcurrencyTest extends DatabaseTestCase
 
     // ------------------------------------------------------------- fixtures
 
-    private function finance(?WpDatabase $db = null, ?\wpdb $wpdb = null): ReconcileDokanFinance
+    /**
+     * ⛔ A BALANCE THE LEDGER REFUSED IS SHOWN AS REFUSED, with the reason.
+     *
+     * The guard in `DbLedgerRepository::combine()` is only half the fix: a
+     * screen that then printed `0`, or printed nothing, would turn «this
+     * cannot be summed» into «there is no money here». The reconciliation
+     * report is the one place a human compares our column with Dokan's, so
+     * it has to name the refusal — and the new reason has to travel, not
+     * just the two the previous round knew about.
+     */
+    public function testARefusedLedgerTotalIsNamedInTheReconciliationReport(): void
     {
+        $this->seed(self::SHOP_A, '500000');
+        $finance = $this->finance(null, null, new RefusingLedger('total_exceeds_integer_range'));
+
+        $report = $finance->reportFrom($finance->snapshotFor(self::SHOP_A));
+
+        $codes = array_column((array) $report['differences'], 'code');
+        self::assertContains('marketplace_account_not_summable', $codes);
+        $detail = '';
+        foreach ((array) $report['differences'] as $difference) {
+            if (($difference['code'] ?? '') === 'marketplace_account_not_summable') {
+                $detail = (string) ($difference['detail'] ?? '');
+            }
+        }
+        self::assertStringContainsString('total_exceeds_integer_range', $detail, 'the reason, by name');
+        self::assertStringContainsString(LedgerAccount::VendorEarning->value, $detail, 'and which account');
+    }
+
+    /** And a two-currency account keeps its own, more specific sentence. */
+    public function testATwoCurrencyAccountStillHasItsOwnSentence(): void
+    {
+        $this->seed(self::SHOP_A, '500000');
+        $finance = $this->finance(null, null, new RefusingLedger('mixed_currencies'));
+
+        $report = $finance->reportFrom($finance->snapshotFor(self::SHOP_A));
+
+        self::assertContains(
+            'marketplace_account_holds_two_currencies',
+            array_column((array) $report['differences'], 'code')
+        );
+    }
+
+    private function finance(
+        ?WpDatabase $db = null,
+        ?\wpdb $wpdb = null,
+        ?LedgerRepositoryInterface $ledger = null
+    ): ReconcileDokanFinance {
         $db ??= $this->db;
         $wpdb ??= $this->wpdb;
         $clock = new SystemClock();
@@ -529,7 +577,8 @@ final class HandoverConcurrencyTest extends DatabaseTestCase
             $db,
             new AuditLogger(new WpAuditRepository($wpdb), new AuditEventSanitizer(), $clock),
             $clock,
-            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR])
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR]),
+            $ledger
         );
     }
 
@@ -566,5 +615,72 @@ final class HandoverConcurrencyTest extends DatabaseTestCase
             'particulars' => 'فروش', 'debit' => '0', 'credit' => $credit,
             'status' => 'approved', 'trn_date' => '2026-01-01 00:00:00',
         ]);
+    }
+}
+
+/**
+ * A ledger that answers one refusal, so the screen's half of the §2 fix can
+ * be measured without building a ledger wide enough to overflow.
+ *
+ * It implements the real interface on purpose: a fake that drifts from the
+ * contract would make the consumer look covered while the shape changed
+ * underneath it (`alpha.55`).
+ */
+final class RefusingLedger implements LedgerRepositoryInterface
+{
+    public function __construct(private readonly string $reason)
+    {
+    }
+
+    public function balances(int $vendorUserId): array
+    {
+        return [
+            LedgerAccount::VendorEarning->value => [
+                'minor' => null,
+                'currency' => 'IRT',
+                'exponent' => null,
+                'exact' => false,
+                'refused' => $this->reason,
+                'currencies' => $this->reason === 'mixed_currencies' ? 'IRT,USD' : 'IRT',
+                'groups' => [
+                    ['currency' => 'IRT', 'exponent' => 0, 'minor' => null, 'total' => '9223372036854775808'],
+                ],
+            ],
+        ];
+    }
+
+    public function record(\Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction $transaction): bool
+    {
+        return false;
+    }
+
+    public function forEvent(string $eventKey): array
+    {
+        return [];
+    }
+
+    public function coversOrder(int $wcOrderId): bool
+    {
+        return false;
+    }
+
+    public function hasEvent(string $eventKey): bool
+    {
+        return false;
+    }
+
+    public function unitsFor(int $vendorUserId): array
+    {
+        return [];
+    }
+
+    public function vendorsWithMixedUnits(int $limit = 200): array
+    {
+        return [];
+    }
+
+    public function forVendor(int $vendorUserId, int $limit = 100): array
+    {
+        return [];
     }
 }

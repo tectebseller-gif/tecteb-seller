@@ -135,15 +135,16 @@ final class OrderMessages
                 $fa((int) ($context['item_id'] ?? $context['order_item_id'] ?? 0)),
                 (string) ($context['event_key'] ?? '')
             ),
-            // ⛔ THE INEXACT SPLIT, with the arithmetic in the sentence.
-            // «قطع اعشار» is rounding, and the owner ruled rounding out, so
-            // this quantity is refused rather than given back short. The
-            // sentence names the two numbers and the one thing that DOES
-            // work, because a refusal a manager cannot act on is half a
-            // refusal (`alpha.65`).
-            'return_share_not_exact' => sprintf(
+            // ⛔ NOT «the split is inexact» — that is allocated now, by the
+            // owner's decision. This is the one case the arithmetic still
+            // refuses: a figure outside the integer range, which cannot be
+            // answered without a float. The sentence says so plainly and
+            // does not offer a workaround it cannot promise, because a
+            // refusal a manager cannot act on is half a refusal
+            // (`alpha.65`) — and inventing one would be worse.
+            'return_share_out_of_range' => sprintf(
                 /* translators: 1: return id, 2: requested quantity, 3: line quantity, 4: line total */
-                __('این مرجوعی دقیق تقسیم نمی‌شود: %2$s عدد از %3$s عددِ قلمی به مبلغ کل %4$s. سهم هر عدد عددِ گِردی نمی‌شود و این افزونه گرد نمی‌کند، پس چیزی ثبت نشد و مرجوعی #%1$s سر جایش است. راه موجود: مرجوعیِ کاملِ باقیماندهٔ همین قلم را ثبت کنید (دقیق است). تصمیم دربارهٔ قاعدهٔ تخصیصِ باقیمانده با مالک است.', 'tecteb-marketplace-core'),
+                __('سهم این مرجوعی قابل محاسبه با عدد صحیح نیست: %2$s عدد از %3$s عددِ قلمی به مبلغ کل %4$s. مبلغ یا تعداد از ظرفیت عددِ این سیستم بیرون است و این افزونه برای پول از عدد اعشاری ماشینی استفاده نمی‌کند، پس چیزی ثبت نشد و مرجوعی #%1$s سر جایش است. این مورد را به پشتیبانی گزارش کنید.', 'tecteb-marketplace-core'),
                 $fa((int) ($context['return_id'] ?? 0)),
                 $fa((int) ($context['quantity'] ?? 0)),
                 $fa((int) ($context['line_quantity'] ?? 0)),

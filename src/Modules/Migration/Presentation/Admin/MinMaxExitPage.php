@@ -75,11 +75,77 @@ final class MinMaxExitPage
             return;
         }
 
+        $this->renderExitVerdict($service, $fa);
         $this->renderMode($preview, $fa);
         $this->renderPreview($preview, $fa);
         $this->renderBlockers($preview, $fa);
         $this->renderLedger($ledger, $service, $fa);
         echo Components::shellClose();
+    }
+
+    /**
+     * THE ANSWER THE OWNER ASKED FOR, at the top of the page.
+     *
+     * «خروجی صریحی که اجازهٔ غیرفعال‌کردن آن را روی staging می‌دهد» — so the
+     * judgement is printed before the tables that feed it, and a blocked
+     * answer names every blocker with its count. A manager who has to add up
+     * four tables to find out whether they may switch a plugin off has not
+     * been given an answer (`alpha.68` §4, one plugin over).
+     *
+     * The four counts are kept apart on purpose, and `unknown` is NOT folded
+     * into any of them: a row this scan did not reach is not a row that
+     * converts.
+     */
+    private function renderExitVerdict(MigrateMinMax $service, callable $fa): void
+    {
+        $answer = $service->exitVerdict();
+        $verdict = (string) ($answer['verdict'] ?? 'blocked');
+        $labels = [
+            'convertible' => __('قابل تبدیل', 'tecteb-marketplace-core'),
+            'incompatible' => __('ناسازگار', 'tecteb-marketplace-core'),
+            'migrated_unenforceable' => __('منتقل‌شده و اعمال‌نشده', 'tecteb-marketplace-core'),
+            'would_be_unenforceable' => __('انتقالش اعمال نمی‌شود', 'tecteb-marketplace-core'),
+            'unknown' => __('نامعلوم', 'tecteb-marketplace-core'),
+            'held_by_manager' => __('در اختیار مدیر', 'tecteb-marketplace-core'),
+            'rolled_back' => __('بازگردانده‌شده', 'tecteb-marketplace-core'),
+            'source_rows' => __('کل ردیف‌های مبدأ', 'tecteb-marketplace-core'),
+            'scanned' => __('بررسی‌شده', 'tecteb-marketplace-core'),
+        ];
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('اجازهٔ غیرفعال‌کردن Min Max', 'tecteb-marketplace-core') . '</h2>';
+        if ($verdict === 'permitted') {
+            echo Components::notice('success', __('هیچ قاعدهٔ خریدی بی‌اعمال نمی‌مانَد: غیرفعال‌کردن Min Max روی staging از نظر این بررسی مجاز است. همچنان یکی‌یکی غیرفعال کنید و پس از آن حداقل، حداکثر و گام را روی خودِ محصول و در سبد بسنجید.', 'tecteb-marketplace-core'));
+        } elseif ($verdict === 'not_installed') {
+            echo Components::notice('warning', __('Min Max خوانده نشد، پس این بررسی جوابی ندارد — و «خوانده نشد» با «مجاز است» یکی نیست.', 'tecteb-marketplace-core'));
+        } else {
+            echo Components::notice('warning', __('غیرفعال‌کردن Min Max مجاز نیست: دست‌کم یک قاعدهٔ خرید با خاموش‌شدن آن بی‌هشدار از بین می‌رود. هر مانع با تعدادش پایین آمده.', 'tecteb-marketplace-core'));
+        }
+        echo '<table class="tmc-table"><thead><tr>'
+            . '<th scope="col">' . esc_html__('شمارش', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('تعداد', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>';
+        $counts = (array) ($answer['counts'] ?? []);
+        foreach ($labels as $key => $label) {
+            echo '<tr><td>' . esc_html($label) . '</td><td>'
+                . esc_html($fa((string) ($counts[$key] ?? 0))) . '</td></tr>';
+        }
+        echo '</tbody></table>';
+        $blockers = (array) ($answer['blockers'] ?? []);
+        if ($blockers === []) {
+            echo '<p class="tmc-field__desc">'
+                . esc_html__('هیچ مانعی شمرده نشد.', 'tecteb-marketplace-core') . '</p>';
+        } else {
+            echo '<ul>';
+            foreach ($blockers as $item) {
+                echo '<li>' . Components::code((string) ($item['code'] ?? '?'))
+                    . ' — ' . esc_html($fa((string) ($item['count'] ?? 0)))
+                    . ' · ' . esc_html((string) ($item['detail'] ?? '')) . '</li>';
+            }
+            echo '</ul>';
+        }
+        echo '<p class="tmc-field__desc">'
+            . esc_html__('«ناسازگار» با سست‌کردن قاعده برطرف نمی‌شود: یا قاعده را در مبدأ عوض کنید، یا تصمیم بگیرید از دستش بدهید. این صفحه هیچ قاعده‌ای را تغییر نمی‌دهد.', 'tecteb-marketplace-core')
+            . '</p></section>';
     }
 
     /** @param array<string,mixed> $preview */

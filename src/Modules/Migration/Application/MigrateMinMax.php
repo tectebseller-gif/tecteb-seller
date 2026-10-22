@@ -135,6 +135,11 @@ final class MigrateMinMax
             'examples' => [],
             'scanned' => 0,
             'truncated' => false,
+            // WHETHER THE WALK REACHED THE END, which `truncated` does not
+            // say: the loop also stops when a page reports no progress, and
+            // «I stopped early» and «I saw everything» must not share a flag
+            // (`alpha.68` §1, the same shape one module over).
+            'walk_finished' => false,
         ];
         foreach ($terms as $key => $rule) {
             $out['terms'][$key] = $this->describe($rule);
@@ -188,6 +193,7 @@ final class MigrateMinMax
                 $out['convertible']++;
             }
             if ($page['done']) {
+                $out['walk_finished'] = true;
                 break;
             }
             if ($page['cursor'] <= $cursor) {
@@ -902,6 +908,193 @@ final class MigrateMinMax
      *
      * @return list<int> post ids, in ledger order
      */
+    /**
+     * MAY MIN MAX BE DEACTIVATED? — one answer, with every blocker named.
+     *
+     * The owner's §5 asks for an EXPLICIT output that permits deactivating
+     * the plugin on staging, and for four counts that are kept apart:
+     * convertible, incompatible, migrated-but-unenforceable, and unknown.
+     * Until this round those numbers existed but the judgement did not, so
+     * the only way to reach it was to read `preview()` and decide — which is
+     * exactly the hand-inspection `alpha.68` §4 removed from the rollback
+     * question, one plugin over.
+     *
+     * THREE ANSWERS, not two. `not_installed` is not `permitted`: a reader
+     * that cannot see the plugin cannot say its rules are all dealt with, and
+     * answering «yes, go ahead» from a failed read is the shape this
+     * repository has paid for twice (`alpha.49`, `alpha.68` §1).
+     *
+     * ⛔ NOTHING HERE LOOSENS A RULE TO REACH A YES. An incompatible rule —
+     * a step counted from the minimum, a window with no reachable multiple —
+     * is a BLOCKER, and the only things that clear it are a human changing
+     * the rule at the source or deciding to lose it. «هیچ قاعده‌ای برای
+     * تمام‌کردن انتقال خودکار سست یا حذف نشود.»
+     *
+     * And every blocker is about a rule that would STOP BEING ENFORCED the
+     * moment the plugin is switched off:
+     *
+     *   convertible_rules_not_migrated  a live Min Max rule we have not taken
+     *   incompatible_rules_present      …that we cannot take without changing it
+     *   rules_held_by_manager           …whose destination the manager owns
+     *   migrated_but_not_enforced       taken, written, and read by nobody
+     *   rule_would_not_be_enforced      not ours, so taking it would change nothing
+     *   stale_enforcement_grants        a grant whose rule has since changed
+     *   rolled_back_rules_present       given BACK to Min Max on purpose
+     *   source_rows_unclassified        rows this scan did not reach
+     *   scan_did_not_finish             the walk stopped before the list ended
+     *
+     * `written_unenforced` is the owner's third count. It is a legitimate end
+     * state — the rule is ours and our guard does not enforce it, because the
+     * product is not the marketplace's — and it still blocks, because
+     * switching the plugin off drops a purchase limit that is live today.
+     * Clearing it is a decision (grant enforcement, or accept the loss), not
+     * a calculation.
+     *
+     * Writes nothing: this is a question, and a question with a side effect
+     * is a decision taken early.
+     *
+     * @return array<string,mixed>
+     */
+    public function exitVerdict(int $maxProducts = 20000): array
+    {
+        $preview = $this->preview($maxProducts);
+        $tally = $this->ledger->tally();
+        $out = [
+            'verdict' => 'blocked',
+            'permitted' => false,
+            'blockers' => [],
+            'counts' => [
+                'convertible' => 0,
+                'incompatible' => 0,
+                'migrated_unenforceable' => 0,
+                'would_be_unenforceable' => 0,
+                'unknown' => 0,
+                'held_by_manager' => 0,
+                'already_decided' => 0,
+                'rolled_back' => 0,
+                'source_rows' => 0,
+                'scanned' => 0,
+            ],
+            'levels' => ['product' => 0, 'variation' => 0],
+            'problems' => [],
+            'stale_grants' => [],
+            'tally' => $tally,
+        ];
+        if (($preview['available'] ?? false) !== true) {
+            $out['verdict'] = 'not_installed';
+            $out['blockers'][] = [
+                'code' => 'source_unreadable',
+                'count' => 0,
+                'detail' => 'min max control is not active here, so its rules cannot be counted',
+            ];
+            return $out;
+        }
+
+        $counts = (array) ($preview['counts'] ?? []);
+        $sourceRows = (int) ($counts['product'] ?? 0) + (int) ($counts['variation'] ?? 0);
+        $scanned = (int) ($preview['scanned'] ?? 0);
+        // EVERY PRODUCT, including the ones outside this marketplace and
+        // every variation: the scan is bounded, so what it did not reach is
+        // `unknown` and is said rather than left out of the arithmetic.
+        $unknown = max(0, $sourceRows - $scanned);
+        $unenforceable = (int) ($tally[MinMaxHandoverRepositoryInterface::UNENFORCED] ?? 0);
+        $rolledBack = (int) ($tally[MinMaxHandoverRepositoryInterface::ROLLED_BACK] ?? 0);
+        $stale = $this->staleGrants();
+
+        $out['counts'] = [
+            'convertible' => (int) ($preview['convertible'] ?? 0),
+            'incompatible' => (int) ($preview['refused'] ?? 0),
+            'migrated_unenforceable' => $unenforceable,
+            'would_be_unenforceable' => (int) ($preview['unenforced'] ?? 0),
+            'unknown' => $unknown,
+            'held_by_manager' => (int) ($preview['held_by_manager'] ?? 0),
+            'already_decided' => (int) ($preview['already_decided'] ?? 0),
+            'rolled_back' => $rolledBack,
+            'source_rows' => $sourceRows,
+            'scanned' => $scanned,
+        ];
+        $out['levels'] = (array) ($preview['levels'] ?? []);
+        $out['problems'] = (array) ($preview['problems'] ?? []);
+        $out['stale_grants'] = $stale;
+
+        $blocker = static function (string $code, int $count, string $detail): array {
+            return ['code' => $code, 'count' => $count, 'detail' => $detail];
+        };
+        if ($unknown > 0) {
+            $out['blockers'][] = $blocker(
+                'source_rows_unclassified',
+                $unknown,
+                'the scan stopped before every source row was classified; raise the bound and ask again'
+            );
+        }
+        if (($preview['walk_finished'] ?? false) !== true) {
+            // SEPARATE FROM THE COUNT ABOVE. The walk can stop without the
+            // two numbers disagreeing — a page that reports no progress, or
+            // the bound reached on a page boundary — and «I did not reach
+            // the end» is a fact about the scan, not about the rules.
+            $out['blockers'][] = $blocker(
+                'scan_did_not_finish',
+                $scanned,
+                'the walk stopped before the source list ended, so nothing here is a complete answer'
+            );
+        }
+        if ($out['counts']['convertible'] > 0) {
+            $out['blockers'][] = $blocker(
+                'convertible_rules_not_migrated',
+                $out['counts']['convertible'],
+                'these rules convert exactly and have not been taken yet'
+            );
+        }
+        if ($out['counts']['incompatible'] > 0) {
+            $out['blockers'][] = $blocker(
+                'incompatible_rules_present',
+                $out['counts']['incompatible'],
+                'these rules cannot be taken without changing what they allow: '
+                    . implode(', ', array_keys($out['problems']))
+            );
+        }
+        if ($out['counts']['held_by_manager'] > 0) {
+            $out['blockers'][] = $blocker(
+                'rules_held_by_manager',
+                $out['counts']['held_by_manager'],
+                'the destination rows belong to a manager edit; taking them needs an explicit permission'
+            );
+        }
+        if ($out['counts']['migrated_unenforceable'] > 0) {
+            $out['blockers'][] = $blocker(
+                'migrated_but_not_enforced',
+                $out['counts']['migrated_unenforceable'],
+                'the rule is written here and nothing reads it, so deactivating would drop a live limit'
+            );
+        }
+        if ($out['counts']['would_be_unenforceable'] > 0) {
+            $out['blockers'][] = $blocker(
+                'rule_would_not_be_enforced',
+                $out['counts']['would_be_unenforceable'],
+                'this product is not the marketplace\'s, so taking its rule would write where nothing reads'
+            );
+        }
+        if ($stale !== []) {
+            $out['blockers'][] = $blocker(
+                'stale_enforcement_grants',
+                count($stale),
+                'an enforcement grant describes values the rule no longer has'
+            );
+        }
+        if ($rolledBack > 0) {
+            $out['blockers'][] = $blocker(
+                'rolled_back_rules_present',
+                $rolledBack,
+                'these rules were given back to min max on purpose and are enforced by it today'
+            );
+        }
+        if ($out['blockers'] === []) {
+            $out['verdict'] = 'permitted';
+            $out['permitted'] = true;
+        }
+        return $out;
+    }
+
     public function staleGrants(int $limit = 50): array
     {
         $out = [];

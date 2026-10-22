@@ -317,20 +317,34 @@ A_UP="$(probel split-unit-price)"; printf '%s\n' "$A_UP" >>"$RUN"
 check "7e …read back from the row" "__null__" "$(val "$A_UP" unit_price_minor)"
 check "7f …and the line's own total is untouched" "1010000" "$(val "$A_UP" base_minor)"
 A_SP="$(probel split-partial)"; printf '%s\n' "$A_SP" >>"$RUN"
-# ⛔ THE FIX, half two — and it refuses at the LAST REVERSIBLE STEP, not at
-# the money: `received → refunded` is the only move out of `received`, so a
-# refusal there would strand the return and block the whole-line path too.
-check "7g the refusal happens when the goods are accepted" "received" "$(val "$A_SP" refusal_step)"
-check "7h …by name" "return_share_not_exact" "$(val "$A_SP" receive_code)"
-check "7i …with the line's own total stated" "1010000" "$(val "$A_SP" refusal_base_minor)"
-check "7j …and which parts do not divide" "base,commission" "$(val "$A_SP" refusal_parts)"
-check "7k the money step is not even attempted" "__not_attempted__" "$(val "$A_SP" refund_code)"
-check "7l nothing was written" "__absent__" "$(val "$A_SP" return_row)"
-check "7m …and the return is still cancellable" "approved" "$(val "$A_SP" return_status)"
+# ⛔ **REWRITTEN IN `alpha.69`, NOT RELAXED — and the reason is a decision,
+# not a defect.**
+#
+# Until `alpha.69` these eight checks asserted that the «after» tree REFUSED
+# an inexact partial return by name (`return_share_not_exact`), which is
+# exactly what `alpha.68` did and exactly what this script was written to
+# show. The owner then ANSWERED the open question that refusal existed to
+# ask (`docs/open-decisions-alpha68.md` §1): floor in the line's own
+# smallest unit, remainder to the LAST return of the line.
+#
+# So the old expectation is now a statement about a rule nobody holds. It is
+# replaced by the invariant that survives the change — the allocation is
+# recorded, and the parts close on the original document — rather than being
+# loosened to pass. `alpha.46`'s rule: a test that writes the wrong rule
+# keeps the suite green and the reader blind.
+check "7g accepting the goods goes through" "return_received" "$(val "$A_SP" receive_code)"
+check "7h …and the money is recorded" "return_refunded" "$(val "$A_SP" refund_code)"
+check "7i …floored in the line's own smallest unit" "336666" "$(val "$A_SP" stored_refund_minor)"
+check "7j …with the commission floored the same way" "42083" \
+  "$(val "$A_SP" stored_commission_reversed_minor)"
+check "7k …and the share derived from the two" "294583" \
+  "$(val "$A_SP" stored_vendor_share_reversed_minor)"
+check "7l the row carries the line's own unit" "4" "$(val "$A_SP" stored_exponent)"
+check "7m …and the return is settled, not stranded" "refunded" "$(val "$A_SP" return_status)"
 A_SF="$(probel split-full)"; printf '%s\n' "$A_SF" >>"$RUN"
-check "7n the stranded request can be cancelled" "yes" \
-  "$([[ "$(val "$A_SF" cancelled_open_returns)" -ge 1 ]] && echo yes || echo no)"
-check "7o the whole line then comes back, exactly" "yes" "$(val "$A_SF" whole_line_given_back)"
+check "7n nothing had to be cancelled to finish the line" "0" \
+  "$(val "$A_SF" cancelled_open_returns)"
+check "7o the whole line comes back, exactly" "yes" "$(val "$A_SF" whole_line_given_back)"
 check "7p …all three units of it" "3" "$(val "$A_SF" refunded_quantity_total)"
 probel trial-off >/dev/null
 

@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Finance\Infrastructure;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
+use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerEntry;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
@@ -195,21 +196,37 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
      */
     public function balances(int $vendorUserId): array
     {
+        // ⛔ `CAST(… AS CHAR)`, AND THE CAST TO `int` IS NOT A CAST.
+        //
+        // `SUM()` over a `BIGINT` column comes back as an exact DECIMAL,
+        // which can be WIDER than a PHP integer: a vendor with enough rows
+        // at `exponent = 4` is not a fantasy on a long-lived ledger. And
+        // `(int) '9223372036854775808'` does not fail — it SATURATES to
+        // `PHP_INT_MAX`, silently answering a different number that still
+        // looks like money. So the sum arrives as text and
+        // `DecimalAmount::toMinor()` converts it: it round-trips the digits
+        // and answers `null` rather than a saturated guess (the mechanism
+        // this repository already had — `alpha.66`'s rule), and `null`
+        // travels as a group this account cannot be summed in, refused by
+        // name below. `DbShopRecordRepository` reads Dokan's sums the same
+        // way for the same reason (`alpha.53`).
         $rows = $this->db->getResults(
-            'SELECT account, currency, exponent, SUM(amount_minor) AS total
+            'SELECT account, currency, exponent, CAST(SUM(amount_minor) AS CHAR) AS total
                FROM `' . $this->table() . '`
               WHERE vendor_user_id = %d
               GROUP BY account, currency, exponent
               ORDER BY account ASC, currency ASC, exponent ASC',
             [$vendorUserId]
         );
-        /** @var array<string, list<array{currency:string, exponent:int, minor:int}>> $byAccount */
+        /** @var array<string, list<array{currency:string, exponent:int, minor:int|null, total:string}>> $byAccount */
         $byAccount = [];
         foreach ($rows as $row) {
+            $text = trim((string) $row['total']);
             $byAccount[(string) $row['account']][] = [
                 'currency' => strtoupper(trim((string) $row['currency'])),
                 'exponent' => (int) $row['exponent'],
-                'minor' => (int) $row['total'],
+                'minor' => DecimalAmount::toMinor($text, 0),
+                'total' => $text,
             ];
         }
         $out = [];
@@ -253,26 +270,59 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
                 'groups' => $groups,
             ];
         }
+        $refuse = static function (string $reason) use ($names, $groups): array {
+            return [
+                'minor' => null,
+                'currency' => (string) ($names[0] ?? ''),
+                'exponent' => null,
+                'exact' => false,
+                'refused' => $reason,
+                'currencies' => (string) ($names[0] ?? ''),
+                'groups' => $groups,
+            ];
+        };
         $minor = 0;
         foreach ($groups as $group) {
+            // A group whose own SUM did not fit a PHP integer. Refused here
+            // rather than read as a saturated number — see `balances()`.
+            if ($group['minor'] === null) {
+                return $refuse('total_exceeds_integer_range');
+            }
             $factor = 10 ** max(0, (int) $finest - $group['exponent']);
             // ⛔ ASKED BEFORE THE MULTIPLICATION, never after. An `int` that
             // overflows in PHP becomes a FLOAT, and a float in a money path
             // is the one thing this release does not allow — it would answer
             // a figure that looks like a total and is not. `VendorBalance`
             // guards the same multiplication the same way (`alpha.67`).
-            if ($group['minor'] !== 0 && intdiv(PHP_INT_MAX, abs($group['minor'])) < $factor) {
-                return [
-                    'minor' => null,
-                    'currency' => (string) ($names[0] ?? ''),
-                    'exponent' => null,
-                    'exact' => false,
-                    'refused' => 'scale_exceeds_integer_range',
-                    'currencies' => (string) ($names[0] ?? ''),
-                    'groups' => $groups,
-                ];
+            //
+            // ⛔ AND WITHOUT `abs()`, which was the second half of this
+            // round's §2. `abs(PHP_INT_MIN)` cannot be an `int` — there is no
+            // positive counterpart — so PHP answers a FLOAT, and
+            // `intdiv(int, float)` is a TypeError. A guard that throws on one
+            // representable value is not a guard. Comparing against the two
+            // bounds instead covers both signs and needs no negation at all.
+            if ($factor > 1) {
+                if (
+                    $group['minor'] > intdiv(PHP_INT_MAX, $factor)
+                    || $group['minor'] < intdiv(PHP_INT_MIN, $factor)
+                ) {
+                    return $refuse('scale_exceeds_integer_range');
+                }
             }
-            $minor += $group['minor'] * $factor;
+            $scaled = $group['minor'] * $factor;
+            // ⛔ AND THE ADDITION ITSELF, in both directions. Every product
+            // can fit and their SUM still not: two accounts' worth of rows
+            // near the top of the range add past it, and the result would be
+            // a float again. `alpha.68` guarded only the multiplication —
+            // which is exactly the shape of «half a guard reads like a
+            // guard».
+            if ($scaled > 0 && $minor > PHP_INT_MAX - $scaled) {
+                return $refuse('total_exceeds_integer_range');
+            }
+            if ($scaled < 0 && $minor < PHP_INT_MIN - $scaled) {
+                return $refuse('total_exceeds_integer_range');
+            }
+            $minor += $scaled;
         }
         return [
             'minor' => $minor,

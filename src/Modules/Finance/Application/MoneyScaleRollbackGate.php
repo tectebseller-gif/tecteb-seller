@@ -47,8 +47,9 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAnd
  * ۱۲٫۶۲۵ by ten thousand and round, which is the one thing this release
  * forbids; and a figure rewritten at the coarse scale could never be
  * recovered. The only compatible recovery is restoring the backup taken
- * before the upgrade, and `lossSince()` says what that costs — counted, not
- * guessed.
+ * before the upgrade, and `lossSince()` counts ONE part of what that costs:
+ * the money rows this plugin added since the dump. It is a lower bound on
+ * the money side, not an estimate of the restore — see its own docblock.
  */
 final class MoneyScaleRollbackGate
 {
@@ -124,13 +125,33 @@ final class MoneyScaleRollbackGate
     }
 
     /**
-     * WHAT RESTORING A BACKUP TAKEN AT `$takenAt` WOULD COST — counted.
+     * NEW ROWS IN THE FIVE MONEY TABLES SINCE `$takenAt` — counted.
      *
-     * The documented recovery path is to restore the pre-upgrade dump, and
-     * its price is everything written afterwards. Saying so is not enough:
-     * the person deciding needs the numbers, so this counts the rows each
-     * money table has gained since that moment. Nothing is deleted and
-     * nothing is written; this is a question.
+     * ⛔ **THIS IS NOT AN ESTIMATE OF WHAT RESTORING A BACKUP WOULD COST,
+     * and `alpha.68` presented it as one.** The owner was right to reject
+     * that framing. Restoring a database dump puts back the WHOLE database,
+     * so it also discards, with no count of any kind here:
+     *
+     *   * orders, customers, users, products and posts created since the
+     *     dump — none of which live in these tables;
+     *   * every EDIT to a row that already existed when the dump was taken,
+     *     in these tables and everywhere else. This counts rows by
+     *     `created_at`, so a withdrawal that was approved, an obligation
+     *     that was paid or a product whose price changed afterwards is
+     *     invisible to it;
+     *   * anything a plugin or the theme stores outside these five tables,
+     *     including WooCommerce's own order tables and post meta.
+     *
+     * So what it answers is exactly one narrow question — «how many money
+     * rows did this plugin add after that moment» — and it is useful for
+     * that: a `0` means this plugin recorded nothing new, and a number means
+     * a human must look at those rows before anybody restores anything. It
+     * is a lower bound on the money side and nothing more. The full cost of
+     * a restore is a judgement about the whole site, and
+     * `docs/upgrade-and-rollback.md` §49 states it in those words rather
+     * than offering a figure that would be believed.
+     *
+     * Nothing is deleted and nothing is written; this is a question.
      *
      * `null` for a table means the count could not be read, which is
      * reported rather than shown as nought.

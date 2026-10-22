@@ -826,6 +826,170 @@ final class MinMaxHandoverUnitOfWorkTest extends DatabaseTestCase
         return new DbMinMaxHandoverRepository($this->db);
     }
 
+    // ================================================ §5 the exit verdict
+
+    /**
+     * A LIVE, CONVERTIBLE RULE BLOCKS THE EXIT — and the blocker is named.
+     *
+     * The owner's §5 wants an explicit permission, and permission has to be
+     * refused while a rule we have not taken is still being enforced by the
+     * plugin we are about to switch off.
+     */
+    public function testAConvertibleRuleThatWasNotTakenBlocksTheExit(): void
+    {
+        $service = $this->service($this->port(), $this->ledger(), $this->db);
+        $answer = $service->exitVerdict();
+
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertFalse($answer['permitted']);
+        self::assertSame(1, $answer['counts']['convertible']);
+        self::assertSame(0, $answer['counts']['unknown']);
+        self::assertSame(
+            ['convertible_rules_not_migrated'],
+            array_column($answer['blockers'], 'code')
+        );
+    }
+
+    /**
+     * AND A ROW THE SCAN DID NOT REACH IS `unknown`, NOT `convertible`.
+     *
+     * `preview()` is bounded, so the honest answer about what it did not look
+     * at is a third number — the same rule as `alpha.68` §1: a failed or
+     * missing read is not the safe answer with a different label.
+     */
+    public function testRowsTheScanDidNotReachAreCountedAsUnknown(): void
+    {
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST]);
+        // The source holds twelve rows and the walk reached one of them —
+        // which is what a bounded scan on a real catalogue looks like.
+        $reader->totalOverride = 12;
+        $service = new MigrateMinMax($reader, $this->ledger(), $this->port(), $this->db);
+
+        $answer = $service->exitVerdict();
+
+        self::assertSame(12, $answer['counts']['source_rows']);
+        self::assertSame(1, $answer['counts']['scanned']);
+        self::assertSame(11, $answer['counts']['unknown']);
+        self::assertContains('source_rows_unclassified', array_column($answer['blockers'], 'code'));
+    }
+
+    /**
+     * AND A WALK THAT STOPPED EARLY IS ITS OWN BLOCKER, even when the two
+     * counts agree.
+     *
+     * `preview()` also stops when a page reports no progress. The numbers
+     * then look complete and are not, so the fact is reported separately
+     * rather than folded into `unknown` — a count that is right about the
+     * rows it saw cannot speak for the rows it did not.
+     */
+    public function testAWalkThatStoppedEarlyIsSaidEvenWhenTheCountsAgree(): void
+    {
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST]);
+        $reader->done = false;          // more pages, and the cursor stalls
+        $service = new MigrateMinMax($reader, $this->ledger(), $this->port(), $this->db);
+
+        $answer = $service->exitVerdict();
+
+        self::assertSame(0, $answer['counts']['unknown']);
+        self::assertContains('scan_did_not_finish', array_column($answer['blockers'], 'code'));
+        self::assertFalse($answer['permitted']);
+    }
+
+    /**
+     * AN INCOMPATIBLE RULE BLOCKS, AND THE PROBLEM IS NAMED.
+     *
+     * `step_base_differs` is the one measured on the real plugin: Min Max
+     * counts multiples from the MINIMUM and this marketplace counts them
+     * from zero, so `min=2 max=11 step=3` allows `2|5|8|11` there and
+     * `3|6|9` here — no quantity in common. Nothing loosens it to reach a
+     * yes: «هیچ قاعده‌ای برای تمام‌کردن انتقال خودکار سست یا حذف نشود».
+     */
+    public function testAnIncompatibleRuleBlocksAndItsProblemIsNamed(): void
+    {
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '2/11/3');
+        $service = new MigrateMinMax($reader, $this->ledger(), $this->port(), $this->db);
+
+        $answer = $service->exitVerdict();
+
+        self::assertSame(0, $answer['counts']['convertible']);
+        self::assertSame(1, $answer['counts']['incompatible']);
+        self::assertArrayHasKey('step_base_differs', $answer['problems']);
+        $blocker = $this->blocker($answer, 'incompatible_rules_present');
+        self::assertStringContainsString('step_base_differs', (string) $blocker['detail']);
+    }
+
+    /**
+     * A RULE ON A PRODUCT THAT IS NOT OURS BLOCKS TOO, under its own name.
+     *
+     * Taking it would write three rows nothing reads, so the limit that is
+     * live today disappears when the plugin goes. That is a decision — grant
+     * enforcement, or accept the loss — and it is kept APART from the
+     * already-migrated-and-unenforced count, because they are answered on
+     * different screens.
+     */
+    public function testARuleOnAProductWeDoNotOwnBlocksUnderItsOwnName(): void
+    {
+        $port = new RecordingQuantityPort();
+        $port->present[self::FIRST] = true;
+        $port->owned[self::FIRST] = false;
+        $service = $this->service($port, $this->ledger(), $this->db);
+
+        $answer = $service->exitVerdict();
+
+        self::assertSame(0, $answer['counts']['convertible']);
+        self::assertSame(1, $answer['counts']['would_be_unenforceable']);
+        self::assertSame(0, $answer['counts']['migrated_unenforceable']);
+        self::assertContains('rule_would_not_be_enforced', array_column($answer['blockers'], 'code'));
+    }
+
+    /**
+     * AND WITH NOTHING LEFT, THE ANSWER IS A YES — otherwise the verdict
+     * would be a guard that cannot be satisfied, which is the shape
+     * `alpha.60` calls worse than the defect.
+     */
+    public function testWithNoRulesLeftTheExitIsPermitted(): void
+    {
+        $reader = (new StubMinMaxReader())->withProducts([]);
+        $service = new MigrateMinMax($reader, $this->ledger(), $this->port(), $this->db);
+
+        $answer = $service->exitVerdict();
+
+        self::assertSame('permitted', $answer['verdict']);
+        self::assertTrue($answer['permitted']);
+        self::assertSame([], $answer['blockers']);
+    }
+
+    /**
+     * «NOT INSTALLED» IS NOT «PERMITTED».
+     *
+     * A reader that cannot see the plugin cannot say its rules are dealt
+     * with, and the third answer is what keeps a failed read from reading as
+     * a clean bill — `alpha.68` §1, one module over.
+     */
+    public function testAnUnreadableSourceIsItsOwnAnswerAndNotAPermission(): void
+    {
+        $reader = new StubMinMaxReader();
+        $reader->available = false;
+        $service = new MigrateMinMax($reader, $this->ledger(), $this->port(), $this->db);
+
+        $answer = $service->exitVerdict();
+
+        self::assertSame('not_installed', $answer['verdict']);
+        self::assertFalse($answer['permitted']);
+        self::assertSame(['source_unreadable'], array_column($answer['blockers'], 'code'));
+    }
+
+    /** @param array<string,mixed> $answer @return array<string,mixed> */
+    private function blocker(array $answer, string $code): array
+    {
+        foreach ((array) $answer['blockers'] as $item) {
+            if (($item['code'] ?? '') === $code) {
+                return (array) $item;
+            }
+        }
+        self::fail('no blocker named ' . $code);
+    }
+
     private function port(): RecordingQuantityPort
     {
         $port = new RecordingQuantityPort();

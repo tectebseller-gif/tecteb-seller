@@ -169,12 +169,14 @@ final class ReturnsPage
         $html .= '<input type="hidden" name="return_id" value="' . esc_attr((string) $request->id) . '">';
         foreach ($next as $target) {
             if ($target === ReturnStatus::Received) {
-                // ⛔ SAID BEFORE THE GOODS ARE ACCEPTED, not when the money
-                // should move. `received → refunded` is the only way out of
-                // `received`, so a manager who accepts a return whose share
-                // cannot be given back exactly would be stuck; this is the
-                // last screen where cancelling is still possible
-                // (`alpha.68` §3).
+                // SAID BEFORE THE GOODS ARE ACCEPTED, and it is a NOTE now,
+                // not a warning: the owner has chosen the allocation rule, so
+                // an uneven split is allocated (floored in this line's own
+                // unit, remainder to the last return) instead of refused.
+                // The sentence stays because a manager should see the
+                // arithmetic before the parcel arrives rather than wonder
+                // afterwards why two returns of one unit differ by a
+                // ten-thousandth of a تومان.
                 $exactness = $service->splitExactness($request->id);
                 if (($exactness['exact'] ?? true) !== true) {
                     $html .= '<p class="tmc-field__desc">'

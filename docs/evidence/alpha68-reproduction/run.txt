@@ -1,0 +1,460 @@
+=== the trees ===
+base_ref=03ce0bb78cbca7190db4ca2a706a5a218604ddfa
+this_checkout_src_digest=721ce2d88f839a85
+installed_src_digest=650da04699fb378d
+base_src_digest=650da04699fb378d
+PASS  0a the installed package is this round's base (alpha.68)  (650da04699fb378d)
+PASS  0b this checkout differs from the base  (differ)
+schema_for_both_halves=34
+PASS  0c the structure is 34 and this round does not move it  (34)
+PASS  0d no migration file changed in this round  (0)
+PASS  0e the installed tree is now alpha.68's  (650da04699fb378d)
+
+=== BEFORE · §2 the ledger sum saturates, overflows and throws ===
+vendor_user_id=990068
+pre_existing_rows=0
+php_int_max=9223372036854775807
+php_int_min=-9223372036854775808
+rows_cleared=yes
+PASS  2a the ledger subject owns no rows of anybody else's  (0)
+NOTE  2b this build's integer ceiling  9223372036854775807
+control_minor=1883750
+control_exponent=4
+control_exact=yes
+control_refused=__none__
+control_groups=2
+control_expected_minor=1883750
+control_expected_exponent=4
+PASS  2c the owner's control is exact  (1883750)
+PASS  2d …at the finer exponent  (4)
+PASS  2e …and says so  (yes)
+db_sum=18446744073709551614
+saturating_cast_would_say=9223372036854775807
+group_minor=9223372036854775807
+group_exponent=4
+group_exact=yes
+group_refused=__none__
+group_groups=1
+PASS  2f the database answers the wide sum truthfully  (18446744073709551614)
+PASS  2g THE DEFECT: the cast saturates to the ceiling  (9223372036854775807)
+PASS  2h …and the wrong figure is called exact  (yes)
+PASS  2i …with nothing refused  (__none__)
+group_e4=9223372036854775797
+group_e3_rescaled_to_e4=50
+sum_minor=9.2233720368548E+18
+sum_exponent=4
+sum_exact=yes
+sum_refused=__none__
+sum_groups=2
+PASS  2j THE DEFECT: the total becomes a float  (yes)
+NOTE  2k what it printed  9.2233720368548E+18
+PASS  2l …and that is called exact too  (yes)
+coarse_group=9223372036854775807
+factor_to_finest=10000
+scale_minor=__null__
+scale_exponent=__null__
+scale_exact=no
+scale_refused=scale_exceeds_integer_range
+scale_groups=2
+PASS  2m a rescale that overflows already refused  (scale_exceeds_integer_range)
+PASS  2n …and carried no readable figure  (__null__)
+negative_error=TypeError
+negative_message=intdiv(): Argument #2 ($num2) must be of type int, float given
+PASS  2o THE DEFECT: the most negative amount throws  (TypeError)
+two_currencies_refused=mixed_currencies
+two_currencies_minor=__null__
+two_currencies_names=IRT,USD
+PASS  2p two currencies are refused by name  (mixed_currencies)
+PASS  2q …with no total at all  (__null__)
+report_error=__none__
+report_codes=handover_decision_open,order_totals_read_from_dokan_orders
+report_names_not_summable=no
+report_printed_minor=9223372036854775807
+PASS  2r THE DEFECT: the reconciliation report prints the saturated figure  (9223372036854775807)
+PASS  2s …and names nothing unsummable  (no)
+
+=== BEFORE · §1 the owner's own example is refused outright ===
+gate_ready=yes
+gate_reason=ready_on_trial
+take_code=ownership_taken
+marketplace_row=1645
+order_id=881
+order_total=101
+order_currency=IRT
+item_id=497
+item_quantity=3
+item_base_minor=1010000
+item_commission_minor=126250
+item_share_minor=883750
+item_exponent=4
+item_unit_price_minor=__null__
+base_divides_exactly=no
+PASS  1a the order gate is open on the trial key  (yes)
+PASS  1b the line is three units  (3)
+PASS  1c …۱۰۱ تومان in total, at exponent 4  (1010000)
+PASS  1d …a commission of ۱۲٫۶۲۵  (126250)
+PASS  1e …and a share of ۸۸٫۳۷۵  (883750)
+PASS  1f the total does not divide by three  (no)
+screen_open_code=return_opened
+screen_approve_code=return_approved
+screen_exact=no
+screen_quantity=1
+screen_line_quantity=3
+screen_exponent=4
+screen_base_minor=1010000
+screen_commission_minor=126250
+screen_has_remainder_key=no
+screen_last_of_line=__no_key__
+screen_cancelled=return_cancelled
+PASS  1g the screen is told the split is not exact  (no)
+PASS  1h …but nothing tells it the remainder  (no)
+one_open_code=return_opened
+one_return_id=71
+one_approve_code=return_approved
+one_receive_code=return_share_not_exact
+one_refusal_quantity=1
+one_refusal_line_quantity=3
+one_refusal_base_minor=1010000
+one_refusal_commission_minor=126250
+one_refusal_parts=base,commission
+one_refund_code=__not_attempted__
+one_refusal_step=received
+one_status=approved
+PASS  1i THE DEFECT: accepting one of three is refused  (return_share_not_exact)
+PASS  1j …the money step is not even attempted  (__not_attempted__)
+PASS  1k …and the request is stuck at approved  (approved)
+two_open_code=return_opened
+two_return_id=72
+two_approve_code=return_approved
+two_receive_code=return_share_not_exact
+two_refusal_quantity=2
+two_refusal_line_quantity=3
+two_refusal_base_minor=1010000
+two_refusal_commission_minor=126250
+two_refusal_parts=base,commission
+two_refund_code=__not_attempted__
+two_refusal_step=received
+two_status=approved
+PASS  1l …and two of three is refused the same way  (return_share_not_exact)
+split_line_quantity=3
+split_line_base=1010000
+split_line_commission=126250
+split_line_share=883750
+split_returned_quantity=0
+split_returned_base=0
+split_returned_commission=0
+split_returned_share=0
+split_whole_line_returned=no
+PASS  1m so nothing of the line came back  (0)
+unit_price_minor=__null__
+base_minor=1010000
+division_is_exact=no
+PASS  1n the per-unit column is empty rather than rounded  (__null__)
+gate_ready=yes
+gate_reason=ready_on_trial
+take_code=ownership_taken
+marketplace_row=1646
+order_id=883
+order_total=300
+order_currency=IRT
+item_id=498
+item_quantity=3
+item_base_minor=3000000
+item_commission_minor=375000
+item_share_minor=2625000
+item_exponent=4
+item_unit_price_minor=1000000
+base_divides_exactly=yes
+PASS  1o the control line divides exactly  (yes)
+even_open_code=return_opened
+even_return_id=73
+even_approve_code=return_approved
+even_receive_code=return_received
+even_refusal_step=__none__
+even_refund_code=return_refunded
+even_declared_refund_minor=1000000
+even_declared_tax_minor=0
+even_declared_currency=IRT
+even_declared_exponent=4
+even_status=refunded
+even_stored_exponent=4
+even_refund_minor=1000000
+even_tax_refund_minor=0
+even_commission_reversed_minor=125000
+even_vendor_share_reversed_minor=875000
+even_share_is_derived=yes
+even_ledger_lines=3
+even_ledger_sum=0
+even_ledger_exponents=4
+even_second_press=already_refunded
+even_rows_for_return=3
+PASS  1p a divisible partial return is recorded  (return_refunded)
+PASS  1q …one third of the base  (1000000)
+PASS  1r …one third of the commission  (125000)
+PASS  1s …the share derived from the two  (yes)
+PASS  1t …three ledger lines, all in one unit  (4)
+PASS  1u …summing to nothing  (0)
+PASS  1v …and a second press writes no second document  (already_refunded)
+PASS  1w …still three lines for that return  (3)
+has_rollback_gate=yes
+gate_safe=no
+gate_verdict=blocked
+gate_reason=12 row(s) are recorded at an exponent finer than their vendor's registry unit; alpha.66 would read each of them as a figure 10,000 times too large
+finer_rows_ledger_entries=9
+finer_rows_order_items=2
+finer_rows_withdrawals=0
+finer_rows_withdrawal_lines=0
+finer_rows_returns=1
+gate_counts_tables=5
+has_loss_since=yes
+PASS  1x the rollback gate answers on the base too  (yes)
+NOTE  1y its verdict while this fixture's rows are present  blocked
+PASS  0f the installed tree is now this checkout's  (721ce2d88f839a85)
+vendor_user_id=3
+schema_version=34
+plugin_version=0.1.0-alpha.68
+has_return_allocation=yes
+fixture_item_rows=0
+fixture_ledger_rows=0
+PASS  0g the allocation class exists on this tree only  (yes)
+
+=== AFTER · §2 an out-of-range total is refused by name, with no figure ===
+vendor_user_id=990068
+pre_existing_rows=0
+php_int_max=9223372036854775807
+php_int_min=-9223372036854775808
+rows_cleared=yes
+PASS  2A the ledger subject still owns no rows of anybody else's  (0)
+control_minor=1883750
+control_exponent=4
+control_exact=yes
+control_refused=__none__
+control_groups=2
+control_expected_minor=1883750
+control_expected_exponent=4
+PASS  2B the owner's control is unchanged  (1883750)
+PASS  2C …at the finer exponent  (4)
+PASS  2D …and still exact  (yes)
+db_sum=18446744073709551614
+saturating_cast_would_say=9223372036854775807
+group_minor=__null__
+group_exponent=__null__
+group_exact=no
+group_refused=total_exceeds_integer_range
+group_groups=1
+PASS  2E a group's own sum out of range is refused  (total_exceeds_integer_range)
+PASS  2F …with no figure that could be read as a total  (__null__)
+PASS  2G …and exact is forbidden for it  (no)
+group_e4=9223372036854775797
+group_e3_rescaled_to_e4=50
+sum_minor=__null__
+sum_exponent=__null__
+sum_exact=no
+sum_refused=total_exceeds_integer_range
+sum_groups=2
+PASS  2H groups that each fit but do not add up are refused  (total_exceeds_integer_range)
+PASS  2I …with no figure  (__null__)
+PASS  2J …and not called exact  (no)
+coarse_group=9223372036854775807
+factor_to_finest=10000
+scale_minor=__null__
+scale_exponent=__null__
+scale_exact=no
+scale_refused=scale_exceeds_integer_range
+scale_groups=2
+PASS  2K the rescale refusal is unchanged  (scale_exceeds_integer_range)
+negative_minor=__null__
+negative_exponent=__null__
+negative_exact=no
+negative_refused=total_exceeds_integer_range
+negative_groups=2
+negative_error=__none__
+PASS  2L the most negative amount no longer throws  (__none__)
+PASS  2M …it is refused by name  (total_exceeds_integer_range)
+PASS  2N …with no figure  (__null__)
+two_currencies_refused=mixed_currencies
+two_currencies_minor=__null__
+two_currencies_names=IRT,USD
+PASS  2O two currencies are still refused by name  (mixed_currencies)
+PASS  2P …with no total at all  (__null__)
+report_error=__none__
+report_codes=marketplace_account_not_summable,handover_decision_open,order_totals_read_from_dokan_orders
+report_names_not_summable=yes
+report_printed_minor=__null__
+PASS  2Q the reconciliation report prints no figure  (__null__)
+PASS  2R …and names the account unsummable  (yes)
+
+=== AFTER · §1 the owner's own example is allocated and closes exactly ===
+gate_ready=yes
+gate_reason=ready_on_trial
+take_code=ownership_taken
+marketplace_row=1647
+order_id=885
+order_total=101
+order_currency=IRT
+item_id=499
+item_quantity=3
+item_base_minor=1010000
+item_commission_minor=126250
+item_share_minor=883750
+item_exponent=4
+item_unit_price_minor=__null__
+base_divides_exactly=no
+PASS  1A the same line, unchanged in every figure  (1010000)
+PASS  1B …the same commission  (126250)
+PASS  1C …the same share  (883750)
+screen_open_code=return_opened
+screen_approve_code=return_approved
+screen_exact=no
+screen_quantity=1
+screen_line_quantity=3
+screen_exponent=4
+screen_base_minor=1010000
+screen_commission_minor=126250
+screen_remainder_base=2
+screen_remainder_tax=0
+screen_remainder_commission=1
+screen_has_remainder_key=yes
+screen_last_of_line=no
+screen_cancelled=return_cancelled
+PASS  1D the screen is told the remainder  (yes)
+PASS  1E …two ten-thousandths on the base  (2)
+PASS  1F …one on the commission  (1)
+PASS  1G …and that this is not the last return of the line  (no)
+one_open_code=return_opened
+one_return_id=75
+one_approve_code=return_approved
+one_receive_code=return_received
+one_refusal_step=__none__
+one_refund_code=return_refunded
+one_declared_refund_minor=336666
+one_declared_tax_minor=0
+one_declared_currency=IRT
+one_declared_exponent=4
+one_status=refunded
+one_stored_exponent=4
+one_refund_minor=336666
+one_tax_refund_minor=0
+one_commission_reversed_minor=42083
+one_vendor_share_reversed_minor=294583
+one_share_is_derived=yes
+one_ledger_lines=3
+one_ledger_sum=0
+one_ledger_exponents=4
+one_second_press=already_refunded
+one_rows_for_return=3
+PASS  1H accepting one of three now passes  (return_received)
+PASS  1I …the money is recorded  (return_refunded)
+PASS  1J …floored in the line's own smallest unit  (336666)
+PASS  1K …the commission floored the same way  (42083)
+PASS  1L …the share derived, never rounded on its own  (yes)
+PASS  1M …which is the two subtracted  (294583)
+PASS  1N …three ledger lines, all in one unit  (4)
+PASS  1O …summing to nothing  (0)
+PASS  1P …and a second press writes no second document  (already_refunded)
+two_open_code=return_opened
+two_return_id=76
+two_approve_code=return_approved
+two_receive_code=return_received
+two_refusal_step=__none__
+two_refund_code=return_refunded
+two_declared_refund_minor=673334
+two_declared_tax_minor=0
+two_declared_currency=IRT
+two_declared_exponent=4
+two_status=refunded
+two_stored_exponent=4
+two_refund_minor=673334
+two_tax_refund_minor=0
+two_commission_reversed_minor=84167
+two_vendor_share_reversed_minor=589167
+two_share_is_derived=yes
+two_ledger_lines=3
+two_ledger_sum=0
+two_ledger_exponents=4
+two_second_press=already_refunded
+two_rows_for_return=3
+PASS  1Q the remaining two are the LAST return of the line  (return_refunded)
+PASS  1R …and carry the remainder  (673334)
+PASS  1S …the commission remainder too  (84167)
+PASS  1T …with the share still derived  (yes)
+split_line_quantity=3
+split_line_base=1010000
+split_line_commission=126250
+split_line_share=883750
+split_returned_quantity=3
+split_returned_base=1010000
+split_returned_commission=126250
+split_returned_share=883750
+split_whole_line_returned=yes
+split_base_closes=yes
+split_commission_closes=yes
+split_share_closes=yes
+PASS  1U the whole line came back  (yes)
+PASS  1V …the base closes on the document  (yes)
+PASS  1W …the commission closes  (yes)
+PASS  1X …and the share closes  (yes)
+PASS  1Y nothing was forgiven: the totals are the line's own  (1010000)
+unit_price_minor=__null__
+base_minor=1010000
+division_is_exact=no
+PASS  1Z the per-unit column is untouched by this round  (__null__)
+gate_ready=yes
+gate_reason=ready_on_trial
+take_code=ownership_taken
+marketplace_row=1648
+order_id=887
+order_total=300
+order_currency=IRT
+item_id=500
+item_quantity=3
+item_base_minor=3000000
+item_commission_minor=375000
+item_share_minor=2625000
+item_exponent=4
+item_unit_price_minor=1000000
+base_divides_exactly=yes
+PASS  1AA the control line still divides exactly  (yes)
+even_open_code=return_opened
+even_return_id=77
+even_approve_code=return_approved
+even_receive_code=return_received
+even_refusal_step=__none__
+even_refund_code=return_refunded
+even_declared_refund_minor=1000000
+even_declared_tax_minor=0
+even_declared_currency=IRT
+even_declared_exponent=4
+even_status=refunded
+even_stored_exponent=4
+even_refund_minor=1000000
+even_tax_refund_minor=0
+even_commission_reversed_minor=125000
+even_vendor_share_reversed_minor=875000
+even_share_is_derived=yes
+even_ledger_lines=3
+even_ledger_sum=0
+even_ledger_exponents=4
+even_second_press=already_refunded
+even_rows_for_return=3
+PASS  1AB a divisible partial return is recorded as before  (return_refunded)
+PASS  1AC …the same third of the base  (1000000)
+PASS  1AD …the same third of the commission  (125000)
+PASS  1AE …and a second press still writes nothing  (already_refunded)
+has_rollback_gate=yes
+gate_safe=no
+gate_verdict=blocked
+gate_reason=20 row(s) are recorded at an exponent finer than their vendor's registry unit; alpha.66 would read each of them as a figure 10,000 times too large
+finer_rows_ledger_entries=15
+finer_rows_order_items=2
+finer_rows_withdrawals=0
+finer_rows_withdrawal_lines=0
+finer_rows_returns=3
+gate_counts_tables=5
+has_loss_since=yes
+PASS  1AF the rollback gate still counts five stores  (5)
+PASS  1AG …and still has the counted loss question  (yes)
+PASS  0h the installed tree is byte-for-byte the base again  (650da04699fb378d)
+
+=== totals ===
+pass=100 fail=0

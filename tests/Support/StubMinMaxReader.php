@@ -30,6 +30,16 @@ final class StubMinMaxReader implements MinMaxReaderInterface
     /** @var list<int> every `$afterId` it was asked for, in order */
     public array $asked = [];
 
+    /**
+     * What `counts()` should report, when that has to differ from the page.
+     *
+     * The real reader counts the source rows with one query and WALKS them
+     * in pages, so the two can legitimately disagree — which is the whole of
+     * `exitVerdict()`'s `unknown`. A stub that derives one from the other
+     * cannot express the case the count exists for.
+     */
+    public ?int $totalOverride = null;
+
     public function withProducts(array $ids, string $rule = '4/10/2'): self
     {
         [$min, $max, $step] = explode('/', $rule);
@@ -77,7 +87,11 @@ final class StubMinMaxReader implements MinMaxReaderInterface
 
     public function counts(): array
     {
-        return ['product' => count($this->page), 'variation' => 0, 'terms' => 0];
+        return [
+            'product' => $this->totalOverride ?? count($this->page),
+            'variation' => 0,
+            'terms' => 0,
+        ];
     }
 
     public function presentationSettings(): array
