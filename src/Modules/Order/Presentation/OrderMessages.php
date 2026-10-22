@@ -135,6 +135,32 @@ final class OrderMessages
                 $fa((int) ($context['item_id'] ?? $context['order_item_id'] ?? 0)),
                 (string) ($context['event_key'] ?? '')
             ),
+            // ⛔ THE INEXACT SPLIT, with the arithmetic in the sentence.
+            // «قطع اعشار» is rounding, and the owner ruled rounding out, so
+            // this quantity is refused rather than given back short. The
+            // sentence names the two numbers and the one thing that DOES
+            // work, because a refusal a manager cannot act on is half a
+            // refusal (`alpha.65`).
+            'return_share_not_exact' => sprintf(
+                /* translators: 1: return id, 2: requested quantity, 3: line quantity, 4: line total */
+                __('این مرجوعی دقیق تقسیم نمی‌شود: %2$s عدد از %3$s عددِ قلمی به مبلغ کل %4$s. سهم هر عدد عددِ گِردی نمی‌شود و این افزونه گرد نمی‌کند، پس چیزی ثبت نشد و مرجوعی #%1$s سر جایش است. راه موجود: مرجوعیِ کاملِ باقیماندهٔ همین قلم را ثبت کنید (دقیق است). تصمیم دربارهٔ قاعدهٔ تخصیصِ باقیمانده با مالک است.', 'tecteb-marketplace-core'),
+                $fa((int) ($context['return_id'] ?? 0)),
+                $fa((int) ($context['quantity'] ?? 0)),
+                $fa((int) ($context['line_quantity'] ?? 0)),
+                self::money((int) ($context['base_minor'] ?? 0), $context['exponent'] ?? null)
+            ),
+            // The THIRD unit answer, and it is not one of the two above:
+            // «نمی‌دانم» درباره واحد با «واحدها با هم نمی‌خوانند» یکی نیست.
+            'reversed_unit_unreadable' => sprintf(
+                /* translators: 1: order item id */
+                __('ساختار جدول مرجوعی خوانده نشد، پس واحد پولِ مرجوعی‌های قبلی این قلم (#%1$s) معلوم نیست و از آن کم نمی‌شود. چیزی ثبت نشد. این یک خطای خواندن است نه تعارض داده؛ پس از رفع آن دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+                $fa((int) ($context['item_id'] ?? $context['order_item_id'] ?? 0))
+            ),
+            'reversed_unit_inconsistent' => sprintf(
+                /* translators: 1: order item id */
+                __('مرجوعی‌های قبلی این قلم (#%1$s) در واحدی غیر از واحد فروش ثبت شده‌اند، پس کم‌کردنشان از مبلغ این قلم درست نیست. چیزی ثبت نشد و هیچ تبدیلی انجام نمی‌شود.', 'tecteb-marketplace-core'),
+                $fa((int) ($context['item_id'] ?? $context['order_item_id'] ?? 0))
+            ),
             'order_item_cancelled_return' => __('روی قلمی که لغو شده، ارسال ثبت نمی‌شود.', 'tecteb-marketplace-core'),
             'order_item_delivered' => __('تحویل ثبت شد.', 'tecteb-marketplace-core'),
             'order_item_cancelled' => __('این قلم لغو شد. سهم مالی ثبت‌شده در دفترکل پاک نمی‌شود و تسویه‌اش جداگانه تعیین تکلیف می‌شود.', 'tecteb-marketplace-core'),
@@ -210,5 +236,21 @@ final class OrderMessages
     public static function isErrorNotice(string $code): bool
     {
         return !in_array($code, self::successCodes(), true);
+    }
+
+    /**
+     * An amount at the scale it was recorded at, for a sentence.
+     *
+     * `MoneyText` is the one place an integer plus an exponent becomes text
+     * (`alpha.67`). A `null` exponent means the row did not say, and then
+     * the bare digits are printed rather than a figure at a guessed scale.
+     */
+    private static function money(int $minor, mixed $exponent): string
+    {
+        $scale = is_int($exponent) ? $exponent : (is_numeric($exponent) ? (int) $exponent : null);
+        if ($scale === null) {
+            return PersianDigits::toPersian((string) $minor);
+        }
+        return MoneyText::format($minor, $scale) ?? PersianDigits::toPersian((string) $minor);
     }
 }

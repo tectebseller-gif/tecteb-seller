@@ -1,0 +1,209 @@
+=== the packages ===
+new_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.68.zip
+old_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.67.zip
+new_target=34
+old_target=33
+PASS  0a the new package targets one step further  (34)
+PASS  0b and the old one targets the previous structure  (33)
+
+=== 1 · the site is put on structure 33, for real ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+registry_exponent=0
+lines=0
+arranged=yes
+PASS  1a the fixture vendor's registry unit is exponent 0  (0)
+nullable_before=YES
+narrowed=yes
+nullable_after=NO
+schema_version=33
+PASS  1b the column is narrowed back to alpha.67's shape  (NO)
+PASS  1c and the recorded structure says 33  (33)
+schema_version=33
+column_present=yes
+nullable=NO
+col_default=0
+col_type=bigint(20)
+PASS  1d the per-unit price cannot say «unknown»  (NO)
+
+=== 2 · the pre-upgrade dump — the only compatible recovery path ===
+PASS  2a the dump was taken  (yes)
+NOTE  2b its size in bytes  4104981
+NOTE  2c the moment it was taken  2026-10-22 14:24:45
+
+=== 3 · the files are swapped, and a failing step stays failed ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+schema_version=33
+column_present=yes
+nullable=NO
+col_default=0
+col_type=bigint(20)
+PASS  3a swapping the files ran nothing  (33)
+PASS  3b …and the column is still the old shape  (NO)
+PASS  3b2 …with the default alpha.67 gave it  (0)
+ran=yes
+schema_version=33
+column_present=no
+PASS  3c the failed step did not move the structure  (33)
+PASS  3c2 …and the step could not see its column  (no)
+PASS  3d …and the reason was recorded  (yes)
+NOTE  3e the recorded reason  array (   'step' => '0034_unit_price_may_be_unknown',   'message' => 'MigrationException: migration 0034_unit_price_may_
+
+=== 4 · the injection is removed and the next request finishes the job ===
+Success: Deleted 'tmc_migration_last_error' option.
+ran=yes
+schema_version=34
+column_present=yes
+nullable=YES
+col_default=__no_default__
+col_type=bigint(20)
+PASS  4a the structure moved to 34  (34)
+PASS  4b the column can say «unknown» now  (YES)
+PASS  4c …with no default standing in for it  (__no_default__)
+PASS  4d …and it is still a BIGINT  (bigint(20))
+
+=== 5 · a line at the finer unit, and the gate that counts it ===
+has_gate=yes
+verdict=safe
+safe=yes
+readable=yes
+count_ledger_entries=0
+count_order_items=0
+count_withdrawals=0
+count_withdrawal_lines=0
+count_returns=0
+finer_rows_total=0
+PASS  5a the gate exists on this package  (yes)
+PASS  5b …and it could read every table  (yes)
+NOTE  5c what it counted before this round's line  0
+written=1
+row_exponent=4
+unit_price_minor=__null__
+PASS  5d the line landed  (1)
+PASS  5e …at exponent 4  (4)
+PASS  5f …and its per-unit price says «no whole one»  (__null__)
+has_gate=yes
+verdict=blocked
+safe=no
+readable=yes
+count_ledger_entries=0
+count_order_items=1
+count_withdrawals=0
+count_withdrawal_lines=0
+count_returns=0
+finer_rows_total=1
+PASS  5g ⛔ the gate now BLOCKS a plain rollback  (blocked)
+PASS  5h …which is not «safe»  (no)
+PASS  5i …and the order-item count went up by one  (1)
+
+=== 6 · what restoring the dump would cost, counted before it is done ===
+has_gate=yes
+taken_at=2026-10-22 14:24:45
+readable=yes
+loss_ledger_entries=0
+loss_order_items=1
+loss_withdrawals=0
+loss_withdrawal_lines=0
+loss_returns=0
+loss_total=1
+PASS  6a the loss could be counted  (yes)
+PASS  6b …and the fixture line is in it  (1)
+NOTE  6c every money row written since the dump  1
+has_gate=yes
+taken_at=2099-01-01 00:00:00
+readable=yes
+loss_ledger_entries=0
+loss_order_items=0
+loss_withdrawals=0
+loss_withdrawal_lines=0
+loss_returns=0
+loss_total=0
+PASS  6d a dump taken in the future would cost nothing  (0)
+
+=== 7 · the dump is restored, and the gate says safe again ===
+schema_version=33
+column_present=yes
+nullable=NO
+col_default=0
+col_type=bigint(20)
+PASS  7a the restore put the structure back on 33  (33)
+PASS  7b …and the column back to its old shape  (NO)
+line=__absent__
+PASS  7c …and the finer line is gone with it  (__absent__)
+has_gate=yes
+verdict=safe
+safe=yes
+readable=yes
+count_ledger_entries=0
+count_order_items=0
+count_withdrawals=0
+count_withdrawal_lines=0
+count_returns=0
+finer_rows_total=0
+PASS  7d the gate reads the restored database  (yes)
+NOTE  7e the verdict the dump was taken at  safe
+PASS  7f …and the restore gives back that same verdict  (safe)
+PASS  7g …and the same count of finer rows  (0)
+PASS  7h …which on this database was nothing finer at all  (0)
+
+=== 8 · and the files go back to alpha.67 on the restored database ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+schema_version=33
+column_present=yes
+nullable=NO
+col_default=0
+col_type=bigint(20)
+PASS  8a the older package reads the restored structure  (33)
+PASS  8b …and has no rollback gate of its own  (no)
+registry_exponent=0
+lines=0
+arranged=yes
+PASS  8c …and can still write its own fixture  (yes)
+
+=== 9 · forward again, so the machine is left on this package ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+ran=yes
+schema_version=34
+column_present=yes
+nullable=YES
+col_default=__no_default__
+col_type=bigint(20)
+PASS  9a the structure is 34 again  (34)
+PASS  9b …and the column is nullable again  (YES)
+has_gate=yes
+verdict=safe
+safe=yes
+readable=yes
+count_ledger_entries=0
+count_order_items=0
+count_withdrawals=0
+count_withdrawal_lines=0
+count_returns=0
+finer_rows_total=0
+PASS  9c the gate is readable on the final state  (yes)
+NOTE  9d the verdict the machine is left with  safe
+
+checks=41 pass=41 fail=0

@@ -270,10 +270,20 @@ final class SettlementFlowTest extends DatabaseTestCase
         // The sale put -۹۰۰٬۰۰۰ on `vendor_earning` and the payment puts
         // +۹۰۰٬۰۰۰ back: the liability is discharged to exactly zero, which is
         // what «discharged» means. The payout is the money that left.
+        // Per account WITH its unit from `alpha.68` (§2), so the figures
+        // are read out of `minor` and «the books balance» is summed over
+        // those — one currency and one exponent here, which `exact` says.
         $balances = $this->ledger->balances(self::VENDOR);
-        self::assertSame(0, $balances[LedgerAccount::VendorEarning->value] ?? -1, 'the liability is discharged');
-        self::assertSame(-900000, $balances[LedgerAccount::VendorPayout->value] ?? 0, 'and the payout is recorded');
-        self::assertSame(0, array_sum($balances), 'and the books still balance');
+        $minor = static fn (string $account): int => (int) ($balances[$account]['minor'] ?? -1);
+        self::assertSame(0, $minor(LedgerAccount::VendorEarning->value), 'the liability is discharged');
+        self::assertSame(-900000, $minor(LedgerAccount::VendorPayout->value), 'and the payout is recorded');
+        $sum = 0;
+        foreach ($balances as $figure) {
+            self::assertTrue($figure['exact'], 'every account is in one unit');
+            self::assertSame(0, (int) $figure['exponent'], 'and that unit is the order\'s own');
+            $sum += (int) $figure['minor'];
+        }
+        self::assertSame(0, $sum, 'and the books still balance');
 
         // §2: the payout carries the unit of the sale it discharges, read off
         // the books rather than defaulted. A payout line stamped with another

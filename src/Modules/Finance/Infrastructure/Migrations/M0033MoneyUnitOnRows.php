@@ -81,49 +81,85 @@ final class M0033MoneyUnitOnRows implements MigrationInterface
     ];
 
     /**
-     * Whether a table carries these two columns YET — asked of the database,
-     * memoised per request.
+     * THE THREE STATES OF THE TWO COLUMNS, named.
      *
-     * ⛔ **It exists because of the window the upgrade gate leaves open.**
-     * Swapping the plugin's files does not run a migration: `UpgradeGate`
-     * runs it on the next admin request, and if that step FAILS it stays
-     * failed, visible on the health screen, and retried every five minutes
-     * (`alpha.46`). In that window this release's code is on disk and these
-     * columns are not in the database — and a `SELECT i.tmc_currency` is then
-     * a hard SQL error on a path a vendor uses, which measuring the real
-     * upgrade is what found.
+     * `PRESENT` — the table carries them, so a read may name them and a
+     * write may store a unit in them.
+     * `ABSENT`  — the table does not, which is the truth in the window
+     * between a file swap and the upgrade gate running.
+     * `UNKNOWN` — the question could not be answered. NOT the same as
+     * `ABSENT`, and that is the whole of this round's §1.
+     */
+    public const PRESENT = 'present';
+    public const ABSENT = 'absent';
+    public const UNKNOWN = 'unknown';
+
+    /**
+     * Which of the three a table is in — asked of the database, never cached
+     * here.
      *
-     * **Two answers, and they are deliberately different:**
+     * ⛔ **Why three and not two, with the number that proved it.** Until
+     * `alpha.68` this was a `carriedBy(): bool` whose docblock claimed a
+     * failed read answering `false` was «the conservative direction for both
+     * uses». It is not, and the owner was right to reject it: `false` is
+     * conservative only when the columns are genuinely ABSENT. On an upgraded
+     * database they are PRESENT and they carry exponent 4, and a reader told
+     * `false` substitutes `NULL AS tmc_exponent` for a row that says `4` —
+     * so the row is then read at the vendor's historical exponent 0 and a
+     * share of ۸۸٫۳۷۵ تومان is reported as ۸۸۳٬۷۵۰. Measured on `alpha.67`'s
+     * own bytes with that one read blinded: `view_exact_exponent=__null__`,
+     * `exact_row_read_at=0`, `exact_row_stated_at=4`,
+     * `exact_row_factor_applied=10000`, and `balance_unreadable=no` — the
+     * wrong figure presented as a fact
+     * (`docs/evidence/alpha67-reproduction/`).
      *
-     *   * a READ degrades to the legacy reading — a row with no unit is at
-     *     the vendor's single money unit, which is exactly what every release
-     *     before this one assumed, so nothing is reinterpreted;
-     *   * a WRITE of an amount at the finer exponent REFUSES, by name. An
-     *     exact commission is ten thousand times the integer the coarse unit
-     *     would use, and storing it in a row that cannot say so leaves a
-     *     figure that reads correctly today and wrong the moment the column
-     *     arrives. «نمی‌دانم» is an answer (`alpha.49`) and a silent
-     *     conversion is the one thing the owner ruled out.
+     * **So a failed catalogue read is not an answer; it is a reason to ask
+     * again, a different way.** `SHOW COLUMNS` is a different code path in
+     * the server and it cannot be ambiguous the way a `COUNT(*)` can: a
+     * table always has columns, so an EMPTY answer means the read failed and
+     * a non-empty one is the column list itself. That gives three answers
+     * from two reads, and the second one only runs when the first could not
+     * answer, so the normal path costs exactly the query it always did.
      *
-     * A failed read answers `false`, which is the conservative direction for
-     * both uses: a read falls back to the behaviour that was right for nine
-     * releases, and a write stops.
+     * **Why not simply run the naming statement and see?** Because a
+     * statement that is MEANT to fail prints «WordPress database error» on
+     * whatever page is rendering — a guard noisier than the defect it
+     * prevents (`alpha.60`).
      *
      * **Nothing is memoised here, and the caller memoises per INSTANCE** —
-     * the shape `ProductTableShape` uses, with its own `forget()`. A `static`
-     * cache inside this method survives the whole process, which is right for
-     * one request and wrong for a test that drops the columns and asks again:
-     * the first version of this answered `true` from a cache and the
-     * degraded read turned into the SQL error it was written to prevent.
+     * the shape `ProductTableShape` uses. A `static` cache inside this
+     * method survives the whole process, which is right for one request and
+     * wrong for a test that changes the table and asks again: the first
+     * version of this answered from a cache and the degraded read turned
+     * into the SQL error it was written to prevent.
      */
-    public static function carriedBy(DatabaseInterface $db, string $table): bool
+    public static function unitColumnState(DatabaseInterface $db, string $table): string
     {
+        // Interpolated into `SHOW COLUMNS`, which takes no placeholder for a
+        // name, so the name is validated rather than trusted (`alpha.60`).
+        if (preg_match('/^[A-Za-z0-9_]+$/', $table) !== 1) {
+            return self::UNKNOWN;
+        }
         $answer = $db->getVar(
             'SELECT COUNT(*) FROM information_schema.COLUMNS
              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME IN (%s, %s)',
             [$table, self::CURRENCY, self::EXPONENT]
         );
-        return $answer !== null && (int) $answer === 2;
+        if ($answer !== null) {
+            return (int) $answer === 2 ? self::PRESENT : self::ABSENT;
+        }
+        // THE SECOND READ, and it is a different question of a different
+        // part of the server. Empty is «could not read», because a table
+        // that exists always answers with its columns.
+        $columns = $db->getResults('SHOW COLUMNS FROM `' . $table . '`');
+        if ($columns === []) {
+            return self::UNKNOWN;
+        }
+        $names = [];
+        foreach ($columns as $row) {
+            $names[strtolower(trim((string) ($row['Field'] ?? '')))] = true;
+        }
+        return isset($names[self::CURRENCY], $names[self::EXPONENT]) ? self::PRESENT : self::ABSENT;
     }
 
     public function version(): int
@@ -206,10 +242,11 @@ final class M0033MoneyUnitOnRows implements MigrationInterface
                     return false;
                 }
                 // «No default» has two spellings and this was MEASURED, not
-                // read: MariaDB 10.11 reports `COLUMN_DEFAULT` for a
-                // `DEFAULT NULL` column as the four-character STRING `NULL`,
-                // while MySQL 8 reports SQL NULL. Both mean the same thing;
-                // `''` or `'0'` do not and are refused.
+                // read. On this environment's MariaDB 10.11.14 a
+                // `DEFAULT NULL` column reports `COLUMN_DEFAULT` as the
+                // four-character STRING `NULL` — `COLUMN_DEFAULT IS NULL`
+                // answers `0` — while MySQL 8 reports SQL NULL there. Both
+                // mean «no default»; `''` or `'0'` do not and are refused.
                 $default = $row['col_default'];
                 $noDefault = $default === null || strtoupper(trim((string) $default)) === 'NULL';
                 if (strtoupper((string) ($row['nullable'] ?? 'NO')) !== 'YES' || !$noDefault) {

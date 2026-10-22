@@ -244,6 +244,33 @@ final class ManageReturns
         if (!$this->mayDecide($actorId, $request, $to)) {
             return OperationResult::failure('forbidden');
         }
+        // ⛔ ACCEPTING THE GOODS IS THE LAST REVERSIBLE STEP, so a split that
+        // cannot be exact is refused HERE as well as at the money.
+        //
+        // `received → refunded` is the only move out of `received`
+        // (`ReturnStateMachine`), so a return accepted on a line whose share
+        // cannot be given back exactly would be stuck: not refundable, not
+        // cancellable, and holding a unit of the line so the WHOLE-line
+        // return could not be opened either. `approved → cancelled` exists,
+        // which is why the guard belongs on this transition: the manager can
+        // cancel this request and open one for the whole remaining line,
+        // which IS exact. A guard that creates a dead end is worse than the
+        // defect it prevents (`alpha.60`).
+        if ($to === ReturnStatus::Received) {
+            $exactness = $this->splitExactness($returnId);
+            if (!$exactness['exact']) {
+                return OperationResult::failure('return_share_not_exact', [
+                    'return_id' => $returnId,
+                    'item_id' => $request->orderItemId,
+                    'quantity' => $exactness['quantity'],
+                    'line_quantity' => $exactness['line_quantity'],
+                    'base_minor' => $exactness['base_minor'],
+                    'commission_minor' => $exactness['commission_minor'],
+                    'exponent' => $exactness['exponent'],
+                    'parts' => implode(',', $exactness['parts']),
+                ]);
+            }
+        }
         $now = $this->clock->now()->format('Y-m-d H:i:s');
         $decidedAt = $to === ReturnStatus::Received ? $request->decidedAt : $now;
         $receivedAt = $to === ReturnStatus::Received ? $now : null;
@@ -348,6 +375,29 @@ final class ManageReturns
         $unit = $accrual['unit'];
 
         $share = $this->shareOf($item, $request);
+        if ($share === null) {
+            // ⛔ THE SPLIT IS NOT EXACT, and nothing is rounded to make it
+            // one. Every figure is named so a human can see the arithmetic:
+            // this quantity of this line's total cannot be given back as a
+            // whole number of the unit the sale was recorded in, and no
+            // additional scale would change that (one third has no
+            // terminating decimal). Nothing is written and the return stays
+            // where it is; a FULL return of what is left is exact and still
+            // works. `docs/open-decisions-alpha68.md` §1 puts the allocation
+            // question to the owner rather than answering it here.
+            $exactness = $this->splitExactness($returnId);
+            return OperationResult::failure('return_share_not_exact', [
+                'return_id' => $returnId,
+                'item_id' => $item->id,
+                'quantity' => $request->quantity,
+                'line_quantity' => $item->quantity,
+                'base_minor' => (int) $item->baseMinor,
+                'commission_minor' => (int) ($item->commissionMinor ?? 0),
+                'exponent' => $unit['exponent'],
+                'currency' => $unit['currency'],
+                'parts' => implode(',', $exactness['parts']),
+            ]);
+        }
         // WHAT IS ALREADY REVERSED HAS TO BE IN THE SAME UNIT, because
         // `shareOf()` SUBTRACTS it from this line's figures. One item's
         // reversals are all written in that item's own accrual unit, so this
@@ -357,6 +407,18 @@ final class ManageReturns
         // Refused by name rather than converted: «نمی‌دانم» is an answer and
         // a guessed conversion is not (`alpha.53`).
         $reversedScale = $this->returns->reversedTotals($item->id);
+        // «I could not find out what unit the earlier reversals are in» is
+        // its OWN answer, and not a scale disagreement: the sentence a human
+        // reads has to be the thing that happened (`alpha.65`). Nothing is
+        // written either way, but the two are different problems — one is a
+        // contradiction in the data, the other is a database that could not
+        // be asked.
+        if (($reversedScale['unit_unreadable'] ?? false) === true) {
+            return OperationResult::failure('reversed_unit_unreadable', [
+                'return_id' => $returnId,
+                'item_id' => $item->id,
+            ]);
+        }
         if (
             ($reversedScale['one_scale'] ?? true) !== true
             || ($reversedScale['exponent'] !== null && (int) $reversedScale['exponent'] !== $unit['exponent'])
@@ -676,11 +738,46 @@ final class ManageReturns
     }
 
     /**
-     * This return's share of the line's money.
+     * This return's share of the line's money — EXACT, or nothing.
      *
-     * @return array{refund:int, tax:int, commission:int, vendor_share:int}
+     * ⛔ **`intdiv()` is rounding, and the owner was right to call it that.**
+     * Until `alpha.68` a partial return divided each of the line's three
+     * figures by the line's quantity with `intdiv()`, which is flooring. On
+     * the owner's own example — a line whose total is ۱۰۱ تومان for three
+     * units at ۱۲٫۵٪ — returning one unit of three stored `336666` where the
+     * exact third is ۳۳۶۶۶۶٫۶۶۶…, and `42083` where it is ۴۲۰۸۳٫۳۳۳…
+     * (measured on `alpha.67`: `base_divides_exactly=no`,
+     * `stored_refund_is_exact=no`). Three times `336666` is `1009998`, not
+     * `1010000`: the per-part figures did not reconstruct the line, and the
+     * remainder was quietly handed to whichever return happened to be last.
+     *
+     * **No extra scale fixes this, and that is the point.** A third of
+     * `1010000` is not an integer at exponent 4, nor at 5, nor at any finite
+     * exponent: one third has no terminating decimal. `alpha.67` bought four
+     * more places because the rate's denominator is `10000` and that made
+     * every COMMISSION exact; a quantity of three is a different denominator
+     * and no fixed number of places answers it.
+     *
+     * **So the inexact split is refused by name and nothing is chosen
+     * silently.** `null` here means «this quantity cannot be given back
+     * exactly», the caller refuses with every figure stated, and NOTHING is
+     * written. What still works, and is measured as a control:
+     *
+     *   * a FULL return — the last of the line gives back exactly what is
+     *     left, which is exact by construction whatever the quantities were;
+     *   * any partial split that divides exactly, which is the ordinary case
+     *     (a line of three units priced the same divides by three);
+     *   * every return already recorded, which is not touched or reread.
+     *
+     * The alternative — floor each part and give the residue to the last
+     * return — is a real allocation rule with real consequences for a vendor
+     * who is paid per return, and choosing it here would be this plugin
+     * deciding it. The question is put to the owner with this worked example
+     * in `docs/open-decisions-alpha68.md` §1.
+     *
+     * @return array{refund:int, tax:int, commission:int, vendor_share:int}|null
      */
-    private function shareOf(VendorOrderItem $item, ReturnRequest $request): array
+    private function shareOf(VendorOrderItem $item, ReturnRequest $request): ?array
     {
         $already = $this->returns->reversedTotals($item->id);
         $remainingQuantity = max(0, $item->quantity - $already['quantity']);
@@ -689,16 +786,24 @@ final class ManageReturns
         $commission = (int) ($item->commissionMinor ?? 0);
 
         if ($request->quantity >= $remainingQuantity) {
-            // The last of the line: give back exactly what is left, so a
-            // sequence of roundings cannot leave a stray unit of currency
-            // accrued against goods that are all back on the shelf.
+            // The last of the line: give back exactly what is left, so
+            // nothing stays accrued against goods that are all back on the
+            // shelf. Exact by subtraction, never by division.
             $refund = max(0, $base - $already['refund']);
             $taxBack = max(0, $tax - $already['tax']);
             $commissionBack = max(0, $commission - $already['commission']);
         } else {
-            $refund = intdiv($base * $request->quantity, max(1, $item->quantity));
-            $taxBack = intdiv($tax * $request->quantity, max(1, $item->quantity));
-            $commissionBack = intdiv($commission * $request->quantity, max(1, $item->quantity));
+            $quantity = max(1, $item->quantity);
+            $exact = static function (int $amount) use ($request, $quantity): ?int {
+                $product = $amount * $request->quantity;
+                return $product % $quantity === 0 ? intdiv($product, $quantity) : null;
+            };
+            $refund = $exact($base);
+            $taxBack = $exact($tax);
+            $commissionBack = $exact($commission);
+            if ($refund === null || $taxBack === null || $commissionBack === null) {
+                return null;
+            }
         }
         return [
             'refund' => $refund,
@@ -708,6 +813,65 @@ final class ManageReturns
             // zero, and B = C + V is the identity the sale was recorded with.
             'vendor_share' => $refund - $commissionBack,
         ];
+    }
+
+    /**
+     * WHETHER THIS RETURN CAN BE GIVEN BACK EXACTLY, asked without writing
+     * anything.
+     *
+     * Exists so a manager is told BEFORE the goods arrive rather than at the
+     * moment the money should move: `refund()` is the last step, and a
+     * refusal there leaves a received parcel and a decision nobody can
+     * complete. Read by the returns screen.
+     *
+     * @return array{exact:bool, quantity:int, line_quantity:int, exponent:int|null,
+     *               base_minor:int, commission_minor:int, parts:list<string>}
+     */
+    public function splitExactness(int $returnId): array
+    {
+        $blank = [
+            'exact' => true,
+            'quantity' => 0,
+            'line_quantity' => 0,
+            'exponent' => null,
+            'base_minor' => 0,
+            'commission_minor' => 0,
+            'parts' => [],
+        ];
+        $request = $this->returns->findReturn($returnId);
+        if ($request === null) {
+            return $blank;
+        }
+        $item = $this->items->find($request->orderItemId);
+        if ($item === null) {
+            return $blank;
+        }
+        $already = $this->returns->reversedTotals($item->id);
+        $remaining = max(0, $item->quantity - $already['quantity']);
+        $quantity = max(1, $item->quantity);
+        $answer = [
+            'exact' => true,
+            'quantity' => $request->quantity,
+            'line_quantity' => $item->quantity,
+            'exponent' => $item->exponent,
+            'base_minor' => (int) $item->baseMinor,
+            'commission_minor' => (int) ($item->commissionMinor ?? 0),
+            'parts' => [],
+        ];
+        if ($request->quantity >= $remaining) {
+            return $answer;         // the last of the line is exact by subtraction
+        }
+        foreach ([
+            'base' => (int) $item->baseMinor,
+            'tax' => (int) $item->taxMinor,
+            'commission' => (int) ($item->commissionMinor ?? 0),
+        ] as $part => $amount) {
+            if (($amount * $request->quantity) % $quantity !== 0) {
+                $answer['exact'] = false;
+                $answer['parts'][] = $part;
+            }
+        }
+        return $answer;
     }
 
     /**

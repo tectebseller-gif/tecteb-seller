@@ -1,0 +1,161 @@
+# measured on the INSTALLED bytes of 0.1.0-alpha.67 (commit 6884d4d), 2026-10-22T13:13:16Z
+# schema 33, WooCommerce 11.0.1, MariaDB 10.11, PHP 8.4.19
+
+--- reset ---
+item_rows_removed=3
+split_product_deleted=782
+exponents_left_for_vendor=0
+reset=done
+
+--- unit-arrange ---
+registry_currency=IRT
+registry_exponent=0
+row_legacy=377
+row_legacy_exponent=__null__
+row_exact=378
+row_exact_exponent=4
+ledger_exponents=0,4
+arranged=yes
+
+--- unit-state ---
+has_carried_by=yes
+has_three_states=no
+carried_present=yes
+carried_blinded=no
+carried_absent_table=no
+
+--- unit-healthy ---
+totals_exponent=4
+totals_share=6958850
+totals_unreadable=__no_key__
+balance_earned=60751883750
+balance_exponent=4
+balance_unreadable=no
+fixture_share_at_e4=1883750
+view_legacy_exponent=__null__
+view_legacy_share=100
+view_legacy_unreadable=__no_key__
+view_exact_exponent=4
+view_exact_share=883750
+view_exact_unreadable=__no_key__
+
+--- unit-read-failure ---
+blinded_reads=1
+totals_exponent=0
+totals_share=6958850
+totals_unreadable=__no_key__
+balance_earned=69588500000
+balance_exponent=4
+balance_unreadable=no
+healthy_earned=60751883750
+earned_inflated_by=0x+
+earned_differs=yes
+exact_share_lost=8836616250
+view_legacy_exponent=__null__
+view_legacy_unreadable=__no_key__
+view_exact_exponent=__null__
+view_exact_unreadable=__no_key__
+exact_row_read_at=0
+exact_row_stated_at=4
+exact_row_factor_applied=10000
+
+--- unit-write-refusal ---
+write_result=0
+row_landed=0
+
+--- books-sum ---
+balances_shape=int
+vendor_earning_raw=-5191680
+vendor_earning_unit=__not_reported__
+rows_at_e0=-6075430
+rows_at_e4=883750
+control_exact_minor_at_e4=1883750
+control_exact_text=۱۸۸٫۳۷۵
+naive_sum_of_the_two=883850
+
+--- books-two-currencies ---
+two_currencies_answer=summed:-5191180
+usd_rows_left=0
+
+--- rollback-hazard ---
+has_rollback_gate=no
+rows_finer_than_the_registry=1
+ledger_entries_finer_than_the_registry=4
+verdict=__nothing_answers_this__
+
+--- trial-on ---
+trial_mode=1
+gate_ready=yes
+gate_reason=ready_on_trial
+
+--- split-arrange ---
+gate_ready=yes
+gate_reason=ready_on_trial
+take_code=ownership_taken
+marketplace_row=1598
+order_id=785
+order_total=101
+order_currency=IRT
+line_total_on_order=101
+line_quantity=3
+item_id=379
+item_quantity=3
+item_base_minor=1010000
+item_commission_minor=126250
+item_share_minor=883750
+item_exponent=4
+item_unit_price_minor=336666
+unit_price_divides_exactly=no
+unit_price_exact_would_be=336666.66666667
+
+--- split-unit-price ---
+unit_price_minor=336666
+unit_price_times_quantity=1009998
+base_minor=1010000
+unit_price_is_exact=no
+division_is_exact=no
+
+--- split-partial ---
+open_code=return_opened
+return_id=7
+approve_code=return_approved
+receive_code=return_received
+refund_code=return_refunded
+declared_refund_minor=336666
+declared_tax_minor=0
+declared_currency=IRT
+declared_exponent=4
+return_status=refunded
+stored_exponent=4
+stored_refund_minor=336666
+stored_tax_refund_minor=0
+stored_commission_reversed_minor=42083
+stored_vendor_share_reversed_minor=294583
+exact_third_of_base=336666.66666667
+exact_third_of_commission=42083.333333333
+base_divides_exactly=no
+commission_divides_exactly=no
+stored_refund_is_exact=no
+
+--- split-full ---
+already_refunded_quantity=1
+remaining_quantity=2
+open_code=return_opened
+refund_code=return_refunded
+refunded_quantity_total=3
+refunded_base_total=1010000
+line_base_minor=1010000
+whole_line_given_back=yes
+
+--- trial-off ---
+trial_mode=__none__
+gate_ready=no
+gate_reason=decisions_open
+
+--- report ---
+vendor_user_id=3
+schema_version=33
+plugin_version=0.1.0-alpha.67
+fixture_item_rows=3
+fixture_ledger_rows=4
+

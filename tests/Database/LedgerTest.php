@@ -19,6 +19,7 @@ use Tecteb\Marketplace\Modules\Finance\Domain\Money;
 use Tecteb\Marketplace\Modules\Finance\Domain\RateScope;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbCommissionRuleRepository;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0004CreateFinanceTables;
 
 /**
@@ -60,6 +61,91 @@ final class LedgerTest extends DatabaseTestCase
             new CommissionCalculator(),
             $this->logger
         );
+    }
+
+    /**
+     * ⛔ THE OWNER'S OWN CONTROL FOR §2: ۱۰۰ تومان در exponent 0 به‌علاوهٔ
+     * ۸۸٫۳۷۵ تومان در exponent 4 دقیقاً ۱۸۸٫۳۷۵ تومان است.
+     *
+     * `alpha.67` summed `amount_minor` grouped by account alone and answered
+     * `883850` — which is neither figure in any unit. Measured on its own
+     * bytes: `rows_at_e0=100`, `rows_at_e4=883750`, `vendor_earning_raw` the
+     * naive sum. The exact answer at the finer unit is `1883750`.
+     *
+     * The two rows are written straight into the table rather than through an
+     * accrual, because the state being measured is a vendor who traded BEFORE
+     * the upgrade and after it — and no single code path produces both halves.
+     */
+    public function testTwoExponentsInOneAccountAddUpExactly(): void
+    {
+        $this->writeEntry('alpha68:e0', LedgerAccount::VendorEarning, 100, 'IRT', 0);
+        $this->writeEntry('alpha68:e4', LedgerAccount::VendorEarning, 883750, 'IRT', 4);
+
+        $figure = $this->ledger->balances(self::VENDOR)[LedgerAccount::VendorEarning->value];
+
+        self::assertSame('', $figure['refused'], 'one currency, two scales: that combines');
+        self::assertSame(4, $figure['exponent'], 'the answer is in the finest unit present');
+        self::assertSame(1883750, $figure['minor'], '۱۰۰ + ۸۸٫۳۷۵ = ۱۸۸٫۳۷۵, exactly');
+        self::assertSame('۱۸۸٫۳۷۵', MoneyText::format((int) $figure['minor'], (int) $figure['exponent']));
+        self::assertTrue($figure['exact']);
+        // AND THE NAIVE ANSWER IS NOT THIS ANSWER, said as a number so the
+        // test cannot pass by accident if the grouping is dropped.
+        self::assertNotSame(100 + 883750, $figure['minor']);
+        self::assertCount(2, $figure['groups'], 'and the per-unit truth is still there');
+    }
+
+    /**
+     * TWO CURRENCIES ARE NOT COMBINED, IN EITHER DIRECTION.
+     *
+     * `alpha.67` added a USD row straight into an IRT total — measured on its
+     * own bytes, `two_currencies_answer=summed:-5191180`. There is no one
+     * total across two kinds of money, so the honest answer is to say which
+     * two and give no figure. Nothing is converted.
+     */
+    public function testTwoCurrenciesInOneAccountAreRefusedRatherThanAveraged(): void
+    {
+        $this->writeEntry('alpha68:irt', LedgerAccount::VendorEarning, 100, 'IRT', 0);
+        $this->writeEntry('alpha68:usd', LedgerAccount::VendorEarning, 500, 'USD', 2);
+
+        $figure = $this->ledger->balances(self::VENDOR)[LedgerAccount::VendorEarning->value];
+
+        self::assertSame('mixed_currencies', $figure['refused']);
+        self::assertNull($figure['minor'], 'no figure, because there is not one');
+        self::assertNull($figure['exponent']);
+        self::assertFalse($figure['exact']);
+        self::assertSame('IRT,USD', $figure['currencies'], 'and both are named');
+        self::assertCount(2, $figure['groups']);
+    }
+
+    /** One ledger row, in a named unit. */
+    private function writeEntry(
+        string $eventKey,
+        LedgerAccount $account,
+        int $minor,
+        string $currency,
+        int $exponent
+    ): void {
+        $table = M0004CreateFinanceTables::table($this->db, M0004CreateFinanceTables::LEDGER);
+        $written = $this->db->execute(
+            'INSERT INTO `' . $table . '`
+             (event_key, vendor_user_id, account, amount_minor, currency, exponent,
+              order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
+             VALUES (%s, %d, %s, %d, %s, %d, %s, %s, %s, NULL, %s, %s)',
+            [
+                $eventKey,
+                self::VENDOR,
+                $account->value,
+                $minor,
+                $currency,
+                $exponent,
+                'alpha68',
+                '',
+                'test',
+                '{}',
+                $this->clock->now()->format('Y-m-d H:i:s'),
+            ]
+        );
+        self::assertNotNull($written, 'the fixture row has to land before anything is measured');
     }
 
     public function testARuleWithNoRateIsNotARuleWithZero(): void
@@ -135,11 +221,17 @@ final class LedgerTest extends DatabaseTestCase
         // with it, which is what `Money::assertSameUnit()` refused when it
         // was not.
         self::assertSame(4, $lines[0]->amount->exponent, 'one unit for the whole event');
+        // `balances()` answers per account with the UNIT beside the figure
+        // from `alpha.68`: a bare integer could not say which of a vendor's
+        // two exponents it was in (§2).
         $balances = $this->ledger->balances(self::VENDOR);
-        self::assertSame(9810000000, $balances[LedgerAccount::CentralPayment->value], 'goods plus tax came in centrally');
-        self::assertSame(-900000000, $balances[LedgerAccount::Commission->value]);
-        self::assertSame(-8100000000, $balances[LedgerAccount::VendorEarning->value]);
-        self::assertSame(-810000000, $balances[LedgerAccount::TaxCollected->value], 'tax is never inside the commission base');
+        $minor = static fn (string $account): int => (int) ($balances[$account]['minor'] ?? 0);
+        self::assertSame(9810000000, $minor(LedgerAccount::CentralPayment->value), 'goods plus tax came in centrally');
+        self::assertSame(-900000000, $minor(LedgerAccount::Commission->value));
+        self::assertSame(-8100000000, $minor(LedgerAccount::VendorEarning->value));
+        self::assertSame(-810000000, $minor(LedgerAccount::TaxCollected->value), 'tax is never inside the commission base');
+        self::assertSame(4, $balances[LedgerAccount::Commission->value]['exponent'], 'and the unit is stated');
+        self::assertSame('', $balances[LedgerAccount::Commission->value]['refused']);
     }
 
     public function testTheSameEventTwiceRecordsOnce(): void
@@ -154,7 +246,7 @@ final class LedgerTest extends DatabaseTestCase
         // The money is recorded ONCE — that is the whole claim and it is
         // unchanged: three lines, one commission balance.
         self::assertCount(3, $this->ledger->forEvent('order-2:item-1:paid'));
-        self::assertSame(-500000000, $this->ledger->balances(self::VENDOR)[LedgerAccount::Commission->value]);
+        self::assertSame(-500000000, $this->ledger->balances(self::VENDOR)[LedgerAccount::Commission->value]['minor']);
 
         // What changed in `alpha.39` is the ANSWER to the second call. It used
         // to be `needsConfiguration('already_recorded')` — not calculated —

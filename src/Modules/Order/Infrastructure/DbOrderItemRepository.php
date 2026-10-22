@@ -22,7 +22,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0033MoneyUnitO
  */
 final class DbOrderItemRepository implements OrderItemRepositoryInterface
 {
-    /** @var array<string,bool> per-instance answers to «does this table carry the unit?» */
+    /** @var array<string,string> per-instance answers: present, absent or unknown */
     private array $unitColumns = [];
 
     public function __construct(
@@ -54,11 +54,15 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
             $item->vendorUserId,
             $item->title,
             $item->sku,
-            $item->quantity,
-            $item->unitPriceMinor,
-            $item->baseMinor,
-            $item->taxMinor
+            $item->quantity
         );
+        // `NULL` is «there is no whole per-unit price», which `0` cannot say
+        // (migration 34). A placeholder would bind nought.
+        $unitPrice = $nullable($item->unitPriceMinor);
+        if ($item->unitPriceMinor !== null) {
+            $params[] = $item->unitPriceMinor;
+        }
+        array_push($params, $item->baseMinor, $item->taxMinor);
         $commission = $nullable($item->commissionMinor);
         if ($item->commissionMinor !== null) {
             $params[] = $item->commissionMinor;
@@ -97,7 +101,12 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
         // ۳۷٫۸۷۵ becomes a figure that reads as ۳۷۸٬۷۵۰ the moment the column
         // arrives. So nothing is written and the caller hears why — the
         // `alpha.49` rule, one table along: «نمی‌دانم» is an answer.
-        $carried = $this->unitColumnsOn($this->table());
+        // PRESENT is the only state a unit may be stored in. `ABSENT` and
+        // `UNKNOWN` both refuse a unit-bearing row — one because the column
+        // is not there, the other because we could not find out, and a
+        // figure at the finer exponent in a row that cannot say so reads
+        // correctly today and wrong the moment the column arrives.
+        $carried = $this->unitColumnsOn($this->table()) === U::PRESENT;
         if (!$carried && ($item->currency !== null || $item->exponent !== null)) {
             return 0;
         }
@@ -108,7 +117,7 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
               commission_minor, vendor_share_minor, rate_bp, rate_source, ledger_event, status'
              . ($carried ? ', `' . U::CURRENCY . '`, `' . U::EXPONENT . '`' : '') . ',
               created_at, updated_at)
-             VALUES (%d, %d, %d, %d, ' . $variation . ', %d, %s, %s, %d, %d, %d, %d, '
+             VALUES (%d, %d, %d, %d, ' . $variation . ', %d, %s, %s, %d, ' . $unitPrice . ', %d, %d, '
              . $commission . ', ' . $share . ', ' . $rate . ', %s, %s, %s'
              . ($carried ? ', ' . $currency . ', ' . $exponent : '') . ', %s, %s)',
             $params
@@ -218,8 +227,9 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
             $vendorShareMinor,
             $commissionMinor
         );
-        // The same refusal as `record()`, for the same reason.
-        $carried = $this->unitColumnsOn($this->table());
+        // The same refusal as `record()`, for the same reason, and the same
+        // three states.
+        $carried = $this->unitColumnsOn($this->table()) === U::PRESENT;
         if (!$carried && ($currency !== null || $exponent !== null)) {
             return false;
         }
@@ -371,20 +381,47 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
      * So the sums are grouped by the row's own exponent and combined in PHP
      * by multiplying each group into the finest one — a power of ten, exact,
      * no `float` and no `POW()` (which returns a float in MySQL and is the
-     * same mistake one layer down). The unit the answer is in comes back with
-     * it. A row that does not carry a unit is grouped under `NULL` and read
-     * at the coarsest exponent present, which is what it was written in.
+     * same mistake one layer down). The unit the answer is in comes back
+     * with it.
+     *
+     * ⛔ **AND A ROW THAT SAYS NOTHING IS NOT AT «THE COARSEST ROW».**
+     * `alpha.67` read the `NULL` group at the coarsest exponent any OTHER
+     * row happened to name, which is a guess that changes with the
+     * catalogue: on a vendor whose only unit-bearing rows were at exponent 4
+     * it read every legacy row at exponent 4 too, and ۴۵۰٬۰۰۰ تومان became
+     * ۴۵. What a unit-less row is actually in is the vendor's FIRST recorded
+     * unit, and that lives in `tmc_vendor_money_unit`, which this repository
+     * cannot see. So the caller passes it, and when it does not, the answer
+     * SAYS it could not be resolved rather than inventing a scale
+     * (`alpha.49`: «نمی‌دانم» is an answer).
+     *
+     * @param int|null $fallbackExponent the vendor's first-recorded exponent,
+     *        which is what a row carrying no unit was written in. `null` is
+     *        «not supplied», and the combination is then only possible when
+     *        every row agrees on one exponent anyway.
+     * @return array{
+     *   lines:int, base:int, commission:int, share:int, currency:string,
+     *   exponent:int|null, resolved:bool, unit_unreadable:bool,
+     *   groups:list<array{exponent:int|null, base:int, commission:int, share:int}>
+     * } `base`, `commission` and `share` are the combined figures and mean
+     * something only while `resolved` is true; `groups` always holds the
+     * per-unit truth.
      */
-    public function totalsForVendor(int $vendorUserId): array
+    public function totalsForVendor(int $vendorUserId, ?int $fallbackExponent = null): array
     {
-        // ⛔ ASKED OF THE TABLE FIRST. Between a file swap and the upgrade
-        // gate running, this release's code is on disk and migration 33's
-        // columns are not — and naming them then is a hard SQL error on a
-        // page a vendor opens. Where they are absent the whole catalogue is
-        // one unit, the vendor's own, which is what every release up to
-        // `alpha.66` assumed, so the fallback is not a degradation: it is the
-        // previous correct answer.
-        $carried = $this->unitColumnsOn($this->table());
+        // ⛔ ASKED OF THE TABLE FIRST, in three states. Between a file swap
+        // and the upgrade gate running, this release's code is on disk and
+        // migration 33's columns are not — and naming them then is a hard SQL
+        // error on a page a vendor opens. `ABSENT` is that window, and there
+        // the whole catalogue is one unit, which is what every release up to
+        // `alpha.66` assumed, so it is the previous correct answer rather
+        // than a degradation. `UNKNOWN` is «could not find out», and it is
+        // reported instead of being read as `ABSENT`: the columns may be
+        // there, holding exponent 4, and substituting `NULL` for them turns
+        // ۸۸٫۳۷۵ into ۸۸۳٬۷۵۰ (`alpha.68` §1).
+        $state = $this->unitColumnsOn($this->table());
+        $carried = $state === U::PRESENT;
+        $unreadable = $state === U::UNKNOWN;
         $rows = $this->db->getResults(
             'SELECT ' . ($carried
                 ? '`' . U::EXPONENT . '` AS tmc_exponent, MIN(`' . U::CURRENCY . '`) AS tmc_currency,'
@@ -400,17 +437,18 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
         $groups = [];
         $currency = '';
         $lines = 0;
-        $coarsest = null;
-        $finest = null;
+        $stated = [];           // the exponents rows actually name
+        $hasUnitless = false;
         foreach ($rows as $row) {
             $exponent = ($row['tmc_exponent'] ?? null) === null ? null : (int) $row['tmc_exponent'];
             $lines += (int) $row['lines_count'];
             if ($currency === '' && trim((string) ($row['tmc_currency'] ?? '')) !== '') {
                 $currency = strtoupper(trim((string) $row['tmc_currency']));
             }
-            if ($exponent !== null) {
-                $coarsest = $coarsest === null ? $exponent : min($coarsest, $exponent);
-                $finest = $finest === null ? $exponent : max($finest, $exponent);
+            if ($exponent === null) {
+                $hasUnitless = true;
+            } else {
+                $stated[$exponent] = true;
             }
             $groups[] = [
                 'exponent' => $exponent,
@@ -419,18 +457,46 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
                 'share' => (int) $row['share'],
             ];
         }
-        // The rows that say nothing are at the coarse end, so the answer's
-        // unit is the finest exponent present and `null` reads as the
-        // coarsest. With no row at all both are nought, which is what an
-        // empty answer has always been.
-        $unitExponent = $finest ?? 0;
-        $nullExponent = $coarsest ?? 0;
+
+        // WHAT A UNIT-LESS ROW IS IN. The caller's registry figure when it
+        // supplied one; otherwise the single stated exponent, which can only
+        // be the same number because nothing else names one; otherwise
+        // nothing, and the answer says so.
+        $nullExponent = $fallbackExponent;
+        if ($nullExponent === null && $stated === []) {
+            // Nothing in this catalogue names a unit, so there is one unit
+            // and `0` is what every release up to `alpha.66` read it at.
+            $nullExponent = 0;
+        }
+        $resolved = !$unreadable && ($nullExponent !== null || !$hasUnitless);
+        $unitExponent = null;
+        if ($resolved) {
+            $candidates = array_keys($stated);
+            if ($hasUnitless && $nullExponent !== null) {
+                $candidates[] = $nullExponent;
+            }
+            $unitExponent = $candidates === [] ? 0 : max($candidates);
+        }
+
         $totals = ['base' => 0, 'commission' => 0, 'share' => 0];
-        foreach ($groups as $group) {
-            $from = $group['exponent'] ?? $nullExponent;
-            $factor = 10 ** max(0, $unitExponent - $from);
-            foreach (['base', 'commission', 'share'] as $key) {
-                $totals[$key] += $group[$key] * $factor;
+        if ($resolved && $unitExponent !== null) {
+            foreach ($groups as $group) {
+                $from = $group['exponent'] ?? $nullExponent ?? $unitExponent;
+                $factor = 10 ** max(0, $unitExponent - $from);
+                foreach (['base', 'commission', 'share'] as $key) {
+                    // ⛔ ASKED BEFORE THE MULTIPLICATION, never after: an
+                    // `int` that overflows becomes a FLOAT in PHP, and a
+                    // float here would answer a figure that looks like a
+                    // total and is not. Unresolvable rather than wrong.
+                    if ($group[$key] !== 0
+                        && intdiv(PHP_INT_MAX, abs($group[$key])) < $factor) {
+                        $resolved = false;
+                        $unitExponent = null;
+                        $totals = ['base' => 0, 'commission' => 0, 'share' => 0];
+                        break 2;
+                    }
+                    $totals[$key] += $group[$key] * $factor;
+                }
             }
         }
         return [
@@ -439,16 +505,28 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
             'commission' => $totals['commission'],
             'share' => $totals['share'],
             // THE UNIT the three figures above are in, so nothing downstream
-            // has to infer the scale of a number it is printing.
+            // has to infer the scale of a number it is printing. `null` when
+            // the answer could not be taken in one unit at all, which is a
+            // sentence a page can print and a number is not.
             'currency' => $currency,
             'exponent' => $unitExponent,
+            'resolved' => $resolved,
+            'unit_unreadable' => $unreadable,
+            'groups' => $groups,
         ];
     }
 
     public function settlementView(int $vendorUserId): array
     {
-        // The same question as `totalsForVendor()`, for the same window.
-        $carried = $this->unitColumnsOn($this->table());
+        // The same question as `totalsForVendor()`, for the same window and
+        // in the same three states. `UNKNOWN` travels ON EVERY ROW rather
+        // than being swallowed, because this list is where `VendorBalance`
+        // takes every figure from and a row reported as «no unit» would be
+        // resolved to the vendor's historical exponent — the ten-thousandfold
+        // mistake the owner's §1 names.
+        $state = $this->unitColumnsOn($this->table());
+        $carried = $state === U::PRESENT;
+        $unreadable = $state === U::UNKNOWN;
         $rows = $this->db->getResults(
             'SELECT i.id, i.vendor_share_minor, i.settlement_completed_at, i.withdrawal_id,
                     ' . ($carried
@@ -478,6 +556,11 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
                     ? null
                     : strtoupper(trim((string) $row['tmc_currency'])),
                 'exponent' => ($row['tmc_exponent'] ?? null) === null ? null : (int) $row['tmc_exponent'],
+                // «I could not find out whether this row carries a unit» —
+                // which is not «it carries none». A reader that resolves the
+                // second one is right; a reader that resolves the first is
+                // guessing with somebody's money.
+                'unit_unreadable' => $unreadable,
             ];
         }
         return $view;
@@ -537,7 +620,12 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
             (string) $row['title'],
             (string) $row['sku'],
             (int) $row['quantity'],
-            (int) $row['unit_price_minor'],
+            // `array_key_exists` rather than `??`: a column that is NULL and
+            // a query that did not select it are both «this row does not say»
+            // (`alpha.60`), and 0 is a price rather than an absence.
+            array_key_exists('unit_price_minor', $row) && $row['unit_price_minor'] !== null
+                ? (int) $row['unit_price_minor']
+                : null,
             (int) $row['base_minor'],
             (int) $row['tax_minor'],
             $row['commission_minor'] === null ? null : (int) $row['commission_minor'],
@@ -591,17 +679,24 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
         }
     }
     /**
-     * Whether a table carries migration 33's unit columns — asked once per
-     * INSTANCE, which is once per request in practice.
+     * WHICH OF THE THREE STATES a table's unit columns are in — asked once
+     * per INSTANCE, which is once per request in practice.
      *
-     * The memo lives here rather than in `M0033::carriedBy()` for the reason
-     * `ProductTableShape` keeps its own: a process-wide cache is right for a
-     * request and wrong for anything that changes the table and asks again.
+     * The memo lives here rather than in `M0033::unitColumnState()` for the
+     * reason `ProductTableShape` keeps its own: a process-wide cache is
+     * right for a request and wrong for anything that changes the table and
+     * asks again.
+     *
+     * Three answers, because two of them made a wrong figure look like a
+     * fact (`alpha.68` §1): `PRESENT` names the columns, `ABSENT` leaves
+     * them out and is the truth about the upgrade window, and `UNKNOWN`
+     * leaves them out AND says so, so that nothing downstream resolves a
+     * unit it could not read.
      */
-    private function unitColumnsOn(string $table): bool
+    private function unitColumnsOn(string $table): string
     {
         if (!array_key_exists($table, $this->unitColumns)) {
-            $this->unitColumns[$table] = U::carriedBy($this->db, $table);
+            $this->unitColumns[$table] = U::unitColumnState($this->db, $table);
         }
         return $this->unitColumns[$table];
     }

@@ -55,6 +55,45 @@ $staleGrants = static function () use ($vm): string {
     )) . '</section>';
 };
 
+/**
+ * THE ROLLBACK GATE, as a count. Shown here because an operator deciding
+ * whether to go back to an earlier release looks at this screen, and because
+ * the previous release's answer to that question was «inspect the rows» —
+ * which the owner rejected and which nobody can verify (`alpha.68` §4).
+ */
+$rollbackGate = static function () use ($vm): string {
+    $gate = $vm['rollback_gate'] ?? null;
+    $html = '<section class="tmc-card" aria-labelledby="tmc-rollback-gate-title">'
+        . '<h2 id="tmc-rollback-gate-title" class="tmc-card__title">'
+        . esc_html__('بازگشت به نسخهٔ پیش از alpha.67', 'tecteb-marketplace-core') . '</h2>';
+    if (!is_array($gate)) {
+        return $html . '<p>'
+            . esc_html__('ماژول مالی بارگذاری نشده، پس این وضعیت خوانده نشد. این «مشکلی نیست» نیست.', 'tecteb-marketplace-core')
+            . '</p></section>';
+    }
+    $counts = [];
+    foreach ((array) ($gate['counts'] ?? []) as $table => $count) {
+        $counts[] = (string) $table . ': ' . ($count === null
+            ? __('خوانده نشد', 'tecteb-marketplace-core')
+            : PersianDigits::toPersian((string) (int) $count));
+    }
+    $detail = '<p class="tmc-hint">' . esc_html(implode(' · ', $counts)) . '</p>';
+    $verdict = (string) ($gate['verdict'] ?? '');
+    if ($verdict === 'safe') {
+        return $html . Components::notice('success', __('هیچ ردیفی در واحدی ریزتر از واحد ثبت‌شدهٔ فروشنده‌اش نیست، پس بازگشت به بستهٔ قبلی هیچ مبلغی را بازتفسیر نمی‌کند. این یک شمارش است، نه یک بررسی چشمی.', 'tecteb-marketplace-core'))
+            . $detail . '</section>';
+    }
+    if ($verdict === 'unknown') {
+        return $html . Components::notice('warning', __('یکی از جدول‌های مالی خوانده نشد، پس پاسخ این پرسش معلوم نیست — و «معلوم نیست» با «امن است» یکی نیست. تا رفع این خطا بازگشت انجام نشود.', 'tecteb-marketplace-core'))
+            . $detail . '</section>';
+    }
+    return $html . Components::notice('warning', sprintf(
+        /* translators: %s: how many rows */
+        __('⛔ بازگشت سادهٔ بسته ممنوع است: %s ردیف در واحدی ریزتر از واحد ثبت‌شدهٔ فروشنده‌اش ثبت شده‌اند و بستهٔ قبلی هر کدام را ده‌هزار برابر می‌خواند. تنها مسیر سازگار، بازگرداندن پشتیبان پیش از ارتقاست؛ بند ۴۸ سند ارتقا می‌گوید بهای آن چیست و چطور شمرده می‌شود.', 'tecteb-marketplace-core'),
+        PersianDigits::toPersian((string) array_sum(array_map('intval', (array) ($gate['counts'] ?? []))))
+    )) . $detail . '</section>';
+};
+
 $accountHooks = static function () use ($vm): string {
     $seen = $vm['account_hooks'] ?? [];
     $answer = static fn (string $value): string => match ($value) {
@@ -127,6 +166,7 @@ if (!$vm['available']) {
     echo Components::notice('warning', __('ماژول سلامت فعال نیست، بنابراین گزارش کامل در دسترس نیست.', 'tecteb-marketplace-core') . ($reason !== '' ? ' ' . $reason : ''));
     echo $accountHooks();
     echo $staleGrants();
+    echo $rollbackGate();
     echo Components::shellClose();
     return;
 }
@@ -197,6 +237,7 @@ $jalali = JalaliDate::format($checkedAt);
 <?php echo $accountHooks(); ?>
 
 <?php echo $staleGrants(); ?>
+<?php echo $rollbackGate(); ?>
 
 <section class="tmc-card tmc-card--muted" aria-labelledby="tmc-rest-title">
     <h2 id="tmc-rest-title" class="tmc-card__title"><?php esc_html_e('دسترسی برنامه‌نویسی به همین گزارش', 'tecteb-marketplace-core'); ?></h2>

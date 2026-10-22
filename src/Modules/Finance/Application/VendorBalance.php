@@ -92,7 +92,8 @@ final class VendorBalance
      *   earned:int, pending:int, eligible:int, reserved:int, paid:int,
      *   paid_direct:int, unrecorded:int, eligible_line_ids:list<int>, delay_days:int,
      *   awaiting_completion:int, awaiting_delay:int, awaiting_return:int,
-     *   eligible_until:string, currency:string, exponent:int, unit_unreadable:bool
+     *   eligible_until:string, currency:string, exponent:int, unit_unreadable:bool,
+     *   fallback_exponent:int|null, columns_unreadable:bool
      * }
      */
     public function of(int $vendorUserId): array
@@ -226,6 +227,18 @@ final class VendorBalance
             // coarsest unit any row names — and the caller is told that the
             // unit is a fallback rather than a fact (`alpha.49`).
             'unit_unreadable' => $unit['unreadable'],
+            // WHAT A UNIT-LESS ROW WAS READ AT, handed on so the reservation's
+            // own sum resolves those rows the same way this read did rather
+            // than guessing from whichever rows it happens to claim.
+            'fallback_exponent' => $unit['fallback'],
+            // AND WHICH KIND OF «unreadable» this was. `unit_unreadable` has
+            // meant «the registry could not be asked» since `alpha.67` and a
+            // build without a registry wired answers it legitimately; this
+            // one is narrower and worse — the COLUMN STATE could not be read,
+            // so a row reported as carrying no unit might be carrying
+            // exponent 4 (`alpha.68` §1). Nothing may be reserved against
+            // such a read.
+            'columns_unreadable' => $unit['columns_unreadable'],
         ];
     }
 
@@ -239,14 +252,42 @@ final class VendorBalance
      * because a fallback presented as a fact is how `alpha.39` fixed the unit
      * of a whole ledger off a failed read.
      *
+     * ⛔ **And a line that says «I could not find out» makes the whole
+     * answer unreadable.** `settlementView()` reports `unit_unreadable` when
+     * the column state could not be read: the columns may be PRESENT and
+     * carrying exponent 4, so resolving those rows to the vendor's
+     * first-recorded exponent is how ۸۸٫۳۷۵ تومان became ۸۸۳٬۷۵۰ on
+     * `alpha.67` — measured, `exact_row_factor_applied=10000`. When that
+     * happens there is NO fallback: a row with no stated unit is counted as
+     * `unrecorded` rather than rescaled by a factor nobody could verify.
+     *
      * @param list<array<string,mixed>> $lines
-     * @return array{currency:string, exponent:int, fallback:int, unreadable:bool}
+     * @return array{currency:string, exponent:int, fallback:int|null,
+     *               unreadable:bool, columns_unreadable:bool}
      */
     private function summationUnit(int $vendorUserId, array $lines): array
     {
         $currency = '';
         $fallback = 0;
         $unreadable = $this->units === null;
+        // ⛔ TWO DIFFERENT UNREADABILITIES, and only one of them removes the
+        // fallback. A registry that is not wired or cannot be read means «I
+        // do not know what unit a row that says nothing is in» — reported,
+        // and the rows that DO say are still summed at their own exponents,
+        // which is what every release before this one did and what
+        // `OrderFlowTest` pins. A COLUMN STATE that could not be read is
+        // worse: the columns may be there, carrying exponent 4, so a row
+        // reported as «no unit» might be one of them — and resolving it to
+        // the vendor's coarse unit multiplies it by ten thousand
+        // (`alpha.68` §1). Only that one empties the fallback.
+        $columnsUnreadable = false;
+        foreach ($lines as $line) {
+            if (($line['unit_unreadable'] ?? false) === true) {
+                $columnsUnreadable = true;
+                $unreadable = true;
+                break;
+            }
+        }
 
         // THE COARSE END: what a row that does not carry its own unit was
         // written in. The registry's row holds the FIRST unit it recorded and
@@ -282,8 +323,12 @@ final class VendorBalance
         return [
             'currency' => $currency,
             'exponent' => $exponent,
-            'fallback' => $fallback,
+            // `null` rather than nought when the COLUMN STATE could not be
+            // read: the caller below counts such a row instead of
+            // multiplying it by a power of ten it cannot justify.
+            'fallback' => $columnsUnreadable ? null : $fallback,
             'unreadable' => $unreadable,
+            'columns_unreadable' => $columnsUnreadable,
         ];
     }
 
@@ -298,16 +343,22 @@ final class VendorBalance
      * round exists to stop.
      *
      * @param int|null $own the row's own exponent, or null when it has none
-     * @param array{currency:string, exponent:int, fallback:int, unreadable:bool} $unit
+     * @param array{currency:string, exponent:int, fallback:int|null,
+     *               unreadable:bool, columns_unreadable:bool} $unit
      */
     private function inUnit(int $share, ?int $own, array $unit): ?int
     {
+        if ($own === null && $unit['fallback'] === null) {
+            // «This row does not say, and I could not find out what rows
+            // that do not say are in.» Counted, never scaled.
+            return null;
+        }
         // A row that does not say is at the COARSE end of these books. That
         // is not a guess: it is what `tmc_vendor_money_unit` recorded at the
         // vendor's first sale and what every writer before `alpha.67` used.
         // Resolved from the unit computed once above rather than per row, so
         // this loop costs no queries.
-        $from = $own ?? $unit['fallback'];
+        $from = $own ?? (int) $unit['fallback'];
         if ($from > $unit['exponent']) {
             return null;
         }

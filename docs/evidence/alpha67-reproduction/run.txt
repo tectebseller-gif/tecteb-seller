@@ -1,0 +1,431 @@
+=== the trees ===
+base_ref=6884d4d724cd9e2149fea0b2e9a275b2b7abc850
+this_checkout_src_digest=650da04699fb378d
+installed_src_digest=d07c9ee6822b020b
+base_src_digest=d07c9ee6822b020b
+PASS  0a the installed package is this round's base (alpha.67)  (d07c9ee6822b020b)
+PASS  0b this checkout differs from the base  (differ)
+ran=yes
+schema_for_both_halves=34
+PASS  0b2 the structure is this tree's before either half runs  (34)
+PASS  0c the installed tree is now alpha.67's  (d07c9ee6822b020b)
+
+=== BEFORE · §1 a failed catalogue read becomes «the columns are absent» ===
+registry_currency=IRT
+registry_exponent=0
+row_legacy=393
+row_legacy_exponent=__null__
+row_exact=394
+row_exact_exponent=4
+ledger_exponents=0,4
+arranged=yes
+PASS  1a the vendor's registry unit is exponent 0  (0)
+PASS  1b a legacy line carries no unit  (__null__)
+PASS  1c and a new line carries exponent 4  (4)
+has_carried_by=yes
+has_three_states=no
+carried_present=yes
+carried_blinded=no
+carried_absent_table=no
+PASS  1d the question is asked with a boolean  (yes)
+PASS  1e there is no three-state answer  (no)
+PASS  1f a healthy read says the columns are there  (yes)
+PASS  1g THE DEFECT: a failed read says they are NOT  (no)
+totals_exponent=4
+totals_share=6958850
+totals_unreadable=__no_key__
+balance_earned=60751883750
+balance_exponent=4
+balance_unreadable=no
+fixture_share_at_e4=1883750
+view_legacy_exponent=__null__
+view_legacy_share=100
+view_legacy_unreadable=__no_key__
+view_exact_exponent=4
+view_exact_share=883750
+view_exact_unreadable=__no_key__
+PASS  1h a healthy read sees the exponent-4 row's unit  (4)
+blinded_reads=1
+totals_exponent=0
+totals_share=6958850
+totals_unreadable=__no_key__
+balance_earned=69588500000
+balance_exponent=4
+balance_unreadable=no
+healthy_earned=60751883750
+earned_inflated_by=0x+
+earned_differs=yes
+exact_share_lost=8836616250
+view_legacy_exponent=__null__
+view_legacy_unreadable=__no_key__
+view_exact_exponent=__null__
+view_exact_unreadable=__no_key__
+exact_row_read_at=0
+exact_row_stated_at=4
+exact_row_factor_applied=10000
+PASS  1i the catalogue read really was blinded  (1)
+PASS  1j THE DEFECT: the exponent-4 row is reported as carrying no unit  (__null__)
+PASS  1k …and is then read at the registry's exponent  (0)
+PASS  1l …though the row states exponent 4  (4)
+PASS  1m …so a factor of ten thousand is applied  (10000)
+PASS  1n …the balance differs from the healthy one  (yes)
+PASS  1o …and nothing says the answer is a fallback  (no)
+NOTE  1p the exact share invented, in minor units at e4  8836616250
+write_result=0
+row_landed=0
+PASS  1q a unit-bearing write is refused while the read is blinded  (0)
+PASS  1r …so no row landed  (0)
+
+=== BEFORE · §2 the ledger sum ignores the unit ===
+balances_shape=int
+vendor_earning_raw=-5191680
+vendor_earning_unit=__not_reported__
+rows_at_e0=-6075430
+rows_at_e4=883750
+control_exact_minor_at_e4=1883750
+control_exact_text=۱۸۸٫۳۷۵
+naive_sum_of_the_two=883850
+PASS  2a the answer is a bare integer  (int)
+PASS  2b …so no unit comes back with it  (__not_reported__)
+NOTE  2c what the rows at exponent 0 hold  -6075430
+NOTE  2d what the rows at exponent 4 hold  883750
+NOTE  2e the owner's control, in minor units at e4  1883750
+two_currencies_answer=summed:-5191180
+usd_rows_left=0
+PASS  2f THE DEFECT: two currencies are summed  (summed)
+PASS  2g the fixture gave its USD rows back  (0)
+
+=== BEFORE · §3 truncation ===
+sh: 1: /usr/sbin/sendmail: not found
+sh: 1: /usr/sbin/sendmail: not found
+gate_ready=yes
+gate_reason=ready_on_trial
+take_code=ownership_taken
+marketplace_row=1603
+order_id=796
+order_total=101
+order_currency=IRT
+line_total_on_order=101
+line_quantity=3
+item_id=395
+item_quantity=3
+item_base_minor=1010000
+item_commission_minor=126250
+item_share_minor=883750
+item_exponent=4
+item_unit_price_minor=336666
+unit_price_divides_exactly=no
+unit_price_exact_would_be=336666.66666667
+PASS  3a the order gate opens on the trial key  (yes)
+PASS  3b the line is three units  (3)
+PASS  3c …whose total is ۱۰۱ تومان at the finer unit  (1010000)
+PASS  3d …with an exact commission of ۱۲٫۶۲۵  (126250)
+PASS  3e …and an exact share of ۸۸٫۳۷۵  (883750)
+PASS  3f THE DEFECT: the per-unit price is truncated  (336666)
+unit_price_minor=336666
+unit_price_times_quantity=1009998
+base_minor=1010000
+unit_price_is_exact=no
+division_is_exact=no
+PASS  3g …and does not reconstruct its own line  (1009998)
+PASS  3h …which the line itself contradicts  (1010000)
+PASS  3i …so it is not exact  (no)
+open_code=return_opened
+return_id=17
+approve_code=return_approved
+receive_code=return_received
+refusal_step=__none__
+refund_code=return_refunded
+declared_refund_minor=336666
+declared_tax_minor=0
+declared_currency=IRT
+declared_exponent=4
+return_status=refunded
+stored_exponent=4
+stored_refund_minor=336666
+stored_tax_refund_minor=0
+stored_commission_reversed_minor=42083
+stored_vendor_share_reversed_minor=294583
+exact_third_of_base=336666.66666667
+exact_third_of_commission=42083.333333333
+base_divides_exactly=no
+commission_divides_exactly=no
+stored_refund_is_exact=no
+PASS  3j accepting the goods is allowed  (return_received)
+PASS  3k THE DEFECT: the partial return is recorded anyway  (return_refunded)
+PASS  3l …with a floored third of the base  (336666)
+PASS  3m …and a floored third of the commission  (42083)
+PASS  3n …though neither divides exactly  (no)
+PASS  3o …and the stored third is not a third  (no)
+cancelled_open_returns=0
+already_refunded_quantity=1
+remaining_quantity=2
+open_code=return_opened
+refund_code=return_refunded
+refunded_quantity_total=3
+refunded_base_total=1010000
+line_base_minor=1010000
+whole_line_given_back=yes
+PASS  3p the rest of the line still comes back whole  (yes)
+
+=== BEFORE · §4 nothing answers «is going back safe» ===
+has_rollback_gate=no
+rows_finer_than_the_registry=2
+ledger_entries_finer_than_the_registry=11
+verdict=__nothing_answers_this__
+PASS  4a there is no rollback gate  (no)
+PASS  4b …and nothing answers the question  (__nothing_answers_this__)
+NOTE  4c rows a release before alpha.67 would misread  2
+NOTE  4d ledger entries it would misread  11
+
+PASS  0d the installed tree is now this checkout's  (650da04699fb378d)
+
+=== AFTER · §1 three answers, and a second way to ask ===
+registry_currency=IRT
+registry_exponent=0
+row_legacy=396
+row_legacy_exponent=__null__
+row_exact=397
+row_exact_exponent=4
+ledger_exponents=0,4
+arranged=yes
+PASS  5a the same fixture: registry exponent 0  (0)
+PASS  5b the same legacy line  (__null__)
+PASS  5c the same exponent-4 line  (4)
+has_carried_by=no
+has_three_states=yes
+state_present=present
+state_blinded=present
+state_absent_table=absent
+PASS  5d the boolean question is gone  (no)
+PASS  5e there are three states  (yes)
+PASS  5f a healthy read says present  (present)
+PASS  5g a failed catalogue read still says present  (present)
+PASS  5h …and a table with no such columns says absent  (absent)
+blinded_reads=1
+totals_exponent=__null__
+totals_share=0
+totals_unreadable=no
+balance_earned=60751883750
+balance_exponent=4
+balance_unreadable=no
+healthy_earned=60751883750
+earned_inflated_by=0x+
+earned_differs=no
+exact_share_lost=0
+view_legacy_exponent=__null__
+view_legacy_unreadable=no
+view_exact_exponent=4
+view_exact_unreadable=no
+exact_row_read_at=0
+exact_row_stated_at=4
+exact_row_factor_applied=10000
+PASS  5i the catalogue read really was blinded  (1)
+PASS  5j the exponent-4 row still states its unit  (4)
+PASS  5k …and the balance is the healthy one  (no)
+PASS  5l …with nothing invented  (0)
+totals_exponent=__null__
+totals_share=0
+totals_unreadable=no
+balance_earned=60751883750
+balance_exponent=4
+balance_unreadable=no
+fixture_share_at_e4=1883750
+view_legacy_exponent=__null__
+view_legacy_share=100
+view_legacy_unreadable=no
+view_exact_exponent=4
+view_exact_share=883750
+view_exact_unreadable=no
+PASS  5m a healthy read is unchanged  (4)
+PASS  5n …and says so rather than guessing  (no)
+write_result=398
+row_landed=1
+PASS  5o a unit-bearing write now lands while the read is blinded  (1)
+PASS  5p …with a real row id  (yes)
+
+=== AFTER · §2 one unit, exactly, and two currencies refused ===
+balances_shape=array
+vendor_earning_raw=-60753416250
+vendor_earning_unit=IRT/1e4
+vendor_earning_text=__no_key__
+vendor_earning_exact=yes
+rows_at_e0=-6075430
+rows_at_e4=883750
+control_exact_minor_at_e4=1883750
+control_exact_text=۱۸۸٫۳۷۵
+naive_sum_of_the_two=883850
+PASS  6a each account answers with its unit  (array)
+PASS  6b …named  (IRT/1e4)
+PASS  6c …and exact  (yes)
+NOTE  6d the figure, in minor units at e4  -60753416250
+two_currencies_answer=mixed_currencies
+two_currencies_minor=__none__
+two_currencies_currencies=IRT,USD
+usd_rows_left=0
+PASS  6e two currencies are refused by name  (mixed_currencies)
+PASS  6f …with no figure at all  (__none__)
+PASS  6g …and both named  (IRT,USD)
+PASS  6h the fixture gave its USD rows back  (0)
+
+=== AFTER · §3 nothing is truncated, and nothing is chosen silently ===
+sh: 1: /usr/sbin/sendmail: not found
+sh: 1: /usr/sbin/sendmail: not found
+gate_ready=yes
+gate_reason=ready_on_trial
+take_code=ownership_taken
+marketplace_row=1604
+order_id=798
+order_total=101
+order_currency=IRT
+line_total_on_order=101
+line_quantity=3
+item_id=399
+item_quantity=3
+item_base_minor=1010000
+item_commission_minor=126250
+item_share_minor=883750
+item_exponent=4
+item_unit_price_minor=__null__
+unit_price_divides_exactly=no
+unit_price_exact_would_be=336666.66666667
+PASS  7a the same line: three units of ۱۰۱ تومان in total  (1010000)
+PASS  7b the commission is still exact  (126250)
+PASS  7c the share is still exact  (883750)
+PASS  7d the per-unit price says «no whole one»  (__null__)
+unit_price_minor=__null__
+unit_price_times_quantity=__null__
+base_minor=1010000
+unit_price_is_exact=__null__
+division_is_exact=no
+PASS  7e …read back from the row  (__null__)
+PASS  7f …and the line's own total is untouched  (1010000)
+open_code=return_opened
+return_id=19
+approve_code=return_approved
+receive_code=return_share_not_exact
+refusal_quantity=1
+refusal_line_quantity=3
+refusal_base_minor=1010000
+refusal_commission_minor=126250
+refusal_parts=base,commission
+refund_code=__not_attempted__
+refusal_step=received
+return_status=approved
+return_row=__absent__
+PASS  7g the refusal happens when the goods are accepted  (received)
+PASS  7h …by name  (return_share_not_exact)
+PASS  7i …with the line's own total stated  (1010000)
+PASS  7j …and which parts do not divide  (base,commission)
+PASS  7k the money step is not even attempted  (__not_attempted__)
+PASS  7l nothing was written  (__absent__)
+PASS  7m …and the return is still cancellable  (approved)
+cancelled_open_returns=1
+already_refunded_quantity=0
+remaining_quantity=3
+open_code=return_opened
+refund_code=return_refunded
+refunded_quantity_total=3
+refunded_base_total=1010000
+line_base_minor=1010000
+whole_line_given_back=yes
+PASS  7n the stranded request can be cancelled  (yes)
+PASS  7o the whole line then comes back, exactly  (yes)
+PASS  7p …all three units of it  (3)
+
+=== AFTER · §4 the gate is a count, in three states ===
+has_rollback_gate=yes
+gate_safe=no
+gate_verdict=blocked
+gate_reason=11 row(s) are recorded at an exponent finer than their vendor's registry unit; alpha.66 would read each of them as a figure 10,000 times too large
+finer_rows_ledger_entries=8
+finer_rows_order_items=2
+finer_rows_withdrawals=0
+finer_rows_withdrawal_lines=0
+finer_rows_returns=1
+gate_readable=yes
+PASS  8a there is a rollback gate  (yes)
+PASS  8b …and it read the tables  (yes)
+PASS  8c …and one finer row is enough to block  (blocked)
+PASS  8d …which is not «safe»  (no)
+NOTE  8e the counts it reported  5 tables
+
+=== CONTROLS — the same answer on both trees, or in a named direction ===
+registry_currency=IRT
+registry_exponent=0
+row_legacy=400
+row_legacy_exponent=__null__
+row_exact=401
+row_exact_exponent=4
+ledger_exponents=0,4
+arranged=yes
+has_carried_by=no
+has_three_states=yes
+state_present=present
+state_blinded=present
+state_absent_table=absent
+PASS  9a a healthy read says present on BOTH trees  (yes)
+PASS  9b a table with no such columns is absent on BOTH trees  (yes)
+sh: 1: /usr/sbin/sendmail: not found
+sh: 1: /usr/sbin/sendmail: not found
+gate_ready=yes
+gate_reason=ready_on_trial
+take_code=ownership_taken
+marketplace_row=1605
+order_id=800
+order_total=101
+order_currency=IRT
+line_total_on_order=101
+line_quantity=3
+item_id=402
+item_quantity=3
+item_base_minor=1010000
+item_commission_minor=126250
+item_share_minor=883750
+item_exponent=4
+item_unit_price_minor=__null__
+unit_price_divides_exactly=no
+unit_price_exact_would_be=336666.66666667
+PASS  9c the exact commission is the same figure on both trees  (126250)
+PASS  9d the exact share is the same figure on both trees  (883750)
+PASS  9e the line's own total did not move  (1010000)
+cancelled_open_returns=0
+already_refunded_quantity=0
+remaining_quantity=3
+open_code=return_opened
+refund_code=return_refunded
+refunded_quantity_total=3
+refunded_base_total=1010000
+line_base_minor=1010000
+whole_line_given_back=yes
+PASS  9f a whole-line return works on both trees  (yes)
+has_rollback_gate=yes
+gate_safe=no
+gate_verdict=blocked
+gate_reason=11 row(s) are recorded at an exponent finer than their vendor's registry unit; alpha.66 would read each of them as a figure 10,000 times too large
+finer_rows_ledger_entries=8
+finer_rows_order_items=2
+finer_rows_withdrawals=0
+finer_rows_withdrawal_lines=0
+finer_rows_returns=1
+gate_readable=yes
+PASS  9g the finer rows the gate counts were really there BEFORE too  (yes)
+vendor_user_id=3
+schema_version=34
+plugin_version=0.1.0-alpha.67
+fixture_item_rows=3
+fixture_ledger_rows=4
+NOTE  9h the schema this ran against  34
+NOTE  9i the package installed when this started  0.1.0-alpha.67
+vendor_user_id=3
+schema_version=34
+plugin_version=0.1.0-alpha.67
+fixture_item_rows=0
+fixture_ledger_rows=0
+PASS  9j the fixture gave its order-item rows back  (0)
+PASS  9k …and its ledger rows  (0)
+
+=== the tree is put back ===
+PASS  9l the installed tree is what it was when this started  (d07c9ee6822b020b)
+
+checks=97 pass=97 fail=0

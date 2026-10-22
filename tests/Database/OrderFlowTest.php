@@ -249,9 +249,12 @@ final class OrderFlowTest extends DatabaseTestCase
         $first = $this->ledger->forEvent(CaptureOrder::eventKey(5002, 21));
         self::assertNotSame([], $first, 'the sale reached the ledger');
 
+        // `balances()` answers per account with the unit beside the figure
+        // from `alpha.68`: a bare integer could not say which of a vendor's
+        // two exponents it was in (§2).
         $balances = $this->ledger->balances(self::VENDOR_A);
-        self::assertSame(-4500000000, $balances[LedgerAccount::VendorEarning->value] ?? 0);
-        self::assertSame(-500000000, $balances[LedgerAccount::Commission->value] ?? 0);
+        self::assertSame(-4500000000, $balances[LedgerAccount::VendorEarning->value]['minor'] ?? 0);
+        self::assertSame(-500000000, $balances[LedgerAccount::Commission->value]['minor'] ?? 0);
 
         // The checkout hook fires again — a retried payment callback, a second
         // WooCommerce hook for the same order.
@@ -309,9 +312,12 @@ final class OrderFlowTest extends DatabaseTestCase
 
         // Exactly one financial event, with nothing doubled.
         self::assertCount(3, $this->ledger->forEvent($eventKey));
+        // `balances()` answers per account with the unit beside the figure
+        // from `alpha.68`: a bare integer could not say which of a vendor's
+        // two exponents it was in (§2).
         $balances = $this->ledger->balances(self::VENDOR_A);
-        self::assertSame(-4500000000, $balances[LedgerAccount::VendorEarning->value] ?? 0);
-        self::assertSame(-500000000, $balances[LedgerAccount::Commission->value] ?? 0);
+        self::assertSame(-4500000000, $balances[LedgerAccount::VendorEarning->value]['minor'] ?? 0);
+        self::assertSame(-500000000, $balances[LedgerAccount::Commission->value]['minor'] ?? 0);
 
         // And exactly one line, which knows what it is worth.
         $stored = $this->orderItems->forVendor(self::VENDOR_A);
@@ -968,7 +974,10 @@ final class OrderFlowTest extends DatabaseTestCase
         // One event, nothing doubled, and the vendor's balance is the one
         // figure the books hold.
         self::assertCount(3, $this->ledger->forEvent($eventKey));
-        self::assertSame(-4500000000, $this->ledger->balances(self::VENDOR_A)[LedgerAccount::VendorEarning->value] ?? 0);
+        self::assertSame(
+            -4500000000,
+            $this->ledger->balances(self::VENDOR_A)[LedgerAccount::VendorEarning->value]['minor'] ?? 0
+        );
 
         // A third callback has nothing left to do and says nothing.
         $third = $this->capture->capture(5016, $lines);
@@ -1501,8 +1510,8 @@ final class OrderFlowTest extends DatabaseTestCase
         $table = $this->wpdb->prefix . 'tmc_order_items';
         $this->wpdb->pdo()->exec("ALTER TABLE `{$table}` DROP COLUMN `tmc_currency`");
         $this->wpdb->pdo()->exec("ALTER TABLE `{$table}` DROP COLUMN `tmc_exponent`");
-        // The memo in `carriedBy()` is per request; a fresh repository is how
-        // a later request asks again.
+        // The memo in `unitColumnState()` is per instance; a fresh repository
+        // is how a later request asks again.
         $items = new DbOrderItemRepository(new WpDatabase($this->wpdb), new SystemClock());
 
         try {
@@ -1667,6 +1676,51 @@ final class OrderFlowTest extends DatabaseTestCase
             'the old row still means what it said, and the two add up exactly'
         );
         self::assertFalse($balance['unit_unreadable']);
+    }
+
+    /**
+     * ⛔ THE PER-UNIT PRICE IS WRITTEN ONLY WHEN IT IS EXACT — §3's second
+     * half, on the owner's own example.
+     *
+     * A line whose total is ۱۰۱ تومان for three units: `base_minor` is
+     * `1010000` at exponent 4 and a third of it is ۳۳۶۶۶۶٫۶۶۶…, which is not
+     * an integer at any finite exponent. `alpha.67` stored `336666` — and
+     * `336666 × 3` is `1009998`, not `1010000`, so the column held a price
+     * that did not reconstruct its own line. Migration 34 lets it say «no
+     * whole per-unit price» instead.
+     */
+    public function testAUnitPriceThatIsNotWholeIsNotInvented(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'قلم تقسیم‌ناپذیر', 'SKU-UNITPRICE-1');
+        $rules = new FakeTectebCommissionSource();
+        $rules->set((int) $this->products->find($product)?->wcProductId, TectebCommission::percent(1250));
+
+        $this->captureWithCommission($rules)->capture(6301, [$this->line(641, $product, 3, 101)]);
+
+        $line = $this->orderItems->findByOrderItem(641);
+        self::assertNotNull($line);
+        self::assertSame(1010000, $line->baseMinor, 'the line total, at the finer unit');
+        self::assertNull($line->unitPriceMinor, 'a third of it is not a whole number, so none is claimed');
+    }
+
+    /** AND WHEN IT IS WHOLE IT IS STILL WRITTEN — the control. */
+    public function testAUnitPriceThatIsWholeIsStillRecorded(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'قلم بخش‌پذیر', 'SKU-UNITPRICE-2');
+        $rules = new FakeTectebCommissionSource();
+        $rules->set((int) $this->products->find($product)?->wcProductId, TectebCommission::percent(1250));
+
+        $this->captureWithCommission($rules)->capture(6302, [$this->line(642, $product, 3, 300)]);
+
+        $line = $this->orderItems->findByOrderItem(642);
+        self::assertNotNull($line);
+        self::assertSame(3000000, $line->baseMinor);
+        self::assertSame(1000000, $line->unitPriceMinor, '۱۰۰ تومان per unit, exactly');
+        self::assertSame(
+            $line->baseMinor,
+            (int) $line->unitPriceMinor * $line->quantity,
+            'and it reconstructs the line it came from'
+        );
     }
 
     /**

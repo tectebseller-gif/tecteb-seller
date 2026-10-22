@@ -49,6 +49,10 @@ final class WithdrawalMessages
             'withdrawal_reviewed' => __('وضعیت درخواست تغییر کرد.', 'tecteb-marketplace-core'),
             'withdrawal_already_open' => __('یک درخواست باز دارید. تا تعیین تکلیف آن، درخواست تازه ثبت نمی‌شود.', 'tecteb-marketplace-core'),
             'nothing_eligible' => __('در این لحظه مبلغ قابل برداشتی ندارید.', 'tecteb-marketplace-core'),
+            // The unit, not the amount. A balance taken without a readable
+            // unit is a number with no scale, and reserving against it would
+            // claim lines at «exponent 0» whatever they say (`alpha.68` §1).
+            'balance_unit_unreadable' => __('واحد پولِ مانده شما در این لحظه خوانده نشد، پس درخواستی ثبت نمی‌شود. مبلغ‌ها دست‌نخورده‌اند؛ این یک خطای خواندن است و پس از رفعش دوباره تلاش کنید.', 'tecteb-marketplace-core'),
             'settlement_blocked' => __('برداشت هنوز فعال نشده است؛ تصمیم‌های مالی باز است.', 'tecteb-marketplace-core'),
             // The owner's own decision, and a different sentence from the one
             // above: «تصمیم‌ها باز است» and «این مسیر فعلاً باز نیست» are two

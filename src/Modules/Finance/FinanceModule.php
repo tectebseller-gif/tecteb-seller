@@ -39,6 +39,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\TectebCommissi
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\TectebCommissionPanel;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\WpTectebCommissionSource;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbCommissionRuleRepository;
+use Tecteb\Marketplace\Modules\Finance\Application\MoneyScaleRollbackGate;
 use Tecteb\Marketplace\Modules\Finance\Application\VendorMoneyUnitRegistryInterface;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbSupplierPaymentRepository;
@@ -127,6 +128,13 @@ final class FinanceModule implements ModuleInterface
         $c->bind(SettlementGate::class, static fn (ContainerInterface $c) => new SettlementGate(
             $c->get(TrialUnlock::class)
         ));
+        // THE ROLLBACK GATE. A question, never a conversion: it counts the
+        // rows a release before `alpha.67` would misread and answers safe /
+        // blocked / unknown (`alpha.68` §4).
+        $c->bind(
+            MoneyScaleRollbackGate::class,
+            static fn (ContainerInterface $c) => new MoneyScaleRollbackGate($c->get(DatabaseInterface::class))
+        );
         $c->bind(VendorMoneyUnitRegistryInterface::class, static fn (ContainerInterface $c) => new DbVendorMoneyUnitRegistry(
             $c->get(DatabaseInterface::class),
             $c->get(ClockInterface::class)

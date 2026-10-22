@@ -82,6 +82,17 @@ final class VendorFinanceView
         if ($pending !== '') {
             $html .= '<p class="tv-hint">' . esc_html($pending) . '</p>';
         }
+        if (($balance['unit_unreadable'] ?? false) === true) {
+            // SAID, NOT PRINTED AROUND. A balance whose unit could not be
+            // read is still shown — the figures that carry their own unit are
+            // real — but the page says so, because a number with a scale
+            // nobody could verify presented as a fact is the mistake this
+            // round removes (`alpha.68` §1).
+            $html .= VendorUi::notice('warning', __(
+                'واحد پولِ بخشی از ردیف‌های شما در این لحظه خوانده نشد. ردیف‌هایی که واحدشان معلوم نیست در «سهم ثبت‌نشده» شمرده شده‌اند و در مبلغ‌های بالا نیامده‌اند؛ هیچ عددی حدس زده نشده است.',
+                'tecteb-marketplace-core'
+            ));
+        }
         if ((int) $balance['unrecorded'] > 0) {
             // FIN-02: a share that could not be computed is not zero, and the
             // vendor is told rather than quietly short-changed.

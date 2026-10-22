@@ -125,6 +125,24 @@ final class RequestWithdrawal
                 'delay_days' => $balance['delay_days'],
             ]);
         }
+        // ⛔ A BALANCE TAKEN WHILE THE UNIT COLUMNS COULD NOT BE READ IS NOT
+        // A FIGURE TO RESERVE AGAINST. A row reported as carrying no unit may
+        // be carrying exponent 4, so neither this read nor the claim's own sum
+        // can be trusted to be in one unit — and `claimedShareIn()` refuses
+        // such a claim anyway, which would surface as «reservation_lost», a
+        // true sentence about the wrong thing (`alpha.65`).
+        //
+        // NARROW ON PURPOSE: `unit_unreadable` also means «no money-unit
+        // registry is wired», which is a legitimate build whose answer every
+        // release has reserved against. `columns_unreadable` is the one that
+        // must stop (`alpha.60`: a guard wider than the defect is worse).
+        // `alpha.67` passed `(int) $balance['exponent']`, and `(int) null` is
+        // nought, so the exponent is checked too.
+        if (($balance['columns_unreadable'] ?? false) === true || ($balance['exponent'] ?? null) === null) {
+            return OperationResult::failure('balance_unit_unreadable', [
+                'vendor_id' => $vendorUserId,
+            ]);
+        }
         $withdrawalId = $this->withdrawals->reserve(
             $vendorUserId,
             $balance['eligible_line_ids'],
@@ -140,7 +158,11 @@ final class RequestWithdrawal
             // the unit the read was taken in, or it compares two different
             // numbers and refuses every request.
             (int) $balance['exponent'],
-            (string) $balance['currency']
+            (string) $balance['currency'],
+            // AND WHAT A UNIT-LESS CLAIMED LINE IS IN, so the claim's own
+            // sum resolves it the same way this read did rather than
+            // guessing from the other rows (`alpha.68` §1).
+            $balance['fallback_exponent'] ?? null
         );
         if ($withdrawalId <= 0) {
             // Another request took at least one of these lines between the

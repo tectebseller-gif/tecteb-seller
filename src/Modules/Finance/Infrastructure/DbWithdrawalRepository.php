@@ -44,7 +44,7 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
      */
     private ?string $supplierClaimClause = null;
 
-    /** @var array<string,bool> per-instance answers to «does this table carry the unit?» */
+    /** @var array<string,string> per-instance answers: present, absent or unknown */
     private array $unitColumns = [];
 
     public function __construct(
@@ -151,7 +151,14 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         string $accountHolder,
         string $eligibleUntil = '9999-12-31 23:59:59',
         ?int $amountExponent = null,
-        ?string $amountCurrency = null
+        ?string $amountCurrency = null,
+        // THE VENDOR'S FIRST-RECORDED EXPONENT, which is what a claimed line
+        // carrying no unit of its own was written in. Passed rather than
+        // guessed from the other rows, for the reason
+        // `DbOrderItemRepository::totalsForVendor()` states: «the coarsest
+        // exponent some other row happens to name» changes with the
+        // catalogue (`alpha.68` §1).
+        ?int $fallbackExponent = null
     ): int {
         $ids = array_values(array_unique(array_map('intval', $orderItemIds)));
         $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
@@ -168,8 +175,12 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         // at the finer exponent and whose row cannot say so is a figure that
         // reads correctly today and ten thousand times too large the moment
         // migration 33 lands. Refused with no row written.
-        $carried = $this->unitColumnsOn($this->table());
-        $linesCarry = $this->unitColumnsOn($this->lines());
+        // `PRESENT` is the only state a unit may be written in: `ABSENT`
+        // because the column is not there, `UNKNOWN` because we could not
+        // find out and a figure at the finer exponent in a row that cannot
+        // say so is the ten-thousandfold mistake this round removes.
+        $carried = $this->unitColumnsOn($this->table()) === U::PRESENT;
+        $linesCarry = $this->unitColumnsOn($this->lines()) === U::PRESENT;
         if ((!$carried || !$linesCarry)
             && ($amountExponent !== null || trim((string) $amountCurrency) !== '')) {
             return 0;
@@ -312,7 +323,7 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         // produced `$amountMinor` was taken in — passed in rather than
         // recomputed, for the reason `eligible_until` is (`alpha.39`): two
         // computations of one unit agree until the second one is later.
-        $sum = $this->claimedShareIn($withdrawalId, $amountExponent);
+        $sum = $this->claimedShareIn($withdrawalId, $amountExponent, $fallbackExponent);
         if ($sum === null || $sum !== $amountMinor) {
             $this->db->rollback();
             return 0;
@@ -688,19 +699,33 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
      * Grouped by the row's own exponent and combined in PHP by multiplying
      * each group into the target — a power of ten, exact, no `float` and no
      * `POW()` (which is a float in MySQL and the same mistake one layer
-     * down). A row with no unit of its own is read at the coarsest exponent
-     * present, which is what it was written in. `null` when the read failed
-     * or when a row is FINER than the target, because inventing a rounded
-     * value for it is the one thing this round exists to stop.
+     * down). A row with no unit of its own is read at `$fallbackExponent`,
+     * the vendor's first-recorded unit — and when the caller did not supply
+     * one AND the claim mixes rows that name a unit with rows that do not,
+     * the answer is `null`: «the coarsest exponent some other row names» is
+     * a guess, and a guess here refuses or over-pays a withdrawal.
+     *
+     * `null` also when the column state could not be read at all, and when a
+     * row is FINER than the target, because inventing a rounded value for it
+     * is the one thing this round exists to stop.
      */
-    private function claimedShareIn(int $withdrawalId, ?int $target): ?int
-    {
-        // Asked of the table first, for the window between a file swap and
-        // the upgrade gate running (`alpha.46`): naming a column that is not
-        // there yet is a hard SQL error on the withdrawal path, which
-        // measuring the real upgrade is what found. Absent means one unit,
-        // the vendor's own — the answer every release up to `alpha.66` gave.
-        $carried = $this->unitColumnsOn($this->orderItems());
+    private function claimedShareIn(
+        int $withdrawalId,
+        ?int $target,
+        ?int $fallbackExponent = null
+    ): ?int {
+        // Asked of the table first, in three states, for the window between a
+        // file swap and the upgrade gate running (`alpha.46`): naming a
+        // column that is not there yet is a hard SQL error on the withdrawal
+        // path, which measuring the real upgrade is what found. `ABSENT`
+        // means one unit, the vendor's own — the answer every release up to
+        // `alpha.66` gave. `UNKNOWN` refuses: a reservation is reversible and
+        // paying twice is not (`alpha.61`).
+        $state = $this->unitColumnsOn($this->orderItems());
+        if ($state === U::UNKNOWN) {
+            return null;
+        }
+        $carried = $state === U::PRESENT;
         $rows = $this->db->getResults(
             'SELECT ' . ($carried ? '`' . U::EXPONENT . '`' : 'NULL') . ' AS tmc_exponent,
                     COALESCE(SUM(vendor_share_minor), 0) AS total
@@ -713,21 +738,37 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
             // the caller's own `$amountMinor > 0` check refuses it.
             return 0;
         }
-        $coarsest = null;
         $finest = null;
         foreach ($rows as $row) {
             if (($row['tmc_exponent'] ?? null) === null) {
                 continue;
             }
             $exponent = (int) $row['tmc_exponent'];
-            $coarsest = $coarsest === null ? $exponent : min($coarsest, $exponent);
             $finest = $finest === null ? $exponent : max($finest, $exponent);
         }
         $unit = $target ?? $finest ?? 0;
-        $nullAt = $coarsest ?? $unit;
+        $unitless = false;
+        foreach ($rows as $row) {
+            if (($row['tmc_exponent'] ?? null) === null) {
+                $unitless = true;
+                break;
+            }
+        }
+        // WHAT A ROW THAT SAYS NOTHING IS IN. The caller's registry figure,
+        // or — when every row says nothing — the target, which is the unit
+        // the balance that produced `$amountMinor` was taken in and therefore
+        // the same number. A MIX with no registry figure is refused rather
+        // than guessed.
+        $nullAt = $fallbackExponent;
+        if ($nullAt === null && $finest === null) {
+            $nullAt = $unit;
+        }
+        if ($unitless && $nullAt === null) {
+            return null;
+        }
         $sum = 0;
         foreach ($rows as $row) {
-            $from = ($row['tmc_exponent'] ?? null) === null ? $nullAt : (int) $row['tmc_exponent'];
+            $from = ($row['tmc_exponent'] ?? null) === null ? (int) $nullAt : (int) $row['tmc_exponent'];
             if ($from > $unit) {
                 return null;
             }
@@ -775,17 +816,20 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         }
     }
     /**
-     * Whether a table carries migration 33's unit columns — asked once per
-     * INSTANCE, which is once per request in practice.
+     * WHICH OF THE THREE STATES a table's unit columns are in — asked once
+     * per INSTANCE, which is once per request in practice.
      *
-     * The memo lives here rather than in `M0033::carriedBy()` for the reason
-     * `ProductTableShape` keeps its own: a process-wide cache is right for a
-     * request and wrong for anything that changes the table and asks again.
+     * The memo lives here rather than in `U::unitColumnState()` for the
+     * reason `ProductTableShape` keeps its own: a process-wide cache is
+     * right for a request and wrong for anything that changes the table and
+     * asks again. Three answers rather than two, because a failed read read
+     * as «absent» turns an amount at the finer exponent into one ten
+     * thousand times larger (`alpha.68` §1).
      */
-    private function unitColumnsOn(string $table): bool
+    private function unitColumnsOn(string $table): string
     {
         if (!array_key_exists($table, $this->unitColumns)) {
-            $this->unitColumns[$table] = U::carriedBy($this->db, $table);
+            $this->unitColumns[$table] = U::unitColumnState($this->db, $table);
         }
         return $this->unitColumns[$table];
     }

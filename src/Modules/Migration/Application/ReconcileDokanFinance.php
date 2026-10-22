@@ -188,6 +188,40 @@ final class ReconcileDokanFinance
                 'detail' => 'this shop has no ledger rows in this marketplace',
             ];
         }
+        // THE UNIT OF COLUMN TWO, said rather than assumed. `balances()`
+        // answers per account with the exponent it is in, and an account
+        // holding two currencies refuses outright. Both are facts a human
+        // comparing two columns has to be told, because a figure whose scale
+        // is unstated is exactly what makes somebody add it to Dokan's bare
+        // number (`alpha.68` §2).
+        foreach ($balances as $account => $figure) {
+            if (!is_array($figure)) {
+                continue;
+            }
+            $refused = (string) ($figure['refused'] ?? '');
+            if ($refused === 'mixed_currencies') {
+                $out[] = [
+                    'code' => 'marketplace_account_holds_two_currencies',
+                    'detail' => (string) $account . ' holds ' . (string) ($figure['currencies'] ?? '')
+                        . ' and is not summed; nothing is converted',
+                ];
+                continue;
+            }
+            if ($refused !== '') {
+                $out[] = [
+                    'code' => 'marketplace_account_not_summable',
+                    'detail' => (string) $account . ' could not be taken in one unit: ' . $refused,
+                ];
+                continue;
+            }
+            if (count((array) ($figure['groups'] ?? [])) > 1) {
+                $out[] = [
+                    'code' => 'marketplace_account_spans_two_scales',
+                    'detail' => (string) $account . ' was recorded at more than one exponent and is '
+                        . 'combined exactly into 1e' . (string) ($figure['exponent'] ?? '?'),
+                ];
+            }
+        }
         if (($decision['decision'] ?? self::OPEN) === self::OPEN) {
             $out[] = [
                 'code' => 'handover_decision_open',
@@ -249,6 +283,10 @@ final class ReconcileDokanFinance
             // rather than blending the two.
             'marketplace' => [
                 'ledger_available' => $this->ledger !== null,
+                // Each account with the unit it is in — never a bare integer.
+                // `minor` is `null` with `refused: mixed_currencies` where
+                // two currencies sit in one account, because there is no one
+                // total to print (`alpha.68` §2).
                 'ledger_balances' => $this->ledger?->balances($snapshot->vendorUserId) ?? [],
                 'open_withdrawal' => $this->withdrawals?->openFor($snapshot->vendorUserId) !== null,
             ],

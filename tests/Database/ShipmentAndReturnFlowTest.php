@@ -365,32 +365,61 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
     }
 
     /**
-     * A line refunded unit by unit gives back exactly what it accrued.
+     * ⛔ A LINE REFUNDED UNIT BY UNIT — and the rule that used to allow the
+     * middle ones to be inexact is GONE.
      *
-     * The rounding of the middle returns is allowed to be inexact; the LAST
-     * one closes the line, so the totals have to meet to the currency unit.
+     * This test asserted the opposite until `alpha.68`. Its own docblock
+     * said «the rounding of the middle returns is allowed to be inexact; the
+     * LAST one closes the line» — which is a real allocation rule, chosen
+     * silently, and the owner ruled it out: «قطع اعشار با تصمیم عدم گردکردن
+     * سازگار نیست». A test that writes down the wrong rule keeps the suite
+     * green and the author blind (`alpha.46`), so it is rewritten rather
+     * than relaxed (`alpha.49`).
+     *
+     * A line of ۱۰۰٬۰۰۰ تومان over three units is `1000000000` at exponent
+     * 4, and a third of that is ۳۳۳۳۳۳۳۳۳٫۳۳۳… So:
+     *
+     *   * each single-unit return is REFUSED by name, with nothing written;
+     *   * the whole remaining line comes back EXACTLY, by subtraction;
+     *   * and the commission comes back whole, to the unit.
      */
-    public function testRefundingAThreeUnitLineOneAtATimeAddsUpExactly(): void
+    public function testRefundingAThreeUnitLineOneAtATimeIsRefusedAndTheWholeLineIsNot(): void
     {
-        $itemId = $this->sell(3, 100000);       // 33333.33 per unit: not divisible
+        $itemId = $this->sell(3, 100000);       // a third of it does not divide
         $item = $this->orderItems->find($itemId);
+        self::assertNotNull($item);
+        // ⛔ The fixture has to BE the inexact case or this test measures
+        // nothing. `base_minor` is the line total at the commission's unit.
+        self::assertNotSame(
+            0,
+            $item->baseMinor % 3,
+            'the fixture must be a line whose third is not a whole number'
+        );
 
-        $total = 0;
-        for ($i = 0; $i < 3; $i++) {
-            $returnId = $this->receivedReturn($itemId, 1);
-            $result = $this->returns->refund(self::MANAGER, $returnId);
-            self::assertTrue($result->ok, $result->code);
-            $total += (int) $result->context['refund_minor'];
-        }
-        self::assertSame((int) $item?->baseMinor, $total, 'no unit of currency lost or invented');
+        // ACCEPTING THE GOODS IS WHERE IT IS REFUSED, because that is the
+        // last step a manager can still take back.
+        $opened = $this->returns->open(self::VENDOR, self::VENDOR, $itemId, 1, 'آزمون');
+        self::assertTrue($opened->ok, $opened->code);
+        $first = (int) $opened->context['return_id'];
+        self::assertTrue($this->returns->decide(self::MANAGER, $first, ReturnStatus::Approved)->ok);
+        $refused = $this->returns->decide(self::MANAGER, $first, ReturnStatus::Received);
+        self::assertFalse($refused->ok);
+        self::assertSame('return_share_not_exact', $refused->code);
+        self::assertSame(1, $refused->context['quantity']);
+        self::assertSame(3, $refused->context['line_quantity']);
+        self::assertSame(0, $this->shipments->reversedTotals($itemId)['refund'], 'and nothing was written');
 
-        $commissionBack = 0;
-        foreach ($this->ledger->forVendor(self::VENDOR, 200) as $entry) {
-            if ($entry->account === LedgerAccount::Commission && $entry->amount->minor > 0) {
-                $commissionBack += $entry->amount->minor;
-            }
-        }
-        self::assertSame((int) $item?->commissionMinor, $commissionBack, 'and the commission came back whole');
+        // AND THE WAY OUT IS STILL OPEN: the request can be cancelled, which
+        // frees the quantity it was holding, and the whole line can then come
+        // back exactly. A refusal that left this return stuck at «received»
+        // would have blocked both paths.
+        self::assertTrue($this->returns->decide(self::MANAGER, $first, ReturnStatus::Cancelled)->ok);
+        $whole = $this->receivedReturn($itemId, 3);
+        self::assertTrue($this->returns->refund(self::MANAGER, $whole)->ok);
+
+        $totals = $this->shipments->reversedTotals($itemId);
+        self::assertSame((int) $item->baseMinor, $totals['refund'], 'no unit of currency lost or invented');
+        self::assertSame((int) $item->commissionMinor, $totals['commission'], 'and the commission came back whole');
     }
 
     /**
@@ -531,6 +560,124 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
      * `recordWooCommerceRefund()` asks for — a different permission from the
      * ledger reversal above it, on purpose.
      */
+    /**
+     * ⛔ A PARTIAL RETURN THAT DOES NOT DIVIDE EXACTLY IS REFUSED, with the
+     * numbers — the owner's §3, on the owner's own example.
+     *
+     * A line whose total is ۱۰۱ تومان for three units at ۱۲٫۵٪: base
+     * `1010000`, commission `126250`, share `883750`, all at exponent 4 and
+     * all exact. Returning ONE of three asks for a third of each, and a
+     * third of `1010000` is ۳۳۶۶۶۶٫۶۶۶… — not an integer at exponent 4, nor
+     * at any finite exponent.
+     *
+     * `alpha.67` floored it and stored `336666`, quietly giving the remainder
+     * to whichever return came last. Measured on its own bytes:
+     * `stored_refund_minor=336666`, `stored_commission_reversed_minor=42083`,
+     * `base_divides_exactly=no`. This release refuses by name instead,
+     * because the allocation rule is the owner's to choose
+     * (`docs/open-decisions-alpha68.md` §1).
+     */
+    public function testAPartialReturnThatCannotBeSplitExactlyIsRefusedByName(): void
+    {
+        $itemId = $this->sellExactLine();
+        $opened = $this->returns->open(self::VENDOR, self::VENDOR, $itemId, 1, 'آزمون');
+        self::assertTrue($opened->ok, $opened->code);
+        $returnId = (int) $opened->context['return_id'];
+        self::assertTrue($this->returns->decide(self::MANAGER, $returnId, ReturnStatus::Approved)->ok);
+
+        // Refused at «received» — the last reversible step — and refused
+        // again at the money if anything ever reached it.
+        $result = $this->returns->decide(self::MANAGER, $returnId, ReturnStatus::Received);
+
+        self::assertFalse($result->ok);
+        self::assertSame('return_share_not_exact', $result->code);
+        self::assertSame(1010000, $result->context['base_minor'], 'the line total, stated');
+        self::assertSame(126250, $result->context['commission_minor']);
+        self::assertSame(1, $result->context['quantity']);
+        self::assertSame(3, $result->context['line_quantity']);
+        self::assertSame(4, $result->context['exponent']);
+        self::assertStringContainsString('base', (string) $result->context['parts'], 'and which part');
+
+        // NOTHING WAS WRITTEN. The return stays APPROVED — not received —
+        // so the manager can still cancel it or take the whole line back,
+        // and a decision is possible once the rule is chosen.
+        $request = $this->shipments->findReturn($returnId);
+        self::assertSame(ReturnStatus::Approved, $request?->status);
+        self::assertSame(0, $this->shipments->reversedTotals($itemId)['refund']);
+        self::assertSame([], $this->ledger->forEvent('return:' . $itemId . ':' . $returnId));
+    }
+
+    /**
+     * AND THE FULL RETURN OF THE SAME LINE STILL WORKS, EXACTLY.
+     *
+     * The control, and the path the refusal above points a manager at: the
+     * last of the line is computed by SUBTRACTION — «give back what is
+     * left» — so it is exact whatever the quantities were. Without this the
+     * refusal would be a feature that stopped working.
+     */
+    public function testTheWholeLineCanAlwaysBeGivenBackExactly(): void
+    {
+        $itemId = $this->sellExactLine();
+        $returnId = $this->receivedReturn($itemId, 3);
+
+        $result = $this->returns->refund(self::MANAGER, $returnId);
+
+        self::assertTrue($result->ok, $result->code);
+        $totals = $this->shipments->reversedTotals($itemId);
+        self::assertSame(1010000, $totals['refund'], 'the whole line came back, to the unit');
+        self::assertSame(126250, $totals['commission']);
+        self::assertSame(883750, $totals['vendor_share']);
+        self::assertSame(3, $totals['quantity']);
+        self::assertSame(4, $totals['exponent']);
+    }
+
+    /**
+     * A PARTIAL RETURN THAT DOES DIVIDE IS UNCHANGED — the other control.
+     *
+     * Three units at ۳۰۰ تومان in total divide by three exactly, so one of
+     * three is ۱۰۰ تومان and nothing is refused. A guard wider than the
+     * defect is worse than the defect (`alpha.60`).
+     */
+    public function testAPartialReturnThatDividesExactlyIsStillRecorded(): void
+    {
+        $this->rules->setRate(RateScope::General, 'general', CommissionRate::ofBasisPoints(1250));
+        $sold = $this->sellIn('IRT', 0, 3, 300, 0);
+        $itemId = $sold['item'];
+        $returnId = $this->receivedReturn($itemId, 1);
+
+        $result = $this->returns->refund(self::MANAGER, $returnId);
+
+        self::assertTrue($result->ok, $result->code);
+        $totals = $this->shipments->reversedTotals($itemId);
+        self::assertSame(1, $totals['quantity']);
+        $line = $this->orderItems->find($itemId);
+        self::assertSame(
+            intdiv((int) $line?->baseMinor, 3),
+            $totals['refund'],
+            'a third of a line that divides is a third'
+        );
+    }
+
+    /** The line the owner's §3 names: total ۱۰۱ تومان, three units, ۱۲٫۵٪. */
+    private function sellExactLine(): int
+    {
+        // ۱۲٫۵٪ from the general rate rather than a per-product rule: the
+        // arithmetic under test is the SPLIT, and `1250` basis points is the
+        // same rate whichever model supplies it.
+        $this->rules->setRate(RateScope::General, 'general', CommissionRate::ofBasisPoints(1250));
+        // No tax: the point of this fixture is the base and the commission,
+        // and a tax that also failed to divide would make the test say «some
+        // part did not divide» rather than which.
+        $sold = $this->sellIn('IRT', 0, 3, 101, 0);
+        $line = $this->orderItems->find($sold['item']);
+        self::assertNotNull($line);
+        self::assertSame(1010000, $line->baseMinor, 'the fixture is at the finer unit');
+        self::assertSame(126250, $line->commissionMinor, '۱۲٫۶۲۵ تومان, exactly');
+        self::assertSame(883750, $line->vendorShareMinor, '۸۸٫۳۷۵ تومان, exactly');
+        self::assertSame(4, $line->exponent);
+        return $line->id;
+    }
+
     private function refundServiceWith(SpyRefundRecorder $recorder): ManageReturns
     {
         $db = new WpDatabase($this->wpdb);

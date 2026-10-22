@@ -157,18 +157,132 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
         return array_map(fn (array $row): LedgerEntry => $this->hydrate($row), $rows);
     }
 
+    /**
+     * Sum per account — PER UNIT, combined exactly, and never across two
+     * currencies.
+     *
+     * ⛔ **`SUM(amount_minor)` grouped by account alone was a sum of two
+     * different things, and the owner's §2 names the control.** Every row of
+     * `tmc_ledger_entries` has carried `currency` and `exponent` since
+     * migration 4, and from `alpha.67` one vendor's books legitimately hold
+     * two exponents of one currency: the order's own, and the four-places-
+     * finer one an exact commission needs. Measured on `alpha.67`'s bytes
+     * with ۱۰۰ تومان at exponent 0 and ۸۸٫۳۷۵ تومان at exponent 4 in one
+     * account: `rows_at_e0=100`, `rows_at_e4=883750`, and the answer was
+     * `883850` — a number that is neither figure in any unit. The exact
+     * answer is ۱۸۸٫۳۷۵, which is `1883750` at exponent 4.
+     *
+     * So the grouping includes the unit, and the groups are combined in PHP
+     * by a power of ten — exact, no `float`, and no `POW()`, which returns a
+     * float in MySQL and is the same mistake one layer down (`alpha.39`).
+     *
+     * **Two currencies are not combined at all, in either direction.** A
+     * marketplace records in one currency; a second one appearing is a fact
+     * to report, not an average (`vendorsWithMixedUnits()` is the reporting
+     * half). Such an account answers with `refused: mixed_currencies`, the
+     * currencies named, and NO figure — because the honest answer to «what
+     * is the total» across two kinds of money is that there is not one.
+     *
+     * The figure comes back with its unit and NOT as text: formatting is
+     * `MoneyText`'s job one layer out, and a repository that returned a
+     * rendered string would be a second place that decides how money looks.
+     *
+     * @return array<string, array{
+     *   minor:int|null, currency:string, exponent:int|null,
+     *   exact:bool, refused:string, currencies:string,
+     *   groups:list<array{currency:string, exponent:int, minor:int}>
+     * }>
+     */
     public function balances(int $vendorUserId): array
     {
         $rows = $this->db->getResults(
-            'SELECT account, SUM(amount_minor) AS total FROM `' . $this->table() . '`
-             WHERE vendor_user_id = %d GROUP BY account',
+            'SELECT account, currency, exponent, SUM(amount_minor) AS total
+               FROM `' . $this->table() . '`
+              WHERE vendor_user_id = %d
+              GROUP BY account, currency, exponent
+              ORDER BY account ASC, currency ASC, exponent ASC',
             [$vendorUserId]
         );
-        $out = [];
+        /** @var array<string, list<array{currency:string, exponent:int, minor:int}>> $byAccount */
+        $byAccount = [];
         foreach ($rows as $row) {
-            $out[(string) $row['account']] = (int) $row['total'];
+            $byAccount[(string) $row['account']][] = [
+                'currency' => strtoupper(trim((string) $row['currency'])),
+                'exponent' => (int) $row['exponent'],
+                'minor' => (int) $row['total'],
+            ];
+        }
+        $out = [];
+        foreach ($byAccount as $account => $groups) {
+            $out[$account] = self::combine($groups);
         }
         return $out;
+    }
+
+    /**
+     * One account's groups brought into one unit, or a named refusal.
+     *
+     * The unit is the FINEST exponent present, so every other group is
+     * multiplied into it — a whole power of ten, which loses nothing. The
+     * other direction would divide and would have to round, and rounding is
+     * the one thing this release does not do.
+     *
+     * @param list<array{currency:string, exponent:int, minor:int}> $groups
+     * @return array{minor:int|null, currency:string, exponent:int|null,
+     *               exact:bool, refused:string, currencies:string,
+     *               groups:list<array{currency:string, exponent:int, minor:int}>}
+     */
+    private static function combine(array $groups): array
+    {
+        $currencies = [];
+        $finest = null;
+        foreach ($groups as $group) {
+            $currencies[$group['currency']] = true;
+            $finest = $finest === null ? $group['exponent'] : max($finest, $group['exponent']);
+        }
+        $names = array_keys($currencies);
+        sort($names);
+        if (count($names) > 1) {
+            return [
+                'minor' => null,
+                'currency' => '',
+                'exponent' => null,
+                'exact' => false,
+                'refused' => 'mixed_currencies',
+                'currencies' => implode(',', $names),
+                'groups' => $groups,
+            ];
+        }
+        $minor = 0;
+        foreach ($groups as $group) {
+            $factor = 10 ** max(0, (int) $finest - $group['exponent']);
+            // ⛔ ASKED BEFORE THE MULTIPLICATION, never after. An `int` that
+            // overflows in PHP becomes a FLOAT, and a float in a money path
+            // is the one thing this release does not allow — it would answer
+            // a figure that looks like a total and is not. `VendorBalance`
+            // guards the same multiplication the same way (`alpha.67`).
+            if ($group['minor'] !== 0 && intdiv(PHP_INT_MAX, abs($group['minor'])) < $factor) {
+                return [
+                    'minor' => null,
+                    'currency' => (string) ($names[0] ?? ''),
+                    'exponent' => null,
+                    'exact' => false,
+                    'refused' => 'scale_exceeds_integer_range',
+                    'currencies' => (string) ($names[0] ?? ''),
+                    'groups' => $groups,
+                ];
+            }
+            $minor += $group['minor'] * $factor;
+        }
+        return [
+            'minor' => $minor,
+            'currency' => (string) ($names[0] ?? ''),
+            'exponent' => $finest,
+            'exact' => true,
+            'refused' => '',
+            'currencies' => (string) ($names[0] ?? ''),
+            'groups' => $groups,
+        ];
     }
 
     private function table(): string

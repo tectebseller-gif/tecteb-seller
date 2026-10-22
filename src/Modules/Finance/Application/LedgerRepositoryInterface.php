@@ -73,6 +73,34 @@ interface LedgerRepositoryInterface
      */
     public function coversOrder(int $wcOrderId): bool;
 
-    /** Sum per account, for one vendor. @return array<string,int> */
+    /**
+     * Sum per account, for one vendor — in ONE unit, which the answer names.
+     *
+     * ⛔ **Not `array<string,int>` any more, and the reason is a measured
+     * number.** Until `alpha.68` this summed `amount_minor` grouped by
+     * account alone, while every row of the ledger has carried `currency` and
+     * `exponent` since migration 4. That was harmless only while a vendor's
+     * books held one unit by accident; from `alpha.67` an exact commission is
+     * recorded four decimal places finer than the order's own unit, so one
+     * vendor legitimately holds two exponents and the old answer added ۱۰۰
+     * تومان to ۸۸٫۳۷۵ تومان and said `883850` — neither figure, in no unit.
+     * The exact answer is ۱۸۸٫۳۷۵.
+     *
+     * So each account answers with `minor` and the `exponent` it is in,
+     * combined by a whole power of ten (exact, no rounding), plus the
+     * per-unit `groups` behind it. Two CURRENCIES are not combined at all:
+     * `refused` is `mixed_currencies`, `minor` is `null`, and `currencies`
+     * names them — because the honest answer to «what is the total» across
+     * two kinds of money is that there is not one. `refused` is
+     * `scale_exceeds_integer_range` for the other impossibility: a figure
+     * whose rescaling would overflow an `int`, which in PHP silently becomes
+     * a float and would answer something that is not a total.
+     *
+     * @return array<string, array{
+     *   minor:int|null, currency:string, exponent:int|null,
+     *   exact:bool, refused:string, currencies:string,
+     *   groups:list<array{currency:string, exponent:int, minor:int}>
+     * }>
+     */
     public function balances(int $vendorUserId): array;
 }

@@ -234,7 +234,16 @@ $aftermath = static function (int $paymentId, int $itemId) use ($db, $say, $item
     // nought on BOTH trees — a measurement that cannot fail is not a
     // measurement (`alpha.46`).
     $balances = $ledger->balances(TMC_P64_VENDOR);
-    $say('vendor_earning_balance', (int) ($balances[LedgerAccount::VendorEarning->value] ?? 0));
+    // ⛔ TWO SHAPES, because this probe is loaded on BOTH trees and the
+    // contract changed under it: up to `alpha.67` `balances()` answered
+    // `account => int`, and from `alpha.68` it answers `account => array`
+    // with the unit beside the figure (`alpha.68` §2). Asking which shape
+    // arrived is what keeps this round's script measuring its own round
+    // rather than reporting a later contract as a defect (`alpha.55`).
+    $earning = $balances[LedgerAccount::VendorEarning->value] ?? 0;
+    $say('vendor_earning_balance', is_array($earning)
+        ? (int) ($earning['minor'] ?? 0)
+        : (int) $earning);
     $say('live_claims', (int) ($db->getVar(
         'SELECT COUNT(*) FROM `' . $itemsTable . '` WHERE live_item_id = %d',
         [$itemId]

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Order\Presentation;
 
+use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Modules\Order\Application\ReturnTerms;
 use Tecteb\Marketplace\Modules\Order\Domain\ReturnStatus;
 
@@ -74,6 +76,32 @@ final class ReturnMessages
             /* translators: %s: the decision reference, e.g. DEC-03 */
             __('شرایط تجاری مرجوعی (مهلت، کرایهٔ برگشت و کسورات) هنوز در %s تعیین نشده است. بازارگاه هیچ‌کدام را حدس نمی‌زند: هیچ درخواستی خودکار رد یا تأیید نمی‌شود و مبلغ بازگشتی فقط بهای همان کالا و مالیات همان تعداد است.', 'tecteb-marketplace-core'),
             ReturnTerms::DECISION
+        );
+    }
+
+    /**
+     * «این تعداد دقیق تقسیم نمی‌شود» — said BEFORE the goods are accepted.
+     *
+     * The numbers are in the sentence because a refusal a manager cannot act
+     * on is half a refusal (`alpha.65`), and the one thing that DOES work is
+     * named: the whole remaining line.
+     */
+    public static function inexactSplit(
+        int $quantity,
+        int $lineQuantity,
+        int $baseMinor,
+        mixed $exponent
+    ): string {
+        $scale = is_int($exponent) ? $exponent : (is_numeric($exponent) ? (int) $exponent : null);
+        $total = $scale === null
+            ? PersianDigits::toPersian((string) $baseMinor)
+            : (MoneyText::format($baseMinor, $scale) ?? PersianDigits::toPersian((string) $baseMinor));
+        return sprintf(
+            /* translators: 1: requested quantity, 2: line quantity, 3: line total */
+            __('⛔ %1$s عدد از %2$s عددِ قلمی به مبلغ کل %3$s دقیق تقسیم نمی‌شود و این افزونه گرد نمی‌کند، پس «دریافت‌شده» رد خواهد شد. این درخواست را لغو کنید و مرجوعیِ کاملِ باقیماندهٔ قلم را ثبت کنید، یا تا تصمیم مالک دربارهٔ قاعدهٔ تخصیص صبر کنید.', 'tecteb-marketplace-core'),
+            PersianDigits::toPersian((string) $quantity),
+            PersianDigits::toPersian((string) $lineQuantity),
+            $total
         );
     }
 }

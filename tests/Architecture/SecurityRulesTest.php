@@ -126,9 +126,15 @@ final class SecurityRulesTest extends TestCase
                 // whole section from `esc_html__()` and `Components::*` and is
                 // called twice because the answer does not depend on the health
                 // module being up; `$staleGrants()` is the same shape, for
-                // the Min Max grant warning. Each exemption is named, with
-                // its reason, rather than the rule being loosened.
-                $residue = str_replace(['$badge', '$invalid', '$accountHooks', '$staleGrants'], 'SAFE', $residue);
+                // the Min Max grant warning; `$rollbackGate()` is the same
+                // shape again, for the money-scale rollback count. Each
+                // exemption is named, with its reason, rather than the rule
+                // being loosened.
+                $residue = str_replace(
+                    ['$badge', '$invalid', '$accountHooks', '$staleGrants', '$rollbackGate'],
+                    'SAFE',
+                    $residue
+                );
                 if (str_contains($residue, '$')) {
                     $offenders[] = self::rel($view) . ":{$line}: " . trim(preg_replace('/\s+/', ' ', $expr) ?? '');
                 }

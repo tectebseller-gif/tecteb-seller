@@ -27,7 +27,7 @@ use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0008ShipmentsAnd
  */
 final class DbShipmentRepository implements ShipmentRepositoryInterface
 {
-    /** @var array<string,bool> per-instance answers to «does this table carry the unit?» */
+    /** @var array<string,string> per-instance answers: present, absent or unknown */
     private array $unitColumns = [];
 
     public function __construct(
@@ -175,8 +175,13 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
     public function reversedTotals(int $orderItemId): array
     {
         // Asked of the table, for the window between a file swap and the
-        // upgrade gate running (`alpha.46`).
-        $carried = $this->unitColumnsOn($this->returns());
+        // upgrade gate running (`alpha.46`) — in three states, because
+        // `UNKNOWN` read as `ABSENT` would report a self-consistent scale
+        // for reversals that may be at a finer one, and `ManageReturns`
+        // SUBTRACTS these figures from the line's own (`alpha.68` §1).
+        $state = $this->unitColumnsOn($this->returns());
+        $carried = $state === M0033::PRESENT;
+        $unreadable = $state === M0033::UNKNOWN;
         $row = $this->db->getRow(
             'SELECT COALESCE(SUM(refund_minor), 0) AS refund,
                     COALESCE(SUM(tax_refund_minor), 0) AS tax,
@@ -204,6 +209,10 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
             // by a wrong total.
             'exponent' => $row['exponent'] === null ? null : (int) $row['exponent'],
             'one_scale' => (int) ($row['scales'] ?? 0) <= 1,
+            // AND «I COULD NOT FIND OUT», which is its own answer and not a
+            // scale disagreement: the message a human reads has to be the
+            // thing that happened (`alpha.65`).
+            'unit_unreadable' => $unreadable,
         ];
     }
 
@@ -284,7 +293,7 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
         // rule as the order line and the withdrawal: a reversal at the finer
         // exponent in a row that cannot say so reads ten thousand times too
         // large once migration 33 lands.
-        $carried = $this->unitColumnsOn($this->returns());
+        $carried = $this->unitColumnsOn($this->returns()) === M0033::PRESENT;
         if (!$carried && ($currency !== null || $exponent !== null)) {
             return false;
         }
@@ -458,17 +467,20 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
         }
     }
     /**
-     * Whether a table carries migration 33's unit columns — asked once per
-     * INSTANCE, which is once per request in practice.
+     * WHICH OF THE THREE STATES a table's unit columns are in — asked once
+     * per INSTANCE, which is once per request in practice.
      *
-     * The memo lives here rather than in `M0033::carriedBy()` for the reason
-     * `ProductTableShape` keeps its own: a process-wide cache is right for a
-     * request and wrong for anything that changes the table and asks again.
+     * The memo lives here rather than in `M0033::unitColumnState()` for the
+     * reason `ProductTableShape` keeps its own: a process-wide cache is
+     * right for a request and wrong for anything that changes the table and
+     * asks again. Three answers rather than two, because a failed read read
+     * as «absent» turns an amount at the finer exponent into one ten
+     * thousand times larger (`alpha.68` §1).
      */
-    private function unitColumnsOn(string $table): bool
+    private function unitColumnsOn(string $table): string
     {
         if (!array_key_exists($table, $this->unitColumns)) {
-            $this->unitColumns[$table] = M0033::carriedBy($this->db, $table);
+            $this->unitColumns[$table] = M0033::unitColumnState($this->db, $table);
         }
         return $this->unitColumns[$table];
     }

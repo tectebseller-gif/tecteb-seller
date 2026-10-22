@@ -793,7 +793,13 @@ if ($verb === 'trial-order') {
                 $say('ledger_' . $entry->reason, $entry->amount->minor . '/' . $entry->amount->currency . '/' . $entry->amount->exponent);
             }
         }
-        $say('ledger_balances', (string) json_encode($ledger->balances($line->vendorUserId), JSON_UNESCAPED_UNICODE));
+        // Both shapes, for the reason `alpha64-probe.php` says: from `alpha.68`
+        // each account answers with its unit beside the figure.
+        $shaped = [];
+        foreach ($ledger->balances($line->vendorUserId) as $account => $figure) {
+            $shaped[$account] = is_array($figure) ? (int) ($figure['minor'] ?? 0) : (int) $figure;
+        }
+        $say('ledger_balances', (string) json_encode($shaped, JSON_UNESCAPED_UNICODE));
     }
     return;
 }

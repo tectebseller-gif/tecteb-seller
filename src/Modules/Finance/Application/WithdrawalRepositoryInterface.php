@@ -66,7 +66,19 @@ interface WithdrawalRepositoryInterface
          */
         ?int $amountExponent = null,
         /** The currency of `$amountMinor`; half a unit is not a unit. */
-        ?string $amountCurrency = null
+        ?string $amountCurrency = null,
+        /**
+         * The vendor's FIRST-RECORDED exponent — what a claimed line that
+         * carries no unit of its own was written in.
+         *
+         * Passed rather than derived from the other claimed rows. «The
+         * coarsest exponent some other row happens to name» is a guess that
+         * changes with the catalogue, and on a claim that mixes a legacy row
+         * with one at the finer exponent it is wrong by ten thousand. `null`
+         * is «not supplied», and the implementation then refuses such a mix
+         * rather than inventing a scale (`alpha.68` §1).
+         */
+        ?int $fallbackExponent = null
     ): int;
 
     /** @return list<int> the order-item ids this request holds */

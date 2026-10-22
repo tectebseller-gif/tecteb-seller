@@ -742,8 +742,9 @@ final class SupplierObligationFlowTest extends DatabaseTestCase
         );
         // The pair sums to nought, so the supplier is owed again rather than
         // settled — which is what a void of a mis-record means.
+        // Per account WITH its unit from `alpha.68` (§2).
         $balances = $this->ledger->balances(self::SUPPLIER);
-        self::assertSame(-900000, (int) ($balances[LedgerAccount::VendorEarning->value] ?? 0));
+        self::assertSame(-900000, (int) ($balances[LedgerAccount::VendorEarning->value]['minor'] ?? 0));
     }
 
     /**

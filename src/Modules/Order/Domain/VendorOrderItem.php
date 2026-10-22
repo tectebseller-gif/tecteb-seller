@@ -23,7 +23,16 @@ final class VendorOrderItem
         public readonly string $title,
         public readonly string $sku,
         public readonly int $quantity,
-        public readonly int $unitPriceMinor,
+        /**
+         * A DISPLAY FIGURE, and `null` when there is no whole one.
+         *
+         * The line's total divided by its quantity. `null` means that
+         * division is not exact — ۱۰۱ تومان over three units is ۳۳٫۶۶۶… and
+         * no exponent makes it an integer — and «نمی‌دانم» is an answer
+         * (`alpha.49`). The authoritative per-line amount is `baseMinor`
+         * beside it; nothing in this plugin computes money from this column.
+         */
+        public readonly ?int $unitPriceMinor,
         public readonly int $baseMinor,
         public readonly int $taxMinor = 0,
         public readonly ?int $commissionMinor = null,

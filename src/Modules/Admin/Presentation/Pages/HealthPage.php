@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Core\Modules\ModuleLoader;
 use Tecteb\Marketplace\Modules\Admin\Presentation\View;
 use Tecteb\Marketplace\Modules\Health\Application\HealthReportBuilder;
 use Tecteb\Marketplace\Modules\Health\Infrastructure\Rest\HealthController;
+use Tecteb\Marketplace\Modules\Finance\Application\MoneyScaleRollbackGate;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrateMinMax;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\VendorAccountLink;
 
@@ -54,6 +55,29 @@ final class HealthPage extends AbstractPage
         }
     }
 
+    /**
+     * WHETHER GOING BACK TO A RELEASE BEFORE `alpha.67` IS STILL SAFE —
+     * measured, and shown where an operator already looks.
+     *
+     * On the health screen rather than only in a document, because the
+     * document's own instruction was «inspect the rows», which the owner
+     * rejected: a sentence nobody can verify is not a path. `null` when the
+     * finance module is not loaded, which the view says in words.
+     *
+     * @return ?array<string,mixed>
+     */
+    private function rollbackGate(): ?array
+    {
+        if (!$this->container->has(MoneyScaleRollbackGate::class)) {
+            return null;
+        }
+        try {
+            return $this->container->get(MoneyScaleRollbackGate::class)->check();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     protected function renderAuthorized(): void
     {
         /** @var ModuleLoader $loader */
@@ -69,6 +93,7 @@ final class HealthPage extends AbstractPage
                 'rest_path' => '/wp-json/' . HealthController::NAMESPACE . HealthController::ROUTE,
                 'account_hooks' => VendorAccountLink::lastSeen(),
                 'stale_grants' => $this->staleGrants(),
+                'rollback_gate' => $this->rollbackGate(),
             ]);
             return;
         }
@@ -88,6 +113,8 @@ final class HealthPage extends AbstractPage
             // correctly drew nothing» are opposite problems.
             'account_hooks' => VendorAccountLink::lastSeen(),
             'stale_grants' => $this->staleGrants(),
+            // THE ROLLBACK GATE, as a count rather than as advice.
+            'rollback_gate' => $this->rollbackGate(),
         ]);
     }
 }

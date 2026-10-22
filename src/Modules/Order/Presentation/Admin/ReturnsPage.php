@@ -85,7 +85,8 @@ final class ReturnsPage
 
     private function renderQueue(callable $fa): void
     {
-        $returns = $this->container->get(ManageReturns::class)->forManager(null, 100);
+        $service = $this->container->get(ManageReturns::class);
+        $returns = $service->forManager(null, 100);
         $states = $this->container->get(ReturnStateMachine::class);
         $items = $this->container->get(OrderItemRepositoryInterface::class);
 
@@ -120,7 +121,7 @@ final class ReturnsPage
                 )) : '') . '</td>'
                 . '<td>' . esc_html(ReturnMessages::status($request->status)) . '</td>'
                 . '<td>' . $this->moneyCell($request) . '</td>'
-                . '<td>' . $this->actionsFor($request, $states) . '</td></tr>';
+                . '<td>' . $this->actionsFor($request, $states, $service) . '</td></tr>';
         }
         echo '</tbody></table></div></section>';
     }
@@ -151,7 +152,11 @@ final class ReturnsPage
             . '</span>';
     }
 
-    private function actionsFor(ReturnRequest $request, ReturnStateMachine $states): string
+    private function actionsFor(
+        ReturnRequest $request,
+        ReturnStateMachine $states,
+        ManageReturns $service
+    ): string
     {
         $next = $states->nextFrom($request->status);
         if ($next === []) {
@@ -164,6 +169,22 @@ final class ReturnsPage
         $html .= '<input type="hidden" name="return_id" value="' . esc_attr((string) $request->id) . '">';
         foreach ($next as $target) {
             if ($target === ReturnStatus::Received) {
+                // ⛔ SAID BEFORE THE GOODS ARE ACCEPTED, not when the money
+                // should move. `received → refunded` is the only way out of
+                // `received`, so a manager who accepts a return whose share
+                // cannot be given back exactly would be stuck; this is the
+                // last screen where cancelling is still possible
+                // (`alpha.68` §3).
+                $exactness = $service->splitExactness($request->id);
+                if (($exactness['exact'] ?? true) !== true) {
+                    $html .= '<p class="tmc-field__desc">'
+                        . esc_html(ReturnMessages::inexactSplit(
+                            (int) ($exactness['quantity'] ?? 0),
+                            (int) ($exactness['line_quantity'] ?? 0),
+                            (int) ($exactness['base_minor'] ?? 0),
+                            $exactness['exponent'] ?? null
+                        )) . '</p>';
+                }
                 $html .= '<label class="tmc-field__label"><input type="checkbox" name="restock" value="1" checked> '
                     . esc_html__('برگرداندن به موجودی ووکامرس', 'tecteb-marketplace-core') . '</label>';
             }

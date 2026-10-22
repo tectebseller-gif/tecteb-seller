@@ -308,16 +308,24 @@ final class CaptureOrder
                 (string) ($line['title'] ?? $product->details->title),
                 (string) ($line['sku'] ?? $product->details->sku),
                 $quantity,
-                // A DISPLAY FIGURE, floor-divided and never rounded.
+                // ⛔ A DISPLAY FIGURE, WRITTEN ONLY WHEN IT IS EXACT.
                 //
-                // `round()` on a float was here until `alpha.67` and it is
-                // exactly the arithmetic the owner ruled out — `101 / 3` is
-                // not representable and `round()` answers anyway. The
-                // authoritative per-line amount is `base_minor` beside it;
-                // this column exists so a list can show «قیمت واحد» without a
-                // second query, and flooring is the conservative direction: a
-                // unit price shown is never more than was charged.
-                intdiv($storedBase->minor, $quantity),
+                // `round()` on a float was here until `alpha.67`, which
+                // replaced it with `intdiv()` — and the owner's §3 is right
+                // that flooring is the same objection one step quieter.
+                // Measured on `alpha.67`: a line whose total is ۱۰۱ تومان for
+                // three units stored `336666`, and `336666 × 3` is `1009998`
+                // against a `base_minor` of `1010000`. A per-unit price that
+                // does not reconstruct its own line is not a price.
+                //
+                // There is no scale at which it would be: one third has no
+                // terminating decimal. So the column says «no whole per-unit
+                // price» instead, which migration 34 taught it to say, and
+                // the authoritative per-line amount is `base_minor` beside
+                // it. Nothing in this plugin computes money from this column.
+                $storedBase->minor % $quantity === 0
+                    ? intdiv($storedBase->minor, $quantity)
+                    : null,
                 $storedBase->minor,
                 $storedTax->minor,
                 $recorded ? $outcome->commission?->minor : null,
