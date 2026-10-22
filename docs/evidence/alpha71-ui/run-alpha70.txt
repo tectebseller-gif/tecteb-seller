@@ -1,0 +1,38 @@
+ok:   the installed package is the one under test                        0.1.0-alpha.71
+      probe=ran · minmax_active=yes · minmax_version=8.1.0.0 · plugin_version=__absent__ · wc_ok=888 · wc_step=889 · wc_held=890 · other_rules_stashed=6 · ok_migrated=migrated · ok_rows=4/10/2 · arranged=yes
+ok:   a convertible rule was taken, so one product is in force           migrated
+      probe=ran · minmax_active=yes · minmax_version=8.1.0.0 · plugin_version=__absent__ · step_status=refused · held_status=held_by_manager · tally_held_by_manager=1 · tally_migrated=2 · tally_refused=1 · both_verdict=blocked · both_permitted=no · both_count_convertible=0 · both_count_incompatible=1 · both_count_migrated_unenforceable=0 · both_count_would_be_unenforceable=0 · both_count_unknown=0 · both_count_held_by_manager=1 · both_count_already_decided=3 · both_count_rolled_back=0 · both_count_source_rows=3 · both_count_scanned=3 · both_count_decided_in_force=1 · both_count_decided_drifted=0 · both_count_decided_unenforced=0 · both_count_decided_unreadable=0 · both_count_refused_recorded=1 · both_count_held_recorded=1 · both_count_grants_scanned=0 · both_count_global_rules=0 · both_count_term_rules=0 · both_blockers=incompatible_rules_present:1|rules_held_by_manager:1 · both_stale_grants=__empty__
+ok:   a live refusal stands                                              refused
+ok:   and a live hold beside it                                          held_by_manager
+ok:   the verdict refuses the exit                                       blocked
+ok:   1 the verdict card is on the page                                  true
+ok:   1a and it refuses, the way the probe said                          true
+ok:   1b the decided products are taken apart — in force                 true
+ok:   1c …drifted                                                        true
+ok:   1d …no longer enforced                                             true
+ok:   1e …destination unreadable                                         true
+ok:   1f the live recorded refusal has a row of its own                  true
+ok:   1g …and the live recorded hold                                     true
+ok:   1h the recorded refusal is printed as one                          ۱
+ok:   1i the recorded hold too                                           ۱
+ok:   1j and the product in force                                        ۱
+ok:   1k the page says a migration record is not a present equality      true
+ok:   1l …and that the grant scan is paginated                           true
+ok:   1m …and whether it reached the end                                 true
+ok:   1n the blockers are named with their codes                         true
+ok:   1o …including the hold                                             true
+      probe=ran · minmax_active=yes · minmax_version=8.1.0.0 · plugin_version=__absent__ · grant_products_wanted=55 · grant_products_created=55 · grant_first_id=1662 · grant_last_id=1716
+      probe=ran · minmax_active=yes · minmax_version=8.1.0.0 · plugin_version=__absent__ · live_granted_rows=55 · ledger_order_first=1662 · target_position_in_ledger_order=55 · target_post_id=1716 · target_rows=4/8/2 · target_grant_live=no · stale_grants_default_limit=1 · target_listed_by_default=yes · stale_grants_wide_limit=1 · target_listed_with_wide_limit=yes · scan_stale=1 · scan_scanned=55 · scan_expected=55 · scan_finished=yes · stale_verdict=blocked · stale_permitted=no · stale_count_convertible=0 · stale_count_incompatible=1 · stale_count_migrated_unenforceable=0 · stale_count_would_be_unenforceable=0 · stale_count_unknown=0 · stale_count_held_by_manager=1 · stale_count_already_decided=58 · stale_count_rolled_back=0 · stale_count_source_rows=58 · stale_count_scanned=58 · stale_count_decided_in_force=55 · stale_count_decided_drifted=0 · stale_count_decided_unenforced=1 · stale_count_decided_unreadable=0 · stale_count_refused_recorded=1 · stale_count_held_recorded=1 · stale_count_grants_scanned=55 · stale_count_global_rules=0 · stale_count_term_rules=0 · stale_blockers=incompatible_rules_present:1|rules_held_by_manager:1|migrated_rule_not_enforced_now:1|stale_enforcement_grants:1 · stale_stale_grants=1716
+ok:   2 the drifted grant is the fifty-fifth in ledger order             55
+ok:   2a the default call now finds it                                   1
+ok:   2b the scan saw every row the ledger counts                        yes
+ok:   2c the page counts the grants it examined                          true
+ok:   2d …and the figure is the one the scan reports                     ۵۵
+ok:   2e the stale grant is named as a blocker                           true
+ok:   3 no horizontal overflow at 390px                                  0
+      axe minmax: 0 violations, 0 serious/critical
+ok:   4 axe on the exit screen: no serious or critical violation         0
+      probe=ran · minmax_active=yes · minmax_version=8.1.0.0 · plugin_version=__absent__ · grant_products_removed=55
+      probe=ran · minmax_active=yes · minmax_version=8.1.0.0 · plugin_version=__absent__ · global_restored=__nothing_saved__ · restored_verdict=blocked · restored_permitted=no · restored_count_convertible=0 · restored_count_incompatible=1 · restored_count_migrated_unenforceable=0 · restored_count_would_be_unenforceable=0 · restored_count_unknown=0 · restored_count_held_by_manager=1 · restored_count_already_decided=3 · restored_count_rolled_back=0 · restored_count_source_rows=3 · restored_count_scanned=3 · restored_count_decided_in_force=1 · restored_count_decided_drifted=0 · restored_count_decided_unenforced=0 · restored_count_decided_unreadable=0 · restored_count_refused_recorded=1 · restored_count_held_recorded=1 · restored_count_grants_scanned=0 · restored_count_global_rules=0 · restored_count_term_rules=0 · restored_blockers=incompatible_rules_present:1|rules_held_by_manager:1 · restored_stale_grants=__empty__
+      probe=ran · minmax_active=yes · minmax_version=8.1.0.0 · plugin_version=__absent__ · own_products_cleared=888|889|890 · other_rules_restored=6 · global_restored=yes
+ pass=29 fail=0

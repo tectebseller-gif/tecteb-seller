@@ -1,0 +1,25 @@
+ok:   the installed package is the one under test                        0.1.0-alpha.71
+      probe=ran · minmax_active=yes · minmax_version=8.1.0.0 · plugin_version=__absent__ · compare_bound=__absent__ · wc_id=1717 · other_rules_stashed=6 · arranged=yes
+ok:   the fixture has one product and the site's other rules stashed     yes
+      probe=ran · minmax_active=yes · minmax_version=8.1.0.0 · plugin_version=__absent__ · compare_bound=__absent__ · ceiling_wc_id=1717 · ceiling_migrated=migrated · ceiling_rows_after_migration=1/100/1 · ceiling_rows_now=1/200/1 · ceiling_bound=220 · ceiling_same_to_60=yes · ceiling_same_to_bound=no · ceiling_first_disagreements=101|102|103|104|105|106 · ceiling_minmax_rule=1/100/1 · ceiling_stored_rule=1/200/1 · ceiling_verdict=blocked · ceiling_permitted=no · ceiling_count_already_decided=1 · ceiling_count_decided_in_force=0 · ceiling_count_decided_drifted=1 · ceiling_count_decided_unenforced=0 · ceiling_count_decided_unreadable=0 · ceiling_count_decided_unprovable=0 · ceiling_count_unknown=0 · ceiling_count_source_rows=1 · ceiling_count_scanned=1 · ceiling_blockers=migrated_rule_differs_now:1
+ok:   the two sides agree about the first sixty quantities               yes
+ok:   …and still do not allow the same quantities                        no
+ok:   so the service refuses the exit                                    blocked
+      probe=ran · minmax_active=yes · minmax_version=8.1.0.0 · plugin_version=__absent__ · compare_bound=__absent__ · unprovable_wc_id=1717 · unprovable_migrated=migrated · unprovable_rows_after_migration=1/100/1 · unprovable_rows_now=1/5000000000/1 · unprovable_bound=220 · unprovable_same_to_60=yes · unprovable_same_to_bound=no · unprovable_first_disagreements=101|102|103|104|105|106 · unprovable_minmax_rule=1/100/1 · unprovable_stored_rule=1/5000000000/1 · unprovable_verdict=blocked · unprovable_permitted=no · unprovable_count_already_decided=1 · unprovable_count_decided_in_force=0 · unprovable_count_decided_drifted=0 · unprovable_count_decided_unenforced=0 · unprovable_count_decided_unreadable=0 · unprovable_count_decided_unprovable=1 · unprovable_count_unknown=1 · unprovable_count_source_rows=1 · unprovable_count_scanned=1 · unprovable_blockers=migrated_rule_equality_unprovable:1
+ok:   a quantity no column can hold is «not provable»                    1
+ok:   …and the service refuses                                           blocked
+ok:   1 the verdict card is on the page                                  true
+ok:   1a and it refuses, the way the service said                        true
+ok:   1b the new row is on the card                                      true
+ok:   1c …with the figure the service reports                            ۱
+ok:   1d the blocker is named by its code                                true
+ok:   1e the page says equality is decided from the four values          true
+ok:   1f …and that it is not a matter of sampling quantities             true
+      probe=ran · minmax_active=yes · minmax_version=8.1.0.0 · plugin_version=__absent__ · compare_bound=__absent__ · ceiling_wc_id=1717 · ceiling_migrated=migrated · ceiling_rows_after_migration=1/100/1 · ceiling_rows_now=1/200/1 · ceiling_bound=220 · ceiling_same_to_60=yes · ceiling_same_to_bound=no · ceiling_first_disagreements=101|102|103|104|105|106 · ceiling_minmax_rule=1/100/1 · ceiling_stored_rule=1/200/1 · ceiling_verdict=blocked · ceiling_permitted=no · ceiling_count_already_decided=1 · ceiling_count_decided_in_force=0 · ceiling_count_decided_drifted=1 · ceiling_count_decided_unenforced=0 · ceiling_count_decided_unreadable=0 · ceiling_count_decided_unprovable=0 · ceiling_count_unknown=0 · ceiling_count_source_rows=1 · ceiling_count_scanned=1 · ceiling_blockers=migrated_rule_differs_now:1
+ok:   2 the ceiling case is counted as drifted on the page               ۱
+ok:   2a …and named as a blocker                                         true
+ok:   3 no horizontal overflow at 390px                                  0
+      axe minmax: 0 violations, 0 serious/critical
+ok:   4 axe on the exit screen: no serious or critical violation         0
+      probe=ran · minmax_active=yes · minmax_version=8.1.0.0 · plugin_version=__absent__ · compare_bound=__absent__ · rules_put_back=6 · product_removed=1672 · reset=yes
+ pass=18 fail=0

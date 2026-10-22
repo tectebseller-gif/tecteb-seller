@@ -66,7 +66,13 @@ database **۷۳۹** (+۶) · packaging ۲۷ · `php -l` روی **۵۸۳** فای
 `alpha.70`، با **سه کنترل** که روی هر دو درخت یک جواب می‌دهند) ·
 `QuantitySetTest` ناوردا را روی **۵٬۲۹۲ قاعده** از **هر دو** حسابِ پلتفرم
 می‌سنجد با اوراکلی که تا ۴۰۰ می‌شمارد: ۸۶۲ مجموعهٔ متمایز، و در **۳۷۱٬۰۹۱
-جفت** صفر برابریِ غلط و صفر تفاوتِ غلط.
+جفت** صفر برابریِ غلط و صفر تفاوتِ غلط ·
+`alpha71-run.mjs` **۱۸ بررسی مرورگری** (ردیف و جملهٔ تازه روی کارت حکم، با
+ارقام خوانده‌شده از صفحه **و** از سرویس، موبایل ۳۹۰px با سرریز افقی ۰، و axe
+با ۰ تخلف serious/critical) · رگرسیون‌ها **هر کدام روی مبنای خودش**:
+`alpha70-run.mjs` **۲۹** روی همین درخت · `alpha69-reproduction.sh` **۱۲۶**
+(با `alpha.69` نصب‌شده به‌عنوان مبنای خودش) — همه ۰ شکست. و `diff -rq`
+می‌گوید `src/` داخل ZIP، این چک‌اوت و نصب‌شده **یک چیزند** (۵۸۱ فایل).
 **و هر چیزی که اضافه شد با برگرداندن نقص falsify شد** (هنجارسازیِ یک‌عضوی،
 سقف، گام، مبنای گام — و حلقهٔ ۱…۶۰ که **۵ از ۶** آزمون تازهٔ database را
 می‌شکند؛ ششمی **کنترل** است و باید روی هر دو درخت قبول شود).
@@ -77,7 +83,8 @@ database **۷۳۹** (+۶) · packaging ۲۷ · `php -l` روی **۵۸۳** فای
 ارتقا: `docs/upgrade-and-rollback.md` **بند ۵۱** ·
 چک‌لیست: `docs/staging-checklist-alpha71-fa.md` ·
 تصمیم‌های باز: `docs/open-decisions-alpha71.md` ·
-شواهد: `docs/evidence/alpha70-reproduction/`.
+شواهد: `docs/evidence/alpha70-reproduction/` · `docs/evidence/alpha71-ui/` ·
+`docs/evidence/alpha69-reproduction-on-alpha71/`.
 
 **سه قاعدهٔ تازه:**
 - **نمونه‌برداری اثبات برابری نیست، و سقفِ نمونه جمله‌ای است دربارهٔ مثال‌هایی
@@ -5172,6 +5179,36 @@ vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php
   --filter 'MenuBadgeRefreshTest|ReviewDetailSnapshotTest|ReviewSeenTest'
 vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php \
   --filter VendorAccountLinkTest
+
+# فاز ۶۵: شصت نمونه یک مجموعه نیست
+# ۸۳ بررسی: چهار حالت روی بایت‌های **نصب‌شدهٔ** alpha.70 (`9d41411`)، بعد
+# اصلاح، بعد سه کنترل. بند `0a` اصرار می‌کند نصب‌شده همان مبنا باشد، و
+# درختِ «بعد» از `$REPO/src` گرفته می‌شود.
+#   wp plugin install dist/…-alpha.70.zip --force   # اول مبنا را نصب کنید
+WP_PATH=/home/user/wp-demo WPCLI=/usr/local/bin/wp \
+  bash tools/alpha70-reproduction.sh docs/evidence/alpha70-reproduction
+# probe این دور (روی هر دو درخت بار می‌شود). یک محصول، و هر verb خودش از صفر
+# می‌چیندش، پس هیچ حالتی به حالت دیگر سرریز نمی‌کند.
+# ⛔ و هر چه خرج می‌کند پس می‌دهد: قواعد Min Max ِ بقیهٔ سایت در یک گزینه
+# انبار می‌شوند و `reset` همه را بایت‌به‌بایت برمی‌گرداند.
+WPX="php /usr/local/bin/wp --allow-root --path=/home/user/wp-demo \
+  eval-file /home/user/tecteb-seller/tests/Support/alpha70-probe.php"
+$WPX bound-arrange
+$WPX bound-ceiling            # 1/100/1 در برابر 1/200/1 — اولین اختلاف ۱۰۱
+$WPX bound-minimum            # 70/—/1 در برابر 80/—/1 — اولین اختلاف ۷۰
+$WPX bound-ceiling-appears    # 2/—/1 در برابر 2/500/1 — اولین اختلاف ۵۰۱
+$WPX bound-unprovable         # عددی بیرون از ظرفیت ستون ⇒ «اثبات‌پذیر نیست»
+$WPX bound-control            # 4/10/2 دست‌نخورده ⇒ permitted، روی هر دو درخت
+$WPX bound-control-same-set   # 4/11/2 در برابر 4/10/2 — یک مجموعه، دو هجی
+$WPX bound-control-inside     # 1/10/1 در برابر 1/5/1 ⇒ blocked، روی هر دو درخت
+$WPX report ; $WPX reset
+SITE=http://127.0.0.1:8081 OUT=docs/evidence/alpha71-ui \
+  WP="php /usr/local/bin/wp --allow-root --path=/home/user/wp-demo" \
+  node tools/browser/alpha71-run.mjs   # ۱۸ بررسی: ردیف و جملهٔ تازه، موبایل، axe
+vendor/bin/phpunit --testsuite unit --filter QuantitySetTest        # ۱۱ آزمون، ۳۷۶٬۵۹۸ assertion
+vendor/bin/phpunit --testsuite architecture --filter EqualityIsDecidedNotSampledTest
+vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php \
+  --filter MinMaxHandoverUnitOfWorkTest    # ۵۷ آزمون، ۶ تای تازه
 
 # فاز ۶۴: سابقه‌ای که اثبات نیست، اسکنی که به آخر نمی‌رسد، و ارتقا از ۳۱
 # ۱۲۶ بررسی: هر سه شکاف روی بایت‌های **نصب‌شدهٔ** alpha.69 (`23cf890`)، بعد
