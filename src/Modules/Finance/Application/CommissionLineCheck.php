@@ -61,7 +61,8 @@ final class CommissionLineCheck
      *        a float must format it the way WooCommerce itself formats the
      *        same number when it writes the order line, so that the answer
      *        here is about the figure the order will carry.
-     * @return array{ok:bool, reason:string, commission_minor:int, base_minor:int}
+     * @return array{ok:bool, reason:string, commission_minor:int, base_minor:int,
+     *               exponent:int}
      */
     public function check(
         int $wcProductId,
@@ -72,7 +73,7 @@ final class CommissionLineCheck
         int $exponent
     ): array {
         if ($quantity < 1 || $currency === '' || $exponent < 0) {
-            return $this->answer(true, self::UNREADABLE);
+            return $this->answer(true, self::UNREADABLE, 0, 0, max(0, $exponent));
         }
         $minor = DecimalAmount::toMinor(trim($lineTotalAfterDiscount), $exponent);
         if ($minor === null) {
@@ -100,19 +101,47 @@ final class CommissionLineCheck
             0
         );
         if ($outcome->isCalculated()) {
-            return $this->answer(true, self::OK, $outcome->commission->minor, $minor);
+            // BOTH FIGURES IN ONE UNIT. The commission comes back at the
+            // finer exponent an exact commission needs, so reporting it
+            // beside the caller's own `$minor` would put two scales in one
+            // array — and the first reader to add or compare them would be
+            // wrong by ten thousand. The base is taken from the outcome,
+            // which is the same money rescaled, and the unit is named.
+            return $this->answer(
+                true,
+                self::OK,
+                $outcome->commission->minor,
+                (int) $outcome->base?->minor,
+                $outcome->commission->exponent
+            );
         }
         return $outcome->reason === TectebCommissionCalculator::EXCEEDS_LINE
-            ? $this->answer(false, self::EXCEEDS_LINE, 0, $minor)
+            ? $this->answer(false, self::EXCEEDS_LINE, 0, $minor, $exponent)
             // Any other refusal is about the rule being unreadable or the
             // quantity being odd, and neither is a reason to stop a shopper:
             // those are refusals the capture path reports to the manager.
-            : $this->answer(true, self::UNREADABLE, 0, $minor);
+            : $this->answer(true, self::UNREADABLE, 0, $minor, $exponent);
     }
 
-    /** @return array{ok:bool, reason:string, commission_minor:int, base_minor:int} */
-    private function answer(bool $ok, string $reason, int $commission = 0, int $base = 0): array
-    {
-        return ['ok' => $ok, 'reason' => $reason, 'commission_minor' => $commission, 'base_minor' => $base];
+    /**
+     * @return array{ok:bool, reason:string, commission_minor:int, base_minor:int,
+     *               exponent:int}
+     */
+    private function answer(
+        bool $ok,
+        string $reason,
+        int $commission = 0,
+        int $base = 0,
+        int $exponent = 0
+    ): array {
+        return [
+            'ok' => $ok,
+            'reason' => $reason,
+            'commission_minor' => $commission,
+            'base_minor' => $base,
+            // The unit the two figures above are in. On a refusal they are
+            // the caller's own, because there is no outcome to take one from.
+            'exponent' => $exponent,
+        ];
     }
 }

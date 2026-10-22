@@ -36,6 +36,21 @@ use Tecteb\Marketplace\Modules\Order\Application\ShipmentRepositoryInterface;
  * nothing at all here — not as zero. It is reported separately as
  * `unrecorded`, because a vendor whose sale produced no share is owed an
  * answer, not a silent omission.
+ *
+ * **EVERY FIGURE RETURNED IS IN ONE UNIT, AND THE ANSWER SAYS WHICH.** Until
+ * `alpha.67` the shares were bare integers added together, and that was safe
+ * only because `MoneyUnitClaim` forced one exponent on a vendor's whole
+ * books. The owner's no-rounding decision ends that: a commission is recorded
+ * at four more decimal places than the order's own unit, so a vendor who sold
+ * before the upgrade and after it has lines at two exponents of one currency.
+ * Adding those integers as they stand would be wrong by a factor of ten
+ * thousand, so each line is rescaled — exactly, by a power of ten — into the
+ * FINEST exponent present, and `exponent` and `currency` come back with the
+ * numbers so no caller has to guess the scale of what it is printing.
+ *
+ * A line that does not carry its own unit (every line captured before
+ * `alpha.67`) is read at the vendor's first-recorded unit, which is what it
+ * was written in. Nothing is reinterpreted and nothing on disk is rewritten.
  */
 final class VendorBalance
 {
@@ -58,7 +73,17 @@ final class VendorBalance
          * `reserve()`'s own statement, because a payment can land between this
          * read and that write.
          */
-        private readonly ?SupplierPaymentRepositoryInterface $supplierPayments = null
+        private readonly ?SupplierPaymentRepositoryInterface $supplierPayments = null,
+        /**
+         * Which money these books are kept in — for the scale, not the guard.
+         *
+         * Optional for the reason the two above are: a build that does not
+         * wire it answers exactly as every release before `alpha.67` did,
+         * with `unit_unreadable` saying so rather than a zero pretending to
+         * be a fact. The guard against two currencies stays where it was, in
+         * `CaptureOrder`'s claim and in `Money::assertSameUnit()`.
+         */
+        private readonly ?VendorMoneyUnitRegistryInterface $units = null
     ) {
     }
 
@@ -67,7 +92,7 @@ final class VendorBalance
      *   earned:int, pending:int, eligible:int, reserved:int, paid:int,
      *   paid_direct:int, unrecorded:int, eligible_line_ids:list<int>, delay_days:int,
      *   awaiting_completion:int, awaiting_delay:int, awaiting_return:int,
-     *   eligible_until:string
+     *   eligible_until:string, currency:string, exponent:int, unit_unreadable:bool
      * }
      */
     public function of(int $vendorUserId): array
@@ -92,11 +117,34 @@ final class VendorBalance
             $paidByHand[(int) $id] = true;
         }
 
-        foreach ($this->orderItems->settlementView($vendorUserId) as $line) {
+        // THE UNIT EVERY FIGURE BELOW IS IN — the finest exponent of this
+        // vendor's one currency. Asked once, before the loop, because a scale
+        // that changed half way through a sum is a sum of two things.
+        $lines = $this->orderItems->settlementView($vendorUserId);
+        $unit = $this->summationUnit($vendorUserId, $lines);
+
+        foreach ($lines as $line) {
             $share = $line['vendor_share_minor'];
             if ($share === null) {
                 $unrecorded++;
                 continue;       // unset is not zero (FIN-02)
+            }
+            // Rescaled into the one unit this answer is in — a multiplication
+            // by a power of ten, so nothing is lost and nothing is rounded. A
+            // line whose own exponent is already the finest is multiplied by
+            // one.
+            $share = $this->inUnit(
+                $share,
+                ($line['exponent'] ?? null) === null ? null : (int) $line['exponent'],
+                $unit
+            );
+            if ($share === null) {
+                // «I cannot say what this row's amount means» — a row finer
+                // than the unit this answer is in, which cannot happen while
+                // the unit is the maximum, and is counted rather than guessed
+                // if it ever does.
+                $unrecorded++;
+                continue;
             }
             $earned += $share;
             if ($line['paid']) {
@@ -168,6 +216,108 @@ final class VendorBalance
             // amount comparison, which cannot see it — a line whose period has
             // not elapsed carries exactly the share it carried a moment ago.
             'eligible_until' => $cutoff->format('Y-m-d H:i:s'),
+            // THE UNIT ALL OF THE ABOVE ARE IN. Printed, not inferred: a page
+            // that formats `eligible` without it would show ۸۸۰٬۰۰۰ where the
+            // vendor is owed ۸۸٫۳۷۵.
+            'currency' => $unit['currency'],
+            'exponent' => $unit['exponent'],
+            // Said out loud rather than folded into a zero: when the registry
+            // could not be asked, the figures are still summed — in the
+            // coarsest unit any row names — and the caller is told that the
+            // unit is a fallback rather than a fact (`alpha.49`).
+            'unit_unreadable' => $unit['unreadable'],
         ];
+    }
+
+    /**
+     * The one unit this answer is taken in.
+     *
+     * The finest exponent among: what the registry says these books hold,
+     * what the rows themselves say, and the vendor's first-recorded unit for
+     * rows that say nothing. `unreadable` when the registry could not be
+     * asked at all — which is reported rather than treated as «exponent 0»,
+     * because a fallback presented as a fact is how `alpha.39` fixed the unit
+     * of a whole ledger off a failed read.
+     *
+     * @param list<array<string,mixed>> $lines
+     * @return array{currency:string, exponent:int, fallback:int, unreadable:bool}
+     */
+    private function summationUnit(int $vendorUserId, array $lines): array
+    {
+        $currency = '';
+        $fallback = 0;
+        $unreadable = $this->units === null;
+
+        // THE COARSE END: what a row that does not carry its own unit was
+        // written in. The registry's row holds the FIRST unit it recorded and
+        // is deliberately never moved to a finer one, which is exactly what
+        // makes it the right answer to this question.
+        $stored = $this->units?->unitOf($vendorUserId);
+        if ($stored !== null) {
+            $currency = (string) $stored['currency'];
+            $fallback = (int) $stored['exponent'];
+        }
+        $exponent = $fallback;
+
+        // THE FINE END: the finest exponent the ledger holds. `null` from a
+        // wired registry is «could not ask», which is reported rather than
+        // read as nought (`alpha.49`).
+        $finest = $this->units?->finestExponentOf($vendorUserId);
+        if ($this->units !== null && $finest === null) {
+            $unreadable = true;
+        } elseif ($finest !== null) {
+            $exponent = max($exponent, $finest);
+        }
+
+        // And the rows get a vote: one finer than anything the ledger holds
+        // is reachable while a capture is half way through its transaction.
+        foreach ($lines as $line) {
+            if (($line['exponent'] ?? null) !== null) {
+                $exponent = max($exponent, (int) $line['exponent']);
+            }
+            if ($currency === '' && (string) ($line['currency'] ?? '') !== '') {
+                $currency = (string) $line['currency'];
+            }
+        }
+        return [
+            'currency' => $currency,
+            'exponent' => $exponent,
+            'fallback' => $fallback,
+            'unreadable' => $unreadable,
+        ];
+    }
+
+    /**
+     * One line's share in the answer's unit, or `null` when it cannot be.
+     *
+     * A row with no unit of its own is read at the answer's coarse end —
+     * which is the vendor's first-recorded unit, the unit it was written in —
+     * and then rescaled like any other. `null` for a row finer than the
+     * answer's unit: that cannot happen while the unit is the maximum of
+     * everything, and inventing a rounded value for it is the one thing this
+     * round exists to stop.
+     *
+     * @param int|null $own the row's own exponent, or null when it has none
+     * @param array{currency:string, exponent:int, fallback:int, unreadable:bool} $unit
+     */
+    private function inUnit(int $share, ?int $own, array $unit): ?int
+    {
+        // A row that does not say is at the COARSE end of these books. That
+        // is not a guess: it is what `tmc_vendor_money_unit` recorded at the
+        // vendor's first sale and what every writer before `alpha.67` used.
+        // Resolved from the unit computed once above rather than per row, so
+        // this loop costs no queries.
+        $from = $own ?? $unit['fallback'];
+        if ($from > $unit['exponent']) {
+            return null;
+        }
+        if ($from === $unit['exponent']) {
+            return $share;
+        }
+        $factor = 10 ** ($unit['exponent'] - $from);
+        if ($share !== 0 && intdiv(PHP_INT_MAX, abs($share)) < $factor) {
+            return null;    // asked before the multiplication, never after
+        }
+        return $share * $factor;
     }
 }

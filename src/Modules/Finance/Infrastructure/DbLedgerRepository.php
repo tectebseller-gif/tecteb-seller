@@ -93,6 +93,17 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
 
     public function vendorsWithMixedUnits(int $limit = 200): array
     {
+        // ⛔ MIXED MEANS TWO CURRENCIES, not two exponents — and that
+        // narrowed in `alpha.67`. From that release a vendor's books hold the
+        // exponent their orders were captured at AND the finer one an exact
+        // commission needs, which are the same money written twice
+        // (`Money::rescale()` is a power of ten). Counting them as two units
+        // would put EVERY upgraded vendor on this report and make the health
+        // page shout about a site that is correct — a guard wider than the
+        // defect is worse than the defect (`alpha.60`).
+        //
+        // `units` still lists each `currency/exponent` seen, because a person
+        // meeting a blocked order wants to know exactly what is on the books.
         $rows = $this->db->getResults(
             'SELECT vendor_user_id,
                     GROUP_CONCAT(DISTINCT CONCAT(currency, \'/\', exponent) ORDER BY currency, exponent) AS units,
@@ -100,7 +111,7 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
                FROM `' . $this->table() . '`
               WHERE vendor_user_id > 0
               GROUP BY vendor_user_id
-             HAVING COUNT(DISTINCT CONCAT(currency, \'/\', exponent)) > 1
+             HAVING COUNT(DISTINCT currency) > 1
               ORDER BY vendor_user_id ASC LIMIT %d',
             [max(1, min(1000, $limit))]
         );

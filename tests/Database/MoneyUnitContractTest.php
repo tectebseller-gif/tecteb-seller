@@ -143,7 +143,13 @@ final class MoneyUnitContractTest extends DatabaseTestCase
         self::assertTrue($this->units->claim(self::VENDOR, 'IRT', 0)->isAgreed());
 
         $failing = new FailingDatabase($this->db);
-        $failing->failReadWhen(['COUNT(DISTINCT CONCAT']);
+        // The needle TRACKS THE CODE. `alpha.67` rewrote this query to count
+        // distinct CURRENCY rather than distinct `(currency, exponent)`, so
+        // the old needle `COUNT(DISTINCT CONCAT` stopped matching and the
+        // injection silently fired nothing — the failure was then about a
+        // registry that was working (`alpha.33`). `$failing->refused` below
+        // is what makes that visible rather than green.
+        $failing->failReadWhen(['COUNT(DISTINCT `currency`)']);
         $blind = new DbVendorMoneyUnitRegistry($failing, $this->clock);
 
         $claim = $blind->claim(self::VENDOR, 'USD', 2);

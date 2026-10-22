@@ -140,7 +140,12 @@ final class FinanceModule implements ModuleInterface
             // So a line Tecteb already paid for by hand is not offered to the
             // vendor a second time. ONE obligation, ONE settlement — and the
             // lock for it is in `reserve()`'s own statement, not here.
-            $c->get(SupplierPaymentRepositoryInterface::class)
+            $c->get(SupplierPaymentRepositoryInterface::class),
+            // So every figure comes back in ONE unit and the answer says
+            // which — a vendor who sold before `alpha.67` and after it has
+            // lines at two exponents of one currency, and adding those
+            // integers as they stand is wrong by ten thousand.
+            $c->get(VendorMoneyUnitRegistryInterface::class)
         ));
         $c->bind(RequestWithdrawal::class, static fn (ContainerInterface $c) => new RequestWithdrawal(
             $c->get(WithdrawalRepositoryInterface::class),

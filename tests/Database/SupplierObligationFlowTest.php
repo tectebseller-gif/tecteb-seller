@@ -1056,6 +1056,99 @@ final class SupplierObligationFlowTest extends DatabaseTestCase
         return $id;
     }
 
+    /**
+     * A SALE WHOSE SHARE IS NOT A WHOLE تومان, recorded at the finer unit.
+     *
+     * ۱۰۱ تومان at ۱۲٫۵٪ leaves ۸۸٫۳۷۵ — `883750` at `exponent = 4` — which
+     * is what `alpha.67`'s capture writes. The ledger event is written at the
+     * same exponent, because a row and its event in two units is the one
+     * thing `alpha.40` refuses.
+     */
+    private function fractionalSale(int $orderItemId): int
+    {
+        self::assertTrue($this->ledger->record(
+            (new LedgerTransaction('order:' . $orderItemId, self::SUPPLIER, 'order:' . $orderItemId, (string) $orderItemId))
+                ->add(LedgerAccount::CentralPayment, Money::of(1010000, 'IRR', 4), 'item_paid')
+                ->add(LedgerAccount::Commission, Money::of(126250, 'IRR', 4)->negate(), 'commission_due')
+                ->add(LedgerAccount::VendorEarning, Money::of(883750, 'IRR', 4)->negate(), 'vendor_earned')
+        ));
+
+        return $this->orderItems->record(new VendorOrderItem(
+            0,
+            5000 + $orderItemId,
+            $orderItemId,
+            0,
+            self::SUPPLIER,
+            'کالای کسری‌دار',
+            'SKU-FRAC-' . $orderItemId,
+            1,
+            1010000,
+            1010000,
+            0,
+            126250,
+            883750,
+            1250,
+            'product',
+            'order:' . $orderItemId,
+            OrderItemStatus::Delivered,
+            '',
+            '',
+            null,
+            null,
+            0,
+            '',
+            'IRR',
+            4
+        ));
+    }
+
+    /**
+     * A PAYMENT IN WHOLE تومان DOES NOT SETTLE A FRACTIONAL SHARE.
+     *
+     * «ثبت مبلغ واقعی پرداخت از سهم محاسبه‌شده جدا بماند. اختلاف ناشی از
+     * پرداختِ بدون اعشار، خودکار بخشوده، گرد یا تسویه‌شده اعلام نشود.» So ۸۸
+     * against ۸۸٫۳۷۵ is recorded as ۸۸ — exactly as typed, in the comparison
+     * unit — and the row waits with BOTH numbers on it. `needs_definition` is
+     * the name of «a person decides», and it is deliberately not `posted`:
+     * posting would put a figure in the ledger that nobody agreed.
+     */
+    public function testAWholeTomanPaymentAgainstAFractionalShareIsNotDeclaredSettled(): void
+    {
+        $item = $this->fractionalSale(781);
+
+        $paid = $this->service->record(self::SUPPLIER, [$item], '88', '2026-10-20', 'TRK-FRAC');
+        self::assertTrue($paid->ok, (string) $paid->code);
+        self::assertSame(880000, (int) $paid->context['amount_minor'], 'recorded as typed, at the finer unit');
+        self::assertSame(883750, (int) $paid->context['share_minor'], 'and the share beside it, untouched');
+        // THE CODE is where the posting reaches a caller — the context carries
+        // the two figures, and `RECORDED_UNPOSTED` is the name of «recorded,
+        // and nothing was posted». Asserting a `posting` key that this result
+        // does not have measured nothing at all.
+        self::assertSame(
+            RecordSupplierPayment::RECORDED_UNPOSTED,
+            (string) $paid->code,
+            'a payment that is not the share must not declare it settled'
+        );
+        // NOTHING WAS POSTED, which is the other half: a difference that
+        // reached the ledger would be a figure nobody agreed.
+        self::assertSame(3, $this->ledgerEntryCount(), 'the sale is there and the payout is not');
+    }
+
+    /** And the exact amount DOES settle it — the control. */
+    public function testThePreciseAmountSettlesTheSameLine(): void
+    {
+        $item = $this->fractionalSale(782);
+
+        $paid = $this->service->record(self::SUPPLIER, [$item], '88.375', '2026-10-20', 'TRK-FRAC-OK');
+        self::assertTrue($paid->ok, (string) $paid->code);
+        self::assertSame(883750, (int) $paid->context['amount_minor']);
+        self::assertSame(
+            RecordSupplierPayment::RECORDED,
+            (string) $paid->code,
+            'the exact figure settles, so the two sides of this measurement differ'
+        );
+    }
+
     private function sale(int $orderItemId, int $baseMinor, int $shareMinor): int
     {
         self::assertTrue($this->ledger->record(

@@ -57,13 +57,12 @@ final class ReportsPage
             . esc_html__('هر عدد این صفحه همین لحظه از روی دفترکل و رکوردهای سفارش حساب می‌شود. هیچ عددی ذخیره و بازخوانی نمی‌شود، پس این ارقام هیچ‌وقت با صفحهٔ تسویه اختلاف پیدا نمی‌کنند.', 'tecteb-marketplace-core')
             . '</p>';
 
-        $this->renderReports($fa);
+        $this->renderReports();
         $this->renderInbox($fa);
         echo '</div>';
     }
 
-    /** @param callable(string|int):string $fa */
-    private function renderReports(callable $fa): void
+    private function renderReports(): void
     {
         $vendorIds = $this->vendorIds();
         $reports = $this->container->get(Reports::class)->forManager($vendorIds);
@@ -87,9 +86,7 @@ final class ReportsPage
                 if (in_array((string) $figure, $hidden, true)) {
                     continue;
                 }
-                $shown = NoticeMessages::isMoney((string) $figure)
-                    ? $fa(number_format((int) $value / 100)) . ' ' . __('تومان', 'tecteb-marketplace-core')
-                    : $fa((string) $value);
+                $shown = NoticeMessages::figureValue((string) $figure, $value, $figures);
                 // Same `data-label` rule as the moderation queue: the header
                 // row is hidden when this table stacks, so the cells carry
                 // their own labels.
@@ -109,6 +106,12 @@ final class ReportsPage
                     NoticeMessages::chartCaption((string) $key),
                     'tmc-chart'
                 );
+            }
+            // Two currencies have no total, and the card says so where the
+            // total would have been.
+            $mixed = NoticeMessages::mixedCurrencyNote($figures);
+            if ($mixed !== null) {
+                echo Components::notice('warning', $mixed);
             }
             if ($key === Reports::FINANCE && (int) ($figures['unrecorded_lines'] ?? 0) > 0) {
                 echo Components::notice('info', NoticeMessages::unrecordedNote());

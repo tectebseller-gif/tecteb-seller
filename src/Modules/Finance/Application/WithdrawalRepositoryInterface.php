@@ -53,7 +53,20 @@ interface WithdrawalRepositoryInterface
         int $amountMinor,
         string $iban,
         string $accountHolder,
-        string $eligibleUntil = '9999-12-31 23:59:59'
+        string $eligibleUntil = '9999-12-31 23:59:59',
+        /**
+         * The unit `$amountMinor` is in — the exponent the balance that
+         * produced it was taken in.
+         *
+         * Passed rather than recomputed for the reason `$eligibleUntil` is:
+         * two computations of one unit agree until the second one is taken a
+         * moment later and a finer line has arrived. `null` means «take the
+         * finest the claimed rows hold», which is what a caller with no
+         * balance behind it wants.
+         */
+        ?int $amountExponent = null,
+        /** The currency of `$amountMinor`; half a unit is not a unit. */
+        ?string $amountCurrency = null
     ): int;
 
     /** @return list<int> the order-item ids this request holds */

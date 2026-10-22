@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Order\Presentation;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderCustomerView;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStateMachine;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
@@ -150,9 +151,19 @@ final class VendorOrdersView
         bool $mayAct,
         array $movement
     ): string {
-        $money = static fn (?int $minor): string => $minor === null
-            ? __('تعیین‌نشده', 'tecteb-marketplace-core')
-            : sprintf(__('%s تومان', 'tecteb-marketplace-core'), $fa(number_format($minor)));
+        // THROUGH THE ONE FORMATTER, at the line's OWN unit. From `alpha.67`
+        // a line records the exponent its five money columns are in — the
+        // finer one an exact commission needs — and `number_format()` on the
+        // bare integer printed ۸۸۰٬۰۰۰ where ۸۸٫۳۷۵ is owed. A line that
+        // carries no unit is at the order's own, which is what it was written
+        // in and what every release before `alpha.67` assumed.
+        $money = static function (?int $minor, int $exponent = 0) use ($fa): string {
+            if ($minor === null) {
+                return __('تعیین‌نشده', 'tecteb-marketplace-core');
+            }
+            $text = MoneyText::format($minor, $exponent) ?? $fa((string) $minor);
+            return sprintf(__('%s تومان', 'tecteb-marketplace-core'), $text);
+        };
 
         $created = (string) ($order['created'] ?? '');
         $html = '<li class="tv-order"><div class="tv-order__head">'
@@ -176,9 +187,9 @@ final class VendorOrdersView
             )) . '</dd></div>'
             . '<div><dt>' . esc_html__('مرجوعی', 'tecteb-marketplace-core') . '</dt><dd>'
             . esc_html($fa($item->quantity - (int) $movement['returnable'])) . '</dd></div>'
-            . '<div><dt>' . esc_html__('مبلغ قلم (پس از تخفیف)', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($money($item->baseMinor)) . '</dd></div>'
-            . '<div><dt>' . esc_html__('کمیسیون بازارگاه', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($money($item->commissionMinor)) . '</dd></div>'
-            . '<div><dt>' . esc_html__('سهم شما', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($money($item->vendorShareMinor)) . '</dd></div>'
+            . '<div><dt>' . esc_html__('مبلغ قلم (پس از تخفیف)', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($money($item->baseMinor, (int) ($item->exponent ?? 0))) . '</dd></div>'
+            . '<div><dt>' . esc_html__('کمیسیون بازارگاه', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($money($item->commissionMinor, (int) ($item->exponent ?? 0))) . '</dd></div>'
+            . '<div><dt>' . esc_html__('سهم شما', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($money($item->vendorShareMinor, (int) ($item->exponent ?? 0))) . '</dd></div>'
             . '</dl>';
 
         if (!$item->isRecorded()) {
@@ -288,10 +299,13 @@ final class VendorOrdersView
                 $html .= ' — ' . esc_html($request->reason);
             }
             if ($request->refundMinor !== null) {
+                // The return row's own scale, like every other amount on this
+                // page since `alpha.67`.
                 $html .= ' — ' . esc_html(sprintf(
                     /* translators: %s: refunded amount */
                     __('بازگشت مالی: %s تومان', 'tecteb-marketplace-core'),
-                    $fa(number_format($request->refundMinor))
+                    MoneyText::format($request->refundMinor, $request->exponentOr())
+                        ?? $fa((string) $request->refundMinor)
                 ));
             }
             if ($request->restockedQuantity > 0) {

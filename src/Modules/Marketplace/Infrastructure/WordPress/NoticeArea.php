@@ -144,9 +144,7 @@ final class NoticeArea
                 if (in_array((string) $figure, $hidden, true)) {
                     continue;
                 }
-                $shown = NoticeMessages::isMoney((string) $figure)
-                    ? $fa(number_format((int) $value / 100)) . ' ' . __('تومان', 'tecteb-marketplace-core')
-                    : $fa((string) $value);
+                $shown = NoticeMessages::figureValue((string) $figure, $value, $figures);
                 $html .= '<div class="tv-figure"><dt>' . esc_html(NoticeMessages::figure((string) $figure))
                     . '</dt><dd>' . esc_html($shown) . '</dd></div>';
             }

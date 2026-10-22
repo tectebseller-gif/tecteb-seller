@@ -45,4 +45,14 @@ interface VendorMoneyUnitRegistryInterface
      * interface is that they stopped being confused.
      */
     public function isMixed(int $vendorUserId): ?bool;
+
+    /**
+     * The FINEST exponent this vendor's books hold, or `null` when unreadable.
+     *
+     * The unit a balance has to be summed in. Deliberately a different
+     * question from `unitOf()`, which says what a row that does NOT carry its
+     * own unit means — and that answer is the coarse, first-recorded one.
+     * Asking one method both questions is the `alpha.66` mistake.
+     */
+    public function finestExponentOf(int $vendorUserId): ?int;
 }

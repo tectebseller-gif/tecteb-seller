@@ -36,7 +36,19 @@ interface OrderItemRepositoryInterface
 
     public function updateStatus(int $id, OrderItemStatus $status, string $carrier, string $trackingCode, ?string $shippedAt): bool;
 
-    /** @return array<string,int> what this vendor has earned and owes, by account */
+    /**
+     * What this vendor has earned and owes — all three figures in ONE unit,
+     * which the answer names.
+     *
+     * `currency` and `exponent` travel with the numbers because from
+     * `alpha.67` a vendor's lines can be at two exponents of one currency
+     * (the order's own, and the finer one an exact commission needs), and a
+     * caller that prints `share` without the scale shows ۸۸۰٬۰۰۰ where
+     * ۸۸٫۳۷۵ is owed.
+     *
+     * @return array{lines:int, base:int, commission:int, share:int,
+     *               currency:string, exponent:int}
+     */
     public function totalsForVendor(int $vendorUserId): array;
 
     /**
@@ -48,9 +60,13 @@ interface OrderItemRepositoryInterface
      * call it: a method that exists only on the implementation is a contract
      * that a second implementation would silently fail to honour.
      *
+     * `currency` and `exponent` are the row's OWN unit, or `null` when it
+     * does not carry one — which is every line captured before `alpha.67` and
+     * means «the vendor's first-recorded unit», the unit it was written in.
+     *
      * @return list<array{
      *   id:int, vendor_share_minor:?int, settlement_completed_at:?string,
-     *   withdrawal_id:?int, paid:bool
+     *   withdrawal_id:?int, paid:bool, currency:?string, exponent:?int
      * }>
      */
     public function settlementView(int $vendorUserId): array;
@@ -76,7 +92,18 @@ interface OrderItemRepositoryInterface
         int $vendorShareMinor,
         ?int $rateBasisPoints,
         string $rateSource,
-        string $ledgerEvent
+        string $ledgerEvent,
+        /**
+         * The unit the two figures above are in, ADDED to a row that has
+         * none.
+         *
+         * Written through `COALESCE`, so a row that already declares a unit
+         * keeps it: a repair may fill in what was never recorded and may
+         * never move a unit, because the row's base and tax are beside it in
+         * the old one.
+         */
+        ?string $currency = null,
+        ?int $exponent = null
     ): bool;
 
     /**

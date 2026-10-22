@@ -348,6 +348,26 @@ final class ManageReturns
         $unit = $accrual['unit'];
 
         $share = $this->shareOf($item, $request);
+        // WHAT IS ALREADY REVERSED HAS TO BE IN THE SAME UNIT, because
+        // `shareOf()` SUBTRACTS it from this line's figures. One item's
+        // reversals are all written in that item's own accrual unit, so this
+        // can only disagree if something outside this path wrote one — and a
+        // subtraction across two scales is wrong by a factor of ten
+        // thousand, which is exactly the size of mistake this round removes.
+        // Refused by name rather than converted: «نمی‌دانم» is an answer and
+        // a guessed conversion is not (`alpha.53`).
+        $reversedScale = $this->returns->reversedTotals($item->id);
+        if (
+            ($reversedScale['one_scale'] ?? true) !== true
+            || ($reversedScale['exponent'] !== null && (int) $reversedScale['exponent'] !== $unit['exponent'])
+        ) {
+            return OperationResult::failure('reversed_unit_inconsistent', [
+                'return_id' => $returnId,
+                'item_id' => $item->id,
+                'accrual_exponent' => $unit['exponent'],
+                'reversed_exponent' => $reversedScale['exponent'],
+            ]);
+        }
         $eventKey = 'return:' . $item->id . ':' . $returnId;
         $now = $this->clock->now()->format('Y-m-d H:i:s');
 
@@ -362,7 +382,9 @@ final class ManageReturns
             $share['vendor_share'],
             $wcRefundId,
             $now,
-            $actorId
+            $actorId,
+            $unit['currency'],
+            $unit['exponent']
         )) {
             return OperationResult::failure('already_refunded', ['return_id' => $returnId]);
         }
@@ -444,6 +466,10 @@ final class ManageReturns
             'vendor_share_minor' => $share['vendor_share'],
             'account' => $account->value,
             'event_key' => $eventKey,
+            // The scale those four figures are in. An audit line that records
+            // an amount without its unit records a number, not an amount.
+            'currency' => $unit['currency'],
+            'exponent' => $unit['exponent'],
         ]);
         unset($note);
         $parts = $this->scope->parts(
@@ -454,6 +480,8 @@ final class ManageReturns
             'return_id' => $returnId,
             'refund_minor' => $share['refund'],
             'tax_minor' => $share['tax'],
+            'currency' => $unit['currency'],
+            'exponent' => $unit['exponent'],
             'vendor_account' => $account->value,
             'open_terms' => implode('، ', $this->terms->openTerms()),
             // What this actually did, part by part. The screens quote these

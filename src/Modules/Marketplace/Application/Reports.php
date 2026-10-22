@@ -277,6 +277,13 @@ final class Reports
             'paid_minor' => (int) ($of['paid'] ?? 0),
             // Not a zero: lines whose share nobody has worked out yet (FIN-02).
             'unrecorded_lines' => (int) ($of['unrecorded'] ?? 0),
+            // THE UNIT the five figures above are in. Carried rather than
+            // assumed: from `alpha.67` a shop's lines can be at the finer
+            // exponent an exact commission needs, and a card that prints
+            // `eligible_minor` without the scale shows ۸۸۰٬۰۰۰ where ۸۸٫۳۷۵
+            // is owed.
+            'currency' => (string) ($of['currency'] ?? ''),
+            'exponent' => (int) ($of['exponent'] ?? 0),
         ];
     }
 
@@ -293,16 +300,48 @@ final class Reports
         }
         $totals = ['earned_minor' => 0, 'pending_minor' => 0, 'eligible_minor' => 0,
                    'reserved_minor' => 0, 'paid_minor' => 0, 'unrecorded_lines' => 0];
+        // EVERY SHOP'S FIGURES READ FIRST, so the unit the total is taken in
+        // can be the finest any of them uses. Adding as we went was right
+        // while every shop's books were at the order's own exponent; from
+        // `alpha.67` one shop can be at the finer one an exact commission
+        // needs, and adding ۸۸ to ۸۸۰٬۰۰۰ would make the marketplace card the
+        // only figure on the site that is wrong.
+        $each = [];
+        $currencies = [];
+        $exponent = 0;
         foreach ($vendorIds as $vendorUserId) {
             $of = $balance->of((int) $vendorUserId);
-            $totals['earned_minor'] += (int) ($of['earned'] ?? 0);
-            $totals['pending_minor'] += (int) ($of['pending'] ?? 0);
-            $totals['eligible_minor'] += (int) ($of['eligible'] ?? 0);
-            $totals['reserved_minor'] += (int) ($of['reserved'] ?? 0);
-            $totals['paid_minor'] += (int) ($of['paid'] ?? 0);
+            $each[] = $of;
+            $exponent = max($exponent, (int) ($of['exponent'] ?? 0));
+            if ((string) ($of['currency'] ?? '') !== '') {
+                $currencies[(string) $of['currency']] = true;
+            }
             $totals['unrecorded_lines'] += (int) ($of['unrecorded'] ?? 0);
         }
-        return ['available' => 1, 'vendors' => count($vendorIds)] + $totals;
+        // TWO CURRENCIES DO NOT ADD UP, ever (`Money::assertSameUnit()`, one
+        // layer down). Said rather than averaged: a marketplace selling in
+        // two currencies has no single total and a number presented as one
+        // would be believed.
+        if (count($currencies) > 1) {
+            return [
+                'available' => 1,
+                'vendors' => count($vendorIds),
+                'mixed_currencies' => array_keys($currencies),
+                'unrecorded_lines' => $totals['unrecorded_lines'],
+            ];
+        }
+        foreach ($each as $of) {
+            $factor = 10 ** max(0, $exponent - (int) ($of['exponent'] ?? 0));
+            foreach (['earned', 'pending', 'eligible', 'reserved', 'paid'] as $key) {
+                $totals[$key . '_minor'] += (int) ($of[$key] ?? 0) * $factor;
+            }
+        }
+        return [
+            'available' => 1,
+            'vendors' => count($vendorIds),
+            'currency' => (string) (array_key_first($currencies) ?? ''),
+            'exponent' => $exponent,
+        ] + $totals;
     }
 
     /**

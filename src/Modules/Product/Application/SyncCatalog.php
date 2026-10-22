@@ -96,7 +96,17 @@ final class SyncCatalog
             'wc_product_id' => $result['wc_product_id'],
             'action' => 'publish',
         ]);
-        return OperationResult::success('projected', ['wc_product_id' => $result['wc_product_id']]);
+        // The two «deliberately not written» facts travel with the result, so
+        // a page can say so without re-deriving them. Read with
+        // `array_key_exists`, because a projector that does not report them
+        // and one that reports `false` are different answers (`alpha.60`) —
+        // the first is an older implementation, the second is «nothing was
+        // held».
+        return OperationResult::success('projected', [
+            'wc_product_id' => $result['wc_product_id'],
+            'price_held' => (bool) ($result['price_held'] ?? false),
+            'status_held' => (bool) ($result['status_held'] ?? false),
+        ]);
     }
 
     /**

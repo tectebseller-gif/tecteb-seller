@@ -8,9 +8,21 @@ namespace Tecteb\Marketplace\Modules\Finance\Domain;
  *
  *   B = what was actually paid for the line, after discount, before tax
  *   C = `none`    → 0
- *       `percent` → round(B × bp / 10000)
+ *       `percent` → B × bp / 10000, EXACTLY
  *       `fixed`   → per-unit amount × quantity
  *   V = B − C
+ *
+ * ⛔ **`percent` used to be `round(B × bp / 10000)`, and the owner has ruled
+ * that out**: «هیچ گردکردنی مجاز نیست؛ نه به هزار تومان، نه به تومان کامل و
+ * نه حذف اعشار», with a worked example — ۱۰۱ تومان at ۱۲٫۵٪ owes exactly
+ * ۱۲٫۶۲۵ and leaves exactly ۸۸٫۳۷۵. Both figures are returned at the
+ * exponent `CommissionPrecision::exponentFor()` derives from the rate's own
+ * denominator, which is where the division leaves no remainder at all. B is
+ * rescaled to the same unit first — losslessly, by a power of ten — so
+ * `V + C = B` stays true BY CONSTRUCTION rather than by arithmetic luck.
+ *
+ * Still no `float` anywhere: a multiplication, an `intdiv()` whose remainder
+ * is provably nought, and a subtraction.
  *
  * `CommissionCalculator` is NOT changed and is NOT called from here. It
  * implements FIN-01's percentage-with-inheritance rule, which several hundred
@@ -41,6 +53,18 @@ final class TectebCommissionCalculator
     public const EXCEEDS_LINE = 'commission_exceeds_line';
     /** A line that paid a negative amount is not a sale to take a share of. */
     public const NEGATIVE_BASE = 'negative_base';
+    /**
+     * This order's unit is too fine for an exact commission to be held.
+     *
+     * An order captured at `exponent = 3` or more would need `7`+ places and
+     * `Money` carries `6`. Refused by name rather than rounded, and rather
+     * than «quietly changing the currency's exponent to make room» — the two
+     * things the owner named: «با تبدیل بی‌صدا یا تغییر exponent ارز مشکل را
+     * پنهان نکن».
+     */
+    public const PRECISION_UNAVAILABLE = 'commission_precision_unavailable';
+    /** The line's amount is so large that the finer unit overflows an integer. */
+    public const BASE_TOO_LARGE = 'commission_base_too_large';
 
     /**
      * @param Money  $baseAfterDiscountBeforeTax B — already net of discount,
@@ -64,7 +88,19 @@ final class TectebCommissionCalculator
             return CommissionOutcome::needsConfiguration(self::NEGATIVE_BASE);
         }
 
-        $base = $baseAfterDiscountBeforeTax;
+        // THE UNIT THE WHOLE LINE IS COMPUTED IN, derived from the rate's
+        // denominator rather than chosen. `null` is a refusal, never a
+        // licence to round.
+        $exponent = CommissionPrecision::exponentFor($baseAfterDiscountBeforeTax->exponent);
+        if ($exponent === null) {
+            return CommissionOutcome::needsConfiguration(self::PRECISION_UNAVAILABLE);
+        }
+        // Lossless: a power of ten, same currency, nothing divided. It is
+        // what makes `V + C = B` an identity instead of a hope.
+        $base = $baseAfterDiscountBeforeTax->rescale($exponent);
+        if ($base === null) {
+            return CommissionOutcome::needsConfiguration(self::BASE_TOO_LARGE);
+        }
         $unitMinor = 0;
 
         if ($rule->type === TectebCommission::FIXED) {
@@ -79,12 +115,40 @@ final class TectebCommissionCalculator
                 return CommissionOutcome::needsConfiguration(self::FIXED_NOT_EXACT);
             }
             $unitMinor = $perUnit;
+            // Same rule as the percentage branch: asked before the
+            // multiplication, because afterwards the number is a float and
+            // the question cannot be answered from it.
+            if ($perUnit !== 0 && intdiv(PHP_INT_MAX, $perUnit) < $quantity) {
+                return CommissionOutcome::needsConfiguration(self::BASE_TOO_LARGE);
+            }
             $commissionMinor = $perUnit * $quantity;
         } elseif ($rule->type === TectebCommission::PERCENT) {
-            $commissionMinor = RoundingPolicy::apply(
-                $base->minor * (int) $rule->percentBasisPoints,
-                CommissionRate::MAX_BP
-            );
+            // EXACT, and provably so: `$base->minor` is already scaled by
+            // `10 ** EXTRA_SCALE` relative to the order's own unit and
+            // `MAX_BP` is `10 ** EXTRA_SCALE`, so the numerator is divisible
+            // by the denominator with nothing left over. `intdiv()` rather
+            // than `/` because `/` on two integers in PHP yields a float the
+            // moment it does not divide evenly, and a float is the one thing
+            // this module does not permit.
+            //
+            // The overflow is checked BEFORE the multiplication, not after:
+            // PHP promotes an integer overflow to a float silently, so a
+            // check that reads `$numerator` is reading a value that has
+            // already lost its exactness.
+            $bp = (int) $rule->percentBasisPoints;
+            if ($bp !== 0 && intdiv(PHP_INT_MAX, abs($bp)) < abs($base->minor)) {
+                return CommissionOutcome::needsConfiguration(self::BASE_TOO_LARGE);
+            }
+            $numerator = $base->minor * $bp;
+            if ($numerator % CommissionRate::MAX_BP !== 0) {
+                // Unreachable by the argument above, and checked anyway: a
+                // remainder here would mean the derivation in
+                // `CommissionPrecision` no longer matches the denominator,
+                // and the honest answer to that is a refusal rather than the
+                // rounding this round exists to remove.
+                return CommissionOutcome::needsConfiguration(self::PRECISION_UNAVAILABLE);
+            }
+            $commissionMinor = intdiv($numerator, CommissionRate::MAX_BP);
         } else {
             // `none` — and this is a RESULT, not a refusal. «تعیین‌نشده یا
             // صفر یعنی بدون کمیسیون»، and a product with no rule still sells.

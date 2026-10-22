@@ -7,14 +7,14 @@ marketplace_row=1540
 publish_code=projected
 product=679
 is_ours=yes
-commission_type=
-commission_value=
+commission_type=none
+commission_value=0
 
 === BEFORE · §1 the free order, on the delivered bytes ===
 verb=pay-paths
 commission=fixed/150000
 sale_gate_open=allowed
-order=680
+order=773
 line_total=100000
 needs_payment=no
 classic_branch=without_payment
@@ -36,8 +36,8 @@ PASS  1g and nothing refuses the Store API  (passed)
 === BEFORE · §2 the item nobody holds ===
 WordPress database error Duplicate entry 'a63:96311-central_payment' for key 'tmc_ledger_event' for query INSERT INTO `wp_tmc_ledger_entries`
                 (event_key, vendor_user_id, account, amount_minor, currency, exponent, order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
-                VALUES ('a63:96311', 9631, 'central_payment', 1000000, 'IRR', 0, 'a63:96311', '96311', 'item_paid', NULL, '', '2026-10-20 15:06:57'), ('a63:96311', 9631, 'commission', -100000, 'IRR', 0, 'a63:96311', '96311', 'commission_due', NULL, '', '2026-10-20 15:06:57'), ('a63:96311', 9631, 'vendor_earning', -900000, 'IRR', 0, 'a63:96311', '96311', 'vendor_earned', NULL, '', '2026-10-20 15:06:57') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
-line=301
+                VALUES ('a63:96311', 9631, 'central_payment', 1000000, 'IRR', 0, 'a63:96311', '96311', 'item_paid', NULL, '', '2026-10-22 11:40:10'), ('a63:96311', 9631, 'commission', -100000, 'IRR', 0, 'a63:96311', '96311', 'commission_due', NULL, '', '2026-10-22 11:40:10'), ('a63:96311', 9631, 'vendor_earning', -900000, 'IRR', 0, 'a63:96311', '96311', 'vendor_earned', NULL, '', '2026-10-22 11:40:10') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+line=329
 agree=supplier_amount_agreed
 first=supplier_payment_recorded_partial
 second=supplier_payment_recorded_unposted
@@ -46,23 +46,23 @@ void_first=supplier_payment_voided
 live_claims=0
 holder=__none__
 rows_still_on_disk=1
-withdrawal_reserved=TAKEN:75
+withdrawal_reserved=TAKEN:86
 PASS  2a the second partial payment wrote NO row  (1)
 PASS  2b the void succeeds  (supplier_payment_voided)
 PASS  2c …and the item is claimed by nobody  (0)
 PASS  2d …with no holder at all  (__none__)
-reserved_before=TAKEN:75
-PASS  2e …and the withdrawal cycle TAKES the line  (TAKEN:75)
+reserved_before=TAKEN:86
+PASS  2e …and the withdrawal cycle TAKES the line  (TAKEN:86)
 
 === swapping in this checkout's src/ ===
-after_src_digest=9b9c6788b063855a
-PASS  0b the tree under test is a different one  (9b9c6788b063855a)
+after_src_digest=d07c9ee6822b020b
+PASS  0b the tree under test is a different one  (d07c9ee6822b020b)
 
 === AFTER · §1 the order pays or it does not sell ===
 verb=pay-paths
 commission=fixed/150000
 sale_gate_open=allowed
-order=681
+order=774
 line_total=100000
 needs_payment=yes
 classic_branch=payment
@@ -87,7 +87,7 @@ PASS  3i …and unpaid  (__none__)
 verb=pay-control
 commission=fixed/10000
 sale_gate_open=allowed
-order=682
+order=775
 line_total=100000
 needs_payment=yes
 classic_branch=payment
@@ -107,8 +107,8 @@ PASS  4e and the Store API passes  (passed)
 === AFTER · §2 the live claim is handed on, not dropped ===
 WordPress database error Duplicate entry 'a63:96311-central_payment' for key 'tmc_ledger_event' for query INSERT INTO `wp_tmc_ledger_entries`
                 (event_key, vendor_user_id, account, amount_minor, currency, exponent, order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
-                VALUES ('a63:96311', 9631, 'central_payment', 1000000, 'IRR', 0, 'a63:96311', '96311', 'item_paid', NULL, '', '2026-10-20 15:07:01'), ('a63:96311', 9631, 'commission', -100000, 'IRR', 0, 'a63:96311', '96311', 'commission_due', NULL, '', '2026-10-20 15:07:01'), ('a63:96311', 9631, 'vendor_earning', -900000, 'IRR', 0, 'a63:96311', '96311', 'vendor_earned', NULL, '', '2026-10-20 15:07:01') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
-line=302
+                VALUES ('a63:96311', 9631, 'central_payment', 1000000, 'IRR', 0, 'a63:96311', '96311', 'item_paid', NULL, '', '2026-10-22 11:40:15'), ('a63:96311', 9631, 'commission', -100000, 'IRR', 0, 'a63:96311', '96311', 'commission_due', NULL, '', '2026-10-22 11:40:15'), ('a63:96311', 9631, 'vendor_earning', -900000, 'IRR', 0, 'a63:96311', '96311', 'vendor_earned', NULL, '', '2026-10-22 11:40:15') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+line=330
 agree=supplier_amount_agreed
 first=supplier_payment_recorded_partial
 second=supplier_payment_recorded_unposted
@@ -128,8 +128,8 @@ PASS  5f and the withdrawal cycle is REFUSED  (refused)
 === AFTER · §2 control: with every payment voided, the item is free ===
 WordPress database error Duplicate entry 'a63:96311-central_payment' for key 'tmc_ledger_event' for query INSERT INTO `wp_tmc_ledger_entries`
                 (event_key, vendor_user_id, account, amount_minor, currency, exponent, order_ref, item_ref, reason, reverses_entry_id, snapshot, created_at)
-                VALUES ('a63:96311', 9631, 'central_payment', 1000000, 'IRR', 0, 'a63:96311', '96311', 'item_paid', NULL, '', '2026-10-20 15:07:03'), ('a63:96311', 9631, 'commission', -100000, 'IRR', 0, 'a63:96311', '96311', 'commission_due', NULL, '', '2026-10-20 15:07:03'), ('a63:96311', 9631, 'vendor_earning', -900000, 'IRR', 0, 'a63:96311', '96311', 'vendor_earned', NULL, '', '2026-10-20 15:07:03') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
-line=303
+                VALUES ('a63:96311', 9631, 'central_payment', 1000000, 'IRR', 0, 'a63:96311', '96311', 'item_paid', NULL, '', '2026-10-22 11:40:16'), ('a63:96311', 9631, 'commission', -100000, 'IRR', 0, 'a63:96311', '96311', 'commission_due', NULL, '', '2026-10-22 11:40:16'), ('a63:96311', 9631, 'vendor_earning', -900000, 'IRR', 0, 'a63:96311', '96311', 'vendor_earned', NULL, '', '2026-10-22 11:40:16') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository->record, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+line=331
 agree=supplier_amount_agreed
 first=supplier_payment_recorded_partial
 second=supplier_payment_recorded_unposted
@@ -139,12 +139,12 @@ void_second=supplier_payment_voided
 live_claims=0
 holder=__none__
 rows_still_on_disk=2
-withdrawal_reserved=TAKEN:77
+withdrawal_reserved=TAKEN:88
 PASS  6a the second void succeeds too  (supplier_payment_voided)
 PASS  6b nothing covers the line now  (0)
 PASS  6c no holder  (__none__)
 PASS  6d both rows are kept  (2)
-PASS  6e …and a fully voided line CAN be reserved  (TAKEN:77)
+PASS  6e …and a fully voided line CAN be reserved  (TAKEN:88)
 
 === giving back what this run spent ===
 line=__none__

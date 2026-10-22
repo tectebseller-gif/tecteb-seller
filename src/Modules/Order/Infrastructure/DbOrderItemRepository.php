@@ -11,6 +11,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007Settlement
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as T;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0033MoneyUnitOnRows as U;
 
 /**
  * Order lines on the plugin's own table.
@@ -21,6 +22,9 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAnd
  */
 final class DbOrderItemRepository implements OrderItemRepositoryInterface
 {
+    /** @var array<string,bool> per-instance answers to «does this table carry the unit?» */
+    private array $unitColumns = [];
+
     public function __construct(
         private readonly DatabaseInterface $db,
         private readonly ClockInterface $clock
@@ -67,15 +71,46 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
         if ($item->rateBasisPoints !== null) {
             $params[] = $item->rateBasisPoints;
         }
-        array_push($params, $item->rateSource, $item->ledgerEvent, $item->status->value, $now, $now);
+        array_push($params, $item->rateSource, $item->ledgerEvent, $item->status->value);
+        // THE UNIT THE FIVE MONEY COLUMNS ARE IN, written in THIS insert.
+        //
+        // A parameter of the row rather than a follow-up write, for the
+        // reason `alpha.42` settled: a row that exists without its unit for
+        // even one request is a row whose amounts the next reader has to
+        // guess at. `NULL` when the caller does not say — which is what every
+        // writer before `alpha.67` effectively said, and which resolves to
+        // the vendor's first-recorded unit.
+        $currency = $item->currency === null || trim($item->currency) === '' ? 'NULL' : '%s';
+        if ($currency !== 'NULL') {
+            $params[] = strtoupper(trim((string) $item->currency));
+        }
+        $exponent = $nullable($item->exponent);
+        if ($item->exponent !== null) {
+            $params[] = $item->exponent;
+        }
+        array_push($params, $now, $now);
 
+        // ⛔ A UNIT THAT CANNOT BE STORED IS A REFUSAL, not a column left out.
+        // Between a file swap and the upgrade gate running (`alpha.46`) these
+        // columns may be absent, and the amounts this release computes are at
+        // four more decimal places: written into a row that cannot say so,
+        // ۳۷٫۸۷۵ becomes a figure that reads as ۳۷۸٬۷۵۰ the moment the column
+        // arrives. So nothing is written and the caller hears why — the
+        // `alpha.49` rule, one table along: «نمی‌دانم» is an answer.
+        $carried = $this->unitColumnsOn($this->table());
+        if (!$carried && ($item->currency !== null || $item->exponent !== null)) {
+            return 0;
+        }
         $written = $this->db->execute(
             'INSERT INTO `' . $this->table() . '`
              (wc_order_id, wc_order_item_id, wc_product_id, product_id, variation_id, vendor_user_id,
               title, sku, quantity, unit_price_minor, base_minor, tax_minor,
-              commission_minor, vendor_share_minor, rate_bp, rate_source, ledger_event, status, created_at, updated_at)
+              commission_minor, vendor_share_minor, rate_bp, rate_source, ledger_event, status'
+             . ($carried ? ', `' . U::CURRENCY . '`, `' . U::EXPONENT . '`' : '') . ',
+              created_at, updated_at)
              VALUES (%d, %d, %d, %d, ' . $variation . ', %d, %s, %s, %d, %d, %d, %d, '
-             . $commission . ', ' . $share . ', ' . $rate . ', %s, %s, %s, %s, %s)',
+             . $commission . ', ' . $share . ', ' . $rate . ', %s, %s, %s'
+             . ($carried ? ', ' . $currency . ', ' . $exponent : '') . ', %s, %s)',
             $params
         );
         if ($written === null) {
@@ -147,7 +182,9 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
         int $vendorShareMinor,
         ?int $rateBasisPoints,
         string $rateSource,
-        string $ledgerEvent
+        string $ledgerEvent,
+        ?string $currency = null,
+        ?int $exponent = null
     ): bool {
         if ($id <= 0 || trim($ledgerEvent) === '') {
             return false;
@@ -156,6 +193,19 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
         $params = [$commissionMinor, $vendorShareMinor];
         if ($rateBasisPoints !== null) {
             $params[] = $rateBasisPoints;
+        }
+        // THE UNIT, written with the figures it belongs to. Left alone when
+        // the caller does not say, because `COALESCE` keeps whatever the row
+        // already holds: a repair is allowed to ADD the unit to a row that
+        // never had one, and never to move a unit a row already declares —
+        // that would reinterpret the four amounts beside it.
+        $unitCurrency = $currency === null || trim($currency) === '' ? 'NULL' : '%s';
+        if ($unitCurrency !== 'NULL') {
+            $params[] = strtoupper(trim($currency));
+        }
+        $unitExponent = $exponent === null ? 'NULL' : '%d';
+        if ($exponent !== null) {
+            $params[] = $exponent;
         }
         array_push(
             $params,
@@ -168,9 +218,20 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
             $vendorShareMinor,
             $commissionMinor
         );
+        // The same refusal as `record()`, for the same reason.
+        $carried = $this->unitColumnsOn($this->table());
+        if (!$carried && ($currency !== null || $exponent !== null)) {
+            return false;
+        }
+        $unitSet = $carried
+            ? '`' . U::CURRENCY . '` = COALESCE(`' . U::CURRENCY . "`, {$unitCurrency}),
+             `" . U::EXPONENT . "` = COALESCE(`" . U::EXPONENT . "`, {$unitExponent}),"
+            : '';
         $rows = $this->db->execute(
             'UPDATE `' . $this->table() . "` SET commission_minor = %d, vendor_share_minor = %d,
-             rate_bp = {$rate}, rate_source = %s, ledger_event = %s, updated_at = %s
+             rate_bp = {$rate},
+             {$unitSet}
+             rate_source = %s, ledger_event = %s, updated_at = %s
              WHERE id = %d
                AND (ledger_event = '' OR ledger_event = %s)
                AND (vendor_share_minor IS NULL OR vendor_share_minor = %d)
@@ -297,28 +358,103 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
         return $written;
     }
 
+    /**
+     * The vendor's totals — summed PER UNIT and then combined exactly.
+     *
+     * ⛔ A single `SUM()` over these columns was right only while every line
+     * of a vendor was at one exponent, which `MoneyUnitClaim` used to force.
+     * From `alpha.67` a commission is recorded at four more decimal places
+     * than the order's own unit, so a vendor who sold before the upgrade and
+     * after it has lines at two exponents and one `SUM` would add ۸۸ to
+     * ۸۸۰٬۰۰۰ as though they were the same number.
+     *
+     * So the sums are grouped by the row's own exponent and combined in PHP
+     * by multiplying each group into the finest one — a power of ten, exact,
+     * no `float` and no `POW()` (which returns a float in MySQL and is the
+     * same mistake one layer down). The unit the answer is in comes back with
+     * it. A row that does not carry a unit is grouped under `NULL` and read
+     * at the coarsest exponent present, which is what it was written in.
+     */
     public function totalsForVendor(int $vendorUserId): array
     {
-        $row = $this->db->getRow(
-            'SELECT COUNT(*) AS lines_count,
+        // ⛔ ASKED OF THE TABLE FIRST. Between a file swap and the upgrade
+        // gate running, this release's code is on disk and migration 33's
+        // columns are not — and naming them then is a hard SQL error on a
+        // page a vendor opens. Where they are absent the whole catalogue is
+        // one unit, the vendor's own, which is what every release up to
+        // `alpha.66` assumed, so the fallback is not a degradation: it is the
+        // previous correct answer.
+        $carried = $this->unitColumnsOn($this->table());
+        $rows = $this->db->getResults(
+            'SELECT ' . ($carried
+                ? '`' . U::EXPONENT . '` AS tmc_exponent, MIN(`' . U::CURRENCY . '`) AS tmc_currency,'
+                : 'NULL AS tmc_exponent, NULL AS tmc_currency,') . '
+                    COUNT(*) AS lines_count,
                     COALESCE(SUM(base_minor), 0) AS base,
                     COALESCE(SUM(commission_minor), 0) AS commission,
                     COALESCE(SUM(vendor_share_minor), 0) AS share
-             FROM `' . $this->table() . '` WHERE vendor_user_id = %d AND status <> %s',
+             FROM `' . $this->table() . '` WHERE vendor_user_id = %d AND status <> %s'
+             . ($carried ? ' GROUP BY `' . U::EXPONENT . '`' : ''),
             [$vendorUserId, OrderItemStatus::Cancelled->value]
         );
+        $groups = [];
+        $currency = '';
+        $lines = 0;
+        $coarsest = null;
+        $finest = null;
+        foreach ($rows as $row) {
+            $exponent = ($row['tmc_exponent'] ?? null) === null ? null : (int) $row['tmc_exponent'];
+            $lines += (int) $row['lines_count'];
+            if ($currency === '' && trim((string) ($row['tmc_currency'] ?? '')) !== '') {
+                $currency = strtoupper(trim((string) $row['tmc_currency']));
+            }
+            if ($exponent !== null) {
+                $coarsest = $coarsest === null ? $exponent : min($coarsest, $exponent);
+                $finest = $finest === null ? $exponent : max($finest, $exponent);
+            }
+            $groups[] = [
+                'exponent' => $exponent,
+                'base' => (int) $row['base'],
+                'commission' => (int) $row['commission'],
+                'share' => (int) $row['share'],
+            ];
+        }
+        // The rows that say nothing are at the coarse end, so the answer's
+        // unit is the finest exponent present and `null` reads as the
+        // coarsest. With no row at all both are nought, which is what an
+        // empty answer has always been.
+        $unitExponent = $finest ?? 0;
+        $nullExponent = $coarsest ?? 0;
+        $totals = ['base' => 0, 'commission' => 0, 'share' => 0];
+        foreach ($groups as $group) {
+            $from = $group['exponent'] ?? $nullExponent;
+            $factor = 10 ** max(0, $unitExponent - $from);
+            foreach (['base', 'commission', 'share'] as $key) {
+                $totals[$key] += $group[$key] * $factor;
+            }
+        }
         return [
-            'lines' => (int) ($row['lines_count'] ?? 0),
-            'base' => (int) ($row['base'] ?? 0),
-            'commission' => (int) ($row['commission'] ?? 0),
-            'share' => (int) ($row['share'] ?? 0),
+            'lines' => $lines,
+            'base' => $totals['base'],
+            'commission' => $totals['commission'],
+            'share' => $totals['share'],
+            // THE UNIT the three figures above are in, so nothing downstream
+            // has to infer the scale of a number it is printing.
+            'currency' => $currency,
+            'exponent' => $unitExponent,
         ];
     }
 
     public function settlementView(int $vendorUserId): array
     {
+        // The same question as `totalsForVendor()`, for the same window.
+        $carried = $this->unitColumnsOn($this->table());
         $rows = $this->db->getResults(
-            'SELECT i.id, i.vendor_share_minor, i.settlement_completed_at, i.withdrawal_id, w.status AS withdrawal_status
+            'SELECT i.id, i.vendor_share_minor, i.settlement_completed_at, i.withdrawal_id,
+                    ' . ($carried
+                        ? 'i.`' . U::CURRENCY . '` AS tmc_currency, i.`' . U::EXPONENT . '` AS tmc_exponent,'
+                        : 'NULL AS tmc_currency, NULL AS tmc_exponent,') . '
+                    w.status AS withdrawal_status
              FROM `' . $this->table() . '` i
              LEFT JOIN `' . $this->withdrawals() . '` w ON w.id = i.withdrawal_id
              WHERE i.vendor_user_id = %d AND i.status <> %s
@@ -335,6 +471,13 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
                     : (string) $row['settlement_completed_at'],
                 'withdrawal_id' => $row['withdrawal_id'] === null ? null : (int) $row['withdrawal_id'],
                 'paid' => (string) ($row['withdrawal_status'] ?? '') === WithdrawalStatus::Paid->value,
+                // THE UNIT this line's share is in. `null` is «this row does
+                // not say», which `VendorBalance` resolves to the vendor's
+                // first-recorded unit — what the row was written in.
+                'currency' => trim((string) ($row['tmc_currency'] ?? '')) === ''
+                    ? null
+                    : strtoupper(trim((string) $row['tmc_currency'])),
+                'exponent' => ($row['tmc_exponent'] ?? null) === null ? null : (int) $row['tmc_exponent'],
             ];
         }
         return $view;
@@ -408,7 +551,17 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
             $row['shipped_at'] === null ? null : (string) $row['shipped_at'],
             $row['variation_id'] === null ? null : (int) $row['variation_id'],
             (int) $row['wc_product_id'],
-            (string) $row['created_at']
+            (string) $row['created_at'],
+            // `array_key_exists` rather than `??`: a query that did not
+            // SELECT the column and a row whose column is NULL are the same
+            // answer here — «this row does not say» — and both have to read
+            // as null rather than as an empty unit (`alpha.60`).
+            array_key_exists(U::CURRENCY, $row) && trim((string) ($row[U::CURRENCY] ?? '')) !== ''
+                ? strtoupper(trim((string) $row[U::CURRENCY]))
+                : null,
+            array_key_exists(U::EXPONENT, $row) && $row[U::EXPONENT] !== null
+                ? (int) $row[U::EXPONENT]
+                : null
         );
     }
 
@@ -437,4 +590,20 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
             do_action('tmc_vendor_figures_changed', $vendorUserId);
         }
     }
+    /**
+     * Whether a table carries migration 33's unit columns — asked once per
+     * INSTANCE, which is once per request in practice.
+     *
+     * The memo lives here rather than in `M0033::carriedBy()` for the reason
+     * `ProductTableShape` keeps its own: a process-wide cache is right for a
+     * request and wrong for anything that changes the table and asks again.
+     */
+    private function unitColumnsOn(string $table): bool
+    {
+        if (!array_key_exists($table, $this->unitColumns)) {
+            $this->unitColumns[$table] = U::carriedBy($this->db, $table);
+        }
+        return $this->unitColumns[$table];
+    }
+
 }

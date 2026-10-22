@@ -57,8 +57,46 @@ final class Product
          * conservative `marketplace` through `LinkOwnership::tryFrom()` at
          * the one place that asks.
          */
-        public readonly string $linkOwnership = LinkOwnership::MARKETPLACE_VALUE
+        public readonly string $linkOwnership = LinkOwnership::MARKETPLACE_VALUE,
+        /**
+         * The storefront `post_status` an INTAKE observed, or `null`.
+         *
+         * `null` is «this row's storefront status was never observed», and
+         * that is the answer for every row the marketplace itself created:
+         * their status IS the marketplace's own decision, so the projector
+         * writes it. A value means the opposite — the status on that product
+         * is somebody else's, we have never written it, and the first
+         * projection must not write it either.
+         *
+         * Measured on `alpha.66`: a WooCommerce `pending` product taken in,
+         * accepted and saved kept its status through all three, and the first
+         * projection wrote `draft` and dropped it out of the catalogue and
+         * out of search. `alpha.44`'s rule one object down — ownership is
+         * bound to what WE wrote — and here we wrote nothing.
+         *
+         * Cleared by `updateStatus()`, which is the one chokepoint every
+         * explicit status transition goes through: once a human inside this
+         * marketplace has decided the status, it is ours to write.
+         *
+         * Last, with a default, for the reason the parameters above are:
+         * these are addressed positionally in places and appending is the
+         * only safe direction.
+         */
+        public readonly ?string $mirroredStatus = null
     ) {
+    }
+
+    /**
+     * Whether the storefront's own status is this product's to write.
+     *
+     * The one definition, so the projector, the review page and the tests
+     * cannot disagree about it (`alpha.46`). A held status is NOT a refusal
+     * and NOT an error: the product is projected in full, and the one field
+     * nobody in this marketplace has decided is left as it stands.
+     */
+    public function storefrontStatusIsHeld(): bool
+    {
+        return $this->mirroredStatus !== null && trim($this->mirroredStatus) !== '';
     }
 
     /** Whether this plugin may decide anything about the linked product. */

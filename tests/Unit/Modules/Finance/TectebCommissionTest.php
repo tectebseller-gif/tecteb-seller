@@ -39,13 +39,21 @@ final class TectebCommissionTest extends TestCase
         );
 
         self::assertTrue($outcome->isCalculated());
-        self::assertSame(60000, $outcome->commission?->minor);
-        self::assertSame(240000, $outcome->vendorShare?->minor);
+        // AT THE FINER UNIT. From `alpha.67` an outcome comes back at
+        // `CommissionPrecision::exponentFor()`, four places past the order's
+        // own, so ۶۰٬۰۰۰ تومان is `600000000` at `exponent = 4`. The decimal
+        // string is asserted beside it, because that is what a person reads
+        // and it is the sentence the owner's example is written in.
+        self::assertSame(4, $outcome->commission?->exponent);
+        self::assertSame(600000000, $outcome->commission?->minor);
+        self::assertSame('60000.0000', $outcome->commission?->toDecimal());
+        self::assertSame(2400000000, $outcome->vendorShare?->minor);
+        self::assertSame('240000.0000', $outcome->vendorShare?->toDecimal());
         // The snapshot has to explain the multiplication a year later: ۶۰٬۰۰۰
         // alone does not say whether it was ۲۰٬۰۰۰×۳ or ۶۰٬۰۰۰×۱.
         self::assertSame(TectebCommission::FIXED, $outcome->snapshot?->commissionType);
         self::assertSame(3, $outcome->snapshot?->quantity);
-        self::assertSame(20000, $outcome->snapshot?->unitAmountMinor);
+        self::assertSame(200000000, $outcome->snapshot?->unitAmountMinor);
     }
 
     /** §5-ب: the percentage is taken on the amount the line actually paid. */
@@ -60,8 +68,10 @@ final class TectebCommissionTest extends TestCase
             7
         );
 
-        self::assertSame(45000, $outcome->commission?->minor);
-        self::assertSame(405000, $outcome->vendorShare?->minor);
+        self::assertSame(450000000, $outcome->commission?->minor);
+        self::assertSame('45000.0000', $outcome->commission?->toDecimal());
+        self::assertSame(4050000000, $outcome->vendorShare?->minor);
+        self::assertSame('405000.0000', $outcome->vendorShare?->toDecimal());
         // Quantity does NOT multiply a percentage: the line total already
         // carries it, and multiplying again would charge twice.
         self::assertSame(1000, $outcome->snapshot?->rateBasisPoints);
@@ -87,7 +97,8 @@ final class TectebCommissionTest extends TestCase
             $outcome = $this->calculator->calculate(Money::of(450000), 2, $rule, 'none', 7);
             self::assertTrue($outcome->isCalculated(), $label . ' must not be a refusal');
             self::assertSame(0, $outcome->commission?->minor, $label);
-            self::assertSame(450000, $outcome->vendorShare?->minor, $label);
+            self::assertSame(4500000000, $outcome->vendorShare?->minor, $label);
+            self::assertSame('450000.0000', $outcome->vendorShare?->toDecimal(), $label);
         }
     }
 
@@ -197,25 +208,159 @@ final class TectebCommissionTest extends TestCase
     }
 
     /**
-     * §5-ح: a fixed amount with more precision than the currency has is
-     * REFUSED, not rounded.
+     * §5-ح: a fixed amount with more precision than the LINE'S UNIT can hold
+     * is REFUSED, not rounded — and `alpha.67` moved where that line falls.
      *
-     * The conversion happens against the ORDER's exponent, which is why this
-     * is the calculator's refusal and not the panel's: ریال and تومان have no
-     * minor unit, so `۲۰٬۰۰۰٫۵۰` is storable text and an unpayable amount.
+     * ⛔ Until `alpha.67` the conversion happened against the order's own
+     * exponent, so `۲۰٬۰۰۰٫۵۰` was unpayable in تومان and this test asserted
+     * the refusal. The owner's no-rounding decision gives the line four more
+     * places (`CommissionPrecision`), so that amount now FITS exactly and
+     * refusing it would be the old defect upside down. The refusal is still
+     * here and still named — it has simply moved to five places, which is one
+     * more than the arithmetic can hold.
      */
-    public function testAFixedAmountThatDoesNotFitTheCurrencyIsRefusedRatherThanRounded(): void
+    public function testAFixedAmountFinerThanTheLineCanHoldIsRefusedRatherThanRounded(): void
     {
-        $rule = TectebCommission::fixed('20000.50');
+        // Four places past تومان: exact, and recorded as it was typed.
+        $exact = $this->calculator->calculate(
+            Money::of(300000, 'IRT', 0),
+            1,
+            TectebCommission::fixed('20000.5'),
+            'product',
+            7
+        );
+        self::assertTrue($exact->isCalculated());
+        self::assertSame(200005000, $exact->commission?->minor);
+        self::assertSame('20000.5000', $exact->commission?->toDecimal());
 
-        $atZero = $this->calculator->calculate(Money::of(300000, 'IRR', 0), 1, $rule, 'product', 7);
-        self::assertFalse($atZero->isCalculated());
-        self::assertSame(TectebCommissionCalculator::FIXED_NOT_EXACT, $atZero->reason);
+        // FIVE places: one more than the unit holds, so refused by name.
+        $tooFine = $this->calculator->calculate(
+            Money::of(300000, 'IRT', 0),
+            1,
+            TectebCommission::fixed('20000.00001'),
+            'product',
+            7
+        );
+        self::assertFalse($tooFine->isCalculated());
+        self::assertSame(TectebCommissionCalculator::FIXED_NOT_EXACT, $tooFine->reason);
+    }
 
-        // The same text in a currency that HAS two places is exact.
-        $atTwo = $this->calculator->calculate(Money::of(3000000, 'USD', 2), 1, $rule, 'product', 7);
+    /**
+     * THE OWNER'S WORKED EXAMPLE, exactly as it is written.
+     *
+     * «مبلغ قلم ۱۰۱ تومان، نرخ ۱۲٫۵٪، کمیسیون دقیقاً ۱۲٫۶۲۵ تومان و سهم
+     * تأمین‌کننده دقیقاً ۸۸٫۳۷۵ تومان.» Asserted as integers at the unit the
+     * arithmetic produces AND as the decimal strings a person reads, because
+     * one of those alone can be right while the other is wrong.
+     */
+    public function testTheOwnersWorkedExampleIsExactToTheThousandthOfAToman(): void
+    {
+        $outcome = $this->calculator->calculate(
+            Money::of(101, 'IRT', 0),
+            1,
+            TectebCommission::percent(1250),
+            'product',
+            7
+        );
+
+        self::assertTrue($outcome->isCalculated());
+        self::assertSame(4, $outcome->commission?->exponent, 'four places, derived from the rate denominator');
+        self::assertSame(126250, $outcome->commission?->minor);
+        self::assertSame('12.6250', $outcome->commission?->toDecimal());
+        self::assertSame(883750, $outcome->vendorShare?->minor);
+        self::assertSame('88.3750', $outcome->vendorShare?->toDecimal());
+        // The base comes back in the same unit, so the identity below is
+        // about three numbers of one kind.
+        self::assertSame(1010000, $outcome->base?->minor);
+        self::assertSame('101.0000', $outcome->base?->toDecimal());
+        self::assertSame(
+            $outcome->base?->minor,
+            (int) $outcome->commission?->minor + (int) $outcome->vendorShare?->minor,
+            'C + V must be B exactly'
+        );
+        // And the snapshot says there was no rounding, rather than which
+        // rounding there was.
+        self::assertSame('exact@v2', $outcome->snapshot?->roundingPolicy);
+    }
+
+    /** An amount whose percentage lands on a whole تومان is still exact. */
+    public function testAnAmountWhoseCommissionIsWholeIsAlsoExact(): void
+    {
+        $outcome = $this->calculator->calculate(
+            Money::of(1000, 'IRT', 0),
+            1,
+            TectebCommission::percent(1250),
+            'product',
+            7
+        );
+
+        self::assertTrue($outcome->isCalculated());
+        self::assertSame('125.0000', $outcome->commission?->toDecimal());
+        self::assertSame('875.0000', $outcome->vendorShare?->toDecimal());
+    }
+
+    /**
+     * MULTIPLE QUANTITY AND A DISCOUNT, on one approved commission base.
+     *
+     * The percentage is taken on what the line actually paid — quantity is
+     * already in that figure and a discount has already come off it — so
+     * three units of ۱۰۱ discounted to ۲۵۰ owe ۱۲٫۵٪ of ۲۵۰ and not of ۳۰۳.
+     */
+    public function testQuantityAndDiscountAreBothAlreadyInTheBase(): void
+    {
+        $threeUnits = $this->calculator->calculate(
+            Money::of(303, 'IRT', 0),
+            3,
+            TectebCommission::percent(1250),
+            'product',
+            7
+        );
+        self::assertSame('37.8750', $threeUnits->commission?->toDecimal());
+        self::assertSame('265.1250', $threeUnits->vendorShare?->toDecimal());
+
+        $discounted = $this->calculator->calculate(
+            Money::of(250, 'IRT', 0),
+            3,
+            TectebCommission::percent(1250),
+            'product',
+            7
+        );
+        self::assertSame('31.2500', $discounted->commission?->toDecimal());
+        self::assertSame('218.7500', $discounted->vendorShare?->toDecimal());
+        self::assertSame(3, $discounted->snapshot?->quantity);
+    }
+
+    /**
+     * A unit too fine to hold an exact commission is refused BY NAME.
+     *
+     * An order captured at three decimal places would need seven and `Money`
+     * carries six. The owner ruled out both ways of hiding that: «با تبدیل
+     * بی‌صدا یا تغییر exponent ارز مشکل را پنهان نکن».
+     */
+    public function testAUnitTooFineForAnExactCommissionIsRefusedRatherThanRounded(): void
+    {
+        $outcome = $this->calculator->calculate(
+            Money::of(101000, 'XXX', 3),
+            1,
+            TectebCommission::percent(1250),
+            'product',
+            7
+        );
+
+        self::assertFalse($outcome->isCalculated());
+        self::assertSame(TectebCommissionCalculator::PRECISION_UNAVAILABLE, $outcome->reason);
+
+        // Two places still works, exactly at the ceiling.
+        $atTwo = $this->calculator->calculate(
+            Money::of(10100, 'USD', 2),
+            1,
+            TectebCommission::percent(1250),
+            'product',
+            7
+        );
         self::assertTrue($atTwo->isCalculated());
-        self::assertSame(2000050, $atTwo->commission?->minor);
+        self::assertSame(6, $atTwo->commission?->exponent);
+        self::assertSame('12.625000', $atTwo->commission?->toDecimal());
     }
 
     /**
@@ -302,10 +447,21 @@ final class TectebCommissionTest extends TestCase
                     7
                 );
                 self::assertTrue($outcome->isCalculated(), $baseMinor . '/' . $bp);
+                // Against the RESCALED base, which is the one the two figures
+                // are in. Comparing them against the argument's integer was
+                // the right assertion while everything was at one exponent
+                // and is a unit error now.
                 self::assertSame(
-                    $baseMinor,
+                    $outcome->base?->minor,
                     (int) $outcome->commission?->minor + (int) $outcome->vendorShare?->minor,
                     'C + V must equal B for ' . $baseMinor . ' at ' . $bp . 'bp'
+                );
+                // And the base really is the same money: the argument times
+                // ten thousand, with nothing lost.
+                self::assertSame(
+                    $baseMinor * 10000,
+                    $outcome->base?->minor,
+                    'the base must be the same amount in the finer unit'
                 );
             }
         }

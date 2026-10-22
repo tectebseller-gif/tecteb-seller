@@ -75,8 +75,21 @@ VERSION="$(wpx plugin get tecteb-marketplace-core --field=version 2>/dev/null | 
 say "installed_version=$VERSION"
 SRC_DIFF="$(diff -rq "$REPO/src" "$INSTALLED/src" 2>&1 | head -5)"
 check "1a the installed src/ is this checkout's" "" "$SRC_DIFF"
-check "1b the schema target is 31" "31" "$(wpx eval 'echo \Tecteb\Marketplace\Core\Migration\SchemaVersion::TARGET;' 2>/dev/null)"
-check "1c the recorded schema is 31" "31" "$(wpx option get tmc_schema_version 2>/dev/null | tr -d '\r')"
+# ⛔ THE STRUCTURE NUMBER IS PRINTED, NOT ASSERTED — and this was a
+# correction. These two lines asserted `31`, which was `alpha.62`'s own
+# number; the first later round that moved the schema (`alpha.67`, to 33) made
+# them report two failures about a tree that was completely right. What this
+# script is for is the SEVEN findings below, and the structure a later release
+# declares is none of its business. `alpha.56`'s rule, in the direction it
+# did not cover: do not freeze a number about a round you are not testing.
+# The one invariant worth keeping is that the recorded structure MATCHES the
+# installed code's target — a site mid-upgrade is not a site to measure on.
+SCHEMA_TARGET="$(wpx eval 'echo \Tecteb\Marketplace\Core\Migration\SchemaVersion::TARGET;' 2>/dev/null)"
+SCHEMA_RECORDED="$(wpx option get tmc_schema_version 2>/dev/null | tr -d '\r')"
+say "schema_target=$SCHEMA_TARGET"
+say "schema_recorded=$SCHEMA_RECORDED"
+check "1b the recorded structure matches the installed code's target" \
+  "$SCHEMA_TARGET" "$SCHEMA_RECORDED"
 
 say ""
 say "=== §3 the agreed amount, partial payments and the balance ==="

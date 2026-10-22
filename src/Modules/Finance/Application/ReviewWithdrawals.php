@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
 use Tecteb\Marketplace\Modules\Finance\Domain\Money;
+use Tecteb\Marketplace\Modules\Finance\Domain\Withdrawal;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStateMachine;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStatus;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
@@ -148,7 +149,7 @@ final class ReviewWithdrawals
         $unit = null;
 
         if ($paying) {
-            $unit = $this->payoutUnit($withdrawal->vendorUserId);
+            $unit = $this->payoutUnit($withdrawal->vendorUserId, $withdrawal);
             if ($unit === null) {
                 // «با واحد حدسی ثبت نشود». The payout line used to be
                 // `Money::of($amountMinor)` — the `'IRR', 0` default — which is
@@ -329,8 +330,36 @@ final class ReviewWithdrawals
      *
      * @return array{currency:string, exponent:int}|null
      */
-    private function payoutUnit(int $vendorUserId): ?array
+    private function payoutUnit(int $vendorUserId, ?Withdrawal $withdrawal = null): ?array
     {
+        // THE REQUEST'S OWN UNIT FIRST, when it has one.
+        //
+        // From `alpha.67` a request's amount is summed from shares that may
+        // be at the finer exponent an exact commission needs, while the
+        // registry's row holds the vendor's FIRST unit on purpose — it is the
+        // answer for rows that do not say. Reading the registry here would
+        // post a payout line ten thousand times too large for such a request.
+        // A request made before `alpha.67` says nothing and falls through to
+        // exactly the answer it was reserved against.
+        if ($withdrawal !== null && $withdrawal->exponent !== null) {
+            $currency = $withdrawal->currency;
+            if ($currency === null || trim($currency) === '') {
+                // Half a unit on the row: the exponent is there and the
+                // currency is not. `reserve()` writes both together, so this
+                // is a row from a build that wrote only one — and the
+                // currency comes from the only other place a vendor's
+                // currency is ever fixed. Falling through rather than
+                // refusing, because the exponent on the row is still the
+                // better answer than the registry's for the AMOUNT.
+                $registry = $this->units?->unitOf($vendorUserId)
+                    ?? ($this->ledger->unitsFor($vendorUserId)[0] ?? null);
+                if ($registry === null) {
+                    return null;
+                }
+                $currency = (string) $registry['currency'];
+            }
+            return ['currency' => strtoupper(trim($currency)), 'exponent' => $withdrawal->exponent];
+        }
         // ONE CONTRACT with the sale and the refund, since `alpha.40`: the
         // registry is what the capture claims against, so a payout asking it
         // cannot answer a unit the capture would have refused. `unitsFor()`

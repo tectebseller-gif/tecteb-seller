@@ -1,0 +1,147 @@
+=== the two packages, read from the ZIPs ===
+base_package=0.1.0-alpha.66 base_schema=31
+new_package=0.1.0-alpha.67 new_schema=33
+PASS  1a the base declares schema 31  (31)
+PASS  1b the new package declares 33  (33)
+PASS  1c so this round has TWO steps  (2)
+
+=== on the base package: a line in the old shape ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Activating 'tecteb-marketplace-core'...
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Installed 1 of 1 plugins.
+PASS  2a the base is installed  (0.1.0-alpha.66)
+unmigrated=__empty__
+schema_recorded=31
+PASS  2b the site is put genuinely on 31  (31)
+schema_recorded=31
+products_mirrored_status=no
+tmc_order_items_currency=no
+tmc_order_items_exponent=no
+tmc_withdrawals_currency=no
+tmc_withdrawals_exponent=no
+tmc_withdrawal_lines_currency=no
+tmc_withdrawal_lines_exponent=no
+tmc_returns_currency=no
+tmc_returns_exponent=no
+PASS  2c mirrored_status is not there  (no)
+PASS  2d nor the unit on the order line  (no)
+PASS  2e nor on a withdrawal  (no)
+PASS  2f nor on a withdrawal line  (no)
+PASS  2g nor on a return  (no)
+line=316
+vendor=9671
+PASS  2h the base writes a line  (yes)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 182
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 182
+ledger_rows=3
+identity=37ed36fffa19997dc571891fa9a41526ff578ed323454c7a4ceadb09b9664e41
+legacy_currency=__absent__
+legacy_exponent=__absent__
+balance_earned=405000
+balance_exponent=__no_key__
+identity_before=37ed36fffa19997dc571891fa9a41526ff578ed323454c7a4ceadb09b9664e41
+balance_earned_before=405000
+PASS  2i the row carries no unit column at all  (__absent__)
+PASS  2j and the balance is ۴۰۵٬۰۰۰ تومان of share  (405000)
+PASS  2k the recorded structure is 31  (31)
+
+=== the first step is made to FAIL, on purpose ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Activating 'tecteb-marketplace-core'...
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Installed 1 of 1 plugins.
+PASS  3a the new files are on disk  (0.1.0-alpha.67)
+PASS  3b swapping files alone runs NO step  (31)
+PASS  3c the chain stops where it was  (31)
+NOTE  3d the gate retries on its own, throttled  RETRY_COOLDOWN_SECONDS = 300 (`alpha.46`)
+Success: Deleted 'tmc_migration_last_error' option.
+PASS  3e …and the next admin request finishes BOTH steps  (33)
+schema_recorded=33
+products_mirrored_status=yes
+tmc_order_items_currency=yes
+tmc_order_items_exponent=yes
+tmc_withdrawals_currency=yes
+tmc_withdrawals_exponent=yes
+tmc_withdrawal_lines_currency=yes
+tmc_withdrawal_lines_exponent=yes
+tmc_returns_currency=yes
+tmc_returns_exponent=yes
+PASS  4a mirrored_status is there now  (yes)
+PASS  4b the order line carries a unit  (yes)
+PASS  4c …and a currency  (yes)
+PASS  4d a withdrawal too  (yes)
+PASS  4e a withdrawal line too  (yes)
+PASS  4f and a return too  (yes)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 182
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 182
+ledger_rows=3
+identity=37ed36fffa19997dc571891fa9a41526ff578ed323454c7a4ceadb09b9664e41
+legacy_currency=__none__
+legacy_exponent=__none__
+balance_earned=405000
+balance_exponent=0
+identity_after=37ed36fffa19997dc571891fa9a41526ff578ed323454c7a4ceadb09b9664e41
+PASS  5a the line and its ledger hash the same  (37ed36fffa19997dc571891fa9a41526ff578ed323454c7a4ceadb09b9664e41)
+PASS  5b the ledger rows are untouched  (3)
+PASS  5c the new column says nothing about this row  (__none__)
+PASS  5d nor about its currency  (__none__)
+PASS  5e and the old amount still means what it meant  (405000)
+PASS  5f the balance is read in the unit the row was written in  (0)
+
+=== and back to 0.1.0-alpha.66 ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Activating 'tecteb-marketplace-core'...
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Installed 1 of 1 plugins.
+PASS  6a the old files are on disk  (0.1.0-alpha.66)
+PASS  6b the structure stays at 33 — a migration is additive  (33)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 182
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 182
+ledger_rows=3
+identity=37ed36fffa19997dc571891fa9a41526ff578ed323454c7a4ceadb09b9664e41
+legacy_currency=__none__
+legacy_exponent=__none__
+balance_earned=405000
+balance_exponent=__no_key__
+PASS  6c no database work is needed to go back  (37ed36fffa19997dc571891fa9a41526ff578ed323454c7a4ceadb09b9664e41)
+PASS  6d and the old line still reads the same  (405000)
+note=⛔ THE COST OF GOING BACK, and this one is different from every
+note=   earlier round: it is the first rollback with a DATA-INTERPRETATION
+note=   cost rather than only a feature cost.
+note=  1. Any commission RECORDED BY alpha.67 is stored at four more
+note=     decimal places. alpha.66 reads those columns without a scale,
+note=     so ۳۷٫۸۷۵ would read as ۳۷۸٬۷۵۰ — ten thousand times too much.
+note=     Lines recorded BEFORE alpha.67 are unaffected: they carry no
+note=     unit and alpha.66 reads them exactly as it wrote them.
+note=  2. A pending product's status is held again only while alpha.67 is
+note=     installed; under alpha.66 the next projection writes 'draft'.
+note=  So: stop sales, settle open withdrawal requests and decide any
+note=  return awaiting a refund BEFORE swapping back — the five-step
+note=  order in docs/upgrade-and-rollback.md §5.2-ب, and §47 for this
+note=  round's own table.
+
+=== forward again, because a rollback is not a decision ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Activating 'tecteb-marketplace-core'...
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Installed 1 of 1 plugins.
+PASS  7a the new package is installed  (0.1.0-alpha.67)
+PASS  7b the structure is 33 and no step ran again  (33)
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 182
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$withdrawalId in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 182
+PASS  7c and the data is the same  (37ed36fffa19997dc571891fa9a41526ff578ed323454c7a4ceadb09b9664e41)
+
+PASS=37 FAIL=0

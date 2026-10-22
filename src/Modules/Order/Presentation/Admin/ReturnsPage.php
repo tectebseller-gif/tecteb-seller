@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Order\Presentation\Admin;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Order\Application\ManageReturns;
@@ -118,26 +119,34 @@ final class ReturnsPage
                     $fa((string) $item->quantity)
                 )) : '') . '</td>'
                 . '<td>' . esc_html(ReturnMessages::status($request->status)) . '</td>'
-                . '<td>' . $this->moneyCell($request, $fa) . '</td>'
+                . '<td>' . $this->moneyCell($request) . '</td>'
                 . '<td>' . $this->actionsFor($request, $states) . '</td></tr>';
         }
         echo '</tbody></table></div></section>';
     }
 
-    /** @param callable(string|int):string $fa */
-    private function moneyCell(ReturnRequest $request, callable $fa): string
+    private function moneyCell(ReturnRequest $request): string
     {
         if ($request->refundMinor === null) {
             return '<span class="tmc-field__desc">'
                 . esc_html__('هنوز ثبت نشده', 'tecteb-marketplace-core') . '</span>';
         }
-        return esc_html($fa(number_format($request->refundMinor)))
+        // AT THE ROW'S OWN SCALE. These three were `number_format()` on the
+        // bare integer, which was right only while every amount in a vendor's
+        // books was at the order's exponent. A reversal of a fractional share
+        // is recorded at the finer unit an exact commission needs, so the old
+        // code printed ۸۸۳٬۷۵۰ where ۸۸٫۳۷۵ came back. A row written before
+        // `alpha.67` records no unit and is read exactly as it was then.
+        $exponent = $request->exponentOr();
+        $money = static fn (int $minor): string => MoneyText::format($minor, $exponent)
+            ?? PersianDigits::toPersian((string) $minor);
+        return esc_html($money($request->refundMinor))
             . '<br><span class="tmc-field__desc">'
             . esc_html(sprintf(
                 /* translators: 1: tax reversed, 2: commission reversed */
                 __('مالیات %1$s · کمیسیون %2$s', 'tecteb-marketplace-core'),
-                $fa(number_format((int) $request->taxRefundMinor)),
-                $fa(number_format((int) $request->commissionReversedMinor))
+                $money((int) $request->taxRefundMinor),
+                $money((int) $request->commissionReversedMinor)
             ))
             . '</span>';
     }

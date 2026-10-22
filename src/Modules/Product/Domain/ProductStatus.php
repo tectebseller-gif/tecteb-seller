@@ -54,6 +54,23 @@ enum ProductStatus: string
      *     `s0.r0.b0` — a decision nobody asked for and a badge count nobody
      *     can clear. The product's real WooCommerce status is still shown, on
      *     its own facet, which is what §1-الف asks for.
+     *
+     *     ⛔ **AND THAT WAS HALF AN ANSWER UNTIL `alpha.67`.** This value is
+     *     the marketplace's own lifecycle state, and `alpha.66`'s docblock
+     *     went on to say «mirroring means the first projection writes the
+     *     status the product already has» — which is true of `publish` and of
+     *     `draft` and FALSE of `pending`, the one status that has no
+     *     lifecycle state of its own. Measured on `alpha.66`'s installed
+     *     bytes: a `pending` product kept its status through the intake,
+     *     through accepting management and through an ordinary save, and the
+     *     first projection wrote `draft` and took it out of the catalogue and
+     *     out of search. The row's value here is right; what was missing was
+     *     the separate record that the SHOP's status is not ours to write.
+     *     That is `mirrored_status` (migration 32) and
+     *     `Product::storefrontStatusIsHeld()`, and this enum deliberately did
+     *     NOT grow a seventh case: §4.2 fixes the six, and a new one would
+     *     travel into `countsByStatus()`, the queue identity, the vendor's
+     *     filters and six gates without answering the general question.
      *   * `private`, `future` → **refused**. This marketplace has no field for
      *     «visible to logged-in roles only» or «goes live on a date», and the
      *     honest answer to a state we cannot hold is to say so rather than to

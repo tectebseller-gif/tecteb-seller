@@ -4,6 +4,10 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Tests\Database;
 
 use Tecteb\Marketplace\Core\Audit\AuditEventSanitizer;
+use Tecteb\Marketplace\Core\Config\SettingsService;
+use Tecteb\Marketplace\Modules\Finance\Application\VendorBalance;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0033MoneyUnitOnRows as MoneyUnit;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Container;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
@@ -31,6 +35,7 @@ use Tecteb\Marketplace\Modules\Order\Application\ManageOrderItems;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStateMachine;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
+use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 use Tecteb\Marketplace\Modules\Order\Application\ShipItems;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\DbOrderItemRepository;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\DbShipmentRepository;
@@ -228,11 +233,11 @@ final class OrderFlowTest extends DatabaseTestCase
         $linesB = $this->orderItems->forVendor(self::VENDOR_B);
         self::assertCount(1, $linesA);
         self::assertCount(1, $linesB);
-        self::assertSame(400000, $linesA[0]->baseMinor);
-        self::assertSame(40000, $linesA[0]->commissionMinor, 'ten percent of the line, after discount, before tax');
-        self::assertSame(360000, $linesA[0]->vendorShareMinor);
+        self::assertSame(4000000000, $linesA[0]->baseMinor);
+        self::assertSame(400000000, $linesA[0]->commissionMinor, 'ten percent of the line, after discount, before tax');
+        self::assertSame(3600000000, $linesA[0]->vendorShareMinor);
         self::assertSame(1000, $linesA[0]->rateBasisPoints, 'the rate is snapshotted with the sale');
-        self::assertSame(15000, $linesB[0]->commissionMinor);
+        self::assertSame(150000000, $linesB[0]->commissionMinor);
     }
 
     public function testTheLedgerHoldsTheMoneyAndARetryWritesNothingTwice(): void
@@ -245,8 +250,8 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertNotSame([], $first, 'the sale reached the ledger');
 
         $balances = $this->ledger->balances(self::VENDOR_A);
-        self::assertSame(-450000, $balances[LedgerAccount::VendorEarning->value] ?? 0);
-        self::assertSame(-50000, $balances[LedgerAccount::Commission->value] ?? 0);
+        self::assertSame(-4500000000, $balances[LedgerAccount::VendorEarning->value] ?? 0);
+        self::assertSame(-500000000, $balances[LedgerAccount::Commission->value] ?? 0);
 
         // The checkout hook fires again — a retried payment callback, a second
         // WooCommerce hook for the same order.
@@ -305,14 +310,14 @@ final class OrderFlowTest extends DatabaseTestCase
         // Exactly one financial event, with nothing doubled.
         self::assertCount(3, $this->ledger->forEvent($eventKey));
         $balances = $this->ledger->balances(self::VENDOR_A);
-        self::assertSame(-450000, $balances[LedgerAccount::VendorEarning->value] ?? 0);
-        self::assertSame(-50000, $balances[LedgerAccount::Commission->value] ?? 0);
+        self::assertSame(-4500000000, $balances[LedgerAccount::VendorEarning->value] ?? 0);
+        self::assertSame(-500000000, $balances[LedgerAccount::Commission->value] ?? 0);
 
         // And exactly one line, which knows what it is worth.
         $stored = $this->orderItems->forVendor(self::VENDOR_A);
         self::assertCount(1, $stored);
-        self::assertSame(50000, $stored[0]->commissionMinor, 'the commission recorded at the time');
-        self::assertSame(450000, $stored[0]->vendorShareMinor);
+        self::assertSame(500000000, $stored[0]->commissionMinor, 'the commission recorded at the time');
+        self::assertSame(4500000000, $stored[0]->vendorShareMinor);
         self::assertSame(1000, $stored[0]->rateBasisPoints, 'the rate recorded at the time, not resolved again');
         self::assertSame($eventKey, $stored[0]->ledgerEvent, 'and it points at its own event');
         self::assertTrue($stored[0]->isRecorded());
@@ -360,8 +365,16 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertNotSame([], $entries);
         foreach ($entries as $entry) {
             self::assertSame('USD', $entry->amount->currency, 'the order own currency reached the ledger');
-            self::assertSame(2, $entry->amount->exponent);
+            // SIX, not two: the order's own two places plus the four an exact
+            // commission needs (`CommissionPrecision::exponentFor(2)`), which
+            // is exactly `Money`'s ceiling. The CURRENCY is the thing that
+            // travels unchanged; the exponent is the arithmetic's.
+            self::assertSame(6, $entry->amount->exponent);
         }
+        // And the row says the same unit the ledger does.
+        $line = $this->orderItems->findByOrderItem(61);
+        self::assertSame('USD', $line?->currency);
+        self::assertSame(6, $line?->exponent);
     }
 
     /**
@@ -383,7 +396,7 @@ final class OrderFlowTest extends DatabaseTestCase
         // The first sale sets the unit.
         self::assertSame(1, $this->capture->capture(5020, [$this->line(71, $a, 1, 500000)])['captured']);
         self::assertSame(
-            [['currency' => 'IRR', 'exponent' => 0]],
+            [['currency' => 'IRR', 'exponent' => 4]],
             $this->ledger->unitsFor(self::VENDOR_A)
         );
 
@@ -401,7 +414,7 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertCount(1, $this->orderItems->forVendor(self::VENDOR_A), 'and no second line');
         // The books are still one unit, which is the whole point.
         self::assertSame(
-            [['currency' => 'IRR', 'exponent' => 0]],
+            [['currency' => 'IRR', 'exponent' => 4]],
             $this->ledger->unitsFor(self::VENDOR_A)
         );
     }
@@ -442,7 +455,10 @@ final class OrderFlowTest extends DatabaseTestCase
         // can see why. Nothing converts anything.
         $mixed = $this->ledger->vendorsWithMixedUnits();
         self::assertSame([self::VENDOR_A], array_column($mixed, 'vendor_user_id'));
-        self::assertSame('IRR/0,USD/2', $mixed[0]['units']);
+        // `IRR/4` because an accrual is recorded at the finer unit now; the
+        // report still lists each `currency/exponent` it meets, because a
+        // person looking at a blocked order wants to see exactly that.
+        self::assertSame('IRR/4,USD/2', $mixed[0]['units']);
     }
 
     /**
@@ -454,7 +470,11 @@ final class OrderFlowTest extends DatabaseTestCase
         $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-13');
 
         $failing = new FailingDatabase(new WpDatabase($this->wpdb));
-        $failing->failReadWhen(['COUNT(DISTINCT CONCAT']);
+        // The needle tracks the code: `alpha.67` rewrote that query to count
+        // distinct CURRENCY, so the old needle stopped matching and the
+        // injection fired nothing (`alpha.33`). The `$failing->refused`
+        // assertion below is what makes a dead needle visible.
+        $failing->failReadWhen(['COUNT(DISTINCT `currency`)']);
         $report = $this->captureOverUnits($failing)->capture(5032, [$this->line(83, $a, 1, 500000)]);
 
         self::assertSame(0, $report['captured']);
@@ -482,7 +502,7 @@ final class OrderFlowTest extends DatabaseTestCase
             self::assertSame(0, $report['refused_unit']);
         }
         self::assertCount(3, $this->orderItems->forVendor(self::VENDOR_A));
-        self::assertSame([['currency' => 'IRR', 'exponent' => 0]], $this->ledger->unitsFor(self::VENDOR_A));
+        self::assertSame([['currency' => 'IRR', 'exponent' => 4]], $this->ledger->unitsFor(self::VENDOR_A));
         self::assertSame([], $this->ledger->vendorsWithMixedUnits());
 
         // And the SAME order twice writes nothing new — the event key decides,
@@ -569,8 +589,8 @@ final class OrderFlowTest extends DatabaseTestCase
 
         $stored = $this->orderItems->forVendor(self::VENDOR_A);
         self::assertCount(1, $stored);
-        self::assertSame(450000, $stored[0]->vendorShareMinor);
-        self::assertSame(50000, $stored[0]->commissionMinor);
+        self::assertSame(4500000000, $stored[0]->vendorShareMinor);
+        self::assertSame(500000000, $stored[0]->commissionMinor);
         self::assertSame(1000, $stored[0]->rateBasisPoints, 'the rate recorded at the time, not today(none)');
         self::assertSame($eventKey, $stored[0]->ledgerEvent);
         self::assertCount(3, $this->ledger->forEvent($eventKey), 'nothing doubled');
@@ -876,9 +896,9 @@ final class OrderFlowTest extends DatabaseTestCase
 
         $totals = $this->orders->totals(self::VENDOR_A, self::VENDOR_A);
         self::assertSame(2, $totals['lines']);
-        self::assertSame(300000, $totals['base']);
-        self::assertSame(30000, $totals['commission']);
-        self::assertSame(270000, $totals['share']);
+        self::assertSame(3000000000, $totals['base']);
+        self::assertSame(300000000, $totals['commission']);
+        self::assertSame(2700000000, $totals['share']);
     }
 
     // -------------------------------------------------------------- helpers
@@ -939,8 +959,8 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertContains('line_repaired', $again['reasons']);
 
         $fixed = $this->orderItems->find($itemId);
-        self::assertSame(450000, $fixed?->vendorShareMinor, 'the share recorded at the time');
-        self::assertSame(50000, $fixed?->commissionMinor);
+        self::assertSame(4500000000, $fixed?->vendorShareMinor, 'the share recorded at the time');
+        self::assertSame(500000000, $fixed?->commissionMinor);
         self::assertSame(1000, $fixed?->rateBasisPoints, 'the OLD rate: history is not rewritten');
         self::assertSame($eventKey, $fixed?->ledgerEvent);
         self::assertTrue($fixed?->isRecorded());
@@ -948,7 +968,7 @@ final class OrderFlowTest extends DatabaseTestCase
         // One event, nothing doubled, and the vendor's balance is the one
         // figure the books hold.
         self::assertCount(3, $this->ledger->forEvent($eventKey));
-        self::assertSame(-450000, $this->ledger->balances(self::VENDOR_A)[LedgerAccount::VendorEarning->value] ?? 0);
+        self::assertSame(-4500000000, $this->ledger->balances(self::VENDOR_A)[LedgerAccount::VendorEarning->value] ?? 0);
 
         // A third callback has nothing left to do and says nothing.
         $third = $this->capture->capture(5016, $lines);
@@ -1052,8 +1072,8 @@ final class OrderFlowTest extends DatabaseTestCase
             'order:0:item:0'
         ), 'a complete line is not repairable');
         $after = $this->orderItems->find($item->id);
-        self::assertSame(450000, $after?->vendorShareMinor);
-        self::assertSame(50000, $after?->commissionMinor);
+        self::assertSame(4500000000, $after?->vendorShareMinor);
+        self::assertSame(500000000, $after?->commissionMinor);
         self::assertSame(1000, $after?->rateBasisPoints);
     }
 
@@ -1097,8 +1117,8 @@ final class OrderFlowTest extends DatabaseTestCase
 
         $fixed = $this->orderItems->find($itemId);
         self::assertSame($eventKey, $fixed?->ledgerEvent, 'the link now points at its own document');
-        self::assertSame(450000, $fixed?->vendorShareMinor, 'and the recorded share is untouched');
-        self::assertSame(50000, $fixed?->commissionMinor);
+        self::assertSame(4500000000, $fixed?->vendorShareMinor, 'and the recorded share is untouched');
+        self::assertSame(500000000, $fixed?->commissionMinor);
         self::assertCount(3, $this->ledger->forEvent($eventKey), 'no second document');
     }
 
@@ -1158,15 +1178,16 @@ final class OrderFlowTest extends DatabaseTestCase
             CaptureOrder::eventKey(5024, 55)
         ), 'a different share is not a repair');
         $after = $this->orderItems->find($itemId);
-        self::assertSame(450000, $after?->vendorShareMinor);
-        self::assertSame(50000, $after?->commissionMinor);
+        self::assertSame(4500000000, $after?->vendorShareMinor);
+        self::assertSame(500000000, $after?->commissionMinor);
         self::assertSame('', $after?->ledgerEvent, 'and the link was not written either');
 
         // The same call with the figures the row holds writes only the link.
+        // The figures the row holds — at the unit the row holds them in.
         self::assertTrue($this->orderItems->completeFinancials(
             $itemId,
-            50000,
-            450000,
+            500000000,
+            4500000000,
             1000,
             'general',
             CaptureOrder::eventKey(5024, 55)
@@ -1233,7 +1254,7 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertCount(3, $this->ledger->forEvent($eventKey), 'one document');
         $stored = $this->orderItems->forVendor(self::VENDOR_A);
         self::assertCount(1, $stored, 'one line');
-        self::assertSame(450000, $stored[0]->vendorShareMinor);
+        self::assertSame(4500000000, $stored[0]->vendorShareMinor);
         self::assertSame($eventKey, $stored[0]->ledgerEvent);
         self::assertSame(0, $mine['failed'], 'the loser did not report a storage failure');
         self::assertSame(0, $mine['incomplete']);
@@ -1262,24 +1283,24 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertSame(1, $report['captured']);
 
         $line = $this->orderItems->forVendor(self::VENDOR_A)[0];
-        self::assertSame(300000, $line->baseMinor);
-        self::assertSame(60000, $line->commissionMinor, '۲۰٬۰۰۰ × ۳');
-        self::assertSame(240000, $line->vendorShareMinor);
+        self::assertSame(3000000000, $line->baseMinor);
+        self::assertSame(600000000, $line->commissionMinor, '۲۰٬۰۰۰ × ۳');
+        self::assertSame(2400000000, $line->vendorShareMinor);
 
         // The snapshot beside the ledger event carries the type, the quantity
         // and the per-unit amount, so the line is explainable a year later.
         $snapshot = $this->snapshotFor(CaptureOrder::eventKey(6101, 601));
         self::assertSame(TectebCommission::FIXED, $snapshot['type'] ?? null);
         self::assertSame(3, $snapshot['quantity'] ?? null);
-        self::assertSame(20000, $snapshot['unit_minor'] ?? null);
+        self::assertSame(200000000, $snapshot['unit_minor'] ?? null);
         self::assertSame('product', $snapshot['rate_source'] ?? null);
 
         // THE PAST IS NOT REWRITTEN. The rule changes, and the recorded line
         // does not move: «تغییر بعدی محصول نباید سفارش‌های گذشته را عوض کند».
         $rules->set($wcId, TectebCommission::percent(5000));
         $again = $this->orderItems->forVendor(self::VENDOR_A)[0];
-        self::assertSame(60000, $again->commissionMinor);
-        self::assertSame(240000, $again->vendorShareMinor);
+        self::assertSame(600000000, $again->commissionMinor);
+        self::assertSame(2400000000, $again->vendorShareMinor);
     }
 
     /**
@@ -1304,7 +1325,7 @@ final class OrderFlowTest extends DatabaseTestCase
 
         $line = $this->orderItems->forVendor(self::VENDOR_A)[0];
         self::assertSame(0, $line->commissionMinor);
-        self::assertSame(450000, $line->vendorShareMinor);
+        self::assertSame(4500000000, $line->vendorShareMinor);
         self::assertSame(0, $line->rateBasisPoints);
         self::assertSame('none', $line->rateSource, 'and the line says it came from nowhere');
     }
@@ -1331,9 +1352,9 @@ final class OrderFlowTest extends DatabaseTestCase
         $this->captureWithCommission($rules)->capture(6103, [$line]);
 
         $stored = $this->orderItems->forVendor(self::VENDOR_A)[0];
-        self::assertSame(450000, $stored->baseMinor);
-        self::assertSame(45000, $stored->commissionMinor);
-        self::assertSame(405000, $stored->vendorShareMinor);
+        self::assertSame(4500000000, $stored->baseMinor);
+        self::assertSame(450000000, $stored->commissionMinor);
+        self::assertSame(4050000000, $stored->vendorShareMinor);
         self::assertSame(
             $stored->baseMinor,
             $stored->commissionMinor + $stored->vendorShareMinor,
@@ -1393,7 +1414,282 @@ final class OrderFlowTest extends DatabaseTestCase
 
         $line = $this->orderItems->forVendor(self::VENDOR_A)[0];
         self::assertSame(0, $line->commissionMinor, 'the general 25% must not reach this line');
-        self::assertSame(400000, $line->vendorShareMinor);
+        self::assertSame(4000000000, $line->vendorShareMinor);
+    }
+
+    /**
+     * THE OWNER'S WORKED EXAMPLE, end to end: order line, ledger, balance.
+     *
+     * «مبلغ قلم ۱۰۱ تومان، نرخ ۱۲٫۵٪، کمیسیون دقیقاً ۱۲٫۶۲۵ تومان و سهم
+     * تأمین‌کننده دقیقاً ۸۸٫۳۷۵ تومان.» The point of asserting it HERE rather
+     * than only in the unit suite is that the figures have to survive being
+     * written and read back: an exact calculation stored in a column that
+     * cannot hold it is a rounded figure with extra steps.
+     */
+    public function testTheOwnersWorkedExampleSurvivesTheRoundTripToTheRowAndTheLedger(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'نوار تست قند', 'SKU-EXACT-1');
+        $rules = new FakeTectebCommissionSource();
+        $rules->set((int) $this->products->find($product)?->wcProductId, TectebCommission::percent(1250));
+
+        $report = $this->captureWithCommission($rules)->capture(6200, [$this->line(620, $product, 1, 101)]);
+        self::assertSame(1, $report['captured'], implode(',', $report['reasons']));
+
+        $line = $this->orderItems->forVendor(self::VENDOR_A)[0];
+        // THE UNIT IS ON THE ROW, and all five amounts are in it.
+        self::assertSame(4, $line->exponent, 'four places, derived from the rate denominator');
+        self::assertSame('IRR', $line->currency);
+        self::assertSame(1010000, $line->baseMinor);
+        self::assertSame(126250, $line->commissionMinor);
+        self::assertSame(883750, $line->vendorShareMinor);
+        self::assertSame(
+            $line->baseMinor,
+            (int) $line->commissionMinor + (int) $line->vendorShareMinor,
+            'C + V must be B exactly, read back off the row'
+        );
+        // AND AS A PERSON READS THEM.
+        self::assertSame('۱۲٫۶۲۵', MoneyText::format((int) $line->commissionMinor, (int) $line->exponent));
+        self::assertSame('۸۸٫۳۷۵', MoneyText::format((int) $line->vendorShareMinor, (int) $line->exponent));
+
+        // THE LEDGER, in the same unit, balancing to nought.
+        $entries = $this->ledger->forEvent(CaptureOrder::eventKey(6200, 620));
+        self::assertNotSame([], $entries);
+        $sum = 0;
+        foreach ($entries as $entry) {
+            self::assertSame(4, $entry->amount->exponent, 'every line of the event in one unit');
+            $sum += $entry->amount->minor;
+        }
+        self::assertSame(0, $sum, 'the event balances');
+
+        // AND THE BALANCE, with the unit it is in.
+        $balance = $this->balanceOf(self::VENDOR_A);
+        self::assertSame(4, $balance['exponent']);
+        self::assertSame(883750, $balance['earned']);
+        self::assertSame('۸۸٫۳۷۵', MoneyText::format((int) $balance['earned'], (int) $balance['exponent']));
+    }
+
+    /**
+     * THE WINDOW BETWEEN A FILE SWAP AND THE MIGRATION, both halves.
+     *
+     * Swapping the plugin's files runs nothing: `UpgradeGate` runs migration
+     * 33 on the next admin request, and a failed step stays failed and is
+     * retried every five minutes (`alpha.46`). So this release's code runs
+     * against a database without its columns, and that was measured rather
+     * than imagined — the real upgrade run printed
+     * «Unknown column 'i.tmc_currency'» on the settlement read.
+     *
+     * Two different answers on purpose:
+     *
+     *   * a READ degrades to the legacy reading — no unit on any row, so the
+     *     vendor's single money unit, which is what every release up to
+     *     `alpha.66` assumed. Nothing is reinterpreted and no error is
+     *     raised;
+     *   * a WRITE that carries a finer unit REFUSES. Storing ۳۷٫۸۷۵ in a row
+     *     that cannot say «four more places» leaves a figure that reads right
+     *     today and ten thousand times too large the moment the column
+     *     arrives.
+     */
+    public function testWithTheUnitColumnsMissingReadsDegradeAndWritesRefuse(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'گاز استریل', 'SKU-WINDOW-1');
+        $rules = new FakeTectebCommissionSource();
+        $rules->set((int) $this->products->find($product)?->wcProductId, TectebCommission::percent(1000));
+        $capture = $this->captureWithCommission($rules);
+        $report = $capture->capture(6210, [$this->line(630, $product, 1, 100000)]);
+        self::assertSame(1, (int) ($report['captured'] ?? 0), 'the line is captured before the columns go');
+
+        $table = $this->wpdb->prefix . 'tmc_order_items';
+        $this->wpdb->pdo()->exec("ALTER TABLE `{$table}` DROP COLUMN `tmc_currency`");
+        $this->wpdb->pdo()->exec("ALTER TABLE `{$table}` DROP COLUMN `tmc_exponent`");
+        // The memo in `carriedBy()` is per request; a fresh repository is how
+        // a later request asks again.
+        $items = new DbOrderItemRepository(new WpDatabase($this->wpdb), new SystemClock());
+
+        try {
+            // THE READS. Neither raises, and both answer about the money the
+            // rows were written with.
+            $view = $items->settlementView(self::VENDOR_A);
+            self::assertNotSame([], $view, 'the settlement view still answers');
+            foreach ($view as $row) {
+                self::assertNull($row['exponent'], 'no row says what unit it is in');
+                self::assertNull($row['currency']);
+            }
+            $totals = $items->totalsForVendor(self::VENDOR_A);
+            self::assertSame(0, $totals['exponent'], 'read at the unit every earlier release assumed');
+            // ⛔ AND THE COST, AS A NUMBER. This line was captured by THIS
+            // release, so its five columns hold ۹٬۰۰۰ تومان of share written
+            // at four extra places — `900000000`. With the unit column gone
+            // the integer is all there is, and it reads as ۹۰۰٬۰۰۰٬۰۰۰. The
+            // read does not invent a scale and does not raise; it answers
+            // what is on disk. That is precisely why the WRITE below refuses,
+            // and it is the rollback cost `docs/upgrade-and-rollback.md` §47
+            // states: a release that records at the finer unit must not be
+            // rolled back under an open till.
+            self::assertSame(900000000, $totals['share'], 'the integer on disk, with no scale to read it by');
+
+            // THE WRITE. A line that carries a unit is refused outright.
+            $refused = $items->record(new VendorOrderItem(
+                id: 0,
+                orderId: 6211,
+                orderItemId: 631,
+                productId: $product,
+                vendorUserId: self::VENDOR_A,
+                title: 'قلم با واحد',
+                sku: 'SKU-WINDOW-2',
+                quantity: 1,
+                unitPriceMinor: 1010000,
+                baseMinor: 1010000,
+                taxMinor: 0,
+                commissionMinor: 126250,
+                vendorShareMinor: 883750,
+                rateBasisPoints: 1250,
+                rateSource: 'product',
+                ledgerEvent: 'order:6211:item:631',
+                status: OrderItemStatus::Placed,
+                currency: 'IRR',
+                exponent: 4
+            ));
+            self::assertSame(0, $refused, 'an amount whose scale cannot be stored is not stored');
+            $rows = (int) $this->wpdb->pdo()
+                ->query("SELECT COUNT(*) FROM `{$table}` WHERE wc_order_item_id = 631")
+                ->fetchColumn();
+            self::assertSame(0, $rows, 'and no half-written row is left behind');
+
+            // …while a line that carries NO unit still writes, because that
+            // is what `alpha.66` wrote and it is not a reinterpretation.
+            $written = $items->record(new VendorOrderItem(
+                id: 0,
+                orderId: 6212,
+                orderItemId: 632,
+                productId: $product,
+                vendorUserId: self::VENDOR_A,
+                title: 'قلم بی واحد',
+                sku: 'SKU-WINDOW-3',
+                quantity: 1,
+                unitPriceMinor: 100000,
+                baseMinor: 100000,
+                taxMinor: 0,
+                commissionMinor: 10000,
+                vendorShareMinor: 90000,
+                rateBasisPoints: 1000,
+                rateSource: 'general',
+                ledgerEvent: 'order:6212:item:632',
+                status: OrderItemStatus::Placed
+            ));
+            self::assertGreaterThan(0, $written, 'the legacy shape is still writable');
+        } finally {
+            $this->wpdb->pdo()->exec(
+                "ALTER TABLE `{$table}` ADD COLUMN `tmc_currency` CHAR(3) NULL DEFAULT NULL"
+            );
+            $this->wpdb->pdo()->exec(
+                "ALTER TABLE `{$table}` ADD COLUMN `tmc_exponent` TINYINT UNSIGNED NULL DEFAULT NULL"
+            );
+        }
+    }
+
+    /**
+     * SEVERAL LINES ADD UP, and the sum is exact rather than nearly right.
+     *
+     * Three lines whose shares each carry a fraction: ۸۸٫۳۷۵ + ۸۸٫۳۷۵ +
+     * ۲۱۸٫۷۵ is ۳۹۵٫۵۰۰ and not ۳۹۵ or ۳۹۶. Asserted against both the
+     * balance and `totalsForVendor()`, which compute it two different ways —
+     * one in PHP over the settlement view, one grouped in SQL — so a
+     * disagreement between them cannot hide.
+     */
+    public function testSeveralFractionalSharesAddUpExactlyInBothTotals(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'باند کشی', 'SKU-EXACT-2');
+        $rules = new FakeTectebCommissionSource();
+        $rules->set((int) $this->products->find($product)?->wcProductId, TectebCommission::percent(1250));
+        $capture = $this->captureWithCommission($rules);
+
+        $capture->capture(6201, [$this->line(621, $product, 1, 101)]);
+        $capture->capture(6202, [$this->line(622, $product, 1, 101)]);
+        $capture->capture(6203, [$this->line(623, $product, 3, 250)]);
+
+        $balance = $this->balanceOf(self::VENDOR_A);
+        self::assertSame(4, $balance['exponent']);
+        self::assertSame(883750 + 883750 + 2187500, $balance['earned']);
+        self::assertSame('۳۹۵٫۵', MoneyText::format((int) $balance['earned'], 4));
+
+        $totals = $this->orderItems->totalsForVendor(self::VENDOR_A);
+        self::assertSame(4, $totals['exponent']);
+        self::assertSame($balance['earned'], $totals['share'], 'two ways of adding, one answer');
+        self::assertSame(
+            $totals['base'],
+            $totals['commission'] + $totals['share'],
+            'the totals add up the way each line does'
+        );
+    }
+
+    /**
+     * A LINE RECORDED IN THE OLD SHAPE IS NOT REINTERPRETED.
+     *
+     * The row is written by hand exactly as every release up to `alpha.66`
+     * wrote one: ۱۰۰٬۰۰۰ تومان of share, five money columns, and NO unit. It
+     * has to keep meaning ۱۰۰٬۰۰۰ — read at the vendor's first-recorded unit
+     * — and it has to add up with a new fractional line rather than one of
+     * the two being wrong by ten thousand. «مبلغ و واحد تاریخی دفترکل و
+     * سفارش‌های قبلی بازتفسیر یا بازنویسی نشوند.»
+     */
+    public function testALineWithNoRecordedUnitKeepsItsMeaningAndStillAddsUp(): void
+    {
+        // A first sale in the old shape, so the registry records exponent 0 —
+        // which is what every existing site has.
+        $product = $this->publish(self::VENDOR_A, 'چسب ضد حساسیت', 'SKU-EXACT-3');
+        $this->rules->setRate(RateScope::General, 'general', CommissionRate::ofBasisPoints(1000));
+        $this->capture->capture(6204, [$this->line(624, $product, 1, 100000)]);
+
+        // That line's unit is now recorded, because `alpha.67` writes it. To
+        // measure the LEGACY shape the two columns are cleared on it, which
+        // is byte-for-byte what `alpha.66` left behind.
+        $db = new WpDatabase($this->wpdb);
+        $table = M0006CatalogAndOrders::table($db, M0006CatalogAndOrders::ORDER_ITEMS);
+        $db->execute(
+            'UPDATE `' . $table . '` SET `' . MoneyUnit::CURRENCY . '` = NULL, `'
+            . MoneyUnit::EXPONENT . '` = NULL WHERE wc_order_item_id = %d',
+            [624]
+        );
+        $legacy = $this->orderItems->findByOrderItem(624);
+        self::assertNull($legacy?->exponent, 'the row is in the old shape now');
+        $legacyShare = (int) $legacy?->vendorShareMinor;
+
+        // A NEW line, at the finer unit.
+        $rules = new FakeTectebCommissionSource();
+        $rules->set((int) $this->products->find($product)?->wcProductId, TectebCommission::percent(1250));
+        $this->captureWithCommission($rules)->capture(6205, [$this->line(625, $product, 1, 101)]);
+
+        $balance = $this->balanceOf(self::VENDOR_A);
+        self::assertSame(4, $balance['exponent'], 'the finest unit present');
+        self::assertSame(
+            $legacyShare * 10000 + 883750,
+            $balance['earned'],
+            'the old row still means what it said, and the two add up exactly'
+        );
+        self::assertFalse($balance['unit_unreadable']);
+    }
+
+    /**
+     * The vendor's balance, wired the way the site wires it.
+     *
+     * The money-unit registry is included on purpose: without it the answer
+     * says `unit_unreadable` and sums in whatever unit the rows name, which
+     * is a true sentence about a build that cannot ask and the wrong thing
+     * to measure the arithmetic against.
+     *
+     * @return array<string,mixed>
+     */
+    private function balanceOf(int $vendorUserId): array
+    {
+        $clock = new SystemClock();
+        return (new VendorBalance(
+            $this->orderItems,
+            new SettingsService(new WpOptionStore()),
+            $clock,
+            null,
+            null,
+            new DbVendorMoneyUnitRegistry(new WpDatabase($this->wpdb), $clock)
+        ))->of($vendorUserId);
     }
 
     /** The capture wired with the owner's per-product model. */

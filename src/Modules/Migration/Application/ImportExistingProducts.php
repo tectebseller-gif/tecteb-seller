@@ -362,8 +362,15 @@ final class ImportExistingProducts
             // that is a safety property rather than a nicety: the projector
             // writes `draft` for any status but `published`, so a row created
             // as a draft would take a live product off sale the first time
-            // anybody projected it. Mirroring means the first projection
-            // writes the status the product already has.
+            // anybody projected it.
+            //
+            // ⛔ `alpha.66` added «mirroring means the first projection writes
+            // the status the product already has» here, and that sentence is
+            // true for `publish` and `draft` and FALSE for `pending` — the
+            // one status with no lifecycle state of its own. The projection
+            // wrote `draft` over it, measured. The row's value below is still
+            // right; what the row ALSO needs is the separate record passed as
+            // the last argument.
             //
             // Through `ProductStatus::forIntakeOf()` rather than a ternary —
             // see its docblock for why five statuses collapsing into one, and
@@ -373,7 +380,21 @@ final class ImportExistingProducts
             // management explicitly.
             LinkOwnership::Observed,
             $wcId,
-            $runId
+            $runId,
+            '',
+            // THE STATUS THE SHOP ACTUALLY HOLDS, recorded as observed — so
+            // the projector knows it has never written this product's status
+            // and leaves it alone. The marketplace row still carries its own
+            // lifecycle value above (`pending` → «پیش‌نویس»), because the
+            // lifecycle is a fixed six and `pending` is not one of them; what
+            // this records is the separate fact that the SHOP's status is
+            // somebody else's.
+            //
+            // Measured on `alpha.66`, which did not record it: a `pending`
+            // product survived the intake, the acceptance and an ordinary
+            // save, and the first projection wrote `draft` and dropped it out
+            // of the catalogue and out of search.
+            (string) $detail['status']
         );
         if ($productId === 0) {
             $this->transaction->rollback();

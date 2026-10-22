@@ -16,6 +16,7 @@ use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionOutcome;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\RateScope;
@@ -1149,9 +1150,60 @@ final class ProductFlowTest extends DatabaseTestCase
         $this->rules->setRate(RateScope::General, 'general', CommissionRate::ofBasisPoints(1000));
         $calculated = $estimator->forProduct($this->products->find($productId), '2026-09-14');
         self::assertTrue($calculated->isCalculated());
-        self::assertSame(200000, $calculated->base?->minor);
-        self::assertSame(20000, $calculated->commission?->minor);
-        self::assertSame(180000, $calculated->vendorShare?->minor);
+        // THE UNIT IS PART OF THE ANSWER. From `alpha.67` an exact commission
+        // is computed at `CommissionPrecision::EXTRA_SCALE` further places, so
+        // the integers are ten thousand times what they were and mean the
+        // same money. Asserted as DECIMALS as well as integers, because an
+        // assertion on the bare minor would pass again the next time
+        // something moved the scale — which is the whole defect this round is
+        // about.
+        self::assertSame(4, $calculated->base?->exponent);
+        self::assertSame(2000000000, $calculated->base?->minor);
+        self::assertSame(200000000, $calculated->commission?->minor);
+        self::assertSame(1800000000, $calculated->vendorShare?->minor);
+        self::assertSame('200000.0000', $calculated->base?->toDecimal());
+        self::assertSame('20000.0000', $calculated->commission?->toDecimal());
+        self::assertSame('180000.0000', $calculated->vendorShare?->toDecimal());
+        // And the identity the sale is recorded with, in the unit it is
+        // recorded in: C + V is B exactly, never nearly.
+        self::assertSame(
+            $calculated->base?->minor,
+            ($calculated->commission?->minor ?? 0) + ($calculated->vendorShare?->minor ?? 0)
+        );
+    }
+
+    /**
+     * The owner's own worked example, through FIN-01's calculator and the
+     * screen the vendor reads.
+     *
+     * ۱۰۱ تومان at ۱۲٫۵٪ owes ۱۲٫۶۲۵ and leaves ۸۸٫۳۷۵ — not ۱۳ and ۸۸, and
+     * not ۱۲۶٬۲۵۰ and ۸۸۳٬۷۵۰ either. The second pair is what the step-4 box
+     * printed while the arithmetic was already exact, which is why this test
+     * asserts the TEXT and not only the integers.
+     */
+    public function testTheOwnersWorkedExampleIsExactInTheEstimateAndOnTheScreen(): void
+    {
+        $productId = $this->publish(self::VENDOR, 101, 'SKU-101');
+        $estimator = new EstimateVendorShare(new ResolveCommissionRate($this->rules), new CommissionCalculator());
+        $this->rules->setRate(RateScope::General, 'general', CommissionRate::ofBasisPoints(1250));
+
+        $share = $estimator->forProduct($this->products->find($productId), '2026-09-14');
+        self::assertTrue($share->isCalculated(), $share->reason ?? '');
+        self::assertSame('101.0000', $share->base?->toDecimal());
+        self::assertSame('12.6250', $share->commission?->toDecimal());
+        self::assertSame('88.3750', $share->vendorShare?->toDecimal());
+        self::assertSame(
+            $share->base?->minor,
+            ($share->commission?->minor ?? 0) + ($share->vendorShare?->minor ?? 0),
+            'the two shares are the base, exactly'
+        );
+
+        $text = MoneyText::format((int) $share->commission?->minor, (int) $share->commission?->exponent);
+        self::assertSame('۱۲٫۶۲۵', $text, 'and the number a person reads is the number that is owed');
+        self::assertSame(
+            '۸۸٫۳۷۵',
+            MoneyText::format((int) $share->vendorShare?->minor, (int) $share->vendorShare?->exponent)
+        );
     }
 
     // ------------------------------------------------------------- helpers
@@ -1386,8 +1438,12 @@ final class ProductFlowTest extends DatabaseTestCase
     }
 
     /** A product that would pass submit(): complete, with one owned picture. */
-    private function readyProduct(int $vendorUserId, string $title = 'دستکش لاتکس', string $sku = 'SKU-1'): int
-    {
+    private function readyProduct(
+        int $vendorUserId,
+        string $title = 'دستکش لاتکس',
+        string $sku = 'SKU-1',
+        int $priceMinor = 200000
+    ): int {
         $productId = $this->createProduct($vendorUserId, $title, $sku);
         $mediaId = 700 + $productId;
         $this->images->give($mediaId, $vendorUserId);
@@ -1395,7 +1451,7 @@ final class ProductFlowTest extends DatabaseTestCase
             $vendorUserId,
             $vendorUserId,
             $productId,
-            $this->details($title, sku: $sku),
+            $this->details($title, $priceMinor, sku: $sku),
             [],
             [$mediaId],
             $mediaId, $this->stampOf($productId));
@@ -1403,9 +1459,9 @@ final class ProductFlowTest extends DatabaseTestCase
         return $productId;
     }
 
-    private function publish(int $vendorUserId): int
+    private function publish(int $vendorUserId, int $priceMinor = 200000, string $sku = 'SKU-1'): int
     {
-        $productId = $this->readyProduct($vendorUserId);
+        $productId = $this->readyProduct($vendorUserId, 'دستکش لاتکس', $sku, $priceMinor);
         self::assertTrue($this->manage->submit($vendorUserId, $vendorUserId, $productId)->ok);
         self::assertTrue($this->review->approve($productId)->ok);
         return $productId;

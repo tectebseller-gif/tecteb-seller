@@ -224,6 +224,10 @@ final class AuditEventCatalog
             self::ORDER_RETURN_REFUNDED => [
                 'vendor_id', 'return_id', 'item_id', 'quantity', 'refund_minor',
                 'tax_minor', 'commission_minor', 'vendor_share_minor', 'account', 'event_key',
+                // The unit those four amounts are in (`alpha.67`). An audit
+                // line that carries a figure and not its scale carries a
+                // number somebody will read as تومان.
+                'currency', 'exponent',
             ],
             self::ORDER_RETURN_RESTOCKED => ['vendor_id', 'return_id', 'product_id', 'quantity', 'stock_after'],
             self::ORDER_RETURN_RECONCILE => ['return_id', 'item_id', 'event_key'],

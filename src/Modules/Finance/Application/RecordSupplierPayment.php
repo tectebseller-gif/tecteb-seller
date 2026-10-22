@@ -225,7 +225,14 @@ final class RecordSupplierPayment
             return OperationResult::failure(self::UNIT_UNKNOWN, ['supplier_id' => $supplierUserId]);
         }
         $currency = (string) $unit['currency'];
-        $exponent = (int) ($unit['exponent'] ?? 0);
+        // THE REGISTRY'S EXPONENT IS THE SUPPLIER'S FIRST-RECORDED ONE, and
+        // the shares this payment is weighed against may be at the finer one
+        // an exact commission needs. The comparison has to happen in the
+        // finest unit of the two, so the payment is read at THAT — the
+        // manager's text is accepted at the finer scale, which can only make
+        // more of what they typed exact, never less.
+        $registryExponent = (int) ($unit['exponent'] ?? 0);
+        $exponent = max($registryExponent, $this->units->finestExponentOf($supplierUserId) ?? $registryExponent);
 
         $minor = DecimalAmount::toMinor(trim($amount), $exponent);
         if ($minor === null || $minor <= 0) {
@@ -390,8 +397,21 @@ final class RecordSupplierPayment
                 $shares[$itemId] = null;
                 continue;
             }
-            $shares[$itemId] = (int) $item->vendorShareMinor;
-            $shareMinor += (int) $item->vendorShareMinor;
+            // IN THE PAYMENT'S UNIT. A line records its own exponent from
+            // `alpha.67`; one that does not is at the supplier's
+            // first-recorded unit, which is what it was written in. Rescaled
+            // by a power of ten — exact — and a line FINER than the
+            // comparison unit is counted as unknown rather than rounded down
+            // to fit, because «اختلاف … خودکار … گرد … اعلام نشود».
+            $from = $item->exponent ?? $registryExponent;
+            if ($from > $exponent) {
+                $unknown[] = $itemId;
+                $shares[$itemId] = null;
+                continue;
+            }
+            $inUnit = (int) $item->vendorShareMinor * (10 ** ($exponent - $from));
+            $shares[$itemId] = $inUnit;
+            $shareMinor += $inUnit;
         }
 
         $paid = Money::of($minor, $currency, $exponent);

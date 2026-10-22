@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Tests\Database;
 
 use Tecteb\Marketplace\Core\Audit\AuditEventSanitizer;
+use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0001CreateAuditTable;
@@ -19,6 +20,7 @@ use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
 use Tecteb\Marketplace\Modules\Finance\Domain\Money;
 use Tecteb\Marketplace\Modules\Finance\Domain\RateScope;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbCommissionRuleRepository;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbVendorMoneyUnitRegistry;
@@ -320,7 +322,7 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
         $refunded = $this->returns->refund(self::MANAGER, $returnId);
 
         self::assertTrue($refunded->ok, $refunded->code);
-        self::assertSame(100000, $refunded->context['refund_minor'], 'half of a two-unit line');
+        self::assertSame(1000000000, $refunded->context['refund_minor'], 'half of a two-unit line');
 
         $after = $this->ledger->forVendor(self::VENDOR, 100);
         self::assertGreaterThan($originalLines, count($after), 'reversing lines were ADDED');
@@ -460,7 +462,7 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
         );
         $row = $this->shipments->findReturn($returnId);
         self::assertSame(ReturnStatus::Refunded, $row?->status);
-        self::assertSame(100000, $row?->refundMinor, 'and the amount is the winner\'s, unedited');
+        self::assertSame(1000000000, $row?->refundMinor, 'and the amount is the winner\'s, unedited');
     }
 
     /** The refund names what it did and what it did not. */
@@ -603,8 +605,10 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
 
         self::assertTrue($result->ok, $result->code);
         self::assertCount(1, $spy->calls, 'exactly one refund record');
-        // 100,000 base + 10,000 tax, at exponent 0.
-        self::assertSame('110000', $spy->lastAmount(), 'the recorded amount, in the order own unit');
+        // 100,000 base + 10,000 tax — recorded at exponent 4 from
+        // `alpha.67`, so the string carries the scale it was recorded in.
+        // The same money; `110000` and `110000.0000` are one number.
+        self::assertSame('110000.0000', $spy->lastAmount(), 'the recorded amount, in the order own unit');
         self::assertNotSame('1100', $spy->lastAmount(), 'and not the hundredth alpha.38 sent');
     }
 
@@ -663,15 +667,20 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             self::assertTrue($this->returns->refund(self::MANAGER, $returnId)->ok);
             $result = $service->recordWooCommerceRefund(self::MANAGER, $returnId);
             self::assertTrue($result->ok, $result->code);
-            $total += (int) $spy->lastAmount();
+            // Through `DecimalAmount`, not `(int)`. `(int) '110000.0000'`
+            // truncates at the decimal point and would make this test pass by
+            // discarding exactly the places it exists to prove are not lost.
+            $part = DecimalAmount::toMinor((string) $spy->lastAmount(), 4);
+            self::assertNotNull($part, 'the recorded amount must convert exactly');
+            $total += $part;
         }
 
         self::assertCount(3, $spy->calls);
         // 300,000 base + 30,000 tax, reversed in three parts with nothing lost
         // to rounding and nothing invented.
-        self::assertSame(330000, $total, 'the three parts are exactly the line');
+        self::assertSame(3300000000, $total, 'the three parts are exactly the line');
         foreach ($spy->calls as $call) {
-            self::assertSame('110000', $call['amount']);
+            self::assertSame('110000.0000', $call['amount']);
             self::assertSame(1, $call['quantity']);
         }
     }
@@ -707,8 +716,14 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
         $sold = $this->sellIn($currency, $exponent, 1, $totalMinor, $taxMinor);
         $item = $this->orderItems->find($sold['item']);
         self::assertNotNull($item);
+        // THE EVENT'S UNIT IS THE COMMISSION'S, not the order's. From
+        // `alpha.67` an accrual is recorded at `exponent + 4`, so a تومان
+        // sale is booked at 4 and a two-place currency at 6. The CURRENCY is
+        // what travels unchanged, and that is what this test is about: the
+        // reversal carries the unit of the sale it undoes.
+        $booked = $exponent + 4;
         self::assertSame(
-            [$currency . '/' . $exponent],
+            [$currency . '/' . $booked],
             $this->unitsOfEvent($item->ledgerEvent),
             'the fixture must have recorded the sale in exactly this unit'
         );
@@ -720,18 +735,18 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
         $reversal = $this->ledger->forEvent('return:' . $sold['item'] . ':' . $returnId);
         self::assertCount(4, $reversal, 'four lines reverse four lines');
         self::assertSame(
-            [$currency . '/' . $exponent],
+            [$currency . '/' . $booked],
             $this->unitsOfEvent('return:' . $sold['item'] . ':' . $returnId),
             'and every one of them is in the unit of the sale'
         );
 
         // And the vendor's books hold ONE unit afterwards, which is the point:
         // a mixed ledger is a balance nobody can add up.
-        $booked = [];
+        $seen = [];
         foreach ($this->ledger->forVendor(self::VENDOR, 500) as $entry) {
-            $booked[$entry->amount->currency . '/' . $entry->amount->exponent] = true;
+            $seen[$entry->amount->currency . '/' . $entry->amount->exponent] = true;
         }
-        self::assertSame([$currency . '/' . $exponent], array_keys($booked));
+        self::assertSame([$currency . '/' . ($exponent + 4)], array_keys($seen));
     }
 
     /** @return array<string,array{0:string,1:int,2:int,3:int}> */
@@ -809,22 +824,108 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
         self::assertTrue($this->returns->refund(self::MANAGER, $returnId)->ok);
 
         $request = $this->shipments->findReturn($returnId);
-        self::assertSame(10050, (int) $request?->refundMinor, 'the goods, in minor units');
-        self::assertSame(500, (int) $request?->taxRefundMinor, 'and the tax, separately');
+        // At exponent 6 — the order's two places plus the four an exact
+        // commission needs — so ۱۰۰٫۵۰ is `100500000` and ۵٫۰۰ is `5000000`.
+        self::assertSame(100500000, (int) $request?->refundMinor, 'the goods, in minor units');
+        self::assertSame(5000000, (int) $request?->taxRefundMinor, 'and the tax, separately');
 
         $spy = new SpyRefundRecorder();
         $result = $this->refundServiceWith($spy)->recordWooCommerceRefund(self::MANAGER, $returnId);
 
         self::assertTrue($result->ok, $result->code);
         self::assertCount(1, $spy->calls);
-        // 10050 + 500 = 10550 minor units at exponent 2 → «105.50».
-        self::assertSame('105.50', $spy->lastAmount(), 'goods plus tax, at the recorded scale');
+        // 100500000 + 5000000 = 105500000 at exponent 6 → «105.500000».
+        // The SCALE is carried, not trimmed, which is the claim this
+        // assertion has always made — only the recorded scale has moved.
+        self::assertSame('105.500000', $spy->lastAmount(), 'goods plus tax, at the recorded scale');
         self::assertNotSame('10550', $spy->lastAmount(), 'not the minor units as if they were major');
         self::assertNotSame('105.5', $spy->lastAmount(), 'and the scale is carried, not trimmed');
         self::assertSame($sold['order'], $spy->calls[0]['order']);
         self::assertSame($sold['order_item'], $spy->calls[0]['item']);
         self::assertSame(1, $spy->calls[0]['quantity']);
         self::assertSame($returnId, $spy->calls[0]['return']);
+    }
+
+    /**
+     * WHAT THIS PROVES: the return row itself records the scale its four
+     * money columns are in, and the screen prints the amount that came back
+     * — not the integer.
+     *
+     * The owner's worked example, reversed: a line of ۱۰۱ تومان at ۱۲٫۵٪
+     * accrues ۱۲٫۶۲۵ of commission and ۸۸٫۳۷۵ to the vendor, so a full
+     * return reverses exactly those. Until `alpha.67` `tmc_returns` held the
+     * figures and no scale, and both screens printed `number_format()` of the
+     * bare integer: ۸۸۳٬۷۵۰ where ۸۸٫۳۷۵ is owed. The column is asserted from
+     * the DATABASE, not from the DTO, so a write that forgot it fails here.
+     */
+    public function testTheReturnRowRecordsItsScaleAndTheScreenPrintsTheAmount(): void
+    {
+        $this->rules->setRate(RateScope::General, 'general', CommissionRate::ofBasisPoints(1250));
+        $sold = $this->sellIn('IRT', 0, 1, 101, 0);
+        $item = $this->orderItems->find($sold['item']);
+        self::assertSame(126250, (int) $item?->commissionMinor, 'the sale itself is exact');
+        self::assertSame(883750, (int) $item?->vendorShareMinor);
+
+        $returnId = $this->receivedReturn($sold['item'], 1);
+        $result = $this->returns->refund(self::MANAGER, $returnId);
+        self::assertTrue($result->ok, $result->code);
+        self::assertSame(4, (int) $result->context['exponent']);
+        self::assertSame('IRT', (string) $result->context['currency']);
+
+        $table = $this->wpdb->prefix . 'tmc_returns';
+        $row = $this->wpdb->pdo()
+            ->query("SELECT refund_minor, commission_reversed_minor, vendor_share_reversed_minor,
+                            tmc_currency, tmc_exponent
+                       FROM `{$table}` WHERE id = {$returnId}")
+            ->fetch(\PDO::FETCH_ASSOC);
+        self::assertSame('IRT', (string) $row['tmc_currency'], 'the unit is on the row, not implied');
+        self::assertSame(4, (int) $row['tmc_exponent']);
+        self::assertSame(1010000, (int) $row['refund_minor']);
+        self::assertSame(126250, (int) $row['commission_reversed_minor']);
+        self::assertSame(883750, (int) $row['vendor_share_reversed_minor']);
+
+        $request = $this->shipments->findReturn($returnId);
+        self::assertSame(4, $request?->exponentOr(), 'and the DTO carries it');
+        self::assertSame(
+            '۸۸٫۳۷۵',
+            MoneyText::format((int) $request?->vendorShareReversedMinor, (int) $request?->exponentOr()),
+            'the number a person reads is the number that came back'
+        );
+        self::assertSame(
+            '۱۲٫۶۲۵',
+            MoneyText::format((int) $request?->commissionReversedMinor, (int) $request?->exponentOr())
+        );
+        // And the three still add up, exactly, in the one unit.
+        self::assertSame(
+            (int) $row['refund_minor'],
+            (int) $row['commission_reversed_minor'] + (int) $row['vendor_share_reversed_minor']
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: a return written before this release carries no scale
+     * and is read exactly as `alpha.66` read it.
+     *
+     * `NULL` is «this row does not say», which `exponentOr()` resolves to the
+     * caller's fallback and never to a guess. Reinterpreting such a row as
+     * exponent 4 would divide a historical refund by ten thousand on every
+     * screen — the «بازتفسیر» the owner ruled out.
+     */
+    public function testAReturnWithNoRecordedScaleIsReadAsItAlwaysWas(): void
+    {
+        $sold = $this->sellIn('IRT', 0, 1, 100000, 0);
+        $returnId = $this->receivedReturn($sold['item'], 1);
+        self::assertTrue($this->returns->refund(self::MANAGER, $returnId)->ok);
+
+        $table = $this->wpdb->prefix . 'tmc_returns';
+        $this->wpdb->pdo()->exec(
+            "UPDATE `{$table}` SET tmc_currency = NULL, tmc_exponent = NULL WHERE id = {$returnId}"
+        );
+        $request = $this->shipments->findReturn($returnId);
+        self::assertNull($request?->exponent, 'absent, not zero');
+        self::assertNull($request?->currency);
+        self::assertSame(0, $request?->exponentOr(), 'and the default is what every earlier release assumed');
+        self::assertSame(2, $request?->exponentOr(2), 'while a caller that knows the unit is believed');
     }
 
     /**

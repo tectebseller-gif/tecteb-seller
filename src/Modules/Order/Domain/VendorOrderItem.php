@@ -37,7 +37,26 @@ final class VendorOrderItem
         public readonly ?string $shippedAt = null,
         public readonly ?int $variationId = null,
         public readonly int $wcProductId = 0,
-        public readonly string $createdAt = ''
+        public readonly string $createdAt = '',
+        /**
+         * THE UNIT the five money columns on this row are written in.
+         *
+         * `null` means «not recorded on this row», which is the truth about
+         * every line captured before `alpha.67` and is resolved the way it
+         * always was: from the vendor's single money unit
+         * (`tmc_vendor_money_unit`, `alpha.40`). A value means the row says
+         * its own unit, which it must from `alpha.67` on because a commission
+         * is now recorded at FOUR more decimal places than the order's own
+         * unit — the exponent `CommissionPrecision` derives so that
+         * ۱۰۱ تومان at ۱۲٫۵٪ can be exactly ۱۲٫۶۲۵ instead of a rounded ۱۳.
+         *
+         * Two fields and not one: «the unit travels with the amount» is
+         * `alpha.39`'s rule and the currency is half of a unit.
+         *
+         * Last, with defaults, because these are addressed positionally.
+         */
+        public readonly ?string $currency = null,
+        public readonly ?int $exponent = null
     ) {
     }
 

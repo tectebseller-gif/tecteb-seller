@@ -158,6 +158,17 @@ final class MarketplaceController
             // shop; putting it on a read endpoint would publish every shop's
             // terms to anybody who could read one shop's orders.
             'vendor_share_minor' => $item->vendorShareMinor,
+            // THE UNIT THE THREE AMOUNTS ABOVE ARE IN. A `*_minor` integer
+            // without it is unreadable from outside: from `alpha.67` a line
+            // can be at the finer exponent an exact commission needs, so a
+            // consumer dividing by one hundred — or by nothing — would be
+            // wrong by ten thousand. `null` means the row does not say, which
+            // is every line captured before `alpha.67` and means the order's
+            // own unit; it is published AS null rather than as a guessed
+            // zero, so a reader can tell «not recorded» from «no minor
+            // unit».
+            'currency' => $item->currency,
+            'exponent' => $item->exponent,
             'status' => $item->status->value,
         ], $rows);
 

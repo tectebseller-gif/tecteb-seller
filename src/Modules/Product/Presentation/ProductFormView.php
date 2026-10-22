@@ -5,6 +5,8 @@ namespace Tecteb\Marketplace\Modules\Product\Presentation;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionOutcome;
+use Tecteb\Marketplace\Modules\Finance\Domain\Money;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
 use Tecteb\Marketplace\Modules\Product\Domain\LongDescription;
 use Tecteb\Marketplace\Modules\Product\Domain\Brand;
@@ -798,12 +800,22 @@ final class ProductFormView
                 . '<p>' . esc_html__('نرخ کمیسیون این محصول هنوز تعیین نشده است، پس سهم شما محاسبه نمی‌شود. این «صفر» نیست؛ مقدارش تعیین‌نشده است و مدیر بازارگاه آن را مشخص می‌کند.', 'tecteb-marketplace-core') . '</p></div>';
         }
         $rate = number_format(($share->snapshot?->rateBasisPoints ?? 0) / 100, 2);
+        // ⛔ **These three were `number_format($money->minor)` until
+        // `alpha.67`,** which was right only while a commission was computed
+        // at the order's own exponent. It is now computed at four more places
+        // (`CommissionPrecision`), so the same code printed ۱۲۶٬۲۵۰ where the
+        // owner's own worked example owes ۱۲٫۶۲۵ — the arithmetic exact and
+        // the one screen the vendor reads wrong by ten thousand. Each amount
+        // is formatted at ITS OWN exponent, which the `Money` carries.
+        $money = static fn (?Money $m): string => $m === null
+            ? ''
+            : (MoneyText::format($m->minor, $m->exponent) ?? '');
         return '<div class="tv-note">' . $title
             . '<dl class="tv-review">'
-            . self::reviewRow(__('مبنای محاسبه (پس از تخفیف، پیش از مالیات)', 'tecteb-marketplace-core'), sprintf(__('%s تومان', 'tecteb-marketplace-core'), $fa(number_format($share->base?->minor ?? 0))))
+            . self::reviewRow(__('مبنای محاسبه (پس از تخفیف، پیش از مالیات)', 'tecteb-marketplace-core'), sprintf(__('%s تومان', 'tecteb-marketplace-core'), $money($share->base)))
             . self::reviewRow(__('نرخ کمیسیون', 'tecteb-marketplace-core'), sprintf(__('%s درصد', 'tecteb-marketplace-core'), $fa($rate)))
-            . self::reviewRow(__('کمیسیون بازارگاه', 'tecteb-marketplace-core'), sprintf(__('%s تومان', 'tecteb-marketplace-core'), $fa(number_format($share->commission?->minor ?? 0))))
-            . self::reviewRow(__('سهم شما', 'tecteb-marketplace-core'), sprintf(__('%s تومان', 'tecteb-marketplace-core'), $fa(number_format($share->vendorShare?->minor ?? 0))))
+            . self::reviewRow(__('کمیسیون بازارگاه', 'tecteb-marketplace-core'), sprintf(__('%s تومان', 'tecteb-marketplace-core'), $money($share->commission)))
+            . self::reviewRow(__('سهم شما', 'tecteb-marketplace-core'), sprintf(__('%s تومان', 'tecteb-marketplace-core'), $money($share->vendorShare)))
             . '</dl>'
             . '<p class="tv-hint">' . esc_html__('تخمینی است: نرخ نهایی هنگام ثبت سفارش snapshot می‌شود و تغییر بعدی نرخ، سفارش‌های قبلی را عوض نمی‌کند. حمل در کمیسیون نیست.', 'tecteb-marketplace-core') . '</p>'
             . '</div>';

@@ -42,7 +42,12 @@ final class CommissionLineCheckTest extends TestCase
     {
         $answer = $this->check(TectebCommission::percent(10000))->check(10, 0, '450000', 1, 'IRR', 0);
         self::assertTrue($answer['ok']);
-        self::assertSame(450000, $answer['commission_minor'], 'a hundred per cent is the whole line and not more');
+        // Reported at the outcome's own unit, with the base beside it in the
+        // same one, so «the whole line and not more» is a comparison of two
+        // numbers of one kind.
+        self::assertSame(4, $answer['exponent']);
+        self::assertSame(4500000000, $answer['commission_minor'], 'a hundred per cent is the whole line and not more');
+        self::assertSame($answer['base_minor'], $answer['commission_minor']);
     }
 
     /**
@@ -56,7 +61,8 @@ final class CommissionLineCheckTest extends TestCase
     {
         $exact = $this->check(TectebCommission::fixed('20000'))->check(10, 0, '60000', 3, 'IRR', 0);
         self::assertTrue($exact['ok']);
-        self::assertSame(60000, $exact['commission_minor']);
+        self::assertSame(600000000, $exact['commission_minor']);
+        self::assertSame($exact['base_minor'], $exact['commission_minor']);
 
         $over = $this->check(TectebCommission::fixed('20001'))->check(10, 0, '60000', 3, 'IRR', 0);
         self::assertFalse($over['ok']);

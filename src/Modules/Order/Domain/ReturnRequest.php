@@ -38,8 +38,30 @@ final class ReturnRequest
         public readonly ?int $decidedBy = null,
         public readonly ?string $decidedAt = null,
         public readonly ?string $receivedAt = null,
-        public readonly ?string $refundedAt = null
+        public readonly ?string $refundedAt = null,
+        /**
+         * THE UNIT the four money fields are in, where the row records it.
+         *
+         * `null` is «this row does not say», which is the truth about every
+         * return written before `alpha.67` and is resolved exactly as it was
+         * then: from the vendor's single money unit. It is not exponent 0 —
+         * `array_key_exists` separates the two at the hydrator (`alpha.60`).
+         */
+        public readonly ?string $currency = null,
+        public readonly ?int $exponent = null
     ) {
+    }
+
+    /**
+     * The exponent a screen should print these figures at.
+     *
+     * The row's own where it has one; otherwise the fallback the caller knows
+     * (the vendor's money unit), and 0 only when even that is unknown — which
+     * is what every release before `alpha.67` assumed for every row.
+     */
+    public function exponentOr(int $fallback = 0): int
+    {
+        return $this->exponent ?? $fallback;
     }
 
     public function belongsTo(int $vendorUserId): bool

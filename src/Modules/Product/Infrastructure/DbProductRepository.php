@@ -20,6 +20,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0010LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0023ProductDescriptionAndCreateToken;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0032ProductMirroredStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0024PurchaseStep;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0025BrandRegistry;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
@@ -452,10 +453,19 @@ final class DbProductRepository implements ProductRepositoryInterface
         LinkOwnership $ownership = LinkOwnership::Marketplace,
         ?int $wcProductId = null,
         string $importRunId = '',
-        string $createToken = ''
+        string $createToken = '',
+        string $mirroredStatus = ''
     ): int {
-        return $this->insertRow($vendorUserId, $details, $status, $ownership, $wcProductId, $importRunId, $createToken)
-            ->productId;
+        return $this->insertRow(
+            $vendorUserId,
+            $details,
+            $status,
+            $ownership,
+            $wcProductId,
+            $importRunId,
+            $createToken,
+            $mirroredStatus
+        )->productId;
     }
 
     /**
@@ -480,7 +490,11 @@ final class DbProductRepository implements ProductRepositoryInterface
             LinkOwnership::Marketplace,
             null,
             '',
-            $createToken
+            $createToken,
+            // The form path NEVER observes a storefront status: the product
+            // does not exist in the shop yet, so its status is this
+            // marketplace's own from the first byte.
+            ''
         );
     }
 
@@ -491,7 +505,8 @@ final class DbProductRepository implements ProductRepositoryInterface
         LinkOwnership $ownership,
         ?int $wcProductId,
         string $importRunId,
-        string $createToken
+        string $createToken,
+        string $mirroredStatus = ''
     ): ProductCreation {
         if (!$this->mayWrite()) {
             // NOT an id, and not a half-written row. The columns that are
@@ -544,6 +559,20 @@ final class DbProductRepository implements ProductRepositoryInterface
             $extraColumns[] = M0023ProductDescriptionAndCreateToken::CREATE_TOKEN;
             $extraPlaceholders[] = '%s';
             $extraParams[] = mb_substr($createToken, 0, 64);
+        }
+        // THE OBSERVED STOREFRONT STATUS, in this insert and nowhere else.
+        //
+        // The same argument as the two above, and it bites harder: this value
+        // is what stops the first projection overwriting a status nobody in
+        // this marketplace decided. A row that exists without it for one
+        // request is a row whose `pending` the next projection turns into
+        // `draft` — measured on `alpha.66`. Left out entirely when there is
+        // nothing to record, so the column stays NULL and «never observed»
+        // is told apart from «observed as empty».
+        if (trim($mirroredStatus) !== '') {
+            $extraColumns[] = M0032ProductMirroredStatus::MIRRORED;
+            $extraPlaceholders[] = '%s';
+            $extraParams[] = mb_substr(trim($mirroredStatus), 0, 20);
         }
 
         $sql = 'INSERT INTO `' . $this->products() . '` (vendor_user_id, ' . implode(', ', $columns)
@@ -826,8 +855,14 @@ final class DbProductRepository implements ProductRepositoryInterface
         }
         $params[] = $this->now();
         $params[] = $productId;
+        // The hold goes in the SAME statement as the status. A transition
+        // whose second half failed would leave a status this marketplace
+        // decided beside a hold that stops it being written — the third value
+        // `alpha.61` is about, and here it would mean a manager pressing
+        // «منتشر کن» and nothing reaching the shop, for ever.
         return $this->db->execute(
             'UPDATE `' . $this->products() . '` SET status = %s, review_note = %s, published_at = ' . $published
+            . ', `' . M0032ProductMirroredStatus::MIRRORED . '` = NULL'
             . ', updated_at = %s WHERE id = %d',
             $params
         ) !== null;
@@ -1322,7 +1357,18 @@ final class DbProductRepository implements ProductRepositoryInterface
             // every path that decides whether this plugin may act on a
             // storefront product — the purchase policy, the stop, the
             // projector — asks its own scoped query and does not read this.
-            (string) ($row[M0010LinkOwnership::COLUMN] ?? LinkOwnership::MARKETPLACE_VALUE)
+            (string) ($row[M0010LinkOwnership::COLUMN] ?? LinkOwnership::MARKETPLACE_VALUE),
+            // Absent on a row read before migration 32, and NULL for every
+            // row the marketplace created itself. `array_key_exists` rather
+            // than `??`, because a query that did not SELECT the column and a
+            // row whose column is NULL are the same answer here — «no
+            // observed status» — and both must read as «the status is ours».
+            // `''` is normalised to null so that one reader
+            // (`storefrontStatusIsHeld()`) answers the question.
+            array_key_exists(M0032ProductMirroredStatus::MIRRORED, $row)
+                && trim((string) ($row[M0032ProductMirroredStatus::MIRRORED] ?? '')) !== ''
+                    ? trim((string) $row[M0032ProductMirroredStatus::MIRRORED])
+                    : null
         );
     }
 

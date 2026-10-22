@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Vendor\Presentation\Admin;
 
 use Tecteb\Marketplace\Contracts\ContainerInterface;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
@@ -231,14 +232,19 @@ final class VendorShopsPage
         }
 
         $balance = $this->container->get(VendorBalance::class)->of($vendorUserId);
+        // MONEY THROUGH THE ONE FORMATTER, at the unit the balance came back
+        // in; the last row is a COUNT of lines and stays a plain number.
+        $balanceExponent = (int) ($balance['exponent'] ?? 0);
+        $money = static fn (int $minor): string =>
+            MoneyText::format($minor, $balanceExponent) ?? PersianDigits::toPersian((string) $minor);
         echo '<h3>' . esc_html__('مانده', 'tecteb-marketplace-core') . '</h3><ul>'
             . '<li>' . esc_html__('کل درآمد ثبت‌شده', 'tecteb-marketplace-core') . ': '
-            . esc_html($fa((int) $balance['earned'])) . '</li>'
+            . esc_html($money((int) $balance['earned'])) . '</li>'
             . '<li>' . esc_html__('قابل برداشت', 'tecteb-marketplace-core') . ': '
-            . esc_html($fa((int) $balance['eligible'])) . '</li>'
+            . esc_html($money((int) $balance['eligible'])) . '</li>'
             . '<li>' . esc_html__('پرداخت‌شده', 'tecteb-marketplace-core') . ': '
-            . esc_html($fa((int) $balance['paid'])) . '</li>'
-            . '<li>' . esc_html__('سهم ثبت‌نشده', 'tecteb-marketplace-core') . ': '
+            . esc_html($money((int) $balance['paid'])) . '</li>'
+            . '<li>' . esc_html__('سهم ثبت‌نشده (تعداد قلم)', 'tecteb-marketplace-core') . ': '
             . esc_html($fa((int) $balance['unrecorded'])) . '</li>'
             . '</ul>';
 
@@ -264,7 +270,9 @@ final class VendorShopsPage
                     /* translators: 1: date, 2: amount, 3: state */
                     __('%1$s — %2$s — %3$s', 'tecteb-marketplace-core'),
                     $payment->paidOn,
-                    $fa($payment->amount->minor),
+                    // The payment's own unit, which its row carries.
+                    MoneyText::format($payment->amount->minor, $payment->amount->exponent)
+                        ?? $fa($payment->amount->minor),
                     $payment->isVoid()
                         ? __('ابطال‌شده', 'tecteb-marketplace-core')
                         : $payment->posting
@@ -280,8 +288,10 @@ final class VendorShopsPage
                 echo '<li>' . esc_html(sprintf(
                     /* translators: 1: amount owed, 2: remaining balance */
                     __('مبلغ %1$s — ماندهٔ %2$s', 'tecteb-marketplace-core'),
-                    $fa($receivable->amount->minor),
-                    $fa($receivable->balanceMinor())
+                    MoneyText::format($receivable->amount->minor, $receivable->amount->exponent)
+                        ?? $fa($receivable->amount->minor),
+                    MoneyText::format($receivable->balanceMinor(), $receivable->amount->exponent)
+                        ?? $fa($receivable->balanceMinor())
                 )) . '</li>';
             }
             echo '</ul>';
@@ -296,9 +306,11 @@ final class VendorShopsPage
                     __('قلم %1$s — توافق %2$s — پرداخت‌شده %3$s', 'tecteb-marketplace-core'),
                     $fa($obligation->orderItemId),
                     $obligation->isAgreed()
-                        ? $fa((int) $obligation->agreed?->minor)
+                        ? (MoneyText::format((int) $obligation->agreed?->minor, $obligation->exponent)
+                            ?? $fa((int) $obligation->agreed?->minor))
                         : __('نامعلوم', 'tecteb-marketplace-core'),
-                    $fa($obligation->paidMinor)
+                    MoneyText::format($obligation->paidMinor, $obligation->exponent)
+                        ?? $fa($obligation->paidMinor)
                 )) . '</li>';
             }
             echo '</ul>';

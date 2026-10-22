@@ -206,6 +206,14 @@ interface ProductRepositoryInterface
      * `$wcProductId` and `$importRunId` are parameters rather than follow-up
      * writes because a row that is half made is a row a resumed import cannot
      * recognise. See the implementation for the duplicate this prevents.
+     *
+     * `$mirroredStatus` is a parameter for the SAME reason, and the reason is
+     * sharper here: it is what stops the first projection overwriting a
+     * storefront status nobody in this marketplace decided, so a row that
+     * exists without it for even one request is a row whose status the next
+     * projection destroys. `''` means «not observed» — the answer for
+     * everything the marketplace's own flow creates — and only an intake of
+     * an existing WooCommerce product passes a value.
      */
     public function create(
         int $vendorUserId,
@@ -214,7 +222,8 @@ interface ProductRepositoryInterface
         LinkOwnership $ownership = LinkOwnership::Marketplace,
         ?int $wcProductId = null,
         string $importRunId = '',
-        string $createToken = ''
+        string $createToken = '',
+        string $mirroredStatus = ''
     ): int;
 
     /**
@@ -357,6 +366,20 @@ interface ProductRepositoryInterface
      */
     public function vendorsFromImportRuns(): array;
 
+    /**
+     * A status transition — and the moment the storefront's status becomes ours.
+     *
+     * This is the one chokepoint every explicit status decision goes through
+     * (submit, approve, reject, publish, suspend, archive, restore), so it is
+     * where `mirrored_status` is cleared: before it, the status on an intaken
+     * product is somebody else's and the projector holds it; after it, a
+     * human inside this marketplace has decided, and the decision is written.
+     *
+     * Cleared in the SAME statement as the status, because a transition whose
+     * second half failed would leave a status this marketplace decided and a
+     * hold that stops it being written — a third value nobody asked for
+     * (`alpha.61`).
+     */
     public function updateStatus(int $productId, ProductStatus $status, string $reviewNote = ''): bool;
 
     /**

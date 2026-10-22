@@ -50,6 +50,14 @@ final class VendorFinanceView
         bool $requestsOpen = true
     ): string {
         $fa = static fn (int|string $v): string => PersianDigits::toPersian((string) $v);
+        // MONEY GOES THROUGH THE ONE FORMATTER, with the unit the balance
+        // came back in. `$fa()` on a bare integer was right while every
+        // amount was at the order's own exponent; from `alpha.67` a share can
+        // be at the finer one an exact commission needs, and the same code
+        // would print ۸۸۰٬۰۰۰ where ۸۸٫۳۷۵ is owed.
+        $unitExponent = (int) ($balance['exponent'] ?? 0);
+        $money = static fn (int $minor): string =>
+            MoneyText::format($minor, $unitExponent) ?? PersianDigits::toPersian((string) $minor);
         $html = $notice === null ? '' : VendorUi::notice(
             WithdrawalMessages::isRefusal($notice->code) ? 'warning' : 'success',
             WithdrawalMessages::outcome($notice->code)
@@ -58,11 +66,11 @@ final class VendorFinanceView
         $html .= '<section class="tv-card"><h2 class="tv-card__title">'
             . esc_html__('مانده شما', 'tecteb-marketplace-core') . '</h2>';
         $html .= '<div class="tv-facts">'
-            . self::stat(__('کل درآمد ثبت‌شده', 'tecteb-marketplace-core'), $fa((int) $balance['earned']))
-            . self::stat(__('قابل برداشت', 'tecteb-marketplace-core'), $fa((int) $balance['eligible']))
-            . self::stat(__('در انتظار', 'tecteb-marketplace-core'), $fa((int) $balance['pending']))
-            . self::stat(__('قفل‌شده در درخواست', 'tecteb-marketplace-core'), $fa((int) $balance['reserved']))
-            . self::stat(__('پرداخت‌شده', 'tecteb-marketplace-core'), $fa((int) $balance['paid']))
+            . self::stat(__('کل درآمد ثبت‌شده', 'tecteb-marketplace-core'), $money((int) $balance['earned']))
+            . self::stat(__('قابل برداشت', 'tecteb-marketplace-core'), $money((int) $balance['eligible']))
+            . self::stat(__('در انتظار', 'tecteb-marketplace-core'), $money((int) $balance['pending']))
+            . self::stat(__('قفل‌شده در درخواست', 'tecteb-marketplace-core'), $money((int) $balance['reserved']))
+            . self::stat(__('پرداخت‌شده', 'tecteb-marketplace-core'), $money((int) $balance['paid']))
             . '</div>';
 
         $pending = WithdrawalMessages::pendingReason(
@@ -131,7 +139,7 @@ final class VendorFinanceView
             $html .= '<p>' . esc_html(sprintf(
                 /* translators: %s: amount */
                 __('با یک درخواست، کل مبلغ قابل برداشت (%s) همان لحظه قفل می‌شود. مبلغ دلخواه وارد نمی‌شود.', 'tecteb-marketplace-core'),
-                $fa((int) $balance['eligible'])
+                $money((int) $balance['eligible'])
             )) . '</p>'
                 . '<form method="post" action="' . esc_url($financeUrl) . '">' . $nonceField
                 . '<input type="hidden" name="tmc_vendor_action" value="request_withdrawal">'

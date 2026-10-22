@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Modules\Order\Application\ShipmentRepositoryInterface;
 use Tecteb\Marketplace\Modules\Order\Domain\ReturnRequest;
 use Tecteb\Marketplace\Modules\Order\Domain\ReturnStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\Shipment;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0033MoneyUnitOnRows as M0033;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0008ShipmentsAndReturns as T;
 
 /**
@@ -26,6 +27,9 @@ use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0008ShipmentsAnd
  */
 final class DbShipmentRepository implements ShipmentRepositoryInterface
 {
+    /** @var array<string,bool> per-instance answers to «does this table carry the unit?» */
+    private array $unitColumns = [];
+
     public function __construct(
         private readonly DatabaseInterface $db,
         private readonly ClockInterface $clock
@@ -170,12 +174,19 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
 
     public function reversedTotals(int $orderItemId): array
     {
+        // Asked of the table, for the window between a file swap and the
+        // upgrade gate running (`alpha.46`).
+        $carried = $this->unitColumnsOn($this->returns());
         $row = $this->db->getRow(
             'SELECT COALESCE(SUM(refund_minor), 0) AS refund,
                     COALESCE(SUM(tax_refund_minor), 0) AS tax,
                     COALESCE(SUM(commission_reversed_minor), 0) AS commission,
                     COALESCE(SUM(vendor_share_reversed_minor), 0) AS vendor_share,
-                    COALESCE(SUM(CASE WHEN refunded_at IS NULL THEN 0 ELSE quantity END), 0) AS quantity
+                    COALESCE(SUM(CASE WHEN refunded_at IS NULL THEN 0 ELSE quantity END), 0) AS quantity,
+                    ' . ($carried
+                        ? 'COUNT(DISTINCT `' . M0033::EXPONENT . '`) AS scales,
+                           MAX(`' . M0033::EXPONENT . '`) AS exponent'
+                        : '0 AS scales, NULL AS exponent') . '
              FROM `' . $this->returns() . '` WHERE order_item_id = %d',
             [$orderItemId]
         );
@@ -185,6 +196,14 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
             'commission' => (int) ($row['commission'] ?? 0),
             'vendor_share' => (int) ($row['vendor_share'] ?? 0),
             'quantity' => (int) ($row['quantity'] ?? 0),
+            // THE SUM IS ONLY A SUM IF EVERY TERM IS IN ONE UNIT. Every
+            // reversal of one line is written in that line's own accrual unit
+            // (`ManageReturns::refund()` reads it off the financial event), so
+            // one scale is the normal case and `scales > 1` is a fact a
+            // caller must not add through — said here rather than discovered
+            // by a wrong total.
+            'exponent' => $row['exponent'] === null ? null : (int) $row['exponent'],
+            'one_scale' => (int) ($row['scales'] ?? 0) <= 1,
         ];
     }
 
@@ -246,7 +265,9 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
         int $vendorShareMinor,
         ?int $wcRefundId,
         string $refundedAt,
-        int $actorId
+        int $actorId,
+        ?string $currency = null,
+        ?int $exponent = null
     ): bool {
         $refund = $wcRefundId === null ? 'NULL' : '%d';
         $params = [
@@ -258,6 +279,27 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
         ];
         if ($wcRefundId !== null) {
             $params[] = $wcRefundId;
+        }
+        // ⛔ A UNIT THAT CANNOT BE STORED IS A REFUSAL (`alpha.49`), the same
+        // rule as the order line and the withdrawal: a reversal at the finer
+        // exponent in a row that cannot say so reads ten thousand times too
+        // large once migration 33 lands.
+        $carried = $this->unitColumnsOn($this->returns());
+        if (!$carried && ($currency !== null || $exponent !== null)) {
+            return false;
+        }
+
+        // THE UNIT, IN THE SAME STATEMENT as the figures it describes
+        // (`alpha.42`). A second `UPDATE` afterwards could fail and leave
+        // four amounts on disk with no scale, which is the one shape this
+        // round exists to remove. `COALESCE` so a caller that does not know
+        // the unit cannot blank one a previous write recorded.
+        $unitSet = '';
+        if ($carried) {
+            $unitSet = '`' . M0033::CURRENCY . '` = COALESCE(%s, `' . M0033::CURRENCY . '`),
+                 `' . M0033::EXPONENT . '` = CASE WHEN %s IS NULL
+                     THEN `' . M0033::EXPONENT . '` ELSE %d END,';
+            array_push($params, $currency, $exponent, $exponent);
         }
         array_push($params, $refundedAt, $actorId, $this->now(), $id);
 
@@ -273,6 +315,7 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
                  tax_refund_minor = %d,
                  commission_reversed_minor = %d,
                  vendor_share_reversed_minor = %d,
+                 ' . $unitSet . '
                  wc_refund_id = ' . $refund . ',
                  refunded_at = %s,
                  decided_by = %d,
@@ -370,7 +413,17 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
             $int('decided_by'),
             $str('decided_at'),
             $str('received_at'),
-            $str('refunded_at')
+            $str('refunded_at'),
+            // `array_key_exists`, not `??`: a row read back before the
+            // columns existed, and a row that genuinely records «no
+            // currency», are different answers, and `??` made six tests agree
+            // with a bug in `alpha.60`.
+            array_key_exists(M0033::CURRENCY, $row) && $row[M0033::CURRENCY] !== null
+                ? (string) $row[M0033::CURRENCY]
+                : null,
+            array_key_exists(M0033::EXPONENT, $row) && $row[M0033::EXPONENT] !== null
+                ? (int) $row[M0033::EXPONENT]
+                : null
         );
     }
 
@@ -404,4 +457,20 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
             do_action('tmc_vendor_figures_changed', $vendorUserId);
         }
     }
+    /**
+     * Whether a table carries migration 33's unit columns — asked once per
+     * INSTANCE, which is once per request in practice.
+     *
+     * The memo lives here rather than in `M0033::carriedBy()` for the reason
+     * `ProductTableShape` keeps its own: a process-wide cache is right for a
+     * request and wrong for anything that changes the table and asks again.
+     */
+    private function unitColumnsOn(string $table): bool
+    {
+        if (!array_key_exists($table, $this->unitColumns)) {
+            $this->unitColumns[$table] = M0033::carriedBy($this->db, $table);
+        }
+        return $this->unitColumns[$table];
+    }
+
 }

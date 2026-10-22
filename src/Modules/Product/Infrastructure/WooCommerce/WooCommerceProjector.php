@@ -64,6 +64,23 @@ final class WooCommerceProjector implements CatalogProjectorInterface
      * plugin did not create. It is what makes «انتقال مالکیت عملیاتی»
      * reversible rather than one-way.
      */
+    /**
+     * A FACT ON DISK: this projection did not write the product's status.
+     *
+     * The sibling of `PRICE_HELD_META`, and for the same reason it is meta
+     * rather than a return value only: the manager's review page and the
+     * health page ask it on requests nowhere near the projection that
+     * answered it.
+     *
+     * Set while `Product::storefrontStatusIsHeld()` is true — an intaken
+     * product whose storefront status nobody inside this marketplace has
+     * decided — and deleted the moment a decision releases it. The catalogue
+     * visibility is held under the same key, because «is this product
+     * supposed to be seen» is ONE question and giving it two answers is what
+     * `alpha.66` warned about two rounds ago.
+     */
+    public const STATUS_HELD_META = '_tmc_status_not_projected';
+
     public const CLAIMED_FROM_STATUS_META = '_tmc_claimed_from_status';
     public const VARIATION_META = '_tmc_variation_id';
     /** Marketplace categories live under their own slugs, so no shop term is renamed. */
@@ -160,8 +177,37 @@ final class WooCommerceProjector implements CatalogProjectorInterface
                 $product->baseline
             );
         }
-        $wcProduct->set_status($product->status === ProductStatus::Published ? 'publish' : 'draft');
-        $wcProduct->set_catalog_visibility($product->status === ProductStatus::Published ? 'visible' : 'hidden');
+        // THE STATUS, and the one case in which it is NOT written.
+        //
+        // ⛔ Until `alpha.67` these two lines were unconditional, and that is
+        // the §1 finding. `project()` reduced six marketplace states to two
+        // storefront ones, so a WooCommerce product taken in as «پیش‌نویس»
+        // had `draft` written over whatever it held — measured on
+        // `alpha.66`'s installed bytes, walking the owner's own path: a
+        // `pending` product survived the intake, survived accepting
+        // management and survived an ordinary save, and the FIRST PROJECTION
+        // made it `draft` and dropped it out of the catalogue and out of
+        // search. Two public changes, neither asked for, on a product whose
+        // status this marketplace had never decided.
+        //
+        // The fix is not a better mapping: `pending` has no marketplace
+        // lifecycle state (§4.2 fixes the six) and inventing one would put
+        // the product in the review queue with an identity of `s0.r0.b0`. The
+        // fix is that a field nobody decided is not ours to write —
+        // `alpha.44`'s rule, and `alpha.66`'s shape for an absent price one
+        // field over. `mirrored_status` records what the intake SAW, and
+        // `updateStatus()` clears it the moment a human in this marketplace
+        // decides; from then on the status is written as it always was.
+        //
+        // The catalogue visibility is held WITH it. It answers the same
+        // question — «is this product supposed to be seen» — and giving one
+        // question two answers is how `alpha.66` produced a green banner over
+        // a shut gate.
+        $statusHeld = $product->storefrontStatusIsHeld();
+        if (!$statusHeld) {
+            $wcProduct->set_status($product->status === ProductStatus::Published ? 'publish' : 'draft');
+            $wcProduct->set_catalog_visibility($product->status === ProductStatus::Published ? 'visible' : 'hidden');
+        }
         $this->applySku($wcProduct, $details->sku);
         $this->applySeo($wcProduct, $product);
 
@@ -354,6 +400,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             ? $this->projectVariations($wcProductId, $product, $attributes, $variations)
             : [];
         $this->recordHeldPrice($wcProductId, $priceHeld);
+        $this->recordHeldStatus($wcProductId, $statusHeld);
         return [
             'ok' => true,
             'code' => 'projected',
@@ -362,6 +409,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             // Additive, so every existing caller keeps working: the two that
             // care read it, the rest ignore it (`alpha.32`).
             'price_held' => $priceHeld,
+            'status_held' => $statusHeld,
         ];
     }
 
@@ -1405,6 +1453,22 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             return;
         }
         delete_post_meta($wcProductId, self::PRICE_HELD_META);
+    }
+
+    /**
+     * Records that this projection left the product's status alone.
+     *
+     * Written AFTER the save, like every other stamp here, and deleted rather
+     * than set to `'0'` when the hold is gone: a page asking «is the status
+     * held» must not have to tell `'0'` from absent (`alpha.60`).
+     */
+    private function recordHeldStatus(int $wcProductId, bool $held): void
+    {
+        if ($held) {
+            update_post_meta($wcProductId, self::STATUS_HELD_META, '1');
+            return;
+        }
+        delete_post_meta($wcProductId, self::STATUS_HELD_META);
     }
 
     /**

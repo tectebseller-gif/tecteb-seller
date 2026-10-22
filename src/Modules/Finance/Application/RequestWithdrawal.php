@@ -134,7 +134,13 @@ final class RequestWithdrawal
             // The cutoff THIS answer used, handed to the claim so the write
             // enforces the same waiting period the read applied — rather than
             // recomputing it a millisecond later and calling that the rule.
-            $balance['eligible_until']
+            $balance['eligible_until'],
+            // AND THE UNIT that `eligible` is in. Handed over for the same
+            // reason the cutoff is: the claim's own sum has to be taken in
+            // the unit the read was taken in, or it compares two different
+            // numbers and refuses every request.
+            (int) $balance['exponent'],
+            (string) $balance['currency']
         );
         if ($withdrawalId <= 0) {
             // Another request took at least one of these lines between the

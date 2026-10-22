@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Order\Presentation;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
 
 /** Every Persian sentence the order screens say. Null for a code it does not own. */
@@ -97,7 +98,14 @@ final class OrderMessages
             'return_refunded' => sprintf(
                 /* translators: 1: amount, 2: what was done, 3: what was not */
                 __('در دفترکل بازگشت %1$s ثبت شد. انجام‌شده: %2$s. انجام‌نشده و با شماست: %3$s. کرایهٔ ارسال و کسورات احتمالی تعیین‌نشده‌اند و در این مبلغ نیستند.', 'tecteb-marketplace-core'),
-                $fa(number_format((int) ($context['refund_minor'] ?? 0))),
+                // At the scale `refund()` carries back, not at a guessed one.
+                // `array_key_exists` rather than `??`: a context with no
+                // `exponent` at all is an older message, and 0 is what it
+                // meant (`alpha.60`).
+                MoneyText::format(
+                    (int) ($context['refund_minor'] ?? 0),
+                    array_key_exists('exponent', $context) ? (int) $context['exponent'] : 0
+                ) ?? $fa((string) ($context['refund_minor'] ?? 0)),
                 self::refundDid($context),
                 self::refundDidNot($context)
             ),

@@ -44,6 +44,50 @@ final class Money
         return new self(0, $this->currency, $this->exponent);
     }
 
+    /**
+     * THE SAME MONEY, written in a FINER unit — exactly, or not at all.
+     *
+     * Multiplying by a power of ten is lossless, so `۱۰۱` at `e = 0` and
+     * `۱٬۰۱۰٬۰۰۰` at `e = 4` are the same amount and this is not a
+     * conversion: the currency does not change and nothing is divided. That
+     * is what makes an exact commission possible at all — a share of
+     * ۸۸٫۳۷۵ تومان is an integer at `e = 4` and is not one at `e = 0`.
+     *
+     * **It refuses to go coarser**, and that is the point rather than an
+     * omission: `۱٬۲۶٬۲۵۰` at `e = 4` is ۱۲٫۶۲۵، and asking for it at `e = 0`
+     * is asking which way to round somebody's share. `null` instead, and the
+     * caller says so by name — the `DecimalAmount::toMinor()` rule one object
+     * up. It also refuses an exponent `Money` cannot carry, and an overflow:
+     * `(int)` saturates silently on a value past `PHP_INT_MAX`, so the
+     * multiplication is checked by dividing back.
+     */
+    public function rescale(int $exponent): ?self
+    {
+        if ($exponent < 0 || $exponent > 6 || $exponent < $this->exponent) {
+            return null;
+        }
+        if ($exponent === $this->exponent) {
+            return $this;
+        }
+        $factor = 10 ** ($exponent - $this->exponent);
+        if ($this->minor !== 0 && intdiv(PHP_INT_MAX, abs($this->minor)) < $factor) {
+            return null;
+        }
+        return new self($this->minor * $factor, $this->currency, $exponent);
+    }
+
+    /**
+     * This amount as the exact decimal string its unit means.
+     *
+     * For printing and for handing to WooCommerce. `null` only when the
+     * exponent is out of `DecimalAmount`'s range, which `of()` already
+     * prevents.
+     */
+    public function toDecimal(): ?string
+    {
+        return DecimalAmount::toDecimal($this->minor, $this->exponent);
+    }
+
     public function add(self $other): self
     {
         $this->assertSameUnit($other);

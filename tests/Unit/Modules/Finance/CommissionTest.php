@@ -27,7 +27,10 @@ final class CommissionTest extends TestCase
 
     public function testTheWorkedExampleFromTheSpecification(): void
     {
-        // B=900000, rate 10% → C=90000, V=810000 (Master Spec §23).
+        // B=900000, rate 10% → C=90000, V=810000 (Master Spec §23) — and from
+        // `alpha.67` all three come back at the finer unit an exact
+        // commission needs, so the decimal strings are asserted beside the
+        // integers. The money is the same; the unit it is written in is not.
         $outcome = $this->calculator->calculate(
             Money::of(900000),
             CommissionRate::ofBasisPoints(1000),
@@ -36,8 +39,34 @@ final class CommissionTest extends TestCase
         );
 
         self::assertTrue($outcome->isCalculated());
-        self::assertSame(90000, $outcome->commission?->minor);
-        self::assertSame(810000, $outcome->vendorShare?->minor);
+        self::assertSame(4, $outcome->commission?->exponent);
+        self::assertSame('90000.0000', $outcome->commission?->toDecimal());
+        self::assertSame('810000.0000', $outcome->vendorShare?->toDecimal());
+    }
+
+    /**
+     * FIN-01's own rule is exact too, and `half_up` is never applied.
+     *
+     * The owner's decision covers every commission — «هیچ گردکردنی مجاز
+     * نیست» — so this calculator lost its rounding with the other one, and
+     * the pair is asserted together so neither can keep a second rule.
+     */
+    public function testThisCalculatorIsExactAndRecordsThatItWas(): void
+    {
+        $outcome = $this->calculator->calculate(
+            Money::of(101, 'IRT', 0),
+            CommissionRate::ofBasisPoints(1250),
+            'general',
+            7
+        );
+
+        self::assertTrue($outcome->isCalculated());
+        self::assertSame('12.6250', $outcome->commission?->toDecimal());
+        self::assertSame('88.3750', $outcome->vendorShare?->toDecimal());
+        self::assertSame('exact@v2', $outcome->snapshot?->roundingPolicy);
+        // And the historical name is still available, so a row recorded under
+        // it can be told apart rather than becoming unexplainable.
+        self::assertSame('half_up@v1', RoundingPolicy::describeHistoricalHalfUp());
     }
 
     /** @dataProvider amounts */
@@ -47,9 +76,14 @@ final class CommissionTest extends TestCase
 
         self::assertTrue($outcome->isCalculated());
         self::assertSame(
-            $base,
+            $outcome->base?->minor,
             ($outcome->commission?->minor ?? 0) + ($outcome->vendorShare?->minor ?? 0),
             "V + C must be exactly B for base {$base} at {$rateBp}bp"
+        );
+        self::assertSame(
+            $base * 10000,
+            $outcome->base?->minor,
+            "the base must be the same money in the finer unit for {$base}"
         );
     }
 
@@ -83,7 +117,7 @@ final class CommissionTest extends TestCase
 
         self::assertTrue($outcome->isCalculated(), 'zero is a decision, unlike empty');
         self::assertSame(0, $outcome->commission?->minor);
-        self::assertSame(900000, $outcome->vendorShare?->minor);
+        self::assertSame('900000.0000', $outcome->vendorShare?->toDecimal());
     }
 
     public function testEmptyStoredValuesNeverBecomeZero(): void

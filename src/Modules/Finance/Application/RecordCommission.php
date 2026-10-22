@@ -130,7 +130,19 @@ final class RecordCommission
         }
 
         $base = $outcome->base;
-        $tax = $taxCollected ?? $base->zero();
+        // THE TAX IN THE SAME UNIT AS THE BASE, and refused rather than mixed.
+        //
+        // The outcome comes back at the exponent an exact commission needs
+        // (`CommissionPrecision`), which is FINER than the order's own, and
+        // the caller's tax is still in the order's. Adding them as they stand
+        // is what `Money::assertSameUnit()` exists to refuse — and it did,
+        // on fifty-seven tests, which is how this was found rather than by
+        // reading. Rescaling is a power of ten and loses nothing; a tax that
+        // will not fit is a named refusal, never a guess.
+        $tax = $taxCollected === null ? $base->zero() : $taxCollected->rescale($base->exponent);
+        if ($tax === null) {
+            return CommissionOutcome::needsConfiguration('tax_unit_unavailable');
+        }
         $transaction = (new LedgerTransaction($eventKey, $vendorUserId, $orderRef, $itemRef))
             ->snapshot($outcome->snapshot->toArray())
             ->add(LedgerAccount::CentralPayment, $base->add($tax), 'item_paid')

@@ -33,7 +33,14 @@ interface CatalogProjectorInterface
      *
      * @param list<ProductAttribute> $attributes
      * @param list<ProductVariation> $variations
-     * @return array{ok:bool, code:string, wc_product_id:int, variation_links:array<int,int>}
+     * `price_held` and `status_held` are optional and additive: they say that
+     * this projection deliberately did NOT write a field, because nobody in
+     * this marketplace has decided it. A caller that does not read them is
+     * unaffected (`alpha.32`); the two that do are the review page and the
+     * evidence probes.
+     *
+     * @return array{ok:bool, code:string, wc_product_id:int, variation_links:array<int,int>,
+     *               price_held?:bool, status_held?:bool}
      */
     public function project(Product $product, array $attributes = [], array $variations = []): array;
 

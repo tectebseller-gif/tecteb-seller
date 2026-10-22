@@ -51,6 +51,12 @@ final class DbVendorMoneyUnitRegistry implements VendorMoneyUnitRegistryInterfac
         if ($books === null) {
             return MoneyUnitClaim::refused(MoneyUnitClaim::UNREADABLE);
         }
+        // MORE THAN ONE CURRENCY — not more than one exponent. From
+        // `alpha.67` a vendor's books hold both the exponent their orders
+        // were captured at and the finer one an exact commission needs, and
+        // those two are the same money written twice (`Money::rescale()` is a
+        // power of ten). Counting exponents here refused every sale on every
+        // upgraded site, which running the path showed and reading it did not.
         if (count($books) > 1) {
             return MoneyUnitClaim::refused(MoneyUnitClaim::MIXED);
         }
@@ -80,24 +86,36 @@ final class DbVendorMoneyUnitRegistry implements VendorMoneyUnitRegistryInterfac
             // money against.
             return MoneyUnitClaim::refused(MoneyUnitClaim::UNREADABLE);
         }
-        if ($stored['currency'] !== $currency || $stored['exponent'] !== $exponent) {
+        // THE CURRENCY is what has to match. The stored row keeps the FIRST
+        // unit it ever recorded and is deliberately NOT updated to a finer
+        // exponent: it is the right answer for every legacy row that does not
+        // carry its own unit, and rewriting it would reinterpret those rows.
+        if ($stored['currency'] !== $currency) {
             return MoneyUnitClaim::refused(
                 MoneyUnitClaim::DIFFERENT,
                 $stored['currency'],
                 $stored['exponent']
             );
         }
-        // And the books, where they hold anything, must agree with the row.
-        // They can disagree only on data from before this table existed, and
-        // that is a person's decision rather than a conversion.
-        if ($books !== [] && ($books[0]['currency'] !== $currency || $books[0]['exponent'] !== $exponent)) {
+        // And the books, where they hold anything, must be in the same
+        // currency. They can differ only on data from before this table
+        // existed, and a different CURRENCY there is a person's decision
+        // rather than a conversion.
+        if ($books !== [] && $books[0]['currency'] !== $currency) {
             return MoneyUnitClaim::refused(
                 MoneyUnitClaim::DIFFERENT,
                 $books[0]['currency'],
                 $books[0]['exponent']
             );
         }
-        return MoneyUnitClaim::agreed($currency, $exponent);
+        // The unit any sum over these books must be taken in: the finest of
+        // what is recorded, what the row says, and what is being offered.
+        $finest = max(
+            $exponent,
+            $stored['exponent'],
+            $books === [] ? 0 : (int) $books[0]['exponent']
+        );
+        return MoneyUnitClaim::agreed($currency, $exponent, $finest);
     }
 
     public function unitOf(int $vendorUserId): ?array
@@ -121,6 +139,30 @@ final class DbVendorMoneyUnitRegistry implements VendorMoneyUnitRegistryInterfac
     {
         $books = $this->ledgerUnits($vendorUserId);
         return $books === null ? null : count($books) > 1;
+    }
+
+    /**
+     * The FINEST exponent this vendor's ledger holds, or `null` when unreadable.
+     *
+     * What a balance has to be summed in. Separate from `unitOf()`, which
+     * answers the different question «what unit does a row that does not say
+     * mean» — and that one is the COARSE, first-recorded unit. Two questions,
+     * two answers, because `alpha.66` showed what one answer to two questions
+     * does.
+     */
+    public function finestExponentOf(int $vendorUserId): ?int
+    {
+        if ($vendorUserId <= 0) {
+            return null;
+        }
+        $books = $this->ledgerUnits($vendorUserId);
+        if ($books === null) {
+            return null;
+        }
+        if ($books === []) {
+            return $this->storedUnit($vendorUserId)['exponent'] ?? 0;
+        }
+        return (int) $books[0]['exponent'];
     }
 
     /** @return array{currency:string, exponent:int}|null */
@@ -147,6 +189,15 @@ final class DbVendorMoneyUnitRegistry implements VendorMoneyUnitRegistryInterfac
      * still returns a row — so `total = 0` is «no sales» and `null` is «no
      * answer», and the two can never be confused again.
      *
+     * ⛔ **It counts distinct CURRENCY, not distinct `(currency, exponent)`,
+     * and reports `MAX(exponent)` rather than `MIN`.** From `alpha.67` one
+     * vendor's books legitimately hold two exponents of one currency — the
+     * one their orders were captured at and the finer one an exact commission
+     * needs — and those are the same money written twice. Counting them as
+     * two units marked every upgraded vendor «mixed» and refused their next
+     * sale; `MAX` is reported because the finest unit is the one a sum has to
+     * be taken in, and every coarser row rescales into it losslessly.
+     *
      * @return list<array{currency:string, exponent:int}>|null
      */
     private function ledgerUnits(int $vendorUserId): ?array
@@ -154,8 +205,8 @@ final class DbVendorMoneyUnitRegistry implements VendorMoneyUnitRegistryInterfac
         $table = Ledger::table($this->db, Ledger::LEDGER);
         $row = $this->db->getRow(
             'SELECT COUNT(*) AS total,
-                    COUNT(DISTINCT CONCAT(`currency`, \'/\', `exponent`)) AS units,
-                    MIN(`currency`) AS currency, MIN(`exponent`) AS exponent
+                    COUNT(DISTINCT `currency`) AS units,
+                    MIN(`currency`) AS currency, MAX(`exponent`) AS exponent
                FROM `' . $table . '` WHERE `vendor_user_id` = %d',
             [$vendorUserId]
         );

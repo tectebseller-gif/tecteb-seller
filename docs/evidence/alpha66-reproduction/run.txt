@@ -1,0 +1,521 @@
+=== the trees ===
+base_ref=5a29cdf38d79dda2936212bdfd9e8c4af16857b2
+this_checkout_src_digest=d07c9ee6822b020b
+installed_src_digest=9b9c6788b063855a
+base_src_digest=9b9c6788b063855a
+PASS  0a the installed package is this round's base (alpha.66)  (9b9c6788b063855a)
+PASS  0b this checkout differs from the base  (differ)
+PASS  0c the installed tree is now alpha.66's  (9b9c6788b063855a)
+
+=== BEFORE · §1 the five statuses, through the whole path ===
+vendor_user_id=3
+product_draft=759
+shop_status_draft=draft
+product_pending=760
+shop_status_pending=pending
+product_publish=761
+shop_status_publish=publish
+product_private=762
+shop_status_private=private
+product_future=763
+shop_status_future=future
+PASS  1a woocommerce holds a pending product  (pending)
+judge_draft=import:
+judge_pending=import:
+judge_publish=import:
+judge_private=skip:status_not_expressible
+judge_future=skip:status_not_expressible
+map_publish=published
+map_draft=draft
+map_pending=draft
+map_private=__refused__
+map_future=__refused__
+map_trash=__refused__
+map_auto-draft=__refused__
+map_bananas=__refused__
+PASS  1b pending is taken in  (import:)
+PASS  1c private is refused BY NAME  (skip:status_not_expressible)
+PASS  1d future is refused BY NAME  (skip:status_not_expressible)
+PASS  1e the map collapses pending into draft  (draft)
+run_id=intake-20261022-113845
+intake_759=imported:
+intake_760=imported:
+intake_761=imported:
+intake_762=skip:status_not_expressible
+intake_763=skip:status_not_expressible
+shop_status_draft=draft
+row_status_draft=draft
+facet_draft=draft|mgmt:observed
+shop_status_pending=pending
+row_status_pending=draft
+facet_pending=pending|mgmt:observed
+shop_status_publish=publish
+row_status_publish=published
+facet_publish=publish|mgmt:observed
+shop_status_private=private
+row_status_private=__none__
+facet_private=private|mgmt:none
+shop_status_future=future
+row_status_future=__none__
+facet_future=future|mgmt:none
+PASS  1f the intake leaves the shop alone  (pending)
+PASS  1g …and the row says draft  (draft)
+PASS  1h …and the filter still shows the shop's own status  (pending|mgmt:observed)
+suffix=pending
+product_id=1586
+shop_status_before=pending
+row_status_before=draft
+risks=__none__
+take_code=ownership_taken
+shop_status_after=pending
+row_status_after=draft
+facet_after=pending|mgmt:ours
+PASS  1i accepting management leaves the shop alone  (pending)
+suffix=pending
+shop_status_before=pending
+row_status_before=draft
+revision=0
+save_ok=yes
+save_code=product_saved
+shop_status_after=pending
+row_status_after=draft
+facet_after=pending|mgmt:ours
+PASS  1j an ordinary save succeeds  (product_saved)
+PASS  1k …and leaves the shop alone  (pending)
+suffix=pending
+product_id=1586
+shop_status_before=pending
+row_status_before=draft
+visibility_before=visible
+catalog_visibility_before=__none__
+project_ok=yes
+project_code=projected
+shop_status_after=draft
+facet_after=draft|mgmt:ours
+catalog_visibility_after=exclude-from-catalog,exclude-from-search
+status_held_meta=__no_such_key__
+project_status_held=__no_key__
+id=760
+url=http://127.0.0.1:8081/?post_type=product&p=760
+author=3
+shop_status=draft
+regular_price=450000
+price=450000
+PASS  1l the first projection succeeds  (projected)
+PASS  1m THE DEFECT: pending became draft  (draft)
+PASS  1n …and the filter says draft too  (draft|mgmt:ours)
+PASS  1o …and it left the catalogue and search  (exclude-from-catalog,exclude-from-search)
+PASS  1p nothing records that the status was held  (__no_such_key__)
+PASS  1q the id did not move  (760)
+PASS  1r the author did not move  (3)
+PASS  1s the price did not move  (450000)
+
+=== BEFORE · §1 controls — draft and publish ===
+suffix=draft
+product_id=1585
+shop_status_before=draft
+row_status_before=draft
+visibility_before=visible
+catalog_visibility_before=__none__
+project_ok=yes
+project_code=projected
+shop_status_after=draft
+facet_after=draft|mgmt:ours
+catalog_visibility_after=exclude-from-catalog,exclude-from-search
+status_held_meta=__no_such_key__
+project_status_held=__no_key__
+id=759
+url=http://127.0.0.1:8081/?post_type=product&p=759
+author=3
+shop_status=draft
+regular_price=450000
+price=450000
+PASS  2a a draft stays a draft  (draft)
+suffix=publish
+product_id=1587
+shop_status_before=publish
+row_status_before=published
+visibility_before=visible
+catalog_visibility_before=__none__
+project_ok=yes
+project_code=projected
+shop_status_after=publish
+facet_after=publish|mgmt:ours
+catalog_visibility_after=__none__
+status_held_meta=__no_such_key__
+project_status_held=__no_key__
+id=761
+url=http://127.0.0.1:8081/product/tmc-p66-publish/
+author=3
+shop_status=publish
+regular_price=450000
+price=450000
+PASS  2b a published product stays published  (publish)
+
+=== BEFORE · §2 the rounding, and what it costs ===
+commission_precision_class=__absent__
+PASS  3a there is no derived precision at all  (__absent__)
+exact_commission=__absent__
+PASS  3b and no exact commission to ask for  (__absent__)
+requested=yes
+permitted=yes
+active=yes
+environment=local
+gate_ready=yes
+gate_reason=ready_on_trial
+PASS  3b-i the trial key is honoured on a declared non-production site  (yes)
+sh: 1: /usr/sbin/sendmail: not found
+sh: 1: /usr/sbin/sendmail: not found
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$exponent in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 686
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$exponent in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 686
+PHP Warning:  Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$exponent in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 687
+Warning: Undefined property: Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem::$exponent in phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code on line 687
+gate_ready=yes
+gate_reason=ready_on_trial
+take_code=ownership_taken
+marketplace_row=1588
+order_id=765
+order_total=303
+order_currency=IRT
+wc_price_decimals=0
+line_base_minor=303
+line_commission_minor=38
+line_share_minor=265
+line_rate_bp=1250
+line_rate_source=product
+line_currency=__none__
+line_exponent=__none__
+line_sums_exactly=yes
+PASS  3c the order gate opens with the trial key  (yes)
+base_line_base_minor=303
+base_line_commission_minor=38
+base_line_share_minor=265
+PASS  3d THE DEFECT: the commission was rounded to a whole تومان  (38)
+PASS  3e …and the share with it  (265)
+PASS  3f the row carries no unit  (__none__)
+balance_earned=6075265
+balance_pending=6075265
+balance_eligible=0
+balance_reserved=0
+balance_paid=0
+balance_unrecorded=0
+balance_currency=__no_key__
+balance_exponent=__no_key__
+balance_unit_unreadable=__no_key__
+lines_without_a_unit=6
+lines_with_a_unit=0
+PASS  3g the balance does not say what unit it is in  (__no_key__)
+
+PASS  0d the installed tree is this checkout's  (d07c9ee6822b020b)
+
+=== AFTER · §1 the same path, the same five statuses ===
+vendor_user_id=3
+product_draft=766
+shop_status_draft=draft
+product_pending=767
+shop_status_pending=pending
+product_publish=768
+shop_status_publish=publish
+product_private=769
+shop_status_private=private
+product_future=770
+shop_status_future=future
+judge_draft=import:
+judge_pending=import:
+judge_publish=import:
+judge_private=skip:status_not_expressible
+judge_future=skip:status_not_expressible
+map_publish=published
+map_draft=draft
+map_pending=draft
+map_private=__refused__
+map_future=__refused__
+map_trash=__refused__
+map_auto-draft=__refused__
+map_bananas=__refused__
+PASS  4a pending is still taken in  (import:)
+PASS  4b private is still refused BY NAME  (skip:status_not_expressible)
+PASS  4c future is still refused BY NAME  (skip:status_not_expressible)
+PASS  4d the lifecycle value is still draft  (draft)
+run_id=intake-20261022-113902
+intake_766=imported:
+intake_767=imported:
+intake_768=imported:
+intake_769=skip:status_not_expressible
+intake_770=skip:status_not_expressible
+shop_status_draft=draft
+row_status_draft=draft
+facet_draft=draft|mgmt:observed
+shop_status_pending=pending
+row_status_pending=draft
+facet_pending=pending|mgmt:observed
+shop_status_publish=publish
+row_status_publish=published
+facet_publish=publish|mgmt:observed
+shop_status_private=private
+row_status_private=__none__
+facet_private=private|mgmt:none
+shop_status_future=future
+row_status_future=__none__
+facet_future=future|mgmt:none
+PASS  4e the intake leaves the shop alone  (pending)
+PASS  4f the filter shows the shop's own status  (pending|mgmt:observed)
+suffix=pending
+product_id=1590
+shop_status_before=pending
+row_status_before=draft
+risks=__none__
+take_code=ownership_taken
+shop_status_after=pending
+row_status_after=draft
+facet_after=pending|mgmt:ours
+PASS  4g accepting management leaves the shop alone  (pending)
+suffix=pending
+shop_status_before=pending
+row_status_before=draft
+revision=0
+save_ok=yes
+save_code=product_saved
+shop_status_after=pending
+row_status_after=draft
+facet_after=pending|mgmt:ours
+PASS  4h an ordinary save succeeds  (product_saved)
+PASS  4i …and leaves the shop alone  (pending)
+suffix=pending
+product_id=1590
+shop_status_before=pending
+row_status_before=draft
+visibility_before=visible
+catalog_visibility_before=__none__
+project_ok=yes
+project_code=projected
+shop_status_after=pending
+facet_after=pending|mgmt:ours
+catalog_visibility_after=__none__
+status_held_meta=1
+project_status_held=yes
+id=767
+url=http://127.0.0.1:8081/?post_type=product&p=767
+author=3
+shop_status=pending
+regular_price=450000
+price=450000
+PASS  4j the first projection still succeeds  (projected)
+PASS  4k THE FIX: pending is still pending  (pending)
+PASS  4l …and the filter says so  (pending|mgmt:ours)
+PASS  4m …and it is still in the catalogue and in search  (__none__)
+PASS  4n …and the hold is a fact on disk  (1)
+PASS  4o …and the projection reports it  (yes)
+PASS  4p the id did not move  (767)
+PASS  4q the author did not move  (3)
+PASS  4r the price did not move  (450000)
+
+=== AFTER · §1 controls — draft, publish, and an EXPLICIT decision ===
+suffix=draft
+product_id=1589
+shop_status_before=draft
+row_status_before=draft
+visibility_before=visible
+catalog_visibility_before=__none__
+project_ok=yes
+project_code=projected
+shop_status_after=draft
+facet_after=draft|mgmt:ours
+catalog_visibility_after=__none__
+status_held_meta=1
+project_status_held=yes
+id=766
+url=http://127.0.0.1:8081/?post_type=product&p=766
+author=3
+shop_status=draft
+regular_price=450000
+price=450000
+PASS  5a a draft is still a draft  (draft)
+suffix=publish
+product_id=1591
+shop_status_before=publish
+row_status_before=published
+visibility_before=visible
+catalog_visibility_before=__none__
+project_ok=yes
+project_code=projected
+shop_status_after=publish
+facet_after=publish|mgmt:ours
+catalog_visibility_after=__none__
+status_held_meta=1
+project_status_held=yes
+id=768
+url=http://127.0.0.1:8081/product/tmc-p66-publish/
+author=3
+shop_status=publish
+regular_price=450000
+price=450000
+PASS  5b a published product is still published  (publish)
+suffix=pending
+wanted=publish
+shop_status_before=pending
+row_status_set=published
+mirrored_after_decision=__null__
+explicit_code=projected
+shop_status_after=publish
+facet_after=publish|mgmt:ours
+PASS  5c an explicit decision clears the hold  (__null__)
+PASS  5d …and the status IS written  (publish)
+suffix=publish
+wanted=draft
+shop_status_before=publish
+row_status_set=draft
+mirrored_after_decision=__null__
+explicit_code=projected
+shop_status_after=draft
+facet_after=draft|mgmt:ours
+PASS  5e an explicit draft takes a live product down  (draft)
+
+=== AFTER · §2 the derivation, read off the rate's own denominator ===
+rate_denominator=10000
+extra_scale=4
+derivation_matches_denominator=yes
+exponent_for_0=4
+exponent_for_1=5
+exponent_for_2=6
+exponent_for_3=__refused__
+exponent_for_6=__refused__
+rounding_policy=exact@v2
+PASS  6a the rate denominator  (10000)
+PASS  6b the extra scale is derived from it  (4)
+PASS  6c …and the derivation is checked  (yes)
+PASS  6d تومان needs four places  (4)
+PASS  6e a two-place currency needs six  (6)
+PASS  6f three places is REFUSED, not rounded  (__refused__)
+PASS  6g the recorded policy says exact  (exact@v2)
+
+=== AFTER · §2 the owner's worked example ===
+exponent_101@12.5%=4
+commission_101@12.5%=12.6250
+share_101@12.5%=88.3750
+sums_exactly_101@12.5%=yes
+exponent_1000@12.5%=4
+commission_1000@12.5%=125.0000
+share_1000@12.5%=875.0000
+sums_exactly_1000@12.5%=yes
+exponent_303@12.5%=4
+commission_303@12.5%=37.8750
+share_303@12.5%=265.1250
+sums_exactly_303@12.5%=yes
+exponent_250@12.5%=4
+commission_250@12.5%=31.2500
+share_250@12.5%=218.7500
+sums_exactly_250@12.5%=yes
+PASS  7a ۱۰۱ at ۱۲٫۵٪ owes exactly ۱۲٫۶۲۵  (12.6250)
+PASS  7b …and leaves exactly ۸۸٫۳۷۵  (88.3750)
+PASS  7c …and the two add up to the base exactly  (yes)
+PASS  7d the Persian spelling of the rate gives the same answer  (4)
+PASS  7e an amount whose commission is whole is exact too  (125.0000)
+PASS  7f three units: ۳۷٫۸۷۵  (37.8750)
+PASS  7g a discount comes off first: ۳۱٫۲۵  (31.2500)
+PASS  7h …and that one sums exactly as well  (yes)
+
+=== AFTER · §2 one no-money WooCommerce order, end to end ===
+requested=yes
+permitted=yes
+active=yes
+environment=local
+gate_ready=yes
+gate_reason=ready_on_trial
+PASS  8a-i the trial key is honoured on this tree too  (yes)
+sh: 1: /usr/sbin/sendmail: not found
+sh: 1: /usr/sbin/sendmail: not found
+gate_ready=yes
+gate_reason=ready_on_trial
+take_code=ownership_taken
+marketplace_row=1592
+order_id=772
+order_total=303
+order_currency=IRT
+wc_price_decimals=0
+line_base_minor=3030000
+line_commission_minor=378750
+line_share_minor=2651250
+line_rate_bp=1250
+line_rate_source=product
+line_currency=IRT
+line_exponent=4
+line_commission_text=۳۷٫۸۷۵
+line_share_text=۲۶۵٫۱۲۵
+line_base_text=۳۰۳
+line_sums_exactly=yes
+PASS  8a the order gate opens with the trial key  (yes)
+PASS  8b three units of ۱۰۱ تومان  (303)
+PASS  8c the row records its own unit  (4)
+PASS  8d …and its currency  (IRT)
+PASS  8e the base is the same money in the finer unit  (3030000)
+PASS  8f THE FIX: the commission is exact  (378750)
+PASS  8g …and so is the share  (2651250)
+PASS  8h …and they add up to the base exactly  (yes)
+PASS  8i what a person reads for the commission  (۳۷٫۸۷۵)
+PASS  8j …and for the share  (۲۶۵٫۱۲۵)
+PASS  8k …and for the base, with no trailing zeros  (۳۰۳)
+PASS  8l the rate came from the product  (product)
+PASS  8m …at twelve and a half per cent  (1250)
+NOTE  8n no payment gateway was involved  available_gateways=
+row_vendor_earning=-2651250 IRT/1e4
+row_commission=-378750 IRT/1e4
+row_central_payment=3030000 IRT/1e4
+row_vendor_earning=-265 IRT/1e0
+row_commission=-38 IRT/1e0
+row_central_payment=303 IRT/1e0
+row_vendor_earning=-265 IRT/1e0
+row_commission=-38 IRT/1e0
+row_central_payment=303 IRT/1e0
+row_vendor_earning=-1181250 IRT/1e0
+row_commission=-168750 IRT/1e0
+row_central_payment=1350000 IRT/1e0
+event_lines=3
+event_zero_sum=yes
+event_exponents=4
+ledger_exponents_for_vendor=0,4
+PASS  9a the event balances to nought  (yes)
+PASS  9b every line of it in ONE unit  (4)
+NOTE  9c the units this vendor's ledger holds  0,4
+
+=== AFTER · §2 the balance, and a legacy row beside a new one ===
+legacy_row=319
+legacy_share_minor=90000
+legacy_exponent=__none__
+earned_before=60752651250
+earned_after=61652651250
+earned_delta=900000000
+exponent_before=4
+exponent_after=4
+unitless_lines_added=1
+PASS  10a a row in the OLD shape was written  (90000)
+PASS  10b …with no unit on it, exactly as alpha.66 wrote one  (__none__)
+balance_earned=61652651250
+balance_pending=61652651250
+balance_eligible=0
+balance_reserved=0
+balance_paid=0
+balance_unrecorded=0
+balance_currency=IRT
+balance_exponent=4
+balance_unit_unreadable=no
+earned_text=۶٬۱۶۵٬۲۶۵٫۱۲۵
+lines_without_a_unit=6
+lines_with_a_unit=1
+PASS  10c the balance says what unit it is in  (4)
+PASS  10d …and that the unit is a fact, not a fallback  (no)
+PASS  10e the old row adds exactly ۹۰٬۰۰۰، in the finer unit  (900000000)
+PASS  10f …and the balance was already in that unit before it  (4)
+PASS  10g …and after it  (4)
+PASS  10h exactly one line without a unit was added  (1)
+PASS  10i and the vendor has lines with a unit too  (yes)
+PASS  10j the text is printed at the balance's own scale  (yes)
+NOTE  10k the balance of this borrowed shop, in its own unit  61652651250 e4 = ۶٬۱۶۵٬۲۶۵٫۱۲۵
+
+=== result ===
+pass=97 fail=0
+base_ref=5a29cdf38d79dda2936212bdfd9e8c4af16857b2
+base_src_digest=9b9c6788b063855a
+this_tree_src_digest=d07c9ee6822b020b
+PASS  11a the installed bytes are back to what was there  (9b9c6788b063855a)
+pass=98 fail=0

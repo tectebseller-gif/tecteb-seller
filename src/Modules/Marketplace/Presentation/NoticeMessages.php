@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Marketplace\Presentation;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Modules\Marketplace\Application\Notify;
 use Tecteb\Marketplace\Modules\Marketplace\Application\Reports;
 
@@ -134,16 +135,81 @@ final class NoticeMessages
     }
 
     /**
+     * One figure of one report, as the text a person reads.
+     *
+     * ⛔ **Both report screens printed money as
+     * `number_format((int) $value / 100)`, and that `/100` was wrong before
+     * this round and wronger after it.** A balance is in the vendor's own
+     * unit (`alpha.39`), and on this catalogue that unit is `IRT` with
+     * exponent 0 — so halving the scale by a hundred showed ۴٬۵۰۰ تومان of a
+     * ۴۵۰٬۰۰۰ تومان balance. From `alpha.67` the same figures can be at the
+     * finer exponent an exact commission needs, so a hardcoded divisor is not
+     * merely off by a factor: it is a second opinion about a scale the report
+     * now carries. One question, one answer — the report's own `exponent`,
+     * through `MoneyText`.
+     *
+     * A scale `MoneyText` cannot express is SAID, not guessed: a figure
+     * printed without its unit is the one number somebody would act on.
+     *
+     * @param array<string,mixed> $figures the whole report, which carries the unit
+     */
+    public static function figureValue(string $key, mixed $value, array $figures): string
+    {
+        $fa = static fn (mixed $v): string => PersianDigits::toPersian((string) $v);
+        if (!self::isMoney($key)) {
+            return $fa(is_scalar($value) ? (string) $value : '');
+        }
+        // `array_key_exists` rather than `??`: a report that does not carry a
+        // unit at all and one that carries exponent 0 are different answers,
+        // and `??` made them one in `alpha.60`.
+        $exponent = array_key_exists('exponent', $figures) ? (int) $figures['exponent'] : 0;
+        $text = MoneyText::format((int) $value, $exponent);
+        if ($text === null) {
+            return __('مقیاس این عدد خوانده نشد', 'tecteb-marketplace-core');
+        }
+        return $text . ' ' . __('تومان', 'tecteb-marketplace-core');
+    }
+
+    /**
      * Keys a report card should not print as a figure.
      *
      * `available` is how a report says its module is not loaded, and
      * `threshold` is a setting the stock card explains in its own sentence.
      *
+     * `currency`, `exponent` and `mixed_currencies` are the UNIT the money
+     * figures are in, which `alpha.67`'s finance reports began carrying. They
+     * are not figures: printed as rows they would read «ارز: IRT» and
+     * «نما: ۴» beside the balance, and `mixed_currencies` is an array that
+     * would print as the word `Array`. The unit is used by
+     * `figureValue()` and said, where it has to be said, by
+     * `mixedCurrencyNote()`.
+     *
      * @return list<string>
      */
     public static function hiddenFigures(): array
     {
-        return ['available', 'threshold'];
+        return ['available', 'threshold', 'currency', 'exponent', 'mixed_currencies'];
+    }
+
+    /**
+     * The sentence a marketplace-wide money card needs when its shops keep
+     * books in more than one currency — or `null` when they do not.
+     *
+     * There is no total to print, and `Money::assertSameUnit()` one layer
+     * down is why: two currencies do not add up. Said rather than averaged,
+     * because a number presented as a total would be believed.
+     */
+    public static function mixedCurrencyNote(array $figures): ?string
+    {
+        $mixed = $figures['mixed_currencies'] ?? null;
+        if (!is_array($mixed) || $mixed === []) {
+            return null;
+        }
+        return sprintf(
+            /* translators: %s: the currency codes, separated by «و» */
+            __('فروشگاه‌ها در %s حساب نگه می‌دارند، پس جمعی برای نشان‌دادن نیست. دو ارز با هم جمع نمی‌شوند و عددی که به‌جایشان نوشته شود باور می‌شود.', 'tecteb-marketplace-core'),
+            implode(__('، ', 'tecteb-marketplace-core'), array_map('strval', $mixed))
+        );
     }
 
     /**

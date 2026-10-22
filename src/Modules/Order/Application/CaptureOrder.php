@@ -112,11 +112,13 @@ final class CaptureOrder
                     if ($repair === 'line_repaired') {
                         $repaired++;
                     } else {
-                        // `line_incomplete` and `line_reconcile_required` are
-                        // both «not finished, a person decides» — the count is
-                        // the same and the NAME is the difference, because one
-                        // is a line missing its figures and the other is a line
-                        // whose figures contradict its event.
+                        // `line_incomplete`, `line_reconcile_required` and
+                        // `line_unit_mismatch` are all «not finished, a person
+                        // decides» — the count is the same and the NAME is the
+                        // difference: one is a line missing its figures, one is
+                        // a line whose figures contradict its event, and one is
+                        // a line whose unit does not match its event's at all,
+                        // so the figures cannot even be compared.
                         $incomplete++;
                     }
                 }
@@ -262,11 +264,34 @@ final class CaptureOrder
             // not in the ledger and is not guessed — it is trusted only while
             // the money agrees, which is the evidence that this is the same
             // line. A mismatch needs a person, and `line_mismatch` says so.
-            $storedBase = $base;
-            $storedTax = $tax;
+            //
+            // THE ROW'S UNIT, and every money column on it is written in that
+            // one unit. From `alpha.67` an outcome comes back at the finer
+            // exponent an exact commission needs
+            // (`CommissionPrecision::exponentFor()`), so the base and the tax
+            // are rescaled into it — losslessly, by a power of ten — and the
+            // five columns stay comparable with each other. Without a
+            // recorded outcome there is nothing finer to match and the row
+            // keeps the order's own unit.
+            $rowBase = $outcome->base ?? $base;
+            $storedBase = $base->rescale($rowBase->exponent);
+            $storedTax = $tax->rescale($rowBase->exponent);
+            if ($storedBase === null || $storedTax === null) {
+                // A unit this line cannot be written in. Refused by name
+                // rather than stored at a scale nobody can read back.
+                $incomplete++;
+                $reasons[] = 'line_unit_unavailable';
+                continue;
+            }
             if ($outcome->isRecovered() && $outcome->base !== null) {
                 $recoveredTax = $outcome->recoveredTax ?? $outcome->base->zero();
-                if ($outcome->base->minor !== $base->minor || $recoveredTax->minor !== $tax->minor) {
+                // Compared IN ONE UNIT. The recovered event is at whatever
+                // exponent it was recorded at — which, for an event written
+                // before `alpha.67`, is the order's own — and the input has
+                // just been rescaled to it. Comparing the raw integers across
+                // two exponents would have called every recovered line a
+                // mismatch and stopped the retry path dead.
+                if (!$outcome->base->equals($storedBase) || !$recoveredTax->equals($storedTax)) {
                     $incomplete++;
                     $reasons[] = 'line_mismatch';
                     continue;
@@ -283,7 +308,16 @@ final class CaptureOrder
                 (string) ($line['title'] ?? $product->details->title),
                 (string) ($line['sku'] ?? $product->details->sku),
                 $quantity,
-                (int) round($storedBase->minor / $quantity),
+                // A DISPLAY FIGURE, floor-divided and never rounded.
+                //
+                // `round()` on a float was here until `alpha.67` and it is
+                // exactly the arithmetic the owner ruled out — `101 / 3` is
+                // not representable and `round()` answers anyway. The
+                // authoritative per-line amount is `base_minor` beside it;
+                // this column exists so a list can show «قیمت واحد» without a
+                // second query, and flooring is the conservative direction: a
+                // unit price shown is never more than was charged.
+                intdiv($storedBase->minor, $quantity),
                 $storedBase->minor,
                 $storedTax->minor,
                 $recorded ? $outcome->commission?->minor : null,
@@ -296,7 +330,14 @@ final class CaptureOrder
                 '',
                 null,
                 ($line['variation_id'] ?? null) === null ? null : (int) $line['variation_id'],
-                (int) $line['wc_product_id']
+                (int) $line['wc_product_id'],
+                '',
+                // THE UNIT, on the row. Not implied by a per-vendor registry
+                // any more: a vendor's lines can be at two exponents of one
+                // currency now, so each row says its own
+                // (`alpha.39`'s rule, reaching a table it had not).
+                $storedBase->currency,
+                $storedBase->exponent
             ));
 
             // CHECKED, not fired and forgotten. `alpha.38` dropped this
@@ -368,6 +409,10 @@ final class CaptureOrder
      *  - `line_incomplete` — the row is missing its figures and there is no
      *    event to recover them from. A person has to decide, and saying so is
      *    the whole point: this is the state `alpha.38` left silent.
+     *  - `line_unit_mismatch` — the row's unit and the event's are not the
+     *    same, so the two sets of integers are not comparable at all. Named
+     *    rather than converted: a repair may finish a half-written row, never
+     *    decide that the four amounts already on it mean something else.
      *  - `line_reconcile_required` — the row HOLDS figures and the event holds
      *    different ones. Nothing here can fix that: one of the two is wrong and
      *    only a person can say which, so this names it instead of overwriting
@@ -394,6 +439,27 @@ final class CaptureOrder
         // a share is a row whose money is already recorded; this pass is only
         // allowed to add the link to the event it was recorded under, and only
         // when the two agree.
+        //
+        // THE UNIT FIRST, because every comparison below is of two integers
+        // and two integers at two exponents are not comparable. A row that
+        // DECLARES a unit must agree with the event's; a row that declares
+        // none is about to be given the event's, and the figures beside it —
+        // its base and its tax — are only consistent with that if the event
+        // is at the unit the row was written in.
+        //
+        // Named rather than guessed when they differ: this pass is allowed to
+        // finish a half-written row, not to decide that four recorded amounts
+        // mean something else.
+        $eventExponent = $outcome->vendorShare->exponent;
+        if ($item->exponent !== null && $item->exponent !== $eventExponent) {
+            return 'line_unit_mismatch';
+        }
+        if ($item->exponent === null) {
+            $rowUnit = $this->units?->unitOf($item->vendorUserId);
+            if ($rowUnit === null || (int) $rowUnit['exponent'] !== $eventExponent) {
+                return 'line_unit_mismatch';
+            }
+        }
         if ($item->vendorShareMinor !== null && $item->vendorShareMinor !== $outcome->vendorShare->minor) {
             return 'line_reconcile_required';
         }
@@ -406,7 +472,9 @@ final class CaptureOrder
             $outcome->vendorShare->minor,
             $outcome->snapshot?->rateBasisPoints,
             (string) ($outcome->snapshot?->rateSource ?? ''),
-            $eventKey
+            $eventKey,
+            $outcome->vendorShare->currency,
+            $eventExponent
         )) {
             return 'line_repaired';
         }

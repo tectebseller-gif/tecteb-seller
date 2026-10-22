@@ -128,11 +128,18 @@ final class LedgerTest extends DatabaseTestCase
         }
         self::assertSame(0, $total, 'the accounts of one event must cancel');
 
+        // AT THE FINER UNIT. From `alpha.67` an accrual is recorded at the
+        // exponent an exact commission needs — four places past the order's
+        // own — so every figure here is the same money times ten thousand.
+        // The tax is rescaled into that unit with the base rather than mixed
+        // with it, which is what `Money::assertSameUnit()` refused when it
+        // was not.
+        self::assertSame(4, $lines[0]->amount->exponent, 'one unit for the whole event');
         $balances = $this->ledger->balances(self::VENDOR);
-        self::assertSame(981000, $balances[LedgerAccount::CentralPayment->value], 'goods plus tax came in centrally');
-        self::assertSame(-90000, $balances[LedgerAccount::Commission->value]);
-        self::assertSame(-810000, $balances[LedgerAccount::VendorEarning->value]);
-        self::assertSame(-81000, $balances[LedgerAccount::TaxCollected->value], 'tax is never inside the commission base');
+        self::assertSame(9810000000, $balances[LedgerAccount::CentralPayment->value], 'goods plus tax came in centrally');
+        self::assertSame(-900000000, $balances[LedgerAccount::Commission->value]);
+        self::assertSame(-8100000000, $balances[LedgerAccount::VendorEarning->value]);
+        self::assertSame(-810000000, $balances[LedgerAccount::TaxCollected->value], 'tax is never inside the commission base');
     }
 
     public function testTheSameEventTwiceRecordsOnce(): void
@@ -147,7 +154,7 @@ final class LedgerTest extends DatabaseTestCase
         // The money is recorded ONCE — that is the whole claim and it is
         // unchanged: three lines, one commission balance.
         self::assertCount(3, $this->ledger->forEvent('order-2:item-1:paid'));
-        self::assertSame(-50000, $this->ledger->balances(self::VENDOR)[LedgerAccount::Commission->value]);
+        self::assertSame(-500000000, $this->ledger->balances(self::VENDOR)[LedgerAccount::Commission->value]);
 
         // What changed in `alpha.39` is the ANSWER to the second call. It used
         // to be `needsConfiguration('already_recorded')` — not calculated —

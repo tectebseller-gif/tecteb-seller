@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface
 use Tecteb\Marketplace\Modules\Finance\Domain\Withdrawal;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStatus;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables as T;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0033MoneyUnitOnRows as U;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\ReturnStatus;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0008ShipmentsAndReturns as ReturnTables;
@@ -42,6 +43,9 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
      * «asked, and the table is definitely not there».
      */
     private ?string $supplierClaimClause = null;
+
+    /** @var array<string,bool> per-instance answers to «does this table carry the unit?» */
+    private array $unitColumns = [];
 
     public function __construct(
         private readonly DatabaseInterface $db,
@@ -145,7 +149,9 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         int $amountMinor,
         string $iban,
         string $accountHolder,
-        string $eligibleUntil = '9999-12-31 23:59:59'
+        string $eligibleUntil = '9999-12-31 23:59:59',
+        ?int $amountExponent = null,
+        ?string $amountCurrency = null
     ): int {
         $ids = array_values(array_unique(array_map('intval', $orderItemIds)));
         $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
@@ -157,6 +163,18 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
             return 0;
         }
 
+        // ⛔ A UNIT THAT CANNOT BE STORED IS A REFUSAL (`alpha.49`), the same
+        // rule as `DbOrderItemRepository::record()`: a request whose amount is
+        // at the finer exponent and whose row cannot say so is a figure that
+        // reads correctly today and ten thousand times too large the moment
+        // migration 33 lands. Refused with no row written.
+        $carried = $this->unitColumnsOn($this->table());
+        $linesCarry = $this->unitColumnsOn($this->lines());
+        if ((!$carried || !$linesCarry)
+            && ($amountExponent !== null || trim((string) $amountCurrency) !== '')) {
+            return 0;
+        }
+
         // The REQUEST first, because its own unique index is the real guard
         // against a second open request per vendor — a read beforehand is a
         // courtesy, this is the rule. (It also means no sentinel value is
@@ -164,18 +182,38 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         // the obvious «claim with -1 first» does not fit the column.)
         $created = $this->db->execute(
             'INSERT INTO `' . $this->table() . '`
-             (vendor_user_id, status, amount_minor, line_count, open_marker, iban, account_holder, created_at, updated_at)
-             VALUES (%d, %s, %d, %d, 1, %s, %s, %s, %s)',
-            [
-                $vendorUserId,
-                WithdrawalStatus::Requested->value,
-                $amountMinor,
-                count($ids),
-                $iban,
-                $accountHolder,
-                $now,
-                $now,
-            ]
+             (vendor_user_id, status, amount_minor, line_count, open_marker, iban, account_holder'
+             . ($carried ? ', `' . U::CURRENCY . '`, `' . U::EXPONENT . '`' : '') . ',
+              created_at, updated_at)
+             VALUES (%d, %s, %d, %d, 1, %s, %s'
+             . ($carried
+                 ? ', ' . (trim((string) $amountCurrency) === '' ? 'NULL' : '%s')
+                   . ', ' . ($amountExponent === null ? 'NULL' : '%d')
+                 : '') . ', %s, %s)',
+            array_merge(
+                [
+                    $vendorUserId,
+                    WithdrawalStatus::Requested->value,
+                    $amountMinor,
+                    count($ids),
+                    $iban,
+                    $accountHolder,
+                ],
+                // THE WHOLE UNIT on the row — currency AND exponent, because
+                // half a unit is not one (`alpha.39`). The payout reads it
+                // from here rather than from the per-vendor registry, whose
+                // row holds the vendor's FIRST unit: a request reserved in
+                // the finer one would otherwise post a ledger line ten
+                // thousand times too large. Writing only the exponent made
+                // the payout ask the registry for the currency and refuse
+                // `payout_unit_unknown` wherever no registry was wired —
+                // which running the suite showed and reading it did not.
+                trim((string) $amountCurrency) === ''
+                    ? []
+                    : [strtoupper(trim((string) $amountCurrency))],
+                $amountExponent === null ? [] : [$amountExponent],
+                [$now, $now]
+            )
         );
         if ($created === null) {
             $this->db->rollback();
@@ -265,21 +303,46 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
         // inside the transaction. Still here, and still necessary — it catches
         // a share that CHANGED rather than a line that stopped qualifying —
         // but it is no longer carrying the conditions above on its own.
-        $sum = $this->db->getVar(
-            'SELECT COALESCE(SUM(vendor_share_minor), 0) FROM `' . $this->orderItems() . '`
-             WHERE withdrawal_id = %d',
-            [$withdrawalId]
-        );
-        if ($sum === null || (int) $sum !== $amountMinor) {
+        //
+        // SUMMED PER UNIT and combined exactly. A single `SUM()` was right
+        // while every line of a vendor was at one exponent; from `alpha.67`
+        // the finer exponent an exact commission needs puts two in one set of
+        // books, and one `SUM` would compare ۸۸ against ۸۸۰٬۰۰۰ and refuse
+        // every reservation. `$amountExponent` is the unit the balance that
+        // produced `$amountMinor` was taken in — passed in rather than
+        // recomputed, for the reason `eligible_until` is (`alpha.39`): two
+        // computations of one unit agree until the second one is later.
+        $sum = $this->claimedShareIn($withdrawalId, $amountExponent);
+        if ($sum === null || $sum !== $amountMinor) {
             $this->db->rollback();
             return 0;
         }
 
         foreach ($ids as $orderItemId) {
             $line = $this->db->execute(
-                'INSERT INTO `' . $this->lines() . '` (withdrawal_id, order_item_id, vendor_user_id, amount_minor, created_at)
-                 VALUES (%d, %d, %d, 0, %s)',
-                [$withdrawalId, $orderItemId, $vendorUserId, $now]
+                // `amount_minor` is a deliberate 0 here — a reservation
+                // line records WHICH item was claimed, and the money is on
+                // the request. The unit is written anyway, for the reason
+                // `alpha.39` gives: a column that holds money and not its
+                // scale is the shape this round removes, and a zero at an
+                // unstated scale is still a zero whose column lies about the
+                // next value written into it.
+                'INSERT INTO `' . $this->lines() . '`
+                 (withdrawal_id, order_item_id, vendor_user_id, amount_minor'
+                 . ($linesCarry ? ', `' . U::CURRENCY . '`, `' . U::EXPONENT . '`' : '') . ', created_at)
+                 VALUES (%d, %d, %d, 0'
+                 . ($linesCarry
+                     ? ', ' . (trim((string) $amountCurrency) === '' ? 'NULL' : '%s')
+                       . ', ' . ($amountExponent === null ? 'NULL' : '%d')
+                     : '') . ', %s)',
+                array_merge(
+                    [$withdrawalId, $orderItemId, $vendorUserId],
+                    $linesCarry && trim((string) $amountCurrency) !== ''
+                        ? [strtoupper(trim((string) $amountCurrency))]
+                        : [],
+                    $linesCarry && $amountExponent !== null ? [$amountExponent] : [],
+                    [$now]
+                )
             );
             if ($line === null) {
                 $this->db->rollback();
@@ -600,13 +663,77 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
             $row['reviewed_at'] === null ? null : (string) $row['reviewed_at'],
             $row['paid_at'] === null ? null : (string) $row['paid_at'],
             (string) $row['created_at'],
-            (string) $row['updated_at']
+            (string) $row['updated_at'],
+            // `array_key_exists` rather than `??`: a query that did not SELECT
+            // the column and a row whose column is NULL are the same answer —
+            // «this request does not say» — and both mean the vendor's
+            // first-recorded unit (`alpha.60`).
+            array_key_exists(U::CURRENCY, $row) && trim((string) ($row[U::CURRENCY] ?? '')) !== ''
+                ? strtoupper(trim((string) $row[U::CURRENCY]))
+                : null,
+            array_key_exists(U::EXPONENT, $row) && $row[U::EXPONENT] !== null
+                ? (int) $row[U::EXPONENT]
+                : null
         );
     }
 
     private function table(): string
     {
         return T::table($this->db, T::WITHDRAWALS);
+    }
+
+    /**
+     * What the claimed lines add up to, in ONE unit, or `null` when unreadable.
+     *
+     * Grouped by the row's own exponent and combined in PHP by multiplying
+     * each group into the target — a power of ten, exact, no `float` and no
+     * `POW()` (which is a float in MySQL and the same mistake one layer
+     * down). A row with no unit of its own is read at the coarsest exponent
+     * present, which is what it was written in. `null` when the read failed
+     * or when a row is FINER than the target, because inventing a rounded
+     * value for it is the one thing this round exists to stop.
+     */
+    private function claimedShareIn(int $withdrawalId, ?int $target): ?int
+    {
+        // Asked of the table first, for the window between a file swap and
+        // the upgrade gate running (`alpha.46`): naming a column that is not
+        // there yet is a hard SQL error on the withdrawal path, which
+        // measuring the real upgrade is what found. Absent means one unit,
+        // the vendor's own — the answer every release up to `alpha.66` gave.
+        $carried = $this->unitColumnsOn($this->orderItems());
+        $rows = $this->db->getResults(
+            'SELECT ' . ($carried ? '`' . U::EXPONENT . '`' : 'NULL') . ' AS tmc_exponent,
+                    COALESCE(SUM(vendor_share_minor), 0) AS total
+               FROM `' . $this->orderItems() . '` WHERE withdrawal_id = %d'
+              . ($carried ? ' GROUP BY `' . U::EXPONENT . '`' : ''),
+            [$withdrawalId]
+        );
+        if ($rows === []) {
+            // No claimed line at all. Zero is the honest sum of nothing, and
+            // the caller's own `$amountMinor > 0` check refuses it.
+            return 0;
+        }
+        $coarsest = null;
+        $finest = null;
+        foreach ($rows as $row) {
+            if (($row['tmc_exponent'] ?? null) === null) {
+                continue;
+            }
+            $exponent = (int) $row['tmc_exponent'];
+            $coarsest = $coarsest === null ? $exponent : min($coarsest, $exponent);
+            $finest = $finest === null ? $exponent : max($finest, $exponent);
+        }
+        $unit = $target ?? $finest ?? 0;
+        $nullAt = $coarsest ?? $unit;
+        $sum = 0;
+        foreach ($rows as $row) {
+            $from = ($row['tmc_exponent'] ?? null) === null ? $nullAt : (int) $row['tmc_exponent'];
+            if ($from > $unit) {
+                return null;
+            }
+            $sum += (int) $row['total'] * (10 ** ($unit - $from));
+        }
+        return $sum;
     }
 
     private function lines(): string
@@ -647,4 +774,20 @@ final class DbWithdrawalRepository implements WithdrawalRepositoryInterface
             do_action('tmc_vendor_figures_changed', $vendorUserId);
         }
     }
+    /**
+     * Whether a table carries migration 33's unit columns — asked once per
+     * INSTANCE, which is once per request in practice.
+     *
+     * The memo lives here rather than in `M0033::carriedBy()` for the reason
+     * `ProductTableShape` keeps its own: a process-wide cache is right for a
+     * request and wrong for anything that changes the table and asks again.
+     */
+    private function unitColumnsOn(string $table): bool
+    {
+        if (!array_key_exists($table, $this->unitColumns)) {
+            $this->unitColumns[$table] = U::carriedBy($this->db, $table);
+        }
+        return $this->unitColumns[$table];
+    }
+
 }

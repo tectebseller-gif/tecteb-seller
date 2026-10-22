@@ -92,7 +92,9 @@ interface ShipmentRepositoryInterface
         int $vendorShareMinor,
         ?int $wcRefundId,
         string $refundedAt,
-        int $actorId
+        int $actorId,
+        ?string $currency = null,
+        ?int $exponent = null
     ): bool;
 
     public function recordRestock(int $id, int $quantity): bool;
