@@ -106,6 +106,14 @@ final class MigrateMinMax
      * line. A manager has to be able to ask this question before deciding, and
      * a preview with a side effect is a decision taken early.
      *
+     * ⛔ AND A PRODUCT WITH A LEDGER ROW IS NOT SKIPPED ANY MORE. Until this
+     * round `already_decided` was counted and the product dropped, which made
+     * four very different states indistinguishable from «dealt with»: a live
+     * refusal, a held destination, a rule the manager changed after the
+     * migration, and a product that stopped being the marketplace's. Each is
+     * classified now (`classifyDecided()`), and `already_decided` stays as the
+     * TOTAL so the arithmetic on the page still closes.
+     *
      * @return array<string,mixed>
      */
     public function preview(int $maxProducts = 2000): array
@@ -130,6 +138,23 @@ final class MigrateMinMax
             'held_by_manager' => 0,
             'unenforced' => 0,
             'already_decided' => 0,
+            // THE DECIDED PRODUCTS, TAKEN APART. `already_decided` is a count
+            // of ledger rows and says nothing about the rule being equal
+            // TODAY: `alpha.69` skipped every one of them, so a recorded
+            // refusal, a held destination, a rule the manager changed
+            // afterwards and a product that stopped being ours all read as
+            // «dealt with». Four answers, because they have four remedies.
+            'decided_in_force' => 0,
+            'decided_drifted' => 0,
+            'decided_unenforced' => 0,
+            'decided_unreadable' => 0,
+            // A SUBSET of the ledger's own live counts, reported for the page
+            // and never added to them: a refusal whose source rule has since
+            // been deleted is live in the ledger and invisible to this walk,
+            // so the ledger is the authority and this is the part we could
+            // also see here.
+            'decided_refused' => 0,
+            'decided_held' => 0,
             'problems' => [],
             'notes' => [],
             'examples' => [],
@@ -160,8 +185,18 @@ final class MigrateMinMax
                 foreach ($rule->notes() as $note) {
                     $out['notes'][$note] = ($out['notes'][$note] ?? 0) + 1;
                 }
-                if ($this->ledger->find((int) $row['product_id']) !== null) {
+                $decision = $this->ledger->find((int) $row['product_id']);
+                if ($decision !== null) {
                     $out['already_decided']++;
+                    // ⛔ NOT a `continue` any more. A ledger row is a record
+                    // of a decision taken once; the exit question is about
+                    // what would happen if the plugin were switched off NOW.
+                    $this->classifyDecided(
+                        $out,
+                        (int) $row['product_id'],
+                        $rule,
+                        (string) ($decision['status'] ?? '')
+                    );
                     continue;
                 }
                 $problems = $rule->problems();
@@ -203,6 +238,113 @@ final class MigrateMinMax
         }
         $out['truncated'] = $out['scanned'] >= $maxProducts;
         return $out;
+    }
+
+    /**
+     * WHAT A DECIDED PRODUCT WOULD DO IF THE PLUGIN WERE SWITCHED OFF NOW.
+     *
+     * `alpha.69` asked `find()` and moved on, and that is the whole of the
+     * owner's second finding: a `migrated` or `rule_enforced` row is a record
+     * that the rule was taken ONCE, and «was taken» is not «is the same
+     * today». Three things move underneath it afterwards, each on its own
+     * screen and each legitimately:
+     *
+     *  - the SOURCE rule — the manager edits it in Min Max's own panel;
+     *  - the DESTINATION rows — the manager edits the purchase limits in the
+     *    product editor, which `QuantityPanel` is for;
+     *  - OWNERSHIP and the GRANT — a product can stop being the
+     *    marketplace's, and a grant is a fingerprint of three values that
+     *    stops describing them the moment one changes (`alpha.49`).
+     *
+     * So the comparison is made HERE, on the live state, and it compares the
+     * two SETS OF ALLOWED QUANTITIES rather than the numbers — `alpha.53`'s
+     * rule, because for a step rule «the numbers are the same» and «the rule
+     * is the same» are different questions, and the two plugins count
+     * multiples from different bases.
+     *
+     * The rule that WOULD be enforced after deactivation is:
+     *
+     *  - the destination rows, when the marketplace owns the product or the
+     *    manager has granted enforcement — those are the two states in which
+     *    `QuantityGuard` reads them;
+     *  - NOTHING AT ALL otherwise. Not «the same rule»: no limit, every
+     *    quantity allowed, which is the worst of the three and the one
+     *    `alpha.69` scored as «already decided».
+     *
+     * ⛔ IT WRITES NOTHING. A manager's change is never overwritten and never
+     * re-migrated: this is the question, and the answer is a count and a
+     * named blocker. «تغییر مدیر خودکار بازنویسی نشود.»
+     *
+     * And a read that FAILED is its own answer. `readRows()` says whether the
+     * statement worked, and taking a failure for «absent» would compare
+     * against three rows that are there (`alpha.49`, `alpha.68` §1).
+     *
+     * @param array<string,mixed> $out
+     */
+    private function classifyDecided(array &$out, int $postId, MinMaxRule $rule, string $status): void
+    {
+        if (
+            $status === MinMaxHandoverRepositoryInterface::REFUSED
+            || $status === MinMaxHandoverRepositoryInterface::HELD
+        ) {
+            // NOTHING WAS WRITTEN for either, so there is no destination to
+            // compare and asking would invent an equality question about a
+            // rule nobody moved. What blocks these is the ledger's own live
+            // count; what this does is name the problems so the report can
+            // print them, because the walk can still see the source rule.
+            if ($status === MinMaxHandoverRepositoryInterface::REFUSED) {
+                $out['decided_refused']++;
+                foreach ($rule->problems() as $problem) {
+                    $out['problems'][$problem] = ($out['problems'][$problem] ?? 0) + 1;
+                }
+            } else {
+                $out['decided_held']++;
+            }
+            return;
+        }
+
+        $rows = $this->shop->readRows($postId);
+        if (!($rows['read'] ?? false)) {
+            $out['decided_unreadable']++;
+            if (count($out['examples']) < 20) {
+                $out['examples'][] = $this->example($rows + ['product_id' => $postId, 'type' => 'unknown'], $rule, 'decided_unreadable', []);
+            }
+            return;
+        }
+        if (!$this->shop->marketplaceOwns($postId) && !$this->shop->enforcementGranted($postId)) {
+            $out['decided_unenforced']++;
+            if (count($out['examples']) < 20) {
+                $out['examples'][] = $this->example(['product_id' => $postId, 'type' => 'decided'], $rule, 'decided_unenforced', []);
+            }
+            return;
+        }
+        $stored = PurchaseQuantity::of(
+            self::quantityFrom($rows['min'] ?? null, 1),
+            ($rows['max'] ?? null) === null || (string) $rows['max'] === '' ? null : (int) $rows['max'],
+            self::quantityFrom($rows['step'] ?? null, 1)
+        );
+        for ($q = 1; $q <= self::COMPARE_TO; $q++) {
+            if ($rule->sourceAllows($q) === $stored->allows($q)) {
+                continue;
+            }
+            $out['decided_drifted']++;
+            $problems = $rule->problems();
+            $named = $problems === [] ? ['rule_changed_since_migration'] : $problems;
+            foreach ($named as $problem) {
+                $out['problems'][$problem] = ($out['problems'][$problem] ?? 0) + 1;
+            }
+            if (count($out['examples']) < 20) {
+                $out['examples'][] = $this->example(['product_id' => $postId, 'type' => 'decided'], $rule, 'decided_drifted', $named);
+            }
+            return;
+        }
+        $out['decided_in_force']++;
+    }
+
+    /** An integer from a destination row, where absent and empty both mean «unset». */
+    private static function quantityFrom(?string $value, int $whenUnset): int
+    {
+        return $value === null || trim($value) === '' ? $whenUnset : (int) $value;
     }
 
     /**
@@ -902,9 +1044,15 @@ final class MigrateMinMax
      * table rather than only inside it, and the health screen says it to
      * somebody who has not opened the exit page at all.
      *
-     * Bounded, and the bound is honest: this is a warning, and a warning that
-     * reads the whole ledger to say «more than fifty» would cost more than
-     * the sentence is worth.
+     * ⛔ AND IT IS NO LONGER BOUNDED AT FIFTY. The sentence this docblock used
+     * to carry — «a warning that reads the whole ledger to say more than fifty
+     * would cost more than the sentence is worth» — was wrong twice: the exit
+     * VERDICT reads this list, so the bound decided whether a site was
+     * permitted to switch the plugin off; and the cost argument was about a
+     * warning, which this stopped being the moment `exitVerdict()` called it.
+     * Measured on `alpha.69`'s own bytes: fifty-five live grants, the
+     * fifty-fifth stale, this list empty and the verdict `permitted`. It now
+     * walks every page (`staleGrantScan()`), and an unfinished walk blocks.
      *
      * @return list<int> post ids, in ledger order
      */
@@ -942,6 +1090,32 @@ final class MigrateMinMax
      *   rolled_back_rules_present       given BACK to Min Max on purpose
      *   source_rows_unclassified        rows this scan did not reach
      *   scan_did_not_finish             the walk stopped before the list ended
+     *   migrated_rule_differs_now       taken once, and not the same rule today
+     *   migrated_rule_not_enforced_now  taken, and nothing would read it now
+     *   decided_destination_unreadable  a decided product's rows did not read
+     *   global_rule_has_no_destination  a site-wide limit with nowhere to go
+     *   term_rules_have_no_destination  category limits with nowhere to go
+     *   grant_scan_did_not_finish       the grants were not all examined
+     *   ledger_tally_unreadable         the live counts could not be read
+     *
+     * FIVE OF THOSE ARE THIS ROUND'S, and each of the three findings behind
+     * them was a `permitted` on `alpha.69`'s own bytes:
+     *
+     *  - `incompatible_rules_present` and `rules_held_by_manager` now count
+     *    the LIVE LEDGER STATES as well as the undecided ones. `preview()`
+     *    scored every product with a ledger row as `already_decided` and
+     *    skipped it, so ATTEMPTING the migration of the site's only
+     *    incompatible rule — which writes nothing and changes nothing Min Max
+     *    enforces — turned `blocked` into `permitted`. A RELEASED row is
+     *    history and still does not block, which `tally()` keeps apart.
+     *  - `migrated_rule_differs_now` / `migrated_rule_not_enforced_now`: a
+     *    `migrated` or `rule_enforced` row is a record, not a present
+     *    equality. See `classifyDecided()`.
+     *  - `grant_scan_did_not_finish`: see `staleGrantScan()`.
+     *  - `global_rule_has_no_destination` / `term_rules_have_no_destination`:
+     *    the migration is per product, so these two levels cannot be taken at
+     *    all and deactivation drops them. `alpha.69` described them in the
+     *    preview and blocked on neither.
      *
      * `written_unenforced` is the owner's third count. It is a legitimate end
      * state — the rule is ours and our guard does not enforce it, because the
@@ -974,10 +1148,21 @@ final class MigrateMinMax
                 'rolled_back' => 0,
                 'source_rows' => 0,
                 'scanned' => 0,
+                'decided_in_force' => 0,
+                'decided_drifted' => 0,
+                'decided_unenforced' => 0,
+                'decided_unreadable' => 0,
+                'refused_recorded' => 0,
+                'held_recorded' => 0,
+                'grants_live' => 0,
+                'grants_scanned' => 0,
+                'global_rules' => 0,
+                'term_rules' => 0,
             ],
             'levels' => ['product' => 0, 'variation' => 0],
             'problems' => [],
             'stale_grants' => [],
+            'grant_scan' => [],
             'tally' => $tally,
         ];
         if (($preview['available'] ?? false) !== true) {
@@ -999,23 +1184,69 @@ final class MigrateMinMax
         $unknown = max(0, $sourceRows - $scanned);
         $unenforceable = (int) ($tally[MinMaxHandoverRepositoryInterface::UNENFORCED] ?? 0);
         $rolledBack = (int) ($tally[MinMaxHandoverRepositoryInterface::ROLLED_BACK] ?? 0);
-        $stale = $this->staleGrants();
+        // THE LIVE DECISIONS, FROM THE LEDGER'S OWN LIVE COUNTS. `tally()`
+        // keys a released row as `<status>_released`, so these two are live
+        // and a row the manager has already sent back for a retry is not
+        // mixed in with them — «سوابق آزادشده با تصمیم زنده قاطی نشوند».
+        //
+        // The ledger is the authority rather than the walk, because a live
+        // refusal whose SOURCE RULE has since been deleted is invisible to
+        // the walk and still holds a product out of the migration until a
+        // human releases it.
+        $refusedRecorded = (int) ($tally[MinMaxHandoverRepositoryInterface::REFUSED] ?? 0);
+        $heldRecorded = (int) ($tally[MinMaxHandoverRepositoryInterface::HELD] ?? 0);
+        $scan = $this->staleGrantScan();
+        $stale = (array) $scan['stale'];
 
         $out['counts'] = [
             'convertible' => (int) ($preview['convertible'] ?? 0),
-            'incompatible' => (int) ($preview['refused'] ?? 0),
+            // Undecided plus RECORDED-AND-LIVE, under one name because the
+            // remedy is one: change the rule at the source, or decide to lose
+            // it. `alpha.69` counted only the first half, so ATTEMPTING the
+            // migration of the site's only incompatible rule turned `blocked`
+            // into `permitted` while Min Max went on enforcing it.
+            'incompatible' => (int) ($preview['refused'] ?? 0) + $refusedRecorded,
             'migrated_unenforceable' => $unenforceable,
             'would_be_unenforceable' => (int) ($preview['unenforced'] ?? 0),
-            'unknown' => $unknown,
-            'held_by_manager' => (int) ($preview['held_by_manager'] ?? 0),
+            'unknown' => $unknown + (int) ($preview['decided_unreadable'] ?? 0),
+            'held_by_manager' => (int) ($preview['held_by_manager'] ?? 0) + $heldRecorded,
             'already_decided' => (int) ($preview['already_decided'] ?? 0),
             'rolled_back' => $rolledBack,
             'source_rows' => $sourceRows,
             'scanned' => $scanned,
+            // The decided products taken apart, each with its own remedy.
+            'decided_in_force' => (int) ($preview['decided_in_force'] ?? 0),
+            'decided_drifted' => (int) ($preview['decided_drifted'] ?? 0),
+            'decided_unenforced' => (int) ($preview['decided_unenforced'] ?? 0),
+            'decided_unreadable' => (int) ($preview['decided_unreadable'] ?? 0),
+            'refused_recorded' => $refusedRecorded,
+            'held_recorded' => $heldRecorded,
+            'grants_live' => (int) $scan['live'],
+            'grants_scanned' => (int) $scan['scanned'],
+            'global_rules' => 0,
+            'term_rules' => 0,
         ];
         $out['levels'] = (array) ($preview['levels'] ?? []);
         $out['problems'] = (array) ($preview['problems'] ?? []);
         $out['stale_grants'] = $stale;
+        $out['grant_scan'] = $scan;
+
+        // THE LEVELS THIS MIGRATION CANNOT TAKE AT ALL. The migration is per
+        // product; a global or term rule has no destination here, so switching
+        // the plugin off drops it from every product that has no rule of its
+        // own. `alpha.69` described them in the preview and blocked on
+        // neither — measured: a live global rule of `3/9/3` with the verdict
+        // reading `permitted` and no blocker named.
+        $global = (array) ($preview['global'] ?? []);
+        if ($global !== [] && ($global['answers'] ?? true) && ($global['unrestricted'] ?? false) !== true) {
+            $out['counts']['global_rules'] = 1;
+        }
+        foreach ((array) ($preview['terms'] ?? []) as $term) {
+            $term = (array) $term;
+            if (($term['answers'] ?? true) && ($term['unrestricted'] ?? false) !== true) {
+                $out['counts']['term_rules']++;
+            }
+        }
 
         $blocker = static function (string $code, int $count, string $detail): array {
             return ['code' => $code, 'count' => $count, 'detail' => $detail];
@@ -1049,7 +1280,9 @@ final class MigrateMinMax
             $out['blockers'][] = $blocker(
                 'incompatible_rules_present',
                 $out['counts']['incompatible'],
-                'these rules cannot be taken without changing what they allow: '
+                'these rules cannot be taken without changing what they allow ('
+                    . $refusedRecorded . ' of them already recorded as refused, and a recorded '
+                    . 'refusal changes nothing about what min max still enforces): '
                     . implode(', ', array_keys($out['problems']))
             );
         }
@@ -1057,7 +1290,8 @@ final class MigrateMinMax
             $out['blockers'][] = $blocker(
                 'rules_held_by_manager',
                 $out['counts']['held_by_manager'],
-                'the destination rows belong to a manager edit; taking them needs an explicit permission'
+                'the destination rows belong to a manager edit; taking them needs an explicit '
+                    . 'permission (' . $heldRecorded . ' of them already recorded as held)'
             );
         }
         if ($out['counts']['migrated_unenforceable'] > 0) {
@@ -1072,6 +1306,75 @@ final class MigrateMinMax
                 'rule_would_not_be_enforced',
                 $out['counts']['would_be_unenforceable'],
                 'this product is not the marketplace\'s, so taking its rule would write where nothing reads'
+            );
+        }
+        if ($out['counts']['decided_drifted'] > 0) {
+            // ⛔ THE SECOND FINDING. The rule was taken, and what min max
+            // enforces today is not what this marketplace would enforce
+            // tomorrow. Nothing is rewritten: the manager decides whether to
+            // roll the product back, migrate it again, or accept the change.
+            $out['blockers'][] = $blocker(
+                'migrated_rule_differs_now',
+                $out['counts']['decided_drifted'],
+                'the rule was migrated and the two sides no longer allow the same quantities, '
+                    . 'so switching the plugin off would change what shoppers may buy'
+            );
+        }
+        if ($out['counts']['decided_unenforced'] > 0) {
+            $out['blockers'][] = $blocker(
+                'migrated_rule_not_enforced_now',
+                $out['counts']['decided_unenforced'],
+                'the rule is written here and this product is no longer the marketplace\'s and '
+                    . 'carries no enforcement grant, so after deactivation nothing would limit it'
+            );
+        }
+        if ($out['counts']['decided_unreadable'] > 0) {
+            $out['blockers'][] = $blocker(
+                'decided_destination_unreadable',
+                $out['counts']['decided_unreadable'],
+                'the destination rows of a decided product could not be read, and a read that '
+                    . 'failed is not an equality'
+            );
+        }
+        if ($out['counts']['global_rules'] > 0) {
+            $out['blockers'][] = $blocker(
+                'global_rule_has_no_destination',
+                $out['counts']['global_rules'],
+                'min max carries a global rule and this marketplace has no global purchase '
+                    . 'limit, so deactivation drops it from every product with no rule of its own'
+            );
+        }
+        if ($out['counts']['term_rules'] > 0) {
+            $out['blockers'][] = $blocker(
+                'term_rules_have_no_destination',
+                $out['counts']['term_rules'],
+                'min max carries category rules and this marketplace holds limits per product '
+                    . 'only, so deactivation drops them'
+            );
+        }
+        if (($scan['finished'] ?? false) !== true) {
+            // ⛔ THE THIRD FINDING, and it is a blocker rather than a warning:
+            // a scan that did not reach the end cannot say there is no stale
+            // grant, and `getResults()` answers the same thing for «no rows»
+            // and «the read failed».
+            $out['blockers'][] = $blocker(
+                'grant_scan_did_not_finish',
+                (int) $scan['scanned'],
+                'the enforcement grants were not all examined (' . (int) $scan['scanned']
+                    . ' of ' . (int) $scan['expected'] . ' rows), so «no stale grant» is not an answer'
+            );
+        }
+        if ($tally === [] && $out['counts']['already_decided'] > 0) {
+            // The ledger's own counts are what the live decisions above are
+            // read from, and `tally()` cannot tell «no rows» from «the read
+            // failed» either. This is the cross-check that can: the walk
+            // reached ledger rows through a different statement, so an empty
+            // tally beside a non-zero `already_decided` is a failed read.
+            $out['blockers'][] = $blocker(
+                'ledger_tally_unreadable',
+                $out['counts']['already_decided'],
+                'the ledger counted no rows while the walk found decided products, so the '
+                    . 'tally read failed and the live decisions cannot be counted'
             );
         }
         if ($stale !== []) {
@@ -1095,22 +1398,85 @@ final class MigrateMinMax
         return $out;
     }
 
-    public function staleGrants(int $limit = 50): array
+    public function staleGrants(int $limit = 200): array
     {
-        $out = [];
-        foreach ($this->ledger->withStatus([MinMaxHandoverRepositoryInterface::ENFORCED], $limit) as $row) {
-            // Only LIVE rows: a released or rolled-back one has no grant left
-            // to be stale, and offering a warning about it would be a warning
-            // about a decision somebody already took back.
-            if (($row['live_key'] ?? null) === null) {
-                continue;
+        return $this->staleGrantScan($limit)['stale'];
+    }
+
+    /**
+     * EVERY granted product, in pages, and whether the walk actually finished.
+     *
+     * `alpha.69` read ONE page of fifty and the exit verdict called it with
+     * that default, so the fifty-first grant onwards was never examined —
+     * measured on its own bytes: fifty-five live grants, the fifty-fifth one
+     * stale, `staleGrants()` returning an empty list and the verdict saying
+     * `permitted`. The same function with a wider bound found it, which is
+     * what makes the bound the defect rather than the comparison.
+     *
+     * Keyset, on the `afterId` cursor the repository already had, for the
+     * reason the rest of this module uses keyset: a walk over a set somebody
+     * else is changing skips rows silently with OFFSET.
+     *
+     * ⛔ AND «I REACHED THE END» IS NOT TAKEN FROM AN EMPTY PAGE.
+     * `withStatus()` goes through `getResults()`, which answers `[]` both for
+     * «no more rows» and «the statement failed» (`alpha.8`), and here the two
+     * are opposites: a failed first page would look like «no grants at all»
+     * and permit the exit. So the rows SEEN are counted against the ledger's
+     * own total for that status, and `finished` is false unless the walk saw
+     * at least as many as the ledger says exist. An unfinished scan is a
+     * BLOCKER, never a permission.
+     *
+     * @return array{stale:list<int>, scanned:int, live:int, expected:int, finished:bool, pages:int}
+     */
+    public function staleGrantScan(int $page = 200): array
+    {
+        $page = max(1, min(1000, $page));
+        $tally = $this->ledger->tally();
+        $expected = (int) ($tally[MinMaxHandoverRepositoryInterface::ENFORCED] ?? 0)
+            + (int) ($tally[MinMaxHandoverRepositoryInterface::ENFORCED . '_released'] ?? 0);
+        $stale = [];
+        $scanned = 0;
+        $live = 0;
+        $pages = 0;
+        $after = 0;
+        $finished = false;
+        // A bound on the WALK, not on the answer: ten thousand pages is more
+        // grants than a catalogue has, and a loop with no bound is the other
+        // way to never finish.
+        while ($pages < 10000) {
+            $rows = $this->ledger->withStatus([MinMaxHandoverRepositoryInterface::ENFORCED], $page, $after);
+            $pages++;
+            foreach ($rows as $row) {
+                $scanned++;
+                $after = max($after, (int) $row['id']);
+                // Only LIVE rows: a released or rolled-back one has no grant
+                // left to be stale, and warning about it would be a warning
+                // about a decision somebody already took back.
+                if (($row['live_key'] ?? null) === null) {
+                    continue;
+                }
+                $live++;
+                $postId = (int) $row['post_id'];
+                if (!$this->shop->enforcementGranted($postId)) {
+                    $stale[] = $postId;
+                }
             }
-            $postId = (int) $row['post_id'];
-            if (!$this->shop->enforcementGranted($postId)) {
-                $out[] = $postId;
+            if (count($rows) < $page) {
+                $finished = true;
+                break;
             }
         }
-        return $out;
+        return [
+            'stale' => $stale,
+            'scanned' => $scanned,
+            'live' => $live,
+            'expected' => $expected,
+            // Both halves, and the second one is what makes a failed read
+            // visible: the walk said it was done AND it saw every row the
+            // ledger counts.
+            'finished' => $finished && $scanned >= $expected,
+            'pages' => $pages,
+        ];
     }
 
     public function historyFor(int $postId, int $limit = 20): array
@@ -1132,6 +1498,11 @@ final class MigrateMinMax
             ],
             'effective' => ['min' => $rule->min, 'max' => $rule->max, 'step' => $rule->step, 'default' => $rule->default],
             'unrestricted' => $rule->isUnrestricted(),
+            // Whether this level ANSWERS at all, by the plugin's own test. A
+            // global or term level that answers and restricts something is a
+            // live purchase limit with NO destination here, and the exit
+            // verdict has to name it rather than leave it out of the sum.
+            'answers' => $rule->answers(),
             'problems' => $rule->problems(),
             'notes' => $rule->notes(),
             'converted' => $converted === null ? null : [

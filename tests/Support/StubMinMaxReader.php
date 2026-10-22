@@ -40,6 +40,34 @@ final class StubMinMaxReader implements MinMaxReaderInterface
      */
     public ?int $totalOverride = null;
 
+    /**
+     * The GLOBAL and TERM levels, which the real reader also answers and
+     * which the exit verdict has to count: neither has a destination in this
+     * marketplace, so switching the plugin off drops them.
+     */
+    public ?MinMaxRule $global = null;
+
+    /** @var array<string,MinMaxRule> */
+    public array $terms = [];
+
+    public function withGlobal(?string $rule): self
+    {
+        if ($rule === null) {
+            $this->global = null;
+            return $this;
+        }
+        [$min, $max, $step] = explode('/', $rule);
+        $this->global = MinMaxRule::from(MinMaxRule::AT_GLOBAL, $min, $max, $step);
+        return $this;
+    }
+
+    public function withTerm(string $key, string $rule): self
+    {
+        [$min, $max, $step] = explode('/', $rule);
+        $this->terms[$key] = MinMaxRule::from(MinMaxRule::AT_TERM, $min, $max, $step);
+        return $this;
+    }
+
     public function withProducts(array $ids, string $rule = '4/10/2'): self
     {
         [$min, $max, $step] = explode('/', $rule);
@@ -67,12 +95,12 @@ final class StubMinMaxReader implements MinMaxReaderInterface
 
     public function globalRule(): ?MinMaxRule
     {
-        return null;
+        return $this->global;
     }
 
     public function termRules(): array
     {
-        return [];
+        return $this->terms;
     }
 
     public function productRulesAfter(int $afterId, int $limit = self::PAGE): array

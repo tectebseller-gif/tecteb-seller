@@ -819,6 +819,327 @@ final class MinMaxHandoverUnitOfWorkTest extends DatabaseTestCase
         );
     }
 
+
+    // ============================== §6 what a decided product would do now
+    //
+    // All five of these were measured on `alpha.69`'s own bytes first
+    // (`docs/evidence/alpha69-reproduction/run.txt`). What the suite adds is
+    // the part only a real database answers: the LIVE ledger counts, with
+    // released rows kept apart from live ones by `tally()` itself.
+
+    /**
+     * A LIVE REFUSAL BLOCKS, AND A RELEASED ONE DOES NOT.
+     *
+     * `alpha.69` scored every product with a ledger row as `already_decided`
+     * and skipped it, and the verdict never read the ledger's live `refused`
+     * count. So ATTEMPTING the migration of the site's only incompatible rule
+     * — which writes nothing and changes nothing Min Max enforces — turned
+     * `blocked` into `permitted`. Measured in that order on the real plugin:
+     * blocked, attempt, permitted.
+     */
+    public function testALiveRefusalBlocksTheExitAndAReleasedOneDoesNot(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        // A step counted from a minimum that is not a multiple of it: the two
+        // plugins' allowed sets share nothing, so this cannot be taken.
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '2/11/3');
+
+        $before = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+        self::assertSame('blocked', $before['verdict'], 'an untaken incompatible rule blocks');
+        self::assertSame(1, $before['counts']['incompatible']);
+
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+        self::assertSame(
+            MinMaxHandoverRepositoryInterface::REFUSED,
+            (string) ($ledger->find(self::FIRST)['status'] ?? ''),
+            'the attempt recorded a live refusal and wrote nothing'
+        );
+        self::assertSame('__absent__/__absent__/__absent__', $port->describe(self::FIRST));
+
+        $after = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+        self::assertSame('blocked', $after['verdict'], 'and the refusal still blocks');
+        self::assertSame(1, $after['counts']['refused_recorded']);
+        self::assertSame(1, $after['counts']['incompatible']);
+        self::assertSame(1, $this->blocker($after, 'incompatible_rules_present')['count']);
+
+        // RELEASED is history, not a live decision: the manager has sent the
+        // product back for another attempt, so it blocks as an UNDECIDED
+        // incompatible rule and not as a recorded one.
+        self::assertTrue($ledger->release(self::FIRST));
+        $released = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+        self::assertSame(0, $released['counts']['refused_recorded'], 'released is not live');
+        self::assertSame(1, $released['counts']['incompatible'], 'the rule itself is still there');
+        self::assertSame('blocked', $released['verdict']);
+    }
+
+    /** The same for a destination the manager owns: live, counted, named. */
+    public function testALiveHoldBlocksTheExit(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $port->seed(self::FIRST, '6', '12', '1');
+        $port->held[self::FIRST] = true;
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST]);
+
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+        self::assertSame(
+            MinMaxHandoverRepositoryInterface::HELD,
+            (string) ($ledger->find(self::FIRST)['status'] ?? '')
+        );
+        self::assertSame('6/12/1', $port->describe(self::FIRST), "the manager's rule is kept");
+
+        $answer = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertSame(1, $answer['counts']['held_recorded']);
+        self::assertSame(1, $answer['counts']['held_by_manager']);
+        self::assertSame(1, $this->blocker($answer, 'rules_held_by_manager')['count']);
+    }
+
+    /**
+     * A MIGRATED ROW IS A RECORD, NOT A PRESENT EQUALITY — source side.
+     *
+     * The manager edits the rule in Min Max's own panel afterwards. What the
+     * plugin enforces today and what the destination would enforce tomorrow
+     * are then two different sets of quantities, and `alpha.69` answered
+     * `permitted`. Nothing is rewritten here: the destination is left exactly
+     * where the migration put it.
+     */
+    public function testAMigratedRuleWhoseSourceChangedBlocksAndIsNotRewritten(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '4/10/2');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+        self::assertSame('4/10/2', $port->describe(self::FIRST));
+
+        $equal = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+        self::assertSame('permitted', $equal['verdict'], 'equal and enforced is permitted');
+        self::assertSame(1, $equal['counts']['decided_in_force']);
+
+        $moved = (new StubMinMaxReader())->withProducts([self::FIRST], '6/12/2');
+        $answer = $this->serviceWith($moved, $port, $ledger)->exitVerdict();
+
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertSame(1, $answer['counts']['decided_drifted']);
+        self::assertSame(0, $answer['counts']['decided_in_force']);
+        self::assertSame(1, $this->blocker($answer, 'migrated_rule_differs_now')['count']);
+        self::assertSame('4/10/2', $port->describe(self::FIRST), 'and nothing was rewritten');
+        self::assertSame(
+            ['write:' . self::FIRST],
+            $port->writes,
+            'the migration wrote once and the two verdict reads wrote nothing: asking is not deciding'
+        );
+    }
+
+    /** And the destination side: the manager edits the purchase limits here. */
+    public function testAMigratedRuleWhoseDestinationTheManagerEditedBlocks(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '4/10/2');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+
+        $port->seed(self::FIRST, '4', '8', '2');
+        $answer = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertSame(1, $answer['counts']['decided_drifted']);
+        self::assertSame(1, $this->blocker($answer, 'migrated_rule_differs_now')['count']);
+        self::assertSame('4/8/2', $port->describe(self::FIRST), "the manager's edit survives");
+    }
+
+    /**
+     * OWNERSHIP AND THE GRANT ARE READ NOW, and losing both is its own answer.
+     *
+     * `migrated` was true about the moment it was written. A product that has
+     * since stopped being the marketplace's, with no enforcement grant, is one
+     * where `QuantityGuard` returns before reading anything — so after
+     * deactivation NOTHING limits it, which is the worst of the three and the
+     * one `alpha.69` scored as «already decided».
+     */
+    public function testAMigratedProductNothingWouldReadAnyMoreBlocksUnderItsOwnName(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '4/10/2');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+
+        $port->owned[self::FIRST] = false;      // no longer the marketplace's
+        $answer = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertSame(1, $answer['counts']['decided_unenforced']);
+        self::assertSame(0, $answer['counts']['decided_drifted'], 'a different answer, not a drift');
+        self::assertSame(1, $this->blocker($answer, 'migrated_rule_not_enforced_now')['count']);
+
+        // The grant is the other half of the same question: with the
+        // manager's explicit permission in place, this marketplace does
+        // enforce the rule and the product is in force again.
+        // The grant is a fingerprint of the three values it is given FOR, so
+        // the fixture states them rather than a `true` — the fake models the
+        // real port's `hash_equals` (`alpha.55`).
+        $port->granted[self::FIRST] = $port->describe(self::FIRST);
+        $granted = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+        self::assertSame('permitted', $granted['verdict']);
+        self::assertSame(1, $granted['counts']['decided_in_force']);
+    }
+
+    /**
+     * A READ THAT FAILED IS NOT AN EQUALITY — `alpha.49`, one object over.
+     *
+     * `readRows()` says whether the statement worked, and taking a failure
+     * for «absent» would compare the live rule against three rows that are
+     * there. So it is `unknown`, with its own blocker, and never a yes.
+     */
+    public function testADecidedProductWhoseDestinationCannotBeReadIsUnknownNotEqual(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '4/10/2');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+
+        $port->refuseRowRead = true;
+        $answer = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertSame(1, $answer['counts']['decided_unreadable']);
+        self::assertSame(1, $answer['counts']['unknown'], 'and it is unknown, not equal');
+        self::assertSame(1, $this->blocker($answer, 'decided_destination_unreadable')['count']);
+    }
+
+    // ================================================ §7 the grant scan
+
+    /**
+     * EVERY PAGE, NOT THE FIRST ONE.
+     *
+     * `alpha.69` read one page of fifty and `exitVerdict()` called it with
+     * that default, so grant fifty-one onwards was never examined — measured
+     * on its own bytes with fifty-five live grants, the fifty-fifth stale,
+     * the list empty and the verdict `permitted`. Here the page size is ONE,
+     * which exercises the same keyset loop with three rows instead of making
+     * two hundred.
+     */
+    public function testTheGrantScanWalksEveryPage(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        foreach ([self::FIRST, self::MIDDLE, self::LAST] as $id) {
+            $port->present[$id] = true;
+            $port->owned[$id] = false;          // so the rule needs a grant
+        }
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST, self::MIDDLE, self::LAST]);
+        $service = $this->serviceWith($reader, $port, $ledger);
+        $service->migrateBatch(1, 0);
+        foreach ([self::FIRST, self::MIDDLE, self::LAST] as $id) {
+            self::assertTrue($service->enforce($id)->ok, 'granted ' . $id);
+        }
+        // The LAST one drifts: the grant is a fingerprint of the three values
+        // it was given for, so an edited rule leaves it alive but dead.
+        $port->seed(self::LAST, '4', '8', '2');
+
+        $scan = $service->staleGrantScan(1);
+
+        self::assertSame([self::LAST], $scan['stale']);
+        self::assertSame(3, $scan['scanned'], 'all three rows were read');
+        self::assertSame(3, $scan['expected'], 'which is what the ledger counts');
+        self::assertTrue($scan['finished']);
+        self::assertSame(4, $scan['pages'], 'three pages of one, and the short one that ended it');
+        self::assertSame([self::LAST], $service->staleGrants(1), 'and the list agrees');
+    }
+
+    /**
+     * A SCAN THAT COULD NOT FINISH IS NEVER A PERMISSION.
+     *
+     * `withStatus()` goes through `getResults()`, which answers `[]` both for
+     * «no more rows» and «the statement failed» (`alpha.8`) — and here the
+     * two are opposites, because an empty first page would look like «no
+     * grants at all». So the rows SEEN are counted against the ledger's own
+     * total, and a short count blocks.
+     */
+    public function testAGrantScanThatCouldNotFinishIsNeverAPermission(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $port->owned[self::FIRST] = false;
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST]);
+        $service = $this->serviceWith($reader, $port, $ledger);
+        $service->migrateBatch(1, 0);
+        self::assertTrue($service->enforce(self::FIRST)->ok);
+        self::assertSame('permitted', $this->serviceWith($reader, $port, $ledger)->exitVerdict()['verdict']);
+
+        $blind = $this->blindGrantReads($ledger);
+        $answer = $this->serviceWith($reader, $port, $blind)->exitVerdict();
+
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertSame(0, $answer['counts']['grants_scanned']);
+        self::assertSame(1, $answer['grant_scan']['expected'], 'the ledger still counts the row');
+        self::assertFalse($answer['grant_scan']['finished']);
+        self::assertSame(0, $this->blocker($answer, 'grant_scan_did_not_finish')['count']);
+    }
+
+    // ========================= §8 the levels that cannot be taken at all
+
+    /**
+     * A GLOBAL RULE HAS NOWHERE TO GO, so deactivation drops it.
+     *
+     * The migration is per product; this marketplace has no global purchase
+     * limit at all. `alpha.69` described the level in the preview and blocked
+     * on neither it nor the term rules — measured on the real plugin with a
+     * live `3/9/3` global rule and a `permitted` verdict.
+     */
+    public function testAGlobalRuleWithNoDestinationBlocksTheExit(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '4/10/2')->withGlobal('3/9/3');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+
+        $answer = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertSame(1, $answer['counts']['global_rules']);
+        self::assertSame(1, $this->blocker($answer, 'global_rule_has_no_destination')['count']);
+    }
+
+    /** And a term rule the same way, counted one per term. */
+    public function testTermRulesWithNoDestinationBlockTheExit(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '4/10/2')
+            ->withTerm('product_cat|12', '2/8/2')
+            ->withTerm('product_cat|13', '3/9/3');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+
+        $answer = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+
+        self::assertSame(2, $answer['counts']['term_rules']);
+        self::assertSame(2, $this->blocker($answer, 'term_rules_have_no_destination')['count']);
+    }
+
+    /**
+     * CONTROL, in the other direction: a global rule that RESTRICTS NOTHING
+     * blocks nothing.
+     *
+     * The shipped default is `1 / -1 / 1`, and a site whose global level is
+     * that has nothing to lose at that level. A guard wider than the defect
+     * is worse than the defect (`alpha.60`): blocking here would refuse the
+     * exit on every site that never touched the global screen.
+     */
+    public function testAnUnrestrictedGlobalRuleBlocksNothing(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '4/10/2')->withGlobal('1/-1/1');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+
+        $answer = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+
+        self::assertSame(0, $answer['counts']['global_rules']);
+        self::assertSame('permitted', $answer['verdict']);
+    }
+
     // ===================================================== helpers
 
     private function ledger(): DbMinMaxHandoverRepository
@@ -996,6 +1317,87 @@ final class MinMaxHandoverUnitOfWorkTest extends DatabaseTestCase
         $port->present[self::FIRST] = true;
         $port->owned[self::FIRST] = true;
         return $port;
+    }
+
+    /**
+     * The same service with a reader the test controls, so «the manager
+     * changed the rule in Min Max's own panel» can be expressed: the source
+     * rule has to be able to differ between two reads.
+     */
+    private function serviceWith(
+        StubMinMaxReader $reader,
+        \Tecteb\Marketplace\Modules\Migration\Application\ShopQuantityPortInterface $port,
+        MinMaxHandoverRepositoryInterface $ledger
+    ): MigrateMinMax {
+        return new MigrateMinMax($reader, $ledger, $port, $this->db);
+    }
+
+    /**
+     * The ledger with ONE read blinded: `withStatus()` answers nothing while
+     * `tally()` still counts the rows.
+     *
+     * That is exactly what a failed `getResults()` looks like from the
+     * outside, and it is injected rather than argued because the whole point
+     * of `staleGrantScan()`'s second half is that an empty page and a failed
+     * read are indistinguishable (`alpha.8`).
+     */
+    private function blindGrantReads(DbMinMaxHandoverRepository $real): MinMaxHandoverRepositoryInterface
+    {
+        return new class ($real) implements MinMaxHandoverRepositoryInterface {
+            public function __construct(private readonly DbMinMaxHandoverRepository $real)
+            {
+            }
+
+            public function withStatus(array $statuses, int $limit = 200, int $afterId = 0): array
+            {
+                return [];
+            }
+
+            public function claim(array $row): array
+            {
+                return $this->real->claim($row);
+            }
+
+            public function finish(int $claimId, string $status, string $problems, array $written): bool
+            {
+                return $this->real->finish($claimId, $status, $problems, $written);
+            }
+
+            public function find(int $postId): ?array
+            {
+                return $this->real->find($postId);
+            }
+
+            public function history(int $postId, int $limit = 20): array
+            {
+                return $this->real->history($postId, $limit);
+            }
+
+            public function tally(): array
+            {
+                return $this->real->tally();
+            }
+
+            public function markRolledBack(int $postId): bool
+            {
+                return $this->real->markRolledBack($postId);
+            }
+
+            public function markEnforced(int $postId): bool
+            {
+                return $this->real->markEnforced($postId);
+            }
+
+            public function markUnenforced(int $postId): bool
+            {
+                return $this->real->markUnenforced($postId);
+            }
+
+            public function release(int $postId): bool
+            {
+                return $this->real->release($postId);
+            }
+        };
     }
 
     private function service(

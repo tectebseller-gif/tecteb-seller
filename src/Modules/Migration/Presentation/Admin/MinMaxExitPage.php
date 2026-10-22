@@ -108,6 +108,21 @@ final class MinMaxExitPage
             'unknown' => __('نامعلوم', 'tecteb-marketplace-core'),
             'held_by_manager' => __('در اختیار مدیر', 'tecteb-marketplace-core'),
             'rolled_back' => __('بازگردانده‌شده', 'tecteb-marketplace-core'),
+            // THE DECIDED PRODUCTS, TAKEN APART — the row the page used to
+            // print as «تصمیم‌گرفته‌شده» and leave at that. Four answers,
+            // because a rule that drifted, a rule nothing reads any more and
+            // a destination that would not read are three different pieces of
+            // work for the manager and one of them is «nothing to do».
+            'decided_in_force' => __('منتقل‌شده، برابر و اعمال‌شونده', 'tecteb-marketplace-core'),
+            'decided_drifted' => __('منتقل‌شده ولی قاعده عوض شده', 'tecteb-marketplace-core'),
+            'decided_unenforced' => __('منتقل‌شده ولی دیگر اعمال نمی‌شود', 'tecteb-marketplace-core'),
+            'decided_unreadable' => __('مقصدِ تصمیم‌گرفته‌شده خوانده نشد', 'tecteb-marketplace-core'),
+            'refused_recorded' => __('ردِ ثبت‌شدهٔ زنده', 'tecteb-marketplace-core'),
+            'held_recorded' => __('در اختیار مدیر، ثبت‌شدهٔ زنده', 'tecteb-marketplace-core'),
+            'global_rules' => __('قاعدهٔ سراسری بی‌مقصد', 'tecteb-marketplace-core'),
+            'term_rules' => __('قاعدهٔ دسته بی‌مقصد', 'tecteb-marketplace-core'),
+            'grants_live' => __('مجوزهای زندهٔ اعمال', 'tecteb-marketplace-core'),
+            'grants_scanned' => __('مجوزهای بررسی‌شده', 'tecteb-marketplace-core'),
             'source_rows' => __('کل ردیف‌های مبدأ', 'tecteb-marketplace-core'),
             'scanned' => __('بررسی‌شده', 'tecteb-marketplace-core'),
         ];
@@ -145,7 +160,27 @@ final class MinMaxExitPage
         }
         echo '<p class="tmc-field__desc">'
             . esc_html__('«ناسازگار» با سست‌کردن قاعده برطرف نمی‌شود: یا قاعده را در مبدأ عوض کنید، یا تصمیم بگیرید از دستش بدهید. این صفحه هیچ قاعده‌ای را تغییر نمی‌دهد.', 'tecteb-marketplace-core')
-            . '</p></section>';
+            . '</p>';
+        // AND «تصمیم گرفته شده» IS NOT «تمام شده». The sentence is printed
+        // here rather than left to the counts table, because the whole of
+        // this round's second finding was a reader — including this page —
+        // taking a ledger row for a present equality.
+        echo '<p class="tmc-field__desc">'
+            . esc_html__('سابقهٔ انتقال «برابربودنِ امروز» را ثابت نمی‌کند: برای هر محصولِ تصمیم‌گرفته‌شده، قاعدهٔ فعلی Min Max با قاعده‌ای که پس از غیرفعال‌سازی واقعاً اعمال می‌شود — ردیف‌های مقصد، به‌علاوهٔ مالکیت فعلی و مجوز اعمال — مقایسه می‌شود. اختلاف یا خواندن ناموفق مانع است، و هیچ مقداری بازنویسی نمی‌شود.', 'tecteb-marketplace-core')
+            . '</p>';
+        $scan = (array) ($answer['grant_scan'] ?? []);
+        if ($scan !== []) {
+            echo '<p class="tmc-field__desc">' . esc_html(sprintf(
+                /* translators: 1: rows examined, 2: rows the ledger counts, 3: yes/no */
+                __('بررسی مجوزهای اعمال صفحه‌بندی‌شده است: %1$s ردیف از %2$s ردیفِ دفتر خوانده شد، و «به آخر رسید» = %3$s. اسکن ناتمام خودش یک مانع است، نه اجازه.', 'tecteb-marketplace-core'),
+                $fa((string) (int) ($scan['scanned'] ?? 0)),
+                $fa((string) (int) ($scan['expected'] ?? 0)),
+                ($scan['finished'] ?? false) === true
+                    ? __('بله', 'tecteb-marketplace-core')
+                    : __('خیر', 'tecteb-marketplace-core')
+            )) . '</p>';
+        }
+        echo '</section>';
     }
 
     /** @param array<string,mixed> $preview */

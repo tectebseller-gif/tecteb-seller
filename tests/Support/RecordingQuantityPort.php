@@ -207,9 +207,24 @@ class RecordingQuantityPort implements ShopQuantityPortInterface
         return true;
     }
 
+    /**
+     * Whether the grant is LIVE — present AND still describing the rows.
+     *
+     * ⛔ `isset()` IS NOT THE REAL ANSWER, and this fake said `isset()` until
+     * `alpha.70`. The real port stores a FINGERPRINT of the three values the
+     * grant was given for and compares it with `hash_equals` (`alpha.55`), so
+     * a rule edited afterwards leaves the grant alive but dead — which is the
+     * entire state `staleGrants()` exists to find. A fake that cannot express
+     * it makes an incomplete scan look complete, which is `alpha.59`'s lesson
+     * one object over: the fake must model the verb, not its shape.
+     */
     public function enforcementGranted(int $postId): bool
     {
-        return isset($this->granted[$postId]);
+        $for = $this->granted[$postId] ?? null;
+        if ($for === null) {
+            return false;
+        }
+        return (string) $for === $this->describe($postId);
     }
 
     public function exists(int $postId): bool

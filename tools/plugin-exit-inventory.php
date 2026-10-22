@@ -737,6 +737,18 @@ if ($section === 'all' || $section === 'minmax' || $section === 'exit') {
                 . (string) ($item['count'] ?? 0) . ' | ' . (string) ($item['detail'] ?? ''));
         }
         $line('stale_grants', (string) count((array) ($answer['stale_grants'] ?? [])));
+        // THE SCAN'S OWN ACCOUNTING. An unfinished grant scan is a blocker
+        // rather than a note (`alpha.70`), and it has to be visible HERE as
+        // well as on the page — the two read the same method so that they
+        // cannot disagree, and that only holds if both print it.
+        $scan = (array) ($answer['grant_scan'] ?? []);
+        if ($scan !== []) {
+            $line('grant_scan_rows_read', (string) (int) ($scan['scanned'] ?? 0));
+            $line('grant_scan_rows_expected', (string) (int) ($scan['expected'] ?? 0));
+            $line('grant_scan_live_rows', (string) (int) ($scan['live'] ?? 0));
+            $line('grant_scan_pages', (string) (int) ($scan['pages'] ?? 0));
+            $line('grant_scan_finished', ($scan['finished'] ?? false) === true ? 'yes' : 'no');
+        }
         foreach ((array) ($answer['tally'] ?? []) as $key => $value) {
             $line('ledger_' . (string) $key, (string) $value);
         }
