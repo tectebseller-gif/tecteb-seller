@@ -117,6 +117,7 @@ final class MinMaxExitPage
             'decided_drifted' => __('منتقل‌شده ولی قاعده عوض شده', 'tecteb-marketplace-core'),
             'decided_unenforced' => __('منتقل‌شده ولی دیگر اعمال نمی‌شود', 'tecteb-marketplace-core'),
             'decided_unreadable' => __('مقصدِ تصمیم‌گرفته‌شده خوانده نشد', 'tecteb-marketplace-core'),
+            'decided_unprovable' => __('برابری قاعده اثبات‌پذیر نیست', 'tecteb-marketplace-core'),
             'refused_recorded' => __('ردِ ثبت‌شدهٔ زنده', 'tecteb-marketplace-core'),
             'held_recorded' => __('در اختیار مدیر، ثبت‌شدهٔ زنده', 'tecteb-marketplace-core'),
             'global_rules' => __('قاعدهٔ سراسری بی‌مقصد', 'tecteb-marketplace-core'),
@@ -167,6 +168,13 @@ final class MinMaxExitPage
         // taking a ledger row for a present equality.
         echo '<p class="tmc-field__desc">'
             . esc_html__('سابقهٔ انتقال «برابربودنِ امروز» را ثابت نمی‌کند: برای هر محصولِ تصمیم‌گرفته‌شده، قاعدهٔ فعلی Min Max با قاعده‌ای که پس از غیرفعال‌سازی واقعاً اعمال می‌شود — ردیف‌های مقصد، به‌علاوهٔ مالکیت فعلی و مجوز اعمال — مقایسه می‌شود. اختلاف یا خواندن ناموفق مانع است، و هیچ مقداری بازنویسی نمی‌شود.', 'tecteb-marketplace-core')
+            . '</p>';
+        // And HOW that comparison is made, because `alpha.70` sampled it: the
+        // two sides allow an arithmetic progression each, so the question is
+        // decided from the minimum, the maximum, the step and the base the
+        // step counts from — never from a list of examples.
+        echo '<p class="tmc-field__desc">'
+            . esc_html__('برابری از حداقل، حداکثر، مبنای گام و گام به‌صورت کامل تعیین می‌شود، نه با آزمودن چند تعداد نمونه: دو قاعده‌ای که تا ۶۰ یکسان جواب بدهند و بالاتر از آن فرق داشته باشند، دو قاعده‌اند. و قاعده‌ای که عددش بیرون از ظرفیت ستون‌های این بازارگاه باشد «اثبات‌پذیر نیست» شمرده می‌شود — که مانع است، نه برابری.', 'tecteb-marketplace-core')
             . '</p>';
         $scan = (array) ($answer['grant_scan'] ?? []);
         if ($scan !== []) {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Migration\Domain;
 
 use Tecteb\Marketplace\Modules\Product\Domain\PurchaseQuantity;
+use Tecteb\Marketplace\Modules\Product\Domain\QuantitySet;
 
 /**
  * One purchase-quantity rule as «Min Max Control» 8.1.0 holds it, and whether
@@ -344,8 +345,41 @@ final class MinMaxRule
     }
 
     /**
-     * The quantities both plugins allow, up to a bound — the evidence that a
-     * conversion kept the rule.
+     * The set of quantities MIN MAX allows, exactly.
+     *
+     * The base is this rule's own MINIMUM, which is the one difference between
+     * the two plugins' arithmetic and the whole reason this class exists:
+     * `$module = ($quantity - $min_quantity) % $step`
+     * (`set_max_min_quantity.php:86-93`).
+     *
+     * Exact, and therefore the thing to compare — `allowedUpTo()` below lists
+     * examples and is not evidence of equality, which is what `alpha.70`'s
+     * exit verdict used it as.
+     */
+    public function allowedSet(): QuantitySet
+    {
+        return QuantitySet::of($this->min, $this->max, $this->min, $this->step);
+    }
+
+    /**
+     * The set this marketplace would allow once the rule is held here.
+     *
+     * For a rule that does not convert this is NOT the same set — which is the
+     * point: `allowedSet()->equals($this->convertedSet())` is false exactly
+     * when the conversion would change what a shopper may buy.
+     */
+    public function convertedSet(): QuantitySet
+    {
+        return QuantitySet::fromPurchaseQuantity($this->converted());
+    }
+
+    /**
+     * The quantities both plugins allow, up to a bound — an ILLUSTRATION of
+     * the two rules, for a report somebody reads.
+     *
+     * ⛔ NOT a test of equality, and `alpha.70` used it as one: two rules that
+     * differ only above the bound produce identical lists. Ask
+     * `allowedSet()->equals($this->convertedSet())` for that.
      *
      * Used by the preview and by the tests rather than by the migration, and
      * it exists because «the numbers are the same» is not the question. The

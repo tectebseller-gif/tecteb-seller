@@ -1301,6 +1301,192 @@ final class MinMaxHandoverUnitOfWorkTest extends DatabaseTestCase
     }
 
     /** @param array<string,mixed> $answer @return array<string,mixed> */
+    /**
+     * ⛔ THE OWNER'S FIRST CASE, and `alpha.70` answered `permitted`.
+     *
+     * Min Max allows 1…100 and the stored rows allow 1…200. Every quantity
+     * from 1 to 60 is allowed by both, which is all `alpha.70` asked about:
+     * measured on its own installed bytes, `decided_in_force=1`, verdict
+     * `permitted`, no blocker. Switching the plugin off would have let a
+     * shopper buy 200 where the vendor's rule said 100.
+     */
+    public function testACeilingThatDiffersOnlyAboveTheOldSampleBoundBlocksTheExit(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '1/100/1');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+        self::assertSame('1/100/1', $port->describe(self::FIRST));
+
+        // The first sixty answers agree, which is the whole trap.
+        for ($q = 1; $q <= 60; $q++) {
+            self::assertTrue($reader->page[0]['rule']->sourceAllows($q));
+        }
+
+        // The manager widens the stored ceiling. Nothing below 101 changes.
+        $port->rows[self::FIRST]['max'] = '200';
+
+        $answer = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertSame(1, $answer['counts']['decided_drifted']);
+        self::assertSame(0, $answer['counts']['decided_in_force']);
+        self::assertSame(1, $this->blocker($answer, 'migrated_rule_differs_now')['count']);
+        self::assertSame('1/200/1', $port->describe(self::FIRST), 'and nothing was rewritten');
+    }
+
+    /**
+     * ⛔ THE OWNER'S SECOND CASE: «دو قاعده با حداقل‌های متفاوت بالاتر از ۶۰».
+     *
+     * Min Max requires 70 and the stored rows require 80. Both refuse every
+     * quantity from 1 to 60 — so all sixty samples matched perfectly and
+     * `alpha.70` said `permitted`, while deactivation would have taken the
+     * quantities 70 to 79 away from a shopper Min Max allowed them to.
+     */
+    public function testTwoMinimumsAboveTheOldSampleBoundBlockTheExit(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '70//1');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+        // The ceiling row is PRESENT and EMPTY, which is «no ceiling from Min
+        // Max» rather than «no row» — the `alpha.28` distinction, kept by the
+        // migration and kept by the double.
+        self::assertSame('70//1', $port->describe(self::FIRST));
+
+        for ($q = 1; $q <= 60; $q++) {
+            self::assertFalse(
+                $reader->page[0]['rule']->sourceAllows($q),
+                'both sides refuse ' . $q . ', which is why sixty samples agreed'
+            );
+        }
+
+        $port->rows[self::FIRST]['min'] = '80';
+
+        $answer = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertSame(1, $answer['counts']['decided_drifted']);
+        self::assertSame(0, $answer['counts']['decided_in_force']);
+        self::assertSame(1, $this->blocker($answer, 'migrated_rule_differs_now')['count']);
+    }
+
+    /** A ceiling appearing from nothing beyond the bound — the `last === null` branch. */
+    public function testACeilingAppearingOnlyAboveTheOldSampleBoundBlocksTheExit(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '2//1');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+
+        $port->rows[self::FIRST]['max'] = '500';
+
+        $answer = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertSame(1, $answer['counts']['decided_drifted']);
+        self::assertSame(1, $this->blocker($answer, 'migrated_rule_differs_now')['count']);
+    }
+
+    /**
+     * THE CONTROL the instruction asks to be kept: two rules that genuinely
+     * allow the same quantities stay permitted, however differently they are
+     * written.
+     *
+     * Min Max says «at most 11» and the stored ceiling is 10, because 11 is
+     * not a multiple of the step and `PurchaseQuantity::of()` floors it. Both
+     * allow exactly 4, 6, 8, 10. Equality is about the set, never the three
+     * numbers (`alpha.53`).
+     */
+    public function testTheSameSetWrittenWithDifferentNumbersStaysPermitted(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '4/11/2');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+        self::assertSame('4/10/2', $port->describe(self::FIRST), 'the ceiling was floored on the way in');
+
+        $answer = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+
+        self::assertSame('permitted', $answer['verdict']);
+        self::assertSame(1, $answer['counts']['decided_in_force']);
+        self::assertSame(0, $answer['counts']['decided_drifted']);
+        self::assertSame([], $answer['blockers']);
+    }
+
+    /**
+     * A SOURCE RULE THAT TURNED INCOMPATIBLE after the migration has no
+     * equality to prove either, whatever quantities it allows.
+     *
+     * `exitVerdict()` counts `incompatible` from the rules nobody has decided
+     * yet, so a decided product whose source rule has since gained a
+     * `default_quantity` — a box this marketplace has no field for — was
+     * invisible to the verdict. The allowed sets here are identical; the rule
+     * still is not one we can hold.
+     */
+    public function testASourceRuleThatTurnedIncompatibleAfterTheMigrationBlocksTheExit(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '4/10/2');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+
+        $changed = new StubMinMaxReader();
+        $changed->page = [[
+            'product_id' => self::FIRST,
+            'type' => 'product',
+            // The same window, now pre-filling the quantity box at 8.
+            'rule' => \Tecteb\Marketplace\Modules\Migration\Domain\MinMaxRule::from(
+                \Tecteb\Marketplace\Modules\Migration\Domain\MinMaxRule::AT_PRODUCT,
+                '4',
+                '10',
+                '2',
+                '8'
+            ),
+        ]];
+        $changed->pageCursor = self::FIRST + 5;
+        self::assertTrue(
+            $changed->page[0]['rule']->allowedSet()->equals($reader->page[0]['rule']->allowedSet()),
+            'the quantities themselves did not move'
+        );
+
+        $answer = $this->serviceWith($changed, $port, $ledger)->exitVerdict();
+
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertSame(1, $answer['counts']['decided_drifted']);
+        self::assertArrayHasKey(
+            \Tecteb\Marketplace\Modules\Migration\Domain\MinMaxRule::DEFAULT_QUANTITY_UNSUPPORTED,
+            $answer['problems'],
+            'and the reason is named rather than called a change'
+        );
+    }
+
+    /**
+     * A QUANTITY NO COLUMN HERE CAN HOLD is «not provable», which is neither
+     * «equal» nor «different» — and the exit treats it as a blocker.
+     *
+     * `min_purchase`, `max_purchase` and `purchase_step` are signed `INT`,
+     * while Min Max keeps its three values in `wp_postmeta`, which is text.
+     */
+    public function testAQuantityNoColumnCanHoldIsUnknownRatherThanPermitted(): void
+    {
+        $ledger = $this->ledger();
+        $port = $this->port();
+        $reader = (new StubMinMaxReader())->withProducts([self::FIRST], '1/100/1');
+        $this->serviceWith($reader, $port, $ledger)->migrateBatch(1, 0);
+
+        $port->rows[self::FIRST]['max'] = '5000000000';
+
+        $answer = $this->serviceWith($reader, $port, $ledger)->exitVerdict();
+
+        self::assertSame('blocked', $answer['verdict']);
+        self::assertSame(1, $answer['counts']['decided_unprovable']);
+        self::assertSame(0, $answer['counts']['decided_in_force']);
+        self::assertSame(0, $answer['counts']['decided_drifted'], 'not a difference either');
+        self::assertSame(1, $answer['counts']['unknown'], 'and it is counted as a «do not know»');
+        self::assertSame(1, $this->blocker($answer, 'migrated_rule_equality_unprovable')['count']);
+    }
+
     private function blocker(array $answer, string $code): array
     {
         foreach ((array) $answer['blockers'] as $item) {

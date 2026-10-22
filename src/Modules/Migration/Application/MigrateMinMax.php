@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Migration\Application;
 use Tecteb\Marketplace\Contracts\TransactionInterface;
 use Tecteb\Marketplace\Modules\Migration\Domain\MinMaxRule;
 use Tecteb\Marketplace\Modules\Product\Domain\PurchaseQuantity;
+use Tecteb\Marketplace\Modules\Product\Domain\QuantitySet;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 
 /**
@@ -87,8 +88,17 @@ final class MigrateMinMax
         'destination_unreadable',
     ];
 
-    /** Up to which quantity the preview compares the two rules' answers. */
-    private const COMPARE_TO = 60;
+    /**
+     * Up to which quantity an EXAMPLE ROW lists the two sides' answers.
+     *
+     * An illustration for a manager to read, and nothing decides anything by
+     * it. Until `alpha.71` this same number was the comparison itself — a
+     * loop over 1…60 whose sixty matching answers were taken for «the same
+     * rule» — and `QuantitySet` records what that cost. Raising it would not
+     * have been a fix, so it was not raised: it was taken out of the verdict
+     * and left here, under a name that says what it is.
+     */
+    private const ILLUSTRATE_TO = 60;
 
     public function __construct(
         private readonly MinMaxReaderInterface $reader,
@@ -148,6 +158,9 @@ final class MigrateMinMax
             'decided_drifted' => 0,
             'decided_unenforced' => 0,
             'decided_unreadable' => 0,
+            // Read fine, and still not comparable: a rule holding a quantity
+            // outside what either store can express. `QuantitySet::known()`.
+            'decided_unprovable' => 0,
             // A SUBSET of the ledger's own live counts, reported for the page
             // and never added to them: a refusal whose source rule has since
             // been deleted is live in the ledger and invisible to this walk,
@@ -318,17 +331,61 @@ final class MigrateMinMax
             }
             return;
         }
+        // The three rows read the way the guard reads them: absent or empty
+        // is the documented default, and `PurchaseQuantity::of()` then applies
+        // the same coercion `ProjectedQuantity::ruleFrom()` applies — which is
+        // the object `QuantityGuard` enforces. The reading is repeated here
+        // rather than called because this layer may not reach into
+        // Infrastructure, and `quantityFrom()` carries that note.
         $stored = PurchaseQuantity::of(
             self::quantityFrom($rows['min'] ?? null, 1),
             ($rows['max'] ?? null) === null || (string) $rows['max'] === '' ? null : (int) $rows['max'],
             self::quantityFrom($rows['step'] ?? null, 1)
         );
-        for ($q = 1; $q <= self::COMPARE_TO; $q++) {
-            if ($rule->sourceAllows($q) === $stored->allows($q)) {
-                continue;
+
+        // ⛔ EQUALITY IS DECIDED, NOT SAMPLED.
+        //
+        // `alpha.70` asked both sides about the quantities 1…60 and called
+        // sixty matching answers `decided_in_force`. Measured on its own
+        // installed bytes: Min Max `1/100/1` against stored rows `1/200/1`
+        // agreed on all sixty and first disagreed at **101**, verdict
+        // `permitted`; and Min Max `min=70` against stored `min=80` agreed on
+        // all sixty — both refuse every quantity below 70 — first disagreed
+        // at **70**, verdict `permitted`. One would have widened a ceiling by
+        // a hundred units at deactivation and the other would have taken ten
+        // quantities away, with the exit report saying nothing of either.
+        //
+        // Both sides allow an arithmetic progression and nothing else, so each
+        // set is fixed by the minimum, the maximum, the step and the base the
+        // step counts from, and equality is a comparison of four numbers.
+        // `QuantitySet` holds that arithmetic and the reasons it is exact.
+        $minmax = $rule->allowedSet();
+        $here = QuantitySet::fromPurchaseQuantity($stored);
+        if (!$minmax->known() || !$here->known()) {
+            // A quantity outside what the columns can hold. «Not provable» is
+            // its own answer: it is not a difference, and reading it as an
+            // equality is how a guard comes to permit things.
+            $out['decided_unprovable']++;
+            if (count($out['examples']) < 20) {
+                $out['examples'][] = $this->example(
+                    ['product_id' => $postId, 'type' => 'decided'],
+                    $rule,
+                    'decided_unprovable',
+                    ['quantity_out_of_range']
+                );
             }
+            return;
+        }
+        // A rule that is no longer expressible HERE has no equality to prove
+        // either, whatever quantities it allows: a `default_quantity` added to
+        // the source since the migration pre-fills a box this marketplace has
+        // no field for, and a step whose base has moved is the `alpha.53`
+        // finding itself. `exitVerdict()` counts `incompatible` only for rules
+        // nobody has decided yet, so without this a decided product whose
+        // source rule turned incompatible was invisible to the verdict.
+        $problems = $rule->problems();
+        if ($problems !== [] || !$minmax->equals($here)) {
             $out['decided_drifted']++;
-            $problems = $rule->problems();
             $named = $problems === [] ? ['rule_changed_since_migration'] : $problems;
             foreach ($named as $problem) {
                 $out['problems'][$problem] = ($out['problems'][$problem] ?? 0) + 1;
@@ -1093,6 +1150,7 @@ final class MigrateMinMax
      *   migrated_rule_differs_now       taken once, and not the same rule today
      *   migrated_rule_not_enforced_now  taken, and nothing would read it now
      *   decided_destination_unreadable  a decided product's rows did not read
+     *   migrated_rule_equality_unprovable  a number no column here can hold
      *   global_rule_has_no_destination  a site-wide limit with nowhere to go
      *   term_rules_have_no_destination  category limits with nowhere to go
      *   grant_scan_did_not_finish       the grants were not all examined
@@ -1111,6 +1169,10 @@ final class MigrateMinMax
      *  - `migrated_rule_differs_now` / `migrated_rule_not_enforced_now`: a
      *    `migrated` or `rule_enforced` row is a record, not a present
      *    equality. See `classifyDecided()`.
+     *  - `migrated_rule_equality_unprovable` is `alpha.71`'s, and it exists
+     *    because that equality is now DECIDED rather than sampled: a rule
+     *    carrying a quantity outside signed-32-bit has no comparable set, and
+     *    saying so is not the same as saying the two sides agree.
      *  - `grant_scan_did_not_finish`: see `staleGrantScan()`.
      *  - `global_rule_has_no_destination` / `term_rules_have_no_destination`:
      *    the migration is per product, so these two levels cannot be taken at
@@ -1152,6 +1214,7 @@ final class MigrateMinMax
                 'decided_drifted' => 0,
                 'decided_unenforced' => 0,
                 'decided_unreadable' => 0,
+                'decided_unprovable' => 0,
                 'refused_recorded' => 0,
                 'held_recorded' => 0,
                 'grants_live' => 0,
@@ -1208,7 +1271,12 @@ final class MigrateMinMax
             'incompatible' => (int) ($preview['refused'] ?? 0) + $refusedRecorded,
             'migrated_unenforceable' => $unenforceable,
             'would_be_unenforceable' => (int) ($preview['unenforced'] ?? 0),
-            'unknown' => $unknown + (int) ($preview['decided_unreadable'] ?? 0),
+            // «نمی‌دانم» in all three of its shapes: rows the scan never
+            // reached, a decided product whose destination would not read, and
+            // one whose numbers put equality out of reach.
+            'unknown' => $unknown
+                + (int) ($preview['decided_unreadable'] ?? 0)
+                + (int) ($preview['decided_unprovable'] ?? 0),
             'held_by_manager' => (int) ($preview['held_by_manager'] ?? 0) + $heldRecorded,
             'already_decided' => (int) ($preview['already_decided'] ?? 0),
             'rolled_back' => $rolledBack,
@@ -1219,6 +1287,7 @@ final class MigrateMinMax
             'decided_drifted' => (int) ($preview['decided_drifted'] ?? 0),
             'decided_unenforced' => (int) ($preview['decided_unenforced'] ?? 0),
             'decided_unreadable' => (int) ($preview['decided_unreadable'] ?? 0),
+            'decided_unprovable' => (int) ($preview['decided_unprovable'] ?? 0),
             'refused_recorded' => $refusedRecorded,
             'held_recorded' => $heldRecorded,
             'grants_live' => (int) $scan['live'],
@@ -1334,6 +1403,14 @@ final class MigrateMinMax
                 $out['counts']['decided_unreadable'],
                 'the destination rows of a decided product could not be read, and a read that '
                     . 'failed is not an equality'
+            );
+        }
+        if ($out['counts']['decided_unprovable'] > 0) {
+            $out['blockers'][] = $blocker(
+                'migrated_rule_equality_unprovable',
+                $out['counts']['decided_unprovable'],
+                'a decided product\'s rule holds a quantity outside what these columns can store, '
+                    . 'so whether the two sides allow the same quantities cannot be decided'
             );
         }
         if ($out['counts']['global_rules'] > 0) {
@@ -1528,7 +1605,7 @@ final class MigrateMinMax
      */
     private function example(array $row, MinMaxRule $rule, string $status, array $problems): array
     {
-        $allowed = $rule->allowedUpTo(self::COMPARE_TO);
+        $allowed = $rule->allowedUpTo(self::ILLUSTRATE_TO);
         return [
             'post_id' => (int) $row['product_id'],
             'type' => (string) $row['type'],
@@ -1537,7 +1614,14 @@ final class MigrateMinMax
             'rule' => $this->describe($rule),
             'allowed_by_minmax' => array_slice($allowed['source'], 0, 12),
             'allowed_after_conversion' => array_slice($allowed['converted'], 0, 12),
-            'same_set' => $allowed['source'] === $allowed['converted'],
+            // DECIDED, not read off the two lists above: those stop at
+            // `ILLUSTRATE_TO` and two rules that differ only past it would
+            // read as one. `null` when the question cannot be decided at all.
+            'same_set' => $rule->allowedSet()->known() && $rule->convertedSet()->known()
+                ? $rule->allowedSet()->equals($rule->convertedSet())
+                : null,
+            'minmax_set' => $rule->allowedSet()->describe(),
+            'converted_set' => $rule->convertedSet()->describe(),
         ];
     }
 
