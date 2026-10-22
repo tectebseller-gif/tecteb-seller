@@ -337,8 +337,8 @@ minmax_version=8.1.0.0
 plugin_version=__absent__
 grant_products_wanted=55
 grant_products_created=55
-grant_first_id=1062
-grant_last_id=1116
+grant_first_id=1402
+grant_last_id=1456
 PASS  3a fifty-five products carry a rule  (55)
 probe=ran
 minmax_active=yes
@@ -356,9 +356,9 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 live_granted_rows=55
-ledger_order_first=1062
+ledger_order_first=1402
 target_position_in_ledger_order=55
-target_post_id=1116
+target_post_id=1456
 target_rows=4/8/2
 target_grant_live=no
 stale_grants_default_limit=0
@@ -444,8 +444,8 @@ probe=ran
 minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
-variation_parent=1117
-variation_id=1118
+variation_parent=1457
+variation_id=1458
 variation_rule=4/10/2
 PASS  4g a real variation rule exists  (4/10/2)
 probe=ran
@@ -841,9 +841,9 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 live_granted_rows=55
-ledger_order_first=1119
+ledger_order_first=1459
 target_position_in_ledger_order=55
-target_post_id=1173
+target_post_id=1513
 target_rows=4/8/2
 target_grant_live=no
 stale_grants_default_limit=1
@@ -876,7 +876,7 @@ stale_count_grants_scanned=55
 stale_count_global_rules=0
 stale_count_term_rules=0
 stale_blockers=migrated_rule_not_enforced_now:1|stale_enforcement_grants:1
-stale_stale_grants=1173
+stale_stale_grants=1513
 PASS  7b the fifty-fifth is still the drifted one  (55)
 PASS  7c THE FIX: the default call finds it  (1)
 PASS  7d …and lists it  (yes)
@@ -886,7 +886,7 @@ PASS  7g …so it reached the end  (yes)
 PASS  7h the verdict counts what it examined  (55)
 PASS  7i …is refused  (blocked)
 PASS  7j …and names the grant  (yes)
-PASS  7k …with the post id, so it can be opened  (1173)
+PASS  7k …with the post id, so it can be opened  (1513)
 
 === AFTER · coverage ===
 probe=ran

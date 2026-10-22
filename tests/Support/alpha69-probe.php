@@ -407,8 +407,20 @@ switch ($verb) {
         // held destination recorded beside it. Nothing is written by either.
         $step = $products->find($findBySku(TMC_P69_SKU_STEP))?->wcProductId ?? 0;
         $held = $products->find($findBySku(TMC_P69_SKU_HELD))?->wcProductId ?? 0;
+        // ⛔ THIS VERB ESTABLISHES ITS OWN PRECONDITION, and the first
+        // version did not: it only migrated the STEP product and then read
+        // the HELD one's status, which is `__none__` unless `exit-held` ran
+        // first. A browser run that called it straight after `exit-arrange`
+        // reported two failures about a build that was perfectly correct —
+        // `alpha.29`'s rule, in a new place.
         $setMinMax($step, '2', '11', '3');
         $service->migrateBatch(6905, $step - 1, false, 1);
+        update_post_meta($held, ProjectedQuantity::META_MIN, '6');
+        update_post_meta($held, ProjectedQuantity::META_MAX, '12');
+        update_post_meta($held, ProjectedQuantity::META_STEP, '1');
+        delete_post_meta($held, ProjectedQuantity::OWNED_META);
+        $setMinMax($held, '4', '10', '2');
+        $service->migrateBatch(6906, $held - 1, false, 1);
         $say('step_status', (string) ($ledger->find($step)['status'] ?? '__none__'));
         $say('held_status', (string) ($ledger->find($held)['status'] ?? '__none__'));
         foreach ($ledger->tally() as $status => $count) {

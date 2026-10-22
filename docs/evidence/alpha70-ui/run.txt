@@ -1,0 +1,39 @@
+ok:   the installed package is the one under test                        0.1.0-alpha.70
+ok:   and the structure is the one it targets                            34
+      gate_ready=yes · gate_reason=ready_on_trial · take_code=ownership_taken · marketplace_row=1652 · order_id=1291 · order_total=101 · order_currency=IRT · item_id=501 · item_quantity=3 · item_base_minor=1010000 · item_commission_minor=126250 · item_share_minor=883750 · item_exponent=4 · item_unit_price_minor=__null__ · base_divides_exactly=no
+      hold_open_code=return_opened · hold_approve_code=return_approved · hold_return_id=78 · hold_item_id=501 · hold_status=approved
+ok:   a return of one of three is waiting, approved                      approved
+ok:   1 the returns queue opens for the manager                          true
+ok:   1a the uneven split is said as a NOTE, before the goods arrive     true
+ok:   1b …naming where the remainder goes                                true
+ok:   1c …and saying out loud that nothing is refused                    true
+ok:   1d the old refusal sentence is gone                                false
+ok:   1e the «goods received» button is there                            true
+ok:   2 the waiting return has its own form on the page                  1
+ok:   2a accepting the goods goes through                                received
+ok:   2b and the money is recorded                                       refunded
+ok:   2c the base came back floored, not rounded                         336666
+ok:   2d the commission the same way                                     42083
+ok:   2e the share derived from the two                                  294583
+ok:   2f the screen prints the same figure in Persian digits             true
+ok:   2g …and the commission under it                                    true
+ok:   2h a refunded return offers no further action                      true
+ok:   3 the verdict card is the first thing on the page                  true
+      rollback gate present: yes
+ok:   3a this environment is BLOCKED, and the page says so               true
+ok:   3b the four counts are named apart — unknown among them            true
+ok:   3c …incompatible                                                   true
+ok:   3d …migrated and unenforced                                        true
+ok:   3e and the page says a rule is not loosened to reach a yes         true
+ok:   3f at least one blocker is named with its code                     true
+ok:   4 the health page says what restoring a backup really costs        true
+ok:   4a …and points at the clause that lists it                         true
+ok:   5 returns: no horizontal overflow at 390px                         0
+ok:   5 minmax: no horizontal overflow at 390px                          0
+      axe returns: 0 violations, 0 serious/critical
+ok:   6 axe on the returns screen: no serious or critical violation      0
+      axe minmax: 0 violations, 0 serious/critical
+ok:   6 axe on the minmax screen: no serious or critical violation       0
+      item_rows_removed=0 · orphan_returns_removed=0 · product_deleted=1290 · exponents_left_for_vendor=0 · reset=done
+
+pass=31 fail=0

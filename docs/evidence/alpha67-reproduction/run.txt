@@ -1,6 +1,6 @@
 === the trees ===
 base_ref=6884d4d724cd9e2149fea0b2e9a275b2b7abc850
-this_checkout_src_digest=721ce2d88f839a85
+this_checkout_src_digest=b98646297b9b4d8d
 installed_src_digest=d07c9ee6822b020b
 base_src_digest=d07c9ee6822b020b
 PASS  0a the installed package is this round's base (alpha.67)  (d07c9ee6822b020b)
@@ -13,9 +13,9 @@ PASS  0c the installed tree is now alpha.67's  (d07c9ee6822b020b)
 === BEFORE · §1 a failed catalogue read becomes «the columns are absent» ===
 registry_currency=IRT
 registry_exponent=0
-row_legacy=477
+row_legacy=506
 row_legacy_exponent=__null__
-row_exact=478
+row_exact=507
 row_exact_exponent=4
 ledger_exponents=0,4
 arranged=yes
@@ -101,13 +101,13 @@ sh: 1: /usr/sbin/sendmail: not found
 gate_ready=yes
 gate_reason=ready_on_trial
 take_code=ownership_taken
-marketplace_row=1628
-order_id=848
+marketplace_row=1657
+order_id=1525
 order_total=101
 order_currency=IRT
 line_total_on_order=101
 line_quantity=3
-item_id=479
+item_id=508
 item_quantity=3
 item_base_minor=1010000
 item_commission_minor=126250
@@ -131,7 +131,7 @@ PASS  3g …and does not reconstruct its own line  (1009998)
 PASS  3h …which the line itself contradicts  (1010000)
 PASS  3i …so it is not exact  (no)
 open_code=return_opened
-return_id=54
+return_id=87
 approve_code=return_approved
 receive_code=return_received
 refusal_step=__none__
@@ -178,14 +178,14 @@ PASS  4b …and nothing answers the question  (__nothing_answers_this__)
 NOTE  4c rows a release before alpha.67 would misread  2
 NOTE  4d ledger entries it would misread  11
 
-PASS  0d the installed tree is now this checkout's  (721ce2d88f839a85)
+PASS  0d the installed tree is now this checkout's  (b98646297b9b4d8d)
 
 === AFTER · §1 three answers, and a second way to ask ===
 registry_currency=IRT
 registry_exponent=0
-row_legacy=480
+row_legacy=509
 row_legacy_exponent=__null__
-row_exact=481
+row_exact=510
 row_exact_exponent=4
 ledger_exponents=0,4
 arranged=yes
@@ -239,7 +239,7 @@ view_exact_share=883750
 view_exact_unreadable=no
 PASS  5m a healthy read is unchanged  (4)
 PASS  5n …and says so rather than guessing  (no)
-write_result=482
+write_result=511
 row_landed=1
 PASS  5o a unit-bearing write now lands while the read is blinded  (1)
 PASS  5p …with a real row id  (yes)
@@ -274,13 +274,13 @@ sh: 1: /usr/sbin/sendmail: not found
 gate_ready=yes
 gate_reason=ready_on_trial
 take_code=ownership_taken
-marketplace_row=1629
-order_id=850
+marketplace_row=1658
+order_id=1527
 order_total=101
 order_currency=IRT
 line_total_on_order=101
 line_quantity=3
-item_id=483
+item_id=512
 item_quantity=3
 item_base_minor=1010000
 item_commission_minor=126250
@@ -301,7 +301,7 @@ division_is_exact=no
 PASS  7e …read back from the row  (__null__)
 PASS  7f …and the line's own total is untouched  (1010000)
 open_code=return_opened
-return_id=56
+return_id=89
 approve_code=return_approved
 receive_code=return_received
 refusal_step=__none__
@@ -361,9 +361,9 @@ NOTE  8e the counts it reported  5 tables
 === CONTROLS — the same answer on both trees, or in a named direction ===
 registry_currency=IRT
 registry_exponent=0
-row_legacy=484
+row_legacy=513
 row_legacy_exponent=__null__
-row_exact=485
+row_exact=514
 row_exact_exponent=4
 ledger_exponents=0,4
 arranged=yes
@@ -379,13 +379,13 @@ sh: 1: /usr/sbin/sendmail: not found
 gate_ready=yes
 gate_reason=ready_on_trial
 take_code=ownership_taken
-marketplace_row=1630
-order_id=852
+marketplace_row=1659
+order_id=1529
 order_total=101
 order_currency=IRT
 line_total_on_order=101
 line_quantity=3
-item_id=486
+item_id=515
 item_quantity=3
 item_base_minor=1010000
 item_commission_minor=126250

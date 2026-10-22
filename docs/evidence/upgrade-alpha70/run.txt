@@ -1,0 +1,190 @@
+=== the packages ===
+new_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.70.zip
+old_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.65.zip
+new_version=0.1.0-alpha.70
+old_version=0.1.0-alpha.65
+new_target=34
+old_target=31
+PASS  0a the old package is the one staging runs, at structure 31  (31)
+PASS  0b the new package targets 34  (34)
+PASS  0c so the path is three steps  (3)
+
+=== 1 · staging's starting state, rebuilt ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+columns_dropped=9
+columns_that_would_not_drop=0
+unit_price_narrowed=yes
+schema_version=31
+PASS  1a every column steps 32 and 33 added is gone  (0)
+NOTE  1b how many were dropped  9
+PASS  1c step 34's column is narrowed back  (yes)
+PASS  1d and the recorded structure says 31  (31)
+schema_version=31
+step32_columns_present=0/1
+step33_columns_present=0/8
+added_columns_present=0
+added_columns_absent=9
+added_columns_unreadable=0
+unit_price_present=yes
+unit_price_nullable=NO
+unit_price_default=0
+unit_price_type=bigint(20)
+gate_class_exists=no
+last_error=__none__
+PASS  1e the mirrored-status column is absent  (0/1)
+PASS  1f the eight unit columns are absent  (0/8)
+PASS  1g the per-unit price cannot say «unknown»  (NO)
+PASS  1h alpha.65 has no rollback gate at all  (no)
+PASS  1i no migration error is standing  (__none__)
+
+=== 2 · the backup the checklist's step 1 asks for ===
+PASS  2a the dump was taken  (yes)
+NOTE  2b its size in bytes  5255111
+NOTE  2c the moment it was taken  2026-10-22 18:37:09
+
+=== 3 · swapping the files runs nothing, and a failing step stops the chain ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+schema_version=31
+step32_columns_present=0/1
+step33_columns_present=0/8
+added_columns_present=0
+added_columns_absent=9
+added_columns_unreadable=0
+unit_price_present=yes
+unit_price_nullable=NO
+unit_price_default=0
+unit_price_type=bigint(20)
+gate_class_exists=yes
+last_error=__none__
+PASS  3a the structure is still 31 after the swap  (31)
+PASS  3b …and the new package's gate is now on disk  (yes)
+ran=yes
+schema_version=32
+step32_columns_present=1/1
+step33_columns_present=8/8
+added_columns_present=9
+added_columns_absent=0
+added_columns_unreadable=0
+unit_price_present=yes
+unit_price_nullable=NO
+unit_price_default=0
+unit_price_type=bigint(20)
+gate_class_exists=yes
+last_error=verify_failed
+PASS  3c the chain stopped at the failing step  (32)
+PASS  3d …with step 32 done  (1/1)
+PASS  3e …and the reason recorded  (yes)
+NOTE  3f the recorded reason  verify_failed
+
+=== 4 · the injection is removed and the next request finishes the chain ===
+Success: Deleted 'tmc_migration_last_error' option.
+ran=yes
+schema_version=34
+step32_columns_present=1/1
+step33_columns_present=8/8
+added_columns_present=9
+added_columns_absent=0
+added_columns_unreadable=0
+unit_price_present=yes
+unit_price_nullable=YES
+unit_price_default=__no_default__
+unit_price_type=bigint(20)
+gate_class_exists=yes
+last_error=__none__
+PASS  4a the structure reached 34  (34)
+PASS  4b step 32's column is there  (1/1)
+PASS  4c all eight of step 33's are there  (8/8)
+PASS  4d step 34 made the per-unit price nullable  (YES)
+PASS  4e …with no default standing in for «unknown»  (__no_default__)
+PASS  4f …and it is still a BIGINT  (bigint(20))
+PASS  4g no error is left standing  (__none__)
+PASS  4h nothing was left unreadable  (0)
+
+=== 5 · a structure number is not a working site ===
+probe=ran
+minmax_active=yes
+minmax_version=8.1.0.0
+plugin_version=__absent__
+available=yes
+preview_convertible=0
+preview_refused=0
+preview_held_by_manager=0
+preview_unenforced=1
+preview_already_decided=1
+preview_scanned=2
+preview_decided_in_force=0
+preview_decided_drifted=1
+preview_decided_unenforced=0
+preview_decided_unreadable=0
+tally_migrated=1
+report_verdict=blocked
+report_permitted=no
+report_count_convertible=0
+report_count_incompatible=0
+report_count_migrated_unenforceable=0
+report_count_would_be_unenforceable=1
+report_count_unknown=0
+report_count_held_by_manager=0
+report_count_already_decided=1
+report_count_rolled_back=0
+report_count_source_rows=2
+report_count_scanned=2
+report_count_decided_in_force=0
+report_count_decided_drifted=1
+report_count_decided_unenforced=0
+report_count_decided_unreadable=0
+report_count_refused_recorded=0
+report_count_held_recorded=0
+report_count_grants_scanned=0
+report_count_global_rules=0
+report_count_term_rules=0
+report_blockers=rule_would_not_be_enforced:1|migrated_rule_differs_now:1
+report_stale_grants=__empty__
+PASS  5a the min max exit verdict answers on the upgraded site  (yes)
+NOTE  5b what it says  blocked
+PASS  5c the ledger sum is readable  (yes)
+schema_version=34
+step32_columns_present=1/1
+step33_columns_present=8/8
+added_columns_present=9
+added_columns_absent=0
+added_columns_unreadable=0
+unit_price_present=yes
+unit_price_nullable=YES
+unit_price_default=__no_default__
+unit_price_type=bigint(20)
+gate_class_exists=yes
+last_error=__none__
+PASS  5d and the rollback gate can be asked now  (yes)
+
+=== 6 · the rollback question, asked on the right package ===
+has_gate=yes
+verdict=safe
+safe=yes
+readable=yes
+count_ledger_entries=0
+count_order_items=0
+count_withdrawals=0
+count_withdrawal_lines=0
+count_returns=0
+finer_rows_total=0
+PASS  6a the gate answers on the upgraded site  (yes)
+PASS  6b …and it could read every table it counts  (yes)
+NOTE  6c its verdict right after the upgrade  safe
+NOTE  6d rows already in a finer unit  0
+
+=== totals ===
+pass=30
+fail=0

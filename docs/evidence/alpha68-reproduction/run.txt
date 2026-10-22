@@ -1,6 +1,6 @@
 === the trees ===
 base_ref=03ce0bb78cbca7190db4ca2a706a5a218604ddfa
-this_checkout_src_digest=721ce2d88f839a85
+this_checkout_src_digest=b98646297b9b4d8d
 installed_src_digest=650da04699fb378d
 base_src_digest=650da04699fb378d
 PASS  0a the installed package is this round's base (alpha.68)  (650da04699fb378d)
@@ -77,11 +77,11 @@ PASS  2s …and names nothing unsummable  (no)
 gate_ready=yes
 gate_reason=ready_on_trial
 take_code=ownership_taken
-marketplace_row=1645
-order_id=881
+marketplace_row=1653
+order_id=1517
 order_total=101
 order_currency=IRT
-item_id=497
+item_id=502
 item_quantity=3
 item_base_minor=1010000
 item_commission_minor=126250
@@ -109,7 +109,7 @@ screen_cancelled=return_cancelled
 PASS  1g the screen is told the split is not exact  (no)
 PASS  1h …but nothing tells it the remainder  (no)
 one_open_code=return_opened
-one_return_id=71
+one_return_id=80
 one_approve_code=return_approved
 one_receive_code=return_share_not_exact
 one_refusal_quantity=1
@@ -124,7 +124,7 @@ PASS  1i THE DEFECT: accepting one of three is refused  (return_share_not_exact)
 PASS  1j …the money step is not even attempted  (__not_attempted__)
 PASS  1k …and the request is stuck at approved  (approved)
 two_open_code=return_opened
-two_return_id=72
+two_return_id=81
 two_approve_code=return_approved
 two_receive_code=return_share_not_exact
 two_refusal_quantity=2
@@ -153,11 +153,11 @@ PASS  1n the per-unit column is empty rather than rounded  (__null__)
 gate_ready=yes
 gate_reason=ready_on_trial
 take_code=ownership_taken
-marketplace_row=1646
-order_id=883
+marketplace_row=1654
+order_id=1519
 order_total=300
 order_currency=IRT
-item_id=498
+item_id=503
 item_quantity=3
 item_base_minor=3000000
 item_commission_minor=375000
@@ -167,7 +167,7 @@ item_unit_price_minor=1000000
 base_divides_exactly=yes
 PASS  1o the control line divides exactly  (yes)
 even_open_code=return_opened
-even_return_id=73
+even_return_id=82
 even_approve_code=return_approved
 even_receive_code=return_received
 even_refusal_step=__none__
@@ -209,7 +209,7 @@ gate_counts_tables=5
 has_loss_since=yes
 PASS  1x the rollback gate answers on the base too  (yes)
 NOTE  1y its verdict while this fixture's rows are present  blocked
-PASS  0f the installed tree is now this checkout's  (721ce2d88f839a85)
+PASS  0f the installed tree is now this checkout's  (b98646297b9b4d8d)
 vendor_user_id=3
 schema_version=34
 plugin_version=0.1.0-alpha.68
@@ -288,11 +288,11 @@ PASS  2R …and names the account unsummable  (yes)
 gate_ready=yes
 gate_reason=ready_on_trial
 take_code=ownership_taken
-marketplace_row=1647
-order_id=885
+marketplace_row=1655
+order_id=1521
 order_total=101
 order_currency=IRT
-item_id=499
+item_id=504
 item_quantity=3
 item_base_minor=1010000
 item_commission_minor=126250
@@ -322,7 +322,7 @@ PASS  1E …two ten-thousandths on the base  (2)
 PASS  1F …one on the commission  (1)
 PASS  1G …and that this is not the last return of the line  (no)
 one_open_code=return_opened
-one_return_id=75
+one_return_id=84
 one_approve_code=return_approved
 one_receive_code=return_received
 one_refusal_step=__none__
@@ -353,7 +353,7 @@ PASS  1N …three ledger lines, all in one unit  (4)
 PASS  1O …summing to nothing  (0)
 PASS  1P …and a second press writes no second document  (already_refunded)
 two_open_code=return_opened
-two_return_id=76
+two_return_id=85
 two_approve_code=return_approved
 two_receive_code=return_received
 two_refusal_step=__none__
@@ -402,11 +402,11 @@ PASS  1Z the per-unit column is untouched by this round  (__null__)
 gate_ready=yes
 gate_reason=ready_on_trial
 take_code=ownership_taken
-marketplace_row=1648
-order_id=887
+marketplace_row=1656
+order_id=1523
 order_total=300
 order_currency=IRT
-item_id=500
+item_id=505
 item_quantity=3
 item_base_minor=3000000
 item_commission_minor=375000
@@ -416,7 +416,7 @@ item_unit_price_minor=1000000
 base_divides_exactly=yes
 PASS  1AA the control line still divides exactly  (yes)
 even_open_code=return_opened
-even_return_id=77
+even_return_id=86
 even_approve_code=return_approved
 even_receive_code=return_received
 even_refusal_step=__none__
