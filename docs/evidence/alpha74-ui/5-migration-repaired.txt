@@ -1,0 +1,218 @@
+Skip to main content
+Skip to toolbar
+
+
+Dashboard
+Home
+Updates
+
+
+Posts
+All Posts
+Add Post
+Categories
+Tags
+
+
+Media
+Library
+Add Media File
+
+
+Pages
+All Pages
+Add Page
+
+
+Comments
+
+
+WooCommerce
+Home 3
+Orders 100
+Customers
+Coupons
+Reports
+Settings
+Status
+Extensions
+
+
+Products
+All Products
+Add new product
+Brands
+Categories
+Tags
+Attributes
+Reviews
+Min Max Control
+Min Max Control
+Module On/Off
+Browse Plugins
+Hire an Expert
+
+
+Payments
+
+
+بازارگاه تک‌طب
+پیشخوان
+بررسی محصولات
+درخواست‌های فروشندگان
+فروشگاه‌ها (مشاهده)
+مدارک فروشندگان
+تیکت فروشندگان
+وضعیت فروش بازارگاه
+قواعد کمیسیون
+تسویه و برداشت
+پرداخت به تأمین‌کننده
+مرجوعی و بازپرداخت
+خریداران عمده
+الگوهای مشخصات
+نظرات
+گزارش‌ها
+تنظیمات
+ماژول‌ها
+سلامت
+صف و سلامت اجرا
+رویدادها و API
+ممیزی
+راه‌اندازی
+مهاجرت از دکان
+تحویل مهاجرت
+خروج از Min Max
+
+
+Analytics
+Overview
+Products
+Revenue
+Orders
+Variations
+Categories
+Coupons
+Taxes
+Downloads
+Stock
+Settings
+
+
+Marketing
+Overview
+Coupons
+
+
+Appearance
+Themes
+Design
+Customize
+Widgets
+Fonts
+Menus
+Background
+Theme File Editor
+
+
+Plugins
+Installed Plugins
+Add Plugin
+Plugin File Editor
+
+
+Users
+All Users
+Add User
+Profile
+
+
+Tools
+Available Tools
+Import
+Export
+Site Health 4
+Export Personal Data
+Erase Personal Data
+Scheduled Actions
+
+
+Settings
+General
+Connectors
+Writing
+Reading
+Discussion
+Media
+Permalinks
+Privacy
+Collapse Menu
+About WordPress
+بازارگاه تک‌طب
+Store coming soon
+Ctrl+K
+Open command palette
+0
+0 Comments in moderation
+New
+Howdy, tmcowner
+پرش به محتوای اصلی
+بازارگاه تک‌طب
+نسخه آزمایشی
+0.1.0-alpha.74
+روزمره
+فروش و مالی
+محتوا و گزارش
+تنظیمات و ابزارها
+راه‌اندازی و مهاجرت
+راه‌اندازی
+مهاجرت از دکان
+تحویل مهاجرت
+خروج از Min Max
+مهاجرت از دکان
+
+Help us improve Min Max Control even more awesome? By allowing us to collect usage and diagnostic data, you'll help us make the plugin faster, identify bugs, improve performance and better suited to your needs (what we collect)
+
+ Allow No thanks
+
+✓
+
+۱ محصول تکمیل شد؛ ۰ محصول همچنان نیمه‌تمام است.
+
+i
+
+این صفحه هیچ‌چیزِ دکان را تغییر نمی‌دهد: نه کاربر فروشنده، نه مالکیت محصول، نه جدول‌های دکان. آنچه ساخته می‌شود ردیف‌های بازارگاه است که به همان محصول ووکامرسِ موجود اشاره می‌کنند، پس شناسه و نشانی محصول دست‌نخورده می‌ماند.
+
+اجرای آزمایشی
+
+اول یک اجرای آزمایشی بگیرید: داده‌های دکان خوانده می‌شود، تطبیق سطربه‌سطر نمایش داده می‌شود و هیچ چیزی نوشته نمی‌شود.
+
+گرفتن اجرای آزمایشی
+محصولات نگاشت‌شده (هنوز مال بازارگاه نیستند)
+
+این ردیف‌ها فقط می‌دانند کدام محصول ووکامرس متناظرشان است. بازارگاه دربارهٔ خرید، توقف فروش یا انتشار این محصولات هیچ تصمیمی نمی‌گیرد و فروشندهٔ فعلی‌شان مثل قبل می‌فروشد.
+
+!
+
+«انتقال مالکیت عملیاتی» یعنی از آن لحظه بازارگاه تصمیم می‌گیرد این محصول فروخته شود یا نه: توقف فروش آن را به پیش‌نویس می‌برد و گارد خرید دربارهٔ آن نظر می‌دهد. محصول ووکامرس با این کار بازنویسی نمی‌شود و همین دکمه در جهت عکس هم کار می‌کند.
+
+ردیف بازارگاه	عنوان	محصول ووکامرس	اقدام
+4137	کالای ۷۲ 1	11169	
+انتقال مالکیت عملیاتی
+کامل‌بودن ورود
+محصول واردشده	۱
+کامل	۱
+بدون تصویر (نیمه‌تمام)	۰
+قابل‌بررسی نبود	۰
+نگاشت تکراری	۰
+اجراهای انجام‌شده
+شناسهٔ اجرا	زمان	ساخته‌شده	بازگشت
+dokan-20261023-185741	۲۰۲۶-۱۰-۲۳ ۱۸:۵۷:۴۵	۲ فروشنده، ۱ محصول	
+بازگرداندن این اجرا
+
+بازگرداندن، دقیقاً همان ردیف‌هایی را که این اجرا ساخته بود حذف می‌کند و به هیچ‌چیز دیگری دست نمی‌زند. محصولی که منتشر شده یا سفارشی به آن خورده، حذف نمی‌شود و همان‌جا گزارش می‌شود.
+
+تمام ارسال‌های خود افزونه در نسخه آزمایشی مسدود است. وضعیت سایر افزونه‌ها بررسی‌نشده است.
+
+Thank you for creating with WordPress.
+
+Version 7.1
