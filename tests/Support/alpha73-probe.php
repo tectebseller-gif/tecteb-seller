@@ -430,6 +430,16 @@ switch ($command) {
         $f['run'] = $plan->runId;
         $f['total'] = (int) $summary['vendors'] + (int) $summary['products'];
         $remember($f);
+        // ⛔ The dry run's own numbers are reported HERE rather than by a
+        // separate `plan` call, for two reasons measured the hard way: a plan
+        // asked BEFORE the rollback answers about a site that still holds the
+        // previous scenario's import («0 shops left»), and `alpha72-probe.php
+        // plan` REWRITES the fixture's run id — so asking it afterwards left
+        // the completion report looking at a run nothing had imported, and
+        // six controls failed about a build that was working.
+        $say('rearm_plan_vendors', (int) $summary['vendors']);
+        $say('rearm_plan_products', (int) $summary['products']);
+        $say('rearm_plan_conflicts', (int) ($summary['conflicts'] ?? 0));
         $queued = $jobs->enqueue(
             DokanImportJob::TYPE,
             ['run_id' => $f['run'], 'total' => (int) $f['total']],

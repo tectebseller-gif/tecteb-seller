@@ -1,0 +1,448 @@
+=== the trees ===
+base_ref=4ae9dcd223d05c7b62b6f10770f49bdc63adeef6
+this_checkout_src_digest=b4d59694bf6539cc
+installed_src_digest=2fb957b1004544d7
+base_src_digest=2fb957b1004544d7
+PASS  0a the installed package is this round's base (alpha.73)  (2fb957b1004544d7)
+PASS  0b this checkout differs from the base  (differ)
+schema_for_both_halves=34
+PASS  0c the structure is 34 and this round does not move it  (34)
+PASS  0d no migration file changed in this round  (0)
+PASS  0e the parkable worker is in this checkout  (yes)
+PASS  0f the hand-over's own process is in this checkout  (yes)
+reader_available=yes
+reader_vendors=2
+reader_products=6
+source_attachment=10051
+products_with_a_picture=6
+shop_digest=10b891b7543aa16aa68440a6986a72d85ea2efbd6ad48a1be4ec11d7b7878102
+PASS  0g the real reader sees two Dokan shops  (2)
+PASS  0h …and their 6 products  (6)
+PASS  0i …each with a picture on the WooCommerce product  (6)
+NOTE  0j the WooCommerce products as they stand  10b891b7543aa16aa68440a6986a72d85ea2efbd6ad48a1be4ec11d7b7878102
+
+=== BEFORE · the installed tree ===
+PASS  b0 the installed tree is the BEFORE one  (2fb957b1004544d7)
+
+=== BEFORE · §1 the attach window ===
+rolled_back=__none__
+rearm_plan_vendors=2
+rearm_plan_products=6
+rearm_plan_conflicts=0
+rearm_run=dokan-20261023-184844
+rearm_queued=119
+rearm_mapped=0
+rearm_copies=0
+PASS  b1a-1 the import is back to queued with nothing imported  (0/0)
+PASS  b1a-2 the dry run reads two shops  (2)
+PASS  b1a-3 …and 6 products with zero conflicts  (6/0)
+phase=products
+after=0
+mapped=0
+PASS  b1a-4 the vendors phase is done and the next batch is a product one  (products)
+PASS  b1a-5 …with no product imported yet  (0)
+stop_point=before-attach
+copies_before=0
+mapped_before=0
+digest_before=4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+a_parked=yes
+job_id=119
+a_is_on_unit=10052
+hand_over_got_through_while_a_was_parked=yes
+hand_over_answer=handed_over
+b_batches=2
+b_outcome=more
+copies_after_b=7
+digest_after_b=0493077d882391dcff9d823286fc50c51b5ccf3aedf698d893d4a782d5de764e
+a_wrote_after_losing_the_job=yes
+a_added_a_copy_after_losing_the_job=no
+a_outcome=job:119 outcome:lease_lost done:0 failed:0 checkpoints:__absent__ error:__none__
+a_write_phase_ms=__absent__
+a_released=yes
+copies_at_the_end=7
+orphan_copies=1
+orphan_copy_ids=10059
+mapped_at_the_end=6
+duplicate_mappings=0
+products_without_image=0
+manifest_products=6
+manifest_names_a_row_that_is_gone=0
+digest_at_the_end=2ed877a51109adc37fcdd6b802edb523d48d17c206dce69d33208c2dff0ff1e7
+PASS  b1b-1 worker A really parked at the attach  (yes)
+NOTE  b1b-2 the unit A was on  10052
+NOTE  b1b-3 did the hand-over get through while A was parked  yes
+NOTE  b1b-4 the hand-over's answer  handed_over
+NOTE  b1b-5 A's own batch outcome  job:119 outcome:lease_lost done:0 failed:0 checkpoints:__absent__ error:__none__
+NOTE  b1b-6 how long A held the job row  __absent__
+completion_mapped=6
+completion_complete=6
+completion_without_image=0
+completion_source_unreadable=0
+completion_duplicate_mappings=0
+completion_finished=yes
+completion_incomplete_ids=[]
+
+=== BEFORE · §2 the create window ===
+rolled_back=dokan-20261023-184844:ok
+rearm_plan_vendors=2
+rearm_plan_products=6
+rearm_plan_conflicts=0
+rearm_run=dokan-20261023-184852
+rearm_queued=120
+rearm_mapped=0
+rearm_copies=0
+PASS  b2a-1 the import is back to queued with nothing imported  (0/0)
+PASS  b2a-2 the dry run reads two shops  (2)
+PASS  b2a-3 …and 6 products with zero conflicts  (6/0)
+phase=products
+after=0
+mapped=0
+PASS  b2a-4 the vendors phase is done and the next batch is a product one  (products)
+PASS  b2a-5 …with no product imported yet  (0)
+stop_point=before-create
+copies_before=0
+mapped_before=0
+digest_before=4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+a_parked=yes
+job_id=120
+a_is_on_unit=10052
+hand_over_got_through_while_a_was_parked=yes
+hand_over_answer=handed_over
+b_batches=2
+b_outcome=more
+copies_after_b=6
+digest_after_b=066b6ef4e4980cb386fb025867cfcc0f0ea266881a74187d2efa882a87031eec
+a_wrote_after_losing_the_job=no
+a_added_a_copy_after_losing_the_job=no
+a_outcome=job:120 outcome:lease_lost done:0 failed:0 checkpoints:__absent__ error:__none__
+a_write_phase_ms=__absent__
+a_released=yes
+copies_at_the_end=6
+orphan_copies=0
+orphan_copy_ids=__none__
+mapped_at_the_end=6
+duplicate_mappings=0
+products_without_image=0
+manifest_products=6
+manifest_names_a_row_that_is_gone=0
+digest_at_the_end=066b6ef4e4980cb386fb025867cfcc0f0ea266881a74187d2efa882a87031eec
+PASS  b2b-1 worker A really parked at the insert  (yes)
+NOTE  b2b-2 did the hand-over get through while A was parked  yes
+NOTE  b2b-3 A's own batch outcome  job:120 outcome:lease_lost done:0 failed:0 checkpoints:__absent__ error:__none__
+WordPress database error Duplicate entry '10052' for key 'tmc_product_wc' for query INSERT INTO `wp_tmc_products` (vendor_user_id, title, title_sort, type, category_key, brand, short_description, price_minor, sale_price_minor, sale_from, sale_to, description, sku, stock, min_purchase, weight_grams, dimensions, tax_class, max_purchase, purchase_step, status, link_ownership, wc_product_id, synced_at, import_run_id, created_at, updated_at) VALUES (171, 'دوباره‌سازی مکانیزم', '1akbeacabambf apabanbg bcazabbdbganbc', 'simple', '', '', '', 1000, NULL, NULL, NULL, NULL, '', 1, 1, 0, '', '', NULL, 1, 'draft', 'observed', 10052, '2026-10-23 18:48:57', 'dokan-20261023-184852', '2026-10-23 18:48:57', '2026-10-23 18:48:57') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository->create, Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository->insertRow, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+wc_product_id_unique_key=tmc_product_wc
+wc_product_id_has_a_unique_key=yes
+wc_product_under_test=10052
+rows_for_it_before=1
+second_row_for_the_same_wc_product=refused
+rows_for_it_after=1
+run_progress_products=6
+PASS  b2c-1 ⛔ wc_product_id carries a unique key  (yes)
+NOTE  b2c-2 …and it is called  tmc_product_wc
+PASS  b2c-3 so a second row for the same product is refused by the SCHEMA  (refused)
+PASS  b2c-4 …and the count for it is unchanged either way  (1)
+
+=== BEFORE · control: a resume whose lease went during the COPY ===
+rolled_back=dokan-20261023-184852:ok
+rearm_plan_vendors=2
+rearm_plan_products=6
+rearm_plan_conflicts=0
+rearm_run=dokan-20261023-184858
+rearm_queued=121
+rearm_mapped=0
+rearm_copies=0
+PASS  b3a-1 the import is back to queued with nothing imported  (0/0)
+PASS  b3a-2 the dry run reads two shops  (2)
+PASS  b3a-3 …and 6 products with zero conflicts  (6/0)
+phase=products
+after=0
+mapped=0
+PASS  b3a-4 the vendors phase is done and the next batch is a product one  (products)
+PASS  b3a-5 …with no product imported yet  (0)
+copies_before=0
+hand_over_answer=handed_over
+b_batches=2
+a_outcome=job:121 outcome:lease_lost done:0 failed:0 checkpoints:__absent__ error:__none__
+a_wrote_after_losing_the_job=no
+orphan_copies=0
+duplicate_mappings=0
+products_without_image=0
+PASS  b3b-1 the hand-over goes through, because A holds nothing yet  (handed_over)
+NOTE  b3b-2 A's own batch outcome  job:121 outcome:lease_lost done:0 failed:0 checkpoints:__absent__ error:__none__
+PASS  b3b-3 ⛔ A wrote nothing into the import it had lost  (no)
+PASS  b3b-4 …and left no orphan copy  (0)
+PASS  b3b-5 …and no duplicate mapping  (0)
+
+=== BEFORE · control: nothing interrupted ===
+rolled_back=dokan-20261023-184858:ok
+rearm_plan_vendors=2
+rearm_plan_products=6
+rearm_plan_conflicts=0
+rearm_run=dokan-20261023-184904
+rearm_queued=122
+rearm_mapped=0
+rearm_copies=0
+PASS  b4a-1 the import is back to queued with nothing imported  (0/0)
+PASS  b4a-2 the dry run reads two shops  (2)
+PASS  b4a-3 …and 6 products with zero conflicts  (6/0)
+phase=products
+after=0
+mapped=0
+PASS  b4a-4 the vendors phase is done and the next batch is a product one  (products)
+PASS  b4a-5 …with no product imported yet  (0)
+clean_parked=no
+clean_write_phase_ms=__absent__
+clean_mapped=6
+clean_products_without_image=0
+clean_duplicate_mappings=0
+clean_orphan_copies=0
+clean_copies=6
+clean_manifest_products=6
+PASS  b4b-1 every product is mapped  (6)
+PASS  b4b-2 …every one with its picture  (0)
+PASS  b4b-3 …no duplicate mapping  (0)
+PASS  b4b-4 …no orphan copy  (0)
+PASS  b4b-5 …one copy per product  (6)
+PASS  b4b-6 …and the manifest knows about every row  (6)
+NOTE  b4b-7 how long a healthy unit holds the job row  __absent__
+completion_mapped=6
+completion_complete=6
+completion_without_image=0
+completion_source_unreadable=0
+completion_duplicate_mappings=0
+completion_finished=yes
+completion_incomplete_ids=[]
+PASS  b4c-1 the completion report agrees: all mapped  (6)
+PASS  b4c-2 …all complete  (6)
+PASS  b4c-3 …none without a picture  (0)
+PASS  b4c-4 …and the scan reached the end  (yes)
+PASS  b5 the WooCommerce products are byte-for-byte unchanged  (10b891b7543aa16aa68440a6986a72d85ea2efbd6ad48a1be4ec11d7b7878102)
+
+=== BEFORE · the finding, in the numbers ===
+PASS  b6-0 ⛔ the hand-over walked straight through the gap  (yes)
+PASS  b6-1 ⛔ A WROTE INTO AN IMPORT IT NO LONGER OWNED  (yes)
+PASS  b6-2 ⛔ …leaving a copy nothing points at  (1)
+NOTE  b6-3 the orphan's attachment id  10059
+PASS  b6-4 ⛔ …so the library holds more copies than there are products  (yes)
+NOTE  b6-5 copies / mapped  7/6
+NOTE  b6-6 and the create window on the same bytes  wrote=no duplicate_mappings=0 orphans=0
+
+=== AFTER · the installed tree ===
+PASS  a0 the installed tree is the AFTER one  (b4d59694bf6539cc)
+
+=== AFTER · §1 the attach window ===
+rolled_back=dokan-20261023-184904:ok
+rearm_plan_vendors=2
+rearm_plan_products=6
+rearm_plan_conflicts=0
+rearm_run=dokan-20261023-184911
+rearm_queued=123
+rearm_mapped=0
+rearm_copies=0
+PASS  a1a-1 the import is back to queued with nothing imported  (0/0)
+PASS  a1a-2 the dry run reads two shops  (2)
+PASS  a1a-3 …and 6 products with zero conflicts  (6/0)
+phase=products
+after=0
+mapped=0
+PASS  a1a-4 the vendors phase is done and the next batch is a product one  (products)
+PASS  a1a-5 …with no product imported yet  (0)
+stop_point=before-attach
+copies_before=0
+mapped_before=0
+digest_before=4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+a_parked=yes
+job_id=123
+a_is_on_unit=10052
+hand_over_got_through_while_a_was_parked=no
+hand_over_answer=handed_over
+hand_over_waited_ms=8040.9
+digest_after_a_closed=ab6af0760e3ef938b79e900fb2ac906aee3bd4747b8bd11aa421bfb89f5fcfc9
+a_wrote_after_losing_the_job=no
+a_added_a_copy_after_losing_the_job=no
+b_batches=1
+b_outcome=done
+a_outcome=job:123 outcome:more done:0 failed:0 checkpoints:13 error:__none__
+a_write_phase_ms=5.72,8950.14,1.56,0.69,1.18,1.16,1.4,0.6,1.33,0.86,1.18,1.19
+a_released=yes
+copies_at_the_end=6
+orphan_copies=0
+orphan_copy_ids=__none__
+mapped_at_the_end=6
+duplicate_mappings=0
+products_without_image=0
+manifest_products=6
+manifest_names_a_row_that_is_gone=0
+digest_at_the_end=ab6af0760e3ef938b79e900fb2ac906aee3bd4747b8bd11aa421bfb89f5fcfc9
+PASS  a1b-1 worker A really parked at the attach  (yes)
+NOTE  a1b-2 the unit A was on  10052
+NOTE  a1b-3 did the hand-over get through while A was parked  no
+NOTE  a1b-4 the hand-over's answer  handed_over
+NOTE  a1b-5 A's own batch outcome  job:123 outcome:more done:0 failed:0 checkpoints:13 error:__none__
+NOTE  a1b-6 how long A held the job row  5.72,8950.14,1.56,0.69,1.18,1.16,1.4,0.6,1.33,0.86,1.18,1.19
+completion_mapped=6
+completion_complete=6
+completion_without_image=0
+completion_source_unreadable=0
+completion_duplicate_mappings=0
+completion_finished=yes
+completion_incomplete_ids=[]
+
+=== AFTER · §2 the create window ===
+rolled_back=dokan-20261023-184911:ok
+rearm_plan_vendors=2
+rearm_plan_products=6
+rearm_plan_conflicts=0
+rearm_run=dokan-20261023-184925
+rearm_queued=124
+rearm_mapped=0
+rearm_copies=0
+PASS  a2a-1 the import is back to queued with nothing imported  (0/0)
+PASS  a2a-2 the dry run reads two shops  (2)
+PASS  a2a-3 …and 6 products with zero conflicts  (6/0)
+phase=products
+after=0
+mapped=0
+PASS  a2a-4 the vendors phase is done and the next batch is a product one  (products)
+PASS  a2a-5 …with no product imported yet  (0)
+stop_point=before-create
+copies_before=0
+mapped_before=0
+digest_before=4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+a_parked=yes
+job_id=124
+a_is_on_unit=10052
+hand_over_got_through_while_a_was_parked=no
+hand_over_answer=handed_over
+hand_over_waited_ms=8029
+digest_after_a_closed=03c508943ee70c48620f4cd5a3fa8ffd3fb88d197bab8a45bb21cbd26e1011e8
+a_wrote_after_losing_the_job=no
+a_added_a_copy_after_losing_the_job=no
+b_batches=1
+b_outcome=done
+a_outcome=job:124 outcome:more done:0 failed:0 checkpoints:13 error:__none__
+a_write_phase_ms=8858.15,0.85,2.18,0.74,1.46,0.61,1.02,0.74,1.24,1.8,1.14,0.56
+a_released=yes
+copies_at_the_end=6
+orphan_copies=0
+orphan_copy_ids=__none__
+mapped_at_the_end=6
+duplicate_mappings=0
+products_without_image=0
+manifest_products=6
+manifest_names_a_row_that_is_gone=0
+digest_at_the_end=03c508943ee70c48620f4cd5a3fa8ffd3fb88d197bab8a45bb21cbd26e1011e8
+PASS  a2b-1 worker A really parked at the insert  (yes)
+NOTE  a2b-2 did the hand-over get through while A was parked  no
+NOTE  a2b-3 A's own batch outcome  job:124 outcome:more done:0 failed:0 checkpoints:13 error:__none__
+WordPress database error Duplicate entry '10052' for key 'tmc_product_wc' for query INSERT INTO `wp_tmc_products` (vendor_user_id, title, title_sort, type, category_key, brand, short_description, price_minor, sale_price_minor, sale_from, sale_to, description, sku, stock, min_purchase, weight_grams, dimensions, tax_class, max_purchase, purchase_step, status, link_ownership, wc_product_id, synced_at, import_run_id, created_at, updated_at) VALUES (171, 'دوباره‌سازی مکانیزم', '1akbeacabambf apabanbg bcazabbdbganbc', 'simple', '', '', '', 1000, NULL, NULL, NULL, NULL, '', 1, 1, 0, '', '', NULL, 1, 'draft', 'observed', 10052, '2026-10-23 18:49:39', 'dokan-20261023-184925', '2026-10-23 18:49:39', '2026-10-23 18:49:39') made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository->create, Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository->insertRow, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+wc_product_id_unique_key=tmc_product_wc
+wc_product_id_has_a_unique_key=yes
+wc_product_under_test=10052
+rows_for_it_before=1
+second_row_for_the_same_wc_product=refused
+rows_for_it_after=1
+run_progress_products=6
+PASS  a2c-1 ⛔ wc_product_id carries a unique key  (yes)
+NOTE  a2c-2 …and it is called  tmc_product_wc
+PASS  a2c-3 so a second row for the same product is refused by the SCHEMA  (refused)
+PASS  a2c-4 …and the count for it is unchanged either way  (1)
+
+=== AFTER · control: a resume whose lease went during the COPY ===
+rolled_back=dokan-20261023-184925:ok
+rearm_plan_vendors=2
+rearm_plan_products=6
+rearm_plan_conflicts=0
+rearm_run=dokan-20261023-184940
+rearm_queued=125
+rearm_mapped=0
+rearm_copies=0
+PASS  a3a-1 the import is back to queued with nothing imported  (0/0)
+PASS  a3a-2 the dry run reads two shops  (2)
+PASS  a3a-3 …and 6 products with zero conflicts  (6/0)
+phase=products
+after=0
+mapped=0
+PASS  a3a-4 the vendors phase is done and the next batch is a product one  (products)
+PASS  a3a-5 …with no product imported yet  (0)
+copies_before=0
+hand_over_answer=handed_over
+b_batches=2
+a_outcome=job:125 outcome:lease_lost done:0 failed:0 checkpoints:__absent__ error:__none__
+a_wrote_after_losing_the_job=no
+orphan_copies=0
+duplicate_mappings=0
+products_without_image=0
+PASS  a3b-1 the hand-over goes through, because A holds nothing yet  (handed_over)
+NOTE  a3b-2 A's own batch outcome  job:125 outcome:lease_lost done:0 failed:0 checkpoints:__absent__ error:__none__
+PASS  a3b-3 ⛔ A wrote nothing into the import it had lost  (no)
+PASS  a3b-4 …and left no orphan copy  (0)
+PASS  a3b-5 …and no duplicate mapping  (0)
+
+=== AFTER · control: nothing interrupted ===
+rolled_back=dokan-20261023-184940:ok
+rearm_plan_vendors=2
+rearm_plan_products=6
+rearm_plan_conflicts=0
+rearm_run=dokan-20261023-184946
+rearm_queued=126
+rearm_mapped=0
+rearm_copies=0
+PASS  a4a-1 the import is back to queued with nothing imported  (0/0)
+PASS  a4a-2 the dry run reads two shops  (2)
+PASS  a4a-3 …and 6 products with zero conflicts  (6/0)
+phase=products
+after=0
+mapped=0
+PASS  a4a-4 the vendors phase is done and the next batch is a product one  (products)
+PASS  a4a-5 …with no product imported yet  (0)
+clean_parked=no
+clean_write_phase_ms=6.7,0.7,1.53,0.74,1.26,0.66,1.43,2.2,2.07,0.52,1.27,0.7
+clean_mapped=6
+clean_products_without_image=0
+clean_duplicate_mappings=0
+clean_orphan_copies=0
+clean_copies=6
+clean_manifest_products=6
+PASS  a4b-1 every product is mapped  (6)
+PASS  a4b-2 …every one with its picture  (0)
+PASS  a4b-3 …no duplicate mapping  (0)
+PASS  a4b-4 …no orphan copy  (0)
+PASS  a4b-5 …one copy per product  (6)
+PASS  a4b-6 …and the manifest knows about every row  (6)
+NOTE  a4b-7 how long a healthy unit holds the job row  6.7,0.7,1.53,0.74,1.26,0.66,1.43,2.2,2.07,0.52,1.27,0.7
+completion_mapped=6
+completion_complete=6
+completion_without_image=0
+completion_source_unreadable=0
+completion_duplicate_mappings=0
+completion_finished=yes
+completion_incomplete_ids=[]
+PASS  a4c-1 the completion report agrees: all mapped  (6)
+PASS  a4c-2 …all complete  (6)
+PASS  a4c-3 …none without a picture  (0)
+PASS  a4c-4 …and the scan reached the end  (yes)
+PASS  a5 the WooCommerce products are byte-for-byte unchanged  (10b891b7543aa16aa68440a6986a72d85ea2efbd6ad48a1be4ec11d7b7878102)
+
+=== AFTER · the finding, closed ===
+PASS  a6-0 the hand-over could not get through while A was writing  (no)
+NOTE  a6-0b …and how long it waited before this script released A  8040.9
+NOTE  a6-0c …and what it answered  handed_over
+PASS  a6-1 A wrote nothing it did not own  (no)
+PASS  a6-2 …and left no orphan copy  (0)
+PASS  a6-3 …one copy per mapped product  (6)
+PASS  a6-4 …no duplicate mapping  (0)
+PASS  a6-5 …and no manifest entry naming a row that is gone  (0)
+PASS  a6-6 the create window stays shut too  (no/0/0)
+PASS  a6-7 …with no manifest ghost there either  (0)
+
+=== the two trees side by side ===
+attach_window_wrote_after_losing_the_job   before=yes   after=no
+attach_window_orphan_copies                before=1   after=0
+attach_window_copies_vs_mapped             before=7/6   after=6/6
+attach_window_products_without_image       before=0   after=0
+create_window_duplicate_mappings           before=0   after=0
+hand_over_got_through_mid_write            before=yes   after=no
+write_phase_ms_per_unit                    before=__absent__   after=5.72,8950.14,1.56,0.69,1.18,1.16,1.4,0.6,1.33,0.86,1.18,1.19
+
+pass=103 fail=0

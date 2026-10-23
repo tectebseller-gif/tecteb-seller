@@ -193,15 +193,20 @@ UNTOUCHED_BEFORE="$(val "$(probe72 untouched)" wc_digest)"
 note "0j the WooCommerce products as they stand" "$UNTOUCHED_BEFORE"
 
 #   $1 the check prefix
+#
+# ⛔ THE ROLLBACK COMES FIRST, and the first version of this had it second.
+# `plan()` is a dry run ABOUT THE CURRENT STATE: asked while the previous
+# scenario's import is still in place it answers «0 shops left to import»,
+# which is correct about the site and wrong about what the check meant. Four
+# controls failed that way, about a build that was working.
 rearm_to_the_products_page() {
-  local re pl tp
-  pl="$(probe72 plan)"; printf '%s\n' "$pl" >>"$RUN"
-  check "$1-1 the dry run reads two shops" "2" "$(val "$pl" plan_vendors)"
-  check "$1-2 …and $PRODUCTS products with zero conflicts" "$PRODUCTS/0" \
-    "$(val "$pl" plan_products)/$(val "$pl" plan_conflicts)"
+  local re tp
   re="$(probe rearm)"; printf '%s\n' "$re" >>"$RUN"
-  check "$1-3 the import is back to queued with nothing imported" "0/0" \
+  check "$1-1 the import is back to queued with nothing imported" "0/0" \
     "$(val "$re" rearm_mapped)/$(val "$re" rearm_copies)"
+  check "$1-2 the dry run reads two shops" "2" "$(val "$re" rearm_plan_vendors)"
+  check "$1-3 …and $PRODUCTS products with zero conflicts" "$PRODUCTS/0" \
+    "$(val "$re" rearm_plan_products)/$(val "$re" rearm_plan_conflicts)"
   tp="$(probe to-products)"; printf '%s\n' "$tp" >>"$RUN"
   check "$1-4 the vendors phase is done and the next batch is a product one" "products" \
     "$(val "$tp" phase)"
@@ -230,6 +235,10 @@ measure() {
   note  "${lower:0:1}1b-4 the hand-over's answer" "$(val "$G" hand_over_answer)"
   note  "${lower:0:1}1b-5 A's own batch outcome" "$(val "$G" a_outcome)"
   note  "${lower:0:1}1b-6 how long A held the job row" "$(val "$G" a_write_phase_ms)"
+  ATTACH_GOT_THROUGH="$(val "$G" hand_over_got_through_while_a_was_parked)"
+  ATTACH_HANDOVER="$(val "$G" hand_over_answer)"
+  ATTACH_WAITED="$(val "$G" hand_over_waited_ms)"
+  ATTACH_PHASE_MS="$(val "$G" a_write_phase_ms)"
   ATTACH_WROTE="$(val "$G" a_wrote_after_losing_the_job)"
   ATTACH_ORPHANS="$(val "$G" orphan_copies)"
   ATTACH_ORPHAN_IDS="$(val "$G" orphan_copy_ids)"
@@ -258,7 +267,7 @@ measure() {
   CREATE_GHOSTS="$(val "$C" manifest_names_a_row_that_is_gone)"
   # The MECHANISM, named rather than inferred from a zero.
   M="$(probe create-gap-mechanism)"; printf '%s\n' "$M" >>"$RUN"
-  check "${lower:0:1}2c-1 ⛔ wc_product_id carries a unique key" "1" \
+  check "${lower:0:1}2c-1 ⛔ wc_product_id carries a unique key" "yes" \
     "$(val "$M" wc_product_id_has_a_unique_key)"
   note  "${lower:0:1}2c-2 …and it is called" "$(val "$M" wc_product_id_unique_key)"
   check "${lower:0:1}2c-3 so a second row for the same product is refused by the SCHEMA" "refused" \
@@ -274,7 +283,7 @@ measure() {
   check "${lower:0:1}3b-1 the hand-over goes through, because A holds nothing yet" "handed_over" \
     "$(val "$S" hand_over_answer)"
   note  "${lower:0:1}3b-2 A's own batch outcome" "$(val "$S" a_outcome)"
-  check "${lower:0:1}3b-3 ⛔ A wrote nothing into the import it had lost" "false" \
+  check "${lower:0:1}3b-3 ⛔ A wrote nothing into the import it had lost" "no" \
     "$(val "$S" a_wrote_after_losing_the_job)"
   check "${lower:0:1}3b-4 …and left no orphan copy" "0" "$(val "$S" orphan_copies)"
   check "${lower:0:1}3b-5 …and no duplicate mapping" "0" "$(val "$S" duplicate_mappings)"
@@ -298,7 +307,7 @@ measure() {
     "$(val "$CC" completion_mapped)"
   check "${lower:0:1}4c-2 …all complete" "$PRODUCTS" "$(val "$CC" completion_complete)"
   check "${lower:0:1}4c-3 …none without a picture" "0" "$(val "$CC" completion_without_image)"
-  check "${lower:0:1}4c-4 …and the scan reached the end" "1" "$(val "$CC" completion_finished)"
+  check "${lower:0:1}4c-4 …and the scan reached the end" "yes" "$(val "$CC" completion_finished)"
 
   check "${lower:0:1}5 the WooCommerce products are byte-for-byte unchanged" \
     "$UNTOUCHED_BEFORE" "$(val "$(probe72 untouched)" wc_digest)"
@@ -307,6 +316,7 @@ measure() {
 # ======================================================= BEFORE (alpha.73)
 measure BEFORE "$KEEP/base" "$BASE_HASH"
 B_ATTACH_WROTE="$ATTACH_WROTE"; B_ATTACH_ORPHANS="$ATTACH_ORPHANS"
+B_ATTACH_GOT_THROUGH="$ATTACH_GOT_THROUGH"; B_ATTACH_PHASE_MS="$ATTACH_PHASE_MS"
 B_ATTACH_IDS="$ATTACH_ORPHAN_IDS"; B_ATTACH_COPIES="$ATTACH_COPIES"
 B_ATTACH_MAPPED="$ATTACH_MAPPED"; B_ATTACH_DUPES="$ATTACH_DUPES"
 B_ATTACH_GHOSTS="$ATTACH_GHOSTS"; B_ATTACH_NOIMAGE="$ATTACH_NOIMAGE"
@@ -316,7 +326,8 @@ B_CREATE_ORPHANS="$CREATE_ORPHANS"; B_CREATE_GHOSTS="$CREATE_GHOSTS"
 
 say ""
 say "=== BEFORE · the finding, in the numbers ==="
-check "b6-1 ⛔ A WROTE INTO AN IMPORT IT NO LONGER OWNED" "true" "$B_ATTACH_WROTE"
+check "b6-0 ⛔ the hand-over walked straight through the gap" "yes" "$B_ATTACH_GOT_THROUGH"
+check "b6-1 ⛔ A WROTE INTO AN IMPORT IT NO LONGER OWNED" "yes" "$B_ATTACH_WROTE"
 check "b6-2 ⛔ …leaving a copy nothing points at" "1" "$B_ATTACH_ORPHANS"
 note  "b6-3 the orphan's attachment id" "$B_ATTACH_IDS"
 check "b6-4 ⛔ …so the library holds more copies than there are products" "yes" \
@@ -330,12 +341,23 @@ measure AFTER "$REPO" "$NOW_HASH"
 
 say ""
 say "=== AFTER · the finding, closed ==="
-check "a6-1 A wrote nothing it did not own" "false" "$ATTACH_WROTE"
+# ⛔ THE ORDERING IS THE FIX, and this is where it shows. The hand-over runs
+# in its own process with the manager's explicit override, and it still cannot
+# take the job while a unit is mid-write: it WAITS on the row.
+check "a6-0 the hand-over could not get through while A was writing" "no" "$ATTACH_GOT_THROUGH"
+note  "a6-0b …and how long it waited before this script released A" "$ATTACH_WAITED"
+# And the answer it gives is `not_handed_over`, which is the honest one: by the
+# time the UPDATE got the row, A's unit had closed and A's NEXT checkpoint had
+# extended the lease again, so the lease it meant to end is live. The
+# verification read says so rather than reporting a success it cannot stand
+# behind — `alpha.71`'s rule, one method along.
+note  "a6-0c …and what it answered" "$ATTACH_HANDOVER"
+check "a6-1 A wrote nothing it did not own" "no" "$ATTACH_WROTE"
 check "a6-2 …and left no orphan copy" "0" "$ATTACH_ORPHANS"
 check "a6-3 …one copy per mapped product" "$ATTACH_MAPPED" "$ATTACH_COPIES"
 check "a6-4 …no duplicate mapping" "0" "$ATTACH_DUPES"
 check "a6-5 …and no manifest entry naming a row that is gone" "0" "$ATTACH_GHOSTS"
-check "a6-6 the create window stays shut too" "false/0/0" \
+check "a6-6 the create window stays shut too" "no/0/0" \
   "$CREATE_WROTE/$CREATE_DUPES/$CREATE_ORPHANS"
 check "a6-7 …with no manifest ghost there either" "0" "$CREATE_GHOSTS"
 
@@ -346,6 +368,8 @@ say "attach_window_orphan_copies                before=$B_ATTACH_ORPHANS   after
 say "attach_window_copies_vs_mapped             before=$B_ATTACH_COPIES/$B_ATTACH_MAPPED   after=$ATTACH_COPIES/$ATTACH_MAPPED"
 say "attach_window_products_without_image       before=$B_ATTACH_NOIMAGE   after=$ATTACH_NOIMAGE"
 say "create_window_duplicate_mappings           before=$B_CREATE_DUPES   after=$CREATE_DUPES"
+say "hand_over_got_through_mid_write            before=$B_ATTACH_GOT_THROUGH   after=$ATTACH_GOT_THROUGH"
+say "write_phase_ms_per_unit                    before=$B_ATTACH_PHASE_MS   after=$ATTACH_PHASE_MS"
 
 say ""
 say "pass=$PASS fail=$FAIL"
