@@ -27,6 +27,27 @@ final class OperationsMessages
         };
     }
 
+    /** What started a batch — the tick, or somebody pressing the button. */
+    public static function runStarter(string $how): string
+    {
+        return match ($how) {
+            'cron' => __('زمان‌بند', 'tecteb-marketplace-core'),
+            'manual' => __('اجرای دستی', 'tecteb-marketplace-core'),
+            default => __('نامعلوم', 'tecteb-marketplace-core'),
+        };
+    }
+
+    /** The import's three phases, for «جای توقف» on the queue page. */
+    public static function importPhase(string $phase): string
+    {
+        return match ($phase) {
+            'vendors' => __('فروشندگان', 'tecteb-marketplace-core'),
+            'products' => __('محصولات', 'tecteb-marketplace-core'),
+            'orders' => __('سابقهٔ سفارش', 'tecteb-marketplace-core'),
+            default => __('نامعلوم', 'tecteb-marketplace-core'),
+        };
+    }
+
     public static function jobType(string $type): string
     {
         return match ($type) {

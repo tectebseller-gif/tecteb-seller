@@ -36,6 +36,18 @@ final class WpJobScheduler
 
     public const OPTION_LAST_TICK = 'tmc_jobs_last_tick';
 
+    /**
+     * When a batch last RAN, and what started it.
+     *
+     * ⛔ Separate from `OPTION_LAST_TICK`, which is when the cron HOOK last
+     * fired, and the difference is not pedantry: «اجرای دستی یک دسته» calls
+     * the runner straight from the queue page and never goes through the hook,
+     * so on `alpha.71` the page kept saying «آخرین اجرا: هنوز اجرا نشده» after
+     * any number of manual runs. The owner read that as a dead cron. It was a
+     * report that only knew about one of the two ways a batch can run.
+     */
+    public const OPTION_LAST_RUN = 'tmc_jobs_last_run';
+
     public static function register(\Closure $runnerFactory): void
     {
         add_filter('cron_schedules', [self::class, 'addSchedule']);
@@ -133,6 +145,18 @@ final class WpJobScheduler
             && did_action('action_scheduler_init') > 0;
     }
 
+    /**
+     * Write down that a batch ran, and how it was started.
+     *
+     * Called by the tick AND by the manual button, because those are the two
+     * things that run work and a report that knows about one of them is wrong
+     * about the other.
+     */
+    public static function recordRun(string $how): void
+    {
+        update_option(self::OPTION_LAST_RUN, ['at' => time(), 'how' => $how === 'cron' ? 'cron' : 'manual'], false);
+    }
+
     /** Machine key for the report; the Persian label lives in Presentation. */
     public static function binding(): string
     {
@@ -145,7 +169,7 @@ final class WpJobScheduler
         return 'wp_cron';
     }
 
-    /** @return array{binding:string, next:int, last_tick:int} */
+    /** @return array{binding:string, next:int, last_tick:int, last_run:int, last_run_how:string, overdue:int} */
     public static function status(): array
     {
         $next = 0;
@@ -156,16 +180,28 @@ final class WpJobScheduler
             $scheduled = wp_next_scheduled(self::HOOK);
             $next = $scheduled === false ? 0 : (int) $scheduled;
         }
+        $run = get_option(self::OPTION_LAST_RUN, []);
         return [
             'binding' => self::binding(),
             'next' => $next,
             'last_tick' => (int) get_option(self::OPTION_LAST_TICK, 0),
+            'last_run' => is_array($run) ? (int) ($run['at'] ?? 0) : 0,
+            'last_run_how' => is_array($run) ? (string) ($run['how'] ?? '') : '',
+            // How far the next run is in the PAST. Zero means it is not.
+            //
+            // `ensureScheduled()` asks «is this already scheduled?», and both
+            // backends answer yes for an action whose time passed weeks ago —
+            // so an overdue action is never re-scheduled and nothing anywhere
+            // says so. On staging it read ۱۴۰۵/۰۷/۰۴، four weeks back, next to
+            // a reassuring «زمان‌بندی شده».
+            'overdue' => $next > 0 && $next < time() - 300 ? time() - $next : 0,
         ];
     }
 
     private static function tick(\Closure $runnerFactory): void
     {
         update_option(self::OPTION_LAST_TICK, time(), false);
+        self::recordRun('cron');
         try {
             $runner = $runnerFactory();
             if ($runner instanceof JobRunner) {

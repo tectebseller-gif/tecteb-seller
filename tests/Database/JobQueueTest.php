@@ -172,6 +172,74 @@ final class JobQueueTest extends DatabaseTestCase
         self::assertSame(1, $census['stalled'], 'the row still says running; only the lease tells the truth');
     }
 
+    /**
+     * THE STATE STAGING WAS IN. A job held by a worker that no longer exists
+     * is invisible to `claim()` for as long as its lease says somebody is
+     * working on it — and that is right, because `claim()` cannot tell a live
+     * worker from a dead one. `handOver()` is how a person says which it is.
+     */
+    public function testAJobHeldByALeaseNobodyIsUsingCanBeHandedOver(): void
+    {
+        $queued = $this->jobs->enqueue('walk', ['run' => 1], 'walk', 1);
+        $claimed = $this->jobs->claim(['walk'], 'token-dead', 300);
+        self::assertNotNull($claimed);
+        $this->jobs->checkpoint($queued['id'], 'token-dead', ['at' => 7], 7, 1, 20, 300);
+
+        self::assertNull($this->jobs->claim(['walk'], 'token-b', 300), 'the live lease hides it');
+        self::assertSame(0, $this->jobs->census()['stalled'], 'and the report calls it busy, not stalled');
+
+        self::assertTrue($this->jobs->handOver($queued['id']));
+        $next = $this->jobs->claim(['walk'], 'token-b', 300);
+        self::assertNotNull($next, 'the next worker may now take it');
+        // The point of handing over rather than cancelling: the position and
+        // the counts are the whole reason not to start again from nothing.
+        self::assertSame(['at' => 7], $next->cursor);
+        self::assertSame(7, $next->done);
+        self::assertSame(1, $next->failed);
+        self::assertSame(20, $next->total);
+    }
+
+    /** And the worker that was handed over writes nothing afterwards. */
+    public function testAHandedOverWorkerCannotWriteOverTheNewOwner(): void
+    {
+        $queued = $this->jobs->enqueue('walk', [], 'walk', 1);
+        $this->jobs->claim(['walk'], 'token-dead', 300);
+        $this->jobs->handOver($queued['id']);
+        $this->jobs->claim(['walk'], 'token-b', 300);
+
+        self::assertFalse(
+            $this->jobs->checkpoint($queued['id'], 'token-dead', ['at' => 99], 99, 0, 0, 300),
+            'the old token is refused by the token match that was already there'
+        );
+        self::assertSame([], $this->jobs->find($queued['id'])->cursor);
+    }
+
+    /** Only a running job has a lease to end. */
+    public function testThereIsNothingToHandOverOnAJobNobodyHolds(): void
+    {
+        $queued = $this->jobs->enqueue('walk', [], 'walk', 1);
+        self::assertFalse($this->jobs->handOver($queued['id']), 'a pending job is already claimable');
+        $this->jobs->claim(['walk'], 'token-a', 300);
+        $this->jobs->finish($queued['id'], 'token-a', JobStatus::Done, '');
+        self::assertFalse($this->jobs->handOver($queued['id']), 'and a finished one is not coming back');
+    }
+
+    /**
+     * The queue page needs the unfinished jobs as ROWS, because what it has to
+     * say — «three attempts, same position» — is in each job's own cursor.
+     */
+    public function testLiveListsOnlyTheJobsThatAreNotFinished(): void
+    {
+        $a = $this->jobs->enqueue('walk', [], 'a', 1);
+        $b = $this->jobs->enqueue('walk', [], 'b', 1);
+        $this->jobs->claim(['walk'], 'token-a', 300);
+        $this->jobs->finish($a['id'], 'token-a', JobStatus::Done, '');
+
+        $live = $this->jobs->live(50);
+        self::assertCount(1, $live);
+        self::assertSame($b['id'], $live[0]->id);
+    }
+
     public function testCancellingAJobFreesItsKeyAndStopsItBeingClaimed(): void
     {
         $queued = $this->jobs->enqueue('walk', [], 'walk', 1);

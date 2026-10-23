@@ -99,7 +99,7 @@ final class TmcEvidenceWalkJob implements JobHandlerInterface
         return 1;
     }
 
-    public function step(Job $job): JobBatch
+    public function step(Job $job, ?\Closure $checkpoint = null): JobBatch
     {
         $at = (int) ($job->cursor['at'] ?? 0);
         $target = (int) ($job->payload['to'] ?? 3);

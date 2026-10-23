@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
 use Tecteb\Marketplace\Core\Jobs\Job;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
+use Tecteb\Marketplace\Core\Jobs\JobStatus;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
@@ -84,10 +85,29 @@ final class QueuePage
             ['label' => __('اجرای بعدی', 'tecteb-marketplace-core'), 'value' => $status['next'] > 0
                 ? $fa(wp_date('Y/m/d H:i', $status['next']))
                 : __('زمان‌بندی نشده', 'tecteb-marketplace-core')],
-            ['label' => __('آخرین اجرا', 'tecteb-marketplace-core'), 'value' => $status['last_tick'] > 0
+            // Two separate facts, because they answer two separate questions
+            // and `alpha.71` printed only the first: «آخرین تیکِ زمان‌بند» is
+            // about the schedule, «آخرین اجرای یک دسته» is about work. A
+            // manual run moves the second and not the first.
+            ['label' => __('آخرین تیکِ زمان‌بند', 'tecteb-marketplace-core'), 'value' => $status['last_tick'] > 0
                 ? $fa(wp_date('Y/m/d H:i', $status['last_tick']))
                 : __('هنوز اجرا نشده', 'tecteb-marketplace-core')],
+            ['label' => __('آخرین اجرای یک دسته', 'tecteb-marketplace-core'), 'value' => $status['last_run'] > 0
+                ? sprintf(
+                    /* translators: 1: date and time, 2: how it was started */
+                    __('%1$s (%2$s)', 'tecteb-marketplace-core'),
+                    $fa(wp_date('Y/m/d H:i', $status['last_run'])),
+                    OperationsMessages::runStarter((string) $status['last_run_how'])
+                )
+                : __('هنوز اجرا نشده', 'tecteb-marketplace-core')],
         ]);
+        if (($status['overdue'] ?? 0) > 0) {
+            echo Components::notice('warning', sprintf(
+                /* translators: %s: how long ago the next run was due */
+                __('زمان «اجرای بعدی» گذشته است (%s پیش) و هنوز اجرا نشده: زمان‌بندِ این سایت کار نمی‌کند. تا وقتی این‌طور است، صف با دکمهٔ «اجرای دستی یک دسته» پیش می‌رود و هر بار یک دسته.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian(human_time_diff(time() - (int) $status['overdue']))
+            ));
+        }
         echo '<form method="post" class="tmc-inline-form">'
             . wp_nonce_field(self::NONCE, 'tmc_jobs_nonce', true, false)
             . '<button type="submit" class="tmc-button" name="jobs_action" value="run_now">'
@@ -111,6 +131,23 @@ final class QueuePage
             ];
         }
         echo Components::dataList($rows);
+        // «گیر کرده» is counted from the live jobs' own cursors and not with a
+        // COUNT over a JSON column: a handler writes `tries` there, and that
+        // number — «این کار سه بار گرفته شده و از جایش تکان نخورده» — is the
+        // one thing the page owed the owner on `alpha.71` and did not say.
+        $stuck = [];
+        foreach ($this->jobs()->live(50) as $job) {
+            if ((int) ($job->cursor['tries'] ?? 0) > 0) {
+                $stuck[] = $job;
+            }
+        }
+        if ($stuck !== []) {
+            echo Components::notice('warning', sprintf(
+                /* translators: %s: job ids */
+                __('این کارها گرفته شده‌اند و از همان نقطه تکان نخورده‌اند: %s. یعنی هر بار که اجرا شده‌اند، همان جا متوقف شده‌اند — معمولاً چون همان یک قلمِ کار از مهلت یک درخواست این میزبان بیشتر طول می‌کشد. چند بار دیگر که اجرا شوند، همان قلم با شماره‌اش نام برده و رد می‌شود و بقیه ادامه می‌یابند.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian(implode('، ', array_map(static fn (Job $j): string => (string) $j->id, $stuck)))
+            ));
+        }
         if ((int) ($census['stalled'] ?? 0) > 0) {
             echo Components::notice('warning', __('چند کار «بی‌صاحب» مانده‌اند: مهلت قفلشان تمام شده و هیچ کارگری نگهشان نداشته — معمولاً یعنی اجرا وسط کار قطع شده. با اجرای بعدی خودشان از همان نقطهٔ ثبت‌شده ادامه می‌یابند.', 'tecteb-marketplace-core'));
         }
@@ -190,10 +227,57 @@ final class QueuePage
                 . '<input type="hidden" name="job_id" value="' . esc_attr((string) $job->id) . '">'
                 . '<button type="submit" class="tmc-button tmc-button--quiet" name="jobs_action" value="cancel">'
                 . esc_html__('لغو', 'tecteb-marketplace-core') . '</button></form>';
+            // The recovery path for a worker that no longer exists. Only
+            // offered while the lease still stands, because that is the only
+            // state in which nothing else can move the job.
+            if ($job->status === JobStatus::Running && $job->lockedUntil !== '' && strtotime($job->lockedUntil) > time()) {
+                $out .= '<form method="post" class="tmc-inline-form">'
+                    . wp_nonce_field(self::NONCE, 'tmc_jobs_nonce', true, false)
+                    . '<input type="hidden" name="job_id" value="' . esc_attr((string) $job->id) . '">'
+                    . '<button type="submit" class="tmc-button" name="jobs_action" value="hand_over">'
+                    . esc_html__('ادامه از همین نقطه', 'tecteb-marketplace-core') . '</button></form>';
+            }
         } else {
             $out .= '<span class="tmc-field__desc">' . esc_html__('—', 'tecteb-marketplace-core') . '</span>';
         }
         $out .= '</td></tr>';
+
+        // WHERE it stopped, for a job that is still live. «۲ از ۱۸۶» says how
+        // much; it does not say that three attempts all stopped at the same
+        // place, which is the thing somebody can act on.
+        if ($job->status->isLive() && $job->cursor !== []) {
+            $tries = (int) ($job->cursor['tries'] ?? 0);
+            $where = sprintf(
+                /* translators: 1: phase, 2: position */
+                __('مرحلهٔ %1$s، پس از شمارهٔ %2$s', 'tecteb-marketplace-core'),
+                OperationsMessages::importPhase((string) ($job->cursor['phase'] ?? '')),
+                $fa((string) (int) ($job->cursor['after'] ?? 0))
+            );
+            if ($tries > 0) {
+                $where .= ' — ' . sprintf(
+                    /* translators: %s: how many attempts stopped here */
+                    __('%s تلاش روی همین نقطه، بدون پیشرفت', 'tecteb-marketplace-core'),
+                    $fa((string) $tries)
+                );
+            }
+            if ($job->lockedUntil !== '' && strtotime($job->lockedUntil) > time()) {
+                $where .= ' — ' . sprintf(
+                    /* translators: %s: time the lease runs out */
+                    __('قفلش تا %s در دست یک کارگر است', 'tecteb-marketplace-core'),
+                    $fa(wp_date('H:i', strtotime($job->lockedUntil)))
+                );
+            }
+            $refused = array_values(array_filter((array) ($job->cursor['refused'] ?? []), 'is_string'));
+            if ($refused !== []) {
+                $where .= ' — ' . sprintf(
+                    /* translators: %s: the refused rows, as id:reason */
+                    __('قلم‌های ردشده: %s', 'tecteb-marketplace-core'),
+                    $fa(implode('، ', $refused))
+                );
+            }
+            $out .= '<tr><td colspan="7" data-label="' . esc_attr__('جای توقف', 'tecteb-marketplace-core') . '">'
+                . '<span class="tmc-field__desc">' . esc_html($where) . '</span></td></tr>';
+        }
 
         if ($job->lastError !== '') {
             // The reason goes on its own full-width row rather than in the
@@ -235,10 +319,20 @@ final class QueuePage
             return 'err:' . __('درخواست معتبر نبود. صفحه را تازه کنید و دوباره تلاش کنید.', 'tecteb-marketplace-core');
         }
         $action = $request->postKey('jobs_action');
-        if ($action === 'run_now') {
+        if ($action === 'run_now' || $action === 'hand_over') {
+            if ($action === 'hand_over') {
+                $id = $request->postInt('job_id');
+                if (!$this->jobs()->handOver($id)) {
+                    return 'err:' . __('مهلت قفل این کار پایان نیافت؛ شاید همین حالا تمام شده باشد. صفحه را تازه کنید.', 'tecteb-marketplace-core');
+                }
+            }
+            // Both ways of running a batch write down that one ran — the
+            // report knew about the cron tick only, and said «هنوز اجرا نشده»
+            // after every manual run.
+            WpJobScheduler::recordRun('manual');
             $results = $this->container->get(JobRunner::class)->run(1);
             if ($results === []) {
-                return 'ok:' . __('چیزی در صف نبود.', 'tecteb-marketplace-core');
+                return 'ok:' . $this->whyNothingRan();
             }
             $first = $results[0];
             return 'ok:' . sprintf(
@@ -260,6 +354,39 @@ final class QueuePage
             );
         }
         return 'err:' . __('این اقدام از این صفحه انجام نمی‌شود.', 'tecteb-marketplace-core');
+    }
+
+    /**
+     * Why a run found nothing, when there is plainly something there.
+     *
+     * ⛔ `alpha.71` said «چیزی در صف نبود» whatever the reason, and on staging
+     * it said it while the very same page reported «در حال اجرا ۱». Both
+     * sentences were true: `claim()` skips a running job whose lease has not
+     * run out, which is right when a worker is alive and useless when the
+     * process that held it is gone. The manager was told there was no work and
+     * given nothing to press.
+     */
+    private function whyNothingRan(): string
+    {
+        $held = [];
+        foreach ($this->jobs()->live(50) as $job) {
+            if ($job->status === JobStatus::Running && $job->lockedUntil !== '' && strtotime($job->lockedUntil) > time()) {
+                $held[] = sprintf(
+                    /* translators: 1: job id, 2: time the lease runs out */
+                    __('شمارهٔ %1$s تا %2$s', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $job->id),
+                    PersianDigits::toPersian(wp_date('H:i', strtotime($job->lockedUntil)))
+                );
+            }
+        }
+        if ($held === []) {
+            return __('چیزی در صف نبود.', 'tecteb-marketplace-core');
+        }
+        return sprintf(
+            /* translators: %s: the jobs and the times their leases run out */
+            __('چیزی اجرا نشد، ولی صف خالی نیست: قفل این کارها در دست یک کارگر است و تا پایان مهلتش کسی سراغشان نمی‌رود (%s). اگر آن کارگر دیگر وجود ندارد — مثلاً درخواستش نیمه‌کاره قطع شده — دکمهٔ «ادامه از همین نقطه» در همان ردیف مهلت را همین حالا تمام می‌کند و یک دسته را از همان جای ثبت‌شده اجرا می‌کند.', 'tecteb-marketplace-core'),
+            implode('، ', $held)
+        );
     }
 
     private function jobs(): JobRepositoryInterface

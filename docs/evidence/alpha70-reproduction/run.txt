@@ -1,6 +1,6 @@
 === the trees ===
 base_ref=9d414111866dae97a910561129415d7c0f2befb7
-this_checkout_src_digest=d2303948632a2c2b
+this_checkout_src_digest=a0514b4aef0b34cd
 installed_src_digest=b98646297b9b4d8d
 base_src_digest=b98646297b9b4d8d
 PASS  0a the installed package is this round's base (alpha.70)  (b98646297b9b4d8d)
@@ -15,20 +15,20 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=60
-wc_id=1546
+wc_id=6590
 other_rules_stashed=6
 arranged=yes
 
 === BEFORE · the bound alpha.70 compares to ===
 PASS  0g the comparison on the base is bounded at sixty  (60)
 NOTE  0h how many other min max rules the fixture stashed  6
-NOTE  0i the one product this round uses  1546
+NOTE  0i the one product this round uses  6590
 probe=ran
 minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=60
-ceiling_wc_id=1546
+ceiling_wc_id=6590
 ceiling_migrated=migrated
 ceiling_rows_after_migration=1/100/1
 ceiling_rows_now=1/200/1
@@ -66,7 +66,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=60
-minimum_wc_id=1546
+minimum_wc_id=6590
 minimum_migrated=migrated
 minimum_rows_after_migration=70/__empty__/1
 minimum_rows_now=80/__empty__/1
@@ -104,7 +104,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=60
-appears_wc_id=1546
+appears_wc_id=6590
 appears_migrated=migrated
 appears_rows_after_migration=2/__empty__/1
 appears_rows_now=2/500/1
@@ -142,7 +142,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=60
-unprovable_wc_id=1546
+unprovable_wc_id=6590
 unprovable_migrated=migrated
 unprovable_rows_after_migration=1/100/1
 unprovable_rows_now=1/5000000000/1
@@ -178,7 +178,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=60
-control_wc_id=1546
+control_wc_id=6590
 control_migrated=migrated
 control_rows_after_migration=4/10/2
 control_rows_now=4/10/2
@@ -207,7 +207,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=60
-same_set_wc_id=1546
+same_set_wc_id=6590
 same_set_migrated=migrated
 same_set_rows_after_migration=4/10/2
 same_set_rows_now=4/10/2
@@ -237,7 +237,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=60
-inside_wc_id=1546
+inside_wc_id=6590
 inside_migrated=migrated
 inside_rows_after_migration=1/10/1
 inside_rows_now=1/5/1
@@ -262,13 +262,13 @@ inside_blockers=migrated_rule_differs_now:1
 PASS  5c-1 a difference INSIDE the bound is seen  (no)
 PASS  5c-2 …and blocks on the base too  (blocked)
 PASS  5c-3 …by name  (migrated_rule_differs_now:1)
-PASS  6a the installed tree is now this checkout's  (d2303948632a2c2b)
+PASS  6a the installed tree is now this checkout's  (a0514b4aef0b34cd)
 probe=ran
 minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=__absent__
-wc_id=1547
+wc_id=6591
 other_rules_stashed=6
 arranged=yes
 
@@ -279,7 +279,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=__absent__
-ceiling_wc_id=1547
+ceiling_wc_id=6591
 ceiling_migrated=migrated
 ceiling_rows_after_migration=1/100/1
 ceiling_rows_now=1/200/1
@@ -317,7 +317,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=__absent__
-minimum_wc_id=1547
+minimum_wc_id=6591
 minimum_migrated=migrated
 minimum_rows_after_migration=70/__empty__/1
 minimum_rows_now=80/__empty__/1
@@ -355,7 +355,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=__absent__
-appears_wc_id=1547
+appears_wc_id=6591
 appears_migrated=migrated
 appears_rows_after_migration=2/__empty__/1
 appears_rows_now=2/500/1
@@ -393,7 +393,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=__absent__
-unprovable_wc_id=1547
+unprovable_wc_id=6591
 unprovable_migrated=migrated
 unprovable_rows_after_migration=1/100/1
 unprovable_rows_now=1/5000000000/1
@@ -430,7 +430,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=__absent__
-control_wc_id=1547
+control_wc_id=6591
 control_migrated=migrated
 control_rows_after_migration=4/10/2
 control_rows_now=4/10/2
@@ -460,7 +460,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=__absent__
-same_set_wc_id=1547
+same_set_wc_id=6591
 same_set_migrated=migrated
 same_set_rows_after_migration=4/10/2
 same_set_rows_now=4/10/2
@@ -490,7 +490,7 @@ minmax_active=yes
 minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=__absent__
-inside_wc_id=1547
+inside_wc_id=6591
 inside_migrated=migrated
 inside_rows_after_migration=1/10/1
 inside_rows_now=1/5/1
@@ -522,7 +522,7 @@ minmax_version=8.1.0.0
 plugin_version=__absent__
 compare_bound=__absent__
 rules_put_back=6
-product_removed=1671
+product_removed=2907
 reset=yes
 NOTE  12a min max rules written back  6
 PASS  12b the probe's product is gone  (yes)

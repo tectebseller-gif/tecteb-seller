@@ -12,6 +12,12 @@ namespace Tecteb\Marketplace\Core\Jobs;
  * There is deliberately no «I am done but here is a cursor» combination: the
  * cursor a finished job leaves behind is the one it finished on, which is what
  * the report needs and what a resumed job would re-read harmlessly.
+ *
+ * **`done` and `failed` are what the handler has NOT already recorded.** A
+ * handler that used the runner's `$checkpoint` closure has already written
+ * those units under its own lock token, and counting them again here would
+ * double every figure on the queue page. A handler that did not use it returns
+ * its whole page here, which is what every handler did before `alpha.72`.
  */
 final class JobBatch
 {

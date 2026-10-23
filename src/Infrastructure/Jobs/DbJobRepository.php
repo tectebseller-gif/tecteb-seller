@@ -185,6 +185,42 @@ final class DbJobRepository implements JobRepositoryInterface
         return array_map(fn (array $row): Job => $this->hydrate($row), $this->db->getResults($sql, $params));
     }
 
+    public function live(int $limit = 50): array
+    {
+        return $this->recent([JobStatus::Pending->value, JobStatus::Running->value], $limit);
+    }
+
+    public function handOver(int $jobId): bool
+    {
+        // The lease, and nothing else. The token stays where it is: if that
+        // worker is still alive its checkpoint will be refused by the token
+        // match in `checkpoint()`, which is the guard that already exists.
+        // A second BEFORE now, not now.
+        //
+        // `claim()` asks `locked_until < now`, so a lease set to exactly now is
+        // still a lease and the job stays unclaimable — measured: handOver()
+        // reported success and the very next run still answered «چیزی در صف
+        // نبود». A boundary a guard reads with `<` has to be crossed, not
+        // touched.
+        $expired = $this->minus(1);
+        $written = $this->db->execute(
+            'UPDATE `' . $this->jobs() . '`
+             SET locked_until = %s, updated_at = %s
+             WHERE id = %d AND status = %s',
+            [$expired, $this->now(), $jobId, JobStatus::Running->value]
+        );
+        if ($written === null) {
+            return false;
+        }
+        // Zero rows is ambiguous here for the usual reason — the lease may
+        // already have been in the past — so the row is asked.
+        $until = $this->db->getVar(
+            'SELECT locked_until FROM `' . $this->jobs() . '` WHERE id = %d AND status = %s',
+            [$jobId, JobStatus::Running->value]
+        );
+        return $until !== null && strtotime((string) $until) < strtotime($this->now());
+    }
+
     public function census(): array
     {
         $out = [];
@@ -317,6 +353,11 @@ final class DbJobRepository implements JobRepositoryInterface
     private function now(): string
     {
         return $this->clock->now()->format('Y-m-d H:i:s');
+    }
+
+    private function minus(int $seconds): string
+    {
+        return $this->clock->now()->modify('-' . max(1, $seconds) . ' seconds')->format('Y-m-d H:i:s');
     }
 
     private function plus(int $seconds): string

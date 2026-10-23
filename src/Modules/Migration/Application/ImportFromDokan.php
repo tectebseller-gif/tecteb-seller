@@ -732,33 +732,55 @@ final class ImportFromDokan
      *
      * @return array{done:int, last:int, more:bool, created:array{vendors:list<int>, products:list<int>}}
      */
-    public function importVendorPage(string $runId, int $afterUserId, int $limit): array
+    public function importVendorPage(string $runId, int $afterUserId, int $limit, ?\Closure $recordOne = null): array
     {
         $created = ['vendors' => [], 'products' => []];
+        $recorded = 0;
         // One page from the reader, not every seller sliced in PHP. The old
         // version read the whole shop on every batch — which is the cost a
         // batched job exists to avoid, paid once per batch instead of once.
         $page = $this->dokan->vendorsAfter($afterUserId, $limit);
         $last = $afterUserId;
+        $leaseLost = false;
         foreach ($page as $vendor) {
             $last = (int) $vendor['user_id'];
-            if ($this->vendors->findProfileByUser($last) !== null) {
-                continue;                       // already ours; the plan said skip
+            if ($this->vendors->findProfileByUser($last) === null) {
+                // canSell false: an imported shop is present, not yet trading.
+                $this->vendors->upsertProfile($last, $vendor['store_name'], false, false, $runId);
+                $created['vendors'][] = $last;
+                if ($recordOne !== null) {
+                    // Per unit, because the manifest has to be at least as
+                    // complete as the work (`alpha.55`) and the work is now
+                    // recorded per unit too.
+                    $this->rememberRun($runId, ['vendors' => [$last], 'products' => []]);
+                }
             }
-            // canSell false: an imported shop is present, not yet trading.
-            $this->vendors->upsertProfile($last, $vendor['store_name'], false, false, $runId);
-            $created['vendors'][] = $last;
+            // Every shop on the page is a unit, the ones already ours
+            // included: a page that begins with a skip still has to move.
+            if ($recordOne !== null) {
+                if (!$recordOne($last, 1, 0)) {
+                    // The lease is gone: whoever holds the job now is writing
+                    // these very rows. Stop and report what landed.
+                    $leaseLost = true;
+                    break;
+                }
+                $recorded++;
+            }
         }
-        if ($created['vendors'] !== []) {
+        if ($created['vendors'] !== [] && $recordOne === null) {
             $this->rememberRun($runId, $created);
         }
         return [
-            'done' => count($page),
+            // What the caller still has to count: a unit the sink has already
+            // recorded must not be counted twice.
+            'done' => max(0, count($page) - $recorded),
+            'recorded' => $recorded,
             'last' => $last,
             // A short page is the end. Asking «are there more?» by counting the
             // whole set again would undo the reason for paging at all.
-            'more' => count($page) >= $limit,
+            'more' => $leaseLost ? false : count($page) >= $limit,
             'created' => $created,
+            'lease_lost' => $leaseLost,
         ];
     }
 
@@ -772,13 +794,35 @@ final class ImportFromDokan
      *
      * @return array{done:int, failed:int, last:int, more:bool, created:array{vendors:list<int>, products:list<int>}, notes:list<string>}
      */
-    public function importProductPage(string $runId, int $afterProductId, int $limit): array
+    public function importProductPage(string $runId, int $afterProductId, int $limit, ?\Closure $recordOne = null): array
     {
         $created = ['vendors' => [], 'products' => []];
+        $recorded = 0;
         $notes = [];
         $page = $this->dokan->productsAfter($afterProductId, $limit);
         $last = $afterProductId;
         $failed = 0;
+        $recordedDone = 0;
+        $recordedFailed = 0;
+        $leaseLost = false;
+        // One product is one unit of work AND one unit of record. Everything
+        // the caller still has to count is what the sink did not take, so a
+        // page that stops half way has already written down the half that
+        // landed — see `JobHandlerInterface::step()` for what this cost on
+        // staging when it was the page instead.
+        $tick = function (int $at, int $done, int $bad) use ($recordOne, &$recorded, &$recordedDone, &$recordedFailed, &$leaseLost): bool {
+            if ($recordOne === null) {
+                return true;
+            }
+            if (!$recordOne($at, $done, $bad)) {
+                $leaseLost = true;
+                return false;
+            }
+            $recorded++;
+            $recordedDone += $done;
+            $recordedFailed += $bad;
+            return true;
+        };
         foreach ($page as $product) {
             $last = (int) $product['wc_product_id'];
             [$verdict, $reason] = $this->judgeProduct($product);
@@ -786,6 +830,16 @@ final class ImportFromDokan
                 if ($verdict === DokanMigrationPlan::CONFLICT) {
                     $failed++;
                     $notes[] = $last . ':' . $reason;
+                    if (!$tick($last, 0, 1)) {
+                        break;
+                    }
+                    continue;
+                }
+                // A skip is a unit too: a product already mapped by an earlier
+                // run still has to move the cursor, or a resumed page that
+                // begins with one would never get past it.
+                if (!$tick($last, 1, 0)) {
+                    break;
                 }
                 continue;
             }
@@ -826,6 +880,9 @@ final class ImportFromDokan
             if ($productId === 0) {
                 $failed++;
                 $notes[] = $last . ':create_failed';
+                if (!$tick($last, 0, 1)) {
+                    break;
+                }
                 continue;
             }
             // The picture the product already has.
@@ -861,20 +918,33 @@ final class ImportFromDokan
                 }
             }
             $created['products'][] = $productId;
+            if ($recordOne !== null) {
+                // The manifest has to be at least as complete as the work
+                // (`alpha.55`), and with a per-unit checkpoint that means per
+                // unit: a worker killed after this product must leave a
+                // manifest that already knows about it.
+                $this->rememberRun($runId, ['vendors' => [], 'products' => [$productId]]);
+            }
+            if (!$tick($last, 1, 0)) {
+                break;
+            }
         }
-        if ($created['products'] !== []) {
+        if ($created['products'] !== [] && $recordOne === null) {
             // Still written, and still useful — it is where the VENDOR ids
             // live, and vendors have no row of ours to stamp. For products it
             // is now a convenience rather than the source of truth.
             $this->rememberRun($runId, $created);
         }
         return [
-            'done' => count($page) - $failed,
-            'failed' => $failed,
+            'done' => count($page) - $failed - $recordedDone,
+            'failed' => $failed - $recordedFailed,
+            'recorded' => $recorded,
             'last' => $last,
-            'more' => count($page) >= $limit,
+            // A page the lease was taken from is not a page that ended.
+            'more' => $leaseLost ? false : count($page) >= $limit,
             'created' => $created,
             'notes' => array_slice($notes, 0, 20),
+            'lease_lost' => $leaseLost,
         ];
     }
 
@@ -890,10 +960,10 @@ final class ImportFromDokan
      *
      * @return array{done:int, skipped:int, last:int, more:bool}
      */
-    public function importOrderPage(string $runId, int $afterOrderId, int $limit): array
+    public function importOrderPage(string $runId, int $afterOrderId, int $limit, ?\Closure $recordOne = null): array
     {
         if ($this->history === null) {
-            return ['done' => 0, 'skipped' => 0, 'failed' => 0, 'already_ours' => 0, 'last' => $afterOrderId, 'more' => false];
+            return ['done' => 0, 'recorded' => 0, 'skipped' => 0, 'failed' => 0, 'already_ours' => 0, 'last' => $afterOrderId, 'more' => false, 'lease_lost' => false];
         }
         $page = $this->dokan->ordersAfter($afterOrderId, $limit);
         $last = $afterOrderId;
@@ -901,34 +971,88 @@ final class ImportFromDokan
         $skipped = 0;
         $failed = 0;
         $ours = 0;
+        $recorded = 0;
+        $leaseLost = false;
         foreach ($page as $order) {
             $last = max($last, (int) $order['wc_order_id']);
             // «already there» is a resumed job re-running its last page, which
             // is normal. «failed» is not, and counting it as the first would
             // report a shop as migrated on the strength of writes that never
             // landed.
+            $counted = 0;
             if ($this->orderIsAlreadyOurs((int) $order['wc_order_id'])) {
                 $ours++;
-                continue;
+            } elseif (($order['amount_not_exact'] ?? false) === true) {
+                $skipped++;             // the figure cannot be held exactly
+            } else {
+                match ($this->history->record($runId, $order)) {
+                    OrderHistoryRepositoryInterface::RECORDED => $counted = 1,
+                    OrderHistoryRepositoryInterface::ALREADY => $skipped++,
+                    default => $failed++,
+                };
             }
-            if (($order['amount_not_exact'] ?? false) === true) {
-                $skipped++;
-                continue;               // the figure cannot be held exactly
+            $done += $counted;
+            // Every order is a unit, including one this run skips: the cursor
+            // has to get past it or a resumed page that begins with a skip
+            // never moves. A skip carries NO count, so the figure stays the one
+            // this phase meant — only the position changes.
+            if ($recordOne !== null) {
+                if (!$recordOne($last, $counted, 0)) {
+                    $leaseLost = true;
+                    break;
+                }
+                $recorded += $counted;
             }
-            match ($this->history->record($runId, $order)) {
-                OrderHistoryRepositoryInterface::RECORDED => $done++,
-                OrderHistoryRepositoryInterface::ALREADY => $skipped++,
-                default => $failed++,
-            };
         }
         return [
-            'done' => $done,
+            'done' => max(0, $done - $recorded),
+            'recorded' => $recorded,
             'skipped' => $skipped,
             'failed' => $failed,
             'already_ours' => $ours,
             'last' => $last,
-            'more' => count($page) >= $limit,
+            'more' => $leaseLost ? false : count($page) >= $limit,
+            'lease_lost' => $leaseLost,
         ];
+    }
+
+    /**
+     * The id of the NEXT unit in a phase, or null when the phase is over.
+     *
+     * Only one caller: the job, when a position has killed enough workers that
+     * trying it again is not a plan. Naming that one row is the difference
+     * between «183 of 184 products arrived and this one is named» and «nothing
+     * arrived and nobody knows why» — and it reads, it does not write.
+     */
+    public function unitAfter(string $phase, int $afterId): ?int
+    {
+        $row = match ($phase) {
+            'vendors' => $this->dokan->vendorsAfter($afterId, 1)[0]['user_id'] ?? null,
+            'products' => $this->dokan->productsAfter($afterId, 1)[0]['wc_product_id'] ?? null,
+            'orders' => $this->dokan->ordersAfter($afterId, 1)[0]['wc_order_id'] ?? null,
+            default => null,
+        };
+        return $row === null ? null : (int) $row;
+    }
+
+    /**
+     * Has this unit already arrived?
+     *
+     * Asked by the job before it blames a position for killing workers. A unit
+     * that landed in a dying attempt — created, and gone before its checkpoint
+     * ran — is the one thing that can sit at a stalled cursor and be perfectly
+     * fine; counting it as refused would name an innocent row, and the number
+     * on the page would then be wrong in the other direction.
+     */
+    public function unitIsAlreadyOurs(string $phase, int $id): bool
+    {
+        return match ($phase) {
+            'vendors' => $this->vendors->findProfileByUser($id) !== null,
+            'products' => $this->products->findByWcProduct($id) !== null
+                || $this->products->findObservedByWcProduct($id) !== null,
+            'orders' => $this->orderIsAlreadyOurs($id),
+            default => false,
+        };
     }
 
     /** What a shop's imported history adds up to, in Dokan's own figures. */

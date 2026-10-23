@@ -1,0 +1,27 @@
+ok:   the installed package is the one under test                        0.1.0-alpha.72
+ok:   the real reader sees the Dokan-shaped fixture                      yes
+      plan: 2 shops, 40 products, total 42
+ok:   the job is running, with three attempts on it                      3
+ok:   …and two units recorded, as on staging                             2
+ok:   …two of those attempts stopped at this very position               2
+ok:   1 the queue page is open                                           true
+ok:   1a the two run facts are separate rows                             true
+ok:   1b «جای توقف» labels the row that says where the job stopped       true
+ok:   1c …naming the phase it is in                                      true
+ok:   1d …and that attempts there made no progress                       true
+ok:   1e the stuck job is called out above the list                      true
+ok:   1f …and a hand-over is offered on its row                          true
+ok:   2 the manual run does NOT claim «چیزی در صف نبود»                  false
+ok:   2a …it says the queue is not empty and the lease is held           true
+ok:   2b …and points at the hand-over                                    true
+ok:   2c «آخرین اجرای یک دسته» no longer says «هنوز اجرا نشده»           false
+ok:   2d …and says it was started by hand                                true
+      done before the hand-over: 2, after: 42
+ok:   3 the hand-over ran a batch                                        true
+ok:   3a …and the page reports the figure the service has                true
+ok:   3b …with the refused row named, not just counted                   true
+ok:   4 no horizontal overflow at 390px                                  0
+      axe queue: 0 violations, 0 serious/critical
+ok:   5 axe on the queue screen: no serious or critical violation        0
+      rolled_back=dokan-20261023-140417:ok · reset_products_left=0 · reset_observed_left=0 · reset_sellers_left=0 · reset_images_left=0 · reset_jobs_left=0
+ pass=22 fail=0

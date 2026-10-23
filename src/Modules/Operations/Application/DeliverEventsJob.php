@@ -52,7 +52,7 @@ final class DeliverEventsJob implements JobHandlerInterface
         return 50;
     }
 
-    public function step(Job $job): JobBatch
+    public function step(Job $job, ?\Closure $checkpoint = null): JobBatch
     {
         $after = (int) ($job->cursor['after'] ?? 0);
         $rows = $this->outbox->pending($this->batchSize(), $after);

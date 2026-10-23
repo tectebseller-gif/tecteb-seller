@@ -50,6 +50,45 @@ final class JobRunnerTest extends TestCase
         self::assertSame(JobStatus::Done, $repo->jobs[7]->status);
     }
 
+    /**
+     * The runner hands the handler a checkpoint, and what the handler records
+     * with it is not counted a second time.
+     *
+     * ⛔ The alternative is the bug this replaced from the other side: a
+     * handler that records fifty units per unit and then returns fifty in its
+     * batch would double every figure on the queue page.
+     */
+    public function testWhatAHandlerRecordsItselfIsNotCountedAgain(): void
+    {
+        $repo = new FakeJobRepository();
+        $repo->queue(new Job(3, 'per-unit', JobStatus::Pending, [], [], 0, 0, 0, 0, '', '', '', null, '', '', ''));
+        $handler = new PerUnitHandler();
+        $result = $this->runner($repo, $handler)->runOne();
+
+        self::assertSame('more', $result['outcome']);
+        self::assertSame(4, $result['checkpoints'], 'four units, four records');
+        self::assertSame(0, $result['done'], 'and nothing left for the final write to count');
+        self::assertSame(['at' => 4], $repo->cursors[3]);
+    }
+
+    /**
+     * A checkpoint refused in the MIDDLE of a batch means somebody else owns
+     * the job now — so the outcome is `lease_lost` even though the last write
+     * would have landed.
+     */
+    public function testALeaseLostMidBatchIsReportedEvenWhenTheFinalWriteWouldLand(): void
+    {
+        $repo = new FakeJobRepository();
+        $repo->queue(new Job(4, 'per-unit', JobStatus::Pending, [], [], 0, 0, 0, 0, '', '', '', null, '', '', ''));
+        $repo->refuseCheckpointAfter = 2;
+        $handler = new PerUnitHandler();
+        $result = $this->runner($repo, $handler)->runOne();
+
+        self::assertSame('lease_lost', $result['outcome']);
+        self::assertSame(2, $handler->recorded, 'the handler stopped when it was told to');
+        self::assertSame(JobStatus::Running, $repo->jobs[4]->status, 'and wrote nothing terminal');
+    }
+
     public function testAHandlerThatThrowsFailsTheJobOnceInsteadOfRetryingForEver(): void
     {
         $repo = new FakeJobRepository();
@@ -119,7 +158,7 @@ final class CountingHandler implements JobHandlerInterface
         return 1;
     }
 
-    public function step(Job $job): JobBatch
+    public function step(Job $job, ?\Closure $checkpoint = null): JobBatch
     {
         $at = (int) ($job->cursor['at'] ?? 0);
         $this->startedFrom[] = $at;
@@ -142,9 +181,40 @@ final class ThrowingHandler implements JobHandlerInterface
         return 1;
     }
 
-    public function step(Job $job): JobBatch
+    public function step(Job $job, ?\Closure $checkpoint = null): JobBatch
     {
         throw new \RuntimeException('nope');
+    }
+}
+
+/**
+ * A handler whose units are expensive enough to record one at a time — the
+ * shape `DokanImportJob` has, without any of its dependencies.
+ */
+final class PerUnitHandler implements JobHandlerInterface
+{
+    public int $recorded = 0;
+
+    public function type(): string
+    {
+        return 'per-unit';
+    }
+
+    public function batchSize(): int
+    {
+        return 4;
+    }
+
+    public function step(Job $job, ?\Closure $checkpoint = null): JobBatch
+    {
+        $at = (int) ($job->cursor['at'] ?? 0);
+        for ($i = 1; $i <= $this->batchSize(); $i++) {
+            if ($checkpoint !== null && !$checkpoint(['at' => $at + $i], 1, 0, 0)) {
+                return JobBatch::progress(['at' => $at + $i - 1], 0, 0, 0);
+            }
+            $this->recorded++;
+        }
+        return JobBatch::progress(['at' => $at + $this->batchSize()], 0, 0, 0);
     }
 }
 
@@ -158,6 +228,11 @@ final class FakeJobRepository implements JobRepositoryInterface
     public array $cursors = [];
 
     public bool $refuseCheckpoint = false;
+
+    /** Refuse from the nth call onwards; 0 means never. */
+    public int $refuseCheckpointAfter = 0;
+
+    private int $checkpoints = 0;
 
     public bool $claimAnyway = false;
 
@@ -193,7 +268,11 @@ final class FakeJobRepository implements JobRepositoryInterface
 
     public function checkpoint(int $jobId, string $lockToken, array $cursor, int $doneDelta, int $failedDelta, int $total, int $leaseSeconds): bool
     {
+        $this->checkpoints++;
         if ($this->refuseCheckpoint || $lockToken !== $this->held) {
+            return false;
+        }
+        if ($this->refuseCheckpointAfter > 0 && $this->checkpoints > $this->refuseCheckpointAfter) {
             return false;
         }
         $this->cursors[$jobId] = $cursor;
@@ -231,6 +310,16 @@ final class FakeJobRepository implements JobRepositoryInterface
     public function census(): array
     {
         return [];
+    }
+
+    public function live(int $limit = 50): array
+    {
+        return array_values(array_filter($this->jobs, static fn (Job $j): bool => $j->status->isLive()));
+    }
+
+    public function handOver(int $jobId): bool
+    {
+        return isset($this->jobs[$jobId]);
     }
 
     public function cancel(int $jobId): bool

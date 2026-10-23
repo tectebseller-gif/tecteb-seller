@@ -30,6 +30,15 @@ use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
  *
  * The lease is extended by every checkpoint, so a handler that keeps making
  * progress keeps its job, and one that stalls loses it to a worker that can.
+ *
+ * **And a batch is not the unit of checkpointing.** The runner hands the
+ * handler a `$checkpoint` closure, so a handler whose units are expensive
+ * records each one as it lands. Without that, «the process dies» above is only
+ * half true: nothing is written, yes — but the work already done is written to
+ * the SITE and not to the row, so the next worker repeats a page it cannot
+ * finish and the progress figure stands still while products arrive. That is
+ * what `alpha.71` did on staging, and `JobHandlerInterface::step()` carries the
+ * measurement.
  */
 final class JobRunner
 {
@@ -64,7 +73,7 @@ final class JobRunner
     /**
      * Run up to `$batches` batches, stopping early when nothing is due.
      *
-     * @return list<array{job:int, type:string, outcome:string, done:int, failed:int, error:string}>
+     * @return list<array{job:int, type:string, outcome:string, done:int, failed:int, error:string, checkpoints?:int}>
      */
     public function run(int $batches = 1): array
     {
@@ -79,7 +88,7 @@ final class JobRunner
         return $results;
     }
 
-    /** @return array{job:int, type:string, outcome:string, done:int, failed:int, error:string}|null */
+    /** @return array{job:int, type:string, outcome:string, done:int, failed:int, error:string, checkpoints?:int}|null */
     public function runOne(): ?array
     {
         if ($this->handlers === []) {
@@ -99,8 +108,28 @@ final class JobRunner
             return ['job' => $job->id, 'type' => $job->type, 'outcome' => 'no_handler', 'done' => 0, 'failed' => 0, 'error' => ''];
         }
 
+        // The handler's own checkpoint, so the cursor follows the WORK rather
+        // than the page. Everything it records is counted here and not again
+        // by the final checkpoint below, and a `false` tells the handler the
+        // lease is gone — at which point it must stop rather than keep writing
+        // over somebody else's job.
+        $lost = false;
+        $recorded = 0;
+        $checkpoint = function (array $cursor, int $done = 0, int $failed = 0, int $total = 0) use ($job, $token, &$lost, &$recorded): bool {
+            if ($lost) {
+                return false;
+            }
+            $kept = $this->jobs->checkpoint($job->id, $token, $cursor, $done, $failed, $total, $this->leaseSeconds);
+            if (!$kept) {
+                $lost = true;
+                return false;
+            }
+            $recorded++;
+            return true;
+        };
+
         try {
-            $batch = $handler->step($job);
+            $batch = $handler->step($job, $checkpoint);
         } catch (\Throwable $e) {
             $this->jobs->finish($job->id, $token, JobStatus::Failed, 'exception: ' . $e->getMessage());
             return ['job' => $job->id, 'type' => $job->type, 'outcome' => 'failed', 'done' => 0, 'failed' => 0, 'error' => $e->getMessage()];
@@ -118,9 +147,12 @@ final class JobRunner
             $batch->total,
             $this->leaseSeconds
         );
-        if (!$kept) {
+        if (!$kept || $lost) {
             // The lease expired mid-batch and somebody else owns this now. Say
-            // so rather than writing over their work.
+            // so rather than writing over their work — and say it even when
+            // the FINAL write would have landed, because a mid-batch
+            // checkpoint that was refused means the rest of this batch was
+            // written by whoever holds the job now.
             return ['job' => $job->id, 'type' => $job->type, 'outcome' => 'lease_lost', 'done' => 0, 'failed' => 0, 'error' => ''];
         }
 
@@ -142,6 +174,10 @@ final class JobRunner
             'done' => $batch->done,
             'failed' => $batch->failed,
             'error' => $batch->error,
+            // How many times the handler checkpointed inside this batch. A
+            // handler with expensive units should never report zero here, and
+            // the evidence asserts it.
+            'checkpoints' => $recorded,
         ];
     }
 }

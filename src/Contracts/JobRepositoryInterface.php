@@ -65,6 +65,35 @@ interface JobRepositoryInterface
     /** @return array<string,int> status => count */
     public function census(): array;
 
+    /**
+     * Every job that is not finished, newest first.
+     *
+     * The queue page needs these as ROWS and not as a count, because the one
+     * thing a manager has to be told — «this job has been claimed three times
+     * and has not moved» — is in the job's own cursor, and no `COUNT(*)` over
+     * a JSON column is going to say it honestly.
+     *
+     * @return list<Job>
+     */
+    public function live(int $limit = 50): array;
+
+    /**
+     * End one job's lease NOW, so the next worker may claim it.
+     *
+     * The recovery path for a job whose worker no longer exists. `claim()`
+     * cannot tell a live worker from a dead one — only `locked_until` can, and
+     * for five minutes after a process is killed it says «somebody is working
+     * on this». Measured on `alpha.71`: the page reported «در حال اجرا ۱ /
+     * بی‌صاحب ۰» while «اجرای دستی یک دسته» answered «چیزی در صف نبود», and
+     * the manager had no action at all.
+     *
+     * Safe even if that worker is in fact alive: its next checkpoint is matched
+     * on its token, finds the job claimed by somebody else, and writes nothing
+     * (`lease_lost`). Nothing is deleted and no count is touched — only the
+     * lease ends.
+     */
+    public function handOver(int $jobId): bool;
+
     /** A manager stopping a job they queued; a running job stops after its batch. */
     public function cancel(int $jobId): bool;
 
