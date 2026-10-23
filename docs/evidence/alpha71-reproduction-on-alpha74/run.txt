@@ -1,0 +1,358 @@
+=== the trees ===
+base_ref=712db6e9a8b6672cd65560214432fdae1e1205c6
+this_checkout_src_digest=b4d59694bf6539cc
+installed_src_digest=9895a612c041e6e0
+base_src_digest=9895a612c041e6e0
+PASS  0a the installed package is this round's base (alpha.71)  (9895a612c041e6e0)
+PASS  0b this checkout differs from the base  (differ)
+schema_for_both_halves=34
+PASS  0c the structure is 34 and this round does not move it  (34)
+PASS  0d no migration file changed in this round  (0)
+PASS  0e the worker the kill needs is in this checkout  (yes)
+PASS  0f the installed tree is now alpha.71's  (9895a612c041e6e0)
+
+=== BEFORE · the import, up to where staging stopped ===
+reader_available=yes
+reader_vendors=2
+reader_products=184
+source_image_px=1400
+source_attachment=10219
+observed_rows=0
+PASS  1a-1 the real reader sees two Dokan shops  (2)
+PASS  1a-2 …and their 184 products  (184)
+plan_run_id=dokan-20261023-185244
+plan_vendors=2
+plan_products=184
+plan_conflicts=0
+plan_is_clean=yes
+plan_total=186
+PASS  1a-3 the dry run reads two shops  (2)
+PASS  1a-4 …and 184 products  (184)
+PASS  1a-5 …with zero conflicts, as staging reported  (0)
+PASS  1a-6 …so the job's total is 186  (186)
+queued_id=135
+queued_created=yes
+job_id=135
+job_status=pending
+job_attempts=0
+job_done=0
+job_failed=0
+job_total=0
+job_cursor=[]
+job_progress=__none__
+job_last_error=__empty__
+job_locked_until=__none__
+job_cursor_attempts=__absent__
+job_budget=__absent__
+PASS  1a-7 the import is queued  (yes)
+run_elapsed_ms=10.36
+run_batches=1
+run_says=more
+run_outcome_0=more done:2 failed:0 error:__none__
+run_checkpoints=__absent__
+cursor_moved=yes
+job_id=135
+job_status=pending
+job_attempts=1
+job_done=2
+job_failed=0
+job_total=186
+job_cursor={"phase":"products","after":0}
+job_progress=1%
+job_last_error=__empty__
+job_locked_until=__none__
+job_cursor_attempts=__absent__
+job_budget=__absent__
+observed_rows=0
+PASS  1a-8 the vendors phase completes in one batch  (more)
+PASS  1a-9 …recording exactly the two shops  (2)
+PASS  1a-10 …and leaving the cursor at the first products page  (products)
+PASS  1a-11 …which is staging's «۲ از ۱۸۶»  (1%)
+PASS  1a-12 no product has been imported yet  (0)
+PASS  1a-13 and the vendors phase changed no WooCommerce product  (61d7af420259b23aa7446362af3e27b3cf5c59f92059424d3cd07ba3635ca17e)
+NOTE  1a-14 checkpoints written inside the vendors batch  __absent__
+before_cursor={"phase":"products","after":0}
+before_done=2
+before_attempts=1
+before_observed=0
+worker_was_killed=yes
+worker_said=worker_started=13545
+after_cursor={"phase":"products","after":0}
+after_done=2
+after_attempts=2
+after_status=running
+after_observed=12
+cursor_moved=no
+created_this_batch=12
+counted_this_batch=0
+unrecorded_units=12
+
+=== BEFORE · §1 a worker killed inside the products page ===
+PASS  1b-1 the worker really was killed, not finished  (yes)
+NOTE  1b-2 how far it got before the kill  worker_started=13545
+PASS  1b-3 ⛔ the cursor did not move  (no)
+PASS  1b-4 ⛔ …and it is still the first products page  ({"phase":"products","after":0})
+PASS  1b-5 ⛔ the recorded figure did not move either  (2)
+PASS  1b-6 …only the attempt count did  (2)
+PASS  1b-7 …and the row still says it is running  (running)
+NOTE  1b-8 ⛔ products that ARRIVED in that batch  12
+PASS  1b-9 ⛔ …products the row counted for them  (0)
+PASS  1b-10 ⛔ …so this many units of work reached the site and not the row  (12)
+PASS  1b-11 ⛔ the base tree cannot checkpoint inside a batch at all  (__absent__)
+before_cursor={"phase":"products","after":0}
+before_done=2
+before_attempts=2
+before_observed=12
+worker_was_killed=yes
+worker_said=worker_started=13621
+after_cursor={"phase":"products","after":0}
+after_done=2
+after_attempts=3
+after_status=running
+after_observed=24
+cursor_moved=no
+created_this_batch=12
+counted_this_batch=0
+unrecorded_units=12
+PASS  1c-1 a second death at the same place  (yes)
+PASS  1c-2 ⛔ …and the cursor still has not moved  (no)
+PASS  1c-3 ⛔ …nor the recorded figure  (2)
+PASS  1c-4 …three attempts now, exactly as staging reported  (3)
+NOTE  1c-5 ⛔ products on the site by now, none of them counted  24
+census_pending=0
+census_running=1
+census_stalled=0
+census_done=0
+census_failed=0
+census_cancelled=0
+census_stuck=__absent__
+job_id=135
+job_status=running
+job_attempts=3
+job_done=2
+job_failed=0
+job_total=186
+job_cursor={"phase":"products","after":0}
+job_progress=1%
+job_last_error=__empty__
+job_locked_until=2026-10-23 18:57:58
+job_cursor_attempts=__absent__
+job_budget=__absent__
+observed_rows=24
+vendor_profiles=29
+second_import_created=no
+second_import_points_at=135
+
+=== BEFORE · §2 the queue page, and §3 the way out ===
+PASS  2a-1 one job «در حال اجرا»  (1)
+PASS  2a-2 ⛔ and «بی‌صاحب مانده» is nought — staging's screen  (0)
+PASS  2a-3 nothing is «در صف»  (0)
+PASS  2a-4 the row says three attempts have been made  (3)
+PASS  2a-5 …and still «۲ از ۱۸۶»  (2)
+PASS  2a-6 …with no reason recorded anywhere  (__empty__)
+PASS  2a-7 ⛔ a manual run answers «چیزی در صف نبود»  (nothing_was_in_the_queue)
+PASS  2a-8 the page cannot count a stuck job at all  (__absent__)
+PASS  3a-1 ⛔ and a new import is refused while this one is live  (no)
+NOTE  3a-2 …pointing back at the stuck job  135
+PASS  3a-3 the base tree has no hand-over at all  (__absent__)
+PASS  0g the installed tree is now this checkout's  (b4d59694bf6539cc)
+
+=== AFTER · the import, up to where staging stopped ===
+reader_available=yes
+reader_vendors=2
+reader_products=184
+source_image_px=1400
+source_attachment=10428
+observed_rows=0
+PASS  4a-1 the real reader sees two Dokan shops  (2)
+PASS  4a-2 …and their 184 products  (184)
+plan_run_id=dokan-20261023-185316
+plan_vendors=2
+plan_products=184
+plan_conflicts=0
+plan_is_clean=yes
+plan_total=186
+PASS  4a-3 the dry run reads two shops  (2)
+PASS  4a-4 …and 184 products  (184)
+PASS  4a-5 …with zero conflicts, as staging reported  (0)
+PASS  4a-6 …so the job's total is 186  (186)
+queued_id=137
+queued_created=yes
+job_id=137
+job_status=pending
+job_attempts=0
+job_done=0
+job_failed=0
+job_total=0
+job_cursor=[]
+job_progress=__none__
+job_last_error=__empty__
+job_locked_until=__none__
+job_cursor_attempts=__absent__
+job_budget=__absent__
+PASS  4a-7 the import is queued  (yes)
+run_elapsed_ms=15.85
+run_batches=1
+run_says=more
+run_outcome_0=more done:0 failed:0 error:__none__
+run_checkpoints=5
+cursor_moved=yes
+job_id=137
+job_status=pending
+job_attempts=1
+job_done=2
+job_failed=0
+job_total=186
+job_cursor={"phase":"products","after":0,"at":0,"tries":0,"page_tries":0}
+job_progress=1%
+job_last_error=__empty__
+job_locked_until=__none__
+job_cursor_attempts=__absent__
+job_budget=__absent__
+observed_rows=0
+PASS  4a-8 the vendors phase completes in one batch  (more)
+PASS  4a-9 …recording exactly the two shops  (2)
+PASS  4a-10 …and leaving the cursor at the first products page  (products)
+PASS  4a-11 …which is staging's «۲ از ۱۸۶»  (1%)
+PASS  4a-12 no product has been imported yet  (0)
+PASS  4a-13 and the vendors phase changed no WooCommerce product  (4178d1e09c4139c310a019234c11fc3d990d767b5bec6a226156dd9ef874610f)
+NOTE  4a-14 checkpoints written inside the vendors batch  5
+before_cursor={"phase":"products","after":0,"at":0,"tries":0,"page_tries":0}
+before_done=2
+before_attempts=1
+before_observed=0
+worker_was_killed=yes
+worker_said=worker_started=13861
+after_cursor={"phase":"products","after":10439,"at":10440,"tries":1,"page_tries":0}
+after_done=13
+after_attempts=2
+after_status=running
+after_observed=12
+cursor_moved=yes
+created_this_batch=12
+counted_this_batch=11
+unrecorded_units=1
+
+=== AFTER · §1 the same kill, inside the same page ===
+PASS  4b-1 the worker really was killed, not finished  (yes)
+PASS  4b-2 the cursor MOVED  (yes)
+PASS  4b-3 …past the first products page  (no)
+PASS  4b-4 the recorded figure moved too  (yes)
+PASS  4b-5 …and at most ONE unit was in flight and lost  (yes)
+NOTE  4b-6 products that arrived in that batch  12
+NOTE  4b-7 …units the row counted for them  11
+NOTE  4b-8 …unrecorded  1
+live_jobs=1
+held_job_137=until:2026-10-23 18:58:26 tries:1
+jobs_holding_a_live_lease=1
+a_run_would_find_anything=no
+before_locked_until=2026-10-23 18:58:26
+before_done=13
+before_cursor={"phase":"products","after":10439,"at":10440,"tries":1,"page_tries":0}
+claim_finds_anything=no
+handed_over=yes
+after_hand_over_batches=1
+after_hand_over_says=more
+after_hand_over_checkpoints=101
+job_id=137
+job_status=pending
+job_attempts=3
+job_done=63
+job_failed=0
+job_total=186
+job_cursor={"phase":"products","after":10489,"at":0,"tries":0,"page_tries":0}
+job_progress=33%
+job_last_error=__empty__
+job_locked_until=__none__
+job_cursor_attempts=__absent__
+job_budget=__absent__
+observed_rows=61
+
+=== AFTER · §2 the dead worker's lease, and the way past it ===
+PASS  5a-1 the job is still held by a lease nobody is using  (1)
+PASS  5a-2 …so a run finds nothing, exactly as on staging  (no)
+PASS  5a-3 the hand-over ends that lease, on the manager's explicit say-so  (yes)
+PASS  5a-4 …and the very next batch runs  (1)
+PASS  5a-5 …carrying on rather than finishing  (more)
+PASS  5a-6 …having recorded its position once per unit  (yes)
+NOTE  5a-7 checkpoints written inside that one batch  101
+poison_tries=2
+poison_cursor={"phase":"products","after":10489,"at":0,"tries":2,"page_tries":0}
+poison_says=more
+poison_failed_delta=0
+poison_cursor_after={"phase":"products","after":10539,"at":0,"tries":0,"page_tries":0}
+poison_cursor_moved=yes
+poison_job_failed=0
+poison_created=50
+
+=== AFTER · §1 a position that has killed workers ===
+PASS  6a-1 two deaths at one place is still tried again  (more)
+PASS  6a-2 …and nothing is blamed for them  (0)
+PASS  6a-3 …the batch did its work  (yes)
+poison_tries=3
+poison_cursor={"phase":"products","after":10539,"at":0,"tries":3,"page_tries":0}
+poison_says=more
+poison_failed_delta=0
+poison_cursor_after={"phase":"products","after":10589,"at":0,"tries":0,"page_tries":0,"refused":["10540:stalled_after_3_attempts"]}
+poison_cursor_moved=yes
+poison_job_failed=1
+poison_created=49
+PASS  6b-1 three deaths at one place is not tried a fourth time  (more)
+PASS  6b-2 …the one unit there is counted as refused, on the row  (1)
+PASS  6b-3 …and exactly one unit of the page did not arrive  (yes)
+PASS  6b-4 …the cursor steps past it  (yes)
+PASS  6b-5 …and it is NAMED, with its own id  (yes)
+NOTE  6b-6 the cursor afterwards  {"phase":"products","after":10589,"at":0,"tries":0,"page_tries":0,"refused":["10540:stalled_after_3_attempts"]}
+complete_batches=2
+complete_outcomes=more|done
+job_id=137
+job_status=done
+job_attempts=8
+job_done=185
+job_failed=1
+job_total=186
+job_cursor={"phase":"orders","after":0,"at":0,"tries":0,"page_tries":0,"refused":["10540:stalled_after_3_attempts"]}
+job_progress=100%
+job_last_error=__empty__
+job_locked_until=__none__
+job_cursor_attempts=__absent__
+job_budget=__absent__
+observed_rows=183
+vendor_profiles=29
+wc_products=184
+wc_digest=4178d1e09c4139c310a019234c11fc3d990d767b5bec6a226156dd9ef874610f
+dokan_sellers=2
+dokan_orders_rows=0
+duplicate_mappings=0
+duplicate_ids=__none__
+duplicate_vendor_profiles=0
+
+=== AFTER · §1 the interrupted import runs to the end ===
+PASS  7a-1 the job reaches «انجام شد»  (done)
+PASS  7a-2 …at a hundred per cent  (100%)
+PASS  7a-3 …having counted every unit it was given  (186)
+NOTE  7a-4 of those, counted as refused  1
+NOTE  7a-5 batches it took after the kill  2
+PASS  7a-6 ⛔ no WooCommerce product was mapped twice  (0)
+PASS  7a-7 ⛔ no shop got a second profile  (0)
+PASS  7a-8 ⛔ the WooCommerce products are byte-for-byte what they were  (4178d1e09c4139c310a019234c11fc3d990d767b5bec6a226156dd9ef874610f)
+PASS  7a-9 ⛔ and Dokan's own rows are untouched  (2)
+PASS  7a-10 the products that arrived, plus the ones refused  (184)
+
+=== CONTROLS · the same answer on both trees ===
+PASS  8a-base-1 the dry run reads two shops and 184 products with no conflict  (2/184/0)
+PASS  8a-base-2 the vendors phase records exactly two  (2)
+PASS  8a-base-3 a second import is refused while one is live  (no)
+PASS  8a-base-4 the reader is the real one and sees Dokan-shaped data  (yes)
+PASS  8b-base the base tree records a batch and nothing inside it  (__absent__)
+PASS  8a-now-1 the dry run reads two shops and 184 products with no conflict  (2/184/0)
+PASS  8a-now-2 the vendors phase records exactly two  (2)
+PASS  8a-now-3 a second import is refused while one is live  (no)
+PASS  8a-now-4 the reader is the real one and sees Dokan-shaped data  (yes)
+PASS  8b-now this tree records every unit inside the batch  (yes)
+NOTE  8b-now-count checkpoints inside the vendors batch  5
+
+=== result ===
+checks=93 pass=93 fail=0
+base_src_digest=9895a612c041e6e0
+this_checkout_src_digest=b4d59694bf6539cc
