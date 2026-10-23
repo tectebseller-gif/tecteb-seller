@@ -317,9 +317,19 @@ final class FakeJobRepository implements JobRepositoryInterface
         return array_values(array_filter($this->jobs, static fn (Job $j): bool => $j->status->isLive()));
     }
 
-    public function handOver(int $jobId): bool
+    public function handOver(int $jobId, string $seenLock = '', bool $evenIfWriting = false): string
     {
-        return isset($this->jobs[$jobId]);
+        return isset($this->jobs[$jobId]) ? '' : 'not_running';
+    }
+
+    public function lockFingerprint(string $lockToken, string $lockedUntil): string
+    {
+        return hash('sha256', $lockToken . '|' . $lockedUntil);
+    }
+
+    public function secondsSinceWrite(int $jobId): ?int
+    {
+        return isset($this->jobs[$jobId]) ? 999 : null;
     }
 
     public function cancel(int $jobId): bool

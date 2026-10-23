@@ -1,0 +1,227 @@
+Skip to main content
+Skip to toolbar
+
+
+Dashboard
+Home
+Updates
+
+
+Posts
+All Posts
+Add Post
+Categories
+Tags
+
+
+Media
+Library
+Add Media File
+
+
+Pages
+All Pages
+Add Page
+
+
+Comments
+
+
+WooCommerce
+Home 3
+Orders 100
+Customers
+Coupons
+Reports
+Settings
+Status
+Extensions
+
+
+Products
+All Products
+Add new product
+Brands
+Categories
+Tags
+Attributes
+Reviews
+Min Max Control
+Min Max Control
+Module On/Off
+Browse Plugins
+Hire an Expert
+
+
+Payments
+
+
+بازارگاه تک‌طب
+پیشخوان
+بررسی محصولات
+درخواست‌های فروشندگان
+فروشگاه‌ها (مشاهده)
+مدارک فروشندگان
+تیکت فروشندگان
+وضعیت فروش بازارگاه
+قواعد کمیسیون
+تسویه و برداشت
+پرداخت به تأمین‌کننده
+مرجوعی و بازپرداخت
+خریداران عمده
+الگوهای مشخصات
+نظرات
+گزارش‌ها
+تنظیمات
+ماژول‌ها
+سلامت
+صف و سلامت اجرا
+رویدادها و API
+ممیزی
+راه‌اندازی
+مهاجرت از دکان
+تحویل مهاجرت
+خروج از Min Max
+
+
+Analytics
+Overview
+Products
+Revenue
+Orders
+Variations
+Categories
+Coupons
+Taxes
+Downloads
+Stock
+Settings
+
+
+Marketing
+Overview
+Coupons
+
+
+Appearance
+Themes
+Design
+Customize
+Widgets
+Fonts
+Menus
+Background
+Theme File Editor
+
+
+Plugins
+Installed Plugins
+Add Plugin
+Plugin File Editor
+
+
+Users
+All Users
+Add User
+Profile
+
+
+Tools
+Available Tools
+Import
+Export
+Site Health 4
+Export Personal Data
+Erase Personal Data
+Scheduled Actions
+
+
+Settings
+General
+Connectors
+Writing
+Reading
+Discussion
+Media
+Permalinks
+Privacy
+Collapse Menu
+About WordPress
+بازارگاه تک‌طب
+Store coming soon
+Ctrl+K
+Open command palette
+0
+0 Comments in moderation
+New
+Howdy, tmcowner
+پرش به محتوای اصلی
+بازارگاه تک‌طب
+نسخه آزمایشی
+0.1.0-alpha.73
+روزمره
+فروش و مالی
+محتوا و گزارش
+تنظیمات و ابزارها
+راه‌اندازی و مهاجرت
+تنظیمات
+ماژول‌ها
+سلامت
+صف و سلامت اجرا
+رویدادها و API
+ممیزی
+صف و سلامت اجرا
+
+Help us improve Min Max Control even more awesome? By allowing us to collect usage and diagnostic data, you'll help us make the plugin faster, identify bugs, improve performance and better suited to your needs (what we collect)
+
+ Allow No thanks
+
+چه چیزی صف را پیش می‌برد
+i
+
+Action Scheduler (همراه ووکامرس). صف با بازدید سایت پیش می‌رود و تلاش دوبارهٔ خودش را هم دارد.
+
+سازوکار
+action_scheduler
+اجرای بعدی
+۲۰۲۶/۱۰/۲۳ ۱۵:۳۷
+آخرین تیکِ زمان‌بند
+۲۰۲۶/۱۰/۲۳ ۱۵:۳۲
+آخرین اجرای یک دسته
+۲۰۲۶/۱۰/۲۳ ۱۵:۳۲ (اجرای دستی)
+اجرای دستی یک دسته
+
+«اجرای دستی» یک دسته از کارِ در صف را همین حالا انجام می‌دهد و برمی‌گردد؛ کل صف را یکجا اجرا نمی‌کند، چون همین درخواست هم مهلت اجرای خودش را دارد.
+
+وضعیت کلی
+در صف
+۰
+در حال اجرا
+۱
+بی‌صاحب مانده
+۰
+انجام شد
+۰
+شکست خورد
+۰
+لغو شد
+۰
+!
+
+این کارها گرفته شده‌اند و از همان نقطه تکان نخورده‌اند: ۱۰۲. یعنی هر بار که اجرا شده‌اند، همان جا متوقف شده‌اند — معمولاً چون همان یک قلمِ کار از مهلت یک درخواست این میزبان بیشتر طول می‌کشد. چند بار دیگر که اجرا شوند، همان قلم با شماره‌اش نام برده و رد می‌شود و بقیه ادامه می‌یابند.
+
+کارهای اخیر
+شماره	کار	وضعیت	پیشرفت	تلاش	آخرین تغییر	اقدام
+102	ورود داده از دکان	در حال اجرا	۲۵٪ (۲ از ۸)	۲	۲۰۲۶-۱۰-۲۳ ۱۵:۳۳:۴۳	
+لغو
+ این کار ۳ ثانیه پیش چیزی نوشته؛ با این حال ادامه بده
+ادامه از همین نقطه
+
+مرحلهٔ محصولات، پس از شمارهٔ ۰ — ۱ تلاش روی همین نقطه، بدون پیشرفت — قفلش تا ۱۵:۳۸ در دست یک کارگر است
+صفحهٔ ۱
+
+تمام ارسال‌های خود افزونه در نسخه آزمایشی مسدود است. وضعیت سایر افزونه‌ها بررسی‌نشده است.
+
+Thank you for creating with WordPress.
+
+Version 7.1

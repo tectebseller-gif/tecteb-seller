@@ -807,6 +807,20 @@ final class DbProductRepository implements ProductRepositoryInterface
         );
     }
 
+    public function duplicateWcMappings(int $limit = 50): array
+    {
+        $limit = max(1, min(500, $limit));
+        return array_map(
+            static fn (array $row): int => (int) $row['wc_product_id'],
+            $this->db->getResults(
+                'SELECT wc_product_id FROM `' . $this->products() . '`
+                 WHERE wc_product_id IS NOT NULL AND wc_product_id > 0
+                 GROUP BY wc_product_id HAVING COUNT(*) > 1
+                 ORDER BY wc_product_id ASC LIMIT ' . $limit
+            )
+        );
+    }
+
     public function idsFromImportRun(string $runId): array
     {
         if ($runId === '') {

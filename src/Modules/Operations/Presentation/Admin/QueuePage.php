@@ -231,10 +231,31 @@ final class QueuePage
             // offered while the lease still stands, because that is the only
             // state in which nothing else can move the job.
             if ($job->status === JobStatus::Running && $job->lockedUntil !== '' && strtotime($job->lockedUntil) > time()) {
+                // The form CARRIES the lock it was drawn from.
+                //
+                // ⛔ Without it the hand-over is about whatever lease is there
+                // when the form arrives, which on a busy queue is a worker who
+                // has only just picked the job up. Same rule as the stock
+                // override in `alpha.49`: an override is about the value that
+                // was shown.
+                $silent = $this->jobs()->secondsSinceWrite($job->id);
+                $writing = $silent === null || $silent < JobRepositoryInterface::WRITING_WINDOW;
                 $out .= '<form method="post" class="tmc-inline-form">'
                     . wp_nonce_field(self::NONCE, 'tmc_jobs_nonce', true, false)
                     . '<input type="hidden" name="job_id" value="' . esc_attr((string) $job->id) . '">'
-                    . '<button type="submit" class="tmc-button" name="jobs_action" value="hand_over">'
+                    . '<input type="hidden" name="seen_lock" value="'
+                    . esc_attr($this->jobs()->lockFingerprint($job->lockToken, $job->lockedUntil)) . '">';
+                if ($writing) {
+                    // Said in the words that are true: silence is measurable,
+                    // death is not.
+                    $out .= '<label class="tmc-field__desc"><input type="checkbox" name="even_if_writing" value="1"> '
+                        . esc_html(sprintf(
+                            /* translators: %s: seconds */
+                            __('این کار %s ثانیه پیش چیزی نوشته؛ با این حال ادامه بده', 'tecteb-marketplace-core'),
+                            PersianDigits::toPersian((string) ($silent ?? 0))
+                        )) . '</label>';
+                }
+                $out .= '<button type="submit" class="tmc-button" name="jobs_action" value="hand_over">'
                     . esc_html__('ادامه از همین نقطه', 'tecteb-marketplace-core') . '</button></form>';
             }
         } else {
@@ -322,8 +343,13 @@ final class QueuePage
         if ($action === 'run_now' || $action === 'hand_over') {
             if ($action === 'hand_over') {
                 $id = $request->postInt('job_id');
-                if (!$this->jobs()->handOver($id)) {
-                    return 'err:' . __('مهلت قفل این کار پایان نیافت؛ شاید همین حالا تمام شده باشد. صفحه را تازه کنید.', 'tecteb-marketplace-core');
+                $why = $this->jobs()->handOver(
+                    $id,
+                    $request->postKey('seen_lock'),
+                    $request->postKey('even_if_writing') === '1'
+                );
+                if ($why !== '') {
+                    return 'err:' . OperationsMessages::handOverRefusal($why);
                 }
             }
             // Both ways of running a batch write down that one ran — the

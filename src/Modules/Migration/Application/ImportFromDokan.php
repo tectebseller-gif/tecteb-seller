@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
+use Tecteb\Marketplace\Modules\Migration\Domain\UnitClaim;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
@@ -730,12 +731,14 @@ final class ImportFromDokan
      * work and writing the checkpoint: `upsertProfile` on a shop that is
      * already there changes nothing, and the manifest de-duplicates.
      *
-     * @return array{done:int, last:int, more:bool, created:array{vendors:list<int>, products:list<int>}}
+     * @return array{done:int, failed:int, recorded:int, last:int, more:bool, created:array{vendors:list<int>, products:list<int>}, notes:list<string>, lease_lost:bool}
      */
-    public function importVendorPage(string $runId, int $afterUserId, int $limit, ?\Closure $recordOne = null): array
+    public function importVendorPage(string $runId, int $afterUserId, int $limit, ?ImportProgressInterface $progress = null): array
     {
         $created = ['vendors' => [], 'products' => []];
         $recorded = 0;
+        $notes = [];
+        $failed = 0;
         // One page from the reader, not every seller sliced in PHP. The old
         // version read the whole shop on every batch — which is the cost a
         // batched job exists to avoid, paid once per batch instead of once.
@@ -743,12 +746,41 @@ final class ImportFromDokan
         $last = $afterUserId;
         $leaseLost = false;
         foreach ($page as $vendor) {
-            $last = (int) $vendor['user_id'];
+            $id = (int) $vendor['user_id'];
+            // CLAIMED BEFORE THE PROFILE IS WRITTEN, not after it.
+            //
+            // ⛔ `alpha.72` recorded a unit once it had landed, which left a
+            // worker whose lease had been handed on still writing rows into an
+            // import it no longer owned. The claim is the guard, and it is
+            // only a guard if it comes first.
+            if ($progress !== null) {
+                $claim = $progress->claim($id);
+                if ($claim === UnitClaim::LeaseLost) {
+                    $leaseLost = true;
+                    break;
+                }
+                if ($claim === UnitClaim::GiveUp) {
+                    $last = $id;
+                    $ours = $this->vendors->findProfileByUser($id) !== null;
+                    $note = $id . ':' . ($ours
+                        ? 'arrived_before_the_worker_died'
+                        : 'stalled_after_' . $progress->attempts($id) . '_attempts');
+                    $notes[] = $note;
+                    $failed += $ours ? 0 : 1;
+                    if (!$progress->landed($id, $ours ? 1 : 0, $ours ? 0 : 1, [$note])) {
+                        $leaseLost = true;
+                        break;
+                    }
+                    $recorded++;
+                    continue;
+                }
+            }
+            $last = $id;
             if ($this->vendors->findProfileByUser($last) === null) {
                 // canSell false: an imported shop is present, not yet trading.
                 $this->vendors->upsertProfile($last, $vendor['store_name'], false, false, $runId);
                 $created['vendors'][] = $last;
-                if ($recordOne !== null) {
+                if ($progress !== null) {
                     // Per unit, because the manifest has to be at least as
                     // complete as the work (`alpha.55`) and the work is now
                     // recorded per unit too.
@@ -757,8 +789,8 @@ final class ImportFromDokan
             }
             // Every shop on the page is a unit, the ones already ours
             // included: a page that begins with a skip still has to move.
-            if ($recordOne !== null) {
-                if (!$recordOne($last, 1, 0)) {
+            if ($progress !== null) {
+                if (!$progress->landed($last, 1, 0)) {
                     // The lease is gone: whoever holds the job now is writing
                     // these very rows. Stop and report what landed.
                     $leaseLost = true;
@@ -767,19 +799,21 @@ final class ImportFromDokan
                 $recorded++;
             }
         }
-        if ($created['vendors'] !== [] && $recordOne === null) {
+        if ($created['vendors'] !== [] && $progress === null) {
             $this->rememberRun($runId, $created);
         }
         return [
             // What the caller still has to count: a unit the sink has already
             // recorded must not be counted twice.
             'done' => max(0, count($page) - $recorded),
+            'failed' => $failed,
             'recorded' => $recorded,
             'last' => $last,
             // A short page is the end. Asking «are there more?» by counting the
             // whole set again would undo the reason for paging at all.
             'more' => $leaseLost ? false : count($page) >= $limit,
             'created' => $created,
+            'notes' => $notes,
             'lease_lost' => $leaseLost,
         ];
     }
@@ -792,29 +826,35 @@ final class ImportFromDokan
      * first bad SKU leaves a half-imported shop and tells the manager nothing
      * about the other 300 rows. The reasons come back in the notes.
      *
-     * @return array{done:int, failed:int, last:int, more:bool, created:array{vendors:list<int>, products:list<int>}, notes:list<string>}
+     * ⛔ And a page that SKIPS a product does not count it done without
+     * asking whether it is finished — see the skip branch, and
+     * `importCompletion()` for the report that separates the numbers.
+     *
+     * @return array{done:int, failed:int, recorded:int, repaired:int, last:int, more:bool, created:array{vendors:list<int>, products:list<int>}, notes:list<string>, lease_lost:bool}
      */
-    public function importProductPage(string $runId, int $afterProductId, int $limit, ?\Closure $recordOne = null): array
+    public function importProductPage(string $runId, int $afterProductId, int $limit, ?ImportProgressInterface $progress = null): array
     {
         $created = ['vendors' => [], 'products' => []];
         $recorded = 0;
-        $notes = [];
-        $page = $this->dokan->productsAfter($afterProductId, $limit);
-        $last = $afterProductId;
-        $failed = 0;
         $recordedDone = 0;
         $recordedFailed = 0;
+        $repaired = 0;
+        $notes = [];
+        $failed = 0;
         $leaseLost = false;
+        $page = $this->dokan->productsAfter($afterProductId, $limit);
+        $last = $afterProductId;
+
         // One product is one unit of work AND one unit of record. Everything
         // the caller still has to count is what the sink did not take, so a
         // page that stops half way has already written down the half that
         // landed — see `JobHandlerInterface::step()` for what this cost on
         // staging when it was the page instead.
-        $tick = function (int $at, int $done, int $bad) use ($recordOne, &$recorded, &$recordedDone, &$recordedFailed, &$leaseLost): bool {
-            if ($recordOne === null) {
+        $landed = function (int $at, int $done, int $bad, array $note = []) use ($progress, &$recorded, &$recordedDone, &$recordedFailed, &$leaseLost): bool {
+            if ($progress === null) {
                 return true;
             }
-            if (!$recordOne($at, $done, $bad)) {
+            if (!$progress->landed($at, $done, $bad, $note)) {
                 $leaseLost = true;
                 return false;
             }
@@ -823,28 +863,106 @@ final class ImportFromDokan
             $recordedFailed += $bad;
             return true;
         };
+
         foreach ($page as $product) {
-            $last = (int) $product['wc_product_id'];
-            [$verdict, $reason] = $this->judgeProduct($product);
-            if ($verdict !== DokanMigrationPlan::IMPORT) {
-                if ($verdict === DokanMigrationPlan::CONFLICT) {
-                    $failed++;
-                    $notes[] = $last . ':' . $reason;
-                    if (!$tick($last, 0, 1)) {
+            $wcId = (int) $product['wc_product_id'];
+            $vendorId = (int) $product['vendor_user_id'];
+
+            // CLAIMED BEFORE THE ROW, THE COPY AND THE MANIFEST.
+            //
+            // ⛔ Every one of those writes used to happen before anything
+            // token-guarded, so the guard arrived too late to be one: measured
+            // on `alpha.72`'s own bytes, a worker parked inside the first
+            // product's image work, whose job was then handed to a second
+            // worker, carried on and wrote a product and an image into an
+            // import it no longer owned — `a_wrote_after_losing_the_job=yes`.
+            if ($progress !== null) {
+                $claim = $progress->claim($wcId);
+                if ($claim === UnitClaim::LeaseLost) {
+                    $leaseLost = true;
+                    break;
+                }
+                if ($claim === UnitClaim::GiveUp) {
+                    $last = $wcId;
+                    [$done, $bad, $note] = $this->giveUpOnProduct($wcId, $product, $progress->attempts($wcId));
+                    $failed += $bad;
+                    if ($note !== '') {
+                        $notes[] = $note;
+                    }
+                    if (!$landed($wcId, $done, $bad, $note === '' ? [] : [$note])) {
                         break;
                     }
                     continue;
                 }
-                // A skip is a unit too: a product already mapped by an earlier
-                // run still has to move the cursor, or a resumed page that
-                // begins with one would never get past it.
-                if (!$tick($last, 1, 0)) {
+            }
+            $last = $wcId;
+
+            [$verdict, $reason] = $this->judgeProduct($product);
+            if ($verdict === DokanMigrationPlan::CONFLICT) {
+                $failed++;
+                $notes[] = $wcId . ':' . $reason;
+                if (!$landed($wcId, 0, 1, [$wcId . ':' . $reason])) {
                     break;
                 }
                 continue;
             }
+            if ($verdict !== DokanMigrationPlan::IMPORT) {
+                // A SKIP means this product is already ours — and that is
+                // where `alpha.72` counted it `done` and moved on.
+                //
+                // ⛔ A MAPPED PRODUCT IS NOT A FINISHED PRODUCT. The row and
+                // its mapping are written before the picture is copied, so a
+                // worker killed in between leaves a row that exists, is
+                // stamped with its run, is findable by its WooCommerce id —
+                // and has no image. Measured on `alpha.72`: killed inside the
+                // first product's image work and resumed, the import reported
+                // `done=8` of 8 with `products_without_image=1`, and nothing
+                // anywhere named it. A hundred per cent that is not a hundred
+                // per cent is worse than a number that admits it is short.
+                //
+                // So the skip asks what is MISSING rather than whether a row
+                // exists, and finishes it. Nothing is created: the row stays,
+                // its id stays, its run stamp stays.
+                $mine = $this->products->findObservedByWcProduct($wcId)
+                    ?? $this->products->findByWcProduct($wcId);
+                $gap = $mine === null ? 'row_vanished_between_two_reads' : $this->importGap($mine->id, $product);
+                if ($gap === '') {
+                    if (!$landed($wcId, 1, 0)) {
+                        break;
+                    }
+                    continue;
+                }
+                if ($mine !== null && $gap === 'image') {
+                    $why = $this->carryImage($mine->id, $vendorId, (int) ($product['source_image_id'] ?? 0), $progress);
+                    if ($why === 'lease_lost') {
+                        $leaseLost = true;
+                        break;
+                    }
+                    if ($why === '') {
+                        $repaired++;
+                        // The manifest has to know about a row it will be
+                        // asked to roll back, and a repaired row is one.
+                        if ($progress !== null) {
+                            $this->rememberRun($runId, ['vendors' => [], 'products' => [$mine->id]]);
+                        }
+                        if (!$landed($wcId, 1, 0)) {
+                            break;
+                        }
+                        continue;
+                    }
+                    $gap = $why;
+                }
+                // Still not finished, and said out loud rather than counted.
+                $failed++;
+                $notes[] = $wcId . ':' . $gap;
+                if (!$landed($wcId, 0, 1, [$wcId . ':' . $gap])) {
+                    break;
+                }
+                continue;
+            }
+
             $productId = $this->products->create(
-                $product['vendor_user_id'],
+                $vendorId,
                 new ProductDetails(
                     title: $product['title'],
                     // Mapped, or empty. Empty keeps the product a draft,
@@ -872,73 +990,61 @@ final class ImportFromDokan
                 LinkOwnership::Observed,
                 // One statement: link and stamp included. The row that exists
                 // is complete, carries the run that made it, and is findable
-                // by its WooCommerce id — so a resumed page skips it instead
+                // by its WooCommerce id — so a resumed page finds it instead
                 // of creating a second one.
-                (int) $product['wc_product_id'],
+                $wcId,
                 $runId
             );
             if ($productId === 0) {
                 $failed++;
-                $notes[] = $last . ':create_failed';
-                if (!$tick($last, 0, 1)) {
+                $notes[] = $wcId . ':create_failed';
+                if (!$landed($wcId, 0, 1, [$wcId . ':create_failed'])) {
                     break;
                 }
                 continue;
             }
-            // The picture the product already has.
-            //
-            // Unlike the CATEGORY — two vocabularies, no reliable
-            // correspondence, so a mapping the owner writes — the featured
-            // image needs no decision at all: it is the same photograph of
-            // the same product, hanging on the very WooCommerce post this row
-            // now points at. Carrying it is not a guess; leaving it behind
-            // would just make every migrated product fail readiness with
-            // `missing_image` and wait for somebody to re-upload a file that
-            // is already there.
-            //
-            // A SECOND write, deliberately, and safe in a way the run stamp
-            // was not: a row that lost its image between the two is still
-            // findable, still stamped, still rolled back with its run — and
-            // it says `missing_image` out loud instead of turning into a
-            // duplicate on the next pass.
-            $sourceImageId = (int) ($product['source_image_id'] ?? 0);
-            if ($sourceImageId > 0 && $this->images !== null) {
-                // COPIED into the vendor's own media, not referenced.
-                //
-                // The gallery only keeps images the vendor owns, and the
-                // source attachment belongs to whoever uploaded it in the old
-                // system — so a reference survives the import and then
-                // vanishes the first time the vendor saves the product, which
-                // is the worst possible moment to lose it. Measured: the
-                // picture arrived, the vendor filled in the specs, and the
-                // save dropped it again.
-                $ownCopy = $this->images->duplicateForVendor($sourceImageId, (int) $product['vendor_user_id']);
-                if ($ownCopy > 0) {
-                    $this->products->saveImages($productId, [$ownCopy], $ownCopy);
-                }
-            }
-            $created['products'][] = $productId;
-            if ($recordOne !== null) {
+            if ($progress !== null) {
                 // The manifest has to be at least as complete as the work
                 // (`alpha.55`), and with a per-unit checkpoint that means per
                 // unit: a worker killed after this product must leave a
-                // manifest that already knows about it.
+                // manifest that already knows about it. Written BEFORE the
+                // picture, because the row exists before the picture does.
                 $this->rememberRun($runId, ['vendors' => [], 'products' => [$productId]]);
             }
-            if (!$tick($last, 1, 0)) {
+            $created['products'][] = $productId;
+
+            $why = $this->carryImage($productId, $vendorId, (int) ($product['source_image_id'] ?? 0), $progress);
+            if ($why === 'lease_lost') {
+                $leaseLost = true;
+                break;
+            }
+            if ($why !== '') {
+                // The row is in and the picture is not. Counted as failed and
+                // NAMED, so the completion report and the next pass both know
+                // there is something to finish — rather than a `done` that
+                // hides it.
+                $failed++;
+                $notes[] = $wcId . ':' . $why;
+                if (!$landed($wcId, 0, 1, [$wcId . ':' . $why])) {
+                    break;
+                }
+                continue;
+            }
+            if (!$landed($wcId, 1, 0)) {
                 break;
             }
         }
-        if ($created['products'] !== [] && $recordOne === null) {
+        if ($created['products'] !== [] && $progress === null) {
             // Still written, and still useful — it is where the VENDOR ids
             // live, and vendors have no row of ours to stamp. For products it
             // is now a convenience rather than the source of truth.
             $this->rememberRun($runId, $created);
         }
         return [
-            'done' => count($page) - $failed - $recordedDone,
-            'failed' => $failed - $recordedFailed,
+            'done' => max(0, count($page) - $failed - $recordedDone),
+            'failed' => max(0, $failed - $recordedFailed),
             'recorded' => $recorded,
+            'repaired' => $repaired,
             'last' => $last,
             // A page the lease was taken from is not a page that ended.
             'more' => $leaseLost ? false : count($page) >= $limit,
@@ -946,6 +1052,267 @@ final class ImportFromDokan
             'notes' => array_slice($notes, 0, 20),
             'lease_lost' => $leaseLost,
         ];
+    }
+
+    /**
+     * What an import really finished — four numbers, not one percentage.
+     *
+     * «۱۰۰٪» is not an answer on its own and this round is the proof: a job
+     * can report every unit done while a product sits in the catalogue with no
+     * picture, because the row was written before the picture and only the row
+     * was counted. So the report says separately how many products are mapped,
+     * how many are finished, how many are missing their picture, how many
+     * could not be judged at all, and how many WooCommerce products have more
+     * than one row pointing at them.
+     *
+     * **Derived from the rows and the shop, every time.** No column, no
+     * counter, nothing to fall out of date — the same reasoning as
+     * `ImportGap()` one method down and as `ImportExistingProducts`.
+     *
+     * **With no run id it scans every import this catalogue remembers**, which
+     * is how a half-made product left by an EARLIER package is found: the job
+     * that made it is finished and no batch will ever look at it again.
+     *
+     * ⛔ `source_unreadable` is not `complete`. A product whose Dokan row has
+     * gone cannot be judged, and calling it finished would be the reassuring
+     * half of exactly the defect above.
+     *
+     * @return array{run:string, mapped:int, complete:int, without_image:int, source_unreadable:int, duplicate_mappings:int, duplicates:list<int>, incomplete:list<int>, scanned:int, finished:bool}
+     */
+    public function importCompletion(string $runId = '', int $limit = 500): array
+    {
+        $ids = $runId === ''
+            ? $this->products->observedFromImportRuns($limit)
+            : $this->products->idsFromImportRun($runId);
+        $ids = array_slice($ids, 0, $limit);
+        $complete = 0;
+        $withoutImage = 0;
+        $unreadable = 0;
+        $incomplete = [];
+        foreach ($ids as $id) {
+            $product = $this->products->find((int) $id);
+            $wcId = (int) ($product?->wcProductId ?? 0);
+            if ($product === null || $wcId <= 0) {
+                $unreadable++;
+                continue;
+            }
+            $source = $this->dokan->productsAfter($wcId - 1, 1)[0] ?? null;
+            // The id is CHECKED, because a paged read answers with the next
+            // row when the one asked for has gone — and that row is about a
+            // different product.
+            if ($source === null || (int) $source['wc_product_id'] !== $wcId) {
+                $unreadable++;
+                continue;
+            }
+            if ($this->importGap((int) $id, $source) === '') {
+                $complete++;
+                continue;
+            }
+            $withoutImage++;
+            if (count($incomplete) < 50) {
+                $incomplete[] = (int) $id;
+            }
+        }
+        $duplicates = $this->products->duplicateWcMappings(50);
+        return [
+            'run' => $runId,
+            'mapped' => count($ids),
+            'complete' => $complete,
+            'without_image' => $withoutImage,
+            'source_unreadable' => $unreadable,
+            'duplicate_mappings' => count($duplicates),
+            'duplicates' => $duplicates,
+            'incomplete' => $incomplete,
+            'scanned' => count($ids),
+            // Whether the scan saw everything. A bounded read that stopped at
+            // its ceiling is not «no more» (`alpha.69`).
+            'finished' => count($ids) < $limit,
+        ];
+    }
+
+    /**
+     * Finish the half-made imports, and only the half-made part of them.
+     *
+     * The row is never recreated and never touched: this copies the picture
+     * that was already on the WooCommerce product and attaches it. The same
+     * shape as `ImportExistingProducts::repair()` — a resumable path for work
+     * that a batch will not come back to, because the job that owned it has
+     * already finished.
+     *
+     * @return OperationResult carrying `repaired`, `still_incomplete` and
+     *                         `refused` — the ids that could not be finished,
+     *                         with the reason for each
+     */
+    public function repairImports(string $runId = '', int $limit = 50): OperationResult
+    {
+        if ($this->capabilities === null || !$this->capabilities->can(Capabilities::REVIEW_VENDOR)) {
+            return OperationResult::failure('forbidden');
+        }
+        $report = $this->importCompletion($runId, 500);
+        $repaired = 0;
+        $refused = [];
+        foreach (array_slice($report['incomplete'], 0, $limit) as $id) {
+            $product = $this->products->find((int) $id);
+            $wcId = (int) ($product?->wcProductId ?? 0);
+            if ($product === null || $wcId <= 0) {
+                $refused[] = $id . ':row_unreadable';
+                continue;
+            }
+            $source = $this->dokan->productsAfter($wcId - 1, 1)[0] ?? null;
+            if ($source === null || (int) $source['wc_product_id'] !== $wcId) {
+                $refused[] = $id . ':source_unreadable';
+                continue;
+            }
+            $why = $this->carryImage(
+                (int) $id,
+                (int) $product->vendorUserId,
+                (int) ($source['source_image_id'] ?? 0),
+                null
+            );
+            if ($why !== '') {
+                $refused[] = $id . ':' . $why;
+                continue;
+            }
+            if ($runId !== '') {
+                $this->rememberRun($runId, ['vendors' => [], 'products' => [(int) $id]]);
+            }
+            $repaired++;
+        }
+        $this->audit->log(
+            AuditEventCatalog::DOKAN_IMPORT_REPAIRED,
+            $this->actorId(),
+            'migration',
+            $runId === '' ? 'every-import' : $runId,
+            [
+                'run_id' => $runId,
+                'repaired' => $repaired,
+                // Names, not a count: a manager reading the trail needs to
+                // know WHICH product is still unfinished.
+                'refused' => implode('، ', array_map('strval', $refused)),
+            ]
+        );
+        return OperationResult::success('import_repaired', [
+            'repaired' => $repaired,
+            // A string, because `OperationResult` carries scalars — and names
+            // rather than a count, because «two products are still
+            // unfinished» does not tell a manager which two.
+            'refused' => implode('، ', array_map('strval', $refused)),
+            'still_incomplete' => max(0, count($report['incomplete']) - $repaired),
+        ]);
+    }
+
+    /**
+     * What this import still owes a product that is already mapped.
+     *
+     * `''` means finished. Otherwise the name of the part that is missing,
+     * which today is only ever `image` — the row carries its title, price,
+     * stock and category from the one statement that created it, so the
+     * picture is the only thing written separately and therefore the only
+     * thing that can be half there.
+     *
+     * **Derived, never stored.** The same shape as
+     * `ImportExistingProducts::incomplete()`: completeness is decided by
+     * comparing the row with the shop, so there is no column to go stale and
+     * no state to be wrong about. A product whose source has no picture at
+     * all is FINISHED without one — «نداشتن تصویر» and «نرسیدنِ تصویر» are
+     * different facts and only the second is a gap.
+     *
+     * @param array<string,mixed> $product the Dokan row, carrying `source_image_id`
+     */
+    public function importGap(int $productId, array $product): string
+    {
+        $source = (int) ($product['source_image_id'] ?? 0);
+        if ($source <= 0 || $this->images === null) {
+            return '';
+        }
+        return $this->products->images($productId) === [] ? 'image' : '';
+    }
+
+    /**
+     * Copy the source picture into the vendor's own media and attach it.
+     *
+     * The picture needs no decision at all — unlike the CATEGORY, with its two
+     * vocabularies and no reliable correspondence — it is the same photograph
+     * of the same product, hanging on the very WooCommerce post this row now
+     * points at. Carrying it is not a guess; leaving it behind would make
+     * every migrated product fail readiness with `missing_image` and wait for
+     * somebody to re-upload a file that is already there.
+     *
+     * COPIED into the vendor's own media, not referenced: the gallery only
+     * keeps images the vendor owns, so a reference survives the import and
+     * then vanishes the first time the vendor saves the product, which is the
+     * worst possible moment to lose it.
+     *
+     * **The lease is asked again between the copy and the attach**, because
+     * the copy is the slow half — a file copy and a full
+     * `wp_generate_attachment_metadata()` — and it is where a host gives up.
+     * A worker that lost the job in there must attach nothing, and must not
+     * leave its copy lying about either: the three conditions from `alpha.42`
+     * decide that discard and all three are required — this request made it,
+     * the vendor owns it, and nothing points at it. ⛔ No sweep, no age cut,
+     * and never the WooCommerce original, which belongs to whoever uploaded
+     * it.
+     *
+     * @return string `''` when the picture is on the product; otherwise
+     *                `no_source`, `image_not_copied`, `image_not_attached`
+     *                or `lease_lost`
+     */
+    private function carryImage(
+        int $productId,
+        int $vendorUserId,
+        int $sourceImageId,
+        ?ImportProgressInterface $progress
+    ): string {
+        if ($sourceImageId <= 0 || $this->images === null) {
+            return '';
+        }
+        $ownCopy = $this->images->duplicateForVendor($sourceImageId, $vendorUserId);
+        if ($ownCopy <= 0) {
+            return 'image_not_copied';
+        }
+        if ($progress !== null && !$progress->stillOurs()) {
+            // Somebody else owns this import now. Put the copy back and write
+            // nothing: a second attachment nobody attached is this plugin
+            // leaving litter in a shop's media library.
+            if (!$this->products->mediaInUse($ownCopy)) {
+                $this->images->discard($ownCopy, $vendorUserId);
+            }
+            return 'lease_lost';
+        }
+        if (!$this->products->saveImages($productId, [$ownCopy], $ownCopy)) {
+            if (!$this->products->mediaInUse($ownCopy)) {
+                $this->images->discard($ownCopy, $vendorUserId);
+            }
+            return 'image_not_attached';
+        }
+        return '';
+    }
+
+    /**
+     * Give up on one product, and say which kind of giving up it is.
+     *
+     * Three answers, because the position may have killed three workers for
+     * three different reasons: the row arrived in one of those attempts and
+     * only its bookkeeping was lost; the row arrived and is still missing its
+     * picture; or nothing arrived at all. Counting the first as a failure
+     * would blame a row that is sitting there complete, and counting the
+     * second as done is the very defect this round is about.
+     *
+     * @param array<string,mixed> $product
+     * @return array{0:int, 1:int, 2:string} done, failed, note
+     */
+    private function giveUpOnProduct(int $wcId, array $product, int $attempts): array
+    {
+        $mine = $this->products->findObservedByWcProduct($wcId)
+            ?? $this->products->findByWcProduct($wcId);
+        if ($mine === null) {
+            return [0, 1, $wcId . ':stalled_after_' . $attempts . '_attempts'];
+        }
+        $gap = $this->importGap($mine->id, $product);
+        if ($gap === '') {
+            return [1, 0, $wcId . ':arrived_before_the_worker_died'];
+        }
+        return [0, 1, $wcId . ':' . $gap . '_missing_after_' . $attempts . '_attempts'];
     }
 
     /**
@@ -960,7 +1327,7 @@ final class ImportFromDokan
      *
      * @return array{done:int, skipped:int, last:int, more:bool}
      */
-    public function importOrderPage(string $runId, int $afterOrderId, int $limit, ?\Closure $recordOne = null): array
+    public function importOrderPage(string $runId, int $afterOrderId, int $limit, ?ImportProgressInterface $progress = null): array
     {
         if ($this->history === null) {
             return ['done' => 0, 'recorded' => 0, 'skipped' => 0, 'failed' => 0, 'already_ours' => 0, 'last' => $afterOrderId, 'more' => false, 'lease_lost' => false];
@@ -974,7 +1341,28 @@ final class ImportFromDokan
         $recorded = 0;
         $leaseLost = false;
         foreach ($page as $order) {
-            $last = max($last, (int) $order['wc_order_id']);
+            $id = (int) $order['wc_order_id'];
+            // Claimed before it is recorded, for the same reason a product is.
+            // An order carries no media and no second write, so there is no
+            // half-made order to finish — but a worker that has lost the job
+            // must still not write history into it.
+            if ($progress !== null) {
+                $claim = $progress->claim($id);
+                if ($claim === UnitClaim::LeaseLost) {
+                    $leaseLost = true;
+                    break;
+                }
+                if ($claim === UnitClaim::GiveUp) {
+                    $last = max($last, $id);
+                    $failed++;
+                    if (!$progress->landed($last, 0, 0, [$id . ':stalled_after_' . $progress->attempts($id) . '_attempts'])) {
+                        $leaseLost = true;
+                        break;
+                    }
+                    continue;
+                }
+            }
+            $last = max($last, $id);
             // «already there» is a resumed job re-running its last page, which
             // is normal. «failed» is not, and counting it as the first would
             // report a shop as migrated on the strength of writes that never
@@ -996,8 +1384,8 @@ final class ImportFromDokan
             // has to get past it or a resumed page that begins with a skip
             // never moves. A skip carries NO count, so the figure stays the one
             // this phase meant — only the position changes.
-            if ($recordOne !== null) {
-                if (!$recordOne($last, $counted, 0)) {
+            if ($progress !== null) {
+                if (!$progress->landed($last, $counted, 0)) {
                     $leaseLost = true;
                     break;
                 }

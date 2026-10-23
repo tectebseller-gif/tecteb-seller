@@ -90,6 +90,7 @@ final class MigrationPage
         }
 
         $this->renderObserved($fa);
+        $this->renderCompletion($service, $fa);
         $this->renderRuns($service, $fa);
         echo Components::shellClose();
     }
@@ -266,6 +267,69 @@ final class MigrationPage
         }
         unset($fa);
         echo '</tbody></table></div></section>';
+    }
+
+    /**
+     * How complete the imports really are — four numbers, not one percentage.
+     *
+     * ⛔ «عدد ۱۰۰٪ به‌تنهایی کافی نیست», and this round is why: until now a
+     * job could report every unit done while a product sat in the catalogue
+     * with no picture, because the row was written before the picture and only
+     * the row was counted. The figures are derived from the rows and the shop
+     * each time this page is drawn, so there is nothing stored to fall out of
+     * date.
+     *
+     * Scanned across EVERY import, not one run, because a half-made product
+     * left by an earlier package belongs to a job that finished long ago and
+     * no batch will ever look at it again.
+     */
+    private function renderCompletion(ImportFromDokan $service, callable $fa): void
+    {
+        $report = $service->importCompletion();
+        if ($report['mapped'] === 0) {
+            return;
+        }
+        $rows = [
+            __('محصول واردشده', 'tecteb-marketplace-core') => $report['mapped'],
+            __('کامل', 'tecteb-marketplace-core') => $report['complete'],
+            __('بدون تصویر (نیمه‌تمام)', 'tecteb-marketplace-core') => $report['without_image'],
+            __('قابل‌بررسی نبود', 'tecteb-marketplace-core') => $report['source_unreadable'],
+            __('نگاشت تکراری', 'tecteb-marketplace-core') => $report['duplicate_mappings'],
+        ];
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('کامل‌بودن ورود', 'tecteb-marketplace-core') . '</h2>'
+            . '<table class="tmc-table"><tbody>';
+        foreach ($rows as $label => $value) {
+            echo '<tr><th scope="row">' . esc_html((string) $label) . '</th>'
+                . '<td>' . esc_html($fa((string) $value)) . '</td></tr>';
+        }
+        echo '</tbody></table>';
+        if (!$report['finished']) {
+            echo '<p class="tmc-card__note">'
+                . esc_html__('این شمارش به سقف خودش رسید، پس «همه را دیدم» نمی‌گوید.', 'tecteb-marketplace-core')
+                . '</p>';
+        }
+        if ($report['incomplete'] !== []) {
+            echo '<p class="tmc-field__desc">'
+                . esc_html__('شناسهٔ محصول‌های نیمه‌تمام: ', 'tecteb-marketplace-core')
+                . esc_html($fa(implode('، ', array_map('strval', $report['incomplete']))))
+                . '</p>'
+                . '<form method="post" class="tmc-inline-form">'
+                . wp_nonce_field(self::NONCE, 'tmc_migration_nonce', true, false)
+                . '<button type="submit" class="tmc-button" name="migration_action" value="repair_imports">'
+                . esc_html__('تکمیل محصول‌های نیمه‌تمام', 'tecteb-marketplace-core') . '</button></form>'
+                . '<p class="tmc-field__desc">'
+                . esc_html__('فقط همان نیمهٔ انجام‌نشده را تلاش می‌کند: تصویری که روی خودِ محصول ووکامرس هست کپی و به محصول بازارگاه وصل می‌شود. هیچ ردیفی ساخته یا بازنویسی نمی‌شود و هیچ رسانه‌ای حذف نمی‌شود.', 'tecteb-marketplace-core')
+                . '</p>';
+        }
+        if ($report['duplicates'] !== []) {
+            echo '<p class="tmc-card__note">'
+                . esc_html__('شناسهٔ محصول ووکامرس که بیش از یک ردیف به آن اشاره می‌کند: ', 'tecteb-marketplace-core')
+                . esc_html($fa(implode('، ', array_map('strval', $report['duplicates']))))
+                . esc_html__(' — این وضعیت تصمیم یک انسان است و این صفحه هیچ ردیفی را ادغام یا حذف نمی‌کند.', 'tecteb-marketplace-core')
+                . '</p>';
+        }
+        echo '</section>';
     }
 
     private function renderRuns(ImportFromDokan $service, callable $fa): void
@@ -459,6 +523,27 @@ final class MigrationPage
             );
         }
 
+        if ($action === 'repair_imports') {
+            $result = $service->repairImports($request->postText('run_id'));
+            if (!$result->ok) {
+                return 'err:' . sprintf(
+                    /* translators: %s: the refusal's code */
+                    __('تکمیل انجام نشد: %s', 'tecteb-marketplace-core'),
+                    $result->code
+                );
+            }
+            $refused = (string) ($result->context['refused'] ?? '');
+            return 'ok:' . sprintf(
+                /* translators: 1: repaired, 2: still incomplete */
+                __('%1$s محصول تکمیل شد؛ %2$s محصول همچنان نیمه‌تمام است.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($result->context['repaired'] ?? 0)),
+                PersianDigits::toPersian((string) ($result->context['still_incomplete'] ?? 0))
+            ) . ($refused === '' ? '' : ' ' . sprintf(
+                /* translators: %s: ids and reasons */
+                __('و اینها نشد: %s', 'tecteb-marketplace-core'),
+                $refused
+            ));
+        }
         if ($action === 'rollback') {
             $result = $service->rollback($request->postText('run_id'));
             if ($result->ok) {

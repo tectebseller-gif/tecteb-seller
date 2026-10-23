@@ -177,6 +177,11 @@ final class JobQueueTest extends DatabaseTestCase
      * is invisible to `claim()` for as long as its lease says somebody is
      * working on it — and that is right, because `claim()` cannot tell a live
      * worker from a dead one. `handOver()` is how a person says which it is.
+     *
+     * ⛔ And the person has to say it about THIS lease, having been told how
+     * long the row has been silent. `alpha.72` asked neither question: it
+     * expired whatever lease was there, so a job somebody claimed between the
+     * page being drawn and the button being pressed was taken off them.
      */
     public function testAJobHeldByALeaseNobodyIsUsingCanBeHandedOver(): void
     {
@@ -188,7 +193,15 @@ final class JobQueueTest extends DatabaseTestCase
         self::assertNull($this->jobs->claim(['walk'], 'token-b', 300), 'the live lease hides it');
         self::assertSame(0, $this->jobs->census()['stalled'], 'and the report calls it busy, not stalled');
 
-        self::assertTrue($this->jobs->handOver($queued['id']));
+        // It wrote a moment ago, so «nothing has been written for a while» is
+        // false and the hand-over says so rather than guessing.
+        $held = $this->jobs->find($queued['id']);
+        $seen = $this->jobs->lockFingerprint($held->lockToken, $held->lockedUntil);
+        self::assertSame('worker_still_writing', $this->jobs->handOver($queued['id'], $seen));
+        self::assertNull($this->jobs->claim(['walk'], 'token-b', 300), 'and the job is still held');
+
+        // The manager, who knows the process is gone, says so.
+        self::assertSame('', $this->jobs->handOver($queued['id'], $seen, true));
         $next = $this->jobs->claim(['walk'], 'token-b', 300);
         self::assertNotNull($next, 'the next worker may now take it');
         // The point of handing over rather than cancelling: the position and
@@ -199,12 +212,40 @@ final class JobQueueTest extends DatabaseTestCase
         self::assertSame(20, $next->total);
     }
 
+    /**
+     * A lease claimed between the page and the form is not handed over.
+     *
+     * The fingerprint is of the lock that was SHOWN, so a second worker taking
+     * the job in that window keeps it — and the manager is told to look again
+     * rather than finding they have taken a job off somebody who had just
+     * started it.
+     */
+    public function testALeaseThatChangedSinceThePageWasDrawnIsNotHandedOver(): void
+    {
+        $queued = $this->jobs->enqueue('walk', [], 'walk', 1);
+        $this->jobs->claim(['walk'], 'token-a', 300);
+        $shown = $this->jobs->find($queued['id']);
+        $seen = $this->jobs->lockFingerprint($shown->lockToken, $shown->lockedUntil);
+
+        // Whatever happens next, it is not the lease the manager looked at.
+        $this->jobs->handOver($queued['id'], $seen, true);
+        self::assertNotNull($this->jobs->claim(['walk'], 'token-b', 300));
+
+        self::assertSame(
+            'lock_changed',
+            $this->jobs->handOver($queued['id'], $seen, true),
+            'the stale form must not end the new owner\'s lease'
+        );
+        // And the new owner is still working, untouched.
+        self::assertTrue($this->jobs->checkpoint($queued['id'], 'token-b', ['at' => 1], 1, 0, 0, 300));
+    }
+
     /** And the worker that was handed over writes nothing afterwards. */
     public function testAHandedOverWorkerCannotWriteOverTheNewOwner(): void
     {
         $queued = $this->jobs->enqueue('walk', [], 'walk', 1);
         $this->jobs->claim(['walk'], 'token-dead', 300);
-        $this->jobs->handOver($queued['id']);
+        self::assertSame('', $this->jobs->handOver($queued['id'], '', true));
         $this->jobs->claim(['walk'], 'token-b', 300);
 
         self::assertFalse(
@@ -214,14 +255,33 @@ final class JobQueueTest extends DatabaseTestCase
         self::assertSame([], $this->jobs->find($queued['id'])->cursor);
     }
 
-    /** Only a running job has a lease to end. */
+    /** Only a running job has a lease to end, and each answer has a name. */
     public function testThereIsNothingToHandOverOnAJobNobodyHolds(): void
     {
         $queued = $this->jobs->enqueue('walk', [], 'walk', 1);
-        self::assertFalse($this->jobs->handOver($queued['id']), 'a pending job is already claimable');
+        self::assertSame('not_running', $this->jobs->handOver($queued['id'], '', true), 'a pending job is already claimable');
         $this->jobs->claim(['walk'], 'token-a', 300);
         $this->jobs->finish($queued['id'], 'token-a', JobStatus::Done, '');
-        self::assertFalse($this->jobs->handOver($queued['id']), 'and a finished one is not coming back');
+        self::assertSame('not_running', $this->jobs->handOver($queued['id'], '', true), 'and a finished one is not coming back');
+    }
+
+    /**
+     * The hand-over does not stamp the row it is reporting on.
+     *
+     * `secondsSinceWrite()` is the only evidence of when the WORKER last
+     * wrote, and it is read straight from `updated_at`. A hand-over that
+     * touched that column would make the row look freshly worked on and refuse
+     * the next hand-over for a quarter of a minute — a guard refusing its own
+     * previous answer.
+     */
+    public function testHandingOverDoesNotLookLikeWork(): void
+    {
+        $queued = $this->jobs->enqueue('walk', [], 'walk', 1);
+        $this->jobs->claim(['walk'], 'token-a', 300);
+        $before = $this->jobs->find($queued['id'])->updatedAt;
+        self::assertSame('', $this->jobs->handOver($queued['id'], '', true));
+        self::assertSame($before, $this->jobs->find($queued['id'])->updatedAt);
+        self::assertIsInt($this->jobs->secondsSinceWrite($queued['id']));
     }
 
     /**

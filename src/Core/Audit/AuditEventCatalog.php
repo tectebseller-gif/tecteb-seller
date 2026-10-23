@@ -147,6 +147,16 @@ final class AuditEventCatalog
     public const DOKAN_DRY_RUN = 'migration.dokan_dry_run';
     public const DOKAN_IMPORTED = 'migration.dokan_imported';
     public const DOKAN_ROLLED_BACK = 'migration.dokan_rolled_back';
+    /**
+     * Finishing the half-made half of an import, long after its job ended.
+     *
+     * Its own event, because it is not an import: no row is created, nothing
+     * is mapped, and the only thing written is the picture that was already on
+     * the WooCommerce product. A manager pressing this is saying «finish what
+     * the worker that died did not», and that deserves a line of its own in
+     * the trail rather than looking like a second import of the same shop.
+     */
+    public const DOKAN_IMPORT_REPAIRED = 'migration.dokan_import_repaired';
     /** The explicit act that makes a mapped product the marketplace's to run. */
     public const DOKAN_OWNERSHIP_CHANGED = 'migration.ownership_changed';
 
@@ -287,6 +297,7 @@ final class AuditEventCatalog
             self::DOKAN_DRY_RUN => ['vendors', 'products', 'orders', 'conflicts', 'run_id'],
             self::DOKAN_IMPORTED => ['vendors', 'products', 'run_id', 'mode'],
             self::DOKAN_ROLLED_BACK => ['vendors', 'products', 'run_id'],
+            self::DOKAN_IMPORT_REPAIRED => ['run_id', 'repaired', 'refused'],
             self::DOKAN_OWNERSHIP_CHANGED => ['product_id', 'wc_product_id', 'from', 'to'],
             self::CATALOGUE_INTAKE => ['run_id', 'imported', 'skipped', 'failed'],
             self::CATALOGUE_INTAKE_ROLLED_BACK => ['run_id', 'removed', 'kept'],

@@ -85,6 +85,25 @@ final class OperationsMessages
     }
 
     /**
+     * Why a hand-over did not happen, in the manager's words.
+     *
+     * Each refusal names a different situation and asks for a different thing
+     * back, which is the whole reason `handOver()` answers with a name rather
+     * than `false`: «مهلت قفل پایان نیافت» was printed for all of them and told
+     * a manager nothing about what to do next.
+     */
+    public static function handOverRefusal(string $why): string
+    {
+        return match ($why) {
+            'not_running' => __('این کار دیگر در حال اجرا نیست؛ شاید همین حالا تمام شده باشد. صفحه را تازه کنید.', 'tecteb-marketplace-core'),
+            'lock_changed' => __('کارگر دیگری از لحظهٔ باز شدن این صفحه این کار را گرفته است. صفحه را تازه کنید و دوباره ببینید.', 'tecteb-marketplace-core'),
+            'worker_still_writing' => __('این کار همین چند لحظه پیش چیزی نوشته، پس کارگرش شاید زنده باشد. اگر مطمئنید، کادر «با این حال ادامه بده» را علامت بزنید.', 'tecteb-marketplace-core'),
+            'unreadable' => __('وضعیت این کار خوانده نشد، پس مهلت قفلش پایان داده نشد. دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+            default => __('مهلت قفل این کار پایان نیافت. صفحه را تازه کنید و دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+        };
+    }
+
+    /**
      * Audit event types, in the manager's words.
      *
      * An unknown key falls through as itself rather than as «نامشخص»: a new

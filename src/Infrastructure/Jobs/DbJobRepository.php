@@ -190,35 +190,106 @@ final class DbJobRepository implements JobRepositoryInterface
         return $this->recent([JobStatus::Pending->value, JobStatus::Running->value], $limit);
     }
 
-    public function handOver(int $jobId): bool
+    public function handOver(int $jobId, string $seenLock = '', bool $evenIfWriting = false): string
     {
-        // The lease, and nothing else. The token stays where it is: if that
-        // worker is still alive its checkpoint will be refused by the token
-        // match in `checkpoint()`, which is the guard that already exists.
-        // A second BEFORE now, not now.
+        // «No such running job» and «the read failed» are opposite answers
+        // here: one means there is nothing to do and the other means we do not
+        // know, and ending a lease on a guess is how two workers end up on one
+        // import. `getRow()` cannot tell them apart (`alpha.8`), so the count
+        // is asked separately first.
+        $running = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->jobs() . '` WHERE id = %d AND status = %s',
+            [$jobId, JobStatus::Running->value]
+        );
+        if ($running === null) {
+            return 'unreadable';
+        }
+        if ((int) $running === 0) {
+            return 'not_running';
+        }
+        $row = $this->db->getRow(
+            'SELECT lock_token, locked_until, updated_at FROM `' . $this->jobs() . '` WHERE id = %d',
+            [$jobId]
+        );
+        if ($row === null) {
+            return 'unreadable';
+        }
+        $token = (string) ($row['lock_token'] ?? '');
+        $until = (string) ($row['locked_until'] ?? '');
+        if ($seenLock !== '' && !hash_equals($this->lockFingerprint($token, $until), $seenLock)) {
+            // Somebody claimed this job between the page being drawn and the
+            // form arriving. Ending THAT lease would be taking the job off a
+            // worker who has only just started it.
+            return 'lock_changed';
+        }
+        $now = strtotime($this->now());
+        if ($until !== '' && strtotime($until) < $now) {
+            // Already claimable; the wanted state holds and there is nothing
+            // to end. Said as success rather than refused, because a refusal
+            // here would read as «could not recover this job».
+            return '';
+        }
+        if (!$evenIfWriting) {
+            $silent = $this->secondsSinceWrite($jobId);
+            // Unknown is not «long enough». A read that failed is a reason to
+            // ask again, not a licence.
+            if ($silent === null || $silent < self::WRITING_WINDOW) {
+                return 'worker_still_writing';
+            }
+        }
+        // The lease, and nothing else — and guarded by the TOKEN, so a claim
+        // landing in this same instant keeps its job.
         //
-        // `claim()` asks `locked_until < now`, so a lease set to exactly now is
-        // still a lease and the job stays unclaimable — measured: handOver()
-        // reported success and the very next run still answered «چیزی در صف
-        // نبود». A boundary a guard reads with `<` has to be crossed, not
-        // touched.
-        $expired = $this->minus(1);
+        // `updated_at` is deliberately NOT touched: it is the evidence of when
+        // the WORKER last wrote, which is what `secondsSinceWrite()` reads, and
+        // a hand-over stamping it would make the row look freshly worked on and
+        // refuse the next hand-over for a minute.
+        //
+        // A second BEFORE now, not now: `claim()` asks `locked_until < now`, so
+        // a lease set to exactly now is still a lease and the job stays
+        // unclaimable — measured on `alpha.71`, where handOver() reported
+        // success and the very next run still answered «چیزی در صف نبود». A
+        // boundary a guard reads with `<` has to be crossed, not touched.
         $written = $this->db->execute(
             'UPDATE `' . $this->jobs() . '`
-             SET locked_until = %s, updated_at = %s
-             WHERE id = %d AND status = %s',
-            [$expired, $this->now(), $jobId, JobStatus::Running->value]
+             SET locked_until = %s
+             WHERE id = %d AND status = %s AND lock_token = %s',
+            [$this->minus(1), $jobId, JobStatus::Running->value, $token]
         );
         if ($written === null) {
-            return false;
+            return 'not_handed_over';
         }
-        // Zero rows is ambiguous here for the usual reason — the lease may
-        // already have been in the past — so the row is asked.
-        $until = $this->db->getVar(
+        // Zero rows is ambiguous for the usual reason — the lease may already
+        // have been in the past — so the row is asked.
+        $after = $this->db->getVar(
             'SELECT locked_until FROM `' . $this->jobs() . '` WHERE id = %d AND status = %s',
             [$jobId, JobStatus::Running->value]
         );
-        return $until !== null && strtotime((string) $until) < strtotime($this->now());
+        if ($after === null || strtotime((string) $after) >= strtotime($this->now())) {
+            return 'not_handed_over';
+        }
+        return '';
+    }
+
+    public function lockFingerprint(string $lockToken, string $lockedUntil): string
+    {
+        return hash('sha256', $lockToken . '|' . $lockedUntil);
+    }
+
+    public function secondsSinceWrite(int $jobId): ?int
+    {
+        $at = $this->db->getVar(
+            'SELECT updated_at FROM `' . $this->jobs() . '` WHERE id = %d',
+            [$jobId]
+        );
+        if ($at === null || (string) $at === '') {
+            return null;
+        }
+        $stamp = strtotime((string) $at);
+        if ($stamp === false) {
+            return null;
+        }
+        return max(0, strtotime($this->now()) - $stamp);
     }
 
     public function census(): array

@@ -1,0 +1,672 @@
+=== the trees ===
+base_ref=35b646f719ec61b4e1c1fcbe54bddd11f978d79d
+this_checkout_src_digest=2fb957b1004544d7
+installed_src_digest=a0514b4aef0b34cd
+base_src_digest=a0514b4aef0b34cd
+PASS  0a the installed package is this round's base (alpha.72)  (a0514b4aef0b34cd)
+PASS  0b this checkout differs from the base  (differ)
+schema_for_both_halves=34
+PASS  0c the structure is 34 and this round does not move it  (34)
+PASS  0d no migration file changed in this round  (0)
+PASS  0e the worker the kill and the pause need is in this checkout  (yes)
+PASS  0f the installed tree is now alpha.72's  (a0514b4aef0b34cd)
+
+=== BEFORE · §1 two live workers and a hand-over ===
+reader_available=yes
+reader_vendors=2
+reader_products=6
+source_attachment=9807
+products_with_a_picture=6
+shop_digest=74399c387ce08572a81c2b314965f823d0e2fbd9cea391633e53eeccc2785db6
+PASS  1a-1 the real reader sees two Dokan shops  (2)
+PASS  1a-2 …and their 6 products  (6)
+PASS  1a-3 …each with a picture on the WooCommerce product  (6)
+plan_run_id=dokan-20261023-152615
+plan_vendors=2
+plan_products=6
+plan_conflicts=0
+plan_total=8
+PASS  1a-4 the dry run reads two shops  (2)
+PASS  1a-5 …and 6 products with zero conflicts  (6/0)
+queued_id=93
+queued_created=yes
+PASS  1a-6 the import is queued  (yes)
+run_batches=1
+run_says=more
+job_id=93
+job_status=pending
+job_attempts=1
+job_done=2
+job_failed=0
+job_total=8
+job_cursor={"phase":"products","after":0,"tries":0}
+job_cursor_at=__absent__
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+mapped=0
+PASS  1a-7 the vendors phase completes in one batch  (more)
+PASS  1a-8 …recording exactly the two shops  (2)
+PASS  1a-9 …and leaving the cursor at the first products page  (products)
+PASS  1a-10 no product has been imported yet  (0)
+PASS  1a-11 and the vendors phase changed no WooCommerce product  (74399c387ce08572a81c2b314965f823d0e2fbd9cea391633e53eeccc2785db6)
+a_reached_the_image_work=yes
+a_holds_the_job=93
+mapped_while_a_is_held=1
+seconds_since_write=__absent__
+hand_over_without_override=handed_over
+hand_over_with_a_stale_fingerprint=handed_over
+handed_over=handed_over
+b_output=worker_started=14524 worker_batches=1 worker_batch_0=job:93 outcome:more done:0 failed:0 checkpoints:7 error:__none__ worker_image_points_reached=0 worker_finished=1
+mapped_after_b=6
+duplicate_mappings_after_b=0
+missing_image_after_b=1
+job_status_after_b=pending
+job_done_after_b=8
+import_digest_after_b=692891afd51b6a6a1ae785dc058050deb029f833edf5f4a7f9a11985ae2840fa
+vendor_copies_after_b=6
+a_output=worker_released_at=1 worker_batches=1 worker_batch_0=job:93 outcome:lease_lost done:0 failed:0 checkpoints:__absent__ error:__none__ worker_image_points_reached=1 worker_finished=1
+import_digest_after_a_resumed=47889c4eefafae4324d409a23ea9ac87d47f61558a8942b620272d1230c22a54
+a_wrote_after_losing_the_job=yes
+vendor_copies_after_a_resumed=6
+a_added_media_after_losing_the_job=no
+a_handed_its_own_copy_back=no
+mapped_after_a_resumed=6
+duplicate_mappings=0
+products_without_image=0
+vendor_copies=6
+vendor_copies_before=0
+manifest={"runs":1,"vendors":2,"products":6}
+shop_digest=74399c387ce08572a81c2b314965f823d0e2fbd9cea391633e53eeccc2785db6
+job_id=93
+job_status=pending
+job_attempts=3
+job_done=8
+job_failed=0
+job_total=8
+job_cursor={"phase":"orders","after":0,"tries":0}
+job_cursor_at=__absent__
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+PASS  1b-1 worker A really reached the image work and parked there  (yes)
+NOTE  1b-2 the lease was handed over  handed_over
+PASS  1b-3 ⛔ nothing was asked about the worker still writing  (handed_over)
+PASS  1b-4 ⛔ nor about the lease having changed since the page was drawn  (handed_over)
+PASS  1b-5 worker B then ran the import out  (8)
+NOTE  1b-6 the import as B left it  692891afd51b6a6a1ae785dc058050deb029f833edf5f4a7f9a11985ae2840fa
+PASS  1b-7 ⛔ …and A, released afterwards, WROTE INTO IT  (yes)
+NOTE  1b-8 the import after A came back  47889c4eefafae4324d409a23ea9ac87d47f61558a8942b620272d1230c22a54
+PASS  1b-9 ⛔ A's own checkpoint was refused all the same  (yes)
+PASS  1b-10 ⛔ and its orphan copy was not handed back  (no)
+NOTE  1b-11 products left with no picture  1
+
+=== BEFORE · §2 a mapped product counted as a finished one ===
+reader_available=yes
+reader_vendors=2
+reader_products=6
+source_attachment=9820
+products_with_a_picture=6
+shop_digest=7ebcd18a8af63aad647e62b254b3ce099718e48021ec17c17716fed1bda111ce
+PASS  2a-1 the real reader sees two Dokan shops  (2)
+PASS  2a-2 …and their 6 products  (6)
+PASS  2a-3 …each with a picture on the WooCommerce product  (6)
+plan_run_id=dokan-20261023-152628
+plan_vendors=2
+plan_products=6
+plan_conflicts=0
+plan_total=8
+PASS  2a-4 the dry run reads two shops  (2)
+PASS  2a-5 …and 6 products with zero conflicts  (6/0)
+queued_id=94
+queued_created=yes
+PASS  2a-6 the import is queued  (yes)
+run_batches=1
+run_says=more
+job_id=94
+job_status=pending
+job_attempts=1
+job_done=2
+job_failed=0
+job_total=8
+job_cursor={"phase":"products","after":0,"tries":0}
+job_cursor_at=__absent__
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+mapped=0
+PASS  2a-7 the vendors phase completes in one batch  (more)
+PASS  2a-8 …recording exactly the two shops  (2)
+PASS  2a-9 …and leaving the cursor at the first products page  (products)
+PASS  2a-10 no product has been imported yet  (0)
+PASS  2a-11 and the vendors phase changed no WooCommerce product  (7ebcd18a8af63aad647e62b254b3ce099718e48021ec17c17716fed1bda111ce)
+worker_output=worker_started=14689 worker_killing_itself_at=1
+mapped=1
+products_without_image=1
+duplicate_mappings=0
+job_id=94
+job_status=running
+job_attempts=2
+job_done=2
+job_failed=0
+job_total=8
+job_cursor={"phase":"products","after":0,"tries":1}
+job_cursor_at=__absent__
+job_cursor_tries=1
+job_refused=__none__
+job_locked_until=2026-10-23 15:31:33
+PASS  2b-1 the worker was killed inside the first product's picture  (yes)
+PASS  2b-2 the row and its mapping are there  (1)
+PASS  2b-3 …and its picture is not  (1)
+resume_batches=1
+resume_says=more
+done_before=2
+done_after=8
+missing_image_before=1
+missing_image_after=1
+duplicate_mappings=0
+the_half_made_one_was_counted_done=yes
+mapped=6
+job_id=94
+job_status=pending
+job_attempts=3
+job_done=8
+job_failed=0
+job_total=8
+job_cursor={"phase":"orders","after":0,"tries":0}
+job_cursor_at=__absent__
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+PASS  2b-4 the import then runs to the end  (8)
+PASS  2b-5 ⛔ counting the half-made product as done  (yes)
+PASS  2b-6 ⛔ …which still has no picture  (1)
+PASS  2b-7 ⛔ and the base package cannot report that at all  (__absent__)
+
+=== BEFORE · §3 the attempt counter ===
+reader_available=yes
+reader_vendors=2
+reader_products=6
+source_attachment=9833
+products_with_a_picture=6
+shop_digest=d7a505064b24e4c4ca9a68696a7523549d1a4b765658b3a6c5a09c5359e9b2bd
+PASS  3a-1 the real reader sees two Dokan shops  (2)
+PASS  3a-2 …and their 6 products  (6)
+PASS  3a-3 …each with a picture on the WooCommerce product  (6)
+plan_run_id=dokan-20261023-152640
+plan_vendors=2
+plan_products=6
+plan_conflicts=0
+plan_total=8
+PASS  3a-4 the dry run reads two shops  (2)
+PASS  3a-5 …and 6 products with zero conflicts  (6/0)
+queued_id=95
+queued_created=yes
+PASS  3a-6 the import is queued  (yes)
+run_batches=1
+run_says=more
+job_id=95
+job_status=pending
+job_attempts=1
+job_done=2
+job_failed=0
+job_total=8
+job_cursor={"phase":"products","after":0,"tries":0}
+job_cursor_at=__absent__
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+mapped=0
+PASS  3a-7 the vendors phase completes in one batch  (more)
+PASS  3a-8 …recording exactly the two shops  (2)
+PASS  3a-9 …and leaving the cursor at the first products page  (products)
+PASS  3a-10 no product has been imported yet  (0)
+PASS  3a-11 and the vendors phase changed no WooCommerce product  (d7a505064b24e4c4ca9a68696a7523549d1a4b765658b3a6c5a09c5359e9b2bd)
+pass_1_killed=yes
+pass_1_at=__none__
+pass_1_tries=0
+pass_1_after=9834
+pass_1_done=3
+pass_1_mapped=2
+pass_2_killed=yes
+pass_2_at=__none__
+pass_2_tries=0
+pass_2_after=9835
+pass_2_done=4
+pass_2_mapped=3
+pass_3_killed=yes
+pass_3_at=__none__
+pass_3_tries=0
+pass_3_after=9836
+pass_3_done=5
+pass_3_mapped=4
+pass_4_killed=yes
+pass_4_at=__none__
+pass_4_tries=0
+pass_4_after=9837
+pass_4_done=6
+pass_4_mapped=5
+final_run=ran
+final_at=__none__
+final_after=0
+final_tries=0
+final_refused=__empty__
+final_failed=0
+mapped=6
+products_without_image=4
+duplicate_mappings=0
+PASS  3b-1 the first product lands and the second is killed  (yes)
+NOTE  3b-2 the unit the cursor says it was attempting  __none__
+PASS  3b-3 ⛔ the attempt on the SECOND product is not written down  (0)
+PASS  3b-4 ⛔ …nor on the second pass  (0)
+PASS  3b-5 ⛔ …nor the third  (0)
+PASS  3b-6 ⛔ so no unit is ever refused by name  (__empty__)
+PASS  3b-7 ⛔ and nothing is counted as failed  (0)
+PASS  0g the installed tree is now this checkout's  (2fb957b1004544d7)
+
+=== AFTER · §1 the same two workers, the same hand-over ===
+reader_available=yes
+reader_vendors=2
+reader_products=6
+source_attachment=9846
+products_with_a_picture=6
+shop_digest=00b3d3276e6ddd41e64b5057c3e04bcc6a23a8b375e4cf049938c55578b88c57
+PASS  4a-1 the real reader sees two Dokan shops  (2)
+PASS  4a-2 …and their 6 products  (6)
+PASS  4a-3 …each with a picture on the WooCommerce product  (6)
+plan_run_id=dokan-20261023-152653
+plan_vendors=2
+plan_products=6
+plan_conflicts=0
+plan_total=8
+PASS  4a-4 the dry run reads two shops  (2)
+PASS  4a-5 …and 6 products with zero conflicts  (6/0)
+queued_id=96
+queued_created=yes
+PASS  4a-6 the import is queued  (yes)
+run_batches=1
+run_says=more
+job_id=96
+job_status=pending
+job_attempts=1
+job_done=2
+job_failed=0
+job_total=8
+job_cursor={"phase":"products","after":0,"at":0,"tries":0,"page_tries":0}
+job_cursor_at=0
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+mapped=0
+PASS  4a-7 the vendors phase completes in one batch  (more)
+PASS  4a-8 …recording exactly the two shops  (2)
+PASS  4a-9 …and leaving the cursor at the first products page  (products)
+PASS  4a-10 no product has been imported yet  (0)
+PASS  4a-11 and the vendors phase changed no WooCommerce product  (00b3d3276e6ddd41e64b5057c3e04bcc6a23a8b375e4cf049938c55578b88c57)
+a_reached_the_image_work=yes
+a_holds_the_job=96
+mapped_while_a_is_held=1
+seconds_since_write=0
+hand_over_without_override=worker_still_writing
+hand_over_with_a_stale_fingerprint=lock_changed
+handed_over=handed_over
+b_output=worker_started=14988 worker_batches=1 worker_batch_0=job:96 outcome:more done:0 failed:0 checkpoints:19 error:__none__ worker_image_points_reached=0 worker_finished=1
+mapped_after_b=6
+duplicate_mappings_after_b=0
+missing_image_after_b=0
+job_status_after_b=pending
+job_done_after_b=8
+import_digest_after_b=6607b1ffc11a1f8b68ba389bfe179d4b8f9ad9014d7e1afe3193ab6457e7ca86
+vendor_copies_after_b=7
+a_output=worker_released_at=1 worker_batches=1 worker_batch_0=job:96 outcome:lease_lost done:0 failed:0 checkpoints:__absent__ error:__none__ worker_image_points_reached=1 worker_finished=1
+import_digest_after_a_resumed=6607b1ffc11a1f8b68ba389bfe179d4b8f9ad9014d7e1afe3193ab6457e7ca86
+a_wrote_after_losing_the_job=no
+vendor_copies_after_a_resumed=6
+a_added_media_after_losing_the_job=no
+a_handed_its_own_copy_back=yes
+mapped_after_a_resumed=6
+duplicate_mappings=0
+products_without_image=0
+vendor_copies=6
+vendor_copies_before=0
+manifest={"runs":1,"vendors":2,"products":6}
+shop_digest=00b3d3276e6ddd41e64b5057c3e04bcc6a23a8b375e4cf049938c55578b88c57
+job_id=96
+job_status=pending
+job_attempts=3
+job_done=8
+job_failed=0
+job_total=8
+job_cursor={"phase":"orders","after":0,"at":0,"tries":0,"page_tries":0}
+job_cursor_at=0
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+PASS  4b-1 worker A reached the image work and parked there  (yes)
+PASS  4b-2 the hand-over REFUSES while the row is still being written to  (worker_still_writing)
+NOTE  4b-3 seconds since that row was last written  0
+PASS  4b-4 …and refuses a form carrying a lease it was not shown  (lock_changed)
+PASS  4b-5 the manager's explicit override hands it over  (handed_over)
+PASS  4b-6 worker B runs the import out  (8)
+PASS  4b-7 …with every picture carried over  (0)
+PASS  4b-8 ⛔ A, released afterwards, WRITES NOTHING  (no)
+PASS  4b-9 …the import is byte-for-byte as B left it  (6607b1ffc11a1f8b68ba389bfe179d4b8f9ad9014d7e1afe3193ab6457e7ca86)
+PASS  4b-10 …it adds no media either  (no)
+PASS  4b-11 …and hands back the copy it had already made  (yes)
+PASS  4b-12 no product is mapped twice  (0)
+PASS  4b-13 and no history is lost: every unit is counted once  (6)
+
+=== AFTER · §2 a mapped product is not a finished product ===
+reader_available=yes
+reader_vendors=2
+reader_products=6
+source_attachment=9860
+products_with_a_picture=6
+shop_digest=87a86dc1a52a934a7b16e374142975adaf67da263d9d747a1d2a236280e27faf
+PASS  5a-1 the real reader sees two Dokan shops  (2)
+PASS  5a-2 …and their 6 products  (6)
+PASS  5a-3 …each with a picture on the WooCommerce product  (6)
+plan_run_id=dokan-20261023-152705
+plan_vendors=2
+plan_products=6
+plan_conflicts=0
+plan_total=8
+PASS  5a-4 the dry run reads two shops  (2)
+PASS  5a-5 …and 6 products with zero conflicts  (6/0)
+queued_id=97
+queued_created=yes
+PASS  5a-6 the import is queued  (yes)
+run_batches=1
+run_says=more
+job_id=97
+job_status=pending
+job_attempts=1
+job_done=2
+job_failed=0
+job_total=8
+job_cursor={"phase":"products","after":0,"at":0,"tries":0,"page_tries":0}
+job_cursor_at=0
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+mapped=0
+PASS  5a-7 the vendors phase completes in one batch  (more)
+PASS  5a-8 …recording exactly the two shops  (2)
+PASS  5a-9 …and leaving the cursor at the first products page  (products)
+PASS  5a-10 no product has been imported yet  (0)
+PASS  5a-11 and the vendors phase changed no WooCommerce product  (87a86dc1a52a934a7b16e374142975adaf67da263d9d747a1d2a236280e27faf)
+worker_output=worker_started=15168 worker_killing_itself_at=1
+mapped=1
+products_without_image=1
+duplicate_mappings=0
+job_id=97
+job_status=running
+job_attempts=2
+job_done=2
+job_failed=0
+job_total=8
+job_cursor={"phase":"products","after":0,"at":9861,"tries":1,"page_tries":0}
+job_cursor_at=9861
+job_cursor_tries=1
+job_refused=__none__
+job_locked_until=2026-10-23 15:32:10
+PASS  5b-1 the worker was killed inside the first product's picture  (yes)
+PASS  5b-2 the row is there and its picture is not  (1/1)
+PASS  5b-3 …and the cursor names the unit it was attempting  (yes)
+resume_batches=1
+resume_says=more
+done_before=2
+done_after=8
+missing_image_before=1
+missing_image_after=0
+duplicate_mappings=0
+the_half_made_one_was_counted_done=no
+mapped=6
+job_id=97
+job_status=pending
+job_attempts=3
+job_done=8
+job_failed=0
+job_total=8
+job_cursor={"phase":"orders","after":0,"at":0,"tries":0,"page_tries":0}
+job_cursor_at=0
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+PASS  5b-4 the import runs to the end  (8)
+PASS  5b-5 ⛔ the half-made product is NOT counted done  (no)
+PASS  5b-6 ⛔ …it is FINISHED: its picture arrived  (0)
+PASS  5b-7 …without creating a second row for it  (0)
+service_mapped=6
+service_complete=6
+service_without_image=0
+service_source_unreadable=0
+service_duplicate_mappings=0
+service_scanned=6
+service_finished=yes
+service_incomplete_ids=__empty__
+rows_mapped=6
+rows_without_image=0
+rows_duplicate_mappings=0
+vendor_copies=7
+manifest={"runs":1,"vendors":2,"products":6}
+shop_digest=87a86dc1a52a934a7b16e374142975adaf67da263d9d747a1d2a236280e27faf
+PASS  5c-1 the completion report counts what is mapped  (6)
+PASS  5c-2 …what is finished  (6)
+PASS  5c-3 …what is still missing a picture  (0)
+PASS  5c-4 …what could not be judged  (0)
+PASS  5c-5 …and what is mapped twice  (0)
+PASS  5c-6 the service and the rows agree about the pictures  (0)
+PASS  5c-7 …and about the duplicates  (0)
+PASS  5c-8 the scan says whether it saw everything  (yes)
+
+=== AFTER · §3 the count follows the unit, and the unit is named ===
+reader_available=yes
+reader_vendors=2
+reader_products=6
+source_attachment=9874
+products_with_a_picture=6
+shop_digest=16816a3847a604402ab2a3d5580879266ce31b5b31d9c93b379ac24b4cb76818
+PASS  6a-1 the real reader sees two Dokan shops  (2)
+PASS  6a-2 …and their 6 products  (6)
+PASS  6a-3 …each with a picture on the WooCommerce product  (6)
+plan_run_id=dokan-20261023-152717
+plan_vendors=2
+plan_products=6
+plan_conflicts=0
+plan_total=8
+PASS  6a-4 the dry run reads two shops  (2)
+PASS  6a-5 …and 6 products with zero conflicts  (6/0)
+queued_id=98
+queued_created=yes
+PASS  6a-6 the import is queued  (yes)
+run_batches=1
+run_says=more
+job_id=98
+job_status=pending
+job_attempts=1
+job_done=2
+job_failed=0
+job_total=8
+job_cursor={"phase":"products","after":0,"at":0,"tries":0,"page_tries":0}
+job_cursor_at=0
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+mapped=0
+PASS  6a-7 the vendors phase completes in one batch  (more)
+PASS  6a-8 …recording exactly the two shops  (2)
+PASS  6a-9 …and leaving the cursor at the first products page  (products)
+PASS  6a-10 no product has been imported yet  (0)
+PASS  6a-11 and the vendors phase changed no WooCommerce product  (16816a3847a604402ab2a3d5580879266ce31b5b31d9c93b379ac24b4cb76818)
+pass_1_killed=yes
+pass_1_at=9876
+pass_1_tries=1
+pass_1_after=9875
+pass_1_done=3
+pass_1_mapped=2
+pass_2_killed=yes
+pass_2_at=9876
+pass_2_tries=2
+pass_2_after=9875
+pass_2_done=3
+pass_2_mapped=2
+pass_3_killed=yes
+pass_3_at=9876
+pass_3_tries=3
+pass_3_after=9875
+pass_3_done=3
+pass_3_mapped=2
+pass_4_killed=yes
+pass_4_at=9877
+pass_4_tries=1
+pass_4_after=9876
+pass_4_done=3
+pass_4_mapped=3
+final_run=ran
+final_at=0
+final_after=0
+final_tries=0
+final_refused=9876:image_missing_after_3_attempts
+final_failed=1
+mapped=6
+products_without_image=1
+duplicate_mappings=0
+PASS  6b-1 the first product lands and the second is killed  (yes)
+NOTE  6b-2 the unit being attempted  9876
+PASS  6b-3 its first attempt is written down  (1)
+PASS  6b-4 the SAME unit on the second pass  (9876)
+PASS  6b-5 …and ITS count rises  (2)
+PASS  6b-6 …and again  (3)
+PASS  6b-7 the first product stays done throughout  (yes)
+PASS  6b-8 ⛔ after the limit, exactly that item is refused BY NAME  (yes)
+NOTE  6b-9 what the cursor says was refused  9876:image_missing_after_3_attempts
+PASS  6b-10 …counted as one failure, not none  (1)
+PASS  6b-11 the product that worked is not blamed  (no)
+PASS  6b-12 and the import still finishes the rest  (6)
+PASS  6b-13 with the one it could not finish REPORTED, not averaged away  (1)
+repair_ok=yes
+repair_code=import_repaired
+repaired=1
+still_incomplete=0
+refused=__empty__
+rows_without_image_before=1
+rows_without_image_after=0
+mapped=6
+duplicate_mappings=0
+shop_digest=16816a3847a604402ab2a3d5580879266ce31b5b31d9c93b379ac24b4cb76818
+PASS  6c-1 and a manager can finish it afterwards  (yes)
+PASS  6c-2 …exactly one product  (1)
+PASS  6c-3 …leaving none unfinished  (0)
+PASS  6c-4 …with nothing refused  (__empty__)
+PASS  6c-5 the rows agree: no product is missing a picture  (0)
+PASS  6c-6 and no row was created or duplicated by the repair  (6/0)
+
+=== the controls ===
+reader_available=yes
+reader_vendors=2
+reader_products=6
+source_attachment=9891
+products_with_a_picture=6
+shop_digest=efd93f2dffd5216e5428896d3e5170a47c0d15cfcacea5cae7df806c9b7bd2c0
+plan_run_id=dokan-20261023-152732
+plan_vendors=2
+plan_products=6
+plan_conflicts=0
+plan_total=8
+queued_id=99
+queued_created=yes
+run_batches=1
+run_says=more
+job_id=99
+job_status=pending
+job_attempts=1
+job_done=2
+job_failed=0
+job_total=8
+job_cursor={"phase":"products","after":0,"tries":0}
+job_cursor_at=__absent__
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+mapped=0
+PASS  7a-base-1 the dry run reads two shops and 6 products with no conflict  (2/6/0)
+PASS  7a-base-2 the vendors phase records exactly two  (2)
+PASS  7a-base-3 the reader is the real one and sees Dokan-shaped data  (yes)
+a_reached_the_image_work=yes
+b_output=worker_started=15561 worker_batches=0 worker_image_points_reached=0 worker_finished=1
+b_found_nothing=yes
+a_output=worker_released_at=1 worker_batches=1 worker_batch_0=job:99 outcome:more done:0 failed:0 checkpoints:7 error:__none__ worker_image_points_reached=1 worker_finished=1
+duplicate_mappings=0
+products_without_image=0
+mapped=6
+job_id=99
+job_status=pending
+job_attempts=2
+job_done=8
+job_failed=0
+job_total=8
+job_cursor={"phase":"orders","after":0,"tries":0}
+job_cursor_at=__absent__
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+PASS  7a-base-4 with NO hand-over, the second worker finds nothing  (yes)
+PASS  7a-base-5 …and the first finishes its own page: every product, no duplicate  (6/0)
+PASS  7a-base-6 the WooCommerce products are unchanged by all of it  (efd93f2dffd5216e5428896d3e5170a47c0d15cfcacea5cae7df806c9b7bd2c0)
+reader_available=yes
+reader_vendors=2
+reader_products=6
+source_attachment=9904
+products_with_a_picture=6
+shop_digest=a9f3bad1e665d800797b56fed7a64bd7a9161a67a049e715c0b1f12a43512ad3
+plan_run_id=dokan-20261023-152743
+plan_vendors=2
+plan_products=6
+plan_conflicts=0
+plan_total=8
+queued_id=100
+queued_created=yes
+run_batches=1
+run_says=more
+job_id=100
+job_status=pending
+job_attempts=1
+job_done=2
+job_failed=0
+job_total=8
+job_cursor={"phase":"products","after":0,"at":0,"tries":0,"page_tries":0}
+job_cursor_at=0
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+mapped=0
+PASS  7a-now-1 the dry run reads two shops and 6 products with no conflict  (2/6/0)
+PASS  7a-now-2 the vendors phase records exactly two  (2)
+PASS  7a-now-3 the reader is the real one and sees Dokan-shaped data  (yes)
+a_reached_the_image_work=yes
+b_output=worker_started=15636 worker_batches=0 worker_image_points_reached=0 worker_finished=1
+b_found_nothing=yes
+a_output=worker_released_at=1 worker_batches=1 worker_batch_0=job:100 outcome:more done:0 failed:0 checkpoints:19 error:__none__ worker_image_points_reached=1 worker_finished=1
+duplicate_mappings=0
+products_without_image=0
+mapped=6
+job_id=100
+job_status=pending
+job_attempts=2
+job_done=8
+job_failed=0
+job_total=8
+job_cursor={"phase":"orders","after":0,"at":0,"tries":0,"page_tries":0}
+job_cursor_at=0
+job_cursor_tries=0
+job_refused=__none__
+job_locked_until=__none__
+PASS  7a-now-4 with NO hand-over, the second worker finds nothing  (yes)
+PASS  7a-now-5 …and the first finishes its own page: every product, no duplicate  (6/0)
+PASS  7a-now-6 the WooCommerce products are unchanged by all of it  (a9f3bad1e665d800797b56fed7a64bd7a9161a67a049e715c0b1f12a43512ad3)
+
+=== result ===
+checks=149 pass=149 fail=0
+base_src_digest=a0514b4aef0b34cd
+this_checkout_src_digest=2fb957b1004544d7

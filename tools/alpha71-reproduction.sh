@@ -274,7 +274,13 @@ check "5a-1 the job is still held by a lease nobody is using" "1" \
   "$(val "$W" jobs_holding_a_live_lease)"
 check "5a-2 …so a run finds nothing, exactly as on staging" "no" \
   "$(val "$H" claim_finds_anything)"
-check "5a-3 the hand-over ends that lease" "yes" "$(val "$H" handed_over)"
+# ⛔ UPDATED FOR `alpha.73`. The hand-over now has three answers and refuses a
+# row that has just been written to; this scenario is always that, because the
+# kill happened a second earlier. The probe sends the manager's explicit
+# override, which is what a person pressing the button after a real death does,
+# and the answer is normalised so this same check still reads `alpha.71`.
+check "5a-3 the hand-over ends that lease, on the manager's explicit say-so" "yes" \
+  "$(val "$H" handed_over)"
 check "5a-4 …and the very next batch runs" "1" "$(val "$H" after_hand_over_batches)"
 check "5a-5 …carrying on rather than finishing" "more" "$(val "$H" after_hand_over_says)"
 check "5a-6 …having recorded its position once per unit" "yes" \
@@ -290,8 +296,21 @@ check "6a-3 …the batch did its work" "yes" \
   "$([[ "$(val "$P2" poison_created)" -gt 0 ]] && echo yes || echo no)"
 P3="$(probe poison 3)"; printf '%s\n' "$P3" >>"$RUN"
 check "6b-1 three deaths at one place is not tried a fourth time" "more" "$(val "$P3" poison_says)"
-check "6b-2 …the one unit there is counted as refused" "1" "$(val "$P3" poison_failed_delta)"
-check "6b-3 …nothing is created for it" "0" "$(val "$P3" poison_created)"
+# ⛔ UPDATED FOR `alpha.73`, and both of these read the ROW now rather than the
+# batch's leftovers, because that is where the figures live once every unit
+# records itself.
+#
+#  - `poison_failed_delta` is what the batch RETURNED, and a refusal recorded by
+#    the unit that caused it is already on the row — so the residual is
+#    correctly nought and `poison_job_failed` is the number to read.
+#  - And the batch no longer stops at the unit it gave up on: that one item is
+#    named and the other forty-nine of the page arrive in the SAME batch, which
+#    is what «دقیقاً همان قلم رد شود» asks for. The assertion that «nothing is
+#    created» described a batch that returned early, not a guarantee.
+check "6b-2 …the one unit there is counted as refused, on the row" "1" \
+  "$(val "$P3" poison_job_failed)"
+check "6b-3 …and exactly one unit of the page did not arrive" "yes" \
+  "$([[ "$(val "$P3" poison_created)" -eq 49 ]] && echo yes || echo no)"
 check "6b-4 …the cursor steps past it" "yes" "$(val "$P3" poison_cursor_moved)"
 check "6b-5 …and it is NAMED, with its own id" "yes" \
   "$([[ "$(val "$P3" poison_cursor_after)" == *'stalled_after_3_attempts'* ]] && echo yes || echo no)"

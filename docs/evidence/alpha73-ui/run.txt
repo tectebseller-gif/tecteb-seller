@@ -1,0 +1,40 @@
+ok:   the installed package is the one under test                            0.1.0-alpha.73
+ok:   the real reader sees the Dokan-shaped fixture                          yes
+ok:   one product is mapped                                                  1
+ok:   …and it is missing its picture                                         1
+      service: mapped=1 complete=0 without_image=1 ids=3734
+ok:   1a the queue screen is the one it says it is                           true
+ok:   1b the hand-over is offered on the stuck row                           true
+ok:   1c …and the form carries the lock it was drawn from                    true
+ok:   1d …with the override offered, because the row was just written to     true
+      the page says the row was written ۳ seconds ago
+ok:   1e …saying how long ago, in Persian digits                             true
+ok:   2a pressing it without the override is REFUSED                         true
+ok:   2b …and the job is still held by that worker                           running
+ok:   4a the completion section is on the page                               true
+ok:   4b the report names «mapped» separately                                true
+ok:   4b the report names «complete» separately                              true
+ok:   4b the report names «without a picture» separately                     true
+ok:   4b the report names «unjudgeable» separately                           true
+ok:   4b the report names «mapped twice» separately                          true
+ok:   4c the mapped figure is the service's, in Persian digits               true
+ok:   4d …and so is the number missing a picture                             true
+ok:   4d-2 …which is one, because a worker died inside its picture           1
+ok:   4e the half-made product is NAMED, by id                               true
+ok:   4f the repair button is offered                                        true
+ok:   4g …with the sentence saying what it does and does not touch           true
+ok:   4h the repair finishes the one that was missing a picture              0
+ok:   4i …and creates no row: the mapped figure is unchanged                 1
+ok:   4j …and no duplicate                                                   0
+ok:   4k the page then says how many were finished                           true
+ok:   4l and nothing anywhere offers to merge a duplicate row                true
+      done before the hand-over: 2, after: 8
+ok:   3a the override hands it over and a batch runs                         true
+ok:   5 no horizontal overflow at 390px — queue                              0
+ok:   5 no horizontal overflow at 390px — migration                          0
+      axe queue: 0 violations, 0 serious/critical
+ok:   6 axe on the queue screen: no serious or critical violation            0
+      axe migration: 0 violations, 0 serious/critical
+ok:   6 axe on the migration screen: no serious or critical violation        0
+      rolled_back=dokan-20261023-153339:ok · reset_products_left=0 · reset_mapped_left=0 · reset_sellers_left=0 · reset_attachments_left=0 · reset_jobs_left=0
+ pass=33 fail=0

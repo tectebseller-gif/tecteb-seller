@@ -66,27 +66,99 @@ final class ProgressFollowsTheWorkTest extends TestCase
         $code = $this->code('src/Modules/Migration/Application/DokanImportJob.php');
         foreach (['importVendorPage', 'importProductPage', 'importOrderPage'] as $method) {
             self::assertMatchesRegularExpression(
-                '~' . $method . '\([^;]*\$recordOne\)~',
+                '~' . $method . '\([^;]*\$progress\)~',
                 $code,
                 $method . ' must be given the per-unit sink'
             );
         }
-        self::assertStringContainsString('$recordOne = $checkpoint === null', $code);
+        self::assertStringContainsString('new CursorProgress(', $code);
     }
 
     /**
-     * And the attempt is recorded BEFORE the work, because a process that stops
-     * existing writes nothing afterwards. The order of the two statements is
-     * the whole guard, so the order is what is asserted.
+     * And every unit is CLAIMED before any of its writes.
+     *
+     * ⛔ Rewritten, not loosened. `alpha.72` asserted that the attempt was
+     * written before the per-unit sink was built, which was true of its own
+     * code and said nothing about the thing that mattered: inside the page the
+     * product row, the media copy and the manifest all happened before
+     * anything token-guarded, so a worker whose lease had been handed on wrote
+     * all three into an import it no longer owned. The order that is the guard
+     * is the order inside the PAGE, so that is what is asserted — on the
+     * bytes, in the file where the writes are.
      */
-    public function testTheAttemptIsRecordedBeforeTheWorkIsAttempted(): void
+    public function testEveryUnitIsClaimedBeforeAnyOfItsWritesHappen(): void
     {
-        $code = $this->code('src/Modules/Migration/Application/DokanImportJob.php');
-        $attempt = strpos($code, '$tries + 1');
-        $sink = strpos($code, '$recordOne = $checkpoint === null');
-        self::assertIsInt($attempt, 'the attempt must be written');
-        self::assertIsInt($sink);
-        self::assertLessThan($sink, $attempt, 'the attempt is written before any unit is done');
+        $code = $this->code('src/Modules/Migration/Application/ImportFromDokan.php');
+        $page = substr(
+            $code,
+            (int) strpos($code, 'function importProductPage'),
+            (int) strpos($code, 'function importGap') - (int) strpos($code, 'function importProductPage')
+        );
+        $claim = strpos($page, '$progress->claim($wcId)');
+        $create = strpos($page, '$this->products->create(');
+        $manifest = strpos($page, '$this->rememberRun($runId');
+        $image = strpos($page, '$this->carryImage(');
+        self::assertIsInt($claim, 'the unit must be claimed');
+        self::assertIsInt($create);
+        self::assertIsInt($manifest);
+        self::assertIsInt($image);
+        self::assertLessThan($create, $claim, 'claimed before the product row');
+        self::assertLessThan($manifest, $claim, 'claimed before the manifest');
+        self::assertLessThan($image, $claim, 'claimed before the picture');
+    }
+
+    /**
+     * And the slow half asks again before it attaches anything.
+     *
+     * The copy is a file copy plus a full `wp_generate_attachment_metadata()`
+     * — the place a host gives up — so the claim before the unit is not enough
+     * on its own: by the time the copy is made the job may belong to somebody
+     * else. The second ask, and the discard that goes with it, are what make
+     * «no interleaved write, no duplicate media» true rather than hoped for.
+     */
+    public function testTheImageIsNotAttachedWithoutAskingForTheLeaseAgain(): void
+    {
+        $code = $this->code('src/Modules/Migration/Application/ImportFromDokan.php');
+        $carry = substr($code, (int) strpos($code, 'function carryImage'));
+        $carry = substr($carry, 0, (int) strpos($carry, 'function giveUpOnProduct'));
+        $copy = strpos($carry, 'duplicateForVendor(');
+        $ask = strpos($carry, '$progress->stillOurs()');
+        $attach = strpos($carry, '$this->products->saveImages(');
+        self::assertIsInt($copy);
+        self::assertIsInt($ask, 'the lease must be asked again, as a question');
+        self::assertIsInt($attach);
+        self::assertLessThan($ask, $copy, 'the copy comes first, or there is nothing to discard');
+        self::assertLessThan($attach, $ask, 'and nothing is attached before the lease is confirmed');
+        // All three conditions of `alpha.42`, together: we made it, the vendor
+        // owns it, and nothing points at it.
+        self::assertStringContainsString('mediaInUse($ownCopy)', $carry);
+        self::assertStringContainsString('discard($ownCopy, $vendorUserId)', $carry);
+    }
+
+    /**
+     * The attempt count is keyed to the unit it is about.
+     *
+     * ⛔ Measured on `alpha.72`'s own bytes: the same interruption read
+     * `tries:1` inside the first product of a batch and `tries:0` inside the
+     * second, because one counter was raised per batch and every landing
+     * cleared it. A count that any other unit can reset is not a count of this
+     * unit's attempts.
+     */
+    public function testTheAttemptCountBelongsToTheUnitNotTheBatch(): void
+    {
+        $code = $this->code('src/Modules/Migration/Application/CursorProgress.php');
+        self::assertStringContainsString(
+            '$this->tries = ($unitId === $this->at ? $this->tries : 0) + 1;',
+            $code,
+            'a different unit starts at one; the same unit carries on counting'
+        );
+        self::assertStringContainsString(
+            '$unitId === $this->at && $this->tries >= $this->giveUpAfter',
+            $code,
+            'and the give-up is about the unit that was tried'
+        );
+        // Two counters, two facts, neither clearing the other.
+        self::assertStringContainsString('page_tries', $code);
     }
 
     /**

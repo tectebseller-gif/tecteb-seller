@@ -78,6 +78,23 @@ interface JobRepositoryInterface
     public function live(int $limit = 50): array;
 
     /**
+     * How long a job row must have been silent before its lease may be ended
+     * without an explicit override.
+     *
+     * Fifteen seconds, derived from how often a healthy worker writes rather
+     * than chosen: the checkpoint is per unit now, and a unit is one product —
+     * measured at about half a second each, a few seconds for a large image.
+     * So fifteen seconds of total silence is well past any single unit and far
+     * short of the five-minute lease.
+     *
+     * ⛔ It does not prove the worker is dead and nothing here can. A process
+     * on another request cannot be asked whether it is alive; all this says is
+     * that nothing has been written for a while, and the manager is told that
+     * in those words, with an override for when they know better.
+     */
+    public const WRITING_WINDOW = 15;
+
+    /**
      * End one job's lease NOW, so the next worker may claim it.
      *
      * The recovery path for a job whose worker no longer exists. `claim()`
@@ -87,12 +104,48 @@ interface JobRepositoryInterface
      * بی‌صاحب ۰» while «اجرای دستی یک دسته» answered «چیزی در صف نبود», and
      * the manager had no action at all.
      *
-     * Safe even if that worker is in fact alive: its next checkpoint is matched
-     * on its token, finds the job claimed by somebody else, and writes nothing
-     * (`lease_lost`). Nothing is deleted and no count is touched — only the
+     * ⛔ CORRECTION, and it was the owner's first finding on `alpha.72`. This
+     * docblock used to say the hand-over was «safe even if that worker is in
+     * fact alive: its next checkpoint is matched on its token … and writes
+     * nothing». The first half is true and the second was not: the checkpoint
+     * was refused, but the product row, the media copy and the manifest were
+     * all written BEFORE it, so a living worker carried on and wrote them into
+     * an import it no longer owned — measured, `a_wrote_after_losing_the_job=yes`.
+     * What makes the hand-over safe is the per-unit claim in
+     * `ImportProgressInterface`, which comes before those writes; the token
+     * match alone never did.
+     *
+     * Three things are asked before the lease is ended, and each has its own
+     * answer: the lock is the one the caller was SHOWN (`lock_changed`
+     * otherwise, so a lease somebody claimed a moment ago is not stolen); the
+     * row has been silent for a while (`worker_still_writing` otherwise, with
+     * an explicit override for the manager who knows better); and the job is
+     * running at all. Nothing is deleted and no count is touched — only the
      * lease ends.
+     *
+     * ⛔ And «silent» is not «dead». Liveness is not observable from here: a
+     * PHP process on another request cannot be asked. All this can measure is
+     * that nothing has been written for a number of seconds, which is reported
+     * as that and never as proof.
+     *
+     * @param string $seenLock fingerprint of the lock the caller was shown,
+     *                         from `lockFingerprint()`; empty skips the check
+     * @param bool $evenIfWriting the manager's explicit override of a row that
+     *                            has been written to recently
+     * @return string `''` when the lease ended; otherwise `not_running`,
+     *                `lock_changed`, `worker_still_writing`, `unreadable` or
+     *                `not_handed_over`
      */
-    public function handOver(int $jobId): bool;
+    public function handOver(int $jobId, string $seenLock = '', bool $evenIfWriting = false): string;
+
+    /**
+     * What the caller must send back to prove it is handing over the lease it
+     * was shown, rather than whatever is there by the time the form arrives.
+     */
+    public function lockFingerprint(string $lockToken, string $lockedUntil): string;
+
+    /** Seconds since this job's row was last written, or `null` if unknown. */
+    public function secondsSinceWrite(int $jobId): ?int;
 
     /** A manager stopping a job they queued; a running job stops after its batch. */
     public function cancel(int $jobId): bool;

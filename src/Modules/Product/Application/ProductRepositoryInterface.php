@@ -355,6 +355,19 @@ interface ProductRepositoryInterface
     public function idsFromImportRun(string $runId): array;
 
     /**
+     * WooCommerce products that more than one of our rows points at.
+     *
+     * ⛔ This is physically possible: `tmc_products` has NO unique index on
+     * `wc_product_id` (`alpha.56`), so «no duplicates» is a property of the
+     * code that writes it and not of the table — which makes it something to
+     * COUNT rather than something to assume. A completion report that cannot
+     * answer this question is the reassuring kind.
+     *
+     * @return list<int> the WooCommerce ids, bounded
+     */
+    public function duplicateWcMappings(int $limit = 50): array;
+
+    /**
      * @return list<int> every vendor owning at least one product an import stamped
      *
      * The companion to `idsFromImportRun()`, asked of the whole catalogue

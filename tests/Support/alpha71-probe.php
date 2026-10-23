@@ -585,7 +585,22 @@ switch ($command) {
         $say('before_done', $job->done);
         $say('before_cursor', $job->cursor);
         $say('claim_finds_anything', $c->get(JobRunner::class)->run(1) !== []);
-        $say('handed_over', method_exists($jobs, 'handOver') ? $jobs->handOver($job->id) : '__absent__');
+        // ⛔ UPDATED FOR `alpha.73`, and not loosened. `handOver()` now answers
+        // with a NAME rather than a bool and refuses a row that was written to
+        // moments ago (`worker_still_writing`) — which this scenario always is,
+        // because the kill happened a second before. The manager's explicit
+        // override is what a person pressing the button after a real death
+        // sends, so that is what is sent here; the answer is normalised so the
+        // same probe still reads `alpha.71`, where extra arguments to a
+        // userland method are silently ignored.
+        if (!method_exists($jobs, 'handOver')) {
+            $say('handed_over', '__absent__');
+        } else {
+            $answer = $jobs->handOver($job->id, '', true);
+            $say('handed_over', is_bool($answer)
+                ? ($answer ? 'yes' : 'no')
+                : ($answer === '' ? 'yes' : $answer));
+        }
         $results = $c->get(JobRunner::class)->run(1);
         $say('after_hand_over_batches', count($results));
         $say('after_hand_over_says', $results === [] ? 'nothing_was_in_the_queue' : $results[0]['outcome']);

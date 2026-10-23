@@ -50,12 +50,24 @@ use Tecteb\Marketplace\Core\Jobs\JobHandlerInterface;
  *
  *  - **where we got to**, so a killed worker loses at most one product and the
  *    next one carries on rather than repeating a page it cannot finish; and
- *  - **that we tried**, written BEFORE the work, because a process that stops
- *    existing writes nothing afterwards. `tries` lives in the cursor because
- *    the cursor is this handler's own data, and any unit that lands resets it
- *    to nought. A position that has killed `GIVE_UP_AFTER` workers is not
- *    tried again: that one unit is NAMED, counted as failed and stepped over,
- *    so the other hundred and eighty arrive instead of nothing arriving.
+ *  - **that we are trying THIS one**, written BEFORE its product row, its
+ *    media copy and its manifest entry, because a process that stops existing
+ *    writes nothing afterwards and a guard that runs after the writes is not a
+ *    guard. A unit that has killed `GIVE_UP_AFTER` workers is not tried again:
+ *    it is NAMED, counted, and stepped over, so the other hundred and eighty
+ *    arrive instead of nothing arriving.
+ *
+ * ⛔ And the attempt count is keyed to the UNIT, which `alpha.72` got wrong in
+ * a way only its own bytes could show: it raised one `tries` at the top of the
+ * batch and every unit that landed set it back to nought, so the same
+ * interruption read `tries:1` inside the first product of a batch and
+ * `tries:0` inside the second. The second product's attempts were never
+ * written down at all, which means the give-up could not fire for it however
+ * many workers it killed — and the only reason that did not stall the import
+ * for ever is that the OTHER defect of that package, counting a half-made
+ * product as done, skipped past it. Two defects covering for each other is
+ * why both are fixed here together: see `ImportProgressInterface` and
+ * `CursorProgress`.
  */
 final class DokanImportJob implements JobHandlerInterface
 {
@@ -109,13 +121,29 @@ final class DokanImportJob implements JobHandlerInterface
         }
         $phase = (string) ($job->cursor['phase'] ?? self::PHASE_VENDORS);
         $after = (int) ($job->cursor['after'] ?? 0);
+        // The unit being attempted, and how many times it has been.
+        //
+        // ⛔ `alpha.72` kept one `tries` and raised it at the top of the batch,
+        // so every unit that landed set it back to nought — measured on its own
+        // bytes, an identical interruption read `tries:1` inside the FIRST
+        // product of a batch and `tries:0` inside the second. The whole attempt
+        // on the second product left no trace, which means `GIVE_UP_AFTER`
+        // could never fire for it however many workers it killed. The count
+        // belongs to a unit, so it is keyed to one.
+        $at = (int) ($job->cursor['at'] ?? 0);
         $tries = (int) ($job->cursor['tries'] ?? 0);
+        // And a SEPARATE count for «could not even read the page».
+        //
+        // A different fact with a different disproof: any page coming back
+        // clears it, and that is not the same event as a unit landing. One
+        // counter serving both loses both.
+        $pageTries = (int) ($job->cursor['page_tries'] ?? 0);
         $total = (int) ($job->payload['total'] ?? 0);
         // Which rows this import has REFUSED, carried in the cursor.
         //
         // `JobBatch::notes()` is read by nothing: the runner drops it, so until
-        // now a conflict was a number in `failed` with no id anywhere. The
-        // cursor is the handler's own data — the schema says so in as many
+        // `alpha.72` a conflict was a number in `failed` with no id anywhere.
+        // The cursor is the handler's own data — the schema says so in as many
         // words — and the queue page already prints it, so the names travel
         // with the position that produced them. Bounded, newest last, because
         // a cursor is a position and not a log.
@@ -123,107 +151,180 @@ final class DokanImportJob implements JobHandlerInterface
             (array) ($job->cursor['refused'] ?? []),
             static fn (mixed $n): bool => is_string($n)
         ));
-        $here = static function (string $p, int $at, int $t = 0, array $add = []) use ($refused): array {
-            $cursor = ['phase' => $p, 'after' => $at, 'tries' => $t];
-            $all = array_merge($refused, array_values(array_filter($add, 'is_string')));
-            if ($all !== []) {
-                $cursor['refused'] = array_slice($all, -self::REFUSALS_KEPT);
+
+        if ($checkpoint === null) {
+            // No runner and therefore no lease: the path the tools and the
+            // preview take. Nothing to claim, nothing to lose, and the page
+            // reports what it did in its return value.
+            return $this->withoutALease($runId, $phase, $after, $total, $refused);
+        }
+
+        $here = static function (string $p, int $a, int $u, int $t, int $pt, array $names): array {
+            $cursor = ['phase' => $p, 'after' => $a, 'at' => $u, 'tries' => $t, 'page_tries' => $pt];
+            if ($names !== []) {
+                $cursor['refused'] = array_slice($names, -self::REFUSALS_KEPT);
             }
             return $cursor;
         };
 
-        // THAT WE TRIED, written before trying.
+        // THAT WE TRIED TO READ A PAGE, written before reading one.
         //
-        // The only moment this can be recorded is before the work, because the
+        // The only moment this can be recorded is beforehand, because the
         // failure being guarded against is a process that stops existing. If
         // the lease has already gone, say nothing and change nothing.
-        if ($checkpoint !== null && !$checkpoint($here($phase, $after, $tries + 1), 0, 0, $total)) {
-            return JobBatch::progress($here($phase, $after, $tries), 0, 0, $total);
+        $pageTries++;
+        if (!$checkpoint($here($phase, $after, $at, $tries, $pageTries, $refused), 0, 0, $total)) {
+            return JobBatch::progress($here($phase, $after, $at, $tries, $pageTries - 1, $refused), 0, 0, $total);
+        }
+        if ($pageTries > self::GIVE_UP_AFTER) {
+            // Not one unit could be read at this position, three times over.
+            // That is not a product's fault and must not be reported as one.
+            return $this->stepOver($phase, $after, $total, $pageTries - 1, $refused, $here);
         }
 
-        if ($checkpoint !== null && $tries >= self::GIVE_UP_AFTER) {
-            return $this->stepOver($phase, $after, $total, $tries, $here);
-        }
-
-        // Each unit records itself as it lands, and a unit that lands means
-        // this position is not the one killing workers — so `tries` goes back
-        // to nought in the same write.
-        $recordOne = $checkpoint === null
-            ? null
-            : static fn (int $at, int $done, int $failed): bool => $checkpoint($here($phase, $at), $done, $failed, $total);
+        $progress = new CursorProgress(
+            static fn (array $cursor, int $done, int $failed): bool
+                => $checkpoint($cursor, $done, $failed, $total),
+            $phase,
+            $after,
+            $at,
+            $tries,
+            $refused,
+            $pageTries,
+            self::GIVE_UP_AFTER,
+            self::REFUSALS_KEPT
+        );
 
         if ($phase === self::PHASE_VENDORS) {
-            $page = $this->import->importVendorPage($runId, $after, $this->batchSize(), $recordOne);
-            if ($page['lease_lost'] ?? false) {
-                return JobBatch::progress($here($phase, (int) $page['last']), 0, 0, $total);
+            $page = $this->import->importVendorPage($runId, $after, $this->batchSize(), $progress);
+            if ($progress->leaseLost()) {
+                return JobBatch::progress($progress->cursor(), 0, 0, $total, $page['notes'] ?? []);
             }
             if (!$page['more']) {
                 // Vendors done; products start from zero, not from the last
                 // vendor's id. The phase is what makes that unambiguous.
                 return JobBatch::progress(
-                    $here(self::PHASE_PRODUCTS, 0),
+                    $progress->cursorAtStartOf(self::PHASE_PRODUCTS),
                     $page['done'],
-                    0,
-                    $total
+                    $page['failed'] ?? 0,
+                    $total,
+                    $page['notes'] ?? []
                 );
             }
             return JobBatch::progress(
-                $here(self::PHASE_VENDORS, (int) $page['last']),
+                $this->pageRead($progress->cursor()),
                 $page['done'],
-                0,
-                $total
+                $page['failed'] ?? 0,
+                $total,
+                $page['notes'] ?? []
             );
         }
 
         if ($phase === self::PHASE_PRODUCTS) {
-            $page = $this->import->importProductPage($runId, $after, $this->batchSize(), $recordOne);
-            if ($page['lease_lost'] ?? false) {
-                return JobBatch::progress($here($phase, (int) $page['last'], 0, $page['notes']), 0, 0, $total, $page['notes']);
+            $page = $this->import->importProductPage($runId, $after, $this->batchSize(), $progress);
+            $notes = $page['notes'];
+            if (($page['repaired'] ?? 0) > 0) {
+                // Finishing a half-made product is not an ordinary import and
+                // the report says so separately — «عدد ۱۰۰٪ به‌تنهایی کافی
+                // نیست».
+                $notes[] = 'repaired:' . (int) $page['repaired'];
+            }
+            if ($progress->leaseLost()) {
+                return JobBatch::progress($progress->cursor(), 0, 0, $total, $notes);
             }
             if ($page['more']) {
                 return JobBatch::progress(
-                    $here(self::PHASE_PRODUCTS, (int) $page['last'], 0, $page['notes']),
+                    $this->pageRead($progress->cursor()),
                     $page['done'],
                     $page['failed'],
                     $total,
-                    $page['notes']
+                    $notes
                 );
             }
             // Products done; the history starts from zero for the same reason
             // products did — an order id and a product id are different places.
             return JobBatch::progress(
-                $here(self::PHASE_ORDERS, 0, 0, $page['notes']),
+                $progress->cursorAtStartOf(self::PHASE_ORDERS),
                 $page['done'],
                 $page['failed'],
                 $total,
-                $page['notes']
+                $notes
             );
         }
 
-        $page = $this->import->importOrderPage($runId, $after, $this->batchSize(), $recordOne);
-        $cursor = $here(self::PHASE_ORDERS, (int) $page['last']);
-        if (($page['lease_lost'] ?? false) || $page['more']) {
+        $page = $this->import->importOrderPage($runId, $after, $this->batchSize(), $progress);
+        $cursor = $this->pageRead($progress->cursor());
+        if ($progress->leaseLost() || $page['more']) {
             return JobBatch::progress($cursor, $page['done'], 0, $total, ['history:' . $page['done']]);
         }
 
-        $progress = $this->import->runProgress($runId);
-        $this->import->finishRun($runId, $progress['vendors'], $progress['products'], $job->failed);
+        $progressFigures = $this->import->runProgress($runId);
+        $this->import->finishRun($runId, $progressFigures['vendors'], $progressFigures['products'], $job->failed);
         return JobBatch::finished($cursor, $page['done'], 0, $total, ['history:' . $page['done']]);
     }
 
     /**
-     * Name the one unit that has killed `GIVE_UP_AFTER` workers, and go past it.
+     * The page came back, so «could not even read the page» is disproved.
      *
-     * It is counted as FAILED and its id is in the notes, so the manager has
-     * the row to look at — a product with a photograph too big for this host to
-     * process is the measured example, and «۱۸۳ آمد و این یکی نامش این است» is
-     * an answer, while «هیچ‌چیز نیامد» is not.
-     *
-     * Nothing is deleted, nothing of Dokan's is touched, and the unit itself is
-     * left exactly as it was: stepping over a row is a decision to import the
-     * rest, not a decision about that row.
+     * @param array<string,mixed> $cursor
+     * @return array<string,mixed>
      */
-    private function stepOver(string $phase, int $after, int $total, int $tries, \Closure $here): JobBatch
+    private function pageRead(array $cursor): array
+    {
+        $cursor['page_tries'] = 0;
+        return $cursor;
+    }
+
+    /**
+     * One batch with no lease to lose: the tools' path and the preview's.
+     *
+     * Kept separate rather than threaded through the claiming version with
+     * null checks everywhere, because the two have different guarantees and
+     * pretending otherwise is how a guard ends up optional.
+     */
+    private function withoutALease(string $runId, string $phase, int $after, int $total, array $refused): JobBatch
+    {
+        $cursor = static function (string $p, int $a) use ($refused): array {
+            $c = ['phase' => $p, 'after' => $a, 'at' => 0, 'tries' => 0, 'page_tries' => 0];
+            if ($refused !== []) {
+                $c['refused'] = $refused;
+            }
+            return $c;
+        };
+        if ($phase === self::PHASE_VENDORS) {
+            $page = $this->import->importVendorPage($runId, $after, $this->batchSize());
+            return $page['more']
+                ? JobBatch::progress($cursor(self::PHASE_VENDORS, (int) $page['last']), $page['done'], 0, $total)
+                : JobBatch::progress($cursor(self::PHASE_PRODUCTS, 0), $page['done'], 0, $total);
+        }
+        if ($phase === self::PHASE_PRODUCTS) {
+            $page = $this->import->importProductPage($runId, $after, $this->batchSize());
+            return $page['more']
+                ? JobBatch::progress($cursor(self::PHASE_PRODUCTS, (int) $page['last']), $page['done'], $page['failed'], $total, $page['notes'])
+                : JobBatch::progress($cursor(self::PHASE_ORDERS, 0), $page['done'], $page['failed'], $total, $page['notes']);
+        }
+        $page = $this->import->importOrderPage($runId, $after, $this->batchSize());
+        $at = $cursor(self::PHASE_ORDERS, (int) $page['last']);
+        if ($page['more']) {
+            return JobBatch::progress($at, $page['done'], 0, $total, ['history:' . $page['done']]);
+        }
+        $figures = $this->import->runProgress($runId);
+        $this->import->finishRun($runId, $figures['vendors'], $figures['products'], 0);
+        return JobBatch::finished($at, $page['done'], 0, $total, ['history:' . $page['done']]);
+    }
+
+    /**
+     * Name the position that no worker can read past, and go beyond it.
+     *
+     * ⛔ This is about the READ, not about a unit: three workers died without a
+     * single product coming back from the reader, which is a different failure
+     * from a product that kills workers — that one is counted against its own
+     * id by `CursorProgress` and named by `giveUpOnProduct()`. Blaming a row
+     * for a page nobody could read would name an innocent one.
+     *
+     * @param list<string> $refused
+     */
+    private function stepOver(string $phase, int $after, int $total, int $tries, array $refused, \Closure $here): JobBatch
     {
         $id = $this->import->unitAfter($phase, $after);
         $next = match ($phase) {
@@ -235,32 +336,35 @@ final class DokanImportJob implements JobHandlerInterface
             // Nothing there any more: the position was the END of the phase and
             // the deaths were about something else. Move on without blaming a
             // row that does not exist.
+            $note = 'stalled_at_end_of:' . $phase;
             return JobBatch::progress(
-                $here($next, 0, 0, ['stalled_at_end_of:' . $phase]),
+                $here($next, 0, 0, 0, 0, array_merge($refused, [$note])),
                 0,
                 0,
                 $total,
-                ['stalled_at_end_of:' . $phase]
+                [$note]
             );
         }
         if ($this->import->unitIsAlreadyOurs($phase, $id)) {
             // It arrived in one of those dying attempts — created, and gone
             // before its own checkpoint could run. The position has to move,
             // but blaming this row would be naming an innocent one.
+            $note = $id . ':arrived_before_the_worker_died';
             return JobBatch::progress(
-                $here($phase, $id, 0, [$id . ':arrived_before_the_worker_died']),
+                $here($phase, $id, 0, 0, 0, array_merge($refused, [$note])),
                 1,
                 0,
                 $total,
-                [$id . ':arrived_before_the_worker_died']
+                [$note]
             );
         }
+        $note = $id . ':page_unreadable_after_' . $tries . '_attempts';
         return JobBatch::progress(
-            $here($phase, $id, 0, [$id . ':stalled_after_' . $tries . '_attempts']),
+            $here($phase, $id, 0, 0, 0, array_merge($refused, [$note])),
             0,
             1,
             $total,
-            [$id . ':stalled_after_' . $tries . '_attempts']
+            [$note]
         );
     }
 }
