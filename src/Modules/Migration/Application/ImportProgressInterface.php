@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Migration\Application;
 
+use Tecteb\Marketplace\Modules\Migration\Domain\LeaseHold;
 use Tecteb\Marketplace\Modules\Migration\Domain\UnitClaim;
 
 /**
@@ -44,15 +45,27 @@ interface ImportProgressInterface
     public function attempts(int $unitId): int;
 
     /**
-     * Still ours? Asked in the MIDDLE of a unit, between its slow halves.
+     * The unit's dependent writes, run under the lease or not at all.
      *
-     * ⛔ A question, not a second claim, and the difference is the attempt
-     * count: asking «do I still hold this?» three times inside one product
-     * must not read as three attempts on it. The first version of this round
-     * reused `claim()` here and the count rose with every picture — a counter
-     * that counts the wrong thing is the defect being fixed, one layer down.
+     * ⛔ **This replaced a question, and the question was removed rather than
+     * kept beside it.** `alpha.73` asked `stillOurs()` between the slow half
+     * and the attach, which is CHECK and then WRITE with two round trips
+     * between them. Measured on its own installed bytes: a worker parked in
+     * that gap was refused at its next checkpoint — `outcome:lease_lost` —
+     * and had already replaced the picture a second worker attached, leaving
+     * that worker's copy in the shop's media library with nothing pointing at
+     * it. Keeping the question as well would leave a decoy that reads like a
+     * guard, which is how this gap came to exist; and `alpha.69`'s rule is
+     * that a guard which is no longer needed is REMOVED, not loosened.
+     *
+     * Everything the unit must not outlive its hold on the job goes in here:
+     * the row, the attach, the manifest entry. Nothing slow does — the file
+     * copy and the metadata are the caller's business and happen before.
+     *
+     * @param \Closure():bool $write `false` means the work failed, and the
+     *                               whole unit is rolled back
      */
-    public function stillOurs(): bool;
+    public function writing(\Closure $write): LeaseHold;
 
     /**
      * This unit is finished with: counted, named if it was refused, and the

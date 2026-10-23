@@ -52,7 +52,13 @@ final class DeliverEventsJob implements JobHandlerInterface
         return 50;
     }
 
-    public function step(Job $job, ?\Closure $checkpoint = null): JobBatch
+    /**
+     * `$underLease` is accepted and not used, and that is a statement rather
+     * than an omission: an outbox row moves to one terminal state with one
+     * guarded `UPDATE`, so there is no pair of writes for a lost lease to land
+     * between. Nothing here can destroy another worker's work.
+     */
+    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch
     {
         $after = (int) ($job->cursor['after'] ?? 0);
         $rows = $this->outbox->pending($this->batchSize(), $after);

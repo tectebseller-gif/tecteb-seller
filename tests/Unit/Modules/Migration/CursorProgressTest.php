@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Tests\Unit\Modules\Migration;
 
 use PHPUnit\Framework\TestCase;
 use Tecteb\Marketplace\Modules\Migration\Application\CursorProgress;
+use Tecteb\Marketplace\Modules\Migration\Domain\LeaseHold;
 use Tecteb\Marketplace\Modules\Migration\Domain\UnitClaim;
 
 /**
@@ -26,19 +27,37 @@ final class CursorProgressTest extends TestCase
     /** @var list<array{cursor:array<string,mixed>, done:int, failed:int}> */
     private array $written = [];
 
+    /** Closures the write gate was asked to run, and whether it ran them. */
+    private array $guarded = [];
+
     private function progress(
         int $after = 0,
         int $at = 0,
         int $tries = 0,
         array $refused = [],
         int $pageTries = 0,
-        bool $leaseHolds = true
+        bool $leaseHolds = true,
+        string $gateSays = ''
     ): CursorProgress {
         $this->written = [];
+        $this->guarded = [];
         return new CursorProgress(
             function (array $cursor, int $done, int $failed) use ($leaseHolds): bool {
                 $this->written[] = ['cursor' => $cursor, 'done' => $done, 'failed' => $failed];
                 return $leaseHolds;
+            },
+            // The runner's gate, modelled as the REPOSITORY models it: a
+            // string answer, and the closure called only when the lease is
+            // held. ⛔ A fake that ran the closure regardless would make an
+            // unguarded tree look guarded, which is the `alpha.70` trap.
+            function (\Closure $write) use ($gateSays): string {
+                if ($gateSays !== '') {
+                    $this->guarded[] = ['ran' => false, 'answer' => $gateSays];
+                    return $gateSays;
+                }
+                $ok = $write() === true;
+                $this->guarded[] = ['ran' => true, 'answer' => $ok ? '' : 'not_written'];
+                return $ok ? '' : 'not_written';
             },
             'products',
             $after,
@@ -167,20 +186,97 @@ final class CursorProgressTest extends TestCase
     }
 
     /**
-     * Asking whether the lease still holds is a QUESTION, not an attempt.
+     * A unit's writes run under the gate, and running them is not an attempt.
      *
-     * The first version of this round reused `claim()` for it and the count
-     * rose with every picture — three asks inside one product read as three
-     * attempts on it.
+     * `alpha.73` asked `stillOurs()` here and then wrote, and the gap between
+     * those two statements was the defect. The write itself now goes through
+     * the gate — and going through it three times inside one product must
+     * still read as ONE attempt on that product, which is the counter defect
+     * one layer down.
      */
-    public function testAskingWhetherTheLeaseHoldsDoesNotCountAsAnAttempt(): void
+    public function testWritingUnderTheLeaseIsNotAnAttempt(): void
     {
         $p = $this->progress();
         $p->claim(1001);
-        self::assertTrue($p->stillOurs());
-        self::assertTrue($p->stillOurs());
+        self::assertSame(LeaseHold::Held, $p->writing(static fn (): bool => true));
+        self::assertSame(LeaseHold::Held, $p->writing(static fn (): bool => true));
         self::assertSame(1, $this->lastCursor()['tries'], 'still the first attempt');
         self::assertSame(1001, $this->lastCursor()['at']);
+        self::assertSame(2, count($this->guarded));
+        self::assertTrue($this->guarded[0]['ran']);
+    }
+
+    /** The closure is not called at all when the lease has gone. */
+    public function testAStaleLeaseNeverRunsTheWrite(): void
+    {
+        $p = $this->progress(gateSays: 'lease_lost');
+        $p->claim(1001);
+        $ran = false;
+        $answer = $p->writing(static function () use (&$ran): bool {
+            $ran = true;
+            return true;
+        });
+        self::assertSame(LeaseHold::LeaseLost, $answer);
+        self::assertFalse($ran, 'the write must never have been attempted');
+        self::assertTrue($p->leaseLost(), 'and the whole worker stops');
+    }
+
+    /**
+     * «Could not read the row» is not «yes», and it stops the worker too.
+     *
+     * Kept apart by the repository for its report and joined here, because
+     * what the caller must do about either is identical: write nothing more.
+     */
+    public function testAnUnreadableRowStopsTheWorkerLikeALostLease(): void
+    {
+        $p = $this->progress(gateSays: 'unreadable');
+        $p->claim(1001);
+        self::assertSame(LeaseHold::LeaseLost, $p->writing(static fn (): bool => true));
+        self::assertTrue($p->leaseLost());
+    }
+
+    /**
+     * Work that failed is not a lease that went, and the worker carries on.
+     *
+     * ⛔ Collapsing these two would stop a whole import because one product
+     * could not be saved — the opposite error, and a worse one.
+     */
+    public function testWorkThatFailedLeavesTheLeaseAlone(): void
+    {
+        $p = $this->progress();
+        $p->claim(1001);
+        self::assertSame(LeaseHold::NotWritten, $p->writing(static fn (): bool => false));
+        self::assertFalse($p->leaseLost(), 'the lease is still ours');
+        self::assertTrue($p->landed(1001, 0, 1), 'and the unit can still be recorded');
+    }
+
+    /**
+     * A progress object with no gate REFUSES rather than writing unguarded.
+     *
+     * The alternative is a guard that evaporates wherever somebody forgot to
+     * wire it, which is how every defect in this file's history began.
+     */
+    public function testWithNoGateTheWriteIsRefusedRatherThanRunBare(): void
+    {
+        $p = new CursorProgress(
+            fn (array $cursor, int $done, int $failed): bool => true,
+            null,
+            'products',
+            0,
+            0,
+            0,
+            [],
+            0,
+            3,
+            20
+        );
+        $ran = false;
+        $answer = $p->writing(static function () use (&$ran): bool {
+            $ran = true;
+            return true;
+        });
+        self::assertSame(LeaseHold::LeaseLost, $answer);
+        self::assertFalse($ran);
     }
 
     /** A lease that has gone refuses everything afterwards, and writes nothing. */
@@ -192,7 +288,7 @@ final class CursorProgressTest extends TestCase
         $before = count($this->written);
         self::assertSame(UnitClaim::LeaseLost, $p->claim(1002));
         self::assertFalse($p->landed(1002, 1, 0));
-        self::assertFalse($p->stillOurs());
+        self::assertSame(LeaseHold::LeaseLost, $p->writing(static fn (): bool => true));
         self::assertSame($before, count($this->written), 'not one write after the lease went');
         self::assertSame(0, $p->recorded());
     }

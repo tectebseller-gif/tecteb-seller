@@ -20,6 +20,7 @@ use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportProgressInterface;
+use Tecteb\Marketplace\Modules\Migration\Domain\LeaseHold;
 use Tecteb\Marketplace\Modules\Migration\Domain\UnitClaim;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
@@ -175,6 +176,22 @@ final class DokanImportJobTest extends DatabaseTestCase
      *
      * @return array{cursor:array<string,mixed>, done:int, failed:int}
      */
+    /**
+     * The runner's unit-of-work gate, built the way `JobRunner` builds it.
+     *
+     * ⛔ A helper that left this out would hand the handler `null` and every
+     * unit would refuse to write — and the first version of these two helpers
+     * did exactly that, reporting eight failures about code that was right
+     * (`alpha.55`: a fixture that cannot model the verb says the wrong thing
+     * about the build). It is the REAL repository method, on the real
+     * database, so the `FOR UPDATE` and the token comparison are the ones that
+     * ship.
+     */
+    private function gateFor(int $jobId, string $token): \Closure
+    {
+        return fn (\Closure $write): string => $this->jobs->writingUnderLease($jobId, $token, $write);
+    }
+
     private function dieAfter(int $jobId, int $writes): array
     {
         $token = 'tok-' . bin2hex(random_bytes(4));
@@ -189,7 +206,7 @@ final class DokanImportJobTest extends DatabaseTestCase
             return $this->jobs->checkpoint($job->id, $token, $cursor, $done, $failed, $total, 300);
         };
         try {
-            $this->handler->step($job, $checkpoint);
+            $this->handler->step($job, $checkpoint, $this->gateFor($job->id, $token));
         } catch (ProcessStoppedExisting) {
             // Nothing after this point runs, which is the whole shape of it.
         }
@@ -217,9 +234,13 @@ final class DokanImportJobTest extends DatabaseTestCase
         self::assertNotNull($job, 'the job has to be claimable for this to mean anything');
         $this->images->stopExistingFor = $sourceImageId;
         try {
-            $this->handler->step($job, function (array $cursor, int $done = 0, int $failed = 0, int $total = 0) use ($job, $token): bool {
-                return $this->jobs->checkpoint($job->id, $token, $cursor, $done, $failed, $total, 300);
-            });
+            $this->handler->step(
+                $job,
+                function (array $cursor, int $done = 0, int $failed = 0, int $total = 0) use ($job, $token): bool {
+                    return $this->jobs->checkpoint($job->id, $token, $cursor, $done, $failed, $total, 300);
+                },
+                $this->gateFor($job->id, $token)
+            );
         } catch (ProcessStoppedExisting) {
             // Nothing after this point runs, which is the whole shape of it.
         }
@@ -314,9 +335,15 @@ final class DokanImportJobTest extends DatabaseTestCase
         $id = $this->queue();
         $this->runner->run(1);
 
-        // Page, then 1001 claimed, asked and recorded, then 1002 claimed —
-        // and gone before 1002 could record itself.
-        $this->dieAfter($id, 5);
+        // Page, then 1001 claimed and recorded, then 1002 claimed — and gone
+        // before 1002 could record itself.
+        //
+        // ⛔ Four, not five: a unit costs one checkpoint fewer this round.
+        // `alpha.73` asked the lease with a checkpoint of its own
+        // (`stillOurs()` wrote the same cursor back so the token could be
+        // matched); the hold asks the job row directly and writes no cursor,
+        // so the budget here counts claims and landings and nothing else.
+        $this->dieAfter($id, 4);
         $row = $this->jobs->find($id);
         self::assertSame(1001, (int) $row->cursor['after'], 'the first product landed');
         self::assertSame(1002, (int) $row->cursor['at'], 'and the second is the one being attempted');
@@ -349,8 +376,9 @@ final class DokanImportJobTest extends DatabaseTestCase
         self::assertSame(1001, (int) $row->cursor['at']);
         $this->jobs->release($id, $row->lockToken);
 
-        // Page, then 1001 claimed, asked and recorded: it landed this time.
-        $this->dieAfter($id, 4);
+        // Page, then 1001 claimed and recorded: it landed this time, and the
+        // process stops at 1002's claim — which writes nothing.
+        $this->dieAfter($id, 3);
         $row = $this->jobs->find($id);
         self::assertSame(0, (int) $row->cursor['tries'], 'it landed, so nought');
         self::assertSame(0, (int) $row->cursor['at'], 'and no unit is being attempted');
@@ -530,20 +558,25 @@ final class DokanImportJobTest extends DatabaseTestCase
         $this->import->importProductPage(self::RUN, 0, 5, $progress);
         self::assertSame([1001, 1002, 1003, 1004, 1005], $progress->claims, 'claimed once each');
         self::assertSame([1001, 1002, 1003, 1004, 1005], $progress->landings, 'recorded once each');
-        self::assertSame(5, $progress->asked, 'and the lease asked again inside each picture');
+        // Two holds per product, and that is the shape of the fix rather than
+        // a number that happens to be right: the row WITH its manifest entry,
+        // and then the picture. `alpha.73` had one hold here and a check — and
+        // the check was not a hold.
+        self::assertSame(10, $progress->asked, 'two holds per product: its row, and its picture');
     }
 
     /**
      * And a page whose lease is taken mid-way stops at once rather than writing
      * over the work of whoever holds the job now.
      *
-     * ⛔ The number that changed with this round is the row count: the lease
-     * goes at the THIRD write, which is the second product's claim, and that
-     * claim comes before its row. `alpha.72` had already created it by then.
+     * ⛔ The budget is counted in writes, and this round added one: a unit now
+     * costs a claim, a hold for its row, a hold for its picture and a landing.
+     * Two means the lease goes at the picture's hold — the row is in, the copy
+     * is made, and the attach never happens.
      */
     public function testAPageWhoseLeaseIsTakenStopsInsteadOfCarryingOn(): void
     {
-        $progress = new RecordingProgress(1);     // gone inside the first picture
+        $progress = new RecordingProgress(2);     // gone at the picture's hold
         $page = $this->import->importProductPage(self::RUN, 0, 10, $progress);
         self::assertTrue($page['lease_lost']);
         self::assertFalse($page['more'], 'a page the lease was taken from is not a page that ended');
@@ -554,6 +587,27 @@ final class DokanImportJobTest extends DatabaseTestCase
         // the shop's media library either.
         self::assertSame([], $this->products->images($this->onlyProductRow()), 'nothing attached');
         self::assertCount(1, $this->images->discarded, 'and the copy it had made was discarded');
+    }
+
+    /**
+     * And a lease taken BEFORE the row is written leaves no row at all.
+     *
+     * ⛔ This is the second window the owner named, between `claim(unit)` and
+     * `create()`/`rememberRun()`. On `alpha.73`'s bytes it produced no
+     * duplicate — but the thing holding it was the UNIQUE key on
+     * `wc_product_id`, not the lease, which is a different promise: the day
+     * that index goes the window reopens. Here the lease holds it, so the
+     * insert is not attempted at all.
+     */
+    public function testALeaseTakenBeforeTheRowIsWrittenLeavesNoRow(): void
+    {
+        $progress = new RecordingProgress(1);     // gone at the row's hold
+        $page = $this->import->importProductPage(self::RUN, 0, 10, $progress);
+        self::assertTrue($page['lease_lost']);
+        self::assertSame([], $progress->landings, 'nothing was recorded');
+        self::assertSame(0, $this->mapped(), 'and no row was made either');
+        self::assertSame(0, $this->duplicates());
+        self::assertSame([], $this->images->discarded, 'no copy had been made yet to hand back');
     }
 
     /**
@@ -625,14 +679,23 @@ final class RecordingProgress implements ImportProgressInterface
         return $this->attempts;
     }
 
-    public function stillOurs(): bool
+    /**
+     * The gate, modelled as the REPOSITORY models it — the closure runs only
+     * while the lease holds, and does not run at all when it has gone.
+     *
+     * ⛔ A double that ran the closure regardless would make an unguarded tree
+     * look guarded, which is `alpha.70`'s rule: a stand-in that cannot express
+     * the state the guard exists to catch reports a complete guard where there
+     * is a hole.
+     */
+    public function writing(\Closure $write): LeaseHold
     {
         if ($this->writes >= $this->loseTheLeaseAfter) {
-            return false;
+            return LeaseHold::LeaseLost;
         }
         $this->writes++;
         $this->asked++;
-        return true;
+        return $write() === true ? LeaseHold::Held : LeaseHold::NotWritten;
     }
 
     public function landed(int $unitId, int $done = 0, int $failed = 0, array $notes = []): bool

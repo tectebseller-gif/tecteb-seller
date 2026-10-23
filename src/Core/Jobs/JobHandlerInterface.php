@@ -53,6 +53,18 @@ interface JobHandlerInterface
      * movement, and a progress figure that was wrong about work that really
      * happened. A batch that cannot finish inside one request must not be the
      * unit of checkpointing.
+     *
+     * @param \Closure|null $underLease a second closure, of the shape
+     *
+     *     fn(\Closure(): bool $write): string
+     *
+     * which runs `$write` only while this worker's hold on the job is
+     * provably still true, and otherwise runs nothing at all. See
+     * `JobRepositoryInterface::writingUnderLease()` for the guarantee and for
+     * why `$checkpoint` alone could not be one: a checkpoint validates and
+     * returns, and whatever the handler writes afterwards is written in a gap.
+     * `null` when there is no lease to hold — the tools' and the preview's
+     * path.
      */
-    public function step(Job $job, ?\Closure $checkpoint = null): JobBatch;
+    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch;
 }

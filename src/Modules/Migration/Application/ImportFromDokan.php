@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
+use Tecteb\Marketplace\Modules\Migration\Domain\LeaseHold;
 use Tecteb\Marketplace\Modules\Migration\Domain\UnitClaim;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
@@ -933,18 +934,27 @@ final class ImportFromDokan
                     continue;
                 }
                 if ($mine !== null && $gap === 'image') {
-                    $why = $this->carryImage($mine->id, $vendorId, (int) ($product['source_image_id'] ?? 0), $progress);
+                    $repairId = $mine->id;
+                    $why = $this->carryImage(
+                        $repairId,
+                        $vendorId,
+                        (int) ($product['source_image_id'] ?? 0),
+                        $progress,
+                        // The manifest has to know about a row it will be
+                        // asked to roll back, and a repaired row is one — so
+                        // it is written in the SAME hold as the attach rather
+                        // than in a second statement after it.
+                        $progress === null ? null : function () use ($runId, $repairId): bool {
+                            $this->rememberRun($runId, ['vendors' => [], 'products' => [$repairId]]);
+                            return true;
+                        }
+                    );
                     if ($why === 'lease_lost') {
                         $leaseLost = true;
                         break;
                     }
                     if ($why === '') {
                         $repaired++;
-                        // The manifest has to know about a row it will be
-                        // asked to roll back, and a repaired row is one.
-                        if ($progress !== null) {
-                            $this->rememberRun($runId, ['vendors' => [], 'products' => [$mine->id]]);
-                        }
                         if (!$landed($wcId, 1, 0)) {
                             break;
                         }
@@ -961,9 +971,7 @@ final class ImportFromDokan
                 continue;
             }
 
-            $productId = $this->products->create(
-                $vendorId,
-                new ProductDetails(
+            $details = new ProductDetails(
                     title: $product['title'],
                     // Mapped, or empty. Empty keeps the product a draft,
                     // which is the visible «somebody must decide this» —
@@ -985,16 +993,66 @@ final class ImportFromDokan
                     // reported, so it is a number the owner sees rather than
                     // a correction nobody was told about.
                     stock: max(0, (int) $product['stock'])
-                ),
-                ProductStatus::Draft,
-                LinkOwnership::Observed,
-                // One statement: link and stamp included. The row that exists
-                // is complete, carries the run that made it, and is findable
-                // by its WooCommerce id — so a resumed page finds it instead
-                // of creating a second one.
-                $wcId,
-                $runId
-            );
+                );
+
+            // THE ROW AND ITS MANIFEST ENTRY, AS ONE UNIT HELD UNDER THE LEASE.
+            //
+            // The manifest has to be at least as complete as the work
+            // (`alpha.55`), and with a per-unit checkpoint that means per
+            // unit: a worker killed after this product must leave a manifest
+            // that already knows about it. Written BEFORE the picture, because
+            // the row exists before the picture does — and inside the same
+            // hold, because a lease that went between them would leave a row
+            // nothing can roll back.
+            //
+            // ⛔ The other window the report named is this one, between
+            // `claim(unit)` and `create()`. Measured on `alpha.73`'s installed
+            // bytes it did NOT produce a duplicate — the UNIQUE key
+            // `tmc_product_wc` refuses the stale worker's insert and
+            // `create()` answers `0`. That is the schema holding it, not the
+            // lease, which is worth knowing: the day that key goes, the window
+            // reopens. Now the lease holds it too, and the index remains the
+            // second line of defence it was always meant to be.
+            $productId = 0;
+            $make = function () use (&$productId, $vendorId, $details, $wcId, $runId, $progress): bool {
+                $productId = $this->products->create(
+                    $vendorId,
+                    $details,
+                    ProductStatus::Draft,
+                    LinkOwnership::Observed,
+                    // One statement: link and stamp included. The row that
+                    // exists is complete, carries the run that made it, and is
+                    // findable by its WooCommerce id — so a resumed page finds
+                    // it instead of creating a second one.
+                    $wcId,
+                    $runId
+                );
+                if ($productId === 0) {
+                    return false;
+                }
+                if ($progress !== null) {
+                    $this->rememberRun($runId, ['vendors' => [], 'products' => [$productId]]);
+                }
+                return true;
+            };
+            if ($progress === null) {
+                $make();
+            } else {
+                $held = $progress->writing($make);
+                if ($held === LeaseHold::LeaseLost) {
+                    // Nothing was written and nothing is half written. The
+                    // product is left for whoever owns the import now.
+                    $leaseLost = true;
+                    break;
+                }
+                if ($held === LeaseHold::NotWritten) {
+                    // ⛔ Rolled back, so the id the insert handed back names no
+                    // row. A value captured by reference does not know a
+                    // transaction ended, and carrying it on would attach a
+                    // picture to a product that does not exist.
+                    $productId = 0;
+                }
+            }
             if ($productId === 0) {
                 $failed++;
                 $notes[] = $wcId . ':create_failed';
@@ -1002,14 +1060,6 @@ final class ImportFromDokan
                     break;
                 }
                 continue;
-            }
-            if ($progress !== null) {
-                // The manifest has to be at least as complete as the work
-                // (`alpha.55`), and with a per-unit checkpoint that means per
-                // unit: a worker killed after this product must leave a
-                // manifest that already knows about it. Written BEFORE the
-                // picture, because the row exists before the picture does.
-                $this->rememberRun($runId, ['vendors' => [], 'products' => [$productId]]);
             }
             $created['products'][] = $productId;
 
@@ -1261,31 +1311,73 @@ final class ImportFromDokan
         int $productId,
         int $vendorUserId,
         int $sourceImageId,
-        ?ImportProgressInterface $progress
+        ?ImportProgressInterface $progress,
+        ?\Closure $andThen = null
     ): string {
         if ($sourceImageId <= 0 || $this->images === null) {
             return '';
         }
+        // THE SLOW HALF, AND IT IS OUTSIDE THE LEASE ON PURPOSE. A file copy
+        // and a full `wp_generate_attachment_metadata()` must not run while a
+        // row every worker of this type needs is held.
         $ownCopy = $this->images->duplicateForVendor($sourceImageId, $vendorUserId);
         if ($ownCopy <= 0) {
             return 'image_not_copied';
         }
-        if ($progress !== null && !$progress->stillOurs()) {
-            // Somebody else owns this import now. Put the copy back and write
-            // nothing: a second attachment nobody attached is this plugin
-            // leaving litter in a shop's media library.
-            if (!$this->products->mediaInUse($ownCopy)) {
-                $this->images->discard($ownCopy, $vendorUserId);
+        if ($progress === null) {
+            // No lease to hold, and therefore nothing that could go stale:
+            // the tools' and the preview's path.
+            if (!$this->products->saveImages($productId, [$ownCopy], $ownCopy)) {
+                $this->handBack($ownCopy, $vendorUserId);
+                return 'image_not_attached';
             }
-            return 'lease_lost';
+            return '';
         }
-        if (!$this->products->saveImages($productId, [$ownCopy], $ownCopy)) {
-            if (!$this->products->mediaInUse($ownCopy)) {
-                $this->images->discard($ownCopy, $vendorUserId);
-            }
-            return 'image_not_attached';
+        // AND THE ATTACH IS INSIDE IT — one unit of work with the question it
+        // depends on, not after an answer to it.
+        //
+        // ⛔ `alpha.73` asked `stillOurs()` here and then called
+        // `saveImages()`, and the gap between those two statements is the
+        // whole defect: measured on its own bytes, a worker parked in it was
+        // refused at its next checkpoint and had ALREADY replaced the picture
+        // a second worker attached, leaving that worker's copy orphaned. A
+        // refusal after the write is a report.
+        // `$andThen` rides INSIDE the same hold, because the manifest entry for
+        // a row is not a separate decision from the row being finished: a
+        // lease that went between the two would leave the manifest short by a
+        // product, and a manifest shorter than the work is the direction
+        // `alpha.55` says the error must never lean.
+        $held = $progress->writing(
+            fn (): bool => $this->products->saveImages($productId, [$ownCopy], $ownCopy)
+                && ($andThen === null || $andThen() === true)
+        );
+        if ($held === LeaseHold::Held) {
+            return '';
         }
-        return '';
+        // Either way nothing of ours is on the product, so the copy goes
+        // back — under all three of `alpha.42`'s conditions, which
+        // `handBack()` keeps in one place.
+        $this->handBack($ownCopy, $vendorUserId);
+        return $held === LeaseHold::LeaseLost ? 'lease_lost' : 'image_not_attached';
+    }
+
+    /**
+     * Give a copy back, and only a copy this request made that nothing points
+     * at.
+     *
+     * ⛔ A read that FAILED means «in use»: `mediaInUse()` answers `true` when
+     * it could not look, because the cost of keeping an unused file is a file
+     * and the cost of the other answer is somebody's photograph (`alpha.43`).
+     * No sweep, no age cut, and never the WooCommerce original.
+     */
+    private function handBack(int $ownCopy, int $vendorUserId): void
+    {
+        if ($this->images === null) {
+            return;
+        }
+        if (!$this->products->mediaInUse($ownCopy)) {
+            $this->images->discard($ownCopy, $vendorUserId);
+        }
     }
 
     /**

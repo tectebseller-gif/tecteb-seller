@@ -139,6 +139,54 @@ interface JobRepositoryInterface
     public function handOver(int $jobId, string $seenLock = '', bool $evenIfWriting = false): string;
 
     /**
+     * Run a unit's dependent writes while this worker's hold on the job is
+     * provably still true — or run none of them.
+     *
+     * ⛔ This exists because `alpha.73` validated the lease and then wrote,
+     * and those are two statements with a gap between them. Measured on its
+     * own installed bytes: a worker parked in that gap was refused at its
+     * next checkpoint — `outcome:lease_lost` — and had ALREADY replaced the
+     * picture a second worker attached, leaving that worker's copy in the
+     * shop's media library with nothing pointing at it. «Ask again» cannot
+     * close a gap; the question has to become part of the write.
+     *
+     * **How, and what exactly is promised.** The first statement of the
+     * transaction is a locking read of this job's own row, so the token is
+     * compared while the row is held. Everything that ends a lease needs that
+     * same row — `claim()` writes the next worker's token to it and
+     * `handOver()` expires its lease on it — so a hand-over and a unit's write
+     * phase cannot interleave: one of them waits. If this worker's token is no
+     * longer the row's, the closure is never called and the transaction is
+     * rolled back having written nothing.
+     *
+     * **What is NOT promised.** This is not a lock on the product, and it says
+     * nothing about writers who are not workers of this job — a manager
+     * editing the same product in wp-admin is not serialised by it. And it
+     * covers only statements made on THIS gateway: a closure that reaches for
+     * a second connection is outside the transaction and outside the promise.
+     *
+     * ⛔ **Nothing slow belongs in the closure.** The lock is on a row every
+     * worker of this type needs, so the file copy and
+     * `wp_generate_attachment_metadata()` stay outside it and only the small
+     * writes on our own tables go in. The write phase is measured rather than
+     * asserted — see `alpha73-worker.php`'s `worker_write_phase_ms`.
+     *
+     * ⛔ And this is a different kind of thing from `handOver()`'s
+     * `worker_still_writing`, which must not be confused with it. That is a
+     * POLICY about apparent silence, with a number in it, and a manager may
+     * override it. This is a GUARANTEE about a write that is actually in
+     * flight, and nobody can override it because no option reaches it.
+     *
+     * @param \Closure():bool $write the unit's dependent writes; `false` means
+     *                               the work failed and the unit is rolled back
+     * @return string `''` when the lease held and the writes are committed;
+     *                otherwise `lease_lost` (nothing was written),
+     *                `not_written` (the closure said no) or `unreadable`
+     *                (the row could not be read, which is not «yes»)
+     */
+    public function writingUnderLease(int $jobId, string $lockToken, \Closure $write): string;
+
+    /**
      * What the caller must send back to prove it is handing over the lease it
      * was shown, rather than whatever is there by the time the form arrives.
      */

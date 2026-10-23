@@ -134,6 +134,59 @@ final class JobRunnerTest extends TestCase
         self::assertSame(JobStatus::Pending, $repo->jobs[4]->status, 'somebody else may still serve it');
     }
 
+    public function testAWriteRunsOnlyWhileTheLeaseStillHolds(): void
+    {
+        $repo = new FakeJobRepository();
+        $repo->queue(new Job(5, 'under-lease', JobStatus::Pending, [], [], 0, 0, 0, 0, '', '', '', null, '', '', ''));
+        $handler = new LeaseWritingHandler();
+        $runner = $this->runner($repo, $handler);
+
+        $runner->runOne();
+
+        self::assertSame([1, 2, 3], $handler->wrote);
+        self::assertSame(['held', 'held', 'held'], $handler->answers);
+        self::assertSame(3, $repo->heldWrites);
+    }
+
+    public function testOnceAnotherWorkerHasClaimedTheJobTheWriteNeverRuns(): void
+    {
+        $repo = new FakeJobRepository();
+        $repo->queue(new Job(6, 'under-lease', JobStatus::Pending, [], [], 0, 0, 0, 0, '', '', '', null, '', '', ''));
+        // The hand-over lands after the first unit's write is committed.
+        $repo->stealLeaseAfter = 1;
+        $handler = new LeaseWritingHandler();
+        $runner = $this->runner($repo, $handler);
+
+        $result = $runner->runOne();
+
+        self::assertSame([1], $handler->wrote, 'the second unit wrote NOTHING, not even half of itself');
+        self::assertSame(['held', 'lease_lost'], $handler->answers);
+        self::assertSame('lease_lost', $result['outcome']);
+    }
+
+    public function testOnceTheLeaseIsGoneTheGateIsNotAskedAgain(): void
+    {
+        // The runner remembers, so a handler that keeps going cannot turn one
+        // lost lease into a row of hopeful round trips to the database.
+        $repo = new FakeJobRepository();
+        $repo->queue(new Job(7, 'under-lease', JobStatus::Pending, [], [], 0, 0, 0, 0, '', '', '', null, '', '', ''));
+        $repo->stealLeaseAfter = 1;
+        $handler = new LeaseWritingHandler();
+        $handler->keepGoingAfterARefusal = true;
+        $runner = $this->runner($repo, $handler);
+
+        $runner->runOne();
+
+        self::assertSame([1], $handler->wrote, 'still only the one write');
+        self::assertSame(['held', 'lease_lost', 'lease_lost'], $handler->answers, 'and it was told, every time');
+        // ⛔ The number that matters: the door was knocked on TWICE, not four
+        // times. Counting held writes instead would not see this — the fake
+        // turns the later calls away without counting them, so the count stays
+        // at one whether the runner remembers or not. The first version of
+        // this test asserted that, and reverting the memory left it green.
+        self::assertSame(2, $repo->gateCalls, 'one that held, one that found the lease gone');
+    }
+
     private function runner(FakeJobRepository $repo, JobHandlerInterface $handler): JobRunner
     {
         $runner = new JobRunner($repo, static fn (): string => 'token-' . random_int(1, 1000000));
@@ -158,7 +211,7 @@ final class CountingHandler implements JobHandlerInterface
         return 1;
     }
 
-    public function step(Job $job, ?\Closure $checkpoint = null): JobBatch
+    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch
     {
         $at = (int) ($job->cursor['at'] ?? 0);
         $this->startedFrom[] = $at;
@@ -181,7 +234,7 @@ final class ThrowingHandler implements JobHandlerInterface
         return 1;
     }
 
-    public function step(Job $job, ?\Closure $checkpoint = null): JobBatch
+    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch
     {
         throw new \RuntimeException('nope');
     }
@@ -205,7 +258,7 @@ final class PerUnitHandler implements JobHandlerInterface
         return 4;
     }
 
-    public function step(Job $job, ?\Closure $checkpoint = null): JobBatch
+    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch
     {
         $at = (int) ($job->cursor['at'] ?? 0);
         for ($i = 1; $i <= $this->batchSize(); $i++) {
@@ -213,6 +266,70 @@ final class PerUnitHandler implements JobHandlerInterface
                 return JobBatch::progress(['at' => $at + $i - 1], 0, 0, 0);
             }
             $this->recorded++;
+        }
+        return JobBatch::progress(['at' => $at + $this->batchSize()], 0, 0, 0);
+    }
+}
+
+/**
+ * A handler whose unit has TWO writes that must not be split.
+ *
+ * ⛔ The point is what it does NOT do: it never writes outside the hold. A
+ * handler that wrote first and asked afterwards is exactly the shape
+ * `alpha.73` shipped, and the runner cannot tell the two apart from the
+ * outside — so the thing under test here is that the gate refuses, not that
+ * the handler is polite.
+ */
+final class LeaseWritingHandler implements JobHandlerInterface
+{
+    /** @var list<int> */
+    public array $wrote = [];
+
+    /** @var list<string> */
+    public array $answers = [];
+
+    /**
+     * A handler that carries on after a refusal.
+     *
+     * ⛔ Not a handler anybody should write — and that is the point. The
+     * runner's own memory of a lost lease exists for handlers that do not
+     * stop, so a test of it needs one that does not.
+     */
+    public bool $keepGoingAfterARefusal = false;
+
+    public function type(): string
+    {
+        return 'under-lease';
+    }
+
+    public function batchSize(): int
+    {
+        return 3;
+    }
+
+    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch
+    {
+        $at = (int) ($job->cursor['at'] ?? 0);
+        for ($i = 1; $i <= $this->batchSize(); $i++) {
+            $unit = $at + $i;
+            if ($underLease === null) {
+                $this->answers[] = 'no_gate';
+                break;
+            }
+            $answer = $underLease(function () use ($unit): bool {
+                $this->wrote[] = $unit;
+                return true;
+            });
+            $this->answers[] = $answer === '' ? 'held' : $answer;
+            if ($answer !== '') {
+                if (!$this->keepGoingAfterARefusal) {
+                    return JobBatch::progress(['at' => $unit - 1], 0, 0, 0);
+                }
+                continue;
+            }
+            if ($checkpoint !== null && !$checkpoint(['at' => $unit], 1, 0, 0)) {
+                return JobBatch::progress(['at' => $unit], 0, 0, 0);
+            }
         }
         return JobBatch::progress(['at' => $at + $this->batchSize()], 0, 0, 0);
     }
@@ -237,6 +354,14 @@ final class FakeJobRepository implements JobRepositoryInterface
     public bool $claimAnyway = false;
 
     private string $held = '';
+
+    public int $heldWrites = 0;
+
+    /** Every call at the door, including the ones turned away. */
+    public int $gateCalls = 0;
+
+    /** Hand the job to another worker once this many writes have been held. */
+    public int $stealLeaseAfter = 0;
 
     public function queue(Job $job): void
     {
@@ -320,6 +445,35 @@ final class FakeJobRepository implements JobRepositoryInterface
     public function handOver(int $jobId, string $seenLock = '', bool $evenIfWriting = false): string
     {
         return isset($this->jobs[$jobId]) ? '' : 'not_running';
+    }
+
+    /**
+     * The gate, and it is NOT a pass-through.
+     *
+     * ⛔ The whole point of the thing is that the closure does not run when
+     * the token is stale, so a double that always ran it would let the runner
+     * look correct while handing a handler a door with no lock on it — the
+     * `alpha.70` trap, and the `alpha.59` one before that.
+     */
+    public function writingUnderLease(int $jobId, string $lockToken, \Closure $write): string
+    {
+        $this->gateCalls++;
+        if (!isset($this->jobs[$jobId])) {
+            return 'lease_lost';
+        }
+        // A second worker's `claim()` is the only thing that ends a lease, and
+        // it ends it by writing ITS OWN token — `handOver()` alone merely
+        // expires the lease, which is why the token and not the expiry is the
+        // fence. Here that claim is simulated at the gate's door, so the
+        // closure has not run yet when it happens.
+        if ($this->stealLeaseAfter > 0 && $this->heldWrites >= $this->stealLeaseAfter) {
+            $this->held = 'claimed-by-somebody-else';
+        }
+        if ($this->held === '' || !hash_equals($this->held, $lockToken)) {
+            return 'lease_lost';
+        }
+        $this->heldWrites++;
+        return $write() === true ? '' : 'not_written';
     }
 
     public function lockFingerprint(string $lockToken, string $lockedUntil): string

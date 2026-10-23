@@ -128,8 +128,25 @@ final class JobRunner
             return true;
         };
 
+        // The unit-of-work gate, beside the checkpoint rather than instead of
+        // it: the checkpoint is how a handler says where it is, and this is
+        // how it writes anything that must not outlive its hold on the job.
+        //
+        // ⛔ `$lost` is read here too, so a handler that has already been
+        // refused once cannot get a second write in by taking this door.
+        $underLease = function (\Closure $write) use ($job, $token, &$lost): string {
+            if ($lost) {
+                return 'lease_lost';
+            }
+            $answer = $this->jobs->writingUnderLease($job->id, $token, $write);
+            if ($answer === 'lease_lost') {
+                $lost = true;
+            }
+            return $answer;
+        };
+
         try {
-            $batch = $handler->step($job, $checkpoint);
+            $batch = $handler->step($job, $checkpoint, $underLease);
         } catch (\Throwable $e) {
             $this->jobs->finish($job->id, $token, JobStatus::Failed, 'exception: ' . $e->getMessage());
             return ['job' => $job->id, 'type' => $job->type, 'outcome' => 'failed', 'done' => 0, 'failed' => 0, 'error' => $e->getMessage()];

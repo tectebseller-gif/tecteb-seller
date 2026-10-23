@@ -113,7 +113,7 @@ final class DokanImportJob implements JobHandlerInterface
         return 50;
     }
 
-    public function step(Job $job, ?\Closure $checkpoint = null): JobBatch
+    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch
     {
         $runId = (string) ($job->payload['run_id'] ?? '');
         if ($runId === '') {
@@ -185,6 +185,12 @@ final class DokanImportJob implements JobHandlerInterface
         $progress = new CursorProgress(
             static fn (array $cursor, int $done, int $failed): bool
                 => $checkpoint($cursor, $done, $failed, $total),
+            // The unit-of-work gate. A runner that hands a checkpoint and no
+            // gate gets a progress object whose `writing()` REFUSES — not one
+            // that writes unguarded, because a guard that disappears wherever
+            // somebody forgot to wire it is the shape of this file's whole
+            // history of defects.
+            $underLease,
             $phase,
             $after,
             $at,

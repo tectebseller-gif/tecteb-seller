@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Migration\Application;
 
+use Tecteb\Marketplace\Modules\Migration\Domain\LeaseHold;
 use Tecteb\Marketplace\Modules\Migration\Domain\UnitClaim;
 
 /**
@@ -48,10 +49,14 @@ final class CursorProgress implements ImportProgressInterface
 
     /**
      * @param \Closure(array<string,mixed>, int, int): bool $checkpoint
+     * @param \Closure(\Closure(): bool): string|null $underLease the unit-of-work
+     *        gate from the runner; `null` leaves `writing()` with nothing to
+     *        hold, which is a REFUSAL and not a free pass — see `writing()`
      * @param list<string> $refused
      */
     public function __construct(
         private readonly \Closure $checkpoint,
+        private readonly ?\Closure $underLease,
         private readonly string $phase,
         private int $after,
         int $at,
@@ -108,15 +113,37 @@ final class CursorProgress implements ImportProgressInterface
         return $unitId === $this->at ? $this->tries : 0;
     }
 
-    public function stillOurs(): bool
+    public function writing(\Closure $write): LeaseHold
     {
         if ($this->leaseLost) {
-            return false;
+            return LeaseHold::LeaseLost;
         }
-        // The same position, the same counts, nothing moved: the write exists
-        // only so the token can be matched, which is the only way to ask the
-        // lease a question from here.
-        return $this->write(0, 0);
+        if ($this->underLease === null) {
+            // ⛔ A progress object built without a gate cannot promise what
+            // this method promises, so it refuses rather than writing
+            // anyway. The alternative — running the closure bare — is a guard
+            // that evaporates wherever somebody forgot to wire it, which is
+            // the shape of every defect in this file's history. The path with
+            // no lease at all does not come through here: it passes no
+            // progress object (`DokanImportJob::withoutALease()`).
+            return LeaseHold::LeaseLost;
+        }
+        $answer = ($this->underLease)($write);
+        if ($answer === '') {
+            return LeaseHold::Held;
+        }
+        if ($answer === 'not_written') {
+            // The work failed and the lease is still ours: this unit is a
+            // failure and the import carries on. Nothing about the lease is
+            // remembered, because nothing about it changed.
+            return LeaseHold::NotWritten;
+        }
+        // `lease_lost` and `unreadable` both end this worker's writing, and
+        // for the same reason: neither is a «yes». They are kept apart by the
+        // repository for its own report and joined here, because what the
+        // caller must do about them is identical.
+        $this->leaseLost = true;
+        return LeaseHold::LeaseLost;
     }
 
     /** @param list<string> $notes */

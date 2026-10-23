@@ -356,6 +356,122 @@ final class JobQueueTest extends DatabaseTestCase
         self::assertSame($ids[3], (int) $next[0]['id']);
     }
 
+    // ===================================================== the unit-of-work gate
+    //
+    // ⛔ WHY THIS IS NOT A CHECKPOINT. `alpha.73` asked the lease with
+    // `stillOurs()` — a guarded `UPDATE` that returned — and then wrote on the
+    // following lines. Two round trips sit between the answer and the write,
+    // and the owner read the source and walked straight through them: a worker
+    // parked in that gap had already replaced a picture a second worker
+    // attached, and its own later refusal took nothing back. These four tests
+    // are about the thing that replaced it: the question and the writes it
+    // governs are ONE transaction, opened by a locking read of this job's row.
+
+    public function testAHeldWriteRunsAndIsCommitted(): void
+    {
+        $queued = $this->jobs->enqueue('dokan_import', [], 'dokan_import', 1);
+        $job = $this->jobs->claim(['dokan_import'], 'tok-a', 300);
+        self::assertNotNull($job);
+
+        $ran = 0;
+        $answer = $this->jobs->writingUnderLease($job->id, 'tok-a', function () use (&$ran): bool {
+            $ran++;
+            return true;
+        });
+
+        self::assertSame('', $answer, 'held');
+        self::assertSame(1, $ran);
+        self::assertSame($queued['id'], $job->id);
+    }
+
+    public function testAStaleTokenNeverRunsTheWrite(): void
+    {
+        $queued = $this->jobs->enqueue('dokan_import', [], 'dokan_import', 1);
+        $first = $this->jobs->claim(['dokan_import'], 'tok-a', 300);
+        self::assertNotNull($first);
+
+        // A second worker takes the job the documented way: the lease expires
+        // — or a person hands it over — and the next claim writes ITS token.
+        $this->expireLease($queued['id']);
+        $second = $this->jobs->claim(['dokan_import'], 'tok-b', 300);
+        self::assertNotNull($second, 'the job is claimable again');
+
+        $ran = 0;
+        $answer = $this->jobs->writingUnderLease($queued['id'], 'tok-a', function () use (&$ran): bool {
+            $ran++;
+            return true;
+        });
+
+        self::assertSame('lease_lost', $answer);
+        self::assertSame(0, $ran, 'NOTHING ran — not a refusal reported after the write');
+        // And the worker that does own it still can.
+        self::assertSame('', $this->jobs->writingUnderLease($queued['id'], 'tok-b', static fn (): bool => true));
+    }
+
+    public function testWorkThatFailsIsRolledBackAndTheLeaseIsLeftAlone(): void
+    {
+        $queued = $this->jobs->enqueue('dokan_import', [], 'dokan_import', 1);
+        $job = $this->jobs->claim(['dokan_import'], 'tok-a', 300);
+        self::assertNotNull($job);
+        $table = $this->wpdb->prefix . M0013JobsAndOutbox::OUTBOX;
+
+        $answer = $this->jobs->writingUnderLease($job->id, 'tok-a', function () use ($table): bool {
+            $this->outbox->record('vendor.approved', 'evt-rolled-back', 7, 'vendor', '1', ['a' => 1], 'v1=x');
+            return false;                       // the work decided it had failed
+        });
+
+        self::assertSame('not_written', $answer);
+        // ⛔ Counted through `getRow()` rather than `get_var()`: a count that
+        // comes back as `null` casts to the same zero a real count of nought
+        // gives, so «the read failed» would read as «the rollback worked»
+        // (`alpha.8`).
+        $left = $this->db->getRow(
+            'SELECT COUNT(*) AS n FROM `' . $table . '` WHERE event_id = %s',
+            ['evt-rolled-back']
+        );
+        self::assertNotNull($left, 'the count was read');
+        self::assertSame(0, (int) $left['n'], 'the row written inside went with the rollback');
+        // The lease never moved, so this worker carries on.
+        self::assertSame('', $this->jobs->writingUnderLease($job->id, 'tok-a', static fn (): bool => true));
+    }
+
+    /**
+     * A caller already inside a transaction is REFUSED rather than nested.
+     *
+     * ⛔ This gateway counts nesting and `rollback()` at any depth abandons the
+     * whole unit of work — its own documented contract. A nested hold would
+     * mean a unit that could not write took its caller's work down with it, so
+     * the answer is «unknown», which is not «yes» (`alpha.54`).
+     */
+    public function testAHoldIsRefusedInsideSomebodyElsesTransaction(): void
+    {
+        $queued = $this->jobs->enqueue('dokan_import', [], 'dokan_import', 1);
+        $job = $this->jobs->claim(['dokan_import'], 'tok-a', 300);
+        self::assertNotNull($job);
+
+        self::assertTrue($this->db->begin());
+        $ran = 0;
+        $answer = $this->jobs->writingUnderLease($job->id, 'tok-a', function () use (&$ran): bool {
+            $ran++;
+            return true;
+        });
+        self::assertTrue($this->db->rollback());
+
+        self::assertSame('unreadable', $answer);
+        self::assertSame(0, $ran);
+    }
+
+    public function testAJobThatIsGoneIsNotAnUnknown(): void
+    {
+        $ran = 0;
+        $answer = $this->jobs->writingUnderLease(999999, 'tok-a', function () use (&$ran): bool {
+            $ran++;
+            return true;
+        });
+        self::assertSame('lease_lost', $answer, 'no such job: the lease cannot be ours');
+        self::assertSame(0, $ran);
+    }
+
     /** Forces a lease into the past, so expiry is measured and not waited for. */
     private function expireLease(int $jobId): void
     {

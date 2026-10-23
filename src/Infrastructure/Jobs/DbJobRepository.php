@@ -271,6 +271,85 @@ final class DbJobRepository implements JobRepositoryInterface
         return '';
     }
 
+    public function writingUnderLease(int $jobId, string $lockToken, \Closure $write): string
+    {
+        if ($jobId <= 0 || $lockToken === '') {
+            return 'lease_lost';
+        }
+        // ⛔ ASKED BEFORE `begin()`, because this gateway counts nesting and
+        // `rollback()` at any depth abandons the WHOLE unit of work — its own
+        // documented contract. Opening a nested transaction here would mean a
+        // unit that could not write took its caller's work down with it, so a
+        // caller who already holds one is refused instead. Nothing on the
+        // import path holds one; this is the `alpha.40` rule, which cost a
+        // round when it was learnt the other way about.
+        if ($this->db->inTransaction()) {
+            return 'unreadable';
+        }
+        if (!$this->db->begin()) {
+            // Could not even open the unit of work. «Unknown» is not «yes»:
+            // the caller writes nothing (`alpha.54`).
+            return 'unreadable';
+        }
+        // THE FIRST STATEMENT, and a LOCKING read.
+        //
+        // ⛔ A plain `SELECT` here would be a snapshot read and would promise
+        // nothing at all: the hand-over and the next worker's claim could both
+        // land in the time it takes to get to the next line, which is the
+        // defect this method exists to remove rather than relocate. `FOR
+        // UPDATE` takes the row, and every way a lease ends needs that same
+        // row — so one of the two waits instead of interleaving.
+        //
+        // `COUNT(*)` beside the token because `getRow()` tells «no such row»
+        // and «the read failed» apart for nobody (`alpha.8`), and here those
+        // are opposite answers: one means the job is gone and nothing should
+        // be written, the other means we do not know and nothing should be
+        // written — said separately so the caller's report is true.
+        $row = $this->db->getRow(
+            'SELECT COUNT(*) AS n, MAX(lock_token) AS token
+             FROM `' . $this->jobs() . '` WHERE id = %d FOR UPDATE',
+            [$jobId]
+        );
+        if ($row === null) {
+            $this->db->rollback();
+            return 'unreadable';
+        }
+        if ((int) ($row['n'] ?? 0) === 0) {
+            $this->db->rollback();
+            return 'lease_lost';
+        }
+        if (!hash_equals((string) ($row['token'] ?? ''), $lockToken)) {
+            $this->db->rollback();
+            return 'lease_lost';
+        }
+        $wrote = false;
+        try {
+            $wrote = $write() === true;
+        } catch (\Throwable $e) {
+            // Released and then RE-THROWN, not reported as «did not write».
+            // The transaction must not be left open holding a row every
+            // worker of this type needs; and an exception is a fault the
+            // runner turns into a failed job, so swallowing it here would
+            // hide a crash behind a tidy-looking refusal.
+            $this->db->rollback();
+            throw $e;
+        }
+        if (!$wrote) {
+            $this->db->rollback();
+            return 'not_written';
+        }
+        // ⛔ AND A FAILED COMMIT IS REPORTED AS `not_written`, which is the
+        // honest direction but not a certainty: a `COMMIT` that fails may have
+        // landed on the server before the connection went. It is said this way
+        // because both callers survive it — the row path names the unit
+        // `create_failed` and the next pass finds the row by its WooCommerce
+        // id and finishes it, and the picture path hands its copy back only
+        // when `mediaInUse()` says nothing points at it, so an attach that DID
+        // land keeps its copy. Claiming the opposite would be worse: a `held`
+        // on a commit nobody confirmed is a product counted as finished.
+        return $this->db->commit() ? '' : 'not_written';
+    }
+
     public function lockFingerprint(string $lockToken, string $lockedUntil): string
     {
         return hash('sha256', $lockToken . '|' . $lockedUntil);

@@ -1,0 +1,63 @@
+FALSIFICATION — every guard this round adds, broken on purpose
+==============================================================
+
+Each line is one mutation applied to the FIXED tree, the suite that caught it,
+and the tree back to green afterwards. A mutation nothing catches is a hole in
+the tests, not a feature: two of these found exactly that and the tests were
+rewritten (named below), which is `alpha.73`'s own rule.
+
+The copy-before-mutate / copy-back method is used rather than
+`git checkout -- <path>`, because that command hands back uncommitted work too
+(`alpha.71`).
+
+=== revert-1  the attach goes back to CHECK and then WRITE
+    src/Modules/Migration/Application/ImportFromDokan.php
+    the gate is handed `static fn (): bool => true` and the attach runs on the
+    next line — the exact shape alpha.73 shipped
+    architecture  FAILURES  1
+    ⛔ AND THE FIRST VERSION OF THAT TEST PASSED THIS MUTATION. It asserted
+    only that the attach came AFTER the hold began, which position can say and
+    containment cannot. Rewritten to assert the attach IS the closure the gate
+    is handed, on the code with its whitespace squeezed out.
+
+=== revert-2  the double runs the write even when the lease has gone
+    tests/Unit/Core/Jobs/JobRunnerTest.php
+    `FakeJobRepository::writingUnderLease()` stops comparing the token
+    unit  FAILURES  2
+    (a double that always ran the closure would make an unguarded runner look
+    guarded — `alpha.70`, one object over)
+
+=== revert-3  the runner's gate stops reading its own lost flag
+    src/Core/Jobs/JobRunner.php
+    a handler that keeps going after a refusal gets a round trip per unit
+    unit  FAILURES  1
+    ⛔ AND THE FIRST VERSION OF THAT TEST PASSED THIS MUTATION TOO. It counted
+    HELD writes, and the fake turns a stale call away without counting it — so
+    the number was one either way. Rewritten to count calls at the door
+    (`gateCalls`) with a handler that deliberately does not stop.
+
+=== revert-4  a progress object with no gate writes bare
+    src/Modules/Migration/Application/CursorProgress.php
+    `writing()` runs the closure when `$underLease === null`
+    unit  FAILURES  1
+    (a guard that evaporates wherever somebody forgot to wire it is not a
+    guard; the path that genuinely has no lease passes no progress object)
+
+=== revert-5  the repository stops fencing on the token
+    src/Infrastructure/Jobs/DbJobRepository.php
+    `hash_equals` on `lock_token` removed from `writingUnderLease()`
+    database (JobQueueTest|DokanImportJobTest)  FAILURES  1
+    caught by  testAStaleTokenNeverRunsTheWrite
+    restored:  OK (37 tests, 212 assertions)
+
+=== the one a suite CANNOT falsify, said out loud
+    Swapping `FOR UPDATE` for a plain `SELECT` leaves every one of these green:
+    a single process cannot tell a locking read from a snapshot read, because
+    there is nobody on the other side of it. That half of the fix is falsified
+    by MEASUREMENT instead, in `run.txt`: on alpha.73 the hand-over gets
+    through while a worker is parked in the gap
+    (`hand_over_got_through_while_a_was_parked=yes`) and on this tree it
+    cannot — it waits, and `handover_waited_ms` says how long. Three
+    processes, two connections, no `sleep`.
+
+tree after every restore:  unit OK · architecture OK · database OK
