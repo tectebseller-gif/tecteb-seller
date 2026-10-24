@@ -5531,7 +5531,7 @@ vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php
 
 # فاز ۶۸: مرحله‌ای که نام دارد، و دسته‌ای که خودش می‌ایستد
 # ⛔ این دور **هیچ‌چیز روی staging یا سایت اصلی اجرا نشد**. برنامهٔ تست محدود در
-# `docs/import-timeout-findings-alpha74-fa.md` بند ۷ است و گام «الف» آن **امروز
+# `docs/import-timeout-findings-alpha74-fa.md` بند ۱۰ است و مرحلهٔ «الف» آن **امروز
 # روی خودِ `alpha.74` و بی هیچ نصبی** اجرا می‌شود، چون probe فقط می‌خواند.
 wp eval-file tools/plugin-exit-inventory.php intake   # مهلت‌های PHP، ویرایشگر، سایزها،
 #   callback های ۲۱ هوکِ مسیر با فایلِ اعلانشان، ثابت‌های بلوکِ HTTP، تعداد فایل‌های
