@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Tests\Database;
 
+use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
+use Tecteb\Marketplace\Core\Jobs\JobStatus;
 use Tecteb\Marketplace\Core\Migration\MigrationRunner;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
@@ -128,6 +130,46 @@ final class AdminPagesRenderTest extends DatabaseTestCase
         $audit->log(AuditEventCatalog::SETTINGS_UPDATED, 1, 'settings', 'general', ['changed' => ['a', 'b']]);
         $audit->log(AuditEventCatalog::PLUGIN_ACTIVATED, 1, null, null, []);
 
+        // A QUEUED JOB WITH A LIVE LEASE AND A CURSOR IN IT.
+        //
+        // ⛔ Seeded on purpose, because the accident was the only coverage.
+        // The queue page prints the hour a lease runs out, and that branch
+        // needs a job that is live, locked into the future, and carrying a
+        // cursor — a shape no render test had ever produced. A row left
+        // behind by a filtered run produced it once and the page died with
+        // «Call to undefined function wp_date()», three releases after the
+        // line was written. The rule this file opens with, one page along: a
+        // page proved to survive zero rows is not a page proved to work, and
+        // neither is one proved against the rows that happen to be there.
+        $jobs = Bootstrap::container()->get(JobRepositoryInterface::class);
+        $queued = $jobs->enqueue('dokan_import', ['run_id' => 'render-test', 'total' => 186], 'render-test', 1);
+        $jobId = (int) $queued['id'];
+        self::assertGreaterThan(0, $jobId);
+        $claimed = $jobs->claim(['dokan_import'], 'render-test-token', 300);
+        self::assertNotNull($claimed, 'the lease has to be live for the branch to run');
+        self::assertTrue($jobs->checkpoint(
+            $jobId,
+            'render-test-token',
+            [
+                'phase' => 'products',
+                'after' => 9343,
+                'at' => 9344,
+                'tries' => 2,
+                'page_tries' => 0,
+                'refused' => ['9340:sku_already_used_in_this_shop'],
+                'stopped' => 'time_budget_spent',
+                'running' => 'image_metadata',
+                'running_unit' => 9344,
+                'running_since' => time() - 42,
+                'timings' => ['9343:judge:3', '9343:image_metadata:4089'],
+                'worst' => 'image_metadata:4089',
+            ],
+            1,
+            0,
+            186,
+            300
+        ));
+
         do_action('admin_menu');
         $pages = AdminExtensions::pages();
         self::assertNotSame([], $pages);
@@ -166,6 +208,13 @@ final class AdminPagesRenderTest extends DatabaseTestCase
         ($auditPage['render'])();
         $html = (string) ob_get_clean();
         self::assertStringContainsString('product_id', $html, 'the audit page must actually print a payload row');
+
+        // ⛔ And the job goes back. A fixture that spends a guarantee has to
+        // return it: a live lease left behind is the starting state of every
+        // test after this one, in this class and in the next — which is how
+        // the missing `wp_date()` stub came to light in the first place, out
+        // of a row a filtered run had abandoned.
+        self::assertTrue($jobs->finish($jobId, 'render-test-token', JobStatus::Done, ''));
     }
 
     /**

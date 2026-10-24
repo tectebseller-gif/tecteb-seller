@@ -82,11 +82,16 @@ final class WpProductImages implements ProductImageLibraryInterface
         return ['ok' => true, 'code' => 'image_uploaded', 'media_id' => $attachmentId];
     }
 
-    public function duplicateForVendor(int $mediaId, int $vendorUserId): int
+    public function duplicateForVendor(int $mediaId, int $vendorUserId, ?\Closure $step = null): int
     {
         if ($mediaId <= 0 || $vendorUserId <= 0) {
             return 0;
         }
+        $say = static function (string $name) use ($step): void {
+            if ($step !== null) {
+                $step($name);
+            }
+        };
         $source = get_attached_file($mediaId);
         if (!is_string($source) || $source === '' || !file_exists($source)) {
             return 0;
@@ -95,6 +100,10 @@ final class WpProductImages implements ProductImageLibraryInterface
         if (!empty($uploads['error'])) {
             return 0;
         }
+        // Named before it runs, because `wp_unique_filename()` scans the
+        // month's upload folder and the copy moves the whole file — on
+        // network-backed storage either can be where a request dies.
+        $say('image_file_copy');
         $name = wp_unique_filename($uploads['path'], basename($source));
         $target = trailingslashit($uploads['path']) . $name;
         if (!@copy($source, $target)) {
@@ -116,6 +125,15 @@ final class WpProductImages implements ProductImageLibraryInterface
         // yes for it through the ordinary path rather than a special case.
         update_post_meta($newId, self::OWNER_META, $vendorUserId);
         require_once ABSPATH . 'wp-admin/includes/image.php';
+        // ⛔ THE EXPENSIVE ONE, and the only place in this plugin where code
+        // belonging to other plugins runs during an import: the
+        // `wp_generate_attachment_metadata` filter is where image
+        // optimisers and media offloaders hang, and every registered image
+        // size is produced here. Measured with nothing on that filter at
+        // all: 203ms for an 800px source and 5.8–6.6 SECONDS for a 4500px
+        // one. Named before it runs, so a worker the host cuts off inside it
+        // leaves that name in the cursor.
+        $say('image_metadata');
         wp_update_attachment_metadata($newId, wp_generate_attachment_metadata($newId, $target));
         return $newId;
     }

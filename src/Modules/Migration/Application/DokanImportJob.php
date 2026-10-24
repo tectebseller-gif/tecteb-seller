@@ -5,7 +5,9 @@ namespace Tecteb\Marketplace\Modules\Migration\Application;
 
 use Tecteb\Marketplace\Core\Jobs\Job;
 use Tecteb\Marketplace\Core\Jobs\JobBatch;
+use Tecteb\Marketplace\Core\Jobs\JobBudget;
 use Tecteb\Marketplace\Core\Jobs\JobHandlerInterface;
+use Tecteb\Marketplace\Core\Jobs\StepTiming;
 
 /**
  * The Dokan import, one page at a time, resumable from wherever it stopped.
@@ -113,8 +115,12 @@ final class DokanImportJob implements JobHandlerInterface
         return 50;
     }
 
-    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch
-    {
+    public function step(
+        Job $job,
+        ?\Closure $checkpoint = null,
+        ?\Closure $underLease = null,
+        ?JobBudget $budget = null
+    ): JobBatch {
         $runId = (string) ($job->payload['run_id'] ?? '');
         if ($runId === '') {
             return JobBatch::failed('missing_run_id');
@@ -182,6 +188,9 @@ final class DokanImportJob implements JobHandlerInterface
             return $this->stepOver($phase, $after, $total, $pageTries - 1, $refused, $here);
         }
 
+        // The step record travels in the cursor, so a worker that is cut off
+        // leaves behind the name of the step it was in — see `StepTiming`.
+        $timing = StepTiming::fromCursor($job->cursor);
         $progress = new CursorProgress(
             static fn (array $cursor, int $done, int $failed): bool
                 => $checkpoint($cursor, $done, $failed, $total),
@@ -198,11 +207,16 @@ final class DokanImportJob implements JobHandlerInterface
             $refused,
             $pageTries,
             self::GIVE_UP_AFTER,
-            self::REFUSALS_KEPT
+            self::REFUSALS_KEPT,
+            $timing,
+            $budget
         );
 
         if ($phase === self::PHASE_VENDORS) {
             $page = $this->import->importVendorPage($runId, $after, $this->batchSize(), $progress);
+            if (($page['stopped'] ?? '') !== '') {
+                $page['notes'][] = (string) $page['stopped'];
+            }
             if ($progress->leaseLost()) {
                 return JobBatch::progress($progress->cursor(), 0, 0, $total, $page['notes'] ?? []);
             }
@@ -218,7 +232,10 @@ final class DokanImportJob implements JobHandlerInterface
                 );
             }
             return JobBatch::progress(
-                $this->pageRead($progress->cursor()),
+                $this->stoppedBecause(
+                    $this->pageRead($progress->cursor()),
+                    (string) ($page['stopped'] ?? '')
+                ),
                 $page['done'],
                 $page['failed'] ?? 0,
                 $total,
@@ -229,6 +246,13 @@ final class DokanImportJob implements JobHandlerInterface
         if ($phase === self::PHASE_PRODUCTS) {
             $page = $this->import->importProductPage($runId, $after, $this->batchSize(), $progress);
             $notes = $page['notes'];
+            if (($page['stopped'] ?? '') !== '') {
+                // The batch ended itself. Said out loud, because «more» on
+                // its own looks the same as a full page — and a manager
+                // watching the queue should see the difference between «there
+                // is more to do» and «this request ran out of time».
+                $notes[] = (string) $page['stopped'];
+            }
             if (($page['repaired'] ?? 0) > 0) {
                 // Finishing a half-made product is not an ordinary import and
                 // the report says so separately — «عدد ۱۰۰٪ به‌تنهایی کافی
@@ -240,7 +264,10 @@ final class DokanImportJob implements JobHandlerInterface
             }
             if ($page['more']) {
                 return JobBatch::progress(
-                    $this->pageRead($progress->cursor()),
+                    $this->stoppedBecause(
+                        $this->pageRead($progress->cursor()),
+                        (string) ($page['stopped'] ?? '')
+                    ),
                     $page['done'],
                     $page['failed'],
                     $total,
@@ -259,14 +286,21 @@ final class DokanImportJob implements JobHandlerInterface
         }
 
         $page = $this->import->importOrderPage($runId, $after, $this->batchSize(), $progress);
-        $cursor = $this->pageRead($progress->cursor());
+        $cursor = $this->stoppedBecause(
+            $this->pageRead($progress->cursor()),
+            (string) ($page['stopped'] ?? '')
+        );
+        $historyNotes = ['history:' . $page['done']];
+        if (($page['stopped'] ?? '') !== '') {
+            $historyNotes[] = (string) $page['stopped'];
+        }
         if ($progress->leaseLost() || $page['more']) {
-            return JobBatch::progress($cursor, $page['done'], 0, $total, ['history:' . $page['done']]);
+            return JobBatch::progress($cursor, $page['done'], 0, $total, $historyNotes);
         }
 
         $progressFigures = $this->import->runProgress($runId);
         $this->import->finishRun($runId, $progressFigures['vendors'], $progressFigures['products'], $job->failed);
-        return JobBatch::finished($cursor, $page['done'], 0, $total, ['history:' . $page['done']]);
+        return JobBatch::finished($cursor, $page['done'], 0, $total, $historyNotes);
     }
 
     /**
@@ -278,6 +312,31 @@ final class DokanImportJob implements JobHandlerInterface
     private function pageRead(array $cursor): array
     {
         $cursor['page_tries'] = 0;
+        // A batch that read a page has not stopped for time YET, so last
+        // batch's reason goes. Left behind it would be a sentence on the
+        // queue page about a request that finished minutes ago.
+        unset($cursor['stopped']);
+        return $cursor;
+    }
+
+    /**
+     * Carry «why this batch ended itself» in the cursor.
+     *
+     * ⛔ In the CURSOR and not in `JobBatch::notes()`, because the runner
+     * drops notes — that is the `alpha.72` finding, and a reason nobody reads
+     * is not a reason. The cursor is the handler's own data and the queue page
+     * already prints it.
+     *
+     * @param array<string,mixed> $cursor
+     * @return array<string,mixed>
+     */
+    private function stoppedBecause(array $cursor, string $why): array
+    {
+        if ($why === '') {
+            unset($cursor['stopped']);
+            return $cursor;
+        }
+        $cursor['stopped'] = $why;
         return $cursor;
     }
 

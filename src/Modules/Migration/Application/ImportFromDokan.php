@@ -743,11 +743,22 @@ final class ImportFromDokan
         // One page from the reader, not every seller sliced in PHP. The old
         // version read the whole shop on every batch — which is the cost a
         // batched job exists to avoid, paid once per batch instead of once.
+        $stopped = '';
+        $progress?->entering('page_read', 0);
         $page = $this->dokan->vendorsAfter($afterUserId, $limit);
+        $progress?->left();
         $last = $afterUserId;
         $leaseLost = false;
         foreach ($page as $vendor) {
             $id = (int) $vendor['user_id'];
+            // The same time question as the product loop, asked before the
+            // claim for the same reason. A shop is cheap next to a picture,
+            // but `rememberRun()` is called once per shop and this phase is
+            // fifty of them in one batch.
+            if ($progress !== null && !$progress->keepGoing()) {
+                $stopped = $progress->stopReason();
+                break;
+            }
             // CLAIMED BEFORE THE PROFILE IS WRITTEN, not after it.
             //
             // ⛔ `alpha.72` recorded a unit once it had landed, which left a
@@ -811,11 +822,13 @@ final class ImportFromDokan
             'recorded' => $recorded,
             'last' => $last,
             // A short page is the end. Asking «are there more?» by counting the
-            // whole set again would undo the reason for paging at all.
-            'more' => $leaseLost ? false : count($page) >= $limit,
+            // whole set again would undo the reason for paging at all — and a
+            // page the batch stopped itself in is not the end either.
+            'more' => $leaseLost ? false : ($stopped !== '' || count($page) >= $limit),
             'created' => $created,
             'notes' => $notes,
             'lease_lost' => $leaseLost,
+            'stopped' => $stopped,
         ];
     }
 
@@ -843,7 +856,14 @@ final class ImportFromDokan
         $notes = [];
         $failed = 0;
         $leaseLost = false;
+        // ⛔ `more` has to be true when the batch stops itself, even on a page
+        // shorter than the limit: without this, a budget that ran out on the
+        // LAST page would read as «the phase is finished» and the products
+        // after this one would never be looked at again.
+        $stopped = '';
+        $progress?->entering('page_read', 0);
         $page = $this->dokan->productsAfter($afterProductId, $limit);
+        $progress?->left();
         $last = $afterProductId;
 
         // One product is one unit of work AND one unit of record. Everything
@@ -868,6 +888,19 @@ final class ImportFromDokan
         foreach ($page as $product) {
             $wcId = (int) $product['wc_product_id'];
             $vendorId = (int) $product['vendor_user_id'];
+
+            // THE TIME QUESTION, ASKED BEFORE THE CLAIM.
+            //
+            // ⛔ Before, not after: claiming a unit raises its attempt count,
+            // and a unit counted against without being tried would be three
+            // strikes away from being stepped over for something that was
+            // never its fault. Between units and never inside one — stopping
+            // inside a unit is what the host already does, and the whole
+            // point of asking is to not be there when it happens.
+            if ($progress !== null && !$progress->keepGoing()) {
+                $stopped = $progress->stopReason();
+                break;
+            }
 
             // CLAIMED BEFORE THE ROW, THE COPY AND THE MANIFEST.
             //
@@ -898,7 +931,9 @@ final class ImportFromDokan
             }
             $last = $wcId;
 
+            $progress?->entering('judge', $wcId);
             [$verdict, $reason] = $this->judgeProduct($product);
+            $progress?->left();
             if ($verdict === DokanMigrationPlan::CONFLICT) {
                 $failed++;
                 $notes[] = $wcId . ':' . $reason;
@@ -940,6 +975,7 @@ final class ImportFromDokan
                         $vendorId,
                         (int) ($product['source_image_id'] ?? 0),
                         $progress,
+                        $wcId,
                         // The manifest has to know about a row it will be
                         // asked to roll back, and a repaired row is one — so
                         // it is written in the SAME hold as the attach rather
@@ -1038,7 +1074,9 @@ final class ImportFromDokan
             if ($progress === null) {
                 $make();
             } else {
+                $progress->entering('row_and_manifest', $wcId);
                 $held = $progress->writing($make);
+                $progress->left();
                 if ($held === LeaseHold::LeaseLost) {
                     // Nothing was written and nothing is half written. The
                     // product is left for whoever owns the import now.
@@ -1063,7 +1101,7 @@ final class ImportFromDokan
             }
             $created['products'][] = $productId;
 
-            $why = $this->carryImage($productId, $vendorId, (int) ($product['source_image_id'] ?? 0), $progress);
+            $why = $this->carryImage($productId, $vendorId, (int) ($product['source_image_id'] ?? 0), $progress, $wcId);
             if ($why === 'lease_lost') {
                 $leaseLost = true;
                 break;
@@ -1096,11 +1134,13 @@ final class ImportFromDokan
             'recorded' => $recorded,
             'repaired' => $repaired,
             'last' => $last,
-            // A page the lease was taken from is not a page that ended.
-            'more' => $leaseLost ? false : count($page) >= $limit,
+            // A page the lease was taken from is not a page that ended, and
+            // neither is a page the batch stopped itself in the middle of.
+            'more' => $leaseLost ? false : ($stopped !== '' || count($page) >= $limit),
             'created' => $created,
             'notes' => array_slice($notes, 0, 20),
             'lease_lost' => $leaseLost,
+            'stopped' => $stopped,
         ];
     }
 
@@ -1294,8 +1334,14 @@ final class ImportFromDokan
      * worst possible moment to lose it.
      *
      * **The lease is asked again between the copy and the attach**, because
-     * the copy is the slow half — a file copy and a full
-     * `wp_generate_attachment_metadata()` — and it is where a host gives up.
+     * the copy is the slow half — and ⛔ **of its two parts only one is
+     * slow**, which this sentence used to blur: measured with nothing
+     * registered on the filter at all, the `copy()` is well under a
+     * millisecond and `wp_generate_attachment_metadata()` is 203 ms for an
+     * 800-pixel source and 5.8 to 6.6 SECONDS for a 4500-pixel one. Both are
+     * named and timed separately from `alpha.75`, because on
+     * network-backed storage the copy could still be the slow one.
+     * It is where a host gives up.
      * A worker that lost the job in there must attach nothing, and must not
      * leave its copy lying about either: the three conditions from `alpha.42`
      * decide that discard and all three are required — this request made it,
@@ -1312,6 +1358,7 @@ final class ImportFromDokan
         int $vendorUserId,
         int $sourceImageId,
         ?ImportProgressInterface $progress,
+        int $unitId = 0,
         ?\Closure $andThen = null
     ): string {
         if ($sourceImageId <= 0 || $this->images === null) {
@@ -1320,7 +1367,32 @@ final class ImportFromDokan
         // THE SLOW HALF, AND IT IS OUTSIDE THE LEASE ON PURPOSE. A file copy
         // and a full `wp_generate_attachment_metadata()` must not run while a
         // row every worker of this type needs is held.
-        $ownCopy = $this->images->duplicateForVendor($sourceImageId, $vendorUserId);
+        //
+        // ⛔ AND «HALF» IS ONE OF THE TWO, NOT BOTH — a correction to the
+        // sentence above, which read as though the copy and the metadata were
+        // comparable costs. Measured on the disposable environment with
+        // nothing registered on `wp_generate_attachment_metadata` at all: the
+        // copy is 0.15–0.80 ms and the metadata 203 ms at 800 pixels, rising
+        // to 5.8–6.6 SECONDS at 4500. Three hundred to eight thousand times.
+        // So the two are named and timed apart: on network-backed storage the
+        // copy could still be the slow one, and assuming it is not is how a
+        // diagnosis goes wrong.
+        $ownCopy = $this->images->duplicateForVendor(
+            $sourceImageId,
+            $vendorUserId,
+            $progress === null
+                ? null
+                : static function (string $step) use ($progress, $unitId): void {
+                    // Named as each half STARTS, so a worker the host cuts
+                    // off in one leaves that name behind. The answer is
+                    // deliberately not acted on: a refused write here means
+                    // the lease is gone, which `writing()` below reports
+                    // properly — and abandoning the copy half way would leave
+                    // a file with no row rather than a row with no file.
+                    $progress->entering($step, $unitId);
+                }
+        );
+        $progress?->left();
         if ($ownCopy <= 0) {
             return 'image_not_copied';
         }
@@ -1347,10 +1419,12 @@ final class ImportFromDokan
         // lease that went between the two would leave the manifest short by a
         // product, and a manifest shorter than the work is the direction
         // `alpha.55` says the error must never lean.
+        $progress->entering('attach', $unitId);
         $held = $progress->writing(
             fn (): bool => $this->products->saveImages($productId, [$ownCopy], $ownCopy)
                 && ($andThen === null || $andThen() === true)
         );
+        $progress->left();
         if ($held === LeaseHold::Held) {
             return '';
         }
@@ -1424,7 +1498,10 @@ final class ImportFromDokan
         if ($this->history === null) {
             return ['done' => 0, 'recorded' => 0, 'skipped' => 0, 'failed' => 0, 'already_ours' => 0, 'last' => $afterOrderId, 'more' => false, 'lease_lost' => false];
         }
+        $stopped = '';
+        $progress?->entering('page_read', 0);
         $page = $this->dokan->ordersAfter($afterOrderId, $limit);
+        $progress?->left();
         $last = $afterOrderId;
         $done = 0;
         $skipped = 0;
@@ -1434,6 +1511,10 @@ final class ImportFromDokan
         $leaseLost = false;
         foreach ($page as $order) {
             $id = (int) $order['wc_order_id'];
+            if ($progress !== null && !$progress->keepGoing()) {
+                $stopped = $progress->stopReason();
+                break;
+            }
             // Claimed before it is recorded, for the same reason a product is.
             // An order carries no media and no second write, so there is no
             // half-made order to finish — but a worker that has lost the job
@@ -1491,8 +1572,9 @@ final class ImportFromDokan
             'failed' => $failed,
             'already_ours' => $ours,
             'last' => $last,
-            'more' => $leaseLost ? false : count($page) >= $limit,
+            'more' => $leaseLost ? false : ($stopped !== '' || count($page) >= $limit),
             'lease_lost' => $leaseLost,
+            'stopped' => $stopped,
         ];
     }
 

@@ -47,10 +47,18 @@ final class JobRunner
     /** @var array<string,JobHandlerInterface> */
     private array $handlers = [];
 
+    /**
+     * @param ?\Closure(): JobBudget $budgetFactory one budget per `run()`, not
+     *        per batch: the thing being rationed is this REQUEST's time, and
+     *        a cron tick asking for five batches must not get five budgets.
+     *        `null` reads PHP's own limit — see `JobBudget::forRequest()` for
+     *        why that is only part of the answer.
+     */
     public function __construct(
         private readonly JobRepositoryInterface $jobs,
         private readonly \Closure $tokenFactory,
-        private readonly int $leaseSeconds = self::DEFAULT_LEASE
+        private readonly int $leaseSeconds = self::DEFAULT_LEASE,
+        private readonly ?\Closure $budgetFactory = null
     ) {
     }
 
@@ -77,9 +85,19 @@ final class JobRunner
      */
     public function run(int $batches = 1): array
     {
+        $budget = $this->budgetFactory !== null
+            ? ($this->budgetFactory)()
+            : JobBudget::forRequest((int) ini_get('max_execution_time'));
         $results = [];
         for ($i = 0; $i < max(1, $batches); $i++) {
-            $result = $this->runOne();
+            // ⛔ Asked BEFORE claiming, not after: claiming a job and then
+            // finding there is no time for it would take the lease for three
+            // hundred seconds and do nothing with it — the exact cost this
+            // budget exists to stop paying.
+            if ($i > 0 && $budget->exhausted()) {
+                break;
+            }
+            $result = $this->runOne($budget);
             if ($result === null) {
                 break;
             }
@@ -89,7 +107,7 @@ final class JobRunner
     }
 
     /** @return array{job:int, type:string, outcome:string, done:int, failed:int, error:string, checkpoints?:int}|null */
-    public function runOne(): ?array
+    public function runOne(?JobBudget $budget = null): ?array
     {
         if ($this->handlers === []) {
             return null;
@@ -146,7 +164,7 @@ final class JobRunner
         };
 
         try {
-            $batch = $handler->step($job, $checkpoint, $underLease);
+            $batch = $handler->step($job, $checkpoint, $underLease, $budget);
         } catch (\Throwable $e) {
             $this->jobs->finish($job->id, $token, JobStatus::Failed, 'exception: ' . $e->getMessage());
             return ['job' => $job->id, 'type' => $job->type, 'outcome' => 'failed', 'done' => 0, 'failed' => 0, 'error' => $e->getMessage()];

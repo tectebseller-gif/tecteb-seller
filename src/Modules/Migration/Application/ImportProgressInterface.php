@@ -68,6 +68,62 @@ interface ImportProgressInterface
     public function writing(\Closure $write): LeaseHold;
 
     /**
+     * About to do a named step on a unit — written BEFORE the step runs.
+     *
+     * ⛔ This is the only record that can survive the thing it is for. On
+     * staging, a worker is cut off mid-product with nothing in `debug.log`,
+     * because nothing fatal happens: the request is killed from outside and
+     * a dead process writes nothing afterwards. So «where did it stop» can
+     * only be answered by something written beforehand — the same reasoning
+     * as `page_tries` and as `claim()` itself.
+     *
+     * It also flushes the durations of the steps already finished, which
+     * costs nothing: the write was happening anyway.
+     *
+     * Step names are machine keys and are reduced to `[a-z0-9_]` by
+     * `StepTiming`, so nothing a product carries — a title, a SKU, a file
+     * name, a URL — can be recorded through here. That is a property of the
+     * type and not a promise.
+     *
+     * @return bool false when the lease went, in which case the step must
+     *              NOT be run
+     */
+    public function entering(string $step, int $unitId): bool;
+
+    /**
+     * The step in flight returned, and this is how long it took, in ms.
+     *
+     * A separate fact from `entering()` and deliberately not merged with it:
+     * a step can be slow in every unit and never be the one a worker dies
+     * in, and the step a worker dies in can be fast in the ninety units
+     * before it. One number serving both questions is wrong about one of
+     * them.
+     */
+    public function left(): float;
+
+    /**
+     * Is there time for another unit of this request?
+     *
+     * `false` means stop the batch and return what has been done — not that
+     * anything failed. The caller must stop BETWEEN units: stopping inside
+     * one is what the host already does, and the point of asking is to not
+     * be in the middle of a unit when it happens.
+     */
+    public function keepGoing(): bool;
+
+    /**
+     * Why `keepGoing()` said no, as a machine key for the notes.
+     *
+     * Two answers, because they call for different things from a human:
+     * `time_budget_spent` is ordinary — the request did what it could and the
+     * next one carries on — while
+     * `time_budget_one_unit_longer_than_the_request` says a single product
+     * needs more than any one request has, which no amount of retrying will
+     * fix. `''` when nothing stopped it.
+     */
+    public function stopReason(): string;
+
+    /**
      * This unit is finished with: counted, named if it was refused, and the
      * cursor moved past it.
      *

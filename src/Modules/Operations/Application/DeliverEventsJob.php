@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Core\Environment\OutboundPolicy;
 use Tecteb\Marketplace\Core\Exceptions\OutboundBlockedException;
 use Tecteb\Marketplace\Core\Jobs\Job;
 use Tecteb\Marketplace\Core\Jobs\JobBatch;
+use Tecteb\Marketplace\Core\Jobs\JobBudget;
 use Tecteb\Marketplace\Core\Jobs\JobHandlerInterface;
 
 /**
@@ -57,9 +58,21 @@ final class DeliverEventsJob implements JobHandlerInterface
      * than an omission: an outbox row moves to one terminal state with one
      * guarded `UPDATE`, so there is no pair of writes for a lost lease to land
      * between. Nothing here can destroy another worker's work.
+     *
+     * `$budget` is accepted and consulted, which is the opposite case: every
+     * outbound delivery in this build is REFUSED before it leaves, so a row
+     * costs a guarded `UPDATE` and nothing else — but the day a real sender
+     * exists each row costs a network round trip, and a handler that reads
+     * the budget only once a sender is wired is a handler that will be
+     * changed in the same round as the sender. Fifty rows is the batch; the
+     * budget ends it early if the request is nearly over.
      */
-    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch
-    {
+    public function step(
+        Job $job,
+        ?\Closure $checkpoint = null,
+        ?\Closure $underLease = null,
+        ?JobBudget $budget = null
+    ): JobBatch {
         $after = (int) ($job->cursor['after'] ?? 0);
         $rows = $this->outbox->pending($this->batchSize(), $after);
         if ($rows === []) {
@@ -69,6 +82,12 @@ final class DeliverEventsJob implements JobHandlerInterface
         $blocked = 0;
         $last = $after;
         foreach ($rows as $row) {
+            if ($budget !== null && !$budget->roomForAnotherUnit()) {
+                // Stop between rows, never inside one. `$last` is the id of
+                // the row that finished, so the next batch starts after it.
+                break;
+            }
+            $startedAt = hrtime(true) / 1e6;
             $last = (int) $row['id'];
             try {
                 OutboundPolicy::assertAllowed($this->environment->resolve(), 'event_webhook');
@@ -77,11 +96,13 @@ final class DeliverEventsJob implements JobHandlerInterface
                 // keeps its payload and its signature; only its state moves.
                 $this->outbox->markDelivery($last, 'blocked', 'outbound_blocked');
                 $blocked++;
+                $budget?->noteUnit((hrtime(true) / 1e6) - $startedAt);
                 continue;
             }
             // Unreachable while the lock stands. Left explicit rather than as a
             // `// TODO`, so the one place a sender would be added is named.
             $this->outbox->markDelivery($last, 'failed', 'no_endpoint');
+            $budget?->noteUnit((hrtime(true) / 1e6) - $startedAt);
         }
 
         return JobBatch::progress(['after' => $last], $blocked, 0, 0, ['blocked:' . $blocked]);

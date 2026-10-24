@@ -35,8 +35,16 @@ final class FakeProductImages implements ProductImageLibraryInterface
     }
 
     /** Copies into a new id this vendor owns, mirroring the real adapter. */
-    public function duplicateForVendor(int $mediaId, int $vendorUserId): int
+    public function duplicateForVendor(int $mediaId, int $vendorUserId, ?\Closure $step = null): int
     {
+        // The two named halves, in the same order and at the same points
+        // the real one reports them. A double that stayed silent here
+        // would let a test about «which step was the worker in» pass on a
+        // tree that records nothing (`alpha.70`).
+        if ($step !== null) {
+            $step('image_file_copy');
+            $step('image_metadata');
+        }
         if ($mediaId <= 0 || $vendorUserId <= 0 || !isset($this->owners[$mediaId])) {
             return 0;
         }

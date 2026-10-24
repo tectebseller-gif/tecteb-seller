@@ -1,0 +1,18 @@
+PASS 0 the installed package is the one built here
+PASS 1a the queue screen is the one it says it is
+PASS 1b the step row is on the page
+FAIL 1c …naming the step the worker is in — got false, want true
+FAIL 1d …and which product — got false, want true
+PASS 1e …and the slowest step ever recorded
+PASS 1f …with the two halves of the picture work named apart
+PASS 1g …and the four-thousand-millisecond figure, in Persian digits
+PASS 1h the batch says it ended ITSELF, not that it was cut off
+PASS 1i …and the page says what is recorded and what is not
+PASS 1j no «uploads/» anywhere in the step row
+PASS 1j no «http://» anywhere in the step row
+PASS 1j no «.jpg» anywhere in the step row
+PASS 1j no «SKU» anywhere in the step row
+PASS 2 no horizontal overflow at 390px
+note axe queue: 0 violations, 0 serious/critical
+PASS 3 axe on the queue screen: no serious or critical violation
+ pass=14 fail=2

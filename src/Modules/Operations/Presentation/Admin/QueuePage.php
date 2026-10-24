@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
 use Tecteb\Marketplace\Core\Jobs\Job;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
 use Tecteb\Marketplace\Core\Jobs\JobStatus;
+use Tecteb\Marketplace\Core\Jobs\StepTiming;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
@@ -288,6 +289,10 @@ final class QueuePage
                     $fa(wp_date('H:i', strtotime($job->lockedUntil)))
                 );
             }
+            $stopped = (string) ($job->cursor['stopped'] ?? '');
+            if ($stopped !== '') {
+                $where .= ' — ' . OperationsMessages::stopReason($stopped);
+            }
             $refused = array_values(array_filter((array) ($job->cursor['refused'] ?? []), 'is_string'));
             if ($refused !== []) {
                 $where .= ' — ' . sprintf(
@@ -298,6 +303,7 @@ final class QueuePage
             }
             $out .= '<tr><td colspan="7" data-label="' . esc_attr__('جای توقف', 'tecteb-marketplace-core') . '">'
                 . '<span class="tmc-field__desc">' . esc_html($where) . '</span></td></tr>';
+            $out .= $this->steps($job, $fa);
         }
 
         if ($job->lastError !== '') {
@@ -307,6 +313,82 @@ final class QueuePage
             $out .= '<tr><td colspan="7" data-label="' . esc_attr__('دلیل', 'tecteb-marketplace-core') . '">'
                 . '<span class="tmc-field__desc">' . esc_html($job->lastError) . '</span></td></tr>';
         }
+        return $out;
+    }
+
+    /**
+     * WHICH STEP, and how long the finished ones took.
+     *
+     * ⛔ «۲ از ۱۸۶» and «سه تلاش روی همین نقطه» say how far and how often.
+     * Neither says WHERE inside a product the worker was when the host cut
+     * the request off, and on staging that was the whole of the mystery: no
+     * PHP error, nothing in `debug.log`, and six explanations that fitted the
+     * same evidence. `StepTiming` writes the step's name BEFORE the step runs,
+     * so a worker that stops existing leaves it behind; this prints it.
+     *
+     * Two separate things, printed separately for the same reason they are
+     * recorded separately: the step a worker is IN (or was in when it died)
+     * and how long the steps that FINISHED took.
+     *
+     * @param callable(string|int):string $fa
+     */
+    private function steps(Job $job, callable $fa): string
+    {
+        $timing = StepTiming::fromCursor($job->cursor);
+        $lines = [];
+        if ($timing->running() !== '') {
+            $since = $timing->runningSince();
+            $ago = $since > 0 ? max(0, time() - $since) : 0;
+            $lines[] = sprintf(
+                /* translators: 1: step name, 2: product id, 3: seconds */
+                __('در مرحلهٔ «%1$s» روی شمارهٔ %2$s، از %3$s ثانیه پیش', 'tecteb-marketplace-core'),
+                OperationsMessages::importStep($timing->running()),
+                $fa((string) $timing->runningUnit()),
+                $fa((string) $ago)
+            );
+            if ($job->lockedUntil === '' || strtotime($job->lockedUntil) <= time()) {
+                // The lease has gone and the step never closed, so this is
+                // not «in progress» — it is where the last worker stopped.
+                $lines[] = __('کارگری که این را نوشت دیگر زنده نیست؛ این جای توقفِ آن است.', 'tecteb-marketplace-core');
+            }
+        }
+        [$slowStep, $slowMs] = $timing->slowest();
+        if ($slowStep !== '') {
+            $lines[] = sprintf(
+                /* translators: 1: step name, 2: milliseconds */
+                __('کُندترین مرحلهٔ ثبت‌شده: «%1$s» با %2$s میلی‌ثانیه', 'tecteb-marketplace-core'),
+                OperationsMessages::importStep($slowStep),
+                $fa((string) $slowMs)
+            );
+        }
+        $measured = [];
+        foreach ($timing->finished() as $record) {
+            [$unit, $step, $ms] = explode(':', $record, 3);
+            $measured[] = sprintf(
+                /* translators: 1: product id, 2: step name, 3: milliseconds */
+                __('%1$s · %2$s · %3$s ms', 'tecteb-marketplace-core'),
+                $fa($unit),
+                OperationsMessages::importStep($step),
+                $fa($ms)
+            );
+        }
+        if ($measured !== []) {
+            $lines[] = implode('، ', $measured);
+        }
+        if ($lines === []) {
+            return '';
+        }
+        $out = '<tr><td colspan="7" data-label="'
+            . esc_attr__('زمان مرحله‌ها', 'tecteb-marketplace-core') . '">';
+        foreach ($lines as $line) {
+            $out .= '<span class="tmc-field__desc">' . esc_html($line) . '</span>';
+        }
+        // ⛔ Said on the page, because a table of numbers invites the reading
+        // that the numbers are everything: only machine keys, product ids and
+        // durations are recorded here, and that is deliberate.
+        $out .= '<span class="tmc-field__desc">'
+            . esc_html__('فقط نام مرحله، شمارهٔ محصول و زمان ثبت می‌شود — نه عنوان، نه فایل، نه نشانی.', 'tecteb-marketplace-core')
+            . '</span></td></tr>';
         return $out;
     }
 

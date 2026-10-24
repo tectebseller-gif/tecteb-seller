@@ -891,6 +891,23 @@ function current_time(string $type = 'mysql', bool $gmt = false): string|int
     };
 }
 
+/**
+ * ⛔ Added because a page CALLED it and no run had ever reached that line.
+ *
+ * `QueuePage` prints the hour a job's lease runs out, and the branch only
+ * exists for a job whose lock is still live with a cursor in it — a shape no
+ * render test had ever produced. A leftover row from a filtered run produced
+ * it by accident and the page died with «Call to undefined function». The
+ * accident is not the coverage: `AdminPagesRenderTest` now seeds that shape
+ * on purpose, and this is the function it needs.
+ *
+ * UTC, for the same reason `current_time()` above is.
+ */
+function wp_date(string $format, ?int $timestamp = null, mixed $timezone = null): string|false
+{
+    return gmdate($format, $timestamp ?? time());
+}
+
 function status_header(int $code): void
 {
     TmcWpStubs\State::$statusHeader = $code;

@@ -1,0 +1,94 @@
+# falsification — each guard reverted on a QUIET tree, then put back
+# (alpha.74's rule: mutating code while a suite runs answers about neither tree)
+
+## 1. the step marker written AFTER the step instead of before
+
+Time: 00:00.248, Memory: 12.00 MB
+
+OK (13 tests, 659 assertions)
+
+## 2. keepGoing() always true — the batch cannot stop itself
++''
+
+/home/user/tecteb-seller/tests/Database/DokanImportJobTest.php:500
+
+FAILURES!
+Tests: 2, Assertions: 6, Failures: 2.
+
+## 3. the time question asked AFTER the claim
+/home/user/tecteb-seller/tests/Architecture/ProgressFollowsTheWorkTest.php:102
+
+FAILURES!
+Tests: 1, Assertions: 7, Failures: 1.
+
+## 4. 'more' without the stop flag — a budget spent on the last page ends the phase
+
+Time: 00:00.019, Memory: 12.00 MB
+
+OK (1 test, 5 assertions)
+
+## 5. the step-name reduction removed — anything could be recorded
+
+/home/user/tecteb-seller/tests/Unit/Core/Jobs/StepTimingTest.php:237
+
+FAILURES!
+Tests: 17, Assertions: 39, Failures: 2.
+
+## 6. the worst step taken from the window only — a slow page read is forgotten
+
+/home/user/tecteb-seller/tests/Unit/Core/Jobs/StepTimingTest.php:160
+
+FAILURES!
+Tests: 17, Assertions: 54, Failures: 1.
+
+## and the tree is back, byte for byte
+src/Core/Jobs/StepTiming.php: OK
+src/Core/Jobs/JobBudget.php: OK
+src/Modules/Migration/Application/ImportFromDokan.php: OK
+src/Modules/Migration/Application/CursorProgress.php: OK
+
+## 1-again. the marker written AFTER the step — the two tests that were missing
+Failed asserting that 1628 is less than 1427.
+
+/home/user/tecteb-seller/tests/Architecture/ProgressFollowsTheWorkTest.php:151
+
+FAILURES!
+Tests: 1, Assertions: 15, Failures: 1.
+
+## 1-again-b. and the same, moved inside the image library
+Failed asserting that 1680 is less than 1621.
+
+/home/user/tecteb-seller/tests/Architecture/ProgressFollowsTheWorkTest.php:151
+
+FAILURES!
+Tests: 1, Assertions: 40, Failures: 1.
+
+## 4-again. 'more' without the stop flag, in the PRODUCTS phase only
+
+/home/user/tecteb-seller/tests/Architecture/ProgressFollowsTheWorkTest.php:177
+
+FAILURES!
+Tests: 1, Assertions: 5, Failures: 1.
++''
+
+/home/user/tecteb-seller/tests/Database/DokanImportJobTest.php:445
+
+FAILURES!
+Tests: 1, Assertions: 3, Failures: 1.
+
+## and back again
+src/Modules/Migration/Application/ImportFromDokan.php: OK
+
+## 7. and the render test really reaches the lease-hour branch now
+##    (the stub's wp_date() taken out again; the accident is no longer the coverage)
+2) Tecteb\Marketplace\Tests\Database\AdminPagesRenderTest::testEveryRegisteredPageRendersWithRealRowsInIt
+the lease has to be live for the branch to run
+Failed asserting that null is not null.
+
+/home/user/tecteb-seller/tests/Database/AdminPagesRenderTest.php:148
+
+ERRORS!
+Tests: 4, Assertions: 38, Errors: 1, Failures: 2.
+
+## and back
+1

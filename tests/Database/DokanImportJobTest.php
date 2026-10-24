@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\Files\UploadedFile;
 use Tecteb\Marketplace\Core\Audit\AuditEventSanitizer;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Jobs\Job;
+use Tecteb\Marketplace\Core\Jobs\JobBudget;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
 use Tecteb\Marketplace\Core\Jobs\JobStatus;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
@@ -166,13 +167,27 @@ final class DokanImportJobTest extends DatabaseTestCase
 
     /**
      * Run the handler against a live claim and let it get `$writes`
-     * checkpoints in before the process stops existing.
+     * POSITION writes in before the process stops existing.
      *
-     * ⛔ Counted in WRITES, not units, and the two are no longer the same: a
-     * unit is claimed before its work and recorded after it, so a page costs
-     * one write for the read plus two per unit. That is the point — the claim
-     * is what makes a worker killed mid-unit leave nothing behind — and a
-     * helper that pretended otherwise would hide it.
+     * ⛔ Counted in writes, not units, and the two are not the same: a unit is
+     * claimed before its work and recorded after it, so a page costs one write
+     * for the read plus two per unit. That is the point — the claim is what
+     * makes a worker killed mid-unit leave nothing behind — and a helper that
+     * pretended otherwise would hide it.
+     *
+     * ⛔ And «unit» is doing real work in that sentence. From `alpha.75` the
+     * cursor also carries which STEP is in flight, written before each step so
+     * a worker that stops existing leaves its name behind — which means a unit
+     * now costs five or six checkpoints rather than two. Counting those here
+     * would silently move every kill in this file to a different place while
+     * each test's name went on claiming the old one. So a marker write is not
+     * counted, and the numbers below mean exactly what they meant before.
+     *
+     * ⛔ A marker is told apart by having a step IN FLIGHT, not by «the
+     * position did not move» — which is what the first version used, and it
+     * was wrong in exactly the case these tests are about: on a RESUMED job
+     * the cursor already names the unit, so `claim()` moves nothing and the
+     * kill landed a write late. Two tests failed and said so.
      *
      * @return array{cursor:array<string,mixed>, done:int, failed:int}
      */
@@ -199,10 +214,13 @@ final class DokanImportJobTest extends DatabaseTestCase
         self::assertNotNull($job, 'the job has to be claimable for this to mean anything');
         $written = 0;
         $checkpoint = function (array $cursor, int $done = 0, int $failed = 0, int $total = 0) use ($job, $token, &$written, $writes): bool {
-            if ($written >= $writes) {
+            $marker = ((string) ($cursor['running'] ?? '')) !== '';
+            if (!$marker && $written >= $writes) {
                 throw new ProcessStoppedExisting();
             }
-            $written++;
+            if (!$marker) {
+                $written++;
+            }
             return $this->jobs->checkpoint($job->id, $token, $cursor, $done, $failed, $total, 300);
         };
         try {
@@ -292,6 +310,203 @@ final class DokanImportJobTest extends DatabaseTestCase
     }
 
     /**
+     * WHERE INSIDE A PRODUCT the worker was, written before it got there.
+     *
+     * ⛔ This is the one the staging report could not answer. «۱۰ از ۱۸۶» and
+     * «هفت تلاش» say how far and how often; neither says which step the host
+     * cut the request off in, and nothing reached `debug.log` because nothing
+     * fatal happened. The step's name is written BEFORE the step runs, so a
+     * process that stops existing leaves it behind.
+     */
+    public function testTheStepTheWorkerWasInSurvivesTheWorkerDying(): void
+    {
+        $id = $this->queue();
+        $this->runner->run(1);
+        $after = $this->dieInsideThePicture($id, 2001);
+
+        self::assertSame(
+            'image_metadata',
+            (string) ($after['cursor']['running'] ?? ''),
+            'the step in flight is on the row, and it is the expensive one'
+        );
+        self::assertSame(1001, (int) ($after['cursor']['running_unit'] ?? 0), 'and which product it was on');
+        self::assertGreaterThan(0, (int) ($after['cursor']['running_since'] ?? 0), 'and since when');
+
+        // And the steps that DID finish are measured — a different fact, kept
+        // apart on purpose: the step a worker dies in can be fast in the
+        // ninety units before it.
+        $timings = (array) ($after['cursor']['timings'] ?? []);
+        self::assertNotSame([], $timings, 'the finished steps must be measured too');
+        $names = array_map(
+            static fn (string $record): string => explode(':', $record, 3)[1],
+            array_values(array_filter($timings, 'is_string'))
+        );
+        self::assertContains('judge', $names);
+        self::assertContains('row_and_manifest', $names);
+        self::assertContains(
+            'image_file_copy',
+            $names,
+            'the copy finished — starting the metadata is what ended it — so it has a number'
+        );
+        self::assertNotContains(
+            'image_metadata',
+            $names,
+            'and the metadata never finished, so it has none: it is the one still in flight'
+        );
+    }
+
+    /**
+     * A clean unit leaves a number against every step it took.
+     *
+     * Nothing else in the plugin measured anything before this — `microtime`
+     * and `hrtime` appeared nowhere in `src/` — so «which step is slow» had no
+     * answer at all.
+     */
+    public function testAFinishedUnitLeavesANumberAgainstEveryStep(): void
+    {
+        $id = $this->queue();
+
+        // The vendors phase first: one page read and no per-unit steps, so
+        // this is where `page_read` is asserted. ⛔ Not after the products
+        // phase — that fixture has twelve products at five steps each, which
+        // is sixty records through a window of forty-eight, and `page_read`
+        // leaves the window exactly as the bound says it must. An assertion
+        // there would be an assertion against the documented bound, and the
+        // first version of this test was.
+        $this->runner->run(1);
+        $afterVendors = $this->jobs->find($id);
+        self::assertNotNull($afterVendors);
+        self::assertContains(
+            'page_read',
+            $this->stepNames($afterVendors->cursor),
+            'reading a page from Dokan is a step, and it is measured'
+        );
+
+        $this->runner->run(1);
+        $row = $this->jobs->find($id);
+        self::assertNotNull($row);
+        $timings = array_values(array_filter((array) ($row->cursor['timings'] ?? []), 'is_string'));
+        self::assertNotSame([], $timings);
+        foreach ($timings as $record) {
+            [$unit, , $ms] = explode(':', $record, 3);
+            self::assertMatchesRegularExpression('~^\d+$~', $ms, 'a duration is a number of milliseconds');
+            self::assertMatchesRegularExpression('~^\d+$~', $unit, 'and a unit is an id');
+        }
+        $names = $this->stepNames($row->cursor);
+        foreach (['judge', 'row_and_manifest', 'image_file_copy', 'image_metadata', 'attach'] as $step) {
+            self::assertContains($step, $names, $step . ' must be measured; got ' . implode(',', $timings));
+        }
+        self::assertSame(
+            '',
+            (string) ($row->cursor['running'] ?? ''),
+            'and nothing is left in flight when the batch returns normally'
+        );
+        // ⛔ And the worst step ever seen is NOT taken from the window, so a
+        // slow page read three hundred products ago is still the answer.
+        self::assertMatchesRegularExpression(
+            '~^[a-z0-9_]{1,32}:\d+$~',
+            (string) ($row->cursor['worst'] ?? ''),
+            'the slowest step is carried outside the window'
+        );
+    }
+
+    /**
+     * A BATCH THAT RUNS OUT OF TIME STOPS BETWEEN PRODUCTS, AND STAYS
+     * RESUMABLE.
+     *
+     * ⛔ The thing being fixed: `batchSize()` is fifty and nothing in the
+     * plugin knew how long the request had, so the only thing that ended a
+     * long batch was the host killing it — and a killed request calls no
+     * `release()`, so the job then sat locked for the rest of its
+     * three-hundred-second lease. Here the batch ends itself, says why, and
+     * the position is the last product that really landed.
+     */
+    public function testABatchThatRunsOutOfTimeStopsBetweenProductsAndSaysSo(): void
+    {
+        $id = $this->queue();
+        $this->runner->run(1);
+
+        $token = 'tok-' . bin2hex(random_bytes(4));
+        $job = $this->jobs->claim([DokanImportJob::TYPE], $token, 300);
+        self::assertNotNull($job);
+        // Fifteen seconds of budget, started fifteen seconds ago: the first
+        // unit always runs and the second is refused. Deterministic, with no
+        // sleeping — a timing test that waits is a timing test that is flaky.
+        $spent = JobBudget::of(15.0, (hrtime(true) / 1e6) - 15_000.0);
+        $batch = $this->handler->step(
+            $job,
+            fn (array $cursor, int $done = 0, int $failed = 0, int $total = 0): bool
+                => $this->jobs->checkpoint($job->id, $token, $cursor, $done, $failed, $total, 300),
+            $this->gateFor($job->id, $token),
+            $spent
+        );
+
+        self::assertTrue($batch->more, 'the phase is NOT finished, and the job stays claimable');
+        self::assertSame(
+            'time_budget_spent',
+            (string) ($batch->cursor['stopped'] ?? ''),
+            'and it says why, in the cursor — the runner drops notes'
+        );
+        self::assertSame(
+            1001,
+            (int) $batch->cursor['after'],
+            'the position is the one product that really landed'
+        );
+        self::assertSame(0, (int) $batch->cursor['at'], 'and nothing is left mid-attempt');
+        self::assertSame(1, $this->mapped(), 'exactly one product arrived');
+        self::assertSame(0, $this->duplicates());
+
+        // And it carries on from there rather than starting the page again.
+        $this->jobs->release($job->id, $token);
+        $this->runner->run(1);
+        self::assertGreaterThan(1, $this->mapped(), 'the next worker continued');
+        $row = $this->jobs->find($id);
+        self::assertNotNull($row);
+        self::assertArrayNotHasKey(
+            'stopped',
+            $row->cursor,
+            'and last request\'s reason does not sit on the page for ever'
+        );
+    }
+
+    /**
+     * A single product that needs more than a whole request is NAMED.
+     *
+     * «اگر یک مرحله به‌تنهایی طولانی است، آن را جداگانه مدیریت کن». Retrying
+     * cannot fix it, so the honest thing is to say which product it is and
+     * which step: the attempt count and `GIVE_UP_AFTER` step over it, and this
+     * is the sentence that tells somebody why.
+     */
+    public function testAUnitLongerThanTheWholeRequestIsNamedRatherThanRetriedInSilence(): void
+    {
+        $id = $this->queue();
+        $this->runner->run(1);
+
+        $token = 'tok-' . bin2hex(random_bytes(4));
+        $job = $this->jobs->claim([DokanImportJob::TYPE], $token, 300);
+        self::assertNotNull($job);
+        // A tenth of a millisecond of budget: the first unit runs, and
+        // whatever it cost — several database writes — is more than that.
+        $tiny = JobBudget::of(0.0001, hrtime(true) / 1e6);
+        $batch = $this->handler->step(
+            $job,
+            fn (array $cursor, int $done = 0, int $failed = 0, int $total = 0): bool
+                => $this->jobs->checkpoint($job->id, $token, $cursor, $done, $failed, $total, 300),
+            $this->gateFor($job->id, $token),
+            $tiny
+        );
+
+        self::assertTrue($tiny->aUnitOutgrewTheBudget());
+        self::assertSame(
+            'time_budget_one_unit_longer_than_the_request',
+            (string) ($batch->cursor['stopped'] ?? ''),
+            'said as its own reason, because retrying is not the answer to it'
+        );
+        self::assertTrue($batch->more);
+        self::assertSame(1, $this->mapped(), 'the first unit still got its attempt, and landed');
+    }
+
+    /**
      * «That we are trying THIS one» is written before any of its writes.
      *
      * The one write this worker is allowed is the attempt itself, so the row
@@ -309,6 +524,23 @@ final class DokanImportJobTest extends DatabaseTestCase
         self::assertSame(0, (int) $after['cursor']['after'], 'and the position has not moved');
         self::assertSame(1, $after['done'], 'nor the figure: still just the shop');
         self::assertSame([], $this->products->images($this->onlyProductRow()), 'its picture never arrived');
+    }
+
+    /**
+     * The step names in a cursor's timing window.
+     *
+     * @param array<string,mixed> $cursor
+     * @return list<string>
+     */
+    private function stepNames(array $cursor): array
+    {
+        $names = [];
+        foreach ((array) ($cursor['timings'] ?? []) as $record) {
+            if (is_string($record)) {
+                $names[] = explode(':', $record, 3)[1] ?? '';
+            }
+        }
+        return $names;
     }
 
     /** The one marketplace row there is, for a test that made exactly one. */
@@ -654,10 +886,14 @@ final class RecordingProgress implements ImportProgressInterface
     /** How many times the slow half asked whether the lease still held. */
     public int $asked = 0;
 
+    /** Every step this progress object was told about, as `<unit>:<step>`. */
+    public array $steps = [];
+
     public function __construct(
         private readonly int $loseTheLeaseAfter = PHP_INT_MAX,
         private readonly int $giveUpOn = 0,
-        private readonly int $attempts = 0
+        private readonly int $attempts = 0,
+        private readonly int $stopAfter = 0
     ) {
     }
 
@@ -677,6 +913,42 @@ final class RecordingProgress implements ImportProgressInterface
     public function attempts(int $unitId): int
     {
         return $this->attempts;
+    }
+
+    /**
+     * The step marker, refusable but NOT counted as one of the writes the
+     * `loseTheLeaseAfter` knob counts.
+     *
+     * ⛔ Deliberate, and the reason is written here so the next round does not
+     * read it as an oversight. The real `CursorProgress::entering()` does
+     * checkpoint, so it can be refused — and this models that. What it must
+     * not do is change the ARITHMETIC of the knob: that number means «after
+     * this many of the unit's own operations, pretend the lease went», and
+     * folding diagnostic markers into it would make every existing budget in
+     * this file a number about something else.
+     */
+    public function entering(string $step, int $unitId): bool
+    {
+        if ($this->writes >= $this->loseTheLeaseAfter) {
+            return false;
+        }
+        $this->steps[] = $unitId . ':' . $step;
+        return true;
+    }
+
+    public function left(): float
+    {
+        return 0.0;
+    }
+
+    public function keepGoing(): bool
+    {
+        return $this->stopAfter === 0 || count($this->landings) < $this->stopAfter;
+    }
+
+    public function stopReason(): string
+    {
+        return $this->keepGoing() ? '' : 'time_budget_spent';
     }
 
     /**
@@ -757,13 +1029,28 @@ final class FakeProductImages implements ProductImageLibraryInterface
         return $mediaId > 5000;
     }
 
-    public function duplicateForVendor(int $mediaId, int $vendorUserId): int
+    /**
+     * ⛔ The two named halves are reported HERE, in the same order and at the
+     * same points the real one reports them, and the process stops existing
+     * AFTER the second has been named.
+     *
+     * Without that, this double could not express the state the step record
+     * exists to catch — a worker cut off inside the metadata — and a test
+     * about it would pass on a build that recorded nothing (`alpha.70`).
+     */
+    public function duplicateForVendor(int $mediaId, int $vendorUserId, ?\Closure $step = null): int
     {
-        if ($mediaId === $this->stopExistingFor) {
-            throw new ProcessStoppedExisting();
+        if ($step !== null) {
+            $step('image_file_copy');
         }
         if ($mediaId === $this->failFor) {
             return 0;
+        }
+        if ($step !== null) {
+            $step('image_metadata');
+        }
+        if ($mediaId === $this->stopExistingFor) {
+            throw new ProcessStoppedExisting();
         }
         $this->copied[] = $mediaId;
         return ++$this->next;

@@ -37,7 +37,17 @@ interface ProductImageLibraryInterface
      * time a vendor saves one of its products, because the gallery only keeps
      * media the vendor owns.
      */
-    public function duplicateForVendor(int $mediaId, int $vendorUserId): int;
+    /**
+     * @param ?\Closure(string): void $step called with a machine key for each
+     *        named sub-step as it STARTS, so a worker cut off inside one
+     *        leaves its name behind. The copy and the metadata are reported
+     *        apart because they are not comparable: measured on the
+     *        disposable environment the copy is under a millisecond and the
+     *        metadata is three to seven seconds for a large source — but on
+     *        network-backed storage the copy could be the slow one, and
+     *        assuming otherwise is how a diagnosis goes wrong.
+     */
+    public function duplicateForVendor(int $mediaId, int $vendorUserId, ?\Closure $step = null): int;
 
     /** A thumbnail URL, or '' when the attachment is gone. */
     public function thumbnailUrl(int $mediaId): string;

@@ -48,6 +48,45 @@ final class OperationsMessages
         };
     }
 
+    /**
+     * A step's machine key, in Persian, for «زمان مرحله‌ها».
+     *
+     * ⛔ The key falls through unchanged rather than becoming «نامعلوم», and
+     * that is the opposite choice from `importPhase()` above on purpose: a
+     * phase is one of three and an unknown one is a bug, while a step is
+     * whatever the handler named and a step this list has not caught up with
+     * is still the most useful thing on the row. Hiding it behind «unknown»
+     * would lose the one word somebody is looking for.
+     */
+    public static function importStep(string $step): string
+    {
+        return match ($step) {
+            'page_read' => __('خواندن صفحه از دکان', 'tecteb-marketplace-core'),
+            'judge' => __('بررسی شرایط ورود', 'tecteb-marketplace-core'),
+            'row_and_manifest' => __('نوشتن ردیف و دفتر اجرا', 'tecteb-marketplace-core'),
+            'image_file_copy' => __('کپی فایل تصویر', 'tecteb-marketplace-core'),
+            'image_metadata' => __('ساخت اندازه‌های تصویر', 'tecteb-marketplace-core'),
+            'attach' => __('چسباندن تصویر به محصول', 'tecteb-marketplace-core'),
+            default => $step,
+        };
+    }
+
+    /** Why a batch ended itself, for «جای توقف» on the queue page. */
+    public static function stopReason(string $why): string
+    {
+        return match ($why) {
+            'time_budget_spent' => __(
+                'این دسته خودش تمام شد چون وقتِ این درخواست رو به پایان بود؛ ادامه از همین‌جا.',
+                'tecteb-marketplace-core'
+            ),
+            'time_budget_one_unit_longer_than_the_request' => __(
+                '⛔ یک محصول به‌تنهایی از کلِ وقتِ یک درخواست بیشتر می‌برد. تلاش دوباره حلش نمی‌کند؛ زمان مرحله‌ها می‌گوید کدام مرحله است.',
+                'tecteb-marketplace-core'
+            ),
+            default => $why,
+        };
+    }
+
     public static function jobType(string $type): string
     {
         return match ($type) {

@@ -65,6 +65,29 @@ interface JobHandlerInterface
      * returns, and whatever the handler writes afterwards is written in a gap.
      * `null` when there is no lease to hold — the tools' and the preview's
      * path.
+     *
+     * **`$budget` is how long this REQUEST may go on**, and a handler whose
+     * units are expensive has to consult it between them. One budget covers
+     * every batch of one `run()`, because what is being rationed is the
+     * request and not the batch.
+     *
+     * ⛔ Why this exists, measured on `alpha.74`'s staging run: `batchSize()`
+     * for the Dokan import is fifty, and a single product with a large source
+     * picture costs seconds. Nothing in this plugin knew how long it had, so
+     * the only thing that ended a long batch was the host killing the request
+     * — one to three products landed and then the job sat locked for the rest
+     * of its three-hundred-second lease, because a dead request calls no
+     * `release()`. A handler that stops itself returns `more`, the lease is
+     * released at once, and the next worker starts where this one finished.
+     *
+     * `null` leaves a handler unbounded, which is the behaviour before this
+     * parameter existed and is right only where something else bounds the
+     * work — the tools, which run one batch deliberately.
      */
-    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch;
+    public function step(
+        Job $job,
+        ?\Closure $checkpoint = null,
+        ?\Closure $underLease = null,
+        ?JobBudget $budget = null
+    ): JobBatch;
 }

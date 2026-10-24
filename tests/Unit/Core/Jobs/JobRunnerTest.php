@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
 use Tecteb\Marketplace\Core\Jobs\Job;
 use Tecteb\Marketplace\Core\Jobs\JobBatch;
+use Tecteb\Marketplace\Core\Jobs\JobBudget;
 use Tecteb\Marketplace\Core\Jobs\JobHandlerInterface;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
 use Tecteb\Marketplace\Core\Jobs\JobStatus;
@@ -187,11 +188,119 @@ final class JobRunnerTest extends TestCase
         self::assertSame(2, $repo->gateCalls, 'one that held, one that found the lease gone');
     }
 
+    /**
+     * One budget per `run()`, not one per batch.
+     *
+     * What is being rationed is this REQUEST's time. A cron tick asking for
+     * five batches and getting five fresh budgets would be unbounded again,
+     * with five times the paperwork.
+     */
+    public function testEveryBatchOfOneRunSharesOneBudget(): void
+    {
+        $repo = new FakeJobRepository();
+        $repo->queue(new Job(1, 'walk', JobStatus::Pending, ['n' => 4], [], 0, 0, 0, 0, '', '', '', null, '', '', ''));
+        $handler = new BudgetWatchingHandler();
+        $made = 0;
+        $budget = JobBudget::of(15.0);
+        $runner = new JobRunner(
+            $repo,
+            static fn (): string => 'token',
+            JobRunner::DEFAULT_LEASE,
+            static function () use (&$made, $budget): JobBudget {
+                $made++;
+                return $budget;
+            }
+        );
+        $runner->register($handler);
+
+        $runner->run(3);
+
+        self::assertSame(1, $made, 'one budget covered all three batches');
+        self::assertSame([$budget, $budget, $budget], $handler->seen);
+    }
+
+    /**
+     * An exhausted budget stops the runner starting ANOTHER batch — and never
+     * stops the first.
+     *
+     * ⛔ The first batch always runs. A runner that claimed nothing because
+     * the page it was called from was already slow would mean an import that
+     * never moves on a slow site, which is worse than the problem.
+     */
+    public function testAnExhaustedBudgetStopsTheSecondBatchAndNotTheFirst(): void
+    {
+        $repo = new FakeJobRepository();
+        $repo->queue(new Job(1, 'walk', JobStatus::Pending, ['n' => 9], [], 0, 0, 0, 0, '', '', '', null, '', '', ''));
+        $handler = new BudgetWatchingHandler();
+        $spent = JobBudget::of(15.0, (hrtime(true) / 1e6) - 20_000.0);
+        $runner = new JobRunner(
+            $repo,
+            static fn (): string => 'token',
+            JobRunner::DEFAULT_LEASE,
+            static fn (): JobBudget => $spent
+        );
+        $runner->register($handler);
+
+        $results = $runner->run(5);
+
+        self::assertTrue($spent->exhausted());
+        self::assertCount(1, $results, 'one batch ran; the other four were not claimed');
+        self::assertCount(1, $handler->seen);
+    }
+
+    /** The handler is handed `null` when nothing bounds it, as the tools are. */
+    public function testWithoutABudgetFactoryTheHandlerStillGetsOne(): void
+    {
+        $repo = new FakeJobRepository();
+        $repo->queue(new Job(1, 'walk', JobStatus::Pending, ['n' => 2], [], 0, 0, 0, 0, '', '', '', null, '', '', ''));
+        $handler = new BudgetWatchingHandler();
+        $runner = $this->runner($repo, $handler);
+
+        $runner->run(1);
+
+        self::assertCount(1, $handler->seen);
+        self::assertInstanceOf(
+            JobBudget::class,
+            $handler->seen[0],
+            'the runner reads PHP\'s own limit when nobody declared one'
+        );
+    }
+
     private function runner(FakeJobRepository $repo, JobHandlerInterface $handler): JobRunner
     {
         $runner = new JobRunner($repo, static fn (): string => 'token-' . random_int(1, 1000000));
         $runner->register($handler);
         return $runner;
+    }
+}
+
+/** Records the budget it was handed, and keeps walking. */
+final class BudgetWatchingHandler implements JobHandlerInterface
+{
+    /** @var list<?JobBudget> */
+    public array $seen = [];
+
+    public function type(): string
+    {
+        return 'walk';
+    }
+
+    public function batchSize(): int
+    {
+        return 1;
+    }
+
+    public function step(
+        Job $job,
+        ?\Closure $checkpoint = null,
+        ?\Closure $underLease = null,
+        ?JobBudget $budget = null
+    ): JobBatch {
+        $this->seen[] = $budget;
+        $at = (int) ($job->cursor['at'] ?? 0) + 1;
+        return $at >= (int) ($job->payload['n'] ?? 1)
+            ? JobBatch::finished(['at' => $at], 1)
+            : JobBatch::progress(['at' => $at], 1);
     }
 }
 
@@ -211,8 +320,12 @@ final class CountingHandler implements JobHandlerInterface
         return 1;
     }
 
-    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch
-    {
+    public function step(
+        Job $job,
+        ?\Closure $checkpoint = null,
+        ?\Closure $underLease = null,
+        ?JobBudget $budget = null
+    ): JobBatch {
         $at = (int) ($job->cursor['at'] ?? 0);
         $this->startedFrom[] = $at;
         $at++;
@@ -234,8 +347,12 @@ final class ThrowingHandler implements JobHandlerInterface
         return 1;
     }
 
-    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch
-    {
+    public function step(
+        Job $job,
+        ?\Closure $checkpoint = null,
+        ?\Closure $underLease = null,
+        ?JobBudget $budget = null
+    ): JobBatch {
         throw new \RuntimeException('nope');
     }
 }
@@ -258,8 +375,12 @@ final class PerUnitHandler implements JobHandlerInterface
         return 4;
     }
 
-    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch
-    {
+    public function step(
+        Job $job,
+        ?\Closure $checkpoint = null,
+        ?\Closure $underLease = null,
+        ?JobBudget $budget = null
+    ): JobBatch {
         $at = (int) ($job->cursor['at'] ?? 0);
         for ($i = 1; $i <= $this->batchSize(); $i++) {
             if ($checkpoint !== null && !$checkpoint(['at' => $at + $i], 1, 0, 0)) {
@@ -307,8 +428,12 @@ final class LeaseWritingHandler implements JobHandlerInterface
         return 3;
     }
 
-    public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch
-    {
+    public function step(
+        Job $job,
+        ?\Closure $checkpoint = null,
+        ?\Closure $underLease = null,
+        ?JobBudget $budget = null
+    ): JobBatch {
         $at = (int) ($job->cursor['at'] ?? 0);
         for ($i = 1; $i <= $this->batchSize(); $i++) {
             $unit = $at + $i;

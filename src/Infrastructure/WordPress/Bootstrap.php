@@ -101,6 +101,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0020ProductTit
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0022VendorMoneyUnit;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0021ReviewSeen;
 use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
+use Tecteb\Marketplace\Core\Jobs\JobBudget;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
 use Tecteb\Marketplace\Infrastructure\Jobs\DbJobRepository;
 use Tecteb\Marketplace\Modules\Product\ProductModule;
@@ -352,7 +353,21 @@ final class Bootstrap
         // request — has to see all of them. A second instance would see none.
         $c->bind(JobRunner::class, static fn (ContainerInterface $c) => new JobRunner(
             $c->get(JobRepositoryInterface::class),
-            static fn (): string => bin2hex(random_bytes(16))
+            static fn (): string => bin2hex(random_bytes(16)),
+            JobRunner::DEFAULT_LEASE,
+            // ONE BUDGET PER `run()`, and the only two numbers this host will
+            // tell us about: an explicit declaration, and PHP's own limit.
+            //
+            // ⛔ Neither is the number that matters. Under FPM the request is
+            // usually killed by `request_terminate_timeout`, or a web server's
+            // read timeout, or a proxy, and PHP sees none of them; under CLI
+            // `max_execution_time` is nought. So the budget is DECLARED with a
+            // conservative default and narrowed — never widened — by PHP's
+            // limit. `JobBudget::forRequest()` carries the whole argument.
+            static fn (): JobBudget => JobBudget::forRequest(
+                (int) ini_get('max_execution_time'),
+                defined('TMC_JOB_TIME_BUDGET') ? (int) TMC_JOB_TIME_BUDGET : null
+            )
         ));
         $c->bind(OtpProviderInterface::class, static fn () => new NullOtpProvider());
         // The order gate is wired HERE rather than inside the order module,

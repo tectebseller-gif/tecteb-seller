@@ -46,14 +46,19 @@ final class ProgressFollowsTheWorkTest extends TestCase
     }
 
     /**
-     * Every handler takes BOTH, or the runner cannot hand it one.
+     * Every handler takes all three, or the runner cannot hand it one.
      *
      * The gate is the second argument for the same reason the checkpoint is
      * the first: a handler that does not take it cannot be given it, and the
      * runner has no way to notice — it would simply pass `null` to a parameter
-     * that is not there and the handler would write unheld.
+     * that is not there and the handler would write unheld. The budget is the
+     * third for the same reason again: a handler that cannot be told how long
+     * the request has runs until something kills it.
+     *
+     * Asserted on the SQUEEZED source, so whether a signature is written on
+     * one line or five is not part of the rule — the parameters are.
      */
-    public function testEveryJobHandlerAcceptsTheCheckpointAndTheLeaseGate(): void
+    public function testEveryJobHandlerAcceptsTheCheckpointTheLeaseGateAndTheBudget(): void
     {
         $handlers = [
             'src/Modules/Migration/Application/DokanImportJob.php',
@@ -61,11 +66,228 @@ final class ProgressFollowsTheWorkTest extends TestCase
         ];
         foreach ($handlers as $file) {
             self::assertStringContainsString(
-                'public function step(Job $job, ?\Closure $checkpoint = null, ?\Closure $underLease = null): JobBatch',
-                $this->code($file),
-                $file . ' must accept the runner\'s checkpoint and its lease gate'
+                'publicfunctionstep(Job$job,?\Closure$checkpoint=null,'
+                    . '?\Closure$underLease=null,?JobBudget$budget=null):JobBatch',
+                $this->squeeze($this->code($file)),
+                $file . ' must accept the checkpoint, the lease gate and the time budget'
             );
         }
+    }
+
+    /**
+     * The time question comes BEFORE the claim, in every phase.
+     *
+     * ⛔ Order, not presence. Claiming a unit raises its attempt count, so a
+     * unit asked about after being claimed would be three strikes from being
+     * stepped over for a decision that was never about it — and the step-over
+     * names rows, which is how an innocent product gets blamed. The same
+     * mistake the whole `page_tries` separation exists to avoid, one layer up.
+     */
+    public function testTheImportAsksAboutTimeBeforeItClaimsAUnit(): void
+    {
+        $code = $this->code('src/Modules/Migration/Application/ImportFromDokan.php');
+        foreach (
+            [
+                'importVendorPage' => 'vendorsAfter',
+                'importProductPage' => 'productsAfter',
+                'importOrderPage' => 'ordersAfter',
+            ] as $method => $_reader
+        ) {
+            $body = substr($code, (int) strpos($code, 'function ' . $method));
+            $loop = substr($body, (int) strpos($body, 'foreach ('));
+            $asked = strpos($loop, 'keepGoing()');
+            $claimed = strpos($loop, '->claim(');
+            self::assertIsInt($asked, $method . ' must ask whether there is time for another unit');
+            self::assertIsInt($claimed, $method . ' must claim its units');
+            self::assertLessThan(
+                $claimed,
+                $asked,
+                $method . ' must ask about time BEFORE claiming, or the claim counts an attempt nobody made'
+            );
+        }
+    }
+
+    /**
+     * EVERY STEP IS NAMED BEFORE IT RUNS.
+     *
+     * ⛔ This test exists because its absence was found by falsification:
+     * moving `entering('attach')` to AFTER the write it names left every
+     * other test in this file green. And a marker written after its step is
+     * not a marker — the failure it is for is a process that stops existing,
+     * which writes nothing afterwards. The same rule
+     * `DisposableOnlyToolsTest` applies to its refusal: presence is not
+     * enough, the ORDER is the property.
+     *
+     * Byte offsets inside each method, on the comment-stripped source.
+     */
+    public function testEveryStepIsNamedBeforeItRuns(): void
+    {
+        $cases = [
+            // file, method, the marker, the work it must come before
+            ['src/Modules/Migration/Application/ImportFromDokan.php', 'importProductPage',
+                "entering('judge'", '$this->judgeProduct($product)'],
+            ['src/Modules/Migration/Application/ImportFromDokan.php', 'importProductPage',
+                "entering('row_and_manifest'", '$progress->writing($make)'],
+            ['src/Modules/Migration/Application/ImportFromDokan.php', 'carryImage',
+                "entering('attach'", '$progress->writing('],
+            ['src/Modules/Migration/Application/ImportFromDokan.php', 'importProductPage',
+                "entering('page_read'", '$this->dokan->productsAfter('],
+            ['src/Modules/Migration/Application/ImportFromDokan.php', 'importVendorPage',
+                "entering('page_read'", '$this->dokan->vendorsAfter('],
+            ['src/Modules/Migration/Application/ImportFromDokan.php', 'importOrderPage',
+                "entering('page_read'", '$this->dokan->ordersAfter('],
+            // And the two halves of the slow work, in the library that does it.
+            ['src/Modules/Product/Infrastructure/WordPress/WpProductImages.php', 'duplicateForVendor',
+                "\$say('image_file_copy')", 'wp_unique_filename('],
+            ['src/Modules/Product/Infrastructure/WordPress/WpProductImages.php', 'duplicateForVendor',
+                "\$say('image_metadata')", 'wp_generate_attachment_metadata('],
+        ];
+        foreach ($cases as [$file, $method, $marker, $work]) {
+            $body = substr($this->code($file), (int) strpos($this->code($file), 'function ' . $method));
+            $named = strpos($body, $marker);
+            $ran = strpos($body, $work);
+            self::assertIsInt($named, $method . ' must name the step: ' . $marker);
+            self::assertIsInt($ran, $method . ' must do the work: ' . $work);
+            self::assertLessThan(
+                $ran,
+                $named,
+                $method . ': ' . $marker . ' must come BEFORE ' . $work
+                    . ' — a marker written afterwards cannot survive the process it is for'
+            );
+        }
+    }
+
+    /**
+     * A batch that stopped itself says so where somebody reads it.
+     *
+     * ⛔ In the CURSOR, not in `JobBatch::notes()` — the runner drops notes,
+     * which is the `alpha.72` finding, and a reason nobody reads is not a
+     * reason. And `more` has to be true, or a budget that ran out on the last
+     * page of a phase would read as «the phase is finished».
+     */
+    public function testStoppingForTimeKeepsTheJobResumableAndSaysWhy(): void
+    {
+        $import = $this->code('src/Modules/Migration/Application/ImportFromDokan.php');
+        // ⛔ Per METHOD, not over the whole file. The first version searched
+        // the file and the three phases each carry this line — so a mutation
+        // that took it out of the PRODUCTS phase still found the vendor
+        // phase's copy and the test passed. The substring trap of `alpha.33`,
+        // in a test written to catch exactly this.
+        foreach (['importVendorPage', 'importProductPage', 'importOrderPage'] as $method) {
+            self::assertStringContainsString(
+                "\$stopped !== '' || count(\$page) >= \$limit",
+                $this->methodBody($import, $method),
+                $method . ': a page the batch stopped itself in is not the end of its phase'
+            );
+        }
+        $handler = $this->code('src/Modules/Migration/Application/DokanImportJob.php');
+        self::assertStringContainsString(
+            'stoppedBecause(',
+            $handler,
+            'the reason has to reach the cursor, because the runner drops notes'
+        );
+        self::assertStringContainsString(
+            "unset(\$cursor['stopped'])",
+            $handler,
+            "and it has to be cleared, or a finished request's reason sits on the page for ever"
+        );
+    }
+
+    /**
+     * Only `StepTiming` writes the timing keys.
+     *
+     * The privacy guarantee for this round is structural: a step name is
+     * reduced to `[a-z0-9_]` on its way in, and a unit is an `int`. That holds
+     * only while everything goes through the one class that does the
+     * reduction — a second writer putting its own strings into `timings` would
+     * be a field a title could reach.
+     */
+    public function testOnlyStepTimingWritesTheTimingKeys(): void
+    {
+        $offenders = [];
+        foreach ($this->sourceFiles() as $file) {
+            if (str_ends_with($file, 'Core/Jobs/StepTiming.php')) {
+                continue;
+            }
+            $code = $this->code($file);
+            foreach (["'running_unit'", "'running_since'", "'timings'", "'worst'"] as $key) {
+                if (str_contains($code, $key)) {
+                    $offenders[] = $file . ' → ' . $key;
+                }
+            }
+        }
+        self::assertSame([], $offenders, "only StepTiming may write the timing keys:\n" . implode("\n", $offenders));
+    }
+
+    /**
+     * And the reduction is really in the path, both ways.
+     *
+     * In on `entering()`, and again in the constructor — because a cursor is
+     * read back from the database and whatever is in it was last written by
+     * some other build.
+     */
+    public function testTheStepNameIsReducedOnTheWayInAndOnTheWayBack(): void
+    {
+        $code = $this->code('src/Core/Jobs/StepTiming.php');
+        self::assertStringContainsString(
+            '$this->running = self::key($step);',
+            $code,
+            'a step starting must have its name reduced'
+        );
+        self::assertStringContainsString(
+            '~[^a-z0-9_]+~',
+            $code,
+            'the reduction is what makes the privacy guarantee structural'
+        );
+        self::assertStringContainsString(
+            'self::NAME_LIMIT',
+            $code,
+            'and it is bounded, so a long string cannot ride in as a name'
+        );
+        self::assertStringContainsString(
+            '~^\d+:[a-z0-9_]{1,32}:\d+$~',
+            $code,
+            'a record read back from a cursor is shape-checked, not trusted'
+        );
+    }
+
+    /**
+     * One method's body, from its signature to the next method's.
+     *
+     * Needed because several of these rules are about ONE phase and the file
+     * has three that read alike — searching the whole file finds a sibling's
+     * copy and reports a property the method under test does not have.
+     */
+    private function methodBody(string $code, string $method): string
+    {
+        $start = strpos($code, 'function ' . $method);
+        self::assertIsInt($start, $method . ' must exist');
+        $rest = substr($code, $start + 1);
+        // ⛔ The next METHOD, at its own indentation — not the next `function`,
+        // which in `importProductPage` is the `$landed` closure a few lines in.
+        // The first version used that and sliced the body off before its own
+        // return statement, then failed about a property the method has.
+        if (preg_match('~\n    (?:public|private|protected)(?: static)? function ~', $rest, $_m, PREG_OFFSET_CAPTURE) === 1) {
+            return substr($rest, 0, (int) $_m[0][1]);
+        }
+        return $rest;
+    }
+
+    /** @return list<string> */
+    private function sourceFiles(): array
+    {
+        $root = (string) realpath(__DIR__ . '/../../src');
+        $files = [];
+        foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root)) as $file) {
+            if ($file instanceof \SplFileInfo && $file->isFile() && $file->getExtension() === 'php') {
+                $files[] = ltrim(
+                    str_replace((string) realpath(__DIR__ . '/../../'), '', (string) $file->getRealPath()),
+                    '/'
+                );
+            }
+        }
+        sort($files);
+        return $files;
     }
 
     /**
