@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Migration\Infrastructure\WordPress;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
+use Tecteb\Marketplace\Modules\Migration\Domain\RecordSource;
 
 /**
  * Reads Dokan's own storage, as Dokan lays it out — and never writes to it.
@@ -466,6 +467,117 @@ final class WpDokanReader implements DokanReaderInterface
         // from a table another plugin owns, and unserialising foreign data is
         // how object-injection bugs start.
         return preg_match('/"([a-z0-9_\-]+)";b:1;/i', $serialised, $m) === 1 ? $m[1] : '';
+    }
+
+    /**
+     * The three record sources for one shop, each with its own evidence.
+     *
+     * ### Two reads, four answers, and no noisy failure
+     *
+     * Existence is asked of `information_schema.TABLES` FIRST, and that order
+     * is deliberate twice over. It is quiet — a statement aimed at a table
+     * that is not there prints «WordPress database error» on whatever page is
+     * rendering, which is the `alpha.60` lesson about a guard louder than the
+     * defect it prevents. And it makes the second read unambiguous: once the
+     * table is known to be there, a `COUNT(*)` coming back `null` can only be
+     * a failed read, so `UNREADABLE` is reached by evidence rather than by
+     * assumption.
+     *
+     * The catalogue read failing is itself an answer — `UNREADABLE`, because
+     * nothing was established — and not `SOURCE_ABSENT`, which would be this
+     * module claiming a table is missing on the strength of not having looked.
+     *
+     * ### Staff is a feature, not a table
+     *
+     * Dokan Pro keeps a staff member as an ordinary WordPress user carrying
+     * `_dokan_vendor_id`, so the «table» is always present and a count of
+     * nought on a Lite install is arithmetically true and practically
+     * misleading — the feature that would write those rows is not installed.
+     * That is `SOURCE_ABSENT`, with its own sentence on the page, rather than
+     * a nought a manager could read as «my shop has no staff». The reader's
+     * own docblock on `staffFor()` has drawn that distinction since it was
+     * written; until `RecordSource` there was nothing able to carry it up.
+     *
+     * The count uses the same `INNER JOIN` as `staffFor()`, so the preview and
+     * the import cannot disagree about how many people there are: a meta row
+     * whose user has been deleted is counted by neither.
+     *
+     * @return array{staff:RecordSource, balance:RecordSource, withdrawals:RecordSource}
+     */
+    public function recordSourceFor(int $vendorUserId): array
+    {
+        if (!$this->isAvailable()) {
+            $absent = RecordSource::dokanAbsent();
+            return ['staff' => $absent, 'balance' => $absent, 'withdrawals' => $absent];
+        }
+        return [
+            'staff' => $this->staffSource($vendorUserId),
+            'balance' => $this->tableSource(
+                $this->db->prefix() . 'dokan_vendor_balance',
+                'vendor_id',
+                $vendorUserId
+            ),
+            'withdrawals' => $this->tableSource(
+                $this->db->prefix() . 'dokan_withdraw',
+                'user_id',
+                $vendorUserId
+            ),
+        ];
+    }
+
+    private function staffSource(int $vendorUserId): RecordSource
+    {
+        if ($vendorUserId <= 0) {
+            return RecordSource::unreadable();
+        }
+        // `class_exists` is the same detection `tools/plugin-exit-inventory.php`
+        // reports Pro with, so the page and the inventory cannot disagree.
+        if (!class_exists('Dokan_Pro', false) && !defined('DOKAN_PRO_PLUGIN_VERSION')) {
+            return RecordSource::sourceAbsent();
+        }
+        $rows = $this->db->getVar(
+            'SELECT COUNT(*)
+               FROM `' . $this->db->prefix() . 'users` u
+         INNER JOIN `' . $this->db->prefix() . 'usermeta` m
+                 ON m.user_id = u.ID AND m.meta_key = %s AND m.meta_value = %s',
+            ['_dokan_vendor_id', (string) $vendorUserId]
+        );
+        return $rows === null ? RecordSource::unreadable() : RecordSource::counted((int) $rows);
+    }
+
+    /**
+     * One of Dokan's own tables, scoped to a shop.
+     *
+     * The column name is interpolated and therefore validated rather than
+     * trusted — the `alpha.60` rule for every identifier that cannot be a
+     * placeholder. Both callers pass a constant, so a failure here would mean
+     * this file had been edited wrongly, and saying `UNREADABLE` is the
+     * answer that cannot invent a count.
+     */
+    private function tableSource(string $table, string $vendorColumn, int $vendorUserId): RecordSource
+    {
+        if (preg_match('/^[A-Za-z0-9_]+$/', $table) !== 1
+            || preg_match('/^[A-Za-z0-9_]+$/', $vendorColumn) !== 1
+            || $vendorUserId <= 0
+        ) {
+            return RecordSource::unreadable();
+        }
+        $exists = $this->db->getVar(
+            'SELECT COUNT(*) FROM information_schema.TABLES
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+            [$table]
+        );
+        if ($exists === null) {
+            return RecordSource::unreadable();
+        }
+        if ((int) $exists === 0) {
+            return RecordSource::sourceAbsent();
+        }
+        $rows = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $table . '` WHERE `' . $vendorColumn . '` = %d',
+            [$vendorUserId]
+        );
+        return $rows === null ? RecordSource::unreadable() : RecordSource::counted((int) $rows);
     }
 
     public function counts(): array

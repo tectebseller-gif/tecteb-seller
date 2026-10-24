@@ -13,6 +13,7 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanMigrationPlan;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationCountReport;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 
@@ -74,6 +75,11 @@ final class MigrationPage
 
         if (!$service->dokanIsPresent()) {
             echo Components::notice('warning', __('دکان روی این سایت پیدا نشد. تا نصب و فعال‌بودن دکان، چیزی برای مهاجرت خوانده نمی‌شود.', 'tecteb-marketplace-core'));
+            // ⛔ The figures section is drawn here too, because it is about
+            // OUR OWN rows and not about Dokan — and a site where Dokan has
+            // been deactivated is exactly when somebody comes looking for
+            // where a number came from.
+            $this->renderCounts($fa);
             echo Components::shellClose();
             return;
         }
@@ -92,7 +98,140 @@ final class MigrationPage
         $this->renderObserved($fa);
         $this->renderCompletion($service, $fa);
         $this->renderRuns($service, $fa);
+        // Last, and inside a closed `<details>`, for the reason `alpha.34`
+        // measured: a disclosure at the top of a page pushes the tool
+        // somebody came for down the screen when it opens. This is the
+        // section a person reads once, when two figures disagree.
+        $this->renderCounts($fa);
         echo Components::shellClose();
+    }
+
+    /**
+     * Where each number comes from — read only, and it corrects nothing.
+     *
+     * ⛔ The owner read «۱۰۰٪ (۱۹۰ از ۱۸۶)» on a finished job and «۲ فروشنده
+     * و ۱۷۹ محصول» in the run ledger beside a completion report saying ۱۸۴.
+     * Both pairs are made of numbers that are individually true and answer
+     * different questions, which is the shape that gets «fixed» by editing
+     * one of them. So this section names the question and the read behind
+     * each figure and changes nothing: «علت نساز و شمارنده‌ها را دستی اصلاح
+     * نکن».
+     */
+    private function renderCounts(callable $fa): void
+    {
+        if (!$this->container->has(MigrationCountReport::class)) {
+            return;
+        }
+        $report = $this->container->get(MigrationCountReport::class)->report();
+
+        echo '<details class="tmc-card"><summary class="tmc-card__title">'
+            . esc_html__('این عددها از کجا می‌آیند؟', 'tecteb-marketplace-core') . '</summary>';
+        echo '<p class="tmc-field__desc">'
+            . esc_html__('دو عدد که با هم نمی‌خوانند، معمولاً جوابِ دو پرسش مختلف‌اند. این بخش می‌گوید هر رقم از کدام خواندن آمده و چه چیزی را می‌شمارد — و هیچ عددی را عوض نمی‌کند.', 'tecteb-marketplace-core')
+            . '</p>';
+
+        echo Components::dataList([
+            [
+                'label' => __('نگاشت‌شده در کلِ کاتالوگ (هر محصولی که مهر اجرا دارد)', 'tecteb-marketplace-core'),
+                'value' => $fa((string) $report['catalogue']['mapped']),
+            ],
+            [
+                'label' => __('از این‌ها، کامل', 'tecteb-marketplace-core'),
+                'value' => $fa((string) $report['catalogue']['complete']),
+            ],
+            [
+                'label' => __('بدون تصویر', 'tecteb-marketplace-core'),
+                'value' => $fa((string) $report['catalogue']['without_image']),
+            ],
+            [
+                'label' => __('منبعش قابل‌خواندن نبود', 'tecteb-marketplace-core'),
+                'value' => $fa((string) $report['catalogue']['source_unreadable']),
+            ],
+            [
+                'label' => __('نگاشت تکراری', 'tecteb-marketplace-core'),
+                'value' => $fa((string) $report['catalogue']['duplicate_mappings']),
+            ],
+            [
+                'label' => __('جمعِ دفترِ اجراها (آنچه خودِ اجراها ساخته‌اند)', 'tecteb-marketplace-core'),
+                'value' => $fa((string) $report['manifest_total']),
+            ],
+            [
+                'label' => __('نگاشت‌شده و در دفترِ هیچ اجرایی نیست', 'tecteb-marketplace-core'),
+                'value' => $fa((string) $report['mapped_in_no_manifest']['count']),
+            ],
+        ]);
+
+        if (!$report['catalogue']['finished']) {
+            // A bounded read that stopped at its ceiling is not «no more»
+            // (`alpha.69`), and this is the figure a reader would otherwise
+            // take for the whole catalogue.
+            echo Components::notice('warning', __('این اسکن به سقف خودش خورد، پس عددِ بالا «همهٔ کاتالوگ» نیست.', 'tecteb-marketplace-core'));
+        }
+
+        if ($report['mapped_in_no_manifest']['count'] > 0) {
+            echo '<p class="tmc-field__desc">'
+                . esc_html__('اختلاف این دو عدد یعنی «این محصول‌ها نگاشت‌شده‌اند و هیچ اجرایی ادعایشان نمی‌کند» — نه اینکه گم شده‌اند. دو دلیلِ واقعی: محصولی که از قبل نگاشت داشت در پاس بعد «رد» می‌شود و اجرا آن را به نام خودش ثبت نمی‌کند؛ و محصولی که در تلاشی ساخته شد که پیش از checkpoint اش مرد، ردیف و نگاشت دارد و مهر اجرا ندارد. شناسه‌ها:', 'tecteb-marketplace-core')
+                . ' ' . Components::code(implode('، ', array_map(
+                    static fn (int $id): string => PersianDigits::toPersian((string) $id),
+                    $report['mapped_in_no_manifest']['ids']
+                ))) . '</p>';
+        }
+
+        if ($report['runs'] !== []) {
+            echo '<table class="tmc-table"><caption>'
+                . esc_html__('هر اجرا، و آنچه خودش ثبت کرده', 'tecteb-marketplace-core') . '</caption><thead><tr>'
+                . '<th scope="col">' . esc_html__('اجرا', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('منبع', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('فروشنده', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('محصول', 'tecteb-marketplace-core') . '</th>'
+                . '</tr></thead><tbody>';
+            foreach ($report['runs'] as $run) {
+                echo '<tr><td>' . Components::code((string) $run['run_id']) . '</td>'
+                    . '<td>' . esc_html(self::runSourceLabel((string) $run['source'])) . '</td>'
+                    . '<td>' . esc_html($fa((string) $run['vendors'])) . '</td>'
+                    . '<td>' . esc_html($fa((string) $run['products'])) . '</td></tr>';
+            }
+            echo '</tbody></table>';
+        }
+
+        if (!$report['jobs']['read']) {
+            // «I could not ask» is not «the job declared nothing».
+            echo Components::notice('info', __('ردیف‌های صف خوانده نشد، پس دربارهٔ سقفِ اعلام‌شدهٔ کارها چیزی گفته نمی‌شود.', 'tecteb-marketplace-core'));
+        } elseif ($report['jobs']['rows'] !== []) {
+            echo '<table class="tmc-table"><caption>'
+                . esc_html__('کارهای صف: سقفِ اعلام‌شده در برابر آنچه شمرده شد', 'tecteb-marketplace-core')
+                . '</caption><thead><tr>'
+                . '<th scope="col">' . esc_html__('شماره', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('وضعیت', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('سقفِ اعلام‌شده', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('انجام', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('رد', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('بیشتر از سقف', 'tecteb-marketplace-core') . '</th>'
+                . '</tr></thead><tbody>';
+            foreach ($report['jobs']['rows'] as $row) {
+                echo '<tr><td>' . Components::code((string) $row['id']) . '</td>'
+                    . '<td>' . esc_html((string) $row['status']) . '</td>'
+                    . '<td>' . esc_html($fa((string) $row['declared_total'])) . '</td>'
+                    . '<td>' . esc_html($fa((string) $row['done'])) . '</td>'
+                    . '<td>' . esc_html($fa((string) $row['failed'])) . '</td>'
+                    . '<td>' . esc_html($fa((string) $row['over_declared'])) . '</td></tr>';
+            }
+            echo '</tbody></table>';
+            echo '<p class="tmc-field__desc">'
+                . esc_html__('«بیشتر از سقف» یعنی کار از عددی که در صف اعلام شده بود جلو زده. عددِ کم سقف است نه کار: ورود محصولات سه مرحله دارد و سقفی که اعلام شده بود دو مرحله را می‌شمرد. این ردیف‌ها سابقهٔ کاری‌اند که انجام شده و دست‌کاری نمی‌شوند.', 'tecteb-marketplace-core')
+                . '</p>';
+        }
+
+        echo '</details>';
+    }
+
+    private static function runSourceLabel(string $source): string
+    {
+        return match ($source) {
+            'manifest' => __('دفترِ خودِ اجرا', 'tecteb-marketplace-core'),
+            'rows_only' => __('فقط ردیف‌ها — اجرا نیمه‌کاره مانده', 'tecteb-marketplace-core'),
+            default => $source,
+        };
     }
 
     private function renderPlan(DokanMigrationPlan $plan, callable $fa): void
@@ -423,7 +562,23 @@ final class MigrationPage
             $jobs = $this->container->get(JobRepositoryInterface::class);
             $queued = $jobs->enqueue(
                 DokanImportJob::TYPE,
-                ['run_id' => $plan->runId, 'total' => (int) $summary['vendors'] + (int) $summary['products']],
+                [
+                    'run_id' => $plan->runId,
+                    // ⛔ All THREE phases, because all three count towards
+                    // `done_count`. Until this round it declared vendors plus
+                    // products while the handler also walked the order
+                    // history, so the figure on the queue page went past its
+                    // own denominator — the owner read «۱۰۰٪ (۱۹۰ از ۱۸۶)» on
+                    // a job that had done exactly what it was asked. The
+                    // arithmetic was right and the ceiling was short.
+                    //
+                    // `summary()` has carried the `orders` key since the
+                    // history phase was added; nothing was missing except
+                    // this line reading it.
+                    'total' => (int) $summary['vendors']
+                        + (int) $summary['products']
+                        + (int) ($summary['orders'] ?? 0),
+                ],
                 // One LIVE import at a time, whatever the run id. Two managers
                 // pressing this at once must not start two walks over the same
                 // Dokan rows; the unique index decides, not a check.

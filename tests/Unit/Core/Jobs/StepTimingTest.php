@@ -266,7 +266,16 @@ final class StepTimingTest extends TestCase
         // The list is the contract the architecture test holds call sites to,
         // so its contents are asserted here rather than only read.
         self::assertSame(
-            ['page_read', 'judge', 'row_and_manifest', 'image_file_copy', 'image_metadata', 'attach'],
+            [
+                'page_read',
+                'judge',
+                'row_and_manifest',
+                'image_file_copy',
+                'image_metadata',
+                'attach',
+                // Writing one shop record — staff, balance row, withdrawal.
+                'record_write',
+            ],
             StepTiming::STEPS
         );
         self::assertNotContains(StepTiming::UNLISTED, StepTiming::STEPS, 'the placeholder is not a step');

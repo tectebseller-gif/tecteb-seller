@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
 use Tecteb\Marketplace\Contracts\TransactionInterface;
 use Tecteb\Marketplace\Contracts\ModuleInterface;
 use Tecteb\Marketplace\Contracts\ModuleKind;
@@ -18,6 +19,7 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Migration\Application\CatalogueInventory;
 use Tecteb\Marketplace\Modules\Migration\Application\CatalogueReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
+use Tecteb\Marketplace\Modules\Migration\Application\DokanRecordImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportExistingProducts;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
@@ -25,6 +27,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\GrantImportedStaff;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrateMinMax;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationCompleteness;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationCountReport;
 use Tecteb\Marketplace\Modules\Migration\Application\MinMaxHandoverRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\MinMaxReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopQuantityPortInterface;
@@ -33,6 +36,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\StaffRoleMap;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\OrderHistoryRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\FinanceHandoverRepositoryInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordPreview;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository;
@@ -164,6 +168,30 @@ final class MigrationModule implements ModuleInterface
             $c->has(LedgerRepositoryInterface::class) ? $c->get(LedgerRepositoryInterface::class) : null,
             $c->has(WithdrawalRepositoryInterface::class) ? $c->get(WithdrawalRepositoryInterface::class) : null
         ));
+        // What a shop's records look like BEFORE anybody imports them. Read
+        // only — it has no write method of any kind — so «اولین گام پس از
+        // نصب فقط دیدن پیش‌نمایش سوابق باشد» is a property of the class and
+        // not a rule the page has to keep.
+        $c->bind(ShopRecordPreview::class, static fn (ContainerInterface $c) => new ShopRecordPreview(
+            $c->get(DokanReaderInterface::class),
+            // Optional on purpose: an install with nowhere to keep records
+            // reports «هنوز بررسی نشده», which is what is true, rather than
+            // «صفر سابقه», which is not.
+            $c->has(ShopRecordRepositoryInterface::class)
+                ? $c->get(ShopRecordRepositoryInterface::class)
+                : null
+        ));
+        // Where each of the migration's numbers comes from. Read only, and
+        // nothing on it can change a figure: the job rows it prints are the
+        // record of what those jobs did.
+        $c->bind(MigrationCountReport::class, static fn (ContainerInterface $c) => new MigrationCountReport(
+            $c->get(ImportFromDokan::class),
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(VendorRepositoryInterface::class),
+            // Optional, and `read: false` rather than nought when absent —
+            // «نتوانستم بپرسم» is not «کار چیزی اعلام نکرده بود».
+            $c->has(JobRepositoryInterface::class) ? $c->get(JobRepositoryInterface::class) : null
+        ));
         $c->bind(MigrationCompleteness::class, static fn (ContainerInterface $c) => new MigrationCompleteness(
             $c->get(ShopRecordRepositoryInterface::class),
             $c->get(StaffRoleMap::class),
@@ -242,6 +270,16 @@ final class MigrationModule implements ModuleInterface
         // cron tick later in this same request finds a handler for the type it
         // claims. A runner built at tick time would know nothing.
         $c->get(JobRunner::class)->register(new DokanImportJob($c->get(ImportFromDokan::class)));
+        // And the records — staff, balance ledger, withdrawal requests — as a
+        // SECOND handler rather than a fourth phase of the first.
+        //
+        // ⛔ Deliberately separate, because job #1 on the owner's staging has
+        // finished («انجام شد») and reopening a finished job to add work to it
+        // would destroy the one record of what that import did. They also
+        // answer to different decisions: products are a catalogue the manager
+        // then reviews, and records are history nobody has to accept. One
+        // button each, one job row each, one cursor each.
+        $c->get(JobRunner::class)->register(new DokanRecordImportJob($c->get(ImportFromDokan::class)));
 
         $page = new MigrationPage($c);
         // Importing and handing over are two pages on purpose. The first is

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Migration\Application;
 
+use Tecteb\Marketplace\Modules\Migration\Domain\RecordSource;
+
 /**
  * Everything this plugin reads from Dokan — and it is only ever reading.
  *
@@ -134,6 +136,28 @@ interface DokanReaderInterface
      * @return list<array{withdraw_id:int, vendor_user_id:int, amount:string, status:string, method:string, note:string, requested_at:string}>
      */
     public function withdrawalsAfter(int $afterId, int $limit = self::PAGE): array;
+
+    /**
+     * What one shop's three record sources actually say — including «I could
+     * not look», which every other method here cannot express.
+     *
+     * ⛔ **Why this is a separate method rather than a count.** `counts()`
+     * returns ints, and `staffFor()`, `balanceRowsAfter()` and
+     * `withdrawalsAfter()` all return `[]` for three different facts: Dokan
+     * is not running, the table is not on this install, or the statement
+     * failed (`alpha.8`). A caller counting those arrays reports **nought
+     * records** in all three cases — a claim about the shop, made when the
+     * only true claim was about us. `RecordSource` carries the difference,
+     * and it carries no number at all unless a read succeeded, so an
+     * unreadable source cannot be added into a total by accident.
+     *
+     * Scoped to one vendor because that is the question a manager asks — «این
+     * فروشگاه چند ردیف دارد» — and because the balance and withdrawal tables
+     * hold every shop at once, so a global figure answers nobody's question.
+     *
+     * @return array{staff:RecordSource, balance:RecordSource, withdrawals:RecordSource}
+     */
+    public function recordSourceFor(int $vendorUserId): array;
 
     /**
      * How many rows there are in total, per kind, so a caller can say «۴ از

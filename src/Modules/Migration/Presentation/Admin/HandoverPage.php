@@ -3,14 +3,20 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Migration\Presentation\Admin;
 
+use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
+use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
+use Tecteb\Marketplace\Core\Jobs\Job;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
+use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\DokanRecordImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\GrantImportedStaff;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationCompleteness;
 use Tecteb\Marketplace\Modules\Migration\Application\ReconcileDokanFinance;
+use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordPreview;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\StaffRoleMap;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffRepositoryInterface;
@@ -67,14 +73,24 @@ final class HandoverPage
         }
         echo Components::notice('info', __('ورود سابقه هیچ دسترسی و هیچ بدهی نمی‌سازد. آنچه در این صفحه تصمیم گرفته می‌شود، همان چیزی است که سابقه به‌تنهایی نمی‌تواند بگوید.', 'tecteb-marketplace-core'));
 
-        $records = $this->container->get(ShopRecordRepositoryInterface::class);
-        $shops = $records->vendorsWithRecords();
+        // ⛔ The vendor universe is every shop with ANY import trace, not the
+        // shops that already have records. It used to be
+        // `vendorsWithRecords()` — a `UNION` of the three history tables —
+        // which is empty until records are imported, and nothing in
+        // production imported them. So a shop whose products and profile both
+        // arrived was invisible here, and the empty state advised running the
+        // product import again, which could not have helped.
+        $shops = $this->container->get(MigrationCompleteness::class)->vendorUserIds();
         if ($shops === []) {
             echo $this->emptyState();
             echo Components::shellClose();
             return;
         }
 
+        // First, and read only: «اولین گام پس از نصب فقط دیدن پیش‌نمایش
+        // سوابق باشد، نه اجرای خودکار ورود.» Nothing on this page starts an
+        // import by being looked at.
+        $this->renderRecordPreview($shops, $fa);
         $this->renderCompleteness($shops, $fa);
         $this->renderStaff($shops, $fa);
         $this->renderFinance($shops, $fa);
@@ -92,8 +108,8 @@ final class HandoverPage
         return '<section class="tmc-card">'
             . Components::state(
                 'empty',
-                __('هنوز سابقه‌ای وارد نشده است', 'tecteb-marketplace-core'),
-                __('این صفحه دربارهٔ فروشگاه‌هایی است که سابقهٔ دکانشان وارد شده باشد. اول از صفحهٔ «مهاجرت از دکان» یک اجرای آزمایشی بگیرید و سپس ورود را انجام دهید.', 'tecteb-marketplace-core'),
+                __('هنوز هیچ فروشگاهی از دکان وارد نشده است', 'tecteb-marketplace-core'),
+                __('این صفحه دربارهٔ فروشگاه‌هایی است که از دکان وارد شده‌اند — با محصول، با پروندهٔ فروشنده، یا با سابقه. هیچ‌کدام از این سه نشانه پیدا نشد، پس اول از صفحهٔ «مهاجرت از دکان» یک اجرای آزمایشی بگیرید و سپس ورود را انجام دهید.', 'tecteb-marketplace-core'),
                 [[
                     'href' => admin_url('admin.php?page=' . MigrationPage::SLUG),
                     'label' => __('رفتن به مهاجرت از دکان', 'tecteb-marketplace-core'),
@@ -101,6 +117,169 @@ final class HandoverPage
                 ]]
             )
             . '</section>';
+    }
+
+    /**
+     * What the records LOOK like, before anybody imports them.
+     *
+     * Read only: `ShopRecordPreview` has no write method of any kind, so
+     * «اولین گام پس از نصب فقط دیدن پیش‌نمایش سوابق باشد» is a property of
+     * the service and not a rule this page has to keep. The one button below
+     * is the manager's explicit action, and it queues a job — it does not
+     * import anything in the request that drew the page.
+     *
+     * Four answers per kind, kept apart on purpose: «صفر سابقه» is a count,
+     * «هنوز بررسی نشده» is «I could not ask», «خواندن ناموفق» is «I asked and
+     * the statement failed», and «واردشده» is a count on our side. ⛔ A failed
+     * read is NEVER shown as nought — that is the whole reason
+     * `RecordSource` is a type and not an `int`.
+     *
+     * @param list<int> $shops
+     */
+    private function renderRecordPreview(array $shops, callable $fa): void
+    {
+        $preview = $this->container->get(ShopRecordPreview::class);
+        $rows = $preview->forVendors($shops);
+
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('پیش‌نمایش سوابق فروشگاه', 'tecteb-marketplace-core') . '</h2>';
+        echo '<p class="tmc-field__desc">'
+            . esc_html__('سه نوع سابقه: پرسنل، دفتر مانده و درخواست‌های برداشت. این جدول فقط می‌خواند — نه از دکان چیزی تغییر می‌کند و نه سابقه‌ای ثبت می‌شود. ورود سوابق فقط با دکمهٔ پایین همین بخش انجام می‌شود.', 'tecteb-marketplace-core')
+            . '</p>';
+
+        echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="'
+            . esc_attr__('جدول پیش‌نمایش سوابق', 'tecteb-marketplace-core') . '">';
+        echo '<table class="tmc-table"><thead><tr>'
+            . '<th scope="col">' . esc_html__('فروشگاه', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('نوع سابقه', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('وضعیت', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('در دکان', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('واردشده', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('توضیح', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>';
+        $unreadable = false;
+        foreach ($rows as $row) {
+            $first = true;
+            foreach (ShopRecordPreview::KINDS as $kind) {
+                $cell = $row['kinds'][$kind];
+                if (($row['anything_unreadable'] ?? false) === true) {
+                    $unreadable = true;
+                }
+                echo '<tr><td>'
+                    . ($first ? esc_html($this->shopName((int) $row['vendor_user_id'])) : '')
+                    . '</td>'
+                    . '<td>' . esc_html(self::kindLabel($kind)) . '</td>'
+                    . '<td>' . self::recordBadge((string) $cell['verdict']) . '</td>'
+                    // ⛔ A count only where there IS one. `null` prints «—»
+                    // and the sentence in the last column says which of the
+                    // three «no number» cases it is; printing nought here
+                    // would be the collapse this whole section exists to
+                    // stop.
+                    . '<td>' . ($cell['source']['count'] === null ? '—' : $fa((string) $cell['source']['count'])) . '</td>'
+                    . '<td>' . ($cell['imported'] === null ? '—' : $fa((string) $cell['imported'])) . '</td>'
+                    . '<td>' . esc_html(self::recordReason((string) $cell['reason'])) . '</td>'
+                    . '</tr>';
+                $first = false;
+            }
+        }
+        echo '</tbody></table></div>';
+
+        if ($unreadable) {
+            echo Components::notice('warning', __('دست‌کم یک سابقه خوانده نشد. «خوانده نشد» با «صفر سابقه» یکی نیست و به‌عنوان صفر گزارش نمی‌شود؛ تا وقتی خواندن درست انجام نشود، نبودِ عدد یک پرسش بی‌جواب است نه یک جواب.', 'tecteb-marketplace-core'));
+        }
+
+        echo $this->importButton($preview->anythingToImport($shops));
+        echo '</section>';
+    }
+
+    /**
+     * The one explicit action, and what it is not.
+     *
+     * ⛔ It queues a job; it does not import inside the request that drew this
+     * page. One LIVE record import at a time whatever the run id, decided by
+     * the unique index on the live key rather than by a check — two managers
+     * pressing this together must not start two walks over the same Dokan
+     * rows.
+     */
+    private function importButton(bool $anythingToImport): string
+    {
+        $live = $this->liveRecordJob();
+        if ($live !== null) {
+            return Components::notice('info', sprintf(
+                /* translators: 1: job id, 2: done, 3: total */
+                __('ورود سوابق در صف است (کار شمارهٔ %1$s): %2$s از %3$s. تا پایانش ورود تازه‌ای شروع نمی‌شود؛ وضعیتش در صفحهٔ «صف و سلامت اجرا» دیده می‌شود.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) $live->id),
+                PersianDigits::toPersian((string) ($live->done + $live->failed)),
+                PersianDigits::toPersian((string) $live->total)
+            ));
+        }
+        $note = '<p class="tmc-field__desc">'
+            . esc_html__('ورود سوابق فقط تاریخچه ثبت می‌کند: هیچ بدهی قابل‌پرداخت، هیچ تسویه، هیچ دسترسی پرسنل، هیچ تغییر مالکیت محصول و هیچ فعال‌شدن فروشی. کار قابل‌ادامه است و اگر نیمه‌کاره بماند از همان‌جا ادامه می‌دهد؛ درخواست تکراری سابقهٔ تکراری نمی‌سازد.', 'tecteb-marketplace-core')
+            . '</p>';
+        if (!$anythingToImport) {
+            // Nothing to do is not the same as a broken button, so the button
+            // is still here and says why pressing it would change nothing.
+            return $note . Components::notice('info', __('بر اساس پیش‌نمایش بالا، سابقهٔ واردنشده‌ای پیدا نشد. اگر وضعیتی «خوانده نشد» است، اول آن را حل کنید — چون تا خوانده نشود معلوم نیست چیزی مانده یا نه.', 'tecteb-marketplace-core'));
+        }
+        return $note
+            . '<form method="post">'
+            . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)
+            . '<p><button type="submit" class="tmc-button" name="handover_action" value="import_records">'
+            . esc_html__('ورود سوابق به صف', 'tecteb-marketplace-core')
+            . '</button></p></form>';
+    }
+
+    /** The live record-import job, or null. */
+    private function liveRecordJob(): ?Job
+    {
+        if (!$this->container->has(JobRepositoryInterface::class)) {
+            return null;
+        }
+        foreach ($this->container->get(JobRepositoryInterface::class)->live(50) as $job) {
+            if ($job instanceof Job && $job->type === DokanRecordImportJob::TYPE) {
+                return $job;
+            }
+        }
+        return null;
+    }
+
+    private static function kindLabel(string $kind): string
+    {
+        return match ($kind) {
+            'staff' => __('پرسنل', 'tecteb-marketplace-core'),
+            'balance' => __('دفتر مانده', 'tecteb-marketplace-core'),
+            'withdrawals' => __('درخواست برداشت', 'tecteb-marketplace-core'),
+            default => $kind,
+        };
+    }
+
+    private static function recordBadge(string $verdict): string
+    {
+        return match ($verdict) {
+            ShopRecordPreview::IMPORTED => Components::badge('success', '✓', __('واردشده', 'tecteb-marketplace-core')),
+            ShopRecordPreview::PARTIAL => Components::badge('warning', '!', __('نیمه‌واردشده', 'tecteb-marketplace-core')),
+            ShopRecordPreview::PENDING => Components::badge('warning', '!', __('واردنشده', 'tecteb-marketplace-core')),
+            ShopRecordPreview::EMPTY => Components::badge('neutral', '•', __('صفر سابقه', 'tecteb-marketplace-core')),
+            ShopRecordPreview::UNREADABLE => Components::badge('error', '×', __('خواندن ناموفق', 'tecteb-marketplace-core')),
+            default => Components::badge('neutral', '?', __('هنوز بررسی نشده', 'tecteb-marketplace-core')),
+        };
+    }
+
+    private static function recordReason(string $reason): string
+    {
+        return match ($reason) {
+            'source_has_none' => __('دکان برای این فروشگاه چنین سابقه‌ای ندارد — پرسیده شد و جوابش صفر بود.', 'tecteb-marketplace-core'),
+            'not_imported_yet' => __('در دکان هست و این‌طرف هیچ ردیفی نیست. دکمهٔ «ورود سوابق به صف» همین را وارد می‌کند.', 'tecteb-marketplace-core'),
+            'some_rows_held' => __('بخشی وارد شده. ورود قابل‌ادامه است و از همان‌جا که مانده ادامه می‌دهد.', 'tecteb-marketplace-core'),
+            'all_rows_held' => __('همهٔ ردیف‌هایی که دکان دارد این‌طرف هم هستند.', 'tecteb-marketplace-core'),
+            'held_but_source_now_empty' => __('این‌طرف سابقه هست و دکان امروز چیزی نشان نمی‌دهد. چیزی حذف نمی‌شود؛ آنچه وارد شده می‌مانَد.', 'tecteb-marketplace-core'),
+            'source_unreadable' => __('خواندن از دکان شکست خورد. این «صفر» نیست و به‌عنوان صفر شمرده نمی‌شود.', 'tecteb-marketplace-core'),
+            'our_records_unreadable' => __('خواندن جدول سوابق خودِ ما شکست خورد، پس معلوم نیست چه داریم.', 'tecteb-marketplace-core'),
+            'source_not_on_this_install' => __('این منبع روی این نصب نیست — جدولش وجود ندارد، یا بخش مربوطهٔ دکان نصب نیست.', 'tecteb-marketplace-core'),
+            'dokan_not_running' => __('دکان روی این نصب اجرا نمی‌شود، پس هیچ پرسشی از آن ممکن نبود.', 'tecteb-marketplace-core'),
+            'record_store_not_installed' => __('جدول سوابق این افزونه روی این نصب نیست؛ اول ارتقای ساختار داده لازم است.', 'tecteb-marketplace-core'),
+            default => $reason,
+        };
     }
 
     /** @param list<int> $shops */
@@ -423,6 +602,52 @@ final class HandoverPage
             return $roles->save($merged)
                 ? 'ok:' . __('نگاشت نقش‌ها ذخیره شد. هنوز هیچ عضویتی ساخته نشده است.', 'tecteb-marketplace-core')
                 : 'err:' . __('ذخیرهٔ نگاشت انجام نشد.', 'tecteb-marketplace-core');
+        }
+
+        if ($action === 'import_records') {
+            $preview = $this->container->get(ShopRecordPreview::class);
+            $shops = $this->container->get(MigrationCompleteness::class)->vendorUserIds();
+            if (!$preview->anythingToImport($shops)) {
+                // Refused rather than queued: a job that would do nothing is
+                // a row somebody then has to interpret.
+                return 'err:' . __('سابقهٔ واردنشده‌ای پیدا نشد، پس کاری به صف اضافه نشد. اگر وضعیتی «خوانده نشد» است، اول آن را حل کنید.', 'tecteb-marketplace-core');
+            }
+            $counts = $this->container->get(DokanReaderInterface::class)->counts();
+            /** @var JobRepositoryInterface $jobs */
+            $jobs = $this->container->get(JobRepositoryInterface::class);
+            $queued = $jobs->enqueue(
+                DokanRecordImportJob::TYPE,
+                [
+                    'run_id' => 'dokan-records-'
+                        . $this->container->get(ClockInterface::class)->now()->format('Ymd-His'),
+                    // ⛔ All three kinds, because all three are what this job
+                    // walks. The product import declared a total of vendors
+                    // plus products while counting three phases, and the
+                    // figure on the queue page went past its own denominator.
+                    'total' => (int) ($counts['staff'] ?? 0)
+                        + (int) ($counts['balance'] ?? 0)
+                        + (int) ($counts['withdrawals'] ?? 0),
+                ],
+                // One live record import at a time, whatever the run id —
+                // decided by the unique index on the live key, not by a check.
+                DokanRecordImportJob::TYPE,
+                get_current_user_id()
+            );
+            if ($queued['id'] === 0) {
+                return 'err:' . __('ورود سوابق به صف اضافه نشد. صفحهٔ سلامت صف را ببینید.', 'tecteb-marketplace-core');
+            }
+            if (!$queued['created']) {
+                return 'err:' . sprintf(
+                    /* translators: %s: job id */
+                    __('یک ورود سوابق در صف هست (کار شمارهٔ %s) و تا پایانش ورود تازه‌ای شروع نمی‌شود.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $queued['id'])
+                );
+            }
+            return 'ok:' . sprintf(
+                /* translators: %s: job id */
+                __('ورود سوابق به صف اضافه شد (کار شمارهٔ %s). فقط تاریخچه ثبت می‌شود: هیچ بدهی، هیچ تسویه، هیچ دسترسی و هیچ تغییری در دکان.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) $queued['id'])
+            );
         }
 
         if ($action === 'grant_staff') {

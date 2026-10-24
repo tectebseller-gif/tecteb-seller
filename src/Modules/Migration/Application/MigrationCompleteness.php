@@ -137,13 +137,33 @@ final class MigrationCompleteness
      */
     public function all(): array
     {
-        $ids = $this->importedVendorUserIds();
-        sort($ids);
+        $ids = $this->vendorUserIds();
         $out = [];
         foreach ($ids as $vendorUserId) {
             $out[] = $this->forVendor($vendorUserId);
         }
         return $out;
+    }
+
+    /**
+     * Every shop with any import trace, sorted — the page's vendor universe.
+     *
+     * ⛔ Public because the handover page asked
+     * `ShopRecordRepositoryInterface::vendorsWithRecords()` instead, which is
+     * one of the three traces below and the one that is empty on every
+     * install where the records have not been imported. A shop whose
+     * products and profile both arrived was therefore invisible on the page
+     * about handing it over, and the page's empty state told the manager to
+     * run the product import again — advice that could not help, because
+     * nothing in production wrote a record at all.
+     *
+     * @return list<int>
+     */
+    public function vendorUserIds(): array
+    {
+        $ids = $this->importedVendorUserIds();
+        sort($ids);
+        return array_values($ids);
     }
 
     /**

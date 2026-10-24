@@ -1,0 +1,97 @@
+
+=== MUTATION 1: a failed source read carries a count of nought ===
+Failed asserting that 0 is null.
+
+/home/user/tecteb-seller/tests/Unit/ShopRecordPreviewTest.php:135
+
+FAILURES!
+Tests: 11, Assertions: 57, Failures: 1.
+
+=== MUTATION 2: the row count is read before unreadability is ruled out ===
+Failed asserting that false is true.
+
+/home/user/tecteb-seller/tests/Unit/ShopRecordPreviewTest.php:239
+
+FAILURES!
+Tests: 11, Assertions: 55, Failures: 2.
+
+=== MUTATION 3: the kept cursor positions are captured by value ===
+Failed asserting that 0 is greater than 0.
+
+/home/user/tecteb-seller/tests/Database/DokanRecordImportTest.php:247
+
+FAILURES!
+Tests: 15, Assertions: 74, Failures: 1.
+
+=== MUTATION 4: the record write runs outside the lease gate ===
+Failed asserting that false is of type int.
+
+/home/user/tecteb-seller/tests/Architecture/RecordImportIsHistoryOnlyTest.php:187
+
+FAILURES!
+Tests: 21, Assertions: 916, Failures: 1.
+
+...............                                                   15 / 15 (100%)
+
+Time: 00:07.717, Memory: 22.00 MB
+
+OK (15 tests, 79 assertions)
+
+=== MUTATION 5: the record step name is taken off the allowlist ===
+Failed asserting that an array contains 'record_write'.
+
+/home/user/tecteb-seller/tests/Architecture/StepNamesComeFromTheListTest.php:81
+
+FAILURES!
+Tests: 5, Assertions: 606, Failures: 1.
+ ]
+
+/home/user/tecteb-seller/tests/Unit/Core/Jobs/StepTimingTest.php:268
+
+FAILURES!
+Tests: 22, Assertions: 97, Failures: 1.
+
+=== MUTATION 6: the handover page asks only which shops have records ===
+Failed asserting that '<div class="wrap tmc-admin" dir="rtl" lang="fa"><a class="tmc-skip" href="#tmc-main">پرش به محتوای اصلی</a><header class="tmc-header"><div class="tmc-header__top"><div class="tmc-header__brand"><span class="tmc-header__product">بازارگاه تک‌طب</span> <span class="tmc-badge tmc-badge--alpha">نسخه آزمایشی</span></div></div><details class="tmc-nav" id="tmc-nav"><summary class="tmc-nav__toggle"><span class="tmc-nav__toggle-icon" aria-hidden="true"></span><span class="tmc-nav__toggle-text">بخش‌های بازارگاه</span><span class="tmc-nav__toggle-current">راه‌اندازی و مهاجرت › تحویل مهاجرت</span><span class="tmc-nav__state" aria-hidden="true"><span class="tmc-nav__state-closed">نمایش</span><span class="tmc-nav__state-open">بستن</span></span></summary><div class="tmc-nav__panel"><nav class="tmc-nav__groups" aria-label="گروه‌های بازارگاه"><ul><li><a class="tmc-nav__group" href="https://example.test/wp-admin/admin.php?page=tmc-dashboard">روزمره</a></li><li><a class="tmc-nav__group" href="https://example.test/wp-admin/admin.php?page=tmc-storefront">فروش و مالی</a></li><li><a class="tmc-nav__group" href="https://example.test/wp-admin/admin.php?page=tmc-spec-templates">محتوا و گزارش</a></li><li><a class="tmc-nav__group" href="https://example.test/wp-admin/admin.php?page=tmc-settings">تنظیمات و ابزارها</a></li><li><a class="tmc-nav__group is-current" href="https://example.test/wp-admin/admin.php?page=tmc-setup" aria-current="true">راه‌اندازی و مهاجرت</a></li></ul></nav><nav class="tmc-nav__pages" aria-label="صفحه‌های گروه راه‌اندازی و مهاجرت"><ul><li><a class="tmc-nav__link" href="https://example.test/wp-admin/admin.php?page=tmc-setup">راه‌اندازی</a></li><li><a class="tmc-nav__link" href="https://example.test/wp-admin/admin.php?page=tmc-import">مهاجرت از دکان</a></li><li><a class="tmc-nav__link is-current" href="https://example.test/wp-admin/admin.php?page=tmc-handover" aria-current="page">تحویل مهاجرت</a></li><li><a class="tmc-nav__link" href="https://example.test/wp-admin/admin.php?page=tmc-minmax-exit">خروج از Min Max</a></li></ul></nav></div></details></header><main id="tmc-main" class="tmc-main" tabindex="-1"><h1 class="tmc-title">تحویل مهاجرت</h1><div class="tmc-notice tmc-notice--info" role="status"><span class="tmc-notice__icon" aria-hidden="true">i</span><p class="tmc-notice__text">ورود سابقه هیچ دسترسی و هیچ بدهی نمی‌سازد. آنچه در این صفحه تصمیم گرفته می‌شود، همان چیزی است که سابقه به‌تنهایی نمی‌تواند بگوید.</p></div><section class="tmc-card"><div class="tmc-state tmc-state--empty"><span class="tmc-state__icon" aria-hidden="true">∅</span><p class="tmc-state__title">هنوز هیچ فروشگاهی از دکان وارد نشده است</p><p class="tmc-state__text">این صفحه دربارهٔ فروشگاه‌هایی است که از دکان وارد شده‌اند — با محصول، با پروندهٔ فروشنده، یا با سابقه. هیچ‌کدام از این سه نشانه پیدا نشد، پس اول از صفحهٔ «مهاجرت از دکان» یک اجرای آزمایشی بگیرید و سپس ورود را انجام دهید.</p><p class="tmc-state__actions"><a class="tmc-button tmc-button--primary" href="https://example.test/wp-admin/admin.php?page=tmc-import">رفتن به مهاجرت از دکان</a></p></div></section></main><footer class="tmc-footer"><p>تمام ارسال‌های خود افزونه در نسخه آزمایشی مسدود است. وضعیت سایر افزونه‌ها بررسی‌نشده است.</p></footer></div>' [UTF-8](length: 3895) contains "خواندن ناموفق" [UTF-8](length: 25).
+
+/home/user/tecteb-seller/tests/Database/HandoverPageRecordsTest.php:190
+
+FAILURES!
+Tests: 5, Assertions: 21, Failures: 4.
+
+=== MUTATION 7: the enqueued total leaves the order phase out again ===
+' [UTF-8](length: 42769) contains "$summary['orders']" [ASCII](length: 18).
+
+/home/user/tecteb-seller/tests/Database/MigrationCountReportTest.php:219
+
+FAILURES!
+Tests: 6, Assertions: 37, Failures: 1.
+
+=== MUTATION 8: the queue page clamps instead of saying the ceiling was short ===
+Failed asserting that '<div class="wrap tmc-admin" dir="rtl" lang="fa"><a class="tmc-skip" href="#tmc-main">پرش به محتوای اصلی</a><header class="tmc-header"><div class="tmc-header__top"><div class="tmc-header__brand"><span class="tmc-header__product">بازارگاه تک‌طب</span> <span class="tmc-badge tmc-badge--alpha">نسخه آزمایشی</span></div></div><details class="tmc-nav" id="tmc-nav"><summary class="tmc-nav__toggle"><span class="tmc-nav__toggle-icon" aria-hidden="true"></span><span class="tmc-nav__toggle-text">بخش‌های بازارگاه</span><span class="tmc-nav__toggle-current">تنظیمات و ابزارها › صف و سلامت اجرا</span><span class="tmc-nav__state" aria-hidden="true"><span class="tmc-nav__state-closed">نمایش</span><span class="tmc-nav__state-open">بستن</span></span></summary><div class="tmc-nav__panel"><nav class="tmc-nav__groups" aria-label="گروه‌های بازارگاه"><ul><li><a class="tmc-nav__group" href="https://example.test/wp-admin/admin.php?page=tmc-dashboard">روزمره</a></li><li><a class="tmc-nav__group" href="https://example.test/wp-admin/admin.php?page=tmc-storefront">فروش و مالی</a></li><li><a class="tmc-nav__group" href="https://example.test/wp-admin/admin.php?page=tmc-spec-templates">محتوا و گزارش</a></li><li><a class="tmc-nav__group is-current" href="https://example.test/wp-admin/admin.php?page=tmc-settings" aria-current="true">تنظیمات و ابزارها</a></li><li><a class="tmc-nav__group" href="https://example.test/wp-admin/admin.php?page=tmc-setup">راه‌اندازی و مهاجرت</a></li></ul></nav><nav class="tmc-nav__pages" aria-label="صفحه‌های گروه تنظیمات و ابزارها"><ul><li><a class="tmc-nav__link" href="https://example.test/wp-admin/admin.php?page=tmc-settings">تنظیمات</a></li><li><a class="tmc-nav__link" href="https://example.test/wp-admin/admin.php?page=tmc-modules">ماژول‌ها</a></li><li><a class="tmc-nav__link" href="https://example.test/wp-admin/admin.php?page=tmc-health">سلامت</a></li><li><a class="tmc-nav__link is-current" href="https://example.test/wp-admin/admin.php?page=tmc-jobs" aria-current="page">صف و سلامت اجرا</a></li><li><a class="tmc-nav__link" href="https://example.test/wp-admin/admin.php?page=tmc-events">رویدادها و API</a></li><li><a class="tmc-nav__link" href="https://example.test/wp-admin/admin.php?page=tmc-audit">ممیزی</a></li></ul></nav></div></details></header><main id="tmc-main" class="tmc-main" tabindex="-1"><h1 class="tmc-title">صف و سلامت اجرا</h1><section class="tmc-card"><h2 class="tmc-card__title">چه چیزی صف را پیش می‌برد</h2><div class="tmc-notice tmc-notice--info" role="status"><span class="tmc-notice__icon" aria-hidden="true">i</span><p class="tmc-notice__text">WP-Cron خود وردپرس. این «ساعت» نیست: با بازدید کاربر اجرا می‌شود، پس روی سایت کم‌بازدید ممکن است دیر پیش برود.</p></div><dl class="tmc-datalist"><div class="tmc-datalist__row"><dt>سازوکار</dt><dd>wp_cron</dd></div><div class="tmc-datalist__row"><dt>اجرای بعدی</dt><dd>زمان‌بندی نشده</dd></div><div class="tmc-datalist__row"><dt>آخرین تیکِ زمان‌بند</dt><dd>هنوز اجرا نشده</dd></div><div class="tmc-datalist__row"><dt>آخرین اجرای یک دسته</dt><dd>هنوز اجرا نشده</dd></div></dl><form method="post" class="tmc-inline-form"><input type="hidden" id="tmc_jobs_nonce" name="tmc_jobs_nonce" value="9052979320" /><button type="submit" class="tmc-button" name="jobs_action" value="run_now">اجرای دستی یک دسته</button></form><p class="tmc-field__desc">«اجرای دستی» یک دسته از کارِ در صف را همین حالا انجام می‌دهد و برمی‌گردد؛ کل صف را یکجا اجرا نمی‌کند، چون همین درخواست هم مهلت اجرای خودش را دارد.</p></section><section class="tmc-card"><h2 class="tmc-card__title">وضعیت کلی</h2><dl class="tmc-datalist"><div class="tmc-datalist__row"><dt>در صف</dt><dd>۰</dd></div><div class="tmc-datalist__row"><dt>در حال اجرا</dt><dd>۰</dd></div><div class="tmc-datalist__row"><dt>بی‌صاحب مانده</dt><dd>۰</dd></div><div class="tmc-datalist__row"><dt>انجام شد</dt><dd>۱</dd></div><div class="tmc-datalist__row"><dt>شکست خورد</dt><dd>۰</dd></div><div class="tmc-datalist__row"><dt>لغو شد</dt><dd>۰</dd></div></dl></section><section class="tmc-card"><h2 class="tmc-card__title">کارهای اخیر</h2><div class="tmc-scroll" tabindex="0" role="region" aria-label="کارهای اخیر"><table class="tmc-table"><thead><tr><th scope="col">شماره</th><th scope="col">کار</th><th scope="col">وضعیت</th><th scope="col">پیشرفت</th><th scope="col">تلاش</th><th scope="col">آخرین تغییر</th><th scope="col">اقدام</th></tr></thead><tbody><tr><td data-label="شماره"><bdi class="tmc-code" dir="ltr">1</bdi></td><td data-label="کار">ورود داده از دکان</td><td data-label="وضعیت">انجام شد</td><td data-label="پیشرفت">۱۰۰٪ (۱۹۰ از ۱۸۶)</td><td data-label="تلاش">۱</td><td data-label="آخرین تغییر">۲۰۲۶-۱۰-۲۴ ۱۵:۵۵:۴۹</td><td data-label="اقدام"><span class="tmc-field__desc">—</span></td></tr></tbody></table></div><nav class="tmc-pager" aria-label="صفحه‌بندی کارها"><span class="tmc-field__desc">صفحهٔ ۱</span></nav></section><details class="tmc-disclosure"><summary>مسیر ورود: تشخیص (فقط‌خواندنی)</summary><section class="tmc-card"><h2 class="tmc-card__title">مسیر ورود: این سایت چه چیزی روی آن دارد</h2><p class="tmc-field__desc">این بخش فقط می‌خواند: هیچ گزینه، ردیف، فایل یا تماس خارجی‌ای از آن ساخته نمی‌شود. اعدادش از همین درخواست وب گرفته شده‌اند، پس مهلت PHP اینجا همان چیزی است که یک بازدید واقعی می‌گیرد — نه عددی که WP-CLI گزارش می‌کند.</p><dl class="tmc-datalist"><div class="tmc-datalist__row"><dt>sapi</dt><dd>cli</dd></div><div class="tmc-datalist__row"><dt>php_version</dt><dd>۸.۴.۱۹</dd></div><div class="tmc-datalist__row"><dt>max_execution_time</dt><dd>۰</dd></div><div class="tmc-datalist__row"><dt>memory_limit</dt><dd>-۱</dd></div><div class="tmc-datalist__row"><dt>max_input_time</dt><dd>-۱</dd></div><div class="tmc-datalist__row"><dt>set_time_limit</dt><dd>available</dd></div><div class="tmc-datalist__row"><dt>wp_memory_limit</dt><dd>__undefined__</dd></div><div class="tmc-datalist__row"><dt>wp_max_memory_limit</dt><dd>__undefined__</dd></div><div class="tmc-datalist__row"><dt>editor_for_jpeg</dt><dd>__unknown__</dd></div><div class="tmc-datalist__row"><dt>registered_sizes</dt><dd>۰</dd></div><div class="tmc-datalist__row"><dt>size_names</dt><dd></dd></div><div class="tmc-datalist__row"><dt>big_image_size_threshold</dt><dd>۲۵۶۰</dd></div><div class="tmc-datalist__row"><dt>operations_per_picture_at_or_above_threshold</dt><dd>۱</dd></div><div class="tmc-datalist__row"><dt>WP_HTTP_BLOCK_EXTERNAL</dt><dd>__undefined__</dd></div><div class="tmc-datalist__row"><dt>WP_ACCESSIBLE_HOSTS</dt><dd>__undefined__</dd></div><div class="tmc-datalist__row"><dt>فایل‌های پوشهٔ ماهِ بارگذاری</dt><dd>__unknown__</dd></div></dl><h3 class="tmc-card__subtitle">قلاب‌های مسیر، و فایلی که هر callback در آن اعلام شده</h3><p class="tmc-field__desc">این افزونه هیچ درخواست خارجی‌ای نمی‌زند — یک آزمون معماری همین را از کلِ کد می‌سنجد. پس اگر درخواستی منتظر یک سرویس بیرونی بماند، آن تماس از یکی از همین قلاب‌ها می‌آید و فایلِ کنارش می‌گوید از کدام افزونه. ⛔ و این فهرست اثبات نبودِ هر تماس خارجی نیست: کدی که از هیچ‌کدام این قلاب‌ها نگذرد هم می‌تواند تماس بزند، و `pre_http_request` و `http_api_debug` تنها جایی‌اند که هر تماسِ عبوری از HTTP API وردپرس را می‌بینند.</p><ul class="tmc-list"><li><code>get_attached_file</code> — ۰ callback</li><li><code>upload_dir</code> — ۰ callback</li><li><code>wp_unique_filename</code> — ۰ callback</li><li><code>upload_mimes</code> — ۰ callback</li><li><code>wp_insert_attachment_data</code> — ۰ callback</li><li><code>add_attachment</code> — ۰ callback</li><li><code>save_post_attachment</code> — ۰ callback</li><li><code>save_post</code> — ۰ callback</li><li><code>wp_after_insert_post</code> — ۰ callback</li><li><code>wp_image_editors</code> — ۰ callback</li><li><code>wp_read_image_metadata</code> — ۰ callback</li><li><code>big_image_size_threshold</code> — ۰ callback</li><li><code>intermediate_image_sizes_advanced</code> — ۰ callback</li><li><code>wp_generate_attachment_metadata</code> — ۰ callback</li><li><code>wp_update_attachment_metadata</code> — ۰ callback</li><li><code>added_post_meta</code> — ۰ callback</li><li><code>updated_post_meta</code> — ۰ callback</li><li><code>pre_http_request</code> — ۰ callback</li><li><code>http_request_args</code> — ۰ callback</li><li><code>http_api_debug</code> — ۰ callback</li><li><code>requests-requests.before_request</code> — ۰ callback</li></ul></section></details></main><footer class="tmc-footer"><p>تمام ارسال‌های خود افزونه در نسخه آزمایشی مسدود است. وضعیت سایر افزونه‌ها بررسی‌نشده است.</p></footer></div>' [UTF-8](length: 10014) contains "بیشتر از سقف اعلام‌شدهٔ" [UTF-8](length: 44).
+
+/home/user/tecteb-seller/tests/Database/MigrationCountReportTest.php:177
+
+FAILURES!
+Tests: 6, Assertions: 36, Failures: 1.
+
+=== MUTATION 9: the active phase reads one shared position ===
+Failed asserting that 0 is identical to 4.
+
+/home/user/tecteb-seller/tests/Database/DokanRecordImportTest.php:300
+
+FAILURES!
+Tests: 15, Assertions: 79, Failures: 1.
+
+=== MUTATION 10: the preview is given a way to write ===
+' [ASCII](length: 3858) does not contain "recordStaff(" [ASCII](length: 12).
+
+/home/user/tecteb-seller/tests/Architecture/RecordImportIsHistoryOnlyTest.php:313
+
+FAILURES!
+Tests: 7, Assertions: 179, Failures: 1.
+
+=== RESTORED BYTE FOR BYTE ===
+all 8 files byte-identical to the snapshot
+
+mutations: 10 · failed to apply: 0 · survived: 0

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Tests\Support;
 
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
+use Tecteb\Marketplace\Modules\Migration\Domain\RecordSource;
 
 /**
  * Dokan's data without Dokan.
@@ -162,6 +163,58 @@ final class FakeDokanReader implements DokanReaderInterface
             }
         }
         return $out;
+    }
+
+    /**
+     * Record kinds whose source could not be READ — a failed statement.
+     *
+     * @var list<string> any of 'staff', 'balance', 'withdrawals'
+     */
+    public array $unreadableSources = [];
+
+    /**
+     * Record kinds whose source is NOT ON THIS INSTALL — no table, or no Pro.
+     *
+     * Kept apart from the list above on purpose. «I asked and the answer is
+     * nothing» and «I could not ask» are different facts, and one name for
+     * both is how a guard ends up wider than the defect (`alpha.68`).
+     *
+     * @var list<string>
+     */
+    public array $absentSources = [];
+
+    public function recordSourceFor(int $vendorUserId): array
+    {
+        if (!$this->available) {
+            $absent = RecordSource::dokanAbsent();
+            return ['staff' => $absent, 'balance' => $absent, 'withdrawals' => $absent];
+        }
+        $source = function (string $kind, int $rows): RecordSource {
+            if (in_array($kind, $this->unreadableSources, true)) {
+                return RecordSource::unreadable();
+            }
+            if (in_array($kind, $this->absentSources, true)) {
+                return RecordSource::sourceAbsent();
+            }
+            return RecordSource::counted($rows);
+        };
+        return [
+            'staff' => $source('staff', count($this->staffFor($vendorUserId))),
+            'balance' => $source('balance', $this->rowsForVendor($this->balanceRows, $vendorUserId)),
+            'withdrawals' => $source('withdrawals', $this->rowsForVendor($this->withdrawRows, $vendorUserId)),
+        ];
+    }
+
+    /** @param list<array<string,mixed>> $rows */
+    private function rowsForVendor(array $rows, int $vendorUserId): int
+    {
+        $seen = 0;
+        foreach ($rows as $row) {
+            if ((int) ($row['vendor_user_id'] ?? 0) === $vendorUserId) {
+                $seen++;
+            }
+        }
+        return $seen;
     }
 
     public function counts(): array

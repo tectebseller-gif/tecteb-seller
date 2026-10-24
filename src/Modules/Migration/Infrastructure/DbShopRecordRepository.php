@@ -134,6 +134,34 @@ final class DbShopRecordRepository implements ShopRecordRepositoryInterface
         ];
     }
 
+    /**
+     * Our own three counts, each able to say «the read failed».
+     *
+     * Three separate reads rather than one row of three sub-selects, because a
+     * single statement gives one failure for three facts: a sub-select that
+     * cannot be run would take the other two down with it and report nought
+     * for all of them. Separate reads cost two statements more and lose
+     * nothing.
+     *
+     * `getVar()` answers `null` on failure (`alpha.8`), and that `null` is
+     * carried out of here UNCAST. Casting it is the whole defect.
+     */
+    public function importedCountsFor(int $vendorUserId): array
+    {
+        $count = function (string $table) use ($vendorUserId): ?int {
+            $answer = $this->db->getVar(
+                'SELECT COUNT(*) FROM `' . $this->t($table) . '` WHERE vendor_user_id = %d',
+                [$vendorUserId]
+            );
+            return $answer === null ? null : (int) $answer;
+        };
+        return [
+            'staff' => $count(T::STAFF),
+            'balance' => $count(T::BALANCE),
+            'withdrawals' => $count(T::WITHDRAW),
+        ];
+    }
+
     public function staffForVendor(int $vendorUserId): array
     {
         $rows = $this->db->getResults(

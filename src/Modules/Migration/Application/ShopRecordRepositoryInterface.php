@@ -102,6 +102,23 @@ interface ShopRecordRepositoryInterface
      */
     public function closingBalance(int $vendorUserId): string;
 
+    /**
+     * How many records of each kind we hold for one shop — or `null` where the
+     * read failed.
+     *
+     * ⛔ **Why this exists beside `summaryForVendor()`.** That method casts its
+     * reads: `(int) $this->db->getVar(...)` and `(int) ($row['rows_seen'] ?? 0)`.
+     * `getVar()` and `getRow()` both answer `null` on a failed statement, so a
+     * database that could not be read reports **nought records held** — the
+     * same collapse `RecordSource` was written to stop on the Dokan side, and
+     * it would be no better for being on ours. The summary keeps its shape
+     * because the figures beside it are money and its callers are unchanged;
+     * this is the read a verdict may be hung on.
+     *
+     * @return array{staff:int|null, balance:int|null, withdrawals:int|null}
+     */
+    public function importedCountsFor(int $vendorUserId): array;
+
     /** Every shop that has any imported record at all. @return list<int> */
     public function vendorsWithRecords(): array;
 

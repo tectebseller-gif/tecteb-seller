@@ -112,6 +112,33 @@ final class InMemoryShopRecords implements ShopRecordRepositoryInterface
         );
     }
 
+    /**
+     * Which record kinds read as a failure rather than as a count.
+     *
+     * A knob, because the collapse this guards against is on OUR side of the
+     * fence: `summaryForVendor()` casts its reads and so reports nought rows
+     * held when the statement failed. A fake with no way to express a failed
+     * read could not test the verdict that depends on it.
+     *
+     * @var list<string> any of 'staff', 'balance', 'withdrawals'
+     */
+    public array $unreadableKinds = [];
+
+    public function importedCountsFor(int $vendorUserId): array
+    {
+        $count = function (string $kind, array $rows) use ($vendorUserId): ?int {
+            if (in_array($kind, $this->unreadableKinds, true)) {
+                return null;
+            }
+            return count($this->rowsFor($rows, $vendorUserId));
+        };
+        return [
+            'staff' => $count('staff', $this->staff),
+            'balance' => $count('balance', $this->balance),
+            'withdrawals' => $count('withdrawals', $this->withdrawals),
+        ];
+    }
+
     public function vendorsWithRecords(): array
     {
         $seen = [];

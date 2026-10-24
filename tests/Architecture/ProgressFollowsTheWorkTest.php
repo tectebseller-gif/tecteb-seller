@@ -62,6 +62,7 @@ final class ProgressFollowsTheWorkTest extends TestCase
     {
         $handlers = [
             'src/Modules/Migration/Application/DokanImportJob.php',
+            'src/Modules/Migration/Application/DokanRecordImportJob.php',
             'src/Modules/Operations/Application/DeliverEventsJob.php',
         ];
         foreach ($handlers as $file) {
@@ -91,6 +92,12 @@ final class ProgressFollowsTheWorkTest extends TestCase
                 'importVendorPage' => 'vendorsAfter',
                 'importProductPage' => 'productsAfter',
                 'importOrderPage' => 'ordersAfter',
+                // The one loop the three record kinds share. Asserted here
+                // rather than three times, because there is one loop: what
+                // differs between staff, balance and withdrawals is how a
+                // page is read and what writing a unit means, not the order
+                // in which it asks the time and claims.
+                'recordPage' => 'read',
             ] as $method => $_reader
         ) {
             $body = substr($code, (int) strpos($code, 'function ' . $method));
@@ -136,6 +143,11 @@ final class ProgressFollowsTheWorkTest extends TestCase
                 "entering('page_read'", '$this->dokan->vendorsAfter('],
             ['src/Modules/Migration/Application/ImportFromDokan.php', 'importOrderPage',
                 "entering('page_read'", '$this->dokan->ordersAfter('],
+            // The record loop, both of its steps.
+            ['src/Modules/Migration/Application/ImportFromDokan.php', 'recordPage',
+                "entering('page_read'", '$read($after, $size)'],
+            ['src/Modules/Migration/Application/ImportFromDokan.php', 'recordPage',
+                "entering('record_write'", '$progress->writing('],
             // And the two halves of the slow work, in the library that does it.
             ['src/Modules/Product/Infrastructure/WordPress/WpProductImages.php', 'duplicateForVendor',
                 "\$say('image_file_copy')", 'wp_unique_filename('],
@@ -178,6 +190,26 @@ final class ProgressFollowsTheWorkTest extends TestCase
                 "\$stopped !== '' || count(\$page) >= \$limit",
                 $this->methodBody($import, $method),
                 $method . ': a page the batch stopped itself in is not the end of its phase'
+            );
+        }
+        // Same rule for the record loop, whose page size is a local because
+        // the read clamps it — so the needle is that local, not `$limit`.
+        self::assertStringContainsString(
+            "\$stopped !== '' || count(\$page) >= \$size",
+            $this->methodBody($import, 'recordPage'),
+            'recordPage: a page the batch stopped itself in is not the end of its kind'
+        );
+        foreach (['DokanImportJob', 'DokanRecordImportJob'] as $class) {
+            $code = $this->code('src/Modules/Migration/Application/' . $class . '.php');
+            self::assertStringContainsString(
+                'stoppedBecause(',
+                $code,
+                $class . ': the reason has to reach the cursor, because the runner drops notes'
+            );
+            self::assertStringContainsString(
+                "unset(\$cursor['stopped'])",
+                $code,
+                $class . ": and it has to be cleared, or a finished request's reason sits on the page for ever"
             );
         }
         $handler = $this->code('src/Modules/Migration/Application/DokanImportJob.php');

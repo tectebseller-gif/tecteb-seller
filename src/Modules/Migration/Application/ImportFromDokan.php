@@ -97,13 +97,20 @@ final class ImportFromDokan
     }
 
     /**
-     * Import one page of a shop's staff, balance ledger and withdrawals.
+     * Import every page of a shop's staff, balance ledger and withdrawals.
      *
      * Records, all three — Dokan's own figures, no rate applied, no ledger
      * line written. A balance is the clearest case: a shop that earned under a
      * 5% commission and is now on 8% must still see the number Dokan recorded,
      * so the amounts travel as strings straight into `DECIMAL(19,4)` columns
      * and nothing here multiplies anything.
+     *
+     * ⛔ **This is the unleased, walk-to-the-end path, and it is no longer
+     * where the three kinds are actually imported.** It kept its signature
+     * because the evidence tool calls it, and it now delegates to the three
+     * per-kind pages below so there is ONE definition of what importing a
+     * record does. The queue goes through `DokanRecordImportJob`, which holds
+     * a lease, asks a time budget between units, and keeps a cursor per kind.
      *
      * @return array{staff:int, balance:int, withdrawals:int, failed:int, last_balance:int, last_withdraw:int, more:bool}
      */
@@ -114,35 +121,307 @@ final class ImportFromDokan
             return $done + ['last_balance' => $afterBalanceId, 'last_withdraw' => $afterWithdrawId, 'more' => false];
         }
 
-        // Staff first, and only on the first page: a shop has a handful of
-        // them, and paging a handful is machinery with nothing to do.
-        if ($afterBalanceId === 0 && $afterWithdrawId === 0) {
-            foreach ($this->vendors->idsFromImportRun($runId) ?: $this->dokanVendorIds() as $vendorUserId) {
-                foreach ($this->dokan->staffFor((int) $vendorUserId) as $member) {
-                    $this->count($done, 'staff', $this->shopRecords->recordStaff($runId, $member));
+        // Staff from the beginning, every time, and unconditionally.
+        //
+        // ⛔ **What this replaced.** It used to run `if ($afterBalanceId === 0
+        // && $afterWithdrawId === 0)`, with the reasoning «a shop has a
+        // handful of staff, and paging a handful is machinery with nothing to
+        // do». True of the handful, and false of the coupling it bought: once
+        // the balance cursor moved past nought, an interrupted staff walk
+        // could never resume, so every shop after the interruption had no
+        // staff records and no page said so. Re-walking is free of
+        // consequence because the unique key answers a repeat — which is also
+        // why the figure below counts only what was newly RECORDED.
+        $after = 0;
+        for ($page = 0; $page < self::RECORD_PAGE_CAP; $page++) {
+            $staff = $this->importStaffRecordPage($runId, $after, $limit);
+            $done['staff'] += $staff['done'];
+            $done['failed'] += $staff['failed'];
+            if (!$staff['more'] || $staff['last'] <= $after) {
+                break;
+            }
+            $after = $staff['last'];
+        }
+
+        $balance = $this->importBalanceRecordPage($runId, $afterBalanceId, $limit);
+        $done['balance'] = $balance['done'];
+        $done['failed'] += $balance['failed'];
+
+        $withdraw = $this->importWithdrawalRecordPage($runId, $afterWithdrawId, $limit);
+        $done['withdrawals'] = $withdraw['done'];
+        $done['failed'] += $withdraw['failed'];
+
+        return $done + [
+            'last_balance' => $balance['last'],
+            'last_withdraw' => $withdraw['last'],
+            'more' => $balance['more'] || $withdraw['more'],
+        ];
+    }
+
+    /**
+     * How many pages the unleased walk above will take before it gives up.
+     *
+     * A bound rather than a `while (true)`: the loop's exit depends on the
+     * cursor advancing, and a reader that answered the same page twice would
+     * otherwise spin for the length of a request with nothing to show. The old
+     * code walked every shop in one pass, so any cap large enough to cover a
+     * real catalogue of shops is not a behaviour change — it is the loop
+     * admitting it can be wrong.
+     */
+    private const RECORD_PAGE_CAP = 200;
+
+    /**
+     * One page of STAFF records. The unit is a SHOP.
+     *
+     * `staffFor()` answers for one vendor and Dokan gives its staff rows no id
+     * of their own, so a shop is the smallest thing that can be finished and
+     * written down. The cursor is therefore a vendor id: a run cut off after
+     * the third shop resumes at the fourth, not at the first.
+     *
+     * A shop's staff are written as ONE unit of work, so a shop is never left
+     * holding two of its three people with nothing saying which third is
+     * missing.
+     *
+     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
+     */
+    public function importStaffRecordPage(string $runId, int $afterVendorId, int $limit, ?ImportProgressInterface $progress = null): array
+    {
+        return $this->recordPage(
+            'staff',
+            $afterVendorId,
+            $limit,
+            $progress,
+            fn (int $after, int $size): array => array_map(
+                static fn (array $row): int => (int) $row['user_id'],
+                $this->dokan->vendorsAfter($after, $size)
+            ),
+            static fn (mixed $unit): int => (int) $unit,
+            function (mixed $unit) use ($runId): array {
+                $tally = ['recorded' => 0, 'already' => 0, 'failed' => 0];
+                foreach ($this->dokan->staffFor((int) $unit) as $member) {
+                    $this->tally($tally, $this->shopRecords?->recordStaff($runId, $member) ?? ShopRecordRepositoryInterface::FAILED);
                 }
+                return $tally;
+            }
+        );
+    }
+
+    /**
+     * One page of BALANCE LEDGER records. The unit is a row.
+     *
+     * Dokan's own `row_id`, ascending, strictly after the cursor — the same
+     * keyset the reader already does in SQL. The amounts are not touched: a
+     * debit of `'700000.0000'` is written as `'700000.0000'`.
+     *
+     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
+     */
+    public function importBalanceRecordPage(string $runId, int $afterRowId, int $limit, ?ImportProgressInterface $progress = null): array
+    {
+        return $this->recordPage(
+            'balance',
+            $afterRowId,
+            $limit,
+            $progress,
+            fn (int $after, int $size): array => $this->dokan->balanceRowsAfter($after, $size),
+            // `row_id` is the table's own key; `trn_id` is the transaction it
+            // belongs to and is NOT unique across types — the fallback is
+            // only for a reader that cannot supply the first.
+            static fn (mixed $unit): int => (int) (is_array($unit) ? ($unit['row_id'] ?? $unit['trn_id'] ?? 0) : 0),
+            function (mixed $unit) use ($runId): array {
+                $tally = ['recorded' => 0, 'already' => 0, 'failed' => 0];
+                $this->tally($tally, $this->shopRecords?->recordBalance($runId, (array) $unit) ?? ShopRecordRepositoryInterface::FAILED);
+                return $tally;
+            }
+        );
+    }
+
+    /**
+     * One page of WITHDRAWAL records. The unit is a request.
+     *
+     * ⛔ These are a RECORD and not a liability. Dokan books an approved
+     * withdrawal twice by design — a row here and a debit in the balance
+     * ledger — so the closing balance has already subtracted it, and nothing
+     * written by this method creates anything payable. `WithdrawalRepository`
+     * is where a request this marketplace must honour lives, and this writes
+     * nothing there.
+     *
+     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
+     */
+    public function importWithdrawalRecordPage(string $runId, int $afterWithdrawId, int $limit, ?ImportProgressInterface $progress = null): array
+    {
+        return $this->recordPage(
+            'withdrawals',
+            $afterWithdrawId,
+            $limit,
+            $progress,
+            fn (int $after, int $size): array => $this->dokan->withdrawalsAfter($after, $size),
+            static fn (mixed $unit): int => (int) (is_array($unit) ? ($unit['withdraw_id'] ?? 0) : 0),
+            function (mixed $unit) use ($runId): array {
+                $tally = ['recorded' => 0, 'already' => 0, 'failed' => 0];
+                $this->tally($tally, $this->shopRecords?->recordWithdrawal($runId, (array) $unit) ?? ShopRecordRepositoryInterface::FAILED);
+                return $tally;
+            }
+        );
+    }
+
+    /**
+     * The one loop the three kinds share: claim, budget, write, land.
+     *
+     * Shared rather than copied three times because every property the owner
+     * asked for is a property of this loop — resumable, budgeted, guarded
+     * against a second worker, and never counting a write that did not land —
+     * and three copies would be three places for one of them to go missing.
+     * What differs between the kinds is only how a page is read, what names a
+     * unit, and what writing one means, so those three are arguments.
+     *
+     * @param \Closure(int,int):array<int,mixed> $read
+     * @param \Closure(mixed):int $idOf
+     * @param \Closure(mixed):array{recorded:int, already:int, failed:int} $write
+     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
+     */
+    private function recordPage(
+        string $kind,
+        int $after,
+        int $limit,
+        ?ImportProgressInterface $progress,
+        \Closure $read,
+        \Closure $idOf,
+        \Closure $write
+    ): array {
+        $empty = [
+            'kind' => $kind,
+            'done' => 0,
+            'recorded' => 0,
+            'already' => 0,
+            'failed' => 0,
+            'last' => $after,
+            'more' => false,
+            'lease_lost' => false,
+            'stopped' => '',
+            'notes' => [],
+        ];
+        if ($this->shopRecords === null) {
+            // Nowhere to keep records. Reported as «more => false» with
+            // nothing done, which is what is true; the page says why.
+            return $empty;
+        }
+
+        $size = max(1, $limit);
+        $stopped = '';
+        $progress?->entering('page_read', 0);
+        $page = $read($after, $size);
+        $progress?->left();
+
+        $last = $after;
+        $done = 0;
+        $already = 0;
+        $failed = 0;
+        $recorded = 0;
+        $leaseLost = false;
+        $notes = [];
+
+        foreach ($page as $unit) {
+            $id = $idOf($unit);
+            // Asked BETWEEN units, never inside one. A unit that has started
+            // runs to its end: stopping inside one is what the host already
+            // does, and the whole point of asking is not to be there when it
+            // happens.
+            if ($progress !== null && !$progress->keepGoing()) {
+                $stopped = $progress->stopReason();
+                break;
+            }
+            if ($progress !== null) {
+                $claim = $progress->claim($id);
+                if ($claim === UnitClaim::LeaseLost) {
+                    $leaseLost = true;
+                    break;
+                }
+                if ($claim === UnitClaim::GiveUp) {
+                    $last = max($last, $id);
+                    $failed++;
+                    $note = $kind . ':' . $id . ':stalled_after_' . $progress->attempts($id) . '_attempts';
+                    $notes[] = $note;
+                    if (!$progress->landed($last, 0, 1, [$note])) {
+                        $leaseLost = true;
+                        break;
+                    }
+                    continue;
+                }
+            }
+            $last = max($last, $id);
+
+            if ($progress !== null && !$progress->entering('record_write', $id)) {
+                $leaseLost = true;
+                break;
+            }
+            $tally = ['recorded' => 0, 'already' => 0, 'failed' => 0];
+            $hold = LeaseHold::Held;
+            if ($progress === null) {
+                $tally = $write($unit);
+            } else {
+                // The write and the question «is this job still mine» are one
+                // unit of work: `alpha.74`'s rule, because a check that
+                // returns is a report and a guarantee is one the write sits
+                // inside of.
+                $hold = $progress->writing(function () use ($write, $unit, &$tally): bool {
+                    $tally = $write($unit);
+                    return $tally['failed'] === 0;
+                });
+                $progress->left();
+            }
+
+            if ($hold === LeaseHold::LeaseLost) {
+                $leaseLost = true;
+                break;
+            }
+            if ($hold === LeaseHold::NotWritten) {
+                // Rolled back whole, so nothing of this unit is held — the
+                // counts it reported are not banked, and the position is named
+                // rather than passed over in silence.
+                $failed++;
+                $notes[] = $kind . ':' . $id . ':not_written';
+                $tally = ['recorded' => 0, 'already' => 0, 'failed' => 0];
+            }
+            $done += $tally['recorded'];
+            $already += $tally['already'];
+
+            if ($progress !== null) {
+                if (!$progress->landed($last, $tally['recorded'], $hold === LeaseHold::NotWritten ? 1 : 0)) {
+                    $leaseLost = true;
+                    break;
+                }
+                $recorded += $tally['recorded'];
             }
         }
 
-        $balanceRows = $this->dokan->balanceRowsAfter($afterBalanceId, $limit);
-        $lastBalance = $afterBalanceId;
-        foreach ($balanceRows as $row) {
-            $lastBalance = max($lastBalance, (int) ($row['row_id'] ?? $row['trn_id']));
-            $this->count($done, 'balance', $this->shopRecords->recordBalance($runId, $row));
-        }
-
-        $withdrawRows = $this->dokan->withdrawalsAfter($afterWithdrawId, $limit);
-        $lastWithdraw = $afterWithdrawId;
-        foreach ($withdrawRows as $row) {
-            $lastWithdraw = max($lastWithdraw, (int) $row['withdraw_id']);
-            $this->count($done, 'withdrawals', $this->shopRecords->recordWithdrawal($runId, $row));
-        }
-
-        return $done + [
-            'last_balance' => $lastBalance,
-            'last_withdraw' => $lastWithdraw,
-            'more' => count($balanceRows) >= $limit || count($withdrawRows) >= $limit,
+        return [
+            'kind' => $kind,
+            // ⛔ Derived from what was actually banked by `landed()`, never
+            // from the length of the page: `alpha.76`'s rule, because the
+            // first `break` breaks the assumption that the loop reached the
+            // end and nothing turns red when it does.
+            'done' => max(0, $done - $recorded),
+            'recorded' => $recorded,
+            'already' => $already,
+            'failed' => $failed,
+            'last' => $last,
+            'more' => $leaseLost ? false : ($stopped !== '' || count($page) >= $size),
+            'lease_lost' => $leaseLost,
+            'stopped' => $stopped,
+            'notes' => $notes,
         ];
+    }
+
+    /**
+     * @param array{recorded:int, already:int, failed:int} $tally
+     */
+    private function tally(array &$tally, string $outcome): void
+    {
+        match ($outcome) {
+            ShopRecordRepositoryInterface::RECORDED => $tally['recorded']++,
+            ShopRecordRepositoryInterface::FAILED => $tally['failed']++,
+            default => $tally['already']++,       // the unique key answered
+        };
     }
 
     /** What a shop's imported past adds up to, in Dokan's own figures. */
@@ -167,22 +446,6 @@ final class ImportFromDokan
     public function orderIsAlreadyOurs(int $wcOrderId): bool
     {
         return $this->ledger?->coversOrder($wcOrderId) ?? false;
-    }
-
-    /** @param array<string,int> $tally */
-    private function count(array &$tally, string $key, string $outcome): void
-    {
-        match ($outcome) {
-            ShopRecordRepositoryInterface::RECORDED => $tally[$key]++,
-            ShopRecordRepositoryInterface::FAILED => $tally['failed']++,
-            default => null,                    // already there: a re-run
-        };
-    }
-
-    /** @return list<int> */
-    private function dokanVendorIds(): array
-    {
-        return array_map(static fn (array $v): int => (int) $v['user_id'], $this->dokan->vendors());
     }
 
     /**
@@ -1623,6 +1886,13 @@ final class ImportFromDokan
             'vendors' => $this->dokan->vendorsAfter($afterId, 1)[0]['user_id'] ?? null,
             'products' => $this->dokan->productsAfter($afterId, 1)[0]['wc_product_id'] ?? null,
             'orders' => $this->dokan->ordersAfter($afterId, 1)[0]['wc_order_id'] ?? null,
+            // The three record kinds. Named with a suffix so a cursor can
+            // never be read as the product import's phase of the same word:
+            // «staff» would collide with nothing today and the collision is
+            // the kind that is found by a bug report.
+            'staff_records' => $this->dokan->vendorsAfter($afterId, 1)[0]['user_id'] ?? null,
+            'balance_records' => $this->dokan->balanceRowsAfter($afterId, 1)[0]['row_id'] ?? null,
+            'withdrawal_records' => $this->dokan->withdrawalsAfter($afterId, 1)[0]['withdraw_id'] ?? null,
             default => null,
         };
         return $row === null ? null : (int) $row;

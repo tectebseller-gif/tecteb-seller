@@ -1,0 +1,35 @@
+PASS 0 the installed package is the one built here
+note seed: shop_tmc77shopa=202 · shop_tmc77shopb=203 · staff=204 · seeded=yes · shop_a=202 · shop_b=203 · our_staff=0 · our_balance=0 · our_withdrawals=0 · record_jobs=0
+PASS 0a the two shops exist
+PASS 0b and NOT one record is held yet
+PASS 1a the handover screen is the one it says it is
+PASS 1b the record preview is there
+PASS 1c …and says it only reads
+PASS 1d all three kinds are named apart
+PASS 1e both imported shops are listed, records or not
+PASS 1f …and the record kinds carry the «not imported yet» badge
+PASS 1g the retired empty state is NOT on the page
+PASS 1h …nor its call to action
+PASS 1i the explicit button is offered
+PASS 1j …and what it will and will not do is said beside it
+PASS 1k drawing the page imported nothing
+PASS 1l …and queued nothing
+PASS 2a the manager is told it was queued
+PASS 2b …and a record job exists
+PASS 2c …and pressing the button imported nothing by itself
+note after the queue: shop_a=202 · shop_b=203 · our_staff=1 · our_balance=3 · our_withdrawals=2 · record_jobs=1
+PASS 3a the staff record arrived
+PASS 3b the balance rows arrived
+PASS 3c the withdrawals arrived
+PASS 4a the preview now reads «imported»
+PASS 4b …and no kind still carries the «not imported yet» badge
+PASS 5a the figures section is on the import page
+PASS 5b …naming the catalogue-wide read
+PASS 5c …beside the run manifests
+PASS 6 no horizontal overflow at 390px
+note axe handover: 0 violations, 0 serious/critical
+PASS 7 axe on the handover screen: no serious or critical violation
+note axe import: 0 violations, 0 serious/critical
+PASS 7 axe on the import screen: no serious or critical violation
+note reset: reset=yes · shop_a=0 · shop_b=0 · our_staff=0 · our_balance=0 · our_withdrawals=0 · record_jobs=0
+ pass=29 fail=0

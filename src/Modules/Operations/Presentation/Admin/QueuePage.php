@@ -198,20 +198,43 @@ final class QueuePage
     {
         $progress = $job->progress();
         $done = $fa((string) $job->done);
-        $shown = $progress === null
-            ? sprintf(
+        $accounted = $job->done + $job->failed;
+        if ($progress === null) {
+            $shown = sprintf(
                 /* translators: 1: done, 2: failed */
                 __('%1$s انجام، %2$s رد', 'tecteb-marketplace-core'),
                 $done,
                 $fa((string) $job->failed)
-            )
-            : sprintf(
+            );
+        } elseif ($job->total > 0 && $accounted > $job->total) {
+            // ⛔ More has been accounted for than the job declared it would
+            // do. `Job::progress()` clamps at a hundred per cent, so until
+            // this round the row read «۱۰۰٪ (۱۹۰ از ۱۸۶)» — a figure that
+            // cannot be read as anything but an error, with nothing saying
+            // which of the two numbers was wrong.
+            //
+            // It is the DENOMINATOR. The Dokan import's three phases all
+            // count towards `done_count`, and the enqueue declared a total
+            // of vendors plus products — the orders were missing from the
+            // figure, never from the work. Said out loud rather than fixed
+            // in the row, because a job that has finished is a record of
+            // what happened and editing its numbers would destroy it.
+            $shown = sprintf(
+                /* translators: 1: done, 2: failed, 3: the declared total */
+                __('%1$s انجام، %2$s رد — بیشتر از سقف اعلام‌شدهٔ %3$s. عددِ کم، سقف است نه کار: این کار چند مرحله دارد و سقفی که در صف اعلام شده همهٔ مرحله‌ها را نمی‌شمرد.', 'tecteb-marketplace-core'),
+                $done,
+                $fa((string) $job->failed),
+                $fa((string) $job->total)
+            );
+        } else {
+            $shown = sprintf(
                 /* translators: 1: percent, 2: done, 3: total */
                 __('%1$s٪ (%2$s از %3$s)', 'tecteb-marketplace-core'),
                 $fa((string) $progress),
                 $done,
                 $fa((string) $job->total)
             );
+        }
 
         $out = '<tr><td data-label="' . esc_attr__('شماره', 'tecteb-marketplace-core') . '">'
             . Components::code((string) $job->id) . '</td>'

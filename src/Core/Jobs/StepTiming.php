@@ -91,6 +91,11 @@ final class StepTiming
         'image_file_copy',
         'image_metadata',
         'attach',
+        // Writing ONE shop record — a staff member, a balance row, a
+        // withdrawal request. One name for the three because what a person
+        // reading the row needs to know is «it was writing a record», and
+        // which kind is already in the cursor's phase.
+        'record_write',
     ];
 
     /**
