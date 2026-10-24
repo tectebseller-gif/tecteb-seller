@@ -580,6 +580,146 @@ final class WpDokanReader implements DokanReaderInterface
         return $rows === null ? RecordSource::unreadable() : RecordSource::counted((int) $rows);
     }
 
+    /**
+     * The three record sources, enumerated and counted.
+     *
+     * One query per source to count the distinct owners and one to list them,
+     * in that order, and the two are compared. A list that came back shorter
+     * than its own count is reported `readable => false` rather than trusted:
+     * `getResults()` cannot tell «none» from «the statement failed»
+     * (`alpha.8`), and a short enumeration here would silently narrow the
+     * scope of the page that uses it — the exact failure this method was
+     * added to end.
+     *
+     * `present` is kept apart from `readable`: a table that is not on this
+     * install (Dokan Lite has no vendor staff at all) names no owner and
+     * nothing is wrong, whereas a table that is there and would not answer is
+     * a question with no answer.
+     *
+     * @return array{ids:list<int>, readable:bool, sources:array<string, array{ids:list<int>, readable:bool, present:bool}>}
+     */
+    public function recordOwnerIds(): array
+    {
+        if (!$this->isAvailable()) {
+            $none = ['ids' => [], 'readable' => false, 'present' => false];
+            return [
+                'ids' => [],
+                'readable' => false,
+                'sources' => ['sellers' => $none, 'balance' => $none, 'withdrawals' => $none],
+            ];
+        }
+
+        $sources = [
+            'sellers' => $this->sellerIds(),
+            'balance' => $this->ownerIds($this->db->prefix() . 'dokan_vendor_balance', 'vendor_id'),
+            'withdrawals' => $this->ownerIds($this->db->prefix() . 'dokan_withdraw', 'user_id'),
+        ];
+
+        $ids = [];
+        $readable = true;
+        foreach ($sources as $source) {
+            foreach ($source['ids'] as $id) {
+                $ids[] = (int) $id;
+            }
+            if ($source['readable'] === false) {
+                $readable = false;
+            }
+        }
+        $ids = array_values(array_unique($ids));
+        sort($ids);
+
+        return ['ids' => $ids, 'readable' => $readable, 'sources' => $sources];
+    }
+
+    /**
+     * Every user carrying Dokan's seller role — the staff walk's universe.
+     *
+     * The same join `vendorsAfter()` pages over, without the keyset: this is
+     * a scope and not a walk, so it answers about the whole set or says it
+     * could not.
+     *
+     * @return array{ids:list<int>, readable:bool, present:bool}
+     */
+    private function sellerIds(): array
+    {
+        $where = '`' . $this->db->prefix() . 'users` u
+             INNER JOIN `' . $this->db->prefix() . 'usermeta` m
+                     ON m.user_id = u.ID AND m.meta_key = %s
+                  WHERE m.meta_value LIKE %s';
+        $params = [$this->db->prefix() . 'capabilities', '%"seller"%'];
+        $count = $this->db->getVar('SELECT COUNT(DISTINCT u.ID) FROM ' . $where, $params);
+        if ($count === null) {
+            return ['ids' => [], 'readable' => false, 'present' => true];
+        }
+        $rows = $this->db->getResults('SELECT DISTINCT u.ID AS owner FROM ' . $where, $params);
+        return $this->owners($rows, (int) $count, true);
+    }
+
+    /**
+     * One of Dokan's own record tables, enumerated by owner.
+     *
+     * The identifiers are interpolated and therefore validated rather than
+     * trusted — the `alpha.60` rule. Both callers pass constants, so a
+     * failure here would mean this file had been edited wrongly, and the
+     * answer that cannot narrow a scope by accident is «not readable».
+     *
+     * @return array{ids:list<int>, readable:bool, present:bool}
+     */
+    private function ownerIds(string $table, string $ownerColumn): array
+    {
+        if (preg_match('/^[A-Za-z0-9_]+$/', $table) !== 1
+            || preg_match('/^[A-Za-z0-9_]+$/', $ownerColumn) !== 1
+        ) {
+            return ['ids' => [], 'readable' => false, 'present' => false];
+        }
+        $exists = $this->db->getVar(
+            'SELECT COUNT(*) FROM information_schema.TABLES
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+            [$table]
+        );
+        if ($exists === null) {
+            return ['ids' => [], 'readable' => false, 'present' => false];
+        }
+        if ((int) $exists === 0) {
+            // Not on this install: it names no owner, and nothing is wrong.
+            return ['ids' => [], 'readable' => true, 'present' => false];
+        }
+        $count = $this->db->getVar(
+            'SELECT COUNT(DISTINCT `' . $ownerColumn . '`) FROM `' . $table . '`'
+        );
+        if ($count === null) {
+            return ['ids' => [], 'readable' => false, 'present' => true];
+        }
+        $rows = $this->db->getResults(
+            'SELECT DISTINCT `' . $ownerColumn . '` AS owner FROM `' . $table . '`'
+        );
+        return $this->owners($rows, (int) $count, true);
+    }
+
+    /**
+     * The ids of one source, accepted only when as many came back as were
+     * counted.
+     *
+     * @param list<array<string,mixed>> $rows
+     * @return array{ids:list<int>, readable:bool, present:bool}
+     */
+    private function owners(array $rows, int $counted, bool $present): array
+    {
+        $ids = [];
+        foreach ($rows as $row) {
+            $id = (int) ($row['owner'] ?? 0);
+            if ($id > 0) {
+                $ids[$id] = $id;
+            }
+        }
+        $ids = array_values($ids);
+        sort($ids);
+        // An id of nought or below is not an owner, so the comparison is
+        // against what was counted MINUS nothing: `COUNT(DISTINCT col)` skips
+        // NULL and counts a literal nought, which is why `>=` and not `===`.
+        return ['ids' => $ids, 'readable' => count($rows) >= $counted, 'present' => $present];
+    }
+
     public function counts(): array
     {
         if (!$this->isAvailable()) {

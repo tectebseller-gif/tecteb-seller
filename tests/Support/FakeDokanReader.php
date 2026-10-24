@@ -217,6 +217,82 @@ final class FakeDokanReader implements DokanReaderInterface
         return $seen;
     }
 
+    /**
+     * The scope the record import can touch, from the same fixture rows the
+     * walk pages over.
+     *
+     * Derived rather than configured on purpose: the defect this method exists
+     * for was two scopes that disagreed, so a fake whose scope came from its
+     * own separate list could agree with the preview while the walk went
+     * somewhere else — the fixture would then hide exactly the mismatch.
+     * Sellers come from `vendorRows` because that is what `vendorsAfter()`
+     * pages, and the other two from the record rows themselves.
+     *
+     * `unreadableSources` moves this answer too, so a test can ask what the
+     * page says when the scope itself could not be enumerated.
+     *
+     * @return array{ids:list<int>, readable:bool, sources:array<string, array{ids:list<int>, readable:bool, present:bool}>}
+     */
+    public function recordOwnerIds(): array
+    {
+        if (!$this->available) {
+            $none = ['ids' => [], 'readable' => false, 'present' => false];
+            return [
+                'ids' => [],
+                'readable' => false,
+                'sources' => ['sellers' => $none, 'balance' => $none, 'withdrawals' => $none],
+            ];
+        }
+
+        $sellers = array_map(static fn (array $row): int => (int) ($row['user_id'] ?? 0), $this->vendors());
+        $owners = function (array $rows): array {
+            $out = [];
+            foreach ($rows as $row) {
+                $id = (int) ($row['vendor_user_id'] ?? 0);
+                if ($id > 0) {
+                    $out[$id] = $id;
+                }
+            }
+            $out = array_values($out);
+            sort($out);
+            return $out;
+        };
+
+        $one = function (string $kind, array $ids): array {
+            if (in_array($kind, $this->unreadableSources, true)) {
+                return ['ids' => [], 'readable' => false, 'present' => true];
+            }
+            if (in_array($kind, $this->absentSources, true)) {
+                return ['ids' => [], 'readable' => true, 'present' => false];
+            }
+            return ['ids' => $ids, 'readable' => true, 'present' => true];
+        };
+
+        $sources = [
+            'sellers' => $one('staff', $owners(array_map(
+                static fn (int $id): array => ['vendor_user_id' => $id],
+                array_values(array_filter($sellers, static fn (int $id): bool => $id > 0))
+            ))),
+            'balance' => $one('balance', $owners($this->balanceRows)),
+            'withdrawals' => $one('withdrawals', $owners($this->withdrawRows)),
+        ];
+
+        $ids = [];
+        $readable = true;
+        foreach ($sources as $source) {
+            foreach ($source['ids'] as $id) {
+                $ids[(int) $id] = (int) $id;
+            }
+            if ($source['readable'] === false) {
+                $readable = false;
+            }
+        }
+        $ids = array_values($ids);
+        sort($ids);
+
+        return ['ids' => $ids, 'readable' => $readable, 'sources' => $sources];
+    }
+
     public function counts(): array
     {
         return [

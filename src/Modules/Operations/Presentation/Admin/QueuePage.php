@@ -226,6 +226,24 @@ final class QueuePage
                 $fa((string) $job->failed),
                 $fa((string) $job->total)
             );
+        } elseif ($progress >= 100 && $job->status->isLive()) {
+            // ⛔ A full bar on a job that is still running.
+            //
+            // `Job::progress()` is «accounted for, over the declared
+            // ceiling», and for a job with phases that is not the same
+            // question as «is it finished». The record import declares a
+            // ceiling of staff plus balance plus withdrawal rows and walks
+            // the three kinds in turn, so the counter can reach the ceiling
+            // with a kind still to go — and «۱۰۰٪ (۱۴ از ۱۴)» beside a live
+            // row reads as done. What is true is that the counted work has
+            // reached the number the queue was told to expect, and the row
+            // now says exactly that and no more.
+            $shown = sprintf(
+                /* translators: 1: done, 2: the declared total */
+                __('%1$s از %2$s شمرده شده — به سقف اعلام‌شده رسید، ولی کار هنوز در جریان است. سقف پایانِ مرحله‌ها را نمی‌گوید.', 'tecteb-marketplace-core'),
+                $done,
+                $fa((string) $job->total)
+            );
         } else {
             $shown = sprintf(
                 /* translators: 1: percent, 2: done, 3: total */

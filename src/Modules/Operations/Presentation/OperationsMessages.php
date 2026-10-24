@@ -44,6 +44,16 @@ final class OperationsMessages
             'vendors' => __('فروشندگان', 'tecteb-marketplace-core'),
             'products' => __('محصولات', 'tecteb-marketplace-core'),
             'orders' => __('سابقهٔ سفارش', 'tecteb-marketplace-core'),
+            // ⛔ The record import's three phases. Without them the queue
+            // page printed «مرحلهٔ نامعلوم» for every batch of a job whose
+            // cursor named its phase perfectly well — a display that invited
+            // a reader to think the job had lost its place. The keys carry
+            // the `_records` suffix precisely so a cursor can never be read
+            // as the product import's phase of the same word, and that is
+            // only worth having if BOTH lists know the suffixed names.
+            'staff_records' => __('پرسنل فروشگاه', 'tecteb-marketplace-core'),
+            'balance_records' => __('دفتر مانده', 'tecteb-marketplace-core'),
+            'withdrawal_records' => __('درخواست‌های برداشت', 'tecteb-marketplace-core'),
             default => __('نامعلوم', 'tecteb-marketplace-core'),
         };
     }

@@ -21,7 +21,8 @@ use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
  * the verdict is `complete` only when every one of them is true. Anything else
  * is `incomplete` and names what is missing — a list, not an investigation.
  *
- *   records_imported   the archive exists at all
+ *   records_imported   the archive has nothing left to bring over, and
+ *                      a verified zero counts as nothing left
  *   categories_mapped  no product is sitting as a draft for want of a category
  *   ownership_taken    the rows are the marketplace's to run, not notes
  *   vendor_can_sell    admission happened, through review, not through import
@@ -60,8 +61,84 @@ final class MigrationCompleteness
         private readonly VendorRepositoryInterface $vendors,
         private readonly ProductRepositoryInterface $products,
         private readonly ?DokanReaderInterface $dokan = null,
-        private readonly ?CategoryMap $categories = null
+        private readonly ?CategoryMap $categories = null,
+        /**
+         * The record verdicts, so the archive gate can tell a VERIFIED ZERO
+         * from an import that never happened. Optional, and without it the
+         * gate keeps the old count — a missing dependency must not be allowed
+         * to invent a verdict about somebody's shop.
+         */
+        private readonly ?ShopRecordPreview $recordsPreview = null
     ) {
+    }
+
+    /** Every kind read, every kind as complete here as it can be. */
+    public const RECORDS_SETTLED = 'settled';
+
+    /** At least one kind has rows in Dokan that we do not hold. */
+    public const RECORDS_OUTSTANDING = 'outstanding';
+
+    /** At least one read FAILED. Never nought, and never «settled». */
+    public const RECORDS_UNREADABLE = 'unreadable';
+
+    /** Nothing could be established — Dokan gone, table absent, no store. */
+    public const RECORDS_UNVERIFIABLE = 'unverifiable';
+
+    /**
+     * What the three record sources add up to for one shop.
+     *
+     * ⛔ **This is the measurement the `records_imported` gate used to get
+     * wrong.** The gate was `(balance + withdrawals + staff) > 0 || products
+     * > 0`: a count, and therefore a gate that cannot distinguish «nobody
+     * imported the records» from «there are none to import». Measured on
+     * staging for vendor 40: all three sources read successfully, all three
+     * are empty, nothing is missing and nothing can ever arrive — and the
+     * completeness table named «ورود سابقه» as a blocker, with the only way
+     * to clear it being to invent a record. A gate whose only exit is a lie
+     * is worse than no gate.
+     *
+     * So the question moved from «how many rows do we hold» to «is there
+     * anything left to bring over, and do we know». Four answers, and the
+     * four are kept apart because they ask different things of a person: fix
+     * the read, press the button, nothing to do, or «Dokan is gone and this
+     * can no longer be checked».
+     *
+     * `unverifiable` is the only one that falls back to the old count, and
+     * for the reason `unmappedFor()` already states one method below: with
+     * Dokan gone the question cannot be asked at all, and the gate then
+     * answers from what is in front of it rather than inventing a past. A
+     * shop whose archive landed before Dokan was switched off must not become
+     * permanently incomplete for want of a source nobody can read again.
+     *
+     * @return array{state:string, kinds:array<string,string>}
+     */
+    public function recordsState(int $vendorUserId): array
+    {
+        if ($this->recordsPreview === null) {
+            return ['state' => self::RECORDS_UNVERIFIABLE, 'kinds' => []];
+        }
+        $row = $this->recordsPreview->forVendor($vendorUserId);
+        $verdicts = [];
+        foreach ($row['kinds'] as $kind => $cell) {
+            $verdicts[(string) $kind] = (string) $cell['verdict'];
+        }
+
+        $has = static fn (array $wanted): bool => array_intersect($wanted, array_values($verdicts)) !== [];
+
+        // The ladder's order is the order a person should act in, and the
+        // first two come before «settled» for the same reason
+        // `ShopRecordPreview::verdict()` tests unreadability first: a verdict
+        // read off a number nobody could check is the collapse both classes
+        // exist to refuse.
+        $state = match (true) {
+            $has([ShopRecordPreview::UNREADABLE]) => self::RECORDS_UNREADABLE,
+            $has([ShopRecordPreview::PENDING, ShopRecordPreview::PARTIAL]) => self::RECORDS_OUTSTANDING,
+            $has([ShopRecordPreview::UNCHECKED]) => self::RECORDS_UNVERIFIABLE,
+            $verdicts === [] => self::RECORDS_UNVERIFIABLE,
+            default => self::RECORDS_SETTLED,
+        };
+
+        return ['state' => $state, 'kinds' => $verdicts];
     }
 
     /** @return array<string,mixed> */
@@ -74,9 +151,18 @@ final class MigrationCompleteness
         $undecidedRoles = $this->roles->undecided($staffRows);
         $unmappedCategories = $this->unmappedFor($vendorUserId);
 
+        $records = $this->recordsState($vendorUserId);
+        $heldOrRead = ($summary['balance_rows'] + $summary['withdrawals'] + $summary['staff']) > 0
+            || $tally['marketplace'] + $tally['observed'] > 0;
+
         $gates = [
-            'records_imported' => ($summary['balance_rows'] + $summary['withdrawals'] + $summary['staff']) > 0
-                || $tally['marketplace'] + $tally['observed'] > 0,
+            // A verified zero settles it; an unreadable source never does,
+            // and an unverifiable one falls back to «did anything arrive».
+            'records_imported' => match ($records['state']) {
+                self::RECORDS_SETTLED => true,
+                self::RECORDS_OUTSTANDING, self::RECORDS_UNREADABLE => false,
+                default => $heldOrRead,
+            },
             'categories_mapped' => $unmappedCategories === [],
             // Observed rows are catalogue notes. A shop whose products are all
             // still notes has been read, not moved.
@@ -110,6 +196,11 @@ final class MigrationCompleteness
                 'unmapped_categories' => $unmappedCategories,
                 'balance_rows' => (int) $summary['balance_rows'],
                 'withdrawal_rows' => (int) $summary['withdrawals'],
+                // Why the gate answered what it did. A zero that was READ is
+                // not the same row as a zero that could not be, and the page
+                // prints the difference instead of one warning for both.
+                'records_state' => $records['state'],
+                'records_kinds' => $records['kinds'],
             ],
         ];
     }

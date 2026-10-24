@@ -160,6 +160,31 @@ interface DokanReaderInterface
     public function recordSourceFor(int $vendorUserId): array;
 
     /**
+     * Every vendor id Dokan's own record sources NAME as an owner.
+     *
+     * ⛔ **Why a scope method exists at all.** The record import walks these
+     * tables and nothing else: `vendorsAfter()` for staff, and
+     * `balanceRowsAfter()`/`withdrawalsAfter()` for the other two kinds —
+     * both of which hold every shop at once. So the set of shops it can
+     * write a record for is this one, and it has never been the set the
+     * preview asked about. Measured on staging: the preview listed the two
+     * IMPORTED shops (40 and 102) and the run then wrote fourteen rows owned
+     * by 2, 4, 6, 8, 16 and 102, whose owners appeared on the page only
+     * AFTER the import. Both halves were right about their own question and
+     * the page had two scopes.
+     *
+     * `readable` is the `alpha.8` half: `getResults()` answers `[]` both for
+     * «no owners» and for «the statement failed», and an enumeration that
+     * silently came back short would hide exactly the shops this method
+     * exists to reveal. Each source is counted first and the ids are then
+     * compared against that count, so a short read is reported rather than
+     * believed.
+     *
+     * @return array{ids:list<int>, readable:bool, sources:array<string, array{ids:list<int>, readable:bool, present:bool}>}
+     */
+    public function recordOwnerIds(): array;
+
+    /**
      * How many rows there are in total, per kind, so a caller can say «۴ از
      * ۳٬۲۰۰» instead of «در حال کار».
      *

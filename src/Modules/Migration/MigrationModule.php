@@ -37,6 +37,7 @@ use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\OrderHistoryRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\FinanceHandoverRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordPreview;
+use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordScope;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository;
@@ -199,7 +200,32 @@ final class MigrationModule implements ModuleInterface
             $c->get(VendorRepositoryInterface::class),
             $c->get(ProductRepositoryInterface::class),
             $c->get(DokanReaderInterface::class),
-            $c->get(CategoryMap::class)
+            $c->get(CategoryMap::class),
+            // The record gate asks the preview's verdicts rather than
+            // counting rows: a shop whose three sources were read and are
+            // empty has nothing left to import, and `rows > 0` called that
+            // «سابقه وارد نشده» for ever. Optional, and without it the gate
+            // keeps the old count — a missing dependency must not invent a
+            // verdict.
+            $c->has(ShopRecordPreview::class) ? $c->get(ShopRecordPreview::class) : null
+        ));
+        // The ONE list the preview and the record import both work on.
+        //
+        // ⛔ The scope used to be two lists that agreed about nothing: the
+        // preview asked which shops had been imported and the walk asked
+        // Dokan, so on staging six ids owned records that appeared on the
+        // page only after the run wrote them. Read only — there is no write
+        // method — and it labels an id that owns records without being an
+        // imported shop rather than letting it pass as one.
+        $c->bind(ShopRecordScope::class, static fn (ContainerInterface $c) => new ShopRecordScope(
+            $c->get(MigrationCompleteness::class),
+            $c->get(DokanReaderInterface::class),
+            $c->get(VendorRepositoryInterface::class),
+            // Optional: «there is no such user» and «I could not ask» are two
+            // facts, and the second prints as «—» rather than as the first.
+            $c->has(StaffUserDirectoryInterface::class)
+                ? $c->get(StaffUserDirectoryInterface::class)
+                : null
         ));
 
         // Products this shop already has. The reader has no write method, so
