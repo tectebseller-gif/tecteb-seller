@@ -26,6 +26,7 @@
  *   wp eval-file tools/plugin-exit-inventory.php dokan      # Dokan only
  *   wp eval-file tools/plugin-exit-inventory.php minmax     # Min Max mode and rule counts
  *   wp eval-file tools/plugin-exit-inventory.php files      # path, header and hash of the active files
+ *   wp eval-file tools/plugin-exit-inventory.php intake     # the import path: hooks on it, image sizes, php limits
  *
  * **The honest limit of the static «read only» test.** What
  * `tests/Unit/ReadOnlyInventoryTest.php` proves is that THIS FILE contains no
@@ -586,7 +587,253 @@ if ($section === 'all') {
     }
 }
 
-echo "\n# end of inventory. Nothing was written.\n";
+
+// ------------------------- the product-and-image intake path, and who is on it
+
+if ($section === 'all' || $section === 'intake') {
+    $head('intake path: php limits');
+    echo "# What ends a long request here. `max_execution_time` is the CLI\n";
+    echo "# value when this runs under WP-CLI (usually 0 = unlimited), so the\n";
+    echo "# figure that matters is the one a WEB request gets — read it from\n";
+    echo "# the admin «سلامت» page or a phpinfo, not from this line.\n";
+    $line('sapi', PHP_SAPI);
+    $line('max_execution_time', (string) ini_get('max_execution_time'));
+    $line('max_input_time', (string) ini_get('max_input_time'));
+    $line('memory_limit', (string) ini_get('memory_limit'));
+    $line('default_socket_timeout', (string) ini_get('default_socket_timeout'));
+    $disabled = (string) ini_get('disable_functions');
+    $line('set_time_limit_available', function_exists('set_time_limit')
+        && !str_contains($disabled, 'set_time_limit') ? 'yes' : 'no');
+    $line('ignore_user_abort_available', function_exists('ignore_user_abort') ? 'yes' : 'no');
+    $line('disable_functions', $disabled === '' ? '(none)' : $disabled);
+
+    $head('intake path: the image editor that would be chosen');
+    echo "# GD and Imagick differ by a large factor on the same source, so\n";
+    echo "# which one WordPress picks is part of any timing claim.\n";
+    $line('gd_loaded', extension_loaded('gd') ? 'yes' : 'no');
+    $line('imagick_loaded', extension_loaded('imagick') ? 'yes' : 'no');
+    $chosen = function_exists('_wp_image_editor_choose')
+        ? (string) (_wp_image_editor_choose(['mime_type' => 'image/jpeg']) ?: 'none')
+        : 'unknown';
+    $line('editor_for_jpeg', $chosen);
+
+    $head('intake path: registered image sizes');
+    echo "# EVERY one of these is produced from EVERY imported picture, inside\n";
+    echo "# `wp_generate_attachment_metadata()`. The count and the dimensions\n";
+    echo "# are the whole of the CPU cost of candidate 2 in\n";
+    echo "# docs/import-timeout-findings-alpha74-fa.md.\n";
+    global $_wp_additional_image_sizes;
+    $registered = function_exists('get_intermediate_image_sizes') ? get_intermediate_image_sizes() : [];
+    $line('registered_sizes', (string) count($registered));
+    foreach ($registered as $name) {
+        $w = (int) get_option($name . '_size_w');
+        $h = (int) get_option($name . '_size_h');
+        $crop = (bool) get_option($name . '_crop');
+        if (isset($_wp_additional_image_sizes[$name])) {
+            $w = (int) ($_wp_additional_image_sizes[$name]['width'] ?? 0);
+            $h = (int) ($_wp_additional_image_sizes[$name]['height'] ?? 0);
+            $crop = (bool) ($_wp_additional_image_sizes[$name]['crop'] ?? false);
+        }
+        $line('size', (string) $name . ' | ' . $w . 'x' . $h . ' | crop=' . ($crop ? 'yes' : 'no'));
+    }
+    $line('big_image_size_threshold', (string) (int) apply_filters('big_image_size_threshold', 2560, [0, 0], '', 0));
+    $formats = (array) apply_filters('image_editor_output_format', [], '', '');
+    $line('output_format_overrides', $formats === [] ? '(none)' : implode(',', array_keys($formats)));
+
+    $head('intake path: callbacks on every hook the import reaches');
+    echo "# THIS IS THE ANSWER TO «کدام هوک‌ها فراخوانی می‌شوند». The marketplace\n";
+    echo "# plugin itself issues NO outbound request anywhere — measured by\n";
+    echo "# grep over src/ for wp_remote_*, download_url, media_sideload_image,\n";
+    echo "# curl_init and fsockopen, all zero. So anything waiting on an\n";
+    echo "# external service during an import is reached through one of the\n";
+    echo "# hooks below, registered by some other plugin.\n";
+    echo "# Printed per hook: priority | callback | the file it is declared in.\n";
+    $hooks = [
+        // The slow half of one product, in call order.
+        'get_attached_file',
+        'upload_dir',
+        'wp_unique_filename',
+        'upload_mimes',
+        'wp_insert_attachment_data',
+        'add_attachment',
+        'save_post_attachment',
+        'save_post',
+        'wp_after_insert_post',
+        'wp_image_editors',
+        'wp_read_image_metadata',
+        'big_image_size_threshold',
+        'intermediate_image_sizes_advanced',
+        'wp_generate_attachment_metadata',
+        'wp_update_attachment_metadata',
+        'added_post_meta',
+        'updated_post_meta',
+        // And the three that would see an outbound request leaving.
+        'pre_http_request',
+        'http_request_args',
+        'http_api_debug',
+        'requests-requests.before_request',
+    ];
+    $describe = static function (mixed $callback): string {
+        try {
+            if (is_string($callback)) {
+                if (str_contains($callback, '::')) {
+                    [$class, $method] = explode('::', $callback, 2);
+                    $r = new \ReflectionMethod($class, $method);
+                } else {
+                    $r = new \ReflectionFunction($callback);
+                }
+            } elseif (is_array($callback) && count($callback) === 2) {
+                $owner = $callback[0];
+                $name = is_object($owner) ? get_class($owner) : (string) $owner;
+                $r = new \ReflectionMethod($name, (string) $callback[1]);
+                $where = (string) $r->getFileName();
+                return $name . '::' . (string) $callback[1] . ' | ' . $where;
+            } elseif ($callback instanceof \Closure) {
+                $r = new \ReflectionFunction($callback);
+                return 'closure | ' . (string) $r->getFileName() . ':' . (string) $r->getStartLine();
+            } elseif (is_object($callback) && method_exists($callback, '__invoke')) {
+                $r = new \ReflectionMethod($callback, '__invoke');
+                return get_class($callback) . '::__invoke | ' . (string) $r->getFileName();
+            } else {
+                return '(unrecognised callback)';
+            }
+            $name = $r instanceof \ReflectionMethod
+                ? $r->getDeclaringClass()->getName() . '::' . $r->getName()
+                : $r->getName();
+            return $name . ' | ' . (string) $r->getFileName();
+        } catch (\Throwable $e) {
+            return '(not reflectable: ' . $e->getMessage() . ')';
+        }
+    };
+    $filters = $GLOBALS['wp_filter'] ?? [];
+    foreach ($hooks as $hook) {
+        $registry = $filters[$hook] ?? null;
+        if ($registry === null) {
+            $line('hook', $hook . ' | (nobody)');
+            continue;
+        }
+        $callbacks = $registry instanceof \WP_Hook ? $registry->callbacks : (array) $registry;
+        $count = 0;
+        foreach ((array) $callbacks as $priority => $group) {
+            foreach ((array) $group as $entry) {
+                $count++;
+                $line('hook', $hook . ' | ' . (string) $priority . ' | ' . $describe($entry['function'] ?? null));
+            }
+        }
+        if ($count === 0) {
+            $line('hook', $hook . ' | (nobody)');
+        }
+    }
+
+    $head('intake path: is outbound http blocked here at all');
+    $line('WP_HTTP_BLOCK_EXTERNAL', defined('WP_HTTP_BLOCK_EXTERNAL')
+        ? (WP_HTTP_BLOCK_EXTERNAL ? 'true' : 'false') : 'undefined');
+    $line('WP_ACCESSIBLE_HOSTS', defined('WP_ACCESSIBLE_HOSTS') ? (string) WP_ACCESSIBLE_HOSTS : 'undefined');
+
+    $head('intake path: the uploads folder wp_unique_filename() scans');
+    echo "# `wp_unique_filename()` looks inside the CURRENT month's folder for\n";
+    echo "# every name it tries. A folder with tens of thousands of files is a\n";
+    echo "# cost that grows as the import runs.\n";
+    $dir = wp_upload_dir();
+    $path = (string) ($dir['path'] ?? '');
+    $line('uploads_month_readable', $path !== '' && is_dir($path) ? 'yes' : 'no');
+    if ($path !== '' && is_dir($path)) {
+        $entries = @scandir($path);
+        $line('uploads_month_entries', (string) (is_array($entries) ? max(0, count($entries) - 2) : -1));
+    }
+    $line('uploads_basedir_writable', !empty($dir['error']) ? 'no: ' . (string) $dir['error'] : 'yes');
+
+    $head('intake path: the source pictures still to be imported');
+    echo "# The decisive read-only number for candidate 2: how big the ORIGINALS\n";
+    echo "# are. Dimensions and byte counts only — no titles, no file names, no\n";
+    echo "# URLs. `over_threshold` is how many would ALSO have a scaled original\n";
+    echo "# produced before the ten sizes.\n";
+    $jobRow = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT id, `cursor`, done_count, failed_count, total, status, locked_until, attempts
+               FROM {$wpdb->prefix}tmc_jobs
+              WHERE job_type = %s
+              ORDER BY id ASC
+              LIMIT 1",
+            'dokan_import'
+        ),
+        ARRAY_A
+    );
+    if ($jobRow === null) {
+        $line('import_job', 'no dokan_import job on this site');
+    } else {
+        $line('import_job_id', (string) (int) $jobRow['id']);
+        $line('import_job_status', (string) $jobRow['status']);
+        $line('import_job_done', (string) (int) $jobRow['done_count']);
+        $line('import_job_failed', (string) (int) $jobRow['failed_count']);
+        $line('import_job_total', (string) (int) $jobRow['total']);
+        $line('import_job_attempts', (string) (int) $jobRow['attempts']);
+        $line('import_job_locked_until', (string) ($jobRow['locked_until'] ?? ''));
+        $line('import_job_locked_now', ($jobRow['locked_until'] ?? '') !== ''
+            && strtotime((string) $jobRow['locked_until']) > time() ? 'yes' : 'no');
+        $line('import_job_cursor', (string) $jobRow['cursor']);
+        $decoded = json_decode((string) $jobRow['cursor'], true);
+        $afterId = is_array($decoded) ? (int) ($decoded['after'] ?? 0) : 0;
+        $line('cursor_phase', is_array($decoded) ? (string) ($decoded['phase'] ?? '') : '');
+        $line('cursor_after', (string) $afterId);
+        $line('cursor_at', is_array($decoded) ? (string) (int) ($decoded['at'] ?? 0) : '');
+        $line('cursor_tries', is_array($decoded) ? (string) (int) ($decoded['tries'] ?? 0) : '');
+
+        // The next few source pictures, by the same ordering the import uses.
+        $next = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT p.ID AS product_id, m.meta_value AS thumb
+                   FROM {$wpdb->posts} p
+              LEFT JOIN {$wpdb->postmeta} m ON m.post_id = p.ID AND m.meta_key = %s
+                  WHERE p.post_type = %s AND p.ID > %d
+                  ORDER BY p.ID ASC
+                  LIMIT 10",
+                '_thumbnail_id',
+                'product',
+                $afterId
+            ),
+            ARRAY_A
+        );
+        foreach ((array) $next as $row) {
+            $thumb = (int) ($row['thumb'] ?? 0);
+            if ($thumb <= 0) {
+                $line('next_source', (string) (int) $row['product_id'] . ' | no picture');
+                continue;
+            }
+            $meta = wp_get_attachment_metadata($thumb);
+            $file = get_attached_file($thumb);
+            $bytes = is_string($file) && $file !== '' && file_exists($file) ? (int) filesize($file) : -1;
+            $line(
+                'next_source',
+                (string) (int) $row['product_id']
+                    . ' | attachment=' . $thumb
+                    . ' | ' . (int) ($meta['width'] ?? 0) . 'x' . (int) ($meta['height'] ?? 0)
+                    . ' | bytes=' . $bytes
+                    . ' | sizes_already=' . count((array) ($meta['sizes'] ?? []))
+            );
+        }
+    }
+
+    $threshold = (int) apply_filters('big_image_size_threshold', 2560, [0, 0], '', 0);
+    $buckets = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT COUNT(*) AS n,
+                    SUM(CASE WHEN CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(m.meta_value, 's:5:\"width\";i:', -1), ';', 1) AS UNSIGNED) > %d
+                             THEN 1 ELSE 0 END) AS over_threshold
+               FROM {$wpdb->postmeta} m
+              WHERE m.meta_key = %s",
+            $threshold,
+            '_wp_attachment_metadata'
+        ),
+        ARRAY_A
+    );
+    $line('attachments_with_metadata', (string) (int) ($buckets[0]['n'] ?? 0));
+    $line('attachments_over_threshold', (string) (int) ($buckets[0]['over_threshold'] ?? 0));
+    echo "# ⛔ `attachments_over_threshold` is parsed out of a serialised value\n";
+    echo "# and is an ESTIMATE: an attachment whose metadata is shaped unusually\n";
+    echo "# reads as zero width and is counted as under. It is a shape of the\n";
+    echo "# catalogue, not a figure to decide anything on its own.\n";
+}
 
 // ----------------------------------------- what else the exit has to answer
 
@@ -758,3 +1005,11 @@ if ($section === 'all' || $section === 'minmax' || $section === 'exit') {
     echo "# somebody decided it should, or the loss is accepted. Nothing in\n";
     echo "# this repository loosens a rule to finish a migration.\n";
 }
+
+// ------------------------------------------------------------------- the end
+
+// ⛔ This line used to sit in the MIDDLE of the file: two sections had been
+// appended after it in earlier rounds, so a full run printed «nothing was
+// written» and then carried on printing for another two hundred lines. It
+// is last now, which is the only position in which it means anything.
+echo "\n# end of inventory. Nothing was written.\n";

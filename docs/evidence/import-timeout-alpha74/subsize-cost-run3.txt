@@ -1,0 +1,10 @@
+editor_for_jpeg=unknown
+registered_sizes=10
+big_image_size_threshold=2560
+callbacks_on_generate=1
+source=800x800 bytes=44878 copy_ms=0.15 generate_ms=223.93 subsizes=6 scaled_original=no
+source=1600x1600 bytes=140814 copy_ms=0.22 generate_ms=1043.73 subsizes=9 scaled_original=no
+source=3000x3000 bytes=296886 copy_ms=0.40 generate_ms=3448.62 subsizes=10 scaled_original=yes
+source=4500x4500 bytes=624595 copy_ms=0.58 generate_ms=5887.20 subsizes=10 scaled_original=yes
+cleaned=yes
+exit=0

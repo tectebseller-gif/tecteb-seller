@@ -1,0 +1,10 @@
+editor=stdClass
+gd=yes imagick=no
+registered_sizes=10
+source=800x800 bytes=50341 copy_ms=0.80 generate_ms=215.24 subsizes_written=6
+source=1600x1600 bytes=123644 copy_ms=0.66 generate_ms=1247.97 subsizes_written=9
+source=3000x3000 bytes=328353 copy_ms=0.52 generate_ms=4089.05 subsizes_written=10
+source=4500x4500 bytes=590081 copy_ms=0.55 generate_ms=6630.54 subsizes_written=10
+cleaned=yes
+
+[exited with code 0]

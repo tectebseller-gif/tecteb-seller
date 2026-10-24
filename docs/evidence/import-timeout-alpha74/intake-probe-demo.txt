@@ -1,0 +1,120 @@
+
+## intake path: php limits
+# What ends a long request here. `max_execution_time` is the CLI
+# value when this runs under WP-CLI (usually 0 = unlimited), so the
+# figure that matters is the one a WEB request gets — read it from
+# the admin «سلامت» page or a phpinfo, not from this line.
+sapi=cli
+max_execution_time=0
+max_input_time=-1
+memory_limit=-1
+default_socket_timeout=60
+set_time_limit_available=yes
+ignore_user_abort_available=yes
+disable_functions=(none)
+
+## intake path: the image editor that would be chosen
+# GD and Imagick differ by a large factor on the same source, so
+# which one WordPress picks is part of any timing claim.
+gd_loaded=yes
+imagick_loaded=no
+editor_for_jpeg=WP_Image_Editor_GD
+
+## intake path: registered image sizes
+# EVERY one of these is produced from EVERY imported picture, inside
+# `wp_generate_attachment_metadata()`. The count and the dimensions
+# are the whole of the CPU cost of candidate 2 in
+# docs/import-timeout-findings-alpha74-fa.md.
+registered_sizes=10
+size=thumbnail | 150x150 | crop=yes
+size=medium | 300x300 | crop=no
+size=medium_large | 768x0 | crop=no
+size=large | 1024x1024 | crop=no
+size=1536x1536 | 1536x1536 | crop=no
+size=2048x2048 | 2048x2048 | crop=no
+size=post-thumbnail | 1568x9999 | crop=no
+size=woocommerce_thumbnail | 450x450 | crop=yes
+size=woocommerce_single | 600x0 | crop=no
+size=woocommerce_gallery_thumbnail | 100x100 | crop=yes
+big_image_size_threshold=2560
+output_format_overrides=(none)
+
+## intake path: callbacks on every hook the import reaches
+# THIS IS THE ANSWER TO «کدام هوک‌ها فراخوانی می‌شوند». The marketplace
+# plugin itself issues NO outbound request anywhere — measured by
+# grep over src/ for wp_remote_*, download_url, media_sideload_image,
+# curl_init and fsockopen, all zero. So anything waiting on an
+# external service during an import is reached through one of the
+# hooks below, registered by some other plugin.
+# Printed per hook: priority | callback | the file it is declared in.
+hook=get_attached_file | (nobody)
+hook=upload_dir | 10 | WC_Admin_Upload_Downloadable_Product::upload_dir | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/admin/class-wc-admin-upload-downloadable-product.php
+hook=wp_unique_filename | 10 | WC_Admin_Upload_Downloadable_Product::update_filename | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/admin/class-wc-admin-upload-downloadable-product.php
+hook=upload_mimes | (nobody)
+hook=wp_insert_attachment_data | (nobody)
+hook=add_attachment | 10 | wc_product_attach_featured_image | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/wc-product-functions.php
+hook=save_post_attachment | (nobody)
+hook=save_post | 10 | delete_get_calendar_cache | /home/user/wp-demo/wp-includes/general-template.php
+hook=save_post | 10 | WC_Widget_Cart::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | WC_Widget_Layered_Nav_Filters::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | WC_Widget_Layered_Nav::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | WC_Widget_Price_Filter::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | WC_Widget_Product_Categories::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | WC_Widget_Product_Search::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | WC_Widget_Product_Tag_Cloud::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | WC_Widget_Products::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | WC_Widget_Recently_Viewed::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | WC_Widget_Top_Rated_Products::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | WC_Widget_Recent_Reviews::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | WC_Widget_Rating_Filter::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | WC_Widget_Brand_Nav::flush_widget_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/abstracts/abstract-wc-widget.php
+hook=save_post | 10 | Automattic\WooCommerce\Blocks\BlockTypes\Checkout::update_local_pickup_title | /home/user/wp-demo/wp-content/plugins/woocommerce/src/Blocks/BlockTypes/Checkout.php
+hook=save_post | 10 | Automattic\WooCommerce\Blocks\BlockTypes\CheckoutExpressPaymentBlock::sync_express_payment_attrs | /home/user/wp-demo/wp-content/plugins/woocommerce/src/Blocks/BlockTypes/CheckoutExpressPaymentBlock.php
+hook=wp_after_insert_post | 9 | wp_save_post_revision_on_insert | /home/user/wp-demo/wp-includes/revision.php
+hook=wp_image_editors | (nobody)
+hook=wp_read_image_metadata | (nobody)
+hook=big_image_size_threshold | (nobody)
+hook=intermediate_image_sizes_advanced | (nobody)
+hook=wp_generate_attachment_metadata | 10 | WC_Regenerate_Images::add_uncropped_metadata | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/class-wc-regenerate-images.php
+hook=wp_update_attachment_metadata | (nobody)
+hook=added_post_meta | 10 | wp_cache_set_posts_last_changed | /home/user/wp-demo/wp-includes/post.php
+hook=added_post_meta | 10 | wc_maybe_schedule_sale_events_on_meta_change | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/wc-product-functions.php
+hook=added_post_meta | 10 | WC_Post_Data::flush_object_meta_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/class-wc-post-data.php
+hook=added_post_meta | 10 | Automattic\WooCommerce\Internal\Caches\ProductCacheController::invalidate_product_cache_by_meta | /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Caches/ProductCacheController.php
+hook=added_post_meta | 20 | closure | /home/user/wp-demo/wp-content/plugins/tecteb-marketplace-core/src/Modules/Vendor/Infrastructure/WordPress/StoreCacheInvalidation.php:59
+hook=updated_post_meta | 10 | wp_cache_set_posts_last_changed | /home/user/wp-demo/wp-includes/post.php
+hook=updated_post_meta | 10 | wc_maybe_schedule_sale_events_on_meta_change | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/wc-product-functions.php
+hook=updated_post_meta | 10 | WC_Post_Data::flush_object_meta_cache | /home/user/wp-demo/wp-content/plugins/woocommerce/includes/class-wc-post-data.php
+hook=updated_post_meta | 10 | Automattic\WooCommerce\Internal\Caches\ProductCacheController::invalidate_product_cache_by_meta | /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Caches/ProductCacheController.php
+hook=updated_post_meta | 20 | closure | /home/user/wp-demo/wp-content/plugins/tecteb-marketplace-core/src/Modules/Vendor/Infrastructure/WordPress/StoreCacheInvalidation.php:59
+hook=pre_http_request | (nobody)
+hook=http_request_args | (nobody)
+hook=http_api_debug | (nobody)
+hook=requests-requests.before_request | (nobody)
+
+## intake path: is outbound http blocked here at all
+WP_HTTP_BLOCK_EXTERNAL=true
+WP_ACCESSIBLE_HOSTS=undefined
+
+## intake path: the uploads folder wp_unique_filename() scans
+# `wp_unique_filename()` looks inside the CURRENT month's folder for
+# every name it tries. A folder with tens of thousands of files is a
+# cost that grows as the import runs.
+uploads_month_readable=yes
+uploads_month_entries=14
+uploads_basedir_writable=yes
+
+## intake path: the source pictures still to be imported
+# The decisive read-only number for candidate 2: how big the ORIGINALS
+# are. Dimensions and byte counts only — no titles, no file names, no
+# URLs. `over_threshold` is how many would ALSO have a scaled original
+# produced before the ten sizes.
+import_job=no dokan_import job on this site
+attachments_with_metadata=1
+attachments_over_threshold=0
+# ⛔ `attachments_over_threshold` is parsed out of a serialised value
+# and is an ESTIMATE: an attachment whose metadata is shaped unusually
+# reads as zero width and is counted as under. It is a shape of the
+# catalogue, not a figure to decide anything on its own.
+
+# end of inventory. Nothing was written.
