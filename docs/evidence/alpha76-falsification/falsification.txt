@@ -1,0 +1,108 @@
+=== MUTATION 1: the floor applied after the narrowing (the alpha.75 shape) ===
+/home/user/tecteb-seller/tests/Unit/Core/Jobs/JobBudgetTest.php:200
+
+FAILURES!
+Tests: 14, Assertions: 33, Failures: 3.
+
+=== MUTATION 2: the first-unit exception asked before exhaustion ===
+
+Time: 00:01.135, Memory: 14.00 MB
+
+OK (27 tests, 96 assertions)
+
+Time: 00:00.889, Memory: 22.00 MB
+
+OK (1 test, 18 assertions)
+
+=== MUTATION 2: the first-unit exception asked before exhaustion (the alpha.75 order) ===
+No syntax errors detected in src/Modules/Migration/Application/CursorProgress.php
+/home/user/tecteb-seller/tests/Unit/Modules/Migration/CursorProgressTest.php:395
+
+FAILURES!
+Tests: 27, Assertions: 88, Failures: 2.
+/home/user/tecteb-seller/tests/Database/DokanImportJobTest.php:567
+
+FAILURES!
+Tests: 1, Assertions: 5, Failures: 1.
+
+=== MUTATION 3: the first checkpoint of a batch drops the step record (the alpha.75 shape) ===
+
+Time: 00:00.727, Memory: 22.00 MB
+
+OK (1 test, 12 assertions)
+
+=== MUTATION 4: the over-reported done counter (the alpha.75 shape) ===
+
+/home/user/tecteb-seller/tests/Database/DokanImportJobTest.php:580
+
+FAILURES!
+Tests: 2, Assertions: 19, Failures: 1.
+
+=== MUTATION 5: the step name not held to the list ===
+/home/user/tecteb-seller/tests/Unit/Core/Jobs/StepTimingTest.php:231
+
+FAILURES!
+Tests: 22, Assertions: 66, Failures: 1.
+/home/user/tecteb-seller/tests/Architecture/ProgressFollowsTheWorkTest.php:257
+
+FAILURES!
+Tests: 14, Assertions: 706, Failures: 1.
+
+=== MUTATION 3 (again, targeting the real window): drop the fragment merge in $here() ===
+/home/user/tecteb-seller/tests/Database/DokanImportJobTest.php:460
+
+FAILURES!
+Tests: 1, Assertions: 11, Failures: 1.
+
+=== MUTATION 6: the queue page infers that the worker is dead ===
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+No tests executed!
+
+=== MUTATION 6 (again): the queue page infers that the worker is dead ===
+/home/user/tecteb-seller/tests/Architecture/NoLivenessInferenceTest.php:110
+
+FAILURES!
+Tests: 2, Assertions: 3, Failures: 2.
+
+=== MUTATION 7: the diagnostics page gains a write ===
+/home/user/tecteb-seller/tests/Architecture/IntakeDiagnosticsAreReadOnlyTest.php:100
+
+FAILURES!
+Tests: 5, Assertions: 43, Failures: 1.
+
+=== MUTATION 8: a caller passes a step name that is not on the list ===
+/home/user/tecteb-seller/tests/Architecture/StepNamesComeFromTheListTest.php:81
+
+FAILURES!
+Tests: 5, Assertions: 603, Failures: 1.
+
+=== SUMMARY ===
+Eight mutations, each one the shape of the defect it replaces, each run on a
+QUIET TREE (no suite running, no other edit in flight — the alpha.74 rule) and
+each reverted from a byte-for-byte copy taken before the mutation, verified
+with sha256sum -c afterwards.
+
+ 1  the floor applied AFTER the narrowing (the alpha.75 shape)   3 unit failures
+ 2  the first-unit exception asked before exhaustion             2 unit + 1 database
+ 3  the batch's first checkpoint drops the step fragment         1 database
+ 4  the over-reported done counter (the alpha.75 shape)          1 database
+ 5  the step name not held to the closed list                    1 unit + 1 architecture
+ 6  the queue page infers that the worker is dead                2 architecture
+ 7  the diagnostics page gains a write                           1 architecture
+ 8  a caller passes a step name that is not on the list          1 architecture
+
+⛔ AND TWO THINGS THIS DOES NOT COVER, said rather than left to be assumed:
+
+ *  MUTATION 3 did not falsify on its first attempt, and the reason is a
+    correction to our own account of the defect. `dieAfter($id, 1)` lets the
+    step-start write land as well, and that write rebuilds the whole step
+    fragment from the StepTiming this batch read at the top — so the wipe is
+    only observable to a worker cut off BETWEEN the page-read write and the
+    first step write, which is to say inside productsAfter(). Narrow, and
+    still the window one of the six candidates lives in. The test now kills
+    the worker in exactly that window (dieAfterTheFirstWrite()).
+
+ *  Nothing here measures the HOST. The budget is a declared figure; the real
+    deadline of a web request on staging is Not Run, and so is the cause.

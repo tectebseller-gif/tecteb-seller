@@ -102,6 +102,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0022VendorMone
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0021ReviewSeen;
 use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
 use Tecteb\Marketplace\Core\Jobs\JobBudget;
+use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
 use Tecteb\Marketplace\Infrastructure\Jobs\DbJobRepository;
 use Tecteb\Marketplace\Modules\Product\ProductModule;
@@ -364,9 +365,22 @@ final class Bootstrap
             // `max_execution_time` is nought. So the budget is DECLARED with a
             // conservative default and narrowed — never widened — by PHP's
             // limit. `JobBudget::forRequest()` carries the whole argument.
+            //
+            // And the third number, which is the one the owner asked about:
+            // what this REQUEST has already spent. The host's wall started
+            // when the request arrived, not when the queue was reached, and by
+            // then WordPress has booted, the admin page has rendered and a
+            // POST has been handled. `REQUEST_TIME_FLOAT` is where that is
+            // measured from; without it a batch believes it has the whole
+            // budget on a request that has already used part of the host's
+            // patience.
             static fn (): JobBudget => JobBudget::forRequest(
                 (int) ini_get('max_execution_time'),
-                defined('TMC_JOB_TIME_BUDGET') ? (int) TMC_JOB_TIME_BUDGET : null
+                defined('TMC_JOB_TIME_BUDGET') ? (int) TMC_JOB_TIME_BUDGET : null,
+                // Through `Request`, which is the one file allowed to read a
+                // superglobal — a rule `SecurityRulesTest` holds, and which
+                // caught this line's first version.
+                Request::elapsedMs()
             )
         ));
         $c->bind(OtpProviderInterface::class, static fn () => new NullOtpProvider());

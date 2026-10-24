@@ -76,6 +76,31 @@ final class Request
         return substr(is_string($clean) ? $clean : '', 0, 2048);
     }
 
+    /**
+     * How long ago this REQUEST started, in milliseconds.
+     *
+     * The queue needs it: the host's deadline began when the request arrived,
+     * not when a job was claimed, and by then WordPress has booted, an admin
+     * page has rendered and a POST has been handled. Without this a batch
+     * believes it has its whole budget on a request that has already spent
+     * part of the host's patience — the owner's own question, «زمان صرف‌شده
+     * پیش از شروع JobBudget چگونه در بودجهٔ درخواست حساب می‌شود».
+     *
+     * Read HERE because this is the one file allowed to touch `$_SERVER`, and
+     * sanitising it means one thing: a number, never negative. `0.0` when the
+     * SAPI does not provide it (WP-CLI sets it, but a cron tick through a
+     * stripped-down front controller may not) — which makes the budget behave
+     * exactly as it did before this method existed rather than guessing.
+     */
+    public static function elapsedMs(): float
+    {
+        $raw = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;
+        if (!is_numeric($raw)) {
+            return 0.0;
+        }
+        return max(0.0, (microtime(true) - (float) $raw) * 1000.0);
+    }
+
     public function isPost(): bool
     {
         return $this->method === 'POST';

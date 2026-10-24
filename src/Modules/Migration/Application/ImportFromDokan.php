@@ -738,6 +738,7 @@ final class ImportFromDokan
     {
         $created = ['vendors' => [], 'products' => []];
         $recorded = 0;
+        $recordedFailed = 0;
         $notes = [];
         $failed = 0;
         // One page from the reader, not every seller sliced in PHP. The old
@@ -784,6 +785,7 @@ final class ImportFromDokan
                         break;
                     }
                     $recorded++;
+                    $recordedFailed += $ours ? 0 : 1;
                     continue;
                 }
             }
@@ -815,10 +817,25 @@ final class ImportFromDokan
             $this->rememberRun($runId, $created);
         }
         return [
-            // What the caller still has to count: a unit the sink has already
-            // recorded must not be counted twice.
-            'done' => max(0, count($page) - $recorded),
-            'failed' => $failed,
+            // WHAT THE CALLER STILL HAS TO COUNT — and with a sink, nothing.
+            //
+            // ⛔ This was `count($page) - $recorded`, which is only the same
+            // thing while the loop runs to the END of the page. It does not:
+            // a batch that stops itself for time breaks out after the units
+            // it managed, and the expression then counts every product it
+            // never looked at as done. Measured on a two-shop page stopped
+            // after one: `done=1` for a shop nothing touched, and
+            // `JobRepositoryInterface::checkpoint()` adds that delta to
+            // `done_count` — so the figure the owner reads on the queue page
+            // walks forward over work nobody did. That is the one number
+            // this whole round is trying to make trustworthy.
+            //
+            // `$failed` had a second shape of the same fault: the give-up
+            // branch raises it AND lands it, so a stalled shop was counted
+            // twice. Products already subtracted `$recordedFailed`; this did
+            // not.
+            'done' => $progress === null ? max(0, count($page) - $failed) : 0,
+            'failed' => $progress === null ? $failed : max(0, $failed - $recordedFailed),
             'recorded' => $recorded,
             'last' => $last,
             // A short page is the end. Asking «are there more?» by counting the
@@ -1129,8 +1146,15 @@ final class ImportFromDokan
             $this->rememberRun($runId, $created);
         }
         return [
-            'done' => max(0, count($page) - $failed - $recordedDone),
-            'failed' => max(0, $failed - $recordedFailed),
+            // ⛔ `count($page) - $failed - $recordedDone`, until this round.
+            // Same fault as the vendor loop above and the same measurement:
+            // a page of fifty stopped after two returned `done=48`, and the
+            // runner's final checkpoint adds it to `done_count`. With a sink
+            // every unit's figure has already been written by `landed()`, so
+            // what is left for the caller is nought — in every case, not just
+            // when the loop finishes.
+            'done' => $progress === null ? max(0, count($page) - $failed) : 0,
+            'failed' => $progress === null ? $failed : max(0, $failed - $recordedFailed),
             'recorded' => $recorded,
             'repaired' => $repaired,
             'last' => $last,

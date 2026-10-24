@@ -960,6 +960,39 @@
    catalogue is decided. */
 .tmc-catalogue__more,
 .tmc-catalogue__drawer,
+/* The queue page's read-only intake diagnostic ----------------------------- */
+
+/* ⛔ A class a view writes and no rule matches is an unstyled element, and
+   that is `alpha.32`'s root cause: `.tmc-tabs` and three others were written
+   by twenty views and matched by nothing, so a `<nav><ul>` of links fell back
+   to the browser's list layout and looked like «هفت لینک زیرخط‌دار عمودی». The
+   diagnostic is the longest block on the queue page, so it is a real
+   disclosure — collapsed, at the end, where opening it moves nothing above
+   it (`alpha.34`) — and the disclosure has rules of its own rather than
+   borrowing the catalogue's. */
+.tmc-disclosure {
+  margin-block: var(--tmc-space-3);
+  border: 1px solid var(--tmc-border);
+  border-radius: var(--tmc-radius);
+  background: var(--tmc-surface-2);
+}
+
+.tmc-disclosure > summary {
+  padding: var(--tmc-space-2) var(--tmc-space-3);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* The card inside loses its own frame: two borders around one thing reads as
+   two things. */
+.tmc-disclosure > .tmc-card {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--tmc-border);
+  border-radius: 0;
+  background: transparent;
+}
+
 .tmc-catalogue__settings {
   margin-block: var(--tmc-space-3);
   border: 1px solid var(--tmc-border);

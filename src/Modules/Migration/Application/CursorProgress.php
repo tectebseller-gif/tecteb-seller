@@ -199,31 +199,84 @@ final class CursorProgress implements ImportProgressInterface
         if ($this->budget === null) {
             return true;
         }
+        // SPENT IS SPENT, including before the first unit.
+        //
+        // ⛔ The first version answered `true` for the first unit whatever the
+        // clock said, on the reasoning that nothing had been measured yet so
+        // there was no reserve to hold back. That reasoning is about the
+        // RESERVE and was applied to the wrong question: the owner asked it
+        // straight — «اگر خواندن صفحه بودجه را مصرف کرد، چرا باید اولین محصول
+        // بدون توجه به زمان باقی‌مانده شروع شود؟» — and there is no answer. A
+        // page read, or a lock wait, or a slow bootstrap can take the whole
+        // budget before any product is looked at, and starting a four-second
+        // product in a request with nothing left is choosing to be killed.
+        //
+        // This is not the dead end refusing everything would be: the batch
+        // returns normally, the lease is released, the position is already
+        // written down, and the NEXT request starts with a whole budget. What
+        // it costs is one cheap round trip; what it buys is not being cut off.
+        if ($this->budget->exhausted()) {
+            return false;
+        }
         if ($this->unitsStarted === 0) {
-            // ⛔ The first unit of a batch always gets its attempt. Nothing
-            // has been measured yet, so there is no reserve to hold back —
-            // and a batch that claims a job and then does nothing at all
-            // would take the lease for three hundred seconds to achieve
-            // nothing, which is the cost this budget exists to stop paying.
+            // Still no reserve for the first unit, and that part stands: a
+            // reserve is a measurement, and refusing a unit on the strength
+            // of a figure from a previous request would stall a job for ever
+            // on one bad number. The honest limit, stated rather than
+            // papered over: a single unit bigger than the remaining budget
+            // will overrun it, and what bounds the damage is that the
+            // per-unit attempt count names the position and steps over it.
             return true;
         }
         return $this->budget->roomForAnotherUnit();
     }
 
-    /** Why the batch stopped, for the note the handler returns. */
+    /**
+     * Why the batch stopped — three different facts, named apart.
+     *
+     * ⛔ Not one of them says anything about the HOST's deadline, and the
+     * middle one used to: `time_budget_one_unit_longer_than_the_request` read
+     * as «this product cannot fit in a web request», which is a claim about a
+     * number PHP cannot see. What was measured is a unit against OUR declared
+     * budget, so that is what it is called.
+     */
     public function stopReason(): string
     {
-        if ($this->budget === null) {
+        if ($this->budget === null || $this->leaseLost) {
+            // A lost lease is not a budget reason and must not borrow one:
+            // the batch stopped because the job is somebody else's now, and
+            // `cursor()` is already the honest record of that.
+            return '';
+        }
+        if ($this->budget->exhausted()) {
+            // ⛔ «Before the first unit» is named separately because the next
+            // thing a person does about it is completely different: whatever
+            // spent the budget was not a product — the page read, a lock
+            // wait, or the request's own start-up before the queue was
+            // reached.
+            return $this->unitsStarted === 0
+                ? 'time_budget_spent_before_first_unit'
+                : 'time_budget_spent';
+        }
+        if ($this->unitsStarted === 0) {
+            // Nothing has stopped this batch. ⛔ The first version answered
+            // `time_budget_spent_before_first_unit` here, on the theory that
+            // the method is only ever called after a stop — a theory, not a
+            // guarantee, and a reason invented for a batch that is running
+            // would be printed on the queue page as fact.
             return '';
         }
         if ($this->budget->aUnitOutgrewTheBudget()) {
-            // A product that alone needs more than a whole request will never
-            // land however many workers try it, so it is NAMED rather than
-            // retried in silence. The attempt count and `GIVE_UP_AFTER` step
-            // over it; this says why.
-            return 'time_budget_one_unit_longer_than_the_request';
+            // One unit alone took longer than the whole declared budget. Said
+            // with that comparison in its name, and the figures travel beside
+            // it so the budget it was compared against is visible.
+            return 'time_budget_one_unit_over_budget';
         }
-        return 'time_budget_spent';
+        if (!$this->budget->roomForAnotherUnit()) {
+            // Time left, but less than the slowest unit this batch measured.
+            return 'time_budget_spent';
+        }
+        return '';
     }
 
     /** @param list<string> $notes */
@@ -285,7 +338,7 @@ final class CursorProgress implements ImportProgressInterface
             // flight here, so no stale `running` can ride along.
             $cursor = array_merge($cursor, $this->timing->fragment());
         }
-        return $cursor;
+        return array_merge($cursor, $this->budgetFragment());
     }
 
     public function after(): int
@@ -337,7 +390,37 @@ final class CursorProgress implements ImportProgressInterface
         if ($this->timing !== null) {
             $cursor = array_merge($cursor, $this->timing->fragment());
         }
-        return $cursor;
+        return array_merge($cursor, $this->budgetFragment());
+    }
+
+    /**
+     * What this request's budget was and how much of it had gone.
+     *
+     * Asked for in as many words — «بودجهٔ مصرف‌شده و باقی‌مانده» — and it has
+     * to be in the cursor rather than worked out on the page, because the page
+     * is read in a LATER request whose own budget says nothing about the one
+     * that stopped. Remaining is not stored: it is the difference, and storing
+     * both would let the two disagree.
+     *
+     * `budget_low` is `JobBudget::belowFloor()` — the host left so little that
+     * the batch started on borrowed time. A fact about the host, printed so
+     * that «the batch stopped at once» does not read as a defect in the queue.
+     *
+     * @return array<string,int|bool>
+     */
+    private function budgetFragment(): array
+    {
+        if ($this->budget === null) {
+            return [];
+        }
+        $fragment = [
+            'budget_ms' => (int) round($this->budget->totalSeconds() * 1000.0),
+            'budget_spent_ms' => (int) round($this->budget->spentMs()),
+        ];
+        if ($this->budget->belowFloor()) {
+            $fragment['budget_low'] = true;
+        }
+        return $fragment;
     }
 
     private function write(int $done, int $failed): bool

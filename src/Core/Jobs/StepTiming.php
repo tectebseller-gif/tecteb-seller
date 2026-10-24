@@ -39,10 +39,18 @@ namespace Tecteb\Marketplace\Core\Jobs;
  * ### Nothing sensitive can get in here, by construction
  *
  * The instruction says «اطلاعات حساس ثبت نشود», and a promise in a docblock
- * is not a guarantee. So the TYPES do it: a step is a machine key reduced to
- * `[a-z0-9_]` and at most 32 characters, a unit is an `int`, a duration is a
- * number. There is no field a title, a SKU, a file name, a URL, an address or
- * an amount could be put in, and `StepTimingTest` holds that by trying.
+ * is not a guarantee. So the TYPES do it: a unit is an `int`, a duration is a
+ * number, and a step is **one of a closed list of names** (`STEPS`).
+ *
+ * ⛔ The closed list is the correction this round was asked for. Reducing a
+ * string to `[a-z0-9_]` and thirty-two characters was NOT a proof that what
+ * is left carries nothing: a SKU, a slug, an order reference or an e-mail's
+ * local part survive that reduction almost intact. A name that is not on the
+ * list is stored as `UNLISTED` — the record still exists, because the fact
+ * that a worker was in SOME step is the fact this class is for, and it now
+ * carries nothing whatever about which. An architecture test holds that every
+ * call site in `src/` passes a listed name, so an unlisted one is a defect
+ * caught in the build rather than a value quietly renamed in production.
  *
  * And it is bounded. A cursor is a position, not a log: the last
  * `self::KEPT` finished steps are carried and the rest fall off the front.
@@ -68,6 +76,31 @@ final class StepTiming
 
     /** The longest a step name may be, after reduction. */
     public const NAME_LIMIT = 32;
+
+    /**
+     * Every step this plugin may record. Nothing else is a step.
+     *
+     * In the order one product goes through them, which is also the order a
+     * reader of the queue page needs: the page read happens once a batch, the
+     * rest once a unit.
+     */
+    public const STEPS = [
+        'page_read',
+        'judge',
+        'row_and_manifest',
+        'image_file_copy',
+        'image_metadata',
+        'attach',
+    ];
+
+    /**
+     * What a name that is not on the list becomes.
+     *
+     * Not an empty string, because «some step was in flight» and «no step was
+     * in flight» are different facts and the first is the one that survives a
+     * killed worker. Not the caller's string either — see the class docblock.
+     */
+    public const UNLISTED = 'step_not_listed';
 
     private string $running = '';
 
@@ -97,6 +130,28 @@ final class StepTiming
     private int $worstMs = 0;
 
     /**
+     * Where a PREVIOUS worker was when it stopped writing — never this one.
+     *
+     * ⛔ Added because the alternative loses the only fact this class exists
+     * to produce. A restored `running` was written by a process that never
+     * closed the step, and the next worker's first `entering()` used to
+     * overwrite it — so on a host that cuts off every attempt, each attempt
+     * erased the evidence of the one before it, and the owner would be left
+     * with a single data point after being told the point of the round was to
+     * narrow the step down.
+     *
+     * Keeping them apart is also what lets the page obey «مرحلهٔ کهنه یا قفل
+     * منقضی نباید به‌عنوان اجرای زنده … نمایش داده شود»: `running` is a step
+     * THIS process entered, `stalled` is a step somebody wrote down and never
+     * closed, and no reader has to guess which one it is holding.
+     */
+    private string $stalledStep = '';
+
+    private int $stalledUnit = 0;
+
+    private int $stalledSince = 0;
+
+    /**
      * @param list<mixed> $finished as read back from a cursor; anything that is
      *                              not a well-shaped record is dropped rather
      *                              than repaired, because a half-read record
@@ -107,21 +162,34 @@ final class StepTiming
         int $runningUnit = 0,
         int $runningSince = 0,
         array $finished = [],
-        string $worst = ''
+        string $worst = '',
+        string $stalled = ''
     ) {
         $this->running = self::key($running);
         $this->runningUnit = max(0, $runningUnit);
         $this->runningSince = max(0, $runningSince);
         foreach ($finished as $record) {
-            if (is_string($record) && preg_match('~^\d+:[a-z0-9_]{1,32}:\d+$~', $record) === 1) {
-                $this->finished[] = $record;
+            // Shape first, then the name against the list — a cursor is a
+            // value from the database and a record naming an unlisted step is
+            // either from a build that had a step we have since dropped or
+            // from somebody who edited the row. Either way it is dropped
+            // rather than printed: this table is read by a person deciding
+            // what to do next.
+            if (!is_string($record) || preg_match('~^\d+:([a-z0-9_]{1,32}):\d+$~', $record, $parts) !== 1) {
+                continue;
             }
+            if (!in_array($parts[1], self::STEPS, true) && $parts[1] !== self::UNLISTED) {
+                continue;
+            }
+            $this->finished[] = $record;
         }
         $this->finished = array_slice($this->finished, -self::KEPT);
         // The worst as recorded, or — for a cursor written before this key
         // existed — the worst still inside the window. Never worse than what
         // the window can prove, which is the conservative direction.
-        if (preg_match('~^([a-z0-9_]{1,32}):(\d+)$~', $worst, $parts) === 1) {
+        if (preg_match('~^([a-z0-9_]{1,32}):(\d+)$~', $worst, $parts) === 1
+            && (in_array($parts[1], self::STEPS, true) || $parts[1] === self::UNLISTED)
+        ) {
             $this->worstStep = $parts[1];
             $this->worstMs = (int) $parts[2];
         }
@@ -131,6 +199,13 @@ final class StepTiming
                 $this->worstStep = $step;
                 $this->worstMs = (int) $ms;
             }
+        }
+        if (preg_match('~^([a-z0-9_]{1,32}):(\d+):(\d+)$~', $stalled, $parts) === 1
+            && (in_array($parts[1], self::STEPS, true) || $parts[1] === self::UNLISTED)
+        ) {
+            $this->stalledStep = $parts[1];
+            $this->stalledUnit = (int) $parts[2];
+            $this->stalledSince = (int) $parts[3];
         }
     }
 
@@ -142,7 +217,8 @@ final class StepTiming
             (int) ($cursor['running_unit'] ?? 0),
             (int) ($cursor['running_since'] ?? 0),
             (array) ($cursor['timings'] ?? []),
-            (string) ($cursor['worst'] ?? '')
+            (string) ($cursor['worst'] ?? ''),
+            (string) ($cursor['stalled'] ?? '')
         );
     }
 
@@ -165,6 +241,15 @@ final class StepTiming
      */
     public function entering(string $step, int $unitId, ?int $now = null): void
     {
+        if ($this->running !== '' && $this->enteredAt === null) {
+            // Not ours. A cursor restored it, which means the process that
+            // wrote it never closed the step — so it becomes the stall record
+            // instead of being overwritten by ours. See `$stalledStep`.
+            $this->stalledStep = $this->running;
+            $this->stalledUnit = $this->runningUnit;
+            $this->stalledSince = $this->runningSince;
+            $this->running = '';
+        }
         $this->left();
         $this->running = self::key($step);
         $this->runningUnit = max(0, $unitId);
@@ -210,6 +295,20 @@ final class StepTiming
     }
 
     /**
+     * The step a previous worker left open, as `[step, unit, unix time]`.
+     *
+     * `['', 0, 0]` when no worker has ever left one open on this job. It is
+     * not cleared by the work that follows it: it is the record of an attempt
+     * that ended without closing its step, and that stays true afterwards.
+     *
+     * @return array{0:string, 1:int, 2:int}
+     */
+    public function stalled(): array
+    {
+        return [$this->stalledStep, $this->stalledUnit, $this->stalledSince];
+    }
+
+    /**
      * The longest step EVER seen on this job, as `[step, ms]`, or `['', 0]`.
      *
      * Ever, not «in the window»: see `$worstStep`. A step that was slow three
@@ -251,6 +350,9 @@ final class StepTiming
         if ($this->worstStep !== '') {
             $fragment['worst'] = $this->worstStep . ':' . $this->worstMs;
         }
+        if ($this->stalledStep !== '') {
+            $fragment['stalled'] = $this->stalledStep . ':' . $this->stalledUnit . ':' . $this->stalledSince;
+        }
         return $fragment;
     }
 
@@ -280,6 +382,10 @@ final class StepTiming
         if ($key === '') {
             return '';
         }
-        return substr($key, 0, self::NAME_LIMIT);
+        $key = substr($key, 0, self::NAME_LIMIT);
+        // THE LIST, and it is checked after the reduction rather than before:
+        // a caller that passes `Page Read` means the step, and a caller that
+        // passes anything else gets no say in what is written down.
+        return in_array($key, self::STEPS, true) ? $key : self::UNLISTED;
     }
 }

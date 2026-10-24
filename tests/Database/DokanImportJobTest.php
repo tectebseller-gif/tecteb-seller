@@ -207,18 +207,76 @@ final class DokanImportJobTest extends DatabaseTestCase
         return fn (\Closure $write): string => $this->jobs->writingUnderLease($jobId, $token, $write);
     }
 
+    /**
+     * Let the batch's FIRST write land, then stop existing.
+     *
+     * Not `dieAfter($id, 1)`: that counts only bookkeeping writes, so the
+     * step-start write between the page attempt and the claim lands too — and
+     * that write rebuilds the step fragment, which hides the very thing being
+     * measured. Here the second write of ANY kind is the end of the process.
+     *
+     * @return array<string,mixed> the cursor as the row holds it afterwards
+     */
+    private function dieAfterTheFirstWrite(int $jobId): array
+    {
+        $token = 'tok-' . bin2hex(random_bytes(4));
+        $job = $this->jobs->claim([DokanImportJob::TYPE], $token, 300);
+        self::assertNotNull($job, 'the job has to be claimable for this to mean anything');
+        $written = 0;
+        $checkpoint = function (array $cursor, int $done = 0, int $failed = 0, int $total = 0) use ($job, $token, &$written): bool {
+            if ($written >= 1) {
+                throw new ProcessStoppedExisting();
+            }
+            $written++;
+            return $this->jobs->checkpoint($job->id, $token, $cursor, $done, $failed, $total, 300);
+        };
+        try {
+            $this->handler->step($job, $checkpoint, $this->gateFor($job->id, $token));
+        } catch (ProcessStoppedExisting) {
+            // Which is the whole shape of it.
+        }
+        $row = $this->jobs->find($jobId);
+        self::assertNotNull($row);
+        self::assertSame(1, $written, 'exactly one write landed');
+        return $row->cursor;
+    }
+
     private function dieAfter(int $jobId, int $writes): array
     {
         $token = 'tok-' . bin2hex(random_bytes(4));
         $job = $this->jobs->claim([DokanImportJob::TYPE], $token, 300);
         self::assertNotNull($job, 'the job has to be claimable for this to mean anything');
         $written = 0;
-        $checkpoint = function (array $cursor, int $done = 0, int $failed = 0, int $total = 0) use ($job, $token, &$written, $writes): bool {
-            $marker = ((string) ($cursor['running'] ?? '')) !== '';
-            if (!$marker && $written >= $writes) {
+        // WHAT COUNTS AS A WRITE HERE: one that moves the BOOKKEEPING.
+        //
+        // The handler writes the cursor for two different reasons. One moves
+        // the position — the page-read attempt, a claim, a landing — and those
+        // are what a test saying «die after four writes» is counting. The
+        // other says «I am about to do step X», which happens several times
+        // inside one product and must not be counted, or the numbers in every
+        // test here would change with the number of steps.
+        //
+        // ⛔ The rule used to be «a write with `running` set is a step write».
+        // That stopped being true this round: the first checkpoint of a batch
+        // now carries the step a PREVIOUS worker left open, so on a resumed
+        // job the page-read write looked like a step write and every count in
+        // this file shifted by one — four failures about a handler that was
+        // doing exactly the right thing. The position tuple cannot be fooled
+        // that way: a step write leaves all four of its values alone.
+        $before = null;
+        $checkpoint = function (array $cursor, int $done = 0, int $failed = 0, int $total = 0) use ($job, $token, &$written, &$before, $writes): bool {
+            $tuple = [
+                (int) ($cursor['after'] ?? 0),
+                (int) ($cursor['at'] ?? 0),
+                (int) ($cursor['tries'] ?? 0),
+                (int) ($cursor['page_tries'] ?? 0),
+            ];
+            $bookkeeping = $tuple !== $before;
+            $before = $tuple;
+            if ($bookkeeping && $written >= $writes) {
                 throw new ProcessStoppedExisting();
             }
-            if (!$marker) {
+            if ($bookkeeping) {
                 $written++;
             }
             return $this->jobs->checkpoint($job->id, $token, $cursor, $done, $failed, $total, 300);
@@ -356,6 +414,118 @@ final class DokanImportJobTest extends DatabaseTestCase
     }
 
     /**
+     * THE NEXT ATTEMPT DOES NOT ERASE WHERE THE LAST ONE STOPPED.
+     *
+     * ⛔ The defect the whole-path review found, and the one that defeats
+     * `alpha.75` for exactly the case it was built for. `DokanImportJob::step()`
+     * writes the cursor once BEFORE reading a page — the «we tried to read»
+     * record — and that cursor was built from five keys and nothing else. So
+     * the first write of every batch DELETED `running`, `timings` and `worst`
+     * from the row.
+     *
+     * On a host that cuts off every attempt, that means the step name the last
+     * attempt died in was destroyed at the START of the next one: the only
+     * fact `alpha.75` exists to leave behind, wiped by the attempt that came
+     * looking for it. And it would have been invisible — the owner would have
+     * pressed «اجرا» and seen a row with nothing on it.
+     */
+    public function testTheNextAttemptKeepsWhereTheLastOneStopped(): void
+    {
+        $id = $this->queue();
+        $this->runner->run(1);
+        $died = $this->dieInsideThePicture($id, 2001);
+        self::assertSame('image_metadata', (string) ($died['cursor']['running'] ?? ''));
+        $timings = (array) ($died['cursor']['timings'] ?? []);
+        self::assertNotSame([], $timings);
+        $worst = (string) ($died['cursor']['worst'] ?? '');
+        self::assertNotSame('', $worst);
+
+        // THE NEXT WORKER DIES IN THE WINDOW THE DEFECT LIVED IN.
+        //
+        // ⛔ Which is a narrow window, and saying so is the point of this
+        // comment. The batch's first write is the page-read attempt; the next
+        // write is the first `entering()`, and that one rebuilds the whole
+        // step fragment from the `StepTiming` this batch read at the top. So
+        // the wipe was only observable to a worker cut off BETWEEN those two
+        // — which is to say, inside `productsAfter()`: the page read, one of
+        // the six candidates for what is killing these requests. Narrow is
+        // not harmless when it is the window the suspect lives in.
+        $row = $this->jobs->find($id);
+        self::assertNotNull($row);
+        $this->jobs->release($id, $row->lockToken);
+        $this->dieAfterTheFirstWrite($id);
+
+        $row = $this->jobs->find($id);
+        self::assertNotNull($row);
+        self::assertSame(
+            $worst,
+            (string) ($row->cursor['worst'] ?? ''),
+            'the worst step ever seen survived the next attempt starting'
+        );
+        self::assertSame(
+            $timings,
+            (array) ($row->cursor['timings'] ?? []),
+            'and so did every measured step'
+        );
+        // And the step the dead worker left open is still named.
+        //
+        // ⛔ Under `running` here, not `stalled`, and the difference is a
+        // measurement rather than a detail: at this point the new worker has
+        // not entered a step of its own, so the only thing the row can
+        // honestly say is «somebody opened this step and never closed it» —
+        // which is what `running` plus an expired lease means, and what the
+        // page prints. It moves to `stalled` the moment this worker enters
+        // its own step, which is covered where that happens
+        // (`CursorProgressTest::testAPreviousAttemptsOpenStepSurvivesIntoTheNextOne`).
+        self::assertSame(
+            'image_metadata',
+            (string) ($row->cursor['running'] ?? ''),
+            'where the previous attempt stopped is still on the row'
+        );
+        self::assertSame(1001, (int) ($row->cursor['running_unit'] ?? 0));
+        self::assertSame(
+            (int) ($died['cursor']['running_since'] ?? 0),
+            (int) ($row->cursor['running_since'] ?? 0),
+            'and when, unchanged — this worker did not restart that clock'
+        );
+    }
+
+    /**
+     * A refused step-start write is NOT ignored: the worker stops.
+     *
+     * «ناتوانی در نوشتن checkpoint یا شروع مرحله نادیده گرفته نشود.» The
+     * step-start write is an ordinary checkpoint, so a refusal means the lease
+     * is gone — and carrying on would be a worker writing products into an
+     * import that is no longer its own, which is the whole of `alpha.73`.
+     */
+    public function testAStepStartThatCannotBeWrittenStopsTheWorker(): void
+    {
+        $id = $this->queue();
+        $this->runner->run(1);
+
+        $token = 'tok-' . bin2hex(random_bytes(4));
+        $job = $this->jobs->claim([DokanImportJob::TYPE], $token, 300);
+        self::assertNotNull($job);
+
+        // Every write lands until a step marker asks, and that one is refused
+        // — the shape of a lease taken by somebody else mid-batch.
+        $refusedOne = false;
+        $checkpoint = function (array $cursor, int $done = 0, int $failed = 0, int $total = 0) use ($job, $token, &$refusedOne): bool {
+            if (!$refusedOne && ((string) ($cursor['running'] ?? '')) !== '') {
+                $refusedOne = true;
+                return false;
+            }
+            return $this->jobs->checkpoint($job->id, $token, $cursor, $done, $failed, $total, 300);
+        };
+        $batch = $this->handler->step($job, $checkpoint, $this->gateFor($job->id, $token));
+
+        self::assertTrue($refusedOne, 'the premise: a step-start write really was refused');
+        self::assertSame(0, $this->mapped(), 'and not one product was written after it');
+        self::assertSame(0, $batch->done);
+        self::assertSame(0, $batch->failed);
+    }
+
+    /**
      * A clean unit leaves a number against every step it took.
      *
      * Nothing else in the plugin measured anything before this — `microtime`
@@ -411,28 +581,35 @@ final class DokanImportJobTest extends DatabaseTestCase
     }
 
     /**
-     * A BATCH THAT RUNS OUT OF TIME STOPS BETWEEN PRODUCTS, AND STAYS
-     * RESUMABLE.
+     * A BATCH WHOSE BUDGET IS ALREADY GONE CLAIMS NOTHING.
      *
-     * ⛔ The thing being fixed: `batchSize()` is fifty and nothing in the
-     * plugin knew how long the request had, so the only thing that ended a
-     * long batch was the host killing it — and a killed request calls no
-     * `release()`, so the job then sat locked for the rest of its
-     * three-hundred-second lease. Here the batch ends itself, says why, and
-     * the position is the last product that really landed.
+     * ⛔ THIS TEST USED TO ASSERT THE OPPOSITE, and that is why the defect
+     * shipped. It built a budget of fifteen seconds started fifteen seconds
+     * ago and demanded that the first product still be imported, with the
+     * comment «the first unit always runs» — because `alpha.75` asked the
+     * first-unit exception BEFORE asking whether any time was left. The owner
+     * named it: «اگر خواندن صفحه بودجه را مصرف کرده باشد، چرا اولین محصول
+     * باید بدون توجه به زمان باقی‌مانده شروع شود».
+     *
+     * Spent is spent. Nothing is claimed, the position does not move, the
+     * attempt count of the unit that was next is untouched, and the next
+     * request starts with a whole budget.
      */
-    public function testABatchThatRunsOutOfTimeStopsBetweenProductsAndSaysSo(): void
+    public function testABudgetAlreadySpentClaimsNothingAndBlamesNoProduct(): void
     {
         $id = $this->queue();
         $this->runner->run(1);
+        $before = $this->jobs->find($id);
+        self::assertNotNull($before);
 
         $token = 'tok-' . bin2hex(random_bytes(4));
         $job = $this->jobs->claim([DokanImportJob::TYPE], $token, 300);
         self::assertNotNull($job);
-        // Fifteen seconds of budget, started fifteen seconds ago: the first
-        // unit always runs and the second is refused. Deterministic, with no
-        // sleeping — a timing test that waits is a timing test that is flaky.
+        // Fifteen seconds of budget, started fifteen seconds ago. Deterministic
+        // with no sleeping — a timing test that waits is a timing test that is
+        // flaky.
         $spent = JobBudget::of(15.0, (hrtime(true) / 1e6) - 15_000.0);
+        self::assertTrue($spent->exhausted(), 'the premise: there really is no time');
         $batch = $this->handler->step(
             $job,
             fn (array $cursor, int $done = 0, int $failed = 0, int $total = 0): bool
@@ -443,23 +620,30 @@ final class DokanImportJobTest extends DatabaseTestCase
 
         self::assertTrue($batch->more, 'the phase is NOT finished, and the job stays claimable');
         self::assertSame(
-            'time_budget_spent',
+            'time_budget_spent_before_first_unit',
             (string) ($batch->cursor['stopped'] ?? ''),
-            'and it says why, in the cursor — the runner drops notes'
+            'and the reason names what spent it: not a product'
         );
+        self::assertSame(0, $this->mapped(), 'no product was imported');
         self::assertSame(
-            1001,
+            (int) ($before->cursor['after'] ?? 0),
             (int) $batch->cursor['after'],
-            'the position is the one product that really landed'
+            'the position did not move'
         );
-        self::assertSame(0, (int) $batch->cursor['at'], 'and nothing is left mid-attempt');
-        self::assertSame(1, $this->mapped(), 'exactly one product arrived');
-        self::assertSame(0, $this->duplicates());
+        self::assertSame(0, (int) $batch->cursor['at'], 'and nothing is mid-attempt');
+        self::assertSame(0, (int) $batch->cursor['tries'], 'the next unit was not charged an attempt');
+        self::assertSame(0, $batch->done, 'and nothing was counted done');
+        self::assertSame(0, $batch->failed, 'the end of a budget is not a product failing');
 
-        // And it carries on from there rather than starting the page again.
+        // THE FIGURES TRAVEL, so the page can say what happened in a later
+        // request — «بودجهٔ مصرف‌شده و باقی‌مانده».
+        self::assertSame(15_000, (int) $batch->cursor['budget_ms']);
+        self::assertGreaterThanOrEqual(15_000, (int) $batch->cursor['budget_spent_ms']);
+
+        // And it carries on from there with a budget of its own.
         $this->jobs->release($job->id, $token);
         $this->runner->run(1);
-        self::assertGreaterThan(1, $this->mapped(), 'the next worker continued');
+        self::assertGreaterThanOrEqual(1, $this->mapped(), 'the next request did the work');
         $row = $this->jobs->find($id);
         self::assertNotNull($row);
         self::assertArrayNotHasKey(
@@ -470,14 +654,18 @@ final class DokanImportJobTest extends DatabaseTestCase
     }
 
     /**
-     * A single product that needs more than a whole request is NAMED.
+     * A SMALL BUDGET STOPS A FIFTY-PRODUCT PAGE EARLY AND KEEPS WHAT LANDED.
      *
-     * «اگر یک مرحله به‌تنهایی طولانی است، آن را جداگانه مدیریت کن». Retrying
-     * cannot fix it, so the honest thing is to say which product it is and
-     * which step: the attempt count and `GIVE_UP_AFTER` step over it, and this
-     * is the sentence that tells somebody why.
+     * «یک دستهٔ چندمحصولی با بودجهٔ کوچک، پیشرفت را ذخیره و عادی بازگردد.»
+     *
+     * ⛔ The assertions are invariants rather than a product count, on
+     * purpose. How many products fit in fifty milliseconds depends on the
+     * machine, and a test that demanded «exactly one» would be asserting the
+     * speed of this container. What must hold on every machine: it stopped
+     * before the page ended, it said why, nothing is mid-attempt, nothing is
+     * duplicated, and the rest is still there to do.
      */
-    public function testAUnitLongerThanTheWholeRequestIsNamedRatherThanRetriedInSilence(): void
+    public function testASmallBudgetStopsEarlyAndKeepsTheProgressItMade(): void
     {
         $id = $this->queue();
         $this->runner->run(1);
@@ -485,25 +673,35 @@ final class DokanImportJobTest extends DatabaseTestCase
         $token = 'tok-' . bin2hex(random_bytes(4));
         $job = $this->jobs->claim([DokanImportJob::TYPE], $token, 300);
         self::assertNotNull($job);
-        // A tenth of a millisecond of budget: the first unit runs, and
-        // whatever it cost — several database writes — is more than that.
-        $tiny = JobBudget::of(0.0001, hrtime(true) / 1e6);
+        $small = JobBudget::of(0.05);
         $batch = $this->handler->step(
             $job,
             fn (array $cursor, int $done = 0, int $failed = 0, int $total = 0): bool
                 => $this->jobs->checkpoint($job->id, $token, $cursor, $done, $failed, $total, 300),
             $this->gateFor($job->id, $token),
-            $tiny
+            $small
         );
 
-        self::assertTrue($tiny->aUnitOutgrewTheBudget());
-        self::assertSame(
-            'time_budget_one_unit_longer_than_the_request',
+        self::assertTrue($batch->more, 'there is more to do and the job stays claimable');
+        self::assertContains(
             (string) ($batch->cursor['stopped'] ?? ''),
-            'said as its own reason, because retrying is not the answer to it'
+            [
+                'time_budget_spent',
+                'time_budget_spent_before_first_unit',
+                'time_budget_one_unit_over_budget',
+            ],
+            'it ended itself for time, and said which kind'
         );
-        self::assertTrue($batch->more);
-        self::assertSame(1, $this->mapped(), 'the first unit still got its attempt, and landed');
+        self::assertSame(0, (int) $batch->cursor['at'], 'nothing is left mid-attempt');
+        self::assertSame(0, $this->duplicates(), 'and nothing was imported twice');
+        self::assertLessThan(50, $this->mapped(), 'it really did stop before the page ended');
+
+        // Whatever landed is still there, and the rest follows.
+        $landed = $this->mapped();
+        $this->jobs->release($job->id, $token);
+        $this->runner->run(1);
+        self::assertGreaterThanOrEqual($landed, $this->mapped(), 'nothing that landed was lost');
+        self::assertSame(0, $this->duplicates());
     }
 
     /**

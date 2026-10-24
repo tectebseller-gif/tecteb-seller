@@ -245,9 +245,24 @@ final class ProgressFollowsTheWorkTest extends TestCase
             'and it is bounded, so a long string cannot ride in as a name'
         );
         self::assertStringContainsString(
-            '~^\d+:[a-z0-9_]{1,32}:\d+$~',
+            '~^\d+:([a-z0-9_]{1,32}):\d+$~',
             $code,
             'a record read back from a cursor is shape-checked, not trusted'
+        );
+        // ⛔ And the shape is no longer the whole of the guarantee. Reduction
+        // left a SKU, a slug or a path's tail nearly intact, so the name is
+        // also held to a closed list — on the way in and on the way back.
+        // `StepNamesComeFromTheListTest` holds the call sites to the same
+        // list; this holds the class that stores them.
+        self::assertStringContainsString(
+            'in_array($key, self::STEPS, true) ? $key : self::UNLISTED',
+            $code,
+            'a name that is not on the list must not be stored as given'
+        );
+        self::assertSame(
+            3,
+            preg_match_all('~in_array\(\$parts\[1\], self::STEPS, true\)~', $code),
+            'all three records read back from a cursor — the window, the worst and the stall — are checked against the list'
         );
     }
 

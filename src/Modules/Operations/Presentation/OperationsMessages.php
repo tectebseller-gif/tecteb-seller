@@ -51,12 +51,17 @@ final class OperationsMessages
     /**
      * A step's machine key, in Persian, for «زمان مرحله‌ها».
      *
-     * ⛔ The key falls through unchanged rather than becoming «نامعلوم», and
-     * that is the opposite choice from `importPhase()` above on purpose: a
-     * phase is one of three and an unknown one is a bug, while a step is
-     * whatever the handler named and a step this list has not caught up with
-     * is still the most useful thing on the row. Hiding it behind «unknown»
-     * would lose the one word somebody is looking for.
+     * One case per name in `StepTiming::STEPS`, plus the one name that is not
+     * a step: `StepTiming::UNLISTED`, which is what a key that was never on
+     * the list becomes before it is stored. It gets a sentence of its own
+     * rather than being printed raw — a reader seeing `step_not_listed` would
+     * reasonably think a step is called that.
+     *
+     * ⛔ Anything else still falls through unchanged, which is the opposite
+     * choice from `importPhase()` on purpose: a row written by an older build
+     * may name a step this list has since dropped, and the raw key is the most
+     * useful thing on that row. It cannot carry anything but a key — see the
+     * closed list in `StepTiming`.
      */
     public static function importStep(string $step): string
     {
@@ -67,20 +72,43 @@ final class OperationsMessages
             'image_file_copy' => __('کپی فایل تصویر', 'tecteb-marketplace-core'),
             'image_metadata' => __('ساخت اندازه‌های تصویر', 'tecteb-marketplace-core'),
             'attach' => __('چسباندن تصویر به محصول', 'tecteb-marketplace-core'),
+            'step_not_listed' => __('مرحله‌ای بیرون از فهرست مجاز', 'tecteb-marketplace-core'),
             default => $step,
         };
     }
 
-    /** Why a batch ended itself, for «جای توقف» on the queue page. */
+    /**
+     * Why a batch ended ITSELF, for «جای توقف» on the queue page.
+     *
+     * ⛔ Every sentence here is about OUR declared budget and says so. The
+     * middle key used to be `time_budget_one_unit_longer_than_the_request`
+     * and its sentence said a product takes longer than a whole web request —
+     * which is not what was measured and cannot be measured from inside PHP:
+     * the request's real deadline belongs to FPM, the web server or a proxy.
+     * A unit over our fifteen seconds may be perfectly survivable on a host
+     * that allows sixty. What is measured is a unit against the budget, so
+     * that is what the key and the sentence say.
+     */
     public static function stopReason(string $why): string
     {
         return match ($why) {
             'time_budget_spent' => __(
-                'این دسته خودش تمام شد چون وقتِ این درخواست رو به پایان بود؛ ادامه از همین‌جا.',
+                'این دسته خودش تمام شد چون بودجهٔ زمانیِ اعلام‌شده رو به پایان بود؛ ادامه از همین‌جا.',
                 'tecteb-marketplace-core'
             ),
+            'time_budget_spent_before_first_unit' => __(
+                'بودجهٔ زمانی پیش از رسیدن به اولین محصول تمام شده بود — یعنی خودِ خواندنِ صفحه یا انتظارِ قفل آن را خرج کرد. ادامه از همین‌جا؛ عددِ بودجه و مصرف در همین ردیف است.',
+                'tecteb-marketplace-core'
+            ),
+            'time_budget_one_unit_over_budget' => __(
+                'یک محصول به‌تنهایی از بودجهٔ زمانیِ اعلام‌شدهٔ ما بیشتر برد. این دربارهٔ بودجهٔ ما است، نه مهلت واقعی میزبان — که از داخل PHP خوانده نمی‌شود. زمان مرحله‌ها می‌گوید کدام مرحله گران است.',
+                'tecteb-marketplace-core'
+            ),
+            // ⛔ Kept, and only as a label: rows written by `alpha.75` carry
+            // the old key, and a cursor from an installed package is read by
+            // the package that replaces it. The sentence is the corrected one.
             'time_budget_one_unit_longer_than_the_request' => __(
-                '⛔ یک محصول به‌تنهایی از کلِ وقتِ یک درخواست بیشتر می‌برد. تلاش دوباره حلش نمی‌کند؛ زمان مرحله‌ها می‌گوید کدام مرحله است.',
+                'یک محصول به‌تنهایی از بودجهٔ زمانیِ اعلام‌شدهٔ ما بیشتر برد. (این ردیف با نسخهٔ پیشین نوشته شده؛ آن نسخه این را «بیشتر از کلِ وقتِ یک درخواست» می‌نامید، که اندازه‌گیری نشده بود.)',
                 'tecteb-marketplace-core'
             ),
             default => $why,

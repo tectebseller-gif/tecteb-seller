@@ -165,10 +165,30 @@ final class DokanImportJob implements JobHandlerInterface
             return $this->withoutALease($runId, $phase, $after, $total, $refused);
         }
 
-        $here = static function (string $p, int $a, int $u, int $t, int $pt, array $names): array {
+        // The step record travels in the cursor, so a worker that is cut off
+        // leaves behind the name of the step it was in — see `StepTiming`.
+        //
+        // ⛔ Read HERE, above the first checkpoint, and not after it. It used
+        // to be read below, and `$here()` built the cursor from five keys and
+        // nothing else — so the batch's first write, the one that happens
+        // before the page is even read, DELETED `running`, `timings`, `worst`
+        // and `stalled` from the row. On the owner's host, where every attempt
+        // is cut off, that erased the previous attempt's step name at the
+        // start of the next one: the one fact `alpha.75` was built to leave
+        // behind was destroyed by the attempt that came to look for it.
+        $timing = StepTiming::fromCursor($job->cursor);
+        $here = static function (string $p, int $a, int $u, int $t, int $pt, array $names) use ($timing, $budget): array {
             $cursor = ['phase' => $p, 'after' => $a, 'at' => $u, 'tries' => $t, 'page_tries' => $pt];
             if ($names !== []) {
                 $cursor['refused'] = array_slice($names, -self::REFUSALS_KEPT);
+            }
+            $cursor = array_merge($cursor, $timing->fragment());
+            if ($budget !== null) {
+                $cursor['budget_ms'] = (int) round($budget->totalSeconds() * 1000.0);
+                $cursor['budget_spent_ms'] = (int) round($budget->spentMs());
+                if ($budget->belowFloor()) {
+                    $cursor['budget_low'] = true;
+                }
             }
             return $cursor;
         };
@@ -188,9 +208,6 @@ final class DokanImportJob implements JobHandlerInterface
             return $this->stepOver($phase, $after, $total, $pageTries - 1, $refused, $here);
         }
 
-        // The step record travels in the cursor, so a worker that is cut off
-        // leaves behind the name of the step it was in — see `StepTiming`.
-        $timing = StepTiming::fromCursor($job->cursor);
         $progress = new CursorProgress(
             static fn (array $cursor, int $done, int $failed): bool
                 => $checkpoint($cursor, $done, $failed, $total),

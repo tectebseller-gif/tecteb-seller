@@ -14,6 +14,9 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpJobScheduler;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
+use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
+use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
+use Tecteb\Marketplace\Modules\Operations\Infrastructure\WordPress\IntakeDiagnostics;
 use Tecteb\Marketplace\Modules\Operations\Presentation\OperationsMessages;
 
 /**
@@ -68,6 +71,7 @@ final class QueuePage
         $this->renderBinding($fa);
         $this->renderCensus($fa);
         $this->renderList($request, $fa);
+        $this->renderIntake($fa);
         echo Components::shellClose();
     }
 
@@ -150,7 +154,7 @@ final class QueuePage
             ));
         }
         if ((int) ($census['stalled'] ?? 0) > 0) {
-            echo Components::notice('warning', __('چند کار «بی‌صاحب» مانده‌اند: مهلت قفلشان تمام شده و هیچ کارگری نگهشان نداشته — معمولاً یعنی اجرا وسط کار قطع شده. با اجرای بعدی خودشان از همان نقطهٔ ثبت‌شده ادامه می‌یابند.', 'tecteb-marketplace-core'));
+            echo Components::notice('warning', __('چند کار «بی‌صاحب» مانده‌اند: مهلت قفلشان تمام شده و هیچ کارگری نگهشان نداشته. چرایش از این ردیف مشخص نمی‌شود — درخواست می‌تواند قطع شده باشد، یا در مرحله‌ای کُند مانده باشد. آنچه معلوم است این است که اجرای بعدی می‌تواند برشان دارد و از همان نقطهٔ ثبت‌شده ادامه دهد.', 'tecteb-marketplace-core'));
         }
         if ((int) ($census['failed'] ?? 0) > 0) {
             echo Components::notice('warning', __('کار شکست‌خورده دوباره تلاش نمی‌شود: دستوری که غلط بوده با تکرار درست نمی‌شود. دلیلش را در فهرست زیر ببینید و اگر رفع شد، کار تازه‌ای در صف بگذارید.', 'tecteb-marketplace-core'));
@@ -339,17 +343,60 @@ final class QueuePage
         if ($timing->running() !== '') {
             $since = $timing->runningSince();
             $ago = $since > 0 ? max(0, time() - $since) : 0;
+            // «آخرین مرحلهٔ ثبت‌شده», not «در مرحلهٔ».
+            //
+            // ⛔ The row says a step was entered and never closed. It does NOT
+            // say a process is in it now: the only thing that closes a step is
+            // code running in the same process, so this sentence is identical
+            // whether a worker is working, waiting on a lock, or gone. Calling
+            // it «in progress» was a claim about liveness that nothing here
+            // can check.
             $lines[] = sprintf(
                 /* translators: 1: step name, 2: product id, 3: seconds */
-                __('در مرحلهٔ «%1$s» روی شمارهٔ %2$s، از %3$s ثانیه پیش', 'tecteb-marketplace-core'),
+                __('آخرین مرحلهٔ ثبت‌شده: «%1$s» روی شمارهٔ %2$s، %3$s ثانیه پیش — و بسته نشده است.', 'tecteb-marketplace-core'),
                 OperationsMessages::importStep($timing->running()),
                 $fa((string) $timing->runningUnit()),
                 $fa((string) $ago)
             );
             if ($job->lockedUntil === '' || strtotime($job->lockedUntil) <= time()) {
-                // The lease has gone and the step never closed, so this is
-                // not «in progress» — it is where the last worker stopped.
-                $lines[] = __('کارگری که این را نوشت دیگر زنده نیست؛ این جای توقفِ آن است.', 'tecteb-marketplace-core');
+                // ⛔ And this used to read «کارگری که این را نوشت دیگر زنده
+                // نیست». That was an inference, and an invalid one: an expired
+                // lease means the lease expired. The process may have been
+                // killed, or it may still be inside a slow step with its
+                // checkpoints behind it, or waiting on a database lock. All
+                // three produce this row. What follows from the expiry alone
+                // is only that `claim()` will now hand the job to whoever asks.
+                $lines[] = __('مهلت قفل گذشته است، پس کارِ بعدی می‌تواند این را بردارد. زنده‌بودنِ پردازشِ قبلی از این ردیف مشخص نمی‌شود.', 'tecteb-marketplace-core');
+            } else {
+                $lines[] = __('مهلت قفل هنوز نگذشته است. این یعنی کارِ دیگری آن را برنمی‌دارد — نه اینکه پردازشی در حال اجراست.', 'tecteb-marketplace-core');
+            }
+        }
+        [$stalledStep, $stalledUnit, $stalledSince] = $timing->stalled();
+        if ($stalledStep !== '') {
+            // A step a PREVIOUS attempt opened and never closed, kept apart
+            // from the one above so that repeated attempts accumulate evidence
+            // instead of each one erasing the last — see `StepTiming`.
+            $lines[] = sprintf(
+                /* translators: 1: step name, 2: product id, 3: date and time */
+                __('در تلاشی پیش از این، مرحلهٔ «%1$s» روی شمارهٔ %2$s باز ماند (%3$s).', 'tecteb-marketplace-core'),
+                OperationsMessages::importStep($stalledStep),
+                $fa((string) $stalledUnit),
+                $stalledSince > 0
+                    ? $fa((string) wp_date('Y-m-d H:i', $stalledSince))
+                    : __('زمانش ثبت نشده', 'tecteb-marketplace-core')
+            );
+        }
+        $budgetMs = (int) ($job->cursor['budget_ms'] ?? 0);
+        if ($budgetMs > 0) {
+            $spentMs = (int) ($job->cursor['budget_spent_ms'] ?? 0);
+            $lines[] = sprintf(
+                /* translators: 1: spent ms, 2: total ms */
+                __('بودجهٔ زمانیِ آن درخواست: %2$s میلی‌ثانیه، و تا لحظهٔ این ثبت %1$s میلی‌ثانیه‌اش رفته بود.', 'tecteb-marketplace-core'),
+                $fa((string) $spentMs),
+                $fa((string) $budgetMs)
+            );
+            if (!empty($job->cursor['budget_low'])) {
+                $lines[] = __('⛔ این بودجه از کفِ پنج ثانیه کمتر بود — یعنی مهلتی که PHP اعلام می‌کند برای یک دستهٔ کامل کم است. عدد بالا برده نمی‌شود؛ گفته می‌شود.', 'tecteb-marketplace-core');
             }
         }
         [$slowStep, $slowMs] = $timing->slowest();
@@ -384,10 +431,16 @@ final class QueuePage
             $out .= '<span class="tmc-field__desc">' . esc_html($line) . '</span>';
         }
         // ⛔ Said on the page, because a table of numbers invites the reading
-        // that the numbers are everything: only machine keys, product ids and
-        // durations are recorded here, and that is deliberate.
+        // that the numbers are everything: only step names FROM A FIXED LIST,
+        // product ids and durations are recorded here, and that is deliberate.
         $out .= '<span class="tmc-field__desc">'
-            . esc_html__('فقط نام مرحله، شمارهٔ محصول و زمان ثبت می‌شود — نه عنوان، نه فایل، نه نشانی.', 'tecteb-marketplace-core')
+            . esc_html__('فقط نام مرحله از یک فهرست ثابت، شمارهٔ محصول و زمان ثبت می‌شود — نه عنوان، نه فایل، نه نشانی، نه هیچ مقدارِ دیگری.', 'tecteb-marketplace-core')
+            . '</span>';
+        // And the three endings kept apart, because the page is read by
+        // somebody deciding what to do next and they are three different
+        // facts: the browser's answer, this worker's batch, and the job.
+        $out .= '<span class="tmc-field__desc">'
+            . esc_html__('پایانِ پاسخِ مرورگر، پایانِ دستهٔ این کارگر و پایانِ خودِ کار سه چیزند: خطای مرورگر دربارهٔ دو مورد دیگر چیزی نمی‌گوید، و «بیشتر هست» یعنی دستهٔ این کارگر تمام شد نه کار.', 'tecteb-marketplace-core')
             . '</span></td></tr>';
         return $out;
     }
@@ -500,5 +553,140 @@ final class QueuePage
     private function jobs(): JobRepositoryInterface
     {
         return $this->container->get(JobRepositoryInterface::class);
+    }
+
+    /**
+     * WHAT THIS SITE HAS ON THE INTAKE PATH — read, and nothing else.
+     *
+     * ⛔ Why this is a page and not only `tools/plugin-exit-inventory.php`:
+     * that tool needs WP-CLI or SSH and that access is unconfirmed, so step
+     * zero of the checklist had no path for somebody without a shell.
+     * «دسترسی SSH و WP-CLI تأییدنشده است: مسیر جایگزینِ محدود به مدیر در
+     * staging بده.» This is it, behind this page's own capability — and NOT a
+     * public PHP file, which the instruction forbids in as many words.
+     *
+     * And it answers one thing the tool cannot: the limit that matters is the
+     * one a WEB request gets, and WP-CLI runs with `max_execution_time = 0`.
+     *
+     * Collapsed, because it is the longest thing on the page and the queue is
+     * what somebody came for.
+     *
+     * @param callable(string|int):string $fa
+     */
+    private function renderIntake(callable $fa): void
+    {
+        $out = '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('مسیر ورود: این سایت چه چیزی روی آن دارد', 'tecteb-marketplace-core') . '</h2>';
+        $out .= '<p class="tmc-field__desc">'
+            . esc_html__('این بخش فقط می‌خواند: هیچ گزینه، ردیف، فایل یا تماس خارجی‌ای از آن ساخته نمی‌شود. اعدادش از همین درخواست وب گرفته شده‌اند، پس مهلت PHP اینجا همان چیزی است که یک بازدید واقعی می‌گیرد — نه عددی که WP-CLI گزارش می‌کند.', 'tecteb-marketplace-core')
+            . '</p>';
+
+        $rows = [];
+        foreach (IntakeDiagnostics::limits() as $key => $value) {
+            $rows[] = ['label' => $key, 'value' => $fa($value)];
+        }
+        foreach (IntakeDiagnostics::imageWork() as $key => $value) {
+            $rows[] = ['label' => $key, 'value' => $fa($value)];
+        }
+        foreach (IntakeDiagnostics::outbound() as $key => $value) {
+            $rows[] = ['label' => $key, 'value' => $value];
+        }
+        $uploads = IntakeDiagnostics::uploadsMonth();
+        $rows[] = [
+            'label' => __('فایل‌های پوشهٔ ماهِ بارگذاری', 'tecteb-marketplace-core'),
+            'value' => $fa($uploads['entries']),
+        ];
+        $out .= Components::dataList($rows);
+
+        $out .= '<h3 class="tmc-card__subtitle">'
+            . esc_html__('قلاب‌های مسیر، و فایلی که هر callback در آن اعلام شده', 'tecteb-marketplace-core')
+            . '</h3><p class="tmc-field__desc">'
+            . esc_html__('این افزونه هیچ درخواست خارجی‌ای نمی‌زند — یک آزمون معماری همین را از کلِ کد می‌سنجد. پس اگر درخواستی منتظر یک سرویس بیرونی بماند، آن تماس از یکی از همین قلاب‌ها می‌آید و فایلِ کنارش می‌گوید از کدام افزونه. ⛔ و این فهرست اثبات نبودِ هر تماس خارجی نیست: کدی که از هیچ‌کدام این قلاب‌ها نگذرد هم می‌تواند تماس بزند، و `pre_http_request` و `http_api_debug` تنها جایی‌اند که هر تماسِ عبوری از HTTP API وردپرس را می‌بینند.', 'tecteb-marketplace-core')
+            . '</p><ul class="tmc-list">';
+        foreach (IntakeDiagnostics::hooks() as $hook) {
+            $out .= '<li><code>' . esc_html($hook['hook']) . '</code> — '
+                . esc_html(sprintf(
+                    /* translators: %s: how many callbacks are registered */
+                    __('%s callback', 'tecteb-marketplace-core'),
+                    $fa((string) $hook['count'])
+                ));
+            if ($hook['callbacks'] !== []) {
+                $out .= '<ul>';
+                foreach ($hook['callbacks'] as $callback) {
+                    $out .= '<li><code>' . esc_html($callback) . '</code></li>';
+                }
+                $out .= '</ul>';
+            }
+            $out .= '</li>';
+        }
+        $out .= '</ul>';
+
+        $pictures = $this->nextSourcePictures();
+        if ($pictures !== []) {
+            $out .= '<h3 class="tmc-card__subtitle">'
+                . esc_html__('اصلِ تصویرِ چند محصولِ بعدی', 'tecteb-marketplace-core')
+                . '</h3><p class="tmc-field__desc">'
+                . esc_html__('ابعاد و حجم، و بس — نه عنوان، نه نام فایل، نه نشانی. بهای ساخت اندازه‌ها با مجذور ابعاد بالا می‌رود، پس همین چند عدد می‌گوید یک محصولِ این سایت چقدر می‌برد.', 'tecteb-marketplace-core')
+                . '</p><ul class="tmc-list">';
+            foreach ($pictures as $picture) {
+                $out .= '<li>' . esc_html(sprintf(
+                    /* translators: 1: attachment id, 2: dimensions, 3: bytes, 4: existing sub-sizes */
+                    __('پیوست %1$s · %2$s · %3$s بایت · %4$s اندازهٔ از قبل ساخته‌شده', 'tecteb-marketplace-core'),
+                    $fa((string) $picture['id']),
+                    $fa($picture['size']),
+                    $fa($picture['bytes']),
+                    $fa($picture['subsizes'])
+                )) . '</li>';
+            }
+            $out .= '</ul>';
+        }
+
+        echo '<details class="tmc-disclosure"><summary>'
+            . esc_html__('مسیر ورود: تشخیص (فقط‌خواندنی)', 'tecteb-marketplace-core')
+            . '</summary>' . $out . '</section></details>';
+    }
+
+    /**
+     * The source pictures the import would reach next, by attachment id.
+     *
+     * ⛔ Guarded on every side, because this is the one part that asks another
+     * plugin a question: Dokan may not be installed, its reader may not be
+     * bound, and its tables may not be readable. Any of those means the
+     * section is simply absent — a diagnostic that takes the page down with it
+     * is worse than one that is missing.
+     *
+     * @return list<array{id:int, size:string, bytes:string, subsizes:string}>
+     */
+    private function nextSourcePictures(): array
+    {
+        try {
+            if (!$this->container->has(DokanReaderInterface::class)) {
+                return [];
+            }
+            // The position the import would carry on from, read from the live
+            // rows this page already lists. `recent()` is the same call the
+            // list above uses, so the two cannot disagree about which job.
+            $after = 0;
+            foreach ($this->jobs()->recent([], 25) as $job) {
+                if ($job->type !== DokanImportJob::TYPE) {
+                    continue;
+                }
+                if (((string) ($job->cursor['phase'] ?? '')) !== 'products') {
+                    continue;
+                }
+                $after = max($after, (int) ($job->cursor['after'] ?? 0));
+            }
+            $reader = $this->container->get(DokanReaderInterface::class);
+            $ids = [];
+            foreach ($reader->productsAfter($after, IntakeDiagnostics::PICTURES) as $product) {
+                $id = (int) ($product['source_image_id'] ?? 0);
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+            return IntakeDiagnostics::pictures($ids);
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 }

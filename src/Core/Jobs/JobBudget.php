@@ -86,7 +86,23 @@ final class JobBudget
      */
     public const DEFAULT_SECONDS = 15;
 
-    /** Below this there is no point starting a batch at all. */
+    /**
+     * Below this, a batch is starting on borrowed time — and that is REPORTED
+     * rather than corrected.
+     *
+     * ⛔ It used to be applied as `max(FLOOR_SECONDS, $seconds)` AFTER the
+     * narrowing below, which made it the opposite of a floor: with
+     * `max_execution_time = 3` the share is 1 second and the budget came out
+     * at FIVE — more than PHP itself allows, claimed by the very method whose
+     * job is to stay inside the host's walls. A host limit of 5 gave a budget
+     * of 5 where the share is 3.
+     *
+     * A budget may never exceed the figure that was declared or the share of
+     * a limit we can read. So when there is less than this left, the number
+     * stays honest and `belowFloor()` says so; the batch still attempts its
+     * first unit, because progress is recorded per unit and refusing all work
+     * would stall the import for ever on a host we have merely guessed about.
+     */
     public const FLOOR_SECONDS = 5;
 
     /**
@@ -104,36 +120,71 @@ final class JobBudget
 
     private function __construct(
         private readonly float $startedAtMs,
-        private readonly float $seconds
+        private readonly float $seconds,
+        private readonly float $spentBeforeMs = 0.0
     ) {
     }
 
-    public static function of(float $seconds, ?float $startedAtMs = null): self
+    /**
+     * @param float $spentBeforeMs what this REQUEST had already used before the
+     *        budget existed — bootstrap, the admin page, the POST handler. See
+     *        `spentMs()`: the host's wall started at the request, not here.
+     */
+    public static function of(float $seconds, ?float $startedAtMs = null, float $spentBeforeMs = 0.0): self
     {
         return new self(
             $startedAtMs ?? hrtime(true) / 1e6,
-            max(0.0, $seconds)
+            max(0.0, $seconds),
+            max(0.0, $spentBeforeMs)
         );
     }
 
     /**
      * The budget this host allows, as far as it can be worked out.
      *
-     * @param int  $phpLimit `max_execution_time`, where zero means «no limit»
-     *                       — which is what CLI reports and is NOT a reason to
-     *                       run without a budget
-     * @param ?int $declared an explicit figure from whoever knows the host
+     * Two ceilings and never anything above either of them: the figure
+     * somebody declared, and the share of a limit PHP reports. Nothing in
+     * here raises the result — see `FLOOR_SECONDS` for the version that did.
+     *
+     * @param int   $phpLimit `max_execution_time`, where zero means «no limit»
+     *                        — which is what CLI reports and is NOT a reason to
+     *                        run without a budget, because the web server, FPM
+     *                        and any proxy have walls of their own that PHP
+     *                        cannot see
+     * @param ?int  $declared an explicit figure from whoever knows the host.
+     *                        A declaration SMALLER than the floor is honoured:
+     *                        it is a statement about the host, and overruling
+     *                        it would be this method's old mistake in the other
+     *                        direction.
+     * @param float $spentBeforeMs what the request used before this point
      */
-    public static function forRequest(int $phpLimit, ?int $declared = null): self
+    public static function forRequest(int $phpLimit, ?int $declared = null, float $spentBeforeMs = 0.0): self
     {
-        $seconds = $declared !== null && $declared > 0 ? $declared : self::DEFAULT_SECONDS;
+        $seconds = (float) ($declared !== null && $declared > 0 ? $declared : self::DEFAULT_SECONDS);
         if ($phpLimit > 0) {
-            // Never more than PHP's own share of its limit, even when a
-            // larger figure was declared: the declaration is about the host's
-            // wall, and this one is a wall we can actually read.
-            $seconds = min($seconds, max(1, (int) floor($phpLimit * self::SHARE_OF_PHP_LIMIT)));
+            // The share, as a share — not rounded up to a whole second, which
+            // is how a limit of 1 used to become a budget of 1 instead of 0.6.
+            $seconds = min($seconds, $phpLimit * self::SHARE_OF_PHP_LIMIT);
         }
-        return self::of((float) max(self::FLOOR_SECONDS, $seconds));
+        return self::of($seconds, null, $spentBeforeMs);
+    }
+
+    /**
+     * Less time than `FLOOR_SECONDS` to work in — a fact, not a correction.
+     *
+     * Printed beside the figures so that «the batch stopped at once» has a
+     * visible cause on the host that caused it, rather than looking like a
+     * defect in the queue.
+     */
+    public function belowFloor(): bool
+    {
+        return $this->seconds < (float) self::FLOOR_SECONDS;
+    }
+
+    /** What the request had already spent when the budget was created. */
+    public function spentBeforeMs(): float
+    {
+        return $this->spentBeforeMs;
     }
 
     public function totalSeconds(): float
@@ -141,9 +192,19 @@ final class JobBudget
         return $this->seconds;
     }
 
+    /**
+     * How much of this REQUEST has gone, not how much of this object's life.
+     *
+     * ⛔ The two are not the same and the difference is the whole question the
+     * owner asked: the host's deadline started when the request arrived, and
+     * by the time anything claims a job, WordPress has booted, the admin page
+     * has rendered and a POST has been handled. A budget measured from its own
+     * construction is a budget that thinks it has fifteen seconds of a request
+     * that has already used four.
+     */
     public function spentMs(): float
     {
-        return max(0.0, (hrtime(true) / 1e6) - $this->startedAtMs);
+        return $this->spentBeforeMs + max(0.0, (hrtime(true) / 1e6) - $this->startedAtMs);
     }
 
     public function remainingMs(): float
@@ -186,12 +247,15 @@ final class JobBudget
     }
 
     /**
-     * One unit alone needs more than this whole request has.
+     * One unit alone took longer than this budget — OUR figure, not the host's.
      *
-     * A named condition rather than a silent stall: a product whose picture
-     * takes longer than any single request will never land however many
-     * workers try, so somebody has to be told which product it is and what
-     * it would take. The handler reports it; this only answers the question.
+     * ⛔ The distinction is the correction this round was asked for. What is
+     * measured is a unit against `DEFAULT_SECONDS` or whatever was declared;
+     * what is NOT measured, and cannot be from inside PHP, is the host's own
+     * deadline. A unit over our fifteen seconds may well be perfectly
+     * survivable on a host that allows sixty, and a unit under it can still
+     * be killed by a proxy that allows ten. So the condition is reported with
+     * the budget it was compared against and no claim beyond that.
      */
     public function aUnitOutgrewTheBudget(): bool
     {

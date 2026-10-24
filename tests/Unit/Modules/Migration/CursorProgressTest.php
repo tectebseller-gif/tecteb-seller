@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Tests\Unit\Modules\Migration;
 
 use PHPUnit\Framework\TestCase;
+use Tecteb\Marketplace\Core\Jobs\JobBudget;
+use Tecteb\Marketplace\Core\Jobs\StepTiming;
 use Tecteb\Marketplace\Modules\Migration\Application\CursorProgress;
 use Tecteb\Marketplace\Modules\Migration\Domain\LeaseHold;
 use Tecteb\Marketplace\Modules\Migration\Domain\UnitClaim;
@@ -67,6 +69,46 @@ final class CursorProgressTest extends TestCase
             $pageTries,
             3,
             20
+        );
+    }
+
+    /**
+     * The same harness with a real `JobBudget` and a real `StepTiming`.
+     *
+     * No fakes for either: they are arithmetic over a monotonic clock, and a
+     * stub would be free to agree with whatever the test expected — which is
+     * how this repository has produced green suites over broken guards
+     * before.
+     */
+    private function progressWithBudget(
+        JobBudget $budget,
+        ?StepTiming $timing = null,
+        int $after = 0,
+        int $at = 0,
+        int $tries = 0
+    ): CursorProgress {
+        $this->written = [];
+        $this->guarded = [];
+        return new CursorProgress(
+            function (array $cursor, int $done, int $failed): bool {
+                $this->written[] = ['cursor' => $cursor, 'done' => $done, 'failed' => $failed];
+                return true;
+            },
+            function (\Closure $write): string {
+                $ok = $write() === true;
+                $this->guarded[] = ['ran' => true, 'answer' => $ok ? '' : 'not_written'];
+                return $ok ? '' : 'not_written';
+            },
+            'products',
+            $after,
+            $at,
+            $tries,
+            [],
+            0,
+            3,
+            20,
+            $timing,
+            $budget
         );
     }
 
@@ -312,5 +354,180 @@ final class CursorProgressTest extends TestCase
         self::assertSame(0, $cursor['tries']);
         self::assertSame(0, $cursor['page_tries']);
         self::assertSame(['1005:why'], $cursor['refused']);
+    }
+
+    /**
+     * A BUDGET ALREADY SPENT STOPS THE BATCH BEFORE THE FIRST UNIT.
+     *
+     * ⛔ The exception that lets the first unit run used to be asked first, so
+     * a request whose page read or lock wait had consumed the whole budget
+     * still claimed a product and started a four-second step with nothing
+     * left — the owner's own question: «اگر خواندن صفحه بودجه را مصرف کرده
+     * باشد، چرا اولین محصول باید بدون توجه به زمان باقی‌مانده شروع شود».
+     *
+     * Spent is spent. The job is resumable, the next request gets a whole
+     * budget, and the reason names where it went.
+     */
+    public function testABudgetSpentByThePageReadStopsBeforeAnyUnitIsClaimed(): void
+    {
+        $budget = JobBudget::of(1.0, null, 2_000.0);
+        $p = $this->progressWithBudget($budget);
+
+        self::assertTrue($budget->exhausted(), 'the harness must really be out of time');
+        self::assertFalse($p->keepGoing());
+        self::assertSame('time_budget_spent_before_first_unit', $p->stopReason());
+        self::assertSame([], $this->written, 'nothing was claimed, so nothing was written');
+    }
+
+    /**
+     * The end of a budget is not a product's failure and not an attempt.
+     *
+     * «پایان بودجه، خطای محصول یا تلاش شکست‌خورده محسوب نشود و باعث ردشدن
+     * محصول سالم نشود.» So: no row written, no attempt counted, no refusal
+     * recorded, and the position left exactly where the next request should
+     * carry on from.
+     */
+    public function testTheEndOfTheBudgetRefusesNoProductAndCountsNoAttempt(): void
+    {
+        $budget = JobBudget::of(1.0, null, 2_000.0);
+        $p = $this->progressWithBudget($budget, null, 9_343, 9_343, 1);
+
+        self::assertFalse($p->keepGoing());
+        self::assertSame([], $p->refusals(), 'no product was blamed');
+        self::assertSame(0, $p->done());
+        self::assertSame(0, $p->failed());
+        $cursor = $p->cursor();
+        self::assertSame(9_343, $cursor['after']);
+        self::assertSame(9_343, $cursor['at']);
+        self::assertSame(1, $cursor['tries'], 'the attempt count belongs to the unit, untouched');
+    }
+
+    /**
+     * The first unit of a batch runs when there IS time, measured or not.
+     *
+     * The control for the test above: with the budget fresh, nothing has been
+     * measured yet, so there is no reserve to hold back and a batch that
+     * refused to start anything would never make progress at all.
+     */
+    public function testTheFirstUnitRunsWhileThereIsStillBudget(): void
+    {
+        $budget = JobBudget::of(30.0);
+        $p = $this->progressWithBudget($budget);
+
+        self::assertTrue($p->keepGoing());
+        self::assertSame('', $p->stopReason(), 'nothing stopped it');
+        self::assertSame(UnitClaim::Ok, $p->claim(9_343));
+    }
+
+    /**
+     * One unit over the budget is said as a fact about OUR figure.
+     *
+     * ⛔ The key used to be `time_budget_one_unit_longer_than_the_request`,
+     * and the sentence behind it claimed a product takes longer than a whole
+     * web request. Nothing measured that: PHP cannot read the deadline FPM, a
+     * web server or a proxy enforces. What is measured is a unit against the
+     * budget we declared.
+     */
+    public function testAUnitOverTheBudgetIsReportedAgainstTheBudgetWeDeclared(): void
+    {
+        $budget = JobBudget::of(2.0);
+        $p = $this->progressWithBudget($budget);
+        self::assertSame(UnitClaim::Ok, $p->claim(9_343));
+        $budget->noteUnit(4_100.0);
+
+        self::assertFalse($p->keepGoing());
+        self::assertSame('time_budget_one_unit_over_budget', $p->stopReason());
+    }
+
+    /** A plain exhaustion after work is the ordinary reason. */
+    public function testAnOrdinaryExhaustionAfterSomeUnitsSaysSo(): void
+    {
+        $budget = JobBudget::of(1.0);
+        $p = $this->progressWithBudget($budget);
+        self::assertSame(UnitClaim::Ok, $p->claim(9_343));
+        $budget->noteUnit(10.0);
+        usleep(1_100_000 - 10);
+
+        self::assertFalse($p->keepGoing());
+        self::assertSame('time_budget_spent', $p->stopReason());
+    }
+
+    /**
+     * The budget's figures travel in the cursor, because the page is a LATER
+     * request.
+     *
+     * «بودجهٔ مصرف‌شده و باقی‌مانده» has to be readable by somebody deciding
+     * what to do next, and that reader's own request knows nothing about the
+     * one that stopped. Remaining is not stored: it is the difference.
+     */
+    public function testTheCursorCarriesWhatTheBudgetWasAndWhatHadGone(): void
+    {
+        $p = $this->progressWithBudget(JobBudget::of(15.0, null, 4_000.0));
+        $p->claim(9_343);
+
+        $cursor = $this->lastCursor();
+        self::assertSame(15_000, $cursor['budget_ms']);
+        self::assertGreaterThanOrEqual(4_000, $cursor['budget_spent_ms']);
+        self::assertArrayNotHasKey('budget_low', $cursor, 'fifteen seconds is not below the floor');
+        self::assertArrayNotHasKey('budget_remaining_ms', $cursor, 'remaining is the difference, not a second record');
+    }
+
+    /** And a host that leaves less than the floor is reported, not corrected. */
+    public function testABudgetBelowTheFloorIsMarkedOnTheRow(): void
+    {
+        $p = $this->progressWithBudget(JobBudget::forRequest(3));
+        $p->claim(9_343);
+
+        $cursor = $this->lastCursor();
+        self::assertSame(1_800, $cursor['budget_ms'], 'the share of three seconds, not the floor');
+        self::assertTrue($cursor['budget_low']);
+    }
+
+    /**
+     * THE STEP RECORD IS ON EVERY WRITE, so a killed worker leaves it behind.
+     *
+     * A cursor is the only thing that survives a process that stops existing,
+     * and a claim is a write. If the step name were added only at the end of
+     * a batch, the one case this whole mechanism is for — a batch that never
+     * reaches its end — would leave nothing.
+     */
+    public function testEveryWriteCarriesTheStepTheWorkerIsIn(): void
+    {
+        $timing = new StepTiming();
+        $p = $this->progressWithBudget(JobBudget::of(30.0), $timing);
+
+        $timing->entering('image_metadata', 9_343);
+        $p->claim(9_343);
+
+        $cursor = $this->lastCursor();
+        self::assertSame('image_metadata', $cursor['running']);
+        self::assertSame(9_343, $cursor['running_unit']);
+    }
+
+    /**
+     * A step a previous attempt left open is carried, not overwritten.
+     *
+     * ⛔ On the owner's host every attempt is cut off, so an attempt that
+     * erased the previous one's step name would leave exactly one data point
+     * however many times the button is pressed — after we had said the point
+     * of the round was to narrow the step down.
+     */
+    public function testAPreviousAttemptsOpenStepSurvivesIntoTheNextOne(): void
+    {
+        $timing = StepTiming::fromCursor([
+            'running' => 'image_metadata',
+            'running_unit' => 9_343,
+            'running_since' => 1_700_000_000,
+        ]);
+        $p = $this->progressWithBudget(JobBudget::of(30.0), $timing);
+
+        // This worker starts its own step; the one it found was never closed.
+        $timing->entering('page_read', 0);
+        $p->claim(9_401);
+
+        $cursor = $this->lastCursor();
+        self::assertSame('page_read', $cursor['running'], 'ours is the live one');
+        self::assertSame('image_metadata:9343:1700000000', $cursor['stalled']);
+        self::assertSame(['image_metadata', 9_343, 1_700_000_000], $timing->stalled());
     }
 }

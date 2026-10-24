@@ -170,6 +170,17 @@ final class AdminPagesRenderTest extends DatabaseTestCase
             300
         ));
 
+        // ⛔ AND THE LEASE IS GIVEN BACK, whatever happens below.
+        //
+        // The row is seeded with a live three-hundred-second lease because the
+        // branch under test needs one. Left held, the NEXT run of this test
+        // cannot claim it — `enqueue()` returns the same live key and
+        // `claim()` answers null — and the failure reads «the lease has to be
+        // live for the branch to run», which is a true sentence about the
+        // previous run and says nothing about this build. A fixture that
+        // spends a guarantee has to give it back (`alpha.69`).
+        try {
+
         do_action('admin_menu');
         $pages = AdminExtensions::pages();
         self::assertNotSame([], $pages);
@@ -215,6 +226,17 @@ final class AdminPagesRenderTest extends DatabaseTestCase
         // the missing `wp_date()` stub came to light in the first place, out
         // of a row a filtered run had abandoned.
         self::assertTrue($jobs->finish($jobId, 'render-test-token', JobStatus::Done, ''));
+
+        } finally {
+            // Belt as well as braces. The assertion above is the one that
+            // proves the lease CAN be given back; this is what makes sure it
+            // IS, on the path where something above failed first — and that
+            // path is not hypothetical: a missing `_n()` stub failed this test
+            // once with the lease still held, and the next run reported «the
+            // lease has to be live for the branch to run», which is a true
+            // sentence about the previous run and nothing about the build.
+            $jobs->finish($jobId, 'render-test-token', JobStatus::Done, '');
+        }
     }
 
     /**
