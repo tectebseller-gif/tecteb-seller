@@ -39,6 +39,23 @@ namespace Tecteb\Marketplace\Modules\Operations\Infrastructure\WordPress;
  * data: the values here are PHP settings, image dimensions, file counts, hook
  * names and the FILE PATHS OF PLUGIN CODE. A plugin's path is the answer to
  * «who is on this hook» and is the whole point; it is not somebody's data.
+ *
+ * ### The honest limit of «read only»
+ *
+ * What the test proves is that THIS FILE contains no writer. What it does not
+ * prove, and is not claimed:
+ *
+ *  - `imageWork()` runs `apply_filters('big_image_size_threshold', …)`,
+ *    because the effective threshold is whatever the filters make it and
+ *    reading the default would be reporting a number this site does not use.
+ *    A filter is a call into somebody else's code, and somebody else's code
+ *    can write. One filter, chosen because its answer is a size.
+ *  - the page renders inside wp-admin, so `plugins_loaded`, `init` and
+ *    `admin_init` have already fired — as they do on every admin request,
+ *    with or without this section.
+ *
+ * Neither is a reason to leave the facts unread; both are reasons not to call
+ * this a guarantee about the whole request.
  */
 final class IntakeDiagnostics
 {

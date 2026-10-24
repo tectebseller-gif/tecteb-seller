@@ -670,6 +670,13 @@ final class DokanImportJobTest extends DatabaseTestCase
         $id = $this->queue();
         $this->runner->run(1);
 
+        // Read before the batch, so the assertion below can be about what
+        // THIS batch did rather than about everything the fixture has done.
+        $started = $this->jobs->find($id);
+        self::assertNotNull($started);
+        $doneBefore = $started->done;
+        $mappedBefore = $this->mapped();
+
         $token = 'tok-' . bin2hex(random_bytes(4));
         $job = $this->jobs->claim([DokanImportJob::TYPE], $token, 300);
         self::assertNotNull($job);
@@ -695,6 +702,38 @@ final class DokanImportJobTest extends DatabaseTestCase
         self::assertSame(0, (int) $batch->cursor['at'], 'nothing is left mid-attempt');
         self::assertSame(0, $this->duplicates(), 'and nothing was imported twice');
         self::assertLessThan(50, $this->mapped(), 'it really did stop before the page ended');
+
+        // ⛔ AND THE FIGURE THE OWNER READS NEVER OVERTAKES THE WORK.
+        //
+        // This is the invariant the `done` counter broke: the old expression
+        // was `count($page) - $failed - $recordedDone`, which assumes the loop
+        // reached the end of the page — and a batch that stops itself for time
+        // never does. Asserted against the row rather than the return value,
+        // because the row is what the page prints and what `checkpoint()`
+        // accumulates.
+        //
+        // ⛔ As a DELTA, and the first version was not — it compared the row's
+        // total against the number of products, and failed at 4 against 3.
+        // That was a true answer about the wrong question: `done_count` counts
+        // every unit of every phase, and the shops this fixture imported
+        // before the products are in it. The claim that matters is about THIS
+        // batch: it may not credit more than it did.
+        //
+        // ⛔ And it is a net, not the guard. Measured: with the old expression
+        // restored this assertion still passes, because a fifty-millisecond
+        // budget on a local database gets far enough into the page that
+        // `$recordedDone` covers the difference. The case that catches the old
+        // expression is the one above it — a budget already spent, where the
+        // loop claims nothing and the old arithmetic returns fifty. Both are
+        // kept: one proves the defect is gone, this one would notice a
+        // different way of reintroducing it.
+        $row = $this->jobs->find($id);
+        self::assertNotNull($row);
+        self::assertLessThanOrEqual(
+            $this->mapped() - $mappedBefore,
+            $row->done - $doneBefore,
+            'this batch credited more products than it imported'
+        );
 
         // Whatever landed is still there, and the rest follows.
         $landed = $this->mapped();

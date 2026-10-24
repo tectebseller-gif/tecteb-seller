@@ -106,3 +106,18 @@ with sha256sum -c afterwards.
 
  *  Nothing here measures the HOST. The budget is a declared figure; the real
     deadline of a web request on staging is Not Run, and so is the cause.
+
+=== ADDENDUM: one assertion that is a net, not a guard ===
+`testASmallBudgetStopsEarlyAndKeepsTheProgressItMade` also asserts that this
+batch's `done_count` delta never exceeds the products it mapped. Measured with
+the old expression restored: that assertion still PASSES — a fifty-millisecond
+budget on a local database gets far enough into the page that `$recordedDone`
+covers the difference. The case that catches the old arithmetic is
+`testABudgetAlreadySpentClaimsNothingAndBlamesNoProduct`, where the loop
+claims nothing and the old expression returns fifty (mutation 4 above).
+
+⛔ And the first version of that delta assertion was wrong in its own right:
+it compared the row's `done_count` TOTAL against the number of products and
+failed at 4 against 3 — a true answer about the wrong question, since
+`done_count` counts every unit of every phase and the fixture's two shops are
+in it. Corrected to a delta across the batch under test.

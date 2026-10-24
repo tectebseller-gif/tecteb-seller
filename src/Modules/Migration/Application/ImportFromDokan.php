@@ -822,13 +822,17 @@ final class ImportFromDokan
             // ⛔ This was `count($page) - $recorded`, which is only the same
             // thing while the loop runs to the END of the page. It does not:
             // a batch that stops itself for time breaks out after the units
-            // it managed, and the expression then counts every product it
-            // never looked at as done. Measured on a two-shop page stopped
-            // after one: `done=1` for a shop nothing touched, and
-            // `JobRepositoryInterface::checkpoint()` adds that delta to
-            // `done_count` — so the figure the owner reads on the queue page
-            // walks forward over work nobody did. That is the one number
-            // this whole round is trying to make trustworthy.
+            // it managed, and the expression then counts every shop it never
+            // looked at as done. `JobRepositoryInterface::checkpoint()` adds
+            // that delta to `done_count`, so the figure the owner reads on
+            // the queue page walks forward over work nobody did — the one
+            // number this whole round is trying to make trustworthy.
+            //
+            // Measured by putting the old expression back and running the
+            // suite: the product loop's version reported `done = 50` for a
+            // batch that claimed NOTHING at all, because the budget was
+            // already spent when it was asked. The vendor loop has the same
+            // budget check and the same shape.
             //
             // `$failed` had a second shape of the same fault: the give-up
             // branch raises it AND lands it, so a stalled shop was counted
@@ -1147,12 +1151,15 @@ final class ImportFromDokan
         }
         return [
             // ⛔ `count($page) - $failed - $recordedDone`, until this round.
-            // Same fault as the vendor loop above and the same measurement:
-            // a page of fifty stopped after two returned `done=48`, and the
-            // runner's final checkpoint adds it to `done_count`. With a sink
-            // every unit's figure has already been written by `landed()`, so
-            // what is left for the caller is nought — in every case, not just
-            // when the loop finishes.
+            // Same fault as the vendor loop above, and this is where it was
+            // measured: with the old expression restored, a batch whose
+            // budget was already spent — so not one product was claimed —
+            // returned `done = 50`, and the runner's final checkpoint adds
+            // that to `done_count`.
+            //
+            // With a sink every unit's figure has already been written by
+            // `landed()`, so what is left for the caller is nought — in every
+            // case, not just when the loop reaches the end.
             'done' => $progress === null ? max(0, count($page) - $failed) : 0,
             'failed' => $progress === null ? $failed : max(0, $failed - $recordedFailed),
             'recorded' => $recorded,

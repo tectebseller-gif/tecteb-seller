@@ -381,10 +381,11 @@ no-op است، پس مدتی برای مرحلهٔ کارگرِ قبلی ساخ�
 | سوییت | عدد | تغییر |
 | --- | --- | --- |
 | unit | **۶۳۴** | +۱۸ |
-| architecture | **۹۹** | +۵ |
+| architecture | **۱۰۹** | +۱۵ |
 | contract | ۳۱۸ | — |
-| database | (در §۶ تحویل) | — |
+| database | **۷۶۹** | +۲ |
 | packaging | ۲۷ | — |
+| contrast | ۱۴ | — |
 
 به‌علاوهٔ `php -l` روی کلِ درخت و PHPCompatibility با `testVersion 8.1-`.
 
