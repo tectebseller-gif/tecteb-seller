@@ -1,0 +1,25 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+...F.                                                               5 / 5 (100%)
+
+Time: 00:00.015, Memory: 12.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Architecture\BeingAShopIsNotOwningRecordsTest::testTheRecordGateIsNeverAnsweredFromACount
+the record gate may not be answered from a row count: balance_rows
+Failed asserting that ''records_imported' => match ($records['state']) {\n
+                self::RECORDS_SETTLED, self::RECORDS_NO_SOURCE => true,\n
+                self::RECORDS_OUTSTANDING, self::RECORDS_UNREADABLE => false,\n
+                default => ($summary['balance_rows'] + $summary['withdrawals'] + $summary['staff']) > 0\n
+                    || $tally['marketplace'] + $tally['observed'] > 0,\n
+            },\n
+            ' [ASCII](length: 402) does not contain "balance_rows" [ASCII](length: 12).
+
+/home/user/tecteb-seller/tests/Architecture/BeingAShopIsNotOwningRecordsTest.php:159
+
+FAILURES!
+Tests: 5, Assertions: 40, Failures: 1.

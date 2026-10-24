@@ -92,7 +92,26 @@ final class ImportFromDokan
         private readonly ?CategoryMap $categories = null,
         // Optional: without it a migrated product keeps no picture, which is
         // the old behaviour rather than a wrong new one.
-        private readonly ?ProductImageLibraryInterface $images = null
+        private readonly ?ProductImageLibraryInterface $images = null,
+        /**
+         * The admission list the record preview draws, asked on the WRITE
+         * path.
+         *
+         * ⛔ **Why it is here and not only on the page.** `alpha.78` built one
+         * shared scope and used it for the preview table and for the button;
+         * the three record walks still read Dokan's own keysets, which hold
+         * every shop at once. The two halves agreed because both were derived
+         * from the same tables — a correspondence that happened to hold, not
+         * one anything enforced — and the owner asked for the real path:
+         * «دامنهٔ مشترک را در مسیر واقعی اجرا اعمال کن… دامنهٔ ناقص یا ناخوانا
+         * نباید اجازهٔ ورودِ صاحبان نمایش‌داده‌نشده بدهد.»
+         *
+         * Optional, and `null` means the old behaviour rather than a refusal:
+         * an install or a tool that does not supply one writes what it reads,
+         * exactly as before. A missing dependency must not silently start
+         * refusing somebody's records.
+         */
+        private readonly ?RecordScopeInterface $recordScope = null
     ) {
     }
 
@@ -182,7 +201,7 @@ final class ImportFromDokan
      * holding two of its three people with nothing saying which third is
      * missing.
      *
-     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
+     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, skipped:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
      */
     public function importStaffRecordPage(string $runId, int $afterVendorId, int $limit, ?ImportProgressInterface $progress = null): array
     {
@@ -195,6 +214,8 @@ final class ImportFromDokan
                 static fn (array $row): int => (int) $row['user_id'],
                 $this->dokan->vendorsAfter($after, $size)
             ),
+            static fn (mixed $unit): int => (int) $unit,
+            // The unit IS the shop, so the owner is the unit.
             static fn (mixed $unit): int => (int) $unit,
             function (mixed $unit) use ($runId): array {
                 $tally = ['recorded' => 0, 'already' => 0, 'failed' => 0];
@@ -213,7 +234,7 @@ final class ImportFromDokan
      * keyset the reader already does in SQL. The amounts are not touched: a
      * debit of `'700000.0000'` is written as `'700000.0000'`.
      *
-     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
+     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, skipped:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
      */
     public function importBalanceRecordPage(string $runId, int $afterRowId, int $limit, ?ImportProgressInterface $progress = null): array
     {
@@ -227,6 +248,7 @@ final class ImportFromDokan
             // belongs to and is NOT unique across types — the fallback is
             // only for a reader that cannot supply the first.
             static fn (mixed $unit): int => (int) (is_array($unit) ? ($unit['row_id'] ?? $unit['trn_id'] ?? 0) : 0),
+            static fn (mixed $unit): int => (int) (is_array($unit) ? ($unit['vendor_user_id'] ?? 0) : 0),
             function (mixed $unit) use ($runId): array {
                 $tally = ['recorded' => 0, 'already' => 0, 'failed' => 0];
                 $this->tally($tally, $this->shopRecords?->recordBalance($runId, (array) $unit) ?? ShopRecordRepositoryInterface::FAILED);
@@ -245,7 +267,7 @@ final class ImportFromDokan
      * is where a request this marketplace must honour lives, and this writes
      * nothing there.
      *
-     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
+     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, skipped:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
      */
     public function importWithdrawalRecordPage(string $runId, int $afterWithdrawId, int $limit, ?ImportProgressInterface $progress = null): array
     {
@@ -256,6 +278,7 @@ final class ImportFromDokan
             $progress,
             fn (int $after, int $size): array => $this->dokan->withdrawalsAfter($after, $size),
             static fn (mixed $unit): int => (int) (is_array($unit) ? ($unit['withdraw_id'] ?? 0) : 0),
+            static fn (mixed $unit): int => (int) (is_array($unit) ? ($unit['vendor_user_id'] ?? 0) : 0),
             function (mixed $unit) use ($runId): array {
                 $tally = ['recorded' => 0, 'already' => 0, 'failed' => 0];
                 $this->tally($tally, $this->shopRecords?->recordWithdrawal($runId, (array) $unit) ?? ShopRecordRepositoryInterface::FAILED);
@@ -276,8 +299,9 @@ final class ImportFromDokan
      *
      * @param \Closure(int,int):array<int,mixed> $read
      * @param \Closure(mixed):int $idOf
+     * @param \Closure(mixed):int $ownerOf
      * @param \Closure(mixed):array{recorded:int, already:int, failed:int} $write
-     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
+     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, skipped:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
      */
     private function recordPage(
         string $kind,
@@ -286,6 +310,7 @@ final class ImportFromDokan
         ?ImportProgressInterface $progress,
         \Closure $read,
         \Closure $idOf,
+        \Closure $ownerOf,
         \Closure $write
     ): array {
         $empty = [
@@ -294,6 +319,7 @@ final class ImportFromDokan
             'recorded' => 0,
             'already' => 0,
             'failed' => 0,
+            'skipped' => 0,
             'last' => $after,
             'more' => false,
             'lease_lost' => false,
@@ -317,11 +343,40 @@ final class ImportFromDokan
         $already = 0;
         $failed = 0;
         $recorded = 0;
+        $skipped = 0;
         $leaseLost = false;
         $notes = [];
 
         foreach ($page as $unit) {
             $id = $idOf($unit);
+            // ⛔ **The admission question, asked before anything about this
+            // unit is claimed or written.** The scope is the list the preview
+            // drew and the button checked; an owner outside it is an owner
+            // nobody has been shown, and writing its records is the defect
+            // this whole round is about. It is SKIPPED and NAMED — never
+            // deleted, never written, and never counted as done.
+            //
+            // In the ordinary case this filter does nothing, and that is the
+            // point: the scope is a union of the very tables walked below, so
+            // agreement is the normal state and a disagreement means the
+            // enumeration came back short or somebody's row arrived between
+            // the two reads.
+            if ($this->recordScope !== null) {
+                $owner = $ownerOf($unit);
+                if (!$this->recordScope->admits($owner)) {
+                    $last = max($last, $id);
+                    $skipped++;
+                    $note = $kind . ':' . $id . ':owner_' . $owner . '_outside_the_shown_scope';
+                    $notes[] = $note;
+                    // The cursor still has to move past it, or the walk reads
+                    // the same page for ever.
+                    if ($progress !== null && !$progress->landed($last, 0, 0, [$note])) {
+                        $leaseLost = true;
+                        break;
+                    }
+                    continue;
+                }
+            }
             // Asked BETWEEN units, never inside one. A unit that has started
             // runs to its end: stopping inside one is what the host already
             // does, and the whole point of asking is not to be there when it
@@ -404,6 +459,7 @@ final class ImportFromDokan
             'recorded' => $recorded,
             'already' => $already,
             'failed' => $failed,
+            'skipped' => $skipped,
             'last' => $last,
             'more' => $leaseLost ? false : ($stopped !== '' || count($page) >= $size),
             'lease_lost' => $leaseLost,

@@ -1,0 +1,19 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+...........F.                                                     13 / 13 (100%)
+
+Time: 00:07.479, Memory: 32.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Database\ShopRecordScopeTest::testAnUnreadableScopeAdmitsNobodyAndTheButtonRefuses
+not even a shop we imported ourselves
+Failed asserting that true is false.
+
+/home/user/tecteb-seller/tests/Database/ShopRecordScopeTest.php:646
+
+FAILURES!
+Tests: 13, Assertions: 120, Failures: 1.

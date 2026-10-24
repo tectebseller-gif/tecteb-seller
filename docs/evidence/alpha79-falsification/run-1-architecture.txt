@@ -1,0 +1,173 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+..F......                                                           9 / 9 (100%)
+
+Time: 00:00.030, Memory: 12.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Architecture\RecordImportIsHistoryOnlyTest::testEveryRecordWriteAsksTheShownScopeFirst
+the only excuse for not asking is an install that supplied no scope
+Failed asserting that '{\n
+        $empty = [\n
+            'kind' => $kind,\n
+            'done' => 0,\n
+            'recorded' => 0,\n
+            'already' => 0,\n
+            'failed' => 0,\n
+            'skipped' => 0,\n
+            'last' => $after,\n
+            'more' => false,\n
+            'lease_lost' => false,\n
+            'stopped' => '',\n
+            'notes' => [],\n
+        ];\n
+        if ($this->shopRecords === null) {\n
+            \n
+            \n
+            return $empty;\n
+        }\n
+\n
+        $size = max(1, $limit);\n
+        $stopped = '';\n
+        $progress?->entering('page_read', 0);\n
+        $page = $read($after, $size);\n
+        $progress?->left();\n
+\n
+        $last = $after;\n
+        $done = 0;\n
+        $already = 0;\n
+        $failed = 0;\n
+        $recorded = 0;\n
+        $skipped = 0;\n
+        $leaseLost = false;\n
+        $notes = [];\n
+\n
+        foreach ($page as $unit) {\n
+            $id = $idOf($unit);\n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            if (false) {\n
+                $owner = $ownerOf($unit);\n
+                if (!$this->recordScope->admits($owner)) {\n
+                    $last = max($last, $id);\n
+                    $skipped++;\n
+                    $note = $kind . ':' . $id . ':owner_' . $owner . '_outside_the_shown_scope';\n
+                    $notes[] = $note;\n
+                    \n
+                    \n
+                    if ($progress !== null && !$progress->landed($last, 0, 0, [$note])) {\n
+                        $leaseLost = true;\n
+                        break;\n
+                    }\n
+                    continue;\n
+                }\n
+            }\n
+            \n
+            \n
+            \n
+            \n
+            if ($progress !== null && !$progress->keepGoing()) {\n
+                $stopped = $progress->stopReason();\n
+                break;\n
+            }\n
+            if ($progress !== null) {\n
+                $claim = $progress->claim($id);\n
+                if ($claim === UnitClaim::LeaseLost) {\n
+                    $leaseLost = true;\n
+                    break;\n
+                }\n
+                if ($claim === UnitClaim::GiveUp) {\n
+                    $last = max($last, $id);\n
+                    $failed++;\n
+                    $note = $kind . ':' . $id . ':stalled_after_' . $progress->attempts($id) . '_attempts';\n
+                    $notes[] = $note;\n
+                    if (!$progress->landed($last, 0, 1, [$note])) {\n
+                        $leaseLost = true;\n
+                        break;\n
+                    }\n
+                    continue;\n
+                }\n
+            }\n
+            $last = max($last, $id);\n
+\n
+            if ($progress !== null && !$progress->entering('record_write', $id)) {\n
+                $leaseLost = true;\n
+                break;\n
+            }\n
+            $tally = ['recorded' => 0, 'already' => 0, 'failed' => 0];\n
+            $hold = LeaseHold::Held;\n
+            if ($progress === null) {\n
+                $tally = $write($unit);\n
+            } else {\n
+                \n
+                \n
+                \n
+                \n
+                $hold = $progress->writing(function () use ($write, $unit, &$tally): bool {\n
+                    $tally = $write($unit);\n
+                    return $tally['failed'] === 0;\n
+                });\n
+                $progress->left();\n
+            }\n
+\n
+            if ($hold === LeaseHold::LeaseLost) {\n
+                $leaseLost = true;\n
+                break;\n
+            }\n
+            if ($hold === LeaseHold::NotWritten) {\n
+                \n
+                \n
+                \n
+                $failed++;\n
+                $notes[] = $kind . ':' . $id . ':not_written';\n
+                $tally = ['recorded' => 0, 'already' => 0, 'failed' => 0];\n
+            }\n
+            $done += $tally['recorded'];\n
+            $already += $tally['already'];\n
+\n
+            if ($progress !== null) {\n
+                if (!$progress->landed($last, $tally['recorded'], $hold === LeaseHold::NotWritten ? 1 : 0)) {\n
+                    $leaseLost = true;\n
+                    break;\n
+                }\n
+                $recorded += $tally['recorded'];\n
+            }\n
+        }\n
+\n
+        return [\n
+            'kind' => $kind,\n
+            \n
+            \n
+            \n
+            \n
+            'done' => max(0, $done - $recorded),\n
+            'recorded' => $recorded,\n
+            'already' => $already,\n
+            'failed' => $failed,\n
+            'skipped' => $skipped,\n
+            'last' => $last,\n
+            'more' => $leaseLost ? false : ($stopped !== '' || count($page) >= $size),\n
+            'lease_lost' => $leaseLost,\n
+            'stopped' => $stopped,\n
+            'notes' => $notes,\n
+        ];\n
+    }' [ASCII](length: 4630) contains "if ($this->recordScope !== null) {" [ASCII](length: 34).
+
+/home/user/tecteb-seller/tests/Architecture/RecordImportIsHistoryOnlyTest.php:200
+
+FAILURES!
+Tests: 9, Assertions: 215, Failures: 1.

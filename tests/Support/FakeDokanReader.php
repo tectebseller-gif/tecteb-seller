@@ -183,6 +183,22 @@ final class FakeDokanReader implements DokanReaderInterface
      */
     public array $absentSources = [];
 
+    /**
+     * Owners whose rows the walk still pages over and whose ids this
+     * enumeration leaves out — a SHORT list that reports itself complete.
+     *
+     * ⛔ The one case `unreadableSources` cannot express. A failed read says
+     * so; this is the read that succeeded and still came back missing an id —
+     * a row inserted between the scope read and the walk, or an enumeration
+     * that quietly lost one. It is the state in which «the two scopes agree»
+     * is false while every flag says otherwise, so the import's admission
+     * filter is the only thing standing between it and a record nobody was
+     * shown.
+     *
+     * @var list<int>
+     */
+    public array $hiddenOwners = [];
+
     public function recordSourceFor(int $vendorUserId): array
     {
         if (!$this->available) {
@@ -281,6 +297,11 @@ final class FakeDokanReader implements DokanReaderInterface
         $readable = true;
         foreach ($sources as $source) {
             foreach ($source['ids'] as $id) {
+                if (in_array((int) $id, $this->hiddenOwners, true)) {
+                    // Named by the walk and missing from the enumeration,
+                    // with `readable` still true. See the property below.
+                    continue;
+                }
                 $ids[(int) $id] = (int) $id;
             }
             if ($source['readable'] === false) {

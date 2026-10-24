@@ -6,15 +6,22 @@ namespace Tecteb\Marketplace\Tests\Database;
 use Tecteb\Marketplace\Core\Migration\MigrationRunner;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
+use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationCompleteness;
+use Tecteb\Marketplace\Modules\Migration\Application\ReconcileDokanFinance;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordPreview;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordScope;
+use Tecteb\Marketplace\Modules\Migration\Application\StaffRoleMap;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\HandoverPage;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MigrationPage;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffUserDirectoryInterface;
+use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 use Tecteb\Marketplace\Tests\Support\FakeDokanReader;
 
 /**
@@ -77,6 +84,39 @@ final class HandoverPageRecordsTest extends DatabaseTestCase
             static fn ($c): ShopRecordPreview => new ShopRecordPreview(
                 $c->get(DokanReaderInterface::class),
                 $c->get(ShopRecordRepositoryInterface::class)
+            )
+        );
+        // ⛔ And the completeness and the scope too, for the same memo
+        // reason — but the cost of leaving them out changed with
+        // `alpha.79`, so it is written down. Until then an unreadable scope
+        // only printed a notice, so a page whose PREVIEW read the fake while
+        // its SCOPE still held `WpDokanReader` looked right; now an
+        // unreadable scope also withholds the import button, and this test
+        // reported a defect about a page that was behaving correctly for the
+        // state it had been given. That state cannot occur in production —
+        // there is one reader — so the fixture was wrong, not the page.
+        $c->bind(
+            MigrationCompleteness::class,
+            static fn ($c): MigrationCompleteness => new MigrationCompleteness(
+                $c->get(ShopRecordRepositoryInterface::class),
+                $c->get(StaffRoleMap::class),
+                $c->get(ReconcileDokanFinance::class),
+                $c->get(VendorRepositoryInterface::class),
+                $c->get(ProductRepositoryInterface::class),
+                $c->get(DokanReaderInterface::class),
+                $c->get(CategoryMap::class),
+                $c->get(ShopRecordPreview::class)
+            )
+        );
+        $c->bind(
+            ShopRecordScope::class,
+            static fn ($c): ShopRecordScope => new ShopRecordScope(
+                $c->get(MigrationCompleteness::class),
+                $c->get(DokanReaderInterface::class),
+                $c->get(VendorRepositoryInterface::class),
+                $c->has(StaffUserDirectoryInterface::class)
+                    ? $c->get(StaffUserDirectoryInterface::class)
+                    : null
             )
         );
         return $fake;

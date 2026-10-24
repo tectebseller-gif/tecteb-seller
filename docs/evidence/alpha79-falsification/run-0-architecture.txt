@@ -1,0 +1,32 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+F....                                                               5 / 5 (100%)
+
+Time: 00:00.016, Memory: 12.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Architecture\BeingAShopIsNotOwningRecordsTest::testTheShopCriterionNeverReadsTheRecordTables
+a history row is a copy of somebody else's past: it cannot be what makes a shop ours
+Failed asserting that '{\n
+        $ids = array_map('intval', $this->records->vendorsWithRecords());\n
+        foreach ($this->products->vendorsFromImportRuns() as $vendorUserId) {\n
+            $ids[] = (int) $vendorUserId;\n
+        }\n
+        foreach ($this->vendors->importRunIds() as $runId) {\n
+            foreach ($this->vendors->idsFromImportRun($runId) as $vendorUserId) {\n
+                $ids[] = (int) $vendorUserId;\n
+            }\n
+        }\n
+        $ids = array_values(array_unique($ids));\n
+        sort($ids);\n
+        return array_values(array_filter($ids, static fn (int $id): bool => $id > 0));\n
+    }' [ASCII](length: 580) does not contain "$this->records" [ASCII](length: 14).
+
+/home/user/tecteb-seller/tests/Architecture/BeingAShopIsNotOwningRecordsTest.php:84
+
+FAILURES!
+Tests: 5, Assertions: 45, Failures: 1.

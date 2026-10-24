@@ -1,0 +1,37 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+..........FF.                                                     13 / 13 (100%)
+
+Time: 00:07.944, Memory: 32.00 MB
+
+There were 2 failures:
+
+1) Tecteb\Marketplace\Tests\Database\ShopRecordScopeTest::testARowWhoseOwnerWasNeverShownIsSkippedRatherThanImported
+no record may be written for an owner nobody was shown
+Failed asserting that an array does not contain 4.
+
+/home/user/tecteb-seller/tests/Database/ShopRecordScopeTest.php:621
+
+2) Tecteb\Marketplace\Tests\Database\ShopRecordScopeTest::testAnUnreadableScopeAdmitsNobodyAndTheButtonRefuses
+and a run driven anyway writes nothing
+Failed asserting that two arrays are identical.
+--- Expected
++++ Actual
+@@ @@
+-Array &0 []
++Array &0 [
++    0 => 2,
++    1 => 4,
++    2 => 6,
++    3 => 8,
++    4 => 16,
++    5 => 102,
++]
+
+/home/user/tecteb-seller/tests/Database/ShopRecordScopeTest.php:657
+
+FAILURES!
+Tests: 13, Assertions: 122, Failures: 2.

@@ -1,0 +1,24 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+.........F...                                                     13 / 13 (100%)
+
+Time: 00:07.574, Memory: 32.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Database\ShopRecordScopeTest::testAfterTheImportRecordOwnersStayVisibleAndStayOutOfTheShopTable
+id 2 owns records and is not a shop: that is one label, not two
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'records_only'
++'imported'
+
+/home/user/tecteb-seller/tests/Database/ShopRecordScopeTest.php:545
+
+FAILURES!
+Tests: 13, Assertions: 100, Failures: 1.

@@ -1,0 +1,35 @@
+alpha.79 falsification — 4 mutations, 2026-10-24T18:31:00Z
+
+## 0 — shop criterion counts a record again
+   file:   src/Modules/Migration/Application/MigrationCompleteness.php
+   filter: ShopRecordScopeTest|BeingAShopIsNotOwningRecordsTest
+   architecture:  FAILURES! Tests: 5, Assertions: 45, Failures: 1. 
+   database:      FAILURES! Tests: 13, Assertions: 100, Failures: 1. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: d89cfe3807b59d7bddc689ca97a585a759f05bca0cbc69d2fc9deb0ba5ca93c5
+
+## 1 — the record walk stops asking the shown scope
+   file:   src/Modules/Migration/Application/ImportFromDokan.php
+   filter: ShopRecordScopeTest|RecordImportIsHistoryOnlyTest
+   architecture:  FAILURES! Tests: 9, Assertions: 215, Failures: 1. 
+   database:      FAILURES! Tests: 13, Assertions: 122, Failures: 2. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 921d1f93b63ca3142dc1cbee68128d211aa0e361a83e33a943f9cac14bed0c01
+
+## 2 — an unreadable scope admits everybody
+   file:   src/Modules/Migration/Application/ShopRecordScope.php
+   filter: ShopRecordScopeTest
+   architecture: Configuration: /home/user/tecteb-seller/phpunit.xml.dist  No tests executed! 
+   database:      FAILURES! Tests: 13, Assertions: 120, Failures: 1. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 1048d0a01303593065d286e1583709b78af24322bd6ed4351fb69f738bc6d1b2
+
+## 3 — the record gate falls back to a count
+   file:   src/Modules/Migration/Application/MigrationCompleteness.php
+   filter: ShopRecordScopeTest|BeingAShopIsNotOwningRecordsTest
+   architecture:  FAILURES! Tests: 5, Assertions: 40, Failures: 1. 
+   database:      FAILURES! Tests: 13, Assertions: 124, Failures: 1. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: d89cfe3807b59d7bddc689ca97a585a759f05bca0cbc69d2fc9deb0ba5ca93c5
+
+failures: 0

@@ -43,6 +43,19 @@ use Tecteb\Marketplace\Core\Jobs\StepTiming;
  * **Nothing of Dokan's is written.** `DokanReaderInterface` has no write
  * method, so the capability is absent rather than guarded.
  *
+ * ⛔ **And it writes a record only for an owner the page has already shown.**
+ * The three walks below read Dokan's own keysets — `vendorsAfter()` for staff
+ * and `balanceRowsAfter()`/`withdrawalsAfter()` for the rest — which hold every
+ * shop at once. `alpha.78` made the preview and the button read one shared
+ * scope and left this path reading the tables directly, so the agreement
+ * between what was displayed and what was written was a coincidence of both
+ * being drawn from the same rows. `ImportFromDokan` now asks
+ * `RecordScopeInterface::admits()` per unit, before the claim and before the
+ * write, and an owner outside the shown scope is skipped and named — reported
+ * here as `<phase>_skipped_outside_scope:<n>`, which is neither a success nor
+ * a failure. An unreadable scope admits nobody, and the button refuses to
+ * queue in that state as well.
+ *
  * **A repeat is not a duplicate**, and not because anything here checks: all
  * three tables carry a `UNIQUE` key over the row's natural identity
  * (`M0017DokanShopRecords`), `recordStaff()`/`recordBalance()`/
@@ -211,6 +224,13 @@ final class DokanRecordImportJob implements JobHandlerInterface
         if (($page['stopped'] ?? '') !== '') {
             $notes[] = (string) $page['stopped'];
         }
+        if (($page['skipped'] ?? 0) > 0) {
+            // Owners the preview had not shown. Said out loud and kept apart
+            // from both «done» and «failed»: nothing was written and nothing
+            // broke, and the only honest figure is how many rows this run
+            // declined to import for want of an owner on the page.
+            $notes[] = $phase . '_skipped_outside_scope:' . (int) $page['skipped'];
+        }
         if ($page['already'] > 0) {
             // «Already there» is a resumed page re-running its last rows, and
             // it is said out loud rather than folded into the done figure:
@@ -274,7 +294,7 @@ final class DokanRecordImportJob implements JobHandlerInterface
     }
 
     /**
-     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
+     * @return array{kind:string, done:int, recorded:int, already:int, failed:int, skipped:int, last:int, more:bool, lease_lost:bool, stopped:string, notes:list<string>}
      */
     private function pageOf(string $phase, string $runId, int $after, ?ImportProgressInterface $progress): array
     {

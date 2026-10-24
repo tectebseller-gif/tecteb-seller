@@ -37,6 +37,7 @@ use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\OrderHistoryRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\FinanceHandoverRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordPreview;
+use Tecteb\Marketplace\Modules\Migration\Application\RecordScopeInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordScope;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
@@ -132,8 +133,18 @@ final class MigrationModule implements ModuleInterface
             $c->get(CategoryMap::class),
             $c->has(\Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface::class)
                 ? $c->get(\Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface::class)
-                : null
+                : null,
+            // The admission list on the WRITE path, not only on the page.
+            // Resolved here and not inside the record walk: `ShopRecordScope`
+            // reaches a completeness service and a vendor repository, and the
+            // record import is handed the two booleans it may ask for
+            // (`RecordScopeInterface`) and nothing else.
+            $c->get(RecordScopeInterface::class)
         ));
+        $c->bind(
+            RecordScopeInterface::class,
+            static fn (ContainerInterface $c) => $c->get(ShopRecordScope::class)
+        );
         $c->bind(CategoryMap::class, static fn (ContainerInterface $c) => new CategoryMap(
             $c->get(OptionStoreInterface::class)
         ));

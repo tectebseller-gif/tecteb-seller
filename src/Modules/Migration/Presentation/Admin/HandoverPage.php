@@ -74,32 +74,36 @@ final class HandoverPage
         }
         echo Components::notice('info', __('ورود سابقه هیچ دسترسی و هیچ بدهی نمی‌سازد. آنچه در این صفحه تصمیم گرفته می‌شود، همان چیزی است که سابقه به‌تنهایی نمی‌تواند بگوید.', 'tecteb-marketplace-core'));
 
-        // ⛔ The vendor universe is every shop with ANY import trace, not the
-        // shops that already have records. It used to be
-        // `vendorsWithRecords()` — a `UNION` of the three history tables —
-        // which is empty until records are imported, and nothing in
-        // production imported them. So a shop whose products and profile both
-        // arrived was invisible here, and the empty state advised running the
-        // product import again, which could not have helped.
-        $shops = $this->container->get(MigrationCompleteness::class)->vendorUserIds();
-
-        // ⛔ TWO lists, and which is which is the whole point.
+        // ⛔ THREE lists, and which is which is the whole point.
         //
-        // `$shops` is the IMPORTED shops: the subject of the gates, the staff
-        // decisions and the finance decision, because each of those is a
-        // question about a shop this marketplace has taken on.
+        // `$shops` is the shops: ids with a MARKETPLACE trace — a product row
+        // or a vendor profile this marketplace's import created. They are the
+        // subject of the gates, because each gate is a question about a shop
+        // we have taken on. ⛔ It used to be `vendorUserIds()`, whose first
+        // trace was `vendorsWithRecords()`, so importing an id's records made
+        // it a shop and put it in the completeness table — the criterion was
+        // a row the import itself wrote. That is the circularity the owner
+        // found in the shipped `alpha.78`.
         //
-        // `$scope` is every id the record import can touch — the imported
-        // shops PLUS every owner Dokan's own record tables name. Measured on
+        // `$recordOwners` is every id whose records we hold. Their records
+        // are kept and shown — «سوابق را حفظ و نمایش بده» — so the staff and
+        // finance sections, which are ABOUT records, are drawn for them too.
+        //
+        // `$scope` is every id the record import can touch: the two above
+        // plus every owner Dokan's own record tables name. Measured on
         // staging: the preview showed 40 and 102, the run wrote fourteen rows
         // owned by 2, 4, 6, 8, 16 and 102, and those owners appeared here
-        // only afterwards. The preview and the button now use the same list
-        // the walk does, so nothing can arrive unannounced; and an id that
-        // only owns records is labelled as that and is NOT put through the
-        // gates, because having a record is not being a shop.
+        // only afterwards. The preview, the button AND the walk now read this
+        // one list.
+        $completeness = $this->container->get(MigrationCompleteness::class);
+        $shops = $completeness->shopVendorUserIds();
+        $recordOwners = $completeness->recordOwnerVendorUserIds();
+        $recordSubjects = array_values(array_unique(array_merge($shops, $recordOwners)));
+        sort($recordSubjects);
+
         $scope = $this->container->get(ShopRecordScope::class);
         $scopeIds = $scope->ids();
-        if ($shops === [] && $scopeIds === []) {
+        if ($scopeIds === [] && $recordSubjects === []) {
             echo $this->emptyState();
             echo Components::shellClose();
             return;
@@ -110,13 +114,14 @@ final class HandoverPage
         // import by being looked at.
         $this->renderRecordPreview($scopeIds, $scope, $fa);
         if ($shops === []) {
-            echo Components::notice('info', __('هیچ فروشگاه واردشده‌ای پیدا نشد. ردیف‌های بالا صاحبان سابقه در دکان‌اند، نه فروشگاه‌های این بازارگاه؛ جدول وضعیت مهاجرت دربارهٔ فروشگاه‌های واردشده است و چیزی برای نشان‌دادن ندارد.', 'tecteb-marketplace-core'));
-            echo Components::shellClose();
-            return;
+            echo Components::notice('info', __('هیچ فروشگاه واردشده‌ای پیدا نشد. ردیف‌های بالا صاحبان سابقه‌اند، نه فروشگاه‌های این بازارگاه؛ جدول وضعیت مهاجرت دربارهٔ فروشگاه‌های واردشده است و چیزی برای نشان‌دادن ندارد.', 'tecteb-marketplace-core'));
+        } else {
+            $this->renderCompleteness($shops, $fa);
         }
-        $this->renderCompleteness($shops, $fa);
-        $this->renderStaff($shops, $fa);
-        $this->renderFinance($shops, $fa);
+        if ($recordSubjects !== []) {
+            $this->renderStaff($recordSubjects, $fa);
+            $this->renderFinance($recordSubjects, $fa);
+        }
         echo Components::shellClose();
     }
 
@@ -229,21 +234,36 @@ final class HandoverPage
             echo Components::notice('warning', __('فهرست صاحبان سابقه در دکان کامل خوانده نشد، پس همین جدول هم می‌تواند ناقص باشد. تا وقتی این خواندن درست انجام نشود، «همهٔ صاحبان سابقه همین‌ها هستند» گفته نمی‌شود.', 'tecteb-marketplace-core'));
         }
 
+        $names = static fn (array $ids): string => implode('، ', array_map(
+            // Not escaped here: `Components::notice()` escapes the whole
+            // sentence, and escaping twice would print the entities.
+            static fn (int $id): string => '#' . PersianDigits::toPersian((string) $id),
+            $ids
+        ));
+
         $sourceOnly = $scope->sourceOnlyIds();
         if ($sourceOnly !== []) {
             echo Components::notice('info', sprintf(
                 /* translators: %s: a list of user ids */
                 __('این شناسه‌ها در دکان صاحب سابقه‌اند و از این بازارگاه وارد نشده‌اند: %s. ورود سوابق، تاریخچهٔ آن‌ها را هم ثبت می‌کند — و همین ثبت نه فروشگاهی می‌سازد، نه پذیرشی، نه دسترسی و نه بدهی. تا وقتی فروشگاهی برایشان وارد و پذیرفته نشده، فروشگاه معتبر این بازارگاه نیستند.', 'tecteb-marketplace-core'),
-                // Not escaped here: `Components::notice()` escapes the whole
-                // sentence, and escaping twice would print the entities.
-                implode('، ', array_map(
-                    static fn (int $id): string => '#' . PersianDigits::toPersian((string) $id),
-                    $sourceOnly
-                ))
+                $names($sourceOnly)
             ));
         }
 
-        echo $this->importButton($preview->anythingToImport($shops));
+        // ⛔ And the ids whose records we ALREADY hold and which are still not
+        // shops. On `alpha.78` these read «فروشگاه واردشده» the moment their
+        // records landed, and walked into the migration-completeness table on
+        // the strength of a row this plugin wrote itself.
+        $recordOnly = $scope->recordOnlyIds();
+        if ($recordOnly !== []) {
+            echo Components::notice('info', sprintf(
+                /* translators: %s: a list of user ids */
+                __('سابقهٔ این شناسه‌ها این‌طرف ثبت شده و هیچ‌کدام فروشگاه این بازارگاه نیستند: %s. سوابقشان می‌مانَد و همین‌جا نشان داده می‌شود، ولی در جدول وضعیت مهاجرت نمی‌آیند — داشتن سابقه فروشگاه‌بودن نیست.', 'tecteb-marketplace-core'),
+                $names($recordOnly)
+            ));
+        }
+
+        echo $this->importButton($preview->anythingToImport($shops), $scope->sourceReadable());
         echo '</section>';
     }
 
@@ -261,16 +281,21 @@ final class HandoverPage
      * an optional dependency and «I could not ask» is not an answer about the
      * account.
      *
-     * @param array{vendor_user_id:int, origin:string, imported:bool, in_source:bool, has_user:bool|null, has_profile:bool, can_sell:bool}|null $row
+     * @param array{vendor_user_id:int, origin:string, imported:bool, has_records:bool, in_source:bool, has_user:bool|null, has_profile:bool, can_sell:bool}|null $row
      */
     private static function originCell(?array $row): string
     {
         if ($row === null) {
             return esc_html__('نامعلوم', 'tecteb-marketplace-core');
         }
-        $badge = $row['origin'] === ShopRecordScope::IMPORTED
-            ? Components::badge('success', '✓', __('فروشگاه واردشده', 'tecteb-marketplace-core'))
-            : Components::badge('warning', '!', __('فقط صاحب سابقه در دکان', 'tecteb-marketplace-core'));
+        // Three badges, because «we imported a shop for it», «we hold its
+        // records» and «Dokan merely names it» are three facts and the middle
+        // one used to print as the first.
+        $badge = match ((string) $row['origin']) {
+            ShopRecordScope::IMPORTED => Components::badge('success', '✓', __('فروشگاه واردشده', 'tecteb-marketplace-core')),
+            ShopRecordScope::RECORDS_ONLY => Components::badge('warning', '!', __('سابقه‌اش وارد شده، فروشگاه نیست', 'tecteb-marketplace-core')),
+            default => Components::badge('warning', '!', __('فقط صاحب سابقه در دکان', 'tecteb-marketplace-core')),
+        };
 
         $notes = [];
         $notes[] = $row['has_user'] === null
@@ -296,7 +321,7 @@ final class HandoverPage
      * pressing this together must not start two walks over the same Dokan
      * rows.
      */
-    private function importButton(bool $anythingToImport): string
+    private function importButton(bool $anythingToImport, bool $scopeReadable): string
     {
         $live = $this->liveRecordJob();
         if ($live !== null) {
@@ -311,6 +336,16 @@ final class HandoverPage
         $note = '<p class="tmc-field__desc">'
             . esc_html__('ورود سوابق فقط تاریخچه ثبت می‌کند: هیچ بدهی قابل‌پرداخت، هیچ تسویه، هیچ دسترسی پرسنل، هیچ تغییر مالکیت محصول و هیچ فعال‌شدن فروشی. کار قابل‌ادامه است و اگر نیمه‌کاره بماند از همان‌جا ادامه می‌دهد؛ درخواست تکراری سابقهٔ تکراری نمی‌سازد.', 'tecteb-marketplace-core')
             . '</p>';
+        if (!$scopeReadable) {
+            // ⛔ No button at all while the owner list may be short. The walk
+            // reads Dokan's tables, which hold every shop at once, so a
+            // short list is exactly the case where the owners it failed to
+            // mention are the ones nobody has seen — and importing then is
+            // the one thing this page exists to prevent. The run would skip
+            // them anyway (`ShopRecordScope::admits()` admits nobody while
+            // the list is unreadable), so this is the first of two defences.
+            return $note . Components::notice('warning', __('تا وقتی فهرست صاحبان سابقه در دکان کامل خوانده نشود، ورود انجام نمی‌شود: فهرست ناقص یعنی ممکن است صاحبانی باشند که این صفحه نشانشان نداده، و سابقهٔ نشان‌داده‌نشده وارد نمی‌شود. اول خواندن را درست کنید.', 'tecteb-marketplace-core'));
+        }
         if (!$anythingToImport) {
             // Nothing to do is not the same as a broken button, so the button
             // is still here and says why pressing it would change nothing.
@@ -715,7 +750,14 @@ final class HandoverPage
             // پیدا نشد» while fourteen rows were waiting for ids that list
             // does not contain, and it could queue a run that then wrote
             // records nobody had been shown.
-            $shops = $this->container->get(ShopRecordScope::class)->ids();
+            $scope = $this->container->get(ShopRecordScope::class);
+            if (!$scope->sourceReadable()) {
+                // The same refusal the button already states, enforced where
+                // the action is taken rather than only where it is drawn: a
+                // POST can arrive from a page rendered before the read broke.
+                return 'err:' . __('فهرست صاحبان سابقه در دکان کامل خوانده نشد، پس ورود شروع نشد. فهرست ناقص می‌تواند صاحبانی داشته باشد که نشان داده نشده‌اند، و سابقهٔ نشان‌داده‌نشده وارد نمی‌شود.', 'tecteb-marketplace-core');
+            }
+            $shops = $scope->ids();
             if (!$preview->anythingToImport($shops)) {
                 // Refused rather than queued: a job that would do nothing is
                 // a row somebody then has to interpret.
@@ -824,13 +866,20 @@ final class HandoverPage
     }
 
     /**
-     * Why «ورود سابقه» is still open, in the words of the four states.
+     * Why «ورود سابقه» is still open, in the words of the state that holds it.
      *
      * ⛔ The one sentence that must never be printed here is a count. For
      * vendor 40 on staging all three sources read successfully and all three
      * were empty, and the table said «ورود سابقه» — advice whose only exit
      * was a record nobody has. A verified zero now closes the gate, so this
      * method only ever explains a gate that is genuinely still open.
+     *
+     * ⛔ And the two «نمی‌دانم»s have separate sentences, because they ask for
+     * different things: `dokan_absent` is «the question can no longer be
+     * asked, and no recorded verification exists», `unverifiable` is «this
+     * install could not read its own record table». `no_source` never
+     * reaches here — Dokan answering that there is no such source closes the
+     * gate, so it is never a blocker to explain.
      */
     private static function recordsStateReason(string $state): string
     {
@@ -839,8 +888,10 @@ final class HandoverPage
                 __('دکان سابقه‌ای دارد که این‌طرف نیست. دکمهٔ «ورود سوابق به صف» در بخش بالا همین را وارد می‌کند.', 'tecteb-marketplace-core'),
             MigrationCompleteness::RECORDS_UNREADABLE =>
                 __('دست‌کم یکی از سه منبع خوانده نشد، پس معلوم نیست سابقه‌ای مانده یا نه. این «صفر» نیست و به‌عنوان صفر شمرده نمی‌شود.', 'tecteb-marketplace-core'),
+            MigrationCompleteness::RECORDS_DOKAN_ABSENT =>
+                __('دکان روی این نصب اجرا نمی‌شود، پس «چیزی مانده یا نه» پرسیدنی نیست. این دروازه از شمارش باز نمی‌شود: وجود محصول یا بخشی از سوابق اثبات نمی‌کند بقیه رسیده‌اند. آنچه می‌توانست ببندد، خودِ تأیید است — ثبتی که بگوید هر سه نوع تا آخر پیموده شده‌اند در حالی که دکان خوانده می‌شد — و چنین ثبتی در این نسخه وجود ندارد.', 'tecteb-marketplace-core'),
             MigrationCompleteness::RECORDS_UNVERIFIABLE =>
-                __('منبع سابقه قابل پرسیدن نیست — دکان اجرا نمی‌شود، یا جدولش روی این نصب نیست. در این حالت همان چیزی شمرده می‌شود که این‌طرف هست، و این‌طرف هنوز نه سابقه‌ای هست و نه محصولی.', 'tecteb-marketplace-core'),
+                __('این نصب نمی‌تواند بگوید چه داریم — جدول سوابق این افزونه در دسترس نبود. تا آن حل نشود نه «صفر» گفته می‌شود و نه «کامل».', 'tecteb-marketplace-core'),
             default => __('وضعیت سابقهٔ این فروشگاه مشخص نشد.', 'tecteb-marketplace-core'),
         };
     }

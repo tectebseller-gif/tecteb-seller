@@ -166,6 +166,86 @@ final class RecordImportIsHistoryOnlyTest extends TestCase
     }
 
     /**
+     * Every record write asks the shown scope first — and asks it in the one
+     * loop all three kinds go through.
+     *
+     * ⛔ **Both halves, because either alone is green on the defect.**
+     * `alpha.78` shipped a shared `ShopRecordScope` and wired it to the
+     * preview table and the button only; the walk still read Dokan's own
+     * keysets, which hold every shop at once. Every behaviour test passed,
+     * because the scope is a UNION of the very tables the walk reads, so the
+     * two agreed by construction rather than by enforcement — and the owner
+     * named it: «دامنهٔ مشترک را در مسیر واقعی اجرا اعمال کن». A test that
+     * only forbade something would stay green with the question never asked,
+     * so the asking is required here, in the source, where it is visible.
+     *
+     * It is asserted on `recordPage` because that is the single loop; a kind
+     * that grew its own copy of the loop would be a kind whose admission
+     * nobody checks, and `testEachKindWritesOnlyItsOwnRecord` already pins
+     * the three to this one.
+     */
+    public function testEveryRecordWriteAsksTheShownScopeFirst(): void
+    {
+        $body = $this->methodBody($this->code(self::IMPORT), 'recordPage');
+        self::assertStringContainsString(
+            '$this->recordScope->admits(',
+            $body,
+            'the shared record loop must ask whether this owner has been shown'
+        );
+        // ⛔ And the ONE reason it may be skipped is that no scope was
+        // supplied. Containment on the call alone is satisfied by a call
+        // standing behind a condition that is never true — measured: the
+        // mutation `if (false)` kept this assertion green and only the
+        // behaviour test caught it. The condition is pinned too.
+        self::assertStringContainsString(
+            'if ($this->recordScope !== null) {',
+            $body,
+            'the only excuse for not asking is an install that supplied no scope'
+        );
+        // Before the claim and before the write, and «before» is read from
+        // the byte offsets rather than from a sentence about the order.
+        $asked = strpos($body, '$this->recordScope->admits(');
+        $claimed = strpos($body, '$progress->claim(');
+        $wrote = strpos($body, '$progress->writing(');
+        self::assertIsInt($asked);
+        self::assertIsInt($claimed);
+        self::assertIsInt($wrote);
+        self::assertLessThan((int) $claimed, (int) $asked, 'admission is asked before the unit is claimed');
+        self::assertLessThan((int) $wrote, (int) $asked, 'admission is asked before anything is written');
+    }
+
+    /**
+     * What the import may ask the scope for: two booleans, and nothing it
+     * could write with.
+     *
+     * The record walk is handed `RecordScopeInterface` and not
+     * `ShopRecordScope`, because the scope reaches a completeness service and
+     * a vendor repository and neither has any business inside this loop. The
+     * guarantee is that absence, so it is measured from the interface's own
+     * bytes — the shape `DokanReaderInterface` has carried since `alpha.9`.
+     */
+    public function testTheScopeHandedToTheImportCanOnlyBeAsked(): void
+    {
+        $code = $this->code('src/Modules/Migration/Application/RecordScopeInterface.php');
+        preg_match_all('/function\s+([A-Za-z0-9_]+)\s*\(/', $code, $found);
+        self::assertSame(
+            ['admits', 'readable'],
+            $found[1],
+            'the record import may ask two questions of the scope and nothing else'
+        );
+        foreach (['ShopRecordScope.php', 'RecordScopeInterface.php'] as $file) {
+            $source = $this->code('src/Modules/Migration/Application/' . $file);
+            foreach (['insert', 'update', 'delete', 'save', 'upsert', 'write'] as $verb) {
+                self::assertStringNotContainsStringIgnoringCase(
+                    'function ' . $verb,
+                    $source,
+                    $file . ' is read-only: «فقط‌خواندنی» is the absence of the method, not a promise'
+                );
+            }
+        }
+    }
+
+    /**
      * The record write sits INSIDE the lease gate, not beside it.
      *
      * ⛔ **This test exists because falsification found its absence.** Taking
