@@ -405,7 +405,6 @@ final class ProductFormView
             '1' => [
                 'title' => $d->title,
                 'type' => $d->type,
-                'category' => $d->categoryKey,
                 // The brand the step-1 box SHOWS. See the call site: on a
                 // published product `$d` is the pending proposal and the box
                 // is the live row, so taking it from `$d` here would make the
@@ -437,6 +436,24 @@ final class ProductFormView
             }
             foreach ($values as $name => $value) {
                 $html .= '<input type="hidden" name="' . esc_attr($name) . '" value="' . esc_attr($value) . '">';
+            }
+        }
+        // ⛔ THE CATEGORY CANNOT RIDE THE MAP ABOVE EITHER, and leaving it
+        // there was the tenth place this round's audit found a set collapsing
+        // to one. Every value in that map is ONE string, and the string it
+        // carried was `categoryKey` — which is `''` for a product in two
+        // categories, because `soleKey()` refuses to pick a winner. So a
+        // vendor who saved step 2 on such a product posted no ids at all, and
+        // `postIdList('category')` read an empty SET: measured on this
+        // round's own code, that made step 2 a request to take the product
+        // out of every category it was in. Carried as `category[]`, one
+        // hidden input per id, the round trip is the identity it has to be —
+        // and «مدیر/فروشنده نباید مجبور شود دسته‌های موجود را دوباره انتخاب
+        // کند» stays true of the steps nobody is editing.
+        if ($step !== '1') {
+            foreach ($d->categorySet() as $categoryId) {
+                $html .= '<input type="hidden" name="category[]" value="'
+                    . esc_attr((string) $categoryId) . '">';
             }
         }
         // `description` cannot ride in the map above, because every value

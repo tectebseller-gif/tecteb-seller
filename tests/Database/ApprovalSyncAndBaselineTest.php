@@ -346,7 +346,131 @@ final class ApprovalSyncAndBaselineTest extends DatabaseTestCase
         self::assertNull($this->products->find($productId)?->baseline, 'and no agreement is invented either');
     }
 
+    /**
+     * APPROVING A REVISION DOES NOT REDUCE THE CATEGORY SET.
+     *
+     * ⛔ THIS TEST EXISTS BECAUSE A MUTATION SURVIVED. The falsification pass
+     * for `alpha.82` made `ReviewProducts::detailsFromPayload()` ignore the
+     * carried `categoryIds` — returning `[]` — and NOTHING in any suite went
+     * red. The acceptance half of the owner's instruction was resting on code
+     * I had read rather than on a measurement: «یک ویرایش یا پذیرش بعدی محصول
+     * هم نباید مجموعهٔ دسته را به یک دسته کاهش دهد.»
+     *
+     * The vendor edits the TITLE here and nothing else. The categories are
+     * not what is being decided, so they must come out the other side
+     * identical — compared as a SET, because «برابری تعداد کافی نیست».
+     */
+    public function testApprovingARevisionLeavesTheWholeCategorySetAlone(): void
+    {
+        $productId = $this->publish();
+        self::assertSame([244, 245], $this->recordedSet($productId), 'the fixture starts with both');
+
+        $this->approveRevisionTo($productId, 'دستکش نیتریل');
+
+        self::assertSame(
+            [244, 245],
+            $this->recordedSet($productId),
+            'the set is not what was decided, so it is not what changes'
+        );
+        self::assertSame(
+            '',
+            $this->products->find($productId)?->details->categoryKey,
+            'and no single key is invented for a product that has no single category'
+        );
+    }
+
+    /**
+     * A revision written before the set existed keeps the LIVE set.
+     *
+     * An `alpha.81` payload has no `categoryIds` key at all. Deriving one
+     * from its single `categoryKey` would turn an old proposal into a request
+     * to narrow the product to one category, which is precisely what nobody
+     * asked for — so absent is not empty (`alpha.28`) and the live set wins.
+     */
+    public function testAnOlderRevisionWithoutTheKeyKeepsTheLiveSet(): void
+    {
+        $productId = $this->publish();
+        $revisionId = $this->proposeTitle($productId, 'دستکش وینیل');
+
+        // What `alpha.81` stored: a payload that knows only the one key.
+        $this->stripCarriedIdsFrom($revisionId);
+
+        $product = $this->products->find($productId);
+        self::assertNotNull($product);
+        $approved = $this->review->approveRevision($revisionId, $this->storefront->fingerprints($product));
+        self::assertTrue($approved->ok, $approved->code);
+
+        self::assertSame('دستکش وینیل', $this->products->find($productId)?->details->title);
+        self::assertSame(
+            [244, 245],
+            $this->recordedSet($productId),
+            'the old payload carried no set, so the live one stands'
+        );
+    }
+
+    /**
+     * KEEPING THE SHOP'S VERSION COPIES THE SET HOME, NOT JUST THE KEY.
+     *
+     * ⛔ The second survivor: `detailChangesFor()` returning only
+     * `categoryKey` and dropping `categoryIds` broke nothing. The whole
+     * promise of «نسخهٔ ووکامرس بماند» is that the record ends up agreeing
+     * with the shop, and writing one of the two properties leaves the
+     * recorded set stale against it — with a success message on screen
+     * saying they agree.
+     */
+    public function testKeepingTheShopsCategoriesCopiesTheWholeSetHome(): void
+    {
+        $productId = $this->publish();
+        // What a manager did in WooCommerce: one more category.
+        $this->storefront->managerEdits['category'] = '244,245,246';
+
+        $kept = $this->review->resolveField($productId, 'category', 'keep');
+
+        self::assertTrue($kept->ok, $kept->code);
+        self::assertSame(
+            [244, 245, 246],
+            $this->recordedSet($productId),
+            'the record agrees with the shop, id by id'
+        );
+    }
+
     // -------------------------------------------------------------- helpers
+
+    /** @return list<int> */
+    private function recordedSet(int $productId): array
+    {
+        return $this->products->categoryIdsFor($productId) ?? [];
+    }
+
+    /**
+     * Rewrite one revision's payload the way `alpha.81` wrote it: no
+     * `categoryIds` key at all. Done in SQL because no service can produce
+     * that shape any more, and the point is a row that already exists.
+     */
+    private function stripCarriedIdsFrom(int $revisionId): void
+    {
+        $table = $this->wpdb->prefix . 'tmc_product_revisions';
+        $row = $this->wpdb->get_row(
+            $this->wpdb->prepare("SELECT payload FROM `{$table}` WHERE id = %d", $revisionId),
+            ARRAY_A
+        );
+        self::assertIsArray($row);
+        $payload = json_decode((string) $row['payload'], true);
+        self::assertIsArray($payload);
+        self::assertIsArray($payload['details'] ?? null);
+        self::assertArrayHasKey(
+            'categoryIds',
+            $payload['details'],
+            'the fixture must start with the key present'
+        );
+        unset($payload['details']['categoryIds']);
+        $this->wpdb->query($this->wpdb->prepare(
+            "UPDATE `{$table}` SET payload = %s WHERE id = %d",
+            (string) json_encode($payload, JSON_UNESCAPED_UNICODE),
+            $revisionId
+        ));
+    }
+
 
     /** @return array<string,string> */
     private function baselineOf(int $productId): array
@@ -424,14 +548,22 @@ final class ApprovalSyncAndBaselineTest extends DatabaseTestCase
         return $productId;
     }
 
+    /**
+     * TWO categories, which is the shape this round exists for.
+     *
+     * `categoryKey` stays `''` because `CategorySet::soleKey()` answers `''`
+     * for a set of two — «اولین دسته را خودسرانه انتخاب نکن» — and the
+     * template lookup is the owner's open decision, not this fixture's
+     * (`docs/open-decisions-alpha82.md` §1).
+     */
     private function details(string $title = 'دستکش لاتکس'): ProductDetails
     {
         return new ProductDetails(
             title: $title,
-            categoryKey: 'gloves',
             priceMinor: 200000,
             sku: 'SKU-71',
-            stock: 5
+            stock: 5,
+            categoryIds: [244, 245]
         );
     }
 }

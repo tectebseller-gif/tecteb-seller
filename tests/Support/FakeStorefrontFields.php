@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Tests\Support;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceStorefrontFields;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
 use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontField;
@@ -149,7 +150,18 @@ final class FakeStorefrontFields implements StorefrontFieldsInterface
             // Generated, exactly as the real projector generates it: out of
             // the vendor's short description rather than typed by anyone.
             'description' => 'ساخته‌شده: ' . $fresh->details->shortDescription,
-            'category' => $fresh->details->categoryKey,
+            // ⛔ THE SET when one is recorded, because that is what the real
+            // reader reports: `WooCommerceStorefrontFields` reads
+            // `get_category_ids()` through `idsToValue()`, which is a set.
+            // Until `alpha.82` this fake answered the single KEY, and a fake
+            // that cannot express the state makes an incomplete guard look
+            // complete (`alpha.69`) — two mutations on the acceptance path
+            // survived behind exactly this. The fallback to the key is
+            // `ProductDetails::categorySet()`'s own, so a row from before the
+            // link table still reads as it did.
+            'category' => $fresh->details->categorySet() !== []
+                ? CategorySet::toValue($fresh->details->categorySet())
+                : $fresh->details->categoryKey,
             'images' => StorefrontImages::encode($fresh->mainImageId, $fresh->imageIds),
         ];
     }

@@ -1476,6 +1476,15 @@ final class ManageProducts
             'title' => $d->title,
             'type' => $d->type,
             'categoryKey' => $d->categoryKey,
+            // ⛔ And the whole SET beside it, for the same reason the
+            // `description` note below gives: this array IS the snapshot, so a
+            // field absent from it is a field the approval drops. Measured on
+            // this round's own code before the line existed — a vendor's
+            // proposed category change never applied, because
+            // `detailsFromPayload()` fell back to the LIVE set and the
+            // fallback made the path look like it worked. That fallback is
+            // for `alpha.81`-era rows, not for rows we write ourselves.
+            'categoryIds' => $d->categorySet(),
             'brand' => $d->brand,
             'shortDescription' => $d->shortDescription,
             'priceMinor' => $d->priceMinor,

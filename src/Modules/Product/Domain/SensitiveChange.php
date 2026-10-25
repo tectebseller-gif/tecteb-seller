@@ -85,6 +85,27 @@ final class SensitiveChange
                 $changed[] = $field;
             }
         }
+        // ⛔ THE SET IS SENSITIVE, AND IT CANNOT RIDE THE LOOP ABOVE.
+        //
+        // «دسته» is on the sensitive side for the reason this class opens
+        // with — it is what the product CLAIMS to be — and until `alpha.82`
+        // that was expressed by one key. Two things break if the set is left
+        // to `categoryKey`:
+        //
+        //  * On a product with several categories `soleKey()` is `''` on BOTH
+        //    sides, so a vendor changing `[244,245]` to `[244,246]` reported
+        //    no change at all. Measured on this round's own code before this
+        //    block existed: the save answered `inventory_saved`, wrote no
+        //    revision, and the asked-for set reached nothing — the edit was
+        //    not applied silently, it was DISCARDED silently, which is worse
+        //    because the screen said saved.
+        //  * `!==` on two arrays is order-sensitive, so `[245,244]` against
+        //    `[244,245]` would be «changed» — a proposal queued for the
+        //    manager about a relationship nobody touched. `CategorySet::same()`
+        //    is the comparison that means what this question means.
+        if (!CategorySet::same($current->categorySet(), $proposed->categorySet())) {
+            $changed[] = 'categoryIds';
+        }
         return $changed;
     }
 
