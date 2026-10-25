@@ -45,12 +45,25 @@ tally() {   # prints e.g. "unit:2 arch:0 contract:1 db:3"
   printf 'db:%s' "$(count_failures "${DB[@]}")"
 }
 
+# ⛔ WARNINGS COUNT, AND SO DOES «no summary at all».
+#
+# Two readings in this round's first run were wrong because of this function.
+# Removing the fast-path narrowing refusal makes the code read `$missing[0]` on
+# an empty array: the suites say «Warnings: 2» and nothing else, and a tally
+# that only grepped Failures and Errors called that «survived» — a guard whose
+# absence the suite DOES report, reported as unmeasured. And when the suite
+# printed no summary line at all (a half-built schema, after I killed an
+# earlier run mid-suite) the tally was the string `?`, which `grep ':[1-9]'`
+# reads as green. «I could not measure» must never look like «the guard is
+# unbreakable» (`alpha.77`), so it is loud and it is red.
 count_failures() {
   local line
-  line="$("$@" 2>&1 | grep -E '^(OK|OK \(|Tests:|ERRORS|FAILURES)' | tail -1)"
+  line="$("$@" 2>&1 | grep -E '^(OK|OK \(|Tests:|ERRORS|FAILURES|WARNINGS)' | tail -1)"
   case "$line" in
     OK*) echo 0 ;;
-    *) echo "$line" | grep -oE '(Failures|Errors): [0-9]+' | grep -oE '[0-9]+' | paste -sd+ | bc 2>/dev/null || echo "?" ;;
+    '') echo "nosummary" ;;
+    *) echo "$line" | grep -oE '(Failures|Errors|Warnings): [0-9]+' | grep -oE '[0-9]+' \
+         | paste -sd+ | bc 2>/dev/null || echo "nosummary" ;;
   esac
 }
 
@@ -71,7 +84,6 @@ for i in $(seq 0 $((total - 1))); do
   name="$(python3 tools/alpha82-mutations.py name "$i")"
   file="$(python3 tools/alpha82-mutations.py file "$i")"
   expect="$(python3 tools/alpha82-mutations.py expect "$i")"
-  control="$(python3 tools/alpha82-mutations.py control "$i")"
   before="$(sha256sum "$file" | cut -d' ' -f1)"
   cp "$file" "$OUT/.restore"
 
@@ -91,7 +103,6 @@ for i in $(seq 0 $((total - 1))); do
     echo "## $i $name"
     echo "   file:     $file"
     echo "   expected: $expect"
-    [ "$control" = yes ] && echo "   control:  yes — must stay green; the statement-level half is the guarantee"
     echo "   failures: $counts"
     echo "   restored: $([ "$before" = "$after" ] && echo byte-for-byte || echo DIFFERS)"
   } >>"$report"
@@ -101,17 +112,9 @@ for i in $(seq 0 $((total - 1))); do
     fail=$((fail + 1))
     continue
   fi
-  # A CONTROL IS THE OPPOSITE EXPECTATION, and it is stated per mutation
-  # rather than read out of the result. Removing one half of a doubled guard
-  # must leave the suites green — that is what makes it a pair — and a control
-  # that goes RED means the second half is not holding, which is a finding.
-  if [ "$control" = yes ]; then
-    if echo "$counts" | grep -qE ':[1-9]'; then
-      echo "FAIL $i $name — a CONTROL went red: $counts"
-      fail=$((fail + 1))
-    else
-      echo "ok   $i $name → control, green on both trees as it must be"
-    fi
+  if echo "$counts" | grep -q 'nosummary'; then
+    echo "FAIL $i $name — a suite printed NO summary: $counts (measurement broken, not a passing guard)"
+    fail=$((fail + 1))
   elif echo "$counts" | grep -qE ':[1-9]'; then
     echo "ok   $i $name → $counts"
   else

@@ -18,17 +18,17 @@ import sys
 
 ROOT = __file__.rsplit('/tools/', 1)[0]
 
-# ⛔ SOME ENTRIES ARE CONTROLS, and they are marked.
+# ⛔ EVERY ENTRY HERE MUST GO RED, and «red» includes WARNINGS.
 #
-# A control is a defect put back that must leave every suite GREEN, because a
-# SECOND guard still holds — and saying so is the only honest way to report it.
-# The round's first run called two of these «survived», which reads as «this
-# guard cannot be broken» and is the `alpha.77` trap from the other side: the
-# guard was doing its job and the measurement was describing the wrong one. A
-# control is paired with a mutation that removes BOTH halves, and THAT one has
-# to go red — otherwise the pair is not measured at all.
+# The round's first run reported two entries as «survived» and both readings
+# were wrong about something. One removed a fast-path guard whose absence the
+# suites report as PHP warnings, not failures — and the tally only counted
+# failures. The other claimed to remove «both halves» of a doubled guard and
+# in fact removed the same half again, under a name that said otherwise. A
+# mutation whose name does not match what it changes is worse than no mutation:
+# it is a measurement nobody can check.
 #
-# name, file, old, new, what must happen, control?
+# name, file, old, new, what must happen
 MUTATIONS = [
     (
         'intake-stores-the-first-category-again',
@@ -85,19 +85,20 @@ MUTATIONS = [
         'keeping the shop version writes the key and leaves the set stale',
     ),
     (
-        # CONTROL. Removing the PHP half alone changes nothing observable,
-        # because the claim statement carries the same condition inside it
-        # (`alpha.74`: the check that returns is the report, the statement is
-        # the guarantee). What the PHP half adds is the NAME of the refusal,
-        # which `testNarrowingARecordedSetIsRefusedByNameAndByTheStatement`
-        # asserts — and what it cannot add is protection, which is why this
-        # must stay GREEN and the entry after next must go red.
-        'control-the-php-half-of-the-narrowing-refusal',
+        # ⛔ NOT A CONTROL, and the first version of this entry called it one.
+        # Measured: with the PHP refusal gone the statement still refuses, and
+        # the method still answers `category_set_decided` — from the
+        # `$claimed < 1` branch, which reads `import_run_id` and names the same
+        # outcome. So nothing about the recorded SET changes. What DOES change
+        # is that `$missing` is empty and `$missing[0]` is read anyway: two PHP
+        # warnings, which the suites report and which this falsification now
+        # counts. The guard is a fast path AND the thing that keeps that read
+        # in range; the guarantee about the set is the statement (entry below).
+        'the-php-half-of-the-narrowing-refusal',
         'src/Modules/Product/Infrastructure/DbProductRepository.php',
         'if (CategorySet::lost($recorded, $ids) !== []) {',
         'if (false) {',
-        'nothing: the statement-level guard still refuses, and that is the point',
-        True,
+        'the fast-path refusal goes and $missing[0] is read on an empty array',
     ),
     (
         'the-claim-stops-guarding-against-a-second-writer',
@@ -105,22 +106,6 @@ MUTATIONS = [
         "                     WHERE t.product_id = %d AND t.term_id NOT IN (' . $placeholders . ')",
         "                     WHERE t.product_id = %d AND t.term_id IN (' . $placeholders . ') AND 1 = 0",
         'two writers with different sets merge into a set nobody asked for',
-    ),
-    (
-        # BOTH HALVES AT ONCE — the pair the control above is half of. With
-        # the PHP refusal gone AND the statement's own condition gone, a set
-        # somebody filed on purpose is narrowed without anybody being asked:
-        # «دسته‌ای که مدیر قبلاً صریحاً تعیین کرده بدون تأیید بازنویسی نشود».
-        'the-narrowing-refusal-removed-on-both-sides',
-        'src/Modules/Product/Infrastructure/DbProductRepository.php',
-        """        if (CategorySet::lost($recorded, $ids) !== []) {
-            // An id is recorded that this product does not carry: somebody
-            // filed it there on purpose. Refused, named, and nothing written.
-            $this->db->rollback();
-            return 'category_set_decided';
-        }""",
-        '        // both halves of the narrowing refusal removed',
-        'a recorded decision is narrowed with nothing refusing it',
     ),
     (
         'the-recorded-set-is-read-without-the-lock',
@@ -214,19 +199,13 @@ def main() -> int:
         print(len(MUTATIONS))
         return 0
     n = int(sys.argv[2])
-    entry = MUTATIONS[n]
-    name, path, old, new, expect = entry[:5]
-    control = len(entry) > 5 and bool(entry[5])
+    name, path, old, new, expect = MUTATIONS[n]
     if verb == 'name':
         print(name)
     elif verb == 'file':
         print(path)
     elif verb == 'expect':
         print(expect)
-    elif verb == 'control':
-        # Printed rather than returned as an exit code, so the driver can put
-        # it in the report beside the counts.
-        print('yes' if control else 'no')
     elif verb == 'apply':
         full = ROOT + '/' + path
         s = io.open(full, encoding='utf-8').read()
@@ -238,10 +217,7 @@ def main() -> int:
             return 1
         io.open(full, 'w', encoding='utf-8').write(s.replace(old, new))
     else:
-        print(
-            'usage: count | name <n> | file <n> | expect <n> | control <n> | apply <n>',
-            file=sys.stderr,
-        )
+        print('usage: count | name <n> | file <n> | expect <n> | apply <n>', file=sys.stderr)
         return 2
     return 0
 
