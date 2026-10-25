@@ -14,8 +14,11 @@ use Tecteb\Marketplace\Modules\Product\Domain\SpecTemplate;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\ProjectedAttributes;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\ProjectedFieldOwnership;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceProjector;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductCategory;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Tests\Support\NoSpecTemplates;
+use TmcWpStubs\State;
 
 /**
  * WHAT THIS PROVES: what `project()` actually writes to a product.
@@ -754,9 +757,9 @@ final class ProjectedFactsTest extends ContractTestCase
         \WC_Product::reset();
     }
 
-    private function projector(): WooCommerceProjector
+    private function projector(?ProductCategoryDirectoryInterface $categories = null): WooCommerceProjector
     {
-        return new WooCommerceProjector($this->templates());
+        return new WooCommerceProjector($this->templates(), $categories);
     }
 
     /** One template, with a unit on one field, so the unit is measurable. */
@@ -834,11 +837,233 @@ final class ProjectedFactsTest extends ContractTestCase
         );
     }
 
+    /**
+     * THE WHOLE RECORDED SET REACHES WOOCOMMERCE, NOT THE SINGLE KEY.
+     *
+     * ⛔ THIS TEST EXISTS BECAUSE A MUTATION SURVIVED. The falsification pass
+     * for `alpha.82` made the projector read `CategorySet::of([$details->
+     * categoryKey])` instead of `$details->categorySet()` — the single key
+     * instead of the recorded relationship — and NOTHING in any suite went
+     * red. The projector's category write had no behaviour test at all, which
+     * is the worst place in this plugin to have none: `set_category_ids()`
+     * REPLACES, and this is the line where `alpha.81` deleted term 245 from a
+     * product filed under a parent and its child
+     * (`docs/evidence/alpha82-audit/before-alpha81.txt`).
+     *
+     * The single key is `''` for a multi-category product by construction
+     * (`CategorySet::soleKey()`), and this fixture's key is a pre-`alpha.25`
+     * SLUG, so under that mutation nothing resolves and nothing is written —
+     * the shop keeps the one category it already had and the vendor's second
+     * one never arrives.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testTheWholeRecordedSetReachesTheShopAndNotTheSingleKey(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+        $this->seedCategories();
+
+        // One projection, so the field is OURS: `writeOwned()` stamps what it
+        // wrote, and everything below depends on the shop still holding it
+        // (`alpha.44` — ownership is bound to the value, not the key).
+        $first = $this->projector($this->categories())->project(
+            $this->product(description: null, categoryIds: [244])
+        );
+        self::assertTrue($first['ok'], (string) $first['code']);
+        $wcId = (int) $first['wc_product_id'];
+        self::assertSame([244], \WC_Product::$saved[$wcId]->get_category_ids());
+
+        // The vendor's set grows to the parent AND its child.
+        $second = $this->projector($this->categories())->project(
+            $this->product(description: null, wcProductId: $wcId, categoryIds: [244, 245])
+        );
+        self::assertTrue($second['ok'], (string) $second['code']);
+
+        $after = \WC_Product::$saved[$wcId]->get_category_ids();
+        sort($after);
+        self::assertSame([244, 245], $after, 'both ids, from the SET and not from the key');
+    }
+
+    /**
+     * A RECORDED SET THAT NARROWS CANNOT REMOVE A RELATIONSHIP.
+     *
+     * ⛔ And this is the other survivor, and the one that matters most:
+     * replacing `CategorySet::of(array_merge($current, $wanted))` with
+     * `return $wanted` broke nothing. That union is the whole defence against
+     * the `alpha.81` deletion — `set_category_ids()` REPLACES, so a recorded
+     * value that has narrowed (which is exactly what `category_ids[0]` is)
+     * would otherwise take the rest of the product's categories with it.
+     *
+     * Ownership is intact here: the shop holds precisely what the last
+     * projection wrote, so the write DOES go ahead. That is what makes this
+     * the dangerous case rather than a held one.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testANarrowedRecordedSetCannotDeleteACategoryFromTheShop(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+        $this->seedCategories();
+
+        $first = $this->projector($this->categories())->project(
+            $this->product(description: null, categoryIds: [244, 245])
+        );
+        self::assertTrue($first['ok'], (string) $first['code']);
+        $wcId = (int) $first['wc_product_id'];
+        $before = \WC_Product::$saved[$wcId]->get_category_ids();
+        sort($before);
+        self::assertSame([244, 245], $before, 'the fixture must really start with both');
+
+        // Now the recorded set carries ONE of them — the `alpha.81` shape.
+        $second = $this->projector($this->categories())->project(
+            $this->product(description: null, wcProductId: $wcId, categoryIds: [244])
+        );
+        self::assertTrue($second['ok'], (string) $second['code']);
+
+        $after = \WC_Product::$saved[$wcId]->get_category_ids();
+        sort($after);
+        self::assertSame(
+            [244, 245],
+            $after,
+            'the narrowing is not a licence to delete: «هیچ رابطه‌ای خودکار حذف یا اضافه نشود»'
+        );
+    }
+
+    /**
+     * A category the MANAGER attached is not overwritten — it is held.
+     *
+     * The control from the other side, and existing behaviour rather than
+     * this round's: once the shop's value is neither what we wrote nor what
+     * was agreed, the field is the manager's and our change becomes a
+     * proposal (`alpha.44`). What this measures is that holding it removes
+     * nothing — both the manager's term and ours stay exactly as they were.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAManagersOwnCategoryIsHeldRatherThanOverwritten(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+        $this->seedCategories();
+
+        $first = $this->projector($this->categories())->project(
+            $this->product(description: null, categoryIds: [244])
+        );
+        $wcId = (int) $first['wc_product_id'];
+
+        // What a manager does in the WooCommerce editor.
+        $shop = \WC_Product::$saved[$wcId];
+        $shop->set_category_ids([244, 246]);
+        $shop->save();
+
+        $second = $this->projector($this->categories())->project(
+            $this->product(description: null, wcProductId: $wcId, categoryIds: [244, 245])
+        );
+        self::assertTrue($second['ok'], (string) $second['code']);
+
+        $after = \WC_Product::$saved[$wcId]->get_category_ids();
+        sort($after);
+        self::assertSame(
+            [244, 246],
+            $after,
+            "the manager's categories stand, and nothing of theirs is removed"
+        );
+    }
+
+    /** The three terms every category test here resolves against. */
+    private function seedCategories(): void
+    {
+        State::$terms['product_cat'] = [
+            244 => ['name' => 'ترالی', 'slug' => 'trolley', 'parent' => 0, 'count' => 1],
+            245 => ['name' => 'ترالی استیل', 'slug' => 'trolley-steel', 'parent' => 244, 'count' => 1],
+            246 => ['name' => 'دستهٔ مدیر', 'slug' => 'managers-own', 'parent' => 0, 'count' => 1],
+        ];
+    }
+
+    /**
+     * The control: a product whose ids the directory does not know writes
+     * NOTHING, rather than emptying the shop's categories.
+     *
+     * A measurement that only looks at the working case cannot tell a fix
+     * from a feature that stopped working (`alpha.46`) — and this is the
+     * direction that matters, because «resolved, never created» means an
+     * unknown id is not a category and an empty `$wanted` must leave the
+     * shop alone rather than replace it with nothing.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAnUnresolvableSetLeavesTheShopsCategoriesAlone(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+        $this->seedCategories();
+
+        $first = $this->projector($this->categories())->project(
+            $this->product(description: null, categoryIds: [244])
+        );
+        $wcId = (int) $first['wc_product_id'];
+        self::assertSame([244], \WC_Product::$saved[$wcId]->get_category_ids());
+
+        // 9 999 is an id the directory refuses — a term somebody deleted.
+        $second = $this->projector($this->categories())->project(
+            $this->product(description: null, wcProductId: $wcId, categoryIds: [9999])
+        );
+        self::assertTrue($second['ok'], (string) $second['code']);
+        self::assertSame(
+            [244],
+            \WC_Product::$saved[$wcId]->get_category_ids(),
+            'nothing resolved, so nothing is written — and nothing is removed'
+        );
+    }
+
+    /**
+     * The directory the projector resolves ids against.
+     *
+     * Narrow on purpose: an id it does not return is an id whose term was
+     * deleted, and «resolved, never created» is the rule being measured.
+     */
+    private function categories(): ProductCategoryDirectoryInterface
+    {
+        return new class implements ProductCategoryDirectoryInterface {
+            public function search(string $query, int $limit = 50): array
+            {
+                return [];
+            }
+
+            public function countMatches(string $query): int
+            {
+                return 0;
+            }
+
+            public function find(string $value): ?ProductCategory
+            {
+                $id = (int) $value;
+                $known = State::$terms['product_cat'] ?? [];
+                return isset($known[$id])
+                    ? new ProductCategory($id, (string) $known[$id]['name'], (string) $known[$id]['name'])
+                    : null;
+            }
+
+            public function explainNoMatch(string $query): array
+            {
+                return ['words' => [], 'missing' => [], 'found' => []];
+            }
+
+            public function total(): int
+            {
+                return count(State::$terms['product_cat'] ?? []);
+            }
+        };
+    }
+
     private function product(
         ?string $description,
         ?int $wcProductId = null,
         array $specs = ['material' => 'لاتکس'],
-        int $priceMinor = 200000
+        int $priceMinor = 200000,
+        array $categoryIds = []
     ): Product {
         return new Product(
             41,
@@ -851,7 +1076,8 @@ final class ProjectedFactsTest extends ContractTestCase
                 priceMinor: $priceMinor,
                 sku: 'SKU-FACT',
                 stock: 5,
-                description: $description
+                description: $description,
+                categoryIds: $categoryIds
             ),
             ProductStatus::Published,
             $specs,
