@@ -483,9 +483,17 @@ interface ProductRepositoryInterface
     /**
      * Replace the recorded set for one product, as one unit of work.
      *
-     * ⛔ An EMPTY set is refused unless `$allowEmpty` says otherwise, because
-     * «هیچ رابطه‌ای خودکار حذف نشود»: clearing what is recorded is a decision
-     * and only a caller that means it may make one.
+     * ⛔ An EMPTY set is ALWAYS refused, because «هیچ رابطه‌ای خودکار حذف
+     * نشود»: clearing what is recorded is a decision, and in this package no
+     * path takes it.
+     *
+     * The parameter that used to say «this caller means it» is gone. It had
+     * **no caller** — `alpha.80`'s rule, in a new place: a parameter nobody
+     * passes is not a capability, it is a door with no room behind it, and
+     * leaving it there invites the next round to flip it without finding out
+     * who clears a relationship and on whose authority. What it would take to
+     * clear one is written as an open decision
+     * (`docs/open-decisions-alpha82.md` §2), unanswered.
      *
      * @param list<int> $termIds
      * @return string '' on success, otherwise a named refusal:
@@ -493,7 +501,7 @@ interface ProductRepositoryInterface
      *         `category_set_unsupported` (schema 34) · `category_set_empty` ·
      *         `not_atomic` · `storage_failed`
      */
-    public function saveCategorySet(int $productId, array $termIds, bool $allowEmpty = false): string;
+    public function saveCategorySet(int $productId, array $termIds): string;
 
     /**
      * Record a product's whole relationship — adding only, never replacing.

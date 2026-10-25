@@ -18,7 +18,17 @@ import sys
 
 ROOT = __file__.rsplit('/tools/', 1)[0]
 
-# name, file, old, new, what must go red
+# ⛔ SOME ENTRIES ARE CONTROLS, and they are marked.
+#
+# A control is a defect put back that must leave every suite GREEN, because a
+# SECOND guard still holds — and saying so is the only honest way to report it.
+# The round's first run called two of these «survived», which reads as «this
+# guard cannot be broken» and is the `alpha.77` trap from the other side: the
+# guard was doing its job and the measurement was describing the wrong one. A
+# control is paired with a mutation that removes BOTH halves, and THAT one has
+# to go red — otherwise the pair is not measured at all.
+#
+# name, file, old, new, what must happen, control?
 MUTATIONS = [
     (
         'intake-stores-the-first-category-again',
@@ -75,11 +85,19 @@ MUTATIONS = [
         'keeping the shop version writes the key and leaves the set stale',
     ),
     (
-        'a-recorded-set-is-overwritten',
+        # CONTROL. Removing the PHP half alone changes nothing observable,
+        # because the claim statement carries the same condition inside it
+        # (`alpha.74`: the check that returns is the report, the statement is
+        # the guarantee). What the PHP half adds is the NAME of the refusal,
+        # which `testNarrowingARecordedSetIsRefusedByNameAndByTheStatement`
+        # asserts — and what it cannot add is protection, which is why this
+        # must stay GREEN and the entry after next must go red.
+        'control-the-php-half-of-the-narrowing-refusal',
         'src/Modules/Product/Infrastructure/DbProductRepository.php',
         'if (CategorySet::lost($recorded, $ids) !== []) {',
         'if (false) {',
-        'a category somebody already chose is replaced without being asked',
+        'nothing: the statement-level guard still refuses, and that is the point',
+        True,
     ),
     (
         'the-claim-stops-guarding-against-a-second-writer',
@@ -87,6 +105,22 @@ MUTATIONS = [
         "                     WHERE t.product_id = %d AND t.term_id NOT IN (' . $placeholders . ')",
         "                     WHERE t.product_id = %d AND t.term_id IN (' . $placeholders . ') AND 1 = 0",
         'two writers with different sets merge into a set nobody asked for',
+    ),
+    (
+        # BOTH HALVES AT ONCE — the pair the control above is half of. With
+        # the PHP refusal gone AND the statement's own condition gone, a set
+        # somebody filed on purpose is narrowed without anybody being asked:
+        # «دسته‌ای که مدیر قبلاً صریحاً تعیین کرده بدون تأیید بازنویسی نشود».
+        'the-narrowing-refusal-removed-on-both-sides',
+        'src/Modules/Product/Infrastructure/DbProductRepository.php',
+        """        if (CategorySet::lost($recorded, $ids) !== []) {
+            // An id is recorded that this product does not carry: somebody
+            // filed it there on purpose. Refused, named, and nothing written.
+            $this->db->rollback();
+            return 'category_set_decided';
+        }""",
+        '        // both halves of the narrowing refusal removed',
+        'a recorded decision is narrowed with nothing refusing it',
     ),
     (
         'the-recorded-set-is-read-without-the-lock',
@@ -98,7 +132,7 @@ MUTATIONS = [
     (
         'an-empty-set-clears-the-relationship',
         'src/Modules/Product/Infrastructure/DbProductRepository.php',
-        "        if ($ids === [] && !$allowEmpty) {\n            return 'category_set_empty';",
+        "        if ($ids === []) {\n            return 'category_set_empty';",
         "        if (false) {\n            return 'category_set_empty';",
         'an ordinary save that carries no category deletes every link row',
     ),
@@ -138,11 +172,31 @@ MUTATIONS = [
         'the manager is forced to pick a category that is already recorded',
     ),
     (
+        # ⛔ REWRITTEN, because the first version of this mutation was
+        # SEMANTICALLY INERT: `SELECT 0` and `SELECT 1` inside `EXISTS` are
+        # the same statement — the subquery's value is never read, only
+        # whether it returns a row. So it «survived» every suite while
+        # measuring nothing, which is the `alpha.77` trap written in SQL. The
+        # clause itself is what has to go.
         'the-gate-stops-counting-unrecorded-relationships',
         'src/Modules/Product/Infrastructure/DbProductRepository.php',
-        "                ? ' AND NOT EXISTS (SELECT 1 FROM `' . $this->categoriesTable()",
-        "                ? ' AND NOT EXISTS (SELECT 0 FROM `' . $this->categoriesTable()",
-        'every imported row counts as mapped while its set is unrecorded',
+        """            . ($carried
+                ? ' AND NOT EXISTS (SELECT 1 FROM `' . $this->categoriesTable()
+                    . '` c WHERE c.product_id = p.id)'
+                : '');""",
+        "            . '';",
+        'a product whose whole relationship is recorded still counts as unmapped',
+    ),
+    (
+        # The security half of the set becoming sensitive: approval APPLIES
+        # it, so the review table has to DRAW it. Reverting this row is how a
+        # manager agrees to a category move they were never shown
+        # (`alpha.49`).
+        'the-review-table-stops-drawing-the-set',
+        'src/Modules/Product/Presentation/Admin/ProductReviewPage.php',
+        'foreach (SensitiveChange::SENSITIVE_SETS as $field) {',
+        'foreach ([] as $field) {',
+        'the manager approves a category change that never appeared on a screen',
     ),
     (
         'a-failed-table-read-reads-as-absent',
@@ -160,13 +214,19 @@ def main() -> int:
         print(len(MUTATIONS))
         return 0
     n = int(sys.argv[2])
-    name, path, old, new, expect = MUTATIONS[n]
+    entry = MUTATIONS[n]
+    name, path, old, new, expect = entry[:5]
+    control = len(entry) > 5 and bool(entry[5])
     if verb == 'name':
         print(name)
     elif verb == 'file':
         print(path)
     elif verb == 'expect':
         print(expect)
+    elif verb == 'control':
+        # Printed rather than returned as an exit code, so the driver can put
+        # it in the report beside the counts.
+        print('yes' if control else 'no')
     elif verb == 'apply':
         full = ROOT + '/' + path
         s = io.open(full, encoding='utf-8').read()
@@ -178,7 +238,10 @@ def main() -> int:
             return 1
         io.open(full, 'w', encoding='utf-8').write(s.replace(old, new))
     else:
-        print('usage: count | name <n> | file <n> | expect <n> | apply <n>', file=sys.stderr)
+        print(
+            'usage: count | name <n> | file <n> | expect <n> | control <n> | apply <n>',
+            file=sys.stderr,
+        )
         return 2
     return 0
 

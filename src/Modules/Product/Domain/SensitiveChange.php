@@ -34,6 +34,24 @@ final class SensitiveChange
     ];
 
     /**
+     * Sensitive fields whose value is a SET, compared as a set.
+     *
+     * Separate from `SENSITIVE` because the loop in `between()` compares with
+     * `!==`, and on two arrays that is order-sensitive: `[245,244]` against
+     * `[244,245]` would read as «changed» and queue a proposal about a
+     * relationship nobody touched.
+     *
+     * It is also the list the REVIEW PAGE reads. Approving a revision applies
+     * these fields, so a field this list carries and the page does not draw is
+     * a change a manager agrees to without seeing it — the `alpha.49` rule
+     * («consent is about the value that was SHOWN») one object along, and the
+     * reason an architecture test binds the two directions.
+     *
+     * @var list<string>
+     */
+    public const SENSITIVE_SETS = ['categoryIds'];
+
+    /**
      * @var list<string> fields a vendor may change on a live product, applied
      *                   at once at every status
      */
@@ -85,7 +103,7 @@ final class SensitiveChange
                 $changed[] = $field;
             }
         }
-        // ⛔ THE SET IS SENSITIVE, AND IT CANNOT RIDE THE LOOP ABOVE.
+        // ⛔ THE SETS ARE SENSITIVE, AND THEY CANNOT RIDE THE LOOP ABOVE.
         //
         // «دسته» is on the sensitive side for the reason this class opens
         // with — it is what the product CLAIMS to be — and until `alpha.82`
@@ -103,8 +121,10 @@ final class SensitiveChange
         //    `[244,245]` would be «changed» — a proposal queued for the
         //    manager about a relationship nobody touched. `CategorySet::same()`
         //    is the comparison that means what this question means.
-        if (!CategorySet::same($current->categorySet(), $proposed->categorySet())) {
-            $changed[] = 'categoryIds';
+        foreach (self::SENSITIVE_SETS as $field) {
+            if (!CategorySet::same($current->setFor($field), $proposed->setFor($field))) {
+                $changed[] = $field;
+            }
         }
         return $changed;
     }

@@ -1434,15 +1434,25 @@ final class DbProductRepository implements ProductRepositoryInterface
      * refused by name rather than writing the first half.
      *
      * ⛔ **An empty set is refused, not written.** «هیچ رابطه‌ای خودکار حذف
-     * نشود»: clearing a product's recorded categories is a decision, and the
-     * only caller allowed to make it is an explicit admin action that says so
-     * — which passes `$allowEmpty`. Every ordinary save that happens to carry
+     * نشود»: clearing a product's recorded categories is a decision, and no
+     * path in this package takes it. Every ordinary save that happens to carry
      * nothing leaves what is recorded alone.
+     *
+     * The refusal is UNCONDITIONAL, and it used not to be: a `$allowEmpty`
+     * parameter stood here for «a caller that means it» and **no caller ever
+     * passed it** — so the exception existed only in this signature.
+     * `alpha.80`'s rule says that is not a capability, and the cost of
+     * pretending otherwise is specific: `syncCategorySet()` below returns
+     * early on an empty set too, so a mutation that removed this refusal
+     * changed nothing observable and the round's falsification reported it as
+     * «survived». Two guards reading as one is how a guard stops being
+     * measured. What it would take to clear a relationship on purpose is
+     * `docs/open-decisions-alpha82.md` §2, and it is not answered here.
      *
      * @param list<int> $termIds
      * @return string '' on success, otherwise a named refusal
      */
-    public function saveCategorySet(int $productId, array $termIds, bool $allowEmpty = false): string
+    public function saveCategorySet(int $productId, array $termIds): string
     {
         if ($productId <= 0) {
             return 'bad_product';
@@ -1458,7 +1468,7 @@ final class DbProductRepository implements ProductRepositoryInterface
             return 'category_set_unsupported';
         }
         $ids = CategorySet::of($termIds);
-        if ($ids === [] && !$allowEmpty) {
+        if ($ids === []) {
             return 'category_set_empty';
         }
         if (!$this->db->begin()) {

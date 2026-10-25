@@ -228,6 +228,11 @@ final class ProductMessages
             'title' => __('عنوان', 'tecteb-marketplace-core'),
             'type' => __('نوع محصول', 'tecteb-marketplace-core'),
             'category', 'categoryKey' => __('دسته', 'tecteb-marketplace-core'),
+            // Plural, and deliberately a different word from «دسته» above:
+            // the two rows can appear on the same review table, and a
+            // manager reading two rows with one label cannot tell which one
+            // is the whole relationship.
+            'categoryIds' => __('دسته‌ها', 'tecteb-marketplace-core'),
             'price', 'priceMinor' => __('قیمت', 'tecteb-marketplace-core'),
             'image' => __('تصویر', 'tecteb-marketplace-core'),
             'brand' => __('برند', 'tecteb-marketplace-core'),

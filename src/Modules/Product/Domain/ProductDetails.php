@@ -114,6 +114,29 @@ final class ProductDetails
         return CategorySet::of([$this->categoryKey]);
     }
 
+    /**
+     * The SET a sensitive set-valued field holds, by its name.
+     *
+     * One field answers this today, and the indirection is not generality for
+     * its own sake: `SensitiveChange::SENSITIVE_SETS` is the list the approval
+     * path and the review page both read, and a name that appears on that list
+     * with no accessor here must fail LOUDLY. Returning `[]` for an unknown
+     * name would make such a field read as «no change» on one side and «no
+     * row» on the other — approvable and invisible, which is the exact fault
+     * `alpha.82` closed for the category set.
+     *
+     * @return list<int>
+     */
+    public function setFor(string $field): array
+    {
+        return match ($field) {
+            'categoryIds' => $this->categorySet(),
+            default => throw new \InvalidArgumentException(
+                'no set accessor for sensitive set field: ' . $field
+            ),
+        };
+    }
+
     /** The purchase-quantity rule these details express. */
     public function purchaseQuantity(): PurchaseQuantity
     {

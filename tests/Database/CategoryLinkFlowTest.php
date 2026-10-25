@@ -23,11 +23,13 @@ use Tecteb\Marketplace\Modules\Product\Application\CategoryLinkPlan;
 use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0035ProductCategorySet;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WpProductCategoryLinkReader;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables;
+use Tecteb\Marketplace\Tests\Support\FailingDatabase;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeDokanReader;
 use Tecteb\Marketplace\Tests\Support\FakeProductCategoryDirectory;
@@ -791,5 +793,127 @@ final class CategoryLinkFlowTest extends DatabaseTestCase
         self::assertSame('711', (string) ($payload['category_key'] ?? ''));
         self::assertSame('تجهیزات پزشکی › تزریق', $payload['path'] ?? '');
         self::assertSame('woocommerce_relationship', $payload['source'] ?? '');
+    }
+
+    /**
+     * AN EMPTY SET IS REFUSED BY NAME, AND NOTHING IS DELETED.
+     *
+     * ⛔ This is the test the round shipped without, and the gap had a shape
+     * worth naming: `saveCategorySet()` refuses an empty set AND
+     * `syncCategorySet()` returns early on one, so the mutation that removed
+     * the refusal changed nothing anybody could observe and falsification
+     * reported it as «survived». Two guards reading as one is how a guard
+     * stops being measured — so this calls the method DIRECTLY, which is the
+     * only place the refusal is the whole answer.
+     *
+     * «هیچ رابطه‌ای خودکار حذف نشود» is the rule, and the recorded rows after
+     * the refusal are the measurement of it.
+     */
+    public function testAnEmptySetIsRefusedAndDeletesNothing(): void
+    {
+        $this->runImport();
+        $this->attach(8001, [self::INJECTION, self::GLUE_MEDICAL]);
+        $id = $this->rowId(8001);
+        self::assertSame('', $this->products->saveCategorySet($id, [self::INJECTION, self::GLUE_MEDICAL]));
+        self::assertSame([self::INJECTION, self::GLUE_MEDICAL], $this->recordedSet(8001));
+
+        self::assertSame(
+            'category_set_empty',
+            $this->products->saveCategorySet($id, []),
+            'refused by its own name, so a caller cannot read it as «done, nothing to do»'
+        );
+        self::assertSame(
+            [self::INJECTION, self::GLUE_MEDICAL],
+            $this->recordedSet(8001),
+            'and both relationships are still recorded'
+        );
+
+        // A set of nothing but rubbish is the same answer: `CategorySet::of()`
+        // drops anything that is not a run of digits, so this reaches the
+        // refusal rather than writing `0`.
+        self::assertSame('category_set_empty', $this->products->saveCategorySet($id, [0, -3]));
+        self::assertSame([self::INJECTION, self::GLUE_MEDICAL], $this->recordedSet(8001));
+    }
+
+    /**
+     * THE PAIR, AND WHY IT IS A PAIR.
+     *
+     * `recordCategorySet()` refuses a narrowing set twice over: once in PHP
+     * (`CategorySet::lost(...) !== []`) and once INSIDE the claim statement
+     * (`AND NOT EXISTS (… term_id NOT IN (…))`). The SQL half is the guarantee
+     * — `alpha.74`'s rule, that a check which returns is a report and a
+     * guarantee is one with the write inside it — and the PHP half is the
+     * report that names WHICH refusal it was.
+     *
+     * ⛔ So reverting the PHP half alone changes no behaviour, and the round's
+     * falsification said «survived» about a guard that is doing its job. The
+     * honest measurement is this: remove BOTH halves and the recorded decision
+     * is overwritten. This test fails if either half stops being reachable,
+     * because it asserts the NAME of the refusal (which only PHP produces) and
+     * the recorded SET (which only the statement protects).
+     */
+    public function testNarrowingARecordedSetIsRefusedByNameAndByTheStatement(): void
+    {
+        $this->runImport();
+        $this->attach(8006, [self::INJECTION, self::GLUE_MEDICAL]);
+        $id = $this->rowId(8006);
+        // Three recorded, and the product carries two of them: applying would
+        // LOSE one, which is what «somebody filed it there» protects.
+        self::assertSame(
+            '',
+            $this->products->saveCategorySet($id, [self::INJECTION, self::GLUE_MEDICAL, self::PERSIAN])
+        );
+
+        $code = $this->products->recordCategorySet($id, [self::INJECTION, self::GLUE_MEDICAL]);
+
+        self::assertSame(
+            'category_set_decided',
+            $code,
+            'the NAME comes from the PHP half: «already_set» would hide which half it was'
+        );
+        self::assertSame(
+            [self::INJECTION, self::GLUE_MEDICAL, self::PERSIAN],
+            $this->recordedSet(8006),
+            'and the SET is what the statement-level guard protects — nothing lost, nothing merged'
+        );
+    }
+
+    /**
+     * `carriedBy()` HAS THREE ANSWERS, AND A FAILED READ IS NOT «ABSENT».
+     *
+     * ⛔ `alpha.68`'s finding, one table along. Every caller of this treats
+     * `false` as «running on schema 34»: the read falls back to the single key
+     * and the write refuses by name. `null` has to mean «I could not ask»,
+     * because reading a failed catalogue query as «the table is not there»
+     * makes a multi-category product answer with ONE category and report
+     * success — the exact narrowing this round exists to close.
+     *
+     * Both reads are refused by name, because the second one is the whole
+     * point of the method: `SHOW COLUMNS` is a different path in the server,
+     * and a table that exists always answers its own columns.
+     */
+    public function testAFailedTableReadIsNotTheSameAsAnAbsentTable(): void
+    {
+        self::assertTrue(
+            M0035ProductCategorySet::carriedBy($this->database),
+            'the control: the table is here on this schema'
+        );
+
+        $failing = new FailingDatabase($this->database);
+        $failing->failReadWhen(['information_schema.TABLES']);
+        $failing->failReadWhen(['SHOW COLUMNS FROM']);
+        self::assertNull(
+            M0035ProductCategorySet::carriedBy($failing),
+            'neither read answered, so the honest answer is «I do not know»'
+        );
+
+        // And the catalogue read failing ALONE is not «unknown»: the second
+        // read answers, and it answers truthfully.
+        $onlyCatalogue = new FailingDatabase($this->database);
+        $onlyCatalogue->failReadWhen(['information_schema.TABLES']);
+        self::assertTrue(
+            M0035ProductCategorySet::carriedBy($onlyCatalogue),
+            'a failed catalogue read is a reason to ask differently, not an answer'
+        );
     }
 }

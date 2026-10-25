@@ -30,8 +30,13 @@ set -a; . ./.env.testing; set +a
 UNIT=(vendor/bin/phpunit --testsuite unit)
 ARCH=(vendor/bin/phpunit --testsuite architecture)
 CONTRACT=(vendor/bin/phpunit --testsuite contract --bootstrap tests/bootstrap-contract.php)
+# ⛔ The filter has to name every class that now asserts about the SET, and
+# two were missing on the first run: the approval tests and the review page.
+# A filter that leaves out the class holding the killing test reports
+# «survived» about a guard that is measured — the same false negative as a
+# mutation that does not apply.
 DB=(vendor/bin/phpunit --testsuite database --bootstrap tests/bootstrap-database.php
-    --filter 'CategoryLinkFlowTest|CategoryLinkReadTest|CatalogueIntakeTest|ProductFlowTest')
+    --filter 'CategoryLinkFlowTest|CategoryLinkReadTest|CatalogueIntakeTest|ProductFlowTest|ApprovalSyncAndBaselineTest|ProductAdminPagesTest')
 
 tally() {   # prints e.g. "unit:2 arch:0 contract:1 db:3"
   printf 'unit:%s ' "$(count_failures "${UNIT[@]}")"
@@ -66,6 +71,7 @@ for i in $(seq 0 $((total - 1))); do
   name="$(python3 tools/alpha82-mutations.py name "$i")"
   file="$(python3 tools/alpha82-mutations.py file "$i")"
   expect="$(python3 tools/alpha82-mutations.py expect "$i")"
+  control="$(python3 tools/alpha82-mutations.py control "$i")"
   before="$(sha256sum "$file" | cut -d' ' -f1)"
   cp "$file" "$OUT/.restore"
 
@@ -85,6 +91,7 @@ for i in $(seq 0 $((total - 1))); do
     echo "## $i $name"
     echo "   file:     $file"
     echo "   expected: $expect"
+    [ "$control" = yes ] && echo "   control:  yes — must stay green; the statement-level half is the guarantee"
     echo "   failures: $counts"
     echo "   restored: $([ "$before" = "$after" ] && echo byte-for-byte || echo DIFFERS)"
   } >>"$report"
@@ -94,7 +101,18 @@ for i in $(seq 0 $((total - 1))); do
     fail=$((fail + 1))
     continue
   fi
-  if echo "$counts" | grep -qE ':[1-9]'; then
+  # A CONTROL IS THE OPPOSITE EXPECTATION, and it is stated per mutation
+  # rather than read out of the result. Removing one half of a doubled guard
+  # must leave the suites green — that is what makes it a pair — and a control
+  # that goes RED means the second half is not holding, which is a finding.
+  if [ "$control" = yes ]; then
+    if echo "$counts" | grep -qE ':[1-9]'; then
+      echo "FAIL $i $name — a CONTROL went red: $counts"
+      fail=$((fail + 1))
+    else
+      echo "ok   $i $name → control, green on both trees as it must be"
+    fi
+  elif echo "$counts" | grep -qE ':[1-9]'; then
     echo "ok   $i $name → $counts"
   else
     echo "FAIL $i $name — SURVIVED: $counts"

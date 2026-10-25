@@ -16,7 +16,9 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
 use Tecteb\Marketplace\Core\Support\SystemClock;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Presentation\Admin\SpecTemplatesPage;
+use Tecteb\Marketplace\Tests\Support\FakeProductCategoryDirectory;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables;
 use TmcWpStubs\State;
@@ -928,6 +930,112 @@ final class ProductAdminPagesTest extends DatabaseTestCase
 
         self::assertStringContainsString('محصولی با این شناسه در ووکامرس نیست', $out);
         self::assertStringContainsString('بازگشت به فهرست', $out, 'and there is a way back');
+    }
+
+    /**
+     * The review table must DRAW the category set it is about to APPLY.
+     *
+     * ⛔ `alpha.82` made the set sensitive, so a vendor's proposed categories
+     * now become a revision and «تأیید تغییر» writes them. `diffTable()` built
+     * its rows from `SENSITIVE` and compared with `(string) $current === (string)
+     * $next`, which a set cannot ride — and `categoryKey` is `''` on both sides
+     * of a multi-category change because `soleKey()` picks no winner. Measured
+     * before the row existed: the table said «این پیشنهاد تفاوتی با نسخه فعلی
+     * ندارد» about a revision that was going to move the product between
+     * branches. That is the `alpha.49` rule one object along — consent is about
+     * the value that was SHOWN — and the owner's own requirement that the set
+     * be visible.
+     *
+     * The full path is asserted, not the leaf name: «لوازم جانبی» sits on six
+     * branches of the owner's catalogue, so a row naming leaves only would let
+     * a move between branches read as no change at all.
+     */
+    public function testTheReviewTableShowsTheWholeProposedCategorySet(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+        $directory = new FakeProductCategoryDirectory();
+        $directory->terms = [
+            244 => ['name' => 'تزریق', 'path' => 'تجهیزات پزشکی › تزریق'],
+            245 => ['name' => 'سرنگ', 'path' => 'تجهیزات پزشکی › تزریق › سرنگ'],
+            246 => ['name' => 'چسب', 'path' => 'مواد مصرفی › چسب'],
+        ];
+        Bootstrap::container()->bind(ProductCategoryDirectoryInterface::class, static fn () => $directory);
+
+        $products = new DbProductRepository(new WpDatabase($this->wpdb), new SystemClock());
+        $productId = $products->create(
+            7,
+            // The owner's own shape: a parent and a child of one branch.
+            new ProductDetails(title: 'سرنگ ۵cc', categoryKey: '244', priceMinor: 100000, categoryIds: [244, 245]),
+            ProductStatus::Published
+        );
+        self::assertSame([244, 245], $products->find($productId)?->details->categorySet());
+
+        $revisions = new DbProductRevisionRepository(new WpDatabase($this->wpdb), new SystemClock());
+        self::assertGreaterThan(0, $revisions->create($productId, 7, [
+            'details' => ['title' => 'سرنگ ۵cc', 'categoryIds' => [244, 246]],
+        ]));
+
+        $out = $this->render(['product' => $productId]);
+        // ⛔ The ROW, not the word. «برای دیدن فهرست دسته‌ها…» sits in the
+        // manager-correction form on this very page, so a bare needle answers
+        // about that sentence instead — `alpha.33`, in my own test.
+        self::assertStringContainsString(
+            '<th scope="row">دسته‌ها</th>',
+            $out,
+            'the set row must be headed, and headed differently from «دسته»'
+        );
+        self::assertStringNotContainsString(
+            'این پیشنهاد تفاوتی با نسخه فعلی ندارد',
+            $out,
+            'the table must not call a category move «no difference»'
+        );
+        // BOTH sides, each id with its full path.
+        foreach (['تجهیزات پزشکی › تزریق › سرنگ', 'مواد مصرفی › چسب'] as $path) {
+            self::assertStringContainsString($path, $out, 'missing path: ' . $path);
+        }
+        self::assertStringContainsString('#۲۴۵', $out, 'the id the vendor is dropping');
+        self::assertStringContainsString('#۲۴۶', $out, 'the id the vendor is asking for');
+    }
+
+    /**
+     * And a revision written before `alpha.82` draws NO set row.
+     *
+     * Such a payload carries no `categoryIds` key, `detailsFromPayload()` keeps
+     * the LIVE set for it, and a row about a change that will not be made is
+     * the `alpha.13` fault in review clothing — it sends a manager to reject a
+     * perfectly good title proposal. The same rule the brand and stock rows
+     * have carried since `alpha.48`.
+     */
+    public function testAnOlderRevisionWithNoRecordedSetDrawsNoCategoryRow(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+        $directory = new FakeProductCategoryDirectory();
+        $directory->terms = [
+            244 => ['name' => 'تزریق', 'path' => 'تجهیزات پزشکی › تزریق'],
+            245 => ['name' => 'سرنگ', 'path' => 'تجهیزات پزشکی › تزریق › سرنگ'],
+        ];
+        Bootstrap::container()->bind(ProductCategoryDirectoryInterface::class, static fn () => $directory);
+
+        $products = new DbProductRepository(new WpDatabase($this->wpdb), new SystemClock());
+        $productId = $products->create(
+            7,
+            new ProductDetails(title: 'سرنگ ۵cc', categoryKey: '244', priceMinor: 100000, categoryIds: [244, 245]),
+            ProductStatus::Published
+        );
+        $revisions = new DbProductRevisionRepository(new WpDatabase($this->wpdb), new SystemClock());
+        self::assertGreaterThan(0, $revisions->create($productId, 7, [
+            'details' => ['title' => 'عنوان تازه'],
+        ]));
+
+        $out = $this->render(['product' => $productId]);
+        self::assertStringContainsString('عنوان تازه', $out, 'the title proposal is still drawn');
+        self::assertStringNotContainsString(
+            '<th scope="row">دسته‌ها</th>',
+            $out,
+            'nothing is being asked about the set, so nothing is drawn about it'
+        );
     }
 
     private function render(array $query = []): string

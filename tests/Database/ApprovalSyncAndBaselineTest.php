@@ -380,6 +380,49 @@ final class ApprovalSyncAndBaselineTest extends DatabaseTestCase
     }
 
     /**
+     * A VENDOR'S PROPOSED SET REACHES REVIEW, AND APPROVAL APPLIES IT WHOLE.
+     *
+     * ⛔ The mutation that proved this missing survived twice over, and the
+     * second reason was the worse one. `detailsFromPayload()` reading `[]`
+     * instead of the carried ids left the recorded set alone — because an
+     * empty set is refused — so the acceptance tests could not see it. What
+     * they also could not see was that the proposal never existed: on a
+     * product in two categories `categoryKey` is `''` on both sides, so
+     * `SensitiveChange::between()` reported nothing changed, the save
+     * answered `inventory_saved`, and the vendor's request to be in
+     * `[244,246]` instead of `[244,245]` was DISCARDED with a success
+     * message. Both halves are fixed; this test is the one that fails if
+     * either comes back.
+     *
+     * Compared as a SET, id by id, because «برابری تعداد کافی نیست» — the
+     * two sets here have the same size.
+     */
+    public function testAVendorsProposedCategorySetGoesToReviewAndIsAppliedWhole(): void
+    {
+        $productId = $this->publish();
+        self::assertSame([244, 245], $this->recordedSet($productId), 'the fixture starts with both');
+
+        $revisionId = $this->proposeCategories($productId, [244, 246]);
+
+        self::assertSame(
+            [244, 245],
+            $this->recordedSet($productId),
+            'and the live product does not move while the manager has not answered'
+        );
+
+        $product = $this->products->find($productId);
+        self::assertNotNull($product);
+        $approved = $this->review->approveRevision($revisionId, $this->storefront->fingerprints($product));
+        self::assertTrue($approved->ok, $approved->code);
+
+        self::assertSame(
+            [244, 246],
+            $this->recordedSet($productId),
+            'exactly what was asked for — neither the old set nor a merge of the two'
+        );
+    }
+
+    /**
      * A revision written before the set existed keeps the LIVE set.
      *
      * An `alpha.81` payload has no `categoryIds` key at all. Deriving one
@@ -500,6 +543,29 @@ final class ApprovalSyncAndBaselineTest extends DatabaseTestCase
         self::assertSame($title, $this->products->find($productId)?->details->title);
     }
 
+    /**
+     * @param list<int> $ids
+     */
+    private function proposeCategories(int $productId, array $ids): int
+    {
+        $current = $this->products->find($productId);
+        self::assertNotNull($current);
+        $saved = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            $this->details(categoryIds: $ids),
+            [],
+            $current->imageIds,
+            $current->mainImageId,
+            $current->rowVersion
+        );
+        self::assertSame('revision_requested', $saved->code, $saved->code);
+        $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
+        self::assertGreaterThan(0, $revisionId);
+        return $revisionId;
+    }
+
     private function proposeTitle(int $productId, string $title): int
     {
         $saved = $this->manage->save(
@@ -556,14 +622,17 @@ final class ApprovalSyncAndBaselineTest extends DatabaseTestCase
      * template lookup is the owner's open decision, not this fixture's
      * (`docs/open-decisions-alpha82.md` §1).
      */
-    private function details(string $title = 'دستکش لاتکس'): ProductDetails
+    /**
+     * @param list<int> $categoryIds
+     */
+    private function details(string $title = 'دستکش لاتکس', array $categoryIds = [244, 245]): ProductDetails
     {
         return new ProductDetails(
             title: $title,
             priceMinor: 200000,
             sku: 'SKU-71',
             stock: 5,
-            categoryIds: [244, 245]
+            categoryIds: $categoryIds
         );
     }
 }

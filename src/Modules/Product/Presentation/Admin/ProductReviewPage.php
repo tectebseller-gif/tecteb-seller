@@ -30,6 +30,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ReviewSeen;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
+use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
@@ -1032,6 +1033,38 @@ final class ProductReviewPage
                 . '<td>' . esc_html((string) $current !== '' ? (string) $current : '—') . '</td>'
                 . '<td><strong>' . esc_html((string) $next !== '' ? (string) $next : '—') . '</strong></td></tr>';
         }
+        // ⛔ THE SENSITIVE SETS, which the loop above cannot draw.
+        //
+        // It compares with `(string) $current === (string) $next`, and casting
+        // an array to a string is a PHP notice and the word «Array» — so the
+        // set would either never differ or always differ, and `categoryKey` is
+        // `''` on both sides of a multi-category change anyway (`soleKey()`
+        // deliberately picks no winner). Until this block, approving a
+        // revision APPLIED the proposed set while this table drew no row for
+        // it: the manager agreed to a category change they were never shown,
+        // which is `alpha.49` («consent is about the value that was SHOWN»)
+        // and the owner's own requirement that the set be visible.
+        //
+        // And only when the payload is ACTUALLY asking — the same rule the
+        // brand and stock rows carry. A revision written before `alpha.82`
+        // has no `categoryIds` key, `detailsFromPayload()` keeps the LIVE set
+        // for it, and drawing a row about a change that will not be made is
+        // the `alpha.13` fault in review clothing.
+        foreach (SensitiveChange::SENSITIVE_SETS as $field) {
+            if (!array_key_exists($field, $proposed)) {
+                continue;
+            }
+            $currentSet = $product->details->setFor($field);
+            $nextSet = CategorySet::of(is_array($proposed[$field]) ? $proposed[$field] : []);
+            if (CategorySet::same($currentSet, $nextSet)) {
+                continue;
+            }
+            $rows .= '<tr><th scope="row">' . esc_html(ProductMessages::field($field) !== $field
+                ? ProductMessages::field($field)
+                : $field) . '</th>'
+                . '<td>' . esc_html($this->categorySetText($currentSet)) . '</td>'
+                . '<td><strong>' . esc_html($this->categorySetText($nextSet)) . '</strong></td></tr>';
+        }
         // STOCK, and only when the payload is actually asking for it.
         // `details.stock` has been in every payload since `alpha.6` and was
         // never applied; reading THAT as a proposal would show a change on
@@ -1063,6 +1096,40 @@ final class ProductReviewPage
             . '<th scope="col">' . esc_html__('نسخه فعلی', 'tecteb-marketplace-core') . '</th>'
             . '<th scope="col">' . esc_html__('پیشنهاد فروشنده', 'tecteb-marketplace-core') . '</th>'
             . '</tr></thead><tbody>' . $rows . '</tbody></table>';
+    }
+
+    /**
+     * A set of category ids as the manager has to read it: id AND full path.
+     *
+     * The id alone is unreadable and the leaf name alone is ambiguous — «لوازم
+     * جانبی» sits on six branches of the owner's catalogue (`alpha.81`), so a
+     * row that printed only leaf names would let a manager approve a move to
+     * a different branch believing nothing changed. A term the directory can
+     * no longer resolve is named as a number with «ترم حذف‌شده» rather than
+     * dropped, because a deleted category is exactly the case the owner asked
+     * to see.
+     *
+     * @param list<int> $ids
+     */
+    private function categorySetText(array $ids): string
+    {
+        if ($ids === []) {
+            return '—';
+        }
+        /** @var ProductCategoryDirectoryInterface $directory */
+        $directory = $this->container->get(ProductCategoryDirectoryInterface::class);
+        $parts = [];
+        foreach ($ids as $id) {
+            $path = $directory->find((string) $id)?->path ?? '';
+            $parts[] = $path !== ''
+                ? sprintf('%s (#%s)', $path, PersianDigits::toPersian((string) $id))
+                : sprintf(
+                    /* translators: %s: the term id */
+                    __('ترم حذف‌شده #%s', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $id)
+                );
+        }
+        return implode(' · ', $parts);
     }
 
     /**
