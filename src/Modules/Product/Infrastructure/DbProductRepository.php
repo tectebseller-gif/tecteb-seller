@@ -878,11 +878,31 @@ final class DbProductRepository implements ProductRepositoryInterface
 
     public function countImportedWithoutCategory(int $vendorUserId = 0): int
     {
-        $sql = 'SELECT COUNT(*) FROM `' . $this->products() . '`
-                 WHERE import_run_id <> %s AND category_key = %s';
+        // «WITHOUT A CATEGORY» MEANS NEITHER THE KEY NOR THE SET SAYS ANYTHING.
+        //
+        // Until `alpha.81` this asked the key alone, and measured on that
+        // package the gate read `waiting_total=0` while nine products had
+        // their relationship recorded nowhere — the intake had quietly stored
+        // the first id, so the column was non-empty and the counter was
+        // satisfied. A product whose SET is recorded is answered; a product
+        // with neither is not; and a row with a legacy slug key still counts
+        // as answered, because that key is what the aliasing template
+        // repository still understands.
+        $carried = $this->hasCategoryTable();
+        if ($carried === null) {
+            // The read failed. `-1` keeps the gate OPEN (`alpha.67`): nought
+            // here would read as «nothing left to decide».
+            return -1;
+        }
+        $sql = 'SELECT COUNT(*) FROM `' . $this->products() . '` p
+                 WHERE import_run_id <> %s AND category_key = %s'
+            . ($carried
+                ? ' AND NOT EXISTS (SELECT 1 FROM `' . $this->categoriesTable()
+                    . '` c WHERE c.product_id = p.id)'
+                : '');
         $params = ['', ''];
         if ($vendorUserId > 0) {
-            $sql .= ' AND vendor_user_id = %d';
+            $sql .= ' AND p.vendor_user_id = %d';
             $params[] = $vendorUserId;
         }
         $value = $this->db->getVar($sql, $params);
@@ -973,28 +993,45 @@ final class DbProductRepository implements ProductRepositoryInterface
      * that has nothing recorded and no single key a human has set.
      *
      * The set sibling of `setCategoryWhenEmpty()`, and it keeps that method's
-     * three properties, which is why it is here rather than built out of it:
+     * properties, which is why it is here rather than built out of it:
      *
-     *  1. **The conditions are in the statements** (`alpha.50`), so a second
-     *     request racing this one loses at the database rather than at a check
-     *     between a read and a write.
-     *  2. **An already-decided product is never overwritten.** The `UPDATE`
-     *     that stamps the single key still carries `category_key = ''`, and
-     *     the `INSERT`s are `IGNORE`d against the pair key, so a set somebody
-     *     else recorded first survives and the answer is `already_set`.
-     *  3. **Zero rows is read, not guessed** (`alpha.28`): the two halves of
-     *     «the WHERE did not match» are opposite answers.
+     *  1. **Nothing a manager recorded is replaced.** A recorded set that is
+     *     not contained in the incoming one is REFUSED by name
+     *     (`category_set_decided`) — «دسته‌ای که مدیر قبلاً صریحاً تعیین کرده
+     *     بدون تأیید بازنویسی نشود.»
+     *  2. **A recorded set may be COMPLETED, because completing only adds.**
+     *     ⛔ This is not a softening; it is what the upgrade makes necessary.
+     *     Migration 35 backfills one row from `category_key`, and on staging
+     *     that key is `category_ids[0]` — so the owner's nine products arrive
+     *     here with `{244}` recorded and `{244,245}` on the product. Refusing
+     *     that as «already decided» would leave exactly the products this
+     *     round exists for unrecordable, and «مدیر نباید مجبور به انتخاب
+     *     مجدد دسته‌های موجود شود». Nothing is ever deleted: a strict subset
+     *     gains its missing ids and no row is removed.
+     *  3. **Zero rows is read, not guessed** (`alpha.28`): «no row matched»
+     *     has two opposite halves and they get different answers.
      *
-     * The single key is written only when the set has exactly ONE member
-     * ({@see CategorySet::soleKey()}), because which category's spec template
-     * applies to a multi-category product is the owner's open decision and not
-     * this method's (`docs/open-decisions-alpha82.md` §1). For a set of two
-     * the key stays `''` — «no single key» — and the relationship is recorded
-     * in full.
+     * ⛔ **The recorded set is read INSIDE the transaction, with a locking
+     * read** (`alpha.64`): the decision «is this a completion or somebody
+     * else's decision?» cannot be taken on a value read before the lock. The
+     * count comes back in the same row as the ids, because `getResults()`
+     * cannot tell «no rows» from «the read failed» (`alpha.8`) and here those
+     * are opposite answers — an unreadable set must never be treated as an
+     * empty one.
+     *
+     * ⛔ **And the single key is left ALONE when it already carries one.**
+     * `category_key` is written only when it is empty (the condition is in the
+     * statement), so the legacy key the pre-`alpha.82` intake stored survives
+     * this call untouched. Clearing it would change which spec template that
+     * product is held to — and which category's template applies to a
+     * multi-category product is the owner's open decision, which this method
+     * is not allowed to take (`docs/open-decisions-alpha82.md` §1). For a
+     * fresh row with no key and several categories the key stays `''`, which
+     * is `CategorySet::soleKey()` saying «there is no single key».
      *
      * @param list<int> $termIds
      */
-    public function setCategorySetWhenAbsent(int $productId, array $termIds): string
+    public function recordCategorySet(int $productId, array $termIds): string
     {
         if (!$this->mayWrite()) {
             return 'storage_failed';
@@ -1015,66 +1052,119 @@ final class DbProductRepository implements ProductRepositoryInterface
         if (!$this->db->begin()) {
             return 'not_atomic';
         }
-        // The imported row, and only while NOTHING is recorded for it. The
-        // `NOT EXISTS` is inside the statement for the same reason the
-        // `category_key = ''` guard is: between a read and a write another
-        // request can record a set, and this one must lose rather than
-        // replace it.
         $table = $this->categoriesTable();
         $products = $this->products();
-        // THE FIRST ROW IS THE CLAIM — `alpha.54`'s rule. One statement whose
-        // own `WHERE` carries both conditions, so the loser of a race never
-        // reaches the rest; the remaining ids then go in plainly, inside the
-        // same transaction, because the claim already decided who is writing.
+
+        // THE LOCKING READ, and it is the first statement of the transaction.
+        // Everything below depends on what is recorded right now, and on an
+        // empty set the gap lock is what makes a concurrent writer wait rather
+        // than interleave.
+        $locked = $this->db->getResults(
+            'SELECT COUNT(*) AS n, GROUP_CONCAT(term_id) AS ids
+               FROM `' . $table . '` WHERE product_id = %d FOR UPDATE',
+            [$productId]
+        );
+        if ($locked === null || $locked === []) {
+            $this->db->rollback();
+            return 'storage_failed';
+        }
+        $recorded = CategorySet::fromValue((string) ($locked[0]['ids'] ?? ''));
+        if (CategorySet::same($recorded, $ids)) {
+            $this->db->rollback();
+            return 'already_set';
+        }
+        if (CategorySet::lost($recorded, $ids) !== []) {
+            // An id is recorded that this product does not carry: somebody
+            // filed it there on purpose. Refused, named, and nothing written.
+            $this->db->rollback();
+            return 'category_set_decided';
+        }
+
+        // THE FIRST MISSING ID IS THE CLAIM, and both of its conditions are
+        // INSIDE the statement (`alpha.50`, `alpha.54`): the row must be an
+        // imported one, and NO id may be recorded for it that this set does
+        // not contain. The locking read above orders two writers; this is what
+        // makes the loser lose at the database rather than at a check.
+        //
+        // Measured consequence of having both: A recording {244,245} and B
+        // recording {244,246} off the same `{244}` cannot merge into
+        // {244,245,246}. Whichever claims first leaves an id the other's
+        // `NOT IN` refuses, so the second gets `category_set_decided` and
+        // writes nothing.
         //
         // `FROM DUAL` and not a derived table of all the rows: a derived table
         // names its columns after their VALUES, so a set whose term id equals
         // its sort order would produce two columns of the same name and the
         // statement would fail — on some products and not others.
+        $missing = array_values(array_diff($ids, $recorded));
+        $placeholders = implode(', ', array_fill(0, count($ids), '%d'));
         $claimed = $this->db->execute(
             'INSERT INTO `' . $table . '` (product_id, term_id, sort_order)
-             SELECT %d, %d, 0 FROM DUAL
+             SELECT %d, %d, %d FROM DUAL
               WHERE EXISTS (
                     SELECT 1 FROM `' . $products . '`
                      WHERE id = %d AND import_run_id <> %s
               )
-                AND NOT EXISTS (SELECT 1 FROM `' . $table . '` t WHERE t.product_id = %d)',
-            [$productId, $ids[0], $productId, '', $productId]
+                AND NOT EXISTS (
+                    SELECT 1 FROM `' . $table . '` t
+                     WHERE t.product_id = %d AND t.term_id NOT IN (' . $placeholders . ')
+              )',
+            array_merge(
+                [
+                    $productId,
+                    $missing[0],
+                    (int) array_search($missing[0], $ids, true),
+                    $productId,
+                    '',
+                    $productId,
+                ],
+                $ids
+            )
         );
         if ($claimed === null) {
             $this->db->rollback();
             return 'storage_failed';
         }
-        if ($claimed > 0) {
-            foreach (array_slice($ids, 1) as $offset => $termId) {
-                if ($this->db->execute(
-                    'INSERT INTO `' . $table . '` (product_id, term_id, sort_order) VALUES (%d, %d, %d)
-                     ON DUPLICATE KEY UPDATE sort_order = VALUES(sort_order)',
-                    [$productId, $termId, $offset + 1]
-                ) === null) {
-                    $this->db->rollback();
-                    return 'storage_failed';
-                }
-            }
-        }
         if ($claimed < 1) {
             $this->db->rollback();
-            // Re-read, because «somebody recorded it first» and «this is not
-            // an imported row» are different answers and neither is a failure.
+            // Zero rows, and which of the three it was has to be READ rather
+            // than guessed (`alpha.28`): «not an imported row», «there is no
+            // such row», and «somebody recorded a set of their own in between»
+            // are three different answers and none of them is a failure.
             $row = $this->db->getResults(
                 'SELECT import_run_id FROM `' . $products . '` WHERE id = %d',
                 [$productId]
             );
-            if ($row === null || $row === []) {
+            if ($row === null) {
+                return 'storage_failed';
+            }
+            if ($row === []) {
                 return 'not_found';
             }
             if ((string) $row[0]['import_run_id'] === '') {
                 return 'not_imported';
             }
-            return 'already_set';
+            return 'category_set_decided';
         }
-        // The single key, and only when there is exactly one category. Its own
-        // guard stays: a key a manager set is never replaced.
+
+        // The rest of the missing ids, inside the same transaction, because
+        // the claim already decided who is writing. `IGNORE` against the PAIR
+        // key, so nothing is overwritten and `sort_order` keeps the set's own
+        // order.
+        foreach (array_slice($missing, 1) as $termId) {
+            if ($this->db->execute(
+                'INSERT IGNORE INTO `' . $table . '` (product_id, term_id, sort_order)
+                 VALUES (%d, %d, %d)',
+                [$productId, $termId, (int) array_search($termId, $ids, true)]
+            ) === null) {
+                $this->db->rollback();
+                return 'storage_failed';
+            }
+        }
+
+        // The single key, and only into an EMPTY one. Its own guard stays in
+        // the statement: a key anybody set — a manager, or the older intake —
+        // is never replaced here.
         $sole = CategorySet::soleKey($ids);
         if ($sole !== '') {
             $stamped = $this->db->execute(
@@ -1419,6 +1509,53 @@ final class DbProductRepository implements ProductRepositoryInterface
             return;
         }
         $this->saveCategorySet($productId, $ids);
+    }
+
+    /**
+     * The recorded sets for a page of products, in ONE read.
+     *
+     * The plan classifies up to five hundred rows and has to know, for each,
+     * whether its relationship is already recorded — and asking per row is
+     * five hundred queries on a screen that already reads its links in one
+     * (`alpha.81`). `null` means the question could not be asked at all, and
+     * the caller must then fall back rather than treat every row as unrecorded.
+     *
+     * @param list<int> $productIds
+     * @return array<int,list<int>>|null keyed by product id; a product with no
+     *         rows is simply absent from the map
+     */
+    public function categorySetsFor(array $productIds): ?array
+    {
+        $ids = [];
+        foreach ($productIds as $id) {
+            $id = (int) $id;
+            if ($id > 0 && !in_array($id, $ids, true)) {
+                $ids[] = $id;
+            }
+        }
+        if ($ids === []) {
+            return [];
+        }
+        if ($this->hasCategoryTable() !== true) {
+            return null;
+        }
+        $rows = $this->db->getResults(
+            'SELECT product_id, term_id FROM `' . $this->categoriesTable() . '`
+              WHERE product_id IN (' . implode(', ', array_fill(0, count($ids), '%d')) . ')
+              ORDER BY product_id ASC, sort_order ASC, term_id ASC',
+            $ids
+        );
+        if ($rows === null) {
+            return null;
+        }
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(int) $row['product_id']][] = (int) $row['term_id'];
+        }
+        foreach ($out as $productId => $terms) {
+            $out[$productId] = CategorySet::of($terms);
+        }
+        return $out;
     }
 
     public function images(int $productId): array

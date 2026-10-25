@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Product\Application;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Product\Domain\CategoryLink;
+use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
 
 /**
  * Writes the category a product's OWN WooCommerce relationship already names
@@ -24,17 +25,23 @@ use Tecteb\Marketplace\Modules\Product\Domain\CategoryLink;
  *    have been detached between the page rendering and the button being
  *    pressed. Writing from the snapshot is `alpha.49`'s mistake — a decision
  *    applied to a value nobody looked at.
- * 2. **Only `DEFINITE` is written.** Several real terms yield no key at all,
- *    because `definiteKey()` returns `''` for them: «اولین دسته را خودسرانه
- *    انتخاب نکن». The empty key is then refused by the repository as
- *    `bad_category`, so even a caller that ignored this guard could not
- *    narrow a product.
- * 3. **The key the page showed travels with the form.** If the product's one
- *    term is no longer the one the manager saw, the answer is
- *    `link_moved` with both values — never a silent write of the new one
- *    (`alpha.55`'s `storefront_moved`, one column over).
- * 4. **A stored category is never replaced.** `setCategoryWhenEmpty()` keeps
- *    `category_key = ''` inside its own `UPDATE` (`alpha.50`), so «دسته‌ای که
+ * 2. **The whole SET is written, and the single key only when there is
+ *    exactly one.** Until `alpha.81` several real terms were refused
+ *    outright, because the model held one key and storing one of them would
+ *    have been a choice nobody made — and measured on that package,
+ *    accepting such a key then DELETED the other categories from WooCommerce
+ *    (`terms_lost=[245]`). From `alpha.82` the relationship itself is
+ *    recordable, so it is recorded whole; `CategorySet::soleKey()` answers
+ *    `''` for two or more, which keeps «اولین دسته را خودسرانه انتخاب نکن»
+ *    true of the column while «مجموعهٔ کامل دسته‌ها باید حفظ شود» becomes
+ *    true of the data.
+ * 3. **The SET the page showed travels with the form.** If the product's
+ *    categories are no longer the ones the manager saw, the answer is
+ *    `link_moved` with both values — never a silent write of the new ones
+ *    (`alpha.55`'s `storefront_moved`, one column over). Compared as a SET:
+ *    order carries no meaning here, so a reordering is not a change.
+ * 4. **A recorded set is never replaced.** `recordCategorySet()` keeps
+ *    both conditions inside its own statements (`alpha.50`), so «دسته‌ای که
  *    مدیر قبلاً صریحاً تعیین کرده بدون تأیید بازنویسی نشود» holds even
  *    against a second request racing this one, and the answer is the named
  *    `already_set` rather than a success.
@@ -61,10 +68,11 @@ final class ApplyCategoryLinks
      * Apply the definite links for exactly these products.
      *
      * @param list<int> $productIds
-     * @param array<int,string> $seen product id => the key the page printed.
-     *        A product absent from this map is applied without the freshness
-     *        check; a product present with a different key is refused. The
-     *        caller decides, because a page that cannot show the value has no
+     * @param array<int,string> $seen product id => the SET the page printed,
+     *        comma-joined as `CategorySet::toValue()` spells it. A product
+     *        absent from this map is applied without the freshness check; a
+     *        product present with a different set is refused. The caller
+     *        decides, because a page that cannot show the value has no
      *        business claiming the manager saw it.
      * @return array{
      *     ok:bool, code:string, counts:array<string,int>,
@@ -126,50 +134,62 @@ final class ApplyCategoryLinks
     /**
      * @param array<int,CategoryLink> $links
      * @param array<int,string> $seen
-     * @return array{outcome:string, key:string, was:string}
+     * @return array{outcome:string, key:string, was:string, ids:list<int>}
      */
     private function applyOne(int $productId, mixed $row, array $links, array $seen, int $actorId): array
     {
         if ($row === null) {
-            return ['outcome' => 'not_found', 'key' => '', 'was' => ''];
+            return ['outcome' => 'not_found', 'key' => '', 'was' => '', 'ids' => []];
         }
         $wcId = (int) $row->wcProductId;
         if ($wcId === 0) {
-            return ['outcome' => CategoryLinkPlan::NO_PRODUCT, 'key' => '', 'was' => ''];
+            return ['outcome' => CategoryLinkPlan::NO_PRODUCT, 'key' => '', 'was' => '', 'ids' => []];
         }
         $link = $links[$wcId] ?? CategoryLink::unreadable($wcId);
         $was = trim((string) $row->details->categoryKey);
 
-        if (!$link->isDefinite()) {
-            // Every non-definite state keeps its own name so the screen can
-            // say which one it is. `MULTIPLE` in particular is the state the
-            // owner forbade guessing at, and it leaves here untouched.
+        // THE FOUR STATES WITH NOTHING TO WRITE, each keeping its own name so
+        // the screen says which one it is. `MULTIPLE` is NOT among them any
+        // more: several real terms are a relationship this round can record,
+        // and refusing it is what left the owner's nine products with their
+        // sets recorded nowhere.
+        $refusal = match ($link->state) {
+            CategoryLink::DEFAULT_ONLY => CategoryLinkPlan::DEFAULT_TERM,
+            CategoryLink::NONE => CategoryLinkPlan::NO_CATEGORY,
+            CategoryLink::INVALID => CategoryLinkPlan::INVALID,
+            CategoryLink::UNREADABLE => CategoryLinkPlan::UNREADABLE,
+            default => '',
+        };
+        if ($refusal !== '' || $link->validIds === []) {
             return [
-                'outcome' => match ($link->state) {
-                    CategoryLink::MULTIPLE => $was === ''
-                        ? CategoryLinkPlan::MULTIPLE
-                        : CategoryLinkPlan::NARROWED,
-                    CategoryLink::DEFAULT_ONLY => CategoryLinkPlan::DEFAULT_TERM,
-                    CategoryLink::NONE => CategoryLinkPlan::NO_CATEGORY,
-                    CategoryLink::INVALID => CategoryLinkPlan::INVALID,
-                    default => CategoryLinkPlan::UNREADABLE,
-                },
+                'outcome' => $refusal === '' ? CategoryLinkPlan::UNREADABLE : $refusal,
                 'key' => '',
                 'was' => $was,
+                'ids' => [],
             ];
         }
 
-        $key = $link->definiteKey();
-        if (array_key_exists($productId, $seen) && trim($seen[$productId]) !== $key) {
-            return ['outcome' => 'link_moved', 'key' => $key, 'was' => trim($seen[$productId])];
+        $ids = CategorySet::of($link->validIds);
+        $key = CategorySet::soleKey($ids);
+        if (array_key_exists($productId, $seen)) {
+            $sawIds = CategorySet::fromValue((string) $seen[$productId]);
+            if (!CategorySet::same($sawIds, $ids)) {
+                return [
+                    'outcome' => 'link_moved',
+                    'key' => $key,
+                    'was' => CategorySet::toValue($sawIds),
+                    'ids' => $ids,
+                ];
+            }
         }
 
-        $outcome = $this->products->setCategoryWhenEmpty($productId, $key);
-        if ($outcome !== '') {
-            // `already_set`, `not_imported`, `not_found`, `storage_failed` —
-            // reported as they come back. None of them is retried with a
-            // different statement, because each means a different thing.
-            return ['outcome' => $outcome, 'key' => $key, 'was' => $was];
+        $outcome = $this->products->recordCategorySet($productId, $ids);
+        if ($outcome !== 'category_set_written') {
+            // `already_set`, `not_imported`, `not_found`, `storage_failed`,
+            // `category_set_unsupported` — reported as they come back. None is
+            // retried with a different statement, because each means a
+            // different thing.
+            return ['outcome' => $outcome, 'key' => $key, 'was' => $was, 'ids' => $ids];
         }
 
         $this->audit?->log(
@@ -179,11 +199,18 @@ final class ApplyCategoryLinks
             (string) $productId,
             [
                 'wc_product_id' => $wcId,
+                // The whole set that was recorded, and the single key only
+                // when there was one to store.
+                'category_ids' => CategorySet::toValue($ids),
                 'category_key' => $key,
-                // The ancestry, so the trail is readable a year from now: on
-                // a catalogue where «چسب» is a leaf in six branches, a bare
-                // term id records which row moved and not what was decided.
-                'path' => $link->paths[(int) $key] ?? '',
+                // The ancestry of EVERY id, so the trail is readable a year
+                // from now: on a catalogue where «چسب» is a leaf in six
+                // branches, bare term ids record which row moved and not what
+                // was decided.
+                'path' => implode(' | ', array_map(
+                    static fn (int $id): string => $link->paths[$id] ?? (string) $id,
+                    $ids
+                )),
                 // Where the value came from. Not a decision anybody took —
                 // which is exactly what makes this event different from
                 // `DOKAN_CATEGORY_APPLIED`.
@@ -191,6 +218,6 @@ final class ApplyCategoryLinks
             ]
         );
 
-        return ['outcome' => 'linked', 'key' => $key, 'was' => $was];
+        return ['outcome' => 'linked', 'key' => $key, 'was' => $was, 'ids' => $ids];
     }
 }

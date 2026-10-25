@@ -468,6 +468,19 @@ interface ProductRepositoryInterface
     public function categoryIdsFor(int $productId): ?array;
 
     /**
+     * The recorded sets for a page of products, in one read.
+     *
+     * `null` means the question could not be asked — the table is absent or
+     * the read failed — and the caller must fall back rather than conclude
+     * that none of them is recorded.
+     *
+     * @param list<int> $productIds
+     * @return array<int,list<int>>|null keyed by product id; a product with
+     *         nothing recorded is absent from the map
+     */
+    public function categorySetsFor(array $productIds): ?array;
+
+    /**
      * Replace the recorded set for one product, as one unit of work.
      *
      * ⛔ An EMPTY set is refused unless `$allowEmpty` says otherwise, because
@@ -483,19 +496,32 @@ interface ProductRepositoryInterface
     public function saveCategorySet(int $productId, array $termIds, bool $allowEmpty = false): string;
 
     /**
-     * Record a product's whole relationship, but only while nothing is
-     * recorded for it yet and nobody has set its single key.
+     * Record a product's whole relationship — adding only, never replacing.
      *
-     * The set sibling of `setCategoryWhenEmpty()`, and the condition lives in
-     * the statements rather than in a read before them (`alpha.50`), so «دسته‌ای
-     * که مدیر قبلاً صریحاً تعیین کرده بدون تأیید بازنویسی نشود» holds even
-     * against a second request racing this one.
+     * Three answers rather than two, because three things are genuinely
+     * different: an imported row with nothing recorded gets the whole set; a
+     * row whose recorded set is a strict SUBSET of this one is COMPLETED (the
+     * missing ids go in, nothing is removed); and a row carrying an id this
+     * product does not have is somebody's decision and is refused by name.
+     *
+     * ⛔ The completion case is what makes the upgrade work at all: migration
+     * 35 backfills one row from `category_key`, which on staging is
+     * `category_ids[0]`, so the multi-category products arrive with one of
+     * their ids recorded. «مجموعهٔ کامل دسته‌ها باید حفظ شود… مدیر نباید
+     * مجبور به انتخاب مجدد دسته‌های موجود شود.»
+     *
+     * The recorded set is read inside the transaction under a locking read
+     * (`alpha.64`), and the single key is written only into an empty one —
+     * a legacy key is left exactly as it is, because what it means for a
+     * multi-category product is the owner's open decision.
      *
      * @param list<int> $termIds
-     * @return string `category_set_written` · `already_set` · `bad_category` ·
-     *         `not_atomic` · `storage_failed` · `category_set_unsupported`
+     * @return string `category_set_written` · `already_set` ·
+     *         `category_set_decided` · `bad_category` · `not_found` ·
+     *         `not_imported` · `not_atomic` · `storage_failed` ·
+     *         `category_set_unsupported` · `category_table_unreadable`
      */
-    public function setCategorySetWhenAbsent(int $productId, array $termIds): string;
+    public function recordCategorySet(int $productId, array $termIds): string;
 
     /**
      * WooCommerce products that more than one of our rows points at.

@@ -17,6 +17,7 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Migration\Application\ApplyCategoryMapping;
 use Tecteb\Marketplace\Modules\Product\Application\ApplyCategoryLinks;
 use Tecteb\Marketplace\Modules\Product\Application\CategoryLinkPlan;
+use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMapping;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
@@ -1454,9 +1455,16 @@ final class HandoverPage
         if ($groups === []) {
             return;
         }
-        echo '<h3>' . esc_html__('محصولات چنددسته‌ای — نیازمند تصمیم انسان', 'tecteb-marketplace-core') . '</h3>';
+        echo '<h3>' . esc_html__('محصولات چنددسته‌ای — مجموعهٔ دسته‌هایشان', 'tecteb-marketplace-core') . '</h3>';
+        // ⛔ THIS HEADING AND THIS SENTENCE ARE THE FIX THE OWNER ASKED FOR BY
+        // NAME: «پیام «نیازمند انتخاب یک دسته» برای این موارد حذف شود» and
+        // «مدیر نباید مجبور به انتخاب مجدد دسته‌های موجود شود». Until
+        // `alpha.82` they said «نیازمند تصمیم انسان» and «مدل این بازارگاه
+        // برای هر محصول یک دسته نگه می‌دارد» — both true of the old model and
+        // both false now. The table below is a READING of what these products
+        // are in, not a question.
         echo '<p class="tmc-field__desc">'
-            . esc_html__('این محصول‌ها بیش از یک دستهٔ ووکامرس دارند. مدل این بازارگاه برای هر محصول یک دسته نگه می‌دارد، پس هیچ‌کدام خودسرانه انتخاب نمی‌شود و دسته‌های دیگر هم کنار گذاشته نمی‌شوند: ارتباط هر سه در ووکامرس سر جایش می‌مانَد و انتخاب از همین فهرستِ کوتاه روی صفحهٔ بررسی همان محصول انجام می‌شود.', 'tecteb-marketplace-core')
+            . esc_html__('این محصول‌ها بیش از یک دستهٔ ووکامرس دارند، و مجموعهٔ کاملشان همان‌طور که هست ثبت می‌شود — حتی وقتی والد و فرزند یک شاخه با هم متصل‌اند. هیچ دسته‌ای انتخاب، حذف یا اضافه نمی‌شود و از کسی خواسته نمی‌شود دسته‌های موجود را دوباره انتخاب کند. این جدول فقط می‌گوید کدام مجموعه روی چند محصول است؛ انتخاب دستی فقط برای استثنای واقعی، روی صفحهٔ بررسی همان محصول، باقی می‌مانَد.', 'tecteb-marketplace-core')
             . '</p>';
         echo '<table class="tmc-table"><thead><tr>'
             . '<th>' . esc_html__('دسته‌های فعلی (شناسه و مسیر کامل)', 'tecteb-marketplace-core') . '</th>'
@@ -1502,23 +1510,53 @@ final class HandoverPage
                 . '</p>';
             return;
         }
-        echo '<h3>' . esc_html__('اتصال‌های قطعی — آمادهٔ اعمال', 'tecteb-marketplace-core') . '</h3>';
+        echo '<h3>' . esc_html__('آمادهٔ ثبت — مجموعهٔ دسته‌های خودِ محصول', 'tecteb-marketplace-core') . '</h3>';
         echo '<form method="post">';
         echo '<table class="tmc-table"><thead><tr>'
             . '<th>' . esc_html__('محصول', 'tecteb-marketplace-core') . '</th>'
-            . '<th>' . esc_html__('دستهٔ پیشنهادی (شناسه و مسیر کامل)', 'tecteb-marketplace-core') . '</th>'
+            . '<th>' . esc_html__('دسته‌هایی که ثبت می‌شوند (شناسه و مسیر کامل)', 'tecteb-marketplace-core') . '</th>'
             . '</tr></thead><tbody>';
         foreach (array_slice($apply, 0, ApplyCategoryLinks::BATCH_LIMIT) as $row) {
             $productId = (int) ($row['product_id'] ?? 0);
+            $ids = CategorySet::of(is_array($row['proposed_ids'] ?? null) ? $row['proposed_ids'] : []);
+            $labels = [];
+            foreach (is_array($row['proposed_paths'] ?? null) ? $row['proposed_paths'] : [] as $path) {
+                $labels[] = '#' . $fa((string) ($path['id'] ?? '')) . ' — ' . (string) ($path['path'] ?? '');
+            }
+            if ($labels === []) {
+                foreach ($ids as $id) {
+                    $labels[] = '#' . $fa((string) $id);
+                }
+            }
+            $adds = CategorySet::of(is_array($row['adds_ids'] ?? null) ? $row['adds_ids'] : []);
+            if (!empty($row['completes'])) {
+                // ⛔ Said, not inferred. A row whose set is already partly
+                // recorded is being COMPLETED, and the ids that would be added
+                // are the only thing that changes — «هیچ رابطه‌ای خودکار حذف
+                // یا اضافه نشود» is a sentence about this number.
+                $labels[] = sprintf(
+                    /* translators: %s: the category ids that would be added */
+                    __('— بخشی از این مجموعه از قبل ثبت شده؛ فقط این شناسه‌ها اضافه می‌شوند: %s', 'tecteb-marketplace-core'),
+                    $fa(implode('، ', array_map('strval', $adds)))
+                );
+            }
             echo '<tr><td>' . esc_html('#' . $fa((string) $productId) . ' — ' . (string) ($row['title'] ?? '')) . '</td>'
-                . '<td>' . esc_html('#' . $fa((string) ($row['proposed_key'] ?? '')) . ' — ' . (string) ($row['proposed_path'] ?? ''))
+                . '<td>' . esc_html(implode(' · ', $labels))
+                // ⛔ THE WHOLE SET TRAVELS, in the spelling `CategorySet`
+                // encodes and `ApplyCategoryLinks` compares AS A SET. Until
+                // `alpha.82` this carried `proposed_key` — one id — and the
+                // one key is `''` for a multi-category product by
+                // construction, so the owner's nine products would have
+                // posted nothing, failed the freshness comparison and come
+                // back as `link_moved`. The consent has to carry what the
+                // page actually printed (`alpha.49`).
                 . '<input type="hidden" name="link[' . esc_attr((string) $productId) . ']" value="'
-                . esc_attr((string) ($row['proposed_key'] ?? '')) . '"></td></tr>';
+                . esc_attr(CategorySet::toValue($ids)) . '"></td></tr>';
         }
         echo '</tbody></table>';
         echo wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)
             . '<p><button type="submit" class="tmc-button" name="handover_action" value="apply_category_links">'
-            . esc_html__('اعمال اتصال‌های قطعی روی محصولات واردشده', 'tecteb-marketplace-core')
+            . esc_html__('ثبت دسته‌های فعلی ووکامرس روی محصولات واردشده', 'tecteb-marketplace-core')
             . '</button></p></form>';
     }
 
@@ -1526,9 +1564,9 @@ final class HandoverPage
     private static function linkCount(string $code): string
     {
         return match ($code) {
-            CategoryLinkPlan::APPLY => __('آمادهٔ نوشتن (یک دستهٔ معتبر، بدون کلید ذخیره‌شده)', 'tecteb-marketplace-core'),
-            CategoryLinkPlan::SETTLED => __('از قبل درست است (کلید ذخیره‌شده همان یک دستهٔ محصول است)', 'tecteb-marketplace-core'),
-            CategoryLinkPlan::DECIDED => __('کلید ذخیره‌شده‌شان دستهٔ دیگری است و بازنویسی نمی‌شود', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::APPLY => __('آمادهٔ ثبت (دستهٔ معتبر دارند و مجموعه‌شان هنوز ثبت نشده)', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::SETTLED => __('از قبل درست است (مجموعهٔ ثبت‌شده همان دسته‌های خودِ محصول است)', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::DECIDED => __('مجموعهٔ ثبت‌شده‌شان چیز دیگری است و بازنویسی نمی‌شود', 'tecteb-marketplace-core'),
             default => self::linkOutcome($code),
         };
     }
@@ -1537,11 +1575,21 @@ final class HandoverPage
     private static function linkOutcome(string $code): string
     {
         return match ($code) {
-            'linked' => __('از ارتباط ووکامرس نوشته شد', 'tecteb-marketplace-core'),
-            'already_set' => __('از قبل دسته داشت و دست نخورد', 'tecteb-marketplace-core'),
-            'link_moved' => __('دستهٔ محصول بین نمایش و کلیک عوض شد و نوشته نشد', 'tecteb-marketplace-core'),
-            CategoryLinkPlan::MULTIPLE => __('بیش از یک دسته دارد، پس هیچ‌کدام خودسرانه انتخاب نشد', 'tecteb-marketplace-core'),
-            CategoryLinkPlan::NARROWED => __('بیش از یک دسته دارد و کلید ذخیره‌شده‌اش یکی از آن‌هاست — نیازمند تصمیم انسان', 'tecteb-marketplace-core'),
+            'linked' => __('مجموعهٔ دسته‌هایش از ارتباط ووکامرس ثبت شد', 'tecteb-marketplace-core'),
+            'already_set' => __('از قبل ثبت شده بود و دست نخورد', 'tecteb-marketplace-core'),
+            'category_set_decided' => __('مجموعهٔ ثبت‌شده‌اش دسته‌ای دارد که این محصول ندارد، پس تصمیم کسی است و بازنویسی نشد', 'tecteb-marketplace-core'),
+            'link_moved' => __('دسته‌های محصول بین نمایش و کلیک عوض شدند و چیزی نوشته نشد', 'tecteb-marketplace-core'),
+            // ⛔ Kept as NAMES and no longer produced. `alpha.81` put every
+            // multi-category product behind the second sentence — «نیازمند
+            // تصمیم انسان» — which is exactly what the owner rejected: those
+            // products' categories are recorded in full now and nobody is
+            // asked to pick again.
+            CategoryLinkPlan::MULTIPLE => __('چند دسته دارد (از alpha.82 ثبت می‌شود، نه نگه‌داشته)', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::NARROWED => __('چند دسته دارد و ورودِ قدیمی یکی را ذخیره کرده بود', 'tecteb-marketplace-core'),
+            'category_set_unsupported' => __('ساختار داده هنوز به ۳۵ نرسیده، پس مجموعه ثبت نمی‌شود', 'tecteb-marketplace-core'),
+            'category_table_unreadable' => __('جدول مجموعهٔ دسته‌ها خوانده نشد، پس چیزی نوشته نشد', 'tecteb-marketplace-core'),
+            'category_set_empty' => __('مجموعهٔ خالی مجموعه نیست', 'tecteb-marketplace-core'),
+            'not_atomic' => __('تراکنش باز نشد، پس نیمهٔ اول هم نوشته نشد', 'tecteb-marketplace-core'),
             CategoryLinkPlan::DEFAULT_TERM => __('تنها دستهٔ پیش‌فرض ووکامرس را دارد، که دسته نیست', 'tecteb-marketplace-core'),
             CategoryLinkPlan::NO_CATEGORY => __('در ووکامرس هیچ دسته‌ای ندارد', 'tecteb-marketplace-core'),
             CategoryLinkPlan::INVALID => __('دسته‌هایش در این سایت پیدا نشدند', 'tecteb-marketplace-core'),
