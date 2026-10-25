@@ -15,9 +15,9 @@ Success: Installed 1 of 1 plugins.
 Warning: Plugin 'tecteb-marketplace-core' is already active.
 Success: Plugin already activated.
 arranged=yes
-id_numeric=4233
-id_empty=4234
-id_slug=4235
+id_numeric=4241
+id_empty=4242
+id_slug=4243
 PASS  1a the three fixture rows exist  (yes)
 key_numeric=31
 key_empty=__empty__

@@ -1059,11 +1059,31 @@ final class ProductReviewPage
             if (CategorySet::same($currentSet, $nextSet)) {
                 continue;
             }
+            // ⛔ AN EMPTY PROPOSAL IS NOT «—», BECAUSE «—» WOULD BE A PROMISE.
+            //
+            // A vendor can untick every category, and then the revision
+            // carries an empty set. Approving it writes NOTHING: clearing a
+            // recorded relationship has no path in this package —
+            // `syncCategorySet()` returns early on an empty set and
+            // `saveCategorySet()` refuses one unconditionally, which is «هیچ
+            // رابطه‌ای خودکار حذف نشود». Drawing a dash in the proposal column
+            // would tell the manager their approval clears the categories, and
+            // it would not: the `alpha.13` fault in review clothing, one row
+            // along from the brand and stock rows that already guard it.
+            //
+            // So the row says what will happen, and points at the decision
+            // that would change it (`docs/open-decisions-alpha82.md` §2).
+            $nextText = $nextSet === [] && $currentSet !== []
+                ? __(
+                    'درخواست پاک‌کردن همهٔ دسته‌ها — با تأیید اعمال نمی‌شود و دسته‌های فعلی می‌مانند.',
+                    'tecteb-marketplace-core'
+                )
+                : $this->categorySetText($nextSet);
             $rows .= '<tr><th scope="row">' . esc_html(ProductMessages::field($field) !== $field
                 ? ProductMessages::field($field)
                 : $field) . '</th>'
                 . '<td>' . esc_html($this->categorySetText($currentSet)) . '</td>'
-                . '<td><strong>' . esc_html($this->categorySetText($nextSet)) . '</strong></td></tr>';
+                . '<td><strong>' . esc_html($nextText) . '</strong></td></tr>';
         }
         // STOCK, and only when the payload is actually asking for it.
         // `details.stock` has been in every payload since `alpha.6` and was

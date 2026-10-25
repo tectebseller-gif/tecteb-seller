@@ -184,6 +184,21 @@ MUTATIONS = [
         'the manager approves a category change that never appeared on a screen',
     ),
     (
+        # The other half of «show the set»: a proposal to clear every category
+        # is refused by the write path, so a dash in the proposal column would
+        # promise the manager a clearing that will not happen.
+        'the-empty-proposal-reads-as-a-dash',
+        'src/Modules/Product/Presentation/Admin/ProductReviewPage.php',
+        """            $nextText = $nextSet === [] && $currentSet !== []
+                ? __(
+                    'درخواست پاک‌کردن همهٔ دسته‌ها — با تأیید اعمال نمی‌شود و دسته‌های فعلی می‌مانند.',
+                    'tecteb-marketplace-core'
+                )
+                : $this->categorySetText($nextSet);""",
+        '            $nextText = $this->categorySetText($nextSet);',
+        'the manager is promised a clearing that the write path refuses',
+    ),
+    (
         'a-failed-table-read-reads-as-absent',
         'src/Modules/Product/Infrastructure/Migrations/M0035ProductCategorySet.php',
         '        return $columns === [] ? null : true;',

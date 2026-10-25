@@ -1038,6 +1038,61 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         );
     }
 
+    /**
+     * AND A PROPOSAL TO CLEAR EVERY CATEGORY SAYS SO, RATHER THAN «—».
+     *
+     * ⛔ A vendor can untick every box, and then the revision carries an empty
+     * set. Approving it writes NOTHING — clearing a recorded relationship has
+     * no path in this package, because `syncCategorySet()` returns early on an
+     * empty set and `saveCategorySet()` refuses one unconditionally («هیچ
+     * رابطه‌ای خودکار حذف نشود»). A dash in the proposal column would promise
+     * the manager a clearing that will not happen, which is the `alpha.13`
+     * fault one row along from the brand and stock rows that already guard it.
+     *
+     * Both halves are asserted here: the sentence, and the set surviving the
+     * approval — because a row that tells the truth about a write that then
+     * happens anyway is the same fault from the other side.
+     */
+    public function testAProposalToClearEveryCategorySaysItWillNotBeApplied(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+        $directory = new FakeProductCategoryDirectory();
+        $directory->terms = [
+            244 => ['name' => 'تزریق', 'path' => 'تجهیزات پزشکی › تزریق'],
+            245 => ['name' => 'سرنگ', 'path' => 'تجهیزات پزشکی › تزریق › سرنگ'],
+        ];
+        Bootstrap::container()->bind(ProductCategoryDirectoryInterface::class, static fn () => $directory);
+
+        $products = new DbProductRepository(new WpDatabase($this->wpdb), new SystemClock());
+        $productId = $products->create(
+            7,
+            new ProductDetails(title: 'سرنگ ۵cc', categoryKey: '244', priceMinor: 100000, categoryIds: [244, 245]),
+            ProductStatus::Published
+        );
+        $revisions = new DbProductRevisionRepository(new WpDatabase($this->wpdb), new SystemClock());
+        $revisionId = $revisions->create($productId, 7, [
+            'details' => ['title' => 'سرنگ ۵cc', 'categoryIds' => []],
+        ]);
+        self::assertGreaterThan(0, $revisionId);
+
+        $out = $this->render(['product' => $productId]);
+        self::assertStringContainsString(
+            'درخواست پاک‌کردن همهٔ دسته‌ها',
+            $out,
+            'the row must name what is being asked'
+        );
+        self::assertStringContainsString(
+            'اعمال نمی‌شود',
+            $out,
+            'and that it will not be applied'
+        );
+
+        // And the set is still both ids — the whole reason the sentence is
+        // phrased that way.
+        self::assertSame([244, 245], $products->find($productId)?->details->categorySet());
+    }
+
     private function render(array $query = []): string
     {
         $_GET = ['page' => ProductReviewPage::SLUG, ...$query];
