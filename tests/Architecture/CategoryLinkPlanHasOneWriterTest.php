@@ -68,7 +68,13 @@ final class CategoryLinkPlanHasOneWriterTest extends TestCase
 
     /** Every verb that would change something this round must not change. */
     private const FORBIDDEN = [
-        'setCategoryWhenEmpty(' => self::WRITER,   // allowed in the writer only
+        'recordCategorySet(' => self::WRITER,  // allowed in the writer only
+        // And the SINGLE-key writer is forbidden even here. It still exists and
+        // is still right for the Dokan mapping path (`ApplyCategoryMapping`),
+        // where the manager picks one destination — but on THIS path the value
+        // is a product's own set, and storing one id of it is the collapse this
+        // round removed.
+        'setCategoryWhenEmpty(' => '',
         'updateDetails(' => '',
         'updateStatus(' => '',
         'setLinkOwnership(' => '',
@@ -102,7 +108,17 @@ final class CategoryLinkPlanHasOneWriterTest extends TestCase
         }
     }
 
-    public function testTheWriterTouchesExactlyOneColumnAndNothingElse(): void
+    /**
+     * The writer reaches ONE repository method, and that method's reach is the
+     * link table plus the one key column.
+     *
+     * The claim got one word wider this round and no weaker: before, the whole
+     * write was `category_key`; now it is the link rows plus that same key
+     * when — and only when — the set has exactly one member. What the test is
+     * for is unchanged: there must be no road from here to a status, an
+     * ownership flag, a published flag, a price or a ledger line.
+     */
+    public function testTheWriterTouchesOneColumnAndTheLinkTableAndNothingElse(): void
     {
         $code = $this->code(self::WRITER);
         foreach (self::FORBIDDEN as $needle => $allowedIn) {
@@ -115,7 +131,11 @@ final class CategoryLinkPlanHasOneWriterTest extends TestCase
                 'applying a category must not be able to do this: ' . $needle
             );
         }
-        self::assertStringContainsString('setCategoryWhenEmpty(', $code, 'and it does write the one column');
+        self::assertStringContainsString(
+            'recordCategorySet(',
+            $code,
+            'and it does record the set'
+        );
     }
 
     /**
@@ -131,26 +151,70 @@ final class CategoryLinkPlanHasOneWriterTest extends TestCase
 
         self::assertStringContainsString('link_moved', $body);
         self::assertStringContainsString('$seen', $body);
-        self::assertStringContainsString('setCategoryWhenEmpty(', $body);
-        self::assertStringContainsString('isDefinite()', $body, 'and only a definite link is written');
+        self::assertStringContainsString('recordCategorySet(', $body);
+        // And the comparison is SET equality, not string equality: the page
+        // prints the ids in one order and `get_category_ids()` promises none,
+        // so comparing the spellings would report `link_moved` about a
+        // relationship nobody touched. «برابری تعداد کافی نیست» cuts the other
+        // way too — a reordering is not a change.
+        self::assertStringContainsString('CategorySet::same(', $body);
+        // The four states with nothing to record still refuse by name, so a
+        // product WooCommerce left on the default term, or one whose terms
+        // could not be read, is never written as though it had been read.
+        self::assertStringContainsString('$refusal', $body);
+        self::assertStringContainsString('CategoryLink::DEFAULT_ONLY', $body);
     }
 
     /**
-     * `definiteKey()` is the only source of the written value.
+     * The recorded value is the product's OWN terms, whole.
      *
-     * So «the first of several» cannot be reached: that method returns `''`
-     * for a multi-category product by construction, and the empty key is then
-     * refused by the repository as `bad_category`. Two guards, and the owner
-     * forbade the behaviour both of them prevent: «اولین دسته را خودسرانه
-     * انتخاب نکن».
+     * This is the heart of the owner's instruction: «مرجع باید شناسه‌های واقعی
+     * ترم‌های همان محصول در ووکامرس باشد — نه نام، نه شباهت متنی، نه اولین
+     * دسته» and «مجموعهٔ کامل دسته‌ها باید حفظ شود». So the set comes from
+     * `$link->validIds` — the ids read from `product_cat` for that product —
+     * and every spelling of «take one of them» is forbidden in source,
+     * `definiteKey()` among them.
+     *
+     * ⛔ `definiteKey()` is on the forbidden side now, and that is a reversal
+     * of `alpha.81` on purpose. It answers `''` for a multi-category product by
+     * construction, which was the right refusal while a set could not be
+     * recorded; reaching it today would turn the owner's nine products back
+     * into «no single key» and record nothing for them.
      */
-    public function testTheWrittenKeyComesOnlyFromTheDefiniteLink(): void
+    public function testTheRecordedSetComesOnlyFromTheProductsOwnTerms(): void
     {
         $body = $this->methodBody($this->code(self::WRITER), 'applyOne');
 
-        self::assertStringContainsString('$link->definiteKey()', $body);
-        foreach (['validIds[0]', 'termIds[0]', 'reset($', 'array_shift('] as $needle) {
-            self::assertStringNotContainsString($needle, $body, 'never the first of several: ' . $needle);
+        self::assertStringContainsString('$link->validIds', $body);
+        self::assertStringContainsString('CategorySet::of(', $body, 'normalised in one place');
+        foreach (
+            ['validIds[0]', 'termIds[0]', 'reset($', 'array_shift(', 'definiteKey('] as $needle
+        ) {
+            self::assertStringNotContainsString($needle, $body, 'never one of several: ' . $needle);
+        }
+    }
+
+    /**
+     * The single key is derived, never chosen.
+     *
+     * `CategorySet::soleKey()` answers `''` for a set of two or more rather
+     * than naming a winner, because which category's spec template applies to
+     * a multi-category product is the owner's open decision
+     * (`docs/open-decisions-alpha82.md` §1) and «انتخاب اولین، عمیق‌ترین یا
+     * ترکیب خودکار قواعد مجاز نیست». Pinned here so a later edit cannot make
+     * the writer pick one and leave the decision answered by accident.
+     */
+    public function testTheSingleKeyIsDerivedFromTheSetAndNeverChosen(): void
+    {
+        $body = $this->methodBody($this->code(self::WRITER), 'applyOne');
+
+        self::assertStringContainsString('CategorySet::soleKey(', $body);
+        foreach (['sort(', 'usort(', 'max(', 'min(', 'count($ids) >'] as $needle) {
+            self::assertStringNotContainsString(
+                $needle,
+                $body,
+                'the writer must not rank the set: ' . $needle
+            );
         }
     }
 }

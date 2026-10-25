@@ -58,3 +58,7 @@ dist/evidence-parts/
 # tarball would carry a second copy of files the repository already has, once
 # per release. `bash tools/reviewable-bundle.sh` rebuilds it, and the manifest
 # records the hash of the one that was sent.
+
+# Python bytecode from the evidence/mutation tools
+__pycache__/
+docs/evidence/*/.restore

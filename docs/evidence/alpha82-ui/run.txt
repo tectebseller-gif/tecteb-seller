@@ -1,0 +1,47 @@
+PASS 0 the installed package is the one built here
+note seed: vendor=222 · vendor_status=approved · terms={"root":248,"trolley":249,"trolley_steel":250,"injection":251,"dressing":252,"single":253} · wc_pair=77188 · wc_pair_terms=[249,250] · wc_branches=77189 · wc_branches_terms=[252,251,253] · wc_one=77190 · wc_one_terms=[253] · wc_default=77191 · wc_default_terms=[15] · wc_none=77192 · wc_none_terms=[] · rows={"pair":4236,"branches":4237,"one":4238,"default":4239,"none":4240} · run=a82-ui-20261025-141334
+PASS 0a the fixture landed its rows
+note before: vendor=222 · terms={"root":248,"trolley":249,"trolley_steel":250,"injection":251,"dressing":252,"single":253} · products={"pair":77188,"branches":77189,"one":77190,"default":77191,"none":77192} · rows={"pair":4236,"branches":4237,"one":4238,"default":4239,"none":4240} · key_pair=__empty__ · set_pair=__empty__ · wc_pair=77188 · wc_terms_pair=249,250 · key_branches=__empty__ · set_branches=__empty__ · wc_branches=77189 · wc_terms_branches=251,252,253 · key_one=__empty__ · set_one=__empty__ · wc_one=77190 · wc_terms_one=253 · key_default=__empty__ · set_default=__empty__ · wc_default=77191 · wc_terms_default=15 · key_none=__empty__ · set_none=__empty__ · wc_none=77192 · wc_terms_none=__empty__ · available=yes · scanned=10 · counts={"apply":3,"settled":4,"default_term":2,"no_category":1} · groups=2
+PASS 0b the fixture really gave one product a PARENT and its CHILD
+PASS 0c …and another three independent branches
+PASS 0d …and one product exactly one category
+PASS 0e not one relationship is recorded here yet
+PASS 0f and not one row carries a single key either
+PASS 1a the handover screen is the one it says it is
+PASS 1b the category card is there
+PASS 1c …and says it writes nothing until the button
+PASS 1d the multi-category group is described as a SET, not a question
+PASS 1e …and says the whole set is recorded as it stands
+PASS 1f …and that nobody is asked to pick again
+PASS 1g «نیازمند تصمیم انسان» is gone from the page
+PASS 1h the rows ready to record are offered apart
+PASS 1i the default-term product is named
+PASS 1j the product with no category is named
+PASS 1k the group names every term id of the parent/child pair
+PASS 1l …with the full ancestry, not a bare leaf
+note the form posts: {"4236":"249,250","4237":"251,252,253","4238":"253"}
+PASS 1m the pair's row is in the form
+PASS 1n …and it carries BOTH ids, not one
+PASS 1o …and exactly the ids WooCommerce has
+PASS 1p rendering the preview recorded nothing at all
+PASS 2a the result says the set was recorded
+note after: vendor=222 · terms={"root":248,"trolley":249,"trolley_steel":250,"injection":251,"dressing":252,"single":253} · products={"pair":77188,"branches":77189,"one":77190,"default":77191,"none":77192} · rows={"pair":4236,"branches":4237,"one":4238,"default":4239,"none":4240} · key_pair=__empty__ · set_pair=249,250 · wc_pair=77188 · wc_terms_pair=249,250 · key_branches=__empty__ · set_branches=251,252,253 · wc_branches=77189 · wc_terms_branches=251,252,253 · key_one=253 · set_one=253 · wc_one=77190 · wc_terms_one=253 · key_default=__empty__ · set_default=__empty__ · wc_default=77191 · wc_terms_default=15 · key_none=__empty__ · set_none=__empty__ · wc_none=77192 · wc_terms_none=__empty__ · available=yes · scanned=10 · counts={"apply":0,"settled":7,"default_term":2,"no_category":1} · groups=2
+PASS 2b the parent/child pair records BOTH its categories
+PASS 2c the three independent branches are all recorded
+PASS 2d the single-category product records its one
+PASS 2e the default-term product records nothing
+PASS 2f …and neither does the one with no category
+PASS 2g the pair gets no single key, because there is no single key
+PASS 2h …and the single-category product does get one
+PASS 2i every WooCommerce relationship of the pair is untouched
+PASS 2j …of the three-branch product too
+PASS 2k …and of the single-category one
+note a second pass still offers rows: false
+PASS 3a nothing is left to record, which is the same answer
+PASS 3b and every recorded set is the one it was
+PASS 3c …with WooCommerce still untouched
+PASS 4a no horizontal overflow at 390px
+note axe serious/critical: none
+PASS 5a no serious or critical accessibility violation in our markup
+note reset: reset=done
+checks: 39 passed, 0 failed

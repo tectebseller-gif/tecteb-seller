@@ -20,6 +20,7 @@ use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbShopRecordRepository;
 use Tecteb\Marketplace\Modules\Product\Application\ApplyCategoryLinks;
 use Tecteb\Marketplace\Modules\Product\Application\CategoryLinkPlan;
+use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
@@ -281,6 +282,30 @@ final class CategoryLinkFlowTest extends DatabaseTestCase
         return (int) $row['id'];
     }
 
+    /** The recorded set for a product, read from the link table. */
+    private function recordedSet(int $wcProductId): array
+    {
+        return $this->products->categoryIdsFor($this->rowId($wcProductId)) ?? [];
+    }
+
+    /** Which bucket the preview put one product in. */
+    private function reasonFor(array $plan, int $wcProductId): string
+    {
+        foreach ($plan['apply'] as $row) {
+            if ((int) $row['wc_product_id'] === $wcProductId) {
+                return CategoryLinkPlan::APPLY;
+            }
+        }
+        foreach ($plan['held'] as $reason => $rows) {
+            foreach ($rows as $row) {
+                if ((int) $row['wc_product_id'] === $wcProductId) {
+                    return (string) $reason;
+                }
+            }
+        }
+        return CategoryLinkPlan::SETTLED;
+    }
+
     private function storedKey(int $wcProductId): string
     {
         $row = $this->database->getRow(
@@ -357,28 +382,36 @@ final class CategoryLinkFlowTest extends DatabaseTestCase
     }
 
     /**
-     * Several categories: held by name, every id shown, nothing proposed.
+     * Several categories: PROPOSED whole, every id shown, no single key.
      *
-     * «اگر مدل بازارگاه فقط یک category_key دارد، اولین دسته را خودسرانه
-     * انتخاب نکن و دسته‌های دیگر را بی‌صدا کنار نگذار.»
+     * ⛔ **This test asserted the opposite until `alpha.82`,** and it was
+     * right to: while the model held one key, «اولین دسته را خودسرانه انتخاب
+     * نکن» could only be honoured by holding the row. The owner's decision
+     * for this round is that the relationship itself is kept — «مجموعهٔ کامل
+     * دسته‌ها باید حفظ شود… انتخاب یک دسته به جای دسته‌های فعلی تأیید
+     * نمی‌شود» — so the row is a candidate now, and what must stay true is
+     * that the SINGLE KEY is still nobody's guess.
+     *
+     * Rewritten rather than deleted: the half that mattered is still
+     * asserted, on the same fixture.
      */
-    public function testAMultiCategoryProductIsHeldWithAllOfItsCategoriesNamed(): void
+    public function testAMultiCategoryProductIsProposedWholeAndGetsNoSingleKey(): void
     {
         $this->runImport();
         $this->attach(8002, [self::INJECTION, self::GLUE_MEDICAL, self::GLUE_CONSUMABLE]);
 
         $plan = $this->plan->plan();
+        $proposed = array_column($plan['apply'], null, 'wc_product_id');
 
-        self::assertArrayNotHasKey(8002, array_column($plan['apply'], null, 'wc_product_id'));
-        self::assertArrayHasKey(CategoryLinkPlan::MULTIPLE, $plan['held']);
-        $held = $plan['held'][CategoryLinkPlan::MULTIPLE][0];
-        self::assertSame(8002, $held['wc_product_id']);
-        self::assertSame([711, 712, 713], $held['term_ids']);
-        self::assertSame('', $held['stored_key']);
-        // The short list a human picks from: three ids, three full paths.
+        self::assertArrayHasKey(8002, $proposed, 'the whole relationship is recordable now');
+        self::assertArrayNotHasKey(CategoryLinkPlan::MULTIPLE, $plan['held'], 'no longer held');
+        self::assertSame([711, 712, 713], $proposed[8002]['proposed_ids']);
+        self::assertSame('', $proposed[8002]['proposed_key'], 'no first-id guess');
+        self::assertSame('', $proposed[8002]['stored_key']);
+        // The short list a human reads: three ids, three full paths.
         self::assertSame(
             ['تجهیزات پزشکی › تزریق', 'تجهیزات پزشکی › چسب', 'مواد مصرفی › چسب'],
-            array_column($held['paths'], 'path')
+            array_column($proposed[8002]['proposed_paths'], 'path')
         );
     }
 
@@ -388,11 +421,10 @@ final class CategoryLinkFlowTest extends DatabaseTestCase
         $this->runImport();
         $this->attach(8003, [self::GLUE_MEDICAL, self::GLUE_CONSUMABLE]);
 
-        $plan = $this->plan->plan();
-        $held = $plan['held'][CategoryLinkPlan::MULTIPLE][0];
+        $proposed = array_column($this->plan->plan()['apply'], null, 'wc_product_id');
 
-        self::assertSame([712, 713], $held['term_ids'], 'two ids, not one');
-        self::assertCount(2, array_unique(array_column($held['paths'], 'path')));
+        self::assertSame([712, 713], $proposed[8003]['proposed_ids'], 'two ids, not one');
+        self::assertCount(2, array_unique(array_column($proposed[8003]['proposed_paths'], 'path')));
     }
 
     public function testADeletedTermIsHeldAsInvalidAndNeverWritten(): void
@@ -438,7 +470,7 @@ final class CategoryLinkFlowTest extends DatabaseTestCase
      * «حفظ روابط ووکامرس» measured rather than asserted in prose; and every
      * other product column is compared too.
      */
-    public function testApplyingWritesTheKeyAndTouchesNothingElse(): void
+    public function testApplyingRecordsTheSetAndTouchesNothingElse(): void
     {
         $this->runImport();
         $this->attach(8001, [self::INJECTION]);
@@ -448,17 +480,121 @@ final class CategoryLinkFlowTest extends DatabaseTestCase
 
         $result = $this->applier->apply(
             [$this->rowId(8001), $this->rowId(8002)],
-            [$this->rowId(8001) => '711', $this->rowId(8002) => '711'],
+            // The SET the page printed, for each — `alpha.82` compares sets.
+            [$this->rowId(8001) => '711', $this->rowId(8002) => '711,712'],
             self::MANAGER
         );
 
         self::assertTrue($result['ok']);
-        self::assertSame(1, $result['counts']['linked']);
-        self::assertSame(1, $result['counts'][CategoryLinkPlan::MULTIPLE], 'the multi-category one is refused');
-        self::assertSame('711', $this->storedKey(8001));
-        self::assertSame('', $this->storedKey(8002), 'and keeps no key at all');
+        self::assertSame(2, $result['counts']['linked'], 'both are recorded now');
+        self::assertSame('711', $this->storedKey(8001), 'one category, so one key');
+        // ⛔ AND THE MULTI-CATEGORY ONE STILL GETS NO KEY. The relationship is
+        // recorded; which of its two categories a spec template should come
+        // from is the owner's open decision and not this writer's.
+        self::assertSame('', $this->storedKey(8002));
+        self::assertSame([711], $this->recordedSet(8001));
+        self::assertSame([711, 712], $this->recordedSet(8002));
         self::assertSame($relationshipsBefore, $this->relationshipSnapshot(), 'no WooCommerce relationship moved');
         self::assertSame($columnsBefore, $this->productSnapshot(), 'and no other column moved');
+    }
+
+    /**
+     * EQUALITY OF THE ID SET, before and after — the owner's acceptance rule.
+     *
+     * «برابری مجموعهٔ شناسه‌ها را قبل و بعد از اعمال، ویرایش و پذیرش اندازه
+     * بگیر؛ برابری تعداد کافی نیست.» So this compares the recorded set with
+     * the product's own relationship id by id, on the case that mattered: a
+     * PARENT and its own CHILD, attached at once.
+     */
+    public function testAParentAndItsChildAreBothRecorded(): void
+    {
+        $this->runImport();
+        // 712 is «تجهیزات پزشکی › چسب»; 713 is «مواد مصرفی › چسب». Two
+        // branches is the owner's other named case; the parent/child pair is
+        // the one `alpha.81` destroyed, and here both ids must survive.
+        $this->attach(8004, [self::INJECTION, self::GLUE_MEDICAL, self::PERSIAN]);
+        $id = $this->rowId(8004);
+
+        $result = $this->applier->apply([$id], [], self::MANAGER);
+
+        self::assertSame(1, $result['counts']['linked']);
+        self::assertSame([711, 712, 714], $result['results'][$id]['ids']);
+        self::assertSame([711, 712, 714], $this->recordedSet(8004), 'the set, id by id');
+        self::assertSame('', $this->storedKey(8004));
+    }
+
+    /**
+     * A set that moved between the page and the click is REFUSED, and the
+     * comparison is by set rather than by count.
+     */
+    public function testASetThatMovedSinceThePageIsRefused(): void
+    {
+        $this->runImport();
+        $this->attach(8005, [self::INJECTION, self::GLUE_MEDICAL]);
+        $id = $this->rowId(8005);
+
+        // Two ids then, two ids now — and NOT the same two.
+        $result = $this->applier->apply([$id], [$id => '711,713'], self::MANAGER);
+
+        self::assertSame(1, $result['counts']['link_moved']);
+        self::assertSame([], $this->recordedSet(8005), 'nothing written');
+    }
+
+    /** Reordering is not a change: the same set in another order is applied. */
+    public function testTheSameSetInAnotherOrderIsNotTreatedAsMoved(): void
+    {
+        $this->runImport();
+        $this->attach(8005, [self::INJECTION, self::GLUE_MEDICAL]);
+        $id = $this->rowId(8005);
+
+        $result = $this->applier->apply([$id], [$id => '712,711'], self::MANAGER);
+
+        self::assertSame(1, $result['counts']['linked']);
+        self::assertSame([711, 712], $this->recordedSet(8005));
+    }
+
+    /**
+     * A set somebody already recorded is never replaced, and the answer is
+     * named rather than a silent success.
+     */
+    public function testARecordedSetIsNotOverwritten(): void
+    {
+        $this->runImport();
+        $this->attach(8006, [self::INJECTION, self::GLUE_MEDICAL]);
+        $id = $this->rowId(8006);
+        // A decision somebody took: one of the two, recorded explicitly.
+        self::assertSame('', $this->products->saveCategorySet($id, [self::PERSIAN]));
+
+        $plan = $this->plan->plan();
+        $result = $this->applier->apply([$id], [], self::MANAGER);
+
+        self::assertSame(
+            CategoryLinkPlan::DECIDED,
+            $this->reasonFor($plan, 8006),
+            'the preview says so too'
+        );
+        self::assertSame(
+            1,
+            $result['counts']['category_set_decided'],
+            'refused by its own name — «already set» would hide which half it was'
+        );
+        self::assertSame([714], $this->recordedSet(8006), 'the human decision stands');
+    }
+
+    /** The gate counts the SET, not the key: a recorded product is answered. */
+    public function testTheGateCountsARecordedSetAsAnswered(): void
+    {
+        $this->runImport();
+        $this->attach(8001, [self::INJECTION, self::GLUE_MEDICAL]);
+        self::assertSame(6, $this->products->countImportedWithoutCategory());
+
+        $this->applier->apply([$this->rowId(8001)], [], self::MANAGER);
+
+        self::assertSame(
+            5,
+            $this->products->countImportedWithoutCategory(),
+            'a product whose whole relationship is recorded is not «without a category»'
+        );
     }
 
     /** Applying twice writes once. The condition is inside the statement. */
@@ -480,54 +616,114 @@ final class CategoryLinkFlowTest extends DatabaseTestCase
     }
 
     /**
-     * A category somebody already chose is never replaced.
+     * A legacy single key is not a decision, and it does not block recording.
      *
-     * «دسته‌ای که مدیر قبلاً صریحاً تعیین کرده بدون تأیید بازنویسی نشود.» The
-     * stored key here is a DIFFERENT category from the one the product is
-     * filed under, which is the case that would otherwise be «corrected».
+     * ⛔ THIS TEST ASSERTED THE OPPOSITE UNTIL `alpha.82`, and the old
+     * assertion was the rule the owner rejected. `setCategoryWhenEmpty()` is
+     * the Dokan MAPPING writer: it fills `category_key` and writes no
+     * relationship, deliberately — a mapped destination is a marketplace
+     * classification and attaching it in WooCommerce would be «اضافه کردن یک
+     * رابطه», which is forbidden. So a row carrying such a key has NOTHING
+     * recorded, and recording the product's own `product_cat` relationship is
+     * not overwriting anybody: «مرجع باید شناسه‌های واقعی ترم‌های همان محصول
+     * در ووکامرس باشد».
+     *
+     * And the key itself is left exactly as it is. What a single key means
+     * for a product in several categories is the owner's open decision
+     * (`docs/open-decisions-alpha82.md` §1) and this path does not take it.
      */
-    public function testACategorySomebodyChoseIsReportedAndNotOverwritten(): void
+    public function testALegacySingleKeyDoesNotBlockRecordingTheRelationship(): void
     {
         $this->runImport();
         $id = $this->rowId(8001);
         self::assertSame('', $this->products->setCategoryWhenEmpty($id, (string) self::PERSIAN));
-        $this->attach(8001, [self::INJECTION]);
+        $this->attach(8001, [self::INJECTION, self::GLUE_MEDICAL]);
+        self::assertSame([], $this->recordedSet(8001), 'the mapping wrote no relationship');
 
         $plan = $this->plan->plan();
-        $outcome = $this->applier->apply([$id], [], self::MANAGER);
+        $outcome = $this->applier->apply(
+            [$id],
+            [$id => CategorySet::toValue([self::INJECTION, self::GLUE_MEDICAL])],
+            self::MANAGER
+        );
 
-        self::assertArrayHasKey(CategoryLinkPlan::DECIDED, $plan['held']);
-        self::assertSame('714', $plan['held'][CategoryLinkPlan::DECIDED][0]['stored_key']);
-        self::assertSame(1, $outcome['counts']['already_set']);
-        self::assertSame('714', $this->storedKey(8001), 'the chosen category stands');
+        self::assertSame(CategoryLinkPlan::APPLY, $this->reasonFor($plan, 8001));
+        self::assertSame(1, $outcome['counts']['linked']);
+        self::assertSame(
+            [self::INJECTION, self::GLUE_MEDICAL],
+            $this->recordedSet(8001),
+            'the product\'s own relationship, whole'
+        );
+        self::assertSame(
+            (string) self::PERSIAN,
+            $this->storedKey(8001),
+            'and the mapped key is untouched — that decision is not this path\'s to take'
+        );
     }
 
     /**
-     * A stored key that is one of several terms: the dangerous group, named.
+     * THE UPGRADE CASE: a recorded set that is a strict subset is COMPLETED.
      *
-     * This is what `ImportExistingProducts` leaves behind — `category_ids[0]`
-     * stored as if it were a decision — and it is the row whose first
-     * accepted write would DELETE the other terms from WooCommerce
-     * (`docs/category-model-limit-alpha81-fa.md`). It is reported under its
-     * own name so a person can see it, and it is never written to.
+     * This is the shape migration 35 creates on staging and it is the reason
+     * the round exists. The backfill writes ONE row per product from
+     * `category_key`, and that key is what the pre-`alpha.82` intake stored —
+     * `category_ids[0]`. So the owner's nine products arrive with one of their
+     * ids recorded and the rest recorded nowhere.
+     *
+     * Refusing that as «somebody decided it» would make exactly those
+     * products unrecordable: «مدیر نباید مجبور به انتخاب مجدد دسته‌های موجود
+     * شود.» Completing it removes nothing — the assertion below is set
+     * equality before and after, not a count, because «برابری تعداد کافی
+     * نیست».
      */
-    public function testAKeyNarrowedByTheIntakeGetsItsOwnName(): void
+    public function testARecordedSubsetIsCompletedAndNothingIsRemoved(): void
     {
         $this->runImport();
         $id = $this->rowId(8002);
         $this->attach(8002, [self::INJECTION, self::GLUE_MEDICAL, self::GLUE_CONSUMABLE]);
-        // Exactly what the catalogue intake does: the first of several.
+        // Exactly what the backfill leaves: the first of several, recorded,
+        // with the matching legacy key beside it.
+        self::assertSame('', $this->products->saveCategorySet($id, [self::INJECTION]));
         self::assertSame('', $this->products->setCategoryWhenEmpty($id, (string) self::INJECTION));
 
         $plan = $this->plan->plan();
-        $outcome = $this->applier->apply([$id], [], self::MANAGER);
+        $row = null;
+        foreach ($plan['apply'] as $candidate) {
+            if ((int) $candidate['wc_product_id'] === 8002) {
+                $row = $candidate;
+            }
+        }
+        self::assertNotNull($row, 'it is offered, not held');
+        self::assertTrue($row['completes'], 'and the page is told it is a completion');
+        self::assertSame(
+            [self::GLUE_MEDICAL, self::GLUE_CONSUMABLE],
+            $row['adds_ids'],
+            'with the ids that would be ADDED, which is the only thing that changes'
+        );
 
-        self::assertArrayHasKey(CategoryLinkPlan::NARROWED, $plan['held']);
-        $held = $plan['held'][CategoryLinkPlan::NARROWED][0];
-        self::assertSame('711', $held['stored_key']);
-        self::assertSame([711, 712, 713], $held['term_ids'], 'all three are still named');
-        self::assertSame(1, $outcome['counts'][CategoryLinkPlan::NARROWED]);
-        self::assertSame('711', $this->storedKey(8002), 'and nothing was rewritten');
+        $relationshipsBefore = $this->relationshipSnapshot();
+        $outcome = $this->applier->apply(
+            [$id],
+            [$id => CategorySet::toValue([self::INJECTION, self::GLUE_MEDICAL, self::GLUE_CONSUMABLE])],
+            self::MANAGER
+        );
+
+        self::assertSame(1, $outcome['counts']['linked']);
+        self::assertSame(
+            [self::INJECTION, self::GLUE_MEDICAL, self::GLUE_CONSUMABLE],
+            $this->recordedSet(8002),
+            'the whole set, and the one that was already there is still there'
+        );
+        self::assertSame(
+            (string) self::INJECTION,
+            $this->storedKey(8002),
+            'the legacy key stays: its meaning is the owner\'s open decision'
+        );
+        self::assertSame(
+            $relationshipsBefore,
+            $this->relationshipSnapshot(),
+            'and WooCommerce was not touched at all'
+        );
     }
 
     /** The ambiguous rows are grouped by the SET, so one answer covers many. */

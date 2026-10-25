@@ -1,0 +1,162 @@
+=== the packages ===
+new_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.82.zip
+old_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.81.zip
+new_target=35
+old_target=34
+PASS  0a the new package targets one step further  (35)
+PASS  0b and the old one targets the previous structure  (34)
+
+=== 1 · the site is put on structure 34, for real ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+arranged=yes
+id_numeric=4233
+id_empty=4234
+id_slug=4235
+PASS  1a the three fixture rows exist  (yes)
+key_numeric=31
+key_empty=__empty__
+key_slug=medical-glue
+schema_version=35
+PASS  1b one carries a numeric key  (31)
+PASS  1c one carries no key at all  (__empty__)
+PASS  1d one carries a pre-alpha.25 slug  (medical-glue)
+table_present=no
+schema_version=34
+PASS  1e the link table is not there  (no)
+PASS  1f and the recorded structure says 34  (34)
+PASS  1g the older build has no step 35 at all  (absent)
+
+=== 2 · the files are swapped, and a failing step stays failed ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+table_present=no
+schema_version=34
+PASS  2a swapping the files ran nothing  (34)
+PASS  2b …and the table is still not there  (no)
+columns=product_id
+schema_version=34
+PASS  2c the injection left a one-column table of that name  (product_id)
+WordPress database error Unknown column 'term_id' in 'INSERT INTO' for query INSERT IGNORE INTO `wp_tmc_product_categories` (`product_id`, `term_id`, `sort_order`)
+             SELECT `id`, CAST(`category_key` AS UNSIGNED), 0
+               FROM `wp_tmc_products`
+              WHERE `category_key` <> ''
+                AND `category_key` REGEXP '^[0-9]+$'
+                AND CAST(`category_key` AS UNSIGNED) > 0 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, Eval_Command->__invoke, eval, do_action('admin_init'), WP_Hook->do_action, WP_Hook->apply_filters, Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap::runPendingMigrations, Tecteb\Marketplace\Core\Migration\UpgradeGate->runIfNeeded, Tecteb\Marketplace\Core\Migration\MigrationRunner->run, Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0035ProductCategorySet->up, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+ran=yes
+table_present=yes
+schema_version=34
+columns=product_id
+primary_key=
+PASS  2d ⛔ IF NOT EXISTS was satisfied, and verify() refused anyway  (34)
+PASS  2e …the mis-shaped table is still the one on disk  (product_id)
+PASS  2f …and the reason was recorded  (yes)
+NOTE  2g the recorded reason  array (   'step' => '0035_product_category_set',   'message' => 'MigrationException: migration 0035_product_category_set could not seed `tmc
+step_class=present
+carried=yes
+NOTE  2h what carriedBy() says about a table of the wrong shape  yes
+
+=== 3 · the injection is removed and the next request finishes the job ===
+table_present=no
+schema_version=34
+Success: Deleted 'tmc_migration_last_error' option.
+ran=yes
+table_present=yes
+schema_version=35
+columns=product_id,term_id,sort_order
+primary_key=product_id,term_id
+PASS  3a the structure moved to 35  (35)
+PASS  3b the table is there  (yes)
+PASS  3c …with the three columns  (product_id,term_id,sort_order)
+PASS  3d …and the PAIR is unique, which is what makes every write idempotent  (product_id,term_id)
+PASS  3e and the step answers «present», not «unknown»  (yes)
+
+=== 4 · the backfill restates what a row already said, and nothing else ===
+table_present=yes
+set_numeric=31
+set_empty=__none__
+set_slug=__none__
+rows_total=8
+PASS  4a the numeric key became one recorded relationship  (31)
+PASS  4b ⛔ the empty key got NO row — «unknown» is not «none»  (__none__)
+PASS  4c ⛔ and the legacy slug got none either: a slug is not a term id  (__none__)
+key_numeric=31
+key_empty=__empty__
+key_slug=medical-glue
+schema_version=35
+PASS  4d the single key itself was not touched  (31)
+PASS  4e …nor was the empty one filled in  (__empty__)
+PASS  4f …nor the slug rewritten  (medical-glue)
+NOTE  4g rows in the link table on this database  8
+
+=== 5 · running the step again changes nothing ===
+ran=yes
+table_present=yes
+set_numeric=31
+set_empty=__none__
+set_slug=__none__
+rows_total=8
+PASS  5a the same one row for the numeric key  (31)
+PASS  5b and the same total  (8)
+
+=== 6 · back to alpha.81, which needs no database work ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+table_present=yes
+schema_version=35
+columns=product_id,term_id,sort_order
+primary_key=product_id,term_id
+PASS  6a the older package reads the structure as it is  (35)
+PASS  6b ⛔ the link table is LEFT IN PLACE — no relationship is lost  (yes)
+PASS  6c …and nothing older names it  (absent)
+key_numeric=31
+key_empty=__empty__
+key_slug=medical-glue
+schema_version=35
+PASS  6d the single key is what the older build reads, and it is unchanged  (31)
+table_present=yes
+set_numeric=31
+set_empty=__none__
+set_slug=__none__
+rows_total=8
+PASS  6e …and the recorded rows survive the rollback untouched  (8)
+
+=== 7 · forward again, so the machine is left on this package ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+ran=yes
+table_present=yes
+schema_version=35
+columns=product_id,term_id,sort_order
+primary_key=product_id,term_id
+PASS  7a the structure is 35 again  (35)
+PASS  7b …with the table intact  (yes)
+table_present=yes
+set_numeric=31
+set_empty=__none__
+set_slug=__none__
+rows_total=8
+PASS  7c …and the same rows, after a round trip in both directions  (8)
+PASS  7d the numeric fixture still has exactly its own relationship  (31)
+
+checks=37 pass=37 fail=0

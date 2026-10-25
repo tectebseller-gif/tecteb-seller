@@ -123,7 +123,17 @@ final class CatalogueIntakeTest extends DatabaseTestCase
         self::assertSame('WC-7001', $product->details->sku);
         self::assertSame('خلاصهٔ فروشگاه', $product->details->shortDescription);
         self::assertSame('متن کامل فروشگاه', $product->details->description);
-        self::assertSame('31', $product->details->categoryKey, 'one category, the first');
+        // ⛔ THIS ASSERTED `'31'` — «one category, the first» — until
+        // `alpha.82`, and the fixture product is in TWO: `[31, 12]`. Storing
+        // the first was a choice nobody made, already in the row before any
+        // manager acted, and measured on `alpha.81` the first acceptance then
+        // wrote it back as a REPLACE and deleted the other category from
+        // WooCommerce. «انتخاب یک دسته به جای دسته‌های فعلی تأیید نمی‌شود.»
+        //
+        // So the single key is empty — there is no single key — and the
+        // RELATIONSHIP is what the intake records.
+        self::assertSame('', $product->details->categoryKey, 'two categories, so no single key');
+        self::assertSame([12, 31], $product->details->categorySet(), 'the whole set, id by id');
         self::assertSame(1500, $product->details->weightGrams);
         // Published in WooCommerce, so published here — a draft row would
         // take the live product off sale at the first projection.

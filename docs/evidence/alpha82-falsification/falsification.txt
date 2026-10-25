@@ -1,0 +1,6 @@
+# Falsification of the whole-category-set round
+# date=2026-10-25T14:34:30Z  mutations=18
+# Every count below is the number of FAILING tests with the defect put back.
+
+## healthy tree
+   unit:0 arch:0 contract:0 db:0
