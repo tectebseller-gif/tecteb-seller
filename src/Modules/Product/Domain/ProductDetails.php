@@ -62,8 +62,56 @@ final class ProductDetails
          * semantics — and why the step counts from the MINIMUM rather than
          * from zero — are written in `PurchaseQuantity`.
          */
-        public readonly int $purchaseStep = 1
+        public readonly int $purchaseStep = 1,
+        /**
+         * EVERY `product_cat` term this product is in — new in `alpha.82`.
+         *
+         * `categoryKey` above is still one key and still means what it meant:
+         * the single key the spec-template lookup and the Dokan category
+         * mapping read. This is the RELATIONSHIP, which WooCommerce keeps as a
+         * set and which the owner's instruction requires be preserved whole:
+         * «مجموعهٔ کامل دسته‌ها باید حفظ شود، حتی وقتی والد و فرزند هم‌زمان
+         * متصل‌اند.»
+         *
+         * The two are not a duplicate of one fact. Measured on `alpha.81`'s
+         * bytes, a product carrying a parent and its child stored `244` and
+         * recorded `245` nowhere, and accepting that key DELETED `245` from
+         * WooCommerce. The set is what the single column could never hold.
+         *
+         * An EMPTY set means «this product's categories are not recorded»,
+         * which is true of every row that existed before migration 35 except
+         * the single-category ones the backfill covered. It does not mean «no
+         * categories» — those are different facts (`alpha.8`) and the readers
+         * keep them apart.
+         *
+         * Normalise with {@see CategorySet::of()}; order carries no meaning.
+         * Last in the list for the reason `description` and `purchaseStep`
+         * are: these promoted parameters are addressed positionally in places,
+         * and inserting one beside `categoryKey` where it belongs by meaning
+         * would silently shift every argument after it.
+         *
+         * @var list<int>
+         */
+        public readonly array $categoryIds = []
     ) {
+    }
+
+    /**
+     * The categories this product is in, as a normalised set.
+     *
+     * Falls back to the single key when the set is not recorded, so a row
+     * from before migration 35 — and a build running on schema 34 — answers
+     * exactly what `alpha.81` answered. That fallback can only ever NARROW,
+     * never widen, which is the safe direction for a relationship.
+     *
+     * @return list<int>
+     */
+    public function categorySet(): array
+    {
+        if ($this->categoryIds !== []) {
+            return CategorySet::of($this->categoryIds);
+        }
+        return CategorySet::of([$this->categoryKey]);
     }
 
     /** The purchase-quantity rule these details express. */
@@ -107,7 +155,8 @@ final class ProductDetails
             // one», and `$pick` distinguishes that from not naming the key at
             // all. The three nullable price fields above read the same way.
             ($v = $pick('description', $this->description)) === null ? null : (string) $v,
-            (int) $pick('purchaseStep', $this->purchaseStep)
+            (int) $pick('purchaseStep', $this->purchaseStep),
+            CategorySet::of((array) $pick('categoryIds', $this->categoryIds))
         );
     }
 
@@ -124,7 +173,29 @@ final class ProductDetails
         if (trim($this->title) === '') {
             $missing[] = 'title';
         }
-        if (trim($this->categoryKey) === '') {
+        // A RECORDED SET IS AN ANSWER, even with no single key.
+        //
+        // «مدیر نباید مجبور به انتخاب مجدد دسته‌های موجود شود.» A product that
+        // WooCommerce already puts in two categories has its category
+        // question answered; demanding one more pick is asking a human to
+        // re-decide something the shop has recorded. So this is missing only
+        // when neither the set nor the single key says anything.
+        //
+        // ⛔ And this is not what the owner saw on screen: measured on
+        // `alpha.81`, `missingFields()` was ALREADY empty for all nine
+        // products, because intake had quietly stored the first id. The
+        // sentence they read is the preview bucket's
+        // (`HandoverPage::heldReason()`), and it is dealt with there.
+        // ⛔ AND THE SINGLE KEY STILL COUNTS, even when it is not a term id.
+        //
+        // `categorySet()` drops anything that is not a run of digits, because
+        // a term id is a number — and `category_key` was a SLUG before
+        // `alpha.25` moved it to ids. A product still carrying `syringe`
+        // answers `[]` from the set and has, beyond any doubt, had its
+        // category question answered; `AliasingSpecTemplateRepository` is the
+        // thing that still understands those keys. Asking that vendor to pick
+        // again would be this round's own defect, one field over.
+        if ($this->categorySet() === [] && trim($this->categoryKey) === '') {
             $missing[] = 'category';
         }
         if (!$this->hasPrice()) {

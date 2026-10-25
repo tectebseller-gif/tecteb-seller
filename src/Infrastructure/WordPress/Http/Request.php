@@ -136,6 +136,60 @@ final class Request
         return isset($this->post[$key]) ? sanitize_key((string) $this->post[$key]) : '';
     }
 
+    /**
+     * A list of positive integer ids from one field — new in `alpha.82`.
+     *
+     * ⛔ **`postKey()` cannot carry a set, and that is measured rather than
+     * reasoned about.** `sanitize_key()` strips every character outside
+     * `[a-z0-9_-]`, so a field posting «۲۰۷,۲۰۸,۲۰۹» as `207,208,209` arrives
+     * as `207208209` — one id nobody has, with nothing anywhere saying a
+     * value was mangled (`docs/evidence/alpha82-audit/before-alpha81.txt`,
+     * `through_sanitize_key=207208209`). That is the whole reason the
+     * comma-joined workaround could not have worked even if it had been
+     * allowed.
+     *
+     * So the ids are parsed here, each on its own, and anything that is not a
+     * run of digits is DROPPED rather than cast: `(int) 'abc'` is nought, and
+     * nought is not an id. The caller gets a set it can trust or a shorter
+     * one, never a fabricated member.
+     *
+     * Accepts both spellings a form can send — a repeated field
+     * (`category[]=207&category[]=208`) and one comma-joined value — because
+     * the vendor form uses the first and the admin form's hidden carry-over
+     * uses the second.
+     *
+     * @return list<int> sorted and unique
+     */
+    public function postIdList(string $key): array
+    {
+        if (!isset($this->post[$key])) {
+            return [];
+        }
+        $raw = $this->post[$key];
+        $candidates = [];
+        foreach (is_array($raw) ? $raw : [$raw] as $one) {
+            if (is_array($one)) {
+                continue;
+            }
+            foreach (explode(',', (string) $one) as $piece) {
+                $candidates[] = $piece;
+            }
+        }
+        $ids = [];
+        foreach ($candidates as $piece) {
+            $piece = trim(wp_unslash((string) $piece));
+            if (preg_match('/^\d+$/', $piece) !== 1) {
+                continue;
+            }
+            $id = (int) $piece;
+            if ($id > 0 && !in_array($id, $ids, true)) {
+                $ids[] = $id;
+            }
+        }
+        sort($ids);
+        return $ids;
+    }
+
     public function postText(string $key): string
     {
         return isset($this->post[$key]) ? sanitize_text_field(wp_unslash((string) $this->post[$key])) : '';

@@ -18,6 +18,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductDraftStoreInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductDecisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Application\BrandDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\BrandProposalRepositoryInterface;
@@ -285,7 +286,7 @@ final class ProductArea
             $template,
             $view->request->queryKey('step'),
             $status,
-            $this->categoryPicker($details->categoryKey, $view->request->queryText('cat_q'), $mayEdit),
+            $this->categoryPicker($details->categorySet(), $view->request->queryText('cat_q'), $mayEdit),
             $view->urls,
             $view->nonceField,
             $view->notice,
@@ -927,7 +928,18 @@ final class ProductArea
         return new ProductDetails(
             $request->postText('title'),
             $request->postKey('type') !== '' ? $request->postKey('type') : 'simple',
-            $request->postKey('category'),
+            // THE SINGLE KEY, and only when the form named exactly one.
+            //
+            // Until `alpha.81` this was the whole of the category: one
+            // `postKey()` through `sanitize_key()`, which strips commas and
+            // so could not have carried a set even if one had been sent
+            // (measured: `207,208,209` arrives as `207208209`). The picker
+            // posts `category[]` now and `postIdList()` parses the ids one by
+            // one; which category's spec template applies when there are
+            // several is the owner's open decision, so the key stays `''`
+            // rather than naming a winner
+            // (`docs/open-decisions-alpha82.md` §1).
+            CategorySet::soleKey($request->postIdList('category')),
             // ALREADY DECIDED, by `brandDecision()`, before this was called.
             //
             // One typed name can mean three things — this approved brand, no
@@ -980,7 +992,9 @@ final class ProductArea
             // service would be refused as `bad_quantity_step`, which is the
             // right answer for a hand-built request and the wrong one for a
             // vendor who simply left the field alone.
-            max(1, $number($request->postText('purchase_step')))
+            max(1, $number($request->postText('purchase_step'))),
+            // THE RELATIONSHIP, whole, read with the set-safe reader.
+            CategorySet::of($request->postIdList('category'))
         );
     }
 
@@ -1148,13 +1162,30 @@ final class ProductArea
      *
      * @return array<string,mixed>
      */
-    private function categoryPicker(string $selectedKey, string $query, bool $mayEdit = false): array
+    /**
+     * @param list<int> $selected the terms this product is ALREADY in
+     */
+    private function categoryPicker(array $selected, string $query, bool $mayEdit = false): array
     {
         $directory = $this->container->get(ProductCategoryDirectoryInterface::class);
         $total = $directory->total();
         $results = $directory->search($query, ProductCategoryPickerView::SHOW);
+        // EVERY category the product is in, each resolved to its full path.
+        //
+        // «مدیر نباید مجبور به انتخاب مجدد دسته‌های موجود شود»: a product in
+        // two categories must arrive on the form with BOTH already ticked, so
+        // saving changes nothing unless somebody changes something. One
+        // `find()` per id is the same shape the single selection used; an id
+        // that no longer resolves is kept in the list and shown as such rather
+        // than dropped, because dropping it is how a relationship disappears.
+        $chosen = [];
+        foreach (CategorySet::of($selected) as $id) {
+            $chosen[$id] = $directory->find((string) $id);
+        }
         return [
-            'selected' => $directory->find($selectedKey),
+            'chosen' => $chosen,
+            // Kept for the one-category case every existing view reads.
+            'selected' => $chosen === [] ? null : reset($chosen),
             'results' => $results,
             'query' => $query,
             // Asked for only when there is nothing to show: it walks every
@@ -1283,7 +1314,13 @@ final class ProductArea
             // before this round has no key, and «no step» is 1. Reading it as
             // nought would make a refused save come back with a step the
             // vendor never typed, and `max(1, …)` further in would hide it.
-            max(1, isset($raw['purchaseStep']) ? (int) $raw['purchaseStep'] : 1)
+            max(1, isset($raw['purchaseStep']) ? (int) $raw['purchaseStep'] : 1),
+            // The relationship, carried through the flash of a refused save
+            // and through a proposal's payload. ABSENT is not empty: a flash
+            // or payload written before `alpha.82` has no such key, and
+            // deriving the set from `categoryKey` would turn an old form into
+            // a request to narrow the product to one category.
+            CategorySet::of((array) ($raw['categoryIds'] ?? []))
         );
     }
 
@@ -1294,6 +1331,7 @@ final class ProductArea
             'title' => $d->title,
             'type' => $d->type,
             'categoryKey' => $d->categoryKey,
+            'categoryIds' => $d->categoryIds,
             'brand' => $d->brand,
             'shortDescription' => $d->shortDescription,
             'priceMinor' => $d->priceMinor,

@@ -470,7 +470,12 @@ final class ProductFormView
             . VendorUi::input('title', __('عنوان محصول', 'tecteb-marketplace-core'), $d->title)
             . VendorUi::select('type', __('نوع محصول', 'tecteb-marketplace-core'), ProductMessages::types(), $d->type, __('محصول خارجی و گروهی در این نسخه ساخته نمی‌شود.', 'tecteb-marketplace-core'))
             . ProductCategoryPickerView::render(
-                $categories['selected'] ?? null,
+                // EVERY category this product is in, keyed by term id. The
+                // single `selected` the picker took until `alpha.81` could
+                // only ever describe one, which is how a product in two
+                // arrived on the form with one ticked and saving detached the
+                // other.
+                is_array($categories['chosen'] ?? null) ? $categories['chosen'] : [],
                 $results,
                 (string) ($categories['query'] ?? ''),
                 (int) ($categories['matched'] ?? count($results)),

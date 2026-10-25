@@ -8,6 +8,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
+use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
 use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
@@ -591,13 +592,28 @@ final class ReviewProducts
             return OperationResult::failure('not_found');
         }
         $changes = [];
-        foreach (['title' => 'title', 'short_description' => 'shortDescription', 'category' => 'categoryKey'] as $key => $property) {
+        foreach (['title' => 'title', 'short_description' => 'shortDescription'] as $key => $property) {
             if (!array_key_exists($key, $fields)) {
                 continue;
             }
             $value = trim($fields[$key]);
             if ($value !== (string) $product->details->{$property}) {
                 $changes[$property] = $value;
+            }
+        }
+        // THE CATEGORY, and a manager naming one here IS an explicit decision.
+        //
+        // This is the manager's own correction form, so a value typed into it
+        // is «put this product in this category» — not an automatic narrowing,
+        // and the one place a set may legitimately become one id. The set is
+        // written with it so the two never disagree; what is forbidden is a
+        // path that does this WITHOUT anybody saying so, and every such path
+        // is closed elsewhere in this round.
+        if (array_key_exists('category', $fields)) {
+            $ids = CategorySet::of(explode(',', trim((string) $fields['category'])));
+            if (!CategorySet::same($ids, $product->details->categorySet())) {
+                $changes['categoryIds'] = $ids;
+                $changes['categoryKey'] = CategorySet::soleKey($ids);
             }
         }
         if ($changes === []) {
@@ -710,20 +726,15 @@ final class ReviewProducts
         // Copy it home, so the vendor's record and the shop say the same
         // thing. `description` is the exception the constant names: the
         // projector builds it, so there is nothing to copy it into.
-        $property = match ($field) {
-            'title' => 'title',
-            'short_description' => 'shortDescription',
-            'category' => 'categoryKey',
-            default => '',
-        };
-        if ($property !== '') {
+        $changes = self::detailChangesFor($field, $value);
+        if ($changes !== []) {
             // Reported, not ignored. The whole promise of «نسخهٔ ووکامرس
             // بماند» is that the record ends up agreeing with the shop, and a
             // write that lost a version race leaves them disagreeing — with a
             // success message on screen saying they do not.
             if (!$this->products->updateDetails(
                 $productId,
-                $product->details->with([$property => self::firstId($field, $value)]),
+                $product->details->with($changes),
                 $product->rowVersion
             )) {
                 return OperationResult::failure('stale_revision', ['product_id' => $productId]);
@@ -881,16 +892,29 @@ final class ReviewProducts
             }
         }
         $changes = [];
-        foreach (['title' => 'title', 'short_description' => 'shortDescription', 'category' => 'categoryKey'] as $key => $property) {
+        foreach (['title', 'short_description', 'category'] as $key) {
             if (!array_key_exists($key, $roundTrip)) {
                 continue;
             }
-            $value = self::firstId($key, $roundTrip[$key]);
+            $value = (string) $roundTrip[$key];
             // The title is the one field that cannot legitimately come back
             // empty, and a shop row with no name would blank the record.
             if ($value === '' && !StorefrontField::mayBeEmpty($key)) {
                 continue;
             }
+            if ($key === 'category') {
+                // Compared as a SET, because order carries no meaning here
+                // and `[244,245]` and `[245,244]` are the same relationship.
+                // Comparing the encoded strings would answer «changed» on a
+                // reordering and rewrite the row for nothing.
+                $ids = CategorySet::fromValue($value);
+                if (!CategorySet::same($ids, $product->details->categorySet())) {
+                    $changes['categoryIds'] = $ids;
+                    $changes['categoryKey'] = CategorySet::soleKey($ids);
+                }
+                continue;
+            }
+            $property = $key === 'title' ? 'title' : 'shortDescription';
             if ($value !== (string) $product->details->{$property}) {
                 $changes[$property] = $value;
             }
@@ -993,14 +1017,43 @@ final class ReviewProducts
         return $this->products->saveBaseline($productId, $baseline->with($field, $values[$field]));
     }
 
-    /** The category round-trips as ONE term id, not as the id list WooCommerce keeps. */
-    private static function firstId(string $field, string $value): string
+    /**
+     * The detail changes one storefront field's value means.
+     *
+     * ⛔ **This used to be `firstId()`, and its own docblock stated the
+     * defect: «The category round-trips as ONE term id, not as the id list
+     * WooCommerce keeps.»** It cut the value to `$parts[0]`, so a manager
+     * keeping the shop's version of a product in two categories wrote one id
+     * into the row — and from that moment the projection owned the field and
+     * wrote that one id back as a REPLACE. Measured on `alpha.81`
+     * (`docs/evidence/alpha82-audit/before-alpha81.txt`).
+     *
+     * The category is a SET, so it maps to two properties at once: the whole
+     * relationship, and the single key — which stays `''` unless there is
+     * exactly one, because naming a winner is the owner's open decision and
+     * not this method's (`docs/open-decisions-alpha82.md` §1).
+     *
+     * @return array<string,mixed> the `ProductDetails` fields this value sets
+     */
+    private static function detailChangesFor(string $field, string $value): array
     {
-        if ($field !== 'category') {
-            return $value;
+        $property = match ($field) {
+            'title' => 'title',
+            'short_description' => 'shortDescription',
+            'category' => 'categoryKey',
+            default => '',
+        };
+        if ($property === '') {
+            return [];
         }
-        $parts = array_values(array_filter(array_map('trim', explode(',', $value)), static fn (string $v): bool => $v !== '' && $v !== '0'));
-        return $parts[0] ?? '';
+        if ($field !== 'category') {
+            return [$property => $value];
+        }
+        $ids = CategorySet::fromValue($value);
+        return [
+            'categoryIds' => $ids,
+            'categoryKey' => CategorySet::soleKey($ids),
+        ];
     }
 
     private function logOwnership(int $vendorUserId, int $productId, string $field, string $decision): void
@@ -1288,7 +1341,18 @@ final class ReviewProducts
             // proposed and silently undo a later change — the same reason
             // stock, SKU and the two purchase limits above come from
             // `$current`.
-            $current->purchaseStep
+            $current->purchaseStep,
+            // THE RELATIONSHIP, from the payload when it carries one.
+            //
+            // A revision written by `alpha.81` or earlier has no such key, and
+            // then the LIVE set is kept rather than derived from the payload's
+            // single `categoryKey` — deriving it would turn an old proposal
+            // into a request to narrow a product to one category, which is
+            // precisely what nobody asked for. Absent is not empty
+            // (`alpha.28`), and `array_key_exists` is what tells them apart.
+            array_key_exists('categoryIds', $d)
+                ? CategorySet::of((array) $d['categoryIds'])
+                : $current->categorySet()
         );
     }
 }

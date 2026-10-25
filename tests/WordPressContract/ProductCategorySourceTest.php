@@ -120,14 +120,14 @@ final class ProductCategorySourceTest extends TestCase
         $directory = new WpProductCategoryDirectory();
 
         $html = ProductCategoryPickerView::render(
-            $directory->find('30'),
+            [30 => $directory->find('30')],
             $directory->search('لوازم', 40),
             'لوازم',
             $directory->countMatches('لوازم'),
             $directory->total()
         );
 
-        self::assertStringContainsString('name="category" value="30"', $html, 'the term id is the value');
+        self::assertStringContainsString('name="category[]" value="30"', $html, 'the term id is the value');
         self::assertStringContainsString('value="30" checked', $html, 'the current choice is posted even when it matches no query');
         self::assertStringContainsString('تجهیزات پزشکی › بیهوشی و تنفسی › آمبوبگ', $html, 'the whole ancestry is on screen');
         self::assertStringContainsString('name="category_q"', $html, 'there is a search box');
@@ -138,9 +138,9 @@ final class ProductCategorySourceTest extends TestCase
     {
         $this->seed([]);
         $directory = new WpProductCategoryDirectory();
-        $html = ProductCategoryPickerView::render(null, [], '', 0, $directory->total());
+        $html = ProductCategoryPickerView::render([], [], '', 0, $directory->total());
         self::assertStringContainsString('دسته‌بندی‌ها', $html);
-        self::assertStringNotContainsString('name="category"', $html, 'no radio to pick when there is nothing to pick');
+        self::assertStringNotContainsString('name="category[]"', $html, 'no box to tick when there is nothing to pick');
     }
 
     public function testALegacyTemplateKeyStillResolvesToItsTerm(): void
@@ -197,7 +197,7 @@ final class ProductCategorySourceTest extends TestCase
         $directory = new WpProductCategoryDirectory();
 
         $html = ProductCategoryPickerView::render(
-            $directory->find('30'),
+            [30 => $directory->find('30')],
             $directory->search('لوازم', 40),
             'لوازم',
             $directory->countMatches('لوازم'),
@@ -227,7 +227,7 @@ final class ProductCategorySourceTest extends TestCase
         $directory = new WpProductCategoryDirectory();
         // What a reader who may not edit gets: no url, no nonce.
         $html = ProductCategoryPickerView::render(
-            $directory->find('30'),
+            [30 => $directory->find('30')],
             $directory->search('', 40),
             '',
             $directory->countMatches(''),
@@ -241,7 +241,7 @@ final class ProductCategorySourceTest extends TestCase
     {
         $this->seedTree();
         $directory = new WpProductCategoryDirectory();
-        $html = ProductCategoryPickerView::results($directory->search('امبوبک', 40), null, 'امبوبک', 1);
+        $html = ProductCategoryPickerView::results($directory->search('امبوبک', 40), [], 'امبوبک', 1);
         self::assertStringContainsString('پیشنهاد نزدیک', $html);
         self::assertStringContainsString('is-fuzzy', $html);
     }
@@ -328,7 +328,7 @@ final class ProductCategorySourceTest extends TestCase
 
         $html = ProductCategoryPickerView::results(
             [],
-            null,
+            [],
             'چسب دستکش',
             0,
             $directory->explainNoMatch('چسب دستکش')
@@ -351,14 +351,14 @@ final class ProductCategorySourceTest extends TestCase
         self::assertSame([], $explain['missing'], 'both words are in the catalogue');
         self::assertSame(['چسب' => 1, 'دستکش' => 1], $explain['found']);
 
-        $html = ProductCategoryPickerView::results([], null, 'چسب دستکش', 0, $explain);
+        $html = ProductCategoryPickerView::results([], [], 'چسب دستکش', 0, $explain);
         self::assertStringContainsString('کلمهٔ کمتر', $html);
     }
 
     /** An empty box still gets the browsing invitation, not a diagnosis. */
     public function testAnEmptyQueryIsNotDiagnosed(): void
     {
-        $html = ProductCategoryPickerView::results([], null, '', 0, []);
+        $html = ProductCategoryPickerView::results([], [], '', 0, []);
 
         self::assertStringContainsString('برای دیدن دسته‌ها جست‌وجو کنید', $html);
     }
@@ -370,7 +370,7 @@ final class ProductCategorySourceTest extends TestCase
         $directory = new WpProductCategoryDirectory();
 
         $html = ProductCategoryPickerView::render(
-            null,
+            [],
             $directory->search('چسب تزریق پزشکی', 40),
             'چسب تزریق پزشکی',
             1,

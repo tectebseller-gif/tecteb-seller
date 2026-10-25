@@ -46,8 +46,14 @@ final class ProductCategoryPickerView
     /**
      * @param list<ProductCategory> $results
      */
+    /**
+     * @param array<int,ProductCategory|null> $chosen every category the
+     *        product is ALREADY in, keyed by term id; a `null` value is an id
+     *        the directory no longer resolves and is still SHOWN, because
+     *        dropping it is how a relationship disappears quietly.
+     */
     public static function render(
-        ?ProductCategory $selected,
+        array $chosen,
         array $results,
         string $query,
         int $matched,
@@ -82,10 +88,12 @@ final class ProductCategoryPickerView
             ))
             . '</p>';
 
-        // The current choice, above the search and outside it. It carries the
-        // radio that is checked, so the form posts the right value whatever
-        // the list below is showing.
-        $html .= self::chosen($selected);
+        // The current choices, above the search and outside it. They carry
+        // the ticked boxes, so the form posts the whole set whatever the list
+        // below is showing — and a product already in two categories arrives
+        // with both ticked, so «مدیر نباید مجبور به انتخاب مجدد دسته‌های
+        // موجود شود» is a property of the markup rather than a promise.
+        $html .= self::chosen($chosen);
 
         $html .= '<div class="tv-catpick__search"'
             . ($suggestUrl !== '' ? ' data-suggest-url="' . esc_url($suggestUrl) . '"' : '')
@@ -122,7 +130,7 @@ final class ProductCategoryPickerView
         $html .= '<p class="tv-hint tv-catpick__status" id="tv-catpick-status" role="status" aria-live="polite"></p>';
 
         $html .= '<div id="tv-catpick-results" class="tv-catpick__results">'
-            . self::results($results, $selected, $query, $matched, $explain)
+            . self::results($results, array_keys($chosen), $query, $matched, $explain)
             . '</div>';
 
         return $html . '</div>';
@@ -137,9 +145,13 @@ final class ProductCategoryPickerView
      *
      * @param list<ProductCategory> $results
      */
+    /**
+     * @param list<ProductCategory> $results
+     * @param list<int> $chosenIds the terms already ticked above
+     */
     public static function results(
         array $results,
-        ?ProductCategory $selected,
+        array $chosenIds,
         string $query,
         int $matched,
         array $explain = []
@@ -148,7 +160,7 @@ final class ProductCategoryPickerView
         // vendor to notice that two identical rows are one row.
         $rows = [];
         foreach ($results as $category) {
-            if ($selected !== null && $selected->id === $category->id) {
+            if (in_array($category->id, $chosenIds, true)) {
                 continue;
             }
             $rows[] = $category;
@@ -230,20 +242,47 @@ final class ProductCategoryPickerView
         return __('دسته‌ای با این نام پیدا نشد. بخشی از نام را بنویسید و دوباره جست‌وجو کنید.', 'tecteb-marketplace-core');
     }
 
-    /** The chosen category, or a plain statement that there is none yet. */
-    private static function chosen(?ProductCategory $selected): string
+    /**
+     * Every category this product is in, or a plain statement that there is
+     * none yet.
+     *
+     * @param array<int,ProductCategory|null> $chosen
+     */
+    private static function chosen(array $chosen): string
     {
         $html = '<div class="tv-catpick__chosen" id="tv-catpick-chosen">'
-            . '<span class="tv-catpick__chosen-label">' . esc_html__('دستهٔ انتخاب‌شده', 'tecteb-marketplace-core') . '</span>';
-        if ($selected === null) {
+            . '<span class="tv-catpick__chosen-label">'
+            . esc_html__('دسته‌های انتخاب‌شده', 'tecteb-marketplace-core') . '</span>';
+        if ($chosen === []) {
             return $html . '<p class="tv-hint">'
-                . esc_html__('هنوز دسته‌ای انتخاب نشده است. از فهرست زیر یکی را انتخاب کنید.', 'tecteb-marketplace-core')
+                . esc_html__('هنوز دسته‌ای انتخاب نشده است. از فهرست زیر انتخاب کنید؛ یک محصول می‌تواند در چند دسته باشد.', 'tecteb-marketplace-core')
                 . '</p></div>';
         }
-        return $html . '<ul class="tv-catpick__list" role="group" aria-label="'
-            . esc_attr__('دستهٔ انتخاب‌شده', 'tecteb-marketplace-core') . '">'
-            . self::row($selected, true)
-            . '</ul></div>';
+        $html .= '<ul class="tv-catpick__list" role="group" aria-label="'
+            . esc_attr__('دسته‌های انتخاب‌شده', 'tecteb-marketplace-core') . '">';
+        foreach ($chosen as $id => $category) {
+            if ($category instanceof ProductCategory) {
+                $html .= self::row($category, true);
+                continue;
+            }
+            // AN ID THE DIRECTORY NO LONGER RESOLVES, shown rather than
+            // dropped — and its box stays ticked, so saving the form does not
+            // quietly detach it. A term somebody deleted or renamed is a
+            // reason to tell the vendor, not a reason to take the product out
+            // of a category on their behalf.
+            $html .= '<li class="tv-catpick__row is-selected">'
+                . '<input type="checkbox" id="' . esc_attr('cat-' . (int) $id) . '"'
+                . ' name="category[]" value="' . esc_attr((string) (int) $id) . '" checked>'
+                . '<label for="' . esc_attr('cat-' . (int) $id) . '">'
+                . '<span class="tv-catpick__path">'
+                . esc_html(sprintf(
+                    /* translators: %s: term id */
+                    __('دستهٔ شناسهٔ %s — در این سایت پیدا نشد', 'tecteb-marketplace-core'),
+                    number_format_i18n((int) $id)
+                ))
+                . '</span></label></li>';
+        }
+        return $html . '</ul></div>';
     }
 
     private static function row(ProductCategory $category, bool $isSelected): string
@@ -251,7 +290,13 @@ final class ProductCategoryPickerView
         $id = 'cat-' . $category->id;
         return '<li class="tv-catpick__row' . ($isSelected ? ' is-selected' : '')
             . ($category->fuzzy ? ' is-fuzzy' : '') . '">'
-            . '<input type="radio" id="' . esc_attr($id) . '" name="category" value="' . esc_attr($category->value()) . '"'
+            // A CHECKBOX, and `category[]`, because a product is in a SET of
+            // categories. It was a radio named `category` until `alpha.81`,
+            // which made «one category» a property of the markup — and the
+            // reader behind it, `sanitize_key()`, could not have carried more
+            // than one anyway (measured: `207,208,209` arrives as
+            // `207208209`).
+            . '<input type="checkbox" id="' . esc_attr($id) . '" name="category[]" value="' . esc_attr($category->value()) . '"'
             . ($isSelected ? ' checked' : '') . '>'
             . '<label for="' . esc_attr($id) . '">'
             . '<span class="tv-catpick__path">' . esc_html($category->path) . '</span>'

@@ -81,7 +81,12 @@ final class CategorySuggest
         // trusted: the list must leave that row out exactly as the first paint
         // does, and «the row the client called selected» is not the same
         // statement as «a category that exists».
-        $selected = $directory->find($request->postText('selected'));
+        // THE IDS ALREADY TICKED, so the suggestion list leaves them out —
+        // the same rule the first server-rendered paint follows, because «a
+        // list that looks different depending on how it arrived is a list
+        // nobody can test». Read with the set-safe reader: `postText()` would
+        // keep the commas and `postKey()` would fuse them into one id.
+        $chosenIds = $request->postIdList('selected');
         $matched = $directory->countMatches($query);
 
         wp_send_json_success([
@@ -94,7 +99,7 @@ final class CategorySuggest
             // worked would be a cost with no reader.
             'html' => ProductCategoryPickerView::results(
                 $results,
-                $selected,
+                $chosenIds,
                 $query,
                 $matched,
                 $results === [] ? $directory->explainNoMatch($query) : []

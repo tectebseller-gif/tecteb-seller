@@ -1,0 +1,186 @@
+# Where several categories become one — measured on the INSTALLED bytes of alpha.81
+# plugin: 0.1.0-alpha.81
+# woocommerce: 11.0.1
+# date: 2026-10-25T13:10:04Z
+
+## arrange
+vendor_status=approved
+terms={"root":243,"trolley":244,"trolley_steel":245,"other":246,"doomed":247}
+wc_pair=77183
+wc_pair_terms=[244,245]
+wc_branches=77184
+wc_branches_terms=[243,244,246]
+wc_single=77185
+wc_single_terms=[246]
+wc_none=77186
+wc_none_terms=[15]
+wc_deleted=77187
+wc_deleted_terms=[244,247]
+vendor=221
+
+## intake
+run=intake-20261025-131007
+code=intake_done
+counts={"imported":5,"skipped":0,"failed":0}
+row_pair_terms=[244,245]
+row_pair_category_key=244
+row_pair_key_is_first_term=yes
+row_pair_terms_not_recorded=1
+row_pair_baseline_category=__absent__
+row_branches_terms=[243,244,246]
+row_branches_category_key=243
+row_branches_key_is_first_term=yes
+row_branches_terms_not_recorded=2
+row_branches_baseline_category=__absent__
+row_single_terms=[246]
+row_single_category_key=246
+row_single_key_is_first_term=yes
+row_single_terms_not_recorded=0
+row_single_baseline_category=__absent__
+row_none_terms=[15]
+row_none_category_key=15
+row_none_key_is_first_term=yes
+row_none_terms_not_recorded=0
+row_none_baseline_category=__absent__
+row_deleted_terms=[244,247]
+row_deleted_category_key=244
+row_deleted_key_is_first_term=yes
+row_deleted_terms_not_recorded=1
+row_deleted_baseline_category=__absent__
+
+## blocker
+missing_pair=[]
+missing_branches=[]
+missing_single=[]
+missing_none=[]
+missing_deleted=[]
+
+## plan
+plan_0=8
+plan_1=8
+plan_2=8
+plan_keys=["available","scanned","total","finished","cursor","apply","held","groups","counts"]
+link_pair_state=multiple
+link_pair_terms=[244,245]
+link_pair_valid=[244,245]
+link_pair_definite_key=__empty__
+link_branches_state=multiple
+link_branches_terms=[243,244,246]
+link_branches_valid=[243,244,246]
+link_branches_definite_key=__empty__
+link_single_state=definite
+link_single_terms=[246]
+link_single_valid=[246]
+link_single_definite_key=246
+link_none_state=default_only
+link_none_terms=[15]
+link_none_valid=[]
+link_none_definite_key=__empty__
+link_deleted_state=multiple
+link_deleted_terms=[244,247]
+link_deleted_valid=[244,247]
+link_deleted_definite_key=__empty__
+
+## transport
+posted=207,208,209
+through_sanitize_key=207208209
+through_sanitize_text_field=207,208,209
+fused_into_one_id=yes
+
+## take pair
+which=pair
+terms_before=[244,245]
+take=ok
+link_ownership=marketplace
+terms_after=[244,245]
+stored_category_key=244
+
+## accept pair  <- the destructive moment, on parent+child
+which=pair
+terms_before=[244,245]
+comparison_state=compared
+stored_category_key=244
+accept_outcome=written
+terms_after=[244]
+set_preserved=no
+terms_lost=[245]
+relationships_silently_removed=yes
+
+## restore-terms
+restored_pair=[244,245]
+restored_branches=[243,244,246]
+restored_single=[246]
+restored_deleted=[244,247]
+
+## project pair  <- and every later projection repeats it
+which=pair
+terms_before=[244,245]
+project_ok=__absent__
+project_code=__absent__
+terms_after=[244]
+set_preserved=no
+terms_lost=[245]
+
+## restore-terms
+restored_pair=[244,245]
+restored_branches=[243,244,246]
+restored_single=[246]
+restored_deleted=[244,247]
+
+## take single   (control)
+which=single
+terms_before=[246]
+take=ok
+link_ownership=marketplace
+terms_after=[246]
+stored_category_key=246
+
+## project single (control: one category must survive untouched)
+which=single
+terms_before=[246]
+project_ok=__absent__
+project_code=__absent__
+terms_after=[246]
+set_preserved=yes
+terms_lost=[]
+
+## take branches
+which=branches
+terms_before=[243,244,246]
+take=ok
+link_ownership=marketplace
+terms_after=[243,244,246]
+stored_category_key=243
+
+## project branches (unstamped: the key is HELD as a proposal, nothing written)
+which=branches
+terms_before=[243,244,246]
+project_ok=__absent__
+project_code=__absent__
+terms_after=[243,244,246]
+set_preserved=yes
+terms_lost=[]
+
+## delete-term
+terms_before=[244,247]
+deleted_term=247
+terms_after=[244]
+stored_category_key=244
+
+## report
+vendor=221
+terms={"root":243,"trolley":244,"trolley_steel":245,"other":246,"doomed":247}
+products={"pair":77183,"branches":77184,"single":77185,"none":77186,"deleted":77187}
+run=intake-20261025-131007
+waiting_total=0
+now_pair_terms=[244,245]
+now_pair_key=244
+now_branches_terms=[243,244,246]
+now_branches_key=243
+now_single_terms=[246]
+now_single_key=246
+now_none_terms=[15]
+now_none_key=15
+now_deleted_terms=[244]
+now_deleted_key=244
+

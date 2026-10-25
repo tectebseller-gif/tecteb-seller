@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\PersianCollation;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductCreation;
+use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
@@ -22,6 +23,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAn
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0023ProductDescriptionAndCreateToken;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0032ProductMirroredStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0024PurchaseStep;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0035ProductCategorySet;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0025BrandRegistry;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as C;
@@ -611,7 +613,15 @@ final class DbProductRepository implements ProductRepositoryInterface
         // Connection-scoped, so two vendors inserting at the same moment
         // cannot be handed each other's id — which "ORDER BY id DESC" would.
         $made = (int) $this->db->getVar('SELECT LAST_INSERT_ID()');
-        return $made > 0 ? ProductCreation::made($made) : ProductCreation::failed();
+        if ($made > 0) {
+            // The set belongs to the row that was just made, so it is written
+            // once that row has an id and not before. A create that carries
+            // no categories writes no link rows — the same «absent is not
+            // empty» rule the column itself follows.
+            $this->syncCategorySet($made, $details);
+            return ProductCreation::made($made);
+        }
+        return ProductCreation::failed();
     }
 
     /**
@@ -750,12 +760,20 @@ final class DbProductRepository implements ProductRepositoryInterface
             return false;                       // a real storage failure
         }
         if ($guard === '') {
+            // AFTER the row, never before: a set written beside a detail
+            // write that then loses its guard would record a relationship for
+            // a change that did not happen.
+            $this->syncCategorySet($productId, $details);
             return true;                        // unguarded: nothing to lose to
         }
         // `row_version = row_version + 1` changes a column on every guarded
         // write, so zero rows here really does mean «the WHERE did not match»
         // rather than the «nothing changed» ambiguity the job queue hit.
-        return $written > 0;
+        if ($written > 0) {
+            $this->syncCategorySet($productId, $details);
+            return true;
+        }
+        return false;
     }
 
     public function bumpVersion(int $productId, string $expectedVersion): bool
@@ -950,6 +968,129 @@ final class DbProductRepository implements ProductRepositoryInterface
         return (string) $row[0]['category_key'] === '' ? 'storage_failed' : 'already_set';
     }
 
+    /**
+     * Record a product's whole relationship — but only on an imported row
+     * that has nothing recorded and no single key a human has set.
+     *
+     * The set sibling of `setCategoryWhenEmpty()`, and it keeps that method's
+     * three properties, which is why it is here rather than built out of it:
+     *
+     *  1. **The conditions are in the statements** (`alpha.50`), so a second
+     *     request racing this one loses at the database rather than at a check
+     *     between a read and a write.
+     *  2. **An already-decided product is never overwritten.** The `UPDATE`
+     *     that stamps the single key still carries `category_key = ''`, and
+     *     the `INSERT`s are `IGNORE`d against the pair key, so a set somebody
+     *     else recorded first survives and the answer is `already_set`.
+     *  3. **Zero rows is read, not guessed** (`alpha.28`): the two halves of
+     *     «the WHERE did not match» are opposite answers.
+     *
+     * The single key is written only when the set has exactly ONE member
+     * ({@see CategorySet::soleKey()}), because which category's spec template
+     * applies to a multi-category product is the owner's open decision and not
+     * this method's (`docs/open-decisions-alpha82.md` §1). For a set of two
+     * the key stays `''` — «no single key» — and the relationship is recorded
+     * in full.
+     *
+     * @param list<int> $termIds
+     */
+    public function setCategorySetWhenAbsent(int $productId, array $termIds): string
+    {
+        if (!$this->mayWrite()) {
+            return 'storage_failed';
+        }
+        $ids = CategorySet::of($termIds);
+        if ($productId <= 0 || $ids === []) {
+            // Writing an empty set back is a no-op that would report success,
+            // the same reason `setCategoryWhenEmpty()` refuses an empty key.
+            return 'bad_category';
+        }
+        $carried = $this->hasCategoryTable();
+        if ($carried === null) {
+            return 'category_table_unreadable';
+        }
+        if ($carried === false) {
+            return 'category_set_unsupported';
+        }
+        if (!$this->db->begin()) {
+            return 'not_atomic';
+        }
+        // The imported row, and only while NOTHING is recorded for it. The
+        // `NOT EXISTS` is inside the statement for the same reason the
+        // `category_key = ''` guard is: between a read and a write another
+        // request can record a set, and this one must lose rather than
+        // replace it.
+        $table = $this->categoriesTable();
+        $products = $this->products();
+        // THE FIRST ROW IS THE CLAIM — `alpha.54`'s rule. One statement whose
+        // own `WHERE` carries both conditions, so the loser of a race never
+        // reaches the rest; the remaining ids then go in plainly, inside the
+        // same transaction, because the claim already decided who is writing.
+        //
+        // `FROM DUAL` and not a derived table of all the rows: a derived table
+        // names its columns after their VALUES, so a set whose term id equals
+        // its sort order would produce two columns of the same name and the
+        // statement would fail — on some products and not others.
+        $claimed = $this->db->execute(
+            'INSERT INTO `' . $table . '` (product_id, term_id, sort_order)
+             SELECT %d, %d, 0 FROM DUAL
+              WHERE EXISTS (
+                    SELECT 1 FROM `' . $products . '`
+                     WHERE id = %d AND import_run_id <> %s
+              )
+                AND NOT EXISTS (SELECT 1 FROM `' . $table . '` t WHERE t.product_id = %d)',
+            [$productId, $ids[0], $productId, '', $productId]
+        );
+        if ($claimed === null) {
+            $this->db->rollback();
+            return 'storage_failed';
+        }
+        if ($claimed > 0) {
+            foreach (array_slice($ids, 1) as $offset => $termId) {
+                if ($this->db->execute(
+                    'INSERT INTO `' . $table . '` (product_id, term_id, sort_order) VALUES (%d, %d, %d)
+                     ON DUPLICATE KEY UPDATE sort_order = VALUES(sort_order)',
+                    [$productId, $termId, $offset + 1]
+                ) === null) {
+                    $this->db->rollback();
+                    return 'storage_failed';
+                }
+            }
+        }
+        if ($claimed < 1) {
+            $this->db->rollback();
+            // Re-read, because «somebody recorded it first» and «this is not
+            // an imported row» are different answers and neither is a failure.
+            $row = $this->db->getResults(
+                'SELECT import_run_id FROM `' . $products . '` WHERE id = %d',
+                [$productId]
+            );
+            if ($row === null || $row === []) {
+                return 'not_found';
+            }
+            if ((string) $row[0]['import_run_id'] === '') {
+                return 'not_imported';
+            }
+            return 'already_set';
+        }
+        // The single key, and only when there is exactly one category. Its own
+        // guard stays: a key a manager set is never replaced.
+        $sole = CategorySet::soleKey($ids);
+        if ($sole !== '') {
+            $stamped = $this->db->execute(
+                'UPDATE `' . $products . '`
+                    SET category_key = %s, updated_at = %s, row_version = row_version + 1
+                  WHERE id = %d AND import_run_id <> %s AND category_key = %s',
+                [$sole, $this->now(), $productId, '', '']
+            );
+            if ($stamped === null) {
+                $this->db->rollback();
+                return 'storage_failed';
+            }
+        }
+        return $this->db->commit() ? 'category_set_written' : 'storage_failed';
+    }
+
     public function observedFromImportRuns(int $limit = 200): array
     {
         return array_map(
@@ -1132,6 +1273,152 @@ final class DbProductRepository implements ProductRepositoryInterface
             return false;
         }
         return $this->db->commit();
+    }
+
+    /**
+     * The link table's name, and whether this database has it.
+     *
+     * Memoised PER INSTANCE and not statically: a static memo covers the whole
+     * process, so a test that changes the table's shape and asks again gets
+     * the stale answer — `alpha.67`'s trap, one table over.
+     */
+    private ?bool $categoryTable = null;
+
+    private function categoriesTable(): string
+    {
+        return M0035ProductCategorySet::table($this->db);
+    }
+
+    /**
+     * @return bool|null true present, false absent, null the read failed
+     */
+    private function hasCategoryTable(): ?bool
+    {
+        if ($this->categoryTable === null) {
+            $answer = M0035ProductCategorySet::carriedBy($this->db);
+            if ($answer === null) {
+                // NOT memoised. A failed read is a reason to ask again, not an
+                // answer to remember (`alpha.49`).
+                return null;
+            }
+            $this->categoryTable = $answer;
+        }
+        return $this->categoryTable;
+    }
+
+    /**
+     * Every `product_cat` term recorded for this product.
+     *
+     * Three answers, and the third one matters: `null` means the question
+     * could not be asked — the table is not there yet, or the read failed —
+     * and the caller must then fall back to the single key rather than treat
+     * the relationship as empty. An empty ARRAY means the table was read and
+     * holds nothing for this product, which is «not recorded», still not «no
+     * categories» (`alpha.8`).
+     *
+     * @return list<int>|null
+     */
+    public function categoryIdsFor(int $productId): ?array
+    {
+        if ($productId <= 0 || $this->hasCategoryTable() !== true) {
+            return null;
+        }
+        $rows = $this->db->getResults(
+            'SELECT term_id FROM `' . $this->categoriesTable() . '`
+              WHERE product_id = %d ORDER BY sort_order ASC, term_id ASC',
+            [$productId]
+        );
+        if ($rows === null) {
+            return null;
+        }
+        return CategorySet::of(array_map(static fn (array $row): int => (int) $row['term_id'], $rows));
+    }
+
+    /**
+     * Replace the recorded set for this product, as ONE unit of work.
+     *
+     * The shape `saveImages()` was given in `alpha.31`, for the same reason:
+     * a replacement is a delete and some inserts, and a delete that succeeds
+     * beside an insert that fails leaves a relationship nobody asked for. So
+     * the transaction is opened FIRST and a build that cannot open one is
+     * refused by name rather than writing the first half.
+     *
+     * ⛔ **An empty set is refused, not written.** «هیچ رابطه‌ای خودکار حذف
+     * نشود»: clearing a product's recorded categories is a decision, and the
+     * only caller allowed to make it is an explicit admin action that says so
+     * — which passes `$allowEmpty`. Every ordinary save that happens to carry
+     * nothing leaves what is recorded alone.
+     *
+     * @param list<int> $termIds
+     * @return string '' on success, otherwise a named refusal
+     */
+    public function saveCategorySet(int $productId, array $termIds, bool $allowEmpty = false): string
+    {
+        if ($productId <= 0) {
+            return 'bad_product';
+        }
+        $carried = $this->hasCategoryTable();
+        if ($carried === null) {
+            return 'category_table_unreadable';
+        }
+        if ($carried === false) {
+            // Running on schema 34. Reading still works (the single key), and
+            // writing a SET is refused by name rather than silently dropped —
+            // `alpha.67`'s rule: the read falls back, the write refuses.
+            return 'category_set_unsupported';
+        }
+        $ids = CategorySet::of($termIds);
+        if ($ids === [] && !$allowEmpty) {
+            return 'category_set_empty';
+        }
+        if (!$this->db->begin()) {
+            return 'not_atomic';
+        }
+        if ($this->db->execute(
+            'DELETE FROM `' . $this->categoriesTable() . '` WHERE product_id = %d',
+            [$productId]
+        ) === null) {
+            $this->db->rollback();
+            return 'storage_failed';
+        }
+        foreach ($ids as $sort => $termId) {
+            if ($this->db->execute(
+                'INSERT INTO `' . $this->categoriesTable() . '` (product_id, term_id, sort_order)
+                 VALUES (%d, %d, %d) ON DUPLICATE KEY UPDATE sort_order = VALUES(sort_order)',
+                [$productId, $termId, $sort]
+            ) === null) {
+                $this->db->rollback();
+                return 'storage_failed';
+            }
+        }
+        return $this->db->commit() ? '' : 'storage_failed';
+    }
+
+    /**
+     * Keep the recorded set in step with a detail write that just happened.
+     *
+     * The invariant this maintains: whenever `category_key` is written, the
+     * set says the same thing — otherwise a vendor who moves a single-category
+     * product from one category to another would leave the OLD id recorded,
+     * and every later read of the set would hand back a relationship nobody
+     * has.
+     *
+     * It is deliberately one-directional. A caller carrying a set writes that
+     * set; a caller carrying only the old single key writes `[that key]`; and
+     * a caller carrying NEITHER writes nothing at all, because «this form said
+     * nothing about categories» must not erase what is recorded. That is the
+     * direction the owner's instruction makes mandatory, and it is also the
+     * only direction in which being wrong is recoverable.
+     */
+    private function syncCategorySet(int $productId, ProductDetails $details): void
+    {
+        $ids = $details->categoryIds !== []
+            ? CategorySet::of($details->categoryIds)
+            : CategorySet::of([$details->categoryKey]);
+        if ($ids === []) {
+            return;
+        }
+        $this->saveCategorySet($productId, $ids);
     }
 
     public function images(int $productId): array
@@ -1447,7 +1734,15 @@ final class DbProductRepository implements ProductRepositoryInterface
             // `PurchaseQuantity::of()` anyway, which is precisely why it must
             // not be written here: the coercion is a safety net, not the
             // meaning.
-            (int) ($row[M0024PurchaseStep::STEP] ?? 1)
+            (int) ($row[M0024PurchaseStep::STEP] ?? 1),
+            // THE RELATIONSHIP, read from the link table — and `?? []` is not
+            // a fallback here, it is the honest answer twice over. A `null`
+            // from `categoryIdsFor()` means the table is absent (schema 34) or
+            // the read failed; an empty array means it was read and holds
+            // nothing. `ProductDetails::categorySet()` turns BOTH into «fall
+            // back to the single key», which can only ever narrow, never
+            // widen — the safe direction for a relationship.
+            $this->categoryIdsFor((int) $row['id']) ?? []
         );
         $id = (int) $row['id'];
         return new Product(
@@ -1528,6 +1823,16 @@ final class DbProductRepository implements ProductRepositoryInterface
         // touched: it was never ours to remove.
         $this->db->execute('DELETE FROM `' . $this->specsTable() . '` WHERE product_id = %d', [$productId]);
         $this->db->execute('DELETE FROM `' . $this->imagesTable() . '` WHERE product_id = %d', [$productId]);
+        // The link rows are rows OF this draft too, and leaving them would
+        // leave a relationship recorded for a product id that no longer
+        // exists — and that id is reused by AUTO_INCREMENT on a fresh table.
+        // Guarded, because a build on schema 34 has no such table.
+        if ($this->hasCategoryTable() === true) {
+            $this->db->execute(
+                'DELETE FROM `' . $this->categoriesTable() . '` WHERE product_id = %d',
+                [$productId]
+            );
+        }
         $removed = $this->db->execute('DELETE FROM `' . $this->products() . '` WHERE id = %d AND status = %s', [
             $productId,
             ProductStatus::Draft->value,
@@ -1575,7 +1880,8 @@ final class DbProductRepository implements ProductRepositoryInterface
             'decisions' => M0019BaselineAndDecisions::table($this->db, M0019BaselineAndDecisions::DECISIONS),
             'specs' => $this->specsTable(),
             'images' => $this->imagesTable(),
-        ] as $part => $table) {
+        ] + ($this->hasCategoryTable() === true ? ['categories' => $this->categoriesTable()] : [])
+         as $part => $table) {
             if ($this->db->execute('DELETE FROM `' . $table . '` WHERE product_id = %d', [$productId]) === null) {
                 return (string) $part;
             }

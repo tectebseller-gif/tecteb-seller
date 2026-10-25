@@ -57,6 +57,7 @@ use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MinMaxExitPage;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\ProductIntakePage;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryLinkReaderInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface;
@@ -300,7 +301,14 @@ final class MigrationModule implements ModuleInterface
             // The unit of work an intake, a repair and a rollback each are.
             // Optional in the constructor and REFUSED when absent, so a build
             // without one does nothing rather than half of something.
-            $c->has(TransactionInterface::class) ? $c->get(TransactionInterface::class) : null
+            $c->has(TransactionInterface::class) ? $c->get(TransactionInterface::class) : null,
+            // Asked one integer: which term is `default_product_cat`. Optional
+            // because a build without WooCommerce has no such term, and then
+            // the default is recorded like any other — `alpha.81`'s behaviour,
+            // stated rather than relied on.
+            $c->has(ProductCategoryLinkReaderInterface::class)
+                ? $c->get(ProductCategoryLinkReaderInterface::class)
+                : null
         ));
 
         // Leaving «Min Max Control». Three pieces, each replaceable on its

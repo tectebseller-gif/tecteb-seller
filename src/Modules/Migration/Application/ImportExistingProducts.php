@@ -14,6 +14,8 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryLinkReaderInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
@@ -115,8 +117,54 @@ final class ImportExistingProducts
          * `baseline=__empty__`. «نیمهٔ اولِ یک کار که تنها انجام شود، از
          * انجام‌نشدن هر دو نیمه بدتر است» (`alpha.49`).
          */
-        private readonly ?TransactionInterface $transaction = null
+        private readonly ?TransactionInterface $transaction = null,
+        /**
+         * Asked exactly ONE question: which term is
+         * `default_product_cat`?
+         *
+         * WooCommerce substitutes that term on any product saved with no
+         * categories, so «this product is in Uncategorized» and «somebody
+         * chose Uncategorized» look identical in `category_ids` — and
+         * measured on `alpha.81`'s bytes the intake stored it as a real
+         * decision: `row_none_category_key=15`. `CategoryLink` has told the
+         * two apart since `alpha.81` (`DEFAULT_ONLY`) and the intake did not.
+         *
+         * Optional, and its absence is stated rather than relied on: without
+         * it the default term is recorded like any other, which is exactly
+         * `alpha.81`'s behaviour.
+         */
+        private readonly ?ProductCategoryLinkReaderInterface $links = null
     ) {
+    }
+
+    /**
+     * The `product_cat` terms to RECORD for a product, read from what the
+     * catalogue reported.
+     *
+     * The whole set, because the owner's instruction is that it survive —
+     * «مجموعهٔ کامل دسته‌ها باید حفظ شود، حتی وقتی والد و فرزند هم‌زمان
+     * متصل‌اند» — and because the single column could not hold it: measured
+     * on `alpha.81`, a product with a parent and its child stored `244` and
+     * recorded `245` nowhere, and the first acceptance then DELETED `245`
+     * from WooCommerce.
+     *
+     * WooCommerce's own default term is excluded, for the reason
+     * `CategoryLink` excludes it: it is a placeholder the platform writes,
+     * not a category anybody chose. Excluded rather than filtered out of the
+     * list, so «only Uncategorized» and «Uncategorized plus two real ones»
+     * stay different facts.
+     *
+     * @param array<string,mixed> $detail
+     * @return list<int>
+     */
+    private function categoryIdsFrom(array $detail): array
+    {
+        $default = $this->links?->defaultTermId() ?? 0;
+        $ids = CategorySet::of((array) $detail['category_ids']);
+        if ($default <= 0) {
+            return $ids;
+        }
+        return array_values(array_filter($ids, static fn (int $id): bool => $id !== $default));
     }
 
     /** A run id a manager can read and a rollback can name. */
@@ -802,10 +850,20 @@ final class ImportExistingProducts
         return new ProductDetails(
             title: (string) $detail['title'],
             type: (string) $detail['type'] === ProductType::VARIABLE ? ProductType::VARIABLE : ProductType::SIMPLE,
-            // ONE category, because the row holds one — and the extras are not
-            // lost: `WooCommerceProjector::categoryIds()` merges what is
-            // already on the product rather than replacing it.
-            categoryKey: ((array) $detail['category_ids']) === [] ? '' : (string) ((array) $detail['category_ids'])[0],
+            // THE SINGLE KEY ONLY WHEN THERE IS EXACTLY ONE CATEGORY.
+            //
+            // Until `alpha.81` this stored `category_ids[0]` — a choice
+            // nobody made, already in the row before any manager acted, and
+            // the thing the first acceptance then wrote back as a REPLACE.
+            // «اولین دسته را خودسرانه انتخاب نکن» and «انتخاب یک دسته به جای
+            // دسته‌های فعلی تأیید نمی‌شود», so a product with two categories
+            // gets `''` here — «no single key» — and its relationship is
+            // recorded in full by `categoryIds` below.
+            //
+            // Which category's spec template applies to such a product is the
+            // owner's open decision, not this line's
+            // (`docs/open-decisions-alpha82.md` §1).
+            categoryKey: CategorySet::soleKey($this->categoryIdsFrom($detail)),
             brand: (string) $detail['brand'],
             shortDescription: (string) $detail['short_description'],
             priceMinor: $price,
@@ -826,7 +884,9 @@ final class ImportExistingProducts
             dimensions: '',
             taxClass: (string) $detail['tax_class'],
             description: (string) $detail['description'],
-            purchaseStep: $quantity['step']
+            purchaseStep: $quantity['step'],
+            // The relationship itself, whole.
+            categoryIds: $this->categoryIdsFrom($detail)
         );
     }
 

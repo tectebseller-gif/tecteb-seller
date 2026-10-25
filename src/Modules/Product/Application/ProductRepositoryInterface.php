@@ -454,6 +454,50 @@ interface ProductRepositoryInterface
     public function setCategoryWhenEmpty(int $productId, string $categoryKey): string;
 
     /**
+     * Every `product_cat` term recorded for this product, or `null`.
+     *
+     * THREE answers, and the third is the point: `null` means the question
+     * could not be asked — the link table is not there yet (schema 34), or the
+     * read failed — and a caller must then fall back to the single key rather
+     * than conclude the product has no categories (`alpha.8`). An empty ARRAY
+     * means the table answered and holds nothing for this product, which is
+     * «not recorded», still not «has none».
+     *
+     * @return list<int>|null
+     */
+    public function categoryIdsFor(int $productId): ?array;
+
+    /**
+     * Replace the recorded set for one product, as one unit of work.
+     *
+     * ⛔ An EMPTY set is refused unless `$allowEmpty` says otherwise, because
+     * «هیچ رابطه‌ای خودکار حذف نشود»: clearing what is recorded is a decision
+     * and only a caller that means it may make one.
+     *
+     * @param list<int> $termIds
+     * @return string '' on success, otherwise a named refusal:
+     *         `bad_product` · `category_table_unreadable` ·
+     *         `category_set_unsupported` (schema 34) · `category_set_empty` ·
+     *         `not_atomic` · `storage_failed`
+     */
+    public function saveCategorySet(int $productId, array $termIds, bool $allowEmpty = false): string;
+
+    /**
+     * Record a product's whole relationship, but only while nothing is
+     * recorded for it yet and nobody has set its single key.
+     *
+     * The set sibling of `setCategoryWhenEmpty()`, and the condition lives in
+     * the statements rather than in a read before them (`alpha.50`), so «دسته‌ای
+     * که مدیر قبلاً صریحاً تعیین کرده بدون تأیید بازنویسی نشود» holds even
+     * against a second request racing this one.
+     *
+     * @param list<int> $termIds
+     * @return string `category_set_written` · `already_set` · `bad_category` ·
+     *         `not_atomic` · `storage_failed` · `category_set_unsupported`
+     */
+    public function setCategorySetWhenAbsent(int $productId, array $termIds): string;
+
+    /**
      * WooCommerce products that more than one of our rows points at.
      *
      * ⛔ This is physically possible: `tmc_products` has NO unique index on

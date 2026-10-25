@@ -104,31 +104,41 @@
         if (!row || row.parentNode === chosenList()) {
             return;
         }
-        var radio = row.querySelector('input[type="radio"]');
-        var hadFocus = radio && document.activeElement === radio;
+        var box = row.querySelector('input[type="checkbox"]');
+        var hadFocus = box && document.activeElement === box;
 
         var list = chosenList();
-        while (list.firstChild) {
-            // The previous choice is dropped, not kept: it is one search away,
-            // and a block that grows a row per change stops being «the
-            // chosen category».
-            list.removeChild(list.firstChild);
-        }
+        // THE PREVIOUS CHOICES ARE KEPT, not dropped.
+        //
+        // Until `alpha.81` this emptied the block first, because one category
+        // was all the markup could express — a radio named `category`. A
+        // product is in a SET of categories now, so ticking a second one adds
+        // a row rather than replacing the first, and nothing above is removed
+        // on the vendor's behalf.
         var hint = chosen.querySelector('.tv-hint');
         if (hint) {
             hint.parentNode.removeChild(hint);
         }
         list.appendChild(row);
         row.classList.add('is-selected');
-        if (radio) {
+        if (box) {
             // Re-asserted after the move. The property survives reparenting in
             // every browser this was measured in, but a selection that depends
             // on that is a selection nobody can promise.
-            radio.checked = true;
+            box.checked = true;
             if (hadFocus) {
-                radio.focus();
+                box.focus();
             }
         }
+    }
+
+    /** Untick a chosen row: the box goes back to the results list. */
+    function releaseSelection(row) {
+        if (!row || row.parentNode !== chosenList()) {
+            return;
+        }
+        row.classList.remove('is-selected');
+        row.parentNode.removeChild(row);
     }
 
     function chosenList() {
@@ -148,21 +158,33 @@
         return label ? (label.textContent || '') : '';
     }
 
-    function selectedValue() {
-        var radio = wrap.querySelector('input[name="category"]:checked');
-        return radio ? radio.value : '';
+    /** Every ticked term id, in document order. */
+    function selectedValues() {
+        var boxes = wrap.querySelectorAll('input[name="category[]"]:checked');
+        var out = [];
+        for (var i = 0; i < boxes.length; i += 1) {
+            out.push(boxes[i].value);
+        }
+        return out;
     }
 
     // The change can only come from a click or an arrow key — the script never
     // fires it — so this is the «explicit action» the selection waits for.
     wrap.addEventListener('change', function (event) {
         var target = event.target;
-        if (!target || target.name !== 'category') {
+        if (!target || target.name !== 'category[]') {
             return;
         }
         var row = target.closest ? target.closest('.tv-catpick__row') : null;
-        if (row && results.contains(row)) {
+        if (!row) {
+            return;
+        }
+        if (target.checked && results.contains(row)) {
             adoptSelection(row);
+            return;
+        }
+        if (!target.checked) {
+            releaseSelection(row);
         }
     });
 
@@ -199,14 +221,15 @@
 
     /** The chosen row is shown above; the server leaves it out, and so do we. */
     function hideDuplicate() {
-        var value = selectedValue();
-        if (value === '') {
-            return;
-        }
-        var twin = results.querySelector('input[name="category"][value="' + cssEscape(value) + '"]');
-        var row = twin && twin.closest ? twin.closest('.tv-catpick__row') : null;
-        if (row) {
-            row.parentNode.removeChild(row);
+        var values = selectedValues();
+        for (var i = 0; i < values.length; i += 1) {
+            var twin = results.querySelector(
+                'input[name="category[]"][value="' + cssEscape(values[i]) + '"]'
+            );
+            var row = twin && twin.closest ? twin.closest('.tv-catpick__row') : null;
+            if (row) {
+                row.parentNode.removeChild(row);
+            }
         }
     }
 
@@ -238,7 +261,10 @@
         body.append('nonce', nonce);
         body.append('q', query);
         body.append('seq', String(mine));
-        body.append('selected', selectedValue());
+        // Comma-joined for the wire, and parsed back one id at a time by
+        // `Request::postIdList()`. The server never runs this through
+        // `sanitize_key()`, which would fuse «207,208» into «207208».
+        body.append('selected', selectedValues().join(','));
 
         say(textSearching);
         window.fetch(url, { method: 'POST', body: body, credentials: 'same-origin' })

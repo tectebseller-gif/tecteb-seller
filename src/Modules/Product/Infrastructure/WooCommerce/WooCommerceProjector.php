@@ -6,6 +6,8 @@ namespace Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
+use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute;
@@ -254,7 +256,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             $product->baseline
         );
         $wantCategories = $this->categoryIds(
-            $details->categoryKey,
+            $details,
             array_map('intval', $wcProduct->get_category_ids())
         );
         $this->writeOwned(
@@ -933,7 +935,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
     public function storefrontCategoryFor(Product $product, array $current = []): string
     {
         return ProjectedFieldOwnership::idsToValue(
-            $this->categoryIds($product->details->categoryKey, array_map('intval', $current))
+            $this->categoryIds($product->details, array_map('intval', $current))
         );
     }
 
@@ -1127,19 +1129,48 @@ final class WooCommerceProjector implements CatalogProjectorInterface
      * renamed or deleted is a reason to leave the product where the shop put
      * it, not a reason to strip its category on the next sync.
      *
+     * ⛔ **And it returns the whole SET, never one id.** Until `alpha.81` this
+     * resolved the single `category_key` and answered `[$that]`, which
+     * `set_category_ids()` then wrote — and that call REPLACES. Measured on
+     * `alpha.81`'s installed bytes, on a product carrying a parent and its own
+     * child: `terms_before=[244,245]` → `terms_after=[244]`,
+     * `terms_lost=[245]`, with the screen reporting success
+     * (`docs/evidence/alpha82-audit/before-alpha81.txt`). The owner's
+     * instruction is that this must not happen at all: «مجموعهٔ کامل دسته‌ها
+     * باید حفظ شود… هیچ رابطه‌ای خودکار حذف یا اضافه نشود.»
+     *
+     * So the set the product RECORDS is what is written, and an id in it that
+     * no longer resolves keeps its place in `$current` rather than being
+     * dropped — the same reason an unresolvable single key kept the product
+     * where the shop put it.
+     *
+     * **And nothing is ever removed.** The answer is the union of the recorded
+     * set and what the product already carries, because a relationship this
+     * marketplace never recorded is not this marketplace's to take away. A
+     * category is detached in WooCommerce, by a human, on WooCommerce's own
+     * screen; this method's job is to make sure ours are present.
+     *
      * @param list<int> $current
      * @return list<int>
      */
-    private function categoryIds(string $categoryKey, array $current = []): array
+    private function categoryIds(ProductDetails $details, array $current = []): array
     {
-        if (trim($categoryKey) === '' || !taxonomy_exists('product_cat')) {
+        $current = CategorySet::of($current);
+        if (!taxonomy_exists('product_cat')) {
             return $current;
         }
-        $category = $this->categories?->find($categoryKey);
-        if ($category !== null) {
-            return [$category->id];
+        $wanted = [];
+        foreach ($details->categorySet() as $id) {
+            // Resolved, never created — and asked by id, which is what the
+            // directory has been keyed on since `alpha.25`.
+            if ($this->categories?->find((string) $id) !== null) {
+                $wanted[] = $id;
+            }
         }
-        return $current;
+        if ($wanted === []) {
+            return $current;
+        }
+        return CategorySet::of(array_merge($current, $wanted));
     }
 
     /**
