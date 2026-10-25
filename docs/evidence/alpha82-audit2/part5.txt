@@ -1,0 +1,16 @@
+field_weight_before=14
+field_weight_after=12
+field_weight_overwritten=yes
+field_status_before=publish
+field_status_after=publish
+field_status_overwritten=no
+field_stock_before=7
+field_stock_after=7
+field_stock_overwritten=no
+field_author_before=224
+field_author_after=224
+field_author_overwritten=no
+comparison_state=compared
+compared_fields=["title","short_description","description","category","images"]
+field_report={"title":{"owner":"unknown","row":"ممیزی۸۲ ترالی استیل","shop":"ممیزی۸۲ ترالی استیل — ویرایش مالک","differs":true},"short_description":{"owner":"unknown","row":"توضیح کوتاهِ خودِ ووکامرس","shop":"توضیح کوتاه، ویرایش‌شده توسط مالک در ووکامرس","differs":true},"description":{"owner":"unknown","row":"توضیحات کاملِ خودِ ووکامرس، نوشتهٔ مالک.","shop":"توضیحات کامل، ویرایش‌شده توسط مالک در ووکامرس.","differs":true},"category":{"owner":"unknown","row":"260,261,262","shop":"260,261,262","differs":false},"images":{"owner":"unknown","row":"main:77198|gallery:","shop":"main:77198|gallery:","differs":false}}
+fields_outside_the_comparison=["short","long","price","sku","weight","status","stock","author"]

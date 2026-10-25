@@ -1,0 +1,13 @@
+## take
+take=ok
+link_ownership=marketplace
+terms_preserved=yes
+attributes_preserved=yes
+wc_attributes={"%d8%ac%d9%86%d8%b3-%d8%a8%d8%af%d9%86%d9%87":["استیل ۳۰۴"],"%da%a9%d8%b4%d9%88%d8%b1-%d8%b3%d8%a7%d8%b2%d9%86%d8%af%d9%87":["ایران"]}
+
+## owner-edit
+owner_edited=yes
+wc_terms=[260,261,262]
+wc_attributes={"%d8%ac%d9%86%d8%b3-%d8%a8%d8%af%d9%86%d9%87":["استیل ۳۰۴"],"%da%a9%d8%b4%d9%88%d8%b1-%d8%b3%d8%a7%d8%b2%d9%86%d8%af%d9%87":["ایران"],"%da%af%d8%a7%d8%b1%d8%a7%d9%86%d8%aa%db%8c":["۱۸ ماه"]}
+wc_fields={"title":"ممیزی۸۲ ترالی استیل — ویرایش مالک","short":"توضیح کوتاه، ویرایش‌شده توسط مالک در ووکامرس","long":"توضیحات کامل، ویرایش‌شده توسط مالک در ووکامرس.","price":"480000","sku":"SKU-A82AUDIT-OWNER","weight":"14","status":"publish","stock":"7","author":"2"}
+

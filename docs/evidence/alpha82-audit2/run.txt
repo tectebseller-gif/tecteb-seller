@@ -1,0 +1,144 @@
+## arrange
+vendor_status=approved
+terms={"root":260,"child":261}
+extra_term=262
+wc_product=77199
+wc_terms=[260,261]
+wc_attributes={"%d8%ac%d9%86%d8%b3-%d8%a8%d8%af%d9%86%d9%87":["استیل ۳۰۴"],"%da%a9%d8%b4%d9%88%d8%b1-%d8%b3%d8%a7%d8%b2%d9%86%d8%af%d9%87":["ایران"]}
+wc_fields={"title":"ممیزی۸۲ ترالی استیل","short":"توضیح کوتاهِ خودِ ووکامرس","long":"توضیحات کاملِ خودِ ووکامرس، نوشتهٔ مالک.","price":"450000","sku":"SKU-A82AUDIT","weight":"12","status":"publish","stock":"7","author":"2"}
+vendor=224
+
+## intake
+intake_ok=__absent__
+row_id=4249
+row_link_ownership=observed
+row_category_key=__empty__
+recorded_set=[260,261]
+wc_terms_before=[260,261]
+wc_terms_after=[260,261]
+intake_changed_the_shop=no
+wc_attributes_after_intake={"%d8%ac%d9%86%d8%b3-%d8%a8%d8%af%d9%86%d9%87":["استیل ۳۰۴"],"%da%a9%d8%b4%d9%88%d8%b1-%d8%b3%d8%a7%d8%b2%d9%86%d8%af%d9%87":["ایران"]}
+
+## q1
+wc_terms=[260,261]
+recorded_set=[260,261]
+set_matches_the_shop=yes
+stored_category_key=__empty__
+a_primary_category_was_chosen=no
+missing_fields=[]
+category_is_demanded=no
+
+## q2
+stored_category_key=__empty__
+template_for_the_stored_key=__none__
+template_for_empty_key=__none__
+stored_specs=[]
+readiness_ok=yes
+readiness_code=ready
+readiness_blocked_on_specs=no
+
+## take
+take=ok
+link_ownership=marketplace
+terms_preserved=yes
+attributes_preserved=yes
+wc_attributes={"%d8%ac%d9%86%d8%b3-%d8%a8%d8%af%d9%86%d9%87":["استیل ۳۰۴"],"%da%a9%d8%b4%d9%88%d8%b1-%d8%b3%d8%a7%d8%b2%d9%86%d8%af%d9%87":["ایران"]}
+
+## owner-edit
+owner_edited=yes
+wc_terms=[260,261,262]
+wc_attributes={"%d8%ac%d9%86%d8%b3-%d8%a8%d8%af%d9%86%d9%87":["استیل ۳۰۴"],"%da%a9%d8%b4%d9%88%d8%b1-%d8%b3%d8%a7%d8%b2%d9%86%d8%af%d9%87":["ایران"],"%da%af%d8%a7%d8%b1%d8%a7%d9%86%d8%aa%db%8c":["۱۸ ماه"]}
+wc_fields={"title":"ممیزی۸۲ ترالی استیل — ویرایش مالک","short":"توضیح کوتاه، ویرایش‌شده توسط مالک در ووکامرس","long":"توضیحات کامل، ویرایش‌شده توسط مالک در ووکامرس.","price":"480000","sku":"SKU-A82AUDIT-OWNER","weight":"14","status":"publish","stock":"7","author":"2"}
+
+project_code=projected
+terms_before=[260,261,262]
+terms_after=[260,261,262]
+terms_preserved=yes
+terms_lost=[]
+terms_gained=[]
+attributes_before={"%d8%ac%d9%86%d8%b3-%d8%a8%d8%af%d9%86%d9%87":["استیل ۳۰۴"],"%da%a9%d8%b4%d9%88%d8%b1-%d8%b3%d8%a7%d8%b2%d9%86%d8%af%d9%87":["ایران"],"%da%af%d8%a7%d8%b1%d8%a7%d9%86%d8%aa%db%8c":["۱۸ ماه"]}
+attributes_after={"%d8%ac%d9%86%d8%b3-%d8%a8%d8%af%d9%86%d9%87":["استیل ۳۰۴"],"%da%a9%d8%b4%d9%88%d8%b1-%d8%b3%d8%a7%d8%b2%d9%86%d8%af%d9%87":["ایران"],"%da%af%d8%a7%d8%b1%d8%a7%d9%86%d8%aa%db%8c":["۱۸ ماه"]}
+attributes_preserved=yes
+attributes_lost=[]
+field_title_before=ممیزی۸۲ ترالی استیل — ویرایش مالک
+field_title_after=ممیزی۸۲ ترالی استیل — ویرایش مالک
+field_title_overwritten=no
+field_short_before=توضیح کوتاه، ویرایش‌شده توسط مالک در ووکامرس
+field_short_after=توضیح کوتاه، ویرایش‌شده توسط مالک در ووکامرس
+field_short_overwritten=no
+field_long_before=توضیحات کامل، ویرایش‌شده توسط مالک در ووکامرس.
+field_long_after=توضیحات کامل، ویرایش‌شده توسط مالک در ووکامرس.
+field_long_overwritten=no
+field_price_before=480000
+field_price_after=450000
+field_price_overwritten=yes
+field_sku_before=SKU-A82AUDIT-OWNER
+field_sku_after=SKU-A82AUDIT
+field_sku_overwritten=yes
+field_weight_before=14
+field_weight_after=12
+field_weight_overwritten=yes
+field_status_before=publish
+field_status_after=publish
+field_status_overwritten=no
+field_stock_before=7
+field_stock_after=7
+field_stock_overwritten=no
+field_author_before=2
+field_author_after=224
+field_author_overwritten=yes
+comparison_state=compared
+field_verdicts={"?":"unsettled"}
+approve_ok=no
+approve_code=invalid_transition
+approve_context={"from":"published","to":"published"}
+terms_before=[260,261,262]
+terms_after=[260,261,262]
+terms_preserved=yes
+attributes_preserved=yes
+attributes_after={"%d8%ac%d9%86%d8%b3-%d8%a8%d8%af%d9%86%d9%87":["استیل ۳۰۴"],"%da%a9%d8%b4%d9%88%d8%b1-%d8%b3%d8%a7%d8%b2%d9%86%d8%af%d9%87":["ایران"],"%da%af%d8%a7%d8%b1%d8%a7%d9%86%d8%aa%db%8c":["۱۸ ماه"]}
+wc_product=77199
+row_id=4249
+row_link_ownership=marketplace
+row_category_key=__empty__
+wc_terms=[260,261,262]
+wc_attributes={"%d8%ac%d9%86%d8%b3-%d8%a8%d8%af%d9%86%d9%87":["استیل ۳۰۴"],"%da%a9%d8%b4%d9%88%d8%b1-%d8%b3%d8%a7%d8%b2%d9%86%d8%af%d9%87":["ایران"],"%da%af%d8%a7%d8%b1%d8%a7%d9%86%d8%aa%db%8c":["۱۸ ماه"]}
+wc_fields={"title":"ممیزی۸۲ ترالی استیل — ویرایش مالک","short":"توضیح کوتاه، ویرایش‌شده توسط مالک در ووکامرس","long":"توضیحات کامل، ویرایش‌شده توسط مالک در ووکامرس.","price":"480000","sku":"SKU-A82AUDIT-OWNER","weight":"14","status":"publish","stock":"7","author":"224"}
+recorded_set=[260,261]
+field_weight_before=14
+field_weight_after=12
+field_weight_overwritten=yes
+field_status_before=publish
+field_status_after=publish
+field_status_overwritten=no
+field_stock_before=7
+field_stock_after=7
+field_stock_overwritten=no
+field_author_before=224
+field_author_after=224
+field_author_overwritten=no
+comparison_state=compared
+compared_fields=["title","short_description","description","category","images"]
+field_report={"title":{"owner":"unknown","row":"ممیزی۸۲ ترالی استیل","shop":"ممیزی۸۲ ترالی استیل — ویرایش مالک","differs":true},"short_description":{"owner":"unknown","row":"توضیح کوتاهِ خودِ ووکامرس","shop":"توضیح کوتاه، ویرایش‌شده توسط مالک در ووکامرس","differs":true},"description":{"owner":"unknown","row":"توضیحات کاملِ خودِ ووکامرس، نوشتهٔ مالک.","shop":"توضیحات کامل، ویرایش‌شده توسط مالک در ووکامرس.","differs":true},"category":{"owner":"unknown","row":"260,261,262","shop":"260,261,262","differs":false},"images":{"owner":"unknown","row":"main:77198|gallery:","shop":"main:77198|gallery:","differs":false}}
+fields_outside_the_comparison=["short","long","price","sku","weight","status","stock","author"]
+rollback=intake_rollback_kept
+reset=done
+row_left=present
+
+## afterwards — two corrections to the lines above, written by hand
+# 1) `row_left=present` was true when `reset` printed it: the rollback REFUSED
+#    on purpose (`rollback=intake_rollback_kept`) because ownership had been
+#    accepted, and undoing a human decision is not a rollback. The row was then
+#    removed by hand, in THIS DISPOSABLE DEMO DATABASE ONLY, so that later
+#    measurements here are not answering about a row whose WooCommerce post is
+#    gone. Measured after that delete: rows_left=0  links_left=0
+#    (nothing was done on staging or production, in this round or any other.)
+# 2) `field_author_*` is NOT an overwrite of an owner edit. The owner edit left
+#    author=2; the author moved to 224 on the FIRST projection after the manager
+#    took ownership, which is the ownership write that path performs, and the
+#    SECOND projection left it alone (field_author_overwritten=no). The three
+#    fields that really were overwritten with the older marketplace values are
+#    price (480000 -> 450000), sku (SKU-A82AUDIT-OWNER -> SKU-A82AUDIT) and
+#    weight (14 -> 12). None of the three is reported as a conflict, because
+#    none of them is in ProjectedFieldOwnership::FIELDS — see
+#    fields_outside_the_comparison above.

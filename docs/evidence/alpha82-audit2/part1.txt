@@ -1,0 +1,39 @@
+## arrange
+vendor_status=approved
+terms={"root":260,"child":261}
+extra_term=262
+wc_product=77199
+wc_terms=[260,261]
+wc_attributes={"%d8%ac%d9%86%d8%b3-%d8%a8%d8%af%d9%86%d9%87":["استیل ۳۰۴"],"%da%a9%d8%b4%d9%88%d8%b1-%d8%b3%d8%a7%d8%b2%d9%86%d8%af%d9%87":["ایران"]}
+wc_fields={"title":"ممیزی۸۲ ترالی استیل","short":"توضیح کوتاهِ خودِ ووکامرس","long":"توضیحات کاملِ خودِ ووکامرس، نوشتهٔ مالک.","price":"450000","sku":"SKU-A82AUDIT","weight":"12","status":"publish","stock":"7","author":"2"}
+vendor=224
+
+## intake
+intake_ok=__absent__
+row_id=4249
+row_link_ownership=observed
+row_category_key=__empty__
+recorded_set=[260,261]
+wc_terms_before=[260,261]
+wc_terms_after=[260,261]
+intake_changed_the_shop=no
+wc_attributes_after_intake={"%d8%ac%d9%86%d8%b3-%d8%a8%d8%af%d9%86%d9%87":["استیل ۳۰۴"],"%da%a9%d8%b4%d9%88%d8%b1-%d8%b3%d8%a7%d8%b2%d9%86%d8%af%d9%87":["ایران"]}
+
+## q1
+wc_terms=[260,261]
+recorded_set=[260,261]
+set_matches_the_shop=yes
+stored_category_key=__empty__
+a_primary_category_was_chosen=no
+missing_fields=[]
+category_is_demanded=no
+
+## q2
+stored_category_key=__empty__
+template_for_the_stored_key=__none__
+template_for_empty_key=__none__
+stored_specs=[]
+readiness_ok=yes
+readiness_code=ready
+readiness_blocked_on_specs=no
+
