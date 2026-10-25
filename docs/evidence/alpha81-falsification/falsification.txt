@@ -1,0 +1,68 @@
+# Falsification of the category-relationship round
+# date=2026-10-25T10:13:10Z  mutations=10
+# Every count below is the number of FAILING tests with the defect put back.
+
+## healthy tree
+   unit:0 arch:0 contract:0 db:0
+
+## 0 definite-key-returns-the-first-of-several
+   file:     src/Modules/Product/Domain/CategoryLink.php
+   expected: alpha.80 behaviour: one of several picked arbitrarily
+   failures: unit:2 arch:0 contract:0 db:1
+   restored: byte-for-byte
+
+## 1 drop-the-freshness-guard
+   file:     src/Modules/Product/Application/ApplyCategoryLinks.php
+   expected: a stale consent writes whatever the shop says now
+   failures: unit:0 arch:0 contract:0 db:1
+   restored: byte-for-byte
+
+## 2 overwrite-a-category-somebody-chose
+   file:     src/Modules/Product/Application/CategoryLinkPlan.php
+   expected: a manager's explicit category is offered for replacement
+   failures: unit:0 arch:0 contract:0 db:1
+   restored: byte-for-byte
+
+## 3 merge-the-narrowed-group-into-multiple
+   file:     src/Modules/Product/Application/CategoryLinkPlan.php
+   expected: the rows the intake already narrowed lose their own name
+   failures: unit:0 arch:0 contract:0 db:1
+   restored: byte-for-byte
+
+## 4 the-default-term-counts-as-a-category
+   file:     src/Modules/Product/Domain/CategoryLink.php
+   expected: WooCommerce's placeholder is stored as a real decision
+   failures: unit:3 arch:0 contract:0 db:4
+   restored: byte-for-byte
+
+## 5 drop-the-short-read-guard
+   file:     src/Modules/Product/Infrastructure/WooCommerce/WpProductCategoryLinkReader.php
+   expected: a truncated read looks like a product with fewer categories
+   failures: unit:0 arch:1 contract:0 db:1
+   restored: byte-for-byte
+
+## 6 drop-the-taxonomy-filter
+   file:     src/Modules/Product/Infrastructure/WooCommerce/WpProductCategoryLinkReader.php
+   expected: tags and brands are read as categories
+   failures: unit:0 arch:0 contract:0 db:2
+   restored: byte-for-byte
+
+## 7 remove-the-all-words-rank
+   file:     src/Modules/Product/Domain/CategoryMatcher.php
+   expected: the reported multi-word Persian search finds nothing again
+   failures: unit:4 arch:0 contract:1 db:0
+   restored: byte-for-byte
+
+## 8 any-word-instead-of-all-words
+   file:     src/Modules/Product/Domain/CategoryMatcher.php
+   expected: one common word matches most of a 1,070-term catalogue
+   failures: unit:1 arch:0 contract:2 db:0
+   restored: byte-for-byte
+
+## 9 the-empty-result-stops-naming-the-missing-word
+   file:     src/Modules/Product/Infrastructure/WooCommerce/WpProductCategoryDirectory.php
+   expected: an empty search says nothing a person can act on
+   failures: unit:0 arch:0 contract:1 db:0
+   restored: byte-for-byte
+
+mutations that survived or did not apply: 0

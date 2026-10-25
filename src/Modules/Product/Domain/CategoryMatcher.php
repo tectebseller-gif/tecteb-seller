@@ -31,7 +31,30 @@ final class CategoryMatcher
     public const EXACT = 0;
     public const PREFIX = 1;
     public const CONTAINS = 2;
-    public const NEAR = 3;
+
+    /**
+     * Every word of the query is there, but not as one run of characters.
+     *
+     * The reported defect: «چسب تزریق پزشکی» found nothing while «چسب» found
+     * the very category meant. The cause is one line — `tight()` strips all
+     * spaces, so a three-word query becomes a single thirteen-character run
+     * and only matches a name or a path containing that run contiguously, in
+     * that order. On a catalogue where the words are spread across the leaf
+     * and its ancestry («تجهیزات پزشکی › چسب»), or simply typed in another
+     * order, nothing can match.
+     *
+     * Ranked BELOW `CONTAINS` because a contiguous run is the stronger
+     * signal, and ABOVE `NEAR` because this is not a guess: every word really
+     * is present. So it is not fuzzy and is not labelled «پیشنهاد نزدیک».
+     *
+     * ⛔ Conjunctive, never «some words». A single common word like «پزشکی»
+     * appears in hundreds of paths on this shop, so a partial rule would fill
+     * the capped forty results with noise and bury the row the vendor wanted
+     * — worse than the defect it would be fixing (`alpha.60`: a guard wider
+     * than the fault).
+     */
+    public const ALL_WORDS = 3;
+    public const NEAR = 4;
     public const NO_MATCH = 99;
 
     /** Beyond this many single-letter edits it is a different word, not a typo. */
@@ -97,6 +120,12 @@ final class CategoryMatcher
         if ($qt !== '' && (str_contains($nt, $qt) || str_contains(self::tight($extra), $qt))) {
             return self::CONTAINS;
         }
+        // Several words, all of them present somewhere in the name or its
+        // ancestry — in any order, and not necessarily next to each other.
+        $words = self::words($query);
+        if (count($words) > 1 && self::missingWords($words, $candidate . ' ' . $extra) === []) {
+            return self::ALL_WORDS;
+        }
         // A typo is only a typo against a word of comparable length. Without
         // this, a two-letter query is within two edits of half the catalogue.
         if (mb_strlen($qt) >= 3 && abs(mb_strlen($qt) - mb_strlen($nt)) <= self::MAX_EDITS) {
@@ -110,6 +139,49 @@ final class CategoryMatcher
     public static function isFuzzy(int $rank): bool
     {
         return $rank === self::NEAR;
+    }
+
+    /**
+     * The query as separate folded words, with the empties dropped.
+     *
+     * @return list<string>
+     */
+    public static function words(string $query): array
+    {
+        $parts = explode(' ', self::fold($query));
+        $out = [];
+        foreach ($parts as $part) {
+            // `fold()` has already collapsed runs of whitespace, so an empty
+            // part here means a leading or trailing space.
+            if ($part !== '') {
+                $out[] = $part;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Which of these words are NOT in the haystack.
+     *
+     * This is what lets an empty result say something a person can act on —
+     * «پزشکی» is in the catalogue, «تزریقی» is not — instead of «چیزی پیدا
+     * نشد», which leaves them retyping the same four words. The owner asked
+     * for exactly that: «نتیجهٔ خالی پیام روشن داشته باشد».
+     *
+     * @param list<string> $words already folded, by `words()`
+     * @return list<string> in the order they were typed
+     */
+    public static function missingWords(array $words, string $haystack): array
+    {
+        $tight = self::tight($haystack);
+        $missing = [];
+        foreach ($words as $word) {
+            $needle = str_replace(' ', '', $word);
+            if ($needle !== '' && !str_contains($tight, $needle)) {
+                $missing[] = $word;
+            }
+        }
+        return $missing;
     }
 
     /**

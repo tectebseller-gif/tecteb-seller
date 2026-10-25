@@ -418,6 +418,39 @@ interface ProductRepositoryInterface
      *                is «somebody decided» and the other is «there is nothing
      *                here».
      */
+    /**
+     * Every imported row with the category key it currently carries.
+     *
+     * One read for BOTH populations, on purpose. `importedWithoutCategory()`
+     * answers about rows whose key is empty — the 184 that came from Dokan
+     * with nothing mapped. A product taken from the EXISTING WooCommerce
+     * catalogue is not in that list: `ImportExistingProducts` stored
+     * `category_ids[0]`, so its key is already set, and measured on
+     * `alpha.80`'s bytes the whole waiting list was therefore empty
+     * (`waiting_total=0`) while three real relationships sat unrecorded.
+     *
+     * ⛔ Two reads, one per population, would be two code paths answering one
+     * question — and `alpha.79` is the round where two halves derived from the
+     * same tables agreed until the first short read, with no test going red.
+     * So the key comes back as DATA and one rule classifies it.
+     *
+     * Keyset pagination on `id`, because the caller walks the whole catalogue
+     * and `OFFSET` on a moving table skips rows (`alpha.13`).
+     *
+     * @return list<array{id:int, vendor_user_id:int, wc_product_id:int, title:string, category_key:string}>
+     */
+    public function importedWithCategoryKeys(int $limit = 500, int $afterId = 0): array;
+
+    /**
+     * How many imported rows there are at all — no `LIMIT`, no filter.
+     *
+     * ⛔ `-1` means the read failed, for the same reason as
+     * `countImportedWithoutCategory()`: nought would read as «there is
+     * nothing to look at» and let a preview call itself complete
+     * (`alpha.70`).
+     */
+    public function countImported(): int;
+
     public function setCategoryWhenEmpty(int $productId, string $categoryKey): string;
 
     /**

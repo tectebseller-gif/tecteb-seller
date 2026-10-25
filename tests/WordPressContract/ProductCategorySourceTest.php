@@ -268,4 +268,118 @@ final class ProductCategorySourceTest extends TestCase
         self::assertStringContainsString('تجهیزات پزشکی › بیهوشی و تنفسی › آمبوبگ', $html);
         self::assertStringNotContainsString('<dd>30</dd>', $html, 'a bare term id is not an answer the vendor can read');
     }
+
+    /**
+     * The reported search, end to end, against a real directory.
+     *
+     * «جست‌وجوی «چسب تزریق پزشکی» صفحه را برمی‌گرداند و نتیجهٔ قابل‌مشاهده
+     * ندارد، ولی «چسب» نتیجه می‌دهد و همان دسته در نتایج هست.» The tree here
+     * is the shape that produces it: the words are spread across the leaf and
+     * its ancestry, so no contiguous run of the folded query exists anywhere.
+     */
+    private function seedGlueTree(): void
+    {
+        $this->seed([
+            10 => ['name' => 'تجهیزات پزشکی', 'slug' => 'medical', 'parent' => 0, 'count' => 0],
+            20 => ['name' => 'تزریق و سرم', 'slug' => 'injection', 'parent' => 10, 'count' => 0],
+            30 => ['name' => 'چسب', 'slug' => 'glue', 'parent' => 20, 'count' => 3],
+        ]);
+    }
+
+    public function testTheWholePhraseFindsTheCategoryItsFirstWordFinds(): void
+    {
+        $this->seedGlueTree();
+        $directory = new WpProductCategoryDirectory();
+
+        $one = $directory->search('چسب', 40);
+        $three = $directory->search('چسب تزریق پزشکی', 40);
+
+        self::assertCount(1, $one, 'the half that always worked');
+        self::assertSame(30, $one[0]->id);
+        self::assertNotSame([], $three, 'and the whole phrase finds it too');
+        self::assertSame(30, $three[0]->id);
+        // Not labelled a guess: every word really is on the row's ancestry.
+        self::assertFalse($three[0]->fuzzy);
+    }
+
+    public function testASearchThatFindsNothingNamesTheWordNoCategoryHas(): void
+    {
+        $this->seedGlueTree();
+        $directory = new WpProductCategoryDirectory();
+
+        self::assertSame([], $directory->search('چسب دستکش', 40));
+        $explain = $directory->explainNoMatch('چسب دستکش');
+
+        self::assertSame(['چسب', 'دستکش'], $explain['words']);
+        self::assertSame(['دستکش'], $explain['missing'], 'the word that is nowhere');
+        self::assertSame(['چسب' => 1], $explain['found'], 'and the one that is');
+    }
+
+    /**
+     * The empty result says which word to drop, not «write part of the name».
+     *
+     * The old sentence was advice the vendor had already followed, which is
+     * what made the page read as «nothing happened».
+     */
+    public function testTheEmptyResultMessageNamesTheMissingWord(): void
+    {
+        $this->seedGlueTree();
+        $directory = new WpProductCategoryDirectory();
+
+        $html = ProductCategoryPickerView::results(
+            [],
+            null,
+            'چسب دستکش',
+            0,
+            $directory->explainNoMatch('چسب دستکش')
+        );
+
+        self::assertStringContainsString('دستکش', $html);
+        self::assertStringNotContainsString('بخشی از نام را بنویسید', $html, 'the advice that did not help');
+    }
+
+    /** Every word findable, never together: the advice is «fewer words». */
+    public function testWordsThatExistButNeverTogetherGetTheirOwnMessage(): void
+    {
+        $this->seed([
+            10 => ['name' => 'چسب', 'slug' => 'glue', 'parent' => 0, 'count' => 1],
+            20 => ['name' => 'دستکش', 'slug' => 'gloves', 'parent' => 0, 'count' => 1],
+        ]);
+        $directory = new WpProductCategoryDirectory();
+
+        $explain = $directory->explainNoMatch('چسب دستکش');
+        self::assertSame([], $explain['missing'], 'both words are in the catalogue');
+        self::assertSame(['چسب' => 1, 'دستکش' => 1], $explain['found']);
+
+        $html = ProductCategoryPickerView::results([], null, 'چسب دستکش', 0, $explain);
+        self::assertStringContainsString('کلمهٔ کمتر', $html);
+    }
+
+    /** An empty box still gets the browsing invitation, not a diagnosis. */
+    public function testAnEmptyQueryIsNotDiagnosed(): void
+    {
+        $html = ProductCategoryPickerView::results([], null, '', 0, []);
+
+        self::assertStringContainsString('برای دیدن دسته‌ها جست‌وجو کنید', $html);
+    }
+
+    /** The typed text survives the search, which is what makes it a submit. */
+    public function testTheTypedQueryIsStillInTheBoxAfterSearching(): void
+    {
+        $this->seedGlueTree();
+        $directory = new WpProductCategoryDirectory();
+
+        $html = ProductCategoryPickerView::render(
+            null,
+            $directory->search('چسب تزریق پزشکی', 40),
+            'چسب تزریق پزشکی',
+            1,
+            3
+        );
+
+        self::assertStringContainsString('name="category_q"', $html);
+        self::assertStringContainsString('value="چسب تزریق پزشکی"', $html);
+        // And the results block keeps the id the redirect lands on.
+        self::assertStringContainsString('id="tv-catpick-results"', $html);
+    }
 }

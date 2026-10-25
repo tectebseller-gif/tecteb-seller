@@ -112,6 +112,35 @@ final class WpProductCategoryDirectory implements ProductCategoryDirectoryInterf
      *
      * @return list<array{id:int,rank:int}>
      */
+    public function explainNoMatch(string $query): array
+    {
+        $this->load();
+        $words = CategoryMatcher::words($query);
+        $found = [];
+        foreach ($words as $word) {
+            $found[$word] = 0;
+        }
+        foreach ($this->terms as $id => $term) {
+            // The same haystack `rank()` searches, so the explanation cannot
+            // disagree with the search it is explaining.
+            $haystack = $term['name'] . ' ' . $term['slug'] . ' ' . ($this->paths[$id] ?? '');
+            $absent = CategoryMatcher::missingWords($words, $haystack);
+            foreach ($words as $word) {
+                if (!in_array($word, $absent, true)) {
+                    $found[$word]++;
+                }
+            }
+        }
+        $missing = [];
+        foreach ($words as $word) {
+            if ($found[$word] === 0) {
+                $missing[] = $word;
+                unset($found[$word]);
+            }
+        }
+        return ['words' => $words, 'missing' => $missing, 'found' => $found];
+    }
+
     private function matching(string $query): array
     {
         $this->load();

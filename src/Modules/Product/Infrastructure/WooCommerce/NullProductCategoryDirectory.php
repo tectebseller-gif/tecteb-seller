@@ -29,6 +29,22 @@ final class NullProductCategoryDirectory implements ProductCategoryDirectoryInte
         return null;
     }
 
+    /**
+     * No catalogue to look in, so no word can be called missing FROM it.
+     *
+     * The words are echoed back and `missing` is empty on purpose: saying
+     * «این کلمه در فهرست نیست» when there is no list would blame the typing
+     * for the plugin's own blindness.
+     */
+    public function explainNoMatch(string $query): array
+    {
+        return [
+            'words' => \Tecteb\Marketplace\Modules\Product\Domain\CategoryMatcher::words($query),
+            'missing' => [],
+            'found' => [],
+        ];
+    }
+
     public function total(): int
     {
         return 0;

@@ -55,7 +55,8 @@ final class ProductCategoryPickerView
         bool $woocommerceMissing = false,
         string $suggestUrl = '',
         string $suggestNonce = '',
-        string $suggestAction = ''
+        string $suggestAction = '',
+        array $explain = []
     ): string {
         $html = '<div class="tv-field tv-catpick">'
             . '<span class="tv-label" id="tv-catpick-label">' . esc_html__('دسته', 'tecteb-marketplace-core') . '</span>';
@@ -121,7 +122,7 @@ final class ProductCategoryPickerView
         $html .= '<p class="tv-hint tv-catpick__status" id="tv-catpick-status" role="status" aria-live="polite"></p>';
 
         $html .= '<div id="tv-catpick-results" class="tv-catpick__results">'
-            . self::results($results, $selected, $query, $matched)
+            . self::results($results, $selected, $query, $matched, $explain)
             . '</div>';
 
         return $html . '</div>';
@@ -136,8 +137,13 @@ final class ProductCategoryPickerView
      *
      * @param list<ProductCategory> $results
      */
-    public static function results(array $results, ?ProductCategory $selected, string $query, int $matched): string
-    {
+    public static function results(
+        array $results,
+        ?ProductCategory $selected,
+        string $query,
+        int $matched,
+        array $explain = []
+    ): string {
         // The selection is shown above; repeating it here would ask the
         // vendor to notice that two identical rows are one row.
         $rows = [];
@@ -149,9 +155,7 @@ final class ProductCategoryPickerView
         }
 
         if ($rows === []) {
-            return VendorUi::notice('info', $query === ''
-                ? __('برای دیدن دسته‌ها جست‌وجو کنید.', 'tecteb-marketplace-core')
-                : __('دسته‌ای با این نام پیدا نشد. بخشی از نام را بنویسید و دوباره جست‌وجو کنید.', 'tecteb-marketplace-core'));
+            return VendorUi::notice('info', self::emptyMessage($query, $explain));
         }
 
         $html = '<ul class="tv-catpick__list" role="group" aria-labelledby="tv-catpick-label">';
@@ -178,6 +182,52 @@ final class ProductCategoryPickerView
             )) . '</p>';
         }
         return $html;
+    }
+
+    /**
+     * Why nothing is listed, in words a person can act on.
+     *
+     * «دسته‌ای با این نام پیدا نشد» was the whole message until now, and the
+     * reported case is exactly the one it fails: «چسب تزریق پزشکی» returned
+     * nothing while «چسب» returned the very category meant, so the only
+     * advice on screen — «بخشی از نام را بنویسید» — was advice the vendor had
+     * already followed. An empty result has two causes and they want opposite
+     * actions:
+     *
+     *   - a word that is in no category at all: drop THAT word;
+     *   - every word findable, never together on one row: search for fewer.
+     *
+     * So the missing word is named. «نتیجهٔ خالی پیام روشن داشته باشد.»
+     *
+     * @param array{words?:list<string>, missing?:list<string>, found?:array<string,int>} $explain
+     */
+    private static function emptyMessage(string $query, array $explain): string
+    {
+        if ($query === '') {
+            return __('برای دیدن دسته‌ها جست‌وجو کنید.', 'tecteb-marketplace-core');
+        }
+        $missing = is_array($explain['missing'] ?? null) ? $explain['missing'] : [];
+        $words = is_array($explain['words'] ?? null) ? $explain['words'] : [];
+
+        if ($missing !== []) {
+            return sprintf(
+                /* translators: %s: the words that are in no category, comma separated */
+                __('هیچ دسته‌ای این کلمه را ندارد: %s. همان کلمه را بردارید و دوباره جست‌وجو کنید.', 'tecteb-marketplace-core'),
+                implode('، ', $missing)
+            );
+        }
+        if (count($words) > 1) {
+            // Every word exists somewhere; no single category carries them
+            // all. Telling them to «write part of the name» here would be
+            // wrong advice: the name is not the problem, the number of words
+            // is.
+            return sprintf(
+                /* translators: %s: the words searched for, comma separated */
+                __('هر کدام از این کلمه‌ها در فهرست دسته‌ها هست، ولی هیچ دسته‌ای همهٔ آن‌ها را با هم ندارد: %s. با یکی دو کلمهٔ کمتر جست‌وجو کنید.', 'tecteb-marketplace-core'),
+                implode('، ', $words)
+            );
+        }
+        return __('دسته‌ای با این نام پیدا نشد. بخشی از نام را بنویسید و دوباره جست‌وجو کنید.', 'tecteb-marketplace-core');
     }
 
     /** The chosen category, or a plain statement that there is none yet. */

@@ -875,6 +875,39 @@ final class DbProductRepository implements ProductRepositoryInterface
         return $value === null ? -1 : (int) $value;
     }
 
+    public function importedWithCategoryKeys(int $limit = 500, int $afterId = 0): array
+    {
+        return array_map(
+            static fn (array $row): array => [
+                'id' => (int) $row['id'],
+                'vendor_user_id' => (int) $row['vendor_user_id'],
+                // NULL is possible here, and nought is the honest reading: a
+                // row with no WooCommerce product behind it has no
+                // relationship to read, and the caller names it rather than
+                // skipping it.
+                'wc_product_id' => (int) ($row['wc_product_id'] ?? 0),
+                'title' => (string) $row['title'],
+                'category_key' => (string) ($row['category_key'] ?? ''),
+            ],
+            $this->db->getResults(
+                'SELECT id, vendor_user_id, wc_product_id, title, category_key
+                   FROM `' . $this->products() . '`
+                  WHERE import_run_id <> %s AND id > %d
+                  ORDER BY id ASC LIMIT ' . max(1, min(1000, $limit)),
+                ['', max(0, $afterId)]
+            )
+        );
+    }
+
+    public function countImported(): int
+    {
+        $value = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->products() . '` WHERE import_run_id <> %s',
+            ['']
+        );
+        return $value === null ? -1 : (int) $value;
+    }
+
     public function setCategoryWhenEmpty(int $productId, string $categoryKey): string
     {
         if (!$this->mayWrite()) {

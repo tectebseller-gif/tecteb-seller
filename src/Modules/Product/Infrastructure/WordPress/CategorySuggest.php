@@ -89,7 +89,16 @@ final class CategorySuggest
             'query' => $query,
             'matched' => $matched,
             'total' => $directory->total(),
-            'html' => ProductCategoryPickerView::results($results, $selected, $query, $matched),
+            // The explanation is asked for ONLY when there is nothing to
+            // show. It walks every term, and paying for that on a search that
+            // worked would be a cost with no reader.
+            'html' => ProductCategoryPickerView::results(
+                $results,
+                $selected,
+                $query,
+                $matched,
+                $results === [] ? $directory->explainNoMatch($query) : []
+            ),
             'summary' => $this->summary($matched, count($results)),
         ]);
     }

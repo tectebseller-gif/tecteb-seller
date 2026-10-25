@@ -24,7 +24,10 @@ use Tecteb\Marketplace\Modules\Product\Application\EstimateVendorShare;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\ManageVariations;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
+use Tecteb\Marketplace\Modules\Product\Application\ApplyCategoryLinks;
+use Tecteb\Marketplace\Modules\Product\Application\CategoryLinkPlan;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryLinkReaderInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
@@ -71,6 +74,7 @@ use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullCatalogProjector;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullProductCategoryDirectory;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WpProductCategoryDirectory;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WpProductCategoryLinkReader;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\CartGuard;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\QuantityGuard;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\QuantityPanel;
@@ -175,6 +179,31 @@ final class ProductModule implements ModuleInterface
                 ))
                 : new NullProductCategoryDirectory();
         });
+        // The relationship each product ALREADY has, read by term id.
+        //
+        // Bound unconditionally and not behind the WooCommerce probe, because
+        // it answers honestly without one: `isAvailable()` is false and every
+        // link comes back `unreadable`, which is the truth off a storefront
+        // and is not the same answer as «this product has no categories»
+        // (`alpha.8`). It validates ids against the directory above, so «a
+        // valid category on this site» means one thing on the preview, in the
+        // apply action and on the vendor's form rather than three functions
+        // agreeing by coincidence (`alpha.79`).
+        $c->bind(ProductCategoryLinkReaderInterface::class, static fn (ContainerInterface $c) => new WpProductCategoryLinkReader(
+            $c->get(DatabaseInterface::class),
+            $c->get(ProductCategoryDirectoryInterface::class)
+        ));
+        // The preview and the one writer, bound as a pair so the screen and
+        // the action cannot be wired to different rules (`alpha.79`).
+        $c->bind(CategoryLinkPlan::class, static fn (ContainerInterface $c) => new CategoryLinkPlan(
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(ProductCategoryLinkReaderInterface::class)
+        ));
+        $c->bind(ApplyCategoryLinks::class, static fn (ContainerInterface $c) => new ApplyCategoryLinks(
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(ProductCategoryLinkReaderInterface::class),
+            $c->get(AuditLogger::class)
+        ));
         // Brands are WooCommerce's too: `product_brand` is a taxonomy it
         // registers itself (measured on 11.0.1), so the approved list is a
         // screen the manager already has. Off a storefront the directory says

@@ -94,4 +94,127 @@ final class CategoryMatcherTest extends TestCase
         );
         self::assertSame(CategoryMatcher::NEAR, CategoryMatcher::rank('امبوبك', self::TARGET));
     }
+
+    /**
+     * The reported defect, as it was reported.
+     *
+     * «کاربر گزارش کرده جست‌وجوی «چسب تزریق پزشکی» صفحه را برمی‌گرداند و
+     * نتیجهٔ قابل‌مشاهده ندارد، ولی «چسب» نتیجه می‌دهد و همان دسته در نتایج
+     * هست.» Both halves are asserted here, because the second is what makes
+     * the first a defect rather than an absent category: the row IS findable.
+     */
+    public function testEveryWordOfTheQueryPresentInTheNameAndItsAncestry(): void
+    {
+        $leaf = 'چسب';
+        $path = 'تجهیزات پزشکی › مواد مصرفی › چسب';
+
+        // One word finds it outright — this is the half that always worked.
+        self::assertSame(CategoryMatcher::EXACT, CategoryMatcher::rank('چسب', $leaf, $path));
+
+        // Three words, spread across the leaf and its ancestry.
+        self::assertSame(
+            CategoryMatcher::ALL_WORDS,
+            CategoryMatcher::rank('چسب تزریق پزشکی', $leaf, $path . ' تزریق'),
+            'every word is there; they are simply not one run of characters'
+        );
+    }
+
+    /** Word order is not a requirement — nobody types the ancestry top-down. */
+    public function testWordOrderDoesNotMatter(): void
+    {
+        self::assertSame(
+            CategoryMatcher::ALL_WORDS,
+            CategoryMatcher::rank('چسب تجهیزات', 'چسب', 'تجهیزات پزشکی › چسب')
+        );
+    }
+
+    /**
+     * A contiguous run still outranks scattered words.
+     *
+     * Otherwise «ماسک سه لایه» as a phrase and the same four words sprinkled
+     * over an unrelated branch would arrive at the picker as equals.
+     */
+    public function testAContiguousRunStillRanksAboveScatteredWords(): void
+    {
+        $run = CategoryMatcher::rank('ماسک سه', 'ماسک سه لایه');
+        $scattered = CategoryMatcher::rank('ماسک لایه', 'ماسک', 'پوشاک › لایه');
+
+        self::assertSame(CategoryMatcher::PREFIX, $run);
+        self::assertSame(CategoryMatcher::ALL_WORDS, $scattered);
+        self::assertLessThan($scattered, $run);
+    }
+
+    /** It is a certainty, not a guess, so it is not labelled «پیشنهاد نزدیک». */
+    public function testScatteredWordsAreNotFuzzy(): void
+    {
+        self::assertFalse(CategoryMatcher::isFuzzy(CategoryMatcher::ALL_WORDS));
+        self::assertTrue(CategoryMatcher::isFuzzy(CategoryMatcher::NEAR));
+    }
+
+    /**
+     * ⛔ Conjunctive. One missing word is no match, however common the others.
+     *
+     * The rule that would have been easier — «any word matches» — turns
+     * «پزشکی» into a query for most of a 1,070-term catalogue, and the forty
+     * shown would be forty rows the vendor did not ask for.
+     */
+    public function testOneMissingWordIsNoMatch(): void
+    {
+        self::assertSame(
+            CategoryMatcher::NO_MATCH,
+            CategoryMatcher::rank('چسب تزریق دستکش', 'چسب', 'تجهیزات پزشکی › چسب تزریق')
+        );
+        // And the pre-existing guarantee: two words, neither of them there.
+        self::assertSame(CategoryMatcher::NO_MATCH, CategoryMatcher::rank('دستکش جراحی', self::TARGET));
+    }
+
+    /** A single word is never ALL_WORDS: the older ranks already decide it. */
+    public function testASingleWordNeverReachesTheScatteredRank(): void
+    {
+        foreach (['آمبوبگ', 'آمبو', 'بوبگ', 'دستکش'] as $one) {
+            self::assertNotSame(
+                CategoryMatcher::ALL_WORDS,
+                CategoryMatcher::rank($one, self::TARGET),
+                $one
+            );
+        }
+    }
+
+    /** The folding still applies per word: Arabic shapes, digits, the half-space. */
+    public function testFoldingAppliesToEachWordSeparately(): void
+    {
+        // ⛔ The ancestry deliberately does NOT hold «کیف 3» next to each
+        // other. The first version of this test used «لوازم › کیف 3 لایه»,
+        // where the folded query «کیف3» IS a contiguous run of the folded
+        // path — so it ranked CONTAINS and said nothing about the new rank.
+        // The oracle was wrong, not the code.
+        self::assertSame(
+            CategoryMatcher::ALL_WORDS,
+            CategoryMatcher::rank('كيف ۳', 'کیف', 'لوازم › 3 لایه')
+        );
+    }
+
+    /**
+     * An empty result can name the word that is missing.
+     *
+     * «نتیجهٔ خالی پیام روشن داشته باشد» — and «چیزی پیدا نشد» is not that
+     * message when three of the four words are in the catalogue.
+     */
+    public function testTheMissingWordCanBeNamed(): void
+    {
+        $words = CategoryMatcher::words('چسب تزریق دستکش');
+
+        self::assertSame(['چسب', 'تزریق', 'دستکش'], $words);
+        self::assertSame(
+            ['دستکش'],
+            CategoryMatcher::missingWords($words, 'چسب تجهیزات پزشکی › چسب تزریق')
+        );
+        self::assertSame([], CategoryMatcher::missingWords($words, 'چسب تزریق دستکش'));
+    }
+
+    public function testWordsCollapsesSpacingAndDropsTheEmpties(): void
+    {
+        self::assertSame(['چسب', 'تزریق'], CategoryMatcher::words('  چسب   تزریق  '));
+        self::assertSame([], CategoryMatcher::words('   '));
+    }
 }

@@ -1,0 +1,35 @@
+PASS 0 the installed package is the one built here
+note seed: vendor=219 · vendor_status=approved · terms={"root":233,"injection":234,"glue_a":235,"glue_b":236,"persian":237} · wc_one=77173 · wc_one_terms=[234] · wc_many=77174 · wc_many_terms=[234,235,236] · wc_persian=77175 · wc_persian_terms=[237] · wc_default=77176 · wc_default_terms=[15] · wc_none=77177 · wc_none_terms=[] · rows={"one":4212,"many":4213,"persian":4214,"default":4215,"none":4216} · run=a81-ui-20261025-104425
+PASS 0a the fixture landed five products
+note before: vendor=219 · terms={"root":233,"injection":234,"glue_a":235,"glue_b":236,"persian":237} · products={"one":77173,"many":77174,"persian":77175,"default":77176,"none":77177} · rows={"one":4212,"many":4213,"persian":4214,"default":4215,"none":4216} · key_one=__empty__ · key_many=__empty__ · key_persian=__empty__ · key_default=__empty__ · key_none=__empty__ · available=yes · scanned=10 · counts={"apply":2,"settled":4,"default_term":2,"multiple_categories":1,"no_category":1} · groups=1
+PASS 0b and not one of them carries a category key yet
+PASS 1a the handover screen is the one it says it is
+PASS 1b the category-link card is there
+PASS 1c …and says it writes nothing until the button
+PASS 1d the multi-category group has its own heading
+PASS 1e …and says no category is picked for anybody
+PASS 1f the definite links are offered apart
+PASS 1g the default-term product is named
+PASS 1h the product with no category is named
+PASS 1i0 the fixture really gave that product three categories
+PASS 1i the ambiguous group names every one of its term ids
+PASS 1j …with the full ancestry, not a bare leaf
+PASS 1k rendering the preview wrote nothing at all
+PASS 2a the result says what was written
+PASS 2b …and names the rows that were not
+note after: vendor=219 · terms={"root":233,"injection":234,"glue_a":235,"glue_b":236,"persian":237} · products={"one":77173,"many":77174,"persian":77175,"default":77176,"none":77177} · rows={"one":4212,"many":4213,"persian":4214,"default":4215,"none":4216} · key_one=234 · key_many=__empty__ · key_persian=237 · key_default=__empty__ · key_none=__empty__ · available=yes · scanned=10 · counts={"apply":0,"settled":6,"default_term":2,"multiple_categories":1,"no_category":1} · groups=1
+PASS 2c the single-category product got its own category
+PASS 2d the Persian-category product too
+PASS 2e the multi-category product still has NO key
+PASS 2f the default-term product has no key either
+PASS 2g and neither does the one with no category
+PASS 2h every WooCommerce relationship of the multi product survived
+PASS 2i and the single-category product kept its one relationship
+note a second pass still offers rows: false
+PASS 3a nothing is left to apply, which is the same answer
+PASS 3b and no key changed on the second pass
+PASS 4a no horizontal overflow at 390px
+note axe serious/critical: none
+PASS 5a no serious or critical accessibility violation in our markup
+note reset: reset=done
+checks: 28 passed, 0 failed

@@ -46,6 +46,24 @@ interface ProductCategoryDirectoryInterface
      */
     public function find(string $value): ?ProductCategory;
 
+    /**
+     * Why a query found nothing — which of its words are nowhere at all.
+     *
+     * An empty result has two very different causes and the same appearance:
+     * the words are each in the catalogue but never together on one row, or
+     * one of them is not in the catalogue at all. «نتیجهٔ خالی پیام روشن
+     * داشته باشد» cannot be satisfied by «چیزی پیدا نشد» when three of the
+     * four words are findable — the person just retypes the same four words.
+     *
+     * @return array{
+     *     words:list<string>,
+     *     missing:list<string>,
+     *     found:array<string,int>
+     * } `missing` are the words no category carries; `found` counts how many
+     *   categories carry each of the others.
+     */
+    public function explainNoMatch(string $query): array;
+
     /** Total number of categories that exist, template or no template. */
     public function total(): int;
 }

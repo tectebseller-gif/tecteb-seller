@@ -478,7 +478,8 @@ final class ProductFormView
                 (bool) ($categories['missing'] ?? false),
                 (string) ($categories['suggest_url'] ?? ''),
                 (string) ($categories['suggest_nonce'] ?? ''),
-                (string) ($categories['suggest_action'] ?? '')
+                (string) ($categories['suggest_action'] ?? ''),
+                is_array($categories['explain'] ?? null) ? $categories['explain'] : []
             )
             // ONE FIELD, TYPED, WITH THE EXISTING NAMES SUGGESTED.
             //

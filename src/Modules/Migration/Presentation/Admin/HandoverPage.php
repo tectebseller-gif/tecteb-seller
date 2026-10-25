@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Migration\Presentation\Admin;
 
+use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
@@ -14,6 +15,8 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Migration\Application\ApplyCategoryMapping;
+use Tecteb\Marketplace\Modules\Product\Application\ApplyCategoryLinks;
+use Tecteb\Marketplace\Modules\Product\Application\CategoryLinkPlan;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMapping;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
@@ -130,6 +133,7 @@ final class HandoverPage
         // the number of imported products still waiting for a category is read
         // from our own table and is true either way.
         $this->renderCategories($fa, $request);
+        $this->renderCategoryLinks($fa);
         if ($recordSubjects !== []) {
             $this->renderStaff($recordSubjects, $fa);
             $this->renderFinance($recordSubjects, $fa);
@@ -845,6 +849,49 @@ final class HandoverPage
                 : __('نگاشت این دسته ذخیره شد. هنوز هیچ محصولی عوض نشده است — برای اعمال روی محصولات واردشده، دکمهٔ پایین همان کارت را بزنید.', 'tecteb-marketplace-core'));
         }
 
+        if ($action === 'apply_category_links') {
+            // The ids AND the key each row was shown with. `ApplyCategoryLinks`
+            // reads the relationship again and refuses a row whose single term
+            // has moved since, so this is consent to a change that was
+            // PRINTED — not to whatever the shop says at the moment of the
+            // click (`alpha.49`).
+            $ids = [];
+            $seen = [];
+            foreach ($request->postMap('link') as $productId => $key) {
+                $productId = (int) $productId;
+                if ($productId > 0) {
+                    $ids[] = $productId;
+                    $seen[$productId] = (string) $key;
+                }
+            }
+            $result = $this->container->get(ApplyCategoryLinks::class)->apply(
+                $ids,
+                $seen,
+                $this->container->get(CapabilityCheckerInterface::class)->currentUserId() ?? 0
+            );
+            if (!$result['ok']) {
+                return 'err:' . match ($result['code']) {
+                    'nothing_selected' => __('هیچ محصولی فرستاده نشد، پس چیزی نوشته نشد.', 'tecteb-marketplace-core'),
+                    'batch_too_large' => __('تعداد محصولات این درخواست بیش از حد مجاز بود، پس چیزی نوشته نشد.', 'tecteb-marketplace-core'),
+                    'categories_unreadable' => __('فهرست دسته‌های ووکامرس خوانده نشد، پس هیچ‌چیز نوشته نشد.', 'tecteb-marketplace-core'),
+                    default => __('اعمال اتصال دسته انجام نشد.', 'tecteb-marketplace-core'),
+                };
+            }
+            // Every outcome by name. «۱۲ محصول نوشته شد» on its own hides the
+            // rows that did not, and those are the ones a person has to see.
+            $parts = [];
+            foreach ($result['counts'] as $code => $n) {
+                $parts[] = self::linkOutcome((string) $code) . ': ' . PersianDigits::toPersian((string) $n);
+            }
+            $written = (int) ($result['counts']['linked'] ?? 0);
+            return ($written > 0 ? 'ok:' : 'err:') . sprintf(
+                /* translators: 1: written count, 2: per-outcome list */
+                __('دستهٔ %1$s محصول از ارتباط خودِ ووکامرس نوشته شد. %2$s', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) $written),
+                implode(' · ', $parts)
+            );
+        }
+
         if ($action === 'apply_categories') {
             // The ids AND the target each one was shown with. The service
             // derives the target again and refuses a row whose target moved,
@@ -1331,6 +1378,183 @@ final class HandoverPage
      * means try again, and `not_imported` means no migration decision reaches
      * that row at all.
      */
+    /**
+     * The category each imported product's own WooCommerce relationship names.
+     *
+     * A second card beside the mapping, not a replacement for it, because the
+     * two answer different questions. The mapping says what a DOKAN category
+     * means here and needs a human decision per source category. This one
+     * needs no decision at all for most rows: the product is already filed in
+     * `product_cat`, so the category is a fact to be copied rather than a
+     * choice to be made — «دسته‌های موجود ووکامرس و ارتباط فعلی محصولات با
+     * آن‌ها مرجع هستند … انتخاب دستی مجدد همهٔ دسته‌ها قابل‌قبول نیست».
+     *
+     * Read only until the button is pressed: `CategoryLinkPlan` has no write
+     * method of any kind, which an architecture test asserts from its bytes.
+     */
+    private function renderCategoryLinks(callable $fa): void
+    {
+        $plan = $this->container->get(CategoryLinkPlan::class)->plan();
+
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('دستهٔ محصولات از ارتباط فعلی ووکامرس', 'tecteb-marketplace-core') . '</h2>';
+        echo '<p class="tmc-field__desc">'
+            . esc_html__('هر محصول واردشده همین حالا در ووکامرس دسته دارد یا ندارد. این کارت همان ارتباط را بر اساس شناسهٔ دسته می‌خواند — نه شباهت نام و نه حدس — و نشان می‌دهد نوشتنش چه چیزی را عوض می‌کند. تا زدن دکمه هیچ‌چیز نوشته نمی‌شود، و هیچ دسته یا رابطهٔ ووکامرس ساخته، حذف یا تغییر نمی‌شود.', 'tecteb-marketplace-core')
+            . '</p>';
+
+        if (!$plan['available']) {
+            echo '<p class="tmc-field__desc">'
+                . esc_html__('فهرست دسته‌های ووکامرس خوانده نشد، پس ارتباط هیچ محصولی تفسیر نمی‌شود و عددی گزارش نمی‌شود.', 'tecteb-marketplace-core')
+                . '</p></section>';
+            return;
+        }
+
+        $total = (int) $plan['total'];
+        echo '<p class="tmc-field__desc">' . ($total < 0
+            ? esc_html__('تعداد کل ردیف‌های واردشده خوانده نشد، پس عددی گزارش نمی‌شود.', 'tecteb-marketplace-core')
+            : esc_html(sprintf(
+                /* translators: 1: scanned 2: total */
+                __('%1$s ردیف از %2$s ردیف واردشده در این صفحه بررسی شد.', 'tecteb-marketplace-core'),
+                $fa((string) $plan['scanned']),
+                $fa((string) $total)
+            ))) . '</p>';
+        if (!$plan['finished']) {
+            // ⛔ Said, not hidden. A page that reached its cap cannot claim
+            // «this is all of them» (`alpha.70`).
+            echo '<p class="tmc-field__desc">'
+                . esc_html__('این صفحه به سقف خودش رسید، پس ردیف‌های بعدی در این شمارش نیستند.', 'tecteb-marketplace-core')
+                . '</p>';
+        }
+
+        // Every bucket by name, including the empty ones that matter.
+        echo '<ul class="tmc-list">';
+        foreach ($plan['counts'] as $code => $n) {
+            echo '<li>' . esc_html(self::linkCount((string) $code) . ': ' . $fa((string) $n)) . '</li>';
+        }
+        echo '</ul>';
+
+        $this->renderLinkGroups($fa, is_array($plan['groups']) ? $plan['groups'] : []);
+        $this->renderLinkApply($fa, is_array($plan['apply']) ? $plan['apply'] : []);
+        echo '</section>';
+    }
+
+    /**
+     * The ambiguous products, grouped by the SET of categories they share.
+     *
+     * Grouped so one answer covers «these eleven are in both چسب branches»
+     * instead of eleven identical questions — and every id is printed with its
+     * full ancestry, because that short list IS what a human picks from.
+     * Nothing here is a form: «انتخاب دستی فقط برای استثناهای واقعی باقی
+     * بماند», and the choice is made on the product's own review page.
+     *
+     * @param list<array<string,mixed>> $groups
+     */
+    private function renderLinkGroups(callable $fa, array $groups): void
+    {
+        if ($groups === []) {
+            return;
+        }
+        echo '<h3>' . esc_html__('محصولات چنددسته‌ای — نیازمند تصمیم انسان', 'tecteb-marketplace-core') . '</h3>';
+        echo '<p class="tmc-field__desc">'
+            . esc_html__('این محصول‌ها بیش از یک دستهٔ ووکامرس دارند. مدل این بازارگاه برای هر محصول یک دسته نگه می‌دارد، پس هیچ‌کدام خودسرانه انتخاب نمی‌شود و دسته‌های دیگر هم کنار گذاشته نمی‌شوند: ارتباط هر سه در ووکامرس سر جایش می‌مانَد و انتخاب از همین فهرستِ کوتاه روی صفحهٔ بررسی همان محصول انجام می‌شود.', 'tecteb-marketplace-core')
+            . '</p>';
+        echo '<table class="tmc-table"><thead><tr>'
+            . '<th>' . esc_html__('دسته‌های فعلی (شناسه و مسیر کامل)', 'tecteb-marketplace-core') . '</th>'
+            . '<th>' . esc_html__('تعداد محصول', 'tecteb-marketplace-core') . '</th>'
+            . '<th>' . esc_html__('نمونه شناسهٔ محصول', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>';
+        foreach ($groups as $group) {
+            $paths = [];
+            foreach (is_array($group['paths'] ?? null) ? $group['paths'] : [] as $row) {
+                $paths[] = '#' . $fa((string) ($row['id'] ?? '')) . ' — ' . (string) ($row['path'] ?? '');
+            }
+            foreach (is_array($group['invalid_ids'] ?? null) ? $group['invalid_ids'] : [] as $bad) {
+                $paths[] = '#' . $fa((string) $bad) . ' — ' . __('نامعتبر', 'tecteb-marketplace-core');
+            }
+            if (!empty($group['default_attached'])) {
+                $paths[] = __('به‌علاوهٔ دستهٔ پیش‌فرض ووکامرس', 'tecteb-marketplace-core');
+            }
+            $sample = [];
+            foreach (is_array($group['sample'] ?? null) ? $group['sample'] : [] as $id) {
+                $sample[] = '#' . $fa((string) $id);
+            }
+            echo '<tr><td>' . esc_html(implode(' · ', $paths)) . '</td>'
+                . '<td>' . esc_html($fa((string) ($group['products'] ?? 0))) . '</td>'
+                . '<td>' . esc_html(implode(' ، ', $sample)) . '</td></tr>';
+        }
+        echo '</tbody></table>';
+    }
+
+    /**
+     * The definite links, and the one explicit action that writes them.
+     *
+     * Each row carries the key it was SHOWN with, so the service can refuse a
+     * product whose single term moved between this render and the click rather
+     * than writing whatever is there now (`alpha.49`).
+     *
+     * @param list<array<string,mixed>> $apply
+     */
+    private function renderLinkApply(callable $fa, array $apply): void
+    {
+        if ($apply === []) {
+            echo '<p class="tmc-field__desc">'
+                . esc_html__('هیچ ردیفی آمادهٔ نوشتن نیست: ردیف‌های واردشده یا از قبل دسته دارند، یا دسته‌شان قطعی نیست و بالاتر نام برده شده‌اند.', 'tecteb-marketplace-core')
+                . '</p>';
+            return;
+        }
+        echo '<h3>' . esc_html__('اتصال‌های قطعی — آمادهٔ اعمال', 'tecteb-marketplace-core') . '</h3>';
+        echo '<form method="post">';
+        echo '<table class="tmc-table"><thead><tr>'
+            . '<th>' . esc_html__('محصول', 'tecteb-marketplace-core') . '</th>'
+            . '<th>' . esc_html__('دستهٔ پیشنهادی (شناسه و مسیر کامل)', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>';
+        foreach (array_slice($apply, 0, ApplyCategoryLinks::BATCH_LIMIT) as $row) {
+            $productId = (int) ($row['product_id'] ?? 0);
+            echo '<tr><td>' . esc_html('#' . $fa((string) $productId) . ' — ' . (string) ($row['title'] ?? '')) . '</td>'
+                . '<td>' . esc_html('#' . $fa((string) ($row['proposed_key'] ?? '')) . ' — ' . (string) ($row['proposed_path'] ?? ''))
+                . '<input type="hidden" name="link[' . esc_attr((string) $productId) . ']" value="'
+                . esc_attr((string) ($row['proposed_key'] ?? '')) . '"></td></tr>';
+        }
+        echo '</tbody></table>';
+        echo wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)
+            . '<p><button type="submit" class="tmc-button" name="handover_action" value="apply_category_links">'
+            . esc_html__('اعمال اتصال‌های قطعی روی محصولات واردشده', 'tecteb-marketplace-core')
+            . '</button></p></form>';
+    }
+
+    /** The label for one bucket of the link plan. */
+    private static function linkCount(string $code): string
+    {
+        return match ($code) {
+            CategoryLinkPlan::APPLY => __('آمادهٔ نوشتن (یک دستهٔ معتبر، بدون کلید ذخیره‌شده)', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::SETTLED => __('از قبل درست است (کلید ذخیره‌شده همان یک دستهٔ محصول است)', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::DECIDED => __('کلید ذخیره‌شده‌شان دستهٔ دیگری است و بازنویسی نمی‌شود', 'tecteb-marketplace-core'),
+            default => self::linkOutcome($code),
+        };
+    }
+
+    /** One sentence per outcome of applying a product's own relationship. */
+    private static function linkOutcome(string $code): string
+    {
+        return match ($code) {
+            'linked' => __('از ارتباط ووکامرس نوشته شد', 'tecteb-marketplace-core'),
+            'already_set' => __('از قبل دسته داشت و دست نخورد', 'tecteb-marketplace-core'),
+            'link_moved' => __('دستهٔ محصول بین نمایش و کلیک عوض شد و نوشته نشد', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::MULTIPLE => __('بیش از یک دسته دارد، پس هیچ‌کدام خودسرانه انتخاب نشد', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::NARROWED => __('بیش از یک دسته دارد و کلید ذخیره‌شده‌اش یکی از آن‌هاست — نیازمند تصمیم انسان', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::DEFAULT_TERM => __('تنها دستهٔ پیش‌فرض ووکامرس را دارد، که دسته نیست', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::NO_CATEGORY => __('در ووکامرس هیچ دسته‌ای ندارد', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::INVALID => __('دسته‌هایش در این سایت پیدا نشدند', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::NO_PRODUCT => __('محصول ووکامرسی پشتش نیست', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::UNREADABLE => __('ارتباط دسته‌اش خوانده نشد', 'tecteb-marketplace-core'),
+            'not_found' => __('چنین ردیفی نیست', 'tecteb-marketplace-core'),
+            'not_imported' => __('ورودی آن را نساخته، پس تصمیم مهاجرت به آن نمی‌رسد', 'tecteb-marketplace-core'),
+            'bad_category' => __('دستهٔ خالی دسته نیست', 'tecteb-marketplace-core'),
+            'storage_failed' => __('نوشتن انجام نشد', 'tecteb-marketplace-core'),
+            default => $code,
+        };
+    }
+
     private static function applyOutcome(string $code): string
     {
         return match ($code) {

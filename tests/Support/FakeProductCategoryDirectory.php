@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Tests\Support;
 
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\CategoryMatcher;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductCategory;
 
 /**
@@ -53,5 +54,37 @@ final class FakeProductCategoryDirectory implements ProductCategoryDirectoryInte
     public function total(): int
     {
         return count($this->terms);
+    }
+
+    /**
+     * The same question the real directory answers, against the same rows.
+     *
+     * Implemented rather than stubbed to `[]`: a double that cannot express
+     * «this word is nowhere» would make the empty-result message look right
+     * in every test while the real screen said nothing (`alpha.59`).
+     */
+    public function explainNoMatch(string $query): array
+    {
+        $words = CategoryMatcher::words($query);
+        $found = [];
+        foreach ($words as $word) {
+            $found[$word] = 0;
+        }
+        foreach ($this->terms as $term) {
+            $absent = CategoryMatcher::missingWords($words, $term['name'] . ' ' . $term['path']);
+            foreach ($words as $word) {
+                if (!in_array($word, $absent, true)) {
+                    $found[$word]++;
+                }
+            }
+        }
+        $missing = [];
+        foreach ($words as $word) {
+            if ($found[$word] === 0) {
+                $missing[] = $word;
+                unset($found[$word]);
+            }
+        }
+        return ['words' => $words, 'missing' => $missing, 'found' => $found];
     }
 }

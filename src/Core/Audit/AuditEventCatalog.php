@@ -194,6 +194,19 @@ final class AuditEventCatalog
     public const DOKAN_CATEGORY_MAP_SAVED = 'migration.dokan_category_map_saved';
     public const DOKAN_CATEGORY_APPLIED = 'migration.dokan_category_applied';
 
+    /**
+     * A product's category written from its OWN WooCommerce relationship.
+     *
+     * Separate from `DOKAN_CATEGORY_APPLIED` on purpose, and the difference is
+     * the whole of the round: that one records a decision about a SOURCE
+     * category somebody mapped by hand, while this one records that the
+     * existing `product_cat` relationship was read and copied down. Giving
+     * them one name would make the trail unable to answer «who chose this?» —
+     * and for this event the answer is «nobody chose; the shop already said
+     * so».
+     */
+    public const PRODUCT_CATEGORY_LINKED = 'product.category_linked';
+
     /** @return array<string, list<string>> event type => allowed top-level payload keys */
     public static function allowlist(): array
     {
@@ -317,6 +330,7 @@ final class AuditEventCatalog
             self::DOKAN_FINANCE_HANDOVER => ['vendor_id', 'closing', 'paid_by_dokan', 'pending_requests', 'pending_total', 'decision'],
             self::DOKAN_CATEGORY_MAP_SAVED => ['source_key', 'target', 'entries', 'removed'],
             self::DOKAN_CATEGORY_APPLIED => ['products', 'requested'],
+            self::PRODUCT_CATEGORY_LINKED => ['wc_product_id', 'category_key', 'path', 'source', 'products', 'requested'],
         ];
     }
 

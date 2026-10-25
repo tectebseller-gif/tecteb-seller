@@ -1,0 +1,108 @@
+# §0 model-limit evidence, measured on the INSTALLED alpha.80 bytes.
+# One fixture generation; the destructive verb runs last.
+# date=2026-10-25T09:43:13Z  db=tmc_wp_demo
+# plugin: tecteb-marketplace-core,active,none,0.1.0-alpha.80,,off
+# plugin: woocommerce,active,none,11.0.1,,off
+
+## fixture: a fresh vendor, six terms, five products
+vendor_status=approved
+wc_multi=77148
+wc_multi_terms=[207,208,209]
+wc_single=77149
+wc_single_terms=[208]
+wc_persian=77150
+wc_persian_terms=[206]
+wc_none=77151
+wc_none_terms=[15]
+wc_doomed=77152
+wc_doomed_terms=[211]
+terms={"root":206,"glue":208,"inject":207,"same_a":209,"same_b":210,"doomed":211}
+vendor=214
+
+run=intake-20261025-094317
+code=intake_done
+counts={"imported":5,"skipped":0,"failed":0}
+result_77148=imported:
+result_77149=imported:
+result_77150=imported:
+result_77151=imported:
+result_77152=imported:
+row_multi_category_key=207
+row_single_category_key=208
+row_persian_category_key=206
+row_none_category_key=15
+row_doomed_category_key=211
+
+## 1. first-wins — the intake narrows three categories to one
+wc_product=77148
+wc_terms=[207,208,209]
+wc_term_count=3
+stored_category_key=207
+stored_is_the_first_term=yes
+terms_not_recorded_anywhere=2
+
+## 2. multi-detail — what a comma key resolves to, and the pre-accept verdict
+multi_wc_product=77148
+multi_terms=[207,208,209]
+find_comma=207,208,209 => __null__
+find_first=207 => 207 :: ت۸۰ تجهیزات پزشکی › ت۸۰ تزریق
+find_second=208 => 208 :: ت۸۰ تجهیزات پزشکی › ت۸۰ چسب
+row_found=yes
+stored_category_key=207
+link_ownership=observed
+comparison_state=not_ours
+
+## 3. waiting — alpha.80's category-mapping path does not cover these rows
+waiting_rows=[]
+waiting_total=0
+
+## 4. search — the reported defect, against the real directory
+q[ت۸۰ چسب تزریق پزشکی]_matched=0
+q[ت۸۰ چسب تزریق پزشکی]_names=[]
+q[ت۸۰ چسب]_matched=1
+q[ت۸۰ چسب]_names=["ت۸۰ چسب"]
+q[چسب تزریق]_matched=0
+q[چسب تزریق]_names=[]
+q[ت۸۰ تجهیزات چسب]_matched=0
+q[ت۸۰ تجهیزات چسب]_names=[]
+directory_total=8
+
+## 5. accept-drops — an observed row refuses the write, so nothing is lost
+terms_before=[207,208,209]
+comparison_state=not_ours
+accept_outcome=storage_failed
+terms_after=[207,208,209]
+terms_lost=[]
+other_categories_silently_dropped=no
+
+## 6. project-drops — an ORDINARY projection holds it instead of writing
+#    (this verb takes ownership, so the fixture is regenerated before step 7)
+terms_before=[207,208,209]
+take=ok
+link_ownership=marketplace
+stored_category_key=207
+projector_available=yes
+project_out.ok=yes
+project_out.code=projected
+project_out.wc_product_id=77148
+project_out.variation_links=[]
+project_out.price_held=no
+project_out.status_held=yes
+terms_after=[207,208,209]
+terms_lost=[]
+plain_projection_drops_them=no
+stamp_category=__empty__
+pending_category=207
+held_as_a_proposal=yes
+
+## 7. take-then-accept — DESTRUCTIVE, and the finding itself
+terms_before=[213,214,215]
+take=ok
+link_ownership=marketplace
+comparison_state=compared
+stored_category_key=213
+storefront_category_would_be=213,214,215
+accept_outcome=written
+terms_after=[213]
+terms_lost=[214,215]
+other_categories_silently_dropped=yes

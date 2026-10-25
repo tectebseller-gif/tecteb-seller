@@ -650,6 +650,14 @@ final class ProductArea
         $url = $this->stepUrl($urls, $savedId, $next);
         if ($searching) {
             $url = add_query_arg('cat_q', rawurlencode($request->postText('category_q')), $url);
+            // ⛔ And it lands ON the picker. Without JavaScript the search is
+            // an ordinary submit, so the browser reloads at the top of a
+            // four-step form and the vendor has to find the box again — which
+            // reads as «the page came back and nothing happened», the second
+            // half of the report. The typed text and the chosen category were
+            // already carried (`cat_q`, and the choice is rendered apart from
+            // the results since `alpha.25`); what was lost was the place.
+            $url .= '#tv-catpick-results';
         }
         // A BRAND NAME NOBODY HAS APPROVED, recorded on the ordinary save.
         //
@@ -1144,10 +1152,14 @@ final class ProductArea
     {
         $directory = $this->container->get(ProductCategoryDirectoryInterface::class);
         $total = $directory->total();
+        $results = $directory->search($query, ProductCategoryPickerView::SHOW);
         return [
             'selected' => $directory->find($selectedKey),
-            'results' => $directory->search($query, ProductCategoryPickerView::SHOW),
+            'results' => $results,
             'query' => $query,
+            // Asked for only when there is nothing to show: it walks every
+            // term, and a search that worked has no reader for it.
+            'explain' => $results === [] && $query !== '' ? $directory->explainNoMatch($query) : [],
             'matched' => $directory->countMatches($query),
             'total' => $total,
             'missing' => $total === 0 && !$this->container->get(DependencyProbeInterface::class)->woocommerceAvailable(),
