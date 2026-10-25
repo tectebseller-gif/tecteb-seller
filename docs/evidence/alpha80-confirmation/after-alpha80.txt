@@ -1,0 +1,61 @@
+== tecteb-marketplace-core: category mapping, read from src/ ==
+commit: 610e4b4
+version: 0.1.0-alpha.80
+
+-- 1. CategoryMap::save() exists --
+PASS save_is_defined = 1
+
+-- 2. who calls it, anywhere under src/ --
+PASS save_callers_in_src = 1
+
+-- 3. every file under src/ that so much as names the class --
+src/Modules/Migration/Presentation/Admin/HandoverPage.php
+src/Modules/Migration/MigrationModule.php
+src/Modules/Migration/Infrastructure/WordPress/WpDokanReader.php
+src/Modules/Migration/Application/CategoryMapping.php
+src/Modules/Migration/Application/CategoryMap.php
+src/Modules/Migration/Application/ApplyCategoryMapping.php
+src/Modules/Migration/Application/MigrationCompleteness.php
+src/Modules/Migration/Application/ImportFromDokan.php
+src/Modules/Migration/Application/StaffRoleMap.php
+src/Modules/Product/Application/ProductRepositoryInterface.php
+PASS presentation_files_naming_it = 1
+
+-- 4. every admin action the migration module answers --
+=== 'accept_finance'
+=== 'apply_categories'
+=== 'confirm_staff'
+=== 'dry_run'
+=== 'enforce'
+=== 'forget_category'
+=== 'give_back_ownership'
+=== 'grant_staff'
+=== 'import'
+=== 'import_records'
+=== 'migrate'
+=== 'outside_finance'
+=== 'queue_import'
+=== 'refresh_snapshot'
+=== 'release'
+=== 'repair_imports'
+=== 'rollback'
+=== 'save_category'
+=== 'save_roles'
+=== 'take_ownership'
+=== 'unenforce'
+PASS actions_mentioning_category = 3
+
+-- 5. what the handover page does say about it --
+461:            if (in_array('categories_mapped', (array) $row['missing'], true)) {
+1001:     *      `categories_mapped` as a blocker with no door out of it.
+1415:            'categories_mapped' => __('نگاشت دسته‌ها', 'tecteb-marketplace-core'),
+
+-- 6. and the second half: what the gate reads --
+            'categories_mapped' => $mappableUnmapped === [] && $withoutCategory === 0,
+   (`unmappedFor()` asks DOKAN. It never looks at our own rows, so a
+    saved mapping empties that list and the gate closes while every
+    imported row still carries category_key = ''.)
+-- 7. does the gate read our own rows at all --
+PASS gate_reads_our_own_uncategorised_rows = 1
+
+== 5 passed, 0 failed ==

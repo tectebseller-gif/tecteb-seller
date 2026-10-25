@@ -1,0 +1,19 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+...........F....                                                  16 / 16 (100%)
+
+Time: 00:09.373, Memory: 22.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Database\CategoryMappingFlowTest::testTheGateClosesOnlyWhenTheProductsHaveTheirCategory
+and only now
+Failed asserting that false is true.
+
+/home/user/tecteb-seller/tests/Database/CategoryMappingFlowTest.php:523
+
+FAILURES!
+Tests: 16, Assertions: 109, Failures: 1.

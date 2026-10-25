@@ -1,0 +1,44 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+.......F........                                                  16 / 16 (100%)
+
+Time: 00:09.302, Memory: 24.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Database\CategoryMappingFlowTest::testAnInvalidTargetIsHeldAndNamed
+Failed asserting that two arrays are identical.
+--- Expected
++++ Actual
+@@ @@
+-Array &0 []
++Array &0 [
++    0 => Array &1 [
++        'product_id' => 1,
++        'wc_product_id' => 991,
++        'title' => 'باند کشی',
++        'vendor_user_id' => 401,
++        'source_key' => '%d8%aa%d8%ac%d9%87%db%8c%d8%b2%d8%a7%d8%aa',
++        'source_label' => 'تجهیزات',
++        'target' => '9999',
++        'target_path' => '',
++    ],
++    1 => Array &2 [
++        'product_id' => 2,
++        'wc_product_id' => 992,
++        'title' => 'سرنگ',
++        'vendor_user_id' => 401,
++        'source_key' => '%d8%aa%d8%ac%d9%87%db%8c%d8%b2%d8%a7%d8%aa',
++        'source_label' => 'تجهیزات',
++        'target' => '9999',
++        'target_path' => '',
++    ],
++]
+
+/home/user/tecteb-seller/tests/Database/CategoryMappingFlowTest.php:394
+
+FAILURES!
+Tests: 16, Assertions: 105, Failures: 1.

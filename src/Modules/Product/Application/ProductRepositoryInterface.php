@@ -355,6 +355,72 @@ interface ProductRepositoryInterface
     public function idsFromImportRun(string $runId): array;
 
     /**
+     * The imported rows that are still waiting for a category — bounded, and
+     * counted separately so an incomplete page says so.
+     *
+     * This is the half of «نگاشت دسته‌ها» that is readable on OUR side with
+     * nothing else installed. An imported product whose source category
+     * nobody had mapped was created with `category_key = ''` (see
+     * `CategoryMap`), and that empty string is a fact in this table: it
+     * survives Dokan being switched off, it is what keeps the product a
+     * draft, and it is the only thing that changes when somebody finally
+     * applies a mapping.
+     *
+     * ⛔ Asking Dokan instead — which is what `MigrationCompleteness` did
+     * until `alpha.80` — answers a different question. Saving a mapping
+     * empties Dokan's «unmapped» list immediately, while every row here
+     * still carries the empty category; the gate went green and 184 products
+     * stayed uncategorised. «صرف ذخیرهٔ option و سبز شدن وضعیت کافی نیست.»
+     *
+     * Stamped only (`import_run_id <> ''`): a row nobody imported is the
+     * vendor's own draft and its empty category is the vendor's to fill on
+     * the form, not a migration decision.
+     *
+     * @return list<array{id:int, vendor_user_id:int, wc_product_id:int, title:string}>
+     */
+    public function importedWithoutCategory(int $limit = 500): array;
+
+    /**
+     * How many of them there are — the whole number, with no `LIMIT`.
+     *
+     * A page that hit its cap cannot say «این‌همه مانده», and a report built
+     * from `count($page)` is the `alpha.76` counter all over again. Pass a
+     * vendor to scope it to one shop, which is how the completeness gate asks.
+     *
+     * ⛔ `-1` means the read failed. Nought here would read as «nothing left
+     * to decide» and close a gate on a statement that never ran.
+     */
+    public function countImportedWithoutCategory(int $vendorUserId = 0): int;
+
+    /**
+     * Write a category onto a product THAT HAS NONE — the condition inside the
+     * statement, never around it.
+     *
+     * `alpha.50`'s rule, one column over: a read that answers «this row has no
+     * category» and then an unconditional write is two statements with a
+     * window between them, and in that window a manager can have set the
+     * category by hand on the product page. So `category_key = ''` is in the
+     * `WHERE`, and what this method cannot do is overwrite a category anybody
+     * chose — the marketplace's own included.
+     *
+     * Only that one column moves. Not the status, not the ownership, not the
+     * price, not the stock, not the brand — which is why this exists instead
+     * of `updateDetails()`: that one rewrites every detail column from
+     * whatever the caller read a moment ago.
+     *
+     * @return string `''` when it was written; otherwise why not —
+     *                `already_set` (a category is there and is not ours to
+     *                replace), `not_found` (no such row), `bad_category`
+     *                (an empty key is not a category), `not_imported` (the
+     *                row exists and no import made it, so no migration
+     *                decision reaches it) or `storage_failed`. A `bool` would
+     *                fuse the first two, and they are opposite answers: one
+     *                is «somebody decided» and the other is «there is nothing
+     *                here».
+     */
+    public function setCategoryWhenEmpty(int $productId, string $categoryKey): string;
+
+    /**
      * WooCommerce products that more than one of our rows points at.
      *
      * ⛔ This is physically possible: `tmc_products` has NO unique index on

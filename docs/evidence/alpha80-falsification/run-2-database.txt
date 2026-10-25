@@ -1,0 +1,19 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+..............F...............                                    30 / 30 (100%)
+
+Time: 00:24.504, Memory: 24.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Database\CategoryMappingFlowTest::testACountThatCouldNotBeReadIsNotNought
+a failed read says so
+Failed asserting that 0 is identical to -1.
+
+/home/user/tecteb-seller/tests/Database/CategoryMappingFlowTest.php:603
+
+FAILURES!
+Tests: 30, Assertions: 157, Failures: 1.

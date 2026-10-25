@@ -197,6 +197,24 @@ final class MigrationCompleteness
         $profile = $this->vendors->findProfileByUser($vendorUserId);
         $undecidedRoles = $this->roles->undecided($staffRows);
         $unmappedCategories = $this->unmappedFor($vendorUserId);
+        // ⛔ The OTHER half of «نگاشت دسته‌ها», and the half that is readable
+        // with nothing else installed: our own imported rows whose
+        // `category_key` is still empty. See the gate below.
+        $withoutCategory = $this->products->countImportedWithoutCategory($vendorUserId);
+        // ⛔ The no-source group is reported but does NOT hold the decision
+        // half open. `unmapped()` groups products carrying no source category
+        // at all under the empty key — on purpose, so the report can name them
+        // — and no mapping can ever empty that group, because there is nothing
+        // to map. A gate that waited for it would have one exit: inventing a
+        // mapping for «» and letting it be written on every such product. That
+        // is the dead end `alpha.60` named, and it is worse than the defect it
+        // would be guarding. Those products are counted by the OTHER half
+        // instead, which closes when a human picks a category on the product
+        // page — a door that exists.
+        $mappableUnmapped = array_values(array_filter(
+            $unmappedCategories,
+            static fn (array $row): bool => trim((string) ($row['key'] ?? '')) !== ''
+        ));
 
         $records = $this->recordsState($vendorUserId);
 
@@ -213,7 +231,22 @@ final class MigrationCompleteness
                 self::RECORDS_SETTLED, self::RECORDS_NO_SOURCE => true,
                 default => false,
             },
-            'categories_mapped' => $unmappedCategories === [],
+            // ⛔ TWO reads, and neither alone answers the question.
+            //
+            // `unmappedFor()` asks Dokan which source categories nobody has
+            // mapped. It is the decision, and it empties the moment the option
+            // is saved. `countImportedWithoutCategory()` asks OUR table how
+            // many imported rows still carry `category_key = ''` — the
+            // products — and saving a mapping moves not one of them: a row
+            // only changes when a manager applies the mapping on purpose
+            // (`ApplyCategoryMapping`).
+            //
+            // Until `alpha.80` only the first was asked, so writing the option
+            // closed this gate while 184 products sat uncategorised and
+            // undraftable. «صرف ذخیرهٔ option و سبز شدن وضعیت کافی نیست.» And
+            // a failed count arrives as `-1`, which keeps the gate OPEN: a
+            // statement that never ran must not read as «nothing left».
+            'categories_mapped' => $mappableUnmapped === [] && $withoutCategory === 0,
             // Observed rows are catalogue notes. A shop whose products are all
             // still notes has been read, not moved.
             'ownership_taken' => $tally['marketplace'] > 0 && $tally['observed'] === 0,
@@ -244,6 +277,13 @@ final class MigrationCompleteness
                 'products_marketplace' => $tally['marketplace'],
                 'products_observed' => $tally['observed'],
                 'unmapped_categories' => $unmappedCategories,
+                // The mappable ones, separately: the page explains which half
+                // of the gate is open and «۳ دستهٔ مبدأ نگاشت نشده» must not
+                // count a group nobody can map.
+                'unmapped_mappable' => $mappableUnmapped,
+                // `-1` means the count could not be read, and the page says
+                // so rather than printing a number nobody measured.
+                'products_without_category' => $withoutCategory,
                 'balance_rows' => (int) $summary['balance_rows'],
                 'withdrawal_rows' => (int) $summary['withdrawals'],
                 // Why the gate answered what it did. A zero that was READ is

@@ -1,0 +1,107 @@
+alpha.80 falsification — 13 mutations, 2026-10-25T08:10:40Z
+
+## 0 — the category gate reads only the mapping again
+   file:   src/Modules/Migration/Application/MigrationCompleteness.php
+   filter: CategoryMappingFlowTest|CategoryMappingHasOneWriterTest
+   architecture:  FAILURES! Tests: 5, Assertions: 50, Failures: 1. 
+   database:      FAILURES! Tests: 16, Assertions: 101, Failures: 2. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 2a48b497f4bd23376d32adcc4ccfd414aa428362d44c78e732bbb48d5c961160
+
+## 1 — a failed count closes the gate
+   file:   src/Modules/Migration/Application/MigrationCompleteness.php
+   filter: CategoryMappingHasOneWriterTest
+   architecture:  FAILURES! Tests: 5, Assertions: 50, Failures: 1. 
+   database:     Configuration: /home/user/tecteb-seller/phpunit.xml.dist  No tests executed! 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 2a48b497f4bd23376d32adcc4ccfd414aa428362d44c78e732bbb48d5c961160
+
+## 2 — a failed count is reported as nought
+   file:   src/Modules/Product/Infrastructure/DbProductRepository.php
+   filter: MalformedColumnGuardTest|CategoryMappingFlowTest
+   architecture: Configuration: /home/user/tecteb-seller/phpunit.xml.dist  No tests executed! 
+   database:      FAILURES! Tests: 30, Assertions: 157, Failures: 1. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 95cf83d7754b4766247540fc218e4bb783f5296cb99541a395040dcf0b8fba61
+
+## 3 — the category write stops asking whether the row is empty
+   file:   src/Modules/Product/Infrastructure/DbProductRepository.php
+   filter: CategoryMappingFlowTest
+   architecture: Configuration: /home/user/tecteb-seller/phpunit.xml.dist  No tests executed! 
+   database:      FAILURES! Tests: 16, Assertions: 108, Failures: 1. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 95cf83d7754b4766247540fc218e4bb783f5296cb99541a395040dcf0b8fba61
+
+## 4 — a row no import made becomes writable
+   file:   src/Modules/Product/Infrastructure/DbProductRepository.php
+   filter: CategoryMappingFlowTest
+   architecture: Configuration: /home/user/tecteb-seller/phpunit.xml.dist  No tests executed! 
+   database:      FAILURES! Tests: 16, Assertions: 108, Failures: 1. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 95cf83d7754b4766247540fc218e4bb783f5296cb99541a395040dcf0b8fba61
+
+## 5 — a target that moved is written anyway
+   file:   src/Modules/Migration/Application/ApplyCategoryMapping.php
+   filter: CategoryMappingFlowTest
+   architecture: Configuration: /home/user/tecteb-seller/phpunit.xml.dist  No tests executed! 
+   database:      FAILURES! Tests: 16, Assertions: 107, Failures: 1. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 01bc32517d717b58967ecb8d1282139d954459ebcd0a4097a89fc73f5ec57a14
+
+## 6 — an unreadable source reads as nothing to map
+   file:   src/Modules/Migration/Application/CategoryMapping.php
+   filter: CategoryMappingFlowTest
+   architecture: Configuration: /home/user/tecteb-seller/phpunit.xml.dist  No tests executed! 
+   database:      FAILURES! Tests: 16, Assertions: 106, Failures: 1. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 5a8e45868298714a3c8123969fa662e5441337de37c187fc0f4527552f3a29da
+
+## 7 — the writer runs with an unreadable source
+   file:   src/Modules/Migration/Application/ApplyCategoryMapping.php
+   filter: CategoryMappingFlowTest
+   architecture: Configuration: /home/user/tecteb-seller/phpunit.xml.dist  No tests executed! 
+   database:      FAILURES! Tests: 16, Assertions: 108, Failures: 1. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 01bc32517d717b58967ecb8d1282139d954459ebcd0a4097a89fc73f5ec57a14
+
+## 8 — a target that resolves to nothing is applied
+   file:   src/Modules/Migration/Application/CategoryMapping.php
+   filter: CategoryMappingFlowTest
+   architecture: Configuration: /home/user/tecteb-seller/phpunit.xml.dist  No tests executed! 
+   database:      FAILURES! Tests: 16, Assertions: 105, Failures: 1. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 5a8e45868298714a3c8123969fa662e5441337de37c187fc0f4527552f3a29da
+
+## 9 — the empty source key becomes a mappable category
+   file:   src/Modules/Migration/Application/CategoryMapping.php
+   filter: CategoryMappingFlowTest
+   architecture: Configuration: /home/user/tecteb-seller/phpunit.xml.dist  No tests executed! 
+   database:      ERRORS! Tests: 16, Assertions: 104, Errors: 1, Failures: 1, Warnings: 1. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 5a8e45868298714a3c8123969fa662e5441337de37c187fc0f4527552f3a29da
+
+## 10 — no admin path saves the mapping
+   file:   src/Modules/Migration/Presentation/Admin/HandoverPage.php
+   filter: CategoryMappingHasOneWriterTest
+   architecture:  FAILURES! Tests: 5, Assertions: 50, Failures: 1. 
+   database:     Configuration: /home/user/tecteb-seller/phpunit.xml.dist  No tests executed! 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 0734567379d5eed57410af180c31027fb52510f4f7c241f88a604404a841d02c
+
+## 11 — the no-source group holds the decision half open
+   file:   src/Modules/Migration/Application/MigrationCompleteness.php
+   filter: CategoryMappingFlowTest|CategoryMappingHasOneWriterTest
+   architecture:  FAILURES! Tests: 5, Assertions: 52, Failures: 1. 
+   database:      FAILURES! Tests: 16, Assertions: 109, Failures: 1. 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 2a48b497f4bd23376d32adcc4ccfd414aa428362d44c78e732bbb48d5c961160
+
+## 12 — the source key travels as text
+   file:   src/Modules/Migration/Presentation/Admin/HandoverPage.php
+   filter: CategoryMappingHasOneWriterTest
+   architecture:  FAILURES! Tests: 5, Assertions: 51, Failures: 1. 
+   database:     Configuration: /home/user/tecteb-seller/phpunit.xml.dist  No tests executed! 
+   RESULT: the defect is caught. ✓
+   restored byte for byte: 0734567379d5eed57410af180c31027fb52510f4f7c241f88a604404a841d02c
+
+failures: 0

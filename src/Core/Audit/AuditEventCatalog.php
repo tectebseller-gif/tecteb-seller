@@ -182,6 +182,18 @@ final class AuditEventCatalog
     public const DOKAN_STAFF_GRANTED = 'migration.dokan_staff_granted';
     public const DOKAN_FINANCE_HANDOVER = 'migration.dokan_finance_handover';
 
+    /**
+     * Two acts about categories, and they are deliberately two events.
+     *
+     * Saving the mapping decides what a source category MEANS and moves no
+     * product. Applying it writes `category_key` on rows that were already
+     * here. A trail that logged one line for both would make «somebody
+     * decided» and «a catalogue changed» indistinguishable — which is the
+     * exact confusion this round was reported for.
+     */
+    public const DOKAN_CATEGORY_MAP_SAVED = 'migration.dokan_category_map_saved';
+    public const DOKAN_CATEGORY_APPLIED = 'migration.dokan_category_applied';
+
     /** @return array<string, list<string>> event type => allowed top-level payload keys */
     public static function allowlist(): array
     {
@@ -303,6 +315,8 @@ final class AuditEventCatalog
             self::CATALOGUE_INTAKE_ROLLED_BACK => ['run_id', 'removed', 'kept'],
             self::DOKAN_STAFF_GRANTED => ['vendor_id', 'staff_user_id', 'dokan_role', 'preset', 'status'],
             self::DOKAN_FINANCE_HANDOVER => ['vendor_id', 'closing', 'paid_by_dokan', 'pending_requests', 'pending_total', 'decision'],
+            self::DOKAN_CATEGORY_MAP_SAVED => ['source_key', 'target', 'entries', 'removed'],
+            self::DOKAN_CATEGORY_APPLIED => ['products', 'requested'],
         ];
     }
 

@@ -1,0 +1,123 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+....F                                                               5 / 5 (100%)
+
+Time: 00:00.024, Memory: 12.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Architecture\CategoryMappingHasOneWriterTest::testTheGateReadsTheProductsAndNotOnlyTheMapping
+both halves, and `=== 0` so a failed count (-1) keeps the gate open
+Failed asserting that '{\n
+        $summary = $this->records->summaryForVendor($vendorUserId);\n
+        $staffRows = $this->records->staffForVendor($vendorUserId);\n
+        $tally = $this->products->ownershipTallyForVendor($vendorUserId);\n
+        $profile = $this->vendors->findProfileByUser($vendorUserId);\n
+        $undecidedRoles = $this->roles->undecided($staffRows);\n
+        $unmappedCategories = $this->unmappedFor($vendorUserId);\n
+        \n
+        \n
+        \n
+        $withoutCategory = $this->products->countImportedWithoutCategory($vendorUserId);\n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        $mappableUnmapped = array_values(array_filter(\n
+            $unmappedCategories,\n
+            static fn (array $row): bool => trim((string) ($row['key'] ?? '')) !== ''\n
+        ));\n
+\n
+        $records = $this->recordsState($vendorUserId);\n
+\n
+        $gates = [\n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            'records_imported' => match ($records['state']) {\n
+                self::RECORDS_SETTLED, self::RECORDS_NO_SOURCE => true,\n
+                default => false,\n
+            },\n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            'categories_mapped' => $mappableUnmapped === [] && $withoutCategory <= 0,\n
+            \n
+            \n
+            'ownership_taken' => $tally['marketplace'] > 0 && $tally['observed'] === 0,\n
+            \n
+            \n
+            'vendor_can_sell' => $profile?->canSell === true,\n
+            'staff_decided' => $undecidedRoles === [],\n
+            'finance_decided' => $this->finance->decisionFor($vendorUserId)['decision'] !== ReconcileDokanFinance::OPEN,\n
+        ];\n
+\n
+        $missing = array_keys(array_filter($gates, static fn (bool $ok): bool => !$ok));\n
+        $verdict = match (true) {\n
+            $missing === [] => self::COMPLETE,\n
+            \n
+            \n
+            $gates['records_imported'] && count($missing) === count(self::GATES) - 1 => self::RECORDED_ONLY,\n
+            default => self::INCOMPLETE,\n
+        };\n
+\n
+        return [\n
+            'vendor_user_id' => $vendorUserId,\n
+            'verdict' => $verdict,\n
+            'gates' => $gates,\n
+            'missing' => $missing,\n
+            'detail' => [\n
+                'staff_rows' => count($staffRows),\n
+                'undecided_roles' => $undecidedRoles,\n
+                'products_marketplace' => $tally['marketplace'],\n
+                'products_observed' => $tally['observed'],\n
+                'unmapped_categories' => $unmappedCategories,\n
+                \n
+                \n
+                \n
+                'unmapped_mappable' => $mappableUnmapped,\n
+                \n
+                \n
+                'products_without_category' => $withoutCategory,\n
+                'balance_rows' => (int) $summary['balance_rows'],\n
+                'withdrawal_rows' => (int) $summary['withdrawals'],\n
+                \n
+                \n
+                \n
+                'records_state' => $records['state'],\n
+                'records_kinds' => $records['kinds'],\n
+                'records_reasons' => $records['reasons'],\n
+            ],\n
+        ];\n
+    }' [ASCII](length: 3265) contains "'categories_mapped' => $mappableUnmapped === [] && $withoutCategory === 0," [ASCII](length: 74).
+
+/home/user/tecteb-seller/tests/Architecture/CategoryMappingHasOneWriterTest.php:232
+
+FAILURES!
+Tests: 5, Assertions: 50, Failures: 1.

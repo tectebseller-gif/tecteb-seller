@@ -21,7 +21,9 @@ use Tecteb\Marketplace\Modules\Migration\Application\CatalogueReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanRecordImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportExistingProducts;
+use Tecteb\Marketplace\Modules\Migration\Application\ApplyCategoryMapping;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
+use Tecteb\Marketplace\Modules\Migration\Application\CategoryMapping;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\GrantImportedStaff;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
@@ -54,6 +56,7 @@ use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MigrationPage;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MinMaxExitPage;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\ProductIntakePage;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface;
@@ -147,6 +150,31 @@ final class MigrationModule implements ModuleInterface
         );
         $c->bind(CategoryMap::class, static fn (ContainerInterface $c) => new CategoryMap(
             $c->get(OptionStoreInterface::class)
+        ));
+        // What the mapping is, and what applying it WOULD do. Read only — it
+        // has no write method of any kind, asserted from this file's bytes —
+        // so «پیش از اعمال، تعداد محصولات متأثر و تغییر پیشنهادی نمایش داده
+        // شود» is a property of the class rather than a rule the page keeps.
+        //
+        // Both halves of the source side are optional and answer «نتوانستم
+        // بپرسم» rather than «چیزی نیست»: without Dokan there is no source
+        // category to map FROM, and without WooCommerce there is no
+        // marketplace category to map TO. Neither absence may read as «nothing
+        // to do».
+        $c->bind(CategoryMapping::class, static fn (ContainerInterface $c) => new CategoryMapping(
+            $c->get(CategoryMap::class),
+            $c->get(ProductRepositoryInterface::class),
+            $c->has(DokanReaderInterface::class) ? $c->get(DokanReaderInterface::class) : null,
+            $c->has(ProductCategoryDirectoryInterface::class)
+                ? $c->get(ProductCategoryDirectoryInterface::class)
+                : null
+        ));
+        // The ONE writer, and one column is all it writes.
+        $c->bind(ApplyCategoryMapping::class, static fn (ContainerInterface $c) => new ApplyCategoryMapping(
+            $c->get(CategoryMapping::class),
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(AuditLogger::class),
+            $c->get(CapabilityCheckerInterface::class)
         ));
         $c->bind(StaffRoleMap::class, static fn (ContainerInterface $c) => new StaffRoleMap(
             $c->get(OptionStoreInterface::class)

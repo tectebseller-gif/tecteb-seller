@@ -1,0 +1,24 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+...........F..F.                                                  16 / 16 (100%)
+
+Time: 00:08.640, Memory: 24.00 MB
+
+There were 2 failures:
+
+1) Tecteb\Marketplace\Tests\Database\CategoryMappingFlowTest::testTheGateClosesOnlyWhenTheProductsHaveTheirCategory
+the option is saved and 184-style rows are still waiting
+Failed asserting that true is false.
+
+/home/user/tecteb-seller/tests/Database/CategoryMappingFlowTest.php:506
+
+2) Tecteb\Marketplace\Tests\Database\CategoryMappingFlowTest::testACountThatCouldNotBeReadIsNotNought
+Failed asserting that true is false.
+
+/home/user/tecteb-seller/tests/Database/CategoryMappingFlowTest.php:615
+
+FAILURES!
+Tests: 16, Assertions: 101, Failures: 2.

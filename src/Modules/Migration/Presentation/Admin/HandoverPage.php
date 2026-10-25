@@ -6,11 +6,16 @@ namespace Tecteb\Marketplace\Modules\Migration\Presentation\Admin;
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\JobRepositoryInterface;
+use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
+use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Jobs\Job;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
+use Tecteb\Marketplace\Modules\Migration\Application\ApplyCategoryMapping;
+use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
+use Tecteb\Marketplace\Modules\Migration\Application\CategoryMapping;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanRecordImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\GrantImportedStaff;
@@ -62,7 +67,8 @@ final class HandoverPage
         if (!current_user_can(self::CAPABILITY)) {
             wp_die(esc_html__('دسترسی لازم را ندارید.', 'tecteb-marketplace-core'), '', ['response' => 403]);
         }
-        $notice = $this->handleAction(Request::capture());
+        $request = Request::capture();
+        $notice = $this->handleAction($request);
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
 
         echo Components::shellOpen(self::menuLabel(), self::SLUG, __('نسخه آزمایشی', 'tecteb-marketplace-core'));
@@ -118,6 +124,12 @@ final class HandoverPage
         } else {
             $this->renderCompleteness($shops, $fa);
         }
+        // Right after the gates, because this card is the only door out of one
+        // of them — and because the gate and the card have to agree about what
+        // «نگاشت دسته‌ها» means. Drawn for every install, Dokan or no Dokan:
+        // the number of imported products still waiting for a category is read
+        // from our own table and is true either way.
+        $this->renderCategories($fa, $request);
         if ($recordSubjects !== []) {
             $this->renderStaff($recordSubjects, $fa);
             $this->renderFinance($recordSubjects, $fa);
@@ -442,12 +454,39 @@ final class HandoverPage
                     . esc_html(self::recordsStateReason((string) ($row['detail']['records_state'] ?? '')))
                     . '</span>';
             }
+            // And which half of «نگاشت دسته‌ها» is open — the decision or
+            // the products. Saving the mapping clears the first and moves
+            // none of the second, so one word for both is how «۱۸۴ محصول
+            // بی‌دسته» reads as done.
+            if (in_array('categories_mapped', (array) $row['missing'], true)) {
+                $waiting = (int) ($row['detail']['products_without_category'] ?? 0);
+                $unmapped = count((array) ($row['detail']['unmapped_mappable'] ?? []));
+                $says = [];
+                if ($unmapped > 0) {
+                    $says[] = sprintf(
+                        /* translators: %s: number of source categories */
+                        __('%s دستهٔ مبدأ نگاشت نشده', 'tecteb-marketplace-core'),
+                        $fa((string) $unmapped)
+                    );
+                }
+                if ($waiting < 0) {
+                    $says[] = __('تعداد محصولات بی‌دسته خوانده نشد', 'tecteb-marketplace-core');
+                } elseif ($waiting > 0) {
+                    $says[] = sprintf(
+                        /* translators: %s: number of products */
+                        __('%s محصول واردشده دسته‌ای ندارد و منتظر اعمال است', 'tecteb-marketplace-core'),
+                        $fa((string) $waiting)
+                    );
+                }
+                if ($says !== []) {
+                    $left .= '<span class="tmc-field__desc">' . esc_html(implode(' · ', $says)) . '</span>';
+                }
+            }
             echo '<tr><td>' . esc_html($this->shopName($vendorUserId)) . '</td>'
                 . '<td>' . self::verdictBadge((string) $row['verdict']) . '</td>'
                 . '<td>' . $left . '</td></tr>';
         }
         echo '</tbody></table></div>';
-        unset($fa);
         echo '</section>';
     }
 
@@ -742,6 +781,108 @@ final class HandoverPage
                 : 'err:' . __('ذخیرهٔ نگاشت انجام نشد.', 'tecteb-marketplace-core');
         }
 
+        if ($action === 'save_category' || $action === 'forget_category') {
+            // ⛔ The source key arrives as its DIGEST and is resolved against
+            // the list the page drew. It cannot arrive as itself: a Persian
+            // `product_cat` slug is percent-encoded, and `sanitize_key()` and
+            // `sanitize_text_field()` both delete `%xx` octets — so a form
+            // carrying the slug would hand this method a different category,
+            // or an empty one, with nothing anywhere looking wrong.
+            $mapping = $this->container->get(CategoryMapping::class);
+            if (!$mapping->sourceAvailable()) {
+                return 'err:' . __('دکان در حال اجرا نیست، پس دستهٔ مبدأ خوانده نمی‌شود و نگاشتی ذخیره نشد.', 'tecteb-marketplace-core');
+            }
+            $ref = $request->postKey('cat_ref');
+            $sourceKey = '';
+            foreach ($mapping->sourceCategories() as $row) {
+                if (self::sourceRef((string) $row['key']) === $ref) {
+                    $sourceKey = (string) $row['key'];
+                    break;
+                }
+            }
+            if ($sourceKey === '') {
+                return 'err:' . __('آن دستهٔ مبدأ پیدا نشد، پس چیزی ذخیره نشد.', 'tecteb-marketplace-core');
+            }
+
+            $map = $this->container->get(CategoryMap::class);
+            // Merged, never replaced. The form decides about ONE source
+            // category; posting it as the whole map would erase every other
+            // decision already taken — the same reason `save_roles` merges.
+            $merged = $map->all();
+            $target = '';
+            if ($action === 'forget_category') {
+                unset($merged[$sourceKey]);
+            } else {
+                $target = $request->postKey('cat_target');
+                if ($target === '') {
+                    return 'err:' . __('دسته‌ای انتخاب نشد، پس چیزی ذخیره نشد.', 'tecteb-marketplace-core');
+                }
+                // ⛔ Only a category that resolves RIGHT NOW. A key nobody can
+                // find would be stored as a decision and then held on every
+                // product for ever, which is a worse state than undecided.
+                if ($mapping->targetPath($target) === '') {
+                    return 'err:' . __('آن شناسه به هیچ دستهٔ ووکامرسی نمی‌رسد، پس ذخیره نشد.', 'tecteb-marketplace-core');
+                }
+                $merged[$sourceKey] = $target;
+            }
+            if (!$map->save($merged)) {
+                return 'err:' . __('ذخیرهٔ نگاشت دسته انجام نشد.', 'tecteb-marketplace-core');
+            }
+            $this->container->get(AuditLogger::class)->log(
+                AuditEventCatalog::DOKAN_CATEGORY_MAP_SAVED,
+                get_current_user_id(),
+                'product_category',
+                null,
+                [
+                    'source_key' => $sourceKey,
+                    'target' => $target,
+                    'entries' => count($merged),
+                    'removed' => $action === 'forget_category',
+                ]
+            );
+            return 'ok:' . ($action === 'forget_category'
+                ? __('نگاشت این دسته حذف شد. هیچ محصولی عوض نشد.', 'tecteb-marketplace-core')
+                : __('نگاشت این دسته ذخیره شد. هنوز هیچ محصولی عوض نشده است — برای اعمال روی محصولات واردشده، دکمهٔ پایین همان کارت را بزنید.', 'tecteb-marketplace-core'));
+        }
+
+        if ($action === 'apply_categories') {
+            // The ids AND the target each one was shown with. The service
+            // derives the target again and refuses a row whose target moved,
+            // so this is consent to a change that was printed rather than to
+            // whatever the option says at the moment of the click.
+            $shown = [];
+            foreach ($request->postMap('apply') as $productId => $target) {
+                $shown[(int) $productId] = (string) $target;
+            }
+            $result = $this->container->get(ApplyCategoryMapping::class)->apply($shown);
+            if ($result['refused'] !== '') {
+                return 'err:' . match ($result['refused']) {
+                    'not_allowed' => __('دسترسی لازم برای اعمال نگاشت را ندارید.', 'tecteb-marketplace-core'),
+                    'nothing_selected' => __('هیچ محصولی فرستاده نشد، پس چیزی نوشته نشد.', 'tecteb-marketplace-core'),
+                    'source_unreadable' => __('دکان در حال اجرا نیست و دستهٔ مبدأ خوانده نمی‌شود، پس هیچ‌چیز نوشته نشد.', 'tecteb-marketplace-core'),
+                    default => __('اعمال نگاشت انجام نشد.', 'tecteb-marketplace-core'),
+                };
+            }
+            // Every outcome counted by name. «۱۲ محصول نوشته شد» alone hides
+            // the rows that did not, and those are the ones a person has to
+            // look at.
+            $byCode = [];
+            foreach ($result['outcomes'] as $code) {
+                $byCode[(string) $code] = ($byCode[(string) $code] ?? 0) + 1;
+            }
+            $parts = [];
+            foreach ($byCode as $code => $n) {
+                $parts[] = self::applyOutcome((string) $code) . ': ' . PersianDigits::toPersian((string) $n);
+            }
+            $written = (int) $result['written'];
+            return ($written > 0 ? 'ok:' : 'err:') . sprintf(
+                /* translators: 1: written count, 2: per-outcome list */
+                __('دستهٔ %1$s محصول نوشته شد. %2$s', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) $written),
+                implode(' · ', $parts)
+            );
+        }
+
         if ($action === 'import_records') {
             $preview = $this->container->get(ShopRecordPreview::class);
             // ⛔ The SAME list the preview drew and the SAME list the walk
@@ -845,6 +986,377 @@ final class HandoverPage
         }
 
         return 'err:' . __('اقدام ناشناخته.', 'tecteb-marketplace-core');
+    }
+
+    /**
+     * The category mapping: the decision, and — separately — the products.
+     *
+     * ⛔ Two halves on one card because they are constantly mistaken for each
+     * other, and the delivered `alpha.79` had only the first:
+     *
+     *   A. WHAT A SOURCE CATEGORY MEANS. Saved in `CategoryMap`, used by the
+     *      import at creation time, and it moves no product that is already
+     *      here. Until this round nothing in `src/` called `save()`, so this
+     *      decision could not be taken at all and the handover page named
+     *      `categories_mapped` as a blocker with no door out of it.
+     *
+     *   B. THE PRODUCTS. The rows an import created carry `category_key = ''`
+     *      and keep carrying it. They change only when a manager applies the
+     *      mapping on purpose, which is the second form below — and the
+     *      numbers are shown before anything is written.
+     *
+     * The source side needs Dokan: the import reads a product's source
+     * category and does not keep it, so with Dokan gone there is nothing on
+     * our side to map FROM. That is said out loud rather than drawn as an
+     * empty table, which would read as «nothing to map».
+     */
+    private function renderCategories(callable $fa, Request $request): void
+    {
+        $mapping = $this->container->get(CategoryMapping::class);
+
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('نگاشت دستهٔ محصولات', 'tecteb-marketplace-core') . '</h2>';
+        echo '<p class="tmc-field__desc">'
+            . esc_html__('ذخیرهٔ نگاشت می‌گوید یک دستهٔ دکان در این بازارگاه چه معنایی دارد. هیچ محصولی را جابه‌جا نمی‌کند: ردیف‌هایی که ورود ساخته بدون دسته‌اند و بدون دسته می‌مانند، تا وقتی با اقدام صریح شما اعمال شود. پیش از اعمال، تعداد و تغییر پیشنهادی را همین‌جا می‌بینید.', 'tecteb-marketplace-core')
+            . '</p>';
+
+        $plan = $mapping->plan();
+        $waiting = (int) $plan['total'];
+        echo '<p class="tmc-field__desc">' . ($waiting < 0
+            ? esc_html__('تعداد محصولات بی‌دسته خوانده نشد، پس عددی گزارش نمی‌شود.', 'tecteb-marketplace-core')
+            : esc_html(sprintf(
+                /* translators: %s: number of products */
+                __('همین حالا %s محصول واردشده دسته‌ای ندارد.', 'tecteb-marketplace-core'),
+                $fa((string) $waiting)
+            ))) . '</p>';
+
+        if (!$mapping->targetsAvailable()) {
+            echo Components::notice('warning', __('هیچ دستهٔ محصولی در ووکامرس خوانده نشد، پس چیزی برای انتخاب وجود ندارد. این افزونه هرگز دسته نمی‌سازد؛ دسته‌ها را در «محصولات ← دسته‌بندی‌ها» بسازید.', 'tecteb-marketplace-core'));
+        }
+        if (!$mapping->sourceAvailable()) {
+            echo Components::notice('warning', __('دکان در حال اجرا نیست، پس دستهٔ مبدأ خوانده نمی‌شود. ورود، دستهٔ مبدأ را می‌خوانَد و ذخیره نمی‌کند، پس نه جدول نگاشت کشیده می‌شود و نه اعمال برنامه‌ریزی می‌شود. این «چیزی برای نگاشت نیست» نیست.', 'tecteb-marketplace-core'));
+            echo '</section>';
+            return;
+        }
+
+        $sources = $mapping->sourceCategories();
+        $noSource = $mapping->productsWithoutSourceCategory();
+
+        if ($sources === []) {
+            echo Components::state(
+                'empty',
+                __('هیچ دستهٔ مبدأیی پیدا نشد', 'tecteb-marketplace-core'),
+                __('محصولات دکان دستهٔ ووکامرسی ندارند که نگاشت شود.', 'tecteb-marketplace-core')
+            );
+        } else {
+            echo '<div class="tmc-scroll" tabindex="0" role="region" aria-label="'
+                . esc_attr__('جدول نگاشت دسته‌ها', 'tecteb-marketplace-core') . '">';
+            echo '<table class="tmc-table"><thead><tr>'
+                . '<th scope="col">' . esc_html__('دستهٔ مبدأ', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('شناسه', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('تعداد محصول', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('دستهٔ بازارگاه', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('اقدام', 'tecteb-marketplace-core') . '</th>'
+                . '</tr></thead><tbody>';
+            foreach ($sources as $row) {
+                $ref = self::sourceRef((string) $row['key']);
+                // ⛔ The target cell says WHICH of three it is. «تعیین‌نشده» and
+                // «به دسته‌ای اشاره می‌کند که پیدا نشد» are opposite problems
+                // and one word for both is how an invalid mapping gets applied.
+                if (!$row['decided']) {
+                    $target = Components::badge('warning', '!', __('تعیین‌نشده', 'tecteb-marketplace-core'));
+                } elseif (!$row['target_valid']) {
+                    $target = Components::badge('error', '✕', __('نامعتبر', 'tecteb-marketplace-core'))
+                        . ' ' . Components::code((string) $row['target'])
+                        . '<span class="tmc-field__desc">'
+                        . esc_html__('این شناسه به هیچ دستهٔ ووکامرسی نمی‌رسد، پس روی هیچ محصولی نوشته نمی‌شود.', 'tecteb-marketplace-core')
+                        . '</span>';
+                } else {
+                    $target = esc_html((string) $row['target_path'])
+                        . '<span class="tmc-field__desc">' . esc_html($fa((string) $row['target'])) . '</span>';
+                }
+                echo '<tr><td>' . ((string) $row['label'] === ''
+                        ? esc_html__('(بی‌نام)', 'tecteb-marketplace-core')
+                        : esc_html((string) $row['label'])) . '</td>'
+                    . '<td>' . Components::code((string) $row['key']) . '</td>'
+                    . '<td>' . esc_html($fa((string) $row['products'])) . '</td>'
+                    . '<td>' . $target . '</td>'
+                    . '<td><a class="tmc-button tmc-button--secondary" href="'
+                    . esc_url(add_query_arg(
+                        ['page' => self::SLUG, 'cat' => $ref],
+                        admin_url('admin.php')
+                    )) . '#tmc-cat-pick">'
+                    . esc_html__('انتخاب دسته', 'tecteb-marketplace-core') . '</a></td></tr>';
+            }
+            echo '</tbody></table></div>';
+        }
+
+        if ($noSource > 0) {
+            echo Components::notice('info', sprintf(
+                /* translators: %s: number of products */
+                __('%s محصول دکان هیچ دستهٔ مبدأیی ندارد. هیچ نگاشتی این‌ها را درست نمی‌کند، چون چیزی برای نگاشت وجود ندارد، و هیچ دسته‌ای هم خودکار برایشان تعیین نمی‌شود؛ دستهٔ این‌ها را در صفحهٔ «بررسی محصولات» یک انسان انتخاب می‌کند.', 'tecteb-marketplace-core'),
+                $fa((string) $noSource)
+            ));
+        }
+
+        $this->renderCategoryPicker($mapping, $sources, $request, $fa);
+        $this->renderCategoryApply($plan, $fa);
+        echo '</section>';
+    }
+
+    /**
+     * One source category's picker — opened by a link, saved by a POST.
+     *
+     * A `<select>` of the owner's 1,070 `product_cat` terms is ~90KB, and
+     * «لوازم جانبی» sits in six branches with nothing on screen to tell them
+     * apart (`alpha.25`). So the same answer the vendor's form gives: a search
+     * box, results carrying their whole ancestry, and a cap.
+     *
+     * ⛔ The source category travels as a HASH, never as itself. A
+     * `product_cat` slug on a Persian site is percent-encoded
+     * («%d8%aa%d8%ac…»), and both `sanitize_key()` and `sanitize_text_field()`
+     * delete `%xx` octets — so a form that carried the slug would arrive
+     * holding a different category, or none. The digest is hex, survives both,
+     * and is resolved back against the list that was drawn.
+     *
+     * @param list<array<string,mixed>> $sources
+     */
+    private function renderCategoryPicker(
+        CategoryMapping $mapping,
+        array $sources,
+        Request $request,
+        callable $fa
+    ): void {
+        $ref = $request->queryKey('cat');
+        if ($ref === '') {
+            return;
+        }
+        $chosen = null;
+        foreach ($sources as $row) {
+            if (self::sourceRef((string) $row['key']) === $ref) {
+                $chosen = $row;
+                break;
+            }
+        }
+        echo '<h3 class="tmc-card__title" id="tmc-cat-pick">'
+            . esc_html__('انتخاب دستهٔ بازارگاه', 'tecteb-marketplace-core') . '</h3>';
+        if ($chosen === null) {
+            echo Components::notice('error', __('آن دستهٔ مبدأ در فهرست بالا نیست. ممکن است محصولاتش رفته باشند یا دسته‌شان عوض شده باشد؛ از جدول بالا یکی را انتخاب کنید.', 'tecteb-marketplace-core'));
+            return;
+        }
+
+        $query = $request->queryText('cat_q');
+        $found = $mapping->pick($query);
+        echo '<p class="tmc-field__desc">' . esc_html(sprintf(
+            /* translators: 1: source category label, 2: product count */
+            __('برای «%1$s» — %2$s محصول در دکان.', 'tecteb-marketplace-core'),
+            (string) $chosen['label'] !== '' ? (string) $chosen['label'] : (string) $chosen['key'],
+            $fa((string) $chosen['products'])
+        )) . '</p>';
+
+        // The search is a GET, so the page can be reloaded or bookmarked and
+        // nothing is written by looking.
+        echo '<form method="get" action="' . esc_url(admin_url('admin.php')) . '">'
+            . '<input type="hidden" name="page" value="' . esc_attr(self::SLUG) . '">'
+            . '<input type="hidden" name="cat" value="' . esc_attr($ref) . '">'
+            . '<label class="screen-reader-text" for="tmc-cat-q">'
+            . esc_html__('جست‌وجوی دستهٔ بازارگاه', 'tecteb-marketplace-core') . '</label>'
+            . '<input class="tmc-input" type="search" id="tmc-cat-q" name="cat_q" value="' . esc_attr($query) . '"'
+            . ' placeholder="' . esc_attr__('نام دسته را بنویسید…', 'tecteb-marketplace-core') . '">'
+            . ' <button type="submit" class="tmc-button tmc-button--secondary">'
+            . esc_html__('جست‌وجوی دسته', 'tecteb-marketplace-core') . '</button>'
+            . '</form>';
+
+        echo '<p class="tmc-field__desc">' . esc_html(sprintf(
+            /* translators: 1: matches, 2: shown, 3: total */
+            __('%1$s مورد مطابق از %3$s دستهٔ ووکامرس، %2$s مورد نمایش داده شد.', 'tecteb-marketplace-core'),
+            $fa((string) $found['matched']),
+            $fa((string) count($found['results'])),
+            $fa((string) $found['total'])
+        )) . '</p>';
+
+        echo '<form method="post">';
+        if ($found['results'] === []) {
+            echo Components::notice('info', __('هیچ دسته‌ای با این عبارت پیدا نشد. عبارت دیگری بنویسید.', 'tecteb-marketplace-core'));
+        } else {
+            echo '<fieldset class="tmc-fieldset"><legend>'
+                . esc_html__('دستهٔ بازارگاه', 'tecteb-marketplace-core') . '</legend>';
+            foreach ($found['results'] as $category) {
+                $id = 'tmc-cat-' . $category->id;
+                echo '<p><input type="radio" id="' . esc_attr($id) . '" name="cat_target" value="'
+                    . esc_attr($category->value()) . '"'
+                    . ((string) $chosen['target'] === $category->value() ? ' checked' : '') . '>'
+                    . ' <label for="' . esc_attr($id) . '">'
+                    . esc_html($category->path !== '' ? $category->path : $category->name)
+                    . ($category->fuzzy
+                        ? ' ' . Components::badge('neutral', '~', __('شبیه', 'tecteb-marketplace-core'))
+                        : '')
+                    . '</label></p>';
+            }
+            echo '</fieldset>';
+        }
+        echo '<input type="hidden" name="cat_ref" value="' . esc_attr($ref) . '">'
+            . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)
+            . '<p><button type="submit" class="tmc-button" name="handover_action" value="save_category">'
+            . esc_html__('ذخیرهٔ نگاشت این دسته', 'tecteb-marketplace-core') . '</button>';
+        if ((bool) $chosen['decided']) {
+            // Undeciding is a decision too, and it has to be reachable —
+            // otherwise a mapping saved by mistake is permanent.
+            echo ' <button type="submit" class="tmc-button tmc-button--secondary" name="handover_action" value="forget_category">'
+                . esc_html__('حذف این نگاشت', 'tecteb-marketplace-core') . '</button>';
+        }
+        echo '</p><p class="tmc-field__desc">'
+            . esc_html__('ذخیره فقط همین یک دسته را تعیین می‌کند و روی هیچ محصولی نوشته نمی‌شود.', 'tecteb-marketplace-core')
+            . '</p></form>';
+    }
+
+    /**
+     * What applying would do, and the one button that does it.
+     *
+     * The counts come from `plan()`, which reads our own rows; the form
+     * carries, per product, the target that was PRINTED. The service derives
+     * the target again at the click and refuses a row whose target moved
+     * between the two — a click on an old page is not consent to whatever the
+     * option says now (`alpha.49`).
+     *
+     * @param array<string,mixed> $plan
+     */
+    private function renderCategoryApply(array $plan, callable $fa): void
+    {
+        echo '<h3 class="tmc-card__title">'
+            . esc_html__('اعمال نگاشت روی محصولات واردشده', 'tecteb-marketplace-core') . '</h3>';
+
+        $apply = (array) $plan['apply'];
+        $held = (array) $plan['held'];
+
+        if (!(bool) $plan['finished']) {
+            echo Components::notice('warning', sprintf(
+                /* translators: 1: scanned, 2: total */
+                __('این شمارش به آخر نرسید: %1$s ردیف بررسی شد و %2$s ردیف منتظر است. آنچه پایین می‌بینید دربارهٔ همین ردیف‌های بررسی‌شده است، نه کل آن‌ها.', 'tecteb-marketplace-core'),
+                $fa((string) $plan['scanned']),
+                // `Components::notice()` escapes its text, so this must NOT
+                // be escaped here as well.
+                (int) $plan['total'] < 0
+                    ? __('نامعلوم', 'tecteb-marketplace-core')
+                    : $fa((string) $plan['total'])
+            ));
+        }
+
+        if ($apply === []) {
+            echo Components::state(
+                'empty',
+                __('هیچ محصولی آمادهٔ اعمال نیست', 'tecteb-marketplace-core'),
+                __('یا هیچ محصول بی‌دسته‌ای نمانده، یا دستهٔ مبدأ هر کدام هنوز نگاشت نشده است. دلیل هر گروه پایین نام‌برده شده.', 'tecteb-marketplace-core')
+            );
+        } else {
+            // Grouped by the change, because «۱۸۴ محصول عوض می‌شود» is not a
+            // preview and 184 rows is not a page a person reads.
+            $groups = [];
+            foreach ($apply as $row) {
+                $key = $row['source_key'] . "\0" . $row['target'];
+                if (!isset($groups[$key])) {
+                    $groups[$key] = [
+                        'source' => (string) ($row['source_label'] !== '' ? $row['source_label'] : $row['source_key']),
+                        'target_path' => (string) $row['target_path'],
+                        'products' => 0,
+                    ];
+                }
+                $groups[$key]['products']++;
+            }
+            echo '<div class="tmc-scroll" tabindex="0" role="region" aria-label="'
+                . esc_attr__('جدول تغییر پیشنهادی', 'tecteb-marketplace-core') . '">';
+            echo '<table class="tmc-table"><thead><tr>'
+                . '<th scope="col">' . esc_html__('دستهٔ مبدأ', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('به دستهٔ بازارگاه', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('تعداد محصول', 'tecteb-marketplace-core') . '</th>'
+                . '</tr></thead><tbody>';
+            foreach ($groups as $group) {
+                echo '<tr><td>' . esc_html($group['source']) . '</td>'
+                    . '<td>' . esc_html($group['target_path']) . '</td>'
+                    . '<td>' . esc_html($fa((string) $group['products'])) . '</td></tr>';
+            }
+            echo '</tbody></table></div>';
+
+            echo '<form method="post">';
+            foreach ($apply as $row) {
+                echo '<input type="hidden" name="apply[' . (int) $row['product_id'] . ']" value="'
+                    . esc_attr((string) $row['target']) . '">';
+            }
+            echo wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)
+                . '<p><button type="submit" class="tmc-button" name="handover_action" value="apply_categories">'
+                . esc_html(sprintf(
+                    /* translators: %s: number of products */
+                    __('اعمال روی %s محصول', 'tecteb-marketplace-core'),
+                    $fa((string) count($apply))
+                ))
+                . '</button></p>'
+                . '<p class="tmc-field__desc">'
+                . esc_html__('فقط ستون دسته روی همین ردیف‌ها نوشته می‌شود — و فقط روی ردیفی که همین حالا بی‌دسته است. هیچ محصول تازه‌ای ساخته نمی‌شود، هیچ ورودی تکرار نمی‌شود، و مالکیت، وضعیت انتشار، اجازهٔ فروش، دسته‌های ووکامرس و اطلاعات مالی دست نمی‌خورند.', 'tecteb-marketplace-core')
+                . '</p></form>';
+        }
+
+        if ($held !== []) {
+            echo '<h3 class="tmc-card__title">'
+                . esc_html__('آنچه اعمال نمی‌شود، و دلیلش', 'tecteb-marketplace-core') . '</h3>';
+            echo '<table class="tmc-table"><thead><tr>'
+                . '<th scope="col">' . esc_html__('دلیل', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('تعداد محصول', 'tecteb-marketplace-core') . '</th>'
+                . '</tr></thead><tbody>';
+            foreach ($held as $reason => $rows) {
+                echo '<tr><td>' . esc_html(self::heldReason((string) $reason))
+                    . '</td><td>' . esc_html($fa((string) count($rows))) . '</td></tr>';
+            }
+            echo '</tbody></table>';
+        }
+    }
+
+    /**
+     * A source category key, transportable.
+     *
+     * Hex, and that is the point: `sanitize_key()` and `sanitize_text_field()`
+     * both strip `%xx` octets, and a Persian `product_cat` slug is nothing but
+     * those. The key itself never travels through a form.
+     */
+    private static function sourceRef(string $sourceKey): string
+    {
+        return substr(sha1($sourceKey), 0, 32);
+    }
+
+    /**
+     * What happened to one product, in words.
+     *
+     * Eight answers rather than «شد / نشد», because they ask for different
+     * things: `already_set` means a human chose a category and this refused to
+     * overwrite it, `target_moved` means the page was stale, `storage_failed`
+     * means try again, and `not_imported` means no migration decision reaches
+     * that row at all.
+     */
+    private static function applyOutcome(string $code): string
+    {
+        return match ($code) {
+            'written' => __('نوشته شد', 'tecteb-marketplace-core'),
+            'already_set' => __('از قبل دسته داشت و دست نخورد', 'tecteb-marketplace-core'),
+            'target_moved' => __('دستهٔ پیشنهادی بین نمایش و کلیک عوض شد و نوشته نشد', 'tecteb-marketplace-core'),
+            'not_found' => __('چنین ردیفی نیست', 'tecteb-marketplace-core'),
+            'not_imported' => __('ورودی آن را نساخته، پس تصمیم مهاجرت به آن نمی‌رسد', 'tecteb-marketplace-core'),
+            'bad_category' => __('دستهٔ خالی دسته نیست', 'tecteb-marketplace-core'),
+            'storage_failed' => __('نوشتن انجام نشد', 'tecteb-marketplace-core'),
+            'not_waiting' => __('دیگر منتظر دسته نبود', 'tecteb-marketplace-core'),
+            default => self::heldReason($code),
+        };
+    }
+
+    /** Why a waiting product is not being written — one sentence each. */
+    private static function heldReason(string $reason): string
+    {
+        return match ($reason) {
+            'unmapped' => __('دستهٔ مبدأشان هنوز نگاشت نشده است', 'tecteb-marketplace-core'),
+            'invalid_target' => __('نگاشتشان به دسته‌ای اشاره می‌کند که پیدا نشد', 'tecteb-marketplace-core'),
+            'no_source_category' => __('در دکان هیچ دسته‌ای ندارند، پس نگاشتی برایشان وجود ندارد', 'tecteb-marketplace-core'),
+            'source_missing' => __('محصول ووکامرسِ متناظرشان در فهرست دکان نیست، پس دستهٔ مبدأ خوانده نشد', 'tecteb-marketplace-core'),
+            'source_unreadable' => __('دکان در حال اجرا نیست و دستهٔ مبدأ خوانده نمی‌شود', 'tecteb-marketplace-core'),
+            default => $reason,
+        };
     }
 
     private function shopName(int $vendorUserId): string

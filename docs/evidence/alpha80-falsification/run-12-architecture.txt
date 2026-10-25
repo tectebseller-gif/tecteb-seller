@@ -1,0 +1,1319 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+.F...                                                               5 / 5 (100%)
+
+Time: 00:00.025, Memory: 12.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Architecture\CategoryMappingHasOneWriterTest::testTheSourceKeyTravelsAsADigest
+postText('cat_ref') would arrive with its %xx octets deleted
+Failed asserting that '<?php\n
+declare(strict_types=1);\n
+\n
+namespace Tecteb\Marketplace\Modules\Migration\Presentation\Admin;\n
+\n
+use Tecteb\Marketplace\Contracts\ClockInterface;\n
+use Tecteb\Marketplace\Contracts\ContainerInterface;\n
+use Tecteb\Marketplace\Contracts\JobRepositoryInterface;\n
+use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;\n
+use Tecteb\Marketplace\Core\Audit\AuditLogger;\n
+use Tecteb\Marketplace\Core\Jobs\Job;\n
+use Tecteb\Marketplace\Core\Lifecycle\Capabilities;\n
+use Tecteb\Marketplace\Core\Support\PersianDigits;\n
+use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;\n
+use Tecteb\Marketplace\Modules\Admin\Presentation\Components;\n
+use Tecteb\Marketplace\Modules\Migration\Application\ApplyCategoryMapping;\n
+use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;\n
+use Tecteb\Marketplace\Modules\Migration\Application\CategoryMapping;\n
+use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;\n
+use Tecteb\Marketplace\Modules\Migration\Application\DokanRecordImportJob;\n
+use Tecteb\Marketplace\Modules\Migration\Application\GrantImportedStaff;\n
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationCompleteness;\n
+use Tecteb\Marketplace\Modules\Migration\Application\ReconcileDokanFinance;\n
+use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordPreview;\n
+use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordScope;\n
+use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;\n
+use Tecteb\Marketplace\Modules\Migration\Application\StaffRoleMap;\n
+use Tecteb\Marketplace\Modules\Vendor\Application\StaffRepositoryInterface;\n
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffRolePreset;\n
+use Tecteb\Marketplace\Modules\Vendor\Domain\StaffStatus;\n
+\n
+\n
+final class HandoverPage\n
+{\n
+    public const SLUG = 'tmc-handover';\n
+    public const CAPABILITY = Capabilities::REVIEW_VENDOR;\n
+    private const NONCE = 'tmc_dokan_handover';\n
+\n
+    public function __construct(private readonly ContainerInterface $container)\n
+    {\n
+    }\n
+\n
+    public static function menuLabel(): string\n
+    {\n
+        return __('تحویل مهاجرت', 'tecteb-marketplace-core');\n
+    }\n
+\n
+    public function render(): void\n
+    {\n
+        if (!current_user_can(self::CAPABILITY)) {\n
+            wp_die(esc_html__('دسترسی لازم را ندارید.', 'tecteb-marketplace-core'), '', ['response' => 403]);\n
+        }\n
+        $request = Request::capture();\n
+        $notice = $this->handleAction($request);\n
+        $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);\n
+\n
+        echo Components::shellOpen(self::menuLabel(), self::SLUG, __('نسخه آزمایشی', 'tecteb-marketplace-core'));\n
+        if ($notice !== '') {\n
+            echo Components::notice(\n
+                str_starts_with($notice, 'ok:') ? 'success' : 'error',\n
+                substr($notice, strpos($notice, ':') + 1)\n
+            );\n
+        }\n
+        echo Components::notice('info', __('ورود سابقه هیچ دسترسی و هیچ بدهی نمی‌سازد. آنچه در این صفحه تصمیم گرفته می‌شود، همان چیزی است که سابقه به‌تنهایی نمی‌تواند بگوید.', 'tecteb-marketplace-core'));\n
+\n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        \n
+        $completeness = $this->container->get(MigrationCompleteness::class);\n
+        $shops = $completeness->shopVendorUserIds();\n
+        $recordOwners = $completeness->recordOwnerVendorUserIds();\n
+        $recordSubjects = array_values(array_unique(array_merge($shops, $recordOwners)));\n
+        sort($recordSubjects);\n
+\n
+        $scope = $this->container->get(ShopRecordScope::class);\n
+        $scopeIds = $scope->ids();\n
+        if ($scopeIds === [] && $recordSubjects === []) {\n
+            echo $this->emptyState();\n
+            echo Components::shellClose();\n
+            return;\n
+        }\n
+\n
+        \n
+        \n
+        \n
+        $this->renderRecordPreview($scopeIds, $scope, $fa);\n
+        if ($shops === []) {\n
+            echo Components::notice('info', __('هیچ فروشگاه واردشده‌ای پیدا نشد. ردیف‌های بالا صاحبان سابقه‌اند، نه فروشگاه‌های این بازارگاه؛ جدول وضعیت مهاجرت دربارهٔ فروشگاه‌های واردشده است و چیزی برای نشان‌دادن ندارد.', 'tecteb-marketplace-core'));\n
+        } else {\n
+            $this->renderCompleteness($shops, $fa);\n
+        }\n
+        \n
+        \n
+        \n
+        \n
+        \n
+        $this->renderCategories($fa, $request);\n
+        if ($recordSubjects !== []) {\n
+            $this->renderStaff($recordSubjects, $fa);\n
+            $this->renderFinance($recordSubjects, $fa);\n
+        }\n
+        echo Components::shellClose();\n
+    }\n
+\n
+    \n
+    private function emptyState(): string\n
+    {\n
+        return '<section class="tmc-card">'\n
+            . Components::state(\n
+                'empty',\n
+                __('هنوز هیچ فروشگاهی از دکان وارد نشده است', 'tecteb-marketplace-core'),\n
+                __('این صفحه دربارهٔ فروشگاه‌هایی است که از دکان وارد شده‌اند — با محصول، با پروندهٔ فروشنده، یا با سابقه. هیچ‌کدام از این سه نشانه پیدا نشد، پس اول از صفحهٔ «مهاجرت از دکان» یک اجرای آزمایشی بگیرید و سپس ورود را انجام دهید.', 'tecteb-marketplace-core'),\n
+                [[\n
+                    'href' => admin_url('admin.php?page=' . MigrationPage::SLUG),\n
+                    'label' => __('رفتن به مهاجرت از دکان', 'tecteb-marketplace-core'),\n
+                    'primary' => true,\n
+                ]]\n
+            )\n
+            . '</section>';\n
+    }\n
+\n
+    \n
+    private function renderRecordPreview(array $shops, ShopRecordScope $scope, callable $fa): void\n
+    {\n
+        $preview = $this->container->get(ShopRecordPreview::class);\n
+        $rows = $preview->forVendors($shops);\n
+        \n
+        $origin = [];\n
+        foreach ($scope->rows() as $scopeRow) {\n
+            $origin[(int) $scopeRow['vendor_user_id']] = $scopeRow;\n
+        }\n
+\n
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'\n
+            . esc_html__('پیش‌نمایش سوابق فروشگاه', 'tecteb-marketplace-core') . '</h2>';\n
+        echo '<p class="tmc-field__desc">'\n
+            . esc_html__('سه نوع سابقه: پرسنل، دفتر مانده و درخواست‌های برداشت. این جدول فقط می‌خواند — نه از دکان چیزی تغییر می‌کند و نه سابقه‌ای ثبت می‌شود. ورود سوابق فقط با دکمهٔ پایین همین بخش انجام می‌شود.', 'tecteb-marketplace-core')\n
+            . '</p>';\n
+\n
+        echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="'\n
+            . esc_attr__('جدول پیش‌نمایش سوابق', 'tecteb-marketplace-core') . '">';\n
+        echo '<table class="tmc-table"><thead><tr>'\n
+            . '<th scope="col">' . esc_html__('فروشگاه', 'tecteb-marketplace-core') . '</th>'\n
+            . '<th scope="col">' . esc_html__('این شناسه چیست', 'tecteb-marketplace-core') . '</th>'\n
+            . '<th scope="col">' . esc_html__('نوع سابقه', 'tecteb-marketplace-core') . '</th>'\n
+            . '<th scope="col">' . esc_html__('وضعیت', 'tecteb-marketplace-core') . '</th>'\n
+            . '<th scope="col">' . esc_html__('در دکان', 'tecteb-marketplace-core') . '</th>'\n
+            . '<th scope="col">' . esc_html__('واردشده', 'tecteb-marketplace-core') . '</th>'\n
+            . '<th scope="col">' . esc_html__('توضیح', 'tecteb-marketplace-core') . '</th>'\n
+            . '</tr></thead><tbody>';\n
+        $unreadable = false;\n
+        foreach ($rows as $row) {\n
+            $first = true;\n
+            foreach (ShopRecordPreview::KINDS as $kind) {\n
+                $cell = $row['kinds'][$kind];\n
+                if (($row['anything_unreadable'] ?? false) === true) {\n
+                    $unreadable = true;\n
+                }\n
+                echo '<tr><td>'\n
+                    . ($first ? esc_html($this->shopName((int) $row['vendor_user_id'])) : '')\n
+                    . '</td>'\n
+                    . '<td>' . ($first\n
+                        ? self::originCell($origin[(int) $row['vendor_user_id']] ?? null)\n
+                        : '') . '</td>'\n
+                    . '<td>' . esc_html(self::kindLabel($kind)) . '</td>'\n
+                    . '<td>' . self::recordBadge((string) $cell['verdict']) . '</td>'\n
+                    \n
+                    \n
+                    \n
+                    \n
+                    \n
+                    . '<td>' . ($cell['source']['count'] === null ? '—' : $fa((string) $cell['source']['count'])) . '</td>'\n
+                    . '<td>' . ($cell['imported'] === null ? '—' : $fa((string) $cell['imported'])) . '</td>'\n
+                    . '<td>' . esc_html(self::recordReason((string) $cell['reason'])) . '</td>'\n
+                    . '</tr>';\n
+                $first = false;\n
+            }\n
+        }\n
+        echo '</tbody></table></div>';\n
+\n
+        if ($unreadable) {\n
+            echo Components::notice('warning', __('دست‌کم یک سابقه خوانده نشد. «خوانده نشد» با «صفر سابقه» یکی نیست و به‌عنوان صفر گزارش نمی‌شود؛ تا وقتی خواندن درست انجام نشود، نبودِ عدد یک پرسش بی‌جواب است نه یک جواب.', 'tecteb-marketplace-core'));\n
+        }\n
+\n
+        if (!$scope->sourceReadable()) {\n
+            \n
+            \n
+            \n
+            \n
+            echo Components::notice('warning', __('فهرست صاحبان سابقه در دکان کامل خوانده نشد، پس همین جدول هم می‌تواند ناقص باشد. تا وقتی این خواندن درست انجام نشود، «همهٔ صاحبان سابقه همین‌ها هستند» گفته نمی‌شود.', 'tecteb-marketplace-core'));\n
+        }\n
+\n
+        $names = static fn (array $ids): string => implode('، ', array_map(\n
+            \n
+            \n
+            static fn (int $id): string => '#' . PersianDigits::toPersian((string) $id),\n
+            $ids\n
+        ));\n
+\n
+        $sourceOnly = $scope->sourceOnlyIds();\n
+        if ($sourceOnly !== []) {\n
+            echo Components::notice('info', sprintf(\n
+                \n
+                __('این شناسه‌ها در دکان صاحب سابقه‌اند و از این بازارگاه وارد نشده‌اند: %s. ورود سوابق، تاریخچهٔ آن‌ها را هم ثبت می‌کند — و همین ثبت نه فروشگاهی می‌سازد، نه پذیرشی، نه دسترسی و نه بدهی. تا وقتی فروشگاهی برایشان وارد و پذیرفته نشده، فروشگاه معتبر این بازارگاه نیستند.', 'tecteb-marketplace-core'),\n
+                $names($sourceOnly)\n
+            ));\n
+        }\n
+\n
+        \n
+        \n
+        \n
+        \n
+        $recordOnly = $scope->recordOnlyIds();\n
+        if ($recordOnly !== []) {\n
+            echo Components::notice('info', sprintf(\n
+                \n
+                __('سابقهٔ این شناسه‌ها این‌طرف ثبت شده و هیچ‌کدام فروشگاه این بازارگاه نیستند: %s. سوابقشان می‌مانَد و همین‌جا نشان داده می‌شود، ولی در جدول وضعیت مهاجرت نمی‌آیند — داشتن سابقه فروشگاه‌بودن نیست.', 'tecteb-marketplace-core'),\n
+                $names($recordOnly)\n
+            ));\n
+        }\n
+\n
+        echo $this->importButton($preview->anythingToImport($shops), $scope->sourceReadable());\n
+        echo '</section>';\n
+    }\n
+\n
+    \n
+    private static function originCell(?array $row): string\n
+    {\n
+        if ($row === null) {\n
+            return esc_html__('نامعلوم', 'tecteb-marketplace-core');\n
+        }\n
+        \n
+        \n
+        \n
+        $badge = match ((string) $row['origin']) {\n
+            ShopRecordScope::IMPORTED => Components::badge('success', '✓', __('فروشگاه واردشده', 'tecteb-marketplace-core')),\n
+            ShopRecordScope::RECORDS_ONLY => Components::badge('warning', '!', __('سابقه‌اش وارد شده، فروشگاه نیست', 'tecteb-marketplace-core')),\n
+            default => Components::badge('warning', '!', __('فقط صاحب سابقه در دکان', 'tecteb-marketplace-core')),\n
+        };\n
+\n
+        $notes = [];\n
+        $notes[] = $row['has_user'] === null\n
+            ? __('کاربر وردپرس: نامعلوم', 'tecteb-marketplace-core')\n
+            : ($row['has_user']\n
+                ? __('کاربر وردپرس دارد', 'tecteb-marketplace-core')\n
+                : __('کاربر وردپرسی با این شناسه نیست', 'tecteb-marketplace-core'));\n
+        $notes[] = $row['has_profile']\n
+            ? ($row['can_sell']\n
+                ? __('پروندهٔ فروشنده دارد و اجازهٔ فروش دارد', 'tecteb-marketplace-core')\n
+                : __('پروندهٔ فروشنده دارد و اجازهٔ فروش ندارد', 'tecteb-marketplace-core'))\n
+            : __('پروندهٔ فروشنده ندارد', 'tecteb-marketplace-core');\n
+\n
+        return $badge . '<span class="tmc-field__desc">' . esc_html(implode(' — ', $notes)) . '</span>';\n
+    }\n
+\n
+    \n
+    private function importButton(bool $anythingToImport, bool $scopeReadable): string\n
+    {\n
+        $live = $this->liveRecordJob();\n
+        if ($live !== null) {\n
+            return Components::notice('info', sprintf(\n
+                \n
+                __('ورود سوابق در صف است (کار شمارهٔ %1$s): %2$s از %3$s. تا پایانش ورود تازه‌ای شروع نمی‌شود؛ وضعیتش در صفحهٔ «صف و سلامت اجرا» دیده می‌شود.', 'tecteb-marketplace-core'),\n
+                PersianDigits::toPersian((string) $live->id),\n
+                PersianDigits::toPersian((string) ($live->done + $live->failed)),\n
+                PersianDigits::toPersian((string) $live->total)\n
+            ));\n
+        }\n
+        $note = '<p class="tmc-field__desc">'\n
+            . esc_html__('ورود سوابق فقط تاریخچه ثبت می‌کند: هیچ بدهی قابل‌پرداخت، هیچ تسویه، هیچ دسترسی پرسنل، هیچ تغییر مالکیت محصول و هیچ فعال‌شدن فروشی. کار قابل‌ادامه است و اگر نیمه‌کاره بماند از همان‌جا ادامه می‌دهد؛ درخواست تکراری سابقهٔ تکراری نمی‌سازد.', 'tecteb-marketplace-core')\n
+            . '</p>';\n
+        if (!$scopeReadable) {\n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            return $note . Components::notice('warning', __('تا وقتی فهرست صاحبان سابقه در دکان کامل خوانده نشود، ورود انجام نمی‌شود: فهرست ناقص یعنی ممکن است صاحبانی باشند که این صفحه نشانشان نداده، و سابقهٔ نشان‌داده‌نشده وارد نمی‌شود. اول خواندن را درست کنید.', 'tecteb-marketplace-core'));\n
+        }\n
+        if (!$anythingToImport) {\n
+            \n
+            \n
+            return $note . Components::notice('info', __('بر اساس پیش‌نمایش بالا، سابقهٔ واردنشده‌ای پیدا نشد. اگر وضعیتی «خوانده نشد» است، اول آن را حل کنید — چون تا خوانده نشود معلوم نیست چیزی مانده یا نه.', 'tecteb-marketplace-core'));\n
+        }\n
+        return $note\n
+            . '<form method="post">'\n
+            . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)\n
+            . '<p><button type="submit" class="tmc-button" name="handover_action" value="import_records">'\n
+            . esc_html__('ورود سوابق به صف', 'tecteb-marketplace-core')\n
+            . '</button></p></form>';\n
+    }\n
+\n
+    \n
+    private function liveRecordJob(): ?Job\n
+    {\n
+        if (!$this->container->has(JobRepositoryInterface::class)) {\n
+            return null;\n
+        }\n
+        foreach ($this->container->get(JobRepositoryInterface::class)->live(50) as $job) {\n
+            if ($job instanceof Job && $job->type === DokanRecordImportJob::TYPE) {\n
+                return $job;\n
+            }\n
+        }\n
+        return null;\n
+    }\n
+\n
+    private static function kindLabel(string $kind): string\n
+    {\n
+        return match ($kind) {\n
+            'staff' => __('پرسنل', 'tecteb-marketplace-core'),\n
+            'balance' => __('دفتر مانده', 'tecteb-marketplace-core'),\n
+            'withdrawals' => __('درخواست برداشت', 'tecteb-marketplace-core'),\n
+            default => $kind,\n
+        };\n
+    }\n
+\n
+    private static function recordBadge(string $verdict): string\n
+    {\n
+        return match ($verdict) {\n
+            ShopRecordPreview::IMPORTED => Components::badge('success', '✓', __('واردشده', 'tecteb-marketplace-core')),\n
+            ShopRecordPreview::PARTIAL => Components::badge('warning', '!', __('نیمه‌واردشده', 'tecteb-marketplace-core')),\n
+            ShopRecordPreview::PENDING => Components::badge('warning', '!', __('واردنشده', 'tecteb-marketplace-core')),\n
+            ShopRecordPreview::EMPTY => Components::badge('neutral', '•', __('صفر سابقه', 'tecteb-marketplace-core')),\n
+            ShopRecordPreview::UNREADABLE => Components::badge('error', '×', __('خواندن ناموفق', 'tecteb-marketplace-core')),\n
+            default => Components::badge('neutral', '?', __('هنوز بررسی نشده', 'tecteb-marketplace-core')),\n
+        };\n
+    }\n
+\n
+    private static function recordReason(string $reason): string\n
+    {\n
+        return match ($reason) {\n
+            'source_has_none' => __('دکان برای این فروشگاه چنین سابقه‌ای ندارد — پرسیده شد و جوابش صفر بود.', 'tecteb-marketplace-core'),\n
+            'not_imported_yet' => __('در دکان هست و این‌طرف هیچ ردیفی نیست. دکمهٔ «ورود سوابق به صف» همین را وارد می‌کند.', 'tecteb-marketplace-core'),\n
+            'some_rows_held' => __('بخشی وارد شده. ورود قابل‌ادامه است و از همان‌جا که مانده ادامه می‌دهد.', 'tecteb-marketplace-core'),\n
+            'all_rows_held' => __('همهٔ ردیف‌هایی که دکان دارد این‌طرف هم هستند.', 'tecteb-marketplace-core'),\n
+            'held_but_source_now_empty' => __('این‌طرف سابقه هست و دکان امروز چیزی نشان نمی‌دهد. چیزی حذف نمی‌شود؛ آنچه وارد شده می‌مانَد.', 'tecteb-marketplace-core'),\n
+            'source_unreadable' => __('خواندن از دکان شکست خورد. این «صفر» نیست و به‌عنوان صفر شمرده نمی‌شود.', 'tecteb-marketplace-core'),\n
+            'our_records_unreadable' => __('خواندن جدول سوابق خودِ ما شکست خورد، پس معلوم نیست چه داریم.', 'tecteb-marketplace-core'),\n
+            'source_not_on_this_install' => __('این منبع روی این نصب نیست — جدولش وجود ندارد، یا بخش مربوطهٔ دکان نصب نیست.', 'tecteb-marketplace-core'),\n
+            'dokan_not_running' => __('دکان روی این نصب اجرا نمی‌شود، پس هیچ پرسشی از آن ممکن نبود.', 'tecteb-marketplace-core'),\n
+            'record_store_not_installed' => __('جدول سوابق این افزونه روی این نصب نیست؛ اول ارتقای ساختار داده لازم است.', 'tecteb-marketplace-core'),\n
+            default => $reason,\n
+        };\n
+    }\n
+\n
+    \n
+    private function renderCompleteness(array $shops, callable $fa): void\n
+    {\n
+        $service = $this->container->get(MigrationCompleteness::class);\n
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'\n
+            . esc_html__('وضعیت مهاجرت هر فروشگاه', 'tecteb-marketplace-core') . '</h2>';\n
+        echo '<p class="tmc-field__desc">'\n
+            . esc_html__('«ثبت سابقه» دروازهٔ صفر است: لازم، و به‌تنهایی هیچ. یک فروشگاه وقتی «کامل» است که هر شش دروازه بسته شده باشد.', 'tecteb-marketplace-core')\n
+            . '</p>';\n
+\n
+        echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="'\n
+            . esc_attr__('جدول وضعیت مهاجرت', 'tecteb-marketplace-core') . '">';\n
+        echo '<table class="tmc-table"><thead><tr>'\n
+            . '<th scope="col">' . esc_html__('فروشگاه', 'tecteb-marketplace-core') . '</th>'\n
+            . '<th scope="col">' . esc_html__('وضعیت', 'tecteb-marketplace-core') . '</th>'\n
+            . '<th scope="col">' . esc_html__('آنچه باقی مانده', 'tecteb-marketplace-core') . '</th>'\n
+            . '</tr></thead><tbody>';\n
+        foreach ($shops as $vendorUserId) {\n
+            $row = $service->forVendor($vendorUserId);\n
+            $left = $row['missing'] === []\n
+                ? esc_html__('چیزی باقی نمانده است.', 'tecteb-marketplace-core')\n
+                : esc_html(implode('، ', array_map([self::class, 'gateLabel'], $row['missing'])));\n
+            \n
+            \n
+            \n
+            if (in_array('records_imported', (array) $row['missing'], true)) {\n
+                $left .= '<span class="tmc-field__desc">'\n
+                    . esc_html(self::recordsStateReason((string) ($row['detail']['records_state'] ?? '')))\n
+                    . '</span>';\n
+            }\n
+            \n
+            \n
+            \n
+            \n
+            if (in_array('categories_mapped', (array) $row['missing'], true)) {\n
+                $waiting = (int) ($row['detail']['products_without_category'] ?? 0);\n
+                $unmapped = count((array) ($row['detail']['unmapped_mappable'] ?? []));\n
+                $says = [];\n
+                if ($unmapped > 0) {\n
+                    $says[] = sprintf(\n
+                        \n
+                        __('%s دستهٔ مبدأ نگاشت نشده', 'tecteb-marketplace-core'),\n
+                        $fa((string) $unmapped)\n
+                    );\n
+                }\n
+                if ($waiting < 0) {\n
+                    $says[] = __('تعداد محصولات بی‌دسته خوانده نشد', 'tecteb-marketplace-core');\n
+                } elseif ($waiting > 0) {\n
+                    $says[] = sprintf(\n
+                        \n
+                        __('%s محصول واردشده دسته‌ای ندارد و منتظر اعمال است', 'tecteb-marketplace-core'),\n
+                        $fa((string) $waiting)\n
+                    );\n
+                }\n
+                if ($says !== []) {\n
+                    $left .= '<span class="tmc-field__desc">' . esc_html(implode(' · ', $says)) . '</span>';\n
+                }\n
+            }\n
+            echo '<tr><td>' . esc_html($this->shopName($vendorUserId)) . '</td>'\n
+                . '<td>' . self::verdictBadge((string) $row['verdict']) . '</td>'\n
+                . '<td>' . $left . '</td></tr>';\n
+        }\n
+        echo '</tbody></table></div>';\n
+        echo '</section>';\n
+    }\n
+\n
+    \n
+    private function renderStaff(array $shops, callable $fa): void\n
+    {\n
+        $records = $this->container->get(ShopRecordRepositoryInterface::class);\n
+        $roles = $this->container->get(StaffRoleMap::class);\n
+        $grant = $this->container->get(GrantImportedStaff::class);\n
+        $staffRepo = $this->container->get(StaffRepositoryInterface::class);\n
+\n
+        $allStaff = [];\n
+        foreach ($shops as $vendorUserId) {\n
+            foreach ($records->staffForVendor($vendorUserId) as $member) {\n
+                $allStaff[] = $member;\n
+            }\n
+        }\n
+\n
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'\n
+            . esc_html__('پرسنل واردشده از دکان', 'tecteb-marketplace-core') . '</h2>';\n
+        echo Components::notice('warning', __('هیچ نقشی به‌طور خودکار نگاشت نمی‌شود. نقشی که اینجا تعیین نشده باشد، هیچ دسترسی‌ای نمی‌دهد — نه فقط‌خواندنی، نه معلق، هیچ.', 'tecteb-marketplace-core'));\n
+\n
+        if ($allStaff === []) {\n
+            echo Components::state(\n
+                'empty',\n
+                __('هیچ پرسنلی در سابقهٔ واردشده نیست', 'tecteb-marketplace-core'),\n
+                __('پرسنل فروشگاه قابلیت نسخهٔ Pro دکان است؛ روی نصب Lite این فهرست خالی می‌ماند. این یعنی «اینجا چیزی پیدا نشد»، نه «این فروشگاه پرسنل ندارد».', 'tecteb-marketplace-core')\n
+            );\n
+            echo '</section>';\n
+            return;\n
+        }\n
+\n
+        $undecided = $roles->undecided($allStaff);\n
+        if ($undecided !== []) {\n
+            echo '<h3 class="tmc-card__title">' . esc_html__('نقش‌هایی که منتظر تصمیم شما هستند', 'tecteb-marketplace-core') . '</h3>';\n
+            echo '<form method="post"><table class="tmc-table"><thead><tr>'\n
+                . '<th scope="col">' . esc_html__('نقش در دکان', 'tecteb-marketplace-core') . '</th>'\n
+                . '<th scope="col">' . esc_html__('تعداد افراد', 'tecteb-marketplace-core') . '</th>'\n
+                . '<th scope="col">' . esc_html__('نقش متناظر در بازارگاه', 'tecteb-marketplace-core') . '</th>'\n
+                . '</tr></thead><tbody>';\n
+            foreach ($undecided as $entry) {\n
+                $role = (string) $entry['role'];\n
+                $id = 'tmc-role-' . md5($role);\n
+                echo '<tr><td>' . ($role === ''\n
+                        ? esc_html__('(بدون نقش)', 'tecteb-marketplace-core')\n
+                        : Components::code($role))\n
+                    . '</td>'\n
+                    . '<td>' . esc_html($fa((string) $entry['people'])) . '</td>'\n
+                    . '<td><label class="screen-reader-text" for="' . esc_attr($id) . '">'\n
+                    . esc_html__('نقش متناظر در بازارگاه', 'tecteb-marketplace-core') . '</label>'\n
+                    . '<select id="' . esc_attr($id) . '" name="role_map[' . esc_attr($role) . ']" class="tmc-select">'\n
+                    . '<option value="">' . esc_html__('— هنوز تصمیمی نگرفته‌ام —', 'tecteb-marketplace-core') . '</option>';\n
+                foreach (StaffRoleMap::targets() as $target) {\n
+                    echo '<option value="' . esc_attr($target) . '">' . esc_html(self::targetLabel($target)) . '</option>';\n
+                }\n
+                echo '</select></td></tr>';\n
+            }\n
+            echo '</tbody></table>'\n
+                . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)\n
+                . '<p><button type="submit" class="tmc-button" name="handover_action" value="save_roles">'\n
+                . esc_html__('ذخیرهٔ نگاشت نقش‌ها', 'tecteb-marketplace-core') . '</button></p></form>';\n
+        }\n
+\n
+        echo '<h3 class="tmc-card__title">' . esc_html__('افراد', 'tecteb-marketplace-core') . '</h3>';\n
+        echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="'\n
+            . esc_attr__('جدول پرسنل واردشده', 'tecteb-marketplace-core') . '">';\n
+        echo '<table class="tmc-table"><thead><tr>'\n
+            . '<th scope="col">' . esc_html__('نام', 'tecteb-marketplace-core') . '</th>'\n
+            . '<th scope="col">' . esc_html__('فروشگاه', 'tecteb-marketplace-core') . '</th>'\n
+            . '<th scope="col">' . esc_html__('نقش در دکان', 'tecteb-marketplace-core') . '</th>'\n
+            . '<th scope="col">' . esc_html__('وضعیت اینجا', 'tecteb-marketplace-core') . '</th>'\n
+            . '<th scope="col">' . esc_html__('اقدام', 'tecteb-marketplace-core') . '</th>'\n
+            . '</tr></thead><tbody>';\n
+        foreach ($shops as $vendorUserId) {\n
+            foreach ($grant->plan($vendorUserId) as $row) {\n
+                $membership = $staffRepo->findByUser((int) $row['staff_user_id']);\n
+                echo '<tr><td>' . esc_html((string) $row['display_name']) . '</td>'\n
+                    . '<td>' . esc_html($this->shopName($vendorUserId)) . '</td>'\n
+                    . '<td>' . ((string) $row['dokan_role'] === ''\n
+                        ? esc_html__('(بدون نقش)', 'tecteb-marketplace-core')\n
+                        : Components::code((string) $row['dokan_role'])) . '</td>'\n
+                    . '<td>' . $this->membershipCell($row, $membership) . '</td>'\n
+                    . '<td>' . $this->staffActionCell($vendorUserId, $row, $membership) . '</td>'\n
+                    . '</tr>';\n
+            }\n
+        }\n
+        echo '</tbody></table></div></section>';\n
+    }\n
+\n
+    \n
+    private function membershipCell(array $row, ?object $membership): string\n
+    {\n
+        if ($membership !== null) {\n
+            return Components::badge(\n
+                $membership->status === StaffStatus::Active ? 'success' : 'neutral',\n
+                $membership->status === StaffStatus::Active ? '✓' : '·',\n
+                $membership->status === StaffStatus::Active\n
+                    ? __('فعال — دسترسی دارد', 'tecteb-marketplace-core')\n
+                    : __('دعوت‌شده — هنوز هیچ دسترسی ندارد', 'tecteb-marketplace-core')\n
+            );\n
+        }\n
+        return match ((string) $row['verdict']) {\n
+            GrantImportedStaff::AWAITING_DECISION => Components::badge('warning', '!', __('منتظر تصمیم — هیچ دسترسی ندارد', 'tecteb-marketplace-core')),\n
+            GrantImportedStaff::DECLINED => Components::badge('neutral', '—', __('تصمیم گرفته شد: بدون دسترسی', 'tecteb-marketplace-core')),\n
+            GrantImportedStaff::NO_ACCOUNT => Components::badge('error', '✕', __('حساب کاربری وردپرس پیدا نشد', 'tecteb-marketplace-core')),\n
+            GrantImportedStaff::ALREADY_STAFF => Components::badge('warning', '!', __('پرسنل فروشگاه دیگری است', 'tecteb-marketplace-core')),\n
+            default => Components::badge('neutral', '·', __('آمادهٔ ایجاد عضویت', 'tecteb-marketplace-core')),\n
+        };\n
+    }\n
+\n
+    \n
+    private function staffActionCell(int $vendorUserId, array $row, ?object $membership): string\n
+    {\n
+        if ($membership !== null && $membership->status === StaffStatus::Invited) {\n
+            return '<form method="post" class="tmc-inline-form">'\n
+                . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)\n
+                . '<input type="hidden" name="staff_id" value="' . esc_attr((string) $membership->id) . '">'\n
+                . '<button type="submit" class="tmc-button" name="handover_action" value="confirm_staff">'\n
+                . esc_html__('تأیید و فعال‌سازی', 'tecteb-marketplace-core') . '</button></form>';\n
+        }\n
+        if ($membership !== null) {\n
+            return '<span class="tmc-field__desc">' . esc_html__('عضویت برقرار است؛ تغییر نقش از پنل فروشنده انجام می‌شود.', 'tecteb-marketplace-core') . '</span>';\n
+        }\n
+        if ((string) $row['verdict'] === GrantImportedStaff::GRANTED) {\n
+            return '<form method="post" class="tmc-inline-form">'\n
+                . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)\n
+                . '<input type="hidden" name="vendor_user_id" value="' . esc_attr((string) $vendorUserId) . '">'\n
+                . '<button type="submit" class="tmc-button" name="handover_action" value="grant_staff">'\n
+                . esc_html__('ایجاد عضویت (دعوت‌شده)', 'tecteb-marketplace-core') . '</button></form>';\n
+        }\n
+        return '<span class="tmc-field__desc">' . esc_html__('اقدامی در دسترس نیست.', 'tecteb-marketplace-core') . '</span>';\n
+    }\n
+\n
+    \n
+    \n
+    private function differenceSentence(string $code): string\n
+    {\n
+        return match ($code) {\n
+            'marketplace_ledger_unavailable' =>\n
+                __('ماژول مالی این بازارگاه بارگذاری نشده، پس ستون دوم خوانده نشد. این «صفر» نیست.', 'tecteb-marketplace-core'),\n
+            'nothing_traded_here_yet' =>\n
+                __('این فروشگاه هنوز در این بازارگاه نفروخته، پس ستون دوم واقعاً خالی است — و این تنها دلیل درستِ صفر بودنش است.', 'tecteb-marketplace-core'),\n
+            'handover_decision_open' =>\n
+                __('هنوز کسی تصمیم نگرفته با این سابقه چه شود، پس قرار نیست ستون دوم شاملش باشد.', 'tecteb-marketplace-core'),\n
+            'dokan_records_paid_withdrawals_twice' =>\n
+                __('دکان برداشتِ پرداخت‌شده را دوبار ثبت می‌کند: یک ردیف برداشت و یک بدهکار در جدول مانده. ماندهٔ پایانی از قبل کسرش کرده، پس این دو را جمع نکنید.', 'tecteb-marketplace-core'),\n
+            'dokan_money_columns_carry_no_unit' =>\n
+                __('ستون‌های پول دکان عدد خالی‌اند، بی ارز و بی مقیاس؛ هر رقم این طرف ارز و مقیاس خودش را دارد. مقایسه فقط پس از آن ممکن است که کسی بگوید عددهای دکان به کدام واحد بوده‌اند.', 'tecteb-marketplace-core'),\n
+            'order_totals_read_from_dokan_orders' =>\n
+                __('جمع سفارش‌ها از جدول قدیمی خوانده شده. مرجع ۵٫x جدول دیگری است که والد و زیرسفارش را جدا می‌کند، و عوض‌کردن مرجع تصمیم مالک است.', 'tecteb-marketplace-core'),\n
+            default => $code,\n
+        };\n
+    }\n
+\n
+    private function renderFinance(array $shops, callable $fa): void\n
+    {\n
+        $finance = $this->container->get(ReconcileDokanFinance::class);\n
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'\n
+            . esc_html__('تطبیق مالی و انتقال مسئولیت', 'tecteb-marketplace-core') . '</h2>';\n
+        echo Components::notice('warning', __('ارقام زیر دقیقاً همان چیزی است که دکان ثبت کرده و با هیچ نرخی دوباره محاسبه نشده است. برداشتِ پرداخت‌شده در خودِ «ماندهٔ پایانی» کسر شده؛ این دو عدد هرگز با هم جمع نمی‌شوند.', 'tecteb-marketplace-core'));\n
+\n
+        foreach ($shops as $vendorUserId) {\n
+            \n
+            \n
+            \n
+            \n
+            $snapshot = $finance->snapshotFor($vendorUserId);\n
+            $report = $finance->reportFrom($snapshot);\n
+            $handover = $report['handover'];\n
+            echo '<article class="tmc-card tmc-card--nested"><h3 class="tmc-card__title">'\n
+                . esc_html($this->shopName($vendorUserId)) . '</h3>';\n
+\n
+            echo Components::dataList([\n
+                ['label' => __('ماندهٔ پایانی به حساب دکان', 'tecteb-marketplace-core'), 'value' => $fa((string) $report['dokan']['closing'])],\n
+                ['label' => __('جمع بستانکار (ثبت دکان)', 'tecteb-marketplace-core'), 'value' => $fa((string) $report['dokan']['credit'])],\n
+                ['label' => __('جمع بدهکار (ثبت دکان)', 'tecteb-marketplace-core'), 'value' => $fa((string) $report['dokan']['debit'])],\n
+                ['label' => __('از این بدهکار، برداشتِ قبلاً پرداخت‌شده', 'tecteb-marketplace-core'), 'value' => $fa((string) $report['already_counted_once']['debit'])],\n
+                ['label' => __('خط دفترکل این بازارگاه برای این سابقه', 'tecteb-marketplace-core'), 'value' => $fa('0')],\n
+            ]);\n
+\n
+            \n
+            \n
+            \n
+            \n
+            \n
+            $differences = (array) ($report['differences'] ?? []);\n
+            if ($differences !== []) {\n
+                echo '<p class="tmc-field__desc">'\n
+                    . esc_html__('این دو ستون جمع نمی‌شوند، و دلیل هر اختلافشان این‌هاست:', 'tecteb-marketplace-core')\n
+                    . '</p><ul class="tmc-list">';\n
+                foreach ($differences as $difference) {\n
+                    echo '<li>' . esc_html($this->differenceSentence((string) ($difference['code'] ?? '')))\n
+                        . ' <span class="tmc-card__note">' . Components::code((string) ($difference['detail'] ?? ''))\n
+                        . '</span></li>';\n
+                }\n
+                echo '</ul>';\n
+            }\n
+\n
+            $statuses = $report['dokan']['withdrawals_by_status'];\n
+            if ($statuses !== []) {\n
+                echo '<table class="tmc-table"><caption>' . esc_html__('درخواست‌های برداشت، با وضعیت خود دکان', 'tecteb-marketplace-core') . '</caption><thead><tr>'\n
+                    . '<th scope="col">' . esc_html__('وضعیت دکان', 'tecteb-marketplace-core') . '</th>'\n
+                    . '<th scope="col">' . esc_html__('تعداد', 'tecteb-marketplace-core') . '</th>'\n
+                    . '<th scope="col">' . esc_html__('جمع', 'tecteb-marketplace-core') . '</th>'\n
+                    . '</tr></thead><tbody>';\n
+                foreach ($statuses as $status => $tally) {\n
+                    echo '<tr><td>' . Components::code((string) $status) . '</td>'\n
+                        . '<td>' . esc_html($fa((string) $tally['count'])) . '</td>'\n
+                        . '<td>' . esc_html($fa((string) $tally['total'])) . '</td></tr>';\n
+                }\n
+                echo '</tbody></table>';\n
+            }\n
+\n
+            if ((string) $handover['decision'] === ReconcileDokanFinance::OPEN) {\n
+                echo '<p class="tmc-field__desc">'\n
+                    . esc_html__('تا وقتی تصمیمی ثبت نشود، این بازارگاه بابت این رقم هیچ تعهدی ندارد و هیچ پرداختی انجام نمی‌شود.', 'tecteb-marketplace-core')\n
+                    . '</p>';\n
+                \n
+                \n
+                \n
+                \n
+                \n
+                \n
+                echo '<form method="post" class="tmc-inline-form">'\n
+                    . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)\n
+                    . '<input type="hidden" name="vendor_user_id" value="' . esc_attr((string) $vendorUserId) . '">'\n
+                    . '<input type="hidden" name="figures_token" value="'\n
+                    . esc_attr((string) $report['figures_token']) . '">'\n
+                    . '<label class="screen-reader-text" for="tmc-note-' . esc_attr((string) $vendorUserId) . '">'\n
+                    . esc_html__('یادداشت تصمیم', 'tecteb-marketplace-core') . '</label>'\n
+                    . '<input type="text" id="tmc-note-' . esc_attr((string) $vendorUserId) . '" name="handover_note" class="tmc-input"'\n
+                    . ' placeholder="' . esc_attr__('یادداشت (اختیاری)', 'tecteb-marketplace-core') . '">'\n
+                    . '<button type="submit" class="tmc-button" name="handover_action" value="accept_finance">'\n
+                    . esc_html__('مسئولیت با بازارگاه است', 'tecteb-marketplace-core') . '</button>'\n
+                    . '<button type="submit" class="tmc-button tmc-button--ghost" name="handover_action" value="outside_finance">'\n
+                    . esc_html__('خارج از بازارگاه تسویه می‌شود', 'tecteb-marketplace-core') . '</button>'\n
+                    . '</form>';\n
+            } else {\n
+                echo Components::notice('success', sprintf(\n
+                    \n
+                    __('تصمیم ثبت‌شده: %1$s — رقم توافق‌شده %2$s در تاریخ %3$s. این ثبت هیچ خط دفترکلی ننوشت و هیچ پرداختی ایجاد نکرد.', 'tecteb-marketplace-core'),\n
+                    self::decisionLabel((string) $handover['decision']),\n
+                    PersianDigits::toPersian((string) $handover['closing_at_decision']),\n
+                    PersianDigits::toPersian((string) $handover['decided_at'])\n
+                ));\n
+                if ((int) $handover['pending_requests_untouched'] > 0) {\n
+                    echo Components::notice('warning', sprintf(\n
+                        \n
+                        __('%s درخواست برداشتِ تسویه‌نشده در دکان باقی است. این تصمیم آن‌ها را پرداخت نکرد و پرداختشان تصمیم جداگانه‌ای است.', 'tecteb-marketplace-core'),\n
+                        PersianDigits::toPersian((string) $handover['pending_requests_untouched'])\n
+                    ));\n
+                }\n
+            }\n
+            echo '</article>';\n
+        }\n
+        echo '</section>';\n
+    }\n
+\n
+    private function handleAction(Request $request): string\n
+    {\n
+        if (!$request->isPost() || !$request->hasPost('handover_action')) {\n
+            return '';\n
+        }\n
+        if (!$request->nonceOk('tmc_handover_nonce', self::NONCE)) {\n
+            return 'err:' . __('درخواست معتبر نبود. صفحه را تازه کنید و دوباره تلاش کنید.', 'tecteb-marketplace-core');\n
+        }\n
+        $action = $request->postKey('handover_action');\n
+\n
+        if ($action === 'save_roles') {\n
+            $roles = $this->container->get(StaffRoleMap::class);\n
+            $submitted = $request->postMap('role_map');\n
+            \n
+            \n
+            \n
+            $merged = $roles->all();\n
+            foreach ($submitted as $role => $target) {\n
+                if (trim((string) $target) !== '') {\n
+                    $merged[(string) $role] = (string) $target;\n
+                }\n
+            }\n
+            return $roles->save($merged)\n
+                ? 'ok:' . __('نگاشت نقش‌ها ذخیره شد. هنوز هیچ عضویتی ساخته نشده است.', 'tecteb-marketplace-core')\n
+                : 'err:' . __('ذخیرهٔ نگاشت انجام نشد.', 'tecteb-marketplace-core');\n
+        }\n
+\n
+        if ($action === 'save_category' || $action === 'forget_category') {\n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            $mapping = $this->container->get(CategoryMapping::class);\n
+            if (!$mapping->sourceAvailable()) {\n
+                return 'err:' . __('دکان در حال اجرا نیست، پس دستهٔ مبدأ خوانده نمی‌شود و نگاشتی ذخیره نشد.', 'tecteb-marketplace-core');\n
+            }\n
+            $ref = $request->postText('cat_ref');\n
+            $sourceKey = '';\n
+            foreach ($mapping->sourceCategories() as $row) {\n
+                if (self::sourceRef((string) $row['key']) === $ref) {\n
+                    $sourceKey = (string) $row['key'];\n
+                    break;\n
+                }\n
+            }\n
+            if ($sourceKey === '') {\n
+                return 'err:' . __('آن دستهٔ مبدأ پیدا نشد، پس چیزی ذخیره نشد.', 'tecteb-marketplace-core');\n
+            }\n
+\n
+            $map = $this->container->get(CategoryMap::class);\n
+            \n
+            \n
+            \n
+            $merged = $map->all();\n
+            $target = '';\n
+            if ($action === 'forget_category') {\n
+                unset($merged[$sourceKey]);\n
+            } else {\n
+                $target = $request->postKey('cat_target');\n
+                if ($target === '') {\n
+                    return 'err:' . __('دسته‌ای انتخاب نشد، پس چیزی ذخیره نشد.', 'tecteb-marketplace-core');\n
+                }\n
+                \n
+                \n
+                \n
+                if ($mapping->targetPath($target) === '') {\n
+                    return 'err:' . __('آن شناسه به هیچ دستهٔ ووکامرسی نمی‌رسد، پس ذخیره نشد.', 'tecteb-marketplace-core');\n
+                }\n
+                $merged[$sourceKey] = $target;\n
+            }\n
+            if (!$map->save($merged)) {\n
+                return 'err:' . __('ذخیرهٔ نگاشت دسته انجام نشد.', 'tecteb-marketplace-core');\n
+            }\n
+            $this->container->get(AuditLogger::class)->log(\n
+                AuditEventCatalog::DOKAN_CATEGORY_MAP_SAVED,\n
+                get_current_user_id(),\n
+                'product_category',\n
+                null,\n
+                [\n
+                    'source_key' => $sourceKey,\n
+                    'target' => $target,\n
+                    'entries' => count($merged),\n
+                    'removed' => $action === 'forget_category',\n
+                ]\n
+            );\n
+            return 'ok:' . ($action === 'forget_category'\n
+                ? __('نگاشت این دسته حذف شد. هیچ محصولی عوض نشد.', 'tecteb-marketplace-core')\n
+                : __('نگاشت این دسته ذخیره شد. هنوز هیچ محصولی عوض نشده است — برای اعمال روی محصولات واردشده، دکمهٔ پایین همان کارت را بزنید.', 'tecteb-marketplace-core'));\n
+        }\n
+\n
+        if ($action === 'apply_categories') {\n
+            \n
+            \n
+            \n
+            \n
+            $shown = [];\n
+            foreach ($request->postMap('apply') as $productId => $target) {\n
+                $shown[(int) $productId] = (string) $target;\n
+            }\n
+            $result = $this->container->get(ApplyCategoryMapping::class)->apply($shown);\n
+            if ($result['refused'] !== '') {\n
+                return 'err:' . match ($result['refused']) {\n
+                    'not_allowed' => __('دسترسی لازم برای اعمال نگاشت را ندارید.', 'tecteb-marketplace-core'),\n
+                    'nothing_selected' => __('هیچ محصولی فرستاده نشد، پس چیزی نوشته نشد.', 'tecteb-marketplace-core'),\n
+                    'source_unreadable' => __('دکان در حال اجرا نیست و دستهٔ مبدأ خوانده نمی‌شود، پس هیچ‌چیز نوشته نشد.', 'tecteb-marketplace-core'),\n
+                    default => __('اعمال نگاشت انجام نشد.', 'tecteb-marketplace-core'),\n
+                };\n
+            }\n
+            \n
+            \n
+            \n
+            $byCode = [];\n
+            foreach ($result['outcomes'] as $code) {\n
+                $byCode[(string) $code] = ($byCode[(string) $code] ?? 0) + 1;\n
+            }\n
+            $parts = [];\n
+            foreach ($byCode as $code => $n) {\n
+                $parts[] = self::applyOutcome((string) $code) . ': ' . PersianDigits::toPersian((string) $n);\n
+            }\n
+            $written = (int) $result['written'];\n
+            return ($written > 0 ? 'ok:' : 'err:') . sprintf(\n
+                \n
+                __('دستهٔ %1$s محصول نوشته شد. %2$s', 'tecteb-marketplace-core'),\n
+                PersianDigits::toPersian((string) $written),\n
+                implode(' · ', $parts)\n
+            );\n
+        }\n
+\n
+        if ($action === 'import_records') {\n
+            $preview = $this->container->get(ShopRecordPreview::class);\n
+            \n
+            \n
+            \n
+            \n
+            \n
+            \n
+            $scope = $this->container->get(ShopRecordScope::class);\n
+            if (!$scope->sourceReadable()) {\n
+                \n
+                \n
+                \n
+                return 'err:' . __('فهرست صاحبان سابقه در دکان کامل خوانده نشد، پس ورود شروع نشد. فهرست ناقص می‌تواند صاحبانی داشته باشد که نشان داده نشده‌اند، و سابقهٔ نشان‌داده‌نشده وارد نمی‌شود.', 'tecteb-marketplace-core');\n
+            }\n
+            $shops = $scope->ids();\n
+            if (!$preview->anythingToImport($shops)) {\n
+                \n
+                \n
+                return 'err:' . __('سابقهٔ واردنشده‌ای پیدا نشد، پس کاری به صف اضافه نشد. اگر وضعیتی «خوانده نشد» است، اول آن را حل کنید.', 'tecteb-marketplace-core');\n
+            }\n
+            $counts = $this->container->get(DokanReaderInterface::class)->counts();\n
+            \n
+            $jobs = $this->container->get(JobRepositoryInterface::class);\n
+            $queued = $jobs->enqueue(\n
+                DokanRecordImportJob::TYPE,\n
+                [\n
+                    'run_id' => 'dokan-records-'\n
+                        . $this->container->get(ClockInterface::class)->now()->format('Ymd-His'),\n
+                    \n
+                    \n
+                    \n
+                    \n
+                    'total' => (int) ($counts['staff'] ?? 0)\n
+                        + (int) ($counts['balance'] ?? 0)\n
+                        + (int) ($counts['withdrawals'] ?? 0),\n
+                ],\n
+                \n
+                \n
+                DokanRecordImportJob::TYPE,\n
+                get_current_user_id()\n
+            );\n
+            if ($queued['id'] === 0) {\n
+                return 'err:' . __('ورود سوابق به صف اضافه نشد. صفحهٔ سلامت صف را ببینید.', 'tecteb-marketplace-core');\n
+            }\n
+            if (!$queued['created']) {\n
+                return 'err:' . sprintf(\n
+                    \n
+                    __('یک ورود سوابق در صف هست (کار شمارهٔ %s) و تا پایانش ورود تازه‌ای شروع نمی‌شود.', 'tecteb-marketplace-core'),\n
+                    PersianDigits::toPersian((string) $queued['id'])\n
+                );\n
+            }\n
+            return 'ok:' . sprintf(\n
+                \n
+                __('ورود سوابق به صف اضافه شد (کار شمارهٔ %s). فقط تاریخچه ثبت می‌شود: هیچ بدهی، هیچ تسویه، هیچ دسترسی و هیچ تغییری در دکان.', 'tecteb-marketplace-core'),\n
+                PersianDigits::toPersian((string) $queued['id'])\n
+            );\n
+        }\n
+\n
+        if ($action === 'grant_staff') {\n
+            $result = $this->container->get(GrantImportedStaff::class)->grant($request->postInt('vendor_user_id'));\n
+            if (($result['forbidden'] ?? false) === true) {\n
+                return 'err:' . __('دسترسی لازم را ندارید.', 'tecteb-marketplace-core');\n
+            }\n
+            return 'ok:' . sprintf(\n
+                \n
+                __('%1$s عضویت «دعوت‌شده» ساخته شد و %2$s نفر هنوز منتظر تصمیم‌اند. عضویت دعوت‌شده هیچ دسترسی‌ای نمی‌دهد تا وقتی تأیید شود.', 'tecteb-marketplace-core'),\n
+                PersianDigits::toPersian((string) $result[GrantImportedStaff::GRANTED]),\n
+                PersianDigits::toPersian((string) $result[GrantImportedStaff::AWAITING_DECISION])\n
+            );\n
+        }\n
+\n
+        if ($action === 'confirm_staff') {\n
+            $outcome = $this->container->get(GrantImportedStaff::class)->confirm($request->postInt('staff_id'));\n
+            return $outcome === GrantImportedStaff::GRANTED\n
+                ? 'ok:' . __('عضویت فعال شد. دسترسی دقیقاً همان نقش نگاشت‌شده است و نه بیشتر.', 'tecteb-marketplace-core')\n
+                : 'err:' . __('فعال‌سازی انجام نشد.', 'tecteb-marketplace-core');\n
+        }\n
+\n
+        if ($action === 'accept_finance' || $action === 'outside_finance') {\n
+            $decision = $action === 'accept_finance'\n
+                ? ReconcileDokanFinance::ACCEPTED\n
+                : ReconcileDokanFinance::STAYS_OUTSIDE;\n
+            $result = $this->container->get(ReconcileDokanFinance::class)->decide(\n
+                $request->postInt('vendor_user_id'),\n
+                $decision,\n
+                $request->postText('handover_note'),\n
+                $request->postText('figures_token')\n
+            );\n
+            if ($result['ok']) {\n
+                return 'ok:' . __('مسئولیت مالی ثبت شد. هیچ خط دفترکلی نوشته نشد، هیچ برداشتی ساخته نشد و هیچ رقمی با نرخ تازه محاسبه نشد.', 'tecteb-marketplace-core');\n
+            }\n
+            \n
+            \n
+            return 'err:' . match ((string) $result['reason']) {\n
+                'figures_changed' => __('ارقام این فروشگاه نسبت به نسخه‌ای که این فرم از روی آن ساخته شده تغییر کرده‌اند. صفحه را تازه کنید؛ تصمیم روی نسخه‌ای که دیگر برقرار نیست ثبت نمی‌شود.', 'tecteb-marketplace-core'),\n
+                'report_not_seen' => __('این درخواست نسخهٔ ارقام را همراه نداشت. تصمیم باید از فرم همین صفحه ثبت شود تا معلوم باشد روی کدام نسخه از ارقام گرفته شده است.', 'tecteb-marketplace-core'),\n
+                'forbidden' => __('شما اجازهٔ ثبت این تصمیم را ندارید.', 'tecteb-marketplace-core'),\n
+                default => __('ثبت تصمیم انجام نشد.', 'tecteb-marketplace-core'),\n
+            };\n
+        }\n
+\n
+        return 'err:' . __('اقدام ناشناخته.', 'tecteb-marketplace-core');\n
+    }\n
+\n
+    \n
+    private function renderCategories(callable $fa, Request $request): void\n
+    {\n
+        $mapping = $this->container->get(CategoryMapping::class);\n
+        $map = $this->container->get(CategoryMap::class);\n
+\n
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'\n
+            . esc_html__('نگاشت دستهٔ محصولات', 'tecteb-marketplace-core') . '</h2>';\n
+        echo '<p class="tmc-field__desc">'\n
+            . esc_html__('ذخیرهٔ نگاشت می‌گوید یک دستهٔ دکان در این بازارگاه چه معنایی دارد. هیچ محصولی را جابه‌جا نمی‌کند: ردیف‌هایی که ورود ساخته بدون دسته‌اند و بدون دسته می‌مانند، تا وقتی با اقدام صریح شما اعمال شود. پیش از اعمال، تعداد و تغییر پیشنهادی را همین‌جا می‌بینید.', 'tecteb-marketplace-core')\n
+            . '</p>';\n
+\n
+        $plan = $mapping->plan();\n
+        $waiting = (int) $plan['total'];\n
+        echo '<p class="tmc-field__desc">' . ($waiting < 0\n
+            ? esc_html__('تعداد محصولات بی‌دسته خوانده نشد، پس عددی گزارش نمی‌شود.', 'tecteb-marketplace-core')\n
+            : esc_html(sprintf(\n
+                \n
+                __('همین حالا %s محصول واردشده دسته‌ای ندارد.', 'tecteb-marketplace-core'),\n
+                $fa((string) $waiting)\n
+            ))) . '</p>';\n
+\n
+        if (!$mapping->targetsAvailable()) {\n
+            echo Components::notice('warning', __('هیچ دستهٔ محصولی در ووکامرس خوانده نشد، پس چیزی برای انتخاب وجود ندارد. این افزونه هرگز دسته نمی‌سازد؛ دسته‌ها را در «محصولات ← دسته‌بندی‌ها» بسازید.', 'tecteb-marketplace-core'));\n
+        }\n
+        if (!$mapping->sourceAvailable()) {\n
+            echo Components::notice('warning', __('دکان در حال اجرا نیست، پس دستهٔ مبدأ خوانده نمی‌شود. ورود، دستهٔ مبدأ را می‌خوانَد و ذخیره نمی‌کند، پس نه جدول نگاشت کشیده می‌شود و نه اعمال برنامه‌ریزی می‌شود. این «چیزی برای نگاشت نیست» نیست.', 'tecteb-marketplace-core'));\n
+            echo '</section>';\n
+            return;\n
+        }\n
+\n
+        $sources = $mapping->sourceCategories();\n
+        $noSource = $mapping->productsWithoutSourceCategory();\n
+\n
+        if ($sources === []) {\n
+            echo Components::state(\n
+                'empty',\n
+                __('هیچ دستهٔ مبدأیی پیدا نشد', 'tecteb-marketplace-core'),\n
+                __('محصولات دکان دستهٔ ووکامرسی ندارند که نگاشت شود.', 'tecteb-marketplace-core')\n
+            );\n
+        } else {\n
+            echo '<div class="tmc-scroll" tabindex="0" role="region" aria-label="'\n
+                . esc_attr__('جدول نگاشت دسته‌ها', 'tecteb-marketplace-core') . '">';\n
+            echo '<table class="tmc-table"><thead><tr>'\n
+                . '<th scope="col">' . esc_html__('دستهٔ مبدأ', 'tecteb-marketplace-core') . '</th>'\n
+                . '<th scope="col">' . esc_html__('شناسه', 'tecteb-marketplace-core') . '</th>'\n
+                . '<th scope="col">' . esc_html__('تعداد محصول', 'tecteb-marketplace-core') . '</th>'\n
+                . '<th scope="col">' . esc_html__('دستهٔ بازارگاه', 'tecteb-marketplace-core') . '</th>'\n
+                . '<th scope="col">' . esc_html__('اقدام', 'tecteb-marketplace-core') . '</th>'\n
+                . '</tr></thead><tbody>';\n
+            foreach ($sources as $row) {\n
+                $ref = self::sourceRef((string) $row['key']);\n
+                \n
+                \n
+                \n
+                if (!$row['decided']) {\n
+                    $target = Components::badge('warning', '!', __('تعیین‌نشده', 'tecteb-marketplace-core'));\n
+                } elseif (!$row['target_valid']) {\n
+                    $target = Components::badge('error', '✕', __('نامعتبر', 'tecteb-marketplace-core'))\n
+                        . ' ' . Components::code((string) $row['target'])\n
+                        . '<span class="tmc-field__desc">'\n
+                        . esc_html__('این شناسه به هیچ دستهٔ ووکامرسی نمی‌رسد، پس روی هیچ محصولی نوشته نمی‌شود.', 'tecteb-marketplace-core')\n
+                        . '</span>';\n
+                } else {\n
+                    $target = esc_html((string) $row['target_path'])\n
+                        . '<span class="tmc-field__desc">' . esc_html($fa((string) $row['target'])) . '</span>';\n
+                }\n
+                echo '<tr><td>' . ((string) $row['label'] === ''\n
+                        ? esc_html__('(بی‌نام)', 'tecteb-marketplace-core')\n
+                        : esc_html((string) $row['label'])) . '</td>'\n
+                    . '<td>' . Components::code((string) $row['key']) . '</td>'\n
+                    . '<td>' . esc_html($fa((string) $row['products'])) . '</td>'\n
+                    . '<td>' . $target . '</td>'\n
+                    . '<td><a class="tmc-button tmc-button--secondary" href="'\n
+                    . esc_url(add_query_arg(\n
+                        ['page' => self::SLUG, 'cat' => $ref],\n
+                        admin_url('admin.php')\n
+                    )) . '#tmc-cat-pick">'\n
+                    . esc_html__('انتخاب دسته', 'tecteb-marketplace-core') . '</a></td></tr>';\n
+            }\n
+            echo '</tbody></table></div>';\n
+        }\n
+\n
+        if ($noSource > 0) {\n
+            echo Components::notice('info', sprintf(\n
+                \n
+                __('%s محصول دکان هیچ دستهٔ مبدأیی ندارد. هیچ نگاشتی این‌ها را درست نمی‌کند، چون چیزی برای نگاشت وجود ندارد، و هیچ دسته‌ای هم خودکار برایشان تعیین نمی‌شود؛ دستهٔ این‌ها را در صفحهٔ «بررسی محصولات» یک انسان انتخاب می‌کند.', 'tecteb-marketplace-core'),\n
+                $fa((string) $noSource)\n
+            ));\n
+        }\n
+\n
+        $this->renderCategoryPicker($mapping, $sources, $request, $fa);\n
+        $this->renderCategoryApply($plan, $fa);\n
+        unset($map);\n
+        echo '</section>';\n
+    }\n
+\n
+    \n
+    private function renderCategoryPicker(\n
+        CategoryMapping $mapping,\n
+        array $sources,\n
+        Request $request,\n
+        callable $fa\n
+    ): void {\n
+        $ref = $request->queryKey('cat');\n
+        if ($ref === '') {\n
+            return;\n
+        }\n
+        $chosen = null;\n
+        foreach ($sources as $row) {\n
+            if (self::sourceRef((string) $row['key']) === $ref) {\n
+                $chosen = $row;\n
+                break;\n
+            }\n
+        }\n
+        echo '<h3 class="tmc-card__title" id="tmc-cat-pick">'\n
+            . esc_html__('انتخاب دستهٔ بازارگاه', 'tecteb-marketplace-core') . '</h3>';\n
+        if ($chosen === null) {\n
+            echo Components::notice('error', __('آن دستهٔ مبدأ در فهرست بالا نیست. ممکن است محصولاتش رفته باشند یا دسته‌شان عوض شده باشد؛ از جدول بالا یکی را انتخاب کنید.', 'tecteb-marketplace-core'));\n
+            return;\n
+        }\n
+\n
+        $query = $request->queryText('cat_q');\n
+        $found = $mapping->pick($query);\n
+        echo '<p class="tmc-field__desc">' . esc_html(sprintf(\n
+            \n
+            __('برای «%1$s» — %2$s محصول در دکان.', 'tecteb-marketplace-core'),\n
+            (string) $chosen['label'] !== '' ? (string) $chosen['label'] : (string) $chosen['key'],\n
+            $fa((string) $chosen['products'])\n
+        )) . '</p>';\n
+\n
+        \n
+        \n
+        echo '<form method="get" action="' . esc_url(admin_url('admin.php')) . '">'\n
+            . '<input type="hidden" name="page" value="' . esc_attr(self::SLUG) . '">'\n
+            . '<input type="hidden" name="cat" value="' . esc_attr($ref) . '">'\n
+            . '<label class="screen-reader-text" for="tmc-cat-q">'\n
+            . esc_html__('جست‌وجوی دستهٔ بازارگاه', 'tecteb-marketplace-core') . '</label>'\n
+            . '<input class="tmc-input" type="search" id="tmc-cat-q" name="cat_q" value="' . esc_attr($query) . '"'\n
+            . ' placeholder="' . esc_attr__('نام دسته را بنویسید…', 'tecteb-marketplace-core') . '">'\n
+            . ' <button type="submit" class="tmc-button tmc-button--secondary">'\n
+            . esc_html__('جست‌وجوی دسته', 'tecteb-marketplace-core') . '</button>'\n
+            . '</form>';\n
+\n
+        echo '<p class="tmc-field__desc">' . esc_html(sprintf(\n
+            \n
+            __('%1$s مورد مطابق از %3$s دستهٔ ووکامرس، %2$s مورد نمایش داده شد.', 'tecteb-marketplace-core'),\n
+            $fa((string) $found['matched']),\n
+            $fa((string) count($found['results'])),\n
+            $fa((string) $found['total'])\n
+        )) . '</p>';\n
+\n
+        echo '<form method="post">';\n
+        if ($found['results'] === []) {\n
+            echo Components::notice('info', __('هیچ دسته‌ای با این عبارت پیدا نشد. عبارت دیگری بنویسید.', 'tecteb-marketplace-core'));\n
+        } else {\n
+            echo '<fieldset class="tmc-fieldset"><legend>'\n
+                . esc_html__('دستهٔ بازارگاه', 'tecteb-marketplace-core') . '</legend>';\n
+            foreach ($found['results'] as $category) {\n
+                $id = 'tmc-cat-' . $category->id;\n
+                echo '<p><input type="radio" id="' . esc_attr($id) . '" name="cat_target" value="'\n
+                    . esc_attr($category->value()) . '"'\n
+                    . ((string) $chosen['target'] === $category->value() ? ' checked' : '') . '>'\n
+                    . ' <label for="' . esc_attr($id) . '">'\n
+                    . esc_html($category->path !== '' ? $category->path : $category->name)\n
+                    . ($category->fuzzy\n
+                        ? ' ' . Components::badge('neutral', '~', __('شبیه', 'tecteb-marketplace-core'))\n
+                        : '')\n
+                    . '</label></p>';\n
+            }\n
+            echo '</fieldset>';\n
+        }\n
+        echo '<input type="hidden" name="cat_ref" value="' . esc_attr($ref) . '">'\n
+            . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)\n
+            . '<p><button type="submit" class="tmc-button" name="handover_action" value="save_category">'\n
+            . esc_html__('ذخیرهٔ نگاشت این دسته', 'tecteb-marketplace-core') . '</button>';\n
+        if ((bool) $chosen['decided']) {\n
+            \n
+            \n
+            echo ' <button type="submit" class="tmc-button tmc-button--secondary" name="handover_action" value="forget_category">'\n
+                . esc_html__('حذف این نگاشت', 'tecteb-marketplace-core') . '</button>';\n
+        }\n
+        echo '</p><p class="tmc-field__desc">'\n
+            . esc_html__('ذخیره فقط همین یک دسته را تعیین می‌کند و روی هیچ محصولی نوشته نمی‌شود.', 'tecteb-marketplace-core')\n
+            . '</p></form>';\n
+    }\n
+\n
+    \n
+    private function renderCategoryApply(array $plan, callable $fa): void\n
+    {\n
+        echo '<h3 class="tmc-card__title">'\n
+            . esc_html__('اعمال نگاشت روی محصولات واردشده', 'tecteb-marketplace-core') . '</h3>';\n
+\n
+        $apply = (array) $plan['apply'];\n
+        $held = (array) $plan['held'];\n
+\n
+        if (!(bool) $plan['finished']) {\n
+            echo Components::notice('warning', sprintf(\n
+                \n
+                __('این شمارش به آخر نرسید: %1$s ردیف بررسی شد و %2$s ردیف منتظر است. آنچه پایین می‌بینید دربارهٔ همین ردیف‌های بررسی‌شده است، نه کل آن‌ها.', 'tecteb-marketplace-core'),\n
+                $fa((string) $plan['scanned']),\n
+                (int) $plan['total'] < 0\n
+                    ? esc_html__('نامعلوم', 'tecteb-marketplace-core')\n
+                    : $fa((string) $plan['total'])\n
+            ));\n
+        }\n
+\n
+        if ($apply === []) {\n
+            echo Components::state(\n
+                'empty',\n
+                __('هیچ محصولی آمادهٔ اعمال نیست', 'tecteb-marketplace-core'),\n
+                __('یا هیچ محصول بی‌دسته‌ای نمانده، یا دستهٔ مبدأ هر کدام هنوز نگاشت نشده است. دلیل هر گروه پایین نام‌برده شده.', 'tecteb-marketplace-core')\n
+            );\n
+        } else {\n
+            \n
+            \n
+            $groups = [];\n
+            foreach ($apply as $row) {\n
+                $key = $row['source_key'] . "\0" . $row['target'];\n
+                if (!isset($groups[$key])) {\n
+                    $groups[$key] = [\n
+                        'source' => (string) ($row['source_label'] !== '' ? $row['source_label'] : $row['source_key']),\n
+                        'target_path' => (string) $row['target_path'],\n
+                        'products' => 0,\n
+                    ];\n
+                }\n
+                $groups[$key]['products']++;\n
+            }\n
+            echo '<div class="tmc-scroll" tabindex="0" role="region" aria-label="'\n
+                . esc_attr__('جدول تغییر پیشنهادی', 'tecteb-marketplace-core') . '">';\n
+            echo '<table class="tmc-table"><thead><tr>'\n
+                . '<th scope="col">' . esc_html__('دستهٔ مبدأ', 'tecteb-marketplace-core') . '</th>'\n
+                . '<th scope="col">' . esc_html__('به دستهٔ بازارگاه', 'tecteb-marketplace-core') . '</th>'\n
+                . '<th scope="col">' . esc_html__('تعداد محصول', 'tecteb-marketplace-core') . '</th>'\n
+                . '</tr></thead><tbody>';\n
+            foreach ($groups as $group) {\n
+                echo '<tr><td>' . esc_html($group['source']) . '</td>'\n
+                    . '<td>' . esc_html($group['target_path']) . '</td>'\n
+                    . '<td>' . esc_html($fa((string) $group['products'])) . '</td></tr>';\n
+            }\n
+            echo '</tbody></table></div>';\n
+\n
+            echo '<form method="post">';\n
+            foreach ($apply as $row) {\n
+                echo '<input type="hidden" name="apply[' . (int) $row['product_id'] . ']" value="'\n
+                    . esc_attr((string) $row['target']) . '">';\n
+            }\n
+            echo wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)\n
+                . '<p><button type="submit" class="tmc-button" name="handover_action" value="apply_categories">'\n
+                . esc_html(sprintf(\n
+                    \n
+                    __('اعمال روی %s محصول', 'tecteb-marketplace-core'),\n
+                    $fa((string) count($apply))\n
+                ))\n
+                . '</button></p>'\n
+                . '<p class="tmc-field__desc">'\n
+                . esc_html__('فقط ستون دسته روی همین ردیف‌ها نوشته می‌شود — و فقط روی ردیفی که همین حالا بی‌دسته است. هیچ محصول تازه‌ای ساخته نمی‌شود، هیچ ورودی تکرار نمی‌شود، و مالکیت، وضعیت انتشار، اجازهٔ فروش، دسته‌های ووکامرس و اطلاعات مالی دست نمی‌خورند.', 'tecteb-marketplace-core')\n
+                . '</p></form>';\n
+        }\n
+\n
+        if ($held !== []) {\n
+            echo '<h3 class="tmc-card__title">'\n
+                . esc_html__('آنچه اعمال نمی‌شود، و دلیلش', 'tecteb-marketplace-core') . '</h3>';\n
+            echo '<table class="tmc-table"><thead><tr>'\n
+                . '<th scope="col">' . esc_html__('دلیل', 'tecteb-marketplace-core') . '</th>'\n
+                . '<th scope="col">' . esc_html__('تعداد محصول', 'tecteb-marketplace-core') . '</th>'\n
+                . '</tr></thead><tbody>';\n
+            foreach ($held as $reason => $rows) {\n
+                echo '<tr><td>' . esc_html(self::heldReason((string) $reason))\n
+                    . '</td><td>' . esc_html($fa((string) count($rows))) . '</td></tr>';\n
+            }\n
+            echo '</tbody></table>';\n
+        }\n
+    }\n
+\n
+    \n
+    private static function sourceRef(string $sourceKey): string\n
+    {\n
+        return substr(sha1($sourceKey), 0, 32);\n
+    }\n
+\n
+    \n
+    private static function applyOutcome(string $code): string\n
+    {\n
+        return match ($code) {\n
+            'written' => __('نوشته شد', 'tecteb-marketplace-core'),\n
+            'already_set' => __('از قبل دسته داشت و دست نخورد', 'tecteb-marketplace-core'),\n
+            'target_moved' => __('دستهٔ پیشنهادی بین نمایش و کلیک عوض شد و نوشته نشد', 'tecteb-marketplace-core'),\n
+            'not_found' => __('چنین ردیفی نیست', 'tecteb-marketplace-core'),\n
+            'not_imported' => __('ورودی آن را نساخته، پس تصمیم مهاجرت به آن نمی‌رسد', 'tecteb-marketplace-core'),\n
+            'bad_category' => __('دستهٔ خالی دسته نیست', 'tecteb-marketplace-core'),\n
+            'storage_failed' => __('نوشتن انجام نشد', 'tecteb-marketplace-core'),\n
+            'not_waiting' => __('دیگر منتظر دسته نبود', 'tecteb-marketplace-core'),\n
+            default => self::heldReason($code),\n
+        };\n
+    }\n
+\n
+    \n
+    private static function heldReason(string $reason): string\n
+    {\n
+        return match ($reason) {\n
+            'unmapped' => __('دستهٔ مبدأشان هنوز نگاشت نشده است', 'tecteb-marketplace-core'),\n
+            'invalid_target' => __('نگاشتشان به دسته‌ای اشاره می‌کند که پیدا نشد', 'tecteb-marketplace-core'),\n
+            'no_source_category' => __('در دکان هیچ دسته‌ای ندارند، پس نگاشتی برایشان وجود ندارد', 'tecteb-marketplace-core'),\n
+            'source_missing' => __('محصول ووکامرسِ متناظرشان در فهرست دکان نیست، پس دستهٔ مبدأ خوانده نشد', 'tecteb-marketplace-core'),\n
+            'source_unreadable' => __('دکان در حال اجرا نیست و دستهٔ مبدأ خوانده نمی‌شود', 'tecteb-marketplace-core'),\n
+            default => $reason,\n
+        };\n
+    }\n
+\n
+    private function shopName(int $vendorUserId): string\n
+    {\n
+        $user = get_userdata($vendorUserId);\n
+        $name = $user ? (string) $user->display_name : '';\n
+        return $name !== ''\n
+            ? $name . ' (#' . PersianDigits::toPersian((string) $vendorUserId) . ')'\n
+            : '#' . PersianDigits::toPersian((string) $vendorUserId);\n
+    }\n
+\n
+    private static function verdictBadge(string $verdict): string\n
+    {\n
+        return match ($verdict) {\n
+            MigrationCompleteness::COMPLETE => Components::badge('success', '✓', __('کامل', 'tecteb-marketplace-core')),\n
+            MigrationCompleteness::RECORDED_ONLY => Components::badge('warning', '!', __('فقط سابقه ثبت شده', 'tecteb-marketplace-core')),\n
+            default => Components::badge('warning', '!', __('ناقص', 'tecteb-marketplace-core')),\n
+        };\n
+    }\n
+\n
+    \n
+    private static function recordsStateReason(string $state): string\n
+    {\n
+        return match ($state) {\n
+            MigrationCompleteness::RECORDS_OUTSTANDING =>\n
+                __('دکان سابقه‌ای دارد که این‌طرف نیست. دکمهٔ «ورود سوابق به صف» در بخش بالا همین را وارد می‌کند.', 'tecteb-marketplace-core'),\n
+            MigrationCompleteness::RECORDS_UNREADABLE =>\n
+                __('دست‌کم یکی از سه منبع خوانده نشد، پس معلوم نیست سابقه‌ای مانده یا نه. این «صفر» نیست و به‌عنوان صفر شمرده نمی‌شود.', 'tecteb-marketplace-core'),\n
+            MigrationCompleteness::RECORDS_DOKAN_ABSENT =>\n
+                __('دکان روی این نصب اجرا نمی‌شود، پس «چیزی مانده یا نه» پرسیدنی نیست. این دروازه از شمارش باز نمی‌شود: وجود محصول یا بخشی از سوابق اثبات نمی‌کند بقیه رسیده‌اند. آنچه می‌توانست ببندد، خودِ تأیید است — ثبتی که بگوید هر سه نوع تا آخر پیموده شده‌اند در حالی که دکان خوانده می‌شد — و چنین ثبتی در این نسخه وجود ندارد.', 'tecteb-marketplace-core'),\n
+            MigrationCompleteness::RECORDS_UNVERIFIABLE =>\n
+                __('این نصب نمی‌تواند بگوید چه داریم — جدول سوابق این افزونه در دسترس نبود. تا آن حل نشود نه «صفر» گفته می‌شود و نه «کامل».', 'tecteb-marketplace-core'),\n
+            default => __('وضعیت سابقهٔ این فروشگاه مشخص نشد.', 'tecteb-marketplace-core'),\n
+        };\n
+    }\n
+\n
+    private static function gateLabel(string $gate): string\n
+    {\n
+        return match ($gate) {\n
+            'records_imported' => __('ورود سابقه', 'tecteb-marketplace-core'),\n
+            'categories_mapped' => __('نگاشت دسته‌ها', 'tecteb-marketplace-core'),\n
+            'ownership_taken' => __('انتقال مالکیت محصول‌ها', 'tecteb-marketplace-core'),\n
+            'vendor_can_sell' => __('پذیرش فروشگاه', 'tecteb-marketplace-core'),\n
+            'staff_decided' => __('تصمیم دربارهٔ پرسنل', 'tecteb-marketplace-core'),\n
+            'finance_decided' => __('تصمیم دربارهٔ مانده', 'tecteb-marketplace-core'),\n
+            default => $gate,\n
+        };\n
+    }\n
+\n
+    private static function targetLabel(string $target): string\n
+    {\n
+        if ($target === StaffRoleMap::DECLINED) {\n
+            return __('هیچ دسترسی‌ای ندارد', 'tecteb-marketplace-core');\n
+        }\n
+        return match (StaffRolePreset::tryFrom($target)) {\n
+            StaffRolePreset::StoreManager => __('مدیر فروشگاه', 'tecteb-marketplace-core'),\n
+            StaffRolePreset::ProductAndInventory => __('محصول و موجودی', 'tecteb-marketplace-core'),\n
+            StaffRolePreset::OrderAndShipping => __('سفارش و ارسال', 'tecteb-marketplace-core'),\n
+            StaffRolePreset::Accountant => __('حسابدار', 'tecteb-marketplace-core'),\n
+            StaffRolePreset::CustomerSupport => __('پشتیبانی مشتری', 'tecteb-marketplace-core'),\n
+            default => $target,\n
+        };\n
+    }\n
+\n
+    private static function decisionLabel(string $decision): string\n
+    {\n
+        return match ($decision) {\n
+            ReconcileDokanFinance::ACCEPTED => __('مسئولیت با بازارگاه است', 'tecteb-marketplace-core'),\n
+            ReconcileDokanFinance::STAYS_OUTSIDE => __('خارج از بازارگاه تسویه می‌شود', 'tecteb-marketplace-core'),\n
+            default => __('تصمیمی گرفته نشده', 'tecteb-marketplace-core'),\n
+        };\n
+    }\n
+}\n
+' [UTF-8](length: 77279) does not contain "postText('cat_ref')" [ASCII](length: 19).
+
+/home/user/tecteb-seller/tests/Architecture/CategoryMappingHasOneWriterTest.php:141
+
+FAILURES!
+Tests: 5, Assertions: 51, Failures: 1.

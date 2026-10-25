@@ -835,6 +835,88 @@ final class DbProductRepository implements ProductRepositoryInterface
         );
     }
 
+    public function importedWithoutCategory(int $limit = 500): array
+    {
+        return array_map(
+            static fn (array $row): array => [
+                'id' => (int) $row['id'],
+                'vendor_user_id' => (int) $row['vendor_user_id'],
+                // NULL is possible on this column, and nought is the honest
+                // reading: a row with no WooCommerce product behind it cannot
+                // have its source category looked up, and the caller names it
+                // rather than skipping it.
+                'wc_product_id' => (int) ($row['wc_product_id'] ?? 0),
+                'title' => (string) $row['title'],
+            ],
+            $this->db->getResults(
+                'SELECT id, vendor_user_id, wc_product_id, title
+                   FROM `' . $this->products() . '`
+                  WHERE import_run_id <> %s AND category_key = %s
+                  ORDER BY id ASC LIMIT ' . max(1, min(1000, $limit)),
+                ['', '']
+            )
+        );
+    }
+
+    public function countImportedWithoutCategory(int $vendorUserId = 0): int
+    {
+        $sql = 'SELECT COUNT(*) FROM `' . $this->products() . '`
+                 WHERE import_run_id <> %s AND category_key = %s';
+        $params = ['', ''];
+        if ($vendorUserId > 0) {
+            $sql .= ' AND vendor_user_id = %d';
+            $params[] = $vendorUserId;
+        }
+        $value = $this->db->getVar($sql, $params);
+        // ⛔ A failed read is NOT nought here, and nought is «nothing left to
+        // decide» — the exact reading that would close a gate on a statement
+        // that never ran (`alpha.67`). `-1` is returned so the caller has to
+        // look, and `MigrationCompleteness` keeps the gate OPEN on it.
+        return $value === null ? -1 : (int) $value;
+    }
+
+    public function setCategoryWhenEmpty(int $productId, string $categoryKey): string
+    {
+        if (!$this->mayWrite()) {
+            return 'storage_failed';
+        }
+        $categoryKey = trim($categoryKey);
+        if ($categoryKey === '') {
+            // The empty string is what this method exists to replace. Writing
+            // it back would be a no-op that reported success.
+            return 'bad_category';
+        }
+        $written = $this->db->execute(
+            'UPDATE `' . $this->products() . '`
+                SET category_key = %s, updated_at = %s, row_version = row_version + 1
+              WHERE id = %d AND import_run_id <> %s AND category_key = %s',
+            [$categoryKey, $this->now(), $productId, '', '']
+        );
+        if ($written === null) {
+            return 'storage_failed';
+        }
+        if ($written > 0) {
+            return '';
+        }
+        // Zero rows, and `row_version = row_version + 1` means that really is
+        // «the WHERE did not match» rather than «nothing changed». Which half
+        // it is has to be READ, because the two are opposite answers — and the
+        // row is re-read rather than guessed (`alpha.28`).
+        $row = $this->db->getResults(
+            'SELECT category_key, import_run_id FROM `' . $this->products() . '` WHERE id = %d',
+            [$productId]
+        );
+        if ($row === []) {
+            return 'not_found';
+        }
+        if ((string) $row[0]['import_run_id'] === '') {
+            // Not an imported row at all. Its empty category is the vendor's
+            // to fill on their own form; no migration decision reaches it.
+            return 'not_imported';
+        }
+        return (string) $row[0]['category_key'] === '' ? 'storage_failed' : 'already_set';
+    }
+
     public function observedFromImportRuns(int $limit = 200): array
     {
         return array_map(

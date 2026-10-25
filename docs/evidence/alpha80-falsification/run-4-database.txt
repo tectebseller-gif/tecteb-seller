@@ -1,0 +1,23 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+............F...                                                  16 / 16 (100%)
+
+Time: 00:08.713, Memory: 24.00 MB
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Database\CategoryMappingFlowTest::testARowNoImportMadeIsOutOfReach
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'not_imported'
++''
+
+/home/user/tecteb-seller/tests/Database/CategoryMappingFlowTest.php:550
+
+FAILURES!
+Tests: 16, Assertions: 108, Failures: 1.

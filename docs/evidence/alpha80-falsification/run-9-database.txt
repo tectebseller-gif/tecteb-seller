@@ -1,0 +1,39 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+...F.....E......                                                  16 / 16 (100%)
+
+Time: 00:09.341, Memory: 24.00 MB
+
+There was 1 error:
+
+1) Tecteb\Marketplace\Tests\Database\CategoryMappingFlowTest::testAProductWithNoSourceCategoryIsNeverAssignedOne
+TypeError: array_column(): Argument #1 ($array) must be of type array, null given
+
+/home/user/tecteb-seller/tests/Database/CategoryMappingFlowTest.php:445
+
+--
+
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Database\CategoryMappingFlowTest::testThePlanNamesWhatWouldChangeAndWhatWouldNot
+Failed asserting that an array has the key 'no_source_category'.
+
+/home/user/tecteb-seller/tests/Database/CategoryMappingFlowTest.php:275
+
+--
+
+1 test triggered 1 PHP warning:
+
+1) /home/user/tecteb-seller/tests/Database/CategoryMappingFlowTest.php:445
+Undefined array key "no_source_category"
+
+Triggered by:
+
+* Tecteb\Marketplace\Tests\Database\CategoryMappingFlowTest::testAProductWithNoSourceCategoryIsNeverAssignedOne
+  /home/user/tecteb-seller/tests/Database/CategoryMappingFlowTest.php:436
+
+ERRORS!
+Tests: 16, Assertions: 104, Errors: 1, Failures: 1, Warnings: 1.
