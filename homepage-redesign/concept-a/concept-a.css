@@ -1,0 +1,639 @@
+/*
+ * طرح A — مینیمال، لوکس و تخصصی (Medical Technology)
+ *
+ * قابل‌استقرار: هر قاعده زیر `.tecteb-home-v1` است و هر کلاس پیشوند `th-` دارد.
+ * هیچ انتخابگری body، header، footer، .elementor، .woocommerce یا .dokan را
+ * هدف نمی‌گیرد، و هیچ reset سراسری‌ای نیست — پس کنار CSS قالب و Elementor
+ * می‌نشیند بی‌آنکه چیزی بیرون از این بلوک را تکان دهد.
+ *
+ * فقط فارسی و RTL در این مرحله. برای زبان بعدی آماده است، نه ساخته‌شده:
+ * فاصله‌ها و جهت‌ها با ویژگی‌های منطقی (inline/block) نوشته شده‌اند، و تنها
+ * چیزی که با جهت عوض می‌شود — فلش‌ها — زیر `:dir(ltr)` برمی‌گردد.
+ *
+ * چیدمان با @container روی خودِ ریشه است نه @media، تا در ستون باریکِ
+ * Elementor هم درست بشکند (همان قاعدهٔ ADR-006 همین مخزن).
+ */
+
+@font-face {
+  font-family: "TH Vazirmatn";
+  src: url("../shared/fonts/Vazirmatn-wght.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+.tecteb-home-v1.th-a {
+  /* رنگ‌ها موقت‌اند و با دارایی‌های برند جایگزین می‌شوند. */
+  --th-ink: #152b3b;
+  --th-navy: #123b60;
+  --th-teal: #0f7a80;          /* متن و دکمه — ۵٫۲:۱ روی سفید */
+  --th-teal-soft: #138b92;     /* فقط تزئین و خط */
+  --th-surface: #f4f8fa;
+  --th-ivory: #fbfbf8;
+  --th-line: #dbe4e9;
+  --th-muted: #50606c;         /* ۶٫۴:۱ روی سفید */
+  --th-white: #ffffff;
+  --th-radius: 2px;
+  --th-font: "TH Vazirmatn", "Vazirmatn", Tahoma, system-ui, sans-serif;
+  --th-gutter: clamp(1rem, 4vw, 2.5rem);
+  --th-max: 1200px;
+  --th-space: clamp(4rem, 9vw, 7.5rem);
+
+  container: th-home / inline-size;
+  display: block;
+  background: var(--th-ivory);
+  color: var(--th-ink);
+  font-family: var(--th-font);
+  font-size: 1rem;
+  line-height: 1.85;
+  text-align: start;
+  -webkit-font-smoothing: antialiased;
+}
+
+.tecteb-home-v1.th-a *,
+.tecteb-home-v1.th-a *::before,
+.tecteb-home-v1.th-a *::after {
+  box-sizing: border-box;
+}
+
+.tecteb-home-v1.th-a :where(h1, h2, h3, p, ul, ol, figure) {
+  margin: 0;
+}
+
+.tecteb-home-v1.th-a :where(ul, ol) {
+  padding: 0;
+  list-style: none;
+}
+
+.tecteb-home-v1.th-a a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.tecteb-home-v1.th-a :focus-visible {
+  outline: 2px solid var(--th-teal);
+  outline-offset: 3px;
+  border-radius: var(--th-radius);
+}
+
+.tecteb-home-v1.th-a .th-visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.tecteb-home-v1.th-a .th-wrap {
+  inline-size: 100%;
+  max-inline-size: var(--th-max);
+  margin-inline: auto;
+  padding-inline: var(--th-gutter);
+}
+
+.tecteb-home-v1.th-a .th-icon {
+  inline-size: 1.15em;
+  block-size: 1.15em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* فلش «جلو» در RTL به چپ است؛ در زبانِ چپ‌به‌راست آینده برمی‌گردد. */
+.tecteb-home-v1.th-a .th-icon--dir:dir(ltr) {
+  transform: scaleX(-1);
+}
+
+/* ---------- دکمه‌ها و پیوندها ---------- */
+
+.tecteb-home-v1.th-a .th-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-block-size: 3rem;
+  padding-inline: 1.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--th-radius);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.tecteb-home-v1.th-a .th-btn--ink { background: var(--th-ink); color: var(--th-white); }
+.tecteb-home-v1.th-a .th-btn--ink:hover { background: var(--th-navy); }
+.tecteb-home-v1.th-a .th-btn--teal { background: var(--th-teal); color: var(--th-white); }
+.tecteb-home-v1.th-a .th-btn--teal:hover { background: #0c666b; }
+.tecteb-home-v1.th-a .th-btn--light { background: var(--th-white); color: var(--th-ink); }
+.tecteb-home-v1.th-a .th-btn--light:hover { background: var(--th-surface); }
+
+.tecteb-home-v1.th-a .th-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-block: 0.375rem;
+  border-block-end: 1px solid currentColor;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.tecteb-home-v1.th-a .th-link:hover { color: var(--th-teal); }
+.tecteb-home-v1.th-a .th-link--light { color: var(--th-white); }
+.tecteb-home-v1.th-a .th-link--light:hover { color: #bfe5e7; }
+
+.tecteb-home-v1.th-a .th-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--th-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.tecteb-home-v1.th-a .th-eyebrow__mark {
+  inline-size: 2.5rem;
+  block-size: 1px;
+  background: var(--th-teal-soft);
+}
+
+.tecteb-home-v1.th-a .th-eyebrow--light { color: #c9d6e0; }
+
+/* برچسب «نمونه» — فقط در پیش‌نمایش؛ در اجرا حذف می‌شود. */
+.tecteb-home-v1.th-a .th-sample {
+  display: inline-block;
+  margin-inline-start: 0.25rem;
+  padding: 0 0.5rem;
+  border: 1px dashed #a07a14;
+  border-radius: 99px;
+  color: #6b5000;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+  vertical-align: middle;
+}
+
+.tecteb-home-v1.th-a .th-sample--warn { border-color: #b4471f; color: #8a3414; }
+
+/* ---------- ۱. معرفی و جست‌وجو ---------- */
+
+.tecteb-home-v1.th-a .th-hero {
+  padding-block: clamp(3rem, 8vw, 6.5rem) var(--th-space);
+}
+
+.tecteb-home-v1.th-a .th-hero__grid {
+  display: grid;
+  gap: clamp(2.5rem, 6vw, 5rem);
+  align-items: center;
+}
+
+.tecteb-home-v1.th-a .th-hero__copy {
+  display: grid;
+  gap: 1.75rem;
+  min-inline-size: 0;
+}
+
+.tecteb-home-v1.th-a .th-hero__title {
+  font-size: clamp(2.1rem, 5.6cqi, 3.9rem);
+  font-weight: 300;
+  line-height: 1.38;
+  letter-spacing: -0.01em;
+  color: var(--th-ink);
+  text-wrap: balance;
+}
+
+.tecteb-home-v1.th-a .th-hero__em {
+  display: block;
+  font-weight: 700;
+  color: var(--th-navy);
+}
+
+.tecteb-home-v1.th-a .th-hero__lead {
+  max-inline-size: 36rem;
+  color: var(--th-muted);
+  font-size: clamp(1rem, 1.6cqi, 1.125rem);
+}
+
+.tecteb-home-v1.th-a .th-search {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-inline-size: 36rem;
+  padding: 0.375rem;
+  padding-inline-start: 1rem;
+  background: var(--th-white);
+  border: 1px solid var(--th-line);
+  border-radius: var(--th-radius);
+  box-shadow: 0 18px 40px -28px rgba(18, 59, 96, 0.45);
+}
+
+.tecteb-home-v1.th-a .th-search:focus-within {
+  border-color: var(--th-teal);
+  box-shadow: 0 0 0 2px var(--th-teal), 0 18px 40px -28px rgba(18, 59, 96, 0.45);
+}
+
+.tecteb-home-v1.th-a .th-search__icon {
+  color: var(--th-muted);
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  stroke-width: 3;
+}
+
+.tecteb-home-v1.th-a .th-search__input {
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 3rem;
+  border: 0;
+  background: transparent;
+  color: var(--th-ink);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.tecteb-home-v1.th-a .th-search__input::placeholder { color: #6d7c87; }
+.tecteb-home-v1.th-a .th-search__input:focus { outline: none; }
+.tecteb-home-v1.th-a .th-search__input:focus-visible { outline: none; }
+
+.tecteb-home-v1.th-a .th-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 2rem;
+}
+
+.tecteb-home-v1.th-a .th-hero__visual {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.tecteb-home-v1.th-a .th-hero__plate {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3.4;
+  overflow: hidden;
+  background:
+    linear-gradient(var(--th-line) 1px, transparent 1px) 0 0 / 100% 25%,
+    linear-gradient(90deg, var(--th-line) 1px, transparent 1px) 0 0 / 20% 100%,
+    linear-gradient(160deg, #ffffff 0%, var(--th-surface) 100%);
+  border: 1px solid var(--th-line);
+}
+
+.tecteb-home-v1.th-a .th-hero__device {
+  position: relative;
+  z-index: 1;
+  inline-size: 52%;
+  block-size: auto;
+  fill: none;
+  stroke: var(--th-navy);
+  stroke-width: 0.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tecteb-home-v1.th-a .th-hero__ring {
+  position: absolute;
+  inline-size: 70%;
+  aspect-ratio: 1;
+  border: 1px solid var(--th-teal-soft);
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+.tecteb-home-v1.th-a .th-hero__caption {
+  color: var(--th-muted);
+  font-size: 0.75rem;
+}
+
+/* ---------- سربرگ بخش‌ها ---------- */
+
+.tecteb-home-v1.th-a .th-section {
+  padding-block: var(--th-space);
+  border-block-start: 1px solid var(--th-line);
+}
+
+.tecteb-home-v1.th-a .th-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1.5rem;
+  align-items: start;
+  margin-block-end: clamp(2rem, 5vw, 3.5rem);
+}
+
+.tecteb-home-v1.th-a .th-head__num {
+  color: var(--th-teal);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 2.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.tecteb-home-v1.th-a .th-head__title {
+  font-size: clamp(1.5rem, 3.2cqi, 2.25rem);
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--th-ink);
+}
+
+.tecteb-home-v1.th-a .th-head__lead {
+  margin-block-start: 0.25rem;
+  max-inline-size: 38rem;
+  color: var(--th-muted);
+}
+
+.tecteb-home-v1.th-a .th-head__more {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.tecteb-home-v1.th-a .th-head--stack {
+  grid-template-columns: 1fr;
+  margin-block-end: 0;
+}
+
+/* ---------- ۲. دسته‌بندی‌ها: فهرستی شبیه نمایهٔ یک کاتالوگ ---------- */
+
+.tecteb-home-v1.th-a .th-cats__list {
+  display: grid;
+  grid-template-columns: 1fr;
+  border-block-start: 1px solid var(--th-ink);
+}
+
+.tecteb-home-v1.th-a .th-cat {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr;
+  grid-template-areas: "icon name" "icon meta";
+  column-gap: 1rem;
+  align-items: center;
+  min-block-size: 5.5rem;
+  padding-block: 1.25rem;
+  border-block-end: 1px solid var(--th-line);
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.tecteb-home-v1.th-a .th-cat:hover { color: var(--th-teal); }
+
+.tecteb-home-v1.th-a .th-cat__icon {
+  grid-area: icon;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--th-navy);
+}
+
+.tecteb-home-v1.th-a .th-cat:hover .th-cat__icon { color: var(--th-teal); }
+
+.tecteb-home-v1.th-a .th-cat__name {
+  grid-area: name;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.tecteb-home-v1.th-a .th-cat__meta {
+  grid-area: meta;
+  color: var(--th-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* ---------- ۳. محصولات ---------- */
+
+.tecteb-home-v1.th-a .th-products__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem;
+}
+
+.tecteb-home-v1.th-a .th-product {
+  position: relative;
+  display: grid;
+  gap: 1.25rem;
+  block-size: 100%;
+}
+
+.tecteb-home-v1.th-a .th-product__media {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.5rem;
+  aspect-ratio: 4 / 3;
+  background: var(--th-surface);
+  border: 1px solid var(--th-line);
+  color: var(--th-navy);
+  transition: border-color 0.2s ease;
+}
+
+.tecteb-home-v1.th-a .th-product:hover .th-product__media { border-color: var(--th-teal-soft); }
+
+.tecteb-home-v1.th-a .th-product__art {
+  inline-size: 34%;
+  block-size: auto;
+  aspect-ratio: 1;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tecteb-home-v1.th-a .th-product__media--empty {
+  color: #7e8c96;
+  font-size: 0.8125rem;
+}
+
+.tecteb-home-v1.th-a .th-product__media--empty .th-product__art { inline-size: 18%; }
+
+.tecteb-home-v1.th-a .th-product__body {
+  display: grid;
+  gap: 0.375rem;
+  align-content: start;
+}
+
+.tecteb-home-v1.th-a .th-product__cat {
+  color: var(--th-teal);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.tecteb-home-v1.th-a .th-product__title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.75;
+  /* عنوان‌های بلند ووکامرس در دو خط بریده می‌شوند، نه چیدمان را می‌شکنند. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.tecteb-home-v1.th-a .th-product__title a:hover { color: var(--th-teal); }
+
+/* کل کارت هدف کلیک است؛ پیوند تصویر از ترتیب Tab بیرون است. */
+.tecteb-home-v1.th-a .th-product__title a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.tecteb-home-v1.th-a .th-product:focus-within { outline: 2px solid var(--th-teal); outline-offset: 6px; }
+.tecteb-home-v1.th-a .th-product__title a:focus-visible { outline: none; }
+
+.tecteb-home-v1.th-a .th-product__price {
+  color: var(--th-ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.tecteb-home-v1.th-a .th-product__price-label {
+  color: var(--th-muted);
+  font-weight: 400;
+  margin-inline-end: 0.25rem;
+}
+
+.tecteb-home-v1.th-a .th-product__price--ask { color: var(--th-navy); }
+.tecteb-home-v1.th-a .th-product__price--out { color: var(--th-muted); font-weight: 500; }
+
+.tecteb-home-v1.th-a .th-note {
+  margin-block-start: 2.5rem;
+  color: var(--th-muted);
+  font-size: 0.8125rem;
+}
+
+/* ---------- ۴. خدمات ---------- */
+
+.tecteb-home-v1.th-a .th-services {
+  background: var(--th-white);
+}
+
+.tecteb-home-v1.th-a .th-services__grid {
+  display: grid;
+  gap: 2.5rem;
+}
+
+.tecteb-home-v1.th-a .th-services__list {
+  display: grid;
+  border-block-start: 1px solid var(--th-ink);
+}
+
+.tecteb-home-v1.th-a .th-service {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr;
+  gap: 1rem;
+  padding-block: 1.5rem;
+  border-block-end: 1px solid var(--th-line);
+}
+
+.tecteb-home-v1.th-a .th-service__num {
+  color: var(--th-teal);
+  font-size: 1.5rem;
+  font-weight: 200;
+  line-height: 1.4;
+}
+
+.tecteb-home-v1.th-a .th-service__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.tecteb-home-v1.th-a .th-service__text {
+  margin-block-start: 0.25rem;
+  color: var(--th-muted);
+}
+
+.tecteb-home-v1.th-a .th-services__cta {
+  justify-self: start;
+}
+
+/* ---------- ۵. تأمین‌کنندگان ---------- */
+
+.tecteb-home-v1.th-a .th-supplier {
+  padding-block: clamp(3.5rem, 8vw, 6rem);
+  background: var(--th-navy);
+  color: var(--th-white);
+}
+
+.tecteb-home-v1.th-a .th-supplier__grid {
+  display: grid;
+  gap: 2rem;
+  align-items: end;
+}
+
+.tecteb-home-v1.th-a .th-supplier__title {
+  margin-block-start: 1rem;
+  font-size: clamp(1.5rem, 3.4cqi, 2.5rem);
+  font-weight: 300;
+  line-height: 1.5;
+  text-wrap: balance;
+}
+
+.tecteb-home-v1.th-a .th-supplier__lead {
+  margin-block-start: 1rem;
+  max-inline-size: 36rem;
+  color: #d3dee7;
+}
+
+.tecteb-home-v1.th-a .th-supplier__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 2rem;
+}
+
+/* ---------- عرض‌ها (کانتینر، نه صفحه) ---------- */
+
+@container th-home (min-width: 560px) {
+  .tecteb-home-v1.th-a .th-cats__list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 2.5rem; }
+  .tecteb-home-v1.th-a .th-products__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; }
+}
+
+@container th-home (min-width: 900px) {
+  .tecteb-home-v1.th-a .th-hero__grid { grid-template-columns: 1.15fr 0.85fr; }
+  .tecteb-home-v1.th-a .th-head { grid-template-columns: auto 1fr auto; align-items: end; }
+  .tecteb-home-v1.th-a .th-head__more { grid-column: auto; justify-self: end; }
+  .tecteb-home-v1.th-a .th-head--stack { grid-template-columns: 1fr; align-items: start; }
+  .tecteb-home-v1.th-a .th-cats__list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tecteb-home-v1.th-a .th-products__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.5rem; }
+  .tecteb-home-v1.th-a .th-services__grid {
+    grid-template-columns: 0.8fr 1.2fr;
+    grid-template-areas: "head list" "cta list";
+    align-items: start;
+    column-gap: 5rem;
+  }
+  .tecteb-home-v1.th-a .th-services__grid > .th-head { grid-area: head; }
+  .tecteb-home-v1.th-a .th-services__list { grid-area: list; }
+  .tecteb-home-v1.th-a .th-services__cta { grid-area: cta; }
+  .tecteb-home-v1.th-a .th-supplier__grid { grid-template-columns: 1.4fr auto; }
+}
+
+/* روی موبایل، دکمه‌های اصلی تمام‌عرض‌اند تا هدف لمسی بزرگ باشد. */
+@container th-home (max-width: 479px) {
+  .tecteb-home-v1.th-a .th-search { flex-wrap: wrap; padding-inline-start: 0.375rem; }
+  .tecteb-home-v1.th-a .th-search__icon { margin-inline-start: 0.625rem; }
+  .tecteb-home-v1.th-a .th-search .th-btn { flex: 1 0 100%; }
+  .tecteb-home-v1.th-a .th-hero__plate { aspect-ratio: 16 / 10; }
+  .tecteb-home-v1.th-a .th-hero__device { inline-size: 38%; }
+  .tecteb-home-v1.th-a .th-hero__actions .th-btn,
+  .tecteb-home-v1.th-a .th-services__cta,
+  .tecteb-home-v1.th-a .th-supplier__actions .th-btn { inline-size: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tecteb-home-v1.th-a *,
+  .tecteb-home-v1.th-a *::before,
+  .tecteb-home-v1.th-a *::after {
+    transition: none !important;
+  }
+}

@@ -1,0 +1,44 @@
+/*
+ * فقط برای پیش‌نمایش محلی — این فایل به سایت نمی‌رود.
+ * هدر و پاورقیِ فعلیِ سایت در این مرحله تغییر نمی‌کنند؛ این‌جا فقط با یک
+ * نوار خاکستری جایشان نشان داده می‌شود تا معلوم باشد طرح تازه کجا می‌نشیند.
+ * کلاس‌ها پیشوند `proto-` دارند تا با کلاس‌های قابل‌استقرار (`th-`) قاطی نشوند.
+ */
+@font-face {
+  font-family: "TH Vazirmatn";
+  src: url("fonts/Vazirmatn-wght.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+.proto-page {
+  margin: 0;
+  background: #e9edf0;
+  font-family: "TH Vazirmatn", Tahoma, system-ui, sans-serif;
+}
+
+.proto-banner {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  background: #fff4d6;
+  color: #5b4300;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  text-align: center;
+  border-block-end: 1px solid #ecd9a3;
+}
+
+.proto-slot {
+  display: grid;
+  place-items: center;
+  min-block-size: 4.25rem;
+  padding: 0.75rem 1rem;
+  background: repeating-linear-gradient(-45deg, #dfe4e8 0 10px, #e6eaed 10px 20px);
+  color: #46545f;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.proto-slot--footer {
+  min-block-size: 7rem;
+}

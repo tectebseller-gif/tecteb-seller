@@ -1,0 +1,52 @@
+PASS  concept-a: sprite matches shared/icons.svg.html
+PASS  concept-a: lang=fa dir=rtl
+PASS  concept-a: no <script>
+PASS  concept-a: no external URL
+PASS  concept-a: every selector scoped under .tecteb-home-v1
+PASS  concept-a: no theme/plugin/global selectors
+PASS  concept-a: logical properties only (i18n-ready)
+PASS  concept-b: sprite matches shared/icons.svg.html
+PASS  concept-b: lang=fa dir=rtl
+PASS  concept-b: no <script>
+PASS  concept-b: no external URL
+PASS  concept-b: every selector scoped under .tecteb-home-v1
+PASS  concept-b: no theme/plugin/global selectors
+PASS  concept-b: logical properties only (i18n-ready)
+PASS  concept-a: Persian font loaded
+PASS  concept-a @1440: no failed requests
+PASS  concept-a @1440: no horizontal overflow  — 0px
+PASS  concept-a: five sections  — 5
+PASS  concept-a: one h1, then h2/h3
+PASS  concept-a @1440: axe — 0 violations
+PASS  concept-a @768: no failed requests
+PASS  concept-a @768: no horizontal overflow  — 0px
+PASS  concept-a @768: axe — 0 violations
+PASS  concept-a @390: no failed requests
+PASS  concept-a @390: no horizontal overflow  — 0px
+PASS  concept-a @390: tap targets ≥ 24px  — []
+PASS  concept-a @390: axe — 0 violations
+PASS  concept-a @320: no failed requests
+PASS  concept-a @320: no horizontal overflow  — 0px
+PASS  concept-a @320: tap targets ≥ 24px  — []
+PASS  concept-a @320: axe — 0 violations
+PASS  concept-a: Tab reaches search with a visible focus indicator
+PASS  concept-b: Persian font loaded
+PASS  concept-b @1440: no failed requests
+PASS  concept-b @1440: no horizontal overflow  — 0px
+PASS  concept-b: five sections  — 5
+PASS  concept-b: one h1, then h2/h3
+PASS  concept-b @1440: axe — 0 violations
+PASS  concept-b @768: no failed requests
+PASS  concept-b @768: no horizontal overflow  — 0px
+PASS  concept-b @768: axe — 0 violations
+PASS  concept-b @390: no failed requests
+PASS  concept-b @390: no horizontal overflow  — 0px
+PASS  concept-b @390: tap targets ≥ 24px  — []
+PASS  concept-b @390: axe — 0 violations
+PASS  concept-b @320: no failed requests
+PASS  concept-b @320: no horizontal overflow  — 0px
+PASS  concept-b @320: tap targets ≥ 24px  — []
+PASS  concept-b @320: axe — 0 violations
+PASS  concept-b: Tab reaches search with a visible focus indicator
+
+50 passed, 0 failed
