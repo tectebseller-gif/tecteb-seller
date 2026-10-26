@@ -1,52 +1,136 @@
 PASS  concept-a: sprite matches shared/icons.svg.html
 PASS  concept-a: lang=fa dir=rtl
-PASS  concept-a: no <script>
+PASS  concept-a: scripts limited to none
 PASS  concept-a: no external URL
-PASS  concept-a: every selector scoped under .tecteb-home-v1
-PASS  concept-a: no theme/plugin/global selectors
-PASS  concept-a: logical properties only (i18n-ready)
+PASS  concept-a/concept-a.css: every selector scoped under .tecteb-home-v1
+PASS  concept-a/concept-a.css: no theme/plugin/global selectors
+PASS  concept-a/concept-a.css: logical properties only (i18n-ready)
+PASS  concept-a/concept-a.css: no external URL
 PASS  concept-b: sprite matches shared/icons.svg.html
 PASS  concept-b: lang=fa dir=rtl
-PASS  concept-b: no <script>
+PASS  concept-b: scripts limited to none
 PASS  concept-b: no external URL
-PASS  concept-b: every selector scoped under .tecteb-home-v1
-PASS  concept-b: no theme/plugin/global selectors
-PASS  concept-b: logical properties only (i18n-ready)
+PASS  concept-b/concept-b.css: every selector scoped under .tecteb-home-v1
+PASS  concept-b/concept-b.css: no theme/plugin/global selectors
+PASS  concept-b/concept-b.css: logical properties only (i18n-ready)
+PASS  concept-b/concept-b.css: no external URL
+PASS  concept-c: sprite matches shared/icons.svg.html
+PASS  concept-c: lang=fa dir=rtl
+PASS  concept-c: scripts limited to concept-c.js  — concept-c.js
+PASS  concept-c: no external URL
+PASS  concept-c/concept-c.css: every selector scoped under .tecteb-home-v1
+PASS  concept-c/concept-c.css: no theme/plugin/global selectors
+PASS  concept-c/concept-c.css: logical properties only (i18n-ready)
+PASS  concept-c/concept-c.css: no external URL
+PASS  concept-c/concept-c.css: every animation sits under prefers-reduced-motion: no-preference
+PASS  hero-light: sprite matches shared/icons.svg.html
+PASS  hero-light: lang=fa dir=rtl
+PASS  hero-light: scripts limited to concept-c.js  — concept-c.js
+PASS  hero-light: no external URL
+PASS  hero-dark: sprite matches shared/icons.svg.html
+PASS  hero-dark: lang=fa dir=rtl
+PASS  hero-dark: scripts limited to concept-c.js  — concept-c.js
+PASS  hero-dark: no external URL
 PASS  concept-a: Persian font loaded
-PASS  concept-a @1440: no failed requests
+PASS  concept-a: 5 section(s)
+PASS  concept-a: one h1, first
+PASS  concept-a: every image loaded  — []
+PASS  concept-a @1440: no failed requests, no script errors
 PASS  concept-a @1440: no horizontal overflow  — 0px
-PASS  concept-a: five sections  — 5
-PASS  concept-a: one h1, then h2/h3
 PASS  concept-a @1440: axe — 0 violations
-PASS  concept-a @768: no failed requests
+PASS  concept-a @768: no failed requests, no script errors
 PASS  concept-a @768: no horizontal overflow  — 0px
 PASS  concept-a @768: axe — 0 violations
-PASS  concept-a @390: no failed requests
+PASS  concept-a @390: no failed requests, no script errors
 PASS  concept-a @390: no horizontal overflow  — 0px
 PASS  concept-a @390: tap targets ≥ 24px  — []
 PASS  concept-a @390: axe — 0 violations
-PASS  concept-a @320: no failed requests
+PASS  concept-a @320: no failed requests, no script errors
 PASS  concept-a @320: no horizontal overflow  — 0px
 PASS  concept-a @320: tap targets ≥ 24px  — []
 PASS  concept-a @320: axe — 0 violations
 PASS  concept-a: Tab reaches search with a visible focus indicator
 PASS  concept-b: Persian font loaded
-PASS  concept-b @1440: no failed requests
+PASS  concept-b: 5 section(s)
+PASS  concept-b: one h1, first
+PASS  concept-b: every image loaded  — []
+PASS  concept-b @1440: no failed requests, no script errors
 PASS  concept-b @1440: no horizontal overflow  — 0px
-PASS  concept-b: five sections  — 5
-PASS  concept-b: one h1, then h2/h3
 PASS  concept-b @1440: axe — 0 violations
-PASS  concept-b @768: no failed requests
+PASS  concept-b @768: no failed requests, no script errors
 PASS  concept-b @768: no horizontal overflow  — 0px
 PASS  concept-b @768: axe — 0 violations
-PASS  concept-b @390: no failed requests
+PASS  concept-b @390: no failed requests, no script errors
 PASS  concept-b @390: no horizontal overflow  — 0px
 PASS  concept-b @390: tap targets ≥ 24px  — []
 PASS  concept-b @390: axe — 0 violations
-PASS  concept-b @320: no failed requests
+PASS  concept-b @320: no failed requests, no script errors
 PASS  concept-b @320: no horizontal overflow  — 0px
 PASS  concept-b @320: tap targets ≥ 24px  — []
 PASS  concept-b @320: axe — 0 violations
 PASS  concept-b: Tab reaches search with a visible focus indicator
+PASS  concept-c: Persian font loaded
+PASS  concept-c: 5 section(s)
+PASS  concept-c: one h1, first
+PASS  concept-c: every image loaded  — []
+PASS  concept-c @1440: no failed requests, no script errors
+PASS  concept-c @1440: no horizontal overflow  — 0px
+PASS  concept-c @1440: axe — 0 violations
+PASS  concept-c @768: no failed requests, no script errors
+PASS  concept-c @768: no horizontal overflow  — 0px
+PASS  concept-c @768: axe — 0 violations
+PASS  concept-c @390: no failed requests, no script errors
+PASS  concept-c @390: no horizontal overflow  — 0px
+PASS  concept-c @390: tap targets ≥ 24px  — []
+PASS  concept-c @390: axe — 0 violations
+PASS  concept-c @320: no failed requests, no script errors
+PASS  concept-c @320: no horizontal overflow  — 0px
+PASS  concept-c @320: tap targets ≥ 24px  — []
+PASS  concept-c @320: axe — 0 violations
+PASS  concept-c: Tab reaches search with a visible focus indicator
+PASS  hero-light: Persian font loaded
+PASS  hero-light: 1 section(s)
+PASS  hero-light: one h1, first
+PASS  hero-light: every image loaded  — []
+PASS  hero-light @1440: no failed requests, no script errors
+PASS  hero-light @1440: no horizontal overflow  — 0px
+PASS  hero-light @1440: axe — 0 violations
+PASS  hero-light @768: no failed requests, no script errors
+PASS  hero-light @768: no horizontal overflow  — 0px
+PASS  hero-light @768: axe — 0 violations
+PASS  hero-light @390: no failed requests, no script errors
+PASS  hero-light @390: no horizontal overflow  — 0px
+PASS  hero-light @390: tap targets ≥ 24px  — []
+PASS  hero-light @390: axe — 0 violations
+PASS  hero-light @320: no failed requests, no script errors
+PASS  hero-light @320: no horizontal overflow  — 0px
+PASS  hero-light @320: tap targets ≥ 24px  — []
+PASS  hero-light @320: axe — 0 violations
+PASS  hero-light: Tab reaches search with a visible focus indicator
+PASS  hero-dark: Persian font loaded
+PASS  hero-dark: 1 section(s)
+PASS  hero-dark: one h1, first
+PASS  hero-dark: every image loaded  — []
+PASS  hero-dark @1440: no failed requests, no script errors
+PASS  hero-dark @1440: no horizontal overflow  — 0px
+PASS  hero-dark @1440: axe — 0 violations
+PASS  hero-dark @768: no failed requests, no script errors
+PASS  hero-dark @768: no horizontal overflow  — 0px
+PASS  hero-dark @768: axe — 0 violations
+PASS  hero-dark @390: no failed requests, no script errors
+PASS  hero-dark @390: no horizontal overflow  — 0px
+PASS  hero-dark @390: tap targets ≥ 24px  — []
+PASS  hero-dark @390: axe — 0 violations
+PASS  hero-dark @320: no failed requests, no script errors
+PASS  hero-dark @320: no horizontal overflow  — 0px
+PASS  hero-dark @320: tap targets ≥ 24px  — []
+PASS  hero-dark @320: axe — 0 violations
+PASS  hero-dark: Tab reaches search with a visible focus indicator
+PASS  concept-c motion: a section below the fold waits to reveal (scroll-driven)  — 0.001
+PASS  concept-c motion: hero entry animation ends fully visible  — 1,1,1,1,1
+PASS  concept-c motion: every section is fully visible once in view  — 21/21
+PASS  concept-c motion: category card lifts on hover  — none → matrix(1, 0, 0, 1, 0, -4)
+PASS  concept-c motion: pointer light follows the cursor on desktop
+PASS  concept-c reduced motion: no animation runs and nothing is hidden  — animations=0 hidden=0
 
-50 passed, 0 failed
+134 passed, 0 failed

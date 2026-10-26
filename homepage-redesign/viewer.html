@@ -1,4 +1,4 @@
-<title>صفحهٔ اصلی تک‌طب، دو طرح</title>
+<title>صفحهٔ اصلی تک‌طب، طرح‌ها</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
   /* نمایشگرِ انتخاب: یک ستون، کنترل‌ها بالا، پیش‌نمایش زنده زیرش. */
@@ -52,7 +52,7 @@
   .lead { margin: 0; color: var(--muted); max-width: 68ch; }
   .note { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-fg); font-size: 13px; }
   .bar { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+  .seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
   .seg button {
     font: inherit; font-size: 14px; font-weight: 600; border: 0; background: transparent; color: var(--fg);
     min-height: 40px; padding-inline: 16px; cursor: pointer;
@@ -70,42 +70,52 @@
 </style>
 
 <div class="wrap" dir="rtl" lang="fa">
-  <h1>صفحهٔ اصلی تک‌طب، دو طرح برای انتخاب</h1>
-  <p class="lead">دو پیش‌نمایش مستقل HTML/CSS، فقط فارسی و راست‌به‌چپ. هدر و پاورقی فعلی سایت دست نمی‌خورند و با نوار خاکستری نشان داده شده‌اند.</p>
+  <h1>صفحهٔ اصلی تک‌طب، طرح‌ها برای انتخاب</h1>
+  <p class="lead">پیش‌نمایش‌های مستقل HTML/CSS، فقط فارسی و راست‌به‌چپ. دور ۲: Concept C و دو سبک Hero؛ A و B از دور ۱ برای مقایسه. هدر و پاورقی فعلی سایت دست نمی‌خورند و با نوار خاکستری نشان داده شده‌اند.</p>
   <p class="note">دسته‌ها، محصولات و خدمات نمونه‌اند و برچسب «نمونه» دارند. پیوندها هنوز به سایت وصل نیستند. هیچ تغییری روی سایت اصلی یا آزمایشی انجام نشده است.</p>
 
   <div class="bar">
     <div class="seg" role="group" aria-label="طرح">
-      <button type="button" id="pick-a" data-concept="a" aria-pressed="true">طرح A · مینیمال تخصصی</button>
-      <button type="button" id="pick-b" data-concept="b" aria-pressed="false">طرح B · مارکت‌پلیس B2B</button>
+      <button type="button" id="pick-c" data-concept="c" aria-pressed="true">Concept C</button>
+      <button type="button" id="pick-hl" data-concept="hl" aria-pressed="false">Hero روشن</button>
+      <button type="button" id="pick-hd" data-concept="hd" aria-pressed="false">Hero تیره</button>
+      <button type="button" id="pick-a" data-concept="a" aria-pressed="false">طرح A</button>
+      <button type="button" id="pick-b" data-concept="b" aria-pressed="false">طرح B</button>
     </div>
     <div class="seg" role="group" aria-label="اندازه">
       <button type="button" id="dev-desktop" data-device="desktop" aria-pressed="true">دسکتاپ</button>
       <button type="button" id="dev-mobile" data-device="mobile" aria-pressed="false">موبایل ۳۹۰px</button>
     </div>
-    <a class="open" id="open-full" href="concept-a/index.html" target="_blank" rel="noopener">باز کردن در صفحهٔ کامل</a>
+    <a class="open" id="open-full" href="concept-c/index.html" target="_blank" rel="noopener">باز کردن در صفحهٔ کامل</a>
   </div>
 
   <p class="about" id="about"></p>
 
   <div class="stage" id="stage" data-device="desktop">
-    <iframe id="frame" src="concept-a/index.html" title="پیش‌نمایش طرح"></iframe>
+    <iframe id="frame" src="concept-c/index.html" title="پیش‌نمایش طرح"></iframe>
   </div>
 </div>
 
 <script>
-  const ABOUT = {
-    a: ['طرح A — مینیمال، لوکس و تخصصی', 'تیتر بزرگ و آرام، خط‌های نازک و یک رنگ تأکید؛ دسته‌ها به‌شکل نمایهٔ کاتالوگ. معتبرتر و متمایزتر، ولی محصول کمتری بالای صفحه می‌آید و به عکس واقعی خوب وابسته‌تر است.'],
-    b: ['طرح B — مدرن و محصول‌محور (پیشنهاد ما)', 'جست‌وجوی بزرگ با انتخاب دسته، دو کارت مسیر برای خریدار و تأمین‌کننده، کاشی دسته‌ها و کارت محصول با موجودی. کشف محصول روشن‌تر است، ولی شبیه‌تر به بقیهٔ مارکت‌پلیس‌هاست.']
+  const PAGES = {
+    c: 'concept-c/index.html', hl: 'concept-c/hero-light.html', hd: 'concept-c/hero-dark.html',
+    a: 'concept-a/index.html', b: 'concept-b/index.html'
   };
-  const state = { concept: 'a', device: 'desktop' };
+  const ABOUT = {
+    c: ['Concept C — Premium Medical Marketplace (دور ۲)', 'ساختار محصول‌محور B با تایپوگرافی آرام A؛ Hero تیرهٔ آبی نفتی با رندر سه‌بعدی، شیشهٔ ظریف روی جست‌وجو و کارت‌ها، و ریتم بخش‌های روشن و تیره. حرکت‌ها سبک‌اند و با «کاهش حرکت» خاموش می‌شوند.'],
+    hl: ['نمونهٔ Hero — سبک A: روشن', 'گرادیان چهارلایهٔ سفید و فیروزه‌ای، رندر با نور روز و سایهٔ تماس، و شیشهٔ سفید. جدول افکت‌ها و حرکت زیر نمونه است.'],
+    hd: ['نمونهٔ Hero — سبک B: تیره', 'آبی نفتی با نور فیروزه‌ای و نور لبه روی رندر. همان Hero صفحهٔ کامل. جدول افکت‌ها و حرکت زیر نمونه است.'],
+    a: ['طرح A — دور ۱', 'مینیمال و تخصصی، برای مقایسه.'],
+    b: ['طرح B — دور ۱', 'محصول‌محور، برای مقایسه.']
+  };
+  const state = { concept: 'c', device: 'desktop' };
   const frame = document.getElementById('frame');
   const stage = document.getElementById('stage');
   const open = document.getElementById('open-full');
   const about = document.getElementById('about');
 
   function render() {
-    const src = `concept-${state.concept}/index.html`;
+    const src = PAGES[state.concept];
     if (!frame.getAttribute('src').endsWith(src)) frame.setAttribute('src', src);
     frame.title = `پیش‌نمایش ${ABOUT[state.concept][0]}`;
     open.href = src;
@@ -120,6 +130,6 @@
 
   document.querySelectorAll('[data-concept]').forEach(b => b.addEventListener('click', () => { state.concept = b.dataset.concept; render(); }));
   document.querySelectorAll('[data-device]').forEach(b => b.addEventListener('click', () => { state.device = b.dataset.device; render(); }));
-  if (location.hash === '#b') state.concept = 'b';
+  const h = location.hash.slice(1); if (PAGES[h]) state.concept = h;
   render();
 </script>

@@ -42,3 +42,23 @@
 .proto-slot--footer {
   min-block-size: 7rem;
 }
+
+/* جعبهٔ مشخصات زیر نمونه‌های Hero — فقط پیش‌نمایش. */
+.proto-spec {
+  inline-size: min(1240px, 100% - 2rem);
+  margin: 2rem auto 3rem;
+  box-sizing: border-box;
+  padding: 1.5rem clamp(1rem, 4vw, 2rem);
+  background: #ffffff;
+  border: 1px solid #d5dfe5;
+  border-radius: 16px;
+  color: #152b3b;
+  line-height: 1.9;
+}
+
+.proto-spec h2 { margin: 0 0 1rem; font-size: 1.25rem; }
+.proto-spec dl { display: grid; gap: 0.75rem; margin: 0; }
+.proto-spec dl > div { display: grid; gap: 0.25rem 1.5rem; padding-block-end: 0.75rem; border-block-end: 1px solid #e6edf1; }
+.proto-spec dt { font-weight: 700; color: #0f7a80; }
+.proto-spec dd { margin: 0; color: #3f525f; }
+@media (min-width: 720px) { .proto-spec dl > div { grid-template-columns: 9rem 1fr; } }

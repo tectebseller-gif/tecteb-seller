@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>نمونهٔ Hero — سبک A: زمینهٔ روشن با گرادیان و عناصر سه‌بعدی (پیش‌نمایش)</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="stylesheet" href="../shared/prototype-frame.css">
+  <link rel="stylesheet" href="concept-c.css">
+  <script src="concept-c.js" defer></script>
+</head>
+<body class="proto-page">
+<!-- th-sprite: copy of shared/icons.svg.html -->
+<svg xmlns="http://www.w3.org/2000/svg" class="th-sprite" aria-hidden="true" focusable="false" style="position:absolute;inline-size:0;block-size:0;overflow:hidden">
+  <defs>
+    <symbol id="th-i-monitor" viewBox="0 0 48 48"><rect x="6" y="8" width="36" height="24" rx="3"/><polyline points="10 21 16 21 19 14 23 28 26 19 29 21 38 21"/><path d="M24 32v6M16 40h16"/></symbol>
+    <symbol id="th-i-or" viewBox="0 0 48 48"><path d="M24 4v7"/><ellipse cx="24" cy="18" rx="13" ry="7"/><circle cx="24" cy="18" r="3"/><path d="M14 30l-4 10M34 30l4 10M24 28v14"/></symbol>
+    <symbol id="th-i-ultrasound" viewBox="0 0 48 48"><path d="M18 8h12v14c0 6-2.7 10-6 10s-6-4-6-10z"/><path d="M24 32c0 6 7 5 7 12"/><path d="M14 4h20"/></symbol>
+    <symbol id="th-i-lab" viewBox="0 0 48 48"><path d="M19 8l8-2 3.5 14-8 2z"/><path d="M24.5 22v5"/><path d="M30 21c6 2 8.5 9 6 16"/><path d="M12 41h26M18 34h12"/></symbol>
+    <symbol id="th-i-syringe" viewBox="0 0 48 48"><path d="M31 6l11 11M36.5 11.5L17 31l-7 2 2-7L31.5 6.5"/><path d="M12 36l-6 6M22 21l3 3M26 17l3 3"/></symbol>
+    <symbol id="th-i-care" viewBox="0 0 48 48"><circle cx="19" cy="7" r="3"/><path d="M19 13v13h12l4 11"/><circle cx="20" cy="33" r="9"/></symbol>
+    <symbol id="th-i-dental" viewBox="0 0 48 48"><path d="M16 6c-6 0-9 6-7 14 1 4 2 8 3 15 1 6 5 6 6 0l2-7c1-3 5-3 6 0l2 7c1 6 5 6 6 0 1-7 2-11 3-15 2-8-1-14-7-14-3 0-5 2-7 2s-4-2-7-2z"/></symbol>
+    <symbol id="th-i-emergency" viewBox="0 0 48 48"><path d="M24 41S7 31 7 18a9 9 0 0 1 17-4 9 9 0 0 1 17 4c0 13-17 23-17 23z"/><path d="M25 15l-5 9h7l-4 9"/></symbol>
+    <symbol id="th-i-search" viewBox="0 0 48 48"><circle cx="21" cy="21" r="12"/><path d="M30 30l11 11"/></symbol>
+    <symbol id="th-i-arrow" viewBox="0 0 48 48"><path d="M38 24H10M20 13L9 24l11 11"/></symbol>
+    <symbol id="th-i-quote" viewBox="0 0 48 48"><path d="M12 5h17l9 9v29H12z"/><path d="M29 5v9h9M18 22h14M18 29h14M18 36h8"/></symbol>
+    <symbol id="th-i-list" viewBox="0 0 48 48"><path d="M18 12h22M18 24h22M18 36h22"/><path d="M8 12l2 2 4-4M8 24l2 2 4-4M8 36l2 2 4-4"/></symbol>
+    <symbol id="th-i-network" viewBox="0 0 48 48"><circle cx="24" cy="10" r="4"/><circle cx="10" cy="36" r="4"/><circle cx="38" cy="36" r="4"/><path d="M22 14l-10 18M26 14l10 18M14 36h20"/></symbol>
+    <symbol id="th-i-support" viewBox="0 0 48 48"><path d="M10 28v-6a14 14 0 0 1 28 0v6"/><rect x="7" y="26" width="7" height="11" rx="2"/><rect x="34" y="26" width="7" height="11" rx="2"/><path d="M38 37c0 4-4 6-10 6h-3"/></symbol>
+    <symbol id="th-i-store" viewBox="0 0 48 48"><path d="M7 18l4-10h26l4 10"/><path d="M7 18c0 4 3 6 6 6s6-2 6-6c0 4 3 6 5 6s6-2 6-6c0 4 3 6 6 6s5-2 5-6"/><path d="M10 24v17h28V24M20 41V31h8v10"/></symbol>
+    <symbol id="th-i-check" viewBox="0 0 48 48"><path d="M10 25l9 9 19-20"/></symbol>
+    <symbol id="th-i-image" viewBox="0 0 48 48"><rect x="6" y="9" width="36" height="30" rx="3"/><circle cx="17" cy="19" r="4"/><path d="M6 33l11-10 9 8 6-5 10 9"/></symbol>
+  </defs>
+</svg>
+
+<p class="proto-banner">نمونهٔ Hero — سبک A: زمینهٔ روشن با گرادیان و عناصر سه‌بعدی — داده‌ها نمونه‌اند و تصویر سه‌بعدی رندر انتزاعی است، نه عکس محصول.</p>
+
+<main class="tecteb-home-v1 th-c" id="tecteb-home">
+
+  <!-- ۱. معرفی تک‌طب و جست‌وجوی محصولات — زمینهٔ تیره -->
+  <section class="th-hero th-hero--light" aria-labelledby="th-hero-title" data-th-light>
+    <div class="th-hero__bg" aria-hidden="true">
+      <span class="th-hero__glow th-hero__glow--a"></span>
+      <span class="th-hero__glow th-hero__glow--b"></span>
+      <span class="th-hero__grid"></span>
+      <span class="th-hero__pointer"></span>
+    </div>
+
+    <div class="th-wrap th-hero__layout">
+      <div class="th-hero__copy">
+        <p class="th-pill th-in" style="--th-i:0"><span class="th-pill__dot" aria-hidden="true"></span>بازار تخصصی تجهیزات پزشکی</p>
+        <h1 class="th-hero__title th-in" id="th-hero-title" style="--th-i:1">
+          <span class="th-hero__line">تجهیزات پزشکی را دقیق پیدا کنید،</span>
+          <span class="th-hero__line th-hero__line--em">با اطمینان تأمین کنید.</span>
+        </h1>
+        <p class="th-hero__lead th-in" style="--th-i:2">محصولات فروشگاه تک‌طب را جست‌وجو کنید، مشخصات را کنار هم ببینید و برای خرید سازمانی درخواست تأمین بفرستید.</p>
+
+        <!-- جست‌وجوی ووکامرس: در اجرا action = نشانی خانه، با s، post_type=product و product_cat اختیاری -->
+        <form class="th-search th-in" style="--th-i:3" role="search" action="#th-route-product-search" method="get" data-th-route="product-search">
+          <div class="th-search__field">
+            <label class="th-visually-hidden" for="th-c-search">جست‌وجوی محصولات</label>
+            <svg class="th-icon th-search__icon" aria-hidden="true"><use href="#th-i-search"/></svg>
+            <input class="th-search__input" id="th-c-search" type="search" name="s" placeholder="نام محصول را جست‌وجو کنید…" autocomplete="off" enterkeyhint="search">
+          </div>
+          <span class="th-search__sep" aria-hidden="true"></span>
+          <div class="th-search__scope">
+            <label class="th-visually-hidden" for="th-c-scope">در دستهٔ</label>
+            <select class="th-search__select" id="th-c-scope" name="product_cat">
+              <option value="">همهٔ دسته‌ها</option>
+              <option value="sample-monitoring">پایش بیمار</option>
+              <option value="sample-or">اتاق عمل</option>
+              <option value="sample-lab">آزمایشگاه</option>
+              <option value="sample-consumables">ملزومات مصرفی</option>
+            </select>
+          </div>
+          <input type="hidden" name="post_type" value="product">
+          <button class="th-btn th-btn--primary th-search__submit" type="submit">
+            <span>جست‌وجو</span>
+            <svg class="th-icon th-icon--dir" aria-hidden="true"><use href="#th-i-arrow"/></svg>
+          </button>
+        </form>
+
+        <div class="th-quick th-in" style="--th-i:4">
+          <span class="th-quick__label">پرجست‌وجو</span>
+          <ul class="th-quick__list" role="list">
+            <li><a class="th-chip th-chip--glass" href="#th-route-product-search" data-th-route="product-search">پالس‌اکسیمتر</a></li>
+            <li><a class="th-chip th-chip--glass" href="#th-route-product-search" data-th-route="product-search">فشارسنج</a></li>
+            <li><a class="th-chip th-chip--glass" href="#th-route-product-search" data-th-route="product-search">آمبوبگ</a></li>
+            <li><a class="th-chip th-chip--glass" href="#th-route-product-search" data-th-route="product-search">دستکش جراحی</a></li>
+          </ul>
+          <span class="th-sample th-sample--dark">نمونه</span>
+        </div>
+      </div>
+
+      <figure class="th-hero__art">
+        <picture class="th-hero__render">
+          <source type="image/webp" media="(max-width: 699px)" srcset="assets/hero-3d-light-720.webp">
+          <img src="assets/hero-3d-light-1200.webp" width="1200" height="960" alt="" fetchpriority="high" decoding="async">
+        </picture>
+        <a class="th-float th-float--one" href="#th-route-category" data-th-route="category">
+          <svg class="th-icon" aria-hidden="true"><use href="#th-i-monitor"/></svg>پایش بیمار
+        </a>
+        <a class="th-float th-float--two" href="#th-route-category" data-th-route="category">
+          <svg class="th-icon" aria-hidden="true"><use href="#th-i-syringe"/></svg>ملزومات مصرفی
+        </a>
+        <figcaption class="th-hero__note">رندر انتزاعی سه‌بعدی — نه عکس یک محصول واقعی</figcaption>
+      </figure>
+    </div>
+
+    <div class="th-wrap th-routes">
+      <a class="th-route th-route--buyer" href="#th-route-quote" data-th-route="quote">
+        <span class="th-route__icon"><svg aria-hidden="true"><use href="#th-i-quote"/></svg></span>
+        <span class="th-route__text">
+          <span class="th-route__kicker">برای بیمارستان‌ها، کلینیک‌ها و واحدهای خرید</span>
+          <span class="th-route__title">درخواست تأمین</span>
+        </span>
+        <span class="th-route__go"><svg class="th-icon th-icon--dir" aria-hidden="true"><use href="#th-i-arrow"/></svg></span>
+      </a>
+      <a class="th-route th-route--supplier" href="#th-route-supplier" data-th-route="supplier">
+        <span class="th-route__icon"><svg aria-hidden="true"><use href="#th-i-network"/></svg></span>
+        <span class="th-route__text">
+          <span class="th-route__kicker">برای تولیدکنندگان و واردکنندگان</span>
+          <span class="th-route__title">همکاری تأمین‌کنندگان</span>
+        </span>
+        <span class="th-route__go"><svg class="th-icon th-icon--dir" aria-hidden="true"><use href="#th-i-arrow"/></svg></span>
+      </a>
+    </div>
+  </section>
+
+</main>
+
+<section class="proto-spec" aria-labelledby="proto-spec-title">
+  <h2 id="proto-spec-title">افکت‌ها و رفتار حرکت</h2>
+  <dl>
+    <div><dt>زمینه</dt><dd>چهار لایه: سفید مایل به آبی (#FBFDFE ← #E3F0F3)، نور شعاعی فیروزه‌ای پشت رندر، مه آبی در گوشهٔ بالا، و هالهٔ سفید پشت شیء؛ شبکهٔ ظریف با رنگ نفتی ۶٪.</dd></div>
+    <div><dt>عنصر سه‌بعدی</dt><dd>همان رندر با نور روز و سایهٔ تماس نرم روی کف (WebP شفاف، ۴۸KB / ۴۲KB).</dd></div>
+    <div><dt>شیشه</dt><dd>شیشهٔ سفید: پس‌زمینهٔ ۵۵–۷۲٪ سفید، blur(14px)، مرز سفید، و سایهٔ سه‌لایهٔ نفتی به‌جای تیرگی. متن همیشه روی سطح تقریباً سفید است تا کنتراست به محوشدگی وابسته نباشد.</dd></div>
+    <div><dt>ورود</dt><dd>همان ترتیب سبک تیره: متن‌ها پلکانی، رندر با بزرگ‌شدن ملایم، سپس برچسب‌ها و کارت‌ها.</dd></div>
+    <div><dt>حرکت مداوم</dt><dd>شناوری رندر و برچسب‌ها مثل سبک تیره؛ تپش نقطهٔ برچسب با رنگ فیروزه‌ای تیره.</dd></div>
+    <div><dt>نور اشاره‌گر</dt><dd>هالهٔ فیروزه‌ای کم‌رنگ‌تر (۱۲٪) — روی زمینهٔ روشن نور قوی‌تر کثیف به‌نظر می‌رسد.</dd></div>
+    <div><dt>Hover</dt><dd>کارت‌های مسیر از ۶۰٪ به ۹۰٪ سفید می‌روند و سایهٔ عمیق‌تر می‌گیرند؛ دایرهٔ فلش از نفتی به فیروزه‌ای.</dd></div>
+    <div><dt>حرکت کم‌شده</dt><dd>مثل سبک تیره: هیچ حرکتی، حالت نهایی کامل.</dd></div>
+  </dl>
+</section>
+</body>
+</html>
