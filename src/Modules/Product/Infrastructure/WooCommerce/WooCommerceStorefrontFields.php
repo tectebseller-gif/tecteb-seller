@@ -231,6 +231,14 @@ final class WooCommerceStorefrontFields implements StorefrontFieldsInterface
      *
      * @return array<string,string>
      */
+    public function shopFieldConflicts(Product $product): array
+    {
+        if (!$product->isProjected()) {
+            return [];
+        }
+        return ProjectedShopFields::conflicts((int) $product->wcProductId);
+    }
+
     public function fingerprints(Product $product): array
     {
         $wcProduct = $this->storefrontProduct($product);

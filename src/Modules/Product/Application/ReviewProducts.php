@@ -1292,6 +1292,18 @@ final class ReviewProducts
             ? ($d[$key] === null || $d[$key] === '' ? null : (string) $d[$key])
             : $fallback;
 
+        // ⛔ IS THE PRICE IN THIS PAYLOAD A REQUEST, OR A MIRROR?
+        //
+        // From `alpha.83` the vendor's price applies at once, so every
+        // proposal written since then carries the price only as a copy of the
+        // row — and applying that copy would write an older number back over
+        // one the vendor has changed since. A payload from `alpha.82` or
+        // earlier carries a price that really was a request and really was
+        // never applied, so it still has to be applied. The key is the
+        // difference, read with `array_key_exists` because absent and `false`
+        // are different answers (`alpha.60`).
+        $priceIsARequest = !array_key_exists(ProductRevision::PRICE_MIRRORED, $payload);
+
         return new ProductDetails(
             $str('title', $current->title),
             $str('type', $current->type),
@@ -1301,10 +1313,10 @@ final class ReviewProducts
             // the payload's value is the vendor's request exactly as before.
             $keptBrand ?? $str('brand', $current->brand),
             $str('shortDescription', $current->shortDescription),
-            $int('priceMinor', $current->priceMinor),
-            $nullableInt('salePriceMinor', $current->salePriceMinor),
-            $nullableStr('saleFrom', $current->saleFrom),
-            $nullableStr('saleTo', $current->saleTo),
+            $priceIsARequest ? $int('priceMinor', $current->priceMinor) : $current->priceMinor,
+            $priceIsARequest ? $nullableInt('salePriceMinor', $current->salePriceMinor) : $current->salePriceMinor,
+            $priceIsARequest ? $nullableStr('saleFrom', $current->saleFrom) : $current->saleFrom,
+            $priceIsARequest ? $nullableStr('saleTo', $current->saleTo) : $current->saleTo,
             // The immediate fields are taken from the LIVE product, never from
             // the proposal: SKU and the purchase limits are written straight
             // through on the vendor's own save, so a proposal's copy of them

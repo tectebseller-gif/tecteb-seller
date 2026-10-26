@@ -616,6 +616,15 @@
   border-block-start: 1px solid var(--tmc-border);
 }
 .tmc-review__storefront h4 { margin-block: 0 var(--tmc-space-2); font-size: 0.9375rem; }
+/* The three fields a person edits in WooCommerce — a report, never a form,
+   so it carries no button and is set apart from the two tables above it that
+   do. `alpha.83`. */
+.tmc-review__shopedits {
+  margin-block-start: var(--tmc-space-3);
+  padding-block-start: var(--tmc-space-3);
+  border-block-start: 1px dashed var(--tmc-border);
+}
+.tmc-review__shopedits h5 { margin-block: 0 var(--tmc-space-1); font-size: 0.875rem; }
 .tmc-review__links { display: flex; flex-wrap: wrap; gap: var(--tmc-space-2); }
 /* What «مشاهدهٔ محصول» opens, said right under the button rather than in a
    tooltip: the one sentence a manager needs is that an unanswered proposal is

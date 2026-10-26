@@ -643,6 +643,36 @@ interface ProductRepositoryInterface
      */
     public function saveBaseline(int $productId, ?ApprovedBaseline $baseline): bool;
 
+    /**
+     * The price and its sale, written at once at every status.
+     *
+     * ⛔ **This method exists because `alpha.83` took the price out of the
+     * approval cycle, and without it that change would have DISCARDED the
+     * vendor's price silently.** `saveAsRevision()` writes only
+     * `updateInventory()` straight through; once `between()` stopped
+     * reporting the price, a price-only change on a published product reached
+     * the early `inventory_saved` return and nothing wrote it anywhere — the
+     * same shape as `alpha.82`'s §1-ب, where a multi-category edit answered
+     * «saved» and was thrown away.
+     *
+     * Unguarded by version, like `updateInventory()` and for the reason A.1
+     * gives for stock: the vendor's own number's latest value is the true
+     * one, and refusing it because a colleague renamed the product two
+     * minutes ago is a queue nobody asked for. The optimistic lock still
+     * guards the PROPOSAL of every sensitive field.
+     *
+     * All four values together, because they are one fact: a sale price
+     * without the regular price it discounts, or a window without the sale,
+     * is a combination nobody chose.
+     */
+    public function updatePrice(
+        int $productId,
+        int $priceMinor,
+        ?int $salePriceMinor,
+        ?string $saleFrom,
+        ?string $saleTo
+    ): bool;
+
     /** Stock and the other immediate fields, which never wait for a review. */
     public function updateInventory(
         int $productId,

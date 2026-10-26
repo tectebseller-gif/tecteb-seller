@@ -1228,6 +1228,45 @@ final class DbProductRepository implements ProductRepositoryInterface
         ) !== null;
     }
 
+    public function updatePrice(
+        int $productId,
+        int $priceMinor,
+        ?int $salePriceMinor,
+        ?string $saleFrom,
+        ?string $saleTo
+    ): bool {
+        if (!$this->mayWrite()) {
+            return false;
+        }
+        // The four columns in ONE statement, for the reason the interface
+        // gives: a sale left behind by a half-written price is a number
+        // nobody decided. `NULL` is spelled into the SQL rather than bound,
+        // because the placeholder would make it the string `''` — and for
+        // `sale_price_minor` an empty string is a PRICE OF ZERO, which is the
+        // `alpha.28` fault with money in it.
+        $sale = $salePriceMinor === null ? 'NULL' : '%d';
+        $from = $saleFrom === null ? 'NULL' : '%s';
+        $to = $saleTo === null ? 'NULL' : '%s';
+        $params = [$priceMinor];
+        if ($salePriceMinor !== null) {
+            $params[] = $salePriceMinor;
+        }
+        if ($saleFrom !== null) {
+            $params[] = $saleFrom;
+        }
+        if ($saleTo !== null) {
+            $params[] = $saleTo;
+        }
+        $params[] = $this->now();
+        $params[] = $productId;
+        return $this->db->execute(
+            'UPDATE `' . $this->products() . '` SET price_minor = %d, sale_price_minor = ' . $sale
+            . ', sale_from = ' . $from . ', sale_to = ' . $to
+            . ', updated_at = %s WHERE id = %d',
+            $params
+        ) !== null;
+    }
+
     public function updateInventory(
         int $productId,
         int $stock,

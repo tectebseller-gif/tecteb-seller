@@ -150,6 +150,35 @@ interface CatalogProjectorInterface
     public function writeQuantities(Product $product): array;
 
     /**
+     * The price and its sale, written on their own.
+     *
+     * ⛔ **The sibling of `writeQuantities()`, and it exists for the same
+     * reason one package later.** From `alpha.83` the price is not a
+     * sensitive field: the owner decided a vendor may change their own
+     * product's price «مستقیماً و بدون تأیید مدیر». A change that applies at
+     * once needs a path that reaches the shop at once, and until this method
+     * there was none — only `project()`, which runs on a publish or an
+     * approval. Without it, taking the price out of the approval cycle would
+     * have left the vendor's new price in our row and the old one on the
+     * shop, for ever.
+     *
+     * It is NOT a projection: it writes the regular price and the sale and
+     * nothing else, so it cannot move a title, a status or a stock on its way
+     * past. And it obeys the SAME record `project()` obeys — a price a person
+     * edited in WooCommerce is kept, named and left alone (`ShopEditMerge`).
+     *
+     * Five answers: `price_written`, `price_kept` (somebody edited the shop's
+     * own and it survives), `price_not_written` (the save was refused),
+     * `price_not_recorded` (the marketplace has no price to push — reported
+     * by `missingFields()` and not this method's business) and
+     * `price_from_variations` for a variable product, whose price is its
+     * variations' and never the parent's.
+     *
+     * @return array{ok:bool, code:string, wrote:list<string>, held:list<string>, failed:list<string>}
+     */
+    public function writePrice(Product $product): array;
+
+    /**
      * Puts returned goods back on the shelf, atomically.
      *
      * A read-then-write would lose a concurrent sale between the two steps;

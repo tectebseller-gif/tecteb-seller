@@ -102,6 +102,25 @@ interface StorefrontFieldsInterface
      */
     public function storefrontValues(Product $product): array;
 
+    /**
+     * The price, SKU and weight a PERSON edited in WooCommerce, with both
+     * numbers.
+     *
+     * Not part of `compare()` and deliberately so: those five fields go
+     * through the approval cycle and this screen offers a button for each,
+     * while these three never do — the owner's instruction is «قیمت را وارد
+     * فرایند تأیید مدیر نکن». So this is a REPORT and nothing else: it tells
+     * the manager what the two sides hold and why the marketplace left the
+     * shop's value alone, and there is no action beside it.
+     *
+     * `answer` is a `ShopEditMerge` constant, `shop` what WooCommerce holds
+     * and `ours` what the marketplace row says, both in the marketplace's own
+     * units (minor units for the price, grams for the weight).
+     *
+     * @return array<string,array{answer:string, shop:string, ours:string}>
+     */
+    public function shopFieldConflicts(Product $product): array;
+
     /** Where the manager edits this product — WooCommerce's own editor. */
     public function editorUrl(int $wcProductId): string;
 

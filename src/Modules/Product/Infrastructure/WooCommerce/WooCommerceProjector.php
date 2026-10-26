@@ -14,6 +14,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
+use Tecteb\Marketplace\Modules\Product\Domain\ShopEditMerge;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductVariation;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
 
@@ -210,10 +211,55 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             $wcProduct->set_status($product->status === ProductStatus::Published ? 'publish' : 'draft');
             $wcProduct->set_catalog_visibility($product->status === ProductStatus::Published ? 'visible' : 'hidden');
         }
-        $this->applySku($wcProduct, $details->sku);
+        // THE PRICE, THE SKU AND THE WEIGHT — asked BEFORE any of them is
+        // written, which until `alpha.83` nothing did.
+        //
+        // ⛔ These three were the last unconditional writes in this method,
+        // and the only condition any of them had was emptiness. So the
+        // sequence the owner described — take a product in, edit it in
+        // WooCommerce, let any later projection run — put the marketplace's
+        // old copy back over a person's edit: measured on `alpha.82`'s
+        // delivered bytes as `field_price_before=480000
+        // field_price_after=450000 field_price_overwritten=yes`, and the same
+        // for the SKU and the weight, while the three TEXT fields beside them
+        // survived because `ProjectedFieldOwnership` has bound ownership to
+        // the value we wrote since `alpha.26`.
+        //
+        // The rule is `ShopEditMerge` and it is NOT this file's business to
+        // repeat it. What belongs here is the shop read, the record and the
+        // one thing a rule cannot know: `$isNew`, which says every byte of
+        // this post was written a moment ago by this call.
+        //
+        // Read before the writes below and not after, obviously — but also
+        // before `applySku()` on the line it replaced, because that call
+        // would otherwise be the edit this comparison is looking for.
+        $shopFields = ProjectedShopFields::shopValues($wcProduct);
+        $wantedFields = [
+            ShopEditMerge::PRICE => $details->type !== ProductType::VARIABLE && $details->hasPrice()
+                ? (string) $details->priceMinor
+                : '',
+            ShopEditMerge::SKU => $details->sku,
+            // Kilograms, because that is the unit the shop column holds and
+            // the comparison has to happen in one unit; `ShopEditMerge`
+            // converts both sides to grams, which is the exact inverse of
+            // this very expression.
+            ShopEditMerge::WEIGHT => $details->weightGrams > 0
+                ? (string) round($details->weightGrams / 1000, 3)
+                : '',
+        ];
+        $shopFieldsMerged = ProjectedShopFields::merge(
+            $shopFields,
+            $wantedFields,
+            $isNew ? [] : ProjectedShopFields::record((int) $wcProduct->get_id()),
+            $isNew
+        );
+
+        if ($shopFieldsMerged['may'][ShopEditMerge::SKU]) {
+            $this->applySku($wcProduct, $details->sku);
+        }
         $this->applySeo($wcProduct, $product);
 
-        if ($details->weightGrams > 0) {
+        if ($details->weightGrams > 0 && $shopFieldsMerged['may'][ShopEditMerge::WEIGHT]) {
             $wcProduct->set_weight((string) round($details->weightGrams / 1000, 3));
         }
         // Pictures and category follow the same rule as the text: a gallery
@@ -349,8 +395,17 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         $priceHeld = false;
         if ($details->type !== ProductType::VARIABLE) {
             if ($details->hasPrice()) {
-                $wcProduct->set_regular_price((string) $details->priceMinor);
-                $this->applySale($wcProduct, $product);
+                // And only while the shop still holds what we last wrote.
+                // `$priceHeld` is deliberately NOT set when the merge refuses:
+                // that flag means «the marketplace has no price», the review
+                // list and the health page read it as exactly that, and
+                // overloading it with «somebody edited the shop's» would make
+                // both of those pages say something untrue. The refusal has
+                // its own report, with both numbers on it.
+                if ($shopFieldsMerged['may'][ShopEditMerge::PRICE]) {
+                    $wcProduct->set_regular_price((string) $details->priceMinor);
+                    $this->applySale($wcProduct, $product);
+                }
             } else {
                 // The sale price is held with it: a sale off a price that does
                 // not exist is a second invented number.
@@ -381,6 +436,12 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         // the very next run (the `alpha.26` rule).
         $this->recordAttributeKeys($wcProductId, $merged['wrote'], $merged['held']);
         $this->recordQuantityKeys($wcProductId, $quantityMerged['wrote'], $quantityMerged['held']);
+        ProjectedShopFields::store(
+            $wcProductId,
+            $wantedFields,
+            $shopFieldsMerged['may'],
+            $shopFieldsMerged['report']
+        );
         // Stamp AFTER the save and from a fresh read: WooCommerce runs its own
         // filters on the way in, so the value that comes back is routinely not
         // the one that went out. Stamping what we *sent* would mark every
@@ -412,6 +473,10 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             // care read it, the rest ignore it (`alpha.32`).
             'price_held' => $priceHeld,
             'status_held' => $statusHeld,
+            // One answer per field, so a caller that wants to say what
+            // happened does not have to guess from a boolean. Additive like
+            // the two above.
+            'shop_fields' => $shopFieldsMerged['answers'],
         ];
     }
 
@@ -1340,6 +1405,89 @@ final class WooCommerceProjector implements CatalogProjectorInterface
      *
      * @return array{ok:bool, code:string, wrote:list<string>, held:list<string>, failed:list<string>}
      */
+    public function writePrice(Product $product): array
+    {
+        $blank = ['wrote' => [], 'held' => [], 'failed' => []];
+        if (!$this->isAvailable()) {
+            return ['ok' => false, 'code' => 'woocommerce_missing', ...$blank];
+        }
+        if (!$product->isProjected() || !$this->owns((int) $product->wcProductId, $product->id)) {
+            return ['ok' => false, 'code' => 'not_ours', ...$blank];
+        }
+        $details = $product->details;
+        if ($details->type === ProductType::VARIABLE) {
+            // A variable product's own price is derived by WooCommerce from
+            // its variations, and `project()` has never written one. Saying
+            // so is not a failure.
+            return ['ok' => true, 'code' => 'price_from_variations', ...$blank];
+        }
+        if (!$details->hasPrice()) {
+            // «قیمتی ثبت نشده» is a state of the marketplace row, named by
+            // `missingFields()` since the four-step form existed, and writing
+            // nought as a price is the `alpha.66` defect. Not this method's
+            // business to report twice.
+            return ['ok' => true, 'code' => 'price_not_recorded', ...$blank];
+        }
+        $wcProduct = $this->linkedProduct($product);
+        if (!$wcProduct instanceof \WC_Product) {
+            // A read that failed is not «the shop holds nothing».
+            return ['ok' => false, 'code' => 'storefront_unreadable', ...$blank];
+        }
+        $wcProductId = (int) $product->wcProductId;
+        $wanted = [ShopEditMerge::PRICE => (string) $details->priceMinor];
+        $merged = ProjectedShopFields::merge(
+            ProjectedShopFields::shopValues($wcProduct),
+            $wanted,
+            ProjectedShopFields::record($wcProductId),
+            false
+        );
+        if (!$merged['may'][ShopEditMerge::PRICE]) {
+            // Somebody edited the shop's price by hand. It stays, and the
+            // record of what we last wrote stays true, so nothing is stored
+            // here beyond the report.
+            ProjectedShopFields::store($wcProductId, $wanted, [], $merged['report']);
+            return [
+                'ok' => true,
+                'code' => 'price_kept',
+                'wrote' => [],
+                'held' => [ShopEditMerge::PRICE],
+                'failed' => [],
+            ];
+        }
+        $wcProduct->set_regular_price((string) $details->priceMinor);
+        $this->applySale($wcProduct, $product);
+        try {
+            $saved = (int) $wcProduct->save();
+        } catch (\Throwable) {
+            $saved = 0;
+        }
+        // `WC_Product::save()` returns the id whether it wrote anything or
+        // not and swallows its own exceptions, so the id proves nothing
+        // (`alpha.11`). The shop is asked instead.
+        $fresh = $saved > 0 ? wc_get_product($wcProductId) : null;
+        $landed = $fresh instanceof \WC_Product
+            && ShopEditMerge::canonical(ShopEditMerge::PRICE, (string) $fresh->get_regular_price())
+                === ShopEditMerge::canonical(ShopEditMerge::PRICE, (string) $details->priceMinor);
+        if (!$landed) {
+            ProjectedShopFields::store($wcProductId, $wanted, [], $merged['report']);
+            return [
+                'ok' => false,
+                'code' => 'price_not_written',
+                'wrote' => [],
+                'held' => [],
+                'failed' => [ShopEditMerge::PRICE],
+            ];
+        }
+        ProjectedShopFields::store($wcProductId, $wanted, [ShopEditMerge::PRICE => true], $merged['report']);
+        return [
+            'ok' => true,
+            'code' => 'price_written',
+            'wrote' => [ShopEditMerge::PRICE],
+            'held' => [],
+            'failed' => [],
+        ];
+    }
+
     public function writeQuantities(Product $product): array
     {
         $blank = ['wrote' => [], 'held' => [], 'failed' => []];
@@ -1575,9 +1723,33 @@ final class WooCommerceProjector implements CatalogProjectorInterface
                 $chosen[sanitize_title($labels[$key] ?? $key)] = $value;
             }
             $wcVariation->set_attributes($chosen);
-            $wcVariation->set_regular_price((string) $variation->priceMinor);
-            $wcVariation->set_sale_price($variation->salePriceMinor === null ? '' : (string) $variation->salePriceMinor);
-            if ($variation->sku !== '') {
+            // THE SAME RULE AS THE PARENT'S, because it was the same defect.
+            //
+            // A guard on half a set is the same as no guard (`alpha.22`): a
+            // manager who corrects one variation's price in WooCommerce has
+            // done exactly what the owner said must be preserved, and these
+            // two lines wrote over it on every projection just as the
+            // parent's did. There is no weight here — `ProductVariation` has
+            // none — so the merge is asked for two fields and the record is
+            // stored without one.
+            $variationWanted = [
+                ShopEditMerge::PRICE => (string) $variation->priceMinor,
+                ShopEditMerge::SKU => $variation->sku,
+            ];
+            $variationMerged = ProjectedShopFields::merge(
+                ProjectedShopFields::shopValues($wcVariation, false),
+                $variationWanted,
+                $isNew ? [] : ProjectedShopFields::record($wcVariationId),
+                $isNew
+            );
+            if ($variationMerged['may'][ShopEditMerge::PRICE]) {
+                $wcVariation->set_regular_price((string) $variation->priceMinor);
+                // The sale travels with the price, as it does on the parent:
+                // a sale off a price somebody else set is a number nobody
+                // decided.
+                $wcVariation->set_sale_price($variation->salePriceMinor === null ? '' : (string) $variation->salePriceMinor);
+            }
+            if ($variation->sku !== '' && $variationMerged['may'][ShopEditMerge::SKU]) {
                 try {
                     $wcVariation->set_sku($variation->sku);
                 } catch (\Throwable) {
@@ -1600,6 +1772,13 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             if ($savedId > 0) {
                 update_post_meta($savedId, self::VARIATION_META, $variation->id);
                 update_post_meta($savedId, self::PRODUCT_META, $product->id);
+                ProjectedShopFields::store(
+                    $savedId,
+                    $variationWanted,
+                    $variationMerged['may'],
+                    $variationMerged['report'],
+                    false
+                );
                 $links[$variation->id] = $savedId;
                 unset($existing[$variation->id]);
             }

@@ -82,6 +82,64 @@ final class SensitiveSetsAreShownBeforeApprovalTest extends TestCase
         self::assertContains('categoryIds', SensitiveChange::SENSITIVE_SETS);
     }
 
+    public function testThePriceLeftTheSensitiveListAndStaysOnTheAppliedOne(): void
+    {
+        // ⛔ The binding `alpha.83` turns on.
+        //
+        // The owner took the price out of the approval cycle, so it must NOT
+        // be sensitive — `between()` reporting it would queue a proposal for
+        // a change that was already applied. But `approveRevision()` applies
+        // the whole of the payload's `details`, so a proposal written before
+        // that decision still carries a price change, and the review page
+        // must still be able to draw it. One list each, and both asserted
+        // here: without the second, the price becomes applied-but-invisible,
+        // which is `alpha.49`'s rule broken by a change made to honour a
+        // different instruction.
+        foreach (['priceMinor', 'salePriceMinor', 'saleFrom', 'saleTo'] as $field) {
+            self::assertNotContains(
+                $field,
+                SensitiveChange::SENSITIVE,
+                $field . ' must not be sensitive: the vendor changes their own price without approval'
+            );
+            self::assertContains(
+                $field,
+                SensitiveChange::APPLIED_ON_APPROVAL,
+                $field . ' is applied by approveRevision(), so the review page must be able to draw it'
+            );
+        }
+        // And the applied list is a SUPERSET, in both directions: a sensitive
+        // field the page cannot draw is invisible consent, and a name on the
+        // applied list that `ProductDetails` has no property for is a row
+        // about nothing.
+        foreach (SensitiveChange::SENSITIVE as $field) {
+            self::assertContains($field, SensitiveChange::APPLIED_ON_APPROVAL, $field);
+        }
+        $details = new ProductDetails(title: 'x');
+        foreach (SensitiveChange::APPLIED_ON_APPROVAL as $field) {
+            self::assertTrue(
+                property_exists($details, $field),
+                'no such field on ProductDetails: ' . $field
+            );
+        }
+    }
+
+    public function testTheReviewPageDrawsEveryFieldApprovalApplies(): void
+    {
+        $body = $this->methodBody($this->code(self::PAGE), 'diffTable');
+        self::assertStringContainsString(
+            'SensitiveChange::APPLIED_ON_APPROVAL',
+            $body,
+            'the diff table must loop over what approval APPLIES, not over '
+                . 'what is sensitive — those stopped being the same list in alpha.83'
+        );
+        self::assertStringNotContainsString(
+            'SensitiveChange::SENSITIVE as',
+            $body,
+            'looping over SENSITIVE would hide the price rows of every '
+                . 'proposal written before alpha.83'
+        );
+    }
+
     public function testEverySensitiveSetIsComparedAsASet(): void
     {
         $body = $this->methodBody(
@@ -171,7 +229,7 @@ final class SensitiveSetsAreShownBeforeApprovalTest extends TestCase
             $this->code('src/Modules/Product/Presentation/ProductMessages.php'),
             'field'
         );
-        foreach ([...SensitiveChange::SENSITIVE, ...SensitiveChange::SENSITIVE_SETS] as $field) {
+        foreach ([...SensitiveChange::APPLIED_ON_APPROVAL, ...SensitiveChange::SENSITIVE_SETS] as $field) {
             self::assertStringContainsString(
                 "'" . $field . "'",
                 $body,

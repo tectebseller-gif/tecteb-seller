@@ -17,6 +17,12 @@ use Tecteb\Marketplace\Modules\Product\Domain\Product;
  */
 final class FakeCatalogProjector implements CatalogProjectorInterface
 {
+    /** @var list<int> product ids whose price was pushed, in order */
+    public array $pricePushes = [];
+
+    /** @var array{ok:bool, code:string, wrote:list<string>, held:list<string>, failed:list<string>}|null */
+    public ?array $priceOutcome = null;
+
     /** @var array<int,string> product id => the address the manager asked for */
     public array $slugs = [];
 
@@ -257,6 +263,20 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
             'held' => [],
             'failed' => [],
         ];
+    }
+
+    /**
+     * The price push, modelled on the real one's ANSWERS and not on a
+     * boolean — a double that cannot express «kept» cannot be used to test a
+     * guard whose whole job is to keep (the `alpha.70` rule).
+     */
+    public function writePrice(Product $product): array
+    {
+        $this->pricePushes[] = $product->id;
+        if ($this->priceOutcome !== null) {
+            return $this->priceOutcome;
+        }
+        return ['ok' => true, 'code' => 'price_written', 'wrote' => ['price'], 'held' => [], 'failed' => []];
     }
 
     public function readVariationStock(Product $product): array

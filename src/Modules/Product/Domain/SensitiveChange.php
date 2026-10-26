@@ -11,10 +11,15 @@ namespace Tecteb\Marketplace\Modules\Product\Domain;
  * claims to be — its title, its category, its medical specification — must
  * not be able to do that silently on a product buyers are already looking at.
  *
- * Price is deliberately on the sensitive side. A.1 says the vendor sets the
- * price, and they do: on a draft, freely. On a published product the change
- * goes through a revision, because price is what the marketplace's commission
- * and the buyer's decision both rest on.
+ * ⛔ Price WAS deliberately on the sensitive side, with this reason: «A.1 says
+ * the vendor sets the price, and they do: on a draft, freely. On a published
+ * product the change goes through a revision, because price is what the
+ * marketplace's commission and the buyer's decision both rest on.» The owner
+ * reversed that on 26 October 2026, having been shown the measurement and
+ * this reason — see `SENSITIVE` for the decision and `APPLIED_ON_APPROVAL`
+ * for what had to be built with it. The commission is unaffected: it is
+ * snapshotted per order line at capture (`alpha.57`), so a later price change
+ * cannot move a recorded one.
  */
 final class SensitiveChange
 {
@@ -29,8 +34,60 @@ final class SensitiveChange
         // other text field has. No sales gate moves: a proposal still waits
         // for the manager exactly as a short-description change does.
         'title', 'type', 'categoryKey', 'brand', 'shortDescription', 'description',
-        'priceMinor', 'salePriceMinor', 'saleFrom', 'saleTo',
+        // ⛔ THE PRICE LEFT THIS LIST IN `alpha.83`, BY THE OWNER'S EXPLICIT
+        // DECISION, AND THE SENTENCE ABOVE IS NO LONGER TRUE OF IT.
+        //
+        // «فروشنده همیشه مجاز است قیمت محصول متعلق به خودش را مستقیماً و بدون
+        // تأیید مدیر تغییر دهد. این اختیار نباید محدود شود.» (۲۶ اکتبر ۲۰۲۶)
+        //
+        // It was asked before it was done, because taking a field out of the
+        // approval cycle is a behavioural change and not a repair: the owner
+        // was told, in these words, that `priceMinor` was sensitive here, that
+        // a published product's price change became a proposal, that
+        // `alpha.6` had decided it deliberately and why — and the instruction
+        // was repeated with that in hand. So it is their decision, recorded,
+        // not an inference from a bug report.
+        //
+        // All FOUR of the sale fields go with it, which is the one thing here
+        // that was not spelled out. A sale price is a price; the projector
+        // writes the regular price and the sale as ONE unit (`applySale()` is
+        // called from inside the price branch, and has been since `alpha.6`),
+        // so leaving the sale behind would apply half of one decision and
+        // queue the other half — and a vendor who dropped a sale and raised
+        // the price would see the raise go live over a sale still running.
+        //
+        // `weightGrams` STAYS, deliberately. The owner asked that a WEIGHT
+        // EDITED IN WOOCOMMERCE be preserved — which is `ShopEditMerge`'s
+        // job and has nothing to do with this list — not that a vendor may
+        // change it unreviewed; and «مالکیت فیلدها و مجوزهای موجود را
+        // به‌صورت کلی تغییر نده» says not to widen this by inference.
         'weightGrams', 'dimensions', 'taxClass',
+    ];
+
+    /**
+     * Fields an APPROVAL applies, which is a superset of the sensitive ones —
+     * and the list the review page must draw.
+     *
+     * ⛔ **Without this, `alpha.83` would have shipped a worse defect than the
+     * one it fixes.** `approveRevision()` applies the whole of the payload's
+     * `details`, not just the fields `between()` reported; so the moment the
+     * price left `SENSITIVE`, every proposal already sitting in the queue —
+     * written by `alpha.82` or earlier, carrying a price change — would have
+     * had that price applied while the diff table, which loops over
+     * `SENSITIVE`, drew no row for it. A manager agreeing to a change they
+     * were never shown is `alpha.49`'s rule exactly, and the same fault
+     * `alpha.82` §6 found one object along.
+     *
+     * So the page reads THIS, and an architecture test binds both directions:
+     * a field approval applies and the page cannot draw is invisible consent,
+     * and a field on this list that approval never applies is a row about
+     * nothing.
+     *
+     * @var list<string>
+     */
+    public const APPLIED_ON_APPROVAL = [
+        ...self::SENSITIVE,
+        'priceMinor', 'salePriceMinor', 'saleFrom', 'saleTo',
     ];
 
     /**

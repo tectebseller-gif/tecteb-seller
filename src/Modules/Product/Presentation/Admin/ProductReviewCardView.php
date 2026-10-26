@@ -76,7 +76,17 @@ final class ProductReviewCardView
          * that has not been told about this therefore cannot accidentally get
          * a stronger claim than it has evidence for.
          */
-        string $comparisonState = Reader::STATE_COMPARED
+        string $comparisonState = Reader::STATE_COMPARED,
+        /**
+         * The price, SKU and weight a person edited in WooCommerce, from
+         * `StorefrontFieldsInterface::shopFieldConflicts()`.
+         *
+         * Empty by default: a caller that has not been told about this gets
+         * the block that says nothing, never one that claims agreement.
+         *
+         * @var array<string,array{answer:string, shop:string, ours:string}>
+         */
+        array $shopFieldConflicts = []
     ): string {
         $d = $product->details;
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
@@ -88,7 +98,7 @@ final class ProductReviewCardView
             . self::descriptions($d->shortDescription, $fullDescription)
             . self::facts($product, $categoryPath, $fa)
             . self::specs($product, $template)
-            . self::storefrontBlock($product, $storefront, $editorUrl, $seoPlugin, $nonceField, $woocommerceAvailable, $viewLink, $hasPendingRevision, $comparisonState)
+            . self::storefrontBlock($product, $storefront, $editorUrl, $seoPlugin, $nonceField, $woocommerceAvailable, $viewLink, $hasPendingRevision, $comparisonState, $shopFieldConflicts)
             . self::correctionForm($product, $categoryPath, $nonceField);
 
         return $html . '</article>';
@@ -248,7 +258,9 @@ final class ProductReviewCardView
         bool $woocommerceAvailable,
         array $viewLink,
         bool $hasPendingRevision,
-        string $comparisonState = Reader::STATE_COMPARED
+        string $comparisonState = Reader::STATE_COMPARED,
+        /** @var array<string,array{answer:string, shop:string, ours:string}> */
+        array $shopFieldConflicts = []
     ): string {
         $html = '<div class="tmc-review__storefront"><h4>'
             . esc_html__('صفحهٔ محصول در ووکامرس', 'tecteb-marketplace-core') . '</h4>';
@@ -316,8 +328,15 @@ final class ProductReviewCardView
             $fields,
             static fn (StorefrontField $f): bool => !$f->isUnsettled() && $f->needsDecision()
         ));
+        // THE THREE FIELDS THAT NEVER REACH AN APPROVAL, reported and no
+        // more. A third block rather than a row in either table above,
+        // because both of those offer the manager a BUTTON and these three
+        // must not: «قیمت را وارد فرایند تأیید مدیر نکن». Putting them in
+        // the ownership table would have been a decision disguised as a
+        // report — and the owner asked for the opposite.
+        $shopEdits = self::shopEditReport($shopFieldConflicts);
         if ($unsettled === [] && $conflicts === []) {
-            return $html . self::sameOrNot($fields, $comparisonState) . '</div>';
+            return $html . self::sameOrNot($fields, $comparisonState) . $shopEdits . '</div>';
         }
         if ($unsettled !== []) {
             $html .= self::unsettledBlock($product, $unsettled, $nonceField);
@@ -325,7 +344,50 @@ final class ProductReviewCardView
         if ($conflicts !== []) {
             $html .= self::ownershipTable($product, $conflicts, $nonceField);
         }
-        return $html . '</div>';
+        return $html . $shopEdits . '</div>';
+    }
+
+    /**
+     * The price, SKU and weight a person edited in WooCommerce — both numbers,
+     * and what the marketplace did about it.
+     *
+     * No form, no button, no nonce: there is nothing here for a manager to
+     * approve. The way out of a kept value is to clear it in WooCommerce or
+     * for the vendor to save again, and the sentence beside each row says so.
+     *
+     * @param array<string,array{answer:string, shop:string, ours:string}> $report
+     */
+    private static function shopEditReport(array $report): string
+    {
+        if ($report === []) {
+            return '';
+        }
+        $rows = '';
+        foreach ($report as $field => $entry) {
+            // `data-label` on every cell, because `.tmc-table` hides the
+            // header row below the layout breakpoint and prints these
+            // instead — a cell without one shows a number with no heading on
+            // a phone (the `alpha.33` convention this file already follows).
+            $rows .= '<tr><th scope="row" data-label="' . esc_attr__('فیلد', 'tecteb-marketplace-core') . '">'
+                . esc_html(ProductMessages::field($field)) . '</th>'
+                . '<td data-label="' . esc_attr__('در فروشگاه', 'tecteb-marketplace-core') . '">'
+                . esc_html($entry['shop'] !== '' ? PersianDigits::toPersian($entry['shop']) : '—') . '</td>'
+                . '<td data-label="' . esc_attr__('در پیشخوان', 'tecteb-marketplace-core') . '">'
+                . esc_html($entry['ours'] !== '' ? PersianDigits::toPersian($entry['ours']) : '—') . '</td>'
+                . '<td data-label="' . esc_attr__('نتیجه', 'tecteb-marketplace-core') . '">'
+                . esc_html(ProductMessages::shopEditAnswer($entry['answer'])) . '</td></tr>';
+        }
+        return '<div class="tmc-review__shopedits"><h5>'
+            . esc_html__('فیلدهایی که در ووکامرس تغییر کرده‌اند', 'tecteb-marketplace-core') . '</h5>'
+            . '<p class="tmc-card__note">'
+            . esc_html__('این سه فیلد تأیید مدیر لازم ندارند و اینجا هیچ دکمه‌ای برایشان نیست؛ این جدول فقط می‌گوید دو طرف چه دارند.', 'tecteb-marketplace-core')
+            . '</p>'
+            . '<table class="tmc-table"><thead><tr>'
+            . '<th scope="col">' . esc_html__('فیلد', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('در فروشگاه', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('در پیشخوان', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('نتیجه', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>' . $rows . '</tbody></table></div>';
     }
 
     /**

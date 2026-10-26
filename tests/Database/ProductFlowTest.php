@@ -382,7 +382,16 @@ final class ProductFlowTest extends DatabaseTestCase
 
         $live = $this->products->find($productId);
         self::assertSame('دستکش لاتکس', $live?->details->title, 'the live product is untouched');
-        self::assertSame(200000, $live?->details->priceMinor);
+        // ⛔ AND THE PRICE IS NO LONGER PART OF «UNTOUCHED», BY THE OWNER'S
+        // DECISION OF 26 OCTOBER 2026.
+        //
+        // This line asserted `200000` — the live price staying until a
+        // manager agreed — and it was right to until «فروشنده همیشه مجاز است
+        // قیمت محصول متعلق به خودش را مستقیماً و بدون تأیید مدیر تغییر دهد».
+        // The title still waits; the price applies at once, through
+        // `updatePrice()` and `pushPrice()`. The failure of the old line is
+        // the news (`alpha.27`), so it is inverted rather than relaxed.
+        self::assertSame(250000, $live?->details->priceMinor, 'the price applies at once now');
         self::assertSame(5, $live?->details->stock, 'the effective stock stays until a manager agrees');
         self::assertSame(ProductStatus::Published, $live?->status);
 

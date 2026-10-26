@@ -343,6 +343,16 @@ namespace {
                 $this->put('weight', $v);
             }
 
+            public function get_weight(): string
+            {
+                return (string) ($this->data['weight'] ?? '');
+            }
+
+            public function get_sale_price(): string
+            {
+                return (string) ($this->data['sale_price'] ?? '');
+            }
+
             /**
              * The product's own meta, as `WC_Data` holds it.
              *

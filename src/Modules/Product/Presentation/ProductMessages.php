@@ -6,6 +6,8 @@ namespace Tecteb\Marketplace\Modules\Product\Presentation;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
+use Tecteb\Marketplace\Modules\Product\Domain\ShopEditMerge;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\ProjectedShopFields;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSort;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
@@ -241,7 +243,7 @@ final class ProductMessages
             'salePriceMinor' => __('قیمت با تخفیف', 'tecteb-marketplace-core'),
             'saleFrom' => __('شروع تخفیف', 'tecteb-marketplace-core'),
             'saleTo' => __('پایان تخفیف', 'tecteb-marketplace-core'),
-            'weightGrams' => __('وزن (گرم)', 'tecteb-marketplace-core'),
+            'weight', 'weightGrams' => __('وزن (گرم)', 'tecteb-marketplace-core'),
             'dimensions' => __('ابعاد', 'tecteb-marketplace-core'),
             'taxClass' => __('گروه مالیاتی', 'tecteb-marketplace-core'),
             'sku' => __('کد SKU', 'tecteb-marketplace-core'),
@@ -250,6 +252,28 @@ final class ProductMessages
             'maxPurchase' => __('حداکثر خرید', 'tecteb-marketplace-core'),
             'purchaseStep' => __('گام تعداد', 'tecteb-marketplace-core'),
             default => $key,
+        };
+    }
+
+    /**
+     * Why the marketplace did not write the shop's price, SKU or weight — one
+     * sentence per answer, and every one of them names both numbers beside it.
+     *
+     * ⛔ **There is no button here, and that is the point.** These three
+     * fields never enter the approval cycle — «قیمت را وارد فرایند تأیید مدیر
+     * نکن» — so this is a REPORT. The way out of a kept value is the
+     * manager's own and needs nobody's permission: clear it in WooCommerce,
+     * or tell the vendor to save again if theirs is the right one.
+     */
+    public static function shopEditAnswer(string $answer): string
+    {
+        return match ($answer) {
+            ShopEditMerge::KEEP_EDITED => __('در ووکامرس به‌دست یک انسان تغییر کرده است، پس مقدار پیشخوان بازنویسی نشد. اگر مقدار پیشخوان درست است، فروشنده یک بار دیگر ذخیره کند.', 'tecteb-marketplace-core'),
+            ShopEditMerge::WRITE_CONFLICT => __('هر دو طرف تغییر کرده‌اند. مقدار تازهٔ پیشخوان اعمال شد و مقدار قبلی فروشگاه در ستون کنار آمده است تا اگر لازم است برش گردانید.', 'tecteb-marketplace-core'),
+            ShopEditMerge::KEEP_UNKNOWN => __('سابقه‌ای از نوشتن این فیلد به‌دست بازارگاه نیست، پس مقدار فروشگاه دست نخورد. برای سپردنش به پیشخوان، مقدار را در ووکامرس خالی کنید.', 'tecteb-marketplace-core'),
+            ShopEditMerge::UNREADABLE => __('مقدار فروشگاه دقیق خوانده نشد (رقمی بیشتر از آنچه این ستون نگه می‌دارد)، پس چیزی نوشته نشد و گرد هم نشد.', 'tecteb-marketplace-core'),
+            ProjectedShopFields::RECORD_NOT_STORED => __('سابقهٔ آنچه نوشتیم ذخیره نشد، پس مقایسهٔ بعدی مبنایی ندارد. اگر تکرار شد، صفحهٔ سلامت را ببینید.', 'tecteb-marketplace-core'),
+            default => $answer,
         };
     }
 
@@ -349,13 +373,7 @@ final class ProductMessages
             // rule and «ذخیره شد» is only one of them. A limit a manager owns
             // did NOT move, and a vendor who is told it did will go on
             // believing the shop enforces a number it does not have.
-            'inventory_saved' => ((string) ($context['limits_held'] ?? '')) !== ''
-                ? sprintf(
-                    /* translators: %s: which limits */
-                    __('موجودی و مشخصات فروش ذخیره شد. ولی %s روی محصول در ووکامرس به‌دست مدیر تغییر کرده است، پس از پیشخوان شما بازنویسی نمی‌شود؛ برای تغییر آن از مدیر بخواهید.', 'tecteb-marketplace-core'),
-                    self::limitNames((string) $context['limits_held'])
-                )
-                : __('موجودی و مشخصات فروش همین حالا ذخیره شد و حدود خرید روی فروشگاه هم اعمال شد.', 'tecteb-marketplace-core'),
+            'inventory_saved' => self::inventorySaved($context),
             'inventory_saved_limits_not_written' => sprintf(
                 /* translators: %s: which limits */
                 __('موجودی و کد SKU ذخیره شد، ولی %s روی فروشگاه نوشته نشد و محدودیت قبلی سر جایش مانده است. دوباره ذخیره کنید؛ اگر تکرار شد به مدیر اطلاع دهید.', 'tecteb-marketplace-core'),
@@ -985,6 +1003,43 @@ final class ProductMessages
      * message for the person who typed the number — and naming WHICH limit is
      * the difference between a sentence they can act on and one they cannot.
      */
+    /**
+     * «ذخیره شد» — and then what actually happened to each thing.
+     *
+     * Three sentences for the selling rule, because three things can happen
+     * to it and «ذخیره شد» is only one of them: a limit a manager owns did
+     * NOT move, and a vendor told it did will go on believing the shop
+     * enforces a number it does not have.
+     *
+     * And from `alpha.83` a fourth clause, for the price. The price now
+     * applies without an approval, so the vendor must be told the one thing
+     * that can still stop it reaching the shop — somebody edited it there by
+     * hand — and told it in the same breath as the save. Silence would be a
+     * screen saying «saved» over a shop that kept another number, which is
+     * the whole fault this package was built to end.
+     *
+     * @param array<string,string> $context
+     */
+    private static function inventorySaved(array $context): string
+    {
+        $held = (string) ($context['limits_held'] ?? '');
+        $sentence = $held !== ''
+            ? sprintf(
+                /* translators: %s: which limits */
+                __('موجودی و مشخصات فروش ذخیره شد. ولی %s روی محصول در ووکامرس به‌دست مدیر تغییر کرده است، پس از پیشخوان شما بازنویسی نمی‌شود؛ برای تغییر آن از مدیر بخواهید.', 'tecteb-marketplace-core'),
+                self::limitNames($held)
+            )
+            : __('موجودی و مشخصات فروش همین حالا ذخیره شد و حدود خرید روی فروشگاه هم اعمال شد.', 'tecteb-marketplace-core');
+
+        return $sentence . match ((string) ($context['price'] ?? '')) {
+            'price_written' => ' ' . __('قیمت تازه هم همین حالا روی فروشگاه اعمال شد.', 'tecteb-marketplace-core'),
+            'price_kept' => ' ' . __('⛔ ولی قیمت این محصول در ووکامرس به‌دست مدیر تغییر کرده است، پس قیمت پیشخوان شما رویش نوشته نشد. قیمت تازه در پرونده ثبت شد و تفاوت برای مدیر گزارش شده است.', 'tecteb-marketplace-core'),
+            'price_not_written' => ' ' . __('⛔ ولی قیمت تازه روی فروشگاه نوشته نشد و قیمت قبلی سر جایش مانده است. دوباره ذخیره کنید؛ اگر تکرار شد به مدیر اطلاع دهید.', 'tecteb-marketplace-core'),
+            'storefront_unreadable' => ' ' . __('⛔ ولی محصول روی فروشگاه خوانده نشد، پس قیمت تازه بیرون نرفت. قیمت در پرونده ثبت شد؛ دوباره ذخیره کنید.', 'tecteb-marketplace-core'),
+            default => '',
+        };
+    }
+
     private static function limitNames(string $keys): string
     {
         $names = [

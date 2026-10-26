@@ -52,7 +52,7 @@ final class ProductDomainTest extends TestCase
         self::assertTrue($states->canTransition(ProductStatus::Submitted, ProductStatus::ChangesRequested));
     }
 
-    public function testStockAndPriceAreOnOppositeSidesOfTheReviewLine(): void
+    public function testWhichFieldsWaitForTheManagerAndWhichDoNot(): void
     {
         // Price waits for the manager; the selling rule does not.
         //
@@ -63,7 +63,25 @@ final class ProductDomainTest extends TestCase
         // than relaxed: stock is now in NEITHER list, because its answer
         // depends on the status, and `liveStockChanged()` is where the
         // question is asked.
-        self::assertContains('priceMinor', SensitiveChange::SENSITIVE);
+        // ⛔ AND THE SAME THING HAPPENED AGAIN, TO THE PRICE, ON 26 OCTOBER
+        // 2026 — so this assertion is inverted rather than deleted.
+        //
+        // «فروشنده همیشه مجاز است قیمت محصول متعلق به خودش را مستقیماً و بدون
+        // تأیید مدیر تغییر دهد.» The owner was shown that `priceMinor` was
+        // sensitive, that a published product's price change became a
+        // proposal and why `alpha.6` decided it, and repeated the
+        // instruction. The failure of the line that used to be here is the
+        // news; keeping it would have been keeping the old rule alive in a
+        // test while the code said otherwise.
+        self::assertNotContains('priceMinor', SensitiveChange::SENSITIVE);
+        self::assertNotContains('salePriceMinor', SensitiveChange::SENSITIVE);
+        // But approval still APPLIES it, so the review page must still be
+        // able to draw it — the other half of the same change.
+        self::assertContains('priceMinor', SensitiveChange::APPLIED_ON_APPROVAL);
+        // The weight did NOT follow it: the owner asked that a weight edited
+        // in WooCommerce be preserved, which is `ShopEditMerge`'s job, not
+        // that a vendor may change it unreviewed.
+        self::assertContains('weightGrams', SensitiveChange::SENSITIVE);
         self::assertSame(['sku', 'minPurchase', 'maxPurchase', 'purchaseStep'], SensitiveChange::IMMEDIATE);
         self::assertSame(['stock'], SensitiveChange::IMMEDIATE_UNTIL_LIVE);
         self::assertNotContains('stock', SensitiveChange::SENSITIVE);
@@ -79,8 +97,14 @@ final class ProductDomainTest extends TestCase
         self::assertTrue(SensitiveChange::liveStockChanged(5, $sameClaimNewStock));
         self::assertFalse(SensitiveChange::liveStockChanged(2, $sameClaimNewStock));
 
+        // A price change is no longer a reason to ask anybody: `between()`
+        // reports nothing, and `ManageProducts::saveAsRevision()` writes it
+        // through `updatePrice()` and pushes it with `pushPrice()`.
         $newPrice = new ProductDetails(title: 'دستکش', priceMinor: 120000, stock: 5);
-        self::assertSame(['priceMinor'], SensitiveChange::between($current, $newPrice));
+        self::assertSame([], SensitiveChange::between($current, $newPrice));
+        // The weight still is.
+        $newWeight = new ProductDetails(title: 'دستکش', priceMinor: 100000, stock: 5, weightGrams: 12);
+        self::assertSame(['weightGrams'], SensitiveChange::between($current, $newWeight));
     }
 
     public function testSpecComparisonIgnoresKeyOrder(): void

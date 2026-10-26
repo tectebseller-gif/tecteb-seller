@@ -36,6 +36,26 @@ final class ProductRevision
      */
     public const BASELINE = 'field_baseline';
 
+    /**
+     * This payload's price is a MIRROR of the live row, not a request.
+     *
+     * ⛔ Written by every proposal from `alpha.83` on, and read by the
+     * approval — because without it that round's own decision would have
+     * reverted a price. The sequence: the vendor changes the title (a
+     * proposal is written, carrying the price as it then stood), then changes
+     * the PRICE, which from `alpha.83` applies at once. Approving the title
+     * would have written the payload's older price back over it — «همگام‌سازی
+     * نباید قیمت ویرایش‌شده را با نسخهٔ قدیمی جایگزین کند» broken by the very
+     * round that forbade it, one object along.
+     *
+     * A KEY and not a changed default, for the reason `stock_proposal` is one:
+     * a proposal written by `alpha.82` or earlier carries a price change that
+     * really was a request and really was never applied, so approving it must
+     * still apply it. «A payload is not a request until it says it is» — and
+     * this key is how a payload says it is NOT.
+     */
+    public const PRICE_MIRRORED = 'price_mirrored';
+
     /** @param array<string,mixed> $payload */
     public function __construct(
         public readonly int $id,

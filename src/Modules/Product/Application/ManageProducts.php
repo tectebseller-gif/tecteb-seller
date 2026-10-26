@@ -981,6 +981,41 @@ final class ManageProducts
         // too — it is an immediate field and nothing carried it before.
         $limits = $this->catalog->pushQuantities($product->id);
 
+        // ⛔ THE PRICE, STRAIGHT THROUGH — and without these lines `alpha.83`
+        // would have DISCARDED it.
+        //
+        // The owner's decision took the price out of `SENSITIVE`, so
+        // `between()` no longer reports it and a price-only change on a
+        // published product falls to the `inventory_saved` return a few lines
+        // down. Nothing else in this method writes a price: `updateInventory()`
+        // carries the stock, the SKU and the three limits and never has. So
+        // the vendor would have pressed save, been told «ذخیره شد», and had
+        // their price reach neither the row nor the shop — the exact shape of
+        // `alpha.82`'s §1-ب, where a multi-category edit answered «saved» and
+        // was thrown away.
+        //
+        // Written only when it MOVED, so an ordinary save of some other field
+        // does not re-push a price nobody changed — and the shop write is
+        // `pushPrice()`, which asks `ShopEditMerge` whether a person has
+        // edited the shop's own price first.
+        $priceMoved = $details->priceMinor !== $product->details->priceMinor
+            || $details->salePriceMinor !== $product->details->salePriceMinor
+            || $details->saleFrom !== $product->details->saleFrom
+            || $details->saleTo !== $product->details->saleTo;
+        $price = null;
+        if ($priceMoved) {
+            if (!$this->products->updatePrice(
+                $product->id,
+                $details->priceMinor,
+                $details->salePriceMinor,
+                $details->saleFrom,
+                $details->saleTo
+            )) {
+                return OperationResult::failure('storage_failed');
+            }
+            $price = $this->catalog->pushPrice($product->id);
+        }
+
         // Inventory is deliberately NOT version-guarded, and that is not an
         // oversight. A.1 puts stock on the immediate side: a vendor who has
         // just sold their last unit must be able to say so, and refusing that
@@ -992,6 +1027,9 @@ final class ManageProducts
             'limits' => $limits->code,
             'limits_held' => (string) ($limits->context['held'] ?? ''),
             'limits_failed' => (string) ($limits->context['failed'] ?? ''),
+            // The price's own answer, so the sentence the vendor reads says
+            // what happened to it rather than leaving them to assume.
+            'price' => $price?->code ?? '',
         ];
         if ($changed === [] && !$specsDiffer && !$imagesDiffer && !$stockProposed) {
             return $limits->ok
@@ -1012,6 +1050,15 @@ final class ManageProducts
             // vendor changed the title», and the brand has a second decision
             // path that moves it in between.
             ProductRevision::BASELINE => ['brand' => $product->details->brand],
+            // THE PRICE IN `details` ABOVE IS A MIRROR, NOT A REQUEST.
+            //
+            // It was written straight to the row a few lines up, so by the
+            // time a manager opens this proposal the row already holds it —
+            // and if the vendor changes it again before they do, the row holds
+            // something NEWER. Saying so here is what stops the approval
+            // writing this copy back over it: the same shape as
+            // `stock_proposal`, from the other side.
+            ProductRevision::PRICE_MIRRORED => true,
         ];
         if ($stockProposed) {
             // The proposal carries the stock AND the number it was measured

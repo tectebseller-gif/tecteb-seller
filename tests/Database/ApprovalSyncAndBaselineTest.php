@@ -533,6 +533,57 @@ final class ApprovalSyncAndBaselineTest extends DatabaseTestCase
     }
 
     /** One vendor revision, approved, on a product that is live. */
+    /**
+     * WHAT THIS PROVES: approving an old proposal does not revert a price the
+     * vendor has changed since.
+     *
+     * ⛔ **The hole `alpha.83` would have dug for itself.** That round let a
+     * vendor's price apply at once, and `approveRevision()` applies the WHOLE
+     * of a payload's `details` — so the sequence below would have written the
+     * price as it stood when the title proposal was made back over the newer
+     * one. «همگام‌سازی نباید قیمت ویرایش‌شده را با نسخهٔ قدیمی جایگزین کند»,
+     * broken by the very round that forbade it, one object along.
+     *
+     * The fix is `ProductRevision::PRICE_MIRRORED`: every proposal from this
+     * package on says its price is a copy, and the approval keeps the live
+     * one. A payload from `alpha.82` or earlier has no such key, so its price
+     * really was a request and really is still applied.
+     */
+    public function testApprovingATitleProposalDoesNotRevertANewerPrice(): void
+    {
+        $productId = $this->publish();
+        $revisionId = $this->proposeTitle($productId, 'دستکش نیتریل');
+
+        // The vendor then changes ONLY the price, which no longer waits for
+        // anybody — so it lands at once and the title proposal is untouched.
+        $priced = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            $this->details(priceMinor: 600000),
+            [],
+            $this->products->find($productId)?->imageIds ?? [],
+            $this->products->find($productId)?->mainImageId ?? 0,
+            $this->products->find($productId)?->rowVersion ?? ''
+        );
+        self::assertTrue($priced->ok, $priced->code);
+        self::assertSame(600000, $this->products->find($productId)?->details->priceMinor);
+        self::assertSame(
+            $revisionId,
+            $this->revisions->pendingFor($productId)?->id,
+            'a price-only save must not replace the open proposal'
+        );
+
+        $product = $this->products->find($productId);
+        self::assertNotNull($product);
+        $approved = $this->review->approveRevision($revisionId, $this->storefront->fingerprints($product));
+        self::assertTrue($approved->ok, $approved->code);
+
+        $after = $this->products->find($productId);
+        self::assertSame('دستکش نیتریل', $after?->details->title, 'the title the manager agreed to');
+        self::assertSame(600000, $after?->details->priceMinor, 'and NOT the price the proposal was carrying');
+    }
+
     private function approveRevisionTo(int $productId, string $title): void
     {
         $revisionId = $this->proposeTitle($productId, $title);
@@ -625,11 +676,14 @@ final class ApprovalSyncAndBaselineTest extends DatabaseTestCase
     /**
      * @param list<int> $categoryIds
      */
-    private function details(string $title = 'دستکش لاتکس', array $categoryIds = [244, 245]): ProductDetails
-    {
+    private function details(
+        string $title = 'دستکش لاتکس',
+        array $categoryIds = [244, 245],
+        int $priceMinor = 200000
+    ): ProductDetails {
         return new ProductDetails(
             title: $title,
-            priceMinor: 200000,
+            priceMinor: $priceMinor,
             sku: 'SKU-71',
             stock: 5,
             categoryIds: $categoryIds

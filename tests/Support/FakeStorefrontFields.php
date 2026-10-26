@@ -93,6 +93,14 @@ final class FakeStorefrontFields implements StorefrontFieldsInterface
         return null;
     }
 
+    /** @var array<string,array{answer:string, shop:string, ours:string}> */
+    public array $shopFieldConflicts = [];
+
+    public function shopFieldConflicts(Product $product): array
+    {
+        return $this->shopFieldConflicts;
+    }
+
     public function fingerprints(Product $product): array
     {
         return array_map(

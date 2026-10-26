@@ -843,7 +843,12 @@ final class ProductReviewPage
             // With no reader at all the answer is `unreadable` rather than
             // `compared`: a card that cannot ask has not established that the
             // two sides agree.
-            $storefront?->comparisonState($product) ?? WooCommerceStorefrontFields::STATE_UNREADABLE
+            $storefront?->comparisonState($product) ?? WooCommerceStorefrontFields::STATE_UNREADABLE,
+            // The price, SKU and weight a person edited in WooCommerce.
+            // Asked here, like every other value on this card, and `[]` with
+            // no reader — «نتوانستم بپرسم» is not «تفاوتی نیست», and the
+            // block that draws nothing is the honest answer to the first.
+            $storefront?->shopFieldConflicts($product) ?? []
         );
     }
 
@@ -1006,7 +1011,17 @@ final class ProductReviewPage
     {
         $proposed = is_array($revision->payload['details'] ?? null) ? $revision->payload['details'] : [];
         $rows = '';
-        foreach (SensitiveChange::SENSITIVE as $field) {
+        // ⛔ WHAT APPROVAL APPLIES, NOT WHAT IS SENSITIVE — and from
+        // `alpha.83` those are two different lists.
+        //
+        // The price left `SENSITIVE` by the owner's decision, and
+        // `approveRevision()` applies the whole of the payload's `details`
+        // regardless of that list. Had this loop stayed on `SENSITIVE`, every
+        // proposal already in the queue carrying a price change would have
+        // had it applied with no row on this page to agree to — a manager
+        // consenting to a value they were never shown, which is `alpha.49`'s
+        // rule and the fault `alpha.82` §6 found one object along.
+        foreach (SensitiveChange::APPLIED_ON_APPROVAL as $field) {
             $current = $product->details->{$field};
             $next = $proposed[$field] ?? $current;
             if ((string) $current === (string) $next) {
@@ -1025,6 +1040,18 @@ final class ProductReviewPage
             // A real conflict KEEPS its row: there the question is genuine,
             // and `brandConflict()` prints the three values beneath this table.
             if ($field === 'brand' && $this->proposedBrandVerdict($product, $revision) === ProposedBrand::KEEP) {
+                continue;
+            }
+            // AND THE PRICE, WHEN THIS PAYLOAD SAYS ITS PRICE IS A MIRROR.
+            //
+            // The same rule as the brand and the stock rows, one field along:
+            // a proposal written from `alpha.83` on carries the price only as
+            // a copy, and `detailsFromPayload()` keeps the live one. Drawing
+            // «۶۰۰٬۰۰۰ → ۵۰۰٬۰۰۰» would promise a revert that approval will
+            // not make — the `alpha.13` fault in review clothing, and the
+            // same thing `alpha.82` fixed for an empty category set.
+            if (array_key_exists(ProductRevision::PRICE_MIRRORED, $revision->payload)
+                && in_array($field, ['priceMinor', 'salePriceMinor', 'saleFrom', 'saleTo'], true)) {
                 continue;
             }
             $rows .= '<tr><th scope="row">' . esc_html(ProductMessages::field($field) !== $field

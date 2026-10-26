@@ -428,6 +428,51 @@ final class SyncCatalog
      * `nothing_to_push` is a success on purpose: a draft the vendor is still
      * writing has no storefront row, and that is not a failure of their save.
      */
+    /**
+     * The price, out to the shop, now.
+     *
+     * The sibling of `pushQuantities()` and the other half of `alpha.83`'s
+     * decision: the price applies without an approval, so it needs a path
+     * that reaches the shop without one. Everything else about it is
+     * `pushQuantities()`'s shape — ours only, projected only, and the
+     * projector's own record decides whether a person's edit is in the way.
+     */
+    public function pushPrice(int $productId): OperationResult
+    {
+        $product = $this->products->find($productId);
+        if ($product === null) {
+            return OperationResult::failure('not_found');
+        }
+        if (!$this->mayWriteToStorefront($product)) {
+            return OperationResult::failure('not_our_product', ['product_id' => $productId, 'ownership' => $product->linkOwnership]);
+        }
+        if (!$product->isProjected() || !$this->projector->isAvailable()) {
+            return OperationResult::success('nothing_to_push');
+        }
+        $result = $this->projector->writePrice($product);
+        $context = [
+            'product_id' => $productId,
+            'wrote' => implode(',', $result['wrote']),
+            'held' => implode(',', $result['held']),
+            'failed' => implode(',', $result['failed']),
+        ];
+        if ($result['code'] === 'not_ours') {
+            return OperationResult::success('nothing_to_push', $context);
+        }
+        if (!$result['ok']) {
+            return OperationResult::failure($result['code'], $context);
+        }
+        if ($result['wrote'] !== []) {
+            $this->audit->log(AuditEventCatalog::PRODUCT_SYNCED, 0, 'product', (string) $productId, [
+                'vendor_id' => $product->vendorUserId,
+                'product_id' => $productId,
+                'wc_product_id' => (int) $product->wcProductId,
+                'action' => 'price',
+            ]);
+        }
+        return OperationResult::success($result['code'], $context);
+    }
+
     public function pushQuantities(int $productId): OperationResult
     {
         $product = $this->products->find($productId);
