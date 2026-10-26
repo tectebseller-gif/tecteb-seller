@@ -1,0 +1,13 @@
+LEAK  search input  paddingTop: 1px  →  18px
+LEAK  search input  paddingRight: 2px  →  18px
+LEAK  search input  borderTopWidth: 0px  →  3px
+LEAK  search input  borderTopColor: rgb(14, 36, 53)  →  rgb(238, 0, 0)
+LEAK  search input  borderRadius: 0px  →  3px
+LEAK  search input  backgroundColor: rgba(0, 0, 0, 0)  →  rgb(255, 255, 238)
+LEAK  category select  paddingTop: 0px  →  18px
+LEAK  search button  paddingTop: 1px  →  8px
+LEAK  h1  fontWeight: 700  →  500
+LEAK  h1  textTransform: none  →  uppercase
+LEAK  h1  fontStyle: normal  →  italic
+LEAK  h2 (section)  textTransform: none  →  uppercase
+LEAK  h2 (section)  fontStyle: normal  →  italic

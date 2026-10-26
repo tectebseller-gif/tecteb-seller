@@ -1,0 +1,29 @@
+/*
+ * گزیده‌ای از reset ِ قالب Hello Elementor نسخهٔ 3.5.1 — فقط قواعدی که به اجزای
+ * Concept C می‌رسند، رونویسی‌شده از سورس رسمی همان تگ:
+ *   github.com/elementor/hello-theme @ v3.5.1 (e86d30a)
+ *   dev/scss/reset/_reset.scss · _forms.scss · _focus.scss · _variables.scss
+ * متغیرها با مقدار پیش‌فرضشان جایگزین شده‌اند ($pink = #C36، $gray = #666،
+ * $border-radius = 3px). فقط برای آزمون نشت استایل؛ به سایت نمی‌رود.
+ */
+h1, h2, h3, h4, h5, h6 { margin-block-start: .5rem; margin-block-end: 1rem; font-family: inherit; font-weight: 500; line-height: 1.2; color: inherit; }
+h1 { font-size: 2.5rem; } h2 { font-size: 2rem; } h3 { font-size: 1.75rem; }
+p { margin-block-start: 0; margin-block-end: .9rem; }
+a { background-color: transparent; text-decoration: none; color: #C36; }
+a:hover, a:active { color: #336; }
+button, input, optgroup, select, textarea { font-family: inherit; font-size: 1rem; line-height: 1.5; margin: 0; }
+input[type="search"], select { width: 100%; border: solid 1px #666; border-radius: 3px; padding: 0.5rem 1rem; transition: all .3s; }
+input[type="search"]:focus, select:focus { border-color: #333; }
+button, input { overflow: visible; }
+button, select { text-transform: none; }
+button, [type="button"], [type="reset"], [type="submit"] { width: auto; -webkit-appearance: button; }
+button, [type="submit"], [type="button"] { display: inline-block; font-weight: 400; color: #C36; text-align: center; white-space: nowrap; user-select: none; background-color: transparent; border: 1px solid #C36; padding: 0.5rem 1rem; font-size: 1rem; border-radius: 3px; transition: all .3s; }
+button:hover, button:focus, [type="submit"]:hover, [type="submit"]:focus, [type="button"]:hover, [type="button"]:focus { color: #fff; background-color: #C36; text-decoration: none; }
+[type="search"] { -webkit-appearance: textfield; outline-offset: -2px; }
+select { display: block; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #000; outline-offset: 2px; box-shadow: 0 0 0 4px #fff; }
+
+/* و یک قاعدهٔ نمونهٔ «Site Settings → Form Fields» ِ Elementor، با همان شکل انتخابگری
+   که Elementor برای kit می‌سازد — مقدارهای اغراق‌شده تا نشت دیده شود. */
+.elementor-kit-5 input:not([type="button"]):not([type="submit"]), .elementor-kit-5 select { border: 3px solid #e00; padding: 18px; background-color: #ffe; }
+.elementor-kit-5 h1, .elementor-kit-5 h2 { text-transform: uppercase; letter-spacing: 4px; font-style: italic; }
