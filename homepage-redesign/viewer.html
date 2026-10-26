@@ -1,0 +1,125 @@
+<title>صفحهٔ اصلی تک‌طب، دو طرح</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* نمایشگرِ انتخاب: یک ستون، کنترل‌ها بالا، پیش‌نمایش زنده زیرش. */
+  @font-face {
+    font-family: "TH Vazirmatn";
+    src: url("shared/fonts/Vazirmatn-wght.woff2") format("woff2");
+    font-weight: 100 900;
+    font-display: swap;
+  }
+  :root {
+    --bg: #eef2f4;
+    --panel: #ffffff;
+    --fg: #152b3b;
+    --muted: #50606c;
+    --line: #d5dfe5;
+    --accent: #0f7a80;
+    --accent-fg: #ffffff;
+    --warn-bg: #fff4d6;
+    --warn-fg: #5b4300;
+    --font: "TH Vazirmatn", Tahoma, system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1a24; --panel: #142633; --fg: #e5edf2; --muted: #a7b6c1; --line: #2a3f4e;
+      --accent: #5fd0d4; --accent-fg: #0d1a24; --warn-bg: #3a3012; --warn-fg: #f3dc9a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1a24; --panel: #142633; --fg: #e5edf2; --muted: #a7b6c1; --line: #2a3f4e;
+    --accent: #5fd0d4; --accent-fg: #0d1a24; --warn-bg: #3a3012; --warn-fg: #f3dc9a;
+    color-scheme: dark;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.8;
+  }
+  .wrap {
+    max-width: 1280px;
+    margin-inline: auto;
+    padding-block: 24px 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid;
+    gap: 16px;
+  }
+  h1 { margin: 0; font-size: clamp(20px, 3vw, 26px); font-weight: 800; text-wrap: balance; }
+  .lead { margin: 0; color: var(--muted); max-width: 68ch; }
+  .note { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-fg); font-size: 13px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+  .seg button {
+    font: inherit; font-size: 14px; font-weight: 600; border: 0; background: transparent; color: var(--fg);
+    min-height: 40px; padding-inline: 16px; cursor: pointer;
+  }
+  .seg button + button { border-inline-start: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+  .seg button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .open { color: var(--accent); font-weight: 600; }
+  .about { margin: 0; padding: 12px 16px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); min-width: 0; }
+  .about strong { display: block; }
+  .stage { display: grid; justify-items: center; padding: 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); min-width: 0; }
+  iframe { display: block; width: 100%; max-width: 100%; height: 78vh; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .stage[data-device="mobile"] iframe { width: 390px; }
+  @media (prefers-reduced-motion: no-preference) { .seg button { transition: background-color .15s ease; } }
+</style>
+
+<div class="wrap" dir="rtl" lang="fa">
+  <h1>صفحهٔ اصلی تک‌طب، دو طرح برای انتخاب</h1>
+  <p class="lead">دو پیش‌نمایش مستقل HTML/CSS، فقط فارسی و راست‌به‌چپ. هدر و پاورقی فعلی سایت دست نمی‌خورند و با نوار خاکستری نشان داده شده‌اند.</p>
+  <p class="note">دسته‌ها، محصولات و خدمات نمونه‌اند و برچسب «نمونه» دارند. پیوندها هنوز به سایت وصل نیستند. هیچ تغییری روی سایت اصلی یا آزمایشی انجام نشده است.</p>
+
+  <div class="bar">
+    <div class="seg" role="group" aria-label="طرح">
+      <button type="button" id="pick-a" data-concept="a" aria-pressed="true">طرح A · مینیمال تخصصی</button>
+      <button type="button" id="pick-b" data-concept="b" aria-pressed="false">طرح B · مارکت‌پلیس B2B</button>
+    </div>
+    <div class="seg" role="group" aria-label="اندازه">
+      <button type="button" id="dev-desktop" data-device="desktop" aria-pressed="true">دسکتاپ</button>
+      <button type="button" id="dev-mobile" data-device="mobile" aria-pressed="false">موبایل ۳۹۰px</button>
+    </div>
+    <a class="open" id="open-full" href="concept-a/index.html" target="_blank" rel="noopener">باز کردن در صفحهٔ کامل</a>
+  </div>
+
+  <p class="about" id="about"></p>
+
+  <div class="stage" id="stage" data-device="desktop">
+    <iframe id="frame" src="concept-a/index.html" title="پیش‌نمایش طرح"></iframe>
+  </div>
+</div>
+
+<script>
+  const ABOUT = {
+    a: ['طرح A — مینیمال، لوکس و تخصصی', 'تیتر بزرگ و آرام، خط‌های نازک و یک رنگ تأکید؛ دسته‌ها به‌شکل نمایهٔ کاتالوگ. معتبرتر و متمایزتر، ولی محصول کمتری بالای صفحه می‌آید و به عکس واقعی خوب وابسته‌تر است.'],
+    b: ['طرح B — مدرن و محصول‌محور (پیشنهاد ما)', 'جست‌وجوی بزرگ با انتخاب دسته، دو کارت مسیر برای خریدار و تأمین‌کننده، کاشی دسته‌ها و کارت محصول با موجودی. کشف محصول روشن‌تر است، ولی شبیه‌تر به بقیهٔ مارکت‌پلیس‌هاست.']
+  };
+  const state = { concept: 'a', device: 'desktop' };
+  const frame = document.getElementById('frame');
+  const stage = document.getElementById('stage');
+  const open = document.getElementById('open-full');
+  const about = document.getElementById('about');
+
+  function render() {
+    const src = `concept-${state.concept}/index.html`;
+    if (!frame.getAttribute('src').endsWith(src)) frame.setAttribute('src', src);
+    frame.title = `پیش‌نمایش ${ABOUT[state.concept][0]}`;
+    open.href = src;
+    stage.dataset.device = state.device;
+    about.innerHTML = '';
+    const s = document.createElement('strong');
+    s.textContent = ABOUT[state.concept][0];
+    about.append(s, ABOUT[state.concept][1]);
+    document.querySelectorAll('[data-concept]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.concept === state.concept)));
+    document.querySelectorAll('[data-device]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.device === state.device)));
+  }
+
+  document.querySelectorAll('[data-concept]').forEach(b => b.addEventListener('click', () => { state.concept = b.dataset.concept; render(); }));
+  document.querySelectorAll('[data-device]').forEach(b => b.addEventListener('click', () => { state.device = b.dataset.device; render(); }));
+  if (location.hash === '#b') state.concept = 'b';
+  render();
+</script>
