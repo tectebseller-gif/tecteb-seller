@@ -48,12 +48,12 @@
 
     <div class="th-wrap th-hero__layout">
       <div class="th-hero__copy">
-        <p class="th-pill th-in" style="--th-i:0"><span class="th-pill__dot" aria-hidden="true"></span>بازار تخصصی تجهیزات پزشکی</p>
+        <p class="th-pill th-in" style="--th-i:0"><img class="th-pill__logo" src="../shared/brand/tecteb-logo-mark-96.png" width="24" height="24" alt="تک‌طب">بازار B2B تجهیزات پزشکی</p>
         <h1 class="th-hero__title th-in" id="th-hero-title" style="--th-i:1">
           <span class="th-hero__line">تجهیزات پزشکی را دقیق پیدا کنید،</span>
           <span class="th-hero__line th-hero__line--em">با اطمینان تأمین کنید.</span>
         </h1>
-        <p class="th-hero__lead th-in" style="--th-i:2">محصولات فروشگاه تک‌طب را جست‌وجو کنید، مشخصات را کنار هم ببینید و برای خرید سازمانی درخواست تأمین بفرستید.</p>
+        <p class="th-hero__lead th-in" style="--th-i:2">برای بیمارستان‌ها، کلینیک‌ها و آزمایشگاه‌ها: محصولات را جست‌وجو کنید، مشخصات را کنار هم ببینید و برای خرید سازمانی درخواست تأمین بفرستید.</p>
 
         <!-- جست‌وجوی ووکامرس: در اجرا action = نشانی خانه، با s، post_type=product و product_cat اختیاری -->
         <form class="th-search th-in" style="--th-i:3" role="search" action="#th-route-product-search" method="get" data-th-route="product-search">
@@ -103,7 +103,7 @@
         <a class="th-float th-float--two" href="#th-route-category" data-th-route="category">
           <svg class="th-icon" aria-hidden="true"><use href="#th-i-syringe"/></svg>ملزومات مصرفی
         </a>
-        <figcaption class="th-hero__note">رندر انتزاعی سه‌بعدی — نه عکس یک محصول واقعی</figcaption>
+        <figcaption class="th-hero__note">تصویر نمایشی — مدل سه‌بعدی ساده‌شده، نه عکس یک محصول مشخص</figcaption>
       </figure>
     </div>
 
@@ -125,6 +125,10 @@
         <span class="th-route__go"><svg class="th-icon th-icon--dir" aria-hidden="true"><use href="#th-i-arrow"/></svg></span>
       </a>
     </div>
+
+    <div class="th-wrap">
+      <p class="th-audience"><span class="th-audience__label">ویژهٔ خرید حرفه‌ای</span><span>بیمارستان‌ها</span><span>کلینیک‌ها</span><span>آزمایشگاه‌ها</span><span>مطب‌ها</span><span>مراکز دندان‌پزشکی</span></p>
+    </div>
   </section>
 
 </main>
@@ -133,7 +137,7 @@
   <h2 id="proto-spec-title">افکت‌ها و رفتار حرکت</h2>
   <dl>
     <div><dt>زمینه</dt><dd>سه لایه: گرادیان خطی نفتی (۸۰۰ ← ۹۵۰)، نور شعاعی فیروزه‌ای پشت رندر، و نور پهن در لبهٔ پایین؛ به‌علاوهٔ شبکهٔ ۴۸ پیکسلی که با ماسک شعاعی محو می‌شود.</dd></div>
-    <div><dt>عنصر سه‌بعدی</dt><dd>رندر انتزاعی با نور لبهٔ فیروزه‌ای (WebP شفاف، ۵۱KB دسکتاپ / ۴۲KB موبایل)؛ پایین تصویر با ماسک در زمینه حل می‌شود.</dd></div>
+    <div><dt>عنصر سه‌بعدی</dt><dd>تصویر نمایشی: مدل ساده‌شدهٔ مانیتور علائم حیاتی روی پایه — صفحه‌اش سه منحنی و چهار عدد دارد و منحنی ECG خودِ موج لوگوی تک‌طب است — کنار یک پالس‌اکسیمتر انگشتی و حلقه‌ای به رنگ آبی لوگو؛ نور لبهٔ فیروزه‌ای. WebP شفاف، ۲۲KB دسکتاپ / ۴۳KB موبایل؛ پایین تصویر با ماسک در زمینه حل می‌شود.</dd></div>
     <div><dt>شیشه</dt><dd>نوار جست‌وجو، دو کارت مسیر و دو برچسب شناور: blur(14px) و saturate(140%)، مرز سفید ۱۴٪، و نور داخلی یک‌پیکسلی در لبهٔ بالا. بی پشتیبانی از backdrop-filter: همان رنگ نیمه‌شفاف، بدون محوشدگی.</dd></div>
     <div><dt>ورود</dt><dd>متن‌ها پلکانی بالا می‌آیند (۷۰۰ms، فاصلهٔ ۸۰ms)، رندر از ۹۷٪ به ۱۰۰٪ (۱s)، برچسب‌ها و کارت‌ها پس از آن. همه زیر یک ثانیه و فقط یک بار.</dd></div>
     <div><dt>حرکت مداوم</dt><dd>شناوری آرام رندر (۱۰px، ۹ ثانیه) و برچسب‌ها (۶px، ۷ و ۸ ثانیه، خلاف هم)، و تپش نقطهٔ سبز برچسب بالا. هیچ چرخه‌ای سریع‌تر از ۲٫۸ ثانیه نیست.</dd></div>

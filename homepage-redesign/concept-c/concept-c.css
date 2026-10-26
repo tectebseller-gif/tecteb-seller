@@ -34,12 +34,15 @@
   --th-teal-300: #63d3d6;      /* فقط روی تیره */
   --th-teal-100: #dff3f4;
   --th-ink: #0e2435;
-  --th-muted: #4b5e6b;         /* ۶٫۵:۱ روی سفید */
+  --th-muted: #3d505d;         /* ۸٫۲:۱ روی سفید — متن توضیحی، نه فقط برچسب */
   --th-mist: #f2f7f9;
   --th-line: #dbe6eb;
   --th-white: #ffffff;
   --th-on-dark: #e9f2f6;
-  --th-on-dark-muted: #a8c0cd; /* ۸:۱ روی petrol-900 */
+  --th-on-dark-muted: #c2d4de; /* ۱۰:۱ روی petrol-900 */
+  /* رنگ‌های لوگو، اندازه‌گیری‌شده از خودِ فایل: فقط برای تزئین و خط، نه متن روی سفید (۳٫۴:۱). */
+  --th-brand-blue: #488fcd;
+  --th-brand-gray: #d8d8d8;
 
   --th-font: "TH Vazirmatn", "Vazirmatn", Tahoma, system-ui, sans-serif;
   --th-max: 1240px;
@@ -61,8 +64,8 @@
   background: var(--th-mist);
   color: var(--th-ink);
   font-family: var(--th-font);
-  font-size: 1rem;
-  line-height: 1.85;
+  font-size: 1.0625rem;          /* ۱۷px: متن فارسی با نقطه‌های ریز در ۱۶px خسته‌کننده است */
+  line-height: 1.9;
   text-align: start;
   -webkit-font-smoothing: antialiased;
 }
@@ -207,7 +210,7 @@
   inline-size: 1.75rem;
   block-size: 2px;
   border-radius: 2px;
-  background: linear-gradient(to left, var(--th-teal-500), transparent);
+  background: linear-gradient(to left, var(--th-teal-500), var(--th-brand-blue) 60%, transparent);
 }
 
 .tecteb-home-v1.th-c .th-eyebrow--light { color: var(--th-teal-300); }
@@ -327,6 +330,17 @@
   font-weight: 600;
 }
 
+.tecteb-home-v1.th-c .th-pill__logo,
+.tecteb-home-v1.th-c .th-eyebrow__logo {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(72, 143, 205, 0.18);
+}
+
+.tecteb-home-v1.th-c .th-eyebrow__logo { inline-size: 1.25rem; block-size: 1.25rem; }
+.tecteb-home-v1.th-c .th-eyebrow:has(.th-eyebrow__logo)::before { display: none; }
+
 .tecteb-home-v1.th-c .th-pill__dot {
   inline-size: 0.5rem;
   block-size: 0.5rem;
@@ -347,16 +361,17 @@
 
 .tecteb-home-v1.th-c .th-hero__line--em {
   font-weight: 800;
-  background: linear-gradient(90deg, #8be6e4 0%, #ffffff 70%);
+  background: linear-gradient(90deg, #8be6e4 0%, #a9cdee 45%, #ffffff 85%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
 .tecteb-home-v1.th-c .th-hero__lead {
-  max-inline-size: 36rem;
+  max-inline-size: 34rem;
   color: var(--th-on-dark-muted);
-  font-size: clamp(1rem, 1.5cqi, 1.125rem);
+  font-size: clamp(1.0625rem, 1.6cqi, 1.1875rem);
+  line-height: 2;
 }
 
 /* جست‌وجو: نوار شیشه‌ای با سه جزء، و حلقهٔ نور هنگام تمرکز. */
@@ -432,7 +447,7 @@
   gap: 0.5rem 0.75rem;
 }
 
-.tecteb-home-v1.th-c .th-quick__label { color: var(--th-on-dark-muted); font-size: 0.875rem; }
+.tecteb-home-v1.th-c .th-quick__label { color: var(--th-on-dark-muted); font-size: 0.9375rem; }
 .tecteb-home-v1.th-c .th-quick__list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 /* --- هنر سه‌بعدی */
@@ -458,10 +473,9 @@
 }
 
 .tecteb-home-v1.th-c .th-hero__note {
-  margin-block-start: -0.5rem;
+  margin-block-start: -0.25rem;
   color: var(--th-on-dark-muted);
-  font-size: 0.75rem;
-  opacity: 0.85;
+  font-size: 0.8125rem;
 }
 
 /* برچسب‌های شیشه‌ای کنار رندر: تزئین نیستند، پیوند به دسته‌اند. */
@@ -526,8 +540,8 @@
 
 .tecteb-home-v1.th-c .th-route__icon svg { inline-size: 1.6rem; block-size: 1.6rem; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .tecteb-home-v1.th-c .th-route__text { display: grid; flex: 1; min-inline-size: 0; }
-.tecteb-home-v1.th-c .th-route__kicker { color: var(--th-on-dark-muted); font-size: 0.8125rem; line-height: 1.6; }
-.tecteb-home-v1.th-c .th-route__title { color: var(--th-white); font-size: 1.125rem; font-weight: 800; line-height: 1.6; }
+.tecteb-home-v1.th-c .th-route__kicker { color: var(--th-on-dark-muted); font-size: 0.9375rem; line-height: 1.7; }
+.tecteb-home-v1.th-c .th-route__title { color: var(--th-white); font-size: 1.1875rem; font-weight: 800; line-height: 1.6; }
 
 .tecteb-home-v1.th-c .th-route__go {
   display: grid;
@@ -631,7 +645,7 @@
 }
 
 .tecteb-home-v1.th-c .th-head__title--light { color: var(--th-white); }
-.tecteb-home-v1.th-c .th-head__lead { max-inline-size: 38rem; color: var(--th-muted); }
+.tecteb-home-v1.th-c .th-head__lead { max-inline-size: 40rem; color: var(--th-muted); font-size: 1.0625rem; line-height: 2; }
 
 .tecteb-home-v1.th-c .th-more {
   display: inline-flex;
@@ -725,8 +739,8 @@
   box-shadow: inset -6px -8px 14px rgba(15, 122, 128, 0.28), 0 16px 22px -12px rgba(15, 122, 128, 0.7);
 }
 
-.tecteb-home-v1.th-c .th-cat__name { font-size: 1.0625rem; font-weight: 800; line-height: 1.6; }
-.tecteb-home-v1.th-c .th-cat__meta { color: var(--th-muted); font-size: 0.8125rem; line-height: 1.7; }
+.tecteb-home-v1.th-c .th-cat__name { font-size: 1.125rem; font-weight: 800; line-height: 1.6; }
+.tecteb-home-v1.th-c .th-cat__meta { color: var(--th-muted); font-size: 0.9375rem; line-height: 1.75; }
 
 .tecteb-home-v1.th-c .th-cat__go {
   position: absolute;
@@ -774,9 +788,7 @@
   align-content: center;
   gap: 0.25rem;
   aspect-ratio: 1;
-  background:
-    radial-gradient(60% 18% at 50% 88%, rgba(14, 36, 53, 0.14), transparent 70%),
-    radial-gradient(80% 70% at 50% 30%, #ffffff 0%, #eef5f7 70%, #e4eef2 100%);
+  background: radial-gradient(80% 70% at 50% 30%, #ffffff 0%, #eef5f7 70%, #e4eef2 100%);
   color: var(--th-petrol-700);
   overflow: hidden;
 }
@@ -810,9 +822,14 @@
 }
 
 .tecteb-home-v1.th-c .th-product:hover .th-product__art { transform: scale(1.05) translateY(-2px); }
-.tecteb-home-v1.th-c .th-product__media--empty { color: #7a8b96; }
+.tecteb-home-v1.th-c .th-product__media--empty {
+  color: #687a86;
+  background:
+    radial-gradient(60% 18% at 50% 88%, rgba(14, 36, 53, 0.1), transparent 70%),
+    radial-gradient(80% 70% at 50% 30%, #ffffff 0%, #eef5f7 70%, #e4eef2 100%);
+}
 .tecteb-home-v1.th-c .th-product__media--empty .th-product__art { inline-size: 24%; filter: none; }
-.tecteb-home-v1.th-c .th-product__empty { font-size: 0.8125rem; }
+.tecteb-home-v1.th-c .th-product__empty { font-size: 0.875rem; text-align: center; padding-inline: 1rem; }
 
 .tecteb-home-v1.th-c .th-badge {
   position: absolute;
@@ -825,7 +842,7 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.85);
   box-shadow: var(--th-shadow-s);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   line-height: 1.8;
 }
@@ -841,12 +858,13 @@
   padding: 1rem;
 }
 
-.tecteb-home-v1.th-c .th-product__cat { color: var(--th-teal-600); font-size: 0.8125rem; font-weight: 700; }
+.tecteb-home-v1.th-c .th-product__cat { color: var(--th-teal-600); font-size: 0.875rem; font-weight: 700; }
 
 .tecteb-home-v1.th-c .th-product__title {
-  font-size: 0.975rem;
+  font-size: 1.0625rem;
   font-weight: 700;
   line-height: 1.75;
+  min-block-size: calc(2 * 1.75em);
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -867,6 +885,7 @@
 .tecteb-home-v1.th-c .th-product__foot {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.5rem;
   margin-block-start: 0.5rem;
@@ -874,23 +893,102 @@
   border-block-start: 1px solid var(--th-line);
 }
 
-.tecteb-home-v1.th-c .th-product__price { font-size: 0.9375rem; font-weight: 800; }
+.tecteb-home-v1.th-c .th-product__price { font-size: 1rem; font-weight: 800; }
 .tecteb-home-v1.th-c .th-product__price--ask { color: var(--th-petrol-700); }
 .tecteb-home-v1.th-c .th-product__price--out { color: var(--th-muted); font-weight: 600; }
 
-.tecteb-home-v1.th-c .th-product__go {
-  display: grid;
-  place-items: center;
-  flex: none;
-  inline-size: 2.25rem;
-  block-size: 2.25rem;
-  border-radius: 50%;
-  background: var(--th-mist);
-  color: var(--th-petrol-800);
-  transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s var(--th-ease);
+
+/* تصویر محصول: عکس ووکامرس (یا در این پیش‌نمایش، رندر نمایشی) روی صفحهٔ استودیویی. */
+.tecteb-home-v1.th-c .th-product__media picture {
+  display: block;
+  inline-size: 88%;
+  transition: transform 0.5s var(--th-ease);
 }
 
-.tecteb-home-v1.th-c .th-product:hover .th-product__go { background: var(--th-teal-600); color: var(--th-white); transform: translateX(-3px); }
+.tecteb-home-v1.th-c .th-product__media img {
+  inline-size: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+.tecteb-home-v1.th-c .th-product:hover .th-product__media picture { transform: scale(1.04) translateY(-2px); }
+
+/* برچسب صادقانه روی هر تصویری که عکس واقعیِ همان محصول نیست. */
+.tecteb-home-v1.th-c .th-imgnote {
+  position: absolute;
+  inset-block-end: 0.625rem;
+  inset-inline-end: 0.625rem;
+  padding: 0 0.5rem;
+  border-radius: 6px;
+  background: rgba(14, 36, 53, 0.72);
+  color: var(--th-white);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.8;
+}
+
+.tecteb-home-v1.th-c .th-product__specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-block-start: 0.375rem;
+}
+
+.tecteb-home-v1.th-c .th-product__specs li {
+  padding: 0.0625rem 0.5rem;
+  border-radius: 6px;
+  background: var(--th-mist);
+  color: var(--th-muted);
+  font-size: 0.875rem;
+  line-height: 1.8;
+}
+
+/* استعلام سازمانی: روی پیوندِ کشیدهٔ کارت می‌نشیند، پس جدا کلیک‌پذیر است. */
+.tecteb-home-v1.th-c .th-product__quote {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.25rem;
+  padding-inline: 0.75rem;
+  border: 1px solid var(--th-line);
+  border-radius: 999px;
+  color: var(--th-teal-600);
+  font-size: 0.875rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
+}
+
+.tecteb-home-v1.th-c .th-product__quote:hover { border-color: var(--th-teal-600); background: var(--th-teal-600); color: var(--th-white); }
+
+/* مخاطبان: یک خط آرام زیر Hero — هویت B2B بدون ادعا. */
+.tecteb-home-v1.th-c .th-audience {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+  margin-block-start: clamp(1.25rem, 3vw, 2rem);
+  padding-block-start: 1rem;
+  border-block-start: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--th-on-dark-muted);
+  font-size: 0.9375rem;
+}
+
+.tecteb-home-v1.th-c .th-audience__label { color: var(--th-teal-300); font-weight: 700; }
+.tecteb-home-v1.th-c .th-audience span + span:not(.th-audience__label)::before {
+  content: "";
+  display: inline-block;
+  inline-size: 4px;
+  block-size: 4px;
+  margin-inline-end: 1rem;
+  border-radius: 50%;
+  background: var(--th-brand-blue);
+  vertical-align: middle;
+}
+.tecteb-home-v1.th-c .th-audience__label + span::before { display: none !important; }
+.tecteb-home-v1.th-c .th-hero--light .th-audience { border-color: rgba(15, 58, 85, 0.1); color: var(--th-muted); }
+.tecteb-home-v1.th-c .th-hero--light .th-audience__label { color: var(--th-teal-600); }
 
 /* ---------------- ۴. خدمات: تیره، شیشه روی نور */
 
@@ -922,7 +1020,7 @@
   justify-items: start;
 }
 
-.tecteb-home-v1.th-c .th-services__lead { color: var(--th-on-dark-muted); max-inline-size: 30rem; }
+.tecteb-home-v1.th-c .th-services__lead { color: var(--th-on-dark-muted); max-inline-size: 30rem; font-size: 1.0625rem; line-height: 2; }
 
 .tecteb-home-v1.th-c .th-services__grid {
   display: grid;
@@ -958,7 +1056,7 @@
 
 .tecteb-home-v1.th-c .th-service__icon svg { inline-size: 1.6rem; block-size: 1.6rem; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .tecteb-home-v1.th-c .th-service__title { grid-area: title; color: var(--th-white); font-size: 1.0625rem; font-weight: 800; line-height: 1.6; }
-.tecteb-home-v1.th-c .th-service__text { grid-area: text; color: var(--th-on-dark-muted); font-size: 0.9375rem; }
+.tecteb-home-v1.th-c .th-service__text { grid-area: text; color: var(--th-on-dark-muted); font-size: 1rem; line-height: 1.9; }
 
 /* ---------------- ۵. تأمین‌کنندگان: کارت گرادیانی روی زمینهٔ روشن */
 
@@ -994,7 +1092,7 @@
 
 .tecteb-home-v1.th-c .th-join__copy { display: grid; gap: 1rem; align-content: center; justify-items: start; }
 .tecteb-home-v1.th-c .th-join__title { font-size: clamp(1.5rem, 3.1cqi, 2.375rem); font-weight: 300; line-height: 1.5; text-wrap: balance; }
-.tecteb-home-v1.th-c .th-join__lead { color: #d2e4ec; max-inline-size: 34rem; }
+.tecteb-home-v1.th-c .th-join__lead { color: #dcebf1; max-inline-size: 34rem; font-size: 1.0625rem; line-height: 2; }
 .tecteb-home-v1.th-c .th-join__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-block-start: 0.5rem; }
 
 .tecteb-home-v1.th-c .th-steps { display: grid; gap: 0.75rem; align-content: center; }
@@ -1005,8 +1103,8 @@
   gap: 1rem;
   padding: 1rem 1.125rem;
   border-radius: var(--th-r-m);
-  color: #d2e4ec;
-  font-size: 0.875rem;
+  color: #dcebf1;
+  font-size: 0.9375rem;
 }
 
 .tecteb-home-v1.th-c .th-step strong { display: block; color: var(--th-white); font-size: 1rem; font-weight: 700; }
@@ -1047,19 +1145,33 @@
 
 @container th-home (max-width: 599px) {
   .tecteb-home-v1.th-c .th-hero__art { max-inline-size: 420px; }
-  .tecteb-home-v1.th-c .th-float { font-size: 0.75rem; padding: 0.375rem 0.75rem; }
+  .tecteb-home-v1.th-c .th-float { font-size: 0.8125rem; padding: 0.375rem 0.75rem; }
   .tecteb-home-v1.th-c .th-float--one { inset-block-start: 4%; }
   .tecteb-home-v1.th-c .th-float--two { inset-block-end: 14%; }
   .tecteb-home-v1.th-c .th-search__submit { inline-size: 100%; }
   .tecteb-home-v1.th-c .th-cat { padding: 1rem 0.875rem; }
   .tecteb-home-v1.th-c .th-orb { inline-size: 2.75rem; block-size: 2.75rem; margin-block-end: 0.5rem; }
   .tecteb-home-v1.th-c .th-orb svg { inline-size: 1.4rem; block-size: 1.4rem; }
-  .tecteb-home-v1.th-c .th-cat__name { font-size: 0.9375rem; }
+  .tecteb-home-v1.th-c .th-cat__name { font-size: 1rem; }
+  .tecteb-home-v1.th-c .th-cat__meta { font-size: 0.875rem; }
   .tecteb-home-v1.th-c .th-cat__go { display: none; }
   .tecteb-home-v1.th-c .th-product__body { padding: 0.75rem; }
-  .tecteb-home-v1.th-c .th-product__title { font-size: 0.875rem; }
-  .tecteb-home-v1.th-c .th-product__go { display: none; }
+  .tecteb-home-v1.th-c .th-product__title { font-size: 0.9375rem; }
   .tecteb-home-v1.th-c .th-join__actions .th-btn { flex: 1 1 100%; }
+}
+
+/* موبایل باریک: کارت محصول افقی و تک‌ستونه — دو ستونِ ۱۵۰ پیکسلی، مشخصات و
+   دکمهٔ استعلام را ناخوانا می‌کرد. */
+@container th-home (max-width: 479px) {
+  .tecteb-home-v1.th-c .th-products { grid-template-columns: 1fr; }
+  .tecteb-home-v1.th-c .th-product { grid-template-columns: 7.5rem minmax(0, 1fr); grid-template-rows: auto; }
+  .tecteb-home-v1.th-c .th-product__media { aspect-ratio: auto; block-size: 100%; min-block-size: 7.5rem; }
+  .tecteb-home-v1.th-c .th-product__media picture { inline-size: 92%; }
+  .tecteb-home-v1.th-c .th-product__body { padding: 0.75rem 0.875rem; }
+  .tecteb-home-v1.th-c .th-product__title { min-block-size: 0; }
+  .tecteb-home-v1.th-c .th-badge { inset-block-start: 0.5rem; inset-inline-start: 0.5rem; padding: 0 0.4rem; font-size: 0.75rem; }
+  .tecteb-home-v1.th-c .th-imgnote { inset-block-end: 0.4rem; inset-inline-end: 0.4rem; padding: 0 0.375rem; }
+  .tecteb-home-v1.th-c .th-product__empty { font-size: 0.75rem; padding-inline: 0.5rem; }
 }
 
 /* ================================================================ حرکت

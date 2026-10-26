@@ -18,7 +18,7 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const AXE = process.env.AXE ? fs.readFileSync(process.env.AXE, 'utf8') : null;
 const WIDTHS = [1440, 768, 390, 320];
-const SHOTS = { 1440: 'desktop', 390: 'mobile' };
+const SHOTS = { 1440: 'desktop', 390: 'mobile', 320: 'mobile-320' };
 
 const PAGES = [
   { id: 'concept-a', html: 'concept-a/index.html', css: 'concept-a/concept-a.css', scripts: [], sections: 5 },
@@ -104,6 +104,12 @@ for (const p of PAGES) {
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto(url, { waitUntil: 'load' });
     await page.evaluate(() => document.fonts.ready);
+    // تصویرهای lazy در یک تصویر fullPage ممکن است هنوز رمزگشایی نشده باشند؛
+    // فقط در همین آزمون eager می‌شوند تا پیش‌نمایش همان چیزی باشد که کاربر پس از اسکرول می‌بیند.
+    await page.evaluate(async () => {
+      for (const i of document.images) i.loading = 'eager';
+      await Promise.all([...document.images].map((i) => (i.complete ? i.decode() : new Promise((r) => { i.onload = i.onerror = r; })).catch(() => {})));
+    });
 
     if (w === 1440) {
       check(`${p.id}: Persian font loaded`, await page.evaluate(() => document.fonts.check('16px "TH Vazirmatn"', 'تک‌طب')));

@@ -49,12 +49,12 @@
 
     <div class="th-wrap th-hero__layout">
       <div class="th-hero__copy">
-        <p class="th-pill th-in" style="--th-i:0"><span class="th-pill__dot" aria-hidden="true"></span>بازار تخصصی تجهیزات پزشکی</p>
+        <p class="th-pill th-in" style="--th-i:0"><img class="th-pill__logo" src="../shared/brand/tecteb-logo-mark-96.png" width="24" height="24" alt="تک‌طب">بازار B2B تجهیزات پزشکی</p>
         <h1 class="th-hero__title th-in" id="th-hero-title" style="--th-i:1">
           <span class="th-hero__line">تجهیزات پزشکی را دقیق پیدا کنید،</span>
           <span class="th-hero__line th-hero__line--em">با اطمینان تأمین کنید.</span>
         </h1>
-        <p class="th-hero__lead th-in" style="--th-i:2">محصولات فروشگاه تک‌طب را جست‌وجو کنید، مشخصات را کنار هم ببینید و برای خرید سازمانی درخواست تأمین بفرستید.</p>
+        <p class="th-hero__lead th-in" style="--th-i:2">برای بیمارستان‌ها، کلینیک‌ها و آزمایشگاه‌ها: محصولات را جست‌وجو کنید، مشخصات را کنار هم ببینید و برای خرید سازمانی درخواست تأمین بفرستید.</p>
 
         <!-- جست‌وجوی ووکامرس: در اجرا action = نشانی خانه، با s، post_type=product و product_cat اختیاری -->
         <form class="th-search th-in" style="--th-i:3" role="search" action="#th-route-product-search" method="get" data-th-route="product-search">
@@ -104,7 +104,7 @@
         <a class="th-float th-float--two" href="#th-route-category" data-th-route="category">
           <svg class="th-icon" aria-hidden="true"><use href="#th-i-syringe"/></svg>ملزومات مصرفی
         </a>
-        <figcaption class="th-hero__note">رندر انتزاعی سه‌بعدی — نه عکس یک محصول واقعی</figcaption>
+        <figcaption class="th-hero__note">تصویر نمایشی — مدل سه‌بعدی ساده‌شده، نه عکس یک محصول مشخص</figcaption>
       </figure>
     </div>
 
@@ -125,6 +125,10 @@
         </span>
         <span class="th-route__go"><svg class="th-icon th-icon--dir" aria-hidden="true"><use href="#th-i-arrow"/></svg></span>
       </a>
+    </div>
+
+    <div class="th-wrap">
+      <p class="th-audience"><span class="th-audience__label">ویژهٔ خرید حرفه‌ای</span><span>بیمارستان‌ها</span><span>کلینیک‌ها</span><span>آزمایشگاه‌ها</span><span>مطب‌ها</span><span>مراکز دندان‌پزشکی</span></p>
     </div>
   </section>
 
@@ -190,8 +194,8 @@
       <header class="th-head th-reveal">
         <div class="th-head__text">
           <p class="th-eyebrow">فروشگاه</p>
-          <h2 class="th-head__title" id="th-products-title">محصولات منتخب <span class="th-sample">نمونه</span></h2>
-          <p class="th-head__lead">در اجرا، عکس، قیمت و موجودی هر کارت مستقیم از ووکامرس خوانده می‌شود.</p>
+          <h2 class="th-head__title" id="th-products-title">محصولات منتخب برای مراکز درمانی <span class="th-sample">نمونه</span></h2>
+          <p class="th-head__lead">در اجرا، عکس، مشخصات، قیمت و موجودی هر کارت مستقیم از ووکامرس خوانده می‌شود. تصویرهای این پیش‌نمایش «نمایشی»اند.</p>
         </div>
         <a class="th-more" href="#th-route-shop" data-th-route="shop">ورود به فروشگاه<svg class="th-icon th-icon--dir" aria-hidden="true"><use href="#th-i-arrow"/></svg></a>
       </header>
@@ -209,58 +213,74 @@
       <ul class="th-products" role="list">
         <li class="th-reveal"><article class="th-product">
           <div class="th-product__media">
-            <svg class="th-product__art" aria-hidden="true"><use href="#th-i-monitor"/></svg>
+            <picture>
+              <source type="image/webp" media="(max-width: 599px)" srcset="assets/product-monitor-360.webp">
+              <img src="assets/product-monitor-640.webp" width="640" height="640" alt="نمایش سه‌بعدی یک مانیتور علائم حیاتی روی پایه" loading="lazy" decoding="async">
+            </picture>
             <span class="th-badge th-badge--in">موجود</span>
+            <span class="th-imgnote">تصویر نمایشی</span>
           </div>
           <div class="th-product__body">
             <p class="th-product__cat">پایش بیمار</p>
             <h3 class="th-product__title"><a href="#th-route-product" data-th-route="product">مانیتور علائم حیاتی پنج‌پارامتری</a></h3>
+            <ul class="th-product__specs" role="list" aria-label="مشخصات کلیدی"><li>ECG · SpO2 · NIBP</li><li>نصب رومیزی</li></ul>
             <div class="th-product__foot">
               <p class="th-product__price">قیمت از ووکامرس</p>
-              <span class="th-product__go" aria-hidden="true"><svg class="th-icon th-icon--dir"><use href="#th-i-arrow"/></svg></span>
+              <a class="th-product__quote" href="#th-route-quote" data-th-route="quote">استعلام سازمانی</a>
             </div>
           </div>
         </article></li>
         <li class="th-reveal"><article class="th-product">
           <div class="th-product__media">
-            <svg class="th-product__art" aria-hidden="true"><use href="#th-i-emergency"/></svg>
+            <picture>
+              <source type="image/webp" media="(max-width: 599px)" srcset="assets/product-oximeter-360.webp">
+              <img src="assets/product-oximeter-640.webp" width="640" height="640" alt="نمایش سه‌بعدی یک پالس‌اکسیمتر انگشتی" loading="lazy" decoding="async">
+            </picture>
             <span class="th-badge th-badge--in">موجود</span>
+            <span class="th-imgnote">تصویر نمایشی</span>
           </div>
           <div class="th-product__body">
-            <p class="th-product__cat">اورژانس و احیا</p>
-            <h3 class="th-product__title"><a href="#th-route-product" data-th-route="product">ست کامل احیای بزرگسال همراه با کیف حمل و ماسک در سه اندازه</a></h3>
+            <p class="th-product__cat">پایش بیمار</p>
+            <h3 class="th-product__title"><a href="#th-route-product" data-th-route="product">پالس‌اکسیمتر انگشتی با نمایشگر دوخطی و قاب محافظ سیلیکونی</a></h3>
+            <ul class="th-product__specs" role="list" aria-label="مشخصات کلیدی"><li>SpO2 · PR</li><li>باتری‌خور</li></ul>
             <div class="th-product__foot">
               <p class="th-product__price th-product__price--ask">برای قیمت تماس بگیرید</p>
-              <span class="th-product__go" aria-hidden="true"><svg class="th-icon th-icon--dir"><use href="#th-i-arrow"/></svg></span>
+              <a class="th-product__quote" href="#th-route-quote" data-th-route="quote">استعلام سازمانی</a>
+            </div>
+          </div>
+        </article></li>
+        <li class="th-reveal"><article class="th-product">
+          <div class="th-product__media">
+            <picture>
+              <source type="image/webp" media="(max-width: 599px)" srcset="assets/product-pump-360.webp">
+              <img src="assets/product-pump-640.webp" width="640" height="640" alt="نمایش سه‌بعدی یک سرنگ‌پمپ تک‌کاناله" loading="lazy" decoding="async">
+            </picture>
+            <span class="th-badge th-badge--in">موجود</span>
+            <span class="th-imgnote">تصویر نمایشی</span>
+          </div>
+          <div class="th-product__body">
+            <p class="th-product__cat">تزریق و انفوزیون</p>
+            <h3 class="th-product__title"><a href="#th-route-product" data-th-route="product">سرنگ‌پمپ تک‌کاناله</a></h3>
+            <ul class="th-product__specs" role="list" aria-label="مشخصات کلیدی"><li>سرنگ ۵ تا ۶۰ میلی‌لیتر</li><li>نمایشگر نرخ</li></ul>
+            <div class="th-product__foot">
+              <p class="th-product__price">قیمت از ووکامرس</p>
+              <a class="th-product__quote" href="#th-route-quote" data-th-route="quote">استعلام سازمانی</a>
             </div>
           </div>
         </article></li>
         <li class="th-reveal"><article class="th-product">
           <div class="th-product__media th-product__media--empty">
             <svg class="th-product__art" aria-hidden="true"><use href="#th-i-image"/></svg>
-            <span class="th-product__empty">بدون تصویر</span>
+            <span class="th-product__empty">تصویری در ووکامرس ثبت نشده</span>
             <span class="th-badge th-badge--out">ناموجود</span>
           </div>
           <div class="th-product__body">
             <p class="th-product__cat">آزمایشگاه</p>
             <h3 class="th-product__title"><a href="#th-route-product" data-th-route="product">سانتریفیوژ رومیزی</a></h3>
+            <ul class="th-product__specs" role="list" aria-label="مشخصات کلیدی"><li>مشخصات از ووکامرس</li></ul>
             <div class="th-product__foot">
               <p class="th-product__price th-product__price--out">فعلاً ناموجود</p>
-              <span class="th-product__go" aria-hidden="true"><svg class="th-icon th-icon--dir"><use href="#th-i-arrow"/></svg></span>
-            </div>
-          </div>
-        </article></li>
-        <li class="th-reveal"><article class="th-product">
-          <div class="th-product__media">
-            <svg class="th-product__art" aria-hidden="true"><use href="#th-i-syringe"/></svg>
-            <span class="th-badge th-badge--in">موجود</span>
-          </div>
-          <div class="th-product__body">
-            <p class="th-product__cat">ملزومات مصرفی</p>
-            <h3 class="th-product__title"><a href="#th-route-product" data-th-route="product">سرنگ یک‌بارمصرف ۵ میلی‌لیتری — بستهٔ صدتایی</a></h3>
-            <div class="th-product__foot">
-              <p class="th-product__price">قیمت از ووکامرس</p>
-              <span class="th-product__go" aria-hidden="true"><svg class="th-icon th-icon--dir"><use href="#th-i-arrow"/></svg></span>
+              <a class="th-product__quote" href="#th-route-quote" data-th-route="quote">استعلام سازمانی</a>
             </div>
           </div>
         </article></li>
@@ -313,7 +333,7 @@
       <div class="th-join th-reveal">
         <div class="th-join__light" aria-hidden="true"></div>
         <div class="th-join__copy">
-          <p class="th-eyebrow th-eyebrow--light">برای تأمین‌کنندگان</p>
+          <p class="th-eyebrow th-eyebrow--light"><img class="th-eyebrow__logo" src="../shared/brand/tecteb-logo-mark-96.png" width="20" height="20" alt="">برای تأمین‌کنندگان</p>
           <h2 class="th-join__title" id="th-supplier-title">محصولاتتان را به خریداران حرفه‌ای تجهیزات پزشکی برسانید</h2>
           <p class="th-join__lead">تولیدکننده یا واردکننده‌اید؟ در تک‌طب فروشگاه خودتان را داشته باشید و به مراکز درمانی عرضه کنید.</p>
           <div class="th-join__actions">
