@@ -395,6 +395,17 @@ final class ProductFlowTest extends DatabaseTestCase
         self::assertSame(5, $live?->details->stock, 'the effective stock stays until a manager agrees');
         self::assertSame(ProductStatus::Published, $live?->status);
 
+        // AND IT REACHED THE SHOP, not just the row.
+        //
+        // ⛔ Added because the falsification run found it missing: removing
+        // `pushPrice()` from the save path broke NOTHING. The row changing is
+        // half the promise — «تغییر جدید باید اعمال شود» is about the shop —
+        // and a test that only reads the row leaves the half that matters
+        // unmeasured. The answer travels in the result's context, which is
+        // also what the vendor's own sentence is built from.
+        self::assertContains($productId, $this->projector->pricePushes);
+        self::assertSame('price_written', (string) ($changed->context['price'] ?? ''));
+
         $pending = $this->revisions->pendingFor($productId);
         self::assertNotNull($pending);
         self::assertSame('عنوان تازه', $pending->payload['details']['title']);

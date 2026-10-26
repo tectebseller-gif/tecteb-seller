@@ -481,12 +481,14 @@ final class ProductMessages
             // published product the stock is part of the proposal now, and a
             // vendor told it applied at once would believe they had taken a
             // sold-out product down. What IS immediate is named instead.
-            'revision_requested' => __('تغییرهای حساس به‌صورت «نسخه پیشنهادی» ثبت شد و نسخه منتشرشده تا تأیید مدیر دست‌نخورده می‌ماند. کد SKU و حدود خرید همین حالا اعمال شدند؛ تغییر موجودی هم با همین پیشنهاد در صف بررسی است.', 'tecteb-marketplace-core'),
+            'revision_requested' => __('تغییرهای حساس به‌صورت «نسخه پیشنهادی» ثبت شد و نسخه منتشرشده تا تأیید مدیر دست‌نخورده می‌ماند. کد SKU و حدود خرید همین حالا اعمال شدند؛ تغییر موجودی هم با همین پیشنهاد در صف بررسی است.', 'tecteb-marketplace-core')
+                . self::priceClause($context),
             // Nothing happened, and that is the message. A second «ثبت شد»
             // over an untouched proposal would tell the vendor they had just
             // changed something, and would have the manager looking for a new
             // request that does not exist.
-            'revision_unchanged' => __('چیزی برای تغییر نبود: نسخه پیشنهادی شما همان است که بود و هنوز در صف بررسی مدیر است. کد SKU و حدود خرید در صورت تغییر، اعمال شدند.', 'tecteb-marketplace-core'),
+            'revision_unchanged' => __('چیزی برای تغییر نبود: نسخه پیشنهادی شما همان است که بود و هنوز در صف بررسی مدیر است. کد SKU و حدود خرید در صورت تغییر، اعمال شدند.', 'tecteb-marketplace-core')
+                . self::priceClause($context),
             'product_archived_ok' => __('محصول بایگانی شد. سابقه و سفارش‌های قبلی آن پاک نشده است.', 'tecteb-marketplace-core'),
             'product_restored' => __('محصول از بایگانی به پیش‌نویس بازگشت.', 'tecteb-marketplace-core'),
 
@@ -1031,7 +1033,22 @@ final class ProductMessages
             )
             : __('موجودی و مشخصات فروش همین حالا ذخیره شد و حدود خرید روی فروشگاه هم اعمال شد.', 'tecteb-marketplace-core');
 
-        return $sentence . match ((string) ($context['price'] ?? '')) {
+        return $sentence . self::priceClause($context);
+    }
+
+    /**
+     * What happened to the price, in one clause — or nothing.
+     *
+     * Shared, because the price applies on BOTH save paths from `alpha.83`:
+     * the plain one and the one that queues a proposal for some other field.
+     * A vendor told «درخواست ثبت شد» and nothing about the price would assume
+     * the price is waiting too.
+     *
+     * @param array<string,string> $context
+     */
+    private static function priceClause(array $context): string
+    {
+        return match ((string) ($context['price'] ?? '')) {
             'price_written' => ' ' . __('قیمت تازه هم همین حالا روی فروشگاه اعمال شد.', 'tecteb-marketplace-core'),
             'price_kept' => ' ' . __('⛔ ولی قیمت این محصول در ووکامرس به‌دست مدیر تغییر کرده است، پس قیمت پیشخوان شما رویش نوشته نشد. قیمت تازه در پرونده ثبت شد و تفاوت برای مدیر گزارش شده است.', 'tecteb-marketplace-core'),
             'price_not_written' => ' ' . __('⛔ ولی قیمت تازه روی فروشگاه نوشته نشد و قیمت قبلی سر جایش مانده است. دوباره ذخیره کنید؛ اگر تکرار شد به مدیر اطلاع دهید.', 'tecteb-marketplace-core'),

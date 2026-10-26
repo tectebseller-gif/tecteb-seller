@@ -1094,6 +1094,7 @@ final class ManageProducts
             return OperationResult::success('revision_unchanged', [
                 'product_id' => $product->id,
                 'revision_id' => $existing->id,
+                'price' => $price?->code ?? '',
             ]);
         }
 
@@ -1134,6 +1135,14 @@ final class ManageProducts
         return OperationResult::success('revision_requested', [
             'product_id' => $product->id,
             'revision_id' => $revisionId,
+            // THE PRICE ANSWER TRAVELS HERE TOO, and it has to.
+            //
+            // On this path the vendor is told their change is queued — and
+            // from `alpha.83` their PRICE was not queued, it applied. A
+            // screen that says «درخواست ثبت شد» and nothing else leaves them
+            // believing the price is waiting with the title, which is the
+            // kind of silence this package keeps closing.
+            'price' => $price?->code ?? '',
         ]);
     }
 
