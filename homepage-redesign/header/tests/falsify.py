@@ -22,14 +22,23 @@ HERE = pathlib.Path(__file__).resolve().parents[1]
 MUTATIONS = [
     ("reserved height removed (content jumps when the bar becomes fixed)", "shared/header-base.css",
      "  min-block-size: var(--tth-reserve, auto);\n", ""),
-    ("a global selector slipped into the header CSS", "a/header-a.css",
-     "/* نور ملایم پشت جست‌وجو", "body { margin: 0; }\n/* نور ملایم پشت جست‌وجو"),
+    ("a global selector slipped into the header CSS", "b/header-b.css",
+     "/* نوار باریک برند", "body { margin: 0; }\n/* نوار باریک برند"),
     ("Escape no longer returns focus to the button", "shared/header.js",
      "      if (focus) d.btn.focus();\n", ""),
     ("menu row kept on mobile (no drawer)", "shared/header-base.css",
      "  .tecteb-header-v1[data-js] .tth-nav { display: none; }\n", ""),
     ("placeholder contrast lowered in B", "b/header-b.css",
      "  --tth-search-ph: #56697a;", "  --tth-search-ph: #9aaab5;"),
+    ("counter back on the icon's corner (overlap)", "shared/header-base.css",
+     ".tecteb-header-v1 .tth-tool--count .tth-badge {\n", ".tecteb-header-v1 .tth-tool--count .tth-badge {\n  position: absolute;\n  inset-block-start: 0.125rem;\n  inset-inline-end: 0.125rem;\n"),
+    ("header search hidden on every page, not only the homepage", "shared/header-base.css",
+     "  .tecteb-header-v1--home[data-js]:not(.is-search-open) .tth-search { display: none; }",
+     "  .tecteb-header-v1[data-js]:not(.is-search-open) .tth-search { display: none; }"),
+    ("search button opens the box but leaves focus on the button", "shared/header.js",
+     "      if (open) form.querySelector('input[type=\"search\"]').focus();\n", "      if (open) { /* فوکوس جابه‌جا نمی‌شود */ }\n"),
+    ("mobile account label removed from screen readers too (round-7 defect)", "shared/header-base.css",
+     "  .tecteb-header-v1 .tth-tool__label {\n    position: absolute;\n", "  .tecteb-header-v1 .tth-tool__label {\n    display: none;\n    position: absolute;\n"),
 ]
 
 

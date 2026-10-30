@@ -16,9 +16,9 @@
 <script src="../plugin/tecteb-homepage/assets/js/tecteb-home.js" defer></script>
 </head>
 <body class="proto-page">
-<p class="proto-banner">نمونهٔ طراحی هدر سراسری — <strong>طرح B · Premium Light Glass</strong>. زیر آن خروجی واقعی افزونهٔ صفحهٔ اصلی ۰٫۲٫۰ (Concept C) با دادهٔ آزمایشی محلی و نشانی‌های اعلام‌شدهٔ مالک است. پیوندها جایی نمی‌روند و با کلیک، مقصد و منبعشان گفته می‌شود. دسته‌های منوی بازشو <strong>نمونه</strong>‌اند. فوتر فعلی Elementor فقط با یک نوار جای‌خالی نشان داده شده و <strong>هیچ تغییری نمی‌کند</strong>.</p>
+<p class="proto-banner">نمونهٔ طراحی هدر سراسری — <strong>طرح B · Premium Light Glass</strong> (انتخاب‌شده؛ نسخهٔ اصلاح‌شدهٔ دور ۸). زیر آن خروجی واقعی افزونهٔ صفحهٔ اصلی ۰٫۲٫۰ (Concept C) با دادهٔ آزمایشی محلی و نشانی‌های اعلام‌شدهٔ مالک است. پیوندها جایی نمی‌روند و با کلیک، مقصد و منبعشان گفته می‌شود. دسته‌های منوی بازشو <strong>نمونه</strong>‌اند و در نسخهٔ عملیاتی از ووکامرس خوانده می‌شوند. فوتر فعلی Elementor فقط با یک نوار جای‌خالی نشان داده شده و <strong>هیچ تغییری نمی‌کند</strong>.</p>
 <div class="proto-bar">
-  <span><a href="a-home.html">طرح A · صفحهٔ اصلی</a> · <a href="a-inner.html">طرح A · صفحهٔ دیگر</a> · <a href="b-home.html" aria-current="page">طرح B · صفحهٔ اصلی</a> · <a href="b-inner.html">طرح B · صفحهٔ دیگر</a></span>
+  <span><a href="b-home.html" aria-current="page">طرح B · صفحهٔ اصلی</a> · <a href="b-inner.html">طرح B · صفحهٔ دیگر</a> · <a href="reference-a/a-home.html">طرح A (مرجع بایگانی‌شده)</a></span>
   <span>حالت کاربر: <button type="button" data-proto-user="guest" aria-pressed="true">مهمان</button> <button type="button" data-proto-user="member" aria-pressed="false">واردشده</button></span>
 </div>
 <!--
@@ -28,10 +28,11 @@
     owner  نشانیِ اعلام‌شده در پیام مالک (فروشگاه، تعمیرات، همکاری)
     wc     مسیر استاندارد ووکامرس؛ روی سایت واقعی سنجیده نشده
     demo   نامعلوم در این محیط — فقط جای پیوند واقعی منوی وردپرس
+    sample دستهٔ نمونه — نسخهٔ عملیاتی از product_cat ِ ووکامرس می‌خواند
   در اجرا هیچ نشانی‌ای در کد نوشته نمی‌شود: منوها از «نمایش ← فهرست‌ها»، دسته‌ها از
   product_cat و حساب/سبد/علاقه‌مندی از توابع خودِ ووکامرس و افزونهٔ علاقه‌مندی خوانده می‌شوند.
 -->
-<div class="tecteb-header-v1 tecteb-header-v1--b" data-tth-header data-user="guest" dir="rtl" lang="fa">
+<div class="tecteb-header-v1 tecteb-header-v1--b tecteb-header-v1--home" data-tth-header data-user="guest" dir="rtl" lang="fa">
   <a class="tth-skip" href="#main">رفتن به محتوای اصلی</a>
   <svg class="tth-sprite" aria-hidden="true" focusable="false">
     <defs>
@@ -66,7 +67,7 @@
         <span class="tth-logo__word">تک‌طب</span>
       </a>
 
-      <form class="tth-search" role="search" action="/" method="get" data-src="wc">
+      <form class="tth-search" id="tth-search-form" role="search" action="/" method="get" data-src="wc">
         <label class="tth-sr" for="tth-s">جست‌وجوی محصولات</label>
         <input class="tth-search__input" id="tth-s" type="search" name="s" placeholder="جست‌وجوی نام، برند یا کد کالا…" autocomplete="off" enterkeyhint="search">
         <input type="hidden" name="post_type" value="product">
@@ -76,6 +77,12 @@
       </form>
 
       <div class="tth-tools">
+        <!-- فقط در موبایلِ صفحهٔ اصلی دیده می‌شود (آنجا جست‌وجوی Hero جای کادر بزرگ را دارد):
+             کادر هدر را باز می‌کند، پس جست‌وجو همیشه از هدر هم در دسترس است. -->
+        <button class="tth-tool tth-tool--search" type="button" data-tth-search-toggle aria-controls="tth-search-form" aria-expanded="false">
+          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-search"/></svg>
+          <span class="tth-sr">جست‌وجوی محصولات</span>
+        </button>
         <!-- مهمان -->
         <a class="tth-tool tth-tool--account" href="/my-account/" data-src="wc" data-tth-guest>
           <svg class="tth-i" aria-hidden="true"><use href="#tth-i-user"/></svg>
@@ -104,13 +111,13 @@
           </div>
         </div>
 
-        <a class="tth-tool tth-tool--wish" href="#wishlist" data-src="demo">
+        <a class="tth-tool tth-tool--count tth-tool--wish" href="#wishlist" data-src="demo">
           <svg class="tth-i" aria-hidden="true"><use href="#tth-i-heart"/></svg>
           <span class="tth-sr">علاقه‌مندی‌ها،</span>
           <span class="tth-badge" data-tth-count>۲</span>
           <span class="tth-sr">مورد</span>
         </a>
-        <a class="tth-tool tth-tool--cart" href="/cart/" data-src="wc">
+        <a class="tth-tool tth-tool--count tth-tool--cart" href="/cart/" data-src="wc">
           <svg class="tth-i" aria-hidden="true"><use href="#tth-i-bag"/></svg>
           <span class="tth-sr">سبد خرید،</span>
           <span class="tth-badge" data-tth-count>۳</span>
@@ -132,16 +139,16 @@
           </button>
           <div class="tth-mega" id="tth-mega" hidden>
             <div class="tth-mega__grid">
-              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-1" data-src="demo"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-monitor"/></svg></span>مانیتورینگ و علائم حیاتی</a><ul class="tth-mega__list"><li><a href="#cat-1-1" data-src="demo">مانیتور علائم حیاتی</a></li><li><a href="#cat-1-2" data-src="demo">پالس‌اکسیمتر</a></li><li><a href="#cat-1-3" data-src="demo">فشارسنج</a></li><li><a href="#cat-1-4" data-src="demo">دماسنج</a></li><li><a href="#cat-1-5" data-src="demo">الکتروکاردیوگراف</a></li></ul></div>
-              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-2" data-src="demo"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-or"/></svg></span>تجهیزات اتاق عمل</a><ul class="tth-mega__list"><li><a href="#cat-2-1" data-src="demo">چراغ جراحی</a></li><li><a href="#cat-2-2" data-src="demo">تخت جراحی</a></li><li><a href="#cat-2-3" data-src="demo">الکتروکوتر</a></li><li><a href="#cat-2-4" data-src="demo">ساکشن</a></li></ul></div>
-              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-3" data-src="demo"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-lab"/></svg></span>آزمایشگاه</a><ul class="tth-mega__list"><li><a href="#cat-3-1" data-src="demo">سانتریفیوژ</a></li><li><a href="#cat-3-2" data-src="demo">میکروسکوپ</a></li><li><a href="#cat-3-3" data-src="demo">انکوباتور</a></li><li><a href="#cat-3-4" data-src="demo">پیپت و سمپلر</a></li></ul></div>
-              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-4" data-src="demo"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-bed"/></svg></span>تجهیزات بیمارستانی</a><ul class="tth-mega__list"><li><a href="#cat-4-1" data-src="demo">سرنگ‌پمپ</a></li><li><a href="#cat-4-2" data-src="demo">انفوزیون‌پمپ</a></li><li><a href="#cat-4-3" data-src="demo">تخت بیمار</a></li><li><a href="#cat-4-4" data-src="demo">ترالی و پایه سرم</a></li></ul></div>
-              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-5" data-src="demo"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-syringe"/></svg></span>ملزومات مصرفی</a><ul class="tth-mega__list"><li><a href="#cat-5-1" data-src="demo">دستکش</a></li><li><a href="#cat-5-2" data-src="demo">سرنگ و سوزن</a></li><li><a href="#cat-5-3" data-src="demo">گاز و باند استریل</a></li><li><a href="#cat-5-4" data-src="demo">ماسک</a></li></ul></div>
-              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-6" data-src="demo"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-care"/></svg></span>توان‌بخشی و مراقبت در منزل</a><ul class="tth-mega__list"><li><a href="#cat-6-1" data-src="demo">ویلچر</a></li><li><a href="#cat-6-2" data-src="demo">واکر و عصا</a></li><li><a href="#cat-6-3" data-src="demo">نبولایزر</a></li><li><a href="#cat-6-4" data-src="demo">اکسیژن‌ساز</a></li></ul></div>
+              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-1" data-src="sample"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-monitor"/></svg></span>مانیتورینگ و علائم حیاتی</a><ul class="tth-mega__list"><li><a href="#cat-1-1" data-src="sample">مانیتور علائم حیاتی</a></li><li><a href="#cat-1-2" data-src="sample">پالس‌اکسیمتر</a></li><li><a href="#cat-1-3" data-src="sample">فشارسنج</a></li><li><a href="#cat-1-4" data-src="sample">دماسنج</a></li><li><a href="#cat-1-5" data-src="sample">الکتروکاردیوگراف</a></li></ul></div>
+              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-2" data-src="sample"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-or"/></svg></span>تجهیزات اتاق عمل</a><ul class="tth-mega__list"><li><a href="#cat-2-1" data-src="sample">چراغ جراحی</a></li><li><a href="#cat-2-2" data-src="sample">تخت جراحی</a></li><li><a href="#cat-2-3" data-src="sample">الکتروکوتر</a></li><li><a href="#cat-2-4" data-src="sample">ساکشن</a></li></ul></div>
+              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-3" data-src="sample"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-lab"/></svg></span>آزمایشگاه</a><ul class="tth-mega__list"><li><a href="#cat-3-1" data-src="sample">سانتریفیوژ</a></li><li><a href="#cat-3-2" data-src="sample">میکروسکوپ</a></li><li><a href="#cat-3-3" data-src="sample">انکوباتور</a></li><li><a href="#cat-3-4" data-src="sample">پیپت و سمپلر</a></li></ul></div>
+              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-4" data-src="sample"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-bed"/></svg></span>تجهیزات بیمارستانی</a><ul class="tth-mega__list"><li><a href="#cat-4-1" data-src="sample">سرنگ‌پمپ</a></li><li><a href="#cat-4-2" data-src="sample">انفوزیون‌پمپ</a></li><li><a href="#cat-4-3" data-src="sample">تخت بیمار</a></li><li><a href="#cat-4-4" data-src="sample">ترالی و پایه سرم</a></li></ul></div>
+              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-5" data-src="sample"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-syringe"/></svg></span>ملزومات مصرفی</a><ul class="tth-mega__list"><li><a href="#cat-5-1" data-src="sample">دستکش</a></li><li><a href="#cat-5-2" data-src="sample">سرنگ و سوزن</a></li><li><a href="#cat-5-3" data-src="sample">گاز و باند استریل</a></li><li><a href="#cat-5-4" data-src="sample">ماسک</a></li></ul></div>
+              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-6" data-src="sample"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-care"/></svg></span>توان‌بخشی و مراقبت در منزل</a><ul class="tth-mega__list"><li><a href="#cat-6-1" data-src="sample">ویلچر</a></li><li><a href="#cat-6-2" data-src="sample">واکر و عصا</a></li><li><a href="#cat-6-3" data-src="sample">نبولایزر</a></li><li><a href="#cat-6-4" data-src="sample">اکسیژن‌ساز</a></li></ul></div>
             </div>
             <div class="tth-mega__foot">
               <a class="tth-mega__all" href="/shop/" data-src="owner">مشاهدهٔ همهٔ محصولات در فروشگاه<svg class="tth-i" aria-hidden="true"><use href="#tth-i-back"/></svg></a>
-              <span class="proto-note">نمونهٔ نمایشی — در اجرا از دسته‌های واقعی ووکامرس (product_cat) خوانده می‌شود</span>
+              <span class="proto-note" data-proto-sample>دسته‌های نمونه، فقط در این پیش‌نمایش — نسخهٔ عملیاتی: دسته‌های واقعی ووکامرس (product_cat)</span>
             </div>
           </div>
         </div>
@@ -156,7 +163,7 @@
         </ul>
 
         <a class="tth-seller" href="/landing-seller/" data-src="owner">
-          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-partner"/></svg>همکاری فروشندگان
+          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-partner"/></svg>همکاری تأمین‌کنندگان
         </a>
       </div>
     </nav>
@@ -202,17 +209,18 @@
 
       <section class="tth-drawer__cats" aria-labelledby="tth-drawer-cats">
         <h2 class="tth-drawer__title" id="tth-drawer-cats">دسته‌بندی کالاها</h2>
-        <details class="tth-drawer__cat"><summary>مانیتورینگ و علائم حیاتی<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-1" data-src="demo">همهٔ مانیتورینگ و علائم حیاتی</a></li><li><a href="#cat-1-1" data-src="demo">مانیتور علائم حیاتی</a></li><li><a href="#cat-1-2" data-src="demo">پالس‌اکسیمتر</a></li><li><a href="#cat-1-3" data-src="demo">فشارسنج</a></li><li><a href="#cat-1-4" data-src="demo">دماسنج</a></li><li><a href="#cat-1-5" data-src="demo">الکتروکاردیوگراف</a></li></ul></details>
-        <details class="tth-drawer__cat"><summary>تجهیزات اتاق عمل<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-2" data-src="demo">همهٔ تجهیزات اتاق عمل</a></li><li><a href="#cat-2-1" data-src="demo">چراغ جراحی</a></li><li><a href="#cat-2-2" data-src="demo">تخت جراحی</a></li><li><a href="#cat-2-3" data-src="demo">الکتروکوتر</a></li><li><a href="#cat-2-4" data-src="demo">ساکشن</a></li></ul></details>
-        <details class="tth-drawer__cat"><summary>آزمایشگاه<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-3" data-src="demo">همهٔ آزمایشگاه</a></li><li><a href="#cat-3-1" data-src="demo">سانتریفیوژ</a></li><li><a href="#cat-3-2" data-src="demo">میکروسکوپ</a></li><li><a href="#cat-3-3" data-src="demo">انکوباتور</a></li><li><a href="#cat-3-4" data-src="demo">پیپت و سمپلر</a></li></ul></details>
-        <details class="tth-drawer__cat"><summary>تجهیزات بیمارستانی<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-4" data-src="demo">همهٔ تجهیزات بیمارستانی</a></li><li><a href="#cat-4-1" data-src="demo">سرنگ‌پمپ</a></li><li><a href="#cat-4-2" data-src="demo">انفوزیون‌پمپ</a></li><li><a href="#cat-4-3" data-src="demo">تخت بیمار</a></li><li><a href="#cat-4-4" data-src="demo">ترالی و پایه سرم</a></li></ul></details>
-        <details class="tth-drawer__cat"><summary>ملزومات مصرفی<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-5" data-src="demo">همهٔ ملزومات مصرفی</a></li><li><a href="#cat-5-1" data-src="demo">دستکش</a></li><li><a href="#cat-5-2" data-src="demo">سرنگ و سوزن</a></li><li><a href="#cat-5-3" data-src="demo">گاز و باند استریل</a></li><li><a href="#cat-5-4" data-src="demo">ماسک</a></li></ul></details>
-        <details class="tth-drawer__cat"><summary>توان‌بخشی و مراقبت در منزل<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-6" data-src="demo">همهٔ توان‌بخشی و مراقبت در منزل</a></li><li><a href="#cat-6-1" data-src="demo">ویلچر</a></li><li><a href="#cat-6-2" data-src="demo">واکر و عصا</a></li><li><a href="#cat-6-3" data-src="demo">نبولایزر</a></li><li><a href="#cat-6-4" data-src="demo">اکسیژن‌ساز</a></li></ul></details>
+        <span class="proto-note" data-proto-sample>دسته‌های نمونه — در اجرا از ووکامرس</span>
+        <details class="tth-drawer__cat"><summary>مانیتورینگ و علائم حیاتی<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-1" data-src="sample">همهٔ مانیتورینگ و علائم حیاتی</a></li><li><a href="#cat-1-1" data-src="sample">مانیتور علائم حیاتی</a></li><li><a href="#cat-1-2" data-src="sample">پالس‌اکسیمتر</a></li><li><a href="#cat-1-3" data-src="sample">فشارسنج</a></li><li><a href="#cat-1-4" data-src="sample">دماسنج</a></li><li><a href="#cat-1-5" data-src="sample">الکتروکاردیوگراف</a></li></ul></details>
+        <details class="tth-drawer__cat"><summary>تجهیزات اتاق عمل<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-2" data-src="sample">همهٔ تجهیزات اتاق عمل</a></li><li><a href="#cat-2-1" data-src="sample">چراغ جراحی</a></li><li><a href="#cat-2-2" data-src="sample">تخت جراحی</a></li><li><a href="#cat-2-3" data-src="sample">الکتروکوتر</a></li><li><a href="#cat-2-4" data-src="sample">ساکشن</a></li></ul></details>
+        <details class="tth-drawer__cat"><summary>آزمایشگاه<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-3" data-src="sample">همهٔ آزمایشگاه</a></li><li><a href="#cat-3-1" data-src="sample">سانتریفیوژ</a></li><li><a href="#cat-3-2" data-src="sample">میکروسکوپ</a></li><li><a href="#cat-3-3" data-src="sample">انکوباتور</a></li><li><a href="#cat-3-4" data-src="sample">پیپت و سمپلر</a></li></ul></details>
+        <details class="tth-drawer__cat"><summary>تجهیزات بیمارستانی<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-4" data-src="sample">همهٔ تجهیزات بیمارستانی</a></li><li><a href="#cat-4-1" data-src="sample">سرنگ‌پمپ</a></li><li><a href="#cat-4-2" data-src="sample">انفوزیون‌پمپ</a></li><li><a href="#cat-4-3" data-src="sample">تخت بیمار</a></li><li><a href="#cat-4-4" data-src="sample">ترالی و پایه سرم</a></li></ul></details>
+        <details class="tth-drawer__cat"><summary>ملزومات مصرفی<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-5" data-src="sample">همهٔ ملزومات مصرفی</a></li><li><a href="#cat-5-1" data-src="sample">دستکش</a></li><li><a href="#cat-5-2" data-src="sample">سرنگ و سوزن</a></li><li><a href="#cat-5-3" data-src="sample">گاز و باند استریل</a></li><li><a href="#cat-5-4" data-src="sample">ماسک</a></li></ul></details>
+        <details class="tth-drawer__cat"><summary>توان‌بخشی و مراقبت در منزل<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-6" data-src="sample">همهٔ توان‌بخشی و مراقبت در منزل</a></li><li><a href="#cat-6-1" data-src="sample">ویلچر</a></li><li><a href="#cat-6-2" data-src="sample">واکر و عصا</a></li><li><a href="#cat-6-3" data-src="sample">نبولایزر</a></li><li><a href="#cat-6-4" data-src="sample">اکسیژن‌ساز</a></li></ul></details>
         <a class="tth-drawer__all" href="/shop/" data-src="owner">همهٔ محصولات در فروشگاه</a>
       </section>
 
       <a class="tth-seller tth-seller--block" href="/landing-seller/" data-src="owner">
-        <svg class="tth-i" aria-hidden="true"><use href="#tth-i-partner"/></svg>همکاری فروشندگان
+        <svg class="tth-i" aria-hidden="true"><use href="#tth-i-partner"/></svg>همکاری تأمین‌کنندگان
       </a>
     </div>
   </dialog>

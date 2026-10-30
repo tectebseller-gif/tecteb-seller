@@ -5,10 +5,11 @@
     owner  نشانیِ اعلام‌شده در پیام مالک (فروشگاه، تعمیرات، همکاری)
     wc     مسیر استاندارد ووکامرس؛ روی سایت واقعی سنجیده نشده
     demo   نامعلوم در این محیط — فقط جای پیوند واقعی منوی وردپرس
+    sample دستهٔ نمونه — نسخهٔ عملیاتی از product_cat ِ ووکامرس می‌خواند
   در اجرا هیچ نشانی‌ای در کد نوشته نمی‌شود: منوها از «نمایش ← فهرست‌ها»، دسته‌ها از
   product_cat و حساب/سبد/علاقه‌مندی از توابع خودِ ووکامرس و افزونهٔ علاقه‌مندی خوانده می‌شوند.
 -->
-<div class="tecteb-header-v1 tecteb-header-v1--{{VARIANT}}" data-tth-header data-user="guest" dir="rtl" lang="fa">
+<div class="tecteb-header-v1 tecteb-header-v1--{{VARIANT}}{{PAGE}}" data-tth-header data-user="guest" dir="rtl" lang="fa">
   <a class="tth-skip" href="#main">رفتن به محتوای اصلی</a>
   <svg class="tth-sprite" aria-hidden="true" focusable="false">
     <defs>
@@ -43,7 +44,7 @@
         <span class="tth-logo__word">تک‌طب</span>
       </a>
 
-      <form class="tth-search" role="search" action="/" method="get" data-src="wc">
+      <form class="tth-search" id="tth-search-form" role="search" action="/" method="get" data-src="wc">
         <label class="tth-sr" for="tth-s">جست‌وجوی محصولات</label>
         <input class="tth-search__input" id="tth-s" type="search" name="s" placeholder="جست‌وجوی نام، برند یا کد کالا…" autocomplete="off" enterkeyhint="search">
         <input type="hidden" name="post_type" value="product">
@@ -53,6 +54,12 @@
       </form>
 
       <div class="tth-tools">
+        <!-- فقط در موبایلِ صفحهٔ اصلی دیده می‌شود (آنجا جست‌وجوی Hero جای کادر بزرگ را دارد):
+             کادر هدر را باز می‌کند، پس جست‌وجو همیشه از هدر هم در دسترس است. -->
+        <button class="tth-tool tth-tool--search" type="button" data-tth-search-toggle aria-controls="tth-search-form" aria-expanded="false">
+          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-search"/></svg>
+          <span class="tth-sr">جست‌وجوی محصولات</span>
+        </button>
         <!-- مهمان -->
         <a class="tth-tool tth-tool--account" href="/my-account/" data-src="wc" data-tth-guest>
           <svg class="tth-i" aria-hidden="true"><use href="#tth-i-user"/></svg>
@@ -81,13 +88,13 @@
           </div>
         </div>
 
-        <a class="tth-tool tth-tool--wish" href="#wishlist" data-src="demo">
+        <a class="tth-tool tth-tool--count tth-tool--wish" href="#wishlist" data-src="demo">
           <svg class="tth-i" aria-hidden="true"><use href="#tth-i-heart"/></svg>
           <span class="tth-sr">علاقه‌مندی‌ها،</span>
           <span class="tth-badge" data-tth-count>۲</span>
           <span class="tth-sr">مورد</span>
         </a>
-        <a class="tth-tool tth-tool--cart" href="/cart/" data-src="wc">
+        <a class="tth-tool tth-tool--count tth-tool--cart" href="/cart/" data-src="wc">
           <svg class="tth-i" aria-hidden="true"><use href="#tth-i-bag"/></svg>
           <span class="tth-sr">سبد خرید،</span>
           <span class="tth-badge" data-tth-count>۳</span>
@@ -113,7 +120,7 @@
             </div>
             <div class="tth-mega__foot">
               <a class="tth-mega__all" href="/shop/" data-src="owner">مشاهدهٔ همهٔ محصولات در فروشگاه<svg class="tth-i" aria-hidden="true"><use href="#tth-i-back"/></svg></a>
-              <span class="proto-note">نمونهٔ نمایشی — در اجرا از دسته‌های واقعی ووکامرس (product_cat) خوانده می‌شود</span>
+              <span class="proto-note" data-proto-sample>دسته‌های نمونه، فقط در این پیش‌نمایش — نسخهٔ عملیاتی: دسته‌های واقعی ووکامرس (product_cat)</span>
             </div>
           </div>
         </div>
@@ -128,7 +135,7 @@
         </ul>
 
         <a class="tth-seller" href="/landing-seller/" data-src="owner">
-          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-partner"/></svg>همکاری فروشندگان
+          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-partner"/></svg>همکاری تأمین‌کنندگان
         </a>
       </div>
     </nav>
@@ -174,12 +181,13 @@
 
       <section class="tth-drawer__cats" aria-labelledby="tth-drawer-cats">
         <h2 class="tth-drawer__title" id="tth-drawer-cats">دسته‌بندی کالاها</h2>
+        <span class="proto-note" data-proto-sample>دسته‌های نمونه — در اجرا از ووکامرس</span>
         {{DRAWER_CATS}}
         <a class="tth-drawer__all" href="/shop/" data-src="owner">همهٔ محصولات در فروشگاه</a>
       </section>
 
       <a class="tth-seller tth-seller--block" href="/landing-seller/" data-src="owner">
-        <svg class="tth-i" aria-hidden="true"><use href="#tth-i-partner"/></svg>همکاری فروشندگان
+        <svg class="tth-i" aria-hidden="true"><use href="#tth-i-partner"/></svg>همکاری تأمین‌کنندگان
       </a>
     </div>
   </dialog>

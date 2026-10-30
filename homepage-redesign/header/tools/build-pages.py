@@ -34,8 +34,9 @@ CATEGORIES = [
     ("c-care", "توان‌بخشی و مراقبت در منزل", ["ویلچر", "واکر و عصا", "نبولایزر", "اکسیژن‌ساز"]),
 ]
 
+# طرح B انتخاب شد (دور ۸). طرح A فقط مرجع است و در reference-a/ منجمد مانده (commit 5d903e7)؛
+# این ابزار دیگر آن را نمی‌سازد، پس تغییرات مشترک B به آن نمی‌رسد.
 PAGES = {
-    "a": ("A", "Premium Dark Medical"),
     "b": ("B", "Premium Light Glass"),
 }
 
@@ -43,9 +44,9 @@ PAGES = {
 def mega() -> str:
     cols = []
     for i, (icon, name, kids) in enumerate(CATEGORIES, 1):
-        items = "".join(f'<li><a href="#cat-{i}-{j}" data-src="demo">{k}</a></li>' for j, k in enumerate(kids, 1))
+        items = "".join(f'<li><a href="#cat-{i}-{j}" data-src="sample">{k}</a></li>' for j, k in enumerate(kids, 1))
         cols.append(
-            f'<div class="tth-mega__col"><a class="tth-mega__head" href="#cat-{i}" data-src="demo">'
+            f'<div class="tth-mega__col"><a class="tth-mega__head" href="#cat-{i}" data-src="sample">'
             f'<span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-{icon}"/></svg></span>{name}</a>'
             f'<ul class="tth-mega__list">{items}</ul></div>'
         )
@@ -55,10 +56,10 @@ def mega() -> str:
 def drawer_cats() -> str:
     out = []
     for i, (_, name, kids) in enumerate(CATEGORIES, 1):
-        items = "".join(f'<li><a href="#cat-{i}-{j}" data-src="demo">{k}</a></li>' for j, k in enumerate(kids, 1))
+        items = "".join(f'<li><a href="#cat-{i}-{j}" data-src="sample">{k}</a></li>' for j, k in enumerate(kids, 1))
         out.append(
             f'<details class="tth-drawer__cat"><summary>{name}<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary>'
-            f'<ul><li><a href="#cat-{i}" data-src="demo">همهٔ {name}</a></li>{items}</ul></details>'
+            f'<ul><li><a href="#cat-{i}" data-src="sample">همهٔ {name}</a></li>{items}</ul></details>'
         )
     return "\n        ".join(out)
 
@@ -99,6 +100,7 @@ def page(variant: str, kind: str, header: str, home: str) -> str:
             href = f"{v}-{k}.html"
             cur = ' aria-current="page"' if (v, k) == (variant, kind) else ""
             nav.append(f'<a href="{href}"{cur}>طرح {l} · {label}</a>')
+    nav.append('<a href="reference-a/a-home.html">طرح A (مرجع بایگانی‌شده)</a>')
     return f"""<!doctype html>
 <html lang="fa" dir="rtl">
 <head>
@@ -117,12 +119,12 @@ def page(variant: str, kind: str, header: str, home: str) -> str:
 <script src="../plugin/tecteb-homepage/assets/js/tecteb-home.js" defer></script>
 </head>
 <body class="proto-page">
-<p class="proto-banner">نمونهٔ طراحی هدر سراسری — <strong>طرح {letter} · {name}</strong>. {what}. پیوندها جایی نمی‌روند و با کلیک، مقصد و منبعشان گفته می‌شود. دسته‌های منوی بازشو <strong>نمونه</strong>‌اند. فوتر فعلی Elementor فقط با یک نوار جای‌خالی نشان داده شده و <strong>هیچ تغییری نمی‌کند</strong>.</p>
+<p class="proto-banner">نمونهٔ طراحی هدر سراسری — <strong>طرح {letter} · {name}</strong> (انتخاب‌شده؛ نسخهٔ اصلاح‌شدهٔ دور ۸). {what}. پیوندها جایی نمی‌روند و با کلیک، مقصد و منبعشان گفته می‌شود. دسته‌های منوی بازشو <strong>نمونه</strong>‌اند و در نسخهٔ عملیاتی از ووکامرس خوانده می‌شوند. فوتر فعلی Elementor فقط با یک نوار جای‌خالی نشان داده شده و <strong>هیچ تغییری نمی‌کند</strong>.</p>
 <div class="proto-bar">
   <span>{" · ".join(nav)}</span>
   <span>حالت کاربر: <button type="button" data-proto-user="guest" aria-pressed="true">مهمان</button> <button type="button" data-proto-user="member" aria-pressed="false">واردشده</button></span>
 </div>
-{header.replace("{{VARIANT}}", variant)}
+{header.replace("{{VARIANT}}", variant).replace("{{PAGE}}", " tecteb-header-v1--home" if kind == "home" else "")}
 <main id="main">
 {main}
 </main>

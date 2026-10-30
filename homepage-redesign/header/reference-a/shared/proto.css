@@ -1,0 +1,63 @@
+/* فقط برای پیش‌نمایش — به سایت نمی‌رود. نوار کنترل، پیام پیوند، و جای فوتر. */
+.tecteb-header-v1 { --tth-font: "TH Vazirmatn", Tahoma, system-ui, sans-serif; }
+
+.proto-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 1rem;
+  background: #fffaf0;
+  border-block-end: 1px solid #ecd9a3;
+  font-size: 0.8125rem;
+  color: #5b4300;
+}
+.proto-bar a { color: #0b4a74; font-weight: 700; }
+.proto-bar [aria-current="page"] { color: #5b4300; text-decoration: none; }
+.proto-bar button {
+  min-block-size: 2rem;
+  padding-inline: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #d8c48e;
+  background: #fff;
+  color: #5b4300;
+  font: inherit;
+  cursor: pointer;
+}
+.proto-bar button[aria-pressed="true"] { background: #5b4300; color: #fff; border-color: #5b4300; }
+
+.proto-toast {
+  position: fixed;
+  inset-inline: 1rem;
+  inset-block-end: 1rem;
+  z-index: 100000;
+  max-inline-size: 36rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: #1d2b35;
+  color: #fff;
+  font: 0.875rem/1.7 "TH Vazirmatn", Tahoma, sans-serif;
+  text-align: center;
+  box-shadow: 0 12px 30px -12px rgb(0 0 0 / 0.5);
+  opacity: 0;
+  transform: translateY(1rem);
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.proto-toast.is-on { opacity: 1; transform: none; }
+
+.proto-note {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  border-radius: 8px;
+  background: #fff4d6;
+  color: #5b4300;
+  font-size: 0.75rem;
+}
+
+.proto-slot--footer { min-block-size: 24rem; }
+.proto-slot--page { min-block-size: 120rem; align-content: start; padding-block-start: 4rem; }
+
+@media (prefers-reduced-motion: reduce) { .proto-toast { transition: none; } }

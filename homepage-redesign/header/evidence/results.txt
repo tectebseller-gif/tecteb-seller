@@ -1,162 +1,116 @@
 PASS scope: every selector in shared/header-base.css starts with .tecteb-header-v1
 PASS scope: shared/header-base.css names no global element, Elementor/Woo/Dokan or homepage class
-PASS scope: every selector in a/header-a.css starts with .tecteb-header-v1
-PASS scope: a/header-a.css names no global element, Elementor/Woo/Dokan or homepage class
 PASS scope: every selector in b/header-b.css starts with .tecteb-header-v1
 PASS scope: b/header-b.css names no global element, Elementor/Woo/Dokan or homepage class
 PASS script: header.js has no network call, storage or eval
-PASS a-home 1440px: no horizontal overflow, nothing of the header off-screen
-PASS a-home 1440px: every header control ≥ 24×24 (WCAG 2.5.8)
-PASS a-home 1440px: RTL — logo on the right, search beside it
-PASS a-home 1440px: menu row shown, no menu button
-PASS a-home 1440px: homepage 0.2.0 below the header keeps its three routes
-PASS a-home 1440px: no console error, no request outside this machine
-PASS a-home 1024px: no horizontal overflow, nothing of the header off-screen
-PASS a-home 1024px: every header control ≥ 24×24 (WCAG 2.5.8)
-PASS a-home 1024px: RTL — logo on the right, search beside it
-PASS a-home 1024px: menu button shown, menu row moved into the drawer
-PASS a-home 1024px: homepage 0.2.0 below the header keeps its three routes
-PASS a-home 1024px: no console error, no request outside this machine
-PASS a-home 768px: no horizontal overflow, nothing of the header off-screen
-PASS a-home 768px: every header control ≥ 24×24 (WCAG 2.5.8)
-PASS a-home 768px: RTL — logo on the right, search beside it
-PASS a-home 768px: menu button shown, menu row moved into the drawer
-PASS a-home 768px: homepage 0.2.0 below the header keeps its three routes
-PASS a-home 768px: no console error, no request outside this machine
-PASS a-home 390px: no horizontal overflow, nothing of the header off-screen
-PASS a-home 390px: every header control ≥ 24×24 (WCAG 2.5.8)
-PASS a-home 390px: RTL — logo on the right, search beside it
-PASS a-home 390px: menu button shown, menu row moved into the drawer
-PASS a-home 390px: homepage 0.2.0 below the header keeps its three routes
-PASS a-home 390px: no console error, no request outside this machine
-PASS a-home 320px: no horizontal overflow, nothing of the header off-screen
-PASS a-home 320px: every header control ≥ 24×24 (WCAG 2.5.8)
-PASS a-home 320px: RTL — logo on the right, search beside it
-PASS a-home 320px: menu button shown, menu row moved into the drawer
-PASS a-home 320px: homepage 0.2.0 below the header keeps its three routes
-PASS a-home 320px: no console error, no request outside this machine
-PASS a-inner 1440px: no horizontal overflow, nothing of the header off-screen
-PASS a-inner 1440px: every header control ≥ 24×24 (WCAG 2.5.8)
-PASS a-inner 1440px: RTL — logo on the right, search beside it
-PASS a-inner 1440px: menu row shown, no menu button
-PASS a-inner 1440px: no console error, no request outside this machine
-PASS a-inner 1024px: no horizontal overflow, nothing of the header off-screen
-PASS a-inner 1024px: every header control ≥ 24×24 (WCAG 2.5.8)
-PASS a-inner 1024px: RTL — logo on the right, search beside it
-PASS a-inner 1024px: menu button shown, menu row moved into the drawer
-PASS a-inner 1024px: no console error, no request outside this machine
-PASS a-inner 768px: no horizontal overflow, nothing of the header off-screen
-PASS a-inner 768px: every header control ≥ 24×24 (WCAG 2.5.8)
-PASS a-inner 768px: RTL — logo on the right, search beside it
-PASS a-inner 768px: menu button shown, menu row moved into the drawer
-PASS a-inner 768px: no console error, no request outside this machine
-PASS a-inner 390px: no horizontal overflow, nothing of the header off-screen
-PASS a-inner 390px: every header control ≥ 24×24 (WCAG 2.5.8)
-PASS a-inner 390px: RTL — logo on the right, search beside it
-PASS a-inner 390px: menu button shown, menu row moved into the drawer
-PASS a-inner 390px: no console error, no request outside this machine
-PASS a-inner 320px: no horizontal overflow, nothing of the header off-screen
-PASS a-inner 320px: every header control ≥ 24×24 (WCAG 2.5.8)
-PASS a-inner 320px: RTL — logo on the right, search beside it
-PASS a-inner 320px: menu button shown, menu row moved into the drawer
-PASS a-inner 320px: no console error, no request outside this machine
 PASS b-home 1440px: no horizontal overflow, nothing of the header off-screen
 PASS b-home 1440px: every header control ≥ 24×24 (WCAG 2.5.8)
 PASS b-home 1440px: RTL — logo on the right, search beside it
 PASS b-home 1440px: menu row shown, no menu button
 PASS b-home 1440px: homepage 0.2.0 below the header keeps its three routes
+PASS b-home 1440px: header search box shown, no search button
+PASS b-home 1440px: counters sit beside their icons — no overlap, gap ≥ 4px, ≥ 12px text
+PASS b-home 1440px: header tools keep a clear gap (≥ 4px)
+PASS b-home 1440px: desktop header shorter than before (≤ 124px; round 7 was 136px)
 PASS b-home 1440px: no console error, no request outside this machine
+PASS b-home 1440px: axe on the closed header — 0 violations
 PASS b-home 1024px: no horizontal overflow, nothing of the header off-screen
 PASS b-home 1024px: every header control ≥ 24×24 (WCAG 2.5.8)
 PASS b-home 1024px: RTL — logo on the right, search beside it
 PASS b-home 1024px: menu button shown, menu row moved into the drawer
 PASS b-home 1024px: homepage 0.2.0 below the header keeps its three routes
+PASS b-home 1024px: header search box shown, no search button
+PASS b-home 1024px: counters sit beside their icons — no overlap, gap ≥ 4px, ≥ 12px text
+PASS b-home 1024px: header tools keep a clear gap (≥ 4px)
 PASS b-home 1024px: no console error, no request outside this machine
+PASS b-home 1024px: axe on the closed header — 0 violations
 PASS b-home 768px: no horizontal overflow, nothing of the header off-screen
 PASS b-home 768px: every header control ≥ 24×24 (WCAG 2.5.8)
 PASS b-home 768px: RTL — logo on the right, search beside it
 PASS b-home 768px: menu button shown, menu row moved into the drawer
 PASS b-home 768px: homepage 0.2.0 below the header keeps its three routes
+PASS b-home 768px: header search box shown, no search button
+PASS b-home 768px: counters sit beside their icons — no overlap, gap ≥ 4px, ≥ 12px text
+PASS b-home 768px: header tools keep a clear gap (≥ 4px)
 PASS b-home 768px: no console error, no request outside this machine
+PASS b-home 768px: axe on the closed header — 0 violations
 PASS b-home 390px: no horizontal overflow, nothing of the header off-screen
 PASS b-home 390px: every header control ≥ 24×24 (WCAG 2.5.8)
 PASS b-home 390px: RTL — logo on the right, search beside it
 PASS b-home 390px: menu button shown, menu row moved into the drawer
 PASS b-home 390px: homepage 0.2.0 below the header keeps its three routes
+PASS b-home 390px: large header search folded into a search button (Hero search is the main one)
+PASS b-home 390px: counters sit beside their icons — no overlap, gap ≥ 4px, ≥ 12px text
+PASS b-home 390px: header tools keep a clear gap (≥ 4px)
 PASS b-home 390px: no console error, no request outside this machine
+PASS b-home 390px: axe on the closed header — 0 violations
 PASS b-home 320px: no horizontal overflow, nothing of the header off-screen
 PASS b-home 320px: every header control ≥ 24×24 (WCAG 2.5.8)
 PASS b-home 320px: RTL — logo on the right, search beside it
 PASS b-home 320px: menu button shown, menu row moved into the drawer
 PASS b-home 320px: homepage 0.2.0 below the header keeps its three routes
+PASS b-home 320px: large header search folded into a search button (Hero search is the main one)
+PASS b-home 320px: counters sit beside their icons — no overlap, gap ≥ 4px, ≥ 12px text
+PASS b-home 320px: header tools keep a clear gap (≥ 4px)
 PASS b-home 320px: no console error, no request outside this machine
+PASS b-home 320px: axe on the closed header — 0 violations
 PASS b-inner 1440px: no horizontal overflow, nothing of the header off-screen
 PASS b-inner 1440px: every header control ≥ 24×24 (WCAG 2.5.8)
 PASS b-inner 1440px: RTL — logo on the right, search beside it
 PASS b-inner 1440px: menu row shown, no menu button
+PASS b-inner 1440px: header search box shown, no search button
+PASS b-inner 1440px: counters sit beside their icons — no overlap, gap ≥ 4px, ≥ 12px text
+PASS b-inner 1440px: header tools keep a clear gap (≥ 4px)
+PASS b-inner 1440px: desktop header shorter than before (≤ 124px; round 7 was 136px)
 PASS b-inner 1440px: no console error, no request outside this machine
+PASS b-inner 1440px: axe on the closed header — 0 violations
 PASS b-inner 1024px: no horizontal overflow, nothing of the header off-screen
 PASS b-inner 1024px: every header control ≥ 24×24 (WCAG 2.5.8)
 PASS b-inner 1024px: RTL — logo on the right, search beside it
 PASS b-inner 1024px: menu button shown, menu row moved into the drawer
+PASS b-inner 1024px: header search box shown, no search button
+PASS b-inner 1024px: counters sit beside their icons — no overlap, gap ≥ 4px, ≥ 12px text
+PASS b-inner 1024px: header tools keep a clear gap (≥ 4px)
 PASS b-inner 1024px: no console error, no request outside this machine
+PASS b-inner 1024px: axe on the closed header — 0 violations
 PASS b-inner 768px: no horizontal overflow, nothing of the header off-screen
 PASS b-inner 768px: every header control ≥ 24×24 (WCAG 2.5.8)
 PASS b-inner 768px: RTL — logo on the right, search beside it
 PASS b-inner 768px: menu button shown, menu row moved into the drawer
+PASS b-inner 768px: header search box shown, no search button
+PASS b-inner 768px: counters sit beside their icons — no overlap, gap ≥ 4px, ≥ 12px text
+PASS b-inner 768px: header tools keep a clear gap (≥ 4px)
 PASS b-inner 768px: no console error, no request outside this machine
+PASS b-inner 768px: axe on the closed header — 0 violations
 PASS b-inner 390px: no horizontal overflow, nothing of the header off-screen
 PASS b-inner 390px: every header control ≥ 24×24 (WCAG 2.5.8)
 PASS b-inner 390px: RTL — logo on the right, search beside it
 PASS b-inner 390px: menu button shown, menu row moved into the drawer
+PASS b-inner 390px: header search box shown, no search button
+PASS b-inner 390px: counters sit beside their icons — no overlap, gap ≥ 4px, ≥ 12px text
+PASS b-inner 390px: header tools keep a clear gap (≥ 4px)
 PASS b-inner 390px: no console error, no request outside this machine
+PASS b-inner 390px: axe on the closed header — 0 violations
 PASS b-inner 320px: no horizontal overflow, nothing of the header off-screen
 PASS b-inner 320px: every header control ≥ 24×24 (WCAG 2.5.8)
 PASS b-inner 320px: RTL — logo on the right, search beside it
 PASS b-inner 320px: menu button shown, menu row moved into the drawer
+PASS b-inner 320px: header search box shown, no search button
+PASS b-inner 320px: counters sit beside their icons — no overlap, gap ≥ 4px, ≥ 12px text
+PASS b-inner 320px: header tools keep a clear gap (≥ 4px)
 PASS b-inner 320px: no console error, no request outside this machine
-PASS links: every header link says where it comes from (owner / wc / demo)
+PASS b-inner 320px: axe on the closed header — 0 violations
+PASS links: every header link says where it comes from (owner / wc / demo / sample)
+PASS links: «همکاری تأمین‌کنندگان» → /landing-seller/, in the menu row and the drawer; old title gone
+PASS links: every category link is marked as sample data (none passes as a real category)
 PASS links: no empty "#", no javascript: and no absolute production URL
 PASS links: the three owner addresses are the ones in the brief
 PASS links: every current menu item is present, in order
-NOTE links in the header: 96 — owner 9, wc 16, demo 70 (demo = نامعلوم؛ در اجرا از منوی وردپرس)
+NOTE links in the header: 96 — owner 9, wc 16, demo 8 (نامعلوم؛ در اجرا از منوی وردپرس), sample 62 (دسته‌های نمونه؛ در اجرا از product_cat)
 PASS links: a click goes nowhere and says so (no demo link presented as real)
-PASS a mega: Enter opens the panel (aria-expanded=true)
-PASS a mega: panel paints above the homepage Hero (z-order)
-PASS a axe: header with mega menu open — 0 violations
-PASS a mega: Tab moves into the panel
-PASS a mega: Escape closes and returns focus to the button
-PASS a mega: mouse hover opens after a short delay and leaving closes it
-PASS a account: guest sees «ورود / ثبت‌نام», not the member menu
-PASS a account: logged-in menu opens with account, orders, addresses, details and logout
-PASS a account: a click outside closes it
-PASS a sticky: after scrolling the bar is fixed at the top, compact and above the content
-PASS a sticky: compact desktop folds the menu row into the menu button
-PASS a sticky: no layout shift — content under the header did not move (CLS 0)
-PASS a sticky: back at the top the full header returns
-PASS a drawer 390px: menu button opens the drawer and moves focus into it
-PASS a drawer 390px: opens from the right (RTL) and fits the screen
-PASS a drawer 390px: menu, wishlist, categories, account and seller link all reachable
-PASS a drawer 390px: a category opens its sub-categories
-PASS a drawer 390px: Tab stays inside the open drawer (page behind is inert)
-PASS a axe: drawer open — 0 violations
-PASS a drawer 390px: Escape closes and returns focus to the menu button
-PASS a sticky 390px: compact bar fixed at top with search kept; content did not move
-PASS a drawer 320px: menu button opens the drawer and moves focus into it
-PASS a drawer 320px: opens from the right (RTL) and fits the screen
-PASS a drawer 320px: menu, wishlist, categories, account and seller link all reachable
-PASS a drawer 320px: a category opens its sub-categories
-PASS a drawer 320px: Tab stays inside the open drawer (page behind is inert)
-PASS a drawer 320px: Escape closes and returns focus to the menu button
-PASS a sticky 320px: compact bar fixed at top with search kept; content did not move
-PASS a reduced motion: no animation or transition in the header
-PASS a no JavaScript 1440px: menu, categories link and seller link all visible; no dead menu button
-PASS a no JavaScript 390px: menu, categories link and seller link all visible; no dead menu button
-PASS a axe: header (closed) — 0 violations, including colour contrast
-PASS a contrast: search placeholder ≥ 4.5:1 (axe does not check placeholders)
-PASS a isolation: header CSS changes no style of the homepage or the footer slot (286 elements)
 PASS b mega: Enter opens the panel (aria-expanded=true)
 PASS b mega: panel paints above the homepage Hero (z-order)
+PASS b mega: the sample categories say they are samples
 PASS b axe: header with mega menu open — 0 violations
 PASS b mega: Tab moves into the panel
 PASS b mega: Escape closes and returns focus to the button
@@ -171,23 +125,36 @@ PASS b sticky: back at the top the full header returns
 PASS b drawer 390px: menu button opens the drawer and moves focus into it
 PASS b drawer 390px: opens from the right (RTL) and fits the screen
 PASS b drawer 390px: menu, wishlist, categories, account and seller link all reachable
+PASS b drawer 390px: sample categories labelled as samples
 PASS b drawer 390px: a category opens its sub-categories
 PASS b drawer 390px: Tab stays inside the open drawer (page behind is inert)
 PASS b axe: drawer open — 0 violations
 PASS b drawer 390px: Escape closes and returns focus to the menu button
-PASS b sticky 390px: compact bar fixed at top with search kept; content did not move
+PASS b sticky 390px: compact bar fixed at top (search still reachable); content did not move
 PASS b drawer 320px: menu button opens the drawer and moves focus into it
 PASS b drawer 320px: opens from the right (RTL) and fits the screen
 PASS b drawer 320px: menu, wishlist, categories, account and seller link all reachable
+PASS b drawer 320px: sample categories labelled as samples
 PASS b drawer 320px: a category opens its sub-categories
 PASS b drawer 320px: Tab stays inside the open drawer (page behind is inert)
 PASS b drawer 320px: Escape closes and returns focus to the menu button
-PASS b sticky 320px: compact bar fixed at top with search kept; content did not move
+PASS b sticky 320px: compact bar fixed at top (search still reachable); content did not move
+PASS b home search 390px: the search button opens the header search and focuses it (keyboard)
+PASS b home search 390px: opening it moves no content (it overlays)
+PASS b home search 390px: still the WooCommerce product search (action /, post_type=product)
+PASS b home search 390px: submitting sends the WooCommerce search
+PASS b home search 390px: Escape closes it and returns focus to the button
+PASS b axe: homepage mobile with search open — 0 violations
+PASS b home search 320px: the search button opens the header search and focuses it (keyboard)
+PASS b home search 320px: opening it moves no content (it overlays)
+PASS b home search 320px: still the WooCommerce product search (action /, post_type=product)
+PASS b home search 320px: submitting sends the WooCommerce search
+PASS b home search 320px: Escape closes it and returns focus to the button
 PASS b reduced motion: no animation or transition in the header
-PASS b no JavaScript 1440px: menu, categories link and seller link all visible; no dead menu button
-PASS b no JavaScript 390px: menu, categories link and seller link all visible; no dead menu button
+PASS b no JavaScript 1440px: menu, categories, seller link and the search box all visible; no dead button
+PASS b no JavaScript 390px: menu, categories, seller link and the search box all visible; no dead button
 PASS b axe: header (closed) — 0 violations, including colour contrast
 PASS b contrast: search placeholder ≥ 4.5:1 (axe does not check placeholders)
 PASS b isolation: header CSS changes no style of the homepage or the footer slot (286 elements)
 
-190 passed, 0 failed
+157 passed, 0 failed

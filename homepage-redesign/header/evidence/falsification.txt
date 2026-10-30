@@ -1,11 +1,19 @@
-1 CAUGHT  6 failing — reserved height removed (content jumps when the bar becomes fixed)
-     first: FAIL a sticky: no layout shift — content under the header did not move (CLS 0)  — main 246.1875→110.1875 cls=0
+1 CAUGHT  3 failing — reserved height removed (content jumps when the bar becomes fixed)
+     first: FAIL b sticky: no layout shift — content under the header did not move (CLS 0)  — main 232.1875→110.1875 cls=0
 2 CAUGHT  2 failing — a global selector slipped into the header CSS
-     first: FAIL scope: every selector in a/header-a.css starts with .tecteb-header-v1  — body
-3 CAUGHT  2 failing — Escape no longer returns focus to the button
-     first: FAIL a mega: Escape closes and returns focus to the button
-4 CAUGHT  28 failing — menu row kept on mobile (no drawer)
-     first: FAIL a-home 1024px: menu button shown, menu row moved into the drawer
+     first: FAIL scope: every selector in b/header-b.css starts with .tecteb-header-v1  — body
+3 CAUGHT  1 failing — Escape no longer returns focus to the button
+     first: FAIL b mega: Escape closes and returns focus to the button
+4 CAUGHT  14 failing — menu row kept on mobile (no drawer)
+     first: FAIL b-home 1024px: menu button shown, menu row moved into the drawer
 5 CAUGHT  1 failing — placeholder contrast lowered in B
      first: FAIL b contrast: search placeholder ≥ 4.5:1 (axe does not check placeholders)  — 2.21
-5 of 5 mutations caught and restored
+6 CAUGHT  10 failing — counter back on the icon's corner (overlap)
+     first: FAIL b-home 1440px: counters sit beside their icons — no overlap, gap ≥ 4px, ≥ 12px text  — [{"overlap":182,"gap":-14,"font":13,"h":22},{"overlap":182,"gap":-14
+7 CAUGHT  2 failing — header search hidden on every page, not only the homepage
+     first: FAIL b-inner 390px: header search box shown, no search button  — {"s":false,"t":false}
+8 CAUGHT  4 failing — search button opens the box but leaves focus on the button
+     first: FAIL b home search 390px: the search button opens the header search and focuses it (keyboard)  — {"shown":true,"focus":false,"exp":"true","inside":true,"main":3
+9 CAUGHT  9 failing — mobile account label removed from screen readers too (round-7 defect)
+     first: FAIL b-home 1024px: axe on the closed header — 0 violations  — link-name(serious):1
+9 of 9 mutations caught and restored

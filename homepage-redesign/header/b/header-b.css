@@ -2,7 +2,8 @@
  * طرح B — Premium Light Glass. زمینهٔ روشن، جزئیات سرمه‌ای و فیروزه‌ای، و شیشهٔ مات
  * در حالت چسبان. فقط متغیرها و چند جزئیات؛ ساختار در shared/header-base.css است.
  * کنتراست‌ها (WCAG، روی سفید): متن #0e2435 ≈ ۱۶:۱ · منو #2b4252 ≈ ۱۰:۱ ·
- * فیروزه‌ای تیره #0b676c ≈ ۶٫۴:۱ · راهنمای کادر جست‌وجو #56697a روی #f2f7f9 ≈ ۵٫۲:۱.
+ * فیروزه‌ای تیره #0b676c ≈ ۶٫۴:۱ · راهنمای کادر جست‌وجو #56697a روی #f2f7f9 ≈ ۵٫۲:۱ ·
+ * شمارنده: سفید روی #0f7a80 ≈ ۵٫۲:۱.
  */
 
 .tecteb-header-v1--b {
@@ -69,9 +70,11 @@
 .tecteb-header-v1--b .tth-search:focus-within { background: #ffffff; }
 .tecteb-header-v1--b .tth-tool:not(.tth-tool--account),
 .tecteb-header-v1--b .tth-top > .tth-icon-btn {
-  border-radius: 50%;
+  border-radius: var(--tth-pill);
   background: #f2f7f9;
 }
+.tecteb-header-v1--b .tth-tool:not(.tth-tool--account):hover,
+.tecteb-header-v1--b .tth-top > .tth-icon-btn:hover { background: #e3f0f3; }
 .tecteb-header-v1--b .tth-tool--account { border-color: #d3e1e7; background: #ffffff; }
 .tecteb-header-v1--b .tth-tool:hover { color: #0b676c; }
 .tecteb-header-v1--b .tth-mega__col { border: 1px solid #edf3f6; background: linear-gradient(180deg, #ffffff, #fbfdfe); }

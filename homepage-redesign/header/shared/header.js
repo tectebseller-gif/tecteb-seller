@@ -4,7 +4,7 @@
  * بی این فایل هم هدر کامل است: «دسته‌بندی کالاها» و «حساب من» پیوند ساده‌اند،
  * و منو در موبایل باز و چندسطری نمایش داده می‌شود (header-base.css، بخش «بی جاوااسکریپت»).
  *
- * سه کار:
+ * چهار کار:
  *   ۱. بازشوها (Mega Menu و منوی حساب): الگوی disclosure، نه نقش ARIA ِ menu —
  *      دکمه + aria-expanded + پنل؛ Esc می‌بندد و فوکوس را به دکمه برمی‌گرداند؛
  *      خروج فوکوس یا کلیک بیرون می‌بندد؛ هاور فقط روی ماوس و با تأخیر.
@@ -12,6 +12,9 @@
  *      می‌بندد، فوکوس به دکمهٔ منو برمی‌گردد.
  *   ۳. حالت جمع‌وجور: ریشه ارتفاع کامل را نگه می‌دارد (--tth-reserve)، پس
  *      fixed شدنِ نوار هیچ چیزی را جابه‌جا نمی‌کند.
+ *   ۴. دکمهٔ جست‌وجو (فقط موبایلِ صفحهٔ اصلی، با CSS): همان فرم هدر را روی محتوا باز
+ *      می‌کند و فوکوس را به کادر می‌برد؛ Esc می‌بندد و فوکوس را به دکمه برمی‌گرداند.
+ *      فرم و رفتار ارسالش هیچ تغییری نمی‌کنند — فقط دیده‌شدنش.
  */
 (() => {
   const DESKTOP = window.matchMedia('(min-width: 1080px)');
@@ -73,6 +76,7 @@
     if (drawer && burger && typeof drawer.showModal === 'function') {
       burger.addEventListener('click', () => {
         items.forEach((d) => close(d));
+        setSearch(false);
         drawer.showModal();
         burger.setAttribute('aria-expanded', 'true');
       });
@@ -83,6 +87,29 @@
       drawer.querySelector('[data-tth-close]').addEventListener('click', () => drawer.close());
       // کلیک روی پس‌زمینه: پنل کل دیالوگ را پر می‌کند، پس فقط ::backdrop هدفش خودِ dialog است.
       drawer.addEventListener('click', (e) => { if (e.target === drawer) drawer.close(); });
+    }
+
+    // --- ۴. دکمهٔ جست‌وجو
+    const searchBtn = root.querySelector('[data-tth-search-toggle]');
+    const form = root.querySelector('#' + (searchBtn ? searchBtn.getAttribute('aria-controls') : ''));
+    const setSearch = (open, focusBack) => {
+      if (!searchBtn || !form) return;
+      root.classList.toggle('is-search-open', open);
+      searchBtn.setAttribute('aria-expanded', String(open));
+      if (open) form.querySelector('input[type="search"]').focus();
+      else if (focusBack) searchBtn.focus();
+    };
+    if (searchBtn && form) {
+      searchBtn.addEventListener('click', () => setSearch(!root.classList.contains('is-search-open')));
+      form.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && root.classList.contains('is-search-open')) { e.stopPropagation(); setSearch(false, true); }
+      });
+      form.addEventListener('focusout', (e) => {
+        if (root.classList.contains('is-search-open') && !form.contains(e.relatedTarget) && e.relatedTarget !== searchBtn) setSearch(false);
+      });
+      document.addEventListener('click', (e) => {
+        if (root.classList.contains('is-search-open') && !form.contains(e.target) && !searchBtn.contains(e.target)) setSearch(false);
+      });
     }
 
     // --- ۳. حالت جمع‌وجور
@@ -116,6 +143,7 @@
     });
     DESKTOP.addEventListener('change', () => {
       if (drawer && drawer.open) drawer.close();
+      setSearch(false);
       root.classList.remove('is-compact');
       measure();
       update();

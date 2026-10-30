@@ -1,0 +1,587 @@
+/*
+ * هدر سراسری تک‌طب — ساختار و رفتار مشترک دو طرح (نمونهٔ طراحی، نه کد سایت).
+ *
+ * دامنه: هر انتخابگر با `.tecteb-header-v1` شروع می‌شود؛ هیچ قاعده‌ای روی html، body،
+ * header، footer، .elementor، .woocommerce، .dokan یا .tecteb-home-v1 نیست. نام‌ها
+ * پیشوند `tth-` دارند (صفحهٔ اصلی `th-` دارد) و متغیرها `--tth-`.
+ *
+ * رنگ‌ها فقط از متغیرهای پوسته می‌آیند (a/header-a.css، b/header-b.css).
+ *
+ * حالت جمع‌وجور: ریشه همیشه ارتفاع کاملِ هدر را در جریان صفحه نگه می‌دارد
+ * (`--tth-reserve`، اندازه‌گرفته با JS)، و فقط `.tth-bar` پس از عبور از آن ارتفاع
+ * `fixed` و جمع‌وجور می‌شود — پس محتوای زیر هدر هیچ‌وقت جابه‌جا نمی‌شود (CLS صفر).
+ */
+
+.tecteb-header-v1 {
+  --tth-max: 1240px;
+  --tth-gutter: clamp(1rem, 4vw, 2rem);
+  --tth-radius: 14px;
+  --tth-pill: 999px;
+  --tth-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --tth-top: var(--wp-admin--admin-bar--height, 0px);
+  position: relative;
+  z-index: 999;
+  min-block-size: var(--tth-reserve, auto);
+  font-family: var(--tth-font, inherit);
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--tth-fg);
+  text-align: start;
+}
+
+.tecteb-header-v1 *,
+.tecteb-header-v1 *::before,
+.tecteb-header-v1 *::after { box-sizing: border-box; }
+
+.tecteb-header-v1 :where(a) { color: inherit; text-decoration: none; }
+.tecteb-header-v1 :where(ul) { margin: 0; padding: 0; list-style: none; }
+.tecteb-header-v1 :where(p, h2) { margin: 0; }
+.tecteb-header-v1 :where(button, input) {
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.tecteb-header-v1 :where(button) { cursor: pointer; background: none; border: 0; padding: 0; }
+.tecteb-header-v1 [hidden] { display: none !important; }
+
+.tecteb-header-v1 .tth-sprite { position: absolute; inline-size: 0; block-size: 0; overflow: hidden; }
+.tecteb-header-v1 .tth-i {
+  inline-size: 1.375rem;
+  block-size: 1.375rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tecteb-header-v1 .tth-i--chev { inline-size: 1rem; block-size: 1rem; transition: transform 0.2s var(--tth-ease); }
+.tecteb-header-v1 [aria-expanded="true"] > .tth-i--chev { transform: rotate(180deg); }
+.tecteb-header-v1 .tth-sr {
+  position: absolute !important;
+  inline-size: 1px; block-size: 1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* فوکوس: حلقهٔ دیدنی روی هر دو زمینه (۲px روشن + ۲px تیره). */
+.tecteb-header-v1 :focus-visible {
+  outline: 2px solid var(--tth-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--tth-focus-halo);
+  border-radius: 10px;
+}
+
+.tecteb-header-v1 .tth-skip {
+  position: absolute;
+  inset-block-start: 0.5rem;
+  inset-inline-start: 0.5rem;
+  z-index: 3;
+  padding: 0.625rem 1rem;
+  border-radius: 10px;
+  background: var(--tth-accent);
+  color: var(--tth-accent-fg);
+  font-weight: 700;
+}
+.tecteb-header-v1 .tth-skip:not(:focus) {
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.tecteb-header-v1 .tth-wrap {
+  inline-size: 100%;
+  max-inline-size: var(--tth-max);
+  margin-inline: auto;
+  padding-inline: var(--tth-gutter);
+}
+
+/* ---------------------------------------------------------------- نوار */
+
+.tecteb-header-v1 .tth-bar {
+  position: relative;
+  inset-inline: 0;
+  background: var(--tth-bg);
+  border-block-end: 1px solid var(--tth-line);
+}
+
+.tecteb-header-v1.is-compact .tth-bar {
+  position: fixed;
+  inset-block-start: var(--tth-top);
+  background: var(--tth-glass, var(--tth-bg));
+  box-shadow: var(--tth-shadow);
+  animation: tth-drop 0.24s var(--tth-ease);
+}
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .tecteb-header-v1.is-compact .tth-bar {
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    backdrop-filter: blur(16px) saturate(150%);
+  }
+}
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .tecteb-header-v1.is-compact .tth-bar { background: var(--tth-bg); }
+}
+@keyframes tth-drop { from { transform: translateY(-100%); } to { transform: none; } }
+
+.tecteb-header-v1 .tth-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "logo search tools";
+  align-items: center;
+  gap: clamp(1rem, 2.4vw, 2rem);
+  padding-block: 1rem;
+  transition: padding 0.24s var(--tth-ease);
+}
+.tecteb-header-v1.is-compact .tth-top { padding-block: 0.5rem; }
+
+/* ---------------------------------------------------------------- لوگو */
+
+.tecteb-header-v1 .tth-logo {
+  grid-area: logo;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-block-size: 44px;
+}
+.tecteb-header-v1 .tth-logo__mark {
+  display: block;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  border-radius: 50%;
+  transition: inline-size 0.24s var(--tth-ease), block-size 0.24s var(--tth-ease);
+}
+.tecteb-header-v1.is-compact .tth-bar .tth-logo__mark { inline-size: 2.25rem; block-size: 2.25rem; }
+.tecteb-header-v1 .tth-logo__word {
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--tth-brand);
+}
+
+/* ---------------------------------------------------------------- جست‌وجو */
+
+.tecteb-header-v1 .tth-search {
+  grid-area: search;
+  position: relative;
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  max-inline-size: 40rem;
+  justify-self: center;
+  min-block-size: 3rem;
+  padding: 0.25rem;
+  padding-inline-start: 1.125rem;
+  border-radius: var(--tth-pill);
+  background: var(--tth-search-bg);
+  border: 1px solid var(--tth-search-line);
+  transition: border-color 0.2s var(--tth-ease), box-shadow 0.2s var(--tth-ease), min-block-size 0.24s var(--tth-ease);
+}
+.tecteb-header-v1.is-compact .tth-search { min-block-size: 2.625rem; }
+.tecteb-header-v1 .tth-search:focus-within {
+  border-color: var(--tth-search-focus);
+  box-shadow: 0 0 0 4px var(--tth-search-glow);
+}
+.tecteb-header-v1 .tth-search__input {
+  flex: 1;
+  min-inline-size: 0;
+  block-size: 2.5rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  color: var(--tth-search-fg);
+  font-size: 0.9375rem;
+}
+.tecteb-header-v1 .tth-search__input::placeholder { color: var(--tth-search-ph); opacity: 1; }
+.tecteb-header-v1 .tth-search__input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.tecteb-header-v1 .tth-search__input:focus-visible { outline: 0; box-shadow: none; }
+.tecteb-header-v1 .tth-search__go {
+  display: grid;
+  place-items: center;
+  inline-size: 2.75rem;
+  block-size: 2.5rem;
+  border-radius: var(--tth-pill);
+  background: var(--tth-go-bg);
+  color: var(--tth-go-fg);
+  transition: transform 0.2s var(--tth-ease), filter 0.2s var(--tth-ease);
+}
+.tecteb-header-v1 .tth-search__go:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+/* ---------------------------------------------------------------- ابزارها */
+
+.tecteb-header-v1 .tth-tools {
+  grid-area: tools;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.tecteb-header-v1 .tth-tool,
+.tecteb-header-v1 .tth-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  padding-inline: 0.625rem;
+  border-radius: 12px;
+  color: var(--tth-fg);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color 0.2s var(--tth-ease), color 0.2s var(--tth-ease);
+}
+.tecteb-header-v1 .tth-tool:hover,
+.tecteb-header-v1 .tth-icon-btn:hover { background: var(--tth-tool-hover); }
+.tecteb-header-v1 .tth-tool--account { padding-inline: 0.875rem; border: 1px solid var(--tth-line); }
+
+.tecteb-header-v1 .tth-badge {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: 1.25rem;
+  block-size: 1.25rem;
+  padding-inline: 0.3rem;
+  border-radius: var(--tth-pill);
+  background: var(--tth-badge-bg);
+  color: var(--tth-badge-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.tecteb-header-v1 .tth-tool .tth-badge {
+  position: absolute;
+  inset-block-start: 0.125rem;
+  inset-inline-end: 0.125rem;
+  box-shadow: 0 0 0 2px var(--tth-bg-solid);
+}
+
+.tecteb-header-v1 .tth-acct { position: relative; }
+.tecteb-header-v1 .tth-pop {
+  position: absolute;
+  inset-block-start: calc(100% + 0.5rem);
+  inset-inline-end: 0;
+  z-index: 2;
+  min-inline-size: 15rem;
+  padding: 0.75rem;
+  border-radius: var(--tth-radius);
+  background: var(--tth-panel-bg);
+  color: var(--tth-panel-fg);
+  border: 1px solid var(--tth-panel-line);
+  box-shadow: var(--tth-panel-shadow);
+  animation: tth-fade 0.18s var(--tth-ease);
+}
+.tecteb-header-v1 .tth-pop__hello { padding: 0.25rem 0.75rem 0.625rem; color: var(--tth-panel-muted); font-size: 0.875rem; }
+.tecteb-header-v1 .tth-pop__list a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-block-size: 44px;
+  padding-inline: 0.75rem;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+}
+.tecteb-header-v1 .tth-pop__list a:hover { background: var(--tth-panel-hover); color: var(--tth-panel-accent); }
+.tecteb-header-v1 .tth-pop__sep { margin-block-start: 0.375rem; padding-block-start: 0.375rem; border-block-start: 1px solid var(--tth-panel-line); }
+@keyframes tth-fade { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+/* ---------------------------------------------------------------- منو */
+
+.tecteb-header-v1 .tth-nav { background: var(--tth-nav-bg); border-block-start: 1px solid var(--tth-nav-line); }
+.tecteb-header-v1 .tth-nav__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  min-block-size: 3.25rem;
+}
+
+.tecteb-header-v1 .tth-cats__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-block-size: 2.5rem;
+  padding-inline: 1rem;
+  border-radius: 12px;
+  background: var(--tth-cats-bg);
+  color: var(--tth-cats-fg);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: var(--tth-cats-shadow);
+  transition: filter 0.2s var(--tth-ease), transform 0.2s var(--tth-ease);
+}
+.tecteb-header-v1 .tth-cats__btn:hover { filter: brightness(1.08); }
+
+.tecteb-header-v1 .tth-menu {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.25rem, 1.2vw, 1rem);
+  min-inline-size: 0;
+}
+.tecteb-header-v1 .tth-menu a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 44px;
+  padding-inline: 0.5rem;
+  color: var(--tth-menu-fg);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.2s var(--tth-ease);
+}
+.tecteb-header-v1 .tth-menu a::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0.5rem;
+  inset-block-end: 0.375rem;
+  block-size: 2px;
+  border-radius: 2px;
+  background: var(--tth-menu-line);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.24s var(--tth-ease);
+}
+.tecteb-header-v1 .tth-menu a:hover { color: var(--tth-menu-hover); }
+.tecteb-header-v1 .tth-menu a:hover::after,
+.tecteb-header-v1 .tth-menu a[aria-current="page"]::after { transform: scaleX(1); }
+.tecteb-header-v1 .tth-menu a[aria-current="page"] { color: var(--tth-menu-current); }
+
+.tecteb-header-v1 .tth-seller {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-block-size: 2.5rem;
+  margin-inline-start: auto;
+  padding-inline: 1rem;
+  border-radius: var(--tth-pill);
+  border: 1px solid var(--tth-seller-line);
+  background: var(--tth-seller-bg);
+  color: var(--tth-seller-fg);
+  font-size: 0.875rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color 0.2s var(--tth-ease), transform 0.2s var(--tth-ease);
+}
+.tecteb-header-v1 .tth-seller:hover { background: var(--tth-seller-hover); transform: translateY(-1px); }
+
+/* ---------------------------------------------------------------- Mega Menu */
+
+.tecteb-header-v1 .tth-mega {
+  position: absolute;
+  inset-block-start: calc(100% + 1px);
+  inset-inline: var(--tth-gutter);
+  z-index: 2;
+  max-block-size: min(72vh, 36rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 1.5rem;
+  border-radius: 0 0 18px 18px;
+  background: var(--tth-panel-bg);
+  color: var(--tth-panel-fg);
+  border: 1px solid var(--tth-panel-line);
+  border-block-start: 0;
+  box-shadow: var(--tth-panel-shadow);
+  animation: tth-fade 0.2s var(--tth-ease);
+}
+.tecteb-header-v1 .tth-mega__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 1.25rem 1.5rem;
+}
+.tecteb-header-v1 .tth-mega__col { padding: 0.75rem; border-radius: 14px; transition: background-color 0.2s var(--tth-ease); }
+.tecteb-header-v1 .tth-mega__col:hover { background: var(--tth-panel-hover); }
+.tecteb-header-v1 .tth-mega__head {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-block-size: 44px;
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--tth-panel-fg);
+}
+.tecteb-header-v1 .tth-mega__dot {
+  display: grid;
+  place-items: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: 10px;
+  background: var(--tth-panel-chip);
+  color: var(--tth-panel-accent);
+  flex: none;
+}
+.tecteb-header-v1 .tth-mega__list a {
+  display: flex;
+  align-items: center;
+  min-block-size: 36px;
+  padding-inline-start: 2.875rem;
+  color: var(--tth-panel-muted);
+  font-size: 0.875rem;
+  transition: color 0.18s var(--tth-ease), padding 0.18s var(--tth-ease);
+}
+.tecteb-header-v1 .tth-mega__list a:hover { color: var(--tth-panel-accent); padding-inline-start: 3.125rem; }
+.tecteb-header-v1 .tth-mega__head:hover { color: var(--tth-panel-accent); }
+.tecteb-header-v1 .tth-mega__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-block-start: 1.25rem;
+  padding-block-start: 1rem;
+  border-block-start: 1px solid var(--tth-panel-line);
+}
+.tecteb-header-v1 .tth-mega__all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-block-size: 44px;
+  color: var(--tth-panel-accent);
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------- کشوی موبایل */
+
+.tecteb-header-v1 .tth-burger { display: none; grid-area: burger; }
+
+.tecteb-header-v1 .tth-drawer {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inset-inline-end: auto;
+  inline-size: min(23rem, 100vw - 2.5rem);
+  max-inline-size: none;
+  block-size: 100dvh;
+  max-block-size: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--tth-panel-bg);
+  color: var(--tth-panel-fg);
+  box-shadow: var(--tth-panel-shadow);
+  overflow: hidden;
+}
+.tecteb-header-v1 .tth-drawer[open] { animation: tth-slide 0.26s var(--tth-ease); }
+.tecteb-header-v1 .tth-drawer::backdrop { background: rgb(4 20 31 / 0.55); }
+@keyframes tth-slide { from { transform: translateX(100%); } to { transform: none; } }
+.tecteb-header-v1 .tth-drawer__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  block-size: 100%;
+  padding: 1rem 1rem 1.5rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.tecteb-header-v1 .tth-drawer__head { display: flex; align-items: center; justify-content: space-between; }
+.tecteb-header-v1 .tth-drawer .tth-icon-btn { color: var(--tth-panel-fg); border: 1px solid var(--tth-panel-line); }
+.tecteb-header-v1 .tth-drawer .tth-icon-btn:hover { background: var(--tth-panel-hover); }
+.tecteb-header-v1 .tth-drawer__acct {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-block-size: 48px;
+  padding-inline: 1rem;
+  border-radius: 12px;
+  background: var(--tth-panel-chip);
+  color: var(--tth-panel-accent);
+  font-weight: 700;
+}
+.tecteb-header-v1 .tth-drawer__list { display: grid; }
+.tecteb-header-v1 .tth-drawer__list a,
+.tecteb-header-v1 .tth-drawer__cat > summary,
+.tecteb-header-v1 .tth-drawer__all {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-block-size: 48px;
+  padding-inline: 0.75rem;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.tecteb-header-v1 .tth-drawer__list a:hover,
+.tecteb-header-v1 .tth-drawer__cat > summary:hover { background: var(--tth-panel-hover); }
+.tecteb-header-v1 .tth-drawer__list a[aria-current="page"] { color: var(--tth-panel-accent); }
+.tecteb-header-v1 .tth-drawer__list--two { grid-template-columns: 1fr 1fr; }
+.tecteb-header-v1 .tth-drawer__title {
+  padding-inline: 0.75rem;
+  margin-block-end: 0.25rem;
+  color: var(--tth-panel-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.tecteb-header-v1 .tth-drawer__cats { padding-block-start: 1rem; border-block-start: 1px solid var(--tth-panel-line); }
+.tecteb-header-v1 .tth-drawer__cat > summary { cursor: pointer; list-style: none; }
+.tecteb-header-v1 .tth-drawer__cat > summary::-webkit-details-marker { display: none; }
+.tecteb-header-v1 .tth-drawer__cat[open] > summary .tth-i--chev { transform: rotate(180deg); }
+.tecteb-header-v1 .tth-drawer__cat ul { padding-inline-start: 1rem; padding-block-end: 0.5rem; }
+.tecteb-header-v1 .tth-drawer__cat ul a {
+  display: flex;
+  align-items: center;
+  min-block-size: 44px;
+  padding-inline: 0.75rem;
+  color: var(--tth-panel-muted);
+  font-size: 0.9375rem;
+}
+.tecteb-header-v1 .tth-drawer__all { color: var(--tth-panel-accent); font-weight: 700; }
+.tecteb-header-v1 .tth-seller--block { justify-content: center; min-block-size: 48px; margin-inline-start: 0; margin-block-start: auto; }
+
+/* ---------------------------------------------------------------- عرض کم (≤ ۱۰۷۹px) */
+
+@media (max-width: 1079.98px) {
+  .tecteb-header-v1 .tth-top {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "burger logo tools" "search search search";
+    gap: 0.625rem 0.5rem;
+    padding-block: 0.625rem 0.75rem;
+  }
+  .tecteb-header-v1.is-compact .tth-top { padding-block: 0.375rem 0.5rem; }
+  .tecteb-header-v1[data-js] .tth-burger { display: inline-flex; }
+  .tecteb-header-v1 .tth-search { max-inline-size: none; min-block-size: 2.875rem; }
+  .tecteb-header-v1 .tth-tool__label { display: none; }
+  .tecteb-header-v1 .tth-tool--account { padding-inline: 0.625rem; border: 0; }
+  .tecteb-header-v1 .tth-tool--wish { display: none; }
+  .tecteb-header-v1[data-js] .tth-nav { display: none; }
+  .tecteb-header-v1 .tth-logo__mark { inline-size: 2.375rem; block-size: 2.375rem; }
+}
+@media (max-width: 359.98px) {
+  .tecteb-header-v1 .tth-logo__word { font-size: 1.125rem; }
+  .tecteb-header-v1 .tth-tools { gap: 0; }
+}
+
+/* در حالت جمع‌وجورِ عریض، ردیف منو جمع می‌شود و دکمهٔ منو کل ناوبری را می‌دهد. */
+@media (min-width: 1080px) {
+  .tecteb-header-v1[data-js].is-compact .tth-nav { display: none; }
+  .tecteb-header-v1[data-js].is-compact .tth-top { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "burger logo search tools"; }
+  .tecteb-header-v1[data-js].is-compact .tth-burger { display: inline-flex; }
+}
+
+/* ---------------------------------------------------------------- بی جاوااسکریپت */
+
+.tecteb-header-v1:not([data-js]) .tth-js { display: none; }
+.tecteb-header-v1[data-js] .tth-nojs { display: none; }
+@media (max-width: 1079.98px) {
+  .tecteb-header-v1:not([data-js]) .tth-nav__row { flex-wrap: wrap; gap: 0.25rem 0.75rem; padding-block: 0.5rem; }
+  .tecteb-header-v1:not([data-js]) .tth-menu { flex-wrap: wrap; }
+  .tecteb-header-v1:not([data-js]) .tth-seller { margin-inline-start: 0; }
+}
+
+/* ---------------------------------------------------------------- کاهش حرکت */
+
+@media (prefers-reduced-motion: reduce) {
+  .tecteb-header-v1 *,
+  .tecteb-header-v1 *::before,
+  .tecteb-header-v1 *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .tecteb-header-v1 .tth-drawer[open],
+  .tecteb-header-v1.is-compact .tth-bar { animation: none; }
+}

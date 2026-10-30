@@ -1,104 +1,34 @@
 {
   "bytes": {
-    "shared/header-base.css": 20089,
-    "a/header-a.css": 3541,
-    "b/header-b.css": 3187,
-    "shared/header.js": 5652,
-    "shared/header.html": 12575
-  },
-  "a-home 1440px": {
-    "header_height": 136,
-    "min_target": 40,
-    "below_44": [
-      ":572×40",
-      "جست‌وجو:44×40",
-      "دسته‌بندی کالاها:186×40",
-      "همکاری فروشندگان:173×40"
-    ]
-  },
-  "a-home 1024px": {
-    "header_height": 127,
-    "min_target": 40,
-    "below_44": [
-      ":892×40",
-      "جست‌وجو:44×40"
-    ]
-  },
-  "a-home 768px": {
-    "header_height": 127,
-    "min_target": 40,
-    "below_44": [
-      ":639×40",
-      "جست‌وجو:44×40"
-    ]
-  },
-  "a-home 390px": {
-    "header_height": 127,
-    "min_target": 40,
-    "below_44": [
-      ":290×40",
-      "جست‌وجو:44×40"
-    ]
-  },
-  "a-home 320px": {
-    "header_height": 127,
-    "min_target": 40,
-    "below_44": [
-      ":220×40",
-      "جست‌وجو:44×40"
-    ]
-  },
-  "a-inner 1440px": {
-    "header_height": 136,
-    "min_target": 40,
-    "below_44": [
-      ":572×40",
-      "جست‌وجو:44×40",
-      "دسته‌بندی کالاها:186×40",
-      "همکاری فروشندگان:173×40"
-    ]
-  },
-  "a-inner 1024px": {
-    "header_height": 127,
-    "min_target": 40,
-    "below_44": [
-      ":892×40",
-      "جست‌وجو:44×40"
-    ]
-  },
-  "a-inner 768px": {
-    "header_height": 127,
-    "min_target": 40,
-    "below_44": [
-      ":639×40",
-      "جست‌وجو:44×40"
-    ]
-  },
-  "a-inner 390px": {
-    "header_height": 127,
-    "min_target": 40,
-    "below_44": [
-      ":290×40",
-      "جست‌وجو:44×40"
-    ]
-  },
-  "a-inner 320px": {
-    "header_height": 127,
-    "min_target": 40,
-    "below_44": [
-      ":220×40",
-      "جست‌وجو:44×40"
-    ]
+    "shared/header-base.css": 22717,
+    "b/header-b.css": 3398,
+    "shared/header.js": 7363,
+    "shared/header.html": 13542
   },
   "b-home 1440px": {
-    "header_height": 136,
+    "header_height": 122,
     "min_target": 40,
     "below_44": [
       ":572×40",
       "جست‌وجو:44×40",
       "دسته‌بندی کالاها:186×40",
-      "همکاری فروشندگان:173×40"
-    ]
+      "همکاری تأمین‌کنندگان:187×40"
+    ],
+    "counters": [
+      {
+        "overlap": 0,
+        "gap": 6,
+        "font": 13,
+        "h": 22
+      },
+      {
+        "overlap": 0,
+        "gap": 6,
+        "font": 13,
+        "h": 22
+      }
+    ],
+    "tool_gap": 8
   },
   "b-home 1024px": {
     "header_height": 127,
@@ -106,7 +36,16 @@
     "below_44": [
       ":892×40",
       "جست‌وجو:44×40"
-    ]
+    ],
+    "counters": [
+      {
+        "overlap": 0,
+        "gap": 6,
+        "font": 13,
+        "h": 22
+      }
+    ],
+    "tool_gap": 4
   },
   "b-home 768px": {
     "header_height": 127,
@@ -114,33 +53,69 @@
     "below_44": [
       ":639×40",
       "جست‌وجو:44×40"
-    ]
+    ],
+    "counters": [
+      {
+        "overlap": 0,
+        "gap": 6,
+        "font": 13,
+        "h": 22
+      }
+    ],
+    "tool_gap": 4
   },
   "b-home 390px": {
-    "header_height": 127,
-    "min_target": 40,
-    "below_44": [
-      ":290×40",
-      "جست‌وجو:44×40"
-    ]
+    "header_height": 67,
+    "min_target": 44,
+    "below_44": [],
+    "counters": [
+      {
+        "overlap": 0,
+        "gap": 6,
+        "font": 13,
+        "h": 22
+      }
+    ],
+    "tool_gap": 4
   },
   "b-home 320px": {
-    "header_height": 127,
-    "min_target": 40,
-    "below_44": [
-      ":220×40",
-      "جست‌وجو:44×40"
-    ]
+    "header_height": 67,
+    "min_target": 44,
+    "below_44": [],
+    "counters": [
+      {
+        "overlap": 0,
+        "gap": 4,
+        "font": 13,
+        "h": 22
+      }
+    ],
+    "tool_gap": 4
   },
   "b-inner 1440px": {
-    "header_height": 136,
+    "header_height": 122,
     "min_target": 40,
     "below_44": [
       ":572×40",
       "جست‌وجو:44×40",
       "دسته‌بندی کالاها:186×40",
-      "همکاری فروشندگان:173×40"
-    ]
+      "همکاری تأمین‌کنندگان:187×40"
+    ],
+    "counters": [
+      {
+        "overlap": 0,
+        "gap": 6,
+        "font": 13,
+        "h": 22
+      },
+      {
+        "overlap": 0,
+        "gap": 6,
+        "font": 13,
+        "h": 22
+      }
+    ],
+    "tool_gap": 8
   },
   "b-inner 1024px": {
     "header_height": 127,
@@ -148,7 +123,16 @@
     "below_44": [
       ":892×40",
       "جست‌وجو:44×40"
-    ]
+    ],
+    "counters": [
+      {
+        "overlap": 0,
+        "gap": 6,
+        "font": 13,
+        "h": 22
+      }
+    ],
+    "tool_gap": 4
   },
   "b-inner 768px": {
     "header_height": 127,
@@ -156,7 +140,16 @@
     "below_44": [
       ":639×40",
       "جست‌وجو:44×40"
-    ]
+    ],
+    "counters": [
+      {
+        "overlap": 0,
+        "gap": 6,
+        "font": 13,
+        "h": 22
+      }
+    ],
+    "tool_gap": 4
   },
   "b-inner 390px": {
     "header_height": 127,
@@ -164,7 +157,16 @@
     "below_44": [
       ":290×40",
       "جست‌وجو:44×40"
-    ]
+    ],
+    "counters": [
+      {
+        "overlap": 0,
+        "gap": 6,
+        "font": 13,
+        "h": 22
+      }
+    ],
+    "tool_gap": 4
   },
   "b-inner 320px": {
     "header_height": 127,
@@ -172,28 +174,26 @@
     "below_44": [
       ":220×40",
       "جست‌وجو:44×40"
-    ]
+    ],
+    "counters": [
+      {
+        "overlap": 0,
+        "gap": 4,
+        "font": 13,
+        "h": 22
+      }
+    ],
+    "tool_gap": 4
   },
-  "a sticky 1440": {
-    "full": 136,
-    "compact": 67
-  },
-  "a sticky 390": {
-    "compact": 119
-  },
-  "a sticky 320": {
-    "compact": 119
-  },
-  "a placeholder contrast": 7.66,
   "b sticky 1440": {
-    "full": 136,
-    "compact": 67
+    "full": 122,
+    "compact": 63
   },
   "b sticky 390": {
-    "compact": 119
+    "compact": 59
   },
   "b sticky 320": {
-    "compact": 119
+    "compact": 59
   },
   "b placeholder contrast": 5.26
 }
