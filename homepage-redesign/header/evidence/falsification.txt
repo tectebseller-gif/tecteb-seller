@@ -1,0 +1,11 @@
+1 CAUGHT  6 failing — reserved height removed (content jumps when the bar becomes fixed)
+     first: FAIL a sticky: no layout shift — content under the header did not move (CLS 0)  — main 246.1875→110.1875 cls=0
+2 CAUGHT  2 failing — a global selector slipped into the header CSS
+     first: FAIL scope: every selector in a/header-a.css starts with .tecteb-header-v1  — body
+3 CAUGHT  2 failing — Escape no longer returns focus to the button
+     first: FAIL a mega: Escape closes and returns focus to the button
+4 CAUGHT  28 failing — menu row kept on mobile (no drawer)
+     first: FAIL a-home 1024px: menu button shown, menu row moved into the drawer
+5 CAUGHT  1 failing — placeholder contrast lowered in B
+     first: FAIL b contrast: search placeholder ≥ 4.5:1 (axe does not check placeholders)  — 2.21
+5 of 5 mutations caught and restored

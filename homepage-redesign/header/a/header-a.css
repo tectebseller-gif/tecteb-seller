@@ -1,0 +1,84 @@
+/*
+ * طرح A — Premium Dark Medical. پوستهٔ تیرهٔ آبی نفتی، همان خانوادهٔ Hero ِ Concept C.
+ * فقط متغیرها و چند جزئیات تزئینی؛ ساختار و رفتار در shared/header-base.css است.
+ * کنتراست‌ها (WCAG، روی #071d2c): متن #e9f4f7 ≈ ۱۵:۱ · منو #cfe0e7 ≈ ۱۲:۱ ·
+ * فیروزه‌ای #63d3d6 ≈ ۹:۱ · سفید روی دکمهٔ دسته‌ها (#0f7a80→#0b676c) ≥ ۵٫۲:۱.
+ */
+
+.tecteb-header-v1--a {
+  --tth-bg: linear-gradient(180deg, #04141f 0%, #071d2c 100%);
+  --tth-bg-solid: #061a28;
+  --tth-fg: #e9f4f7;
+  --tth-brand: #ffffff;
+  --tth-line: rgb(255 255 255 / 0.1);
+  --tth-glass: rgb(5 22 34 / 0.9);
+  --tth-shadow: 0 14px 34px -16px rgb(0 0 0 / 0.7), 0 1px 0 rgb(99 211 214 / 0.22);
+  --tth-focus: #63d3d6;
+  --tth-focus-halo: rgb(4 20 31 / 0.85);
+  --tth-accent: #63d3d6;
+  --tth-accent-fg: #04141f;
+
+  --tth-search-bg: rgb(255 255 255 / 0.06);
+  --tth-search-line: rgb(255 255 255 / 0.16);
+  --tth-search-fg: #ffffff;
+  --tth-search-ph: #a5bcc7;
+  --tth-search-focus: #63d3d6;
+  --tth-search-glow: rgb(99 211 214 / 0.2);
+  --tth-go-bg: linear-gradient(135deg, #16949a, #0b676c);
+  --tth-go-fg: #ffffff;
+
+  --tth-tool-hover: rgb(255 255 255 / 0.08);
+  --tth-badge-bg: #63d3d6;
+  --tth-badge-fg: #04141f;
+
+  --tth-nav-bg: rgb(255 255 255 / 0.02);
+  --tth-nav-line: rgb(255 255 255 / 0.07);
+  --tth-cats-bg: linear-gradient(135deg, #0f7a80, #0b676c);
+  --tth-cats-fg: #ffffff;
+  --tth-cats-shadow: 0 8px 20px -10px rgb(22 148 154 / 0.85), inset 0 1px 0 rgb(255 255 255 / 0.16);
+  --tth-menu-fg: #cfe0e7;
+  --tth-menu-hover: #ffffff;
+  --tth-menu-current: #ffffff;
+  --tth-menu-line: #63d3d6;
+  --tth-seller-line: rgb(99 211 214 / 0.5);
+  --tth-seller-bg: rgb(99 211 214 / 0.08);
+  --tth-seller-fg: #8fe3e5;
+  --tth-seller-hover: rgb(99 211 214 / 0.18);
+
+  --tth-panel-bg: #08202f;
+  --tth-panel-fg: #e9f4f7;
+  --tth-panel-muted: #adc3cd;
+  --tth-panel-line: rgb(255 255 255 / 0.1);
+  --tth-panel-hover: rgb(255 255 255 / 0.05);
+  --tth-panel-chip: rgb(99 211 214 / 0.12);
+  --tth-panel-accent: #63d3d6;
+  --tth-panel-shadow: 0 28px 64px -24px rgb(0 0 0 / 0.75);
+}
+
+/* نور ملایم پشت جست‌وجو و خط فیروزه‌ای زیر نوار — همان زبان نوری Hero. */
+.tecteb-header-v1--a .tth-bar { isolation: isolate; border-block-end-color: transparent; }
+.tecteb-header-v1--a .tth-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38rem 9rem at 55% 30%, rgb(22 148 154 / 0.2), transparent 70%),
+    radial-gradient(22rem 8rem at 8% 0%, rgb(72 143 205 / 0.14), transparent 70%);
+}
+.tecteb-header-v1--a .tth-bar::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: -1px;
+  block-size: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(99 211 214 / 0.55) 30%, rgb(72 143 205 / 0.45) 70%, transparent);
+}
+.tecteb-header-v1--a .tth-logo__mark { box-shadow: 0 0 0 3px rgb(255 255 255 / 0.08), 0 6px 18px -6px rgb(99 211 214 / 0.45); }
+.tecteb-header-v1--a .tth-tool:hover .tth-i,
+.tecteb-header-v1--a .tth-icon-btn:hover .tth-i { color: #63d3d6; filter: drop-shadow(0 0 6px rgb(99 211 214 / 0.55)); }
+.tecteb-header-v1--a .tth-mega { background: linear-gradient(180deg, #08202f, #061a28); }
+.tecteb-header-v1--a .tth-mega__col { border: 1px solid transparent; }
+.tecteb-header-v1--a .tth-mega__col:hover { border-color: rgb(99 211 214 / 0.18); }

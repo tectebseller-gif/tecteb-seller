@@ -1,0 +1,6 @@
+a mega open 1440: none
+a drawer open 390: none
+a closed 1440: none
+b mega open 1440: none
+b drawer open 390: none
+b closed 1440: none

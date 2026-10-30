@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<title>هدر تک‌طب — طرح A (Premium Dark Medical) · نمونهٔ طراحی</title>
+<link rel="stylesheet" href="../shared/prototype-frame.css">
+<link rel="stylesheet" href="../plugin/tecteb-homepage/assets/css/tecteb-home.css">
+<link rel="stylesheet" href="shared/header-base.css">
+<link rel="stylesheet" href="a/header-a.css">
+<link rel="stylesheet" href="shared/proto.css">
+<script src="shared/header.js" defer></script>
+<script src="shared/proto.js" defer></script>
+<script src="../plugin/tecteb-homepage/assets/js/tecteb-home.js" defer></script>
+</head>
+<body class="proto-page">
+<p class="proto-banner">نمونهٔ طراحی هدر سراسری — <strong>طرح A · Premium Dark Medical</strong>. زیر آن جای محتوای صفحه‌های دیگر است، تا هدر روی صفحه‌ای جز صفحهٔ اصلی هم دیده شود. پیوندها جایی نمی‌روند و با کلیک، مقصد و منبعشان گفته می‌شود. دسته‌های منوی بازشو <strong>نمونه</strong>‌اند. فوتر فعلی Elementor فقط با یک نوار جای‌خالی نشان داده شده و <strong>هیچ تغییری نمی‌کند</strong>.</p>
+<div class="proto-bar">
+  <span><a href="a-home.html">طرح A · صفحهٔ اصلی</a> · <a href="a-inner.html" aria-current="page">طرح A · صفحهٔ دیگر</a> · <a href="b-home.html">طرح B · صفحهٔ اصلی</a> · <a href="b-inner.html">طرح B · صفحهٔ دیگر</a></span>
+  <span>حالت کاربر: <button type="button" data-proto-user="guest" aria-pressed="true">مهمان</button> <button type="button" data-proto-user="member" aria-pressed="false">واردشده</button></span>
+</div>
+<!--
+  هدر سراسری تک‌طب — نمونهٔ طراحی (نه کد اجرایی سایت).
+  یک ساختار برای هر دو طرح A و B؛ تفاوت فقط در پوسته (a/header-a.css، b/header-b.css).
+  هر پیوند یکی از سه برچسب `data-src` را دارد تا معلوم باشد از کجا آمده:
+    owner  نشانیِ اعلام‌شده در پیام مالک (فروشگاه، تعمیرات، همکاری)
+    wc     مسیر استاندارد ووکامرس؛ روی سایت واقعی سنجیده نشده
+    demo   نامعلوم در این محیط — فقط جای پیوند واقعی منوی وردپرس
+  در اجرا هیچ نشانی‌ای در کد نوشته نمی‌شود: منوها از «نمایش ← فهرست‌ها»، دسته‌ها از
+  product_cat و حساب/سبد/علاقه‌مندی از توابع خودِ ووکامرس و افزونهٔ علاقه‌مندی خوانده می‌شوند.
+-->
+<div class="tecteb-header-v1 tecteb-header-v1--a" data-tth-header data-user="guest" dir="rtl" lang="fa">
+  <a class="tth-skip" href="#main">رفتن به محتوای اصلی</a>
+  <svg class="tth-sprite" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="tth-i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+      <symbol id="tth-i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20c.9-3.6 3.7-5.6 7.2-5.6s6.3 2 7.2 5.6"/></symbol>
+      <symbol id="tth-i-heart" viewBox="0 0 24 24"><path d="M12 19.5s-7.2-4.3-7.2-9.4A4 4 0 0 1 12 7.6a4 4 0 0 1 7.2 2.5c0 5.1-7.2 9.4-7.2 9.4z"/></symbol>
+      <symbol id="tth-i-bag" viewBox="0 0 24 24"><path d="M5.5 8.5h13l-1 11h-11z"/><path d="M9 8.5V7a3 3 0 0 1 6 0v1.5"/></symbol>
+      <symbol id="tth-i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></symbol>
+      <symbol id="tth-i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+      <symbol id="tth-i-chev" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+      <symbol id="tth-i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></symbol>
+      <symbol id="tth-i-partner" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M11 7.5 6 16M13 7.5l5 8.5M7.2 18h9.6"/></symbol>
+      <symbol id="tth-i-out" viewBox="0 0 24 24"><path d="M14 5h4.5v14H14"/><path d="M10.5 8.5 7 12l3.5 3.5M7 12h9"/></symbol>
+      <symbol id="tth-i-back" viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></symbol>
+      <symbol id="tth-i-c-monitor" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="11.5" rx="1.8"/><path d="M6 11h2.5l1.5-3 2.5 5 1.5-2H18M12 16v3.5M8.5 19.5h7"/></symbol>
+      <symbol id="tth-i-c-or" viewBox="0 0 24 24"><ellipse cx="12" cy="8.5" rx="7" ry="3.5"/><path d="M12 2.5V5M7 12l-2.5 7M17 12l2.5 7"/><circle cx="12" cy="8.5" r="1.2"/></symbol>
+      <symbol id="tth-i-c-lab" viewBox="0 0 24 24"><path d="M9.5 3.5h5M10.5 3.5v5.5L5.5 18a1.8 1.8 0 0 0 1.6 2.5h9.8a1.8 1.8 0 0 0 1.6-2.5L13.5 9V3.5"/><path d="M8 14.5h8"/></symbol>
+      <symbol id="tth-i-c-bed" viewBox="0 0 24 24"><path d="M3.5 6v13M3.5 15.5h17V19M3.5 12h17v3.5"/><circle cx="8" cy="9.3" r="1.8"/><path d="M11.5 12V8.5h6a3 3 0 0 1 3 3v.5"/></symbol>
+      <symbol id="tth-i-c-syringe" viewBox="0 0 24 24"><path d="m15 4 5 5M17.5 6.5 9 15l-3-3 8.5-8.5M6 12l-2.5 2.5M9 15l-2.5 2.5L4 20M11 10l2 2"/></symbol>
+      <symbol id="tth-i-c-care" viewBox="0 0 24 24"><circle cx="10" cy="4.8" r="1.8"/><path d="M10 7.5v6h5l2 5.5M10 10.5h4"/><path d="M8 11.2a5 5 0 1 0 6.6 6.3"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="tth-bar" data-tth-bar>
+    <div class="tth-wrap tth-top">
+      <button class="tth-burger tth-icon-btn" type="button" data-tth-burger aria-controls="tth-drawer" aria-expanded="false" aria-label="منوی سایت">
+        <svg class="tth-i" aria-hidden="true"><use href="#tth-i-menu"/></svg>
+      </button>
+
+      <a class="tth-logo" href="/" data-src="wc" aria-label="تک‌طب — صفحهٔ اصلی">
+        <img class="tth-logo__mark" src="../shared/brand/tecteb-logo-mark-96.png" width="96" height="96" alt="">
+        <span class="tth-logo__word">تک‌طب</span>
+      </a>
+
+      <form class="tth-search" role="search" action="/" method="get" data-src="wc">
+        <label class="tth-sr" for="tth-s">جست‌وجوی محصولات</label>
+        <input class="tth-search__input" id="tth-s" type="search" name="s" placeholder="جست‌وجوی نام، برند یا کد کالا…" autocomplete="off" enterkeyhint="search">
+        <input type="hidden" name="post_type" value="product">
+        <button class="tth-search__go" type="submit" aria-label="جست‌وجو">
+          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-search"/></svg>
+        </button>
+      </form>
+
+      <div class="tth-tools">
+        <!-- مهمان -->
+        <a class="tth-tool tth-tool--account" href="/my-account/" data-src="wc" data-tth-guest>
+          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-user"/></svg>
+          <span class="tth-tool__label">ورود / ثبت‌نام</span>
+        </a>
+        <!-- واردشده: در اجرا فقط یکی از این دو را سرور چاپ می‌کند (is_user_logged_in) -->
+        <div class="tth-acct" data-tth-disclosure data-tth-member hidden>
+          <a class="tth-tool tth-tool--account tth-nojs" href="/my-account/" data-src="wc">
+            <svg class="tth-i" aria-hidden="true"><use href="#tth-i-user"/></svg>
+            <span class="tth-tool__label">حساب من</span>
+          </a>
+          <button class="tth-tool tth-tool--account tth-js" type="button" data-tth-toggle aria-expanded="false" aria-controls="tth-acct-menu">
+            <svg class="tth-i" aria-hidden="true"><use href="#tth-i-user"/></svg>
+            <span class="tth-tool__label">حساب من</span>
+            <svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg>
+          </button>
+          <div class="tth-pop" id="tth-acct-menu" hidden>
+            <p class="tth-pop__hello">سلام، <bdi>کاربر نمونه</bdi></p>
+            <ul class="tth-pop__list">
+              <li><a href="/my-account/" data-src="wc">پیشخوان حساب</a></li>
+              <li><a href="/my-account/orders/" data-src="wc">سفارش‌ها</a></li>
+              <li><a href="/my-account/edit-address/" data-src="wc">نشانی‌ها</a></li>
+              <li><a href="/my-account/edit-account/" data-src="wc">جزئیات حساب</a></li>
+              <li class="tth-pop__sep"><a href="/my-account/customer-logout/" data-src="wc"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-out"/></svg>خروج</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <a class="tth-tool tth-tool--wish" href="#wishlist" data-src="demo">
+          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-heart"/></svg>
+          <span class="tth-sr">علاقه‌مندی‌ها،</span>
+          <span class="tth-badge" data-tth-count>۲</span>
+          <span class="tth-sr">مورد</span>
+        </a>
+        <a class="tth-tool tth-tool--cart" href="/cart/" data-src="wc">
+          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-bag"/></svg>
+          <span class="tth-sr">سبد خرید،</span>
+          <span class="tth-badge" data-tth-count>۳</span>
+          <span class="tth-sr">کالا</span>
+        </a>
+      </div>
+    </div>
+
+    <nav class="tth-nav" aria-label="منوی اصلی">
+      <div class="tth-wrap tth-nav__row">
+        <div class="tth-cats" data-tth-disclosure data-tth-hover>
+          <a class="tth-cats__btn tth-nojs" href="/shop/" data-src="owner">
+            <svg class="tth-i" aria-hidden="true"><use href="#tth-i-grid"/></svg>دسته‌بندی کالاها
+          </a>
+          <button class="tth-cats__btn tth-js" type="button" data-tth-toggle aria-expanded="false" aria-controls="tth-mega">
+            <svg class="tth-i" aria-hidden="true"><use href="#tth-i-grid"/></svg>
+            دسته‌بندی کالاها
+            <svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg>
+          </button>
+          <div class="tth-mega" id="tth-mega" hidden>
+            <div class="tth-mega__grid">
+              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-1" data-src="demo"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-monitor"/></svg></span>مانیتورینگ و علائم حیاتی</a><ul class="tth-mega__list"><li><a href="#cat-1-1" data-src="demo">مانیتور علائم حیاتی</a></li><li><a href="#cat-1-2" data-src="demo">پالس‌اکسیمتر</a></li><li><a href="#cat-1-3" data-src="demo">فشارسنج</a></li><li><a href="#cat-1-4" data-src="demo">دماسنج</a></li><li><a href="#cat-1-5" data-src="demo">الکتروکاردیوگراف</a></li></ul></div>
+              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-2" data-src="demo"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-or"/></svg></span>تجهیزات اتاق عمل</a><ul class="tth-mega__list"><li><a href="#cat-2-1" data-src="demo">چراغ جراحی</a></li><li><a href="#cat-2-2" data-src="demo">تخت جراحی</a></li><li><a href="#cat-2-3" data-src="demo">الکتروکوتر</a></li><li><a href="#cat-2-4" data-src="demo">ساکشن</a></li></ul></div>
+              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-3" data-src="demo"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-lab"/></svg></span>آزمایشگاه</a><ul class="tth-mega__list"><li><a href="#cat-3-1" data-src="demo">سانتریفیوژ</a></li><li><a href="#cat-3-2" data-src="demo">میکروسکوپ</a></li><li><a href="#cat-3-3" data-src="demo">انکوباتور</a></li><li><a href="#cat-3-4" data-src="demo">پیپت و سمپلر</a></li></ul></div>
+              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-4" data-src="demo"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-bed"/></svg></span>تجهیزات بیمارستانی</a><ul class="tth-mega__list"><li><a href="#cat-4-1" data-src="demo">سرنگ‌پمپ</a></li><li><a href="#cat-4-2" data-src="demo">انفوزیون‌پمپ</a></li><li><a href="#cat-4-3" data-src="demo">تخت بیمار</a></li><li><a href="#cat-4-4" data-src="demo">ترالی و پایه سرم</a></li></ul></div>
+              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-5" data-src="demo"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-syringe"/></svg></span>ملزومات مصرفی</a><ul class="tth-mega__list"><li><a href="#cat-5-1" data-src="demo">دستکش</a></li><li><a href="#cat-5-2" data-src="demo">سرنگ و سوزن</a></li><li><a href="#cat-5-3" data-src="demo">گاز و باند استریل</a></li><li><a href="#cat-5-4" data-src="demo">ماسک</a></li></ul></div>
+              <div class="tth-mega__col"><a class="tth-mega__head" href="#cat-6" data-src="demo"><span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-c-care"/></svg></span>توان‌بخشی و مراقبت در منزل</a><ul class="tth-mega__list"><li><a href="#cat-6-1" data-src="demo">ویلچر</a></li><li><a href="#cat-6-2" data-src="demo">واکر و عصا</a></li><li><a href="#cat-6-3" data-src="demo">نبولایزر</a></li><li><a href="#cat-6-4" data-src="demo">اکسیژن‌ساز</a></li></ul></div>
+            </div>
+            <div class="tth-mega__foot">
+              <a class="tth-mega__all" href="/shop/" data-src="owner">مشاهدهٔ همهٔ محصولات در فروشگاه<svg class="tth-i" aria-hidden="true"><use href="#tth-i-back"/></svg></a>
+              <span class="proto-note">نمونهٔ نمایشی — در اجرا از دسته‌های واقعی ووکامرس (product_cat) خوانده می‌شود</span>
+            </div>
+          </div>
+        </div>
+
+        <ul class="tth-menu">
+          <li><a href="/" data-src="wc" aria-current="page">صفحه اصلی</a></li>
+          <li><a href="/shop/" data-src="owner">فروشگاه</a></li>
+          <li><a href="#blog" data-src="demo">وبلاگ</a></li>
+          <li><a href="/https-tecteb-com-repair-request/" data-src="owner">درخواست تعمیرات</a></li>
+          <li><a href="#about" data-src="demo">درباره تک‌طب</a></li>
+          <li><a href="#contact" data-src="demo">تماس با ما</a></li>
+        </ul>
+
+        <a class="tth-seller" href="/landing-seller/" data-src="owner">
+          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-partner"/></svg>همکاری فروشندگان
+        </a>
+      </div>
+    </nav>
+  </div>
+
+  <dialog class="tth-drawer" id="tth-drawer" aria-label="منوی سایت">
+    <div class="tth-drawer__panel">
+      <div class="tth-drawer__head">
+        <a class="tth-logo" href="/" data-src="wc" aria-label="تک‌طب — صفحهٔ اصلی">
+          <img class="tth-logo__mark" src="../shared/brand/tecteb-logo-mark-96.png" width="96" height="96" alt="">
+          <span class="tth-logo__word">تک‌طب</span>
+        </a>
+        <button class="tth-icon-btn" type="button" data-tth-close aria-label="بستن منو">
+          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-close"/></svg>
+        </button>
+      </div>
+
+      <div class="tth-drawer__account">
+        <a class="tth-drawer__acct" href="/my-account/" data-src="wc" data-tth-guest>
+          <svg class="tth-i" aria-hidden="true"><use href="#tth-i-user"/></svg>ورود / ثبت‌نام
+        </a>
+        <div data-tth-member hidden>
+          <p class="tth-pop__hello">سلام، <bdi>کاربر نمونه</bdi></p>
+          <ul class="tth-drawer__list tth-drawer__list--two">
+            <li><a href="/my-account/" data-src="wc">پیشخوان حساب</a></li>
+            <li><a href="/my-account/orders/" data-src="wc">سفارش‌ها</a></li>
+            <li><a href="/my-account/customer-logout/" data-src="wc">خروج</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <nav aria-label="منوی اصلی (موبایل)">
+        <ul class="tth-drawer__list">
+          <li><a href="/" data-src="wc" aria-current="page">صفحه اصلی</a></li>
+          <li><a href="/shop/" data-src="owner">فروشگاه</a></li>
+          <li><a href="#blog" data-src="demo">وبلاگ</a></li>
+          <li><a href="/https-tecteb-com-repair-request/" data-src="owner">درخواست تعمیرات</a></li>
+          <li><a href="#about" data-src="demo">درباره تک‌طب</a></li>
+          <li><a href="#contact" data-src="demo">تماس با ما</a></li>
+          <li><a href="#wishlist" data-src="demo">علاقه‌مندی‌ها <span class="tth-badge">۲</span></a></li>
+        </ul>
+      </nav>
+
+      <section class="tth-drawer__cats" aria-labelledby="tth-drawer-cats">
+        <h2 class="tth-drawer__title" id="tth-drawer-cats">دسته‌بندی کالاها</h2>
+        <details class="tth-drawer__cat"><summary>مانیتورینگ و علائم حیاتی<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-1" data-src="demo">همهٔ مانیتورینگ و علائم حیاتی</a></li><li><a href="#cat-1-1" data-src="demo">مانیتور علائم حیاتی</a></li><li><a href="#cat-1-2" data-src="demo">پالس‌اکسیمتر</a></li><li><a href="#cat-1-3" data-src="demo">فشارسنج</a></li><li><a href="#cat-1-4" data-src="demo">دماسنج</a></li><li><a href="#cat-1-5" data-src="demo">الکتروکاردیوگراف</a></li></ul></details>
+        <details class="tth-drawer__cat"><summary>تجهیزات اتاق عمل<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-2" data-src="demo">همهٔ تجهیزات اتاق عمل</a></li><li><a href="#cat-2-1" data-src="demo">چراغ جراحی</a></li><li><a href="#cat-2-2" data-src="demo">تخت جراحی</a></li><li><a href="#cat-2-3" data-src="demo">الکتروکوتر</a></li><li><a href="#cat-2-4" data-src="demo">ساکشن</a></li></ul></details>
+        <details class="tth-drawer__cat"><summary>آزمایشگاه<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-3" data-src="demo">همهٔ آزمایشگاه</a></li><li><a href="#cat-3-1" data-src="demo">سانتریفیوژ</a></li><li><a href="#cat-3-2" data-src="demo">میکروسکوپ</a></li><li><a href="#cat-3-3" data-src="demo">انکوباتور</a></li><li><a href="#cat-3-4" data-src="demo">پیپت و سمپلر</a></li></ul></details>
+        <details class="tth-drawer__cat"><summary>تجهیزات بیمارستانی<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-4" data-src="demo">همهٔ تجهیزات بیمارستانی</a></li><li><a href="#cat-4-1" data-src="demo">سرنگ‌پمپ</a></li><li><a href="#cat-4-2" data-src="demo">انفوزیون‌پمپ</a></li><li><a href="#cat-4-3" data-src="demo">تخت بیمار</a></li><li><a href="#cat-4-4" data-src="demo">ترالی و پایه سرم</a></li></ul></details>
+        <details class="tth-drawer__cat"><summary>ملزومات مصرفی<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-5" data-src="demo">همهٔ ملزومات مصرفی</a></li><li><a href="#cat-5-1" data-src="demo">دستکش</a></li><li><a href="#cat-5-2" data-src="demo">سرنگ و سوزن</a></li><li><a href="#cat-5-3" data-src="demo">گاز و باند استریل</a></li><li><a href="#cat-5-4" data-src="demo">ماسک</a></li></ul></details>
+        <details class="tth-drawer__cat"><summary>توان‌بخشی و مراقبت در منزل<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary><ul><li><a href="#cat-6" data-src="demo">همهٔ توان‌بخشی و مراقبت در منزل</a></li><li><a href="#cat-6-1" data-src="demo">ویلچر</a></li><li><a href="#cat-6-2" data-src="demo">واکر و عصا</a></li><li><a href="#cat-6-3" data-src="demo">نبولایزر</a></li><li><a href="#cat-6-4" data-src="demo">اکسیژن‌ساز</a></li></ul></details>
+        <a class="tth-drawer__all" href="/shop/" data-src="owner">همهٔ محصولات در فروشگاه</a>
+      </section>
+
+      <a class="tth-seller tth-seller--block" href="/landing-seller/" data-src="owner">
+        <svg class="tth-i" aria-hidden="true"><use href="#tth-i-partner"/></svg>همکاری فروشندگان
+      </a>
+    </div>
+  </dialog>
+</div>
+
+<main id="main">
+<div class="proto-slot proto-slot--page" role="presentation">محتوای صفحه‌های دیگر سایت (فروشگاه، محصول، وبلاگ، حساب کاربری…) — در این مرحله بدون تغییر؛ فقط برای دیدن هدر روی صفحه‌ای غیر از صفحهٔ اصلی</div>
+</main>
+<div class="proto-slot proto-slot--footer" role="presentation">فوتر فعلی سایت (Elementor) — کاملاً بدون تغییر؛ این نوار فقط جای آن است</div>
+</body>
+</html>

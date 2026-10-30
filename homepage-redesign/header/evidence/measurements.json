@@ -1,0 +1,199 @@
+{
+  "bytes": {
+    "shared/header-base.css": 20089,
+    "a/header-a.css": 3541,
+    "b/header-b.css": 3187,
+    "shared/header.js": 5652,
+    "shared/header.html": 12575
+  },
+  "a-home 1440px": {
+    "header_height": 136,
+    "min_target": 40,
+    "below_44": [
+      ":572×40",
+      "جست‌وجو:44×40",
+      "دسته‌بندی کالاها:186×40",
+      "همکاری فروشندگان:173×40"
+    ]
+  },
+  "a-home 1024px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":892×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "a-home 768px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":639×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "a-home 390px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":290×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "a-home 320px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":220×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "a-inner 1440px": {
+    "header_height": 136,
+    "min_target": 40,
+    "below_44": [
+      ":572×40",
+      "جست‌وجو:44×40",
+      "دسته‌بندی کالاها:186×40",
+      "همکاری فروشندگان:173×40"
+    ]
+  },
+  "a-inner 1024px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":892×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "a-inner 768px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":639×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "a-inner 390px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":290×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "a-inner 320px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":220×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "b-home 1440px": {
+    "header_height": 136,
+    "min_target": 40,
+    "below_44": [
+      ":572×40",
+      "جست‌وجو:44×40",
+      "دسته‌بندی کالاها:186×40",
+      "همکاری فروشندگان:173×40"
+    ]
+  },
+  "b-home 1024px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":892×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "b-home 768px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":639×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "b-home 390px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":290×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "b-home 320px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":220×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "b-inner 1440px": {
+    "header_height": 136,
+    "min_target": 40,
+    "below_44": [
+      ":572×40",
+      "جست‌وجو:44×40",
+      "دسته‌بندی کالاها:186×40",
+      "همکاری فروشندگان:173×40"
+    ]
+  },
+  "b-inner 1024px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":892×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "b-inner 768px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":639×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "b-inner 390px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":290×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "b-inner 320px": {
+    "header_height": 127,
+    "min_target": 40,
+    "below_44": [
+      ":220×40",
+      "جست‌وجو:44×40"
+    ]
+  },
+  "a sticky 1440": {
+    "full": 136,
+    "compact": 67
+  },
+  "a sticky 390": {
+    "compact": 119
+  },
+  "a sticky 320": {
+    "compact": 119
+  },
+  "a placeholder contrast": 7.66,
+  "b sticky 1440": {
+    "full": 136,
+    "compact": 67
+  },
+  "b sticky 390": {
+    "compact": 119
+  },
+  "b sticky 320": {
+    "compact": 119
+  },
+  "b placeholder contrast": 5.26
+}
