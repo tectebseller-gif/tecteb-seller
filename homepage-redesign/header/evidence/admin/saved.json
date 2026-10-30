@@ -1,0 +1,315 @@
+{
+  "schema": 1,
+  "version": 2,
+  "hide_empty": true,
+  "links": {
+    "supplier": "/landing-seller/"
+  },
+  "categories": [
+    {
+      "term_id": 101,
+      "enabled": true,
+      "icon_id": 5001,
+      "children": [
+        {
+          "term_id": 201,
+          "enabled": true
+        },
+        {
+          "term_id": 202,
+          "enabled": true
+        },
+        {
+          "term_id": 203,
+          "enabled": true
+        },
+        {
+          "term_id": 204,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "term_id": 102,
+      "enabled": true,
+      "icon_id": 5002,
+      "children": [
+        {
+          "term_id": 207,
+          "enabled": true
+        },
+        {
+          "term_id": 208,
+          "enabled": true
+        },
+        {
+          "term_id": 209,
+          "enabled": true
+        },
+        {
+          "term_id": 210,
+          "enabled": false
+        }
+      ]
+    },
+    {
+      "term_id": 103,
+      "enabled": true,
+      "icon_id": 5003,
+      "children": [
+        {
+          "term_id": 212,
+          "enabled": true
+        },
+        {
+          "term_id": 213,
+          "enabled": true
+        },
+        {
+          "term_id": 214,
+          "enabled": true
+        },
+        {
+          "term_id": 215,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "term_id": 104,
+      "enabled": true,
+      "icon_id": 5004,
+      "children": [
+        {
+          "term_id": 217,
+          "enabled": true
+        },
+        {
+          "term_id": 218,
+          "enabled": true
+        },
+        {
+          "term_id": 219,
+          "enabled": true
+        },
+        {
+          "term_id": 220,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "term_id": 105,
+      "enabled": true,
+      "icon_id": 5005,
+      "children": [
+        {
+          "term_id": 222,
+          "enabled": true
+        },
+        {
+          "term_id": 223,
+          "enabled": true
+        },
+        {
+          "term_id": 224,
+          "enabled": true
+        },
+        {
+          "term_id": 225,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "term_id": 106,
+      "enabled": true,
+      "icon_id": 5006,
+      "children": [
+        {
+          "term_id": 227,
+          "enabled": true
+        },
+        {
+          "term_id": 228,
+          "enabled": true
+        },
+        {
+          "term_id": 229,
+          "enabled": true
+        },
+        {
+          "term_id": 230,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "term_id": 107,
+      "enabled": true,
+      "icon_id": 5007,
+      "children": [
+        {
+          "term_id": 231,
+          "enabled": true
+        },
+        {
+          "term_id": 232,
+          "enabled": true
+        },
+        {
+          "term_id": 233,
+          "enabled": true
+        },
+        {
+          "term_id": 234,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "term_id": 108,
+      "enabled": true,
+      "icon_id": 5008,
+      "children": [
+        {
+          "term_id": 235,
+          "enabled": true
+        },
+        {
+          "term_id": 236,
+          "enabled": true
+        },
+        {
+          "term_id": 237,
+          "enabled": true
+        },
+        {
+          "term_id": 238,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "term_id": 109,
+      "enabled": true,
+      "icon_id": 5009,
+      "children": [
+        {
+          "term_id": 239,
+          "enabled": true
+        },
+        {
+          "term_id": 240,
+          "enabled": true
+        },
+        {
+          "term_id": 241,
+          "enabled": true
+        },
+        {
+          "term_id": 242,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "term_id": 110,
+      "enabled": true,
+      "icon_id": 5010,
+      "children": [
+        {
+          "term_id": 244,
+          "enabled": true
+        },
+        {
+          "term_id": 245,
+          "enabled": true
+        },
+        {
+          "term_id": 246,
+          "enabled": true
+        },
+        {
+          "term_id": 247,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "term_id": 111,
+      "enabled": true,
+      "icon_id": 5011,
+      "children": [
+        {
+          "term_id": 248,
+          "enabled": true
+        },
+        {
+          "term_id": 249,
+          "enabled": true
+        },
+        {
+          "term_id": 250,
+          "enabled": true
+        },
+        {
+          "term_id": 251,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "term_id": 112,
+      "enabled": true,
+      "icon_id": 5012,
+      "children": [
+        {
+          "term_id": 252,
+          "enabled": false
+        },
+        {
+          "term_id": 254,
+          "enabled": true
+        },
+        {
+          "term_id": 269,
+          "enabled": true
+        },
+        {
+          "term_id": 255,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "term_id": 113,
+      "enabled": true,
+      "icon_id": 5013,
+      "children": [
+        {
+          "term_id": 257,
+          "enabled": true
+        },
+        {
+          "term_id": 258,
+          "enabled": true
+        },
+        {
+          "term_id": 259,
+          "enabled": true
+        },
+        {
+          "term_id": 260,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "term_id": 114,
+      "enabled": true,
+      "icon_id": 6001,
+      "children": []
+    }
+  ]
+}

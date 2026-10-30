@@ -4,7 +4,7 @@
  * بی این فایل هم هدر کامل است: «دسته‌بندی کالاها» و «حساب من» پیوند ساده‌اند،
  * و منو در موبایل باز و چندسطری نمایش داده می‌شود (header-base.css، بخش «بی جاوااسکریپت»).
  *
- * چهار کار:
+ * پنج کار:
  *   ۱. بازشوها (Mega Menu و منوی حساب): الگوی disclosure، نه نقش ARIA ِ menu —
  *      دکمه + aria-expanded + پنل؛ Esc می‌بندد و فوکوس را به دکمه برمی‌گرداند؛
  *      خروج فوکوس یا کلیک بیرون می‌بندد؛ هاور فقط روی ماوس و با تأخیر.
@@ -12,6 +12,7 @@
  *      می‌بندد، فوکوس به دکمهٔ منو برمی‌گردد.
  *   ۳. حالت جمع‌وجور: ریشه ارتفاع کامل را نگه می‌دارد (--tth-reserve)، پس
  *      fixed شدنِ نوار هیچ چیزی را جابه‌جا نمی‌کند.
+ *   ۵. دو ستون Mega Menu: دستهٔ فعال با فوکوس (فوری) یا ماوس (با تأخیر کوتاه).
  *   ۴. دکمهٔ جست‌وجو (فقط موبایلِ صفحهٔ اصلی، با CSS): همان فرم هدر را روی محتوا باز
  *      می‌کند و فوکوس را به کادر می‌برد؛ Esc می‌بندد و فوکوس را به دکمه برمی‌گرداند.
  *      فرم و رفتار ارسالش هیچ تغییری نمی‌کنند — فقط دیده‌شدنش.
@@ -68,6 +69,22 @@
     });
     document.addEventListener('click', (e) => {
       items.forEach((d) => { if (!d.wrap.contains(e.target)) close(d); });
+    });
+
+    // دو ستون Mega Menu: فوکوس یا ماوس روی یک دستهٔ اصلی، زیردسته‌های همان را نشان می‌دهد.
+    // فوکوس فوری است (کیبورد)؛ ماوس با تأخیر کوتاه، تا حرکت مورب به‌سوی ستون زیردسته‌ها از
+    // روی دسته‌های دیگر، دستهٔ فعال را عوض نکند.
+    const mains = [...root.querySelectorAll('.tth-mega__item')];
+    let aim = 0;
+    const activate = (it) => mains.forEach((o) => o.classList.toggle('is-active', o === it));
+    mains.forEach((it) => {
+      it.addEventListener('focusin', () => { clearTimeout(aim); activate(it); });
+      it.querySelector('.tth-mega__main').addEventListener('pointerenter', (e) => {
+        clearTimeout(aim);
+        if (e.pointerType === 'mouse') aim = setTimeout(() => activate(it), 120);
+        else activate(it);
+      });
+      it.querySelector('.tth-mega__main').addEventListener('pointerleave', () => clearTimeout(aim));
     });
 
     // --- ۲. کشوی موبایل

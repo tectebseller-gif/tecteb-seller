@@ -1,0 +1,45 @@
+PASS start: the 13 current main categories, in the site's order
+PASS start: no console error, no request outside this machine
+PASS menu: the page lives under «تک‌طب ← مدیریت هدر», separate from «بازارگاه تک‌طب»
+PASS preview: the real header B shows the same 13, same order (desktop, mega open)
+PASS axe: the dashboard (content area) — 0 violations
+PASS order: «پایین بردن» moves the first category down — by keyboard
+PASS order: focus follows the moved item (the same button still focused)
+PASS toggle: «در هدر» off hides it without removing it from the list
+PASS axe: with a disabled card on the page — 0 violations
+PASS toggle: the preview drops «هتلینگ» and keeps the rest in order
+PASS dirty: «تغییرات ذخیره‌نشده» appears and «بازگردانی» is enabled
+PASS add main: a real product_cat term is added at the end, enabled, no icon, no sub-categories
+PASS add main: categories already in the header (and the WooCommerce default) cannot be added twice
+PASS icon: chosen from the media library, stored as the attachment ID
+PASS icon: focus returns to the icon button after the dialog closes
+PASS upload: a non-image file and a > 256 KB image are refused with a message
+PASS upload: a valid WebP is added to the library and selected
+PASS children: the picker offers exactly the real descendants of that category (grandchildren included)
+PASS children: nothing from another category is offered
+PASS children: the picker search narrows the list
+PASS children: a picked sub-category is added at the end, enabled
+PASS children: reorder, disable and remove each change only what they say
+PASS save: the stored data has only IDs, booleans and order — no name, slug or URL of any category
+PASS save: keys are exactly schema, version, hide_empty, links, categories[term_id, enabled, icon_id, children[term_id, enabled]]
+PASS save: the version goes up and «تغییرات ذخیره‌نشده» disappears
+PASS rename in WooCommerce: the header shows the new name with no header setting touched
+PASS moved in WooCommerce: a sub-category no longer under its category is flagged in the dashboard
+PASS moved in WooCommerce: …and is not shown under the old category in the header
+PASS deleted in WooCommerce: the dashboard says so; nothing else is pulled in to replace it
+PASS mobile preview: the drawer lists exactly the same enabled categories, same order
+PASS validate: an unsafe supplier link is refused and nothing is saved
+PASS revert: «بازگردانی تغییرات» returns the form to the last save
+PASS limit: more than 12 sub-categories under one category is refused
+PASS import: the 13 items of the current menu are listed with their category IDs
+PASS import: rebuilds the list from the menu — same 13, same order, no icons, no sub-categories — not yet saved
+PASS import: with no icon chosen the header shows a neutral placeholder, not a broken image
+PASS 1280px: no horizontal overflow, no error
+PASS 1280px: dashboard controls ≥ 24px wide and ≥ 20px tall
+PASS 1024px: no horizontal overflow, no error
+PASS 1024px: dashboard controls ≥ 24px wide and ≥ 20px tall
+PASS 390px: no horizontal overflow, no error
+PASS 390px: dashboard controls ≥ 24px wide and ≥ 20px tall
+PASS axe: the dashboard at 390px — 0 violations
+
+43 passed, 0 failed

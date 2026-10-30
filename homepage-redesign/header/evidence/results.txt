@@ -106,13 +106,19 @@ PASS links: every category link is marked as sample data (none passes as a real 
 PASS links: no empty "#", no javascript: and no absolute production URL
 PASS links: the three owner addresses are the ones in the brief
 PASS links: every current menu item is present, in order
-NOTE links in the header: 96 — owner 9, wc 16, demo 8 (نامعلوم؛ در اجرا از منوی وردپرس), sample 62 (دسته‌های نمونه؛ در اجرا از product_cat)
+NOTE links in the header: 173 — owner 9, wc 16, demo 8 (نامعلوم؛ در اجرا از منوی وردپرس), sample 139 (دسته‌های نمونه؛ در اجرا از product_cat)
 PASS links: a click goes nowhere and says so (no demo link presented as real)
 PASS b mega: Enter opens the panel (aria-expanded=true)
 PASS b mega: panel paints above the homepage Hero (z-order)
 PASS b mega: the sample categories say they are samples
 PASS b axe: header with mega menu open — 0 violations
 PASS b mega: Tab moves into the panel
+PASS b mega: keyboard walks category → its sub-categories → next category; one pane at a time
+PASS b mega: mouse on a category shows its sub-categories (after a short delay)
+PASS b mega: the 13 main categories, in the saved order, from the data — same list in the drawer
+PASS b mega: only the selected, enabled sub-categories — same in the drawer (the disabled «هولتر» nowhere)
+PASS b mega: a selected sub-category with no products is hidden («ابزار ارتوپدی», hide_empty on)
+PASS b mega: every category icon is decorative (alt="") — the name is the label
 PASS b mega: Escape closes and returns focus to the button
 PASS b mega: mouse hover opens after a short delay and leaving closes it
 PASS b account: guest sees «ورود / ثبت‌نام», not the member menu
@@ -157,4 +163,4 @@ PASS b axe: header (closed) — 0 violations, including colour contrast
 PASS b contrast: search placeholder ≥ 4.5:1 (axe does not check placeholders)
 PASS b isolation: header CSS changes no style of the homepage or the footer slot (286 elements)
 
-157 passed, 0 failed
+163 passed, 0 failed

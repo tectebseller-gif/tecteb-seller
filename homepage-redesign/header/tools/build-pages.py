@@ -15,53 +15,33 @@
 """
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import shutil
+import subprocess
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parents[1]
 WP_ROOT = pathlib.Path("/home/user/wp/core")
 LOCAL = "http://127.0.0.1:8090"
 
-# نمونهٔ نمایشی — در اجرا از product_cat خوانده می‌شود. نام‌ها دادهٔ سایت نیستند.
-CATEGORIES = [
-    ("c-monitor", "مانیتورینگ و علائم حیاتی", ["مانیتور علائم حیاتی", "پالس‌اکسیمتر", "فشارسنج", "دماسنج", "الکتروکاردیوگراف"]),
-    ("c-or", "تجهیزات اتاق عمل", ["چراغ جراحی", "تخت جراحی", "الکتروکوتر", "ساکشن"]),
-    ("c-lab", "آزمایشگاه", ["سانتریفیوژ", "میکروسکوپ", "انکوباتور", "پیپت و سمپلر"]),
-    ("c-bed", "تجهیزات بیمارستانی", ["سرنگ‌پمپ", "انفوزیون‌پمپ", "تخت بیمار", "ترالی و پایه سرم"]),
-    ("c-syringe", "ملزومات مصرفی", ["دستکش", "سرنگ و سوزن", "گاز و باند استریل", "ماسک"]),
-    ("c-care", "توان‌بخشی و مراقبت در منزل", ["ویلچر", "واکر و عصا", "نبولایزر", "اکسیژن‌ساز"]),
-]
+# دسته‌ها: از shared/categories.sample.json (نمونه؛ فقط نام و ترتیب ۱۳ دستهٔ اصلی از سایت است)،
+# و HTML شان از shared/menu-render.js — همان سازنده‌ای که پیش‌نمایش داشبورد در مرورگر صدا می‌زند.
+SAMPLE = HERE / "shared/categories.sample.json"
+RENDER = HERE / "shared/menu-render.js"
+
+
+def menu_html(prefix: str) -> dict:
+    out = subprocess.run(["node", str(RENDER), str(SAMPLE), prefix], capture_output=True, text=True, check=True)
+    return json.loads(out.stdout)
+
 
 # طرح B انتخاب شد (دور ۸). طرح A فقط مرجع است و در reference-a/ منجمد مانده (commit 5d903e7)؛
 # این ابزار دیگر آن را نمی‌سازد، پس تغییرات مشترک B به آن نمی‌رسد.
 PAGES = {
     "b": ("B", "Premium Light Glass"),
 }
-
-
-def mega() -> str:
-    cols = []
-    for i, (icon, name, kids) in enumerate(CATEGORIES, 1):
-        items = "".join(f'<li><a href="#cat-{i}-{j}" data-src="sample">{k}</a></li>' for j, k in enumerate(kids, 1))
-        cols.append(
-            f'<div class="tth-mega__col"><a class="tth-mega__head" href="#cat-{i}" data-src="sample">'
-            f'<span class="tth-mega__dot"><svg class="tth-i" aria-hidden="true"><use href="#tth-i-{icon}"/></svg></span>{name}</a>'
-            f'<ul class="tth-mega__list">{items}</ul></div>'
-        )
-    return "\n              ".join(cols)
-
-
-def drawer_cats() -> str:
-    out = []
-    for i, (_, name, kids) in enumerate(CATEGORIES, 1):
-        items = "".join(f'<li><a href="#cat-{i}-{j}" data-src="sample">{k}</a></li>' for j, k in enumerate(kids, 1))
-        out.append(
-            f'<details class="tth-drawer__cat"><summary>{name}<svg class="tth-i tth-i--chev" aria-hidden="true"><use href="#tth-i-chev"/></svg></summary>'
-            f'<ul><li><a href="#cat-{i}" data-src="sample">همهٔ {name}</a></li>{items}</ul></details>'
-        )
-    return "\n        ".join(out)
 
 
 def localise(fragment: str) -> str:
@@ -141,7 +121,16 @@ def main() -> int:
         home_file.write_text(localise(src.read_text(encoding="utf-8")), encoding="utf-8")
     home = home_file.read_text(encoding="utf-8")
     header = (HERE / "shared/header.html").read_text(encoding="utf-8")
-    header = header.replace("{{ASSETS}}", "../shared/brand").replace("{{MEGA}}", mega()).replace("{{DRAWER_CATS}}", drawer_cats())
+    template = header
+    menu = menu_html("admin/")
+    header = template.replace("{{ASSETS}}", "../shared/brand").replace("{{MEGA}}", menu["mega"]).replace("{{DRAWER_CATS}}", menu["drawer"])
+    # داشبورد نمونه (admin/) همان الگو و همان داده را می‌خواند؛ روی file:// فایل JSON را
+    # نمی‌شود fetch کرد، پس هر دو در یک فایل JS نوشته می‌شوند.
+    (HERE / "admin/sample-data.js").write_text(
+        "/* ساخته‌شده با tools/build-pages.py — دستی ویرایش نشود. */\n"
+        "window.TTH_SAMPLE = " + SAMPLE.read_text(encoding="utf-8").strip() + ";\n"
+        "window.TTH_HEADER_TEMPLATE = " + json.dumps(template.replace("{{ASSETS}}", "../../shared/brand"), ensure_ascii=False) + ";\n",
+        encoding="utf-8")
     for v in PAGES:
         for k in ("home", "inner"):
             (HERE / f"{v}-{k}.html").write_text(page(v, k, header, home), encoding="utf-8")

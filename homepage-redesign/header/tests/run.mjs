@@ -211,6 +211,35 @@ for (const v of ['b']) { // طرح A مرجع است و در reference-a/ منج
     await page.keyboard.press('Tab');
     const inPanel = await page.evaluate(() => !!document.activeElement.closest('#tth-mega'));
     check(`${v} mega: Tab moves into the panel`, inPanel);
+    // دو ستون: Tab از دستهٔ ۱ از زیردسته‌های همان می‌گذرد و به دستهٔ ۲ می‌رسد؛ فقط یک ستون چپ دیده می‌شود.
+    const steps = await page.evaluate(() => document.querySelector('.tth-mega__item .tth-mega__sub').querySelectorAll('a').length);
+    for (let i = 0; i < steps + 1; i++) await page.keyboard.press('Tab');
+    let pane = await page.evaluate(() => {
+      const items = [...document.querySelectorAll('.tth-mega__item')];
+      return { active: items.findIndex((i) => i.classList.contains('is-active')), focused: items.findIndex((i) => i.querySelector('.tth-mega__main') === document.activeElement), subs: items.filter((i) => getComputedStyle(i.querySelector('.tth-mega__sub')).display !== 'none').length };
+    });
+    check(`${v} mega: keyboard walks category → its sub-categories → next category; one pane at a time`, pane.active === 1 && pane.focused === 1 && pane.subs === 1, JSON.stringify(pane));
+    await page.hover('.tth-mega__item:nth-child(4) .tth-mega__main');
+    await page.waitForTimeout(350);
+    pane = await page.evaluate(() => [...document.querySelectorAll('.tth-mega__item')].findIndex((i) => i.classList.contains('is-active')));
+    check(`${v} mega: mouse on a category shows its sub-categories (after a short delay)`, pane === 3, String(pane));
+    const parity = await page.evaluate(() => {
+      const mega = [...document.querySelectorAll('.tth-mega__name')].map((n) => n.textContent.trim());
+      const drawer = [...document.querySelectorAll('.tth-drawer__name')].map((n) => n.textContent.trim());
+      const kids = (sel) => [...document.querySelectorAll(sel)].map((a) => a.textContent.trim());
+      const icons = [...document.querySelectorAll('.tth-mega__icon img, .tth-drawer__icon img')];
+      return { mega, drawer, megaKids: kids('.tth-mega__list a'), drawerKids: kids('.tth-drawer__cat ul a').filter((t) => !t.startsWith('همهٔ ')), icons: icons.length, alt: icons.every((i) => i.getAttribute('alt') === '') };
+    });
+    const sample = JSON.parse(fs.readFileSync(path.join(ROOT, 'shared/categories.sample.json'), 'utf8'));
+    const names = new Map(sample.terms.map((t) => [t.id, t.name]));
+    const want = sample.settings.categories.filter((c) => c.enabled).map((c) => names.get(c.term_id));
+    const count = new Map(sample.terms.map((t) => [t.id, t.count]));
+    // «دستهٔ بی‌محصول پنهان» روشن است: زیردستهٔ انتخاب‌شده با صفر محصول (ابزار ارتوپدی) نمایش داده نمی‌شود.
+    const wantKids = sample.settings.categories.filter((c) => c.enabled).flatMap((c) => c.children.filter((k) => k.enabled && (!sample.settings.hide_empty || count.get(k.term_id) > 0)).map((k) => names.get(k.term_id)));
+    check(`${v} mega: the 13 main categories, in the saved order, from the data — same list in the drawer`, JSON.stringify(parity.mega) === JSON.stringify(want) && JSON.stringify(parity.drawer) === JSON.stringify(want) && want.length === 13, JSON.stringify(parity.mega));
+    check(`${v} mega: only the selected, enabled sub-categories — same in the drawer (the disabled «هولتر» nowhere)`, JSON.stringify(parity.megaKids) === JSON.stringify(wantKids) && JSON.stringify(parity.drawerKids) === JSON.stringify(wantKids) && !parity.megaKids.includes('هولتر'), `${parity.megaKids.length} vs ${wantKids.length}`);
+    check(`${v} mega: a selected sub-category with no products is hidden («ابزار ارتوپدی», hide_empty on)`, !parity.megaKids.includes('ابزار ارتوپدی') && !parity.drawerKids.includes('ابزار ارتوپدی'));
+    check(`${v} mega: every category icon is decorative (alt="") — the name is the label`, parity.icons === 26 && parity.alt, String(parity.icons));
     await page.keyboard.press('Escape');
     st = await page.evaluate(() => ({ exp: document.querySelector('.tth-cats__btn.tth-js').getAttribute('aria-expanded'), vis: !document.querySelector('#tth-mega').hidden, focus: document.activeElement.classList.contains('tth-cats__btn') }));
     check(`${v} mega: Escape closes and returns focus to the button`, st.exp === 'false' && !st.vis && st.focus);
@@ -267,7 +296,7 @@ for (const v of ['b']) { // طرح A مرجع است و در reference-a/ منج
     const fits = await page.evaluate(() => { const r = document.querySelector('.tth-drawer').getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth + 0.5 && r.right > innerWidth - 2; });
     check(`${v} drawer ${w}px: opens from the right (RTL) and fits the screen`, fits);
     const items = await page.evaluate(() => ({ menu: document.querySelectorAll('#tth-drawer nav a').length, cats: document.querySelectorAll('#tth-drawer .tth-drawer__cat').length, acct: !!document.querySelector('#tth-drawer [data-tth-guest]'), seller: !!document.querySelector('#tth-drawer .tth-seller') }));
-    check(`${v} drawer ${w}px: menu, wishlist, categories, account and seller link all reachable`, items.menu === 7 && items.cats === 6 && items.acct && items.seller, JSON.stringify(items));
+    check(`${v} drawer ${w}px: menu, wishlist, categories, account and seller link all reachable`, items.menu === 7 && items.cats === 13 && items.acct && items.seller, JSON.stringify(items));
     check(`${v} drawer ${w}px: sample categories labelled as samples`, await page.locator('#tth-drawer [data-proto-sample]').isVisible());
     await page.screenshot({ path: path.join(OUT, `${v}-drawer-${w}.png`) });
     await page.click('.tth-drawer__cat:first-of-type > summary');

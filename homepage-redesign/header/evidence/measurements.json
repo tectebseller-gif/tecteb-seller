@@ -1,9 +1,9 @@
 {
   "bytes": {
-    "shared/header-base.css": 22717,
-    "b/header-b.css": 3398,
-    "shared/header.js": 7363,
-    "shared/header.html": 13542
+    "shared/header-base.css": 24919,
+    "b/header-b.css": 3546,
+    "shared/header.js": 8512,
+    "shared/header.html": 13480
   },
   "b-home 1440px": {
     "header_height": 122,

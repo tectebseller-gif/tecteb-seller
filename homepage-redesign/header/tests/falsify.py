@@ -39,6 +39,19 @@ MUTATIONS = [
      "      if (open) form.querySelector('input[type=\"search\"]').focus();\n", "      if (open) { /* فوکوس جابه‌جا نمی‌شود */ }\n"),
     ("mobile account label removed from screen readers too (round-7 defect)", "shared/header-base.css",
      "  .tecteb-header-v1 .tth-tool__label {\n    position: absolute;\n", "  .tecteb-header-v1 .tth-tool__label {\n    display: none;\n    position: absolute;\n"),
+    # --- دور ۹: داشبورد و سازندهٔ مشترک منو. پنجمین عضو: کدام سوییت؛ سازنده پس از جهش صفحه‌ها را از نو می‌سازد.
+    ("renderer shows a category switched off in the dashboard", "shared/menu-render.js",
+     "      .filter((c) => c.enabled && shown(terms.get(c.term_id)))", "      .filter((c) => shown(terms.get(c.term_id)))", "both"),
+    ("renderer shows a sub-category that is no longer under its category", "shared/menu-render.js",
+     " && isDescendant(terms, k.term_id, t.id))", ")", "admin"),
+    ("renderer ignores «hide empty»", "shared/menu-render.js",
+     "    const shown = (t) => t && (!settings.hide_empty || t.count > 0);", "    const shown = (t) => !!t;", "header"),
+    ("saved data carries the category name", "admin/app.js",
+     "        term_id: Math.trunc(c.term_id), enabled: !!c.enabled,", "        term_id: Math.trunc(c.term_id), name: terms.get(c.term_id)?.name, enabled: !!c.enabled,", "admin"),
+    ("child picker offers every category, not only that one's descendants", "admin/app.js",
+     "    const rows = descendants(c.term_id).map(", "    const rows = data.terms.map((t) => ({ t, depth: 1 })).map(", "admin"),
+    ("keyboard focus no longer switches the mega-menu pane", "shared/header.js",
+     "      it.addEventListener('focusin', () => { clearTimeout(aim); activate(it); });\n", "", "header"),
 ]
 
 
@@ -48,7 +61,8 @@ def main() -> int:
     bad = 0
     lines = []
     for n in picks:
-        name, rel, needle, repl = MUTATIONS[n - 1]
+        name, rel, needle, repl, *rest = MUTATIONS[n - 1]
+        suite = rest[0] if rest else "header"
         path = HERE / rel
         original = path.read_bytes()
         digest = hashlib.sha256(original).hexdigest()
@@ -59,10 +73,19 @@ def main() -> int:
             continue
         try:
             path.write_text(text.replace(needle, repl), encoding="utf-8")
-            p = subprocess.run(["node", str(HERE / "tests/run.mjs")], capture_output=True, text=True, env=env)
-            fails = [ln for ln in p.stdout.splitlines() if ln.startswith("FAIL")]
+            if rel == "shared/menu-render.js":
+                subprocess.run([sys.executable, str(HERE / "tools/build-pages.py")], capture_output=True, check=True)
+            fails = []
+            if suite in ("header", "both"):
+                p = subprocess.run(["node", str(HERE / "tests/run.mjs")], capture_output=True, text=True, env=env)
+                fails += [ln for ln in p.stdout.splitlines() if ln.startswith("FAIL")]
+            if suite in ("admin", "both"):
+                p = subprocess.run(["node", str(HERE / "tests/admin.mjs")], capture_output=True, text=True, env=dict(env, OUT_ADMIN=str(HERE / "evidence-falsify/admin")))
+                fails += [ln for ln in p.stdout.splitlines() if ln.startswith("FAIL")]
         finally:
             path.write_bytes(original)
+            if rel == "shared/menu-render.js":
+                subprocess.run([sys.executable, str(HERE / "tools/build-pages.py")], capture_output=True, check=True)
         restored = hashlib.sha256(path.read_bytes()).hexdigest() == digest
         if fails and restored:
             lines.append(f"{n} CAUGHT  {len(fails)} failing — {name}\n     first: {fails[0][:160]}")

@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="fa" dir="rtl" class="wp-toolbar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
+<title>مدیریت هدر ‹ تک‌طب — نمونهٔ طراحی داشبورد</title>
+<!-- CSS خودِ پیشخوان وردپرس ۷٫۱ (GPL)، رونوشت از نصب یکبارمصرف محلی، فقط برای اینکه نمونه
+     همان ظاهری را داشته باشد که در پیشخوان واقعی می‌بیند. -->
+<link rel="stylesheet" href="wp-css/dashicons.min.css">
+<link rel="stylesheet" href="wp-css/buttons-rtl.min.css">
+<link rel="stylesheet" href="wp-css/common-rtl.min.css">
+<link rel="stylesheet" href="wp-css/forms-rtl.min.css">
+<link rel="stylesheet" href="wp-css/list-tables-rtl.min.css">
+<link rel="stylesheet" href="wp-css/admin-menu-rtl.min.css">
+<link rel="stylesheet" href="wp-css/admin-bar-rtl.min.css">
+<link rel="stylesheet" href="admin.css">
+<script src="sample-data.js"></script>
+<script src="../shared/menu-render.js"></script>
+<script src="app.js" defer></script>
+</head>
+<body class="wp-admin wp-core-ui rtl admin-bar tth-proto-admin">
+<div id="wpadminbar" class="nojq">
+  <div class="quicklinks">
+    <ul class="ab-top-menu">
+      <li><span class="ab-item"><span class="ab-icon dashicons dashicons-wordpress" aria-hidden="true"></span></span></li>
+      <li><span class="ab-item">تک‌طب</span></li>
+    </ul>
+  </div>
+  <p class="tth-proto-flag">نمونهٔ طراحی — نه پیشخوان واقعی</p>
+</div>
+
+<div id="wpwrap">
+  <div id="adminmenumain" role="navigation" aria-label="منوی اصلی پیشخوان">
+    <div id="adminmenuback"></div>
+    <div id="adminmenuwrap">
+      <ul id="adminmenu">
+        <li class="menu-top"><span class="menu-top-proto"><span class="wp-menu-image dashicons-before dashicons-dashboard" aria-hidden="true"></span><span class="wp-menu-name">پیشخوان</span></span></li>
+        <li class="menu-top"><span class="menu-top-proto"><span class="wp-menu-image dashicons-before dashicons-admin-media" aria-hidden="true"></span><span class="wp-menu-name">رسانه</span></span></li>
+        <li class="menu-top"><span class="menu-top-proto"><span class="wp-menu-image dashicons-before dashicons-cart" aria-hidden="true"></span><span class="wp-menu-name">ووکامرس</span></span></li>
+        <li class="menu-top"><span class="menu-top-proto"><span class="wp-menu-image dashicons-before dashicons-archive" aria-hidden="true"></span><span class="wp-menu-name">محصولات</span></span></li>
+        <li class="menu-top"><span class="menu-top-proto"><span class="wp-menu-image dashicons-before dashicons-store" aria-hidden="true"></span><span class="wp-menu-name">بازارگاه تک‌طب</span></span></li>
+        <li class="wp-has-submenu wp-has-current-submenu wp-menu-open menu-top current">
+          <span class="menu-top-proto" aria-current="true"><span class="wp-menu-image dashicons-before dashicons-heart" aria-hidden="true"></span><span class="wp-menu-name">تک‌طب</span></span>
+          <ul class="wp-submenu wp-submenu-wrap">
+            <li class="wp-submenu-head" aria-hidden="true">تک‌طب</li>
+            <li class="wp-first-item current"><a class="wp-first-item current" href="#" aria-current="page">مدیریت هدر</a></li>
+          </ul>
+        </li>
+        <li class="menu-top"><span class="menu-top-proto"><span class="wp-menu-image dashicons-before dashicons-admin-appearance" aria-hidden="true"></span><span class="wp-menu-name">نمایش</span></span></li>
+        <li class="menu-top"><span class="menu-top-proto"><span class="wp-menu-image dashicons-before dashicons-admin-plugins" aria-hidden="true"></span><span class="wp-menu-name">افزونه‌ها</span></span></li>
+        <li class="menu-top"><span class="menu-top-proto"><span class="wp-menu-image dashicons-before dashicons-admin-settings" aria-hidden="true"></span><span class="wp-menu-name">تنظیمات</span></span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="wpcontent">
+    <div id="wpbody" role="main">
+      <div id="wpbody-content">
+        <div class="wrap tth-hdr">
+          <h1 class="wp-heading-inline">مدیریت هدر</h1>
+          <span class="tth-version" data-tth-version></span>
+          <hr class="wp-header-end">
+
+          <div class="notice notice-warning inline tth-proto-note">
+            <p><strong>نمونهٔ طراحی داشبورد، نه افزونهٔ عملیاتی.</strong> نام و ترتیب ۱۳ دستهٔ اصلی از قالب فعلی
+            «Header» سایت (Staging، post=2652) است؛ <strong>شناسه‌ها، نامک‌ها، تعدادها، زیردسته‌ها و آیکون‌ها نمونه‌اند</strong>.
+            هیچ چیزی جایی ذخیره نمی‌شود: «ذخیره» فقط اعتبارسنجی را اجرا می‌کند و داده‌ای را که افزونهٔ واقعی ذخیره
+            می‌کرد در زبانهٔ «دادهٔ ذخیره‌شده» نشان می‌دهد.</p>
+          </div>
+
+          <div data-tth-notices aria-live="polite"></div>
+
+          <nav class="nav-tab-wrapper wp-clearfix" aria-label="بخش‌های مدیریت هدر" role="tablist">
+            <button type="button" class="nav-tab nav-tab-active" role="tab" aria-selected="true" aria-controls="tth-tab-cats" id="tth-t-cats">دسته‌بندی‌ها</button>
+            <button type="button" class="nav-tab" role="tab" aria-selected="false" aria-controls="tth-tab-import" id="tth-t-import">انتقال از منوی فعلی</button>
+            <button type="button" class="nav-tab" role="tab" aria-selected="false" aria-controls="tth-tab-settings" id="tth-t-settings">تنظیمات</button>
+            <button type="button" class="nav-tab" role="tab" aria-selected="false" aria-controls="tth-tab-json" id="tth-t-json">دادهٔ ذخیره‌شده</button>
+          </nav>
+
+          <!-- ============================================================== دسته‌ها -->
+          <section class="tth-tab" id="tth-tab-cats" role="tabpanel" aria-labelledby="tth-t-cats">
+            <div class="tth-bar">
+              <button type="button" class="button button-secondary" data-tth-add-main><span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span>افزودن دستهٔ اصلی</button>
+              <p class="tth-bar__count" data-tth-count aria-live="polite"></p>
+              <span class="tth-bar__dirty" data-tth-dirty hidden>تغییرات ذخیره‌نشده</span>
+              <button type="button" class="button" data-tth-revert disabled>بازگردانی تغییرات</button>
+              <button type="button" class="button button-primary" data-tth-save>ذخیرهٔ تغییرات</button>
+            </div>
+
+            <div class="tth-layout">
+              <div class="tth-editor">
+                <p class="description">ترتیب فهرست همان ترتیب هدر است. «در هدر» را خاموش کنید تا دسته بی حذف‌شدن پنهان شود.
+                عنوان و نشانی هر دسته از ووکامرس خوانده می‌شود؛ اینجا فقط <strong>شناسه</strong> ذخیره می‌شود.</p>
+                <ol class="tth-cards" data-tth-cards aria-label="دسته‌های اصلی هدر"></ol>
+              </div>
+
+              <aside class="tth-preview" aria-labelledby="tth-preview-title">
+                <div class="tth-preview__head">
+                  <h2 id="tth-preview-title">پیش‌نمایش زنده</h2>
+                  <div class="tth-seg" role="group" aria-label="اندازهٔ پیش‌نمایش">
+                    <button type="button" class="button" aria-pressed="true" data-tth-view="desktop">دسکتاپ</button>
+                    <button type="button" class="button" aria-pressed="false" data-tth-view="mobile">موبایل</button>
+                  </div>
+                </div>
+                <p class="description">همان هدر B با همان CSS و JS، از حالت فعلی فرم (پیش از ذخیره).</p>
+                <div class="tth-preview__frame" data-tth-frame-wrap>
+                  <iframe title="پیش‌نمایش هدر" data-tth-frame></iframe>
+                </div>
+
+                <details class="tth-sim">
+                  <summary>شبیه‌سازی تغییر در ووکامرس <span class="tth-sim__flag">فقط در این نمونه</span></summary>
+                  <p class="description">برای دیدن اینکه هدر به شناسه بسته است نه به نام: این دکمه‌ها «دادهٔ ووکامرس» ِ نمونه را عوض می‌کنند، نه تنظیمات هدر را. در افزونهٔ واقعی چنین ابزاری نیست.</p>
+                  <p><button type="button" class="button" data-tth-sim="rename">تغییر نام «جراحی» به «جراحی و اتاق عمل»</button></p>
+                  <p><button type="button" class="button" data-tth-sim="delete">حذف دستهٔ «هتلینگ» در ووکامرس</button></p>
+                  <p><button type="button" class="button" data-tth-sim="move">جابه‌جایی «چراغ جراحی» به زیر «پزشکی جنرال»</button></p>
+                  <p><button type="button" class="button-link" data-tth-sim="reset">بازگرداندن دادهٔ نمونهٔ ووکامرس</button></p>
+                </details>
+              </aside>
+            </div>
+          </section>
+
+          <!-- ============================================================== انتقال -->
+          <section class="tth-tab" id="tth-tab-import" role="tabpanel" aria-labelledby="tth-t-import" hidden>
+            <h2>انتقال از منوی فعلی</h2>
+            <p>آیتم‌های منوی «دسته بندی کالا ها» در قالب فعلی هدر، <strong>فقط خوانده می‌شوند</strong>: نه منو، نه قالب
+            Elementor و نه هیچ دسته‌ای تغییر نمی‌کند. هر آیتمی که به یک دستهٔ محصول اشاره کند با همان شناسه منتقل می‌شود؛
+            آیتم‌هایی که به چیز دیگری اشاره کنند یا دسته‌شان دیگر نیست، نام برده می‌شوند و منتقل نمی‌شوند.</p>
+            <div class="notice notice-info inline"><p><strong>تأییدنشده:</strong> اینکه این ۱۳ آیتم در منوی وردپرس از نوع «دستهٔ محصول»اند
+            (و نه پیوند سفارشی یا فهرست JetEngine) از اسکرین‌شات معلوم نیست. جدول زیر با این فرض و با شناسه‌های نمونه ساخته شده؛
+            روش سنجیدنش در گزارش آمده است.</p></div>
+            <table class="widefat striped tth-import">
+              <caption class="screen-reader-text">آیتم‌های منوی فعلی و نتیجهٔ انتقال</caption>
+              <thead><tr><th scope="col">ترتیب</th><th scope="col">عنوان در منو</th><th scope="col">نوع آیتم</th><th scope="col">شناسهٔ دسته</th><th scope="col">نام فعلی در ووکامرس</th><th scope="col">نتیجه</th></tr></thead>
+              <tbody data-tth-import></tbody>
+            </table>
+            <p class="tth-import__go">
+              <button type="button" class="button button-secondary" data-tth-import-go>ساختن فهرست هدر از همین منو</button>
+              <span class="description">فهرست فعلیِ این صفحه جایگزین می‌شود (آیکون و زیردسته خالی) و تا «ذخیره» چیزی ذخیره نمی‌شود.</span>
+            </p>
+          </section>
+
+          <!-- ============================================================== تنظیمات -->
+          <section class="tth-tab" id="tth-tab-settings" role="tabpanel" aria-labelledby="tth-t-settings" hidden>
+            <h2>تنظیمات</h2>
+            <table class="form-table" role="presentation">
+              <tr>
+                <th scope="row">دستهٔ بی‌محصول</th>
+                <td><label><input type="checkbox" data-tth-hide-empty> دسته و زیردسته‌ای که محصول منتشرشده ندارد در هدر نمایش داده نشود</label>
+                <p class="description">پیشنهاد: روشن. انتخاب حذف نمی‌شود؛ وقتی محصول بگیرد دوباره دیده می‌شود.</p></td>
+              </tr>
+              <tr>
+                <th scope="row"><label for="tth-supplier">پیوند «همکاری تأمین‌کنندگان»</label></th>
+                <td><input type="text" id="tth-supplier" class="regular-text code" dir="ltr" data-tth-supplier>
+                <p class="description">مسیر نسبی (مثل <code>/landing-seller/</code>) یا نشانی کامل https. مسیر نسبی روی Staging به Staging می‌رود.</p></td>
+              </tr>
+              <tr>
+                <th scope="row">دسترسی</th>
+                <td><p>فقط مدیر (<code>manage_options</code>). هر ذخیره با nonce ِ همین صفحه.</p></td>
+              </tr>
+            </table>
+          </section>
+
+          <!-- ============================================================== JSON -->
+          <section class="tth-tab" id="tth-tab-json" role="tabpanel" aria-labelledby="tth-t-json" hidden>
+            <h2>دادهٔ ذخیره‌شده</h2>
+            <p>همان چیزی که افزونهٔ واقعی در option <code>tecteb_header_settings</code> می‌نوشت: فقط شناسه، روشن/خاموش و ترتیب.
+            <strong>هیچ نام، نامک یا نشانی‌ای ذخیره نمی‌شود</strong> — به همین دلیل تغییر نام دسته در ووکامرس هدر را بی تنظیم دوباره به‌روز می‌کند.</p>
+            <pre class="tth-json" dir="ltr" data-tth-json tabindex="0"></pre>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================== انتخاب دستهٔ اصلی -->
+<dialog class="tth-modal" data-tth-main-modal aria-labelledby="tth-main-title">
+  <form method="dialog" class="tth-modal__box">
+    <header class="tth-modal__head"><h2 id="tth-main-title">افزودن دستهٔ اصلی</h2><button type="button" class="button-link tth-x" data-tth-close aria-label="بستن"><span class="dashicons dashicons-no-alt" aria-hidden="true"></span></button></header>
+    <label class="screen-reader-text" for="tth-main-q">جست‌وجوی دستهٔ محصول</label>
+    <input type="search" id="tth-main-q" class="widefat" placeholder="نام دستهٔ محصول…" data-tth-main-q>
+    <p class="description">از همهٔ دسته‌های محصول ووکامرس (taxonomy ‏<code>product_cat</code>)، با مسیر کامل.</p>
+    <ul class="tth-pick" data-tth-main-list></ul>
+    <footer class="tth-modal__foot"><button type="button" class="button" data-tth-close>انصراف</button></footer>
+  </form>
+</dialog>
+
+<!-- ============================================================== کتابخانهٔ رسانه -->
+<dialog class="tth-modal tth-modal--media" data-tth-media-modal aria-labelledby="tth-media-title">
+  <form method="dialog" class="tth-modal__box">
+    <header class="tth-modal__head"><h2 id="tth-media-title">انتخاب آیکون</h2><button type="button" class="button-link tth-x" data-tth-close aria-label="بستن"><span class="dashicons dashicons-no-alt" aria-hidden="true"></span></button></header>
+    <p class="description">در افزونهٔ واقعی این پنجره همان «کتابخانهٔ رسانه»ٔ وردپرس است (<code>wp.media</code>) و فقط شناسهٔ پیوست ذخیره می‌شود. پیشنهاد: PNG یا WebP مربعی، دست‌کم ۴۸×۴۸.</p>
+    <div class="tth-upload">
+      <label class="button" for="tth-upload-file"><span class="dashicons dashicons-upload" aria-hidden="true"></span>بارگذاری فایل</label>
+      <input type="file" id="tth-upload-file" class="screen-reader-text" accept="image/png,image/webp,image/svg+xml" data-tth-upload>
+      <span class="description" data-tth-upload-msg aria-live="polite"></span>
+    </div>
+    <ul class="tth-media" data-tth-media-list></ul>
+    <footer class="tth-modal__foot">
+      <button type="button" class="button-link button-link-delete" data-tth-icon-clear>بدون آیکون</button>
+      <button type="button" class="button" data-tth-close>انصراف</button>
+    </footer>
+  </form>
+</dialog>
+</body>
+</html>

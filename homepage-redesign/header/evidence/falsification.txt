@@ -16,4 +16,16 @@
      first: FAIL b home search 390px: the search button opens the header search and focuses it (keyboard)  — {"shown":true,"focus":false,"exp":"true","inside":true,"main":3
 9 CAUGHT  9 failing — mobile account label removed from screen readers too (round-7 defect)
      first: FAIL b-home 1024px: axe on the closed header — 0 violations  — link-name(serious):1
-9 of 9 mutations caught and restored
+10 CAUGHT  1 failing — renderer shows a category switched off in the dashboard
+     first: FAIL toggle: the preview drops «هتلینگ» and keeps the rest in order  — ["پزشکی جنرال","قلب و عروق","چشم پزشکی","جراحی","زنان و زایمان","ارتوپدی","توانبخشی","دند
+11 CAUGHT  1 failing — renderer shows a sub-category that is no longer under its category
+     first: FAIL moved in WooCommerce: …and is not shown under the old category in the header  — ["چراغ جراحی","تخت جراحی","الکتروکوتر","ساکشن"]
+12 CAUGHT  2 failing — renderer ignores «hide empty»
+     first: FAIL b mega: only the selected, enabled sub-categories — same in the drawer (the disabled «هولتر» nowhere)  — 51 vs 50
+13 CAUGHT  2 failing — saved data carries the category name
+     first: FAIL save: the stored data has only IDs, booleans and order — no name, slug or URL of any category  — ["supplier=/landing-seller/","name=پزشکی جنرال","name=قلب 
+14 CAUGHT  2 failing — child picker offers every category, not only that one's descendants
+     first: FAIL children: the picker offers exactly the real descendants of that category (grandchildren included)  — 101,201,202,203,204,205,206,102,207,208,209,210,211,1
+15 CAUGHT  1 failing — keyboard focus no longer switches the mega-menu pane
+     first: FAIL b mega: keyboard walks category → its sub-categories → next category; one pane at a time  — {"active":0,"focused":1,"subs":1}
+15 of 15 mutations caught and restored
