@@ -14,29 +14,29 @@ Activating 'tecteb-marketplace-core'...
 Warning: Plugin 'tecteb-marketplace-core' is already active.
 Success: Installed 1 of 1 plugins.
 PASS  2a the base is installed  (0.1.0-alpha.82)
-vendor=226
-terms=265,266
-wc=77201
+vendor=227
+terms=267,268
+wc=77202
 set_recorded=already_set
-row=4251
+row=4252
 first_projection_ok=yes
 first_projection_code=projected
 shop_price=200000
 shop_sku=A83-INTAKE
 shop_weight=0.012
-shop_terms=265,266
-wc=77201 row=4251 terms=265,266
+shop_terms=267,268
+wc=77202 row=4252 terms=267,268
 PASS  2b the fixture is arranged  (yes)
 PASS  2c the parent and its child are both on the product  (2)
-PASS  2d the recorded set matches the shop's  (265,266)
+PASS  2d the recorded set matches the shop's  (267,268)
 PASS  2e the base has no shop-edit record of its own  (absent)
-identity=8292d983ae260f97c288d8646d0b47ab1c1abda53bf8f492ffb6097c6b473b2d
+identity=d4e95aa1ecced7207997924a76b7340074e2c7427edb5e87b91da8f3ee925cb2
 shop_price=200000
 shop_sku=A83-INTAKE
 shop_weight=0.012
-shop_terms=265,266
-row_set=265,266
-identity_before=8292d983ae260f97c288d8646d0b47ab1c1abda53bf8f492ffb6097c6b473b2d
+shop_terms=267,268
+row_set=267,268
+identity_before=d4e95aa1ecced7207997924a76b7340074e2c7427edb5e87b91da8f3ee925cb2
 PASS  2f the recorded structure is 35  (35)
 
 === the defect this round closes, on 0.1.0-alpha.82's own bytes ===
@@ -55,8 +55,8 @@ sku_kept=no
 weight_before=0.014
 weight_after=0.012
 weight_kept=no
-terms_before=265,266
-terms_after=265,266
+terms_before=267,268
+terms_after=267,268
 terms_kept=yes
 PASS  3b a projection runs  (yes)
 PASS  3c …and the base OVERWRITES the edited price  (no)
@@ -127,20 +127,20 @@ Stack trace:
 Error: There has been a critical error on this website.Learn more about troubleshooting WordPress. There has been a critical error on this website.
 PASS  4c …and an admin request leaves it there  (35)
 SKIP  4d the failure and resume stages  — there is no step to fail (`alpha.42`)
-wc=77201
-row=4251
+wc=77202
+row=4252
 shop_price=200000
 shop_sku=A83-INTAKE
 shop_weight=0.012
-shop_terms=265,266
+shop_terms=267,268
 row_price=200000
 row_sku=A83-INTAKE
 row_weight=12
-row_set=265,266
+row_set=267,268
 conflicts=__empty__
 record=__empty__
-PASS  4e the carried-over row still holds the whole set  (265,266)
-PASS  4f the shop still holds the whole set  (265,266)
+PASS  4e the carried-over row still holds the whole set  (267,268)
+PASS  4f the shop still holds the whole set  (267,268)
 
 === the same scenario on 0.1.0-alpha.83 ===
 shop_price=480000
@@ -158,24 +158,24 @@ sku_kept=yes
 weight_before=0.014
 weight_after=0.014
 weight_kept=yes
-terms_before=265,266
-terms_after=265,266
+terms_before=267,268
+terms_after=267,268
 terms_kept=yes
 PASS  5b a projection runs  (yes)
 PASS  5c the edited price SURVIVES  (yes)
 PASS  5d the edited SKU survives  (yes)
 PASS  5e the edited weight survives  (yes)
 PASS  5f and the category set is untouched  (yes)
-wc=77201
-row=4251
+wc=77202
+row=4252
 shop_price=480000
 shop_sku=A83-OWNER
 shop_weight=0.014
-shop_terms=265,266
+shop_terms=267,268
 row_price=200000
 row_sku=A83-INTAKE
 row_weight=12
-row_set=265,266
+row_set=267,268
 conflicts=price,sku,weight
 conflict_price=keep_unknown:480000/200000
 conflict_sku=keep_unknown:A83-OWNER/A83-INTAKE
@@ -194,42 +194,42 @@ sku_kept=yes
 weight_before=0.014
 weight_after=0.014
 weight_kept=yes
-terms_before=265,266
-terms_after=265,266
+terms_before=267,268
+terms_after=267,268
 terms_kept=yes
 PASS  5i it survives EVERY later projection  (yes)
 PASS  5j a kept projection claims nothing, so there is still no record  (__empty__)
 row_updated=yes
 push_ok=yes
-push_code=price_kept
-shop_price=480000
-shop_price_is_the_vendors=no
-FAIL  5k the vendor's own change is written  expected=price_written actual=price_kept
-FAIL  5l …and the shop now holds the vendor's price  expected=yes actual=no
-wc=77201
-row=4251
-shop_price=480000
+push_code=price_written
+shop_price=500000
+shop_price_is_the_vendors=yes
+PASS  5k the vendor's own change is written  (price_written)
+PASS  5l …and the shop now holds the vendor's price  (yes)
+wc=77202
+row=4252
+shop_price=500000
 shop_sku=A83-OWNER
 shop_weight=0.014
-shop_terms=265,266
+shop_terms=267,268
 row_price=500000
 row_sku=A83-INTAKE
 row_weight=12
-row_set=265,266
+row_set=267,268
 conflicts=price
-conflict_price=keep_unknown:480000/500000
-record=__empty__
-FAIL  5m the conflict is RECORDED, not silently resolved  expected=write_conflict:480000/500000 actual=keep_unknown:480000/500000
-FAIL  5n and from here the record exists  expected=price actual=__empty__
+conflict_price=write_conflict:480000/500000
+record=price
+PASS  5m the conflict is RECORDED, not silently resolved  (write_conflict:480000/500000)
+PASS  5n and from here the record exists  (price)
 PASS  5o so the next projection is an ordinary fresh write  (yes)
 
 === and back to 0.1.0-alpha.82 ===
-identity=1433a669acaddfc130cf657ca82c2df622847c856119d452b69ea65c431d0b60
-shop_price=480000
+identity=d5539bedf0f7b4bb2637a080cbda9dafc31bdc9f23bfa2c7de5c16e77b079e1e
+shop_price=500000
 shop_sku=A83-OWNER
 shop_weight=0.014
-shop_terms=265,266
-row_set=265,266
+shop_terms=267,268
+row_set=267,268
 Unpacking the package...
 Installing the plugin...
 Removing the old version of the plugin...
@@ -239,8 +239,8 @@ Warning: Plugin 'tecteb-marketplace-core' is already active.
 Success: Installed 1 of 1 plugins.
 PASS  6a the old files are on disk  (0.1.0-alpha.82)
 PASS  6b the structure is still 35  (35)
-PASS  6c no database work is needed to go back  (1433a669acaddfc130cf657ca82c2df622847c856119d452b69ea65c431d0b60)
-PASS  6d the link table from migration 35 is still read  (265,266)
+PASS  6c no database work is needed to go back  (d5539bedf0f7b4bb2637a080cbda9dafc31bdc9f23bfa2c7de5c16e77b079e1e)
+PASS  6d the link table from migration 35 is still read  (267,268)
 shop_price=480000
 shop_sku=A83-OWNER
 shop_weight=0.014
@@ -256,8 +256,8 @@ sku_kept=no
 weight_before=0.014
 weight_after=0.012
 weight_kept=no
-terms_before=265,266
-terms_after=265,266
+terms_before=267,268
+terms_after=267,268
 terms_kept=yes
 PASS  6f the rollback cost: the edit is overwritten again  (not yes; got no)
 PASS  6g …the price it puts back is the stored one  (500000)
@@ -281,6 +281,6 @@ shop_sku=A83-OWNER
 shop_weight=0.014
 PASS  7c the owner's edit lands  (480000)
 PASS  7d …and is kept again  (yes)
-PASS  7e with the whole set intact  (265,266)
+PASS  7e with the whole set intact  (267,268)
 
-PASS=46 FAIL=4
+PASS=50 FAIL=0
