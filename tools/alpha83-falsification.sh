@@ -25,6 +25,25 @@ OUT="${1:-docs/evidence/alpha83-falsification}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO"
 mkdir -p "$OUT"
+
+# ⛔ RESTORE IN A TRAP — and this round paid for the rule twice in one
+# afternoon. `alpha.76` already wrote it down («an script that moves code must
+# put the restore in a `trap`»), and this script did not: the restore was a
+# `cp` AFTER the suites, so stopping the loop in the middle left the mutation
+# ON THE TREE. It happened twice here. The second time two guards were missing
+# at once, the healthy baseline of the next run read `contract:1`, and a tree
+# that looks fine from `git status` was quietly answering a different question.
+#
+# The cost of not having it is worse than a wasted run: a mutated tree reads as
+# «this guard is unbreakable» to everything that comes after it.
+CURRENT_FILE=""
+restore_on_exit() {
+  if [[ -n "${CURRENT_FILE:-}" && -f "$OUT/.restore" ]]; then
+    cp "$OUT/.restore" "$CURRENT_FILE"
+    echo "restored $CURRENT_FILE on exit" >&2
+  fi
+}
+trap restore_on_exit EXIT INT TERM
 report="$OUT/falsification.txt"
 
 # shellcheck disable=SC1091
@@ -89,6 +108,9 @@ for i in $(seq 0 $((total - 1))); do
   expect="$(python3 tools/alpha83-mutations.py expect "$i")"
   before="$(sha256sum "$file" | cut -d' ' -f1)"
   cp "$file" "$OUT/.restore"
+  # ⛔ The trap needs to know WHICH file is saved, and it has to know it
+  # BEFORE the mutation is applied — see the note on the trap itself.
+  CURRENT_FILE="$file"
 
   if ! python3 tools/alpha83-mutations.py apply "$i"; then
     echo "FAIL $name — the mutation did not apply, so nothing was measured" | tee -a "$report"
@@ -99,6 +121,7 @@ for i in $(seq 0 $((total - 1))); do
 
   counts="$(tally)"
   cp "$OUT/.restore" "$file"
+  CURRENT_FILE=""
   after="$(sha256sum "$file" | cut -d' ' -f1)"
 
   {
@@ -126,6 +149,7 @@ for i in $(seq 0 $((total - 1))); do
   fi
 done
 
+CURRENT_FILE=""
 rm -f "$OUT/.restore"
 echo "" >>"$report"
 echo "mutations that survived or did not apply: $fail" | tee -a "$report"

@@ -55,12 +55,16 @@ use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
  *    sides changed, so the fresh vendor value is applied and the conflict is
  *    reported with both numbers: «تغییر تازه باید اعمال شود» together with
  *    «تعارض را گزارش کن، نه اینکه بی‌صدا یکی را انتخاب کنی».
+ *    **Also the answer when there is no record at all and the caller says our
+ *    value is fresh** — see `decide()`, which is where an upgraded site's
+ *    products live until something writes a record for them.
  *  - `KEEP_EDITED` — recorded, the shop moved, and our row is still exactly
  *    what we last sent. Writing it would restore the plugin's OLD copy over a
  *    person's edit, which is the one thing the owner named. Nothing is
  *    written and the difference is reported.
- *  - `KEEP_UNKNOWN` — no record and the two differ. We have no evidence of
- *    ever writing this field, so we do not claim it. The way out is the
+ *  - `KEEP_UNKNOWN` — no record, the two differ, and the caller is a
+ *    PROJECTION. We have no evidence of ever writing this field, so we do not
+ *    claim it. The way out is the
  *    manager's own and needs no approval: clear the value in WooCommerce and
  *    the next projection writes a fresh one this plugin owns.
  *  - `UNREADABLE` — a value that cannot be compared exactly (see
@@ -232,8 +236,13 @@ final class ShopEditMerge
      * @param string $shop what WooCommerce holds right now
      * @param string $ours what this projection wants to write
      */
-    public static function decide(string $field, ?array $record, string $shop, string $ours): string
-    {
+    public static function decide(
+        string $field,
+        ?array $record,
+        string $shop,
+        string $ours,
+        bool $oursIsFresh = false
+    ): string {
         if (trim($ours) === '') {
             return self::NO_VALUE;
         }
@@ -243,8 +252,29 @@ final class ShopEditMerge
             return self::UNREADABLE;
         }
         if ($record === null) {
-            // No evidence either way. Only a write that changes nothing is safe.
-            return $shopValue === $ourValue ? self::WRITE : self::KEEP_UNKNOWN;
+            if ($shopValue === $ourValue) {
+                // A write that changes nothing is safe either way.
+                return self::WRITE;
+            }
+            // ⛔ No record, and the two differ. The STAMPS cannot tell a value
+            // the vendor just typed from a copy this plugin has been holding
+            // since before the record existed — but the CALLER can, and the
+            // two callers are not the same question:
+            //
+            //  - a PROJECTION mirrors a row that may be months old, so it
+            //    keeps and reports («همگام‌سازی نباید قیمت ویرایش‌شده را با
+            //    نسخهٔ قدیمی ذخیره‌شده جایگزین کند»),
+            //  - the vendor's OWN price change is written one statement
+            //    earlier and pushed immediately, so it is fresh by
+            //    construction, and it applies with the conflict recorded
+            //    («این اختیار نباید محدود شود» + «تعارض باید ثبت و گزارش
+            //    شود»).
+            //
+            // Without this split every product taken in by an older package
+            // and then edited by hand — which is every product on staging —
+            // would hold its vendor's price back for ever, and the upgrade
+            // check is what measured it.
+            return $oursIsFresh ? self::WRITE_CONFLICT : self::KEEP_UNKNOWN;
         }
         // Compared directly: the record arrives canonical from
         // `normalise()`, and canonicalising it a second time would convert

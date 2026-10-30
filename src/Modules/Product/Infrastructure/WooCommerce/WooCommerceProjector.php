@@ -1435,11 +1435,19 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         }
         $wcProductId = (int) $product->wcProductId;
         $wanted = [ShopEditMerge::PRICE => (string) $details->priceMinor];
+        // ⛔ `true`: our value is fresh BY CONSTRUCTION on this path.
+        // `ManageProducts::saveAsRevision()` writes the vendor's new price one
+        // statement earlier and calls this as its mirror, so «the copy we are
+        // holding» is the change the vendor just made — not a stale row. That
+        // is the whole difference between this call and a projection, and it
+        // is what keeps «این اختیار نباید محدود شود» true on a product that
+        // was taken in before any record existed and then edited by hand.
         $merged = ProjectedShopFields::merge(
             ProjectedShopFields::shopValues($wcProduct),
             $wanted,
             ProjectedShopFields::record($wcProductId),
-            false
+            false,
+            true
         );
         if (!$merged['may'][ShopEditMerge::PRICE]) {
             // Somebody edited the shop's price by hand. It stays, and the

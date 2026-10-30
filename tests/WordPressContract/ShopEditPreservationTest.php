@@ -230,6 +230,86 @@ final class ShopEditPreservationTest extends ContractTestCase
      * place — so the first projection writes nothing new and records what it
      * found. Everything this class measures starts here.
      */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testOnAnUpgradedSiteAProjectionKeepsButTheVendorsOwnChangeStillApplies(): void
+    {
+        // ⛔ THE SHAPE EVERY PRODUCT ON STAGING IS IN, and the hole the
+        // upgrade check found rather than any reading of the code.
+        //
+        // Those products were taken in and projected by `alpha.82`, which has
+        // no `ProjectedShopFields` at all — so there is NO RECORD for any of
+        // them. If the owner then edits one by hand, the shop and our row
+        // differ with no evidence either way, and the conservative answer is
+        // to keep. Right for a projection; a restriction on the vendor if the
+        // same rule answers their own price change, which «این اختیار نباید
+        // محدود شود» forbids.
+        $wcId = $this->upgradedFromAnOlderPackage();
+        self::assertSame([], ProjectedShopFields::record($wcId), 'the older package left none');
+
+        $this->shopEdit($wcId, static function (\WC_Product $p): void {
+            $p->set_regular_price('480000');
+        });
+
+        // A PROJECTION keeps, and names what it does not know.
+        $result = $this->projector()->project($this->product($wcId));
+        self::assertTrue($result['ok'], (string) $result['code']);
+        self::assertNotContains('regular_price', \WC_Product::$saved[$wcId]->wrote);
+        self::assertSame('480000', (string) \WC_Product::$saved[$wcId]->get_regular_price());
+        self::assertSame(
+            ShopEditMerge::KEEP_UNKNOWN,
+            ProjectedShopFields::conflicts($wcId)[ShopEditMerge::PRICE]['answer']
+        );
+
+        // THE VENDOR'S OWN CHANGE, through the one method that mirrors it.
+        // `ManageProducts::saveAsRevision()` has already written the row, so
+        // this value is fresh by construction — it applies, and the conflict
+        // is recorded with both numbers rather than silently resolved.
+        \WC_Product::$saved[$wcId]->wrote = [];
+        $push = $this->projector()->writePrice($this->product($wcId, price: 500000));
+        self::assertTrue($push['ok'], (string) $push['code']);
+        self::assertSame('price_written', $push['code']);
+        self::assertSame('500000', (string) \WC_Product::$saved[$wcId]->get_regular_price());
+        $report = ProjectedShopFields::conflicts($wcId);
+        self::assertSame(ShopEditMerge::WRITE_CONFLICT, $report[ShopEditMerge::PRICE]['answer']);
+        self::assertSame('480000', $report[ShopEditMerge::PRICE]['shop']);
+        self::assertSame('500000', $report[ShopEditMerge::PRICE]['ours']);
+
+        // And from here on the product behaves like any other: the record now
+        // exists, so the next projection is WRITE_FRESH rather than a guess.
+        self::assertSame(
+            '500000',
+            ProjectedShopFields::record($wcId)[ShopEditMerge::PRICE]['sent']
+        );
+        \WC_Product::$saved[$wcId]->wrote = [];
+        $again = $this->projector()->project($this->product($wcId, price: 500000));
+        self::assertSame(
+            ShopEditMerge::WRITE_FRESH,
+            $again['shop_fields'][ShopEditMerge::PRICE]
+        );
+    }
+
+    /**
+     * A product taken in and projected by a package that had no shop-field
+     * record — which is what `alpha.82` is, and what every row on staging was
+     * last touched by. The ownership stamps are there; the record is not.
+     */
+    private function upgradedFromAnOlderPackage(): int
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $existing = new \WC_Product_Simple();
+        $existing->set_regular_price((string) self::PRICE);
+        $existing->set_sku(self::SKU);
+        $existing->set_weight('0.012');
+        $wcId = (int) $existing->save();
+        update_post_meta($wcId, WooCommerceProjector::PRODUCT_META, 41);
+        update_post_meta($wcId, WooCommerceProjector::VENDOR_META, self::VENDOR);
+        \WC_Product::$saved[$wcId]->wrote = [];
+        return $wcId;
+    }
+
     private function takenIn(?callable $arrange = null): int
     {
         $this->bootPlugin(true);

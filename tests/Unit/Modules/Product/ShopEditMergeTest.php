@@ -76,6 +76,31 @@ final class ShopEditMergeTest extends TestCase
         self::assertTrue(Merge::reports($answer));
     }
 
+    public function testWithNoRecordAFreshVendorValueIsAppliedAndTheConflictReported(): void
+    {
+        // ⛔ The case an UPGRADED site is in, and the hole the upgrade check
+        // found: every product taken in by an older package has no record, so
+        // if somebody edited it by hand the two differ and the answer above is
+        // KEEP. For a PROJECTION that is right — our copy may be months old.
+        // For the vendor's OWN price change it is a restriction, and
+        // «این اختیار نباید محدود شود».
+        //
+        // The stamps cannot tell the two apart; the CALLER can, so it says so.
+        $answer = Merge::decide(Merge::PRICE, null, '480000', '500000', true);
+        self::assertSame(Merge::WRITE_CONFLICT, $answer);
+        self::assertTrue(Merge::writes($answer), 'the vendor is never held back');
+        self::assertTrue(Merge::reports($answer), 'and the difference is never silent');
+
+        // The same call WITHOUT the flag — the projection — still keeps.
+        self::assertSame(Merge::KEEP_UNKNOWN, Merge::decide(Merge::PRICE, null, '480000', '500000'));
+
+        // And freshness is not a licence to write anything: a value that
+        // cannot be compared exactly is still refused, and an equal pair is
+        // still the ordinary no-op write rather than a conflict.
+        self::assertSame(Merge::UNREADABLE, Merge::decide(Merge::PRICE, null, '480000.50', '500000', true));
+        self::assertSame(Merge::WRITE, Merge::decide(Merge::PRICE, null, '500000', '500000', true));
+    }
+
     public function testTheComparisonIsByValueAndNotByText(): void
     {
         // A shop with two decimal places writes the same price as

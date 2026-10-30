@@ -1,0 +1,286 @@
+=== the two packages, read from the ZIPs ===
+base_package=0.1.0-alpha.82 base_schema=35
+new_package=0.1.0-alpha.83 new_schema=35
+PASS  1a the base declares a schema  (35)
+PASS  1b the new package declares the SAME one  (35)
+PASS  1c so this round has no migration  (0)
+
+=== on the base package: a product that has already been taken in ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Activating 'tecteb-marketplace-core'...
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Installed 1 of 1 plugins.
+PASS  2a the base is installed  (0.1.0-alpha.82)
+vendor=226
+terms=265,266
+wc=77201
+set_recorded=already_set
+row=4251
+first_projection_ok=yes
+first_projection_code=projected
+shop_price=200000
+shop_sku=A83-INTAKE
+shop_weight=0.012
+shop_terms=265,266
+wc=77201 row=4251 terms=265,266
+PASS  2b the fixture is arranged  (yes)
+PASS  2c the parent and its child are both on the product  (2)
+PASS  2d the recorded set matches the shop's  (265,266)
+PASS  2e the base has no shop-edit record of its own  (absent)
+identity=8292d983ae260f97c288d8646d0b47ab1c1abda53bf8f492ffb6097c6b473b2d
+shop_price=200000
+shop_sku=A83-INTAKE
+shop_weight=0.012
+shop_terms=265,266
+row_set=265,266
+identity_before=8292d983ae260f97c288d8646d0b47ab1c1abda53bf8f492ffb6097c6b473b2d
+PASS  2f the recorded structure is 35  (35)
+
+=== the defect this round closes, on 0.1.0-alpha.82's own bytes ===
+shop_price=480000
+shop_sku=A83-OWNER
+shop_weight=0.014
+PASS  3a the owner's edit lands in WooCommerce  (480000)
+project_ok=yes
+project_code=projected
+price_before=480000
+price_after=200000
+price_kept=no
+sku_before=A83-OWNER
+sku_after=A83-INTAKE
+sku_kept=no
+weight_before=0.014
+weight_after=0.012
+weight_kept=no
+terms_before=265,266
+terms_after=265,266
+terms_kept=yes
+PASS  3b a projection runs  (yes)
+PASS  3c …and the base OVERWRITES the edited price  (no)
+PASS  3d …the edited SKU  (no)
+PASS  3e …and the edited weight  (no)
+PASS  3f the price it put back is the stored one  (200000)
+PASS  3g the category set is NOT reduced on the base either  (yes)
+PASS  3h and the base names no conflict, because it has no record  (absent)
+
+=== swapping the files for 0.1.0-alpha.83 ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Activating 'tecteb-marketplace-core'...
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Installed 1 of 1 plugins.
+PASS  4a the new files are on disk  (0.1.0-alpha.83)
+PASS  4b the structure number did not move  (35)
+PHP Fatal error:  Uncaught Error: Call to undefined function Automattic\WooCommerce\Internal\Orders\wc_get_page_screen_id() in /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php:546
+Stack trace:
+#0 /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php(557): Automattic\WooCommerce\Internal\Orders\OrderAttributionController->get_order_screen_id()
+#1 /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php(210): Automattic\WooCommerce\Internal\Orders\OrderAttributionController->register_order_origin_column()
+#2 /home/user/wp-demo/wp-includes/class-wp-hook.php(353): Automattic\WooCommerce\Internal\Orders\OrderAttributionController->{closure:Automattic\WooCommerce\Internal\Orders\OrderAttributionController::on_init():209}()
+#3 /home/user/wp-demo/wp-includes/class-wp-hook.php(377): WP_Hook->apply_filters()
+#4 /home/user/wp-demo/wp-includes/plugin.php(523): WP_Hook->do_action()
+#5 phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/Eval_Command.php(39) : eval()'d code(1): do_action()
+#6 phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/Eval_Command.php(39): eval()
+#7 [internal function]: Eval_Command->__invoke()
+#8 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Dispatcher/CommandFactory.php(100): call_user_func()
+#9 [internal function]: WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}()
+#10 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Dispatcher/Subcommand.php(497): call_user_func()
+#11 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(470): WP_CLI\Dispatcher\Subcommand->invoke()
+#12 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(493): WP_CLI\Runner->run_command()
+#13 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(136): WP_CLI\Runner->run_command_and_exit()
+#14 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(1228): WP_CLI\Runner->do_early_invoke()
+#15 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Bootstrap/LaunchRunner.php(28): WP_CLI\Runner->start()
+#16 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/bootstrap.php(84): WP_CLI\Bootstrap\LaunchRunner->process()
+#17 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php(35): WP_CLI\bootstrap()
+#18 phar:///usr/local/bin/wp/php/boot-phar.php(20): include('...')
+#19 /usr/local/bin/wp(4): include('...')
+#20 {main}
+  thrown in /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php on line 546
+Fatal error: Uncaught Error: Call to undefined function Automattic\WooCommerce\Internal\Orders\wc_get_page_screen_id() in /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php:546
+Stack trace:
+#0 /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php(557): Automattic\WooCommerce\Internal\Orders\OrderAttributionController->get_order_screen_id()
+#1 /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php(210): Automattic\WooCommerce\Internal\Orders\OrderAttributionController->register_order_origin_column()
+#2 /home/user/wp-demo/wp-includes/class-wp-hook.php(353): Automattic\WooCommerce\Internal\Orders\OrderAttributionController->{closure:Automattic\WooCommerce\Internal\Orders\OrderAttributionController::on_init():209}()
+#3 /home/user/wp-demo/wp-includes/class-wp-hook.php(377): WP_Hook->apply_filters()
+#4 /home/user/wp-demo/wp-includes/plugin.php(523): WP_Hook->do_action()
+#5 phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/Eval_Command.php(39) : eval()'d code(1): do_action()
+#6 phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/Eval_Command.php(39): eval()
+#7 [internal function]: Eval_Command->__invoke()
+#8 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Dispatcher/CommandFactory.php(100): call_user_func()
+#9 [internal function]: WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}()
+#10 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Dispatcher/Subcommand.php(497): call_user_func()
+#11 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(470): WP_CLI\Dispatcher\Subcommand->invoke()
+#12 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(493): WP_CLI\Runner->run_command()
+#13 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(136): WP_CLI\Runner->run_command_and_exit()
+#14 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Runner.php(1228): WP_CLI\Runner->do_early_invoke()
+#15 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/WP_CLI/Bootstrap/LaunchRunner.php(28): WP_CLI\Runner->start()
+#16 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/bootstrap.php(84): WP_CLI\Bootstrap\LaunchRunner->process()
+#17 phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php(35): WP_CLI\bootstrap()
+#18 phar:///usr/local/bin/wp/php/boot-phar.php(20): include('...')
+#19 /usr/local/bin/wp(4): include('...')
+#20 {main}
+  thrown in /home/user/wp-demo/wp-content/plugins/woocommerce/src/Internal/Orders/OrderAttributionController.php on line 546
+Error: There has been a critical error on this website.Learn more about troubleshooting WordPress. There has been a critical error on this website.
+PASS  4c …and an admin request leaves it there  (35)
+SKIP  4d the failure and resume stages  — there is no step to fail (`alpha.42`)
+wc=77201
+row=4251
+shop_price=200000
+shop_sku=A83-INTAKE
+shop_weight=0.012
+shop_terms=265,266
+row_price=200000
+row_sku=A83-INTAKE
+row_weight=12
+row_set=265,266
+conflicts=__empty__
+record=__empty__
+PASS  4e the carried-over row still holds the whole set  (265,266)
+PASS  4f the shop still holds the whole set  (265,266)
+
+=== the same scenario on 0.1.0-alpha.83 ===
+shop_price=480000
+shop_sku=A83-OWNER
+shop_weight=0.014
+PASS  5a the owner's edit lands again  (480000)
+project_ok=yes
+project_code=projected
+price_before=480000
+price_after=480000
+price_kept=yes
+sku_before=A83-OWNER
+sku_after=A83-OWNER
+sku_kept=yes
+weight_before=0.014
+weight_after=0.014
+weight_kept=yes
+terms_before=265,266
+terms_after=265,266
+terms_kept=yes
+PASS  5b a projection runs  (yes)
+PASS  5c the edited price SURVIVES  (yes)
+PASS  5d the edited SKU survives  (yes)
+PASS  5e the edited weight survives  (yes)
+PASS  5f and the category set is untouched  (yes)
+wc=77201
+row=4251
+shop_price=480000
+shop_sku=A83-OWNER
+shop_weight=0.014
+shop_terms=265,266
+row_price=200000
+row_sku=A83-INTAKE
+row_weight=12
+row_set=265,266
+conflicts=price,sku,weight
+conflict_price=keep_unknown:480000/200000
+conflict_sku=keep_unknown:A83-OWNER/A83-INTAKE
+conflict_weight=keep_unknown:14/12
+record=__empty__
+PASS  5g each kept field is NAMED for the manager  (price,sku,weight)
+PASS  5h …with both numbers, and «we have no record of writing this»  (keep_unknown:480000/200000)
+project_ok=yes
+project_code=projected
+price_before=480000
+price_after=480000
+price_kept=yes
+sku_before=A83-OWNER
+sku_after=A83-OWNER
+sku_kept=yes
+weight_before=0.014
+weight_after=0.014
+weight_kept=yes
+terms_before=265,266
+terms_after=265,266
+terms_kept=yes
+PASS  5i it survives EVERY later projection  (yes)
+PASS  5j a kept projection claims nothing, so there is still no record  (__empty__)
+row_updated=yes
+push_ok=yes
+push_code=price_kept
+shop_price=480000
+shop_price_is_the_vendors=no
+FAIL  5k the vendor's own change is written  expected=price_written actual=price_kept
+FAIL  5l …and the shop now holds the vendor's price  expected=yes actual=no
+wc=77201
+row=4251
+shop_price=480000
+shop_sku=A83-OWNER
+shop_weight=0.014
+shop_terms=265,266
+row_price=500000
+row_sku=A83-INTAKE
+row_weight=12
+row_set=265,266
+conflicts=price
+conflict_price=keep_unknown:480000/500000
+record=__empty__
+FAIL  5m the conflict is RECORDED, not silently resolved  expected=write_conflict:480000/500000 actual=keep_unknown:480000/500000
+FAIL  5n and from here the record exists  expected=price actual=__empty__
+PASS  5o so the next projection is an ordinary fresh write  (yes)
+
+=== and back to 0.1.0-alpha.82 ===
+identity=1433a669acaddfc130cf657ca82c2df622847c856119d452b69ea65c431d0b60
+shop_price=480000
+shop_sku=A83-OWNER
+shop_weight=0.014
+shop_terms=265,266
+row_set=265,266
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Activating 'tecteb-marketplace-core'...
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Installed 1 of 1 plugins.
+PASS  6a the old files are on disk  (0.1.0-alpha.82)
+PASS  6b the structure is still 35  (35)
+PASS  6c no database work is needed to go back  (1433a669acaddfc130cf657ca82c2df622847c856119d452b69ea65c431d0b60)
+PASS  6d the link table from migration 35 is still read  (265,266)
+shop_price=480000
+shop_sku=A83-OWNER
+shop_weight=0.014
+PASS  6e the owner edits the price again, on the old bytes  (480000)
+project_ok=yes
+project_code=projected
+price_before=480000
+price_after=500000
+price_kept=no
+sku_before=A83-OWNER
+sku_after=A83-INTAKE
+sku_kept=no
+weight_before=0.014
+weight_after=0.012
+weight_kept=no
+terms_before=265,266
+terms_after=265,266
+terms_kept=yes
+PASS  6f the rollback cost: the edit is overwritten again  (not yes; got no)
+PASS  6g …the price it puts back is the stored one  (500000)
+PASS  6h …and nothing names it any more  (absent)
+note=the link table of migration 35 survives a rollback and is still read,
+note=but that is a statement about the TABLE. On these bytes the three
+note=fields are written unconditionally again and price is sensitive again.
+
+=== forward again, because a rollback is not a decision ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Activating 'tecteb-marketplace-core'...
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Installed 1 of 1 plugins.
+PASS  7a the new package is installed  (0.1.0-alpha.83)
+PASS  7b the structure is 35  (35)
+shop_price=480000
+shop_sku=A83-OWNER
+shop_weight=0.014
+PASS  7c the owner's edit lands  (480000)
+PASS  7d …and is kept again  (yes)
+PASS  7e with the whole set intact  (265,266)
+
+PASS=46 FAIL=4

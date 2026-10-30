@@ -89,8 +89,13 @@ final class ProjectedShopFields
      * @param array<string,array{sent:string, shop:string}> $stored
      * @return array{answers:array<string,string>, may:array<string,bool>, report:array<string,array{answer:string, shop:string, ours:string}>}
      */
-    public static function merge(array $shop, array $ours, array $stored, bool $createdByUs): array
-    {
+    public static function merge(
+        array $shop,
+        array $ours,
+        array $stored,
+        bool $createdByUs,
+        bool $oursIsFresh = false
+    ): array {
         $answers = [];
         $may = [];
         $report = [];
@@ -98,7 +103,7 @@ final class ProjectedShopFields
             $has = (string) ($shop[$field] ?? '');
             $answer = $createdByUs && trim($want) !== ''
                 ? ShopEditMerge::WRITE
-                : ShopEditMerge::decide($field, $stored[$field] ?? null, $has, $want);
+                : ShopEditMerge::decide($field, $stored[$field] ?? null, $has, $want, $oursIsFresh);
             $answers[$field] = $answer;
             $may[$field] = ShopEditMerge::writes($answer);
             if (ShopEditMerge::reports($answer)) {

@@ -170,6 +170,38 @@ MUTATIONS = [
         '            $price = null;',
         'the row changes and the shop keeps the old price for ever',
     ),
+    (
+        # ⛔ The hole the UPGRADE CHECK found, not a reading of the code: on an
+        # upgraded site no record exists, so an edited product answered KEEP
+        # for the vendor's own change too and their price could never reach
+        # the shop again.
+        'an-unrecorded-edit-holds-the-vendors-own-change-back',
+        MERGE,
+        '            return $oursIsFresh ? self::WRITE_CONFLICT : self::KEEP_UNKNOWN;',
+        '            return self::KEEP_UNKNOWN;',
+        'every product taken in by an older package and then edited by hand '
+        'holds its vendor\'s price back for ever',
+    ),
+    (
+        # The other half: freshness claimed on the PROJECTION path would put
+        # the old copy back over the edit, which is the whole defect again.
+        'the-projection-claims-its-copy-is-fresh',
+        PROJECTOR,
+        """        $shopFieldsMerged = ProjectedShopFields::merge(
+            $shopFields,
+            $wantedFields,
+            $isNew ? [] : ProjectedShopFields::record((int) $wcProduct->get_id()),
+            $isNew
+        );""",
+        """        $shopFieldsMerged = ProjectedShopFields::merge(
+            $shopFields,
+            $wantedFields,
+            $isNew ? [] : ProjectedShopFields::record((int) $wcProduct->get_id()),
+            $isNew,
+            true
+        );""",
+        'a projection treats its own months-old copy as fresh and overwrites',
+    ),
 ]
 
 
