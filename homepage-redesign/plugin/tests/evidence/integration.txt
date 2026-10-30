@@ -1,0 +1,120 @@
+PASS defaults: root wrapper rtl/fa
+PASS defaults: one h1
+PASS defaults: no categories section without selection
+PASS defaults: products section shows
+PASS defaults: no services section
+PASS defaults: no supplier section
+PASS defaults: no route cards (quote/supplier)
+PASS defaults: no quote buttons on cards
+PASS defaults: no quick chips
+PASS defaults: no category select without categories
+PASS defaults: audience line shows
+PASS no temporary #th-route links anywhere
+PASS no preview marker «th-sample»
+PASS no preview marker «th-imgnote»
+PASS no preview marker «th-hero__note»
+PASS no preview marker «proto-»
+PASS no preview marker «تصویر نمایشی»
+PASS no preview marker «نمونه»
+PASS no preview marker «در انتظار تأیید»
+PASS every link is absolute http(s) on this site
+PASS search form goes to home_url with post_type=product
+PASS hero image eager, high priority, excluded from lazyload
+PASS featured: exactly the 4 published+catalog-visible featured products, in menu_order
+PASS featured: «پیش‌نویس» product excluded
+PASS featured: «پنهان از فروشگاه» product excluded
+PASS featured: «فقط در جست‌وجو» product excluded
+PASS featured: «غیرویژه» product excluded
+PASS query contract: publish + featured + catalog visibility, menu_order then date
+PASS product title is escaped, not markup
+PASS specs: two visible attributes, hidden one not shown
+PASS price: WooCommerce price html for priced product
+PASS price: product without price says «قیمت اعلام نشده»
+PASS stock: out of stock shows «فعلاً ناموجود» and ناموجود badge
+PASS stock: backorder badge «پیش‌سفارش»
+PASS image: WordPress attachment with srcset, sizes, lazy, width/height
+PASS image: product without image gets the empty state
+PASS image alt falls back to the product name
+PASS category label from product category
+PASS card links to product permalink
+PASS no WooCommerce loop markup (no ul.products / add-to-cart)
+PASS fewer than 4 featured: exactly 2 cards, nothing added
+PASS fewer than 4 featured: non-featured product not used as filler
+PASS zero featured: products section hidden, with a reason
+PASS hide out of stock setting is honoured (backorder still shown)
+PASS categories: shown in the admin order
+PASS categories: link to the WooCommerce term link
+PASS categories: note = first line of description only
+PASS categories: thumbnail image used when present
+PASS categories: search select lists the selected categories
+PASS categories: hero floats = first two categories
+PASS categories: product filter chips = shop + categories
+PASS categories: no aria-current on the shop chip
+PASS categories: no «همهٔ دسته‌ها» link without destination
+PASS sanitize: order numbers, remove, and add
+PASS sanitize: idempotent
+PASS sanitize: unknown category id is refused
+PASS sanitize: at most 8 categories
+PASS sanitize: bad icon falls back to default
+PASS categories: empty and deleted categories are skipped
+PASS categories: a parent whose products are only in subcategories is not empty
+PASS categories: a category with a visible (even out-of-stock) product is shown
+PASS categories: admin note overrides the description
+PASS escaping: hostile category name/description never becomes markup
+PASS chips: blank and duplicate lines dropped
+PASS chips: link is a product search for the word
+PASS chips: the search URL finds the product on this WordPress
+PASS search: select value is the readable (decoded) slug
+PASS search: category-scoped search returns that category's products
+PASS search: plain word search with empty category works
+PASS links: javascript:, data:, protocol-relative and ftp are refused
+PASS links: relative path kept relative, https kept
+PASS links: relative path resolved against this site
+PASS links: product quote carries the product id param
+PASS links: four quote buttons on four cards
+PASS links: supplier route hidden while supplier is empty
+PASS links: «همهٔ دسته‌ها» appears with its destination
+PASS links: bad param name refused
+PASS services: items but switched off → hidden
+PASS services: switched on but no items → hidden
+PASS services: nothing ships by default
+PASS services: only rows with a title, as written
+PASS services: CTA follows the quote link
+PASS services: no CTA without the quote link
+PASS supplier: hidden without a link
+PASS supplier: shown with its link
+PASS supplier: no steps by default, solo layout
+PASS supplier: no terms button without its link
+PASS supplier: hero route appears with the link
+PASS supplier: at most 3 steps, Persian numerals
+PASS links: wp-config constant overrides the option
+PASS shortcode: sections attribute order kept, unknown ignored
+PASS shortcode: icon sprite printed once per page
+PASS read-only: rendering and serving changes no WordPress/WooCommerce row
+PASS assets: homepage loads css, font and js
+PASS assets: css loads in <head>, not late in the footer
+PASS assets: js is deferred
+PASS assets: font preloaded
+PASS assets: nothing loads on plain page
+PASS assets: nothing loads on shop
+PASS assets: nothing loads on product
+PASS assets: no external host referenced by our assets
+PASS font=site: no font css, no preload, root gets th-font-site
+PASS page template: site header kept
+PASS page template: site footer kept
+PASS page template: no page title, one h1
+PASS page template: offered in the page template list
+PASS cache: featured toggle purges the homepage URL once per request
+PASS cache: saving settings purges the homepage
+PASS cache: editing a category purges the homepage
+PASS admin: settings capability is manage_woocommerce
+PASS admin: a subscriber cannot reach the page
+PASS admin: page renders with settings form and nonce
+PASS admin: category search lists matches with full path and add buttons
+PASS admin: add button is part of the save form
+PASS admin: hostile names escaped in the admin page
+PASS admin: status table explains hidden sections
+PASS admin: wp-config constant shown read-only
+PASS uninstall: removes only its own option
+
+118 passed, 0 failed

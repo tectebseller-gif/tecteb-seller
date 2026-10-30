@@ -1,0 +1,7 @@
+محیط آزمون (محلی، یکبارمصرف — نه staging، نه سایت اصلی):
+WordPress 7.1 (github.com/WordPress/wordpress، تگ 7.1)
+WooCommerce 11.0.1 (انتشار رسمی GitHub، sha256 88837ea0504544fdb835078d39c68c6c4abde00cdb4af8f67027255ee8ae494c)
+Hello Elementor 3.5.1 (github.com/elementor/hello-theme تگ v3.5.1؛ CSS با sass ساخته شد؛ سه فایل JS ِ فقط‌مدیریتی با جای‌خالی محلی، چون از سورس ساخته نشدند)
+PHP 8.3.6 · MariaDB 10.11.14-MariaDB · Chromium (Playwright) · axe-core 4.10.2
+PHP 8.1: مفسر در این محیط نیست؛ سازگاری با PHPCompatibilityWP و testVersion 8.1- سنجیده شد.
+Elementor، LiteSpeed Cache، Rank Math، دکان، Persian Woo: در این محیط نصب‌شدنی نیستند — Not Run.

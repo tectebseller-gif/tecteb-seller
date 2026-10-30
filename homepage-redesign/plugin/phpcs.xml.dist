@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<ruleset name="tecteb-homepage">
+	<description>امنیت و سازگاری افزونهٔ صفحهٔ اصلی.</description>
+	<file>tecteb-homepage</file>
+	<arg name="extensions" value="php"/>
+	<arg value="s"/>
+	<config name="testVersion" value="8.1-"/>
+	<config name="minimum_wp_version" value="6.5"/>
+
+	<rule ref="PHPCompatibilityWP"/>
+
+	<!-- امنیت: escape خروجی، nonce، sanitize ورودی، SQL. -->
+	<rule ref="WordPress.Security"/>
+	<rule ref="WordPress.DB"/>
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array"><element value="tecteb-homepage"/></property>
+		</properties>
+	</rule>
+	<!-- قالب‌های templates/ داخل یک closure در Renderer::template() بارگذاری می‌شوند،
+	     پس متغیرهایشان محلی‌اند نه سراسری؛ این دو قاعده آن را نمی‌بینند. -->
+	<rule ref="WordPress.WP.GlobalVariablesOverride">
+		<exclude-pattern>tecteb-homepage/templates/*.php</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP.AlternativeFunctions"/>
+	<rule ref="WordPress.PHP">
+		<exclude name="WordPress.PHP.POSIXFunctions"/>
+	</rule>
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="tecteb_home"/>
+				<element value="Tecteb\Homepage"/>
+			</property>
+		</properties>
+		<exclude-pattern>tecteb-homepage/templates/*.php</exclude-pattern>
+	</rule>
+</ruleset>

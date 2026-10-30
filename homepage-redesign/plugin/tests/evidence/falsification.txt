@@ -1,0 +1,30 @@
+ 1 CAUGHT  [integration] 10 failing — featured flag dropped from the product query
+     first: FAIL featured: exactly the 4 published+catalog-visible featured products, in menu_order  — دستکش جراحی غیرویژه | چراغ سیالتیک غیرویژه | کالا
+ 2 SURVIVED [integration] 0 failing — catalog visibility dropped (hidden products leak)
+     first: 117 passed, 0 failed
+ 3 CAUGHT  [integration] 2 failing — quote button printed without a destination
+     first: FAIL defaults: no quote buttons on cards
+ 4 CAUGHT  [integration] 1 failing — any URL accepted (javascript:)
+     first: FAIL links: javascript:, data:, protocol-relative and ftp are refused  — {"quote":"javascript:alert(1)","supplier":"data:text\/html,x","supp
+ 5 CAUGHT  [integration] 2 failing — services shown while switched off
+     first: FAIL services: items but switched off → hidden
+ 6 CAUGHT  [integration] 3 failing — supplier section without a link
+     first: FAIL defaults: no supplier section
+ 7 CAUGHT  [integration] 1 failing — category name printed unescaped
+     first: FAIL escaping: hostile category name/description never becomes markup
+ 8 CAUGHT  [integration] 3 failing — assets loaded on every page
+     first: FAIL assets: nothing loads on plain page
+ 9 CAUGHT  [integration] 1 failing — parent category counted by direct products only
+     first: FAIL categories: a parent whose products are only in subcategories is not empty
+10 CAUGHT  [static] 1 failing — a write slipped into the reader
+     first: FAIL no write: update_post_meta  — includes/class-catalog.php
+11 CAUGHT  [static] 1 failing — Dokan dependency
+     first: FAIL no dependency on دکان  — includes/class-renderer.php
+12 CAUGHT  [browser] 1 failing — heading hardening removed (theme/kit leak)
+     first: FAIL theme: an Elementor kit with form/heading styles changes nothing either  — h1.fontStyle: normal → italic; h1.textTransform: none → uppe
+
+11 of 12 mutations caught and restored
+ 2 SURVIVED [integration] 0 failing — catalog visibility dropped (hidden products leak)
+     first: 118 passed, 0 failed
+
+0 of 1 mutations caught and restored

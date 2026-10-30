@@ -1,0 +1,83 @@
+PASS no dependency on دکان
+PASS no dependency on پیشوند Tecteb Marketplace (tmc_)
+PASS no dependency on namespace بازارگاه
+PASS no dependency on slug بازارگاه
+PASS no dependency on کلاس‌های Elementor
+PASS Elementor is only read via the _elementor_data meta key
+PASS no write: update_post_meta
+PASS no write: add_post_meta
+PASS no write: delete_post_meta
+PASS no write: wp_insert_post
+PASS no write: wp_update_post
+PASS no write: wp_delete_post
+PASS no write: wp_trash_post(
+PASS no write: wp_insert_term
+PASS no write: wp_update_term
+PASS no write: wp_delete_term
+PASS no write: update_term_meta
+PASS no write: add_term_meta
+PASS no write: delete_term_meta
+PASS no write: wp_set_object_terms
+PASS no write: wp_set_post_terms
+PASS no write: set_featured
+PASS no write: set_catalog_visibility
+PASS no write: ->save(
+PASS no write: $wpdb
+PASS no write: update_option(
+PASS no write: add_option(
+PASS no write: update_user_meta
+PASS no write: wp_insert_user
+PASS no write: wp_update_user
+PASS no write: set_transient
+PASS no write: update_site_option
+PASS no write: wp_schedule_event
+PASS no write: flush_rewrite_rules
+PASS no write: add_rewrite_rule
+PASS delete_option only in uninstall.php
+PASS no business logic / network: WC()->cart
+PASS no business logic / network: add_to_cart
+PASS no business logic / network: wc_create_order
+PASS no business logic / network: WC_Order
+PASS no business logic / network: wp_mail
+PASS no business logic / network: wp_remote_
+PASS no business logic / network: wp_safe_remote_
+PASS no business logic / network: curl_
+PASS no business logic / network: fsockopen
+PASS no business logic / network: file_get_contents( 'http
+PASS no business logic / network: register_rest_route
+PASS no business logic / network: wp_ajax_
+PASS no business logic / network: admin_post_
+PASS no WooCommerce loop: wc_get_template
+PASS no WooCommerce loop: woocommerce_template_loop
+PASS no WooCommerce loop: do_action( 'woocommerce
+PASS no WooCommerce loop: do_action( "woocommerce
+PASS no WooCommerce loop: woocommerce_shop_loop
+PASS no WooCommerce loop: wc_setup_loop
+PASS templates: no inline <script>
+PASS css: every selector scoped under .tecteb-home-v1 (258 selectors)
+PASS css: no @font-face in the main stylesheet (font is its own file)
+PASS css: font file has exactly one @font-face with a unique family
+PASS css: font file exists
+PASS css: no external url()
+PASS css: !important only where the approved design has it (reduced motion, audience separator)
+PASS css: hardening adds no !important
+PASS css: shipped stylesheet ends with the hardening rules
+PASS css: no physical left/right properties
+PASS css: every animation is under prefers-reduced-motion: no-preference
+PASS js: no network, no storage, scoped to .tecteb-home-v1
+PASS js: honours reduced motion and fine pointer only
+PASS no preview marker «th-sample» in shipped files
+PASS no preview marker «th-imgnote» in shipped files
+PASS no preview marker «th-hero__note» in shipped files
+PASS no preview marker «proto-» in shipped files
+PASS no preview marker «data-th-route» in shipped files
+PASS no preview marker «#th-route» in shipped files
+PASS no preview marker «تصویر نمایشی» in shipped files
+PASS no preview marker «نمونه» in shipped files
+PASS no preview marker «sample-» in shipped files
+PASS plugin header/markup has «tecteb-home-v1»
+PASS plugin header/markup has «Requires Plugins:  woocommerce»
+PASS plugin header/markup has «Requires PHP:      8.1»
+PASS plugin header/markup has «Text Domain:       tecteb-homepage»
+
+81 passed, 0 failed

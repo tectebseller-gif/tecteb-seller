@@ -1,0 +1,137 @@
+/* ================================================================ سخت‌سازی
+ *
+ * پیش‌نمایش روی صفحهٔ خالی ساخته شد؛ این بخش آن را روی صفحه‌ای که قالب و kit ِ
+ * Elementor هم استایل دارند همان نگه می‌دارد. اندازه‌گیری‌شده (readiness/):
+ * reset ِ Hello Elementor 3.5.1 به جست‌وجو، فهرست، دکمه و وزن h1 نشت می‌کند،
+ * و kit ِ Elementor با `.elementor-kit-N input:not(…):not(…)` (0,3,1) از
+ * انتخابگرهای (0,3,0) ِ ما قوی‌تر است.
+ *
+ * پس هر کنترل فرم و هر عنوان، هر ویژگی‌ای را که قالب یا kit ممکن است بدهد
+ * صریحاً می‌نویسد، با انتخابگرِ دست‌کم (0,4,0). این بخش هیچ !important ای
+ * ندارد: قالب و kit هم ندارند، پس انتخابگر قوی‌تر کافی است.
+ */
+
+/* --- عنوان‌ها: هر چه طرح خودش ننوشته، از قالب و kit نیاید.
+   (0,2,0) با :where — قوی‌تر از kit ِ Elementor (`.elementor-kit-N h1` = 0,1,1) و
+   ضعیف‌تر از قاعدهٔ خودِ طرح (0,3,0)، پس هر مقداری که طرح دارد (مثل letter-spacing
+   عنوان Hero) دست نمی‌خورد. */
+.tecteb-home-v1.th-c :where(h1, h2, h3) {
+  margin: 0;
+  font-family: inherit;
+  font-style: normal;
+  letter-spacing: normal;
+  text-transform: none;
+  word-spacing: normal;
+  color: inherit;
+}
+
+/* وزن عنوان Hero در پیش‌نمایش از پیش‌فرض مرورگر برای h1 می‌آمد (۷۰۰)؛ Hello آن
+   را ۵۰۰ می‌کند. بقیهٔ عنوان‌ها وزنشان را در قاعدهٔ خودشان دارند. */
+.tecteb-home-v1.th-c h1.th-hero__title { font-weight: 700; }
+
+.tecteb-home-v1.th-c p,
+.tecteb-home-v1.th-c ul,
+.tecteb-home-v1.th-c ol,
+.tecteb-home-v1.th-c figure { margin: 0; }
+
+.tecteb-home-v1.th-c a,
+.tecteb-home-v1.th-c a:hover,
+.tecteb-home-v1.th-c a:focus { text-decoration: none; }
+
+.tecteb-home-v1.th-c label { line-height: inherit; vertical-align: baseline; }
+
+.tecteb-home-v1.th-c img {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  height: auto;
+}
+
+/* --- کادر جست‌وجو */
+.tecteb-home-v1.th-c .th-search .th-search__input,
+.tecteb-home-v1.th-c .th-search .th-search__input:focus {
+  inline-size: auto;
+  block-size: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--th-ink);
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  transition: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* --- فهرست دسته */
+.tecteb-home-v1.th-c .th-search .th-search__select,
+.tecteb-home-v1.th-c .th-search .th-search__select:focus {
+  margin: 0;
+  padding-block: 0;
+  padding-inline: 1rem 2.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background-color: rgba(4, 20, 31, 0.35);
+  box-shadow: none;
+  color: var(--th-on-dark);
+  font: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-transform: none;
+  transition: border-color 0.25s ease;
+}
+
+/* --- دکمه‌ها (button و a) */
+.tecteb-home-v1.th-c .th-search button.th-btn,
+.tecteb-home-v1.th-c a.th-btn,
+.tecteb-home-v1.th-c button.th-btn:hover,
+.tecteb-home-v1.th-c button.th-btn:focus {
+  margin: 0;
+  padding-block: 0;
+  padding-inline: 1.5rem;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: normal;
+  text-transform: none;
+  text-decoration: none;
+}
+
+.tecteb-home-v1.th-c .th-search button.th-btn--primary,
+.tecteb-home-v1.th-c .th-search button.th-btn--primary:hover,
+.tecteb-home-v1.th-c .th-search button.th-btn--primary:focus {
+  border-color: transparent;
+  color: var(--th-white);
+}
+
+/* Hello برای :focus-visible یک box-shadow سفید هم می‌گذارد؛ حلقهٔ فوکوس ما همان
+   outline است و سایهٔ خودِ دکمه نباید با آن عوض شود. */
+.tecteb-home-v1.th-c .th-search button.th-btn:focus-visible { box-shadow: none; }
+
+/* --- فونت سایت به‌جای فونت طرح (تنظیم افزونه) */
+.tecteb-home-v1.th-c.th-font-site { font-family: inherit; }
+.tecteb-home-v1.th-c.th-font-site :is(input, select, button) { font-family: inherit; }
+
+/* --- تصویر محصول از وردپرس: <img> داخل پوستهٔ th-product__pic */
+.tecteb-home-v1.th-c .th-product__pic { display: block; inline-size: 100%; }
+.tecteb-home-v1.th-c .th-product__pic img { inline-size: 100%; }
+
+/* --- تصویر بندانگشتی خودِ دسته در ووکامرس، داخل گوی */
+.tecteb-home-v1.th-c .th-orb .th-orb__img {
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* --- کارت همکاری بی مراحل (مراحل تا تأیید متن خالی‌اند): یک ستون */
+@container th-home (min-width: 980px) {
+  .tecteb-home-v1.th-c .th-join.th-join--solo { grid-template-columns: minmax(0, 1fr); max-inline-size: 52rem; }
+}

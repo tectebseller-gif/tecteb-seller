@@ -1,0 +1,7 @@
+/* فقط وقتی بارگذاری می‌شود که «فونت طرح» انتخاب شده باشد. Vazirmatn، OFL-1.1. */
+@font-face {
+  font-family: "TH Vazirmatn";
+  src: url("../fonts/Vazirmatn-wght.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
