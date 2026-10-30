@@ -6,6 +6,7 @@ namespace Tecteb\Marketplace\Modules\Product\Presentation;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorNotice;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUi;
@@ -317,7 +318,18 @@ final class ProductListView
             . '<div><dt>' . esc_html__('قیمت', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($price) . '</dd></div>'
             . '<div><dt>' . esc_html__('موجودی', 'tecteb-marketplace-core') . '</dt><dd>' . VendorUi::chip($stockTone, $stockText) . '</dd></div>'
             . '<div><dt>' . esc_html__('کد SKU', 'tecteb-marketplace-core') . '</dt><dd><bdi>' . esc_html($d->sku !== '' ? $d->sku : '—') . '</bdi></dd></div>'
-            . '<div><dt>' . esc_html__('دسته', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html($d->categoryKey !== '' ? $d->categoryKey : '—') . '</dd></div>'
+            // ⛔ THE SET, COUNTED — not the single key printed raw.
+            //
+            // This cell used to print `category_key`, which is `''` for every
+            // multi-category product (`CategorySet::soleKey()` picks no
+            // winner) and for every row an import created with no mapping. A
+            // dash there reads as «this product has no category», which is a
+            // different fact from «the marketplace has not recorded one» and
+            // is false whenever WooCommerce holds the categories — the same
+            // fault the review card carried. The full paths belong on the
+            // manager's review page, which has the directory; this list has
+            // neither, so it says how many and nothing it cannot support.
+            . '<div><dt>' . esc_html__('دسته', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html(self::categoryCell($d)) . '</dd></div>'
             . '</dl>';
 
         if ($product->reviewNote !== '' && in_array($product->status, [ProductStatus::ChangesRequested, ProductStatus::Suspended, ProductStatus::Archived], true)) {
@@ -481,5 +493,29 @@ final class ProductListView
                 PersianDigits::toPersian((string) ProductCsv::MAX_ROWS)
             ))
             . '</p>';
+    }
+
+    /**
+     * «How many categories are recorded», in the one honest wording.
+     *
+     * Three answers, and none of them is a bare dash: a recorded set says how
+     * many (and the single id when there is exactly one, because that is the
+     * number a vendor recognises), and an unrecorded one says it is not
+     * recorded rather than implying the product has none in the shop.
+     */
+    private static function categoryCell(ProductDetails $d): string
+    {
+        $set = $d->categorySet();
+        if ($set === []) {
+            return __('ثبت‌نشده', 'tecteb-marketplace-core');
+        }
+        if (count($set) === 1) {
+            return PersianDigits::toPersian((string) $set[0]);
+        }
+        return sprintf(
+            /* translators: %s: how many categories */
+            __('%s دسته', 'tecteb-marketplace-core'),
+            PersianDigits::toPersian((string) count($set))
+        );
     }
 }

@@ -555,6 +555,11 @@
 .tmc-review__facts > div { display: grid; gap: 2px; }
 .tmc-review__facts dt { color: var(--tmc-muted); font-weight: 700; }
 .tmc-review__facts dd { margin: 0; overflow-wrap: anywhere; }
+/* The category block: three statements the manager must be able to read as
+   three, not one. Same grid as the facts list, wider value column, because a
+   full ancestry («تجهیزات پزشکی › ترالی › ترالی شستشو») is a sentence. */
+.tmc-review__categories { grid-template-columns: 1fr; margin-bottom: 8px; }
+.tmc-review__categories dd { line-height: 1.7; }
 
 .tmc-review__form { margin-block-start: var(--tmc-space-3); }
 

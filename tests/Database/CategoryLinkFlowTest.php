@@ -916,4 +916,84 @@ final class CategoryLinkFlowTest extends DatabaseTestCase
             'a failed catalogue read is a reason to ask differently, not an answer'
         );
     }
+
+    /**
+     * THE ROOT CAUSE OF THE REVIEW CARD'S «دسته‌ای انتخاب نشده», measured on
+     * real MariaDB rather than inferred from a screenshot.
+     *
+     * The owner saw it on two Dokan-imported, observe-only products — one in
+     * a single category, one in two — and asked for a definitive distinction
+     * between «اشکال نمایش», «نبود رابطه در داده داخلی» and «رفتار عمدی برای
+     * محصول هنوز پذیرفته‌نشده». This test establishes the second one as a
+     * fact: after a real import, the key is empty and the link table holds
+     * nothing, WHILE WooCommerce keeps every term.
+     *
+     * So it is not deletion and not corruption: the relationship was never
+     * recorded. `ImportFromDokan` writes `categoryKey:
+     * marketplaceCategoryFor(source) ?? ''` and passes no `categoryIds`, so
+     * `syncCategorySet()` returns early on the empty set — and migration 35's
+     * backfill writes one row per NON-EMPTY all-digit key, which an empty key
+     * is not.
+     *
+     * And it is not about acceptance either: nothing here has been accepted,
+     * and nothing here would change if it were — `acceptCorrection()` writes
+     * `soleKey()` too.
+     */
+    public function testAfterTheDokanImportTheRelationshipIsUnrecordedWhileWooCommerceKeepsEveryTerm(): void
+    {
+        $this->runImport();
+        // One category, the shape of WooCommerce product 10972.
+        $this->attach(8001, [self::INJECTION]);
+        // Two, the shape of 10225.
+        $this->attach(8002, [self::GLUE_MEDICAL, self::GLUE_CONSUMABLE]);
+
+        $terms = $this->relationshipSnapshot();
+
+        // WHAT THE MARKETPLACE HAS: nothing, for either of them.
+        self::assertSame('', $this->storedKey(8001), 'the import stored no key — no mapping was saved');
+        self::assertSame('', $this->storedKey(8002));
+        self::assertSame([], $this->recordedSet(8001), 'and no link row: not recorded, not deleted');
+        self::assertSame([], $this->recordedSet(8002));
+
+        // WHAT `ProductDetails` therefore answers — and this is exactly what
+        // the old card had to work with, which is why it said «none».
+        $oneRow = $this->products->find($this->rowId(8001));
+        self::assertNotNull($oneRow);
+        self::assertSame([], $oneRow->details->categorySet(), 'the fallback narrows to nothing too');
+
+        // WHAT WOOCOMMERCE HAS: every term, untouched by any of this.
+        self::assertSame($terms, $this->relationshipSnapshot(), 'reading changed no relationship');
+        self::assertContains('8001:' . self::INJECTION, $terms);
+        self::assertContains('8002:' . self::GLUE_MEDICAL, $terms);
+        self::assertContains('8002:' . self::GLUE_CONSUMABLE, $terms);
+
+        // AND THE WAY OUT ALREADY EXISTS: the link plan sees both rows and
+        // proposes the whole set for each, with no first-id guess.
+        $plan = $this->plan->plan();
+        $proposed = array_column($plan['apply'], null, 'wc_product_id');
+        self::assertSame([self::INJECTION], $proposed[8001]['proposed_ids'] ?? []);
+        self::assertSame([self::GLUE_MEDICAL, self::GLUE_CONSUMABLE], $proposed[8002]['proposed_ids'] ?? []);
+        self::assertSame('', $proposed[8002]['proposed_key'] ?? 'x', 'still no arbitrary single key');
+    }
+
+    /**
+     * And once the relationship IS recorded, the set survives whole — so the
+     * screen has something true to show and the complete set is inspectable
+     * by id, which is what §3 of the instruction requires.
+     */
+    public function testARecordedSetIsReadableAsTheWholeSetOfIds(): void
+    {
+        $this->runImport();
+        $this->attach(8002, [self::GLUE_MEDICAL, self::GLUE_CONSUMABLE]);
+        $before = $this->relationshipSnapshot();
+
+        $id = $this->rowId(8002);
+        $result = $this->applier->apply([$id], [$id => '712,713'], self::MANAGER);
+        self::assertTrue($result['ok']);
+        self::assertSame(1, $result['counts']['linked']);
+
+        self::assertSame([self::GLUE_MEDICAL, self::GLUE_CONSUMABLE], $this->recordedSet(8002));
+        self::assertSame('', $this->storedKey(8002), 'and the single key is STILL empty, on purpose');
+        self::assertSame($before, $this->relationshipSnapshot(), 'WooCommerce was not written to');
+    }
 }

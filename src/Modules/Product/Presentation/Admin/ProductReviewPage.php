@@ -17,6 +17,7 @@ use Tecteb\Marketplace\Modules\Migration\Domain\CatalogueFacets;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MigrationPage;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\ProductIntakePage;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryLinkReaderInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductDecisionRepositoryInterface;
@@ -30,6 +31,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ReviewSeen;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
+use Tecteb\Marketplace\Modules\Product\Domain\CategoryLink;
 use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
@@ -848,8 +850,75 @@ final class ProductReviewPage
             // Asked here, like every other value on this card, and `[]` with
             // no reader — «نتوانستم بپرسم» is not «تفاوتی نیست», and the
             // block that draws nothing is the honest answer to the first.
-            $storefront?->shopFieldConflicts($product) ?? []
+            $storefront?->shopFieldConflicts($product) ?? [],
+            // WOOCOMMERCE'S OWN RELATIONSHIP, read only, and asked here like
+            // every other value on this card.
+            //
+            // This is the fix for what a manager saw on a Dokan-imported
+            // product: the card's «دسته» row came from `category_key` alone,
+            // which is `''` for every multi-category product by design and
+            // for every row an import created with no mapping — so a product
+            // with two live categories printed «دسته‌ای انتخاب نشده». The
+            // reader has no write method of any kind (`alpha.81`), so this
+            // needs no managerial acceptance and changes nothing.
+            //
+            // `null` when there is no storefront post to ask about, or no
+            // reader at all: «نپرسیدم» is not «دسته‌ای ندارد», and the view
+            // draws a different sentence for each.
+            $this->shopCategoriesOf($product),
+            // And what the marketplace has RECORDED — the schema-35 link
+            // table, read straight off the row, never the single-key
+            // fallback. `[]` here means «not recorded», which the view says
+            // in those words.
+            $this->pathsFor($product->details->categoryIds)
         );
+    }
+
+    /**
+     * WooCommerce's `product_cat` relationship for one product, or null.
+     *
+     * One product, so one id in the batch — the batched reader exists for the
+     * link PLAN, which classifies five hundred rows; here the card is already
+     * one product's worth of reads and a second query is the honest price of
+     * not guessing.
+     */
+    private function shopCategoriesOf(Product $product): ?CategoryLink
+    {
+        if (!$product->isProjected() || !$this->container->has(ProductCategoryLinkReaderInterface::class)) {
+            return null;
+        }
+        /** @var ProductCategoryLinkReaderInterface $reader */
+        $reader = $this->container->get(ProductCategoryLinkReaderInterface::class);
+        if (!$reader->isAvailable()) {
+            return null;
+        }
+        $wcId = (int) $product->wcProductId;
+        // `linksFor()` returns an entry for every id asked for, and an
+        // unreadable one is `CategoryLink::unreadable()` rather than absent —
+        // so `?? null` here only ever fires for a reader that broke its own
+        // contract, and null is then the sentence that admits it.
+        return $reader->linksFor([$wcId])[$wcId] ?? null;
+    }
+
+    /**
+     * Term ids with their full ancestry, for a screen that must not show bare
+     * leaves — «لوازم جانبی» is in six branches of this shop.
+     *
+     * @param list<int> $ids
+     * @return list<array{id:int,path:string}>
+     */
+    private function pathsFor(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+        /** @var ProductCategoryDirectoryInterface $directory */
+        $directory = $this->container->get(ProductCategoryDirectoryInterface::class);
+        $out = [];
+        foreach (CategorySet::of($ids) as $id) {
+            $out[] = ['id' => $id, 'path' => $directory->find((string) $id)?->path ?? ''];
+        }
+        return $out;
     }
 
     /** @return list<array{url:string,id:int,main:bool}> */

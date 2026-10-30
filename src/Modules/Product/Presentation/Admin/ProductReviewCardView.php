@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Product\Presentation\Admin;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
+use Tecteb\Marketplace\Modules\Product\Domain\CategoryLink;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecTemplate;
 use Tecteb\Marketplace\Modules\Product\Domain\FieldMerge;
@@ -86,7 +87,28 @@ final class ProductReviewCardView
          *
          * @var array<string,array{answer:string, shop:string, ours:string}>
          */
-        array $shopFieldConflicts = []
+        array $shopFieldConflicts = [],
+        /**
+         * WooCommerce's OWN `product_cat` relationship for this product, from
+         * `ProductCategoryLinkReaderInterface::linksFor()` — read only.
+         *
+         * `null` is «nobody asked», and it draws the sentence that says so.
+         * It is NOT «this product has no category»: those are opposite facts
+         * (`alpha.8`), and conflating them is exactly how this card came to
+         * tell a manager that a product with two live categories had none.
+         */
+        ?CategoryLink $shopCategories = null,
+        /**
+         * The set this marketplace has RECORDED, as id => full path.
+         *
+         * Resolved by the caller, because this view holds no container and
+         * asks no directory. `[]` means the relationship is not recorded,
+         * which is true of every row an import created with an empty key —
+         * and still not «no categories in the shop».
+         *
+         * @var list<array{id:int,path:string}>
+         */
+        array $recordedCategories = []
     ): string {
         $d = $product->details;
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
@@ -96,6 +118,7 @@ final class ProductReviewCardView
             . self::storeLine($product, $store)
             . self::gallery($images)
             . self::descriptions($d->shortDescription, $fullDescription)
+            . self::categories($product, $shopCategories, $recordedCategories, $fa)
             . self::facts($product, $categoryPath, $fa)
             . self::specs($product, $template)
             . self::storefrontBlock($product, $storefront, $editorUrl, $seoPlugin, $nonceField, $woocommerceAvailable, $viewLink, $hasPendingRevision, $comparisonState, $shopFieldConflicts)
@@ -186,6 +209,105 @@ final class ProductReviewCardView
         return $html . '</div>';
     }
 
+    /**
+     * THE CATEGORY, as two separate facts that are never merged into one.
+     *
+     * The owner's instruction is literal about this: «صفحه بررسی محصول باید
+     * وضعیت دسته‌بندی ووکامرس و وضعیت دسته‌بندی داخلی بازارگاه را به‌صورت
+     * جداگانه و شفاف نشان دهد. اگر رابطه داخلی ساخته نشده، همین را صریح
+     * بگوید؛ نه اینکه به‌اشتباه القا کند محصول دسته‌بندی ندارد.»
+     *
+     * So there are three statements here and no arithmetic between them:
+     *
+     * 1. **What WooCommerce holds** — every term id with its full path, read
+     *    through `ProductCategoryLinkReaderInterface`, which has no write
+     *    method at all. Each non-definite state is named: the default term is
+     *    not a category, a deleted term is invalid rather than absent, and a
+     *    failed read is `UNREADABLE` rather than «none».
+     * 2. **What the marketplace has recorded** — the schema-35 link table. An
+     *    empty set says so in those words and points at the existing «پیوند
+     *    دسته» path, because «رابطه ثبت نشده» and «محصول دسته ندارد» are
+     *    different facts and the second one would be a lie here.
+     * 3. **The single key**, with the label it actually has: the one value the
+     *    medical spec template is looked up by. It is `''` for every
+     *    multi-category product BY DESIGN, and printing it as «دسته» is what
+     *    produced the fault this block replaces.
+     *
+     * Nothing here writes, claims ownership, or needs a managerial
+     * acceptance: the whole block is three reads.
+     *
+     * @param list<array{id:int,path:string}> $recorded
+     */
+    private static function categories(
+        Product $product,
+        ?CategoryLink $shop,
+        array $recorded,
+        callable $fa
+    ): string {
+        $list = static function (array $pairs) use ($fa): string {
+            $out = [];
+            foreach ($pairs as $pair) {
+                $path = trim((string) ($pair['path'] ?? ''));
+                $id = (int) ($pair['id'] ?? 0);
+                $out[] = $path !== ''
+                    ? sprintf('%s (#%s)', $path, $fa((string) $id))
+                    : sprintf(
+                        /* translators: %s: the term id */
+                        __('ترم #%s — مسیرش خوانده نشد', 'tecteb-marketplace-core'),
+                        $fa((string) $id)
+                    );
+            }
+            return implode(' · ', $out);
+        };
+
+        // 1. WooCommerce's own relationship.
+        if ($shop === null) {
+            $shopText = __('پرسیده نشد — این صفحه نتوانست رابطهٔ ووکامرس را بخواند. «بدون دسته» نتیجه گرفته نمی‌شود.', 'tecteb-marketplace-core');
+        } else {
+            $shopText = match ($shop->state) {
+                CategoryLink::UNREADABLE => __('خواندن رابطهٔ ووکامرس ناموفق بود. این با «دسته‌ای ندارد» یکی نیست.', 'tecteb-marketplace-core'),
+                CategoryLink::NONE => __('این محصول در ووکامرس هیچ دستهٔ معتبری ندارد.', 'tecteb-marketplace-core'),
+                CategoryLink::DEFAULT_ONLY => __('فقط ترم پیش‌فرض ووکامرس به آن وصل است؛ ترم پیش‌فرض یک دسته نیست.', 'tecteb-marketplace-core'),
+                CategoryLink::INVALID => __('شناسه‌هایی به آن وصل‌اند که ترمشان روی این سایت نیست (ترم حذف‌شده).', 'tecteb-marketplace-core'),
+                default => $list($shop->pathList()),
+            };
+            if (in_array($shop->state, [CategoryLink::DEFINITE, CategoryLink::MULTIPLE], true)) {
+                $shopText .= sprintf(
+                    /* translators: %s: how many categories */
+                    ' — ' . __('%s دسته، کامل و دست‌نخورده.', 'tecteb-marketplace-core'),
+                    $fa((string) count($shop->validIds))
+                );
+                if ($shop->invalidIds !== []) {
+                    $shopText .= ' ' . __('و شناسه‌هایی که ترمشان پیدا نشد:', 'tecteb-marketplace-core')
+                        . ' ' . $fa(implode('، ', array_map('strval', $shop->invalidIds)));
+                }
+            }
+        }
+
+        // 2. What this marketplace has recorded.
+        $recordedText = $recorded !== []
+            ? $list($recorded)
+            : __('رابطهٔ داخلی این محصول هنوز ثبت نشده است. این یعنی بازارگاه چیزی ثبت نکرده — نه اینکه محصول در ووکامرس دسته‌ای ندارد. ثبتش با صفحهٔ «پیوند دسته» و با اقدام صریح مدیر انجام می‌شود.', 'tecteb-marketplace-core');
+
+        // 3. The single key, named as what it is.
+        $key = trim($product->details->categoryKey);
+        $keyText = $key !== ''
+            ? $fa($key)
+            : __('خالی — و برای محصول چنددسته‌ای عمداً خالی است؛ «اولین دسته» خودسرانه انتخاب نمی‌شود.', 'tecteb-marketplace-core');
+
+        $rows = [
+            __('دستهٔ ووکامرس (فقط خواندن)', 'tecteb-marketplace-core') => $shopText,
+            __('دستهٔ ثبت‌شده در بازارگاه', 'tecteb-marketplace-core') => $recordedText,
+            __('کلید تکِ دسته (برای الگوی مشخصات)', 'tecteb-marketplace-core') => $keyText,
+        ];
+        $html = '<dl class="tmc-review__facts tmc-review__categories">';
+        foreach ($rows as $label => $value) {
+            $html .= '<div><dt>' . esc_html((string) $label) . '</dt><dd>' . esc_html((string) $value) . '</dd></div>';
+        }
+        return $html . '</dl>'
+            . '<p class="tmc-card__note">' . esc_html__('دیدن این صفحه هیچ دسته‌ای را نمی‌سازد، حذف نمی‌کند و عوض نمی‌کند.', 'tecteb-marketplace-core') . '</p>';
+    }
+
     private static function facts(Product $product, string $categoryPath, callable $fa): string
     {
         $d = $product->details;
@@ -196,10 +318,16 @@ final class ProductReviewCardView
                 $fa(number_format($d->priceMinor))
             )
             : __('قیمت ندارد', 'tecteb-marketplace-core');
+        // ⛔ NO «دسته» ROW HERE ANY MORE, and that is the fix.
+        //
+        // It read `$categoryPath`, which is the directory's answer for the
+        // SINGLE `category_key` — and `CategorySet::soleKey()` deliberately
+        // returns `''` for a product in more than one category. So a product
+        // whose whole set is recorded in schema 35 printed «دسته‌ای انتخاب نشده
+        // یا ترمش پیدا نشد» here: the data was intact and the screen was
+        // wrong. The category now has its own block above, which separates
+        // what WooCommerce holds from what this marketplace has recorded.
         $rows = [
-            __('دسته', 'tecteb-marketplace-core') => $categoryPath !== ''
-                ? $categoryPath
-                : __('دسته‌ای انتخاب نشده یا ترمش پیدا نشد', 'tecteb-marketplace-core'),
             __('قیمت', 'tecteb-marketplace-core') => $price,
             __('موجودی', 'tecteb-marketplace-core') => $fa($d->stock),
             __('کد SKU', 'tecteb-marketplace-core') => $d->sku !== '' ? $d->sku : '—',
@@ -689,7 +817,12 @@ final class ProductReviewCardView
                         __('دستهٔ فعلی: %s — برای دیدن فهرست دسته‌ها به «محصولات ← دسته‌بندی‌ها» بروید.', 'tecteb-marketplace-core'),
                         $categoryPath
                     )
-                    : __('دستهٔ فعلی پیدا نشد. شناسهٔ ترم ووکامرس را بگذارید.', 'tecteb-marketplace-core')
+                    // ⛔ NOT «پیدا نشد». This field carries the single key,
+                    // which is empty for every multi-category product by
+                    // design — the block above has already said what the
+                    // categories actually are, and repeating «not found»
+                    // here would contradict it.
+                    : __('این کادر کلید تکِ دسته را حمل می‌کند و برای محصول چنددسته‌ای خالی است. وضعیت واقعی دسته‌ها بالاتر آمده؛ اینجا می‌توانید یک شناسه یا چند شناسه با کاما بگذارید.', 'tecteb-marketplace-core')
             ) . '</span></div>'
             . '<p><button type="submit" class="tmc-button" name="decision" value="save">'
             . esc_html__('ثبت اصلاح', 'tecteb-marketplace-core') . '</button></p>'
