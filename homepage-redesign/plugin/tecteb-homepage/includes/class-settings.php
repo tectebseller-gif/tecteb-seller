@@ -10,6 +10,11 @@
  *
  * نشانیِ خالی یعنی «مقصد تأییدشده‌ای نیست» و دکمه‌اش چاپ نمی‌شود.
  *
+ * از ۰٫۲٫۰ محصولات صفحهٔ اصلی فهرستِ دستیِ همین option اند (شناسهٔ محصول، به
+ * ترتیب مدیر) — نه ستارهٔ «ویژه»ٔ ووکامرس — و «استعلام سازمانی» و بخش خدمات
+ * عمومی برداشته شدند. کلیدهای option ِ نسخهٔ ۰٫۱٫۰ (quote، services_*) خوانده
+ * نمی‌شوند و با اولین ذخیره از option می‌روند.
+ *
  * @package Tecteb\Homepage
  */
 
@@ -24,15 +29,15 @@ final class Settings {
 	public const SCHEMA = 1;
 
 	public const MAX_CATEGORIES = 8;
-	public const MAX_PRODUCTS   = 8;
+	public const MAX_PRODUCTS   = 12;
+	public const MAX_SELECTED   = 24;
 	public const MAX_CHIPS      = 6;
 	public const MAX_AUDIENCE   = 6;
-	public const MAX_SERVICES   = 4;
 	public const MAX_STEPS      = 3;
 
 	/** نام هر نشانی ← ثابتی که می‌تواند در wp-config.php تعیینش کند. */
 	public const LINKS = array(
-		'quote'          => 'TECTEB_HOME_QUOTE_URL',
+		'repair'         => 'TECTEB_HOME_REPAIR_URL',
 		'supplier'       => 'TECTEB_HOME_SUPPLIER_URL',
 		'supplier_terms' => 'TECTEB_HOME_SUPPLIER_TERMS_URL',
 		'all_categories' => 'TECTEB_HOME_CATEGORIES_URL',
@@ -41,9 +46,6 @@ final class Settings {
 	/** آیکون‌های قابل‌انتخاب برای دستهٔ بی‌تصویر؛ کلید = نام symbol در sprite. */
 	public const CATEGORY_ICONS = array( 'monitor', 'or', 'ultrasound', 'lab', 'syringe', 'emergency', 'care', 'dental', 'store', 'image' );
 
-	/** آیکون‌های قابل‌انتخاب برای کارت خدمات. */
-	public const SERVICE_ICONS = array( 'quote', 'list', 'network', 'support', 'check', 'store' );
-
 	/** نتیجهٔ memoise‌شدهٔ get() در همین درخواست. */
 	private static ?array $cache = null;
 
@@ -51,17 +53,13 @@ final class Settings {
 		return array(
 			'schema'              => self::SCHEMA,
 			'categories'          => array(),
+			'products'            => array(),
 			'product_count'       => 4,
 			'links'               => array_fill_keys( array_keys( self::LINKS ), '' ),
-			'quote_product_param' => '',
-			'hero_lead'           => 'برای بیمارستان‌ها، کلینیک‌ها و آزمایشگاه‌ها: محصولات را جست‌وجو کنید و مشخصات را کنار هم ببینید.',
+			'hero_lead'           => 'برای بیمارستان‌ها، کلینیک‌ها و آزمایشگاه‌ها: تجهیزات را جست‌وجو کنید، مشخصات را کنار هم ببینید و از فروشگاه تک‌طب تهیه کنید.',
 			'audience_label'      => 'ویژهٔ خرید حرفه‌ای',
 			'audience'            => array( 'بیمارستان‌ها', 'کلینیک‌ها', 'آزمایشگاه‌ها', 'مطب‌ها', 'مراکز دندان‌پزشکی' ),
 			'chips'               => array(),
-			'services_enabled'    => false,
-			'services_title'      => 'تأمین برای مراکز درمانی، در یک مسیر',
-			'services_lead'       => '',
-			'services'            => array(),
 			'supplier_title'      => 'محصولاتتان را به خریداران حرفه‌ای تجهیزات پزشکی برسانید',
 			'supplier_lead'       => 'تولیدکننده یا واردکننده‌اید؟ در تک‌طب فروشگاه خودتان را داشته باشید و به مراکز درمانی عرضه کنید.',
 			'supplier_steps'      => array(),
@@ -130,6 +128,8 @@ final class Settings {
 
 		$out['categories'] = self::categories( $in['categories'] ?? array(), $in['add_category'] ?? null, $report );
 
+		$out['products'] = self::products( $in['products'] ?? array(), $in['add_product'] ?? null, $report );
+
 		$count                = isset( $in['product_count'] ) ? (int) $in['product_count'] : $d['product_count'];
 		$out['product_count'] = max( 1, min( self::MAX_PRODUCTS, $count ) );
 
@@ -143,19 +143,14 @@ final class Settings {
 			$out['links'][ $key ] = $clean;
 		}
 
-		$param                      = strtolower( (string) ( $in['quote_product_param'] ?? '' ) );
-		$out['quote_product_param'] = preg_match( '/^[a-z][a-z0-9_-]{0,31}$/', $param ) ? $param : '';
-
-		foreach ( array( 'hero_lead' => 220, 'audience_label' => 40, 'services_title' => 90, 'services_lead' => 220, 'supplier_title' => 110, 'supplier_lead' => 240 ) as $key => $max ) {
+		foreach ( array( 'hero_lead' => 220, 'audience_label' => 40, 'supplier_title' => 110, 'supplier_lead' => 240 ) as $key => $max ) {
 			$out[ $key ] = array_key_exists( $key, $in ) ? self::text( $in[ $key ], $max ) : $d[ $key ];
 		}
 
 		$out['audience'] = array_key_exists( 'audience', $in ) ? self::lines( $in['audience'], self::MAX_AUDIENCE, 30 ) : $d['audience'];
 		$out['chips']    = self::lines( $in['chips'] ?? array(), self::MAX_CHIPS, 40 );
 
-		$out['services_enabled'] = ! empty( $in['services_enabled'] );
-		$out['services']         = self::rows( $in['services'] ?? array(), self::MAX_SERVICES, true );
-		$out['supplier_steps']   = self::rows( $in['supplier_steps'] ?? array(), self::MAX_STEPS, false );
+		$out['supplier_steps'] = self::rows( $in['supplier_steps'] ?? array(), self::MAX_STEPS );
 
 		$out['font'] = 'site' === ( $in['font'] ?? '' ) ? 'site' : 'bundled';
 
@@ -231,7 +226,57 @@ final class Settings {
 		);
 	}
 
-	private static function rows( $rows, int $max, bool $icon ): array {
+	/**
+	 * محصولات منتخب: فقط شناسه‌ها، به ترتیب مدیر. هر شناسه باید پست ِ نوع `product`
+	 * باشد (نه تنوع، نه پست دیگر)، و محصول تازه نباید در زباله باشد. وضعیت انتشار و نمایش اینجا
+	 * سنجیده نمی‌شود: محصولی که امروز پیش‌نویس است می‌تواند انتخاب بماند و فقط
+	 * تا منتشرشدنش نمایش داده نمی‌شود — صفحهٔ تنظیمات دلیلش را می‌گوید.
+	 * هیچ چیزی روی خودِ محصول نوشته نمی‌شود.
+	 *
+	 * @return list<int>
+	 */
+	private static function products( $rows, $add, bool $report ): array {
+		$list = array();
+		$i    = 0;
+		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+			$row = is_array( $row ) ? $row : array( 'id' => $row );
+			if ( ! empty( $row['remove'] ) ) {
+				continue;
+			}
+			$id = absint( $row['id'] ?? 0 );
+			// ردیفِ از قبل انتخاب‌شده تا وقتی پستِ محصول هست می‌ماند، حتی در زباله: از
+			// خروجی کنار می‌رود و صفحهٔ تنظیمات دلیلش را می‌گوید، ولی بی‌صدا از فهرست
+			// مدیر پاک نمی‌شود. فقط محصولی که کاملاً حذف شده دیگر چیزی برای نگه‌داشتن ندارد.
+			if ( $id > 0 && ! isset( $list[ $id ] ) && 'product' === get_post_type( $id ) ) {
+				$list[ $id ] = array( isset( $row['order'] ) && is_numeric( $row['order'] ) ? (float) $row['order'] : (float) ( $i + 1 ), $i++ );
+			}
+		}
+
+		$add = absint( $add );
+		if ( $add > 0 && ! isset( $list[ $add ] ) ) {
+			if ( self::is_product( $add ) ) {
+				$list[ $add ] = array( (float) PHP_INT_MAX, $i++ );
+			} elseif ( $report ) {
+				self::error( 'product_missing', 'این شناسه محصول ووکامرس نیست و افزوده نشد.' );
+			}
+		}
+
+		uasort( $list, static fn( array $a, array $b ): int => $a <=> $b );
+		$ids = array_keys( $list );
+		if ( count( $ids ) > self::MAX_SELECTED ) {
+			if ( $report ) {
+				self::error( 'product_limit', sprintf( 'حداکثر %d محصول می‌تواند انتخاب شود؛ محصولات اضافه افزوده نشدند.', self::MAX_SELECTED ) );
+			}
+			$ids = array_slice( $ids, 0, self::MAX_SELECTED );
+		}
+		return array_map( 'intval', $ids );
+	}
+
+	private static function is_product( int $id ): bool {
+		return 'product' === get_post_type( $id ) && 'trash' !== get_post_status( $id );
+	}
+
+	private static function rows( $rows, int $max ): array {
 		$out = array();
 		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
 			if ( ! is_array( $row ) ) {
@@ -241,14 +286,10 @@ final class Settings {
 			if ( '' === $title ) {
 				continue;
 			}
-			$item = array(
+			$out[] = array(
 				'title' => $title,
 				'text'  => self::text( $row['text'] ?? '', 140 ),
 			);
-			if ( $icon ) {
-				$item['icon'] = in_array( $row['icon'] ?? '', self::SERVICE_ICONS, true ) ? $row['icon'] : self::SERVICE_ICONS[ count( $out ) % count( self::SERVICE_ICONS ) ];
-			}
-			$out[] = $item;
 			if ( count( $out ) >= $max ) {
 				break;
 			}

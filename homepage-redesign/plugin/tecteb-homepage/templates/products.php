@@ -1,9 +1,8 @@
 <?php
 /**
- * ۳. فروشگاه و محصولات منتخب — محصولات «ویژه»ٔ ووکامرس (ستارهٔ فهرست محصولات).
- *
- * اگر کمتر از تعداد تنظیم‌شده محصول ویژه وجود داشت، همان تعداد نمایش داده
- * می‌شود؛ هیچ محصول دیگری جایگزین نمی‌شود.
+ * ۳. فروشگاه و محصولات منتخب — محصولاتی که مدیر در «ووکامرس ← صفحهٔ اصلی»
+ * انتخاب و مرتب کرده، با داده‌های زندهٔ ووکامرس (نام، تصویر، قیمت، موجودی،
+ * ویژگی‌ها، پیوند). محصولی که حذف یا پنهان شده کنار می‌رود و چیزی جایش نمی‌آید.
  *
  * @var array $plan Renderer::plan()
  * @package Tecteb\Homepage
@@ -14,7 +13,6 @@ use Tecteb\Homepage\Renderer;
 defined( 'ABSPATH' ) || exit;
 
 $links  = $plan['links'];
-$param  = $plan['settings']['quote_product_param'];
 $arrow  = Renderer::icon( 'arrow', 'th-icon th-icon--dir' );
 $chips  = array_slice( $plan['categories'], 0, 4 );
 $badges = array(
@@ -77,12 +75,9 @@ $badges = array(
 							<?php if ( 'outofstock' === $product['stock'] ) : ?>
 								<p class="th-product__price th-product__price--out"><?php echo esc_html__( 'فعلاً ناموجود', 'tecteb-homepage' ); ?></p>
 							<?php elseif ( '' !== $product['price'] ) : ?>
-								<p class="th-product__price"><?php echo wp_kses_post( $product['price'] ); ?></p>
+								<p class="th-product__price"><?php echo Renderer::price_html( $product['price'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses در Renderer::price_html(). ?></p>
 							<?php else : ?>
 								<p class="th-product__price th-product__price--ask"><?php echo esc_html__( 'قیمت اعلام نشده', 'tecteb-homepage' ); ?></p>
-							<?php endif; ?>
-							<?php if ( '' !== $links['quote'] ) : ?>
-								<a class="th-product__quote" href="<?php echo esc_url( Renderer::quote_url( $links['quote'], $product['id'], $param ) ); ?>"><?php echo esc_html__( 'استعلام سازمانی', 'tecteb-homepage' ); ?></a>
 							<?php endif; ?>
 						</div>
 					</div>

@@ -159,5 +159,12 @@ update_post_meta( $page, '_wp_page_template', 'tecteb-homepage-full-width.php' )
 $other = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'صفحهٔ عادی', 'post_name' => 'plain-page', 'post_content' => 'متن عادی.' ) );
 update_post_meta( $other, TTH_FIXTURE, '1' );
 
+// جانشین‌های محلیِ دو صفحه‌ای که روی سایت واقعی هست (تعمیرات) یا خواهد بود
+// (درخواست همکاری): فقط تا کلیک روی کارت‌ها در آزمون مرورگری به صفحه‌ای واقعی برسد.
+foreach ( array( 'medical-equipment-repair' => 'تعمیرات تجهیزات پزشکی (جانشین محلی)', 'supplier-application' => 'درخواست همکاری (جانشین محلی)' ) as $slug => $title ) {
+	$standin = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => $title, 'post_name' => $slug, 'post_content' => 'صفحهٔ جانشین برای آزمون محلی.' ) );
+	update_post_meta( $standin, TTH_FIXTURE, '1' );
+}
+
 update_option( 'tth_fixture_ids', array( 'cats' => $cats, 'products' => $p, 'page' => $page, 'other' => $other, 'images' => array( $img_mon, $img_oxi, $img_pmp ) ) );
 echo wp_json_encode( array( 'cats' => $cats, 'products' => $p, 'page' => $page, 'other' => $other ) ), "\n";

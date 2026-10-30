@@ -165,6 +165,21 @@ js = (ROOT / "assets/js/tecteb-home.js").read_text(encoding="utf-8")
 check("js: no network, no storage, scoped to .tecteb-home-v1", not re.search(r"fetch\(|XMLHttpRequest|localStorage|sessionStorage|document\.cookie|https?://", js) and ".tecteb-home-v1" in js)
 check("js: honours reduced motion and fine pointer only", "prefers-reduced-motion: reduce" in js and "pointer: fine" in js)
 
+# --- ۶-ب. تصمیم‌های ۰٫۲٫۰
+check("products: no featured-flag selection left in code", not [f for f, c in code.items() if "'featured'" in c or "featured_" in c])
+# کامنت‌ها کنار می‌روند: docblock ها همین نام‌ها را برای توضیحِ برداشتنشان می‌آورند.
+shipped = {f: (code[f] if f in code else re.sub(r"/\*.*?\*/", "", t, flags=re.S)) for f, t in raw.items() if f != "readme.txt"}
+for needle in ["درخواست تأمین", "استعلام", "پیش‌فاکتور", "th-product__quote", "th-services", "th-service", "th-route--buyer", "TECTEB_HOME_QUOTE_URL"]:
+    hits = [f for f, t in shipped.items() if needle in t]
+    check(f"retired in 0.2.0: «{needle}» not in shipped files", not hits, ", ".join(hits))
+check("services template removed", not (ROOT / "templates/services.php").exists())
+hero = raw["templates/hero.php"]
+check("hero: three routes shop → repair → supplier", hero.find("'shop'") < hero.find("'repair'") < hero.find("'supplier'") and "درخواست تعمیرات تجهیزات پزشکی" in hero)
+check("routes: each printed only with a destination (plan['routes'][...]['show'])", "$plan['routes'][ $key ]['show']" in hero)
+check("sprite: wrench icon for the repair route", 'id="th-i-wrench"' in raw["templates/sprite.svg"])
+check("shop: from wc_get_page_permalink('shop'), guarded", "wc_get_page_permalink( 'shop' )" in code["includes/class-renderer.php"] and "'publish' !== get_post_status( $id )" in code["includes/class-renderer.php"])
+check("admin: product search is GET on the settings page, not AJAX/REST", "tth_pq" in code["includes/class-admin.php"] and not [f for f, c in code.items() if "wp_ajax" in c or "admin_post_" in c or "register_rest_route" in c])
+
 # --- ۷. هیچ نشانهٔ پیش‌نمایش
 for needle in ["th-sample", "th-imgnote", "th-hero__note", "proto-", "data-th-route", "#th-route", "تصویر نمایشی", "نمونه", "sample-"]:
     hits = [f for f, t in raw.items() if needle in t and f != "readme.txt"]

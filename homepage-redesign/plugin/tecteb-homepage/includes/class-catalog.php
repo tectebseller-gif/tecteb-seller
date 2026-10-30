@@ -67,17 +67,20 @@ final class Catalog {
 		return is_array( $ids ) && array() !== $ids;
 	}
 
-	/** آرگومان‌های کوئری محصولات ویژه — جدا، تا آزمون و صفحهٔ تنظیمات همان را بپرسند. */
-	public static function featured_query( int $limit ): array {
+	/**
+	 * آرگومان‌های کوئری محصولات منتخب — جدا، تا آزمون و صفحهٔ تنظیمات همان را بپرسند.
+	 * فقط شناسه‌هایی که مدیر انتخاب کرده (include)، و از میان آن‌ها فقط آنچه
+	 * ووکامرس امروز در فروشگاه نشان می‌دهد: منتشرشده، قابل‌مشاهده در فهرست، و اگر
+	 * «پنهان‌کردن ناموجودها» روشن است، نه ناموجود.
+	 *
+	 * @param list<int> $ids
+	 */
+	public static function selected_query( array $ids ): array {
 		$args = array(
+			'include'    => array_values( array_map( 'intval', $ids ) ),
 			'status'     => 'publish',
-			'featured'   => true,
 			'visibility' => 'catalog',
-			'limit'      => $limit,
-			'orderby'    => array(
-				'menu_order' => 'ASC',
-				'date'       => 'DESC',
-			),
+			'limit'      => max( 1, count( $ids ) ),
 			'return'     => 'objects',
 		);
 		// همان رفتار فروشگاه: «پنهان‌کردن ناموجودها» فقط outofstock را پنهان می‌کند، نه پیش‌سفارش.
@@ -88,29 +91,118 @@ final class Catalog {
 	}
 
 	/**
-	 * محصولات ویژهٔ ووکامرس، حداکثر به تعداد تنظیم‌شده. اگر کمتر بود، همان کمتر:
-	 * هیچ محصول دیگری خودکار جایگزین نمی‌شود (تصمیم مالک).
+	 * محصولات منتخب مدیر، به ترتیب خودش، حداکثر به تعداد تنظیم‌شده. محصولی که حذف،
+	 * پنهان، پیش‌نویس یا (با تنظیم ووکامرس) ناموجود شده کنار می‌رود و **هیچ محصول
+	 * دیگری جایش نمی‌آید**؛ تعداد از میان همانِ قابل‌نمایش‌ها شمرده می‌شود.
 	 *
 	 * @return list<array>
 	 */
-	public static function featured_products(): array {
-		$products = wc_get_products( self::featured_query( (int) Settings::get()['product_count'] ) );
-		$out      = array();
-		foreach ( is_array( $products ) ? $products : array() as $product ) {
+	public static function selected_products(): array {
+		$s   = Settings::get();
+		$ids = $s['products'];
+		if ( array() === $ids ) {
+			return array();
+		}
+		$found = array();
+		foreach ( (array) wc_get_products( self::selected_query( $ids ) ) as $product ) {
 			if ( $product instanceof \WC_Product && '' === $product->get_post_password() ) {
-				$out[] = self::product_view( $product );
+				$found[ $product->get_id() ] = $product;
+			}
+		}
+		$out = array();
+		foreach ( $ids as $id ) {
+			if ( isset( $found[ $id ] ) ) {
+				$out[] = self::product_view( $found[ $id ] );
+			}
+			if ( count( $out ) >= (int) $s['product_count'] ) {
+				break;
 			}
 		}
 		return $out;
 	}
 
-	/** تعداد کل محصولات ویژه‌ای که شرایط نمایش را دارند (برای صفحهٔ تنظیمات). */
-	public static function featured_total(): int {
-		$args             = self::featured_query( 1 );
-		$args['return']   = 'ids';
-		$args['paginate'] = true;
-		$result           = wc_get_products( $args );
-		return is_object( $result ) && isset( $result->total ) ? (int) $result->total : 0;
+	/**
+	 * وضعیت هر محصول منتخب برای صفحهٔ تنظیمات: نمایش داده می‌شود، یا چرا نه.
+	 *
+	 * @param list<int> $ids
+	 * @return array<int,array{name:string,shown:bool,reason:string,edit:string,thumb:string,price:string,stock:string}>
+	 */
+	public static function selection_status( array $ids ): array {
+		$visible = array();
+		if ( array() !== $ids ) {
+			$q           = self::selected_query( $ids );
+			$q['return'] = 'ids';
+			$visible     = array_map( 'intval', (array) wc_get_products( $q ) );
+		}
+		$out = array();
+		foreach ( $ids as $id ) {
+			$product = wc_get_product( $id );
+			if ( ! $product instanceof \WC_Product ) {
+				$out[ $id ] = array( 'name' => '#' . $id, 'shown' => false, 'reason' => 'محصول پیدا نشد (حذف شده است).', 'edit' => '', 'thumb' => '', 'price' => '', 'stock' => '' );
+				continue;
+			}
+			$reason = '';
+			if ( 'publish' !== $product->get_status() ) {
+				$reason = 'منتشر نشده است (' . $product->get_status() . ').';
+			} elseif ( ! in_array( $product->get_catalog_visibility(), array( 'visible', 'catalog' ), true ) ) {
+				$reason = 'در فروشگاه پنهان است (نمایش در فهرست: ' . $product->get_catalog_visibility() . ').';
+			} elseif ( '' !== $product->get_post_password() ) {
+				$reason = 'رمزدار است.';
+			} elseif ( ! in_array( $id, $visible, true ) ) {
+				$reason = 'ناموجود است و ووکامرس ناموجودها را پنهان می‌کند.';
+			}
+			$out[ $id ] = array(
+				'name'   => (string) $product->get_name(),
+				'shown'  => '' === $reason,
+				'reason' => $reason,
+				'edit'   => (string) get_edit_post_link( $id, 'raw' ),
+				'thumb'  => $product->get_image_id() ? (string) wp_get_attachment_image( (int) $product->get_image_id(), array( 40, 40 ), false, array( 'alt' => '' ) ) : '',
+				'price'  => wp_strip_all_tags( (string) $product->get_price_html() ),
+				'stock'  => (string) $product->get_stock_status(),
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * جست‌وجوی محصولات برای صفحهٔ تنظیمات: با شناسه، یا با نام/SKU از جست‌وجوی خودِ
+	 * ووکامرس (search_products). همهٔ وضعیت‌ها جز زباله، بی تنوع‌ها.
+	 *
+	 * @return list<array{id:int,name:string,status:string,visibility:string,price:string,stock:string,thumb:string}>
+	 */
+	public static function search_products( string $query, int $limit = 30 ): array {
+		$query = trim( $query );
+		if ( '' === $query ) {
+			return array();
+		}
+		$ids = array();
+		if ( ctype_digit( $query ) ) {
+			$ids[] = (int) $query;
+		}
+		$store = \WC_Data_Store::load( 'product' );
+		foreach ( (array) $store->search_products( wc_clean( $query ), '', false, true, $limit ) as $id ) {
+			$ids[] = (int) $id;
+		}
+		$out = array();
+		foreach ( array_unique( $ids ) as $id ) {
+			$product = 'product' === get_post_type( $id ) ? wc_get_product( $id ) : null;
+			if ( ! $product instanceof \WC_Product || 'trash' === $product->get_status() ) {
+				continue;
+			}
+			$out[] = array(
+				'id'         => $id,
+				'name'       => (string) $product->get_name(),
+				'status'     => (string) $product->get_status(),
+				'visibility' => (string) $product->get_catalog_visibility(),
+				'price'      => wp_strip_all_tags( (string) $product->get_price_html() ),
+				'stock'      => (string) $product->get_stock_status(),
+				'thumb'      => $product->get_image_id() ? (string) wp_get_attachment_image( (int) $product->get_image_id(), array( 40, 40 ), false, array( 'alt' => '' ) ) : '',
+			);
+			if ( count( $out ) >= $limit ) {
+				break;
+			}
+		}
+		return $out;
 	}
 
 	public static function product_view( \WC_Product $product ): array {

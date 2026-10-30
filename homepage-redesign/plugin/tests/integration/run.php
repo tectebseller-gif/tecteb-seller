@@ -100,11 +100,15 @@ $h = html();
 check( 'defaults: root wrapper rtl/fa', 1 === count( nodes( $h, '//div[' . cls( 'tecteb-home-v1' ) . ' and @dir="rtl" and @lang="fa"]' ) ) );
 check( 'defaults: one h1', 1 === count( nodes( $h, '//h1' ) ) );
 check( 'defaults: no categories section without selection', 0 === count( nodes( $h, '//*[@id="th-cats-title"]' ) ) );
-check( 'defaults: products section shows', 1 === count( nodes( $h, '//*[@id="th-products-title"]' ) ) );
-check( 'defaults: no services section', 0 === count( nodes( $h, '//*[@id="th-services-title"]' ) ) );
+check( 'defaults: no products section without a manual selection (featured flag ignored)', 0 === count( nodes( $h, '//*[@id="th-products-title"]' ) ) );
+check( 'defaults: no services section exists any more', ! str_contains( $h, 'th-services' ) && ! str_contains( $h, 'th-service' ) );
 check( 'defaults: no supplier section', 0 === count( nodes( $h, '//*[@id="th-supplier-title"]' ) ) );
-check( 'defaults: no route cards (quote/supplier)', 0 === count( nodes( $h, '//a[' . cls( 'th-route' ) . ']' ) ) );
-check( 'defaults: no quote buttons on cards', 0 === count( nodes( $h, '//a[' . cls( 'th-product__quote' ) . ']' ) ) );
+check( 'defaults: only the shop route (repair and supplier have no destination)', array( 'th-route th-route--shop' ) === array_map( static fn( $n ) => $n->getAttribute( 'class' ), nodes( $h, '//a[' . cls( 'th-route' ) . ']' ) ) );
+check( 'defaults: routes nav labelled, data-count=1', 1 === count( nodes( $h, '//nav[' . cls( 'th-routes' ) . ' and @data-count="1" and @aria-label]' ) ) );
+check( 'shop route: href is wc_get_page_permalink(shop)', wc_get_page_permalink( 'shop' ) === nodes( $h, '//a[' . cls( 'th-route--shop' ) . ']' )[0]->getAttribute( 'href' ) );
+foreach ( array( 'درخواست تأمین', 'استعلام', 'پیش‌فاکتور', 'th-product__quote', 'th-route--buyer' ) as $gone ) {
+	check( "retired: «{$gone}» nowhere on the page", ! str_contains( $h, $gone ) );
+}
 check( 'defaults: no quick chips', 0 === count( nodes( $h, '//*[' . cls( 'th-quick' ) . ']' ) ) );
 check( 'defaults: no category select without categories', 0 === count( nodes( $h, '//select[@name="product_cat"]' ) ) );
 check( 'defaults: audience line shows', 1 === count( nodes( $h, '//*[' . cls( 'th-audience' ) . ']' ) ) );
@@ -117,55 +121,109 @@ check( 'every link is absolute http(s) on this site', array() === array_filter( 
 check( 'search form goes to home_url with post_type=product', 1 === count( nodes( $h, '//form[@role="search" and @action="' . esc_url( home_url( '/' ) ) . '" and @method="get"]//input[@name="post_type" and @value="product"]' ) ) );
 check( 'hero image eager, high priority, excluded from lazyload', 1 === count( nodes( $h, '//img[@fetchpriority="high" and @data-no-lazy="1" and not(@loading)]' ) ) );
 
-/* ------------------------------------------------------------ ۲. محصولات ویژه */
-settings( array( 'product_count' => 8 ) );
+/* ------------------------------------------------------------ ۱-ب. مسیر فروشگاه، ایمن */
+$shop_id = (int) get_option( 'woocommerce_shop_page_id' );
+update_option( 'woocommerce_shop_page_id', 0 );
+$plan = Renderer::plan();
+check( 'shop route: hidden (not pointed at the homepage) when no shop page is set', ! $plan['routes']['shop']['show'] && '' === Renderer::shop_url() && '' !== $plan['routes']['shop']['reason'] );
+check( 'shop route: no route cards at all when none has a destination', 0 === count( nodes( html( 'hero' ), '//nav[' . cls( 'th-routes' ) . ']' ) ) );
+update_option( 'woocommerce_shop_page_id', $ids['page'] );
+wp_update_post( array( 'ID' => $ids['page'], 'post_status' => 'draft' ) );
+check( 'shop route: hidden when the shop page is not published', '' === Renderer::shop_url() );
+wp_update_post( array( 'ID' => $ids['page'], 'post_status' => 'publish' ) );
+update_option( 'woocommerce_shop_page_id', $shop_id );
+check( 'shop route: back once the shop page is valid', get_permalink( $shop_id ) === Renderer::shop_url() );
+
+/* ------------------------------------------------------------ ۲. محصولات منتخب (دستی) */
+// انتخاب: پمپ، مانیتور، دستکشِ غیرویژه، محصول پنهان، پیش‌نویس، سانتریفیوژ ناموجود، اکسیمتر.
+$pick = array( $p['pump'], $p['monitor'], $p['plain'], $p['hidden'], $p['draft'], $p['centri'], $p['oxi'] );
+$relevant_meta = static function () use ( $p ): string {
+	global $wpdb;
+	$ids = implode( ',', array_map( 'intval', $p ) );
+	return md5(
+		(string) $wpdb->get_var( "SELECT GROUP_CONCAT(post_id, meta_key, MD5(meta_value) ORDER BY meta_id) FROM {$wpdb->postmeta} WHERE post_id IN ($ids)" ) // phpcs:ignore WordPress.DB
+		. (string) $wpdb->get_var( "SELECT GROUP_CONCAT(object_id, '-', term_taxonomy_id ORDER BY object_id, term_taxonomy_id) FROM {$wpdb->term_relationships} WHERE object_id IN ($ids)" ) // phpcs:ignore WordPress.DB
+		. (string) $wpdb->get_var( "SELECT GROUP_CONCAT(ID, post_status, post_modified_gmt ORDER BY ID) FROM {$wpdb->posts} WHERE ID IN ($ids)" ) // phpcs:ignore WordPress.DB
+	);
+};
+$meta_before = $relevant_meta();
+settings( array( 'products' => $pick, 'product_count' => 8 ) );
+check( 'selection: saving a selection changes nothing on the products (featured, price, stock, category, status)', $meta_before === $relevant_meta() );
 $h     = html( 'products' );
-$cards = nodes( $h, '//article[' . cls( 'th-product' ) . ']' );
 $names = texts( $h, '//h3[' . cls( 'th-product__title' ) . ']' );
-check( 'featured: exactly the 4 published+catalog-visible featured products, in menu_order', array( 'مانیتور علائم حیاتی پنج‌پارامتری', 'پالس‌اکسیمتر انگشتی با نمایشگر دوخطی و قاب محافظ سیلیکونی', 'سرنگ‌پمپ تک‌کاناله', 'سانتریفیوژ رومیزی <b>آزمایش</b>' ) === $names, implode( ' | ', $names ) );
-foreach ( array( 'پیش‌نویس', 'پنهان از فروشگاه', 'فقط در جست‌وجو', 'غیرویژه' ) as $absent ) {
-	check( "featured: «{$absent}» product excluded", ! str_contains( $h, $absent ) );
+check( 'selection: shown in the admin order; hidden and draft dropped; nothing added', array( 'سرنگ‌پمپ تک‌کاناله', 'مانیتور علائم حیاتی پنج‌پارامتری', 'دستکش جراحی غیرویژه', 'سانتریفیوژ رومیزی <b>آزمایش</b>', 'پالس‌اکسیمتر انگشتی با نمایشگر دوخطی و قاب محافظ سیلیکونی' ) === $names, implode( ' | ', $names ) );
+check( 'selection: a non-featured product is shown when selected', in_array( 'دستکش جراحی غیرویژه', $names, true ) && ! wc_get_product( $p['plain'] )->get_featured() );
+check( 'selection: a featured product that is not selected is not shown', ! str_contains( $h, 'فقط در جست‌وجو' ) && wc_get_product( $p['search'] )->get_featured() );
+foreach ( array( 'پیش‌نویس', 'پنهان از فروشگاه' ) as $absent ) {
+	check( "selection: «{$absent}» product excluded", ! str_contains( $h, $absent ) );
 }
-// ووکامرس ۱۱٫۰٫۱ با featured=true خودش exclude-from-catalog را کنار می‌گذارد
-// (class-wc-product-data-store-cpt.php ۲۳۵۱–۲۳۵۶)؛ گارد ما دومی است و جدا pin می‌شود،
-// چون اگر رفتار ووکامرس عوض شود، فقط همین آرگومان محصول پنهان را بیرون نگه می‌دارد.
-$q = Catalog::featured_query( 4 );
-check( 'query contract: publish + featured + catalog visibility, menu_order then date', 'publish' === $q['status'] && true === $q['featured'] && 'catalog' === $q['visibility'] && array( 'menu_order' => 'ASC', 'date' => 'DESC' ) === $q['orderby'] && 4 === $q['limit'] );
+$q = Catalog::selected_query( $pick );
+check( 'query contract: include = selection, publish, catalog visibility', $pick === $q['include'] && 'publish' === $q['status'] && 'catalog' === $q['visibility'] && ! isset( $q['featured'] ) );
 check( 'product title is escaped, not markup', ! str_contains( $h, '<b>آزمایش</b>' ) && str_contains( $h, '&lt;b&gt;آزمایش&lt;/b&gt;' ) );
 check( 'specs: two visible attributes, hidden one not shown', array( 'ECG · SpO2 · NIBP', 'رومیزی' ) === texts( $h, '(//ul[' . cls( 'th-product__specs' ) . '])[1]/li' ) && ! str_contains( $h, 'نباید دیده شود' ) );
 check( 'price: WooCommerce price html for priced product', str_contains( $h, 'woocommerce-Price-amount' ) );
+$pump_price = trim( preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( wc_get_product( $p['pump'] )->get_price_html() ), ENT_QUOTES, 'UTF-8' ) ) );
+check( 'price: WooCommerce price markup kept intact (bdi for RTL number + currency)', str_contains( $h, '<bdi>' ) && str_contains( $h, 'translate="no"' ) );
+check( 'price: exactly the price WooCommerce shows for that product', $pump_price === trim( texts( $h, '//p[' . cls( 'th-product__price' ) . ']' )[0] ?? '' ), $pump_price );
 check( 'price: product without price says «قیمت اعلام نشده»', 1 === count( nodes( $h, '//p[' . cls( 'th-product__price--ask' ) . ']' ) ) );
 check( 'stock: out of stock shows «فعلاً ناموجود» and ناموجود badge', 1 === count( nodes( $h, '//p[' . cls( 'th-product__price--out' ) . ']' ) ) && in_array( 'ناموجود', texts( $h, '//span[' . cls( 'th-badge--out' ) . ']' ), true ) );
 check( 'stock: backorder badge «پیش‌سفارش»', in_array( 'پیش‌سفارش', texts( $h, '//span[' . cls( 'th-badge' ) . ']' ), true ) );
+$imgs = nodes( $h, '//span[' . cls( 'th-product__pic' ) . ']/img' );
 check( 'image: WordPress attachment with srcset, sizes, lazy, width/height', 3 === count( nodes( $h, '//span[' . cls( 'th-product__pic' ) . ']/img[@srcset and @sizes and @loading="lazy" and @width and @height]' ) ) );
-check( 'image: product without image gets the empty state', 1 === count( nodes( $h, '//div[' . cls( 'th-product__media--empty' ) . ']' ) ) );
-check( 'image alt falls back to the product name', in_array( 'مانیتور علائم حیاتی پنج‌پارامتری', array_map( static fn( $n ) => $n->getAttribute( 'alt' ), nodes( $h, '//span[' . cls( 'th-product__pic' ) . ']/img' ) ), true ) );
-check( 'category label from product category', 'پایش بیمار' === ( texts( $h, '//p[' . cls( 'th-product__cat' ) . ']' )[0] ?? '' ) );
-check( 'card links to product permalink', get_permalink( $p['monitor'] ) === nodes( $h, '//h3/a' )[0]->getAttribute( 'href' ) );
+check( 'image: the product\'s own featured image', str_contains( $imgs[0]->getAttribute( 'src' ), basename( (string) get_attached_file( wc_get_product( $p['pump'] )->get_image_id() ), '.webp' ) ) );
+check( 'image: products without image get the empty state', 2 === count( nodes( $h, '//div[' . cls( 'th-product__media--empty' ) . ']' ) ) );
+check( 'image alt falls back to the product name', in_array( 'مانیتور علائم حیاتی پنج‌پارامتری', array_map( static fn( $n ) => $n->getAttribute( 'alt' ), $imgs ), true ) );
+check( 'category label from product category', 'ملزومات مصرفی' === ( texts( $h, '//p[' . cls( 'th-product__cat' ) . ']' )[0] ?? '' ) );
+check( 'card links to product permalink', get_permalink( $p['pump'] ) === nodes( $h, '//h3/a' )[0]->getAttribute( 'href' ) );
 check( 'no WooCommerce loop markup (no ul.products / add-to-cart)', ! str_contains( $h, 'add_to_cart' ) && 0 === count( nodes( $h, '//ul[' . cls( 'products' ) . ']' ) ) );
 
-settings( array( 'product_count' => 4 ) );
-( $tmp = wc_get_product( $p['pump'] ) )->set_featured( false );
+settings( array( 'product_count' => 2 ) );
+check( 'count: only the first N shown products', array( 'سرنگ‌پمپ تک‌کاناله', 'مانیتور علائم حیاتی پنج‌پارامتری' ) === texts( html( 'products' ), '//h3' ) );
+// قیمت و موجودیِ زنده: ذخیرهٔ محصول در ووکامرس بی ذخیرهٔ دوبارهٔ تنظیمات دیده می‌شود.
+( $tmp = wc_get_product( $p['pump'] ) )->set_regular_price( '32750000' );
 $tmp->save();
-( $tmp = wc_get_product( $p['centri'] ) )->set_featured( false );
+check( 'live data: a price edited in WooCommerce shows without touching the plugin', str_contains( wp_strip_all_tags( html( 'products' ) ), '32,750,000' ) );
+( $tmp = wc_get_product( $p['pump'] ) )->set_regular_price( '31500000' );
 $tmp->save();
-$h = html( 'products' );
-check( 'fewer than 4 featured: exactly 2 cards, nothing added', 2 === count( nodes( $h, '//article' ) ), (string) count( nodes( $h, '//article' ) ) );
-check( 'fewer than 4 featured: non-featured product not used as filler', ! str_contains( $h, 'دستکش جراحی' ) );
-foreach ( array( 'monitor', 'oxi' ) as $k ) {
-	( $tmp = wc_get_product( $p[ $k ] ) )->set_featured( false );
-	$tmp->save();
-}
-$plan = Renderer::plan();
-check( 'zero featured: products section hidden, with a reason', ! $plan['sections']['products']['show'] && '' !== $plan['sections']['products']['reason'] && '' === html( 'products' ) );
-foreach ( array( 'monitor', 'oxi', 'pump', 'centri' ) as $k ) {
-	( $tmp = wc_get_product( $p[ $k ] ) )->set_featured( true );
-	$tmp->save();
-}
+settings( array( 'product_count' => 8 ) );
+
+// محصولی که پس از انتخاب پنهان، پیش‌نویس یا حذف شد کنار می‌رود و چیزی جایش نمی‌آید.
+( $tmp = wc_get_product( $p['monitor'] ) )->set_catalog_visibility( 'hidden' );
+$tmp->save();
+check( 'selection: a product hidden after selection drops out', ! str_contains( html( 'products' ), 'مانیتور علائم' ) && 4 === count( nodes( html( 'products' ), '//article' ) ) );
+( $tmp = wc_get_product( $p['monitor'] ) )->set_catalog_visibility( 'visible' );
+$tmp->save();
+wp_trash_post( $p['oxi'] );
+check( 'selection: a trashed product drops out', ! str_contains( html( 'products' ), 'پالس‌اکسیمتر' ) );
+$st = Catalog::selection_status( Settings::get()['products'] );
+check( 'selection: a trashed product stays in the admin list (not silently removed)', in_array( $p['oxi'], Settings::get()['products'], true ) );
+check( 'sanitize: a trashed product cannot be newly added', ! in_array( $p['oxi'], Settings::sanitize( array( 'add_product' => $p['oxi'] ) )['products'], true ) );
+check( 'admin status: says why each selected product is not shown', ! $st[ $p['hidden'] ]['shown'] && ! $st[ $p['draft'] ]['shown'] && ! $st[ $p['oxi'] ]['shown'] && $st[ $p['pump'] ]['shown'] );
+wp_untrash_post( $p['oxi'] );
+wp_update_post( array( 'ID' => $p['oxi'], 'post_status' => 'publish' ) );
 update_option( 'woocommerce_hide_out_of_stock_items', 'yes' );
 $h = html( 'products' );
-check( 'hide out of stock setting is honoured (backorder still shown)', 3 === count( nodes( $h, '//article' ) ) && ! str_contains( $h, 'سانتریفیوژ' ) && str_contains( $h, 'سرنگ‌پمپ' ) );
+check( 'hide out of stock setting is honoured (backorder still shown)', ! str_contains( $h, 'سانتریفیوژ' ) && str_contains( $h, 'سرنگ‌پمپ' ) );
+check( 'admin status: out-of-stock hidden by WooCommerce is explained', str_contains( Catalog::selection_status( array( $p['centri'] ) )[ $p['centri'] ]['reason'], 'ناموجود' ) );
 update_option( 'woocommerce_hide_out_of_stock_items', 'no' );
+
+$s = Settings::sanitize( array( 'products' => array( array( 'id' => $p['pump'], 'order' => '3' ), array( 'id' => $p['monitor'], 'order' => '1' ), array( 'id' => $p['oxi'], 'order' => '2', 'remove' => '1' ) ), 'add_product' => $p['centri'] ) );
+check( 'sanitize: order numbers, remove, and add', array( $p['monitor'], $p['pump'], $p['centri'] ) === $s['products'], wp_json_encode( $s['products'] ) );
+check( 'sanitize: idempotent', $s === Settings::sanitize( $s ) );
+check( 'sanitize: unknown id, a page id and a category id are refused', array() === Settings::sanitize( array( 'products' => array( 999999, $ids['page'] ), 'add_product' => $c['lab'] ) )['products'] );
+check( 'sanitize: duplicates collapsed', array( $p['pump'] ) === Settings::sanitize( array( 'products' => array( $p['pump'], $p['pump'] ), 'add_product' => $p['pump'] ) )['products'] );
+check( 'sanitize: a variation is refused', array() === Settings::sanitize( array( 'add_product' => wp_insert_post( array( 'post_type' => 'product_variation', 'post_status' => 'publish', 'post_title' => 'v' ) ) ) )['products'] );
+check( 'sanitize: count bounded 1..12', 1 === Settings::sanitize( array( 'product_count' => 0 ) )['product_count'] && 12 === Settings::sanitize( array( 'product_count' => 99 ) )['product_count'] );
+settings( array( 'products' => array() ) );
+$plan = Renderer::plan();
+check( 'nothing selected: products section hidden, with a reason', ! $plan['sections']['products']['show'] && str_contains( $plan['sections']['products']['reason'], 'انتخاب نشده' ) && '' === html( 'products' ) );
+settings( array( 'products' => array( $p['draft'], $p['hidden'] ) ) );
+$plan = Renderer::plan();
+check( 'only unshowable selected: section hidden, reason differs', ! $plan['sections']['products']['show'] && str_contains( $plan['sections']['products']['reason'], 'قابل‌نمایش نیست' ) );
+check( 'search: by name finds the product', in_array( $p['plain'], array_column( Catalog::search_products( 'دستکش' ), 'id' ), true ) );
+check( 'search: by numeric ID finds the product', array( $p['monitor'] ) === array_column( Catalog::search_products( (string) $p['monitor'] ), 'id' ) );
+check( 'search: includes draft/hidden (marked), excludes non-products', in_array( $p['draft'], array_column( Catalog::search_products( 'پیش‌نویس' ), 'id' ), true ) && array() === Catalog::search_products( (string) $ids['page'] ) );
+settings( array( 'products' => array( $p['monitor'], $p['oxi'], $p['pump'], $p['centri'] ), 'product_count' => 4 ) );
 
 /* ------------------------------------------------------------ ۳. دسته‌ها */
 settings( array( 'categories' => array( array( 'id' => $c['consum'] ), array( 'id' => $c['monitor'] ), array( 'id' => $c['or'] ) ) ) );
@@ -226,36 +284,29 @@ $res = http( '/?s=' . rawurlencode( 'پالس' ) . '&post_type=product&product_c
 check( 'search: plain word search with empty category works', str_contains( $res, 'پالس‌اکسیمتر انگشتی' ) );
 
 /* ------------------------------------------------------------ ۵. پیوندها */
-$s = Settings::sanitize( array( 'links' => array( 'quote' => 'javascript:alert(1)', 'supplier' => 'data:text/html,x', 'supplier_terms' => '//evil.example/x', 'all_categories' => 'ftp://x' ) ) );
+$s = Settings::sanitize( array( 'links' => array( 'repair' => 'javascript:alert(1)', 'supplier' => 'data:text/html,x', 'supplier_terms' => '//evil.example/x', 'all_categories' => 'ftp://x' ) ) );
 check( 'links: javascript:, data:, protocol-relative and ftp are refused', array( '', '', '', '' ) === array_values( $s['links'] ), wp_json_encode( $s['links'] ) );
-$s = Settings::sanitize( array( 'links' => array( 'quote' => ' /quote/ ', 'supplier' => 'https://example.com/a?b=1&c=2' ) ) );
-check( 'links: relative path kept relative, https kept', '/quote/' === $s['links']['quote'] && 'https://example.com/a?b=1&c=2' === $s['links']['supplier'] );
-settings( array( 'links' => array( 'quote' => '/quote/', 'supplier' => '', 'supplier_terms' => '', 'all_categories' => '/all-categories/' ), 'quote_product_param' => 'product_id' ) );
-$h = html();
-check( 'links: relative path resolved against this site', 1 === count( nodes( $h, '//a[' . cls( 'th-route--buyer' ) . ' and @href="' . esc_url( home_url( '/quote/' ) ) . '"]' ) ) );
-check( 'links: product quote carries the product id param', str_contains( nodes( $h, '//a[' . cls( 'th-product__quote' ) . ']' )[0]->getAttribute( 'href' ), 'product_id=' . $p['monitor'] ) );
-check( 'links: four quote buttons on four cards', 4 === count( nodes( $h, '//a[' . cls( 'th-product__quote' ) . ']' ) ) );
-check( 'links: supplier route hidden while supplier is empty', 0 === count( nodes( $h, '//a[' . cls( 'th-route--supplier' ) . ']' ) ) );
-check( 'links: «همهٔ دسته‌ها» appears with its destination', 1 === count( nodes( $h, '//a[' . cls( 'th-more' ) . ' and @href="' . esc_url( home_url( '/all-categories/' ) ) . '"]' ) ) );
-check( 'links: bad param name refused', '' === Settings::sanitize( array( 'quote_product_param' => 'a b"' ) )['quote_product_param'] );
-
-/* ------------------------------------------------------------ ۶. خدمات */
-settings( array( 'services_enabled' => false, 'services' => array( array( 'title' => 'استعلام', 'text' => 'x' ) ) ) );
-check( 'services: items but switched off → hidden', ! str_contains( html(), 'th-services-title' ) );
-settings( array( 'services_enabled' => true, 'services' => array() ) );
-check( 'services: switched on but no items → hidden', ! str_contains( html(), 'th-services-title' ) );
-check( 'services: nothing ships by default', array() === Settings::defaults()['services'] && false === Settings::defaults()['services_enabled'] );
-settings( array( 'services_enabled' => true, 'services' => array( array( 'title' => 'خدمت تأییدشده', 'text' => 'توضیح', 'icon' => 'list' ), array( 'title' => '', 'text' => 'بی عنوان' ) ) ) );
-$h = html( 'services' );
-check( 'services: only rows with a title, as written', array( 'خدمت تأییدشده' ) === texts( $h, '//h3[' . cls( 'th-service__title' ) . ']' ) && ! str_contains( $h, 'بی عنوان' ) );
-check( 'services: CTA follows the quote link', 1 === count( nodes( $h, '//a[' . cls( 'th-btn--primary' ) . ' and @href="' . esc_url( home_url( '/quote/' ) ) . '"]' ) ) );
-settings( array( 'links' => array_merge( Settings::get()['links'], array( 'quote' => '' ) ) ) );
-check( 'services: no CTA without the quote link', 0 === count( nodes( html( 'services' ), '//a[' . cls( 'th-btn' ) . ']' ) ) );
+$s = Settings::sanitize( array( 'links' => array( 'repair' => ' /repair/ ', 'supplier' => 'https://example.com/a?b=1&c=2', 'quote' => '/quote/' ) ) );
+check( 'links: relative path kept relative, https kept', '/repair/' === $s['links']['repair'] && 'https://example.com/a?b=1&c=2' === $s['links']['supplier'] );
+check( 'links: the retired quote key is not stored', ! isset( $s['links']['quote'] ) && ! isset( $s['quote_product_param'] ) && ! isset( $s['services'] ) );
+settings( array( 'links' => array( 'repair' => '', 'supplier' => '', 'supplier_terms' => '', 'all_categories' => '/all-categories/' ) ) );
+$h = html( 'hero' );
+check( 'repair: no card while its address is empty', 0 === count( nodes( $h, '//a[' . cls( 'th-route--repair' ) . ']' ) ) && ! str_contains( $h, 'تعمیرات' ) );
+check( 'repair: admin plan says why', ! Renderer::plan()['routes']['repair']['show'] && '' !== Renderer::plan()['routes']['repair']['reason'] );
+settings( array( 'links' => array( 'repair' => '/medical-equipment-repair/', 'supplier' => '', 'supplier_terms' => '', 'all_categories' => '/all-categories/' ) ) );
+$h = html( 'hero' );
+check( 'repair: card appears with its address (relative resolved against this site)', 1 === count( nodes( $h, '//a[' . cls( 'th-route--repair' ) . ' and @href="' . esc_url( home_url( '/medical-equipment-repair/' ) ) . '"]' ) ) );
+check( 'repair: card title is «درخواست تعمیرات تجهیزات پزشکی»', in_array( 'درخواست تعمیرات تجهیزات پزشکی', texts( $h, '//span[' . cls( 'th-route__title' ) . ']' ), true ) );
+check( 'repair: exactly one repair link on the whole page', 1 === substr_count( html(), 'medical-equipment-repair' ) );
+check( 'routes: shop first, then repair; data-count=2', array( 'th-route th-route--shop', 'th-route th-route--repair' ) === array_map( static fn( $n ) => $n->getAttribute( 'class' ), nodes( $h, '//a[' . cls( 'th-route' ) . ']' ) ) && 1 === count( nodes( $h, '//nav[@data-count="2"]' ) ) );
+check( 'repair: no form, ticket or business logic — only a link', 0 === count( nodes( html(), '//form[not(@role="search")]' ) ) );
+check( 'links: «همهٔ دسته‌ها» appears with its destination', 1 === count( nodes( html( 'categories' ), '//a[' . cls( 'th-more' ) . ' and @href="' . esc_url( home_url( '/all-categories/' ) ) . '"]' ) ) );
 
 /* ------------------------------------------------------------ ۷. همکاری */
 check( 'supplier: hidden without a link', '' === html( 'supplier' ) );
 settings( array( 'links' => array_merge( Settings::get()['links'], array( 'supplier' => '/vendor/application/' ) ) ) );
 $h = html( 'supplier' );
+check( 'routes: all three, in order shop → repair → supplier, data-count=3', array( 'th-route th-route--shop', 'th-route th-route--repair', 'th-route th-route--supplier' ) === array_map( static fn( $n ) => $n->getAttribute( 'class' ), nodes( html( 'hero' ), '//a[' . cls( 'th-route' ) . ']' ) ) && 1 === count( nodes( html( 'hero' ), '//nav[@data-count="3"]' ) ) );
 check( 'supplier: shown with its link', 1 === count( nodes( $h, '//a[' . cls( 'th-btn--light' ) . ' and @href="' . esc_url( home_url( '/vendor/application/' ) ) . '"]' ) ) );
 check( 'supplier: no steps by default, solo layout', 0 === count( nodes( $h, '//ol' ) ) && 1 === count( nodes( $h, '//div[' . cls( 'th-join--solo' ) . ']' ) ) );
 check( 'supplier: no terms button without its link', 0 === count( nodes( $h, '//a[' . cls( 'th-btn--ghost' ) . ']' ) ) );
@@ -275,13 +326,14 @@ $both = Plugin::shortcode( array( 'sections' => 'hero' ) ) . Plugin::shortcode( 
 check( 'shortcode: icon sprite printed once per page', 1 === substr_count( $both, 'class="th-sprite"' ) );
 
 /* ------------------------------------------------------------ ۹. فقط‌خواندنی */
-settings( array( 'categories' => array( array( 'id' => $c['monitor'] ), array( 'id' => $c['or'] ) ), 'product_count' => 8 ) );
+settings( array( 'categories' => array( array( 'id' => $c['monitor'] ), array( 'id' => $c['or'] ) ), 'products' => array( $p['monitor'], $p['oxi'], $p['pump'], $p['centri'] ), 'product_count' => 8 ) );
 $before = db_digest();
 for ( $i = 0; $i < 3; $i++ ) {
 	html();
 }
 Renderer::plan();
-Catalog::featured_total();
+Catalog::selection_status( Settings::get()['products'] );
+Catalog::search_products( 'پمپ' );
 Catalog::search_categories( 'پایش' );
 http( '/tecteb-home-new/' );
 http( '/plain-page/' );
@@ -319,11 +371,11 @@ add_action( 'litespeed_purge_url', static function ( $url ) use ( &$purged ) {
 	$purged[] = $url;
 } );
 Cache::reset();
-( $tmp = wc_get_product( $p['oxi'] ) )->set_featured( false );
+( $tmp = wc_get_product( $p['oxi'] ) )->set_regular_price( '1000' );
 $tmp->save();
-( $tmp = wc_get_product( $p['oxi'] ) )->set_featured( true );
+( $tmp = wc_get_product( $p['oxi'] ) )->set_regular_price( '' );
 $tmp->save();
-check( 'cache: featured toggle purges the homepage URL once per request', array( home_url( '/' ) ) === $purged, wp_json_encode( $purged ) );
+check( 'cache: a product edit purges the homepage URL once per request', array( home_url( '/' ) ) === $purged, wp_json_encode( $purged ) );
 $purged = array();
 Cache::reset();
 settings( array( 'product_count' => 4 ) );
@@ -341,17 +393,22 @@ check( 'admin: settings capability is manage_woocommerce', 'manage_woocommerce' 
 $sub = wp_insert_user( array( 'user_login' => 'tth_sub_' . wp_rand(), 'user_pass' => wp_generate_password(), 'role' => 'subscriber' ) );
 check( 'admin: a subscriber cannot reach the page', ! user_can( $sub, Admin::capability() ) );
 wp_delete_user( $sub );
-settings( array( 'categories' => array( array( 'id' => $c['monitor'] ), array( 'id' => $c['evil'] ) ), 'services_enabled' => false ) );
+settings( array( 'categories' => array( array( 'id' => $c['monitor'] ), array( 'id' => $c['evil'] ) ), 'links' => array( 'repair' => '' ) ) );
+$_GET['tth_pq'] = 'پمپ';
 $_GET['tth_q'] = 'دسته';
 ob_start();
 Admin::render();
 $a = (string) ob_get_clean();
-unset( $_GET['tth_q'] );
+unset( $_GET['tth_q'], $_GET['tth_pq'] );
 check( 'admin: page renders with settings form and nonce', str_contains( $a, 'action="' . esc_url( admin_url( 'options.php' ) ) . '"' ) && (bool) preg_match( '#name=[\'"]option_page[\'"] value=[\'"]tecteb_home[\'"]#', $a ) && str_contains( $a, '_wpnonce' ) );
 check( 'admin: category search lists matches with full path and add buttons', str_contains( $a, 'تجهیزات پزشکی › پایش بیمار' ) || str_contains( $a, 'دستهٔ بی‌محصول' ) );
 check( 'admin: add button is part of the save form', str_contains( $a, 'name="tecteb_home_settings[add_category]"' ) );
 check( 'admin: hostile names escaped in the admin page', ! str_contains( $a, '<script>alert' ) && ! str_contains( $a, '<img src=x' ) );
-check( 'admin: status table explains hidden sections', str_contains( $a, 'تا تأیید محتوا خاموش است' ) );
+check( 'admin: status table explains the hidden repair route', str_contains( $a, 'نشانی صفحهٔ تعمیرات تعیین نشده است' ) );
+check( 'admin: product search lists matches with an add button', str_contains( $a, 'سرنگ‌پمپ' ) && str_contains( $a, 'name="tecteb_home_settings[add_product]"' ) || str_contains( $a, 'انتخاب‌شده' ) );
+check( 'admin: selected products table with order, remove and live price', str_contains( $a, 'name="tecteb_home_settings[products][0][order]"' ) && str_contains( $a, 'name="tecteb_home_settings[products][0][remove]"' ) );
+check( 'admin: no services or quote settings remain', ! str_contains( $a, 'services' ) && ! str_contains( $a, 'quote' ) );
+check( 'admin: shop destination shown read-only from WooCommerce', str_contains( $a, esc_html( wc_get_page_permalink( 'shop' ) ) ) );
 check( 'admin: wp-config constant shown read-only', str_contains( $a, 'TECTEB_HOME_SUPPLIER_URL' ) && str_contains( $a, 'staging.example' ) );
 wp_set_current_user( 0 );
 

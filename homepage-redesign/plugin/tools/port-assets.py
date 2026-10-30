@@ -11,7 +11,8 @@ Concept C ← افزونه: دارایی‌های تولید را از پیش‌
    <picture> به پوستهٔ تصویر وردپرس نگاشت می‌شود؛ و سخت‌سازی در برابر Hello و
    kit ِ Elementor (src/hardening.css) به انتها اضافه می‌شود.
 2. JS: concept-c.js بی‌تغییر کپی می‌شود.
-3. sprite آیکون‌ها از index.html به templates/sprite.svg.
+3. sprite آیکون‌ها از index.html به templates/sprite.svg، به‌علاوهٔ src/sprite-extra.svg
+   (آچارِ مسیر تعمیرات، ۰٫۲٫۰).
 
 اجرا:  python3 homepage-redesign/plugin/tools/port-assets.py
 """
@@ -26,7 +27,9 @@ PLUGIN = HERE.parent / "tecteb-homepage"
 CONCEPT = HERE.parent.parent / "concept-c"
 
 # هر انتخابگری که یکی از این‌ها را دارد، مال پیش‌نمایش است.
-PREVIEW_ONLY = re.compile(r"\.th-sample|\.th-imgnote|\.th-hero__note|\.th-hero--light")
+PREVIEW_ONLY = re.compile(r"\.th-sample|\.th-imgnote|\.th-hero__note|\.th-hero--light"
+                          # برداشته‌شده در ۰٫۲٫۰: استعلام روی کارت محصول و بخش خدمات عمومی.
+                          r"|\.th-product__quote|\.th-service|\.th-deep__bg|\.th-section--deep")
 
 
 def split_top(text: str) -> list[str]:
@@ -66,7 +69,7 @@ def selectors_of(prelude: str) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
-PREVIEW_COMMENT = re.compile(r"نمونه|پیش‌نمایش|Hero A")
+PREVIEW_COMMENT = re.compile(r"نمونه|پیش‌نمایش|Hero A|استعلام|خدمات")
 
 
 def clean(block: str, fonts: list[str]) -> str | None:
@@ -100,9 +103,10 @@ def main() -> int:
         print("preview-only selector survived", file=sys.stderr)
         return 1
     hardening = (HERE.parent / "src" / "hardening.css").read_text(encoding="utf-8")
+    hardening += "\n" + (HERE.parent / "src" / "additions.css").read_text(encoding="utf-8")
     header = (
         "/* tecteb-homepage — ساخته‌شده از concept-c/concept-c.css با tools/port-assets.py.\n"
-        " * دستی ویرایش نکنید: پیش‌نمایش مرجع است و سخت‌سازی در src/hardening.css. */\n\n"
+        " * دستی ویرایش نکنید: پیش‌نمایش مرجع است؛ سخت‌سازی در src/hardening.css و افزوده‌های ۰٫۲٫۰ در src/additions.css. */\n\n"
     )
     (PLUGIN / "assets/css/tecteb-home.css").write_text(header + css + "\n" + hardening, encoding="utf-8")
 
@@ -123,7 +127,9 @@ def main() -> int:
     if not m:
         print("sprite not found", file=sys.stderr)
         return 1
-    (PLUGIN / "templates/sprite.svg").write_text(m.group(0) + "\n", encoding="utf-8")
+    extra = (HERE.parent / "src" / "sprite-extra.svg").read_text(encoding="utf-8").strip()
+    sprite = m.group(0).replace("</defs>", "  " + extra + "\n  </defs>", 1)
+    (PLUGIN / "templates/sprite.svg").write_text(sprite + "\n", encoding="utf-8")
     print("ok", len(css), "bytes css")
     return 0
 

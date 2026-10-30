@@ -1,1 +1,1 @@
-exit=0
+phpcs: 0 errors, 0 warnings (vendor/bin/phpcs, phpcs.xml.dist; empty report = clean)

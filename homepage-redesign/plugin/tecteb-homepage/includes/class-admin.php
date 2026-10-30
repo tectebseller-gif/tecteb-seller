@@ -2,13 +2,16 @@
 /**
  * صفحهٔ تنظیمات: «ووکامرس ← صفحهٔ اصلی».
  *
- * هر تغییری که مدیر اینجا می‌دهد فقط option ِ همین افزونه را می‌نویسد. محصولات
- * منتخب اینجا انتخاب نمی‌شوند: همان ستارهٔ «ویژه» در فهرست محصولات ووکامرس‌اند،
- * و این صفحه فقط می‌گوید چند تا هست.
+ * هر تغییری که مدیر اینجا می‌دهد فقط option ِ همین افزونه را می‌نویسد؛ انتخاب
+ * محصول یا دسته هیچ چیزی را روی خودِ محصول یا دسته (ویژه، قیمت، موجودی، دسته)
+ * عوض نمی‌کند.
  *
- * انتخاب دسته جست‌وجومحور است (سایت بیش از هزار دسته دارد)؛ جست‌وجو GET است و
- * دکمهٔ «افزودن» بخشی از همان فرم ذخیره، پس هر چه تایپ شده با افزودن از دست
- * نمی‌رود. ترتیب با عدد است و بی جاوااسکریپت کار می‌کند.
+ * انتخاب دسته و محصول هر دو جست‌وجومحورند (سایت بیش از هزار دسته و صدها محصول
+ * دارد). جست‌وجو یک GET به همین صفحه است — نه AJAX و نه نقطهٔ پایانی تازه، پس
+ * هیچ سطح حمله‌ای در بخش عمومی سایت اضافه نمی‌شود و همان مجوز همین صفحه کافی
+ * است. دکمهٔ «افزودن» بخشی از همان فرم ذخیره است (nonce ِ settings_fields)، پس
+ * هر چه تایپ شده با افزودن از دست نمی‌رود. ترتیب با عدد است و بی جاوااسکریپت
+ * کار می‌کند.
  *
  * @package Tecteb\Homepage
  */
@@ -80,6 +83,7 @@ final class Admin {
 		$plan  = Renderer::plan();
 		$name  = Settings::OPTION;
 		$query = isset( $_GET['tth_q'] ) ? sanitize_text_field( wp_unslash( $_GET['tth_q'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- فقط جست‌وجو، هیچ نوشتنی.
+		$pq    = isset( $_GET['tth_pq'] ) ? sanitize_text_field( wp_unslash( $_GET['tth_pq'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- فقط جست‌وجو، هیچ نوشتنی.
 
 		echo '<div class="wrap" dir="rtl">';
 		echo '<h1>' . esc_html__( 'صفحهٔ اصلی تک‌طب', 'tecteb-homepage' ) . '</h1>';
@@ -94,8 +98,8 @@ final class Admin {
 		settings_fields( Settings::GROUP );
 		submit_button( __( 'ذخیرهٔ تنظیمات', 'tecteb-homepage' ) );
 
+		self::products_section( $s, $name, $pq );
 		self::categories_section( $s, $name, $query );
-		self::products_section( $s, $name );
 		self::links_section( $name );
 		self::content_section( $s, $name );
 
@@ -105,15 +109,21 @@ final class Admin {
 
 	private static function status( array $plan ): void {
 		$labels = array(
-			'hero'       => __( 'معرفی و جست‌وجو', 'tecteb-homepage' ),
-			'categories' => __( 'دسته‌بندی‌ها', 'tecteb-homepage' ),
-			'products'   => __( 'محصولات منتخب', 'tecteb-homepage' ),
-			'services'   => __( 'خدمات خرید سازمانی', 'tecteb-homepage' ),
-			'supplier'   => __( 'همکاری تأمین‌کنندگان', 'tecteb-homepage' ),
+			'route:shop'     => __( 'مسیر «فروشگاه»', 'tecteb-homepage' ),
+			'route:repair'   => __( 'مسیر «درخواست تعمیرات تجهیزات پزشکی»', 'tecteb-homepage' ),
+			'route:supplier' => __( 'مسیر «همکاری تأمین‌کنندگان»', 'tecteb-homepage' ),
+			'hero'           => __( 'معرفی و جست‌وجو', 'tecteb-homepage' ),
+			'categories'     => __( 'دسته‌بندی‌ها', 'tecteb-homepage' ),
+			'products'       => __( 'محصولات منتخب', 'tecteb-homepage' ),
+			'supplier'       => __( 'بخش همکاری تأمین‌کنندگان', 'tecteb-homepage' ),
 		);
+		$rows = array();
+		foreach ( $plan['routes'] as $key => $state ) {
+			$rows[ 'route:' . $key ] = $state;
+		}
 		echo '<h2>' . esc_html__( 'آنچه روی صفحه دیده می‌شود', 'tecteb-homepage' ) . '</h2>';
 		echo '<table class="widefat striped" style="max-width:56rem"><tbody>';
-		foreach ( $plan['sections'] as $key => $state ) {
+		foreach ( $rows + $plan['sections'] as $key => $state ) {
 			echo '<tr><th scope="row" style="width:14rem">' . esc_html( $labels[ $key ] ) . '</th><td>'
 				. ( $state['show'] ? '<strong>' . esc_html__( 'نمایش داده می‌شود', 'tecteb-homepage' ) . '</strong>' : esc_html__( 'نمایش داده نمی‌شود', 'tecteb-homepage' ) . ' — ' . esc_html( $state['reason'] ) )
 				. '</td></tr>';
@@ -181,7 +191,7 @@ final class Admin {
 		echo '<h3>' . esc_html__( 'افزودن دسته', 'tecteb-homepage' ) . '</h3>';
 		echo '<p><label for="tth-q" class="screen-reader-text">' . esc_html__( 'نام دسته', 'tecteb-homepage' ) . '</label>'
 			. '<input form="tth-search" type="search" id="tth-q" name="tth_q" value="' . esc_attr( $query ) . '" placeholder="' . esc_attr__( 'بخشی از نام دسته…', 'tecteb-homepage' ) . '"> '
-			. '<button form="tth-search" type="submit" class="button">' . esc_html__( 'جست‌وجوی دسته', 'tecteb-homepage' ) . '</button></p>';
+			. '<button form="tth-search" type="submit" class="button" id="tth-q-go">' . esc_html__( 'جست‌وجوی دسته', 'tecteb-homepage' ) . '</button></p>';
 
 		if ( '' !== $query ) {
 			$results  = Catalog::search_categories( $query );
@@ -205,27 +215,98 @@ final class Admin {
 		}
 	}
 
-	private static function products_section( array $s, string $name ): void {
-		$total = Catalog::featured_total();
-		echo '<h2>' . esc_html__( 'محصولات منتخب', 'tecteb-homepage' ) . '</h2>';
-		echo '<p>' . esc_html__( 'محصولات منتخب همان محصولات «ویژه»ٔ ووکامرس‌اند: در «محصولات»، ستارهٔ ستون ویژه را بزنید. فقط محصول منتشرشده‌ای که در فروشگاه قابل‌مشاهده است نمایش داده می‌شود، به ترتیب «مرتب‌سازی» ووکامرس. اگر تعداد ویژه‌ها کمتر بود، همان تعداد نمایش داده می‌شود و هیچ محصول دیگری جایگزین نمی‌شود.', 'tecteb-homepage' ) . '</p>';
-		/* translators: %s: عدد، نام یا نشانی‌ای که در همان جمله می‌آید. */
-		echo '<p>' . esc_html( sprintf( __( 'محصولات ویژهٔ قابل‌نمایش در حال حاضر: %s', 'tecteb-homepage' ), Renderer::digits( $total ) ) ) . ' — <a href="' . esc_url( admin_url( 'edit.php?post_type=product' ) ) . '">' . esc_html__( 'فهرست محصولات', 'tecteb-homepage' ) . '</a></p>';
-		echo '<table class="form-table" role="presentation"><tr><th scope="row"><label for="tth-count">' . esc_html__( 'حداکثر تعداد', 'tecteb-homepage' ) . '</label></th><td><select id="tth-count" name="' . esc_attr( $name . '[product_count]' ) . '">';
-		foreach ( array( 4, 8 ) as $n ) {
+	private static function products_section( array $s, string $name, string $query ): void {
+		echo '<h2>' . esc_html__( 'محصولات منتخب صفحهٔ اصلی', 'tecteb-homepage' ) . '</h2>';
+		echo '<p>' . esc_html__( 'محصولات را با نام، کد کالا (SKU) یا شناسه جست‌وجو و اضافه کنید؛ ترتیب نمایش با ستون «ترتیب» است. نام، تصویر، قیمت، موجودی و ویژگی‌ها همیشه از خودِ ووکامرس خوانده می‌شود. محصولی که منتشر نیست، در فروشگاه پنهان است، یا (اگر ووکامرس ناموجودها را پنهان می‌کند) ناموجود است، نمایش داده نمی‌شود و هیچ محصول دیگری جایش نمی‌آید. انتخاب در این فهرست هیچ چیزی را روی خودِ محصول عوض نمی‌کند.', 'tecteb-homepage' ) . '</p>';
+
+		$status = Catalog::selection_status( $s['products'] );
+		if ( array() === $s['products'] ) {
+			echo '<p><strong>' . esc_html__( 'هنوز محصولی انتخاب نشده است؛ بخش محصولات در صفحهٔ اصلی نمایش داده نمی‌شود.', 'tecteb-homepage' ) . '</strong></p>';
+		} else {
+			echo '<table class="widefat striped" style="max-width:72rem"><thead><tr>'
+				. '<th style="width:5rem">' . esc_html__( 'ترتیب', 'tecteb-homepage' ) . '</th>'
+				. '<th style="width:3rem"></th>'
+				. '<th>' . esc_html__( 'محصول', 'tecteb-homepage' ) . '</th>'
+				. '<th>' . esc_html__( 'قیمت', 'tecteb-homepage' ) . '</th>'
+				. '<th>' . esc_html__( 'در صفحهٔ اصلی', 'tecteb-homepage' ) . '</th>'
+				. '<th style="width:5rem">' . esc_html__( 'حذف', 'tecteb-homepage' ) . '</th>'
+				. '</tr></thead><tbody>';
+			$shown = 0;
+			foreach ( $s['products'] as $i => $id ) {
+				$row   = $status[ $id ];
+				$field = $name . '[products][' . $i . ']';
+				$cut   = $row['shown'] && ++$shown > (int) $s['product_count'];
+				echo '<tr>';
+				echo '<td><input type="hidden" name="' . esc_attr( $field . '[id]' ) . '" value="' . esc_attr( (string) $id ) . '">'
+					. '<input type="number" min="0" max="99" style="width:4.5rem" name="' . esc_attr( $field . '[order]' ) . '" value="' . esc_attr( (string) ( $i + 1 ) ) . '" aria-label="' . esc_attr__( 'ترتیب', 'tecteb-homepage' ) . '"></td>';
+				echo '<td>' . wp_kses_post( $row['thumb'] ) . '</td>';
+				echo '<td>' . esc_html( $row['name'] ) . ' <small dir="ltr">#' . esc_html( (string) $id ) . '</small>'
+					. ( '' !== $row['edit'] ? ' <a href="' . esc_url( $row['edit'] ) . '">' . esc_html__( 'ویرایش در ووکامرس', 'tecteb-homepage' ) . '</a>' : '' ) . '</td>';
+				echo '<td>' . esc_html( '' !== $row['price'] ? $row['price'] : '—' ) . '</td>';
+				if ( ! $row['shown'] ) {
+					echo '<td><strong>' . esc_html__( 'نمایش داده نمی‌شود', 'tecteb-homepage' ) . '</strong> — ' . esc_html( $row['reason'] ) . '</td>';
+				} elseif ( $cut ) {
+					echo '<td>' . esc_html__( 'بیش از تعداد نمایش؛ اگر محصولی بالاتر کنار برود، نمایش داده می‌شود.', 'tecteb-homepage' ) . '</td>';
+				} else {
+					echo '<td>' . esc_html__( 'نمایش داده می‌شود', 'tecteb-homepage' ) . '</td>';
+				}
+				echo '<td><label><input type="checkbox" name="' . esc_attr( $field . '[remove]' ) . '" value="1"> ' . esc_html__( 'حذف', 'tecteb-homepage' ) . '</label></td>';
+				echo '</tr>';
+			}
+			echo '</tbody></table>';
+		}
+
+		echo '<table class="form-table" role="presentation"><tr><th scope="row"><label for="tth-count">' . esc_html__( 'تعداد محصولات نمایش‌داده‌شده', 'tecteb-homepage' ) . '</label></th><td><select id="tth-count" name="' . esc_attr( $name . '[product_count]' ) . '">';
+		for ( $n = 1; $n <= Settings::MAX_PRODUCTS; $n++ ) {
 			echo '<option value="' . esc_attr( (string) $n ) . '"' . selected( (int) $s['product_count'], $n, false ) . '>' . esc_html( Renderer::digits( $n ) ) . '</option>';
 		}
-		echo '</select></td></tr></table>';
+		echo '</select><p class="description">' . esc_html__( 'دسکتاپ چهار کارت در هر ردیف دارد؛ مضرب ۴ ردیف کامل می‌سازد.', 'tecteb-homepage' ) . '</p></td></tr></table>';
+
+		echo '<h3>' . esc_html__( 'افزودن محصول', 'tecteb-homepage' ) . '</h3>';
+		echo '<p><label for="tth-pq" class="screen-reader-text">' . esc_html__( 'نام، کد کالا یا شناسهٔ محصول', 'tecteb-homepage' ) . '</label>'
+			. '<input form="tth-search" type="search" id="tth-pq" name="tth_pq" value="' . esc_attr( $query ) . '" placeholder="' . esc_attr__( 'نام، کد کالا یا شناسهٔ محصول…', 'tecteb-homepage' ) . '"> '
+			. '<button form="tth-search" type="submit" class="button" id="tth-pq-go">' . esc_html__( 'جست‌وجوی محصول', 'tecteb-homepage' ) . '</button></p>';
+		if ( '' !== $query ) {
+			$results = Catalog::search_products( $query );
+			if ( array() === $results ) {
+				/* translators: %s: عبارت جست‌وجو. */
+				echo '<p>' . esc_html( sprintf( __( 'محصولی با «%s» پیدا نشد.', 'tecteb-homepage' ), $query ) ) . '</p>';
+			} else {
+				$stock = array(
+					'instock'     => __( 'موجود', 'tecteb-homepage' ),
+					'outofstock'  => __( 'ناموجود', 'tecteb-homepage' ),
+					'onbackorder' => __( 'پیش‌سفارش', 'tecteb-homepage' ),
+				);
+				echo '<table class="widefat striped" style="max-width:72rem"><tbody>';
+				foreach ( $results as $r ) {
+					$note = 'publish' !== $r['status'] ? __( 'منتشر نشده', 'tecteb-homepage' ) : ( in_array( $r['visibility'], array( 'visible', 'catalog' ), true ) ? '' : __( 'در فروشگاه پنهان', 'tecteb-homepage' ) );
+					echo '<tr><td style="width:3rem">' . wp_kses_post( $r['thumb'] ) . '</td><td>' . esc_html( $r['name'] ) . ' <small dir="ltr">#' . esc_html( (string) $r['id'] ) . '</small>'
+						. ( '' !== $note ? ' — <em>' . esc_html( $note ) . '</em>' : '' ) . '</td>'
+						. '<td>' . esc_html( '' !== $r['price'] ? $r['price'] : '—' ) . '</td><td>' . esc_html( $stock[ $r['stock'] ] ?? $r['stock'] ) . '</td><td style="width:9rem">';
+					if ( in_array( $r['id'], $s['products'], true ) ) {
+						echo esc_html__( 'انتخاب‌شده', 'tecteb-homepage' );
+					} else {
+						echo '<button type="submit" class="button" name="' . esc_attr( $name . '[add_product]' ) . '" value="' . esc_attr( (string) $r['id'] ) . '">' . esc_html__( 'افزودن و ذخیره', 'tecteb-homepage' ) . '</button>';
+					}
+					echo '</td></tr>';
+				}
+				echo '</tbody></table>';
+			}
+		}
 	}
 
 	private static function links_section( string $name ): void {
 		$fields = array(
-			'quote'          => array( __( 'درخواست تأمین و استعلام سازمانی', 'tecteb-homepage' ), __( 'خالی: دکمهٔ «درخواست تأمین»، «ثبت درخواست تأمین» و «استعلام سازمانی» روی هیچ کارتی نمایش داده نمی‌شوند.', 'tecteb-homepage' ) ),
-			'supplier'       => array( __( 'همکاری تأمین‌کنندگان', 'tecteb-homepage' ), __( 'خالی: بخش همکاری و دکمهٔ آن در Hero نمایش داده نمی‌شوند. نشانی همین محیط را بنویسید؛ ثبت‌نام فعلی یا مسیر بازارگاه پس از تأیید.', 'tecteb-homepage' ) ),
+			'repair'         => array( __( 'درخواست تعمیرات تجهیزات پزشکی', 'tecteb-homepage' ), __( 'نشانی صفحهٔ تعمیرات موجود در سایت. خالی: کارت تعمیرات نمایش داده نمی‌شود.', 'tecteb-homepage' ) ),
+			'supplier'       => array( __( 'همکاری تأمین‌کنندگان', 'tecteb-homepage' ), __( 'خالی: کارت همکاری در Hero و بخش همکاری نمایش داده نمی‌شوند. نشانی همین محیط را بنویسید؛ ثبت‌نام فعلی یا مسیر بازارگاه پس از تأیید.', 'tecteb-homepage' ) ),
 			'supplier_terms' => array( __( 'شرایط همکاری', 'tecteb-homepage' ), __( 'خالی: دکمهٔ «شرایط همکاری» نمایش داده نمی‌شود.', 'tecteb-homepage' ) ),
 			'all_categories' => array( __( 'همهٔ دسته‌ها', 'tecteb-homepage' ), __( 'خالی: پیوند «همهٔ دسته‌ها» نمایش داده نمی‌شود.', 'tecteb-homepage' ) ),
 		);
 		echo '<h2>' . esc_html__( 'مقصد دکمه‌ها', 'tecteb-homepage' ) . '</h2>';
+		$shop = Renderer::shop_url();
+		echo '<p>' . ( '' !== $shop
+			? esc_html__( 'فروشگاه: صفحهٔ فروشگاه ووکامرس', 'tecteb-homepage' ) . ' <code dir="ltr">' . esc_html( $shop ) . '</code> ' . esc_html__( '(از تنظیمات ووکامرس؛ اینجا تغییر نمی‌کند).', 'tecteb-homepage' )
+			: '<strong>' . esc_html__( 'صفحهٔ فروشگاه در «ووکامرس ← تنظیمات ← محصولات» تعیین نشده یا منتشر نیست؛ کارت فروشگاه نمایش داده نمی‌شود.', 'tecteb-homepage' ) . '</strong>' ) . '</p>';
 		echo '<p>' . esc_html__( 'مسیر نسبی (مثل /vendor/application/) با نشانی همین محیط کامل می‌شود، پس روی staging و سایت اصلی هرکدام به خودش می‌رود. هر نشانی را یک ثابت در wp-config.php هم می‌تواند تعیین کند که با کپی دیتابیس جابه‌جا نمی‌شود.', 'tecteb-homepage' ) . '</p>';
 		echo '<table class="form-table" role="presentation">';
 		foreach ( $fields as $key => $meta ) {
@@ -241,9 +322,6 @@ final class Admin {
 			}
 			echo '</td></tr>';
 		}
-		echo '<tr><th scope="row"><label for="tth-param">' . esc_html__( 'شناسهٔ محصول در نشانی استعلام', 'tecteb-homepage' ) . '</label></th><td>'
-			. '<input type="text" dir="ltr" class="code" id="tth-param" name="' . esc_attr( $name . '[quote_product_param]' ) . '" value="' . esc_attr( Settings::get()['quote_product_param'] ) . '" placeholder="product_id">'
-			. '<p class="description">' . esc_html__( 'اختیاری: فقط اگر فرم استعلام شناسهٔ محصول را از نشانی می‌خواند. خالی: نشانی بی پارامتر.', 'tecteb-homepage' ) . '</p></td></tr>';
 		echo '</table>';
 	}
 
@@ -257,22 +335,13 @@ final class Admin {
 		self::textarea( 'tth-chips', __( 'جست‌وجوهای پیشنهادی (هر خط یکی)', 'tecteb-homepage' ), $name . '[chips]', implode( "\n", $s['chips'] ), 4, sprintf( __( 'حداکثر %s واژه؛ هر کدام به جست‌وجوی همان واژه در محصولات می‌رود. خالی: نمایش داده نمی‌شود.', 'tecteb-homepage' ), Renderer::digits( Settings::MAX_CHIPS ) ) );
 		echo '</table>';
 
-		echo '<h3>' . esc_html__( 'خدمات خرید سازمانی', 'tecteb-homepage' ) . '</h3>';
-		echo '<p>' . esc_html__( 'این بخش فقط وقتی دیده می‌شود که روشن باشد و دست‌کم یک خدمت وارد شده باشد. فقط خدمتی را بنویسید که امروز واقعاً ارائه می‌شود.', 'tecteb-homepage' ) . '</p>';
-		echo '<table class="form-table" role="presentation">';
-		echo '<tr><th scope="row">' . esc_html__( 'وضعیت', 'tecteb-homepage' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( $name . '[services_enabled]' ) . '" value="1"' . checked( $s['services_enabled'], true, false ) . '> ' . esc_html__( 'نمایش بخش خدمات (محتوا تأیید شده است)', 'tecteb-homepage' ) . '</label></td></tr>';
-		self::input( 'tth-svc-title', __( 'عنوان بخش', 'tecteb-homepage' ), $name . '[services_title]', $s['services_title'] );
-		self::textarea( 'tth-svc-lead', __( 'متن کوتاه', 'tecteb-homepage' ), $name . '[services_lead]', $s['services_lead'], 2, '' );
-		echo '</table>';
-		self::rows_table( $name . '[services]', $s['services'], Settings::MAX_SERVICES, true );
-
 		echo '<h3>' . esc_html__( 'همکاری تأمین‌کنندگان', 'tecteb-homepage' ) . '</h3>';
 		echo '<p>' . esc_html__( 'مراحل همکاری باید با فرایند واقعی همین محیط یکی باشند. خالی: مراحل نمایش داده نمی‌شوند و فقط دکمهٔ درخواست همکاری می‌ماند (اگر نشانی‌اش تعیین شده باشد).', 'tecteb-homepage' ) . '</p>';
 		echo '<table class="form-table" role="presentation">';
 		self::input( 'tth-sup-title', __( 'عنوان', 'tecteb-homepage' ), $name . '[supplier_title]', $s['supplier_title'] );
 		self::textarea( 'tth-sup-lead', __( 'متن', 'tecteb-homepage' ), $name . '[supplier_lead]', $s['supplier_lead'], 2, '' );
 		echo '</table>';
-		self::rows_table( $name . '[supplier_steps]', $s['supplier_steps'], Settings::MAX_STEPS, false );
+		self::rows_table( $name . '[supplier_steps]', $s['supplier_steps'], Settings::MAX_STEPS );
 
 		echo '<h3>' . esc_html__( 'فونت', 'tecteb-homepage' ) . '</h3><table class="form-table" role="presentation"><tr><th scope="row">' . esc_html__( 'فونت صفحهٔ اصلی', 'tecteb-homepage' ) . '</th><td>';
 		foreach ( array( 'bundled' => __( 'وزیرمتن، همراه افزونه (۱۱۱ کیلوبایت، طرح تأییدشده)', 'tecteb-homepage' ), 'site' => __( 'فونت فعلی سایت', 'tecteb-homepage' ) ) as $value => $label ) {
@@ -281,21 +350,13 @@ final class Admin {
 		echo '</td></tr></table>';
 	}
 
-	private static function rows_table( string $field, array $rows, int $max, bool $icon ): void {
-		echo '<table class="widefat striped" style="max-width:72rem"><thead><tr><th style="width:3rem">#</th><th>' . esc_html__( 'عنوان', 'tecteb-homepage' ) . '</th><th>' . esc_html__( 'توضیح', 'tecteb-homepage' ) . '</th>' . ( $icon ? '<th style="width:9rem">' . esc_html__( 'آیکون', 'tecteb-homepage' ) . '</th>' : '' ) . '</tr></thead><tbody>';
+	private static function rows_table( string $field, array $rows, int $max ): void {
+		echo '<table class="widefat striped" style="max-width:72rem"><thead><tr><th style="width:3rem">#</th><th>' . esc_html__( 'عنوان', 'tecteb-homepage' ) . '</th><th>' . esc_html__( 'توضیح', 'tecteb-homepage' ) . '</th></tr></thead><tbody>';
 		for ( $i = 0; $i < $max; $i++ ) {
-			$row = $rows[ $i ] ?? array( 'title' => '', 'text' => '', 'icon' => '' );
+			$row = $rows[ $i ] ?? array( 'title' => '', 'text' => '' );
 			echo '<tr><td>' . esc_html( Renderer::digits( $i + 1 ) ) . '</td>'
 				. '<td><input type="text" class="regular-text" maxlength="50" name="' . esc_attr( $field . '[' . $i . '][title]' ) . '" value="' . esc_attr( $row['title'] ) . '" aria-label="' . esc_attr__( 'عنوان', 'tecteb-homepage' ) . '"></td>'
-				. '<td><input type="text" class="large-text" maxlength="140" name="' . esc_attr( $field . '[' . $i . '][text]' ) . '" value="' . esc_attr( $row['text'] ) . '" aria-label="' . esc_attr__( 'توضیح', 'tecteb-homepage' ) . '"></td>';
-			if ( $icon ) {
-				echo '<td><select name="' . esc_attr( $field . '[' . $i . '][icon]' ) . '" aria-label="' . esc_attr__( 'آیکون', 'tecteb-homepage' ) . '">';
-				foreach ( self::service_icons() as $value => $label ) {
-					echo '<option value="' . esc_attr( $value ) . '"' . selected( $row['icon'] ?? '', $value, false ) . '>' . esc_html( $label ) . '</option>';
-				}
-				echo '</select></td>';
-			}
-			echo '</tr>';
+				. '<td><input type="text" class="large-text" maxlength="140" name="' . esc_attr( $field . '[' . $i . '][text]' ) . '" value="' . esc_attr( $row['text'] ) . '" aria-label="' . esc_attr__( 'توضیح', 'tecteb-homepage' ) . '"></td></tr>';
 		}
 		echo '</tbody></table><p class="description">' . esc_html__( 'ردیفی که عنوان ندارد نادیده گرفته می‌شود.', 'tecteb-homepage' ) . '</p>';
 	}
@@ -322,18 +383,6 @@ final class Admin {
 			'dental'     => __( 'دندان‌پزشکی', 'tecteb-homepage' ),
 			'store'      => __( 'فروشگاه', 'tecteb-homepage' ),
 			'image'      => __( 'عمومی', 'tecteb-homepage' ),
-		);
-	}
-
-	/** @return array<string,string> */
-	private static function service_icons(): array {
-		return array(
-			'quote'   => __( 'سند / پیش‌فاکتور', 'tecteb-homepage' ),
-			'list'    => __( 'فهرست', 'tecteb-homepage' ),
-			'network' => __( 'شبکه', 'tecteb-homepage' ),
-			'support' => __( 'پشتیبانی', 'tecteb-homepage' ),
-			'check'   => __( 'تأیید', 'tecteb-homepage' ),
-			'store'   => __( 'فروشگاه', 'tecteb-homepage' ),
 		);
 	}
 }

@@ -1,12 +1,13 @@
 <?php
 /**
- * از تنظیمات و ووکامرس، HTML ِ پنج بخش Concept C را می‌سازد.
+ * از تنظیمات و ووکامرس، HTML ِ بخش‌های Concept C را می‌سازد.
  *
  * قاعدهٔ نمایش یک جا نوشته شده — plan() — و هم صفحه و هم صفحهٔ تنظیمات از آن
  * می‌پرسند، تا «چرا این بخش دیده نمی‌شود» جوابی داشته باشد که با خودِ صفحه
  * یکی است. قاعده: هر دکمه‌ای که مقصد تأییدشده ندارد چاپ نمی‌شود، و هر بخشی که
  * محتوای تأییدشده ندارد کامل کنار می‌رود — هیچ مسیر موقت، فرم ساختگی یا
- * خدمت تأییدنشده‌ای روی صفحه نمی‌آید.
+ * خدمت تأییدنشده‌ای روی صفحه نمی‌آید. سه مسیر اصلی (فروشگاه، تعمیرات، همکاری)
+ * کارت‌های Hero اند؛ بخش خدمات عمومی از ۰٫۲٫۰ نیست.
  *
  * @package Tecteb\Homepage
  */
@@ -17,7 +18,10 @@ defined( 'ABSPATH' ) || exit;
 
 final class Renderer {
 
-	public const SECTIONS = array( 'hero', 'categories', 'products', 'services', 'supplier' );
+	public const SECTIONS = array( 'hero', 'categories', 'products', 'supplier' );
+
+	/** سه مسیر اصلی صفحه، به همین ترتیب؛ هر کدام فقط با مقصد معتبر چاپ می‌شود. */
+	public const ROUTES = array( 'shop', 'repair', 'supplier' );
 
 	private static bool $sprite_printed = false;
 
@@ -29,20 +33,32 @@ final class Renderer {
 	public static function plan(): array {
 		$s          = Settings::get();
 		$categories = Catalog::categories();
-		$products   = Catalog::featured_products();
+		$products   = Catalog::selected_products();
 		$links      = array(
-			'quote'          => Settings::link( 'quote' ),
+			'shop'           => self::shop_url(),
+			'repair'         => Settings::link( 'repair' ),
 			'supplier'       => Settings::link( 'supplier' ),
 			'supplier_terms' => Settings::link( 'supplier_terms' ),
 			'all_categories' => Settings::link( 'all_categories' ),
-			'shop'           => self::shop_url(),
+		);
+		$routes     = array(
+			'shop'     => array( 'show' => '' !== $links['shop'], 'reason' => '' === $links['shop'] ? 'صفحهٔ فروشگاه در ووکامرس تعیین نشده یا منتشر نیست.' : '' ),
+			'repair'   => array( 'show' => '' !== $links['repair'], 'reason' => '' === $links['repair'] ? 'نشانی صفحهٔ تعمیرات تعیین نشده است.' : '' ),
+			'supplier' => array( 'show' => '' !== $links['supplier'], 'reason' => '' === $links['supplier'] ? 'نشانی همکاری تأمین‌کنندگان تعیین نشده است.' : '' ),
 		);
 
-		$services = $s['services_enabled'] && array() !== $s['services'];
+		if ( array() === $s['products'] ) {
+			$why = 'هیچ محصولی برای صفحهٔ اصلی انتخاب نشده است.';
+		} elseif ( array() === $products ) {
+			$why = 'هیچ‌کدام از محصولات منتخب امروز در فروشگاه قابل‌نمایش نیست (جزئیات در فهرست محصولات منتخب).';
+		} else {
+			$why = '';
+		}
 
 		return array(
 			'settings'   => $s,
 			'links'      => $links,
+			'routes'     => $routes,
 			'categories' => $categories,
 			'products'   => $products,
 			'sections'   => array(
@@ -51,18 +67,8 @@ final class Renderer {
 					'show'   => array() !== $categories,
 					'reason' => array() === $categories ? 'هیچ دستهٔ منتخبِ دارای محصولی تعیین نشده است.' : '',
 				),
-				'products'   => array(
-					'show'   => array() !== $products,
-					'reason' => array() === $products ? 'هیچ محصول «ویژه»ای که منتشرشده و در فروشگاه قابل‌مشاهده باشد پیدا نشد.' : '',
-				),
-				'services'   => array(
-					'show'   => $services,
-					'reason' => $services ? '' : ( $s['services_enabled'] ? 'هیچ خدمتی وارد نشده است.' : 'تا تأیید محتوا خاموش است.' ),
-				),
-				'supplier'   => array(
-					'show'   => '' !== $links['supplier'],
-					'reason' => '' === $links['supplier'] ? 'نشانی «همکاری تأمین‌کنندگان» تعیین نشده است.' : '',
-				),
+				'products'   => array( 'show' => array() !== $products, 'reason' => $why ),
+				'supplier'   => array( 'show' => $routes['supplier']['show'], 'reason' => $routes['supplier']['reason'] ),
 			),
 		);
 	}
@@ -103,14 +109,30 @@ final class Renderer {
 		);
 	}
 
-	/** نشانی استعلام برای یک محصول؛ پارامتر فقط اگر مدیر نامش را تعیین کرده باشد. */
-	public static function quote_url( string $base, int $product_id, string $param ): string {
-		return '' !== $param ? add_query_arg( $param, (string) $product_id, $base ) : $base;
-	}
-
+	/**
+	 * صفحهٔ فروشگاه ووکامرس — یا '' اگر تعیین نشده یا منتشر نیست.
+	 * wc_get_page_permalink('shop') برای صفحهٔ نامعتبر به‌جای خطا نشانی صفحهٔ اصلی
+	 * را برمی‌گرداند، پس اول خودِ صفحه سنجیده می‌شود تا دکمهٔ «فروشگاه» هرگز به
+	 * همین صفحه برنگردد.
+	 */
 	public static function shop_url(): string {
 		$id = function_exists( 'wc_get_page_id' ) ? (int) wc_get_page_id( 'shop' ) : 0;
-		return $id > 0 && 'publish' === get_post_status( $id ) ? (string) get_permalink( $id ) : '';
+		if ( $id < 1 || 'page' !== get_post_type( $id ) || 'publish' !== get_post_status( $id ) ) {
+			return '';
+		}
+		return (string) wc_get_page_permalink( 'shop' );
+	}
+
+	/**
+	 * HTML ِ قیمت ووکامرس، امن، بی آنکه شکلش عوض شود. wp_kses_post برچسب <bdi> و
+	 * ویژگی translate را برمی‌دارد، و <bdi> همان چیزی است که در صفحهٔ راست‌به‌چپ
+	 * عدد و واحد پول را کنار هم و به ترتیب درست نگه می‌دارد.
+	 */
+	public static function price_html( string $html ): string {
+		$allowed         = wp_kses_allowed_html( 'post' );
+		$allowed['bdi']  = array();
+		$allowed['span'] = array_merge( $allowed['span'] ?? array(), array( 'translate' => true ) );
+		return wp_kses( $html, $allowed );
 	}
 
 	/** عدد با رقم فارسی (برای شمارهٔ مراحل و پیام‌های صفحهٔ تنظیمات). */

@@ -81,29 +81,29 @@ $arrow      = Renderer::icon( 'arrow', 'th-icon th-icon--dir' );
 			<?php endforeach; ?>
 		</figure>
 	</div>
-	<?php if ( '' !== $links['quote'] || '' !== $links['supplier'] ) : ?>
-		<div class="th-wrap th-routes">
-			<?php if ( '' !== $links['quote'] ) : ?>
-				<a class="th-route th-route--buyer" href="<?php echo esc_url( $links['quote'] ); ?>">
-					<span class="th-route__icon"><?php echo Renderer::icon( 'quote', '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Renderer::icon(). ?></span>
+	<?php
+	// سه مسیر اصلی: فروشگاه، درخواست تعمیرات، همکاری تأمین‌کنندگان — هر کدام فقط
+	// با مقصد معتبر. مسیری که مقصد ندارد اصلاً چاپ نمی‌شود، نه به‌صورت دکمهٔ مرده.
+	$routes = array(
+		'shop'     => array( 'store', __( 'همهٔ محصولات و دسته‌های تجهیزات پزشکی', 'tecteb-homepage' ), __( 'فروشگاه', 'tecteb-homepage' ) ),
+		'repair'   => array( 'wrench', __( 'برای بیمارستان‌ها، کلینیک‌ها و آزمایشگاه‌ها', 'tecteb-homepage' ), __( 'درخواست تعمیرات تجهیزات پزشکی', 'tecteb-homepage' ) ),
+		'supplier' => array( 'network', __( 'برای تولیدکنندگان و واردکنندگان', 'tecteb-homepage' ), __( 'همکاری تأمین‌کنندگان', 'tecteb-homepage' ) ),
+	);
+	$shown  = array_filter( $routes, static fn( string $key ): bool => $plan['routes'][ $key ]['show'], ARRAY_FILTER_USE_KEY );
+	?>
+	<?php if ( array() !== $shown ) : ?>
+		<nav class="th-wrap th-routes" data-count="<?php echo esc_attr( (string) count( $shown ) ); ?>" aria-label="<?php echo esc_attr__( 'مسیرهای اصلی تک‌طب', 'tecteb-homepage' ); ?>">
+			<?php foreach ( $shown as $key => $route ) : ?>
+				<a class="th-route th-route--<?php echo esc_attr( $key ); ?>" href="<?php echo esc_url( $links[ $key ] ); ?>">
+					<span class="th-route__icon"><?php echo Renderer::icon( $route[0], '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Renderer::icon(). ?></span>
 					<span class="th-route__text">
-						<span class="th-route__kicker"><?php echo esc_html__( 'برای بیمارستان‌ها، کلینیک‌ها و واحدهای خرید', 'tecteb-homepage' ); ?></span>
-						<span class="th-route__title"><?php echo esc_html__( 'درخواست تأمین', 'tecteb-homepage' ); ?></span>
+						<span class="th-route__kicker"><?php echo esc_html( $route[1] ); ?></span>
+						<span class="th-route__title"><?php echo esc_html( $route[2] ); ?></span>
 					</span>
 					<span class="th-route__go"><?php echo $arrow; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Renderer::icon(). ?></span>
 				</a>
-			<?php endif; ?>
-			<?php if ( '' !== $links['supplier'] ) : ?>
-				<a class="th-route th-route--supplier" href="<?php echo esc_url( $links['supplier'] ); ?>">
-					<span class="th-route__icon"><?php echo Renderer::icon( 'network', '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Renderer::icon(). ?></span>
-					<span class="th-route__text">
-						<span class="th-route__kicker"><?php echo esc_html__( 'برای تولیدکنندگان و واردکنندگان', 'tecteb-homepage' ); ?></span>
-						<span class="th-route__title"><?php echo esc_html__( 'همکاری تأمین‌کنندگان', 'tecteb-homepage' ); ?></span>
-					</span>
-					<span class="th-route__go"><?php echo $arrow; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Renderer::icon(). ?></span>
-				</a>
-			<?php endif; ?>
-		</div>
+			<?php endforeach; ?>
+		</nav>
 	<?php endif; ?>
 	<?php if ( array() !== $settings['audience'] ) : ?>
 		<div class="th-wrap">

@@ -1,11 +1,17 @@
 PASS defaults: root wrapper rtl/fa
 PASS defaults: one h1
 PASS defaults: no categories section without selection
-PASS defaults: products section shows
-PASS defaults: no services section
+PASS defaults: no products section without a manual selection (featured flag ignored)
+PASS defaults: no services section exists any more
 PASS defaults: no supplier section
-PASS defaults: no route cards (quote/supplier)
-PASS defaults: no quote buttons on cards
+PASS defaults: only the shop route (repair and supplier have no destination)
+PASS defaults: routes nav labelled, data-count=1
+PASS shop route: href is wc_get_page_permalink(shop)
+PASS retired: «درخواست تأمین» nowhere on the page
+PASS retired: «استعلام» nowhere on the page
+PASS retired: «پیش‌فاکتور» nowhere on the page
+PASS retired: «th-product__quote» nowhere on the page
+PASS retired: «th-route--buyer» nowhere on the page
 PASS defaults: no quick chips
 PASS defaults: no category select without categories
 PASS defaults: audience line shows
@@ -20,28 +26,52 @@ PASS no preview marker «در انتظار تأیید»
 PASS every link is absolute http(s) on this site
 PASS search form goes to home_url with post_type=product
 PASS hero image eager, high priority, excluded from lazyload
-PASS featured: exactly the 4 published+catalog-visible featured products, in menu_order
-PASS featured: «پیش‌نویس» product excluded
-PASS featured: «پنهان از فروشگاه» product excluded
-PASS featured: «فقط در جست‌وجو» product excluded
-PASS featured: «غیرویژه» product excluded
-PASS query contract: publish + featured + catalog visibility, menu_order then date
+PASS shop route: hidden (not pointed at the homepage) when no shop page is set
+PASS shop route: no route cards at all when none has a destination
+PASS shop route: hidden when the shop page is not published
+PASS shop route: back once the shop page is valid
+PASS selection: saving a selection changes nothing on the products (featured, price, stock, category, status)
+PASS selection: shown in the admin order; hidden and draft dropped; nothing added
+PASS selection: a non-featured product is shown when selected
+PASS selection: a featured product that is not selected is not shown
+PASS selection: «پیش‌نویس» product excluded
+PASS selection: «پنهان از فروشگاه» product excluded
+PASS query contract: include = selection, publish, catalog visibility
 PASS product title is escaped, not markup
 PASS specs: two visible attributes, hidden one not shown
 PASS price: WooCommerce price html for priced product
+PASS price: WooCommerce price markup kept intact (bdi for RTL number + currency)
+PASS price: exactly the price WooCommerce shows for that product
 PASS price: product without price says «قیمت اعلام نشده»
 PASS stock: out of stock shows «فعلاً ناموجود» and ناموجود badge
 PASS stock: backorder badge «پیش‌سفارش»
 PASS image: WordPress attachment with srcset, sizes, lazy, width/height
-PASS image: product without image gets the empty state
+PASS image: the product's own featured image
+PASS image: products without image get the empty state
 PASS image alt falls back to the product name
 PASS category label from product category
 PASS card links to product permalink
 PASS no WooCommerce loop markup (no ul.products / add-to-cart)
-PASS fewer than 4 featured: exactly 2 cards, nothing added
-PASS fewer than 4 featured: non-featured product not used as filler
-PASS zero featured: products section hidden, with a reason
+PASS count: only the first N shown products
+PASS live data: a price edited in WooCommerce shows without touching the plugin
+PASS selection: a product hidden after selection drops out
+PASS selection: a trashed product drops out
+PASS selection: a trashed product stays in the admin list (not silently removed)
+PASS sanitize: a trashed product cannot be newly added
+PASS admin status: says why each selected product is not shown
 PASS hide out of stock setting is honoured (backorder still shown)
+PASS admin status: out-of-stock hidden by WooCommerce is explained
+PASS sanitize: order numbers, remove, and add
+PASS sanitize: idempotent
+PASS sanitize: unknown id, a page id and a category id are refused
+PASS sanitize: duplicates collapsed
+PASS sanitize: a variation is refused
+PASS sanitize: count bounded 1..12
+PASS nothing selected: products section hidden, with a reason
+PASS only unshowable selected: section hidden, reason differs
+PASS search: by name finds the product
+PASS search: by numeric ID finds the product
+PASS search: includes draft/hidden (marked), excludes non-products
 PASS categories: shown in the admin order
 PASS categories: link to the WooCommerce term link
 PASS categories: note = first line of description only
@@ -69,19 +99,17 @@ PASS search: category-scoped search returns that category's products
 PASS search: plain word search with empty category works
 PASS links: javascript:, data:, protocol-relative and ftp are refused
 PASS links: relative path kept relative, https kept
-PASS links: relative path resolved against this site
-PASS links: product quote carries the product id param
-PASS links: four quote buttons on four cards
-PASS links: supplier route hidden while supplier is empty
+PASS links: the retired quote key is not stored
+PASS repair: no card while its address is empty
+PASS repair: admin plan says why
+PASS repair: card appears with its address (relative resolved against this site)
+PASS repair: card title is «درخواست تعمیرات تجهیزات پزشکی»
+PASS repair: exactly one repair link on the whole page
+PASS routes: shop first, then repair; data-count=2
+PASS repair: no form, ticket or business logic — only a link
 PASS links: «همهٔ دسته‌ها» appears with its destination
-PASS links: bad param name refused
-PASS services: items but switched off → hidden
-PASS services: switched on but no items → hidden
-PASS services: nothing ships by default
-PASS services: only rows with a title, as written
-PASS services: CTA follows the quote link
-PASS services: no CTA without the quote link
 PASS supplier: hidden without a link
+PASS routes: all three, in order shop → repair → supplier, data-count=3
 PASS supplier: shown with its link
 PASS supplier: no steps by default, solo layout
 PASS supplier: no terms button without its link
@@ -104,7 +132,7 @@ PASS page template: site header kept
 PASS page template: site footer kept
 PASS page template: no page title, one h1
 PASS page template: offered in the page template list
-PASS cache: featured toggle purges the homepage URL once per request
+PASS cache: a product edit purges the homepage URL once per request
 PASS cache: saving settings purges the homepage
 PASS cache: editing a category purges the homepage
 PASS admin: settings capability is manage_woocommerce
@@ -113,8 +141,12 @@ PASS admin: page renders with settings form and nonce
 PASS admin: category search lists matches with full path and add buttons
 PASS admin: add button is part of the save form
 PASS admin: hostile names escaped in the admin page
-PASS admin: status table explains hidden sections
+PASS admin: status table explains the hidden repair route
+PASS admin: product search lists matches with an add button
+PASS admin: selected products table with order, remove and live price
+PASS admin: no services or quote settings remain
+PASS admin: shop destination shown read-only from WooCommerce
 PASS admin: wp-config constant shown read-only
 PASS uninstall: removes only its own option
 
-118 passed, 0 failed
+150 passed, 0 failed

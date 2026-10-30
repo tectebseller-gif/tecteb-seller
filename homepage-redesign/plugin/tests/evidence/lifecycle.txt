@@ -4,8 +4,8 @@ PASS install: version reported by WordPress matches
 PASS static suite (source = installed)
 PASS integration suite on the installed ZIP
 PASS browser suite on the installed ZIP
-118 passed, 0 failed
-53 passed, 0 failed
+150 passed, 0 failed
+73 passed, 0 failed
 PASS switch: the new front page shows the design
 PASS switch: site header and footer kept
 PASS rollback step 1: front page back to the previous page, nothing of ours on it
@@ -14,7 +14,7 @@ PASS rollback step 2: front page clean after deactivation
 PASS rollback: no WordPress/WooCommerce row changed by deactivation
 PASS rollback note: the new page prints the bare shortcode once the plugin is off (keep it draft/private)
 PASS rollback note: a private page is not reachable by visitors
-rollback took 4s (two settings + deactivate, scripted)
+rollback took 5s (two settings + deactivate, scripted)
 PASS reactivation: settings survive a deactivate/activate cycle
 PASS uninstall: plugin files and its single option removed
 PASS uninstall: no other row changed

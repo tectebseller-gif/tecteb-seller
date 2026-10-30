@@ -54,7 +54,7 @@ PASS no WooCommerce loop: do_action( "woocommerce
 PASS no WooCommerce loop: woocommerce_shop_loop
 PASS no WooCommerce loop: wc_setup_loop
 PASS templates: no inline <script>
-PASS css: every selector scoped under .tecteb-home-v1 (258 selectors)
+PASS css: every selector scoped under .tecteb-home-v1 (246 selectors)
 PASS css: no @font-face in the main stylesheet (font is its own file)
 PASS css: font file has exactly one @font-face with a unique family
 PASS css: font file exists
@@ -66,6 +66,21 @@ PASS css: no physical left/right properties
 PASS css: every animation is under prefers-reduced-motion: no-preference
 PASS js: no network, no storage, scoped to .tecteb-home-v1
 PASS js: honours reduced motion and fine pointer only
+PASS products: no featured-flag selection left in code
+PASS retired in 0.2.0: «درخواست تأمین» not in shipped files
+PASS retired in 0.2.0: «استعلام» not in shipped files
+PASS retired in 0.2.0: «پیش‌فاکتور» not in shipped files
+PASS retired in 0.2.0: «th-product__quote» not in shipped files
+PASS retired in 0.2.0: «th-services» not in shipped files
+PASS retired in 0.2.0: «th-service» not in shipped files
+PASS retired in 0.2.0: «th-route--buyer» not in shipped files
+PASS retired in 0.2.0: «TECTEB_HOME_QUOTE_URL» not in shipped files
+PASS services template removed
+PASS hero: three routes shop → repair → supplier
+PASS routes: each printed only with a destination (plan['routes'][...]['show'])
+PASS sprite: wrench icon for the repair route
+PASS shop: from wc_get_page_permalink('shop'), guarded
+PASS admin: product search is GET on the settings page, not AJAX/REST
 PASS no preview marker «th-sample» in shipped files
 PASS no preview marker «th-imgnote» in shipped files
 PASS no preview marker «th-hero__note» in shipped files
@@ -80,4 +95,4 @@ PASS plugin header/markup has «Requires Plugins:  woocommerce»
 PASS plugin header/markup has «Requires PHP:      8.1»
 PASS plugin header/markup has «Text Domain:       tecteb-homepage»
 
-81 passed, 0 failed
+96 passed, 0 failed

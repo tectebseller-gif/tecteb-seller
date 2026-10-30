@@ -4,9 +4,9 @@
  *
  * wp eval-file tests/fixtures/state.php shipped|full|front|unfront|show
  *
- *   shipped  همان چیزی که پس از نصب و انتخاب دسته‌ها دیده می‌شود: هیچ نشانی‌ای،
- *            هیچ خدمتی، هیچ مرحله‌ای — تصمیم‌های D6/D7/بند ۳ مالک.
- *   full     همهٔ بخش‌ها با متن آزمایشی (فقط برای سنجیدن چیدمان؛ متن تأییدشده نیست).
+ *   shipped  پس از نصب، با دسته‌ها و محصولات منتخب و بی هیچ نشانیِ تأییدشده:
+ *            فقط مسیر فروشگاه، بی تعمیرات و بی همکاری.
+ *   full     هر سه مسیر و همهٔ بخش‌ها با نشانی و متن آزمایشی (فقط برای سنجیدن چیدمان).
  *
  * @package Tecteb\Homepage
  */
@@ -25,26 +25,23 @@ $c    = $ids['cats'];
 $verb = $args[0] ?? 'show';
 $cats = array( array( 'id' => $c['monitor'], 'icon' => 'monitor' ), array( 'id' => $c['or'], 'icon' => 'or' ), array( 'id' => $c['lab'], 'icon' => 'lab' ), array( 'id' => $c['consum'], 'icon' => 'syringe' ) );
 
+$pr   = $ids['products'];
+$pick = array( $pr['monitor'], $pr['oxi'], $pr['pump'], $pr['centri'] );
+
 switch ( $verb ) {
 	case 'shipped':
-		update_option( Settings::OPTION, array( 'categories' => $cats ) );
+		// همان چیزی که پس از نصب، با دسته‌ها و محصولات منتخب و بی هیچ نشانیِ تأییدشده دیده می‌شود.
+		update_option( Settings::OPTION, array( 'categories' => $cats, 'products' => $pick ) );
 		break;
 	case 'full':
 		update_option(
 			Settings::OPTION,
 			array(
-				'categories'       => $cats,
-				'links'            => array( 'quote' => '/quote/', 'supplier' => '/vendor/application/', 'supplier_terms' => '/terms/', 'all_categories' => '/shop/' ),
-				'chips'            => array( 'پالس‌اکسیمتر', 'فشارسنج', 'آمبوبگ', 'دستکش جراحی' ),
-				'services_enabled' => true,
-				'services_lead'    => 'متن آزمایشی چیدمان، تأییدنشده.',
-				'services'         => array(
-					array( 'title' => 'خدمت آزمایشی یک', 'text' => 'متن آزمایشی برای سنجیدن چیدمان کارت.', 'icon' => 'quote' ),
-					array( 'title' => 'خدمت آزمایشی دو', 'text' => 'متن آزمایشی برای سنجیدن چیدمان کارت.', 'icon' => 'list' ),
-					array( 'title' => 'خدمت آزمایشی سه', 'text' => 'متن آزمایشی برای سنجیدن چیدمان کارت.', 'icon' => 'network' ),
-					array( 'title' => 'خدمت آزمایشی چهار', 'text' => 'متن آزمایشی برای سنجیدن چیدمان کارت.', 'icon' => 'support' ),
-				),
-				'supplier_steps'   => array(
+				'categories'     => $cats,
+				'products'       => $pick,
+				'links'          => array( 'repair' => '/medical-equipment-repair/', 'supplier' => '/supplier-application/', 'supplier_terms' => '/terms/', 'all_categories' => '/shop/' ),
+				'chips'          => array( 'پالس‌اکسیمتر', 'فشارسنج', 'آمبوبگ', 'دستکش جراحی' ),
+				'supplier_steps' => array(
 					array( 'title' => 'گام آزمایشی', 'text' => 'متن آزمایشی' ),
 					array( 'title' => 'گام آزمایشی', 'text' => 'متن آزمایشی' ),
 					array( 'title' => 'گام آزمایشی', 'text' => 'متن آزمایشی' ),

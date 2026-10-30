@@ -107,7 +107,8 @@ try {
   check('page: site header kept', await page.locator('#site-header').count() === 1);
   check('page: site footer kept', await page.locator('#site-footer').count() === 1);
   check('page: exactly one h1', await page.locator('h1').count() === 1);
-  check('page: all five sections present (full state)', await page.locator('.tecteb-home-v1 > section').count() === 5);
+  check('page: all four sections present (full state)', await page.locator('.tecteb-home-v1 > section').count() === 4);
+  check('page: no services section, no quote button', await page.locator('.th-services, .th-product__quote, .th-route--buyer').count() === 0);
   check('page: no external requests', external.size === 0, [...external].join(' '));
   check('page: no console errors', errors.length === 0, errors.join(' | '));
 
@@ -180,6 +181,29 @@ try {
   };
   await shoot('/tecteb-home-new/', 'full', [1440, 1024, 768, 390, 320]);
 
+  // سه مسیر اصلی در هر عرض دیده می‌شوند، و هر کدام به صفحهٔ واقعی خودش می‌رود.
+  for (const w of [1440, 768, 390, 320]) {
+    await shot.setViewportSize({ width: w, height: 900 });
+    await shot.goto(`${SITE}/tecteb-home-new/`, { waitUntil: 'load' });
+    const routes = await shot.evaluate(() => [...document.querySelectorAll('.tecteb-home-v1 .th-route')].map((a) => {
+      const r = a.getBoundingClientRect();
+      return { cls: a.className.replace('th-route th-route--', ''), visible: r.width > 0 && r.height >= 44 && r.left >= 0 && r.right <= innerWidth + 0.5, title: a.querySelector('.th-route__title').textContent.trim() };
+    }));
+    check(`routes ${w}px: shop, repair, supplier — all three fully visible`, JSON.stringify(routes.map((r) => r.cls)) === JSON.stringify(['shop', 'repair', 'supplier']) && routes.every((r) => r.visible), JSON.stringify(routes));
+    if (w === 1440) {
+      const row = await shot.evaluate(() => [...document.querySelectorAll('.tecteb-home-v1 .th-route')].map((a) => Math.round(a.getBoundingClientRect().top)));
+      check('routes 1440px: three cards side by side in one row', new Set(row).size === 1, JSON.stringify(row));
+      check('routes: repair card title', routes[1].title === 'درخواست تعمیرات تجهیزات پزشکی', routes[1].title);
+    }
+  }
+  for (const [cls, expect] of [['shop', '/shop/'], ['repair', '/medical-equipment-repair/'], ['supplier', '/supplier-application/']]) {
+    await shot.goto(`${SITE}/tecteb-home-new/`, { waitUntil: 'load' });
+    const [resp] = await Promise.all([shot.waitForNavigation(), shot.click(`.tecteb-home-v1 .th-route--${cls}`)]);
+    check(`routes: «${cls}» card opens ${expect} (HTTP ${resp?.status()})`, resp?.status() === 200 && new URL(shot.url()).pathname === expect, shot.url());
+  }
+  await shot.goto(`${SITE}/shop/`, { waitUntil: 'load' });
+  check('shop: the WooCommerce shop page lists products (unchanged archive)', await shot.locator('ul.products li.product').count() >= 4);
+
   // کاهش حرکت: هیچ انیمیشنی اجرا نمی‌شود و همه‌چیز دیدنی است.
   const calm = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
   const cp = await calm.newPage();
@@ -191,7 +215,7 @@ try {
   const noJs = await browser.newContext({ viewport: { width: 390, height: 900 }, javaScriptEnabled: false });
   const np = await noJs.newPage();
   await np.goto(`${SITE}/tecteb-home-new/`, { waitUntil: 'load' });
-  check('no JavaScript: page complete (5 sections, search form)', await np.locator('.tecteb-home-v1 > section').count() === 5 && await np.locator('form[role="search"]').count() === 1);
+  check('no JavaScript: page complete (4 sections, three routes, search form)', await np.locator('.tecteb-home-v1 > section').count() === 4 && await np.locator('.tecteb-home-v1 .th-route').count() === 3 && await np.locator('form[role="search"]').count() === 1);
   await calm.close(); await noJs.close();
 
   // ---------------------------------------------------------------- وضعیت تحویلی، به‌عنوان صفحهٔ اصلی
@@ -201,12 +225,14 @@ try {
   await page.goto(`${SITE}/`, { waitUntil: 'load' });
   const shipped = await page.evaluate(() => ({
     sections: [...document.querySelectorAll('.tecteb-home-v1 > section')].map((s) => s.getAttribute('aria-labelledby')),
-    quote: document.querySelectorAll('.th-route--buyer, .th-product__quote').length,
+    routes: [...document.querySelectorAll('.tecteb-home-v1 .th-route')].map((a) => a.className),
     supplier: document.querySelectorAll('.th-route--supplier, #th-supplier-title').length,
-    services: document.querySelectorAll('#th-services-title').length,
+    repair: document.querySelectorAll('.th-route--repair').length,
+    products: [...document.querySelectorAll('.th-product__title')].map((h) => h.textContent.trim()),
   }));
   check('shipped state on the real front page: hero + categories + products only', JSON.stringify(shipped.sections) === JSON.stringify(['th-hero-title', 'th-cats-title', 'th-products-title']), JSON.stringify(shipped.sections));
-  check('shipped state: no quote, supplier or services UI', shipped.quote === 0 && shipped.supplier === 0 && shipped.services === 0, JSON.stringify(shipped));
+  check('shipped state: only the shop route; no repair or supplier card until their addresses are set', JSON.stringify(shipped.routes) === JSON.stringify(['th-route th-route--shop']) && shipped.repair === 0 && shipped.supplier === 0, JSON.stringify(shipped));
+  check('shipped state: the four selected products, in the selected order', JSON.stringify(shipped.products) === JSON.stringify(['مانیتور علائم حیاتی پنج‌پارامتری', 'پالس‌اکسیمتر انگشتی با نمایشگر دوخطی و قاب محافظ سیلیکونی', 'سرنگ‌پمپ تک‌کاناله', 'سانتریفیوژ رومیزی <b>آزمایش</b>']), JSON.stringify(shipped.products));
 
   // ---------------------------------------------------------------- صفحهٔ تنظیمات، با کلیک
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -217,31 +243,62 @@ try {
   check('admin: logged in', (await ctx.cookies()).some((c) => c.name.startsWith('wordpress_logged_in')));
   await page.goto(`${SITE}/wp-admin/admin.php?page=tecteb-homepage`);
   check('admin: settings page under WooCommerce renders', await page.locator('h1', { hasText: 'صفحهٔ اصلی تک‌طب' }).count() === 1);
+  // --- محصولات: جست‌وجو با نام، افزودن، ترتیب، حذف
+  await page.fill('#tth-pq', 'دستکش');
+  await Promise.all([page.waitForNavigation(), page.click('#tth-pq-go')]);
+  const addProduct = page.locator('button[name="tecteb_home_settings[add_product]"]');
+  check('admin: product search by name returns an add button', await addProduct.count() >= 1, String(await addProduct.count()));
+  await page.screenshot({ path: path.join(OUT, 'admin-product-search.png'), fullPage: true });
+  await page.fill('#tth-hero-lead', 'متن تازهٔ آزمایشی که پس از افزودن محصول باید بماند.');
+  await Promise.all([page.waitForNavigation(), addProduct.first().click()]);
+  let saved = JSON.parse(state('show'));
+  const ids = JSON.parse(wp('eval-file tests/fixtures/seed.php ids')).products;
+  check('admin: add button saves the product at the end of the list', saved.products.length === 5 && saved.products[4] === ids.plain, JSON.stringify(saved.products));
+  check('admin: text typed before adding is saved with it', saved.hero_lead === 'متن تازهٔ آزمایشی که پس از افزودن محصول باید بماند.');
+  const featuredAfter = wp(`eval 'echo wc_get_product(${ids.plain})->get_featured() ? "yes" : "no";'`).trim();
+  check('admin: selecting a product does not make it «featured» in WooCommerce', featuredAfter === 'no', featuredAfter);
+  await page.fill('#tth-pq', String(ids.search));
+  await Promise.all([page.waitForNavigation(), page.click('#tth-pq-go')]);
+  check('admin: product search by numeric ID', await page.locator('td', { hasText: `#${ids.search}` }).count() >= 1);
+  // ترتیب: دستکش (پنجمی) اول شود، و اکسیمتر (دومی) حذف شود.
+  await page.fill('input[name="tecteb_home_settings[products][4][order]"]', '0');
+  await page.check('input[name="tecteb_home_settings[products][1][remove]"]');
+  await page.selectOption('#tth-count', '3');
+  await Promise.all([page.waitForNavigation(), page.locator('#submit').first().click()]);
+  saved = JSON.parse(state('show'));
+  check('admin: product order and removal saved', JSON.stringify(saved.products) === JSON.stringify([ids.plain, ids.monitor, ids.pump, ids.centri]) && saved.product_count === 3, JSON.stringify(saved.products));
+  await page.screenshot({ path: path.join(OUT, 'admin-settings.png'), fullPage: true });
+  await page.goto(`${SITE}/`, { waitUntil: 'load' });
+  const front = await page.locator('.th-product__title').allTextContents();
+  check('admin → front: exactly those products, that order, that count', JSON.stringify(front.map((t) => t.trim())) === JSON.stringify(['دستکش جراحی غیرویژه', 'مانیتور علائم حیاتی پنج‌پارامتری', 'سرنگ‌پمپ تک‌کاناله']), JSON.stringify(front));
+
+  // --- دسته‌ها: همان روش ۰٫۱٫۰
+  await page.goto(`${SITE}/wp-admin/admin.php?page=tecteb-homepage`);
   await page.fill('#tth-q', 'اتاق');
-  await Promise.all([page.waitForNavigation(), page.click('button[form="tth-search"]')]);
-  const addButtons = page.locator('button[name="tecteb_home_settings[add_category]"]');
+  await Promise.all([page.waitForNavigation(), page.click('#tth-q-go')]);
   check('admin: an already selected category is marked, not offered again', await page.locator('td', { hasText: 'انتخاب‌شده' }).count() >= 1);
   await page.fill('#tth-q', 'تجهیزات');
-  await Promise.all([page.waitForNavigation(), page.click('button[form="tth-search"]')]);
+  await Promise.all([page.waitForNavigation(), page.click('#tth-q-go')]);
+  const addButtons = page.locator('button[name="tecteb_home_settings[add_category]"]');
   check('admin: category search returns an add button', await addButtons.count() >= 1, String(await addButtons.count()));
-  await page.screenshot({ path: path.join(OUT, 'admin-search.png'), fullPage: true });
-  await page.fill('#tth-hero-lead', 'متن تازهٔ آزمایشی که پس از افزودن دسته باید بماند.');
   await Promise.all([page.waitForNavigation(), addButtons.first().click()]);
-  const saved = JSON.parse(state('show'));
+  saved = JSON.parse(state('show'));
   check('admin: add button saves the category', saved.categories.length === 5, JSON.stringify(saved.categories));
-  check('admin: text typed before adding is saved with it', saved.hero_lead === 'متن تازهٔ آزمایشی که پس از افزودن دسته باید بماند.');
-  await page.screenshot({ path: path.join(OUT, 'admin-settings.png'), fullPage: true });
-  // ترتیب: آخری را اول کنیم و اولی را حذف.
   await page.fill('input[name="tecteb_home_settings[categories][4][order]"]', '0');
   await page.check('input[name="tecteb_home_settings[categories][0][remove]"]');
-  await page.fill('#tth-link-quote', 'javascript:alert(1)');
+  // --- مقصد تعمیرات: ناامن رد می‌شود، معتبر کارت را نشان می‌دهد
+  await page.fill('#tth-link-repair', 'javascript:alert(1)');
   await Promise.all([page.waitForNavigation(), page.locator('#submit').first().click()]);
   const after = JSON.parse(state('show'));
-  check('admin: order and remove applied', after.categories.length === 4 && after.categories[0].id === saved.categories[4].id && !after.categories.some((c) => c.id === saved.categories[0].id), JSON.stringify(after.categories));
-  check('admin: unsafe link refused with a visible message', after.links.quote === '' && await page.locator('.notice-error, .error').filter({ hasText: 'پذیرفته نشد' }).count() >= 1);
+  check('admin: category order and remove applied', after.categories.length === 4 && after.categories[0].id === saved.categories[4].id && !after.categories.some((c) => c.id === saved.categories[0].id), JSON.stringify(after.categories));
+  check('admin: unsafe repair link refused with a visible message', after.links.repair === '' && await page.locator('.notice-error, .error').filter({ hasText: 'پذیرفته نشد' }).count() >= 1);
+  check('admin: status table says the repair route is hidden and why', await page.locator('td', { hasText: 'نشانی صفحهٔ تعمیرات تعیین نشده است' }).count() === 1);
+  await page.fill('#tth-link-repair', '/medical-equipment-repair/');
+  await Promise.all([page.waitForNavigation(), page.locator('#submit').first().click()]);
   await page.goto(`${SITE}/`, { waitUntil: 'load' });
   const first = await page.locator('.th-cat__name').first().textContent();
   check('admin → front: new first category is first on the homepage', first.trim() === 'تجهیزات پزشکی', first);
+  check('admin → front: repair card appears once its address is saved', await page.locator('.tecteb-home-v1 .th-route--repair').count() === 1);
 
   const subPage = await browser.newPage();
   await subPage.goto(`${SITE}/wp-admin/admin.php?page=tecteb-homepage`);

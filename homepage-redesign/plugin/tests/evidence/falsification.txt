@@ -1,30 +1,42 @@
- 1 CAUGHT  [integration] 10 failing — featured flag dropped from the product query
-     first: FAIL featured: exactly the 4 published+catalog-visible featured products, in menu_order  — دستکش جراحی غیرویژه | چراغ سیالتیک غیرویژه | کالا
- 2 SURVIVED [integration] 0 failing — catalog visibility dropped (hidden products leak)
-     first: 117 passed, 0 failed
- 3 CAUGHT  [integration] 2 failing — quote button printed without a destination
-     first: FAIL defaults: no quote buttons on cards
- 4 CAUGHT  [integration] 1 failing — any URL accepted (javascript:)
-     first: FAIL links: javascript:, data:, protocol-relative and ftp are refused  — {"quote":"javascript:alert(1)","supplier":"data:text\/html,x","supp
- 5 CAUGHT  [integration] 2 failing — services shown while switched off
-     first: FAIL services: items but switched off → hidden
- 6 CAUGHT  [integration] 3 failing — supplier section without a link
+ 1 CAUGHT  [integration] 1 failing — selected IDs ignored (query not restricted to the selection)
+     first: FAIL query contract: include = selection, publish, catalog visibility
+ 2 CAUGHT  [integration] 6 failing — catalog visibility dropped (hidden products leak)
+     first: FAIL selection: shown in the admin order; hidden and draft dropped; nothing added  — سرنگ‌پمپ تک‌کاناله | مانیتور علائم حیاتی پنج‌پارامتری |
+ 3 CAUGHT  [integration] 6 failing — publish status dropped (drafts leak)
+     first: FAIL selection: shown in the admin order; hidden and draft dropped; nothing added  — سرنگ‌پمپ تک‌کاناله | مانیتور علائم حیاتی پنج‌پارامتری |
+ 4 CAUGHT  [integration] 2 failing — hide-out-of-stock ignored
+     first: FAIL hide out of stock setting is honoured (backorder still shown)
+ 5 CAUGHT  [integration] 7 failing — admin order ignored (WooCommerce order used)
+     first: FAIL selection: shown in the admin order; hidden and draft dropped; nothing added  — مانیتور علائم حیاتی پنج‌پارامتری | پالس‌اکسیمتر انگشتی 
+ 6 CAUGHT  [integration] 1 failing — display count ignored
+     first: FAIL count: only the first N shown products
+ 7 CAUGHT  [integration] 2 failing — featured auto-fill reintroduced
+     first: FAIL defaults: no products section without a manual selection (featured flag ignored)
+ 8 CAUGHT  [integration] 3 failing — any post ID accepted as a product
+     first: FAIL sanitize: a trashed product cannot be newly added
+ 9 CAUGHT  [integration] 1 failing — product price printed through wp_kses_post (bdi lost)
+     first: FAIL price: WooCommerce price markup kept intact (bdi for RTL number + currency)
+10 CAUGHT  [integration] 7 failing — repair card shown without a destination
+     first: FAIL defaults: only the shop route (repair and supplier have no destination)
+11 CAUGHT  [integration] 7 failing — supplier card without a destination
      first: FAIL defaults: no supplier section
- 7 CAUGHT  [integration] 1 failing — category name printed unescaped
+12 CAUGHT  [integration] 3 failing — shop URL without the page guard
+     first: FAIL shop route: hidden (not pointed at the homepage) when no shop page is set
+13 CAUGHT  [integration] 1 failing — any URL accepted (javascript:)
+     first: FAIL links: javascript:, data:, protocol-relative and ftp are refused  — {"repair":"javascript:alert(1)","supplier":"data:text\/html,x","sup
+14 CAUGHT  [integration] 1 failing — category name printed unescaped
      first: FAIL escaping: hostile category name/description never becomes markup
- 8 CAUGHT  [integration] 3 failing — assets loaded on every page
+15 CAUGHT  [integration] 3 failing — assets loaded on every page
      first: FAIL assets: nothing loads on plain page
- 9 CAUGHT  [integration] 1 failing — parent category counted by direct products only
+16 CAUGHT  [integration] 1 failing — parent category counted by direct products only
      first: FAIL categories: a parent whose products are only in subcategories is not empty
-10 CAUGHT  [static] 1 failing — a write slipped into the reader
+17 CAUGHT  [static] 1 failing — a write slipped into the reader
      first: FAIL no write: update_post_meta  — includes/class-catalog.php
-11 CAUGHT  [static] 1 failing — Dokan dependency
+18 CAUGHT  [static] 1 failing — Dokan dependency
      first: FAIL no dependency on دکان  — includes/class-renderer.php
-12 CAUGHT  [browser] 1 failing — heading hardening removed (theme/kit leak)
+19 CAUGHT  [browser] 1 failing — heading hardening removed (theme/kit leak)
      first: FAIL theme: an Elementor kit with form/heading styles changes nothing either  — h1.fontStyle: normal → italic; h1.textTransform: none → uppe
+20 CAUGHT  [browser] 1 failing — route grid layout dropped (three cards not side by side)
+     first: FAIL routes 1440px: three cards side by side in one row  — [655,655,756]
 
-11 of 12 mutations caught and restored
- 2 SURVIVED [integration] 0 failing — catalog visibility dropped (hidden products leak)
-     first: 118 passed, 0 failed
-
-0 of 1 mutations caught and restored
+20 of 20 mutations caught and restored

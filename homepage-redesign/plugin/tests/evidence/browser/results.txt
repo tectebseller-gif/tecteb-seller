@@ -3,7 +3,8 @@ PASS theme: an Elementor kit with form/heading styles changes nothing either
 PASS page: site header kept
 PASS page: site footer kept
 PASS page: exactly one h1
-PASS page: all five sections present (full state)
+PASS page: all four sections present (full state)
+PASS page: no services section, no quote button
 PASS page: no external requests
 PASS page: no console errors
 PASS a11y: axe — 0 violations inside our markup
@@ -11,7 +12,7 @@ PASS keyboard: search input reachable with Tab
 PASS keyboard: visible focus ring on the search field
 PASS search: submitting the hero search finds the product
 PASS motion: a block below the fold waits for scroll (scroll-driven reveal)
-PASS motion: every one of 17 blocks is fully visible once scrolled into view
+PASS motion: every one of 12 blocks is fully visible once scrolled into view
 PASS images full 1440px: every image loaded
 PASS layout full 1440px: no horizontal overflow
 PASS layout full 1440px: every control at least 24×24
@@ -27,9 +28,19 @@ PASS layout full 390px: every control at least 24×24
 PASS images full 320px: every image loaded
 PASS layout full 320px: no horizontal overflow
 PASS layout full 320px: every control at least 24×24
+PASS routes 1440px: shop, repair, supplier — all three fully visible
+PASS routes 1440px: three cards side by side in one row
+PASS routes: repair card title
+PASS routes 768px: shop, repair, supplier — all three fully visible
+PASS routes 390px: shop, repair, supplier — all three fully visible
+PASS routes 320px: shop, repair, supplier — all three fully visible
+PASS routes: «shop» card opens /shop/ (HTTP 200)
+PASS routes: «repair» card opens /medical-equipment-repair/ (HTTP 200)
+PASS routes: «supplier» card opens /supplier-application/ (HTTP 200)
+PASS shop: the WooCommerce shop page lists products (unchanged archive)
 PASS motion: prefers-reduced-motion → no running animation
 PASS motion: prefers-reduced-motion → every block fully visible
-PASS no JavaScript: page complete (5 sections, search form)
+PASS no JavaScript: page complete (4 sections, three routes, search form)
 PASS images shipped-front 1440px: every image loaded
 PASS layout shipped-front 1440px: no horizontal overflow
 PASS layout shipped-front 1440px: every control at least 24×24
@@ -40,16 +51,25 @@ PASS images shipped-front 320px: every image loaded
 PASS layout shipped-front 320px: no horizontal overflow
 PASS layout shipped-front 320px: every control at least 24×24
 PASS shipped state on the real front page: hero + categories + products only
-PASS shipped state: no quote, supplier or services UI
+PASS shipped state: only the shop route; no repair or supplier card until their addresses are set
+PASS shipped state: the four selected products, in the selected order
 PASS admin: logged in
 PASS admin: settings page under WooCommerce renders
+PASS admin: product search by name returns an add button
+PASS admin: add button saves the product at the end of the list
+PASS admin: text typed before adding is saved with it
+PASS admin: selecting a product does not make it «featured» in WooCommerce
+PASS admin: product search by numeric ID
+PASS admin: product order and removal saved
+PASS admin → front: exactly those products, that order, that count
 PASS admin: an already selected category is marked, not offered again
 PASS admin: category search returns an add button
 PASS admin: add button saves the category
-PASS admin: text typed before adding is saved with it
-PASS admin: order and remove applied
-PASS admin: unsafe link refused with a visible message
+PASS admin: category order and remove applied
+PASS admin: unsafe repair link refused with a visible message
+PASS admin: status table says the repair route is hidden and why
 PASS admin → front: new first category is first on the homepage
+PASS admin → front: repair card appears once its address is saved
 PASS admin: logged-out visitor is sent to login
 
-53 passed, 0 failed
+73 passed, 0 failed
