@@ -82,8 +82,15 @@ MUTATIONS = [
     (
         'no-record-claims-the-field-anyway',
         MERGE,
-        '        return $shopValue === $ourValue ? self::WRITE : self::KEEP_UNKNOWN;',
-        '        return self::WRITE;',
+        # ⛔ REWRITTEN, because the first spelling stopped applying the moment
+        # `decide()` grew its freshness split — and «did not apply» is a
+        # failure, not a passing guard (`alpha.77`). The claim is the same:
+        # with no record, take the field instead of leaving it alone.
+        """            if ($shopValue === $ourValue) {
+                // A write that changes nothing is safe either way.
+                return self::WRITE;
+            }""",
+        '            return self::WRITE;',
         'a field with no history is taken rather than left alone',
     ),
     (
