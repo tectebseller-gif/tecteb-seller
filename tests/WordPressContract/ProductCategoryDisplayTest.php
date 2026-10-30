@@ -182,7 +182,11 @@ final class ProductCategoryDisplayTest extends TestCase
         );
 
         self::assertStringContainsString('فشارسنج عقربه‌ای', $html, 'the shop still holds it, and the page says so');
-        self::assertStringContainsString('رابطهٔ داخلی این محصول هنوز ثبت نشده است', $html);
+        // The row says the state; the sentence that keeps it from being read
+        // as «this product has no category» is in the fold below it, which is
+        // still in the page's HTML (`alpha.85` §A).
+        self::assertStringContainsString('هنوز ثبت نشده است', $html);
+        self::assertStringContainsString('بازارگاه چیزی ثبت نکرده', $html);
         self::assertStringContainsString('پیوند دسته', $html, 'and where the decision is taken');
         self::assertStringNotContainsString(self::OLD, $html);
     }

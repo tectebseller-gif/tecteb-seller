@@ -393,6 +393,32 @@ interface ProductRepositoryInterface
     public function countImportedWithoutCategory(int $vendorUserId = 0): int;
 
     /**
+     * How many imported rows have NO recorded category relationship at all —
+     * the whole catalogue, no `LIMIT`, our own two tables only.
+     *
+     * This is a different question from {@see self::countImportedWithoutCategory()}
+     * and the difference is the point. That one asks «the single key is empty
+     * AND there is no link row», which is what the completeness gate needs; so
+     * a row whose recorded set is a STRICT SUBSET of the product's real
+     * categories — exactly the shape migration 35's backfill creates, one id
+     * written from `category_key` on a product that carries three — reads there
+     * as answered. This one counts the rows where nothing is recorded, so the
+     * owner has one number to watch reach nought.
+     *
+     * ⛔ **Three answers, and `-1` is not nought.** `-1` means the question
+     * could not be asked: the link table is absent (schema 34) or its read
+     * failed. Nought would say «every imported row has a recorded
+     * relationship», which is the one reading that must never come from a
+     * statement that never ran (`alpha.67`).
+     *
+     * ⛔ **And it does not claim the recorded sets are COMPLETE.** Completeness
+     * can only be judged against each product's own `product_cat` relationship,
+     * which is a WooCommerce read and is done per page. A screen printing this
+     * number has to say which question it answers.
+     */
+    public function countImportedWithoutCategorySet(): int;
+
+    /**
      * Write a category onto a product THAT HAS NONE — the condition inside the
      * statement, never around it.
      *

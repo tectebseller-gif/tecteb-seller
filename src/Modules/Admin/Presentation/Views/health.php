@@ -65,7 +65,7 @@ $rollbackGate = static function () use ($vm): string {
     $gate = $vm['rollback_gate'] ?? null;
     $html = '<section class="tmc-card" aria-labelledby="tmc-rollback-gate-title">'
         . '<h2 id="tmc-rollback-gate-title" class="tmc-card__title">'
-        . esc_html__('بازگشت به نسخهٔ پیش از alpha.67', 'tecteb-marketplace-core') . '</h2>';
+        . esc_html__('بازگشت به بستهٔ پیش از ثبت مبلغ‌های ریزتر', 'tecteb-marketplace-core') . '</h2>';
     if (!is_array($gate)) {
         return $html . '<p>'
             . esc_html__('ماژول مالی بارگذاری نشده، پس این وضعیت خوانده نشد. این «مشکلی نیست» نیست.', 'tecteb-marketplace-core')

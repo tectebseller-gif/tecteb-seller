@@ -996,4 +996,173 @@ final class CategoryLinkFlowTest extends DatabaseTestCase
         self::assertSame('', $this->storedKey(8002), 'and the single key is STILL empty, on purpose');
         self::assertSame($before, $this->relationshipSnapshot(), 'WooCommerce was not written to');
     }
+
+    /**
+     * EVERY IMPORTED ROW IS REACHABLE, not just the first page of them.
+     *
+     * `plan()` has taken a keyset position since `alpha.81` and the admin page
+     * passed none, so it always read `id > 0 LIMIT 500`. This walks the whole
+     * catalogue two rows at a time — the same thing the screen now does with
+     * its «ادامه از اینجا» link — and asserts the union is every row and no
+     * row twice. Asserted by ID rather than by count, because equal counts
+     * were accepted for most of a release once (`alpha.78`).
+     */
+    public function testEveryImportedRowIsReachableByPagingPastTheCap(): void
+    {
+        $this->runImport();
+        foreach ([8001, 8002, 8003, 8004, 8005, 8006] as $wcId) {
+            $this->attach($wcId, [self::INJECTION]);
+        }
+        $expected = [];
+        foreach ([8001, 8002, 8003, 8004, 8005, 8006] as $wcId) {
+            $expected[] = $this->rowId($wcId);
+        }
+        sort($expected);
+
+        $seen = [];
+        $after = 0;
+        $pages = 0;
+        do {
+            $page = $this->plan->plan(2, $after);
+            $pages++;
+            foreach ($page['apply'] as $row) {
+                $seen[] = (int) $row['product_id'];
+            }
+            $after = (int) $page['cursor'];
+            // The whole-catalogue total never follows the page's cap.
+            self::assertSame(6, (int) $page['total']);
+            self::assertLessThanOrEqual(2, (int) $page['scanned']);
+        } while (!$page['finished'] && $pages < 10);
+
+        sort($seen);
+        self::assertSame($expected, $seen, 'every imported row, exactly once');
+        self::assertSame(4, $pages, 'three full pages and the short one that ends the walk');
+        self::assertTrue($page['finished']);
+    }
+
+    /**
+     * ONE NUMBER ABOUT THE WHOLE CATALOGUE, and it does not follow the limit.
+     *
+     * The page's own counts are about the page — which is right, and is why
+     * «تمام شد» could not be read off this screen before. This figure is a
+     * `COUNT(*)` over our own two tables with no `LIMIT`.
+     */
+    public function testTheWholeCatalogueFigureIgnoresTheRowLimit(): void
+    {
+        $this->runImport();
+        $page = $this->plan->plan(1, 0);
+
+        self::assertSame(1, (int) $page['scanned'], 'one row on the page');
+        self::assertSame(6, (int) $page['unrecorded'], 'and six in the catalogue');
+    }
+
+    /** It falls as relationships are recorded, and reaches nought. */
+    public function testTheFigureFallsAsRelationshipsAreRecorded(): void
+    {
+        $this->runImport();
+        foreach ([8001, 8002, 8003, 8004, 8005, 8006] as $wcId) {
+            $this->attach($wcId, [self::INJECTION]);
+        }
+        self::assertSame(6, $this->products->countImportedWithoutCategorySet());
+
+        $this->applier->apply([$this->rowId(8001)], [], self::MANAGER);
+        self::assertSame(5, $this->products->countImportedWithoutCategorySet());
+
+        $rest = [];
+        foreach ([8002, 8003, 8004, 8005, 8006] as $wcId) {
+            $rest[] = $this->rowId($wcId);
+        }
+        $this->applier->apply($rest, [], self::MANAGER);
+        self::assertSame(
+            0,
+            $this->products->countImportedWithoutCategorySet(),
+            'nought here means every imported row has a recorded relationship'
+        );
+    }
+
+    /**
+     * ⛔ THE TWO QUESTIONS, AND WHY THE SCREEN PRINTS BOTH.
+     *
+     * A row whose recorded set is a STRICT SUBSET of what the product carries
+     * is RECORDED — this figure counts it as answered, and so does the
+     * completeness gate. It is not COMPLETE, and only the per-page WooCommerce
+     * read can say so: the plan puts it in `apply` with `completes` true and
+     * names the ids it would add. Both statements are true, they are about
+     * different things, and a screen that printed one of them as «کامل شد»
+     * would be the `alpha.84` defect one object over.
+     */
+    public function testAPartiallyRecordedSetIsCountedAsRecordedAndStillOfferedForCompletion(): void
+    {
+        $this->runImport();
+        $this->attach(8002, [self::GLUE_MEDICAL, self::GLUE_CONSUMABLE]);
+        $id = $this->rowId(8002);
+        // Exactly what migration 35's backfill leaves: one id of two.
+        self::assertSame('', $this->products->saveCategorySet($id, [self::GLUE_MEDICAL]));
+
+        self::assertSame(
+            5,
+            $this->products->countImportedWithoutCategorySet(),
+            'it has a recorded relationship, so it is not in the unrecorded count'
+        );
+
+        $plan = $this->plan->plan();
+        self::assertSame(CategoryLinkPlan::APPLY, $this->reasonFor($plan, 8002));
+        $entry = null;
+        foreach ($plan['apply'] as $row) {
+            if ((int) $row['product_id'] === $id) {
+                $entry = $row;
+            }
+        }
+        self::assertIsArray($entry);
+        self::assertTrue($entry['completes'], 'said, not inferred');
+        self::assertSame([self::GLUE_CONSUMABLE], $entry['adds_ids'], 'and only an addition');
+
+        $before = $this->relationshipSnapshot();
+        $this->applier->apply([$id], [], self::MANAGER);
+        self::assertSame(
+            [self::GLUE_MEDICAL, self::GLUE_CONSUMABLE],
+            $this->recordedSet(8002),
+            'completion only adds'
+        );
+        self::assertSame($before, $this->relationshipSnapshot(), 'WooCommerce was not written to');
+    }
+
+    /**
+     * A FIGURE THAT COULD NOT BE ASKED IS `-1`, NEVER NOUGHT.
+     *
+     * Nought reads as «every imported row has a recorded relationship», which
+     * is the one meaning that must not come out of a statement that never ran
+     * (`alpha.67`). Both ways of not knowing are measured: the count itself
+     * failing, and the table absent — which is what an install still on
+     * schema 34 looks like.
+     *
+     * ⛔ Only the first of those two discriminates. With the table gone the
+     * statement would fail and `getVar()` would answer null, so `-1` comes out
+     * with or without the early return; what that early return buys is a
+     * failing statement never being sent while a page renders, and that is
+     * written in the method rather than claimed here.
+     */
+    public function testAFigureThatCouldNotBeAskedIsNotNought(): void
+    {
+        $this->runImport();
+        self::assertSame(6, $this->products->countImportedWithoutCategorySet(), 'the control');
+
+        $failing = new FailingDatabase($this->database);
+        $failing->failReadWhen(['NOT EXISTS']);
+        self::assertSame(
+            -1,
+            (new DbProductRepository($failing, new SystemClock()))->countImportedWithoutCategorySet(),
+            'the count failed, and a failed count is not nought'
+        );
+
+        // Schema 34: the link table is simply not there, so the question
+        // cannot be asked at all — and a fresh repository, because the answer
+        // is memoised per instance (`alpha.67`).
+        $this->wpdb->dropTable(M0035ProductCategorySet::table($this->database));
+        self::assertSame(
+            -1,
+            (new DbProductRepository($this->database, new SystemClock()))->countImportedWithoutCategorySet(),
+            'no table means no answer, not «nothing left to record»'
+        );
+    }
 }

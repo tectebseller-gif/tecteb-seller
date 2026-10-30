@@ -1,0 +1,56 @@
+ui_strings_total=1901
+ui_strings_over_120_chars=196
+ui_strings_over_200_chars=61
+--- files with long strings (count, max) ---
+ 32  max= 369  src/Modules/Migration/Presentation/Admin/HandoverPage.php
+ 18  max= 505  src/Modules/Migration/Presentation/Admin/MinMaxExitPage.php
+ 17  max= 358  src/Modules/Product/Presentation/Admin/ProductReviewPage.php
+ 17  max= 293  src/Modules/Product/Presentation/Admin/StorefrontPage.php
+ 15  max= 586  src/Modules/Finance/Presentation/SupplierPaymentMessages.php
+ 15  max= 314  src/Modules/Migration/Presentation/Admin/MigrationPage.php
+ 12  max= 415  src/Modules/Operations/Presentation/Admin/QueuePage.php
+  9  max= 236  src/Modules/Product/Presentation/Admin/ProductReviewCardView.php
+  8  max= 309  src/Modules/Product/Presentation/Admin/ProductCatalogueView.php
+  6  max= 387  src/Modules/Admin/Presentation/Views/health.php
+  6  max= 184  src/Modules/Operations/Presentation/OperationsMessages.php
+  5  max= 263  src/Modules/Finance/Presentation/Admin/SupplierPaymentsPage.php
+  5  max= 207  src/Modules/Vendor/Presentation/Admin/DocumentTypesPage.php
+  4  max= 216  src/Modules/Admin/Presentation/Messages.php
+  4  max= 270  src/Modules/Operations/Presentation/Admin/EventsPage.php
+  4  max= 223  src/Modules/Operations/Presentation/SetupMessages.php
+  3  max= 216  src/Modules/Product/Presentation/Admin/SpecTemplatesPage.php
+  2  max= 188  src/Modules/Admin/Presentation/Views/settings.php
+  2  max= 349  src/Modules/Finance/Presentation/Admin/CommissionRulesPage.php
+  2  max= 171  src/Modules/Finance/Presentation/Admin/WithdrawalsPage.php
+  2  max= 176  src/Modules/Finance/Presentation/VendorFinanceView.php
+  2  max= 135  src/Modules/Operations/Presentation/Admin/AuditPage.php
+  2  max= 180  src/Modules/Vendor/Presentation/Admin/ApplicationsPage.php
+  1  max= 139  src/Modules/Admin/Presentation/Views/dashboard.php
+  1  max= 146  src/Modules/Finance/Presentation/WithdrawalMessages.php
+  1  max= 202  src/Modules/Operations/Presentation/Admin/SetupWizardPage.php
+  1  max= 214  src/Modules/Vendor/Presentation/Admin/VendorShopsPage.php
+--- the twelve longest ---
+ 586  src/Modules/Finance/Presentation/SupplierPaymentMessages.php:191
+      این‌ها پرداخت‌هایی هستند که انجام و ثبت شده‌اند، ولی مبلغشان با سهم ثبت‌شدهٔ همان اقلام فرق دارد. سهم، از فروش…
+ 505  src/Modules/Migration/Presentation/Admin/MinMaxExitPage.php:242
+      مهم‌ترین عدد این صفحه همین است: روی محصولی که بازارگاه مالکش نیست، گاردِ تعداد خریدِ بازارگاه به‌خودیِ‌خود اجر…
+ 415  src/Modules/Operations/Presentation/Admin/QueuePage.php:586
+      این افزونه هیچ درخواست خارجی‌ای نمی‌زند — یک آزمون معماری همین را از کلِ کد می‌سنجد. پس اگر درخواستی منتظر یک …
+ 387  src/Modules/Admin/Presentation/Views/health.php:68
+      ⛔ بازگشت سادهٔ بسته ممنوع است: %s ردیف در واحدی ریزتر از واحد ثبت‌شدهٔ فروشنده‌اش ثبت شده‌اند و بستهٔ قبلی هر …
+ 369  src/Modules/Migration/Presentation/Admin/HandoverPage.php:1306
+      این محصول‌ها بیش از یک دستهٔ ووکامرس دارند، و مجموعهٔ کاملشان همان‌طور که هست ثبت می‌شود — حتی وقتی والد و فرز…
+ 363  src/Modules/Migration/Presentation/Admin/MinMaxExitPage.php:408
+      این محصول‌ها قاعدهٔ تعداد خرید را دارند ولی بازارگاه مالکشان نیست، پس به‌خودیِ‌خود قاعده اعمال نمی‌شود. «اعمال…
+ 358  src/Modules/Product/Presentation/Admin/ProductReviewPage.php:377
+      %1$s محصول در ووکامرس منتشر شده‌اند و ردیف بازارگاهشان قیمتی ندارد (شناسهٔ ووکامرس: %2$s). وضعیت عمومی و قابلی…
+ 349  src/Modules/Finance/Presentation/Admin/CommissionRulesPage.php:62
+      این قواعد دیگر روی فروش‌های تازه اعمال نمی‌شوند. کمیسیون تک‌طب از این پس روی صفحهٔ ویرایش هر محصول در ووکامرس …
+ 322  src/Modules/Product/Presentation/Admin/ProductReviewPage.php:1485
+      این ردیف فقط به محصول ووکامرس اشاره می‌کند و هیچ گاردی از این افزونه دربارهٔ آن نظر نمی‌دهد. پذیرش مدیریت یعنی…
+ 314  src/Modules/Migration/Presentation/Admin/MigrationPage.php:145
+      اختلاف این دو عدد یعنی «این محصول‌ها نگاشت‌شده‌اند و هیچ اجرایی ادعایشان نمی‌کند» — نه اینکه گم شده‌اند. دو دل…
+ 309  src/Modules/Migration/Presentation/Admin/HandoverPage.php:1492
+      دکان روی این نصب اجرا نمی‌شود، پس «چیزی مانده یا نه» پرسیدنی نیست. این دروازه از شمارش باز نمی‌شود: وجود محصول…
+ 309  src/Modules/Product/Presentation/Admin/ProductCatalogueView.php:505
+      این فهرست %1$s ردیف دارد: %2$s محصولی که در فهرست «همه»ی ووکامرس هم شمرده می‌شوند، به‌علاوهٔ %3$s محصول پیش‌نو…

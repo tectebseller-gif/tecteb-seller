@@ -57,6 +57,14 @@ final class HandoverPage
     public const CAPABILITY = Capabilities::REVIEW_VENDOR;
     private const NONCE = 'tmc_dokan_handover';
 
+    /**
+     * Where the category-link list carries its position.
+     *
+     * A GET key and nothing else: no option, no transient, no per-user state.
+     * Paging a read-only list is not a decision to remember.
+     */
+    private const CATEGORY_AFTER = 'cat_after';
+
     public function __construct(private readonly ContainerInterface $container)
     {
     }
@@ -134,7 +142,7 @@ final class HandoverPage
         // the number of imported products still waiting for a category is read
         // from our own table and is true either way.
         $this->renderCategories($fa, $request);
-        $this->renderCategoryLinks($fa);
+        $this->renderCategoryLinks($fa, $request);
         if ($recordSubjects !== []) {
             $this->renderStaff($recordSubjects, $fa);
             $this->renderFinance($recordSubjects, $fa);
@@ -154,13 +162,17 @@ final class HandoverPage
             . Components::state(
                 'empty',
                 __('هنوز هیچ فروشگاهی از دکان وارد نشده است', 'tecteb-marketplace-core'),
-                __('این صفحه دربارهٔ فروشگاه‌هایی است که از دکان وارد شده‌اند — با محصول، با پروندهٔ فروشنده، یا با سابقه. هیچ‌کدام از این سه نشانه پیدا نشد، پس اول از صفحهٔ «مهاجرت از دکان» یک اجرای آزمایشی بگیرید و سپس ورود را انجام دهید.', 'tecteb-marketplace-core'),
+                __('اول یک اجرای آزمایشی بگیرید، سپس ورود را انجام دهید.', 'tecteb-marketplace-core'),
                 [[
                     'href' => admin_url('admin.php?page=' . MigrationPage::SLUG),
                     'label' => __('رفتن به مهاجرت از دکان', 'tecteb-marketplace-core'),
                     'primary' => true,
                 ]]
             )
+            . Components::moreDetails([
+                __('این صفحه دربارهٔ فروشگاه‌هایی است که از دکان وارد شده‌اند — با محصول، با پروندهٔ فروشنده، یا با سابقه.', 'tecteb-marketplace-core'),
+                __('هیچ‌کدام از این سه نشانه پیدا نشد.', 'tecteb-marketplace-core'),
+            ])
             . '</section>';
     }
 
@@ -195,8 +207,12 @@ final class HandoverPage
         echo '<section class="tmc-card"><h2 class="tmc-card__title">'
             . esc_html__('پیش‌نمایش سوابق فروشگاه', 'tecteb-marketplace-core') . '</h2>';
         echo '<p class="tmc-field__desc">'
-            . esc_html__('سه نوع سابقه: پرسنل، دفتر مانده و درخواست‌های برداشت. این جدول فقط می‌خواند — نه از دکان چیزی تغییر می‌کند و نه سابقه‌ای ثبت می‌شود. ورود سوابق فقط با دکمهٔ پایین همین بخش انجام می‌شود.', 'tecteb-marketplace-core')
+            . esc_html__('سه نوع سابقه: پرسنل، دفتر مانده و درخواست‌های برداشت. این جدول فقط می‌خواند.', 'tecteb-marketplace-core')
             . '</p>';
+        echo Components::moreDetails([
+            __('نه از دکان چیزی تغییر می‌کند و نه سابقه‌ای ثبت می‌شود.', 'tecteb-marketplace-core'),
+            __('ورود سوابق فقط با دکمهٔ پایین همین بخش انجام می‌شود.', 'tecteb-marketplace-core'),
+        ]);
 
         echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="'
             . esc_attr__('جدول پیش‌نمایش سوابق', 'tecteb-marketplace-core') . '">';
@@ -262,9 +278,13 @@ final class HandoverPage
         if ($sourceOnly !== []) {
             echo Components::notice('info', sprintf(
                 /* translators: %s: a list of user ids */
-                __('این شناسه‌ها در دکان صاحب سابقه‌اند و از این بازارگاه وارد نشده‌اند: %s. ورود سوابق، تاریخچهٔ آن‌ها را هم ثبت می‌کند — و همین ثبت نه فروشگاهی می‌سازد، نه پذیرشی، نه دسترسی و نه بدهی. تا وقتی فروشگاهی برایشان وارد و پذیرفته نشده، فروشگاه معتبر این بازارگاه نیستند.', 'tecteb-marketplace-core'),
+                __('این شناسه‌ها در دکان صاحب سابقه‌اند و از این بازارگاه وارد نشده‌اند: %s', 'tecteb-marketplace-core'),
                 $names($sourceOnly)
             ));
+            echo Components::moreDetails([
+                __('ورود سوابق، تاریخچهٔ آن‌ها را هم ثبت می‌کند — و همین ثبت نه فروشگاهی می‌سازد، نه پذیرشی، نه دسترسی و نه بدهی.', 'tecteb-marketplace-core'),
+                __('تا وقتی فروشگاهی برایشان وارد و پذیرفته نشده، فروشگاه معتبر این بازارگاه نیستند.', 'tecteb-marketplace-core'),
+            ]);
         }
 
         // ⛔ And the ids whose records we ALREADY hold and which are still not
@@ -275,9 +295,13 @@ final class HandoverPage
         if ($recordOnly !== []) {
             echo Components::notice('info', sprintf(
                 /* translators: %s: a list of user ids */
-                __('سابقهٔ این شناسه‌ها این‌طرف ثبت شده و هیچ‌کدام فروشگاه این بازارگاه نیستند: %s. سوابقشان می‌مانَد و همین‌جا نشان داده می‌شود، ولی در جدول وضعیت مهاجرت نمی‌آیند — داشتن سابقه فروشگاه‌بودن نیست.', 'tecteb-marketplace-core'),
+                __('سابقهٔ این شناسه‌ها این‌طرف ثبت شده و هیچ‌کدام فروشگاه این بازارگاه نیستند: %s', 'tecteb-marketplace-core'),
                 $names($recordOnly)
             ));
+            echo Components::moreDetails([
+                __('سوابقشان می‌مانَد و همین‌جا نشان داده می‌شود، ولی در جدول وضعیت مهاجرت نمی‌آیند.', 'tecteb-marketplace-core'),
+                __('داشتن سابقه فروشگاه‌بودن نیست.', 'tecteb-marketplace-core'),
+            ]);
         }
 
         echo $this->importButton($preview->anythingToImport($shops), $scope->sourceReadable());
@@ -351,8 +375,12 @@ final class HandoverPage
             ));
         }
         $note = '<p class="tmc-field__desc">'
-            . esc_html__('ورود سوابق فقط تاریخچه ثبت می‌کند: هیچ بدهی قابل‌پرداخت، هیچ تسویه، هیچ دسترسی پرسنل، هیچ تغییر مالکیت محصول و هیچ فعال‌شدن فروشی. کار قابل‌ادامه است و اگر نیمه‌کاره بماند از همان‌جا ادامه می‌دهد؛ درخواست تکراری سابقهٔ تکراری نمی‌سازد.', 'tecteb-marketplace-core')
-            . '</p>';
+            . esc_html__('ورود سوابق فقط تاریخچه ثبت می‌کند.', 'tecteb-marketplace-core')
+            . '</p>'
+            . Components::moreDetails([
+                __('هیچ بدهی قابل‌پرداخت، هیچ تسویه، هیچ دسترسی پرسنل، هیچ تغییر مالکیت محصول و هیچ فعال‌شدن فروشی.', 'tecteb-marketplace-core'),
+                __('کار قابل‌ادامه است و اگر نیمه‌کاره بماند از همان‌جا ادامه می‌دهد؛ درخواست تکراری سابقهٔ تکراری نمی‌سازد.', 'tecteb-marketplace-core'),
+            ]);
         if (!$scopeReadable) {
             // ⛔ No button at all while the owner list may be short. The walk
             // reads Dokan's tables, which hold every shop at once, so a
@@ -361,7 +389,11 @@ final class HandoverPage
             // the one thing this page exists to prevent. The run would skip
             // them anyway (`ShopRecordScope::admits()` admits nobody while
             // the list is unreadable), so this is the first of two defences.
-            return $note . Components::notice('warning', __('تا وقتی فهرست صاحبان سابقه در دکان کامل خوانده نشود، ورود انجام نمی‌شود: فهرست ناقص یعنی ممکن است صاحبانی باشند که این صفحه نشانشان نداده، و سابقهٔ نشان‌داده‌نشده وارد نمی‌شود. اول خواندن را درست کنید.', 'tecteb-marketplace-core'));
+            return $note
+                . Components::notice('warning', __('تا وقتی فهرست صاحبان سابقه در دکان کامل خوانده نشود، ورود انجام نمی‌شود. اول خواندن را درست کنید.', 'tecteb-marketplace-core'))
+                . Components::moreDetails([
+                    __('فهرست ناقص یعنی ممکن است صاحبانی باشند که این صفحه نشانشان نداده، و سابقهٔ نشان‌داده‌نشده وارد نمی‌شود.', 'tecteb-marketplace-core'),
+                ]);
         }
         if (!$anythingToImport) {
             // Nothing to do is not the same as a broken button, so the button
@@ -1065,8 +1097,12 @@ final class HandoverPage
         echo '<section class="tmc-card"><h2 class="tmc-card__title">'
             . esc_html__('نگاشت دستهٔ محصولات', 'tecteb-marketplace-core') . '</h2>';
         echo '<p class="tmc-field__desc">'
-            . esc_html__('ذخیرهٔ نگاشت می‌گوید یک دستهٔ دکان در این بازارگاه چه معنایی دارد. هیچ محصولی را جابه‌جا نمی‌کند: ردیف‌هایی که ورود ساخته بدون دسته‌اند و بدون دسته می‌مانند، تا وقتی با اقدام صریح شما اعمال شود. پیش از اعمال، تعداد و تغییر پیشنهادی را همین‌جا می‌بینید.', 'tecteb-marketplace-core')
+            . esc_html__('ذخیرهٔ نگاشت می‌گوید یک دستهٔ دکان در این بازارگاه چه معنایی دارد. هیچ محصولی را جابه‌جا نمی‌کند.', 'tecteb-marketplace-core')
             . '</p>';
+        echo Components::moreDetails([
+            __('ردیف‌هایی که ورود ساخته بدون دسته‌اند و بدون دسته می‌مانند، تا وقتی با اقدام صریح شما اعمال شود.', 'tecteb-marketplace-core'),
+            __('پیش از اعمال، تعداد و تغییر پیشنهادی را همین‌جا می‌بینید.', 'tecteb-marketplace-core'),
+        ]);
 
         $plan = $mapping->plan();
         $waiting = (int) $plan['total'];
@@ -1082,7 +1118,10 @@ final class HandoverPage
             echo Components::notice('warning', __('هیچ دستهٔ محصولی در ووکامرس خوانده نشد، پس چیزی برای انتخاب وجود ندارد. این افزونه هرگز دسته نمی‌سازد؛ دسته‌ها را در «محصولات ← دسته‌بندی‌ها» بسازید.', 'tecteb-marketplace-core'));
         }
         if (!$mapping->sourceAvailable()) {
-            echo Components::notice('warning', __('دکان در حال اجرا نیست، پس دستهٔ مبدأ خوانده نمی‌شود. ورود، دستهٔ مبدأ را می‌خوانَد و ذخیره نمی‌کند، پس نه جدول نگاشت کشیده می‌شود و نه اعمال برنامه‌ریزی می‌شود. این «چیزی برای نگاشت نیست» نیست.', 'tecteb-marketplace-core'));
+            echo Components::notice('warning', __('دکان در حال اجرا نیست، پس دستهٔ مبدأ خوانده نمی‌شود. این «چیزی برای نگاشت نیست» نیست.', 'tecteb-marketplace-core'));
+            echo Components::moreDetails([
+                __('ورود، دستهٔ مبدأ را می‌خوانَد و ذخیره نمی‌کند، پس نه جدول نگاشت کشیده می‌شود و نه اعمال برنامه‌ریزی می‌شود.', 'tecteb-marketplace-core'),
+            ]);
             echo '</section>';
             return;
         }
@@ -1142,9 +1181,12 @@ final class HandoverPage
         if ($noSource > 0) {
             echo Components::notice('info', sprintf(
                 /* translators: %s: number of products */
-                __('%s محصول دکان هیچ دستهٔ مبدأیی ندارد. هیچ نگاشتی این‌ها را درست نمی‌کند، چون چیزی برای نگاشت وجود ندارد، و هیچ دسته‌ای هم خودکار برایشان تعیین نمی‌شود؛ دستهٔ این‌ها را در صفحهٔ «بررسی محصولات» یک انسان انتخاب می‌کند.', 'tecteb-marketplace-core'),
+                __('%s محصول دکان هیچ دستهٔ مبدأیی ندارد. دستهٔ این‌ها را در صفحهٔ «بررسی محصولات» یک انسان انتخاب می‌کند.', 'tecteb-marketplace-core'),
                 $fa((string) $noSource)
             ));
+            echo Components::moreDetails([
+                __('هیچ نگاشتی این‌ها را درست نمی‌کند، چون چیزی برای نگاشت وجود ندارد، و هیچ دسته‌ای هم خودکار برایشان تعیین نمی‌شود.', 'tecteb-marketplace-core'),
+            ]);
         }
 
         $this->renderCategoryPicker($mapping, $sources, $request, $fa);
@@ -1339,8 +1381,13 @@ final class HandoverPage
                 ))
                 . '</button></p>'
                 . '<p class="tmc-field__desc">'
-                . esc_html__('فقط ستون دسته روی همین ردیف‌ها نوشته می‌شود — و فقط روی ردیفی که همین حالا بی‌دسته است. هیچ محصول تازه‌ای ساخته نمی‌شود، هیچ ورودی تکرار نمی‌شود، و مالکیت، وضعیت انتشار، اجازهٔ فروش، دسته‌های ووکامرس و اطلاعات مالی دست نمی‌خورند.', 'tecteb-marketplace-core')
-                . '</p></form>';
+                . esc_html__('فقط ستون دسته روی همین ردیف‌ها نوشته می‌شود — و فقط روی ردیفی که همین حالا بی‌دسته است.', 'tecteb-marketplace-core')
+                . '</p>'
+                . Components::moreDetails([
+                    __('هیچ محصول تازه‌ای ساخته نمی‌شود و هیچ ورودی تکرار نمی‌شود.', 'tecteb-marketplace-core'),
+                    __('مالکیت، وضعیت انتشار، اجازهٔ فروش، دسته‌های ووکامرس و اطلاعات مالی دست نمی‌خورند.', 'tecteb-marketplace-core'),
+                ])
+                . '</form>';
         }
 
         if ($held !== []) {
@@ -1393,15 +1440,40 @@ final class HandoverPage
      * Read only until the button is pressed: `CategoryLinkPlan` has no write
      * method of any kind, which an architecture test asserts from its bytes.
      */
-    private function renderCategoryLinks(callable $fa): void
+    /** This page, positioned after a product id. Nought is the first page. */
+    private function categoryLinkUrl(int $after): string
     {
-        $plan = $this->container->get(CategoryLinkPlan::class)->plan();
+        $url = admin_url('admin.php?page=' . self::SLUG);
+        if ($after > 0) {
+            $url = add_query_arg(self::CATEGORY_AFTER, (string) $after, $url);
+        }
+        return $url . '#tmc-category-links';
+    }
 
-        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+    private function renderCategoryLinks(callable $fa, Request $request): void
+    {
+        // ⛔ KEYSET PAGING, and the reason it is here: `plan()` has returned
+        // `cursor` and `finished` since `alpha.81` and this page read NEITHER
+        // — the word did not appear in this file once — so it always asked for
+        // imported rows `id > 0 LIMIT 500` and everything past the five
+        // hundredth was unreachable from the only screen that writes them.
+        // Nothing is stored: the position travels in the query string, like
+        // every other list in this plugin.
+        $after = max(0, $request->queryInt(self::CATEGORY_AFTER));
+        $plan = $this->container->get(CategoryLinkPlan::class)->plan(
+            CategoryLinkPlan::ROW_LIMIT,
+            $after
+        );
+
+        echo '<section class="tmc-card" id="tmc-category-links"><h2 class="tmc-card__title">'
             . esc_html__('دستهٔ محصولات از ارتباط فعلی ووکامرس', 'tecteb-marketplace-core') . '</h2>';
         echo '<p class="tmc-field__desc">'
-            . esc_html__('هر محصول واردشده همین حالا در ووکامرس دسته دارد یا ندارد. این کارت همان ارتباط را بر اساس شناسهٔ دسته می‌خواند — نه شباهت نام و نه حدس — و نشان می‌دهد نوشتنش چه چیزی را عوض می‌کند. تا زدن دکمه هیچ‌چیز نوشته نمی‌شود، و هیچ دسته یا رابطهٔ ووکامرس ساخته، حذف یا تغییر نمی‌شود.', 'tecteb-marketplace-core')
+            . esc_html__('تا زدن دکمه هیچ‌چیز نوشته نمی‌شود، و هیچ دسته یا رابطهٔ ووکامرس ساخته، حذف یا تغییر نمی‌شود.', 'tecteb-marketplace-core')
             . '</p>';
+        echo Components::moreDetails([
+            __('هر محصول واردشده همین حالا در ووکامرس دسته دارد یا ندارد.', 'tecteb-marketplace-core'),
+            __('این کارت همان ارتباط را بر اساس شناسهٔ دسته می‌خواند — نه شباهت نام و نه حدس — و نشان می‌دهد نوشتنش چه چیزی را عوض می‌کند.', 'tecteb-marketplace-core'),
+        ]);
 
         if (!$plan['available']) {
             echo '<p class="tmc-field__desc">'
@@ -1419,12 +1491,43 @@ final class HandoverPage
                 $fa((string) $plan['scanned']),
                 $fa((string) $total)
             ))) . '</p>';
+        // ⛔ ONE NUMBER ABOUT THE WHOLE CATALOGUE, and it answers a narrower
+        // question than it looks: how many imported rows have NOTHING
+        // recorded. It does not say the recorded sets are complete — that
+        // needs each product's own WooCommerce relationship, which is the
+        // per-page read above — so the sentence says which question it is.
+        $unrecorded = (int) $plan['unrecorded'];
+        echo '<p class="tmc-field__desc">' . ($unrecorded < 0
+            ? esc_html__('شمارش سراسریِ رابطه‌های ثبت‌نشده خوانده نشد، پس عددی گزارش نمی‌شود.', 'tecteb-marketplace-core')
+            : esc_html(sprintf(
+                /* translators: %s: how many imported rows have nothing recorded */
+                __('در کل کاتالوگ، %s ردیف واردشده هیچ رابطهٔ دستهٔ ثبت‌شده‌ای ندارد.', 'tecteb-marketplace-core'),
+                $fa((string) $unrecorded)
+            ))) . '</p>';
+        if ($after > 0) {
+            echo '<p class="tmc-field__desc">' . esc_html(sprintf(
+                /* translators: %s: the product id this page starts after */
+                __('این صفحه از شناسهٔ %s به بعد را نشان می‌دهد.', 'tecteb-marketplace-core'),
+                $fa((string) $after)
+            )) . ' <a href="' . esc_url($this->categoryLinkUrl(0)) . '">'
+                . esc_html__('بازگشت به ابتدا', 'tecteb-marketplace-core') . '</a></p>';
+        }
         if (!$plan['finished']) {
             // ⛔ Said, not hidden. A page that reached its cap cannot claim
-            // «this is all of them» (`alpha.70`).
+            // «this is all of them» (`alpha.70`) — and from this round it also
+            // offers the way on, so «همهٔ ردیف‌ها» is reachable rather than
+            // merely true of a cursor nobody could use.
             echo '<p class="tmc-field__desc">'
-                . esc_html__('این صفحه به سقف خودش رسید، پس ردیف‌های بعدی در این شمارش نیستند.', 'tecteb-marketplace-core')
-                . '</p>';
+                . esc_html__('این صفحه به سقف خودش رسید، پس ردیف‌های بعدی در این شمارش نیستند.', 'tecteb-marketplace-core');
+            // ⛔ And the link is only offered when it LEADS somewhere. `plan()`
+            // reports unfinished whenever the total could not be read, and in
+            // that state the cursor has not moved — a link back to this same
+            // page, which is worse than no link.
+            if ((int) $plan['cursor'] > $after) {
+                echo ' <a href="' . esc_url($this->categoryLinkUrl((int) $plan['cursor'])) . '">'
+                    . esc_html__('ادامه از اینجا', 'tecteb-marketplace-core') . '</a>';
+            }
+            echo '</p>';
         }
 
         // Every bucket by name, including the empty ones that matter.
@@ -1464,8 +1567,13 @@ final class HandoverPage
         // both false now. The table below is a READING of what these products
         // are in, not a question.
         echo '<p class="tmc-field__desc">'
-            . esc_html__('این محصول‌ها بیش از یک دستهٔ ووکامرس دارند، و مجموعهٔ کاملشان همان‌طور که هست ثبت می‌شود — حتی وقتی والد و فرزند یک شاخه با هم متصل‌اند. هیچ دسته‌ای انتخاب، حذف یا اضافه نمی‌شود و از کسی خواسته نمی‌شود دسته‌های موجود را دوباره انتخاب کند. این جدول فقط می‌گوید کدام مجموعه روی چند محصول است؛ انتخاب دستی فقط برای استثنای واقعی، روی صفحهٔ بررسی همان محصول، باقی می‌مانَد.', 'tecteb-marketplace-core')
+            . esc_html__('مجموعهٔ کامل دسته‌های این محصول‌ها همان‌طور که هست ثبت می‌شود؛ هیچ دسته‌ای انتخاب، حذف یا اضافه نمی‌شود.', 'tecteb-marketplace-core')
             . '</p>';
+        echo Components::moreDetails([
+            __('این محصول‌ها بیش از یک دستهٔ ووکامرس دارند — حتی وقتی والد و فرزند یک شاخه با هم متصل‌اند.', 'tecteb-marketplace-core'),
+            __('از کسی خواسته نمی‌شود دسته‌های موجود را دوباره انتخاب کند.', 'tecteb-marketplace-core'),
+            __('این جدول فقط می‌گوید کدام مجموعه روی چند محصول است؛ انتخاب دستی فقط برای استثنای واقعی، روی صفحهٔ بررسی همان محصول، باقی می‌مانَد.', 'tecteb-marketplace-core'),
+        ]);
         echo '<table class="tmc-table"><thead><tr>'
             . '<th>' . esc_html__('دسته‌های فعلی (شناسه و مسیر کامل)', 'tecteb-marketplace-core') . '</th>'
             . '<th>' . esc_html__('تعداد محصول', 'tecteb-marketplace-core') . '</th>'
@@ -1511,6 +1619,21 @@ final class HandoverPage
             return;
         }
         echo '<h3>' . esc_html__('آمادهٔ ثبت — مجموعهٔ دسته‌های خودِ محصول', 'tecteb-marketplace-core') . '</h3>';
+        // ⛔ THE FORM'S OWN CAP, said rather than inferred. One request covers
+        // at most `BATCH_LIMIT` products and the table below is sliced to it;
+        // until this round the page said only that the SCAN had hit its cap,
+        // so a manager with three hundred ready rows pressed the button, two
+        // hundred were written, and nothing on the screen mentioned the
+        // hundred that were never on the form (`alpha.70`). The limit itself
+        // is unchanged: it is a decision about the size of one request.
+        if (count($apply) > ApplyCategoryLinks::BATCH_LIMIT) {
+            echo '<p class="tmc-field__desc">' . esc_html(sprintf(
+                /* translators: 1: rows on this form 2: rows ready on this page */
+                __('این فرم %1$s ردیف از %2$s ردیف آمادهٔ این صفحه را می‌برد؛ بقیه پس از ثبت همین‌ها روی همین صفحه می‌مانند.', 'tecteb-marketplace-core'),
+                $fa((string) ApplyCategoryLinks::BATCH_LIMIT),
+                $fa((string) count($apply))
+            )) . '</p>';
+        }
         echo '<form method="post">';
         echo '<table class="tmc-table"><thead><tr>'
             . '<th>' . esc_html__('محصول', 'tecteb-marketplace-core') . '</th>'
@@ -1584,7 +1707,7 @@ final class HandoverPage
             // تصمیم انسان» — which is exactly what the owner rejected: those
             // products' categories are recorded in full now and nobody is
             // asked to pick again.
-            CategoryLinkPlan::MULTIPLE => __('چند دسته دارد (از alpha.82 ثبت می‌شود، نه نگه‌داشته)', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::MULTIPLE => __('چند دسته دارد؛ مجموعهٔ کاملش ثبت می‌شود', 'tecteb-marketplace-core'),
             CategoryLinkPlan::NARROWED => __('چند دسته دارد و ورودِ قدیمی یکی را ذخیره کرده بود', 'tecteb-marketplace-core'),
             'category_set_unsupported' => __('ساختار داده هنوز به ۳۵ نرسیده، پس مجموعه ثبت نمی‌شود', 'tecteb-marketplace-core'),
             'category_table_unreadable' => __('جدول مجموعهٔ دسته‌ها خوانده نشد، پس چیزی نوشته نشد', 'tecteb-marketplace-core'),
@@ -1673,7 +1796,7 @@ final class HandoverPage
             MigrationCompleteness::RECORDS_UNREADABLE =>
                 __('دست‌کم یکی از سه منبع خوانده نشد، پس معلوم نیست سابقه‌ای مانده یا نه. این «صفر» نیست و به‌عنوان صفر شمرده نمی‌شود.', 'tecteb-marketplace-core'),
             MigrationCompleteness::RECORDS_DOKAN_ABSENT =>
-                __('دکان روی این نصب اجرا نمی‌شود، پس «چیزی مانده یا نه» پرسیدنی نیست. این دروازه از شمارش باز نمی‌شود: وجود محصول یا بخشی از سوابق اثبات نمی‌کند بقیه رسیده‌اند. آنچه می‌توانست ببندد، خودِ تأیید است — ثبتی که بگوید هر سه نوع تا آخر پیموده شده‌اند در حالی که دکان خوانده می‌شد — و چنین ثبتی در این نسخه وجود ندارد.', 'tecteb-marketplace-core'),
+                __('دکان روی این نصب اجرا نمی‌شود، پس «چیزی مانده یا نه» پرسیدنی نیست و این دروازه از شمارش باز نمی‌شود.', 'tecteb-marketplace-core'),
             MigrationCompleteness::RECORDS_UNVERIFIABLE =>
                 __('این نصب نمی‌تواند بگوید چه داریم — جدول سوابق این افزونه در دسترس نبود. تا آن حل نشود نه «صفر» گفته می‌شود و نه «کامل».', 'tecteb-marketplace-core'),
             default => __('وضعیت سابقهٔ این فروشگاه مشخص نشد.', 'tecteb-marketplace-core'),

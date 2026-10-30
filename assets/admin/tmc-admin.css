@@ -1233,3 +1233,8 @@
   .tmc-admin .tmc-catalogue__action { inline-size: auto; }
   .tmc-catalogue__table td, .tmc-catalogue__table th { vertical-align: middle; }
 }
+
+/* «جزئیات بیشتر»: supplementary prose, folded. Same disclosure as the
+   technical facts above, with the paragraphs breathing inside it. */
+.tmc-more > p:last-child { margin-block-end: 0; }
+.tmc-more[open] > p { margin-block-start: var(--tmc-space-2); }

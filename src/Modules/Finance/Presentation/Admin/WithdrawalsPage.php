@@ -76,7 +76,7 @@ final class WithdrawalsPage
                 )
         );
         echo '<p class="tmc-field__desc">'
-            . esc_html__('تا آن زمان، «تکمیل برای تسویه» را مدیر روی هر قلم سفارش ثبت می‌کند (ORDER-01)؛ هیچ فرایند خودکاری این را از وضعیت ارسال حدس نمی‌زند.', 'tecteb-marketplace-core')
+            . esc_html__('تا آن زمان، «تکمیل برای تسویه» را مدیر روی هر قلم سفارش ثبت می‌کند؛ هیچ فرایند خودکاری این را از وضعیت ارسال حدس نمی‌زند.', 'tecteb-marketplace-core')
             . '</p>';
 
         $this->renderQueue($repository, $states, $fa);

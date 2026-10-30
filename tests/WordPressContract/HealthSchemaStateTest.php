@@ -47,7 +47,7 @@ final class HealthSchemaStateTest extends ContractTestCase
 
         self::assertSame(HealthStatus::ActionRequired, $check['status']);
         self::assertFalse($check['facts']['last_error_stale'], 'the migration really is incomplete');
-        self::assertStringContainsString('آخرین migration ناموفق بود', Messages::healthDescription('schema', $check['status'], $check['facts']));
+        self::assertStringContainsString('آخرین ارتقای ساختار داده ناموفق بود', Messages::healthDescription('schema', $check['status'], $check['facts']));
     }
 
     public function testARecordedFailureWithTheSchemaAtTargetIsStaleNotBroken(): void

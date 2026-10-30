@@ -309,4 +309,38 @@ final class Components
         return '<details class="tmc-tech"><summary>' . esc_html($summary) . '</summary>'
             . self::dataList($rows) . '</details>';
     }
+
+    /**
+     * Supplementary prose, collapsed — «جزئیات بیشتر».
+     *
+     * The owner's standing rule for this interface: a section shows the
+     * essential fact, the current state and the action that can be taken, and
+     * anything longer waits behind one click. This is the only place that
+     * disclosure is built, so every page folds its explanation the same way
+     * and `AdminProseIsShortOrFoldedTest` has one span to recognise.
+     *
+     * ⛔ **It is for explanation, never for a warning.** «هیچ قابلیت یا هشدار
+     * ایمنی صرفاً برای خلوت‌شدن صفحه حذف نشود» — a warning a reader must act
+     * on belongs in {@see self::notice()}, short and on the page. Folding one
+     * away would be removing it while leaving the bytes behind, which is
+     * worse than removing it honestly.
+     *
+     * @param list<string> $paragraphs plain Persian sentences, escaped here
+     */
+    public static function moreDetails(array $paragraphs, string $summary = ''): string
+    {
+        $paragraphs = array_values(array_filter(
+            array_map(static fn (string $p): string => trim($p), $paragraphs),
+            static fn (string $p): bool => $p !== ''
+        ));
+        if ($paragraphs === []) {
+            return '';
+        }
+        $summary = $summary !== '' ? $summary : __('جزئیات بیشتر', 'tecteb-marketplace-core');
+        $html = '<details class="tmc-tech tmc-more"><summary>' . esc_html($summary) . '</summary>';
+        foreach ($paragraphs as $paragraph) {
+            $html .= '<p class="tmc-field__desc">' . esc_html($paragraph) . '</p>';
+        }
+        return $html . '</details>';
+    }
 }

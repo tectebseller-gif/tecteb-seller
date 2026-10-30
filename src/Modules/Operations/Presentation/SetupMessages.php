@@ -60,7 +60,7 @@ final class SetupMessages
     public static function blocker(string $blocker): string
     {
         return match ($blocker) {
-            'DEC-01' => __('نرخ کمیسیون تصمیم مالک است (DEC-01) و FIN-02 اجازهٔ حدس‌زدنش را نمی‌دهد. تا ثبت نرخ مصوب، این گام باز می‌ماند؛ می‌توانید نرخ را برای یک فروشندهٔ خاص هم ثبت کنید.', 'tecteb-marketplace-core'),
+            'DEC-01' => __('نرخ کمیسیون تصمیم مالک است و حدس زده نمی‌شود. تا ثبت نرخ مصوب، این گام باز می‌ماند؛ می‌توانید نرخ را برای یک فروشندهٔ خاص هم ثبت کنید.', 'tecteb-marketplace-core'),
             'woocommerce_missing' => __('ووکامرس روی این سایت فعال نیست.', 'tecteb-marketplace-core'),
             'permalinks_plain' => __('ساختار پیوند یکتا روی «ساده» است.', 'tecteb-marketplace-core'),
             'wp_cron_disabled' => __('WP-Cron با ثابت DISABLE_WP_CRON خاموش است؛ تا cron سیستمی تنظیم نشود، صف فقط با اجرای دستی پیش می‌رود.', 'tecteb-marketplace-core'),

@@ -197,7 +197,7 @@ final class Messages
                     );
                 }
                 if (($facts['last_error_step'] ?? null) !== null && empty($facts['last_error_stale'])) {
-                    return sprintf(__('آخرین migration ناموفق بود (مرحله %1$s، زمان %2$s): %3$s. فعال‌سازی دوباره افزونه تلاش را از سر می‌گیرد.', 'tecteb-marketplace-core'), (string) $facts['last_error_step'], $fa($facts['last_error_at'] ?? ''), (string) $facts['last_error_message']);
+                    return sprintf(__('آخرین ارتقای ساختار داده ناموفق بود (مرحله %1$s، زمان %2$s): %3$s. فعال‌سازی دوباره افزونه تلاش را از سر می‌گیرد.', 'tecteb-marketplace-core'), (string) $facts['last_error_step'], $fa($facts['last_error_at'] ?? ''), (string) $facts['last_error_message']);
                 }
                 if (($facts['last_error_step'] ?? null) !== null) {
                     // Recorded failure + schema already at target: the failure

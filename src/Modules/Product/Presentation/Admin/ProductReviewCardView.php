@@ -261,16 +261,30 @@ final class ProductReviewCardView
         };
 
         // 1. WooCommerce's own relationship.
+        // Each row carries the FACT; the sentence that keeps a reader from
+        // drawing the wrong conclusion from it goes in the fold below, where
+        // it is still on the page and still readable (`alpha.85` §A).
+        $notes = [];
         if ($shop === null) {
-            $shopText = __('پرسیده نشد — این صفحه نتوانست رابطهٔ ووکامرس را بخواند. «بدون دسته» نتیجه گرفته نمی‌شود.', 'tecteb-marketplace-core');
+            $shopText = __('پرسیده نشد', 'tecteb-marketplace-core');
+            $notes[] = __('این صفحه نتوانست رابطهٔ ووکامرس را بخواند؛ «بدون دسته» نتیجه گرفته نمی‌شود.', 'tecteb-marketplace-core');
         } else {
             $shopText = match ($shop->state) {
-                CategoryLink::UNREADABLE => __('خواندن رابطهٔ ووکامرس ناموفق بود. این با «دسته‌ای ندارد» یکی نیست.', 'tecteb-marketplace-core'),
-                CategoryLink::NONE => __('این محصول در ووکامرس هیچ دستهٔ معتبری ندارد.', 'tecteb-marketplace-core'),
-                CategoryLink::DEFAULT_ONLY => __('فقط ترم پیش‌فرض ووکامرس به آن وصل است؛ ترم پیش‌فرض یک دسته نیست.', 'tecteb-marketplace-core'),
-                CategoryLink::INVALID => __('شناسه‌هایی به آن وصل‌اند که ترمشان روی این سایت نیست (ترم حذف‌شده).', 'tecteb-marketplace-core'),
+                CategoryLink::UNREADABLE => __('خواندن ناموفق بود', 'tecteb-marketplace-core'),
+                CategoryLink::NONE => __('هیچ دستهٔ معتبری ندارد', 'tecteb-marketplace-core'),
+                CategoryLink::DEFAULT_ONLY => __('فقط ترم پیش‌فرض ووکامرس', 'tecteb-marketplace-core'),
+                CategoryLink::INVALID => __('ترم حذف‌شده', 'tecteb-marketplace-core'),
                 default => $list($shop->pathList()),
             };
+            $note = match ($shop->state) {
+                CategoryLink::UNREADABLE => __('خواندنِ ناموفق با «دسته‌ای ندارد» یکی نیست.', 'tecteb-marketplace-core'),
+                CategoryLink::DEFAULT_ONLY => __('ترم پیش‌فرض ووکامرس یک دسته نیست.', 'tecteb-marketplace-core'),
+                CategoryLink::INVALID => __('شناسه‌هایی به این محصول وصل‌اند که ترمشان روی این سایت نیست.', 'tecteb-marketplace-core'),
+                default => '',
+            };
+            if ($note !== '') {
+                $notes[] = $note;
+            }
             if (in_array($shop->state, [CategoryLink::DEFINITE, CategoryLink::MULTIPLE], true)) {
                 $shopText .= sprintf(
                     /* translators: %s: how many categories */
@@ -285,15 +299,22 @@ final class ProductReviewCardView
         }
 
         // 2. What this marketplace has recorded.
-        $recordedText = $recorded !== []
-            ? $list($recorded)
-            : __('رابطهٔ داخلی این محصول هنوز ثبت نشده است. این یعنی بازارگاه چیزی ثبت نکرده — نه اینکه محصول در ووکامرس دسته‌ای ندارد. ثبتش با صفحهٔ «پیوند دسته» و با اقدام صریح مدیر انجام می‌شود.', 'tecteb-marketplace-core');
+        if ($recorded !== []) {
+            $recordedText = $list($recorded);
+        } else {
+            $recordedText = __('هنوز ثبت نشده است', 'tecteb-marketplace-core');
+            $notes[] = __('«ثبت‌نشده» یعنی بازارگاه چیزی ثبت نکرده — نه اینکه محصول در ووکامرس دسته‌ای ندارد.', 'tecteb-marketplace-core');
+            $notes[] = __('ثبتش با صفحهٔ «پیوند دسته» و با اقدام صریح مدیر انجام می‌شود.', 'tecteb-marketplace-core');
+        }
 
         // 3. The single key, named as what it is.
         $key = trim($product->details->categoryKey);
-        $keyText = $key !== ''
-            ? $fa($key)
-            : __('خالی — و برای محصول چنددسته‌ای عمداً خالی است؛ «اولین دسته» خودسرانه انتخاب نمی‌شود.', 'tecteb-marketplace-core');
+        if ($key !== '') {
+            $keyText = $fa($key);
+        } else {
+            $keyText = __('خالی', 'tecteb-marketplace-core');
+            $notes[] = __('این کلید برای محصول چنددسته‌ای عمداً خالی است؛ «اولین دسته» خودسرانه انتخاب نمی‌شود.', 'tecteb-marketplace-core');
+        }
 
         $rows = [
             __('دستهٔ ووکامرس (فقط خواندن)', 'tecteb-marketplace-core') => $shopText,
@@ -305,7 +326,8 @@ final class ProductReviewCardView
             $html .= '<div><dt>' . esc_html((string) $label) . '</dt><dd>' . esc_html((string) $value) . '</dd></div>';
         }
         return $html . '</dl>'
-            . '<p class="tmc-card__note">' . esc_html__('دیدن این صفحه هیچ دسته‌ای را نمی‌سازد، حذف نمی‌کند و عوض نمی‌کند.', 'tecteb-marketplace-core') . '</p>';
+            . '<p class="tmc-card__note">' . esc_html__('دیدن این صفحه هیچ دسته‌ای را نمی‌سازد، حذف نمی‌کند و عوض نمی‌کند.', 'tecteb-marketplace-core') . '</p>'
+            . Components::moreDetails($notes, __('دربارهٔ این سه ردیف', 'tecteb-marketplace-core'));
     }
 
     private static function facts(Product $product, string $categoryPath, callable $fa): string
@@ -400,13 +422,22 @@ final class ProductReviewCardView
             // The preparation step. Explained rather than offered silently:
             // the manager is about to create a row in their own shop.
             return $html
-                . '<p class="tmc-card__note">' . esc_html(sprintf(
-                    /* translators: %s: name of the SEO plugin, or an empty string */
+                . '<p class="tmc-card__note">'
+                . esc_html__('این محصول هنوز در ووکامرس ساخته نشده است.', 'tecteb-marketplace-core')
+                . '</p>'
+                // The consequence of the button, word for word as it was, one
+                // click away. The name of the SEO plugin is a fact about this
+                // install, so it stays with the explanation.
+                . Components::moreDetails([
                     $seoPlugin !== ''
-                        ? __('این محصول هنوز در ووکامرس ساخته نشده است. با «آماده‌سازی» یک محصول پیش‌نویس ساخته می‌شود تا بتوانید همان‌جا ویرایش و سئوی %s را پیش از انتشار تنظیم کنید. پیش‌نویس در فروشگاه دیده نمی‌شود و قابل خرید نیست.', 'tecteb-marketplace-core')
-                        : __('این محصول هنوز در ووکامرس ساخته نشده است. با «آماده‌سازی» یک محصول پیش‌نویس ساخته می‌شود تا بتوانید همان‌جا ویرایشش کنید. پیش‌نویس در فروشگاه دیده نمی‌شود و قابل خرید نیست.%s', 'tecteb-marketplace-core'),
-                    $seoPlugin
-                )) . '</p>'
+                        ? sprintf(
+                            /* translators: %s: name of the SEO plugin */
+                            __('با «آماده‌سازی» یک محصول پیش‌نویس ساخته می‌شود تا بتوانید همان‌جا ویرایش و سئوی %s را پیش از انتشار تنظیم کنید.', 'tecteb-marketplace-core'),
+                            $seoPlugin
+                        )
+                        : __('با «آماده‌سازی» یک محصول پیش‌نویس ساخته می‌شود تا بتوانید همان‌جا ویرایشش کنید.', 'tecteb-marketplace-core'),
+                    __('پیش‌نویس در فروشگاه دیده نمی‌شود و قابل خرید نیست.', 'tecteb-marketplace-core'),
+                ])
                 . '<form method="post" class="tmc-inline">' . $nonceField
                 . '<input type="hidden" name="subject" value="storefront">'
                 . '<input type="hidden" name="subject_id" value="' . esc_attr((string) $product->id) . '">'
@@ -695,7 +726,14 @@ final class ProductReviewCardView
      */
     private static function unsettledBlock(Product $product, array $fields, string $nonceField): string
     {
-        $html = Components::notice('warning', __('این محصول پیش از نسخهٔ ۰٫۱٫۰-alpha.27 ساخته شده است، پس سابقه‌ای از اینکه متن فعلی ووکامرس را بازارگاه نوشته یا شما، وجود ندارد. تا وقتی تعیین تکلیف نکنید، بازارگاه روی این فیلدها چیزی نمی‌نویسد و ذخیرهٔ فروشنده هم آن‌ها را عوض نمی‌کند.', 'tecteb-marketplace-core'))
+        $html = Components::notice('warning', __('سابقه‌ای از اینکه متن فعلی ووکامرس را بازارگاه نوشته یا شما، وجود ندارد.', 'tecteb-marketplace-core'))
+            // ⛔ The rest of what that warning used to say, kept word for word
+            // and one click away. It is an explanation of the consequence, not
+            // a second warning: the action is the table below.
+            . Components::moreDetails([
+                __('این محصول پیش از آنکه این افزونه دفترِ مالکیت فیلدها را نگه دارد ساخته شده است.', 'tecteb-marketplace-core'),
+                __('تا وقتی تعیین تکلیف نکنید، بازارگاه روی این فیلدها چیزی نمی‌نویسد و ذخیرهٔ فروشنده هم آن‌ها را عوض نمی‌کند.', 'tecteb-marketplace-core'),
+            ])
             . '<table class="tmc-table tmc-review__owner"><caption>'
             . esc_html__('فیلدهای بدون سابقه', 'tecteb-marketplace-core') . '</caption><thead><tr>'
             . '<th scope="col">' . esc_html__('فیلد', 'tecteb-marketplace-core') . '</th>'

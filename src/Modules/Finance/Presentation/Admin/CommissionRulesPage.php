@@ -134,7 +134,7 @@ final class CommissionRulesPage
             . '<p><button type="submit" class="tmc-button tmc-button--primary">' . esc_html__('ثبت نرخ', 'tecteb-marketplace-core') . '</button></p>'
             . '</form></section>';
 
-        echo Components::notice('info', __('این صفحه فقط قاعده‌ها را نگه می‌دارد. محاسبه سهم هر سفارش وقتی فعال می‌شود که تصمیم‌های باز DEC-02 (تعریف «تکمیل» در سفارش چندفروشنده‌ای) و DEC-04 (تخصیص مالیات و کوپن سراسری) ثبت شوند.', 'tecteb-marketplace-core'));
+        echo Components::notice('info', __('این صفحه فقط قاعده‌ها را نگه می‌دارد؛ محاسبهٔ سهم هر سفارش هنوز فعال نیست.', 'tecteb-marketplace-core'));
         echo Components::shellClose();
     }
 

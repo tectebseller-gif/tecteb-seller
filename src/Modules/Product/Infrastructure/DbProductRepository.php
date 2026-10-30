@@ -913,6 +913,35 @@ final class DbProductRepository implements ProductRepositoryInterface
         return $value === null ? -1 : (int) $value;
     }
 
+    public function countImportedWithoutCategorySet(): int
+    {
+        $carried = $this->hasCategoryTable();
+        if ($carried !== true) {
+            // Absent (schema 34) or unreadable — and both are «I could not
+            // ask». Answering nought would say every imported row has a
+            // recorded relationship, on an install where recording one is not
+            // even possible yet.
+            //
+            // ⛔ And this guard is not what makes the ANSWER honest: with the
+            // table gone the statement below fails and `getVar()` returns
+            // null, so the method would answer `-1` either way. What it buys
+            // is that a failing statement is never sent while an admin page is
+            // rendering, because `wpdb` prints «WordPress database error» into
+            // the response when it is (`alpha.68`). The answer is decided by
+            // the `null` check at the end.
+            return -1;
+        }
+        $value = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->products() . '` p
+              WHERE p.import_run_id <> %s
+                AND NOT EXISTS (
+                    SELECT 1 FROM `' . $this->categoriesTable() . '` c WHERE c.product_id = p.id
+                )',
+            ['']
+        );
+        return $value === null ? -1 : (int) $value;
+    }
+
     public function importedWithCategoryKeys(int $limit = 500, int $afterId = 0): array
     {
         return array_map(

@@ -1,0 +1,38 @@
+alpha.85 falsification — 9 mutations
+tree: f3b607f 29 modified paths
+
+baseline architecture:: 0
+baseline database:CategoryLinkFlowTest: 0
+
+1. put a version number back into a label the page shows
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+2. unfold one paragraph back onto the page
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+3. ask the plan for page one, for ever
+    architecture failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+4. drop the «ادامه از اینجا» link
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+5. stop honouring the keyset position in the repository
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+6. let the form slice to 200 in silence again
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+7. report a failed count as nought
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+8. derive the whole-catalogue figure from the page
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+9. drop the «could not be read» branch from the screen
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+
+final architecture:: 0
+final database:CategoryLinkFlowTest: 0
+
+mutations: 9 · problems: 0

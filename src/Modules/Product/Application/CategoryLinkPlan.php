@@ -113,6 +113,7 @@ final class CategoryLinkPlan
      *
      * @return array{
      *     available:bool, scanned:int, total:int, finished:bool, cursor:int,
+     *     unrecorded:int,
      *     apply:list<array<string,mixed>>,
      *     held:array<string,list<array<string,mixed>>>,
      *     groups:list<array<string,mixed>>,
@@ -236,6 +237,13 @@ final class CategoryLinkPlan
             // (`alpha.70`).
             'finished' => $total >= 0 && count($rows) < $limit,
             'cursor' => $cursor,
+            // ⛔ THE WHOLE CATALOGUE, not this page: how many imported rows
+            // have no recorded relationship at all. `-1` means the question
+            // could not be asked, and the screen must then print no number
+            // (`alpha.67`). Carried here so the page has ONE service to ask
+            // and the figure beside the per-page counts cannot come from a
+            // second, differently-scoped query.
+            'unrecorded' => $this->products->countImportedWithoutCategorySet(),
             'apply' => $apply,
             'held' => $held,
             'groups' => $groups,
