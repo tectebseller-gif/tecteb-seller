@@ -1,0 +1,59 @@
+ok    approved asset byte-identical: assets/css/header-base.css
+ok    approved asset byte-identical: assets/css/header-b.css
+ok    approved asset byte-identical: assets/js/header.js
+ok    sprite = approved UI icons (sample category icons removed)
+ok    template keeps every tth- class of the approved markup
+ok    no dependency on Dokan
+ok    no dependency on Tecteb Marketplace prefix
+ok    no dependency on Tecteb Marketplace namespace
+ok    no dependency on Tecteb Marketplace slug
+ok    no dependency on homepage plugin
+ok    no dependency on Elementor PHP classes
+ok    no write call: \bwp_(insert|update|delete)_term\b
+ok    no write call: \b(add|update|delete)_term_meta\b
+ok    no write call: \bwp_set_object_terms\b
+ok    no write call: \bwp_(insert|update|delete|trash)_post\b
+ok    no write call: \b(add|update|delete)_post_meta\b
+ok    no write call: \bwp_delete_attachment\b
+ok    no write call: \bwp_update_nav_menu_item\b
+ok    no write call: \bwp_(create|delete|update)_nav_menu\b
+ok    no write call: \$wpdb\b
+ok    no write call: ->save\(
+ok    no write call: \bset_category_ids\b
+ok    no write call: \bupdate_user_meta\b
+ok    no write call: \bset_theme_mod\b
+ok    no write call: \bwp_insert_attachment\b
+ok    no write call: \bset_post_thumbnail\b
+ok    options written: only our own
+ok    no upload_mimes / SVG enabling
+ok    ICON_MIMES = PNG + WebP only
+ok    no 2652 / Elementor template or condition access
+ok    no direct $_POST handling (Settings API only)
+ok    every $_GET read is sanitised or only isset()
+ok    no outbound HTTP
+ok    css scoped under .tecteb-header-v1: header-base.css
+ok    css has no external URL: header-base.css
+ok    css scoped under .tecteb-header-v1: header-b.css
+ok    css has no external URL: header-b.css
+ok    css scoped under .tecteb-header-v1: tecteb-header.css
+ok    css has no external URL: tecteb-header.css
+ok    css scoped under .tecteb-header-v1: tecteb-header-font.css
+ok    css has no external URL: tecteb-header-font.css
+ok    admin css scoped under .tth-hdr
+ok    no global selectors (body/header/footer/.elementor/.woocommerce)
+ok    no prototype markers shipped
+ok    no sample term IDs (101–115, 201+)
+ok    default categories = array()
+ok    default hide_empty = false
+ok    default replace = false
+ok    default wishlist_mode = 'off'
+ok    default assets_everywhere = false
+ok    default search_mode = 'woocommerce'
+ok    baseline names: exactly the 13 site categories
+ok    template: every echo escaped or a documented helper
+ok    uninstall deletes only own options/transient
+ok    capability gate on admin page
+ok    option_page_capability filter registered
+ok    preview/original params gated by capability
+
+57 passed, 0 failed

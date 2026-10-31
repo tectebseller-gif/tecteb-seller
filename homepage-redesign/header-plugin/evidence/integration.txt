@@ -1,0 +1,109 @@
+ok    defaults: nothing stored on activation
+ok    defaults: no categories (no sample IDs stored)
+ok    defaults: hide_empty is OFF (req 4)
+ok    defaults: site-wide replacement is OFF
+ok    defaults: wishlist off, woocommerce search
+ok    baseline: 13 names in code, no term IDs
+ok    no categories ⇒ plain link to shop, no mega
+ok    no nav menu ⇒ no fake menu items
+ok    sanitize: missing / default / duplicate / non-numeric mains dropped
+ok    sanitize: child that is not a descendant dropped
+ok    sanitize: duplicate child dropped, disabled kept, sibling-main rejected
+ok    icon: PNG accepted
+ok    icon: WebP accepted
+ok    icon: SVG rejected (req 5)
+ok    icon: JPEG rejected
+ok    icon: non-attachment rejected
+ok    settings: only IDs/flags stored — no names, slugs or URLs
+ok    sanitize: at most 16 mains
+ok    url: /landing-seller/
+ok    url: https://tecteb.com/x/
+ok    url: javascript:alert(1)
+ok    url: //evil.example/
+ok    url: /a"onmouseover="x
+ok    url: data:text/html,1
+ok    url: ftp://x/
+ok    search shortcode: single shortcode only
+ok    search shortcode: [name attr] accepted
+ok    wishlist link without URL ⇒ off
+ok    logo: SVG rejected
+ok    logo_text: tags stripped, 40 chars
+ok    nav menu: unknown menu rejected
+ok    tab links: categories untouched
+ok    tab links: unchecked checkbox ⇒ off
+ok    tab categories: hide_empty unchecked ⇒ off
+ok    tab replace: unchecked ⇒ replace off, rest kept
+ok    order field reorders (no-JS path)
+ok    remove drops one, add_main appends new and skips duplicate
+ok    unchecked enabled ⇒ disabled (kept in list)
+ok    import from WP menu: 13 product_cat items in menu order
+ok    import: nested product_cat item under a product_cat item ignored
+ok    baseline: 13 rows
+ok    baseline: Arabic ك + ZWNJ normalised (چشم پزشکی)
+ok    baseline: Arabic ي normalised (گوش و حلق و بینی)
+ok    baseline: top-level wins over same-named deep term (جراحی)
+ok    baseline: unknown name ⇒ missing, no guess (آزمایشگاه)
+ok    import preview writes nothing
+ok    fixture: dentistry has icon and child before import
+ok    import without the confirm checkbox changes nothing
+ok    import apply: menu order; known keep their state, new are enabled
+ok    import apply: icon and children of known category kept
+ok    baseline apply: 12 found saved with real IDs
+ok    render: 12 enabled mains shown, disabled hidden, order kept
+ok    render: desktop and mobile from one source (same names + URLs)
+ok    render: names and links from product_cat
+ok    render: disabled child hidden
+ok    render: hide_empty OFF shows empty categories
+ok    render: PNG/WebP icon <img>, others grid fallback
+ok    render: nav from WP menu, hidden items skipped
+ok    render: nav HTML in title stripped
+ok    render: nav appears in desktop and drawer
+ok    render: supplier link «همکاری تأمین‌کنندگان» → /landing-seller/
+ok    render: search = standard WooCommerce product search
+ok    render: guest ⇒ login link to my-account
+ok    render: wishlist OFF ⇒ no heart, no fake count
+ok    render: no cart in CLI ⇒ cart link without badge
+ok    render: no sample/demo markers
+ok    render: no banner role in shortcode context
+ok    escape: category name with HTML is escaped
+ok    hide_empty ON: main without products hidden
+ok    hide_empty ON: parent whose products are in sub-subcategory shown
+ok    hide_empty ON without WooCommerce count filter: parent with nested products still shown
+ok    hide_empty ON: empty child hidden
+ok    hide_empty ON: selection not deleted
+ok    live: renamed category shows new name (cache invalidated on edit)
+ok    live: child moved out of its main ⇒ hidden
+ok    live: temp category shown
+ok    live: deleted category disappears, nothing replaces it
+ok    live: settings value not rewritten by WooCommerce changes
+ok    cache: categories cached in transient
+ok    cache: settings save bumps generation
+ok    cache: editing an unconfigured category does not bump
+ok    cache: litespeed_purge_all fired once per request on save
+ok    render once: second call prints only a comment
+ok    member: account menu from wc_get_account_menu_items
+ok    member: logout uses wc_logout_url (nonce)
+ok    member: no guest link
+ok    wishlist link: heart to admin URL, no count without adapter
+ok    wishlist: count only from adapter filter
+ok    replace OFF: Elementor header 2652 printed, plugin header not
+ok    replace ON: exactly one header — plugin header, 2652 output discarded
+ok    replace ON: plugin header is the page banner
+ok    replace ON: footer untouched (byte-identical)
+ok    replace ON + shortcode elsewhere after header ⇒ comment only
+ok    replace ON + [tecteb_header] inside the Elementor template ⇒ still exactly one
+ok    shortcode in Elementor template, replace OFF ⇒ one plugin header inside 2652 shell
+ok    replace ON: buffer left open by the template is closed, its content discarded
+ok    no Elementor header for the page ⇒ plugin prints nothing (theme fallback)
+ok    Elementor editor/preview ⇒ never replaced
+ok    ?tth_preview=1 for a visitor ⇒ ignored
+ok    ?tth_preview=1 for an admin ⇒ plugin header
+ok    ?tth_original=1 for an admin ⇒ Elementor header even when replace is on
+ok    ?tth_original=1 for a visitor ⇒ ignored
+ok    admin menu: no «تک‌طب» ⇒ one created, «مدیریت هدر» its only (visible) submenu
+ok    admin menu: existing «تک‌طب» reused, no duplicate top-level
+ok    admin menu: «بازارگاه تک‌طب» is not taken as «تک‌طب»
+ok    capability: option page capability = manage_options
+ok    no writes to terms, term meta, relationships, posts, post meta or menus
+
+107 passed, 0 failed

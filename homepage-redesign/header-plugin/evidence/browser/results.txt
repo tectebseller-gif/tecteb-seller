@@ -1,0 +1,139 @@
+ok    home@1440: exactly one header (plugin), Elementor 2652 not printed
+ok    home@1440: Elementor footer still printed once
+ok    home@1440: one banner landmark
+ok    home@1440: no horizontal overflow
+ok    home@1440: design font TTH Vazirmatn
+ok    home@1440: header.js ran
+ok    home@1440: no console/page errors
+ok    axe home@1440
+ok    inner@1440: exactly one header (plugin), Elementor 2652 not printed
+ok    inner@1440: Elementor footer still printed once
+ok    inner@1440: one banner landmark
+ok    inner@1440: no horizontal overflow
+ok    inner@1440: design font TTH Vazirmatn
+ok    inner@1440: header.js ran
+ok    inner@1440: no console/page errors
+ok    axe inner@1440
+ok    home@1024: exactly one header (plugin), Elementor 2652 not printed
+ok    home@1024: Elementor footer still printed once
+ok    home@1024: one banner landmark
+ok    home@1024: no horizontal overflow
+ok    home@1024: design font TTH Vazirmatn
+ok    home@1024: header.js ran
+ok    home@1024: no console/page errors
+ok    axe home@1024
+ok    inner@1024: exactly one header (plugin), Elementor 2652 not printed
+ok    inner@1024: Elementor footer still printed once
+ok    inner@1024: one banner landmark
+ok    inner@1024: no horizontal overflow
+ok    inner@1024: design font TTH Vazirmatn
+ok    inner@1024: header.js ran
+ok    inner@1024: no console/page errors
+ok    axe inner@1024
+ok    home@768: exactly one header (plugin), Elementor 2652 not printed
+ok    home@768: Elementor footer still printed once
+ok    home@768: one banner landmark
+ok    home@768: no horizontal overflow
+ok    home@768: design font TTH Vazirmatn
+ok    home@768: header.js ran
+ok    home@768: no console/page errors
+ok    axe home@768
+ok    inner@768: exactly one header (plugin), Elementor 2652 not printed
+ok    inner@768: Elementor footer still printed once
+ok    inner@768: one banner landmark
+ok    inner@768: no horizontal overflow
+ok    inner@768: design font TTH Vazirmatn
+ok    inner@768: header.js ran
+ok    inner@768: no console/page errors
+ok    axe inner@768
+ok    home@390: exactly one header (plugin), Elementor 2652 not printed
+ok    home@390: Elementor footer still printed once
+ok    home@390: one banner landmark
+ok    home@390: no horizontal overflow
+ok    home@390: design font TTH Vazirmatn
+ok    home@390: header.js ran
+ok    home@390: no console/page errors
+ok    axe home@390
+ok    inner@390: exactly one header (plugin), Elementor 2652 not printed
+ok    inner@390: Elementor footer still printed once
+ok    inner@390: one banner landmark
+ok    inner@390: no horizontal overflow
+ok    inner@390: design font TTH Vazirmatn
+ok    inner@390: header.js ran
+ok    inner@390: no console/page errors
+ok    axe inner@390
+ok    home@320: exactly one header (plugin), Elementor 2652 not printed
+ok    home@320: Elementor footer still printed once
+ok    home@320: one banner landmark
+ok    home@320: no horizontal overflow
+ok    home@320: design font TTH Vazirmatn
+ok    home@320: header.js ran
+ok    home@320: no console/page errors
+ok    axe home@320
+ok    inner@320: exactly one header (plugin), Elementor 2652 not printed
+ok    inner@320: Elementor footer still printed once
+ok    inner@320: one banner landmark
+ok    inner@320: no horizontal overflow
+ok    inner@320: design font TTH Vazirmatn
+ok    inner@320: header.js ran
+ok    inner@320: no console/page errors
+ok    axe inner@320
+ok    dimensions @1440 equal approved prototype B (±1px h, ±2px w)
+ok    desktop header height 122px (round 8)
+ok    dimensions @1024 equal approved prototype B (±1px h, ±2px w)
+ok    dimensions @390 equal approved prototype B (±1px h, ±2px w)
+ok    mega: opens on click, aria-expanded=true
+ok    mega: 13 categories in configured order
+ok    mega: links are product_cat archive URLs
+ok    mega: hover switches pane to its subcategories
+ok    mega: icon from Media Library (WebP)
+ok    mega: Esc closes, focus returns to button
+ok    mega: keyboard reaches categories
+ok    sticky: compact after scroll (63px) and content did not move
+ok    guest: account link → my-account
+ok    wishlist off: no heart icon
+ok    nav: WP menu items, hidden ones skipped
+ok    nav: current page marked aria-current
+ok    home mobile: search folded into a toggle
+ok    home mobile: toggle opens the same search form, focused
+ok    drawer: opens as modal dialog
+ok    drawer and mega: same categories from one source
+ok    drawer and desktop: same nav items
+ok    axe drawer open @390
+ok    drawer: Esc closes, focus back on burger
+ok    inner mobile: search form visible, toggle hidden
+ok    search: standard WooCommerce product search works
+ok    cart empty: no badge
+ok    cart: WooCommerce count shown (۱)
+ok    cart: link = WooCommerce cart URL
+ok    member: account menu = WooCommerce account items
+ok    axe member account menu open
+ok    no-JS: categories is a link to the shop
+ok    no-JS: nav links visible on mobile
+ok    editor: dashboard page refused
+ok    editor: POST to options.php refused, option unchanged
+ok    admin: «تک‌طب ← مدیریت هدر» in the menu
+ok    admin: 13 cards
+ok    axe admin categories tab
+ok    admin: tampered nonce refused, option unchanged
+ok    admin: up button reorders and saves
+ok    admin: switch off saves enabled=false
+ok    admin: settings-updated notice shown
+ok    admin: zanan card has no descendants ⇒ no add-child select
+ok    admin: add-child list only offers descendants not yet chosen
+ok    admin: child added
+ok    admin: search + add main appends real ID
+ok    admin: Media Library opens, limited to PNG/WebP
+ok    axe admin import tab
+ok    axe admin links tab
+ok    axe admin replace tab
+ok    axe admin data tab
+ok    admin import: baseline 12 found, 1 not found (no guess)
+ok    rollback: one save turns replacement off
+ok    admin: no console errors
+ok    rollback: visitor sees Elementor 2652 again, plugin header absent
+ok    preview param ignored for visitors
+ok    admin preview: plugin header in place of 2652, only one
+ok    replace back on
+
+137 passed, 0 failed

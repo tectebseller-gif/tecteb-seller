@@ -1,0 +1,158 @@
+/*
+ * پیشخوان «تک‌طب ← مدیریت هدر» — همان اجزای نمونهٔ طراحی (header/admin/admin.css)، با
+ * دامنهٔ `.tth-hdr`. فقط روی همین یک صفحهٔ پیشخوان بارگذاری می‌شود.
+ */
+/* ---------------------------------------------------------------- صفحه */
+.tth-hdr { max-width: 1600px; }
+.tth-hdr .tth-version { margin-inline-start: 0.75rem; color: #50575e; font-size: 13px; }
+.tth-hdr .tth-tab { padding-block-start: 1rem; }
+
+.tth-hdr .tth-bar {
+  position: sticky;
+  top: var(--wp-admin--admin-bar--height, 32px);
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-block-end: 1rem;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border: 1px solid #dcdcde;
+  border-radius: 8px;
+}
+.tth-hdr .tth-bar .button { display: inline-flex; align-items: center; gap: 0.25rem; }
+.tth-hdr .tth-bar__count { margin: 0; margin-inline-start: auto; color: #50575e; }
+.tth-hdr .tth-bar__dirty { padding: 0.125rem 0.5rem; border-radius: 99px; background: #fcf9e8; color: #8a6116; font-weight: 600; font-size: 12px; border: 1px solid #f0d78c; }
+
+.tth-hdr .tth-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.tth-hdr .tth-editor, .tth-hdr .tth-preview { min-inline-size: 0; }
+@media (min-width: 1280px) { .tth-hdr .tth-layout { grid-template-columns: minmax(0, 1fr) minmax(26rem, 34rem); } }
+
+/* ---------------------------------------------------------------- کارت دستهٔ اصلی */
+.tth-hdr .tth-cards { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.5rem; }
+.tth-hdr .tth-card { margin: 0; padding: 0.625rem 0.75rem; background: #fff; border: 1px solid #dcdcde; border-radius: 10px; box-shadow: 0 1px 1px rgb(0 0 0 / 0.04); }
+.tth-hdr .tth-card.is-off { background: #f6f7f7; }
+.tth-hdr .tth-card.is-off .tth-card__title strong { color: #646970; }
+.tth-hdr .tth-card__row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.tth-hdr .tth-handle { color: #a7aaad; cursor: grab; }
+.tth-hdr .tth-order { display: inline-flex; align-items: center; gap: 0.125rem; }
+.tth-hdr .tth-order .button-link { display: inline-grid; place-items: center; min-width: 32px; min-height: 32px; border-radius: 6px; color: #2271b1; }
+.tth-hdr .tth-order .button-link:disabled { color: #c3c4c7; cursor: default; }
+.tth-hdr .tth-order .button-link:not(:disabled):hover { background: #f0f6fc; }
+.tth-hdr .tth-pos { min-inline-size: 1.5rem; text-align: center; color: #50575e; font-weight: 700; }
+.tth-hdr .tth-icon {
+  display: grid;
+  place-items: center;
+  inline-size: 52px;
+  block-size: 52px;
+  padding: 0;
+  border: 1px dashed #8c8f94;
+  border-radius: 12px;
+  background: #e9f6f6;
+  color: #50575e;
+  cursor: pointer;
+}
+.tth-hdr .tth-icon img { inline-size: 32px; block-size: 32px; object-fit: contain; }
+.tth-hdr .tth-icon:hover, .tth-hdr .tth-icon:focus-visible { border-style: solid; border-color: #2271b1; }
+.tth-hdr .tth-card__title { display: grid; flex: 1 1 14rem; min-inline-size: 0; }
+.tth-hdr .tth-card__title strong { font-size: 15px; }
+.tth-hdr .tth-card__title small, .tth-hdr .tth-kid__name small { color: #50575e; }
+.tth-hdr .tth-pill { display: inline-block; min-inline-size: 2.25rem; padding: 0 0.375rem; border-radius: 99px; background: #f0f0f1; text-align: center; font-weight: 600; }
+
+.tth-hdr .tth-switch { display: inline-flex; align-items: center; gap: 0.375rem; cursor: pointer; white-space: nowrap; }
+.tth-hdr .tth-switch input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  inline-size: 36px;
+  block-size: 20px;
+  min-inline-size: 36px;
+  margin: 0;
+  padding: 0;
+  border-radius: 99px;
+  border: 0;
+  background: #8c8f94;
+  box-shadow: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.tth-hdr .tth-switch input[type="checkbox"]::before,
+.tth-hdr .tth-switch input[type="checkbox"]:checked::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 3px;
+  inset-inline-start: 3px;
+  inline-size: 14px;
+  block-size: 14px;
+  margin: 0;
+  border-radius: 50%;
+  content: "";
+  background: #fff;
+  float: none;
+  transition: transform 0.15s;
+}
+.tth-hdr .tth-switch input[type="checkbox"]:checked { background: #0b676c; }
+.tth-hdr .tth-switch input[type="checkbox"]:checked::before { transform: translateX(-16px); }
+.tth-hdr .tth-switch input[type="checkbox"]:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }
+
+.tth-hdr .tth-issue { margin: 0.375rem 0 0; font-size: 12.5px; }
+.tth-hdr .tth-issue--error { color: #b32d2e; }
+.tth-hdr .tth-issue--warning { color: #8a6116; }
+.tth-hdr .tth-ok { color: #00733a; font-weight: 600; }
+
+/* ---------------------------------------------------------------- زیردسته‌ها */
+.tth-hdr .tth-kids { margin-block-start: 0.625rem; padding-block-start: 0.625rem; border-block-start: 1px dashed #dcdcde; padding-inline-start: 2.5rem; }
+.tth-hdr .tth-kids__list { margin: 0 0 0.625rem; padding: 0; list-style: none; display: grid; gap: 0.25rem; }
+.tth-hdr .tth-kid { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; margin: 0; padding: 0.25rem 0.5rem; border-radius: 8px; background: #f6f7f7; }
+.tth-hdr .tth-kid.is-off .tth-kid__name strong { color: #646970; text-decoration: line-through; }
+.tth-hdr .tth-kid__name { display: grid; flex: 1 1 12rem; }
+.tth-hdr .tth-kids .button-small { display: inline-flex; align-items: center; gap: 0.25rem; }
+.tth-hdr .tth-kpick { padding: 0.75rem; border: 1px solid #c3c4c7; border-radius: 8px; background: #fff; }
+.tth-hdr .tth-kpick__list { max-block-size: 16rem; overflow: auto; margin: 0.5rem 0; padding: 0; list-style: none; }
+.tth-hdr .tth-kpick__list li { margin: 0; padding-inline-start: calc((var(--d) - 1) * 1.25rem); }
+.tth-hdr .tth-kpick__list label { display: flex; align-items: center; gap: 0.375rem; min-height: 32px; }
+.tth-hdr .tth-kpick__list small { color: #50575e; }
+
+/* ---------------------------------------------------------------- پیش‌نمایش */
+.tth-hdr .tth-preview { position: sticky; top: 120px; padding: 1rem; background: #fff; border: 1px solid #dcdcde; border-radius: 10px; }
+.tth-hdr .tth-preview__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.tth-hdr .tth-preview h2 { margin: 0; font-size: 15px; }
+.tth-hdr .tth-seg { display: inline-flex; }
+.tth-hdr .tth-seg .button[aria-pressed="true"] { background: #2271b1; border-color: #2271b1; color: #fff; }
+.tth-hdr .tth-preview__frame { position: relative; overflow: hidden; border: 1px solid #dcdcde; border-radius: 8px; background: #e9edf0; }
+.tth-hdr .tth-preview__frame[data-view="mobile"] { display: grid; justify-items: center; }
+.tth-hdr .tth-preview__frame iframe { display: block; border: 0; transform-origin: top right; background: #fff; }
+.tth-hdr .tth-preview__frame[data-view="mobile"] iframe { transform-origin: top center; }
+
+/* ---------------------------------------------------------------- انتقال، JSON */
+.tth-hdr .tth-import td, .tth-hdr .tth-import th { vertical-align: middle; }
+.tth-hdr .tth-import__go { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-block-start: 1rem; }
+.tth-hdr .tth-json { max-block-size: 36rem; overflow: auto; padding: 1rem; background: #1d2327; color: #e0e0e0; border-radius: 8px; font-size: 12.5px; line-height: 1.6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tth-hdr .tth-switch input[type="checkbox"], .tth-hdr .tth-switch input[type="checkbox"]::before { transition: none; }
+}
+
+/* قرمز «حذف» ِ وردپرس (#d63638) روی خاکستری ردیف‌ها ۴٫۴:۱ است؛ قرمز تیرهٔ خودِ وردپرس ≥ ۵٫۸:۱. */
+.tth-hdr .button-link-delete { color: #b32d2e; }
+.tth-hdr .button-link-delete:hover, .tth-hdr .button-link-delete:focus { color: #8a2424; }
+
+.tth-hdr .tth-form-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-block-start: 1rem; }
+.tth-hdr .tth-find { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-block: 0.75rem; }
+.tth-hdr .tth-find input[type="search"] { min-inline-size: min(22rem, 100%); }
+.tth-hdr .tth-pick { margin: 0.5rem 0 0; padding: 0; list-style: none; display: grid; gap: 0.25rem; }
+.tth-hdr .tth-pick label { display: flex; align-items: center; gap: 0.375rem; min-height: 32px; }
+.tth-hdr .tth-pick small { color: #50575e; }
+.tth-hdr .tth-icon { overflow: hidden; }
+.tth-hdr .tth-icon__none { font-size: 11px; }
+.tth-hdr .tth-icon-field { display: grid; gap: 0.25rem; justify-items: center; }
+.tth-hdr .tth-icon-field input[type="number"] { inline-size: 6.5rem; }
+.tth-hdr .tth-order input[type="number"] { inline-size: 4.5rem; }
+.tth-hdr .tth-state { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 99px; font-weight: 600; font-size: 12px; }
+.tth-hdr .tth-state--on { background: #edfaef; color: #00733a; border: 1px solid #b8e6bf; }
+.tth-hdr .tth-state--off { background: #f6f7f7; color: #50575e; border: 1px solid #dcdcde; }
+.tth-hdr .tth-steps { margin: 0.5rem 0 1rem; padding-inline-start: 1.25rem; }
+.tth-hdr .tth-steps li { margin-block-end: 0.375rem; }
+.tth-hdr .tth-preview__frame iframe { inline-size: 100%; block-size: 34rem; }
+.tth-hdr .tth-preview__frame[data-view="mobile"] iframe { inline-size: 390px; max-inline-size: 100%; }
+.tth-hdr .tth-baseline td, .tth-hdr .tth-baseline th { vertical-align: middle; }

@@ -1,0 +1,21 @@
+ok    installed from ZIP and active
+ok    activation stores nothing
+ok    default: Elementor header 2652 still shown, plugin header absent
+ok    replace on /: one plugin header, no 2652, footer once
+ok    replace on /tthh-about/: one plugin header, no 2652, footer once
+ok    replace on /shop/: one plugin header, no 2652, footer once
+ok    replace on /cart/: one plugin header, no 2652, footer once
+ok    replace on /my-account/: one plugin header, no 2652, footer once
+ok    replace on /?s=x&post_type=product: one plugin header, no 2652, footer once
+ok    product category archive page: one header
+ok    deactivate = rollback: 2652 back on every page, plugin header gone
+ok    deactivate keeps settings for a later re-enable
+ok    re-activate: plugin header again with the same settings
+ok    uninstall: plugin files removed
+ok    uninstall: own options/transients removed
+ok    uninstall: 2652 back, footer intact
+ok    no change to terms, term meta, posts, post meta, menus, homepage settings
+ok    tecteb-homepage 0.2.0 still active, files unchanged
+ok    WooCommerce still active
+
+19 passed, 0 failed

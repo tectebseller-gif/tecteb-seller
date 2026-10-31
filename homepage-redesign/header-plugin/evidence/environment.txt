@@ -1,0 +1,10 @@
+PHP 8.3.6 (cli) (built: Oct 19 2026 15:16:58) (NTS)
+7.1
+name,status,update,version,update_version,auto_update
+hello,inactive,none,1.7.2,,off
+tecteb-header,active,none,0.1.0,,off
+tecteb-homepage,active,none,0.2.0,,off
+woocommerce,active,none,11.0.1,,off
+tthh-elementor-emulator,must-use,,,,off
+name,status,update,version,update_version,auto_update
+hello-elementor,active,none,3.5.1,,off

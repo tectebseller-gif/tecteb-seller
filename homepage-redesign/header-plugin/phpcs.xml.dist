@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<ruleset name="tecteb-header">
+	<description>امنیت و سازگاری افزونهٔ هدر.</description>
+	<file>tecteb-header</file>
+	<arg name="extensions" value="php"/>
+	<arg value="s"/>
+	<config name="testVersion" value="8.1-"/>
+	<config name="minimum_wp_version" value="6.5"/>
+	<rule ref="PHPCompatibilityWP"/>
+	<rule ref="WordPress.Security"/>
+	<rule ref="WordPress.DB"/>
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array"><element value="tecteb-header"/></property>
+		</properties>
+	</rule>
+	<!-- قالب templates/header.php داخل یک closure در Renderer::render() بارگذاری می‌شود. -->
+	<rule ref="WordPress.WP.GlobalVariablesOverride">
+		<exclude-pattern>tecteb-header/templates/*.php</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP.AlternativeFunctions"/>
+	<rule ref="WordPress.PHP">
+		<exclude name="WordPress.PHP.POSIXFunctions"/>
+	</rule>
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="tecteb_header"/>
+				<element value="Tecteb\Header"/>
+			</property>
+		</properties>
+		<exclude-pattern>tecteb-header/templates/*.php</exclude-pattern>
+	</rule>
+</ruleset>

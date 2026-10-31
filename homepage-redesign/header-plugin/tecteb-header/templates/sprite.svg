@@ -1,0 +1,15 @@
+<svg class="tth-sprite" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="tth-i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+    <symbol id="tth-i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20c.9-3.6 3.7-5.6 7.2-5.6s6.3 2 7.2 5.6"/></symbol>
+    <symbol id="tth-i-heart" viewBox="0 0 24 24"><path d="M12 19.5s-7.2-4.3-7.2-9.4A4 4 0 0 1 12 7.6a4 4 0 0 1 7.2 2.5c0 5.1-7.2 9.4-7.2 9.4z"/></symbol>
+    <symbol id="tth-i-bag" viewBox="0 0 24 24"><path d="M5.5 8.5h13l-1 11h-11z"/><path d="M9 8.5V7a3 3 0 0 1 6 0v1.5"/></symbol>
+    <symbol id="tth-i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></symbol>
+    <symbol id="tth-i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="tth-i-chev" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+    <symbol id="tth-i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></symbol>
+    <symbol id="tth-i-partner" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M11 7.5 6 16M13 7.5l5 8.5M7.2 18h9.6"/></symbol>
+    <symbol id="tth-i-out" viewBox="0 0 24 24"><path d="M14 5h4.5v14H14"/><path d="M10.5 8.5 7 12l3.5 3.5M7 12h9"/></symbol>
+    <symbol id="tth-i-back" viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></symbol>
+  </defs>
+</svg>

@@ -1,0 +1,84 @@
+/*
+ * طرح B — Premium Light Glass. زمینهٔ روشن، جزئیات سرمه‌ای و فیروزه‌ای، و شیشهٔ مات
+ * در حالت چسبان. فقط متغیرها و چند جزئیات؛ ساختار در shared/header-base.css است.
+ * کنتراست‌ها (WCAG، روی سفید): متن #0e2435 ≈ ۱۶:۱ · منو #2b4252 ≈ ۱۰:۱ ·
+ * فیروزه‌ای تیره #0b676c ≈ ۶٫۴:۱ · راهنمای کادر جست‌وجو #56697a روی #f2f7f9 ≈ ۵٫۲:۱ ·
+ * شمارنده: سفید روی #0f7a80 ≈ ۵٫۲:۱.
+ */
+
+.tecteb-header-v1--b {
+  --tth-bg: #ffffff;
+  --tth-bg-solid: #ffffff;
+  --tth-fg: #0e2435;
+  --tth-brand: #0a2a3f;
+  --tth-line: #dbe6eb;
+  --tth-glass: rgb(255 255 255 / 0.74);
+  --tth-shadow: 0 14px 34px -18px rgb(10 42 63 / 0.35), 0 1px 0 rgb(10 42 63 / 0.06);
+  --tth-focus: #0f7a80;
+  --tth-focus-halo: rgb(255 255 255 / 0.9);
+  --tth-accent: #0f7a80;
+  --tth-accent-fg: #ffffff;
+
+  --tth-search-bg: #f2f7f9;
+  --tth-search-line: #d3e1e7;
+  --tth-search-fg: #0e2435;
+  --tth-search-ph: #56697a;
+  --tth-search-focus: #16949a;
+  --tth-search-glow: rgb(22 148 154 / 0.16);
+  --tth-go-bg: linear-gradient(135deg, #0f3a55, #0a2a3f);
+  --tth-go-fg: #ffffff;
+
+  --tth-tool-hover: #e6f1f4;
+  --tth-badge-bg: #0f7a80;
+  --tth-badge-fg: #ffffff;
+
+  --tth-nav-bg: linear-gradient(180deg, #fbfdfe, #f4f8fa);
+  --tth-nav-line: #e3ecf0;
+  --tth-cats-bg: linear-gradient(135deg, #0f3a55, #0a2a3f);
+  --tth-cats-fg: #ffffff;
+  --tth-cats-shadow: 0 8px 18px -10px rgb(10 42 63 / 0.6);
+  --tth-menu-fg: #2b4252;
+  --tth-menu-hover: #0b676c;
+  --tth-menu-current: #0a2a3f;
+  --tth-menu-line: #16949a;
+  --tth-seller-line: #bfe3e5;
+  --tth-seller-bg: #e9f7f7;
+  --tth-seller-fg: #0b676c;
+  --tth-seller-hover: #d9f0f1;
+
+  --tth-panel-bg: #ffffff;
+  --tth-panel-fg: #0e2435;
+  --tth-panel-muted: #3d505d;
+  --tth-panel-line: #e1eaee;
+  --tth-panel-hover: #f2f7f9;
+  --tth-panel-chip: #dff3f4;
+  --tth-panel-accent: #0b676c;
+  --tth-panel-shadow: 0 26px 56px -24px rgb(10 42 63 / 0.38);
+}
+
+/* نوار باریک برند در لبهٔ بالا؛ کادر جست‌وجوی برجسته؛ ابزارهای دایره‌ای. */
+.tecteb-header-v1--b .tth-bar::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 0;
+  block-size: 3px;
+  pointer-events: none;
+  background: linear-gradient(90deg, #0a2a3f, #16949a 45%, #488fcd);
+}
+.tecteb-header-v1--b .tth-search { box-shadow: inset 0 1px 2px rgb(10 42 63 / 0.06), 0 6px 18px -14px rgb(10 42 63 / 0.4); }
+.tecteb-header-v1--b .tth-search:focus-within { background: #ffffff; }
+.tecteb-header-v1--b .tth-tool:not(.tth-tool--account),
+.tecteb-header-v1--b .tth-top > .tth-icon-btn {
+  border-radius: var(--tth-pill);
+  background: #f2f7f9;
+}
+.tecteb-header-v1--b .tth-tool:not(.tth-tool--account):hover,
+.tecteb-header-v1--b .tth-top > .tth-icon-btn:hover { background: #e3f0f3; }
+.tecteb-header-v1--b .tth-tool--account { border-color: #d3e1e7; background: #ffffff; }
+.tecteb-header-v1--b .tth-tool:hover { color: #0b676c; }
+.tecteb-header-v1--b .tth-mega__mains { background: linear-gradient(180deg, #fbfdfe, #f4f9fb); border-radius: 14px; padding: 0.5rem; border-inline-end: 0; box-shadow: inset 0 0 0 1px #e6eff3; }
+.tecteb-header-v1--b .tth-mega__item.is-active > .tth-mega__main { background: #ffffff; box-shadow: 0 6px 16px -10px rgb(10 42 63 / 0.35), inset 0 0 0 1px #d4ebee; }
+@media (max-width: 1079.98px) {
+  .tecteb-header-v1--b .tth-tool--account { background: #f2f7f9; border-radius: 50%; }
+}

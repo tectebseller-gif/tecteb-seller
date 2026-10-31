@@ -1,0 +1,17 @@
+home@1440: none
+inner@1440: none
+home@1024: none
+inner@1024: none
+home@768: none
+inner@768: none
+home@390: none
+inner@390: none
+home@320: none
+inner@320: none
+drawer open @390: none
+member account menu open: none
+admin categories tab: none
+admin import tab: none
+admin links tab: none
+admin replace tab: none
+admin data tab: none
