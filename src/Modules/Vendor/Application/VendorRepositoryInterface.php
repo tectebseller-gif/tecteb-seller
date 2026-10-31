@@ -139,4 +139,67 @@ interface VendorRepositoryInterface
 
     /** How many shops `listableVendorUserIds()` would return in total. */
     public function countListableVendors(): int;
+
+    /**
+     * EVERY REAL SHOP, one page at a time — the profile table, not the
+     * application table.
+     *
+     * The shop list used to ask `approvedVendorUserIds()`, which is
+     * `status = 'approved'` on the APPLICATIONS table. A shop imported from
+     * Dokan never applied: the import writes a profile with `can_sell = 0`
+     * and a run stamp and touches no application row anywhere (measured: zero
+     * references to that table under `src/Modules/Migration/`). So the page
+     * asked «who has approved paperwork» while meaning «who is a shop», and
+     * two imported shops were invisible on the only screen that lists shops.
+     * Measured on the disposable database: 40 profiles, 14 listed.
+     *
+     * `imported` comes from the run stamp, and there is no third answer to
+     * derive: the profile table has exactly two writers, `ReviewApplication`
+     * and the import, so a stamp means «came from Dokan» and its absence
+     * means «came through the application route».
+     *
+     * One query for the page rather than one per row: the caller used to
+     * follow its id list with a `findProfileByUser()` each, which is 51
+     * statements for 50 shops.
+     *
+     * @return list<array{user_id:int, store_name:string, can_sell:bool, imported:bool}>
+     */
+    public function shopRows(int $limit = 50, int $offset = 0): array;
+
+    /** How many profiles `shopRows()` would walk in total. */
+    public function countShops(): int;
+
+    /**
+     * Shops whose NAME matches, read from the same table the list reads.
+     *
+     * Not `StoreRepositoryInterface::searchByShopName()`: that one reads the
+     * shop's own settings row, which only `ReviewApplication::seedName()`
+     * ever creates — so an imported shop could not be found by the very name
+     * the page was printing for it. The name shown and the name searched now
+     * come from one place.
+     *
+     * @return list<array{user_id:int, store_name:string, can_sell:bool, imported:bool}>
+     */
+    public function searchShopsByName(string $term, int $limit = 50): array;
+
+    /**
+     * Flip ONE shop's selling permission, with the value it is expected to
+     * hold right now carried INSIDE the statement.
+     *
+     * Not `upsertProfile()`, which also writes the store name and the
+     * direct-publish switch: a permission change that quietly rewrote two
+     * other fields would be a data change nobody asked for. And the expected
+     * value is a `WHERE` term rather than a read followed by a write, because
+     * a check that returns cannot guarantee anything about the write after it
+     * (`alpha.50`).
+     *
+     * Returns the number of rows changed, or `null` when the statement
+     * failed — so «nothing to do» and «could not write» stay apart
+     * (`alpha.8`). Zero rows is not an error here and not a success either:
+     * the caller re-reads the row and says which it was.
+     */
+    public function setSellingPermission(int $userId, bool $canSell, bool $expectedCurrent): ?int;
+
+    /** The import run a profile carries, `''` when it carries none. */
+    public function importRunIdFor(int $userId): string;
 }

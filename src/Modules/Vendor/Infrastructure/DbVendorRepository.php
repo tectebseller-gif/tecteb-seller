@@ -327,6 +327,89 @@ final class DbVendorRepository implements VendorRepositoryInterface
         );
     }
 
+    /**
+     * @return list<array{user_id:int, store_name:string, can_sell:bool, imported:bool}>
+     */
+    public function shopRows(int $limit = 50, int $offset = 0): array
+    {
+        return array_map(
+            static fn (array $row): array => [
+                'user_id' => (int) $row['user_id'],
+                'store_name' => (string) $row['store_name'],
+                'can_sell' => (bool) $row['can_sell'],
+                // The stamp, not a guess: only an import can set it, and the
+                // profile table has no third writer.
+                'imported' => trim((string) $row['import_run_id']) !== '',
+            ],
+            $this->db->getResults(
+                'SELECT user_id, store_name, can_sell, import_run_id FROM `' . $this->profiles() . '`
+                  ORDER BY user_id ASC LIMIT %d OFFSET %d',
+                [max(1, min(2000, $limit)), max(0, $offset)]
+            )
+        );
+    }
+
+    public function countShops(): int
+    {
+        return (int) $this->db->getVar('SELECT COUNT(*) FROM `' . $this->profiles() . '`');
+    }
+
+    /**
+     * @return list<array{user_id:int, store_name:string, can_sell:bool, imported:bool}>
+     */
+    public function searchShopsByName(string $term, int $limit = 50): array
+    {
+        $term = trim($term);
+        if ($term === '') {
+            return [];
+        }
+        $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term) . '%';
+        return array_map(
+            static fn (array $row): array => [
+                'user_id' => (int) $row['user_id'],
+                'store_name' => (string) $row['store_name'],
+                'can_sell' => (bool) $row['can_sell'],
+                'imported' => trim((string) $row['import_run_id']) !== '',
+            ],
+            $this->db->getResults(
+                'SELECT user_id, store_name, can_sell, import_run_id FROM `' . $this->profiles() . '`
+                  WHERE store_name LIKE %s ORDER BY user_id ASC LIMIT %d',
+                [$like, max(1, min(2000, $limit))]
+            )
+        );
+    }
+
+    public function setSellingPermission(int $userId, bool $canSell, bool $expectedCurrent): ?int
+    {
+        if ($userId <= 0) {
+            return null;
+        }
+        // The expected value travels INSIDE the statement. A read followed by
+        // a write says nothing about what happened between them, and what sits
+        // between them here is somebody else granting or withdrawing the same
+        // permission (`alpha.50`).
+        return $this->db->execute(
+            'UPDATE `' . $this->profiles() . '` SET can_sell = %d, updated_at = %s
+              WHERE user_id = %d AND can_sell = %d',
+            [$canSell ? 1 : 0, $this->clock->now()->format('Y-m-d H:i:s'), $userId, $expectedCurrent ? 1 : 0]
+        );
+    }
+
+    public function importRunIdFor(int $userId): string
+    {
+        if ($userId <= 0) {
+            return '';
+        }
+        // `getRow()` rather than `getVar()`: WordPress turns an empty string
+        // into `null` on purpose, so «this profile carries no stamp» and
+        // «there is no such profile» would arrive as one answer (`alpha.82`).
+        $row = $this->db->getRow(
+            'SELECT import_run_id FROM `' . $this->profiles() . '` WHERE user_id = %d',
+            [$userId]
+        );
+        return $row === null ? '' : trim((string) ($row['import_run_id'] ?? ''));
+    }
+
     public function deleteEmptyProfile(int $userId): bool
     {
         if ($this->findApplicationByUser($userId) !== null) {

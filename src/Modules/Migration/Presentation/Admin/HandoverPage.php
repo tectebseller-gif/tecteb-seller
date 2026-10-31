@@ -29,6 +29,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordPreview;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordScope;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\StaffRoleMap;
+use Tecteb\Marketplace\Modules\Vendor\Application\DecideImportedShopSelling;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffRolePreset;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffStatus;
@@ -519,12 +520,91 @@ final class HandoverPage
                     $left .= '<span class="tmc-field__desc">' . esc_html(implode(' · ', $says)) . '</span>';
                 }
             }
+            // ⛔ The DOOR, next to the gate it opens. This gate's prescribed
+            // action was «approve the application from the review screen», and
+            // for an imported shop there is no application to approve — every
+            // method of that service takes an application id. Measured:
+            // `application_id_for_shop=__none__`, `approve_code=forbidden`.
+            // A gate whose only exit does not exist is worse than no gate
+            // (`alpha.80`), so the exit is here, behind the same capability
+            // that guards this page and the review screen alike.
+            if (in_array('vendor_can_sell', (array) $row['missing'], true)) {
+                $left .= $this->sellingDecision($vendorUserId, false);
+            } elseif ((bool) ($row['detail']['can_sell'] ?? false)) {
+                $left .= $this->sellingDecision($vendorUserId, true);
+            }
             echo '<tr><td>' . esc_html($this->shopName($vendorUserId)) . '</td>'
                 . '<td>' . self::verdictBadge((string) $row['verdict']) . '</td>'
                 . '<td>' . $left . '</td></tr>';
         }
         echo '</tbody></table></div>';
         echo '</section>';
+    }
+
+    /**
+     * One explicit decision about one imported shop's right to sell.
+     *
+     * Nothing here decides anything by itself: it draws a button, and only
+     * where the service would accept it. The service is asked the same
+     * question the button answers (`eligibility()`), so a button that the
+     * action would refuse is never printed — a screen that offers an action
+     * it cannot perform teaches people to ignore its buttons.
+     *
+     * The warnings stay OPEN. Folding «this changes the right to sell» into a
+     * drawer would be removing it while leaving its bytes behind, and the
+     * standing rule is explicit that a warning a reader must act on stays on
+     * the page.
+     */
+    private function sellingDecision(int $vendorUserId, bool $canSellNow): string
+    {
+        $service = $this->container->get(DecideImportedShopSelling::class);
+        $gate = $service->eligibility($vendorUserId);
+        if (!$gate['eligible']) {
+            return '<span class="tmc-field__desc">'
+                . esc_html(self::sellingReason((string) $gate['reason'])) . '</span>';
+        }
+        $verb = $canSellNow ? 'withdraw_selling' : 'grant_selling';
+        $label = $canSellNow
+            ? __('لغو اجازهٔ فروش', 'tecteb-marketplace-core')
+            : __('اعطای اجازهٔ فروش', 'tecteb-marketplace-core');
+        $warning = $canSellNow
+            ? __('با این اقدام این فروشگاه دیگر نمی‌فروشد. محصولی پیش‌نویس نمی‌شود و چیزی حذف نمی‌شود.', 'tecteb-marketplace-core')
+            : __('با این اقدام این فروشگاه اجازهٔ فروش می‌گیرد. مالکیت هیچ محصولی با این اقدام منتقل نمی‌شود.', 'tecteb-marketplace-core');
+
+        return '<form method="post" class="tmc-inline-form">'
+            . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)
+            . '<input type="hidden" name="handover_action" value="' . esc_attr($verb) . '">'
+            . '<input type="hidden" name="selling_shop" value="' . esc_attr((string) $vendorUserId) . '">'
+            . '<p class="tmc-field__desc">' . esc_html($warning) . '</p>'
+            . '<button type="submit" class="button">' . esc_html($label) . '</button>'
+            . '</form>';
+    }
+
+    /** What happened, named — and never «done» for something that was not. */
+    private static function sellingOutcome(string $code): string
+    {
+        return match ($code) {
+            'selling_granted' => __('اجازهٔ فروش این فروشگاه داده شد و در ردِ ممیزی ثبت شد.', 'tecteb-marketplace-core'),
+            'selling_withdrawn' => __('اجازهٔ فروش این فروشگاه لغو شد و در ردِ ممیزی ثبت شد.', 'tecteb-marketplace-core'),
+            'already_granted' => __('این فروشگاه از قبل اجازهٔ فروش داشت. چیزی نوشته نشد.', 'tecteb-marketplace-core'),
+            'already_withheld' => __('این فروشگاه از قبل اجازهٔ فروش نداشت. چیزی نوشته نشد.', 'tecteb-marketplace-core'),
+            'not_stored' => __('کسی در همین فاصله همین اجازه را عوض کرد، پس چیزی نوشته نشد. صفحه را تازه کنید.', 'tecteb-marketplace-core'),
+            'storage_failed' => __('ذخیره انجام نشد و اجازهٔ فروش عوض نشد.', 'tecteb-marketplace-core'),
+            'forbidden' => __('دسترسی لازم برای این تصمیم را ندارید.', 'tecteb-marketplace-core'),
+            default => self::sellingReason($code),
+        };
+    }
+
+    /** Why this shop cannot be decided here, in the reader's own words. */
+    private static function sellingReason(string $reason): string
+    {
+        return match ($reason) {
+            'shop_not_found' => __('پروندهٔ این فروشگاه پیدا نشد.', 'tecteb-marketplace-core'),
+            'not_an_imported_shop' => __('این فروشگاه از دکان وارد نشده است، پس تصمیمش از صفحهٔ «بررسی فروشندگان» گرفته می‌شود.', 'tecteb-marketplace-core'),
+            'application_exists' => __('برای این حساب درخواست فروشندگی ثبت شده است؛ تصمیم را از صفحهٔ «بررسی فروشندگان» بگیرید.', 'tecteb-marketplace-core'),
+            'no_user_account' => __('کاربری با این شناسه وجود ندارد، پس اجازهٔ فروش به کسی نمی‌رسد.', 'tecteb-marketplace-core'),
+            default => __('این تصمیم از اینجا گرفتنی نیست.', 'tecteb-marketplace-core'),
+        };
     }
 
     /** @param list<int> $shops */
@@ -800,6 +880,22 @@ final class HandoverPage
             return 'err:' . __('درخواست معتبر نبود. صفحه را تازه کنید و دوباره تلاش کنید.', 'tecteb-marketplace-core');
         }
         $action = $request->postKey('handover_action');
+
+        if ($action === 'grant_selling' || $action === 'withdraw_selling') {
+            // The capability is checked at the top of `render()` for the page
+            // and AGAIN inside the service for the act, because a page guard
+            // says who may look and a service guard says who may write — and
+            // this service is reachable from anywhere the container is.
+            $shop = $request->postInt('selling_shop');
+            $service = $this->container->get(DecideImportedShopSelling::class);
+            $result = $action === 'grant_selling'
+                ? $service->grant($shop)
+                : $service->withdraw($shop);
+            if (!$result->ok) {
+                return 'err:' . self::sellingOutcome($result->code);
+            }
+            return 'ok:' . self::sellingOutcome($result->code);
+        }
 
         if ($action === 'save_roles') {
             $roles = $this->container->get(StaffRoleMap::class);

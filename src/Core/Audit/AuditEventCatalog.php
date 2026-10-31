@@ -121,6 +121,15 @@ final class AuditEventCatalog
     public const SUPPLIER_RECEIVABLE_SETTLED = 'finance.supplier_receivable_settled';
     /** A manager opened one shop's read-only view from the picker. */
     public const VENDOR_SHOP_VIEWED = 'vendor.shop_viewed';
+    /**
+     * A manager granting or withdrawing an IMPORTED shop's right to sell.
+     *
+     * Its own event rather than `VENDOR_REVIEWED`, because the subject is a
+     * shop that never applied and the trail should say which route decided
+     * it. `decision` carries the direction, so one name covers both and a
+     * reader cannot find a grant without its matching withdrawal.
+     */
+    public const VENDOR_SELLING_DECIDED = 'vendor.selling_decided';
     /** Phase-7 items: a shop's own codes, wholesale buyers and the ticket thread. */
     public const COUPON_CREATED = 'marketplace.coupon_created';
     public const COUPON_DISABLED = 'marketplace.coupon_disabled';
@@ -297,6 +306,7 @@ final class AuditEventCatalog
                 'supplier_id', 'receivable_id', 'kind', 'amount_minor', 'balance_minor',
             ],
             self::VENDOR_SHOP_VIEWED => ['vendor_id', 'actor_id'],
+            self::VENDOR_SELLING_DECIDED => ['vendor_id', 'actor_id', 'decision', 'origin'],
             self::WITHDRAWAL_REQUESTED => ['vendor_id', 'withdrawal_id', 'amount_minor', 'lines'],
             self::WITHDRAWAL_REVIEWED => ['vendor_id', 'withdrawal_id', 'from', 'to', 'has_note'],
             self::COUPON_CREATED => ['vendor_id', 'coupon_id', 'kind', 'value'],

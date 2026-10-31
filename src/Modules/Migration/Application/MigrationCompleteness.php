@@ -292,6 +292,11 @@ final class MigrationCompleteness
                 'records_state' => $records['state'],
                 'records_kinds' => $records['kinds'],
                 'records_reasons' => $records['reasons'],
+                // The selling permission as a FACT, not only as a gate. The
+                // page needs it in both directions: a gate that is open says
+                // «grant», and a gate that is closed still needs a way back,
+                // because a decision with no reverse is not a decision.
+                'can_sell' => $profile?->canSell === true,
             ],
         ];
     }

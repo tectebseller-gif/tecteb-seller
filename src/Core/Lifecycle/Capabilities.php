@@ -60,6 +60,32 @@ final class Capabilities
      */
     public const VIEW_VENDOR_SHOPS = 'tmc_view_vendor_shops';
 
+    /**
+     * READING ONE SHOP'S MONEY, which is not the same as listing shops.
+     *
+     * Split out when the shop list stopped asking «who has an approved
+     * application» and started asking «who is a shop» — measured on the
+     * disposable database, 40 profiles against 14 listed rows. Widening WHICH
+     * shops a manager can see must not widen WHAT they can see inside one,
+     * and a list scope and a money scope answer different questions, so they
+     * are different permissions: «اطلاعات مالی فقط با مجوز مدیریتی مناسب
+     * نمایش داده شوند و تغییر دامنه فهرست نباید مجوز دسترسی مالی را گسترش
+     * دهد».
+     *
+     * Deliberately NOT `REVIEW_WITHDRAWALS`: that one also permits ACTING on
+     * a withdrawal, and somebody who should read a balance need not be able
+     * to approve a payout. Here the two consequences differ, so the
+     * permissions differ — the exact opposite of the imported-shop decision,
+     * which writes the same column as approving an application and therefore
+     * shares `REVIEW_VENDOR` rather than minting a second key to the same
+     * door.
+     *
+     * The cost is stated rather than hidden: a manager hand-granted only
+     * `tmc_view_vendor_shops` stops seeing figures until this is granted too.
+     * That is the conservative direction and the point of the decision.
+     */
+    public const VIEW_VENDOR_FINANCE = 'tmc_view_vendor_finance';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -79,6 +105,7 @@ final class Capabilities
             self::MANAGE_JOBS,
             self::MANAGE_API,
             self::VIEW_VENDOR_SHOPS,
+            self::VIEW_VENDOR_FINANCE,
         ];
     }
 

@@ -84,11 +84,10 @@ final class AdminProseIsShortOrFoldedTest extends TestCase
         'src/Modules/Product/Presentation/Admin/SpecTemplatesPage.php' => 1,
         'src/Modules/Product/Presentation/Admin/StorefrontPage.php' => 10,
         'src/Modules/Vendor/Presentation/Admin/DocumentTypesPage.php' => 2,
-        'src/Modules/Vendor/Presentation/Admin/VendorShopsPage.php' => 1,
     ];
 
     /** What the budget adds up to. Stated so one number tells the story. */
-    private const BUDGET_TOTAL = 60;
+    private const BUDGET_TOTAL = 59;
 
     public function testNoInternalIdentifierIsShownOnAnAdminPage(): void
     {

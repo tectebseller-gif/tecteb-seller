@@ -44,6 +44,11 @@ final class SupportTest extends TestCase
             // `alpha.62`: reading one shop's own figures as a manager, after
             // choosing it explicitly. Its own capability on purpose (§4).
             'tmc_view_vendor_shops',
+            // Reading that shop's MONEY, which listing shops does not grant.
+            // Split out when the list stopped asking «who has an approved
+            // application» and started asking «who is a shop»: widening which
+            // shops a manager sees must not widen what they see inside one.
+            'tmc_view_vendor_finance',
         ], Capabilities::all());
         // The applicant capability is NOT here on purpose: granting it would
         // mean writing into roles the site already has (Dokan's included).

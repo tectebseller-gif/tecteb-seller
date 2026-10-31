@@ -22,8 +22,20 @@ namespace Tecteb\Marketplace\Modules\Product\Domain;
  *                own flow is this, and it is the default.
  *   Observed     the row knows which WooCommerce product corresponds to it,
  *                and nothing else follows. It is invisible to the purchase
- *                policy, to the storefront stop, to the projector and to the
- *                vendor's catalogue — a note in a ledger, not a claim.
+ *                policy, to the storefront stop and to the projector — a note
+ *                in a ledger, not a claim.
+ *
+ * ⛔ CORRECTION. This block used to say an observed row is also invisible to
+ * «the vendor's catalogue», and that is not true of the row LISTS:
+ * `forVendor()`, `countsByStatus()` and `countsByStatusForManager()` filter on
+ * the vendor and the status and never on this column — measured, the column
+ * name appears in none of those queries. Exactly four reads ask for
+ * `marketplace`: `findByWcProduct()`, `allForVendor()`, `stockSummary()` and
+ * `projected()`. So what an observed row is kept out of is the OPERATIONAL
+ * CLAIM, not the catalogue a human reads; the row is there and it is counted,
+ * which is the honest answer to «is the imported product still ours». The
+ * sentence was wider than the code and promised a guarantee nothing enforced.
+ * Behaviour is unchanged by this correction: it is a comment.
  *
  * The move from Observed to Marketplace is an explicit act by a manager with
  * its own button, its own warning and its own audit line («انتقال مالکیت

@@ -1,0 +1,55 @@
+alpha.86 falsification — 14 mutations
+tree: e9ec621 21 modified paths
+
+baseline architecture:: 0
+baseline unit:: 0
+baseline database:ImportedShopSellingTest: 0
+
+1. ask the applications table again, as alpha.85 did
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+2. read the shop list one row at a time again
+    database failures: 6 (wanted at least 1) — red
+    restored byte for byte: yes
+3. stop deriving origin from the run stamp
+    database failures: 3 (wanted at least 1) — red
+    restored byte for byte: yes
+4. search the shop-settings table again, where an imported shop has no row
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+5. drop the «this shop was never imported» refusal
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+6. let this route decide a shop that has an application too
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+7. grant selling to a shop with no WordPress account
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+8. write and audit again when there is nothing to do
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+9. take the expected value out of the statement
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+10. audit the decision before knowing the write landed
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+11. write the whole profile instead of the one column
+    architecture failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+12. reuse a different capability for the decision
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+13. show the figures to anybody who can list shops
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+14. stop creating the finance capability at all
+    unit failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+
+final architecture:: 0
+final unit:: 0
+final database:ImportedShopSellingTest: 0
+
+mutations: 14 · problems: 0

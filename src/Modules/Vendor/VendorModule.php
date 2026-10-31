@@ -35,6 +35,7 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbStoreRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\OptionVendorLists;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\WpStaffUsers;
 use Tecteb\Marketplace\Modules\Vendor\Application\ConfigureDocumentTypes;
+use Tecteb\Marketplace\Modules\Vendor\Application\DecideImportedShopSelling;
 use Tecteb\Marketplace\Modules\Vendor\Application\DocumentRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\DocumentTypeRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\MobileVerification;
@@ -129,6 +130,12 @@ final class VendorModule implements ModuleInterface
             $c->get(CapabilityCheckerInterface::class),
             $c->get(EventBus::class),
             $c->get(StoreRepositoryInterface::class)
+        ));
+        $c->bind(DecideImportedShopSelling::class, static fn (ContainerInterface $c) => new DecideImportedShopSelling(
+            $c->get(VendorRepositoryInterface::class),
+            $c->get(AuditLogger::class),
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(StaffUserDirectoryInterface::class)
         ));
         $c->bind(ConfigureDocumentTypes::class, static fn (ContainerInterface $c) => new ConfigureDocumentTypes(
             $c->get(DocumentTypeRepositoryInterface::class),
