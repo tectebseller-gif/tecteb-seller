@@ -67,7 +67,7 @@ run_suite() {
 }
 
 COUNT="$(python3 -I tools/alpha87-mutations.py count)"
-say "alpha.86 falsification — $COUNT mutations"
+say "alpha.87 falsification — $COUNT mutations"
 say "tree: $(git rev-parse --short HEAD) $(git status --porcelain | wc -l) modified paths"
 say ""
 

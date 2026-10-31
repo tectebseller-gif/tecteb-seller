@@ -63,15 +63,11 @@ MUTATIONS = [
         name='write through a link table that could not be read',
         file=REPO,
         expect='database:CategoryMappingFlowTest:1',
-        old="""        $carried = $this->hasCategoryTable();
-        if ($carried === null) {
+        old="""        if ($carried === null) {
             return 'category_table_unreadable';
         }
-        $written = $this->db->execute(
-            'UPDATE `' . $this->products() . '` p""",
-        new="""        $carried = $this->hasCategoryTable();
-        $written = $this->db->execute(
-            'UPDATE `' . $this->products() . '` p""",
+        $asTerm = ctype_digit($categoryKey) ? (int) $categoryKey : 0;""",
+        new="""        $asTerm = ctype_digit($categoryKey) ? (int) $categoryKey : 0;""",
     ),
     dict(
         name='report the refusal as a storage failure instead of naming it',

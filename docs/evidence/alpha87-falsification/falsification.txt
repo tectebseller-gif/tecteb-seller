@@ -1,0 +1,39 @@
+alpha.87 falsification — 8 mutations
+tree: 7bf5288 3 modified paths
+
+baseline architecture:: 0
+baseline unit:: 0
+baseline contract:ProjectedFactsTest: 0
+baseline database:CategoryMappingFlowTest: 0
+
+1. ask the key alone again, as alpha.86 did
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+2. couple the gate back to the Dokan source mapping
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+3. let a count that could not be read close the gate
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+4. write the mapped key over a recorded set
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+5. write through a link table that could not be read
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+6. report the refusal as a storage failure instead of naming it
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+7. let an imported row project its single key to the shop
+    contract failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+8. stop telling the projector which rows an import made
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+
+final architecture:: 0
+final unit:: 0
+final contract:ProjectedFactsTest: 0
+final database:CategoryMappingFlowTest: 0
+
+mutations: 8 · problems: 0
