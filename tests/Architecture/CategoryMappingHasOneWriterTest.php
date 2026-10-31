@@ -208,19 +208,26 @@ final class CategoryMappingHasOneWriterTest extends TestCase
     }
 
     /**
-     * The gate reads BOTH halves, and the second one is the finding.
+     * The gate reads OUR ROWS, and only our rows.
      *
-     * `unmappedFor()` asks Dokan and empties the moment the option is saved.
-     * `countImportedWithoutCategory()` asks our own table and does not. A gate
-     * that reads only the first goes green on a saved mapping while every
-     * imported row still carries `category_key = ''` — «صرف ذخیرهٔ option و
-     * سبز شدن وضعیت کافی نیست».
+     * `countImportedWithoutCategory()` asks our own table how many imported
+     * rows carry neither a category key nor a recorded WooCommerce set, and
+     * saving a mapping moves not one of them — so «صرف ذخیرهٔ option و سبز
+     * شدن وضعیت کافی نیست» stays true, which is what `alpha.80` came for.
+     *
+     * ⛔ And `$mappableUnmapped` must NOT be in the condition. Until
+     * `alpha.87` it was the other half, and it is answered by a walk over
+     * DOKAN's live products — a list that recording a WooCommerce set moves
+     * not one row of. So a shop whose every imported product carried its
+     * full, correct relationship stayed «ناقص» pending a decision no product
+     * was waiting for. Both directions are pinned, because a gate is as wrong
+     * when it asks too much as when it asks too little.
      *
      * ⛔ The CONDITION is pinned, not only the call. `if (false)` leaves a
      * call's text exactly where it was, so containment on the call alone stays
      * green through a mutation that removes the guard (`alpha.79`).
      */
-    public function testTheGateReadsTheProductsAndNotOnlyTheMapping(): void
+    public function testTheGateReadsTheProductsAndNotTheMapping(): void
     {
         $code = $this->code(self::COMPLETENESS);
         self::assertStringContainsString(
@@ -230,19 +237,28 @@ final class CategoryMappingHasOneWriterTest extends TestCase
         );
         $body = $this->methodBody($code, 'forVendor');
         self::assertStringContainsString(
-            "'categories_mapped' => \$mappableUnmapped === [] && \$withoutCategory === 0,",
+            "'categories_mapped' => \$withoutCategory === 0,",
             $body,
-            'both halves, and `=== 0` so a failed count (-1) keeps the gate open'
+            'our rows, and `=== 0` so a failed count (-1) keeps the gate open'
+        );
+        // The other direction: the Dokan list may be REPORTED and must not be
+        // part of the verdict.
+        $gateLine = (string) strstr($body, "'categories_mapped' =>");
+        $gateLine = (string) strstr($gateLine, "\n", true);
+        self::assertStringNotContainsString(
+            'mappableUnmapped',
+            $gateLine,
+            'an unmapped source category is a note, not a blocker'
         );
         self::assertStringContainsString(
             "'products_without_category' => \$withoutCategory,",
             $body,
             'and the number reaches the page, so the reason can be printed'
         );
-        // ⛔ And the no-source group is filtered OUT of the decision half, so
-        // the gate has a door: no mapping can ever empty a group of products
-        // that carry no source category, and waiting for it would leave
-        // «invent a mapping for the empty key» as the only exit (`alpha.60`).
+        // ⛔ And the no-source group is still filtered out of the list the
+        // page is GIVEN: no mapping can ever empty a group of products that
+        // carry no source category, so reporting it as mappable would send a
+        // manager looking for a decision that does not exist (`alpha.60`).
         self::assertStringContainsString(
             "static fn (array \$row): bool => trim((string) (\$row['key'] ?? '')) !== ''",
             $body,

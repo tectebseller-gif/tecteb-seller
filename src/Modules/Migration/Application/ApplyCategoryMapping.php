@@ -155,6 +155,19 @@ final class ApplyCategoryMapping
         if ($product === null) {
             return 'not_found';
         }
-        return $product->details->categoryKey !== '' ? 'already_set' : 'not_waiting';
+        if ($product->details->categoryKey !== '') {
+            return 'already_set';
+        }
+        // ⛔ An EMPTY key is not the same as «no category recorded» any more.
+        // A multi-category product keeps `category_key = ''` by design, so a
+        // row whose own WooCommerce relationship is recorded answers with the
+        // name for that rather than the page-cap one — otherwise the screen
+        // would say «دیگر منتظر دسته نبود» about a product that was never
+        // waiting, and a manager would go looking for the cap.
+        $recorded = $product->details->categoryIds;
+        if ($recorded !== [] && $recorded !== [(int) $product->details->categoryKey]) {
+            return 'category_set_recorded';
+        }
+        return 'not_waiting';
     }
 }

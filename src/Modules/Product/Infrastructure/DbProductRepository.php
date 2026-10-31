@@ -855,6 +855,42 @@ final class DbProductRepository implements ProductRepositoryInterface
 
     public function importedWithoutCategory(int $limit = 500): array
     {
+        // THE SAME QUESTION ITS OWN TOTAL ASKS.
+        //
+        // ⛔ Until `alpha.87` this asked `category_key = ''` ALONE while
+        // `countImportedWithoutCategory()` — the number the same card prints
+        // beside this list, and the half the `categories_mapped` gate reads —
+        // also asked `NOT EXISTS (<link row>)`. The two diverge on exactly one
+        // shape, and it is the common one: `recordCategorySet()` writes the
+        // single key only for a ONE-term set ({@see CategorySet::soleKey()},
+        // deliberately — «اولین دسته را خودسرانه انتخاب نکن»), so a
+        // multi-category product whose whole WooCommerce relationship IS
+        // recorded keeps `category_key = ''` for ever and the key-only
+        // predicate counted it as unanswered for ever.
+        //
+        // Measured on `alpha.86` from the post-import state: list 2 against a
+        // total of 1, with the recorded product printed under «آنچه اعمال
+        // نمی‌شود» as `unmapped`
+        // (`docs/evidence/alpha86-category-gate/counters.txt`). A list and the
+        // figure next to it have to answer one question, or the screen is
+        // wrong however right each half is (`alpha.79`).
+        $carried = $this->hasCategoryTable();
+        $sql = 'SELECT p.id, p.vendor_user_id, p.wc_product_id, p.title
+                   FROM `' . $this->products() . '` p
+                  WHERE p.import_run_id <> %s AND p.category_key = %s'
+            . ($carried === true
+                ? ' AND NOT EXISTS (SELECT 1 FROM `' . $this->categoriesTable()
+                    . '` c WHERE c.product_id = p.id)'
+                : '')
+            . ' ORDER BY p.id ASC LIMIT ' . max(1, min(1000, $limit));
+        // ⛔ On a FAILED read (`null`) the clause is left off and every
+        // key-empty row is listed. That is deliberate and it is not a claim:
+        // the caller gets `-1` from `countImportedWithoutCategory()` in the
+        // same breath, so `CategoryMapping::plan()` reports `finished = false`
+        // and the screen says the count could not be read — and the WRITE is
+        // guarded on its own (`setCategoryWhenEmpty()` refuses outright when
+        // this read fails), so a row listed here by mistake still cannot be
+        // written over.
         return array_map(
             static fn (array $row): array => [
                 'id' => (int) $row['id'],
@@ -866,13 +902,7 @@ final class DbProductRepository implements ProductRepositoryInterface
                 'wc_product_id' => (int) ($row['wc_product_id'] ?? 0),
                 'title' => (string) $row['title'],
             ],
-            $this->db->getResults(
-                'SELECT id, vendor_user_id, wc_product_id, title
-                   FROM `' . $this->products() . '`
-                  WHERE import_run_id <> %s AND category_key = %s
-                  ORDER BY id ASC LIMIT ' . max(1, min(1000, $limit)),
-                ['', '']
-            )
+            $this->db->getResults($sql, ['', '']) ?? []
         );
     }
 
@@ -986,10 +1016,48 @@ final class DbProductRepository implements ProductRepositoryInterface
             // it back would be a no-op that reported success.
             return 'bad_category';
         }
+        // ⛔ A KEY MAY NOT CONTRADICT A RECORDED SET, AND THE CONDITION GOES
+        // IN THE STATEMENT (`alpha.50`).
+        //
+        // The guard above — «the column is empty» — is satisfied by exactly
+        // the product that must not be written: a multi-category row whose
+        // whole WooCommerce relationship is recorded keeps
+        // `category_key = ''`, because the single key is only written for a
+        // one-term set. Measured on `alpha.86`: the mapped id landed beside a
+        // recorded set that does not contain it — `key=[703]` against
+        // `set=[701,702]` — so the key then NAMED a category the product does
+        // not have, which the medical spec template (`findByCategory()`) and
+        // the review card both read.
+        //
+        // ⛔ And the refusal is the CONTRADICTION, not «a set is recorded».
+        // The first version of this guard refused whenever any link row
+        // existed, and `CategoryLinkFlowTest` caught it: a set of exactly
+        // `{X}` with the matching key is the state migration 35's backfill
+        // leaves, and writing `X` there agrees with it rather than fighting
+        // it. A guard wider than the defect is worse than the defect
+        // (`alpha.60`). So what is refused is a recorded id this key is NOT.
+        //
+        // A key that is not all digits can never be a term id, so `0` is the
+        // comparison value and every recorded row then contradicts it —
+        // which is the honest answer for a pre-`alpha.25` slug sitting beside
+        // a real relationship.
+        //
+        // And a FAILED read is refused rather than written through: refusing a
+        // mapping is recoverable, writing a key that contradicts a set nobody
+        // could read is not.
+        $carried = $this->hasCategoryTable();
+        if ($carried === null) {
+            return 'category_table_unreadable';
+        }
+        $asTerm = ctype_digit($categoryKey) ? (int) $categoryKey : 0;
         $written = $this->db->execute(
-            'UPDATE `' . $this->products() . '`
-                SET category_key = %s, updated_at = %s, row_version = row_version + 1
-              WHERE id = %d AND import_run_id <> %s AND category_key = %s',
+            'UPDATE `' . $this->products() . '` p
+                SET p.category_key = %s, p.updated_at = %s, p.row_version = p.row_version + 1
+              WHERE p.id = %d AND p.import_run_id <> %s AND p.category_key = %s'
+            . ($carried
+                ? ' AND NOT EXISTS (SELECT 1 FROM `' . $this->categoriesTable()
+                    . '` c WHERE c.product_id = p.id AND c.term_id <> ' . $asTerm . ')'
+                : ''),
             [$categoryKey, $this->now(), $productId, '', '']
         );
         if ($written === null) {
@@ -1006,6 +1074,13 @@ final class DbProductRepository implements ProductRepositoryInterface
             'SELECT category_key, import_run_id FROM `' . $this->products() . '` WHERE id = %d',
             [$productId]
         );
+        if ($row === null) {
+            // The re-read itself failed, so which half it was is unknown —
+            // and `getResults()` answers «no rows» and «the read failed»
+            // alike (`alpha.8`). Saying `not_found` here would report a
+            // missing product on a database that simply did not answer.
+            return 'storage_failed';
+        }
         if ($row === []) {
             return 'not_found';
         }
@@ -1014,7 +1089,23 @@ final class DbProductRepository implements ProductRepositoryInterface
             // to fill on their own form; no migration decision reaches it.
             return 'not_imported';
         }
-        return (string) $row[0]['category_key'] === '' ? 'storage_failed' : 'already_set';
+        if ((string) $row[0]['category_key'] !== '') {
+            return 'already_set';
+        }
+        // The key is STILL empty, so the clause that refused was the new one:
+        // this product's own relationship is already recorded, and that is a
+        // named answer rather than a failure.
+        $recorded = $carried
+            ? $this->db->getVar(
+                'SELECT COUNT(*) FROM `' . $this->categoriesTable() . '`
+                  WHERE product_id = %d AND term_id <> %d',
+                [$productId, $asTerm]
+            )
+            : '0';
+        if ($recorded === null) {
+            return 'storage_failed';
+        }
+        return (int) $recorded > 0 ? 'category_set_recorded' : 'storage_failed';
     }
 
     /**
@@ -2007,7 +2098,11 @@ final class DbProductRepository implements ProductRepositoryInterface
             array_key_exists(M0032ProductMirroredStatus::MIRRORED, $row)
                 && trim((string) ($row[M0032ProductMirroredStatus::MIRRORED] ?? '')) !== ''
                     ? trim((string) $row[M0032ProductMirroredStatus::MIRRORED])
-                    : null
+                    : null,
+            // Whether an import made this row. Absent only on a row read
+            // before migration 14, which cannot carry a Dokan mapping either,
+            // so «not imported» is both the honest and the harmless answer.
+            trim((string) ($row['import_run_id'] ?? '')) !== ''
         );
     }
 

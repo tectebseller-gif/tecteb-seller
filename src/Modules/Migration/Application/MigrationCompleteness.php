@@ -231,22 +231,34 @@ final class MigrationCompleteness
                 self::RECORDS_SETTLED, self::RECORDS_NO_SOURCE => true,
                 default => false,
             },
-            // ⛔ TWO reads, and neither alone answers the question.
+            // ⛔ ONE question, and it is about PRODUCTS.
             //
-            // `unmappedFor()` asks Dokan which source categories nobody has
-            // mapped. It is the decision, and it empties the moment the option
-            // is saved. `countImportedWithoutCategory()` asks OUR table how
-            // many imported rows still carry `category_key = ''` — the
-            // products — and saving a mapping moves not one of them: a row
+            // `countImportedWithoutCategory()` asks OUR table how many
+            // imported rows carry neither a category key nor a recorded
+            // WooCommerce set. Saving a mapping moves not one of them — a row
             // only changes when a manager applies the mapping on purpose
-            // (`ApplyCategoryMapping`).
+            // (`ApplyCategoryMapping`) or records the product's own
+            // relationship (`ApplyCategoryLinks`) — so «صرف ذخیرهٔ option و
+            // سبز شدن وضعیت کافی نیست» stays true of this gate, which is what
+            // `alpha.80` came for. And a failed count arrives as `-1`, which
+            // keeps the gate OPEN: a statement that never ran must not read as
+            // «nothing left».
             //
-            // Until `alpha.80` only the first was asked, so writing the option
-            // closed this gate while 184 products sat uncategorised and
-            // undraftable. «صرف ذخیرهٔ option و سبز شدن وضعیت کافی نیست.» And
-            // a failed count arrives as `-1`, which keeps the gate OPEN: a
-            // statement that never ran must not read as «nothing left».
-            'categories_mapped' => $mappableUnmapped === [] && $withoutCategory === 0,
+            // ⛔ And `$mappableUnmapped` is REPORTED and no longer asked here.
+            // Until `alpha.87` it was the other half, and it cannot be
+            // satisfied by the thing that actually answers the question:
+            // `unmappedFor()` walks DOKAN's live products and groups them by
+            // source key, a list that recording a WooCommerce set moves not
+            // one row of. So a shop whose every imported product carried its
+            // full, correct WooCommerce relationship stayed «ناقص» pending a
+            // decision no product was waiting for. The owner's ruling settles
+            // which side is the reference: «دسته‌بندی‌های فعلی WooCommerce
+            // مرجع اصلی ما هستند.» If no row lacks both, nothing needs the old
+            // mapping, and an unmapped source category is then a note on the
+            // screen rather than a blocker. The mapping itself is NOT removed:
+            // for a product WooCommerce gives no category at all it is the one
+            // path left, and it is still counted by the half above.
+            'categories_mapped' => $withoutCategory === 0,
             // Observed rows are catalogue notes. A shop whose products are all
             // still notes has been read, not moved.
             'ownership_taken' => $tally['marketplace'] > 0 && $tally['observed'] === 0,

@@ -376,6 +376,14 @@ interface ProductRepositoryInterface
      * vendor's own draft and its empty category is the vendor's to fill on
      * the form, not a migration decision.
      *
+     * ⛔ And «without a category» means NEITHER the key NOR a recorded set,
+     * exactly as {@see self::countImportedWithoutCategory()} counts it. Until
+     * `alpha.87` this list asked the key alone, so a multi-category product
+     * whose whole WooCommerce relationship was recorded — which keeps
+     * `category_key = ''` by design, because the single key is written only
+     * for a one-term set — stayed on it for ever, and the card listed it as
+     * «منتظر نگاشت» while the total beside it did not count it.
+     *
      * @return list<array{id:int, vendor_user_id:int, wc_product_id:int, title:string}>
      */
     public function importedWithoutCategory(int $limit = 500): array;
@@ -434,15 +442,27 @@ interface ProductRepositoryInterface
      * of `updateDetails()`: that one rewrites every detail column from
      * whatever the caller read a moment ago.
      *
+     * ⛔ And a RECORDED SET is not a key this may replace. A multi-category
+     * row keeps `category_key = ''`, so the «empty column» guard above is
+     * satisfied by exactly the product that must not be written: measured on
+     * `alpha.86`, the mapped id landed beside a recorded set that does not
+     * contain it, and the key then named a category the product does not
+     * have. The condition is in the statement (`alpha.50`), and a link table
+     * that cannot be READ is a refusal rather than a write.
+     *
      * @return string `''` when it was written; otherwise why not —
      *                `already_set` (a category is there and is not ours to
-     *                replace), `not_found` (no such row), `bad_category`
-     *                (an empty key is not a category), `not_imported` (the
-     *                row exists and no import made it, so no migration
-     *                decision reaches it) or `storage_failed`. A `bool` would
-     *                fuse the first two, and they are opposite answers: one
-     *                is «somebody decided» and the other is «there is nothing
-     *                here».
+     *                replace), `category_set_recorded` (this product's own
+     *                WooCommerce relationship is recorded, so the key would
+     *                contradict it), `category_table_unreadable` (the set
+     *                could not be asked about, and guessing is what this
+     *                guard exists to stop), `not_found` (no such row),
+     *                `bad_category` (an empty key is not a category),
+     *                `not_imported` (the row exists and no import made it, so
+     *                no migration decision reaches it) or `storage_failed`. A
+     *                `bool` would fuse the first ones, and they are opposite
+     *                answers: one is «somebody decided» and the other is
+     *                «there is nothing here».
      */
     /**
      * Every imported row with the category key it currently carries.

@@ -303,7 +303,8 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         );
         $wantCategories = $this->categoryIds(
             $details,
-            array_map('intval', $wcProduct->get_category_ids())
+            array_map('intval', $wcProduct->get_category_ids()),
+            $product->imported
         );
         $this->writeOwned(
             $wcProduct,
@@ -1000,7 +1001,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
     public function storefrontCategoryFor(Product $product, array $current = []): string
     {
         return ProjectedFieldOwnership::idsToValue(
-            $this->categoryIds($product->details, array_map('intval', $current))
+            $this->categoryIds($product->details, array_map('intval', $current), $product->imported)
         );
     }
 
@@ -1218,14 +1219,39 @@ final class WooCommerceProjector implements CatalogProjectorInterface
      * @param list<int> $current
      * @return list<int>
      */
-    private function categoryIds(ProductDetails $details, array $current = []): array
-    {
+    private function categoryIds(
+        ProductDetails $details,
+        array $current = [],
+        bool $imported = false
+    ): array {
         $current = CategorySet::of($current);
         if (!taxonomy_exists('product_cat')) {
             return $current;
         }
+        // ⛔ THE SINGLE-KEY FALLBACK IS NOT A RELATIONSHIP ON AN IMPORTED ROW.
+        //
+        // `categorySet()` answers the recorded set, or — when nothing is
+        // recorded — the single `category_key`. For a row the marketplace
+        // created that key is the vendor's own choice on their form, and
+        // attaching it IS what publishing a category means. For an IMPORTED
+        // row it can be a mapping of an old DOKAN category, written by
+        // `ApplyCategoryMapping` into the marketplace's own column, which the
+        // medical spec template reads and WooCommerce never said.
+        //
+        // Measured on `alpha.86`: a product carrying only `default_product_cat`
+        // took a mapped key and the union below answered `{715, 703}` — a
+        // `product_cat` relationship this plugin invented. «هیچ رابطه‌ای
+        // خودکار حذف یا اضافه نشود.» It was unreachable only because every
+        // imported row is `observed` and `SyncCatalog` refuses to project one
+        // — a STATE, not a guard, and an ownership transfer removes it.
+        //
+        // So an imported row projects the ids it RECORDED and nothing else.
+        // Every one of those came from the product's own relationship
+        // (`ApplyCategoryLinks` reads them from WooCommerce), so the union
+        // stays a no-op for them and the shop is still never narrowed.
+        $claimed = $imported ? $details->categoryIds : $details->categorySet();
         $wanted = [];
-        foreach ($details->categorySet() as $id) {
+        foreach ($claimed as $id) {
             // Resolved, never created — and asked by id, which is what the
             // directory has been keyed on since `alpha.25`.
             if ($this->categories?->find((string) $id) !== null) {

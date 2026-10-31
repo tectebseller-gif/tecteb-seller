@@ -5,8 +5,10 @@ namespace Tecteb\Marketplace\Tests\WordPressContract;
 
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
+use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecField;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecFieldType;
@@ -1058,19 +1060,109 @@ final class ProjectedFactsTest extends ContractTestCase
         };
     }
 
+    /**
+     * AN IMPORTED ROW'S SINGLE KEY IS NEVER ADDED TO THE SHOP.
+     *
+     * ⛔ Measured on `alpha.86`: it was. `ApplyCategoryMapping` writes only
+     * `tmc_products.category_key` (`:115` → `setCategoryWhenEmpty()`), which
+     * is the marketplace's own classification of an imported product — the
+     * medical spec template reads it. But with no recorded set,
+     * `ProductDetails::categorySet()` falls back to that key
+     * (`ProductDetails.php:109`), and this method writes the UNION, so the
+     * mapped id became a `product_cat` relationship the product never had:
+     * `{715} → {715, 703}`. The owner's standing decision is that it must
+     * not: «بدون حذف، جابه‌جایی یا تغییر… هیچ رابطه‌ای خودکار حذف یا اضافه
+     * نشود.»
+     *
+     * On `alpha.86` the hazard was unreachable only because every imported
+     * row is `observed` and `SyncCatalog` refuses to project one — a STATE,
+     * not a guard, and one an ownership transfer removes. So it is closed
+     * here, before any transfer.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAnImportedRowsSingleKeyIsNeverAddedToTheShop(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+        $this->seedCategories();
+
+        // One projection from a recorded set, so the field is OURS and the
+        // write below really does go ahead rather than being held
+        // (`alpha.44`).
+        $first = $this->projector($this->categories())->project(
+            $this->product(description: null, categoryIds: [244])
+        );
+        self::assertTrue($first['ok'], (string) $first['code']);
+        $wcId = (int) $first['wc_product_id'];
+        self::assertSame([244], \WC_Product::$saved[$wcId]->get_category_ids());
+
+        // Now the row an import made: a Dokan-mapped key, nothing recorded.
+        $second = $this->projector($this->categories())->project($this->product(
+            description: null,
+            wcProductId: $wcId,
+            categoryIds: [],
+            categoryKey: '246',
+            imported: true
+        ));
+        self::assertTrue($second['ok'], (string) $second['code']);
+
+        $after = \WC_Product::$saved[$wcId]->get_category_ids();
+        sort($after);
+        self::assertSame([244], $after, 'the mapped key is ours, not a WooCommerce relationship');
+    }
+
+    /**
+     * The control: a row the MARKETPLACE made still projects its single key.
+     *
+     * A guard wider than the defect is worse than the defect (`alpha.60`).
+     * The vendor's own choice on their form IS this marketplace's decision
+     * about its own product, and publishing it is what attaching a category
+     * means — so this direction must keep working byte for byte.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAMarketplaceRowsSingleKeyStillReachesTheShop(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+        $this->seedCategories();
+
+        $first = $this->projector($this->categories())->project(
+            $this->product(description: null, categoryIds: [244])
+        );
+        $wcId = (int) $first['wc_product_id'];
+        self::assertSame([244], \WC_Product::$saved[$wcId]->get_category_ids());
+
+        $second = $this->projector($this->categories())->project($this->product(
+            description: null,
+            wcProductId: $wcId,
+            categoryIds: [],
+            categoryKey: '246',
+            imported: false
+        ));
+        self::assertTrue($second['ok'], (string) $second['code']);
+
+        $after = \WC_Product::$saved[$wcId]->get_category_ids();
+        sort($after);
+        self::assertSame([244, 246], $after, 'this row is ours and so is its key');
+    }
+
     private function product(
         ?string $description,
         ?int $wcProductId = null,
         array $specs = ['material' => 'لاتکس'],
         int $priceMinor = 200000,
-        array $categoryIds = []
+        array $categoryIds = [],
+        string $categoryKey = 'gloves',
+        bool $imported = false
     ): Product {
         return new Product(
             41,
             self::VENDOR,
             new ProductDetails(
                 title: 'دستکش لاتکس',
-                categoryKey: 'gloves',
+                categoryKey: $categoryKey,
                 brand: 'آریا طب',
                 shortDescription: 'یک جمله',
                 priceMinor: $priceMinor,
@@ -1087,7 +1179,13 @@ final class ProjectedFactsTest extends ContractTestCase
             0,
             null,
             '',
-            $wcProductId
+            $wcProductId,
+            new ProductSeo(),
+            '',
+            null,
+            LinkOwnership::MARKETPLACE_VALUE,
+            null,
+            $imported
         );
     }
 }

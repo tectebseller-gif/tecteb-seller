@@ -499,25 +499,29 @@ final class HandoverPage
             if (in_array('categories_mapped', (array) $row['missing'], true)) {
                 $waiting = (int) ($row['detail']['products_without_category'] ?? 0);
                 $unmapped = count((array) ($row['detail']['unmapped_mappable'] ?? []));
-                $says = [];
-                if ($unmapped > 0) {
-                    $says[] = sprintf(
-                        /* translators: %s: number of source categories */
-                        __('%s دستهٔ مبدأ نگاشت نشده', 'tecteb-marketplace-core'),
-                        $fa((string) $unmapped)
-                    );
-                }
                 if ($waiting < 0) {
-                    $says[] = __('تعداد محصولات بی‌دسته خوانده نشد', 'tecteb-marketplace-core');
+                    $left .= '<span class="tmc-field__desc">'
+                        . esc_html__('تعداد محصولات بی‌دسته خوانده نشد.', 'tecteb-marketplace-core')
+                        . '</span>';
                 } elseif ($waiting > 0) {
-                    $says[] = sprintf(
+                    $left .= '<span class="tmc-field__desc">' . esc_html(sprintf(
                         /* translators: %s: number of products */
-                        __('%s محصول واردشده دسته‌ای ندارد و منتظر اعمال است', 'tecteb-marketplace-core'),
+                        __('%s محصول نه دستهٔ ثبت‌شده دارد و نه کلید دسته.', 'tecteb-marketplace-core'),
                         $fa((string) $waiting)
-                    );
+                    )) . '</span>';
                 }
-                if ($says !== []) {
-                    $left .= '<span class="tmc-field__desc">' . esc_html(implode(' · ', $says)) . '</span>';
+                // ⛔ The source-category count is a NOTE, not the blocker. It
+                // used to be the other half of this gate and could not be
+                // satisfied by the thing that answers the question — see
+                // `MigrationCompleteness`.
+                if ($unmapped > 0) {
+                    $left .= Components::moreDetails([
+                        sprintf(
+                            /* translators: %s: number of source categories */
+                            __('%s دستهٔ مبدأ دکان نگاشت نشده است. این مانع نیست: دستهٔ ثبت‌شدهٔ ووکامرس هر محصول مرجع است، و نگاشت فقط برای محصولی لازم است که در ووکامرس هیچ دسته‌ای ندارد.', 'tecteb-marketplace-core'),
+                            $fa((string) $unmapped)
+                        ),
+                    ]);
                 }
             }
             // ⛔ The DOOR, next to the gate it opens. This gate's prescribed
@@ -1206,9 +1210,12 @@ final class HandoverPage
             ? esc_html__('تعداد محصولات بی‌دسته خوانده نشد، پس عددی گزارش نمی‌شود.', 'tecteb-marketplace-core')
             : esc_html(sprintf(
                 /* translators: %s: number of products */
-                __('همین حالا %s محصول واردشده دسته‌ای ندارد.', 'tecteb-marketplace-core'),
+                __('همین حالا %s محصول واردشده نه دستهٔ ثبت‌شده دارد و نه کلید دسته.', 'tecteb-marketplace-core'),
                 $fa((string) $waiting)
             ))) . '</p>';
+        echo Components::moreDetails([
+            __('محصولی که دسته‌های خودش در ووکامرس برایش ثبت شده در این فهرست نیست، حتی اگر چند دسته داشته باشد و کلید تکش خالی مانده باشد.', 'tecteb-marketplace-core'),
+        ]);
 
         if (!$mapping->targetsAvailable()) {
             echo Components::notice('warning', __('هیچ دستهٔ محصولی در ووکامرس خوانده نشد، پس چیزی برای انتخاب وجود ندارد. این افزونه هرگز دسته نمی‌سازد؛ دسته‌ها را در «محصولات ← دسته‌بندی‌ها» بسازید.', 'tecteb-marketplace-core'));
@@ -1833,6 +1840,8 @@ final class HandoverPage
             'bad_category' => __('دستهٔ خالی دسته نیست', 'tecteb-marketplace-core'),
             'storage_failed' => __('نوشتن انجام نشد', 'tecteb-marketplace-core'),
             'not_waiting' => __('دیگر منتظر دسته نبود', 'tecteb-marketplace-core'),
+            'category_set_recorded' => __('دسته‌های خودش در ووکامرس ثبت شده و کلید روی آن نوشته نمی‌شود', 'tecteb-marketplace-core'),
+            'category_table_unreadable' => __('دسته‌های ثبت‌شده خوانده نشد، پس چیزی نوشته نشد', 'tecteb-marketplace-core'),
             default => self::heldReason($code),
         };
     }

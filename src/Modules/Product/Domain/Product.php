@@ -82,7 +82,31 @@ final class Product
          * these are addressed positionally in places and appending is the
          * only safe direction.
          */
-        public readonly ?string $mirroredStatus = null
+        public readonly ?string $mirroredStatus = null,
+        /**
+         * Whether an IMPORT made this row — `import_run_id <> ''`.
+         *
+         * Carried so the projector can tell the marketplace's own decision
+         * from a note it took about somebody else's product, which is the one
+         * thing that decides whether the single `category_key` may become a
+         * `product_cat` relationship. For a row the marketplace created, that
+         * key is the vendor's own choice on their form and publishing it IS
+         * what attaching a category means. For an imported row it can be a
+         * mapping of an OLD Dokan category — the marketplace's own
+         * classification, which the medical spec template reads — and writing
+         * it to the shop would add a relationship the product never had
+         * («هیچ رابطه‌ای خودکار حذف یا اضافه نشود»).
+         *
+         * `false` by default and last, for the reason the parameters above
+         * are: these are addressed positionally in places and appending is
+         * the only safe direction. A query that did not select the column
+         * reads as «not imported», which is this round's conservative
+         * direction in the only place that asks: it keeps the pre-`alpha.87`
+         * behaviour for a row nobody could classify, and only an import
+         * stamp — which cannot be there before migration 14 — turns the
+         * refusal on.
+         */
+        public readonly bool $imported = false
     ) {
     }
 

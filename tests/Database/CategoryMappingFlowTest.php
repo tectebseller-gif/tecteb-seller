@@ -656,4 +656,268 @@ final class CategoryMappingFlowTest extends DatabaseTestCase
             $this->map
         );
     }
+
+    /**
+     * A product id by the WooCommerce product the import linked it to.
+     *
+     * Read from the table rather than from an import result, because every
+     * test below is about what the ROWS say.
+     */
+    private function rowIdFor(int $wcProductId): int
+    {
+        $rows = $this->database->getResults(
+            'SELECT id FROM `' . $this->wpdb->prefix . 'tmc_products` WHERE wc_product_id = %d',
+            [$wcProductId]
+        );
+        self::assertCount(1, (array) $rows, 'the fixture needs exactly one row for ' . $wcProductId);
+        return (int) $rows[0]['id'];
+    }
+
+    /**
+     * WHAT THIS PROVES: a product whose own WooCommerce categories are
+     * recorded is no longer waiting for the old Dokan mapping.
+     *
+     * ⛔ Measured on `alpha.86`: it was. `importedWithoutCategory()` asked
+     * `category_key = ''` alone while `countImportedWithoutCategory()` — the
+     * total the same card prints, and the half the gate reads — also asked
+     * `NOT EXISTS (<link row>)`. And `recordCategorySet()` writes the single
+     * key ONLY for a one-term set (`CategorySet::soleKey()`, deliberately:
+     * «اولین دسته را خودسرانه انتخاب نکن»), so a MULTI-category product keeps
+     * `category_key = ''` for ever and the key-only predicate counted it as
+     * unanswered for ever. Measured: list 2, total 1, and the recorded product
+     * printed under «آنچه اعمال نمی‌شود» as `unmapped`.
+     */
+    public function testAMultiCategoryProductWhoseSetIsRecordedLeavesTheWaitingList(): void
+    {
+        $this->runImport();
+        $id = $this->rowIdFor(991);
+        self::assertSame('category_set_written', $this->products->recordCategorySet($id, [71, 72]));
+        self::assertSame('', (string) $this->storedCategories()[$id], 'the single key stays empty, by design');
+
+        $waiting = array_map(
+            static fn (array $row): int => (int) $row['id'],
+            $this->products->importedWithoutCategory(500)
+        );
+        self::assertNotContains($id, $waiting, 'its WooCommerce relationship is recorded — it is answered');
+
+        // And the screen agrees: neither offered for apply nor held as unmapped.
+        $plan = $this->mapping->plan();
+        $seen = array_map(static fn (array $r): int => (int) $r['product_id'], $plan['apply']);
+        foreach ($plan['held'] as $rows) {
+            foreach ($rows as $row) {
+                $seen[] = (int) $row['product_id'];
+            }
+        }
+        self::assertNotContains($id, $seen, 'it must not appear in the mapping card at all');
+    }
+
+    /**
+     * WHAT THIS PROVES: the waiting LIST and the total printed beside it
+     * answer the same question — as an invariant, not as a fixed number.
+     *
+     * A fixed count would pass on the broken code the moment the fixture
+     * happened to hold no multi-category product (`alpha.86`'s lesson about
+     * measuring the invariant rather than the example).
+     */
+    public function testTheWaitingListAndItsOwnTotalNeverDisagree(): void
+    {
+        $this->runImport();
+        $same = function (string $where): void {
+            self::assertSame(
+                $this->products->countImportedWithoutCategory(),
+                count($this->products->importedWithoutCategory(500)),
+                $where
+            );
+        };
+        $same('straight after the import');
+
+        self::assertSame(
+            'category_set_written',
+            $this->products->recordCategorySet($this->rowIdFor(991), [71, 72])
+        );
+        $same('after a multi-category set is recorded');
+
+        self::assertSame(
+            'category_set_written',
+            $this->products->recordCategorySet($this->rowIdFor(992), [71])
+        );
+        $same('after a single-category set is recorded');
+    }
+
+    /**
+     * WHAT THIS PROVES: the gate asks about PRODUCTS, and an unmapped Dokan
+     * source category holds nothing back once no product needs it.
+     *
+     * ⛔ Measured on `alpha.86`: it did. The decision half came from
+     * `unmappedFor()` → `CategoryMap::unmapped()`, which walks DOKAN's live
+     * products and groups them by source key — a list recording a WooCommerce
+     * set moves not one row of. So the gate stayed shut on a decision no
+     * product was waiting for. «دسته‌بندی‌های فعلی WooCommerce مرجع اصلی ما
+     * هستند.»
+     */
+    public function testTheGateClosesWithAnUnmappedSourceOnceEveryRowIsAnswered(): void
+    {
+        $this->runImport();
+        $completeness = $this->completeness();
+        $gate = fn (): bool => (bool) $completeness->forVendor(self::SELLER)['gates']['categories_mapped'];
+
+        self::assertFalse($gate(), 'three rows answer nothing yet');
+
+        // Every imported row answered — two by their own WooCommerce
+        // relationship, the third by a human's explicit key.
+        self::assertSame(
+            'category_set_written',
+            $this->products->recordCategorySet($this->rowIdFor(991), [71, 72])
+        );
+        self::assertSame(
+            'category_set_written',
+            $this->products->recordCategorySet($this->rowIdFor(992), [71])
+        );
+        self::assertSame('', $this->products->setCategoryWhenEmpty($this->rowIdFor(993), '72'));
+
+        // NOTHING is mapped: Dokan still reports its source category as
+        // undecided, and the report still says so.
+        $row = $completeness->forVendor(self::SELLER);
+        self::assertNotSame([], (array) $row['detail']['unmapped_mappable'], 'still reported');
+        self::assertTrue($gate(), 'and no product is waiting for that decision');
+    }
+
+    /**
+     * WHAT THIS PROVES: saving a mapping still closes nothing by itself.
+     *
+     * The `alpha.80` rule, kept: the option is a decision, the rows are the
+     * work, and only the rows answer this gate.
+     */
+    public function testSavingAMappingAloneStillDoesNotCloseTheGate(): void
+    {
+        $this->runImport();
+        $completeness = $this->completeness();
+
+        $this->map->save([self::SOURCE_A => '71']);
+        self::assertFalse(
+            (bool) $completeness->forVendor(self::SELLER)['gates']['categories_mapped'],
+            'three rows are still carrying no category of any kind'
+        );
+        self::assertSame(
+            3,
+            (int) $completeness->forVendor(self::SELLER)['detail']['products_without_category']
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: a Dokan mapping is refused on a row whose WooCommerce
+     * set is recorded, and the condition is INSIDE the statement.
+     *
+     * ⛔ Measured on `alpha.86`: it was written. A multi-category product
+     * keeps `category_key = ''`, so the `WHERE category_key = ''` guard was
+     * satisfied and the mapped id landed beside a recorded set that does not
+     * contain it — `recorded_product_key=[703]` against
+     * `recorded_product_set=[701,702]`. The single key then named a category
+     * the product does not have, which the medical spec template
+     * (`findByCategory()`) and the review card both read.
+     */
+    public function testTheDokanMappingIsRefusedOnARowWhoseSetIsRecorded(): void
+    {
+        $this->runImport();
+        $id = $this->rowIdFor(991);
+        self::assertSame('category_set_written', $this->products->recordCategorySet($id, [71, 72]));
+
+        self::assertSame('category_set_recorded', $this->products->setCategoryWhenEmpty($id, '72'));
+        self::assertSame('', (string) $this->storedCategories()[$id], 'and nothing was written');
+        self::assertSame([71, 72], $this->products->find($id)?->details->categorySet());
+    }
+
+    /**
+     * WHAT THIS PROVES: a one-term set writes its own key, and the mapping
+     * then has nothing to replace.
+     *
+     * The single-category half of the regression the owner asked for. This
+     * one passed before the fix too, and it is here so that the refusal above
+     * cannot be mistaken for «the mapping never writes anything».
+     */
+    public function testASingleCategorySetWritesItsKeyAndTheMappingIsThenSettled(): void
+    {
+        $this->runImport();
+        $id = $this->rowIdFor(992);
+        self::assertSame('category_set_written', $this->products->recordCategorySet($id, [71]));
+        self::assertSame('71', (string) $this->storedCategories()[$id]);
+        self::assertSame('already_set', $this->products->setCategoryWhenEmpty($id, '72'));
+        self::assertSame('71', (string) $this->storedCategories()[$id], 'the recorded key is never replaced');
+    }
+
+    /**
+     * WHAT THIS PROVES: the mapping still reaches the row it is FOR — one
+     * with neither a recorded set nor a key.
+     *
+     * The control. A guard that refused everything would be worse than the
+     * defect it came for (`alpha.60`), and this is the row the owner's
+     * decision 2 names: «محصولاتی که هنوز هیچ مجموعه دسته معتبر ثبت‌شده یا
+     * کلید معتبر ندارند».
+     */
+    public function testARowWithNeitherASetNorAKeyStillTakesTheMapping(): void
+    {
+        $this->runImport();
+        $id = $this->rowIdFor(993);
+        self::assertSame('', $this->products->setCategoryWhenEmpty($id, '72'));
+        self::assertSame('72', (string) $this->storedCategories()[$id]);
+    }
+
+    /**
+     * WHAT THIS PROVES: the row says whether an import made it, and the
+     * projector's guard has something to read.
+     *
+     * Pinned here because nothing else does: the flag is what lets
+     * `WooCommerceProjector::categoryIds()` tell this marketplace's own
+     * decision — the vendor's choice on their form — from a mapping of an old
+     * Dokan category, and a `hydrate()` that stopped setting it would turn
+     * that guard off with every suite still green.
+     */
+    public function testAnImportedRowSaysSoAndAVendorsOwnDraftDoesNot(): void
+    {
+        $this->runImport();
+        $imported = $this->products->find($this->rowIdFor(991));
+        self::assertNotNull($imported);
+        self::assertTrue($imported->imported, 'an import made this row');
+
+        $own = $this->products->create(
+            self::SELLER,
+            new \Tecteb\Marketplace\Modules\Product\Domain\ProductDetails(
+                title: 'پیش‌نویس خودِ فروشنده',
+                categoryKey: '71',
+                priceMinor: 1000,
+                sku: 'OWN-2',
+                stock: 1
+            ),
+            ProductStatus::Draft,
+            LinkOwnership::Marketplace
+        );
+        self::assertGreaterThan(0, $own);
+        self::assertFalse(
+            $this->products->find($own)?->imported,
+            'the vendor made this one, and its key is their own choice'
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: a read that failed is not «no set recorded».
+     *
+     * ⛔ Measured on `alpha.86`: with the link table unreadable the mapping
+     * was written anyway, because nothing asked. Refusing a write is
+     * recoverable; writing a key that contradicts a set nobody could read is
+     * not (`alpha.61`'s direction, one column over).
+     */
+    public function testTheMappingIsRefusedWhenTheCategoryTableCannotBeRead(): void
+    {
+        $this->runImport();
+        $id = $this->rowIdFor(993);
+
+        $failing = new FailingDatabase($this->database);
+        // BOTH paths `carriedBy()` tries, or it answers from the second one.
+        $failing->failReadWhen(['information_schema.TABLES']);
+        $failing->failReadWhen(['SHOW COLUMNS']);
+        $blinded = new DbProductRepository($failing, $this->clock);
+
+        self::assertSame('category_table_unreadable', $blinded->setCategoryWhenEmpty($id, '72'));
+        self::assertSame('', (string) $this->storedCategories()[$id], 'nothing written');
+    }
 }
