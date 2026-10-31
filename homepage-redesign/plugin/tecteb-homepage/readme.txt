@@ -3,7 +3,7 @@ Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires Plugins: woocommerce
-Stable tag: 0.2.0
+Stable tag: 0.3.0
 License: GPL-2.0-or-later
 
 صفحهٔ اصلی تک‌طب (Concept C، Hero تیره). فقط فارسی و راست‌به‌چپ.
@@ -29,6 +29,14 @@ TECTEB_HOME_CATEGORIES_URL.
 فونت Vazirmatn تحت مجوز SIL OFL 1.1 (assets/fonts/OFL.txt).
 
 == Changelog ==
+
+= 0.3.0 =
+* مقصدهای تأییدشده به‌عنوان پیش‌فرض: درخواست تعمیرات ⇒ /https-tecteb-com-repair-request/ (فقط پیوند، بی فرم)،
+  همکاری تأمین‌کنندگان ⇒ /landing-seller/.
+* CSS ایزوله در برابر CSS ِ سراسری سایت (Kit ِ Elementor، قالب، Custom CSS): وزن ID با
+  :is(.tecteb-home-v1, #th-boost) و لایهٔ all: revert؛ ظاهر برابر پیش‌نمایش Concept C.
+* هماهنگی با هدر مستقل tecteb-header: اگر فعال است، همان فایل فونت Vazirmatn یک بار بارگذاری می‌شود.
+* متن Hero: «مشخصات را کنار هم ببینید» (قابلیت مقایسهٔ تأییدنشده) ⇒ «مشخصات هر محصول را ببینید».
 
 = 0.2.0 =
 * سه مسیر اصلی: فروشگاه، درخواست تعمیرات تجهیزات پزشکی، همکاری تأمین‌کنندگان.

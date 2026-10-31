@@ -4,10 +4,10 @@ PASS install: version reported by WordPress matches
 PASS static suite (source = installed)
 PASS integration suite on the installed ZIP
 PASS browser suite on the installed ZIP
-150 passed, 0 failed
-73 passed, 0 failed
+163 passed, 0 failed
+76 passed, 0 failed
 PASS switch: the new front page shows the design
-PASS switch: site header and footer kept
+PASS switch: site header (exactly one) and footer kept
 PASS rollback step 1: front page back to the previous page, nothing of ours on it
 PASS rollback step 2: deactivate
 PASS rollback step 2: front page clean after deactivation

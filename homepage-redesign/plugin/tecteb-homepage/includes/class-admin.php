@@ -297,8 +297,8 @@ final class Admin {
 
 	private static function links_section( string $name ): void {
 		$fields = array(
-			'repair'         => array( __( 'درخواست تعمیرات تجهیزات پزشکی', 'tecteb-homepage' ), __( 'نشانی صفحهٔ تعمیرات موجود در سایت. خالی: کارت تعمیرات نمایش داده نمی‌شود.', 'tecteb-homepage' ) ),
-			'supplier'       => array( __( 'همکاری تأمین‌کنندگان', 'tecteb-homepage' ), __( 'خالی: کارت همکاری در Hero و بخش همکاری نمایش داده نمی‌شوند. نشانی همین محیط را بنویسید؛ ثبت‌نام فعلی یا مسیر بازارگاه پس از تأیید.', 'tecteb-homepage' ) ),
+			'repair'         => array( __( 'درخواست تعمیرات تجهیزات پزشکی', 'tecteb-homepage' ), __( 'نشانی صفحهٔ تعمیرات موجود در سایت (پیش‌فرض: /https-tecteb-com-repair-request/). فقط پیوند است؛ فرم تعمیرات در صفحهٔ اصلی نیست. خالی: کارت تعمیرات نمایش داده نمی‌شود.', 'tecteb-homepage' ) ),
+			'supplier'       => array( __( 'همکاری تأمین‌کنندگان', 'tecteb-homepage' ), __( 'پیش‌فرض: /landing-seller/. خالی: کارت همکاری در Hero و بخش همکاری نمایش داده نمی‌شوند.', 'tecteb-homepage' ) ),
 			'supplier_terms' => array( __( 'شرایط همکاری', 'tecteb-homepage' ), __( 'خالی: دکمهٔ «شرایط همکاری» نمایش داده نمی‌شود.', 'tecteb-homepage' ) ),
 			'all_categories' => array( __( 'همهٔ دسته‌ها', 'tecteb-homepage' ), __( 'خالی: پیوند «همهٔ دسته‌ها» نمایش داده نمی‌شود.', 'tecteb-homepage' ) ),
 		);

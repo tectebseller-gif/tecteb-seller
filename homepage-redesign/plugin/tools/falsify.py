@@ -65,11 +65,33 @@ MUTATIONS = [
      "\tpublic static function selected_products(): array {\n", "\tpublic static function selected_products(): array {\n\t\tupdate_post_meta( 0, '_tth_x', '1' );\n", "static"),
     ("Dokan dependency", "includes/class-renderer.php",
      "\tpublic static function shop_url(): string {\n", "\tpublic static function shop_url(): string {\n\t\tif ( function_exists( 'dokan' ) ) { return ''; }\n", "static"),
-    ("heading hardening removed (theme/kit leak)", "assets/css/tecteb-home.css",
-     ".tecteb-home-v1.th-c :where(h1, h2, h3) {\n  margin: 0;\n  font-family: inherit;\n  font-style: normal;\n  letter-spacing: normal;\n  text-transform: none;",
-     ".tecteb-home-v1.th-c :where(h1, h2, h3) {\n  margin: 0;\n  font-family: inherit;", "browser"),
+    # ۰٫۳٫۰: لایهٔ ایزوله به‌تنهایی جلوی نشت به عنوان‌ها را می‌گیرد (اندازه‌گیری‌شده: با برداشتن فقط این
+    # سخت‌سازی، آزمون ایزوله ۰ تفاوت). پس جهش هر دو لایه را برمی‌دارد و باید آزمون Hello/kit ِ مرورگر بگیردش.
+    ("heading hardening and isolation layer both removed (theme/kit leak)", "assets/css/tecteb-home.css",
+     [(".tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c :where(h1, h2, h3) {\n  margin: 0;\n  font-family: inherit;\n  font-style: normal;\n  letter-spacing: normal;\n  text-transform: none;",
+       ".tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c :where(h1, h2, h3) {\n  margin: 0;\n  font-family: inherit;"),
+      (":where(:not(svg, svg *, img))::after { all: revert; }", ":where(:not(svg, svg *, img))::after { }")], None, "browser"),
     ("route grid layout dropped (three cards not side by side)", "assets/css/tecteb-home.css",
-     '  .tecteb-home-v1.th-c .th-routes[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n', '', "browser"),
+     '  .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-routes[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n', '', "browser"),
+    # ۰٫۳٫۰
+    ("isolation layer dropped (site-wide CSS reaches the homepage)", "assets/css/tecteb-home.css",
+     ":where(:not(svg, svg *, img))::after { all: revert; }", ":where(:not(svg, svg *, img))::after { }", "isolation"),
+    ("one rule loses its ID-weight boost", "assets/css/tecteb-home.css",
+     "\n.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-route {", "\n.tecteb-home-v1.th-c .th-route {", "static"),
+    ("repair default dropped (confirmed URL lost)", "includes/class-settings.php",
+     "'repair'         => '/https-tecteb-com-repair-request/',", "'repair'         => '',", "integration"),
+    ("supplier default points elsewhere", "includes/class-settings.php",
+     "'supplier'       => '/landing-seller/',", "'supplier'       => '/supplier/',", "integration"),
+    ("saved empty URL silently falls back to the default", "includes/class-settings.php",
+     "array_key_exists( $key, $links ) ? $links[ $key ] : $d['links'][ $key ]", "( $links[ $key ] ?? '' ) ?: $d['links'][ $key ]", "integration"),
+    ("header font not shared (double download)", "includes/class-assets.php",
+     "\t\tif ( ! defined( 'TECTEB_HEADER_URL' ) || ! defined( 'TECTEB_HEADER_DIR' ) ) {", "\t\tif ( true ) {", "integration"),
+    ("WP Rocket home purge dropped (stale homepage after a selection change)", "includes/class-cache.php",
+     "\t\t\trocket_clean_home();\n", "", "integration"),
+    ("WP Rocket purge widened to the whole site", "includes/class-cache.php",
+     "\t\t\trocket_clean_home();\n", "\t\t\trocket_clean_home();\n\t\t\tif ( function_exists( 'rocket_clean_domain' ) ) {\n\t\t\t\trocket_clean_domain();\n\t\t\t}\n", "integration"),
+    ("hero text claims an unconfirmed side-by-side comparison", "includes/class-settings.php",
+     "مشخصات هر محصول را ببینید", "مشخصات را کنار هم ببینید", "integration"),
 ]
 
 
@@ -79,6 +101,16 @@ def run(kind: str) -> tuple[int, str]:
     elif kind == "integration":
         subprocess.run(WP + ["eval-file", "tests/fixtures/seed.php", "seed"], cwd=PLUGIN, capture_output=True)
         p = subprocess.run(WP + ["eval-file", "tests/integration/run.php"], cwd=PLUGIN, capture_output=True, text=True)
+    elif kind == "isolation":
+        subprocess.run(WP + ["eval-file", "tests/fixtures/seed.php", "seed"], cwd=PLUGIN, capture_output=True)
+        subprocess.run(WP + ["eval-file", "tests/fixtures/state.php", "full"], cwd=PLUGIN, capture_output=True)
+        subprocess.run(WP + ["eval-file", "tests/fixtures/state.php", "front"], cwd=PLUGIN, capture_output=True)
+        env = dict(os.environ, NODE_PATH="/opt/node-tools/node_modules")
+        p = subprocess.run(["node", "tests/isolation.mjs", "falsify-tmp"], cwd=PLUGIN, capture_output=True, text=True, env=env)
+        for ext in ("txt", "json"):
+            (PLUGIN / "tests/evidence/isolation" / f"falsify-tmp.{ext}").unlink(missing_ok=True)
+        n = 0 if p.returncode == 0 else 1
+        return n, (p.stdout.strip().splitlines() or [""])[0][:140]
     else:
         subprocess.run(WP + ["eval-file", "tests/fixtures/seed.php", "seed"], cwd=PLUGIN, capture_output=True)
         env = dict(os.environ, AXE=AXE, NODE_PATH="/opt/node-tools/node_modules", OUT=str(PLUGIN / "tests/evidence/falsification-browser"))
@@ -96,12 +128,16 @@ def main() -> int:
         original = path.read_bytes()
         digest = hashlib.sha256(original).hexdigest()
         text = original.decode("utf-8")
-        if text.count(needle) != 1:
-            print(f"{n:2} NOT APPLIED ({text.count(needle)} matches) — {name}")
+        pairs = needle if isinstance(needle, list) else [(needle, repl)]
+        counts = [text.count(a) for a, _ in pairs]
+        if any(c != 1 for c in counts):
+            print(f"{n:2} NOT APPLIED ({counts} matches) — {name}")
             bad += 1
             continue
+        for a, b in pairs:
+            text = text.replace(a, b)
         try:
-            path.write_text(text.replace(needle, repl), encoding="utf-8")
+            path.write_text(text, encoding="utf-8")
             fails, first = run(kind)
         finally:
             path.write_bytes(original)

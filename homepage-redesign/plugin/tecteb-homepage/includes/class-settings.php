@@ -8,7 +8,8 @@
  * دارد. هر نشانی را یک ثابت در wp-config.php هم می‌تواند تعیین کند، که هنگام
  * کپی‌کردن دیتابیس از یک محیط به دیگری جابه‌جا نمی‌شود.
  *
- * نشانیِ خالی یعنی «مقصد تأییدشده‌ای نیست» و دکمه‌اش چاپ نمی‌شود.
+ * نشانیِ خالی یعنی «مقصد تأییدشده‌ای نیست» و دکمه‌اش چاپ نمی‌شود. از ۰٫۳٫۰ تعمیرات و همکاری پیش‌فرضِ
+ * تأییدشدهٔ مالک را دارند (DEFAULT_LINKS).
  *
  * از ۰٫۲٫۰ محصولات صفحهٔ اصلی فهرستِ دستیِ همین option اند (شناسهٔ محصول، به
  * ترتیب مدیر) — نه ستارهٔ «ویژه»ٔ ووکامرس — و «استعلام سازمانی» و بخش خدمات
@@ -43,6 +44,17 @@ final class Settings {
 		'all_categories' => 'TECTEB_HOME_CATEGORIES_URL',
 	);
 
+	/**
+	 * مقصدهای تأییدشدهٔ مالک (۰٫۳٫۰): صفحهٔ موجود تعمیرات و صفحهٔ موجود همکاری. فقط پیش‌فرض‌اند؛
+	 * پس از اولین ذخیره، مقدار فرم (حتی خالی = پنهان) مقدم است، و ثابت wp-config بر هر دو.
+	 */
+	public const DEFAULT_LINKS = array(
+		'repair'         => '/https-tecteb-com-repair-request/',
+		'supplier'       => '/landing-seller/',
+		'supplier_terms' => '',
+		'all_categories' => '',
+	);
+
 	/** آیکون‌های قابل‌انتخاب برای دستهٔ بی‌تصویر؛ کلید = نام symbol در sprite. */
 	public const CATEGORY_ICONS = array( 'monitor', 'or', 'ultrasound', 'lab', 'syringe', 'emergency', 'care', 'dental', 'store', 'image' );
 
@@ -55,8 +67,8 @@ final class Settings {
 			'categories'          => array(),
 			'products'            => array(),
 			'product_count'       => 4,
-			'links'               => array_fill_keys( array_keys( self::LINKS ), '' ),
-			'hero_lead'           => 'برای بیمارستان‌ها، کلینیک‌ها و آزمایشگاه‌ها: تجهیزات را جست‌وجو کنید، مشخصات را کنار هم ببینید و از فروشگاه تک‌طب تهیه کنید.',
+			'links'               => self::DEFAULT_LINKS,
+			'hero_lead'           => 'برای بیمارستان‌ها، کلینیک‌ها و آزمایشگاه‌ها: تجهیزات را جست‌وجو کنید، مشخصات هر محصول را ببینید و از فروشگاه تک‌طب تهیه کنید.',
 			'audience_label'      => 'ویژهٔ خرید حرفه‌ای',
 			'audience'            => array( 'بیمارستان‌ها', 'کلینیک‌ها', 'آزمایشگاه‌ها', 'مطب‌ها', 'مراکز دندان‌پزشکی' ),
 			'chips'               => array(),
@@ -133,9 +145,10 @@ final class Settings {
 		$count                = isset( $in['product_count'] ) ? (int) $in['product_count'] : $d['product_count'];
 		$out['product_count'] = max( 1, min( self::MAX_PRODUCTS, $count ) );
 
-		$links = is_array( $in['links'] ?? null ) ? $in['links'] : array();
+		// بی هیچ option ِ ذخیره‌شده (نصب تازه) پیش‌فرض‌های تأییدشده؛ پس از ذخیره، همان که فرم فرستاده.
+		$links = is_array( $in['links'] ?? null ) ? $in['links'] : $d['links'];
 		foreach ( array_keys( self::LINKS ) as $key ) {
-			$given = trim( (string) ( $links[ $key ] ?? '' ) );
+			$given = trim( (string) ( array_key_exists( $key, $links ) ? $links[ $key ] : $d['links'][ $key ] ) );
 			$clean = self::clean_url( $given );
 			if ( '' !== $given && '' === $clean && $report ) {
 				self::error( 'link_' . $key, sprintf( 'نشانی «%s» پذیرفته نشد و خالی ماند: فقط https://… ، http://… یا مسیری که با / شروع شود.', $given ) );

@@ -16,10 +16,10 @@
      first: FAIL sanitize: a trashed product cannot be newly added
  9 CAUGHT  [integration] 1 failing — product price printed through wp_kses_post (bdi lost)
      first: FAIL price: WooCommerce price markup kept intact (bdi for RTL number + currency)
-10 CAUGHT  [integration] 7 failing — repair card shown without a destination
-     first: FAIL defaults: only the shop route (repair and supplier have no destination)
-11 CAUGHT  [integration] 7 failing — supplier card without a destination
-     first: FAIL defaults: no supplier section
+10 CAUGHT  [integration] 4 failing — repair card shown without a destination
+     first: FAIL shop route: no route cards at all when none has a destination
+11 CAUGHT  [integration] 3 failing — supplier card without a destination
+     first: FAIL shop route: no route cards at all when none has a destination
 12 CAUGHT  [integration] 3 failing — shop URL without the page guard
      first: FAIL shop route: hidden (not pointed at the homepage) when no shop page is set
 13 CAUGHT  [integration] 1 failing — any URL accepted (javascript:)
@@ -34,9 +34,28 @@
      first: FAIL no write: update_post_meta  — includes/class-catalog.php
 18 CAUGHT  [static] 1 failing — Dokan dependency
      first: FAIL no dependency on دکان  — includes/class-renderer.php
-19 CAUGHT  [browser] 1 failing — heading hardening removed (theme/kit leak)
+19 CAUGHT  [browser] 1 failing — heading hardening and isolation layer both removed (theme/kit leak)
      first: FAIL theme: an Elementor kit with form/heading styles changes nothing either  — h1.fontStyle: normal → italic; h1.textTransform: none → uppe
 20 CAUGHT  [browser] 1 failing — route grid layout dropped (three cards not side by side)
-     first: FAIL routes 1440px: three cards side by side in one row  — [655,655,756]
+     first: FAIL routes 1440px: three cards side by side in one row  — [697,697,798]
+21 CAUGHT  [isolation] 1 failing — isolation layer dropped (site-wide CSS reaches the homepage)
+     first: falsify-tmp: 6 states, 133 elements × 43 properties + box — 236 differences caused by site-wide CSS
+22 CAUGHT  [static] 1 failing — one rule loses its ID-weight boost
+     first: FAIL css: every root selector carries the ID-weight boost
+23 CAUGHT  [integration] 1 failing — repair default dropped (confirmed URL lost)
+     first: FAIL defaults: three routes shop → repair → supplier
+24 CAUGHT  [integration] 2 failing — supplier default points elsewhere
+     first: FAIL defaults: supplier section links to /landing-seller/
+25 CAUGHT  [integration] 7 failing — saved empty URL silently falls back to the default
+     first: FAIL shop route: no route cards at all when none has a destination
+26 CAUGHT  [integration] 1 failing — header font not shared (double download)
+     first: FAIL assets: with tecteb-header active, the font is the header's file (one download), else our own
+27 CAUGHT  [integration] 1 failing — WP Rocket home purge dropped (stale homepage after a selection change)
+     first: FAIL cache: WP Rocket — home page purged once per request, whole-domain purge never called  — 0 215
+28 CAUGHT  [integration] 1 failing — WP Rocket purge widened to the whole site
+     first: FAIL cache: WP Rocket — home page purged once per request, whole-domain purge never called  — 1 220
+29 CAUGHT  [integration] 1 failing — hero text claims an unconfirmed side-by-side comparison
+     first: FAIL defaults: no unconfirmed claim «کنار هم» on the page
 
-20 of 20 mutations caught and restored
+29 of 29 mutations caught and restored
+exit=0

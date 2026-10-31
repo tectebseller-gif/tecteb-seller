@@ -102,9 +102,13 @@ check( 'defaults: one h1', 1 === count( nodes( $h, '//h1' ) ) );
 check( 'defaults: no categories section without selection', 0 === count( nodes( $h, '//*[@id="th-cats-title"]' ) ) );
 check( 'defaults: no products section without a manual selection (featured flag ignored)', 0 === count( nodes( $h, '//*[@id="th-products-title"]' ) ) );
 check( 'defaults: no services section exists any more', ! str_contains( $h, 'th-services' ) && ! str_contains( $h, 'th-service' ) );
-check( 'defaults: no supplier section', 0 === count( nodes( $h, '//*[@id="th-supplier-title"]' ) ) );
-check( 'defaults: only the shop route (repair and supplier have no destination)', array( 'th-route th-route--shop' ) === array_map( static fn( $n ) => $n->getAttribute( 'class' ), nodes( $h, '//a[' . cls( 'th-route' ) . ']' ) ) );
-check( 'defaults: routes nav labelled, data-count=1', 1 === count( nodes( $h, '//nav[' . cls( 'th-routes' ) . ' and @data-count="1" and @aria-label]' ) ) );
+// ۰٫۳٫۰: مقصدهای تأییدشدهٔ مالک پیش‌فرض‌اند — تعمیرات ⇒ صفحهٔ موجود تعمیرات، همکاری ⇒ /landing-seller/.
+check( 'defaults: supplier section links to /landing-seller/', 1 === count( nodes( $h, '//*[@id="th-supplier-title"]' ) ) && 1 === count( nodes( $h, '//section[' . cls( 'th-section--join' ) . ']//a[@href="' . home_url( '/landing-seller/' ) . '"]' ) ) );
+check( 'defaults: three routes shop → repair → supplier', array( 'th-route th-route--shop', 'th-route th-route--repair', 'th-route th-route--supplier' ) === array_map( static fn( $n ) => $n->getAttribute( 'class' ), nodes( $h, '//a[' . cls( 'th-route' ) . ']' ) ) );
+check( 'defaults: repair route → /https-tecteb-com-repair-request/ (only a link)', home_url( '/https-tecteb-com-repair-request/' ) === nodes( $h, '//a[' . cls( 'th-route--repair' ) . ']' )[0]->getAttribute( 'href' ) && 0 === count( nodes( $h, '//form[not(@role="search")]' ) ) );
+check( 'defaults: supplier route → /landing-seller/', home_url( '/landing-seller/' ) === nodes( $h, '//a[' . cls( 'th-route--supplier' ) . ']' )[0]->getAttribute( 'href' ) );
+check( 'defaults: routes nav labelled, data-count=3', 1 === count( nodes( $h, '//nav[' . cls( 'th-routes' ) . ' and @data-count="3" and @aria-label]' ) ) );
+check( 'defaults: supplier section has one button only (no «supplier terms» without a terms URL)', 1 === count( nodes( $h, '//section[' . cls( 'th-section--join' ) . ']//a' ) ) );
 check( 'shop route: href is wc_get_page_permalink(shop)', wc_get_page_permalink( 'shop' ) === nodes( $h, '//a[' . cls( 'th-route--shop' ) . ']' )[0]->getAttribute( 'href' ) );
 foreach ( array( 'درخواست تأمین', 'استعلام', 'پیش‌فاکتور', 'th-product__quote', 'th-route--buyer' ) as $gone ) {
 	check( "retired: «{$gone}» nowhere on the page", ! str_contains( $h, $gone ) );
@@ -112,6 +116,10 @@ foreach ( array( 'درخواست تأمین', 'استعلام', 'پیش‌فاک
 check( 'defaults: no quick chips', 0 === count( nodes( $h, '//*[' . cls( 'th-quick' ) . ']' ) ) );
 check( 'defaults: no category select without categories', 0 === count( nodes( $h, '//select[@name="product_cat"]' ) ) );
 check( 'defaults: audience line shows', 1 === count( nodes( $h, '//*[' . cls( 'th-audience' ) . ']' ) ) );
+// ۰٫۳٫۰: هیچ قابلیت تأییدنشده‌ای (مقایسهٔ کنار هم، استعلام، آمار) در متن پیش‌فرض.
+foreach ( array( 'کنار هم', 'مقایسه', 'تضمین', 'نمایندگی رسمی', '٪', 'هزار مشتری', 'رضایت' ) as $claim ) {
+	check( "defaults: no unconfirmed claim «{$claim}» on the page", ! str_contains( $h, $claim ) );
+}
 check( 'no temporary #th-route links anywhere', ! str_contains( $h, '#th-route' ) && ! str_contains( $h, 'data-th-route' ) );
 foreach ( array( 'th-sample', 'th-imgnote', 'th-hero__note', 'proto-', 'تصویر نمایشی', 'نمونه', 'در انتظار تأیید' ) as $needle ) {
 	check( "no preview marker «{$needle}»", ! str_contains( $h, $needle ) );
@@ -126,7 +134,11 @@ $shop_id = (int) get_option( 'woocommerce_shop_page_id' );
 update_option( 'woocommerce_shop_page_id', 0 );
 $plan = Renderer::plan();
 check( 'shop route: hidden (not pointed at the homepage) when no shop page is set', ! $plan['routes']['shop']['show'] && '' === Renderer::shop_url() && '' !== $plan['routes']['shop']['reason'] );
+settings( array( 'links' => array( 'repair' => '', 'supplier' => '' ) ) );
 check( 'shop route: no route cards at all when none has a destination', 0 === count( nodes( html( 'hero' ), '//nav[' . cls( 'th-routes' ) . ']' ) ) );
+check( 'saved empty repair/supplier URL hides them (no fallback to the default)', '' === Settings::link( 'repair' ) && '' === Settings::link( 'supplier' ) );
+delete_option( Settings::OPTION );
+Settings::forget();
 update_option( 'woocommerce_shop_page_id', $ids['page'] );
 wp_update_post( array( 'ID' => $ids['page'], 'post_status' => 'draft' ) );
 check( 'shop route: hidden when the shop page is not published', '' === Renderer::shop_url() );
@@ -345,7 +357,9 @@ $page  = http( '/tecteb-home-new/' );
 $plain = http( '/plain-page/' );
 $shop  = http( '/shop/' );
 $prod  = http( '/?p=' . $p['monitor'] );
-check( 'assets: homepage loads css, font and js', str_contains( $page, 'tecteb-home.css' ) && str_contains( $page, 'tecteb-home-font.css' ) && str_contains( $page, 'tecteb-home.js' ) );
+$shared = Assets::shared_font_url();
+check( 'assets: homepage loads css, font and js', str_contains( $page, 'tecteb-home.css' ) && str_contains( $page, 'tecteb-home.js' ) && ( '' === $shared ? str_contains( $page, 'tecteb-home-font.css' ) : str_contains( $page, '@font-face{font-family:"TH Vazirmatn";src:url("' . $shared . '")' ) && ! str_contains( $page, 'tecteb-home-font.css' ) ) );
+check( 'assets: with tecteb-header active, the font is the header\'s file (one download), else our own', defined( 'TECTEB_HEADER_URL' ) ? TECTEB_HEADER_URL . 'assets/fonts/Vazirmatn-wght.woff2' === $shared && ! str_contains( $page, 'tecteb-homepage/assets/fonts/Vazirmatn-wght.woff2' ) : '' === $shared );
 check( 'assets: css loads in <head>, not late in the footer', strpos( $page, 'tecteb-home.css' ) < strpos( $page, '</head>' ) );
 check( 'assets: js is deferred', (bool) preg_match( '#<script[^>]+tecteb-home\.js[^>]*defer|<script[^>]+defer[^>]+tecteb-home\.js#', $page ) );
 check( 'assets: font preloaded', str_contains( $page, 'rel="preload"' ) && str_contains( $page, 'Vazirmatn-wght.woff2' ) );
@@ -355,13 +369,17 @@ foreach ( array( 'plain page' => $plain, 'shop' => $shop, 'product' => $prod ) a
 check( 'assets: no external host referenced by our assets', ! preg_match( '#https?://(?!127\.0\.0\.1)[^"\')\s]+#', file_get_contents( TECTEB_HOME_DIR . 'assets/css/tecteb-home.css' ) . file_get_contents( TECTEB_HOME_DIR . 'assets/js/tecteb-home.js' ) ) );
 settings( array( 'font' => 'site' ) );
 $page = http( '/tecteb-home-new/' );
-check( 'font=site: no font css, no preload, root gets th-font-site', ! str_contains( $page, 'tecteb-home-font.css' ) && ! str_contains( $page, 'Vazirmatn-wght.woff2' ) && str_contains( $page, 'th-font-site' ) );
+// (فونت خودِ هدر مستقل، اگر فعال است، کار هدر است و اینجا سنجیده نمی‌شود.)
+check( 'font=site: no font css, no preload, no TH Vazirmatn face, root gets th-font-site', ! str_contains( $page, 'tecteb-home-font.css' ) && ! str_contains( $page, 'tecteb-homepage/assets/fonts/Vazirmatn-wght.woff2' ) && ! str_contains( $page, 'font-family:"TH Vazirmatn";src' ) && ! preg_match( '#<link rel="preload"[^>]+Vazirmatn[^>]+>#', $page ) && str_contains( $page, 'th-font-site' ) );
 settings( array( 'font' => 'bundled' ) );
 
 /* ------------------------------------------------------------ ۱۱. قالب صفحه */
 $page = http( '/tecteb-home-new/' );
-check( 'page template: site header kept', str_contains( $page, 'id="site-header"' ) );
-check( 'page template: site footer kept', str_contains( $page, 'id="site-footer"' ) );
+// هدر و پاورقی سایت — هر کدام که این محیط دارد: قالب Hello، مکان Elementor Theme Builder، یا هدر
+// مستقل tecteb-header (که جای مکان header ِ Elementor را می‌گیرد). دقیقاً یک هدر.
+$site_headers = substr_count( $page, 'id="site-header"' ) + substr_count( $page, 'data-elementor-type="header"' ) + substr_count( $page, 'data-tth-header' );
+check( 'page template: site header kept (exactly one)', 1 === $site_headers, (string) $site_headers );
+check( 'page template: site footer kept', str_contains( $page, 'id="site-footer"' ) || str_contains( $page, 'data-elementor-type="footer"' ) );
 check( 'page template: no page title, one h1', 1 === preg_match_all( '#<h1[\s>]#', $page ) && ! str_contains( $page, 'صفحهٔ اصلی تازه</h1>' ) );
 check( 'page template: offered in the page template list', isset( wp_get_theme()->get_page_templates( null, 'page' )[ \Tecteb\Homepage\PageTemplate::FILE ] ) );
 
@@ -384,6 +402,17 @@ $purged = array();
 Cache::reset();
 wp_update_term( $c['or'], 'product_cat', array( 'description' => 'به‌روز' ) );
 check( 'cache: editing a category purges the homepage', array( home_url( '/' ) ) === $purged );
+// WP Rocket: فقط صفحهٔ اصلی (rocket_clean_home)، یک بار در هر درخواست؛ هرگز کل دامنه.
+if ( function_exists( 'rocket_clean_home' ) ) {
+	$GLOBALS['tthh_rocket_home'] = 0;
+	$domain_before               = (int) get_option( 'tthh_rocket_calls', 0 );
+	Cache::reset();
+	settings( array( 'product_count' => 3 ) );
+	settings( array( 'product_count' => 4 ) );
+	check( 'cache: WP Rocket — home page purged once per request, whole-domain purge never called', 1 === $GLOBALS['tthh_rocket_home'] && $domain_before === (int) get_option( 'tthh_rocket_calls', 0 ), $GLOBALS['tthh_rocket_home'] . ' ' . $domain_before );
+} else {
+	check( 'cache: WP Rocket stub present in this environment', false, 'rocket_clean_home stub (header-plugin/tests/fixtures/test-helpers.php) not loaded' );
+}
 
 /* ------------------------------------------------------------ ۱۳. مدیریت */
 Admin::register_hooks();

@@ -29,7 +29,7 @@ function tthh_reset(): void {
 	foreach ( get_posts( array( 'post_type' => array( 'product', 'attachment', 'nav_menu_item', 'page' ), 'post_status' => 'any', 'numberposts' => -1, 'meta_key' => TTHH_FIXTURE, 'fields' => 'ids' ) ) as $id ) {
 		'attachment' === get_post_type( $id ) ? wp_delete_attachment( $id, true ) : wp_delete_post( $id, true );
 	}
-	$terms = get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false, 'meta_key' => TTHH_FIXTURE ) );
+	$terms = get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false, 'meta_query' => array( array( 'key' => TTHH_FIXTURE, 'compare' => 'EXISTS' ) ) ) );
 	// فرزندان پیش از مادر، تا هیچ دسته‌ای «بی‌مادر» به سطح اول نپرد و دوباره ساخته نشود.
 	usort( $terms, static fn( $a, $b ) => count( get_ancestors( $b->term_id, 'product_cat' ) ) <=> count( get_ancestors( $a->term_id, 'product_cat' ) ) );
 	foreach ( $terms as $t ) {

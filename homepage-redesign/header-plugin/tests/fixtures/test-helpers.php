@@ -17,6 +17,7 @@ add_filter(
 	static function ( $src, $handle ) {
 		$map = array(
 			'tecteb-header-base' => 'header.css',
+			'tecteb-home'        => 'tecteb-home.css', // صفحهٔ اصلی (plugin/tests/isolation.mjs با MINIFIED=1)
 			'tecteb-header'      => 'tecteb-header.css',
 		);
 		if ( get_option( 'tthh_minified' ) && isset( $map[ $handle ] ) ) {
@@ -33,6 +34,13 @@ if ( ! function_exists( 'rocket_clean_domain' ) ) {
 	function rocket_clean_domain() {
 		$GLOBALS['tthh_rocket'] = ( $GLOBALS['tthh_rocket'] ?? 0 ) + 1;
 		update_option( 'tthh_rocket_calls', (int) get_option( 'tthh_rocket_calls', 0 ) + 1, false );
+	}
+}
+
+// بدلِ پاک‌سازی صفحهٔ اصلی در WP Rocket (افزونهٔ صفحهٔ اصلی): فقط شمارش.
+if ( ! function_exists( 'rocket_clean_home' ) ) {
+	function rocket_clean_home() {
+		$GLOBALS['tthh_rocket_home'] = ( $GLOBALS['tthh_rocket_home'] ?? 0 ) + 1;
 	}
 }
 

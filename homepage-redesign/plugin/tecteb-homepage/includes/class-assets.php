@@ -60,7 +60,13 @@ final class Assets {
 			self::register();
 		}
 		if ( 'bundled' === Settings::get()['font'] ) {
-			wp_enqueue_style( self::FONT );
+			$shared = self::shared_font_url();
+			if ( '' === $shared ) {
+				wp_enqueue_style( self::FONT );
+			} elseif ( ! wp_style_is( self::STYLE, 'enqueued' ) ) {
+				// همان @font-face ِ tecteb-home-font.css، فقط با نشانی فایلِ هدر.
+				wp_add_inline_style( self::STYLE, '@font-face{font-family:"TH Vazirmatn";src:url("' . esc_url_raw( $shared ) . '") format("woff2");font-weight:100 900;font-display:swap}' );
+			}
 		}
 		wp_enqueue_style( self::STYLE );
 		wp_enqueue_script( self::SCRIPT );
@@ -68,11 +74,30 @@ final class Assets {
 
 	public static function preload_font(): void {
 		if ( self::$font_preload ) {
+			$shared = self::shared_font_url();
 			printf(
 				'<link rel="preload" href="%s" as="font" type="font/woff2" crossorigin>' . "\n",
-				esc_url( TECTEB_HOME_URL . 'assets/fonts/Vazirmatn-wght.woff2' )
+				esc_url( '' !== $shared ? $shared : TECTEB_HOME_URL . 'assets/fonts/Vazirmatn-wght.woff2' )
 			);
 		}
+	}
+
+	/**
+	 * هدر مستقل تک‌طب (tecteb-header) همان فایل Vazirmatn را دارد (بایت‌به‌بایت یکی، اندازه‌گیری‌شده).
+	 * اگر فعال است و فایلش هم‌اندازهٔ فایل ماست، صفحهٔ اصلی همان نشانی را به کار می‌برد تا مرورگر
+	 * فونت را یک بار بگیرد، نه دو بار (حدود ۱۱۰ کیلوبایت). هدر فقط خوانده می‌شود — هیچ چیزی از آن
+	 * تغییر نمی‌کند — و بی آن، یا با فایل دیگر، فایل خودِ این افزونه بارگذاری می‌شود.
+	 */
+	public static function shared_font_url(): string {
+		if ( ! defined( 'TECTEB_HEADER_URL' ) || ! defined( 'TECTEB_HEADER_DIR' ) ) {
+			return '';
+		}
+		$theirs = TECTEB_HEADER_DIR . 'assets/fonts/Vazirmatn-wght.woff2';
+		$ours   = TECTEB_HOME_DIR . 'assets/fonts/Vazirmatn-wght.woff2';
+		if ( ! is_readable( $theirs ) || filesize( $theirs ) !== filesize( $ours ) ) {
+			return '';
+		}
+		return TECTEB_HEADER_URL . 'assets/fonts/Vazirmatn-wght.woff2';
 	}
 
 	public static function page_uses_homepage(): bool {

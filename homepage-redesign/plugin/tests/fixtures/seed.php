@@ -27,7 +27,7 @@ function tth_reset(): void {
 	foreach ( get_posts( array( 'post_type' => array( 'product', 'attachment', 'page', 'post' ), 'post_status' => 'any', 'numberposts' => -1, 'meta_key' => TTH_FIXTURE, 'fields' => 'ids' ) ) as $id ) {
 		'attachment' === get_post_type( $id ) ? wp_delete_attachment( $id, true ) : wp_delete_post( $id, true );
 	}
-	foreach ( get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false, 'meta_key' => TTH_FIXTURE ) ) as $term ) {
+	foreach ( get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false, 'meta_query' => array( array( 'key' => TTH_FIXTURE, 'compare' => 'EXISTS' ) ) ) ) as $term ) {
 		wp_delete_term( $term->term_id, 'product_cat' );
 	}
 	delete_option( 'tecteb_home_settings' );
@@ -111,6 +111,14 @@ update_option( 'woocommerce_currency_pos', 'right_space' );
 update_option( 'woocommerce_coming_soon', 'no' );
 update_option( 'permalink_structure', '/%postname%/' );
 flush_rewrite_rules();
+
+// جانشین‌های محلیِ دو صفحهٔ موجود سایت که مالک تأیید کرده (۰٫۳٫۰): فقط تا کلیکِ آزمون مرورگر ۲۰۰ بگیرد.
+foreach ( array( 'https-tecteb-com-repair-request' => 'درخواست تعمیرات (جانشین محلی)', 'landing-seller' => 'همکاری تأمین‌کنندگان (جانشین محلی)' ) as $slug => $title ) {
+	if ( ! get_page_by_path( $slug ) ) {
+		$pid = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => $title, 'post_name' => $slug, 'post_content' => $title ) );
+		update_post_meta( $pid, TTH_FIXTURE, '1' );
+	}
+}
 
 $assets  = $root . '/concept-c/assets/';
 $img_mon = tth_image( $assets . 'product-monitor-640.webp', 'مانیتور' );

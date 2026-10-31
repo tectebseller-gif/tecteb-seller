@@ -46,7 +46,9 @@ before="$(curl -s "$SITE/" | grep -c 'tecteb-home')"
 q option update page_on_front "$PAGE" >/dev/null                                                # تعویض
 on="$(curl -s "$SITE/")"
 grep -q 'th-hero-title' <<<"$on"; check "switch: the new front page shows the design" $?
-grep -q 'id="site-header"' <<<"$on" && grep -q 'id="site-footer"' <<<"$on"; check "switch: site header and footer kept" $?
+# هدر و پاورقی سایت — Hello، مکان Elementor، یا هدر مستقل tecteb-header؛ دقیقاً یک هدر.
+hdrs=$(( $(grep -o 'id="site-header"' <<<"$on" | wc -l) + $(grep -o 'data-elementor-type="header"' <<<"$on" | wc -l) + $(grep -o 'data-tth-header' <<<"$on" | wc -l) ))
+[[ "$hdrs" == 1 ]] && grep -qE 'id="site-footer"|data-elementor-type="footer"' <<<"$on"; check "switch: site header (exactly one) and footer kept" $? "headers=$hdrs"
 digest() { q db query "SELECT (SELECT CONCAT(COUNT(*),':',MAX(ID)) FROM wp_posts),(SELECT COUNT(*) FROM wp_postmeta),(SELECT COUNT(*) FROM wp_terms),(SELECT COUNT(*) FROM wp_termmeta),(SELECT COUNT(*) FROM wp_term_relationships)" --skip-column-names; }
 d0="$(digest)"
 start=$(date +%s)

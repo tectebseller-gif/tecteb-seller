@@ -7,7 +7,8 @@
  * هر ذخیرهٔ محصول (قیمت، موجودی، تصویر، انتشار) woocommerce_update_product را
  * می‌زند؛ انتخاب و ترتیب محصولات و دسته‌ها تنظیم همین افزونه است. پاک‌سازی از راه قلاب عمومی LiteSpeed Cache
  * (`litespeed_purge_url`) است: اگر آن افزونه نصب نباشد، کسی به این قلاب گوش
- * نمی‌دهد و هیچ اتفاقی نمی‌افتد. قلاب `tecteb_home_purge` برای هر کش دیگری.
+ * نمی‌دهد و هیچ اتفاقی نمی‌افتد. از ۰٫۳٫۰ برای WP Rocket (کش Staging و سایت اصلی) `rocket_clean_home()`
+ * — فقط صفحهٔ اصلی، نه کل سایت. قلاب `tecteb_home_purge` برای هر کش دیگری.
  *
  * @package Tecteb\Homepage
  */
@@ -60,6 +61,12 @@ final class Cache {
 		$urls = self::urls();
 		foreach ( $urls as $url ) {
 			do_action( 'litespeed_purge_url', $url ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- قلاب عمومی LiteSpeed Cache، نه قلاب ما.
+		}
+		// WP Rocket (روی Staging و سایت اصلی): فقط فایل‌های کش صفحهٔ اصلی و صفحه‌بندی‌اش. عمداً نه
+		// rocket_clean_files( home_url( '/' ) ): در WP Rocket 3.23.2.2 (inc/functions/files.php) آن برای
+		// نشانی ریشه پوشهٔ کل دامنه را بازگشتی پاک می‌کند، یعنی کش کل سایت. نبودِ WP Rocket ⇒ هیچ.
+		if ( function_exists( 'rocket_clean_home' ) ) {
+			rocket_clean_home();
 		}
 		/**
 		 * پس از پاک‌سازی صفحهٔ اصلی از LiteSpeed، برای هر کش دیگری.

@@ -3,9 +3,12 @@ PASS defaults: one h1
 PASS defaults: no categories section without selection
 PASS defaults: no products section without a manual selection (featured flag ignored)
 PASS defaults: no services section exists any more
-PASS defaults: no supplier section
-PASS defaults: only the shop route (repair and supplier have no destination)
-PASS defaults: routes nav labelled, data-count=1
+PASS defaults: supplier section links to /landing-seller/
+PASS defaults: three routes shop → repair → supplier
+PASS defaults: repair route → /https-tecteb-com-repair-request/ (only a link)
+PASS defaults: supplier route → /landing-seller/
+PASS defaults: routes nav labelled, data-count=3
+PASS defaults: supplier section has one button only (no «supplier terms» without a terms URL)
 PASS shop route: href is wc_get_page_permalink(shop)
 PASS retired: «درخواست تأمین» nowhere on the page
 PASS retired: «استعلام» nowhere on the page
@@ -15,6 +18,13 @@ PASS retired: «th-route--buyer» nowhere on the page
 PASS defaults: no quick chips
 PASS defaults: no category select without categories
 PASS defaults: audience line shows
+PASS defaults: no unconfirmed claim «کنار هم» on the page
+PASS defaults: no unconfirmed claim «مقایسه» on the page
+PASS defaults: no unconfirmed claim «تضمین» on the page
+PASS defaults: no unconfirmed claim «نمایندگی رسمی» on the page
+PASS defaults: no unconfirmed claim «٪» on the page
+PASS defaults: no unconfirmed claim «هزار مشتری» on the page
+PASS defaults: no unconfirmed claim «رضایت» on the page
 PASS no temporary #th-route links anywhere
 PASS no preview marker «th-sample»
 PASS no preview marker «th-imgnote»
@@ -28,6 +38,7 @@ PASS search form goes to home_url with post_type=product
 PASS hero image eager, high priority, excluded from lazyload
 PASS shop route: hidden (not pointed at the homepage) when no shop page is set
 PASS shop route: no route cards at all when none has a destination
+PASS saved empty repair/supplier URL hides them (no fallback to the default)
 PASS shop route: hidden when the shop page is not published
 PASS shop route: back once the shop page is valid
 PASS selection: saving a selection changes nothing on the products (featured, price, stock, category, status)
@@ -120,6 +131,7 @@ PASS shortcode: sections attribute order kept, unknown ignored
 PASS shortcode: icon sprite printed once per page
 PASS read-only: rendering and serving changes no WordPress/WooCommerce row
 PASS assets: homepage loads css, font and js
+PASS assets: with tecteb-header active, the font is the header's file (one download), else our own
 PASS assets: css loads in <head>, not late in the footer
 PASS assets: js is deferred
 PASS assets: font preloaded
@@ -127,14 +139,15 @@ PASS assets: nothing loads on plain page
 PASS assets: nothing loads on shop
 PASS assets: nothing loads on product
 PASS assets: no external host referenced by our assets
-PASS font=site: no font css, no preload, root gets th-font-site
-PASS page template: site header kept
+PASS font=site: no font css, no preload, no TH Vazirmatn face, root gets th-font-site
+PASS page template: site header kept (exactly one)
 PASS page template: site footer kept
 PASS page template: no page title, one h1
 PASS page template: offered in the page template list
 PASS cache: a product edit purges the homepage URL once per request
 PASS cache: saving settings purges the homepage
 PASS cache: editing a category purges the homepage
+PASS cache: WP Rocket — home page purged once per request, whole-domain purge never called
 PASS admin: settings capability is manage_woocommerce
 PASS admin: a subscriber cannot reach the page
 PASS admin: page renders with settings form and nonce
@@ -149,4 +162,4 @@ PASS admin: shop destination shown read-only from WooCommerce
 PASS admin: wp-config constant shown read-only
 PASS uninstall: removes only its own option
 
-150 passed, 0 failed
+163 passed, 0 failed

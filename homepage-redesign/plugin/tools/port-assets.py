@@ -71,6 +71,31 @@ def selectors_of(prelude: str) -> list[str]:
 
 PREVIEW_COMMENT = re.compile(r"نمونه|پیش‌نمایش|Hero A|استعلام|خدمات")
 
+# ۰٫۳٫۰ — ایزولگی در برابر CSS ِ سراسری سایت (Kit ِ Elementor، قالب، Custom CSS)، همان روش هدر
+# (header-plugin/tools/harden-css.py)، با یک تفاوت: صفحهٔ اصلی می‌تواند چند بار در یک صفحه رندر شود
+# (shortcode با sections)، پس ریشه id ندارد. وزن ID با `:is(.tecteb-home-v1, #th-boost)` می‌آید —
+# `:is()` وزن سنگین‌ترین آرگومانش را می‌گیرد — و چون همان عنصر کلاس `.tecteb-home-v1` را دارد، همیشه
+# می‌خورد؛ هیچ عنصری لازم نیست id ِ th-boost داشته باشد. هر انتخابگر یکسان یک ID اضافه می‌گیرد، پس
+# برتری قاعده‌های طرح میان خودشان عوض نمی‌شود؛ ولی هر قاعدهٔ سراسری بی ID (مثل
+# `.elementor-kit-N input:not(…):not(…)` با وزن (0,3,1)) کم می‌آورد.
+ROOT_CLASS = ".tecteb-home-v1"
+ROOT = ROOT_CLASS + ":is(" + ROOT_CLASS + ", #th-boost)"
+ISOLATION = f"""/* ---- لایهٔ ایزوله (tools/port-assets.py): هر فرزند (جز SVG و درونش، و img) به پیش‌فرض مرورگر
+   برمی‌گردد؛ قاعده‌های طرح که بعد می‌آیند و هم‌وزن یا سنگین‌ترند دوباره سبک خودشان را می‌گذارند. */
+{ROOT} :where(:not(svg, svg *, img)),
+{ROOT} :where(:not(svg, svg *, img))::before,
+{ROOT} :where(:not(svg, svg *, img))::after {{ all: revert; }}
+{ROOT} :where(svg) {{ opacity: 1; filter: none; transform: none; margin: 0; padding: 0; border: 0; box-shadow: none; float: none; visibility: visible; max-width: none; }}
+{ROOT} :where(img) {{ border: 0; padding: 0; margin: 0; box-shadow: none; opacity: 1; filter: none; transform: none; border-radius: 0; float: none; vertical-align: baseline; max-width: none; height: auto; }}
+{ROOT} {{ letter-spacing: normal; word-spacing: normal; text-transform: none; font-style: normal; font-weight: 400; text-indent: 0; text-shadow: none; white-space: normal; }}
+"""
+
+
+def boost(css: str) -> str:
+    """هر `.tecteb-home-v1` در انتخابگرها (نه در توضیح‌ها) ⇒ ROOT."""
+    parts = re.split(r"(/\*.*?\*/)", css, flags=re.S)
+    return "".join(p if p.startswith("/*") else p.replace(ROOT_CLASS, ROOT) for p in parts)
+
 
 def clean(block: str, fonts: list[str]) -> str | None:
     if block.lstrip().startswith("/*"):
@@ -108,7 +133,7 @@ def main() -> int:
         "/* tecteb-homepage — ساخته‌شده از concept-c/concept-c.css با tools/port-assets.py.\n"
         " * دستی ویرایش نکنید: پیش‌نمایش مرجع است؛ سخت‌سازی در src/hardening.css و افزوده‌های ۰٫۲٫۰ در src/additions.css. */\n\n"
     )
-    (PLUGIN / "assets/css/tecteb-home.css").write_text(header + css + "\n" + hardening, encoding="utf-8")
+    (PLUGIN / "assets/css/tecteb-home.css").write_text(header + ISOLATION + "\n" + boost(css + "\n" + hardening), encoding="utf-8")
 
     if len(fonts) != 1:
         print(f"expected one @font-face, got {len(fonts)}", file=sys.stderr)

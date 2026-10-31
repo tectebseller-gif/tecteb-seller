@@ -1,0 +1,4 @@
+320: none
+390: none
+768: none
+1440: none

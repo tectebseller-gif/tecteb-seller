@@ -54,14 +54,18 @@ PASS no WooCommerce loop: do_action( "woocommerce
 PASS no WooCommerce loop: woocommerce_shop_loop
 PASS no WooCommerce loop: wc_setup_loop
 PASS templates: no inline <script>
-PASS css: every selector scoped under .tecteb-home-v1 (246 selectors)
+PASS css: every selector scoped under .tecteb-home-v1 (252 selectors)
 PASS css: no @font-face in the main stylesheet (font is its own file)
 PASS css: font file has exactly one @font-face with a unique family
 PASS css: font file exists
 PASS css: no external url()
 PASS css: !important only where the approved design has it (reduced motion, audience separator)
 PASS css: hardening adds no !important
-PASS css: shipped stylesheet ends with the hardening rules
+PASS css: shipped stylesheet ends with the hardening rules (boosted)
+PASS css: isolation layer (all: revert) precedes the design rules
+PASS css: every root selector carries the ID-weight boost
+PASS css: no element on the page needs id=th-boost
+PASS assets: shared header font only via TECTEB_HEADER_* constants, read-only
 PASS css: no physical left/right properties
 PASS css: every animation is under prefers-reduced-motion: no-preference
 PASS js: no network, no storage, scoped to .tecteb-home-v1
@@ -95,4 +99,4 @@ PASS plugin header/markup has «Requires Plugins:  woocommerce»
 PASS plugin header/markup has «Requires PHP:      8.1»
 PASS plugin header/markup has «Text Domain:       tecteb-homepage»
 
-96 passed, 0 failed
+100 passed, 0 failed

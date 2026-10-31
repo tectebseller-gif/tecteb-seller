@@ -1,6 +1,6 @@
 PASS theme: Hello Elementor 3.5.1 changes none of the measured properties vs the approved preview
 PASS theme: an Elementor kit with form/heading styles changes nothing either
-PASS page: site header kept
+PASS page: site header kept (exactly one)
 PASS page: site footer kept
 PASS page: exactly one h1
 PASS page: all four sections present (full state)
@@ -50,8 +50,11 @@ PASS layout shipped-front 390px: every control at least 24×24
 PASS images shipped-front 320px: every image loaded
 PASS layout shipped-front 320px: no horizontal overflow
 PASS layout shipped-front 320px: every control at least 24×24
-PASS shipped state on the real front page: hero + categories + products only
-PASS shipped state: only the shop route; no repair or supplier card until their addresses are set
+PASS shipped state on the real front page: hero + categories + products + supplier
+PASS shipped state: three routes; repair → /https-tecteb-com-repair-request/, supplier → /landing-seller/
+PASS shipped state: th-route--repair goes to /https-tecteb-com-repair-request/ (200)
+PASS shipped state: th-route--supplier goes to /landing-seller/ (200)
+PASS shipped state: no repair form on the homepage (link only)
 PASS shipped state: the four selected products, in the selected order
 PASS admin: logged in
 PASS admin: settings page under WooCommerce renders
@@ -72,4 +75,4 @@ PASS admin → front: new first category is first on the homepage
 PASS admin → front: repair card appears once its address is saved
 PASS admin: logged-out visitor is sent to login
 
-73 passed, 0 failed
+76 passed, 0 failed

@@ -104,8 +104,10 @@ try {
   check('theme: an Elementor kit with form/heading styles changes nothing either', kitLeaks.length === 0, kitLeaks.slice(0, 6).join('; '));
   await page.reload({ waitUntil: 'load' });
 
-  check('page: site header kept', await page.locator('#site-header').count() === 1);
-  check('page: site footer kept', await page.locator('#site-footer').count() === 1);
+  // هدر و پاورقی سایت — هر کدام که این محیط دارد: Hello، مکان Elementor، یا هدر مستقل tecteb-header. دقیقاً یک هدر.
+  const siteHeaders = await page.locator('#site-header, [data-elementor-type="header"], [data-tth-header]').count();
+  check('page: site header kept (exactly one)', siteHeaders === 1, String(siteHeaders));
+  check('page: site footer kept', await page.locator('#site-footer, [data-elementor-type="footer"]').count() === 1);
   check('page: exactly one h1', await page.locator('h1').count() === 1);
   check('page: all four sections present (full state)', await page.locator('.tecteb-home-v1 > section').count() === 4);
   check('page: no services section, no quote button', await page.locator('.th-services, .th-product__quote, .th-route--buyer').count() === 0);
@@ -215,7 +217,7 @@ try {
   const noJs = await browser.newContext({ viewport: { width: 390, height: 900 }, javaScriptEnabled: false });
   const np = await noJs.newPage();
   await np.goto(`${SITE}/tecteb-home-new/`, { waitUntil: 'load' });
-  check('no JavaScript: page complete (4 sections, three routes, search form)', await np.locator('.tecteb-home-v1 > section').count() === 4 && await np.locator('.tecteb-home-v1 .th-route').count() === 3 && await np.locator('form[role="search"]').count() === 1);
+  check('no JavaScript: page complete (4 sections, three routes, search form)', await np.locator('.tecteb-home-v1 > section').count() === 4 && await np.locator('.tecteb-home-v1 .th-route').count() === 3 && await np.locator('.tecteb-home-v1 form[role="search"]').count() === 1);
   await calm.close(); await noJs.close();
 
   // ---------------------------------------------------------------- وضعیت تحویلی، به‌عنوان صفحهٔ اصلی
@@ -230,8 +232,16 @@ try {
     repair: document.querySelectorAll('.th-route--repair').length,
     products: [...document.querySelectorAll('.th-product__title')].map((h) => h.textContent.trim()),
   }));
-  check('shipped state on the real front page: hero + categories + products only', JSON.stringify(shipped.sections) === JSON.stringify(['th-hero-title', 'th-cats-title', 'th-products-title']), JSON.stringify(shipped.sections));
-  check('shipped state: only the shop route; no repair or supplier card until their addresses are set', JSON.stringify(shipped.routes) === JSON.stringify(['th-route th-route--shop']) && shipped.repair === 0 && shipped.supplier === 0, JSON.stringify(shipped));
+  // ۰٫۳٫۰: مقصدهای تأییدشدهٔ مالک پیش‌فرض‌اند.
+  check('shipped state on the real front page: hero + categories + products + supplier', JSON.stringify(shipped.sections) === JSON.stringify(['th-hero-title', 'th-cats-title', 'th-products-title', 'th-supplier-title']), JSON.stringify(shipped.sections));
+  check('shipped state: three routes; repair → /https-tecteb-com-repair-request/, supplier → /landing-seller/', JSON.stringify(shipped.routes) === JSON.stringify(['th-route th-route--shop', 'th-route th-route--repair', 'th-route th-route--supplier']) && shipped.repair === 1 && shipped.supplier === 2, JSON.stringify(shipped));
+  for (const [cls, slug] of [['th-route--repair', '/https-tecteb-com-repair-request/'], ['th-route--supplier', '/landing-seller/']]) {
+    const href = await page.locator(`.tecteb-home-v1 .${cls}`).getAttribute('href');
+    const [res] = await Promise.all([page.waitForNavigation(), page.click(`.tecteb-home-v1 .${cls}`)]);
+    check(`shipped state: ${cls} goes to ${slug} (200)`, href === `${SITE}${slug}` && res.status() === 200 && new URL(page.url()).pathname === slug, `${href} ${res.status()} ${page.url()}`);
+    await page.goto(`${SITE}/`, { waitUntil: 'load' });
+  }
+  check('shipped state: no repair form on the homepage (link only)', await page.locator('.tecteb-home-v1 form:not([role="search"])').count() === 0);
   check('shipped state: the four selected products, in the selected order', JSON.stringify(shipped.products) === JSON.stringify(['مانیتور علائم حیاتی پنج‌پارامتری', 'پالس‌اکسیمتر انگشتی با نمایشگر دوخطی و قاب محافظ سیلیکونی', 'سرنگ‌پمپ تک‌کاناله', 'سانتریفیوژ رومیزی <b>آزمایش</b>']), JSON.stringify(shipped.products));
 
   // ---------------------------------------------------------------- صفحهٔ تنظیمات، با کلیک
