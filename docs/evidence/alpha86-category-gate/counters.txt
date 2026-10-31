@@ -1,0 +1,48 @@
+alpha.86 — category counters, measured on the disposable MariaDB
+tree: a8cb44a · 8.4.19
+from the post-import state: 3 Dokan products imported by the real ImportFromDokan
+  9001 carries two real terms (701, 702)
+  9002 carries one real term (701)
+  9003 carries ONLY WooCommerce's default_product_cat (715)
+
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.4.19
+
+
+--- before recording any set ---
+list_importedWithoutCategory=3
+count_withoutCategory=3
+count_withoutCategorySet=3
+mapping_scanned=3
+mapping_total=3
+mapping_finished=yes
+mapping_counts={"apply":0,"unmapped":3}
+apply_counts={"linked":2}
+--- after recording both sets ---
+key_two_category_product=[]
+key_one_category_product=[701]
+list_importedWithoutCategory=2
+list_ids=[9001,9003]
+count_withoutCategory=1
+count_withoutCategorySet=1
+mapping_scanned=2
+mapping_total=1
+mapping_finished=yes
+mapping_counts={"apply":0,"unmapped":2}
+link_counts={"apply":0,"settled":2,"default_term":1}
+link_unrecorded=1
+.mapping_write_on_recorded_product=written
+mapping_write_on_default_term_product=written
+recorded_product_key=[703]
+recorded_product_set=[701,702]
+default_product_key=[703]
+default_product_set=[703]
+default_product_terms_in_woocommerce=[715]
+recorded_ownership=observed
+recorded_may_project=no
+.                                                                  2 / 2 (100%)
+
+Time: 00:01.173, Memory: 10.00 MB
+
+OK (2 tests, 4 assertions)

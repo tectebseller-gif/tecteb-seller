@@ -1,0 +1,303 @@
+<?php
+declare(strict_types=1);
+
+namespace Tecteb\Marketplace\Tests\Database;
+
+use Tecteb\Marketplace\Core\Audit\AuditEventSanitizer;
+use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
+use Tecteb\Marketplace\Core\Migration\Migrations\M0017DokanShopRecords;
+use Tecteb\Marketplace\Core\Migration\Migrations\M0018HandoverRowsAndRecordVersion;
+use Tecteb\Marketplace\Core\Support\SystemClock;
+use Tecteb\Marketplace\Infrastructure\WordPress\WpAuditRepository;
+use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
+use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\DbLedgerRepository;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0004CreateFinanceTables;
+use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
+use Tecteb\Marketplace\Modules\Migration\Application\CategoryMapping;
+use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
+use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository;
+use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbShopRecordRepository;
+use Tecteb\Marketplace\Modules\Product\Application\ApplyCategoryLinks;
+use Tecteb\Marketplace\Modules\Product\Application\CategoryLinkPlan;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WpProductCategoryLinkReader;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
+use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables;
+use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
+use Tecteb\Marketplace\Tests\Support\FakeDokanReader;
+use Tecteb\Marketplace\Tests\Support\FakeProductCategoryDirectory;
+
+/**
+ * THROWAWAY PROBE — not part of the suite. It measures, on the real MariaDB
+ * and from the post-import state, what each of the handover page's category
+ * counters answers once a WooCommerce set has been recorded.
+ */
+final class CategoryGateProbeTest extends DatabaseTestCase
+{
+    private const SELLER = 9101;
+    private const MANAGER = 9102;
+    private const SOURCE = '%d8%aa%d8%ac%d9%87%db%8c%d8%b2%d8%a7%d8%aa';
+    private const A = 701;   // real term
+    private const B = 702;   // real term, second one
+    private const C = 703;   // a real term NO product carries
+    private const DEFAULT_TERM = 715;
+
+    private WpDatabase $database;
+    private DbProductRepository $products;
+    private FakeDokanReader $dokan;
+    private FakeProductCategoryDirectory $directory;
+    private ImportFromDokan $migration;
+    private CategoryLinkPlan $plan;
+    private ApplyCategoryLinks $applier;
+    private CategoryMapping $mapping;
+    private CategoryMap $map;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $db = new WpDatabase($this->wpdb);
+        foreach ([
+            ...M0002CreateVendorTables::TABLES,
+            ...M0003CreateStoreAndStaffTables::TABLES,
+            ...M0005CreateProductTables::TABLES,
+            ...M0006CatalogAndOrders::TABLES,
+            ...M0004CreateFinanceTables::TABLES,
+            ...M0017DokanShopRecords::TABLES,
+            ...M0018HandoverRowsAndRecordVersion::TABLES,
+        ] as $suffix) {
+            $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
+        }
+        $this->resetSchema($db);
+        $this->database = $db;
+        $this->resetTermTables();
+        update_option('default_product_cat', self::DEFAULT_TERM);
+
+        $clock = new SystemClock();
+        $options = new WpOptionStore();
+        $options->delete(ImportFromDokan::RUNS_OPTION);
+        $options->delete(CategoryMap::SETTING);
+
+        $this->products = new DbProductRepository($db, $clock);
+        $this->dokan = new FakeDokanReader();
+        $this->dokan->vendorRows = [
+            ['user_id' => self::SELLER, 'store_name' => 'داروخانه', 'email' => 's@example.test', 'enabled' => true],
+        ];
+        $this->dokan->productRows = [
+            $this->dokanProduct(9001, 'دو دسته'),
+            $this->dokanProduct(9002, 'یک دسته'),
+            $this->dokanProduct(9003, 'فقط پیش‌فرض'),
+        ];
+
+        $this->directory = new FakeProductCategoryDirectory();
+        $this->directory->terms = [
+            self::A => ['name' => 'تزریق', 'path' => 'تجهیزات پزشکی › تزریق'],
+            self::B => ['name' => 'چسب', 'path' => 'تجهیزات پزشکی › چسب'],
+            self::C => ['name' => 'باند', 'path' => 'مواد مصرفی › باند'],
+            self::DEFAULT_TERM => ['name' => 'دسته‌بندی‌نشده', 'path' => 'دسته‌بندی‌نشده'],
+        ];
+
+        $audit = new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock);
+        $this->map = new CategoryMap($options);
+        $this->migration = new ImportFromDokan(
+            $this->dokan,
+            new DbVendorRepository($db, $clock),
+            $this->products,
+            $options,
+            $audit,
+            $clock,
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR]),
+            new DbOrderHistoryRepository($db, $clock),
+            new DbShopRecordRepository($db, $clock),
+            new DbLedgerRepository($db, $clock),
+            $this->map
+        );
+
+        $reader = new WpProductCategoryLinkReader($db, $this->directory);
+        $this->plan = new CategoryLinkPlan($this->products, $reader);
+        $this->applier = new ApplyCategoryLinks($this->products, $reader, $audit);
+        $this->mapping = new CategoryMapping($this->map, $this->products, $this->dokan, $this->directory);
+    }
+
+    /** @return array<string,mixed> */
+    private function dokanProduct(int $wcId, string $title): array
+    {
+        return [
+            'wc_product_id' => $wcId,
+            'vendor_user_id' => self::SELLER,
+            'title' => $title,
+            'sku' => 'DK-' . $wcId,
+            'post_status' => 'publish',
+            'price_minor' => 120000,
+            'price_recorded' => true,
+            'price_not_exact' => false,
+            'stock' => 7,
+            'source_category_key' => self::SOURCE,
+            'source_category_label' => 'تجهیزات',
+        ];
+    }
+
+    private function resetTermTables(): void
+    {
+        $pdo = $this->wpdb->pdo();
+        foreach (['term_relationships', 'term_taxonomy'] as $suffix) {
+            $pdo->exec('DROP TABLE IF EXISTS `' . $this->wpdb->prefix . $suffix . '`');
+        }
+        $pdo->exec(
+            'CREATE TABLE `' . $this->wpdb->prefix . 'term_taxonomy` (
+                term_taxonomy_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                term_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+                taxonomy VARCHAR(32) NOT NULL DEFAULT \'\',
+                PRIMARY KEY (term_taxonomy_id),
+                UNIQUE KEY term_id_taxonomy (term_id, taxonomy)
+            ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci'
+        );
+        $pdo->exec(
+            'CREATE TABLE `' . $this->wpdb->prefix . 'term_relationships` (
+                object_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+                term_taxonomy_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+                term_order INT NOT NULL DEFAULT 0,
+                PRIMARY KEY (object_id, term_taxonomy_id)
+            ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci'
+        );
+    }
+
+    /** @param list<int> $termIds */
+    private function attach(int $wcProductId, array $termIds): void
+    {
+        $pdo = $this->wpdb->pdo();
+        foreach ($termIds as $termId) {
+            $find = $pdo->prepare(
+                'SELECT term_taxonomy_id FROM `' . $this->wpdb->prefix
+                . 'term_taxonomy` WHERE term_id = ? AND taxonomy = ?'
+            );
+            $find->execute([$termId, 'product_cat']);
+            $ttid = $find->fetchColumn();
+            if ($ttid === false) {
+                $ins = $pdo->prepare(
+                    'INSERT INTO `' . $this->wpdb->prefix
+                    . 'term_taxonomy` (term_id, taxonomy) VALUES (?, ?)'
+                );
+                $ins->execute([$termId, 'product_cat']);
+                $ttid = (int) $pdo->lastInsertId();
+            }
+            $rel = $pdo->prepare(
+                'INSERT IGNORE INTO `' . $this->wpdb->prefix
+                . 'term_relationships` (object_id, term_taxonomy_id) VALUES (?, ?)'
+            );
+            $rel->execute([$wcProductId, (int) $ttid]);
+        }
+    }
+
+    public function testWhatEachCounterAnswersOnceASetIsRecorded(): void
+    {
+        $this->attach(9001, [self::A, self::B]);
+        $this->attach(9002, [self::A]);
+        $this->attach(9003, [self::DEFAULT_TERM]);
+
+        $result = $this->migration->import($this->migration->plan());
+        self::assertTrue($result->ok, 'the probe needs a successful import');
+
+        $rowFor = function (int $wcId): array {
+            $rows = $this->database->getResults(
+                'SELECT id, category_key FROM `' . $this->wpdb->prefix
+                . 'tmc_products` WHERE wc_product_id = %d',
+                [$wcId]
+            );
+            return $rows[0] ?? [];
+        };
+
+        $say = static function (string $label, mixed $value): void {
+            fwrite(STDERR, $label . '=' . (is_array($value) ? json_encode($value) : (string) $value) . "\n");
+        };
+
+        fwrite(STDERR, "\n--- before recording any set ---\n");
+        $say('list_importedWithoutCategory', count($this->products->importedWithoutCategory(500)));
+        $say('count_withoutCategory', $this->products->countImportedWithoutCategory());
+        $say('count_withoutCategorySet', $this->products->countImportedWithoutCategorySet());
+        $p = $this->mapping->plan();
+        $say('mapping_scanned', $p['scanned']);
+        $say('mapping_total', $p['total']);
+        $say('mapping_finished', $p['finished'] ? 'yes' : 'no');
+        $say('mapping_counts', $p['counts']);
+
+        // Record the WooCommerce relationship for the two-category product and
+        // the one-category product, exactly as the «ثبت» button does.
+        $two = (int) $rowFor(9001)['id'];
+        $one = (int) $rowFor(9002)['id'];
+        $applied = $this->applier->apply([$two, $one], [], self::MANAGER);
+        $say('apply_counts', $applied['counts']);
+
+        fwrite(STDERR, "--- after recording both sets ---\n");
+        $say('key_two_category_product', '[' . (string) $rowFor(9001)['category_key'] . ']');
+        $say('key_one_category_product', '[' . (string) $rowFor(9002)['category_key'] . ']');
+        $say('list_importedWithoutCategory', count($this->products->importedWithoutCategory(500)));
+        $say('list_ids', array_map(
+            static fn (array $r): int => (int) $r['wc_product_id'],
+            $this->products->importedWithoutCategory(500)
+        ));
+        $say('count_withoutCategory', $this->products->countImportedWithoutCategory());
+        $say('count_withoutCategorySet', $this->products->countImportedWithoutCategorySet());
+
+        $p = $this->mapping->plan();
+        $say('mapping_scanned', $p['scanned']);
+        $say('mapping_total', $p['total']);
+        $say('mapping_finished', $p['finished'] ? 'yes' : 'no');
+        $say('mapping_counts', $p['counts']);
+
+        $lp = $this->plan->plan();
+        $say('link_counts', $lp['counts']);
+        $say('link_unrecorded', $lp['unrecorded']);
+
+        self::assertTrue(true);
+    }
+
+    public function testApplyingTheDokanMappingOverTheRecordedSet(): void
+    {
+        $this->attach(9001, [self::A, self::B]);
+        $this->attach(9002, [self::A]);
+        $this->attach(9003, [self::DEFAULT_TERM]);
+        $result = $this->migration->import($this->migration->plan());
+        self::assertTrue($result->ok, 'the probe needs a successful import');
+
+        $say = static function (string $label, mixed $value): void {
+            fwrite(STDERR, $label . '=' . (is_array($value) ? json_encode($value) : (string) $value) . "\n");
+        };
+        $idOf = function (int $wcId): int {
+            $rows = $this->database->getResults(
+                'SELECT id FROM `' . $this->wpdb->prefix . 'tmc_products` WHERE wc_product_id = %d',
+                [$wcId]
+            );
+            return (int) ($rows[0]['id'] ?? 0);
+        };
+
+        $two = $idOf(9001);
+        $def = $idOf(9003);
+        $this->applier->apply([$two], [], self::MANAGER);
+
+        // The manager now maps the old Dokan source category to a THIRD
+        // marketplace category and applies it — exactly what the «نگاشت دستهٔ
+        // محصولات» card offers for the rows it still lists.
+        $this->map->save([self::SOURCE => (string) self::C]);
+        $code = $this->products->setCategoryWhenEmpty($two, (string) self::C);
+        $say('mapping_write_on_recorded_product', $code === '' ? 'written' : $code);
+        $codeDef = $this->products->setCategoryWhenEmpty($def, (string) self::C);
+        $say('mapping_write_on_default_term_product', $codeDef === '' ? 'written' : $codeDef);
+
+        $recorded = $this->products->find($two);
+        $plain = $this->products->find($def);
+        $say('recorded_product_key', '[' . $recorded->details->categoryKey . ']');
+        $say('recorded_product_set', $recorded->details->categorySet());
+        $say('default_product_key', '[' . $plain->details->categoryKey . ']');
+        $say('default_product_set', $plain->details->categorySet());
+        $say('default_product_terms_in_woocommerce', [self::DEFAULT_TERM]);
+        $say('recorded_ownership', $recorded->linkOwnership);
+        $say('recorded_may_project', $recorded->ownsItsStorefrontProduct() ? 'yes' : 'no');
+
+        self::assertTrue(true);
+    }
+}
