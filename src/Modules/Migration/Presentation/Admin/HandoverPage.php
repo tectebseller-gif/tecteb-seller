@@ -17,7 +17,10 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Migration\Application\ApplyCategoryMapping;
 use Tecteb\Marketplace\Modules\Product\Application\ApplyCategoryLinks;
 use Tecteb\Marketplace\Modules\Product\Application\CategoryLinkPlan;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
+use Tecteb\Marketplace\Modules\Product\Presentation\Admin\ProductReviewPage;
+use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMapping;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
@@ -1496,16 +1499,132 @@ final class HandoverPage
         if ($held !== []) {
             echo '<h3 class="tmc-card__title">'
                 . esc_html__('آنچه اعمال نمی‌شود، و دلیلش', 'tecteb-marketplace-core') . '</h3>';
+            // ⛔ THE ROWS, not only their number — and this is the whole point
+            // of the table. A manager told «four of 184 are left» and given a
+            // count has to hand-search for them; the names, the WooCommerce
+            // id, the shop and a way in are what makes the number actionable.
+            //
+            // And they come from the list `plan()` already walked, which is
+            // `importedWithoutCategory()` — the same predicate
+            // `countImportedWithoutCategory()` counts and the gate reads. One
+            // question, one condition: the rows here cannot disagree with the
+            // figure beside them (`alpha.79`).
+            echo '<p class="tmc-field__desc">' . esc_html((bool) $plan['finished']
+                ? __('این ردیف‌ها همان‌هایی‌اند که شمارندهٔ دروازه می‌شمارد.', 'tecteb-marketplace-core')
+                // ⛔ An unfinished page must not present its rows as all of
+                // them (`alpha.70`). The notice above says the scan stopped;
+                // this says it about the table the eye is on.
+                : __('این ردیف‌ها فقط همین صفحه‌اند، نه همهٔ آن‌ها.', 'tecteb-marketplace-core')) . '</p>';
+            echo Components::moreDetails([
+                __('«ویرایش در ووکامرس» دستهٔ خودِ محصول را در ووکامرس عوض می‌کند و «بررسی در بازارگاه» صفحهٔ بررسی همین محصول است.', 'tecteb-marketplace-core'),
+                __('هر پیوند جداگانه به مجوز خودش بسته است؛ جایی که مجوز یا محصول ووکامرسی نباشد، پیوندی چاپ نمی‌شود و دلیلش نوشته می‌شود.', 'tecteb-marketplace-core'),
+                __('باز کردن هیچ‌کدام از این دو صفحه چیزی نمی‌نویسد و محصولی نمی‌سازد.', 'tecteb-marketplace-core'),
+            ]);
+            echo '<div class="tmc-scroll" tabindex="0" role="region" aria-label="'
+                . esc_attr__('جدول محصولات بی‌دسته', 'tecteb-marketplace-core') . '">';
             echo '<table class="tmc-table"><thead><tr>'
                 . '<th scope="col">' . esc_html__('دلیل', 'tecteb-marketplace-core') . '</th>'
                 . '<th scope="col">' . esc_html__('تعداد محصول', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('محصول', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('شناسهٔ ووکامرس', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('فروشگاه', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('ویرایش در ووکامرس', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('بررسی در بازارگاه', 'tecteb-marketplace-core') . '</th>'
                 . '</tr></thead><tbody>';
+            // The storefront reader is asked ONCE, not per row: the binding is
+            // nullable (no WooCommerce, no reader) and a per-row lookup would
+            // give the same answer every time.
+            /** @var StorefrontFieldsInterface|null $storefront */
+            $storefront = $this->container->get(StorefrontFieldsInterface::class);
+            // Asked once for the same reason, and it is OUR capability rather
+            // than this page's: a manager may review vendors without being
+            // allowed to review products (`alpha.86`, in a new place).
+            $mayReview = current_user_can(ProductReviewPage::CAPABILITY);
             foreach ($held as $reason => $rows) {
-                echo '<tr><td>' . esc_html(self::heldReason((string) $reason))
-                    . '</td><td>' . esc_html($fa((string) count($rows))) . '</td></tr>';
+                // The reason and its count are printed on the group's first
+                // row only — the same shape the shop table above uses, so one
+                // answer covers its rows instead of repeating down the page.
+                $first = true;
+                foreach ($rows as $row) {
+                    $wcId = (int) ($row['wc_product_id'] ?? 0);
+                    $productId = (int) ($row['product_id'] ?? 0);
+                    echo '<tr>'
+                        . '<td>' . ($first ? esc_html(self::heldReason((string) $reason)) : '') . '</td>'
+                        . '<td>' . ($first ? esc_html($fa((string) count($rows))) : '') . '</td>'
+                        . '<td>' . esc_html(ProductMessages::displayTitle(
+                            (string) ($row['title'] ?? ''),
+                            $productId
+                        )) . '</td>'
+                        . '<td>' . ($wcId > 0
+                            ? esc_html('#' . $fa((string) $wcId))
+                            : esc_html__('ندارد', 'tecteb-marketplace-core')) . '</td>'
+                        . '<td>' . esc_html($this->shopName((int) ($row['vendor_user_id'] ?? 0))) . '</td>'
+                        . '<td>' . self::storefrontEditCell($storefront, $wcId) . '</td>'
+                        . '<td>' . self::marketplaceReviewCell($mayReview, $productId) . '</td>'
+                        . '</tr>';
+                    $first = false;
+                }
             }
-            echo '</tbody></table>';
+            echo '</tbody></table></div>';
         }
+    }
+
+    /**
+     * «ویرایش در ووکامرس», or nothing and a reason — never a dead link.
+     *
+     * Three ways there is no link, and they are different things to tell
+     * somebody, so each is named (`alpha.36`):
+     *
+     *  - the row points at no WooCommerce product at all;
+     *  - WooCommerce is not installed, so there is no editor to open and the
+     *    reader binding is `null` by design (`ProductModule`);
+     *  - `get_edit_post_link()` gave nothing. WordPress core returns null both
+     *    for a post that is gone and for a viewer without `edit_post`, and this
+     *    method does NOT invent a distinction the API does not make: it says
+     *    both, truthfully. The capability is enforced by that absence rather
+     *    than by a guard of ours, which is why nothing here re-checks it.
+     */
+    private static function storefrontEditCell(?StorefrontFieldsInterface $storefront, int $wcProductId): string
+    {
+        if ($wcProductId <= 0) {
+            return '<span class="tmc-field__desc">'
+                . esc_html__('محصول ووکامرسی ندارد', 'tecteb-marketplace-core') . '</span>';
+        }
+        if ($storefront === null) {
+            return '<span class="tmc-field__desc">'
+                . esc_html__('ووکامرس در دسترس نیست', 'tecteb-marketplace-core') . '</span>';
+        }
+        $url = $storefront->editorUrl($wcProductId);
+        if ($url === '') {
+            return '<span class="tmc-field__desc">'
+                . esc_html__('پستش پیدا نشد یا مجوز ویرایشش را ندارید', 'tecteb-marketplace-core') . '</span>';
+        }
+        return '<a href="' . esc_url($url) . '">'
+            . esc_html__('ویرایش در ووکامرس', 'tecteb-marketplace-core') . '</a>';
+    }
+
+    /**
+     * «بررسی در بازارگاه», behind ITS OWN capability.
+     *
+     * Deliberately independent of this page's: «تحویل مهاجرت» is behind
+     * `REVIEW_VENDOR` and the product review screen behind `REVIEW_PRODUCTS`,
+     * and a manager can hold one without the other. Printing the address
+     * unconditionally would put a page in front of somebody who may not open
+     * it — the same gap `alpha.86` closed for the financial figures.
+     */
+    private static function marketplaceReviewCell(bool $mayReview, int $productId): string
+    {
+        if ($productId <= 0) {
+            return '<span class="tmc-field__desc">'
+                . esc_html__('ردیفی برای بررسی نیست', 'tecteb-marketplace-core') . '</span>';
+        }
+        if (!$mayReview) {
+            return '<span class="tmc-field__desc">'
+                . esc_html__('مجوز بررسی محصولات را ندارید', 'tecteb-marketplace-core') . '</span>';
+        }
+        return '<a href="' . esc_url(admin_url(
+            'admin.php?page=' . ProductReviewPage::SLUG . '&product=' . $productId
+        )) . '">' . esc_html__('بررسی در بازارگاه', 'tecteb-marketplace-core') . '</a>';
     }
 
     /**

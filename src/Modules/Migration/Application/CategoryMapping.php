@@ -180,7 +180,8 @@ final class CategoryMapping
      *     source_readable:bool, scanned:int, total:int, finished:bool,
      *     apply:list<array{product_id:int, wc_product_id:int, title:string, vendor_user_id:int,
      *                      source_key:string, source_label:string, target:string, target_path:string}>,
-     *     held:array<string,list<array{product_id:int, wc_product_id:int, title:string, source_key:string}>>,
+     *     held:array<string,list<array{product_id:int, wc_product_id:int, title:string,
+     *                                 vendor_user_id:int, source_key:string}>>,
      *     counts:array<string,int>
      * }
      */
@@ -197,6 +198,14 @@ final class CategoryMapping
                 'product_id' => (int) $row['id'],
                 'wc_product_id' => (int) $row['wc_product_id'],
                 'title' => (string) $row['title'],
+                // ⛔ THE SHOP, and it was already in hand. The `apply` rows
+                // below have carried it since `alpha.80` and these did not, so
+                // the only screen that names a waiting product could say which
+                // product but not whose — and a manager told «four products
+                // are left» among 184 has to hand-search for them. The value
+                // comes off the same row the counter counts; nothing new is
+                // read for it.
+                'vendor_user_id' => (int) $row['vendor_user_id'],
                 'source_key' => $sourceKey,
             ];
         };

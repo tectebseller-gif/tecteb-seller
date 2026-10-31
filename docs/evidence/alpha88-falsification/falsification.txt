@@ -1,0 +1,48 @@
+alpha.88 falsification — 11 mutations
+tree: 4b4a0f3 9 modified paths
+
+baseline architecture:: 0
+baseline unit:: 0
+baseline database:CategoryMappingFlowTest: 0
+baseline database:UncategorisedProductListTest: 0
+
+1. drop the vendor from the held rows, as alpha.87 did
+    database failures: 3 (wanted at least 1) — red
+    restored byte for byte: yes
+2. print the reason and the count only, as alpha.87 did
+    database failures: 3 (wanted at least 3) — red
+    restored byte for byte: yes
+3. stop printing the WooCommerce id
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+4. stop naming the shop on the row
+    database failures: 2 (wanted at least 2) — red
+    restored byte for byte: yes
+5. claim the rows are all of them whatever the scan did
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+6. call a page that hit its cap a finished scan
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+7. open the review screen with THIS page's capability
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+8. print the review address with no capability check at all
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+9. link the editor even when the reader gave nothing
+    database failures: 2 (wanted at least 2) — red
+    restored byte for byte: yes
+10. offer an editor link for a row with no WooCommerce product
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+11. stop saying WooCommerce is absent and let the null through
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+
+final architecture:: 0
+final unit:: 0
+final database:CategoryMappingFlowTest: 0
+final database:UncategorisedProductListTest: 0
+
+mutations: 11 · problems: 0

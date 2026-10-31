@@ -920,4 +920,178 @@ final class CategoryMappingFlowTest extends DatabaseTestCase
         self::assertSame('category_table_unreadable', $blinded->setCategoryWhenEmpty($id, '72'));
         self::assertSame('', (string) $this->storedCategories()[$id], 'nothing written');
     }
+
+    /**
+     * WHAT THIS PROVES: every waiting row names the shop that owns it.
+     *
+     * ⛔ Until `alpha.88` the `held` buckets carried `product_id`,
+     * `wc_product_id`, `title` and `source_key` and NOT the vendor, although
+     * the row the closure is handed has it and the `apply` rows beside them
+     * carry it. So the only screen that names a waiting product could say
+     * which product but not whose, and a manager told «four of 184 are left»
+     * had to hand-search for them.
+     */
+    public function testTheHeldRowsNameTheShopThatOwnsThem(): void
+    {
+        $this->runImport();
+
+        $held = $this->mapping->plan()['held'];
+        self::assertNotSame([], $held, 'the fixture must leave something held');
+
+        $seen = 0;
+        foreach ($held as $reason => $rows) {
+            foreach ($rows as $row) {
+                self::assertArrayHasKey('vendor_user_id', $row, 'held under ' . $reason);
+                self::assertSame(
+                    self::SELLER,
+                    (int) $row['vendor_user_id'],
+                    'the shop comes off the same row the counter counts'
+                );
+                $seen++;
+            }
+        }
+        self::assertGreaterThan(0, $seen);
+    }
+
+    /**
+     * WHAT THIS PROVES: the rows the card shows are, BY ID, exactly the rows
+     * the gate counter counts — not merely the same number of them.
+     *
+     * The invariant rather than today's figure: `alpha.86` shipped with the
+     * list and the counter disagreeing, and a count-only assertion would pass
+     * the moment a fixture happened to hold no multi-category product. This
+     * compares the two SETS, and it compares the card's own rows — `apply`
+     * plus every `held` bucket — against a direct read of the counter's
+     * predicate.
+     */
+    public function testTheListedRowsAreExactlyTheRowsTheCounterCounts(): void
+    {
+        $this->runImport();
+        $this->map->save([self::SOURCE_A => '71']);
+
+        $onTheCard = function (): array {
+            $plan = $this->mapping->plan();
+            $ids = array_map(static fn (array $r): int => (int) $r['product_id'], $plan['apply']);
+            foreach ($plan['held'] as $rows) {
+                foreach ($rows as $row) {
+                    $ids[] = (int) $row['product_id'];
+                }
+            }
+            sort($ids);
+            return $ids;
+        };
+        $counted = function (): array {
+            // The counter's own condition, written out — so this test fails
+            // if either side of it drifts, which is the whole point.
+            $rows = $this->database->getResults(
+                'SELECT p.id FROM `' . $this->wpdb->prefix . 'tmc_products` p
+                  WHERE p.import_run_id <> %s AND p.category_key = %s
+                    AND NOT EXISTS (
+                        SELECT 1 FROM `' . $this->wpdb->prefix . 'tmc_product_categories` c
+                         WHERE c.product_id = p.id
+                    )
+                  ORDER BY p.id ASC',
+                ['', '']
+            );
+            return array_map(static fn (array $r): int => (int) $r['id'], (array) $rows);
+        };
+
+        self::assertSame($counted(), $onTheCard(), 'straight after the import');
+        self::assertSame(
+            count($counted()),
+            $this->products->countImportedWithoutCategory(),
+            'and the counter agrees with its own predicate'
+        );
+
+        // A MULTI-category product whose set is recorded leaves both.
+        self::assertSame(
+            'category_set_written',
+            $this->products->recordCategorySet($this->rowIdFor(991), [71, 72])
+        );
+        self::assertSame($counted(), $onTheCard(), 'after a multi-category set is recorded');
+        self::assertNotContains($this->rowIdFor(991), $onTheCard());
+
+        // And a product WooCommerce left on its default term only — nothing
+        // recorded — stays in both. That is the shape of the owner's four.
+        self::assertContains($this->rowIdFor(993), $onTheCard(), 'a row with nothing recorded is still listed');
+        self::assertSame(
+            count($onTheCard()),
+            $this->products->countImportedWithoutCategory(),
+            'the list is never longer or shorter than its own figure'
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: the gate counts PER SHOP and the card's list is
+     * GLOBAL, and the two reconcile — the per-shop figures sum to the global
+     * one.
+     *
+     * Named rather than assumed, because the reconciliation comes from
+     * structure and not from intent: `shopVendorUserIds()` reads
+     * `vendorsFromImportRuns()`, which is
+     * `DISTINCT vendor_user_id WHERE import_run_id <> ''` — the same
+     * population the list walks. A short read on either side breaks the
+     * equality silently (`alpha.8`), so it is asserted on TWO shops rather
+     * than trusted.
+     */
+    public function testThePerShopCountersSumToTheGlobalCounter(): void
+    {
+        $second = self::SELLER + 1;
+        $this->dokan->vendorRows[] = [
+            'user_id' => $second,
+            'store_name' => 'داروخانه دوم',
+            'email' => 's2@example.test',
+            'enabled' => true,
+        ];
+        $row = $this->dokanProduct(994, 'ماسک', 'DK-4', self::SOURCE_B);
+        $row['vendor_user_id'] = $second;
+        $this->dokan->productRows[] = $row;
+        $this->runImport();
+
+        $shops = $this->completeness()->shopVendorUserIds();
+        self::assertSame([self::SELLER, $second], $shops, 'both imported shops are shops');
+
+        $sum = 0;
+        foreach ($shops as $vendorUserId) {
+            $n = $this->products->countImportedWithoutCategory($vendorUserId);
+            self::assertGreaterThanOrEqual(0, $n, 'a failed read would make this sum meaningless');
+            $sum += $n;
+        }
+        self::assertSame(
+            $this->products->countImportedWithoutCategory(),
+            $sum,
+            'the per-shop figures and the global one answer the same question'
+        );
+
+        // And every row the card lists belongs to one of those shops, so no
+        // listed product is outside every gate row.
+        foreach ($this->mapping->plan()['held'] as $rows) {
+            foreach ($rows as $held) {
+                self::assertContains((int) $held['vendor_user_id'], $shops);
+            }
+        }
+    }
+
+    /**
+     * WHAT THIS PROVES: a page that stopped at its cap reports it, rather than
+     * presenting its rows as all of them (`alpha.70`).
+     *
+     * Asked of the flag the screen actually reads. The real cap is 500 and
+     * seeding 501 rows to cross it would buy nothing this does not: `plan()`
+     * derives `finished` from `count($page) >= $total`, and one row against a
+     * total of three exercises exactly that comparison.
+     */
+    public function testAPageThatStoppedShortSaysSoRatherThanClaimingAll(): void
+    {
+        $this->runImport();
+
+        $short = $this->mapping->plan(1);
+        self::assertSame(1, $short['scanned']);
+        self::assertSame(3, $short['total']);
+        self::assertFalse($short['finished'], 'a page that hit its limit is not the whole list');
+
+        $whole = $this->mapping->plan(500);
+        self::assertSame(3, $whole['scanned']);
+        self::assertTrue($whole['finished']);
+    }
 }

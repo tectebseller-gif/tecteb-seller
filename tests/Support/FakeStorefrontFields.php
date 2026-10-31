@@ -174,9 +174,20 @@ final class FakeStorefrontFields implements StorefrontFieldsInterface
         ];
     }
 
+    /**
+     * Whatever the test set, or «no editor» — never a link by accident.
+     *
+     * The default is the empty string for the same reason `viewLink()` below
+     * defaults to a refusal: `get_edit_post_link()` gives nothing both for a
+     * post that is gone and for a viewer without `edit_post`, so a fake that
+     * handed out a link unasked would let a screen print one in a state where
+     * production would not.
+     */
+    public string $editorUrl = '';
+
     public function editorUrl(int $wcProductId): string
     {
-        return '';
+        return $wcProductId > 0 ? $this->editorUrl : '';
     }
 
     /**
