@@ -91,7 +91,11 @@ opts = {o.strip() for o in re.findall(r"\b(?:update|add|delete)_option\(\s*([^,)
 check("options written: only our own", opts <= {"self::GEN", "'tecteb_header_settings'", "'tecteb_header_gen'"}, str(opts))
 check("no upload_mimes / SVG enabling", not re.search(r"upload_mimes|wp_check_filetype_and_ext|image/svg", allcode))
 check("ICON_MIMES = PNG + WebP only", re.search(r"ICON_MIMES\s*=\s*array\(\s*'image/png',\s*'image/webp'\s*\)", code["includes/class-settings.php"]) is not None)
-check("no 2652 / Elementor template or condition access", not re.search(r"\b2652\b|_elementor_conditions|_elementor_data|elementor_pro_theme_builder_conditions|\bupdate_post\(", allcode))
+check("no 2652 hard-coded; Elementor data never written", not re.search(r"\b2652\b|_elementor_data|\bupdate_post\(|update_option\(\s*(self::CONDITIONS_OPTION|'elementor)", allcode))
+check("Elementor conditions only read (get_post_meta / get_option)", all(re.search(r"(get_post_meta|get_option)\(", l) or "CONDITIONS_OPTION =" in l for l in allcode.splitlines() if re.search(r"_elementor_conditions'|CONDITIONS_OPTION", l) and "=>" not in l))
+check("replacement uses no output buffering", not re.search(r"\bob_(start|end_clean|get_clean|end_flush)\b", code["includes/class-replace.php"]))
+check("replacement hooks: last on before_do_header, first on after_do_header", "'start' ), PHP_INT_MAX" in code["includes/class-replace.php"] and "'finish' ), PHP_INT_MIN" in code["includes/class-replace.php"])
+check("WP Rocket purge only via rocket_clean_domain behind function_exists", "function_exists( 'rocket_clean_domain' )" in code["includes/class-cache.php"])
 check("no direct $_POST handling (Settings API only)", "$_POST" not in allcode and "$_REQUEST" not in allcode)
 check("every $_GET read is sanitised or only isset()",
       all(re.search(r"(sanitize_\w+|absint)\(\s*(wp_unslash\(\s*)?\$_GET", line) or "isset( $_GET" in line or "unset(" in line
@@ -133,7 +137,7 @@ def selectors(css: str) -> list[str]:
     return out
 
 
-for f in ["header-base.css", "header-b.css", "tecteb-header.css", "tecteb-header-font.css"]:
+for f in ["header-base.css", "header-b.css", "tecteb-header.css"]:
     css = (ROOT / "assets/css" / f).read_text(encoding="utf-8")
     bad = [s for s in selectors(css) if not s.startswith(".tecteb-header-v1")]
     check(f"css scoped under .tecteb-header-v1: {f}", not bad, " | ".join(bad[:5]))

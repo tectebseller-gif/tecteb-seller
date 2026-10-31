@@ -243,18 +243,19 @@ WP('eval', 'update_option("tecteb_header_settings", ["wishlist_mode"=>"off"] + g
   await ap.click('[data-tth-card]:nth-child(2) [data-tth-move="up"]');
   await ap.uncheck('[data-tth-card]:nth-child(3) input[name$="[enabled]"]');
   const zanan = await ap.$eval('[data-tth-card]:nth-child(5) input[name$="[term_id]"]', (e) => e.value);
-  const hasSel = await ap.locator('[data-tth-card]:nth-child(5) select').count();
+  const hasSel = await ap.locator('[data-tth-card]:nth-child(5) .tth-kpick').count();
   await Promise.all([ap.waitForNavigation(), ap.click('#submit')]);
   let o = opt();
   ok('admin: up button reorders and saves', o.categories[0].term_id === ids.mains['قلب و عروق'] && o.categories[1].term_id === ids.mains['پزشکی جنرال'], JSON.stringify(o.categories.slice(0, 2)));
   ok('admin: switch off saves enabled=false', o.categories[2].enabled === false);
   ok('admin: settings-updated notice shown', /Settings saved|تنظیمات ذخیره شد/.test(await ap.content()));
-  ok('admin: zanan card has no descendants ⇒ no add-child select', hasSel === 0 && Number(zanan) === ids.mains['زنان و زایمان']);
+  ok('admin: zanan card has no descendants ⇒ no subcategory picker', hasSel === 0 && Number(zanan) === ids.mains['زنان و زایمان']);
   // افزودن زیردسته به دندانپزشکی (فقط زیرمجموعه‌ها در فهرست)
   const dIdx = o.categories.findIndex((c) => c.term_id === ids.mains['دندانپزشکی']) + 1;
-  const optsTxt = await ap.$$eval(`[data-tth-card]:nth-child(${dIdx}) select option`, (e) => e.map((x) => x.value));
-  ok('admin: add-child list only offers descendants not yet chosen', optsTxt.includes(String(ids.surgery2)) && !optsTxt.includes(String(ids.chair)) && !optsTxt.includes(String(ids.bed)));
-  await ap.selectOption(`[data-tth-card]:nth-child(${dIdx}) select`, String(ids.surgery2));
+  const optsTxt = await ap.$$eval(`[data-tth-card]:nth-child(${dIdx}) .tth-kpick input`, (e) => e.map((x) => x.value));
+  ok('admin: subcategory picker offers only descendants not yet chosen', optsTxt.includes(String(ids.surgery2)) && !optsTxt.includes(String(ids.chair)) && !optsTxt.includes(String(ids.bed)), optsTxt.join(','));
+  await ap.click(`[data-tth-card]:nth-child(${dIdx}) .tth-kpick summary`);
+  await ap.check(`[data-tth-card]:nth-child(${dIdx}) .tth-kpick input[value="${ids.surgery2}"]`);
   await Promise.all([ap.waitForNavigation(), ap.click('#submit')]);
   o = opt();
   ok('admin: child added', o.categories[dIdx - 1].children.map((k) => k.term_id).includes(ids.surgery2));
@@ -301,6 +302,95 @@ WP('eval', 'update_option("tecteb_header_settings", ["wishlist_mode"=>"off"] + g
   ok('replace back on', opt().replace === true);
   await actx.close();
 }
+
+// ------------------------------------------------------------------ ۷. انتقال از «منوی اصلی» (پیوند سفارشی، شکل JetMenu)
+{
+  WP('eval-file', path.join(HERE, 'fixtures/seed.php'), 'configure', 'on');
+  const actx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const ap = await login(actx, 'tthadmin');
+  await ap.goto(`${SITE}/wp-admin/admin.php?page=tecteb-header&tab=import&tth_menu=${ids.jm}`, { waitUntil: 'networkidle' });
+  const rows = await ap.$$eval('.tth-import tbody tr', (e) => e.map((r) => [r.cells[1].textContent.trim().split(' ')[0], !!r.querySelector('input:checked'), !!r.querySelector('input'), r.cells[3].textContent.trim()]));
+  const checked = rows.filter((r) => r[1]).length;
+  const name = rows.find((r) => r[0].startsWith('استریلیزاسیون'));
+  ok('import custom-link menu: 12 URL matches pre-selected', checked === 12, JSON.stringify(rows));
+  ok('import custom-link menu: title-only match shown, not pre-selected', name && name[2] && !name[1] && /هم‌نام/.test(name[3]));
+  await axe(ap, 'admin import custom-link menu', '.tth-hdr');
+  await ap.screenshot({ path: path.join(OUT, 'admin-import-jetmenu.png'), fullPage: true });
+  await ap.check(`#tth-imp-${ids.jm_items['استریلیزاسیون']}`);
+  await ap.check('input[name="tecteb_header_settings[import_apply]"]');
+  await Promise.all([ap.waitForNavigation(), ap.click('.tth-import__go #submit')]);
+  const o = opt();
+  ok('import apply: 13 real IDs in menu order', o.categories.length === 13 && o.categories[0].term_id === ids.mains['پزشکی جنرال'] && o.categories[9].term_id === ids.mains['استریلیزاسیون'], JSON.stringify(o.categories.map((c) => c.term_id)));
+  // جایگزینی: جدول قالب‌ها و شرط‌ها (فقط خواندن)
+  await ap.goto(`${SITE}/wp-admin/admin.php?page=tecteb-header&tab=replace`, { waitUntil: 'networkidle' });
+  const tpl = await ap.$$eval('.tth-templates tbody tr', (e) => e.map((r) => [r.cells[1].textContent.trim(), r.cells[3].textContent.trim(), r.querySelector('input').checked]));
+  ok('replace tab: Header #2652, published, «شامل: کل سایت», selected', tpl.some(([t, c, k]) => /Header #2652/.test(t) && /شامل: کل سایت/.test(c) && k), JSON.stringify(tpl));
+  ok('replace tab: page-specific header listed, not selected', tpl.some(([t, c, k]) => /#2654/.test(t) && /به‌جز: صفحهٔ اصلی/.test(c) && !k));
+  await ap.uncheck('input[name="tecteb_header_settings[replace_templates][]"][value="2652"]');
+  await Promise.all([ap.waitForNavigation(), ap.click('#submit')]);
+  ok('replace tab: cannot stay on with no template; warning shown', opt().replace === false && /نخست قالب هدر/.test(await ap.content()));
+  await ap.check('input[name="tecteb_header_settings[replace_templates][]"][value="2652"]');
+  await ap.check('input[name="tecteb_header_settings[replace]"]');
+  await Promise.all([ap.waitForNavigation(), ap.click('#submit')]);
+  ok('replace tab: 2652 chosen + switch on saved', opt().replace === true && JSON.stringify(opt().replace_templates) === '[2652]');
+  const page = await ap.context().newPage();
+  await page.goto(`${SITE}/tthh-about/`);
+  ok('admin sees the explanation comment in source', /tecteb-header: replaced Elementor header template 2652/.test(await page.content()));
+  await actx.close();
+}
+
+// ------------------------------------------------------------------ ۸. CSS کوچک‌شده (همان کتابخانهٔ WP Rocket)، RTL، و سبد روی صفحهٔ کش‌شده
+{
+  const measure = async (w) => {
+    const p = await browser.newPage({ viewport: { width: w, height: 900 } });
+    await p.goto(`${SITE}/tthh-about/`, { waitUntil: 'networkidle' });
+    await p.evaluate(() => document.fonts.ready);
+    const d = await p.evaluate(() => {
+      const r = (s) => { const e = document.querySelector('.tecteb-header-v1 ' + s); if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.x), Math.round(b.y), Math.round(b.width), Math.round(b.height)]; };
+      return { bar: r('.tth-bar'), logo: r('.tth-logo'), search: r('.tth-search'), tools: r('.tth-tools'), nav: r('.tth-nav'), burger: r('.tth-burger'), css: [...document.styleSheets].map((x) => x.href || '').filter((h) => /tecteb|tthh-min/.test(h)) };
+    });
+    return { p, d };
+  };
+  for (const w of [1440, 390]) {
+    const a = await measure(w);
+    WP('option', 'update', 'tthh_minified', '1');
+    const b = await measure(w);
+    ok(`minified CSS @${w}: really loaded from the minified copies`, b.d.css.some((h) => /tthh-min/.test(h)) && !a.d.css.some((h) => /tthh-min/.test(h)), b.d.css.join(' '));
+    const same = ['bar', 'logo', 'search', 'tools', 'nav', 'burger'].every((k) => JSON.stringify(a.d[k]) === JSON.stringify(b.d[k]));
+    ok(`minified CSS @${w}: identical layout`, same, JSON.stringify({ a: a.d, b: b.d }));
+    if (w === 390) {
+      await b.p.click('[data-tth-burger]');
+      await b.p.waitForTimeout(300);
+      ok('minified CSS: drawer opens', await b.p.evaluate(() => document.querySelector('#tth-drawer').open));
+      await axe(b.p, 'minified CSS drawer @390', '#tth-drawer');
+    } else {
+      await b.p.click('.tth-cats button[data-tth-toggle]');
+      ok('minified CSS: mega opens', await b.p.locator('#tth-mega').isVisible());
+      await axe(b.p, 'minified CSS mega @1440');
+      await b.p.screenshot({ path: path.join(OUT, 'minified-mega.png') });
+      // RTL
+      ok('RTL: root dir=rtl, logo to the right of search, tools to the left', a.d.logo[0] > a.d.search[0] && a.d.tools[0] < a.d.search[0] && (await a.p.getAttribute('[data-tth-header]', 'dir')) === 'rtl');
+    }
+    if (w === 390) ok('RTL @390: burger on the right edge', a.d.burger[0] > 300, String(a.d.burger));
+    WP('option', 'delete', 'tthh_minified');
+    await a.p.close(); await b.p.close();
+  }
+  // سبد روی رونوشت کش‌شدهٔ صفحه (شبیه کش صفحهٔ WP Rocket برای مهمان)
+  const html = await (await fetch(`${SITE}/tthh-about/`)).text();
+  fs.writeFileSync('/home/user/wp/core/tthh-cached-about.html', html);
+  const ctx = await browser.newContext();
+  const p = await ctx.newPage();
+  await p.goto(`${SITE}/?add-to-cart=${ids.products[1]}`, { waitUntil: 'networkidle' });
+  await p.goto(`${SITE}/tthh-cached-about.html`, { waitUntil: 'networkidle' });
+  await p.waitForTimeout(800);
+  const cachedCart = (html.split('tth-tool--cart')[1] || '').split('</a>')[0];
+  ok('cached page copy (no badge in its HTML) shows the real cart count via cart fragments', cachedCart.length > 0 && !/tth-badge/.test(cachedCart) && (await p.locator('.tth-tool--cart .tth-badge').textContent()) === '۱');
+  await ctx.close();
+  fs.unlinkSync('/home/user/wp/core/tthh-cached-about.html');
+}
+
+const log = fs.existsSync('/home/user/wp/core/wp-content/debug.log') ? fs.readFileSync('/home/user/wp/core/wp-content/debug.log', 'utf8') : '';
+ok('no PHP notice/warning/deprecation from tecteb-header in debug.log', !/tecteb-header/.test(log), log.split('\n').filter((l) => /tecteb-header/.test(l)).slice(0, 3).join(' | '));
 
 await browser.close();
 fs.writeFileSync(path.join(OUT, 'results.txt'), lines.join('\n') + `\n\n${pass} passed, ${fail} failed\n`);

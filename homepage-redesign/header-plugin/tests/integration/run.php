@@ -77,10 +77,14 @@ function tthh_snapshot(): string {
 	) as $sql ) {
 		$parts[] = md5( (string) wp_json_encode( $wpdb->get_results( $sql, ARRAY_N ) ) ); // phpcs:ignore WordPress.DB
 	}
+	$parts[] = md5( (string) wp_json_encode( get_option( 'elementor_pro_theme_builder_conditions' ) ) );
 	return implode( ',', $parts );
 }
 /** خروجی کامل header/footer ِ شبیه‌ساز Elementor در یک درخواست. */
-function tthh_location( string $loc ): string {
+function tthh_location( string $loc, bool $fresh = true ): string {
+	if ( $fresh ) {
+		TTHH_Locations_Manager::reset();
+	}
 	ob_start();
 	$printed = elementor_theme_do_location( $loc );
 	return ( $printed ? '' : '[not-printed]' ) . (string) ob_get_clean();
@@ -204,6 +208,12 @@ $before_import = tthh_snapshot();
 $menu_rows     = Menu::menu_categories( $ids['menu'] );
 tthh_ok( 'import from WP menu: 13 product_cat items in menu order', array_values( $mains ) === array_column( $menu_rows, 'term_id' ), wp_json_encode( array_column( $menu_rows, 'term_id' ) ) );
 tthh_ok( 'import: nested product_cat item under a product_cat item ignored', ! in_array( $ids['chair'], array_column( $menu_rows, 'term_id' ), true ) );
+$jm = Menu::menu_categories( $ids['jm'] );
+tthh_ok( 'custom-link menu (JetMenu shape): 12 categories resolved by URL, in menu order', 12 === count( $jm ) && $mains['پزشکی جنرال'] === $jm[0]['term_id'] && ! in_array( $mains['استریلیزاسیون'], array_column( $jm, 'term_id' ), true ), wp_json_encode( array_column( $jm, 'term_id' ) ) );
+$cand = array_column( Menu::menu_candidates( $ids['jm'] ), null, 'title' );
+tthh_ok( 'custom links: other domain, percent-encoded, no trailing slash, ?product_cat=, upper-case scheme all resolved', 'url' === $cand['پزشکی جنرال']['match'] && 'url' === $cand['قلب و عروق']['match'] && 'url' === $cand['چشم‌پزشكی']['match'] && 'url' === $cand['جراحی']['match'] );
+tthh_ok( 'custom link with only a matching title ⇒ «name», not pre-selected by menu_categories', 'name' === $cand['استریلیزاسیون']['match'] && $mains['استریلیزاسیون'] === $cand['استریلیزاسیون']['term_id'] );
+tthh_ok( 'non-category items (shop, parent #) not matched', '' === $cand['فروشگاه']['match'] && '' === $cand['دسته بندی کالا ها']['match'] );
 $matches = Menu::baseline_matches();
 $by      = array_column( $matches, null, 'name' );
 tthh_ok( 'baseline: 13 rows', 13 === count( $matches ) );
@@ -353,55 +363,111 @@ tthh_ok( 'wishlist: count only from adapter filter', str_contains( $h, 'data-tth
 remove_all_filters( 'tecteb_header_wishlist_count' );
 tthh_save( array( 'wishlist_mode' => 'off' ) );
 
-// ---------------------------------------------------------------- ۴. جایگزینی هدر Elementor (شبیه‌ساز)
+// ---------------------------------------------------------------- ۴. جایگزینی هدر Elementor (شبیه‌ساز وفادار به Pro Elements 4.2.2)
+use Tecteb\Header\Elementor;
+
+// خواندن فقط‌خواندنیِ قالب‌ها و شرط‌ها
+$tpls = array_column( Elementor::header_templates(), null, 'id' );
+tthh_ok( 'templates: only Header-type templates listed (no footer/section)', array( 2652, 2653, 2654 ) === array_keys( $tpls ), wp_json_encode( array_keys( $tpls ) ) );
+tthh_ok( 'templates: 2652 published, condition include/general = «کل سایت»', 'publish' === $tpls[2652]['status'] && array( 'include/general' ) === $tpls[2652]['conditions'] && array( 'شامل: کل سایت' ) === $tpls[2652]['labels'] );
+tthh_ok( 'templates: exclude conditions labelled', in_array( 'به‌جز: صفحهٔ اصلی', $tpls[2654]['labels'], true ) );
+tthh_ok( 'templates: conditions cache read and compared', array( 'include/general' ) === $tpls[2652]['cached'] && null === $tpls[2653]['cached'] );
+tthh_ok( 'is_header_template: header yes; footer, section, product no', Elementor::is_header_template( 2652 ) && ! Elementor::is_header_template( 2700 ) && ! Elementor::is_header_template( 2655 ) && ! Elementor::is_header_template( $ids['products'][0] ) );
+$s = tthh_save( array( 'replace_templates' => array( 2652, 2700, 2655, $ids['products'][0], 999999 ) ) );
+tthh_ok( 'settings: replace_templates keeps only Header templates', array( 2652 ) === $s['replace_templates'] );
+$s = tthh_save( array( 'replace_templates' => array(), 'replace' => true ) );
+tthh_ok( 'settings: replacement cannot be switched on without a chosen template', false === $s['replace'] );
+
 $footer_alone = tthh_location( 'footer' );
-tthh_save( array( 'replace' => false ) );
+tthh_save( array( 'replace_templates' => array( 2652 ), 'replace' => false ) );
 Renderer::set_rendered( false );
 $out = tthh_location( 'header' );
-tthh_ok( 'replace OFF: Elementor header 2652 printed, plugin header not', str_contains( $out, 'data-tthh-original' ) && ! str_contains( $out, 'data-tth-header' ) );
+tthh_ok( 'replace OFF: Elementor header 2652 printed, plugin header not', str_contains( $out, 'data-elementor-id="2652"' ) && ! str_contains( $out, 'data-tth-header' ) );
 tthh_save( array( 'replace' => true ) );
 Renderer::set_rendered( false );
 $out = tthh_location( 'header' );
-tthh_ok( 'replace ON: exactly one header — plugin header, 2652 output discarded', ! str_contains( $out, 'data-tthh-original' ) && 1 === substr_count( $out, 'data-tth-header' ) );
+tthh_ok( 'replace ON: exactly one header — plugin header; 2652 not rendered', ! str_contains( $out, 'data-tthh-original' ) && 1 === substr_count( $out, 'data-tth-header' ) && 'replaced' === Replace::decision() );
 tthh_ok( 'replace ON: plugin header is the page banner', str_contains( $out, 'role="banner"' ) );
 tthh_ok( 'replace ON: footer untouched (byte-identical)', $footer_alone === tthh_location( 'footer' ) );
+tthh_ok( 'replace ON: no HTML comment for visitors', ! str_contains( $out, '<!-- tecteb-header' ) );
+
+update_option( 'tthh_emulate_neighbors', 1 );
 Renderer::set_rendered( false );
-$sc = do_shortcode( '[tecteb_header]' );
-Renderer::set_rendered( true );
-tthh_ok( 'replace ON + shortcode elsewhere after header ⇒ comment only', ! str_contains( Renderer::render( 'shortcode' ), 'data-tth-header' ) );
+$level = ob_get_level();
+$out   = tthh_location( 'header' );
+$pb    = strpos( $out, 'neighbor-before' );
+$ph    = strpos( $out, 'data-tth-header' );
+$pa    = strpos( $out, 'neighbor-after' );
+tthh_ok( 'other plugins on before/after_do_header keep their output, in order', false !== $pb && false !== $ph && false !== $pa && $pb < $ph && $ph < $pa );
+tthh_ok( 'no output buffer opened or left behind', $level === ob_get_level() );
+delete_option( 'tthh_emulate_neighbors' );
+
+Renderer::set_rendered( false );
+TTHH_Locations_Manager::reset();
+$out = tthh_location( 'header', false ) . tthh_location( 'header', false );
+tthh_ok( 'header location run twice in one request ⇒ still one header, 2652 never printed', 1 === substr_count( $out, 'data-tth-header' ) && ! str_contains( $out, 'data-tthh-original' ) );
+
+Renderer::set_rendered( false );
+$early = Renderer::render( 'shortcode' );
+$out   = tthh_location( 'header' );
+tthh_ok( 'shortcode printed earlier + replace ⇒ 2652 removed, nothing second', str_contains( $early, 'data-tth-header' ) && ! str_contains( $out, 'data-tth-header' ) && ! str_contains( $out, 'data-tthh-original' ) );
+
 update_option( 'tthh_emulate_shortcode', 1 );
 Renderer::set_rendered( false );
 $out = tthh_location( 'header' );
-tthh_ok( 'replace ON + [tecteb_header] inside the Elementor template ⇒ still exactly one', 1 === substr_count( $out, 'data-tth-header' ) && ! str_contains( $out, 'already printed' ) );
+tthh_ok( 'replace ON + [tecteb_header] inside the Elementor template ⇒ exactly one', 1 === substr_count( $out, 'data-tth-header' ) );
 tthh_save( array( 'replace' => false ) );
 Renderer::set_rendered( false );
 $out = tthh_location( 'header' );
-tthh_ok( 'shortcode in Elementor template, replace OFF ⇒ one plugin header inside 2652 shell', 1 === substr_count( $out, 'data-tth-header' ) && str_contains( $out, 'data-tthh-original' ) );
+tthh_ok( 'shortcode in Elementor template, replace OFF ⇒ one plugin header inside the 2652 shell', 1 === substr_count( $out, 'data-tth-header' ) && str_contains( $out, 'data-tthh-original' ) );
 delete_option( 'tthh_emulate_shortcode' );
 tthh_save( array( 'replace' => true ) );
-update_option( 'tthh_emulate_dangling_ob', 1 );
-$level = ob_get_level();
+
+// قالب انتخاب‌نشده (هدر ویژهٔ یک صفحه) دست نمی‌خورد.
+$conds = get_option( 'elementor_pro_theme_builder_conditions' );
+update_option( 'elementor_pro_theme_builder_conditions', array( 'header' => array( 2654 => array( 'include/general' ) ) ) + $conds );
 Renderer::set_rendered( false );
 $out = tthh_location( 'header' );
-tthh_ok( 'replace ON: buffer left open by the template is closed, its content discarded', $level === ob_get_level() && ! str_contains( $out, 'dangling-buffer-content' ) && 1 === substr_count( $out, 'data-tth-header' ) );
-delete_option( 'tthh_emulate_dangling_ob' );
+tthh_ok( 'template not in allowlist ⇒ Elementor prints it, plugin prints nothing', str_contains( $out, 'data-elementor-id="2654"' ) && ! str_contains( $out, 'data-tth-header' ) && 'not_allowed' === Replace::decision() );
+update_option( 'elementor_pro_theme_builder_conditions', $conds );
+
+// شیء غیرمنتظره ⇒ هیچ.
+Renderer::set_rendered( false );
+ob_start();
+do_action( 'elementor/theme/before_do_header' );
+do_action( 'elementor/theme/after_do_header' );
+$out = (string) ob_get_clean();
+tthh_ok( 'no locations manager object ⇒ plugin prints nothing', '' === trim( $out ) && 'no_manager' === Replace::decision() );
+$broken = new class() {
+	private array $q = array( 'header' => array( 2652 => 2652 ) );
+	public function get_documents_for_location( string $l ): array { return $this->q[ $l ] ?? array(); }
+	public function remove_doc_from_location( $l, $id ) {} // phpcs:ignore -- عمداً کار نمی‌کند.
+	public function add_doc_to_location( $l, $id ) { $this->q[ $l ][ $id ] = $id; }
+};
+Renderer::set_rendered( false );
+ob_start();
+do_action( 'elementor/theme/before_do_header', $broken );
+do_action( 'elementor/theme/after_do_header', $broken );
+$out = (string) ob_get_clean();
+tthh_ok( 'queue not emptied ⇒ documents restored, plugin prints nothing', '' === trim( $out ) && 'queue_not_emptied' === Replace::decision() && array( 2652 => 2652 ) === $broken->get_documents_for_location( 'header' ) );
+
 update_option( 'tthh_emulate', 'footer' );
 Renderer::set_rendered( false );
-$out = tthh_location( 'header' );
-tthh_ok( 'no Elementor header for the page ⇒ plugin prints nothing (theme fallback)', '[not-printed]' === $out );
+tthh_ok( 'no Elementor header for the page ⇒ plugin prints nothing (theme fallback)', '[not-printed]' === tthh_location( 'header' ) );
 update_option( 'tthh_emulate', 'both' );
 $_GET['elementor-preview'] = '1';
 Renderer::set_rendered( false );
 tthh_ok( 'Elementor editor/preview ⇒ never replaced', str_contains( tthh_location( 'header' ), 'data-tthh-original' ) );
 unset( $_GET['elementor-preview'] );
-// پیش‌نمایش و اصلی فقط برای مدیر
+
 tthh_save( array( 'replace' => false ) );
 $_GET['tth_preview'] = '1';
 Renderer::set_rendered( false );
 tthh_ok( '?tth_preview=1 for a visitor ⇒ ignored', str_contains( tthh_location( 'header' ), 'data-tthh-original' ) );
 wp_set_current_user( $admin->ID );
 Renderer::set_rendered( false );
-tthh_ok( '?tth_preview=1 for an admin ⇒ plugin header', 1 === substr_count( tthh_location( 'header' ), 'data-tth-header' ) );
+$out = tthh_location( 'header' );
+tthh_ok( '?tth_preview=1 for an admin ⇒ plugin header, with an admin-only explanation', 1 === substr_count( $out, 'data-tth-header' ) && str_contains( $out, '<!-- tecteb-header: replaced Elementor header template 2652 -->' ) );
 unset( $_GET['tth_preview'] );
 tthh_save( array( 'replace' => true ) );
 $_GET['tth_original'] = '1';
@@ -412,6 +478,20 @@ Renderer::set_rendered( false );
 tthh_ok( '?tth_original=1 for a visitor ⇒ ignored', ! str_contains( tthh_location( 'header' ), 'data-tthh-original' ) );
 unset( $_GET['tth_original'] );
 tthh_save( array( 'replace' => false ) );
+
+// WP Rocket: پاک‌سازی کش با ذخیره (بدلِ تابع ِ WP Rocket فقط در همین آزمون).
+if ( ! function_exists( 'rocket_clean_domain' ) ) {
+	function rocket_clean_domain() { // phpcs:ignore
+		$GLOBALS['tthh_rocket'] = ( $GLOBALS['tthh_rocket'] ?? 0 ) + 1;
+	}
+}
+Cache::reset();
+$GLOBALS['tthh_rocket'] = 0;
+tthh_save( array( 'logo_text' => 'تک طب' ) );
+tthh_save( array( 'logo_text' => 'تک‌طب' ) );
+tthh_ok( 'WP Rocket: rocket_clean_domain() once per request on save', 1 === $GLOBALS['tthh_rocket'] );
+tthh_ok( 'font: inline @font-face with absolute URL (survives CSS minify/relocation)', str_contains( \Tecteb\Header\Assets::font_css(), 'url("' . TECTEB_HEADER_URL . 'assets/fonts/Vazirmatn-wght.woff2")' ) );
+tthh_ok( 'cart fragments on by default (cached pages show the real count)', true === Settings::defaults()['cart_fragments'] );
 
 // ---------------------------------------------------------------- ۵. منوی پیشخوان
 require_once ABSPATH . 'wp-admin/includes/plugin.php';

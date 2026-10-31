@@ -1,4 +1,37 @@
+caught    allow SVG icons  ← static, integration
+caught    hide_empty default on  ← static, integration
+caught    drop descendant check on save  ← integration
+caught    drop descendant check at render  ← integration
+caught    ignore hide_empty at render  ← integration
+caught    hide_empty uses direct count only  ← integration
+caught    render twice per request  ← integration
+caught    2652 not removed from the queue  ← integration
+caught    replace ignores the switch  ← integration
+caught    preview for everyone  ← static, integration
+caught    template allowlist ignored  ← integration
+caught    emptied-queue verification skipped  ← integration
+caught    header printed although nothing was removed  ← integration
+caught    explanation comment shown to visitors  ← integration
+caught    start hook not last  ← static
+caught    non-header template accepted  ← integration
+caught    replacement on without a template  ← integration
+caught    WP Rocket purge dropped  ← integration
+caught    font URL relative again  ← integration
+caught    custom-link URL matching off  ← integration
+caught    title-only matches imported as certain  ← integration
+caught    cart fragments off by default  ← integration
+caught    category name not escaped  ← static, integration
+caught    drawer from another source  ← integration
+caught    fake wishlist count  ← integration
+caught    javascript: URLs accepted  ← integration
+caught    always create own «تک‌طب» menu  ← integration
+caught    no cache bump on category edit  ← integration
+caught    weaker capability  ← integration
+caught    tab form resets other settings  ← integration
+caught    store category names  ← integration
+caught    unscoped CSS rule  ← static
+caught    approved header.js edited  ← static
+caught    default categories pre-filled with a sample ID  ← static, integration
+caught    write a term  ← static
 
-24/24 caught, 0 survived, 0 not applied
-
-[exited with code 0]
+35/35 caught, 0 survived, 0 not applied

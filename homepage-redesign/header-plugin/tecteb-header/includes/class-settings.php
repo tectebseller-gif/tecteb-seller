@@ -55,7 +55,7 @@ final class Settings {
 		'categories' => array( 'categories', 'hide_empty' ),
 		'import'     => array( 'categories' ),
 		'links'      => array( 'nav_menu', 'nav_hidden', 'supplier_url', 'logo_id', 'logo_text', 'search_mode', 'search_shortcode', 'wishlist_mode', 'wishlist_url', 'cart_fragments', 'font', 'home_search_toggle' ),
-		'replace'    => array( 'replace', 'assets_everywhere' ),
+		'replace'    => array( 'replace_templates', 'replace', 'assets_everywhere' ),
 	);
 
 	/** @var array<string,bool> پیامی که در همین درخواست گزارش شده. */
@@ -76,11 +76,12 @@ final class Settings {
 			'search_shortcode'   => '',
 			'wishlist_mode'      => 'off',
 			'wishlist_url'       => '',
-			'cart_fragments'     => false,
+			'cart_fragments'     => true,
 			'font'               => 'plugin',
 			'home_search_toggle' => true,
 			'assets_everywhere'  => false,
 			'replace'            => false,
+			'replace_templates'  => array(),
 		);
 	}
 
@@ -195,6 +196,17 @@ final class Settings {
 				case 'nav_menu':
 					$out[ $k ] = self::menu_id( $input[ $k ] ?? 0, $errors );
 					break;
+				case 'replace_templates':
+					$out[ $k ] = array();
+					foreach ( self::ids( $input[ $k ] ?? array() ) as $tid ) {
+						if ( Elementor::is_header_template( $tid ) ) {
+							$out[ $k ][] = $tid;
+						} else {
+							/* translators: %d: post id */
+							$errors[] = array( 'tpl-' . $tid, sprintf( __( 'شناسهٔ %d قالب هدر Elementor نیست و پذیرفته نشد.', 'tecteb-header' ), $tid ) );
+						}
+					}
+					break;
 				case 'nav_hidden':
 					$out[ $k ] = self::ids( $input[ $k ] ?? array() );
 					break;
@@ -225,6 +237,10 @@ final class Settings {
 		$out           = self::shape( $out );
 		$out['schema'] = self::SCHEMA;
 
+		if ( $out['replace'] && array() === $out['replace_templates'] ) {
+			$out['replace'] = false;
+			$errors[]       = array( 'replace', __( 'جایگزینی روشن نشد: نخست قالب هدر Elementor ِ جایگزین‌شونده (امروز «Header»، ۲۶۵۲) را انتخاب کنید.', 'tecteb-header' ) );
+		}
 		if ( 'shortcode' === $out['search_mode'] && '' === $out['search_shortcode'] ) {
 			$out['search_mode'] = 'woocommerce';
 			$errors[]           = array( 'search', __( 'برای جست‌وجوی سفارشی shortcode وارد نشده بود؛ جست‌وجوی استاندارد ووکامرس نگه داشته شد.', 'tecteb-header' ) );

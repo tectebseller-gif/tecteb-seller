@@ -283,6 +283,13 @@ final class Admin {
 		echo '<input type="number" min="0" step="1" id="' . esc_attr( $icon_field ) . '" name="' . esc_attr( $pfx( 'icon_id' ) ) . '" value="' . esc_attr( (string) (int) $c['icon_id'] ) . '" data-tth-nojs>';
 		echo '<button type="button" class="button button-small" data-tth-media="' . esc_attr( $icon_field ) . '" hidden>' . esc_html__( 'انتخاب آیکون', 'tecteb-header' ) . '</button>';
 		echo '<button type="button" class="button-link" data-tth-media-clear="' . esc_attr( $icon_field ) . '" hidden>' . esc_html__( 'بی آیکون', 'tecteb-header' ) . '</button>';
+		// پیشنهاد فقط‌خواندنی: تصویر خودِ دسته در ووکامرس، اگر PNG یا WebP است.
+		$wc_img = $term instanceof \WP_Term ? (int) get_term_meta( $id, 'thumbnail_id', true ) : 0;
+		if ( $wc_img && $wc_img !== (int) $c['icon_id'] && Settings::is_icon( $wc_img ) ) {
+			echo '<button type="button" class="button-link" data-tth-media-set="' . esc_attr( $icon_field ) . '" data-id="' . esc_attr( (string) $wc_img ) . '" data-url="' . esc_url( Menu::icon_url( $wc_img ) ) . '" hidden>' . esc_html__( 'تصویر دسته در ووکامرس', 'tecteb-header' ) . '</button>';
+			/* translators: %d: attachment id */
+			echo '<small data-tth-nojs>' . esc_html( sprintf( __( 'تصویر دسته در ووکامرس: %d', 'tecteb-header' ), $wc_img ) ) . '</small>';
+		}
 		echo '</span>';
 
 		echo '<span class="tth-card__title">';
@@ -343,13 +350,49 @@ final class Admin {
 				)
 			);
 			if ( is_array( $desc ) && array() !== $desc ) {
-				$sel = 'tth-add-' . $i;
-				echo '<p><label for="' . esc_attr( $sel ) . '">' . esc_html__( 'افزودن زیردسته (فقط زیرمجموعه‌های همین دسته):', 'tecteb-header' ) . '</label> ';
-				echo '<select id="' . esc_attr( $sel ) . '" name="' . esc_attr( $pfx( 'add_child' ) ) . '[]"><option value="">' . esc_html__( '— انتخاب —', 'tecteb-header' ) . '</option>';
+				// درخت زیرمجموعه‌ها، مادر پیش از فرزند؛ فقط آنچه هنوز انتخاب نشده.
+				$kids_of = array();
 				foreach ( $desc as $d ) {
-					echo '<option value="' . esc_attr( (string) (int) $d->term_id ) . '">' . esc_html( self::path( $d ) . ' (#' . (int) $d->term_id . ')' ) . '</option>';
+					$kids_of[ (int) $d->parent ][] = $d;
 				}
-				echo '</select></p>';
+				$tree = array();
+				$walk = static function ( int $parent, int $depth ) use ( &$walk, &$tree, $kids_of ): void {
+					foreach ( $kids_of[ $parent ] ?? array() as $d ) {
+						$tree[] = array( $d, $depth );
+						$walk( (int) $d->term_id, $depth + 1 );
+					}
+				};
+				$walk( $id, 1 );
+				// زیرمجموعه‌ای که مادرش انتخاب‌شده است (و از فهرست بیرون رفته) هم بی‌جا نماند.
+				$placed = array_map( static fn( $x ) => (int) $x[0]->term_id, $tree );
+				foreach ( $desc as $d ) {
+					if ( ! in_array( (int) $d->term_id, $placed, true ) ) {
+						$tree[] = array( $d, count( get_ancestors( (int) $d->term_id, 'product_cat', 'taxonomy' ) ) - count( get_ancestors( $id, 'product_cat', 'taxonomy' ) ) );
+					}
+				}
+				echo '<details class="tth-kpick"><summary>' . esc_html(
+					sprintf(
+						/* translators: 1: count, 2: category name */
+						__( 'افزودن زیردسته — %1$s زیرمجموعهٔ «%2$s»', 'tecteb-header' ),
+						number_format_i18n( count( $tree ) ),
+						$term->name
+					)
+				) . '</summary>';
+				echo '<p class="description">' . esc_html__( 'فقط زیرمجموعه‌های همین دسته در ووکامرس. تیک بزنید و ذخیره کنید؛ حداکثر ۱۲ زیردسته.', 'tecteb-header' ) . '</p>';
+				echo '<ul class="tth-kpick__list">';
+				foreach ( $tree as $node ) {
+					list( $d, $depth ) = $node;
+					printf(
+						'<li style="--d:%1$d"><label><input type="checkbox" name="%2$s[]" value="%3$d"> %4$s <small>#%3$d · %5$s</small></label></li>',
+						(int) max( 1, $depth ),
+						esc_attr( $pfx( 'add_child' ) ),
+						(int) $d->term_id,
+						esc_html( $d->name ),
+						/* translators: %s: count */
+						esc_html( sprintf( __( '%s محصول', 'tecteb-header' ), number_format_i18n( Menu::count( $d ) ) ) )
+					);
+				}
+				echo '</ul></details>';
 			}
 		}
 		echo '</div></li>';
@@ -389,25 +432,38 @@ final class Admin {
 		echo '</select> <button class="button">' . esc_html__( 'خواندن', 'tecteb-header' ) . '</button></form>';
 
 		if ( $menu_id ) {
-			$rows = Menu::menu_categories( $menu_id );
-			if ( array() === $rows ) {
-				echo '<p>' . esc_html__( 'در این فهرست هیچ موردی از نوع «دستهٔ محصول» نیست. اگر دسته‌ها در قالب Elementor یا JetEngine به‌صورت پیوند سفارشی‌اند، از روش «ب» استفاده کنید.', 'tecteb-header' ) . '</p>';
+			$rows  = Menu::menu_candidates( $menu_id );
+			$label = array(
+				'taxonomy' => __( 'دستهٔ محصول (قطعی)', 'tecteb-header' ),
+				'url'      => __( 'پیوند سفارشی؛ نشانی = نشانی دسته (قطعی)', 'tecteb-header' ),
+				'name'     => __( 'فقط هم‌نام — تأیید کنید', 'tecteb-header' ),
+				'missing'  => __( 'دسته در ووکامرس نیست', 'tecteb-header' ),
+				''         => __( 'به هیچ دسته‌ای اشاره نمی‌کند', 'tecteb-header' ),
+			);
+			$any = array_filter( $rows, static fn( $r ) => in_array( $r['match'], array( 'taxonomy', 'url', 'name' ), true ) );
+			if ( array() === $any ) {
+				echo '<p>' . esc_html__( 'هیچ موردی از این فهرست به یک دستهٔ محصول نمی‌رسد. از روش «ب» استفاده کنید.', 'tecteb-header' ) . '</p>';
 			} else {
+				echo '<p class="description">' . esc_html__( 'هر مورد فهرست، چه از نوع «دستهٔ محصول» و چه «پیوند سفارشی» (مثل منوی JetMenu ِ فعلی)، با نشانی‌اش به دستهٔ واقعی ووکامرس نگاشته می‌شود. محتوای Mega Menu ِ JetMenu خوانده نمی‌شود و لازم نیست. موارد قطعی سطح اول از پیش تیک خورده‌اند؛ موارد «فقط هم‌نام» را خودتان تأیید کنید.', 'tecteb-header' ) . '</p>';
 				self::form_open( 'import' );
-				echo '<table class="widefat striped tth-import"><caption class="screen-reader-text">' . esc_html__( 'دسته‌های فهرست', 'tecteb-header' ) . '</caption><thead><tr><th scope="col">' . esc_html__( 'ترتیب', 'tecteb-header' ) . '</th><th scope="col">' . esc_html__( 'دسته', 'tecteb-header' ) . '</th><th scope="col">' . esc_html__( 'شناسه', 'tecteb-header' ) . '</th><th scope="col">' . esc_html__( 'نتیجه', 'tecteb-header' ) . '</th></tr></thead><tbody>';
-				$n = 0;
+				echo '<table class="widefat striped tth-import"><caption class="screen-reader-text">' . esc_html__( 'موارد فهرست و دستهٔ ووکامرس هر کدام', 'tecteb-header' ) . '</caption><thead><tr><th scope="col">' . esc_html__( 'انتخاب', 'tecteb-header' ) . '</th><th scope="col">' . esc_html__( 'مورد فهرست', 'tecteb-header' ) . '</th><th scope="col">' . esc_html__( 'دستهٔ ووکامرس', 'tecteb-header' ) . '</th><th scope="col">' . esc_html__( 'نحوهٔ تشخیص', 'tecteb-header' ) . '</th></tr></thead><tbody>';
 				foreach ( $rows as $r ) {
-					++$n;
-					echo '<tr><td>' . esc_html( number_format_i18n( $n ) ) . '</td><td>' . esc_html( $r['title'] ) . '</td><td>' . esc_html( (string) $r['term_id'] ) . '</td><td>';
-					if ( $r['exists'] ) {
-						echo '<input type="hidden" name="' . esc_attr( self::name( 'import' ) ) . '[]" value="' . esc_attr( (string) $r['term_id'] ) . '"><span class="tth-ok">' . esc_html__( 'منتقل می‌شود', 'tecteb-header' ) . '</span>';
-					} else {
-						echo '<span class="tth-issue tth-issue--error">' . esc_html__( 'دسته در ووکامرس نیست — منتقل نمی‌شود', 'tecteb-header' ) . '</span>';
+					$term = $r['term_id'] ? get_term( $r['term_id'], 'product_cat' ) : null;
+					$ok   = $term instanceof \WP_Term && in_array( $r['match'], array( 'taxonomy', 'url', 'name' ), true );
+					echo '<tr><td>';
+					if ( $ok ) {
+						$cb = 'tth-imp-' . $r['item_id'];
+						echo '<input type="checkbox" id="' . esc_attr( $cb ) . '" name="' . esc_attr( self::name( 'import' ) ) . '[]" value="' . esc_attr( (string) $r['term_id'] ) . '"' . checked( $r['first'] && 'name' !== $r['match'], true, false ) . '>';
 					}
-					echo '</td></tr>';
+					echo '</td><td style="padding-inline-start:' . esc_attr( (string) ( 0.75 + $r['depth'] * 1.25 ) ) . 'rem">';
+					echo $ok ? '<label for="' . esc_attr( 'tth-imp-' . $r['item_id'] ) . '">' . esc_html( $r['title'] ) . '</label>' : esc_html( $r['title'] );
+					echo ' <small dir="ltr">' . esc_html( (string) wp_parse_url( $r['url'], PHP_URL_PATH ) ) . '</small></td><td>';
+					echo $term instanceof \WP_Term ? esc_html( self::path( $term ) . ' (#' . $term->term_id . ')' ) : '—';
+					$cls = 'name' === $r['match'] ? 'tth-issue tth-issue--warning' : ( $ok ? 'tth-ok' : 'description' );
+					echo '</td><td><span class="' . esc_attr( $cls ) . '">' . esc_html( $label[ $r['match'] ] ?? $r['match'] ) . '</span></td></tr>';
 				}
 				echo '</tbody></table>';
-				echo '<p class="tth-import__go"><label><input type="checkbox" name="' . esc_attr( self::name( 'import_apply' ) ) . '" value="1"> ' . esc_html__( 'فهرست دسته‌های هدر با همین فهرست و همین ترتیب جایگزین شود', 'tecteb-header' ) . '</label> ';
+				echo '<p class="tth-import__go"><label><input type="checkbox" name="' . esc_attr( self::name( 'import_apply' ) ) . '" value="1"> ' . esc_html__( 'فهرست دسته‌های هدر با موارد تیک‌خورده و به همین ترتیب جایگزین شود', 'tecteb-header' ) . '</label> ';
 				submit_button( __( 'ذخیره', 'tecteb-header' ), 'secondary', 'submit', false );
 				echo '</p></form>';
 			}
@@ -513,40 +569,70 @@ final class Admin {
 
 	/** @param array<string,mixed> $s */
 	private static function tab_replace( array $s ): void {
-		$on = (bool) $s['replace'];
+		$on        = (bool) $s['replace'];
+		$allowed   = array_map( 'intval', $s['replace_templates'] );
+		$templates = Elementor::header_templates();
+		$v         = Elementor::versions();
 		echo '<h2>' . esc_html__( 'جایگزینی هدر Elementor', 'tecteb-header' ) . ' <span class="tth-state tth-state--' . ( $on ? 'on' : 'off' ) . '">' . ( $on ? esc_html__( 'روشن', 'tecteb-header' ) : esc_html__( 'خاموش', 'tecteb-header' ) ) . '</span></h2>';
-		echo '<p>' . wp_kses_post( __( 'وقتی روشن است، هر جا Elementor هدر Theme Builder (امروز قالب «Header»، ۲۶۵۲) را چاپ می‌کند، همان خروجی کنار گذاشته و این هدر <strong>همان‌جا</strong> چاپ می‌شود — در همهٔ صفحه‌ها، دسکتاپ و موبایل. قالب ۲۶۵۲، شرط نمایش آن و فوتر Elementor نه خوانده، نه نوشته و نه حذف می‌شوند.', 'tecteb-header' ) ) . '</p>';
+		echo '<p>' . wp_kses_post( __( 'وقتی روشن است، هر جا Elementor Pro قالب هدر <strong>انتخاب‌شده</strong> را چاپ می‌کرد، آن قالب از صف چاپ برداشته می‌شود (رندر نمی‌شود) و این هدر <strong>همان‌جا</strong> چاپ می‌شود — دسکتاپ و موبایل، در همهٔ صفحه‌هایی که آن قالب را نشان می‌دادند. قالب Elementor، شرط نمایش آن و فوتر نه نوشته و نه حذف می‌شوند.', 'tecteb-header' ) ) . '</p>';
 		echo '<ul class="tth-steps">';
-		echo '<li>' . esc_html__( 'دو هدر هم‌زمان ممکن نیست: هدر افزونه فقط جای هدری چاپ می‌شود که Elementor همان لحظه چاپ کرده و کنار گذاشته شده؛ اگر Elementor هدری چاپ نکند، این افزونه هم چاپ نمی‌کند.', 'tecteb-header' ) . '</li>';
-		echo '<li>' . esc_html__( 'بازگشت سریع: همین گزینه را خاموش و ذخیره کنید (یا افزونه را غیرفعال کنید) — از درخواست بعد همان ۲۶۵۲. پس از ذخیره، کش LiteSpeed (اگر نصب است) پاک‌سازی می‌شود.', 'tecteb-header' ) . '</li>';
-		echo '<li>' . esc_html__( 'در ویرایشگر و پیش‌نمایش Elementor هیچ چیزی جایگزین نمی‌شود.', 'tecteb-header' ) . '</li>';
+		echo '<li>' . esc_html__( 'دو هدر هم‌زمان ممکن نیست: هدر افزونه فقط وقتی چاپ می‌شود که قالب Elementor از صف برداشته و صف خالی شده باشد. هر وضعیت غیرمنتظره ⇒ همان قالب Elementor، و این افزونه چیزی چاپ نمی‌کند.', 'tecteb-header' ) . '</li>';
+		echo '<li>' . esc_html__( 'قالب هدری که در این فهرست تیک نخورده (مثلاً هدر ویژهٔ یک صفحه) دست نمی‌خورد و در صفحه‌های خودش همان نمایش داده می‌شود.', 'tecteb-header' ) . '</li>';
+		echo '<li>' . esc_html__( 'خروجی دیگر افزونه‌ها روی همین مکان دست نمی‌خورد؛ هیچ output buffer ای به کار نمی‌رود.', 'tecteb-header' ) . '</li>';
+		echo '<li>' . esc_html__( 'بازگشت فوری: این گزینه را خاموش و ذخیره کنید (یا افزونه را غیرفعال کنید)، سپس کش صفحه را پاک کنید.', 'tecteb-header' ) . '</li>';
 		echo '</ul>';
-		echo '<p>' . esc_html__( 'پیش از روشن‌کردن، روی همان سایت و فقط برای خودتان ببینید:', 'tecteb-header' ) . ' ';
-		echo '<a href="' . esc_url( add_query_arg( 'tth_preview', '1', home_url( '/' ) ) ) . '" target="_blank" rel="noopener">' . esc_html__( 'هدر افزونه به‌جای هدر فعلی', 'tecteb-header' ) . '</a> · ';
-		echo '<a href="' . esc_url( add_query_arg( 'tth_original', '1', home_url( '/' ) ) ) . '" target="_blank" rel="noopener">' . esc_html__( 'هدر فعلی Elementor (حتی وقتی جایگزینی روشن است)', 'tecteb-header' ) . '</a></p>';
 
-		$env = array(
-			__( 'Elementor', 'tecteb-header' )         => defined( 'ELEMENTOR_VERSION' ) ? ELEMENTOR_VERSION : '',
-			__( 'Elementor Pro', 'tecteb-header' )     => defined( 'ELEMENTOR_PRO_VERSION' ) ? ELEMENTOR_PRO_VERSION : '',
-			__( 'LiteSpeed Cache', 'tecteb-header' )   => defined( 'LSCWP_V' ) ? (string) LSCWP_V : '',
-			__( 'قالب فعال', 'tecteb-header' )          => (string) wp_get_theme()->get( 'Name' ) . ' ' . (string) wp_get_theme()->get( 'Version' ),
-		);
-		echo '<table class="widefat striped" style="max-width:40rem"><caption>' . esc_html__( 'آنچه روی همین سایت دیده می‌شود (فقط اطلاع؛ سازگاری را ثابت نمی‌کند)', 'tecteb-header' ) . '</caption><tbody>';
-		foreach ( $env as $k => $v ) {
-			echo '<tr><th scope="row">' . esc_html( $k ) . '</th><td>' . ( '' !== trim( $v ) ? esc_html( $v ) : esc_html__( 'دیده نشد', 'tecteb-header' ) ) . '</td></tr>';
+		echo '<h3>' . esc_html__( 'قالب‌های هدر Theme Builder (فقط خواندن)', 'tecteb-header' ) . '</h3>';
+		if ( ! $v['theme_builder'] ) {
+			echo '<div class="notice notice-warning inline"><p>' . esc_html__( 'Theme Builder ِ Elementor Pro روی این سایت فعال دیده نشد؛ جایگزینی اینجا هیچ اثری ندارد.', 'tecteb-header' ) . '</p></div>';
 		}
-		echo '</tbody></table>';
-		if ( ! defined( 'ELEMENTOR_PRO_VERSION' ) ) {
-			echo '<div class="notice notice-warning inline"><p>' . esc_html__( 'Elementor Pro روی این سایت دیده نشد؛ جایگزینی فقط با هدر Theme Builder ِ Elementor Pro کار می‌کند و اینجا اثری ندارد.', 'tecteb-header' ) . '</p></div>';
-		}
-
 		self::form_open( 'replace' );
-		echo '<p><label><input type="checkbox" name="' . esc_attr( self::name( 'replace' ) ) . '" value="1"' . checked( $on, true, false ) . '> <strong>' . esc_html__( 'هدر Elementor را در همهٔ صفحه‌ها با این هدر جایگزین کن', 'tecteb-header' ) . '</strong></label></p>';
-		echo '<p><label><input type="checkbox" name="' . esc_attr( self::name( 'assets_everywhere' ) ) . '" value="1"' . checked( $s['assets_everywhere'], true, false ) . '> ' . esc_html__( 'CSS و JS ِ هدر در head همهٔ صفحه‌ها بارگذاری شود (برای استفاده با shortcode در قالب Elementor؛ با جایگزینی روشن، خودکار است)', 'tecteb-header' ) . '</label></p>';
+		if ( array() === $templates ) {
+			echo '<p>' . esc_html__( 'هیچ قالب Elementor از نوع Header پیدا نشد.', 'tecteb-header' ) . '</p>';
+		} else {
+			echo '<table class="widefat striped tth-templates"><caption class="screen-reader-text">' . esc_html__( 'قالب‌های هدر و شرط نمایش', 'tecteb-header' ) . '</caption><thead><tr><th scope="col">' . esc_html__( 'جایگزین شود', 'tecteb-header' ) . '</th><th scope="col">' . esc_html__( 'قالب', 'tecteb-header' ) . '</th><th scope="col">' . esc_html__( 'وضعیت', 'tecteb-header' ) . '</th><th scope="col">' . esc_html__( 'شرط نمایش (از Elementor)', 'tecteb-header' ) . '</th></tr></thead><tbody>';
+			foreach ( $templates as $t ) {
+				$cb = 'tth-tpl-' . $t['id'];
+				echo '<tr><td><input type="checkbox" id="' . esc_attr( $cb ) . '" name="' . esc_attr( self::name( 'replace_templates' ) ) . '[]" value="' . esc_attr( (string) $t['id'] ) . '"' . checked( in_array( $t['id'], $allowed, true ), true, false ) . '></td>';
+				echo '<td><label for="' . esc_attr( $cb ) . '"><strong>' . esc_html( '' !== $t['title'] ? $t['title'] : __( '(بی‌عنوان)', 'tecteb-header' ) ) . '</strong> #' . esc_html( (string) $t['id'] ) . '</label></td>';
+				echo '<td>' . esc_html( 'publish' === $t['status'] ? __( 'منتشرشده', 'tecteb-header' ) : $t['status'] ) . '</td><td>';
+				echo array() === $t['labels'] ? esc_html__( 'بی شرط — نمایش داده نمی‌شود', 'tecteb-header' ) : esc_html( implode( ' · ', $t['labels'] ) );
+				if ( null !== $t['cached'] && $t['cached'] !== $t['conditions'] ) {
+					echo '<br><span class="tth-issue tth-issue--warning">' . esc_html__( 'کش شرط‌های Elementor با متای قالب یکی نیست؛ پیش از روشن‌کردن، شرط را در Elementor بازبینی کنید (این افزونه چیزی را بازسازی نمی‌کند).', 'tecteb-header' ) . '</span>';
+				}
+				echo '</td></tr>';
+			}
+			echo '</tbody></table>';
+		}
+		$others = array_filter( $templates, static fn( $t ) => 'publish' === $t['status'] && array() !== $t['conditions'] && ! in_array( $t['id'], $allowed, true ) );
+		if ( $others && $allowed ) {
+			echo '<p class="tth-issue tth-issue--warning">' . esc_html__( 'قالب هدر منتشرشدهٔ دیگری با شرط نمایش هست که انتخاب نشده؛ در صفحه‌های آن شرط، همان قالب (و نه این هدر) نمایش داده می‌شود — باز هم فقط یک هدر.', 'tecteb-header' ) . '</p>';
+		}
+		echo '<p><label><input type="checkbox" name="' . esc_attr( self::name( 'replace' ) ) . '" value="1"' . checked( $on, true, false ) . '> <strong>' . esc_html__( 'هدر Elementor ِ قالب‌های انتخاب‌شده را با این هدر جایگزین کن', 'tecteb-header' ) . '</strong></label></p>';
+		echo '<p><label><input type="checkbox" name="' . esc_attr( self::name( 'assets_everywhere' ) ) . '" value="1"' . checked( $s['assets_everywhere'], true, false ) . '> ' . esc_html__( 'CSS و JS ِ هدر در head همهٔ صفحه‌ها بارگذاری شود (برای shortcode در قالب Elementor؛ با جایگزینی روشن، خودکار است)', 'tecteb-header' ) . '</label></p>';
 		submit_button( __( 'ذخیره', 'tecteb-header' ) );
 		echo '</form>';
+
+		echo '<h3>' . esc_html__( 'پیش‌نمایش فقط برای مدیر', 'tecteb-header' ) . '</h3>';
+		echo '<p>' . esc_html__( 'پیش از روشن‌کردن، قالب را تیک بزنید و ذخیره کنید، بعد روی همان سایت ببینید (بی اثر روی بازدیدکننده‌ها و کش):', 'tecteb-header' ) . ' ';
+		echo '<a href="' . esc_url( add_query_arg( 'tth_preview', '1', home_url( '/' ) ) ) . '" target="_blank" rel="noopener">' . esc_html__( 'هدر افزونه به‌جای هدر فعلی', 'tecteb-header' ) . '</a> · ';
+		echo '<a href="' . esc_url( add_query_arg( 'tth_original', '1', home_url( '/' ) ) ) . '" target="_blank" rel="noopener">' . esc_html__( 'هدر فعلی Elementor (حتی وقتی جایگزینی روشن است)', 'tecteb-header' ) . '</a>. ' . esc_html__( 'منبع صفحه یک توضیح HTML ِ «tecteb-header» دارد که می‌گوید جایگزینی انجام شد یا چرا نشد (فقط برای مدیر).', 'tecteb-header' ) . '</p>';
+
+		$env = array(
+			'Elementor'       => $v['elementor'],
+			'Elementor Pro'   => $v['pro'],
+			'WP Rocket'       => defined( 'WP_ROCKET_VERSION' ) ? (string) WP_ROCKET_VERSION : '',
+			'JetMenu'         => defined( 'JET_MENU_VERSION' ) ? (string) JET_MENU_VERSION : ( class_exists( 'Jet_Menu' ) ? __( 'فعال', 'tecteb-header' ) : '' ),
+			'LiteSpeed Cache' => defined( 'LSCWP_V' ) ? (string) LSCWP_V : '',
+			__( 'قالب فعال', 'tecteb-header' ) => (string) wp_get_theme()->get( 'Name' ) . ' ' . (string) wp_get_theme()->get( 'Version' ),
+		);
+		echo '<table class="widefat striped" style="max-width:40rem"><caption>' . esc_html__( 'آنچه روی همین سایت دیده می‌شود (فقط اطلاع)', 'tecteb-header' ) . '</caption><tbody>';
+		foreach ( $env as $k => $val ) {
+			echo '<tr><th scope="row">' . esc_html( $k ) . '</th><td>' . ( '' !== trim( $val ) ? esc_html( $val ) : esc_html__( 'دیده نشد', 'tecteb-header' ) ) . '</td></tr>';
+		}
+		echo '</tbody></table>';
 		echo '<h3>' . esc_html__( 'راه دوم: shortcode در قالب Elementor', 'tecteb-header' ) . '</h3>';
-		echo '<p>' . wp_kses_post( __( 'به‌جای این گزینه می‌شود یک قالب هدر تازه در Theme Builder ساخت، ابزارک Shortcode با <code>[tecteb_header]</code> در آن گذاشت و شرط «کل سایت» را از ۲۶۵۲ به آن داد. بازگشت = برگرداندن شرط به ۲۶۵۲. هر دو راه در README آمده‌اند؛ هیچ‌کدام را این افزونه خودکار انجام نمی‌دهد.', 'tecteb-header' ) ) . '</p>';
+		echo '<p>' . wp_kses_post( __( 'یک قالب هدر تازه در Theme Builder با ابزارک Shortcode و <code>[tecteb_header]</code>، و جابه‌جایی شرط «کل سایت» از ۲۶۵۲ به آن. بازگشت = برگرداندن شرط. این افزونه هیچ شرطی را خودکار تغییر نمی‌دهد.', 'tecteb-header' ) ) . '</p>';
 	}
 
 	/** @param array<string,mixed> $s */

@@ -11,7 +11,8 @@
   const root = document.querySelector('.tth-hdr');
   if (!root) return;
 
-  root.querySelectorAll('[data-tth-js], [data-tth-move], [data-tth-media], [data-tth-media-clear]').forEach((el) => { el.hidden = false; });
+  root.querySelectorAll('[data-tth-js], [data-tth-move], [data-tth-media], [data-tth-media-clear], [data-tth-media-set]').forEach((el) => { el.hidden = false; });
+  root.querySelectorAll('small[data-tth-nojs]').forEach((el) => { el.hidden = true; });
 
   // ۱. رسانه
   root.querySelectorAll('[data-tth-media]').forEach((btn) => {
@@ -40,6 +41,16 @@
       const preview = root.querySelector(`[data-tth-preview="${btn.dataset.tthMediaClear}"]`);
       if (input) input.value = '0';
       if (preview) preview.textContent = '—';
+    });
+  });
+
+  // پیشنهاد «تصویر دسته در ووکامرس»: همان شناسه را در کادر می‌گذارد؛ ذخیره با دکمهٔ فرم.
+  root.querySelectorAll('[data-tth-media-set]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const input = document.getElementById(btn.dataset.tthMediaSet);
+      const preview = root.querySelector(`[data-tth-preview="${btn.dataset.tthMediaSet}"]`);
+      if (input) input.value = btn.dataset.id;
+      if (preview) { preview.textContent = ''; const img = document.createElement('img'); img.src = btn.dataset.url; img.alt = ''; preview.append(img); }
     });
   });
 

@@ -1,7 +1,8 @@
 <?php
 /**
  * راه‌اندازی. هیچ چیزی هنگام فعال‌سازی نوشته نمی‌شود: تا مدیر ذخیره نکند، option وجود
- * ندارد و پیش‌فرض‌ها (بی دسته، بی جایگزینی) خوانده می‌شوند.
+ * ندارد و پیش‌فرض‌ها (بی دسته، بی جایگزینی) خوانده می‌شوند. فعال‌سازی/غیرفعال‌سازی فقط وقتی
+ * جایگزینی روشن است کش صفحه را پاک می‌کند (lifecycle_purge).
  *
  * @package Tecteb\Header
  */
@@ -22,6 +23,13 @@ final class Plugin {
 		add_filter( 'woocommerce_add_to_cart_fragments', array( Renderer::class, 'cart_fragment' ) );
 		if ( is_admin() ) {
 			Admin::register_hooks();
+		}
+	}
+
+	public static function lifecycle_purge(): void {
+		Settings::forget();
+		if ( Settings::get()['replace'] ) {
+			Cache::purge();
 		}
 	}
 }

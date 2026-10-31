@@ -2,9 +2,14 @@ PHP 8.3.6 (cli) (built: Oct 19 2026 15:16:58) (NTS)
 7.1
 name,status,update,version,update_version,auto_update
 hello,inactive,none,1.7.2,,off
-tecteb-header,active,none,0.1.0,,off
+tecteb-header,active,none,0.2.0,,off
 tecteb-homepage,active,none,0.2.0,,off
 woocommerce,active,none,11.0.1,,off
 tthh-elementor-emulator,must-use,,,,off
-name,status,update,version,update_version,auto_update
-hello-elementor,active,none,3.5.1,,off
+tthh-test-helpers,must-use,,,,off
+tthh-elementor-emulator.php
+tthh-test-helpers.php
+reference sources read (not executed):
+pro-elements 4.2.2 zip sha256 3f13d63c97506add64e7dbb61ae2166dd594d91e24425e3cfedfe19bcada3c7c
+elementor 4.2.3 zip sha256 a167404eb93e5568b79bc31cd560b67f7b6c150ce8e825a5ff4168089eb2133c
+matthiasmullie/minify 1.3.75 (executed, for the minify test only)

@@ -196,35 +196,125 @@ final class Menu {
 	}
 
 	/**
-	 * دسته‌های product_cat ِ یک فهرست وردپرس، به ترتیب خودِ فهرست — فقط خواندنی، برای
-	 * پیشنهاد در داشبورد. سطح اول دسته‌ها = هر موردی که مادرش خودش دستهٔ محصول نیست.
+	 * همهٔ موارد یک فهرست وردپرس، هر کدام با دستهٔ product_cat ای که به آن اشاره می‌کند — فقط
+	 * خواندنی، برای پیشنهاد در داشبورد. سه راه تشخیص، به ترتیب اطمینان:
+	 *   taxonomy  مورد از نوع «دستهٔ محصول» است (object_id همان شناسه است)؛
+	 *   url       «پیوند سفارشی» ای که نشانی‌اش همان نشانی یک دستهٔ محصول است (فقط مسیر سنجیده
+	 *             می‌شود، پس دامنهٔ Staging و اصلی فرقی نمی‌کنند؛ ?product_cat=slug هم)؛
+	 *   name      عنوان مورد با نام یک دسته یکی است (پس از یکسان‌سازی) — کم‌اطمینان‌ترین، و
+	 *             داشبورد آن را پیش‌انتخاب نمی‌کند.
+	 * محتوای Mega Menu ِ JetMenu (متای مورد) خوانده نمی‌شود.
+	 *
+	 * @return list<array{item_id:int,title:string,type:string,url:string,depth:int,parent:int,term_id:int,match:string,first:bool}>
+	 */
+	public static function menu_candidates( int $menu_id ): array {
+		$items = $menu_id ? wp_get_nav_menu_items( $menu_id, array( 'update_post_term_cache' => false ) ) : false;
+		if ( ! is_array( $items ) || array() === $items ) {
+			return array();
+		}
+		$by_path = array();
+		$by_slug = array();
+		$by_name = array();
+		$terms   = get_terms(
+			array(
+				'taxonomy'   => 'product_cat',
+				'hide_empty' => false,
+				'number'     => 0,
+			)
+		);
+		if ( is_array( $terms ) ) {
+			foreach ( $terms as $t ) {
+				$link = get_term_link( $t );
+				if ( is_string( $link ) ) {
+					$by_path[ self::path_key( $link ) ] = (int) $t->term_id;
+				}
+				$by_slug[ (string) $t->slug ]                                 = (int) $t->term_id;
+				$by_name[ Settings::normalize_name( (string) $t->name ) ][] = $t;
+			}
+		}
+		$rows  = array();
+		$depth = array();
+		foreach ( $items as $item ) {
+			$id     = (int) $item->ID;
+			$parent = (int) $item->menu_item_parent;
+			$d      = $parent && isset( $depth[ $parent ] ) ? $depth[ $parent ] + 1 : 0;
+			$depth[ $id ] = $d;
+			$title  = wp_strip_all_tags( (string) $item->title );
+			$term   = 0;
+			$match  = '';
+			if ( 'taxonomy' === $item->type && 'product_cat' === $item->object ) {
+				$term  = (int) $item->object_id;
+				$match = 'taxonomy';
+			} elseif ( 'custom' === $item->type ) {
+				$url   = (string) $item->url;
+				$query = array();
+				wp_parse_str( (string) wp_parse_url( $url, PHP_URL_QUERY ), $query );
+				if ( isset( $by_path[ self::path_key( $url ) ] ) && '/' !== self::path_key( $url ) ) {
+					$term  = $by_path[ self::path_key( $url ) ];
+					$match = 'url';
+				} elseif ( isset( $query['product_cat'] ) && is_string( $query['product_cat'] ) && isset( $by_slug[ sanitize_title( $query['product_cat'] ) ] ) ) {
+					$term  = $by_slug[ sanitize_title( $query['product_cat'] ) ];
+					$match = 'url';
+				}
+			}
+			if ( ! $term ) {
+				$cands = $by_name[ Settings::normalize_name( $title ) ] ?? array();
+				$top   = array_values( array_filter( $cands, static fn( $t ) => 0 === (int) $t->parent ) );
+				$pick  = 1 === count( $top ) ? $top : ( 1 === count( $cands ) ? $cands : array() );
+				if ( $pick ) {
+					$term  = (int) $pick[0]->term_id;
+					$match = 'name';
+				}
+			}
+			if ( $term && ! ( get_term( $term, 'product_cat' ) instanceof \WP_Term ) ) {
+				$match = 'missing';
+			}
+			$rows[ $id ] = array(
+				'item_id' => $id,
+				'title'   => $title,
+				'type'    => (string) $item->type,
+				'url'     => (string) $item->url,
+				'depth'   => $d,
+				'parent'  => $parent,
+				'term_id' => $term,
+				'match'   => $match,
+				'first'   => false,
+			);
+		}
+		// «سطح اول دسته‌ها» = موردی با دسته که مادرش خودش به دسته‌ای اشاره نمی‌کند.
+		foreach ( $rows as $id => $r ) {
+			$p                     = $r['parent'];
+			$parent_is_cat         = $p && isset( $rows[ $p ] ) && in_array( $rows[ $p ]['match'], array( 'taxonomy', 'url' ), true );
+			$rows[ $id ]['first'] = in_array( $r['match'], array( 'taxonomy', 'url', 'name' ), true ) && ! $parent_is_cat;
+		}
+		return array_values( $rows );
+	}
+
+	/** نشانی ⇒ مسیر یکسان‌شده (بی دامنه، رمزگشایی‌شده، بی اسلش پایانی، حروف کوچک). */
+	private static function path_key( string $url ): string {
+		$path = (string) wp_parse_url( $url, PHP_URL_PATH );
+		$path = rawurldecode( $path );
+		return '/' . trim( mb_strtolower( $path ), '/' );
+	}
+
+	/**
+	 * دسته‌های سطح اول یک فهرست وردپرس با شناسهٔ قطعی (نوع «دستهٔ محصول» یا نشانی)، به ترتیب
+	 * فهرست و بی تکرار — فقط خواندنی.
 	 *
 	 * @return list<array{term_id:int,title:string,exists:bool}>
 	 */
 	public static function menu_categories( int $menu_id ): array {
-		$items = $menu_id ? wp_get_nav_menu_items( $menu_id, array( 'update_post_term_cache' => false ) ) : false;
-		if ( ! is_array( $items ) ) {
-			return array();
-		}
-		$is_cat = array();
-		foreach ( $items as $item ) {
-			$is_cat[ (int) $item->ID ] = 'taxonomy' === $item->type && 'product_cat' === $item->object;
-		}
 		$out  = array();
 		$seen = array();
-		foreach ( $items as $item ) {
-			if ( ! $is_cat[ (int) $item->ID ] || ! empty( $is_cat[ (int) $item->menu_item_parent ] ) ) {
+		foreach ( self::menu_candidates( $menu_id ) as $r ) {
+			if ( ! $r['first'] || ! in_array( $r['match'], array( 'taxonomy', 'url' ), true ) || isset( $seen[ $r['term_id'] ] ) ) {
 				continue;
 			}
-			$id = (int) $item->object_id;
-			if ( isset( $seen[ $id ] ) ) {
-				continue;
-			}
-			$seen[ $id ] = true;
-			$term        = get_term( $id, 'product_cat' );
-			$out[]       = array(
-				'term_id' => $id,
-				'title'   => $term instanceof \WP_Term ? (string) $term->name : wp_strip_all_tags( (string) $item->title ),
+			$seen[ $r['term_id'] ] = true;
+			$term                  = get_term( $r['term_id'], 'product_cat' );
+			$out[]                 = array(
+				'term_id' => $r['term_id'],
+				'title'   => $term instanceof \WP_Term ? (string) $term->name : $r['title'],
 				'exists'  => $term instanceof \WP_Term,
 			);
 		}

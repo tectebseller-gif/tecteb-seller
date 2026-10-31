@@ -38,6 +38,10 @@ ok    remove drops one, add_main appends new and skips duplicate
 ok    unchecked enabled ⇒ disabled (kept in list)
 ok    import from WP menu: 13 product_cat items in menu order
 ok    import: nested product_cat item under a product_cat item ignored
+ok    custom-link menu (JetMenu shape): 12 categories resolved by URL, in menu order
+ok    custom links: other domain, percent-encoded, no trailing slash, ?product_cat=, upper-case scheme all resolved
+ok    custom link with only a matching title ⇒ «name», not pre-selected by menu_categories
+ok    non-category items (shop, parent #) not matched
 ok    baseline: 13 rows
 ok    baseline: Arabic ك + ZWNJ normalised (چشم پزشکی)
 ok    baseline: Arabic ي normalised (گوش و حلق و بینی)
@@ -86,24 +90,40 @@ ok    member: logout uses wc_logout_url (nonce)
 ok    member: no guest link
 ok    wishlist link: heart to admin URL, no count without adapter
 ok    wishlist: count only from adapter filter
+ok    templates: only Header-type templates listed (no footer/section)
+ok    templates: 2652 published, condition include/general = «کل سایت»
+ok    templates: exclude conditions labelled
+ok    templates: conditions cache read and compared
+ok    is_header_template: header yes; footer, section, product no
+ok    settings: replace_templates keeps only Header templates
+ok    settings: replacement cannot be switched on without a chosen template
 ok    replace OFF: Elementor header 2652 printed, plugin header not
-ok    replace ON: exactly one header — plugin header, 2652 output discarded
+ok    replace ON: exactly one header — plugin header; 2652 not rendered
 ok    replace ON: plugin header is the page banner
 ok    replace ON: footer untouched (byte-identical)
-ok    replace ON + shortcode elsewhere after header ⇒ comment only
-ok    replace ON + [tecteb_header] inside the Elementor template ⇒ still exactly one
-ok    shortcode in Elementor template, replace OFF ⇒ one plugin header inside 2652 shell
-ok    replace ON: buffer left open by the template is closed, its content discarded
+ok    replace ON: no HTML comment for visitors
+ok    other plugins on before/after_do_header keep their output, in order
+ok    no output buffer opened or left behind
+ok    header location run twice in one request ⇒ still one header, 2652 never printed
+ok    shortcode printed earlier + replace ⇒ 2652 removed, nothing second
+ok    replace ON + [tecteb_header] inside the Elementor template ⇒ exactly one
+ok    shortcode in Elementor template, replace OFF ⇒ one plugin header inside the 2652 shell
+ok    template not in allowlist ⇒ Elementor prints it, plugin prints nothing
+ok    no locations manager object ⇒ plugin prints nothing
+ok    queue not emptied ⇒ documents restored, plugin prints nothing
 ok    no Elementor header for the page ⇒ plugin prints nothing (theme fallback)
 ok    Elementor editor/preview ⇒ never replaced
 ok    ?tth_preview=1 for a visitor ⇒ ignored
-ok    ?tth_preview=1 for an admin ⇒ plugin header
+ok    ?tth_preview=1 for an admin ⇒ plugin header, with an admin-only explanation
 ok    ?tth_original=1 for an admin ⇒ Elementor header even when replace is on
 ok    ?tth_original=1 for a visitor ⇒ ignored
+ok    WP Rocket: rocket_clean_domain() once per request on save
+ok    font: inline @font-face with absolute URL (survives CSS minify/relocation)
+ok    cart fragments on by default (cached pages show the real count)
 ok    admin menu: no «تک‌طب» ⇒ one created, «مدیریت هدر» its only (visible) submenu
 ok    admin menu: existing «تک‌طب» reused, no duplicate top-level
 ok    admin menu: «بازارگاه تک‌طب» is not taken as «تک‌طب»
 ok    capability: option page capability = manage_options
 ok    no writes to terms, term meta, relationships, posts, post meta or menus
 
-107 passed, 0 failed
+127 passed, 0 failed

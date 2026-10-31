@@ -13,10 +13,10 @@
  *   • تغییر ساختار پیوندهای یکتا (وردپرس یا ووکامرس).
  *
  * کش صفحه: هدر روی همهٔ صفحه‌هاست، پس پس از تغییری که مدیر می‌بیند (ذخیرهٔ تنظیمات، یا
- * تغییر یک دستهٔ تنظیم‌شده) قلاب عمومی LiteSpeed Cache (`litespeed_purge_all`) صدا زده
- * می‌شود — یک بار در هر درخواست. اگر آن افزونه نباشد کسی گوش نمی‌دهد. تغییر شمار
- * محصول کش صفحه را پاک نمی‌کند (روی هر ذخیرهٔ محصول رخ می‌دهد). ⛔ روی LiteSpeed ِ واقعی
- * سنجیده نشده است.
+ * تغییر یک دستهٔ تنظیم‌شده) کل کش صفحه پاک‌سازی می‌شود — یک بار در هر درخواست: تابع
+ * `rocket_clean_domain()` ِ WP Rocket اگر هست، و قلاب عمومی `litespeed_purge_all`. تغییر شمار
+ * محصول کش صفحه را پاک نمی‌کند (روی هر ذخیرهٔ محصول رخ می‌دهد). ⛔ روی WP Rocket ِ واقعی
+ * سنجیده نشده است (فقط فراخوانی تابع، با بدل، در آزمون یکپارچه).
  *
  * @package Tecteb\Header
  */
@@ -113,6 +113,10 @@ final class Cache {
 			return;
 		}
 		self::$purged = true;
+		// WP Rocket (Staging: 3.23.2.2): پاک‌سازی کل کش صفحهٔ دامنه. فقط اگر فعال است.
+		if ( function_exists( 'rocket_clean_domain' ) ) {
+			rocket_clean_domain();
+		}
 		do_action( 'litespeed_purge_all' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- قلاب عمومی LiteSpeed Cache، نه قلاب ما.
 		/**
 		 * پس از درخواست پاک‌سازی کل کش صفحه از LiteSpeed، برای هر کش دیگری.

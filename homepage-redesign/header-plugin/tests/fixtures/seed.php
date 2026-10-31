@@ -35,12 +35,29 @@ function tthh_reset(): void {
 	foreach ( $terms as $t ) {
 		wp_delete_term( $t->term_id, 'product_cat' );
 	}
-	$menu = wp_get_nav_menu_object( 'tthh-main' );
-	if ( $menu ) {
-		wp_delete_nav_menu( $menu->term_id );
+	foreach ( array( 'tthh-main', 'منوی اصلی' ) as $m ) {
+		$menu = wp_get_nav_menu_object( $m );
+		if ( $menu ) {
+			wp_delete_nav_menu( $menu->term_id );
+		}
 	}
+	foreach ( get_posts( array( 'post_type' => 'elementor_library', 'post_status' => 'any', 'numberposts' => -1, 'meta_key' => TTHH_FIXTURE, 'fields' => 'ids' ) ) as $id ) {
+		wp_delete_post( $id, true );
+	}
+	delete_option( 'elementor_pro_theme_builder_conditions' );
 	delete_option( 'tecteb_header_settings' );
 	delete_option( 'tthh_fixture_ids' );
+}
+
+/** قالب Theme Builder به همان شکلی که Elementor Pro ذخیره می‌کند (فقط پست و دو متا). */
+function tthh_template( int $id, string $title, string $type, string $status, array $conditions ): int {
+	$pid = wp_insert_post( array( 'import_id' => $id, 'post_type' => 'elementor_library', 'post_status' => $status, 'post_title' => $title ) );
+	update_post_meta( $pid, '_elementor_template_type', $type );
+	if ( $conditions ) {
+		update_post_meta( $pid, '_elementor_conditions', $conditions );
+	}
+	update_post_meta( $pid, TTHH_FIXTURE, 1 );
+	return (int) $pid;
 }
 
 function tthh_term( string $name, int $parent = 0 ): int {
@@ -124,6 +141,7 @@ if ( 'configure' === $verb ) {
 			'categories' => $cats,
 			'nav_menu'   => $ids['menu'],
 			'nav_hidden' => array( $ids['nav']['cats'], $ids['nav']['seller'] ),
+			'replace_templates' => array( 2652 ),
 			'replace'    => ( $args[1] ?? 'on' ) === 'on',
 		)
 	);
@@ -195,6 +213,22 @@ $ids['jpg']  = tthh_attachment( 'tthh-photo.jpg', 'image/jpeg', (string) ( funct
 $ids['page'] = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'درباره تک طب', 'post_name' => 'tthh-about' ) );
 update_post_meta( $ids['page'], TTHH_FIXTURE, 1 );
 
+// قالب‌های Theme Builder به شکل Staging: Header ۲۶۵۲ با «کل سایت»، فوتر، و دو قالب هدر دیگر.
+$ids['tpl'] = array(
+	'header'  => tthh_template( 2652, 'Header', 'header', 'publish', array( 'include/general' ) ),
+	'footer'  => tthh_template( 2700, 'Footer', 'footer', 'publish', array( 'include/general' ) ),
+	'draft'   => tthh_template( 2653, 'Header (پیش‌نویس)', 'header', 'draft', array() ),
+	'landing' => tthh_template( 2654, 'Header صفحهٔ فرود', 'header', 'publish', array( 'include/singular/page/12', 'exclude/singular/front_page' ) ),
+	'section' => tthh_template( 2655, 'بخش نمونه', 'section', 'publish', array() ),
+);
+update_option(
+	'elementor_pro_theme_builder_conditions',
+	array(
+		'header' => array( 2652 => array( 'include/general' ), 2654 => array( 'include/singular/page/12', 'exclude/singular/front_page' ) ),
+		'footer' => array( 2700 => array( 'include/general' ) ),
+	)
+);
+
 // فهرست به شکل منوی فعلی سایت.
 $menu        = wp_create_nav_menu( 'tthh-main' );
 $ids['menu'] = (int) $menu;
@@ -213,6 +247,32 @@ $ids['nav']['repair']  = tthh_menu_item( $menu, array( 'menu-item-title' => 'د�
 $ids['nav']['about']   = tthh_menu_item( $menu, array( 'menu-item-title' => 'درباره تک طب', 'menu-item-object' => 'page', 'menu-item-object-id' => $ids['page'], 'menu-item-type' => 'post_type' ) );
 $ids['nav']['contact'] = tthh_menu_item( $menu, array( 'menu-item-title' => 'تماس با ما <b>!</b>', 'menu-item-url' => home_url( '/contact/' ), 'menu-item-type' => 'custom' ) );
 $ids['nav']['seller']  = tthh_menu_item( $menu, array( 'menu-item-title' => 'در تک طب فروشنده شوید!', 'menu-item-url' => home_url( '/landing-seller/' ), 'menu-item-type' => 'custom' ) );
+
+// «منوی اصلی» به شکل Staging: «دسته بندی کالا ها» و سیزده **پیوند سفارشی** (JetMenu) — نشانی‌ها
+// به چند شکل: دامنهٔ دیگر، درصدی، بی اسلش پایانی، ?product_cat=، و یکی فقط هم‌نام (#).
+$jm          = wp_create_nav_menu( 'منوی اصلی' );
+$ids['jm']   = (int) $jm;
+$jm_parent   = tthh_menu_item( $jm, array( 'menu-item-title' => 'دسته بندی کالا ها', 'menu-item-url' => '#', 'menu-item-type' => 'custom' ) );
+$ids['jm_items'] = array();
+foreach ( array_values( $names ) as $i => $n ) {
+	$term = get_term( $ids['mains'][ $n ], 'product_cat' );
+	$link = get_term_link( $term );
+	$path = (string) wp_parse_url( $link, PHP_URL_PATH );
+	$url  = match ( $i % 5 ) {
+		0 => 'https://staging.tecteb.com' . $path,
+		1 => home_url( rawurldecode( rtrim( $path, '/' ) ) ),
+		2 => home_url( '/?product_cat=' . $term->slug ),
+		3 => strtoupper( substr( $link, 0, 4 ) ) . substr( $link, 4 ),
+		default => $link,
+	};
+	if ( 'استریلیزاسیون' === $n ) {
+		$url = '#'; // فقط با نام پیدا می‌شود ⇒ پیش‌انتخاب نمی‌شود.
+	}
+	$item = tthh_menu_item( $jm, array( 'menu-item-title' => $n, 'menu-item-url' => $url, 'menu-item-type' => 'custom', 'menu-item-parent-id' => $jm_parent ) );
+	update_post_meta( $item, 'jet_menu_settings', array( 'enabled' => 'true', 'custom_mega_menu_type' => 'elementor' ) );
+	$ids['jm_items'][ $n ] = $item;
+}
+tthh_menu_item( $jm, array( 'menu-item-title' => 'فروشگاه', 'menu-item-url' => home_url( '/shop/' ), 'menu-item-type' => 'custom' ) );
 
 update_option( 'tthh_fixture_ids', $ids, false );
 echo wp_json_encode( $ids, JSON_UNESCAPED_UNICODE ), "\n";

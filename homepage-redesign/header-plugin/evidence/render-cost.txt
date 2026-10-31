@@ -1,3 +1,1 @@
-cold (no transient, no object cache): queries=26 ms=17.3
-warm (transient hit, cold object cache): queries=14 ms=7.2
-html bytes=27514
+render queries: cold=23 warm=14 (no persistent object cache); html bytes=27514

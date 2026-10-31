@@ -15,3 +15,6 @@ admin import tab: none
 admin links tab: none
 admin replace tab: none
 admin data tab: none
+admin import custom-link menu: none
+minified CSS mega @1440: none
+minified CSS drawer @390: none

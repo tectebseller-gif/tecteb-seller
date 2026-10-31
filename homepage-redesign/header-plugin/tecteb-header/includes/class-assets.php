@@ -48,14 +48,14 @@ final class Assets {
 		$s          = Settings::get();
 		$v          = TECTEB_HEADER_VERSION;
 		$css        = TECTEB_HEADER_URL . 'assets/css/';
-		$deps       = array();
-		if ( 'plugin' === $s['font'] ) {
-			wp_enqueue_style( 'tecteb-header-font', $css . 'tecteb-header-font.css', array(), $v );
-			$deps[] = 'tecteb-header-font';
-		}
-		wp_enqueue_style( 'tecteb-header-base', $css . 'header-base.css', $deps, $v );
+		wp_enqueue_style( 'tecteb-header-base', $css . 'header-base.css', array(), $v );
 		wp_enqueue_style( 'tecteb-header-b', $css . 'header-b.css', array( 'tecteb-header-base' ), $v );
 		wp_enqueue_style( 'tecteb-header', $css . 'tecteb-header.css', array( 'tecteb-header-b' ), $v );
+		if ( 'plugin' === $s['font'] ) {
+			// درون‌خطی و با نشانی مطلق: اگر WP Rocket (یا هر بهینه‌ساز) فایل‌های CSS را کوچک و به
+			// پوشهٔ کش منتقل کند، نشانی نسبی ِ فونت نمی‌شکند.
+			wp_add_inline_style( 'tecteb-header', self::font_css() );
+		}
 		wp_enqueue_script(
 			'tecteb-header',
 			TECTEB_HEADER_URL . 'assets/js/header.js',
@@ -69,6 +69,13 @@ final class Assets {
 		if ( $s['cart_fragments'] && wp_script_is( 'wc-cart-fragments', 'registered' ) ) {
 			wp_enqueue_script( 'wc-cart-fragments' );
 		}
+	}
+
+	/** فونت Vazirmatn ِ طرح (OFL-1.1، assets/fonts/OFL.txt). */
+	public static function font_css(): string {
+		$url = esc_url_raw( TECTEB_HEADER_URL . 'assets/fonts/Vazirmatn-wght.woff2' );
+		return '@font-face{font-family:"TTH Vazirmatn";src:url("' . $url . '") format("woff2");font-weight:100 900;font-display:swap}'
+			. '.tecteb-header-v1{--tth-font:"TTH Vazirmatn",Tahoma,system-ui,sans-serif}';
 	}
 
 	/** فقط برای آزمون‌ها. */

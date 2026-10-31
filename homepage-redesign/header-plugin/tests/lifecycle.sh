@@ -6,7 +6,7 @@
 #   bash homepage-redesign/header-plugin/tests/lifecycle.sh [zip]
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ZIP="${1:-$HERE/dist/tecteb-header-0.1.0.zip}"
+ZIP="${1:-$HERE/dist/tecteb-header-0.2.0.zip}"
 WPP=/home/user/wp/core
 W="wp --allow-root --path=$WPP"
 SITE=http://127.0.0.1:8090
@@ -23,7 +23,9 @@ $W db query "DELETE FROM wp_options WHERE option_name LIKE '%tecteb_header%'" >/
 BEFORE="$(snap)"
 HOME_FILES="$(cd "$HERE/../plugin/tecteb-homepage" && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)"
 
+$W option update tthh_rocket_calls 0 >/dev/null
 $W plugin install "$ZIP" --activate >/dev/null 2>&1
+ok "activation with nothing configured purges nothing" '[[ "$($W option get tthh_rocket_calls)" == 0 ]]'
 ok "installed from ZIP and active" '[[ "$($W plugin get tecteb-header --field=status)" == active && ! -L $WPP/wp-content/plugins/tecteb-header ]]'
 ok "activation stores nothing" '[[ "$(opt_rows)" == 0 ]]'
 ok "default: Elementor header 2652 still shown, plugin header absent" '[[ $(count /tthh-about/ data-tthh-original) == 1 && $(count /tthh-about/ "data-tth-header") == 0 ]]'
@@ -34,7 +36,9 @@ for p in / /tthh-about/ /shop/ /cart/ /my-account/ "/?s=x&post_type=product"; do
 done
 ok "product category archive page: one header" '[[ $(count "/product-category/%d9%82%d9%84%d8%a8-%d9%88-%d8%b9%d8%b1%d9%88%d9%82/" "data-tth-header") == 1 ]]'
 
+$W option update tthh_rocket_calls 0 >/dev/null
 $W plugin deactivate tecteb-header >/dev/null
+ok "deactivate with replacement on purges page cache once (WP Rocket)" '[[ "$($W option get tthh_rocket_calls)" == 1 ]]'
 ok "deactivate = rollback: 2652 back on every page, plugin header gone" '[[ $(count / data-tthh-original) == 1 && $(count / "data-tth-header") == 0 && $(count /shop/ data-tthh-original) == 1 ]]'
 ok "deactivate keeps settings for a later re-enable" '[[ "$(opt_rows)" -ge 1 ]]'
 $W plugin activate tecteb-header >/dev/null

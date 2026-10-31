@@ -119,8 +119,8 @@ ok    admin: tampered nonce refused, option unchanged
 ok    admin: up button reorders and saves
 ok    admin: switch off saves enabled=false
 ok    admin: settings-updated notice shown
-ok    admin: zanan card has no descendants ⇒ no add-child select
-ok    admin: add-child list only offers descendants not yet chosen
+ok    admin: zanan card has no descendants ⇒ no subcategory picker
+ok    admin: subcategory picker offers only descendants not yet chosen
 ok    admin: child added
 ok    admin: search + add main appends real ID
 ok    admin: Media Library opens, limited to PNG/WebP
@@ -135,5 +135,26 @@ ok    rollback: visitor sees Elementor 2652 again, plugin header absent
 ok    preview param ignored for visitors
 ok    admin preview: plugin header in place of 2652, only one
 ok    replace back on
+ok    import custom-link menu: 12 URL matches pre-selected
+ok    import custom-link menu: title-only match shown, not pre-selected
+ok    axe admin import custom-link menu
+ok    import apply: 13 real IDs in menu order
+ok    replace tab: Header #2652, published, «شامل: کل سایت», selected
+ok    replace tab: page-specific header listed, not selected
+ok    replace tab: cannot stay on with no template; warning shown
+ok    replace tab: 2652 chosen + switch on saved
+ok    admin sees the explanation comment in source
+ok    minified CSS @1440: really loaded from the minified copies
+ok    minified CSS @1440: identical layout
+ok    minified CSS: mega opens
+ok    axe minified CSS mega @1440
+ok    RTL: root dir=rtl, logo to the right of search, tools to the left
+ok    minified CSS @390: really loaded from the minified copies
+ok    minified CSS @390: identical layout
+ok    minified CSS: drawer opens
+ok    axe minified CSS drawer @390
+ok    RTL @390: burger on the right edge
+ok    cached page copy (no badge in its HTML) shows the real cart count via cart fragments
+ok    no PHP notice/warning/deprecation from tecteb-header in debug.log
 
-137 passed, 0 failed
+158 passed, 0 failed
