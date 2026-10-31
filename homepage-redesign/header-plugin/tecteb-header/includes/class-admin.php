@@ -631,8 +631,30 @@ final class Admin {
 			echo '<tr><th scope="row">' . esc_html( $k ) . '</th><td>' . ( '' !== trim( $val ) ? esc_html( $val ) : esc_html__( 'دیده نشد', 'tecteb-header' ) ) . '</td></tr>';
 		}
 		echo '</tbody></table>';
+		self::inspect_box( $templates );
+
 		echo '<h3>' . esc_html__( 'راه دوم: shortcode در قالب Elementor', 'tecteb-header' ) . '</h3>';
 		echo '<p>' . wp_kses_post( __( 'یک قالب هدر تازه در Theme Builder با ابزارک Shortcode و <code>[tecteb_header]</code>، و جابه‌جایی شرط «کل سایت» از ۲۶۵۲ به آن. بازگشت = برگرداندن شرط. این افزونه هیچ شرطی را خودکار تغییر نمی‌دهد.', 'tecteb-header' ) ) . '</p>';
+	}
+
+	/**
+	 * گزارش فقط‌خواندنیِ Inspect برای یک قالب هدر، فقط وقتی مدیر بخواهد (`&inspect=<id>`).
+	 *
+	 * @param list<array<string,mixed>> $templates
+	 */
+	private static function inspect_box( array $templates ): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- فقط خواندن، روی صفحه‌ای که مجوزش سنجیده شده.
+		$want = isset( $_GET['inspect'] ) ? absint( wp_unslash( $_GET['inspect'] ) ) : 0;
+		echo '<h3 id="tth-inspect">' . esc_html__( 'بررسی فقط‌خواندنی قالب هدر', 'tecteb-header' ) . '</h3>';
+		echo '<p>' . esc_html__( 'ابزارک‌ها، Custom CSS، فایل CSS ِ قالب (که Elementor Pro حتی پس از جایگزینی بارگذاری می‌کند)، CSS ِ Kit و سفارشی‌ساز، قلاب‌های مرتبط و تنظیمات WP Rocket — بی هیچ نوشتنی. همین گزارش با WP-CLI:', 'tecteb-header' ) . ' <code dir="ltr">wp eval-file wp-content/plugins/tecteb-header/tools/inspect-header-template.php 2652</code></p>';
+		echo '<p>';
+		foreach ( $templates as $t ) {
+			echo '<a class="button" href="' . esc_url( self::url( array( 'tab' => 'replace', 'inspect' => (int) $t['id'] ) ) . '#tth-inspect' ) . '">' . esc_html( sprintf( /* translators: %d: template id */ __( 'بررسی #%d', 'tecteb-header' ), (int) $t['id'] ) ) . '</a> ';
+		}
+		echo '</p>';
+		if ( $want && Elementor::is_header_template( $want ) ) {
+			echo '<pre class="tth-json" dir="ltr" tabindex="0">' . esc_html( Inspect::text( Inspect::report( $want ) ) ) . '</pre>';
+		}
 	}
 
 	/** @param array<string,mixed> $s */

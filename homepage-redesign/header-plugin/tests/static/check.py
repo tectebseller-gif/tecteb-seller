@@ -46,12 +46,13 @@ code = {p.relative_to(ROOT).as_posix(): php_code(p) for p in php_files}
 allcode = "\n".join(code.values())
 
 # --- ۱. دارایی‌های تأییدشده
-for ship, proto in [
-    ("assets/css/header-base.css", "shared/header-base.css"),
-    ("assets/css/header-b.css", "b/header-b.css"),
-    ("assets/js/header.js", "shared/header.js"),
-]:
-    check(f"approved asset byte-identical: {ship}", (ROOT / ship).read_bytes() == (PROTO / proto).read_bytes())
+check("approved asset byte-identical: assets/js/header.js", (ROOT / "assets/js/header.js").read_bytes() == (PROTO / "shared/header.js").read_bytes())
+hard = subprocess.run([sys.executable, str(ROOT.parent / "tools/harden-css.py"), "--check"], capture_output=True, text=True)
+check("assets/css/header.css = harden-css.py(approved header-base.css + header-b.css)", hard.returncode == 0, hard.stderr.strip())
+check("old unprefixed copies not shipped", not (ROOT / "assets/css/header-base.css").exists() and not (ROOT / "assets/css/header-b.css").exists())
+hcss = (ROOT / "assets/css/header.css").read_text(encoding="utf-8")
+check("isolation layer precedes the design rules", hcss.find("all: revert") != -1 and hcss.find("all: revert") < hcss.find("--tth-"))
+check("header root carries id=tth-root (once)", (ROOT / "templates/header.php").read_text(encoding="utf-8").count('id="tth-root"') == 1)
 tpl = (PROTO / "shared/header.html").read_text(encoding="utf-8")
 sprite = (ROOT / "templates/sprite.svg").read_text(encoding="utf-8")
 sym = lambda s: set(re.findall(r'<symbol id="(tth-i-[a-z]+)"[^>]*>.*?</symbol>', s))
@@ -91,7 +92,14 @@ opts = {o.strip() for o in re.findall(r"\b(?:update|add|delete)_option\(\s*([^,)
 check("options written: only our own", opts <= {"self::GEN", "'tecteb_header_settings'", "'tecteb_header_gen'"}, str(opts))
 check("no upload_mimes / SVG enabling", not re.search(r"upload_mimes|wp_check_filetype_and_ext|image/svg", allcode))
 check("ICON_MIMES = PNG + WebP only", re.search(r"ICON_MIMES\s*=\s*array\(\s*'image/png',\s*'image/webp'\s*\)", code["includes/class-settings.php"]) is not None)
-check("no 2652 hard-coded; Elementor data never written", not re.search(r"\b2652\b|_elementor_data|\bupdate_post\(|update_option\(\s*(self::CONDITIONS_OPTION|'elementor)", allcode))
+repl_code = "\n".join(c for f, c in code.items() if f not in ("includes/class-inspect.php", "tools/inspect-header-template.php", "includes/class-admin.php"))
+check("no 2652 hard-coded in replacement/settings; Elementor data never written", not re.search(r"\b2652\b|_elementor_data|\bupdate_post\(|update_option\(\s*(self::CONDITIONS_OPTION|'elementor)", repl_code) and not re.search(r"\bupdate_post\(|update_option\(\s*(self::CONDITIONS_OPTION|'elementor)", allcode))
+check("_elementor_data only in the inspector, only via get_post_meta", [f for f, c in code.items() if "_elementor_data" in c] == ["includes/class-inspect.php"] and re.findall(r"\w+\(\s*\$id,\s*'_elementor_data'", code["includes/class-inspect.php"]) == ["get_post_meta( $id, '_elementor_data'"])
+insp = code["includes/class-inspect.php"] + code["tools/inspect-header-template.php"]
+insp_w = [w for w in (r"\b(add|update|delete)_(option|post_meta|term_meta|user_meta|metadata)\(", r"\bset_(site_)?transient\(", r"\bwp_cache_(set|add|delete|flush)\(", r"\bfile_put_contents\(", r"\bfopen\(", r"\bunlink\(", r"\bmkdir\(|\bwp_mkdir_p\(", r"\btouch\(", r"\bcopy\(|\brename\(", r"\$wpdb\b", r"\bwp_(insert|update|delete)_", r"\bcall_user_func", r"\bdo_action\(|\bapply_filters\(", r"->save\(", r"rocket_clean|litespeed_purge|Plugin::instance\(") if re.search(w, insp)]
+check("inspector: no write, purge, hook dispatch or callback call", not insp_w, ", ".join(insp_w))
+check("inspector reads the upload dir without creating it", "wp_upload_dir( null, false )" in code["includes/class-inspect.php"])
+check("inspector CLI tool exits unless WP-CLI", "if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {\n\texit;" in (ROOT / "tools/inspect-header-template.php").read_text(encoding="utf-8"))
 check("Elementor conditions only read (get_post_meta / get_option)", all(re.search(r"(get_post_meta|get_option)\(", l) or "CONDITIONS_OPTION =" in l for l in allcode.splitlines() if re.search(r"_elementor_conditions'|CONDITIONS_OPTION", l) and "=>" not in l))
 check("replacement uses no output buffering", not re.search(r"\bob_(start|end_clean|get_clean|end_flush)\b", code["includes/class-replace.php"]))
 check("replacement hooks: last on before_do_header, first on after_do_header", "'start' ), PHP_INT_MAX" in code["includes/class-replace.php"] and "'finish' ), PHP_INT_MIN" in code["includes/class-replace.php"])
@@ -137,10 +145,10 @@ def selectors(css: str) -> list[str]:
     return out
 
 
-for f in ["header-base.css", "header-b.css", "tecteb-header.css"]:
+for f in ["header.css", "tecteb-header.css"]:
     css = (ROOT / "assets/css" / f).read_text(encoding="utf-8")
-    bad = [s for s in selectors(css) if not s.startswith(".tecteb-header-v1")]
-    check(f"css scoped under .tecteb-header-v1: {f}", not bad, " | ".join(bad[:5]))
+    bad = [s for s in selectors(css) if not s.startswith("#tth-root.tecteb-header-v1")]
+    check(f"css scoped under #tth-root.tecteb-header-v1: {f}", not bad, " | ".join(bad[:5]))
     check(f"css has no external URL: {f}", not re.search(r"url\(\s*['\"]?(https?:)?//", css))
 admin_css = (ROOT / "assets/css/admin.css").read_text(encoding="utf-8")
 bad = [s for s in selectors(admin_css) if not s.startswith(".tth-hdr")]

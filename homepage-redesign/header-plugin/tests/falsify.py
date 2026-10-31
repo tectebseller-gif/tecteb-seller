@@ -30,7 +30,16 @@ def integration() -> bool:
     return out.rstrip().endswith(" 0 failed")
 
 
-S, I = static, integration
+def isolation() -> bool:
+    subprocess.run(WP + ["eval-file", str(HERE / "tests/fixtures/seed.php"), "seed"], capture_output=True, check=True)
+    subprocess.run(WP + ["eval-file", str(HERE / "tests/fixtures/seed.php"), "configure", "on"], capture_output=True, check=True)
+    r = subprocess.run(["node", str(HERE / "tests/isolation.mjs"), "falsify-tmp"], capture_output=True, env={**__import__("os").environ, "NODE_PATH": "/opt/node-tools/node_modules"})
+    for ext in ("txt", "json"):
+        (HERE / "evidence/isolation" / f"falsify-tmp.{ext}").unlink(missing_ok=True)
+    return r.returncode == 0
+
+
+S, I, ISO = static, integration, isolation
 MUTATIONS = [
     ("allow SVG icons", "includes/class-settings.php", "array( 'image/png', 'image/webp' );", "array( 'image/png', 'image/webp', 'image/svg+xml' );", [S, I]),
     ("hide_empty default on", "includes/class-settings.php", "'hide_empty'         => false,", "'hide_empty'         => true,", [S, I]),
@@ -66,6 +75,14 @@ MUTATIONS = [
     ("unscoped CSS rule", "assets/css/tecteb-header.css", "/* جست‌وجوی سفارشی", "body { margin: 0; }\n/* جست‌وجوی سفارشی", [S]),
     ("approved header.js edited", "assets/js/header.js", "open(d), 140);", "open(d), 300);", [S]),
     ("default categories pre-filled with a sample ID", "includes/class-settings.php", "'categories'         => array(),", "'categories'         => array( array( 'term_id' => 101, 'enabled' => true, 'icon_id' => 0, 'children' => array() ) ),", [S, I]),
+    # 0.2.1
+    ("double header: finish prints although Elementor printed", "includes/class-replace.php", "! method_exists( $manager, 'did_location' ) || $manager->did_location( 'header' ) ) {", "! method_exists( $manager, 'did_location' ) ) {", [I]),
+    ("double header: header printed earlier not checked", "includes/class-replace.php", "		if ( $manager->did_location( 'header' ) ) {", "		if ( false ) {", [I]),
+    ("CSS isolation layer dropped", "assets/css/header.css", " :where(:not(svg, svg *, img))::after { all: revert; }", " :where(:not(svg, svg *, img))::after { }", [S, ISO]),
+    ("header root id dropped", "templates/header.php", "<div id=\"tth-root\" class=", "<div class=", [S, ISO]),
+    ("inspector writes an option", "includes/class-inspect.php", "		$out['plugins']     = self::plugins();", "		$out['plugins']     = self::plugins();\n\t\tupdate_option( 'tthh_x', 1 );", [S, I]),
+    ("inspector creates the upload dir", "includes/class-inspect.php", "wp_upload_dir( null, false )", "wp_upload_dir()", [S]),
+    ("inspector prints all WP Rocket settings", "includes/class-inspect.php", "array_intersect_key( $rocket, array_flip( self::ROCKET_KEYS ) )", "$rocket", [I]),
     ("write a term", "includes/class-cache.php", "	public static function bump(): void {\n", "	public static function bump(): void {\n\t\twp_update_term( 1, 'product_cat', array() );\n", [S]),
 ]
 

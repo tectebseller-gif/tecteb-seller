@@ -35,7 +35,7 @@ $tth_wish    = $vm['wishlist'];
 $tth_cats    = $vm['cats'];
 $tth_has_cat = array() !== $tth_cats;
 ?>
-<div class="<?php echo esc_attr( implode( ' ', $vm['classes'] ) ); ?>" data-tth-header data-user="<?php echo $tth_acct['logged_in'] ? 'member' : 'guest'; ?>" dir="rtl" lang="fa"<?php echo $vm['banner'] ? ' role="banner"' : ''; ?>>
+<div id="tth-root" class="<?php echo esc_attr( implode( ' ', $vm['classes'] ) ); ?>" data-tth-header data-user="<?php echo $tth_acct['logged_in'] ? 'member' : 'guest'; ?>" dir="rtl" lang="fa"<?php echo $vm['banner'] ? ' role="banner"' : ''; ?>>
 	<?php if ( '' !== $vm['skip'] ) : ?>
 	<a class="tth-skip" href="<?php echo esc_attr( $vm['skip'] ); ?>"><?php esc_html_e( 'رفتن به محتوای اصلی', 'tecteb-header' ); ?></a>
 	<?php endif; ?>

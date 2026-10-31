@@ -5,7 +5,7 @@
 [$_, $lib, $src, $dst] = $argv;
 require $lib . '/vendor/autoload.php';
 @mkdir( $dst, 0777, true );
-foreach ( array( 'header-base.css', 'header-b.css', 'tecteb-header.css' ) as $f ) {
+foreach ( array( 'header.css', 'tecteb-header.css' ) as $f ) {
 	$m = new MatthiasMullie\Minify\CSS( file_get_contents( "$src/$f" ) );
 	file_put_contents( "$dst/$f", $m->minify() );
 	printf( "%s %d -> %d bytes\n", $f, filesize( "$src/$f" ), filesize( "$dst/$f" ) );

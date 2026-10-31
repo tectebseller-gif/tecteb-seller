@@ -6,7 +6,7 @@
 #   bash homepage-redesign/header-plugin/tests/lifecycle.sh [zip]
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ZIP="${1:-$HERE/dist/tecteb-header-0.2.0.zip}"
+ZIP="${1:-$HERE/dist/tecteb-header-0.2.1.zip}"
 WPP=/home/user/wp/core
 W="wp --allow-root --path=$WPP"
 SITE=http://127.0.0.1:8090

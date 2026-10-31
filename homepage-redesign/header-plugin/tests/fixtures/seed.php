@@ -45,6 +45,10 @@ function tthh_reset(): void {
 		wp_delete_post( $id, true );
 	}
 	delete_option( 'elementor_pro_theme_builder_conditions' );
+	$tthh_css = wp_upload_dir()['basedir'] . '/elementor/css/post-2652.css';
+	if ( is_file( $tthh_css ) ) {
+		unlink( $tthh_css );
+	}
 	delete_option( 'tecteb_header_settings' );
 	delete_option( 'tthh_fixture_ids' );
 }
@@ -221,6 +225,37 @@ $ids['tpl'] = array(
 	'landing' => tthh_template( 2654, 'Header صفحهٔ فرود', 'header', 'publish', array( 'include/singular/page/12', 'exclude/singular/front_page' ) ),
 	'section' => tthh_template( 2655, 'بخش نمونه', 'section', 'publish', array() ),
 );
+// محتوای ۲۶۵۲ به شکل یک هدر Elementor با JetMenu (برای ابزار بررسی فقط‌خواندنی): ابزارک‌ها،
+// Custom CSS ِ عنصر و قالب، popup، sticky، و فایل CSS ِ قالب با یک قاعدهٔ محدود و دو قاعدهٔ سراسری.
+$tthh_el = static fn( string $id, string $w, array $s = array() ) => array( 'id' => $id, 'elType' => 'widget', 'widgetType' => $w, 'settings' => $s, 'elements' => array() );
+update_post_meta(
+	2652,
+	'_elementor_data',
+	wp_slash(
+		wp_json_encode(
+			array(
+				array(
+					'id'       => 'c1',
+					'elType'   => 'container',
+					'settings' => array( 'sticky' => 'top', 'custom_css' => "selector { z-index: 99; }\nbody.home .site-main { padding-top: 0; }" ),
+					'elements' => array(
+						$tthh_el( 'w1', 'image', array( '_element_id' => 'site-logo' ) ),
+						$tthh_el( 'w2', 'jet-mega-menu', array( 'menu' => 3936 ) ),
+						$tthh_el( 'w3', 'html', array( 'html' => '<script>window.tthhLegacy=1</script><div class="legacy-banner"></div>' ) ),
+						$tthh_el( 'w4', 'woocommerce-menu-cart' ),
+						$tthh_el( 'w5', 'button', array( 'link' => array( 'url' => '#elementor-action%3Aaction%3Dpopup%3Aopen%26settings%3DeyJpZCI6IjMwMDAifQ%3D%3D' ), 'motion_fx_motion_fx_scrolling' => 'yes' ) ),
+						$tthh_el( 'w6', 'shortcode', array( 'shortcode' => '[fast_search]' ) ),
+					),
+				),
+			)
+		)
+	)
+);
+update_post_meta( 2652, '_elementor_page_settings', array( 'custom_css' => "selector .x { color: red; }\n.elementor-location-header + * { margin-top: 0; }" ) );
+$tthh_css = wp_upload_dir()['basedir'] . '/elementor/css';
+wp_mkdir_p( $tthh_css );
+file_put_contents( $tthh_css . '/post-2652.css', ".elementor-2652 .elementor-element.elementor-element-c1{background:#fff}\n.jet-menu-item a{color:#123}\n@media (max-width:767px){body{padding-top:80px !important}.elementor-2652 .x{top:0}}\n" );
+
 update_option(
 	'elementor_pro_theme_builder_conditions',
 	array(

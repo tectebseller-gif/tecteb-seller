@@ -111,6 +111,10 @@ ok    shortcode in Elementor template, replace OFF ⇒ one plugin header inside 
 ok    template not in allowlist ⇒ Elementor prints it, plugin prints nothing
 ok    no locations manager object ⇒ plugin prints nothing
 ok    queue not emptied ⇒ documents restored, plugin prints nothing
+ok    reproduction fixed — re-added same document (2652) after removal: exactly one header, Elementor's, plugin prints nothing
+ok    reproduction fixed — re-added another header template (2654) after removal: exactly one header, Elementor's, plugin prints nothing
+ok    Elementor already printed a header earlier in the request ⇒ nothing removed, plugin prints nothing
+ok    after the fail-safe cases, the normal path still replaces (one plugin header)
 ok    no Elementor header for the page ⇒ plugin prints nothing (theme fallback)
 ok    Elementor editor/preview ⇒ never replaced
 ok    ?tth_preview=1 for a visitor ⇒ ignored
@@ -124,6 +128,21 @@ ok    admin menu: no «تک‌طب» ⇒ one created, «مدیریت هدر» it
 ok    admin menu: existing «تک‌طب» reused, no duplicate top-level
 ok    admin menu: «بازارگاه تک‌طب» is not taken as «تک‌طب»
 ok    capability: option page capability = manage_options
+ok    inspect: template, type and conditions read
+ok    inspect: widget types counted from _elementor_data
+ok    inspect: notable widgets (JetMenu, html, cart, shortcode) named with their path
+ok    inspect: flags script, popup, sticky, motion, element id, element custom CSS
+ok    inspect: element custom CSS — `selector` rule scoped, body rule reported
+ok    inspect: template CSS file — 2 of 4 rules not scoped to .elementor-2652, 1 !important
+ok    inspect: page-settings custom CSS read
+ok    inspect: replacement hooks listed with file:line
+ok    inspect: WP Rocket — only the listed keys, no secret
+ok    inspect: WP-CLI tool prints the same report
+ok    inspect: WP-CLI json mode
+ok    inspect: admin panel shows the report escaped (no legacy <script> leaked)
+ok    inspect: admin ignores a non-header template id
+ok    inspect: nothing written (posts, meta, terms, options, uploads files incl. mtimes)
+ok    inspect: missing template ⇒ exists=false, no error
 ok    no writes to terms, term meta, relationships, posts, post meta or menus
 
-127 passed, 0 failed
+146 passed, 0 failed

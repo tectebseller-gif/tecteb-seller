@@ -24,6 +24,9 @@
  *   • اگر چیزی غیرمنتظره باشد — شیء locations manager نیست، متدها نیستند، سندی بیرون از فهرست
  *     مجاز در صف است، یا صف پس از برداشتن خالی نشد — اسناد برداشته‌شده به صف برمی‌گردند و
  *     **هیچ** چیزی از این افزونه چاپ نمی‌شود: هدر Elementor همان‌طور که امروز هست؛
+ *   • پس از حلقهٔ چاپ، `did_location('header')` پرسیده می‌شود: اگر Elementor به هر دلیلی (مثلاً
+ *     افزونهٔ دیگری سند را پس از ما دوباره به صف افزوده) چیزی چاپ کرده باشد، هدر افزونه چاپ
+ *     نمی‌شود؛ و اگر Elementor پیش‌تر در همین درخواست هدر چاپ کرده، اصلاً جایگزینی نمی‌شود؛
  *   • Renderer در هر درخواست فقط یک بار هدر چاپ می‌کند؛ اگر مکان header دو بار اجرا شود یا
  *     shortcode پیش‌تر هدر را چاپ کرده باشد، ۲۶۵۲ باز هم برداشته می‌شود و چیز دومی چاپ نمی‌شود.
  *
@@ -54,6 +57,9 @@ final class Replace {
 
 	/** @var list<int> */
 	private static array $seen = array();
+
+	/** Locations_Manager ِ همین اجرای مکان header، برای وارسی در finish(). */
+	private static ?object $manager = null;
 
 	public static function register_hooks(): void {
 		add_action( 'elementor/theme/before_do_header', array( self::class, 'start' ), PHP_INT_MAX );
@@ -95,12 +101,18 @@ final class Replace {
 	public static function start( $manager = null ): void {
 		self::$removed  = array();
 		self::$seen     = array();
+		self::$manager  = null;
 		self::$decision = 'off';
 		if ( ! self::active() ) {
 			return;
 		}
-		if ( ! is_object( $manager ) || ! method_exists( $manager, 'get_documents_for_location' ) || ! method_exists( $manager, 'remove_doc_from_location' ) || ! method_exists( $manager, 'add_doc_to_location' ) ) {
+		if ( ! is_object( $manager ) || ! method_exists( $manager, 'get_documents_for_location' ) || ! method_exists( $manager, 'remove_doc_from_location' ) || ! method_exists( $manager, 'add_doc_to_location' ) || ! method_exists( $manager, 'did_location' ) ) {
 			self::$decision = 'no_manager';
+			return;
+		}
+		if ( $manager->did_location( 'header' ) ) {
+			// Elementor پیش‌تر در همین درخواست هدری چاپ کرده؛ چیزی برداشته یا افزوده نمی‌شود.
+			self::$decision = 'elementor_printed_before';
 			return;
 		}
 		$queue      = (array) $manager->get_documents_for_location( 'header' );
@@ -127,10 +139,12 @@ final class Replace {
 			return;
 		}
 		self::$removed  = $ids;
+		self::$manager  = $manager;
 		self::$decision = 'replaced';
 	}
 
-	public static function finish(): void {
+	/** @param mixed $manager Locations_Manager ِ Elementor Pro */
+	public static function finish( $manager = null ): void {
 		if ( array() === self::$removed ) {
 			if ( '' !== self::$decision && 'off' !== self::$decision ) {
 				self::comment( 'not replaced: ' . self::$decision );
@@ -138,7 +152,17 @@ final class Replace {
 			return;
 		}
 		$ids           = self::$removed;
+		$manager       = is_object( $manager ) ? $manager : self::$manager;
 		self::$removed = array();
+		self::$manager = null;
+		// وارسی پس از حلقهٔ چاپ: اگر شنونده‌ای پس از این افزونه سندی را دوباره به صف افزوده و
+		// Elementor آن را چاپ کرده (did_location — Locations_Manager، خط ۴۵۳ و ۴۸۰)، هدر Elementor
+		// همان‌جاست؛ این افزونه چیزی چاپ نمی‌کند ⇒ همیشه دقیقاً یک هدر، و هرگز صفر.
+		if ( ! is_object( $manager ) || ! method_exists( $manager, 'did_location' ) || $manager->did_location( 'header' ) ) {
+			self::$decision = 'elementor_printed';
+			self::comment( 'not replaced: elementor_printed' );
+			return;
+		}
 		Assets::enqueue();
 		self::comment( 'replaced Elementor header template ' . implode( ',', $ids ) );
 		echo Renderer::render( 'replace' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- قالب header.php هر جزء را escape می‌کند.

@@ -1,0 +1,11 @@
+== class-replace.php از 0.2.0 (commit 299d804)
+FAIL  reproduction fixed — re-added same document (2652) after removal: exactly one header, Elementor's, plugin prints nothing  — headers=2 decision=replaced
+FAIL  reproduction fixed — re-added another header template (2654) after removal: exactly one header, Elementor's, plugin prints nothing  — headers=2 decision=replaced
+FAIL  Elementor already printed a header earlier in the request ⇒ nothing removed, plugin prints nothing
+128 passed, 3 failed
+
+== class-replace.php از 0.2.1
+ok    reproduction fixed — re-added same document (2652) after removal: exactly one header, Elementor's, plugin prints nothing
+ok    reproduction fixed — re-added another header template (2654) after removal: exactly one header, Elementor's, plugin prints nothing
+ok    Elementor already printed a header earlier in the request ⇒ nothing removed, plugin prints nothing
+131 passed, 0 failed

@@ -1,0 +1,31 @@
+proto desk {"mark_maxw":"none","input_radius":"0px","input_font":"15px","form_radius":"999px","title_lh":"20.8px","title_tag":"H2","menu_ow":"3px"}
+proto focus {"mark_maxw":"none","input_radius":"10px","input_font":"15px","form_radius":"999px","title_lh":"20.8px","title_tag":"H2","menu_ow":"3px"}
+proto drawer {"mark_maxw":"none","input_radius":"0px","input_font":"15px","form_radius":"999px","title_lh":"20.8px","title_tag":"H2","menu_ow":"3px"}
+plugin desk {"mark_maxw":"none","input_radius":"0px","input_font":"15px","form_radius":"999px","title_lh":"20.8px","title_tag":"H2","menu_ow":"3px"}
+plugin focus {"mark_maxw":"none","input_radius":"10px","input_font":"15px","form_radius":"999px","title_lh":"20.8px","title_tag":"H2","menu_ow":"3px"}
+plugin drawer {"mark_maxw":"none","input_radius":"0px","input_font":"15px","form_radius":"999px","title_lh":"20.8px","title_tag":"H2","menu_ow":"3px"}
+
+0.2.0 clean → 0.2.1 clean (Hello theme CSS only, no hostile CSS):
+  desktop-closed .tth-logo__mark {max-width}: 100% → none
+  desktop-closed .tth-search__input {border-radius}: 3px → 0px
+  desktop-closed .tth-menu {outline-width}: 0px → 3px
+  desktop-closed .tth-menu li {outline-width}: 0px → 3px
+  focus-search .tth-search__input {border-radius}: 3px → 10px
+  mega-open .tth-mega__mains {outline-width}: 0px → 3px
+  mega-open .tth-mega__item {outline-width}: 0px → 3px
+  mega-open .tth-mega__item.is-active .tth-mega__list {outline-width}: 0px → 3px
+  mega-open .tth-mega__item.is-active .tth-mega__list li {outline-width}: 0px → 3px
+  mobile-closed .tth-search__input {border-radius}: 3px → 0px
+  mobile-drawer-open #tth-drawer nav li {outline-width}: 0px → 3px
+  mobile-drawer-open .tth-drawer__title {height}: 15.5938px → 20.7969px
+  mobile-drawer-open .tth-drawer__title {line-height}: 15.6px → 20.8px
+  mobile-drawer-open .tth-drawer__title {__box}: 56,473,318,16 → 56,473,318,21
+  mobile-drawer-open .tth-drawer__cat {__box}: 56,493,318,48 → 56,498,318,48
+  mobile-drawer-open .tth-drawer__cat summary {__box}: 56,493,318,48 → 56,498,318,48
+  mobile-drawer-open .tth-drawer__icon {__box}: 332,502,30,30 → 332,507,30,30
+  mobile-drawer-open .tth-drawer__name {__box}: 96,504,224,26 → 96,509,224,26
+  mobile-drawer-open .tth-drawer__cat[open] ul {outline-width}: 0px → 3px
+  mobile-drawer-open .tth-drawer__cat[open] ul {__box}: 56,589,318,140 → 56,594,318,140
+  mobile-drawer-open .tth-drawer__cat[open] ul a {__box}: 56,589,302,44 → 56,594,302,44
+  mobile-drawer-open .tth-drawer__all {__box}: 56,1257,318,48 → 56,1262,318,48
+  mobile-drawer-open .tth-seller--block {__box}: 56,1325,318,48 → 56,1330,318,48

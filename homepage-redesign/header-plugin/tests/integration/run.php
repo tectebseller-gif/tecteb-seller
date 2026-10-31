@@ -12,6 +12,7 @@
 
 use Tecteb\Header\Admin;
 use Tecteb\Header\Cache;
+use Tecteb\Header\Inspect;
 use Tecteb\Header\Menu;
 use Tecteb\Header\Renderer;
 use Tecteb\Header\Replace;
@@ -443,6 +444,7 @@ $broken = new class() {
 	public function get_documents_for_location( string $l ): array { return $this->q[ $l ] ?? array(); }
 	public function remove_doc_from_location( $l, $id ) {} // phpcs:ignore -- عمداً کار نمی‌کند.
 	public function add_doc_to_location( $l, $id ) { $this->q[ $l ][ $id ] = $id; }
+	public function did_location( $l ) { return false; }
 };
 Renderer::set_rendered( false );
 ob_start();
@@ -450,6 +452,33 @@ do_action( 'elementor/theme/before_do_header', $broken );
 do_action( 'elementor/theme/after_do_header', $broken );
 $out = (string) ob_get_clean();
 tthh_ok( 'queue not emptied ⇒ documents restored, plugin prints nothing', '' === trim( $out ) && 'queue_not_emptied' === Replace::decision() && array( 2652 => 2652 ) === $broken->get_documents_for_location( 'header' ) );
+
+// ---- بازتولید نقص 0.2.0 (بررسی نهایی): افزونهٔ دیگری روی همان اولویت آخر ِ before_do_header،
+// پس از tecteb-header، سند را دوباره به صف می‌افزاید. روی 0.2.0: plugin_headers=1 و elementor_2652=1.
+$readd = static function ( $m ) {
+	$m->add_doc_to_location( 'header', (int) get_option( 'tthh_readd_id', 2652 ) );
+};
+add_action( 'elementor/theme/before_do_header', $readd, PHP_INT_MAX );
+foreach ( array( 2652 => 'same document (2652)', 2654 => 'another header template (2654)' ) as $rid => $what ) {
+	update_option( 'tthh_readd_id', $rid );
+	Renderer::set_rendered( false );
+	$out = tthh_location( 'header' );
+	$headers = substr_count( $out, 'data-tth-header' ) + substr_count( $out, 'data-tthh-original' );
+	tthh_ok( "reproduction fixed — re-added {$what} after removal: exactly one header, Elementor's, plugin prints nothing", 1 === $headers && str_contains( $out, 'data-elementor-id="' . $rid . '"' ) && 0 === substr_count( $out, 'data-tth-header' ) && 'elementor_printed' === Replace::decision(), "headers={$headers} decision=" . Replace::decision() );
+}
+remove_action( 'elementor/theme/before_do_header', $readd, PHP_INT_MAX );
+delete_option( 'tthh_readd_id' );
+Renderer::set_rendered( false );
+TTHH_Locations_Manager::reset();
+$conds = get_option( 'elementor_pro_theme_builder_conditions' );
+update_option( 'elementor_pro_theme_builder_conditions', array( 'header' => array( 2654 => array( 'include/general' ) ) ) + $conds );
+$first = tthh_location( 'header', false );
+update_option( 'elementor_pro_theme_builder_conditions', $conds );
+$second = tthh_location( 'header', false );
+tthh_ok( 'Elementor already printed a header earlier in the request ⇒ nothing removed, plugin prints nothing', str_contains( $first, 'data-elementor-id="2654"' ) && ! str_contains( $first . $second, 'data-tth-header' ) && 'elementor_printed_before' === Replace::decision() );
+Renderer::set_rendered( false );
+$out = tthh_location( 'header' );
+tthh_ok( 'after the fail-safe cases, the normal path still replaces (one plugin header)', 1 === substr_count( $out, 'data-tth-header' ) && ! str_contains( $out, 'data-tthh-original' ) && 'replaced' === Replace::decision() );
 
 update_option( 'tthh_emulate', 'footer' );
 Renderer::set_rendered( false );
@@ -512,6 +541,58 @@ tthh_ok( 'admin menu: existing «تک‌طب» reused, no duplicate top-level', 
 tthh_ok( 'admin menu: «بازارگاه تک‌طب» is not taken as «تک‌طب»', empty( $submenu['tmc-dashboard'] ) );
 tthh_ok( 'capability: option page capability = manage_options', 'manage_options' === apply_filters( 'option_page_capability_tecteb_header', 'manage_options' ) && 'manage_options' === Settings::capability() );
 wp_set_current_user( 0 );
+
+// ---------------------------------------------------------------- ۵-ب. ابزار بررسی فقط‌خواندنی ۲۶۵۲
+global $wpdb;
+$tthh_full = static function () use ( $wpdb ): string {
+	$parts = array( tthh_snapshot() );
+	$parts[] = md5( (string) wp_json_encode( $wpdb->get_results( "SELECT option_name,option_value FROM {$wpdb->options} WHERE option_name NOT LIKE '\\_transient%' AND option_name NOT LIKE '\\_site\\_transient%' AND option_name <> 'cron' ORDER BY option_name", ARRAY_N ) ) ); // phpcs:ignore WordPress.DB
+	$up = wp_upload_dir( null, false )['basedir'];
+	$files = array();
+	foreach ( new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $up, FilesystemIterator::SKIP_DOTS ) ) as $f ) {
+		$files[] = $f->getPathname() . ':' . $f->getSize() . ':' . $f->getMTime();
+	}
+	sort( $files );
+	$parts[] = md5( implode( "\n", $files ) );
+	return implode( '|', $parts );
+};
+update_option( 'wp_rocket_settings', array( 'minify_css' => 1, 'remove_unused_css' => 0, 'delay_js' => 0, 'secret_key' => 'never-printed' ) );
+$before = $tthh_full();
+$r      = Inspect::report( 2652 );
+$txt    = Inspect::text( $r );
+$cli    = shell_exec( 'wp --allow-root --path=' . escapeshellarg( ABSPATH ) . ' eval-file ' . escapeshellarg( TECTEB_HEADER_DIR . 'tools/inspect-header-template.php' ) . ' 2652 2>&1' );
+$json   = json_decode( (string) shell_exec( 'wp --allow-root --path=' . escapeshellarg( ABSPATH ) . ' eval-file ' . escapeshellarg( TECTEB_HEADER_DIR . 'tools/inspect-header-template.php' ) . ' 2652 json 2>/dev/null' ), true );
+wp_set_current_user( (int) get_user_by( 'login', 'tthadmin' )->ID );
+$_GET['tab']     = 'replace';
+$_GET['inspect'] = '2652';
+ob_start();
+Admin::render();
+$page = (string) ob_get_clean();
+$_GET['inspect'] = '2655';
+ob_start();
+Admin::render();
+$page_section = (string) ob_get_clean();
+unset( $_GET['tab'], $_GET['inspect'] );
+wp_set_current_user( 0 );
+$after = $tthh_full();
+delete_option( 'wp_rocket_settings' );
+$flags = array_column( $r['widgets']['flags'], 0 );
+tthh_ok( 'inspect: template, type and conditions read', 'Header' === $r['template']['title'] && 'header' === $r['template']['type'] && array( 'include/general' ) === $r['template']['conditions'] );
+tthh_ok( 'inspect: widget types counted from _elementor_data', $r['widgets']['readable'] && 1 === ( $r['widgets']['types']['jet-mega-menu'] ?? 0 ) && 1 === ( $r['widgets']['types']['html'] ?? 0 ) && 7 === array_sum( $r['widgets']['types'] ) );
+tthh_ok( 'inspect: notable widgets (JetMenu, html, cart, shortcode) named with their path', array( 'container#c1 > jet-mega-menu#w2', 'container#c1 > html#w3', 'container#c1 > woocommerce-menu-cart#w4', 'container#c1 > shortcode#w6' ) === $r['widgets']['notable'] );
+tthh_ok( 'inspect: flags script, popup, sticky, motion, element id, element custom CSS', ! array_diff( array( 'script', 'popup_action', 'sticky:top', 'motion:motion_fx_motion_fx_scrolling', 'element_id:site-logo', 'custom_css' ), $flags ) );
+tthh_ok( 'inspect: element custom CSS — `selector` rule scoped, body rule reported', 2 === $r['widgets']['flags'][1][2]['rules'] && array( 'body.home .site-main' ) === $r['widgets']['flags'][1][2]['examples'] );
+tthh_ok( 'inspect: template CSS file — 2 of 4 rules not scoped to .elementor-2652, 1 !important', $r['post_css']['exists'] && 4 === $r['post_css']['summary']['rules'] && array( '.jet-menu-item a', 'body' ) === $r['post_css']['summary']['examples'] && 1 === $r['post_css']['summary']['important'] );
+tthh_ok( 'inspect: page-settings custom CSS read', 2 === $r['page_css']['rules'] && array( '.elementor-location-header + *' ) === $r['page_css']['examples'] );
+tthh_ok( 'inspect: replacement hooks listed with file:line', (bool) array_filter( $r['hooks']['elementor/theme/before_do_header'], static fn( $c ) => 'Tecteb\Header\Replace::start' === $c['callback'] && str_contains( $c['file'], 'class-replace.php:' ) && PHP_INT_MAX === $c['priority'] ) );
+tthh_ok( 'inspect: WP Rocket — only the listed keys, no secret', array( 'minify_css' => 1, 'remove_unused_css' => 0, 'delay_js' => 0 ) === $r['wp_rocket'] && ! str_contains( $txt . $cli, 'never-printed' ) );
+tthh_ok( 'inspect: WP-CLI tool prints the same report', is_string( $cli ) && str_contains( $cli, 'read-only inspection of template #2652' ) && str_contains( $cli, 'container#c1 > jet-mega-menu#w2' ) && ! str_contains( $cli, 'Warning' ) && ! str_contains( $cli, 'Fatal' ) );
+tthh_ok( 'inspect: WP-CLI json mode', is_array( $json ) && 2652 === $json['id'] && isset( $json['widgets']['types']['html'] ) );
+tthh_ok( 'inspect: admin panel shows the report escaped (no legacy <script> leaked)', str_contains( $page, 'read-only inspection of template #2652' ) && ! str_contains( $page, 'tthhLegacy' ) && str_contains( $page, 'jet-mega-menu#w2' ) );
+tthh_ok( 'inspect: admin ignores a non-header template id', ! str_contains( $page_section, 'read-only inspection' ) && str_contains( $page_section, 'id="tth-inspect"' ) );
+tthh_ok( 'inspect: nothing written (posts, meta, terms, options, uploads files incl. mtimes)', $before === $after );
+$missing = Inspect::report( 999999 );
+tthh_ok( 'inspect: missing template ⇒ exists=false, no error', false === $missing['exists'] && str_contains( Inspect::text( $missing ), 'NOT FOUND' ) );
 
 // ---------------------------------------------------------------- ۶. هیچ نوشتنی روی ووکامرس
 // اندازه پیش از هر نوشتن عمدیِ همین آزمون (تغییر نام/جابه‌جایی بالا) گرفته نشده؛ پس اینجا یک دور

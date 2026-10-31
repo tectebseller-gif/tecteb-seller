@@ -32,6 +32,14 @@ caught    store category names  ← integration
 caught    unscoped CSS rule  ← static
 caught    approved header.js edited  ← static
 caught    default categories pre-filled with a sample ID  ← static, integration
+caught    double header: finish prints although Elementor printed  ← integration
+caught    double header: header printed earlier not checked  ← integration
+caught    CSS isolation layer dropped  ← static, isolation
+caught    header root id dropped  ← static, isolation
+caught    inspector writes an option  ← static, integration
+caught    inspector creates the upload dir  ← static
+caught    inspector prints all WP Rocket settings  ← integration
 caught    write a term  ← static
 
-35/35 caught, 0 survived, 0 not applied
+42/42 caught, 0 survived, 0 not applied
+exit=0

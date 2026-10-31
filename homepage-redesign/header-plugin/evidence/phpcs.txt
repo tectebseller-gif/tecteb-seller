@@ -1,1 +1,16 @@
-phpcs exit=0
+Processing header.php [PHP => 2674 tokens in 248 lines]... DONE in 44ms (0 errors, 0 warnings)
+Processing uninstall.php [PHP => 90 tokens in 15 lines]... DONE in 3ms (0 errors, 0 warnings)
+Processing class-elementor.php [PHP => 1139 tokens in 113 lines]... DONE in 17ms (0 errors, 0 warnings)
+Processing class-replace.php [PHP => 1607 tokens in 186 lines]... DONE in 21ms (0 errors, 0 warnings)
+Processing class-account.php [PHP => 971 tokens in 101 lines]... DONE in 12ms (0 errors, 0 warnings)
+Processing class-renderer.php [PHP => 1201 tokens in 117 lines]... DONE in 18ms (0 errors, 0 warnings)
+Processing class-menu.php [PHP => 4046 tokens in 360 lines]... DONE in 51ms (0 errors, 0 warnings)
+Processing class-settings.php [PHP => 5319 tokens in 485 lines]... DONE in 71ms (0 errors, 0 warnings)
+Processing class-inspect.php [PHP => 4965 tokens in 343 lines]... DONE in 64ms (0 errors, 0 warnings)
+Processing class-cache.php [PHP => 1202 tokens in 131 lines]... DONE in 17ms (0 errors, 0 warnings)
+Processing class-admin.php [PHP => 11309 tokens in 670 lines]... DONE in 225ms (0 errors, 0 warnings)
+Processing class-assets.php [PHP => 637 tokens in 85 lines]... DONE in 10ms (0 errors, 0 warnings)
+Processing class-plugin.php [PHP => 256 tokens in 35 lines]... DONE in 5ms (0 errors, 0 warnings)
+Processing tecteb-header.php [PHP => 321 tokens in 42 lines]... DONE in 4ms (0 errors, 0 warnings)
+Processing inspect-header-template.php [PHP => 302 tokens in 32 lines]... DONE in 4ms (0 errors, 0 warnings)
+exit=0

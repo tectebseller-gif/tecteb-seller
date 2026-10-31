@@ -1,4 +1,4 @@
-# Tecteb Header 0.2.0 — هدر سراسری مستقل تک‌طب (طرح B)
+# Tecteb Header 0.2.1 — هدر سراسری مستقل تک‌طب (طرح B)
 
 > **برای تست Staging پس از مجوز جداگانه؛ نصب‌نشده.** هیچ نصب، فعال‌سازی، تغییر تنظیمات یا پاک‌سازی
 > کش روی Staging یا Production انجام نشده است.
@@ -6,16 +6,27 @@
 افزونهٔ مستقل وردپرس که هدر B را نمایش می‌دهد و می‌تواند قالب هدر Elementor ِ «Header» (۲۶۵۲) را در
 همهٔ صفحه‌ها **جایگزین** کند — بی حذف یا تغییر آن قالب و شرط نمایشش، و بی وابستگی به JetMenu.
 
-- بسته: `dist/tecteb-header-0.2.0.zip` · SHA-256 در `dist/SHA256SUMS`
+- بسته: `dist/tecteb-header-0.2.1.zip` · SHA-256 `da9bd90732086cbc0e8ddc3447ed476389b12187dfe4256eca77c00fcd582b7e` (`dist/SHA256SUMS`)
 - سورس: `tecteb-header/` · آزمون‌ها: `tests/` · شواهد: `evidence/`
 - اسناد: `docs/test-report-fa.md` · `docs/compatibility-review-fa.md` (Elementor Pro 4.2.2، PHP 8.1،
   WP Rocket، JetMenu) · `docs/risks-fa.md` (ریسک‌ها و اطلاعات لازم) · `docs/staging-checklist-fa.md`
-  (تست و بازگشت) · `docs/migration-rollback-fa.md`
+  (نصب، تست و بازگشت) · `docs/migration-rollback-fa.md` · `docs/inspect-2652-fa.md` (بررسی فقط‌خواندنی ۲۶۵۲)
 
-## تغییرات نسبت به 0.1.0
+## تغییرات 0.2.1 (فقط رفع ریسک‌های ضروری پیش از Staging)
+- **هرگز دو هدر:** اگر شنوندهٔ دیگری سند Elementor را پس از برداشتن دوباره به صف بیفزاید، یا مکان header
+  پیش‌تر در همان درخواست چاپ شده باشد، افزونه با `did_location()` ِ Elementor می‌فهمد و هیچ چاپ نمی‌کند ⇒
+  همان یک هدر Elementor. بازتولید روی 0.2.0: سه رد (headers=2)؛ روی 0.2.1: صفر.
+- **CSS ِ ایزوله:** همهٔ قاعده‌ها با پیشوند `#tth-root` و یک لایهٔ `all: revert`، ساخته‌شده بی‌دست از CSS ِ
+  تأییدشده (`tools/harden-css.py`). در برابر CSS ِ Kit و frontend ِ Elementor 4.2.3 و Custom CSS ِ رایج:
+  ۴۶۹ تفاوت ⇒ ۰ (عادی و minify‌شده)، و ظاهر برابر نمونهٔ B.
+- **ابزار بررسی فقط‌خواندنی ۲۶۵۲:** ابزارک‌ها، Custom CSS، فایل CSS ِ قالب، Kit، قلاب‌ها و WP Rocket —
+  `wp eval-file wp-content/plugins/tecteb-header/tools/inspect-header-template.php 2652`، و در پیشخوان.
+
+## تغییرات 0.2.0 نسبت به 0.1.0
+
 - **جایگزینی بی output buffer:** قالب مجاز (۲۶۵۲) با متدهای عمومی Locations_Manager ِ Elementor Pro از
   صف چاپ برداشته می‌شود و رندر نمی‌شود؛ هدر افزونه همان‌جا چاپ می‌شود. خروجی افزونه‌های دیگر دست
-  نمی‌خورد؛ هر وضعیت غیرمنتظره ⇒ همان ۲۶۵۲ (هرگز دو هدر).
+  نمی‌خورد؛ هر وضعیت غیرمنتظره ⇒ همان ۲۶۵۲. (ادعای «هرگز دو هدر» ِ 0.2.0 یک استثنا داشت که 0.2.1 بست.)
 - **فهرست قالب‌های مجاز:** فقط قالبی که مدیر تیک بزند جایگزین می‌شود؛ بی آن، جایگزینی روشن نمی‌شود.
 - **شرط نمایش، فقط‌خواندنی:** جدول قالب‌های Header با وضعیت و شرط‌ها («شامل: کل سایت»).
 - **انتقال دسته‌ها از «منوی اصلی» ِ JetMenu:** پیوندهای سفارشی با نشانی‌شان به دسته‌های واقعی
@@ -28,7 +39,7 @@
 ## آنچه نمایش می‌دهد
 لوگو، جست‌وجوی محصولات ووکامرس، حساب، سبد، علاقه‌مندی (اختیاری، بی شمارندهٔ ساختگی)، منوی اصلی
 («نمایش ← فهرست‌ها»، سطح اول)، «همکاری تأمین‌کنندگان»، Mega Menu ِ دوستونه و کشوی موبایل — دسکتاپ و
-موبایل از یک منبع. CSS و JS ِ هدر بایت‌به‌بایت همان نمونهٔ تأییدشدهٔ B.
+موبایل از یک منبع. JS ِ هدر بایت‌به‌بایت نمونهٔ تأییدشدهٔ B؛ CSS همان قاعده‌ها با پیشوند `#tth-root`.
 دسته‌ها **فقط** از `product_cat`؛ تنظیمات فقط شناسه، ترتیب، نمایش و آیکون را نگه می‌دارند؛ نام، پیوند
 و سلسله‌مراتب هر بار از ووکامرس. هیچ دسته‌ای ساخته، ویرایش یا حذف نمی‌شود.
 
@@ -37,8 +48,8 @@
 ذخیره با Settings API (nonce)، بی JavaScript هم کامل.
 
 ## آزمون‌ها (فقط محلی)
-ایستا ۵۹ · PHPCS ۰ · یکپارچه ۱۲۷ · مرورگر ۱۵۸ و axe ۰ تخلف در ۲۰ حالت · چرخهٔ عمر از ZIP ۲۱ ·
-falsification ۳۵/۳۵ · debug.log بی پیام. Elementor Pro، WP Rocket، JetMenu و PHP 8.1 ِ واقعی اجرا نشدند
+ایستا ۶۳ · PHPCS ۰ · یکپارچه ۱۴۶ · بازتولید دو هدر (0.2.0: ۳ رد، 0.2.1: ۰) · ایزولگی CSS ۰ تفاوت ·
+مرورگر ۱۵۸ و axe ۰ تخلف در ۲۰ حالت · چرخهٔ عمر از ZIP ۲۱ · falsification ۴۲/۴۲ · debug.log بی پیام. Elementor Pro، WP Rocket، JetMenu و PHP 8.1 ِ واقعی اجرا نشدند
 (`docs/test-report-fa.md`).
 
 ```bash
@@ -47,6 +58,8 @@ python3 tests/static/check.py
 wp eval-file tests/fixtures/seed.php seed && wp eval-file tests/integration/run.php
 php tools/minify-css.php <dir-with-matthiasmullie-minify> tecteb-header/assets/css <wp>/wp-content/uploads/tthh-min
 NODE_PATH=/opt/node-tools/node_modules node tests/browser.mjs
+NODE_PATH=/opt/node-tools/node_modules [MINIFIED=1] node tests/isolation.mjs <label>
+python3 tools/harden-css.py --check
 bash tools/build.sh && bash tests/lifecycle.sh
 python3 tests/falsify.py
 ```

@@ -31,6 +31,7 @@ final class TTHH_Locations_Manager {
 	private array $locations_queue   = array();
 	private array $locations_skipped = array();
 	private array $locations_printed = array();
+	private array $did_locations     = array();
 
 	public static function instance(): self {
 		return self::$instance ??= new self();
@@ -62,6 +63,10 @@ final class TTHH_Locations_Manager {
 	public function set_is_printed( $location, $document_id ) {
 		$this->locations_printed[ $location ][ $document_id ] = $document_id;
 		$this->remove_doc_from_location( $location, $document_id );
+	}
+
+	public function did_location( $location ) {
+		return in_array( $location, $this->did_locations, true );
 	}
 
 	public function get_documents_for_location( string $location ): array {
@@ -112,6 +117,7 @@ final class TTHH_Locations_Manager {
 				continue;
 			}
 			$this->print_document( $location, (int) $document_id );
+			$this->did_locations[] = $location;
 			$this->set_is_printed( $location, $document_id );
 		}
 		do_action( "elementor/theme/after_do_{$location}", $this );

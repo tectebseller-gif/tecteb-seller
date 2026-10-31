@@ -1,6 +1,8 @@
-ok    approved asset byte-identical: assets/css/header-base.css
-ok    approved asset byte-identical: assets/css/header-b.css
 ok    approved asset byte-identical: assets/js/header.js
+ok    assets/css/header.css = harden-css.py(approved header-base.css + header-b.css)
+ok    old unprefixed copies not shipped
+ok    isolation layer precedes the design rules
+ok    header root carries id=tth-root (once)
 ok    sprite = approved UI icons (sample category icons removed)
 ok    template keeps every tth- class of the approved markup
 ok    no dependency on Dokan
@@ -27,7 +29,11 @@ ok    no write call: \bset_post_thumbnail\b
 ok    options written: only our own
 ok    no upload_mimes / SVG enabling
 ok    ICON_MIMES = PNG + WebP only
-ok    no 2652 hard-coded; Elementor data never written
+ok    no 2652 hard-coded in replacement/settings; Elementor data never written
+ok    _elementor_data only in the inspector, only via get_post_meta
+ok    inspector: no write, purge, hook dispatch or callback call
+ok    inspector reads the upload dir without creating it
+ok    inspector CLI tool exits unless WP-CLI
 ok    Elementor conditions only read (get_post_meta / get_option)
 ok    replacement uses no output buffering
 ok    replacement hooks: last on before_do_header, first on after_do_header
@@ -35,11 +41,9 @@ ok    WP Rocket purge only via rocket_clean_domain behind function_exists
 ok    no direct $_POST handling (Settings API only)
 ok    every $_GET read is sanitised or only isset()
 ok    no outbound HTTP
-ok    css scoped under .tecteb-header-v1: header-base.css
-ok    css has no external URL: header-base.css
-ok    css scoped under .tecteb-header-v1: header-b.css
-ok    css has no external URL: header-b.css
-ok    css scoped under .tecteb-header-v1: tecteb-header.css
+ok    css scoped under #tth-root.tecteb-header-v1: header.css
+ok    css has no external URL: header.css
+ok    css scoped under #tth-root.tecteb-header-v1: tecteb-header.css
 ok    css has no external URL: tecteb-header.css
 ok    admin css scoped under .tth-hdr
 ok    no global selectors (body/header/footer/.elementor/.woocommerce)
@@ -58,4 +62,4 @@ ok    capability gate on admin page
 ok    option_page_capability filter registered
 ok    preview/original params gated by capability
 
-59 passed, 0 failed
+63 passed, 0 failed

@@ -1,11 +1,11 @@
 /*
  * افزوده‌های افزونه به هدر B (header-base.css و header-b.css دست‌نخورده‌اند).
- * دامنه: فقط زیر `.tecteb-header-v1`.
+ * دامنه: فقط زیر `#tth-root.tecteb-header-v1` (همان وزن header.css).
  */
 
 /* جست‌وجوی سفارشی (shortcode ِ افزونهٔ جست‌وجوی سایت): فقط جای کادر را نگه می‌دارد؛
    ظاهر درونش مال همان افزونه است و در این محیط سنجیده نشده. */
-.tecteb-header-v1 .tth-search--custom {
+#tth-root.tecteb-header-v1 .tth-search--custom {
   display: block;
   padding: 0;
   background: none;

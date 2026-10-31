@@ -1,0 +1,32 @@
+/*
+ * CSS ِ سراسریِ «بدخواه» برای آزمون ایزولگی هدر — فقط محیط محلی.
+ * ۱) Kit ِ Elementor («تنظیمات سایت»): همان انتخابگرهای خودِ Elementor 4.2.3
+ *    (core/kits/documents/tabs/theme-style-*.php)، با WRAPPER = .elementor-kit-9 روی body،
+ *    و مقدارهای عمداً چشم‌گیر.
+ * ۲) الگوهای رایج «Custom CSS» ِ یک قالب هدر که سراسری نوشته می‌شوند.
+ */
+.elementor-kit-9{color:#7a0b0b;font-family:"Comic Sans MS",cursive;font-size:19px;line-height:2.2;letter-spacing:1px}
+.elementor-kit-9 a{color:#e00;text-decoration:underline;font-weight:900;font-size:21px}
+.elementor-kit-9 a:hover{color:#0a0;text-decoration:overline}
+.elementor-kit-9 h2{font-size:40px;color:#00f;margin:30px 0;text-transform:uppercase;font-family:serif}
+.elementor-kit-9 button,.elementor-kit-9 input[type="button"],.elementor-kit-9 input[type="submit"],.elementor-kit-9 .elementor-button{background-color:#f0f;color:#ff0;border:4px dashed #000;border-radius:0;padding:20px 40px;font-size:22px;text-transform:uppercase;box-shadow:0 0 0 6px #0ff;letter-spacing:4px;font-weight:900;line-height:3;min-height:70px}
+.elementor-kit-9 button:hover,.elementor-kit-9 button:focus,.elementor-kit-9 input[type="button"]:hover,.elementor-kit-9 input[type="submit"]:hover{background-color:#0f0;color:#000;border-color:#f00}
+.elementor-kit-9 label{color:#f00;font-size:24px;display:block;margin:10px}
+.elementor-kit-9 input:not([type="button"]):not([type="submit"]),.elementor-kit-9 textarea,.elementor-kit-9 .elementor-field-textual{background-color:#ff0;border:5px solid #f00;border-radius:0;padding:18px;font-size:24px;color:#00f;box-shadow:inset 0 0 0 4px #0f0;height:90px}
+.elementor-kit-9 input:focus:not([type="button"]):not([type="submit"]),.elementor-kit-9 textarea:focus{background-color:#000;color:#fff;border-color:#0f0}
+.elementor-kit-9 img{border:6px solid #f00;border-radius:50%;opacity:.5;box-shadow:0 0 10px #000;padding:5px}
+
+/* الگوهای رایج Custom CSS ِ سراسری در قالب‌های هدر */
+nav ul li{display:block;margin:10px;padding:8px;list-style:disc;float:right}
+ul{margin:20px;padding-inline-start:40px}
+li a{display:block;padding:12px}
+svg{width:60px;height:60px;fill:red;stroke-width:5}
+[role="search"] input,input[type="search"]{height:80px;width:50px}
+dialog{background:#fcc;padding:40px;border:8px solid #000;max-width:200px}
+details summary{list-style:disc;color:red;font-size:30px}
+summary::marker{color:red}
+*:focus{outline:5px solid red}
+button svg{opacity:.2}
+form{margin:30px;border:3px dotted blue}
+p{margin:25px 0;font-size:22px}
+bdi{font-style:italic}

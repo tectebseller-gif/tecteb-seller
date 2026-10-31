@@ -1,0 +1,471 @@
+before-0.2.0-css: 9 states, 66 elements × 44 properties — 469 differences caused by site-wide CSS
+
+desktop-closed .tth-bar {height}: 122px → 279px
+desktop-closed .tth-bar {letter-spacing}: normal → 1px
+desktop-closed .tth-bar {__box}: 0,0,1440,122 → 0,0,1440,279
+desktop-closed .tth-top {height}: 74px → 184px
+desktop-closed .tth-top {letter-spacing}: normal → 1px
+desktop-closed .tth-top {__box}: 100,0,1240,74 → 100,0,1240,184
+desktop-closed .tth-logo {border-top-color}: rgb(14, 36, 53) → rgb(238, 0, 0)
+desktop-closed .tth-logo {color}: rgb(14, 36, 53) → rgb(238, 0, 0)
+desktop-closed .tth-logo {font-size}: 16px → 21px
+desktop-closed .tth-logo {font-weight}: 400 → 900
+desktop-closed .tth-logo {line-height}: 25.6px → 33.6px
+desktop-closed .tth-logo {letter-spacing}: normal → 1px
+desktop-closed .tth-logo {text-decoration-line}: none → underline
+desktop-closed .tth-logo {__box}: 1191,15,117,44 → 1191,70,117,44
+desktop-closed .tth-logo__mark {padding-top}: 0px → 5px
+desktop-closed .tth-logo__mark {padding-right}: 0px → 5px
+desktop-closed .tth-logo__mark {padding-bottom}: 0px → 5px
+desktop-closed .tth-logo__mark {padding-left}: 0px → 5px
+desktop-closed .tth-logo__mark {border-top-width}: 0px → 6px
+desktop-closed .tth-logo__mark {border-top-style}: none → solid
+desktop-closed .tth-logo__mark {border-top-color}: rgb(14, 36, 53) → rgb(255, 0, 0)
+desktop-closed .tth-logo__mark {border-right-width}: 0px → 6px
+desktop-closed .tth-logo__mark {border-bottom-width}: 0px → 6px
+desktop-closed .tth-logo__mark {border-left-width}: 0px → 6px
+desktop-closed .tth-logo__mark {color}: rgb(14, 36, 53) → rgb(238, 0, 0)
+desktop-closed .tth-logo__mark {font-size}: 16px → 21px
+desktop-closed .tth-logo__mark {font-weight}: 400 → 900
+desktop-closed .tth-logo__mark {line-height}: 25.6px → 33.6px
+desktop-closed .tth-logo__mark {letter-spacing}: normal → 1px
+desktop-closed .tth-logo__mark {box-shadow}: none → rgb(0, 0, 0) 0px 0px 10px 0px
+desktop-closed .tth-logo__mark {opacity}: 1 → 0.5
+desktop-closed .tth-logo__mark {__box}: 1264,15,44,44 → 1264,70,44,44
+desktop-closed .tth-logo__word {__box}: 1191,19,63,35 → 1191,74,63,35
+desktop-closed #tth-search-form {height}: 50px → 100px
+desktop-closed #tth-search-form {margin-top}: 0px → 30px
+desktop-closed #tth-search-form {margin-right}: 0px → 30px
+desktop-closed #tth-search-form {margin-bottom}: 0px → 30px
+desktop-closed #tth-search-form {margin-left}: 0px → 30px
+desktop-closed #tth-search-form {letter-spacing}: normal → 1px
+desktop-closed #tth-search-form {__box}: 438,12,640,50 → 439,42,640,100
+desktop-closed .tth-search__input {width}: 572px → 528px
+desktop-closed .tth-search__input {height}: 40px → 90px
+desktop-closed .tth-search__input {padding-top}: 0px → 18px
+desktop-closed .tth-search__input {padding-right}: 0px → 18px
+desktop-closed .tth-search__input {padding-bottom}: 0px → 18px
+desktop-closed .tth-search__input {padding-left}: 0px → 18px
+desktop-closed .tth-search__input {border-top-width}: 0px → 5px
+desktop-closed .tth-search__input {border-top-style}: none → solid
+desktop-closed .tth-search__input {border-top-color}: rgb(14, 36, 53) → rgb(255, 0, 0)
+desktop-closed .tth-search__input {border-right-width}: 0px → 5px
+desktop-closed .tth-search__input {border-bottom-width}: 0px → 5px
+desktop-closed .tth-search__input {border-left-width}: 0px → 5px
+desktop-closed .tth-search__input {border-radius}: 3px → 0px
+desktop-closed .tth-search__input {background-color}: rgba(0, 0, 0, 0) → rgb(255, 255, 0)
+desktop-closed .tth-search__input {color}: rgb(14, 36, 53) → rgb(0, 0, 255)
+desktop-closed .tth-search__input {font-size}: 15px → 24px
+desktop-closed .tth-search__input {line-height}: 24px → 38.4px
+desktop-closed .tth-search__input {box-shadow}: none → rgb(0, 255, 0) 0px 0px 0px 4px inset
+desktop-closed .tth-search__input {__box}: 487,17,572,40 → 532,47,528,90
+desktop-closed .tth-search__go {width}: 44px → 88px
+desktop-closed .tth-search__go {height}: 40px → 70px
+desktop-closed .tth-search__go {padding-top}: 0px → 20px
+desktop-closed .tth-search__go {padding-right}: 0px → 40px
+desktop-closed .tth-search__go {padding-bottom}: 0px → 20px
+desktop-closed .tth-search__go {padding-left}: 0px → 40px
+desktop-closed .tth-search__go {border-top-width}: 0px → 4px
+desktop-closed .tth-search__go {border-top-style}: none → dashed
+desktop-closed .tth-search__go {border-top-color}: rgb(255, 255, 255) → rgb(0, 0, 0)
+desktop-closed .tth-search__go {border-right-width}: 0px → 4px
+desktop-closed .tth-search__go {border-bottom-width}: 0px → 4px
+desktop-closed .tth-search__go {border-left-width}: 0px → 4px
+desktop-closed .tth-search__go {font-size}: 16px → 22px
+desktop-closed .tth-search__go {font-weight}: 400 → 900
+desktop-closed .tth-search__go {line-height}: 25.6px → 66px
+desktop-closed .tth-search__go {letter-spacing}: normal → 4px
+desktop-closed .tth-search__go {text-transform}: none → uppercase
+desktop-closed .tth-search__go {box-shadow}: none → rgb(0, 255, 255) 0px 0px 0px 6px
+desktop-closed .tth-search__go {min-height}: auto → 70px
+desktop-closed .tth-search__go {__box}: 443,17,44,40 → 444,57,88,70
+desktop-closed .tth-search__go .tth-i {font-size}: 16px → 22px
+desktop-closed .tth-search__go .tth-i {font-weight}: 400 → 900
+desktop-closed .tth-search__go .tth-i {line-height}: 25.6px → 66px
+desktop-closed .tth-search__go .tth-i {letter-spacing}: normal → 4px
+desktop-closed .tth-search__go .tth-i {text-transform}: none → uppercase
+desktop-closed .tth-search__go .tth-i {opacity}: 1 → 0.2
+desktop-closed .tth-search__go .tth-i {__box}: 454,26,22,22 → 466,81,22,22
+desktop-closed .tth-tools {width}: 193.328px → 195.328px
+desktop-closed .tth-tools {letter-spacing}: normal → 1px
+desktop-closed .tth-tools {__box}: 132,15,193,44 → 132,70,195,44
+desktop-closed .tth-tool--account {width}: 141.328px → 143.328px
+desktop-closed .tth-tool--account {letter-spacing}: normal → 1px
+desktop-closed .tth-tool--account {text-decoration-line}: none → underline
+desktop-closed .tth-tool--account {__box}: 184,15,141,44 → 184,70,143,44
+desktop-closed .tth-tool--account .tth-i {letter-spacing}: normal → 1px
+desktop-closed .tth-tool--account .tth-i {__box}: 288,26,22,22 → 290,81,22,22
+desktop-closed .tth-tool__label {width}: 81.3281px → 83.3281px
+desktop-closed .tth-tool__label {letter-spacing}: normal → 1px
+desktop-closed .tth-tool__label {__box}: 199,25,81,24 → 199,80,83,24
+desktop-closed .tth-tool--cart {letter-spacing}: normal → 1px
+desktop-closed .tth-tool--cart {text-decoration-line}: none → underline
+desktop-closed .tth-tool--cart {__box}: 132,15,44,44 → 132,70,44,44
+desktop-closed .tth-nav {height}: 47px → 94px
+desktop-closed .tth-nav {letter-spacing}: normal → 1px
+desktop-closed .tth-nav {__box}: 0,74,1440,47 → 0,184,1440,94
+desktop-closed .tth-nav__row {height}: 46px → 93px
+desktop-closed .tth-nav__row {letter-spacing}: normal → 1px
+desktop-closed .tth-nav__row {__box}: 100,75,1240,46 → 100,185,1240,93
+desktop-closed .tth-cats__btn.tth-js {width}: 186.031px → 197.672px
+desktop-closed .tth-cats__btn.tth-js {height}: 40px → 93px
+desktop-closed .tth-cats__btn.tth-js {padding-top}: 0px → 20px
+desktop-closed .tth-cats__btn.tth-js {padding-bottom}: 0px → 20px
+desktop-closed .tth-cats__btn.tth-js {border-top-width}: 0px → 4px
+desktop-closed .tth-cats__btn.tth-js {border-top-style}: none → dashed
+desktop-closed .tth-cats__btn.tth-js {border-top-color}: rgb(255, 255, 255) → rgb(0, 0, 0)
+desktop-closed .tth-cats__btn.tth-js {border-right-width}: 0px → 4px
+desktop-closed .tth-cats__btn.tth-js {border-bottom-width}: 0px → 4px
+desktop-closed .tth-cats__btn.tth-js {border-left-width}: 0px → 4px
+desktop-closed .tth-cats__btn.tth-js {line-height}: 24px → 45px
+desktop-closed .tth-cats__btn.tth-js {letter-spacing}: normal → 4px
+desktop-closed .tth-cats__btn.tth-js {text-transform}: none → uppercase
+desktop-closed .tth-cats__btn.tth-js {__box}: 1122,78,186,40 → 1110,185,198,93
+desktop-closed .tth-cats__btn.tth-js .tth-i {line-height}: 24px → 45px
+desktop-closed .tth-cats__btn.tth-js .tth-i {letter-spacing}: normal → 4px
+desktop-closed .tth-cats__btn.tth-js .tth-i {text-transform}: none → uppercase
+desktop-closed .tth-cats__btn.tth-js .tth-i {opacity}: 1 → 0.2
+desktop-closed .tth-cats__btn.tth-js .tth-i {__box}: 1270,87,22,22 → 1266,221,22,22
+desktop-closed .tth-menu {width}: 601.047px → 751.359px
+desktop-closed .tth-menu {height}: 44px → 84px
+desktop-closed .tth-menu {letter-spacing}: normal → 1px
+desktop-closed .tth-menu {__box}: 501,76,601,44 → 339,190,751,84
+desktop-closed .tth-menu li {display}: list-item → block
+desktop-closed .tth-menu li {width}: 89.2031px → 106.203px
+desktop-closed .tth-menu li {height}: 44px → 64px
+desktop-closed .tth-menu li {margin-top}: 0px → 10px
+desktop-closed .tth-menu li {margin-right}: 0px → 10px
+desktop-closed .tth-menu li {margin-bottom}: 0px → 10px
+desktop-closed .tth-menu li {margin-left}: 0px → 10px
+desktop-closed .tth-menu li {padding-top}: 0px → 8px
+desktop-closed .tth-menu li {padding-right}: 0px → 8px
+desktop-closed .tth-menu li {padding-bottom}: 0px → 8px
+desktop-closed .tth-menu li {padding-left}: 0px → 8px
+desktop-closed .tth-menu li {letter-spacing}: normal → 1px
+desktop-closed .tth-menu li {list-style-type}: none → disc
+desktop-closed .tth-menu li {float}: none → right
+desktop-closed .tth-menu li {__box}: 1013,76,89,44 → 974,200,106,64
+desktop-closed .tth-menu a {width}: 89.2031px → 90.2031px
+desktop-closed .tth-menu a {height}: 44px → 48px
+desktop-closed .tth-menu a {padding-top}: 0px → 12px
+desktop-closed .tth-menu a {padding-bottom}: 0px → 12px
+desktop-closed .tth-menu a {letter-spacing}: normal → 1px
+desktop-closed .tth-menu a {text-decoration-line}: none → underline
+desktop-closed .tth-menu a {list-style-type}: none → disc
+desktop-closed .tth-menu a {__box}: 1013,76,89,44 → 982,208,90,48
+desktop-closed .tth-seller {width}: 186.797px → 186.969px
+desktop-closed .tth-seller {margin-right}: 162.125px → 0px
+desktop-closed .tth-seller {letter-spacing}: normal → 1px
+desktop-closed .tth-seller {text-decoration-line}: none → underline
+desktop-closed .tth-seller {__box}: 132,78,187,40 → 132,212,187,40
+desktop-closed .tth-seller .tth-i {letter-spacing}: normal → 1px
+desktop-closed .tth-seller .tth-i {__box}: 280,87,22,22 → 280,221,22,22
+hover-cats .tth-cats__btn.tth-js {width}: 186.031px → 197.672px
+hover-cats .tth-cats__btn.tth-js {height}: 40px → 93px
+hover-cats .tth-cats__btn.tth-js {padding-top}: 0px → 20px
+hover-cats .tth-cats__btn.tth-js {padding-bottom}: 0px → 20px
+hover-cats .tth-cats__btn.tth-js {border-top-width}: 0px → 4px
+hover-cats .tth-cats__btn.tth-js {border-top-style}: none → dashed
+hover-cats .tth-cats__btn.tth-js {border-top-color}: rgb(255, 255, 255) → rgb(255, 0, 0)
+hover-cats .tth-cats__btn.tth-js {border-right-width}: 0px → 4px
+hover-cats .tth-cats__btn.tth-js {border-bottom-width}: 0px → 4px
+hover-cats .tth-cats__btn.tth-js {border-left-width}: 0px → 4px
+hover-cats .tth-cats__btn.tth-js {background-color}: rgba(0, 0, 0, 0) → rgb(0, 255, 0)
+hover-cats .tth-cats__btn.tth-js {color}: rgb(255, 255, 255) → rgb(0, 0, 0)
+hover-cats .tth-cats__btn.tth-js {line-height}: 24px → 45px
+hover-cats .tth-cats__btn.tth-js {letter-spacing}: normal → 4px
+hover-cats .tth-cats__btn.tth-js {text-transform}: none → uppercase
+hover-cats .tth-cats__btn.tth-js {__box}: 1122,78,186,40 → 1110,185,198,93
+hover-menu-link .tth-menu li:nth-child(2) a {height}: 44px → 48px
+hover-menu-link .tth-menu li:nth-child(2) a {padding-top}: 0px → 12px
+hover-menu-link .tth-menu li:nth-child(2) a {padding-bottom}: 0px → 12px
+hover-menu-link .tth-menu li:nth-child(2) a {letter-spacing}: normal → 1px
+hover-menu-link .tth-menu li:nth-child(2) a {text-decoration-line}: none → overline
+hover-menu-link .tth-menu li:nth-child(2) a {list-style-type}: none → disc
+hover-menu-link .tth-menu li:nth-child(2) a {__box}: 930,76,66,44 → 864,208,66,48
+hover-search-go .tth-search__go {width}: 44px → 88px
+hover-search-go .tth-search__go {height}: 40px → 70px
+hover-search-go .tth-search__go {padding-top}: 0px → 20px
+hover-search-go .tth-search__go {padding-right}: 0px → 40px
+hover-search-go .tth-search__go {padding-bottom}: 0px → 20px
+hover-search-go .tth-search__go {padding-left}: 0px → 40px
+hover-search-go .tth-search__go {border-top-width}: 0px → 4px
+hover-search-go .tth-search__go {border-top-style}: none → dashed
+hover-search-go .tth-search__go {border-top-color}: rgb(255, 255, 255) → rgb(255, 0, 0)
+hover-search-go .tth-search__go {border-right-width}: 0px → 4px
+hover-search-go .tth-search__go {border-bottom-width}: 0px → 4px
+hover-search-go .tth-search__go {border-left-width}: 0px → 4px
+hover-search-go .tth-search__go {background-color}: rgba(0, 0, 0, 0) → rgb(0, 255, 0)
+hover-search-go .tth-search__go {color}: rgb(255, 255, 255) → rgb(0, 0, 0)
+hover-search-go .tth-search__go {font-size}: 16px → 22px
+hover-search-go .tth-search__go {font-weight}: 400 → 900
+hover-search-go .tth-search__go {line-height}: 25.6px → 66px
+hover-search-go .tth-search__go {letter-spacing}: normal → 4px
+hover-search-go .tth-search__go {text-transform}: none → uppercase
+hover-search-go .tth-search__go {box-shadow}: none → rgb(0, 255, 255) 0px 0px 0px 6px
+hover-search-go .tth-search__go {min-height}: auto → 70px
+hover-search-go .tth-search__go {__box}: 443,17,44,40 → 444,57,88,70
+hover-account .tth-tool--account {width}: 141.328px → 143.328px
+hover-account .tth-tool--account {letter-spacing}: normal → 1px
+hover-account .tth-tool--account {text-decoration-line}: none → overline
+hover-account .tth-tool--account {__box}: 184,15,141,44 → 184,70,143,44
+focus-search .tth-search__input {width}: 572px → 528px
+focus-search .tth-search__input {height}: 40px → 90px
+focus-search .tth-search__input {padding-top}: 0px → 18px
+focus-search .tth-search__input {padding-right}: 0px → 18px
+focus-search .tth-search__input {padding-bottom}: 0px → 18px
+focus-search .tth-search__input {padding-left}: 0px → 18px
+focus-search .tth-search__input {border-top-width}: 0px → 5px
+focus-search .tth-search__input {border-top-style}: none → solid
+focus-search .tth-search__input {border-top-color}: rgb(14, 36, 53) → rgb(255, 0, 0)
+focus-search .tth-search__input {border-right-width}: 0px → 5px
+focus-search .tth-search__input {border-bottom-width}: 0px → 5px
+focus-search .tth-search__input {border-left-width}: 0px → 5px
+focus-search .tth-search__input {border-radius}: 3px → 0px
+focus-search .tth-search__input {background-color}: rgba(0, 0, 0, 0) → rgb(255, 255, 0)
+focus-search .tth-search__input {color}: rgb(14, 36, 53) → rgb(0, 0, 255)
+focus-search .tth-search__input {font-size}: 15px → 24px
+focus-search .tth-search__input {line-height}: 24px → 38.4px
+focus-search .tth-search__input {box-shadow}: none → rgb(0, 255, 0) 0px 0px 0px 4px inset
+focus-search .tth-search__input {__box}: 487,17,572,40 → 532,47,528,90
+focus-search #tth-search-form {height}: 50px → 100px
+focus-search #tth-search-form {margin-top}: 0px → 30px
+focus-search #tth-search-form {margin-right}: 0px → 30px
+focus-search #tth-search-form {margin-bottom}: 0px → 30px
+focus-search #tth-search-form {margin-left}: 0px → 30px
+focus-search #tth-search-form {letter-spacing}: normal → 1px
+focus-search #tth-search-form {__box}: 438,12,640,50 → 439,42,640,100
+mega-open #tth-mega {letter-spacing}: normal → 1px
+mega-open #tth-mega {__box}: 132,122,1176,672 → 132,228,1176,672
+mega-open .tth-mega__mains {height}: 586px → 1262px
+mega-open .tth-mega__mains {letter-spacing}: normal → 1px
+mega-open .tth-mega__mains {__box}: 1003,102,280,586 → 1003,106,280,1262
+mega-open .tth-mega__item {display}: list-item → block
+mega-open .tth-mega__item {width}: 264px → 244px
+mega-open .tth-mega__item {height}: 42px → 74px
+mega-open .tth-mega__item {margin-top}: 0px → 10px
+mega-open .tth-mega__item {margin-right}: 0px → 10px
+mega-open .tth-mega__item {margin-bottom}: 0px → 10px
+mega-open .tth-mega__item {margin-left}: 0px → 10px
+mega-open .tth-mega__item {padding-top}: 0px → 8px
+mega-open .tth-mega__item {padding-right}: 0px → 8px
+mega-open .tth-mega__item {padding-bottom}: 0px → 8px
+mega-open .tth-mega__item {padding-left}: 0px → 8px
+mega-open .tth-mega__item {letter-spacing}: normal → 1px
+mega-open .tth-mega__item {list-style-type}: none → disc
+mega-open .tth-mega__item {float}: none → right
+mega-open .tth-mega__item {__box}: 1011,110,264,42 → 1021,124,244,74
+mega-open .tth-mega__main {width}: 264px → 228px
+mega-open .tth-mega__main {height}: 42px → 58px
+mega-open .tth-mega__main {padding-top}: 0px → 12px
+mega-open .tth-mega__main {padding-bottom}: 0px → 12px
+mega-open .tth-mega__main {letter-spacing}: normal → 1px
+mega-open .tth-mega__main {text-decoration-line}: none → underline
+mega-open .tth-mega__main {list-style-type}: none → disc
+mega-open .tth-mega__main {__box}: 1011,110,264,42 → 1029,132,228,58
+mega-open .tth-mega__icon {letter-spacing}: normal → 1px
+mega-open .tth-mega__icon {list-style-type}: none → disc
+mega-open .tth-mega__icon {__box}: 1235,114,34,34 → 1217,144,34,34
+mega-open .tth-mega__name {width}: 174px → 138px
+mega-open .tth-mega__name {letter-spacing}: normal → 1px
+mega-open .tth-mega__name {list-style-type}: none → disc
+mega-open .tth-mega__name {__box}: 1049,119,174,24 → 1067,149,138,24
+mega-open .tth-mega__sub {letter-spacing}: normal → 1px
+mega-open .tth-mega__sub {list-style-type}: none → disc
+mega-open .tth-mega__item.is-active .tth-mega__subhead {height}: 44px → 48.1875px
+mega-open .tth-mega__item.is-active .tth-mega__subhead {padding-top}: 0px → 12px
+mega-open .tth-mega__item.is-active .tth-mega__subhead {padding-right}: 0px → 12px
+mega-open .tth-mega__item.is-active .tth-mega__subhead {padding-left}: 0px → 12px
+mega-open .tth-mega__item.is-active .tth-mega__subhead {letter-spacing}: normal → 1px
+mega-open .tth-mega__item.is-active .tth-mega__subhead {text-decoration-line}: none → underline
+mega-open .tth-mega__item.is-active .tth-mega__subhead {list-style-type}: none → disc
+mega-open .tth-mega__item.is-active .tth-mega__subhead {__box}: 157,102,818,44 → 157,106,818,48
+mega-open .tth-mega__item.is-active .tth-mega__list {height}: 40px → 74px
+mega-open .tth-mega__item.is-active .tth-mega__list {letter-spacing}: normal → 1px
+mega-open .tth-mega__item.is-active .tth-mega__list {__box}: 157,154,818,40 → 157,162,818,74
+mega-open .tth-mega__item.is-active .tth-mega__list li {display}: list-item → block
+mega-open .tth-mega__item.is-active .tth-mega__list li {width}: 254px → 135.125px
+mega-open .tth-mega__item.is-active .tth-mega__list li {height}: 40px → 64px
+mega-open .tth-mega__item.is-active .tth-mega__list li {margin-top}: 0px → 10px
+mega-open .tth-mega__item.is-active .tth-mega__list li {margin-right}: 0px → 10px
+mega-open .tth-mega__item.is-active .tth-mega__list li {margin-bottom}: 0px → 10px
+mega-open .tth-mega__item.is-active .tth-mega__list li {margin-left}: 0px → 10px
+mega-open .tth-mega__item.is-active .tth-mega__list li {padding-top}: 0px → 8px
+mega-open .tth-mega__item.is-active .tth-mega__list li {padding-right}: 0px → 8px
+mega-open .tth-mega__item.is-active .tth-mega__list li {padding-bottom}: 0px → 8px
+mega-open .tth-mega__item.is-active .tth-mega__list li {padding-left}: 0px → 8px
+mega-open .tth-mega__item.is-active .tth-mega__list li {letter-spacing}: normal → 1px
+mega-open .tth-mega__item.is-active .tth-mega__list li {list-style-type}: none → disc
+mega-open .tth-mega__item.is-active .tth-mega__list li {float}: none → right
+mega-open .tth-mega__item.is-active .tth-mega__list li {__box}: 721,154,254,40 → 830,172,135,64
+mega-open .tth-mega__item.is-active .tth-mega__list a {width}: 254px → 119.125px
+mega-open .tth-mega__item.is-active .tth-mega__list a {height}: 40px → 48px
+mega-open .tth-mega__item.is-active .tth-mega__list a {padding-top}: 0px → 12px
+mega-open .tth-mega__item.is-active .tth-mega__list a {padding-right}: 0px → 12px
+mega-open .tth-mega__item.is-active .tth-mega__list a {padding-bottom}: 0px → 12px
+mega-open .tth-mega__item.is-active .tth-mega__list a {padding-left}: 0px → 12px
+mega-open .tth-mega__item.is-active .tth-mega__list a {font-weight}: 400 → 900
+mega-open .tth-mega__item.is-active .tth-mega__list a {letter-spacing}: normal → 1px
+mega-open .tth-mega__item.is-active .tth-mega__list a {text-decoration-line}: none → underline
+mega-open .tth-mega__item.is-active .tth-mega__list a {list-style-type}: none → disc
+mega-open .tth-mega__item.is-active .tth-mega__list a {__box}: 721,154,254,40 → 838,180,119,48
+mega-open .tth-mega__all {width}: 259.672px → 336.062px
+mega-open .tth-mega__all {font-size}: 16px → 21px
+mega-open .tth-mega__all {line-height}: 25.6px → 33.6px
+mega-open .tth-mega__all {letter-spacing}: normal → 1px
+mega-open .tth-mega__all {text-decoration-line}: none → underline
+mega-open .tth-mega__all {__box}: 1023,725,260,44 → 947,1405,336,44
+mobile-closed .tth-bar {height}: 127px → 263px
+mobile-closed .tth-bar {letter-spacing}: normal → 1px
+mobile-closed .tth-bar {__box}: 0,0,390,127 → 0,0,390,263
+mobile-closed .tth-burger {width}: 44px → 50px
+mobile-closed .tth-burger {height}: 44px → 70px
+mobile-closed .tth-burger {padding-top}: 0px → 20px
+mobile-closed .tth-burger {padding-bottom}: 0px → 20px
+mobile-closed .tth-burger {border-top-width}: 0px → 4px
+mobile-closed .tth-burger {border-top-style}: none → dashed
+mobile-closed .tth-burger {border-top-color}: rgb(14, 36, 53) → rgb(0, 0, 0)
+mobile-closed .tth-burger {border-right-width}: 0px → 4px
+mobile-closed .tth-burger {border-bottom-width}: 0px → 4px
+mobile-closed .tth-burger {border-left-width}: 0px → 4px
+mobile-closed .tth-burger {line-height}: 24px → 45px
+mobile-closed .tth-burger {letter-spacing}: normal → 4px
+mobile-closed .tth-burger {text-transform}: none → uppercase
+mobile-closed .tth-burger {box-shadow}: none → rgb(0, 255, 255) 0px 0px 0px 6px
+mobile-closed .tth-burger {__box}: 330,10,44,44 → 324,10,50,70
+mobile-closed .tth-burger .tth-i {line-height}: 24px → 45px
+mobile-closed .tth-burger .tth-i {letter-spacing}: normal → 4px
+mobile-closed .tth-burger .tth-i {text-transform}: none → uppercase
+mobile-closed .tth-burger .tth-i {opacity}: 1 → 0.2
+mobile-closed .tth-burger .tth-i {__box}: 341,21,22,22 → 338,34,22,22
+mobile-closed .tth-logo {width}: 206px → 200px
+mobile-closed .tth-logo {border-top-color}: rgb(14, 36, 53) → rgb(238, 0, 0)
+mobile-closed .tth-logo {color}: rgb(14, 36, 53) → rgb(238, 0, 0)
+mobile-closed .tth-logo {font-size}: 16px → 21px
+mobile-closed .tth-logo {font-weight}: 400 → 900
+mobile-closed .tth-logo {line-height}: 25.6px → 33.6px
+mobile-closed .tth-logo {letter-spacing}: normal → 1px
+mobile-closed .tth-logo {text-decoration-line}: none → underline
+mobile-closed .tth-logo {__box}: 116,10,206,44 → 116,23,200,44
+mobile-closed #tth-search-form {height}: 50px → 100px
+mobile-closed #tth-search-form {margin-top}: 0px → 30px
+mobile-closed #tth-search-form {margin-right}: 0px → 30px
+mobile-closed #tth-search-form {margin-bottom}: 0px → 30px
+mobile-closed #tth-search-form {margin-left}: 0px → 30px
+mobile-closed #tth-search-form {letter-spacing}: normal → 1px
+mobile-closed #tth-search-form {__box}: 16,64,358,50 → 16,120,358,100
+mobile-closed .tth-search__input {width}: 290px → 246px
+mobile-closed .tth-search__input {height}: 40px → 90px
+mobile-closed .tth-search__input {padding-top}: 0px → 18px
+mobile-closed .tth-search__input {padding-right}: 0px → 18px
+mobile-closed .tth-search__input {padding-bottom}: 0px → 18px
+mobile-closed .tth-search__input {padding-left}: 0px → 18px
+mobile-closed .tth-search__input {border-top-width}: 0px → 5px
+mobile-closed .tth-search__input {border-top-style}: none → solid
+mobile-closed .tth-search__input {border-top-color}: rgb(14, 36, 53) → rgb(255, 0, 0)
+mobile-closed .tth-search__input {border-right-width}: 0px → 5px
+mobile-closed .tth-search__input {border-bottom-width}: 0px → 5px
+mobile-closed .tth-search__input {border-left-width}: 0px → 5px
+mobile-closed .tth-search__input {border-radius}: 3px → 0px
+mobile-closed .tth-search__input {background-color}: rgba(0, 0, 0, 0) → rgb(255, 255, 0)
+mobile-closed .tth-search__input {color}: rgb(14, 36, 53) → rgb(0, 0, 255)
+mobile-closed .tth-search__input {font-size}: 15px → 24px
+mobile-closed .tth-search__input {line-height}: 24px → 38.4px
+mobile-closed .tth-search__input {box-shadow}: none → rgb(0, 255, 0) 0px 0px 0px 4px inset
+mobile-closed .tth-search__input {__box}: 65,69,290,40 → 109,125,246,90
+mobile-closed .tth-tools {letter-spacing}: normal → 1px
+mobile-closed .tth-tools {__box}: 16,10,92,44 → 16,23,92,44
+mobile-closed .tth-tool--account {letter-spacing}: normal → 1px
+mobile-closed .tth-tool--account {text-decoration-line}: none → underline
+mobile-closed .tth-tool--account {__box}: 64,10,44,44 → 64,23,44,44
+mobile-closed .tth-tool--cart {letter-spacing}: normal → 1px
+mobile-closed .tth-tool--cart {text-decoration-line}: none → underline
+mobile-closed .tth-tool--cart {__box}: 16,10,44,44 → 16,23,44,44
+mobile-drawer-open #tth-drawer {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-drawer__panel {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-drawer__head {height}: 44px → 64px
+mobile-drawer-open .tth-drawer__head {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-drawer__head {__box}: 56,16,318,44 → 56,4,318,64
+mobile-drawer-open .tth-drawer__head .tth-icon-btn {height}: 44px → 64px
+mobile-drawer-open .tth-drawer__head .tth-icon-btn {padding-top}: 0px → 20px
+mobile-drawer-open .tth-drawer__head .tth-icon-btn {padding-bottom}: 0px → 20px
+mobile-drawer-open .tth-drawer__head .tth-icon-btn {background-color}: rgba(0, 0, 0, 0) → rgb(255, 0, 255)
+mobile-drawer-open .tth-drawer__head .tth-icon-btn {line-height}: 24px → 45px
+mobile-drawer-open .tth-drawer__head .tth-icon-btn {letter-spacing}: normal → 4px
+mobile-drawer-open .tth-drawer__head .tth-icon-btn {text-transform}: none → uppercase
+mobile-drawer-open .tth-drawer__head .tth-icon-btn {box-shadow}: none → rgb(0, 255, 255) 0px 0px 0px 6px
+mobile-drawer-open .tth-drawer__head .tth-icon-btn {__box}: 56,16,44,44 → 56,4,44,64
+mobile-drawer-open .tth-drawer__acct {font-size}: 16px → 21px
+mobile-drawer-open .tth-drawer__acct {line-height}: 25.6px → 33.6px
+mobile-drawer-open .tth-drawer__acct {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-drawer__acct {text-decoration-line}: none → underline
+mobile-drawer-open .tth-drawer__acct {__box}: 56,80,318,48 → 56,88,318,48
+mobile-drawer-open #tth-drawer nav li {display}: list-item → block
+mobile-drawer-open #tth-drawer nav li {width}: 318px → 298px
+mobile-drawer-open #tth-drawer nav li {height}: 48px → 73.5938px
+mobile-drawer-open #tth-drawer nav li {margin-top}: 0px → 10px
+mobile-drawer-open #tth-drawer nav li {margin-right}: 0px → 10px
+mobile-drawer-open #tth-drawer nav li {margin-bottom}: 0px → 10px
+mobile-drawer-open #tth-drawer nav li {margin-left}: 0px → 10px
+mobile-drawer-open #tth-drawer nav li {padding-top}: 0px → 8px
+mobile-drawer-open #tth-drawer nav li {padding-right}: 0px → 8px
+mobile-drawer-open #tth-drawer nav li {padding-bottom}: 0px → 8px
+mobile-drawer-open #tth-drawer nav li {padding-left}: 0px → 8px
+mobile-drawer-open #tth-drawer nav li {letter-spacing}: normal → 1px
+mobile-drawer-open #tth-drawer nav li {list-style-type}: none → disc
+mobile-drawer-open #tth-drawer nav li {float}: none → right
+mobile-drawer-open #tth-drawer nav li {__box}: 56,148,318,48 → 66,166,298,74
+mobile-drawer-open #tth-drawer nav a {width}: 318px → 282px
+mobile-drawer-open #tth-drawer nav a {height}: 48px → 57.5938px
+mobile-drawer-open #tth-drawer nav a {padding-top}: 0px → 12px
+mobile-drawer-open #tth-drawer nav a {padding-bottom}: 0px → 12px
+mobile-drawer-open #tth-drawer nav a {border-top-color}: rgb(14, 36, 53) → rgb(238, 0, 0)
+mobile-drawer-open #tth-drawer nav a {color}: rgb(14, 36, 53) → rgb(238, 0, 0)
+mobile-drawer-open #tth-drawer nav a {font-size}: 16px → 21px
+mobile-drawer-open #tth-drawer nav a {line-height}: 25.6px → 33.6px
+mobile-drawer-open #tth-drawer nav a {letter-spacing}: normal → 1px
+mobile-drawer-open #tth-drawer nav a {text-decoration-line}: none → underline
+mobile-drawer-open #tth-drawer nav a {list-style-type}: none → disc
+mobile-drawer-open #tth-drawer nav a {__box}: 56,148,318,48 → 74,174,282,58
+mobile-drawer-open .tth-drawer__title {margin-top}: 0px → 30px
+mobile-drawer-open .tth-drawer__title {font-family}: "TTH Vazirmatn", Tahoma, system-ui, sans-serif → serif
+mobile-drawer-open .tth-drawer__title {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-drawer__title {text-transform}: none → uppercase
+mobile-drawer-open .tth-drawer__title {__box}: 56,473,318,16 → 56,785,318,16
+mobile-drawer-open .tth-drawer__cat {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-drawer__cat {__box}: 56,493,318,48 → 56,804,318,48
+mobile-drawer-open .tth-drawer__cat summary {border-top-color}: rgb(14, 36, 53) → rgb(255, 0, 0)
+mobile-drawer-open .tth-drawer__cat summary {color}: rgb(14, 36, 53) → rgb(255, 0, 0)
+mobile-drawer-open .tth-drawer__cat summary {font-size}: 16px → 30px
+mobile-drawer-open .tth-drawer__cat summary {line-height}: 25.6px → 48px
+mobile-drawer-open .tth-drawer__cat summary {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-drawer__cat summary {__box}: 56,493,318,48 → 56,804,318,48
+mobile-drawer-open .tth-drawer__icon {font-size}: 16px → 30px
+mobile-drawer-open .tth-drawer__icon {line-height}: 25.6px → 48px
+mobile-drawer-open .tth-drawer__icon {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-drawer__icon {__box}: 332,502,30,30 → 332,813,30,30
+mobile-drawer-open .tth-drawer__name {height}: 25.5938px → 48px
+mobile-drawer-open .tth-drawer__name {border-top-color}: rgb(14, 36, 53) → rgb(255, 0, 0)
+mobile-drawer-open .tth-drawer__name {color}: rgb(14, 36, 53) → rgb(255, 0, 0)
+mobile-drawer-open .tth-drawer__name {font-size}: 16px → 30px
+mobile-drawer-open .tth-drawer__name {line-height}: 25.6px → 48px
+mobile-drawer-open .tth-drawer__name {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-drawer__name {__box}: 96,504,224,26 → 96,804,224,48
+mobile-drawer-open .tth-drawer__cat[open] ul {height}: 140px → 152px
+mobile-drawer-open .tth-drawer__cat[open] ul {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-drawer__cat[open] ul {__box}: 56,589,318,140 → 56,900,318,152
+mobile-drawer-open .tth-drawer__cat[open] ul a {height}: 44px → 48px
+mobile-drawer-open .tth-drawer__cat[open] ul a {padding-top}: 0px → 12px
+mobile-drawer-open .tth-drawer__cat[open] ul a {padding-bottom}: 0px → 12px
+mobile-drawer-open .tth-drawer__cat[open] ul a {font-weight}: 400 → 900
+mobile-drawer-open .tth-drawer__cat[open] ul a {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-drawer__cat[open] ul a {text-decoration-line}: none → underline
+mobile-drawer-open .tth-drawer__cat[open] ul a {__box}: 56,589,302,44 → 56,900,302,48
+mobile-drawer-open .tth-drawer__all {font-size}: 16px → 21px
+mobile-drawer-open .tth-drawer__all {line-height}: 25.6px → 33.6px
+mobile-drawer-open .tth-drawer__all {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-drawer__all {text-decoration-line}: none → underline
+mobile-drawer-open .tth-drawer__all {__box}: 56,1257,318,48 → 56,1676,318,48
+mobile-drawer-open .tth-seller--block {letter-spacing}: normal → 1px
+mobile-drawer-open .tth-seller--block {text-decoration-line}: none → underline
+mobile-drawer-open .tth-seller--block {__box}: 56,1325,318,48 → 56,1744,318,48

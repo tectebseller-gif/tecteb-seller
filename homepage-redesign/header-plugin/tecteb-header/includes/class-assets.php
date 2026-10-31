@@ -1,10 +1,11 @@
 <?php
 /**
- * CSS و JS ِ هدر — همان فایل‌های نمونهٔ تأییدشده، بی هیچ تغییر:
- *   assets/css/header-base.css = header/shared/header-base.css
- *   assets/css/header-b.css    = header/b/header-b.css
- *   assets/js/header.js        = header/shared/header.js
- * (tools/build.sh برابری بایت‌به‌بایت را پیش از بسته‌بندی می‌سنجد.)
+ * CSS و JS ِ هدر — از فایل‌های نمونهٔ تأییدشده:
+ *   assets/js/header.js  = header/shared/header.js (بایت‌به‌بایت)
+ *   assets/css/header.css = tools/harden-css.py روی header/shared/header-base.css + header/b/header-b.css:
+ *     همان قاعده‌ها با پیشوند `#tth-root` و یک لایهٔ ایزوله، تا CSS ِ سراسری سایت (Kit ِ Elementor،
+ *     قالب، Custom CSS ِ قالب‌ها) روی هدر اثر نگذارد.
+ * (tools/build.sh هر دو را پیش از بسته‌بندی می‌سنجد.)
  *
  * در head بارگذاری می‌شوند وقتی جایگزینی سراسری فعال است یا مدیر «بارگذاری در همهٔ
  * صفحه‌ها» را روشن کرده؛ وگرنه shortcode آن‌ها را دیر صف می‌کند و وردپرس در پانویس چاپشان
@@ -48,9 +49,8 @@ final class Assets {
 		$s          = Settings::get();
 		$v          = TECTEB_HEADER_VERSION;
 		$css        = TECTEB_HEADER_URL . 'assets/css/';
-		wp_enqueue_style( 'tecteb-header-base', $css . 'header-base.css', array(), $v );
-		wp_enqueue_style( 'tecteb-header-b', $css . 'header-b.css', array( 'tecteb-header-base' ), $v );
-		wp_enqueue_style( 'tecteb-header', $css . 'tecteb-header.css', array( 'tecteb-header-b' ), $v );
+		wp_enqueue_style( 'tecteb-header-base', $css . 'header.css', array(), $v );
+		wp_enqueue_style( 'tecteb-header', $css . 'tecteb-header.css', array( 'tecteb-header-base' ), $v );
 		if ( 'plugin' === $s['font'] ) {
 			// درون‌خطی و با نشانی مطلق: اگر WP Rocket (یا هر بهینه‌ساز) فایل‌های CSS را کوچک و به
 			// پوشهٔ کش منتقل کند، نشانی نسبی ِ فونت نمی‌شکند.
