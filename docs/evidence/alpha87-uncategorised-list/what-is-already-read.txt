@@ -1,0 +1,51 @@
+alpha.87 — what the handover page already has for the waiting rows
+tree: 05603ff · read-only, no staging contact
+
+--- the list's own SELECT (DbProductRepository.php:877) ---
+        $carried = $this->hasCategoryTable();
+        $sql = 'SELECT p.id, p.vendor_user_id, p.wc_product_id, p.title
+                   FROM `' . $this->products() . '` p
+                  WHERE p.import_run_id <> %s AND p.category_key = %s'
+            . ($carried === true
+                ? ' AND NOT EXISTS (SELECT 1 FROM `' . $this->categoriesTable()
+                    . '` c WHERE c.product_id = p.id)'
+                : '')
+            . ' ORDER BY p.id ASC LIMIT ' . max(1, min(1000, $limit));
+
+--- the counter's predicate (DbProductRepository.php:926) ---
+        }
+        $sql = 'SELECT COUNT(*) FROM `' . $this->products() . '` p
+                 WHERE import_run_id <> %s AND category_key = %s'
+            . ($carried
+                ? ' AND NOT EXISTS (SELECT 1 FROM `' . $this->categoriesTable()
+                    . '` c WHERE c.product_id = p.id)'
+                : '');
+
+--- what plan() carries into held (CategoryMapping.php:195) ---
+        $hold = function (string $reason, array $row, string $sourceKey) use (&$held): void {
+            $held[$reason][] = [
+                'product_id' => (int) $row['id'],
+                'wc_product_id' => (int) $row['wc_product_id'],
+                'title' => (string) $row['title'],
+                'source_key' => $sourceKey,
+            ];
+        };
+
+--- what the page prints for held (HandoverPage.php:1496) ---
+        if ($held !== []) {
+            echo '<h3 class="tmc-card__title">'
+                . esc_html__('آنچه اعمال نمی‌شود، و دلیلش', 'tecteb-marketplace-core') . '</h3>';
+            echo '<table class="tmc-table"><thead><tr>'
+                . '<th scope="col">' . esc_html__('دلیل', 'tecteb-marketplace-core') . '</th>'
+                . '<th scope="col">' . esc_html__('تعداد محصول', 'tecteb-marketplace-core') . '</th>'
+                . '</tr></thead><tbody>';
+            foreach ($held as $reason => $rows) {
+                echo '<tr><td>' . esc_html(self::heldReason((string) $reason))
+                    . '</td><td>' . esc_html($fa((string) count($rows))) . '</td></tr>';
+            }
+            echo '</tbody></table>';
+
+--- admin prose budget for this file, measured ---
+ui_strings_total=3517
+ 23  max= 173  src/Modules/Migration/Presentation/Admin/HandoverPage.php
+budget entry in AdminProseIsShortOrFoldedTest: 0 (0 = must stay at zero long lines)
