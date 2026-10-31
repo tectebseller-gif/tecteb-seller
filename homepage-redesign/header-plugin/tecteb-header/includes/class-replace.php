@@ -58,6 +58,9 @@ final class Replace {
 	/** @var list<int> */
 	private static array $seen = array();
 
+	/** جزئیات تصمیم برای توضیح HTML ِ مدیر (شناسه‌ها، نه داده‌ای از قالب). */
+	private static string $detail = '';
+
 	/** Locations_Manager ِ همین اجرای مکان header، برای وارسی در finish(). */
 	private static ?object $manager = null;
 
@@ -102,6 +105,7 @@ final class Replace {
 		self::$removed  = array();
 		self::$seen     = array();
 		self::$manager  = null;
+		self::$detail   = '';
 		self::$decision = 'off';
 		if ( ! self::active() ) {
 			return;
@@ -125,6 +129,8 @@ final class Replace {
 		}
 		if ( array() !== array_diff( $ids, $allowed ) ) {
 			self::$decision = 'not_allowed';
+			// فقط برای توضیح HTML ِ مدیر: کدام قالب در صف Elementor بود و کدام انتخاب شده.
+			self::$detail = 'Elementor queue: ' . implode( ',', $ids ) . '; selected: ' . ( array() === $allowed ? 'none' : implode( ',', $allowed ) );
 			return;
 		}
 		foreach ( $ids as $id ) {
@@ -147,7 +153,7 @@ final class Replace {
 	public static function finish( $manager = null ): void {
 		if ( array() === self::$removed ) {
 			if ( '' !== self::$decision && 'off' !== self::$decision ) {
-				self::comment( 'not replaced: ' . self::$decision );
+				self::comment( 'not replaced: ' . self::$decision . ( '' !== self::$detail ? ' (' . self::$detail . ')' : '' ) );
 			}
 			return;
 		}

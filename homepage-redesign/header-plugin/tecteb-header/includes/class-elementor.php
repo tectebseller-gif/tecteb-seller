@@ -69,6 +69,35 @@ final class Elementor {
 		return $out;
 	}
 
+	/**
+	 * قالب هدری که Elementor Pro در صفحه‌هایی چاپ می‌کند که شرط خاص‌تری از «کل سایت» ندارند.
+	 *
+	 * از کد Pro 4.2.2: مکان header «multiple» نیست (`register_location`، پیش‌فرض `'multiple' => false`)،
+	 * پس `Conditions_Manager::get_documents_for_location()` پس از **اولین** قالب می‌شکند؛ قالب‌ها با
+	 * `asort` بر اولویت شرط مرتب می‌شوند و همهٔ `include/general`ها اولویت ۱۰۰ دارند، پس میان دو قالب
+	 * «کل سایت» آن که در option ِ `elementor_pro_theme_builder_conditions` زودتر آمده چاپ می‌شود و دیگری
+	 * هیچ‌جا. Elementor آن option را هنگام ذخیرهٔ شرط‌ها از نو می‌سازد (`save_conditions()` ⇒
+	 * `Conditions_Cache::regenerate()`، یک WP_Query با ترتیب پیش‌فرض: تازه‌ترین تاریخ انتشار اول)؛
+	 * قالب منتشرنشده در زمان اجرا رد می‌شود. این متد همان option را می‌خواند که Elementor می‌خواند.
+	 *
+	 * @return array{printed:int,candidates:list<int>} printed=0 یعنی هیچ قالب «کل سایت» ِ منتشرشده‌ای نیست.
+	 */
+	public static function site_wide_header(): array {
+		$cache = get_option( self::CONDITIONS_OPTION, array() );
+		$rows  = is_array( $cache ) && isset( $cache['header'] ) && is_array( $cache['header'] ) ? $cache['header'] : array();
+		$ids   = array();
+		foreach ( $rows as $id => $conds ) {
+			$conds = array_map( 'strval', (array) $conds );
+			if ( in_array( 'include/general', $conds, true ) && ! in_array( 'exclude/general', $conds, true ) && 'publish' === get_post_status( (int) $id ) ) {
+				$ids[] = (int) $id;
+			}
+		}
+		return array(
+			'printed'    => $ids[0] ?? 0,
+			'candidates' => $ids,
+		);
+	}
+
 	/** پست‌های elementor_library بی ثبت نوع پست (Elementor غیرفعال) هم خوانده شوند. */
 	private static function has_library_posts(): bool {
 		return (bool) get_posts(

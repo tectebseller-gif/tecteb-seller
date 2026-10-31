@@ -36,10 +36,14 @@ caught    double header: finish prints although Elementor printed  ← integrati
 caught    double header: header printed earlier not checked  ← integration
 caught    CSS isolation layer dropped  ← static, isolation
 caught    header root id dropped  ← static, isolation
-caught    inspector writes an option  ← static, integration
+caught    inspector writes an option  ← static
 caught    inspector creates the upload dir  ← static
 caught    inspector prints all WP Rocket settings  ← integration
+caught    site-wide header: last in Elementor's order instead of first  ← integration
+caught    site-wide header: unpublished template counted  ← integration
+caught    admin: no error when the printed template is unselected  ← integration
+caught    comment: queue/selection detail dropped  ← integration
 caught    write a term  ← static
 
-42/42 caught, 0 survived, 0 not applied
+46/46 caught, 0 survived, 0 not applied
 exit=0

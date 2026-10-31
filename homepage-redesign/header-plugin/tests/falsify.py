@@ -83,6 +83,11 @@ MUTATIONS = [
     ("inspector writes an option", "includes/class-inspect.php", "		$out['plugins']     = self::plugins();", "		$out['plugins']     = self::plugins();\n\t\tupdate_option( 'tthh_x', 1 );", [S, I]),
     ("inspector creates the upload dir", "includes/class-inspect.php", "wp_upload_dir( null, false )", "wp_upload_dir()", [S]),
     ("inspector prints all WP Rocket settings", "includes/class-inspect.php", "array_intersect_key( $rocket, array_flip( self::ROCKET_KEYS ) )", "$rocket", [I]),
+    # 0.2.2
+    ("site-wide header: last in Elementor's order instead of first", "includes/class-elementor.php", "'printed'    => $ids[0] ?? 0,", "'printed'    => $ids ? end( $ids ) : 0,", [I]),
+    ("site-wide header: unpublished template counted", "includes/class-elementor.php", "&& 'publish' === get_post_status( (int) $id ) ) {\n\t\t\t\t$ids[] = (int) $id;", ") {\n\t\t\t\t$ids[] = (int) $id;", [I]),
+    ("admin: no error when the printed template is unselected", "includes/class-admin.php", "if ( $site['printed'] && ! in_array( $site['printed'], $allowed, true ) ) {", "if ( false ) {", [I]),
+    ("comment: queue/selection detail dropped", "includes/class-replace.php", "( '' !== self::$detail ? ' (' . self::$detail . ')' : '' )", "''", [I]),
     ("write a term", "includes/class-cache.php", "	public static function bump(): void {\n", "	public static function bump(): void {\n\t\twp_update_term( 1, 'product_cat', array() );\n", [S]),
 ]
 

@@ -604,9 +604,28 @@ final class Admin {
 			}
 			echo '</tbody></table>';
 		}
+		$site   = Elementor::site_wide_header();
 		$others = array_filter( $templates, static fn( $t ) => 'publish' === $t['status'] && array() !== $t['conditions'] && ! in_array( $t['id'], $allowed, true ) );
-		if ( $others && $allowed ) {
-			echo '<p class="tth-issue tth-issue--warning">' . esc_html__( 'قالب هدر منتشرشدهٔ دیگری با شرط نمایش هست که انتخاب نشده؛ در صفحه‌های آن شرط، همان قالب (و نه این هدر) نمایش داده می‌شود — باز هم فقط یک هدر.', 'tecteb-header' ) . '</p>';
+		if ( count( $site['candidates'] ) > 1 ) {
+			echo '<p class="tth-issue tth-issue--warning" data-tth-sitewide="' . esc_attr( implode( ',', $site['candidates'] ) ) . '">' . esc_html(
+				sprintf(
+					/* translators: 1: template ids, 2: printed template id */
+					__( 'چند قالب هدر منتشرشده شرط «کل سایت» دارند (%1$s). Elementor Pro در هر صفحه فقط یکی را چاپ می‌کند: آن که در ترتیب شرط‌های ذخیره‌شدهٔ خودش اول است — امروز #%2$d. بقیه جز در صفحه‌ای با شرط خاص‌تر نمایش داده نمی‌شوند. Elementor این ترتیب را هر بار که شرط‌ها ذخیره می‌شوند از نو می‌سازد (تازه‌ترین تاریخ انتشار اول)، پس ممکن است عوض شود.', 'tecteb-header' ),
+					'#' . implode( '، #', $site['candidates'] ),
+					$site['printed']
+				)
+			) . '</p>';
+		}
+		if ( $site['printed'] && ! in_array( $site['printed'], $allowed, true ) ) {
+			echo '<p class="tth-issue tth-issue--error" data-tth-printed-unselected="' . esc_attr( (string) $site['printed'] ) . '">' . esc_html(
+				sprintf(
+					/* translators: %d: template id */
+					__( 'قالبی که Elementor امروز در صفحه‌های «کل سایت» چاپ می‌کند (#%d) انتخاب نشده است؛ پس پیش‌نمایش و جایگزینی در آن صفحه‌ها کاری نمی‌کنند و همان هدر Elementor می‌ماند (توضیح HTML ِ صفحه: «not replaced: not_allowed»). اگر هدر افزونه باید جای آن بیاید، همان قالب را تیک بزنید و ذخیره کنید.', 'tecteb-header' ),
+					$site['printed']
+				)
+			) . '</p>';
+		} elseif ( $others && $allowed ) {
+			echo '<p class="tth-issue tth-issue--warning">' . esc_html__( 'قالب هدر منتشرشدهٔ دیگری با شرط نمایش هست که انتخاب نشده؛ در صفحه‌هایی که Elementor آن را انتخاب می‌کند، همان قالب (و نه این هدر) نمایش داده می‌شود — باز هم فقط یک هدر.', 'tecteb-header' ) . '</p>';
 		}
 		echo '<p><label><input type="checkbox" name="' . esc_attr( self::name( 'replace' ) ) . '" value="1"' . checked( $on, true, false ) . '> <strong>' . esc_html__( 'هدر Elementor ِ قالب‌های انتخاب‌شده را با این هدر جایگزین کن', 'tecteb-header' ) . '</strong></label></p>';
 		echo '<p><label><input type="checkbox" name="' . esc_attr( self::name( 'assets_everywhere' ) ) . '" value="1"' . checked( $s['assets_everywhere'], true, false ) . '> ' . esc_html__( 'CSS و JS ِ هدر در head همهٔ صفحه‌ها بارگذاری شود (برای shortcode در قالب Elementor؛ با جایگزینی روشن، خودکار است)', 'tecteb-header' ) . '</label></p>';

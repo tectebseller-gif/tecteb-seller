@@ -542,6 +542,75 @@ tthh_ok( 'admin menu: «بازارگاه تک‌طب» is not taken as «تک‌
 tthh_ok( 'capability: option page capability = manage_options', 'manage_options' === apply_filters( 'option_page_capability_tecteb_header', 'manage_options' ) && 'manage_options' === Settings::capability() );
 wp_set_current_user( 0 );
 
+// ---------------------------------------------------------------- ۵-الف. دو قالب هدر «کل سایت» (گزارش Staging)
+// Staging: ۲۶۵۲ و ۲۰ هر دو منتشرشده با include/general؛ جایگزینی خاموش؛ فقط ۲۶۵۲ انتخاب‌شده؛ مدیر
+// ?tth_preview=1 را باز کرد و هدر قدیمی ماند. مکان header ِ Elementor Pro «multiple» نیست، پس فقط
+// اولین قالب در ترتیب کش شرط‌ها در صف است.
+$prev_settings = get_option( Settings::OPTION );
+$prev_conds    = get_option( 'elementor_pro_theme_builder_conditions' );
+$t20           = (int) wp_insert_post( array( 'import_id' => 20, 'post_type' => 'elementor_library', 'post_status' => 'publish', 'post_title' => 'Header (blue bar)' ) );
+update_post_meta( $t20, '_elementor_template_type', 'header' );
+update_post_meta( $t20, '_elementor_conditions', array( 'include/general' ) );
+update_post_meta( $t20, '_tthh_fixture', 1 );
+$two = static function ( bool $second_first ) use ( $prev_conds, $t20 ): void {
+	$c           = $prev_conds;
+	$c['header'] = $second_first ? array( $t20 => array( 'include/general' ), 2652 => array( 'include/general' ) ) : array( 2652 => array( 'include/general' ), $t20 => array( 'include/general' ) );
+	update_option( 'elementor_pro_theme_builder_conditions', $c );
+};
+tthh_save( array( '_tab' => 'replace', 'replace' => false, 'replace_templates' => array( 2652 ) ) );
+wp_set_current_user( (int) $admin->ID );
+$_GET['tth_preview'] = '1';
+$two( true );
+Renderer::set_rendered( false );
+$out = tthh_location( 'header' );
+tthh_ok( 'two Entire Site headers, #20 first, only 2652 selected: preview ⇒ Elementor prints #20 only, plugin prints nothing (the staging symptom)', 1 === preg_match_all( '/data-elementor-id="\d+"/', $out ) && str_contains( $out, 'data-elementor-id="' . $t20 . '"' ) && ! str_contains( $out, 'data-tth-header' ) && 'not_allowed' === Replace::decision() );
+tthh_ok( 'two Entire Site headers: admin comment names the queued and the selected template', str_contains( $out, '<!-- tecteb-header: not replaced: not_allowed (Elementor queue: ' . $t20 . '; selected: 2652) -->' ) );
+tthh_ok( 'site_wide_header(): first published include/general in Elementor\'s cache order', array( 'printed' => $t20, 'candidates' => array( $t20, 2652 ) ) === Elementor::site_wide_header() );
+$c_draft = get_option( 'elementor_pro_theme_builder_conditions' );
+update_option( 'elementor_pro_theme_builder_conditions', array_merge( $c_draft, array( 'header' => array( 2653 => array( 'include/general' ) ) + $c_draft['header'] ) ) );
+Renderer::set_rendered( false );
+$out_draft = tthh_location( 'header' );
+tthh_ok( 'site_wide_header(): a draft listed first is skipped, as Elementor skips it', array( 'printed' => $t20, 'candidates' => array( $t20, 2652 ) ) === Elementor::site_wide_header() && str_contains( $out_draft, 'data-elementor-id="' . $t20 . '"' ) );
+update_option( 'elementor_pro_theme_builder_conditions', $c_draft );
+$_GET['tab'] = 'replace';
+ob_start();
+Admin::render();
+$page = (string) ob_get_clean();
+tthh_ok( 'replace tab: names the template Elementor prints and says it is not selected', str_contains( $page, 'data-tth-printed-unselected="' . $t20 . '"' ) && str_contains( $page, 'data-tth-sitewide="' . $t20 . ',2652"' ) && ! str_contains( $page, 'در صفحه‌های آن شرط، همان قالب' ) );
+$insp = Inspect::text( Inspect::report( 2652 ) );
+tthh_ok( 'inspector: says Elementor prints #20, not 2652', str_contains( $insp, "conditions order: #{$t20}, #2652 — Elementor Pro prints only the first: #{$t20} (NOT this template)" ) );
+$two( false );
+Renderer::set_rendered( false );
+$out = tthh_location( 'header' );
+tthh_ok( 'two Entire Site headers, 2652 first: preview replaces 2652, one header', 1 === substr_count( $out, 'data-tth-header' ) && ! str_contains( $out, 'data-tthh-original' ) && 'replaced' === Replace::decision() );
+ob_start();
+Admin::render();
+$page = (string) ob_get_clean();
+tthh_ok( 'replace tab: no «not selected» error when the printed template is selected', ! str_contains( $page, 'data-tth-printed-unselected' ) && str_contains( $page, 'data-tth-sitewide="2652,' . $t20 . '"' ) );
+tthh_save( array( '_tab' => 'replace', 'replace' => false, 'replace_templates' => array( 2652, $t20 ) ) );
+foreach ( array( true, false ) as $order ) {
+	$two( $order );
+	Renderer::set_rendered( false );
+	$out = tthh_location( 'header' );
+	tthh_ok( 'both selected: preview replaces whichever Elementor queues (' . ( $order ? '#20' : '2652' ) . ' first), one header', 1 === substr_count( $out, 'data-tth-header' ) && ! str_contains( $out, 'data-tthh-original' ) && 'replaced' === Replace::decision() );
+}
+unset( $_GET['tth_preview'] );
+Renderer::set_rendered( false );
+$out = tthh_location( 'header' );
+tthh_ok( 'without preview, replacement off: Elementor header unchanged (immediate fallback)', str_contains( $out, 'data-tthh-original' ) && ! str_contains( $out, 'data-tth-header' ) && 'off' === Replace::decision() );
+wp_set_current_user( 0 );
+$_GET['tth_preview'] = '1';
+Renderer::set_rendered( false );
+$out = tthh_location( 'header' );
+tthh_ok( 'visitor with ?tth_preview=1 and two Entire Site headers: Elementor header, no comment', str_contains( $out, 'data-tthh-original' ) && ! str_contains( $out, 'tecteb-header:' ) );
+unset( $_GET['tth_preview'], $_GET['tab'] );
+wp_delete_post( $t20, true );
+update_option( 'elementor_pro_theme_builder_conditions', $prev_conds );
+Settings::forget();
+update_option( Settings::OPTION, $prev_settings );
+Settings::forget();
+tthh_ok( 'two-header fixture cleaned up', null === get_post( $t20 ) && $prev_conds === get_option( 'elementor_pro_theme_builder_conditions' ) );
+
 // ---------------------------------------------------------------- ۵-ب. ابزار بررسی فقط‌خواندنی ۲۶۵۲
 global $wpdb;
 $tthh_full = static function () use ( $wpdb ): string {

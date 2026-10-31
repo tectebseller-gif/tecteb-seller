@@ -62,6 +62,7 @@ final class Inspect {
 			'conditions' => is_array( $conds ) ? array_values( array_map( 'strval', $conds ) ) : array(),
 		);
 		$out['widgets']  = self::widgets( $id );
+		$out['site_wide'] = Elementor::site_wide_header();
 
 		$page               = get_post_meta( $id, '_elementor_page_settings', true );
 		$out['page_css']    = is_array( $page ) && isset( $page['custom_css'] ) ? self::css_summary( (string) $page['custom_css'], $id ) : null;
@@ -276,6 +277,9 @@ final class Inspect {
 		$t   = $r['template'];
 		$l[] = sprintf( 'template: "%s" post_type=%s status=%s type=%s modified=%s', $t['title'], $t['post_type'], $t['status'], $t['type'] ?: '-', $t['modified'] );
 		$l[] = 'conditions: ' . ( $t['conditions'] ? implode( ', ', $t['conditions'] ) : '(none)' );
+		$sw  = $r['site_wide'];
+		$l[] = 'entire-site header templates in Elementor\'s conditions order: ' . ( $sw['candidates'] ? '#' . implode( ', #', $sw['candidates'] ) : '(none)' )
+			. ' — Elementor Pro prints only the first: ' . ( $sw['printed'] ? '#' . $sw['printed'] . ( $sw['printed'] === (int) $r['id'] ? ' (this template)' : ' (NOT this template)' ) : '-' );
 		$w   = $r['widgets'];
 		$l[] = '-- widgets (_elementor_data): ' . ( $w['readable'] ? 'readable' : 'NOT READABLE / EMPTY' );
 		foreach ( $w['types'] as $type => $n ) {

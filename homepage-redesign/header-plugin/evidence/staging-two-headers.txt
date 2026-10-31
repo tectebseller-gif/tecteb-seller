@@ -1,0 +1,31 @@
+== tests/integration/run.php §5-الف against 0.2.1 (commit 5a65f44): class-admin, class-replace, class-elementor, class-inspect
+ok    two Entire Site headers, #20 first, only 2652 selected: preview ⇒ Elementor prints #20 only, plugin prints nothing (the staging symptom)
+FAIL  two Entire Site headers: admin comment names the queued and the selected template
+FAIL  site_wide_header(): first published include/general in Elementor's cache order
+FAIL  site_wide_header(): a draft listed first is skipped, as Elementor skips it
+FAIL  replace tab: names the template Elementor prints and says it is not selected
+FAIL  inspector: says Elementor prints #20, not 2652
+ok    two Entire Site headers, 2652 first: preview replaces 2652, one header
+FAIL  replace tab: no «not selected» error when the printed template is selected
+ok    both selected: preview replaces whichever Elementor queues (#20 first), one header
+ok    both selected: preview replaces whichever Elementor queues (2652 first), one header
+ok    without preview, replacement off: Elementor header unchanged (immediate fallback)
+ok    visitor with ?tth_preview=1 and two Entire Site headers: Elementor header, no comment
+ok    two-header fixture cleaned up
+153 passed, 6 failed
+
+== same section on 0.2.2
+ok    two Entire Site headers, #20 first, only 2652 selected: preview ⇒ Elementor prints #20 only, plugin prints nothing (the staging symptom)
+ok    two Entire Site headers: admin comment names the queued and the selected template
+ok    site_wide_header(): first published include/general in Elementor's cache order
+ok    site_wide_header(): a draft listed first is skipped, as Elementor skips it
+ok    replace tab: names the template Elementor prints and says it is not selected
+ok    inspector: says Elementor prints #20, not 2652
+ok    two Entire Site headers, 2652 first: preview replaces 2652, one header
+ok    replace tab: no «not selected» error when the printed template is selected
+ok    both selected: preview replaces whichever Elementor queues (#20 first), one header
+ok    both selected: preview replaces whichever Elementor queues (2652 first), one header
+ok    without preview, replacement off: Elementor header unchanged (immediate fallback)
+ok    visitor with ?tth_preview=1 and two Entire Site headers: Elementor header, no comment
+ok    two-header fixture cleaned up
+159 passed, 0 failed

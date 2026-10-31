@@ -128,6 +128,19 @@ ok    admin menu: no «تک‌طب» ⇒ one created, «مدیریت هدر» it
 ok    admin menu: existing «تک‌طب» reused, no duplicate top-level
 ok    admin menu: «بازارگاه تک‌طب» is not taken as «تک‌طب»
 ok    capability: option page capability = manage_options
+ok    two Entire Site headers, #20 first, only 2652 selected: preview ⇒ Elementor prints #20 only, plugin prints nothing (the staging symptom)
+ok    two Entire Site headers: admin comment names the queued and the selected template
+ok    site_wide_header(): first published include/general in Elementor's cache order
+ok    site_wide_header(): a draft listed first is skipped, as Elementor skips it
+ok    replace tab: names the template Elementor prints and says it is not selected
+ok    inspector: says Elementor prints #20, not 2652
+ok    two Entire Site headers, 2652 first: preview replaces 2652, one header
+ok    replace tab: no «not selected» error when the printed template is selected
+ok    both selected: preview replaces whichever Elementor queues (#20 first), one header
+ok    both selected: preview replaces whichever Elementor queues (2652 first), one header
+ok    without preview, replacement off: Elementor header unchanged (immediate fallback)
+ok    visitor with ?tth_preview=1 and two Entire Site headers: Elementor header, no comment
+ok    two-header fixture cleaned up
 ok    inspect: template, type and conditions read
 ok    inspect: widget types counted from _elementor_data
 ok    inspect: notable widgets (JetMenu, html, cart, shortcode) named with their path
@@ -145,4 +158,4 @@ ok    inspect: nothing written (posts, meta, terms, options, uploads files incl.
 ok    inspect: missing template ⇒ exists=false, no error
 ok    no writes to terms, term meta, relationships, posts, post meta or menus
 
-146 passed, 0 failed
+159 passed, 0 failed
