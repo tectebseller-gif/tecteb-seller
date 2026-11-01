@@ -33,7 +33,7 @@ const state = (verb) => wp(`eval-file tests/fixtures/state.php ${verb}`);
 const PROPS = ['paddingTop', 'paddingRight', 'borderTopWidth', 'borderTopStyle', 'borderTopLeftRadius', 'fontWeight', 'fontStyle', 'textTransform', 'letterSpacing', 'fontSize', 'backgroundColor', 'color', 'boxShadow'];
 const PROBES = {
   'search input': '#th-c-search',
-  'category select': '#th-c-scope',
+  // ۰٫۳٫۲: منوی دسته‌ها از جست‌وجوی Hero برداشته شد (دستور مالک)؛ دیگر سنجیدنی نیست.
   'search button': '.th-search__submit',
   'h1': '#th-hero-title',
   'h1 line': '.th-hero__line',

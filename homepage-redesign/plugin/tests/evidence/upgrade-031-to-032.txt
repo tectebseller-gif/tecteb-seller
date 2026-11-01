@@ -1,0 +1,19 @@
+PASS 0.3.1 installed and active from its ZIP
+PASS 0.3.1 on the front page: Concept C with the staging defects (English price text, category select)
+PASS 0.3.2 installed over 0.3.1 from its ZIP (--force)
+PASS still active, version 0.3.2
+PASS installed files are byte-identical to the source
+PASS saved settings unchanged byte for byte (products, order, categories, links, switch)
+PASS switch still on: Concept C on the front page after the update
+PASS no English screen-reader price text on the page
+PASS Hero search without the category select
+PASS all ten selected products still shown
+PASS range and sale prices in the new markup
+PASS WooCommerce product search answers (200)
+PASS rollback by unticking: the Reading page itself again
+PASS rollback by deactivation: the Reading page itself again
+PASS downgrade: 0.3.1 reinstalled from its ZIP
+PASS downgrade: 0.3.1 behaves exactly as before (settings understood, switch on)
+PASS downgrade: settings still byte-identical
+
+17 passed, 0 failed

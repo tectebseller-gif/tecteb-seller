@@ -25,3 +25,57 @@
 }
 .tecteb-home-v1.th-c .th-route--shop .th-route__icon { background: linear-gradient(145deg, var(--th-teal-500), var(--th-teal-700)); color: var(--th-white); }
 .tecteb-home-v1.th-c .th-route--shop:hover { border-color: rgba(99, 211, 214, 0.75); }
+
+/* ================================================================ ۰٫۳٫۲
+ *
+ * جست‌وجوی Hero: فقط کادر و دکمه. منوی «همهٔ دسته‌ها» برداشته شد، پس ستون میانیِ ۱۰٫۵rem ِ طرح هم.
+ */
+@container th-home (min-width: 600px) {
+  .tecteb-home-v1.th-c .th-search { grid-template-columns: minmax(0, 1fr) auto; }
+}
+
+/*
+ * قیمت کارت محصول (templates/products.php ⇐ Price::of()). مبلغ‌ها خروجی wc_price() اند و هر مبلغ
+ * یک تکهٔ نشکن است؛ بازه دو سطر «از … / تا …» است تا عدد بلند در کارت باریک هم جا شود؛ تخفیف =
+ * قیمت قبلی کوچک و خط‌خورده، قیمت فعلی پررنگ. لایهٔ ایزوله `del`/`ins` را به پیش‌فرض مرورگر
+ * برمی‌گرداند (ins زیرخط دارد)، پس تزئین هر دو این‌جا صریح نوشته شده.
+ */
+.tecteb-home-v1.th-c .th-product__foot > .th-price { flex: 1 1 100%; }
+.tecteb-home-v1.th-c .th-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.125rem 0.625rem;
+  min-inline-size: 0;
+  margin: 0;
+  line-height: 1.5;
+  color: var(--th-ink);
+}
+.tecteb-home-v1.th-c .th-price--range { flex-direction: column; align-items: flex-start; }
+.tecteb-home-v1.th-c .th-price__part {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.3125rem;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.tecteb-home-v1.th-c .th-price .woocommerce-Price-amount,
+.tecteb-home-v1.th-c .th-price bdi { white-space: nowrap; }
+.tecteb-home-v1.th-c .th-price__now {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--th-ink);
+  text-decoration: none;
+  background: none;
+}
+.tecteb-home-v1.th-c .th-price--sale .th-price__now { color: var(--th-petrol-800); font-size: 1.0625rem; }
+.tecteb-home-v1.th-c .th-price__was {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--th-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.tecteb-home-v1.th-c .th-price__word,
+.tecteb-home-v1.th-c .th-price__suffix { font-size: 0.8125rem; font-weight: 500; color: var(--th-muted); }

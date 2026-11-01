@@ -86,6 +86,13 @@ for w in ["wc_get_template", "woocommerce_template_loop", "do_action( 'woocommer
     hits = [f for f, c in code.items() if w in c]
     check(f"no WooCommerce loop: {w}", not hits, ", ".join(hits))
 
+# --- ۴-ب. ۰٫۳٫۲: جست‌وجوی Hero فقط کادر و دکمه؛ قیمت فقط با API ِ ووکامرس، بی واحد پولِ ثابت
+hero = raw["templates/hero.php"]
+check("hero search: no category select (0.3.2)", "<select" not in hero and "product_cat" not in hero)
+money = [f for f, c in code.items() if re.search(r"تومان|ریال|['\"](IRT|IRR)['\"]", c)]
+check("no hard-coded currency in code (WooCommerce settings decide)", not money, ", ".join(money))
+check("product cards never print raw get_price_html() (screen-reader text)", "get_price_html" not in code["templates/products.php"] and "Price::of(" in code["includes/class-catalog.php"])
+
 # --- ۵. هر echo در قالب‌ها escape شده یا دلیلِ نوشته‌شده دارد
 for f, text in raw.items():
     if not f.startswith("templates/") or not f.endswith(".php"):

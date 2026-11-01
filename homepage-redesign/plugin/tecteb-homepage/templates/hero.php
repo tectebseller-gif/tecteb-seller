@@ -40,18 +40,6 @@ $arrow      = Renderer::icon( 'arrow', 'th-icon th-icon--dir' );
 					<?php echo Renderer::icon( 'search', 'th-icon th-search__icon' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- ساخته‌شده و escape‌شده در Renderer::icon(). ?>
 					<input class="th-search__input" id="th-c-search" type="search" name="s" placeholder="<?php echo esc_attr__( 'نام محصول را جست‌وجو کنید…', 'tecteb-homepage' ); ?>" autocomplete="off" enterkeyhint="search">
 				</div>
-				<?php if ( array() !== $categories ) : ?>
-					<span class="th-search__sep" aria-hidden="true"></span>
-					<div class="th-search__scope">
-						<label class="th-visually-hidden" for="th-c-scope"><?php echo esc_html__( 'در دستهٔ', 'tecteb-homepage' ); ?></label>
-						<select class="th-search__select" id="th-c-scope" name="product_cat">
-							<option value=""><?php echo esc_html__( 'همهٔ دسته‌ها', 'tecteb-homepage' ); ?></option>
-							<?php foreach ( $categories as $category ) : ?>
-								<option value="<?php echo esc_attr( rawurldecode( $category['slug'] ) ); ?>"><?php echo esc_html( $category['name'] ); ?></option>
-							<?php endforeach; ?>
-						</select>
-					</div>
-				<?php endif; ?>
 				<input type="hidden" name="post_type" value="product">
 				<button class="th-btn th-btn--primary th-search__submit" type="submit">
 					<span><?php echo esc_html__( 'جست‌وجو', 'tecteb-homepage' ); ?></span>

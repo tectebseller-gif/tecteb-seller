@@ -1,0 +1,4 @@
+ 9 CAUGHT  [integration] 2 failing — product price printed through wp_kses_post (bdi lost)
+     first: FAIL price: WooCommerce price markup kept intact (bdi for RTL number + currency)
+
+1 of 1 mutations caught and restored

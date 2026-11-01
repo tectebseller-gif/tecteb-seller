@@ -45,7 +45,8 @@ MUTATIONS = [
      "\t\treturn 'product' === get_post_type( $id ) && 'trash' !== get_post_status( $id );",
      "\t\treturn $id > 0;", "integration"),
     ("product price printed through wp_kses_post (bdi lost)", "templates/products.php",
-     "<?php echo Renderer::price_html( $product['price'] );", "<?php echo wp_kses_post( $product['price'] );", "integration"),
+     # ۰٫۳٫۲: قیمت حالا از Price::of() است؛ همان گارد روی شاخهٔ «یک مبلغ».
+     "<span class=\"th-price__part\"><span class=\"th-price__now\"><?php echo Renderer::price_html( $price['now'] );", "<span class=\"th-price__part\"><span class=\"th-price__now\"><?php echo wp_kses_post( $price['now'] );", "integration"),
     ("repair card shown without a destination", "includes/class-renderer.php",
      "'repair'   => array( 'show' => '' !== $links['repair'],", "'repair'   => array( 'show' => true,", "integration"),
     ("supplier card without a destination", "includes/class-renderer.php",
@@ -109,6 +110,22 @@ MUTATIONS = [
      "! is_front_page() || is_paged()", "! is_front_page()", "integration"),
     ("assets not loaded on the taken-over front page", "includes/class-assets.php",
      "$uses = PageTemplate::takes_over_front();", "$uses = false;", "integration"),
+    # ۰٫۳٫۲: قیمت و جست‌وجو
+    ("price guard dropped: a price hidden by the site is shown anyway", "includes/class-price.php",
+     "\t\tif ( '' === $shown ) {\n\t\t\treturn array( 'kind' => 'none' );\n\t\t}\n", "", "integration"),
+    ("price guard dropped: our number shown although the site replaced the price text", "includes/class-price.php",
+     "if ( ! str_contains( $shown, self::visible_text( $amounts[ $key ] ) ) ) {", "if ( false ) {", "integration"),
+    ("sale ignored (old price lost, discount invisible)", "includes/class-price.php",
+     "\t\tif ( $product->is_on_sale() ) {", "\t\tif ( false ) {", "integration"),
+    ("variable range collapsed to one price", "includes/class-price.php",
+     "\t\t\tif ( $min !== $max ) {", "\t\t\tif ( false ) {", "integration"),
+    ("card back to raw get_price_html() (English screen-reader text)", "includes/class-catalog.php",
+     "'price'    => Price::of( $product ),", "'price'    => array( 'kind' => 'text', 'text' => wp_strip_all_tags( $product->get_price_html() ) ),", "integration"),
+    ("old price no longer struck through", "assets/css/tecteb-home.css",
+     "  text-decoration: line-through;\n  text-decoration-thickness: 1px;", "  text-decoration: none;\n  text-decoration-thickness: 1px;", "prices"),
+    ("Hero category dropdown back in the search form", "templates/hero.php",
+     '\t\t\t\t<input type="hidden" name="post_type" value="product">\n',
+     '\t\t\t\t<select class="th-search__select" name="product_cat"><option value="">همهٔ دسته‌ها</option></select>\n\t\t\t\t<input type="hidden" name="post_type" value="product">\n', "prices"),
 ]
 
 
@@ -118,6 +135,12 @@ def run(kind: str) -> tuple[int, str]:
     elif kind == "integration":
         subprocess.run(WP + ["eval-file", "tests/fixtures/seed.php", "seed"], cwd=PLUGIN, capture_output=True)
         p = subprocess.run(WP + ["eval-file", "tests/integration/run.php"], cwd=PLUGIN, capture_output=True, text=True)
+    elif kind == "prices":
+        for a in (["tests/fixtures/seed.php", "seed"], ["tests/fixtures/state.php", "full"], ["tests/fixtures/prices.php", "seed"]):
+            subprocess.run(WP + ["eval-file"] + a, cwd=PLUGIN, capture_output=True)
+        env = dict(os.environ, AXE=AXE, NODE_PATH="/opt/node-tools/node_modules", OUT=str(PLUGIN / "tests/evidence/falsification-browser"))
+        p = subprocess.run(["node", "tests/browser/prices.mjs"], cwd=PLUGIN, capture_output=True, text=True, env=env)
+        subprocess.run(WP + ["eval-file", "tests/fixtures/prices.php", "reset"], cwd=PLUGIN, capture_output=True)
     elif kind == "isolation":
         subprocess.run(WP + ["eval-file", "tests/fixtures/seed.php", "seed"], cwd=PLUGIN, capture_output=True)
         subprocess.run(WP + ["eval-file", "tests/fixtures/state.php", "full"], cwd=PLUGIN, capture_output=True)

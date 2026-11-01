@@ -74,8 +74,24 @@ $badges = array(
 						<div class="th-product__foot">
 							<?php if ( 'outofstock' === $product['stock'] ) : ?>
 								<p class="th-product__price th-product__price--out"><?php echo esc_html__( 'فعلاً ناموجود', 'tecteb-homepage' ); ?></p>
-							<?php elseif ( '' !== $product['price'] ) : ?>
-								<p class="th-product__price"><?php echo Renderer::price_html( $product['price'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses در Renderer::price_html(). ?></p>
+							<?php elseif ( 'text' === $product['price']['kind'] ) : ?>
+								<p class="th-product__price th-product__price--ask"><?php echo esc_html( $product['price']['text'] ); ?></p>
+							<?php elseif ( 'none' !== $product['price']['kind'] ) : ?>
+								<?php $price = $product['price']; ?>
+								<p class="th-product__price th-price th-price--<?php echo esc_attr( $price['kind'] ); ?>">
+									<?php if ( 'sale' === $price['kind'] ) : ?>
+										<span class="th-price__part"><span class="th-visually-hidden"><?php echo esc_html__( 'قیمت قبلی:', 'tecteb-homepage' ); ?></span><del class="th-price__was"><?php echo Renderer::price_html( $price['was'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses در Renderer::price_html(). ?></del></span>
+										<span class="th-price__part"><span class="th-visually-hidden"><?php echo esc_html__( 'قیمت فعلی:', 'tecteb-homepage' ); ?></span><ins class="th-price__now"><?php echo Renderer::price_html( $price['now'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses در Renderer::price_html(). ?></ins></span>
+									<?php elseif ( 'range' === $price['kind'] ) : ?>
+										<span class="th-price__part"><span class="th-price__word"><?php echo esc_html__( 'از', 'tecteb-homepage' ); ?></span> <span class="th-price__now"><?php echo Renderer::price_html( $price['from'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses در Renderer::price_html(). ?></span></span>
+										<span class="th-price__part"><span class="th-price__word"><?php echo esc_html__( 'تا', 'tecteb-homepage' ); ?></span> <span class="th-price__now"><?php echo Renderer::price_html( $price['to'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses در Renderer::price_html(). ?></span></span>
+									<?php else : ?>
+										<span class="th-price__part"><span class="th-price__now"><?php echo Renderer::price_html( $price['now'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_kses در Renderer::price_html(). ?></span></span>
+									<?php endif; ?>
+									<?php if ( isset( $price['suffix'] ) ) : ?>
+										<span class="th-price__suffix"><?php echo esc_html( $price['suffix'] ); ?></span>
+									<?php endif; ?>
+								</p>
 							<?php else : ?>
 								<p class="th-product__price th-product__price--ask"><?php echo esc_html__( 'قیمت اعلام نشده', 'tecteb-homepage' ); ?></p>
 							<?php endif; ?>

@@ -1,0 +1,209 @@
+PASS 1440: 10 selected products shown in the admin order
+PASS 1440 simple: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 simple: one amount «45,000,000» with the site currency
+PASS 1440 simple: price stays inside its card (no overflow onto neighbours)
+PASS 1440 simple: no amount is broken across lines
+FAIL 1440 sale: no English screen-reader text visible (Price range / through / Original price)  — 12,500,000 تومان Original price was: 12,500,000 تومان.9,800,000 تومانCurrent price is: 9,800,000 تومان.
+PASS 1440 sale: old price «12,500,000» struck through, current «9,800,000» emphasised
+FAIL 1440 sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian  — 12,500,000 تومان Original price was: 12,500,000 تومان.9,800,000 تومانCurrent price is: 9,800,000 تومان.
+PASS 1440 sale: price stays inside its card (no overflow onto neighbours)
+PASS 1440 sale: no amount is broken across lines
+FAIL 1440 range: no English screen-reader text visible (Price range / through / Original price)  — 3,200,000 تومان – 128,500,000 تومانPrice range: 3,200,000 تومان through 128,500,000 تومان
+PASS 1440 range: range «3,200,000» to «128,500,000», both with currency
+FAIL 1440 range: range reads in Persian («از … تا …»)  — 3,200,000 تومان – 128,500,000 تومانPrice range: 3,200,000 تومان through 128,500,000 تومان
+PASS 1440 range: price stays inside its card (no overflow onto neighbours)
+PASS 1440 range: no amount is broken across lines
+FAIL 1440 var_sale: no English screen-reader text visible (Price range / through / Original price)  — 7,000,000 تومان Original price was: 7,000,000 تومان.6,300,000 تومانCurrent price is: 6,300,000 تومان.
+PASS 1440 var_sale: old price «7,000,000» struck through, current «6,300,000» emphasised
+FAIL 1440 var_sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian  — 7,000,000 تومان Original price was: 7,000,000 تومان.6,300,000 تومانCurrent price is: 6,300,000 تومان.
+PASS 1440 var_sale: price stays inside its card (no overflow onto neighbours)
+PASS 1440 var_sale: no amount is broken across lines
+FAIL 1440 var_partial: no English screen-reader text visible (Price range / through / Original price)  — 915,000,000 تومان – 1,250,000,000 تومانPrice range: 915,000,000 تومان through 1,250,000,000 تومان
+PASS 1440 var_partial: range «915,000,000» to «1,250,000,000», both with currency
+FAIL 1440 var_partial: range reads in Persian («از … تا …»)  — 915,000,000 تومان – 1,250,000,000 تومانPrice range: 915,000,000 تومان through 1,250,000,000 تومان
+PASS 1440 var_partial: price stays inside its card (no overflow onto neighbours)
+PASS 1440 var_partial: no amount is broken across lines
+PASS 1440 var_noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 var_noprice: «قیمت اعلام نشده», no number
+PASS 1440 var_noprice: price stays inside its card (no overflow onto neighbours)
+PASS 1440 var_noprice: no amount is broken across lines
+PASS 1440 noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 noprice: «قیمت اعلام نشده», no number
+PASS 1440 noprice: price stays inside its card (no overflow onto neighbours)
+PASS 1440 noprice: no amount is broken across lines
+PASS 1440 zero: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 zero: one amount «0» with the site currency
+PASS 1440 zero: price stays inside its card (no overflow onto neighbours)
+PASS 1440 zero: no amount is broken across lines
+FAIL 1440 grouped: no English screen-reader text visible (Price range / through / Original price)  — 9,800,000 تومان – 45,000,000 تومانPrice range: 9,800,000 تومان through 45,000,000 تومان
+PASS 1440 grouped: range «9,800,000» to «45,000,000», both with currency
+FAIL 1440 grouped: range reads in Persian («از … تا …»)  — 9,800,000 تومان – 45,000,000 تومانPrice range: 9,800,000 تومان through 45,000,000 تومان
+PASS 1440 grouped: price stays inside its card (no overflow onto neighbours)
+PASS 1440 grouped: no amount is broken across lines
+PASS 1440 var_out: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 var_out: «فعلاً ناموجود», no price invented
+PASS 1440 var_out: price stays inside its card (no overflow onto neighbours)
+PASS 1440 var_out: no amount is broken across lines
+PASS 1440: product cards do not overlap
+FAIL 1440: Hero search = one field + «جست‌وجو» button, no category dropdown  — {"select":1,"field":true,"button":true,"postType":"product","action":"http://127.0.0.1:8090/","inside":true,"overflow":0,"fieldW":332,"formW":672}
+PASS 1440: Hero search still WooCommerce product search (s + post_type=product, home URL)
+FAIL 1440: search field and button fit the bar; no page overflow  — {"select":1,"field":true,"button":true,"postType":"product","action":"http://127.0.0.1:8090/","inside":true,"overflow":0,"fieldW":332,"formW":672}
+PASS 1440: axe on the whole page — 0 violations
+PASS 768: 10 selected products shown in the admin order
+PASS 768 simple: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 simple: one amount «45,000,000» with the site currency
+PASS 768 simple: price stays inside its card (no overflow onto neighbours)
+PASS 768 simple: no amount is broken across lines
+FAIL 768 sale: no English screen-reader text visible (Price range / through / Original price)  — 12,500,000 تومان Original price was: 12,500,000 تومان.9,800,000 تومانCurrent price is: 9,800,000 تومان.
+PASS 768 sale: old price «12,500,000» struck through, current «9,800,000» emphasised
+FAIL 768 sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian  — 12,500,000 تومان Original price was: 12,500,000 تومان.9,800,000 تومانCurrent price is: 9,800,000 تومان.
+PASS 768 sale: price stays inside its card (no overflow onto neighbours)
+PASS 768 sale: no amount is broken across lines
+FAIL 768 range: no English screen-reader text visible (Price range / through / Original price)  — 3,200,000 تومان – 128,500,000 تومانPrice range: 3,200,000 تومان through 128,500,000 تومان
+PASS 768 range: range «3,200,000» to «128,500,000», both with currency
+FAIL 768 range: range reads in Persian («از … تا …»)  — 3,200,000 تومان – 128,500,000 تومانPrice range: 3,200,000 تومان through 128,500,000 تومان
+PASS 768 range: price stays inside its card (no overflow onto neighbours)
+PASS 768 range: no amount is broken across lines
+FAIL 768 var_sale: no English screen-reader text visible (Price range / through / Original price)  — 7,000,000 تومان Original price was: 7,000,000 تومان.6,300,000 تومانCurrent price is: 6,300,000 تومان.
+PASS 768 var_sale: old price «7,000,000» struck through, current «6,300,000» emphasised
+FAIL 768 var_sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian  — 7,000,000 تومان Original price was: 7,000,000 تومان.6,300,000 تومانCurrent price is: 6,300,000 تومان.
+PASS 768 var_sale: price stays inside its card (no overflow onto neighbours)
+PASS 768 var_sale: no amount is broken across lines
+FAIL 768 var_partial: no English screen-reader text visible (Price range / through / Original price)  — 915,000,000 تومان – 1,250,000,000 تومانPrice range: 915,000,000 تومان through 1,250,000,000 تومان
+PASS 768 var_partial: range «915,000,000» to «1,250,000,000», both with currency
+FAIL 768 var_partial: range reads in Persian («از … تا …»)  — 915,000,000 تومان – 1,250,000,000 تومانPrice range: 915,000,000 تومان through 1,250,000,000 تومان
+PASS 768 var_partial: price stays inside its card (no overflow onto neighbours)
+PASS 768 var_partial: no amount is broken across lines
+PASS 768 var_noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 var_noprice: «قیمت اعلام نشده», no number
+PASS 768 var_noprice: price stays inside its card (no overflow onto neighbours)
+PASS 768 var_noprice: no amount is broken across lines
+PASS 768 noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 noprice: «قیمت اعلام نشده», no number
+PASS 768 noprice: price stays inside its card (no overflow onto neighbours)
+PASS 768 noprice: no amount is broken across lines
+PASS 768 zero: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 zero: one amount «0» with the site currency
+PASS 768 zero: price stays inside its card (no overflow onto neighbours)
+PASS 768 zero: no amount is broken across lines
+FAIL 768 grouped: no English screen-reader text visible (Price range / through / Original price)  — 9,800,000 تومان – 45,000,000 تومانPrice range: 9,800,000 تومان through 45,000,000 تومان
+PASS 768 grouped: range «9,800,000» to «45,000,000», both with currency
+FAIL 768 grouped: range reads in Persian («از … تا …»)  — 9,800,000 تومان – 45,000,000 تومانPrice range: 9,800,000 تومان through 45,000,000 تومان
+PASS 768 grouped: price stays inside its card (no overflow onto neighbours)
+PASS 768 grouped: no amount is broken across lines
+PASS 768 var_out: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 var_out: «فعلاً ناموجود», no price invented
+PASS 768 var_out: price stays inside its card (no overflow onto neighbours)
+PASS 768 var_out: no amount is broken across lines
+PASS 768: product cards do not overlap
+FAIL 768: Hero search = one field + «جست‌وجو» button, no category dropdown  — {"select":1,"field":true,"button":true,"postType":"product","action":"http://127.0.0.1:8090/","inside":true,"overflow":0,"fieldW":332,"formW":672}
+PASS 768: Hero search still WooCommerce product search (s + post_type=product, home URL)
+FAIL 768: search field and button fit the bar; no page overflow  — {"select":1,"field":true,"button":true,"postType":"product","action":"http://127.0.0.1:8090/","inside":true,"overflow":0,"fieldW":332,"formW":672}
+PASS 768: axe on the whole page — 0 violations
+PASS 390: 10 selected products shown in the admin order
+PASS 390 simple: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 simple: one amount «45,000,000» with the site currency
+PASS 390 simple: price stays inside its card (no overflow onto neighbours)
+PASS 390 simple: no amount is broken across lines
+FAIL 390 sale: no English screen-reader text visible (Price range / through / Original price)  — 12,500,000 تومان Original price was: 12,500,000 تومان.9,800,000 تومانCurrent price is: 9,800,000 تومان.
+PASS 390 sale: old price «12,500,000» struck through, current «9,800,000» emphasised
+FAIL 390 sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian  — 12,500,000 تومان Original price was: 12,500,000 تومان.9,800,000 تومانCurrent price is: 9,800,000 تومان.
+PASS 390 sale: price stays inside its card (no overflow onto neighbours)
+PASS 390 sale: no amount is broken across lines
+FAIL 390 range: no English screen-reader text visible (Price range / through / Original price)  — 3,200,000 تومان – 128,500,000 تومانPrice range: 3,200,000 تومان through 128,500,000 تومان
+PASS 390 range: range «3,200,000» to «128,500,000», both with currency
+FAIL 390 range: range reads in Persian («از … تا …»)  — 3,200,000 تومان – 128,500,000 تومانPrice range: 3,200,000 تومان through 128,500,000 تومان
+PASS 390 range: price stays inside its card (no overflow onto neighbours)
+PASS 390 range: no amount is broken across lines
+FAIL 390 var_sale: no English screen-reader text visible (Price range / through / Original price)  — 7,000,000 تومان Original price was: 7,000,000 تومان.6,300,000 تومانCurrent price is: 6,300,000 تومان.
+PASS 390 var_sale: old price «7,000,000» struck through, current «6,300,000» emphasised
+FAIL 390 var_sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian  — 7,000,000 تومان Original price was: 7,000,000 تومان.6,300,000 تومانCurrent price is: 6,300,000 تومان.
+PASS 390 var_sale: price stays inside its card (no overflow onto neighbours)
+PASS 390 var_sale: no amount is broken across lines
+FAIL 390 var_partial: no English screen-reader text visible (Price range / through / Original price)  — 915,000,000 تومان – 1,250,000,000 تومانPrice range: 915,000,000 تومان through 1,250,000,000 تومان
+PASS 390 var_partial: range «915,000,000» to «1,250,000,000», both with currency
+FAIL 390 var_partial: range reads in Persian («از … تا …»)  — 915,000,000 تومان – 1,250,000,000 تومانPrice range: 915,000,000 تومان through 1,250,000,000 تومان
+PASS 390 var_partial: price stays inside its card (no overflow onto neighbours)
+PASS 390 var_partial: no amount is broken across lines
+PASS 390 var_noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 var_noprice: «قیمت اعلام نشده», no number
+PASS 390 var_noprice: price stays inside its card (no overflow onto neighbours)
+PASS 390 var_noprice: no amount is broken across lines
+PASS 390 noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 noprice: «قیمت اعلام نشده», no number
+PASS 390 noprice: price stays inside its card (no overflow onto neighbours)
+PASS 390 noprice: no amount is broken across lines
+PASS 390 zero: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 zero: one amount «0» with the site currency
+PASS 390 zero: price stays inside its card (no overflow onto neighbours)
+PASS 390 zero: no amount is broken across lines
+FAIL 390 grouped: no English screen-reader text visible (Price range / through / Original price)  — 9,800,000 تومان – 45,000,000 تومانPrice range: 9,800,000 تومان through 45,000,000 تومان
+PASS 390 grouped: range «9,800,000» to «45,000,000», both with currency
+FAIL 390 grouped: range reads in Persian («از … تا …»)  — 9,800,000 تومان – 45,000,000 تومانPrice range: 9,800,000 تومان through 45,000,000 تومان
+PASS 390 grouped: price stays inside its card (no overflow onto neighbours)
+PASS 390 grouped: no amount is broken across lines
+PASS 390 var_out: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 var_out: «فعلاً ناموجود», no price invented
+PASS 390 var_out: price stays inside its card (no overflow onto neighbours)
+PASS 390 var_out: no amount is broken across lines
+PASS 390: product cards do not overlap
+FAIL 390: Hero search = one field + «جست‌وجو» button, no category dropdown  — {"select":1,"field":true,"button":true,"postType":"product","action":"http://127.0.0.1:8090/","inside":true,"overflow":0,"fieldW":340,"formW":358}
+PASS 390: Hero search still WooCommerce product search (s + post_type=product, home URL)
+PASS 390: search field and button fit the bar; no page overflow
+PASS 390: axe on the whole page — 0 violations
+PASS 320: 10 selected products shown in the admin order
+PASS 320 simple: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 simple: one amount «45,000,000» with the site currency
+PASS 320 simple: price stays inside its card (no overflow onto neighbours)
+PASS 320 simple: no amount is broken across lines
+FAIL 320 sale: no English screen-reader text visible (Price range / through / Original price)  — 12,500,000 تومان Original price was: 12,500,000 تومان.9,800,000 تومانCurrent price is: 9,800,000 تومان.
+PASS 320 sale: old price «12,500,000» struck through, current «9,800,000» emphasised
+FAIL 320 sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian  — 12,500,000 تومان Original price was: 12,500,000 تومان.9,800,000 تومانCurrent price is: 9,800,000 تومان.
+PASS 320 sale: price stays inside its card (no overflow onto neighbours)
+PASS 320 sale: no amount is broken across lines
+FAIL 320 range: no English screen-reader text visible (Price range / through / Original price)  — 3,200,000 تومان – 128,500,000 تومانPrice range: 3,200,000 تومان through 128,500,000 تومان
+PASS 320 range: range «3,200,000» to «128,500,000», both with currency
+FAIL 320 range: range reads in Persian («از … تا …»)  — 3,200,000 تومان – 128,500,000 تومانPrice range: 3,200,000 تومان through 128,500,000 تومان
+PASS 320 range: price stays inside its card (no overflow onto neighbours)
+PASS 320 range: no amount is broken across lines
+FAIL 320 var_sale: no English screen-reader text visible (Price range / through / Original price)  — 7,000,000 تومان Original price was: 7,000,000 تومان.6,300,000 تومانCurrent price is: 6,300,000 تومان.
+PASS 320 var_sale: old price «7,000,000» struck through, current «6,300,000» emphasised
+FAIL 320 var_sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian  — 7,000,000 تومان Original price was: 7,000,000 تومان.6,300,000 تومانCurrent price is: 6,300,000 تومان.
+PASS 320 var_sale: price stays inside its card (no overflow onto neighbours)
+PASS 320 var_sale: no amount is broken across lines
+FAIL 320 var_partial: no English screen-reader text visible (Price range / through / Original price)  — 915,000,000 تومان – 1,250,000,000 تومانPrice range: 915,000,000 تومان through 1,250,000,000 تومان
+PASS 320 var_partial: range «915,000,000» to «1,250,000,000», both with currency
+FAIL 320 var_partial: range reads in Persian («از … تا …»)  — 915,000,000 تومان – 1,250,000,000 تومانPrice range: 915,000,000 تومان through 1,250,000,000 تومان
+PASS 320 var_partial: price stays inside its card (no overflow onto neighbours)
+PASS 320 var_partial: no amount is broken across lines
+PASS 320 var_noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 var_noprice: «قیمت اعلام نشده», no number
+PASS 320 var_noprice: price stays inside its card (no overflow onto neighbours)
+PASS 320 var_noprice: no amount is broken across lines
+PASS 320 noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 noprice: «قیمت اعلام نشده», no number
+PASS 320 noprice: price stays inside its card (no overflow onto neighbours)
+PASS 320 noprice: no amount is broken across lines
+PASS 320 zero: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 zero: one amount «0» with the site currency
+PASS 320 zero: price stays inside its card (no overflow onto neighbours)
+PASS 320 zero: no amount is broken across lines
+FAIL 320 grouped: no English screen-reader text visible (Price range / through / Original price)  — 9,800,000 تومان – 45,000,000 تومانPrice range: 9,800,000 تومان through 45,000,000 تومان
+PASS 320 grouped: range «9,800,000» to «45,000,000», both with currency
+FAIL 320 grouped: range reads in Persian («از … تا …»)  — 9,800,000 تومان – 45,000,000 تومانPrice range: 9,800,000 تومان through 45,000,000 تومان
+PASS 320 grouped: price stays inside its card (no overflow onto neighbours)
+PASS 320 grouped: no amount is broken across lines
+PASS 320 var_out: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 var_out: «فعلاً ناموجود», no price invented
+PASS 320 var_out: price stays inside its card (no overflow onto neighbours)
+PASS 320 var_out: no amount is broken across lines
+PASS 320: product cards do not overlap
+FAIL 320: Hero search = one field + «جست‌وجو» button, no category dropdown  — {"select":1,"field":true,"button":true,"postType":"product","action":"http://127.0.0.1:8090/","inside":true,"overflow":0,"fieldW":270,"formW":288}
+PASS 320: Hero search still WooCommerce product search (s + post_type=product, home URL)
+PASS 320: search field and button fit the bar; no page overflow
+PASS 320: axe on the whole page — 0 violations
+PASS search «سرنگ‌پمپ» lands on WooCommerce results/product (200)
+PASS site «استعلام قیمت» (woocommerce_empty_price_html) is shown as the site wrote it, for simple and variable
+PASS priced products unaffected by the inquiry filter
+
+161 passed, 46 failed

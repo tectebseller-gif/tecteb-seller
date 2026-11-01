@@ -252,7 +252,8 @@ check( 'categories: shown in the admin order', array( 'ملزومات مصرفی
 check( 'categories: link to the WooCommerce term link', get_term_link( $c['monitor'], 'product_cat' ) === nodes( $h, '//a[' . cls( 'th-cat' ) . ']' )[1]->getAttribute( 'href' ) );
 check( 'categories: note = first line of description only', in_array( 'مانیتور، پالس‌اکسیمتر و ECG', texts( $h, '//span[' . cls( 'th-cat__meta' ) . ']' ), true ) && ! str_contains( $h, 'سطر دوم' ) );
 check( 'categories: thumbnail image used when present', 1 === count( nodes( $h, '//span[' . cls( 'th-orb' ) . ']/img[' . cls( 'th-orb__img' ) . ']' ) ) );
-check( 'categories: search select lists the selected categories', array( 'همهٔ دسته‌ها', 'ملزومات مصرفی', 'پایش بیمار', 'اتاق عمل' ) === texts( $h, '//select[@name="product_cat"]/option' ) );
+// ۰٫۳٫۲: منوی «همهٔ دسته‌ها» از جست‌وجوی Hero برداشته شد (دستور مالک)؛ بخش دسته‌ها همان است.
+check( 'categories: Hero search has no category select even with categories selected (0.3.2)', 0 === count( nodes( $h, '//form[' . cls( 'th-search' ) . ']//select' ) ) && ! str_contains( $h, 'همهٔ دسته‌ها' ) );
 check( 'categories: hero floats = first two categories', array( 'ملزومات مصرفی', 'پایش بیمار' ) === texts( $h, '//a[' . cls( 'th-float' ) . ']' ) );
 check( 'categories: product filter chips = shop + categories', array( 'همه', 'ملزومات مصرفی', 'پایش بیمار', 'اتاق عمل' ) === texts( $h, '//nav[' . cls( 'th-filter' ) . ']//a' ) );
 check( 'categories: no aria-current on the shop chip', 0 === count( nodes( $h, '//nav//a[@aria-current]' ) ) );
@@ -290,18 +291,17 @@ check( 'escaping: hostile category name/description never becomes markup', ! str
 /* ------------------------------------------------------------ ۴. جست‌وجو */
 settings( array( 'categories' => array( array( 'id' => $c['monitor'] ), array( 'id' => $c['consum'] ) ), 'chips' => "دستکش جراحی\nمانیتور\n\nمانیتور" ) );
 $h    = html( 'hero' );
-$opts = nodes( $h, '//select[@name="product_cat"]/option[@value!=""]' );
 check( 'chips: blank and duplicate lines dropped', array( 'دستکش جراحی', 'مانیتور' ) === texts( $h, '//ul[' . cls( 'th-quick__list' ) . ']/li' ) );
 $chip = nodes( $h, '//ul[' . cls( 'th-quick__list' ) . ']//a' )[0]->getAttribute( 'href' );
 check( 'chips: link is a product search for the word', str_contains( $chip, 'post_type=product' ) && str_contains( rawurldecode( $chip ), 's=دستکش جراحی' ), $chip );
 $res = http( '/?' . wp_parse_url( $chip, PHP_URL_QUERY ) );
 check( 'chips: the search URL finds the product on this WordPress', str_contains( $res, 'دستکش جراحی غیرویژه' ) );
-$slug = $opts[0]->getAttribute( 'value' );
-check( 'search: select value is the readable (decoded) slug', 'پایش-بیمار' === $slug, $slug );
-$res = http( '/?s=&post_type=product&product_cat=' . rawurlencode( $slug ) );
-check( 'search: category-scoped search returns that category\'s products', str_contains( $res, 'مانیتور علائم حیاتی' ) && ! str_contains( $res, 'دستکش جراحی غیرویژه' ) );
-$res = http( '/?s=' . rawurlencode( 'پالس' ) . '&post_type=product&product_cat=' );
-check( 'search: plain word search with empty category works', str_contains( $res, 'پالس‌اکسیمتر انگشتی' ) );
+$form = nodes( $h, '//form[' . cls( 'th-search' ) . ']' )[0];
+$fields = array_map( static fn( $n ) => $n->getAttribute( 'name' ), nodes( $h, '//form[' . cls( 'th-search' ) . ']//*[@name]' ) );
+check( 'search: one text field + post_type=product, no product_cat (0.3.2)', array( 's', 'post_type' ) === $fields && 'product' === nodes( $h, '//form[' . cls( 'th-search' ) . ']//input[@name="post_type"]' )[0]->getAttribute( 'value' ), implode( ',', $fields ) );
+check( 'search: GET to the site home (WooCommerce product search), button «جست‌وجو»', 'get' === $form->getAttribute( 'method' ) && home_url( '/' ) === $form->getAttribute( 'action' ) && array( 'جست‌وجو' ) === texts( $h, '//form[' . cls( 'th-search' ) . ']//button[@type="submit"]' ) );
+$res = http( '/?s=' . rawurlencode( 'پالس' ) . '&post_type=product' );
+check( 'search: the submitted URL finds the product (WooCommerce search)', str_contains( $res, 'پالس‌اکسیمتر انگشتی' ) );
 
 /* ------------------------------------------------------------ ۵. پیوندها */
 $s = Settings::sanitize( array( 'links' => array( 'repair' => 'javascript:alert(1)', 'supplier' => 'data:text/html,x', 'supplier_terms' => '//evil.example/x', 'all_categories' => 'ftp://x' ) ) );
@@ -503,6 +503,116 @@ settings( array( 'front_page' => '' ) );
 update_option( 'show_on_front', $prev_front[0] );
 $prev_front[1] ? update_option( 'page_on_front', $prev_front[1] ) : delete_option( 'page_on_front' );
 check( 'shop route back once the shop page is not the front page', '' !== Renderer::shop_url() );
+
+/* ------------------------------------------------------------ ۱۳-ج. قیمت کارت محصول (۰٫۳٫۲) */
+// علت ایراد Staging: get_price_html() ِ ووکامرس در بازه و تخفیف متن مخصوص صفحه‌خوان («Price range: … through …»،
+// «Original price was: …») دارد و لایهٔ ایزولهٔ ۰٫۳٫۰ پنهان‌ماندنش را برمی‌گرداند. حالا Price::of() از همان API می‌سازد.
+$mk_simple = static function ( string $name, string $reg, string $sale = '' ): int {
+	$x = new WC_Product_Simple();
+	$x->set_name( $name );
+	$x->set_status( 'publish' );
+	$x->set_regular_price( $reg );
+	if ( '' !== $sale ) {
+		$x->set_sale_price( $sale );
+	}
+	$id = (int) $x->save();
+	update_post_meta( $id, '_tth_fixture', '1' );
+	return $id;
+};
+$mk_var = static function ( string $name, array $rows ): int {
+	$x = new WC_Product_Variable();
+	$a = new WC_Product_Attribute();
+	$a->set_name( 'size' );
+	$a->set_options( array_column( $rows, 0 ) );
+	$a->set_variation( true );
+	$a->set_visible( true );
+	$x->set_name( $name );
+	$x->set_status( 'publish' );
+	$x->set_attributes( array( $a ) );
+	$id = (int) $x->save();
+	update_post_meta( $id, '_tth_fixture', '1' );
+	foreach ( $rows as $r ) {
+		$v = new WC_Product_Variation();
+		$v->set_parent_id( $id );
+		$v->set_attributes( array( 'size' => $r[0] ) );
+		$v->set_regular_price( $r[1] );
+		if ( isset( $r[2] ) ) {
+			$v->set_sale_price( $r[2] );
+		}
+		$v->set_status( 'publish' );
+		$v->save();
+	}
+	WC_Product_Variable::sync( $id );
+	wc_delete_product_transients( $id );
+	return $id;
+};
+$pp  = array(
+	'simple'  => $mk_simple( 'قیمت ساده ۰٫۳٫۲', '45000000' ),
+	'sale'    => $mk_simple( 'قیمت با تخفیف ۰٫۳٫۲', '12500000', '9800000' ),
+	'range'   => $mk_var( 'قیمت بازه‌ای ۰٫۳٫۲', array( array( 'a', '3200000' ), array( 'b', '128500000' ) ) ),
+	'varsale' => $mk_var( 'متغیر هم‌قیمت با تخفیف ۰٫۳٫۲', array( array( 'a', '7000000', '6300000' ), array( 'b', '7000000', '6300000' ) ) ),
+	'empty'   => $mk_simple( 'بی‌قیمت ۰٫۳٫۲', '' ),
+);
+$P   = static fn( string $k ): array => \Tecteb\Homepage\Price::of( wc_get_product( $pp[ $k ] ) );
+$vis = static fn( string $html ): string => trim( (string) preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( $html ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) );
+check( 'price model: simple ⇒ one amount = wc_price(display price)', 'amount' === $P( 'simple' )['kind'] && wc_price( 45000000 ) === $P( 'simple' )['now'] );
+check( 'price model: simple on sale ⇒ was 12,500,000 / now 9,800,000', 'sale' === $P( 'sale' )['kind'] && wc_price( 12500000 ) === $P( 'sale' )['was'] && wc_price( 9800000 ) === $P( 'sale' )['now'] );
+check( 'price model: variable with two prices ⇒ range from/to', 'range' === $P( 'range' )['kind'] && wc_price( 3200000 ) === $P( 'range' )['from'] && wc_price( 128500000 ) === $P( 'range' )['to'] );
+check( 'price model: variable, all variations same price on sale ⇒ sale (as WooCommerce)', 'sale' === $P( 'varsale' )['kind'] && wc_price( 7000000 ) === $P( 'varsale' )['was'] && wc_price( 6300000 ) === $P( 'varsale' )['now'] );
+check( 'price model: no price ⇒ none (no number invented)', array( 'kind' => 'none' ) === $P( 'empty' ) );
+foreach ( array( 'simple', 'sale', 'range', 'varsale' ) as $k ) {
+	$wc_visible = $vis( (string) preg_replace( '#<span[^>]*screen-reader-text[^>]*>.*?</span>#su', '', wc_get_product( $pp[ $k ] )->get_price_html() ) );
+	$ours       = array_map( $vis, array_intersect_key( $P( $k ), array_flip( array( 'now', 'was', 'from', 'to' ) ) ) );
+	check( "price model: «{$k}» shows only amounts WooCommerce itself shows", array() !== $ours && array_reduce( $ours, static fn( $ok, $a ) => $ok && str_contains( $wc_visible, $a ), true ), wp_json_encode( array( $wc_visible, $ours ) ) );
+}
+settings( array( 'products' => array_values( $pp ), 'product_count' => 5 ) );
+$h = html( 'products' );
+foreach ( array( 'Price range', 'through', 'Original price', 'Current price', 'screen-reader-text' ) as $en ) {
+	check( "price card: «{$en}» nowhere in the products section", ! str_contains( $h, $en ) );
+}
+$cards = nodes( $h, '//p[' . cls( 'th-product__price' ) . ']' );
+check( 'price card: five cards, five price lines, in the admin order', 5 === count( $cards ) );
+check( 'price card: simple = one wc_price amount with <bdi>', 'th-product__price th-price th-price--amount' === $cards[0]->getAttribute( 'class' ) && 1 === count( nodes( $h, '(//p[' . cls( 'th-product__price' ) . '])[1]//bdi' ) ) );
+check( 'price card: sale = <del> old + <ins> current + Persian labels for screen readers', 1 === count( nodes( $h, '(//p[' . cls( 'th-product__price' ) . '])[2]//del[' . cls( 'th-price__was' ) . ']' ) ) && 1 === count( nodes( $h, '(//p[' . cls( 'th-product__price' ) . '])[2]//ins[' . cls( 'th-price__now' ) . ']' ) ) && array( 'قیمت قبلی:', 'قیمت فعلی:' ) === texts( $h, '(//p[' . cls( 'th-product__price' ) . '])[2]//span[' . cls( 'th-visually-hidden' ) . ']' ) );
+check( 'price card: range = «از …» / «تا …», two amounts', array( 'از', 'تا' ) === texts( $h, '(//p[' . cls( 'th-product__price' ) . '])[3]//span[' . cls( 'th-price__word' ) . ']' ) && 2 === count( nodes( $h, '(//p[' . cls( 'th-product__price' ) . '])[3]//bdi' ) ) );
+check( 'price card: no price = «قیمت اعلام نشده»', 'قیمت اعلام نشده' === trim( $cards[4]->textContent ) );
+check( 'price admin text: plain Persian, no screen-reader English', 'از ' . $vis( wc_price( 3200000 ) ) . ' تا ' . $vis( wc_price( 128500000 ) ) === \Tecteb\Homepage\Price::text( wc_get_product( $pp['range'] ) ) && ! str_contains( \Tecteb\Homepage\Price::text( wc_get_product( $pp['sale'] ) ), 'Original' ) );
+// فیلترهای سایت مرجع می‌مانند: «استعلام قیمت»، پنهان‌کردن قیمت، و جایگزینی متن.
+$inq = static fn() => '<span class="x">استعلام قیمت</span>';
+add_filter( 'woocommerce_empty_price_html', $inq );
+check( 'site filter: «استعلام قیمت» from woocommerce_empty_price_html shown as written', array( 'kind' => 'text', 'text' => 'استعلام قیمت' ) === $P( 'empty' ) && str_contains( html( 'products' ), '>استعلام قیمت</p>' ) );
+remove_filter( 'woocommerce_empty_price_html', $inq );
+$hide = static fn() => '';
+add_filter( 'woocommerce_get_price_html', $hide );
+check( 'site filter: price hidden by the site (get_price_html empty) ⇒ no number on the card', array( 'kind' => 'none' ) === $P( 'simple' ) && array( 'kind' => 'none' ) === $P( 'range' ) && ! str_contains( html( 'products' ), 'woocommerce-Price-amount' ) );
+remove_filter( 'woocommerce_get_price_html', $hide );
+$call = static fn() => 'تماس بگیرید';
+add_filter( 'woocommerce_get_price_html', $call );
+check( 'site filter: price replaced by the site text ⇒ that text, never our number', array( 'kind' => 'text', 'text' => 'تماس بگیرید' ) === $P( 'sale' ) && ! str_contains( html( 'products' ), '9,800,000' ) );
+remove_filter( 'woocommerce_get_price_html', $call );
+// واحد پول از ووکامرس می‌آید؛ هیچ «تومان» ِ ثابتی نیست.
+$cur = array( get_option( 'woocommerce_currency' ), get_option( 'woocommerce_price_num_decimals' ), get_option( 'woocommerce_currency_pos' ) );
+update_option( 'woocommerce_currency', 'USD' );
+update_option( 'woocommerce_price_num_decimals', 2 );
+update_option( 'woocommerce_currency_pos', 'left' );
+$h = html( 'products' );
+check( 'currency: USD/2 decimals/left from WooCommerce settings ⇒ $45,000,000.00, no «تومان»', str_contains( $vis( $P( 'simple' )['now'] ), '$45,000,000.00' ) && ! str_contains( $h, 'تومان' ) && str_contains( $vis( $h ), '$128,500,000.00' ) );
+update_option( 'woocommerce_currency', $cur[0] );
+update_option( 'woocommerce_price_num_decimals', $cur[1] );
+update_option( 'woocommerce_currency_pos', $cur[2] );
+// ووکامرس پسوند را فقط با مالیاتِ فعال و محصولِ مشمول مالیات چاپ می‌کند (get_price_suffix).
+$taxes = get_option( 'woocommerce_calc_taxes' );
+update_option( 'woocommerce_calc_taxes', 'yes' );
+update_option( 'woocommerce_price_display_suffix', 'با احتساب مالیات' );
+check( 'price suffix: WooCommerce display suffix kept (plain text)', 'با احتساب مالیات' === ( $P( 'simple' )['suffix'] ?? '' ) && array( 'با احتساب مالیات' ) === texts( html( 'products' ), '(//p[' . cls( 'th-product__price' ) . '])[1]//span[' . cls( 'th-price__suffix' ) . ']' ) );
+delete_option( 'woocommerce_price_display_suffix' );
+update_option( 'woocommerce_calc_taxes', $taxes );
+foreach ( $pp as $id ) {
+	foreach ( wc_get_product( $id )->get_children() as $child ) {
+		wp_delete_post( $child, true );
+	}
+	wp_delete_post( $id, true );
+}
 
 /* ------------------------------------------------------------ ۱۴. حذف */
 $before = db_digest();

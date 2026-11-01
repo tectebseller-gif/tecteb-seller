@@ -3,7 +3,7 @@
  * خواندن از ووکامرس — و فقط خواندن.
  *
  * هر چیزی که صفحهٔ اصلی نشان می‌دهد از API عمومی ووکامرس و وردپرس می‌آید:
- * wc_get_products()، get_term()، get_term_link()، get_price_html() و
+ * wc_get_products()، get_term()، get_term_link()، قیمت از Price (همان API ِ قیمت ووکامرس) و
  * wp_get_attachment_image(). این کلاس هیچ تابعی ندارد که چیزی بنویسد، و
  * عمداً loop ِ ووکامرس (wc_get_template_part / قلاب‌های shop_loop) را صدا
  * نمی‌زند: آن قلاب‌ها جایی‌اند که افزونه‌های دیگر، از جمله دکان، در کارت
@@ -157,7 +157,7 @@ final class Catalog {
 				'reason' => $reason,
 				'edit'   => (string) get_edit_post_link( $id, 'raw' ),
 				'thumb'  => $product->get_image_id() ? (string) wp_get_attachment_image( (int) $product->get_image_id(), array( 40, 40 ), false, array( 'alt' => '' ) ) : '',
-				'price'  => wp_strip_all_tags( (string) $product->get_price_html() ),
+				'price'  => Price::text( $product ),
 				'stock'  => (string) $product->get_stock_status(),
 			);
 		}
@@ -194,7 +194,7 @@ final class Catalog {
 				'name'       => (string) $product->get_name(),
 				'status'     => (string) $product->get_status(),
 				'visibility' => (string) $product->get_catalog_visibility(),
-				'price'      => wp_strip_all_tags( (string) $product->get_price_html() ),
+				'price'      => Price::text( $product ),
 				'stock'      => (string) $product->get_stock_status(),
 				'thumb'      => $product->get_image_id() ? (string) wp_get_attachment_image( (int) $product->get_image_id(), array( 40, 40 ), false, array( 'alt' => '' ) ) : '',
 			);
@@ -208,7 +208,6 @@ final class Catalog {
 	public static function product_view( \WC_Product $product ): array {
 		$image_id = (int) $product->get_image_id();
 		$alt      = $image_id > 0 ? trim( (string) get_post_meta( $image_id, '_wp_attachment_image_alt', true ) ) : '';
-		$price    = (string) $product->get_price_html();
 
 		return array(
 			'id'       => (int) $product->get_id(),
@@ -227,7 +226,7 @@ final class Catalog {
 			) : '',
 			'category' => self::primary_category( $product ),
 			'specs'    => self::specs( $product ),
-			'price'    => '' !== trim( wp_strip_all_tags( $price ) ) ? $price : '',
+			'price'    => Price::of( $product ),
 			'stock'    => (string) $product->get_stock_status(),
 		);
 	}
