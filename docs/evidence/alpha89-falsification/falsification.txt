@@ -1,0 +1,63 @@
+alpha.89 falsification — 16 mutations
+tree: 900fff4 32 modified paths
+
+baseline architecture:: 0
+baseline unit:: 0
+baseline database:DefaultCategoryAcceptanceTest: 0
+baseline database:CategoryLinkFlowTest: 0
+
+1. drop the acceptance clause entirely (gate never closes)
+    database failures: 8 (wanted at least 1) — red
+    restored byte for byte: yes
+2. stop comparing the accepted term with the shop default
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+3. stop requiring that the product carries only that term
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+4. stop requiring the accepted term to still be attached
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+5. let the counter keep its own copy of the condition
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+6. read the shop default a second way, in the repository
+    architecture failures: 2 (wanted at least 2) — red
+    restored byte for byte: yes
+7. accept a product whose category is already recorded
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+8. accept a product that is not default-only
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+9. drop the consent guard on the term the page printed
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+10. accept a row the marketplace created itself
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+11. infer «already accepted» from a failed write instead of reading back
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+12. revoke without clearing the live key
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+13. backfill an acceptance in the migration
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+14. let the preview call a stale decision accepted
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+15. drop the named refusal from the mapping path
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+16. ask whether the table exists instead of whether it carries the columns
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+
+final architecture:: 0
+final unit:: 0
+final database:DefaultCategoryAcceptanceTest: 0
+final database:CategoryLinkFlowTest: 0
+
+mutations: 16 · problems: 0

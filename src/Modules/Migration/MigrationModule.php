@@ -58,6 +58,7 @@ use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\ProductIntakePage;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryLinkReaderInterface;
+use Tecteb\Marketplace\Modules\Product\Application\DefaultCategoryAcceptanceRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface;
@@ -175,7 +176,12 @@ final class MigrationModule implements ModuleInterface
             $c->get(CategoryMapping::class),
             $c->get(ProductRepositoryInterface::class),
             $c->get(AuditLogger::class),
-            $c->get(CapabilityCheckerInterface::class)
+            $c->get(CapabilityCheckerInterface::class),
+            // Read only, so a refusal can name the accepted default term
+            // instead of blaming the page cap.
+            $c->has(DefaultCategoryAcceptanceRepositoryInterface::class)
+                ? $c->get(DefaultCategoryAcceptanceRepositoryInterface::class)
+                : null
         ));
         $c->bind(StaffRoleMap::class, static fn (ContainerInterface $c) => new StaffRoleMap(
             $c->get(OptionStoreInterface::class)

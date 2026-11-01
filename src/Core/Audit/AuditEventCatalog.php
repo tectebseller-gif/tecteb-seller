@@ -216,6 +216,23 @@ final class AuditEventCatalog
      */
     public const PRODUCT_CATEGORY_LINKED = 'product.category_linked';
 
+    /**
+     * A manager accepted that WooCommerce's own default term IS this
+     * product's category.
+     *
+     * Separate from `PRODUCT_CATEGORY_LINKED` because the two answer opposite
+     * questions. That one records «the shop already said so, and we copied it
+     * down»; this one records «the shop said nothing a machine can read, and a
+     * named person decided anyway». The term id is in the payload for the only
+     * reason it exists: an acceptance is about ONE term, and a trail that did
+     * not say which one could not tell a later reader whether the decision
+     * still applies.
+     */
+    public const PRODUCT_DEFAULT_CATEGORY_ACCEPTED = 'product.default_category_accepted';
+
+    /** The same decision withdrawn. The row stays; its live key is cleared. */
+    public const PRODUCT_DEFAULT_CATEGORY_REVOKED = 'product.default_category_revoked';
+
     /** @return array<string, list<string>> event type => allowed top-level payload keys */
     public static function allowlist(): array
     {
@@ -341,6 +358,8 @@ final class AuditEventCatalog
             self::DOKAN_CATEGORY_MAP_SAVED => ['source_key', 'target', 'entries', 'removed'],
             self::DOKAN_CATEGORY_APPLIED => ['products', 'requested'],
             self::PRODUCT_CATEGORY_LINKED => ['wc_product_id', 'category_key', 'path', 'source', 'products', 'requested'],
+            self::PRODUCT_DEFAULT_CATEGORY_ACCEPTED => ['wc_product_id', 'term_id', 'path'],
+            self::PRODUCT_DEFAULT_CATEGORY_REVOKED => ['wc_product_id', 'term_id'],
         ];
     }
 

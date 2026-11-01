@@ -25,8 +25,10 @@ use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\ManageVariations;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
 use Tecteb\Marketplace\Modules\Product\Application\ApplyCategoryLinks;
+use Tecteb\Marketplace\Modules\Product\Application\AcceptDefaultCategory;
 use Tecteb\Marketplace\Modules\Product\Application\CategoryLinkPlan;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\DefaultCategoryAcceptanceRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryLinkReaderInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductImageLibraryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
@@ -50,6 +52,7 @@ use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductDecisionRepository;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\DbDefaultCategoryAcceptanceRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbReviewSeenStore;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\TitleSortRepair;
@@ -195,9 +198,26 @@ final class ProductModule implements ModuleInterface
         ));
         // The preview and the one writer, bound as a pair so the screen and
         // the action cannot be wired to different rules (`alpha.79`).
+        // The manager's acceptance of a default term — stored in its own
+        // table, read by the preview and by the gate's predicate, and written
+        // by exactly one service (the owner's option ج).
+        $c->bind(
+            DefaultCategoryAcceptanceRepositoryInterface::class,
+            static fn (ContainerInterface $c) => new DbDefaultCategoryAcceptanceRepository(
+                $c->get(DatabaseInterface::class),
+                $c->get(ClockInterface::class)
+            )
+        );
         $c->bind(CategoryLinkPlan::class, static fn (ContainerInterface $c) => new CategoryLinkPlan(
             $c->get(ProductRepositoryInterface::class),
-            $c->get(ProductCategoryLinkReaderInterface::class)
+            $c->get(ProductCategoryLinkReaderInterface::class),
+            $c->get(DefaultCategoryAcceptanceRepositoryInterface::class)
+        ));
+        $c->bind(AcceptDefaultCategory::class, static fn (ContainerInterface $c) => new AcceptDefaultCategory(
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(ProductCategoryLinkReaderInterface::class),
+            $c->get(DefaultCategoryAcceptanceRepositoryInterface::class),
+            $c->get(AuditLogger::class)
         ));
         $c->bind(ApplyCategoryLinks::class, static fn (ContainerInterface $c) => new ApplyCategoryLinks(
             $c->get(ProductRepositoryInterface::class),

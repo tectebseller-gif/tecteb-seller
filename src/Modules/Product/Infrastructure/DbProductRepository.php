@@ -24,6 +24,8 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0023ProductDes
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0032ProductMirroredStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0024PurchaseStep;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0035ProductCategorySet;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WpProductCategoryLinkReader;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0036DefaultCategoryAcceptance;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0025BrandRegistry;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as T;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as C;
@@ -874,14 +876,18 @@ final class DbProductRepository implements ProductRepositoryInterface
         // (`docs/evidence/alpha86-category-gate/counters.txt`). A list and the
         // figure next to it have to answer one question, or the screen is
         // wrong however right each half is (`alpha.79`).
-        $carried = $this->hasCategoryTable();
+        // ⛔ ONE PREDICATE, BUILT IN ONE PLACE. Until `alpha.88` this method
+        // and its own total each spelled the condition out, and `alpha.87`
+        // had already paid for that once: a list and the figure beside it
+        // have to answer one question, or the screen is wrong however right
+        // each half is (`alpha.79`). Now the only way they can diverge is a
+        // change to `withoutCategoryWhere()`, and
+        // `OneWithoutCategoryPredicateTest` forbids either method from
+        // writing the clause itself.
+        $predicate = $this->withoutCategoryWhere('p');
         $sql = 'SELECT p.id, p.vendor_user_id, p.wc_product_id, p.title
                    FROM `' . $this->products() . '` p
-                  WHERE p.import_run_id <> %s AND p.category_key = %s'
-            . ($carried === true
-                ? ' AND NOT EXISTS (SELECT 1 FROM `' . $this->categoriesTable()
-                    . '` c WHERE c.product_id = p.id)'
-                : '')
+                  WHERE ' . $predicate['sql']
             . ' ORDER BY p.id ASC LIMIT ' . max(1, min(1000, $limit));
         // ⛔ On a FAILED read (`null`) the clause is left off and every
         // key-empty row is listed. That is deliberate and it is not a claim:
@@ -902,7 +908,7 @@ final class DbProductRepository implements ProductRepositoryInterface
                 'wc_product_id' => (int) ($row['wc_product_id'] ?? 0),
                 'title' => (string) $row['title'],
             ],
-            $this->db->getResults($sql, ['', '']) ?? []
+            $this->db->getResults($sql, $predicate['params']) ?? []
         );
     }
 
@@ -918,19 +924,16 @@ final class DbProductRepository implements ProductRepositoryInterface
         // with neither is not; and a row with a legacy slug key still counts
         // as answered, because that key is what the aliasing template
         // repository still understands.
-        $carried = $this->hasCategoryTable();
-        if ($carried === null) {
-            // The read failed. `-1` keeps the gate OPEN (`alpha.67`): nought
-            // here would read as «nothing left to decide».
+        $predicate = $this->withoutCategoryWhere('p');
+        if (!$predicate['readable']) {
+            // A read this predicate depends on failed. `-1` keeps the gate
+            // OPEN (`alpha.67`): nought here would read as «nothing left to
+            // decide» about a statement that never ran.
             return -1;
         }
         $sql = 'SELECT COUNT(*) FROM `' . $this->products() . '` p
-                 WHERE import_run_id <> %s AND category_key = %s'
-            . ($carried
-                ? ' AND NOT EXISTS (SELECT 1 FROM `' . $this->categoriesTable()
-                    . '` c WHERE c.product_id = p.id)'
-                : '');
-        $params = ['', ''];
+                 WHERE ' . $predicate['sql'];
+        $params = $predicate['params'];
         if ($vendorUserId > 0) {
             $sql .= ' AND p.vendor_user_id = %d';
             $params[] = $vendorUserId;
@@ -941,6 +944,120 @@ final class DbProductRepository implements ProductRepositoryInterface
         // that never ran (`alpha.67`). `-1` is returned so the caller has to
         // look, and `MigrationCompleteness` keeps the gate OPEN on it.
         return $value === null ? -1 : (int) $value;
+    }
+
+    /**
+     * «NEITHER THE KEY, NOR THE SET, NOR AN ACCEPTED DEFAULT TERM» — once.
+     *
+     * The single place the `categories_mapped` question is spelled out. Three
+     * consumers read it and they must not be able to disagree: the list
+     * ({@see self::importedWithoutCategory()}), the figure beside that list
+     * ({@see self::countImportedWithoutCategory()}), and the gate in
+     * `MigrationCompleteness::forVendor()` which reads that figure. «شمارنده،
+     * فهرست محصولات و دروازهٔ `categories_mapped` باید یک منطق مشترک داشته
+     * باشند» is therefore a property of there being one builder, not a rule
+     * three methods keep.
+     *
+     * ⛔ **The acceptance clause is the owner's option ج, and it compares
+     * TERM IDS rather than trusting a flag.** A live acceptance stops the row
+     * counting only while BOTH halves still hold:
+     *
+     *  - the accepted term is still the shop's `default_product_cat`, so
+     *    changing that setting in WooCommerce makes every acceptance stop
+     *    counting by itself — no sweep, no stored copy to go stale;
+     *  - and the product's `product_cat` set is still EXACTLY that one term,
+     *    so attaching a real category makes the acceptance stop counting too.
+     *
+     * That is «اگر ترم محصول یا تنظیم پیش‌فرض تغییر کرد، تأیید قدیمی نباید
+     * بی‌صدا معتبر بماند» written as a `WHERE` rather than as a cron job. In
+     * both cases the product becomes `DEFINITE` on the screen and its own
+     * relationship is recordable with one click, which is the state it should
+     * have been in all along.
+     *
+     * ⛔ **And the two unreadable states answer differently, on purpose.**
+     * An ABSENT acceptance table is schema 35: the feature does not exist, so
+     * the clause is left off and this package behaves exactly as `alpha.88`
+     * shipped — which is also what makes rolling back need no database work.
+     * An UNREADABLE one is `readable = false`, which the count turns into
+     * `-1` and the gate reads as «still open»: a statement that never ran
+     * must never close a gate (`alpha.67`). The same split applies to the
+     * link table, whose list half deliberately keeps `alpha.87`'s behaviour
+     * of listing every key-empty row — the write is guarded on its own
+     * ({@see self::setCategoryWhenEmpty()}), so a row listed by mistake still
+     * cannot be written over.
+     *
+     * @return array{sql:string, params:list<mixed>, readable:bool}
+     */
+    private function withoutCategoryWhere(string $alias): array
+    {
+        $sql = $alias . '.import_run_id <> %s AND ' . $alias . '.category_key = %s';
+        $params = ['', ''];
+        $readable = true;
+
+        $carried = $this->hasCategoryTable();
+        if ($carried === null) {
+            $readable = false;
+        } elseif ($carried) {
+            $sql .= ' AND NOT EXISTS (SELECT 1 FROM `' . $this->categoriesTable()
+                . '` c WHERE c.product_id = ' . $alias . '.id)';
+        }
+
+        $accepted = $this->hasDefaultCategoryTable();
+        $defaultTermId = $accepted === true ? WpProductCategoryLinkReader::readDefaultTermId() : 0;
+        if ($accepted === null) {
+            $readable = false;
+        } elseif ($accepted && $defaultTermId > 0) {
+            // ⛔ A term id of nought is «I could not read the setting», and
+            // then the clause is left OFF rather than written with a value
+            // that matches nothing: the gate stays open, which is the
+            // recoverable direction, and the screen is not told that four
+            // decisions were never taken.
+            $table = M0036DefaultCategoryAcceptance::table($this->db);
+            $rel = $this->db->prefix() . 'term_relationships';
+            $tax = $this->db->prefix() . 'term_taxonomy';
+            $sql .= ' AND NOT EXISTS (
+                SELECT 1 FROM `' . $table . '` d
+                 WHERE d.live_product_id = ' . $alias . '.id
+                   AND d.term_id = %d
+                   AND EXISTS (
+                         SELECT 1 FROM `' . $rel . '` tr
+                         INNER JOIN `' . $tax . '` tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
+                          WHERE tr.object_id = ' . $alias . '.wc_product_id
+                            AND tt.taxonomy = \'product_cat\'
+                            AND tt.term_id = d.term_id
+                       )
+                   AND NOT EXISTS (
+                         SELECT 1 FROM `' . $rel . '` tr2
+                         INNER JOIN `' . $tax . '` tt2 ON tt2.term_taxonomy_id = tr2.term_taxonomy_id
+                          WHERE tr2.object_id = ' . $alias . '.wc_product_id
+                            AND tt2.taxonomy = \'product_cat\'
+                            AND tt2.term_id <> d.term_id
+                       )
+            )';
+            $params[] = $defaultTermId;
+        }
+
+        return ['sql' => $sql, 'params' => $params, 'readable' => $readable];
+    }
+
+    /**
+     * Whether acceptances can be read on this install, with three answers.
+     *
+     * Memoised like {@see self::hasCategoryTable()} and for the same reason,
+     * including the half that matters: a FAILED read is not memoised, because
+     * it is a reason to ask again rather than an answer to remember
+     * (`alpha.49`).
+     */
+    private function hasDefaultCategoryTable(): ?bool
+    {
+        if ($this->defaultCategoryTable === null) {
+            $answer = M0036DefaultCategoryAcceptance::carriedBy($this->db);
+            if ($answer === null) {
+                return null;
+            }
+            $this->defaultCategoryTable = $answer;
+        }
+        return $this->defaultCategoryTable;
     }
 
     public function countImportedWithoutCategorySet(): int
@@ -1532,6 +1649,9 @@ final class DbProductRepository implements ProductRepositoryInterface
      * the stale answer — `alpha.67`'s trap, one table over.
      */
     private ?bool $categoryTable = null;
+
+    /** Three answers, like the one above: present, absent, or unread. */
+    private ?bool $defaultCategoryTable = null;
 
     private function categoriesTable(): string
     {

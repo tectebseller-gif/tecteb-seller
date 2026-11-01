@@ -134,8 +134,26 @@ final class WpProductCategoryLinkReader implements ProductCategoryLinkReaderInte
         // Memoised per INSTANCE, never statically: a static memo outlives the
         // request and makes a test that changes the option read the stale
         // answer (`alpha.67`).
+        return $this->defaultTermId = self::readDefaultTermId();
+    }
+
+    /**
+     * The option, read in ONE place — the only place in `src/`.
+     *
+     * The gate predicate needs this id too, and it lives in a repository
+     * rather than here: without a single reader the option name and its
+     * parsing would be written twice, and two readings of one setting is how
+     * a counter and a screen come to disagree about the same product
+     * (`alpha.79`). `DefaultCategoryOptionHasOneReaderTest` asserts the name
+     * appears in exactly this file.
+     *
+     * Not memoised: the caller decides the lifetime, and the one that does
+     * memoise does it per instance for the reason above.
+     */
+    public static function readDefaultTermId(): int
+    {
         $raw = function_exists('get_option') ? get_option(self::DEFAULT_OPTION, 0) : 0;
-        return $this->defaultTermId = is_numeric($raw) ? (int) $raw : 0;
+        return is_numeric($raw) ? (int) $raw : 0;
     }
 
     /**

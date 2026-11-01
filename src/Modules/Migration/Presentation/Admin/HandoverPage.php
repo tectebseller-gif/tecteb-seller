@@ -15,6 +15,8 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Migration\Application\ApplyCategoryMapping;
+use Tecteb\Marketplace\Modules\Product\Application\AcceptDefaultCategory;
+use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryLinkReaderInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ApplyCategoryLinks;
 use Tecteb\Marketplace\Modules\Product\Application\CategoryLinkPlan;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
@@ -1028,6 +1030,27 @@ final class HandoverPage
             );
         }
 
+        if ($action === 'accept_default_category' || $action === 'revoke_default_category') {
+            // ⛔ The term id the ROW PRINTED travels with the button, and
+            // `AcceptDefaultCategory` reads the shop's setting again and
+            // refuses when the two differ (`alpha.49`). So this is consent to
+            // the term that was on screen, never to whatever
+            // `default_product_cat` says at the moment of the click.
+            //
+            // The capability was checked at the top of `render()` for the
+            // page; the service is the one place this decision is written and
+            // it is reachable from anywhere the container is, so the guard
+            // that matters is the one on the only writer — which is why
+            // nothing here writes to a table.
+            $productId = $request->postInt('default_cat_product');
+            $service = $this->container->get(AcceptDefaultCategory::class);
+            $actor = $this->container->get(CapabilityCheckerInterface::class)->currentUserId() ?? 0;
+            $result = $action === 'accept_default_category'
+                ? $service->accept($productId, $request->postInt('default_cat_term'), $actor)
+                : $service->revoke($productId, $actor);
+            return ($result['ok'] ? 'ok:' : 'err:') . self::defaultCategoryOutcome((string) $result['code']);
+        }
+
         if ($action === 'apply_categories') {
             // The ids AND the target each one was shown with. The service
             // derives the target again and refuses a row whose target moved,
@@ -1760,6 +1783,7 @@ final class HandoverPage
         echo '</ul>';
 
         $this->renderLinkGroups($fa, is_array($plan['groups']) ? $plan['groups'] : []);
+        $this->renderDefaultTermDecisions($fa, is_array($plan['held']) ? $plan['held'] : []);
         $this->renderLinkApply($fa, is_array($plan['apply']) ? $plan['apply'] : []);
         echo '</section>';
     }
@@ -1905,6 +1929,162 @@ final class HandoverPage
             . '</button></p></form>';
     }
 
+    /**
+     * One sentence per outcome of accepting or revoking a default term.
+     *
+     * Every refusal has its own name because the ways out differ: a moved
+     * term means look again, an unreadable setting means WooCommerce could
+     * not be asked, and «already recorded» means the product was never
+     * waiting. A single «انجام نشد» would send a manager hunting for the
+     * wrong thing.
+     */
+    private static function defaultCategoryOutcome(string $code): string
+    {
+        return match ($code) {
+            'default_category_accepted' => __('ترمِ پیش‌فرض این محصول با تأیید شما ثبت شد. هیچ دستهٔ ووکامرسی عوض نشد.', 'tecteb-marketplace-core'),
+            'default_category_revoked' => __('تأیید ترمِ پیش‌فرض این محصول لغو شد. هیچ دستهٔ ووکامرسی عوض نشد.', 'tecteb-marketplace-core'),
+            'nothing_selected' => __('محصولی فرستاده نشد، پس چیزی ثبت نشد.', 'tecteb-marketplace-core'),
+            'not_found' => __('چنین ردیفی نیست.', 'tecteb-marketplace-core'),
+            'not_imported' => __('ورودی این ردیف را نساخته، پس این تصمیم به آن نمی‌رسد.', 'tecteb-marketplace-core'),
+            'no_storefront_product' => __('محصول ووکامرسی پشت این ردیف نیست.', 'tecteb-marketplace-core'),
+            'categories_unreadable' => __('فهرست دسته‌های ووکامرس خوانده نشد، پس چیزی ثبت نشد.', 'tecteb-marketplace-core'),
+            'default_term_unreadable' => __('تنظیم دستهٔ پیش‌فرض ووکامرس خوانده نشد، پس چیزی ثبت نشد.', 'tecteb-marketplace-core'),
+            'not_default_only' => __('این محصول دیگر تنها ترمِ پیش‌فرض را ندارد، پس چیزی ثبت نشد.', 'tecteb-marketplace-core'),
+            'default_term_moved' => __('ترمِ پیش‌فرض بین نمایش و کلیک عوض شد، پس چیزی ثبت نشد.', 'tecteb-marketplace-core'),
+            'category_already_recorded' => __('دستهٔ این محصول از قبل ثبت شده بود، پس تأییدی لازم نبود.', 'tecteb-marketplace-core'),
+            'already_accepted' => __('از قبل تأیید شده بود و چیز دومی نوشته نشد.', 'tecteb-marketplace-core'),
+            'not_accepted' => __('تأیید زنده‌ای برای این محصول نبود.', 'tecteb-marketplace-core'),
+            'acceptance_unsupported' => __('ساختار داده هنوز به ۳۶ نرسیده، پس این تصمیم ذخیره نمی‌شود.', 'tecteb-marketplace-core'),
+            'acceptance_table_unreadable' => __('جدول تأییدها خوانده نشد، پس چیزی ثبت نشد.', 'tecteb-marketplace-core'),
+            'storage_failed' => __('نوشتن انجام نشد.', 'tecteb-marketplace-core'),
+            default => $code,
+        };
+    }
+
+    /**
+     * The one decision a manager can take about a product with no category:
+     * accept the shop's default term for it, or take that acceptance back.
+     *
+     * The owner's option ج. Rendered as its own small table rather than as a
+     * row in the counts list, because a count is not a door — and
+     * `categories_mapped` with no door out of it is the shape `alpha.80` came
+     * for.
+     *
+     * ⛔ **Each button carries the TERM ID the row printed.** The service
+     * reads `default_product_cat` again and refuses when the two differ
+     * (`alpha.49`), so the agreement is about the term that was on screen.
+     * And the path beside it is resolved from the same directory the picker
+     * draws from, so «پزشکی جنرال» is what the manager reads rather than a
+     * bare number.
+     *
+     * @param array<string, list<array<string,mixed>>> $held
+     */
+    private function renderDefaultTermDecisions(callable $fa, array $held): void
+    {
+        $waiting = $held[CategoryLinkPlan::DEFAULT_TERM] ?? [];
+        $accepted = $held[CategoryLinkPlan::DEFAULT_TERM_ACCEPTED] ?? [];
+        if ($waiting === [] && $accepted === []) {
+            return;
+        }
+
+        echo '<h3 class="tmc-card__title">'
+            . esc_html__('ترمِ پیش‌فرض ووکامرس: تصمیم مدیر', 'tecteb-marketplace-core') . '</h3>';
+        echo '<p class="tmc-field__desc">'
+            . esc_html__('تأیید فقط برای همین محصول و همین ترم ثبت می‌شود، و هر زمان قابل لغو است.', 'tecteb-marketplace-core')
+            . '</p>';
+        echo Components::moreDetails([
+            __('هیچ دسته یا رابطهٔ ووکامرس ساخته، حذف یا تغییر نمی‌شود، و ستون دستهٔ محصول هم نوشته نمی‌شود.', 'tecteb-marketplace-core'),
+            __('اگر ترمِ محصول یا تنظیم دستهٔ پیش‌فرض ووکامرس عوض شود، تأیید قدیمی خودش از اعتبار می‌افتد و محصول دوباره در فهرست انتظار می‌آید.', 'tecteb-marketplace-core'),
+            __('نام تأییدکننده و زمانش روی همین ردیف ثبت می‌شود.', 'tecteb-marketplace-core'),
+        ]);
+
+        $mapping = $this->container->get(CategoryMapping::class);
+        echo '<div class="tmc-scroll" tabindex="0" role="region" aria-label="'
+            . esc_attr__('جدول تصمیم دستهٔ پیش‌فرض', 'tecteb-marketplace-core') . '">';
+        echo '<table class="tmc-table"><thead><tr>'
+            . '<th scope="col">' . esc_html__('محصول', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('شناسهٔ ووکامرس', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('فروشگاه', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('ترمِ پیش‌فرض', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('وضعیت تصمیم', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('اقدام', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>';
+
+        foreach ([[$waiting, false], [$accepted, true]] as [$rows, $isAccepted]) {
+            foreach ($rows as $row) {
+                $productId = (int) ($row['product_id'] ?? 0);
+                $wcId = (int) ($row['wc_product_id'] ?? 0);
+                $termId = (int) ($row['accepted_term_id'] ?? 0);
+                if ($termId === 0) {
+                    // A waiting row carries no accepted term, so the term the
+                    // button must consent to is the shop's default right now.
+                    $termId = $this->container->get(CategoryLinkPlan::class)->available()
+                        ? (int) $this->container->get(ProductCategoryLinkReaderInterface::class)->defaultTermId()
+                        : 0;
+                }
+                $path = $termId > 0 ? $mapping->targetPath((string) $termId) : '';
+                echo '<tr>'
+                    . '<td>' . esc_html(ProductMessages::displayTitle(
+                        (string) ($row['title'] ?? ''),
+                        $productId
+                    )) . '</td>'
+                    . '<td>' . ($wcId > 0
+                        ? esc_html('#' . $fa((string) $wcId))
+                        : esc_html__('ندارد', 'tecteb-marketplace-core')) . '</td>'
+                    . '<td>' . esc_html($this->shopName((int) ($row['vendor_user_id'] ?? 0))) . '</td>'
+                    . '<td>' . ($termId > 0
+                        ? esc_html(($path !== '' ? $path . ' ' : '') . '#' . $fa((string) $termId))
+                        : esc_html__('خوانده نشد', 'tecteb-marketplace-core')) . '</td>'
+                    . '<td>' . esc_html($this->decisionCell($fa, $row, $isAccepted)) . '</td>'
+                    . '<td>' . $this->decisionButton($productId, $termId, $isAccepted) . '</td>'
+                    . '</tr>';
+            }
+        }
+        echo '</tbody></table></div>';
+    }
+
+    /**
+     * «تأیید نشده», or who accepted it and when — and whether it still holds.
+     *
+     * @param array<string,mixed> $row
+     */
+    private function decisionCell(callable $fa, array $row, bool $isAccepted): string
+    {
+        if (!$isAccepted) {
+            return __('تأیید نشده', 'tecteb-marketplace-core');
+        }
+        $who = (int) ($row['accepted_by'] ?? 0);
+        $when = trim((string) ($row['accepted_at'] ?? ''));
+        $name = $who > 0 ? (string) get_the_author_meta('display_name', $who) : '';
+        return sprintf(
+            /* translators: 1: who accepted it 2: when */
+            __('تأیید شده — %1$s، %2$s', 'tecteb-marketplace-core'),
+            $name !== '' ? $name : __('کاربر نامعلوم', 'tecteb-marketplace-core'),
+            $when !== '' ? $fa(substr($when, 0, 19)) : __('زمان نامعلوم', 'tecteb-marketplace-core')
+        );
+    }
+
+    /** One button, carrying the product and the term the row printed. */
+    private function decisionButton(int $productId, int $termId, bool $isAccepted): string
+    {
+        if ($productId === 0 || (!$isAccepted && $termId === 0)) {
+            // ⛔ No button rather than a dead one: with no readable default
+            // term there is nothing to consent TO, and the service would
+            // refuse anyway (`default_term_unreadable`).
+            return esc_html__('اقدامی در دسترس نیست', 'tecteb-marketplace-core');
+        }
+        return '<form method="post">'
+            . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)
+            . '<input type="hidden" name="default_cat_product" value="' . esc_attr((string) $productId) . '">'
+            . '<input type="hidden" name="default_cat_term" value="' . esc_attr((string) $termId) . '">'
+            . '<button type="submit" class="tmc-button" name="handover_action" value="'
+            . ($isAccepted ? 'revoke_default_category' : 'accept_default_category') . '">'
+            . esc_html($isAccepted
+                ? __('لغو تأیید', 'tecteb-marketplace-core')
+                : __('تأیید ترمِ پیش‌فرض', 'tecteb-marketplace-core'))
+            . '</button></form>';
+    }
+
     /** The label for one bucket of the link plan. */
     private static function linkCount(string $code): string
     {
@@ -1912,6 +2092,7 @@ final class HandoverPage
             CategoryLinkPlan::APPLY => __('آمادهٔ ثبت (دستهٔ معتبر دارند و مجموعه‌شان هنوز ثبت نشده)', 'tecteb-marketplace-core'),
             CategoryLinkPlan::SETTLED => __('از قبل درست است (مجموعهٔ ثبت‌شده همان دسته‌های خودِ محصول است)', 'tecteb-marketplace-core'),
             CategoryLinkPlan::DECIDED => __('مجموعهٔ ثبت‌شده‌شان چیز دیگری است و بازنویسی نمی‌شود', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::DEFAULT_TERM_ACCEPTED => __('دستهٔ پیش‌فرضشان با تأیید صریح مدیر پذیرفته شده', 'tecteb-marketplace-core'),
             default => self::linkOutcome($code),
         };
     }
@@ -1935,7 +2116,15 @@ final class HandoverPage
             'category_table_unreadable' => __('جدول مجموعهٔ دسته‌ها خوانده نشد، پس چیزی نوشته نشد', 'tecteb-marketplace-core'),
             'category_set_empty' => __('مجموعهٔ خالی مجموعه نیست', 'tecteb-marketplace-core'),
             'not_atomic' => __('تراکنش باز نشد، پس نیمهٔ اول هم نوشته نشد', 'tecteb-marketplace-core'),
-            CategoryLinkPlan::DEFAULT_TERM => __('تنها دستهٔ پیش‌فرض ووکامرس را دارد، که دسته نیست', 'tecteb-marketplace-core'),
+            // ⛔ CORRECTED. It used to end «که دسته نیست», and that is a
+            // claim this plugin cannot support: `default_product_cat` can be
+            // renamed, or set to a real category, and on this owner's site it
+            // reads «پزشکی جنرال». What the data supports is that the term is
+            // the shop's default and that nothing in `wp_term_relationships`
+            // says whether a person chose it or WooCommerce substituted it
+            // (`docs/default-category-investigation-alpha88-fa.md` §3-ب).
+            CategoryLinkPlan::DEFAULT_TERM => __('تنها ترمِ پیش‌فرض ووکامرس را دارد؛ معلوم نیست کسی آن را انتخاب کرده یا پلتفرم جانشینش کرده', 'tecteb-marketplace-core'),
+            CategoryLinkPlan::DEFAULT_TERM_ACCEPTED => __('مدیر پذیرفته که ترمِ پیش‌فرض دستهٔ همین محصول است', 'tecteb-marketplace-core'),
             CategoryLinkPlan::NO_CATEGORY => __('در ووکامرس هیچ دسته‌ای ندارد', 'tecteb-marketplace-core'),
             CategoryLinkPlan::INVALID => __('دسته‌هایش در این سایت پیدا نشدند', 'tecteb-marketplace-core'),
             CategoryLinkPlan::NO_PRODUCT => __('محصول ووکامرسی پشتش نیست', 'tecteb-marketplace-core'),

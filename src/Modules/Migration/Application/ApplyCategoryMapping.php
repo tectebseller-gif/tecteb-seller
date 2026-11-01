@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
+use Tecteb\Marketplace\Modules\Product\Application\DefaultCategoryAcceptanceRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 
 /**
@@ -51,7 +52,14 @@ final class ApplyCategoryMapping
         private readonly CategoryMapping $mapping,
         private readonly ProductRepositoryInterface $products,
         private readonly AuditLogger $audit,
-        private readonly CapabilityCheckerInterface $capabilities
+        private readonly CapabilityCheckerInterface $capabilities,
+        /**
+         * Optional, and only ever READ — so a refusal can name the owner's
+         * option ج instead of blaming the page cap. Without it an accepted
+         * row answers `not_waiting`, which was true before the acceptance
+         * existed and is misleading now.
+         */
+        private readonly ?DefaultCategoryAcceptanceRepositoryInterface $acceptances = null
     ) {
     }
 
@@ -167,6 +175,14 @@ final class ApplyCategoryMapping
         $recorded = $product->details->categoryIds;
         if ($recorded !== [] && $recorded !== [(int) $product->details->categoryKey]) {
             return 'category_set_recorded';
+        }
+        // ⛔ And the fourth answer, for the same reason as the third: a row
+        // whose default term a manager accepted is not waiting either, and
+        // saying «دیگر منتظر دسته نبود» would send them looking for the page
+        // cap. Read only — this method writes nothing in any branch.
+        $live = $this->acceptances?->liveFor([$productId]);
+        if ($live !== null && array_key_exists($productId, $live)) {
+            return 'default_category_accepted';
         }
         return 'not_waiting';
     }

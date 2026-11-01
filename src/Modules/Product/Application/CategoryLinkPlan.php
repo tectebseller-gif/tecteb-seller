@@ -91,6 +91,21 @@ final class CategoryLinkPlan
     public const NARROWED = 'narrowed_by_intake';
     public const DECIDED = 'decided_elsewhere';
     public const DEFAULT_TERM = 'default_term';
+
+    /**
+     * Only the default term, AND a manager has explicitly accepted it.
+     *
+     * The owner's option ج. Counted and held in its own basket rather than
+     * folded into `settled`, because the two are different facts and the
+     * screen has to be able to say which: `settled` means the shop recorded
+     * the relationship, this means a named person decided about a term the
+     * shop says nothing about. ⛔ And it is produced ONLY while the accepted
+     * term is still the shop's default — the same two halves the gate's own
+     * predicate compares ({@see ProductRepositoryInterface::countImportedWithoutCategory()}),
+     * so a changed setting or a newly attached category moves the row back
+     * out by itself.
+     */
+    public const DEFAULT_TERM_ACCEPTED = 'default_term_accepted';
     public const NO_CATEGORY = 'no_category';
     public const INVALID = 'invalid_term';
     public const NO_PRODUCT = 'no_storefront_product';
@@ -98,7 +113,13 @@ final class CategoryLinkPlan
 
     public function __construct(
         private readonly ProductRepositoryInterface $products,
-        private readonly ProductCategoryLinkReaderInterface $links
+        private readonly ProductCategoryLinkReaderInterface $links,
+        /**
+         * Optional, and its absence is stated rather than relied on: without
+         * it no row can read as accepted, which is exactly `alpha.88`'s
+         * behaviour and the behaviour on schema 35.
+         */
+        private readonly ?DefaultCategoryAcceptanceRepositoryInterface $acceptances = null
     ) {
     }
 
@@ -144,6 +165,12 @@ final class CategoryLinkPlan
         }
         $recorded = $this->products->categorySetsFor($productIds);
         $setsReadable = $recorded !== null;
+        // And a third batched read: which of these the manager has accepted
+        // the default term for. `null` is «could not ask» — absent table,
+        // schema 35, or a failed read — and then no row reads as accepted,
+        // which keeps every one of them waiting (`alpha.8`).
+        $accepted = $this->acceptances?->liveFor($productIds) ?? [];
+        $defaultTermId = $available ? $this->links->defaultTermId() : 0;
 
         $apply = [];
         $held = [];
@@ -184,7 +211,24 @@ final class CategoryLinkPlan
                     && count($link->validIds) > 1,
             ];
 
-            $reason = $this->classify($link, $set, $setsReadable);
+            // THE SAME TWO HALVES THE GATE'S PREDICATE COMPARES, in PHP:
+            // the accepted term is still the shop's default, and the product
+            // still carries nothing but it (which is what `DEFAULT_ONLY`
+            // means). Written here rather than asked of the database again so
+            // the screen and the counter cannot drift apart on one page.
+            $acceptedTerm = (int) ($accepted[(int) $row['id']]['term_id'] ?? 0);
+            $holds = $acceptedTerm > 0 && $defaultTermId > 0 && $acceptedTerm === $defaultTermId;
+            if ($acceptedTerm > 0) {
+                $entry['accepted_term_id'] = $acceptedTerm;
+                $entry['accepted_by'] = (int) ($accepted[(int) $row['id']]['decided_by'] ?? 0);
+                $entry['accepted_at'] = (string) ($accepted[(int) $row['id']]['decided_at'] ?? '');
+                // ⛔ Named so the page can say «this decision no longer
+                // applies» instead of silently dropping the row back into the
+                // undecided basket with no explanation.
+                $entry['acceptance_stale'] = !$holds;
+            }
+
+            $reason = $this->classify($link, $set, $setsReadable, $holds);
             if ($reason === self::APPLY) {
                 $entry['proposed_ids'] = $link->validIds;
                 $entry['proposed_paths'] = $link->pathList();
@@ -264,10 +308,17 @@ final class CategoryLinkPlan
      *        in which case `$recorded` is the single key and the answers are
      *        exactly `alpha.81`'s
      */
-    private function classify(?CategoryLink $link, array $recorded, bool $setsReadable): string
-    {
+    private function classify(
+        ?CategoryLink $link,
+        array $recorded,
+        bool $setsReadable,
+        bool $defaultAccepted = false
+    ): string {
         if ($link === null) {
             return self::NO_PRODUCT;
+        }
+        if ($defaultAccepted && $link->state === CategoryLink::DEFAULT_ONLY) {
+            return self::DEFAULT_TERM_ACCEPTED;
         }
         // The four states with nothing to write keep their own names, so the
         // screen says WHICH one it is. None of them is a candidate: a default

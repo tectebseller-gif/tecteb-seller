@@ -1,0 +1,269 @@
+=== the packages ===
+new_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.89.zip
+old_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.88.zip
+new_target=36
+old_target=35
+PASS  0a the new package targets one step further  (36)
+PASS  0b and the old one targets the previous structure  (35)
+
+=== 1 · the site is put on structure 35, for real ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+reset=yes
+rows_left=0
+table_present=no
+schema_version=35
+PASS  1a0 the site is genuinely on 35  (35)
+PASS  1a1 …with no acceptance table  (no)
+arranged=yes
+default_term=15
+real_term=272
+row_default=4259
+wc_default=77209
+row_real=4260
+wc_real=77210
+PASS  1a the two fixture rows exist  (yes)
+default_term=15 real_term=272
+PASS  1b the shop has a default product category  (yes)
+PASS  1c and the control fixture has a real one, which is not the default  (yes)
+key_default=__empty__
+owner_default=observed
+run_default=upg89-run
+price_default=100
+terms_default=15
+key_real=__empty__
+owner_real=observed
+run_real=upg89-run
+price_real=100
+terms_real=272
+link_rows_for_fixtures=0
+PASS  1d the default-only row carries exactly the default term  (15)
+PASS  1e …no category key  (__empty__)
+PASS  1f …and no recorded relationship  (0)
+PASS  1g the control row carries the real category  (272)
+waiting=2
+schema_version=35
+PASS  1h the recorded structure says 35  (35)
+PASS  1i both fixtures are counted as waiting, and the number is the gate's own  (2)
+PASS  1j the older build has no step 36 at all  (absent)
+schema_version=35
+table_present=no
+columns=__none__
+unique_on=__none__
+accept_rows=__none__
+PASS  1k …and still no acceptance table  (no)
+
+=== 2 · the files are swapped, and a failing step stays failed ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+schema_version=35
+table_present=no
+columns=__none__
+unique_on=__none__
+accept_rows=__none__
+PASS  2a swapping the files ran nothing  (35)
+PASS  2b …and the table is still not there  (no)
+columns=product_id
+schema_version=35
+PASS  2c the injection left a one-column table of that name  (product_id)
+ran=yes
+schema_version=35
+table_present=yes
+columns=product_id
+unique_on=
+accept_rows=0
+PASS  2d ⛔ IF NOT EXISTS was satisfied, and verify() refused anyway  (35)
+PASS  2e …the mis-shaped table is still the one on disk  (product_id)
+PASS  2f …and the reason was recorded  (yes)
+NOTE  2g the recorded reason  array (   'step' => '0036_default_category_acceptance',   'message' => 'verify_failed', 
+NOTE  2h what carriedBy() says about a table of the wrong shape  yes
+WordPress database error Unknown column 'd.live_product_id' in 'WHERE' for query SELECT COUNT(*) FROM `wp_tmc_products` p
+                 WHERE p.import_run_id <> '' AND p.category_key = '' AND NOT EXISTS (SELECT 1 FROM `wp_tmc_product_categories` c WHERE c.product_id = p.id) AND NOT EXISTS (
+                SELECT 1 FROM `wp_tmc_product_default_category` d
+                 WHERE d.live_product_id = p.id
+                   AND d.term_id = 15
+                   AND EXISTS (
+                         SELECT 1 FROM `wp_term_relationships` tr
+                         INNER JOIN `wp_term_taxonomy` tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
+                          WHERE tr.object_id = p.wc_product_id
+                            AND tt.taxonomy = 'product_cat'
+                            AND tt.term_id = d.term_id
+                       )
+                   AND NOT EXISTS (
+                         SELECT 1 FROM `wp_term_relationships` tr2
+                         INNER JOIN `wp_term_taxonomy` tt2 ON tt2.term_taxonomy_id = tr2.term_taxonomy_id
+                          WHERE tr2.object_id = p.wc_product_id
+                            AND tt2.taxonomy = 'product_cat'
+                            AND tt2.term_id <> d.term_id
+                       )
+            ) AND p.vendor_user_id = 9891 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, EvalFile_Command::{closure:phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code:95}, Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository->countImportedWithoutCategory, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->getVar
+waiting=-1
+schema_version=35
+FAIL  2i ⛔ and a failed step leaves the gate exactly where it was  expected=2 actual=-1
+
+=== 3 · the injection is removed and the next request finishes the job ===
+table_present=no
+schema_version=35
+Warning: Could not delete 'tmc_migration_last_error' option. Does it exist?
+ran=yes
+schema_version=36
+table_present=yes
+columns=id,product_id,live_product_id,term_id,decided_by,decided_at,revoked_by,revoked_at
+unique_on=live_product_id
+accept_rows=0
+PASS  3a the structure moved to 36  (36)
+PASS  3b the table is there  (yes)
+PASS  3c …with its seven columns  (id,product_id,live_product_id,term_id,decided_by,decided_at,revoked_by,revoked_at)
+PASS  3d …and the LIVE key alone is unique, which is what makes one decision live  (live_product_id)
+PASS  3e and the step answers «present», not «unknown»  (yes)
+PASS  3f the step version is 36  (36)
+
+=== 4 · ⛔ the step is ADDITIVE: it created a table and wrote no row ===
+PASS  4a the new table is EMPTY — there is no backfill, by design  (0)
+key_default=__empty__
+owner_default=observed
+run_default=upg89-run
+price_default=100
+terms_default=15
+key_real=__empty__
+owner_real=observed
+run_real=upg89-run
+price_real=100
+terms_real=272
+link_rows_for_fixtures=0
+PASS  4b the default-only row still carries exactly the default term  (15)
+PASS  4c …its key was not filled in  (__empty__)
+PASS  4d …no relationship was recorded for it  (0)
+PASS  4e …its ownership is untouched  (observed)
+PASS  4f …and so is its price  (100)
+PASS  4g the control row's real category is untouched too  (272)
+waiting=2
+schema_version=36
+PASS  4h ⛔ AND THE GATE DID NOT MOVE: the same one row is waiting  (2)
+
+=== 5 · running the step again changes nothing ===
+ran=yes
+schema_version=36
+table_present=yes
+columns=id,product_id,live_product_id,term_id,decided_by,decided_at,revoked_by,revoked_at
+unique_on=live_product_id
+accept_rows=0
+PASS  5a the structure is still 36  (36)
+PASS  5b and the table is still empty  (0)
+PASS  5c …with the same waiting count  (2)
+
+=== 6 · ONE manager decision, through the service, and the gate moves ===
+accepted=yes
+refused=__none__
+outcome=default_category_accepted
+term=15
+PASS  6a the decision was taken  (yes)
+PASS  6b …with no refusal  (__none__)
+PASS  6c …and the named outcome  (default_category_accepted)
+PASS  6c2 …for the term the page printed  (15)
+live_default=4259
+term_default=15
+live_real=__none__
+term_real=__none__
+accept_rows=1
+PASS  6d exactly one row was written  (1)
+PASS  6e …it is live  (4259)
+PASS  6f …for the default term and no other  (15)
+PASS  6g …and the control product got none  (__none__)
+key_default=__empty__
+owner_default=observed
+run_default=upg89-run
+price_default=100
+terms_default=15
+key_real=__empty__
+owner_real=observed
+run_real=upg89-run
+price_real=100
+terms_real=272
+link_rows_for_fixtures=0
+PASS  6h ⛔ the decision wrote NO category key  (__empty__)
+PASS  6i ⛔ …NO link row  (0)
+PASS  6j ⛔ …and did not touch the WooCommerce relationship  (15)
+waiting=1
+schema_version=36
+PASS  6k and NOW the gate moves by exactly one  (1)
+NOTE  6l ⛔ and the control is STILL waiting  a real category that was never recorded is not a decision
+
+=== 7 · back to alpha.88, which needs no database work ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+schema_version=36
+table_present=yes
+columns=id,product_id,live_product_id,term_id,decided_by,decided_at,revoked_by,revoked_at
+unique_on=live_product_id
+accept_rows=1
+PASS  7a the older package reads the structure as it is  (36)
+PASS  7b ⛔ the acceptance table is LEFT IN PLACE — no decision is deleted  (yes)
+PASS  7c …with the decision still in it  (1)
+PASS  7d …and nothing older names the step  (absent)
+key_default=__empty__
+owner_default=observed
+run_default=upg89-run
+price_default=100
+terms_default=15
+key_real=__empty__
+owner_real=observed
+run_real=upg89-run
+price_real=100
+terms_real=272
+link_rows_for_fixtures=0
+PASS  7e no product row changed on the way back  (__empty__)
+PASS  7f …and no WooCommerce relationship did either  (15)
+waiting=2
+schema_version=36
+PASS  7g ⛔ THE COST, measured: the older build omits the clause, so the accepted product is waiting again  (2)
+NOTE  7h and that is a report, not a loss  the row is still there; it stops counting until the files come forward
+
+=== 8 · forward again, so the machine is left on this package ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+ran=yes
+schema_version=36
+table_present=yes
+columns=id,product_id,live_product_id,term_id,decided_by,decided_at,revoked_by,revoked_at
+unique_on=live_product_id
+accept_rows=1
+PASS  8a the structure is 36 again  (36)
+PASS  8b …with the table intact  (yes)
+PASS  8c …and the one decision still in it  (1)
+PASS  8d the gate reads it again, after a round trip in both directions  (1)
+key_default=__empty__
+owner_default=observed
+run_default=upg89-run
+price_default=100
+terms_default=15
+key_real=__empty__
+owner_real=observed
+run_real=upg89-run
+price_real=100
+terms_real=272
+link_rows_for_fixtures=0
+PASS  8e and the product is byte-for-byte what it was at the start  (15)
+PASS  8f …key included  (__empty__)
+
+checks=64 pass=63 fail=1
