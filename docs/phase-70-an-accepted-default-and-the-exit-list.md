@@ -149,9 +149,9 @@ WooCommerce قابل اجراست.» سه چیز سنجیده شد، همه از
 
 ## ۷. اجرا
 
-unit **۶۸۷** · architecture **۱۸۶** (+۹) · contract **۳۴۷** ·
-database **۹۳۹** (+۱۶) · packaging ۲۷ · `php -l` روی **۶۱۶** فایل روی ۸٫۴
-تنها · PHPCompatibility با `testVersion 8.1-` روی همان ۶۱۶.
+unit **۶۸۷** (۶۰۵٬۴۶۵) · architecture **۱۸۶** (+۹) · contract **۳۴۷** ·
+database **۹۴۱** (+۱۸) · packaging ۲۷ · `php -l` روی **۶۱۲** فایل روی ۸٫۴
+تنها · PHPCompatibility با `testVersion 8.1-` روی همان ۶۱۲ — همه ۰ شکست.
 
 **falsification:** شانزده جهش، روی درختِ آرام، با بازگرداندن **بایت‌به‌بایت** —
 `docs/evidence/alpha89-falsification/`.
