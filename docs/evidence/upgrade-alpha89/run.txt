@@ -22,13 +22,13 @@ PASS  1a0 the site is genuinely on 35  (35)
 PASS  1a1 …with no acceptance table  (no)
 arranged=yes
 default_term=15
-real_term=272
-row_default=4259
-wc_default=77209
-row_real=4260
-wc_real=77210
+real_term=273
+row_default=4261
+wc_default=77211
+row_real=4262
+wc_real=77212
 PASS  1a the two fixture rows exist  (yes)
-default_term=15 real_term=272
+default_term=15 real_term=273
 PASS  1b the shop has a default product category  (yes)
 PASS  1c and the control fixture has a real one, which is not the default  (yes)
 key_default=__empty__
@@ -40,12 +40,12 @@ key_real=__empty__
 owner_real=observed
 run_real=upg89-run
 price_real=100
-terms_real=272
+terms_real=273
 link_rows_for_fixtures=0
 PASS  1d the default-only row carries exactly the default term  (15)
 PASS  1e …no category key  (__empty__)
 PASS  1f …and no recorded relationship  (0)
-PASS  1g the control row carries the real category  (272)
+PASS  1g the control row carries the real category  (273)
 waiting=2
 schema_version=35
 PASS  1h the recorded structure says 35  (35)
@@ -86,30 +86,10 @@ PASS  2d ⛔ IF NOT EXISTS was satisfied, and verify() refused anyway  (35)
 PASS  2e …the mis-shaped table is still the one on disk  (product_id)
 PASS  2f …and the reason was recorded  (yes)
 NOTE  2g the recorded reason  array (   'step' => '0036_default_category_acceptance',   'message' => 'verify_failed', 
-NOTE  2h what carriedBy() says about a table of the wrong shape  yes
-WordPress database error Unknown column 'd.live_product_id' in 'WHERE' for query SELECT COUNT(*) FROM `wp_tmc_products` p
-                 WHERE p.import_run_id <> '' AND p.category_key = '' AND NOT EXISTS (SELECT 1 FROM `wp_tmc_product_categories` c WHERE c.product_id = p.id) AND NOT EXISTS (
-                SELECT 1 FROM `wp_tmc_product_default_category` d
-                 WHERE d.live_product_id = p.id
-                   AND d.term_id = 15
-                   AND EXISTS (
-                         SELECT 1 FROM `wp_term_relationships` tr
-                         INNER JOIN `wp_term_taxonomy` tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
-                          WHERE tr.object_id = p.wc_product_id
-                            AND tt.taxonomy = 'product_cat'
-                            AND tt.term_id = d.term_id
-                       )
-                   AND NOT EXISTS (
-                         SELECT 1 FROM `wp_term_relationships` tr2
-                         INNER JOIN `wp_term_taxonomy` tt2 ON tt2.term_taxonomy_id = tr2.term_taxonomy_id
-                          WHERE tr2.object_id = p.wc_product_id
-                            AND tt2.taxonomy = 'product_cat'
-                            AND tt2.term_id <> d.term_id
-                       )
-            ) AND p.vendor_user_id = 9891 made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval, EvalFile_Command::{closure:phar:///usr/local/bin/wp/vendor/wp-cli/eval-command/src/EvalFile_Command.php(85) : eval()'d code:95}, Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository->countImportedWithoutCategory, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->getVar
-waiting=-1
+NOTE  2h what carriedBy() says about a table of the wrong shape  no
+waiting=2
 schema_version=35
-FAIL  2i ⛔ and a failed step leaves the gate exactly where it was  expected=2 actual=-1
+PASS  2i ⛔ and a failed step leaves the gate exactly where it was  (2)
 
 === 3 · the injection is removed and the next request finishes the job ===
 table_present=no
@@ -139,14 +119,14 @@ key_real=__empty__
 owner_real=observed
 run_real=upg89-run
 price_real=100
-terms_real=272
+terms_real=273
 link_rows_for_fixtures=0
 PASS  4b the default-only row still carries exactly the default term  (15)
 PASS  4c …its key was not filled in  (__empty__)
 PASS  4d …no relationship was recorded for it  (0)
 PASS  4e …its ownership is untouched  (observed)
 PASS  4f …and so is its price  (100)
-PASS  4g the control row's real category is untouched too  (272)
+PASS  4g the control row's real category is untouched too  (273)
 waiting=2
 schema_version=36
 PASS  4h ⛔ AND THE GATE DID NOT MOVE: the same one row is waiting  (2)
@@ -171,13 +151,13 @@ PASS  6a the decision was taken  (yes)
 PASS  6b …with no refusal  (__none__)
 PASS  6c …and the named outcome  (default_category_accepted)
 PASS  6c2 …for the term the page printed  (15)
-live_default=4259
+live_default=4261
 term_default=15
 live_real=__none__
 term_real=__none__
 accept_rows=1
 PASS  6d exactly one row was written  (1)
-PASS  6e …it is live  (4259)
+PASS  6e …it is live  (4261)
 PASS  6f …for the default term and no other  (15)
 PASS  6g …and the control product got none  (__none__)
 key_default=__empty__
@@ -189,7 +169,7 @@ key_real=__empty__
 owner_real=observed
 run_real=upg89-run
 price_real=100
-terms_real=272
+terms_real=273
 link_rows_for_fixtures=0
 PASS  6h ⛔ the decision wrote NO category key  (__empty__)
 PASS  6i ⛔ …NO link row  (0)
@@ -225,7 +205,7 @@ key_real=__empty__
 owner_real=observed
 run_real=upg89-run
 price_real=100
-terms_real=272
+terms_real=273
 link_rows_for_fixtures=0
 PASS  7e no product row changed on the way back  (__empty__)
 PASS  7f …and no WooCommerce relationship did either  (15)
@@ -261,9 +241,9 @@ key_real=__empty__
 owner_real=observed
 run_real=upg89-run
 price_real=100
-terms_real=272
+terms_real=273
 link_rows_for_fixtures=0
 PASS  8e and the product is byte-for-byte what it was at the start  (15)
 PASS  8f …key included  (__empty__)
 
-checks=64 pass=63 fail=1
+checks=64 pass=64 fail=0
