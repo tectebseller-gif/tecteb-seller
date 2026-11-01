@@ -1,0 +1,16 @@
+PASS 0.3.0 installed and active from its ZIP
+PASS 0.3.0 + Reading page: the front page shows the page itself (what the owner saw)
+PASS 0.3.1 installed over 0.3.0 from its ZIP (--force)
+PASS still active, version 0.3.1
+PASS installed files are byte-identical to the source
+PASS saved settings unchanged byte for byte (no migration)
+PASS after the update the switch reads off (no visible change on update)
+PASS after the update: front page unchanged until the admin switches it on
+PASS switch on: Concept C with the products saved under 0.3.0
+PASS switch on: product and category selection intact
+PASS rollback by deactivation: the page itself again, immediately
+PASS rollback by unticking: the page itself again
+PASS the Reading page, its Elementor data and Reading settings never changed; no new page
+PASS downgrade to 0.3.0 with the switch left on: the extra key is ignored, the page itself shows
+
+14 passed, 0 failed

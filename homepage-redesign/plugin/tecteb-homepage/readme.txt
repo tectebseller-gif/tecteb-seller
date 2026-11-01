@@ -3,7 +3,7 @@ Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires Plugins: woocommerce
-Stable tag: 0.3.0
+Stable tag: 0.3.1
 License: GPL-2.0-or-later
 
 صفحهٔ اصلی تک‌طب (Concept C، Hero تیره). فقط فارسی و راست‌به‌چپ.
@@ -29,6 +29,12 @@ TECTEB_HOME_CATEGORIES_URL.
 فونت Vazirmatn تحت مجوز SIL OFL 1.1 (assets/fonts/OFL.txt).
 
 == Changelog ==
+
+= 0.3.1 =
+* گزینهٔ «نمایش روی صفحهٔ نخست سایت» (پیش‌فرض خاموش): طرح Concept C به‌جای محتوای برگه‌ای که «تنظیمات ← خواندن»
+  صفحهٔ نخست کرده، بی تغییر آن برگه و بی ساختن برگهٔ تازه. پیش‌نمایش فقط برای مدیر با ?tecteb_home_preview=1 و
+  مقایسه با ?tecteb_home_original=1. بازگشت: برداشتن تیک یا غیرفعال‌سازی.
+* اگر صفحهٔ نخست خودش صفحهٔ فروشگاه ووکامرس باشد، جایگزینی انجام نمی‌شود و کارت «فروشگاه» به همین صفحه برنمی‌گردد.
 
 = 0.3.0 =
 * مقصدهای تأییدشده به‌عنوان پیش‌فرض: درخواست تعمیرات ⇒ /https-tecteb-com-repair-request/ (فقط پیوند، بی فرم)،

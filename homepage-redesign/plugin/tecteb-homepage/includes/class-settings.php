@@ -76,6 +76,8 @@ final class Settings {
 			'supplier_lead'       => 'تولیدکننده یا واردکننده‌اید؟ در تک‌طب فروشگاه خودتان را داشته باشید و به مراکز درمانی عرضه کنید.',
 			'supplier_steps'      => array(),
 			'font'                => 'bundled',
+			// ۰٫۳٫۱: نمایش Concept C روی صفحهٔ نخست ِ «تنظیمات ← خواندن» بی تغییر آن برگه. پیش‌فرض خاموش.
+			'front_page'          => false,
 		);
 	}
 
@@ -166,6 +168,8 @@ final class Settings {
 		$out['supplier_steps'] = self::rows( $in['supplier_steps'] ?? array(), self::MAX_STEPS );
 
 		$out['font'] = 'site' === ( $in['font'] ?? '' ) ? 'site' : 'bundled';
+
+		$out['front_page'] = ! empty( $in['front_page'] );
 
 		return $out;
 	}

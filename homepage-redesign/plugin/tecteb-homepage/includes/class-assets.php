@@ -101,8 +101,8 @@ final class Assets {
 	}
 
 	public static function page_uses_homepage(): bool {
-		$uses = false;
-		if ( is_singular() ) {
+		$uses = PageTemplate::takes_over_front();
+		if ( ! $uses && is_singular() ) {
 			$post = get_queried_object();
 			if ( $post instanceof \WP_Post ) {
 				$uses = has_shortcode( (string) $post->post_content, Plugin::SHORTCODE )

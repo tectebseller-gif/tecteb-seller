@@ -1,0 +1,3 @@
+phpcs (phpcs.xml.dist: WordPress.Security/DB/I18n + PHPCompatibilityWP testVersion 8.1-)
+files, totals: 16 {'errors': 0, 'warnings': 0, 'fixable': 0}
+exit 0

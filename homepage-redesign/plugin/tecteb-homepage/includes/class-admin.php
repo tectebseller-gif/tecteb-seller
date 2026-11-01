@@ -85,7 +85,9 @@ final class Admin {
 		$query = isset( $_GET['tth_q'] ) ? sanitize_text_field( wp_unslash( $_GET['tth_q'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- فقط جست‌وجو، هیچ نوشتنی.
 		$pq    = isset( $_GET['tth_pq'] ) ? sanitize_text_field( wp_unslash( $_GET['tth_pq'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- فقط جست‌وجو، هیچ نوشتنی.
 
-		echo '<div class="wrap" dir="rtl">';
+		// پیوندهای داخل متنِ جدول‌ها باید بی‌نیاز از رنگ تشخیص‌پذیر باشند (axe: link-in-text-block)؛ فقط همین صفحه.
+		echo '<style>.tth-admin td a:not(.button){text-decoration:underline}</style>';
+		echo '<div class="wrap tth-admin" dir="rtl">';
 		echo '<h1>' . esc_html__( 'صفحهٔ اصلی تک‌طب', 'tecteb-homepage' ) . '</h1>';
 		echo '<p>' . esc_html__( 'این تنظیمات فقط نمایش صفحهٔ اصلی را تعیین می‌کنند. هیچ محصول، دسته، سفارش یا فروشنده‌ای اینجا تغییر نمی‌کند.', 'tecteb-homepage' ) . '</p>';
 		settings_errors( Settings::OPTION );
@@ -98,6 +100,7 @@ final class Admin {
 		settings_fields( Settings::GROUP );
 		submit_button( __( 'ذخیرهٔ تنظیمات', 'tecteb-homepage' ) );
 
+		self::front_section( $s, $name );
 		self::products_section( $s, $name, $pq );
 		self::categories_section( $s, $name, $query );
 		self::links_section( $name );
@@ -130,18 +133,69 @@ final class Admin {
 		}
 		echo '</tbody></table>';
 
-		$front = (int) get_option( 'page_on_front' );
-		if ( 'page' === get_option( 'show_on_front' ) && $front > 0 ) {
-			$post = get_post( $front );
-			$uses = $post instanceof \WP_Post && ( has_shortcode( (string) $post->post_content, Plugin::SHORTCODE ) || PageTemplate::FILE === get_page_template_slug( $post ) || str_contains( (string) get_post_meta( $front, '_elementor_data', true ), '[' . Plugin::SHORTCODE ) );
-			echo '<p>' . esc_html(
-				sprintf(
-					/* translators: %s: page title */
-					$uses ? __( 'صفحهٔ اصلی فعلی سایت («%s») همین طرح را نشان می‌دهد.', 'tecteb-homepage' ) : __( 'صفحهٔ اصلی فعلی سایت («%s») هنوز این طرح را نشان نمی‌دهد. این افزونه صفحهٔ اصلی را عوض نمی‌کند؛ تعویض با «تنظیمات ← خواندن» است.', 'tecteb-homepage' ),
-					$post instanceof \WP_Post ? get_the_title( $post ) : '#' . $front
-				)
-			) . '</p>';
+		echo '<p data-tth-front-state="' . esc_attr( self::front_state()['code'] ) . '"><strong>' . esc_html( self::front_state()['text'] ) . '</strong></p>';
+	}
+
+	/**
+	 * وضعیت صفحهٔ نخست سایت در یک جمله، از همان قاعده‌ای که PageTemplate::takes_over_front() می‌پرسد.
+	 *
+	 * @return array{code:string,text:string}
+	 */
+	public static function front_state(): array {
+		$front = 'page' === get_option( 'show_on_front' ) ? (int) get_option( 'page_on_front' ) : 0;
+		$post  = $front > 0 ? get_post( $front ) : null;
+		$title = $post instanceof \WP_Post ? get_the_title( $post ) : '';
+		$on    = (bool) Settings::get()['front_page'];
+		$prob  = PageTemplate::front_page_problem();
+		$uses  = $post instanceof \WP_Post && ( has_shortcode( (string) $post->post_content, Plugin::SHORTCODE ) || PageTemplate::FILE === get_page_template_slug( $post ) || str_contains( (string) get_post_meta( $front, '_elementor_data', true ), '[' . Plugin::SHORTCODE ) );
+		if ( '' !== $prob ) {
+			return array( 'code' => 'blocked', 'text' => $prob );
 		}
+		if ( $on ) {
+			return array(
+				'code' => 'on',
+				/* translators: %s: page title */
+				'text' => '' !== $title ? sprintf( __( 'صفحهٔ نخست سایت اکنون طرح Concept C را نشان می‌دهد (برگهٔ «%s» در «تنظیمات ← خواندن» همچنان انتخاب‌شده و دست‌نخورده است).', 'tecteb-homepage' ), $title ) : __( 'صفحهٔ نخست سایت (آخرین نوشته‌ها) اکنون طرح Concept C را نشان می‌دهد.', 'tecteb-homepage' ),
+			);
+		}
+		if ( $uses ) {
+			/* translators: %s: page title */
+			return array( 'code' => 'shortcode', 'text' => sprintf( __( 'صفحهٔ نخست سایت («%s») خودش shortcode یا قالب این افزونه را دارد و همین طرح را نشان می‌دهد.', 'tecteb-homepage' ), $title ) );
+		}
+		return array(
+			'code' => 'off',
+			/* translators: %s: page title */
+			'text' => '' !== $title ? sprintf( __( 'صفحهٔ نخست سایت هنوز برگهٔ «%s» را نشان می‌دهد، نه این طرح. برای نمایش طرح، گزینهٔ «نمایش روی صفحهٔ نخست سایت» را در پایین روشن و ذخیره کنید.', 'tecteb-homepage' ), $title ) : __( 'صفحهٔ نخست سایت هنوز این طرح را نشان نمی‌دهد. برای نمایش، گزینهٔ «نمایش روی صفحهٔ نخست سایت» را روشن و ذخیره کنید.', 'tecteb-homepage' ),
+		);
+	}
+
+	private static function front_section( array $s, string $name ): void {
+		$front = 'page' === get_option( 'show_on_front' ) ? (int) get_option( 'page_on_front' ) : 0;
+		$post  = $front > 0 ? get_post( $front ) : null;
+		$prob  = PageTemplate::front_page_problem();
+		echo '<h2 id="tth-front">' . esc_html__( 'نمایش روی صفحهٔ نخست سایت', 'tecteb-homepage' ) . '</h2>';
+		echo '<table class="form-table" role="presentation"><tbody>';
+		echo '<tr><th scope="row">' . esc_html__( 'صفحهٔ نخست فعلی (تنظیمات ← خواندن)', 'tecteb-homepage' ) . '</th><td>';
+		if ( $post instanceof \WP_Post ) {
+			echo '<strong>' . esc_html( get_the_title( $post ) ) . '</strong> <span dir="ltr">#' . esc_html( (string) $front ) . '</span>';
+		} else {
+			echo esc_html__( 'آخرین نوشته‌ها (برگهٔ ثابتی انتخاب نشده)', 'tecteb-homepage' );
+		}
+		echo '<p class="description">' . esc_html__( 'این افزونه این انتخاب را عوض نمی‌کند و هیچ برگه‌ای نمی‌سازد.', 'tecteb-homepage' ) . '</p></td></tr>';
+		echo '<tr><th scope="row">' . esc_html__( 'طرح Concept C', 'tecteb-homepage' ) . '</th><td>';
+		if ( '' !== $prob ) {
+			echo '<p class="notice notice-warning inline" style="padding:8px 12px">' . esc_html( $prob ) . '</p>';
+		}
+		echo '<label><input type="checkbox" name="' . esc_attr( $name . '[front_page]' ) . '" value="1"' . checked( (bool) $s['front_page'], true, false ) . disabled( '' !== $prob, true, false ) . '> <strong>' . esc_html__( 'نمایش روی صفحهٔ نخست سایت، به‌جای محتوای برگهٔ فعلی', 'tecteb-homepage' ) . '</strong></label>';
+		echo '<ul style="list-style:disc;margin-inline-start:1.5em">';
+		echo '<li>' . esc_html__( 'برگهٔ فعلی، محتوا و دادهٔ Elementor آن نه نوشته می‌شوند و نه حذف؛ فقط هنگام نمایش، به‌جای محتوای آن، طرح Concept C بین هدر و فوتر سایت چاپ می‌شود. عنوان و متای سئوی همان برگه می‌ماند.', 'tecteb-homepage' ) . '</li>';
+		echo '<li>' . esc_html__( 'بازگشت فوری: تیک را بردارید و ذخیره کنید (یا افزونه را غیرفعال کنید) ⇒ از درخواست بعد همان برگهٔ قبلی.', 'tecteb-homepage' ) . '</li>';
+		echo '<li>' . esc_html__( 'هر ذخیرهٔ این صفحه کش صفحهٔ اصلی (WP Rocket / LiteSpeed) را پاک می‌کند — فقط صفحهٔ اصلی.', 'tecteb-homepage' ) . '</li>';
+		echo '</ul>';
+		echo '<p class="description">' . esc_html__( 'پیش‌نمایش فقط برای مدیر (بی اثر روی بازدیدکننده‌ها و کش):', 'tecteb-homepage' ) . '</p>';
+		echo '<p><a class="button" href="' . esc_url( add_query_arg( 'tecteb_home_preview', '1', home_url( '/' ) ) ) . '" target="_blank" rel="noopener">' . esc_html__( 'صفحهٔ نخست با طرح Concept C', 'tecteb-homepage' ) . '</a> ';
+		echo '<a class="button" href="' . esc_url( add_query_arg( 'tecteb_home_original', '1', home_url( '/' ) ) ) . '" target="_blank" rel="noopener">' . esc_html__( 'صفحهٔ نخست فعلی (حتی وقتی گزینه روشن است)', 'tecteb-homepage' ) . '</a></p>';
+		echo '</td></tr></tbody></table>';
 	}
 
 	private static function categories_section( array $s, string $name, string $query ): void {

@@ -92,6 +92,23 @@ MUTATIONS = [
      "\t\t\trocket_clean_home();\n", "\t\t\trocket_clean_home();\n\t\t\tif ( function_exists( 'rocket_clean_domain' ) ) {\n\t\t\t\trocket_clean_domain();\n\t\t\t}\n", "integration"),
     ("hero text claims an unconfirmed side-by-side comparison", "includes/class-settings.php",
      "مشخصات هر محصول را ببینید", "مشخصات را کنار هم ببینید", "integration"),
+    # ۰٫۳٫۱: نمایش روی صفحهٔ نخست
+    ("front-page takeover ignores the switch", "includes/class-page-template.php",
+     "return (bool) Settings::get()['front_page'];", "return true;", "integration"),
+    ("an option saved by 0.3.0 (no front_page key) reads as on — sites change on update", "includes/class-settings.php",
+     "$out['front_page'] = ! empty( $in['front_page'] );", "$out['front_page'] = (bool) ( $in['front_page'] ?? true );", "integration"),
+    ("preview parameter honoured for visitors", "includes/class-page-template.php",
+     "if ( $admin && isset( $_GET['tecteb_home_preview'] ) ) {", "if ( isset( $_GET['tecteb_home_preview'] ) ) {", "integration"),
+    ("admin 'original' parameter ignored", "includes/class-page-template.php",
+     "if ( $admin && isset( $_GET['tecteb_home_original'] ) ) {", "if ( false ) {", "integration"),
+    ("shop-page guard removed (shop archive replaced)", "includes/class-page-template.php",
+     "if ( '' !== self::front_page_problem() ) {", "if ( false ) {", "integration"),
+    ("Elementor editor preview replaced too", "includes/class-page-template.php",
+     "isset( $_GET['elementor-preview'] )", "false", "integration"),
+    ("takeover also on paginated front page", "includes/class-page-template.php",
+     "! is_front_page() || is_paged()", "! is_front_page()", "integration"),
+    ("assets not loaded on the taken-over front page", "includes/class-assets.php",
+     "$uses = PageTemplate::takes_over_front();", "$uses = false;", "integration"),
 ]
 
 

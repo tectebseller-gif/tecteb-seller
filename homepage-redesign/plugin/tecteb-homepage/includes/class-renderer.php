@@ -42,7 +42,7 @@ final class Renderer {
 			'all_categories' => Settings::link( 'all_categories' ),
 		);
 		$routes     = array(
-			'shop'     => array( 'show' => '' !== $links['shop'], 'reason' => '' === $links['shop'] ? 'صفحهٔ فروشگاه در ووکامرس تعیین نشده یا منتشر نیست.' : '' ),
+			'shop'     => array( 'show' => '' !== $links['shop'], 'reason' => '' === $links['shop'] ? 'صفحهٔ فروشگاه در ووکامرس تعیین نشده، منتشر نیست، یا خودش صفحهٔ نخست سایت است.' : '' ),
 			'repair'   => array( 'show' => '' !== $links['repair'], 'reason' => '' === $links['repair'] ? 'نشانی صفحهٔ تعمیرات تعیین نشده است.' : '' ),
 			'supplier' => array( 'show' => '' !== $links['supplier'], 'reason' => '' === $links['supplier'] ? 'نشانی همکاری تأمین‌کنندگان تعیین نشده است.' : '' ),
 		);
@@ -118,6 +118,10 @@ final class Renderer {
 	public static function shop_url(): string {
 		$id = function_exists( 'wc_get_page_id' ) ? (int) wc_get_page_id( 'shop' ) : 0;
 		if ( $id < 1 || 'page' !== get_post_type( $id ) || 'publish' !== get_post_status( $id ) ) {
+			return '';
+		}
+		// صفحهٔ فروشگاهی که خودش صفحهٔ نخست است، نشانی صفحهٔ نخست را دارد؛ کارت به همین صفحه برنمی‌گردد.
+		if ( 'page' === get_option( 'show_on_front' ) && (int) get_option( 'page_on_front' ) === $id ) {
 			return '';
 		}
 		return (string) wc_get_page_permalink( 'shop' );

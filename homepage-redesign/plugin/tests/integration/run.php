@@ -75,6 +75,14 @@ function http( string $path ): string {
 	return is_wp_error( $r ) ? '' : (string) wp_remote_retrieve_body( $r );
 }
 
+/** همان درخواست HTTP با کوکی ورودِ یک کاربر (فقط وردپرس یکبارمصرف محلی). */
+function http_as( string $login, string $path ): string {
+	$u = get_user_by( 'login', $login );
+	$c = wp_generate_auth_cookie( $u->ID, time() + 600, 'logged_in' );
+	$r = wp_remote_get( home_url( $path ), array( 'timeout' => 30, 'cookies' => array( LOGGED_IN_COOKIE => $c ) ) );
+	return is_wp_error( $r ) ? '' : (string) wp_remote_retrieve_body( $r );
+}
+
 function db_digest(): array {
 	global $wpdb;
 	$out = array();
@@ -440,6 +448,61 @@ check( 'admin: no services or quote settings remain', ! str_contains( $a, 'servi
 check( 'admin: shop destination shown read-only from WooCommerce', str_contains( $a, esc_html( wc_get_page_permalink( 'shop' ) ) ) );
 check( 'admin: wp-config constant shown read-only', str_contains( $a, 'TECTEB_HOME_SUPPLIER_URL' ) && str_contains( $a, 'staging.example' ) );
 wp_set_current_user( 0 );
+
+/* ------------------------------------------------------------ ۱۳-ب. نمایش روی صفحهٔ نخست (۰٫۳٫۱) */
+// همان شکل Staging: «تنظیمات ← خواندن» یک برگهٔ عادی با محتوای خودش را صفحهٔ نخست کرده.
+$plain_id     = (int) get_page_by_path( 'plain-page' )->ID;
+$plain_before = get_post( $plain_id )->post_content;
+$prev_front   = array( get_option( 'show_on_front' ), get_option( 'page_on_front' ) );
+update_option( 'show_on_front', 'page' );
+update_option( 'page_on_front', $plain_id );
+settings( array( 'categories' => array( array( 'id' => $c['monitor'], 'icon' => 'monitor' ) ), 'products' => array( $p['monitor'], $p['oxi'] ) ) );
+$kept         = array( Settings::get()['categories'], Settings::get()['products'] );
+$pages_before = (int) wp_count_posts( 'page' )->publish;
+$d_before     = db_digest();
+check( 'front page: switch off by default (also for an option saved by 0.3.0, without the key)', false === Settings::get()['front_page'] && false === Settings::normalize( array( 'products' => array( $p['monitor'] ) ), false )['front_page'] );
+$h = http( '/' );
+check( 'front page, switch off: the selected page shows its own content, no Concept C, no homepage assets', str_contains( $h, 'متن عادی.' ) && ! str_contains( $h, 'th-hero-title' ) && ! str_contains( $h, 'tecteb-home.css' ) );
+$h = http( '/?tecteb_home_preview=1' );
+check( 'front page, switch off: ?tecteb_home_preview=1 does nothing for a visitor', str_contains( $h, 'متن عادی.' ) && ! str_contains( $h, 'th-hero-title' ) );
+$h = http_as( 'tthadmin', '/?tecteb_home_preview=1' );
+check( 'front page, switch off: admin ?tecteb_home_preview=1 shows Concept C (admin-only preview)', str_contains( $h, 'th-hero-title' ) && ! str_contains( $h, 'متن عادی.' ) );
+settings( array( 'front_page' => '1' ) );
+check( 'front page: switching on keeps the selected products and categories', true === Settings::get()['front_page'] && $kept === array( Settings::get()['categories'], Settings::get()['products'] ) );
+$h = http( '/' );
+$site_headers = substr_count( $h, 'id="site-header"' ) + substr_count( $h, 'data-elementor-type="header"' ) + substr_count( $h, 'data-tth-header' );
+check( 'front page, switch on: Concept C instead of the page content, between the site header and footer', str_contains( $h, 'th-hero-title' ) && ! str_contains( $h, 'متن عادی.' ) && 1 === $site_headers && ( str_contains( $h, 'id="site-footer"' ) || str_contains( $h, 'data-elementor-type="footer"' ) ) );
+$css_at = strpos( $h, 'tecteb-home.css' );
+check( 'front page, switch on: one h1, homepage CSS in <head>, real products', 1 === substr_count( $h, '<h1' ) && false !== $css_at && $css_at < (int) strpos( $h, '</head>' ) && 2 === substr_count( $h, 'class="th-product__title"' ) );
+check( 'front page, switch on: the page title (SEO) is still the selected page', str_contains( $h, '<title>' ) && (bool) preg_match( '#<title>[^<]*' . preg_quote( esc_html( get_bloginfo( 'name' ) ), '#' ) . '#u', $h ) );
+check( 'front page, switch on: ?tecteb_home_original=1 is ignored for a visitor', str_contains( http( '/?tecteb_home_original=1' ), 'th-hero-title' ) );
+check( 'front page, switch on: admin ?tecteb_home_original=1 shows the selected page itself', str_contains( $o = http_as( 'tthadmin', '/?tecteb_home_original=1' ), 'متن عادی.' ) && ! str_contains( $o, 'th-hero-title' ) );
+check( 'front page, switch on: a paginated front page (?paged=2) is left to the page', ! str_contains( http( '/?paged=2' ), 'th-hero-title' ) );
+check( 'front page, switch on: ?elementor-preview keeps the page itself (editor)', ! str_contains( http( '/?elementor-preview=' . $plain_id ), 'th-hero-title' ) );
+check( 'front page, switch on: other pages untouched (shop, product)', ! str_contains( http( '/shop/' ), 'th-hero-title' ) && ! str_contains( http( '/?p=' . $p['monitor'] ), 'th-hero-title' ) );
+check( 'front page: the selected page, Reading settings and page count are unchanged; no new page', $plain_before === get_post( $plain_id )->post_content && $plain_id === (int) get_option( 'page_on_front' ) && 'page' === get_option( 'show_on_front' ) && $pages_before === (int) wp_count_posts( 'page' )->publish );
+check( 'front page: switching on writes nothing but the plugin option', $d_before === db_digest(), wp_json_encode( array_diff_assoc( db_digest(), $d_before ) ) );
+wp_set_current_user( (int) get_user_by( 'login', 'tthadmin' )->ID );
+ob_start();
+Admin::render();
+$a = (string) ob_get_clean();
+check( 'admin: front-page section names the Reading page and shows the switch (checked)', str_contains( $a, 'id="tth-front"' ) && str_contains( $a, esc_html( get_the_title( $plain_id ) ) ) && (bool) preg_match( '#name="tecteb_home_settings\[front_page\]" value="1" checked#', $a ) && str_contains( $a, 'data-tth-front-state="on"' ) );
+check( 'admin: preview and original links for the admin', str_contains( $a, 'tecteb_home_preview=1' ) && str_contains( $a, 'tecteb_home_original=1' ) );
+wp_set_current_user( 0 );
+settings( array( 'front_page' => '' ) );
+$h = http( '/' );
+check( 'front page: switching off restores the selected page immediately', str_contains( $h, 'متن عادی.' ) && ! str_contains( $h, 'th-hero-title' ) && $plain_before === get_post( $plain_id )->post_content );
+// صفحهٔ نخستی که خودش صفحهٔ فروشگاه است: جایگزین نمی‌شود، و کارت فروشگاه به همین صفحه برنمی‌گردد.
+$shop_page = (int) wc_get_page_id( 'shop' );
+update_option( 'page_on_front', $shop_page );
+settings( array( 'front_page' => '1' ) );
+$h = http( '/' );
+check( 'front page = WooCommerce shop page: no takeover (product list stays), reason given', ! str_contains( $h, 'th-hero-title' ) && '' !== \Tecteb\Homepage\PageTemplate::front_page_problem() && 'blocked' === Admin::front_state()['code'] );
+check( 'front page = shop page: the shop route is hidden instead of linking back to the homepage', '' === Renderer::shop_url() );
+settings( array( 'front_page' => '' ) );
+update_option( 'show_on_front', $prev_front[0] );
+$prev_front[1] ? update_option( 'page_on_front', $prev_front[1] ) : delete_option( 'page_on_front' );
+check( 'shop route back once the shop page is not the front page', '' !== Renderer::shop_url() );
 
 /* ------------------------------------------------------------ ۱۴. حذف */
 $before = db_digest();
