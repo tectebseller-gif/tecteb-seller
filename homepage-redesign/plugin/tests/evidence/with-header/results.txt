@@ -41,7 +41,7 @@ PASS isolation: Header B changes nothing in the homepage (same computed styles a
 PASS mega menu: opens over the Hero and is on top (not covered by homepage layers)
 PASS sticky header stays above homepage sections while scrolling
 PASS mobile drawer: opens as a modal over the homepage
-PASS links: all 15 homepage links reach 200 on this site (no 404, no off-site redirect)
+PASS links: all 16 homepage links reach 200 on this site (no 404, no off-site redirect)
 PASS links: shop route → WooCommerce shop page
 PASS links: repair route → /https-tecteb-com-repair-request/, no repair form on the page
 PASS links: supplier route and section → /landing-seller/

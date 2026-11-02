@@ -107,6 +107,16 @@ check("brands carousel: no autoplay (no setInterval / setTimeout in the front sc
 check("admin: media library loaded only on this plugin's own page, behind the capability", "if ( '' === self::$hook || $hook !== self::$hook || ! current_user_can( self::capability() ) )" in code["includes/class-admin.php"])
 check("brands: saved through the plugin option only (settings_fields nonce + option_page_capability)", "settings_fields( Settings::GROUP )" in code["includes/class-admin.php"] and "option_page_capability_" in code["includes/class-admin.php"] and "brands" in code["includes/class-settings.php"])
 
+# ۰٫۳٫۴
+settings_php = code["includes/class-settings.php"]
+check("hero labels 0.3.4: title, category, order and active stored in the plugin option (hero_items), four fixed rows", "'hero_items'" in settings_php and "function hero_items(" in settings_php and "function default_hero_items(" in settings_php)
+check("hero labels 0.3.4: a 0.3.3 option (no hero_items) is read, never rewritten on read (no update_option in Settings)", "hero_items_from_pins" in settings_php and "update_option" not in settings_php)
+check("hero labels 0.3.4: hero_labels (0.3.3) is derived from the rows so a downgrade sees the same categories", "$out['hero_labels'] = array_map( static fn( array $row ): int => $row['term'], $out['hero_items'] );" in settings_php)
+check("hero labels 0.3.4: no WooCommerce term is ever written", not re.search(r"wp_(insert|update|delete)_term|wp_set_object_terms", "".join(c for f, c in code.items())))
+check("hero labels 0.3.4: the label text is a span that can be shortened with an ellipsis", 'class="th-float__text"' in raw["templates/hero.php"] and "text-overflow: ellipsis" in raw["assets/css/tecteb-home.css"])
+check("brands 0.3.4: logo size from the image's own ratio (no fixed width/height that could stretch it)", "function logo_width(" in code["includes/class-catalog.php"] and "object-fit: contain" in raw["assets/css/tecteb-home.css"])
+check("0.3.4: no change to the header plugin, the theme or the footer from this plugin (no tth- selectors, no header/footer hooks)", not re.search(r"\.tth-|#tth-root|get_header|get_footer\(\s*'", raw["assets/css/tecteb-home.css"]) )
+
 # --- ۵. هر echo در قالب‌ها escape شده یا دلیلِ نوشته‌شده دارد
 for f, text in raw.items():
     if not f.startswith("templates/") or not f.endswith(".php"):

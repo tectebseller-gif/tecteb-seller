@@ -12,8 +12,9 @@ defined( 'ABSPATH' ) || exit;
 
 $settings          = $plan['settings'];
 $links      = $plan['links'];
-// ۰٫۳٫۳: چهار برچسب ثابتِ کنار تصویر (Catalog::hero_labels())، فقط آن‌هایی که دستهٔ واقعیِ دارای محصول دارند.
-$floats     = array_filter( $plan['hero_labels'], static fn( array $label ): bool => 'ok' === $label['status'] );
+// ۰٫۳٫۴: برچسب‌های کنار تصویر (Catalog::hero_labels())، به ترتیب پنل؛ فقط فعال و با دستهٔ واقعیِ دارای محصول.
+// جایگاه‌ها پشت سر هم پر می‌شوند (one، two، …) تا برچسبِ پنهان جای خالی نگذارد.
+$floats     = array_values( array_filter( $plan['hero_labels'], static fn( array $label ): bool => 'ok' === $label['status'] ) );
 $slots      = array( 'one', 'two', 'three', 'four' );
 $img        = TECTEB_HOME_URL . 'assets/img/';
 $arrow      = Renderer::icon( 'arrow', 'th-icon th-icon--dir' );
@@ -65,7 +66,7 @@ $arrow      = Renderer::icon( 'arrow', 'th-icon th-icon--dir' );
 			<?php if ( array() !== $floats ) : ?>
 				<ul class="th-floats" role="list" aria-label="<?php echo esc_attr__( 'دسته‌های پرکاربرد', 'tecteb-homepage' ); ?>">
 					<?php foreach ( $floats as $i => $label ) : ?>
-						<li class="th-floats__item"><a class="th-float th-float--<?php echo esc_attr( $slots[ $i ] ); ?>" href="<?php echo esc_url( $label['url'] ); ?>"><?php echo Renderer::icon( $label['icon'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Renderer::icon(). ?><?php echo esc_html( $label['name'] ); ?></a></li>
+						<li class="th-floats__item"><a class="th-float th-float--<?php echo esc_attr( $slots[ $i ] ); ?>" href="<?php echo esc_url( $label['url'] ); ?>"><?php echo Renderer::icon( $label['icon'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Renderer::icon(). ?><span class="th-float__text"><?php echo esc_html( $label['name'] ); ?></span></a></li>
 					<?php endforeach; ?>
 				</ul>
 			<?php endif; ?>

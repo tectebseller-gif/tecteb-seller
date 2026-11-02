@@ -1,0 +1,29 @@
+PASS visitor 390px top of page: the Hero starts right under the header (gap 0px)
+PASS visitor 390px: the homepage root and its wrappers add no top margin/padding
+PASS visitor 390px y=40: nothing uncovered above the sticky header
+PASS visitor 390px y=300: nothing uncovered above the sticky header
+PASS visitor 360px top of page: the Hero starts right under the header (gap 0px)
+PASS visitor 360px: the homepage root and its wrappers add no top margin/padding
+PASS visitor 360px y=40: nothing uncovered above the sticky header
+PASS visitor 360px y=300: nothing uncovered above the sticky header
+PASS visitor 430px top of page: the Hero starts right under the header (gap 0px)
+PASS visitor 430px: the homepage root and its wrappers add no top margin/padding
+PASS visitor 430px y=40: nothing uncovered above the sticky header
+PASS visitor 430px y=300: nothing uncovered above the sticky header
+PASS visitor 768px top of page: the Hero starts right under the header (gap 0px)
+PASS visitor 768px: the homepage root and its wrappers add no top margin/padding
+PASS visitor 768px y=40: nothing uncovered above the sticky header
+PASS visitor 768px y=300: nothing uncovered above the sticky header
+PASS admin 390px top of page: the Hero starts right under the header (gap 0px)
+PASS admin 390px: the homepage root and its wrappers add no top margin/padding
+PASS admin 390px y=300: the sticky header stays 46px below the top while the admin bar (position: absolute) has scrolled away — the strip comes from the admin bar + the header, not from this plugin
+PASS admin 360px top of page: the Hero starts right under the header (gap 0px)
+PASS admin 360px: the homepage root and its wrappers add no top margin/padding
+PASS admin 360px y=300: the sticky header stays 46px below the top while the admin bar (position: absolute) has scrolled away — the strip comes from the admin bar + the header, not from this plugin
+PASS admin 430px top of page: the Hero starts right under the header (gap 0px)
+PASS admin 430px: the homepage root and its wrappers add no top margin/padding
+PASS admin 430px y=300: the sticky header stays 46px below the top while the admin bar (position: absolute) has scrolled away — the strip comes from the admin bar + the header, not from this plugin
+PASS admin 768px top of page: the Hero starts right under the header (gap 0px)
+PASS admin 768px: the homepage root and its wrappers add no top margin/padding
+
+27 passed, 0 failed

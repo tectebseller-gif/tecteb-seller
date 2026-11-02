@@ -53,8 +53,26 @@ PASS no WooCommerce loop: do_action( 'woocommerce
 PASS no WooCommerce loop: do_action( "woocommerce
 PASS no WooCommerce loop: woocommerce_shop_loop
 PASS no WooCommerce loop: wc_setup_loop
+PASS hero search: no category select (0.3.2)
+PASS no hard-coded currency in code (WooCommerce settings decide)
+PASS product cards never print raw get_price_html() (screen-reader text)
+PASS hero: the «بازار B2B تجهیزات پزشکی» label is not generated anywhere
+PASS hero labels: names and icons only — no hard-coded term ID or slug
+PASS price: no global WooCommerce price filter (format applied per call on the homepage only)
+PASS price: thousands separator / format passed as wc_price() arguments
+PASS brands carousel: no third-party library or remote asset
+PASS brands carousel: no autoplay (no setInterval / setTimeout in the front script)
+PASS admin: media library loaded only on this plugin's own page, behind the capability
+PASS brands: saved through the plugin option only (settings_fields nonce + option_page_capability)
+PASS hero labels 0.3.4: title, category, order and active stored in the plugin option (hero_items), four fixed rows
+PASS hero labels 0.3.4: a 0.3.3 option (no hero_items) is read, never rewritten on read (no update_option in Settings)
+PASS hero labels 0.3.4: hero_labels (0.3.3) is derived from the rows so a downgrade sees the same categories
+PASS hero labels 0.3.4: no WooCommerce term is ever written
+PASS hero labels 0.3.4: the label text is a span that can be shortened with an ellipsis
+PASS brands 0.3.4: logo size from the image's own ratio (no fixed width/height that could stretch it)
+PASS 0.3.4: no change to the header plugin, the theme or the footer from this plugin (no tth- selectors, no header/footer hooks)
 PASS templates: no inline <script>
-PASS css: every selector scoped under .tecteb-home-v1 (252 selectors)
+PASS css: every selector scoped under .tecteb-home-v1 (296 selectors)
 PASS css: no @font-face in the main stylesheet (font is its own file)
 PASS css: font file has exactly one @font-face with a unique family
 PASS css: font file exists
@@ -99,4 +117,4 @@ PASS plugin header/markup has «Requires Plugins:  woocommerce»
 PASS plugin header/markup has «Requires PHP:      8.1»
 PASS plugin header/markup has «Text Domain:       tecteb-homepage»
 
-100 passed, 0 failed
+118 passed, 0 failed

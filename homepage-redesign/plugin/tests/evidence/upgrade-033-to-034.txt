@@ -1,0 +1,28 @@
+PASS 0.3.3 installed and active from its ZIP
+PASS the saved option is a 0.3.3 option (no hero_items key)
+PASS 0.3.3 on the front page: three Hero labels, «جراحی» hidden (no displayable products) — the staging state
+PASS 0.3.3: brands section with the registered logos (3 active of 4)
+PASS 0.3.3: homepage prices formatted (45,000,000 تومان)
+PASS 0.3.4 installed over 0.3.3 from its ZIP (--force)
+PASS still active, version 0.3.4
+PASS installed files are byte-identical to the source
+PASS after the update and a page view: saved settings unchanged byte for byte (no migration, no write on read)
+PASS Hero labels: the same three titles, the same archives, the same order as 0.3.3
+PASS Hero labels: the same three positions (one, two, three)
+PASS brands: the same names, logos and links, in the same order
+PASS prices: the same text on the homepage, letter for letter
+PASS the 0.3.3 option reads in 0.3.4 as: default titles, its pinned category kept (title = that category's name, as 0.3.3 showed), order 1–4, all active, 4 brands, switch on
+PASS preview (?tecteb_home_preview=1) still works for the admin with the switch off, and not for visitors
+PASS switch off and on again: settings back to the 0.3.3 bytes
+PASS first save in 0.3.4: brands, links, categories, products and every other setting kept; the rows saved as they were read
+PASS after that save: the same labels and brands on the page
+PASS 0.3.4 panel change shows: new title, one label off
+PASS rollback: 0.3.3 reinstalled from its ZIP
+PASS rollback: 0.3.3 shows its own three labels again (same titles, archives; the 0.3.4 title/on-off are ignored)
+PASS rollback: brands as before
+PASS rollback: prices as before
+PASS rollback: settings (including the 0.3.4 rows) untouched by reading them in 0.3.3
+PASS rollback by deactivation: the Reading page itself again
+PASS rollback by unticking «نمایش روی صفحهٔ نخست»: the Reading page itself again
+
+26 passed, 0 failed

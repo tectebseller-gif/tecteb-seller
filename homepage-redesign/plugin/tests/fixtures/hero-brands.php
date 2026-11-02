@@ -71,6 +71,7 @@ function tth_hb_reset(): void {
 	if ( $s ) {
 		$s['brands']      = array();
 		$s['hero_labels'] = array( 0, 0, 0, 0 );
+		$s['hero_items']  = Settings::default_hero_items(); // ۰٫۳٫۴
 		update_option( Settings::OPTION, $s );
 	}
 	delete_option( 'tth_hb_ids' );

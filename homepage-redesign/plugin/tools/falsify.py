@@ -157,7 +157,32 @@ MUTATIONS = [
     ("Hero labels keep the corner layout on a narrow image (cover the monitor)", "assets/css/tecteb-home.css",
      "container: th-art / inline-size;", "", "herobrands"),
     ("brand logo stretched to its frame", "assets/css/tecteb-home.css",
-     [("  inline-size: auto;\n  block-size: auto;\n  max-inline-size: 100%;\n  max-block-size: 100%;\n  object-fit: contain;", "  inline-size: 100%;\n  block-size: 100%;\n  max-inline-size: 100%;\n  max-block-size: 100%;\n  object-fit: fill;")], None, "herobrands"),
+     [("  inline-size: var(--th-logo-w, auto);\n  block-size: auto;\n  max-inline-size: 100%;\n  max-block-size: 100%;\n  object-fit: contain;", "  inline-size: 100%;\n  block-size: 100%;\n  max-inline-size: 100%;\n  max-block-size: 100%;\n  object-fit: fill;")], None, "herobrands"),
+    # ۰٫۳٫۴
+    ("inactive Hero label printed", "includes/class-catalog.php",
+     "\t\t\tif ( ! $row['active'] ) {", "\t\t\tif ( false ) {", "integration"),
+    ("Hero title tied to the category name (admin title ignored)", "includes/class-catalog.php",
+     "\t\t\t\tif ( '' === $row['name'] ) {\n\t\t\t\t\t$row['name'] = (string) $term->name;", "\t\t\t\tif ( true ) {\n\t\t\t\t\t$row['name'] = (string) $term->name;", "integration"),
+    ("Hero order from the panel ignored", "includes/class-catalog.php",
+     "\t\tusort( $out, static fn( array $a, array $b ): int => array( $a['order'], $a['index'] ) <=> array( $b['order'], $b['index'] ) );\n\t\treturn $out;", "\t\treturn $out;", "integration"),
+    ("a hidden Hero label leaves a hole (positions not filled in order)", "templates/hero.php",
+     "$floats     = array_values( array_filter( $plan['hero_labels'], static fn( array $label ): bool => 'ok' === $label['status'] ) );", "$floats     = array_filter( $plan['hero_labels'], static fn( array $label ): bool => 'ok' === $label['status'] );", "integration"),
+    ("upgrade from 0.3.3 drops its pinned category", "includes/class-settings.php",
+     "\t\t\t\t$out[ $i ]['term']  = $term;\n", "", "integration"),
+    ("hero_labels no longer mirrors the rows (a downgrade to 0.3.3 loses the categories)", "includes/class-settings.php",
+     "$out['hero_labels'] = array_map( static fn( array $row ): int => $row['term'], $out['hero_items'] );", "$out['hero_labels'] = self::hero_labels( $in['hero_labels'] ?? array(), false );", "integration"),
+    ("a deleted pinned category silently re-pointed at the same-named one", "includes/class-settings.php",
+     "if ( $report && $id > 0 && ! ( get_term( $id, 'product_cat' ) instanceof \\WP_Term ) ) {", "if ( $id > 0 && ! ( get_term( $id, 'product_cat' ) instanceof \\WP_Term ) ) {", "integration"),
+    ("«برای برچسب …» from the search results ignored", "includes/class-settings.php",
+     "\t\t\t$rows[ (int) $m[1] ]['term'] = (int) $m[2];\n", "", "integration"),
+    ("Hero category ID accepted without checking it is a product category", "includes/class-settings.php",
+     "if ( $report && $id > 0 && ! ( get_term( $id, 'product_cat' ) instanceof \\WP_Term ) ) {", "if ( false ) {", "integration"),
+    ("Hero title not sanitised (markup kept)", "includes/class-settings.php",
+     "'title'  => self::text( $row['title'] ?? '', 40 ),", "'title'  => (string) ( $row['title'] ?? '' ),", "integration"),
+    ("long Hero titles not capped (labels run into each other and the device)", "assets/css/tecteb-home.css",
+     "max-inline-size: calc(50% - 0.375rem); }", "max-inline-size: none; }", "adminhero"),
+    ("brand logo sizes not balanced (each fills its frame)", "includes/class-catalog.php",
+     "\t\t\t\t$attrs['style'] = '--th-logo-w:' . self::logo_width( (int) $src[1] / (int) $src[2] );\n", "", "integration"),
 ]
 
 
@@ -172,6 +197,11 @@ def run(kind: str) -> tuple[int, str]:
             subprocess.run(WP + ["eval-file"] + a, cwd=PLUGIN, capture_output=True)
         env = dict(os.environ, AXE=AXE, NODE_PATH="/opt/node-tools/node_modules", OUT=str(PLUGIN / "tests/evidence/falsification-browser"))
         p = subprocess.run(["node", "tests/browser/hero-brands.mjs"], cwd=PLUGIN, capture_output=True, text=True, env=env)
+    elif kind == "adminhero":
+        for a in (["tests/fixtures/seed.php", "seed"], ["tests/fixtures/state.php", "full"]):
+            subprocess.run(WP + ["eval-file"] + a, cwd=PLUGIN, capture_output=True)
+        env = dict(os.environ, AXE=AXE, NODE_PATH="/opt/node-tools/node_modules", OUT=str(PLUGIN / "tests/evidence/falsification-browser"))
+        p = subprocess.run(["node", "tests/browser/admin-hero-labels.mjs"], cwd=PLUGIN, capture_output=True, text=True, env=env)
     elif kind == "prices":
         for a in (["tests/fixtures/seed.php", "seed"], ["tests/fixtures/state.php", "full"], ["tests/fixtures/prices.php", "seed"]):
             subprocess.run(WP + ["eval-file"] + a, cwd=PLUGIN, capture_output=True)

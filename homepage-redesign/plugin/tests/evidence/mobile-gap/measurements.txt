@@ -1,0 +1,32 @@
+visitor 390px y=0: {"y":0,"header":true,"compact":false,"html_margin_top":"0px","adminbar":null,"bar_top":0,"bar_bottom":67,"hero_top":67,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+  chain: div mt=0px pt=0px ← main#content mt=0px pt=0px ← body mt=0px pt=0px
+visitor 390px y=40: {"y":40,"header":true,"compact":false,"html_margin_top":"0px","adminbar":null,"bar_top":-40,"bar_bottom":27,"hero_top":27,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+visitor 390px y=300: {"y":300,"header":true,"compact":true,"html_margin_top":"0px","adminbar":null,"bar_top":0,"bar_bottom":59,"hero_top":-233,"gap_bar_to_hero":null,"uncovered_above_bar":0}
+visitor 360px y=0: {"y":0,"header":true,"compact":false,"html_margin_top":"0px","adminbar":null,"bar_top":0,"bar_bottom":67,"hero_top":67,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+  chain: div mt=0px pt=0px ← main#content mt=0px pt=0px ← body mt=0px pt=0px
+visitor 360px y=40: {"y":40,"header":true,"compact":false,"html_margin_top":"0px","adminbar":null,"bar_top":-40,"bar_bottom":27,"hero_top":27,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+visitor 360px y=300: {"y":300,"header":true,"compact":true,"html_margin_top":"0px","adminbar":null,"bar_top":0,"bar_bottom":59,"hero_top":-233,"gap_bar_to_hero":null,"uncovered_above_bar":0}
+visitor 430px y=0: {"y":0,"header":true,"compact":false,"html_margin_top":"0px","adminbar":null,"bar_top":0,"bar_bottom":67,"hero_top":67,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+  chain: div mt=0px pt=0px ← main#content mt=0px pt=0px ← body mt=0px pt=0px
+visitor 430px y=40: {"y":40,"header":true,"compact":false,"html_margin_top":"0px","adminbar":null,"bar_top":-40,"bar_bottom":27,"hero_top":27,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+visitor 430px y=300: {"y":300,"header":true,"compact":true,"html_margin_top":"0px","adminbar":null,"bar_top":0,"bar_bottom":59,"hero_top":-233,"gap_bar_to_hero":null,"uncovered_above_bar":0}
+visitor 768px y=0: {"y":0,"header":true,"compact":false,"html_margin_top":"0px","adminbar":null,"bar_top":0,"bar_bottom":127,"hero_top":127,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+  chain: div mt=0px pt=0px ← main#content mt=0px pt=0px ← body mt=0px pt=0px
+visitor 768px y=40: {"y":40,"header":true,"compact":false,"html_margin_top":"0px","adminbar":null,"bar_top":-40,"bar_bottom":87,"hero_top":87,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+visitor 768px y=300: {"y":300,"header":true,"compact":true,"html_margin_top":"0px","adminbar":null,"bar_top":0,"bar_bottom":119,"hero_top":-173,"gap_bar_to_hero":null,"uncovered_above_bar":0}
+admin 390px y=0: {"y":0,"header":true,"compact":false,"html_margin_top":"46px","adminbar":{"position":"absolute","bottom":46},"bar_top":46,"bar_bottom":113,"hero_top":113,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+  chain: div mt=0px pt=0px ← main#content mt=0px pt=0px ← body mt=0px pt=0px
+admin 390px y=40: {"y":40,"header":true,"compact":false,"html_margin_top":"46px","adminbar":{"position":"absolute","bottom":6},"bar_top":6,"bar_bottom":73,"hero_top":73,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+admin 390px y=300: {"y":300,"header":true,"compact":true,"html_margin_top":"46px","adminbar":{"position":"absolute","bottom":-254},"bar_top":46,"bar_bottom":105,"hero_top":-187,"gap_bar_to_hero":null,"uncovered_above_bar":46}
+admin 360px y=0: {"y":0,"header":true,"compact":false,"html_margin_top":"46px","adminbar":{"position":"absolute","bottom":46},"bar_top":46,"bar_bottom":113,"hero_top":113,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+  chain: div mt=0px pt=0px ← main#content mt=0px pt=0px ← body mt=0px pt=0px
+admin 360px y=40: {"y":40,"header":true,"compact":false,"html_margin_top":"46px","adminbar":{"position":"absolute","bottom":6},"bar_top":6,"bar_bottom":73,"hero_top":73,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+admin 360px y=300: {"y":300,"header":true,"compact":true,"html_margin_top":"46px","adminbar":{"position":"absolute","bottom":-254},"bar_top":46,"bar_bottom":105,"hero_top":-187,"gap_bar_to_hero":null,"uncovered_above_bar":46}
+admin 430px y=0: {"y":0,"header":true,"compact":false,"html_margin_top":"46px","adminbar":{"position":"absolute","bottom":46},"bar_top":46,"bar_bottom":113,"hero_top":113,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+  chain: div mt=0px pt=0px ← main#content mt=0px pt=0px ← body mt=0px pt=0px
+admin 430px y=40: {"y":40,"header":true,"compact":false,"html_margin_top":"46px","adminbar":{"position":"absolute","bottom":6},"bar_top":6,"bar_bottom":73,"hero_top":73,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+admin 430px y=300: {"y":300,"header":true,"compact":true,"html_margin_top":"46px","adminbar":{"position":"absolute","bottom":-254},"bar_top":46,"bar_bottom":105,"hero_top":-187,"gap_bar_to_hero":null,"uncovered_above_bar":46}
+admin 768px y=0: {"y":0,"header":true,"compact":false,"html_margin_top":"46px","adminbar":{"position":"fixed","bottom":46},"bar_top":46,"bar_bottom":173,"hero_top":173,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+  chain: div mt=0px pt=0px ← main#content mt=0px pt=0px ← body mt=0px pt=0px
+admin 768px y=40: {"y":40,"header":true,"compact":false,"html_margin_top":"46px","adminbar":{"position":"fixed","bottom":46},"bar_top":6,"bar_bottom":133,"hero_top":133,"gap_bar_to_hero":0,"uncovered_above_bar":0}
+admin 768px y=300: {"y":300,"header":true,"compact":true,"html_margin_top":"46px","adminbar":{"position":"fixed","bottom":46},"bar_top":46,"bar_bottom":165,"hero_top":-127,"gap_bar_to_hero":null,"uncovered_above_bar":0}

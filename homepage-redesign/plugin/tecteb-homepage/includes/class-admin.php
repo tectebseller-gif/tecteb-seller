@@ -97,6 +97,7 @@ final class Admin {
 		$name  = Settings::OPTION;
 		$query = isset( $_GET['tth_q'] ) ? sanitize_text_field( wp_unslash( $_GET['tth_q'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- فقط جست‌وجو، هیچ نوشتنی.
 		$pq    = isset( $_GET['tth_pq'] ) ? sanitize_text_field( wp_unslash( $_GET['tth_pq'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- فقط جست‌وجو، هیچ نوشتنی.
+		$hq    = isset( $_GET['tth_hq'] ) ? sanitize_text_field( wp_unslash( $_GET['tth_hq'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- فقط جست‌وجو، هیچ نوشتنی.
 
 		// پیوندهای داخل متنِ جدول‌ها باید بی‌نیاز از رنگ تشخیص‌پذیر باشند (axe: link-in-text-block)؛ فقط همین صفحه.
 		echo '<style>.tth-admin td a:not(.button){text-decoration:underline}</style>';
@@ -108,6 +109,7 @@ final class Admin {
 		self::status( $plan );
 
 		echo '<form id="tth-search" method="get" action="' . esc_url( admin_url( 'admin.php' ) ) . '"><input type="hidden" name="page" value="' . esc_attr( self::PAGE ) . '"></form>';
+		echo '<form id="tth-hero-search" method="get" action="' . esc_url( admin_url( 'admin.php' ) . '#tth-hero-labels' ) . '"><input type="hidden" name="page" value="' . esc_attr( self::PAGE ) . '"></form>';
 
 		echo '<form method="post" action="' . esc_url( admin_url( 'options.php' ) ) . '">';
 		settings_fields( Settings::GROUP );
@@ -116,7 +118,7 @@ final class Admin {
 		self::front_section( $s, $name );
 		self::products_section( $s, $name, $pq );
 		self::categories_section( $s, $name, $query );
-		self::hero_labels_section( $plan, $name );
+		self::hero_labels_section( $plan, $name, $hq );
 		self::links_section( $name );
 		self::content_section( $s, $name );
 		self::brands_section( $s, $name );
@@ -365,33 +367,56 @@ final class Admin {
 		}
 	}
 
-	/** ۰٫۳٫۳: چهار برچسب کنار تصویر Hero — هر کدام به کدام دستهٔ واقعی ووکامرس وصل است، یا چرا نیست. */
-	private static function hero_labels_section( array $plan, string $name ): void {
+	/**
+	 * ۰٫۳٫۴: چهار برچسب کنار تصویر Hero — عنوان، دستهٔ ووکامرس، ترتیب، فعال؛ و برای هر ردیف اینکه امروز به
+	 * کدام دسته وصل است، یا چرا نمایش داده نمی‌شود. انتخاب دسته: شناسه در کادر، یا از جست‌وجوی همین بخش.
+	 */
+	private static function hero_labels_section( array $plan, string $name, string $query ): void {
 		echo '<h2 id="tth-hero-labels">' . esc_html__( 'برچسب‌های کنار تصویر Hero', 'tecteb-homepage' ) . '</h2>';
-		echo '<p>' . esc_html__( 'چهار برچسب ثابت، به همین ترتیب. هر برچسب به دسته‌ای از ووکامرس می‌رود که دقیقاً همین نام را دارد؛ اگر چنین دسته‌ای نیست، چند دسته با این نام هست، یا دسته محصولی ندارد، برچسب نمایش داده نمی‌شود و هیچ پیوند ساختگی‌ای ساخته نمی‌شود. برای انتخاب دستی، شناسهٔ دسته را وارد کنید (خالی یا ۰ = پیدا کردن با نام). هیچ دسته‌ای اینجا ساخته یا ویرایش نمی‌شود.', 'tecteb-homepage' ) . '</p>';
+		echo '<p>' . esc_html__( 'چهار برچسب روی تصویر Hero. عنوان، دسته، ترتیب (عدد کوچک‌تر، اول) و فعال بودن هر کدام اینجا تعیین می‌شود. عنوان مستقل از نام دسته در ووکامرس است؛ خالی بگذارید تا نام دسته نشان داده شود. اگر دسته‌ای تعیین نکنید، برچسب به دسته‌ای می‌رود که دقیقاً نام پیش‌فرضِ همان ردیف را دارد. برچسب غیرفعال، برچسبی که دسته‌اش پیدا نشود یا مبهم باشد، و دسته‌ای که محصول قابل‌نمایش ندارد نمایش داده نمی‌شوند و هیچ پیوند ساختگی‌ای ساخته نمی‌شود. هیچ دسته یا محصولی اینجا ساخته یا ویرایش نمی‌شود.', 'tecteb-homepage' ) . '</p>';
 		$texts = array(
-			'not_found' => __( 'دسته‌ای با این نام در ووکامرس پیدا نشد — نمایش داده نمی‌شود.', 'tecteb-homepage' ),
-			'ambiguous' => __( 'چند دسته با این نام هست — تا یکی را با شناسه انتخاب نکنید نمایش داده نمی‌شود:', 'tecteb-homepage' ),
+			'not_found' => __( 'دسته‌ای با نام پیش‌فرض این ردیف در ووکامرس پیدا نشد — نمایش داده نمی‌شود.', 'tecteb-homepage' ),
+			'ambiguous' => __( 'چند دسته با نام پیش‌فرض این ردیف هست — تا یکی را انتخاب نکنید نمایش داده نمی‌شود:', 'tecteb-homepage' ),
 			'missing'   => __( 'دستهٔ تعیین‌شده دیگر در ووکامرس نیست — نمایش داده نمی‌شود.', 'tecteb-homepage' ),
 			'empty'     => __( 'این دسته محصول قابل‌نمایشی ندارد — نمایش داده نمی‌شود.', 'tecteb-homepage' ),
 			'no_link'   => __( 'نشانی این دسته ساخته نشد — نمایش داده نمی‌شود.', 'tecteb-homepage' ),
 		);
-		echo '<table class="widefat striped" style="max-width:72rem"><thead><tr>'
-			. '<th style="width:3rem">#</th>'
-			. '<th style="width:11rem">' . esc_html__( 'برچسب', 'tecteb-homepage' ) . '</th>'
+		$items = Settings::get()['hero_items'];
+		// ردیف‌ها با شمارهٔ ثابت خودشان (همان که دکمه‌های «برای برچسب …» می‌گویند)؛ ترتیبِ نمایش ستون «ترتیب» است.
+		$labels = $plan['hero_labels'];
+		usort( $labels, static fn( array $a, array $b ): int => $a['index'] <=> $b['index'] );
+		echo '<table class="widefat striped" style="max-width:80rem"><thead><tr>'
+			. '<th style="width:4rem">' . esc_html__( 'برچسب', 'tecteb-homepage' ) . '</th>'
+			. '<th style="width:5rem">' . esc_html__( 'ترتیب', 'tecteb-homepage' ) . '</th>'
+			. '<th style="width:14rem">' . esc_html__( 'عنوان نمایشی', 'tecteb-homepage' ) . '</th>'
+			. '<th style="width:10rem">' . esc_html__( 'شناسهٔ دسته', 'tecteb-homepage' ) . '</th>'
 			. '<th>' . esc_html__( 'دستهٔ ووکامرس', 'tecteb-homepage' ) . '</th>'
-			. '<th style="width:12rem">' . esc_html__( 'شناسهٔ دسته (اختیاری)', 'tecteb-homepage' ) . '</th>'
+			. '<th style="width:6rem">' . esc_html__( 'فعال', 'tecteb-homepage' ) . '</th>'
 			. '</tr></thead><tbody>';
-		foreach ( $plan['hero_labels'] as $i => $label ) {
-			$slot = Settings::HERO_LABELS[ $i ][0];
+		foreach ( $labels as $label ) {
+			$i     = (int) $label['index'];
+			$item  = $items[ $i ];
+			$field = $name . '[hero_items][' . $i . ']';
+			$n     = Renderer::digits( $i + 1 );
 			echo '<tr data-tth-hero-label="' . esc_attr( (string) $i ) . '" data-tth-status="' . esc_attr( $label['status'] ) . '">';
-			echo '<td>' . esc_html( Renderer::digits( $i + 1 ) ) . '</td><td><strong>' . esc_html( $slot ) . '</strong></td><td>';
-			if ( 'ok' === $label['status'] ) {
+			echo '<td><strong>' . esc_html( $n ) . '</strong></td>';
+			/* translators: %s: label number */
+			echo '<td><input type="number" min="0" max="99" style="width:4.5rem" name="' . esc_attr( $field . '[order]' ) . '" value="' . esc_attr( (string) $item['order'] ) . '" aria-label="' . esc_attr( sprintf( __( 'ترتیب برچسب %s', 'tecteb-homepage' ), $n ) ) . '"></td>';
+			/* translators: 1: label number 2: default name */
+			echo '<td><input type="text" maxlength="40" style="width:13rem" name="' . esc_attr( $field . '[title]' ) . '" value="' . esc_attr( $item['title'] ) . '" placeholder="' . esc_attr( '' !== $label['path'] ? __( 'خالی: نام دسته', 'tecteb-homepage' ) : $label['match'] ) . '" aria-label="' . esc_attr( sprintf( __( 'عنوان برچسب %1$s (پیش‌فرض: %2$s)', 'tecteb-homepage' ), $n, $label['match'] ) ) . '">'
+				/* translators: %s: default name */
+				. '<br><small>' . esc_html( sprintf( __( 'پیش‌فرض: %s', 'tecteb-homepage' ), $label['match'] ) ) . '</small></td>';
+			/* translators: %s: label number */
+			echo '<td><input type="number" min="0" step="1" style="width:8rem" name="' . esc_attr( $field . '[term]' ) . '" value="' . esc_attr( $item['term'] > 0 ? (string) $item['term'] : '' ) . '" aria-label="' . esc_attr( sprintf( __( 'شناسهٔ دستهٔ برچسب %s', 'tecteb-homepage' ), $n ) ) . '"><br><small>' . esc_html__( 'خالی = با نام پیش‌فرض', 'tecteb-homepage' ) . '</small></td><td>';
+			if ( 'ok' === $label['resolved'] ) {
 				echo esc_html( $label['path'] ) . ' <small dir="ltr">#' . esc_html( (string) $label['term'] ) . '</small> — '
-					. esc_html( $label['pinned'] ? __( 'تعیین دستی', 'tecteb-homepage' ) : __( 'پیدا شده با نام', 'tecteb-homepage' ) )
-					. ' · <a href="' . esc_url( $label['url'] ) . '" target="_blank" rel="noopener">' . esc_html__( 'دیدن صفحهٔ دسته', 'tecteb-homepage' ) . '</a>';
+					. esc_html( $label['pinned'] ? __( 'تعیین دستی', 'tecteb-homepage' ) : __( 'پیدا شده با نام پیش‌فرض', 'tecteb-homepage' ) );
+				if ( $label['active'] ) {
+					/* translators: %s: label name as shown */
+					echo '<br>' . esc_html( sprintf( __( 'نمایش با عنوان «%s»', 'tecteb-homepage' ), $label['name'] ) ) . ' · <a href="' . esc_url( $label['url'] ) . '" target="_blank" rel="noopener">' . esc_html__( 'دیدن صفحهٔ دسته', 'tecteb-homepage' ) . '</a>';
+				}
 			} else {
-				echo '<strong>' . esc_html( $texts[ $label['status'] ] ?? '' ) . '</strong>';
+				echo '<strong>' . esc_html( $texts[ $label['resolved'] ] ?? '' ) . '</strong>';
 				if ( '' !== $label['path'] ) {
 					echo '<br>' . esc_html( $label['path'] ) . ' <small dir="ltr">#' . esc_html( (string) $label['term'] ) . '</small>';
 				}
@@ -403,9 +428,37 @@ final class Admin {
 					echo '</ul>';
 				}
 			}
-			$pin = (int) ( Settings::get()['hero_labels'][ $i ] ?? 0 );
-			echo '</td><td><input type="number" min="0" step="1" style="width:8rem" name="' . esc_attr( $name . '[hero_labels][' . $i . ']' ) . '" value="' . esc_attr( $pin > 0 ? (string) $pin : '' ) . '" aria-label="' . esc_attr( sprintf( /* translators: %s: label */ __( 'شناسهٔ دستهٔ برچسب «%s»', 'tecteb-homepage' ), $slot ) ) . '"></td>';
+			if ( ! $label['active'] ) {
+				echo '<br><em>' . esc_html__( 'غیرفعال — نمایش داده نمی‌شود.', 'tecteb-homepage' ) . '</em>';
+			}
+			/* translators: %s: label number */
+			echo '</td><td><label><input type="checkbox" name="' . esc_attr( $field . '[active]' ) . '" value="1"' . checked( $item['active'], true, false ) . ' aria-label="' . esc_attr( sprintf( __( 'برچسب %s فعال است', 'tecteb-homepage' ), $n ) ) . '"> ' . esc_html__( 'فعال', 'tecteb-homepage' ) . '</label></td>';
 			echo '</tr>';
+		}
+		echo '</tbody></table>';
+
+		echo '<h3>' . esc_html__( 'انتخاب دسته برای یک برچسب', 'tecteb-homepage' ) . '</h3>';
+		echo '<p><label for="tth-hq" class="screen-reader-text">' . esc_html__( 'نام دسته', 'tecteb-homepage' ) . '</label>'
+			. '<input form="tth-hero-search" type="search" id="tth-hq" name="tth_hq" value="' . esc_attr( $query ) . '" placeholder="' . esc_attr__( 'بخشی از نام دسته…', 'tecteb-homepage' ) . '"> '
+			. '<button form="tth-hero-search" type="submit" class="button" id="tth-hq-go">' . esc_html__( 'جست‌وجوی دسته', 'tecteb-homepage' ) . '</button></p>';
+		if ( '' === $query ) {
+			return;
+		}
+		$results = Catalog::search_categories( $query );
+		if ( array() === $results ) {
+			/* translators: %s: query */
+			echo '<p>' . esc_html( sprintf( __( 'دسته‌ای با «%s» پیدا نشد.', 'tecteb-homepage' ), $query ) ) . '</p>';
+			return;
+		}
+		echo '<table class="widefat striped" style="max-width:72rem" id="tth-hero-results"><tbody>';
+		foreach ( $results as $r ) {
+			echo '<tr><td>' . esc_html( $r['path'] ) . ' <small dir="ltr">#' . esc_html( (string) $r['id'] ) . '</small></td><td style="width:7rem">' . esc_html( Renderer::digits( $r['count'] ) ) . ' ' . esc_html__( 'محصول', 'tecteb-homepage' ) . '</td><td>';
+			foreach ( array_keys( Settings::HERO_LABELS ) as $i ) {
+				/* translators: %s: label number */
+				/* translators: 1: category path 2: label number */
+				echo '<button type="submit" class="button button-small" style="margin:.1rem" name="' . esc_attr( $name . '[hero_pick]' ) . '" value="' . esc_attr( $i . ':' . $r['id'] ) . '" aria-label="' . esc_attr( sprintf( __( 'دستهٔ «%1$s» برای برچسب %2$s، و ذخیره', 'tecteb-homepage' ), $r['path'], Renderer::digits( $i + 1 ) ) ) . '">' . esc_html( sprintf( __( 'برای برچسب %s', 'tecteb-homepage' ), Renderer::digits( $i + 1 ) ) ) . '</button>';
+			}
+			echo '</td></tr>';
 		}
 		echo '</tbody></table>';
 	}

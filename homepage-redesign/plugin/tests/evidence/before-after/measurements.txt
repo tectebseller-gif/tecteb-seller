@@ -1,0 +1,4 @@
+before 1440: css ver=0.3.3 · brands section 322px tall, title 36px, card 104px
+before 390: css ver=0.3.3 · brands section 264px tall, title 24px, card 104px
+after 1440: css ver=0.3.4 · brands section 232px tall, title 22px, card 84px
+after 390: css ver=0.3.4 · brands section 192px tall, title 18px, card 76px

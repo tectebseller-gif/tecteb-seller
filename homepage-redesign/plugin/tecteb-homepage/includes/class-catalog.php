@@ -18,6 +18,11 @@ defined( 'ABSPATH' ) || exit;
 
 final class Catalog {
 
+	/** ۰٫۳٫۴: اندازهٔ دیداری لوگوی برندها (rem² و rem) — Catalog::logo_width(). */
+	private const LOGO_AREA  = 9.0;
+	private const LOGO_MAX_H = 3.0; // ≤ بلندی درونی کوچک‌ترین کارت (۴٫۷۵rem − ۱٫۵rem − ۲px)
+	private const LOGO_MAX_W = 8.5;
+
 	/**
 	 * دسته‌های منتخب، به ترتیب مدیر. دسته‌ای که حذف شده یا محصولی ندارد کنار
 	 * گذاشته می‌شود و صفحهٔ تنظیمات همین را می‌گوید.
@@ -307,34 +312,42 @@ final class Catalog {
 	}
 
 	/**
-	 * ۰٫۳٫۳ — چهار برچسب کنار تصویر Hero (Settings::HERO_LABELS)، هر کدام با دستهٔ واقعیِ ووکامرس.
+	 * ۰٫۳٫۳ / ۰٫۳٫۴ — چهار برچسب کنار تصویر Hero (Settings ← hero_items)، به ترتیبِ ستون «ترتیب»، هر کدام با
+	 * دستهٔ واقعیِ ووکامرس.
 	 *
-	 * اگر مدیر شناسه‌ای تعیین کرده همان دسته؛ وگرنه دسته‌ای که **نام**ش دقیقاً همان است (با یکی‌کردن
-	 * «ي/ك» ِ عربی، نیم‌فاصله و فاصله‌های تکراری). چند دسته با یک نام: اگر دقیقاً یکی در ریشه است همان،
-	 * وگرنه «مبهم» و چاپ نمی‌شود — حدس زده نمی‌شود. دستهٔ بی‌محصول هم چاپ نمی‌شود (بخش دسته‌ها همین
-	 * قاعده را دارد)، تا هیچ برچسبی به صفحهٔ خالی نرود. هیچ چیز نوشته نمی‌شود.
+	 * اگر مدیر دسته‌ای تعیین کرده همان دسته؛ وگرنه دسته‌ای که نامش دقیقاً **نام پیش‌فرضِ همان ردیف** است
+	 * (Settings::HERO_LABELS — با یکی‌کردن «ي/ك» ِ عربی، نیم‌فاصله و فاصله‌های تکراری). عنوانِ نمایشی مستقل
+	 * از نام دسته است و در این جست‌وجو به کار نمی‌رود؛ عنوانِ خالی ⇒ نام دسته. چند دسته با یک نام: اگر دقیقاً
+	 * یکی در ریشه است همان، وگرنه «مبهم» و چاپ نمی‌شود — حدس زده نمی‌شود. دستهٔ بی‌محصول و ردیف غیرفعال هم
+	 * چاپ نمی‌شوند. هیچ چیز نوشته نمی‌شود.
 	 *
-	 * @return list<array{name:string,icon:string,status:string,url:string,term:int,path:string,pinned:bool,candidates:list<array{id:int,path:string}>}>
-	 *         status: ok | not_found | ambiguous | missing | empty | no_link
+	 * @return list<array{index:int,order:int,active:bool,resolved:string,title:string,match:string,name:string,icon:string,status:string,url:string,term:int,path:string,pinned:bool,candidates:list<array{id:int,path:string}>}>
+	 *         status: ok | inactive | not_found | ambiguous | missing | empty | no_link
 	 */
 	public static function hero_labels(): array {
-		$pins  = Settings::get()['hero_labels'];
+		$items = Settings::get()['hero_items'];
 		$index = null;
 		$out   = array();
 		foreach ( Settings::HERO_LABELS as $i => $slot ) {
-			$row = array(
-				'name'       => $slot[0],
+			$item = $items[ $i ] ?? array( 'title' => $slot[0], 'term' => 0, 'order' => $i + 1, 'active' => true );
+			$row  = array(
+				'index'      => $i,
+				'order'      => (int) $item['order'],
+				'active'     => (bool) $item['active'],
+				'title'      => (string) $item['title'],
+				'match'      => $slot[0],
+				'name'       => (string) $item['title'],
 				'icon'       => $slot[1],
 				'status'     => '',
 				'url'        => '',
 				'term'       => 0,
 				'path'       => '',
-				'pinned'     => (int) ( $pins[ $i ] ?? 0 ) > 0,
+				'pinned'     => (int) $item['term'] > 0,
 				'candidates' => array(),
 			);
 			$term = null;
 			if ( $row['pinned'] ) {
-				$term          = get_term( (int) $pins[ $i ], 'product_cat' );
+				$term          = get_term( (int) $item['term'], 'product_cat' );
 				$row['status'] = $term instanceof \WP_Term ? '' : 'missing';
 			} else {
 				$index   = $index ?? self::terms_by_name();
@@ -352,7 +365,7 @@ final class Catalog {
 			if ( $term instanceof \WP_Term ) {
 				$row['term'] = (int) $term->term_id;
 				$row['path'] = self::path( $term );
-				if ( $row['pinned'] ) {
+				if ( '' === $row['name'] ) {
 					$row['name'] = (string) $term->name;
 				}
 				$link = get_term_link( $term );
@@ -365,8 +378,17 @@ final class Catalog {
 					$row['url']    = (string) $link;
 				}
 			}
+			if ( '' === $row['name'] ) {
+				$row['name'] = $slot[0];
+			}
+			$row['resolved'] = $row['status']; // وضعیت دسته، مستقل از فعال بودن — برای صفحهٔ تنظیمات.
+			if ( ! $row['active'] ) {
+				$row['status'] = 'inactive';
+				$row['url']    = '';
+			}
 			$out[] = $row;
 		}
+		usort( $out, static fn( array $a, array $b ): int => array( $a['order'], $a['index'] ) <=> array( $b['order'], $b['index'] ) );
 		return $out;
 	}
 
@@ -406,18 +428,18 @@ final class Catalog {
 			if ( empty( $b['active'] ) || (int) $b['logo'] < 1 || ! wp_attachment_is_image( (int) $b['logo'] ) ) {
 				continue;
 			}
-			$img = (string) wp_get_attachment_image(
-				(int) $b['logo'],
-				'medium',
-				false,
-				array(
-					'class'    => 'th-brand__img',
-					'alt'      => $b['name'],
-					'loading'  => 'lazy',
-					'decoding' => 'async',
-					'sizes'    => '160px',
-				)
+			$attrs = array(
+				'class'    => 'th-brand__img',
+				'alt'      => $b['name'],
+				'loading'  => 'lazy',
+				'decoding' => 'async',
+				'sizes'    => '160px',
 			);
+			$src   = wp_get_attachment_image_src( (int) $b['logo'], 'medium' );
+			if ( is_array( $src ) && (int) $src[1] > 0 && (int) $src[2] > 0 ) {
+				$attrs['style'] = '--th-logo-w:' . self::logo_width( (int) $src[1] / (int) $src[2] );
+			}
+			$img = (string) wp_get_attachment_image( (int) $b['logo'], 'medium', false, $attrs );
 			if ( '' === $img ) {
 				continue;
 			}
@@ -428,6 +450,18 @@ final class Catalog {
 			);
 		}
 		return $out;
+	}
+
+	/**
+	 * ۰٫۳٫۴ — پهنای نمایشی یک لوگو برای اندازهٔ دیداری یکسان: مساحت تقریباً ثابت (LOGO_AREA rem²)، پس
+	 * پهنا = √(مساحت × نسبت). بلندی از LOGO_MAX_H و پهنا از LOGO_MAX_W بیشتر نمی‌شود، و هر دو حد با همان
+	 * نسبت تصویر اعمال می‌شوند — لوگو هرگز کشیده نمی‌شود. CSS آن را به ظرف هم محدود می‌کند (max-inline-size).
+	 */
+	public static function logo_width( float $ratio ): string {
+		$ratio = max( 0.05, min( 20.0, $ratio ) );
+		$w     = sqrt( self::LOGO_AREA * $ratio );
+		$w     = min( $w, self::LOGO_MAX_H * $ratio, self::LOGO_MAX_W );
+		return sprintf( '%.2Frem', $w );
 	}
 
 	public static function path( \WP_Term $term ): string {

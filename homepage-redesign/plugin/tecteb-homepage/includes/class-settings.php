@@ -94,8 +94,11 @@ final class Settings {
 			'font'                => 'bundled',
 			// ۰٫۳٫۱: نمایش Concept C روی صفحهٔ نخست ِ «تنظیمات ← خواندن» بی تغییر آن برگه. پیش‌فرض خاموش.
 			'front_page'          => false,
-			// ۰٫۳٫۳: شناسهٔ دستهٔ دستیِ هر برچسب Hero؛ ۰ = پیدا کردن با نام.
+			// ۰٫۳٫۳: شناسهٔ دستهٔ دستیِ هر برچسب Hero؛ ۰ = پیدا کردن با نام. از ۰٫۳٫۴ از hero_items مشتق
+			// می‌شود (همان دستهٔ هر ردیف) و فقط برای بازگشت به ۰٫۳٫۳ نوشته می‌شود؛ ۰٫۳٫۴ آن را نمی‌خواند.
 			'hero_labels'         => array( 0, 0, 0, 0 ),
+			// ۰٫۳٫۴: چهار ردیف برچسب Hero — عنوان، دسته، ترتیب، فعال. نبودنش (option ِ ۰٫۳٫۳) ⇒ از hero_labels.
+			'hero_items'          => self::default_hero_items(),
 			// ۰٫۳٫۳: برندهای همکار — فقط آنچه مدیر ثبت کرده.
 			'brands'              => array(),
 		);
@@ -191,7 +194,12 @@ final class Settings {
 
 		$out['front_page'] = ! empty( $in['front_page'] );
 
-		$out['hero_labels'] = self::hero_labels( $in['hero_labels'] ?? array(), $report );
+		// ۰٫۳٫۴: option ِ ۰٫۳٫۳ کلید hero_items ندارد ⇒ ردیف‌ها از شناسه‌های دستیِ ۰٫۳٫۳ ساخته می‌شوند، با همان
+		// عنوانی که ۰٫۳٫۳ نشان می‌داد. hero_labels همیشه از ردیف‌ها مشتق می‌شود تا بازگشت به ۰٫۳٫۳ همان دسته‌ها را ببیند.
+		$out['hero_items']  = is_array( $in['hero_items'] ?? null )
+			? self::hero_items( $in['hero_items'], (string) ( $in['hero_pick'] ?? '' ), $report )
+			: self::hero_items_from_pins( self::hero_labels( $in['hero_labels'] ?? array(), $report ) );
+		$out['hero_labels'] = array_map( static fn( array $row ): int => $row['term'], $out['hero_items'] );
 
 		// option ِ ۰٫۳٫۲ کلید brands ندارد ⇒ هنوز برندی ثبت نشده. فرم پیشخوان هر برندِ ثبت‌شده را ردیف به ردیف
 		// می‌فرستد، پس فرمی که هیچ ردیفی ندارد یعنی همه حذف شده‌اند — همان جواب. add_brand ردیف «برند تازه» است.
@@ -335,6 +343,83 @@ final class Settings {
 			$out[] = $id;
 		}
 		return $out;
+	}
+
+	/**
+	 * ۰٫۳٫۴ — چهار ردیف پیش‌فرض: چهار عنوانِ ۰٫۳٫۳ به همان ترتیب، فعال، بی دستهٔ دستی (پیدا کردن با نام).
+	 *
+	 * @return list<array{title:string,term:int,order:int,active:bool}>
+	 */
+	public static function default_hero_items(): array {
+		$out = array();
+		foreach ( self::HERO_LABELS as $i => $slot ) {
+			$out[] = array( 'title' => $slot[0], 'term' => 0, 'order' => $i + 1, 'active' => true );
+		}
+		return $out;
+	}
+
+	/**
+	 * ارتقا از ۰٫۳٫۳: ردیفی که شناسهٔ دستی دارد همان دسته را نگه می‌دارد و عنوانش نام همان دسته است (آنچه
+	 * ۰٫۳٫۳ نشان می‌داد)؛ بقیه عنوان پیش‌فرض و پیدا کردن با نام. هیچ چیز نوشته نمی‌شود.
+	 *
+	 * @param list<int> $pins
+	 */
+	private static function hero_items_from_pins( array $pins ): array {
+		$out = self::default_hero_items();
+		foreach ( $out as $i => $row ) {
+			$term = (int) ( $pins[ $i ] ?? 0 );
+			if ( $term > 0 ) {
+				$t                   = get_term( $term, 'product_cat' );
+				$out[ $i ]['term']  = $term;
+				$out[ $i ]['title'] = $t instanceof \WP_Term ? self::text( $t->name, 40 ) : $row['title'];
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * ۰٫۳٫۴ — ردیف‌های برچسب Hero از فرم (یا شکل ذخیره‌شده). همیشه دقیقاً چهار ردیف، با همان شناسهٔ ردیف
+	 * (اندیس) که نام پیش‌فرض و آیکون را تعیین می‌کند. عنوانِ خالی ⇒ نام دسته هنگام نمایش. دستهٔ نامعتبر هنگام
+	 * ذخیره ⇒ ۰ و پیام. hero_pick («اندیس:شناسه») انتخاب از نتیجهٔ جست‌وجوی همان بخش است. هیچ دسته‌ای نوشته نمی‌شود.
+	 *
+	 * @return list<array{title:string,term:int,order:int,active:bool}>
+	 */
+	private static function hero_items( array $rows, string $pick, bool $report ): array {
+		$rows = array_values( $rows );
+		if ( preg_match( '/^([0-9]+):([0-9]+)$/', $pick, $m ) && isset( self::HERO_LABELS[ (int) $m[1] ] ) ) {
+			$rows[ (int) $m[1] ]          = is_array( $rows[ (int) $m[1] ] ?? null ) ? $rows[ (int) $m[1] ] : array();
+			$rows[ (int) $m[1] ]['term'] = (int) $m[2];
+		}
+		$list = array();
+		foreach ( self::default_hero_items() as $i => $default ) {
+			$row = is_array( $rows[ $i ] ?? null ) ? $rows[ $i ] : $default;
+			$id  = absint( $row['term'] ?? 0 );
+			// فقط هنگام ذخیره رد می‌شود. دسته‌ای که بعداً از ووکامرس حذف شود در خواندن همان شناسه می‌ماند تا
+			// Catalog «missing» بگوید و برچسب پنهان شود — نه اینکه بی‌صدا به دستهٔ هم‌نامِ دیگری برود.
+			if ( $report && $id > 0 && ! ( get_term( $id, 'product_cat' ) instanceof \WP_Term ) ) {
+				if ( $report ) {
+					/* translators: 1: label number 2: term ID */
+					self::error( 'hero_item_' . $i, sprintf( 'برای برچسب شمارهٔ %1$d دستهٔ #%2$d در ووکامرس پیدا نشد؛ برچسب با نام پیش‌فرضش («%3$s») پیدا می‌شود.', $i + 1, $id, self::HERO_LABELS[ $i ][0] ) );
+				}
+				$id = 0;
+			}
+			$list[] = array(
+				'title'  => self::text( $row['title'] ?? '', 40 ),
+				'term'   => $id,
+				'active' => ! empty( $row['active'] ),
+				'order'  => isset( $row['order'] ) && is_numeric( $row['order'] ) ? (float) $row['order'] : (float) ( $i + 1 ),
+				'index'  => $i,
+			);
+		}
+		$sorted = $list;
+		usort( $sorted, static fn( array $a, array $b ): int => array( $a['order'], $a['index'] ) <=> array( $b['order'], $b['index'] ) );
+		foreach ( $sorted as $rank => $row ) {
+			$list[ $row['index'] ]['order'] = $rank + 1;
+		}
+		return array_map(
+			static fn( array $r ): array => array( 'title' => $r['title'], 'term' => $r['term'], 'order' => (int) $r['order'], 'active' => $r['active'] ),
+			$list
+		);
 	}
 
 	/**

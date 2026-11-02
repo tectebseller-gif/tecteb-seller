@@ -40,6 +40,15 @@ function settings( array $patch ): void {
 	Settings::forget();
 }
 
+/** ۰٫۳٫۴: ردیف‌های برچسب Hero = پیش‌فرض، با وصله‌های داده‌شده (اندیس ⇒ کلیدها)، از مسیر sanitize. */
+function hero_items( array $patch ): void {
+	$rows = Settings::default_hero_items();
+	foreach ( $patch as $i => $row ) {
+		$rows[ $i ] = array_replace( $rows[ $i ], $row );
+	}
+	settings( array( 'hero_items' => $rows ) );
+}
+
 function html( string $sections = '' ): string {
 	Renderer::reset();
 	Settings::forget();
@@ -631,7 +640,7 @@ $surg = get_term( $L[3]['term'], 'product_cat' );
 check( 'labels: two «جراحی» categories, exactly one at the root ⇒ the root one', 'ok' === $L[3]['status'] && 0 === (int) $surg->parent && 2 === count( array_filter( get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false ) ), static fn( $t ) => 'جراحی' === $t->name ) ) );
 $h = html( 'hero' );
 check( 'labels: only linked labels are printed, in order', array( 'آزمایشگاه', 'جراحی' ) === $label_texts( $h ) && array( get_term_link( $lab ), get_term_link( $surg ) ) === array_map( static fn( $n ) => $n->getAttribute( 'href' ), nodes( $h, '//ul[' . cls( 'th-floats' ) . ']//a' ) ) );
-check( 'labels: positions follow the slot (3 ⇒ three, 4 ⇒ four) so a missing label never shifts the others', array( 'th-float th-float--three', 'th-float th-float--four' ) === array_map( static fn( $n ) => $n->getAttribute( 'class' ), nodes( $h, '//ul[' . cls( 'th-floats' ) . ']//a' ) ) );
+check( 'labels: positions fill in order (0.3.4) — two shown ⇒ one, two; a hidden label leaves no hole', array( 'th-float th-float--one', 'th-float th-float--two' ) === array_map( static fn( $n ) => $n->getAttribute( 'class' ), nodes( $h, '//ul[' . cls( 'th-floats' ) . ']//a' ) ) );
 // محصول آزمایشی در دو دستهٔ بی‌محصول ⇒ هر چهار برچسب.
 $tmp = array();
 foreach ( array( 0, 1 ) as $k ) {
@@ -651,14 +660,75 @@ register_shutdown_function( static fn() => wp_update_term( $surg->term_id, 'prod
 wp_update_term( $surg->term_id, 'product_cat', array( 'parent' => $c['lab'] ) );
 $L = Catalog::hero_labels();
 check( 'labels: two «جراحی» and none at the root ⇒ ambiguous, not linked, both candidates listed', 'ambiguous' === $L[3]['status'] && '' === $L[3]['url'] && 2 === count( $L[3]['candidates'] ) && ! in_array( 'جراحی', $label_texts( html( 'hero' ) ), true ) );
-settings( array( 'hero_labels' => array( 0, 0, 0, $surg->term_id ) ) );
+hero_items( array( 3 => array( 'term' => $surg->term_id ) ) );
 $L = Catalog::hero_labels();
-check( 'labels: admin pins the term ID ⇒ that category, label shows its real name', 'ok' === $L[3]['status'] && $L[3]['pinned'] && $surg->term_id === $L[3]['term'] && 'جراحی' === $L[3]['name'] );
+check( 'labels: admin pins the term ID ⇒ that category', 'ok' === $L[3]['status'] && $L[3]['pinned'] && $surg->term_id === $L[3]['term'] && 'جراحی' === $L[3]['name'] );
 wp_update_term( $surg->term_id, 'product_cat', array( 'parent' => $surg_parent ) );
-$s = \Tecteb\Homepage\Settings::sanitize( array_replace( get_option( \Tecteb\Homepage\Settings::OPTION ), array( 'hero_labels' => array( 0, 99999999, 0, 'abc' ) ) ) );
-check( 'labels: a pinned ID that is not a product category is refused (0 = by name)', array( 0, 0, 0, 0 ) === $s['hero_labels'] );
+$s = \Tecteb\Homepage\Settings::sanitize( array_replace( array_diff_key( get_option( \Tecteb\Homepage\Settings::OPTION ), array( 'hero_items' => 1 ) ), array( 'hero_labels' => array( 0, 99999999, 0, 'abc' ) ) ) );
+check( 'labels: a pinned 0.3.3 ID that is not a product category is refused (0 = by name)', array( 0, 0, 0, 0 ) === $s['hero_labels'] && array( 0, 0, 0, 0 ) === array_column( $s['hero_items'], 'term' ) );
 check( 'labels: name matching folds Arabic ي/ك and ZWNJ, nothing else', Catalog::name_key( 'جراحي' ) === Catalog::name_key( 'جراحی' ) && Catalog::name_key( 'پزشكی‌جنرال' ) !== Catalog::name_key( 'پزشکی جنرال' ) && Catalog::name_key( "  پزشکی   جنرال " ) === Catalog::name_key( 'پزشکی جنرال' ) );
-settings( array( 'hero_labels' => array( 0, 0, 0, 0 ) ) );
+/* ------------------------------------------------------------ ۱۳-هـ. ۰٫۳٫۴: مدیریت برچسب‌های Hero از پنل */
+$S     = \Tecteb\Homepage\Settings::class;
+$floats = static fn( string $h ): array => array_map( static fn( $n ) => array( trim( $n->textContent ), $n->getAttribute( 'href' ), $n->getAttribute( 'class' ) ), nodes( $h, '//ul[' . cls( 'th-floats' ) . ']//a' ) );
+hero_items( array() );
+$L0    = array_column( Catalog::hero_labels(), null, 'index' );
+$terms = array_map( static fn( $r ) => (int) $r['term'], $L0 );
+$links = array_map( static fn( $t ) => get_term_link( $t, 'product_cat' ), $terms );
+$terms_before = wp_json_encode( array_map( static fn( $t ) => array( $t->term_id, $t->name, $t->slug, $t->parent, $t->count ), get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false, 'orderby' => 'term_id' ) ) ) );
+$cats_before  = html( 'categories' );
+check( 'hero 0.3.4: defaults = the four 0.3.3 titles, in order, all active, no category pinned', array( 'پزشکی جنرال', 'بیهوشی و تنفسی', 'آزمایشگاه', 'جراحی' ) === array_column( $S::default_hero_items(), 'title' ) && array( 1, 2, 3, 4 ) === array_column( $S::default_hero_items(), 'order' ) && array( true, true, true, true ) === array_column( $S::default_hero_items(), 'active' ) && array( 0, 0, 0, 0 ) === array_column( $S::default_hero_items(), 'term' ) );
+// ارتقا از ۰٫۳٫۳: option ِ آن نسخه کلید hero_items ندارد.
+$up = $S::normalize( array( 'hero_labels' => array( 0, 0, 0, $terms[3] ) ), false );
+check( 'hero 0.3.4: a 0.3.3 option (no hero_items) ⇒ default titles, order and active kept; its pinned ID kept with the title 0.3.3 showed (the category name)', array( 'پزشکی جنرال', 'بیهوشی و تنفسی', 'آزمایشگاه', get_term( $terms[3] )->name ) === array_column( $up['hero_items'], 'title' ) && array( 0, 0, 0, $terms[3] ) === array_column( $up['hero_items'], 'term' ) && array( 1, 2, 3, 4 ) === array_column( $up['hero_items'], 'order' ) && array( 0, 0, 0, $terms[3] ) === $up['hero_labels'] );
+check( 'hero 0.3.4: a 0.3.3 option renders exactly as 0.3.3 did (same four titles, same archives, same order)', array( array( 'پزشکی جنرال', $links[0] ), array( 'بیهوشی و تنفسی', $links[1] ), array( 'آزمایشگاه', $links[2] ), array( 'جراحی', $links[3] ) ) === array_map( static fn( $f ) => array( $f[0], $f[1] ), $floats( html( 'hero' ) ) ) );
+// عنوان مستقل از نام دسته.
+hero_items( array( 0 => array( 'title' => 'تجهیزات عمومی' ) ) );
+$f = $floats( html( 'hero' ) );
+check( 'hero 0.3.4: editing a title changes only the text — same category archive, the WooCommerce term name untouched', 'تجهیزات عمومی' === $f[0][0] && $links[0] === $f[0][1] && 'پزشکی جنرال' === get_term( $terms[0] )->name );
+hero_items( array( 0 => array( 'title' => '' ) ) );
+check( 'hero 0.3.4: an empty title ⇒ the category\'s own name', 'پزشکی جنرال' === $floats( html( 'hero' ) )[0][0] );
+$x = $S::sanitize( array_replace( get_option( $S::OPTION ), array( 'hero_items' => array( array( 'title' => '<script>alert(1)</script>عنوان <b>تست</b>', 'term' => 0, 'order' => 1, 'active' => '1' ) ) ) ) );
+check( 'hero 0.3.4: titles are sanitized (no tags, max 40 characters); missing rows fall back to their defaults', ! str_contains( $x['hero_items'][0]['title'], '<' ) && str_contains( $x['hero_items'][0]['title'], 'عنوان' ) && 'بیهوشی و تنفسی' === $x['hero_items'][1]['title'] && 40 >= mb_strlen( $S::sanitize( array( 'hero_items' => array( array( 'title' => str_repeat( 'الف', 60 ), 'active' => '1' ) ) ) )['hero_items'][0]['title'] ) );
+// ترتیب.
+hero_items( array( 0 => array( 'order' => 4 ), 1 => array( 'order' => 3 ), 2 => array( 'order' => 2 ), 3 => array( 'order' => 1 ) ) );
+$f = $floats( html( 'hero' ) );
+check( 'hero 0.3.4: order — reversed in the panel ⇒ reversed on the page, positions one…four in the new order', array( 'جراحی', 'آزمایشگاه', 'بیهوشی و تنفسی', 'پزشکی جنرال' ) === array_column( $f, 0 ) && array( $links[3], $links[2], $links[1], $links[0] ) === array_column( $f, 1 ) && array( 'th-float th-float--one', 'th-float th-float--two', 'th-float th-float--three', 'th-float th-float--four' ) === array_column( $f, 2 ) );
+$o = $S::sanitize( array_replace( get_option( $S::OPTION ), array( 'hero_items' => array( array( 'order' => 7, 'active' => '1' ), array( 'order' => 7, 'active' => '1' ), array( 'order' => 'x', 'active' => '1' ), array( 'order' => -2, 'active' => '1' ) ) ) ) );
+check( 'hero 0.3.4: order is stored as ranks 1…4 (ties keep row order; a non-number keeps the row\'s place)', array( 3, 4, 2, 1 ) === array_column( $o['hero_items'], 'order' ) );
+// فعال / غیرفعال.
+hero_items( array( 1 => array( 'active' => false ) ) );
+$f = $floats( html( 'hero' ) );
+$L = array_column( Catalog::hero_labels(), null, 'index' );
+check( 'hero 0.3.4: an inactive label is not printed and leaves no hole (one, two, three)', array( 'پزشکی جنرال', 'آزمایشگاه', 'جراحی' ) === array_column( $f, 0 ) && array( 'th-float th-float--one', 'th-float th-float--two', 'th-float th-float--three' ) === array_column( $f, 2 ) && 'inactive' === $L[1]['status'] && '' === $L[1]['url'] && 'ok' === $L[1]['resolved'] );
+hero_items( array( 0 => array( 'active' => false ), 1 => array( 'active' => false ), 2 => array( 'active' => false ), 3 => array( 'active' => false ) ) );
+check( 'hero 0.3.4: all four inactive ⇒ no th-floats list at all (no empty ul)', array() === nodes( html( 'hero' ), '//ul[' . cls( 'th-floats' ) . ']' ) );
+$off = $S::sanitize( array_replace( get_option( $S::OPTION ), array( 'hero_items' => array( array( 'title' => 'الف' ), array(), array(), array() ) ) ) );
+check( 'hero 0.3.4: an unticked «فعال» (no field posted) saves as inactive', array( false, false, false, false ) === array_column( $off['hero_items'], 'active' ) );
+// انتخاب دسته.
+hero_items( array( 1 => array( 'term' => $terms[2], 'title' => 'آزمایشگاه تشخیص طبی' ) ) );
+$f = $floats( html( 'hero' ) );
+check( 'hero 0.3.4: choosing a category by ID ⇒ that archive, with the admin\'s title', 'آزمایشگاه تشخیص طبی' === $f[1][0] && $links[2] === $f[1][1] );
+$pick = $S::sanitize( array_replace( get_option( $S::OPTION ), array( 'hero_pick' => '0:' . $terms[3] ) ) );
+check( 'hero 0.3.4: «برای برچسب ۱» from the search results sets that row\'s category (and only that row)', $terms[3] === $pick['hero_items'][0]['term'] && $terms[2] === $pick['hero_items'][1]['term'] && 0 === $pick['hero_items'][2]['term'] );
+check( 'hero 0.3.4: a malformed or out-of-range pick changes nothing', $S::sanitize( array_replace( get_option( $S::OPTION ), array( 'hero_pick' => '9:' . $terms[3] ) ) )['hero_items'] === $S::sanitize( get_option( $S::OPTION ) )['hero_items'] && $S::sanitize( array_replace( get_option( $S::OPTION ), array( 'hero_pick' => '0:abc' ) ) )['hero_items'] === $S::sanitize( get_option( $S::OPTION ) )['hero_items'] );
+$bad = $S::sanitize( array_replace( get_option( $S::OPTION ), array( 'hero_items' => array( array( 'term' => 99999999, 'active' => '1' ), array( 'term' => 'abc', 'active' => '1' ), array( 'term' => get_option( 'default_category' ), 'active' => '1' ) ) ) ) );
+check( 'hero 0.3.4: an ID that is not a product category (missing, text, a post category) is refused — back to «by name», with a message', array( 0, 0, 0 ) === array_slice( array_column( $bad['hero_items'], 'term' ), 0, 3 ) && in_array( 'hero_item_0', array_column( get_settings_errors( $S::OPTION ), 'code' ), true ) );
+// دستهٔ بی‌محصول با عنوان دلخواه هم پنهان می‌ماند؛ دستهٔ حذف‌شده هیچ پیوندی نمی‌سازد.
+$empty_cat = wp_insert_term( 'دستهٔ خالی آزمایشی ۰٫۳٫۴', 'product_cat' );
+hero_items( array( 2 => array( 'term' => $empty_cat['term_id'], 'title' => 'عنوان دلخواه' ) ) );
+$L = array_column( Catalog::hero_labels(), null, 'index' );
+check( 'hero 0.3.4: a chosen category without displayable products stays hidden, whatever the title', 'empty' === $L[2]['status'] && ! in_array( 'عنوان دلخواه', array_column( $floats( html( 'hero' ) ), 0 ), true ) );
+wp_delete_term( $empty_cat['term_id'], 'product_cat' );
+$L = array_column( Catalog::hero_labels(), null, 'index' );
+check( 'hero 0.3.4: a chosen category deleted later ⇒ «missing», no link, nothing printed — not silently re-pointed at the same-named category', 'missing' === $L[2]['status'] && '' === $L[2]['url'] && 3 === count( $floats( html( 'hero' ) ) ) && ! in_array( 'عنوان دلخواه', array_column( $floats( html( 'hero' ) ), 0 ), true ) );
+check( 'hero 0.3.4: …and saving the form then refuses that ID with a message (back to «by name»)', 0 === $S::sanitize( get_option( $S::OPTION ) )['hero_items'][2]['term'] );
+// بازگشت به ۰٫۳٫۳: hero_labels همیشه دستهٔ هر ردیف است.
+hero_items( array( 0 => array( 'term' => $terms[3] ), 2 => array( 'active' => false ) ) );
+check( 'hero 0.3.4: hero_labels (what 0.3.3 reads) always mirrors each row\'s category, so a downgrade sees the same categories', array( $terms[3], 0, 0, 0 ) === $S::sanitize( get_option( $S::OPTION ) )['hero_labels'] && array( $terms[3], 0, 0, 0 ) === $S::get()['hero_labels'] );
+// فقط Hero.
+check( 'hero 0.3.4: the categories section is byte-for-byte unchanged by any of the above', $cats_before === html( 'categories' ) );
+check( 'hero 0.3.4: no product category was created, renamed, moved or deleted (beyond the test\'s own temporary one)', $terms_before === wp_json_encode( array_map( static fn( $t ) => array( $t->term_id, $t->name, $t->slug, $t->parent, $t->count ), get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false, 'orderby' => 'term_id' ) ) ) ) );
+hero_items( array() );
 foreach ( $tmp as $id ) {
 	wp_delete_post( $id, true );
 }
@@ -749,6 +819,14 @@ check( 'brands: only active brands with a real image, in order, alt = brand name
 check( 'brands: optional link — with URL ⇒ <a href>, without ⇒ no link', array( 'https://example.org/a', home_url( '/landing-seller/' ) ) === array_map( static fn( $n ) => $n->getAttribute( 'href' ), nodes( $h, '//ul[' . cls( 'th-brands__list' ) . ']//a' ) ) && 2 === count( nodes( $h, '//ul[' . cls( 'th-brands__list' ) . ']//span[' . cls( 'th-brand' ) . ']' ) ) );
 check( 'brands: nav buttons are real buttons, hidden until the script shows them; region is focusable and labelled', 2 === count( nodes( $h, '//div[@data-th-brands-nav and @hidden]/button[@type="button"]' ) ) && 1 === count( nodes( $h, '//div[@data-th-brands and @tabindex="0" and @role="region" and @aria-label]' ) ) );
 check( 'brands: no third-party script or style (carousel is the plugin JS only)', ! preg_match( '#(swiper|slick|owl\.carousel|glide|splide)#i', $h ) );
+// ۰٫۳٫۴: اندازهٔ دیداری یکسان — هر لوگو --th-logo-w از نسبت خودِ تصویرش.
+$widths = array();
+foreach ( nodes( $h, '//ul[' . cls( 'th-brands__list' ) . ']//img' ) as $img ) {
+	$widths[] = preg_match( '/--th-logo-w:\s*([0-9.]+)rem/', $img->getAttribute( 'style' ), $m ) ? (float) $m[1] : -1;
+}
+check( 'brands 0.3.4: every logo carries --th-logo-w (balanced visual size)', array() !== $widths && ! in_array( -1, $widths, true ), wp_json_encode( $widths ) );
+$lw = static fn( float $r ): float => (float) Catalog::logo_width( $r );
+check( 'brands 0.3.4: wide logos get more width and less height than square ones, tall ones less width — never more than 3rem tall or 8.5rem wide, ratio kept', $lw( 4.0 ) > $lw( 1.0 ) && $lw( 1.0 ) > $lw( 0.5 ) && $lw( 4.0 ) / 4.0 < $lw( 1.0 ) && $lw( 0.5 ) / 0.5 <= 3.0 + 0.01 && $lw( 20.0 ) <= 8.5 && abs( $lw( 1.0 ) - 3.0 ) < 0.01 );
 wp_delete_attachment( $img_ids[1], true );
 $alts = array_map( static fn( $n ) => $n->getAttribute( 'alt' ), nodes( html(), '//ul[' . cls( 'th-brands__list' ) . ']//img' ) );
 check( 'brands: a logo deleted from the media library ⇒ that brand silently left out', array( 'برند آزمایشی الف', 'برند ج' ) === $alts, implode( ' | ', $alts ) );
