@@ -10,6 +10,7 @@
 |---|---|
 | نسخهٔ مخزن پیش از این دور | `0.3.2` (سربرگ افزونه، ثابت `TECTEB_HOME_VERSION` و `Stable tag` ِ readme هر سه — کامیت `80124a1`) ⇒ این نسخه `0.3.3` |
 | بسته | `dist/tecteb-homepage-0.3.3.zip` |
+| کامیت | `0f078a87be159963f19b82f25b03390d52601c4e` (شاخهٔ `claude/charming-pasteur-a0zjej`؛ بسته و سورس از همین کامیت‌اند — این خط در کامیت بعدیِ فقط‌سندی آمد) |
 | SHA-256 | `add7a3916b84e69bea0abe1f9ead40fc8df67872dfc92e1bc00aba96dff1fa80` (`dist/SHA256SUMS`) |
 | تکرارپذیری | دو ساخت جدا، همان هش؛ فایل‌های نصب‌شده از ZIP بایت‌به‌بایت برابر سورس |
 | داده | همان option ِ `tecteb_home_settings`، با دو کلید تازه (`hero_labels`، `brands`) که نبودشان یعنی «پیش‌فرض» |
