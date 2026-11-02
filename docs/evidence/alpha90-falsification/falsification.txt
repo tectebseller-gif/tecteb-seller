@@ -1,0 +1,36 @@
+alpha.90 falsification — 7 mutations
+tree: 46d38b4 12 modified paths
+
+baseline architecture:: 0
+baseline unit:: 0
+baseline database:OwnershipTransferUnitOfWorkTest: 0
+baseline database:CatalogueIntakeTest: 0
+
+1. put the unguarded pair back (no compensation at all)
+    database failures: 5 (wanted at least 1) — red
+    restored byte for byte: yes
+2. compensate, but always report «nothing changed»
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+3. compensate in the wrong direction
+    database failures: 4 (wanted at least 1) — red
+    restored byte for byte: yes
+4. leave the disagreement unrecorded (flash only)
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+5. compensate a row that never had a stamp to put back
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+6. let the double answer true to every release (alpha.59)
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+7. stop naming the half-written outcome on the page
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+
+final architecture:: 0
+final unit:: 0
+final database:OwnershipTransferUnitOfWorkTest: 0
+final database:CatalogueIntakeTest: 0
+
+mutations: 7 · problems: 0

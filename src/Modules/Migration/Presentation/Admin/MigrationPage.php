@@ -646,7 +646,18 @@ final class MigrationPage
                 if ($result->code === 'storefront_unreadable') {
                     return 'err:' . __('پذیرش انجام نشد: مقدارهای فعلی این محصول در ووکامرس خوانده نشد، پس معلوم نیست مبنای ورود کهنه است یا نه.', 'tecteb-marketplace-core');
                 }
-                return 'err:' . __('این تغییر مالکیت انجام نشد.', 'tecteb-marketplace-core');
+                // Two halves that disagree is not «nothing changed», and it
+                // sends the manager somewhere else: `storage_failed` means the
+                // row refused and the stamp went back, so pressing the button
+                // again is the whole answer.
+                if ($result->code === 'ownership_stamp_unrestored') {
+                    return 'err:' . sprintf(
+                        /* translators: %s: WooCommerce product id */
+                        __('انجام نشد و مهر محصول ووکامرس %s سر جایش برنگشت: ردیف و مهر با هم نمی‌خوانند. همین دکمه را یک بار دیگر بزنید؛ اگر باز هم شد، این متن را بفرستید.', 'tecteb-marketplace-core'),
+                        PersianDigits::toPersian((string) ($result->context['wc_product_id'] ?? 0))
+                    );
+                }
+                return 'err:' . __('این تغییر مالکیت انجام نشد. هیچ نیمه‌ای از آن هم انجام نشد؛ همین دکمه را دوباره بزنید.', 'tecteb-marketplace-core');
             }
             return 'ok:' . ($action === 'take_ownership'
                 ? sprintf(

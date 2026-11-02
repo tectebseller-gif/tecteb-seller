@@ -1,0 +1,93 @@
+=== the packages ===
+new_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.90.zip
+old_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.89.zip
+new_target=36
+old_target=36
+PASS  0a this round adds no migration step  (36)
+PASS  0b and both target structure 36  (36)
+
+=== 1 · the site on alpha.89 ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+reset=done
+posts_named=0
+ran=yes
+PASS  1a structure is 36 before anything  (36)
+PASS  1b alpha.89 knows the ownership event  (yes)
+PASS  1c and does NOT know the half-written one  (no)
+
+=== 2 · swap to alpha.90, then one admin request ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+PASS  2a swapping the files alone changes no structure  (36)
+ran=yes
+PASS  2b and the request runs no step either  (36)
+NOTE  2c migration status  {}
+PASS  2d no failed step is recorded  (0)
+PASS  2e alpha.90 knows the half-written event  (yes)
+PASS  2f and still knows the old one  (yes)
+
+=== 3 · one ownership transfer, on real WordPress ===
+PASS  3a the fixture is in place  (yes)
+row=4263 wc=77213
+PASS  3b it starts observed  (observed)
+PASS  3c with no stamp on the post  (__absent__)
+PASS  3d and exactly one product carries that title  (1)
+NOTE  3e take  actor=2 risks=manage_stock drift=price,sku,stock ok=yes code=ownership_taken
+PASS  3f the transfer succeeds  (ownership_taken)
+PASS  3g the row says marketplace  (marketplace)
+PASS  3h the post carries OUR row id  (4263)
+PASS  3i and the status it was found in  (publish)
+PASS  3j still exactly one product with that title  (1)
+PASS  3k the price was not touched  (450000)
+PASS  3l nor the post status  (publish)
+NOTE  3m give back  actor=2 ok=yes code=ownership_given_back
+PASS  3n the hand-back succeeds  (ownership_given_back)
+PASS  3o the row is observed again  (observed)
+PASS  3p the stamp is gone  (__absent__)
+PASS  3q so is the remembered status  (__absent__)
+PASS  3r and STILL exactly one product — no duplicate  (1)
+PASS  3s the price survived the round trip  (450000)
+PASS  3t and so did the post status  (publish)
+PASS  3u two ownership rows were audited  (2)
+PASS  3v and no half-written row, because nothing was half written  (0)
+
+=== 4 · back to alpha.89 ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+PASS  4a the structure is untouched by the rollback  (36)
+ran=yes
+PASS  4b and the next request runs nothing  (36)
+PASS  4c the fixture row reads the same  (observed)
+PASS  4d and still one product  (1)
+NOTE  4e the cost of the rollback  half_known=no — alpha.89 stops naming the half-written outcome
+PASS  4f the audit rows already written are still readable  (2)
+
+=== 5 · forward to alpha.90 once more ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+ran=yes
+PASS  5a structure 36, still  (36)
+PASS  5b and the event is known again  (yes)
+
+checks: 37  pass: 37  fail: 0

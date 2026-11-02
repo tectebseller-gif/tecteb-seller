@@ -114,20 +114,53 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
         return true;
     }
 
+    /**
+     * Make the next claim or release refuse, so a COMPENSATION can be made to
+     * fail. Opt-in and off by default: a transfer whose first write cannot be
+     * put back is a real state and the only way to assert that the service
+     * refuses to call it «nothing changed».
+     */
+    public bool $refuseClaim = false;
+    public bool $refuseRelease = false;
+
+    /**
+     * Both guards the real projector has, because a double that drops one
+     * makes an incomplete guard look complete (`alpha.59`).
+     *
+     * `WooCommerceProjector::claimStorefrontPost()` refuses a post another
+     * marketplace row already owns, and returns `owns()` rather than `true`.
+     */
     public function claimStorefrontPost(Product $product, int $wcProductId): bool
     {
-        if ($wcProductId <= 0) {
+        if ($wcProductId <= 0 || $this->refuseClaim) {
             return false;
+        }
+        foreach ($this->links as $owner => $linked) {
+            if ($linked === $wcProductId && (int) $owner !== $product->id) {
+                return false;   // two owners is not a state anything resolves
+            }
         }
         $this->links[$product->id] = $wcProductId;
         $this->statuses[$wcProductId] ??= 'publish';
-        return true;
+        return $this->owns($wcProductId, $product->id);
     }
 
+    /**
+     * ⛔ Refuses when the post is not ours, exactly as the real one does.
+     *
+     * Until `alpha.90` this answered `true` unconditionally, so the state a
+     * half-written give-back leaves behind — row `marketplace`, stamp gone —
+     * was INEXPRESSIBLE here: every retry «succeeded» in the double while the
+     * real `releaseStorefrontPost()` refuses outright and the transfer can
+     * never finish.
+     */
     public function releaseStorefrontPost(Product $product, int $wcProductId): bool
     {
+        if ($this->refuseRelease || !$this->owns($wcProductId, $product->id)) {
+            return false;
+        }
         unset($this->links[$product->id]);
-        return true;
+        return !$this->owns($wcProductId, $product->id);
     }
 
     public function increaseStock(Product $product, int $by): ?int

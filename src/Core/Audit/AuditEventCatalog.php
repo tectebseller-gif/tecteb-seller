@@ -168,6 +168,19 @@ final class AuditEventCatalog
     public const DOKAN_IMPORT_REPAIRED = 'migration.dokan_import_repaired';
     /** The explicit act that makes a mapped product the marketplace's to run. */
     public const DOKAN_OWNERSHIP_CHANGED = 'migration.ownership_changed';
+    /**
+     * The storefront stamp moved and the row did not, and putting the stamp
+     * back failed too.
+     *
+     * Its own event rather than a flag on the one above, because the one above
+     * records a FINISHED transfer and this records two halves that disagree.
+     * A manager who closes the page would otherwise have nowhere to learn
+     * which post needs looking at, and the direction matters: a stamp left ON
+     * blocks any other row from claiming that post, while a stamp left OFF on
+     * a row that still says `marketplace` is what makes the next projection
+     * save a second WooCommerce product.
+     */
+    public const DOKAN_OWNERSHIP_HALF_WRITTEN = 'migration.ownership_half_written';
 
     /**
      * Bringing products this shop already has into the marketplace as
@@ -351,6 +364,7 @@ final class AuditEventCatalog
             self::DOKAN_ROLLED_BACK => ['vendors', 'products', 'run_id'],
             self::DOKAN_IMPORT_REPAIRED => ['run_id', 'repaired', 'refused'],
             self::DOKAN_OWNERSHIP_CHANGED => ['product_id', 'wc_product_id', 'from', 'to'],
+            self::DOKAN_OWNERSHIP_HALF_WRITTEN => ['product_id', 'wc_product_id', 'from', 'to'],
             self::CATALOGUE_INTAKE => ['run_id', 'imported', 'skipped', 'failed'],
             self::CATALOGUE_INTAKE_ROLLED_BACK => ['run_id', 'removed', 'kept'],
             self::DOKAN_STAFF_GRANTED => ['vendor_id', 'staff_user_id', 'dokan_role', 'preset', 'status'],

@@ -249,6 +249,7 @@ final class TransferOwnership
             ]);
         }
         $wcProductId = (int) ($product->wcProductId ?? 0);
+        $postMoved = false;
         if ($wcProductId > 0) {
             // The post first: if this fails the row must NOT change, or the
             // marketplace would claim a product it cannot actually act on.
@@ -261,9 +262,77 @@ final class TransferOwnership
                     'wc_product_id' => $wcProductId,
                 ]);
             }
+            $postMoved = true;
         }
         if (!$this->products->setLinkOwnership($productId, $to)) {
-            return OperationResult::failure('storage_failed');
+            // ⛔ TWO WRITES, ONE UNIT OF WORK — and until `alpha.90` only the
+            // FIRST direction of failure was handled.
+            //
+            // The comment above says «if this fails the row must NOT change»,
+            // which covers the post refusing. It says nothing about the row
+            // refusing AFTER the post has already moved, and that half is the
+            // dangerous one. Measured from source on `alpha.89`:
+            //
+            //  - TAKING: the post keeps the stamp while the row still says
+            //    `observed`. The projector will not write (it asks the ROW,
+            //    `SyncCatalog::mayWriteToStorefront()`), so nothing is sold
+            //    wrongly — but no OTHER row can claim that post any more
+            //    (`claimStorefrontPost()` refuses a post owned by somebody
+            //    else) and a re-intake of it is refused too.
+            //  - GIVING BACK: the stamp is gone while the row still says
+            //    `marketplace`, and that combination CREATES A DUPLICATE. The
+            //    projector is allowed by the row, `owns()` answers false,
+            //    `linkedProduct()` returns null, and `project()` takes the
+            //    `$isNew` branch and saves a SECOND WooCommerce product
+            //    beside the first. Worse, the retry cannot help:
+            //    `releaseStorefrontPost()` refuses outright when the post is
+            //    not ours, so `giveBack()` would answer `storefront_refused`
+            //    for ever while every save widened the damage.
+            //
+            // So the first write is put back, and the answer says whether it
+            // actually went back: a restoration is a WRITE too and claiming
+            // one that failed is the `alpha.31` mistake. `storage_failed`
+            // now means «nothing changed, press the button again»;
+            // `ownership_stamp_unrestored` means the two halves disagree and
+            // names which way round, because those send the manager to two
+            // different places.
+            //
+            // Not a transaction, on purpose: `releaseStorefrontPost()` calls
+            // `wp_update_post()`, whose hooks and `clean_post_cache()` are
+            // not covered by a rollback, so a rolled-back transaction would
+            // leave a persistent object cache holding values no row carries.
+            // Compensation is the honest shape here.
+            $restored = !$postMoved || (
+                $to === LinkOwnership::Marketplace
+                    ? $this->catalog->releaseStorefrontPost($product, $wcProductId)
+                    : $this->catalog->claimStorefrontPost($product, $wcProductId)
+            );
+            if (!$restored) {
+                // Recorded, not just flashed: a manager who closes this page
+                // would otherwise have nowhere to learn that this one post and
+                // its row disagree.
+                $this->audit->log(
+                    AuditEventCatalog::DOKAN_OWNERSHIP_HALF_WRITTEN,
+                    $this->capabilities->currentUserId() ?? 0,
+                    'product',
+                    (string) $productId,
+                    [
+                        'product_id' => $productId,
+                        'wc_product_id' => $wcProductId,
+                        'from' => $from->value,
+                        'to' => $to->value,
+                    ]
+                );
+            }
+            return OperationResult::failure(
+                $restored ? 'storage_failed' : 'ownership_stamp_unrestored',
+                [
+                    'product_id' => $productId,
+                    'wc_product_id' => $wcProductId,
+                    'from' => $from->value,
+                    'to' => $to->value,
+                ]
+            );
         }
         $actorId = $this->capabilities->currentUserId() ?? 0;
         $this->audit->log(AuditEventCatalog::DOKAN_OWNERSHIP_CHANGED, $actorId, 'product', (string) $productId, [
