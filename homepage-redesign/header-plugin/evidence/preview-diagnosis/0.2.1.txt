@@ -1,0 +1,24 @@
+tecteb-header 0.2.1 (active on the local disposable site)
+
+| scenario | Elementor order | selected | user | url | Elementor header printed | Header B | tecteb-header comment | admin bar |
+|---|---|---|---|---|---|---|---|---|
+| A  nothing selected (fresh install default) | 20,2652 | — | admin | /?tth_preview=1 | 20 | 0 | not replaced: not_allowed | yes |
+| B  2652 selected, Elementor prints 20 first | 20,2652 | 2652 | admin | /?tth_preview=1 | 20 | 0 | not replaced: not_allowed | yes |
+| C  2652 selected, Elementor prints 2652 first (staging-like) | 2652,20 | 2652 | admin | /?tth_preview=1 | — | 1 | replaced Elementor header template 2652 | yes |
+| D  20 selected, Elementor prints 20 first | 20,2652 | 20 | admin | /?tth_preview=1 | — | 1 | replaced Elementor header template 20 | yes |
+| E  both selected, either order | 20,2652 | 20,2652 | admin | /?tth_preview=1 | — | 1 | replaced Elementor header template 20 | yes |
+| F  both selected, other order | 2652,20 | 20,2652 | admin | /?tth_preview=1 | — | 1 | replaced Elementor header template 2652 | yes |
+| G  not recognised as admin (other host/cookie, or logged out) | 20,2652 | 20,2652 | guest | /?tth_preview=1 | 20 | 0 | — | no |
+| H  header not printed through Elementor Pro's header location | 20,2652 | 20,2652 | admin | /?tth_preview=1 | — (theme header) | 0 | — | yes |
+| I  ?tth_original=1 (by design: always the old header) | 20,2652 | 20,2652 | admin | /?tth_original=1 | 20 | 0 | — | yes |
+
+PASS A: nothing selected ⇒ old header (#20), no Header B, source says «not replaced: not_allowed»
+PASS B: the selected template is not the one Elementor prints ⇒ the same symptom, the same comment
+PASS C: the selected template is the one Elementor prints ⇒ preview works (why staging worked)
+PASS D: select the printed one ⇒ preview works, switch still off
+PASS E/F: both selected ⇒ works whichever Elementor prints
+PASS G: not seen as an admin ⇒ old header, NO comment and NO admin bar
+PASS H: no Elementor header location ⇒ old header, NO comment, admin bar present
+PASS I: ?tth_original=1 ⇒ old header by design, no Header B
+
+8 passed, 0 failed
