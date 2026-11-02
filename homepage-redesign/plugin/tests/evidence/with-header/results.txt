@@ -46,7 +46,7 @@ PASS links: shop route → WooCommerce shop page
 PASS links: repair route → /https-tecteb-com-repair-request/, no repair form on the page
 PASS links: supplier route and section → /landing-seller/
 PASS links: no # or javascript: links in the homepage
-PASS images: all 7 homepage images loaded, each with alt
+PASS images: all 6 homepage images loaded, each with alt
 PASS products: exactly the manually selected WooCommerce products, in the admin order
 PASS search: Hero search → WooCommerce product search (results, or the single matching product)
 PASS search: no match → WooCommerce «no products» page (200), not an error

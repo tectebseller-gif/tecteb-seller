@@ -2,7 +2,7 @@
 /**
  * محصولات آزمایشی با همهٔ شکل‌های قیمت ووکامرس — فقط وردپرس یکبارمصرف محلی (۰٫۳٫۲).
  *
- * wp eval-file tests/fixtures/prices.php seed|reset|ids|inquiry <text>|no-inquiry|currency <usd|irt>|suffix <text>
+ * wp eval-file tests/fixtures/prices.php seed|reset|ids|inquiry <text>|no-inquiry|currency <usd|irt>|suffix <text>|format <staging|local>
  *
  *   seed      ده محصول با قیمت ساده، تخفیف، بازهٔ متغیر، متغیرِ هم‌قیمت با تخفیف، متغیر با تخفیفِ
  *             بخشی، متغیرِ بی‌قیمت، بی‌قیمت، قیمت صفر، گروهی و متغیرِ ناموجود؛ و همان‌ها را به همان
@@ -133,6 +133,17 @@ switch ( $verb ) {
 			update_option( 'woocommerce_currency_pos', 'right_space' );
 		}
 		echo get_woocommerce_currency(), "\n";
+		return;
+	case 'format':
+		// ۰٫۳٫۳: «staging» = همان چیزی که روی Staging دیده شد (`5634400تومان`): بی جداکنندهٔ هزارگان، نماد بی فاصله.
+		if ( 'staging' === ( $args[1] ?? '' ) ) {
+			update_option( 'woocommerce_price_thousand_sep', '' );
+			update_option( 'woocommerce_currency_pos', 'right' );
+		} else {
+			update_option( 'woocommerce_price_thousand_sep', ',' );
+			update_option( 'woocommerce_currency_pos', 'right_space' );
+		}
+		echo get_option( 'woocommerce_currency_pos' ), "\n";
 		return;
 	case 'suffix':
 		'' === (string) ( $args[1] ?? '' ) ? delete_option( 'woocommerce_price_display_suffix' ) : update_option( 'woocommerce_price_display_suffix', (string) $args[1] );

@@ -254,7 +254,8 @@ check( 'categories: note = first line of description only', in_array( 'مانی�
 check( 'categories: thumbnail image used when present', 1 === count( nodes( $h, '//span[' . cls( 'th-orb' ) . ']/img[' . cls( 'th-orb__img' ) . ']' ) ) );
 // ۰٫۳٫۲: منوی «همهٔ دسته‌ها» از جست‌وجوی Hero برداشته شد (دستور مالک)؛ بخش دسته‌ها همان است.
 check( 'categories: Hero search has no category select even with categories selected (0.3.2)', 0 === count( nodes( $h, '//form[' . cls( 'th-search' ) . ']//select' ) ) && ! str_contains( $h, 'همهٔ دسته‌ها' ) );
-check( 'categories: hero floats = first two categories', array( 'ملزومات مصرفی', 'پایش بیمار' ) === texts( $h, '//a[' . cls( 'th-float' ) . ']' ) );
+// ۰٫۳٫۳: برچسب‌های کنار تصویر دیگر «دو دستهٔ اول» نیستند؛ چهار برچسب ثابت با دستهٔ واقعیِ دارای محصول (بخش ۱۳-د).
+check( 'categories: hero labels no longer follow the selected categories (0.3.3)', ! in_array( 'ملزومات مصرفی', texts( $h, '//a[' . cls( 'th-float' ) . ']' ), true ) );
 check( 'categories: product filter chips = shop + categories', array( 'همه', 'ملزومات مصرفی', 'پایش بیمار', 'اتاق عمل' ) === texts( $h, '//nav[' . cls( 'th-filter' ) . ']//a' ) );
 check( 'categories: no aria-current on the shop chip', 0 === count( nodes( $h, '//nav//a[@aria-current]' ) ) );
 check( 'categories: no «همهٔ دسته‌ها» link without destination', 0 === count( nodes( $h, '//a[' . cls( 'th-more' ) . ' and contains(., "همهٔ دسته‌ها")]' ) ) );
@@ -613,6 +614,168 @@ foreach ( $pp as $id ) {
 	}
 	wp_delete_post( $id, true );
 }
+
+/* ------------------------------------------------------------ ۱۳-د. ۰٫۳٫۳: برچسب Hero، چهار برچسب، قالب قیمت، برندها */
+$label_texts = static fn( string $h ): array => texts( $h, '//ul[' . cls( 'th-floats' ) . ']//a' );
+$h = html( 'hero' );
+check( 'hero 0.3.3: the «بازار B2B تجهیزات پزشکی» label is gone from the output (no th-pill, no text)', ! str_contains( $h, 'بازار B2B' ) && ! str_contains( $h, 'th-pill' ) );
+check( 'hero 0.3.3: title, lead, search, image and routes still there', 1 === count( nodes( $h, '//h1[@id="th-hero-title"]' ) ) && str_contains( $h, 'تجهیزات پزشکی را دقیق پیدا کنید،' ) && str_contains( $h, 'با اطمینان تأمین کنید.' ) && 1 === count( nodes( $h, '//form[' . cls( 'th-search' ) . ']' ) ) && 1 === count( nodes( $h, '//picture[' . cls( 'th-hero__render' ) . ']' ) ) && 1 === count( nodes( $h, '//nav[' . cls( 'th-routes' ) . ']' ) ) );
+check( 'hero 0.3.3: the hero now starts with the h1 (first child of the copy column)', 'h1' === nodes( $h, '//div[' . cls( 'th-hero__copy' ) . ']/*[1]' )[0]->nodeName );
+// چهار برچسب، از دسته‌های واقعیِ همین وردپرس (فیکسچر هدر: «پزشکی جنرال» و «بیهوشی و تنفسی» بی‌محصول، «جراحی» دو تا).
+$L = Catalog::hero_labels();
+check( 'labels: four slots in the required order', array( 'پزشکی جنرال', 'بیهوشی و تنفسی', 'آزمایشگاه', 'جراحی' ) === array_column( \Tecteb\Homepage\Settings::HERO_LABELS, 0 ) && 4 === count( $L ) );
+check( 'labels: a category without products is not linked (empty)', 'empty' === $L[0]['status'] && 'empty' === $L[1]['status'] && '' === $L[0]['url'] );
+$lab = get_term( $L[2]['term'], 'product_cat' );
+check( 'labels: «آزمایشگاه» resolved by exact name to a real term, linked to its WooCommerce archive', 'ok' === $L[2]['status'] && $lab instanceof WP_Term && 'آزمایشگاه' === $lab->name && get_term_link( $lab ) === $L[2]['url'] );
+$surg = get_term( $L[3]['term'], 'product_cat' );
+check( 'labels: two «جراحی» categories, exactly one at the root ⇒ the root one', 'ok' === $L[3]['status'] && 0 === (int) $surg->parent && 2 === count( array_filter( get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false ) ), static fn( $t ) => 'جراحی' === $t->name ) ) );
+$h = html( 'hero' );
+check( 'labels: only linked labels are printed, in order', array( 'آزمایشگاه', 'جراحی' ) === $label_texts( $h ) && array( get_term_link( $lab ), get_term_link( $surg ) ) === array_map( static fn( $n ) => $n->getAttribute( 'href' ), nodes( $h, '//ul[' . cls( 'th-floats' ) . ']//a' ) ) );
+check( 'labels: positions follow the slot (3 ⇒ three, 4 ⇒ four) so a missing label never shifts the others', array( 'th-float th-float--three', 'th-float th-float--four' ) === array_map( static fn( $n ) => $n->getAttribute( 'class' ), nodes( $h, '//ul[' . cls( 'th-floats' ) . ']//a' ) ) );
+// محصول آزمایشی در دو دستهٔ بی‌محصول ⇒ هر چهار برچسب.
+$tmp = array();
+foreach ( array( 0, 1 ) as $k ) {
+	$x = new WC_Product_Simple();
+	$x->set_name( 'برچسب آزمایشی ' . $k );
+	$x->set_status( 'publish' );
+	$x->set_regular_price( '10' );
+	$x->set_category_ids( array( $L[ $k ]['term'] ) );
+	$tmp[] = (int) $x->save();
+}
+$h = html( 'hero' );
+check( 'labels: with products in all four ⇒ all four, in order, each to its own archive', array( 'پزشکی جنرال', 'بیهوشی و تنفسی', 'آزمایشگاه', 'جراحی' ) === $label_texts( $h ) && 4 === count( array_unique( array_map( static fn( $n ) => $n->getAttribute( 'href' ), nodes( $h, '//ul[' . cls( 'th-floats' ) . ']//a' ) ) ) ) );
+// هیچ دسته‌ای با این نام در ریشه نیست و دو تا هست ⇒ مبهم، چاپ نمی‌شود، و نامزدها برای مدیر.
+$surg_parent = (int) $surg->parent; // هر چه بود به همان برمی‌گردد (نه فرضِ ۰) — حتی وقتی یک جهش دستهٔ دیگری را برگزیده باشد.
+// و حتی اگر این اجرا وسط کار بمیرد (خطای مرگبار زیر یک جهش): دادهٔ محلی برای اجرای بعد سالم بماند.
+register_shutdown_function( static fn() => wp_update_term( $surg->term_id, 'product_cat', array( 'parent' => $surg_parent ) ) );
+wp_update_term( $surg->term_id, 'product_cat', array( 'parent' => $c['lab'] ) );
+$L = Catalog::hero_labels();
+check( 'labels: two «جراحی» and none at the root ⇒ ambiguous, not linked, both candidates listed', 'ambiguous' === $L[3]['status'] && '' === $L[3]['url'] && 2 === count( $L[3]['candidates'] ) && ! in_array( 'جراحی', $label_texts( html( 'hero' ) ), true ) );
+settings( array( 'hero_labels' => array( 0, 0, 0, $surg->term_id ) ) );
+$L = Catalog::hero_labels();
+check( 'labels: admin pins the term ID ⇒ that category, label shows its real name', 'ok' === $L[3]['status'] && $L[3]['pinned'] && $surg->term_id === $L[3]['term'] && 'جراحی' === $L[3]['name'] );
+wp_update_term( $surg->term_id, 'product_cat', array( 'parent' => $surg_parent ) );
+$s = \Tecteb\Homepage\Settings::sanitize( array_replace( get_option( \Tecteb\Homepage\Settings::OPTION ), array( 'hero_labels' => array( 0, 99999999, 0, 'abc' ) ) ) );
+check( 'labels: a pinned ID that is not a product category is refused (0 = by name)', array( 0, 0, 0, 0 ) === $s['hero_labels'] );
+check( 'labels: name matching folds Arabic ي/ك and ZWNJ, nothing else', Catalog::name_key( 'جراحي' ) === Catalog::name_key( 'جراحی' ) && Catalog::name_key( 'پزشكی‌جنرال' ) !== Catalog::name_key( 'پزشکی جنرال' ) && Catalog::name_key( "  پزشکی   جنرال " ) === Catalog::name_key( 'پزشکی جنرال' ) );
+settings( array( 'hero_labels' => array( 0, 0, 0, 0 ) ) );
+foreach ( $tmp as $id ) {
+	wp_delete_post( $id, true );
+}
+check( 'labels: nothing was written to any term (names, parents, counts as before)', 'جراحی' === get_term( $surg->term_id, 'product_cat' )->name && $surg_parent === (int) get_term( $surg->term_id, 'product_cat' )->parent );
+
+// قالب قیمت فقط در صفحهٔ اصلی: جداکنندهٔ «,» و فاصله، حتی وقتی سایت جداکننده ندارد و نماد بی فاصله است (Staging).
+$fmt = array( get_option( 'woocommerce_price_thousand_sep' ), get_option( 'woocommerce_currency_pos' ), get_option( 'woocommerce_price_num_decimals' ), get_option( 'woocommerce_price_decimal_sep' ) );
+// قالب قیمت سایت حتماً برمی‌گردد، حتی اگر این اجرا وسط کار بمیرد؛ وگرنه اجرای بعدی روی قالب دیگری می‌سنجد.
+register_shutdown_function(
+	static function () use ( $fmt ): void {
+		update_option( 'woocommerce_price_thousand_sep', $fmt[0] );
+		update_option( 'woocommerce_currency_pos', $fmt[1] );
+		update_option( 'woocommerce_price_num_decimals', $fmt[2] );
+		update_option( 'woocommerce_price_decimal_sep', $fmt[3] );
+	}
+);
+update_option( 'woocommerce_price_thousand_sep', '' );
+update_option( 'woocommerce_currency_pos', 'right' );
+$pid  = $mk_simple( 'قیمت قالب ۰٫۳٫۳', '5634400' );
+$pv   = $mk_var( 'بازهٔ قالب ۰٫۳٫۳', array( array( 'a', '3200000' ), array( 'b', '128500000' ) ) );
+$ps   = $mk_simple( 'تخفیف قالب ۰٫۳٫۳', '12500000', '9800000' );
+$site = $vis( wc_get_product( $pid )->get_price_html() );
+check( 'price format: the site itself (product page) still shows its own format «5634400تومان»', '5634400تومان' === $site, $site );
+$P2 = \Tecteb\Homepage\Price::of( wc_get_product( $pid ) );
+check( 'price format: homepage shows «5,634,400 تومان» (comma thousands, space before the currency)', "5,634,400\u{00A0}تومان" === html_entity_decode( wp_strip_all_tags( (string) ( $P2['now'] ?? '' ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ), wp_json_encode( $P2 ) );
+check( 'price format: range and sale in the same format', 'از 3,200,000 تومان تا 128,500,000 تومان' === str_replace( "\u{00A0}", ' ', \Tecteb\Homepage\Price::text( wc_get_product( $pv ) ) ) && '9,800,000 تومان (قیمت قبلی 12,500,000 تومان)' === str_replace( "\u{00A0}", ' ', \Tecteb\Homepage\Price::text( wc_get_product( $ps ) ) ) );
+check( 'price format: no global WooCommerce price filter added (wc_price_args, woocommerce_price_format, formatted_woocommerce_price)', ! has_filter( 'wc_price_args' ) && ! has_filter( 'woocommerce_price_format' ) && ! has_filter( 'formatted_woocommerce_price' ) && '5634400تومان' === $vis( wc_price( 5634400 ) ) );
+settings( array( 'products' => array( $pid, $pv, $ps ), 'product_count' => 3 ) );
+$h = html( 'products' );
+check( 'price format: product cards on the homepage use it; no unformatted 5634400 anywhere', str_contains( $vis( $h ), '5,634,400' ) && ! str_contains( $vis( $h ), '5634400' ) && 1 === count( nodes( $h, '//del[' . cls( 'th-price__was' ) . ']' ) ) );
+update_option( 'woocommerce_price_num_decimals', 2 );
+update_option( 'woocommerce_price_decimal_sep', ',' );
+update_option( 'woocommerce_price_thousand_sep', '.' );
+check( 'price format: decimal comma site ⇒ its own thousands separator kept (no «1,234,56»)', "5.634.400,00\u{00A0}تومان" === html_entity_decode( wp_strip_all_tags( (string) ( \Tecteb\Homepage\Price::of( wc_get_product( $pid ) )['now'] ?? '' ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' ) );
+update_option( 'woocommerce_price_thousand_sep', $fmt[0] );
+update_option( 'woocommerce_currency_pos', $fmt[1] );
+update_option( 'woocommerce_price_num_decimals', $fmt[2] );
+update_option( 'woocommerce_price_decimal_sep', $fmt[3] );
+foreach ( array( $pid, $pv, $ps ) as $id ) {
+	foreach ( wc_get_product( $id )->get_children() as $child ) {
+		wp_delete_post( $child, true );
+	}
+	wp_delete_post( $id, true );
+}
+
+// برندها: فقط آنچه مدیر ثبت کرده؛ بی برند ⇒ بی بخش.
+$S = \Tecteb\Homepage\Settings::class;
+$before = get_option( $S::OPTION );
+check( 'brands: an option saved by 0.3.2 (no brands / hero_labels keys) reads as no brands and labels by name', array() === $S::normalize( array( 'products' => array( $p['monitor'] ) ), false )['brands'] && array( 0, 0, 0, 0 ) === $S::normalize( array(), false )['hero_labels'] );
+check( 'brands: no brand ⇒ no section at all (no heading, no empty block)', ! str_contains( html(), 'th-section--brands' ) && ! str_contains( html(), 'برندهای همکار' ) && false === Renderer::plan()['sections']['brands']['show'] );
+require_once ABSPATH . 'wp-admin/includes/image.php';
+require_once ABSPATH . 'wp-admin/includes/file.php';
+require_once ABSPATH . 'wp-admin/includes/media.php';
+$img_ids = array();
+foreach ( array( 'product-monitor-360.webp', 'product-oximeter-360.webp', 'product-pump-360.webp' ) as $f ) {
+	$tmp = wp_tempnam( $f );
+	copy( dirname( __DIR__, 3 ) . '/concept-c/assets/' . $f, $tmp );
+	$img_ids[] = (int) media_handle_sideload( array( 'name' => 'logo-' . $f, 'tmp_name' => $tmp ), 0, 'logo test' );
+}
+$doc     = wp_insert_attachment( array( 'post_title' => 'not an image', 'post_mime_type' => 'application/pdf', 'post_status' => 'inherit' ) );
+$form    = array_replace(
+	$S::get(),
+	array(
+		'brands'    => array(
+			array( 'name' => 'برند آزمایشی الف', 'logo' => $img_ids[0], 'url' => 'https://example.org/a', 'active' => '1', 'order' => '2' ),
+			array( 'name' => 'برند آزمایشی ب', 'logo' => $img_ids[1], 'url' => '', 'active' => '1', 'order' => '1' ),
+			array( 'name' => 'برند غیرفعال', 'logo' => $img_ids[2], 'url' => '', 'order' => '3' ),
+			array( 'name' => 'برند لوگوی نامعتبر', 'logo' => $doc, 'url' => '', 'active' => '1', 'order' => '4' ),
+			array( 'name' => '<script>x</script>برند ج', 'logo' => $img_ids[2], 'url' => 'javascript:alert(1)', 'active' => '1', 'order' => '5' ),
+			array( 'name' => 'حذف‌شونده', 'logo' => $img_ids[0], 'url' => '', 'active' => '1', 'remove' => '1' ),
+			array( 'name' => '', 'logo' => $img_ids[0], 'url' => '', 'active' => '1' ),
+		),
+		'add_brand' => array( 'name' => 'برند تازه', 'logo' => (string) $img_ids[1], 'url' => '/landing-seller/' ),
+	)
+);
+update_option( $S::OPTION, $form );
+$S::forget();
+$B = $S::get()['brands'];
+check( 'brands: saved in the admin order (order column), removed and nameless rows dropped, new one last', array( 'برند آزمایشی ب', 'برند آزمایشی الف', 'برند غیرفعال', 'برند لوگوی نامعتبر', 'برند ج', 'برند تازه' ) === array_column( $B, 'name' ), implode( ' | ', array_column( $B, 'name' ) ) );
+check( 'brands: a non-image logo is refused (logo 0, inactive), name kept for the admin to fix', 0 === $B[3]['logo'] && false === $B[3]['active'] );
+check( 'brands: markup stripped from the name, javascript: URL refused', 'برند ج' === $B[4]['name'] && '' === $B[4]['url'] && 'https://example.org/a' === $B[1]['url'] );
+check( 'brands: saving brands leaves every other setting as it was', array_diff_key( $S::normalize( $before, false ), array( 'brands' => 1 ) ) === array_diff_key( $S::get(), array( 'brands' => 1 ) ) );
+$h = html();
+$order = array_map( static fn( $n ) => $n->getAttribute( 'aria-labelledby' ) ?: $n->getAttribute( 'class' ), nodes( $h, '//div[' . cls( 'tecteb-home-v1' ) . ']/section' ) );
+check( 'brands: section right after the supplier section and last in the homepage', 'th-brands-title' === end( $order ) && 'th-supplier-title' === $order[ count( $order ) - 2 ], implode( ',', $order ) );
+$alts = array_map( static fn( $n ) => $n->getAttribute( 'alt' ), nodes( $h, '//ul[' . cls( 'th-brands__list' ) . ']//img' ) );
+check( 'brands: only active brands with a real image, in order, alt = brand name', array( 'برند آزمایشی ب', 'برند آزمایشی الف', 'برند ج', 'برند تازه' ) === $alts, implode( ' | ', $alts ) );
+check( 'brands: optional link — with URL ⇒ <a href>, without ⇒ no link', array( 'https://example.org/a', home_url( '/landing-seller/' ) ) === array_map( static fn( $n ) => $n->getAttribute( 'href' ), nodes( $h, '//ul[' . cls( 'th-brands__list' ) . ']//a' ) ) && 2 === count( nodes( $h, '//ul[' . cls( 'th-brands__list' ) . ']//span[' . cls( 'th-brand' ) . ']' ) ) );
+check( 'brands: nav buttons are real buttons, hidden until the script shows them; region is focusable and labelled', 2 === count( nodes( $h, '//div[@data-th-brands-nav and @hidden]/button[@type="button"]' ) ) && 1 === count( nodes( $h, '//div[@data-th-brands and @tabindex="0" and @role="region" and @aria-label]' ) ) );
+check( 'brands: no third-party script or style (carousel is the plugin JS only)', ! preg_match( '#(swiper|slick|owl\.carousel|glide|splide)#i', $h ) );
+wp_delete_attachment( $img_ids[1], true );
+$alts = array_map( static fn( $n ) => $n->getAttribute( 'alt' ), nodes( html(), '//ul[' . cls( 'th-brands__list' ) . ']//img' ) );
+check( 'brands: a logo deleted from the media library ⇒ that brand silently left out', array( 'برند آزمایشی الف', 'برند ج' ) === $alts, implode( ' | ', $alts ) );
+Cache::reset();
+$purges = did_action( 'tecteb_home_purge' );
+wp_delete_attachment( $img_ids[0], true );
+check( 'brands: deleting a brand logo purges the homepage cache', $purges + 1 === did_action( 'tecteb_home_purge' ) );
+Cache::reset();
+$purges = did_action( 'tecteb_home_purge' );
+$other  = wp_insert_attachment( array( 'post_title' => 'unrelated', 'post_mime_type' => 'image/png', 'post_status' => 'inherit' ) );
+wp_delete_attachment( $other, true );
+check( 'brands: deleting an unrelated attachment purges nothing', $purges === did_action( 'tecteb_home_purge' ) );
+Cache::reset();
+wp_set_current_user( (int) get_user_by( 'login', 'tthadmin' )->ID );
+ob_start();
+Admin::render();
+$a = (string) ob_get_clean();
+wp_set_current_user( 0 );
+check( 'admin: hero labels and brands sections, with name/logo/url/active/order/remove per brand', str_contains( $a, 'id="tth-hero-labels"' ) && str_contains( $a, 'id="tth-brands"' ) && 6 === count( nodes( $a, '//tr[@data-tth-brand]' ) ) && 1 === count( nodes( $a, '//input[@name="tecteb_home_settings[add_brand][name]"]' ) ) && 6 === count( nodes( $a, '//input[contains(@name,"[remove]") and contains(@name,"[brands]")]' ) ) );
+check( 'admin: each hero label row says what it is linked to (or why not)', 4 === count( nodes( $a, '//tr[@data-tth-hero-label]' ) ) && 1 === count( nodes( $a, '//tr[@data-tth-hero-label="0" and @data-tth-status="empty"]' ) ) );
+wp_delete_post( $doc, true );
+foreach ( $img_ids as $id ) {
+	wp_delete_attachment( $id, true );
+}
+update_option( $S::OPTION, $before );
+$S::forget();
+check( 'brands: back to no brands ⇒ section gone again', ! str_contains( html(), 'th-section--brands' ) );
 
 /* ------------------------------------------------------------ ۱۴. حذف */
 $before = db_digest();

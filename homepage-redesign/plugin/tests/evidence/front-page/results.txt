@@ -22,7 +22,7 @@ PASS other pages untouched: /shop/ is the WooCommerce shop
 PASS route /shop/ from the front page: 200
 PASS route /https-tecteb-com-repair-request/ from the front page: 200
 PASS route /landing-seller/ from the front page: 200
-PASS rollback: untick + save ⇒ visitor sees the Reading page again (5.9s)
+PASS rollback: untick + save ⇒ visitor sees the Reading page again (6.5s)
 PASS the Reading page itself never changed (content + meta), Reading settings unchanged, no new page
 
 26 passed, 0 failed

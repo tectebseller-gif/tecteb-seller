@@ -26,6 +26,14 @@ final class Cache {
 			add_action( $hook, array( self::class, 'request' ) );
 		}
 		add_action( 'wp_trash_post', array( self::class, 'maybe_product' ) );
+		add_action( 'delete_attachment', array( self::class, 'maybe_logo' ) );
+	}
+
+	/** ۰٫۳٫۳: لوگوی برندی که از کتابخانهٔ رسانه حذف شد، از صفحهٔ کش‌شده هم برود. */
+	public static function maybe_logo( $post_id ): void {
+		if ( in_array( (int) $post_id, array_map( static fn( array $b ): int => (int) $b['logo'], Settings::get()['brands'] ), true ) ) {
+			self::request();
+		}
 	}
 
 	public static function maybe_product( $post_id ): void {

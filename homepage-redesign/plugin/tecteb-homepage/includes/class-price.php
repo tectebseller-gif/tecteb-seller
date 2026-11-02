@@ -32,7 +32,7 @@ final class Price {
 
 	/**
 	 * @return array{kind:string,now?:string,was?:string,from?:string,to?:string,text?:string,suffix?:string}
-	 *         kind: amount | sale | range | text | none. مبلغ‌ها HTML ِ wc_price() اند.
+	 *         kind: amount | sale | range | text | none. مبلغ‌ها HTML ِ wc_price() اند، با قالب display_args().
 	 */
 	public static function of( \WC_Product $product ): array {
 		$shown = self::visible_text( (string) $product->get_price_html() );
@@ -44,12 +44,14 @@ final class Price {
 			return array( 'kind' => 'text', 'text' => $shown );
 		}
 		$amounts = array();
+		$args    = self::display_args();
 		foreach ( array( 'now', 'was', 'from', 'to' ) as $key ) {
 			if ( isset( $model[ $key ] ) ) {
-				$amounts[ $key ] = wc_price( $model[ $key ] );
-				if ( ! str_contains( $shown, self::visible_text( $amounts[ $key ] ) ) ) {
+				// گارد با قالب خودِ سایت سنجیده می‌شود؛ نمایش با قالب صفحهٔ اصلی (display_args()).
+				if ( ! str_contains( $shown, self::visible_text( wc_price( $model[ $key ] ) ) ) ) {
 					return array( 'kind' => 'text', 'text' => $shown );
 				}
+				$amounts[ $key ] = wc_price( $model[ $key ], $args );
 			}
 		}
 		$suffix = self::visible_text( (string) $product->get_price_suffix() );
@@ -136,6 +138,35 @@ final class Price {
 			);
 		}
 		return array( 'kind' => 'amount', 'now' => wc_get_price_to_display( $product ) );
+	}
+
+	/**
+	 * ۰٫۳٫۳ — قالب عدد فقط برای کارت‌های صفحهٔ اصلی: جداکنندهٔ هزارگان «,» و فاصله بین عدد و واحد پول.
+	 * روی Staging جداکنندهٔ هزارگان ووکامرس خالی است و نماد بی فاصله بعد از عدد (`5634400تومان`).
+	 *
+	 * این‌ها آرگومان‌های خودِ wc_price() اند و فقط در همین فراخوان اثر دارند: هیچ فیلتر سراسری ووکامرس
+	 * (wc_price_args، woocommerce_price_format، …) اضافه یا عوض نمی‌شود، پس قیمت در فروشگاه، صفحهٔ محصول،
+	 * سبد و سفارش همان است که بود. مقدار، واحد پول، نماد، تعداد اعشار، جداکنندهٔ اعشار و مالیات همه از
+	 * ووکامرس می‌آیند و دست نمی‌خورند. دو استثنا، هر دو برای اینکه عدد غلط خوانده نشود:
+	 * - اگر جداکنندهٔ اعشار خودش «,» است (و اعشار نمایش داده می‌شود)، جداکنندهٔ هزارگان ِ سایت می‌ماند؛
+	 * - فاصله فقط وقتی اضافه می‌شود که نماد **بعد از** عدد است (right ⇒ right_space)؛ نمادِ پیش از عدد
+	 *   (مثل «$») همان‌طور که سایت تعیین کرده می‌ماند.
+	 *
+	 * @return array{thousand_separator:string,price_format:string}
+	 */
+	public static function display_args(): array {
+		$thousand = ',';
+		if ( wc_get_price_decimals() > 0 && ',' === wc_get_price_decimal_separator() ) {
+			$thousand = wc_get_price_thousand_separator();
+		}
+		$format = get_woocommerce_price_format();
+		if ( 'right' === get_option( 'woocommerce_currency_pos' ) ) {
+			$format = '%2$s&nbsp;%1$s';
+		}
+		return array(
+			'thousand_separator' => $thousand,
+			'price_format'       => $format,
+		);
 	}
 
 	/**

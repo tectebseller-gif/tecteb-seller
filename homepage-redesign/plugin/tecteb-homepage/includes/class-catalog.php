@@ -306,6 +306,130 @@ final class Catalog {
 		return $out;
 	}
 
+	/**
+	 * ۰٫۳٫۳ — چهار برچسب کنار تصویر Hero (Settings::HERO_LABELS)، هر کدام با دستهٔ واقعیِ ووکامرس.
+	 *
+	 * اگر مدیر شناسه‌ای تعیین کرده همان دسته؛ وگرنه دسته‌ای که **نام**ش دقیقاً همان است (با یکی‌کردن
+	 * «ي/ك» ِ عربی، نیم‌فاصله و فاصله‌های تکراری). چند دسته با یک نام: اگر دقیقاً یکی در ریشه است همان،
+	 * وگرنه «مبهم» و چاپ نمی‌شود — حدس زده نمی‌شود. دستهٔ بی‌محصول هم چاپ نمی‌شود (بخش دسته‌ها همین
+	 * قاعده را دارد)، تا هیچ برچسبی به صفحهٔ خالی نرود. هیچ چیز نوشته نمی‌شود.
+	 *
+	 * @return list<array{name:string,icon:string,status:string,url:string,term:int,path:string,pinned:bool,candidates:list<array{id:int,path:string}>}>
+	 *         status: ok | not_found | ambiguous | missing | empty | no_link
+	 */
+	public static function hero_labels(): array {
+		$pins  = Settings::get()['hero_labels'];
+		$index = null;
+		$out   = array();
+		foreach ( Settings::HERO_LABELS as $i => $slot ) {
+			$row = array(
+				'name'       => $slot[0],
+				'icon'       => $slot[1],
+				'status'     => '',
+				'url'        => '',
+				'term'       => 0,
+				'path'       => '',
+				'pinned'     => (int) ( $pins[ $i ] ?? 0 ) > 0,
+				'candidates' => array(),
+			);
+			$term = null;
+			if ( $row['pinned'] ) {
+				$term          = get_term( (int) $pins[ $i ], 'product_cat' );
+				$row['status'] = $term instanceof \WP_Term ? '' : 'missing';
+			} else {
+				$index   = $index ?? self::terms_by_name();
+				$matches = $index[ self::name_key( $slot[0] ) ] ?? array();
+				$roots   = array_values( array_filter( $matches, static fn( \WP_Term $t ): bool => 0 === (int) $t->parent ) );
+				if ( array() === $matches ) {
+					$row['status'] = 'not_found';
+				} elseif ( 1 === count( $matches ) || 1 === count( $roots ) ) {
+					$term = 1 === count( $matches ) ? $matches[0] : $roots[0];
+				} else {
+					$row['status']     = 'ambiguous';
+					$row['candidates'] = array_map( static fn( \WP_Term $t ): array => array( 'id' => (int) $t->term_id, 'path' => self::path( $t ) ), $matches );
+				}
+			}
+			if ( $term instanceof \WP_Term ) {
+				$row['term'] = (int) $term->term_id;
+				$row['path'] = self::path( $term );
+				if ( $row['pinned'] ) {
+					$row['name'] = (string) $term->name;
+				}
+				$link = get_term_link( $term );
+				if ( ! self::has_products( $term ) ) {
+					$row['status'] = 'empty';
+				} elseif ( is_wp_error( $link ) ) {
+					$row['status'] = 'no_link';
+				} else {
+					$row['status'] = 'ok';
+					$row['url']    = (string) $link;
+				}
+			}
+			$out[] = $row;
+		}
+		return $out;
+	}
+
+	/** کلید مقایسهٔ نام: «ي/ك» ِ عربی ⇒ فارسی، بی نیم‌فاصله، فاصله‌های یکی‌شده. */
+	public static function name_key( string $name ): string {
+		$name = html_entity_decode( $name, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		$name = strtr( $name, array( 'ي' => 'ی', 'ى' => 'ی', 'ك' => 'ک', "\u{200C}" => '', "\u{200F}" => '', "\u{00A0}" => ' ' ) );
+		return trim( (string) preg_replace( '/\s+/u', ' ', $name ) );
+	}
+
+	/** @return array<string,list<\WP_Term>> همهٔ دسته‌های محصول، با کلید name_key. یک کوئری. */
+	private static function terms_by_name(): array {
+		$terms = get_terms(
+			array(
+				'taxonomy'   => 'product_cat',
+				'hide_empty' => false,
+			)
+		);
+		$index = array();
+		foreach ( is_array( $terms ) ? $terms : array() as $t ) {
+			if ( $t instanceof \WP_Term ) {
+				$index[ self::name_key( (string) $t->name ) ][] = $t;
+			}
+		}
+		return $index;
+	}
+
+	/**
+	 * ۰٫۳٫۳ — برندهای همکارِ قابل‌نمایش: فعال، با لوگویی که امروز هنوز تصویرِ کتابخانهٔ رسانه است.
+	 * لوگوی حذف‌شده یا غیرتصویری برند را کنار می‌گذارد؛ هیچ تصویر یا نامی ساخته نمی‌شود.
+	 *
+	 * @return list<array{name:string,url:string,image:string}>
+	 */
+	public static function brands(): array {
+		$out = array();
+		foreach ( Settings::get()['brands'] as $b ) {
+			if ( empty( $b['active'] ) || (int) $b['logo'] < 1 || ! wp_attachment_is_image( (int) $b['logo'] ) ) {
+				continue;
+			}
+			$img = (string) wp_get_attachment_image(
+				(int) $b['logo'],
+				'medium',
+				false,
+				array(
+					'class'    => 'th-brand__img',
+					'alt'      => $b['name'],
+					'loading'  => 'lazy',
+					'decoding' => 'async',
+					'sizes'    => '160px',
+				)
+			);
+			if ( '' === $img ) {
+				continue;
+			}
+			$out[] = array(
+				'name'  => (string) $b['name'],
+				'url'   => '' !== $b['url'] ? ( str_starts_with( $b['url'], '/' ) ? home_url( $b['url'] ) : $b['url'] ) : '',
+				'image' => $img,
+			);
+		}
+		return $out;
+	}
+
 	public static function path( \WP_Term $term ): string {
 		$names = array();
 		foreach ( array_reverse( get_ancestors( $term->term_id, 'product_cat', 'taxonomy' ) ) as $ancestor ) {

@@ -33,8 +33,12 @@ final class Admin {
 		return (string) apply_filters( 'tecteb_home_capability', 'manage_woocommerce' );
 	}
 
+	/** نام قلاب صفحهٔ تنظیمات (از add_submenu_page)، تا کتابخانهٔ رسانه فقط همین‌جا بارگذاری شود. */
+	private static string $hook = '';
+
 	public static function register_hooks(): void {
 		add_action( 'admin_init', array( self::class, 'register_setting' ) );
+		add_action( 'admin_enqueue_scripts', array( self::class, 'enqueue' ) );
 		add_action( 'admin_menu', array( self::class, 'menu' ), 60 );
 		add_filter( 'option_page_capability_' . Settings::GROUP, array( self::class, 'capability' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( TECTEB_HOME_FILE ), array( self::class, 'action_links' ) );
@@ -54,7 +58,7 @@ final class Admin {
 	}
 
 	public static function menu(): void {
-		add_submenu_page(
+		self::$hook = (string) add_submenu_page(
 			'woocommerce',
 			__( 'صفحهٔ اصلی تک‌طب', 'tecteb-homepage' ),
 			__( 'صفحهٔ اصلی', 'tecteb-homepage' ),
@@ -62,6 +66,15 @@ final class Admin {
 			self::PAGE,
 			array( self::class, 'render' )
 		);
+	}
+
+	/** ۰٫۳٫۳: انتخابگر کتابخانهٔ رسانه برای لوگوی برندها — فقط روی همین صفحه. */
+	public static function enqueue( string $hook ): void {
+		if ( '' === self::$hook || $hook !== self::$hook || ! current_user_can( self::capability() ) ) {
+			return;
+		}
+		wp_enqueue_media();
+		wp_enqueue_script( 'tecteb-home-admin', TECTEB_HOME_URL . 'assets/js/tecteb-home-admin.js', array(), TECTEB_HOME_VERSION, true );
 	}
 
 	public static function url(): string {
@@ -103,8 +116,10 @@ final class Admin {
 		self::front_section( $s, $name );
 		self::products_section( $s, $name, $pq );
 		self::categories_section( $s, $name, $query );
+		self::hero_labels_section( $plan, $name );
 		self::links_section( $name );
 		self::content_section( $s, $name );
+		self::brands_section( $s, $name );
 
 		submit_button( __( 'ذخیرهٔ تنظیمات', 'tecteb-homepage' ), 'primary', 'submit', true, array( 'id' => 'tth-submit-bottom' ) );
 		echo '</form></div>';
@@ -119,6 +134,7 @@ final class Admin {
 			'categories'     => __( 'دسته‌بندی‌ها', 'tecteb-homepage' ),
 			'products'       => __( 'محصولات منتخب', 'tecteb-homepage' ),
 			'supplier'       => __( 'بخش همکاری تأمین‌کنندگان', 'tecteb-homepage' ),
+			'brands'         => __( 'برندهای همکار', 'tecteb-homepage' ),
 		);
 		$rows = array();
 		foreach ( $plan['routes'] as $key => $state ) {
@@ -346,6 +362,114 @@ final class Admin {
 				}
 				echo '</tbody></table>';
 			}
+		}
+	}
+
+	/** ۰٫۳٫۳: چهار برچسب کنار تصویر Hero — هر کدام به کدام دستهٔ واقعی ووکامرس وصل است، یا چرا نیست. */
+	private static function hero_labels_section( array $plan, string $name ): void {
+		echo '<h2 id="tth-hero-labels">' . esc_html__( 'برچسب‌های کنار تصویر Hero', 'tecteb-homepage' ) . '</h2>';
+		echo '<p>' . esc_html__( 'چهار برچسب ثابت، به همین ترتیب. هر برچسب به دسته‌ای از ووکامرس می‌رود که دقیقاً همین نام را دارد؛ اگر چنین دسته‌ای نیست، چند دسته با این نام هست، یا دسته محصولی ندارد، برچسب نمایش داده نمی‌شود و هیچ پیوند ساختگی‌ای ساخته نمی‌شود. برای انتخاب دستی، شناسهٔ دسته را وارد کنید (خالی یا ۰ = پیدا کردن با نام). هیچ دسته‌ای اینجا ساخته یا ویرایش نمی‌شود.', 'tecteb-homepage' ) . '</p>';
+		$texts = array(
+			'not_found' => __( 'دسته‌ای با این نام در ووکامرس پیدا نشد — نمایش داده نمی‌شود.', 'tecteb-homepage' ),
+			'ambiguous' => __( 'چند دسته با این نام هست — تا یکی را با شناسه انتخاب نکنید نمایش داده نمی‌شود:', 'tecteb-homepage' ),
+			'missing'   => __( 'دستهٔ تعیین‌شده دیگر در ووکامرس نیست — نمایش داده نمی‌شود.', 'tecteb-homepage' ),
+			'empty'     => __( 'این دسته محصول قابل‌نمایشی ندارد — نمایش داده نمی‌شود.', 'tecteb-homepage' ),
+			'no_link'   => __( 'نشانی این دسته ساخته نشد — نمایش داده نمی‌شود.', 'tecteb-homepage' ),
+		);
+		echo '<table class="widefat striped" style="max-width:72rem"><thead><tr>'
+			. '<th style="width:3rem">#</th>'
+			. '<th style="width:11rem">' . esc_html__( 'برچسب', 'tecteb-homepage' ) . '</th>'
+			. '<th>' . esc_html__( 'دستهٔ ووکامرس', 'tecteb-homepage' ) . '</th>'
+			. '<th style="width:12rem">' . esc_html__( 'شناسهٔ دسته (اختیاری)', 'tecteb-homepage' ) . '</th>'
+			. '</tr></thead><tbody>';
+		foreach ( $plan['hero_labels'] as $i => $label ) {
+			$slot = Settings::HERO_LABELS[ $i ][0];
+			echo '<tr data-tth-hero-label="' . esc_attr( (string) $i ) . '" data-tth-status="' . esc_attr( $label['status'] ) . '">';
+			echo '<td>' . esc_html( Renderer::digits( $i + 1 ) ) . '</td><td><strong>' . esc_html( $slot ) . '</strong></td><td>';
+			if ( 'ok' === $label['status'] ) {
+				echo esc_html( $label['path'] ) . ' <small dir="ltr">#' . esc_html( (string) $label['term'] ) . '</small> — '
+					. esc_html( $label['pinned'] ? __( 'تعیین دستی', 'tecteb-homepage' ) : __( 'پیدا شده با نام', 'tecteb-homepage' ) )
+					. ' · <a href="' . esc_url( $label['url'] ) . '" target="_blank" rel="noopener">' . esc_html__( 'دیدن صفحهٔ دسته', 'tecteb-homepage' ) . '</a>';
+			} else {
+				echo '<strong>' . esc_html( $texts[ $label['status'] ] ?? '' ) . '</strong>';
+				if ( '' !== $label['path'] ) {
+					echo '<br>' . esc_html( $label['path'] ) . ' <small dir="ltr">#' . esc_html( (string) $label['term'] ) . '</small>';
+				}
+				if ( array() !== $label['candidates'] ) {
+					echo '<ul style="margin:.25rem 1.25rem 0;list-style:disc">';
+					foreach ( $label['candidates'] as $c ) {
+						echo '<li>' . esc_html( $c['path'] ) . ' — ' . esc_html__( 'شناسه', 'tecteb-homepage' ) . ' <code dir="ltr">' . esc_html( (string) $c['id'] ) . '</code></li>';
+					}
+					echo '</ul>';
+				}
+			}
+			$pin = (int) ( Settings::get()['hero_labels'][ $i ] ?? 0 );
+			echo '</td><td><input type="number" min="0" step="1" style="width:8rem" name="' . esc_attr( $name . '[hero_labels][' . $i . ']' ) . '" value="' . esc_attr( $pin > 0 ? (string) $pin : '' ) . '" aria-label="' . esc_attr( sprintf( /* translators: %s: label */ __( 'شناسهٔ دستهٔ برچسب «%s»', 'tecteb-homepage' ), $slot ) ) . '"></td>';
+			echo '</tr>';
+		}
+		echo '</tbody></table>';
+	}
+
+	/**
+	 * ۰٫۳٫۳: برندهای همکار. لوگو از کتابخانهٔ رسانه (دکمهٔ «انتخاب لوگو»؛ بی جاوااسکریپت شناسهٔ پیوست را
+	 * بنویسید)، نشانی اختیاری، فعال/غیرفعال، ترتیب با عدد، حذف با تیک. افزودن بخشی از همان فرم ذخیره است.
+	 */
+	private static function brands_section( array $s, string $name ): void {
+		echo '<h2 id="tth-brands">' . esc_html__( 'برندهای همکار', 'tecteb-homepage' ) . '</h2>';
+		/* translators: %s: number */
+		echo '<p>' . esc_html( sprintf( __( 'لوگوی برندهایی که با تک‌طب همکاری می‌کنند، در کاروسلی پس از بخش همکاری تأمین‌کنندگان و پیش از فوتر. فقط برند فعالِ دارای لوگو نمایش داده می‌شود؛ بی هیچ برند فعالی کل بخش پنهان است. ترتیب با ستون «ترتیب» (عدد کوچک‌تر، اول). حداکثر %s برند.', 'tecteb-homepage' ), Renderer::digits( Settings::MAX_BRANDS ) ) ) . '</p>';
+		$head = '<thead><tr>'
+			. '<th style="width:5rem">' . esc_html__( 'ترتیب', 'tecteb-homepage' ) . '</th>'
+			. '<th style="width:16rem">' . esc_html__( 'لوگو', 'tecteb-homepage' ) . '</th>'
+			. '<th>' . esc_html__( 'نام برند', 'tecteb-homepage' ) . '</th>'
+			. '<th>' . esc_html__( 'نشانی (اختیاری)', 'tecteb-homepage' ) . '</th>'
+			. '<th style="width:5rem">' . esc_html__( 'فعال', 'tecteb-homepage' ) . '</th>'
+			. '<th style="width:5rem">' . esc_html__( 'حذف', 'tecteb-homepage' ) . '</th>'
+			. '</tr></thead>';
+		if ( array() === $s['brands'] ) {
+			echo '<p><em>' . esc_html__( 'هنوز برندی ثبت نشده است؛ بخش برندها در صفحهٔ اصلی نمایش داده نمی‌شود.', 'tecteb-homepage' ) . '</em></p>';
+		} else {
+			echo '<table class="widefat striped tth-brands" style="max-width:80rem">' . $head . '<tbody>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- بالا ساخته و escape شده.
+			foreach ( $s['brands'] as $i => $b ) {
+				$field = $name . '[brands][' . $i . ']';
+				echo '<tr data-tth-brand="' . esc_attr( (string) $i ) . '">';
+				echo '<td><input type="number" min="0" max="999" style="width:4.5rem" name="' . esc_attr( $field . '[order]' ) . '" value="' . esc_attr( (string) ( $i + 1 ) ) . '" aria-label="' . esc_attr__( 'ترتیب', 'tecteb-homepage' ) . '"></td>';
+				echo '<td>';
+				self::logo_field( $field . '[logo]', 'tth-brand-logo-' . $i, (int) $b['logo'], $b['name'] );
+				echo '</td>';
+				echo '<td><input type="text" class="regular-text" maxlength="60" required name="' . esc_attr( $field . '[name]' ) . '" value="' . esc_attr( $b['name'] ) . '" aria-label="' . esc_attr__( 'نام برند', 'tecteb-homepage' ) . '"></td>';
+				echo '<td><input type="text" class="regular-text" dir="ltr" name="' . esc_attr( $field . '[url]' ) . '" value="' . esc_attr( $b['url'] ) . '" placeholder="https://…" aria-label="' . esc_attr__( 'نشانی برند', 'tecteb-homepage' ) . '"></td>';
+				echo '<td><label><input type="checkbox" name="' . esc_attr( $field . '[active]' ) . '" value="1"' . checked( (bool) $b['active'], true, false ) . '> ' . esc_html__( 'فعال', 'tecteb-homepage' ) . '</label>'
+					. ( (int) $b['logo'] < 1 ? '<br><small>' . esc_html__( 'بی لوگو نمایش داده نمی‌شود', 'tecteb-homepage' ) . '</small>' : '' ) . '</td>';
+				echo '<td><label><input type="checkbox" name="' . esc_attr( $field . '[remove]' ) . '" value="1"> ' . esc_html__( 'حذف', 'tecteb-homepage' ) . '</label></td>';
+				echo '</tr>';
+			}
+			echo '</tbody></table>';
+		}
+
+		echo '<h3>' . esc_html__( 'افزودن برند', 'tecteb-homepage' ) . '</h3>';
+		echo '<table class="form-table" role="presentation"><tbody>';
+		echo '<tr><th scope="row"><label for="tth-new-brand-name">' . esc_html__( 'نام برند', 'tecteb-homepage' ) . '</label></th><td><input type="text" class="regular-text" maxlength="60" id="tth-new-brand-name" name="' . esc_attr( $name . '[add_brand][name]' ) . '" value=""></td></tr>';
+		echo '<tr><th scope="row">' . esc_html__( 'لوگو', 'tecteb-homepage' ) . '</th><td>';
+		self::logo_field( $name . '[add_brand][logo]', 'tth-new-brand-logo', 0, '' );
+		echo '</td></tr>';
+		echo '<tr><th scope="row"><label for="tth-new-brand-url">' . esc_html__( 'نشانی (اختیاری)', 'tecteb-homepage' ) . '</label></th><td><input type="text" class="regular-text" dir="ltr" id="tth-new-brand-url" name="' . esc_attr( $name . '[add_brand][url]' ) . '" value="" placeholder="https://…"></td></tr>';
+		echo '</tbody></table>';
+		submit_button( __( 'افزودن برند و ذخیره', 'tecteb-homepage' ), 'secondary', 'tth-add-brand', false );
+	}
+
+	/** لوگو: پیش‌نمایش + شناسهٔ پیوست + دکمهٔ کتابخانهٔ رسانه (assets/js/tecteb-home-admin.js). */
+	private static function logo_field( string $field, string $id, int $logo, string $name ): void {
+		$valid = $logo > 0 && wp_attachment_is_image( $logo );
+		echo '<span class="tth-logo-preview" data-tth-preview="' . esc_attr( $id ) . '" style="display:inline-block;min-width:4rem;vertical-align:middle">'
+			// «medium» بی برش است (thumbnail مربعی برش می‌خورد و لوگوی پهن را نصفه نشان می‌دهد)؛ بی lazy، چون پیش‌نمایش است.
+			. ( $valid ? wp_get_attachment_image( $logo, 'medium', false, array( 'style' => 'max-height:48px;max-width:10rem;width:auto;height:auto', 'alt' => $name, 'loading' => false ) ) : '' )
+			. '</span> ';
+		echo '<label class="screen-reader-text" for="' . esc_attr( $id ) . '">' . esc_html__( 'شناسهٔ پیوست لوگو', 'tecteb-homepage' ) . '</label>'
+			. '<input type="number" min="0" step="1" style="width:6rem" id="' . esc_attr( $id ) . '" name="' . esc_attr( $field ) . '" value="' . esc_attr( $logo > 0 ? (string) $logo : '' ) . '"> '
+			. '<button type="button" class="button tth-pick-logo" data-tth-target="' . esc_attr( $id ) . '">' . esc_html__( 'انتخاب لوگو', 'tecteb-homepage' ) . '</button>';
+		if ( $logo > 0 && ! $valid ) {
+			echo '<br><strong>' . esc_html__( 'این شناسه تصویر معتبری از کتابخانهٔ رسانه نیست.', 'tecteb-homepage' ) . '</strong>';
 		}
 	}
 

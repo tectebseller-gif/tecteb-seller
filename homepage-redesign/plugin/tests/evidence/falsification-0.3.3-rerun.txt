@@ -1,0 +1,23 @@
+39 CAUGHT  [integration] 1 failing — price guard dropped: our number shown although the site replaced the price text
+     first: FAIL site filter: price replaced by the site text ⇒ that text, never our number
+50 CAUGHT  [integration] 4 failing — price guard compared in the homepage format (every price falls back to raw text)
+     first: FAIL price format: homepage shows «5,634,400 تومان» (comma thousands, space before the currency)  — {"kind":"text","text":"5634400\u062a\u06
+51 CAUGHT  [integration] 3 failing — inactive brand shown
+     first: FAIL brands: only active brands with a real image, in order, alt = brand name  — برند آزمایشی ب | برند آزمایشی الف | برند غیرفعال | برند ج |
+52 CAUGHT  [integration] 1 failing — non-image logo accepted
+     first: FAIL brands: a non-image logo is refused (logo 0, inactive), name kept for the admin to fix
+53 CAUGHT  [integration] 2 failing — brand URL not sanitised (javascript: kept)
+     first: FAIL brands: markup stripped from the name, javascript: URL refused
+54 CAUGHT  [integration] 2 failing — empty brands section printed
+     first: FAIL brands: no brand ⇒ no section at all (no heading, no empty block)
+55 CAUGHT  [integration] 1 failing — carousel buttons printed live without the script (dead buttons without JS)
+     first: FAIL brands: nav buttons are real buttons, hidden until the script shows them; region is focusable and labelled
+56 CAUGHT  [herobrands] 15 failing — carousel ignores RTL (next scrolls the wrong way)
+     first: FAIL 1440 brands: at the start «قبلی» is disabled; «بعدی» moves the list forward (RTL: leftwards)  — [{"x":0,"prev":true,"next":false},{"x":
+57 CAUGHT  [herobrands] 4 failing — Hero labels keep the corner layout on a narrow image (cover the monitor)
+     first: FAIL 1024 labels: off the monitor and the oximeter (estimated zones of the render)  — {"pill":false,"firstInCopy":true,"titleGap":0,"names":
+58 CAUGHT  [herobrands] 5 failing — brand logo stretched to its frame
+     first: FAIL 1440 brands: no logo stretched (aspect within 2%) or cropped (inside its frame)  — [{"ratio":0.5357142857142857,"inside":true,"loaded":
+
+10 of 10 mutations caught and restored
+rc=0

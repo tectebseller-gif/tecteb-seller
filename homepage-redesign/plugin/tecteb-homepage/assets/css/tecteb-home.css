@@ -319,21 +319,6 @@
   min-inline-size: 0;
 }
 
-.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.625rem;
-  justify-self: start;
-  padding: 0.3rem 0.95rem;
-  border: 1px solid rgba(99, 211, 214, 0.28);
-  border-radius: 999px;
-  background: rgba(99, 211, 214, 0.08);
-  color: var(--th-teal-300);
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-pill__logo,
 .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-eyebrow__logo {
   inline-size: 1.5rem;
   block-size: 1.5rem;
@@ -344,14 +329,6 @@
 .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-eyebrow__logo { inline-size: 1.25rem; block-size: 1.25rem; }
 
 .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-eyebrow:has(.th-eyebrow__logo)::before { display: none; }
-
-.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-pill__dot {
-  inline-size: 0.5rem;
-  block-size: 0.5rem;
-  border-radius: 50%;
-  background: var(--th-teal-300);
-  box-shadow: 0 0 0 4px rgba(99, 211, 214, 0.18);
-}
 
 .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-hero__title {
   display: grid;
@@ -1066,7 +1043,6 @@
   .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-float--one { animation: th-c-appear 0.8s var(--th-ease) 0.6s both, th-c-drift 7s ease-in-out 1.4s infinite; }
   .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-float--two { animation: th-c-appear 0.8s var(--th-ease) 0.75s both, th-c-drift 8s ease-in-out 1.6s infinite reverse; }
   .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-routes { animation: th-c-rise 0.7s var(--th-ease) 0.45s both; }
-  .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-pill__dot { animation: th-c-pulse 2.8s ease-out infinite; }
   @supports (animation-timeline: view()) {
   .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-reveal {
       animation: th-c-reveal linear both;
@@ -1334,3 +1310,110 @@
 }
 .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-price__word,
 .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-price__suffix { font-size: 0.8125rem; font-weight: 500; color: var(--th-muted); }
+
+/* ================================================================ ۰٫۳٫۳
+ *
+ * چهار برچسب کنار تصویر Hero (templates/hero.php ⇐ Catalog::hero_labels()). فهرست روی شکلِ تصویر پهن
+ * است و فقط پیوندها کلیک‌پذیرند؛ ترتیب خواندن (۱ تا ۴) = بالا راست، بالا چپ، پایین راست، پایین چپ.
+ * هر برچسب در گوشه‌ای است که رندر نمایشگر (وسط) و پالس‌اکسیمتر (پایین چپ) را نمی‌پوشاند؛ دو برچسب پایین
+ * روی نوار محوشوندهٔ پایین تصویرند. وقتی خودِ تصویر کمتر از ۴۴۰px پهنا دارد جا نیست: برچسب‌ها زیر تصویر،
+ * در یک ردیف جمع‌وجور و بی حرکت.
+ */
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-floats {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-floats .th-float { pointer-events: auto; white-space: nowrap; }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-float--one { inset-block: 6% auto; inset-inline: 0 auto; }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-float--two { inset-block: 6% auto; inset-inline: auto 0; }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-float--three { inset-block: auto 2%; inset-inline: 0 auto; }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-float--four { inset-block: auto 2%; inset-inline: auto 0; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-float--three { animation: th-c-appear 0.8s var(--th-ease) 0.9s both, th-c-drift 7.5s ease-in-out 1.8s infinite; }
+  .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-float--four { animation: th-c-appear 0.8s var(--th-ease) 1.05s both, th-c-drift 8.5s ease-in-out 2s infinite reverse; }
+}
+
+/* «جا نیست» از عرض خودِ تصویر سنجیده می‌شود نه صفحه: در ۱۰۲۴px ستون تصویر ~۳۷۰px است و چهار برچسب روی
+   نمایشگر می‌افتند. هیچ چیزی داخل figure واحد cqi ندارد، پس این container فقط همین قاعده را عوض می‌کند. */
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-hero__art { container: th-art / inline-size; }
+
+@container th-art (max-width: 439px) {
+  .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-floats {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-block-start: 0.25rem;
+    pointer-events: auto;
+  }
+  .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-floats .th-float { position: static; animation: none; }
+}
+
+/*
+ * برندهای همکار (templates/brands.php). یک فهرست افقی با اسکرول بومی و چسبیدن به لبهٔ هر کارت؛ لوگو
+ * داخل قاب ثابت با object-fit: contain، پس هیچ لوگویی کشیده یا بریده نمی‌شود.
+ */
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-section--brands { padding-block: clamp(2.5rem, 6vw, 4rem); }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-head--brands { align-items: center; margin-block-end: 1.25rem; }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brands__nav { display: flex; gap: 0.5rem; }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brands__nav[hidden] { display: none; }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brands__btn {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--th-line);
+  border-radius: 50%;
+  background: var(--th-white);
+  color: var(--th-petrol-800);
+  cursor: pointer;
+  transition: border-color 0.25s ease, color 0.25s ease;
+}
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brands__btn:hover:not(:disabled) { border-color: var(--th-teal-600); color: var(--th-teal-600); }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brands__btn:disabled { opacity: 0.4; cursor: default; }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brands__btn .th-icon { inline-size: 1.25rem; block-size: 1.25rem; }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brands__btn--prev .th-icon--dir { transform: scaleX(-1); }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brands__btn--prev .th-icon--dir:dir(ltr) { transform: none; }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brands {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  padding-block: 0.25rem 0.75rem;
+  border-radius: var(--th-r-m);
+}
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brands__list {
+  display: flex;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brands__item { flex: 0 0 clamp(8.5rem, 22%, 12rem); scroll-snap-align: start; }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 6.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--th-line);
+  border-radius: var(--th-r-m);
+  background: var(--th-white);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c a.th-brand:hover { border-color: rgba(15, 122, 128, 0.45); box-shadow: 0 12px 24px -18px rgba(10, 42, 63, 0.45); }
+.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-brand .th-brand__img {
+  display: block;
+  inline-size: auto;
+  block-size: auto;
+  max-inline-size: 100%;
+  max-block-size: 100%;
+  object-fit: contain;
+}

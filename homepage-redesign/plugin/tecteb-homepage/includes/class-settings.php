@@ -55,6 +55,22 @@ final class Settings {
 		'all_categories' => '',
 	);
 
+	/**
+	 * ۰٫۳٫۳: چهار برچسب شناور کنار تصویر Hero، به همین ترتیب (دستور مالک) — [نام، آیکون sprite].
+	 * هیچ شناسه یا اسلاگی اینجا نیست: هر برچسب با **نام دقیق** در دسته‌های واقعی ووکامرس پیدا می‌شود
+	 * (Catalog::hero_labels())، و مدیر می‌تواند برای هر کدام شناسهٔ دسته را دستی تعیین کند (hero_labels).
+	 * برچسبی که دستهٔ متناظر ندارد چاپ نمی‌شود.
+	 */
+	public const HERO_LABELS = array(
+		array( 'پزشکی جنرال', 'care' ),
+		array( 'بیهوشی و تنفسی', 'emergency' ),
+		array( 'آزمایشگاه', 'lab' ),
+		array( 'جراحی', 'or' ),
+	);
+
+	/** ۰٫۳٫۳: حداکثر برند در کاروسل «برندهای همکار». */
+	public const MAX_BRANDS = 40;
+
 	/** آیکون‌های قابل‌انتخاب برای دستهٔ بی‌تصویر؛ کلید = نام symbol در sprite. */
 	public const CATEGORY_ICONS = array( 'monitor', 'or', 'ultrasound', 'lab', 'syringe', 'emergency', 'care', 'dental', 'store', 'image' );
 
@@ -78,6 +94,10 @@ final class Settings {
 			'font'                => 'bundled',
 			// ۰٫۳٫۱: نمایش Concept C روی صفحهٔ نخست ِ «تنظیمات ← خواندن» بی تغییر آن برگه. پیش‌فرض خاموش.
 			'front_page'          => false,
+			// ۰٫۳٫۳: شناسهٔ دستهٔ دستیِ هر برچسب Hero؛ ۰ = پیدا کردن با نام.
+			'hero_labels'         => array( 0, 0, 0, 0 ),
+			// ۰٫۳٫۳: برندهای همکار — فقط آنچه مدیر ثبت کرده.
+			'brands'              => array(),
 		);
 	}
 
@@ -170,6 +190,12 @@ final class Settings {
 		$out['font'] = 'site' === ( $in['font'] ?? '' ) ? 'site' : 'bundled';
 
 		$out['front_page'] = ! empty( $in['front_page'] );
+
+		$out['hero_labels'] = self::hero_labels( $in['hero_labels'] ?? array(), $report );
+
+		// option ِ ۰٫۳٫۲ کلید brands ندارد ⇒ هنوز برندی ثبت نشده. فرم پیشخوان هر برندِ ثبت‌شده را ردیف به ردیف
+		// می‌فرستد، پس فرمی که هیچ ردیفی ندارد یعنی همه حذف شده‌اند — همان جواب. add_brand ردیف «برند تازه» است.
+		$out['brands'] = self::brands( $in['brands'] ?? array(), $in['add_brand'] ?? null, $report );
 
 		return $out;
 	}
@@ -287,6 +313,98 @@ final class Settings {
 			$ids = array_slice( $ids, 0, self::MAX_SELECTED );
 		}
 		return array_map( 'intval', $ids );
+	}
+
+	/**
+	 * شناسهٔ دستی هر برچسب Hero: ۰ (با نام پیدا شود) یا شناسهٔ یک دستهٔ موجود ووکامرس.
+	 *
+	 * @return list<int>
+	 */
+	private static function hero_labels( $rows, bool $report ): array {
+		$rows = is_array( $rows ) ? array_values( $rows ) : array();
+		$out  = array();
+		foreach ( array_keys( self::HERO_LABELS ) as $i ) {
+			$id = absint( $rows[ $i ] ?? 0 );
+			if ( $id > 0 && ! ( get_term( $id, 'product_cat' ) instanceof \WP_Term ) ) {
+				if ( $report ) {
+					/* translators: 1: label name 2: term ID */
+					self::error( 'hero_label_' . $i, sprintf( 'برای برچسب «%1$s» دستهٔ #%2$d در ووکامرس پیدا نشد؛ برچسب با نام پیدا می‌شود.', self::HERO_LABELS[ $i ][0], $id ) );
+				}
+				$id = 0;
+			}
+			$out[] = $id;
+		}
+		return $out;
+	}
+
+	/**
+	 * برندهای همکار: نام (لازم)، لوگو (پیوستِ تصویری کتابخانهٔ رسانه)، نشانی اختیاری، فعال، ترتیب.
+	 * ردیفی که لوگوی معتبر ندارد نگه داشته می‌شود تا مدیر درستش کند، ولی غیرفعال و بی لوگو؛ صفحه فقط
+	 * برند فعالِ دارای تصویر را نشان می‌دهد (Catalog::brands()).
+	 *
+	 * @return list<array{name:string,logo:int,url:string,active:bool}>
+	 */
+	private static function brands( $rows, $add, bool $report ): array {
+		$list = array();
+		$i    = 0;
+		$rows = is_array( $rows ) ? array_values( $rows ) : array();
+		if ( is_array( $add ) ) {
+			$add['order'] = PHP_INT_MAX;
+			$rows[]       = $add + array( 'active' => '1', 'new' => '1' );
+		}
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) || ! empty( $row['remove'] ) ) {
+				continue;
+			}
+			$name = self::text( $row['name'] ?? '', 60 );
+			$logo = absint( $row['logo'] ?? 0 );
+			$url  = trim( (string) ( $row['url'] ?? '' ) );
+			if ( '' === $name ) {
+				if ( $report && ( $logo > 0 || '' !== $url ) ) {
+					self::error( 'brand_name', 'برندی بی نام ذخیره نشد؛ نام برند لازم است.' );
+				}
+				continue;
+			}
+			$active = ! empty( $row['active'] );
+			if ( $logo > 0 && ! wp_attachment_is_image( $logo ) ) {
+				if ( $report ) {
+					/* translators: %s: brand name */
+					self::error( 'brand_logo_' . $i, sprintf( 'لوگوی برند «%s» تصویر معتبری از کتابخانهٔ رسانه نیست؛ برند ذخیره شد ولی تا انتخاب لوگو نمایش داده نمی‌شود.', $name ) );
+				}
+				$logo = 0;
+			}
+			if ( 0 === $logo && $active ) {
+				if ( $report && empty( $row['new'] ) ) {
+					/* translators: %s: brand name */
+					self::error( 'brand_nologo_' . $i, sprintf( 'برند «%s» لوگو ندارد و نمایش داده نمی‌شود.', $name ) );
+				}
+				$active = false;
+			}
+			$clean = self::clean_url( $url );
+			if ( '' !== $url && '' === $clean && $report ) {
+				/* translators: %s: brand name */
+				self::error( 'brand_url_' . $i, sprintf( 'نشانی برند «%s» پذیرفته نشد و خالی ماند: فقط https://… ، http://… یا مسیری که با / شروع شود.', $name ) );
+			}
+			$list[] = array(
+				'name'   => $name,
+				'logo'   => $logo,
+				'url'    => $clean,
+				'active' => $active,
+				'order'  => isset( $row['order'] ) && is_numeric( $row['order'] ) ? (float) $row['order'] : (float) ( $i + 1 ),
+				'index'  => $i++,
+			);
+		}
+		usort( $list, static fn( array $a, array $b ): int => array( $a['order'], $a['index'] ) <=> array( $b['order'], $b['index'] ) );
+		if ( count( $list ) > self::MAX_BRANDS ) {
+			if ( $report ) {
+				self::error( 'brand_limit', sprintf( 'حداکثر %d برند؛ برندهای اضافه ذخیره نشدند.', self::MAX_BRANDS ) );
+			}
+			$list = array_slice( $list, 0, self::MAX_BRANDS );
+		}
+		return array_map(
+			static fn( array $b ): array => array( 'name' => $b['name'], 'logo' => $b['logo'], 'url' => $b['url'], 'active' => $b['active'] ),
+			$list
+		);
 	}
 
 	private static function is_product( int $id ): bool {

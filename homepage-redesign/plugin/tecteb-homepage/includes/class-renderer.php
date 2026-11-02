@@ -18,7 +18,8 @@ defined( 'ABSPATH' ) || exit;
 
 final class Renderer {
 
-	public const SECTIONS = array( 'hero', 'categories', 'products', 'supplier' );
+	/** ۰٫۳٫۳: «برندهای همکار» بلافاصله پس از دعوت تأمین‌کنندگان و پیش از فوتر سایت. */
+	public const SECTIONS = array( 'hero', 'categories', 'products', 'supplier', 'brands' );
 
 	/** سه مسیر اصلی صفحه، به همین ترتیب؛ هر کدام فقط با مقصد معتبر چاپ می‌شود. */
 	public const ROUTES = array( 'shop', 'repair', 'supplier' );
@@ -34,6 +35,7 @@ final class Renderer {
 		$s          = Settings::get();
 		$categories = Catalog::categories();
 		$products   = Catalog::selected_products();
+		$brands     = Catalog::brands();
 		$links      = array(
 			'shop'           => self::shop_url(),
 			'repair'         => Settings::link( 'repair' ),
@@ -61,6 +63,8 @@ final class Renderer {
 			'routes'     => $routes,
 			'categories' => $categories,
 			'products'   => $products,
+			'hero_labels' => Catalog::hero_labels(),
+			'brands'     => $brands,
 			'sections'   => array(
 				'hero'       => array( 'show' => true, 'reason' => '' ),
 				'categories' => array(
@@ -69,6 +73,10 @@ final class Renderer {
 				),
 				'products'   => array( 'show' => array() !== $products, 'reason' => $why ),
 				'supplier'   => array( 'show' => $routes['supplier']['show'], 'reason' => $routes['supplier']['reason'] ),
+				'brands'     => array(
+					'show'   => array() !== $brands,
+					'reason' => array() === $brands ? 'هیچ برند فعالی با لوگوی معتبر ثبت نشده است.' : '',
+				),
 			),
 		);
 	}

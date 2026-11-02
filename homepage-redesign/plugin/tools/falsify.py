@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import os
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -114,7 +115,8 @@ MUTATIONS = [
     ("price guard dropped: a price hidden by the site is shown anyway", "includes/class-price.php",
      "\t\tif ( '' === $shown ) {\n\t\t\treturn array( 'kind' => 'none' );\n\t\t}\n", "", "integration"),
     ("price guard dropped: our number shown although the site replaced the price text", "includes/class-price.php",
-     "if ( ! str_contains( $shown, self::visible_text( $amounts[ $key ] ) ) ) {", "if ( false ) {", "integration"),
+     # ۰٫۳٫۳: گارد حالا خودش wc_price() ِ قالب سایت را می‌سازد.
+     "if ( ! str_contains( $shown, self::visible_text( wc_price( $model[ $key ] ) ) ) ) {", "if ( false ) {", "integration"),
     ("sale ignored (old price lost, discount invisible)", "includes/class-price.php",
      "\t\tif ( $product->is_on_sale() ) {", "\t\tif ( false ) {", "integration"),
     ("variable range collapsed to one price", "includes/class-price.php",
@@ -126,6 +128,36 @@ MUTATIONS = [
     ("Hero category dropdown back in the search form", "templates/hero.php",
      '\t\t\t\t<input type="hidden" name="post_type" value="product">\n',
      '\t\t\t\t<select class="th-search__select" name="product_cat"><option value="">همهٔ دسته‌ها</option></select>\n\t\t\t\t<input type="hidden" name="post_type" value="product">\n', "prices"),
+    # ۰٫۳٫۳
+    ("Hero «بازار B2B» label printed again", "templates/hero.php",
+     '\t\t\t<h1 class="th-hero__title th-in"', '\t\t\t<p class="th-pill">بازار B2B تجهیزات پزشکی</p>\n\t\t\t<h1 class="th-hero__title th-in"', "integration"),
+    ("Hero label linked to a category with no products", "includes/class-catalog.php",
+     "if ( ! self::has_products( $term ) ) {", "if ( false ) {", "integration"),
+    ("ambiguous Hero label guessed (first match taken)", "includes/class-catalog.php",
+     [("1 === count( $matches ) || 1 === count( $roots )", "array() !== $matches"),
+      ("$term = 1 === count( $matches ) ? $matches[0] : $roots[0];", "$term = $matches[0];")], None, "integration"),
+    ("Hero labels out of the required order", "includes/class-settings.php",
+     "\t\tarray( 'آزمایشگاه', 'lab' ),\n\t\tarray( 'جراحی', 'or' ),", "\t\tarray( 'جراحی', 'or' ),\n\t\tarray( 'آزمایشگاه', 'lab' ),", "integration"),
+    ("price shown in the site format (no thousands separator, no space)", "includes/class-price.php",
+     "wc_price( $model[ $key ], $args )", "wc_price( $model[ $key ] )", "integration"),
+    ("price guard compared in the homepage format (every price falls back to raw text)", "includes/class-price.php",
+     "self::visible_text( wc_price( $model[ $key ] ) )", "self::visible_text( wc_price( $model[ $key ], self::display_args() ) )", "integration"),
+    ("inactive brand shown", "includes/class-catalog.php",
+     "empty( $b['active'] ) ||", "", "integration"),
+    ("non-image logo accepted", "includes/class-settings.php",
+     "if ( $logo > 0 && ! wp_attachment_is_image( $logo ) ) {", "if ( false ) {", "integration"),
+    ("brand URL not sanitised (javascript: kept)", "includes/class-settings.php",
+     "$clean = self::clean_url( $url );", "$clean = $url;", "integration"),
+    ("empty brands section printed", "includes/class-renderer.php",
+     "'show'   => array() !== $brands,", "'show'   => true,", "integration"),
+    ("carousel buttons printed live without the script (dead buttons without JS)", "templates/brands.php",
+     "data-th-brands-nav hidden", "data-th-brands-nav", "integration"),
+    ("carousel ignores RTL (next scrolls the wrong way)", "assets/js/tecteb-home.js",
+     "left: rtl ? -step : step", "left: step", "herobrands"),
+    ("Hero labels keep the corner layout on a narrow image (cover the monitor)", "assets/css/tecteb-home.css",
+     "container: th-art / inline-size;", "", "herobrands"),
+    ("brand logo stretched to its frame", "assets/css/tecteb-home.css",
+     [("  inline-size: auto;\n  block-size: auto;\n  max-inline-size: 100%;\n  max-block-size: 100%;\n  object-fit: contain;", "  inline-size: 100%;\n  block-size: 100%;\n  max-inline-size: 100%;\n  max-block-size: 100%;\n  object-fit: fill;")], None, "herobrands"),
 ]
 
 
@@ -135,6 +167,11 @@ def run(kind: str) -> tuple[int, str]:
     elif kind == "integration":
         subprocess.run(WP + ["eval-file", "tests/fixtures/seed.php", "seed"], cwd=PLUGIN, capture_output=True)
         p = subprocess.run(WP + ["eval-file", "tests/integration/run.php"], cwd=PLUGIN, capture_output=True, text=True)
+    elif kind == "herobrands":
+        for a in (["tests/fixtures/seed.php", "seed"], ["tests/fixtures/state.php", "full"]):
+            subprocess.run(WP + ["eval-file"] + a, cwd=PLUGIN, capture_output=True)
+        env = dict(os.environ, AXE=AXE, NODE_PATH="/opt/node-tools/node_modules", OUT=str(PLUGIN / "tests/evidence/falsification-browser"))
+        p = subprocess.run(["node", "tests/browser/hero-brands.mjs"], cwd=PLUGIN, capture_output=True, text=True, env=env)
     elif kind == "prices":
         for a in (["tests/fixtures/seed.php", "seed"], ["tests/fixtures/state.php", "full"], ["tests/fixtures/prices.php", "seed"]):
             subprocess.run(WP + ["eval-file"] + a, cwd=PLUGIN, capture_output=True)
@@ -156,6 +193,10 @@ def run(kind: str) -> tuple[int, str]:
         env = dict(os.environ, AXE=AXE, NODE_PATH="/opt/node-tools/node_modules", OUT=str(PLUGIN / "tests/evidence/falsification-browser"))
         p = subprocess.run(["node", "tests/browser/run.mjs"], cwd=PLUGIN, capture_output=True, text=True, env=env)
     fails = [ln for ln in p.stdout.splitlines() if ln.startswith("FAIL")]
+    # سوییتی که بی خط جمع‌بندی تمام شود مرده است (خطای مرگبار زیر جهش): این هم «گرفته شد» است، نه «جان سالم برد».
+    if not fails and not re.search(r"^\d+ passed, \d+ failed$", p.stdout, re.M):
+        tail = (p.stdout + p.stderr).strip().splitlines()
+        return 1, "CRASHED before the summary — " + (tail[-1][:120] if tail else "")
     return len(fails), (fails[0][:140] if fails else p.stdout.strip().splitlines()[-1:] and p.stdout.strip().splitlines()[-1])
 
 

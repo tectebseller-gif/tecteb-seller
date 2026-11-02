@@ -27,10 +27,12 @@ const PROPS = ['display', 'position', 'width', 'height', 'margin-top', 'margin-r
   'background-color', 'background-image', 'color', 'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'letter-spacing', 'text-transform', 'text-decoration-line',
   'box-shadow', 'opacity', 'outline-style', 'outline-width', 'list-style-type', 'float', 'fill', 'stroke', 'stroke-width', 'max-width', 'min-height', 'visibility', 'z-index'];
 
-const ALL = ['.th-hero', '.th-pill', '.th-pill__logo', '.th-hero__title', '.th-hero__lead', '.th-search', '.th-search__input', '.th-search__submit', '.th-search__icon',
+const ALL = ['.th-hero', '.th-hero__title', '.th-hero__lead', '.th-search', '.th-search__input', '.th-search__submit', '.th-search__icon',
   '.th-quick__label', '.th-chip', '.th-hero__render img', '.th-float', '.th-routes', '.th-route', '.th-route__icon', '.th-route__title', '.th-route__kicker', '.th-route__go', '.th-audience',
   '.th-eyebrow', '.th-head__title', '.th-more', '.th-cats', '.th-cat', '.th-cat__name', '.th-cat__meta', '.th-orb', '.th-filter__list', '.th-filter__list a', '.th-product', '.th-product__pic img',
-  '.th-product__title', '.th-product__cat', '.th-product__specs', '.th-product__price', '.th-badge', '.th-join', '.th-join__title', '.th-join__lead', '.th-join .th-btn', '.th-step'];
+  '.th-product__title', '.th-product__cat', '.th-product__specs', '.th-product__price', '.th-badge', '.th-join', '.th-join__title', '.th-join__lead', '.th-join .th-btn', '.th-step',
+  // ۰٫۳٫۳
+  '.th-floats', '.th-price__now', '.th-section--brands', '.th-brands', '.th-brands__list', '.th-brand', '.th-brand__img', '.th-brands__btn'];
 const STATES = [
   { name: 'desktop', w: 1440, act: async () => {}, sel: ALL },
   { name: 'hover-route', w: 1440, act: async (p) => { await p.hover('.th-route'); }, sel: ['.th-route'] },

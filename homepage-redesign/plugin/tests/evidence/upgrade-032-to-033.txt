@@ -1,0 +1,20 @@
+PASS 0.3.2 installed and active from its ZIP
+PASS 0.3.2 on the front page: Concept C with the B2B label and the unformatted price (what staging shows)
+PASS 0.3.3 installed over 0.3.2 from its ZIP (--force)
+PASS still active, version 0.3.3
+PASS installed files are byte-identical to the source
+PASS saved settings unchanged byte for byte (no migration)
+PASS 0.3.2 option reads as: switch on, no brands, labels by name
+PASS switch still on: Concept C on the front page after the update
+PASS the B2B label is gone
+PASS four Hero category labels
+PASS prices formatted on the homepage (45,000,000)
+PASS no brand registered ⇒ no brands section
+PASS product page keeps the site's own price format (homepage-only change)
+PASS rollback by unticking: the Reading page itself again
+PASS downgrade: 0.3.2 reinstalled from its ZIP
+PASS downgrade: 0.3.2 behaves as before; the extra brands/labels keys are ignored
+PASS downgrade: settings (including the brands saved under 0.3.3) untouched
+PASS rollback by deactivation: the Reading page itself again
+
+18 passed, 0 failed

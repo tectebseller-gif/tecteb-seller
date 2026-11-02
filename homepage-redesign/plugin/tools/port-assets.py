@@ -10,7 +10,7 @@ Concept C ← افزونه: دارایی‌های تولید را از پیش‌
    جدای فونت می‌رود تا اگر فونت سایت انتخاب شد اصلاً بارگذاری نشود؛ انتخابگر
    <picture> به پوستهٔ تصویر وردپرس نگاشت می‌شود؛ و سخت‌سازی در برابر Hello و
    kit ِ Elementor (src/hardening.css) به انتها اضافه می‌شود.
-2. JS: concept-c.js بی‌تغییر کپی می‌شود.
+2. JS: concept-c.js بی‌تغییر کپی می‌شود، و src/additions.js (۰٫۳٫۳) پس از آن.
 3. sprite آیکون‌ها از index.html به templates/sprite.svg، به‌علاوهٔ src/sprite-extra.svg
    (آچارِ مسیر تعمیرات، ۰٫۲٫۰).
 
@@ -29,7 +29,9 @@ CONCEPT = HERE.parent.parent / "concept-c"
 # هر انتخابگری که یکی از این‌ها را دارد، مال پیش‌نمایش است.
 PREVIEW_ONLY = re.compile(r"\.th-sample|\.th-imgnote|\.th-hero__note|\.th-hero--light"
                           # برداشته‌شده در ۰٫۲٫۰: استعلام روی کارت محصول و بخش خدمات عمومی.
-                          r"|\.th-product__quote|\.th-service|\.th-deep__bg|\.th-section--deep")
+                          r"|\.th-product__quote|\.th-service|\.th-deep__bg|\.th-section--deep"
+                          # برداشته‌شده در ۰٫۳٫۳ (دستور مالک): برچسب «بازار B2B تجهیزات پزشکی» بالای عنوان Hero.
+                          r"|\.th-pill")
 
 
 def split_top(text: str) -> list[str]:
@@ -145,6 +147,8 @@ def main() -> int:
     )
 
     js = (CONCEPT / "concept-c.js").read_text(encoding="utf-8")
+    # ۰٫۳٫۳: افزوده‌های افزونه (دکمه‌های کاروسل برندها) پس از اسکریپت بی‌تغییرِ پیش‌نمایش، در همان فایل.
+    js += (HERE.parent / "src" / "additions.js").read_text(encoding="utf-8")
     (PLUGIN / "assets/js/tecteb-home.js").write_text(js, encoding="utf-8")
 
     html = (CONCEPT / "index.html").read_text(encoding="utf-8")

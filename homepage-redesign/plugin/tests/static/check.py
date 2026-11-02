@@ -93,6 +93,20 @@ money = [f for f, c in code.items() if re.search(r"تومان|ریال|['\"](IRT
 check("no hard-coded currency in code (WooCommerce settings decide)", not money, ", ".join(money))
 check("product cards never print raw get_price_html() (screen-reader text)", "get_price_html" not in code["templates/products.php"] and "Price::of(" in code["includes/class-catalog.php"])
 
+# --- ۴-ج. ۰٫۳٫۳
+# readme.txt (فهرست تغییرات) همین برداشتن را شرح می‌دهد، پس از این سنجش بیرون است.
+check("hero: the «بازار B2B تجهیزات پزشکی» label is not generated anywhere", not any("بازار B2B" in c for f, c in raw.items() if f != "readme.txt") and "th-pill" not in raw["templates/hero.php"])
+labels = re.search(r"HERO_LABELS = array\((.*?)\n\t\);", code["includes/class-settings.php"], re.S)
+check("hero labels: names and icons only — no hard-coded term ID or slug", bool(labels) and not re.search(r"\b\d{2,}\b|-", labels.group(1)), labels.group(1)[:120] if labels else "missing")
+price_hooks = [f for f, c in code.items() if re.search(r"add_filter\(\s*'(wc_price_args|woocommerce_price_format|formatted_woocommerce_price|woocommerce_get_price_html|raw_woocommerce_price|wc_get_price_thousand_separator|woocommerce_price_thousand_separator)'", c)]
+check("price: no global WooCommerce price filter (format applied per call on the homepage only)", not price_hooks, ", ".join(price_hooks))
+check("price: thousands separator / format passed as wc_price() arguments", "'thousand_separator' => $thousand" in code["includes/class-price.php"] and "wc_price( $model[ $key ], $args )" in code["includes/class-price.php"])
+libs = [f for f, c in raw.items() if re.search(r"(?i)swiper|slick|owl\.carousel|glide\.js|splide|cdn\.|https?://(?!www\.w3\.org)", c) and f.endswith((".js", ".css"))]
+check("brands carousel: no third-party library or remote asset", not libs, ", ".join(libs))
+check("brands carousel: no autoplay (no setInterval / setTimeout in the front script)", not re.search(r"setInterval|setTimeout", raw["assets/js/tecteb-home.js"]))
+check("admin: media library loaded only on this plugin's own page, behind the capability", "if ( '' === self::$hook || $hook !== self::$hook || ! current_user_can( self::capability() ) )" in code["includes/class-admin.php"])
+check("brands: saved through the plugin option only (settings_fields nonce + option_page_capability)", "settings_fields( Settings::GROUP )" in code["includes/class-admin.php"] and "option_page_capability_" in code["includes/class-admin.php"] and "brands" in code["includes/class-settings.php"])
+
 # --- ۵. هر echo در قالب‌ها escape شده یا دلیلِ نوشته‌شده دارد
 for f, text in raw.items():
     if not f.startswith("templates/") or not f.endswith(".php"):

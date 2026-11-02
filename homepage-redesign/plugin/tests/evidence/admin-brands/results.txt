@@ -1,0 +1,19 @@
+PASS admin: «برندهای همکار» section, empty state says the homepage section is hidden
+PASS admin: «برچسب‌های کنار تصویر Hero» section with four rows
+PASS front: no brand ⇒ no section
+PASS admin: «انتخاب لوگو» opens the WordPress media library (images only)
+PASS admin: picking an image writes its attachment ID and shows a preview
+PASS admin: «افزودن برند و ذخیره» adds the brand (one row)
+PASS front: the new brand appears, alt = its name, linked to its URL
+PASS front: three brands in the order they were added
+PASS admin: edit name + order ⇒ saved; front order follows the order column
+PASS admin: inactive ⇒ kept in the list, gone from the homepage
+PASS admin: a non-image logo is reported and the brand kept inactive (not on the homepage)
+PASS admin: a javascript: URL is reported and left empty
+PASS admin: «حذف» removes the brand
+PASS admin: every other homepage setting untouched by all of the above
+PASS admin page: axe wcag2a/aa — 0 violations
+PASS security: a POST with a bad nonce is refused and changes nothing
+PASS security: a user without manage_woocommerce can neither open the page nor save
+
+17 passed, 0 failed

@@ -12,8 +12,9 @@ defined( 'ABSPATH' ) || exit;
 
 $settings          = $plan['settings'];
 $links      = $plan['links'];
-$categories = $plan['categories'];
-$floats     = array_slice( $categories, 0, 2 );
+// ۰٫۳٫۳: چهار برچسب ثابتِ کنار تصویر (Catalog::hero_labels())، فقط آن‌هایی که دستهٔ واقعیِ دارای محصول دارند.
+$floats     = array_filter( $plan['hero_labels'], static fn( array $label ): bool => 'ok' === $label['status'] );
+$slots      = array( 'one', 'two', 'three', 'four' );
 $img        = TECTEB_HOME_URL . 'assets/img/';
 $arrow      = Renderer::icon( 'arrow', 'th-icon th-icon--dir' );
 ?>
@@ -26,7 +27,6 @@ $arrow      = Renderer::icon( 'arrow', 'th-icon th-icon--dir' );
 	</div>
 	<div class="th-wrap th-hero__layout">
 		<div class="th-hero__copy">
-			<p class="th-pill th-in" style="--th-i:0"><img class="th-pill__logo" src="<?php echo esc_url( $img . 'tecteb-logo-mark-96.png' ); ?>" width="24" height="24" alt="<?php echo esc_attr__( 'تک‌طب', 'tecteb-homepage' ); ?>"><?php echo esc_html__( 'بازار B2B تجهیزات پزشکی', 'tecteb-homepage' ); ?></p>
 			<h1 class="th-hero__title th-in" id="th-hero-title" style="--th-i:1">
 				<span class="th-hero__line"><?php echo esc_html__( 'تجهیزات پزشکی را دقیق پیدا کنید،', 'tecteb-homepage' ); ?></span>
 				<span class="th-hero__line th-hero__line--em"><?php echo esc_html__( 'با اطمینان تأمین کنید.', 'tecteb-homepage' ); ?></span>
@@ -62,11 +62,13 @@ $arrow      = Renderer::icon( 'arrow', 'th-icon th-icon--dir' );
 				<source type="image/webp" media="(max-width: 699px)" srcset="<?php echo esc_url( $img . 'hero-3d-dark-720.webp' ); ?>">
 				<img class="skip-lazy" data-no-lazy="1" src="<?php echo esc_url( $img . 'hero-3d-dark-1200.webp' ); ?>" width="1200" height="960" alt="" fetchpriority="high" decoding="async">
 			</picture>
-			<?php foreach ( $floats as $i => $category ) : ?>
-				<a class="th-float <?php echo 0 === $i ? 'th-float--one' : 'th-float--two'; ?>" href="<?php echo esc_url( $category['url'] ); ?>">
-					<?php echo Renderer::icon( $category['icon'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Renderer::icon(). ?><?php echo esc_html( $category['name'] ); ?>
-				</a>
-			<?php endforeach; ?>
+			<?php if ( array() !== $floats ) : ?>
+				<ul class="th-floats" role="list" aria-label="<?php echo esc_attr__( 'دسته‌های پرکاربرد', 'tecteb-homepage' ); ?>">
+					<?php foreach ( $floats as $i => $label ) : ?>
+						<li class="th-floats__item"><a class="th-float th-float--<?php echo esc_attr( $slots[ $i ] ); ?>" href="<?php echo esc_url( $label['url'] ); ?>"><?php echo Renderer::icon( $label['icon'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Renderer::icon(). ?><?php echo esc_html( $label['name'] ); ?></a></li>
+					<?php endforeach; ?>
+				</ul>
+			<?php endif; ?>
 		</figure>
 	</div>
 	<?php
