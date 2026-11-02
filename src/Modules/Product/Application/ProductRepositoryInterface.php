@@ -779,6 +779,25 @@ interface ProductRepositoryInterface
     /** @return list<Product> rows a migration mapped but nobody took over */
     public function observed(int $limit = 200): array;
 
+    /**
+     * One shop's `observed` rows, from a cursor — the staged hand-over's read.
+     *
+     * ⛔ **Why a cursor and a vendor.** `observed()` is global and defaults to
+     * `LIMIT 200`, and the only screen that can transfer ownership calls it
+     * with no argument. On a catalogue with more than two hundred observed
+     * rows, row 201 is unreachable from the one page that can move it and
+     * nothing goes red — the shape `alpha.85` found one module over, where a
+     * computed cursor had no consumer. It was a LIMIT rather than damage on
+     * 184 rows, which is exactly why nobody saw it.
+     *
+     * Keyset on `id`, because the caller walks a shop's whole catalogue and
+     * `OFFSET` on a moving table skips rows (`alpha.13`).
+     *
+     * @return list<Product> hydrated, because the planner needs each row's
+     *         details to compare them against the shop
+     */
+    public function observedForVendorAfter(int $vendorUserId, int $afterId = 0, int $limit = 50): array;
+
     public function linkOwnership(int $productId): LinkOwnership;
 
     /** The explicit transfer, in both directions. Never called implicitly. */

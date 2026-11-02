@@ -72,7 +72,14 @@ final class MigrationCompleteness
          * gate keeps the old count — a missing dependency must not be allowed
          * to invent a verdict about somebody's shop.
          */
-        private readonly ?ShopRecordPreview $recordsPreview = null
+        private readonly ?ShopRecordPreview $recordsPreview = null,
+        /**
+         * The manager's explicit confirmation that a shop's records came over
+         * — read ONLY where Dokan cannot be asked. Optional, and its absence
+         * means this build behaves exactly as `alpha.90` shipped: with Dokan
+         * gone the gate stays open. See `withoutDokan()`.
+         */
+        private readonly ?ShopRecordConfirmationRepositoryInterface $confirmations = null
     ) {
     }
 
@@ -115,6 +122,39 @@ final class MigrationCompleteness
 
     /** Our own record store is unestablished, or nothing said anything. */
     public const RECORDS_UNVERIFIABLE = 'unverifiable';
+
+    /**
+     * Dokan cannot be asked, and a manager confirmed the reconciliation while
+     * it still could be — the owner's option ب,
+     * `docs/open-decisions-alpha79.md` §1.
+     *
+     * Kept apart from `RECORDS_SETTLED` because the two are different
+     * sentences: «شمردیم و کامل است» is a read of the source, and this is «یک
+     * انسان نامش را پای تطبیق گذاشت». Both open the gate; only one of them
+     * can name a person and a date, and the page says which.
+     */
+    public const RECORDS_CONFIRMED = 'confirmed';
+
+    /**
+     * A confirmation exists and the imported past has MOVED since.
+     *
+     * The gate stays open, and that is the whole reason the confirmation
+     * stores a version: a re-import, a rollback or an extension bumps
+     * `records_version` in its own transaction, so a decision taken against
+     * the old number is about an archive that is no longer the one on disk.
+     * «تأیید قدیمی نباید بی‌صدا معتبر بماند» is this constant.
+     */
+    public const RECORDS_CONFIRMATION_STALE = 'confirmation_stale';
+
+    /**
+     * Dokan cannot be asked AND the confirmation could not be read either.
+     *
+     * Not folded into `RECORDS_DOKAN_ABSENT`: both leave the gate open, but
+     * one of them means «nobody has confirmed» and the other means «I could
+     * not find out», and they send a person to two different places. Two
+     * «don't know»s under one label make a guard too wide (`alpha.68`).
+     */
+    public const RECORDS_CONFIRMATION_UNREADABLE = 'confirmation_unreadable';
 
     /**
      * What the three record sources add up to for one shop.
@@ -175,7 +215,12 @@ final class MigrationCompleteness
         $state = match (true) {
             $has([ShopRecordPreview::UNREADABLE]) => self::RECORDS_UNREADABLE,
             $has([ShopRecordPreview::PENDING, ShopRecordPreview::PARTIAL]) => self::RECORDS_OUTSTANDING,
-            in_array('dokan_not_running', $unchecked, true) => self::RECORDS_DOKAN_ABSENT,
+            // ⛔ THE ONE BRANCH THE CONFIRMATION IS READ FROM, and it is
+            // this one on purpose. While Dokan answers, the LIVE read is the
+            // reference — so a confirmation given over an incomplete archive
+            // can never cover a present `outstanding` or `unreadable`, both
+            // of which are decided above this line.
+            in_array('dokan_not_running', $unchecked, true) => $this->withoutDokan($vendorUserId),
             in_array('record_store_not_installed', $unchecked, true) => self::RECORDS_UNVERIFIABLE,
             $verdicts === [] => self::RECORDS_UNVERIFIABLE,
             // Every kind unchecked, and by now the only reason left is «that
@@ -186,6 +231,63 @@ final class MigrationCompleteness
         };
 
         return ['state' => $state, 'kinds' => $verdicts, 'reasons' => $reasons];
+    }
+
+    /**
+     * What closes the record question once Dokan can no longer be asked.
+     *
+     * Four answers, and every one of them leaves the gate open except the
+     * first:
+     *
+     *  - `RECORDS_CONFIRMED` — a live confirmation, taken against the version
+     *    the archive is still on.
+     *  - `RECORDS_CONFIRMATION_STALE` — a live confirmation, and the archive
+     *    has moved since.
+     *  - `RECORDS_CONFIRMATION_UNREADABLE` — the confirmation table could not
+     *    be read, which is not «nobody confirmed».
+     *  - `RECORDS_DOKAN_ABSENT` — nobody confirmed, or this build has no such
+     *    table (schema 36 after a rollback), which is exactly `alpha.90`'s
+     *    behaviour.
+     *
+     * ⛔ **And the stored version 0 is disambiguated rather than trusted.**
+     * `recordsVersion()` casts its read, so a failed statement and «no
+     * version row» both answer `0` — the `alpha.8` family. A confirmation
+     * taken at version 0 is legitimate (a shop with no record writes at all),
+     * so 0 against 0 would read as confirmed even where the read had failed
+     * over a shop that does hold rows. The held counts settle it: if we hold
+     * any row at all, a version of 0 is not a number this shop can be on, and
+     * the conservative answer is `stale`.
+     */
+    private function withoutDokan(int $vendorUserId): string
+    {
+        if ($this->confirmations === null) {
+            return self::RECORDS_DOKAN_ABSENT;
+        }
+        $supported = $this->confirmations->supported();
+        if ($supported === null) {
+            return self::RECORDS_CONFIRMATION_UNREADABLE;
+        }
+        if ($supported === false) {
+            return self::RECORDS_DOKAN_ABSENT;
+        }
+        $live = $this->confirmations->liveFor($vendorUserId);
+        if ($live === null) {
+            return self::RECORDS_DOKAN_ABSENT;
+        }
+        $stored = (int) ($live['records_version'] ?? 0);
+        $now = $this->records->recordsVersion($vendorUserId);
+        if ($stored !== $now) {
+            return self::RECORDS_CONFIRMATION_STALE;
+        }
+        if ($stored === 0) {
+            $held = $this->records->importedCountsFor($vendorUserId);
+            foreach ($held as $count) {
+                if ($count === null || (int) $count > 0) {
+                    return self::RECORDS_CONFIRMATION_STALE;
+                }
+            }
+        }
+        return self::RECORDS_CONFIRMED;
     }
 
     /** @return array<string,mixed> */
@@ -228,7 +330,10 @@ final class MigrationCompleteness
             // آمده‌اند» are not the same statement and the first was standing
             // in for the second.
             'records_imported' => match ($records['state']) {
-                self::RECORDS_SETTLED, self::RECORDS_NO_SOURCE => true,
+                // And `RECORDS_CONFIRMED` from `alpha.91`: the owner's option
+                // ب. A stale confirmation is NOT here, and neither is
+                // `confirmation_unreadable` — both leave this open and named.
+                self::RECORDS_SETTLED, self::RECORDS_NO_SOURCE, self::RECORDS_CONFIRMED => true,
                 default => false,
             },
             // ⛔ ONE question, and it is about PRODUCTS.
@@ -304,6 +409,13 @@ final class MigrationCompleteness
                 'records_state' => $records['state'],
                 'records_kinds' => $records['kinds'],
                 'records_reasons' => $records['reasons'],
+                // Who confirmed the reconciliation and when, or `null`. Read
+                // for the SCREEN and never for the gate: the gate's answer is
+                // `records_state` above, which already took the version
+                // comparison into account. A page that re-derived «is this
+                // confirmation still good» from this array would be a second
+                // implementation of `withoutDokan()` (`alpha.78`).
+                'records_confirmation' => $this->confirmations?->liveFor($vendorUserId),
                 // The selling permission as a FACT, not only as a gate. The
                 // page needs it in both directions: a gate that is open says
                 // «grant», and a gate that is closed still needs a way back,

@@ -184,6 +184,47 @@ final class TransferOwnership
         return $this->intake?->driftReadable($productId) ?? false;
     }
 
+    /**
+     * Risks, drift and readability from ONE read of the WooCommerce product.
+     *
+     * ⛔ **Why it exists.** A screen that wants all three used to ask three
+     * times: `risksFor()` reads the product, `storefrontReadable()` reads it
+     * again, and `storefrontDrift()` a third time — and `detail()` is not
+     * memoised on purpose, because `refreshFromStorefront()` writes and then
+     * re-reads and a cache would hand it back the value it just replaced.
+     * The hand-over screen lists every observed row, so 184 rows cost 552
+     * product loads in one admin request before a single button was drawn.
+     *
+     * The three methods are kept and still answer the same way, so the guard
+     * and any existing caller cannot drift apart from this one (`alpha.78`).
+     *
+     * @return array{readable:bool, risks:array<string,string>, drift:array<string,array{row:string, shop:string, label:string, fingerprint:string}>}
+     */
+    public function acceptanceState(int $productId): array
+    {
+        $none = ['readable' => false, 'risks' => [], 'drift' => []];
+        if ($this->catalogue === null || $this->intake === null) {
+            return $none;
+        }
+        $product = $this->products->find($productId);
+        $wcProductId = (int) ($product?->wcProductId ?? 0);
+        if ($product === null || $wcProductId <= 0) {
+            return $none;
+        }
+        $detail = $this->catalogue->detail($wcProductId);
+        if ($detail === []) {
+            // A read that failed is not «they agree» (`alpha.49`), and
+            // `readable: false` is what the screen prints and what `take()`
+            // refuses on.
+            return $none;
+        }
+        return [
+            'readable' => true,
+            'risks' => $this->catalogue->preservationRisksFrom($detail),
+            'drift' => $this->intake->driftFrom($product, $detail),
+        ];
+    }
+
     /** Take the snapshot again, so there is no drift left to acknowledge. */
     public function refreshFromStorefront(int $productId): OperationResult
     {

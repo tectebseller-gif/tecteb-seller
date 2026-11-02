@@ -218,6 +218,30 @@ interface CatalogueReaderInterface
     public function preservationRisks(int $wcProductId): array;
 
     /**
+     * The same answer, derived from a `detail()` row already in hand.
+     *
+     * ⛔ **Why this exists.** `preservationRisks()` reads the product itself,
+     * and so does `ImportExistingProducts::driftOf()`, and so does
+     * `driftReadable()` — three reads of one product to answer three
+     * questions about it. One row of the hand-over screen therefore cost
+     * three `wc_get_product()` loads plus the term and permalink lookups
+     * `detail()` makes, and `detail()` is not memoised on purpose (a refresh
+     * writes and then re-reads, so a cache would make it stale the instant it
+     * was made fresh).
+     *
+     * With 184 observed rows on one page that is 552 product reads in one
+     * admin request. The batch path reads ONCE per row and derives both
+     * answers, which is what makes a staged transfer affordable at all.
+     *
+     * `preservationRisks()` is kept and delegates here, so the two cannot
+     * disagree — one rule, two entry points (`alpha.78`).
+     *
+     * @param array<string,mixed> $detail a row from `detail()`
+     * @return array<string,string> field key => what would happen to it
+     */
+    public function preservationRisksFrom(array $detail): array;
+
+    /**
      * Products that are PUBLISHED in WooCommerce and whose marketplace row
      * carries no price — reported, and nothing else.
      *

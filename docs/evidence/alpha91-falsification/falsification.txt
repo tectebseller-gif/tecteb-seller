@@ -1,0 +1,88 @@
+alpha.91 falsification — 23 mutations
+tree: cb7ad9f 31 modified paths
+
+baseline architecture:: 0
+baseline unit:: 0
+baseline database:ShopRecordConfirmationTest: 0
+baseline database:StagedOwnershipTransferTest: 0
+baseline database:HandoverConcurrencyTest: 0
+baseline database:OwnershipTransferUnitOfWorkTest: 0
+
+1. a live confirmation closes the gate whatever version it was taken against
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+2. a version of zero is trusted without asking whether anything is held
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+3. the gate opens on a stale confirmation too
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+4. the confirmation is read even while Dokan can still be asked
+    architecture failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+5. an unsettled reconciliation may be confirmed anyway
+    database failures: 2 (wanted at least 2) — red
+    restored byte for byte: yes
+6. a record owner who is not a shop may be confirmed
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+7. confirm() trusts the eligibility the render computed
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+8. the confirmation is audited before the write, not after
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+9. revoking clears the live key without asking which row holds it
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+10. carriedBy() asks whether a table of this name exists
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+11. the migration backfills a confirmation for every imported shop
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+12. records_version is dropped from the financial decision again
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+13. the batch trusts the ids the form carried
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+14. the batch filters the submission down instead of refusing it
+    database failures: 2 (wanted at least 2) — red
+    restored byte for byte: yes
+15. the batch carries on past the first failure
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+16. only a finished batch is audited
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+17. a risk or a drift no longer excludes a row
+    database failures: 5 (wanted at least 3) — red
+    restored byte for byte: yes
+18. a product that could not be read counts as agreeing
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+19. a build that cannot ask either question says it checked
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+20. a full page is reported as the end of the walk
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+21. the batch acknowledges the risks on the manager's behalf
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+22. the page acts on a batch without asking for a nonce
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+23. the offered list is not capped at the batch limit
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+
+final architecture:: 0
+final unit:: 0
+final database:ShopRecordConfirmationTest: 0
+final database:StagedOwnershipTransferTest: 0
+final database:HandoverConcurrencyTest: 0
+final database:OwnershipTransferUnitOfWorkTest: 0
+
+mutations: 23 · problems: 0

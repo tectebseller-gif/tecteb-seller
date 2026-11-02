@@ -880,7 +880,11 @@ final class WpCatalogueReader implements CatalogueReaderInterface
 
     public function preservationRisks(int $wcProductId): array
     {
-        $detail = $this->detail($wcProductId);
+        return $this->preservationRisksFrom($this->detail($wcProductId));
+    }
+
+    public function preservationRisksFrom(array $detail): array
+    {
         if ($detail === []) {
             return ['product' => 'محصول خوانده نشد'];
         }

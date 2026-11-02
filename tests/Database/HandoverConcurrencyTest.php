@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Tests\Database;
 
+use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditEventSanitizer;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
@@ -518,6 +519,46 @@ final class HandoverConcurrencyTest extends DatabaseTestCase
         self::assertSame([self::SHOP_A], $finance->stillOpen());
     }
 
+    /**
+     * The financial decision's audit row carries the version it was taken
+     * against — and until this round it did NOT.
+     *
+     * ⛔ `ReconcileDokanFinance::decide()` has always put `records_version`
+     * in the payload, and `AuditEventSanitizer` DROPS every key outside
+     * `AuditEventCatalog::allowlist()` without a word anywhere. So the one
+     * number that says which archive the decision was about was thrown away
+     * on the way to the trail, in silence, on the one event where money is
+     * being signed off.
+     *
+     * Read from the table rather than from a double, because this suite binds
+     * a real `WpAuditRepository` and the sanitiser runs on the way in: what is
+     * asserted here is what an auditor would actually find.
+     */
+    public function testTheFinancialDecisionsAuditRowNamesTheVersionItWasTakenAgainst(): void
+    {
+        $this->seed(self::SHOP_A, '500000');
+        $finance = $this->finance();
+        $snapshot = $finance->snapshotFor(self::SHOP_A);
+        $version = $this->records->recordsVersion(self::SHOP_A);
+
+        $result = $finance->decide(
+            self::SHOP_A,
+            ReconcileDokanFinance::ACCEPTED,
+            'تصمیم با نسخه',
+            $snapshot->token()
+        );
+        self::assertTrue($result['ok'], (string) $result['reason']);
+
+        $payload = $this->auditPayloadFor(AuditEventCatalog::DOKAN_FINANCE_HANDOVER);
+        self::assertArrayHasKey('records_version', $payload, 'the allowlist dropped it silently');
+        self::assertSame($version, (int) $payload['records_version']);
+        self::assertSame(self::SHOP_A, (int) $payload['vendor_id']);
+        // And the token is NOT carried: it matches the sanitiser's own
+        // `KEY_DENYLIST` pattern, and the version already identifies the
+        // document it was taken against.
+        self::assertArrayNotHasKey('figures_token', $payload);
+    }
+
     // ------------------------------------------------------------- fixtures
 
     /**
@@ -606,6 +647,22 @@ final class HandoverConcurrencyTest extends DatabaseTestCase
         $said = trim(implode("\n", $output));
         self::assertSame(0, $status, "the second writer failed: {$said}");
         return $said;
+    }
+
+    /**
+     * The newest payload of one event type, AFTER the sanitiser.
+     *
+     * @return array<string,mixed>
+     */
+    private function auditPayloadFor(string $eventType): array
+    {
+        $rows = $this->wpdb->get_results($this->wpdb->prepare(
+            'SELECT payload FROM `' . $this->wpdb->prefix . 'tmc_audit_events`
+              WHERE event_type = %s ORDER BY id DESC LIMIT 1',
+            $eventType
+        ), ARRAY_A);
+        self::assertCount(1, $rows, 'exactly one ' . $eventType . ' row');
+        return (array) json_decode((string) $rows[0]['payload'], true);
     }
 
     private function seed(int $vendorUserId, string $credit, int $trnId = 1, string $runId = 'run-seed'): void

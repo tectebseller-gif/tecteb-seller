@@ -14,6 +14,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ApprovedBaseline;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
+use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryLinkReaderInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\CategorySet;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
@@ -646,7 +647,30 @@ final class ImportExistingProducts
         if ($product === null || $wcId <= 0) {
             return [];
         }
-        $detail = $this->reader->detail($wcId);
+        return $this->driftFrom($product, $this->reader->detail($wcId));
+    }
+
+    /**
+     * The same answer from a row and a `detail()` already in hand.
+     *
+     * ⛔ **Why it is split.** One hand-over row used to cost three
+     * `detail()` reads: this method, `driftReadable()`, and
+     * `CatalogueReaderInterface::preservationRisks()`. `detail()` is not
+     * memoised on purpose — `refreshFrom()` writes and then reads again, and a
+     * cache would hand it the value it just replaced — so the three were
+     * three real reads of `wc_get_product()` plus the brand term and the
+     * permalink. On 184 observed rows that is 552 product loads in one admin
+     * request, which is what made the per-product path unusable at the scale
+     * the hand-over actually needs.
+     *
+     * `driftOf()` is kept and delegates here, so the screen and the guard
+     * cannot compute two different answers (`alpha.78`).
+     *
+     * @param array<string,mixed> $detail
+     * @return array<string,array{row:string, shop:string, label:string, fingerprint:string}>
+     */
+    public function driftFrom(Product $product, array $detail): array
+    {
         if ($detail === []) {
             // A read that failed is not «they agree» (`alpha.49`). The caller
             // is told by `driftReadable()` and refuses rather than accepting

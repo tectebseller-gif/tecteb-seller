@@ -1951,6 +1951,16 @@ final class DbProductRepository implements ProductRepositoryInterface
         ));
     }
 
+    public function observedForVendorAfter(int $vendorUserId, int $afterId = 0, int $limit = 50): array
+    {
+        return array_map([$this, 'hydrate'], $this->db->getResults(
+            'SELECT * FROM `' . $this->products() . '`
+              WHERE vendor_user_id = %d AND id > %d AND ' . self::OBSERVED . '
+              ORDER BY id ASC LIMIT ' . max(1, min(500, $limit)),
+            [$vendorUserId, max(0, $afterId)]
+        ));
+    }
+
     public function linkOwnership(int $productId): LinkOwnership
     {
         $value = (string) $this->db->getVar(

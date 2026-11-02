@@ -403,6 +403,22 @@ final class FakeCatalogueReader implements CatalogueReaderInterface
         return $this->risks[$wcProductId] ?? [];
     }
 
+    /**
+     * The same answer from a `detail()` row already in hand.
+     *
+     * ⛔ Keyed off the detail's OWN `wc_product_id`, not off a separate list,
+     * so the fake cannot answer one thing to the reader and another to the
+     * planner — a fake that models a verb more generously than the real one
+     * makes the broken state inexpressible (`alpha.59`).
+     */
+    public function preservationRisksFrom(array $detail): array
+    {
+        if ($detail === []) {
+            return ['product' => 'محصول خوانده نشد'];
+        }
+        return $this->risks[(int) ($detail['wc_product_id'] ?? 0)] ?? [];
+    }
+
     /** @var list<array{wc_product_id:int, product_id:int, title:string, shop_price:string, ownership:string}> */
     public array $pricelessPublished = [];
 

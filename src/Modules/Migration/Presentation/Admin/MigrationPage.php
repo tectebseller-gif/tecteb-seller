@@ -14,6 +14,9 @@ use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanMigrationPlan;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationCountReport;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationCompleteness;
+use Tecteb\Marketplace\Modules\Migration\Application\OwnershipTransferPlan;
+use Tecteb\Marketplace\Modules\Migration\Application\ApplyOwnershipTransfer;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 
@@ -79,6 +82,11 @@ final class MigrationPage
             // OUR OWN rows and not about Dokan — and a site where Dokan has
             // been deactivated is exactly when somebody comes looking for
             // where a number came from.
+            // ⛔ And so is the staged transfer, for the same reason: it reads
+            // OUR rows and WooCommerce, never Dokan. A manager who switched
+             // Dokan off before finishing the hand-over would otherwise find
+            // the only screen that can move ownership gone.
+            $this->renderStagedTransfer(Request::capture(), $fa);
             $this->renderCounts($fa);
             echo Components::shellClose();
             return;
@@ -95,6 +103,9 @@ final class MigrationPage
                 . '</section>';
         }
 
+        // Before the per-product table, because this is the path for the
+        // bulk of a hand-over and that one is for the exceptions.
+        $this->renderStagedTransfer(Request::capture(), $fa);
         $this->renderObserved($fa);
         $this->renderCompletion($service, $fa);
         $this->renderRuns($service, $fa);
@@ -302,6 +313,208 @@ final class MigrationPage
     }
 
     /**
+     * The staged hand-over: one shop, one page of its observed rows, one
+     * explicit confirmation per batch.
+     *
+     * ⛔ **Nothing here decides anything.** `OwnershipTransferPlan` has no
+     * write method of any kind; the button posts to `ApplyOwnershipTransfer`,
+     * which re-reads the plan and passes EMPTY acknowledgement arrays to the
+     * existing guard — so a row carrying a preservation risk or a storefront
+     * drift is refused by `TransferOwnership::take()` and the batch stops.
+     * Those rows are listed by name and left to the per-product table below,
+     * where the actual values are printed beside the tick (`alpha.49`).
+     *
+     * The shop and the cursor travel in the query string and nothing is
+     * stored — no option, no transient, no meta (`alpha.85`).
+     */
+    private function renderStagedTransfer(Request $request, callable $fa): void
+    {
+        $completeness = $this->container->get(MigrationCompleteness::class);
+        $shops = $completeness->shopVendorUserIds();
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('انتقال مالکیت مرحله‌ای', 'tecteb-marketplace-core') . '</h2>';
+        if ($shops === []) {
+            echo '<p>' . esc_html__('هیچ فروشگاه واردشده‌ای نیست.', 'tecteb-marketplace-core')
+                . '</p></section>';
+            return;
+        }
+
+        $shop = $request->queryInt('tv_shop');
+        if (!in_array($shop, $shops, true)) {
+            $shop = (int) $shops[0];
+        }
+        $after = max(0, $request->queryInt('tv_after'));
+        $plan = $this->container->get(OwnershipTransferPlan::class)->plan($shop, $after);
+
+        echo $this->shopPicker($shops, $shop, $fa);
+        echo '<p class="tmc-field__desc">' . esc_html(sprintf(
+            /* translators: 1: ready count, 2: needs-decision count, 3: observed total */
+            __('در این صفحه %1$s محصول آمادهٔ انتقال است و %2$s محصول ریسک یا اختلاف دارد. این فروشگاه در کل %3$s ردیف نگاشت‌شده دارد.', 'tecteb-marketplace-core'),
+            $fa((string) ($plan['counts'][OwnershipTransferPlan::READY] ?? 0)),
+            $fa((string) ($plan['counts'][OwnershipTransferPlan::NEEDS_DECISION] ?? 0)),
+            $fa((string) $plan['observed_total'])
+        )) . '</p>';
+        if ($plan['checked'] !== true) {
+            // Not «everything is ready». A build that cannot ask whether
+            // anything would be lost must not answer that nothing would.
+            echo Components::notice('warning', __('بررسی ریسک و اختلاف در این نصب اجرا نشد، پس هیچ ردیفی «آماده» شمرده نمی‌شود.', 'tecteb-marketplace-core'));
+        }
+
+        $this->renderStagedRows($plan, $fa);
+        echo $this->stagedApplyForm($plan, $shop, $after, $fa);
+        echo $this->stagedPager($plan, $shop, $fa);
+        echo '</section>';
+    }
+
+    /** @param list<int> $shops */
+    private function shopPicker(array $shops, int $current, callable $fa): string
+    {
+        $out = '<form method="get" class="tmc-inline-form">'
+            . '<input type="hidden" name="page" value="' . esc_attr(self::SLUG) . '">'
+            . '<label class="tmc-field__label" for="tv-shop">'
+            . esc_html__('فروشگاه', 'tecteb-marketplace-core') . '</label>'
+            . '<select id="tv-shop" name="tv_shop">';
+        foreach ($shops as $shopId) {
+            $out .= '<option value="' . esc_attr((string) $shopId) . '"'
+                . ((int) $shopId === $current ? ' selected' : '') . '>'
+                . esc_html('#' . $fa((string) $shopId)) . '</option>';
+        }
+        return $out . '</select>'
+            . '<button type="submit" class="button">'
+            . esc_html__('نمایش', 'tecteb-marketplace-core') . '</button></form>';
+    }
+
+    /** @param array<string,mixed> $plan */
+    private function renderStagedRows(array $plan, callable $fa): void
+    {
+        $rows = (array) $plan['rows'];
+        if ($rows === []) {
+            echo '<p>' . esc_html__('در این صفحه ردیفی نیست.', 'tecteb-marketplace-core') . '</p>';
+            return;
+        }
+        echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="'
+            . esc_attr__('جدول انتقال مرحله‌ای', 'tecteb-marketplace-core') . '">';
+        echo '<table class="tmc-table"><thead><tr>'
+            . '<th scope="col">' . esc_html__('ردیف بازارگاه', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('عنوان', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('محصول ووکامرس', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('وضعیت', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>';
+        foreach ($rows as $row) {
+            $row = (array) $row;
+            echo '<tr><td>' . Components::code($fa((string) $row['product_id'])) . '</td>'
+                . '<td>' . esc_html((string) $row['title']) . '</td>'
+                . '<td>' . Components::code($fa((string) $row['wc_product_id'])) . '</td>'
+                . '<td>' . esc_html(self::stagedBucket((string) $row['bucket'])) . self::stagedWhy($row) . '</td>'
+                . '</tr>';
+        }
+        echo '</tbody></table></div>';
+    }
+
+    /**
+     * WHY a row is not ready, from the row's own answer.
+     *
+     * @param array<string,mixed> $row
+     */
+    private static function stagedWhy(array $row): string
+    {
+        $risks = array_map('strval', (array) ($row['risks'] ?? []));
+        $drift = array_map('strval', (array) ($row['drift'] ?? []));
+        if ($risks === [] && $drift === []) {
+            return '';
+        }
+        $parts = [];
+        if ($risks !== []) {
+            $parts[] = sprintf(
+                /* translators: %s: comma-separated field keys */
+                __('فیلدهای در خطر: %s', 'tecteb-marketplace-core'),
+                implode('، ', $risks)
+            );
+        }
+        if ($drift !== []) {
+            $parts[] = sprintf(
+                /* translators: %s: comma-separated field labels */
+                __('از زمان ورود عوض شده: %s', 'tecteb-marketplace-core'),
+                implode('، ', $drift)
+            );
+        }
+        return '<span class="tmc-field__desc">' . esc_html(implode(' — ', $parts)) . '</span>';
+    }
+
+    private static function stagedBucket(string $bucket): string
+    {
+        return match ($bucket) {
+            OwnershipTransferPlan::READY => __('آمادهٔ انتقال', 'tecteb-marketplace-core'),
+            OwnershipTransferPlan::NEEDS_DECISION => __('ریسک یا اختلاف دارد', 'tecteb-marketplace-core'),
+            OwnershipTransferPlan::UNREADABLE => __('محصول ووکامرس خوانده نشد', 'tecteb-marketplace-core'),
+            OwnershipTransferPlan::NO_STOREFRONT_PRODUCT => __('محصول ووکامرسی ندارد', 'tecteb-marketplace-core'),
+            default => $bucket,
+        };
+    }
+
+    /**
+     * The one button, carrying the exact ids and their fingerprint.
+     *
+     * @param array<string,mixed> $plan
+     */
+    private function stagedApplyForm(array $plan, int $shop, int $after, callable $fa): string
+    {
+        $ready = array_map('intval', (array) $plan['ready']);
+        if ($ready === []) {
+            return '<p class="tmc-field__desc">'
+                . esc_html__('در این صفحه هیچ ردیفی آمادهٔ انتقال گروهی نیست.', 'tecteb-marketplace-core')
+                . '</p>';
+        }
+        $form = '<form method="post" class="tmc-inline-form">'
+            . wp_nonce_field(self::NONCE, 'tmc_migration_nonce', true, false)
+            . '<input type="hidden" name="tv_shop" value="' . esc_attr((string) $shop) . '">'
+            . '<input type="hidden" name="tv_after" value="' . esc_attr((string) $after) . '">'
+            // The fingerprint of the ORDERED list this page printed. If the
+            // catalogue has moved by the time the form arrives, the digest
+            // differs and the whole batch is refused (`alpha.49`).
+            . '<input type="hidden" name="plan_digest" value="'
+            . esc_attr((string) $plan['digest']) . '">';
+        foreach ($ready as $productId) {
+            $form .= '<input type="hidden" name="batch[]" value="' . esc_attr((string) $productId) . '">';
+        }
+        $count = count($ready);
+        $total = (int) ($plan['counts'][OwnershipTransferPlan::READY] ?? 0);
+        $form .= '<p class="tmc-field__desc">' . esc_html(sprintf(
+            /* translators: 1: how many this click moves, 2: how many are ready on this page */
+            __('این دکمه مالکیت %1$s محصول از %2$s محصول آمادهٔ این صفحه را منتقل می‌کند و سرِ اولین خطا می‌ایستد.', 'tecteb-marketplace-core'),
+            $fa((string) $count),
+            $fa((string) $total)
+        )) . '</p>';
+        return $form . '<button type="submit" class="tmc-button" name="migration_action"'
+            . ' value="apply_ownership_batch">'
+            . esc_html__('انتقال مالکیت این دسته', 'tecteb-marketplace-core')
+            . '</button></form>';
+    }
+
+    /** @param array<string,mixed> $plan */
+    private function stagedPager(array $plan, int $shop, callable $fa): string
+    {
+        $out = '';
+        $cursor = (int) $plan['cursor'];
+        // ⛔ Printed only when it would GO somewhere: a cursor that did not
+        // move would link back to this page (`alpha.85`).
+        if ($plan['finished'] !== true && $cursor > 0) {
+            $out .= '<a class="button" href="' . esc_url(add_query_arg(
+                ['page' => self::SLUG, 'tv_shop' => $shop, 'tv_after' => $cursor],
+                admin_url('admin.php')
+            )) . '">' . esc_html__('ادامه از اینجا', 'tecteb-marketplace-core') . '</a> ';
+        }
+        if ((int) $plan['cursor'] > 0 || $plan['finished'] !== true) {
+            $out .= '<a class="button" href="' . esc_url(add_query_arg(
+                ['page' => self::SLUG, 'tv_shop' => $shop],
+                admin_url('admin.php')
+            )) . '">' . esc_html__('بازگشت به ابتدا', 'tecteb-marketplace-core') . '</a>';
+        }
+        unset($fa);
+        return $out === '' ? '' : '<p>' . $out . '</p>';
+    }
+
+    /**
      * The mapped products, and the one button that changes what they mean.
      *
      * Deliberately loud. Everything else on this page is reversible bookkeeping;
@@ -335,14 +548,18 @@ final class MigrationPage
             // asked of the same method the guard asks. One answer, so the
             // warning a manager reads and the keys the refusal demands cannot
             // drift apart.
-            $risks = $transfer->risksFor($product->id);
-            // Where the shop has moved SINCE the intake — `alpha.56`'s third
-            // finding. Read once and used twice: the sentence a manager reads
-            // and the values the tick carries come from the same answer, so a
-            // page cannot let somebody acknowledge a difference the guard is
-            // not checking.
-            $readable = $transfer->storefrontReadable($product->id);
-            $drift = $readable ? $transfer->storefrontDrift($product->id) : [];
+            // ⛔ ONE read of the WooCommerce product for all three answers.
+            // This used to be three calls — `risksFor()`,
+            // `storefrontReadable()` and `storefrontDrift()` — each of which
+            // reads the product, and `detail()` is deliberately not memoised.
+            // On 184 observed rows that was 552 product loads in one admin
+            // request before a button was drawn. Still ONE answer used twice,
+            // so the sentence a manager reads and the values the tick carries
+            // cannot differ.
+            $state = $transfer->acceptanceState($product->id);
+            $risks = $state['risks'];
+            $readable = (bool) $state['readable'];
+            $drift = $state['drift'];
             $form = '<form method="post" class="tmc-inline-form">'
                 . wp_nonce_field(self::NONCE, 'tmc_migration_nonce', true, false)
                 . '<input type="hidden" name="product_id" value="' . esc_attr((string) $product->id) . '">';
@@ -516,6 +733,18 @@ final class MigrationPage
             . esc_html($label) . '</button></form>';
     }
 
+    /** Why a batch was refused whole, with nothing written. */
+    private static function batchRefusal(string $code): string
+    {
+        return match ($code) {
+            'forbidden' => __('دسترسی لازم برای انتقال مالکیت را ندارید.', 'tecteb-marketplace-core'),
+            'nothing_selected' => __('هیچ محصولی در این درخواست نبود، پس چیزی منتقل نشد.', 'tecteb-marketplace-core'),
+            'plan_moved' => __('فهرست این صفحه از زمان نمایش عوض شده است، پس هیچ‌چیز منتقل نشد. صفحه را تازه کنید.', 'tecteb-marketplace-core'),
+            'selection_not_offered' => __('این درخواست محصولی داشت که این صفحه پیشنهاد نکرده بود، پس کل دسته رد شد و چیزی منتقل نشد.', 'tecteb-marketplace-core'),
+            default => __('این دسته انجام نشد و چیزی منتقل نشد.', 'tecteb-marketplace-core'),
+        };
+    }
+
     private function handleAction(Request $request, ImportFromDokan $service): string
     {
         if (!$request->isPost() || !$request->hasPost('migration_action')) {
@@ -670,6 +899,36 @@ final class MigrationPage
                     __('مالکیت عملیاتی محصول ووکامرس %s پس گرفته شد و دوباره فقط نگاشت است.', 'tecteb-marketplace-core'),
                     PersianDigits::toPersian((string) $result->context['wc_product_id'])
                 ));
+        }
+
+        if ($action === 'apply_ownership_batch') {
+            $result = $this->container->get(ApplyOwnershipTransfer::class)->apply(
+                $request->postInt('tv_shop'),
+                $request->postInt('tv_after'),
+                $request->postIdList('batch'),
+                $request->postKey('plan_digest')
+            );
+            $moved = count((array) $result['moved']);
+            if ($result['ok'] === true) {
+                return 'ok:' . sprintf(
+                    /* translators: %s: how many products moved */
+                    __('مالکیت %s محصول منتقل شد. هر محصول ردیف ممیزی خودش را دارد.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $moved)
+                );
+            }
+            // ⛔ `stopped` is the one refusal that says something CHANGED, so
+            // it names both halves: how many moved and which product stopped
+            // it. «۱۱ از ۲۵» with no id is a sentence nobody can act on.
+            if ($result['code'] === 'stopped') {
+                return 'err:' . sprintf(
+                    /* translators: 1: moved count, 2: product row id, 3: refusal code */
+                    __('دسته سرِ محصول %2$s ایستاد (%3$s). تا آن لحظه مالکیت %1$s محصول منتقل شده بود و همان‌ها منتقل مانده‌اند؛ بقیه دست‌نخورده‌اند.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $moved),
+                    PersianDigits::toPersian((string) $result['stopped_at']),
+                    (string) $result['reason']
+                );
+            }
+            return 'err:' . self::batchRefusal((string) $result['code']);
         }
 
         if ($action === 'refresh_snapshot') {

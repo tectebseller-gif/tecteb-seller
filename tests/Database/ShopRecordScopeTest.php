@@ -94,7 +94,12 @@ final class ShopRecordScopeTest extends DatabaseTestCase
             $c->get(ProductRepositoryInterface::class),
             $c->get(DokanReaderInterface::class),
             $c->get(\Tecteb\Marketplace\Modules\Migration\Application\CategoryMap::class),
-            $c->get(ShopRecordPreview::class)
+            $c->get(ShopRecordPreview::class),
+            // ⛔ The ninth, from `alpha.91`. A fixture that rebinds a service
+            // with fewer dependencies than production gives it answers a
+            // different question (`alpha.79`) — here it would make every
+            // Dokan-absent reading in this class blind to a confirmation.
+            $c->get(\Tecteb\Marketplace\Modules\Migration\Application\ShopRecordConfirmationRepositoryInterface::class)
         ));
         $this->bindScope();
         return $fake;

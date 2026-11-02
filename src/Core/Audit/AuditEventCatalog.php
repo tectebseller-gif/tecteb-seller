@@ -183,6 +183,19 @@ final class AuditEventCatalog
     public const DOKAN_OWNERSHIP_HALF_WRITTEN = 'migration.ownership_half_written';
 
     /**
+     * A manager started ONE staged batch of ownership transfers, and where it
+     * got to.
+     *
+     * Separate from `DOKAN_OWNERSHIP_CHANGED`, which every moved product
+     * writes for itself. This one says a human pressed something and how far
+     * it ran — including when it STOPPED, because a batch that moved eleven
+     * products and stopped on the twelfth has changed the catalogue, and a
+     * trail that recorded only completed batches would have nothing to say
+     * about it.
+     */
+    public const DOKAN_OWNERSHIP_BATCH = 'migration.ownership_batch';
+
+    /**
      * Bringing products this shop already has into the marketplace as
      * OBSERVED rows — and undoing that.
      *
@@ -203,6 +216,28 @@ final class AuditEventCatalog
      */
     public const DOKAN_STAFF_GRANTED = 'migration.dokan_staff_granted';
     public const DOKAN_FINANCE_HANDOVER = 'migration.dokan_finance_handover';
+
+    /**
+     * A manager confirming — explicitly, and only while it was checkable —
+     * that a shop's Dokan records were fully brought over.
+     *
+     * Separate from `DOKAN_IMPORTED` because the two answer opposite
+     * questions. That one records that a job ran; this one records that a
+     * named person reconciled the result while Dokan could still be read.
+     * The distinction is the whole reason the event exists: a job run after
+     * Dokan is gone reads empty pages and reports «done» with no failure, so
+     * «the import finished» is not evidence that anything arrived
+     * (`docs/open-decisions-alpha79.md` §1).
+     *
+     * `records_version` is in the payload for the only reason it exists: a
+     * confirmation is about ONE version of the imported past, and a trail
+     * that did not say which one could not tell a later reader whether the
+     * decision still applies.
+     */
+    public const DOKAN_RECORDS_CONFIRMED = 'migration.dokan_records_confirmed';
+
+    /** The same confirmation withdrawn. The row stays; its live key clears. */
+    public const DOKAN_RECORDS_CONFIRMATION_REVOKED = 'migration.dokan_records_confirmation_revoked';
 
     /**
      * Two acts about categories, and they are deliberately two events.
@@ -365,10 +400,24 @@ final class AuditEventCatalog
             self::DOKAN_IMPORT_REPAIRED => ['run_id', 'repaired', 'refused'],
             self::DOKAN_OWNERSHIP_CHANGED => ['product_id', 'wc_product_id', 'from', 'to'],
             self::DOKAN_OWNERSHIP_HALF_WRITTEN => ['product_id', 'wc_product_id', 'from', 'to'],
+            self::DOKAN_OWNERSHIP_BATCH => ['vendor_id', 'requested', 'moved', 'stopped_at', 'reason'],
             self::CATALOGUE_INTAKE => ['run_id', 'imported', 'skipped', 'failed'],
             self::CATALOGUE_INTAKE_ROLLED_BACK => ['run_id', 'removed', 'kept'],
             self::DOKAN_STAFF_GRANTED => ['vendor_id', 'staff_user_id', 'dokan_role', 'preset', 'status'],
-            self::DOKAN_FINANCE_HANDOVER => ['vendor_id', 'closing', 'paid_by_dokan', 'pending_requests', 'pending_total', 'decision'],
+            // ⛔ `records_version` was PASSED by `ReconcileDokanFinance::
+            // decide()` and silently dropped here, because the sanitiser keeps
+            // allowlisted keys and discards the rest without a word. So the
+            // one row that records «which version of the imported past did we
+            // agree to» did not carry it, while the code that writes it says
+            // it does. `figures_token` is deliberately NOT added: the key
+            // matches this sanitiser's own `KEY_DENYLIST` pattern, and the
+            // version number already identifies the document.
+            self::DOKAN_FINANCE_HANDOVER => [
+                'vendor_id', 'closing', 'paid_by_dokan', 'pending_requests',
+                'pending_total', 'decision', 'records_version',
+            ],
+            self::DOKAN_RECORDS_CONFIRMED => ['vendor_id', 'actor_id', 'records_version', 'reconciliation'],
+            self::DOKAN_RECORDS_CONFIRMATION_REVOKED => ['vendor_id', 'actor_id', 'records_version'],
             self::DOKAN_CATEGORY_MAP_SAVED => ['source_key', 'target', 'entries', 'removed'],
             self::DOKAN_CATEGORY_APPLIED => ['products', 'requested'],
             self::PRODUCT_CATEGORY_LINKED => ['wc_product_id', 'category_key', 'path', 'source', 'products', 'requested'],

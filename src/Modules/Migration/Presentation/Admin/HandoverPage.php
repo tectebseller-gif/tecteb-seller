@@ -28,6 +28,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\CategoryMapping;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanRecordImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\GrantImportedStaff;
+use Tecteb\Marketplace\Modules\Migration\Application\ConfirmShopRecords;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationCompleteness;
 use Tecteb\Marketplace\Modules\Migration\Application\ReconcileDokanFinance;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordPreview;
@@ -497,6 +498,13 @@ final class HandoverPage
                     . esc_html(self::recordsStateReason((string) ($row['detail']['records_state'] ?? '')))
                     . '</span>';
             }
+            // ⛔ THE DOOR for this gate, and it is the owner's option ب.
+            // Drawn in both directions: while the reconciliation is complete
+            // and checkable a manager may confirm it, and a confirmation that
+            // exists may be withdrawn. A decision with no reverse is not a
+            // decision — the same reason the selling permission below has
+            // both buttons.
+            $left .= $this->recordsDecision($vendorUserId, $row['detail']);
             // And which half of «نگاشت دسته‌ها» is open — the decision or
             // the products. Saving the mapping clears the first and moves
             // none of the second, so one word for both is how «۱۸۴ محصول
@@ -548,6 +556,105 @@ final class HandoverPage
         }
         echo '</tbody></table></div>';
         echo '</section>';
+    }
+
+    /**
+     * The confirmation that one shop's Dokan records came over — both ways.
+     *
+     * Nothing here decides anything by itself: it draws a button, and only
+     * where the service would accept it. The service is asked the same
+     * question the button answers (`eligibility()`), so a button the action
+     * would refuse is never printed (`alpha.86`).
+     *
+     * ⛔ **And the verdict is NOT recomputed here.** Whether a stored
+     * confirmation still holds is `MigrationCompleteness::withoutDokan()`'s
+     * answer, already in `records_state`; this method only decides which
+     * button to draw. Two places deriving «is this confirmation good» would be
+     * two implementations of one rule, and the day they disagreed both would
+     * be right about their own question (`alpha.78`).
+     *
+     * @param array<string,mixed> $detail
+     */
+    private function recordsDecision(int $vendorUserId, array $detail): string
+    {
+        $service = $this->container->get(ConfirmShopRecords::class);
+        $live = $detail['records_confirmation'] ?? null;
+        $state = (string) ($detail['records_state'] ?? '');
+
+        if (is_array($live)) {
+            // A confirmation exists. Say who and when — the row carries both,
+            // so the trail is readable without opening the audit page — and
+            // offer the one way back.
+            $when = mb_substr((string) ($live['confirmed_at'] ?? ''), 0, 19);
+            $out = '<span class="tmc-field__desc">' . esc_html(sprintf(
+                /* translators: 1: user id, 2: date and time */
+                __('تأیید ثبت‌شده: کاربر #%1$s، %2$s.', 'tecteb-marketplace-core'),
+                (string) (int) ($live['confirmed_by'] ?? 0),
+                $when
+            )) . '</span>';
+            $out .= Components::moreDetails([
+                sprintf(
+                    /* translators: %s: machine-readable reconciliation summary */
+                    __('آنچه در لحظهٔ تأیید تطبیق شده بود: %s', 'tecteb-marketplace-core'),
+                    (string) ($live['reconciliation'] ?? '')
+                ),
+            ]);
+            return $out . $this->recordsForm($vendorUserId, 'revoke_records', __('لغو تأیید سوابق', 'tecteb-marketplace-core'), __('با این اقدام تأیید لغو می‌شود و ردیفش به‌عنوان سابقه می‌مانَد. هیچ سابقه‌ای حذف نمی‌شود.', 'tecteb-marketplace-core'));
+        }
+
+        $gate = $service->eligibility($vendorUserId);
+        if (!$gate['eligible']) {
+            // `records_not_settled` already has its sentence above, from the
+            // gate's own state, so repeating it here would print the same
+            // fact twice (`alpha.65`).
+            return (string) $gate['reason'] === 'records_not_settled' && $state !== ''
+                ? ''
+                : '<span class="tmc-field__desc">'
+                    . esc_html(self::recordsReason((string) $gate['reason'])) . '</span>';
+        }
+        return $this->recordsForm(
+            $vendorUserId,
+            'confirm_records',
+            __('تأیید می‌کنم سوابق این فروشگاه کامل وارد شده', 'tecteb-marketplace-core'),
+            __('این تأیید فقط همین دروازه را می‌بندد. مالکیت محصول، اجازهٔ فروش و هیچ رقم مالی با آن عوض نمی‌شود، و قابل لغو است.', 'tecteb-marketplace-core')
+        );
+    }
+
+    private function recordsForm(int $vendorUserId, string $verb, string $label, string $note): string
+    {
+        return '<form method="post" class="tmc-inline-form">'
+            . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)
+            . '<input type="hidden" name="handover_action" value="' . esc_attr($verb) . '">'
+            . '<input type="hidden" name="records_shop" value="' . esc_attr((string) $vendorUserId) . '">'
+            . '<p class="tmc-field__desc">' . esc_html($note) . '</p>'
+            . '<button type="submit" class="button">' . esc_html($label) . '</button>'
+            . '</form>';
+    }
+
+    /** What happened, named — and never «done» for something that was not. */
+    private static function recordsOutcome(string $code): string
+    {
+        return match ($code) {
+            'records_confirmed' => __('تأیید ثبت شد و در ردِ ممیزی نوشته شد. هیچ‌چیز دیگری عوض نشد.', 'tecteb-marketplace-core'),
+            'records_confirmation_revoked' => __('تأیید لغو شد و ردیفش به‌عنوان سابقه مانْد.', 'tecteb-marketplace-core'),
+            'not_confirmed' => __('تأییدی برای لغو وجود نداشت. چیزی نوشته نشد.', 'tecteb-marketplace-core'),
+            'storage_failed' => __('ذخیره انجام نشد و چیزی عوض نشد.', 'tecteb-marketplace-core'),
+            'forbidden' => __('دسترسی لازم برای این تصمیم را ندارید.', 'tecteb-marketplace-core'),
+            default => self::recordsReason($code),
+        };
+    }
+
+    /** Why this shop's records cannot be confirmed here, in the reader's words. */
+    private static function recordsReason(string $reason): string
+    {
+        return match ($reason) {
+            'records_not_settled' => __('تطبیق سوابق این فروشگاه کامل نیست یا پرسیدنی نیست، پس تأییدی ثبت نمی‌شود.', 'tecteb-marketplace-core'),
+            'not_an_imported_shop' => __('این شناسه فروشگاه واردشده نیست؛ فقط صاحب سابقه در دکان است.', 'tecteb-marketplace-core'),
+            'already_confirmed' => __('سوابق این فروشگاه از قبل تأیید شده است.', 'tecteb-marketplace-core'),
+            'confirmation_unsupported' => __('این نصب جدول تأییدها را ندارد (ساختار دادهٔ قبل از ۳۷).', 'tecteb-marketplace-core'),
+            'confirmation_table_unreadable' => __('جدول تأییدها خوانده نشد، پس نه «تأیید شده» گفته می‌شود و نه «نشده».', 'tecteb-marketplace-core'),
+            default => __('این تصمیم از اینجا گرفتنی نیست.', 'tecteb-marketplace-core'),
+        };
     }
 
     /**
@@ -904,6 +1011,18 @@ final class HandoverPage
                 return 'err:' . self::sellingOutcome($result->code);
             }
             return 'ok:' . self::sellingOutcome($result->code);
+        }
+
+        if ($action === 'confirm_records' || $action === 'revoke_records') {
+            // The capability is checked at the top of `render()` for the page
+            // and AGAIN inside the service for the act, because a page guard
+            // says who may look and a service guard says who may write.
+            $shop = $request->postInt('records_shop');
+            $service = $this->container->get(ConfirmShopRecords::class);
+            $result = $action === 'confirm_records'
+                ? $service->confirm($shop)
+                : $service->revoke($shop);
+            return ($result->ok ? 'ok:' : 'err:') . self::recordsOutcome($result->code);
         }
 
         if ($action === 'save_roles') {
@@ -2212,6 +2331,10 @@ final class HandoverPage
                 __('دکان روی این نصب اجرا نمی‌شود، پس «چیزی مانده یا نه» پرسیدنی نیست و این دروازه از شمارش باز نمی‌شود.', 'tecteb-marketplace-core'),
             MigrationCompleteness::RECORDS_UNVERIFIABLE =>
                 __('این نصب نمی‌تواند بگوید چه داریم — جدول سوابق این افزونه در دسترس نبود. تا آن حل نشود نه «صفر» گفته می‌شود و نه «کامل».', 'tecteb-marketplace-core'),
+            MigrationCompleteness::RECORDS_CONFIRMATION_STALE =>
+                __('تأییدی برای این فروشگاه ثبت شده بود، ولی سوابق واردشده پس از آن عوض شده‌اند، پس آن تأیید دربارهٔ آرشیو امروز نیست.', 'tecteb-marketplace-core'),
+            MigrationCompleteness::RECORDS_CONFIRMATION_UNREADABLE =>
+                __('دکان اجرا نمی‌شود و جدول تأییدها هم خوانده نشد، پس معلوم نیست کسی تأیید کرده یا نه.', 'tecteb-marketplace-core'),
             default => __('وضعیت سابقهٔ این فروشگاه مشخص نشد.', 'tecteb-marketplace-core'),
         };
     }

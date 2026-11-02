@@ -43,6 +43,11 @@ use Tecteb\Marketplace\Modules\Migration\Application\RecordScopeInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordScope;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
+use Tecteb\Marketplace\Modules\Migration\Application\ApplyOwnershipTransfer;
+use Tecteb\Marketplace\Modules\Migration\Application\ConfirmShopRecords;
+use Tecteb\Marketplace\Modules\Migration\Application\OwnershipTransferPlan;
+use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordConfirmationRepositoryInterface;
+use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbShopRecordConfirmationRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbFinanceHandoverRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbMinMaxHandoverRepository;
@@ -253,7 +258,44 @@ final class MigrationModule implements ModuleInterface
             // «سابقه وارد نشده» for ever. Optional, and without it the gate
             // keeps the old count — a missing dependency must not invent a
             // verdict.
-            $c->has(ShopRecordPreview::class) ? $c->get(ShopRecordPreview::class) : null
+            $c->has(ShopRecordPreview::class) ? $c->get(ShopRecordPreview::class) : null,
+            // And the manager's confirmation, read only where Dokan cannot be
+            // asked. Optional for the same reason: without it this gate
+            // behaves exactly as `alpha.90` shipped.
+            $c->get(ShopRecordConfirmationRepositoryInterface::class)
+        ));
+
+        $c->bind(
+            ShopRecordConfirmationRepositoryInterface::class,
+            static fn (ContainerInterface $c) => new DbShopRecordConfirmationRepository(
+                $c->get(DatabaseInterface::class),
+                $c->get(ClockInterface::class)
+            )
+        );
+
+        $c->bind(OwnershipTransferPlan::class, static fn (ContainerInterface $c) => new OwnershipTransferPlan(
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(TransferOwnership::class),
+            // Optional for the same reason `TransferOwnership` takes them
+            // optionally: without either, no row is called «ready» and the
+            // page says the check did not run.
+            $c->has(CatalogueReaderInterface::class) ? $c->get(CatalogueReaderInterface::class) : null,
+            $c->has(ImportExistingProducts::class) ? $c->get(ImportExistingProducts::class) : null
+        ));
+
+        $c->bind(ApplyOwnershipTransfer::class, static fn (ContainerInterface $c) => new ApplyOwnershipTransfer(
+            $c->get(OwnershipTransferPlan::class),
+            $c->get(TransferOwnership::class),
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(AuditLogger::class)
+        ));
+
+        $c->bind(ConfirmShopRecords::class, static fn (ContainerInterface $c) => new ConfirmShopRecords(
+            $c->get(MigrationCompleteness::class),
+            $c->get(ShopRecordRepositoryInterface::class),
+            $c->get(ShopRecordConfirmationRepositoryInterface::class),
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(AuditLogger::class)
         ));
         // The ONE list the preview and the record import both work on.
         //

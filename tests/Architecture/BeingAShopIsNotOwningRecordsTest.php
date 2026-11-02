@@ -162,9 +162,15 @@ final class BeingAShopIsNotOwningRecordsTest extends TestCase
                 'the record gate may not be answered from a row count: ' . $needle
             );
         }
-        // Exactly the two successful reads that close it, named.
+        // Exactly the three things that close it, named — two successful
+        // reads of the source, and from `alpha.91` the manager's explicit
+        // confirmation (the owner's option ب). A stale confirmation and an
+        // unreadable confirmation table are deliberately NOT here.
         self::assertStringContainsString('self::RECORDS_SETTLED', $gate);
         self::assertStringContainsString('self::RECORDS_NO_SOURCE', $gate);
+        self::assertStringContainsString('self::RECORDS_CONFIRMED', $gate);
+        self::assertStringNotContainsString('self::RECORDS_CONFIRMATION_STALE', $gate);
+        self::assertStringNotContainsString('self::RECORDS_CONFIRMATION_UNREADABLE', $gate);
         self::assertStringContainsString('default => false', $gate);
     }
 
@@ -177,11 +183,23 @@ final class BeingAShopIsNotOwningRecordsTest extends TestCase
      */
     public function testTheThreeUnknownCausesAreKeptApart(): void
     {
-        $body = $this->methodBody($this->code(self::COMPLETENESS), 'recordsState');
+        // ⛔ TWO METHODS, because `alpha.91` moved one arm of the ladder into
+        // a method of its own and the rule is about the states being produced
+        // from their own causes, not about which method holds them. Read
+        // together rather than loosened: the list below GREW by three.
+        $code = $this->code(self::COMPLETENESS);
+        $body = $this->methodBody($code, 'recordsState')
+            . "\n" . $this->methodBody($code, 'withoutDokan');
         foreach ([
             'self::RECORDS_DOKAN_ABSENT' => 'dokan_not_running',
             'self::RECORDS_UNVERIFIABLE' => 'record_store_not_installed',
             'self::RECORDS_NO_SOURCE' => 'count($unchecked) === count($verdicts)',
+            // And the three the confirmation adds. Each has to be decided
+            // from its own fact: the table could not be read, the stored
+            // version no longer matches, or it does.
+            'self::RECORDS_CONFIRMATION_UNREADABLE' => '$supported === null',
+            'self::RECORDS_CONFIRMATION_STALE' => '$stored !== $now',
+            'self::RECORDS_CONFIRMED' => 'liveFor($vendorUserId)',
         ] as $state => $because) {
             self::assertStringContainsString($state, $body, $state . ' must be reachable');
             self::assertStringContainsString(
@@ -190,5 +208,45 @@ final class BeingAShopIsNotOwningRecordsTest extends TestCase
                 $state . ' must be decided from the preview\'s own reason, not from one shared label'
             );
         }
+    }
+
+    /**
+     * The confirmation is read from ONE branch, and that branch is the one
+     * where Dokan cannot be asked.
+     *
+     * This is the whole safety of the owner's option ب: while Dokan answers,
+     * the live read is the reference, so a confirmation given over an
+     * incomplete archive can never cover a present `outstanding` or
+     * `unreadable`. Pinned in source because no behaviour test can say «and
+     * nowhere else» (`alpha.77`).
+     */
+    public function testTheConfirmationIsOnlyReadWhereDokanCannotBeAsked(): void
+    {
+        $code = $this->code(self::COMPLETENESS);
+        $ladder = $this->methodBody($code, 'recordsState');
+        self::assertStringNotContainsString(
+            'confirmations',
+            $ladder,
+            'the ladder must not reach the confirmation itself; it delegates one arm'
+        );
+        self::assertStringContainsString(
+            '$this->withoutDokan($vendorUserId)',
+            $ladder,
+            'and that arm is the Dokan-absent one'
+        );
+        // Both halves of «one branch»: the call is on the dokan_not_running
+        // arm, and no other arm names the method.
+        self::assertSame(
+            1,
+            substr_count($ladder, 'withoutDokan('),
+            'exactly one arm may delegate to it'
+        );
+        $arm = strpos($ladder, "in_array('dokan_not_running'");
+        self::assertIsInt($arm);
+        self::assertStringContainsString(
+            'withoutDokan',
+            substr($ladder, (int) $arm, 140),
+            'and it is that arm'
+        );
     }
 }
