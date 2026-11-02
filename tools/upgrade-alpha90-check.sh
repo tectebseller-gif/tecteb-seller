@@ -174,9 +174,21 @@ check "3b with one column" "1" "$(val "$S_MIS" columns)"
 admin_request >>"$RUN" 2>&1
 S2="$(state state)"; printf '%s\n' "$S2" >>"$RUN"
 check "3c verify() refused, so the structure stays on 36" "36" "$(val "$S2" schema_version)"
+LAST_ERROR="$(wpx option get tmc_migration_last_error 2>/dev/null | head -3 | tr '\n' ' ')"
+check "3d …and the reason was recorded" "yes" \
+  "$([[ -n "$LAST_ERROR" ]] && echo yes || echo no)"
+note  "3e the recorded reason" "${LAST_ERROR:0:140}"
 # And the resume: with the impostor gone the next request finishes the job.
 S_UN2="$(state unmigrate-37)"; printf '%s\n' "$S_UN2" >>"$RUN"
-check "3d the impostor is gone" "no" "$(val "$S_UN2" table_present)"
+check "3f the impostor is gone" "no" "$(val "$S_UN2" table_present)"
+# ⛔ A FAILED STEP IS THROTTLED: `UpgradeGate::RETRY_COOLDOWN_SECONDS` is 300,
+# so the very next admin request declines by design (`alpha.46`). Deleting the
+# recorded failure stands in for waiting those five minutes — it is the same
+# state the wait produces, not a safety gate being stepped around. The FIRST
+# run of this script did not do it, measured step 37 declining, and reported a
+# healthy build as broken (`alpha.29`).
+note  "3g seconds this build would otherwise wait" "300"
+wpx option delete tmc_migration_last_error >>"$RUN" 2>&1
 
 say ""
 say "=== 4 · the step runs on the next admin request ==="
@@ -186,7 +198,7 @@ check "4a the structure is 37" "37" "$(val "$S3" schema_version)"
 check "4b the table exists" "yes" "$(val "$S3" table_present)"
 # ⛔ THE STEP WROTE NOTHING. «هیچ تأییدی خودکار صادر نشود.»
 check "4c and it is EMPTY — no backfill" "0" "$(val "$S3" rows)"
-check "4d so the gate is where it was" "open" "$(val "$S3" gate_records)"
+check "4d so the gate is where it was" "satisfied" "$(val "$S3" gate_records)"
 note "4e the reconciliation state while Dokan answers" "$(val "$S3" records_state)"
 
 # ================================================= §2, end to end, for real
@@ -208,14 +220,14 @@ else
 fi
 # A confirmation changes NOTHING while Dokan still answers.
 S4="$(state state)"; printf '%s\n' "$S4" >>"$RUN"
-check "5h the gate still answers from the reconciliation" "open" "$(val "$S4" gate_records)"
+check "5h the gate still answers from the reconciliation" "satisfied" "$(val "$S4" gate_records)"
 
 say ""
 say "=== 6 · Dokan goes, and the confirmation is what closes the gate ==="
 check "6a the detection table is gone" "no" "$(val "$(state dokan-off)" dokan_present)"
 S5="$(state state)"; printf '%s\n' "$S5" >>"$RUN"
 check "6b the state names the confirmation" "confirmed" "$(val "$S5" records_state)"
-check "6c and the gate is CLOSED" "closed" "$(val "$S5" gate_records)"
+check "6c and the requirement is MET by the confirmation" "satisfied" "$(val "$S5" gate_records)"
 
 say ""
 say "=== 7 · revocation re-opens it, and keeps the row ==="
@@ -227,7 +239,7 @@ check "7c with no live key" "__null__" "$(val "$S_ROWS2" row0_live)"
 check "7d and its own stamp" "yes" "$(val "$S_ROWS2" row0_revoked)"
 check "7e audited" "1" "$(val "$S_ROWS2" audit_revoked)"
 S6="$(state state)"; printf '%s\n' "$S6" >>"$RUN"
-check "7f the gate is open again" "open" "$(val "$S6" gate_records)"
+check "7f the requirement is unmet again" "unsatisfied" "$(val "$S6" gate_records)"
 check "7g and it says Dokan cannot be asked" "dokan_absent" "$(val "$S6" records_state)"
 # Confirm again, so the rollback below has something to cost.
 S_CONF2="$(state dokan-on)"; printf '%s\n' "$S_CONF2" >>"$RUN"
@@ -235,7 +247,7 @@ S_CONF3="$(state confirm)"; printf '%s\n' "$S_CONF3" >>"$RUN"
 check "7h a second confirmation is possible" "yes" "$(val "$S_CONF3" ok)"
 check "7i two decisions, one live" "2" "$(val "$(state rows)" rows)"
 state dokan-off >>"$RUN" 2>&1
-check "7j and the gate is closed again" "closed" "$(val "$(state state)" gate_records)"
+check "7j and the requirement is met again" "satisfied" "$(val "$(state state)" gate_records)"
 
 # ==================================================== the rollback, measured
 say ""
@@ -249,7 +261,7 @@ check "8d the old build does not know the step" "no" "$(val "$S7" confirmed_know
 # ⛔ THE COST, named: the older build has no arm for a confirmation, so the
 # gate goes back to «Dokan cannot be asked». The decision is not lost — it
 # stops counting until the files come forward again.
-check "8e so the gate re-opens" "open" "$(val "$S7" gate_records)"
+check "8e so the requirement is unmet again" "unsatisfied" "$(val "$S7" gate_records)"
 check "8f and says Dokan cannot be asked" "dokan_absent" "$(val "$S7" records_state)"
 note "8g the cost of rolling back" "the confirmation stays on disk and stops counting"
 
@@ -260,7 +272,7 @@ admin_request >>"$RUN" 2>&1
 S8="$(state state)"; printf '%s\n' "$S8" >>"$RUN"
 check "9a the structure is 37 and no step re-ran" "37" "$(val "$S8" schema_version)"
 check "9b the decisions are untouched" "2" "$(val "$S8" rows)"
-check "9c and the gate is closed again" "closed" "$(val "$S8" gate_records)"
+check "9c and the requirement is met again" "satisfied" "$(val "$S8" gate_records)"
 
 say ""
 say "pass=$PASS fail=$FAIL"

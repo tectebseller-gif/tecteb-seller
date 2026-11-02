@@ -1,0 +1,225 @@
+=== the packages ===
+new_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.91.zip
+old_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.90.zip
+new_target=37
+old_target=36
+PASS  0a the new package targets one step further  (37)
+PASS  0b and the old one targets the previous structure  (36)
+
+=== 1 · the site is put on structure 36, for real ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+reset=done
+schema_version=36
+table_present=no
+PASS  1a the site is genuinely on 36  (36)
+PASS  1b …with no confirmation table  (no)
+archive=recorded
+dokan_orders=yes
+dokan_balance_rows=1
+held=1
+version=1
+PASS  1c the archive row was recorded  (recorded)
+PASS  1d Dokan's detection table is present  (yes)
+PASS  1e the source holds one balance row  (1)
+PASS  1f and we hold the matching one  (1)
+NOTE  1g the version the confirmation will be taken against  1
+PASS  1h the counter moved (1)
+schema_version=36
+table_present=no
+rows=0
+live_rows=0
+dokan_present=yes
+records_state=settled
+gate_records=satisfied
+confirmed_known=no
+PASS  1i the old build does not know the step  (no)
+PASS  1j and its confirm service is absent  (absent)
+
+=== 2 · the files are swapped, and NOTHING has run yet ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+schema_version=36
+table_present=no
+rows=0
+live_rows=0
+dokan_present=yes
+records_state=settled
+gate_records=satisfied
+confirmed_known=yes
+PASS  2a the structure has not moved  (36)
+PASS  2b no table yet  (no)
+PASS  2c but the new build knows the step  (yes)
+
+=== 3 · a table of the same name and the wrong shape ===
+table_present=yes
+columns=1
+PASS  3a the impostor is there  (yes)
+PASS  3b with one column  (1)
+ran=yes
+WordPress database error Unknown column 'live_vendor_user_id' in 'WHERE' for query SELECT COUNT(*) FROM `wp_tmc_dokan_record_confirmation` WHERE live_vendor_user_id IS NOT NULL made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval
+schema_version=36
+table_present=yes
+rows=0
+live_rows=0
+dokan_present=yes
+records_state=settled
+gate_records=satisfied
+confirmed_known=yes
+PASS  3c verify() refused, so the structure stays on 36  (36)
+PASS  3d …and the reason was recorded  (yes)
+NOTE  3e the recorded reason  array (   'step' => '0037_shop_record_confirmation',   'message' => 'verify_failed', 
+schema_version=36
+table_present=no
+PASS  3f the impostor is gone  (no)
+NOTE  3g seconds this build would otherwise wait  300
+Success: Deleted 'tmc_migration_last_error' option.
+
+=== 4 · the step runs on the next admin request ===
+ran=yes
+schema_version=37
+table_present=yes
+rows=0
+live_rows=0
+dokan_present=yes
+records_state=settled
+gate_records=satisfied
+confirmed_known=yes
+PASS  4a the structure is 37  (37)
+PASS  4b the table exists  (yes)
+PASS  4c and it is EMPTY — no backfill  (0)
+PASS  4d so the gate is where it was  (satisfied)
+NOTE  4e the reconciliation state while Dokan answers  settled
+
+=== 5 · one explicit confirmation, with the real Dokan reader ===
+actor=2
+ok=yes
+code=records_confirmed
+PASS  5a the manager confirmed  (yes)
+PASS  5b with the expected code  (records_confirmed)
+rows=1
+row0_live=9911
+row0_version=1
+row0_reconciliation=staff:unchecked=0 balance:imported=1 withdrawals:unchecked=0
+row0_revoked=__null__
+audit_confirmed=1
+audit_revoked=0
+PASS  5c one row  (1)
+PASS  5d live  (9911)
+PASS  5e taken against the real version  (1)
+PASS  5f audited once  (1)
+PASS  5g the reconciliation it was taken against is recorded (staff:unchecked=0 balance:imported=1 withdrawals:unchecked=0)
+schema_version=37
+table_present=yes
+rows=1
+live_rows=1
+dokan_present=yes
+records_state=settled
+gate_records=satisfied
+confirmed_known=yes
+PASS  5h the gate still answers from the reconciliation  (satisfied)
+
+=== 6 · Dokan goes, and the confirmation is what closes the gate ===
+PASS  6a the detection table is gone  (no)
+schema_version=37
+table_present=yes
+rows=1
+live_rows=1
+dokan_present=no
+records_state=confirmed
+gate_records=satisfied
+confirmed_known=yes
+PASS  6b the state names the confirmation  (confirmed)
+PASS  6c and the requirement is MET by the confirmation  (satisfied)
+
+=== 7 · revocation re-opens it, and keeps the row ===
+actor=2
+ok=yes
+code=records_confirmation_revoked
+PASS  7a revoked  (yes)
+rows=1
+row0_live=__null__
+row0_version=1
+row0_reconciliation=staff:unchecked=0 balance:imported=1 withdrawals:unchecked=0
+row0_revoked=yes
+audit_confirmed=1
+audit_revoked=1
+PASS  7b the row is HISTORY and stays  (1)
+PASS  7c with no live key  (__null__)
+PASS  7d and its own stamp  (yes)
+PASS  7e audited  (1)
+schema_version=37
+table_present=yes
+rows=1
+live_rows=0
+dokan_present=no
+records_state=dokan_absent
+gate_records=unsatisfied
+confirmed_known=yes
+PASS  7f the requirement is unmet again  (unsatisfied)
+PASS  7g and it says Dokan cannot be asked  (dokan_absent)
+dokan_present=yes
+actor=2
+ok=yes
+code=records_confirmed
+PASS  7h a second confirmation is possible  (yes)
+PASS  7i two decisions, one live  (2)
+dokan_present=no
+PASS  7j and the requirement is met again  (satisfied)
+
+=== 8 · back to alpha.90, with the cost printed ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+schema_version=37
+table_present=yes
+rows=2
+live_rows=1
+dokan_present=no
+records_state=dokan_absent
+gate_records=unsatisfied
+confirmed_known=no
+PASS  8a the structure does NOT go backwards  (37)
+PASS  8b the table is left in place  (yes)
+PASS  8c and both decisions are still there  (2)
+PASS  8d the old build does not know the step  (no)
+PASS  8e so the requirement is unmet again  (unsatisfied)
+PASS  8f and says Dokan cannot be asked  (dokan_absent)
+NOTE  8g the cost of rolling back  the confirmation stays on disk and stops counting
+
+=== 9 · forward again, and it counts again ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+ran=yes
+schema_version=37
+table_present=yes
+rows=2
+live_rows=1
+dokan_present=no
+records_state=confirmed
+gate_records=satisfied
+confirmed_known=yes
+PASS  9a the structure is 37 and no step re-ran  (37)
+PASS  9b the decisions are untouched  (2)
+PASS  9c and the requirement is met again  (satisfied)
+
+pass=53 fail=0

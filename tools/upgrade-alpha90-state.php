@@ -176,7 +176,11 @@ switch ($verb) {
         // cost, named rather than argued.
         $gate = $completeness()->forVendor(TMC_U91_SHOP);
         echo 'records_state=' . (string) ($gate['detail']['records_state'] ?? '__absent__') . "\n";
-        echo 'gate_records=' . (($gate['gates']['records_imported'] ?? false) ? 'open' : 'closed') . "\n";
+        // ⛔ `satisfied` / `unsatisfied`, not «open/closed». The gate VALUE is
+        // `true` when the requirement is MET, and calling that «closed» in one
+        // place and «open» in another is how the first run of this script came
+        // to expect both.
+        echo 'gate_records=' . (($gate['gates']['records_imported'] ?? false) ? 'satisfied' : 'unsatisfied') . "\n";
         // ⛔ On `alpha.90` this answers `no`, and that ABSENCE is the
         // measurement: the older build does not know the step, so rolling
         // back cannot run it and cannot read a confirmation either.
