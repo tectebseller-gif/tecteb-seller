@@ -92,7 +92,7 @@ projection بعدی `owns()` را دروغ می‌بیند، `linkedProduct()` �
 است نه معامله (FIN-02).
 
 اجرا: unit **۶۸۷** · architecture **۱۸۹** (+۳) · contract **۳۴۷** ·
-database **۹۵۰** (+۹) · packaging ۲۷ · `php -l` روی **۶۱۲** فایل روی ۸٫۴
+database **۹۵۱** (+۱۰) · packaging ۲۷ · `php -l` روی **۶۱۲** فایل روی ۸٫۴
 تنها · PHPCompatibility با `testVersion 8.1-` روی همان ۶۱۲ — همه ۰ شکست.
 **و هر هفت جهش falsify شد** روی درختِ آرام، با بازگرداندن **بایت‌به‌بایت**
 (`docs/evidence/alpha90-falsification/`).
