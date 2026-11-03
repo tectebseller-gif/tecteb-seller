@@ -65,8 +65,19 @@ PASS=0
 FAIL=0
 
 say() { printf '%s\n' "$*" | tee -a "$RUN"; }
+# ⛔ AN EMPTY MEASUREMENT IS NOT A PASS, whatever it is compared against.
+#
+# Measured this round: with the probe broken, five checks in §7 read
+# «PASS  the publish status is untouched  ()» — comparing one empty string to
+# another. Sixteen of forty-four «passes» in that run were about nothing. A
+# check whose `actual` is empty did not measure anything, so it is RED and
+# says so by name (`alpha.46`). A check that genuinely expects emptiness has
+# to say which emptiness: the probe prints `__null__`, `__norow__` or
+# `__absent__`, never a bare blank.
 check() {
-  if [[ "$2" == "$3" ]]; then
+  if [[ -z "$3" ]]; then
+    FAIL=$((FAIL + 1)); say "FAIL  $1  expected=$2 actual=<nothing measured>"
+  elif [[ "$2" == "$3" ]]; then
     PASS=$((PASS + 1)); say "PASS  $1  ($3)"
   else
     FAIL=$((FAIL + 1)); say "FAIL  $1  expected=$2 actual=$3"

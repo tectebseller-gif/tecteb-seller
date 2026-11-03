@@ -70,8 +70,31 @@ const TMC_SKU_OURS = 'UPG92-OURS';
 const TMC_SKU_GONE = 'UPG92-GONE';
 
 $products = Bootstrap::container()->get(ProductRepositoryInterface::class);
-$verb = $argv[1] ?? 'state';
-$which = $argv[2] ?? 'dokan';
+// ⛔ THE VERB COMES FROM `$args`, NOT `$argv`.
+//
+// `wp eval-file FILE a b` puts the extra arguments in `$args`; `$argv` is
+// WP-CLI's OWN argv, so `$argv[1]` is the string `eval-file`. Measured: with
+// `$argv[1]` every call fell through to the default state report, so
+// `arrange` created nothing and `unmigrate-38` walked nothing back, and the
+// upgrade check reported twenty-eight FAILures about a package that was
+// fine. `tools/upgrade-alpha89-state.php:39` reads `$args[0]`, which is the
+// contract that has worked for three rounds.
+//
+// And an unknown verb is LOUD. The silent default is exactly what hid the
+// defect above: a tool that prints a plausible report whatever you ask it
+// cannot be caught by reading its output.
+$args = isset($args) && is_array($args) ? $args : [];
+$verb = (string) ($args[0] ?? 'state');
+$which = (string) ($args[1] ?? 'dokan');
+const TMC_VERBS = [
+    'state', 'arrange', 'unmigrate-38', 'break-column', 'fix-column',
+    'shop', 'take', 'give-back', 'reset',
+];
+if (!in_array($verb, TMC_VERBS, true)) {
+    fwrite(STDERR, 'unknown verb: ' . $verb . "\n");
+    echo "unknown_verb=1\n";
+    exit(2);
+}
 
 function tmc_products_table(): string
 {
@@ -134,21 +157,68 @@ if ($verb === 'arrange') {
     );
     $vendors->upsertProfile(TMC_VENDOR, 'فروشگاه ارتقای ۹۲', true, false);
 
+    // ⛔ THROUGH WOOCOMMERCE'S OWN API, so the product and the row AGREE
+    // from birth.
+    //
+    // The first draft used `wp_insert_post()` plus `_sku` and
+    // `_regular_price`. Measured: that leaves `manage_stock = false` and
+    // `catalog_visibility = ''`, which are TWO BLOCKING risks, so
+    // `take($id, [], [])` answered `ownership_risks_unacknowledged` and §2,
+    // §7 and §8d all measured that instead of the publish state they were
+    // written for. The product correctly refused; the fixture was wrong. This
+    // is `alpha.90`'s rule in a new place: a fixture built half through the
+    // platform and half with raw writes is inconsistent from the moment it
+    // exists.
+    //
+    // Everything the status question needs is set here and NOTHING else, so a
+    // blocking risk appearing later is a real finding rather than fixture
+    // noise — and `risks_dokan` below prints what the service actually sees,
+    // because a fixture that claims to be consistent should be asked.
+    // ⛔ IDEMPOTENT, because a verb that only works on a clean site is a
+    // verb that fails exactly when you need it.
+    //
+    // `set_sku()` THROWS on a duplicate, and a run that died midway leaves the
+    // first products behind — measured: 77223 and 77224 survived an `arrange`
+    // that fataled on the third. So this sweeps its own three SKUs first, and
+    // gives back what it has made if a later save fails. Only these three
+    // SKUs, never a pattern.
+    foreach ([TMC_SKU_DOKAN, TMC_SKU_OURS, TMC_SKU_GONE] as $sku) {
+        $strayId = (int) wc_get_product_id_by_sku($sku);
+        if ($strayId > 0) {
+            wp_delete_post($strayId, true);
+        }
+    }
+
     $made = [];
-    foreach ([TMC_SKU_DOKAN => 'publish', TMC_SKU_OURS => 'publish', TMC_SKU_GONE => 'publish'] as $sku => $status) {
-        $postId = wp_insert_post([
-            'post_type' => 'product',
-            'post_title' => 'کالای ' . $sku,
-            'post_status' => $status,
-            'post_author' => TMC_VENDOR,
-        ], true);
-        if (is_wp_error($postId)) {
-            echo 'error=' . $postId->get_error_message() . "\n";
+    foreach ([TMC_SKU_DOKAN, TMC_SKU_OURS, TMC_SKU_GONE] as $sku) {
+        $product = new \WC_Product_Simple();
+        $product->set_name('کالای ' . $sku);
+        $product->set_status('publish');
+        $product->set_catalog_visibility('visible');
+        $product->set_sku($sku);
+        $product->set_regular_price('450000');
+        $product->set_manage_stock(true);
+        $product->set_stock_quantity(3);
+        $product->set_backorders('no');
+        $product->set_sold_individually(false);
+        try {
+            $postId = $product->save();
+        } catch (\Throwable $e) {
+            foreach ($made as $alreadyMade) {
+                wp_delete_post($alreadyMade, true);
+            }
+            echo 'error=' . $sku . ': ' . $e->getMessage() . "\n";
             exit(1);
         }
-        update_post_meta((int) $postId, '_sku', $sku);
-        update_post_meta((int) $postId, '_regular_price', '450000');
-        $made[$sku] = (int) $postId;
+        if (!is_int($postId) || $postId <= 0) {
+            foreach ($made as $alreadyMade) {
+                wp_delete_post($alreadyMade, true);
+            }
+            echo 'error=the product for ' . $sku . " was not saved\n";
+            exit(1);
+        }
+        wp_update_post(['ID' => $postId, 'post_author' => TMC_VENDOR]);
+        $made[$sku] = $postId;
     }
 
     // THE DOKAN STATE: Draft beside a published product, and NO stamp — which
@@ -193,6 +263,25 @@ if ($verb === 'arrange') {
     echo 'stamp_dokan=' . tmc_stamp(TMC_SKU_DOKAN) . "\n";
     echo 'stamp_ours=' . tmc_stamp(TMC_SKU_OURS) . "\n";
     echo 'stamp_gone=' . tmc_stamp(TMC_SKU_GONE) . "\n";
+    // The fixture's own consistency, from the service that judges it: the
+    // only thing standing between this row and a transfer must be the stamp.
+    // ⛔ ASKED WITH `class_exists`, because this verb must answer on BOTH
+    // packages. `PreservationRisk` is `alpha.92`'s, so on `alpha.91` the
+    // honest answer is `absent` — and the first draft of these two lines
+    // FATALED there, breaking the very rule this file's docblock states
+    // (`alpha.32`).
+    $reader = Bootstrap::container()->get(
+        \Tecteb\Marketplace\Modules\Migration\Application\CatalogueReaderInterface::class
+    );
+    $risks = $reader->preservationRisksFrom($reader->detail($made[TMC_SKU_DOKAN]));
+    echo 'risks_dokan=' . ($risks === [] ? '__none__' : implode(',', array_keys($risks))) . "\n";
+    $split = 'Tecteb\\Marketplace\\Modules\\Migration\\Domain\\PreservationRisk';
+    if (!class_exists($split)) {
+        echo "blocking_dokan=__absent__\n";
+        exit(0);
+    }
+    $blocking = $split::blockingIn($risks);
+    echo 'blocking_dokan=' . ($blocking === [] ? '__none__' : implode(',', $blocking)) . "\n";
     exit(0);
 }
 
@@ -311,12 +400,44 @@ if ($verb === 'reset') {
             (int) $row['id']
         ));
     }
-    $wpdb->query($wpdb->prepare(
-        'DELETE FROM `' . $wpdb->prefix . 'tmc_vendor_profiles` WHERE vendor_user_id = %d',
+    // ⛔ AND THE PRODUCTS ARE SWEPT BY SKU, not only through the rows.
+    //
+    // `reset` reached each WooCommerce product through its marketplace row, so
+    // a run that died after creating the product but before (or after losing)
+    // the row left the SKU taken — and the next `arrange` fataled with
+    // WooCommerce's «Invalid or duplicated SKU». Measured: that is exactly
+    // what an aborted run left behind. A fixture has to give back everything
+    // it spent, and «the row» includes the ones that no longer point at it
+    // (`alpha.33`).
+    foreach ([TMC_SKU_DOKAN, TMC_SKU_OURS, TMC_SKU_GONE] as $sku) {
+        $strayId = function_exists('wc_get_product_id_by_sku')
+            ? (int) wc_get_product_id_by_sku($sku)
+            : 0;
+        if ($strayId > 0) {
+            wp_delete_post($strayId, true);
+        }
+    }
+
+    // ⛔ THE COLUMN IS `user_id`, and the answer is READ.
+    //
+    // The first draft wrote `vendor_user_id`, which `tmc_vendor_profiles`
+    // does not have (`M0002CreateVendorTables`), so MySQL refused the
+    // statement — and this verb printed `reset=done` anyway, because nobody
+    // read the return value. A fixture that cannot give back what it spent
+    // makes the NEXT run answer a different question (`alpha.33`), and a
+    // `done` that is not true is how that goes unnoticed (`alpha.31`).
+    $profiles = $wpdb->query($wpdb->prepare(
+        'DELETE FROM `' . $wpdb->prefix . 'tmc_vendor_profiles` WHERE user_id = %d',
         TMC_VENDOR
     ));
     delete_option('tmc_migration_last_error');
-    echo "reset=done\n";
+    if ($profiles === false) {
+        fwrite(STDERR, "the vendor profile could not be deleted\n");
+        echo "reset=profile_not_deleted\n";
+        exit(1);
+    }
+    echo 'reset=done' . "\n";
+    echo 'reset_profiles=' . (int) $profiles . "\n";
     exit(0);
 }
 
