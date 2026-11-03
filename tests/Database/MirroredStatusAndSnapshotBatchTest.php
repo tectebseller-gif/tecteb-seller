@@ -150,7 +150,27 @@ final class MirroredStatusAndSnapshotBatchTest extends DatabaseTestCase
             $seen[$field] = (string) $pair['fingerprint'];
         }
 
-        $result = $transfer->take($id, array_keys($state['risks']), $seen);
+        // ⛔ EVERY REAL RISK KEY, AND EVERY NAME A KEY WOULD BE SPELLED WITH.
+        //
+        // The first version of this test handed over `array_keys(
+        // $state['risks'])` alone, and a mutation that added
+        // `&& !in_array('status', $acknowledged, true)` to the guard SURVIVED
+        // it: this fixture has no risk called `status`, so the array never
+        // carried the one word that would have waived the check. The claim in
+        // this method's name is about the ABSENCE of an acceptance key, so the
+        // list has to contain the names such a key would plausibly use — not
+        // just the keys today's product happens to carry (`alpha.88`).
+        $everyName = array_merge(array_keys($state['risks']), [
+            'status',
+            'storefront_status',
+            'mirrored_status',
+            'publish',
+            'visibility',
+            ProjectedStatus::WOULD_CHANGE,
+            ProjectedStatus::UNREADABLE,
+        ]);
+
+        $result = $transfer->take($id, $everyName, $seen);
 
         self::assertFalse($result->ok);
         self::assertSame('storefront_status_would_change', $result->code);

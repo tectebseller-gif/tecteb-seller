@@ -10,6 +10,12 @@
 #   * RESTORE IN A `trap`. A loop stopped half way must not leave a mutation on
 #     the tree — one that `git status` would show, but a later run would
 #     silently answer a different question with (`alpha.76`).
+#     ⛔ AND THE TRAP IS NOT A GUARANTEE. Measured this round: stopping a
+#     run whose stdout is piped (`... | tail -90`) left mutation 13 on the
+#     tree — the signal reached the pipeline, not this script, so `restore`
+#     never ran. The trap is worth having and it is not a promise: after any
+#     stop, VERIFY the tree against HEAD (`git diff --stat HEAD -- src tests`)
+#     rather than assuming the handler fired.
 #   * A MUTATION THAT DOES NOT APPLY IS A FAILURE, never an unbreakable guard
 #     (`alpha.77`). The python helper exits non-zero and this script counts it.
 #
