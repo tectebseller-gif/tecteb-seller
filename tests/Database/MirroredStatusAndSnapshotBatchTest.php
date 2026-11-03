@@ -386,10 +386,77 @@ final class MirroredStatusAndSnapshotBatchTest extends DatabaseTestCase
         self::assertSame((string) $second, (string) $rows[0]['stopped_at']);
     }
 
-    /** The cap is the batch's, and it is the same number for both buttons. */
-    public function testTheOfferIsCappedAtTwentyFive(): void
+    /**
+     * The offer is capped at twenty five, and the page still says how many
+     * there are.
+     *
+     * ⛔ **The first version of this test asserted `BATCH_LIMIT === 25` and
+     * nothing else**, so deleting the `array_slice` that APPLIES the cap left
+     * it green — the owner's «سقف ۲۵ محصول» was enforced by no test at all.
+     * A constant is a number; the cap is what the service will accept, and
+     * the only way to ask about it is to offer it more than it may take
+     * (`alpha.80`: count the consumer, not the value).
+     *
+     * Twenty seven rows are refreshable, twenty five are offered, and the
+     * digest is over exactly the twenty five offered — so the form cannot
+     * carry a list the service computes differently. The count stays 27,
+     * because a cap that states only one half hides the other (`alpha.85`).
+     */
+    public function testTheOfferIsCappedAtTwentyFiveWhileTheCountStaysWhole(): void
     {
-        self::assertSame(25, OwnershipTransferPlan::BATCH_LIMIT);
+        $over = OwnershipTransferPlan::BATCH_LIMIT + 2;
+        $wcIds = [];
+        for ($i = 0; $i < $over; $i++) {
+            $wcId = 8600 + $i;
+            $this->reader->add(
+                $wcId,
+                ['title' => 'کالای ' . $wcId, 'regular_price' => '450000', 'sku' => 'C-' . $wcId, 'status' => 'publish'],
+                ['author_id' => self::VENDOR, 'vendor_profile' => 'approved']
+            );
+            $wcIds[] = $wcId;
+        }
+        foreach (array_chunk($wcIds, ImportExistingProducts::BATCH) as $i => $chunk) {
+            $batch = $this->intake()->importBatch('cap-' . $i, $chunk);
+            self::assertTrue($batch['ok'], (string) $batch['code']);
+        }
+        $ids = [];
+        foreach ($wcIds as $wcId) {
+            $product = $this->products->findObservedByWcProduct($wcId);
+            self::assertNotNull($product);
+            $id = (int) $product->id;
+            $this->clearStamp($id);
+            $ids[] = $id;
+        }
+        sort($ids);
+
+        $plan = $this->plan()->plan(self::VENDOR);
+
+        self::assertSame(
+            $over,
+            $plan['counts'][OwnershipTransferPlan::STATUS_BLOCKED],
+            'the page knows about all of them'
+        );
+        self::assertCount(
+            OwnershipTransferPlan::BATCH_LIMIT,
+            $plan['refreshable'],
+            'and offers exactly the cap'
+        );
+        $offered = array_slice($ids, 0, OwnershipTransferPlan::BATCH_LIMIT);
+        self::assertSame($offered, $plan['refreshable']);
+        self::assertSame(
+            OwnershipTransferPlan::digestOf($offered),
+            $plan['refresh_digest'],
+            'the fingerprint is over what was offered, not over all of them'
+        );
+        // And the service accepts that list — the cap is not a display trick.
+        $result = $this->refreshBatch()->apply(
+            self::VENDOR,
+            0,
+            array_map('intval', (array) $plan['refreshable']),
+            (string) $plan['refresh_digest']
+        );
+        self::assertTrue($result['ok'], (string) $result['code']);
+        self::assertCount(OwnershipTransferPlan::BATCH_LIMIT, $result['refreshed']);
     }
 
     // ================================= the owner's five fields, before/after
@@ -517,6 +584,67 @@ final class MirroredStatusAndSnapshotBatchTest extends DatabaseTestCase
             $page['counts'][OwnershipTransferPlan::READY]
         );
         self::assertFalse($page['finished']);
+    }
+
+    /**
+     * One bucket, two reasons, two lines — because the grouping key is the
+     * PAIR, not the bucket.
+     *
+     * ⛔ **The test above cannot ask this question**: its three blocked rows
+     * all sit beside a `publish` product, so they share one sentence, and
+     * grouping on the bucket alone gives the same single line. The mutation
+     * that drops the reason from the key SURVIVED it.
+     *
+     * Here a fourth row sits beside a `pending` product, so the two
+     * sentences name different statuses — «publish» vs «pending». On the
+     * pair they are two lines of 3 and 1; on the bucket alone they collapse
+     * into one line of 4, and the one sentence printed would be wrong for
+     * whichever row lost. The owner's requirement is that each product's stop
+     * reason is clear, so the reason has to be part of what is grouped.
+     */
+    public function testTwoReasonsInOneBucketAreTwoLines(): void
+    {
+        $publishBlocked = [];
+        for ($i = 0; $i < 3; $i++) {
+            $wcId = 8700 + $i;
+            $this->reader->add(
+                $wcId,
+                ['title' => 'کالای ' . $wcId, 'regular_price' => '450000', 'sku' => 'D-' . $wcId, 'status' => 'publish'],
+                ['author_id' => self::VENDOR, 'vendor_profile' => 'approved']
+            );
+            $id = $this->importOne($wcId);
+            $this->clearStamp($id);
+            $publishBlocked[] = $id;
+        }
+        $this->reader->add(
+            8799,
+            ['title' => 'کالای در انتظار', 'regular_price' => '450000', 'sku' => 'D-8799', 'status' => 'pending'],
+            ['author_id' => self::VENDOR, 'vendor_profile' => 'approved']
+        );
+        $pendingBlocked = $this->importOne(8799);
+        $this->clearStamp($pendingBlocked);
+
+        $tally = $this->tally()->of(self::VENDOR);
+
+        self::assertSame(4, $tally['counts'][OwnershipTransferPlan::STATUS_BLOCKED]);
+        $groups = array_values(array_filter(
+            (array) $tally['groups'],
+            static fn (array $g): bool => $g['bucket'] === OwnershipTransferPlan::STATUS_BLOCKED
+        ));
+        self::assertCount(2, $groups, 'one bucket, two reasons, two lines');
+        $byCount = [];
+        foreach ($groups as $group) {
+            $byCount[(int) $group['count']] = $group;
+        }
+        self::assertArrayHasKey(3, $byCount, 'the three publish rows are one line');
+        self::assertArrayHasKey(1, $byCount, 'and the pending row is its own');
+        self::assertSame($publishBlocked, $byCount[3]['ids']);
+        self::assertSame([$pendingBlocked], $byCount[1]['ids']);
+        // Each sentence names the status that row actually holds, in Persian.
+        self::assertStringContainsString('publish', (string) $byCount[3]['why']);
+        self::assertStringNotContainsString('pending', (string) $byCount[3]['why']);
+        self::assertStringContainsString('pending', (string) $byCount[1]['why']);
+        self::assertNotSame((string) $byCount[3]['why'], (string) $byCount[1]['why']);
     }
 
     // ================================================= §3 risk classification

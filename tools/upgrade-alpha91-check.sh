@@ -260,11 +260,25 @@ check "8c and the old build does not know the step" "no" "$(val "$S4" step38_kno
 # the backfill could not reach, and for anything a future Dokan import under
 # the old package creates. The row the step filled is safer than before,
 # because `alpha.91`'s projector reads the stamp exactly as this one does.
-T_BACK="$(state take gone)"; printf '%s\n' "$T_BACK" >>"$RUN"
-check "8d an unstamped row is transferable again on alpha.91" "yes" "$(val "$T_BACK" ok)"
-note  "8e so the cost of rolling back is the guard, not the data" \
+#
+# ⛔ And asking that needs the RIGHT row. The first version of this section
+# used the «gone» fixture, whose WooCommerce product is deleted — and a
+# missing product IS the blocking risk `product`, so `take` answers «no» on
+# both packages and the measurement was about a different refusal. The
+# fixture now un-records the stamp on the row whose product is alive and
+# published, which is exactly «a row the backfill could not reach».
+C_BACK="$(state clear-stamp)"; printf '%s\n' "$C_BACK" >>"$RUN"
+check "8d the fixture really cleared it" "yes" "$(val "$C_BACK" stamp_cleared)"
+check "8e beside a product that is still published" "publish" "$(val "$C_BACK" dokan_post_status)"
+T_BACK="$(state take dokan)"; printf '%s\n' "$T_BACK" >>"$RUN"
+check "8f an unstamped row is transferable again on alpha.91" "yes" "$(val "$T_BACK" ok)"
+note  "8g so the cost of rolling back is the guard, not the data" \
       "stamps kept, status guard gone"
-state give-back gone >>"$RUN" 2>&1
+state give-back dokan >>"$RUN" 2>&1
+# And the deleted-product row is refused for its OWN reason, on both
+# packages — a control, so 8f cannot be read as «anything transfers».
+T_GONE="$(state take gone)"; printf '%s\n' "$T_GONE" >>"$RUN"
+check "8h the row whose product is gone is still refused" "no" "$(val "$T_GONE" ok)"
 
 say ""
 say "=== result ==="

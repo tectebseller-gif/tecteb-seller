@@ -96,8 +96,15 @@ for pair in "architecture:" "unit:" "database:MirroredStatusAndSnapshotBatchTest
 done
 say ""
 
+# A subset, for closing one survivor without re-running the whole loop. The
+# summary line below names it, because a partial run that prints the same
+# sentence as a full one is a record nobody can read correctly.
+MUT_LIST="${TMC_MUTATIONS:-$(seq 1 "$COUNT")}"
+RAN=0
+
 FAIL=0
-for i in $(seq 1 "$COUNT"); do
+for i in $MUT_LIST; do
+  RAN=$((RAN + 1))
   name="$(python3 -I tools/alpha92-mutations.py name "$i")"
   file="$(python3 -I tools/alpha92-mutations.py file "$i")"
   expect="$(python3 -I tools/alpha92-mutations.py expect "$i")"
@@ -145,5 +152,9 @@ for pair in "architecture:" "unit:" "database:MirroredStatusAndSnapshotBatchTest
   [ "$n" = "0" ] || FAIL=$((FAIL + 1))
 done
 say ""
-say "mutations: $COUNT · problems: $FAIL"
+if [ -n "${TMC_MUTATIONS:-}" ]; then
+  say "PARTIAL RUN — mutations [$TMC_MUTATIONS] of $COUNT · ran: $RAN · problems: $FAIL"
+else
+  say "mutations: $COUNT · problems: $FAIL"
+fi
 [ "$FAIL" = "0" ] || exit 1

@@ -88,7 +88,7 @@ $verb = (string) ($args[0] ?? 'state');
 $which = (string) ($args[1] ?? 'dokan');
 const TMC_VERBS = [
     'state', 'arrange', 'unmigrate-38', 'break-column', 'fix-column',
-    'shop', 'take', 'give-back', 'reset',
+    'shop', 'take', 'give-back', 'clear-stamp', 'reset',
 ];
 if (!in_array($verb, TMC_VERBS, true)) {
     fwrite(STDERR, 'unknown verb: ' . $verb . "\n");
@@ -344,6 +344,41 @@ if ($verb === 'unmigrate-38') {
     echo 'schema_version=' . tmc_schema() . "\n";
     echo 'stamp_dokan=' . tmc_stamp(TMC_SKU_DOKAN) . "\n";
     echo 'stamp_gone=' . tmc_stamp(TMC_SKU_GONE) . "\n";
+    exit(0);
+}
+
+if ($verb === 'clear-stamp') {
+    // ⛔ THE ROW §8 NEEDS, AND THE REASON THE FIRST VERSION OF §8d MEASURED
+    // THE WRONG THING. The cost of rolling back is «the status guard is
+    // gone», and asking that question needs a row with NO stamp beside a
+    // LIVE, PUBLISHED product. After the step there is no such row — that is
+    // the point of the backfill — and the only unstamped rows left are the
+    // marketplace-owned one and the one whose product was deleted. The second
+    // of those is refused for a different reason entirely: a missing product
+    // IS the blocking risk `product`, so `take` answers «no» on both builds
+    // and the measurement says nothing about the guard.
+    //
+    // So the fixture makes one, on the dokan row whose product is alive, and
+    // the schema version is left alone: this is «a row the backfill could not
+    // reach», not «the step did not run».
+    $wpdb->query(
+        'UPDATE `' . tmc_products_table() . '` SET `' . tmc_stamp_column() . '` = NULL
+          WHERE sku = "' . TMC_SKU_DOKAN . '"'
+    );
+    $row = tmc_row_by_sku(TMC_SKU_DOKAN);
+    // Stated as a value rather than left blank: `check()` scores an empty
+    // measurement as «nothing measured», which is the right default and the
+    // reason an assertion about absence has to name the absence.
+    echo 'schema_version=' . tmc_schema() . "\n";
+    // ⛔ `tmc_stamp()` never returns an empty string: NULL comes back as the
+    // sentinel `__null__`, and a missing row as `__norow__`. Comparing
+    // against '' answered «no» about a stamp that WAS cleared, and the run
+    // printed both lines side by side saying opposite things.
+    echo 'stamp_cleared=' . (tmc_stamp(TMC_SKU_DOKAN) === '__null__' ? 'yes' : 'no') . "\n";
+    echo 'stamp_dokan=' . tmc_stamp(TMC_SKU_DOKAN) . "\n";
+    echo 'dokan_post_status=' . ($row === null
+        ? '__no_row__'
+        : (string) get_post_status((int) $row['wc_product_id'])) . "\n";
     exit(0);
 }
 

@@ -288,9 +288,21 @@ MUTATIONS = [
     dict(
         name='the disclosures are dropped from the transfer audit row',
         file=TRANSFER,
-        expect=RK_ARCH + ':1',
-        old="PreservationRisk::disclosuresIn($risks)",
-        new="[]",
+        # ⛔ THE DATABASE CLASS, not the architecture one. The guard here is
+        # behavioural — `testADisclosureOnlyRiskDoesNotBlockTheTransfer`
+        # transfers a disclosure-only product and reads the audit row back —
+        # and naming the architecture suite measured a file that never asks
+        # about it, so the mutation «survived» a guard that was there all
+        # along (the `alpha.90` trap, twice in one loop).
+        expect=MIR_DB + ':1',
+        # UNIQUE IN THE FILE, not just in the target method. The same call
+        # also builds the `disclosed` key of the read helper one method down,
+        # so the bare expression matched twice and the mutation DID NOT APPLY
+        # — which is a failure, not an unbreakable guard (`alpha.77`).
+        old="""            'ownership_taken',
+            PreservationRisk::disclosuresIn($risks)""",
+        new="""            'ownership_taken',
+            []""",
     ),
     # ------------------------------------------- §4 the whole-shop tally
     dict(
