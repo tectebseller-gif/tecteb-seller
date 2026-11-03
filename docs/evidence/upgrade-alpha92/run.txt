@@ -16,10 +16,10 @@ Warning: Plugin 'tecteb-marketplace-core' is already active.
 Success: Plugin already activated.
 reset=done
 reset_profiles=0
-dokan_row=4305
-ours_row=4306
-gone_row=4307
-dokan_post=77253
+dokan_row=4311
+ours_row=4312
+gone_row=4313
+dokan_post=77259
 dokan_post_status=publish
 stamp_dokan=__null__
 stamp_ours=__null__
@@ -45,7 +45,7 @@ PASS  1f nor the status rule  (no)
 PASS  1g nor the re-snapshot batch  (no)
 
 === 2 · on alpha.91 the transfer goes through — the measured hazard ===
-wc_product_id=77253
+wc_product_id=77259
 post_status=publish
 visibility=visible
 price=450000
@@ -143,7 +143,7 @@ PASS  6d the row whose product is gone gets nothing  (__null__)
 NOTE  6e the chain moved with an unfillable row still present  yes
 
 === 7 · a REAL transfer, and the product's own five fields ===
-wc_product_id=77253
+wc_product_id=77259
 post_status=publish
 visibility=visible
 price=450000
@@ -156,7 +156,7 @@ would_write=__none__
 ownership=marketplace
 PASS  7a now it is allowed  (yes)
 PASS  7b …as a taken ownership  (ownership_taken)
-wc_product_id=77253
+wc_product_id=77259
 post_status=publish
 visibility=visible
 price=450000
@@ -173,7 +173,7 @@ now=__none__
 would_write=__none__
 ownership=observed
 PASS  7h and it goes back  (observed)
-wc_product_id=77253
+wc_product_id=77259
 post_status=publish
 visibility=visible
 price=450000
@@ -199,20 +199,32 @@ snapshot_batch_known=no
 PASS  8a the structure stays on 38  (38)
 PASS  8b the stamp the step wrote is still there  (publish)
 PASS  8c and the old build does not know the step  (no)
+schema_version=38
+stamp_cleared=yes
+stamp_dokan=__null__
+dokan_post_status=publish
+PASS  8d the fixture really cleared it  (yes)
+PASS  8e beside a product that is still published  (publish)
+ok=yes
+code=ownership_taken
+now=__none__
+would_write=__none__
+ownership=marketplace
+PASS  8f an unstamped row is transferable again on alpha.91  (yes)
+NOTE  8g so the cost of rolling back is the guard, not the data  stamps kept, status guard gone
+ok=yes
+code=ownership_given_back
+now=__none__
+would_write=__none__
+ownership=observed
 ok=no
 code=ownership_risks_unacknowledged
 now=__none__
 would_write=__none__
 ownership=observed
-FAIL  8d an unstamped row is transferable again on alpha.91  expected=yes actual=no
-NOTE  8e so the cost of rolling back is the guard, not the data  stamps kept, status guard gone
-ok=no
-code=ownership_already
-now=__none__
-would_write=__none__
-ownership=observed
+PASS  8h the row whose product is gone is still refused  (no)
 
 === result ===
-PASS=43 FAIL=1
+PASS=47 FAIL=0
 WordPress database error Unknown column 'mirrored_status_moved' in 'wp_tmc_products' for query ALTER TABLE `wp_tmc_products`
          CHANGE `mirrored_status_moved` `mirrored_status` VARCHAR(20) NULL DEFAULT NULL made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval

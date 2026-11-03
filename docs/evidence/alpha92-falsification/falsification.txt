@@ -1,5 +1,5 @@
 alpha.92 falsification — 31 mutations
-tree: bbeca11 3 modified paths
+tree: 7aa07e7 7 modified paths
 
 baseline architecture:: 0
 baseline unit:: 0
@@ -15,7 +15,7 @@ baseline database:StagedOwnershipTransferTest: 0
     unit failures: 1 (wanted at least 1) — red
     restored byte for byte: yes
 3. «would change» counts as settled
-    database failures: 6 (wanted at least 1) — red
+    database failures: 8 (wanted at least 1) — red
     restored byte for byte: yes
 4. the real projector writes the status and visibility unconditionally
     architecture failures: 1 (wanted at least 1) — red
@@ -78,7 +78,7 @@ baseline database:StagedOwnershipTransferTest: 0
     database failures: 1 (wanted at least 1) — red
     restored byte for byte: yes
 24. the offer is not capped at twenty five
-    database failures: 0 (wanted at least 1) — SURVIVED
+    database failures: 1 (wanted at least 1) — red
     restored byte for byte: yes
 25. a row with a real risk is offered for a re-snapshot
     architecture failures: 1 (wanted at least 1) — red
@@ -92,13 +92,14 @@ baseline database:StagedOwnershipTransferTest: 0
 28. the transfer demands a tick for every key again
     database failures: 2 (wanted at least 1) — red
     restored byte for byte: yes
-mutation 29 matched 2 times in src/Modules/Migration/Application/TransferOwnership.php
-29. the disclosures are dropped from the transfer audit row — MUTATION DID NOT APPLY (counted as a failure)
+29. the disclosures are dropped from the transfer audit row
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
 30. the tally stops after the first page, so 184 reads as 50
     database failures: 1 (wanted at least 1) — red
     restored byte for byte: yes
 31. the tally groups on the bucket alone, so the stop reasons are lost
-    database failures: 0 (wanted at least 1) — SURVIVED
+    database failures: 1 (wanted at least 1) — red
     restored byte for byte: yes
 
 final architecture:: 0
@@ -108,4 +109,4 @@ final database:MirroredStatusBackfillTest: 0
 final database:DokanMigrationTest: 0
 final database:StagedOwnershipTransferTest: 0
 
-mutations: 31 · problems: 3
+mutations: 31 · problems: 0
