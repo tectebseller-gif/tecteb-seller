@@ -1,0 +1,167 @@
+diff --git a/homepage-redesign/plugin/src/additions.css b/homepage-redesign/plugin/src/additions.css
+index 07aa2f5..dd44ac7 100644
+--- a/homepage-redesign/plugin/src/additions.css
++++ b/homepage-redesign/plugin/src/additions.css
+@@ -213,3 +213,13 @@
+   max-block-size: 100%;
+   object-fit: contain;
+ }
++
++/* ================================================================ ۰٫۳٫۵
++ *
++ * «محصولات منتخب»: در موبایل (ظرف زیر ۶۰۰px، همان مرز بقیهٔ طرح) عنوان کوچک «فروشگاه» تکرار پیوند «ورود به
++ * فروشگاه» است و پنهان می‌شود؛ عنوان اصلی و پیوند می‌مانند. تبلت و دسکتاپ بی‌تغییر. ردیف دکمه‌های دسته از
++ * قالب برداشته شده و قاعده‌هایش (.th-filter) در tools/port-assets.py کنار می‌روند.
++ */
++@container th-home (max-width: 599px) {
++  .tecteb-home-v1.th-c .th-head--shop .th-eyebrow { display: none; }
++}
+diff --git a/homepage-redesign/plugin/tecteb-homepage/assets/css/tecteb-home.css b/homepage-redesign/plugin/tecteb-homepage/assets/css/tecteb-home.css
+index 35d2506..b409cb7 100644
+--- a/homepage-redesign/plugin/tecteb-homepage/assets/css/tecteb-home.css
++++ b/homepage-redesign/plugin/tecteb-homepage/assets/css/tecteb-home.css
+@@ -200,9 +200,6 @@
+ 
+ .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-chip:hover { border-color: var(--th-teal-600); color: var(--th-teal-600); }
+ 
+-.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-chip--on,
+-.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-chip--on:hover { background: var(--th-petrol-800); border-color: var(--th-petrol-800); color: var(--th-white); }
+-
+ .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-chip--glass {
+   border-color: rgba(255, 255, 255, 0.16);
+   background: rgba(255, 255, 255, 0.06);
+@@ -699,10 +696,6 @@
+ 
+ /* ---------------- ۳. محصولات: صفحهٔ استودیویی برای عکس ووکامرس */
+ 
+-.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-filter { margin-block-end: 1.5rem; }
+-
+-.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-filter__list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+-
+ .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-products {
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+@@ -1444,3 +1437,13 @@
+   max-block-size: 100%;
+   object-fit: contain;
+ }
++
++/* ================================================================ ۰٫۳٫۵
++ *
++ * «محصولات منتخب»: در موبایل (ظرف زیر ۶۰۰px، همان مرز بقیهٔ طرح) عنوان کوچک «فروشگاه» تکرار پیوند «ورود به
++ * فروشگاه» است و پنهان می‌شود؛ عنوان اصلی و پیوند می‌مانند. تبلت و دسکتاپ بی‌تغییر. ردیف دکمه‌های دسته از
++ * قالب برداشته شده و قاعده‌هایش (.th-filter) در tools/port-assets.py کنار می‌روند.
++ */
++@container th-home (max-width: 599px) {
++  .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-head--shop .th-eyebrow { display: none; }
++}
+diff --git a/homepage-redesign/plugin/tecteb-homepage/templates/products.php b/homepage-redesign/plugin/tecteb-homepage/templates/products.php
+index 648308e..75aa61a 100644
+--- a/homepage-redesign/plugin/tecteb-homepage/templates/products.php
++++ b/homepage-redesign/plugin/tecteb-homepage/templates/products.php
+@@ -4,6 +4,9 @@
+  * انتخاب و مرتب کرده، با داده‌های زندهٔ ووکامرس (نام، تصویر، قیمت، موجودی،
+  * ویژگی‌ها، پیوند). محصولی که حذف یا پنهان شده کنار می‌رود و چیزی جایش نمی‌آید.
+  *
++ * ۰٫۳٫۵ (دستور مالک): ردیف دکمه‌های دسته («همه»، …) برداشته شد — همان دسته‌ها در Mega Menu ِ هدر و کارت‌های
++ * «از دسته درست شروع کنید» هستند — و عنوان کوچک «فروشگاه» فقط در موبایل پنهان است (additions.css).
++ *
+  * @var array $plan Renderer::plan()
+  * @package Tecteb\Homepage
+  */
+@@ -14,7 +17,6 @@ defined( 'ABSPATH' ) || exit;
+ 
+ $links  = $plan['links'];
+ $arrow  = Renderer::icon( 'arrow', 'th-icon th-icon--dir' );
+-$chips  = array_slice( $plan['categories'], 0, 4 );
+ $badges = array(
+ 	'instock'     => array( 'th-badge--in', __( 'موجود', 'tecteb-homepage' ) ),
+ 	'onbackorder' => array( 'th-badge--in', __( 'پیش‌سفارش', 'tecteb-homepage' ) ),
+@@ -23,7 +25,7 @@ $badges = array(
+ ?>
+ <section class="th-section th-section--white" aria-labelledby="th-products-title">
+ 	<div class="th-wrap">
+-		<header class="th-head th-reveal">
++		<header class="th-head th-head--shop th-reveal">
+ 			<div class="th-head__text">
+ 				<p class="th-eyebrow"><?php echo esc_html__( 'فروشگاه', 'tecteb-homepage' ); ?></p>
+ 				<h2 class="th-head__title" id="th-products-title"><?php echo esc_html__( 'محصولات منتخب برای مراکز درمانی', 'tecteb-homepage' ); ?></h2>
+@@ -32,18 +34,6 @@ $badges = array(
+ 				<a class="th-more" href="<?php echo esc_url( $links['shop'] ); ?>"><?php echo esc_html__( 'ورود به فروشگاه', 'tecteb-homepage' ); ?><?php echo $arrow; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Renderer::icon(). ?></a>
+ 			<?php endif; ?>
+ 		</header>
+-		<?php if ( array() !== $chips ) : ?>
+-			<nav class="th-filter th-reveal" aria-label="<?php echo esc_attr__( 'رفتن به دسته‌ها', 'tecteb-homepage' ); ?>">
+-				<ul class="th-filter__list" role="list">
+-					<?php if ( '' !== $links['shop'] ) : ?>
+-						<li><a class="th-chip th-chip--on" href="<?php echo esc_url( $links['shop'] ); ?>"><?php echo esc_html__( 'همه', 'tecteb-homepage' ); ?></a></li>
+-					<?php endif; ?>
+-					<?php foreach ( $chips as $category ) : ?>
+-						<li><a class="th-chip" href="<?php echo esc_url( $category['url'] ); ?>"><?php echo esc_html( $category['name'] ); ?></a></li>
+-					<?php endforeach; ?>
+-				</ul>
+-			</nav>
+-		<?php endif; ?>
+ 		<ul class="th-products" role="list" data-count="<?php echo esc_attr( (string) count( $plan['products'] ) ); ?>">
+ 			<?php foreach ( $plan['products'] as $product ) : ?>
+ 				<?php $badge = $badges[ $product['stock'] ] ?? null; ?>
+diff --git a/homepage-redesign/plugin/tests/browser/run.mjs b/homepage-redesign/plugin/tests/browser/run.mjs
+index 0faac0b..0c0b791 100644
+--- a/homepage-redesign/plugin/tests/browser/run.mjs
++++ b/homepage-redesign/plugin/tests/browser/run.mjs
+@@ -40,7 +40,8 @@ const PROBES = {
+   'section h2': '#th-products-title',
+   'product title': '.th-product__title',
+   'product link': '.th-product__title a',
+-  'chip': '.th-filter .th-chip',
++  // ۰٫۳٫۵: ردیف دکمه‌های دسته در «محصولات منتخب» برداشته شد (دستور مالک)؛ چیپ Hero همان کلاس را دارد.
++  'chip': '.th-hero .th-chip',
+ };
+ // انتقال‌های CSS (۰٫۲۵ ثانیه روی رنگ دکمه و چیپ) اگر در لحظهٔ اندازه‌گیری در جریان
+ // باشند، مقدار میانی را می‌دهند؛ پیش از خواندن، همه تمام می‌شوند.
+diff --git a/homepage-redesign/plugin/tests/integration/run.php b/homepage-redesign/plugin/tests/integration/run.php
+index 58609f7..efb6689 100644
+--- a/homepage-redesign/plugin/tests/integration/run.php
++++ b/homepage-redesign/plugin/tests/integration/run.php
+@@ -265,8 +265,11 @@ check( 'categories: thumbnail image used when present', 1 === count( nodes( $h,
+ check( 'categories: Hero search has no category select even with categories selected (0.3.2)', 0 === count( nodes( $h, '//form[' . cls( 'th-search' ) . ']//select' ) ) && ! str_contains( $h, 'همهٔ دسته‌ها' ) );
+ // ۰٫۳٫۳: برچسب‌های کنار تصویر دیگر «دو دستهٔ اول» نیستند؛ چهار برچسب ثابت با دستهٔ واقعیِ دارای محصول (بخش ۱۳-د).
+ check( 'categories: hero labels no longer follow the selected categories (0.3.3)', ! in_array( 'ملزومات مصرفی', texts( $h, '//a[' . cls( 'th-float' ) . ']' ), true ) );
+-check( 'categories: product filter chips = shop + categories', array( 'همه', 'ملزومات مصرفی', 'پایش بیمار', 'اتاق عمل' ) === texts( $h, '//nav[' . cls( 'th-filter' ) . ']//a' ) );
+-check( 'categories: no aria-current on the shop chip', 0 === count( nodes( $h, '//nav//a[@aria-current]' ) ) );
++// ۰٫۳٫۵ (دستور مالک): ردیف دکمه‌های دسته از «محصولات منتخب» برداشته شد؛ عنوان، کارت‌ها و «ورود به فروشگاه» می‌مانند.
++check( 'products: no category filter row (0.3.5)', 0 === count( nodes( $h, '//*[' . cls( 'th-filter' ) . ']' ) ) && ! str_contains( $h, 'th-chip--on' ) && 0 === count( nodes( $h, '//section[@aria-labelledby="th-products-title"]//nav' ) ) );
++check( 'products: title, «فروشگاه» eyebrow (hidden on mobile by CSS) and «ورود به فروشگاه» kept (0.3.5)', array( 'محصولات منتخب برای مراکز درمانی' ) === texts( $h, '//h2[@id="th-products-title"]' ) && array( 'فروشگاه' ) === texts( $h, '//header[' . cls( 'th-head--shop' ) . ']//p[' . cls( 'th-eyebrow' ) . ']' ) && 1 === count( nodes( $h, '//header[' . cls( 'th-head--shop' ) . ']//a[' . cls( 'th-more' ) . ' and contains(., "ورود به فروشگاه")]' ) ) );
++check( 'products: the selected products render without any filter choice (0.3.5)', count( nodes( $h, '//ul[' . cls( 'th-products' ) . ']/li' ) ) > 0 );
++check( 'categories: category cards still link to the WooCommerce terms (0.3.5)', count( nodes( $h, '//a[' . cls( 'th-cat' ) . ']' ) ) === 3 );
+ check( 'categories: no «همهٔ دسته‌ها» link without destination', 0 === count( nodes( $h, '//a[' . cls( 'th-more' ) . ' and contains(., "همهٔ دسته‌ها")]' ) ) );
+ 
+ $s = Settings::sanitize(
+diff --git a/homepage-redesign/plugin/tests/isolation.mjs b/homepage-redesign/plugin/tests/isolation.mjs
+index 4525a64..9d69e28 100644
+--- a/homepage-redesign/plugin/tests/isolation.mjs
++++ b/homepage-redesign/plugin/tests/isolation.mjs
+@@ -29,7 +29,7 @@ const PROPS = ['display', 'position', 'width', 'height', 'margin-top', 'margin-r
+ 
+ const ALL = ['.th-hero', '.th-hero__title', '.th-hero__lead', '.th-search', '.th-search__input', '.th-search__submit', '.th-search__icon',
+   '.th-quick__label', '.th-chip', '.th-hero__render img', '.th-float', '.th-routes', '.th-route', '.th-route__icon', '.th-route__title', '.th-route__kicker', '.th-route__go', '.th-audience',
+-  '.th-eyebrow', '.th-head__title', '.th-more', '.th-cats', '.th-cat', '.th-cat__name', '.th-cat__meta', '.th-orb', '.th-filter__list', '.th-filter__list a', '.th-product', '.th-product__pic img',
++  '.th-eyebrow', '.th-head__title', '.th-more', '.th-cats', '.th-cat', '.th-cat__name', '.th-cat__meta', '.th-orb', '.th-product', '.th-product__pic img',
+   '.th-product__title', '.th-product__cat', '.th-product__specs', '.th-product__price', '.th-badge', '.th-join', '.th-join__title', '.th-join__lead', '.th-join .th-btn', '.th-step',
+   // ۰٫۳٫۳
+   '.th-floats', '.th-float__text', '.th-price__now', '.th-section--brands', '.th-brands', '.th-brands__list', '.th-brand', '.th-brand__img', '.th-brands__btn'];
+diff --git a/homepage-redesign/plugin/tools/port-assets.py b/homepage-redesign/plugin/tools/port-assets.py
+index 4e23b55..75a0f0e 100644
+--- a/homepage-redesign/plugin/tools/port-assets.py
++++ b/homepage-redesign/plugin/tools/port-assets.py
+@@ -31,7 +31,9 @@ PREVIEW_ONLY = re.compile(r"\.th-sample|\.th-imgnote|\.th-hero__note|\.th-hero--
+                           # برداشته‌شده در ۰٫۲٫۰: استعلام روی کارت محصول و بخش خدمات عمومی.
+                           r"|\.th-product__quote|\.th-service|\.th-deep__bg|\.th-section--deep"
+                           # برداشته‌شده در ۰٫۳٫۳ (دستور مالک): برچسب «بازار B2B تجهیزات پزشکی» بالای عنوان Hero.
+-                          r"|\.th-pill")
++                          r"|\.th-pill"
++                          # برداشته‌شده در ۰٫۳٫۵ (دستور مالک): ردیف دکمه‌های دسته در «محصولات منتخب».
++                          r"|\.th-filter|\.th-chip--on")
+ 
+ 
+ def split_top(text: str) -> list[str]:

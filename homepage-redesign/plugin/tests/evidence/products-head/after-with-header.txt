@@ -1,0 +1,56 @@
+PASS 320: exactly one header (Header B), no Elementor header
+PASS 320: Hero starts right below the header (no gap, no overlap)
+PASS 320: no horizontal overflow
+PASS 320: one h1 (the Hero), no duplicate ids
+PASS 320: no duplicated search — header search folded into its button, Hero search visible
+PASS 320: header search button still opens the header search
+PASS 320: Vazirmatn downloaded once (shared file)
+PASS 320: no console or page errors
+PASS 320: axe on the whole page (header + homepage + footer) — 0 violations
+PASS 320: every homepage image (incl. lazy product images) loads when scrolled to
+PASS 390: exactly one header (Header B), no Elementor header
+PASS 390: Hero starts right below the header (no gap, no overlap)
+PASS 390: no horizontal overflow
+PASS 390: one h1 (the Hero), no duplicate ids
+PASS 390: no duplicated search — header search folded into its button, Hero search visible
+PASS 390: header search button still opens the header search
+PASS 390: Vazirmatn downloaded once (shared file)
+PASS 390: no console or page errors
+PASS 390: axe on the whole page (header + homepage + footer) — 0 violations
+PASS 390: every homepage image (incl. lazy product images) loads when scrolled to
+PASS 768: exactly one header (Header B), no Elementor header
+PASS 768: Hero starts right below the header (no gap, no overlap)
+PASS 768: no horizontal overflow
+PASS 768: one h1 (the Hero), no duplicate ids
+PASS 768: header search and Hero search both visible (desktop/tablet design)
+PASS 768: Vazirmatn downloaded once (shared file)
+PASS 768: no console or page errors
+PASS 768: axe on the whole page (header + homepage + footer) — 0 violations
+PASS 768: every homepage image (incl. lazy product images) loads when scrolled to
+PASS 1440: exactly one header (Header B), no Elementor header
+PASS 1440: Hero starts right below the header (no gap, no overlap)
+PASS 1440: no horizontal overflow
+PASS 1440: one h1 (the Hero), no duplicate ids
+PASS 1440: header search and Hero search both visible (desktop/tablet design)
+PASS 1440: Vazirmatn downloaded once (shared file)
+PASS 1440: no console or page errors
+PASS 1440: axe on the whole page (header + homepage + footer) — 0 violations
+PASS 1440: every homepage image (incl. lazy product images) loads when scrolled to
+PASS isolation: homepage CSS changes nothing in Header B (same computed styles as on an inner page)
+PASS isolation: Header B changes nothing in the homepage (same computed styles and sizes with and without it)
+PASS mega menu: opens over the Hero and is on top (not covered by homepage layers)
+PASS sticky header stays above homepage sections while scrolling
+PASS mobile drawer: opens as a modal over the homepage
+PASS links: all 16 homepage links reach 200 on this site (no 404, no off-site redirect)
+PASS links: shop route → WooCommerce shop page
+PASS links: repair route → /https-tecteb-com-repair-request/, no repair form on the page
+PASS links: supplier route and section → /landing-seller/
+PASS links: no # or javascript: links in the homepage
+PASS images: all 6 homepage images loaded, each with alt
+PASS products: exactly the manually selected WooCommerce products, in the admin order
+PASS search: Hero search → WooCommerce product search (results, or the single matching product)
+PASS search: no match → WooCommerce «no products» page (200), not an error
+PASS empty (fresh install, nothing selected): Hero + supplier only; no empty product or category grid; no invented price
+PASS header unaffected by an empty homepage
+
+54 passed, 0 failed

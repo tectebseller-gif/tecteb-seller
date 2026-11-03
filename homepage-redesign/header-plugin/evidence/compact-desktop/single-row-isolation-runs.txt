@@ -1,0 +1,4 @@
+isolation runs on the candidate, 10 states incl. desktop-compact, 47 properties:
+run 1: 2 differences, both in hover-account (account hover colour mid-transition) — not in the compact state
+runs 2-4: 0 differences
+0.2.3 baseline, same test, 2 runs: 0 differences

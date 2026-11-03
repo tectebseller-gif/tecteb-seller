@@ -1,0 +1,202 @@
+{
+ "320": {
+  "eyebrow": true,
+  "eyebrowText": "فروشگاه",
+  "title": "محصولات منتخب برای مراکز درمانی",
+  "more": {
+   "text": "ورود به فروشگاه",
+   "href": "http://127.0.0.1:8090/shop/"
+  },
+  "filterRow": 6,
+  "products": 4,
+  "productsShown": 4,
+  "sectionTopToTitle": 97,
+  "headHeight": 157,
+  "headToProducts": 132,
+  "titleToMore": 12,
+  "categoryCards": 4,
+  "categoryHrefs": [
+   "http://127.0.0.1:8090/product-category/%d8%aa%d8%ac%d9%87%db%8c%d8%b2%d8%a7%d8%aa-%d9%be%d8%b2%d8%b4%da%a9%db%8c/%d9%be%d8%a7%db%8c%d8%b4-%d8%a8%db%8c%d9%85%d8%a7%d8%b1/",
+   "http://127.0.0.1:8090/product-category/%d8%a7%d8%aa%d8%a7%d9%82-%d8%b9%d9%85%d9%84/",
+   "http://127.0.0.1:8090/product-category/%d8%a2%d8%b2%d9%85%d8%a7%db%8c%d8%b4%da%af%d8%a7%d9%87/",
+   "http://127.0.0.1:8090/product-category/%d9%85%d9%84%d8%b2%d9%88%d9%85%d8%a7%d8%aa-%d9%85%d8%b5%d8%b1%d9%81%db%8c/"
+  ],
+  "overflowX": 0,
+  "sectionHeight": 1142
+ },
+ "390": {
+  "eyebrow": true,
+  "eyebrowText": "فروشگاه",
+  "title": "محصولات منتخب برای مراکز درمانی",
+  "more": {
+   "text": "ورود به فروشگاه",
+   "href": "http://127.0.0.1:8090/shop/"
+  },
+  "filterRow": 6,
+  "products": 4,
+  "productsShown": 4,
+  "sectionTopToTitle": 97,
+  "headHeight": 121,
+  "headToProducts": 132,
+  "titleToMore": 12,
+  "categoryCards": 4,
+  "categoryHrefs": [
+   "http://127.0.0.1:8090/product-category/%d8%aa%d8%ac%d9%87%db%8c%d8%b2%d8%a7%d8%aa-%d9%be%d8%b2%d8%b4%da%a9%db%8c/%d9%be%d8%a7%db%8c%d8%b4-%d8%a8%db%8c%d9%85%d8%a7%d8%b1/",
+   "http://127.0.0.1:8090/product-category/%d8%a7%d8%aa%d8%a7%d9%82-%d8%b9%d9%85%d9%84/",
+   "http://127.0.0.1:8090/product-category/%d8%a2%d8%b2%d9%85%d8%a7%db%8c%d8%b4%da%af%d8%a7%d9%87/",
+   "http://127.0.0.1:8090/product-category/%d9%85%d9%84%d8%b2%d9%88%d9%85%d8%a7%d8%aa-%d9%85%d8%b5%d8%b1%d9%81%db%8c/"
+  ],
+  "overflowX": 0,
+  "sectionHeight": 1047
+ },
+ "768": {
+  "eyebrow": true,
+  "eyebrowText": "فروشگاه",
+  "title": "محصولات منتخب برای مراکز درمانی",
+  "more": {
+   "text": "ورود به فروشگاه",
+   "href": "http://127.0.0.1:8090/shop/"
+  },
+  "filterRow": 6,
+  "products": 4,
+  "productsShown": 4,
+  "sectionTopToTitle": 97,
+  "headHeight": 69,
+  "headToProducts": 91,
+  "titleToMore": -40,
+  "categoryCards": 4,
+  "categoryHrefs": [
+   "http://127.0.0.1:8090/product-category/%d8%aa%d8%ac%d9%87%db%8c%d8%b2%d8%a7%d8%aa-%d9%be%d8%b2%d8%b4%da%a9%db%8c/%d9%be%d8%a7%db%8c%d8%b4-%d8%a8%db%8c%d9%85%d8%a7%d8%b1/",
+   "http://127.0.0.1:8090/product-category/%d8%a7%d8%aa%d8%a7%d9%82-%d8%b9%d9%85%d9%84/",
+   "http://127.0.0.1:8090/product-category/%d8%a2%d8%b2%d9%85%d8%a7%db%8c%d8%b4%da%af%d8%a7%d9%87/",
+   "http://127.0.0.1:8090/product-category/%d9%85%d9%84%d8%b2%d9%88%d9%85%d8%a7%d8%aa-%d9%85%d8%b5%d8%b1%d9%81%db%8c/"
+  ],
+  "overflowX": 0,
+  "sectionHeight": 1380
+ },
+ "1024": {
+  "eyebrow": true,
+  "eyebrowText": "فروشگاه",
+  "title": "محصولات منتخب برای مراکز درمانی",
+  "more": {
+   "text": "ورود به فروشگاه",
+   "href": "http://127.0.0.1:8090/shop/"
+  },
+  "filterRow": 6,
+  "products": 4,
+  "productsShown": 4,
+  "sectionTopToTitle": 115,
+  "headHeight": 79,
+  "headToProducts": 100,
+  "titleToMore": -40,
+  "categoryCards": 4,
+  "categoryHrefs": [
+   "http://127.0.0.1:8090/product-category/%d8%aa%d8%ac%d9%87%db%8c%d8%b2%d8%a7%d8%aa-%d9%be%d8%b2%d8%b4%da%a9%db%8c/%d9%be%d8%a7%db%8c%d8%b4-%d8%a8%db%8c%d9%85%d8%a7%d8%b1/",
+   "http://127.0.0.1:8090/product-category/%d8%a7%d8%aa%d8%a7%d9%82-%d8%b9%d9%85%d9%84/",
+   "http://127.0.0.1:8090/product-category/%d8%a2%d8%b2%d9%85%d8%a7%db%8c%d8%b4%da%af%d8%a7%d9%87/",
+   "http://127.0.0.1:8090/product-category/%d9%85%d9%84%d8%b2%d9%88%d9%85%d8%a7%d8%aa-%d9%85%d8%b5%d8%b1%d9%81%db%8c/"
+  ],
+  "overflowX": 0,
+  "sectionHeight": 809
+ },
+ "1080": {
+  "eyebrow": true,
+  "eyebrowText": "فروشگاه",
+  "title": "محصولات منتخب برای مراکز درمانی",
+  "more": {
+   "text": "ورود به فروشگاه",
+   "href": "http://127.0.0.1:8090/shop/"
+  },
+  "filterRow": 6,
+  "products": 4,
+  "productsShown": 4,
+  "sectionTopToTitle": 119,
+  "headHeight": 81,
+  "headToProducts": 100,
+  "titleToMore": -40,
+  "categoryCards": 4,
+  "categoryHrefs": [
+   "http://127.0.0.1:8090/product-category/%d8%aa%d8%ac%d9%87%db%8c%d8%b2%d8%a7%d8%aa-%d9%be%d8%b2%d8%b4%da%a9%db%8c/%d9%be%d8%a7%db%8c%d8%b4-%d8%a8%db%8c%d9%85%d8%a7%d8%b1/",
+   "http://127.0.0.1:8090/product-category/%d8%a7%d8%aa%d8%a7%d9%82-%d8%b9%d9%85%d9%84/",
+   "http://127.0.0.1:8090/product-category/%d8%a2%d8%b2%d9%85%d8%a7%db%8c%d8%b4%da%af%d8%a7%d9%87/",
+   "http://127.0.0.1:8090/product-category/%d9%85%d9%84%d8%b2%d9%88%d9%85%d8%a7%d8%aa-%d9%85%d8%b5%d8%b1%d9%81%db%8c/"
+  ],
+  "overflowX": 0,
+  "sectionHeight": 801
+ },
+ "1280": {
+  "eyebrow": true,
+  "eyebrowText": "فروشگاه",
+  "title": "محصولات منتخب برای مراکز درمانی",
+  "more": {
+   "text": "ورود به فروشگاه",
+   "href": "http://127.0.0.1:8090/shop/"
+  },
+  "filterRow": 6,
+  "products": 4,
+  "productsShown": 4,
+  "sectionTopToTitle": 135,
+  "headHeight": 87,
+  "headToProducts": 100,
+  "titleToMore": -40,
+  "categoryCards": 4,
+  "categoryHrefs": [
+   "http://127.0.0.1:8090/product-category/%d8%aa%d8%ac%d9%87%db%8c%d8%b2%d8%a7%d8%aa-%d9%be%d8%b2%d8%b4%da%a9%db%8c/%d9%be%d8%a7%db%8c%d8%b4-%d8%a8%db%8c%d9%85%d8%a7%d8%b1/",
+   "http://127.0.0.1:8090/product-category/%d8%a7%d8%aa%d8%a7%d9%82-%d8%b9%d9%85%d9%84/",
+   "http://127.0.0.1:8090/product-category/%d8%a2%d8%b2%d9%85%d8%a7%db%8c%d8%b4%da%af%d8%a7%d9%87/",
+   "http://127.0.0.1:8090/product-category/%d9%85%d9%84%d8%b2%d9%88%d9%85%d8%a7%d8%aa-%d9%85%d8%b5%d8%b1%d9%81%db%8c/"
+  ],
+  "overflowX": 0,
+  "sectionHeight": 879
+ },
+ "1440": {
+  "eyebrow": true,
+  "eyebrowText": "فروشگاه",
+  "title": "محصولات منتخب برای مراکز درمانی",
+  "more": {
+   "text": "ورود به فروشگاه",
+   "href": "http://127.0.0.1:8090/shop/"
+  },
+  "filterRow": 6,
+  "products": 4,
+  "productsShown": 4,
+  "sectionTopToTitle": 137,
+  "headHeight": 87,
+  "headToProducts": 100,
+  "titleToMore": -40,
+  "categoryCards": 4,
+  "categoryHrefs": [
+   "http://127.0.0.1:8090/product-category/%d8%aa%d8%ac%d9%87%db%8c%d8%b2%d8%a7%d8%aa-%d9%be%d8%b2%d8%b4%da%a9%db%8c/%d9%be%d8%a7%db%8c%d8%b4-%d8%a8%db%8c%d9%85%d8%a7%d8%b1/",
+   "http://127.0.0.1:8090/product-category/%d8%a7%d8%aa%d8%a7%d9%82-%d8%b9%d9%85%d9%84/",
+   "http://127.0.0.1:8090/product-category/%d8%a2%d8%b2%d9%85%d8%a7%db%8c%d8%b4%da%af%d8%a7%d9%87/",
+   "http://127.0.0.1:8090/product-category/%d9%85%d9%84%d8%b2%d9%88%d9%85%d8%a7%d8%aa-%d9%85%d8%b5%d8%b1%d9%81%db%8c/"
+  ],
+  "overflowX": 0,
+  "sectionHeight": 882
+ },
+ "1920": {
+  "eyebrow": true,
+  "eyebrowText": "فروشگاه",
+  "title": "محصولات منتخب برای مراکز درمانی",
+  "more": {
+   "text": "ورود به فروشگاه",
+   "href": "http://127.0.0.1:8090/shop/"
+  },
+  "filterRow": 6,
+  "products": 4,
+  "productsShown": 4,
+  "sectionTopToTitle": 137,
+  "headHeight": 87,
+  "headToProducts": 100,
+  "titleToMore": -40,
+  "categoryCards": 4,
+  "categoryHrefs": [
+   "http://127.0.0.1:8090/product-category/%d8%aa%d8%ac%d9%87%db%8c%d8%b2%d8%a7%d8%aa-%d9%be%d8%b2%d8%b4%da%a9%db%8c/%d9%be%d8%a7%db%8c%d8%b4-%d8%a8%db%8c%d9%85%d8%a7%d8%b1/",
+   "http://127.0.0.1:8090/product-category/%d8%a7%d8%aa%d8%a7%d9%82-%d8%b9%d9%85%d9%84/",
+   "http://127.0.0.1:8090/product-category/%d8%a2%d8%b2%d9%85%d8%a7%db%8c%d8%b4%da%af%d8%a7%d9%87/",
+   "http://127.0.0.1:8090/product-category/%d9%85%d9%84%d8%b2%d9%88%d9%85%d8%a7%d8%aa-%d9%85%d8%b5%d8%b1%d9%81%db%8c/"
+  ],
+  "overflowX": 0,
+  "sectionHeight": 882
+ }
+}

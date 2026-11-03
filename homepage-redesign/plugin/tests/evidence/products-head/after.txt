@@ -1,0 +1,68 @@
+after
+
+PASS 320: section, title «محصولات منتخب برای مراکز درمانی» and selected products shown
+PASS 320: no category filter row
+PASS 320: «ورود به فروشگاه» kept, same destination as 0.3.4
+PASS 320: eyebrow «فروشگاه» hidden (mobile)
+PASS 320: gap head → products is the section's normal head spacing (filter row's height gone, 132 → 28px)
+PASS 320: mobile — title moves up by the eyebrow, title → «ورود به فروشگاه» spacing unchanged
+PASS 320: category cards above unchanged (same links as 0.3.4)
+PASS 320: no horizontal scroll
+PASS 390: section, title «محصولات منتخب برای مراکز درمانی» and selected products shown
+PASS 390: no category filter row
+PASS 390: «ورود به فروشگاه» kept, same destination as 0.3.4
+PASS 390: eyebrow «فروشگاه» hidden (mobile)
+PASS 390: gap head → products is the section's normal head spacing (filter row's height gone, 132 → 28px)
+PASS 390: mobile — title moves up by the eyebrow, title → «ورود به فروشگاه» spacing unchanged
+PASS 390: category cards above unchanged (same links as 0.3.4)
+PASS 390: no horizontal scroll
+PASS 768: section, title «محصولات منتخب برای مراکز درمانی» and selected products shown
+PASS 768: no category filter row
+PASS 768: «ورود به فروشگاه» kept, same destination as 0.3.4
+PASS 768: eyebrow «فروشگاه» still shown (tablet/desktop)
+PASS 768: header block of the section unchanged (title position and head height as 0.3.4)
+PASS 768: gap head → products is the section's normal head spacing (filter row's height gone, 91 → 31px)
+PASS 768: category cards above unchanged (same links as 0.3.4)
+PASS 768: no horizontal scroll
+PASS 1024: section, title «محصولات منتخب برای مراکز درمانی» and selected products shown
+PASS 1024: no category filter row
+PASS 1024: «ورود به فروشگاه» kept, same destination as 0.3.4
+PASS 1024: eyebrow «فروشگاه» still shown (tablet/desktop)
+PASS 1024: header block of the section unchanged (title position and head height as 0.3.4)
+PASS 1024: gap head → products is the section's normal head spacing (filter row's height gone, 100 → 40px)
+PASS 1024: category cards above unchanged (same links as 0.3.4)
+PASS 1024: no horizontal scroll
+PASS 1080: section, title «محصولات منتخب برای مراکز درمانی» and selected products shown
+PASS 1080: no category filter row
+PASS 1080: «ورود به فروشگاه» kept, same destination as 0.3.4
+PASS 1080: eyebrow «فروشگاه» still shown (tablet/desktop)
+PASS 1080: header block of the section unchanged (title position and head height as 0.3.4)
+PASS 1080: gap head → products is the section's normal head spacing (filter row's height gone, 100 → 40px)
+PASS 1080: category cards above unchanged (same links as 0.3.4)
+PASS 1080: no horizontal scroll
+PASS 1280: section, title «محصولات منتخب برای مراکز درمانی» and selected products shown
+PASS 1280: no category filter row
+PASS 1280: «ورود به فروشگاه» kept, same destination as 0.3.4
+PASS 1280: eyebrow «فروشگاه» still shown (tablet/desktop)
+PASS 1280: header block of the section unchanged (title position and head height as 0.3.4)
+PASS 1280: gap head → products is the section's normal head spacing (filter row's height gone, 100 → 40px)
+PASS 1280: category cards above unchanged (same links as 0.3.4)
+PASS 1280: no horizontal scroll
+PASS 1440: section, title «محصولات منتخب برای مراکز درمانی» and selected products shown
+PASS 1440: no category filter row
+PASS 1440: «ورود به فروشگاه» kept, same destination as 0.3.4
+PASS 1440: eyebrow «فروشگاه» still shown (tablet/desktop)
+PASS 1440: header block of the section unchanged (title position and head height as 0.3.4)
+PASS 1440: gap head → products is the section's normal head spacing (filter row's height gone, 100 → 40px)
+PASS 1440: category cards above unchanged (same links as 0.3.4)
+PASS 1440: no horizontal scroll
+PASS 1920: section, title «محصولات منتخب برای مراکز درمانی» and selected products shown
+PASS 1920: no category filter row
+PASS 1920: «ورود به فروشگاه» kept, same destination as 0.3.4
+PASS 1920: eyebrow «فروشگاه» still shown (tablet/desktop)
+PASS 1920: header block of the section unchanged (title position and head height as 0.3.4)
+PASS 1920: gap head → products is the section's normal head spacing (filter row's height gone, 100 → 40px)
+PASS 1920: category cards above unchanged (same links as 0.3.4)
+PASS 1920: no horizontal scroll
+
+64 passed, 0 failed

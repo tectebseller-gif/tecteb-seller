@@ -47,9 +47,22 @@ const state = (p) => p.evaluate(() => {
     barTop: Math.round(b.top), barHeight: Math.round(b.height), barPos: getComputedStyle(bar).position,
     overflowX: document.documentElement.scrollWidth - innerWidth,
     headers: document.querySelectorAll('[data-tth-header]').length,
+    // ۰٫۲٫۴: یک ردیف — لوگو، دسته‌ها، جست‌وجو، ابزارها روی یک خط، بی هم‌پوشانی.
+    ...(() => {
+      const parts = [['logo', root.querySelector('.tth-bar .tth-logo')], ['cats', [...root.querySelectorAll('.tth-cats__btn')].find(vis)],
+        ['search', [...root.querySelectorAll('.tth-top .tth-search')].find(vis)], ['tools', root.querySelector('.tth-tools')]]
+        .filter(([, e]) => vis(e)).map(([n, e]) => { const r = e.getBoundingClientRect(); return { n, l: r.left, r: r.right, t: r.top, b: r.bottom }; });
+      const hit = (a, c) => a.l < c.r - 0.5 && a.r > c.l + 0.5 && a.t < c.b - 0.5 && a.b > c.t + 0.5;
+      const overlaps = [];
+      for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) if (hit(parts[i], parts[j])) overlaps.push(parts[i].n + '×' + parts[j].n);
+      const mids = parts.map((x) => (x.t + x.b) / 2);
+      const order = [...parts].sort((a, c) => c.r - a.r).map((x) => x.n).join('>');
+      const inBar = parts.every((x) => x.t >= b.top - 0.5 && x.b <= b.bottom + 0.5);
+      return { overlaps, order, oneRow: mids.length > 0 && Math.max(...mids) - Math.min(...mids) <= 2 && inBar, menuShown: vis(root.querySelector('.tth-nav .tth-menu')) };
+    })(),
   };
 });
-const megaOpen = (p) => p.evaluate(() => { const m = document.querySelector('#tth-mega'); if (!m || m.hidden) return false; const r = m.getBoundingClientRect(); return r.height > 0 && r.top >= 0 && r.top < innerHeight; });
+const megaOpen = (p) => p.evaluate(() => { const m = document.querySelector('#tth-mega'); if (!m || m.hidden) return false; const r = m.getBoundingClientRect(); const bar = document.querySelector('[data-tth-header] .tth-bar').getBoundingClientRect(); return r.height > 0 && r.top >= bar.bottom - 1 && r.top < innerHeight && r.left >= 0 && r.right <= innerWidth; });
 
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
 try {
@@ -59,14 +72,19 @@ try {
     await p.goto(`${SITE}${PAGE}`, { waitUntil: 'networkidle' });
     await p.evaluate(() => document.fonts.ready);
     const top = await state(p);
+    const y0 = await p.evaluate(() => document.querySelector('[data-tth-header]').getBoundingClientRect().bottom + scrollY);
     await p.evaluate(() => { document.body.style.minHeight = '4000px'; window.scrollTo(0, 700); });
     await p.waitForTimeout(500);
     const s = await state(p);
+    const y1 = await p.evaluate(() => document.querySelector('[data-tth-header]').getBoundingClientRect().bottom + scrollY);
+    check(`desktop ${w}: compacting does not move the page content`, Math.abs(y1 - y0) < 1, JSON.stringify([y0, y1]));
     lines.push(`desktop ${w} top: ${JSON.stringify(top)}`, `desktop ${w} scrolled: ${JSON.stringify(s)}`);
     check(`desktop ${w}, top of page: no burger; row 2 (categories + supplier) shown`, !top.burger && top.nav && top.cats && top.seller, JSON.stringify(top));
     check(`desktop ${w}, scrolled: sticky header fixed at the top (compact)`, s.compact && s.barPos === 'fixed' && s.barTop === 0 && s.headers === 1, JSON.stringify(s));
     check(`desktop ${w}, scrolled: no burger (no drawer duplicating account and categories)`, !s.burger, JSON.stringify(s));
     check(`desktop ${w}, scrolled: «دسته‌بندی کالاها» still reachable in the sticky bar`, s.nav && s.cats, JSON.stringify(s));
+    check(`desktop ${w}, scrolled: one row, RTL order logo › categories › search › tools, nothing overlaps`, s.oneRow && s.order === 'logo>cats>search>tools' && s.overlaps.length === 0, JSON.stringify(s));
+    check(`desktop ${w}, scrolled: sticky bar stays close to its 63px (≤ 66px)`, s.barHeight <= 66, String(s.barHeight));
     check(`desktop ${w}, scrolled: search, «حساب من» and cart still there; no horizontal scroll`, s.search && s.account && s.cart && s.overflowX <= 0, JSON.stringify(s));
     if (s.cats) {
       await p.click('[data-tth-header] .tth-cats__btn.tth-js');
@@ -112,6 +130,16 @@ try {
       await Promise.all([a.waitForNavigation({ timeout: 45000 }), a.click('#wp-submit')]);
     } catch (e) { /* سرور تک‌رشته‌ای محلی؛ دوباره */ }
   }
+  // مدیرِ واردشده: «حساب من» با فلش و نوار مدیریت — پهن‌ترین ابزارها؛ در باریک‌ترین عرض دسکتاپ هم یک ردیف.
+  await a.setViewportSize({ width: 1080, height: 900 });
+  await a.goto(`${SITE}${PAGE}`, { waitUntil: 'networkidle' });
+  await a.evaluate(() => { document.body.style.minHeight = '4000px'; window.scrollTo(0, 700); });
+  await a.waitForTimeout(500);
+  const la = await state(a);
+  lines.push(`logged in 1080 scrolled: ${JSON.stringify(la)}`);
+  check('desktop 1080 logged in (admin bar), scrolled: one row, no burger, nothing overlaps, below the admin bar', la.oneRow && !la.burger && la.overlaps.length === 0 && la.cats && la.barTop >= 32 && la.barHeight <= 66 && la.overflowX <= 0, JSON.stringify(la));
+  await a.screenshot({ path: path.join(OUT, `${LABEL}-desktop-1080-logged-in-scrolled.png`), clip: { x: 0, y: 0, width: 1080, height: 140 } });
+  await a.setViewportSize({ width: 1440, height: 900 });
   await a.goto(`${SITE}${PAGE}`, { waitUntil: 'networkidle' });
   await a.evaluate(() => { document.body.style.minHeight = '4000px'; window.scrollTo(0, 700); });
   await a.waitForTimeout(500);
