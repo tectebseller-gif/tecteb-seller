@@ -10,7 +10,9 @@ use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
+use Tecteb\Marketplace\Modules\Migration\Domain\PreservationRisk;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
+use Tecteb\Marketplace\Modules\Product\Domain\ProjectedStatus;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 
 /**
@@ -122,8 +124,52 @@ final class TransferOwnership
      */
     public function take(int $productId, array $acknowledged = [], array $seenShop = []): OperationResult
     {
+        // THE PUBLISH STATE, FIRST, AND NO TICK WAIVES IT.
+        //
+        // ⛔ `alpha.92`'s §1: «هیچ محصولی نباید در نتیجه انتقال مالکیت یا
+        // همگام‌سازی ناخواسته از publish به draft یا hidden تغییر کند» and
+        // «برای وضعیت‌های نامشخص یا ناسازگار، عملیات متوقف شود». A manager
+        // can read a dimension they are about to lose and decide; taking a
+        // product its vendor is selling TODAY off sale is not that kind of
+        // decision, and «متوقف شود» is not «قابل پذیرش با تیک». So this is
+        // the one check with no acknowledgement key — there is nothing to
+        // acknowledge, because the answer is to fix the row first
+        // (`refresh_snapshot` stamps it) rather than to permit the write.
+        //
+        // Before the risks and before the drift, so a row that would lose its
+        // publish state is refused with THAT reason rather than with the
+        // first of ten others.
+        $status = $this->statusVerdict($productId);
+        if ($status !== null && !ProjectedStatus::settled($status['verdict'])) {
+            return OperationResult::failure(
+                $status['verdict'] === ProjectedStatus::UNREADABLE
+                    ? 'storefront_status_unreadable'
+                    : 'storefront_status_would_change',
+                [
+                    'product_id' => $productId,
+                    // Both strings, because «publish → draft» needs no
+                    // vocabulary lesson and a verdict name does.
+                    'now' => $status['shop'],
+                    'would_write' => $status['would_write'],
+                ]
+            );
+        }
         $risks = $this->risksFor($productId);
-        $unacknowledged = array_values(array_diff(array_keys($risks), $acknowledged));
+        // ONLY THE RISKS A PROJECTION WOULD ACTUALLY OVERWRITE NEED A TICK.
+        //
+        // ⛔ Until `alpha.92` this line read `array_keys($risks)`, so a
+        // product whose only finding was «this shop records a shipping class»
+        // was as blocked as one whose stock management the first save would
+        // switch on — and the shipping class's own sentence says «مقدار فعلی
+        // دست‌نخورده می‌مانَد». `PreservationRisk` splits them from the
+        // projector's setter count, and its docblock carries the table.
+        //
+        // A disclosure is NOT accepted by this: it is printed on the screen
+        // and recorded in the audit row below, which is the honest treatment
+        // of a field nobody writes. Every blocking key still needs its own
+        // acknowledgement, and the batch still passes an empty array — so no
+        // real risk can be waived without a human, whatever the split says.
+        $unacknowledged = array_values(array_diff(PreservationRisk::blockingIn($risks), $acknowledged));
         if ($unacknowledged !== []) {
             return OperationResult::failure('ownership_risks_unacknowledged', [
                 'product_id' => $productId,
@@ -161,7 +207,17 @@ final class TransferOwnership
                 }
             }
         }
-        return $this->move($productId, LinkOwnership::Observed, LinkOwnership::Marketplace, 'ownership_taken');
+        // The disclosures travel into the audit row, so the trail says what
+        // this transfer was told about and left alone. A transfer that went
+        // through in silence about six named fields would be a trail that
+        // cannot answer «did anybody know?».
+        return $this->move(
+            $productId,
+            LinkOwnership::Observed,
+            LinkOwnership::Marketplace,
+            'ownership_taken',
+            PreservationRisk::disclosuresIn($risks)
+        );
     }
 
     /**
@@ -198,11 +254,29 @@ final class TransferOwnership
      * The three methods are kept and still answer the same way, so the guard
      * and any existing caller cannot drift apart from this one (`alpha.78`).
      *
-     * @return array{readable:bool, risks:array<string,string>, drift:array<string,array{row:string, shop:string, label:string, fingerprint:string}>}
+     * `blocking` and `disclosed` are the two halves of `risks`, split by
+     * `PreservationRisk` — additive, so every existing caller keeps working
+     * and the page can print two sentences instead of one (`alpha.32`). The
+     * split is made HERE rather than on the screen so the keys the form ticks
+     * and the keys `take()` demands are one list (`alpha.78`).
+     *
+     * @return array{readable:bool, risks:array<string,string>, blocking:list<string>, disclosed:list<string>, drift:array<string,array{row:string, shop:string, label:string, fingerprint:string}>, status:string, shop_status:string, would_write:string}
      */
     public function acceptanceState(int $productId): array
     {
-        $none = ['readable' => false, 'risks' => [], 'drift' => []];
+        // `UNREADABLE` rather than a blank: every path out of this method that
+        // could not read the product says so, and a planner reading a blank
+        // verdict would have to guess which (`alpha.49`).
+        $none = [
+            'readable' => false,
+            'risks' => [],
+            'blocking' => [],
+            'disclosed' => [],
+            'drift' => [],
+            'status' => ProjectedStatus::UNREADABLE,
+            'shop_status' => '',
+            'would_write' => '',
+        ];
         if ($this->catalogue === null || $this->intake === null) {
             return $none;
         }
@@ -218,10 +292,21 @@ final class TransferOwnership
             // refuses on.
             return $none;
         }
+        $shopStatus = (string) ($detail['status'] ?? '');
+        $risks = $this->catalogue->preservationRisksFrom($detail);
         return [
             'readable' => true,
-            'risks' => $this->catalogue->preservationRisksFrom($detail),
+            'risks' => $risks,
+            'blocking' => PreservationRisk::blockingIn($risks),
+            'disclosed' => PreservationRisk::disclosuresIn($risks),
             'drift' => $this->intake->driftFrom($product, $detail),
+            // THE SAME VERDICT `take()` WILL REACH, from the read already
+            // done. One rule, two callers: a page that showed a different
+            // answer from the one the guard uses would let a manager press a
+            // button whose refusal they had no way to predict (`alpha.78`).
+            'status' => ProjectedStatus::decide($product->status, $product->mirroredStatus, $shopStatus),
+            'shop_status' => $shopStatus,
+            'would_write' => ProjectedStatus::statusOf($product->status),
         ];
     }
 
@@ -232,6 +317,45 @@ final class TransferOwnership
             return OperationResult::failure('storefront_refresh_unavailable', ['product_id' => $productId]);
         }
         return $this->intake->refreshFrom($productId);
+    }
+
+    /**
+     * Whether a projection of this row would change the shop's publish state.
+     *
+     * Its own read of the product, deliberately: the page's read is minutes
+     * old by the time a form arrives, and a guard that trusted it would be
+     * answering about a status nobody has looked at since (`alpha.50`). The
+     * PAGE pays nothing for this — `acceptanceState()` derives the same
+     * verdict from the one `detail()` it already does, so 184 rows stay 184
+     * reads.
+     *
+     * `null` when there is nothing to ask: no catalogue reader bound (the
+     * build cannot answer, and `plan()` buckets the row as unreadable and the
+     * screen says the check did not run), no row, or no WooCommerce product
+     * behind it — that last one is refused by `move()` for its own reasons.
+     *
+     * @return ?array{verdict:string, shop:string, would_write:string}
+     */
+    private function statusVerdict(int $productId): ?array
+    {
+        if ($this->catalogue === null) {
+            return null;
+        }
+        $product = $this->products->find($productId);
+        $wcProductId = (int) ($product?->wcProductId ?? 0);
+        if ($product === null || $wcProductId <= 0) {
+            return null;
+        }
+        $detail = $this->catalogue->detail($wcProductId);
+        // An empty read is `null` for the SHOP status, not an empty string, so
+        // `decide()` answers `UNREADABLE` rather than comparing against
+        // nothing (`alpha.49`).
+        $shop = $detail === [] ? null : (string) ($detail['status'] ?? '');
+        return [
+            'verdict' => ProjectedStatus::decide($product->status, $product->mirroredStatus, $shop),
+            'shop' => (string) ($shop ?? ''),
+            'would_write' => ProjectedStatus::statusOf($product->status),
+        ];
     }
 
     /**
@@ -270,8 +394,17 @@ final class TransferOwnership
         return $this->products->linkOwnership($productId);
     }
 
-    private function move(int $productId, LinkOwnership $from, LinkOwnership $to, string $code): OperationResult
-    {
+    /**
+     * @param list<string> $disclosed risk keys that were reported and not
+     *        written — carried into the audit row, never a reason to proceed
+     */
+    private function move(
+        int $productId,
+        LinkOwnership $from,
+        LinkOwnership $to,
+        string $code,
+        array $disclosed = []
+    ): OperationResult {
         if ($this->capabilities === null || !$this->capabilities->can(Capabilities::REVIEW_VENDOR)) {
             return OperationResult::failure('forbidden');
         }
@@ -381,6 +514,9 @@ final class TransferOwnership
             'wc_product_id' => (int) ($product->wcProductId ?? 0),
             'from' => $from->value,
             'to' => $to->value,
+            // The named fields this marketplace has no shape for and will
+            // never write. Empty for a give-back, which discloses nothing.
+            'disclosed' => implode(',', $disclosed),
         ]);
         // Whatever the direction, the answer to «is this storefront product
         // ours» has just changed. Anything that remembered the old one is now

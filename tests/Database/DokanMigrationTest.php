@@ -257,6 +257,41 @@ final class DokanMigrationTest extends DatabaseTestCase
     }
 
     /**
+     * …and the IMPORT honours the same distinction, which is the half
+     * `alpha.92` nearly broke.
+     *
+     * ⛔ The first version of that round's change read
+     * `forIntakeOf($product['post_status'] ?? '')` and skipped the product
+     * when the answer was `null` — so a reader that names no status at all
+     * had every one of its products SILENTLY dropped while `plan()` reported
+     * the run as fine. A plan and an import that disagree about which rows
+     * they are talking about is the worst shape of all, because nothing on
+     * any screen says a word.
+     *
+     * What a reader that says nothing gets is what it got before the round: a
+     * draft, and NO stamp — because there is no observation to record, and
+     * inventing one would be a claim about somebody else's product. The row
+     * is then one `TransferOwnership::take()` refuses by name, which is the
+     * conservative direction.
+     */
+    public function testAReaderThatNamesNoStatusImportsADraftWithNoStamp(): void
+    {
+        $row = $this->dokanProduct([]);
+        unset($row['post_status']);
+        $this->dokan->productRows = [$row];
+
+        $result = $this->migration->import($this->migration->plan());
+
+        self::assertTrue($result->ok, $result->code);
+        self::assertSame(1, $result->context['products']);
+        $imported = $this->products->observed();
+        self::assertCount(1, $imported, 'imported, not skipped');
+        self::assertSame(ProductStatus::Draft, $imported[0]->status);
+        self::assertNull($imported[0]->mirroredStatus, 'nothing was observed, so nothing is claimed');
+        self::assertFalse($imported[0]->storefrontStatusIsHeld());
+    }
+
+    /**
      * One Dokan product row, with this round's three keys and whatever the
      * test overrides.
      *
@@ -297,7 +332,7 @@ final class DokanMigrationTest extends DatabaseTestCase
         self::assertSame([], $this->migration->runs());
     }
 
-    public function testTheImportCreatesDraftsLinkedToTheProductsThatAlreadyExist(): void
+    public function testTheImportMirrorsTheShopStatusOnRowsLinkedToTheProductsThatAlreadyExist(): void
     {
         $result = $this->migration->import($this->migration->plan());
 
@@ -319,7 +354,17 @@ final class DokanMigrationTest extends DatabaseTestCase
 
         $imported = $this->products->observed();
         self::assertCount(1, $imported);
-        self::assertSame(ProductStatus::Draft, $imported[0]->status, 'nothing appears on the storefront');
+        // ⛔ `Published`, not `Draft`, and this assertion changed in
+        // `alpha.92`. The fixture's Dokan product is `publish`, and until
+        // this round the imported row said «پیش‌نویس» with NO stamp — so the
+        // first projection after an ownership transfer wrote `draft` +
+        // `hidden` over a product the vendor was selling. Nothing appears on
+        // the storefront because the row is `observed`, which is asserted
+        // above and is the real guard; the status now says what the shop
+        // holds, and the stamp says we have never written it.
+        self::assertSame(ProductStatus::Published, $imported[0]->status, 'the row says what the shop holds');
+        self::assertSame('publish', $imported[0]->mirroredStatus, 'and records that we never wrote it');
+        self::assertTrue($imported[0]->storefrontStatusIsHeld(), 'so a projection writes neither status nor visibility');
         self::assertSame(991, $imported[0]->wcProductId, 'the id and the URL a customer bookmarked still work');
         self::assertSame('DK-1', $imported[0]->details->sku);
         self::assertSame(LinkOwnership::Observed, $this->products->linkOwnership($imported[0]->id));
@@ -347,18 +392,41 @@ final class DokanMigrationTest extends DatabaseTestCase
         self::assertSame([], $this->migration->runs(), 'and the run is gone from the manifest');
     }
 
-    /** A published product is a record of something; a rollback does not erase it. */
-    public function testARollbackWillNotRemoveAProductSomebodyPublished(): void
+    /**
+     * An `observed` row's STATUS does not protect it from a rollback; its
+     * OWNERSHIP does.
+     *
+     * ⛔ This assertion is the opposite of what it said before `alpha.92`,
+     * and the reason is §1 of that round. The Dokan intake now MIRRORS the
+     * shop's status, so on shop 102 — where the products are published —
+     * every imported row would be `Published`, and the old rule
+     * («`deleteDraft()` refuses anything that is not a draft») made the whole
+     * import IRREVERSIBLE while reporting `products => 0` and clearing the
+     * run from the rows. An import of 184 products that cannot be undone is
+     * a worse outcome than losing a protection that only ever triggered when
+     * somebody explicitly re-published a row no vendor, no cart and no
+     * projection can see.
+     *
+     * What a rollback must never take away is a row somebody has made a
+     * DECISION about, and for an `observed` row that decision is ownership —
+     * asserted in `testARollbackKeepsAProductWhoseOwnershipWasTransferred()`
+     * directly below, which is the protection that matters and is unchanged.
+     */
+    public function testARollbackRemovesAnObservedRowWhateverStatusItMirrors(): void
     {
         $runId = (string) $this->migration->import($this->migration->plan())->context['run_id'];
         $imported = $this->products->observed()[0];
+        self::assertSame(ProductStatus::Published, $imported->status, 'the fixture mirrors a published shop');
+        // And again through the explicit gateway, which also clears the stamp
+        // — so neither the mirror nor an explicit publish protects the row.
         $this->products->updateStatus($imported->id, ProductStatus::Published);
 
         $rolled = $this->migration->rollback($runId);
 
-        self::assertTrue($rolled->ok);
-        self::assertSame(0, $rolled->context['products'], 'it reports what it could not undo');
-        self::assertNotNull($this->products->find($imported->id), 'and leaves it alone');
+        self::assertTrue($rolled->ok, $rolled->code);
+        self::assertSame(1, $rolled->context['products'], 'the trial copy went back');
+        self::assertNull($this->products->find($imported->id), 'and the row is gone');
+        self::assertSame([], $this->migration->runs(), 'so the run stays undone');
     }
 
     public function testAPlanWithAConflictIsRefusedRatherThanPartlyImported(): void
@@ -567,15 +635,43 @@ final class DokanMigrationTest extends DatabaseTestCase
     {
         $runId = (string) $this->migration->import($this->migration->plan())->context['run_id'];
         $imported = $this->products->observed()[0];
-        // Published: a record of something, so `deleteDraft()` refuses it.
-        $this->products->updateStatus($imported->id, ProductStatus::Published);
+        // ⛔ The arrangement changed in `alpha.92`: a publish no longer keeps
+        // a row (see the test above), so the kept case is arranged with the
+        // thing that really keeps one — an ownership transfer.
+        self::assertTrue($this->transfer->take($imported->id)->ok);
 
         $rolled = $this->migration->rollback($runId);
 
-        self::assertTrue($rolled->ok, $rolled->code);
+        self::assertFalse($rolled->ok, 'a kept row is a rollback that did not finish');
+        self::assertSame('rollback_kept_transferred', $rolled->code);
         self::assertNotNull($this->products->find($imported->id), 'the row is kept');
         self::assertSame([], $this->products->idsFromImportRun($runId), 'but it is not this run\'s any more');
         self::assertArrayNotHasKey($runId, $this->migration->runs(), 'so the run stays undone');
+    }
+
+    /**
+     * …and a row whose stamp has moved to a LATER run keeps that run's stamp.
+     *
+     * ⛔ The id reaches the loop from the union of the manifest and the
+     * stamped rows, so a row can be in the list while its stamp belongs to
+     * somebody else. The pre-`alpha.92` code cleared it unconditionally,
+     * which would have destroyed the later run's only record of the row — and
+     * `runs()` reads exactly that record, so the later rollback would have
+     * answered `not_found`.
+     */
+    public function testARollbackDoesNotClearAStampThatBelongsToAnotherRun(): void
+    {
+        $runId = (string) $this->migration->import($this->migration->plan())->context['run_id'];
+        $imported = $this->products->observed()[0];
+        // Accepted into marketplace management, so the row is kept, AND
+        // re-stamped by a later run.
+        self::assertTrue($this->transfer->take($imported->id)->ok);
+        $this->products->stampImportRun($imported->id, 'later-run');
+
+        $rolled = $this->migration->rollback($runId);
+
+        self::assertFalse($rolled->ok);
+        self::assertSame([$imported->id], $this->products->idsFromImportRun('later-run'), 'the later run keeps its row');
     }
 
     /**

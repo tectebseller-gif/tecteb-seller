@@ -343,4 +343,30 @@ final class Components
         }
         return $html . '</details>';
     }
+
+    /**
+     * The SAME disclosure, for a body that is already markup.
+     *
+     * ⛔ Why a second method rather than a second shape of the first: the
+     * sibling above `esc_html()`s every paragraph, which is right for prose
+     * and turns a table into visible angle brackets — and PHP refuses the
+     * string outright, which is how a database test caught a page handing it
+     * one. The markup still lives in ONE file, which is what
+     * `AdminProseIsShortOrFoldedTest::testTheDisclosureIsBuiltInOnePlaceOnly`
+     * exists to keep true; what differs is who escapes.
+     *
+     * THE CALLER ESCAPES. `$body` is inserted as it arrives, so every value
+     * inside it must already have been through `esc_html()`/`esc_attr()` —
+     * there is no way for this method to tell a built table from a built
+     * sentence, and escaping the whole thing is exactly the bug above.
+     */
+    public static function moreDetailsBlock(string $body, string $summary = ''): string
+    {
+        if (trim($body) === '') {
+            return '';
+        }
+        $summary = $summary !== '' ? $summary : __('جزئیات بیشتر', 'tecteb-marketplace-core');
+        return '<details class="tmc-tech tmc-more"><summary>' . esc_html($summary) . '</summary>'
+            . $body . '</details>';
+    }
 }

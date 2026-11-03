@@ -196,6 +196,22 @@ final class AuditEventCatalog
     public const DOKAN_OWNERSHIP_BATCH = 'migration.ownership_batch';
 
     /**
+     * One explicit, batched RE-SNAPSHOT of imported rows from their shop.
+     *
+     * Separate from `CATALOGUE_INTAKE`, which the per-product refresh already
+     * writes for each row: this one says a human started a batch of up to
+     * twenty-five and where it got to, including when it stopped — the shape
+     * `DOKAN_OWNERSHIP_BATCH` uses, and for the same reason. A batch that
+     * refreshed eleven rows and stopped on the twelfth has changed the
+     * marketplace's own copy of a catalogue, and a trail that recorded only
+     * completed batches would have nothing to say about it.
+     *
+     * It writes NOTHING to any WooCommerce product, which is why it is listed
+     * beside the intake events rather than the ownership ones.
+     */
+    public const CATALOGUE_SNAPSHOT_BATCH = 'migration.snapshot_batch';
+
+    /**
      * Bringing products this shop already has into the marketplace as
      * OBSERVED rows — and undoing that.
      *
@@ -398,9 +414,15 @@ final class AuditEventCatalog
             self::DOKAN_IMPORTED => ['vendors', 'products', 'run_id', 'mode'],
             self::DOKAN_ROLLED_BACK => ['vendors', 'products', 'run_id'],
             self::DOKAN_IMPORT_REPAIRED => ['run_id', 'repaired', 'refused'],
-            self::DOKAN_OWNERSHIP_CHANGED => ['product_id', 'wc_product_id', 'from', 'to'],
+            // `disclosed` is the named fields a projection will never write,
+            // reported at the moment ownership moved. Allowlisted on purpose:
+            // `alpha.91` lost `records_version` by forgetting this list, and
+            // the point of carrying the disclosures at all is that the trail
+            // can answer «did anybody know?».
+            self::DOKAN_OWNERSHIP_CHANGED => ['product_id', 'wc_product_id', 'from', 'to', 'disclosed'],
             self::DOKAN_OWNERSHIP_HALF_WRITTEN => ['product_id', 'wc_product_id', 'from', 'to'],
             self::DOKAN_OWNERSHIP_BATCH => ['vendor_id', 'requested', 'moved', 'stopped_at', 'reason'],
+            self::CATALOGUE_SNAPSHOT_BATCH => ['vendor_id', 'requested', 'refreshed', 'stopped_at', 'reason'],
             self::CATALOGUE_INTAKE => ['run_id', 'imported', 'skipped', 'failed'],
             self::CATALOGUE_INTAKE_ROLLED_BACK => ['run_id', 'removed', 'kept'],
             self::DOKAN_STAFF_GRANTED => ['vendor_id', 'staff_user_id', 'dokan_role', 'preset', 'status'],

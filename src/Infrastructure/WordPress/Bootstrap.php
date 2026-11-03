@@ -66,6 +66,7 @@ use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0034UnitPriceMay
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0035ProductCategorySet;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0036DefaultCategoryAcceptance;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\Migrations\M0037ShopRecordConfirmation;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0038ObservedMirroredStatusBackfill;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0032ProductMirroredStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0028MinMaxHandoverLiveKey;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables;
@@ -509,6 +510,7 @@ final class Bootstrap
             new M0035ProductCategorySet(),
             new M0036DefaultCategoryAcceptance(),
             new M0037ShopRecordConfirmation(),
+            new M0038ObservedMirroredStatusBackfill(),
         ];
     }
 

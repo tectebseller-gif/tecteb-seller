@@ -643,6 +643,42 @@ final class ImportFromDokan
             if ($product === null) {
                 continue;
             }
+            // THE STATUS THE SHOP ACTUALLY HOLDS, through the one total map.
+            //
+            // ⛔ Until `alpha.92` this path passed neither — not the mapped
+            // row status and not `create()`'s seventh argument — so every
+            // imported row said «پیش‌نویس» with NO stamp. Measured in
+            // `docs/dokan-exit-drift-analysis-alpha91-fa.md` §2 on shop 102's
+            // 184 rows: the first projection AFTER an ownership transfer would
+            // write `draft` + `hidden` over a product the vendor is selling
+            // today, and no screen said a word. The catalogue path has
+            // recorded both since `alpha.66`; this one is the half that was
+            // missed, and two intake paths recording their origin differently
+            // is two paths for a rollback to miss.
+            //
+            // ⛔ `array_key_exists`, NOT `??`, and for the same reason
+            // `conflictOf()` uses it one method down: «the reader did not
+            // tell me the status» and «the status is one I cannot express»
+            // are different problems, and the plan treats only the second as
+            // a conflict. With `??` a build whose reader supplies no status
+            // at all would have EVERY product silently skipped here while the
+            // plan said the run was fine — a guard wider than the defect
+            // (`alpha.60`). A reader that says nothing gets what it got
+            // before this round: a draft, and NO stamp, because there is no
+            // observation to record and inventing one would be worse than
+            // leaving the row for `take()` to refuse by name.
+            $toldTheStatus = array_key_exists('post_status', $product);
+            $shopStatus = $toldTheStatus ? (string) $product['post_status'] : '';
+            $mirrored = $toldTheStatus
+                ? ProductStatus::forIntakeOf($shopStatus)
+                : ProductStatus::Draft;
+            if ($mirrored === null) {
+                // A status this marketplace has no field for. The plan refuses
+                // it too, so reaching this is a status that moved between the
+                // two reads — and the honest answer to a state we cannot hold
+                // is to leave the product alone (`ProductStatus::forIntakeOf`).
+                continue;
+            }
             $productId = $this->products->create(
                 $product['vendor_user_id'],
                 new ProductDetails(
@@ -668,9 +704,20 @@ final class ImportFromDokan
                     // a correction nobody was told about.
                     stock: max(0, (int) $product['stock'])
                 ),
-                // Draft, always. Publishing would write to a post Dokan
-                // manages, and that is a decision, not an import step.
-                ProductStatus::Draft,
+                // The status the shop holds, mapped — not «Draft, always».
+                //
+                // ⛔ That older comment said «publishing would write to a post
+                // Dokan manages», and the stamp passed as the last argument is
+                // precisely what stops that write: a held row's projection
+                // touches neither the status nor the catalogue visibility. What
+                // «Draft, always» actually produced was the opposite of its
+                // intention — a row that disagreed with the shop, so that the
+                // moment anything cleared the stamp the projection wrote
+                // `draft` over `publish`. The catalogue path has mapped it
+                // since `alpha.55` and observed+Published has been a shipped,
+                // measured combination ever since: nothing follows from an
+                // observed row until a manager accepts management.
+                $mirrored,
                 // OBSERVED, always. The row knows which WooCommerce product it
                 // corresponds to and nothing else follows: the purchase guard,
                 // the storefront stop and the projector all skip it. Without
@@ -686,7 +733,13 @@ final class ImportFromDokan
                 // And the same stamp the paged path writes, in that one
                 // statement too. Two import paths that record their origin
                 // differently is two paths for a rollback to miss.
-                $plan->runId
+                $plan->runId,
+                '',
+                // THE STATUS, RECORDED AS OBSERVED — so the projector knows it
+                // has never written this product's status and leaves it, and
+                // its catalogue visibility, alone. Blank when the reader named
+                // none, which is «no stamp» rather than a stamp of nothing.
+                $shopStatus
             );
             if ($productId === 0) {
                 continue;
@@ -811,6 +864,8 @@ final class ImportFromDokan
 
         $removedProducts = 0;
         $keptProducts = [];
+        /** @var array<int,string> $failedProducts product id => the part that would not go */
+        $failedProducts = [];
         foreach ($productIds as $productId) {
             $productId = (int) $productId;
             if ($this->products->linkOwnership($productId) === LinkOwnership::Marketplace) {
@@ -820,22 +875,64 @@ final class ImportFromDokan
                 // must not take it away silently. It stops carrying the run
                 // for the same reason: the run is over, and the row is ours.
                 $keptProducts[] = $productId;
-                $this->products->stampImportRun($productId, '');
+                // Guarded exactly as the branch at the bottom is, and for the
+                // same reason: the id can be here from the MANIFEST while the
+                // stamp already belongs to a later run.
+                if (in_array($productId, $stamped, true)) {
+                    $this->products->stampImportRun($productId, '');
+                }
                 continue;
             }
-            if ($this->products->deleteDraft($productId)) {
+            // DELETED BY WHAT THE IMPORT MADE, NOT BY THE ROW'S STATUS.
+            //
+            // ⛔ Until `alpha.92` this called `deleteDraft()`, which refuses
+            // any row whose status is not `Draft`. From this round an
+            // imported row MIRRORS the shop's status (§1), so every row
+            // beside a published product would have been left behind AND
+            // un-stamped — invisible to `runs()`, unreachable by a second
+            // rollback, and belonging to nothing. Four tests in this class
+            // caught it, which is the only reason it is not in the package.
+            //
+            // The status of an `observed` row is a mirror of somebody else's
+            // product and never a publication of ours, so it says nothing
+            // about whether the row is a trial copy. What does say so is the
+            // pair the import wrote — this run's id and `observed`
+            // ownership — and that pair is the guard INSIDE the statement
+            // (`alpha.50`), so the ownership check above cannot be raced
+            // past it. `deleteObservedFromRun()` also reads the answer of
+            // every dependent delete (`alpha.31`), which `deleteDraft()`
+            // threw away.
+            $notRemoved = $this->products->deleteObservedFromRun($productId, $runId);
+            if ($notRemoved === '') {
                 $removedProducts++;
                 continue;
             }
-            // Not deleted — a published row is a record of something and
-            // `deleteDraft()` refuses it — but no longer this run's either.
-            // A row a rollback leaves behind still carrying the run id makes
-            // `runs()` resurrect a run that has been undone and offer to undo
-            // it again. It is NOT added to `keptProducts`: that list is the
-            // narrower «somebody took ownership» case, which is a failure of
-            // the rollback, and widening it here would turn an ordinary
-            // publish into one.
-            $this->products->stampImportRun($productId, '');
+            if ($notRemoved !== 'not_this_run') {
+                // A STORAGE failure, and «نمی‌دانم» is not «it was not
+                // mine». Clearing the stamp here would make the row
+                // unreachable by the retry this failure exists to invite, so
+                // the row keeps its run and the rollback says which part
+                // would not go.
+                $failedProducts[$productId] = $notRemoved;
+                continue;
+            }
+            // Not this run's row any more. It stops carrying this run for
+            // the reason it always did — a row left behind still carrying the
+            // run id makes `runs()` resurrect a run that has been undone and
+            // offer to undo it again. It is NOT added to `keptProducts`: that
+            // list is the narrower «somebody took ownership» case, which the
+            // branch above already answers.
+            //
+            // ⛔ And only when the row still carries THIS run. The id came
+            // from the union of the manifest and the stamped rows, so a row
+            // can be in the list while its stamp has moved to a LATER run —
+            // and clearing it then would destroy that run's own record of the
+            // row. The old code cleared unconditionally and could do exactly
+            // that; `$stamped` was already read above, so asking costs
+            // nothing.
+            if (in_array($productId, $stamped, true)) {
+                $this->products->stampImportRun($productId, '');
+            }
         }
         // The history goes with the products. A rollback that removed the
         // catalogue but left the past orders would leave a shop half-migrated
@@ -881,6 +978,21 @@ final class ImportFromDokan
             'withdrawals' => $removedRecords['withdrawals'],
             'run_id' => $runId,
         ]);
+        if ($failedProducts !== []) {
+            // Reported BEFORE the kept list, because a storage failure is a
+            // rollback that did not finish while a kept row is a rollback
+            // that finished and left a decision alone.
+            return OperationResult::failure('rollback_not_removed', [
+                'run_id' => $runId,
+                'vendors' => $removedVendors,
+                'products' => $removedProducts,
+                'failed' => implode('، ', array_map(
+                    static fn (int $id, string $part): string => $id . ':' . $part,
+                    array_keys($failedProducts),
+                    array_values($failedProducts)
+                )),
+            ]);
+        }
         if ($keptProducts !== []) {
             return OperationResult::failure('rollback_kept_transferred', [
                 'run_id' => $runId,
@@ -1347,6 +1459,25 @@ final class ImportFromDokan
                 continue;
             }
 
+            // THE STATUS THE SHOP ACTUALLY HOLDS — see the whole-plan path
+            // above for the measured consequence of not recording it. A
+            // status this marketplace cannot express is a REFUSAL by name,
+            // counted and reported, never the nearest one.
+            $toldTheStatus = array_key_exists('post_status', $product);
+            $shopStatus = $toldTheStatus ? (string) $product['post_status'] : '';
+            $mirrored = $toldTheStatus
+                ? ProductStatus::forIntakeOf($shopStatus)
+                : ProductStatus::Draft;
+            if ($mirrored === null) {
+                $last = $wcId;
+                $failed++;
+                $notes[] = $wcId . ':status_not_expressible';
+                if (!$landed($wcId, 0, 1, [$wcId . ':status_not_expressible'])) {
+                    break;
+                }
+                continue;
+            }
+
             $details = new ProductDetails(
                     title: $product['title'],
                     // Mapped, or empty. Empty keeps the product a draft,
@@ -1390,18 +1521,27 @@ final class ImportFromDokan
             // reopens. Now the lease holds it too, and the index remains the
             // second line of defence it was always meant to be.
             $productId = 0;
-            $make = function () use (&$productId, $vendorId, $details, $wcId, $runId, $progress): bool {
+            $make = function () use (&$productId, $vendorId, $details, $mirrored, $shopStatus, $wcId, $runId, $progress): bool {
                 $productId = $this->products->create(
                     $vendorId,
                     $details,
-                    ProductStatus::Draft,
+                    $mirrored,
                     LinkOwnership::Observed,
                     // One statement: link and stamp included. The row that
                     // exists is complete, carries the run that made it, and is
                     // findable by its WooCommerce id — so a resumed page finds
                     // it instead of creating a second one.
                     $wcId,
-                    $runId
+                    $runId,
+                    '',
+                    // The stamp, in the SAME statement as the row. A row that
+                    // exists without it for even one request is a row whose
+                    // status the next projection destroys — the reason this is
+                    // a parameter rather than a follow-up write
+                    // (`ProductRepositoryInterface::create()`). Blank when
+                    // the reader named none — «no stamp», not a stamp of
+                    // nothing.
+                    $shopStatus
                 );
                 if ($productId === 0) {
                     return false;

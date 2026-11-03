@@ -800,6 +800,27 @@ final class ImportExistingProducts
                 'part' => 'baseline',
             ]);
         }
+        // AND THE STOREFRONT STATUS, if this row never recorded one.
+        //
+        // «Take the snapshot again» has to include the one field whose absence
+        // is dangerous rather than merely stale. An imported row with no stamp
+        // is a row whose publish state the next projection writes — measured
+        // in `docs/dokan-exit-drift-analysis-alpha91-fa.md` §2 as `draft` +
+        // `hidden` over a selling product — so a refresh that rewrote thirteen
+        // fields and left that one would hand back a row the transfer guard
+        // still has to refuse, with nothing the manager could do about it.
+        //
+        // Only when absent, enforced in the statement, so a status a human
+        // decided is never held open again (`recordMirroredStatusWhenAbsent`).
+        // In the SAME transaction: a refresh that recorded the values and not
+        // the status is the half-written row this method exists to avoid.
+        if (!$this->products->recordMirroredStatusWhenAbsent($productId, (string) ($detail['status'] ?? ''))) {
+            $this->transaction->rollback();
+            return OperationResult::failure('intake_refresh_not_stored', [
+                'product_id' => $productId,
+                'part' => 'mirrored_status',
+            ]);
+        }
         if (!$this->transaction->commit()) {
             return OperationResult::failure('intake_refresh_not_committed', ['product_id' => $productId]);
         }

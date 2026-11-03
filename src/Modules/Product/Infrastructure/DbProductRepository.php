@@ -1122,6 +1122,37 @@ final class DbProductRepository implements ProductRepositoryInterface
         return $value === null ? -1 : (int) $value;
     }
 
+    public function recordMirroredStatusWhenAbsent(int $productId, string $storefrontStatus): bool
+    {
+        if (!$this->mayWrite()) {
+            return false;
+        }
+        $storefrontStatus = trim($storefrontStatus);
+        if ($storefrontStatus === '') {
+            // The blank is what «no stamp» already means, so writing it would
+            // be a no-op reporting success — and it is also what an
+            // unreadable product hands back, which must never settle the
+            // guard (`alpha.49`).
+            return false;
+        }
+        $written = $this->db->execute(
+            'UPDATE `' . $this->products() . '`
+                SET `' . M0032ProductMirroredStatus::MIRRORED . '` = %s
+              WHERE id = %d
+                AND `' . M0032ProductMirroredStatus::MIRRORED . '` IS NULL',
+            [mb_substr($storefrontStatus, 0, 20), $productId]
+        );
+        // ⛔ Nought rows is TRUE here, and that needs saying because this
+        // repository usually reads it the other way. The guarded `UPDATE`
+        // matches nothing in exactly one case that matters — the row already
+        // carries a stamp — and the caller's question is «does this row have
+        // one», not «did I write it». `row_version` is deliberately NOT
+        // bumped: this records an observation about somebody else's product,
+        // not an edit to ours, and bumping it would make every open vendor
+        // form on that product fail its optimistic-lock check (`alpha.44`).
+        return $written !== null;
+    }
+
     public function setCategoryWhenEmpty(int $productId, string $categoryKey): string
     {
         if (!$this->mayWrite()) {

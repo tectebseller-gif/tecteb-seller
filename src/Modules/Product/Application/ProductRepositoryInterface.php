@@ -500,6 +500,29 @@ interface ProductRepositoryInterface
     public function setCategoryWhenEmpty(int $productId, string $categoryKey): string;
 
     /**
+     * Record the storefront status an observed row never had — ONLY when it
+     * has none.
+     *
+     * The stamp is what stops a projection writing a publish state nobody in
+     * this marketplace decided (`alpha.67`). Migration 38 fills it for every
+     * imported row whose WooCommerce product still exists; this is the path
+     * for the rest — a row whose product was unreadable when the migration
+     * ran, or one imported by an older package after the migration.
+     *
+     * ⛔ **«Only when it has none» is in the `WHERE`, not in a read before
+     * it** (`alpha.50`). The reason is not concurrency alone: a stamp that is
+     * ALREADY there may have been cleared and re-set by `updateStatus()` when
+     * a human made a decision, and overwriting it would hold open a status
+     * that person deliberately released. The statement therefore cannot
+     * overwrite one, whatever the caller believes.
+     *
+     * `true` means the row now carries a stamp — written by this call or
+     * already there. `false` means the statement was refused, which a caller
+     * inside a transaction must treat as a reason to roll back.
+     */
+    public function recordMirroredStatusWhenAbsent(int $productId, string $storefrontStatus): bool;
+
+    /**
      * Every `product_cat` term recorded for this product, or `null`.
      *
      * THREE answers, and the third is the point: `null` means the question

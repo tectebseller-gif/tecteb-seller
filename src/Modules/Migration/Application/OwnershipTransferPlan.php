@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Modules\Migration\Application;
 
+use Tecteb\Marketplace\Modules\Migration\Domain\PreservationRisk;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\ProjectedStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 
 /**
@@ -63,11 +65,37 @@ final class OwnershipTransferPlan
      */
     public const BATCH_LIMIT = 25;
 
-    /** No risks, no drift, a storefront product, still `observed`. */
+    /** No blocking risk, no drift, a settled status, a storefront product. */
     public const READY = 'ready';
 
-    /** Risks or drift: a human has to see the values. Excluded by name. */
-    public const NEEDS_DECISION = 'needs_decision';
+    /**
+     * A publish state a projection would change, or one nobody could read.
+     *
+     * The gravest of the three stoppers, so it is reported first when a row
+     * has more than one: the others cost a setting, this one takes a product
+     * its vendor is selling off sale. A re-snapshot clears it by recording
+     * the stamp.
+     */
+    public const STATUS_BLOCKED = 'status_blocked';
+
+    /**
+     * A blocking preservation risk: a human has to decide, per product.
+     *
+     * `PreservationRisk::BLOCKING` only. A row whose findings are all
+     * disclosures — a shipping class, tags, dimensions — is `ready`, because
+     * the projector has no setter for any of them and their own sentences
+     * have always said so.
+     */
+    public const RISK_REAL = 'risk_real';
+
+    /**
+     * Values that differ from the shop, and nothing else wrong.
+     *
+     * Fixable without a human reading each one, because a re-snapshot copies
+     * the SHOP's value into our row rather than the other way round — so
+     * «قابل اصلاح» here is a statement about a path that exists, not a hope.
+     */
+    public const DRIFT_FIXABLE = 'drift_fixable';
 
     /** The shop could not be read at all. «نمی‌دانم» is not «they agree». */
     public const UNREADABLE = 'unreadable';
@@ -75,8 +103,37 @@ final class OwnershipTransferPlan
     /** An imported row with no WooCommerce product behind it. */
     public const NO_STOREFRONT_PRODUCT = 'no_storefront_product';
 
-    /** @var list<string> every bucket, so a page cannot forget one. */
-    public const BUCKETS = [self::READY, self::NEEDS_DECISION, self::UNREADABLE, self::NO_STOREFRONT_PRODUCT];
+    /**
+     * @var list<string> every bucket, so a page cannot forget one.
+     *
+     * ⛔ `needs_decision` is gone and was NOT kept beside these. The owner's
+     * §4 asks for «تعداد آماده انتقال، اختلاف‌های قابل اصلاح و ریسک‌های واقعی
+     * جدا», and a vague bucket alongside three precise ones is the «one
+     * question, two answers» mistake that produced `alpha.66`'s green banner
+     * over a shut gate.
+     */
+    public const BUCKETS = [
+        self::READY,
+        self::DRIFT_FIXABLE,
+        self::STATUS_BLOCKED,
+        self::RISK_REAL,
+        self::UNREADABLE,
+        self::NO_STOREFRONT_PRODUCT,
+    ];
+
+    /**
+     * The buckets a re-snapshot batch can clear on its own.
+     *
+     * ⛔ Rows that ALSO carry a blocking risk are deliberately absent, even
+     * though a refresh would clear their drift too. The promise this list
+     * makes is «after the batch, these rows are ready», and a row with a real
+     * risk would still not be — so including it would make the only number
+     * the manager can check untrue. Those rows keep the per-product screen,
+     * where the refresh button has existed since `alpha.56`.
+     *
+     * @var list<string>
+     */
+    public const REFRESHABLE = [self::DRIFT_FIXABLE, self::STATUS_BLOCKED];
 
     public function __construct(
         private readonly ProductRepositoryInterface $products,
@@ -91,11 +148,13 @@ final class OwnershipTransferPlan
      *
      * @return array{
      *     vendor_user_id:int,
-     *     rows:list<array{product_id:int, wc_product_id:int, title:string, bucket:string, risks:list<string>, drift:list<string>}>,
+     *     rows:list<array{product_id:int, wc_product_id:int, title:string, bucket:string, why:string, risks:list<string>, disclosed:list<string>, drift:list<string>, status:string, shop_status:string, would_write:string}>,
      *     buckets:array<string, list<int>>,
      *     counts:array<string, int>,
      *     ready:list<int>,
      *     digest:string,
+     *     refreshable:list<int>,
+     *     refresh_digest:string,
      *     cursor:int,
      *     finished:bool,
      *     observed_total:int,
@@ -121,6 +180,16 @@ final class OwnershipTransferPlan
         }
 
         $ready = $buckets[self::READY];
+        // The second offer list, from the same single read: the rows a
+        // re-snapshot can make ready without a human reading a value.
+        $refreshable = [];
+        foreach (self::REFRESHABLE as $bucket) {
+            foreach ($buckets[$bucket] as $id) {
+                $refreshable[] = $id;
+            }
+        }
+        sort($refreshable);
+        $refreshable = array_slice($refreshable, 0, self::BATCH_LIMIT);
         return [
             'vendor_user_id' => $vendorUserId,
             'rows' => $out,
@@ -130,6 +199,11 @@ final class OwnershipTransferPlan
             // carries and the number the service will accept are one number.
             'ready' => array_slice($ready, 0, self::BATCH_LIMIT),
             'digest' => self::digestOf(array_slice($ready, 0, self::BATCH_LIMIT)),
+            // Capped and fingerprinted exactly as `ready` is, and with the
+            // SAME function — so neither form can carry a list the service
+            // computes differently (`alpha.55`).
+            'refreshable' => $refreshable,
+            'refresh_digest' => self::digestOf($refreshable),
             'cursor' => $cursor,
             // «I reached the end» is derived from the page being short, never
             // from a count: a read that came back empty for any other reason
@@ -159,30 +233,90 @@ final class OwnershipTransferPlan
             'wc_product_id' => $wcProductId,
             'title' => (string) ($product->details->title ?? ''),
             'risks' => [],
+            'disclosed' => [],
             'drift' => [],
+            'status' => ProjectedStatus::UNREADABLE,
+            'shop_status' => '',
+            'would_write' => '',
         ];
         if ($wcProductId <= 0) {
-            return $base + ['bucket' => self::NO_STOREFRONT_PRODUCT];
+            return $base + [
+                'bucket' => self::NO_STOREFRONT_PRODUCT,
+                'why' => 'این ردیف هیچ محصول ووکامرسی ندارد؛ انتقال مالکیت چیزی برای انتقال پیدا نمی‌کند.',
+            ];
         }
         if ($this->catalogue === null || $this->intake === null) {
             // Not «ready». A build that cannot ask whether anything would be
             // lost must not answer that nothing would.
-            return $base + ['bucket' => self::UNREADABLE];
+            return $base + [
+                'bucket' => self::UNREADABLE,
+                'why' => 'بررسی اجرا نشد: این نصب خوانندهٔ کاتالوگ را ندارد.',
+            ];
         }
         $detail = $this->catalogue->detail($wcProductId);
         if ($detail === []) {
-            return $base + ['bucket' => self::UNREADABLE];
+            return $base + [
+                'bucket' => self::UNREADABLE,
+                'why' => 'محصول ووکامرس خوانده نشد؛ «نمی‌دانم» با «تفاوتی نیست» یکی نیست.',
+            ];
         }
         $risks = $this->catalogue->preservationRisksFrom($detail);
         $drift = $this->intake->driftFrom($product, $detail);
-        $base['risks'] = array_keys($risks);
+        $blocking = PreservationRisk::blockingIn($risks);
+        $shopStatus = (string) ($detail['status'] ?? '');
+        // The SAME pure rule the guard reaches, from the read already done.
+        $status = ProjectedStatus::decide($product->status, $product->mirroredStatus, $shopStatus);
+        $base['risks'] = $blocking;
+        $base['disclosed'] = PreservationRisk::disclosuresIn($risks);
         $base['drift'] = array_values(array_map(
             static fn (array $pair): string => (string) ($pair['label'] ?? ''),
             $drift
         ));
-        return $base + [
-            'bucket' => $risks === [] && $drift === [] ? self::READY : self::NEEDS_DECISION,
-        ];
+        $base['status'] = $status;
+        $base['shop_status'] = $shopStatus;
+        $base['would_write'] = ProjectedStatus::statusOf($product->status);
+
+        // PRECEDENCE, AND IT IS A DECISION RATHER THAN AN ORDER OF READING.
+        //
+        // A row can carry all three. What a manager must act on first is the
+        // one that costs the most if ignored, so the publish state comes
+        // before a setting and a setting before a stale value — and each row
+        // prints ONE reason, because a row listing three reasons is a row
+        // nobody reads to the end.
+        if (!ProjectedStatus::settled($status)) {
+            return $base + [
+                'bucket' => self::STATUS_BLOCKED,
+                'why' => $status === ProjectedStatus::UNREADABLE
+                    ? 'وضعیت انتشار محصول در ووکامرس خوانده نشد؛ تا روشن‌نشدنش انتقال انجام نمی‌شود.'
+                    : sprintf(
+                        'اولین همگام‌سازی وضعیت «%s» را به «%s» تغییر می‌دهد. با «بازخوانی اطلاعات» وضعیت فعلی ثبت می‌شود و این مانع برداشته می‌شود.',
+                        $shopStatus,
+                        (string) $base['would_write']
+                    ),
+            ];
+        }
+        if ($blocking !== []) {
+            return $base + [
+                'bucket' => self::RISK_REAL,
+                'why' => sprintf(
+                    'ریسک واقعی: %s. تصمیمش با مدیر است و در صفحهٔ همین محصول با مقدارهایش گرفته می‌شود.',
+                    implode('، ', array_map(
+                        static fn (string $key): string => (string) ($risks[$key] ?? $key),
+                        $blocking
+                    ))
+                ),
+            ];
+        }
+        if ($drift !== []) {
+            return $base + [
+                'bucket' => self::DRIFT_FIXABLE,
+                'why' => sprintf(
+                    'اختلاف قابل اصلاح در: %s. «بازخوانی اطلاعات» مقدار فروشگاه را در ردیف بازارگاه می‌نویسد.',
+                    implode('، ', $base['drift'])
+                ),
+            ];
+        }
+        return $base + ['bucket' => self::READY, 'why' => ''];
     }
 
     /**

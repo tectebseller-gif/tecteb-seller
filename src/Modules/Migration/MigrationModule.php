@@ -14,6 +14,7 @@ use Tecteb\Marketplace\Contracts\ModuleKind;
 use Tecteb\Marketplace\Contracts\ModuleManifest;
 use Tecteb\Marketplace\Contracts\OptionStoreInterface;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Core\Jobs\JobBudget;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Migration\Application\CatalogueInventory;
@@ -43,9 +44,11 @@ use Tecteb\Marketplace\Modules\Migration\Application\RecordScopeInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordScope;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
+use Tecteb\Marketplace\Modules\Migration\Application\ApplyRefreshSnapshot;
 use Tecteb\Marketplace\Modules\Migration\Application\ApplyOwnershipTransfer;
 use Tecteb\Marketplace\Modules\Migration\Application\ConfirmShopRecords;
 use Tecteb\Marketplace\Modules\Migration\Application\OwnershipTransferPlan;
+use Tecteb\Marketplace\Modules\Migration\Application\ShopTransferTally;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordConfirmationRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbShopRecordConfirmationRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbOrderHistoryRepository;
@@ -288,6 +291,25 @@ final class MigrationModule implements ModuleInterface
             $c->get(TransferOwnership::class),
             $c->get(CapabilityCheckerInterface::class),
             $c->get(AuditLogger::class)
+        ));
+
+        $c->bind(ApplyRefreshSnapshot::class, static fn (ContainerInterface $c) => new ApplyRefreshSnapshot(
+            // The SAME planner the transfer batch uses, so the two offer
+            // lists cannot be built from two different readings of one shop
+            // (`alpha.78`).
+            $c->get(OwnershipTransferPlan::class),
+            $c->get(TransferOwnership::class),
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(AuditLogger::class)
+        ));
+
+        $c->bind(ShopTransferTally::class, static fn (ContainerInterface $c) => new ShopTransferTally(
+            $c->get(OwnershipTransferPlan::class),
+            // The request's own remaining wall clock. Optional in the class so
+            // a build without it walks the whole shop; here it is always
+            // bound, because 184 product reads in one admin request is exactly
+            // the shape that produced the timeouts of `alpha.75`.
+            $c->has(JobBudget::class) ? $c->get(JobBudget::class) : null
         ));
 
         $c->bind(ConfirmShopRecords::class, static fn (ContainerInterface $c) => new ConfirmShopRecords(

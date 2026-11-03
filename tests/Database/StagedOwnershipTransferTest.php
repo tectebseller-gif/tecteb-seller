@@ -120,7 +120,9 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
         self::assertTrue($plan['checked'], 'both questions could be asked');
         self::assertCount(5, $plan['rows']);
         self::assertSame(5, $plan['counts'][OwnershipTransferPlan::READY]);
-        self::assertSame(0, $plan['counts'][OwnershipTransferPlan::NEEDS_DECISION]);
+        self::assertSame(0, $plan['counts'][OwnershipTransferPlan::DRIFT_FIXABLE]);
+        self::assertSame(0, $plan['counts'][OwnershipTransferPlan::RISK_REAL]);
+        self::assertSame(0, $plan['counts'][OwnershipTransferPlan::STATUS_BLOCKED]);
         foreach ($plan['rows'] as $row) {
             self::assertSame(OwnershipTransferPlan::READY, $row['bucket']);
             self::assertSame([], $row['risks'], 'an imported row carries no risk by itself');
@@ -129,7 +131,7 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
         self::assertSame(5, $plan['observed_total']);
     }
 
-    /** The four buckets, each reached by the thing that defines it. */
+    /** Each bucket, reached by the thing that defines it. */
     public function testEachBucketIsReachedByItsOwnCause(): void
     {
         $ready = $this->importReady();
@@ -143,7 +145,7 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
         $plan = $this->plan()->plan(self::VENDOR);
 
         self::assertSame($ready, $plan['buckets'][OwnershipTransferPlan::READY]);
-        self::assertSame([$risky], $plan['buckets'][OwnershipTransferPlan::NEEDS_DECISION]);
+        self::assertSame([$risky], $plan['buckets'][OwnershipTransferPlan::RISK_REAL]);
         self::assertSame([$unreadable], $plan['buckets'][OwnershipTransferPlan::UNREADABLE]);
         self::assertSame([$orphan], $plan['buckets'][OwnershipTransferPlan::NO_STOREFRONT_PRODUCT]);
         // And the excluded one is named, with its reason, rather than silently
@@ -152,7 +154,7 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
         self::assertSame(['manage_stock'], $named[$risky]);
     }
 
-    /** A drift puts a row in `needs_decision` and names the field. */
+    /** A drift puts a row in `drift_fixable` and names the field. */
     public function testAShopValueThatMovedIsNamedAndExcluded(): void
     {
         $ready = $this->importReady();
@@ -162,7 +164,7 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
         $plan = $this->plan()->plan(self::VENDOR);
 
         $buckets = $plan['buckets'];
-        self::assertSame([$moved], $buckets[OwnershipTransferPlan::NEEDS_DECISION]);
+        self::assertSame([$moved], $buckets[OwnershipTransferPlan::DRIFT_FIXABLE]);
         self::assertNotContains($moved, $plan['ready']);
         $drift = array_column($plan['rows'], 'drift', 'product_id');
         self::assertSame(['قیمت'], $drift[$moved]);

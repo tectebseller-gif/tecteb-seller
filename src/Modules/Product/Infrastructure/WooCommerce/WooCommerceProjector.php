@@ -13,6 +13,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\ProjectedStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\ShopEditMerge;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductVariation;
@@ -206,10 +207,18 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         // question — «is this product supposed to be seen» — and giving one
         // question two answers is how `alpha.66` produced a green banner over
         // a shut gate.
+        //
+        // ⛔ And the two values come from `ProjectedStatus` rather than from a
+        // ternary here, because from `alpha.92` the staged transfer REFUSES a
+        // row whose projection would change the shop's publish state — and a
+        // guard that predicted the write from its own copy of the rule would
+        // be right only until somebody edited one of the two
+        // (`alpha.78`). One function, two callers, and
+        // `ProjectedStatusIsOneRuleTest` pins that this method asks it.
         $statusHeld = $product->storefrontStatusIsHeld();
         if (!$statusHeld) {
-            $wcProduct->set_status($product->status === ProductStatus::Published ? 'publish' : 'draft');
-            $wcProduct->set_catalog_visibility($product->status === ProductStatus::Published ? 'visible' : 'hidden');
+            $wcProduct->set_status(ProjectedStatus::statusOf($product->status));
+            $wcProduct->set_catalog_visibility(ProjectedStatus::visibilityOf($product->status));
         }
         // THE PRICE, THE SKU AND THE WEIGHT — asked BEFORE any of them is
         // written, which until `alpha.83` nothing did.

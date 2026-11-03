@@ -212,8 +212,8 @@ final class AdminProseIsShortOrFoldedTest extends TestCase
 
     /**
      * The token ranges a disclosure covers: the argument list of
-     * `moreDetails()`/`techDetails()`, and a literal `<details>` written as
-     * inline HTML in a view.
+     * `moreDetails()`/`moreDetailsBlock()`/`techDetails()`, and a literal
+     * `<details>` written as inline HTML in a view.
      *
      * @param list<array{0:int,1:string,2:int}|string> $tokens
      * @return list<array{0:int,1:int}>
@@ -227,7 +227,11 @@ final class AdminProseIsShortOrFoldedTest extends TestCase
             if (!is_array($token) || $token[0] !== T_STRING) {
                 continue;
             }
-            if (!in_array($token[1], ['moreDetails', 'techDetails'], true)) {
+            // `moreDetailsBlock` is the same disclosure with an unescaped
+            // body — one builder, one markup, two shapes of content (see
+            // `Components::moreDetailsBlock()`); a string inside its argument
+            // list is as folded as one inside its sibling's.
+            if (!in_array($token[1], ['moreDetails', 'moreDetailsBlock', 'techDetails'], true)) {
                 continue;
             }
             $open = $i + 1;

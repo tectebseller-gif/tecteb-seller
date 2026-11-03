@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Tests\Support;
 
 use Tecteb\Marketplace\Modules\Product\Application\CatalogProjectorInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
+use Tecteb\Marketplace\Modules\Product\Domain\ProjectedStatus;
 
 /**
  * A storefront without WooCommerce.
@@ -88,7 +89,25 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
             $this->links[$product->id] = $id;
             $this->stock[$id] = $product->details->stock;
         }
-        $this->statuses[$id] = $product->status->isLive() ? 'publish' : 'draft';
+        // ⛔ THE HOLD, which this double did not model until `alpha.92` — and
+        // its absence made `alpha.67`'s whole guard unexpressible in a test.
+        //
+        // `WooCommerceProjector::project()` writes the status and the
+        // catalogue visibility ONLY when `storefrontStatusIsHeld()` is false;
+        // this line wrote them unconditionally. So a test asserting «a held
+        // row's publish state survives a projection» would have FAILED on
+        // correct code, and one asserting the opposite would have passed on
+        // broken code. A double that models a verb more generously than the
+        // real one makes an incomplete guard look complete (`alpha.59`), and
+        // here it hid the guard that stops 184 published products becoming
+        // drafts.
+        //
+        // Through the same `ProjectedStatus` the real projector asks, so the
+        // double cannot answer a third way.
+        if (!$product->storefrontStatusIsHeld()) {
+            $this->statuses[$id] = ProjectedStatus::statusOf($product->status);
+            $this->visibilities[$id] = ProjectedStatus::visibilityOf($product->status);
+        }
         $this->writes[$id] = ($this->writes[$id] ?? 0) + 1;
         $variationLinks = [];
         foreach ($variations as $variation) {
@@ -96,6 +115,22 @@ final class FakeCatalogProjector implements CatalogProjectorInterface
                 ??= $this->nextId++;
         }
         return ['ok' => true, 'code' => 'projected', 'wc_product_id' => $id, 'variation_links' => $variationLinks];
+    }
+
+    /**
+     * What a projection last wrote as the catalogue visibility, per product.
+     *
+     * Held WITH the status because the real projector writes them together
+     * and under one condition — so a double that kept only the status could
+     * not express «the hold covered both» (`alpha.67`).
+     *
+     * @var array<int,string>
+     */
+    private array $visibilities = [];
+
+    public function visibilityOf(int $wcProductId): string
+    {
+        return $this->visibilities[$wcProductId] ?? '';
     }
 
     public function withdraw(Product $product, string $reason = ''): bool

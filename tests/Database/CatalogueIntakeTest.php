@@ -469,10 +469,22 @@ final class CatalogueIntakeTest extends DatabaseTestCase
     // ===================================== §3 acceptance names what it risks
 
     /**
-     * Accepting management is refused while a field this marketplace cannot
-     * preserve is unacknowledged — and the keys are named.
+     * Accepting management is refused while a field a projection WOULD
+     * OVERWRITE is unacknowledged — and the keys are named.
+     *
+     * ⛔ The arrangement and the expected list both changed in `alpha.92`.
+     * This test used to demand a tick for `backorders` as well, and that was
+     * the defect its §3 removed: `project()` has **no setter** for backorders
+     * (counted — see `PreservationRisk`), and the risk's own sentence says
+     * the shop's value is left alone. On shop 102 that rule put fifty rows
+     * out of fifty into «needs a decision» over fields nobody writes.
+     *
+     * So two keys go in and exactly one of them blocks. The other is NOT
+     * waived: it comes back as a DISCLOSURE, is printed, and is named in the
+     * transfer's audit row — asserted in
+     * `MirroredStatusAndSnapshotBatchTest` on the real audit table.
      */
-    public function testAcceptanceIsRefusedUntilTheRisksAreAcknowledged(): void
+    public function testAcceptanceIsRefusedUntilTheOverwritingRisksAreAcknowledged(): void
     {
         $this->reader->risks[self::WC_READY] = [
             'manage_stock' => 'مدیریت موجودی خاموش است',
@@ -485,18 +497,23 @@ final class CatalogueIntakeTest extends DatabaseTestCase
         $refused = $transfer->take((int) $product?->id);
         self::assertFalse($refused->ok);
         self::assertSame('ownership_risks_unacknowledged', $refused->code);
-        self::assertSame(['manage_stock', 'backorders'], $refused->context['risks']);
+        self::assertSame(['manage_stock'], $refused->context['risks'], 'only what a projection writes');
         self::assertSame(
             LinkOwnership::Observed,
             $this->products->linkOwnership((int) $product->id),
             'and the ownership did not move'
         );
 
-        // Half the keys is still a refusal: the tick has to carry what the
-        // page printed.
-        self::assertFalse($transfer->take((int) $product->id, ['manage_stock'])->ok);
+        // And the disclosure is on the manager's screen rather than in the
+        // refusal: `acceptanceState()` is what the page renders from.
+        $state = $transfer->acceptanceState((int) $product->id);
+        self::assertSame(['backorders'], array_values((array) $state['disclosed']));
 
-        $taken = $transfer->take((int) $product->id, ['manage_stock', 'backorders']);
+        // The one blocking key is enough — and acknowledging the disclosure
+        // instead is NOT, which is the half that keeps the guard honest.
+        self::assertFalse($transfer->take((int) $product->id, ['backorders'])->ok);
+
+        $taken = $transfer->take((int) $product->id, ['manage_stock']);
         self::assertTrue($taken->ok, $taken->code);
         self::assertSame(LinkOwnership::Marketplace, $this->products->linkOwnership((int) $product->id));
     }
