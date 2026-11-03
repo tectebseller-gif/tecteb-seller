@@ -17,7 +17,7 @@ ok    uninstall: plugin files removed
 ok    uninstall: own options/transients removed
 ok    uninstall: 2652 back, footer intact
 ok    no change to terms, term meta, posts, post meta, menus, homepage settings
-ok    tecteb-homepage 0.2.0 still active, files unchanged
+ok    tecteb-homepage 0.3.4 still active, files unchanged
 ok    WooCommerce still active
 
 21 passed, 0 failed

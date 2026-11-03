@@ -328,10 +328,13 @@
 }
 .tecteb-header-v1 .tth-cats__btn:hover { filter: brightness(1.08); }
 
+/* فهرست وقتی در ردیف جا نشود به سطر دوم می‌رود — در همان جای خودش، بی آنکه روی «همکاری تأمین‌کنندگان»
+   بیفتد (tecteb-header 0.2.3). بی wrap، فهرستِ کوچک‌شده متنِ nowrap ِ پیوندها را بیرون می‌ریخت. */
 .tecteb-header-v1 .tth-menu {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: clamp(0.25rem, 1.2vw, 1rem);
+  gap: 0 clamp(0.25rem, 1.2vw, 1rem);
   min-inline-size: 0;
 }
 .tecteb-header-v1 .tth-menu a {

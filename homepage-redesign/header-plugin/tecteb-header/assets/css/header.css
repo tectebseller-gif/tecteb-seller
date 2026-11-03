@@ -1,7 +1,7 @@
 /*
  * tecteb-header — CSS ِ هدر B، ساخته‌شده با tools/harden-css.py؛ ویرایش دستی نکنید.
  * منبع (بایت‌به‌بایت، تأییدشده):
- *   header/shared/header-base.css  sha256 de8a60676f78775a0afcc82c8d1656e4eea8cc387706a5ee9b8259545ee57c13
+ *   header/shared/header-base.css  sha256 4996236dc6ee78a51a540c8ba6a5cf1f95c11cfa17b19ec8ed690d3b5f5f3a92
  *   header/b/header-b.css  sha256 0ad931f7ac7d8ab9207c322358635f2463140d3254530f74cf4df1a9e4d7d6b8
  */
 /* ---- لایهٔ ایزوله (tools/harden-css.py) */
@@ -342,10 +342,13 @@
 }
 #tth-root.tecteb-header-v1 .tth-cats__btn:hover { filter: brightness(1.08); }
 
+/* فهرست وقتی در ردیف جا نشود به سطر دوم می‌رود — در همان جای خودش، بی آنکه روی «همکاری تأمین‌کنندگان»
+   بیفتد (tecteb-header 0.2.3). بی wrap، فهرستِ کوچک‌شده متنِ nowrap ِ پیوندها را بیرون می‌ریخت. */
 #tth-root.tecteb-header-v1 .tth-menu {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: clamp(0.25rem, 1.2vw, 1rem);
+  gap: 0 clamp(0.25rem, 1.2vw, 1rem);
   min-inline-size: 0;
 }
 #tth-root.tecteb-header-v1 .tth-menu a {

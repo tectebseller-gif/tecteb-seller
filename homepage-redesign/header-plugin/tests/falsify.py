@@ -39,7 +39,16 @@ def isolation() -> bool:
     return r.returncode == 0
 
 
-S, I, ISO = static, integration, isolation
+def navoverflow() -> bool:
+    # منوی بلندِ سایت اصلی (۰٫۲٫۳): هیچ پیوندی روی «همکاری تأمین‌کنندگان» نیفتد.
+    r = subprocess.run(["node", str(HERE / "tests/nav-overflow.mjs")], capture_output=True, env={**__import__("os").environ, "NODE_PATH": "/opt/node-tools/node_modules", "LABEL": "falsify-tmp"})
+    (HERE / "evidence/nav-overflow/falsify-tmp.txt").unlink(missing_ok=True)
+    for f in (HERE / "evidence/nav-overflow").glob("falsify-tmp-*.png"):
+        f.unlink()
+    return r.returncode == 0
+
+
+S, I, ISO, NAV = static, integration, isolation, navoverflow
 MUTATIONS = [
     ("allow SVG icons", "includes/class-settings.php", "array( 'image/png', 'image/webp' );", "array( 'image/png', 'image/webp', 'image/svg+xml' );", [S, I]),
     ("hide_empty default on", "includes/class-settings.php", "'hide_empty'         => false,", "'hide_empty'         => true,", [S, I]),
@@ -88,6 +97,8 @@ MUTATIONS = [
     ("site-wide header: unpublished template counted", "includes/class-elementor.php", "&& 'publish' === get_post_status( (int) $id ) ) {\n\t\t\t\t$ids[] = (int) $id;", ") {\n\t\t\t\t$ids[] = (int) $id;", [I]),
     ("admin: no error when the printed template is unselected", "includes/class-admin.php", "if ( $site['printed'] && ! in_array( $site['printed'], $allowed, true ) ) {", "if ( false ) {", [I]),
     ("comment: queue/selection detail dropped", "includes/class-replace.php", "( '' !== self::$detail ? ' (' . self::$detail . ')' : '' )", "''", [I]),
+    # 0.2.3
+    ("menu row: long menu no longer wraps (links run under «همکاری تأمین‌کنندگان»)", "assets/css/header.css", "  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 0 clamp(0.25rem, 1.2vw, 1rem);", "  display: flex;\n  align-items: center;\n  gap: 0 clamp(0.25rem, 1.2vw, 1rem);", [NAV]),
     ("write a term", "includes/class-cache.php", "	public static function bump(): void {\n", "	public static function bump(): void {\n\t\twp_update_term( 1, 'product_cat', array() );\n", [S]),
 ]
 

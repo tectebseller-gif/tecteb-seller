@@ -1,0 +1,5 @@
+Isolated rerun of the 0.2.3 mutation (flex-wrap removed from .tth-menu in tecteb-header/assets/css/header.css)
+after tests/nav-overflow.mjs was made to set its own preconditions:
+
+32 passed, 64 failed
+FAIL lines: 64 · crashes: 0 · header.css restored byte for byte (sha256 compared) · harden-css.py --check OK

@@ -43,7 +43,7 @@ caught    site-wide header: last in Elementor's order instead of first  ← inte
 caught    site-wide header: unpublished template counted  ← integration
 caught    admin: no error when the printed template is unselected  ← integration
 caught    comment: queue/selection detail dropped  ← integration
+caught    menu row: long menu no longer wraps (links run under «همکاری تأمین‌کنندگان»)  ← navoverflow
 caught    write a term  ← static
 
-46/46 caught, 0 survived, 0 not applied
-exit=0
+47/47 caught, 0 survived, 0 not applied

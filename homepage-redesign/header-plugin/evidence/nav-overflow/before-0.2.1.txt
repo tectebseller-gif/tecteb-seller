@@ -1,0 +1,149 @@
+tecteb-header 0.2.1
+
+6 links @1080: {"count":6,"overlaps":[],"outside":["درباره تک طب"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":603,"contentWidth":621,"overflowX":0}
+6 links @1180: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":627,"contentWidth":627,"overflowX":0}
+6 links @1280: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":633,"contentWidth":633,"overflowX":0}
+6 links @1366: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+6 links @1440: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+6 links @1600: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+6 links @1760: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+6 links @1920: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+8 links @1080: {"count":8,"overlaps":["تماس با ما × seller","در تک طب فروشنده شوید × seller"],"outside":["درباره تک طب","تماس با ما","در تک طب فروشنده شوید"],"beyondRow":["در تک طب فروشنده شوید"],"rowHeight":46,"lines":1,"menuWidth":603,"contentWidth":898,"overflowX":0}
+8 links @1180: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["تماس با ما","در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":703,"contentWidth":906,"overflowX":0}
+8 links @1280: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":915,"overflowX":0}
+8 links @1366: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":919,"overflowX":0}
+8 links @1440: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":919,"overflowX":0}
+8 links @1600: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":919,"overflowX":0}
+8 links @1760: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":919,"overflowX":0}
+8 links @1920: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":919,"overflowX":0}
+10 links @1080: {"count":10,"overlaps":["تماس با ما × seller","در تک طب فروشنده شوید × seller"],"outside":["درباره تک طب","تماس با ما","در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":603,"contentWidth":1137,"overflowX":0}
+10 links @1180: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["تماس با ما","در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":703,"contentWidth":1148,"overflowX":0}
+10 links @1280: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller","سوالات متداول × seller"],"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":1158,"overflowX":0}
+10 links @1366: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller","سوالات متداول × seller"],"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":1164,"overflowX":0}
+10 links @1440: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller","سوالات متداول × seller"],"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":1164,"overflowX":0}
+10 links @1600: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller","سوالات متداول × seller"],"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":1164,"overflowX":0}
+10 links @1760: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller","سوالات متداول × seller"],"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":1164,"overflowX":0}
+10 links @1920: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller","سوالات متداول × seller"],"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":1164,"overflowX":0}
+hostile 6 links @1080: {"count":6,"overlaps":[],"outside":["درباره تک طب"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":603,"contentWidth":621,"overflowX":0}
+hostile 6 links @1180: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":627,"contentWidth":627,"overflowX":0}
+hostile 6 links @1280: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":633,"contentWidth":633,"overflowX":0}
+hostile 6 links @1366: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+hostile 6 links @1440: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+hostile 6 links @1600: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+hostile 6 links @1760: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+hostile 6 links @1920: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+hostile 8 links @1080: {"count":8,"overlaps":["تماس با ما × seller","در تک طب فروشنده شوید × seller"],"outside":["درباره تک طب","تماس با ما","در تک طب فروشنده شوید"],"beyondRow":["در تک طب فروشنده شوید"],"rowHeight":46,"lines":1,"menuWidth":603,"contentWidth":898,"overflowX":0}
+hostile 8 links @1180: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["تماس با ما","در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":703,"contentWidth":906,"overflowX":0}
+hostile 8 links @1280: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":915,"overflowX":0}
+hostile 8 links @1366: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":919,"overflowX":0}
+hostile 8 links @1440: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":919,"overflowX":0}
+hostile 8 links @1600: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":919,"overflowX":0}
+hostile 8 links @1760: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":919,"overflowX":0}
+hostile 8 links @1920: {"count":8,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["در تک طب فروشنده شوید"],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":919,"overflowX":0}
+hostile 10 links @1080: {"count":10,"overlaps":["تماس با ما × seller","در تک طب فروشنده شوید × seller"],"outside":["درباره تک طب","تماس با ما","در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":603,"contentWidth":1137,"overflowX":0}
+hostile 10 links @1180: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller"],"outside":["تماس با ما","در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":703,"contentWidth":1148,"overflowX":0}
+hostile 10 links @1280: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller","سوالات متداول × seller"],"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":1158,"overflowX":0}
+hostile 10 links @1366: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller","سوالات متداول × seller"],"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":1164,"overflowX":0}
+hostile 10 links @1440: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller","سوالات متداول × seller"],"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":1164,"overflowX":0}
+hostile 10 links @1600: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller","سوالات متداول × seller"],"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":1164,"overflowX":0}
+hostile 10 links @1760: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller","سوالات متداول × seller"],"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":1164,"overflowX":0}
+hostile 10 links @1920: {"count":10,"overlaps":["در تک طب فروشنده شوید × seller","سوالات متداول × seller"],"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyondRow":["سوالات متداول","پیگیری سفارش"],"rowHeight":46,"lines":1,"menuWidth":763,"contentWidth":1164,"overflowX":0}
+
+PASS 6 links @1080: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+FAIL 6 links @1080: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["درباره تک طب"],"beyond":[],"x":0}
+PASS 6 links @1180: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1180: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1280: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1280: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1366: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1366: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1440: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1440: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1600: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1600: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1760: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1760: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1920: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1920: every menu link inside the menu box and the row; no horizontal page scroll
+FAIL 8 links @1080: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — تماس با ما × seller, در تک طب فروشنده شوید × seller
+FAIL 8 links @1080: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["درباره تک طب","تماس با ما","در تک طب فروشنده شوید"],"beyond":["در تک طب فروشنده شوید"],"x":0}
+FAIL 8 links @1180: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL 8 links @1180: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["تماس با ما","در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL 8 links @1280: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL 8 links @1280: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL 8 links @1366: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL 8 links @1366: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL 8 links @1440: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL 8 links @1440: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL 8 links @1600: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL 8 links @1600: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL 8 links @1760: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL 8 links @1760: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL 8 links @1920: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL 8 links @1920: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL 10 links @1080: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — تماس با ما × seller, در تک طب فروشنده شوید × seller
+FAIL 10 links @1080: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["درباره تک طب","تماس با ما","در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL 10 links @1180: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL 10 links @1180: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["تماس با ما","در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL 10 links @1280: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller, سوالات متداول × seller
+FAIL 10 links @1280: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL 10 links @1366: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller, سوالات متداول × seller
+FAIL 10 links @1366: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL 10 links @1440: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller, سوالات متداول × seller
+FAIL 10 links @1440: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL 10 links @1600: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller, سوالات متداول × seller
+FAIL 10 links @1600: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL 10 links @1760: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller, سوالات متداول × seller
+FAIL 10 links @1760: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL 10 links @1920: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller, سوالات متداول × seller
+FAIL 10 links @1920: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+PASS hostile 6 links @1080: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+FAIL hostile 6 links @1080: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["درباره تک طب"],"beyond":[],"x":0}
+PASS hostile 6 links @1180: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1180: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1280: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1280: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1366: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1366: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1440: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1440: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1600: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1600: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1760: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1760: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1920: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1920: every menu link inside the menu box and the row; no horizontal page scroll
+FAIL hostile 8 links @1080: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — تماس با ما × seller, در تک طب فروشنده شوید × seller
+FAIL hostile 8 links @1080: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["درباره تک طب","تماس با ما","در تک طب فروشنده شوید"],"beyond":["در تک طب فروشنده شوید"],"x":0}
+FAIL hostile 8 links @1180: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL hostile 8 links @1180: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["تماس با ما","در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL hostile 8 links @1280: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL hostile 8 links @1280: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL hostile 8 links @1366: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL hostile 8 links @1366: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL hostile 8 links @1440: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL hostile 8 links @1440: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL hostile 8 links @1600: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL hostile 8 links @1600: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL hostile 8 links @1760: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL hostile 8 links @1760: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL hostile 8 links @1920: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL hostile 8 links @1920: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید"],"beyond":[],"x":0}
+FAIL hostile 10 links @1080: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — تماس با ما × seller, در تک طب فروشنده شوید × seller
+FAIL hostile 10 links @1080: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["درباره تک طب","تماس با ما","در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL hostile 10 links @1180: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller
+FAIL hostile 10 links @1180: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["تماس با ما","در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL hostile 10 links @1280: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller, سوالات متداول × seller
+FAIL hostile 10 links @1280: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL hostile 10 links @1366: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller, سوالات متداول × seller
+FAIL hostile 10 links @1366: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL hostile 10 links @1440: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller, سوالات متداول × seller
+FAIL hostile 10 links @1440: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL hostile 10 links @1600: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller, سوالات متداول × seller
+FAIL hostile 10 links @1600: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL hostile 10 links @1760: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller, سوالات متداول × seller
+FAIL hostile 10 links @1760: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+FAIL hostile 10 links @1920: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap  — در تک طب فروشنده شوید × seller, سوالات متداول × seller
+FAIL hostile 10 links @1920: every menu link inside the menu box and the row; no horizontal page scroll  — {"outside":["در تک طب فروشنده شوید","سوالات متداول","پیگیری سفارش"],"beyond":["سوالات متداول","پیگیری سفارش"],"x":0}
+
+30 passed, 66 failed

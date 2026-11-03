@@ -6,7 +6,7 @@
 #   bash homepage-redesign/header-plugin/tests/lifecycle.sh [zip]
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ZIP="${1:-$HERE/dist/tecteb-header-0.2.2.zip}"
+ZIP="${1:-$HERE/dist/tecteb-header-0.2.3.zip}"
 WPP=/home/user/wp/core
 W="wp --allow-root --path=$WPP"
 SITE=http://127.0.0.1:8090
@@ -22,6 +22,7 @@ rm -f "$WPP/wp-content/plugins/tecteb-header"
 $W db query "DELETE FROM wp_options WHERE option_name LIKE '%tecteb_header%'" >/dev/null
 BEFORE="$(snap)"
 HOME_FILES="$(cd "$HERE/../plugin/tecteb-homepage" && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)"
+HOME_VER="$($W plugin get tecteb-homepage --field=version 2>/dev/null)"
 
 $W option update tthh_rocket_calls 0 >/dev/null
 $W plugin install "$ZIP" --activate >/dev/null 2>&1
@@ -49,7 +50,7 @@ ok "uninstall: plugin files removed" '[[ ! -e $WPP/wp-content/plugins/tecteb-hea
 ok "uninstall: own options/transients removed" '[[ "$(opt_rows)" == 0 ]]'
 ok "uninstall: 2652 back, footer intact" '[[ $(count / data-tthh-original) == 1 && $(count / data-tthh-footer) == 1 ]]'
 ok "no change to terms, term meta, posts, post meta, menus, homepage settings" '[[ "$(snap)" == "$BEFORE" ]]'
-ok "tecteb-homepage 0.2.0 still active, files unchanged" '[[ "$($W plugin get tecteb-homepage --field=status)" == active && "$($W plugin get tecteb-homepage --field=version)" == 0.2.0 && "$(cd "$HERE/../plugin/tecteb-homepage" && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)" == "$HOME_FILES" ]]'
+ok "tecteb-homepage $HOME_VER still active, files unchanged" '[[ "$($W plugin get tecteb-homepage --field=status)" == active && "$($W plugin get tecteb-homepage --field=version)" == "$HOME_VER" && "$(cd "$HERE/../plugin/tecteb-homepage" && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)" == "$HOME_FILES" ]]'
 ok "WooCommerce still active" '[[ "$($W plugin get woocommerce --field=status)" == active ]]'
 
 # بازگرداندن محیط توسعه
