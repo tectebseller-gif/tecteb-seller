@@ -1,0 +1,63 @@
+tecteb-header 0.2.3 — proposed
+
+desktop 1080 top: {"y":0,"compact":false,"burger":false,"nav":true,"cats":true,"seller":true,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":122,"barPos":"relative","overflowX":0,"headers":1}
+desktop 1080 scrolled: {"y":700,"compact":true,"burger":false,"nav":true,"cats":true,"seller":true,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":110,"barPos":"fixed","overflowX":0,"headers":1}
+desktop 1280 top: {"y":0,"compact":false,"burger":false,"nav":true,"cats":true,"seller":true,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":122,"barPos":"relative","overflowX":0,"headers":1}
+desktop 1280 scrolled: {"y":700,"compact":true,"burger":false,"nav":true,"cats":true,"seller":true,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":110,"barPos":"fixed","overflowX":0,"headers":1}
+desktop 1440 top: {"y":0,"compact":false,"burger":false,"nav":true,"cats":true,"seller":true,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":122,"barPos":"relative","overflowX":0,"headers":1}
+desktop 1440 scrolled: {"y":700,"compact":true,"burger":false,"nav":true,"cats":true,"seller":true,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":110,"barPos":"fixed","overflowX":0,"headers":1}
+desktop 1920 top: {"y":0,"compact":false,"burger":false,"nav":true,"cats":true,"seller":true,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":122,"barPos":"relative","overflowX":0,"headers":1}
+desktop 1920 scrolled: {"y":700,"compact":true,"burger":false,"nav":true,"cats":true,"seller":true,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":110,"barPos":"fixed","overflowX":0,"headers":1}
+mobile 1024 top: {"y":0,"compact":false,"burger":true,"nav":false,"cats":false,"seller":false,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":127,"barPos":"relative","overflowX":0,"headers":1}
+mobile 1024 scrolled: {"y":700,"compact":true,"burger":true,"nav":false,"cats":false,"seller":false,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":119,"barPos":"fixed","overflowX":0,"headers":1}
+mobile 768 top: {"y":0,"compact":false,"burger":true,"nav":false,"cats":false,"seller":false,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":127,"barPos":"relative","overflowX":0,"headers":1}
+mobile 768 scrolled: {"y":700,"compact":true,"burger":true,"nav":false,"cats":false,"seller":false,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":119,"barPos":"fixed","overflowX":0,"headers":1}
+mobile 390 top: {"y":0,"compact":false,"burger":true,"nav":false,"cats":false,"seller":false,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":127,"barPos":"relative","overflowX":0,"headers":1}
+mobile 390 scrolled: {"y":700,"compact":true,"burger":true,"nav":false,"cats":false,"seller":false,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":119,"barPos":"fixed","overflowX":0,"headers":1}
+mobile 320 top: {"y":0,"compact":false,"burger":true,"nav":false,"cats":false,"seller":false,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":127,"barPos":"relative","overflowX":0,"headers":1}
+mobile 320 scrolled: {"y":700,"compact":true,"burger":true,"nav":false,"cats":false,"seller":false,"search":true,"account":true,"cart":true,"barTop":0,"barHeight":119,"barPos":"fixed","overflowX":0,"headers":1}
+
+PASS desktop 1080, top of page: no burger; row 2 (categories + supplier) shown
+PASS desktop 1080, scrolled: sticky header fixed at the top (compact)
+PASS desktop 1080, scrolled: no burger (no drawer duplicating account and categories)
+PASS desktop 1080, scrolled: «دسته‌بندی کالاها» still reachable in the sticky bar
+PASS desktop 1080, scrolled: search, «حساب من» and cart still there; no horizontal scroll
+PASS desktop 1080, scrolled: click opens the mega menu inside the viewport, page stays put
+PASS desktop 1080, scrolled: keyboard (Enter) opens it, Escape closes it
+PASS desktop 1280, top of page: no burger; row 2 (categories + supplier) shown
+PASS desktop 1280, scrolled: sticky header fixed at the top (compact)
+PASS desktop 1280, scrolled: no burger (no drawer duplicating account and categories)
+PASS desktop 1280, scrolled: «دسته‌بندی کالاها» still reachable in the sticky bar
+PASS desktop 1280, scrolled: search, «حساب من» and cart still there; no horizontal scroll
+PASS desktop 1280, scrolled: click opens the mega menu inside the viewport, page stays put
+PASS desktop 1280, scrolled: keyboard (Enter) opens it, Escape closes it
+PASS desktop 1440, top of page: no burger; row 2 (categories + supplier) shown
+PASS desktop 1440, scrolled: sticky header fixed at the top (compact)
+PASS desktop 1440, scrolled: no burger (no drawer duplicating account and categories)
+PASS desktop 1440, scrolled: «دسته‌بندی کالاها» still reachable in the sticky bar
+PASS desktop 1440, scrolled: search, «حساب من» and cart still there; no horizontal scroll
+PASS desktop 1440, scrolled: click opens the mega menu inside the viewport, page stays put
+PASS desktop 1440, scrolled: keyboard (Enter) opens it, Escape closes it
+PASS desktop 1440: back at the top ⇒ full header again
+PASS desktop 1920, top of page: no burger; row 2 (categories + supplier) shown
+PASS desktop 1920, scrolled: sticky header fixed at the top (compact)
+PASS desktop 1920, scrolled: no burger (no drawer duplicating account and categories)
+PASS desktop 1920, scrolled: «دسته‌بندی کالاها» still reachable in the sticky bar
+PASS desktop 1920, scrolled: search, «حساب من» and cart still there; no horizontal scroll
+PASS desktop 1920, scrolled: click opens the mega menu inside the viewport, page stays put
+PASS desktop 1920, scrolled: keyboard (Enter) opens it, Escape closes it
+PASS desktop 1440 logged in, scrolled: «حساب من» opens the account menu with its links
+PASS 1024: burger shown at the top and after scrolling; row 2 folded into the drawer
+PASS 1024: search, account and cart still in the bar; no horizontal scroll
+PASS 1024: drawer opens RTL from the right, with account and the real categories
+PASS 768: burger shown at the top and after scrolling; row 2 folded into the drawer
+PASS 768: search, account and cart still in the bar; no horizontal scroll
+PASS 768: drawer opens RTL from the right, with account and the real categories
+PASS 390: burger shown at the top and after scrolling; row 2 folded into the drawer
+PASS 390: search, account and cart still in the bar; no horizontal scroll
+PASS 390: drawer opens RTL from the right, with account and the real categories
+PASS 320: burger shown at the top and after scrolling; row 2 folded into the drawer
+PASS 320: search, account and cart still in the bar; no horizontal scroll
+PASS 320: drawer opens RTL from the right, with account and the real categories
+
+42 passed, 0 failed

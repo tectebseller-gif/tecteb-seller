@@ -1,0 +1,49 @@
+diff --git a/homepage-redesign/header-plugin/tecteb-header/assets/css/header.css b/homepage-redesign/header-plugin/tecteb-header/assets/css/header.css
+index 97e22f9..4f108ff 100644
+--- a/homepage-redesign/header-plugin/tecteb-header/assets/css/header.css
++++ b/homepage-redesign/header-plugin/tecteb-header/assets/css/header.css
+@@ -1,7 +1,7 @@
+ /*
+  * tecteb-header — CSS ِ هدر B، ساخته‌شده با tools/harden-css.py؛ ویرایش دستی نکنید.
+  * منبع (بایت‌به‌بایت، تأییدشده):
+- *   header/shared/header-base.css  sha256 4996236dc6ee78a51a540c8ba6a5cf1f95c11cfa17b19ec8ed690d3b5f5f3a92
++ *   header/shared/header-base.css  sha256 d99159bc515a5aea2ca46d1847d392b9e8bd2154412ac13d2e0f5019cf846974
+  *   header/b/header-b.css  sha256 0ad931f7ac7d8ab9207c322358635f2463140d3254530f74cf4df1a9e4d7d6b8
+  */
+ /* ---- لایهٔ ایزوله (tools/harden-css.py) */
+@@ -663,12 +663,9 @@
+   #tth-root.tecteb-header-v1 .tth-top { gap: 0.625rem 0.25rem; }
+ }
+ 
+-/* در حالت جمع‌وجورِ عریض، ردیف منو جمع می‌شود و دکمهٔ منو کل ناوبری را می‌دهد. */
+-@media (min-width: 1080px) {
+-  #tth-root.tecteb-header-v1[data-js].is-compact .tth-nav { display: none; }
+-  #tth-root.tecteb-header-v1[data-js].is-compact .tth-top { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "burger logo search tools"; }
+-  #tth-root.tecteb-header-v1[data-js].is-compact .tth-burger { display: inline-flex; }
+-}
++/* در حالت جمع‌وجورِ عریض (دسکتاپ، پس از اسکرول) ردیف دوم — «دسته‌بندی کالاها» و «همکاری تأمین‌کنندگان» — در
++   نوار چسبان می‌ماند و منوی همبرگری مخصوص موبایل نمایش داده نمی‌شود؛ کشو فقط زیر ۱۰۸۰px است، جایی که ردیف دوم
++   در آن جمع شده. تا 0.2.3 اینجا ردیف دوم پنهان و همبرگری نشان داده می‌شد، که حساب و دسته‌ها را تکرار می‌کرد. */
+ 
+ /* ---------------------------------------------------------------- بی جاوااسکریپت */
+ 
+diff --git a/homepage-redesign/header/shared/header-base.css b/homepage-redesign/header/shared/header-base.css
+index 3468fee..8fae165 100644
+--- a/homepage-redesign/header/shared/header-base.css
++++ b/homepage-redesign/header/shared/header-base.css
+@@ -649,12 +649,9 @@
+   .tecteb-header-v1 .tth-top { gap: 0.625rem 0.25rem; }
+ }
+ 
+-/* در حالت جمع‌وجورِ عریض، ردیف منو جمع می‌شود و دکمهٔ منو کل ناوبری را می‌دهد. */
+-@media (min-width: 1080px) {
+-  .tecteb-header-v1[data-js].is-compact .tth-nav { display: none; }
+-  .tecteb-header-v1[data-js].is-compact .tth-top { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "burger logo search tools"; }
+-  .tecteb-header-v1[data-js].is-compact .tth-burger { display: inline-flex; }
+-}
++/* در حالت جمع‌وجورِ عریض (دسکتاپ، پس از اسکرول) ردیف دوم — «دسته‌بندی کالاها» و «همکاری تأمین‌کنندگان» — در
++   نوار چسبان می‌ماند و منوی همبرگری مخصوص موبایل نمایش داده نمی‌شود؛ کشو فقط زیر ۱۰۸۰px است، جایی که ردیف دوم
++   در آن جمع شده. تا 0.2.3 اینجا ردیف دوم پنهان و همبرگری نشان داده می‌شد، که حساب و دسته‌ها را تکرار می‌کرد. */
+ 
+ /* ---------------------------------------------------------------- بی جاوااسکریپت */
+ 
