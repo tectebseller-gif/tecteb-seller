@@ -1,0 +1,19 @@
+tecteb-header 0.2.3
+
+PASS 1. production state (#20, #2652 selected, switch off): preview shows Header B
+PASS 1. with a menu: links between the two buttons
+PASS 2. saving «منوی اصلی = بدون منو» stores nav_menu 0
+PASS 2. …and leaves the template selection [20, 2652] and the switch (off) untouched
+PASS 2. preview still shows Header B
+PASS 2. row 2 = Staging: only «دسته‌بندی کالاها» and «همکاری تأمین‌کنندگان», no links between
+PASS 2. visitor: old Elementor header, unchanged
+PASS 3. replace tab shows #20 and #2652 ticked
+PASS 3. saving the replace tab as shown keeps [20, 2652]
+PASS 4. replace tab saved with both boxes unticked ⇒ selection empty
+PASS 4. …and the replace tab says Elementor prints #20 and it is not selected
+PASS 4. preview now shows the old Elementor header #20 — the production symptom
+PASS 5. tick #20 and #2652 again and save ⇒ preview shows Header B, switch still off
+PASS 5. ?tth_original=1 ⇒ old Elementor header (instant way back)
+PASS 5. visitor: old Elementor header throughout
+
+15 passed, 0 failed
