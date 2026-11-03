@@ -109,14 +109,46 @@ function tmc_stamp_column(): string
     return class_exists($class) ? $class::MIRRORED : 'mirrored_status';
 }
 
-function tmc_row_by_sku(string $sku): ?array
+/**
+ * EVERY row carrying this SKU, oldest first.
+ *
+ * ⛔ There must only ever be one, and `tmc_row_by_sku()` refuses out loud
+ * when there is not. Measured: three rows carried `UPG92-DOKAN` because
+ * `arrange` made a new one on each call and nothing removed the old ones, and
+ * `get_row()` answered about the FIRST — so §2 read `wc_product_id=77229`
+ * about a product §1 had just replaced with 77238, and reported
+ * `post_status=__absent__` for a published product that was right there. A
+ * lookup that silently picks one of several is how a fixture answers a
+ * different question than the one asked (`alpha.33`).
+ *
+ * @return list<array<string, mixed>>
+ */
+function tmc_rows_by_sku(string $sku): array
 {
     global $wpdb;
-    $row = $wpdb->get_row(
-        $wpdb->prepare('SELECT * FROM `' . tmc_products_table() . '` WHERE sku = %s', $sku),
+    $rows = $wpdb->get_results(
+        $wpdb->prepare(
+            'SELECT * FROM `' . tmc_products_table() . '` WHERE sku = %s ORDER BY id ASC',
+            $sku
+        ),
         ARRAY_A
     );
-    return is_array($row) ? $row : null;
+    return is_array($rows) ? $rows : [];
+}
+
+function tmc_row_by_sku(string $sku): ?array
+{
+    $rows = tmc_rows_by_sku($sku);
+    if (count($rows) > 1) {
+        fwrite(STDERR, sprintf(
+            "%d rows carry the SKU %s; run `reset` first\n",
+            count($rows),
+            $sku
+        ));
+        echo 'duplicate_rows=' . $sku . ':' . count($rows) . "\n";
+        exit(3);
+    }
+    return $rows === [] ? null : $rows[0];
 }
 
 function tmc_stamp(string $sku): string
@@ -186,6 +218,19 @@ if ($verb === 'arrange') {
         $strayId = (int) wc_get_product_id_by_sku($sku);
         if ($strayId > 0) {
             wp_delete_post($strayId, true);
+        }
+        // ⛔ AND THE MARKETPLACE ROWS, because a second `arrange` added a
+        // row and removed none — measured: three rows per SKU, and the probe
+        // then answered about the OLDEST one.
+        foreach (tmc_rows_by_sku($sku) as $stale) {
+            $staleWc = (int) ($stale['wc_product_id'] ?? 0);
+            if ($staleWc > 0 && get_post($staleWc) !== null) {
+                wp_delete_post($staleWc, true);
+            }
+            $wpdb->query($wpdb->prepare(
+                'DELETE FROM `' . tmc_products_table() . '` WHERE id = %d',
+                (int) $stale['id']
+            ));
         }
     }
 
@@ -383,10 +428,7 @@ if ($verb === 'take' || $verb === 'give-back') {
 
 if ($verb === 'reset') {
     foreach ([TMC_SKU_DOKAN, TMC_SKU_OURS, TMC_SKU_GONE] as $sku) {
-        $row = tmc_row_by_sku($sku);
-        if ($row === null) {
-            continue;
-        }
+    foreach (tmc_rows_by_sku($sku) as $row) {
         // Give the ownership back first, so the post keeps nothing of ours.
         if ($products->linkOwnership((int) $row['id']) === LinkOwnership::Marketplace) {
             Bootstrap::container()->get(TransferOwnership::class)->giveBack((int) $row['id']);
@@ -399,6 +441,7 @@ if ($verb === 'reset') {
             'DELETE FROM `' . tmc_products_table() . '` WHERE id = %d',
             (int) $row['id']
         ));
+        }
     }
     // ⛔ AND THE PRODUCTS ARE SWEPT BY SKU, not only through the rows.
     //
