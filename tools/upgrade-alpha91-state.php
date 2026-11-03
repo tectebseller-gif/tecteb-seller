@@ -399,7 +399,18 @@ if ($verb === 'shop') {
     echo 'post_status=' . (string) get_post_status($wcId) . "\n";
     $visibility = get_post_meta($wcId, '_visibility', true);
     $terms = wp_get_object_terms($wcId, 'product_visibility', ['fields' => 'names']);
-    echo 'visibility=' . ($visibility === '' ? implode(',', is_array($terms) ? $terms : []) : (string) $visibility) . "\n";
+    // ⛔ `visible` IS THE ABSENCE OF THE EXCLUSION TERMS, so an empty read is
+    // a real answer and has to be spelled. Printing a blank made §7d read
+    // «<nothing measured>» once `check()` stopped scoring empty-against-empty
+    // as a pass — the hardening asking, correctly, which emptiness this is.
+    $names = is_array($terms) ? $terms : [];
+    $exclusions = array_values(array_filter(
+        $names,
+        static fn (string $n): bool => str_starts_with($n, 'exclude-from-')
+    ));
+    echo 'visibility=' . ($visibility !== ''
+        ? (string) $visibility
+        : ($exclusions === [] ? 'visible' : implode(',', $exclusions))) . "\n";
     echo 'price=' . (string) get_post_meta($wcId, '_regular_price', true) . "\n";
     echo 'sku=' . (string) get_post_meta($wcId, '_sku', true) . "\n";
     echo 'stock=' . (string) get_post_meta($wcId, '_stock', true) . "\n";
@@ -412,6 +423,28 @@ if ($verb === 'take' || $verb === 'give-back') {
         echo "code=__norow__\n";
         exit(0);
     }
+    // ⛔ THE SERVICE ASKS FOR `tmc_review_vendor`, AND WP-CLI HAS NOBODY.
+    //
+    // Measured: without this the verb answered `code=forbidden`, and SIX
+    // checks — §2b, §2c, §7a, §7b, §7d and §8d — reported that neither
+    // package allows a transfer, when what they had actually measured was an
+    // anonymous request. `tools/upgrade-alpha88-state.php:253` carries the
+    // same comment and the same two lines; this round's tool had neither.
+    //
+    // The administrator is named rather than queried for by role, because
+    // `get_users(['role' => …, 'number' => 1])` answers about whoever happens
+    // to be first (`alpha.36`).
+    $admin = get_user_by('login', 'tmcowner');
+    if ($admin === false) {
+        $admins = get_users(['role' => 'administrator', 'number' => 1, 'fields' => ['ID']]);
+        $admin = $admins === [] ? false : get_user_by('id', (int) $admins[0]->ID);
+    }
+    if ($admin === false) {
+        echo "ok=no\ncode=__no_admin__\nnow=__none__\nwould_write=__none__\n";
+        echo 'ownership=' . $products->linkOwnership((int) $row['id'])->value . "\n";
+        exit(0);
+    }
+    wp_set_current_user((int) $admin->ID);
     $service = Bootstrap::container()->get(TransferOwnership::class);
     // ⛔ EMPTY arrays, exactly as the batch passes them: the measurement is
     // about the guard, and a tick would be measuring the override.
