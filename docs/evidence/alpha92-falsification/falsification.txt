@@ -1,0 +1,111 @@
+alpha.92 falsification — 31 mutations
+tree: bbeca11 3 modified paths
+
+baseline architecture:: 0
+baseline unit:: 0
+baseline database:MirroredStatusAndSnapshotBatchTest: 0
+baseline database:MirroredStatusBackfillTest: 0
+baseline database:DokanMigrationTest: 0
+baseline database:StagedOwnershipTransferTest: 0
+
+1. the stamp is not checked, so a held row is judged on its value
+    unit failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+2. an unreadable shop status reads as agreement
+    unit failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+3. «would change» counts as settled
+    database failures: 6 (wanted at least 1) — red
+    restored byte for byte: yes
+4. the real projector writes the status and visibility unconditionally
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+5. the test double is more generous than the projector it stands for
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+6. the transfer never asks about the publish state
+    architecture failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+7. only an unreadable status stops the transfer; a change goes through
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+8. a tick waives the publish state after all
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+9. the Dokan intake records a draft whatever the shop holds
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+10. the Dokan intake writes no stamp
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+11. a reader that names no status has its products silently skipped
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+12. the rollback deletes by the row status again, so a mirrored publish survives
+    database failures: 5 (wanted at least 1) — red
+    restored byte for byte: yes
+13. a kept row loses a stamp that belongs to a later run
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+14. the backfill invents a status instead of reading the product
+    database failures: 13 (wanted at least 1) — red
+    restored byte for byte: yes
+15. the backfill overwrites a stamp that is already there
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+16. the backfill stamps a marketplace-owned row too
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+17. verify() counts rows the backfill cannot reach
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+18. an absent posts table becomes a failure that blocks the chain
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+19. the stamp write loses its «only when absent» guard
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+20. the refresh does not record the stamp at all
+    database failures: 3 (wanted at least 1) — red
+    restored byte for byte: yes
+21. the batch does not compare the digest the page printed
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+22. the batch refreshes a row the page never offered
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+23. the batch carries on past the first failure
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+24. the offer is not capped at twenty five
+    database failures: 0 (wanted at least 1) — SURVIVED
+    restored byte for byte: yes
+25. a row with a real risk is offered for a re-snapshot
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+26. a key in neither list becomes waivable
+    unit failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+27. manage_stock is treated as a disclosure, which a projection overwrites
+    architecture failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+28. the transfer demands a tick for every key again
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+mutation 29 matched 2 times in src/Modules/Migration/Application/TransferOwnership.php
+29. the disclosures are dropped from the transfer audit row — MUTATION DID NOT APPLY (counted as a failure)
+30. the tally stops after the first page, so 184 reads as 50
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+31. the tally groups on the bucket alone, so the stop reasons are lost
+    database failures: 0 (wanted at least 1) — SURVIVED
+    restored byte for byte: yes
+
+final architecture:: 0
+final unit:: 0
+final database:MirroredStatusAndSnapshotBatchTest: 0
+final database:MirroredStatusBackfillTest: 0
+final database:DokanMigrationTest: 0
+final database:StagedOwnershipTransferTest: 0
+
+mutations: 31 · problems: 3

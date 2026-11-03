@@ -1,0 +1,218 @@
+=== the packages ===
+new_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.92.zip
+old_zip=/home/user/tecteb-seller/dist/tecteb-marketplace-core-0.1.0-alpha.91.zip
+new_target=38
+old_target=37
+PASS  0a the new package targets one step further  (38)
+PASS  0b and the old one targets the previous structure  (37)
+
+=== 1 · the site is put on structure 37, for real ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+reset=done
+reset_profiles=0
+dokan_row=4305
+ours_row=4306
+gone_row=4307
+dokan_post=77253
+dokan_post_status=publish
+stamp_dokan=__null__
+stamp_ours=__null__
+stamp_gone=__null__
+risks_dokan=__none__
+blocking_dokan=__absent__
+PASS  1a the Dokan-shaped row was made  (yes)
+PASS  1b its WooCommerce product is published  (publish)
+PASS  1c and the row carries NO stamp, as the Dokan path left it  (__null__)
+schema_version=37
+stamp_dokan=__null__
+stamp_gone=__null__
+PASS  1d the site is genuinely on 37  (37)
+schema_version=37
+stamp_dokan=__null__
+stamp_ours=__null__
+stamp_gone=__null__
+step38_known=no
+status_rule_known=no
+snapshot_batch_known=no
+PASS  1e the old build does not know step 38  (no)
+PASS  1f nor the status rule  (no)
+PASS  1g nor the re-snapshot batch  (no)
+
+=== 2 · on alpha.91 the transfer goes through — the measured hazard ===
+wc_product_id=77253
+post_status=publish
+visibility=visible
+price=450000
+sku=UPG92-DOKAN
+stock=3
+PASS  2a the shop says publish before anything  (publish)
+ok=yes
+code=ownership_taken
+now=__none__
+would_write=__none__
+ownership=marketplace
+PASS  2b alpha.91 ALLOWS it  (yes)
+PASS  2c …and the row becomes the marketplace's  (marketplace)
+NOTE  2d this is the state in which the next projection writes draft+hidden  stamp=__null__
+ok=yes
+code=ownership_given_back
+now=__none__
+would_write=__none__
+ownership=observed
+PASS  2e given back, so the measurement below starts where this one did  (observed)
+
+=== 3 · the files are swapped, and NOTHING has run yet ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+schema_version=37
+stamp_dokan=__null__
+stamp_ours=__null__
+stamp_gone=__null__
+step38_known=yes
+status_rule_known=yes
+snapshot_batch_known=yes
+PASS  3a the structure has not moved  (37)
+PASS  3b the stamp is still absent  (__null__)
+PASS  3c but the new build knows the step  (yes)
+PASS  3d …and the status rule  (yes)
+PASS  3e …and the re-snapshot batch  (yes)
+
+=== 4 · alpha.92 refuses the same transfer, by name ===
+ok=no
+code=storefront_status_would_change
+now=publish
+would_write=draft
+ownership=observed
+PASS  4a refused  (no)
+PASS  4b …with the reason  (storefront_status_would_change)
+PASS  4c …naming what the shop holds  (publish)
+PASS  4d …and what a projection would write  (draft)
+PASS  4e the row is untouched  (observed)
+
+=== 5 · the step's own column is moved, so its UPDATE is refused ===
+stamp_column_present=no
+PASS  5a the column the step names is gone  (no)
+WordPress database error Unknown column 'p.mirrored_status' in 'SET' for query UPDATE `wp_tmc_products` p
+               JOIN `wp_posts` o
+                 ON o.ID = p.wc_product_id AND o.post_type = 'product'
+                SET p.`mirrored_status` = LEFT(o.post_status, 20)
+              WHERE p.`mirrored_status` IS NULL
+                AND p.wc_product_id IS NOT NULL
+                AND p.wc_product_id > 0
+                AND p.`link_ownership` = 'observed' made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, Eval_Command->__invoke, eval, do_action('admin_init'), WP_Hook->do_action, WP_Hook->apply_filters, Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap::runPendingMigrations, Tecteb\Marketplace\Core\Migration\UpgradeGate->runIfNeeded, Tecteb\Marketplace\Core\Migration\MigrationRunner->run, Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0038ObservedMirroredStatusBackfill->up, Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase->execute
+ran=yes
+schema_version=37
+stamp_dokan=__null__
+stamp_ours=__null__
+stamp_gone=__null__
+step38_known=yes
+status_rule_known=yes
+snapshot_batch_known=yes
+PASS  5b the structure stays on 37  (37)
+PASS  5c …and the reason was recorded  (yes)
+NOTE  5d the recorded reason  array (   'step' => '0038_observed_mirrored_status_backfill',   'message' => 'MigrationException: migration 0038_observed_mirrored_status_ba
+stamp_column_present=yes
+PASS  5e the column is back  (yes)
+NOTE  5f seconds this build would otherwise wait  300
+Success: Deleted 'tmc_migration_last_error' option.
+
+=== 6 · the step runs on the next admin request ===
+ran=yes
+schema_version=38
+stamp_dokan=publish
+stamp_ours=__null__
+stamp_gone=__null__
+step38_known=yes
+status_rule_known=yes
+snapshot_batch_known=yes
+PASS  6a the structure is 38  (38)
+PASS  6b the imported row is filled from its live product  (publish)
+PASS  6c the MARKETPLACE-owned row is left alone  (__null__)
+PASS  6d the row whose product is gone gets nothing  (__null__)
+NOTE  6e the chain moved with an unfillable row still present  yes
+
+=== 7 · a REAL transfer, and the product's own five fields ===
+wc_product_id=77253
+post_status=publish
+visibility=visible
+price=450000
+sku=UPG92-DOKAN
+stock=3
+ok=yes
+code=ownership_taken
+now=__none__
+would_write=__none__
+ownership=marketplace
+PASS  7a now it is allowed  (yes)
+PASS  7b …as a taken ownership  (ownership_taken)
+wc_product_id=77253
+post_status=publish
+visibility=visible
+price=450000
+sku=UPG92-DOKAN
+stock=3
+PASS  7c the publish status is untouched  (publish)
+PASS  7d the visibility is untouched  (visible)
+PASS  7e the price is untouched  (450000)
+PASS  7f the SKU is untouched  (UPG92-DOKAN)
+PASS  7g the stock is untouched  (3)
+ok=yes
+code=ownership_given_back
+now=__none__
+would_write=__none__
+ownership=observed
+PASS  7h and it goes back  (observed)
+wc_product_id=77253
+post_status=publish
+visibility=visible
+price=450000
+sku=UPG92-DOKAN
+stock=3
+PASS  7i still publish after both directions  (publish)
+
+=== 8 · back to alpha.91, with the cost printed ===
+Unpacking the package...
+Installing the plugin...
+Removing the old version of the plugin...
+Plugin updated successfully.
+Success: Installed 1 of 1 plugins.
+Warning: Plugin 'tecteb-marketplace-core' is already active.
+Success: Plugin already activated.
+schema_version=38
+stamp_dokan=publish
+stamp_ours=__null__
+stamp_gone=__null__
+step38_known=no
+status_rule_known=no
+snapshot_batch_known=no
+PASS  8a the structure stays on 38  (38)
+PASS  8b the stamp the step wrote is still there  (publish)
+PASS  8c and the old build does not know the step  (no)
+ok=no
+code=ownership_risks_unacknowledged
+now=__none__
+would_write=__none__
+ownership=observed
+FAIL  8d an unstamped row is transferable again on alpha.91  expected=yes actual=no
+NOTE  8e so the cost of rolling back is the guard, not the data  stamps kept, status guard gone
+ok=no
+code=ownership_already
+now=__none__
+would_write=__none__
+ownership=observed
+
+=== result ===
+PASS=43 FAIL=1
+WordPress database error Unknown column 'mirrored_status_moved' in 'wp_tmc_products' for query ALTER TABLE `wp_tmc_products`
+         CHANGE `mirrored_status_moved` `mirrored_status` VARCHAR(20) NULL DEFAULT NULL made by include('phar:///usr/local/bin/wp/php/boot-phar.php'), include('phar:///usr/local/bin/wp/vendor/wp-cli/wp-cli/php/wp-cli.php'), WP_CLI\bootstrap, WP_CLI\Bootstrap\LaunchRunner->process, WP_CLI\Runner->start, WP_CLI\Runner->do_early_invoke, WP_CLI\Runner->run_command_and_exit, WP_CLI\Runner->run_command, WP_CLI\Dispatcher\Subcommand->invoke, call_user_func, WP_CLI\Dispatcher\CommandFactory::{closure:WP_CLI\Dispatcher\CommandFactory::create_subcommand():97}, call_user_func, EvalFile_Command->__invoke, EvalFile_Command::execute_eval, eval
