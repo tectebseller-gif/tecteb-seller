@@ -134,6 +134,13 @@ database **۹۹۰** (+۳۹) · packaging ۲۷ · `php -l` روی **۶۱۸** فا
 **وضعیت: «آمادهٔ آزمایش روی staging» — نه «آمادهٔ انتقال».**
 
 تحویل تجمیعی: `docs/dokan-exit-consolidated-alpha91-fa.md` ·
+**تحلیل اختلاف‌های فروشگاه ۱۰۲ پس از نصب (بی بسته، بی تغییر کد):**
+`docs/dokan-exit-drift-analysis-alpha91-fa.md` — ⛔ و یافتهٔ اصلی‌اش این
+است که مسیر ورودِ **دکان** آرگومان هفتمِ `create()` را پاس نمی‌دهد، پس
+`mirrored_status` ندارد و اولین projection **پس از انتقال** محصولِ
+منتشرشده را `draft` و `hidden` می‌کند؛ به‌علاوهٔ اینکه پنج ریسکِ
+`dimensions`/`shipping_class`/`tags`/`related`/`backorders` در projector
+**صفر setter** دارند و اطلاع‌رسانی‌اند نه دروازه ·
 چک‌لیست مدیر: `docs/staging-checklist-alpha91-fa.md` ·
 ارتقا: `docs/upgrade-and-rollback.md` **بند ۷۱** ·
 شواهد: `docs/evidence/alpha91-falsification/` · `docs/evidence/upgrade-alpha91/`.
