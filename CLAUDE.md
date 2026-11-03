@@ -90,7 +90,7 @@
 گفته می‌شود و شمارشِ ناقص هرگز به‌عنوان کل چاپ نمی‌شود.
 
 اجرا: unit **۷۰۴** · architecture **۲۲۷** (+۲۴) · contract **۳۴۷** ·
-database **۱۰۲۶** · packaging ۲۷ · `php -l` روی **۶۲۳** فایل روی ۸٫۴
+database **۱۰۲۷** (+۱) · packaging ۲۷ · `php -l` روی **۶۲۳** فایل روی ۸٫۴
 تنها · PHPCompatibility با `testVersion 8.1-` روی همان ۶۲۳ — همه ۰ شکست.
 **و هر سی‌ویک جهش falsify شد** روی درختِ آرام، با بازگرداندن **بایت‌به‌بایت**
 (`docs/evidence/alpha92-falsification/`).
