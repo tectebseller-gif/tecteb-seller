@@ -42,7 +42,18 @@ restore() {
   done
   TOUCHED=""
 }
-trap 'restore; rm -rf "$SNAPSHOT"' EXIT INT TERM
+# ⛔ THE HANDLER EXITS, and that is the whole point.
+#
+# Measured this round: a handler of `restore; rm -rf "$SNAPSHOT"` on TERM does
+# NOT end the script. Bash runs it after the current foreground command and
+# then CARRIES ON — with the snapshot directory already deleted, so every
+# mutation after that point could never be restored. Stopping one run left
+# FIVE files mutated, which `git status` showed as ordinary modifications.
+# `exit` on the signal paths; the EXIT path must not re-enter it.
+cleanup() { restore; rm -rf "$SNAPSHOT"; }
+trap 'cleanup' EXIT
+trap 'cleanup; trap - EXIT; exit 130' INT
+trap 'cleanup; trap - EXIT; exit 143' TERM
 
 say() { echo "$*" | tee -a "$LOG"; }
 

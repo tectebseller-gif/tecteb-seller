@@ -24,7 +24,15 @@
  *   reset            give everything back
  */
 
-declare(strict_types=1);
+// ⛔ NO `declare(strict_types=1)` HERE, and that is deliberate.
+//
+// `wp eval-file` runs the file through `eval()`, and inside eval'd code a
+// `strict_types` declaration is ALWAYS illegal — «must be the very first
+// statement in the script». Measured: with it, every verb fataled and the
+// upgrade check reported forty-odd empty measurements as FAILures about a
+// package that was fine. `tools/upgrade-alpha89-state.php` and
+// `tools/upgrade-alpha88-state.php` — the two that actually ran — carry no
+// such line either.
 
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
