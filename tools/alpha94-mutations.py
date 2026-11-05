@@ -15,9 +15,11 @@ lives here rather than in the shell script because every snippet is full of
 ⛔ WHICH SUITE SEES WHAT, and it is written down per mutation. The real
 `WooCommerceProjector` IS reachable from the contract suite (it runs against
 the WooCommerce stub), so this round's projector mutations are expected there —
-behaviour, not source. Only the two that move a call's TEXT without changing
-the value it computes are expected in the architecture suite, because no
-behaviour can see them (`alpha.90`).
+behaviour, not source. Three are expected in the architecture suite
+instead, and each says why in its own entry: two because no behaviour in this
+repository can reach the code they move (the stub has no
+`WC_Product_Variation`, and the sale guard's two readings cannot differ
+through `project()`), which is what source assertions are for (`alpha.77`).
 """
 import io
 import sys
@@ -56,6 +58,20 @@ MUTATIONS = [
         expect=FACTS + ':1',
         old="            if ($isNew) {\n                // Only here: afterwards WooCommerce's numbers are the true\n                // ones, the flag included.\n                $wcProduct->set_manage_stock(true);\n                $wcProduct->set_stock_quantity($details->stock);",
         new="            if (true) {\n                // Only here: afterwards WooCommerce's numbers are the true\n                // ones, the flag included.\n                $wcProduct->set_manage_stock(true);\n                $wcProduct->set_stock_quantity($details->stock);",
+    ),
+    dict(
+        name='the variation loop writes the stock flag unconditionally again',
+        file=PROJECTOR,
+        # ⛔ ARCHITECTURE, and it has to be: the contract suite's WooCommerce
+        # stub has no `WC_Product_Variation` at all, so no behaviour in this
+        # repository can reach `projectVariations()`. The automated review of
+        # this round is what found the write still standing here, and a source
+        # assertion is the only instrument that can hold it (`alpha.77`).
+        expect=RK_ARCH + ':1',
+        old="""            if ($isNew) {
+                $wcVariation->set_manage_stock(true);""",
+        new="""            $wcVariation->set_manage_stock(true);
+            if ($isNew) {""",
     ),
     # ------------------------------------------- §3-ب the sale-price clearing
     dict(

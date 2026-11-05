@@ -22,6 +22,6 @@ Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 ............................................................. 1037 / 1038 ( 99%)
 .                                                             1038 / 1038 (100%)
 
-Time: 08:43.689, Memory: 53.00 MB
+Time: 08:45.597, Memory: 53.00 MB
 
 OK (1038 tests, 11295 assertions)

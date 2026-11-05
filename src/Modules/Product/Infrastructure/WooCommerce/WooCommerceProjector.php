@@ -1858,8 +1858,18 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             if ($variation->mediaId > 0) {
                 $wcVariation->set_image_id($variation->mediaId);
             }
-            $wcVariation->set_manage_stock(true);
+            // THE SAME RULE AS THE PARENT'S, and the automated review of
+            // `alpha.94` is what found it was still missing here.
+            //
+            // `set_manage_stock(true)` was unconditional in this loop too,
+            // with `$isNew` guarding only the number beside it — the identical
+            // shape `project()` had one method up. It is unreachable for an
+            // intaken row, because an observed row holds no variations and
+            // this loop never runs for one; but half of a fix is not a fix,
+            // and a release that says «a product we did not create keeps its
+            // own stock setting» must be true of its variations too.
             if ($isNew) {
+                $wcVariation->set_manage_stock(true);
                 $wcVariation->set_stock_quantity($variation->stock);
                 $wcVariation->set_stock_status($variation->stock > 0 ? 'instock' : 'outofstock');
             }

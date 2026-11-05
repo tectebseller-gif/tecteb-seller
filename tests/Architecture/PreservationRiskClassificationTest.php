@@ -62,6 +62,10 @@ final class PreservationRiskClassificationTest extends TestCase
     /** `writePrice()`'s, the other `applySale()` caller. */
     private const WRITE_PRICE = 'publicfunctionwritePrice(Product$product):array{';
 
+    /** The variation loop, which writes the same stock flag on its own. */
+    private const PROJECT_VARIATIONS = 'privatefunctionprojectVariations(int$wcProductId,'
+        . 'Product$product,array$attributes,array$variations):array{';
+
     /**
      * One method's body, so a setter called on purpose elsewhere in the file
      * cannot answer a question about this one.
@@ -298,6 +302,55 @@ final class PreservationRiskClassificationTest extends TestCase
                 );
             }
         }
+    }
+
+    /**
+     * ⛔ AND THE VARIATION LOOP OBEYS THE SAME RULE.
+     *
+     * The automated security review of `alpha.94` found the identical
+     * unconditional write still standing one method along: `$isNew` guarded
+     * only the quantity beside it, exactly as in `project()` before this
+     * round. It is unreachable for an intaken row — an observed row holds no
+     * variations, so the loop never runs for one — which is precisely why
+     * only source can say it (`alpha.77`): the contract suite's WooCommerce
+     * stub has no `WC_Product_Variation` at all, so no behaviour here can
+     * reach it.
+     *
+     * Half of a fix is not a fix, and a release that says «a product we did
+     * not create keeps its own stock setting» has to be true of its
+     * variations too.
+     */
+    public function testTheVariationLoopWritesStockOnlyWhenItCreatesTheVariation(): void
+    {
+        $body = $this->methodBody(self::PROJECTOR, self::PROJECT_VARIATIONS);
+        self::assertNotSame('', $body, 'projectVariations() must be findable');
+        $created = $this->balancedBlockAfter($body, 'if($isNew){');
+        self::assertNotSame('', $created, 'the loop must still have an $isNew arm');
+
+        foreach (['set_manage_stock', 'set_stock_quantity'] as $setter) {
+            self::assertStringContainsString('->' . $setter . '(', $created, $setter);
+            self::assertSame(
+                1,
+                substr_count($body, '->' . $setter . '('),
+                $setter . ' is called more than once in projectVariations(), so one of'
+                    . ' them is outside the arm'
+            );
+        }
+
+        // ⛔ `set_stock_status` is the one that appears TWICE on purpose, and
+        // the first draft of this test demanded once and failed on correct
+        // code. The second call retires a variation the marketplace no longer
+        // has — `$stale->set_stock_status('outofstock')` — which is a
+        // variation WE created and are withdrawing, not somebody else's
+        // setting. So the assertion is: inside the arm for the live one, and
+        // every other occurrence on `$stale`.
+        self::assertStringContainsString('->set_stock_status(', $created);
+        self::assertSame(
+            substr_count($body, '->set_stock_status('),
+            substr_count($created, '->set_stock_status(')
+                + substr_count($body, '$stale->set_stock_status('),
+            'a set_stock_status outside the $isNew arm must be the stale-variation one'
+        );
     }
 
     /**

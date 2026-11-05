@@ -1,5 +1,5 @@
-alpha.94 falsification — 14 mutations
-tree: 1ddeb94 23 modified paths
+alpha.94 falsification — 15 mutations
+tree: 6ecab73 7 modified paths
 
 baseline architecture:: 0
 baseline unit:: 0
@@ -14,40 +14,43 @@ baseline database:CatalogueIntakeTest: 0
 2. the whole stock block loses its guard, so the quantity is written over the shop too
     contract failures: 1 (wanted at least 1) — red
     restored byte for byte: yes
-3. the sale-price guard goes, so a projection clears a sale nobody recorded
-    contract failures: 1 (wanted at least 1) — red
-    restored byte for byte: yes
-4. the projection calls itself fresh, so the clearing runs after all
-    contract failures: 1 (wanted at least 1) — red
-    restored byte for byte: yes
-5. the vendors own price change stops clearing their sale, which takes a right away
-    contract failures: 1 (wanted at least 1) — red
-    restored byte for byte: yes
-6. the guard reads the regular price, so it never sees the sale it is protecting
+3. the variation loop writes the stock flag unconditionally again
     architecture failures: 1 (wanted at least 1) — red
     restored byte for byte: yes
-7. manage_stock is never released, so the 84 rows stay blocked and unrefreshable
+4. the sale-price guard goes, so a projection clears a sale nobody recorded
+    contract failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+5. the projection calls itself fresh, so the clearing runs after all
+    contract failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+6. the vendors own price change stops clearing their sale, which takes a right away
+    contract failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+7. the guard reads the regular price, so it never sees the sale it is protecting
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+8. manage_stock is never released, so the 84 rows stay blocked and unrefreshable
     database failures: 3 (wanted at least 3) — red
     restored byte for byte: yes
-8. price_scale is released too, so a sale price lost on the next edit stops blocking
+9. price_scale is released too, so a sale price lost on the next edit stops blocking
     unit failures: 2 (wanted at least 2) — red
     restored byte for byte: yes
-9. an unreadable answer reads as readable, so a failed read becomes a licence
+10. an unreadable answer reads as readable, so a failed read becomes a licence
     unit failures: 2 (wanted at least 2) — red
     restored byte for byte: yes
-10. the readability fact is inverted, so the release lands on exactly the wrong rows
+11. the readability fact is inverted, so the release lands on exactly the wrong rows
     unit failures: 4 (wanted at least 4) — red
     restored byte for byte: yes
-11. the context defaults to released, so a caller that cannot tell gets a licence
+12. the context defaults to released, so a caller that cannot tell gets a licence
     unit failures: 1 (wanted at least 1) — red
     restored byte for byte: yes
-12. the split stops asking about readability, so blockingGiven answers the old way
+13. the split stops asking about readability, so blockingGiven answers the old way
     database failures: 3 (wanted at least 3) — red
     restored byte for byte: yes
-13. a released key is dropped from the report instead of disclosed
+14. a released key is dropped from the report instead of disclosed
     database failures: 4 (wanted at least 4) — red
     restored byte for byte: yes
-14. an unsupported type stops being a reason, so a grouped product is taken in as simple
+15. an unsupported type stops being a reason, so a grouped product is taken in as simple
     database failures: 1 (wanted at least 1) — red
     restored byte for byte: yes
 
@@ -58,4 +61,4 @@ final database:MirroredStatusAndSnapshotBatchTest: 0
 final database:StagedOwnershipTransferTest: 0
 final database:CatalogueIntakeTest: 0
 
-mutations: 14 · problems: 0
+mutations: 15 · problems: 0
